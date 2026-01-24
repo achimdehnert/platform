@@ -1,0 +1,89 @@
+{% for job in jobs %}
+<tr>
+    <td>
+        <span class="badge bg-secondary">#{{ job.id }}</span>
+    </td>
+    <td>
+        {% if job.job_type == 'illustration' %}
+            <i class="bi bi-image text-primary me-1"></i>
+        {% elif job.job_type == 'comic_panel' %}
+            <i class="bi bi-grid-3x3 text-info me-1"></i>
+        {% elif job.job_type == 'book_cover' %}
+            <i class="bi bi-book text-success me-1"></i>
+        {% elif job.job_type == 'audio_chapter' %}
+            <i class="bi bi-music-note text-warning me-1"></i>
+        {% else %}
+            <i class="bi bi-file text-secondary me-1"></i>
+        {% endif %}
+        {{ job.job_type|title }}
+    </td>
+    <td>
+        {% if job.status == 'pending' %}
+            <span class="badge bg-warning text-dark">Pending</span>
+        {% elif job.status == 'queued' %}
+            <span class="badge bg-info">Queued</span>
+        {% elif job.status == 'running' %}
+            <span class="badge bg-primary">
+                <span class="spinner-border spinner-border-sm me-1" style="width: 0.7em; height: 0.7em;"></span>
+                Running
+            </span>
+        {% elif job.status == 'completed' %}
+            <span class="badge bg-success">Completed</span>
+        {% elif job.status == 'failed' %}
+            <span class="badge bg-danger">Failed</span>
+        {% elif job.status == 'cancelled' %}
+            <span class="badge bg-secondary">Cancelled</span>
+        {% endif %}
+    </td>
+    <td>
+        <span class="badge {% if job.priority >= 8 %}bg-danger{% elif job.priority >= 5 %}bg-warning text-dark{% else %}bg-secondary{% endif %}">
+            {{ job.priority }}
+        </span>
+    </td>
+    <td>
+        <small class="text-muted" title="{{ job.created_at }}">
+            {{ job.created_at|timesince }} ago
+        </small>
+    </td>
+    <td>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" 
+                    hx-get="{% url 'media_hub:job-detail-partial' job.id %}"
+                    hx-target="#jobDetailModal .modal-body"
+                    data-bs-toggle="modal" 
+                    data-bs-target="#jobDetailModal"
+                    title="View Details">
+                <i class="bi bi-eye"></i>
+            </button>
+            {% if job.status == 'completed' and job.asset_id %}
+            <a href="{% url 'media_hub:asset-detail' job.asset_id %}" 
+               class="btn btn-outline-success" title="View Asset">
+                <i class="bi bi-image"></i>
+            </a>
+            {% endif %}
+            {% if job.status == 'pending' %}
+            <button class="btn btn-outline-danger" 
+                    hx-post="{% url 'media_hub:cancel-job' job.id %}"
+                    hx-confirm="Cancel this job?"
+                    title="Cancel">
+                <i class="bi bi-x-lg"></i>
+            </button>
+            {% endif %}
+            {% if job.status == 'failed' %}
+            <button class="btn btn-outline-warning" 
+                    hx-post="{% url 'media_hub:retry-job' job.id %}"
+                    title="Retry">
+                <i class="bi bi-arrow-clockwise"></i>
+            </button>
+            {% endif %}
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="6" class="text-center py-4 text-muted">
+        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+        No render jobs yet. Create one to get started!
+    </td>
+</tr>
+{% endfor %}

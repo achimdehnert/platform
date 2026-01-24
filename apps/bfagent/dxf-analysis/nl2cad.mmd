@@ -1,0 +1,64 @@
+flowchart TB
+    subgraph INPUT["📥 Input Layer"]
+        direction LR
+        A1[/"IFC Datei"/]
+        A2[/"DXF Datei"/]
+        A3[/"DWG Datei"/]
+        A4[/"NL Query"/]
+    end
+
+    subgraph PROCESSING["⚙️ Processing Layer"]
+        direction TB
+        B1["CADFileInputHandler<br/>Format-Erkennung & Konvertierung"]
+        B2["NLQueryHandler<br/>Pattern-Matching + LLM"]
+        B3["RoomAnalysisHandler<br/>Raum-Extraktion & DIN 277"]
+        B4["MassenHandler<br/>Flächen, Volumina, Umfänge"]
+    end
+
+    subgraph ENGINE["🔧 CAD Engine"]
+        direction LR
+        C1["IfcOpenShell<br/>IFC/BIM Parser"]
+        C2["ezdxf<br/>DXF Analysis"]
+        C3["Shapely<br/>2D Geometrie"]
+    end
+
+    subgraph STANDARDS["📋 Standards DB"]
+        D1["DIN 277<br/>Nutzungsarten"]
+        D2["GAEB<br/>LV-Struktur"]
+    end
+
+    subgraph OUTPUT["📤 Output Layer"]
+        E1[("Raumliste<br/>JSON/Excel")]
+        E2[("GAEB X84<br/>LV Export")]
+        E3[("Raumbuch<br/>PDF Report")]
+        E4[("CAD Response<br/>NL Answer")]
+    end
+
+    A1 --> B1
+    A2 --> B1
+    A3 --> B1
+    A4 --> B2
+
+    B1 --> C1
+    B1 --> C2
+    B2 --> B3
+    B2 --> B4
+    
+    C1 --> B3
+    C2 --> B3
+    C3 --> B4
+    
+    B3 --> D1
+    B4 --> D2
+    
+    D1 --> E1
+    D1 --> E3
+    D2 --> E2
+    B3 --> E4
+    B4 --> E4
+
+    style INPUT fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style PROCESSING fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+    style ENGINE fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style STANDARDS fill:#fce4ec,stroke:#c2185b,stroke-width:2px
+    style OUTPUT fill:#f3e5f5,stroke:#7b1fa2,stroke-width:2px

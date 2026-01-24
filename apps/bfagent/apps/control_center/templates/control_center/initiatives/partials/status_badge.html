@@ -1,0 +1,8 @@
+<span id="status-badge" class="badge 
+    {% if initiative.status == 'completed' %}bg-success
+    {% elif initiative.status == 'in_progress' %}bg-primary
+    {% elif initiative.status == 'analysis' %}bg-info
+    {% elif initiative.status == 'concept' %}bg-warning text-dark
+    {% else %}bg-secondary{% endif %}">
+    {{ initiative.get_status_display }}
+</span>

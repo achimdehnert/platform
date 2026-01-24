@@ -1,0 +1,331 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Book Projects - Writing Hub{% endblock %}
+
+{% block page_title %}Book Projects{% endblock %}
+{% block page_subtitle %}Wähle ein Projekt zum Bearbeiten{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --wh-primary: #6c5ce7;
+        --wh-primary-dark: #5b4cdb;
+        --wh-secondary: #a29bfe;
+        --wh-success: #00b894;
+        --wh-warning: #fdcb6e;
+        --wh-danger: #d63031;
+        --wh-info: #0984e3;
+        --wh-dark: #2d3436;
+        --wh-light: #f8f9fa;
+    }
+    
+    .page-header {
+        background: linear-gradient(135deg, var(--wh-primary), var(--wh-secondary));
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    }
+    .page-header h1 {
+        font-size: 1.75rem;
+        margin-bottom: 0.5rem;
+    }
+    .page-header p {
+        opacity: 0.9;
+        margin: 0;
+    }
+    
+    .projects-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .project-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        overflow: hidden;
+        transition: all 0.3s;
+    }
+    .project-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+    }
+    
+    .project-card-header {
+        background: linear-gradient(135deg, var(--wh-dark), #4a5568);
+        color: white;
+        padding: 1.25rem;
+    }
+    .project-card-header h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+    }
+    .project-card-header .genre {
+        font-size: 0.85rem;
+        opacity: 0.8;
+    }
+    
+    .project-card-body {
+        padding: 1.25rem;
+    }
+    .project-description {
+        color: #666;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+        display: -webkit-box;
+        -webkit-line-clamp: 3;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .project-stats {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        flex-wrap: wrap;
+    }
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #666;
+    }
+    .stat-item i {
+        color: var(--wh-primary);
+    }
+    
+    .project-status {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+    .status-planning { background: #dfe6e9; color: #636e72; }
+    .status-writing { background: var(--wh-info); color: white; }
+    .status-editing { background: var(--wh-warning); color: #333; }
+    .status-complete { background: var(--wh-success); color: white; }
+    
+    .project-card-footer {
+        padding: 1rem 1.25rem;
+        border-top: 1px solid #eee;
+        display: flex;
+        gap: 0.75rem;
+    }
+    .btn-outline-edit {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        padding: 0.75rem;
+        background: linear-gradient(135deg, var(--wh-primary), var(--wh-primary-dark));
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .btn-outline-edit:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+        color: white;
+    }
+    .btn-admin {
+        padding: 0.75rem;
+        background: #f0f0f0;
+        border: none;
+        border-radius: 8px;
+        color: #666;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    .btn-admin:hover {
+        background: #e0e0e0;
+        color: #333;
+    }
+    .btn-delete {
+        padding: 0.75rem;
+        background: #fef2f2;
+        border: none;
+        border-radius: 8px;
+        color: #dc2626;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-delete:hover {
+        background: #fee2e2;
+        color: #b91c1c;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .empty-state i {
+        font-size: 4rem;
+        color: #ddd;
+        margin-bottom: 1rem;
+    }
+    .empty-state h3 {
+        color: #888;
+        margin-bottom: 1rem;
+    }
+    .empty-state p {
+        color: #aaa;
+        margin-bottom: 1.5rem;
+    }
+    .btn-create {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: var(--wh-primary);
+        color: white;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+    }
+    .btn-create:hover {
+        background: var(--wh-primary-dark);
+        color: white;
+    }
+    
+    .back-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--wh-primary);
+        text-decoration: none;
+        margin-bottom: 1rem;
+    }
+    .back-link:hover {
+        color: var(--wh-primary-dark);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <a href="{% url 'writing_hub:dashboard' %}" class="back-link">
+        <i class="bi bi-arrow-left"></i> Zurück zum Dashboard
+    </a>
+    
+    <div class="page-header" style="display: flex; justify-content: space-between; align-items: center;">
+        <div>
+            <h1><i class="bi bi-book"></i> Book Projects</h1>
+            <p>Wähle ein Projekt zum Bearbeiten oder erstelle ein neues</p>
+        </div>
+        <a href="{% url 'writing_hub:project_wizard' %}" class="btn-create" style="background: white; color: var(--wh-primary);">
+            <i class="bi bi-plus-circle"></i> Neues Projekt
+        </a>
+    </div>
+    
+    {% if projects %}
+    <div class="projects-grid">
+        {% for project in projects %}
+        <div class="project-card">
+            <div class="project-card-header">
+                <h3>{{ project.title }}</h3>
+                <div class="genre"><i class="bi bi-bookmark"></i> {{ project.genre }}</div>
+            </div>
+            <div class="project-card-body">
+                <p class="project-description">
+                    {{ project.description|default:"Keine Beschreibung vorhanden." }}
+                </p>
+                
+                <div class="project-stats">
+                    <div class="stat-item">
+                        <i class="bi bi-file-text"></i>
+                        <span>{{ project.chapter_count }} Kapitel</span>
+                    </div>
+                    <div class="stat-item">
+                        <i class="bi bi-bullseye"></i>
+                        <span>{{ project.target_word_count|default:50000 }} Wörter Ziel</span>
+                    </div>
+                </div>
+                
+                <span class="project-status status-{{ project.status|lower|default:'planning' }}">
+                    {{ project.status|default:"Planning" }}
+                </span>
+            </div>
+            <div class="project-card-footer">
+                <a href="{% url 'writing_hub:project_hub' project.id %}" class="btn-outline-edit">
+                    <i class="bi bi-folder2-open"></i> Projekt öffnen
+                </a>
+                <a href="{% url 'writing_hub:outline_editor' project.id %}" class="btn-admin" title="Outline Editor">
+                    <i class="bi bi-list-ol"></i>
+                </a>
+                <button class="btn-delete" onclick="deleteProject({{ project.id }}, '{{ project.title|escapejs }}')" title="Projekt löschen">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="bi bi-journal-x"></i>
+        <h3>Keine Projekte vorhanden</h3>
+        <p>Erstelle dein erstes Buchprojekt um loszulegen.</p>
+        <a href="{% url 'writing_hub:project_wizard' %}" class="btn-create">
+            <i class="bi bi-plus-circle"></i> Neues Projekt erstellen
+        </a>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function deleteProject(projectId, projectTitle) {
+    if (!confirm(`Projekt "${projectTitle}" wirklich löschen?\n\nAlle Kapitel, Charaktere und Welten werden ebenfalls gelöscht!\n\nDiese Aktion kann nicht rückgängig gemacht werden.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/writing-hub/projects/${projectId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            location.reload();
+        } else {
+            alert('Fehler: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Error deleting project:', error);
+        alert('Fehler beim Löschen des Projekts');
+    }
+}
+</script>
+{% endblock %}

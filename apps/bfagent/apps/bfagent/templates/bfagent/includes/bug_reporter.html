@@ -1,0 +1,1135 @@
+{% if user.is_authenticated %}
+<!-- Bug Reporter - Visible for all authenticated users -->
+<style>
+/* Requirement Creator Button (Green - above bug button) */
+#requirement-creator-btn {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 9998;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 184, 148, 0.4);
+    cursor: pointer;
+    font-size: 28px;
+    transition: transform 0.3s ease;
+}
+
+#requirement-creator-btn:hover {
+    transform: scale(1.1);
+}
+
+/* Bug Reporter Button (Purple) */
+#bug-reporter-btn {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 9998;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    cursor: pointer;
+    font-size: 28px;
+    transition: transform 0.3s ease;
+}
+
+#bug-reporter-btn:hover {
+    transform: scale(1.1);
+}
+
+#bug-reporter-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+
+#bug-reporter-modal.show {
+    display: flex;
+}
+
+.bug-reporter-content {
+    background: white;
+    border-radius: 12px;
+    padding: 30px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+}
+
+.bug-reporter-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.close-bug-reporter {
+    background: none;
+    border: none;
+    font-size: 28px;
+    cursor: pointer;
+    color: #999;
+}
+
+.close-bug-reporter:hover {
+    color: #333;
+}
+
+.screenshot-preview {
+    max-width: 100%;
+    border-radius: 8px;
+    margin-top: 10px;
+    border: 2px solid #ddd;
+}
+</style>
+
+<!-- Floating Buttons -->
+<button id="requirement-creator-btn" title="Neues Feature/Requirement">
+    📋
+</button>
+<button id="bug-reporter-btn" title="Report Bug → Create Test">
+    🐛
+</button>
+
+<!-- Modal -->
+<div id="bug-reporter-modal">
+    <div class="bug-reporter-content">
+        <div class="bug-reporter-header">
+            <h3><i class="bi bi-bug"></i> Convert Bug to Test Requirement</h3>
+            <button class="close-bug-reporter" onclick="closeBugReporter()">&times;</button>
+        </div>
+
+        <form id="bug-report-form">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label class="form-label"><i class="bi bi-link"></i> Current Page</label>
+                <input type="text" class="form-control" id="bug-url" readonly>
+                <small class="text-muted">Auto-detected</small>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-folder text-primary"></i> Domain *</label>
+                    <select class="form-select" id="bug-domain" required>
+                        <option value="">-- Domain wählen --</option>
+                        <!-- Loaded dynamically via AJAX -->
+                    </select>
+                    <small class="text-muted">Welcher Bereich ist betroffen?</small>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-flag text-warning"></i> Priorität</label>
+                    <select class="form-select" id="bug-priority">
+                        <option value="critical">🔴 Critical</option>
+                        <option value="high">🟠 High</option>
+                        <option value="medium" selected>🟡 Medium</option>
+                        <option value="low">🟢 Low</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label"><i class="bi bi-x-circle text-danger"></i> What went wrong? *</label>
+                <textarea class="form-control" id="bug-actual" rows="3" 
+                          placeholder="e.g., 'Save button returns 404 error'" required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label"><i class="bi bi-check-circle text-success"></i> What should happen instead? *</label>
+                <textarea class="form-control" id="bug-expected" rows="3" 
+                          placeholder="e.g., 'Chapter should be saved successfully'" required></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label"><i class="bi bi-camera"></i> Screenshot</label>
+                <div class="d-flex gap-2 mb-2">
+                    <button type="button" class="btn btn-secondary" onclick="captureScreenshot()">
+                        <i class="bi bi-camera"></i> Capture Now
+                    </button>
+                    <button type="button" class="btn btn-outline-secondary" onclick="document.getElementById('screenshot-file-input').click()">
+                        <i class="bi bi-upload"></i> Upload
+                    </button>
+                    <span id="screenshot-status" class="text-muted small align-self-center"></span>
+                </div>
+                <div class="alert alert-info small mb-2">
+                    <i class="bi bi-info-circle"></i> <strong>Tip:</strong> Press <kbd>Ctrl+V</kbd> to paste screenshot from clipboard!
+                </div>
+                <input type="file" id="screenshot-file-input" accept="image/*" style="display:none;" onchange="handleFileUpload(this)">
+                <canvas id="screenshot-canvas" style="display:none;"></canvas>
+                <img id="screenshot-preview" class="screenshot-preview" style="display:none;">
+            </div>
+
+            <div class="mb-3">
+                <details>
+                    <summary class="btn btn-sm btn-outline-secondary">
+                        <i class="bi bi-terminal"></i> Advanced (Console & Network Logs)
+                    </summary>
+                    <div class="mt-2">
+                        <small class="text-muted">Auto-captured on submit</small>
+                        <div id="console-preview" class="mt-2 p-2 bg-light rounded small" style="max-height: 100px; overflow-y: auto;"></div>
+                    </div>
+                </details>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-secondary" onclick="closeBugReporter()">
+                    Cancel
+                </button>
+                <button type="button" class="btn btn-primary" onclick="markBugAsFixed()">
+                    <i class="bi bi-check-circle-fill"></i> Bug behoben
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-arrow-right-circle"></i> To Test
+                </button>
+            </div>
+
+            <div id="bug-report-result" class="mt-3"></div>
+        </form>
+    </div>
+</div>
+
+<!-- Requirement Creator Modal -->
+<div id="requirement-creator-modal" class="bug-reporter-modal">
+    <div class="bug-reporter-content">
+        <div class="bug-reporter-header">
+            <h3><i class="bi bi-clipboard-plus text-success"></i> Neues Requirement</h3>
+            <button class="close-bug-reporter" onclick="closeRequirementCreator()">&times;</button>
+        </div>
+
+        <form id="requirement-form">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label class="form-label"><i class="bi bi-tag"></i> Name *</label>
+                <input type="text" class="form-control" id="req-name" required
+                       placeholder="z.B. 'World Building V2 Integration'">
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-folder"></i> Domain *</label>
+                    <select class="form-select" id="req-domain" required>
+                        <option value="">-- Domain wählen --</option>
+                        <!-- Loaded dynamically via loadAvailableDomains() -->
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-collection"></i> Kategorie *</label>
+                    <select class="form-select" id="req-category" required>
+                        <option value="feature" selected>Feature</option>
+                        <option value="enhancement">Enhancement</option>
+                        <option value="refactor">Refactoring</option>
+                        <option value="performance">Performance</option>
+                        <option value="security">Security</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-flag"></i> Priorität</label>
+                    <select class="form-select" id="req-priority">
+                        <option value="critical">🔴 Critical</option>
+                        <option value="high">🟠 High</option>
+                        <option value="medium" selected>🟡 Medium</option>
+                        <option value="low">🟢 Low</option>
+                    </select>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label"><i class="bi bi-link"></i> Kontext-URL</label>
+                    <input type="text" class="form-control" id="req-url" readonly>
+                    <small class="text-muted">Auto-detected</small>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label"><i class="bi bi-card-text"></i> Beschreibung</label>
+                <textarea class="form-control" id="req-description" rows="3" 
+                          placeholder="Was soll erreicht werden?"></textarea>
+            </div>
+
+            <div class="mb-3">
+                <label class="form-label"><i class="bi bi-check2-square"></i> Akzeptanzkriterien</label>
+                <div id="acceptance-criteria-list">
+                    <div class="input-group mb-2 acceptance-criterion">
+                        <span class="input-group-text">1.</span>
+                        <input type="text" class="form-control criterion-input" 
+                               placeholder="z.B. 'User kann Welt einem Projekt zuordnen'">
+                        <button type="button" class="btn btn-outline-danger" onclick="removeCriterion(this)">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="addCriterion()">
+                    <i class="bi bi-plus"></i> Kriterium hinzufügen
+                </button>
+            </div>
+
+            <div class="d-flex gap-2">
+                <button type="button" class="btn btn-secondary" onclick="closeRequirementCreator()">
+                    Abbrechen
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-check-circle"></i> Requirement erstellen
+                </button>
+            </div>
+
+            <div id="requirement-result" class="mt-3"></div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* Requirement Creator Modal uses same styles as bug reporter */
+#requirement-creator-modal {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.7);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+
+#requirement-creator-modal.show {
+    display: flex;
+}
+
+.acceptance-criterion {
+    transition: all 0.2s ease;
+}
+</style>
+
+<!-- Bugs dieser Seite - Flying Widget -->
+<div id="bugs-on-page-widget" style="display:none;">
+    <div class="bugs-widget-content">
+        <div class="bugs-widget-header">
+            <span><i class="bi bi-bug-fill"></i> Bugs <small>({{  page }})</small></span>
+            <button class="close-bugs-widget" onclick="toggleBugsWidget()">&times;</button>
+        </div>
+        <div id="bugs-list-container">
+            <div class="text-center p-3">
+                <div class="spinner-border spinner-border-sm"></div>
+                <small class="d-block mt-2">Loading...</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+#bugs-on-page-widget {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 9997;
+    width: 350px;
+    max-height: 500px;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 10px 50px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.bugs-widget-content {
+    display: flex;
+    flex-direction: column;
+    max-height: 500px;
+}
+
+.bugs-widget-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    font-weight: bold;
+}
+
+.close-bugs-widget {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.close-bugs-widget:hover {
+    opacity: 1;
+}
+
+#bugs-list-container {
+    overflow-y: auto;
+    flex: 1;
+}
+
+.bug-item {
+    padding: 12px 15px;
+    border-bottom: 1px solid #eee;
+    transition: background 0.2s;
+}
+
+.bug-item:hover {
+    background: #f8f9fa;
+}
+
+.bug-status {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: bold;
+    text-transform: uppercase;
+}
+
+.bug-status.open { background: #dc3545; color: white; }
+.bug-status.in-progress { background: #ffc107; color: #333; }
+.bug-status.fixed { background: #28a745; color: white; }
+.bug-status.closed { background: #6c757d; color: white; }
+
+#bug-count-badge {
+    position: fixed;
+    bottom: 90px;
+    right: 20px;
+    z-index: 9996;
+    background: #dc3545;
+    color: white;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 2px 10px rgba(220, 53, 69, 0.5);
+}
+
+#bug-count-badge:hover {
+    transform: scale(1.05);
+    box-shadow: 0 4px 15px rgba(220, 53, 69, 0.7);
+}
+</style>
+
+<!-- Bug Count Badge -->
+<div id="bug-count-badge" style="display:none;" onclick="toggleBugsWidget()">
+    <i class="bi bi-bug-fill"></i> <span id="bug-count">0</span>
+</div>
+
+<script>
+// Global console log capture
+window.bugReporterLogs = {
+    console: [],
+    network: []
+};
+
+// Capture console logs
+(function() {
+    const originalLog = console.log;
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    console.log = function(...args) {
+        window.bugReporterLogs.console.push({type: 'log', message: args.join(' '), time: new Date()});
+        originalLog.apply(console, args);
+    };
+    
+    console.error = function(...args) {
+        window.bugReporterLogs.console.push({type: 'error', message: args.join(' '), time: new Date()});
+        originalError.apply(console, args);
+    };
+    
+    console.warn = function(...args) {
+        window.bugReporterLogs.console.push({type: 'warn', message: args.join(' '), time: new Date()});
+        originalWarn.apply(console, args);
+    };
+})();
+
+// Load available domains for dropdowns
+function loadAvailableDomains() {
+    return fetch('/api/domains/')
+        .then(response => response.json())
+        .then(data => {
+            if (data.domains) {
+                // Update bug reporter domain dropdown
+                const bugDomainSelect = document.getElementById('bug-domain');
+                if (bugDomainSelect) {
+                    bugDomainSelect.innerHTML = '<option value="">-- Domain wählen --</option>' +
+                        data.domains.map(d => `<option value="${d.slug}">${d.display_name}</option>`).join('');
+                    
+                    // Auto-detect domain from URL
+                    const url = window.location.pathname;
+                    if (url.includes('/writing-hub') || url.includes('/book')) {
+                        bugDomainSelect.value = 'writing-hub';
+                    } else if (url.includes('/control-center')) {
+                        bugDomainSelect.value = 'control-center';
+                    } else if (url.includes('/genagent')) {
+                        bugDomainSelect.value = 'genagent';
+                    } else if (url.includes('/cad-hub')) {
+                        bugDomainSelect.value = 'cad-hub';
+                    } else if (url.includes('/mcp-hub')) {
+                        bugDomainSelect.value = 'mcp-hub';
+                    } else {
+                        bugDomainSelect.value = 'core';
+                    }
+                }
+                
+                // Update requirement creator domain dropdown
+                const reqDomainSelect = document.getElementById('req-domain');
+                if (reqDomainSelect) {
+                    reqDomainSelect.innerHTML = '<option value="">-- Domain wählen --</option>' +
+                        data.domains.map(d => `<option value="${d.slug}">${d.display_name}</option>`).join('');
+                }
+            }
+            return data;
+        })
+        .catch(error => console.error('Error loading domains:', error));
+}
+
+// Open Bug Reporter
+document.getElementById('bug-reporter-btn').addEventListener('click', function() {
+    const currentUrl = window.location.href;
+    
+    // Reset form fields first
+    document.getElementById('bug-report-form').reset();
+    document.getElementById('bug-actual').value = '';
+    document.getElementById('bug-expected').value = '';
+    document.getElementById('screenshot-preview').style.display = 'none';
+    document.getElementById('screenshot-preview').src = '';
+    document.getElementById('screenshot-status').textContent = '';
+    document.getElementById('bug-report-result').innerHTML = '';
+    
+    // Set URL after reset
+    document.getElementById('bug-url').value = currentUrl;
+    document.getElementById('bug-reporter-modal').classList.add('show');
+    
+    // Load available domains
+    loadAvailableDomains();
+    
+    // Show recent console logs
+    const recentLogs = window.bugReporterLogs.console.slice(-5);
+    if (recentLogs.length > 0) {
+        document.getElementById('console-preview').innerHTML = recentLogs.map(log => 
+            `<div class="text-${log.type === 'error' ? 'danger' : log.type === 'warn' ? 'warning' : 'secondary'}">${log.message}</div>`
+        ).join('');
+    }
+    
+    // Load existing bugs for this page
+    loadExistingBugsForModal(currentUrl);
+});
+
+// Close Bug Reporter
+function closeBugReporter() {
+    document.getElementById('bug-reporter-modal').classList.remove('show');
+    document.getElementById('bug-report-form').reset();
+    document.getElementById('screenshot-preview').style.display = 'none';
+    document.getElementById('bug-report-result').innerHTML = '';
+}
+
+// Capture Screenshot
+function captureScreenshot() {
+    const status = document.getElementById('screenshot-status');
+    status.textContent = 'Capturing...';
+    status.className = 'text-primary small align-self-center';
+    
+    // Use html2canvas if available, otherwise notify user
+    if (typeof html2canvas !== 'undefined') {
+        html2canvas(document.body).then(canvas => {
+            const preview = document.getElementById('screenshot-preview');
+            preview.src = canvas.toDataURL('image/png');
+            preview.style.display = 'block';
+            status.textContent = '✓ Screenshot captured';
+            status.className = 'text-success small align-self-center';
+        });
+    } else {
+        status.textContent = '✓ Will capture on submit';
+        status.className = 'text-success small align-self-center';
+    }
+}
+
+// Handle File Upload
+function handleFileUpload(input) {
+    const file = input.files[0];
+    if (!file) return;
+    
+    if (!file.type.startsWith('image/')) {
+        alert('Please upload an image file');
+        return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('screenshot-preview');
+        preview.src = e.target.result;
+        preview.style.display = 'block';
+        
+        const status = document.getElementById('screenshot-status');
+        status.textContent = '✓ Image uploaded';
+        status.className = 'text-success small align-self-center';
+    };
+    reader.readAsDataURL(file);
+}
+
+// Paste Screenshot (Ctrl+V)
+document.addEventListener('paste', function(e) {
+    // Only handle paste when bug reporter modal is open
+    const modal = document.getElementById('bug-reporter-modal');
+    if (!modal || !modal.classList.contains('show')) return;
+    
+    const items = e.clipboardData.items;
+    for (let i = 0; i < items.length; i++) {
+        if (items[i].type.indexOf('image') !== -1) {
+            e.preventDefault();
+            
+            const blob = items[i].getAsFile();
+            const reader = new FileReader();
+            
+            reader.onload = function(event) {
+                const preview = document.getElementById('screenshot-preview');
+                preview.src = event.target.result;
+                preview.style.display = 'block';
+                
+                const status = document.getElementById('screenshot-status');
+                status.textContent = '✓ Screenshot pasted (Ctrl+V)';
+                status.className = 'text-success small align-self-center';
+            };
+            
+            reader.readAsDataURL(blob);
+            break;
+        }
+    }
+});
+
+// Submit Bug Report
+document.getElementById('bug-report-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const resultDiv = document.getElementById('bug-report-result');
+    const submitBtn = this.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Creating...';
+    
+    // Collect data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('url', document.getElementById('bug-url').value);
+    formData.append('domain', document.getElementById('bug-domain').value);
+    formData.append('priority', document.getElementById('bug-priority').value);
+    formData.append('actual_behavior', document.getElementById('bug-actual').value);
+    formData.append('expected_behavior', document.getElementById('bug-expected').value);
+    
+    // Add screenshot if captured
+    const screenshot = document.getElementById('screenshot-preview').src;
+    if (screenshot && screenshot.startsWith('data:')) {
+        formData.append('screenshot', screenshot);
+    }
+    
+    // Add console logs
+    formData.append('console_logs', JSON.stringify(window.bugReporterLogs.console.slice(-20)));
+    
+    // Send to server
+    fetch('{% url "bfagent:bug-to-test" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle"></i> Test Requirement Created!</h6>
+                    <p class="mb-2">${data.message}</p>
+                    <a href="${data.redirect_url}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-eye"></i> View Requirement
+                    </a>
+                </div>
+            `;
+            // Auto-redirect after 2 seconds
+            setTimeout(() => {
+                window.location.href = data.redirect_url;
+            }, 2000);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Error: ${data.error}
+                </div>
+            `;
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Create Test Requirement';
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Error: ${error.message}
+            </div>
+        `;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Create Test Requirement';
+    });
+});
+
+// Close modal on outside click
+document.getElementById('bug-reporter-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeBugReporter();
+    }
+});
+
+// Mark Bug as Fixed
+function markBugAsFixed() {
+    const actualBehavior = document.getElementById('bug-actual').value;
+    const url = document.getElementById('bug-url').value;
+    
+    if (!actualBehavior) {
+        alert('Bitte beschreibe den behobenen Bug');
+        return;
+    }
+    
+    const resultDiv = document.getElementById('bug-report-result');
+    
+    // Collect data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('url', url);
+    formData.append('actual_behavior', actualBehavior);
+    formData.append('expected_behavior', document.getElementById('bug-expected').value);
+    formData.append('action', 'mark_fixed');
+    
+    // Screenshot if available
+    const screenshot = document.getElementById('screenshot-preview').src;
+    if (screenshot && screenshot.startsWith('data:')) {
+        formData.append('screenshot', screenshot);
+    }
+    
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Markiere als behoben...</div>';
+    
+    // Send to server
+    fetch('{% url "bfagent:bug-to-test" %}', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle-fill"></i> Bug als behoben markiert!</h6>
+                    <p class="mb-0">Status: Erledigt ✓</p>
+                </div>
+            `;
+            
+            // Refresh bugs list
+            setTimeout(() => {
+                loadBugsForCurrentPage();
+                closeBugReporter();
+            }, 1500);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> ${data.error || 'Fehler beim Markieren'}
+                </div>
+            `;
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> ${error.message}
+            </div>
+        `;
+    });
+}
+
+// Toggle Bugs Widget
+function toggleBugsWidget() {
+    const widget = document.getElementById('bugs-on-page-widget');
+    if (widget.style.display === 'none') {
+        widget.style.display = 'block';
+        loadBugsForCurrentPage();
+    } else {
+        widget.style.display = 'none';
+    }
+}
+
+// Load Bugs for Current Page
+function loadBugsForCurrentPage() {
+    const currentUrl = window.location.pathname;
+    
+    fetch(`/bookwriting/bugs-for-page/?url=${encodeURIComponent(currentUrl)}`)
+        .then(response => response.json())
+        .then(data => {
+            const container = document.getElementById('bugs-list-container');
+            const badge = document.getElementById('bug-count-badge');
+            const countSpan = document.getElementById('bug-count');
+            
+            if (data.bugs && data.bugs.length > 0) {
+                // Show bug count badge
+                countSpan.textContent = data.bugs.length;
+                badge.style.display = 'block';
+                
+                // Render bugs list
+                container.innerHTML = data.bugs.map(bug => `
+                    <div class="bug-item">
+                        <div class="d-flex justify-content-between align-items-start mb-1">
+                            <small class="text-muted">#${bug.id}</small>
+                            <span class="bug-status ${bug.status}">${bug.status_label}</span>
+                        </div>
+                        <div class="small fw-bold mb-1">${bug.title || bug.actual_behavior.substring(0, 60)}...</div>
+                        <small class="text-muted d-block">${bug.created_at}</small>
+                        ${bug.status === 'open' ? `
+                            <button class="btn btn-sm btn-primary mt-2" onclick="fixBug(${bug.id})">
+                                <i class="bi bi-wrench"></i> Fix
+                            </button>
+                        ` : ''}
+                    </div>
+                `).join('');
+            } else {
+                // No bugs
+                badge.style.display = 'none';
+                container.innerHTML = `
+                    <div class="text-center p-4 text-muted">
+                        <i class="bi bi-check-circle" style="font-size: 48px;"></i>
+                        <div class="mt-2">Keine Bugs auf dieser Seite! 🎉</div>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error loading bugs:', error);
+            document.getElementById('bugs-list-container').innerHTML = `
+                <div class="text-center p-3 text-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <div class="small mt-2">Fehler beim Laden</div>
+                </div>
+            `;
+        });
+}
+
+// Fix Bug (from widget)
+function fixBug(bugId) {
+    if (!confirm('Bug als behoben markieren?')) return;
+    
+    fetch(`/bookwriting/fix-bug/${bugId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'fixed' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            loadBugsForCurrentPage();
+        } else {
+            alert(data.error || 'Fehler');
+        }
+    });
+}
+
+// Load bugs on page load
+window.addEventListener('load', function() {
+    setTimeout(() => {
+        loadBugsForCurrentPage();
+    }, 1000);
+});
+
+// Load existing bugs for modal pre-fill
+function loadExistingBugsForModal(url) {
+    const resultDiv = document.getElementById('bug-report-result');
+    
+    fetch(`/bookwriting/bugs-for-page/?url=${encodeURIComponent(window.location.pathname)}`)
+        .then(response => response.json())
+        .then(data => {
+            console.log('Bugs loaded:', data); // DEBUG
+            
+            if (data.success && data.bugs && data.bugs.length > 0) {
+                // Find most recent non-completed bug (ready, draft, in_progress, or blocked)
+                const openBug = data.bugs.find(b => b.status !== 'completed') || data.bugs[0];
+                
+                console.log('Selected bug:', openBug); // DEBUG
+                
+                if (openBug) {
+                    // DON'T pre-fill form - just show info about existing bug
+                    // User can click "Diesen Bug bearbeiten" to pre-fill if they want
+                    
+                    // Show info message with bug title
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> <strong>Existierender Bug gefunden:</strong><br>
+                            <div class="mt-2 mb-2"><strong>${openBug.title}</strong></div>
+                            <small class="text-muted">ID: ${openBug.id.substring(0, 8)}</small> | 
+                            <small class="text-muted">Status: ${openBug.status_label}</small> | 
+                            <small class="text-muted">${openBug.created_at}</small><br>
+                            <small>Von: ${openBug.created_by}</small>
+                            <hr class="my-2">
+                            <div class="d-flex gap-2 mt-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="clearBugForm()">
+                                    <i class="bi bi-plus-circle"></i> Neuer Bug
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-success" onclick="markExistingBugFixed('${openBug.id}')">
+                                    <i class="bi bi-check-circle"></i> Diesen Bug als behoben markieren
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    console.warn('No bug selected');
+                }
+            } else {
+                console.log('No bugs found');
+                // No existing bugs
+                resultDiv.innerHTML = `
+                    <div class="alert alert-success small">
+                        <i class="bi bi-check-circle"></i> Keine existierenden Bugs für diese Seite
+                    </div>
+                `;
+                
+                // Auto-hide after 3 seconds
+                setTimeout(() => {
+                    resultDiv.innerHTML = '';
+                }, 3000);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading existing bugs:', error);
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger small">
+                    <i class="bi bi-exclamation-triangle"></i> Fehler beim Laden: ${error.message}
+                </div>
+            `;
+        });
+}
+
+// Clear bug form
+function clearBugForm() {
+    document.getElementById('bug-actual').value = '';
+    document.getElementById('bug-expected').value = '';
+    document.getElementById('screenshot-preview').style.display = 'none';
+    document.getElementById('bug-report-result').innerHTML = '';
+}
+
+// Mark existing bug as fixed
+function markExistingBugFixed(bugId) {
+    if (!confirm('Bug #' + bugId + ' als behoben markieren?')) return;
+    
+    fetch(`/bookwriting/fix-bug/${bugId}/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ status: 'fixed' })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('bug-report-result').innerHTML = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle-fill"></i> Bug #${bugId} als behoben markiert!
+                </div>
+            `;
+            
+            // Reload bugs list and close modal after 2s
+            setTimeout(() => {
+                loadBugsForCurrentPage();
+                closeBugReporter();
+            }, 2000);
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    })
+    .catch(error => {
+        alert('Fehler: ' + error.message);
+    });
+}
+
+// ============================================================================
+// REQUIREMENT CREATOR FUNCTIONS
+// ============================================================================
+
+// Open Requirement Creator
+document.getElementById('requirement-creator-btn').addEventListener('click', function() {
+    document.getElementById('req-url').value = window.location.href;
+    document.getElementById('requirement-creator-modal').classList.add('show');
+    
+    // Load domains dynamically and auto-detect from URL
+    loadAvailableDomains().then(() => {
+        // Auto-detect domain from URL after domains are loaded
+        const path = window.location.pathname;
+        let domain = 'core';
+        if (path.includes('/writing-hub/') || path.includes('/bookwriting/')) {
+            domain = 'writing-hub';
+        } else if (path.includes('/medtrans/')) {
+            domain = 'medtrans';
+        } else if (path.includes('/control-center/')) {
+            domain = 'control-center';
+        } else if (path.includes('/genagent/')) {
+            domain = 'genagent';
+        } else if (path.includes('/cad-hub/')) {
+            domain = 'cad-hub';
+        } else if (path.includes('/mcp-hub/')) {
+            domain = 'mcp-hub';
+        }
+        document.getElementById('req-domain').value = domain;
+    });
+});
+
+// Close Requirement Creator
+function closeRequirementCreator() {
+    document.getElementById('requirement-creator-modal').classList.remove('show');
+    document.getElementById('requirement-form').reset();
+    document.getElementById('requirement-result').innerHTML = '';
+    // Reset criteria list to single input
+    document.getElementById('acceptance-criteria-list').innerHTML = `
+        <div class="input-group mb-2 acceptance-criterion">
+            <span class="input-group-text">1.</span>
+            <input type="text" class="form-control criterion-input" 
+                   placeholder="z.B. 'User kann Welt einem Projekt zuordnen'">
+            <button type="button" class="btn btn-outline-danger" onclick="removeCriterion(this)">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    `;
+}
+
+// Add acceptance criterion
+function addCriterion() {
+    const list = document.getElementById('acceptance-criteria-list');
+    const count = list.querySelectorAll('.acceptance-criterion').length + 1;
+    
+    const div = document.createElement('div');
+    div.className = 'input-group mb-2 acceptance-criterion';
+    div.innerHTML = `
+        <span class="input-group-text">${count}.</span>
+        <input type="text" class="form-control criterion-input" 
+               placeholder="Akzeptanzkriterium ${count}">
+        <button type="button" class="btn btn-outline-danger" onclick="removeCriterion(this)">
+            <i class="bi bi-x"></i>
+        </button>
+    `;
+    list.appendChild(div);
+}
+
+// Remove acceptance criterion
+function removeCriterion(btn) {
+    const list = document.getElementById('acceptance-criteria-list');
+    if (list.querySelectorAll('.acceptance-criterion').length > 1) {
+        btn.closest('.acceptance-criterion').remove();
+        // Renumber
+        list.querySelectorAll('.acceptance-criterion').forEach((el, idx) => {
+            el.querySelector('.input-group-text').textContent = (idx + 1) + '.';
+        });
+    }
+}
+
+// Submit Requirement Form
+document.getElementById('requirement-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const resultDiv = document.getElementById('requirement-result');
+    const submitBtn = this.querySelector('button[type="submit"]');
+    
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Erstelle...';
+    
+    // Collect acceptance criteria
+    const criteria = [];
+    document.querySelectorAll('.criterion-input').forEach((input, idx) => {
+        if (input.value.trim()) {
+            criteria.push({
+                id: `ac_${idx + 1}`,
+                scenario: input.value.trim(),
+                given: '',
+                when: '',
+                then: input.value.trim(),
+                test_type: 'integration',
+                priority: 'medium'
+            });
+        }
+    });
+    
+    // Build form data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', '{{ csrf_token }}');
+    formData.append('name', document.getElementById('req-name').value);
+    formData.append('domain', document.getElementById('req-domain').value);
+    formData.append('category', document.getElementById('req-category').value);
+    formData.append('priority', document.getElementById('req-priority').value);
+    formData.append('description', document.getElementById('req-description').value);
+    formData.append('url', document.getElementById('req-url').value);
+    formData.append('acceptance_criteria', JSON.stringify(criteria));
+    
+    // Send to server
+    fetch('{% url "control_center:test-studio-requirement-create" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            resultDiv.innerHTML = `
+                <div class="alert alert-success">
+                    <h6><i class="bi bi-check-circle"></i> Requirement erstellt!</h6>
+                    <p class="mb-2">${data.message || 'Erfolgreich angelegt'}</p>
+                    <a href="${data.redirect_url || '/control-center/test-studio/'}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-eye"></i> Öffnen
+                    </a>
+                </div>
+            `;
+            // Auto-redirect after 2 seconds
+            setTimeout(() => {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                }
+            }, 2000);
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i> Fehler: ${data.error || 'Unbekannter Fehler'}
+                </div>
+            `;
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Requirement erstellen';
+        }
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i> Fehler: ${error.message}
+            </div>
+        `;
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="bi bi-check-circle"></i> Requirement erstellen';
+    });
+});
+
+// Close modal on outside click
+document.getElementById('requirement-creator-modal').addEventListener('click', function(e) {
+    if (e.target === this) {
+        closeRequirementCreator();
+    }
+});
+</script>
+{% endif %}

@@ -1,0 +1,398 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Lektorat - {{ project.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .modul-card {
+        transition: all 0.3s ease;
+        border: 2px solid transparent;
+    }
+    .modul-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+        cursor: pointer;
+    }
+    .modul-card-link {
+        text-decoration: none;
+        color: inherit;
+        display: block;
+        height: 100%;
+    }
+    .modul-card-link:hover {
+        color: inherit;
+    }
+    .modul-card.completed {
+        border-color: #28a745;
+    }
+    .modul-card.in_progress {
+        border-color: #ffc107;
+    }
+    .modul-card.pending {
+        border-color: #6c757d;
+    }
+    .severity-badge {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+    .severity-A { background-color: #dc3545; color: white; }
+    .severity-B { background-color: #fd7e14; color: white; }
+    .severity-C { background-color: #ffc107; color: #212529; }
+    .severity-D { background-color: #28a745; color: white; }
+    .severity-E { background-color: #6c757d; color: white; }
+    
+    .stat-card {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-radius: 12px;
+    }
+    .stat-card.kritisch { background: linear-gradient(135deg, #dc3545 0%, #c82333 100%); }
+    .stat-card.schwer { background: linear-gradient(135deg, #fd7e14 0%, #e85d04 100%); }
+    .stat-card.mittel { background: linear-gradient(135deg, #ffc107 0%, #e0a800 100%); color: #212529; }
+    .stat-card.leicht { background: linear-gradient(135deg, #28a745 0%, #1e7e34 100%); }
+    
+    .progress-ring {
+        width: 120px;
+        height: 120px;
+    }
+    .modul-icon {
+        font-size: 2.5rem;
+    }
+    
+    /* HTMX Spinner */
+    .htmx-indicator {
+        display: none;
+    }
+    .htmx-request .htmx-indicator,
+    .htmx-request.htmx-indicator {
+        display: inline-block;
+    }
+    
+    /* Button während Request deaktivieren */
+    button.htmx-request {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-2">
+                            <li class="breadcrumb-item"><a href="{% url 'writing_hub:dashboard' %}">Writing Hub</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'writing_hub:project_hub' project.id %}">{{ project.title|truncatechars:30 }}</a></li>
+                            <li class="breadcrumb-item active">Lektorat</li>
+                        </ol>
+                    </nav>
+                    <h1 class="mb-0">
+                        <i class="bi bi-check2-all me-2 text-primary"></i>Lektorats-Framework
+                    </h1>
+                    <p class="text-muted mb-0">Systematische Qualitätssicherung für "{{ project.title }}"</p>
+                </div>
+                <div class="d-flex gap-2">
+                    {% if session %}
+                    <span class="badge bg-info fs-6">
+                        <i class="bi bi-clock me-1"></i>{{ session.version_name }}
+                    </span>
+                    {% endif %}
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newSessionModal">
+                        <i class="bi bi-plus-lg me-1"></i>Neue Prüfung
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if not session %}
+    <!-- No Session - Start -->
+    <div class="row justify-content-center">
+        <div class="col-md-8 col-lg-6">
+            <div class="card border-0 shadow-lg text-center py-5">
+                <div class="card-body">
+                    <div class="display-1 mb-4">📋</div>
+                    <h2 class="mb-3">Lektorat starten</h2>
+                    <p class="text-muted mb-4">
+                        Starte eine neue Lektorats-Prüfung, um dein Manuskript systematisch auf Konsistenz, 
+                        Logik und Stil zu überprüfen.
+                    </p>
+                    <div class="mb-4">
+                        <small class="text-muted">
+                            <strong>{{ chapters.count }}</strong> Kapitel bereit zur Prüfung
+                        </small>
+                    </div>
+                    <button class="btn btn-primary btn-lg" data-bs-toggle="modal" data-bs-target="#newSessionModal">
+                        <i class="bi bi-play-fill me-2"></i>Prüfung starten
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    
+    <!-- Statistics Row -->
+    <div class="row mb-4" id="stats-container" hx-get="{% url 'writing_hub:lektorat_stats_partial' project.id %}" hx-trigger="load delay:100ms">
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card stat-card h-100">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.total_fehler }}</h2>
+                    <small>Gesamt Fehler</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card stat-card kritisch h-100">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.kritisch }}</h2>
+                    <small>🔴 Kritisch (A)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card stat-card schwer h-100">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.schwer }}</h2>
+                    <small>🟠 Schwer (B)</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3 col-6 mb-3">
+            <div class="card stat-card mittel h-100">
+                <div class="card-body text-center">
+                    <h2 class="mb-0">{{ stats.mittel }}</h2>
+                    <small>🟡 Mittel (C)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Module Grid -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h4 class="mb-3"><i class="bi bi-grid-3x3-gap me-2"></i>Prüfungs-Module</h4>
+        </div>
+        {% for modul in module %}
+        <div class="col-lg-4 col-md-6 mb-4">
+            <div class="card modul-card h-100 {{ modul.status }}">
+                <a href="{% url 'writing_hub:lektorat_ergebnisse' project.id modul.id %}" class="modul-card-link">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <span class="modul-icon">{{ modul.icon }}</span>
+                            <div>
+                                {% if modul.status == 'completed' %}
+                                <span class="badge bg-success"><i class="bi bi-check-lg"></i> Geprüft</span>
+                                {% elif modul.status == 'in_progress' %}
+                                <span class="badge bg-warning text-dark"><i class="bi bi-hourglass-split"></i> In Arbeit</span>
+                                {% else %}
+                                <span class="badge bg-secondary"><i class="bi bi-clock"></i> Ausstehend</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <h5 class="card-title">{{ modul.name }}</h5>
+                        <p class="card-text text-muted small">{{ modul.description }}</p>
+                        
+                        {% if modul.fehler_count > 0 %}
+                        <div class="alert {% if modul.progress == 100 %}alert-success{% elif modul.progress > 0 %}alert-info{% else %}alert-warning{% endif %} py-2 mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <small><strong>{{ modul.fehler_count }}</strong> Fehler gefunden</small>
+                                <small class="text-muted">{{ modul.fehler_behoben }}/{{ modul.fehler_count }} behoben ({{ modul.progress }}%)</small>
+                            </div>
+                            {% if modul.fehler_count > 0 %}
+                            <div class="progress" style="height: 4px;">
+                                <div class="progress-bar {% if modul.progress == 100 %}bg-success{% else %}bg-primary{% endif %}" 
+                                     role="progressbar" style="width: {{ modul.progress }}%"></div>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </a>
+                <div class="card-footer bg-transparent border-0 pt-0">
+                    <div class="d-flex gap-2">
+                        {% if modul.id == 'figuren' %}
+                        <a href="{% url 'writing_hub:lektorat_figuren' project.id %}" class="btn btn-{{ modul.color }} btn-sm flex-grow-1">
+                            <i class="bi bi-eye me-1"></i>Öffnen
+                        </a>
+                        <button class="btn btn-outline-{{ modul.color }} btn-sm" 
+                                hx-post="{% url 'writing_hub:lektorat_figuren_analyze' project.id %}"
+                                hx-swap="none"
+                                hx-indicator="#spinner-{{ modul.id }}">
+                            <i class="bi bi-robot me-1"></i>🤖 AI-Check
+                            <span id="spinner-{{ modul.id }}" class="htmx-indicator spinner-border spinner-border-sm ms-1"></span>
+                        </button>
+                        {% elif modul.id == 'stil' %}
+                        <button class="btn btn-{{ modul.color }} btn-sm flex-grow-1" 
+                                hx-post="{% url 'writing_hub:lektorat_stil_analyze' project.id %}"
+                                hx-swap="none"
+                                hx-indicator="#spinner-{{ modul.id }}">
+                            <i class="bi bi-robot me-1"></i>Analyse starten
+                            <span id="spinner-{{ modul.id }}" class="htmx-indicator spinner-border spinner-border-sm ms-1"></span>
+                        </button>
+                        {% elif modul.id == 'logik' %}
+                        <button class="btn btn-{{ modul.color }} btn-sm flex-grow-1" 
+                                hx-post="{% url 'writing_hub:lektorat_logik_analyze' project.id %}"
+                                hx-swap="none"
+                                hx-indicator="#spinner-{{ modul.id }}">
+                            <i class="bi bi-robot me-1"></i>Analyse starten
+                            <span id="spinner-{{ modul.id }}" class="htmx-indicator spinner-border spinner-border-sm ms-1"></span>
+                        </button>
+                        {% elif modul.id == 'wiederholungen' %}
+                        <form method="post" action="{% url 'writing_hub:lektorat_wiederholungen_analyze' project.id %}" style="flex-grow:1;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-{{ modul.color }} btn-sm w-100">
+                                <i class="bi bi-robot me-1"></i>Analyse starten
+                            </button>
+                        </form>
+                        {% elif modul.id == 'zeitlinien' %}
+                        <button class="btn btn-{{ modul.color }} btn-sm flex-grow-1" 
+                                hx-post="{% url 'writing_hub:lektorat_zeitlinien_analyze' project.id %}"
+                                hx-swap="none"
+                                hx-indicator="#spinner-{{ modul.id }}">
+                            <i class="bi bi-robot me-1"></i>Analyse starten
+                            <span id="spinner-{{ modul.id }}" class="htmx-indicator spinner-border spinner-border-sm ms-1"></span>
+                        </button>
+                        {% else %}
+                        <button class="btn btn-{{ modul.color }} btn-sm flex-grow-1" disabled>
+                            <i class="bi bi-lock me-1"></i>Bald verfügbar
+                        </button>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Recent Errors -->
+    {% if session.fehler.exists %}
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Letzte Fehler</h5>
+                    <a href="{% url 'writing_hub:lektorat_fehler_list' project.id %}" class="btn btn-outline-primary btn-sm">
+                        Alle anzeigen <i class="bi bi-arrow-right ms-1"></i>
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 80px;">Severity</th>
+                                    <th style="width: 120px;">Modul</th>
+                                    <th>Beschreibung</th>
+                                    <th style="width: 100px;">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fehler in session.fehler.all|slice:":5" %}
+                                <tr>
+                                    <td>
+                                        <span class="severity-badge severity-{{ fehler.severity }}">
+                                            {{ fehler.get_severity_display|truncatechars:20 }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <small class="text-muted">{{ fehler.get_modul_display }}</small>
+                                    </td>
+                                    <td>
+                                        {{ fehler.beschreibung|truncatechars:80 }}
+                                    </td>
+                                    <td>
+                                        {% if fehler.status == 'offen' %}
+                                        <span class="badge bg-danger">Offen</span>
+                                        {% elif fehler.status == 'korrigiert' %}
+                                        <span class="badge bg-success">Korrigiert</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ fehler.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    
+    {% endif %}
+</div>
+
+<!-- New Session Modal -->
+<div class="modal fade" id="newSessionModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'writing_hub:lektorat_create_session' project.id %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle me-2"></i>Neue Lektorats-Prüfung</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="version_name" class="form-label">Name der Prüfung</label>
+                        <input type="text" class="form-control" id="version_name" name="version_name" 
+                               placeholder="z.B. 'Erster Durchgang'" value="Lektorat {{ session.pk|default:1|add:1 }}">
+                        <div class="form-text">Vergib einen Namen, um verschiedene Prüfungen zu unterscheiden.</div>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>{{ chapters.count }} Kapitel</strong> werden analysiert.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-play-fill me-1"></i>Prüfung starten
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // HTMX event handlers - NUR für POST requests (Analysen), nicht für GET (Stats)
+    document.body.addEventListener('htmx:afterRequest', function(evt) {
+        // Nur POST requests verarbeiten (Analyse-Buttons)
+        if (evt.detail.requestConfig.verb !== 'post') {
+            return;
+        }
+        
+        try {
+            const response = JSON.parse(evt.detail.xhr.responseText);
+            
+            // Redirect auch bei Fehler, falls redirect URL vorhanden
+            if (response.redirect) {
+                window.location.href = response.redirect;
+                return;
+            }
+            
+            if (!response.success) {
+                alert('Analyse-Fehler: ' + (response.error || 'Unbekannter Fehler'));
+            }
+        } catch (e) {
+            console.log('Response parse error:', e);
+            if (!evt.detail.successful) {
+                alert('Analyse fehlgeschlagen. Bitte versuche es erneut.');
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

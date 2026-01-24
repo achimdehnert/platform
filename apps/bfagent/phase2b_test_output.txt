@@ -1,0 +1,168 @@
+﻿Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+core
+ [X] 0001_initial_domain_model
+ [X] 0002_add_normalized_models
+ [X] 0003_move_handler_to_core
+ [ ] 0004_add_category_fk
+ [ ] 0005_migrate_category_data
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+Operations to perform:
+  Apply all migrations: core
+Running pre-migrate handlers for application admin
+Running pre-migrate handlers for application auth
+Running pre-migrate handlers for application contenttypes
+Running pre-migrate handlers for application sessions
+Running pre-migrate handlers for application core
+Running pre-migrate handlers for application hub
+Running pre-migrate handlers for application bfagent
+Running pre-migrate handlers for application control_center
+Running pre-migrate handlers for application expert_hub
+Running pre-migrate handlers for application writing_hub
+Running pre-migrate handlers for application genagent
+Running pre-migrate handlers for application medtrans
+Running pre-migrate handlers for application presentation_studio
+Running pre-migrate handlers for application bfagent_mcp
+Running pre-migrate handlers for application debug_toolbar
+Running migrations:
+  Applying core.0004_add_category_fk...
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+
+­ƒöì QUICK TEST - Phase 2b Status
+
+­ƒôè HandlerCategory: 3 records
+
+ÔØî ERROR: no such table: handlers
+
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+
+======================================================================
+  ­ƒº¬ PHASE 2B - HANDLER NORMALISIERUNG TEST SUITE
+======================================================================
+
+
+======================================================================
+  TEST 1: HandlerCategory Records
+======================================================================
+­ƒôè Kategorien gefunden: 3
+Ô£à input: Input Handler (ID: 1)
+Ô£à processing: Processing Handler (ID: 2)
+Ô£à output: Output Handler (ID: 3)
+Ô£à TEST 1 PASSED
+
+======================================================================
+  TEST 2: Handler Records
+======================================================================
+
+ÔØî test_2_check_handlers_exist CRASHED!
+   Error: no such table: handlers
+======================================================================
+  TEST 3: Migration Fields Check
+======================================================================
+Field 'category' exists: True
+Field 'category_fk' exists: True
+Ô£à TEST 3 PASSED
+
+======================================================================
+  TEST 4: Data Migration Check
+======================================================================
+
+ÔØî test_4_check_data_migration CRASHED!
+   Error: no such table: handlers
+======================================================================
+  TEST 5: Category Mapping Consistency
+======================================================================
+
+ÔØî test_5_check_category_mapping CRASHED!
+   Error: no such table: handlers
+======================================================================
+  TEST 6: Helper Properties
+======================================================================
+
+ÔØî test_6_check_helper_properties CRASHED!
+   Error: no such table: handlers
+======================================================================
+  TEST 7: Backwards Compatibility
+======================================================================
+
+ÔØî test_7_check_backwards_compatibility CRASHED!
+   Error: no such table: handlers
+======================================================================
+  TEST 8: Database Schema Check
+======================================================================
+Handlers table columns:
+  ÔØî id: MISSING!
+======================================================================
+  ­ƒôè TEST SUMMARY
+======================================================================
+
+Ô£à PASSED: test_1_check_categories_exist
+ÔØî FAILED: test_2_check_handlers_exist
+Ô£à PASSED: test_3_check_migration_fields
+ÔØî FAILED: test_4_check_data_migration
+ÔØî FAILED: test_5_check_category_mapping
+ÔØî FAILED: test_6_check_helper_properties
+ÔØî FAILED: test_7_check_backwards_compatibility
+ÔØî FAILED: test_8_check_database_schema
+
+======================================================================
+  Results: 2/8 tests passed
+======================================================================
+
+ÔÜá´©Å  6 test(s) failed. Please review and fix.
+

@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}{{ story.title }} - Travel Beat{% endblock %}
+
+{% block extra_css %}
+<style>
+    .reader-container {
+        max-width: 720px;
+        margin: 0 auto;
+    }
+    .chapter-content {
+        font-family: 'Georgia', serif;
+        font-size: 1.15rem;
+        line-height: 1.9;
+        color: #333;
+    }
+    .chapter-content p {
+        margin-bottom: 1.5rem;
+        text-indent: 1.5rem;
+    }
+    .chapter-content p:first-of-type {
+        text-indent: 0;
+    }
+    .chapter-content p:first-of-type::first-letter {
+        font-size: 3.5rem;
+        font-weight: bold;
+        float: left;
+        line-height: 1;
+        margin-right: 0.5rem;
+        color: var(--tb-primary, #6366f1);
+    }
+    .chapter-nav {
+        position: sticky;
+        bottom: 0;
+        background: white;
+        padding: 1rem 0;
+        border-top: 1px solid #eee;
+    }
+    .chapter-sidebar {
+        position: sticky;
+        top: 80px;
+    }
+    .chapter-list-item {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .chapter-list-item:hover {
+        background: #f8f9fa;
+    }
+    .chapter-list-item.active {
+        background: var(--tb-primary, #6366f1);
+        color: white;
+    }
+    .chapter-list-item.read {
+        color: #6c757d;
+    }
+    .chapter-list-item.read::after {
+        content: '✓';
+        float: right;
+        color: #28a745;
+    }
+    .reading-progress {
+        height: 3px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        background: var(--tb-gradient, linear-gradient(135deg, #6366f1, #ec4899));
+        z-index: 9999;
+        transition: width 0.1s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- Reading Progress Bar -->
+<div class="reading-progress" id="reading-progress" style="width: 0%"></div>
+
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Sidebar - Chapter List -->
+        <div class="col-lg-3 d-none d-lg-block">
+            <div class="chapter-sidebar">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white">
+                        <h6 class="mb-0">
+                            <i class="bi bi-list-ol"></i> Kapitel
+                        </h6>
+                    </div>
+                    <div class="card-body p-0" style="max-height: 70vh; overflow-y: auto;">
+                        {% for chapter in chapters %}
+                        <a href="{% url 'stories:chapter' story_id=story.pk chapter_num=chapter.chapter_number %}"
+                           class="chapter-list-item d-block text-decoration-none 
+                                  {% if chapter.chapter_number == current_chapter.chapter_number %}active{% endif %}
+                                  {% if chapter.chapter_number in read_chapters %}read{% endif %}">
+                            <small class="text-muted">{{ chapter.chapter_number }}.</small>
+                            {{ chapter.title|truncatewords:5 }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <!-- Story Info -->
+                <div class="card border-0 shadow-sm mt-3">
+                    <div class="card-body">
+                        <h6 class="text-muted mb-2">Story Info</h6>
+                        <p class="small mb-1">
+                            <strong>Genre:</strong> {{ story.get_genre_display }}
+                        </p>
+                        <p class="small mb-1">
+                            <strong>Kapitel:</strong> {{ story.generated_chapters }}
+                        </p>
+                        <p class="small mb-0">
+                            <strong>Wörter:</strong> ~{{ story.total_words|floatformat:0 }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Main Content -->
+        <div class="col-lg-9">
+            <div class="reader-container">
+                <!-- Chapter Header -->
+                <div class="mb-4 pb-3 border-bottom">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-light text-dark">
+                            Kapitel {{ current_chapter.chapter_number }} von {{ chapters.count }}
+                        </span>
+                        {% if current_chapter.location_city %}
+                        <span class="badge bg-primary">
+                            <i class="bi bi-geo-alt"></i> {{ current_chapter.location_city }}
+                        </span>
+                        {% endif %}
+                    </div>
+                    <h1 class="h2 mb-2">{{ current_chapter.title }}</h1>
+                    {% if current_chapter.story_date %}
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-calendar"></i> {{ current_chapter.story_date|date:"l, d. F Y" }}
+                    </p>
+                    {% endif %}
+                </div>
+                
+                <!-- Chapter Content -->
+                <article class="chapter-content" id="chapter-content">
+                    {{ current_chapter.content|linebreaks }}
+                </article>
+                
+                <!-- Chapter Navigation -->
+                <div class="chapter-nav">
+                    <div class="d-flex justify-content-between align-items-center">
+                        {% if prev_chapter %}
+                        <a href="{% url 'stories:chapter' story_id=story.pk chapter_num=prev_chapter.chapter_number %}" 
+                           class="btn btn-outline-primary">
+                            <i class="bi bi-arrow-left"></i> Vorheriges
+                        </a>
+                        {% else %}
+                        <span></span>
+                        {% endif %}
+                        
+                        <div class="text-center">
+                            <small class="text-muted">{{ current_chapter.chapter_number }} / {{ chapters.count }}</small>
+                        </div>
+                        
+                        {% if next_chapter %}
+                        <a href="{% url 'stories:chapter' story_id=story.pk chapter_num=next_chapter.chapter_number %}" 
+                           class="btn btn-gradient">
+                            Nächstes <i class="bi bi-arrow-right"></i>
+                        </a>
+                        {% else %}
+                        <a href="{% url 'stories:detail' pk=story.pk %}" class="btn btn-success">
+                            <i class="bi bi-check-lg"></i> Fertig!
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Mobile Chapter Selector -->
+<div class="d-lg-none fixed-bottom bg-white border-top p-2">
+    <div class="d-flex justify-content-between align-items-center">
+        {% if prev_chapter %}
+        <a href="{% url 'stories:chapter' story_id=story.pk chapter_num=prev_chapter.chapter_number %}" 
+           class="btn btn-sm btn-outline-primary">
+            <i class="bi bi-arrow-left"></i>
+        </a>
+        {% else %}
+        <span style="width: 40px;"></span>
+        {% endif %}
+        
+        <select class="form-select form-select-sm w-auto" onchange="location.href=this.value">
+            {% for chapter in chapters %}
+            <option value="{% url 'stories:chapter' story_id=story.pk chapter_num=chapter.chapter_number %}"
+                    {% if chapter.chapter_number == current_chapter.chapter_number %}selected{% endif %}>
+                {{ chapter.chapter_number }}. {{ chapter.title|truncatewords:3 }}
+            </option>
+            {% endfor %}
+        </select>
+        
+        {% if next_chapter %}
+        <a href="{% url 'stories:chapter' story_id=story.pk chapter_num=next_chapter.chapter_number %}" 
+           class="btn btn-sm btn-gradient">
+            <i class="bi bi-arrow-right"></i>
+        </a>
+        {% else %}
+        <a href="{% url 'stories:detail' pk=story.pk %}" class="btn btn-sm btn-success">
+            <i class="bi bi-check-lg"></i>
+        </a>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Reading progress indicator
+    window.addEventListener('scroll', function() {
+        const content = document.getElementById('chapter-content');
+        const progress = document.getElementById('reading-progress');
+        
+        const scrollTop = window.scrollY;
+        const docHeight = content.offsetHeight;
+        const winHeight = window.innerHeight;
+        const scrollPercent = (scrollTop / (docHeight - winHeight)) * 100;
+        
+        progress.style.width = Math.min(100, Math.max(0, scrollPercent)) + '%';
+    });
+    
+    // Mark chapter as read (HTMX could be used here)
+    document.addEventListener('DOMContentLoaded', function() {
+        // Could send read status to server
+        const storyId = {{ story.pk }};
+        const chapterNum = {{ current_chapter.chapter_number }};
+        
+        // Mark as read after 30 seconds
+        setTimeout(function() {
+            fetch('/stories/api/{{ story.pk }}/mark-read/', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({chapter: chapterNum})
+            }).catch(() => {});
+        }, 30000);
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,268 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Visual Workflow Builder{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'workflow_builder/css/builder.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="workflow-builder-container">
+    <!-- Main Builder Container -->
+    <div id="builder-app" class="builder-container">
+        <!-- Builder Header -->
+        <div class="builder-header">
+            <h2>Visual Workflow Builder</h2>
+        </div>
+        
+        <!-- Navigation Tabs -->
+        <ul class="nav nav-tabs builder-nav" id="builder-nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" id="domains-tab" href="#" data-screen="domains">
+                    <i class="bi bi-grid"></i> Domains
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" id="handlers-tab" href="#" data-screen="handlers">
+                    <i class="bi bi-gear"></i> Handlers
+                </a>
+            </li>
+        </ul>
+
+        <!-- Domain Selection Screen (Default) -->
+        <div id="domain-screen" class="screen active">
+            <div class="screen-header">
+                <h2>Choose Your Domain</h2>
+                <p class="text-muted">Select a domain to start building workflows</p>
+            </div>
+            <div id="domain-grid" class="domain-grid">
+                <!-- Domains loaded via JavaScript -->
+            </div>
+        </div>
+
+        <!-- Workflow Canvas Screen (Hidden initially) -->
+        <div id="workflow-canvas-screen" class="screen" style="display: none;">
+            <div class="canvas-toolbar">
+                <button id="back-to-domains-btn" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Domains
+                </button>
+                <div class="canvas-info">
+                    <span id="current-domain-name" class="domain-badge"></span>
+                    <span id="current-template-name"></span>
+                </div>
+            </div>
+
+            <!-- Template Selection -->
+            <div id="template-selection" class="template-selection">
+                <h3>Select a Template</h3>
+                <div id="template-list" class="template-list">
+                    <!-- Templates loaded via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Workflow Canvas -->
+            <div id="workflow-canvas" class="workflow-canvas">
+                <!-- Canvas content via JavaScript -->
+            </div>
+            
+            <!-- Execute Button (shown when template loaded) -->
+            <div id="execute-workflow-section" class="execute-section" style="display: none;">
+                <button id="execute-workflow-btn" class="btn btn-success btn-lg">
+                    <i class="bi bi-play-circle"></i> Execute Workflow
+                </button>
+            </div>
+        </div>
+
+        <!-- Handler Browser Screen (Hidden initially) -->
+        <div id="handler-browser-screen" class="screen" style="display: none;">
+            <div class="screen-header">
+                <h2>📦 Handler Library</h2>
+                <p class="text-muted">Browse and manage workflow handlers</p>
+            </div>
+
+            <!-- Handler Statistics -->
+            <div class="handler-stats">
+                <div class="stat-card">
+                    <div class="stat-icon">📥</div>
+                    <div class="stat-content">
+                        <h3 id="input-handler-count">0</h3>
+                        <p>Input Handlers</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">⚙️</div>
+                    <div class="stat-content">
+                        <h3 id="processing-handler-count">0</h3>
+                        <p>Processing Handlers</p>
+                    </div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">📤</div>
+                    <div class="stat-content">
+                        <h3 id="output-handler-count">0</h3>
+                        <p>Output Handlers</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Handler Search and Filter -->
+            <div class="handler-controls">
+                <input type="text" id="handler-search" class="form-control" placeholder="🔍 Search handlers...">
+                <select id="handler-filter" class="form-select">
+                    <option value="all">All Categories</option>
+                    <option value="input">Input Handlers</option>
+                    <option value="processing">Processing Handlers</option>
+                    <option value="output">Output Handlers</option>
+                </select>
+            </div>
+
+            <!-- Handler List -->
+            <div id="handler-list" class="handler-list">
+                <!-- Handlers loaded via JavaScript -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Execution Modal -->
+<div class="modal fade" id="executionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-play-circle"></i> Execute Workflow
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Variables Form -->
+                <div id="variables-form-section">
+                    <h6 class="mb-3">Required Variables</h6>
+                    <div id="variables-form"></div>
+                </div>
+                
+                <!-- Execution Progress -->
+                <div id="execution-progress-section" style="display: none;">
+                    <h6 class="mb-3">Execution Progress</h6>
+                    <div class="progress mb-3">
+                        <div id="execution-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div id="execution-status" class="text-muted"></div>
+                </div>
+                
+                <!-- Execution Results -->
+                <div id="execution-results-section" style="display: none;">
+                    <h6 class="mb-3">
+                        <i class="bi bi-check-circle text-success"></i> Execution Complete
+                    </h6>
+                    <div id="execution-results" class="alert alert-success"></div>
+                </div>
+                
+                <!-- Error Display -->
+                <div id="execution-error-section" style="display: none;">
+                    <div id="execution-error" class="alert alert-danger"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" id="start-execution-btn" class="btn btn-success">
+                    <i class="bi bi-play"></i> Start Execution
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Handler Details Modal -->
+<div class="modal fade" id="handlerDetailsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-gear"></i> <span id="handler-detail-name"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="handler-details-content">
+                    <!-- Handler details loaded via JavaScript -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" id="test-handler-btn" class="btn btn-primary">
+                    <i class="bi bi-play-circle"></i> Test Handler
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Handler Tester Modal -->
+<div class="modal fade" id="handlerTesterModal" tabindex="-1">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-play-circle"></i> Test Handler: <span id="tester-handler-name"></span>
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Input Context</h6>
+                        <textarea id="test-context-input" class="form-control font-monospace" rows="8" 
+                                  placeholder='{"project_id": 1}'></textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Configuration</h6>
+                        <textarea id="test-config-input" class="form-control font-monospace" rows="8" 
+                                  placeholder='{"fields": ["title"]}'></textarea>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <button id="run-handler-test-btn" class="btn btn-success">
+                        <i class="bi bi-play"></i> Run Test
+                    </button>
+                </div>
+                
+                <!-- Test Results -->
+                <div id="test-results-section" style="display: none;" class="mt-4">
+                    <h6>
+                        <span id="test-status-icon"></span> Test Results
+                    </h6>
+                    <pre id="test-results-output" class="bg-light p-3 rounded"></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Indicator -->
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- React & ReactDOM from CDN -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- Workflow Builder Scripts -->
+<script src="{% static 'workflow_builder/js/api-client.js' %}"></script>
+<script src="{% static 'workflow_builder/js/domain-selector.js' %}"></script>
+<script src="{% static 'workflow_builder/js/workflow-canvas.js' %}"></script>
+<script src="{% static 'workflow_builder/js/workflow-executor.js' %}"></script>
+<script src="{% static 'workflow_builder/js/handler-browser.js' %}"></script>
+<script src="{% static 'workflow_builder/js/main.js' %}"></script>
+{% endblock %}

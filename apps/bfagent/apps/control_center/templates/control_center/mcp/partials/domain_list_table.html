@@ -1,0 +1,106 @@
+{# Domain List Table Partial #}
+<table class="table table-hover mb-0">
+    <thead class="table-light">
+        <tr>
+            <th style="width: 60px;">Order</th>
+            <th>Domain</th>
+            <th>Base Path</th>
+            <th style="width: 100px;">Risk</th>
+            <th style="width: 120px;">Components</th>
+            <th style="width: 100px;">Sessions</th>
+            <th style="width: 100px;">Status</th>
+            <th style="width: 100px;">Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for config in domains %}
+        <tr class="{% if config.is_protected %}risk-critical{% elif config.risk_level.severity_score >= 50 %}risk-high{% else %}risk-low{% endif %}">
+            <td>
+                <span class="badge bg-secondary">
+                    {{ config.refactor_order|default:"—" }}
+                </span>
+            </td>
+            <td>
+                <a href="{% url 'control_center:mcp-domain-detail' config.domain.domain_id %}" 
+                   class="text-decoration-none">
+                    <strong>{{ config.domain.display_name }}</strong>
+                </a>
+                <br>
+                <small class="text-muted">{{ config.domain.domain_id }}</small>
+            </td>
+            <td>
+                <code class="small">{{ config.base_path|default:"—" }}</code>
+            </td>
+            <td>
+                {% if config.risk_level.severity_score >= 80 %}
+                    <span class="badge bg-danger">🔴 {{ config.risk_level.name }}</span>
+                {% elif config.risk_level.severity_score >= 50 %}
+                    <span class="badge bg-warning text-dark">🟡 {{ config.risk_level.name }}</span>
+                {% else %}
+                    <span class="badge bg-success">🟢 {{ config.risk_level.name }}</span>
+                {% endif %}
+            </td>
+            <td>
+                <span class="badge bg-light text-dark border">
+                    {{ config.component_count }} types
+                </span>
+            </td>
+            <td>
+                <span class="badge bg-info">
+                    {{ config.session_count }} sessions
+                </span>
+            </td>
+            <td>
+                {% if config.is_protected %}
+                    <span class="badge bg-danger">🔒 Protected</span>
+                {% elif config.is_refactor_ready %}
+                    <span class="badge bg-success">✓ Ready</span>
+                {% else %}
+                    <span class="badge bg-secondary">○ Config</span>
+                {% endif %}
+            </td>
+            <td>
+                <div class="btn-group btn-group-sm">
+                    <a href="{% url 'control_center:mcp-domain-detail' config.domain.domain_id %}" 
+                       class="btn btn-outline-primary"
+                       title="View Details">
+                        <i class="bi bi-eye"></i>
+                    </a>
+                    <a href="{% url 'admin:bfagent_mcp_mcpdomainconfig_change' config.id %}" 
+                       class="btn btn-outline-secondary"
+                       title="Edit in Admin">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8" class="text-center text-muted py-5">
+                <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                {% if search_query or current_risk %}
+                    No domains match your filters.
+                    <br>
+                    <a href="{% url 'control_center:mcp-domains' %}" class="btn btn-sm btn-outline-primary mt-2">
+                        Clear Filters
+                    </a>
+                {% else %}
+                    No domain configurations found.
+                    <br>
+                    <a href="{% url 'admin:bfagent_mcp_mcpdomainconfig_add' %}" class="btn btn-sm btn-primary mt-2">
+                        <i class="bi bi-plus"></i> Add First Domain
+                    </a>
+                {% endif %}
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+{% if domains %}
+<div class="card-footer text-muted small">
+    Showing {{ domains|length }} domain{% if domains|length != 1 %}s{% endif %}
+    {% if search_query %} matching "{{ search_query }}"{% endif %}
+    {% if current_risk %} with {{ current_risk }} risk{% endif %}
+</div>
+{% endif %}

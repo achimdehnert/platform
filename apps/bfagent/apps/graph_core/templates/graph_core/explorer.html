@@ -1,0 +1,376 @@
+{% extends "graph_core/base.html" %}
+{% load static %}
+
+{% block extra_css %}
+{{ block.super }}
+<style>
+    #cy {
+        width: 100%;
+        height: 600px;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        background: #fafafa;
+    }
+    .toolbar {
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        padding: 0.5rem;
+    }
+    .toolbar .btn {
+        border-radius: 6px;
+    }
+    .node-panel, .edge-panel {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    .node-item, .edge-item {
+        padding: 0.5rem;
+        border-radius: 6px;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+    .node-item:hover, .edge-item:hover {
+        background: #f3f4f6;
+    }
+    .node-color {
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+    .legend-item {
+        display: inline-flex;
+        align-items: center;
+        margin-right: 1rem;
+        font-size: 0.8rem;
+    }
+</style>
+{% endblock %}
+
+{% block graph_content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'graph_core:dashboard' %}">Graph Core</a></li>
+                <li class="breadcrumb-item active">Graph Explorer</li>
+            </ol>
+        </nav>
+        <h1 class="h3 mb-0">
+            <i class="bi bi-diagram-3 me-2"></i>{{ project.title }}
+        </h1>
+    </div>
+    <div>
+        <a href="{% url 'writing_hub:project_detail' project.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i> Back to Project
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Main Graph Area -->
+    <div class="col-lg-9">
+        <!-- Toolbar -->
+        <div class="toolbar mb-3 d-flex gap-2 flex-wrap">
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-primary" id="add-node-btn" title="Add Node">
+                    <i class="bi bi-plus-circle"></i> Add Node
+                </button>
+                <button class="btn btn-sm btn-outline-primary" id="add-edge-btn" title="Add Edge" disabled>
+                    <i class="bi bi-arrow-right"></i> Add Edge
+                </button>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" id="fit-btn" title="Fit to Screen">
+                    <i class="bi bi-arrows-fullscreen"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="center-btn" title="Center">
+                    <i class="bi bi-bullseye"></i>
+                </button>
+            </div>
+            <div class="btn-group">
+                <button class="btn btn-sm btn-outline-secondary" id="layout-circle" title="Circle Layout">
+                    <i class="bi bi-circle"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="layout-grid" title="Grid Layout">
+                    <i class="bi bi-grid-3x3"></i>
+                </button>
+                <button class="btn btn-sm btn-outline-secondary" id="layout-cose" title="Force-Directed">
+                    <i class="bi bi-diagram-2"></i>
+                </button>
+            </div>
+            <div class="ms-auto">
+                <span class="badge bg-primary">{{ node_count }} Nodes</span>
+                <span class="badge bg-secondary">{{ edge_count }} Edges</span>
+            </div>
+        </div>
+        
+        <!-- Graph Canvas -->
+        <div id="cy"></div>
+        
+        <!-- Legend -->
+        <div class="mt-3 p-2 bg-light rounded">
+            <strong class="me-3">Legend:</strong>
+            {% for nt in node_types %}
+            <span class="legend-item">
+                <span class="node-color me-1" style="background: {{ nt.color }};"></span>
+                {{ nt.display_name }}
+            </span>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-3">
+        <!-- Node Types -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white py-2">
+                <h6 class="mb-0"><i class="bi bi-circle me-1"></i> Node Types</h6>
+            </div>
+            <div class="card-body p-2 node-panel">
+                {% for nt in node_types %}
+                <div class="node-item d-flex align-items-center" data-type-id="{{ nt.id }}">
+                    <span class="node-color me-2" style="background: {{ nt.color }};"></span>
+                    <span>{{ nt.display_name }}</span>
+                </div>
+                {% empty %}
+                <p class="text-muted small mb-0">No node types defined.</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Edge Types -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white py-2">
+                <h6 class="mb-0"><i class="bi bi-arrow-right me-1"></i> Edge Types</h6>
+            </div>
+            <div class="card-body p-2 edge-panel">
+                {% for et in edge_types %}
+                <div class="edge-item d-flex align-items-center" data-type-id="{{ et.id }}">
+                    <i class="bi bi-arrow-right me-2" style="color: {{ et.color }};"></i>
+                    <span>{{ et.display_name }}</span>
+                </div>
+                {% empty %}
+                <p class="text-muted small mb-0">No edge types defined.</p>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Frameworks -->
+        <div class="card border-0 shadow-sm mb-3">
+            <div class="card-header bg-white py-2">
+                <h6 class="mb-0"><i class="bi bi-diagram-3 me-1"></i> Assigned Frameworks</h6>
+            </div>
+            <div class="card-body p-2">
+                {% for pf in frameworks %}
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span>{{ pf.framework.display_name }}</span>
+                    <span class="badge bg-{{ pf.framework.color }}">{{ pf.progress_percent|floatformat:0 }}%</span>
+                </div>
+                {% empty %}
+                <p class="text-muted small mb-0">No frameworks assigned.</p>
+                <a href="{% url 'graph_core:framework-list' %}" class="btn btn-sm btn-outline-primary mt-2 w-100">
+                    Browse Frameworks
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <!-- Selected Node Info -->
+        <div class="card border-0 shadow-sm" id="node-info-panel" style="display: none;">
+            <div class="card-header bg-white py-2 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-info-circle me-1"></i> Selected Node</h6>
+                <button class="btn btn-sm btn-outline-danger" id="delete-node-btn">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            <div class="card-body p-2">
+                <div id="node-info-content"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Node Modal -->
+<div class="modal fade" id="addNodeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Node</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="add-node-form">
+                    <div class="mb-3">
+                        <label class="form-label">Node Type</label>
+                        <select class="form-select" id="new-node-type" required>
+                            {% for nt in node_types %}
+                            <option value="{{ nt.id }}">{{ nt.display_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Name</label>
+                        <input type="text" class="form-control" id="new-node-name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Description</label>
+                        <textarea class="form-control" id="new-node-description" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="create-node-btn">Create Node</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Cytoscape.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cytoscape/3.28.1/cytoscape.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const projectId = {{ project.id }};
+    const csrfToken = '{{ csrf_token }}';
+    
+    // Initialize Cytoscape
+    const cy = cytoscape({
+        container: document.getElementById('cy'),
+        style: [
+            {
+                selector: 'node',
+                style: {
+                    'label': 'data(label)',
+                    'text-valign': 'center',
+                    'text-halign': 'center',
+                    'font-size': '12px',
+                    'width': 60,
+                    'height': 60,
+                }
+            },
+            {
+                selector: 'edge',
+                style: {
+                    'width': 2,
+                    'curve-style': 'bezier',
+                    'target-arrow-shape': 'triangle',
+                    'label': 'data(label)',
+                    'font-size': '10px',
+                    'text-rotation': 'autorotate',
+                }
+            },
+            {
+                selector: ':selected',
+                style: {
+                    'border-width': 3,
+                    'border-color': '#2563eb',
+                }
+            }
+        ],
+        layout: { name: 'preset' },
+        wheelSensitivity: 0.3,
+    });
+    
+    // Load graph data
+    fetch(`/graph/explorer/${projectId}/data/`)
+        .then(r => r.json())
+        .then(data => {
+            cy.add(data.elements);
+            
+            // Apply styles
+            data.styles.forEach(style => {
+                cy.style().selector(style.selector).style(style.style);
+            });
+            cy.style().update();
+            
+            if (data.elements.length > 0) {
+                cy.fit(50);
+            }
+        })
+        .catch(err => console.error('Error loading graph:', err));
+    
+    // Toolbar buttons
+    document.getElementById('fit-btn').addEventListener('click', () => cy.fit(50));
+    document.getElementById('center-btn').addEventListener('click', () => cy.center());
+    document.getElementById('layout-circle').addEventListener('click', () => cy.layout({ name: 'circle' }).run());
+    document.getElementById('layout-grid').addEventListener('click', () => cy.layout({ name: 'grid' }).run());
+    document.getElementById('layout-cose').addEventListener('click', () => cy.layout({ name: 'cose' }).run());
+    
+    // Add Node Modal
+    const addNodeModal = new bootstrap.Modal(document.getElementById('addNodeModal'));
+    document.getElementById('add-node-btn').addEventListener('click', () => addNodeModal.show());
+    
+    // Create Node
+    document.getElementById('create-node-btn').addEventListener('click', function() {
+        const data = {
+            node_type_id: document.getElementById('new-node-type').value,
+            name: document.getElementById('new-node-name').value,
+            description: document.getElementById('new-node-description').value,
+            position_x: Math.random() * 500 + 100,
+            position_y: Math.random() * 400 + 100,
+        };
+        
+        fetch(`/graph/explorer/${projectId}/node/create/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify(data),
+        })
+        .then(r => r.json())
+        .then(result => {
+            if (result.success) {
+                cy.add(result.node);
+                addNodeModal.hide();
+                document.getElementById('add-node-form').reset();
+            } else {
+                alert('Error: ' + (result.error || 'Unknown error'));
+            }
+        })
+        .catch(err => alert('Error creating node: ' + err));
+    });
+    
+    // Node selection
+    cy.on('tap', 'node', function(evt) {
+        const node = evt.target;
+        const data = node.data();
+        
+        document.getElementById('node-info-panel').style.display = 'block';
+        document.getElementById('node-info-content').innerHTML = `
+            <p class="mb-1"><strong>${data.label}</strong></p>
+            <p class="text-muted small mb-2">${data.description || 'No description'}</p>
+            <small class="text-muted">Type: ${data.type}</small>
+        `;
+    });
+    
+    cy.on('tap', function(evt) {
+        if (evt.target === cy) {
+            document.getElementById('node-info-panel').style.display = 'none';
+        }
+    });
+    
+    // Save positions on drag end
+    cy.on('dragfree', 'node', function(evt) {
+        const node = evt.target;
+        const pos = node.position();
+        const nodeId = node.id().replace('n', '');
+        
+        fetch(`/graph/explorer/${projectId}/node/${nodeId}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken,
+            },
+            body: JSON.stringify({
+                position_x: pos.x,
+                position_y: pos.y,
+            }),
+        });
+    });
+});
+</script>
+{% endblock %}

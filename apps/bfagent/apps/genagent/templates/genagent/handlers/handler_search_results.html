@@ -1,0 +1,40 @@
+{% if results %}
+<div class="row mb-2">
+    <div class="col-12">
+        <p class="text-muted">
+            Found {{ count }} handler{{ count|pluralize }} matching "{{ query }}"
+        </p>
+    </div>
+</div>
+
+<div class="row">
+    {% for handler in results %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100 shadow-sm hover-shadow">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="bi bi-gear"></i> {{ handler.name }}
+                </h5>
+                <p class="card-text text-muted small">{{ handler.description|truncatewords:15 }}</p>
+                
+                <div class="d-flex gap-2">
+                    <a href="{% url 'genagent:handler-detail' handler.path_encoded %}" 
+                       class="btn btn-sm btn-outline-primary flex-fill">
+                        <i class="bi bi-eye"></i> Details
+                    </a>
+                    <a href="{% url 'genagent:handler-test' handler.path_encoded %}" 
+                       class="btn btn-sm btn-outline-success flex-fill">
+                        <i class="bi bi-play-circle"></i> Test
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="alert alert-warning">
+    <i class="bi bi-search"></i> No handlers found matching "{{ query }}"
+</div>
+{% endif %}

@@ -1,0 +1,78 @@
+<!-- templates/cad_hub/project_list.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}Projekte{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2 class="h4 fw-bold">
+        <i class="bi bi-folder text-warning"></i> IFC Projekte
+    </h2>
+    <a href="{% url 'cad_hub:project_create' %}" class="btn btn-warning">
+        <i class="bi bi-plus"></i> Neues Projekt
+    </a>
+</div>
+
+{% if projects %}
+    <div class="row g-4">
+        {% for project in projects %}
+        <div class="col-md-6 col-lg-4">
+            <a href="{% url 'cad_hub:project_detail' project.pk %}" class="text-decoration-none">
+                <div class="card card-stat h-100">
+                    <div class="card-body">
+                        <h5 class="card-title text-dark">{{ project.name }}</h5>
+                        <div class="text-muted small">
+                            <div><i class="bi bi-box"></i> Modelle: {{ project.models.count }}</div>
+                            <div><i class="bi bi-calendar"></i> {{ project.created_at|date:"d.m.Y" }}</div>
+                            {% if project.created_by %}
+                            <div><i class="bi bi-person"></i> {{ project.created_by.username }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-transparent border-0 text-end">
+                        <i class="bi bi-chevron-right text-muted"></i>
+                    </div>
+                </div>
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1">Erste</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Zurück</a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item active">
+                <span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">Weiter</a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Letzte</a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+{% else %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <p class="text-muted mb-3">Noch keine Projekte vorhanden.</p>
+            <a href="{% url 'cad_hub:project_create' %}" class="btn btn-warning">
+                <i class="bi bi-plus"></i> Erstes Projekt erstellen
+            </a>
+        </div>
+    </div>
+{% endif %}
+{% endblock %}

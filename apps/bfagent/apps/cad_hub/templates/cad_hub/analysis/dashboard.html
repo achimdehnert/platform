@@ -1,0 +1,106 @@
+<!-- templates/cad_hub/analysis/dashboard.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}CAD Analyse - Dashboard{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h2 class="h4 fw-bold mb-1"><i class="bi bi-cpu text-primary"></i> CAD Analyse</h2>
+        <p class="text-muted mb-0">Analysieren, prüfen und abfragen von CAD-Daten</p>
+    </div>
+</div>
+
+<!-- Statistiken -->
+<div class="row row-cols-1 row-cols-md-3 g-3 mb-4">
+    <div class="col">
+        <div class="card card-stat h-100 text-center">
+            <div class="card-body py-3">
+                <p class="text-muted small text-uppercase mb-1">Modelle</p>
+                <p class="h3 fw-bold text-primary mb-1">{{ stats.total_models }}</p>
+                <p class="text-muted small mb-0">IFC-Modelle geladen</p>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card card-stat h-100 text-center">
+            <div class="card-body py-3">
+                <p class="text-muted small text-uppercase mb-1">Räume</p>
+                <p class="h3 fw-bold text-success mb-1">{{ stats.total_rooms }}</p>
+                <p class="text-muted small mb-0">Räume erfasst</p>
+            </div>
+        </div>
+    </div>
+    <div class="col">
+        <div class="card card-stat h-100 text-center">
+            <div class="card-body py-3">
+                <p class="text-muted small text-uppercase mb-1">Analysen</p>
+                <p class="h3 fw-bold text-info mb-1">{{ stats.recent_analyses }}</p>
+                <p class="text-muted small mb-0">Letzte Analysen</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Szenarien -->
+<h5 class="fw-bold mb-3"><i class="bi bi-grid-3x3-gap"></i> Anwendungsszenarien</h5>
+
+<div class="row row-cols-1 row-cols-md-2 row-cols-lg-4 g-4">
+    {% for scenario in scenarios %}
+    <div class="col">
+        <div class="card h-100 border-{{ scenario.color }} border-opacity-50 hover-shadow">
+            <div class="card-body text-center">
+                <div class="rounded-circle bg-{{ scenario.color }} bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-3" style="width: 64px; height: 64px;">
+                    <i class="bi {{ scenario.icon }} fs-2 text-{{ scenario.color }}"></i>
+                </div>
+                <h5 class="card-title">{{ scenario.name }}</h5>
+                <p class="card-text text-muted small">{{ scenario.description }}</p>
+            </div>
+            <div class="card-footer bg-transparent border-0 text-center pb-3">
+                <a href="{% url scenario.url %}" class="btn btn-{{ scenario.color }} btn-sm">
+                    <i class="bi bi-arrow-right"></i> Öffnen
+                </a>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Quick Actions -->
+<div class="card mt-4">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h6>
+    </div>
+    <div class="card-body">
+        <div class="row g-2">
+            <div class="col-auto">
+                <a href="{% url 'cad_hub:format_analyzer' %}" class="btn btn-outline-primary btn-sm">
+                    <i class="bi bi-upload"></i> Datei analysieren
+                </a>
+            </div>
+            <div class="col-auto">
+                <a href="{% url 'cad_hub:nl_query' %}" class="btn btn-outline-success btn-sm">
+                    <i class="bi bi-chat-dots"></i> Frage stellen
+                </a>
+            </div>
+            <div class="col-auto">
+                <a href="{% url 'cad_hub:dxf_quality' %}" class="btn btn-outline-warning btn-sm">
+                    <i class="bi bi-check2-square"></i> DXF prüfen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.hover-shadow:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    transform: translateY(-2px);
+    transition: all 0.2s ease;
+}
+.card {
+    transition: all 0.2s ease;
+}
+</style>
+{% endblock %}

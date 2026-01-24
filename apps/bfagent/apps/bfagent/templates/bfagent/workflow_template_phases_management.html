@@ -1,0 +1,264 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Workflow Template Phases{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-file-earmark-text"></i> Workflow Template Phases</h2>
+        <div class="btn-group">
+            <a href="{% url 'bfagent:workflowphasestep-list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> List View
+            </a>
+            <a href="{% url 'bfagent:workflowtemplate-create' %}" class="btn btn-purple text-white" style="background-color: #6f42c1;">
+                <i class="bi bi-plus-circle"></i> Add Template
+            </a>
+            <a href="{% url 'bfagent:workflowphase-create' %}" class="btn btn-info">
+                <i class="bi bi-plus-circle"></i> Add Phase
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header text-white" style="background-color: #6f42c1;">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-text"></i> Workflow Templates</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for template in templates %}
+                        <a href="?template={{ template.id }}" class="list-group-item list-group-item-action {% if template.id == selected_template.id %}active{% endif %}">
+                            {{ template.name }} <span class="badge bg-secondary float-end">{{ template.steps.count }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            {% if selected_template %}
+                <div class="alert alert-info">
+                    <strong>{{ selected_template.name }}</strong>
+                    {% if selected_template.description %}
+                        <br><small>{{ selected_template.description }}</small>
+                    {% endif %}
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-warning text-dark">
+                                <h5 class="mb-0"><i class="bi bi-check-circle"></i> Assigned Phases <span class="badge bg-dark">{{ assigned_count }}</span></h5>
+                                <small class="text-muted">Drag to reorder</small>
+                            </div>
+                            <div class="card-body" id="assigned-phases" style="min-height: 400px;">
+                                {% if assigned_steps %}
+                                    <div class="list-group" id="sortable-phases">
+                                        {% for step in assigned_steps %}
+                                            <div class="list-group-item sortable-item" data-step-id="{{ step.id }}" data-order="{{ step.order }}" style="cursor: move;">
+                                                <div class="d-flex justify-content-between align-items-start">
+                                                    <div class="flex-grow-1">
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <i class="bi bi-grip-vertical me-2 text-muted"></i>
+                                                            <span class="badge bg-secondary me-2">{{ step.order }}</span>
+                                                            <strong><i class="bi bi-{{ step.phase.icon|default:'circle' }}"></i> {{ step.phase.name }}</strong>
+                                                            {% if not step.can_skip %}
+                                                                <span class="badge bg-success ms-2">Required</span>
+                                                            {% else %}
+                                                                <span class="badge bg-secondary ms-2">Skippable</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            {% if step.required_chapters %}Chapters: {{ step.required_chapters }} • {% endif %}
+                                                            {% if step.can_return %}Can return{% else %}One-way{% endif %}
+                                                        </small>
+                                                    </div>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="{% url 'bfagent:workflowphasestep-update' step.pk %}" class="btn btn-outline-primary" title="Edit">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </a>
+                                                        <button class="btn btn-outline-danger" title="Remove"
+                                                                hx-post="{% url 'bfagent:workflow-phase-step-remove' %}"
+                                                                hx-vals='{"step_id":"{{ step.pk }}"}'
+                                                                hx-confirm="Remove this phase from template?"
+                                                                hx-target="closest .list-group-item"
+                                                                hx-swap="outerHTML swap:1s">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                                        <p class="mt-3">No phases assigned yet.</p>
+                                        <p><small>Select phases from the available list →</small></p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-info text-dark">
+                                <h5 class="mb-0"><i class="bi bi-arrow-right-circle"></i> Available Phases <span class="badge bg-dark">{{ unassigned_count }}</span></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="list-group">
+                                    {% for phase in unassigned_phases %}
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <i class="bi bi-{{ phase.icon|default:'circle' }}"></i> {{ phase.name }}
+                                                </div>
+                                                <button class="btn btn-sm btn-info"
+                                                        hx-post="{% url 'bfagent:workflow-phase-step-add' %}"
+                                                        hx-vals='{"template_id":"{{ selected_template.id }}","phase_id":"{{ phase.id }}"}'
+                                                        hx-target="#assigned-phases .list-group"
+                                                        hx-swap="beforeend">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% else %}
+                <div class="card">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-arrow-left-circle" style="font-size: 4rem; color: #ccc;"></i>
+                        <h4 class="mt-3 text-muted">Select a Template</h4>
+                        <p class="text-muted">Choose a workflow template from the left sidebar to manage its phases.</p>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sortable-item {
+    transition: background-color 0.2s;
+}
+.sortable-item:hover {
+    background-color: #f8f9fa;
+}
+.sortable-ghost {
+    opacity: 0.4;
+    background: #e9ecef;
+}
+.sortable-drag {
+    opacity: 1;
+    background: #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- SortableJS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+// Global variable to store sortable instance
+let sortableInstance = null;
+
+// Function to initialize or reinitialize Sortable
+function initializeSortable() {
+    const sortableList = document.getElementById('sortable-phases');
+
+    if (sortableList) {
+        // Destroy existing instance if it exists
+        if (sortableInstance) {
+            sortableInstance.destroy();
+        }
+
+        // Create new sortable instance
+        sortableInstance = new Sortable(sortableList, {
+            animation: 150,
+            handle: '.sortable-item',
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+
+            onEnd: function (evt) {
+                // Get all items in new order
+                const items = sortableList.querySelectorAll('.sortable-item');
+                const orderData = [];
+
+                items.forEach((item, index) => {
+                    const stepId = item.dataset.stepId;
+                    const newOrder = index + 1;
+                    orderData.push({
+                        id: stepId,
+                        order: newOrder
+                    });
+
+                    // Update badge
+                    const badge = item.querySelector('.badge.bg-secondary');
+                    if (badge) {
+                        badge.textContent = newOrder;
+                    }
+                });
+
+                // Send order update to server
+                fetch('{% url "bfagent:workflow-phase-step-reorder" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        template_id: '{{ selected_template.id }}',
+                        order: orderData
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Order updated successfully');
+                        // Show success message
+                        const alert = document.createElement('div');
+                        alert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                        alert.style.zIndex = '9999';
+                        alert.innerHTML = '<i class="bi bi-check-circle"></i> Order updated! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                        document.body.appendChild(alert);
+                        setTimeout(() => alert.remove(), 3000);
+                    } else {
+                        console.error('Failed to update order');
+                        alert('Failed to update order. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error updating order. Please try again.');
+                });
+            }
+        });
+    }
+}
+
+// Reinitialize Sortable after HTMX adds new item
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Check if the swap target is the assigned-phases list
+    if (event.detail.target.id === 'assigned-phases' ||
+        event.detail.target.closest('#assigned-phases')) {
+        // Reinitialize sortable after new item is added
+        setTimeout(() => initializeSortable(), 100);
+    }
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSortable();
+});
+</script>
+{% endblock %}

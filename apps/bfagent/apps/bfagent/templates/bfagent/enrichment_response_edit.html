@@ -1,0 +1,170 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Edit Suggestion - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Breadcrumb -->
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'bfagent:project-list' %}">Projects</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'bfagent:project-detail' project.pk %}">{{ project.title }}</a></li>
+                    <li class="breadcrumb-item active">Edit Suggestion</li>
+                </ol>
+            </nav>
+
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2>
+                    <i class="bi bi-pencil-square"></i>
+                    Edit AI Suggestion
+                </h2>
+                <a href="{% url 'bfagent:project-detail' project.pk %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Project
+                </a>
+            </div>
+
+            <!-- Edit Form -->
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h5 class="mb-0">
+                                <i class="bi bi-robot"></i> {{ enrichment.agent.name }}
+                            </h5>
+                            <small>Action: {{ enrichment.action_name }} → Field: <code>{{ enrichment.field_name }}</code></small>
+                        </div>
+                        <span class="badge bg-warning">{{ enrichment.get_status_display }}</span>
+                    </div>
+                </div>
+                
+                <div class="card-body">
+                    <form hx-post="{% url 'bfagent:enrichment-response-edit' project.pk enrichment.id %}"
+                          hx-target="#result-message"
+                          hx-swap="innerHTML">
+                        {% csrf_token %}
+                        
+                        <!-- Original Suggested Value (Read-only) -->
+                        <div class="mb-4">
+                            <label class="form-label">
+                                <strong>Original AI Suggestion:</strong>
+                                <span class="badge bg-info">Confidence: {{ enrichment.confidence|floatformat:0 }}%</span>
+                            </label>
+                            <div class="card bg-light">
+                                <div class="card-body">
+                                    <pre class="mb-0" style="white-space: pre-wrap; max-height: 300px; overflow-y: auto;">{{ enrichment.suggested_value }}</pre>
+                                </div>
+                            </div>
+                            {% if enrichment.rationale %}
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle"></i> Rationale: {{ enrichment.rationale }}
+                            </small>
+                            {% endif %}
+                        </div>
+
+                        <!-- Editable Value -->
+                        <div class="mb-4">
+                            <label for="edited_value" class="form-label">
+                                <strong>Your Edited Version:</strong>
+                                <small class="text-muted">(Modify the suggestion before applying)</small>
+                            </label>
+                            <textarea name="edited_value" 
+                                      id="edited_value" 
+                                      class="form-control font-monospace" 
+                                      rows="15" 
+                                      style="resize: vertical;">{{ enrichment.edited_value|default:enrichment.suggested_value }}</textarea>
+                            <div class="form-text">
+                                <i class="bi bi-lightbulb"></i> 
+                                Tip: You can freely edit the AI suggestion. The edited version will be applied to your project.
+                            </div>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-floppy"></i> Save Changes
+                            </button>
+                            <a href="{% url 'bfagent:project-detail' project.pk %}" class="btn btn-secondary">
+                                <i class="bi bi-x-circle"></i> Cancel
+                            </a>
+                        </div>
+                    </form>
+
+                    <!-- Result Message -->
+                    <div id="result-message" class="mt-3"></div>
+                </div>
+
+                <div class="card-footer">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                <i class="bi bi-clock"></i> Created: {{ enrichment.created_at|date:"Y-m-d H:i" }}
+                            </small>
+                        </div>
+                        <div class="col-md-6 text-end">
+                            {% if enrichment.applied_at %}
+                            <small class="text-success">
+                                <i class="bi bi-check-circle-fill"></i> Applied: {{ enrichment.applied_at|date:"Y-m-d H:i" }}
+                                {% if enrichment.applied_by %}by {{ enrichment.applied_by.username }}{% endif %}
+                            </small>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Apply/Reject Actions -->
+            {% if enrichment.status != 'applied' and enrichment.status != 'rejected' %}
+            <div class="card mt-3">
+                <div class="card-body">
+                    <h5>Apply or Reject Suggestion</h5>
+                    <p class="text-muted">Once you're happy with your edits, apply the suggestion to your project, or reject it.</p>
+                    
+                    <div class="d-flex gap-2">
+                        <button hx-post="{% url 'bfagent:enrichment-response-apply' project.pk enrichment.id %}"
+                                hx-target="#apply-result"
+                                hx-swap="innerHTML"
+                                class="btn btn-success btn-lg"
+                                onclick="return confirm('Apply this suggestion to {{ enrichment.field_name }}? This will update your project.')">
+                            <i class="bi bi-check-circle-fill"></i> Apply to Project
+                        </button>
+                        
+                        <button hx-post="{% url 'bfagent:enrichment-response-reject' project.pk enrichment.id %}"
+                                hx-target="#apply-result"
+                                hx-swap="innerHTML"
+                                class="btn btn-outline-danger"
+                                onclick="return confirm('Reject this suggestion? It will be marked as rejected.')">
+                            <i class="bi bi-x-circle"></i> Reject
+                        </button>
+                    </div>
+                    
+                    <div id="apply-result" class="mt-3"></div>
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-resize textarea
+document.getElementById('edited_value').addEventListener('input', function() {
+    this.style.height = 'auto';
+    this.style.height = (this.scrollHeight) + 'px';
+});
+
+// Show success message after save
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'result-message') {
+        setTimeout(function() {
+            document.getElementById('result-message').innerHTML = 
+                '<div class="alert alert-success"><i class="bi bi-check-circle-fill"></i> Changes saved successfully!</div>';
+        }, 100);
+    }
+});
+</script>
+{% endblock %}

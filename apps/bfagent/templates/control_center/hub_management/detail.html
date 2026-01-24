@@ -1,0 +1,130 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - BF Agent{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="{{ hub.icon }}"></i> {{ hub.name }}</h1>
+        <a href="{% url 'control_center:hub_management' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-info-circle"></i> Hub Details
+                </div>
+                <div class="card-body">
+                    <table class="table table-borderless">
+                        <tr>
+                            <th style="width: 200px;">ID</th>
+                            <td><code>{{ hub.id }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Name</th>
+                            <td>{{ hub.name }}</td>
+                        </tr>
+                        <tr>
+                            <th>Beschreibung</th>
+                            <td>{{ hub.description }}</td>
+                        </tr>
+                        <tr>
+                            <th>Version</th>
+                            <td>{{ hub.version }}</td>
+                        </tr>
+                        <tr>
+                            <th>Kategorie</th>
+                            <td><span class="badge bg-secondary">{{ hub.category }}</span></td>
+                        </tr>
+                        <tr>
+                            <th>Status</th>
+                            <td>
+                                {% if hub.status == 'production' %}
+                                <span class="badge bg-success">Production</span>
+                                {% elif hub.status == 'beta' %}
+                                <span class="badge bg-warning">Beta</span>
+                                {% elif hub.status == 'development' %}
+                                <span class="badge bg-info">Development</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ hub.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Aktiv</th>
+                            <td>
+                                {% if hub.is_active %}
+                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Ja</span>
+                                {% else %}
+                                <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Nein</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th>Entry Point</th>
+                            <td><code>{{ hub.entry_point }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Dependencies</th>
+                            <td>
+                                {% for dep in hub.dependencies %}
+                                <span class="badge bg-light text-dark">{{ dep }}</span>
+                                {% empty %}
+                                <span class="text-muted">Keine</span>
+                                {% endfor %}
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-toggles"></i> Aktionen
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'control_center:hub_toggle' hub.id %}">
+                        {% csrf_token %}
+                        {% if hub.is_active %}
+                        <input type="hidden" name="action" value="deactivate">
+                        <button type="submit" class="btn btn-outline-danger w-100 mb-2">
+                            <i class="bi bi-pause-circle"></i> Deaktivieren
+                        </button>
+                        {% else %}
+                        <input type="hidden" name="action" value="activate">
+                        <button type="submit" class="btn btn-outline-success w-100 mb-2">
+                            <i class="bi bi-play-circle"></i> Aktivieren
+                        </button>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-clock-history"></i> Letzte Events
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for event in recent_events %}
+                        <li class="list-group-item small">
+                            <code>{{ event.event_type }}</code>
+                            <br><small class="text-muted">{{ event.timestamp|date:"d.m.Y H:i" }}</small>
+                        </li>
+                        {% empty %}
+                        <li class="list-group-item text-muted text-center">
+                            Keine Events
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

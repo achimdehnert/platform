@@ -1,0 +1,102 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ object.display_name }} - AgentAction{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-lightning"></i> {{ object.display_name }}</h1>
+        <div>
+            <a href="{% url 'bfagent:agentaction-list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+            <a href="{% url 'bfagent:agentaction-update' object.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{% url 'bfagent:agentaction-test' object.pk %}" class="btn btn-success">
+                <i class="bi bi-play-circle"></i> Test Action
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5>Action Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Agent:</strong></div>
+                <div class="col-md-9"><span class="badge bg-primary">{{ object.agent.name }}</span></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Internal Name:</strong></div>
+                <div class="col-md-9"><code>{{ object.name }}</code></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Display Name:</strong></div>
+                <div class="col-md-9">{{ object.display_name }}</div>
+            </div>
+            {% if object.description %}
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Description:</strong></div>
+                <div class="col-md-9">{{ object.description }}</div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5>Configuration</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Status:</strong></div>
+                <div class="col-md-9">
+                    {% if object.is_active %}
+                        <span class="badge bg-success">Active</span>
+                    {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Display Order:</strong></div>
+                <div class="col-md-9"><span class="badge bg-info">{{ object.order }}</span></div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Prompt Template:</strong></div>
+                <div class="col-md-9">
+                    {% if object.prompt_template %}
+                        {{ object.prompt_template.name }}
+                    {% else %}
+                        <span class="text-muted">None</span>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-header">
+            <h5>Usage Statistics</h5>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Usage Count:</strong></div>
+                <div class="col-md-9">{{ object.usage_count }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Avg Execution Time:</strong></div>
+                <div class="col-md-9">{{ object.avg_execution_time }}s</div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'bfagent:agentaction-delete' object.pk %}" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

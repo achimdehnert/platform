@@ -1,0 +1,19 @@
+
+# HTMX Conformity Fixes
+# Generated automatically by htmx_conformity_scanner.py
+
+.PHONY: fix-htmx-all fix-htmx-critical fix-htmx-targets
+
+fix-htmx-all: fix-htmx-critical fix-htmx-targets fix-htmx-csrf ## Fix all HTMX conformity issues
+
+fix-htmx-critical: ## Fix critical HTMX issues
+	@echo "🔧 Fixing critical HTMX issues..."
+
+fix-htmx-targets: ## Fix invalid HTMX targets
+	@echo "🎯 Fixing HTMX targets..."
+	@find templates -name "*.html" -exec sed -i 's/hx-target="#content-area"/hx-target="#main-content"/g' {} \;
+	@echo "✅ Fixed invalid targets"
+
+fix-htmx-csrf: ## Add missing CSRF tokens
+	@echo "🔒 Adding CSRF tokens to HTMX forms..."
+	@echo "⚠️  Manual review required for CSRF token placement"

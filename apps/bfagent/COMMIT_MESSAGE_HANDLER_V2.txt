@@ -1,0 +1,78 @@
+feat: handler-first architecture v2 - pydantic + retry logic
+
+MAJOR ENHANCEMENTS:
+✅ Pydantic Input/Output validation models
+✅ Performance tracking with execution time metrics
+✅ Retry decorators with exponential backoff
+✅ Enhanced minimal handler view
+✅ Production-ready error handling
+
+FILES ADDED:
+- apps/bfagent/handlers/base_models.py (Pydantic models)
+- apps/bfagent/handlers/retry_utils.py (Retry decorators)
+- apps/bfagent/views/enrichment_views_minimal.py (Enhanced)
+- docs/HANDLER_ARCHITECTURE_V2.md (Architecture documentation)
+- test_minimal_handler.py (Testing script)
+
+TECHNICAL IMPLEMENTATION:
+
+1. Pydantic Models:
+   - HandlerInput/Output base models (immutable, validated)
+   - EnrichmentInput with action validation
+   - EnrichmentOutput with confidence scoring
+   - Frozen models for thread safety
+
+2. Enhanced Minimal View:
+   - Strict input validation with detailed error messages
+   - Performance tracking (execution time in ms)
+   - Clean separation of concerns
+   - NO database dependencies for actions
+
+3. Retry Utilities:
+   - @retry_on_failure decorator with exponential backoff
+   - @retry_with_timeout for long-running operations
+   - Configurable retry attempts and delays
+   - Comprehensive error logging
+
+VALIDATION EXAMPLE:
+```python
+input_data = EnrichmentInput(
+    project_id=19,
+    action="enhance_description",  # Validated against allowed actions!
+    requirements="Make it dramatic"
+)
+# Automatic validation - raises ValidationError if invalid
+```
+
+RETRY EXAMPLE:
+```python
+@retry_on_failure(max_retries=3, delay_seconds=2)
+def call_llm(context):
+    return llm_api_call(context)  # Auto-retried on failure!
+```
+
+PERFORMANCE TRACKING:
+```
+✅ Handler executed in 245.67ms
+Performance: 245.67ms (automatically tracked!)
+```
+
+TESTING:
+✅ test_minimal_handler.py - All actions tested successfully
+✅ Pydantic validation catches invalid actions
+✅ Performance metrics displayed in response
+✅ Retry logic tested with transient failures
+
+ARCHITECTURE BENEFITS:
+- Type Safety: Pydantic ensures data integrity
+- Resilience: Automatic retry on transient failures
+- Observability: Built-in performance tracking
+- Developer Experience: Clear validation errors
+- Production Ready: Comprehensive error handling
+
+NEXT PHASES:
+Phase 2 (Current): ✅ COMPLETE
+Phase 3 (Planned): GraphQL integration + analytics
+
+This represents Handler-First Architecture V2 - combining the minimal
+architecture with enterprise-grade validation, retry logic, and monitoring.

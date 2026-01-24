@@ -1,0 +1,6 @@
+{{CLIPBOARD:Validiere Handler mit BFAgent MCP:
+
+Handler Code: [PATH_TO_HANDLER]
+Strict Mode: [ ] yes [x] no
+
+Erwarte Score: 0-100}}

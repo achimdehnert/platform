@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - GenAgent{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        {% if action %}
+                            <i class="bi bi-pencil"></i> Edit Action
+                        {% else %}
+                            <i class="bi bi-plus-circle"></i> Create Action
+                        {% endif %}
+                    </h1>
+                    <p class="text-muted">Phase: {{ phase.name }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'genagent:phase-detail' phase.id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Phase
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                <!-- Basic Information -->
+                <div class="card mb-3">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Basic Information</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Action Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ action.name }}" required>
+                            <div class="invalid-feedback">Please provide an action name.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3">{{ action.description }}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="order" class="form-label">Execution Order</label>
+                            <input type="number" class="form-control" id="order" name="order" 
+                                   value="{{ action.order|default:0 }}" min="0">
+                            <small class="form-text text-muted">Lower numbers execute first</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Handler Selection -->
+                <div class="card mb-3">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0"><i class="bi bi-gear"></i> Handler Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="handler_class" class="form-label">Handler *</label>
+                            <select class="form-select" id="handler_class" name="handler_class" 
+                                    hx-get="{% url 'genagent:action-config-schema' %}"
+                                    hx-target="#config-fields"
+                                    hx-trigger="change"
+                                    hx-include="[name='handler_class']"
+                                    required>
+                                <option value="">Select a handler...</option>
+                                {% for handler in handlers %}
+                                <option value="{{ handler.path }}" 
+                                        {% if action.handler_class == handler.path %}selected{% endif %}>
+                                    {{ handler.name }} - {{ handler.description|truncatewords:10 }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                            <div class="invalid-feedback">Please select a handler.</div>
+                        </div>
+
+                        <!-- Dynamic Config Fields (HTMX Target) -->
+                        <div id="config-fields">
+                            {% if action.handler_class %}
+                                <div class="alert alert-info">
+                                    <i class="bi bi-info-circle"></i> Select handler to see configuration options
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Options -->
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5 class="mb-0"><i class="bi bi-sliders"></i> Advanced Options</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="timeout_seconds" class="form-label">Timeout (seconds)</label>
+                                <input type="number" class="form-control" id="timeout_seconds" 
+                                       name="timeout_seconds" value="{{ action.timeout_seconds }}" min="1">
+                                <small class="form-text text-muted">Leave empty for no timeout</small>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="retry_count" class="form-label">Retry Count</label>
+                                <input type="number" class="form-control" id="retry_count" 
+                                       name="retry_count" value="{{ action.retry_count|default:0 }}" min="0">
+                            </div>
+                        </div>
+
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="continue_on_error" 
+                                   name="continue_on_error" {% if action.continue_on_error %}checked{% endif %}>
+                            <label class="form-check-label" for="continue_on_error">
+                                Continue workflow on error
+                            </label>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mb-4">
+                    <a href="{% url 'genagent:phase-detail' phase.id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        {% if action %}
+                            <i class="bi bi-save"></i> Save Changes
+                        {% else %}
+                            <i class="bi bi-check-circle"></i> Create Action
+                        {% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Help Sidebar -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Action Guide</h5>
+                </div>
+                <div class="card-body">
+                    <h6>What is an Action?</h6>
+                    <p class="small">
+                        Actions are individual tasks executed within a Phase. Each action uses a 
+                        Handler to perform specific operations like data validation, transformation, 
+                        or external API calls.
+                    </p>
+
+                    <h6 class="mt-3">Execution Order</h6>
+                    <p class="small">
+                        Actions execute sequentially based on their order number. Lower numbers run first.
+                    </p>
+
+                    <h6 class="mt-3">Handler Selection</h6>
+                    <p class="small">
+                        Choose a handler that matches your task. After selection, configuration 
+                        options specific to that handler will appear automatically.
+                    </p>
+
+                    <h6 class="mt-3">Configuration</h6>
+                    <p class="small">
+                        Each handler may require specific configuration. Fields are generated 
+                        dynamically based on the handler's schema.
+                    </p>
+
+                    <h6 class="mt-3">Error Handling</h6>
+                    <ul class="small">
+                        <li><strong>Timeout:</strong> Maximum execution time</li>
+                        <li><strong>Retry:</strong> Number of retry attempts on failure</li>
+                        <li><strong>Continue on Error:</strong> Keep workflow running even if this action fails</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Bootstrap form validation
+(function() {
+    'use strict';
+    window.addEventListener('load', function() {
+        var forms = document.getElementsByClassName('needs-validation');
+        Array.prototype.filter.call(forms, function(form) {
+            form.addEventListener('submit', function(event) {
+                if (form.checkValidity() === false) {
+                    event.preventDefault();
+                    event.stopPropagation();
+                }
+                form.classList.add('was-validated');
+            }, false);
+        });
+    }, false);
+})();
+</script>
+{% endblock %}

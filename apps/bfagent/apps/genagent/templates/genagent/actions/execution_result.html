@@ -1,0 +1,70 @@
+<!-- Action Execution Result (HTMX Response) -->
+{% if result.status == 'success' %}
+<div class="alert alert-success">
+    <h5 class="alert-heading">
+        <i class="bi bi-check-circle-fill"></i> Action Executed Successfully
+    </h5>
+    <hr>
+    <dl class="row mb-0">
+        <dt class="col-sm-3">Action:</dt>
+        <dd class="col-sm-9">{{ result.action_name }}</dd>
+        
+        <dt class="col-sm-3">Handler:</dt>
+        <dd class="col-sm-9"><code>{{ result.handler }}</code></dd>
+        
+        <dt class="col-sm-3">Duration:</dt>
+        <dd class="col-sm-9">{{ result.duration_seconds|floatformat:3 }} seconds</dd>
+        
+        <dt class="col-sm-3">Execution Log:</dt>
+        <dd class="col-sm-9">
+            <a href="{% url 'genagent:execution-log-detail' result.execution_log_id %}" target="_blank">
+                View Log #{{ result.execution_log_id }}
+            </a>
+        </dd>
+    </dl>
+    
+    {% if result.result %}
+    <hr>
+    <h6>Result Data:</h6>
+    <pre class="bg-light p-2 rounded"><code>{{ result.result|safe }}</code></pre>
+    {% endif %}
+</div>
+{% else %}
+<div class="alert alert-danger">
+    <h5 class="alert-heading">
+        <i class="bi bi-exclamation-triangle-fill"></i> Execution Failed
+    </h5>
+    <hr>
+    <dl class="row mb-0">
+        <dt class="col-sm-3">Action:</dt>
+        <dd class="col-sm-9">{{ result.action_name|default:action.name }}</dd>
+        
+        {% if result.handler %}
+        <dt class="col-sm-3">Handler:</dt>
+        <dd class="col-sm-9"><code>{{ result.handler }}</code></dd>
+        {% endif %}
+        
+        {% if result.duration_seconds %}
+        <dt class="col-sm-3">Duration:</dt>
+        <dd class="col-sm-9">{{ result.duration_seconds|floatformat:3 }} seconds</dd>
+        {% endif %}
+        
+        <dt class="col-sm-3">Error Type:</dt>
+        <dd class="col-sm-9">{{ result.error_type|default:"Error" }}</dd>
+        
+        <dt class="col-sm-3">Error Message:</dt>
+        <dd class="col-sm-9">
+            <pre class="mb-0">{{ result.error }}</pre>
+        </dd>
+        
+        {% if result.execution_log_id %}
+        <dt class="col-sm-3">Execution Log:</dt>
+        <dd class="col-sm-9">
+            <a href="{% url 'genagent:execution-log-detail' result.execution_log_id %}" target="_blank" class="text-white">
+                View Log #{{ result.execution_log_id }}
+            </a>
+        </dd>
+        {% endif %}
+    </dl>
+</div>
+{% endif %}

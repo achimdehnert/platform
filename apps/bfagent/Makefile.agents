@@ -1,0 +1,137 @@
+# BF Agent - Agent Action Management Makefile
+# ============================================
+# Sinnvolle Commands für Agent Action Management
+
+.PHONY: agent-status agent-sync agent-missing agent-fix agent-planning agent-list agent-health
+
+# ============================================================================
+# AGENT ACTION MANAGEMENT
+# ============================================================================
+
+agent-interactive: ## 🎯 Interactive Agent Action Manager (EMPFOHLEN!)
+	@python scripts/agent_action_manager.py
+
+agent-create: ## 🤖 Create New Agent (Wizard)
+	@echo "🤖 Starting Agent Creator Wizard..."
+	@python scripts/agent_action_manager.py
+	@echo "Select option 8 in the menu"
+
+agent-status: ## 📊 Show agent action status (alle Agents)
+	@echo "📊 Checking agent action status..."
+	@python scripts/agent_action_manager.py status
+
+agent-sync: ## 🔄 Sync alle agent actions aus Templates
+	@echo "🔄 Syncing all agent actions..."
+	@python scripts/agent_action_manager.py sync
+
+agent-sync-dry: ## 🔍 Dry-run sync (zeigt was passieren würde)
+	@echo "🔍 Dry-run sync (no changes)..."
+	@python scripts/agent_action_manager.py sync --dry-run
+
+agent-missing: ## ⚠️  Liste alle fehlenden actions
+	@echo "⚠️  Finding missing actions..."
+	@python scripts/agent_action_manager.py missing
+
+# ============================================================================
+# EINZELNE AGENTS FIXEN
+# ============================================================================
+
+agent-create-planning: ## ⚡ Create Planning Agent in DB (if missing)
+	@echo "⚡ Creating Planning Agent..."
+	@python scripts/create_planning_agent.py
+
+agent-fix-planning: ## 🔧 Fix planning_agent actions
+	@echo "🔧 Fixing planning_agent actions..."
+	@python scripts/create_planning_agent.py
+	@python scripts/agent_action_manager.py sync --agent planning_agent
+
+agent-fix-project-manager: ## 🔧 Fix project_manager_agent actions
+	@echo "🔧 Fixing project_manager_agent actions..."
+	@python scripts/agent_action_manager.py sync --agent project_manager_agent
+
+agent-fix-writer: ## 🔧 Fix writer_agent actions (inkl. aliases)
+	@echo "🔧 Fixing writer_agent actions..."
+	@python scripts/agent_action_manager.py sync --agent writer_agent
+
+agent-fix-world: ## 🔧 Fix world_conflict_agent actions
+	@echo "🔧 Fixing world_conflict_agent actions..."
+	@python scripts/agent_action_manager.py sync --agent world_conflict_agent
+
+agent-fix-outline: ## 🔧 Fix outline_agent actions
+	@echo "🔧 Fixing outline_agent actions..."
+	@python scripts/agent_action_manager.py sync --agent outline_agent
+
+agent-fix-all: ## 🔧 Fix ALLE agent actions (full sync)
+	@echo "🔧 Fixing ALL agent actions..."
+	@make agent-fix-planning
+	@make agent-fix-project-manager
+	@make agent-fix-writer
+	@make agent-fix-world
+	@make agent-fix-outline
+
+# ============================================================================
+# AGENT LISTING & INFO
+# ============================================================================
+
+agent-list: ## 📋 Liste alle verfügbaren Agents
+	@echo "📋 Available agents in database:"
+	@python -c "import os, sys; sys.path.insert(0, '.'); os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development'); import django; django.setup(); from apps.bfagent.models import Agents; agents = Agents.objects.all().order_by('agent_type'); [print(f'  - {a.agent_type:30} | {a.name:30} | {a.status}') for a in agents]"
+
+agent-count: ## 📊 Zeige Agent Action Counts
+	@echo "📊 Agent action counts:"
+	@python -c "import os, sys; sys.path.insert(0, '.'); os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.development'); import django; django.setup(); from apps.bfagent.models import Agents, AgentAction; from django.db.models import Count; agents = Agents.objects.annotate(action_count=Count('agentaction')).order_by('agent_type'); [print(f'  {a.agent_type:30} | {a.action_count:3} actions') for a in agents]"
+
+agent-health: ## 💚 Comprehensive agent system health check
+	@echo "💚 Agent System Health Check"
+	@echo "=============================="
+	@echo ""
+	@echo "📊 Status Overview:"
+	@make agent-status
+	@echo ""
+	@echo "📋 Agent List:"
+	@make agent-list
+	@echo ""
+	@echo "⚠️  Missing Actions:"
+	@make agent-missing
+
+# ============================================================================
+# TEMPLATE MANAGEMENT
+# ============================================================================
+
+agent-template-check: ## 🔍 Validate agent action template YAML
+	@echo "🔍 Validating agent action templates..."
+	@python -c "import yaml; yaml.safe_load(open('config/agent_action_templates.yaml')); print('✅ Template YAML is valid')"
+
+agent-template-edit: ## ✏️  Open template in editor
+	@echo "✏️  Opening agent action template..."
+	@code config/agent_action_templates.yaml
+
+# ============================================================================
+# QUICK FIXES (für häufige Probleme)
+# ============================================================================
+
+agent-quick-fix: ## ⚡ Quick fix für die 3 häufigsten Probleme
+	@echo "⚡ Running quick fixes for common issues..."
+	@make agent-fix-planning
+	@make agent-fix-writer
+	@make agent-fix-outline
+	@echo ""
+	@echo "✅ Quick fixes applied!"
+	@make agent-status
+
+# ============================================================================
+# HELP
+# ============================================================================
+
+agent-help: ## 📖 Show this help for agent commands
+	@echo "BF Agent - Agent Action Management Commands"
+	@echo "==========================================="
+	@echo ""
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' Makefile.agents | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-25s\033[0m %s\n", $$1, $$2}'
+	@echo ""
+	@echo "Häufigste Use Cases:"
+	@echo "  1. Schnellcheck:        make agent-status"
+	@echo "  2. Alles fixen:         make agent-sync"
+	@echo "  3. Nur fehlende:        make agent-quick-fix"
+	@echo "  4. Planning Agent:      make agent-fix-planning"
+	@echo ""

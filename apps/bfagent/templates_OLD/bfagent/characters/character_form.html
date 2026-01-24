@@ -1,0 +1,194 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_create %}Neuer Character{% else %}{{ character.name }} bearbeiten{% endif %} - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:project-list' %}">Bücher</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:project-detail' project.id %}">{{ project.title }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:project-characters' project.id %}">Characters</a></li>
+            <li class="breadcrumb-item active">{% if is_create %}Neuer Character{% else %}{{ character.name }} bearbeiten{% endif %}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-person-plus text-primary"></i>
+                {% if is_create %}Neuen Character erstellen{% else %}{{ character.name }} bearbeiten{% endif %}
+            </h1>
+            <p class="text-muted mb-0">{{ project.title }}</p>
+        </div>
+        <div>
+            <a href="{% url 'bfagent:project-characters' project.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post" id="characterForm">
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- Left Column: Basic Info -->
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-info-circle"></i> Grundinformationen
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{% if not is_create %}{{ character.name }}{% endif %}" 
+                                   required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="role" class="form-label">Rolle <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="role" name="role" 
+                                   value="{% if not is_create %}{{ character.role }}{% endif %}"
+                                   placeholder="z.B. Protagonist, Antagonist, Mentor"
+                                   required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="age" class="form-label">Alter</label>
+                            <input type="number" class="form-control" id="age" name="age" 
+                                   value="{% if not is_create %}{{ character.age }}{% endif %}"
+                                   min="0" max="200">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Kurzbeschreibung</label>
+                            <textarea class="form-control" id="description" name="description" 
+                                      rows="3">{% if not is_create %}{{ character.description }}{% endif %}</textarea>
+                            <div class="form-text">Kurze Zusammenfassung des Characters</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-eye"></i> Äußeres Erscheinungsbild
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="appearance" class="form-label">Aussehen</label>
+                            <textarea class="form-control" id="appearance" name="appearance" 
+                                      rows="4" placeholder="Beschreibe das äußere Erscheinungsbild">{% if not is_create %}{{ character.appearance }}{% endif %}</textarea>
+                            <div class="form-text">Größe, Haarfarbe, Kleidungsstil, etc.</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Psychological & Story -->
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-heart"></i> Psychologie
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="personality" class="form-label">Persönlichkeit</label>
+                            <textarea class="form-control" id="personality" name="personality" 
+                                      rows="4" placeholder="Charaktereigenschaften, Verhalten, Gewohnheiten">{% if not is_create %}{{ character.personality }}{% endif %}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="motivation" class="form-label">Motivation</label>
+                            <textarea class="form-control" id="motivation" name="motivation" 
+                                      rows="3" placeholder="Was treibt diesen Character an?">{% if not is_create %}{{ character.motivation }}{% endif %}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="conflict" class="form-label">Innerer/Äußerer Konflikt</label>
+                            <textarea class="form-control" id="conflict" name="conflict" 
+                                      rows="3" placeholder="Mit welchen Konflikten kämpft der Character?">{% if not is_create %}{{ character.conflict }}{% endif %}</textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-book"></i> Story Details
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="background" class="form-label">Hintergrundgeschichte</label>
+                            <textarea class="form-control" id="background" name="background" 
+                                      rows="4" placeholder="Backstory, wichtige Ereignisse aus der Vergangenheit">{% if not is_create %}{{ character.background }}{% endif %}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="arc" class="form-label">Character Arc</label>
+                            <textarea class="form-control" id="arc" name="arc" 
+                                      rows="4" placeholder="Wie entwickelt sich der Character im Laufe der Story?">{% if not is_create %}{{ character.arc }}{% endif %}</textarea>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted">
+                                <i class="bi bi-info-circle"></i> 
+                                Felder mit * sind Pflichtfelder
+                            </span>
+                        </div>
+                        <div>
+                            <a href="{% url 'bfagent:project-characters' project.id %}" class="btn btn-secondary me-2">
+                                <i class="bi bi-x-circle"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+// Auto-save warning
+let formChanged = false;
+
+document.getElementById('characterForm').addEventListener('change', function() {
+    formChanged = true;
+});
+
+window.addEventListener('beforeunload', function(e) {
+    if (formChanged) {
+        e.preventDefault();
+        e.returnValue = '';
+    }
+});
+
+document.getElementById('characterForm').addEventListener('submit', function() {
+    formChanged = false;
+});
+</script>
+{% endblock %}

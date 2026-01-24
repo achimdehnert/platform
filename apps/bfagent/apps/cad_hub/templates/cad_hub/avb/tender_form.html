@@ -1,0 +1,205 @@
+{% extends "cad_hub/avb/base_avb.html" %}
+
+{% block avb_title %}{% if object %}Ausschreibung bearbeiten{% else %}Neue Ausschreibung{% endif %}{% endblock %}
+
+{% block avb_content %}
+<!-- Page Header -->
+<div class="mb-4">
+    <h4 class="mb-1">
+        <i class="bi bi-{% if object %}pencil{% else %}plus-lg{% endif %} text-primary"></i>
+        {% if object %}Ausschreibung bearbeiten{% else %}Neue Ausschreibung{% endif %}
+    </h4>
+    <p class="text-muted mb-0">
+        {% if object %}{{ object.tender_number }}{% else %}Leistungsverzeichnis erstellen{% endif %}
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-file-earmark-text"></i> Grunddaten
+                </div>
+                <div class="card-body">
+                    <!-- Bauprojekt -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Bauprojekt *</label>
+                        <select name="project" class="form-select" required>
+                            <option value="">-- Projekt auswählen --</option>
+                            {% for project in form.fields.project.queryset %}
+                            <option value="{{ project.pk }}" 
+                                {% if form.project.value == project.pk|stringformat:"s" or request.GET.project == project.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ project.ifc_project.name }} ({{ project.project_number }})
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.project.errors %}
+                        <div class="text-danger small mt-1">{{ form.project.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Titel -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Titel *</label>
+                        <input type="text" name="title" value="{{ form.title.value|default:'' }}" 
+                               class="form-control" placeholder="z.B. Rohbauarbeiten Neubau" required>
+                    </div>
+                    
+                    <!-- Ausschreibungsnummer -->
+                    <div class="mb-3">
+                        <label class="form-label">Ausschreibungsnummer</label>
+                        <input type="text" name="tender_number" value="{{ form.tender_number.value|default:'' }}" 
+                               class="form-control" placeholder="z.B. LV-2025-001">
+                        <small class="text-muted">Wird automatisch generiert wenn leer</small>
+                    </div>
+                    
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Gewerk</label>
+                            <input type="text" name="trade" value="{{ form.trade.value|default:'' }}" 
+                                   class="form-control" placeholder="z.B. Rohbau, Elektro">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Status</label>
+                            <select name="status" class="form-select">
+                                {% for value, label in form.fields.status.choices %}
+                                <option value="{{ value }}" {% if form.status.value == value %}selected{% endif %}>{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-calendar3"></i> Termine
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Abgabefrist</label>
+                            <input type="datetime-local" name="submission_deadline" 
+                                   value="{{ form.submission_deadline.value|default:'' }}" 
+                                   class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Eröffnungstermin</label>
+                            <input type="datetime-local" name="opening_date" 
+                                   value="{{ form.opening_date.value|default:'' }}" 
+                                   class="form-control">
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Bindefrist</label>
+                            <input type="date" name="binding_period_end" 
+                                   value="{{ form.binding_period_end.value|default:'' }}" 
+                                   class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ausführungszeitraum</label>
+                            <input type="text" name="execution_period" 
+                                   value="{{ form.execution_period.value|default:'' }}" 
+                                   class="form-control" placeholder="z.B. 01.03. - 30.06.2025">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-currency-euro"></i> Kosten & Schätzwert
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Geschätzter Auftragswert (€)</label>
+                            <input type="number" name="estimated_value" 
+                                   value="{{ form.estimated_value.value|default:'' }}" 
+                                   class="form-control" placeholder="100000" step="100">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Währung</label>
+                            <select name="currency" class="form-select">
+                                <option value="EUR" selected>EUR (€)</option>
+                                <option value="CHF">CHF (Fr.)</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-text-paragraph"></i> Beschreibung
+                </div>
+                <div class="card-body">
+                    <textarea name="description" class="form-control" rows="4" 
+                              placeholder="Beschreibung der Leistung...">{{ form.description.value|default:'' }}</textarea>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="d-flex justify-content-between gap-2">
+                <a href="{% url 'cad_hub:tender_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> Abbrechen
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> {% if object %}Speichern{% else %}Ausschreibung erstellen{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4 mt-4 mt-lg-0">
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Hinweise
+            </div>
+            <div class="card-body">
+                <p><strong>Bauprojekt</strong><br>
+                <small class="text-muted">Verknüpfen Sie die Ausschreibung mit einem Bauprojekt.</small></p>
+                
+                <p><strong>Abgabefrist</strong><br>
+                <small class="text-muted">Bis zu diesem Zeitpunkt können Bieter Angebote einreichen.</small></p>
+                
+                <p class="mb-0"><strong>Schätzwert</strong><br>
+                <small class="text-muted">Dient als Referenz für den Preisspiegel.</small></p>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-diagram-3"></i> Workflow
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-secondary">1</span>
+                    <small>Entwurf erstellen</small>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-primary">2</span>
+                    <small>Positionen hinzufügen</small>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-info">3</span>
+                    <small>Bieter einladen</small>
+                </div>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <span class="badge bg-warning text-dark">4</span>
+                    <small>Angebote auswerten</small>
+                </div>
+                <div class="d-flex align-items-center gap-2">
+                    <span class="badge bg-success">5</span>
+                    <small>Zuschlag erteilen</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ world.name }} bearbeiten | Welten{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 900px;">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:dashboard' %}">Writing Hub</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:world-dashboard' %}">Welten</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:world-detail' world_id=world.id %}">{{ world.name }}</a></li>
+            <li class="breadcrumb-item active">Bearbeiten</li>
+        </ol>
+    </nav>
+
+    <h1 class="h2 mb-4">
+        <i class="bi bi-pencil me-2"></i>{{ world.name }} bearbeiten
+    </h1>
+
+    <form method="post">
+        {% csrf_token %}
+        
+        <!-- Basic Info -->
+        <div class="card mb-4">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-info-circle me-2"></i>Grunddaten
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-8">
+                        <label for="name" class="form-label">Name *</label>
+                        <input type="text" class="form-control" id="name" name="name" 
+                               value="{{ world.name }}" required>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="world_type" class="form-label">Welttyp</label>
+                        <select class="form-select" id="world_type" name="world_type">
+                            <option value="">-- Typ wählen --</option>
+                            {% for wt in world_types %}
+                            <option value="{{ wt.id }}" {% if world.world_type_id == wt.id %}selected{% endif %}>
+                                {{ wt.name_de|default:wt.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-12">
+                        <label for="description" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" id="description" name="description" rows="3">{{ world.description }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setting -->
+        <div class="card mb-4">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-calendar3 me-2"></i>Setting
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="setting_era" class="form-label">Epoche</label>
+                        <input type="text" class="form-control" id="setting_era" name="setting_era" 
+                               value="{{ world.setting_era }}" placeholder="z.B. Mittelalter, 25. Jahrhundert">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="technology_level" class="form-label">Technologiestufe</label>
+                        <input type="text" class="form-control" id="technology_level" name="technology_level" 
+                               value="{{ world.technology_level }}" placeholder="z.B. Steinzeit, Dampfpunk, FTL">
+                    </div>
+                    <div class="col-md-6">
+                        <label for="climate" class="form-label">Klima</label>
+                        <textarea class="form-control" id="climate" name="climate" rows="2">{{ world.climate }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="geography" class="form-label">Geografie</label>
+                        <textarea class="form-control" id="geography" name="geography" rows="2">{{ world.geography }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Society -->
+        <div class="card mb-4">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-people me-2"></i>Gesellschaft
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="inhabitants" class="form-label">Bewohner</label>
+                        <textarea class="form-control" id="inhabitants" name="inhabitants" rows="3">{{ world.inhabitants }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="culture" class="form-label">Kultur</label>
+                        <textarea class="form-control" id="culture" name="culture" rows="3">{{ world.culture }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="religion" class="form-label">Religion</label>
+                        <textarea class="form-control" id="religion" name="religion" rows="3">{{ world.religion }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="politics" class="form-label">Politik</label>
+                        <textarea class="form-control" id="politics" name="politics" rows="3">{{ world.politics }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Special -->
+        <div class="card mb-4">
+            <div class="card-header bg-transparent">
+                <i class="bi bi-stars me-2"></i>Besonderheiten
+            </div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-6">
+                        <label for="magic_system" class="form-label">Magiesystem</label>
+                        <textarea class="form-control" id="magic_system" name="magic_system" rows="4"
+                                  placeholder="Beschreibe das Magiesystem falls vorhanden...">{{ world.magic_system }}</textarea>
+                    </div>
+                    <div class="col-md-6">
+                        <label for="economy" class="form-label">Wirtschaft</label>
+                        <textarea class="form-control" id="economy" name="economy" rows="4">{{ world.economy }}</textarea>
+                    </div>
+                    <div class="col-12">
+                        <label for="history" class="form-label">Geschichte</label>
+                        <textarea class="form-control" id="history" name="history" rows="4"
+                                  placeholder="Wichtige historische Ereignisse...">{{ world.history }}</textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="d-flex justify-content-between">
+            <a href="{% url 'writing_hub:world-detail' world_id=world.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-x me-1"></i>Abbrechen
+            </a>
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-lg me-1"></i>Speichern
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

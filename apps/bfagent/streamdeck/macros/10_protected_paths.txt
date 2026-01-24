@@ -1,0 +1,3 @@
+{{CLIPBOARD:Check mit BFAgent MCP die Protected Paths für: [FILE_PATH]
+
+IMMER vor Datei-Änderungen checken!}}

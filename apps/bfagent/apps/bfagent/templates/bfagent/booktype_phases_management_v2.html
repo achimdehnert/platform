@@ -1,0 +1,244 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}BookType-Phases Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <div class="col-12">
+            <h2 class="mb-4">
+                <i class="bi bi-diagram-3"></i> BookType-Phases <span class="badge bg-success">v2.0</span>
+            </h2>
+        </div>
+    </div>
+
+    <!-- Action Buttons -->
+    <div class="row mb-4">
+        <div class="col-auto">
+            <a href="{% url 'bfagent:booktypephase-list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> List View
+            </a>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'bfagent:booktype-create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Book Type
+            </a>
+        </div>
+        <div class="col-auto">
+            <a href="{% url 'bfagent:workflowphase-create' %}" class="btn btn-info">
+                <i class="bi bi-plus-circle"></i> Add Phase
+            </a>
+        </div>
+    </div>
+
+    <!-- Book Types Horizontal List -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-book"></i> Book Types</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for booktype in booktypes %}
+                        <a href="?booktype={{ booktype.id }}"
+                           class="btn {% if selected_booktype.id == booktype.id %}btn-primary{% else %}btn-outline-primary{% endif %} d-flex align-items-center justify-content-between"
+                           style="min-width: 140px;">
+                            <span>{{ booktype.name }}</span>
+                            <span class="badge rounded-pill bg-secondary text-white ms-2">
+                                {{ booktype.phase_count }}
+                            </span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    {% if selected_booktype %}
+    <!-- BookType Info -->
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i> <strong>Managing phases for: {{ selected_booktype.name }}</strong>
+        <br><small>{{ selected_booktype.description }}</small>
+    </div>
+
+    <!-- Two Column Layout -->
+    <div class="row">
+        <!-- Assigned Phases -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning">
+                    <h5 class="mb-0">
+                        <i class="bi bi-check-circle"></i> Assigned Phases
+                        <span class="badge bg-dark float-end">{{ assigned_count }}</span>
+                    </h5>
+                    <small class="text-muted">Drag to reorder</small>
+                </div>
+                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                    <div id="assigned-phases-list" class="list-group">
+                        {% for config in assigned_configs %}
+                        <div class="list-group-item" data-config-id="{{ config.id }}" data-phase-id="{{ config.phase.id }}" style="cursor: move;">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <i class="bi bi-grip-vertical me-2 text-muted" style="cursor: grab;"></i>
+                                        <strong>{{ config.phase.name }}</strong>
+                                        {% if config.is_required %}
+                                        <span class="badge bg-danger ms-2">Required</span>
+                                        {% endif %}
+                                        <span class="badge bg-info ms-2" title="Configured Actions">
+                                            <i class="bi bi-lightning"></i> {{ config.action_count|default:0 }}
+                                        </span>
+                                    </div>
+                                    {% if config.phase.description %}
+                                    <p class="mb-0 mt-1"><small>{{ config.phase.description|truncatewords:15 }}</small></p>
+                                    {% endif %}
+                                    <small class="text-muted">
+                                        <i class="bi bi-calendar"></i> Est. {{ config.estimated_days }} days
+                                    </small>
+                                </div>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'bfagent:phase-actions-manage' %}?phase={{ config.phase.id }}"
+                                       class="btn btn-outline-info btn-sm"
+                                       title="Manage Actions for this Phase">
+                                        <i class="bi bi-lightning"></i> Actions
+                                    </a>
+                                    <a href="{% url 'bfagent:booktypephase-update' config.id %}"
+                                       class="btn btn-outline-primary btn-sm"
+                                       title="Edit Phase Settings">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button class="btn btn-outline-danger btn-sm"
+                                            onclick="removePhase({{ config.id }}, {{ selected_booktype.id }})"
+                                            title="Remove Phase from Book Type">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                            <p class="mt-2">No phases assigned yet.</p>
+                            <p><small>Select phases from the available list →</small></p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Available Phases -->
+        <div class="col-md-6">
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-plus-circle"></i> Available Phases
+                        <span class="badge bg-dark float-end">{{ unassigned_phases.count }}</span>
+                    </h5>
+                </div>
+                <div class="card-body" style="max-height: 600px; overflow-y: auto;">
+                    <div id="available-phases-list" class="list-group">
+                        {% for phase in unassigned_phases %}
+                        <div class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="flex-grow-1">
+                                    <strong>{{ phase.name }}</strong>
+                                    {% if phase.description %}
+                                    <p class="mb-0 mt-1"><small>{{ phase.description|truncatewords:15 }}</small></p>
+                                    {% endif %}
+                                </div>
+                                <button class="btn btn-info btn-sm"
+                                        onclick="addPhase({{ selected_booktype.id }}, {{ phase.id }})">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center py-4 text-muted">
+                            <p>All phases assigned!</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="alert alert-info">
+        <i class="bi bi-arrow-left"></i> Select a book type from the list to manage its phases.
+    </div>
+    {% endif %}
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+// Initialize Sortable.js for drag & drop
+document.addEventListener('DOMContentLoaded', function() {
+    const el = document.getElementById('assigned-phases-list');
+    if (el) {
+        Sortable.create(el, {
+            animation: 150,
+            handle: '.bi-grip-vertical',
+            onEnd: function(evt) {
+                // Get all config IDs in new order
+                const items = el.querySelectorAll('[data-config-id]');
+                const order = Array.from(items).map((item, index) => ({
+                    id: item.getAttribute('data-config-id'),
+                    order: index + 1
+                }));
+
+                // Save new order to backend
+                fetch('{% url "bfagent:booktype-phase-reorder" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({ order: order })
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        console.error('Failed to save order');
+                        location.reload(); // Reload to restore original order
+                    }
+                });
+            }
+        });
+    }
+});
+
+function addPhase(booktypeId, phaseId) {
+    fetch('{% url "bfagent:booktype-phase-add" %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: `booktype_id=${booktypeId}&phase_id=${phaseId}`
+    })
+    .then(response => response.text())
+    .then(html => {
+        document.getElementById('assigned-phases-list').insertAdjacentHTML('beforeend', html);
+        location.reload();
+    });
+}
+
+function removePhase(configId, booktypeId) {
+    if (confirm('Remove this phase from the book type?')) {
+        fetch('{% url "bfagent:booktype-phase-remove" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: `config_id=${configId}`
+        })
+        .then(() => location.reload());
+    }
+}
+</script>
+{% endblock %}

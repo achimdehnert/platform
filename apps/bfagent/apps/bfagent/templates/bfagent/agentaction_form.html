@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{% if object %}Edit{% else %}Create{% endif %} Agent Action{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>
+            <i class="bi bi-{% if object %}pencil{% else %}plus-circle{% endif %}"></i>
+            {% if object %}Edit{% else %}Create{% endif %} Agent Action
+        </h1>
+        <a href="{% url 'bfagent:agentaction-list' %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to List
+        </a>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <form method="post" class="needs-validation" novalidate>
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                <div class="alert alert-danger">
+                    {{ form.non_field_errors }}
+                </div>
+                {% endif %}
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>Action Details</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="{{ form.agent.id_for_label }}" class="form-label">
+                                {{ form.agent.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.agent }}
+                            <small class="form-text text-muted">Which agent this action belongs to</small>
+                            {% if form.agent.errors %}
+                            <div class="invalid-feedback d-block">{{ form.agent.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.name.id_for_label }}" class="form-label">
+                                {{ form.name.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.name }}
+                            <small class="form-text text-muted">Internal action name (e.g., generate_character_cast)</small>
+                            {% if form.name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.display_name.id_for_label }}" class="form-label">
+                                {{ form.display_name.label }}
+                                <span class="text-danger">*</span>
+                            </label>
+                            {{ form.display_name }}
+                            <small class="form-text text-muted">User-friendly name shown in UI</small>
+                            {% if form.display_name.errors %}
+                            <div class="invalid-feedback d-block">{{ form.display_name.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="mb-3">
+                            <label for="{{ form.description.id_for_label }}" class="form-label">
+                                {{ form.description.label }}
+                            </label>
+                            {{ form.description }}
+                            {% if form.description.errors %}
+                            <div class="invalid-feedback d-block">{{ form.description.errors }}</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-3">
+                    <div class="card-header">
+                        <h5>Configuration</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="{{ form.prompt_template.id_for_label }}" class="form-label">
+                                {{ form.prompt_template.label }}
+                            </label>
+                            {{ form.prompt_template }}
+                            <small class="form-text text-muted">Optional prompt template for this action</small>
+                            {% if form.prompt_template.errors %}
+                            <div class="invalid-feedback d-block">{{ form.prompt_template.errors }}</div>
+                            {% endif %}
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.order.id_for_label }}" class="form-label">
+                                    {{ form.order.label }}
+                                </label>
+                                {{ form.order }}
+                                <small class="form-text text-muted">Display order in UI</small>
+                                {% if form.order.errors %}
+                                <div class="invalid-feedback d-block">{{ form.order.errors }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="{{ form.is_active.id_for_label }}" class="form-label">
+                                    {{ form.is_active.label }}
+                                </label>
+                                <div class="form-check">
+                                    {{ form.is_active }}
+                                    <label class="form-check-label" for="{{ form.is_active.id_for_label }}">
+                                        Action is active and available for use
+                                    </label>
+                                </div>
+                                {% if form.is_active.errors %}
+                                <div class="invalid-feedback d-block">{{ form.is_active.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <a href="{% url 'bfagent:agentaction-list' %}" class="btn btn-outline-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-{% if object %}save{% else %}check-circle{% endif %}"></i>
+                        {% if object %}Save{% else %}Create{% endif %}
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

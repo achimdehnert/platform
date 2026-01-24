@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ phase.name }} - Phase Detail{% endblock %}
+
+{% block extra_head %}
+<!-- CRITICAL: Disable Bootstrap modal auto-init BEFORE it runs -->
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('🛡️ Modal protection loaded');
+    // Remove Bootstrap auto-init immediately
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(el => {
+        el.removeAttribute('data-bs-toggle');
+        el.removeAttribute('data-bs-target');
+    });
+}, true); // Capture phase!
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <span class="badge" style="background-color: {{ phase.color }};">{{ phase.order }}</span>
+                        {{ phase.name }}
+                    </h1>
+                    <p class="text-muted">{{ phase.description }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'genagent:action-list' %}" class="btn btn-outline-secondary me-2">
+                        <i class="bi bi-list"></i> All Phases
+                    </a>
+                    <button type="button" class="btn btn-success me-2" 
+                            data-bs-toggle="modal" 
+                            data-bs-target="#executePhaseModal"
+                            hx-disable>
+                        <i class="bi bi-play-circle"></i> Execute Phase
+                    </button>
+                    <a href="{% url 'genagent:action-create' phase.id %}" class="btn btn-primary">
+                        <i class="bi bi-plus-circle"></i> Add Action
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ actions.count }}</h3>
+                    <p class="text-muted mb-0">Actions</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ phase.order }}</h3>
+                    <p class="text-muted mb-0">Order</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">
+                        {% if phase.is_active %}
+                        <span class="text-success"><i class="bi bi-check-circle"></i></span>
+                        {% else %}
+                        <span class="text-danger"><i class="bi bi-x-circle"></i></span>
+                        {% endif %}
+                    </h3>
+                    <p class="text-muted mb-0">Status</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body">
+                    <div class="badge" style="background-color: {{ phase.color }}; font-size: 1.2rem; padding: 0.5rem 1rem;">
+                        {{ phase.color }}
+                    </div>
+                    <p class="text-muted mb-0 mt-2">Color</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-task"></i> Actions in this Phase</h5>
+                </div>
+                <div class="card-body">
+                    {% if actions %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th style="width: 30px;"></th>
+                                    <th>Order</th>
+                                    <th>Action Name</th>
+                                    <th>Handler</th>
+                                    <th>Config</th>
+                                    <th>Options</th>
+                                    <th>Status</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sortable-actions">
+                                {% for action in actions %}
+                                <tr data-action-id="{{ action.id }}">
+                                    <td class="drag-handle" style="cursor: move;">
+                                        <i class="bi bi-grip-vertical text-muted"></i>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary order-badge">{{ action.order }}</span>
+                                    </td>
+                                    <td>
+                                        <strong>{{ action.name }}</strong>
+                                        {% if action.description %}
+                                        <br><small class="text-muted">{{ action.description|truncatewords:15 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <code class="small">{{ action.handler_class }}</code>
+                                    </td>
+                                    <td class="config-cell" style="pointer-events: auto;">
+                                        {% if action.config %}
+                                        <button type="button" 
+                                                class="btn btn-sm btn-outline-info view-config-btn" 
+                                                data-action-id="{{ action.id }}">
+                                            <i class="bi bi-eye"></i> View
+                                        </button>
+                                        {% else %}
+                                        <span class="text-muted">None</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="small">
+                                        {% if action.timeout_seconds %}
+                                        <span class="badge bg-warning">⏱️ {{ action.timeout_seconds }}s</span>
+                                        {% endif %}
+                                        {% if action.retry_count > 0 %}
+                                        <span class="badge bg-info">🔄 {{ action.retry_count }}</span>
+                                        {% endif %}
+                                        {% if action.continue_on_error %}
+                                        <span class="badge bg-secondary">⏩ Continue</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if action.is_active %}
+                                        <span class="badge bg-success">Active</span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">Inactive</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <div class="btn-group" role="group">
+                                            <button type="button" class="btn btn-sm btn-success" 
+                                                    title="Execute Action"
+                                                    data-bs-toggle="modal" 
+                                                    data-bs-target="#executeActionModal{{ action.id }}"
+                                                    hx-disable>
+                                                <i class="bi bi-play-fill"></i>
+                                            </button>
+                                            <a href="{% url 'genagent:action-logs' action.id %}" 
+                                               class="btn btn-sm btn-outline-info"
+                                               title="Execution Logs">
+                                                <i class="bi bi-clock-history"></i>
+                                            </a>
+                                            <a href="{% url 'genagent:action-edit' action.id %}" 
+                                               class="btn btn-sm btn-outline-primary"
+                                               title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'genagent:action-delete' action.id %}" 
+                                               class="btn btn-sm btn-outline-danger"
+                                               title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        
+                        <!-- CRITICAL: Remove Bootstrap modal attributes IMMEDIATELY -->
+                        <script>
+                        (function() {
+                            // Run SYNCHRONOUSLY - no DOMContentLoaded!
+                            console.log('⚡ SYNC Modal Protection');
+                            var buttons = document.querySelectorAll('.view-config-btn');
+                            console.log('Found', buttons.length, 'view buttons');
+                            
+                            // Remove ALL Bootstrap modal triggers immediately
+                            document.querySelectorAll('[data-bs-toggle]').forEach(function(el) {
+                                el.removeAttribute('data-bs-toggle');
+                                el.removeAttribute('data-bs-target');
+                            });
+                            console.log('✅ Bootstrap attributes stripped');
+                        })();
+                        </script>
+                        
+                        <!-- Modals außerhalb der Table -->
+                        {% for action in actions %}
+                            <!-- Config Modal -->
+                            {% if action.config %}
+                            <div class="modal fade" id="configModal{{ action.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">{{ action.name }} - Configuration</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <pre class="bg-light p-3 rounded"><code class="language-json">{{ action.config|safe }}</code></pre>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            <!-- Action Execute Modal -->
+                            <div class="modal fade" id="executeActionModal{{ action.id }}" tabindex="-1">
+                                <div class="modal-dialog modal-lg">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Execute Action: {{ action.name }}</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form hx-post="{% url 'genagent:action-execute' action.id %}"
+                                              hx-target="#actionResult{{ action.id }}"
+                                              hx-swap="innerHTML">
+                                            {% csrf_token %}
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label for="context{{ action.id }}" class="form-label">Context (JSON)</label>
+                                                    <textarea class="form-control font-monospace" 
+                                                              id="context{{ action.id }}" 
+                                                              name="context" 
+                                                              rows="6">{}</textarea>
+                                                    <small class="form-text text-muted">Execution context data as JSON</small>
+                                                </div>
+                                                
+                                                <div class="form-check">
+                                                    <input class="form-check-input" type="checkbox" 
+                                                           id="testMode{{ action.id }}" 
+                                                           name="test_mode" 
+                                                           value="true" checked>
+                                                    <label class="form-check-label" for="testMode{{ action.id }}">
+                                                        Test Mode (Dry Run)
+                                                    </label>
+                                                </div>
+                                                
+                                                <div id="actionResult{{ action.id }}" class="mt-3"></div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                <button type="submit" class="btn btn-success">
+                                                    <i class="bi bi-play-fill"></i> Execute
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> No actions defined for this phase yet.
+                        <a href="{% url 'genagent:action-create' phase.id %}" class="alert-link">Create the first action</a>.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phase Execute Modal -->
+<div class="modal fade" id="executePhaseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Execute Phase: {{ phase.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form hx-post="{% url 'genagent:phase-execute' phase.id %}"
+                  hx-target="#phaseResult"
+                  hx-swap="innerHTML">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> This will execute all active actions in this phase sequentially.
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="phaseContext" class="form-label">Context (JSON)</label>
+                        <textarea class="form-control font-monospace" 
+                                  id="phaseContext" 
+                                  name="context" 
+                                  rows="8">{}</textarea>
+                        <small class="form-text text-muted">Shared context data for all actions</small>
+                    </div>
+                    
+                    <div class="form-check">
+                        <input class="form-check-input" type="checkbox" 
+                               id="phaseTestMode" 
+                               name="test_mode" 
+                               value="true" checked>
+                        <label class="form-check-label" for="phaseTestMode">
+                            Test Mode (Dry Run)
+                        </label>
+                    </div>
+                    
+                    <div id="phaseResult" class="mt-3"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-play-circle"></i> Execute Phase
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- CRITICAL: Inline Modal Fix Script -->
+<script>
+(function() {
+    console.log('🔥 INLINE MODAL FIX LOADED');
+    
+    // Remove Bootstrap auto-init
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(el => {
+        el.removeAttribute('data-bs-toggle');
+        el.removeAttribute('data-bs-target');
+    });
+    
+    let modalOpening = false;
+    
+    // Fix View Config buttons
+    document.querySelectorAll('.view-config-btn').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (modalOpening) {
+                console.log('⏸️ Modal already opening');
+                return false;
+            }
+            
+            modalOpening = true;
+            console.log('🚀 Opening modal');
+            
+            const actionId = this.getAttribute('data-action-id');
+            const modalEl = document.getElementById('configModal' + actionId);
+            
+            if (modalEl) {
+                // Dispose any existing instance
+                const existing = bootstrap.Modal.getInstance(modalEl);
+                if (existing) existing.dispose();
+                
+                // Create and show
+                const modal = new bootstrap.Modal(modalEl);
+                modal.show();
+                
+                setTimeout(() => { modalOpening = false; }, 500);
+            }
+            
+            return false;
+        });
+    });
+    
+    console.log('✅ Modal fix applied to', document.querySelectorAll('.view-config-btn').length, 'buttons');
+})();
+</script>
+
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Prevent hover flicker on sortable rows */
+    #sortable-actions tr {
+        pointer-events: none;
+    }
+    #sortable-actions tr .drag-handle,
+    #sortable-actions tr .config-cell,
+    #sortable-actions tr .btn-group,
+    #sortable-actions tr button,
+    #sortable-actions tr a {
+        pointer-events: auto;
+    }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Sortable.js CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+console.log('🚀 Phase Detail Script LOADED');
+
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('✅ DOMContentLoaded FIRED');
+    
+    // CRITICAL: Remove ALL Bootstrap automatic modal initialization
+    document.querySelectorAll('[data-bs-toggle="modal"]').forEach(el => {
+        el.removeAttribute('data-bs-toggle');
+        el.removeAttribute('data-bs-target');
+    });
+    console.log('✅ Bootstrap attributes removed');
+    
+    // DEBOUNCE: Prevent multiple modal opens
+    let lastModalOpen = 0;
+    let isModalOpening = false;
+    
+    // View Config Button Handlers - Complete Manual Control
+    document.addEventListener('click', function(e) {
+        const btn = e.target.closest('.view-config-btn');
+        if (!btn) return;
+        
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        
+        // DEBOUNCE: Ignore clicks within 500ms
+        const now = Date.now();
+        if (isModalOpening || (now - lastModalOpen < 500)) {
+            console.log('DEBOUNCED: Ignoring rapid click');
+            return false;
+        }
+        
+        isModalOpening = true;
+        lastModalOpen = now;
+        
+        const actionId = btn.getAttribute('data-action-id');
+        const modalElement = document.getElementById('configModal' + actionId);
+        
+        if (!modalElement) {
+            isModalOpening = false;
+            return;
+        }
+        
+        // Check if ANY modal is already visible
+        const anyModalOpen = document.querySelector('.modal.show');
+        if (anyModalOpen) {
+            console.log('Another modal already open, skipping');
+            isModalOpening = false;
+            return false;
+        }
+        
+        // Dispose any existing instance
+        let existingInstance = bootstrap.Modal.getInstance(modalElement);
+        if (existingInstance) {
+            existingInstance.dispose();
+        }
+        
+        // Create and show fresh instance
+        const modalInstance = new bootstrap.Modal(modalElement, {
+            backdrop: true,
+            keyboard: true,
+            focus: true
+        });
+        
+        modalInstance.show();
+        
+        // Reset flag after modal is shown
+        setTimeout(() => {
+            isModalOpening = false;
+        }, 300);
+        
+        return false;
+    }, true);
+    
+    const sortableList = document.getElementById('sortable-actions');
+    
+    if (sortableList) {
+        const sortable = new Sortable(sortableList, {
+            handle: '.drag-handle',
+            filter: 'button, .btn, a, .config-cell',
+            preventOnFilter: true,
+            animation: 150,
+            ghostClass: 'bg-light',
+            onEnd: function(evt) {
+                // Get all action IDs in new order
+                const actionIds = [];
+                const rows = sortableList.querySelectorAll('tr[data-action-id]');
+                
+                rows.forEach((row, index) => {
+                    const actionId = row.getAttribute('data-action-id');
+                    actionIds.push(actionId);
+                    
+                    // Update order badge
+                    const orderBadge = row.querySelector('.order-badge');
+                    if (orderBadge) {
+                        orderBadge.textContent = index;
+                    }
+                });
+                
+                // Send to server
+                fetch('{% url "genagent:action-reorder" phase.id %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value || 
+                                     document.querySelector('meta[name="csrf-token"]').content
+                    },
+                    body: JSON.stringify({
+                        action_ids: actionIds
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Show success toast
+                        showToast('✅ Action order updated successfully!', 'success');
+                    } else {
+                        showToast('❌ Error updating order: ' + data.error, 'danger');
+                        // Reload page on error
+                        setTimeout(() => location.reload(), 2000);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    showToast('❌ Network error', 'danger');
+                    setTimeout(() => location.reload(), 2000);
+                });
+            }
+        });
+    }
+});
+
+function showToast(message, type) {
+    // Simple toast notification
+    const toast = document.createElement('div');
+    toast.className = `alert alert-${type} position-fixed bottom-0 end-0 m-3`;
+    toast.style.zIndex = '9999';
+    toast.innerHTML = message;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        toast.remove();
+    }, 3000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% for feature in features %}
+<tr>
+    <td><span class="badge bg-secondary">{{ feature.get_status_display }}</span></td>
+    <td><strong>{{ feature.name }}</strong></td>
+    <td>{{ feature.get_component_type_display }}</td>
+    <td>{{ feature.domain|default:"N/A" }}</td>
+    <td>{{ feature.get_priority_display }}</td>
+    <td>{{ feature.owner|default:"Unassigned" }}</td>
+    <td>{{ feature.proposed_at|date:"Y-m-d" }}</td>
+    <td>
+        <button class="btn btn-sm btn-info"
+                hx-get="{% url 'control_center:feature-planning-detail' feature.pk %}"
+                hx-target="#modal-content">
+            <i class="bi bi-eye"></i>
+        </button>
+        <button class="btn btn-sm btn-warning"
+                hx-get="{% url 'control_center:feature-planning-update' feature.pk %}"
+                hx-target="#modal-content">
+            <i class="bi bi-pencil"></i>
+        </button>
+    </td>
+</tr>
+{% endfor %}

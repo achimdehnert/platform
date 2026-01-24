@@ -1,0 +1,93 @@
+{% for feature in features %}
+<tr>
+    <td>
+        {% if feature.status == 'proposed' %}
+        <span class="badge bg-light text-dark">💡 Proposed</span>
+        {% elif feature.status == 'planned' %}
+        <span class="badge bg-primary">📋 Planned</span>
+        {% elif feature.status == 'in_progress' %}
+        <span class="badge bg-info">🚧 In Progress</span>
+        {% elif feature.status == 'in_review' %}
+        <span class="badge bg-warning">👀 In Review</span>
+        {% elif feature.status == 'testing' %}
+        <span class="badge bg-secondary">🧪 Testing</span>
+        {% elif feature.status == 'active' %}
+        <span class="badge bg-success">✅ Active</span>
+        {% elif feature.status == 'deprecated' %}
+        <span class="badge bg-warning">⚠️ Deprecated</span>
+        {% elif feature.status == 'rejected' %}
+        <span class="badge bg-danger">❌ Rejected</span>
+        {% else %}
+        <span class="badge bg-secondary">{{ feature.get_status_display }}</span>
+        {% endif %}
+    </td>
+    <td>
+        <strong>{{ feature.name }}</strong>
+        {% if feature.description %}
+        <br><small class="text-muted">{{ feature.description|truncatewords:15 }}</small>
+        {% endif %}
+    </td>
+    <td>
+        <span class="badge bg-secondary">{{ feature.get_component_type_display }}</span>
+    </td>
+    <td>
+        {% if feature.priority == 'critical' %}
+        <span class="badge bg-danger">🔥 Critical</span>
+        {% elif feature.priority == 'high' %}
+        <span class="badge bg-warning text-dark">🔴 High</span>
+        {% elif feature.priority == 'medium' %}
+        <span class="badge bg-info">🟡 Medium</span>
+        {% elif feature.priority == 'low' %}
+        <span class="badge bg-light text-dark">🔵 Low</span>
+        {% else %}
+        <span class="badge bg-secondary">📦 Backlog</span>
+        {% endif %}
+    </td>
+    <td>
+        {% if feature.owner %}
+        <span class="badge bg-primary">{{ feature.owner.username }}</span>
+        {% else %}
+        <span class="text-muted">-</span>
+        {% endif %}
+    </td>
+    <td>
+        {% if feature.proposed_at %}
+        <small>{{ feature.proposed_at|date:"Y-m-d H:i" }}</small>
+        {% elif feature.started_at %}
+        <small>{{ feature.started_at|date:"Y-m-d H:i" }}</small>
+        {% else %}
+        <small class="text-muted">-</small>
+        {% endif %}
+    </td>
+    <td>
+        <div class="btn-group" role="group">
+            <button class="btn btn-sm btn-outline-primary"
+                    hx-get="{% url url_detail feature.pk %}"
+                    hx-target="#modal-content"
+                    title="View Details">
+                <i class="bi bi-eye"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-secondary"
+                    hx-get="{% url url_update feature.pk %}"
+                    hx-target="#modal-content"
+                    title="Edit Feature">
+                <i class="bi bi-pencil"></i>
+            </button>
+            <button class="btn btn-sm btn-outline-danger"
+                    hx-delete="{% url url_delete feature.pk %}"
+                    hx-confirm="Delete {{ feature.name }}?"
+                    hx-target="closest tr"
+                    hx-swap="outerHTML"
+                    title="Delete Feature">
+                <i class="bi bi-trash"></i>
+            </button>
+        </div>
+    </td>
+</tr>
+{% empty %}
+<tr>
+    <td colspan="7" class="text-center text-muted">
+        No features found with current filters
+    </td>
+</tr>
+{% endfor %}

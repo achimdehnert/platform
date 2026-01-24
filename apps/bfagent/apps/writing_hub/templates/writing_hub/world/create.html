@@ -1,0 +1,250 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Neue Welt | Writing Hub{% endblock %}
+
+{% block content %}
+<div class="container py-4" style="max-width: 800px;">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:dashboard' %}">Writing Hub</a></li>
+            {% if project %}
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:project_hub' project_id=project.id %}">{{ project.title|truncatechars:25 }}</a></li>
+            {% endif %}
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:world-dashboard' %}{% if project %}?project={{ project.id }}{% endif %}">Welten</a></li>
+            <li class="breadcrumb-item active">Neue Welt</li>
+        </ol>
+    </nav>
+
+    {% if project %}
+    <div class="alert alert-info border-0 d-flex align-items-center mb-4">
+        <i class="bi bi-info-circle-fill me-3 fs-4"></i>
+        <div>
+            <strong>Welt für "{{ project.title }}"</strong>
+            <p class="mb-0 small">Die Welt wird automatisch diesem Projekt zugeordnet.</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <h1 class="h2 mb-4">
+        <i class="bi bi-globe me-2"></i>Neue Welt erstellen
+    </h1>
+
+    <form method="post" class="card" id="worldForm">
+        {% csrf_token %}
+        {% if project %}
+        <input type="hidden" name="project" value="{{ project.id }}">
+        {% endif %}
+        <div class="card-body">
+            <div class="mb-3">
+                <label for="name" class="form-label">Name der Welt *</label>
+                <div class="input-group">
+                    <input type="text" class="form-control form-control-lg" id="name" name="name" 
+                           placeholder="z.B. Mittelerde, Westeros, Galaxia Prime" required>
+                    <button type="button" class="btn btn-outline-primary" id="btnGenerateAI" title="Mit AI generieren">
+                        <i class="bi bi-stars"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="world_type" class="form-label">Welttyp</label>
+                <select class="form-select" id="world_type" name="world_type">
+                    <option value="">-- Typ wählen --</option>
+                    {% for wt in world_types %}
+                    <option value="{{ wt.id }}" data-code="{{ wt.code }}">{{ wt.name_de|default:wt.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="form-text">Bestimmt die Rolle der Welt in deinen Geschichten</div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-3">
+                        <label for="seed_idea" class="form-label">Startidee <span class="badge bg-info">AI</span></label>
+                        <input type="text" class="form-control" id="seed_idea" name="seed_idea" 
+                               placeholder="z.B. Eine Welt wo Magie aus Emotionen entsteht...">
+                        <div class="form-text">Optional: Eine Idee als Basis für die AI-Generierung</div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="mb-3">
+                        <label for="language" class="form-label">Sprache <span class="badge bg-info">AI</span></label>
+                        <select class="form-select" id="language" name="language">
+                            <option value="de" selected>🇩🇪 Deutsch</option>
+                            <option value="en">🇬🇧 English</option>
+                            <option value="es">🇪🇸 Español</option>
+                            <option value="fr">🇫🇷 Français</option>
+                            <option value="it">🇮🇹 Italiano</option>
+                            <option value="pt">🇵🇹 Português</option>
+                        </select>
+                        <div class="form-text">Ausgabesprache für AI-Generierung</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mb-3">
+                <label for="description" class="form-label">Kurzbeschreibung</label>
+                <textarea class="form-control" id="description" name="description" rows="3"
+                          placeholder="Eine kurze, atmosphärische Beschreibung deiner Welt..."></textarea>
+            </div>
+
+            <!-- AI Generated Preview (hidden by default) -->
+            <div id="aiPreview" class="d-none">
+                <hr>
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="mb-0"><i class="bi bi-stars me-1 text-primary"></i>AI-generierte Details</h6>
+                    <button type="button" class="btn btn-sm btn-outline-secondary" id="btnClearAI">
+                        <i class="bi bi-x"></i> Verwerfen
+                    </button>
+                </div>
+                <div class="row g-2 small">
+                    <div class="col-md-6">
+                        <label class="form-label text-muted mb-1">Epoche</label>
+                        <input type="text" class="form-control form-control-sm" name="setting_era" id="ai_setting_era" readonly>
+                    </div>
+                    <div class="col-md-6">
+                        <label class="form-label text-muted mb-1">Technologie</label>
+                        <input type="text" class="form-control form-control-sm" name="technology_level" id="ai_technology_level" readonly>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted mb-1">Geografie</label>
+                        <textarea class="form-control form-control-sm" name="geography" id="ai_geography" rows="2" readonly></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted mb-1">Bewohner</label>
+                        <textarea class="form-control form-control-sm" name="inhabitants" id="ai_inhabitants" rows="2" readonly></textarea>
+                    </div>
+                    <div class="col-12">
+                        <label class="form-label text-muted mb-1">Kultur</label>
+                        <textarea class="form-control form-control-sm" name="culture" id="ai_culture" rows="2" readonly></textarea>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card-footer bg-transparent d-flex justify-content-between">
+            <a href="{% url 'writing_hub:world-dashboard' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-outline-secondary">
+                <i class="bi bi-x me-1"></i>Abbrechen
+            </a>
+            <div>
+                <button type="button" class="btn btn-primary me-2" id="btnGenerateFullAI">
+                    <i class="bi bi-stars me-1"></i>Mit AI generieren
+                </button>
+                <button type="submit" class="btn btn-success">
+                    <i class="bi bi-plus-lg me-1"></i>Welt erstellen{% if project %} & zuordnen{% endif %}
+                </button>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- AI Loading Modal -->
+<div class="modal fade" id="aiLoadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <h5>AI generiert deine Welt...</h5>
+                <p class="text-muted mb-0">Dies kann 10-30 Sekunden dauern</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const btnGenerate = document.getElementById('btnGenerateFullAI');
+    const btnGenerateSmall = document.getElementById('btnGenerateAI');
+    const btnClearAI = document.getElementById('btnClearAI');
+    const aiPreview = document.getElementById('aiPreview');
+    const loadingModal = new bootstrap.Modal(document.getElementById('aiLoadingModal'));
+    
+    async function generateWorld() {
+        const name = document.getElementById('name').value.trim();
+        if (!name) {
+            alert('Bitte gib zuerst einen Namen für die Welt ein.');
+            document.getElementById('name').focus();
+            return;
+        }
+        
+        const worldTypeSelect = document.getElementById('world_type');
+        const worldTypeCode = worldTypeSelect.selectedOptions[0]?.dataset.code || 'fantasy';
+        const seedIdea = document.getElementById('seed_idea').value.trim();
+        const language = document.getElementById('language').value;
+        
+        loadingModal.show();
+        
+        try {
+            const response = await fetch('{% url "writing_hub:world-generate-ai" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    name: name,
+                    world_type: worldTypeCode,
+                    seed_idea: seedIdea,
+                    language: language
+                })
+            });
+            
+            const data = await response.json();
+            loadingModal.hide();
+            
+            if (data.success) {
+                // Fill in the form fields
+                if (data.description) {
+                    document.getElementById('description').value = data.description;
+                }
+                if (data.setting_era) {
+                    document.getElementById('ai_setting_era').value = data.setting_era;
+                }
+                if (data.technology_level) {
+                    document.getElementById('ai_technology_level').value = data.technology_level;
+                }
+                if (data.geography) {
+                    document.getElementById('ai_geography').value = data.geography;
+                }
+                if (data.inhabitants) {
+                    document.getElementById('ai_inhabitants').value = data.inhabitants;
+                }
+                if (data.culture) {
+                    document.getElementById('ai_culture').value = data.culture;
+                }
+                
+                // Show preview section
+                aiPreview.classList.remove('d-none');
+                
+                // Show success toast
+                if (data.cached) {
+                    console.log('AI result from cache');
+                }
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            }
+        } catch (error) {
+            loadingModal.hide();
+            alert('Netzwerkfehler: ' + error.message);
+        }
+    }
+    
+    btnGenerate.addEventListener('click', generateWorld);
+    btnGenerateSmall.addEventListener('click', generateWorld);
+    
+    btnClearAI.addEventListener('click', function() {
+        document.getElementById('ai_setting_era').value = '';
+        document.getElementById('ai_technology_level').value = '';
+        document.getElementById('ai_geography').value = '';
+        document.getElementById('ai_inhabitants').value = '';
+        document.getElementById('ai_culture').value = '';
+        aiPreview.classList.add('d-none');
+    });
+});
+</script>
+{% endblock %}

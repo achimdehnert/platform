@@ -1,0 +1,284 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Requirement Workflow{% endblock %}
+
+{% block content %}
+<style>
+.workflow-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    padding: 20px;
+}
+.workflow-row {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 10px;
+}
+.workflow-node {
+    padding: 15px 25px;
+    border-radius: 10px;
+    text-align: center;
+    min-width: 150px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.2s, box-shadow 0.2s;
+    cursor: pointer;
+}
+.workflow-node:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+.node-draft { background: linear-gradient(135deg, #e9ecef 0%, #dee2e6 100%); border: 2px solid #adb5bd; }
+.node-ready { background: linear-gradient(135deg, #fff3cd 0%, #ffeeba 100%); border: 2px solid #ffc107; }
+.node-progress { background: linear-gradient(135deg, #cce5ff 0%, #b8daff 100%); border: 2px solid #007bff; }
+.node-done { background: linear-gradient(135deg, #d4edda 0%, #c3e6cb 100%); border: 2px solid #28a745; }
+.node-celery { background: linear-gradient(135deg, #e2d5f1 0%, #d4c4e8 100%); border: 2px solid #6f42c1; }
+.node-cascade { background: linear-gradient(135deg, #ffd6e0 0%, #ffb8c9 100%); border: 2px solid #dc3545; }
+.node-n8n { background: linear-gradient(135deg, #d1ecf1 0%, #bee5eb 100%); border: 2px solid #17a2b8; }
+
+.arrow {
+    font-size: 24px;
+    color: #6c757d;
+}
+.arrow-down {
+    transform: rotate(90deg);
+}
+.node-icon {
+    font-size: 24px;
+    margin-bottom: 5px;
+}
+.node-title {
+    font-weight: 600;
+    margin-bottom: 3px;
+}
+.node-desc {
+    font-size: 12px;
+    color: #6c757d;
+}
+.workflow-section {
+    border: 1px dashed #dee2e6;
+    border-radius: 15px;
+    padding: 20px;
+    margin: 10px 0;
+}
+.section-title {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #6c757d;
+    margin-bottom: 15px;
+    text-align: center;
+}
+</style>
+
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <div class="d-flex justify-content-between align-items-center">
+                <h4><i class="bi bi-diagram-3"></i> Requirement Workflow</h4>
+                <div>
+                    <a href="{{ n8n_base_url }}" target="_blank" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-box-arrow-up-right"></i> n8n öffnen
+                    </a>
+                    <a href="{% url 'control_center:initiative-list' %}" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-kanban"></i> Initiatives
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-signpost-split"></i> Requirement Processing Flow
+                </div>
+                <div class="card-body">
+                    <div class="workflow-container">
+                        <!-- Phase 1: User Input -->
+                        <div class="workflow-section">
+                            <div class="section-title">📝 Phase 1: Definition</div>
+                            <div class="workflow-row">
+                                <div class="workflow-node node-draft">
+                                    <div class="node-icon">📋</div>
+                                    <div class="node-title">Entwurf</div>
+                                    <div class="node-desc">Requirement anlegen</div>
+                                </div>
+                                <div class="arrow">→</div>
+                                <div class="workflow-node node-ready">
+                                    <div class="node-icon">✅</div>
+                                    <div class="node-title">Bereit</div>
+                                    <div class="node-desc">Zur Freigabe</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="arrow arrow-down text-center">↓</div>
+
+                        <!-- Phase 2: Approval -->
+                        <div class="workflow-section">
+                            <div class="section-title">🔐 Phase 2: Freigabe</div>
+                            <div class="workflow-row">
+                                <div class="workflow-node node-ready">
+                                    <div class="node-icon">👤</div>
+                                    <div class="node-title">User Review</div>
+                                    <div class="node-desc">Prüfung & Abhängigkeiten</div>
+                                </div>
+                                <div class="arrow">→</div>
+                                <div class="workflow-node node-cascade">
+                                    <div class="node-icon">🤖</div>
+                                    <div class="node-title">Cascade Analyse</div>
+                                    <div class="node-desc">bfagent_analyze_requirement</div>
+                                </div>
+                                <div class="arrow">→</div>
+                                <div class="workflow-node node-progress" style="border-width: 3px;">
+                                    <div class="node-icon">▶️</div>
+                                    <div class="node-title">Freigeben & Starten</div>
+                                    <div class="node-desc">Status → in_progress</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="arrow arrow-down text-center">↓</div>
+
+                        <!-- Phase 3: Auto-Processing -->
+                        <div class="workflow-section">
+                            <div class="section-title">⚙️ Phase 3: Automatische Verarbeitung</div>
+                            <div class="workflow-row">
+                                <div class="workflow-node node-celery">
+                                    <div class="node-icon">🔄</div>
+                                    <div class="node-title">Celery Signal</div>
+                                    <div class="node-desc">Django Signal triggert Task</div>
+                                </div>
+                                <div class="arrow">→</div>
+                                <div class="workflow-node node-celery">
+                                    <div class="node-icon">📦</div>
+                                    <div class="node-title">Task Queue</div>
+                                    <div class="node-desc">process_requirement_task</div>
+                                </div>
+                                <div class="arrow">→</div>
+                                <div class="workflow-node node-n8n">
+                                    <div class="node-icon">🔗</div>
+                                    <div class="node-title">n8n Webhook</div>
+                                    <div class="node-desc">(Optional)</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="arrow arrow-down text-center">↓</div>
+
+                        <!-- Phase 4: Cascade Work -->
+                        <div class="workflow-section">
+                            <div class="section-title">🤖 Phase 4: Cascade Bearbeitung</div>
+                            <div class="workflow-row">
+                                <div class="workflow-node node-cascade">
+                                    <div class="node-icon">💬</div>
+                                    <div class="node-title">Cascade arbeitet</div>
+                                    <div class="node-desc">Code-Änderungen</div>
+                                </div>
+                                <div class="arrow">→</div>
+                                <div class="workflow-node node-cascade">
+                                    <div class="node-icon">📝</div>
+                                    <div class="node-title">Feedback</div>
+                                    <div class="node-desc">bfagent_add_feedback</div>
+                                </div>
+                                <div class="arrow">→</div>
+                                <div class="workflow-node node-cascade">
+                                    <div class="node-icon">📊</div>
+                                    <div class="node-title">Ergebnis</div>
+                                    <div class="node-desc">bfagent_record_task_result</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="arrow arrow-down text-center">↓</div>
+
+                        <!-- Phase 5: Complete -->
+                        <div class="workflow-section">
+                            <div class="section-title">✅ Phase 5: Abschluss</div>
+                            <div class="workflow-row">
+                                <div class="workflow-node node-done">
+                                    <div class="node-icon">🎉</div>
+                                    <div class="node-title">Erledigt</div>
+                                    <div class="node-desc">Status → done/completed</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar: Legend & Stats -->
+        <div class="col-lg-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-info-circle"></i> Legende
+                </div>
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge me-2" style="background: #dee2e6; color: #495057;">Entwurf</span>
+                        <small>Requirement in Bearbeitung</small>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge me-2" style="background: #ffc107; color: #212529;">Bereit</span>
+                        <small>Warte auf Freigabe</small>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge me-2" style="background: #007bff;">In Arbeit</span>
+                        <small>Wird bearbeitet</small>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge me-2" style="background: #6f42c1;">Celery</span>
+                        <small>Background Task</small>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge me-2" style="background: #dc3545;">Cascade</span>
+                        <small>AI Bearbeitung</small>
+                    </div>
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge me-2" style="background: #17a2b8;">n8n</span>
+                        <small>Workflow Engine</small>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <span class="badge me-2" style="background: #28a745;">Erledigt</span>
+                        <small>Abgeschlossen</small>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-gear"></i> MCP Tools
+                </div>
+                <div class="card-body">
+                    <code class="d-block mb-2">bfagent_get_requirement</code>
+                    <code class="d-block mb-2">bfagent_analyze_requirement</code>
+                    <code class="d-block mb-2">bfagent_add_feedback</code>
+                    <code class="d-block mb-2">bfagent_update_requirement_status</code>
+                    <code class="d-block">bfagent_record_task_result</code>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-link-45deg"></i> Quick Links
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'control_center:initiative-list' %}" class="btn btn-outline-primary btn-sm w-100 mb-2">
+                        <i class="bi bi-kanban"></i> Initiative Kanban
+                    </a>
+                    <a href="{{ n8n_base_url }}" target="_blank" class="btn btn-outline-info btn-sm w-100 mb-2">
+                        <i class="bi bi-box-arrow-up-right"></i> n8n Designer
+                    </a>
+                    <a href="/admin/bfagent/testrequirement/" target="_blank" class="btn btn-outline-secondary btn-sm w-100">
+                        <i class="bi bi-database"></i> Admin: Requirements
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

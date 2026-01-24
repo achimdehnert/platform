@@ -1,0 +1,161 @@
+# Hybrid Analyzer Configuration
+# Adjust thresholds based on your project requirements
+
+thresholds:
+  # Maintainability Index (0-100)
+  # < 20: Very Low, 20-60: Low, 60-80: Moderate, > 80: High
+  maintainability_index: 65.0
+
+  # Pylint Score (0-10)
+  pylint_score: 8.0
+
+  # Maximum number of high-severity security issues allowed
+  security_issues_high: 0
+
+  # Maximum number of functions with complexity grade F
+  complexity_grade_f: 0
+
+  # Maximum cyclomatic complexity per function
+  cyclomatic_complexity_max: 10
+
+  # Maximum lines per function
+  function_length_max: 50
+
+  # Maximum code duplication percentage
+  code_duplication_max: 5.0
+
+  # Minimum test coverage percentage
+  test_coverage_min: 80.0
+
+  # Minimum documentation coverage percentage
+  documentation_coverage_min: 75.0
+
+# Analysis settings
+analysis:
+  # Exclude patterns (glob patterns)
+  exclude_patterns:
+    - "__pycache__"
+    - ".git"
+    - ".tox"
+    - "venv"
+    - "env"
+    - "build"
+    - "dist"
+    - "*.egg-info"
+    - "migrations"
+    - "tests"
+    - "test_*.py"
+    - "*_test.py"
+
+  # File patterns to analyze
+  file_patterns:
+    - "*.py"
+    # - "*.pyx"  # Cython files
+
+  # External tools configuration
+  external_tools:
+    pylint:
+      enabled: true
+      timeout: 30
+      args: ["--output-format=json", "--disable=C0114,C0115,C0116"]
+
+    bandit:
+      enabled: true
+      timeout: 30
+      args: ["-f", "json", "-ll"]
+
+    radon:
+      enabled: true
+      timeout: 30
+
+    mypy:
+      enabled: false  # Enable if type checking is needed
+      timeout: 60
+      args: ["--ignore-missing-imports"]
+
+    flake8:
+      enabled: true
+      timeout: 30
+      args: ["--max-line-length=88", "--extend-ignore=E203,W503"]
+
+# Performance settings
+performance:
+  # Enable parallel processing
+  parallel: true
+
+  # Number of worker processes (null = auto-detect)
+  workers: null
+
+  # Enable caching
+  cache_enabled: true
+
+  # Cache expiration in days
+  cache_expiration_days: 7
+
+  # Batch size for parallel processing
+  batch_size: 20
+
+# Reporting settings
+reporting:
+  # Generate visualizations
+  include_visualizations: true
+
+  # Maximum number of issues to show per category
+  max_issues_shown: 10
+
+  # Include file-level details in report
+  include_file_details: true
+
+  # Export formats
+  formats:
+    - markdown
+    - json
+    # - html
+
+  # CI integration formats
+  ci_formats:
+    # - junit
+    # - sonarqube
+    # - checkstyle
+
+# Mode-specific overrides
+mode_overrides:
+  quick:
+    thresholds:
+      cyclomatic_complexity_max: 15
+      documentation_coverage_min: 50.0
+    external_tools:
+      pylint:
+        enabled: false
+      mypy:
+        enabled: false
+      bandit:
+        enabled: true
+
+  deep:
+    thresholds:
+      cyclomatic_complexity_max: 8
+      documentation_coverage_min: 90.0
+    external_tools:
+      mypy:
+        enabled: true
+    analysis:
+      include_patterns: true
+      include_performance: true
+
+# Custom rules (future extension)
+custom_rules:
+  # Example: Project-specific patterns
+  forbidden_imports:
+    - "pickle"  # Security risk
+    - "eval"    # Security risk
+    - "__import__"  # Dynamic imports
+
+  required_docstring_sections:
+    - "Args"
+    - "Returns"
+    - "Raises"
+
+  max_file_lines: 500
+  max_class_methods: 20
+  max_function_arguments: 6

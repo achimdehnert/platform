@@ -1,0 +1,37 @@
+{
+  "version": "1.0",
+  "updated_at": "2024-12-18T12:00:00",
+  "use_case_count": 2,
+  "use_cases": [
+    {
+      "id": "fenster_detection",
+      "title": "Fenster-Erkennung verbessern",
+      "description": "DXF-Dateien enthalten oft keine expliziten Fenster-Blöcke. Fenster müssen aus Geometrie (Linien, Bögen) erkannt werden.",
+      "example_queries": ["wie viele fenster gibt es", "anzahl fenster", "fenster zählen"],
+      "intent": "window_count",
+      "status": "new",
+      "priority": "medium",
+      "request_count": 3,
+      "created_at": "2024-12-18T12:00:00",
+      "updated_at": "2024-12-18T12:00:00",
+      "tags": ["fenster", "auto_detected", "geometry_recognition"],
+      "technical_notes": "Mögliche Ansätze: 1) Block-Namen mit 'FENSTER/WINDOW' suchen, 2) Typische Fenster-Geometrie erkennen (Doppellinie mit Bogen), 3) Layer-basierte Erkennung",
+      "resolution": ""
+    },
+    {
+      "id": "tueren_detection",
+      "title": "Türen-Erkennung verbessern",
+      "description": "DXF-Dateien enthalten oft keine expliziten Tür-Blöcke. Türen müssen aus Geometrie (Bögen, Linien) erkannt werden.",
+      "example_queries": ["wie viele türen", "anzahl türen", "türen zählen"],
+      "intent": "door_count",
+      "status": "new",
+      "priority": "medium",
+      "request_count": 2,
+      "created_at": "2024-12-18T12:00:00",
+      "updated_at": "2024-12-18T12:00:00",
+      "tags": ["türen", "auto_detected", "geometry_recognition"],
+      "technical_notes": "Mögliche Ansätze: 1) Block-Namen mit 'TÜR/DOOR' suchen, 2) Typische Tür-Geometrie erkennen (90° Bogen + Linie), 3) Layer-basierte Erkennung",
+      "resolution": ""
+    }
+  ]
+}

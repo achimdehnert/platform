@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    
+    "bfagent": {
+      "command": "python",
+      "args": ["-m", "bfagent_mcp.mcp_server"],
+      "env": {
+        "PYTHONPATH": "/Users/achim/projects/bf_agent/packages",
+        "DJANGO_SETTINGS_MODULE": "config.settings"
+      }
+    }
+    
+  }
+}

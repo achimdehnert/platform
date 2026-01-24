@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "django-htmx": {
+      "command": "python",
+      "args": ["-m", "django_htmx_mcp.server"],
+      "cwd": "/path/to/django-htmx-mcp"
+    }
+  }
+}

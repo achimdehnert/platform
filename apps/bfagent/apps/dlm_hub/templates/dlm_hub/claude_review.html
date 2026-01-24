@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}DLM Hub - Claude Review{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'dlm_hub/css/dlm_hub.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h1 class="h3 mb-1">
+        <i class="bi bi-robot me-2"></i>Claude Review
+      </h1>
+      <div class="text-muted">AI-assisted documentation review</div>
+    </div>
+    <a href="{% url 'dlm_hub:file-preview' issue.id %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to Preview
+    </a>
+  </div>
+
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% else %}
+
+  <div class="row g-4">
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header">
+          <i class="bi bi-file-text me-2"></i>
+          <strong>{{ issue.file_path }}</strong>
+        </div>
+        <div class="card-body">
+          <div class="mb-3">
+            <span class="badge bg-{{ issue.severity_color }} me-2">{{ issue.severity }}</span>
+            <span class="badge bg-secondary">{{ issue.get_issue_type_display }}</span>
+          </div>
+          <p class="text-muted">{{ issue.reason }}</p>
+          {% if content %}
+          <pre class="bg-light p-3 rounded small dlm-review-prompt"><code>{{ content|truncatechars:3000 }}</code></pre>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <div class="col-lg-6">
+      <div class="card h-100">
+        <div class="card-header bg-primary text-white">
+          <i class="bi bi-chat-dots me-2"></i>
+          <strong>Review Prompt for Claude</strong>
+        </div>
+        <div class="card-body">
+          {% if review %}
+          <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            Copy this prompt to Claude for a detailed review
+          </div>
+          <pre class="bg-light p-3 rounded dlm-review-prompt">{{ review.prompt }}</pre>
+          <div class="mt-3">
+            <button class="btn btn-primary" onclick="navigator.clipboard.writeText(document.querySelector('pre').textContent); this.innerHTML='<i class=\'bi bi-check\'></i> Copied!';">
+              <i class="bi bi-clipboard me-1"></i>Copy Prompt
+            </button>
+          </div>
+          {% else %}
+          <p class="text-muted">Could not generate review prompt</p>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card mt-4">
+    <div class="card-header">
+      <strong>Quick Actions</strong>
+    </div>
+    <div class="card-body">
+      <div class="d-flex gap-2 flex-wrap">
+        <form method="post" action="{% url 'dlm_hub:archive-file' issue.id %}" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="next" value="{% url 'dlm_hub:issue-list' %}">
+          <button type="submit" class="btn btn-warning" onclick="return confirm('Archive this file?')">
+            <i class="bi bi-archive me-1"></i>Archive File
+          </button>
+        </form>
+        <form method="post" action="{% url 'dlm_hub:resolve-issue' issue.id %}" class="d-inline">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="ignore">
+          <input type="hidden" name="next" value="{% url 'dlm_hub:issue-list' %}">
+          <button type="submit" class="btn btn-secondary">
+            <i class="bi bi-x-lg me-1"></i>Ignore Issue
+          </button>
+        </form>
+        <a href="{% url 'dlm_hub:diff-view' issue.id %}" class="btn btn-info">
+          <i class="bi bi-layout-split me-1"></i>View Diff
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% endif %}
+</div>
+{% endblock %}

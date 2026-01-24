@@ -1,0 +1,145 @@
+Core services registered successfully
+Input handlers registered: 5
+Processing handlers registered: 3
+Output handlers registered: 3
+Registered tool: htmx_scanner v3.0.0
+Registered tool: template_validator v1.0.0
+Registered tool: system_validator v2.0.0
+Registered tool: code_formatter v1.0.0
+Registered tool: git_sync v3.0.0
+Registered tool: model_checker v3.0.0
+Registered tool: migration_fixer v1.0.0
+Registered tool: phase_agent_manager v1.0.0
+Registered tool: screen_documentation v1.0.0
+Registered tool: visual_explorer v1.0.0
+Registered tool: api_checker v4.0.0
+Registered tool: graphql_generator v3.0.0
+Registered tool: graphql_analyzer v1.0.0
+Registered tool: graphql_monitor v1.0.0
+Registered tool: theme_switcher v3.0.0
+Registered tool: csrf_setup v1.0.0
+Registered tool: enhanced_analyzer v1.0.0
+Registered tool: integrated_analyzer v1.0.0
+Registered tool: hybrid_analyzer v1.0.0
+Registered tool: tool_docs_enhanced v1.0.0
+Registered tool: optimized_analyzer v2.0.0
+Registered tool: unicode_safe_analyzer v1.0.0
+Registered tool: enhanced_unicode_analyzer v2.0.0
+Registered tool: code_repair_tool v1.0.0
+Registered tool: enhanced_cli_analyzer v1.0.0
+Registered tool: safe_auto_fixer v1.0.0
+Tool registry initialized with optimized BF Agent tools
+Registered handler 'apps.genagent.handlers.demo_handlers.WelcomeHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataValidationHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataTransformHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.LogHandler' v1.0.0 for domains: ['demo']
+(0.015) SELECT name FROM sqlite_master WHERE type='table' AND name LIKE '%handler%' ORDER BY name;; args=None; alias=default
+(0.000) PRAGMA table_info(handler_categories);; args=None; alias=default
+(0.000) PRAGMA table_info(handler_executions);; args=None; alias=default
+(0.000) PRAGMA table_info(handler_phases);; args=None; alias=default
+(0.000) PRAGMA table_info(research_handler_type_lookup);; args=None; alias=default
+(0.000) PRAGMA table_info(research_researchhandlerexecution);; args=None; alias=default
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+
+­ƒôè Handler-related tables in database:
+============================================================
+  Ô£à handler_categories
+      - id: INTEGER (PK)
+      - code: VARCHAR(20)
+      - name: VARCHAR(100)
+      - description: TEXT
+      - color: VARCHAR(20)
+      - icon: VARCHAR(50)
+      - is_active: BOOLEAN
+      - sort_order: INTEGER
+      - created_at: TIMESTAMP
+      - updated_at: TIMESTAMP
+      - is_system: BOOLEAN
+      - config: TEXT
+      - display_order: INTEGER
+
+  Ô£à handler_executions
+      - id: INTEGER (PK)
+      - started_at: datetime
+      - completed_at: datetime
+      - status: varchar(20)
+      - input_data: TEXT
+      - output_data: TEXT
+      - error_message: TEXT
+      - error_traceback: TEXT
+      - retry_attempt: INTEGER
+      - execution_time_ms: INTEGER
+      - tokens_used: INTEGER
+      - cost: decimal
+      - execution_context: TEXT
+      - action_handler_id: bigint
+      - executed_by_id: INTEGER
+      - llm_used_id: bigint
+      - project_id: bigint
+
+  Ô£à handler_phases
+      - id: INTEGER (PK)
+      - code: VARCHAR(20)
+      - name: VARCHAR(100)
+      - description: TEXT
+      - execution_order: INTEGER
+      - color: VARCHAR(20)
+      - icon: VARCHAR(50)
+      - is_active: BOOLEAN
+      - sort_order: INTEGER
+      - created_at: TIMESTAMP
+      - updated_at: TIMESTAMP
+
+  Ô£à research_handler_type_lookup
+      - id: INTEGER (PK)
+      - code: varchar(50)
+      - name_de: varchar(200)
+      - name_en: varchar(200)
+      - description: TEXT
+      - sort_order: INTEGER
+      - is_active: bool
+      - created_at: datetime
+      - updated_at: datetime
+      - handler_class: varchar(200)
+      - handler_version: varchar(20)
+      - is_async: bool
+      - requires_api_keys: TEXT
+      - default_timeout: INTEGER
+      - cache_ttl_seconds: INTEGER
+
+  Ô£à research_researchhandlerexecution
+      - id: INTEGER (PK)
+      - handler_version: varchar(20)
+      - status: varchar(20)
+      - started_at: datetime
+      - completed_at: datetime
+      - execution_time_ms: INTEGER
+      - input_data: TEXT
+      - output_data: TEXT
+      - error_message: TEXT
+      - error_traceback: TEXT
+      - prompt_tokens: INTEGER
+      - completion_tokens: INTEGER
+      - total_tokens: INTEGER
+      - cache_hit: bool
+      - handler_type_id: bigint
+      - session_id: bigint
+
+============================================================
+
+­ƒôï Handler model expects table: 'handlers'
+

@@ -1,0 +1,92 @@
+[
+  {
+    "model": "writing_hub.promisestatus",
+    "pk": "33333333-3333-3333-3333-333333333001",
+    "fields": {
+      "code": "open",
+      "name_de": "Offen",
+      "name_en": "Open",
+      "description": "Promise/Hook wurde eingeführt, wartet auf Einlösung",
+      "is_terminal": false,
+      "color": "primary",
+      "sort_order": 1,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.promisestatus",
+    "pk": "33333333-3333-3333-3333-333333333002",
+    "fields": {
+      "code": "reinforced",
+      "name_de": "Verstärkt",
+      "name_en": "Reinforced",
+      "description": "Promise wurde erneut aufgegriffen und verstärkt",
+      "is_terminal": false,
+      "color": "info",
+      "sort_order": 2,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.promisestatus",
+    "pk": "33333333-3333-3333-3333-333333333003",
+    "fields": {
+      "code": "twisted",
+      "name_de": "Gedreht",
+      "name_en": "Twisted",
+      "description": "Promise hat eine unerwartete Wendung genommen",
+      "is_terminal": false,
+      "color": "warning",
+      "sort_order": 3,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.promisestatus",
+    "pk": "33333333-3333-3333-3333-333333333004",
+    "fields": {
+      "code": "partial",
+      "name_de": "Teilweise eingelöst",
+      "name_en": "Partially Paid",
+      "description": "Promise wurde teilweise eingelöst, Rest steht noch aus",
+      "is_terminal": false,
+      "color": "secondary",
+      "sort_order": 4,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.promisestatus",
+    "pk": "33333333-3333-3333-3333-333333333005",
+    "fields": {
+      "code": "paid",
+      "name_de": "Eingelöst",
+      "name_en": "Paid",
+      "description": "Promise wurde vollständig eingelöst/aufgelöst",
+      "is_terminal": true,
+      "color": "success",
+      "sort_order": 5,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.promisestatus",
+    "pk": "33333333-3333-3333-3333-333333333006",
+    "fields": {
+      "code": "retired",
+      "name_de": "Zurückgezogen",
+      "name_en": "Retired",
+      "description": "Promise wurde bewusst fallen gelassen (z.B. Story-Änderung)",
+      "is_terminal": true,
+      "color": "dark",
+      "sort_order": 6,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  }
+]

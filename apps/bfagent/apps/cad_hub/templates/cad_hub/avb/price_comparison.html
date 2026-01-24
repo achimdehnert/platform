@@ -1,0 +1,162 @@
+{% extends "cad_hub/avb/base_avb.html" %}
+
+{% block avb_title %}Preisspiegel - {{ tender.tender_number }}{% endblock %}
+
+{% block avb_content %}
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="mb-1"><i class="bi bi-bar-chart-line text-primary"></i> Preisspiegel</h4>
+        <p class="text-muted mb-0">
+            <code>{{ tender.tender_number }}</code> · {{ tender.title }}
+        </p>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'cad_hub:export_price_comparison' pk=tender.pk %}" class="btn btn-success">
+            <i class="bi bi-file-earmark-excel"></i> Excel Export
+        </a>
+        <a href="{% url 'cad_hub:tender_detail' pk=tender.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+    </div>
+</div>
+
+<!-- Vergabevorschlag -->
+{% if suggestion %}
+<div class="alert alert-success mb-4">
+    <div class="row align-items-center">
+        <div class="col-md-8">
+            <div class="d-flex align-items-center gap-3 mb-2">
+                <i class="bi bi-trophy-fill fs-3 text-warning"></i>
+                <div>
+                    <small class="text-muted text-uppercase">Vergabevorschlag</small>
+                    <h5 class="mb-0">{{ suggestion.recommended_bidder }}</h5>
+                </div>
+            </div>
+            <p class="mb-0 text-muted">{{ suggestion.reason }}</p>
+        </div>
+        <div class="col-md-4 text-md-end mt-3 mt-md-0">
+            <small class="text-muted">Auftragswert</small>
+            <div class="fs-3 fw-bold text-success">{{ suggestion.contract_value|floatformat:0 }} €</div>
+            {% if suggestion.savings_vs_estimate > 0 %}
+            <small class="text-success">
+                <i class="bi bi-arrow-down-circle-fill"></i>
+                {{ suggestion.savings_percent|floatformat:1 }}% unter Budget
+            </small>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Ranking Cards -->
+{% if rankings %}
+<div class="row g-4 mb-4">
+    {% for r in rankings %}
+    <div class="col-md-6 col-lg-4">
+        <div class="card h-100 {% if r.rank == 1 %}border-success{% endif %}">
+            <div class="card-body">
+                <!-- Rank Badge -->
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div class="rank-badge rank-{{ r.rank }}">
+                        {% if r.rank == 1 %}🥇{% elif r.rank == 2 %}🥈{% elif r.rank == 3 %}🥉{% else %}{{ r.rank }}{% endif %}
+                    </div>
+                    <span class="badge bg-primary">Score: {{ r.price_score }}</span>
+                </div>
+                
+                <!-- Bidder Name -->
+                <h5 class="card-title">{{ r.bidder_name }}</h5>
+                
+                <!-- Prices -->
+                <div class="row g-2 mb-3">
+                    <div class="col-6">
+                        <small class="text-muted text-uppercase">Netto</small>
+                        <div class="fs-6">{{ r.total_price|floatformat:0 }} €</div>
+                    </div>
+                    <div class="col-6">
+                        <small class="text-muted text-uppercase">Endpreis</small>
+                        <div class="fs-6 fw-bold {% if r.rank == 1 %}text-success{% endif %}">{{ r.final_price|floatformat:0 }} €</div>
+                    </div>
+                </div>
+                
+                <!-- Stats -->
+                <div class="bg-light rounded p-2 mb-3">
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">Günstigste Positionen</span>
+                        <span class="fw-bold text-primary">{{ r.lowest_positions }} / {{ r.positions_count }}</span>
+                    </div>
+                </div>
+                
+                {% if r.rank == 1 %}
+                <a href="{% url 'cad_hub:award_create' tender_id=tender.pk bid_id=r.bidder_id %}" class="btn btn-success w-100">
+                    <i class="bi bi-check-circle-fill"></i> Zuschlag erteilen
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Preisspiegel Tabelle -->
+{% if comparisons %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-table"></i> Positionsvergleich</span>
+        <span class="text-muted small">{{ comparisons|length }} Positionen</span>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover table-sm mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th style="width: 100px;">OZ</th>
+                    <th>Kurztext</th>
+                    <th class="text-end" style="width: 80px;">Menge</th>
+                    <th style="width: 60px;">ME</th>
+                    {% for r in rankings %}
+                    <th class="text-end" style="min-width: 100px;">
+                        <span title="{{ r.bidder_name }}">{{ r.bidder_name|truncatechars:12 }}</span>
+                    </th>
+                    {% endfor %}
+                    <th class="text-end" style="width: 100px;">Günstigster</th>
+                    <th class="text-center" style="width: 80px;">Δ %</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for comp in comparisons %}
+                <tr>
+                    <td><code>{{ comp.position_oz }}</code></td>
+                    <td>{{ comp.position_text|truncatechars:35 }}</td>
+                    <td class="text-end">{{ comp.quantity|floatformat:2 }}</td>
+                    <td class="text-muted">{{ comp.unit }}</td>
+                    {% for bid in comp.bids %}
+                    <td class="text-end {% if bid.rank == 1 %}price-lowest{% endif %}">
+                        {{ bid.unit_price|floatformat:2 }} €
+                    </td>
+                    {% endfor %}
+                    <td class="text-end text-success fw-bold">{{ comp.lowest_price|floatformat:2 }} €</td>
+                    <td class="text-center">
+                        <span class="badge {% if comp.spread_percent > 30 %}bg-danger{% elif comp.spread_percent > 15 %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                            {{ comp.spread_percent|floatformat:0 }}%
+                        </span>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% else %}
+<div class="card">
+    <div class="card-body text-center py-5">
+        <i class="bi bi-inbox text-muted" style="font-size: 4rem;"></i>
+        <h5 class="mt-3">Noch keine Angebote</h5>
+        <p class="text-muted">Laden Sie Bieter ein, um Angebote zu erhalten</p>
+        <a href="{% url 'cad_hub:bid_invite' tender_id=tender.pk %}" class="btn btn-primary mt-2">
+            <i class="bi bi-person-plus"></i> Bieter einladen
+        </a>
+    </div>
+</div>
+{% endif %}
+{% endblock %}

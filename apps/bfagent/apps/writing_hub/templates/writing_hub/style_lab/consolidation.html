@@ -1,0 +1,203 @@
+{% extends "base.html" %}
+
+{% block title %}Konsolidierung - {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}">Style Lab</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:session-detail' session_id=session.id %}">{{ session.name }}</a></li>
+            <li class="breadcrumb-item active">Konsolidierung</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1">Phase C: Feedback-Konsolidierung</h2>
+            <p class="text-muted mb-0">Überprüfe und gruppiere dein Feedback</p>
+        </div>
+        <div>
+            <a href="{% url 'writing_hub:fixation' session_id=session.id %}" class="btn btn-primary">
+                <i class="bi bi-arrow-right me-1"></i>Zur Fixierung
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-success-subtle">
+                <div class="card-body text-center">
+                    <h2 class="text-success mb-0">{{ stats.accepted }}</h2>
+                    <small>✅ Akzeptiert</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-danger-subtle">
+                <div class="card-body text-center">
+                    <h2 class="text-danger mb-0">{{ stats.rejected }}</h2>
+                    <small>❌ Abgelehnt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-0 shadow-sm bg-warning-subtle">
+                <div class="card-body text-center">
+                    <h2 class="text-warning mb-0">{{ stats.ambiguous }}</h2>
+                    <small>⚠️ Unklar</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 3-Spalten Layout -->
+    <div class="row g-4">
+        <!-- Accepted -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-success-subtle border-0">
+                    <h5 class="mb-0 text-success">
+                        <i class="bi bi-check-circle me-2"></i>Akzeptiert (DO)
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if accepted_patterns %}
+                    <div class="accordion accordion-flush" id="acceptedPatterns">
+                        {% for pattern, items in accepted_patterns.items %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#acc_{{ forloop.counter }}">
+                                    <span class="badge bg-success me-2">{{ items|length }}</span>
+                                    {{ pattern }}
+                                </button>
+                            </h2>
+                            <div id="acc_{{ forloop.counter }}" class="accordion-collapse collapse">
+                                <div class="accordion-body small">
+                                    {% for item in items %}
+                                    <div class="mb-2 pb-2 border-bottom">
+                                        <div class="text-muted">{{ item.scene }}</div>
+                                        <div>"{{ item.text|truncatechars:100 }}"</div>
+                                        {% if item.comment %}
+                                        <div class="fst-italic text-secondary mt-1">{{ item.comment }}</div>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-inbox display-4"></i>
+                        <p class="mt-2 mb-0">Noch keine akzeptierten Patterns</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Rejected -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-danger-subtle border-0">
+                    <h5 class="mb-0 text-danger">
+                        <i class="bi bi-x-circle me-2"></i>Abgelehnt (DON'T)
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if rejected_patterns %}
+                    <div class="accordion accordion-flush" id="rejectedPatterns">
+                        {% for pattern, items in rejected_patterns.items %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#rej_{{ forloop.counter }}">
+                                    <span class="badge bg-danger me-2">{{ items|length }}</span>
+                                    {{ pattern }}
+                                </button>
+                            </h2>
+                            <div id="rej_{{ forloop.counter }}" class="accordion-collapse collapse">
+                                <div class="accordion-body small">
+                                    {% for item in items %}
+                                    <div class="mb-2 pb-2 border-bottom">
+                                        <div class="text-muted">{{ item.scene }}</div>
+                                        <div>"{{ item.text|truncatechars:100 }}"</div>
+                                        {% if item.comment %}
+                                        <div class="fst-italic text-secondary mt-1">{{ item.comment }}</div>
+                                        {% endif %}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-inbox display-4"></i>
+                        <p class="mt-2 mb-0">Noch keine abgelehnten Patterns</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Ambiguous -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100">
+                <div class="card-header bg-warning-subtle border-0">
+                    <h5 class="mb-0 text-warning">
+                        <i class="bi bi-question-circle me-2"></i>Unklar (Retest nötig)
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if ambiguous %}
+                    <div class="list-group list-group-flush">
+                        {% for item in ambiguous %}
+                        <div class="list-group-item px-0">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <small class="text-muted">{{ item.scene }}</small>
+                                    <div class="small">"{{ item.text|truncatechars:80 }}"</div>
+                                    {% if item.pattern %}
+                                    <span class="badge bg-warning-subtle text-warning">{{ item.pattern }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if ambiguous %}
+                    <div class="mt-3">
+                        <button class="btn btn-outline-warning btn-sm w-100" disabled>
+                            <i class="bi bi-arrow-repeat me-1"></i>Gezielten Retest generieren
+                        </button>
+                        <small class="text-muted d-block text-center mt-1">Kommt mit LLM-Service</small>
+                    </div>
+                    {% endif %}
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-check-all display-4 text-success"></i>
+                        <p class="mt-2 mb-0">Keine unklaren Patterns!</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="mt-4 d-flex gap-2">
+        <a href="{% url 'writing_hub:session-detail' session_id=session.id %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left me-1"></i>Zurück
+        </a>
+        <a href="{% url 'writing_hub:fixation' session_id=session.id %}" class="btn btn-primary">
+            <i class="bi bi-lock me-1"></i>Zur Fixierung
+        </a>
+    </div>
+</div>
+{% endblock %}

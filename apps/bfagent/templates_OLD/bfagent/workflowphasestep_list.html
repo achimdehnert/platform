@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Workflow Template Phases List{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-list-check"></i> Workflow Template Phases List</h2>
+        <a href="{% url 'bfagent:workflowphasestep-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create Workflow Template Phase
+        </a>
+    </div>
+
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="template" class="form-label">Template</label>
+                    <select name="template" id="template" class="form-select">
+                        <option value="">All</option>
+                        {% for item in all_templates %}
+                            <option value="{{ item.id }}" {% if current_filters.template == item.id|stringformat:"s" %}selected{% endif %}>
+                                {{ item.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="phase" class="form-label">Phase</label>
+                    <select name="phase" id="phase" class="form-select">
+                        <option value="">All</option>
+                        {% for item in all_phases %}
+                            <option value="{{ item.id }}" {% if current_filters.phase == item.id|stringformat:"s" %}selected{% endif %}>
+                                {{ item.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label for="search" class="form-label">Search</label>
+                    <input type="text" name="q" id="search" class="form-control" 
+                           placeholder="Search..." 
+                           value="{{ current_filters.q }}">
+                </div>
+                
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-secondary w-100">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card">
+        <div class="card-body">
+            {% if workflowphasesteps %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Template</th>
+                                <th>Phase</th>
+                                <th>Order</th>
+                                <th>Required Chapters</th>
+                                <th>Can Skip</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in workflowphasesteps %}
+                                <tr>
+                                    <td>{{ item.template.name|default:"-" }}</td>
+                                    <td>
+                                        <i class="bi bi-{{ item.phase.icon|default:'circle' }}"></i>
+                                        {{ item.phase.name|default:"-" }}
+                                    </td>
+                                    <td><span class="badge bg-secondary">{{ item.order }}</span></td>
+                                    <td>{{ item.required_chapters|default:"0" }}</td>
+                                    <td>
+                                        {% if item.can_skip %}
+                                            <span class="badge bg-warning">Skippable</span>
+                                        {% else %}
+                                            <span class="badge bg-success">Required</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'bfagent:workflowphasestep-detail' item.pk %}" 
+                                               class="btn btn-outline-primary" title="View">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'bfagent:workflowphasestep-update' item.pk %}" 
+                                               class="btn btn-outline-secondary" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'bfagent:workflowphasestep-delete' item.pk %}" 
+                                               class="btn btn-outline-danger" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1">First</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                                </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    No Workflow Template Phases found.
+                    <a href="{% url 'bfagent:workflowphasestep-create' %}" class="alert-link">Create one now</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

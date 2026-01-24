@@ -1,0 +1,90 @@
+name: Deploy to Hetzner
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_migrations:
+        description: 'Run database migrations'
+        required: true
+        default: 'true'
+        type: boolean
+
+jobs:
+  validate:
+    name: Validate Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Build Docker image
+        run: docker build -t bfagent-web:test .
+      
+      - name: Run Django check in container
+        run: |
+          docker run --rm \
+            -e DJANGO_SETTINGS_MODULE=config.settings.production \
+            -e SECRET_KEY=github-actions-test-key \
+            -e DEBUG=False \
+            bfagent-web:test python manage.py check
+
+  deploy:
+    name: Deploy to Hetzner
+    needs: validate
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: bfagent.iil.pet
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/bfagent-app
+            
+            # Update to latest image
+            sed -i 's/BFAgent_IMAGE_TAG=.*/BFAgent_IMAGE_TAG=latest/' .env.prod
+            
+            # Pull and restart
+            docker compose -f docker-compose.prod.yml --env-file .env.prod pull bfagent-web
+            docker compose -f docker-compose.prod.yml --env-file .env.prod up -d --force-recreate bfagent-web
+            
+            # Wait for startup
+            sleep 30
+            
+            # Health check
+            curl -f https://bfagent.iil.pet/login/ || exit 1
+            
+            echo "✅ Container deployed successfully"
+
+  migrate:
+    name: Run Migrations
+    needs: deploy
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.run_migrations == 'true' }}
+    steps:
+      - name: Run migrations via SSH
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: bfagent.iil.pet
+          username: root
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/bfagent-app
+            docker compose -f docker-compose.prod.yml exec -T bfagent-web python manage.py migrate
+            echo "✅ Migrations complete"
+
+  verify:
+    name: Final Verification
+    needs: [deploy, migrate]
+    if: always() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Health Check
+        run: |
+          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://bfagent.iil.pet/login/)
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "✅ Deployment verified (HTTP $HTTP_CODE)"
+          else
+            echo "❌ Health check failed (HTTP $HTTP_CODE)"
+            exit 1
+          fi

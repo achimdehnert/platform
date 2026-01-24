@@ -1,0 +1,85 @@
+{% extends "control_center/base.html" %}
+
+{% block title %}Neue Initiative{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'control_center:dashboard' %}">Control Center</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'control_center:initiative-list' %}">Initiativen</a></li>
+            <li class="breadcrumb-item active">Neue Initiative</li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h4 class="mb-0"><i class="bi bi-lightbulb"></i> Neue Initiative erstellen</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Titel *</label>
+                            <input type="text" class="form-control" id="title" name="title" required 
+                                   placeholder="z.B. DXF-Viewer Modernisierung">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung *</label>
+                            <textarea class="form-control" id="description" name="description" rows="4" required
+                                      placeholder="Was soll erreicht werden?"></textarea>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="domain" class="form-label">Domain</label>
+                                <select class="form-select" id="domain" name="domain">
+                                    {% for code, name in domain_choices %}
+                                    <option value="{{ code }}" {% if code == 'core' %}selected{% endif %}>{{ name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="priority" class="form-label">Priorität</label>
+                                <select class="form-select" id="priority" name="priority">
+                                    {% for code, name in priority_choices %}
+                                    <option value="{{ code }}" {% if code == 'medium' %}selected{% endif %}>{{ name }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <hr>
+                        <h5 class="mb-3"><i class="bi bi-search"></i> Analyse (optional)</h5>
+                        
+                        <div class="mb-3">
+                            <label for="analysis" class="form-label">Analyse-Ergebnisse</label>
+                            <textarea class="form-control" id="analysis" name="analysis" rows="4"
+                                      placeholder="Was wurde analysiert? Welche Erkenntnisse gibt es?"></textarea>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="concept" class="form-label">Konzept / Lösungsvorschlag</label>
+                            <textarea class="form-control" id="concept" name="concept" rows="4"
+                                      placeholder="Wie soll das Problem gelöst werden?"></textarea>
+                        </div>
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'control_center:initiative-list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-check-lg"></i> Initiative erstellen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

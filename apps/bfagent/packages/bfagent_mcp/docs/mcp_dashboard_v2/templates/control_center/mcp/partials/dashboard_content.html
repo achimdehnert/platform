@@ -1,0 +1,91 @@
+{# Dashboard Content Partial - For HTMX refresh of entire dashboard #}
+
+{# Stats Cards #}
+<div id="stats-container">
+    {% include "control_center/mcp/partials/stats_cards.html" %}
+</div>
+
+{# Main Content Grid #}
+<div class="row mt-4">
+    
+    {# Refactor Queue #}
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">🔧 Refactor Queue</h5>
+                <a href="{% url 'control_center:mcp-domains' %}" class="btn btn-sm btn-outline-primary">
+                    View All Domains
+                </a>
+            </div>
+            <div class="card-body p-0" id="queue-container">
+                {% include "control_center/mcp/partials/refactor_queue.html" %}
+            </div>
+        </div>
+        
+        {# Recent Sessions #}
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">📋 Recent Sessions</h5>
+                <a href="{% url 'control_center:mcp-sessions' %}" class="btn btn-sm btn-outline-primary">
+                    View All
+                </a>
+            </div>
+            <div class="card-body p-0" id="sessions-container">
+                {% include "control_center/mcp/partials/recent_sessions.html" %}
+            </div>
+        </div>
+    </div>
+    
+    {# Sidebar #}
+    <div class="col-lg-4">
+        
+        {# Quick Actions #}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0">⚡ Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary"
+                            hx-get="{% url 'control_center:mcp-domains' %}?modal=start-session"
+                            hx-target="#modal-container"
+                            hx-swap="innerHTML">
+                        <i class="bi bi-play-fill"></i> Start New Session
+                    </button>
+                    <a href="{% url 'control_center:mcp-protected-paths' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-shield-lock"></i> Manage Protected Paths
+                    </a>
+                    <a href="{% url 'control_center:mcp-conventions' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-journal-text"></i> View Conventions
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        {# Risk Legend #}
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">📊 Risk Levels</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-danger me-2">🔴 CRITICAL</span>
+                    <small>No refactoring allowed</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-warning me-2">🟡 HIGH</span>
+                    <small>Requires approval + backup</small>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-info me-2">🟡 MEDIUM</span>
+                    <small>Requires backup</small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-success me-2">🟢 LOW</span>
+                    <small>Safe to refactor</small>
+                </div>
+            </div>
+        </div>
+        
+    </div>
+</div>

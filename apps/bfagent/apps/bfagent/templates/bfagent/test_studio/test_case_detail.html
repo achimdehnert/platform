@@ -1,0 +1,596 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Test Case: {{ test_case.name }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:requirements-list' %}">Requirements</a></li>
+            <li class="breadcrumb-item active">Test Case</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-file-code"></i> {{ test_case.name }}</h1>
+        <div>
+            <span class="badge bg-primary">{{ test_case.framework }}</span>
+            <span class="badge bg-secondary">{{ test_case.test_type }}</span>
+            {% if test_case.is_auto_generated %}
+            <span class="badge bg-success"><i class="bi bi-magic"></i> Auto-Generated</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card mb-3">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-code-square"></i> Generated Test Code</h5>
+                    <button class="btn btn-sm btn-light" onclick="copyCode()">
+                        <i class="bi bi-clipboard"></i> Copy
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <pre class="mb-0" style="max-height: 600px; overflow-y: auto;"><code id="test-code" class="language-robot">{{ test_case.test_code }}</code></pre>
+                </div>
+                <div class="card-footer text-muted">
+                    <i class="bi bi-file-earmark"></i> File: <code>{{ test_case.file_path }}</code>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Test Information</h6>
+                </div>
+                <div class="card-body">
+                    <dl>
+                        <dt>Test ID</dt>
+                        <dd><code>{{ test_case.test_id }}</code></dd>
+
+                        <dt>Framework</dt>
+                        <dd><span class="badge bg-primary">{{ test_case.framework }}</span></dd>
+
+                        <dt>Test Type</dt>
+                        <dd><span class="badge bg-secondary">{{ test_case.test_type }}</span></dd>
+
+                        <dt>Priority</dt>
+                        <dd>{{ test_case.priority }}</dd>
+
+                        <dt>Est. Duration</dt>
+                        <dd>{{ test_case.estimated_duration }}s</dd>
+
+                        <dt>Status</dt>
+                        <dd><span class="badge bg-info">{{ test_case.status }}</span></dd>
+
+                        <dt>Created</dt>
+                        <dd>{{ test_case.created_at|date:"Y-m-d H:i" }}</dd>
+                    </dl>
+                </div>
+            </div>
+
+            {% if test_case.tags %}
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Tags</h6>
+                </div>
+                <div class="card-body">
+                    {% for tag in test_case.tags %}
+                    <span class="badge bg-secondary">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0">Actions</h6>
+                </div>
+                <div class="card-body d-grid gap-2">
+                    <button class="btn btn-success" onclick="downloadTest()">
+                        <i class="bi bi-download"></i> Download Test File
+                    </button>
+                    <button class="btn btn-primary" id="run-test-btn" onclick="runTest()">
+                        <i class="bi bi-play"></i> Run Test
+                    </button>
+                    <div id="test-result" class="mt-3"></div>
+                </div>
+            </div>
+
+            {% if 'bug' in test_case.tags or test_case.is_auto_generated %}
+            <div class="card border-warning">
+                <div class="card-header bg-warning bg-opacity-10">
+                    <h6 class="mb-0"><i class="bi bi-wrench-adjustable"></i> Bug Fix Plans</h6>
+                </div>
+                <div class="card-body">
+                    {% if test_case.requirement %}
+                        {% with fix_plans=test_case.requirement.fix_plans.all %}
+                            {% if fix_plans %}
+                                <div class="alert alert-info mb-3">
+                                    <i class="bi bi-info-circle"></i> <strong>{{ fix_plans.count }} Fix Plan(s)</strong> available
+                                </div>
+                                <div class="list-group mb-3">
+                                    {% for plan in fix_plans %}
+                                    <a href="{% url 'bfagent:fix-plan-detail' plan.id %}" class="list-group-item list-group-item-action">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <small class="text-muted">{{ plan.fix_type }}</small>
+                                                <div>{{ plan.fix_description|truncatewords:10 }}</div>
+                                            </div>
+                                            <span class="badge bg-{% if plan.status == 'pending' %}warning{% elif plan.status == 'approved' %}info{% elif plan.status == 'executed' %}success{% else %}secondary{% endif %}">
+                                                {{ plan.get_status_display }}
+                                            </span>
+                                        </div>
+                                    </a>
+                                    {% endfor %}
+                                </div>
+                            {% else %}
+                                <div class="alert alert-secondary mb-3">
+                                    <i class="bi bi-info-circle"></i> No fix plans created yet
+                                </div>
+                            {% endif %}
+                        {% endwith %}
+                    {% endif %}
+                    <a href="{% url 'bfagent:fix-plan-list' %}" class="btn btn-outline-warning btn-sm w-100">
+                        <i class="bi bi-list"></i> View All Fix Plans
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Feedback Section -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card" id="feedback-section">
+                <div class="card-header d-flex justify-content-between align-items-center" 
+                     style="background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%); color: white;">
+                    <h5 class="mb-0"><i class="bi bi-chat-dots"></i> Feedback & Kommentare</h5>
+                    <span class="badge bg-light text-dark">{{ feedbacks.count }} Einträge</span>
+                </div>
+                <div class="card-body">
+                    <!-- Add Feedback Form -->
+                    <form id="feedback-form" class="mb-4" enctype="multipart/form-data">
+                        <div class="row g-2 align-items-start">
+                            <div class="col-md-2">
+                                <select class="form-select" id="feedback-type" title="Feedback-Typ">
+                                    {% for value, label in feedback_types %}
+                                    <option value="{{ value }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <textarea class="form-control" id="feedback-content" rows="2"
+                                          placeholder="Feedback eingeben... (Ctrl+Enter zum Senden)" 
+                                          required style="resize: vertical; min-height: 60px;"></textarea>
+                            </div>
+                            <div class="col-md-2">
+                                <div class="input-group h-100">
+                                    <label class="btn btn-outline-secondary w-100 d-flex flex-column justify-content-center" 
+                                           for="feedback-screenshot" title="Screenshot anhängen" style="height: 60px;">
+                                        <i class="bi bi-image"></i>
+                                        <small id="screenshot-label">Bild</small>
+                                    </label>
+                                    <input type="file" class="d-none" id="feedback-screenshot" 
+                                           accept="image/*" onchange="updateScreenshotLabel(this)">
+                                </div>
+                            </div>
+                            <div class="col-md-2">
+                                <button type="submit" class="btn btn-info w-100" style="height: 60px;">
+                                    <i class="bi bi-send"></i><br><small>Senden</small>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="screenshot-preview" class="mt-2" style="display: none;">
+                            <img id="preview-img" src="" alt="Preview" class="img-thumbnail" style="max-height: 100px;">
+                            <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="clearScreenshot()">
+                                <i class="bi bi-x"></i> Entfernen
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Feedback List -->
+                    <div id="feedback-list" class="{% if feedbacks.count > 5 %}feedback-scrollable{% endif %}">
+                        {% if feedbacks %}
+                            {% for fb in feedbacks %}
+                            <div class="d-flex mb-3 feedback-item p-2 rounded {% if fb.feedback_type == 'blocker' %}border border-danger bg-danger-subtle{% elif fb.feedback_type == 'solution' %}border border-success bg-success-subtle{% elif fb.feedback_type == 'bug' %}border border-danger bg-danger-subtle{% endif %}" 
+                                 data-id="{{ fb.id }}" data-type="{{ fb.feedback_type }}">
+                                <div class="flex-shrink-0 me-3">
+                                    {% if fb.feedback_type == 'blocker' or fb.feedback_type == 'bug' %}
+                                        <span class="badge bg-danger rounded-pill p-2"><i class="bi bi-exclamation-octagon"></i></span>
+                                    {% elif fb.feedback_type == 'progress' %}
+                                        <span class="badge bg-success rounded-pill p-2"><i class="bi bi-arrow-right-circle"></i></span>
+                                    {% elif fb.feedback_type == 'question' %}
+                                        <span class="badge bg-warning rounded-pill p-2"><i class="bi bi-question-circle"></i></span>
+                                    {% elif fb.feedback_type == 'solution' %}
+                                        <span class="badge bg-primary rounded-pill p-2"><i class="bi bi-lightbulb"></i></span>
+                                    {% elif fb.feedback_type == 'screenshot' %}
+                                        <span class="badge bg-secondary rounded-pill p-2"><i class="bi bi-image"></i></span>
+                                    {% elif fb.feedback_type == 'flaky' %}
+                                        <span class="badge bg-warning rounded-pill p-2"><i class="bi bi-exclamation-triangle"></i></span>
+                                    {% else %}
+                                        <span class="badge bg-info rounded-pill p-2"><i class="bi bi-chat"></i></span>
+                                    {% endif %}
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <strong>
+                                                {% if fb.is_from_cascade %}
+                                                    <i class="bi bi-robot text-primary"></i> Cascade
+                                                {% else %}
+                                                    <i class="bi bi-person"></i> {{ fb.author.username|default:"Anonymous" }}
+                                                {% endif %}
+                                            </strong>
+                                            <span class="badge bg-secondary ms-2">{{ fb.get_feedback_type_display }}</span>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-1">
+                                            <small class="text-muted me-1">{{ fb.created_at|date:"d.m.Y H:i" }}</small>
+                                            {% if fb.author == request.user %}
+                                            <button class="btn btn-sm btn-outline-danger py-0 px-1 delete-feedback" 
+                                                    data-id="{{ fb.id }}" title="Löschen">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                            {% endif %}
+                                        </div>
+                                    </div>
+                                    <div class="feedback-content mt-1">{{ fb.content|linebreaks }}</div>
+                                    {% if fb.screenshot %}
+                                    <a href="{{ fb.screenshot.url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
+                                        <i class="bi bi-image"></i> Screenshot ansehen
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted py-4" id="no-feedback-msg">
+                                <i class="bi bi-chat-dots fs-1 d-block mb-2"></i>
+                                <p class="mb-1">Noch kein Feedback vorhanden</p>
+                                <small>Füge einen Kommentar, eine Frage oder einen Bug-Report hinzu</small>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .feedback-scrollable { max-height: 400px; overflow-y: auto; }
+        .feedback-item:hover { background-color: rgba(0,0,0,0.02); }
+        .feedback-content { white-space: pre-wrap; word-break: break-word; }
+    </style>
+
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Execution History</h5>
+                </div>
+                <div class="card-body">
+                    {% if executions %}
+                        <div class="list-group">
+                            {% for execution in executions %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <div>
+                                        <h6 class="mb-0">
+                                            {% if execution.result == 'passed' %}
+                                                <span class="badge bg-success"><i class="bi bi-check-circle"></i> PASSED</span>
+                                            {% elif execution.result == 'failed' %}
+                                                <span class="badge bg-danger"><i class="bi bi-x-circle"></i> FAILED</span>
+                                            {% elif execution.result == 'error' %}
+                                                <span class="badge bg-warning"><i class="bi bi-exclamation-triangle"></i> ERROR</span>
+                                            {% else %}
+                                                <span class="badge bg-secondary"><i class="bi bi-skip-forward"></i> SKIPPED</span>
+                                            {% endif %}
+                                        </h6>
+                                    </div>
+                                    <div class="text-muted small">
+                                        <i class="bi bi-calendar"></i> {{ execution.executed_at|date:"Y-m-d H:i:s" }}
+                                        {% if execution.executed_by %}
+                                        | <i class="bi bi-person"></i> {{ execution.executed_by.username }}
+                                        {% endif %}
+                                        | <i class="bi bi-stopwatch"></i> {{ execution.duration|floatformat:2 }}s
+                                    </div>
+                                </div>
+                                
+                                <details class="mt-2">
+                                    <summary class="btn btn-sm btn-outline-secondary">
+                                        <i class="bi bi-eye"></i> View Full Output
+                                    </summary>
+                                    <div class="mt-2">
+                                        {% if execution.error_message %}
+                                        <div class="alert alert-secondary">
+                                            <h6><i class="bi bi-terminal"></i> Output:</h6>
+                                            <pre class="mb-0 bg-dark text-light p-3 rounded" style="max-height: 400px; overflow-y: auto;"><code>{{ execution.error_message }}</code></pre>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if execution.error_traceback %}
+                                        <div class="alert alert-danger">
+                                            <h6><i class="bi bi-bug"></i> Traceback:</h6>
+                                            <pre class="mb-0 bg-dark text-light p-3 rounded" style="max-height: 300px; overflow-y: auto;"><code>{{ execution.error_traceback }}</code></pre>
+                                        </div>
+                                        {% endif %}
+                                        
+                                        {% if execution.execution_metadata %}
+                                        <div class="small text-muted mt-2">
+                                            <strong>Metadata:</strong>
+                                            <ul class="mb-0">
+                                                <li>Framework: {{ execution.execution_metadata.framework }}</li>
+                                                <li>Return Code: {{ execution.execution_metadata.return_code }}</li>
+                                                <li>Output Length: {{ execution.execution_metadata.full_output_length }} chars</li>
+                                            </ul>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </details>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i> No executions yet. Click "Run Test" to execute this test case!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function copyCode() {
+    const code = document.getElementById('test-code').textContent;
+    navigator.clipboard.writeText(code).then(() => {
+        alert('Test code copied to clipboard!');
+    });
+}
+
+function downloadTest() {
+    const code = document.getElementById('test-code').textContent;
+    const filename = '{{ test_case.file_path }}'.split('/').pop();
+    const blob = new Blob([code], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+
+function runTest() {
+    const btn = document.getElementById('run-test-btn');
+    const resultDiv = document.getElementById('test-result');
+    
+    // Disable button and show loading
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Running Test...';
+    
+    resultDiv.innerHTML = '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Executing test...</div>';
+    
+    // Execute test
+    fetch('{% url "bfagent:run-test" test_case.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const resultClass = data.result === 'passed' ? 'success' : 'danger';
+            const resultIcon = data.result === 'passed' ? 'check-circle' : 'x-circle';
+            
+            resultDiv.innerHTML = `
+                <div class="alert alert-${resultClass}">
+                    <h6><i class="bi bi-${resultIcon}"></i> Test ${data.result.toUpperCase()}!</h6>
+                    <hr>
+                    <details>
+                        <summary class="btn btn-sm btn-outline-secondary">View Output</summary>
+                        <pre class="mt-2 bg-dark text-light p-2 rounded small"><code>${data.output}</code></pre>
+                        ${data.full_output_available ? '<p class="small text-muted mt-1">Full output in database</p>' : ''}
+                    </details>
+                </div>
+            `;
+            
+            // Reload page after 3 seconds on success
+            if (data.result === 'passed') {
+                setTimeout(() => location.reload(), 3000);
+            }
+        } else {
+            resultDiv.innerHTML = `
+                <div class="alert alert-danger">
+                    <h6><i class="bi bi-exclamation-triangle"></i> Execution Failed</h6>
+                    <p class="mb-0">${data.error}</p>
+                </div>
+            `;
+        }
+        
+        // Re-enable button
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play"></i> Run Test';
+    })
+    .catch(error => {
+        resultDiv.innerHTML = `
+            <div class="alert alert-danger">
+                <h6><i class="bi bi-exclamation-triangle"></i> Error</h6>
+                <p class="mb-0">${error.message}</p>
+            </div>
+        `;
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play"></i> Run Test';
+    });
+}
+
+// Screenshot handling
+function updateScreenshotLabel(input) {
+    const label = document.getElementById('screenshot-label');
+    const preview = document.getElementById('screenshot-preview');
+    const previewImg = document.getElementById('preview-img');
+    
+    if (input.files && input.files[0]) {
+        label.textContent = '✓';
+        label.parentElement.classList.add('btn-success');
+        label.parentElement.classList.remove('btn-outline-secondary');
+        
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function clearScreenshot() {
+    const input = document.getElementById('feedback-screenshot');
+    const label = document.getElementById('screenshot-label');
+    const preview = document.getElementById('screenshot-preview');
+    
+    input.value = '';
+    label.textContent = 'Bild';
+    label.parentElement.classList.remove('btn-success');
+    label.parentElement.classList.add('btn-outline-secondary');
+    preview.style.display = 'none';
+}
+
+// Ctrl+Enter to submit
+document.getElementById('feedback-content')?.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('feedback-form').dispatchEvent(new Event('submit'));
+    }
+});
+
+// Delete feedback handler
+document.querySelectorAll('.delete-feedback').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        if (!confirm('Feedback wirklich löschen?')) return;
+        
+        const feedbackId = this.dataset.id;
+        const item = this.closest('.feedback-item');
+        
+        try {
+            const response = await fetch(`{% url 'bfagent:testcase-feedback-delete' feedback_id=0 %}`.replace('/0/', `/${feedbackId}/`), {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            if (data.success) {
+                item.remove();
+                const badge = document.querySelector('#feedback-section .badge.bg-light');
+                if (badge) {
+                    const count = parseInt(badge.textContent) - 1;
+                    badge.textContent = count + ' Einträge';
+                }
+            }
+        } catch (err) {
+            alert('Fehler: ' + err.message);
+        }
+    });
+});
+
+// Feedback Form Handler
+document.getElementById('feedback-form')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const feedbackType = document.getElementById('feedback-type').value;
+    const content = document.getElementById('feedback-content').value.trim();
+    const screenshotInput = document.getElementById('feedback-screenshot');
+    
+    if (!content) {
+        document.getElementById('feedback-content').focus();
+        return;
+    }
+    
+    const btn = this.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    
+    try {
+        const formData = new FormData();
+        formData.append('feedback_type', feedbackType);
+        formData.append('content', content);
+        if (screenshotInput.files && screenshotInput.files[0]) {
+            formData.append('screenshot', screenshotInput.files[0]);
+        }
+        
+        const response = await fetch(`{% url 'bfagent:testcase-add-feedback' pk=test_case.id %}`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const feedbackList = document.getElementById('feedback-list');
+            const noFeedbackMsg = document.getElementById('no-feedback-msg');
+            if (noFeedbackMsg) noFeedbackMsg.remove();
+            
+            const iconMap = {
+                'blocker': 'bg-danger bi-exclamation-octagon',
+                'bug': 'bg-danger bi-exclamation-octagon',
+                'progress': 'bg-success bi-arrow-right-circle',
+                'question': 'bg-warning bi-question-circle',
+                'solution': 'bg-primary bi-lightbulb',
+                'screenshot': 'bg-secondary bi-image',
+                'flaky': 'bg-warning bi-exclamation-triangle',
+                'comment': 'bg-info bi-chat'
+            };
+            const iconClass = iconMap[data.feedback.feedback_type] || 'bg-info bi-chat';
+            const borderClass = ['blocker', 'bug'].includes(data.feedback.feedback_type) ? 'border border-danger bg-danger-subtle' : 
+                               data.feedback.feedback_type === 'solution' ? 'border border-success bg-success-subtle' : '';
+            
+            feedbackList.insertAdjacentHTML('afterbegin', `
+                <div class="d-flex mb-3 feedback-item p-2 rounded ${borderClass}" data-id="${data.feedback.id}" data-type="${data.feedback.feedback_type}">
+                    <div class="flex-shrink-0 me-3">
+                        <span class="badge ${iconClass.split(' ')[0]} rounded-pill p-2"><i class="bi ${iconClass.split(' ')[1]}"></i></span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong><i class="bi bi-person"></i> ${data.feedback.author}</strong>
+                                <span class="badge bg-secondary ms-2">${data.feedback.feedback_type_display}</span>
+                            </div>
+                            <div class="d-flex align-items-center gap-1">
+                                <small class="text-muted me-1">${data.feedback.created_at}</small>
+                                <button class="btn btn-sm btn-outline-danger py-0 px-1 delete-feedback" data-id="${data.feedback.id}" title="Löschen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="feedback-content mt-1">${data.feedback.content.replace(/\n/g, '<br>')}</div>
+                        ${data.feedback.has_screenshot ? `<a href="${data.feedback.screenshot_url}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1"><i class="bi bi-image"></i> Screenshot ansehen</a>` : ''}
+                    </div>
+                </div>
+            `);
+            
+            document.getElementById('feedback-content').value = '';
+            clearScreenshot();
+            
+            const badge = document.querySelector('#feedback-section .badge.bg-light');
+            if (badge) {
+                const count = parseInt(badge.textContent) || 0;
+                badge.textContent = (count + 1) + ' Einträge';
+            }
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send"></i><br><small>Senden</small>';
+    }
+});
+</script>
+{% endblock %}

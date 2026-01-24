@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+
+{% block title %}Session {{ session_id }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .call-tree { font-family: 'Fira Code', monospace; font-size: 0.85rem; }
+    .call-item { padding: 0.5rem; border-left: 3px solid #dee2e6; margin-left: 1rem; margin-bottom: 0.25rem; background: #f8f9fa; border-radius: 0 4px 4px 0; }
+    .call-item.depth-0 { border-color: #0d6efd; margin-left: 0; background: #e7f1ff; }
+    .call-item.depth-1 { border-color: #198754; background: #d1e7dd; }
+    .call-item.depth-2 { border-color: #ffc107; background: #fff3cd; }
+    .call-item.depth-3 { border-color: #dc3545; background: #f8d7da; }
+    .call-item.failed { border-color: #dc3545 !important; }
+    .timeline-bar { height: 24px; border-radius: 4px; margin: 2px 0; position: relative; }
+    .metric-box { text-align: center; padding: 1rem; background: #f8f9fa; border-radius: 8px; }
+    .metric-box .value { font-size: 1.5rem; font-weight: 700; }
+    .metric-box .label { font-size: 0.75rem; color: #6c757d; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'control_center:controlling-dashboard' %}">Controlling</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'control_center:orchestration-list' %}">Sessions</a></li>
+                    <li class="breadcrumb-item active">{{ session_id }}</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">{{ root.name }}</h1>
+        </div>
+        <span class="badge bg-{% if root.status == 'success' %}success{% elif root.status == 'failed' %}danger{% else %}primary{% endif %} fs-6">
+            {{ root.status|title }}
+        </span>
+    </div>
+
+    <!-- KPI Row -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-2">
+            <div class="metric-box">
+                <div class="value text-primary">{{ call_count }}</div>
+                <div class="label">Calls</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-box">
+                <div class="value text-info">{{ total_duration }}ms</div>
+                <div class="label">Gesamtdauer</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-box">
+                <div class="value text-success">{{ total_tokens_in }}</div>
+                <div class="label">Tokens In</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-box">
+                <div class="value text-warning">{{ total_tokens_out }}</div>
+                <div class="label">Tokens Out</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-box">
+                <div class="value text-danger">${{ total_cost|floatformat:4 }}</div>
+                <div class="label">Kosten</div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="metric-box">
+                <div class="value {% if failed_calls %}text-danger{% else %}text-success{% endif %}">{{ failed_calls|length }}</div>
+                <div class="label">Fehler</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Call Tree -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">🌳 Call-Hierarchie</h5>
+                </div>
+                <div class="card-body">
+                    <div class="call-tree">
+                        {% for call in calls %}
+                        <div class="call-item depth-{{ call.depth }} {% if call.status == 'failed' %}failed{% endif %}" style="margin-left: {{ call.depth|add:call.depth }}rem;">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="me-2">
+                                        {% if call.status == 'success' %}✅
+                                        {% elif call.status == 'failed' %}❌
+                                        {% elif call.status == 'running' %}🔄
+                                        {% else %}⏳{% endif %}
+                                    </span>
+                                    <span class="badge bg-secondary me-1">{{ call.call_type }}</span>
+                                    <strong>{{ call.name }}</strong>
+                                </div>
+                                <div class="text-muted small">
+                                    {% if call.duration_ms %}{{ call.duration_ms }}ms{% endif %}
+                                </div>
+                            </div>
+                            {% if call.description %}
+                            <div class="small text-muted mt-1">{{ call.description|truncatechars:100 }}</div>
+                            {% endif %}
+                            {% if call.tokens_in or call.tokens_out %}
+                            <div class="mt-1">
+                                <span class="badge bg-info">{{ call.tokens_in }}+{{ call.tokens_out }} tokens</span>
+                                {% if call.cost_usd %}
+                                <span class="badge bg-warning text-dark">${{ call.cost_usd|floatformat:5 }}</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                            {% if call.error_message %}
+                            <div class="text-danger small mt-1">
+                                <strong>Error:</strong> {{ call.error_message|truncatechars:150 }}
+                            </div>
+                            {% endif %}
+                            {% if call.result_summary %}
+                            <div class="text-success small mt-1">
+                                <strong>Result:</strong> {{ call.result_summary|truncatechars:100 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            {% if failed_calls %}
+            <div class="card border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">❌ Fehlgeschlagene Calls ({{ failed_calls|length }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <table class="table table-sm mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Call</th>
+                                <th>Type</th>
+                                <th>Fehler</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for call in failed_calls %}
+                            <tr>
+                                <td><strong>{{ call.name }}</strong></td>
+                                <td><span class="badge bg-secondary">{{ call.call_type }}</span></td>
+                                <td class="text-danger small">{{ call.error_message|truncatechars:80 }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Session Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Session Info</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td class="text-muted">Session ID</td>
+                            <td class="text-end"><code>{{ session_id }}</code></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Start</td>
+                            <td class="text-end">{{ root.started_at|date:"d.m.Y H:i:s" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Ende</td>
+                            <td class="text-end">{{ root.ended_at|date:"H:i:s"|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Status</td>
+                            <td class="text-end">
+                                <span class="badge bg-{% if root.status == 'success' %}success{% elif root.status == 'failed' %}danger{% else %}primary{% endif %}">
+                                    {{ root.status }}
+                                </span>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+
+            {% if llm_calls %}
+            <!-- LLM Calls -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">🤖 LLM Calls ({{ llm_calls|length }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for call in llm_calls %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <strong class="small">{{ call.name|truncatechars:25 }}</strong>
+                                <div class="text-muted small">{{ call.tokens_in }}+{{ call.tokens_out }} tokens</div>
+                            </div>
+                            <span class="badge bg-{% if call.status == 'success' %}success{% else %}danger{% endif %}">
+                                {% if call.cost_usd %}${{ call.cost_usd|floatformat:4 }}{% else %}{{ call.status }}{% endif %}
+                            </span>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Export -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📤 Export</h5>
+                </div>
+                <div class="card-body d-grid gap-2">
+                    <button class="btn btn-outline-primary btn-sm" onclick="copyJSON()">
+                        📋 Timeline als JSON kopieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const timelineData = {{ timeline_json|safe }};
+
+function copyJSON() {
+    navigator.clipboard.writeText(JSON.stringify(timelineData, null, 2));
+    alert('Timeline JSON kopiert!');
+}
+</script>
+{% endblock %}

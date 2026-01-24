@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Zusammenfassung - {{ session.title|default:"Neue Idee" }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:idea-wizard-start' %}">Ideengenerierung</a></li>
+                    <li class="breadcrumb-item">{{ session.content_type.name_de }}</li>
+                    <li class="breadcrumb-item active">Zusammenfassung</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Success Banner -->
+            <div class="alert alert-success d-flex align-items-center mb-4">
+                <i class="bi bi-check-circle-fill fs-3 me-3"></i>
+                <div>
+                    <h5 class="alert-heading mb-1">Ideengenerierung abgeschlossen!</h5>
+                    <p class="mb-0">Du hast alle {{ responses.count }} Schritte für dein {{ session.content_type.name_de }}-Projekt erfolgreich bearbeitet.</p>
+                </div>
+            </div>
+
+            <!-- Title Card -->
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h5 class="card-title">Projekttitel</h5>
+                    <input type="text" class="form-control form-control-lg" id="projectTitle" 
+                           value="{{ session.title|default:'' }}" 
+                           placeholder="Gib deinem Projekt einen Namen...">
+                </div>
+            </div>
+
+            <!-- All Responses -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-clipboard-check"></i>
+                        Deine Ideen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% for resp in responses %}
+                    <div class="mb-4 pb-4 {% if not forloop.last %}border-bottom{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <h6 class="text-primary mb-0">
+                                <span class="badge bg-secondary me-2">{{ resp.step.step_number }}</span>
+                                {{ resp.step.name_de }}
+                            </h6>
+                            <span class="badge {% if resp.source == 'ai' %}bg-info{% elif resp.source == 'ai_refined' %}bg-warning{% else %}bg-success{% endif %}">
+                                {{ resp.get_source_display }}
+                            </span>
+                        </div>
+                        <p class="mb-0" style="white-space: pre-line;">{{ resp.content }}</p>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted">Keine Antworten gefunden.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- AI Summary (if available) -->
+            {% if session.idea_summary %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0">
+                        <i class="bi bi-robot"></i>
+                        AI-Zusammenfassung
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <p style="white-space: pre-line;">{{ session.idea_summary }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar: Actions -->
+        <div class="col-lg-4">
+            <div class="card sticky-top" style="top: 80px;">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-rocket"></i> Nächste Schritte</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-3">
+                        <a href="{% url 'writing_hub:project_wizard' %}?idea_session={{ session.pk }}" class="btn btn-primary btn-lg">
+                            <i class="bi bi-plus-circle"></i>
+                            Projekt erstellen
+                        </a>
+                        
+                        <button type="button" class="btn btn-outline-primary" id="btnGenerateSummary">
+                            <i class="bi bi-robot"></i>
+                            AI-Zusammenfassung generieren
+                        </button>
+                        
+                        <button type="button" class="btn btn-outline-secondary" onclick="window.print()">
+                            <i class="bi bi-printer"></i>
+                            Drucken / PDF
+                        </button>
+                        
+                        <hr>
+                        
+                        <a href="{% url 'writing_hub:idea-wizard-step' session.pk %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-pencil"></i>
+                            Ideen bearbeiten
+                        </a>
+                        
+                        <a href="{% url 'writing_hub:idea-wizard-start' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i>
+                            Neue Ideengenerierung
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Project Info -->
+            <div class="card mt-4">
+                <div class="card-body">
+                    <h6 class="text-muted mb-3">Projekt-Info</h6>
+                    <ul class="list-unstyled mb-0">
+                        <li class="mb-2">
+                            <i class="{{ session.content_type.icon }} text-primary"></i>
+                            <strong>Typ:</strong> {{ session.content_type.name_de }}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-calendar3 text-primary"></i>
+                            <strong>Erstellt:</strong> {{ session.started_at|date:"d.m.Y H:i" }}
+                        </li>
+                        <li class="mb-2">
+                            <i class="bi bi-file-word text-primary"></i>
+                            <strong>Ziel-Länge:</strong> ~{{ session.content_type.default_word_count|floatformat:0 }} Wörter
+                        </li>
+                        <li>
+                            <i class="bi bi-list-ol text-primary"></i>
+                            <strong>Kapitel:</strong> ~{{ session.content_type.default_section_count }} {{ session.content_type.section_label_plural|default:"Kapitel" }}
+                        </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Save title on change
+    const titleInput = document.getElementById('projectTitle');
+    let saveTimeout;
+    
+    titleInput?.addEventListener('input', function() {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(() => {
+            // TODO: Save title via API
+            console.log('Saving title:', this.value);
+        }, 500);
+    });
+    
+    // Generate AI summary
+    document.getElementById('btnGenerateSummary')?.addEventListener('click', function() {
+        this.disabled = true;
+        this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+        
+        // TODO: Implement AI summary generation
+        setTimeout(() => {
+            this.disabled = false;
+            this.innerHTML = '<i class="bi bi-robot"></i> AI-Zusammenfassung generieren';
+            alert('AI-Zusammenfassung wird in einer zukünftigen Version verfügbar sein.');
+        }, 1000);
+    });
+});
+</script>
+
+<style>
+@media print {
+    .btn, .card-header, nav, .sticky-top {
+        display: none !important;
+    }
+    .col-lg-4 {
+        display: none !important;
+    }
+    .col-lg-8 {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+</style>
+{% endblock %}

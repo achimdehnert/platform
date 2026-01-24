@@ -1,0 +1,121 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Neues LLM erstellen{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'control_center:ai-config-dashboard' %}">AI Konfiguration</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'control_center:llms-list' %}">LLMs</a></li>
+            <li class="breadcrumb-item active">Neu erstellen</li>
+        </ol>
+    </nav>
+
+    <h1><i class="bi bi-plus-circle"></i> Neues LLM erstellen</h1>
+
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">Konfiguration</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label fw-bold">Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   placeholder="z.B. Gemini Flash">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="provider" class="form-label fw-bold">Provider *</label>
+                                <select class="form-select" id="provider" name="provider" required>
+                                    <option value="openai">OpenAI</option>
+                                    <option value="anthropic">Anthropic</option>
+                                    <option value="gemini">Google Gemini</option>
+                                    <option value="groq" selected>Groq (schnell!)</option>
+                                    <option value="ollama">Ollama (Lokal)</option>
+                                    <option value="azure">Azure OpenAI</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="llm_name" class="form-label fw-bold">Model Name *</label>
+                                <input type="text" class="form-control" id="llm_name" name="llm_name" required
+                                       placeholder="z.B. gemini-1.5-flash">
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="api_endpoint" class="form-label fw-bold">API Endpoint</label>
+                            <input type="text" class="form-control" id="api_endpoint" name="api_endpoint"
+                                   placeholder="https://generativelanguage.googleapis.com">
+                            <div class="form-text">
+                                <strong>OpenAI:</strong> <code>https://api.openai.com</code><br>
+                                <strong>Anthropic:</strong> <code>https://api.anthropic.com/v1/messages</code><br>
+                                <strong>Gemini:</strong> <code>https://generativelanguage.googleapis.com</code> (oder leer lassen)
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="api_key" class="form-label fw-bold">API Key *</label>
+                            <input type="text" class="form-control" id="api_key" name="api_key" required
+                                   placeholder="AIza... oder sk-...">
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="temperature" class="form-label fw-bold">Temperature</label>
+                                <input type="number" class="form-control" id="temperature" name="temperature" 
+                                       value="0.7" step="0.1" min="0" max="2">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="max_tokens" class="form-label fw-bold">Max Tokens</label>
+                                <input type="number" class="form-control" id="max_tokens" name="max_tokens" 
+                                       value="1000" min="1" max="128000">
+                            </div>
+                        </div>
+
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
+                            <label class="form-check-label" for="is_active">Aktiv</label>
+                        </div>
+
+                        <hr>
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-plus"></i> Erstellen
+                            </button>
+                            <a href="{% url 'control_center:llms-list' %}" class="btn btn-secondary">
+                                Abbrechen
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="alert alert-info">
+                <h6><i class="bi bi-info-circle"></i> Gemini Einrichtung</h6>
+                <ol class="mb-0 small">
+                    <li>Gehe zu <a href="https://aistudio.google.com/apikey" target="_blank">AI Studio</a></li>
+                    <li>Erstelle einen API Key</li>
+                    <li>Provider: <strong>gemini</strong></li>
+                    <li>Model: <strong>gemini-1.5-flash</strong> (schnell) oder <strong>gemini-1.5-pro</strong> (besser)</li>
+                    <li>API Endpoint kann leer bleiben</li>
+                </ol>
+            </div>
+            
+            <div class="alert alert-warning mt-3">
+                <h6><i class="bi bi-shield-lock"></i> Sicherheit</h6>
+                <p class="mb-0 small">API Keys werden verschlüsselt gespeichert. Teile sie niemals öffentlich!</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,211 @@
+{% extends "graph_core/base.html" %}
+
+{% block graph_content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'graph_core:dashboard' %}">Graph Core</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'graph_core:framework-list' %}">Frameworks</a></li>
+        <li class="breadcrumb-item active">{{ framework.display_name }}</li>
+    </ol>
+</nav>
+
+<!-- Framework Header -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <div class="d-flex align-items-center mb-2">
+                    <i class="bi bi-{{ framework.icon }} fs-2 me-3" style="color: var(--bs-{{ framework.color }});"></i>
+                    <div>
+                        <h1 class="h2 mb-0">{{ framework.display_name }}</h1>
+                        <span class="badge bg-{{ framework.color }}">{{ framework.get_domain_display }}</span>
+                        {% if framework.is_default %}<span class="badge bg-warning text-dark ms-1">Default</span>{% endif %}
+                    </div>
+                </div>
+                <p class="text-muted mb-0">{{ framework.description }}</p>
+            </div>
+            <div class="col-md-4">
+                <div class="row text-center g-3">
+                    <div class="col-4">
+                        <div class="h3 mb-0 text-primary">{{ phases|length }}</div>
+                        <small class="text-muted">Phases</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h3 mb-0 text-success">{{ total_steps }}</div>
+                        <small class="text-muted">Steps</small>
+                    </div>
+                    <div class="col-4">
+                        <div class="h3 mb-0 text-info">{{ total_chapters }}</div>
+                        <small class="text-muted">Chapters</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Phases & Steps -->
+<div class="row">
+    <div class="col-lg-8">
+        <h4 class="mb-3"><i class="bi bi-list-nested me-2"></i>Phases & Steps</h4>
+        
+        {% for phase in phases %}
+        <div class="card mb-3 border-0 shadow-sm">
+            <div class="card-header d-flex justify-content-between align-items-center" 
+                 style="background: {{ phase.color }}20; border-left: 4px solid {{ phase.color }};">
+                <div>
+                    <h5 class="mb-0">
+                        <span class="badge rounded-pill me-2" style="background: {{ phase.color }};">{{ phase.order|add:1 }}</span>
+                        {{ phase.name }}
+                    </h5>
+                    <small class="text-muted">{{ phase.position_start|floatformat:0 }}% - {{ phase.position_end|floatformat:0 }}% of story</small>
+                </div>
+                <div class="text-end">
+                    <span class="badge bg-secondary">{{ phase.step_count }} steps</span>
+                    {% if phase.emotional_arc %}
+                    <br><small class="text-muted"><i class="bi bi-heart me-1"></i>{{ phase.emotional_arc }}</small>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="card-body">
+                {% if phase.description %}
+                <p class="text-muted small mb-3">{{ phase.description }}</p>
+                {% endif %}
+                
+                {% if phase.guidance %}
+                <div class="alert alert-light small mb-3">
+                    <i class="bi bi-lightbulb me-1"></i> {{ phase.guidance }}
+                </div>
+                {% endif %}
+                
+                <!-- Steps -->
+                {% for step in phase.steps.all %}
+                <div class="step-item py-2 {% if not forloop.last %}border-bottom{% endif %}">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">
+                                <span class="text-muted me-2">{{ phase.order|add:1 }}.{{ step.order|add:1 }}</span>
+                                {{ step.name }}
+                            </h6>
+                            {% if step.description %}
+                            <p class="text-muted small mb-1">{{ step.description }}</p>
+                            {% endif %}
+                            {% if step.chapter_guidance %}
+                            <small class="text-primary"><i class="bi bi-pencil me-1"></i>{{ step.chapter_guidance|truncatewords:20 }}</small>
+                            {% endif %}
+                        </div>
+                        <div class="text-end text-nowrap">
+                            <small class="text-muted d-block">{{ step.typical_position|floatformat:0 }}%</small>
+                            {% if step.estimated_chapters > 0 %}
+                            <span class="badge bg-light text-dark">~{{ step.estimated_chapters }} ch</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted small mb-0">No steps defined for this phase.</p>
+                {% endfor %}
+            </div>
+        </div>
+        {% empty %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle me-2"></i>
+            No phases defined for this framework yet.
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Apply to Project -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-folder-plus me-2"></i>Apply to Project</h5>
+            </div>
+            <div class="card-body">
+                <p class="text-muted small">Select a project to apply this framework:</p>
+                <form method="get" action="">
+                    <select class="form-select mb-3" id="project-select">
+                        <option value="">Select a project...</option>
+                        <!-- Projects will be loaded dynamically -->
+                    </select>
+                    <button type="button" class="btn btn-primary w-100" id="apply-framework-btn" disabled>
+                        <i class="bi bi-check-circle me-1"></i> Apply Framework
+                    </button>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Framework Info -->
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-info-circle me-2"></i>Information</h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr>
+                        <td class="text-muted">Domain</td>
+                        <td>{{ framework.get_domain_display }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Total Steps</td>
+                        <td>{{ total_steps }}</td>
+                    </tr>
+                    <tr>
+                        <td class="text-muted">Est. Chapters</td>
+                        <td>{{ total_chapters }}</td>
+                    </tr>
+                    {% if total_words > 0 %}
+                    <tr>
+                        <td class="text-muted">Est. Words</td>
+                        <td>{{ total_words }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr>
+                        <td class="text-muted">Created</td>
+                        <td>{{ framework.created_at|date:"M d, Y" }}</td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Actions -->
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white">
+                <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Actions</h5>
+            </div>
+            <div class="card-body d-grid gap-2">
+                <a href="/admin/graph_core/framework/{{ framework.id }}/change/" class="btn btn-outline-secondary">
+                    <i class="bi bi-pencil me-1"></i> Edit in Admin
+                </a>
+                <a href="{% url 'graph_core:framework-list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Back to List
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const projectSelect = document.getElementById('project-select');
+    const applyBtn = document.getElementById('apply-framework-btn');
+    
+    // Enable button when project is selected
+    projectSelect.addEventListener('change', function() {
+        applyBtn.disabled = !this.value;
+    });
+    
+    // Apply framework
+    applyBtn.addEventListener('click', function() {
+        const projectId = projectSelect.value;
+        if (projectId) {
+            window.location.href = '{% url "graph_core:framework-apply" framework.slug 0 %}'.replace('/0/', '/' + projectId + '/');
+        }
+    });
+    
+    // Load projects (you'd fetch this from an API in production)
+    // For now, this is a placeholder
+});
+</script>
+{% endblock %}

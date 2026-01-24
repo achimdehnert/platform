@@ -1,0 +1,129 @@
+<div class="table-responsive">
+    <table class="table table-hover">
+        <thead class="table-light">
+            <tr>
+                {% for field in list_fields %}
+                <th scope="col">
+                    <a href="?ordering={% if request.GET.ordering == field %}-{% endif %}{{ field }}"
+                       class="text-decoration-none text-dark">
+                        {{ field|title|replace_underscore }}
+                        {% if request.GET.ordering == field %}
+                            <i class="bi bi-sort-down"></i>
+                        {% elif request.GET.ordering == "-"|add:field %}
+                            <i class="bi bi-sort-up"></i>
+                        {% else %}
+                            <i class="bi bi-sort text-muted"></i>
+                        {% endif %}
+                    </a>
+                </th>
+                {% endfor %}
+                <th scope="col" class="text-center" style="width: 150px;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for worlds in worldss %}
+            <tr id="worlds-row-{{ worlds.pk }}">
+                {% for field in list_fields %}
+                <td>{{ worlds|get_item:field|truncate:50 }}</td>
+                {% endfor %}
+                <td class="text-center">
+                    <div class="btn-group btn-group-sm" role="group">
+                        <a href="{% url 'bfagent:worlds-detail' worlds.pk %}"
+                           class="btn btn-outline-info"
+                           title="View Details">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <a href="{% url 'bfagent:worlds-edit' worlds.pk %}"
+                           class="btn btn-outline-warning"
+                           hx-get="{% url 'bfagent:worlds-edit' worlds.pk %}"
+                           hx-target="#modal-container"
+                           hx-trigger="click"
+                           title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button class="btn btn-outline-danger"
+                                hx-delete="{% url 'bfagent:worlds-delete' worlds.pk %}"
+                                hx-confirm="Are you sure you want to delete this Worlds?"
+                                hx-target="#row-{{ worlds.pk }}"
+                                hx-swap="outerHTML swap:1s"
+                                title="Delete">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="{{ list_fields|length|add:1 }}" class="text-center py-4">
+                    <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                    <p class="text-muted mt-2">No worldss found.</p>
+                    <a href="{% url 'bfagent:worlds-create' %}"
+                       class="btn btn-primary"
+                       hx-get="{% url 'bfagent:worlds-create' %}"
+                       hx-target="#modal-container"
+                       hx-trigger="click">
+                        <i class="bi bi-plus-circle"></i> Create First Worlds
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav aria-label="Worlds pagination">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link"
+                   href="?page={{ page_obj.previous_page_number }}"
+                   hx-get="?page={{ page_obj.previous_page_number }}"
+                   hx-target="#worlds-list"
+                   hx-swap="innerHTML">
+                    Previous
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Previous</span>
+            </li>
+        {% endif %}
+
+        {% for num in page_obj.paginator.page_range %}
+            {% if page_obj.number == num %}
+                <li class="page-item active">
+                    <span class="page-link">{{ num }}</span>
+                </li>
+            {% else %}
+                <li class="page-item">
+                    <a class="page-link"
+                       href="?page={{ num }}"
+                       hx-get="?page={{ num }}"
+                       hx-target="#worlds-list"
+                       hx-swap="innerHTML">
+                        {{ num }}
+                    </a>
+                </li>
+            {% endif %}
+        {% endfor %}
+
+        {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link"
+                   href="?page={{ page_obj.next_page_number }}"
+                   hx-get="?page={{ page_obj.next_page_number }}"
+                   hx-target="#worlds-list"
+                   hx-swap="innerHTML">
+                    Next
+                </a>
+            </li>
+        {% else %}
+            <li class="page-item disabled">
+                <span class="page-link">Next</span>
+            </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}

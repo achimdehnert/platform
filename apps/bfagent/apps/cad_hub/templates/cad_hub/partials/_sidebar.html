@@ -1,0 +1,150 @@
+<!-- templates/cad_hub/partials/_sidebar.html - Bootstrap 5 Dynamic Navigation -->
+{% load static %}
+
+<!-- CAD Hub Navigation -->
+<div class="nav-section">
+    <i class="bi bi-building"></i> CAD HUB
+</div>
+<ul class="nav flex-column mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}" 
+           href="{% url 'cad_hub:dashboard' %}">
+            <i class="bi bi-speedometer2"></i> Übersicht
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if 'project' in request.resolver_match.url_name %}active{% endif %}" 
+           href="{% url 'cad_hub:project_list' %}">
+            <i class="bi bi-folder"></i> Projekte
+        </a>
+    </li>
+</ul>
+
+<!-- Analyse & Viewer -->
+<div class="nav-section">
+    <i class="bi bi-cpu text-warning"></i> ANALYSE & VIEWER
+</div>
+<ul class="nav flex-column mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if 'dxf_viewer' in request.resolver_match.url_name %}active{% endif %}" 
+           href="{% url 'cad_hub:dxf_viewer' %}">
+            <i class="bi bi-eye"></i> DXF Viewer
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if 'format_analyzer' in request.resolver_match.url_name %}active{% endif %}" 
+           href="{% url 'cad_hub:format_analyzer' %}">
+            <i class="bi bi-file-earmark-code"></i> Format-Analyse
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if 'dxf_quality' in request.resolver_match.url_name %}active{% endif %}" 
+           href="{% url 'cad_hub:dxf_quality' %}">
+            <i class="bi bi-check2-circle"></i> DXF Qualität
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if 'batch_analyze' in request.resolver_match.url_name %}active{% endif %}" 
+           href="{% url 'cad_hub:batch_analyze' %}">
+            <i class="bi bi-collection"></i> Batch-Analyse
+        </a>
+    </li>
+</ul>
+
+<!-- Brandschutz -->
+<div class="nav-section">
+    <i class="bi bi-fire text-danger"></i> BRANDSCHUTZ
+</div>
+<ul class="nav flex-column mb-3">
+    <li class="nav-item">
+        <a class="nav-link {% if 'brandschutz' in request.path and 'dashboard' in request.path %}active{% endif %}" 
+           href="{% url 'cad_hub:brandschutz:dashboard' %}">
+            <i class="bi bi-house-door"></i> Dashboard
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if 'pruefung' in request.path %}active{% endif %}" 
+           href="{% url 'cad_hub:brandschutz:pruefung_list' %}">
+            <i class="bi bi-clipboard-check"></i> Prüfungen
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link {% if 'regelwerk' in request.path %}active{% endif %}" 
+           href="{% url 'cad_hub:brandschutz:regelwerk_list' %}">
+            <i class="bi bi-book"></i> Regelwerke
+        </a>
+    </li>
+</ul>
+
+{% if model %}
+<!-- Modell-spezifische Navigation -->
+<div class="nav-section">
+    <i class="bi bi-box"></i> AKTUELLES MODELL
+</div>
+<ul class="nav flex-column mb-3">
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'cad_hub:room_list' model.id %}">
+            <i class="bi bi-grid-3x3"></i> Raumliste
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'cad_hub:area_summary' model.id %}">
+            <i class="bi bi-calculator"></i> Flächenberechnung
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'cad_hub:wall_list' model.id %}">
+            <i class="bi bi-bricks"></i> Wände
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'cad_hub:door_list' model.id %}">
+            <i class="bi bi-door-open"></i> Türen
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'cad_hub:window_list' model.id %}">
+            <i class="bi bi-window"></i> Fenster
+        </a>
+    </li>
+</ul>
+{% endif %}
+
+<hr class="my-2">
+
+<!-- Quick Actions -->
+<div class="nav-section">
+    <i class="bi bi-lightning"></i> AKTIONEN
+</div>
+<ul class="nav flex-column">
+    <li class="nav-item">
+        <a class="nav-link text-warning" 
+           href="{% if project %}{% url 'cad_hub:model_upload' project.id %}{% else %}{% url 'cad_hub:project_list' %}{% endif %}">
+            <i class="bi bi-cloud-upload"></i> IFC hochladen
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'cad_hub:project_create' %}">
+            <i class="bi bi-plus-circle"></i> Neues Projekt
+        </a>
+    </li>
+</ul>
+
+<hr class="my-2">
+
+<!-- Other Hubs -->
+<div class="nav-section">
+    <i class="bi bi-grid-3x3-gap"></i> ANDERE HUBS
+</div>
+<ul class="nav flex-column">
+    <li class="nav-item">
+        <a class="nav-link" href="{% url 'control_center:dashboard' %}">
+            <i class="bi bi-gear text-primary"></i> Control Center
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="nav-link" href="/writing-hub/">
+            <i class="bi bi-book text-success"></i> Writing Hub
+        </a>
+    </li>
+</ul>

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}PlotPoint Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-eye"></i> PlotPoint Detail</h1>
+        <div>
+            <a href="{% url 'bfagent:plotpoint-list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+            <a href="{% url 'bfagent:plotpoint-update' object.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Name:</strong></div>
+                <div class="col-md-9">{{ object.name }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Chapter Number:</strong></div>
+                <div class="col-md-9">{{ object.chapter_number }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Point Type:</strong></div>
+                <div class="col-md-9">{{ object.point_type }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Emotional Impact:</strong></div>
+                <div class="col-md-9">{{ object.emotional_impact }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Completion Status:</strong></div>
+                <div class="col-md-9">{{ object.completion_status }}</div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'bfagent:plotpoint-delete' object.pk %}" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

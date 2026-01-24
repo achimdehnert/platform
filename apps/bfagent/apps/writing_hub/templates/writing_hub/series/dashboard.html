@@ -1,0 +1,189 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Buchreihen - Writing Hub{% endblock %}
+
+{% block page_title %}Buchreihen{% endblock %}
+{% block page_subtitle %}Universes & Multi-Book Series{% endblock %}
+
+{% block extra_css %}
+<style>
+    .series-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .series-card {
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.08);
+        overflow: hidden;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    
+    .series-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    }
+    
+    .series-cover {
+        height: 120px;
+        background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 3rem;
+    }
+    
+    .series-cover img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+    }
+    
+    .series-body {
+        padding: 1.25rem;
+    }
+    
+    .series-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 0.5rem;
+        color: #2d3436;
+    }
+    
+    .series-genre {
+        color: #6c757d;
+        font-size: 0.9rem;
+        margin-bottom: 1rem;
+    }
+    
+    .series-stats {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .series-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        color: #636e72;
+    }
+    
+    .series-stat i {
+        color: #6c5ce7;
+    }
+    
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: #f8f9fa;
+        border-radius: 12px;
+    }
+    
+    .empty-state i {
+        font-size: 4rem;
+        color: #dfe6e9;
+        margin-bottom: 1rem;
+    }
+    
+    .create-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        background: linear-gradient(135deg, #6c5ce7, #a29bfe);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+    
+    .create-btn:hover {
+        color: white;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 92, 231, 0.4);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:dashboard' %}"><i class="bi bi-house"></i> Writing Hub</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Buchreihen</li>
+        </ol>
+    </nav>
+    
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-collection text-primary"></i> Buchreihen</h1>
+            <p class="text-muted mb-0">Verwalte deine Multi-Book-Universes mit gemeinsamen Charakteren und Welten</p>
+        </div>
+        <a href="{% url 'writing_hub:series_create' %}" class="create-btn">
+            <i class="bi bi-plus-lg"></i> Neue Reihe
+        </a>
+    </div>
+    
+    {% if series_list %}
+    <!-- Series Grid -->
+    <div class="series-grid">
+        {% for series in series_list %}
+        <div class="series-card">
+            <div class="series-cover">
+                {% if series.cover_image %}
+                <img src="{{ series.cover_image.url }}" alt="{{ series.name }}">
+                {% else %}
+                <i class="bi bi-collection"></i>
+                {% endif %}
+            </div>
+            <div class="series-body">
+                <h3 class="series-title">{{ series.name }}</h3>
+                <div class="series-genre">
+                    {% if series.genre %}{{ series.genre }}{% else %}Kein Genre{% endif %}
+                </div>
+                
+                <div class="series-stats">
+                    <div class="series-stat">
+                        <i class="bi bi-book"></i>
+                        <span>{{ series.projects_count }} Bücher</span>
+                    </div>
+                    <div class="series-stat">
+                        <i class="bi bi-people"></i>
+                        <span>{{ series.characters_count }} Charaktere</span>
+                    </div>
+                    <div class="series-stat">
+                        <i class="bi bi-globe2"></i>
+                        <span>{{ series.worlds_count }} Welten</span>
+                    </div>
+                </div>
+                
+                <a href="{% url 'writing_hub:series_detail' series.id %}" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-eye"></i> Details anzeigen
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <!-- Empty State -->
+    <div class="empty-state">
+        <i class="bi bi-collection"></i>
+        <h4>Noch keine Buchreihen</h4>
+        <p class="text-muted mb-4">Erstelle deine erste Buchreihe, um Charaktere und Welten über mehrere Bücher hinweg zu teilen.</p>
+        <a href="{% url 'writing_hub:series_create' %}" class="create-btn">
+            <i class="bi bi-plus-lg"></i> Erste Reihe erstellen
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

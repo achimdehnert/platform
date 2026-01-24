@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Vorschau: {{ chapter.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <a href="{% url 'writing_hub:illustration_dashboard' project.id %}" class="text-decoration-none text-muted">
+                        <i class="bi bi-arrow-left"></i> Zurück zum Illustration Dashboard
+                    </a>
+                    <h1 class="mt-2">📖 {{ chapter.title }}</h1>
+                    <p class="text-muted">Kapitel {{ chapter.chapter_number }} • {{ project.title }}</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-danger" onclick="removeAllImages()">
+                        <i class="bi bi-trash"></i> Bilder entfernen
+                    </button>
+                    <a href="{% url 'writing_hub:chapter_writer' project.id %}?chapter={{ chapter.id }}" class="btn btn-outline-primary">
+                        <i class="bi bi-pencil"></i> Bearbeiten
+                    </a>
+                </div>
+            </div>
+            
+            <!-- Chapter Content -->
+            <div class="card">
+                <div class="card-body chapter-content" style="font-family: Georgia, serif; font-size: 1.1rem; line-height: 1.8;">
+                    {{ html_content|safe }}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast position-fixed bottom-0 end-0 m-3" role="alert">
+    <div class="toast-body"></div>
+</div>
+
+<style>
+.chapter-content img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 12px;
+    margin: 1.5rem auto 0.5rem auto;
+    display: block;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.chapter-content img + em,
+.chapter-content p > em:only-child {
+    display: block;
+    text-align: center;
+    font-size: 0.9rem;
+    color: #666;
+    margin-bottom: 1.5rem;
+    font-style: italic;
+}
+
+.chapter-content p {
+    margin-bottom: 1rem;
+    text-align: justify;
+}
+
+.toast {
+    background: #333;
+    color: white;
+    padding: 1rem 1.5rem;
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+    z-index: 9999;
+}
+
+.toast.show {
+    opacity: 1;
+}
+
+.toast.success { background: #10b981; }
+.toast.error { background: #ef4444; }
+</style>
+
+<script>
+const projectId = {{ project.id }};
+const chapterId = {{ chapter.id }};
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.querySelector('.toast-body').textContent = message;
+    toast.className = 'toast position-fixed bottom-0 end-0 m-3 show ' + type;
+    setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
+async function removeAllImages() {
+    if (!confirm('Alle Bilder aus diesem Kapitel entfernen?')) return;
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/illustration/${chapterId}/remove-images/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast(result.message, 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(result.error || 'Fehler beim Entfernen', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+}
+</script>
+{% endblock %}

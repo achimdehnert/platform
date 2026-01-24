@@ -1,0 +1,256 @@
+{
+  "version": "1.0",
+  "updated_at": "2024-12-18",
+  "regelwerke": [
+    {
+      "kuerzel": "ASR_A2_2",
+      "name": "ASR A2.2 - Maßnahmen gegen Brände",
+      "typ": "asr",
+      "kategorien": ["feuerloescher", "loeschdecke", "wandhydrant"],
+      "regeln": {
+        "feuerloescher": {
+          "max_laufweg_m": 20,
+          "min_anzahl_pro_etage": 1,
+          "loescheinheiten_pro_flaeche": {
+            "bis_50m2": 6,
+            "bis_100m2": 9,
+            "bis_200m2": 12,
+            "bis_400m2": 18,
+            "bis_600m2": 24,
+            "bis_800m2": 30,
+            "bis_1000m2": 36
+          },
+          "brandgefaehrdung_erhoehung": {
+            "mittel": 1.5,
+            "gross": 2.0
+          }
+        }
+      }
+    },
+    {
+      "kuerzel": "ASR_A2_3",
+      "name": "ASR A2.3 - Fluchtwege und Notausgänge",
+      "typ": "asr",
+      "kategorien": ["fluchtweg", "notausgang"],
+      "regeln": {
+        "fluchtweg": {
+          "max_laenge_m": 35,
+          "max_laenge_brandgefaehrdet_m": 25,
+          "min_breite_bis_5_personen_m": 0.875,
+          "min_breite_bis_20_personen_m": 1.0,
+          "min_breite_bis_200_personen_m": 1.2,
+          "min_breite_bis_300_personen_m": 1.8,
+          "min_breite_bis_400_personen_m": 2.4,
+          "min_hoehe_m": 2.0
+        },
+        "notausgang": {
+          "min_breite_m": 0.9,
+          "min_hoehe_m": 2.0,
+          "max_abstand_schilder_m": 25
+        },
+        "kennzeichnung": {
+          "an_richtungswechsel": true,
+          "an_kreuzungen": true,
+          "max_abstand_m": 25,
+          "leuchtdichte_min_cd_m2": 2
+        }
+      }
+    },
+    {
+      "kuerzel": "ASR_A1_3",
+      "name": "ASR A1.3 - Sicherheitskennzeichnung",
+      "typ": "asr",
+      "kategorien": ["fluchtweg", "notausgang", "feuerloescher", "brandmelder"],
+      "regeln": {
+        "erkennungsweite": {
+          "schildhoehe_mm": [100, 150, 200, 300, 400],
+          "erkennungsweite_m": [10, 15, 20, 30, 40]
+        },
+        "beleuchtung": {
+          "normal_lux": 1,
+          "nachleuchtend": true
+        }
+      }
+    },
+    {
+      "kuerzel": "DIN_14675",
+      "name": "DIN 14675 - Brandmeldeanlagen",
+      "typ": "din",
+      "kategorien": ["rauchmelder", "waermemelder", "brandmelder"],
+      "regeln": {
+        "rauchmelder": {
+          "max_flaeche_m2": 60,
+          "max_abstand_m": 7.5,
+          "max_abstand_wand_m": 0.5,
+          "min_abstand_decke_m": 0.03,
+          "raumhoehe_max_m": 12
+        },
+        "waermemelder": {
+          "max_flaeche_m2": 30,
+          "max_abstand_m": 5.0,
+          "raumhoehe_max_m": 7.5
+        },
+        "handfeuermelder": {
+          "max_abstand_m": 50,
+          "hoehe_min_m": 0.8,
+          "hoehe_max_m": 1.4
+        }
+      }
+    },
+    {
+      "kuerzel": "DIN_4102",
+      "name": "DIN 4102 - Brandverhalten von Baustoffen und Bauteilen",
+      "typ": "din",
+      "kategorien": ["brandabschnitt", "brandwand"],
+      "regeln": {
+        "feuerwiderstandsklassen": {
+          "F30": {"minuten": 30, "beschreibung": "Feuerhemmend"},
+          "F60": {"minuten": 60, "beschreibung": "Hochfeuerhemmend"},
+          "F90": {"minuten": 90, "beschreibung": "Feuerbeständig"},
+          "F120": {"minuten": 120, "beschreibung": "Hochfeuerbeständig"},
+          "F180": {"minuten": 180, "beschreibung": "Höchstfeuerbeständig"}
+        },
+        "baustoffklassen": {
+          "A1": "Nicht brennbar, ohne organische Bestandteile",
+          "A2": "Nicht brennbar, mit organischen Bestandteilen",
+          "B1": "Schwerentflammbar",
+          "B2": "Normalentflammbar",
+          "B3": "Leichtentflammbar"
+        }
+      }
+    },
+    {
+      "kuerzel": "EN_13501",
+      "name": "EN 13501 - Klassifizierung von Bauprodukten",
+      "typ": "din",
+      "kategorien": ["brandabschnitt", "brandwand"],
+      "regeln": {
+        "klassifizierung": {
+          "REI": "Tragfähigkeit + Raumabschluss + Wärmedämmung",
+          "RE": "Tragfähigkeit + Raumabschluss",
+          "R": "Tragfähigkeit",
+          "EI": "Raumabschluss + Wärmedämmung",
+          "E": "Raumabschluss"
+        }
+      }
+    },
+    {
+      "kuerzel": "MBO",
+      "name": "Musterbauordnung",
+      "typ": "mbo",
+      "kategorien": ["brandabschnitt", "fluchtweg", "brandwand"],
+      "regeln": {
+        "brandabschnitte": {
+          "max_flaeche_m2": 1600,
+          "max_laenge_m": 60
+        },
+        "rettungswege": {
+          "erster_rettungsweg": "notwendige Treppe",
+          "zweiter_rettungsweg": "weitere Treppe oder Fenster/Balkon",
+          "max_laenge_m": 35
+        },
+        "gebaeueklassen": {
+          "GK1": {"hoehe_m": 7, "nutzungseinheiten": 2, "flaeche_m2": 400},
+          "GK2": {"hoehe_m": 7, "nutzungseinheiten": 999, "flaeche_m2": 400},
+          "GK3": {"hoehe_m": 7, "nutzungseinheiten": 999, "flaeche_m2": 999},
+          "GK4": {"hoehe_m": 13, "nutzungseinheiten": 999, "flaeche_m2": 999},
+          "GK5": {"hoehe_m": 22, "nutzungseinheiten": 999, "flaeche_m2": 999}
+        }
+      }
+    },
+    {
+      "kuerzel": "VStaettVO",
+      "name": "Muster-Versammlungsstättenverordnung",
+      "typ": "vstaettvo",
+      "kategorien": ["fluchtweg", "notausgang", "sprinkler", "rwa"],
+      "regeln": {
+        "anwendung": {
+          "ab_personen": 200,
+          "ab_flaeche_m2": 200
+        },
+        "ausgaenge": {
+          "breite_pro_person_m": 0.012,
+          "min_breite_m": 1.2,
+          "max_personen_pro_ausgang": 200
+        },
+        "sitzplaetze": {
+          "max_pro_reihe": 30,
+          "max_reihen_hintereinander": 20,
+          "gangbreite_min_m": 1.2
+        },
+        "rwa": {
+          "ab_flaeche_m2": 200,
+          "rauchabzugsflaeche_prozent": 2
+        }
+      }
+    },
+    {
+      "kuerzel": "IndBauRL",
+      "name": "Muster-Industriebaurichtlinie",
+      "typ": "indbauril",
+      "kategorien": ["brandabschnitt", "fluchtweg", "sprinkler", "rwa"],
+      "regeln": {
+        "brandabschnitte": {
+          "erdgeschossig_ohne_sprinkler_m2": 3000,
+          "erdgeschossig_mit_sprinkler_m2": 10000,
+          "mehrgeschossig_ohne_sprinkler_m2": 1600,
+          "mehrgeschossig_mit_sprinkler_m2": 5000
+        },
+        "rwa": {
+          "ab_flaeche_m2": 200,
+          "rauchabzugsflaeche_prozent": 2
+        },
+        "rettungswege": {
+          "max_laenge_m": 50,
+          "max_laenge_mit_sprinkler_m": 70
+        }
+      }
+    },
+    {
+      "kuerzel": "ATEX",
+      "name": "ATEX-Richtlinien / BetrSichV - Explosionsschutz",
+      "typ": "sonstige",
+      "kategorien": ["ex_zone"],
+      "regeln": {
+        "zonen_gas": {
+          "zone_0": "Ständig oder langzeitig explosionsfähige Atmosphäre",
+          "zone_1": "Gelegentlich bei Normalbetrieb",
+          "zone_2": "Selten und kurzzeitig"
+        },
+        "zonen_staub": {
+          "zone_20": "Ständig brennbare Staubwolke",
+          "zone_21": "Gelegentlich bei Normalbetrieb",
+          "zone_22": "Selten und kurzzeitig"
+        },
+        "geraetkategorien": {
+          "zone_0": ["Kategorie 1"],
+          "zone_1": ["Kategorie 1", "Kategorie 2"],
+          "zone_2": ["Kategorie 1", "Kategorie 2", "Kategorie 3"]
+        },
+        "kennzeichnung_abstand_m": 5
+      }
+    },
+    {
+      "kuerzel": "GaVO",
+      "name": "Muster-Garagenverordnung",
+      "typ": "sonstige",
+      "kategorien": ["brandabschnitt", "fluchtweg", "rwa", "sprinkler"],
+      "regeln": {
+        "klassifizierung": {
+          "kleingarage_m2": 100,
+          "mittelgarage_m2": 1000,
+          "grossgarage_m2": 1001
+        },
+        "lueftung": {
+          "natuerlich_bis_m2": 100,
+          "co_warnung_ab_m2": 100
+        },
+        "brandabschnitte": {
+          "offene_garage_m2": 10000,
+          "geschlossene_garage_m2": 5000,
+          "mit_sprinkler_m2": 20000
+        }
+      }
+    }
+  ]
+}

@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Projekt erstellen - Smart Import V2{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow">
+                <div class="card-header bg-success text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-check-circle me-2"></i>
+                        Projekt erstellen
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <h5 class="mb-4">Zusammenfassung</h5>
+                    
+                    <!-- Project Info -->
+                    <div class="mb-4">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small">Titel</label>
+                                    <div class="fs-5 fw-bold">{{ selected.metadata_overrides.title|default:metadata.title|default:"Neues Projekt" }}</div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label class="form-label text-muted small">Genre</label>
+                                    <div>{{ selected.metadata_overrides.genre|default:metadata.genre_primary|default:"Nicht angegeben" }}</div>
+                                </div>
+                            </div>
+                        </div>
+                        {% if metadata.logline %}
+                        <div class="mb-3">
+                            <label class="form-label text-muted small">Logline</label>
+                            <div class="fst-italic">{{ metadata.logline }}</div>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Counts -->
+                    <div class="row text-center mb-4">
+                        <div class="col-4">
+                            <div class="card bg-light">
+                                <div class="card-body py-3">
+                                    <div class="fs-2 fw-bold text-success">{{ counts.characters }}</div>
+                                    <div class="text-muted">Charaktere</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card bg-light">
+                                <div class="card-body py-3">
+                                    <div class="fs-2 fw-bold text-warning">{{ counts.locations }}</div>
+                                    <div class="text-muted">Orte</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="card bg-light">
+                                <div class="card-body py-3">
+                                    <div class="fs-2 fw-bold text-info">{{ counts.chapters }}</div>
+                                    <div class="text-muted">Kapitel</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Template -->
+                    {% if template %}
+                    <div class="alert alert-info">
+                        <h6 class="alert-heading">
+                            <i class="bi bi-diagram-3 me-2"></i>
+                            Ausgewähltes Outline-Template
+                        </h6>
+                        <strong>{{ template.name }}</strong> ({{ template.name_de }})
+                        <p class="mb-0 small mt-1">{{ template.description|truncatechars:150 }}</p>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-secondary">
+                        <i class="bi bi-info-circle me-2"></i>
+                        Kein Outline-Template ausgewählt. Du kannst später ein Template zuweisen.
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Action -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-grid gap-2 mt-4">
+                            <button type="submit" class="btn btn-success btn-lg">
+                                <i class="bi bi-plus-circle me-2"></i>
+                                Projekt jetzt erstellen
+                            </button>
+                            <a href="{% url 'writing_hub:import_v2_outline' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-2"></i>
+                                Zurück zur Template-Auswahl
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

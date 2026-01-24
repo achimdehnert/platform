@@ -1,0 +1,110 @@
+{% extends 'ui_hub/base.html' %}
+
+{% block title %}Violations - UI Hub{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">⚠️ Rule Violations</h1>
+        <p class="text-muted">All logged validation violations</p>
+    </div>
+</div>
+
+<div class="row mb-3">
+    <div class="col-md-3">
+        <div class="card">
+            <div class="card-body text-center">
+                <h4>{{ stats.total }}</h4>
+                <small class="text-muted">Total</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-danger">
+            <div class="card-body text-center">
+                <h4 class="text-danger">{{ stats.errors }}</h4>
+                <small class="text-muted">Errors</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-warning">
+            <div class="card-body text-center">
+                <h4 class="text-warning">{{ stats.warnings }}</h4>
+                <small class="text-muted">Warnings</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card border-success">
+            <div class="card-body text-center">
+                <h4 class="text-success">{{ stats.resolved }}</h4>
+                <small class="text-muted">Resolved</small>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if not violations %}
+<div class="alert alert-success">
+    <h5>✅ No violations found</h5>
+    <p>All code follows guardrail rules!</p>
+</div>
+{% else %}
+
+<div class="card">
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>File</th>
+                        <th>Line</th>
+                        <th>Rule</th>
+                        <th>Severity</th>
+                        <th>Message</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for violation in violations %}
+                    <tr {% if violation.is_resolved %}class="table-success"{% endif %}>
+                        <td><code>{{ violation.file_path|truncatechars:50 }}</code></td>
+                        <td>{{ violation.line_number|default:"-" }}</td>
+                        <td>{{ violation.rule.name }}</td>
+                        <td>
+                            {% if violation.severity == 'error' %}
+                            <span class="badge severity-badge-error">Error</span>
+                            {% elif violation.severity == 'warning' %}
+                            <span class="badge severity-badge-warning">Warning</span>
+                            {% else %}
+                            <span class="badge severity-badge-info">Info</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ violation.message|truncatechars:60 }}</td>
+                        <td>
+                            {% if violation.is_resolved %}
+                            <span class="badge bg-success">✓ Resolved</span>
+                            {% else %}
+                            <span class="badge bg-danger">Open</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ violation.created_at|date:"Y-m-d H:i" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% endif %}
+
+<div class="mt-4">
+    <a href="{% url 'ui_hub:dashboard' %}" class="btn btn-secondary">← Back to Dashboard</a>
+    {% if stats.unresolved > 0 %}
+    <a href="/admin/ui_hub/ruleviolation/" class="btn btn-warning">Manage in Admin</a>
+    {% endif %}
+</div>
+{% endblock %}

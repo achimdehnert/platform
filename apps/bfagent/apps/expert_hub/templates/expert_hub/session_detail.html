@@ -1,0 +1,466 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'expert_hub:dashboard' %}">Expert Hub</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expert_hub:session_list' %}">Analysen</a></li>
+                    <li class="breadcrumb-item active">{{ session.name }}</li>
+                </ol>
+            </nav>
+            <h2 class="mb-1">{{ session.name }}</h2>
+            <p class="text-muted mb-0">
+                {% if session.project_name %}<i class="bi bi-building me-1"></i>{{ session.project_name }} • {% endif %}
+                <span class="badge bg-{% if session.status == 'completed' %}success{% elif session.status == 'in_progress' %}warning{% else %}secondary{% endif %}">
+                    {{ session.get_status_display }}
+                </span>
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            <div class="btn-group">
+                <a href="{% url 'expert_hub:session_zone_analysis' session_id=session.id %}" class="btn btn-outline-primary">
+                    <i class="bi bi-diagram-3 me-1"></i>Zone hinzufügen
+                </a>
+                <a href="{% url 'expert_hub:session_equipment_check' session_id=session.id %}" class="btn btn-outline-warning">
+                    <i class="bi bi-shield-check me-1"></i>Equipment prüfen
+                </a>
+                <a href="{% url 'expert_hub:session_cad_import' session_id=session.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-file-earmark-binary me-1"></i>CAD Import
+                </a>
+            </div>
+            <a href="{% url 'expert_hub:document_preview' session_id=session.id %}" class="btn btn-success">
+                <i class="bi bi-file-earmark-word me-1"></i>Dokument erstellen
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-diagram-3 fs-2 text-primary me-3"></i>
+                        <div>
+                            <h5 class="mb-0">{{ zone_results.count }}</h5>
+                            <small class="text-muted">Ex-Zonen</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-check-circle fs-2 text-success me-3"></i>
+                        <div>
+                            <h5 class="mb-0">{{ stats.equipment_ok }}</h5>
+                            <small class="text-muted">Equipment OK</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle fs-2 text-danger me-3"></i>
+                        <div>
+                            <h5 class="mb-0">{{ stats.equipment_issues }}</h5>
+                            <small class="text-muted">Equipment Mängel</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <div class="d-flex align-items-center">
+                        <i class="bi bi-file-earmark-text fs-2 text-info me-3"></i>
+                        <div>
+                            <h5 class="mb-0">{{ stats.docs_total }}</h5>
+                            <small class="text-muted">Dokumente</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Workflow Navigation (Links) -->
+        <div class="col-lg-4">
+            <!-- Dokumentstruktur mit Fortschritt -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0"><i class="bi bi-list-check me-2"></i>Dokumentstruktur</h5>
+                        <span class="badge bg-light text-primary">{{ overall_progress }}%</span>
+                    </div>
+                    <!-- Fortschrittsbalken -->
+                    <div class="progress mt-2" style="height: 8px;">
+                        <div class="progress-bar bg-{% if overall_progress >= 80 %}success{% elif overall_progress >= 50 %}warning{% else %}light{% endif %}" 
+                             style="width: {{ overall_progress }}%"></div>
+                    </div>
+                    <small class="text-white-50">{{ phases_with_content }} von {{ total_phases }} Kapiteln ausgefüllt</small>
+                </div>
+                <div class="card-body p-0" style="max-height: 500px; overflow-y: auto;">
+                    <div class="list-group list-group-flush">
+                        {% for phase in phases %}
+                        {% if not phase.parent %}
+                        <div class="list-group-item p-0">
+                            <div class="d-flex align-items-center p-2 phase-item">
+                                <!-- Status Icon -->
+                                <span class="me-2">
+                                    {% if phase.id in phase_content_map and phase_content_map|default_if_none:""|dictsort:"" %}
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    {% else %}
+                                    <i class="bi bi-circle text-muted"></i>
+                                    {% endif %}
+                                </span>
+                                <a href="{% url 'expert_hub:phase_detail' session_id=session.id phase_id=phase.id %}" 
+                                   class="text-decoration-none flex-grow-1 d-flex align-items-center">
+                                    <span class="badge bg-secondary me-2">{{ phase.number }}</span>
+                                    <span class="small text-dark">{{ phase.title }}</span>
+                                </a>
+                                {% if phase.children.count > 0 %}
+                                <button class="btn btn-sm btn-link p-0 ms-2" type="button" 
+                                        data-bs-toggle="collapse" data-bs-target="#phase-{{ phase.id }}">
+                                    <i class="bi bi-chevron-down small"></i>
+                                </button>
+                                {% endif %}
+                            </div>
+                            {% if phase.children.count > 0 %}
+                            <div class="collapse" id="phase-{{ phase.id }}">
+                                {% for child in phase.children.all %}
+                                <a href="{% url 'expert_hub:phase_detail' session_id=session.id phase_id=child.id %}" 
+                                   class="d-flex align-items-center p-2 ps-4 border-top bg-light text-decoration-none">
+                                    <span class="text-muted small me-2">{{ child.number }}</span>
+                                    <span class="small text-dark flex-grow-1">{{ child.title }}</span>
+                                    <i class="bi bi-chevron-right small text-muted"></i>
+                                </a>
+                                {% for subchild in child.children.all %}
+                                <a href="{% url 'expert_hub:phase_detail' session_id=session.id phase_id=subchild.id %}" 
+                                   class="d-flex align-items-center p-2 ps-5 border-top text-decoration-none" style="background: #f8f9fa;">
+                                    <span class="text-muted small me-2">{{ subchild.number }}</span>
+                                    <span class="small text-dark flex-grow-1">{{ subchild.title }}</span>
+                                    <i class="bi bi-chevron-right small text-muted"></i>
+                                </a>
+                                {% endfor %}
+                                {% endfor %}
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Corporate Design Template -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0"><i class="bi bi-palette me-2"></i>Corporate Design</h6>
+                </div>
+                <div class="card-body">
+                    {% if session.template_file %}
+                    <div class="d-flex align-items-center mb-3">
+                        <i class="bi bi-file-earmark-word text-primary fs-4 me-2"></i>
+                        <div class="flex-grow-1">
+                            <small class="text-muted d-block">Vorlage:</small>
+                            <span class="small">{{ session.template_file.name|cut:"expert_hub/templates/" }}</span>
+                        </div>
+                        <form method="post" action="{% url 'expert_hub:remove_template' session_id=session.id %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Entfernen">
+                                <i class="bi bi-x"></i>
+                            </button>
+                        </form>
+                    </div>
+                    {% endif %}
+                    
+                    {% if session.company_logo %}
+                    <div class="d-flex align-items-center mb-3">
+                        <img src="{{ session.company_logo.url }}" alt="Logo" class="me-2" style="max-height: 40px; max-width: 80px;">
+                        <div class="flex-grow-1">
+                            <small class="text-muted">Firmenlogo</small>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <form method="post" action="{% url 'expert_hub:upload_template' session_id=session.id %}" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        <div class="mb-2">
+                            <label class="form-label small">Word-Vorlage (.docx)</label>
+                            <input type="file" name="template_file" class="form-control form-control-sm" accept=".docx,.doc">
+                            <small class="text-muted">Für Kopf-/Fußzeile, Schriftarten</small>
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Firmenlogo (optional)</label>
+                            <input type="file" name="company_logo" class="form-control form-control-sm" accept="image/*">
+                        </div>
+                        <button type="submit" class="btn btn-sm btn-outline-primary w-100">
+                            <i class="bi bi-upload me-1"></i>Hochladen
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ergebnisse (Rechts) -->
+        <div class="col-lg-8">
+            <div class="row g-4">
+                <!-- Zone Results -->
+                <div class="col-12">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Ex-Zonen Ergebnisse</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if zone_results %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Raum</th>
+                                    <th>Zone</th>
+                                    <th>Risiko</th>
+                                    <th>Volumen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for zone in zone_results %}
+                                <tr>
+                                    <td>{{ zone.room_name }}</td>
+                                    <td>
+                                        <span class="badge bg-{% if 'Zone 0' in zone.get_zone_type_display %}danger{% elif 'Zone 1' in zone.get_zone_type_display %}warning{% else %}info{% endif %}">
+                                            {{ zone.get_zone_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <span class="text-{% if zone.risk_level == 'critical' %}danger{% elif zone.risk_level == 'high' %}warning{% else %}muted{% endif %}">
+                                            {{ zone.get_risk_level_display }}
+                                        </span>
+                                    </td>
+                                    <td>{{ zone.room_volume_m3|default:"-" }} m³</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        <p class="mb-2">Noch keine Zonen berechnet</p>
+                        <a href="{% url 'expert_hub:session_zone_analysis' session_id=session.id %}" class="btn btn-sm btn-primary">
+                            Zone berechnen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Equipment Checks -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i>Equipment-Prüfungen</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if equipment_checks %}
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Equipment</th>
+                                    <th>Kennzeichnung</th>
+                                    <th>Zone</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for eq in equipment_checks %}
+                                <tr>
+                                    <td>{{ eq.equipment_name }}</td>
+                                    <td><code>{{ eq.ex_marking }}</code></td>
+                                    <td>{{ eq.target_zone }}</td>
+                                    <td>
+                                        {% if eq.is_suitable %}
+                                        <span class="badge bg-success"><i class="bi bi-check"></i> OK</span>
+                                        {% else %}
+                                        <span class="badge bg-danger"><i class="bi bi-x"></i> Mangel</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        <p class="mb-2">Noch keine Equipment-Prüfungen</p>
+                        <a href="{% url 'expert_hub:session_equipment_check' session_id=session.id %}" class="btn btn-sm btn-warning">
+                            Equipment prüfen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Documents -->
+    <div class="card shadow-sm mt-4">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-file-earmark-text me-2"></i>Projektunterlagen</h5>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                <i class="bi bi-plus-circle me-1"></i>Dokument hinzufügen
+            </button>
+        </div>
+        <div class="card-body p-0">
+            {% if documents %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Dateiname</th>
+                            <th>Typ</th>
+                            <th>Größe</th>
+                            <th>Status</th>
+                            <th>Hochgeladen</th>
+                            <th style="width: 100px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for doc in documents %}
+                        <tr>
+                            <td>
+                                {% if doc.file_extension == 'pdf' %}
+                                <i class="bi bi-file-earmark-pdf text-danger fs-5"></i>
+                                {% elif doc.file_extension in 'dwg,dxf,ifc' %}
+                                <i class="bi bi-file-earmark-binary text-primary fs-5"></i>
+                                {% elif doc.file_extension in 'jpg,jpeg,png,gif' %}
+                                <i class="bi bi-file-earmark-image text-success fs-5"></i>
+                                {% elif doc.file_extension in 'doc,docx' %}
+                                <i class="bi bi-file-earmark-word text-primary fs-5"></i>
+                                {% elif doc.file_extension in 'xls,xlsx' %}
+                                <i class="bi bi-file-earmark-excel text-success fs-5"></i>
+                                {% else %}
+                                <i class="bi bi-file-earmark text-secondary fs-5"></i>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <a href="{{ doc.file.url }}" target="_blank" class="text-decoration-none">
+                                    {{ doc.original_filename }}
+                                </a>
+                            </td>
+                            <td><span class="badge bg-secondary">{{ doc.get_document_type_display }}</span></td>
+                            <td><small class="text-muted">{{ doc.file_size_display }}</small></td>
+                            <td>
+                                {% if doc.analysis_status == 'completed' %}
+                                <span class="badge bg-success"><i class="bi bi-check"></i> Analysiert</span>
+                                {% elif doc.analysis_status == 'processing' %}
+                                <span class="badge bg-warning"><i class="bi bi-hourglass"></i> In Analyse</span>
+                                {% elif doc.analysis_status == 'failed' %}
+                                <span class="badge bg-danger"><i class="bi bi-x"></i> Fehler</span>
+                                {% else %}
+                                <span class="badge bg-light text-dark"><i class="bi bi-clock"></i> Ausstehend</span>
+                                {% endif %}
+                            </td>
+                            <td><small class="text-muted">{{ doc.created_at|date:"d.m.Y H:i" }}</small></td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{{ doc.file.url }}" class="btn btn-outline-secondary" target="_blank" title="Öffnen">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{{ doc.file.url }}" class="btn btn-outline-secondary" download title="Download">
+                                        <i class="bi bi-download"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-folder2-open fs-1 d-block mb-2"></i>
+                <p class="mb-2">Noch keine Unterlagen hochgeladen</p>
+                <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#uploadModal">
+                    <i class="bi bi-upload me-1"></i>Dokumente hochladen
+                </button>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Description -->
+    {% if session.description %}
+    <div class="card mt-4">
+        <div class="card-body">
+            <h6 class="text-muted mb-2">Beschreibung</h6>
+            <p class="mb-0">{{ session.description }}</p>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Upload Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="post" action="{% url 'expert_hub:session_upload_document' session_id=session.id %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-upload me-2"></i>Dokument hochladen</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="modal_file" class="form-label">Datei auswählen</label>
+                        <input type="file" class="form-control" id="modal_file" name="file" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modal_doc_type" class="form-label">Dokumenttyp</label>
+                        <select class="form-select" id="modal_doc_type" name="document_type">
+                            <option value="plan">Lageplan/Grundriss</option>
+                            <option value="piid">P&ID / R&I-Schema</option>
+                            <option value="datasheet">Datenblatt</option>
+                            <option value="certificate">Zertifikat/Prüfbericht</option>
+                            <option value="report">Gutachten/Bericht</option>
+                            <option value="photo">Foto</option>
+                            <option value="cad">CAD-Datei</option>
+                            <option value="other" selected>Sonstiges</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="modal_description" class="form-label">Beschreibung (optional)</label>
+                        <textarea class="form-control" id="modal_description" name="description" rows="2"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload me-1"></i>Hochladen
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

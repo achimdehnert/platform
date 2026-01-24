@@ -1,0 +1,2386 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+{% load navigation_tags %}
+
+{% block title %}{{ requirement.name }} - Test Studio{% endblock %}
+
+{% block extra_css %}
+<!-- Highlight.js für Syntax Highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css">
+<style>
+    /* LLM Response Styling */
+    .llm-response {
+        font-size: 0.9rem;
+    }
+    .llm-response h1, .llm-response h2, .llm-response h3 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        margin-top: 1rem;
+        margin-bottom: 0.5rem;
+        border-bottom: 1px solid #e9ecef;
+        padding-bottom: 0.3rem;
+    }
+    .llm-response h1 { font-size: 1.2rem; }
+    .llm-response h2 { font-size: 1.1rem; }
+    .llm-response h3 { font-size: 1rem; }
+    .llm-response ul, .llm-response ol {
+        margin-bottom: 0.5rem;
+        padding-left: 1.5rem;
+    }
+    .llm-response li {
+        margin-bottom: 0.25rem;
+    }
+    .llm-response p {
+        margin-bottom: 0.5rem;
+    }
+    /* Code Block Styling */
+    .llm-response pre {
+        position: relative;
+        background: #f6f8fa;
+        border: 1px solid #e1e4e8;
+        border-radius: 6px;
+        padding: 1rem;
+        margin: 0.5rem 0;
+        overflow-x: auto;
+    }
+    .llm-response code {
+        font-family: 'Fira Code', 'Consolas', monospace;
+        font-size: 0.85rem;
+    }
+    .llm-response pre code {
+        background: transparent;
+        padding: 0;
+    }
+    .llm-response :not(pre) > code {
+        background: #f0f0f0;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.85rem;
+    }
+    /* Copy Button */
+    .code-copy-btn {
+        position: absolute;
+        top: 0.5rem;
+        right: 0.5rem;
+        padding: 0.25rem 0.5rem;
+        font-size: 0.75rem;
+        opacity: 0;
+        transition: opacity 0.2s;
+    }
+    .llm-response pre:hover .code-copy-btn {
+        opacity: 1;
+    }
+    /* Collapsible Sections */
+    .llm-section {
+        border: 1px solid #e9ecef;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+    .llm-section-header {
+        background: #f8f9fa;
+        padding: 0.5rem 0.75rem;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 500;
+    }
+    .llm-section-header:hover {
+        background: #e9ecef;
+    }
+    .llm-section-content {
+        padding: 0.75rem;
+        border-top: 1px solid #e9ecef;
+    }
+    .llm-section-content.collapsed {
+        display: none;
+    }
+    /* Token Info Badge */
+    .token-info {
+        font-size: 0.75rem;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'control_center:dashboard' %}"><i class="bi bi-house-door"></i> Home</a>
+            </li>
+            <li class="breadcrumb-item">
+                {% if requirement.domain == 'writing_hub' %}
+                <a href="{% url 'control_center:dashboard' %}"><i class="bi bi-book"></i> Writing Hub</a>
+                {% elif requirement.domain == 'medtrans' %}
+                <a href="{% url 'control_center:dashboard' %}"><i class="bi bi-translate"></i> MedTrans</a>
+                {% elif requirement.domain == 'control_center' %}
+                <a href="{% url 'control_center:dashboard' %}"><i class="bi bi-gear"></i> Control Center</a>
+                {% else %}
+                <a href="{% url 'control_center:dashboard' %}"><i class="bi bi-layers"></i> Core</a>
+                {% endif %}
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'control_center:test-studio-dashboard' %}">Test Studio</a>
+            </li>
+            <li class="breadcrumb-item active" aria-current="page">{{ requirement.name|truncatewords:5 }}</li>
+        </ol>
+    </nav>
+
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <!-- Editable Title -->
+            <div class="d-flex align-items-center gap-2 mb-2">
+                <h1 id="title-display" class="mb-0" style="cursor: pointer;" onclick="toggleEditTitle()" title="Klicken zum Bearbeiten">
+                    {{ requirement.name }}
+                    <i class="bi bi-pencil text-muted" style="font-size: 0.5em;"></i>
+                </h1>
+            </div>
+            <div id="title-edit" style="display: none;" class="mb-3">
+                <div class="input-group">
+                    <input type="text" id="title-input" class="form-control form-control-lg" value="{{ requirement.name }}">
+                    <button class="btn btn-success" onclick="saveTitle()"><i class="bi bi-check"></i></button>
+                    <button class="btn btn-secondary" onclick="cancelEditTitle()"><i class="bi bi-x"></i></button>
+                </div>
+            </div>
+            
+            <!-- Editable Description -->
+            <div id="description-display" class="text-muted mb-2" style="cursor: pointer;" onclick="toggleEditDescription()" title="Klicken zum Bearbeiten">
+                {{ requirement.description|default:"Keine Beschreibung"|urlize }}
+                <i class="bi bi-pencil" style="font-size: 0.8em;"></i>
+            </div>
+            <div id="description-edit" style="display: none;" class="mb-3">
+                <textarea id="description-input" class="form-control" rows="4">{{ requirement.description }}</textarea>
+                <div class="mt-2">
+                    <button class="btn btn-success btn-sm" onclick="saveDescription()"><i class="bi bi-check"></i> Speichern</button>
+                    <button class="btn btn-secondary btn-sm" onclick="cancelEditDescription()"><i class="bi bi-x"></i> Abbrechen</button>
+                </div>
+            </div>
+            
+            <!-- Bug URL - Klickbar -->
+            {% if requirement.url %}
+            <div class="mb-3">
+                <a href="{{ requirement.url }}" target="_blank" class="btn btn-outline-danger">
+                    <i class="bi bi-box-arrow-up-right"></i> Bug-Seite öffnen: {{ requirement.url|truncatechars:50 }}
+                </a>
+            </div>
+            {% endif %}
+            
+            <!-- Bug Screenshot -->
+            {% if requirement.screenshot %}
+            <div class="mb-3">
+                <label class="form-label text-muted"><i class="bi bi-camera"></i> Screenshot</label>
+                <div>
+                    <a href="{{ requirement.screenshot.url }}" target="_blank" title="Screenshot in neuem Tab öffnen">
+                        <img src="{{ requirement.screenshot.url }}" alt="Bug Screenshot" 
+                             class="img-fluid rounded border" style="max-height: 300px; cursor: zoom-in;">
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Initiative Link -->
+            {% if requirement.initiative %}
+            <div class="mb-3">
+                <a href="{% url 'control_center:initiative-detail' pk=requirement.initiative.pk %}" class="btn btn-outline-primary">
+                    <i class="bi bi-diagram-3"></i> Initiative: {{ requirement.initiative.title|truncatechars:40 }}
+                </a>
+                <div class="small text-muted mt-1">
+                    <i class="bi bi-info-circle"></i> Phase: {{ requirement.initiative.get_workflow_phase_display }}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        <div class="col-md-4 text-end">
+            <span class="badge bg-{{ requirement.priority }} fs-6">{{ requirement.get_priority_display }}</span>
+            <span class="badge bg-secondary fs-6">{{ requirement.category }}</span>
+            
+            <!-- Complexity & LLM Info -->
+            <div class="mt-2">
+                <span class="badge {% if requirement.get_effective_complexity == 'low' %}bg-success{% elif requirement.get_effective_complexity == 'medium' %}bg-warning{% else %}bg-danger{% endif %}">
+                    <i class="bi bi-speedometer2"></i> {{ requirement.get_effective_complexity|title }}
+                </span>
+                {% if requirement.get_llm %}
+                <span class="badge bg-info" title="LLM für diesen Task">
+                    <i class="bi bi-cpu"></i> {{ requirement.get_llm.name|default:"Auto" }}
+                </span>
+                {% endif %}
+            </div>
+            
+            <!-- Status Badge + Change Buttons -->
+            <div class="mt-3">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm {% if requirement.status == 'draft' %}btn-secondary{% else %}btn-outline-secondary{% endif %}" 
+                            onclick="changeStatus('{{ requirement.id }}', 'draft')" {% if requirement.status == 'draft' %}disabled{% endif %}>
+                        Draft
+                    </button>
+                    <button type="button" class="btn btn-sm {% if requirement.status == 'ready' %}btn-primary{% else %}btn-outline-primary{% endif %}"
+                            onclick="changeStatus('{{ requirement.id }}', 'ready')" {% if requirement.status == 'ready' %}disabled{% endif %}>
+                        Ready
+                    </button>
+                    <button type="button" class="btn btn-sm {% if requirement.status == 'in_progress' %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                            onclick="changeStatus('{{ requirement.id }}', 'in_progress')" {% if requirement.status == 'in_progress' %}disabled{% endif %}>
+                        In Progress
+                    </button>
+                    <button type="button" class="btn btn-sm {% if requirement.status == 'done' %}btn-success{% else %}btn-outline-success{% endif %}"
+                            onclick="changeStatus('{{ requirement.id }}', 'done')" {% if requirement.status == 'done' %}disabled{% endif %}>
+                        Done
+                    </button>
+                </div>
+            </div>
+            
+            <!-- LLM Tier Empfehlung (Hybrid-Workflow) -->
+            {% if requirement.category == 'bug_fix' %}
+            <div class="card mt-3 border-primary">
+                <div class="card-header bg-primary text-white py-2">
+                    <i class="bi bi-cpu-fill me-1"></i> KI-Empfehlung
+                </div>
+                <div class="card-body py-2">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <div>
+                            <small class="text-muted">Komplexitäts-Score:</small>
+                            <strong>{{ llm_assignment.complexity_score|default:"?" }}/10</strong>
+                        </div>
+                        <div>
+                            {% if llm_assignment %}
+                            <span class="badge {% if llm_assignment.current_tier == 'tier_1' %}bg-success{% elif llm_assignment.current_tier == 'tier_2' %}bg-warning{% else %}bg-danger{% endif %} fs-6">
+                                {% if llm_assignment.current_tier == 'tier_1' %}💚{% elif llm_assignment.current_tier == 'tier_2' %}💛{% else %}🔴{% endif %}
+                                {{ llm_assignment.get_current_tier_display }}
+                            </span>
+                            {% else %}
+                            <span class="badge bg-secondary">Nicht zugewiesen</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    {% if llm_assignment %}
+                    <div class="small text-muted mb-2">
+                        💰 Geschätzte Kosten: ~${{ estimated_cost|floatformat:4|default:"0.01" }}
+                    </div>
+                    
+                    <!-- Tier-Auswahl -->
+                    <div class="btn-group btn-group-sm w-100 mb-2" role="group">
+                        <input type="radio" class="btn-check" name="tier-select" id="tier1" value="tier_1" 
+                               {% if llm_assignment.current_tier == 'tier_1' %}checked{% endif %}>
+                        <label class="btn btn-outline-success" for="tier1">💚 Tier 1</label>
+                        
+                        <input type="radio" class="btn-check" name="tier-select" id="tier2" value="tier_2"
+                               {% if llm_assignment.current_tier == 'tier_2' %}checked{% endif %}>
+                        <label class="btn btn-outline-warning" for="tier2">💛 Tier 2</label>
+                        
+                        <input type="radio" class="btn-check" name="tier-select" id="tier3" value="tier_3"
+                               {% if llm_assignment.current_tier == 'tier_3' %}checked{% endif %}>
+                        <label class="btn btn-outline-danger" for="tier3">🔴 Tier 3</label>
+                    </div>
+                    {% endif %}
+                    
+                    <button type="button" class="btn btn-primary btn-sm w-100" onclick="startWithTier('{{ requirement.id }}')">
+                        <i class="bi bi-play-fill"></i> Mit Cascade lösen
+                    </button>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Cascade Buttons -->
+            <div class="mt-2 d-flex gap-2">
+                <button type="button" class="btn btn-success" onclick="cascadeWorkOn('{{ requirement.id }}')">
+                    <i class="bi bi-clipboard"></i> Kopieren
+                </button>
+                <button type="button" class="btn btn-primary" id="btn-cascade-auto" onclick="startCascadeSession('{{ requirement.id }}')">
+                    <i class="bi bi-robot"></i> Cascade Autonom
+                </button>
+            </div>
+            
+            <!-- Obsolete/Delete Actions -->
+            <div class="mt-2">
+                <div class="btn-group" role="group">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" 
+                            onclick="changeStatus('{{ requirement.id }}', 'obsolete')"
+                            title="Als redundant/obsolet markieren">
+                        <i class="bi bi-slash-circle"></i> Obsolet
+                    </button>
+                    <button type="button" class="btn btn-sm btn-outline-danger" 
+                            onclick="deleteRequirement('{{ requirement.id }}')"
+                            title="Requirement löschen">
+                        <i class="bi bi-trash"></i> Löschen
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Cascade Live Session Panel (hidden by default) -->
+    <div class="row mb-4" id="cascade-session-panel" style="display: none;">
+        <div class="col-md-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <span class="spinner-border spinner-border-sm me-2" id="cascade-spinner"></span>
+                        <i class="bi bi-robot"></i> Cascade arbeitet autonom...
+                        <span id="cascade-iteration-badge" class="badge bg-light text-primary ms-2">0/10</span>
+                    </h5>
+                    <button type="button" class="btn btn-sm btn-danger" onclick="stopCascadeSession()">
+                        <i class="bi bi-stop-circle"></i> Stop
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="progress mb-3" style="height: 25px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" id="cascade-progress" style="width: 0%">0%</div>
+                    </div>
+                    <div id="cascade-logs" style="max-height: 300px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; background: #f8f9fa; padding: 10px; border-radius: 5px;">
+                        <!-- Logs erscheinen hier -->
+                    </div>
+                </div>
+                <div class="card-footer text-muted small" id="cascade-status">
+                    Status: Bereit
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Activity Dashboard -->
+    {% if requirement.status == 'in_progress' or feedbacks %}
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-activity"></i> Live Aktivitäten</h5>
+                    <button type="button" class="btn btn-sm btn-light" onclick="refreshActivities()" title="Aktualisieren">
+                        <i class="bi bi-arrow-clockwise"></i>
+                    </button>
+                </div>
+                <div class="card-body" id="activity-dashboard">
+                    <div class="row mb-3">
+                        <!-- Stats -->
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0">{{ feedbacks.count|default:0 }}</h4>
+                                    <small class="text-muted">Feedback Einträge</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0 {% if mcp_stats.success_rate >= 80 %}text-success{% elif mcp_stats.success_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                        {{ mcp_stats.success_rate|floatformat:0|default:"--" }}%
+                                    </h4>
+                                    <small class="text-muted">MCP Erfolgsrate</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-light">
+                                <div class="card-body text-center py-2">
+                                    <h4 class="mb-0">{{ mcp_stats.total_calls|default:0 }}</h4>
+                                    <small class="text-muted">MCP Calls</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recent Activity Feed -->
+                    <div class="activity-feed" style="max-height: 300px; overflow-y: auto;">
+                        {% for fb in feedbacks %}
+                        <div class="activity-item d-flex mb-2 p-2 rounded {% if fb.is_from_cascade %}bg-info bg-opacity-10 border-start border-3 border-info{% else %}bg-light{% endif %}">
+                            <div class="activity-icon me-3">
+                                {% if fb.feedback_type == 'progress' %}
+                                <span class="badge bg-primary rounded-circle p-2"><i class="bi bi-arrow-right"></i></span>
+                                {% elif fb.feedback_type == 'blocker' %}
+                                <span class="badge bg-danger rounded-circle p-2"><i class="bi bi-exclamation"></i></span>
+                                {% elif fb.feedback_type == 'solution' %}
+                                <span class="badge bg-success rounded-circle p-2"><i class="bi bi-check"></i></span>
+                                {% elif fb.feedback_type == 'question' %}
+                                <span class="badge bg-warning rounded-circle p-2"><i class="bi bi-question"></i></span>
+                                {% else %}
+                                <span class="badge bg-secondary rounded-circle p-2"><i class="bi bi-chat"></i></span>
+                                {% endif %}
+                            </div>
+                            <div class="activity-content flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        {% if fb.is_from_cascade %}
+                                        <strong class="text-info"><i class="bi bi-robot"></i> Cascade/Celery</strong>
+                                        {% else %}
+                                        <strong>{{ fb.author.username|default:"System" }}</strong>
+                                        {% endif %}
+                                        <span class="badge bg-{{ fb.feedback_type }} bg-opacity-50 ms-1">{{ fb.get_feedback_type_display }}</span>
+                                    </div>
+                                    <small class="text-muted">{{ fb.created_at|timesince }}</small>
+                                </div>
+                                <div class="mt-1">
+                                    {% if fb.feedback_type == 'solution' and fb.is_from_cascade %}
+                                        {{ fb.content|render_markdown }}
+                                    {% else %}
+                                        {{ fb.content|linebreaks }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-4">
+                            <i class="bi bi-clock-history fs-1"></i>
+                            <p class="mb-0">Noch keine Aktivitäten</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-graph-up"></i> Test Coverage</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h2 class="text-primary">{{ coverage.total_criteria }}</h2>
+                            <small class="text-muted">Total Criteria</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h2 class="text-success">{{ coverage.tests_passing }}</h2>
+                            <small class="text-muted">Passing Tests</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h2 class="text-danger">{{ coverage.tests_failing }}</h2>
+                            <small class="text-muted">Failing Tests</small>
+                        </div>
+                        <div class="col-md-3">
+                            <h2 class="{% if coverage.coverage_percentage >= 80 %}text-success{% elif coverage.coverage_percentage >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                                {{ coverage.coverage_percentage|floatformat:0 }}%
+                            </h2>
+                            <small class="text-muted">Coverage</small>
+                        </div>
+                    </div>
+                    <div class="progress mt-3" style="height: 20px;">
+                        <div class="progress-bar {% if coverage.coverage_percentage >= 80 %}bg-success{% elif coverage.coverage_percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                             style="width: {{ coverage.coverage_percentage }}%">
+                            {{ coverage.coverage_percentage|floatformat:1 }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <h3 class="mb-3"><i class="bi bi-list-check"></i> Acceptance Criteria & Tests</h3>
+
+    {% for item in criteria_with_tests %}
+    <div class="card mb-3 criterion-item" id="criterion-{{ item.id }}">
+        <div class="card-header d-flex justify-content-between align-items-center
+                    {% if item.status == 'passing' %}bg-success-subtle
+                    {% elif item.status == 'failing' %}bg-danger-subtle
+                    {% elif item.status == 'implemented' %}bg-info-subtle
+                    {% else %}bg-light{% endif %}">
+            <h5 class="mb-0">
+                <span class="badge bg-secondary me-2">AC {{ forloop.counter }}</span>
+                {{ item.criterion.scenario }}
+            </h5>
+            <div>
+                {% if item.status == 'passing' %}
+                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Passing</span>
+                {% elif item.status == 'failing' %}
+                    <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Failing</span>
+                {% elif item.status == 'implemented' %}
+                    <span class="badge bg-info"><i class="bi bi-gear"></i> Implemented</span>
+                {% else %}
+                    <span class="badge bg-warning"><i class="bi bi-clock"></i> Pending</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-8">
+                    <div class="mb-2">
+                        <strong class="text-success">GIVEN:</strong>
+                        <p class="ms-3">{{ item.criterion.given }}</p>
+                    </div>
+                    <div class="mb-2">
+                        <strong class="text-primary">WHEN:</strong>
+                        <p class="ms-3">{{ item.criterion.when }}</p>
+                    </div>
+                    <div class="mb-2">
+                        <strong class="text-warning">THEN:</strong>
+                        <p class="ms-3">{{ item.criterion.then }}</p>
+                    </div>
+                    <div>
+                        <span class="badge bg-secondary">{{ item.criterion.test_type }}</span>
+                        <span class="badge bg-{{ item.criterion.priority }}">{{ item.criterion.priority }}</span>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <h6>Test Generation</h6>
+                    {% if item.test_count == 0 %}
+                        <div class="d-grid gap-2">
+                            <button class="btn btn-success btn-generate" 
+                                    data-requirement="{{ requirement.id }}"
+                                    data-index="{{ forloop.counter0 }}"
+                                    data-framework="robot">
+                                <i class="bi bi-magic"></i> Generate Robot Test
+                            </button>
+                            <button class="btn btn-outline-success btn-generate" 
+                                    data-requirement="{{ requirement.id }}"
+                                    data-index="{{ forloop.counter0 }}"
+                                    data-framework="pytest">
+                                <i class="bi bi-flask"></i> Generate Pytest
+                            </button>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-check-circle"></i> {{ item.test_count }} test{{ item.test_count|pluralize }} generated
+                        </div>
+                        {% for link in item.links %}
+                        <div class="mb-2">
+                            <a href="{% url 'bfagent:test-case-detail' link.test_case.id %}" class="btn btn-sm btn-outline-primary w-100">
+                                <i class="bi bi-file-code"></i> {{ link.test_case.framework }} Test
+                            </a>
+                        </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    <div id="result-{{ forloop.counter0 }}" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+    
+    <!-- Documentation Section -->
+    <div class="card mt-4 mb-4" id="documentation-section">
+        <div class="card-header d-flex justify-content-between align-items-center"
+             style="background: linear-gradient(135deg, #6f42c1 0%, #5a3d8a 100%); color: white;">
+            <h5 class="mb-0"><i class="bi bi-file-text"></i> Dokumentation</h5>
+            <div>
+                {% if requirement.doc_status == 'not_checked' %}
+                <span class="badge bg-secondary">Nicht geprüft</span>
+                {% elif requirement.doc_status == 'exists' %}
+                <span class="badge bg-success">Vorhanden</span>
+                {% elif requirement.doc_status == 'needs_update' %}
+                <span class="badge bg-warning text-dark">Update nötig</span>
+                {% elif requirement.doc_status == 'needs_creation' %}
+                <span class="badge bg-danger">Neu erstellen</span>
+                {% elif requirement.doc_status == 'updated' %}
+                <span class="badge bg-info">Aktualisiert</span>
+                {% elif requirement.doc_status == 'created' %}
+                <span class="badge bg-primary">Erstellt</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6><i class="bi bi-clipboard-check"></i> Dokumentations-Status</h6>
+                    <div class="btn-group mb-3" role="group">
+                        <button type="button" class="btn btn-sm {% if requirement.doc_status == 'not_checked' %}btn-secondary{% else %}btn-outline-secondary{% endif %}"
+                                onclick="updateDocStatus('not_checked')">
+                            <i class="bi bi-question-circle"></i> Nicht geprüft
+                        </button>
+                        <button type="button" class="btn btn-sm {% if requirement.doc_status == 'exists' %}btn-success{% else %}btn-outline-success{% endif %}"
+                                onclick="updateDocStatus('exists')">
+                            <i class="bi bi-check-circle"></i> Vorhanden
+                        </button>
+                        <button type="button" class="btn btn-sm {% if requirement.doc_status == 'needs_update' %}btn-warning{% else %}btn-outline-warning{% endif %}"
+                                onclick="updateDocStatus('needs_update')">
+                            <i class="bi bi-pencil"></i> Update nötig
+                        </button>
+                        <button type="button" class="btn btn-sm {% if requirement.doc_status == 'needs_creation' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                                onclick="updateDocStatus('needs_creation')">
+                            <i class="bi bi-plus-circle"></i> Neu erstellen
+                        </button>
+                    </div>
+                    
+                    {% if requirement.doc_notes %}
+                    <div class="alert alert-info">
+                        <strong>Notizen:</strong><br>
+                        {{ requirement.doc_notes|linebreaks }}
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    <h6><i class="bi bi-link-45deg"></i> Verknüpfte Dokumentation</h6>
+                    {% if requirement.doc_files %}
+                    <ul class="list-group list-group-flush">
+                        {% for doc_file in requirement.doc_files %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-file-text"></i> {{ doc_file }}</span>
+                            <a href="#" class="btn btn-sm btn-outline-primary" title="Öffnen">
+                                <i class="bi bi-box-arrow-up-right"></i>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Keine Dokumentation verknüpft</p>
+                    {% endif %}
+                    
+                    {% if requirement.changelog_entry %}
+                    <div class="alert alert-success mt-3">
+                        <i class="bi bi-journal-check"></i> <strong>Changelog-Eintrag erstellt:</strong><br>
+                        {{ requirement.changelog_entry.get_change_type_display }} - {{ requirement.changelog_entry.title }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Doc Notes Edit -->
+            <div class="mt-3">
+                <label for="doc-notes" class="form-label"><i class="bi bi-pencil-square"></i> Dokumentations-Notizen</label>
+                <textarea id="doc-notes" class="form-control" rows="2" placeholder="Was muss dokumentiert werden?">{{ requirement.doc_notes }}</textarea>
+                <button class="btn btn-sm btn-primary mt-2" onclick="saveDocNotes()">
+                    <i class="bi bi-save"></i> Notizen speichern
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Feedback Section -->
+    <div class="card mt-4" id="feedback-section">
+        <div class="card-header d-flex justify-content-between align-items-center" 
+             style="background: linear-gradient(135deg, #0dcaf0 0%, #0aa2c0 100%); color: white;">
+            <h5 class="mb-0"><i class="bi bi-chat-dots"></i> Feedback & Kommentare</h5>
+            <div>
+                {% if feedbacks.count > 0 %}
+                <span class="badge bg-danger me-1" title="Blocker" id="blocker-count" style="display: none;">0</span>
+                {% endif %}
+                <span class="badge bg-light text-dark">{{ feedbacks.count }} Einträge</span>
+            </div>
+        </div>
+        <div class="card-body">
+            <!-- Add Feedback Form - Optimized -->
+            <form id="feedback-form" class="mb-4" enctype="multipart/form-data">
+                <div class="row g-2 align-items-start">
+                    <div class="col-md-2">
+                        <select class="form-select" id="feedback-type" title="Feedback-Typ">
+                            {% for value, label in feedback_types %}
+                            <option value="{{ value }}" 
+                                data-icon="{% if value == 'blocker' %}exclamation-octagon{% elif value == 'progress' %}arrow-right-circle{% elif value == 'question' %}question-circle{% elif value == 'solution' %}lightbulb{% elif value == 'screenshot' %}image{% else %}chat{% endif %}">
+                                {{ label }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-6">
+                        <textarea class="form-control" id="feedback-content" rows="2"
+                                  placeholder="Feedback eingeben... (Ctrl+Enter zum Senden)" 
+                                  required style="resize: vertical; min-height: 60px;"></textarea>
+                    </div>
+                    <div class="col-md-2">
+                        <div class="input-group h-100">
+                            <label class="btn btn-outline-secondary w-100 d-flex flex-column justify-content-center" 
+                                   for="feedback-screenshot" title="Screenshot anhängen" style="height: 60px;">
+                                <i class="bi bi-image"></i>
+                                <small id="screenshot-label">Bild</small>
+                            </label>
+                            <input type="file" class="d-none" id="feedback-screenshot" 
+                                   accept="image/*" onchange="updateScreenshotLabel(this)">
+                        </div>
+                    </div>
+                    <div class="col-md-2">
+                        <button type="submit" class="btn btn-info w-100" style="height: 60px;">
+                            <i class="bi bi-send"></i><br><small>Senden</small>
+                        </button>
+                    </div>
+                </div>
+                <div id="screenshot-preview" class="mt-2" style="display: none;">
+                    <img id="preview-img" src="" alt="Preview" class="img-thumbnail" style="max-height: 100px;">
+                    <button type="button" class="btn btn-sm btn-outline-danger ms-2" onclick="clearScreenshot()">
+                        <i class="bi bi-x"></i> Entfernen
+                    </button>
+                </div>
+            </form>
+            
+            <!-- Feedback List - Optimized -->
+            <div id="feedback-list" class="{% if feedbacks.count > 5 %}feedback-scrollable{% endif %}">
+                {% if feedbacks %}
+                    {% for fb in feedbacks %}
+                    <div class="d-flex mb-3 feedback-item p-2 rounded {% if fb.feedback_type == 'blocker' %}border border-danger bg-danger-subtle{% elif fb.feedback_type == 'solution' %}border border-success bg-success-subtle{% endif %}" 
+                         data-id="{{ fb.id }}" data-type="{{ fb.feedback_type }}">
+                        <div class="flex-shrink-0 me-3">
+                            {% if fb.feedback_type == 'blocker' %}
+                                <span class="badge bg-danger rounded-pill p-2"><i class="bi bi-exclamation-octagon"></i></span>
+                            {% elif fb.feedback_type == 'progress' %}
+                                <span class="badge bg-success rounded-pill p-2"><i class="bi bi-arrow-right-circle"></i></span>
+                            {% elif fb.feedback_type == 'question' %}
+                                <span class="badge bg-warning rounded-pill p-2"><i class="bi bi-question-circle"></i></span>
+                            {% elif fb.feedback_type == 'solution' %}
+                                <span class="badge bg-primary rounded-pill p-2"><i class="bi bi-lightbulb"></i></span>
+                            {% elif fb.feedback_type == 'screenshot' %}
+                                <span class="badge bg-secondary rounded-pill p-2"><i class="bi bi-image"></i></span>
+                            {% else %}
+                                <span class="badge bg-info rounded-pill p-2"><i class="bi bi-chat"></i></span>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>
+                                        {% if fb.is_from_cascade %}
+                                            <i class="bi bi-robot text-primary"></i> Cascade
+                                        {% else %}
+                                            <i class="bi bi-person"></i> {{ fb.author.username|default:"Anonymous" }}
+                                        {% endif %}
+                                    </strong>
+                                    <span class="badge bg-secondary ms-2">{{ fb.get_feedback_type_display }}</span>
+                                </div>
+                                <div class="d-flex align-items-center gap-1">
+                                    <small class="text-muted me-1">{{ fb.created_at|date:"d.m.Y H:i" }}</small>
+                                    {% if fb.feedback_type in 'question,blocker' %}
+                                    <button class="btn btn-sm btn-outline-primary py-0 px-1 copy-to-cascade" 
+                                            data-content="{{ fb.content|escapejs }}"
+                                            data-type="{{ fb.get_feedback_type_display }}"
+                                            title="An Cascade senden">
+                                        <i class="bi bi-clipboard"></i>
+                                    </button>
+                                    {% endif %}
+                                    {% if fb.author == request.user %}
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-1 delete-feedback" 
+                                            data-id="{{ fb.id }}" title="Löschen">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="feedback-content mt-1">
+    {% if fb.feedback_type == 'solution' and fb.is_from_cascade %}
+        {{ fb.content|render_markdown }}
+    {% else %}
+        {{ fb.content|linebreaks }}
+    {% endif %}
+</div>
+                            {% if fb.screenshot %}
+                            <a href="{{ fb.screenshot.url }}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1">
+                                <i class="bi bi-image"></i> Screenshot ansehen
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center text-muted py-4" id="no-feedback-msg">
+                        <i class="bi bi-chat-dots fs-1 d-block mb-2"></i>
+                        <p class="mb-1">Noch kein Feedback vorhanden</p>
+                        <small>Füge einen Kommentar, eine Frage oder einen Blocker hinzu</small>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Autorouting Section -->
+    <div class="card mt-4" id="autorouting-section">
+        <div class="card-header d-flex justify-content-between align-items-center" 
+             style="background: linear-gradient(135deg, #198754 0%, #146c43 100%); color: white;">
+            <h5 class="mb-0"><i class="bi bi-robot"></i> Auto-Lösen (KI-gesteuert)</h5>
+            <span class="badge bg-light text-dark" id="autorouting-run-count">0 Runs</span>
+        </div>
+        <div class="card-body">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label small">LLM für Analyse</label>
+                    <select class="form-select form-select-sm" id="autorouting-llm-id">
+                        {% for llm in available_llms %}
+                        <option value="{{ llm.id }}" {% if llm.id == 8 %}selected{% endif %}>{{ llm.name }}</option>
+                        {% empty %}
+                        <option value="">Standard</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <button class="btn btn-success w-100" id="btn-start-autorouting" onclick="startAutorouting()">
+                        <i class="bi bi-robot"></i> Auto-Lösen starten
+                    </button>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted">
+                        <i class="bi bi-info-circle"></i> KI analysiert Anforderung und erstellt Code-Änderungen automatisch
+                    </small>
+                </div>
+            </div>
+            
+            <!-- Autorouting Runs List -->
+            <div id="autorouting-runs-list" class="mt-3">
+                <!-- Runs werden dynamisch geladen -->
+            </div>
+        </div>
+    </div>
+    
+    <!-- Code Refactor Section -->
+    <div class="card mt-4" id="refactor-section">
+        <div class="card-header d-flex justify-content-between align-items-center" 
+             style="background: linear-gradient(135deg, #6f42c1 0%, #5a32a3 100%); color: white;">
+            <h5 class="mb-0"><i class="bi bi-code-slash"></i> Code Refactoring</h5>
+            <span class="badge bg-light text-dark" id="refactor-session-count">0 Sessions</span>
+        </div>
+        <div class="card-body">
+            <!-- Create New Refactor Session -->
+            <div class="mb-4 p-3 border rounded bg-light">
+                <h6><i class="bi bi-plus-circle"></i> Neue Refactoring-Session</h6>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small">Datei-Pfad</label>
+                        <input type="text" class="form-control form-control-sm" id="refactor-file-path" 
+                               placeholder="apps/bfagent/services/example.py">
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">Instruktion</label>
+                        <input type="text" class="form-control form-control-sm" id="refactor-instruction" 
+                               placeholder="Was soll refactored werden?">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label small">LLM</label>
+                        <select class="form-select form-select-sm" id="refactor-llm-id">
+                            {% for llm in available_llms %}
+                            <option value="{{ llm.id }}" {% if llm.id == 8 %}selected{% endif %}>{{ llm.name }}</option>
+                            {% empty %}
+                            <option value="">Standard</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-2 d-flex align-items-end">
+                        <button class="btn btn-primary btn-sm w-100" onclick="createRefactorSession()">
+                            <i class="bi bi-plus"></i> Erstellen
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Active Sessions -->
+            <div id="refactor-sessions-list">
+                <div class="text-center text-muted py-3" id="no-sessions-msg">
+                    <i class="bi bi-code-slash fs-3 d-block mb-2"></i>
+                    <p class="mb-0">Keine aktiven Refactoring-Sessions</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Refactor Session Modal -->
+    <div class="modal fade" id="refactorModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-code-slash"></i> Code Refactoring</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="refactor-modal-body">
+                    <!-- Content loaded dynamically -->
+                </div>
+                <div class="modal-footer" id="refactor-modal-footer">
+                    <!-- Buttons loaded dynamically -->
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <style>
+        .feedback-scrollable {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .feedback-item:hover {
+            background-color: rgba(0,0,0,0.02);
+        }
+        .feedback-content {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
+        #feedback-content:focus {
+            border-color: #0dcaf0;
+            box-shadow: 0 0 0 0.2rem rgba(13, 202, 240, 0.25);
+        }
+    </style>
+</div>
+
+<script>
+// Screenshot handling functions
+function updateScreenshotLabel(input) {
+    const label = document.getElementById('screenshot-label');
+    const preview = document.getElementById('screenshot-preview');
+    const previewImg = document.getElementById('preview-img');
+    
+    if (input.files && input.files[0]) {
+        label.textContent = '✓';
+        label.parentElement.classList.add('btn-success');
+        label.parentElement.classList.remove('btn-outline-secondary');
+        
+        // Show preview
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImg.src = e.target.result;
+            preview.style.display = 'block';
+        };
+        reader.readAsDataURL(input.files[0]);
+    }
+}
+
+function clearScreenshot() {
+    const input = document.getElementById('feedback-screenshot');
+    const label = document.getElementById('screenshot-label');
+    const preview = document.getElementById('screenshot-preview');
+    
+    input.value = '';
+    label.textContent = 'Bild';
+    label.parentElement.classList.remove('btn-success');
+    label.parentElement.classList.add('btn-outline-secondary');
+    preview.style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.btn-generate').forEach(button => {
+        button.addEventListener('click', function() {
+            const requirementId = this.dataset.requirement;
+            const criterionIndex = this.dataset.index;
+            const framework = this.dataset.framework;
+            const resultDiv = document.getElementById(`result-${criterionIndex}`);
+            
+            // Disable button
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generating...';
+            
+            // Call generation endpoint
+            fetch(`/bookwriting/test-studio/requirements/${requirementId}/generate/${criterionIndex}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: `framework=${framework}`
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6><i class="bi bi-check-circle"></i> Test Generated!</h6>
+                            <p class="mb-0 small">Coverage: ${data.coverage_percentage.toFixed(1)}%</p>
+                        </div>
+                        <details class="mt-2">
+                            <summary class="btn btn-sm btn-outline-secondary w-100">View Generated Code</summary>
+                            <pre class="mt-2 bg-dark text-light p-3 rounded"><code>${data.test_code}</code></pre>
+                            <p class="small text-muted mt-2">File: ${data.file_path}</p>
+                        </details>
+                    `;
+                    // Reload page after 2 seconds
+                    setTimeout(() => location.reload(), 2000);
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <i class="bi bi-exclamation-triangle"></i> Failed: ${data.error || 'Unknown error'}
+                        </div>
+                    `;
+                    this.disabled = false;
+                    this.innerHTML = `<i class="bi bi-magic"></i> Generate ${framework} Test`;
+                }
+            })
+            .catch(error => {
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle"></i> Error: ${error.message}
+                    </div>
+                `;
+                this.disabled = false;
+                this.innerHTML = `<i class="bi bi-magic"></i> Generate ${framework} Test`;
+            });
+        });
+    });
+});
+
+// Status change function
+async function changeStatus(id, newStatus) {
+    // Confirm for obsolete status
+    if (newStatus === 'obsolete') {
+        if (!confirm('Dieses Requirement als obsolet/redundant markieren?')) return;
+    }
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/status/${id}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        const data = await response.json();
+        if (data.success) {
+            // Redirect to test studio list after status change
+            window.location.href = '/control-center/test-studio/';
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler beim Status-Wechsel: ' + err.message);
+    }
+}
+
+// Delete requirement function
+async function deleteRequirement(id) {
+    if (!confirm('Dieses Requirement wirklich LÖSCHEN?\n\nDiese Aktion kann nicht rückgängig gemacht werden!')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/requirement/${id}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        const data = await response.json();
+        if (data.success) {
+            alert('Requirement gelöscht');
+            window.location.href = '{% url "control_center:test-studio-dashboard" %}';
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler beim Löschen: ' + err.message);
+    }
+}
+
+// ============================================================================
+// INLINE EDITING FUNCTIONS
+// ============================================================================
+
+function toggleEditTitle() {
+    document.getElementById('title-display').style.display = 'none';
+    document.getElementById('title-edit').style.display = 'block';
+    document.getElementById('title-input').focus();
+}
+
+function cancelEditTitle() {
+    document.getElementById('title-display').style.display = 'block';
+    document.getElementById('title-edit').style.display = 'none';
+    document.getElementById('title-input').value = '{{ requirement.name|escapejs }}';
+}
+
+async function saveTitle() {
+    const newTitle = document.getElementById('title-input').value.trim();
+    if (!newTitle) {
+        alert('Titel darf nicht leer sein');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/requirement/{{ requirement.id }}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ name: newTitle })
+        });
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler beim Speichern: ' + err.message);
+    }
+}
+
+function toggleEditDescription() {
+    document.getElementById('description-display').style.display = 'none';
+    document.getElementById('description-edit').style.display = 'block';
+    document.getElementById('description-input').focus();
+}
+
+function cancelEditDescription() {
+    document.getElementById('description-display').style.display = 'block';
+    document.getElementById('description-edit').style.display = 'none';
+    document.getElementById('description-input').value = '{{ requirement.description|escapejs }}';
+}
+
+async function saveDescription() {
+    const newDescription = document.getElementById('description-input').value;
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/requirement/{{ requirement.id }}/update/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ description: newDescription })
+        });
+        const data = await response.json();
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler beim Speichern: ' + err.message);
+    }
+}
+
+// Clipboard copy with fallback
+async function copyToClipboard(text) {
+    // Try modern clipboard API first
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (err) {
+            console.warn('Clipboard API failed, trying fallback:', err);
+        }
+    }
+    
+    // Fallback: Create temporary textarea
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.position = 'fixed';
+    textarea.style.left = '-9999px';
+    textarea.style.top = '0';
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    
+    try {
+        const success = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return success;
+    } catch (err) {
+        document.body.removeChild(textarea);
+        return false;
+    }
+}
+
+// Cascade context function
+async function cascadeWorkOn(id) {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Laden...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/cascade-context/${id}/`);
+        const data = await response.json();
+        
+        let context = `## 🎯 Cascade Task: ${data.name}\n\n`;
+        context += `**Requirement ID:** \`${data.id}\`\n`;
+        context += `**Domain:** ${data.domain}\n`;
+        context += `**Category:** ${data.category}\n`;
+        context += `**Priority:** ${data.priority}\n`;
+        context += `**Status:** ${data.status}\n`;
+
+        if (data.category === 'bug_fix') {
+            if (data.url) context += `\n**Bug gefunden auf:** ${data.url}\n`;
+            if (data.actual_behavior) context += `\n### ❌ Aktuelles Verhalten:\n${data.actual_behavior}\n`;
+            if (data.expected_behavior) context += `\n### ✅ Erwartetes Verhalten:\n${data.expected_behavior}\n`;
+        }
+
+        if (data.description) context += `\n### Beschreibung:\n${data.description}\n`;
+        if (data.acceptance_criteria && data.acceptance_criteria !== 'Keine Akzeptanzkriterien definiert.') {
+            context += `\n### Akzeptanzkriterien:${data.acceptance_criteria}\n`;
+        }
+        if (data.tags && data.tags.length > 0) context += `\n**Tags:** ${data.tags.join(', ')}\n`;
+
+        // Initiative context if linked
+        if (data.initiative) {
+            context += `\n### 📋 Initiative-Kontext:\n`;
+            context += `**Initiative:** ${data.initiative.title}\n`;
+            if (data.initiative.description) context += `**Beschreibung:** ${data.initiative.description}\n`;
+            if (data.initiative.analysis) context += `\n#### Analyse:\n${data.initiative.analysis}\n`;
+            if (data.initiative.concept) context += `\n#### Konzept:\n${data.initiative.concept}\n`;
+            context += `**Initiative-Link:** ${data.initiative.detail_url}\n`;
+        }
+
+        context += `\n### Links:\n- **Test Studio Detail:** ${data.detail_url}\n`;
+        if (data.initiative) context += `- **Initiative:** ${data.initiative.detail_url}\n`;
+        context += `\n---\n\n**Bitte arbeite an diesem ${data.category === 'bug_fix' ? 'Bug' : 'Feature/Requirement'}.**\n`;
+
+        const copied = await copyToClipboard(context);
+        
+        if (copied) {
+            btn.innerHTML = '<i class="bi bi-check-circle text-success"></i> Kopiert!';
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.disabled = false;
+            }, 2000);
+        } else {
+            // Show modal with content for manual copy
+            showCopyModal(context, data.name);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    } catch (err) {
+        alert('Fehler beim Laden: ' + err.message);
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+// Show modal for manual copy if clipboard fails
+function showCopyModal(content, name) {
+    // Remove existing modal
+    const existing = document.getElementById('copyModal');
+    if (existing) existing.remove();
+    
+    const modal = document.createElement('div');
+    modal.id = 'copyModal';
+    modal.className = 'modal fade show';
+    modal.style.display = 'block';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.5)';
+    modal.innerHTML = `
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-clipboard"></i> Manuell kopieren</h5>
+                    <button type="button" class="btn-close" onclick="document.getElementById('copyModal').remove()"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted">Clipboard-Zugriff fehlgeschlagen. Bitte markiere den Text und kopiere manuell (Strg+C):</p>
+                    <textarea id="copyContent" class="form-control" rows="12" readonly style="font-family: monospace; font-size: 0.85rem;">${content.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</textarea>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-primary" onclick="document.getElementById('copyContent').select(); document.execCommand('copy'); this.innerHTML='<i class=\\'bi bi-check\\'></i> Kopiert!';">
+                        <i class="bi bi-clipboard"></i> Alles markieren & kopieren
+                    </button>
+                    <button class="btn btn-secondary" onclick="document.getElementById('copyModal').remove()">Schließen</button>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+    
+    // Auto-select content
+    setTimeout(() => document.getElementById('copyContent').select(), 100);
+}
+
+// =============================================================================
+// ACTIVITY DASHBOARD REFRESH
+// =============================================================================
+
+function refreshActivities() {
+    // Reload the page to get fresh data
+    location.reload();
+}
+
+// Auto-refresh activities every 10 seconds when status is in_progress
+{% if requirement.status == 'in_progress' %}
+setInterval(function() {
+    // Only refresh the activity section, not the whole page
+    fetch(window.location.href)
+        .then(r => r.text())
+        .then(html => {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const newDashboard = doc.getElementById('activity-dashboard');
+            const currentDashboard = document.getElementById('activity-dashboard');
+            if (newDashboard && currentDashboard) {
+                currentDashboard.innerHTML = newDashboard.innerHTML;
+            }
+        })
+        .catch(() => console.log('Auto-refresh failed'));
+}, 10000);
+{% endif %}
+
+// =============================================================================
+// CASCADE AUTONOMOUS SESSION
+// =============================================================================
+
+let currentSessionId = null;
+let pollInterval = null;
+
+async function startCascadeSession(requirementId, forceRestart = false) {
+    const btn = document.getElementById('btn-cascade-auto');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starte...';
+    
+    try {
+        const response = await fetch('{% url "control_center:cascade-session-start" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                requirement_id: requirementId,
+                max_iterations: 10,
+                force_restart: forceRestart
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            currentSessionId = data.session_id;
+            
+            // Show panel
+            document.getElementById('cascade-session-panel').style.display = 'block';
+            document.getElementById('cascade-logs').innerHTML = '';
+            addLog('info', 'Session gestartet');
+            addLog('info', 'Kontext wurde generiert');
+            
+            // Copy context to clipboard
+            await copyToClipboard(data.context);
+            addLog('success', '✅ Kontext in Clipboard kopiert - füge ihn jetzt in Cascade ein!');
+            
+            // Start polling for updates
+            startPolling();
+            
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Session aktiv';
+        } else {
+            // Check if we can force restart
+            if (data.can_force_restart) {
+                const restart = confirm(data.error + '\n\nMöchtest du die alte Session beenden und neu starten?');
+                if (restart) {
+                    // Retry with force_restart
+                    return startCascadeSession(requirementId, true);
+                }
+            } else {
+                alert('Fehler: ' + data.error);
+            }
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-robot"></i> Cascade Autonom';
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-robot"></i> Cascade Autonom';
+    }
+}
+
+async function stopCascadeSession() {
+    if (!currentSessionId) return;
+    
+    try {
+        const url = `/control-center/api/cascade/session/${currentSessionId}/stop/`;
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            credentials: 'same-origin'
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            addLog('warning', '⚠️ Session manuell gestoppt');
+            stopPolling();
+            updateSessionUI('stopped');
+        }
+    } catch (err) {
+        addLog('error', 'Fehler beim Stoppen: ' + err.message);
+    }
+}
+
+function startPolling() {
+    // Poll every 2 seconds
+    pollInterval = setInterval(async () => {
+        if (!currentSessionId) return;
+        
+        try {
+            const url = `/control-center/api/cascade/session/${currentSessionId}/`;
+            const response = await fetch(url, {credentials: 'same-origin'});
+            const data = await response.json();
+            
+            if (data.success) {
+                const session = data.session;
+                
+                // Update progress
+                document.getElementById('cascade-progress').style.width = session.progress_percentage + '%';
+                document.getElementById('cascade-progress').textContent = session.progress_percentage + '%';
+                document.getElementById('cascade-iteration-badge').textContent = `${session.current_iteration}/${session.max_iterations}`;
+                document.getElementById('cascade-status').textContent = `Status: ${session.status_display} | Fehler: ${session.error_count}`;
+                
+                // Check if completed
+                if (!session.is_active) {
+                    stopPolling();
+                    updateSessionUI(session.status);
+                }
+            }
+        } catch (err) {
+            console.error('Polling error:', err);
+        }
+    }, 2000);
+}
+
+function stopPolling() {
+    if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+    }
+    document.getElementById('cascade-spinner').style.display = 'none';
+}
+
+function updateSessionUI(status) {
+    const btn = document.getElementById('btn-cascade-auto');
+    const panel = document.getElementById('cascade-session-panel');
+    const header = panel.querySelector('.card-header');
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-robot"></i> Cascade Autonom';
+    
+    if (status === 'success') {
+        header.className = 'card-header bg-success text-white d-flex justify-content-between align-items-center';
+        addLog('success', '🎉 Bug/Feature erfolgreich gelöst!');
+        // Reload page after 3 seconds to show updated status
+        setTimeout(() => location.reload(), 3000);
+    } else if (status === 'max_iterations') {
+        header.className = 'card-header bg-warning text-dark d-flex justify-content-between align-items-center';
+        addLog('warning', '⚠️ Max Iterationen erreicht - manuelle Prüfung erforderlich');
+    } else if (status === 'failed' || status === 'stopped') {
+        header.className = 'card-header bg-danger text-white d-flex justify-content-between align-items-center';
+    }
+}
+
+function addLog(type, message) {
+    const logsDiv = document.getElementById('cascade-logs');
+    const icons = {
+        'info': 'bi-info-circle text-info',
+        'success': 'bi-check-circle text-success',
+        'warning': 'bi-exclamation-triangle text-warning',
+        'error': 'bi-x-circle text-danger',
+        'action': 'bi-lightning text-primary'
+    };
+    const icon = icons[type] || 'bi-record-circle';
+    const time = new Date().toLocaleTimeString('de-DE');
+    
+    logsDiv.innerHTML += `<div class="mb-1"><small class="text-muted">[${time}]</small> <i class="bi ${icon}"></i> ${message}</div>`;
+    logsDiv.scrollTop = logsDiv.scrollHeight;
+}
+
+// Ctrl+Enter to submit feedback
+document.getElementById('feedback-content')?.addEventListener('keydown', function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        document.getElementById('feedback-form').dispatchEvent(new Event('submit'));
+    }
+});
+
+// Update blocker count on load
+(function updateBlockerCount() {
+    const blockers = document.querySelectorAll('.feedback-item[data-type="blocker"]').length;
+    const badge = document.getElementById('blocker-count');
+    if (badge && blockers > 0) {
+        badge.textContent = blockers;
+        badge.style.display = 'inline';
+    }
+})();
+
+// Copy to Cascade handler
+document.querySelectorAll('.copy-to-cascade').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        const content = this.dataset.content;
+        const type = this.dataset.type;
+        const reqName = '{{ requirement.name|escapejs }}';
+        
+        const cascadeText = `## ${type}: ${reqName}\n\n${content}\n\n---\nRequirement: {{ requirement.id }}\nURL: ${window.location.href}`;
+        
+        try {
+            await navigator.clipboard.writeText(cascadeText);
+            
+            // Visual feedback
+            const originalHtml = this.innerHTML;
+            this.innerHTML = '<i class="bi bi-check"></i>';
+            this.classList.remove('btn-outline-primary');
+            this.classList.add('btn-success');
+            
+            setTimeout(() => {
+                this.innerHTML = originalHtml;
+                this.classList.remove('btn-success');
+                this.classList.add('btn-outline-primary');
+            }, 2000);
+        } catch (err) {
+            alert('Kopieren fehlgeschlagen: ' + err.message);
+        }
+    });
+});
+
+// Delete feedback handler
+document.querySelectorAll('.delete-feedback').forEach(btn => {
+    btn.addEventListener('click', async function() {
+        if (!confirm('Feedback wirklich löschen?')) return;
+        
+        const feedbackId = this.dataset.id;
+        const item = this.closest('.feedback-item');
+        
+        try {
+            const response = await fetch(`/control-center/test-studio/api/feedback/${feedbackId}/delete/`, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            const data = await response.json();
+            if (data.success) {
+                item.remove();
+                // Update count
+                const badge = document.querySelector('#feedback-section .badge.bg-light');
+                if (badge) {
+                    const count = parseInt(badge.textContent) - 1;
+                    badge.textContent = count + ' Einträge';
+                }
+            }
+        } catch (err) {
+            alert('Fehler: ' + err.message);
+        }
+    });
+});
+
+// Feedback Form Handler
+document.getElementById('feedback-form')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    const feedbackType = document.getElementById('feedback-type').value;
+    const content = document.getElementById('feedback-content').value.trim();
+    const screenshotInput = document.getElementById('feedback-screenshot');
+    
+    if (!content) {
+        document.getElementById('feedback-content').focus();
+        return;
+    }
+    
+    const btn = this.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    
+    try {
+        // Use FormData for file upload support
+        const formData = new FormData();
+        formData.append('feedback_type', feedbackType);
+        formData.append('content', content);
+        if (screenshotInput.files && screenshotInput.files[0]) {
+            formData.append('screenshot', screenshotInput.files[0]);
+        }
+        
+        const response = await fetch(`/control-center/test-studio/api/requirement/{{ requirement.id }}/feedback/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: formData
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            const feedbackList = document.getElementById('feedback-list');
+            const noFeedbackMsg = document.getElementById('no-feedback-msg');
+            if (noFeedbackMsg) noFeedbackMsg.remove();
+            
+            const iconMap = {
+                'blocker': 'bg-danger bi-exclamation-octagon',
+                'progress': 'bg-success bi-arrow-right-circle',
+                'question': 'bg-warning bi-question-circle',
+                'solution': 'bg-primary bi-lightbulb',
+                'screenshot': 'bg-secondary bi-image',
+                'comment': 'bg-info bi-chat'
+            };
+            const iconClass = iconMap[data.feedback.feedback_type] || 'bg-info bi-chat';
+            const borderClass = data.feedback.feedback_type === 'blocker' ? 'border border-danger bg-danger-subtle' : 
+                               data.feedback.feedback_type === 'solution' ? 'border border-success bg-success-subtle' : '';
+            
+            feedbackList.insertAdjacentHTML('afterbegin', `
+                <div class="d-flex mb-3 feedback-item p-2 rounded ${borderClass}" data-id="${data.feedback.id}" data-type="${data.feedback.feedback_type}">
+                    <div class="flex-shrink-0 me-3">
+                        <span class="badge ${iconClass.split(' ')[0]} rounded-pill p-2"><i class="bi ${iconClass.split(' ')[1]}"></i></span>
+                    </div>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <strong><i class="bi bi-person"></i> ${data.feedback.author}</strong>
+                                <span class="badge bg-secondary ms-2">${data.feedback.feedback_type_display}</span>
+                            </div>
+                            <div class="d-flex align-items-center">
+                                <small class="text-muted me-2">${data.feedback.created_at}</small>
+                                <button class="btn btn-sm btn-outline-danger py-0 px-1 delete-feedback" data-id="${data.feedback.id}" title="Löschen">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div class="feedback-content mt-1">${data.feedback.content.replace(/\n/g, '<br>')}</div>
+                        ${data.feedback.has_screenshot ? `<a href="${data.feedback.screenshot_url}" target="_blank" class="btn btn-sm btn-outline-secondary mt-1"><i class="bi bi-image"></i> Screenshot ansehen</a>` : ''}
+                    </div>
+                </div>
+            `);
+            
+            // Clear form and screenshot
+            document.getElementById('feedback-content').value = '';
+            clearScreenshot();
+            
+            // Update badge count
+            const badge = document.querySelector('#feedback-section .badge.bg-light');
+            if (badge) {
+                const count = parseInt(badge.textContent) || 0;
+                badge.textContent = (count + 1) + ' Einträge';
+            }
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-send"></i><br><small>Senden</small>';
+    }
+});
+
+// ============================================================================
+// LLM TIER HYBRID WORKFLOW
+// ============================================================================
+
+async function startWithTier(requirementId) {
+    // Gewählten Tier auslesen
+    const selectedTier = document.querySelector('input[name="tier-select"]:checked')?.value || 'tier_1';
+    
+    // Warnung bei Tier 3
+    if (selectedTier === 'tier_3') {
+        if (!confirm('⚠️ Tier 3 (Premium) verursacht höhere Kosten (~$0.05+).\n\nMöchten Sie fortfahren?')) {
+            return;
+        }
+    }
+    
+    const btn = event.target;
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Starte...';
+    
+    try {
+        // Tier aktualisieren falls geändert
+        const response = await fetch(`/control-center/test-studio/api/requirement/${requirementId}/update-tier/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ tier: selectedTier })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Cascade Session starten mit Tier-Info
+            const cascadePrompt = `Bitte löse diesen Bug mit ${selectedTier.replace('tier_', 'Tier ')}: ${data.requirement_name}\n\nBeschreibung: ${data.description || 'Siehe Requirement'}`;
+            
+            // Kopiere in Zwischenablage und öffne Cascade
+            await navigator.clipboard.writeText(cascadePrompt);
+            
+            alert(`✅ Tier ${selectedTier.replace('tier_', '')} ausgewählt!\n\nPrompt wurde kopiert. Füge ihn in Cascade ein.`);
+            
+            // Status auf "in_progress" setzen
+            changeStatus(requirementId, 'in_progress');
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+// Tier-Auswahl: Kosten aktualisieren
+document.querySelectorAll('input[name="tier-select"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const costs = { 'tier_1': '0.002', 'tier_2': '0.01', 'tier_3': '0.05' };
+        const costDisplay = document.querySelector('.card-body .small.text-muted');
+        if (costDisplay && costs[this.value]) {
+            costDisplay.innerHTML = `💰 Geschätzte Kosten: ~$${costs[this.value]}`;
+        }
+    });
+});
+
+// ============================================================================
+// DOCUMENTATION INTEGRATION
+// ============================================================================
+
+async function updateDocStatus(newStatus) {
+    try {
+        const response = await fetch(`/control-center/test-studio/api/requirement/{{ requirement.id }}/update-doc-status/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ doc_status: newStatus })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Reload to show updated status
+            location.reload();
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
+async function saveDocNotes() {
+    const notes = document.getElementById('doc-notes').value;
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/requirement/{{ requirement.id }}/update-doc-notes/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ doc_notes: notes })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show success feedback
+            const btn = document.querySelector('#documentation-section button');
+            const originalHtml = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check"></i> Gespeichert!';
+            btn.classList.remove('btn-primary');
+            btn.classList.add('btn-success');
+            
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-primary');
+            }, 2000);
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
+// ============================================================================
+// LLM Response Rendering with Markdown & Syntax Highlighting
+// ============================================================================
+
+// Load marked.js and highlight.js dynamically
+(function() {
+    // Load highlight.js
+    if (!window.hljs) {
+        const hljsScript = document.createElement('script');
+        hljsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js';
+        hljsScript.onload = () => {
+            // Load additional languages
+            const pythonScript = document.createElement('script');
+            pythonScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js';
+            document.head.appendChild(pythonScript);
+            
+            const jsScript = document.createElement('script');
+            jsScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/javascript.min.js';
+            document.head.appendChild(jsScript);
+        };
+        document.head.appendChild(hljsScript);
+    }
+    
+    // Load marked.js
+    if (!window.marked) {
+        const markedScript = document.createElement('script');
+        markedScript.src = 'https://cdnjs.cloudflare.com/ajax/libs/marked/12.0.0/marked.min.js';
+        markedScript.onload = initLLMRendering;
+        document.head.appendChild(markedScript);
+    } else {
+        initLLMRendering();
+    }
+})();
+
+function initLLMRendering() {
+    // Wait for marked to be available
+    if (typeof marked === 'undefined') {
+        setTimeout(initLLMRendering, 100);
+        return;
+    }
+    
+    // Configure marked
+    marked.setOptions({
+        breaks: true,
+        gfm: true,
+        highlight: function(code, lang) {
+            if (window.hljs && lang && hljs.getLanguage(lang)) {
+                try {
+                    return hljs.highlight(code, { language: lang }).value;
+                } catch (e) {}
+            }
+            return code;
+        }
+    });
+    
+    // Render all LLM responses
+    document.querySelectorAll('.llm-response').forEach(renderLLMResponse);
+}
+
+function renderLLMResponse(container) {
+    const rawContent = container.dataset.rawContent;
+    if (!rawContent) return;
+    
+    try {
+        // Parse the content
+        let content = rawContent;
+        
+        // Extract header info (tokens, model, etc.)
+        const headerMatch = content.match(/🧠 \*\*LLM Lösung \(([^)]+)\)\*\*\n\nTokens: (\d+) → (\d+)\nDauer: (\d+)ms/);
+        let headerHtml = '';
+        
+        if (headerMatch) {
+            const [, model, tokensIn, tokensOut, duration] = headerMatch;
+            headerHtml = `
+                <div class="d-flex justify-content-between align-items-center mb-2 pb-2 border-bottom">
+                    <div>
+                        <span class="badge bg-primary"><i class="bi bi-robot"></i> ${model}</span>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <span class="token-info"><i class="bi bi-arrow-right"></i> ${tokensIn} → ${tokensOut} Tokens</span>
+                        <span class="badge bg-secondary">${(parseInt(duration)/1000).toFixed(1)}s</span>
+                    </div>
+                </div>
+            `;
+            // Remove header from content
+            content = content.replace(/🧠 \*\*LLM Lösung \([^)]+\)\*\*\n\nTokens: \d+ → \d+\nDauer: \d+ms\n\n---\n\n/, '');
+        }
+        
+        // Parse markdown
+        let html = marked.parse(content);
+        
+        // Add copy buttons to code blocks
+        html = html.replace(/<pre><code([^>]*)>/g, (match, attrs) => {
+            return `<pre><button class="btn btn-sm btn-outline-secondary code-copy-btn" onclick="copyCodeBlock(this)" title="Code kopieren"><i class="bi bi-clipboard"></i></button><code${attrs}>`;
+        });
+        
+        // Create collapsible sections for headers
+        html = createCollapsibleSections(html);
+        
+        container.innerHTML = headerHtml + html;
+        
+        // Apply syntax highlighting
+        if (window.hljs) {
+            container.querySelectorAll('pre code').forEach(block => {
+                hljs.highlightElement(block);
+            });
+        }
+        
+    } catch (e) {
+        console.error('Error rendering LLM response:', e);
+        // Keep original content on error
+    }
+}
+
+function createCollapsibleSections(html) {
+    // Find sections starting with h3 headers
+    const sections = [];
+    const regex = /<h3>([^<]+)<\/h3>([\s\S]*?)(?=<h3>|$)/g;
+    let match;
+    let lastIndex = 0;
+    let beforeFirstH3 = '';
+    
+    // Get content before first h3
+    const firstH3 = html.indexOf('<h3>');
+    if (firstH3 > 0) {
+        beforeFirstH3 = html.substring(0, firstH3);
+    } else if (firstH3 === -1) {
+        return html; // No h3 headers, return as is
+    }
+    
+    while ((match = regex.exec(html)) !== null) {
+        sections.push({
+            title: match[1],
+            content: match[2].trim()
+        });
+    }
+    
+    if (sections.length === 0) return html;
+    
+    let result = beforeFirstH3;
+    sections.forEach((section, index) => {
+        const isCodeSection = section.title.toLowerCase().includes('code') || 
+                             section.content.includes('<pre>');
+        const collapsed = index > 1 ? 'collapsed' : ''; // Collapse after first 2 sections
+        
+        result += `
+            <div class="llm-section">
+                <div class="llm-section-header" onclick="toggleSection(this)">
+                    <span>
+                        ${isCodeSection ? '<i class="bi bi-code-square me-1"></i>' : '<i class="bi bi-list-check me-1"></i>'}
+                        ${section.title}
+                    </span>
+                    <i class="bi bi-chevron-${collapsed ? 'down' : 'up'}"></i>
+                </div>
+                <div class="llm-section-content ${collapsed}">
+                    ${section.content}
+                </div>
+            </div>
+        `;
+    });
+    
+    return result;
+}
+
+function toggleSection(header) {
+    const content = header.nextElementSibling;
+    const icon = header.querySelector('i.bi-chevron-up, i.bi-chevron-down');
+    
+    if (content.classList.contains('collapsed')) {
+        content.classList.remove('collapsed');
+        icon.classList.remove('bi-chevron-down');
+        icon.classList.add('bi-chevron-up');
+    } else {
+        content.classList.add('collapsed');
+        icon.classList.remove('bi-chevron-up');
+        icon.classList.add('bi-chevron-down');
+    }
+}
+
+function copyCodeBlock(button) {
+    const pre = button.parentElement;
+    const code = pre.querySelector('code');
+    const text = code.textContent;
+    
+    navigator.clipboard.writeText(text).then(() => {
+        const originalHtml = button.innerHTML;
+        button.innerHTML = '<i class="bi bi-check"></i>';
+        button.classList.remove('btn-outline-secondary');
+        button.classList.add('btn-success');
+        
+        setTimeout(() => {
+            button.innerHTML = originalHtml;
+            button.classList.remove('btn-success');
+            button.classList.add('btn-outline-secondary');
+        }, 2000);
+    }).catch(err => {
+        console.error('Copy failed:', err);
+    });
+}
+
+// Re-render when new feedback is added via WebSocket/AJAX
+function renderNewLLMFeedback(element) {
+    if (element.classList.contains('llm-response')) {
+        renderLLMResponse(element);
+    }
+}
+
+// Expand truncated LLM response
+function expandLLMResponse(button) {
+    const container = button.parentElement;
+    if (container.classList.contains('llm-response')) {
+        renderLLMResponse(container);
+        button.remove();
+    }
+}
+
+// ============================================================================
+// AUTOROUTING FUNCTIONS
+// ============================================================================
+
+const REQUIREMENT_ID = '{{ requirement.id }}';
+const AUTOROUTING_API_BASE = '/bookwriting/api/autorouting';
+
+// Load autorouting runs on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadAutoroutingRuns();
+});
+
+async function loadAutoroutingRuns() {
+    console.log('[Autorouting] Lade Runs für Requirement:', REQUIREMENT_ID);
+    try {
+        const response = await fetch(`${AUTOROUTING_API_BASE}/runs/?requirement_id=${REQUIREMENT_ID}`, {
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        const data = await response.json();
+        console.log('[Autorouting] Runs geladen:', data);
+        
+        if (data.success) {
+            const countEl = document.getElementById('autorouting-run-count');
+            if (countEl) countEl.textContent = `${data.total} Runs`;
+            
+            if (data.runs.length > 0) {
+                renderAutoroutingRuns(data.runs);
+            } else {
+                document.getElementById('autorouting-runs-list').innerHTML = `
+                    <div class="text-center text-muted py-2">
+                        <small>Noch keine Auto-Lösen Durchläufe</small>
+                    </div>`;
+            }
+        }
+    } catch (err) {
+        console.error('[Autorouting] Fehler beim Laden:', err);
+    }
+}
+
+async function startAutorouting() {
+    const btn = document.getElementById('btn-start-autorouting');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> KI analysiert...';
+    
+    const llmSelect = document.getElementById('autorouting-llm-id');
+    const llmId = llmSelect ? parseInt(llmSelect.value) || null : null;
+    
+    try {
+        console.log('[Autorouting] Starte für Requirement:', REQUIREMENT_ID);
+        const response = await fetch(`${AUTOROUTING_API_BASE}/start/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                requirement_id: REQUIREMENT_ID,
+                llm_id: llmId
+            })
+        });
+        const data = await response.json();
+        console.log('[Autorouting] Response:', data);
+        
+        if (data.success) {
+            // Zeige Erfolg
+            btn.innerHTML = '<i class="bi bi-check-circle"></i> Erfolgreich!';
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-success');
+            
+            // Lade Runs und Sessions neu
+            await loadAutoroutingRuns();
+            await loadRefactorSessions();
+            
+            // Alert mit Ergebnis
+            alert(`✅ Auto-Lösen abgeschlossen!\n\n` +
+                  `• ${data.tasks_extracted} Tasks extrahiert\n` +
+                  `• ${data.sessions_created} Code-Sessions erstellt\n\n` +
+                  `Status: ${data.status_display}`);
+            
+            setTimeout(() => {
+                btn.innerHTML = originalHtml;
+                btn.classList.remove('btn-outline-success');
+                btn.classList.add('btn-success');
+                btn.disabled = false;
+            }, 3000);
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    } catch (err) {
+        console.error('[Autorouting] Fehler:', err);
+        alert('Fehler: ' + err.message);
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+function renderAutoroutingRuns(runs) {
+    const container = document.getElementById('autorouting-runs-list');
+    if (!container) return;
+    
+    container.innerHTML = runs.map(run => {
+        const statusColors = {
+            'created': 'secondary',
+            'analyzing': 'info',
+            'planning': 'primary',
+            'executing': 'warning',
+            'reviewing': 'warning',
+            'completed': 'success',
+            'failed': 'danger',
+            'cancelled': 'secondary'
+        };
+        const color = statusColors[run.status] || 'secondary';
+        
+        return `
+        <div class="border rounded p-2 mb-2 d-flex justify-content-between align-items-center">
+            <div>
+                <span class="badge bg-${color}">${run.status_display}</span>
+                <small class="text-muted ms-2">${run.id.substring(0, 8)}...</small>
+                <small class="text-muted ms-2">${run.total_tokens} Tokens</small>
+            </div>
+            <div>
+                <small class="text-muted">${new Date(run.created_at).toLocaleString('de-DE')}</small>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+// ============================================================================
+// CODE REFACTOR FUNCTIONS
+// ============================================================================
+
+const REFACTOR_API_BASE = '/bookwriting/api/refactor';
+
+// Load refactor sessions on page load
+document.addEventListener('DOMContentLoaded', function() {
+    loadRefactorSessions();
+});
+
+async function loadRefactorSessions() {
+    console.log('[Refactor] Lade Sessions für Requirement:', REQUIREMENT_ID);
+    try {
+        const response = await fetch(`${REFACTOR_API_BASE}/requirement/${REQUIREMENT_ID}/sessions/`, {
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        const data = await response.json();
+        console.log('[Refactor] Sessions geladen:', data);
+        
+        if (data.success) {
+            const countEl = document.getElementById('refactor-session-count');
+            const noSessionsEl = document.getElementById('no-sessions-msg');
+            
+            if (data.sessions.length > 0) {
+                if (countEl) countEl.textContent = `${data.sessions.length} Sessions`;
+                renderRefactorSessions(data.sessions);
+            } else {
+                if (countEl) countEl.textContent = '0 Sessions';
+                // Re-create no-sessions message if it was removed
+                const container = document.getElementById('refactor-sessions-list');
+                if (container) {
+                    container.innerHTML = `
+                        <div class="text-center text-muted py-3" id="no-sessions-msg">
+                            <i class="bi bi-code-slash fs-3 d-block mb-2"></i>
+                            <p class="mb-0">Keine aktiven Refactoring-Sessions</p>
+                        </div>`;
+                }
+            }
+        } else {
+            console.error('[Refactor] API Fehler:', data.error);
+        }
+    } catch (err) {
+        console.error('[Refactor] Fehler beim Laden:', err);
+    }
+}
+
+function renderRefactorSessions(sessions) {
+    console.log('[Refactor] Rendering', sessions.length, 'sessions');
+    const container = document.getElementById('refactor-sessions-list');
+    if (!container) {
+        console.error('[Refactor] Container refactor-sessions-list nicht gefunden!');
+        return;
+    }
+    container.innerHTML = sessions.map(session => `
+        <div class="border rounded p-2 mb-2 refactor-session ${session.status === 'error' ? 'border-danger' : ''}" data-id="${session.id}">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <code class="text-primary">${session.file_path}</code>
+                    <span class="badge bg-${getStatusColor(session.status)} ms-2">${session.status_display}</span>
+                </div>
+                <div class="d-flex gap-1">
+                    ${getSessionActions(session)}
+                </div>
+            </div>
+            <small class="text-muted d-block mt-1">${session.instruction}</small>
+            ${session.error_message ? `<div class="alert alert-danger py-1 px-2 mt-1 mb-0 small"><i class="bi bi-exclamation-triangle"></i> ${session.error_message}</div>` : ''}
+            ${session.llm_model ? `<small class="text-muted">Model: ${session.llm_model} | +${session.lines_added}/-${session.lines_removed} lines</small>` : ''}
+        </div>
+    `).join('');
+}
+
+function getStatusColor(status) {
+    const colors = {
+        'draft': 'secondary',
+        'generating': 'info',
+        'pending_review': 'warning',
+        'approved': 'primary',
+        'applied': 'success',
+        'rejected': 'danger',
+        'reverted': 'dark',
+        'error': 'danger'
+    };
+    return colors[status] || 'secondary';
+}
+
+function getSessionActions(session) {
+    switch(session.status) {
+        case 'draft':
+        case 'error':
+            return `<button class="btn btn-sm btn-primary" onclick="generateRefactor('${session.id}')">
+                <i class="bi bi-magic"></i> ${session.status === 'error' ? 'Retry' : 'Generate'}
+            </button>`;
+        case 'pending_review':
+            return `
+                <button class="btn btn-sm btn-outline-info" onclick="showDiff('${session.id}')">
+                    <i class="bi bi-file-diff"></i> Diff
+                </button>
+                <button class="btn btn-sm btn-success" onclick="approveRefactor('${session.id}')">
+                    <i class="bi bi-check"></i>
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="rejectRefactor('${session.id}')">
+                    <i class="bi bi-x"></i>
+                </button>`;
+        case 'approved':
+            return `<button class="btn btn-sm btn-success" onclick="applyRefactor('${session.id}')">
+                <i class="bi bi-play"></i> Apply
+            </button>`;
+        case 'applied':
+            return `<button class="btn btn-sm btn-warning" onclick="revertRefactor('${session.id}')">
+                <i class="bi bi-arrow-counterclockwise"></i> Revert
+            </button>`;
+        default:
+            return '';
+    }
+}
+
+async function createRefactorSession() {
+    const filePath = document.getElementById('refactor-file-path').value.trim();
+    const instruction = document.getElementById('refactor-instruction').value.trim();
+    
+    if (!filePath || !instruction) {
+        alert('Bitte Datei-Pfad und Instruktion eingeben');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`${REFACTOR_API_BASE}/session/create/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                requirement_id: REQUIREMENT_ID,
+                file_path: filePath,
+                instruction: instruction
+            })
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            document.getElementById('refactor-file-path').value = '';
+            document.getElementById('refactor-instruction').value = '';
+            loadRefactorSessions();
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
+async function generateRefactor(sessionId) {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generiere...';
+    
+    // LLM ID aus Dropdown holen
+    const llmSelect = document.getElementById('refactor-llm-id');
+    const llmId = llmSelect ? parseInt(llmSelect.value) || null : null;
+    
+    try {
+        console.log('[Refactor] Starte Generate für Session:', sessionId);
+        const response = await fetch(`${REFACTOR_API_BASE}/session/${sessionId}/generate/`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}' 
+            },
+            body: JSON.stringify({ llm_id: llmId })
+        });
+        const data = await response.json();
+        console.log('[Refactor] Generate Response:', data);
+        
+        if (data.success) {
+            console.log('[Refactor] Generate erfolgreich, lade Sessions neu...');
+            try {
+                await loadRefactorSessions();
+                console.log('[Refactor] Sessions neu geladen');
+            } catch (loadErr) {
+                console.error('[Refactor] Fehler beim Laden nach Generate:', loadErr);
+                // Fallback: Button zurücksetzen mit Erfolg-Anzeige
+                btn.innerHTML = '<i class="bi bi-check"></i> Fertig (F5)';
+                btn.disabled = false;
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-success');
+            }
+        } else {
+            alert('Fehler: ' + data.error);
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    } catch (err) {
+        console.error('[Refactor] Generate Fehler:', err);
+        alert('Fehler: ' + err.message);
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+async function showDiff(sessionId) {
+    try {
+        const response = await fetch(`${REFACTOR_API_BASE}/session/${sessionId}/diff/`);
+        const data = await response.json();
+        
+        if (data.success) {
+            const modal = new bootstrap.Modal(document.getElementById('refactorModal'));
+            document.getElementById('refactor-modal-body').innerHTML = `
+                <div class="mb-2">
+                    <strong>${data.file_path}</strong>
+                    <span class="badge bg-success ms-2">+${data.lines_added}</span>
+                    <span class="badge bg-danger">-${data.lines_removed}</span>
+                </div>
+                <pre class="bg-dark text-light p-3 rounded" style="max-height: 500px; overflow: auto;"><code>${escapeHtml(data.diff)}</code></pre>
+            `;
+            document.getElementById('refactor-modal-footer').innerHTML = `
+                <button class="btn btn-success" onclick="approveRefactor('${sessionId}'); bootstrap.Modal.getInstance(document.getElementById('refactorModal')).hide();">
+                    <i class="bi bi-check"></i> Approve
+                </button>
+                <button class="btn btn-danger" onclick="rejectRefactor('${sessionId}'); bootstrap.Modal.getInstance(document.getElementById('refactorModal')).hide();">
+                    <i class="bi bi-x"></i> Reject
+                </button>
+            `;
+            modal.show();
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
+async function approveRefactor(sessionId) {
+    await refactorAction(sessionId, 'approve');
+}
+
+async function rejectRefactor(sessionId) {
+    await refactorAction(sessionId, 'reject');
+}
+
+async function applyRefactor(sessionId) {
+    if (!confirm('Änderung wirklich anwenden?')) return;
+    await refactorAction(sessionId, 'apply');
+}
+
+async function revertRefactor(sessionId) {
+    if (!confirm('Änderung wirklich zurücksetzen?')) return;
+    await refactorAction(sessionId, 'revert');
+}
+
+async function refactorAction(sessionId, action) {
+    try {
+        const response = await fetch(`${REFACTOR_API_BASE}/session/${sessionId}/${action}/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        const data = await response.json();
+        
+        if (data.success) {
+            loadRefactorSessions();
+            if (data.message) {
+                alert(data.message);
+            }
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+</script>
+{% endblock %}

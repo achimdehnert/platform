@@ -1,0 +1,45 @@
+/* DLM Hub Custom Styles */
+
+/* Large spinner for scan progress */
+.dlm-spinner-lg {
+    width: 4rem;
+    height: 4rem;
+}
+
+/* Large progress bar */
+.dlm-progress-lg {
+    height: 25px;
+}
+
+/* Extra large icons */
+.dlm-icon-xl {
+    font-size: 4rem;
+}
+
+/* Code block styling */
+.dlm-code-block {
+    max-height: 600px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+}
+
+/* File preview code block */
+.dlm-file-preview {
+    max-height: 500px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+/* Claude review prompt block */
+.dlm-review-prompt {
+    max-height: 400px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+
+/* Diff view code blocks */
+.dlm-diff-code {
+    max-height: 200px;
+    overflow-y: auto;
+}

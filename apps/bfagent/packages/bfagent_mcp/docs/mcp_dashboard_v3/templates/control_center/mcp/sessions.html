@@ -1,0 +1,173 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}MCP Sessions - BF Agent{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'control_center/mcp/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mcp-dashboard">
+    
+    {# ===== HEADER ===== #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:mcp-dashboard' %}">MCP Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item active">Sessions</li>
+                </ol>
+            </nav>
+            <h1 class="mb-0">📝 Refactor Sessions</h1>
+        </div>
+    </div>
+    
+    {# ===== STATS ROW ===== #}
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card text-center">
+                <div class="card-body py-3">
+                    <h3 class="mb-0">{{ session_stats.total }}</h3>
+                    <small class="text-muted">Total Sessions</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-success">
+                <div class="card-body py-3">
+                    <h3 class="mb-0 text-success">{{ session_stats.completed }}</h3>
+                    <small class="text-muted">Completed</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-primary">
+                <div class="card-body py-3">
+                    <h3 class="mb-0 text-primary">{{ session_stats.in_progress }}</h3>
+                    <small class="text-muted">In Progress</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card text-center border-danger">
+                <div class="card-body py-3">
+                    <h3 class="mb-0 text-danger">{{ session_stats.failed }}</h3>
+                    <small class="text-muted">Failed</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {# ===== FILTERS ===== #}
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form class="row g-3 align-items-center"
+                  hx-get="{% url 'control_center:mcp-sessions' %}"
+                  hx-target="#sessions-table"
+                  hx-trigger="change"
+                  hx-push-url="true">
+                
+                <div class="col-auto">
+                    <label class="visually-hidden" for="status-filter">Status</label>
+                    <select class="form-select" id="status-filter" name="status">
+                        <option value="all" {% if current_status == 'all' %}selected{% endif %}>
+                            All Statuses
+                        </option>
+                        {% for value, label in status_choices %}
+                        <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-auto">
+                    <label class="visually-hidden" for="domain-filter">Domain</label>
+                    <select class="form-select" id="domain-filter" name="domain">
+                        <option value="all" {% if current_domain == 'all' %}selected{% endif %}>
+                            All Domains
+                        </option>
+                        {% for domain in domains %}
+                        <option value="{{ domain.domain.domain_id }}" 
+                                {% if current_domain == domain.domain.domain_id %}selected{% endif %}>
+                            {{ domain.domain.display_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-auto">
+                    <label class="visually-hidden" for="days-filter">Time Range</label>
+                    <select class="form-select" id="days-filter" name="days">
+                        <option value="" {% if not current_days %}selected{% endif %}>All Time</option>
+                        <option value="1" {% if current_days == '1' %}selected{% endif %}>Last 24h</option>
+                        <option value="7" {% if current_days == '7' %}selected{% endif %}>Last 7 days</option>
+                        <option value="30" {% if current_days == '30' %}selected{% endif %}>Last 30 days</option>
+                        <option value="90" {% if current_days == '90' %}selected{% endif %}>Last 90 days</option>
+                    </select>
+                </div>
+                
+                <div class="col-auto">
+                    {% if current_status != 'all' or current_domain != 'all' or current_days %}
+                    <a href="{% url 'control_center:mcp-sessions' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i> Clear
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {# ===== SESSIONS TABLE ===== #}
+    <div class="card">
+        <div class="card-body p-0" id="sessions-table">
+            {% include "control_center/mcp/partials/sessions_table.html" %}
+        </div>
+    </div>
+    
+    {# ===== PAGINATION ===== #}
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Sessions pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" 
+                   href="?page={{ page_obj.previous_page_number }}{% if current_status != 'all' %}&status={{ current_status }}{% endif %}{% if current_domain != 'all' %}&domain={{ current_domain }}{% endif %}{% if current_days %}&days={{ current_days }}{% endif %}"
+                   hx-get="{% url 'control_center:mcp-sessions' %}?page={{ page_obj.previous_page_number }}{% if current_status != 'all' %}&status={{ current_status }}{% endif %}{% if current_domain != 'all' %}&domain={{ current_domain }}{% endif %}{% if current_days %}&days={{ current_days }}{% endif %}"
+                   hx-target="#sessions-table"
+                   hx-push-url="true">
+                    <i class="bi bi-chevron-left"></i> Previous
+                </a>
+            </li>
+            {% endif %}
+            
+            <li class="page-item disabled">
+                <span class="page-link">
+                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" 
+                   href="?page={{ page_obj.next_page_number }}{% if current_status != 'all' %}&status={{ current_status }}{% endif %}{% if current_domain != 'all' %}&domain={{ current_domain }}{% endif %}{% if current_days %}&days={{ current_days }}{% endif %}"
+                   hx-get="{% url 'control_center:mcp-sessions' %}?page={{ page_obj.next_page_number }}{% if current_status != 'all' %}&status={{ current_status }}{% endif %}{% if current_domain != 'all' %}&domain={{ current_domain }}{% endif %}{% if current_days %}&days={{ current_days }}{% endif %}"
+                   hx-target="#sessions-table"
+                   hx-push-url="true">
+                    Next <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'control_center/mcp/dashboard.js' %}"></script>
+{% endblock %}

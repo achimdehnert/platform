@@ -1,0 +1,365 @@
+{
+  "profile": {
+    "name": "CASCADE XL Main",
+    "version": "2.0",
+    "device": "Stream Deck XL",
+    "created": "2025-12-11",
+    "layout": "8x4",
+    "buttons": [
+      {
+        "row": 1,
+        "col": 1,
+        "type": "clipboard",
+        "name": "Feature\nRequest",
+        "icon": "⭐",
+        "text": "### Request: [FEATURE NAME]\n\n**Ziel:**\n[WAS SOLL ERREICHT WERDEN?]\n\n**Requirements:**\n- [ ] Requirement 1\n- [ ] Requirement 2\n- [ ] Requirement 3\n\n**Constraints:**\n- [EINSCHRÄNKUNGEN]\n\n**Tools:**\n- [x] BFAgent MCP für Best Practices\n- [x] Check Protected Paths\n\n**Plan:**\n[x] Zeig mir erst den Plan\n\n**Testing:**\n- [ ] [TESTING REQUIREMENTS]",
+        "toast": "Feature Template copied!",
+        "backgroundColor": "#4CAF50"
+      },
+      {
+        "row": 1,
+        "col": 2,
+        "type": "clipboard",
+        "name": "Quick\nTask",
+        "icon": "⚡",
+        "text": "Task: [ONE-LINER]\n\nRequirements:\n- [ ] Thing 1\n- [ ] Thing 2\n- [ ] Thing 3\n\nTools: BFAgent MCP best_practices\n\nPlan: show first",
+        "toast": "Quick Template copied!",
+        "backgroundColor": "#FF9800"
+      },
+      {
+        "row": 1,
+        "col": 3,
+        "type": "clipboard",
+        "name": "Bug\nFix",
+        "icon": "🐛",
+        "text": "### Bug Fix: [PROBLEM]\n\n**Symptom:**\n[WAS FUNKTIONIERT NICHT?]\n\n**Error Message:**\n```\n[ERROR]\n```\n\n**Location:**\n- File: [PATH]\n- Function: [NAME]\n\n**Expected Behavior:**\n[WAS SOLLTE PASSIEREN?]\n\n**Tools:**\n- [x] BFAgent MCP Protected Paths checken",
+        "toast": "Bug Template copied!",
+        "backgroundColor": "#F44336"
+      },
+      {
+        "row": 1,
+        "col": 4,
+        "type": "clipboard",
+        "name": "Refactor",
+        "icon": "🔧",
+        "text": "### Refactoring: [COMPONENT]\n\n**Ziel:**\n[WARUM REFACTOREN?]\n\n**Scope:**\n- Domain: [DOMAIN]\n- Component: [TYPE]\n\n**Safety Checks:**\n- [x] BFAgent MCP: get_refactor_options('[DOMAIN]')\n- [x] BFAgent MCP: check_path_protection()\n- [x] BFAgent MCP: get_best_practices()\n\n**Plan:**\n[x] Zeig mir erst den Plan",
+        "toast": "Refactor Template copied!",
+        "backgroundColor": "#2196F3"
+      },
+      {
+        "row": 1,
+        "col": 5,
+        "type": "clipboard",
+        "name": "Minimal\nRequest",
+        "icon": "📝",
+        "text": "@CASCADE:\nTask: [BESCHREIBUNG]\nRequirements: [LISTE]\nTools: BFAgent MCP\nPlan: show first",
+        "toast": "Minimal Template copied!",
+        "backgroundColor": "#607D8B"
+      },
+      {
+        "row": 1,
+        "col": 6,
+        "type": "clipboard",
+        "name": "Context\nRequest",
+        "icon": "🔍",
+        "text": "@CASCADE: Context needed\n\n**Frage:**\n[WAS MÖCHTE ICH WISSEN?]\n\n**Nutze:**\n- [ ] code_search\n- [ ] BFAgent MCP: search_handlers\n- [ ] BFAgent MCP: get_domain\n\n**Don't code yet - investigation only**",
+        "toast": "Context Template copied!",
+        "backgroundColor": "#00BCD4"
+      },
+      {
+        "row": 1,
+        "col": 7,
+        "type": "clipboard",
+        "name": "Plan\nRequest",
+        "icon": "📋",
+        "text": "@CASCADE: Zeig mir erst den Plan für:\n\n[BESCHREIBUNG DER AUFGABE]\n\nSchritte:\n- [ ] Step 1\n- [ ] Step 2\n- [ ] Step 3",
+        "toast": "Plan Request copied!",
+        "backgroundColor": "#3F51B5"
+      },
+      {
+        "row": 1,
+        "col": 8,
+        "type": "clipboard",
+        "name": "Check\npoint",
+        "icon": "✅",
+        "text": "@CASCADE: Checkpoint\n\n- Was ist der Stand?\n- Was fehlt noch?\n- Welche Requirements sind noch offen?",
+        "toast": "Checkpoint copied!",
+        "backgroundColor": "#9C27B0"
+      },
+      {
+        "row": 2,
+        "col": 1,
+        "type": "clipboard",
+        "name": "BFAgent\nBest",
+        "icon": "💡",
+        "text": "Frage BFAgent MCP nach Best Practices für: [THEMA]\n\nBeispiele:\n- handlers\n- pydantic\n- ai_integration\n- testing\n- error_handling\n- performance",
+        "toast": "Best Practices request copied!",
+        "backgroundColor": "#8BC34A"
+      },
+      {
+        "row": 2,
+        "col": 2,
+        "type": "clipboard",
+        "name": "Protected\nPaths",
+        "icon": "🔒",
+        "text": "Check mit BFAgent MCP die Protected Paths für: [FILE_PATH]\n\nIMMER vor Datei-Änderungen checken!",
+        "toast": "Protected Paths request copied!",
+        "backgroundColor": "#FF5722"
+      },
+      {
+        "row": 2,
+        "col": 3,
+        "type": "clipboard",
+        "name": "Naming\nConv",
+        "icon": "📛",
+        "text": "Hole Naming Convention von BFAgent MCP für: [DOMAIN]\n\nDomains: books, core, expert_hub, ui_hub, etc.",
+        "toast": "Naming Convention request copied!",
+        "backgroundColor": "#009688"
+      },
+      {
+        "row": 2,
+        "col": 4,
+        "type": "clipboard",
+        "name": "Domain\nInfo",
+        "icon": "🏢",
+        "text": "Zeige mir Domain Info via BFAgent MCP für: [DOMAIN]\n\nInclude:\n- [x] Handlers\n- [x] Phases\n- [x] Status",
+        "toast": "Domain Info request copied!",
+        "backgroundColor": "#673AB7"
+      },
+      {
+        "row": 2,
+        "col": 5,
+        "type": "clipboard",
+        "name": "Search\nHandlers",
+        "icon": "🔍",
+        "text": "Suche mit BFAgent MCP nach existierenden Handlers für: [FUNKTIONALITÄT]\n\nQuery: [z.B. \"PDF parsing\", \"Character generation\"]",
+        "toast": "Search Handlers request copied!",
+        "backgroundColor": "#795548"
+      },
+      {
+        "row": 2,
+        "col": 6,
+        "type": "clipboard",
+        "name": "Refactor\nOptions",
+        "icon": "🎯",
+        "text": "Hole Refactoring Options von BFAgent MCP für Domain: [DOMAIN]\n\nZeige:\n- Available components\n- Risk level\n- Dependencies\n- Protected paths",
+        "toast": "Refactor Options request copied!",
+        "backgroundColor": "#FF6F00"
+      },
+      {
+        "row": 2,
+        "col": 7,
+        "type": "clipboard",
+        "name": "Get\nDomain",
+        "icon": "📊",
+        "text": "Nutze BFAgent MCP: get_domain()\n\nDomain ID: [DOMAIN_ID]\nInclude handlers: [x]\nInclude phases: [x]\nResponse format: markdown",
+        "toast": "Domain Details request copied!",
+        "backgroundColor": "#1976D2"
+      },
+      {
+        "row": 2,
+        "col": 8,
+        "type": "clipboard",
+        "name": "Validate\nHandler",
+        "icon": "🧪",
+        "text": "Validiere Handler mit BFAgent MCP:\n\nHandler Code: [PATH_TO_HANDLER]\nStrict Mode: [ ] yes [x] no\n\nErwarte Score: 0-100",
+        "toast": "Validate Handler request copied!",
+        "backgroundColor": "#7B1FA2"
+      },
+      {
+        "row": 3,
+        "col": 1,
+        "type": "clipboard",
+        "name": "Create\nDomain",
+        "icon": "📦",
+        "text": "### New Domain: [DOMAIN_NAME]\n\n**Purpose:**\n[WAS MACHT DIESE DOMAIN?]\n\n**Models:**\n- [ ] Model 1: [name] - [purpose]\n\n**Handlers:**\n- [ ] Handler 1: [name] - [what it does]\n\n**BFAgent MCP:**\n- [x] get_naming_convention()\n- [x] scaffold_domain()\n- [x] Domain in domain_arts registrieren",
+        "toast": "Create Domain request copied!",
+        "backgroundColor": "#00897B"
+      },
+      {
+        "row": 3,
+        "col": 2,
+        "type": "clipboard",
+        "name": "Create\nHandler",
+        "icon": "🏗️",
+        "text": "Erstelle Handler mit BFAgent MCP:\n\nHandler Name: [NAME]\nDomain: [DOMAIN]\nHandler Type: [ai_powered/rule_based/hybrid]\nDescription: [BESCHREIBUNG]\n\nInclude Tests: [x] yes",
+        "toast": "Create Handler request copied!",
+        "backgroundColor": "#5E35B1"
+      },
+      {
+        "row": 3,
+        "col": 3,
+        "type": "clipboard",
+        "name": "Create\nView",
+        "icon": "🎨",
+        "text": "Erstelle View:\n\nView Name: [NAME]\nURL: /[path]/\nTemplate: [app]/[name].html\n\nFeatures:\n- [ ] Feature 1\n- [ ] Feature 2\n\nTools: BFAgent MCP",
+        "toast": "Create View request copied!",
+        "backgroundColor": "#C2185B"
+      },
+      {
+        "row": 3,
+        "col": 4,
+        "type": "clipboard",
+        "name": "Create\nModel",
+        "icon": "📚",
+        "text": "Erstelle Model:\n\nModel Name: [NAME]\nApp: [APP]\nTable Name: [prefix]_[name]\n\nFields:\n- [ ] Field 1: [type]\n- [ ] Field 2: [type]\n\nTools: BFAgent MCP naming",
+        "toast": "Create Model request copied!",
+        "backgroundColor": "#F57C00"
+      },
+      {
+        "row": 3,
+        "col": 5,
+        "type": "clipboard",
+        "name": "Create\nTest",
+        "icon": "⚙️",
+        "text": "Erstelle Test:\n\nTest Type: [unit/integration/e2e]\nTarget: [FILE_OR_FUNCTION]\n\nTest Cases:\n- [ ] Case 1\n- [ ] Case 2\n\nTools: BFAgent MCP best_practices",
+        "toast": "Create Test request copied!",
+        "backgroundColor": "#558B2F"
+      },
+      {
+        "row": 3,
+        "col": 6,
+        "type": "clipboard",
+        "name": "Golden\nRules",
+        "icon": "🏆",
+        "text": "🏆 CASCADE Golden Rules:\n\n1. REQUIREMENTS FIRST\n   → Liste was du willst\n\n2. PLAN BEFORE CODE\n   → \"Zeig mir erst den Plan\"\n\n3. USE BFAGENT MCP\n   → \"Check mit BFAgent MCP\"\n\nImmer befolgen! ✅",
+        "toast": "Golden Rules copied!",
+        "backgroundColor": "#FFC107"
+      },
+      {
+        "row": 3,
+        "col": 7,
+        "type": "open",
+        "name": "Help\nCard",
+        "icon": "❓",
+        "path": "C:\\Users\\achim\\github\\bfagent\\docs\\QUICK_REFERENCE_CARD.md",
+        "toast": "Opening Quick Reference...",
+        "backgroundColor": "#E91E63"
+      },
+      {
+        "row": 3,
+        "col": 8,
+        "type": "open",
+        "name": "Open\nDocs",
+        "icon": "📖",
+        "path": "C:\\Users\\achim\\github\\bfagent\\docs\\",
+        "toast": "Opening Docs folder...",
+        "backgroundColor": "#00ACC1"
+      },
+      {
+        "row": 4,
+        "col": 1,
+        "type": "clipboard",
+        "name": "Continue\nTask",
+        "icon": "🔄",
+        "text": "@CASCADE: Continue mit letzter Task\n\nContext:\n- Letzte Anfrage war: [BESCHREIBUNG]\n- Stand ist: [STATUS]\n- Nächster Schritt: [STEP]\n\nBitte fortfahren!",
+        "toast": "Continue Task copied!",
+        "backgroundColor": "#43A047"
+      },
+      {
+        "row": 4,
+        "col": 2,
+        "type": "clipboard",
+        "name": "Pause\nTask",
+        "icon": "⏸️",
+        "text": "@CASCADE: Pause aktuelle Task\n\nBitte speichere:\n- [ ] Aktuellen Stand\n- [ ] Offene TODOs\n- [ ] Nächste Schritte\n\nDokumentiere in: ACTIVE_CONTEXT.md",
+        "toast": "Pause Task copied!",
+        "backgroundColor": "#FB8C00"
+      },
+      {
+        "row": 4,
+        "col": 3,
+        "type": "clipboard",
+        "name": "Start\nSession",
+        "icon": "🎬",
+        "text": "@CASCADE: Neue Session starten\n\nSession Goal: [HAUPTZIEL]\n\nTasks:\n- [ ] Task 1\n- [ ] Task 2\n\nErstelle Plan und ACTIVE_CONTEXT.md!",
+        "toast": "Start Session copied!",
+        "backgroundColor": "#66BB6A"
+      },
+      {
+        "row": 4,
+        "col": 4,
+        "type": "clipboard",
+        "name": "Complete\nSession",
+        "icon": "🎉",
+        "text": "@CASCADE: Session abschließen\n\nBitte erstelle:\n- [ ] Session Summary\n- [ ] Commit & Push vorbereiten\n- [ ] Safe Restart Doku\n\nWas wurde erreicht?",
+        "toast": "Complete Session copied!",
+        "backgroundColor": "#26A69A"
+      },
+      {
+        "row": 4,
+        "col": 5,
+        "type": "clipboard",
+        "name": "Snapshot\nStatus",
+        "icon": "📸",
+        "text": "@CASCADE: Status Snapshot\n\nCheckpoint:\n- Was ist der Stand?\n- Was fehlt noch?\n- Welche Files geändert?\n- Bereit für Commit?",
+        "toast": "Snapshot Status copied!",
+        "backgroundColor": "#5C6BC0"
+      },
+      {
+        "row": 4,
+        "col": 6,
+        "type": "open_url",
+        "name": "Open\nMonitor",
+        "icon": "🌐",
+        "url": "http://127.0.0.1:8000/monitoring/",
+        "toast": "Opening Monitoring Dashboard...",
+        "backgroundColor": "#29B6F6"
+      },
+      {
+        "row": 4,
+        "col": 7,
+        "type": "clipboard",
+        "name": "Save\nState",
+        "icon": "💾",
+        "text": "@CASCADE: Save current state\n\nErstelle/Update:\n- ACTIVE_CONTEXT.md\n- Alle TODOs\n- Offene Requirements\n\nFür sicheren Restart!",
+        "toast": "Save State request copied!",
+        "backgroundColor": "#AB47BC"
+      },
+      {
+        "row": 4,
+        "col": 8,
+        "type": "folder",
+        "name": "Domains\nFolder",
+        "icon": "📁",
+        "profile": "CASCADE Domains",
+        "backgroundColor": "#8D6E63"
+      }
+    ]
+  },
+  "metadata": {
+    "author": "BFAgent Team",
+    "description": "CASCADE Template Launcher für StreamDeck XL (32 Buttons)",
+    "device": "Elgato Stream Deck XL",
+    "layout": "8x4 Grid",
+    "category": "Development",
+    "tags": ["cascade", "bfagent", "templates", "automation", "xl", "32buttons"],
+    "requiredPlugins": [
+      "com.elgato.system.clipboard",
+      "com.elgato.system.open",
+      "com.elgato.system.openurl"
+    ],
+    "version": "2.0",
+    "updated": "2025-12-11"
+  },
+  "notes": [
+    "Optimiert für StreamDeck XL mit 32 Buttons (8x4 Grid)",
+    "Alle Templates auf einer Seite - kein Profile-Switch nötig",
+    "Row 1: 8 Haupt-Templates (Feature, Quick, Bug, etc.)",
+    "Row 2: 8 BFAgent MCP Tools (Best Practices, Protected Paths, etc.)",
+    "Row 3: 8 Workflow & Creation Actions (Domain, Handler, View, etc.)",
+    "Row 4: 8 Session Management Buttons (Start, Pause, Complete, etc.)",
+    "Farben nach Kategorie für schnelle Orientierung",
+    "Toast-Notifications geben sofortiges Feedback",
+    "Alle Pfade anpassen wenn nötig (Help Card, Docs, Monitoring URL)",
+    "Button 4.8 (Domains Folder) switched zu optionalem Page 2 für domain-spezifische Actions"
+  ],
+  "usage": {
+    "quickStart": "Starte mit Row 1 (Templates) für tägliche Arbeit",
+    "advanced": "Nutze Row 2 (MCP Tools) bei jeder Domain-Aufgabe",
+    "workflows": "Row 3 für neue Components (Domain, Handler, View, Model)",
+    "sessionMgmt": "Row 4 für Session-Lifecycle (Start → Checkpoints → Complete)",
+    "timePerRequest": "~15-30 Sekunden statt 2-3 Minuten",
+    "savingsPercent": 90
+  }
+}

@@ -1,0 +1,219 @@
+<!-- templates/cad_hub/brandschutz/analyse.html -->
+{% extends "cad_hub/brandschutz/base_brandschutz.html" %}
+
+{% block breadcrumb_extra %}
+<li><span class="mx-2">/</span></li>
+<li class="text-white">CAD-Analyse</li>
+{% endblock %}
+
+{% block page_title %}CAD-Analyse{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-slate-400 mt-1">DXF/IFC-Dateien auf Brandschutz-Elemente prüfen</p>
+{% endblock %}
+
+{% block brandschutz_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Upload-Bereich -->
+    <div class="lg:col-span-2">
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">📁 Datei hochladen</h2>
+            
+            <form id="analyse-form" 
+                  hx-post="{% if pruefung %}{% url 'cad_hub:brandschutz:analyse_pruefung' pruefung.pk %}{% else %}{% url 'cad_hub:brandschutz:analyse' %}{% endif %}"
+                  hx-target="#analyse-ergebnis"
+                  hx-indicator="#analyse-loading"
+                  enctype="multipart/form-data"
+                  class="space-y-4">
+                {% csrf_token %}
+                
+                <!-- Drag & Drop Zone -->
+                <div id="drop-zone" 
+                     class="border-2 border-dashed border-slate-600 rounded-xl p-8 text-center hover:border-blue-500 transition cursor-pointer"
+                     onclick="document.getElementById('datei').click()">
+                    <div class="text-4xl mb-2">📐</div>
+                    <div class="text-white font-medium">CAD-Datei hierher ziehen</div>
+                    <div class="text-slate-400 text-sm mt-1">oder klicken zum Auswählen</div>
+                    <div class="text-xs text-slate-500 mt-2">Unterstützt: DXF, IFC</div>
+                    <input type="file" id="datei" name="datei" accept=".dxf,.ifc" class="hidden" 
+                           onchange="handleFileSelect(this)">
+                </div>
+                
+                <div id="selected-file" class="hidden bg-slate-700 rounded-lg p-3 flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-blue-400">📄</span>
+                        <span id="file-name" class="text-white"></span>
+                        <span id="file-size" class="text-slate-500 text-sm"></span>
+                    </div>
+                    <button type="button" onclick="clearFile()" class="text-slate-400 hover:text-white">✕</button>
+                </div>
+                
+                {% if pruefung and pruefung.quelldatei %}
+                <div class="bg-slate-700/50 rounded-lg p-3 flex items-center gap-2">
+                    <span class="text-green-400">✓</span>
+                    <span class="text-slate-300">Quelldatei vorhanden: {{ pruefung.quelldatei.name }}</span>
+                </div>
+                {% endif %}
+                
+                <!-- Analyse-Optionen -->
+                <div class="space-y-3 pt-4 border-t border-slate-700">
+                    <h3 class="text-sm font-medium text-slate-400">Analyse-Optionen</h3>
+                    
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="fluchtwege" checked 
+                               class="rounded bg-slate-700 border-slate-600 text-red-600 focus:ring-red-500">
+                        <span class="text-slate-300">🚪 Fluchtwege analysieren</span>
+                    </label>
+                    
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="einrichtungen" checked
+                               class="rounded bg-slate-700 border-slate-600 text-red-600 focus:ring-red-500">
+                        <span class="text-slate-300">🧯 Brandschutzeinrichtungen erkennen</span>
+                    </label>
+                    
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="ex_bereiche" checked
+                               class="rounded bg-slate-700 border-slate-600 text-red-600 focus:ring-red-500">
+                        <span class="text-slate-300">⚠️ Ex-Bereiche identifizieren</span>
+                    </label>
+                    
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" name="symbole" checked
+                               class="rounded bg-slate-700 border-slate-600 text-red-600 focus:ring-red-500">
+                        <span class="text-slate-300">🏷️ Symbol-Vorschläge generieren</span>
+                    </label>
+                </div>
+                
+                <button type="submit" 
+                        class="w-full px-6 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center justify-center gap-2">
+                    <span id="analyse-loading" class="htmx-indicator">
+                        <svg class="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </span>
+                    🔍 Analyse starten
+                </button>
+            </form>
+        </div>
+        
+        <!-- Analyse-Ergebnis -->
+        <div id="analyse-ergebnis" class="mt-6">
+            <!-- HTMX-Ergebnis wird hier eingefügt -->
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Info -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 class="font-semibold text-white mb-3">ℹ️ So funktioniert's</h3>
+            <ol class="text-sm text-slate-400 space-y-2 list-decimal list-inside">
+                <li>DXF oder IFC-Datei hochladen</li>
+                <li>Analyse-Optionen wählen</li>
+                <li>Analyse starten</li>
+                <li>Ergebnis prüfen & Mängel beheben</li>
+                <li>Report generieren</li>
+            </ol>
+        </div>
+        
+        <!-- Erkannte Elemente -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 class="font-semibold text-white mb-3">🔍 Erkannte Elemente</h3>
+            <div class="space-y-2 text-sm">
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-8 text-center">🚪</span>
+                    <span>Fluchtwege & Notausgänge</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-8 text-center">🧯</span>
+                    <span>Feuerlöscher</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-8 text-center">🔔</span>
+                    <span>Rauch- & Brandmelder</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-8 text-center">🚿</span>
+                    <span>Sprinkleranlagen</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-8 text-center">🚧</span>
+                    <span>Brandabschnitte</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-8 text-center">⚠️</span>
+                    <span>Ex-Zonen (ATEX)</span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Regelwerke -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 class="font-semibold text-white mb-3">📋 Geprüfte Regelwerke</h3>
+            <div class="flex flex-wrap gap-2">
+                <span class="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">ASR A2.2</span>
+                <span class="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">ASR A2.3</span>
+                <span class="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">DIN 14675</span>
+                <span class="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">MBO</span>
+                <span class="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">VStättVO</span>
+                <span class="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">IndBauRL</span>
+                <span class="px-2 py-1 bg-slate-700 rounded text-xs text-slate-300">ATEX</span>
+            </div>
+            <a href="{% url 'cad_hub:brandschutz:regelwerk_list' %}" class="text-xs text-blue-400 hover:text-blue-300 mt-2 inline-block">
+                Alle Regelwerke →
+            </a>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Drag & Drop
+    const dropZone = document.getElementById('drop-zone');
+    
+    ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, preventDefaults, false);
+    });
+    
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+    
+    ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.add('border-blue-500'), false);
+    });
+    
+    ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => dropZone.classList.remove('border-blue-500'), false);
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        const files = e.dataTransfer.files;
+        if (files.length) {
+            document.getElementById('datei').files = files;
+            handleFileSelect(document.getElementById('datei'));
+        }
+    });
+    
+    function handleFileSelect(input) {
+        const file = input.files[0];
+        if (file) {
+            document.getElementById('file-name').textContent = file.name;
+            document.getElementById('file-size').textContent = formatFileSize(file.size);
+            document.getElementById('selected-file').classList.remove('hidden');
+        }
+    }
+    
+    function clearFile() {
+        document.getElementById('datei').value = '';
+        document.getElementById('selected-file').classList.add('hidden');
+    }
+    
+    function formatFileSize(bytes) {
+        if (bytes < 1024) return bytes + ' B';
+        if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+</script>
+{% endblock %}

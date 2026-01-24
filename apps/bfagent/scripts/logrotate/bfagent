@@ -1,0 +1,64 @@
+# BF Agent Log Rotation Configuration
+# =====================================
+# Installation:
+#   sudo cp scripts/logrotate/bfagent /etc/logrotate.d/
+#   sudo chmod 644 /etc/logrotate.d/bfagent
+#   sudo logrotate -d /etc/logrotate.d/bfagent  # Test
+#   sudo logrotate -f /etc/logrotate.d/bfagent  # Force run
+
+# Application Logs
+/var/log/bfagent/*.log {
+    daily
+    rotate 14
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0640 bfagent bfagent
+    sharedscripts
+    postrotate
+        # Reload application to release log file handles
+        systemctl reload bfagent > /dev/null 2>&1 || true
+    endscript
+}
+
+# Nginx Access Logs
+/var/log/nginx/bfagent_access.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        systemctl reload nginx > /dev/null 2>&1 || true
+    endscript
+}
+
+# Nginx Error Logs
+/var/log/nginx/bfagent_error.log {
+    daily
+    rotate 30
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0640 www-data adm
+    sharedscripts
+    postrotate
+        systemctl reload nginx > /dev/null 2>&1 || true
+    endscript
+}
+
+# Backup Logs (if created by backup script)
+/var/log/bfagent/backup.log {
+    weekly
+    rotate 8
+    compress
+    delaycompress
+    notifempty
+    missingok
+    create 0640 bfagent bfagent
+}

@@ -1,0 +1,8 @@
+{{CLIPBOARD:Erstelle Handler mit BFAgent MCP:
+
+Handler Name: [NAME]
+Domain: [DOMAIN]
+Handler Type: [ai_powered/rule_based/hybrid]
+Description: [BESCHREIBUNG]
+
+Include Tests: [x] yes}}

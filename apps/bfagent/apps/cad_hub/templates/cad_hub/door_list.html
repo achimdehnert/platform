@@ -1,0 +1,36 @@
+<!-- templates/cad_hub/door_list.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}Türen - {{ model.project.name }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="h4 fw-bold mb-1"><i class="bi bi-door-open text-success"></i> Türen</h2>
+        <p class="text-muted mb-0">{{ model.project.name }} • {{ total_count }} Türen</p>
+    </div>
+    <a href="{% url 'cad_hub:ifc_content_overview' model.pk %}" class="btn btn-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Zurück
+    </a>
+</div>
+
+<!-- Filter -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="d-flex gap-2 flex-wrap">
+            <select name="floor" class="form-select form-select-sm" style="width: auto;">
+                <option value="">Alle Geschosse</option>
+                {% for floor in floors %}
+                <option value="{{ floor.id }}" {% if request.GET.floor == floor.id|stringformat:"s" %}selected{% endif %}>{{ floor.name }}</option>
+                {% endfor %}
+            </select>
+            <button type="submit" class="btn btn-success btn-sm"><i class="bi bi-funnel"></i> Filtern</button>
+            <a href="{% url 'cad_hub:door_list' model.pk %}" class="btn btn-outline-secondary btn-sm">Zurücksetzen</a>
+        </form>
+    </div>
+</div>
+
+<!-- Tabelle -->
+{% include "cad_hub/partials/_door_table.html" %}
+{% endblock %}

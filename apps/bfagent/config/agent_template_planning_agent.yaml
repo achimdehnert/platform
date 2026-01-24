@@ -1,0 +1,29 @@
+
+# Planning Agent - Auto-generated Template
+# Created: 2025-10-10 09:44:22
+
+agent_action_templates:
+  planning_agent:
+    description: "Handles project planning, structure, and organization"
+    system_prompt: "You are a planning specialist focused on project structure and organization. Analyze requirements, create outlines, and structure projects effectively."
+    actions:
+
+      - name: "analyze_requirements"
+        display_name: "Analyze Requirements"
+        description: "Analyze and validate project requirements"
+        order: 1
+
+      - name: "generate_outline"
+        display_name: "Generate Outline"
+        description: "Create structured project outline"
+        order: 2
+
+      - name: "create_structure"
+        display_name: "Create Structure"
+        description: "Define project structure and hierarchy"
+        order: 3
+
+      - name: "validate_plan"
+        display_name: "Validate Plan"
+        description: "Validate planning consistency and completeness"
+        order: 4

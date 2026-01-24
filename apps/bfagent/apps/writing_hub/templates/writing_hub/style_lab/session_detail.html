@@ -1,0 +1,317 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Session: {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}">Style Lab</a></li>
+                    <li class="breadcrumb-item active">{{ session.name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h2 mb-0">{{ session.name }}</h1>
+            <p class="text-muted mb-0">{{ session.get_purpose_display }}</p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if session.current_phase != 'init' %}
+            <form method="post" action="{% url 'writing_hub:session-previous' session_id=session.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-secondary" title="Zur vorherigen Phase zurückkehren">
+                    <i class="bi bi-arrow-left me-1"></i>Vorherige Phase
+                </button>
+            </form>
+            {% endif %}
+            {% if session.current_phase != 'completed' and session.current_phase != 'cancelled' %}
+            <form method="post" action="{% url 'writing_hub:session-advance' session_id=session.id %}" class="d-inline">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-arrow-right me-1"></i>Nächste Phase
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Phase Progress -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center">
+                {% for phase_code, phase_name, phase_icon in phases %}
+                <div class="text-center flex-fill">
+                    <div class="d-inline-flex align-items-center justify-content-center rounded-circle mb-2
+                        {% if forloop.counter0 < current_phase_idx %}bg-success text-white
+                        {% elif forloop.counter0 == current_phase_idx %}bg-primary text-white
+                        {% else %}bg-light text-muted{% endif %}"
+                        style="width: 48px; height: 48px;">
+                        <i class="bi {{ phase_icon }}"></i>
+                    </div>
+                    <div class="small {% if forloop.counter0 == current_phase_idx %}fw-bold{% else %}text-muted{% endif %}">
+                        {{ phase_name }}
+                    </div>
+                </div>
+                {% if not forloop.last %}
+                <div class="flex-fill" style="max-width: 100px;">
+                    <hr class="{% if forloop.counter0 < current_phase_idx %}border-success{% else %}border-secondary{% endif %}">
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Linke Spalte: Phase-spezifischer Content -->
+        <div class="col-lg-8">
+            {% if session.current_phase == 'init' or session.current_phase == 'extraction' %}
+            <!-- EXTRACTION PHASE -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-search me-2"></i>Beispieltexte
+                    </h5>
+                    <a href="{% url 'writing_hub:extraction-add' session_id=session.id %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Text hinzufügen
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if observations %}
+                        <div class="list-group list-group-flush">
+                            {% for obs in observations %}
+                            <div class="list-group-item border-0 px-0">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <div>
+                                        <h6 class="mb-1">{{ obs.source_name }}</h6>
+                                        <span class="badge bg-light text-dark">{{ obs.get_source_type_display }}</span>
+                                        <span class="badge bg-secondary">{{ obs.metrics.word_count|default:0 }} Wörter</span>
+                                    </div>
+                                    <small class="text-muted">{{ obs.analyzed_at|date:"d.m.Y H:i" }}</small>
+                                </div>
+                                {% if obs.observations %}
+                                <div class="mt-2">
+                                    {% for key, value in obs.observations.items %}
+                                    <span class="badge bg-info-subtle text-info me-1">{{ key }}: {{ value|truncatechars:30 }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                                <div class="mt-2">
+                                    <small class="text-muted">{{ obs.source_text|truncatechars:200 }}</small>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% if session.current_phase == 'extraction' %}
+                        <div class="mt-3">
+                            <a href="{% url 'writing_hub:extraction-analyze' session_id=session.id %}" 
+                               class="btn btn-outline-primary btn-analyze"
+                               onclick="this.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Analysiere...'; this.classList.add('disabled');">
+                                <i class="bi bi-cpu me-1"></i>Alle analysieren
+                            </a>
+                        </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-file-text display-4 text-muted"></i>
+                            <p class="text-muted mt-2">Noch keine Texte hinzugefügt</p>
+                            <a href="{% url 'writing_hub:extraction-add' session_id=session.id %}" class="btn btn-primary">
+                                <i class="bi bi-plus-lg me-1"></i>Text hinzufügen
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if session.current_phase == 'synthesis' or session.current_phase == 'feedback' %}
+            <!-- SYNTHESIS PHASE -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-magic me-2"></i>Synthese-Texte
+                    </h5>
+                    {% if session.current_phase == 'synthesis' %}
+                    <a href="{% url 'writing_hub:synthesis-generate' session_id=session.id %}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus-lg me-1"></i>Szenen generieren
+                    </a>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if candidates %}
+                        <div class="row g-3">
+                            {% for candidate in candidates %}
+                            <div class="col-md-6">
+                                <div class="card h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start mb-2">
+                                            <span class="badge bg-primary">{{ candidate.get_scene_type_display }}</span>
+                                            <div>
+                                                {% if candidate.llm_used %}
+                                                {% if "Fallback" in candidate.llm_used %}
+                                                <span class="badge bg-warning text-dark" title="{{ candidate.llm_used }}">
+                                                    <i class="bi bi-arrow-repeat"></i>
+                                                </span>
+                                                {% else %}
+                                                <span class="badge bg-secondary" title="{{ candidate.llm_used }}">
+                                                    <i class="bi bi-robot"></i>
+                                                </span>
+                                                {% endif %}
+                                                {% endif %}
+                                                {% with feedback_count=candidate.feedbacks.count %}
+                                                {% if feedback_count > 0 %}
+                                                <span class="badge bg-success">{{ feedback_count }}</span>
+                                                {% endif %}
+                                                {% endwith %}
+                                            </div>
+                                        </div>
+                                        <p class="small mb-2">{{ candidate.generated_text|truncatechars:200 }}</p>
+                                        <div class="d-flex gap-2">
+                                            <a href="{% url 'writing_hub:feedback-candidate' candidate_id=candidate.id %}" 
+                                               class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-chat-quote me-1"></i>Feedback
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4">
+                            <i class="bi bi-magic display-4 text-muted"></i>
+                            <p class="text-muted mt-2">Noch keine Szenen generiert</p>
+                            <a href="{% url 'writing_hub:synthesis-generate' session_id=session.id %}" class="btn btn-primary">
+                                <i class="bi bi-plus-lg me-1"></i>Szenen generieren
+                            </a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if session.current_phase == 'fixation' %}
+            <!-- FIXATION PHASE -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lock me-2"></i>Stil fixieren
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p>Basierend auf deinem Feedback wird jetzt eine Style DNA erstellt.</p>
+                    
+                    <!-- Feedback Summary -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="card bg-success-subtle">
+                                <div class="card-body text-center">
+                                    <h3 class="text-success">{{ feedback_stats.accepted }}</h3>
+                                    <small>Akzeptiert</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-warning-subtle">
+                                <div class="card-body text-center">
+                                    <h3 class="text-warning">{{ feedback_stats.partial }}</h3>
+                                    <small>Teilweise</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="card bg-danger-subtle">
+                                <div class="card-body text-center">
+                                    <h3 class="text-danger">{{ feedback_stats.rejected }}</h3>
+                                    <small>Abgelehnt</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <a href="{% url 'writing_hub:fixation-create-dna' session_id=session.id %}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-fingerprint me-2"></i>Style DNA erstellen
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if session.current_phase == 'completed' %}
+            <!-- COMPLETED -->
+            <div class="card border-0 shadow-sm bg-success-subtle">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-check-circle display-1 text-success"></i>
+                    <h3 class="mt-3">Session abgeschlossen!</h3>
+                    {% if session.target_dna %}
+                    <p class="text-muted">Style DNA: <strong>{{ session.target_dna.name }}</strong></p>
+                    <a href="{% url 'writing_hub:style-dna-detail' dna_id=session.target_dna.id %}" class="btn btn-success">
+                        <i class="bi bi-eye me-1"></i>DNA anzeigen
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Rechte Spalte: Session Info -->
+        <div class="col-lg-4">
+            <!-- Session Details -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">Session Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="mb-0">
+                        <dt class="text-muted small">Zweck</dt>
+                        <dd>{{ session.get_purpose_display }}</dd>
+                        
+                        <dt class="text-muted small">Gestartet</dt>
+                        <dd>{{ session.started_at|date:"d.m.Y H:i" }}</dd>
+                        
+                        {% if session.target_genres %}
+                        <dt class="text-muted small">Ziel-Genres</dt>
+                        <dd>
+                            {% for genre in session.target_genres %}
+                            <span class="badge bg-light text-dark">{{ genre }}</span>
+                            {% endfor %}
+                        </dd>
+                        {% endif %}
+                        
+                        {% if session.target_dna %}
+                        <dt class="text-muted small">Ziel-DNA</dt>
+                        <dd>
+                            <a href="{% url 'writing_hub:style-dna-detail' dna_id=session.target_dna.id %}">
+                                {{ session.target_dna.name }}
+                            </a>
+                        </dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            <!-- Stats -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h5 class="mb-0">Fortschritt</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Texte analysiert</span>
+                        <strong>{{ observations.count }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>Szenen generiert</span>
+                        <strong>{{ candidates.count }}</strong>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <span>Feedbacks gegeben</span>
+                        <strong>{{ feedback_stats.total }}</strong>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

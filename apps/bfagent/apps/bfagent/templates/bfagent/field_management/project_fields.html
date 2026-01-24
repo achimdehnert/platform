@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Custom Fields - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-sliders"></i> Custom Fields</h2>
+            <p class="text-muted mb-0">Project: <strong>{{ project.title }}</strong></p>
+        </div>
+        <div>
+            <a href="{% url 'bfagent:bookprojects-detail' project.pk %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-arrow-left"></i> Back to Project
+            </a>
+            <a href="{% url 'bfagent:field-definition-list' %}" class="btn btn-outline-primary">
+                <i class="bi bi-gear"></i> Manage Field Definitions
+            </a>
+        </div>
+    </div>
+
+    {% if grouped_fields %}
+        <!-- Field Groups -->
+        {% for group_name, fields in grouped_fields.items %}
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="bi bi-folder"></i> {{ group_name }}
+                    <span class="badge bg-light text-dark">{{ fields|length }} fields</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for field_data in fields %}
+                <div class="mb-4 pb-3 border-bottom">
+                    <div class="row">
+                        <div class="col-md-12">
+                            <label class="form-label">
+                                <strong>{{ field_data.definition.display_name }}</strong>
+                                {% if field_data.definition.is_required %}
+                                <span class="text-danger">*</span>
+                                {% endif %}
+                                {% if field_data.definition.is_ai_enrichable %}
+                                <i class="bi bi-robot text-success ms-2" title="AI can generate content"></i>
+                                {% endif %}
+                            </label>
+                            {% if field_data.definition.description %}
+                            <p class="text-muted small mb-2">{{ field_data.definition.description }}</p>
+                            {% endif %}
+                            
+                            <!-- Field Input based on type -->
+                            <form hx-post="{% url 'bfagent:project-field-value-save' project.pk field_data.definition.pk %}"
+                                  hx-target="#result-{{ field_data.definition.pk }}"
+                                  hx-swap="innerHTML">
+                                {% csrf_token %}
+                                
+                                {% if field_data.definition.field_type == 'text' %}
+                                    <input type="text" 
+                                           name="value" 
+                                           class="form-control" 
+                                           value="{{ field_data.value|default:'' }}"
+                                           placeholder="{{ field_data.definition.placeholder }}">
+                                
+                                {% elif field_data.definition.field_type == 'textarea' or field_data.definition.field_type == 'markdown' %}
+                                    <textarea name="value" 
+                                              class="form-control" 
+                                              rows="6"
+                                              placeholder="{{ field_data.definition.placeholder }}">{{ field_data.value|default:'' }}</textarea>
+                                
+                                {% elif field_data.definition.field_type == 'json' %}
+                                    <textarea name="value" 
+                                              class="form-control font-monospace" 
+                                              rows="8"
+                                              placeholder='{"example": "json"}'>{{ field_data.value|default:'' }}</textarea>
+                                    <small class="text-muted">Enter valid JSON</small>
+                                
+                                {% elif field_data.definition.field_type == 'number' %}
+                                    <input type="number" 
+                                           name="value" 
+                                           class="form-control" 
+                                           value="{{ field_data.value|default:'' }}"
+                                           step="any">
+                                
+                                {% elif field_data.definition.field_type == 'date' %}
+                                    <input type="date" 
+                                           name="value" 
+                                           class="form-control" 
+                                           value="{{ field_data.value|default:'' }}">
+                                
+                                {% elif field_data.definition.field_type == 'boolean' %}
+                                    <div class="form-check form-switch">
+                                        <input class="form-check-input" 
+                                               type="checkbox" 
+                                               name="value" 
+                                               value="true"
+                                               {% if field_data.value %}checked{% endif %}>
+                                        <label class="form-check-label">
+                                            {{ field_data.definition.placeholder|default:"Yes" }}
+                                        </label>
+                                    </div>
+                                {% endif %}
+                                
+                                {% if field_data.definition.help_text %}
+                                <small class="text-muted d-block mt-1">
+                                    <i class="bi bi-info-circle"></i> {{ field_data.definition.help_text }}
+                                </small>
+                                {% endif %}
+                                
+                                <div class="d-flex gap-2 mt-2">
+                                    <button type="submit" class="btn btn-sm btn-primary">
+                                        <i class="bi bi-save"></i> Save
+                                    </button>
+                                    
+                                    {% if field_data.definition.is_ai_enrichable %}
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-success"
+                                            onclick="generateAIContent({{ field_data.definition.pk }})">
+                                        <i class="bi bi-robot"></i> AI Generate
+                                    </button>
+                                    {% endif %}
+                                    
+                                    {% if field_data.value_obj %}
+                                    <button type="button" 
+                                            class="btn btn-sm btn-outline-info"
+                                            onclick="showHistory({{ field_data.value_obj.pk }})">
+                                        <i class="bi bi-clock-history"></i> History
+                                    </button>
+                                    {% endif %}
+                                </div>
+                                
+                                <div id="result-{{ field_data.definition.pk }}" class="mt-2"></div>
+                            </form>
+                            
+                            <!-- Metadata -->
+                            {% if field_data.value_obj %}
+                            <div class="mt-2">
+                                <small class="text-muted">
+                                    Last updated: {{ field_data.value_obj.updated_at|date:"Y-m-d H:i" }}
+                                    {% if field_data.value_obj.updated_by %}
+                                        by {{ field_data.value_obj.updated_by.username }}
+                                    {% endif %}
+                                    | Version: {{ field_data.value_obj.version }}
+                                </small>
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="alert alert-info">
+            <i class="bi bi-info-circle"></i> No custom fields defined for projects yet.
+            <a href="{% url 'bfagent:field-definition-list' %}">Create field definitions</a> to get started.
+        </div>
+    {% endif %}
+</div>
+
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+
+<script>
+function generateAIContent(fieldId) {
+    alert('AI Generation coming soon! Field ID: ' + fieldId);
+    // TODO: Implement AI generation via enrichment system
+}
+
+function showHistory(fieldValueId) {
+    alert('History viewer coming soon! Field Value ID: ' + fieldValueId);
+    // TODO: Show FieldValueHistory modal
+}
+</script>
+{% endblock %}

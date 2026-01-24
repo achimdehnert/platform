@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h3">
+                📚 Context Schema Viewer
+            </h1>
+            <p class="text-muted">Browse all context enrichment schemas and their data sources</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Total Schemas</h5>
+                    <p class="display-4">{{ total_schemas }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body">
+                    <h5 class="card-title">Active Schemas</h5>
+                    <p class="display-4 text-success">{{ active_schemas }}</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title">Quick Actions</h5>
+                    <a href="{% url 'bfagent:context_enrichment:tester' %}" class="btn btn-primary btn-sm">
+                        🧪 Test Schemas
+                    </a>
+                    <a href="/admin/bfagent/contextschema/" class="btn btn-secondary btn-sm">
+                        ⚙️ Manage
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schemas List -->
+    <div class="row">
+        <div class="col-12">
+            {% for schema in schemas %}
+            <div class="card mb-3 {% if not schema.is_active %}border-secondary{% endif %}">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <h5 class="mb-0">
+                            {% if schema.is_active %}
+                                <span class="badge bg-success">Active</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                            
+                            {% if schema.is_system %}
+                                <span class="badge bg-primary">System</span>
+                            {% endif %}
+                            
+                            <strong>{{ schema.display_name }}</strong>
+                            <small class="text-muted">({{ schema.name }})</small>
+                        </h5>
+                        <small class="text-muted">
+                            Handler: {{ schema.handler_type }} | Version: {{ schema.version }}
+                        </small>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" type="button" data-bs-toggle="collapse" 
+                            data-bs-target="#schema-{{ schema.id }}" aria-expanded="false">
+                        👁️ View Sources
+                    </button>
+                </div>
+                
+                <div class="collapse" id="schema-{{ schema.id }}">
+                    <div class="card-body">
+                        {% if schema.description %}
+                        <p class="text-muted">{{ schema.description }}</p>
+                        {% endif %}
+
+                        <h6 class="mt-3 mb-2">Data Sources ({{ schema.sources.count }})</h6>
+                        
+                        {% if schema.sources.all %}
+                        <div class="table-responsive">
+                            <table class="table table-sm table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Order</th>
+                                        <th>Name</th>
+                                        <th>Type</th>
+                                        <th>Context Key</th>
+                                        <th>Status</th>
+                                        <th>Details</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for source in schema.sources.all %}
+                                    <tr>
+                                        <td>{{ source.order }}</td>
+                                        <td>
+                                            <strong>{{ source.name }}</strong>
+                                            {% if source.is_required %}
+                                                <span class="badge bg-danger badge-sm">Required</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if source.source_type == 'model' %}
+                                                <span class="badge bg-info">Model</span>
+                                            {% elif source.source_type == 'related_query' %}
+                                                <span class="badge bg-warning">Related</span>
+                                            {% elif source.source_type == 'computed' %}
+                                                <span class="badge bg-success">Computed</span>
+                                            {% elif source.source_type == 'beat_sheet' %}
+                                                <span class="badge bg-primary">Beat Sheet</span>
+                                            {% endif %}
+                                        </td>
+                                        <td><code>{{ source.context_key|default:"merged" }}</code></td>
+                                        <td>
+                                            {% if source.is_active %}
+                                                ✅
+                                            {% else %}
+                                                ❌
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">
+                                                {% if source.model_name %}
+                                                    Model: {{ source.model_name }}
+                                                {% endif %}
+                                                {% if source.function_name %}
+                                                    Function: {{ source.function_name }}
+                                                {% endif %}
+                                            </small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <p class="text-muted">No sources defined for this schema.</p>
+                        {% endif %}
+
+                        <div class="mt-3">
+                            <a href="{% url 'bfagent:context_enrichment:tester' %}" class="btn btn-sm btn-primary">
+                                🧪 Test This Schema
+                            </a>
+                            <a href="/admin/bfagent/contextschema/{{ schema.id }}/change/" class="btn btn-sm btn-secondary">
+                                ✏️ Edit in Admin
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="alert alert-info">
+                No schemas found. Create schemas in the <a href="/admin/bfagent/contextschema/">Admin Interface</a>.
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endblock %}

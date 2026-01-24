@@ -1,0 +1,211 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ project.title }} - Book Reader{% endblock %}
+
+{% block extra_css %}
+<style>
+    .book-detail {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .book-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 3rem 2rem;
+        border-radius: 8px;
+        margin-bottom: 2rem;
+    }
+    
+    .book-title {
+        font-size: 2.5rem;
+        font-weight: bold;
+        margin-bottom: 0.5rem;
+    }
+    
+    .book-meta {
+        font-size: 1.1rem;
+        opacity: 0.9;
+    }
+    
+    .book-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin: 2rem 0;
+    }
+    
+    .stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-value {
+        font-size: 2.5rem;
+        font-weight: bold;
+        color: #667eea;
+        margin-bottom: 0.5rem;
+    }
+    
+    .stat-label {
+        color: #666;
+        font-size: 0.9rem;
+    }
+    
+    .chapters-list {
+        background: white;
+        padding: 2rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .chapters-list h2 {
+        margin-bottom: 1.5rem;
+        color: #333;
+    }
+    
+    .chapter-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+        transition: background 0.2s;
+    }
+    
+    .chapter-item:hover {
+        background: #f8f9fa;
+    }
+    
+    .chapter-item:last-child {
+        border-bottom: none;
+    }
+    
+    .chapter-info {
+        flex: 1;
+    }
+    
+    .chapter-number {
+        font-weight: bold;
+        color: #667eea;
+        margin-right: 1rem;
+    }
+    
+    .chapter-link {
+        padding: 0.5rem 1.5rem;
+        background: #667eea;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        transition: background 0.3s;
+    }
+    
+    .chapter-link:hover {
+        background: #5568d3;
+        color: white;
+    }
+    
+    .back-link {
+        display: inline-block;
+        margin-bottom: 2rem;
+        color: #667eea;
+        text-decoration: none;
+        font-size: 1.1rem;
+    }
+    
+    .back-link:hover {
+        text-decoration: underline;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        margin: 2rem 0;
+    }
+    
+    .action-btn {
+        padding: 1rem 2rem;
+        background: #28a745;
+        color: white;
+        text-decoration: none;
+        border-radius: 4px;
+        font-weight: bold;
+        transition: background 0.3s;
+    }
+    
+    .action-btn:hover {
+        background: #218838;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="book-detail">
+    <a href="{% url 'bfagent:project-list' %}" class="back-link">
+        ← All Books
+    </a>
+    
+    <div class="book-header">
+        <h1 class="book-title">{{ project.title }}</h1>
+        <div class="book-meta">
+            {{ project.genre }} | {{ project.content_rating }}
+        </div>
+    </div>
+    
+    <div class="book-stats">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_chapters }}</div>
+            <div class="stat-label">Chapters</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ stats.total_words|default:"0" }}</div>
+            <div class="stat-label">Total Words</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ project.status|title }}</div>
+            <div class="stat-label">Status</div>
+        </div>
+    </div>
+    
+    <div class="action-buttons">
+        <a href="{% url 'book_reader:chapter_view' project.id 1 %}" class="action-btn">
+            📖 Start Reading
+        </a>
+        <a href="{% url 'book_reader:export_docx' project.id %}" class="action-btn" style="background: #28a745;">
+            📄 Export Word
+        </a>
+        <a href="{% url 'book_reader:export_pdf' project.id %}" class="action-btn" style="background: #dc3545;">
+            📑 Export PDF
+        </a>
+        <a href="{% url 'book_reader:export_epub' project.id %}" class="action-btn" style="background: #6c757d;">
+            📚 Export EPUB
+        </a>
+    </div>
+    
+    <div class="chapters-list">
+        <h2>📚 All Chapters</h2>
+        
+        {% for chapter in chapters %}
+            <div class="chapter-item">
+                <div class="chapter-info">
+                    <span class="chapter-number">Chapter {{ chapter.number }}</span>
+                    <span class="chapter-size">({{ chapter.size|filesizeformat }})</span>
+                </div>
+                <a href="{% url 'book_reader:chapter_view' project.id chapter.number %}" class="chapter-link">
+                    Read →
+                </a>
+            </div>
+        {% empty %}
+            <p style="text-align: center; color: #888; padding: 2rem;">
+                No chapters found. Generate chapters first.
+            </p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

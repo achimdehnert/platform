@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Install {{ template.display_name }} - Domain Template{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="bi bi-download"></i> Install Domain Template
+                    </h1>
+                    <p class="text-muted">{{ template.icon }} {{ template.display_name }}</p>
+                </div>
+                <div>
+                    <a href="{% url 'genagent:domain-detail' template.domain_id %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Installation Form -->
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form id="install-form" 
+                          hx-post="{% url 'genagent:domain-install-execute' template.domain_id %}" 
+                          hx-target="#installation-result"
+                          hx-swap="innerHTML">
+                        {% csrf_token %}
+
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            This will create <strong>{{ template.phases|length }} phases</strong> and 
+                            <strong>{{ template.get_all_actions|length }} actions</strong> in your database.
+                        </div>
+
+                        <!-- Required Fields -->
+                        {% if required_fields %}
+                        <h6 class="mb-3"><span class="badge bg-danger">Required</span> Context Fields</h6>
+                        {% for field in required_fields %}
+                        <div class="mb-3">
+                            <label for="field_{{ field }}" class="form-label">
+                                {{ field|title }} <span class="text-danger">*</span>
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="field_{{ field }}" 
+                                   name="{{ field }}" 
+                                   required
+                                   placeholder="Enter {{ field }}">
+                            <div class="invalid-feedback">
+                                This field is required.
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        <!-- Optional Fields -->
+                        {% if optional_fields %}
+                        <hr class="my-4">
+                        <h6 class="mb-3"><span class="badge bg-secondary">Optional</span> Context Fields</h6>
+                        {% for field in optional_fields %}
+                        <div class="mb-3">
+                            <label for="field_{{ field }}" class="form-label">
+                                {{ field|title }}
+                            </label>
+                            <input type="text" 
+                                   class="form-control" 
+                                   id="field_{{ field }}" 
+                                   name="{{ field }}" 
+                                   placeholder="Enter {{ field }} (optional)">
+                        </div>
+                        {% endfor %}
+                        {% endif %}
+
+                        <!-- Dry Run Option -->
+                        <hr class="my-4">
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" id="dry_run" name="dry_run" value="true">
+                            <label class="form-check-label" for="dry_run">
+                                <strong>Dry Run</strong> - Preview without making database changes
+                            </label>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary btn-lg">
+                                <i class="bi bi-download"></i> Install Domain
+                            </button>
+                            <button type="button" 
+                                    class="btn btn-outline-primary"
+                                    onclick="document.getElementById('dry_run').checked = true; document.getElementById('install-form').dispatchEvent(new Event('submit', {bubbles: true, cancelable: true}));">
+                                <i class="bi bi-eye"></i> Preview (Dry Run)
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Installation Result -->
+                    <div id="installation-result" class="mt-4"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Sidebar -->
+        <div class="col-md-4">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-info-circle"></i> About This Domain</h6>
+                </div>
+                <div class="card-body">
+                    <p>{{ template.description }}</p>
+                    <dl class="mb-0">
+                        <dt>Version:</dt>
+                        <dd>{{ template.version }}</dd>
+                        
+                        <dt>Category:</dt>
+                        <dd><span class="badge bg-secondary">{{ template.category }}</span></dd>
+                        
+                        <dt>Est. Duration:</dt>
+                        <dd>~{{ template.estimated_total_duration_seconds|floatformat:0 }} seconds</dd>
+                    </dl>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-diagram-3"></i> Workflow Structure</h6>
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        {% for phase in template.phases %}
+                        <li class="mb-2">
+                            <strong>{{ phase.name }}</strong>
+                            <br>
+                            <small class="text-muted">{{ phase.actions|length }} actions</small>
+                        </li>
+                        {% endfor %}
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success/Error Message Template -->
+<script>
+document.body.addEventListener('htmx:afterSwap', function(evt) {
+    if (evt.detail.target.id === 'installation-result') {
+        const response = JSON.parse(evt.detail.xhr.response);
+        
+        let html = '';
+        if (response.success) {
+            if (response.dry_run) {
+                html = `
+                    <div class="alert alert-success">
+                        <h5><i class="bi bi-check-circle"></i> Dry Run Successful</h5>
+                        <p>This would create:</p>
+                        <ul>
+                            <li><strong>${response.would_create.phases}</strong> phases</li>
+                            <li><strong>${response.would_create.actions}</strong> actions</li>
+                        </ul>
+                        <p class="mb-0">No database changes were made. Uncheck "Dry Run" to install for real.</p>
+                    </div>
+                `;
+            } else {
+                html = `
+                    <div class="alert alert-success">
+                        <h5><i class="bi bi-check-circle"></i> Installation Successful!</h5>
+                        <p>Created:</p>
+                        <ul>
+                            <li><strong>${response.created.phases}</strong> phases</li>
+                            <li><strong>${response.created.actions}</strong> actions</li>
+                        </ul>
+                        <a href="${response.redirect_url}" class="btn btn-primary">
+                            <i class="bi bi-eye"></i> View Installed Workflow
+                        </a>
+                        <a href="{% url 'genagent:domain-list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left"></i> Back to Domains
+                        </a>
+                    </div>
+                `;
+            }
+        } else {
+            html = `
+                <div class="alert alert-danger">
+                    <h5><i class="bi bi-x-circle"></i> Installation Failed</h5>
+                    <p>${response.error}</p>
+                    ${response.missing_fields ? `
+                        <p>Missing fields:</p>
+                        <ul>
+                            ${response.missing_fields.map(f => `<li><code>${f}</code></li>`).join('')}
+                        </ul>
+                    ` : ''}
+                </div>
+            `;
+        }
+        
+        evt.detail.target.innerHTML = html;
+    }
+});
+</script>
+{% endblock %}

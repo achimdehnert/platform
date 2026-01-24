@@ -1,0 +1,142 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}MCP Domains - BF Agent{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'control_center/mcp/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mcp-dashboard">
+    
+    {# ===== HEADER ===== #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:mcp-dashboard' %}">MCP Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item active">Domains</li>
+                </ol>
+            </nav>
+            <h1 class="mb-0">📊 Domain Configurations</h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin:bfagent_mcp_mcpdomainconfig_add' %}" 
+               class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Add Domain
+            </a>
+        </div>
+    </div>
+    
+    {# ===== FILTERS ===== #}
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <form class="row g-3 align-items-center" 
+                  hx-get="{% url 'control_center:mcp-domains' %}"
+                  hx-target="#domains-table"
+                  hx-trigger="change, keyup delay:300ms from:#search-input"
+                  hx-push-url="true">
+                
+                <div class="col-auto">
+                    <label class="visually-hidden" for="search-input">Search</label>
+                    <div class="input-group">
+                        <span class="input-group-text"><i class="bi bi-search"></i></span>
+                        <input type="text" 
+                               class="form-control" 
+                               id="search-input"
+                               name="q" 
+                               placeholder="Search domains..."
+                               value="{{ search_query }}">
+                    </div>
+                </div>
+                
+                <div class="col-auto">
+                    <label class="visually-hidden" for="risk-filter">Risk Level</label>
+                    <select class="form-select" id="risk-filter" name="risk">
+                        <option value="">All Risk Levels</option>
+                        {% for level in risk_levels %}
+                        <option value="{{ level.name }}" 
+                                {% if current_risk == level.name %}selected{% endif %}>
+                            {{ level.display_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-auto">
+                    <button type="submit" class="btn btn-outline-secondary">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                    {% if search_query or current_risk %}
+                    <a href="{% url 'control_center:mcp-domains' %}" class="btn btn-link">
+                        Clear
+                    </a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    {# ===== DOMAINS TABLE ===== #}
+    <div class="card">
+        <div class="card-body p-0" id="domains-table">
+            {% include "control_center/mcp/partials/domain_list_table.html" %}
+        </div>
+    </div>
+    
+    {# ===== PAGINATION ===== #}
+    {% if page_obj.has_other_pages %}
+    <nav aria-label="Domain pagination" class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" 
+                   href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_risk %}&risk={{ current_risk }}{% endif %}"
+                   hx-get="{% url 'control_center:mcp-domains' %}?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_risk %}&risk={{ current_risk }}{% endif %}"
+                   hx-target="#domains-table"
+                   hx-push-url="true">
+                    Previous
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+                {% if page_obj.number == num %}
+                <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+                <li class="page-item">
+                    <a class="page-link" 
+                       href="?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_risk %}&risk={{ current_risk }}{% endif %}"
+                       hx-get="{% url 'control_center:mcp-domains' %}?page={{ num }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_risk %}&risk={{ current_risk }}{% endif %}"
+                       hx-target="#domains-table"
+                       hx-push-url="true">
+                        {{ num }}
+                    </a>
+                </li>
+                {% endif %}
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" 
+                   href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_risk %}&risk={{ current_risk }}{% endif %}"
+                   hx-get="{% url 'control_center:mcp-domains' %}?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_risk %}&risk={{ current_risk }}{% endif %}"
+                   hx-target="#domains-table"
+                   hx-push-url="true">
+                    Next
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'control_center/mcp/dashboard.js' %}"></script>
+{% endblock %}

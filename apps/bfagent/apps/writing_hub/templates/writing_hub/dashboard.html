@@ -1,0 +1,595 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Writing Hub - Dashboard{% endblock %}
+
+{% block page_title %}Writing Hub{% endblock %}
+{% block page_subtitle %}Content Creation & Story Management{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --wh-primary: #6c5ce7;
+        --wh-primary-dark: #5b4cdb;
+        --wh-secondary: #a29bfe;
+        --wh-accent: #fd79a8;
+        --wh-success: #00b894;
+        --wh-warning: #fdcb6e;
+        --wh-danger: #d63031;
+        --wh-info: #0984e3;
+        --wh-dark: #2d3436;
+        --wh-light: #f8f9fa;
+    }
+    
+    .wh-header {
+        background: linear-gradient(135deg, var(--wh-primary), var(--wh-secondary));
+        color: white;
+        padding: 2rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+        box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    }
+    .wh-header h1 {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-bottom: 1rem;
+    }
+    .wh-meta {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 10px;
+    }
+    .wh-meta-item {
+        background: rgba(255,255,255,0.2);
+        padding: 10px 15px;
+        border-radius: 8px;
+        backdrop-filter: blur(5px);
+    }
+    
+    .wh-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    .wh-stat-card {
+        background: white;
+        padding: 1.5rem;
+        border-radius: 12px;
+        text-align: center;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+        transition: transform 0.2s, box-shadow 0.2s;
+        border-top: 4px solid var(--wh-primary);
+    }
+    .wh-stat-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.12);
+    }
+    .wh-stat-value {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: var(--wh-primary);
+        line-height: 1.2;
+    }
+    .wh-stat-label {
+        color: #666;
+        font-size: 0.95rem;
+        margin-top: 0.5rem;
+    }
+    .wh-stat-icon {
+        font-size: 1.5rem;
+        color: var(--wh-secondary);
+        margin-bottom: 0.5rem;
+    }
+    
+    .wh-section {
+        background: var(--wh-light);
+        padding: 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 1.5rem;
+    }
+    .wh-section-title {
+        color: var(--wh-dark);
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 3px solid var(--wh-primary);
+        display: inline-block;
+    }
+    
+    .wh-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        border-radius: 8px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    .wh-table th {
+        background: var(--wh-dark);
+        color: white;
+        padding: 1rem;
+        text-align: left;
+        font-weight: 600;
+    }
+    .wh-table td {
+        padding: 1rem;
+        border-bottom: 1px solid #eee;
+    }
+    .wh-table tr:hover {
+        background: #f8f9fa;
+    }
+    .wh-table tr:last-child td {
+        border-bottom: none;
+    }
+    
+    .wh-badge {
+        display: inline-block;
+        padding: 4px 12px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+    .wh-badge-draft { background: #dfe6e9; color: #636e72; }
+    .wh-badge-writing { background: var(--wh-info); color: white; }
+    .wh-badge-editing { background: var(--wh-warning); color: #333; }
+    .wh-badge-complete { background: var(--wh-success); color: white; }
+    .wh-badge-active { background: var(--wh-success); color: white; }
+    
+    .wh-action-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 1rem;
+    }
+    .wh-action-btn {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 1rem 1.25rem;
+        background: white;
+        border: 2px solid #eee;
+        border-radius: 10px;
+        color: var(--wh-dark);
+        text-decoration: none;
+        transition: all 0.2s;
+        font-weight: 500;
+    }
+    .wh-action-btn:hover {
+        border-color: var(--wh-primary);
+        color: var(--wh-primary);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(108, 92, 231, 0.15);
+    }
+    .wh-action-btn i {
+        font-size: 1.25rem;
+        color: var(--wh-primary);
+    }
+    
+    .wh-feature-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 1.5rem;
+    }
+    .wh-feature-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+    }
+    .wh-feature-header {
+        background: linear-gradient(135deg, var(--wh-dark), #4a5568);
+        color: white;
+        padding: 1rem 1.25rem;
+        font-weight: 600;
+    }
+    .wh-feature-body {
+        padding: 0;
+    }
+    .wh-feature-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.25rem;
+        border-bottom: 1px solid #f0f0f0;
+        transition: background 0.2s;
+    }
+    .wh-feature-item:last-child {
+        border-bottom: none;
+    }
+    .wh-feature-item:hover {
+        background: #fafafa;
+    }
+    .wh-feature-item i {
+        color: var(--wh-primary);
+        margin-right: 0.75rem;
+    }
+    
+    .wh-info-box {
+        padding: 1rem 1.25rem;
+        border-radius: 8px;
+        margin-bottom: 1rem;
+        border-left: 4px solid;
+    }
+    .wh-info-box.success { background: #d4edda; border-color: var(--wh-success); }
+    .wh-info-box.warning { background: #fff3cd; border-color: var(--wh-warning); }
+    .wh-info-box.info { background: #e7f3ff; border-color: var(--wh-info); }
+    
+    .wh-progress-bar {
+        height: 8px;
+        background: #eee;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-top: 0.5rem;
+    }
+    .wh-progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--wh-primary), var(--wh-secondary));
+        border-radius: 4px;
+        transition: width 0.3s;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="wh-header">
+        <h1>📚 Writing Hub Dashboard</h1>
+        <div class="wh-meta">
+            <div class="wh-meta-item"><strong>Domain:</strong> Book Writing</div>
+            <div class="wh-meta-item"><strong>MCP Server:</strong> book-writing-mcp</div>
+            <div class="wh-meta-item"><strong>AI Status:</strong> ✅ Active</div>
+            <div class="wh-meta-item"><strong>Tools:</strong> 19 verfügbar</div>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="wh-stats">
+        <a href="{% url 'writing_hub:projects_list' %}" class="wh-stat-card" style="text-decoration: none;">
+            <div class="wh-stat-icon"><i class="bi bi-book"></i></div>
+            <div class="wh-stat-value">{{ projects_count|default:"0" }}</div>
+            <div class="wh-stat-label">Book Projects</div>
+        </a>
+        <a href="{% url 'writing_hub:style-lab-dashboard' %}" class="wh-stat-card" style="text-decoration: none;">
+            <div class="wh-stat-icon"><i class="bi bi-palette"></i></div>
+            <div class="wh-stat-value">{{ styles_count|default:"0" }}</div>
+            <div class="wh-stat-label">Style DNAs</div>
+        </a>
+        <a href="#" class="wh-stat-card" style="text-decoration: none;" data-bs-toggle="modal" data-bs-target="#charactersModal">
+            <div class="wh-stat-icon"><i class="bi bi-people"></i></div>
+            <div class="wh-stat-value">{{ characters_count|default:"0" }}</div>
+            <div class="wh-stat-label">Characters</div>
+        </a>
+        <a href="{% url 'writing_hub:world-dashboard' %}" class="wh-stat-card" style="text-decoration: none;">
+            <div class="wh-stat-icon"><i class="bi bi-globe2"></i></div>
+            <div class="wh-stat-value">{{ worlds_count|default:"0" }}</div>
+            <div class="wh-stat-label">Worlds</div>
+        </a>
+        <a href="{% url 'writing_hub:series_dashboard' %}" class="wh-stat-card" style="text-decoration: none;">
+            <div class="wh-stat-icon"><i class="bi bi-collection"></i></div>
+            <div class="wh-stat-value">{{ series_count|default:"0" }}</div>
+            <div class="wh-stat-label">Buchreihen</div>
+        </a>
+    </div>
+
+    <!-- Info Box -->
+    <div class="wh-info-box info">
+        <strong><i class="bi bi-info-circle"></i> MCP Integration aktiv:</strong> 
+        Nutze die API unter <code>/api/mcp/execute</code> mit Server <code>book-writing-mcp</code>
+    </div>
+
+    <!-- Quick Actions -->
+    <div class="wh-section">
+        <h2 class="wh-section-title"><i class="bi bi-lightning-charge"></i> Quick Actions</h2>
+        <div class="wh-action-grid">
+            <a href="{% url 'writing_hub:project_wizard' %}" class="wh-action-btn">
+                <i class="bi bi-plus-circle"></i>
+                <span>Neues Projekt</span>
+            </a>
+            <a href="{% url 'writing_hub:projects_list' %}" class="wh-action-btn">
+                <i class="bi bi-folder2-open"></i>
+                <span>Projekte öffnen</span>
+            </a>
+            <a href="{% url 'writing_hub:style-lab-dashboard' %}" class="wh-action-btn">
+                <i class="bi bi-palette"></i>
+                <span>Style Lab</span>
+            </a>
+            <a href="{% url 'writing_hub:series_dashboard' %}" class="wh-action-btn">
+                <i class="bi bi-collection"></i>
+                <span>Buchreihen</span>
+            </a>
+            <a href="/admin/bfagent/bookprojects/" class="wh-action-btn">
+                <i class="bi bi-gear"></i>
+                <span>Admin</span>
+            </a>
+            <a href="#" class="wh-action-btn" data-bs-toggle="modal" data-bs-target="#illustrationSystemModal">
+                <i class="bi bi-palette2"></i>
+                <span>Illustration-System</span>
+            </a>
+        </div>
+    </div>
+    
+    <!-- Illustration System Project Selection Modal -->
+    <div class="modal fade" id="illustrationSystemModal" tabindex="-1" aria-labelledby="illustrationSystemModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="illustrationSystemModalLabel">
+                        <i class="bi bi-palette2"></i> Illustration-System
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Wähle ein Projekt für das Illustration-System:</p>
+                    {% if recent_projects %}
+                    <div class="list-group">
+                        {% for project in recent_projects %}
+                        <a href="{% url 'writing_hub:prompt_system_setup' project.id %}" class="list-group-item list-group-item-action">
+                            <i class="bi bi-book"></i> {{ project.title }}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Keine Projekte vorhanden. Erstelle zuerst ein Projekt.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <a href="{% url 'writing_hub:projects_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-folder2-open"></i> Alle Projekte
+                    </a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Characters Project Selection Modal -->
+    <div class="modal fade" id="charactersModal" tabindex="-1" aria-labelledby="charactersModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="charactersModalLabel">
+                        <i class="bi bi-people"></i> Characters verwalten
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Wähle ein Projekt, um dessen Characters zu bearbeiten:</p>
+                    {% if recent_projects %}
+                    <div class="list-group">
+                        {% for project in recent_projects %}
+                        <a href="{% url 'writing_hub:character_editor' project.id %}" class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <span><i class="bi bi-book"></i> {{ project.title }}</span>
+                            <span class="badge bg-secondary">{{ project.characters_count|default:0 }} Characters</span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle"></i> Keine Projekte vorhanden. Erstelle zuerst ein Projekt.
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="modal-footer">
+                    <a href="{% url 'writing_hub:projects_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-folder2-open"></i> Alle Projekte
+                    </a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Grid -->
+    <div class="wh-feature-grid">
+        <!-- Creative Agent - Prominent Entry -->
+        <div class="wh-feature-card" style="border: 2px solid #ffc107; background: linear-gradient(135deg, #fff9e6 0%, #ffffff 100%);">
+            <div class="wh-feature-header" style="color: #d4a000;">
+                <i class="bi bi-lightbulb-fill"></i> Kreativ-Agent
+            </div>
+            <div class="wh-feature-body">
+                <p class="text-muted mb-3">Brainstorme Buchideen mit KI-Unterstützung</p>
+                <a href="{% url 'writing_hub:creative-dashboard' %}" class="btn btn-warning w-100">
+                    <i class="bi bi-rocket me-2"></i>Neue Idee starten
+                </a>
+            </div>
+        </div>
+
+        <!-- Story Elements -->
+        <div class="wh-feature-card">
+            <div class="wh-feature-header">
+                <i class="bi bi-journal-text"></i> Story Elements
+            </div>
+            <div class="wh-feature-body">
+                <div class="wh-feature-item">
+                    <span><i class="bi bi-book"></i> Book Projects</span>
+                    <a href="{% url 'writing_hub:projects_list' %}" class="btn btn-sm btn-outline-primary">Manage</a>
+                </div>
+                <div class="wh-feature-item">
+                    <span><i class="bi bi-people"></i> Characters</span>
+                    <a href="#" class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#charactersModal">Manage</a>
+                </div>
+                <div class="wh-feature-item">
+                    <span><i class="bi bi-globe2"></i> Worlds</span>
+                    <a href="{% url 'writing_hub:world-dashboard' %}" class="btn btn-sm btn-outline-primary">Manage</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- AI Handlers -->
+        <div class="wh-feature-card">
+            <div class="wh-feature-header">
+                <i class="bi bi-robot"></i> AI Handlers
+            </div>
+            <div class="wh-feature-body">
+                <div class="wh-feature-item">
+                    <span><i class="bi bi-person-gear"></i> Character Generator</span>
+                    <span class="wh-badge wh-badge-active">Active</span>
+                </div>
+                <div class="wh-feature-item">
+                    <span><i class="bi bi-list-ol"></i> Outline Creator</span>
+                    <span class="wh-badge wh-badge-active">Active</span>
+                </div>
+                <div class="wh-feature-item">
+                    <span><i class="bi bi-palette"></i> Style Lab</span>
+                    <a href="{% url 'writing_hub:style-lab-dashboard' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-arrow-right"></i> Öffnen
+                    </a>
+                </div>
+                <div class="wh-feature-item">
+                    <span><i class="bi bi-check2-circle"></i> Editor Handler</span>
+                    <span class="wh-badge wh-badge-active">Active</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Projects Table -->
+    {% if recent_projects %}
+    <div class="wh-section mt-4">
+        <h2 class="wh-section-title"><i class="bi bi-clock-history"></i> Recent Projects</h2>
+        <table class="wh-table">
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>Title</th>
+                    <th>Genre</th>
+                    <th>Status</th>
+                    <th>Progress</th>
+                    <th>Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for project in recent_projects %}
+                <tr>
+                    <td>{{ project.id }}</td>
+                    <td><strong>{{ project.title }}</strong></td>
+                    <td>{{ project.genre }}</td>
+                    <td>
+                        <span class="wh-badge wh-badge-{{ project.status|lower }}">
+                            {{ project.status|default:"Draft" }}
+                        </span>
+                    </td>
+                    <td style="min-width: 120px;">
+                        <div class="wh-progress-bar">
+                            <div class="wh-progress-fill" style="width: {{ project.progress|default:0 }}%;"></div>
+                        </div>
+                        <small class="text-muted">{{ project.progress|default:0 }}%</small>
+                    </td>
+                    <td>
+                        <a href="{% url 'writing_hub:project_hub' project.id %}" class="btn btn-sm btn-outline-primary" title="Projekt öffnen">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <button type="button" class="btn btn-sm btn-outline-danger ms-1" 
+                                title="Projekt löschen"
+                                onclick="confirmDeleteProject({{ project.id }}, '{{ project.title|escapejs }}')">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    <!-- MCP Tools Reference -->
+    <div class="wh-section mt-4">
+        <h2 class="wh-section-title"><i class="bi bi-terminal"></i> MCP API Reference</h2>
+        <table class="wh-table">
+            <thead>
+                <tr>
+                    <th>Tool</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>book_create_project</code></td>
+                    <td><span class="wh-badge wh-badge-draft">Project</span></td>
+                    <td>Create a new book project</td>
+                </tr>
+                <tr>
+                    <td><code>book_generate_characters</code></td>
+                    <td><span class="wh-badge wh-badge-writing">Characters</span></td>
+                    <td>AI-generate characters for a project</td>
+                </tr>
+                <tr>
+                    <td><code>book_generate_outline</code></td>
+                    <td><span class="wh-badge wh-badge-editing">Outline</span></td>
+                    <td>Generate story outline (Save the Cat, Hero's Journey)</td>
+                </tr>
+                <tr>
+                    <td><code>book_write_chapter</code></td>
+                    <td><span class="wh-badge wh-badge-complete">Chapters</span></td>
+                    <td>Write chapter content</td>
+                </tr>
+                <tr>
+                    <td><code>book_export_manuscript</code></td>
+                    <td><span class="wh-badge wh-badge-active">Export</span></td>
+                    <td>Export as Markdown, HTML, PDF, EPUB</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Delete Project Modal -->
+<div class="modal fade" id="deleteProjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle"></i> Projekt löschen</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Möchtest du das Projekt <strong id="deleteProjectTitle"></strong> wirklich löschen?</p>
+                <p class="text-danger"><small>Diese Aktion kann nicht rückgängig gemacht werden. Alle Kapitel, Charaktere und Welten werden ebenfalls gelöscht.</small></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-danger" id="confirmDeleteBtn">
+                    <i class="bi bi-trash"></i> Endgültig löschen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let deleteProjectId = null;
+
+function confirmDeleteProject(projectId, projectTitle) {
+    deleteProjectId = projectId;
+    document.getElementById('deleteProjectTitle').textContent = projectTitle;
+    new bootstrap.Modal(document.getElementById('deleteProjectModal')).show();
+}
+
+document.getElementById('confirmDeleteBtn').addEventListener('click', function() {
+    if (deleteProjectId) {
+        fetch(`/writing-hub/projects/${deleteProjectId}/delete/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]')?.value || '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                window.location.reload();
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+            }
+        })
+        .catch(err => {
+            alert('Fehler beim Löschen: ' + err);
+        });
+    }
+});
+</script>
+{% endblock %}

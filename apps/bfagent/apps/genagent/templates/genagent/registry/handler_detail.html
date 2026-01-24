@@ -1,0 +1,96 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - Handler Registry{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'genagent:dashboard' %}">GenAgent</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'genagent:registry-dashboard' %}">Registry</a></li>
+                    <li class="breadcrumb-item active">{{ handler.name }}</li>
+                </ol>
+            </nav>
+            <h1 class="h2 mb-1">
+                <i class="bi bi-gear-fill"></i> {{ handler.name }}
+            </h1>
+            <p class="text-muted">{{ handler.description }}</p>
+        </div>
+    </div>
+
+    <!-- Handler Info -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Handler Information</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row mb-0">
+                        <dt class="col-sm-3">Name:</dt>
+                        <dd class="col-sm-9"><code>{{ handler.name }}</code></dd>
+                        
+                        <dt class="col-sm-3">Version:</dt>
+                        <dd class="col-sm-9">{{ handler.version }}</dd>
+                        
+                        <dt class="col-sm-3">Status:</dt>
+                        <dd class="col-sm-9">
+                            {% if handler.status == 'active' %}
+                                <span class="badge bg-success">Active</span>
+                            {% elif handler.status == 'deprecated' %}
+                                <span class="badge bg-warning">Deprecated</span>
+                            {% else %}
+                                <span class="badge bg-info">{{ handler.status|title }}</span>
+                            {% endif %}
+                        </dd>
+                        
+                        <dt class="col-sm-3">Domains:</dt>
+                        <dd class="col-sm-9">
+                            {% for domain in handler.domains %}
+                                <a href="{% url 'genagent:registry-domain-detail' domain %}" class="badge bg-primary">
+                                    {{ domain }}
+                                </a>
+                            {% endfor %}
+                        </dd>
+                        
+                        <dt class="col-sm-3">Description:</dt>
+                        <dd class="col-sm-9">{{ handler.description|default:"No description available" }}</dd>
+                        
+                        {% if handler.class_path %}
+                        <dt class="col-sm-3">Class Path:</dt>
+                        <dd class="col-sm-9"><code>{{ handler.class_path }}</code></dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-play-circle"></i> Test Handler</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">Test this handler with custom input data.</p>
+                    <a href="{% url 'genagent:registry-handler-test' handler_name %}" class="btn btn-primary w-100">
+                        <i class="bi bi-play-fill"></i> Test Handler
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row">
+        <div class="col-12">
+            <a href="{% url 'genagent:registry-dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Registry
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

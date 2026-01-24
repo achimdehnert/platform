@@ -1,0 +1,321 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}{{ item.identifier }} - {{ item.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'control_center:work-items:work-items-dashboard' %}">Work Items</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'control_center:work-items:work-items-list' %}?type={{ item.item_type }}">{{ item.get_item_type_display }}</a></li>
+                    <li class="breadcrumb-item active">{{ item.identifier }}</li>
+                </ol>
+            </nav>
+            <h1 class="h2 mb-0">
+                <span class="badge bg-{% if item.item_type == 'bug' %}danger{% elif item.item_type == 'feature' %}success{% else %}primary{% endif %} me-2">
+                    {{ item.get_item_type_display }}
+                </span>
+                {{ item.identifier }}
+            </h1>
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary" onclick="history.back()">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </button>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Title & Description -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <h3 class="card-title">{{ item.title }}</h3>
+                    {% if item.description %}
+                    <div class="card-text">
+                        {{ item.description|linebreaks }}
+                    </div>
+                    {% else %}
+                    <p class="text-muted">Keine Beschreibung vorhanden</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Type-Specific Details -->
+            {% if bug_details %}
+            <div class="card border-0 shadow-sm mb-4 border-start border-danger border-3">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">🐛 Bug Details</h5>
+                </div>
+                <div class="card-body">
+                    {% if bug_details.url %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">URL</label>
+                        <p><a href="{{ bug_details.url }}" target="_blank">{{ bug_details.url }}</a></p>
+                    </div>
+                    {% endif %}
+                    {% if bug_details.actual_behavior %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Aktuelles Verhalten</label>
+                        <div class="bg-light p-3 rounded">{{ bug_details.actual_behavior|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                    {% if bug_details.expected_behavior %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Erwartetes Verhalten</label>
+                        <div class="bg-light p-3 rounded">{{ bug_details.expected_behavior|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                    {% if bug_details.steps_to_reproduce %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Schritte zur Reproduktion</label>
+                        <div class="bg-light p-3 rounded">{{ bug_details.steps_to_reproduce|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if feature_details %}
+            <div class="card border-0 shadow-sm mb-4 border-start border-success border-3">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">✨ Feature Details</h5>
+                </div>
+                <div class="card-body">
+                    {% if feature_details.user_story %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">User Story</label>
+                        <div class="bg-light p-3 rounded fst-italic">{{ feature_details.user_story|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                    {% if feature_details.specification %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Spezifikation</label>
+                        <div class="bg-light p-3 rounded">{{ feature_details.specification|linebreaks }}</div>
+                    </div>
+                    {% endif %}
+                    {% if feature_details.module_path %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Code-Referenz</label>
+                        <code>{{ feature_details.module_path }}</code>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if task_details %}
+            <div class="card border-0 shadow-sm mb-4 border-start border-primary border-3">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">📋 Task Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Geschätzte Zeit</label>
+                            <p>{% if task_details.estimated_hours %}{{ task_details.estimated_hours }}h{% else %}-{% endif %}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label text-muted">Tatsächliche Zeit</label>
+                            <p>{% if task_details.actual_hours %}{{ task_details.actual_hours }}h{% else %}-{% endif %}</p>
+                        </div>
+                    </div>
+                    {% if task_details.execution_log %}
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Ausführungs-Log</label>
+                        <pre class="bg-dark text-light p-3 rounded">{{ task_details.execution_log }}</pre>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Comments -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">💬 Kommentare</h5>
+                    <span class="badge bg-secondary">{{ comments.count }}</span>
+                </div>
+                <div class="card-body">
+                    <!-- Add Comment Form -->
+                    <form hx-post="{% url 'control_center:work-items:work-item-add-comment' pk=item.pk %}"
+                          hx-target="#comments-list"
+                          hx-swap="afterbegin"
+                          class="mb-4">
+                        {% csrf_token %}
+                        <div class="mb-2">
+                            <textarea name="content" class="form-control" rows="2" placeholder="Kommentar hinzufügen..."></textarea>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <select name="comment_type" class="form-select form-select-sm w-auto">
+                                <option value="comment">💬 Kommentar</option>
+                                <option value="progress">📈 Fortschritt</option>
+                                <option value="blocker">🚫 Blocker</option>
+                                <option value="question">❓ Frage</option>
+                                <option value="solution">💡 Lösung</option>
+                            </select>
+                            <button type="submit" class="btn btn-primary btn-sm">Absenden</button>
+                        </div>
+                    </form>
+
+                    <!-- Comments List -->
+                    <div id="comments-list">
+                        {% for comment in comments %}
+                        {% include "control_center/work_items/partials/comment.html" %}
+                        {% empty %}
+                        <p class="text-muted text-center py-3">Noch keine Kommentare</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Status & Priority -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">⚙️ Eigenschaften</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Status</label>
+                        <div>
+                            <span class="badge bg-{% if item.status == 'done' %}success{% elif item.status == 'in_progress' %}warning{% elif item.status == 'blocked' %}danger{% else %}secondary{% endif %} fs-6">
+                                {{ item.get_status_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Priorität</label>
+                        <div>
+                            <span class="badge bg-{% if item.priority == 'critical' %}danger{% elif item.priority == 'high' %}warning{% else %}secondary{% endif %} fs-6">
+                                {{ item.get_priority_display }}
+                            </span>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Domain</label>
+                        <p class="mb-0">{% if item.domain %}{{ item.domain.display_name }}{% else %}-{% endif %}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Erstellt von</label>
+                        <p class="mb-0">{% if item.created_by %}{{ item.created_by.username }}{% else %}-{% endif %}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Zugewiesen an</label>
+                        <p class="mb-0">{% if item.assigned_to %}{{ item.assigned_to.username }}{% else %}-{% endif %}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- LLM Routing -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">🤖 LLM Routing</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label text-muted">Komplexität</label>
+                        <p class="mb-0">{{ item.get_complexity_display }}</p>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label text-muted">LLM Tier</label>
+                        <div>
+                            {% if item.llm_tier %}
+                            <span class="badge bg-{% if item.llm_tier == 'tier_1' %}success{% elif item.llm_tier == 'tier_2' %}warning{% else %}danger{% endif %} fs-6">
+                                {{ item.get_llm_tier_display }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">Nicht klassifiziert</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if llm_assignments %}
+                    <hr>
+                    <label class="form-label text-muted">Letzte Assignments</label>
+                    {% for assignment in llm_assignments %}
+                    <div class="d-flex justify-content-between small mb-1">
+                        <span>{{ assignment.current_tier }}</span>
+                        <span class="badge bg-{% if assignment.status == 'resolved' %}success{% elif assignment.status == 'failed' %}danger{% else %}secondary{% endif %}">
+                            {{ assignment.get_status_display }}
+                        </span>
+                    </div>
+                    {% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Timestamps -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">📅 Zeitstempel</h6>
+                </div>
+                <div class="card-body small">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Erstellt</span>
+                        <span>{{ item.created_at|date:"d.m.Y H:i" }}</span>
+                    </div>
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Aktualisiert</span>
+                        <span>{{ item.updated_at|date:"d.m.Y H:i" }}</span>
+                    </div>
+                    {% if item.started_at %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Gestartet</span>
+                        <span>{{ item.started_at|date:"d.m.Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                    {% if item.completed_at %}
+                    <div class="d-flex justify-content-between mb-2">
+                        <span class="text-muted">Abgeschlossen</span>
+                        <span>{{ item.completed_at|date:"d.m.Y H:i" }}</span>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Tags -->
+            {% if item.tags %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">🏷️ Tags</h6>
+                </div>
+                <div class="card-body">
+                    {% for tag in item.tags %}
+                    <span class="badge bg-light text-dark me-1 mb-1">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Children -->
+            {% if children %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">📎 Unteraufgaben</h6>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for child in children %}
+                    <a href="{% url 'control_center:work-items:work-item-detail' pk=child.pk %}" class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between">
+                            <span>{{ child.identifier }}</span>
+                            <span class="badge bg-{% if child.status == 'done' %}success{% else %}secondary{% endif %}">
+                                {{ child.get_status_display }}
+                            </span>
+                        </div>
+                        <small class="text-muted">{{ child.title|truncatechars:40 }}</small>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

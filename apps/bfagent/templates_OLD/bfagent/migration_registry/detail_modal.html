@@ -1,0 +1,110 @@
+<div class="modal-header">
+    <h5 class="modal-title">
+        {{ migration.app_label }}.{{ migration.migration_name }}
+    </h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+    <div class="row">
+        <div class="col-md-6">
+            <h6>Status</h6>
+            <p>
+                {% if migration.is_applied %}
+                <span class="badge bg-success">✅ Applied</span>
+                {% else %}
+                <span class="badge bg-warning">⏳ Pending</span>
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-6">
+            <h6>Type</h6>
+            <p><span class="badge bg-secondary">{{ migration.migration_type }}</span></p>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-md-6">
+            <h6>Complexity Score</h6>
+            <p>
+                <span class="badge {% if migration.complexity_score >= 71 %}bg-danger{% elif migration.complexity_score >= 51 %}bg-warning{% elif migration.complexity_score >= 31 %}bg-info{% else %}bg-success{% endif %}">
+                    {{ migration.complexity_score }}
+                </span>
+                {% if migration.complexity_score >= 71 %}
+                🚨 Critical
+                {% elif migration.complexity_score >= 51 %}
+                🔥 Risky
+                {% elif migration.complexity_score >= 31 %}
+                ⚠️ Careful
+                {% else %}
+                ✅ Safe
+                {% endif %}
+            </p>
+        </div>
+        <div class="col-md-6">
+            <h6>Reversible</h6>
+            <p>
+                {% if migration.is_reversible %}
+                <span class="text-success">✅ Yes</span>
+                {% else %}
+                <span class="text-danger">❌ No</span>
+                {% endif %}
+            </p>
+        </div>
+    </div>
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <h6>File</h6>
+            <p><code>{{ migration.file_path }}</code></p>
+        </div>
+    </div>
+
+    {% if migration.description %}
+    <div class="row mt-3">
+        <div class="col-12">
+            <h6>Description</h6>
+            <p>{{ migration.description }}</p>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row mt-3">
+        <div class="col-12">
+            <h6>File Hash</h6>
+            <p><code class="small">{{ migration.file_hash }}</code></p>
+        </div>
+    </div>
+
+    {% if migration.warnings %}
+    <div class="row mt-3">
+        <div class="col-12">
+            <h6>Warnings</h6>
+            <div class="alert alert-warning">
+                <ul class="mb-0">
+                    {% for warning in migration.warnings %}
+                    <li>{{ warning }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if migration.rollback_risks %}
+    <div class="row mt-3">
+        <div class="col-12">
+            <h6>Rollback Risks</h6>
+            <div class="alert alert-danger">
+                <ul class="mb-0">
+                    {% for risk in migration.rollback_risks %}
+                    <li>{{ risk }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>

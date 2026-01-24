@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+
+{% block title %}{{ title }} - BF Agent{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-toggles"></i> {{ title }}</h1>
+        <a href="{% url 'control_center:hub_management' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+    </div>
+
+    <div class="alert alert-info">
+        <i class="bi bi-info-circle"></i>
+        Feature Flags können auch via Environment Variables gesetzt werden: 
+        <code>FEATURE_FLAG_&lt;NAME&gt;=true</code>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <i class="bi bi-toggle-on"></i> Verfügbare Feature Flags
+        </div>
+        <div class="card-body p-0" id="feature-flags-container">
+            {% include "control_center/hub_management/_feature_flags.html" %}
+        </div>
+    </div>
+
+    <div class="card mt-4">
+        <div class="card-header">
+            <i class="bi bi-code-square"></i> Verwendung im Code
+        </div>
+        <div class="card-body">
+<pre><code class="language-python"># Prüfen ob Feature aktiv
+from apps.core.feature_flags import is_feature_enabled
+
+if is_feature_enabled('USE_EVENT_BUS'):
+    event_bus.publish(Events.CONTENT_GENERATED, ...)
+
+# Feature aktivieren/deaktivieren
+from apps.core.feature_flags import enable_feature, disable_feature
+
+enable_feature('USE_EVENT_BUS')
+disable_feature('USE_HUB_REGISTRY')
+</code></pre>
+        </div>
+    </div>
+</div>
+{% endblock %}

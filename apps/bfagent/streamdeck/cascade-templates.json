@@ -1,0 +1,160 @@
+{
+  "name": "CASCADE Templates Collection",
+  "version": "1.0",
+  "created": "2025-12-11",
+  "description": "Alle CASCADE Templates für Copy-Paste Workflow mit BFAgent MCP",
+  "templates": {
+    "feature_request": {
+      "name": "Feature Request",
+      "shortcut": "cascade-feature",
+      "text": "### Request: [FEATURE NAME]\n\n**Ziel:**\n[WAS SOLL ERREICHT WERDEN?]\n\n**Requirements:**\n- [ ] Requirement 1\n- [ ] Requirement 2\n- [ ] Requirement 3\n\n**Constraints:**\n- [EINSCHRÄNKUNGEN]\n\n**Tools:**\n- [x] BFAgent MCP für Best Practices\n- [x] Check Protected Paths\n\n**Plan:**\n[x] Zeig mir erst den Plan\n\n**Testing:**\n- [ ] [TESTING REQUIREMENTS]"
+    },
+    "quick_task": {
+      "name": "Quick Task",
+      "shortcut": "cascade-quick",
+      "text": "Task: [ONE-LINER]\n\nRequirements:\n- [ ] Thing 1\n- [ ] Thing 2\n- [ ] Thing 3\n\nTools: BFAgent MCP best_practices\n\nPlan: show first"
+    },
+    "bug_fix": {
+      "name": "Bug Fix",
+      "shortcut": "cascade-bug",
+      "text": "### Bug Fix: [PROBLEM]\n\n**Symptom:**\n[WAS FUNKTIONIERT NICHT?]\n\n**Error Message:**\n```\n[ERROR]\n```\n\n**Location:**\n- File: [PATH]\n- Function: [NAME]\n\n**Expected Behavior:**\n[WAS SOLLTE PASSIEREN?]\n\n**Tools:**\n- [x] BFAgent MCP Protected Paths checken"
+    },
+    "refactoring": {
+      "name": "Refactoring",
+      "shortcut": "cascade-refactor",
+      "text": "### Refactoring: [COMPONENT]\n\n**Ziel:**\n[WARUM REFACTOREN?]\n\n**Scope:**\n- Domain: [DOMAIN]\n- Component: [TYPE]\n\n**Safety Checks:**\n- [x] BFAgent MCP: get_refactor_options('[DOMAIN]')\n- [x] BFAgent MCP: check_path_protection()\n- [x] BFAgent MCP: get_best_practices()\n\n**Plan:**\n[x] Zeig mir erst den Plan"
+    },
+    "minimal_request": {
+      "name": "Minimal Request",
+      "shortcut": "cascade-min",
+      "text": "@CASCADE:\nTask: [BESCHREIBUNG]\nRequirements: [LISTE]\nTools: BFAgent MCP\nPlan: show first"
+    },
+    "context_request": {
+      "name": "Context Request",
+      "shortcut": "cascade-context",
+      "text": "@CASCADE: Context needed\n\n**Frage:**\n[WAS MÖCHTE ICH WISSEN?]\n\n**Nutze:**\n- [ ] code_search\n- [ ] BFAgent MCP: search_handlers\n- [ ] BFAgent MCP: get_domain\n\n**Don't code yet - investigation only**"
+    },
+    "plan_request": {
+      "name": "Plan Request",
+      "shortcut": "cascade-plan",
+      "text": "@CASCADE: Zeig mir erst den Plan für:\n\n[BESCHREIBUNG DER AUFGABE]\n\nSchritte:\n- [ ] Step 1\n- [ ] Step 2\n- [ ] Step 3"
+    },
+    "checkpoint": {
+      "name": "Checkpoint",
+      "shortcut": "cascade-checkpoint",
+      "text": "@CASCADE: Checkpoint\n\n- Was ist der Stand?\n- Was fehlt noch?\n- Welche Requirements sind noch offen?"
+    },
+    "best_practices": {
+      "name": "BFAgent Best Practices",
+      "shortcut": "mcp-best",
+      "text": "Frage BFAgent MCP nach Best Practices für: [THEMA]\n\nBeispiele:\n- handlers\n- pydantic\n- ai_integration\n- testing\n- error_handling\n- performance"
+    },
+    "protected_paths": {
+      "name": "Protected Paths Check",
+      "shortcut": "mcp-protected",
+      "text": "Check mit BFAgent MCP die Protected Paths für: [FILE_PATH]\n\nIMMER vor Datei-Änderungen checken!"
+    },
+    "naming_convention": {
+      "name": "Naming Convention",
+      "shortcut": "mcp-naming",
+      "text": "Hole Naming Convention von BFAgent MCP für: [DOMAIN]\n\nDomains: books, core, expert_hub, ui_hub, etc."
+    },
+    "domain_info": {
+      "name": "Domain Info",
+      "shortcut": "mcp-domain",
+      "text": "Zeige mir Domain Info via BFAgent MCP für: [DOMAIN]\n\nInclude:\n- [x] Handlers\n- [x] Phases\n- [x] Status"
+    },
+    "search_handlers": {
+      "name": "Search Handlers",
+      "shortcut": "mcp-search",
+      "text": "Suche mit BFAgent MCP nach existierenden Handlers für: [FUNKTIONALITÄT]\n\nQuery: [z.B. \"PDF parsing\", \"Character generation\"]"
+    },
+    "refactor_options": {
+      "name": "Refactor Options",
+      "shortcut": "mcp-refactor-opts",
+      "text": "Hole Refactoring Options von BFAgent MCP für Domain: [DOMAIN]\n\nZeige:\n- Available components\n- Risk level\n- Dependencies\n- Protected paths"
+    },
+    "get_domain": {
+      "name": "Get Domain Details",
+      "shortcut": "mcp-get-domain",
+      "text": "Nutze BFAgent MCP: get_domain()\n\nDomain ID: [DOMAIN_ID]\nInclude handlers: [x]\nInclude phases: [x]\nResponse format: markdown"
+    },
+    "validate_handler": {
+      "name": "Validate Handler",
+      "shortcut": "mcp-validate",
+      "text": "Validiere Handler mit BFAgent MCP:\n\nHandler Code: [PATH_TO_HANDLER]\nStrict Mode: [ ] yes [x] no\n\nErwarte Score: 0-100"
+    },
+    "create_domain": {
+      "name": "Create Domain",
+      "shortcut": "create-domain",
+      "text": "### New Domain: [DOMAIN_NAME]\n\n**Purpose:**\n[WAS MACHT DIESE DOMAIN?]\n\n**Models:**\n- [ ] Model 1: [name] - [purpose]\n\n**Handlers:**\n- [ ] Handler 1: [name] - [what it does]\n\n**BFAgent MCP:**\n- [x] get_naming_convention()\n- [x] scaffold_domain()\n- [x] Domain in domain_arts registrieren"
+    },
+    "create_handler": {
+      "name": "Create Handler",
+      "shortcut": "create-handler",
+      "text": "Erstelle Handler mit BFAgent MCP:\n\nHandler Name: [NAME]\nDomain: [DOMAIN]\nHandler Type: [ai_powered/rule_based/hybrid]\nDescription: [BESCHREIBUNG]\n\nInclude Tests: [x] yes"
+    },
+    "create_view": {
+      "name": "Create View",
+      "shortcut": "create-view",
+      "text": "Erstelle View:\n\nView Name: [NAME]\nURL: /[path]/\nTemplate: [app]/[name].html\n\nFeatures:\n- [ ] Feature 1\n- [ ] Feature 2\n\nTools: BFAgent MCP"
+    },
+    "create_model": {
+      "name": "Create Model",
+      "shortcut": "create-model",
+      "text": "Erstelle Model:\n\nModel Name: [NAME]\nApp: [APP]\nTable Name: [prefix]_[name]\n\nFields:\n- [ ] Field 1: [type]\n- [ ] Field 2: [type]\n\nTools: BFAgent MCP naming"
+    },
+    "create_test": {
+      "name": "Create Test",
+      "shortcut": "create-test",
+      "text": "Erstelle Test:\n\nTest Type: [unit/integration/e2e]\nTarget: [FILE_OR_FUNCTION]\n\nTest Cases:\n- [ ] Case 1\n- [ ] Case 2\n\nTools: BFAgent MCP best_practices"
+    },
+    "golden_rules": {
+      "name": "Golden Rules",
+      "shortcut": "golden-rules",
+      "text": "🏆 CASCADE Golden Rules:\n\n1. REQUIREMENTS FIRST\n   → Liste was du willst\n\n2. PLAN BEFORE CODE\n   → \"Zeig mir erst den Plan\"\n\n3. USE BFAGENT MCP\n   → \"Check mit BFAgent MCP\"\n\nImmer befolgen! ✅"
+    },
+    "continue_task": {
+      "name": "Continue Task",
+      "shortcut": "session-continue",
+      "text": "@CASCADE: Continue mit letzter Task\n\nContext:\n- Letzte Anfrage war: [BESCHREIBUNG]\n- Stand ist: [STATUS]\n- Nächster Schritt: [STEP]\n\nBitte fortfahren!"
+    },
+    "pause_task": {
+      "name": "Pause Task",
+      "shortcut": "session-pause",
+      "text": "@CASCADE: Pause aktuelle Task\n\nBitte speichere:\n- [ ] Aktuellen Stand\n- [ ] Offene TODOs\n- [ ] Nächste Schritte\n\nDokumentiere in: ACTIVE_CONTEXT.md"
+    },
+    "start_session": {
+      "name": "Start Session",
+      "shortcut": "session-start",
+      "text": "@CASCADE: Neue Session starten\n\nSession Goal: [HAUPTZIEL]\n\nTasks:\n- [ ] Task 1\n- [ ] Task 2\n\nErstelle Plan und ACTIVE_CONTEXT.md!"
+    },
+    "complete_session": {
+      "name": "Complete Session",
+      "shortcut": "session-complete",
+      "text": "@CASCADE: Session abschließen\n\nBitte erstelle:\n- [ ] Session Summary\n- [ ] Commit & Push vorbereiten\n- [ ] Safe Restart Doku\n\nWas wurde erreicht?"
+    },
+    "snapshot_status": {
+      "name": "Snapshot Status",
+      "shortcut": "session-snapshot",
+      "text": "@CASCADE: Status Snapshot\n\nCheckpoint:\n- Was ist der Stand?\n- Was fehlt noch?\n- Welche Files geändert?\n- Bereit für Commit?"
+    },
+    "save_state": {
+      "name": "Save State",
+      "shortcut": "session-save",
+      "text": "@CASCADE: Save current state\n\nErstelle/Update:\n- ACTIVE_CONTEXT.md\n- Alle TODOs\n- Offene Requirements\n\nFür sicheren Restart!"
+    }
+  },
+  "usage": {
+    "manual": "Öffne diese Datei, suche Template, kopiere Text",
+    "streamdeck": "Nutze mit Super Macro Plugin für 1-Klick Copy",
+    "vscode_snippets": "Nutze cascade-snippets.code-snippets für TAB-Completion"
+  },
+  "categories": {
+    "templates": ["feature_request", "quick_task", "bug_fix", "refactoring", "minimal_request", "context_request", "plan_request", "checkpoint"],
+    "mcp_tools": ["best_practices", "protected_paths", "naming_convention", "domain_info", "search_handlers", "refactor_options", "get_domain", "validate_handler"],
+    "creation": ["create_domain", "create_handler", "create_view", "create_model", "create_test"],
+    "session": ["continue_task", "pause_task", "start_session", "complete_session", "snapshot_status", "save_state"],
+    "meta": ["golden_rules"]
+  }
+}

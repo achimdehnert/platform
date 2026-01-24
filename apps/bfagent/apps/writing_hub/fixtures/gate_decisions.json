@@ -1,0 +1,66 @@
+[
+  {
+    "model": "writing_hub.gatedecisiontype",
+    "pk": "22222222-2222-2222-2222-222222222001",
+    "fields": {
+      "code": "approve",
+      "name_de": "Freigegeben",
+      "name_en": "Approved",
+      "description": "Kapitel erfüllt alle Qualitätskriterien und kann committet werden",
+      "color": "success",
+      "icon": "bi-check-circle-fill",
+      "allows_commit": true,
+      "sort_order": 1,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.gatedecisiontype",
+    "pk": "22222222-2222-2222-2222-222222222002",
+    "fields": {
+      "code": "review",
+      "name_de": "Review nötig",
+      "name_en": "Review Required",
+      "description": "Kapitel ist gut, aber manuelle Überprüfung erforderlich",
+      "color": "warning",
+      "icon": "bi-eye-fill",
+      "allows_commit": false,
+      "sort_order": 2,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.gatedecisiontype",
+    "pk": "22222222-2222-2222-2222-222222222003",
+    "fields": {
+      "code": "revise",
+      "name_de": "Überarbeiten",
+      "name_en": "Revision Needed",
+      "description": "Kapitel hat Qualitätsmängel und muss überarbeitet werden",
+      "color": "info",
+      "icon": "bi-pencil-fill",
+      "allows_commit": false,
+      "sort_order": 3,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  },
+  {
+    "model": "writing_hub.gatedecisiontype",
+    "pk": "22222222-2222-2222-2222-222222222004",
+    "fields": {
+      "code": "reject",
+      "name_de": "Abgelehnt",
+      "name_en": "Rejected",
+      "description": "Kapitel erfüllt Mindestanforderungen nicht und muss neu geschrieben werden",
+      "color": "danger",
+      "icon": "bi-x-circle-fill",
+      "allows_commit": false,
+      "sort_order": 4,
+      "created_at": "2026-01-06T12:00:00Z",
+      "updated_at": "2026-01-06T12:00:00Z"
+    }
+  }
+]

@@ -1,0 +1,54 @@
+<!-- templates/cad_hub/model_upload.html -->
+{% extends "cad_hub/base.html" %}
+
+{% block content %}
+<div class="p-8 max-w-xl mx-auto">
+    <h2 class="text-2xl font-bold text-white mb-6">IFC-Datei hochladen</h2>
+
+    <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div class="mb-6">
+                <label class="block text-slate-400 text-sm mb-2">Projekt</label>
+                <p class="text-white font-medium">{{ project.name }}</p>
+            </div>
+
+            <div class="mb-6">
+                <label for="id_ifc_file" class="block text-slate-400 text-sm mb-2">
+                    IFC-Datei auswählen
+                </label>
+                <input type="file"
+                       name="ifc_file"
+                       id="id_ifc_file"
+                       accept=".ifc"
+                       required
+                       class="w-full bg-slate-900 border border-slate-700 rounded-lg px-4 py-3 text-white
+                              file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0
+                              file:bg-amber-500 file:text-slate-900 file:font-medium
+                              file:cursor-pointer hover:file:bg-amber-600">
+                <p class="text-slate-500 text-xs mt-2">Unterstützt: IFC2x3, IFC4</p>
+            </div>
+
+            {% if form.errors %}
+            <div class="mb-6 bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                {% for field, errors in form.errors.items %}
+                <p class="text-red-400 text-sm">{{ errors|join:", " }}</p>
+                {% endfor %}
+            </div>
+            {% endif %}
+
+            <button type="submit"
+                    class="w-full bg-amber-500 hover:bg-amber-600 text-slate-900 py-3 rounded-lg font-semibold transition-colors">
+                Hochladen & Verarbeiten
+            </button>
+        </form>
+    </div>
+
+    <div class="mt-6 text-center">
+        <a href="{% url 'cad_hub:project_detail' project.pk %}" class="text-slate-400 hover:text-white">
+            ← Zurück zum Projekt
+        </a>
+    </div>
+</div>
+{% endblock %}

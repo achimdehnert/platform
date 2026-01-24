@@ -1,0 +1,207 @@
+Core services registered successfully
+Input handlers registered: 5
+Processing handlers registered: 3
+Output handlers registered: 3
+Registered tool: htmx_scanner v3.0.0
+Registered tool: template_validator v1.0.0
+Registered tool: system_validator v2.0.0
+Registered tool: code_formatter v1.0.0
+Registered tool: git_sync v3.0.0
+Registered tool: model_checker v3.0.0
+Registered tool: migration_fixer v1.0.0
+Registered tool: phase_agent_manager v1.0.0
+Registered tool: screen_documentation v1.0.0
+Registered tool: visual_explorer v1.0.0
+Registered tool: api_checker v4.0.0
+Registered tool: graphql_generator v3.0.0
+Registered tool: graphql_analyzer v1.0.0
+Registered tool: graphql_monitor v1.0.0
+Registered tool: theme_switcher v3.0.0
+Registered tool: csrf_setup v1.0.0
+Registered tool: enhanced_analyzer v1.0.0
+Registered tool: integrated_analyzer v1.0.0
+Registered tool: hybrid_analyzer v1.0.0
+Registered tool: tool_docs_enhanced v1.0.0
+Registered tool: optimized_analyzer v2.0.0
+Registered tool: unicode_safe_analyzer v1.0.0
+Registered tool: enhanced_unicode_analyzer v2.0.0
+Registered tool: code_repair_tool v1.0.0
+Registered tool: enhanced_cli_analyzer v1.0.0
+Registered tool: safe_auto_fixer v1.0.0
+Tool registry initialized with optimized BF Agent tools
+Registered handler 'apps.genagent.handlers.demo_handlers.WelcomeHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataValidationHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataTransformHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.LogHandler' v1.0.0 for domains: ['demo']
+C:\Users\achim\github\bfagent\.venv\Lib\site-packages\pydantic\_internal\_config.py:383: UserWarning: Valid config keys have changed in V2:
+* 'schema_extra' has been renamed to 'json_schema_extra'
+  warnings.warn(message, UserWarning)
+Registry initialized
+(0.000) BEGIN; args=None; alias=default
+(0.000) SELECT JSON('{"a": "b"}'); args=None; alias=default
+(0.000) COMMIT; args=None; alias=default
+(0.016) 
+            SELECT name, type FROM sqlite_master
+            WHERE type in ('table', 'view') AND NOT name='sqlite_sequence'
+            ORDER BY name; args=None; alias=default
+(0.000) SELECT "django_migrations"."id", "django_migrations"."app", "django_migrations"."name", "django_migrations"."applied" FROM "django_migrations"; args=(); alias=default
+(0.000) 
+            SELECT name, type FROM sqlite_master
+            WHERE type in ('table', 'view') AND NOT name='sqlite_sequence'
+            ORDER BY name; args=None; alias=default
+(0.000) SELECT "django_migrations"."id", "django_migrations"."app", "django_migrations"."name", "django_migrations"."applied" FROM "django_migrations"; args=(); alias=default
+(0.000) 
+            SELECT name, type FROM sqlite_master
+            WHERE type in ('table', 'view') AND NOT name='sqlite_sequence'
+            ORDER BY name; args=None; alias=default
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+Operations to perform:
+  Apply all migrations: core
+Running migrations:
+(0.000) PRAGMA foreign_keys = OFF; args=None; alias=default
+(0.000) PRAGMA foreign_keys; args=None; alias=default
+(0.000) BEGIN; args=None; alias=default
+CREATE TABLE "handlers" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "code" varchar(100) NOT NULL UNIQUE, "name" varchar(200) NOT NULL, "description" text NOT NULL, "category" varchar(20) NOT NULL, "module_path" varchar(255) NOT NULL, "class_name" varchar(100) NOT NULL, "config_schema" text NOT NULL CHECK ((JSON_VALID("config_schema") OR "config_schema" IS NULL)), "input_schema" text NOT NULL CHECK ((JSON_VALID("input_schema") OR "input_schema" IS NULL)), "output_schema" text NOT NULL CHECK ((JSON_VALID("output_schema") OR "output_schema" IS NULL)), "version" varchar(20) NOT NULL, "is_deprecated" bool NOT NULL, "deprecation_reason" text NOT NULL, "avg_execution_time_ms" integer NOT NULL, "success_rate" real NOT NULL, "total_executions" integer NOT NULL, "is_active" bool NOT NULL, "requires_llm" bool NOT NULL, "is_experimental" bool NOT NULL, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "documentation_url" varchar(200) NOT NULL, "example_config" text NOT NULL CHECK ((JSON_VALID("example_config") OR "example_config" IS NULL)), "created_by_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "replacement_handler_id" bigint NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED); (params None)
+(0.000) CREATE TABLE "handlers" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "code" varchar(100) NOT NULL UNIQUE, "name" varchar(200) NOT NULL, "description" text NOT NULL, "category" varchar(20) NOT NULL, "module_path" varchar(255) NOT NULL, "class_name" varchar(100) NOT NULL, "config_schema" text NOT NULL CHECK ((JSON_VALID("config_schema") OR "config_schema" IS NULL)), "input_schema" text NOT NULL CHECK ((JSON_VALID("input_schema") OR "input_schema" IS NULL)), "output_schema" text NOT NULL CHECK ((JSON_VALID("output_schema") OR "output_schema" IS NULL)), "version" varchar(20) NOT NULL, "is_deprecated" bool NOT NULL, "deprecation_reason" text NOT NULL, "avg_execution_time_ms" integer NOT NULL, "success_rate" real NOT NULL, "total_executions" integer NOT NULL, "is_active" bool NOT NULL, "requires_llm" bool NOT NULL, "is_experimental" bool NOT NULL, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "documentation_url" varchar(200) NOT NULL, "example_config" text NOT NULL CHECK ((JSON_VALID("example_config") OR "example_config" IS NULL)), "created_by_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "replacement_handler_id" bigint NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED); args=None; alias=default
+CREATE TABLE "handlers_required_handlers" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "from_handler_id" bigint NOT NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED, "to_handler_id" bigint NOT NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED); (params None)
+(0.000) CREATE TABLE "handlers_required_handlers" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "from_handler_id" bigint NOT NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED, "to_handler_id" bigint NOT NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED); args=None; alias=default
+(0.016) PRAGMA foreign_key_check; args=None; alias=default
+CREATE INDEX "handlers_category_b0c39aba" ON "handlers" ("category"); (params None)
+(0.000) CREATE INDEX "handlers_category_b0c39aba" ON "handlers" ("category"); args=None; alias=default
+CREATE INDEX "handlers_is_deprecated_5866c6db" ON "handlers" ("is_deprecated"); (params None)
+(0.000) CREATE INDEX "handlers_is_deprecated_5866c6db" ON "handlers" ("is_deprecated"); args=None; alias=default
+CREATE INDEX "handlers_total_executions_43e2c307" ON "handlers" ("total_executions"); (params None)
+(0.000) CREATE INDEX "handlers_total_executions_43e2c307" ON "handlers" ("total_executions"); args=None; alias=default
+CREATE INDEX "handlers_is_active_b3e12f2c" ON "handlers" ("is_active"); (params None)
+(0.000) CREATE INDEX "handlers_is_active_b3e12f2c" ON "handlers" ("is_active"); args=None; alias=default
+CREATE INDEX "handlers_requires_llm_86145fa0" ON "handlers" ("requires_llm"); (params None)
+(0.000) CREATE INDEX "handlers_requires_llm_86145fa0" ON "handlers" ("requires_llm"); args=None; alias=default
+CREATE INDEX "handlers_created_by_id_dd9d5169" ON "handlers" ("created_by_id"); (params None)
+(0.000) CREATE INDEX "handlers_created_by_id_dd9d5169" ON "handlers" ("created_by_id"); args=None; alias=default
+CREATE INDEX "handlers_replacement_handler_id_9ffe2859" ON "handlers" ("replacement_handler_id"); (params None)
+(0.000) CREATE INDEX "handlers_replacement_handler_id_9ffe2859" ON "handlers" ("replacement_handler_id"); args=None; alias=default
+CREATE INDEX "hdlr_cat_active_idx" ON "handlers" ("category", "is_active"); (params None)
+(0.000) CREATE INDEX "hdlr_cat_active_idx" ON "handlers" ("category", "is_active"); args=None; alias=default
+CREATE INDEX "hdlr_code_idx" ON "handlers" ("code"); (params None)
+(0.000) CREATE INDEX "hdlr_code_idx" ON "handlers" ("code"); args=None; alias=default
+CREATE INDEX "hdlr_executions_idx" ON "handlers" ("total_executions" DESC); (params None)
+(0.000) CREATE INDEX "hdlr_executions_idx" ON "handlers" ("total_executions" DESC); args=None; alias=default
+CREATE INDEX "hdlr_status_idx" ON "handlers" ("is_active", "is_deprecated"); (params None)
+(0.000) CREATE INDEX "hdlr_status_idx" ON "handlers" ("is_active", "is_deprecated"); args=None; alias=default
+CREATE INDEX "hdlr_llm_active_idx" ON "handlers" ("requires_llm", "is_active"); (params None)
+(0.000) CREATE INDEX "hdlr_llm_active_idx" ON "handlers" ("requires_llm", "is_active"); args=None; alias=default
+CREATE UNIQUE INDEX "handlers_required_handlers_from_handler_id_to_handler_id_10ce2ee3_uniq" ON "handlers_required_handlers" ("from_handler_id", "to_handler_id"); (params None)
+(0.000) CREATE UNIQUE INDEX "handlers_required_handlers_from_handler_id_to_handler_id_10ce2ee3_uniq" ON "handlers_required_handlers" ("from_handler_id", "to_handler_id"); args=None; alias=default
+CREATE INDEX "handlers_required_handlers_from_handler_id_f94aaa59" ON "handlers_required_handlers" ("from_handler_id"); (params None)
+(0.016) CREATE INDEX "handlers_required_handlers_from_handler_id_f94aaa59" ON "handlers_required_handlers" ("from_handler_id"); args=None; alias=default
+CREATE INDEX "handlers_required_handlers_to_handler_id_36dd5465" ON "handlers_required_handlers" ("to_handler_id"); (params None)
+(0.000) CREATE INDEX "handlers_required_handlers_to_handler_id_36dd5465" ON "handlers_required_handlers" ("to_handler_id"); args=None; alias=default
+(0.000) COMMIT; args=None; alias=default
+(0.000) PRAGMA foreign_keys = ON; args=None; alias=default
+(0.000) INSERT INTO "django_migrations" ("app", "name", "applied") VALUES ('core', '0003_move_handler_to_core', '2025-12-08 18:04:04.789430') RETURNING "django_migrations"."id"; args=('core', '0003_move_handler_to_core', '2025-12-08 18:04:04.789430'); alias=default
+  Applying core.0003_move_handler_to_core... OK
+(0.000) PRAGMA foreign_keys = OFF; args=None; alias=default
+(0.000) PRAGMA foreign_keys; args=None; alias=default
+(0.000) BEGIN; args=None; alias=default
+ALTER TABLE "handlers" ADD COLUMN "category_id" bigint NULL REFERENCES "handler_categories" ("id") DEFERRABLE INITIALLY DEFERRED; (params None)
+(0.000) ALTER TABLE "handlers" ADD COLUMN "category_id" bigint NULL REFERENCES "handler_categories" ("id") DEFERRABLE INITIALLY DEFERRED; args=None; alias=default
+CREATE TABLE "new__handlers" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "code" varchar(100) NOT NULL UNIQUE, "name" varchar(200) NOT NULL, "description" text NOT NULL, "module_path" varchar(255) NOT NULL, "class_name" varchar(100) NOT NULL, "config_schema" text NOT NULL CHECK ((JSON_VALID("config_schema") OR "config_schema" IS NULL)), "input_schema" text NOT NULL CHECK ((JSON_VALID("input_schema") OR "input_schema" IS NULL)), "output_schema" text NOT NULL CHECK ((JSON_VALID("output_schema") OR "output_schema" IS NULL)), "version" varchar(20) NOT NULL, "is_deprecated" bool NOT NULL, "deprecation_reason" text NOT NULL, "avg_execution_time_ms" integer NOT NULL, "success_rate" real NOT NULL, "total_executions" integer NOT NULL, "is_active" bool NOT NULL, "requires_llm" bool NOT NULL, "is_experimental" bool NOT NULL, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "documentation_url" varchar(200) NOT NULL, "example_config" text NOT NULL CHECK ((JSON_VALID("example_config") OR "example_config" IS NULL)), "created_by_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "category_id" bigint NULL REFERENCES "handler_categories" ("id") DEFERRABLE INITIALLY DEFERRED, "category" varchar(20) NULL, "replacement_handler_id" bigint NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED); (params None)
+(0.000) CREATE TABLE "new__handlers" ("id" integer NOT NULL PRIMARY KEY AUTOINCREMENT, "code" varchar(100) NOT NULL UNIQUE, "name" varchar(200) NOT NULL, "description" text NOT NULL, "module_path" varchar(255) NOT NULL, "class_name" varchar(100) NOT NULL, "config_schema" text NOT NULL CHECK ((JSON_VALID("config_schema") OR "config_schema" IS NULL)), "input_schema" text NOT NULL CHECK ((JSON_VALID("input_schema") OR "input_schema" IS NULL)), "output_schema" text NOT NULL CHECK ((JSON_VALID("output_schema") OR "output_schema" IS NULL)), "version" varchar(20) NOT NULL, "is_deprecated" bool NOT NULL, "deprecation_reason" text NOT NULL, "avg_execution_time_ms" integer NOT NULL, "success_rate" real NOT NULL, "total_executions" integer NOT NULL, "is_active" bool NOT NULL, "requires_llm" bool NOT NULL, "is_experimental" bool NOT NULL, "created_at" datetime NOT NULL, "updated_at" datetime NOT NULL, "documentation_url" varchar(200) NOT NULL, "example_config" text NOT NULL CHECK ((JSON_VALID("example_config") OR "example_config" IS NULL)), "created_by_id" integer NULL REFERENCES "auth_user" ("id") DEFERRABLE INITIALLY DEFERRED, "category_id" bigint NULL REFERENCES "handler_categories" ("id") DEFERRABLE INITIALLY DEFERRED, "category" varchar(20) NULL, "replacement_handler_id" bigint NULL REFERENCES "handlers" ("id") DEFERRABLE INITIALLY DEFERRED); args=None; alias=default
+INSERT INTO "new__handlers" ("id", "code", "name", "description", "module_path", "class_name", "config_schema", "input_schema", "output_schema", "version", "is_deprecated", "deprecation_reason", "avg_execution_time_ms", "success_rate", "total_executions", "is_active", "requires_llm", "is_experimental", "created_at", "updated_at", "documentation_url", "example_config", "created_by_id", "replacement_handler_id", "category_id", "category") SELECT "id", "code", "name", "description", "module_path", "class_name", "config_schema", "input_schema", "output_schema", "version", "is_deprecated", "deprecation_reason", "avg_execution_time_ms", "success_rate", "total_executions", "is_active", "requires_llm", "is_experimental", "created_at", "updated_at", "documentation_url", "example_config", "created_by_id", "replacement_handler_id", "category_id", "category" FROM "handlers"; (params ())
+(0.000) INSERT INTO "new__handlers" ("id", "code", "name", "description", "module_path", "class_name", "config_schema", "input_schema", "output_schema", "version", "is_deprecated", "deprecation_reason", "avg_execution_time_ms", "success_rate", "total_executions", "is_active", "requires_llm", "is_experimental", "created_at", "updated_at", "documentation_url", "example_config", "created_by_id", "replacement_handler_id", "category_id", "category") SELECT "id", "code", "name", "description", "module_path", "class_name", "config_schema", "input_schema", "output_schema", "version", "is_deprecated", "deprecation_reason", "avg_execution_time_ms", "success_rate", "total_executions", "is_active", "requires_llm", "is_experimental", "created_at", "updated_at", "documentation_url", "example_config", "created_by_id", "replacement_handler_id", "category_id", "category" FROM "handlers"; args=(); alias=default
+DROP TABLE "handlers"; (params ())
+(0.000) DROP TABLE "handlers"; args=(); alias=default
+ALTER TABLE "new__handlers" RENAME TO "handlers"; (params ())
+(0.031) ALTER TABLE "new__handlers" RENAME TO "handlers"; args=(); alias=default
+CREATE INDEX "handlers_is_deprecated_5866c6db" ON "handlers" ("is_deprecated"); (params ())
+(0.000) CREATE INDEX "handlers_is_deprecated_5866c6db" ON "handlers" ("is_deprecated"); args=(); alias=default
+CREATE INDEX "handlers_total_executions_43e2c307" ON "handlers" ("total_executions"); (params ())
+(0.000) CREATE INDEX "handlers_total_executions_43e2c307" ON "handlers" ("total_executions"); args=(); alias=default
+CREATE INDEX "handlers_is_active_b3e12f2c" ON "handlers" ("is_active"); (params ())
+(0.000) CREATE INDEX "handlers_is_active_b3e12f2c" ON "handlers" ("is_active"); args=(); alias=default
+CREATE INDEX "handlers_requires_llm_86145fa0" ON "handlers" ("requires_llm"); (params ())
+(0.000) CREATE INDEX "handlers_requires_llm_86145fa0" ON "handlers" ("requires_llm"); args=(); alias=default
+CREATE INDEX "handlers_created_by_id_dd9d5169" ON "handlers" ("created_by_id"); (params ())
+(0.000) CREATE INDEX "handlers_created_by_id_dd9d5169" ON "handlers" ("created_by_id"); args=(); alias=default
+CREATE INDEX "handlers_category_id_b9bd31c7" ON "handlers" ("category_id"); (params ())
+(0.000) CREATE INDEX "handlers_category_id_b9bd31c7" ON "handlers" ("category_id"); args=(); alias=default
+CREATE INDEX "handlers_category_b0c39aba" ON "handlers" ("category"); (params ())
+(0.000) CREATE INDEX "handlers_category_b0c39aba" ON "handlers" ("category"); args=(); alias=default
+CREATE INDEX "handlers_replacement_handler_id_9ffe2859" ON "handlers" ("replacement_handler_id"); (params ())
+(0.000) CREATE INDEX "handlers_replacement_handler_id_9ffe2859" ON "handlers" ("replacement_handler_id"); args=(); alias=default
+CREATE INDEX "hdlr_cat_active_idx" ON "handlers" ("category", "is_active"); (params ())
+(0.000) CREATE INDEX "hdlr_cat_active_idx" ON "handlers" ("category", "is_active"); args=(); alias=default
+CREATE INDEX "hdlr_code_idx" ON "handlers" ("code"); (params ())
+(0.000) CREATE INDEX "hdlr_code_idx" ON "handlers" ("code"); args=(); alias=default
+CREATE INDEX "hdlr_executions_idx" ON "handlers" ("total_executions" DESC); (params ())
+(0.000) CREATE INDEX "hdlr_executions_idx" ON "handlers" ("total_executions" DESC); args=(); alias=default
+CREATE INDEX "hdlr_status_idx" ON "handlers" ("is_active", "is_deprecated"); (params ())
+(0.000) CREATE INDEX "hdlr_status_idx" ON "handlers" ("is_active", "is_deprecated"); args=(); alias=default
+CREATE INDEX "hdlr_llm_active_idx" ON "handlers" ("requires_llm", "is_active"); (params ())
+(0.000) CREATE INDEX "hdlr_llm_active_idx" ON "handlers" ("requires_llm", "is_active"); args=(); alias=default
+(0.000) INSERT INTO "django_migrations" ("app", "name", "applied") VALUES ('core', '0004_add_category_fk', '2025-12-08 18:04:04.859004') RETURNING "django_migrations"."id"; args=('core', '0004_add_category_fk', '2025-12-08 18:04:04.859004'); alias=default
+(0.016) PRAGMA foreign_key_check; args=None; alias=default
+(0.000) COMMIT; args=None; alias=default
+(0.000) PRAGMA foreign_keys = ON; args=None; alias=default
+  Applying core.0004_add_category_fk... OK
+(0.000) PRAGMA foreign_keys = OFF; args=None; alias=default
+(0.000) PRAGMA foreign_keys; args=None; alias=default
+(0.000) BEGIN; args=None; alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."code" = 'input' LIMIT 21; args=('input',); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."code" = 'processing' LIMIT 21; args=('processing',); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."code" = 'output' LIMIT 21; args=('output',); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."documentation_url", "handlers"."example_config", "handlers"."created_by_id", "handlers"."replacement_handler_id", "handlers"."category_id" FROM "handlers" ORDER BY "handlers"."category" ASC, "handlers"."code" ASC; args=(); alias=default
+(0.000) INSERT INTO "django_migrations" ("app", "name", "applied") VALUES ('core', '0005_migrate_category_data', '2025-12-08 18:04:04.871325') RETURNING "django_migrations"."id"; args=('core', '0005_migrate_category_data', '2025-12-08 18:04:04.871325'); alias=default
+(0.000) PRAGMA foreign_key_check; args=None; alias=default
+(0.000) COMMIT; args=None; alias=default
+(0.000) PRAGMA foreign_keys = ON; args=None; alias=default
+(0.000) SELECT "django_migrations"."id", "django_migrations"."app", "django_migrations"."name", "django_migrations"."applied" FROM "django_migrations"; args=(); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'admin'; args=('admin',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE ("django_content_type"."app_label" = 'admin' AND "django_content_type"."model" IN ('logentry')); args=('admin', 'logentry'); alias=default
+(0.000) SELECT "auth_permission"."content_type_id" AS "content_type", "auth_permission"."codename" AS "codename" FROM "auth_permission" INNER JOIN "django_content_type" ON ("auth_permission"."content_type_id" = "django_content_type"."id") WHERE "auth_permission"."content_type_id" IN (1) ORDER BY "django_content_type"."app_label" ASC, "django_content_type"."model" ASC, 2 ASC; args=(1,); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'admin'; args=('admin',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'auth'; args=('auth',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE ("django_content_type"."app_label" = 'auth' AND "django_content_type"."model" IN ('user', 'permission', 'group')); args=('auth', 'user', 'permission', 'group'); alias=default
+(0.000) SELECT "auth_permission"."content_type_id" AS "content_type", "auth_permission"."codename" AS "codename" FROM "auth_permission" INNER JOIN "django_content_type" ON ("auth_permission"."content_type_id" = "django_content_type"."id") WHERE "auth_permission"."content_type_id" IN (2, 3, 4) ORDER BY "django_content_type"."app_label" ASC, "django_content_type"."model" ASC, 2 ASC; args=(2, 3, 4); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'auth'; args=('auth',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'contenttypes'; args=('contenttypes',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE ("django_content_type"."app_label" = 'contenttypes' AND "django_content_type"."model" IN ('contenttype')); args=('contenttypes', 'contenttype'); alias=default
+(0.000) SELECT "auth_permission"."content_type_id" AS "content_type", "auth_permission"."codename" AS "codename" FROM "auth_permission" INNER JOIN "django_content_type" ON ("auth_permission"."content_type_id" = "django_content_type"."id") WHERE "auth_permission"."content_type_id" IN (5) ORDER BY "django_content_type"."app_label" ASC, "django_content_type"."model" ASC, 2 ASC; args=(5,); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'contenttypes'; args=('contenttypes',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'core'; args=('core',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE ("django_content_type"."app_label" = 'core' AND "django_content_type"."model" IN ('domain', 'handlercategory', 'handler', 'urlpattern')); args=('core', 'domain', 'handlercategory', 'handler', 'urlpattern'); alias=default
+(0.000) SELECT "auth_permission"."content_type_id" AS "content_type", "auth_permission"."codename" AS "codename" FROM "auth_permission" INNER JOIN "django_content_type" ON ("auth_permission"."content_type_id" = "django_content_type"."id") WHERE "auth_permission"."content_type_id" IN (25, 242, 212, 241) ORDER BY "django_content_type"."app_label" ASC, "django_content_type"."model" ASC, 2 ASC; args=(25, 242, 212, 241); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'core'; args=('core',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'expert_hub'; args=('expert_hub',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'expert_hub'; args=('expert_hub',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'writing_hub'; args=('writing_hub',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE ("django_content_type"."app_label" = 'writing_hub' AND "django_content_type"."model" IN ('importancelevel', 'writingstage', 'arctype', 'contentrating')); args=('writing_hub', 'importancelevel', 'writingstage', 'arctype', 'contentrating'); alias=default
+(0.000) SELECT "auth_permission"."content_type_id" AS "content_type", "auth_permission"."codename" AS "codename" FROM "auth_permission" INNER JOIN "django_content_type" ON ("auth_permission"."content_type_id" = "django_content_type"."id") WHERE "auth_permission"."content_type_id" IN (216, 213, 214, 215) ORDER BY "django_content_type"."app_label" ASC, "django_content_type"."model" ASC, 2 ASC; args=(216, 213, 214, 215); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'writing_hub'; args=('writing_hub',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'bfagent_mcp'; args=('bfagent_mcp',); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE ("django_content_type"."app_label" = 'bfagent_mcp' AND "django_content_type"."model" IN ('domaintag', 'codingconvention', 'handlertag', 'mcpdomainconfig', 'tag', 'domain', 'tablenamingconvention', 'prompttemplate', 'modelregistry', 'projectstructure', 'mcprisklevel', 'mcppathcategory', 'mcpdomaincomponent', 'mcpfilechange', 'handlerexecution', 'bestpractice', 'phase', 'mcprefactorsession', 'mcpcomponenttype', 'mcpcontext', 'mcpprotectedpath', 'mcpprotectionlevel', 'mcpconfighistory', 'handler')); args=('bfagent_mcp', 'domaintag', 'codingconvention', 'handlertag', 'mcpdomainconfig', 'tag', 'domain', 'tablenamingconvention', 'prompttemplate', 'modelregistry', 'projectstructure', 'mcprisklevel', 'mcppathcategory', 'mcpdomaincomponent', 'mcpfilechange', 'handlerexecution', 'bestpractice', 'phase', 'mcprefactorsession', 'mcpcomponenttype', 'mcpcontext', 'mcpprotectedpath', 'mcpprotectionlevel', 'mcpconfighistory', 'handler'); alias=default
+(0.000) SELECT "auth_permission"."content_type_id" AS "content_type", "auth_permission"."codename" AS "codename" FROM "auth_permission" INNER JOIN "django_content_type" ON ("auth_permission"."content_type_id" = "django_content_type"."id") WHERE "auth_permission"."content_type_id" IN (217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240) ORDER BY "django_content_type"."app_label" ASC, "django_content_type"."model" ASC, 2 ASC; args=(217, 218, 219, 220, 221, 222, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 233, 234, 235, 236, 237, 238, 239, 240); alias=default
+(0.000) SELECT "django_content_type"."id", "django_content_type"."app_label", "django_content_type"."model" FROM "django_content_type" WHERE "django_content_type"."app_label" = 'bfagent_mcp'; args=('bfagent_mcp',); alias=default
+  Applying core.0005_migrate_category_data...
+============================================================
+  Ô£à CATEGORY MIGRATION COMPLETE
+============================================================
+  Migrated: 0
+  Skipped: 0
+============================================================
+
+ OK

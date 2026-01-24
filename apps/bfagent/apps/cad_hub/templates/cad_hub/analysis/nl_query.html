@@ -1,0 +1,228 @@
+<!-- templates/cad_hub/analysis/nl_query.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}CAD Assistent - CAD Hub{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h2 class="h4 fw-bold mb-1"><i class="bi bi-chat-dots text-success"></i> CAD Assistent</h2>
+        <p class="text-muted mb-0">Stellen Sie Fragen zu Ihren CAD-Daten in natürlicher Sprache</p>
+    </div>
+    <div class="col-auto">
+        <a href="{% url 'cad_hub:analysis_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Chat Area -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-chat-left-text"></i> Chat</h6>
+                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearHistory()">
+                    <i class="bi bi-trash"></i> Verlauf löschen
+                </button>
+            </div>
+            <div class="card-body" style="height: 400px; overflow-y: auto;" id="chat-container">
+                <!-- Chat Historie -->
+                {% for msg in chat_history %}
+                <div class="mb-3">
+                    <div class="d-flex justify-content-end mb-2">
+                        <div class="bg-primary text-white rounded px-3 py-2" style="max-width: 80%;">
+                            {{ msg.question }}
+                        </div>
+                    </div>
+                    <div class="d-flex mb-2">
+                        <div class="bg-light rounded px-3 py-2" style="max-width: 80%;">
+                            {{ msg.answer|linebreaks }}
+                        </div>
+                    </div>
+                </div>
+                {% empty %}
+                <div id="welcome-message" class="text-center text-muted py-5">
+                    <i class="bi bi-chat-dots fs-1 d-block mb-3"></i>
+                    <p>Stellen Sie eine Frage zu Ihren CAD-Daten.</p>
+                    <p class="small">Wählen Sie zuerst ein Modell aus und fragen Sie z.B.:<br>
+                    "Welcher Raum ist am größten?"</p>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="card-footer">
+                <form id="query-form" class="d-flex gap-2">
+                    <select id="model-select" class="form-select" style="width: auto; min-width: 200px;">
+                        <option value="">-- Modell wählen --</option>
+                        {% for model in models %}
+                        <option value="{{ model.id }}">{{ model.project.name }} v{{ model.version }}</option>
+                        {% endfor %}
+                    </select>
+                    <input type="text" id="question-input" class="form-control" placeholder="Ihre Frage..." required>
+                    <button type="submit" class="btn btn-success" id="submit-btn">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Beispiel-Fragen -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-lightbulb"></i> Beispiel-Fragen</h6>
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for question in example_questions %}
+                    <button type="button" class="list-group-item list-group-item-action py-2 example-question">
+                        <i class="bi bi-chat-right-text text-muted me-2"></i>
+                        {{ question }}
+                    </button>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Hilfe -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-question-circle"></i> Hilfe</h6>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted mb-2">Der CAD Assistent kann folgende Fragen beantworten:</p>
+                <ul class="small text-muted mb-0">
+                    <li>Räume (Größe, Anzahl, Liste)</li>
+                    <li>Türen und Fenster (Anzahl)</li>
+                    <li>Gesamtflächen</li>
+                    <li>Vergleiche (größter/kleinster Raum)</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('query-form');
+    const questionInput = document.getElementById('question-input');
+    const modelSelect = document.getElementById('model-select');
+    const chatContainer = document.getElementById('chat-container');
+    const submitBtn = document.getElementById('submit-btn');
+    
+    // Beispiel-Fragen klickbar machen
+    document.querySelectorAll('.example-question').forEach(btn => {
+        btn.addEventListener('click', function() {
+            questionInput.value = this.textContent.trim();
+            questionInput.focus();
+        });
+    });
+    
+    // Form Submit
+    form.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        const question = questionInput.value.trim();
+        const modelId = modelSelect.value;
+        
+        if (!question) return;
+        
+        if (!modelId) {
+            alert('Bitte wählen Sie zuerst ein Modell aus.');
+            return;
+        }
+        
+        // Welcome Message entfernen
+        const welcome = document.getElementById('welcome-message');
+        if (welcome) welcome.remove();
+        
+        // User Message hinzufügen
+        addMessage(question, 'user');
+        questionInput.value = '';
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+        
+        try {
+            const response = await fetch('{% url "cad_hub:nl_query_api" %}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    question: question,
+                    model_id: modelId
+                })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                addMessage(data.answer, 'assistant');
+            } else {
+                addMessage('❌ ' + (data.error || 'Fehler bei der Verarbeitung'), 'assistant', true);
+            }
+        } catch (error) {
+            addMessage('❌ Netzwerkfehler: ' + error.message, 'assistant', true);
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-send"></i>';
+        }
+    });
+    
+    function addMessage(text, type, isError = false) {
+        const div = document.createElement('div');
+        div.className = 'mb-3';
+        
+        if (type === 'user') {
+            div.innerHTML = `
+                <div class="d-flex justify-content-end">
+                    <div class="bg-primary text-white rounded px-3 py-2" style="max-width: 80%;">
+                        ${escapeHtml(text)}
+                    </div>
+                </div>
+            `;
+        } else {
+            const bgClass = isError ? 'bg-danger-subtle' : 'bg-light';
+            div.innerHTML = `
+                <div class="d-flex">
+                    <div class="${bgClass} rounded px-3 py-2" style="max-width: 80%;">
+                        ${formatMarkdown(text)}
+                    </div>
+                </div>
+            `;
+        }
+        
+        chatContainer.appendChild(div);
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+    
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+    
+    function formatMarkdown(text) {
+        // Einfache Markdown-Formatierung
+        return text
+            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+            .replace(/\n/g, '<br>');
+    }
+});
+
+function clearHistory() {
+    if (confirm('Chat-Verlauf wirklich löschen?')) {
+        document.getElementById('chat-container').innerHTML = `
+            <div id="welcome-message" class="text-center text-muted py-5">
+                <i class="bi bi-chat-dots fs-1 d-block mb-3"></i>
+                <p>Stellen Sie eine Frage zu Ihren CAD-Daten.</p>
+            </div>
+        `;
+    }
+}
+</script>
+{% endblock %}

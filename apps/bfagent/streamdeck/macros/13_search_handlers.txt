@@ -1,0 +1,3 @@
+{{CLIPBOARD:Suche mit BFAgent MCP nach existierenden Handlers für: [FUNKTIONALITÄT]
+
+Query: [z.B. "PDF parsing", "Character generation"]}}

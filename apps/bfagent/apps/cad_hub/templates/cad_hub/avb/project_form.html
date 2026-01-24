@@ -1,0 +1,179 @@
+{% extends "cad_hub/avb/base_avb.html" %}
+
+{% block avb_title %}{% if object %}Projekt bearbeiten{% else %}Neues Bauprojekt{% endif %}{% endblock %}
+
+{% block avb_content %}
+<!-- Page Header -->
+<div class="mb-4">
+    <h4 class="mb-1">
+        <i class="bi bi-{% if object %}pencil{% else %}plus-lg{% endif %} text-primary"></i>
+        {% if object %}Projekt bearbeiten{% else %}Neues Bauprojekt{% endif %}
+    </h4>
+    <p class="text-muted mb-0">
+        {% if object %}{{ object.project_number }}{% else %}Erstellen Sie ein neues Bauvorhaben{% endif %}
+    </p>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <form method="post">
+            {% csrf_token %}
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-building"></i> Projektdaten
+                </div>
+                <div class="card-body">
+                    <!-- IFC Projekt -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">IFC Projekt *</label>
+                        <select name="ifc_project" class="form-select" required>
+                            <option value="">-- Projekt auswählen --</option>
+                            {% for project in form.fields.ifc_project.queryset %}
+                            <option value="{{ project.pk }}" {% if form.ifc_project.value == project.pk|stringformat:"s" %}selected{% endif %}>
+                                {{ project.name }}
+                            </option>
+                            {% endfor %}
+                        </select>
+                        {% if form.ifc_project.errors %}
+                        <div class="text-danger small mt-1">{{ form.ifc_project.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Projektnummer -->
+                    <div class="mb-3">
+                        <label class="form-label">Projektnummer</label>
+                        <input type="text" name="project_number" value="{{ form.project_number.value|default:'' }}" 
+                               class="form-control" placeholder="z.B. PRJ-2025-001">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-person"></i> Auftraggeber
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Firma / Name</label>
+                            <input type="text" name="client" value="{{ form.client.value|default:'' }}" 
+                                   class="form-control" placeholder="Musterfirma GmbH">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Ansprechpartner</label>
+                            <input type="text" name="client_contact" value="{{ form.client_contact.value|default:'' }}" 
+                                   class="form-control" placeholder="Max Mustermann">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-geo-alt"></i> Bauadresse
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Straße</label>
+                        <input type="text" name="street" value="{{ form.street.value|default:'' }}" 
+                               class="form-control" placeholder="Musterstraße 123">
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">PLZ</label>
+                            <input type="text" name="zip_code" value="{{ form.zip_code.value|default:'' }}" 
+                                   class="form-control" placeholder="12345">
+                        </div>
+                        <div class="col-md-8">
+                            <label class="form-label">Stadt</label>
+                            <input type="text" name="city" value="{{ form.city.value|default:'' }}" 
+                                   class="form-control" placeholder="Musterstadt">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-calendar3"></i> Termine & Phase
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Aktuelle Phase (HOAI)</label>
+                        <select name="current_phase" class="form-select">
+                            {% for value, label in form.fields.current_phase.choices %}
+                            <option value="{{ value }}" {% if form.current_phase.value == value %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Planungsbeginn</label>
+                            <input type="date" name="planning_start" value="{{ form.planning_start.value|default:'' }}" 
+                                   class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Baubeginn</label>
+                            <input type="date" name="construction_start" value="{{ form.construction_start.value|default:'' }}" 
+                                   class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Fertigstellung</label>
+                            <input type="date" name="construction_end" value="{{ form.construction_end.value|default:'' }}" 
+                                   class="form-control">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-currency-euro"></i> Budget
+                </div>
+                <div class="card-body">
+                    <div class="mb-0">
+                        <label class="form-label">Gesamtbudget (€)</label>
+                        <input type="number" name="budget_total" value="{{ form.budget_total.value|default:'' }}" 
+                               class="form-control" placeholder="1000000" step="1000">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Actions -->
+            <div class="d-flex justify-content-between gap-2">
+                <a href="{% url 'cad_hub:avb_project_list' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-x-lg"></i> Abbrechen
+                </a>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg"></i> {% if object %}Speichern{% else %}Projekt erstellen{% endif %}
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4 mt-4 mt-lg-0">
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> Hinweise
+            </div>
+            <div class="card-body">
+                <p><strong>IFC Projekt</strong><br>
+                <small class="text-muted">Wählen Sie ein bestehendes IFC-Projekt als Grundlage für das Bauvorhaben.</small></p>
+                
+                <p><strong>HOAI Phasen</strong><br>
+                <small class="text-muted">
+                LP 1-2: Grundlagenermittlung<br>
+                LP 3-4: Entwurf & Genehmigung<br>
+                LP 5-7: Ausführung & Vergabe<br>
+                LP 8-9: Bauüberwachung
+                </small></p>
+                
+                <p class="mb-0"><strong>Budget</strong><br>
+                <small class="text-muted">Das Gesamtbudget dient als Referenz für Kostenschätzungen und Vergaben.</small></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

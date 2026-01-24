@@ -1,0 +1,61 @@
+<!-- GenAgent Status Widget Partial for HTMX Updates -->
+<div class="card shadow-sm border-left-primary">
+    <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="bi bi-cpu"></i> GenAgent Phase 1 Progress
+        </h6>
+        <span class="badge badge-light">{{ progress }}%</span>
+    </div>
+    <div class="card-body">
+        <!-- Progress Bar -->
+        <div class="mb-3">
+            <div class="progress" style="height: 25px;">
+                <div class="progress-bar {% if progress == 100 %}bg-success{% elif progress > 50 %}bg-info{% elif progress > 0 %}bg-warning{% else %}bg-secondary{% endif %}" 
+                     role="progressbar" 
+                     style="width: {{ progress }}%;" 
+                     aria-valuenow="{{ progress }}" 
+                     aria-valuemin="0" 
+                     aria-valuemax="100">
+                    {{ progress }}% Complete
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature List -->
+        <div class="list-group list-group-flush">
+            {% for feature in features %}
+            <div class="list-group-item d-flex justify-content-between align-items-center p-2">
+                <div class="d-flex align-items-center">
+                    {% if feature.status == 'complete' %}
+                        <i class="bi bi-check-circle-fill text-success me-2" style="font-size: 1.2rem;"></i>
+                    {% elif feature.status == 'in_progress' %}
+                        <i class="bi bi-hourglass-split text-warning me-2" style="font-size: 1.2rem;"></i>
+                    {% else %}
+                        <i class="bi bi-circle text-secondary me-2" style="font-size: 1.2rem;"></i>
+                    {% endif %}
+                    <span class="{% if feature.status == 'complete' %}text-success{% endif %}">
+                        {{ feature.name }}
+                    </span>
+                </div>
+                <span class="badge badge-{{ feature.color }}">
+                    {% if feature.status == 'complete' %}
+                        ✓
+                    {% elif feature.status == 'in_progress' %}
+                        ...
+                    {% else %}
+                        -
+                    {% endif %}
+                </span>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="mt-3">
+            <a href="{% url 'control_center:genagent-dashboard' %}" 
+               class="btn btn-primary btn-sm btn-block">
+                <i class="bi bi-grid-fill"></i> Open GenAgent Dashboard
+            </a>
+        </div>
+    </div>
+</div>

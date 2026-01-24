@@ -1,0 +1,228 @@
+Core services registered successfully
+Input handlers registered: 5
+Processing handlers registered: 3
+Output handlers registered: 3
+Registered tool: htmx_scanner v3.0.0
+Registered tool: template_validator v1.0.0
+Registered tool: system_validator v2.0.0
+Registered tool: code_formatter v1.0.0
+Registered tool: git_sync v3.0.0
+Registered tool: model_checker v3.0.0
+Registered tool: migration_fixer v1.0.0
+Registered tool: phase_agent_manager v1.0.0
+Registered tool: screen_documentation v1.0.0
+Registered tool: visual_explorer v1.0.0
+Registered tool: api_checker v4.0.0
+Registered tool: graphql_generator v3.0.0
+Registered tool: graphql_analyzer v1.0.0
+Registered tool: graphql_monitor v1.0.0
+Registered tool: theme_switcher v3.0.0
+Registered tool: csrf_setup v1.0.0
+Registered tool: enhanced_analyzer v1.0.0
+Registered tool: integrated_analyzer v1.0.0
+Registered tool: hybrid_analyzer v1.0.0
+Registered tool: tool_docs_enhanced v1.0.0
+Registered tool: optimized_analyzer v2.0.0
+Registered tool: unicode_safe_analyzer v1.0.0
+Registered tool: enhanced_unicode_analyzer v2.0.0
+Registered tool: code_repair_tool v1.0.0
+Registered tool: enhanced_cli_analyzer v1.0.0
+Registered tool: safe_auto_fixer v1.0.0
+Tool registry initialized with optimized BF Agent tools
+Registered handler 'apps.genagent.handlers.demo_handlers.WelcomeHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataValidationHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataTransformHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.LogHandler' v1.0.0 for domains: ['demo']
+(0.016) SELECT COUNT(*) AS "__count" FROM "handlers" WHERE "handlers"."is_active"; args=(); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" LEFT OUTER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handlers"."is_active" ORDER BY "handler_categories"."code" ASC, "handlers"."code" ASC LIMIT 3; args=(); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handler_categories"."code" = 'input' AND "handlers"."is_active"); args=('input',); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handler_categories"."code" = 'processing' AND "handlers"."is_active"); args=('processing',); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handler_categories"."code" = 'output' AND "handlers"."is_active"); args=('output',); alias=default
+Traceback (most recent call last):
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\query.py", line 2238, in add_fields
+    join_info = self.setup_joins(
+                ^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\query.py", line 1901, in setup_joins
+    path, final_field, targets, rest = self.names_to_path(
+                                       ^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\query.py", line 1806, in names_to_path
+    raise FieldError(
+django.core.exceptions.FieldError: Cannot resolve keyword 'handler_id' into field. Choices are: avg_execution_time_ms, category, category_fk, category_fk_id, class_name, code, config_schema, created_at, created_by, created_by_id, dependent_handlers, deprecation_reason, description, documentation_url, example_config, fallback_for, generated_images, id, input_schema, is_active, is_deprecated, is_experimental, module_path, name, output_schema, replacement_handler, replacement_handler_id, replaces, required_handlers, requires_llm, success_rate, total_executions, updated_at, used_in_actions, version
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "C:\Users\achim\github\bfagent\test_phase2c_changes.py", line 66, in test_handler_loader
+    all_handlers = list_handlers()
+                   ^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\apps\bfagent\services\handler_loader.py", line 123, in list_handlers
+    return list(queryset.values(
+                ^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\query.py", line 1368, in values
+    clone = self._values(*fields, **expressions)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\query.py", line 1363, in _values
+    clone.query.set_values(fields)
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\query.py", line 2577, in set_values
+    self.add_fields(field_names, True)
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\query.py", line 2279, in add_fields
+    raise FieldError(
+django.core.exceptions.FieldError: Cannot resolve keyword 'handler_id' into field. Choices are: avg_execution_time_ms, category, category_fk, category_fk_id, class_name, code, config_schema, created_at, created_by, created_by_id, dependent_handlers, deprecation_reason, description, documentation_url, example_config, fallback_for, generated_images, id, input_schema, is_active, is_deprecated, is_experimental, module_path, name, output_schema, replacement_handler, replacement_handler_id, replaces, required_handlers, requires_llm, success_rate, total_executions, updated_at, used_in_actions, version
+(0.000) SELECT COUNT(*) FROM (SELECT "handlers"."id" AS "col1" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handler_categories"."code" = 'input' ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 2) subquery; args=('input',); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handler_categories"."code" = 'input' ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 2; args=('input',); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handler_categories"."code" = 'processing' ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 1; args=('processing',); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 2 LIMIT 21; args=(2,); alias=default
+(0.016) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" LEFT OUTER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handlers"."is_active" ORDER BY "handler_categories"."code" ASC, "handlers"."code" ASC; args=(); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 2; args=(2,); alias=default
+Traceback (most recent call last):
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+sqlite3.OperationalError: no such table: action_handlers
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "C:\Users\achim\github\bfagent\test_phase2c_changes.py", line 138, in test_workflow_api
+    response = api_list_handlers(request)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\views\decorators\csrf.py", line 65, in _view_wrapper
+    return view_func(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\views\generic\base.py", line 105, in view
+    return self.dispatch(request, *args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\rest_framework\views.py", line 515, in dispatch
+    response = self.handle_exception(exc)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\rest_framework\views.py", line 475, in handle_exception
+    self.raise_uncaught_exception(exc)
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\rest_framework\views.py", line 486, in raise_uncaught_exception
+    raise exc
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\rest_framework\views.py", line 512, in dispatch
+    response = handler(request, *args, **kwargs)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\rest_framework\decorators.py", line 50, in handler
+    return func(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\apps\bfagent\api\workflow_api.py", line 63, in list_handlers
+    'used_in_workflows': handler.used_in_actions.count(),
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\manager.py", line 87, in manager_method
+    return getattr(self.get_queryset(), name)(*args, **kwargs)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\query.py", line 604, in count
+    return self.query.get_count(using=self.db)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\query.py", line 644, in get_count
+    return obj.get_aggregation(using, {"__count": Count("*")})["__count"]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\query.py", line 626, in get_aggregation
+    result = compiler.execute_sql(SINGLE)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\models\sql\compiler.py", line 1623, in execute_sql
+    cursor.execute(sql, params)
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\utils.py", line 122, in execute
+    return super().execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\utils.py", line 79, in execute
+    return self._execute_with_wrappers(
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\utils.py", line 92, in _execute_with_wrappers
+    return executor(sql, params, many, context)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\utils.py", line 100, in _execute
+    with self.db.wrap_database_errors:
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\utils.py", line 91, in __exit__
+    raise dj_exc_value.with_traceback(traceback) from exc_value
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\utils.py", line 105, in _execute
+    return self.cursor.execute(sql, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\achim\github\bfagent\.venv\Lib\site-packages\django\db\backends\sqlite3\base.py", line 360, in execute
+    return super().execute(query, params)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+django.db.utils.OperationalError: no such table: action_handlers
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 1; args=(); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+
+======================================================================
+  ­ƒº¬ PHASE 2C CODE CHANGES TEST SUITE
+======================================================================
+
+­ƒº¬ Test 1: Handler Query with category_fk
+======================================================================
+  Ô£à Query successful: 11 handlers found
+     - chapter_data (input)
+     - character_data (input)
+     - project_fields (input)
+
+­ƒº¬ Test 2: Category Filters
+======================================================================
+  Ô£à input: 5 handlers
+  Ô£à processing: 3 handlers
+  Ô£à output: 3 handlers
+
+­ƒº¬ Test 3: Handler Loader
+======================================================================
+  ÔØî Handler loader failed: Cannot resolve keyword 'handler_id' into field. Choices are: avg_execution_time_ms, category, category_fk, category_fk_id, class_name, code, config_schema, created_at, created_by, created_by_id, dependent_handlers, deprecation_reason, description, documentation_url, example_config, fallback_for, generated_images, id, input_schema, is_active, is_deprecated, is_experimental, module_path, name, output_schema, replacement_handler, replacement_handler_id, replaces, required_handlers, requires_llm, success_rate, total_executions, updated_at, used_in_actions, version
+
+­ƒº¬ Test 4: Handler Category Comparison
+======================================================================
+  Ô£à Category comparison: chapter_data vs character_data
+     Same category: True (should be True)
+  Ô£à Different category: chapter_data vs framework_generator
+     Different: True (should be True)
+
+­ƒº¬ Test 5: Workflow API
+======================================================================
+  ÔØî API test failed: no such table: action_handlers
+
+­ƒº¬ Test 6: Backwards Compatibility
+======================================================================
+  Ô£à handler.handler_id: chapter_data (property)
+  Ô£à handler.code: chapter_data (field)
+  Ô£à handler.category: input (helper property)
+  Ô£à handler.category_fk.code: input (FK)
+  Ô£à handler.display_name: Chapter Data (property)
+  Ô£à handler.name: Chapter Data (field)
+  Ô£à All properties match their underlying fields!
+
+======================================================================
+  ­ƒôè TEST SUMMARY
+======================================================================
+  Ô£à PASSED: Handler Queries
+  Ô£à PASSED: Category Filters
+  ÔØî FAILED: Handler Loader
+  Ô£à PASSED: Category Comparison
+  ÔØî FAILED: Workflow API
+  Ô£à PASSED: Backwards Compatibility
+
+======================================================================
+  Results: 4/6 tests passed
+======================================================================
+
+  ÔÜá´©Å  2 test(s) failed. Please review.
+

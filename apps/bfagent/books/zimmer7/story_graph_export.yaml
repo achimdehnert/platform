@@ -1,0 +1,556 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# NANO-SEIN: Story Graph Export
+# Version: 1.0
+# Export Date: 2024
+# Format: Story Graph System Compatible
+# ═══════════════════════════════════════════════════════════════════════════════
+
+meta:
+  title: "NANO-SEIN"
+  subtitle: "Eine Romanreihe"
+  author: "TBD"
+  genre:
+    primary: "Speculative Fiction"
+    secondary:
+      - "Thriller"
+      - "Romance"
+      - "Soft Sci-Fi"
+      - "Mystik"
+  target_audience:
+    primary: "Erwachsene 25-55"
+    secondary:
+      - "Thriller-Leser"
+      - "Romance-Leser"
+      - "Sci-Fi-Fans"
+      - "Fantasy/Mystik-Leser"
+  series_length: 7
+  estimated_word_count_per_book: 80000-100000
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# THEMATISCHE GRUNDSTRUKTUR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+themes:
+  core_theme:
+    name: "Balance / Der dritte Weg"
+    description: "Nicht Wahl zwischen Extremen, sondern Synthese"
+    manifestation: "Lena wählt weder Nano noch Astral — sie wird Brücke"
+  
+  supporting_themes:
+    - name: "Identität"
+      question: "Wer bin ich, wenn mein Bewusstsein nicht an meinen Körper gebunden ist?"
+    - name: "Erbe & Blutlinien"
+      question: "Was schulden wir unseren Vorfahren? Was unseren Nachkommen?"
+    - name: "Wissenschaft vs. Glaube"
+      question: "Können Messung und Mystik koexistieren?"
+    - name: "Kontrolle vs. Loslassen"
+      question: "Was gewinnen wir, wenn wir aufhören zu kämpfen?"
+    - name: "Kosmische Verantwortung"
+      question: "Was bedeutet es, eine Brücke zwischen Welten zu sein?"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# KOSMISCHE MYTHOLOGIE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+mythology:
+  origin:
+    name: "Das Schisma"
+    timeframe: "Vor der Zeit"
+    description: |
+      Das Eine stellte die Frage: "Wie erfahre ich mich selbst?"
+      Zwei Antworten entstanden gleichzeitig:
+      - NANO: "Durch Begrenzung. Werde Form."
+      - ASTRAL: "Durch Ausdehnung. Bleibe frei."
+      Das Eine wurde Zwei.
+
+  factions:
+    nano:
+      principle: "Erfahrung durch Materie"
+      method: "Inkarnieren, bewohnen, werden"
+      goal: "Materie bewusst machen"
+      danger: "Gefangen in der Form"
+      manifestation: "Nano-Strukturen in allem Lebendigen"
+    
+    astral:
+      principle: "Erfahrung durch Ausdehnung"
+      method: "Beobachten, berühren, leiten"
+      goal: "Bewusstsein befreien"
+      danger: "Verloren in der Formlosigkeit"
+      manifestation: "Präsenzen jenseits der Materie"
+
+  cosmic_context:
+    bridge_worlds:
+      description: "Seltene Welten, wo beide Prinzipien koexistieren können"
+      earth_status: "Eine von wenigen Brücken-Welten"
+      significance: "Kampfplatz und potenzielle Heilung des Schismas"
+    
+    other_worlds:
+      - type: "Nano-dominiert"
+        characteristics: "Kollektiv-Bewusstsein, Materie ist heilig"
+      - type: "Astral-dominiert"
+        characteristics: "Keine feste Form, Individuen ohne Körper"
+      - type: "Gescheiterte Brücke"
+        characteristics: "Warnung — was passiert, wenn die Wahl falsch fällt"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# CHARAKTERE
+# ═══════════════════════════════════════════════════════════════════════════════
+
+characters:
+  protagonists:
+    lena_vogt:
+      role: "Hauptprotagonistin"
+      profession: "Notärztin"
+      age: 35
+      location: "Deutschland"
+      family:
+        - son: "Finn (7)"
+        - mother: "Renate Vogt"
+        - grandmother: "Else Vogt (verstorben)"
+      bloodline:
+        origin: "Die Erste (100.000 v.Chr.)"
+        trait: "Identische Nano-Signatur über Generationen"
+        history: "Keltische Seher → Hexen → versteckte Tradition"
+      arc:
+        book_1: "Verdrängung → Akzeptanz → Suche"
+        book_2: "Suche → Kontrolle → Entdeckung der Linie"
+        book_3: "Zwischen allen Fronten → Position finden"
+        book_4: "Training bei Ezra → Verständnis"
+        book_5: "Verständnis → Entscheidung"
+        book_6: "Transformation → Brücke werden"
+        book_7: "Leben als Brücke → Vermächtnis"
+      internal_conflict: "Kontrollverlust vs. Akzeptanz"
+      special_ability: "Projektion zu beiden Seiten, stärkste bekannte Brücke"
+
+    david_khouri:
+      role: "Love Interest, Deuteragonist"
+      profession: "Nanophysiker, Ex-Soldat (Bundeswehr)"
+      age: 38
+      background:
+        military: "Auslandseinsatz Mali, NDE während Verletzung"
+        academic: "Promotion Nanophysik, arbeitet mit Dr. Tanaka"
+        family: "Sufi-Tradition, brach mit Familie"
+      bloodline:
+        origin: "Levantinische Mystiker-Tradition"
+        trait: "Kontrollierte Fähigkeit, oft unterdrückt"
+        history: "Mesopotamische Priester → Sufis → Khoury-Familie"
+      arc:
+        book_1: "Skepsis → Interesse → Verbündeter"
+        book_2: "Akzeptiert langsam sein Erbe"
+        book_3: "Vereint sich mit Samira"
+        book_4: "Training bei Meister Chen"
+        book_5: "Voll trainiert, an Lenas Seite"
+        book_6: "Anker für Lena während Transformation"
+        book_7: "Partner in der neuen Welt"
+      internal_conflict: "Beweisen vs. Glauben, Wissenschaft vs. Erbe"
+      relationship_with_lena:
+        dynamic: "Beide haben Narben, beide haben Geheimnisse"
+        development: "Vertrauen zuerst, Anziehung folgt"
+        obstacle: "Beiderseitige Verletzlichkeit"
+
+    samira_khoury:
+      role: "Verbündete/Gegenspielerin, Davids Cousine"
+      profession: "Professorin für Vergleichende Religionswissenschaft"
+      age: 42
+      background:
+        academic: "Schwerpunkt Bewusstseinsphänomene"
+        family: "Traditioneller Zweig der Khoury-Familie"
+        knowledge: "Besitzt Yusef-Manuskript (1200 n.Chr.)"
+      arc:
+        book_1: "Einführung, vertritt Astral-Theorie"
+        book_2: "Wird von Archivaren kontaktiert"
+        book_3: "Versöhnung mit David"
+        book_4: "Koordinatorin zwischen Gruppen"
+        book_5-7: "Teil der neuen Brücken-Hüter"
+      internal_conflict: "Familie vs. akademische Anerkennung"
+      faction: "Astral-nah → Brücken-Hüter"
+
+  supporting_characters:
+    yuki_tanaka:
+      role: "Wissenschaftlerin"
+      profession: "Nanophysikerin"
+      bloodline: "Miko-Tradition (Japan)"
+      arc: "Entdeckung → eigene Linie erfahren → Teil der Brücken-Hüter"
+      first_appearance: "Buch 1"
+      significance: "Macht die wissenschaftliche Entdeckung"
+
+    marcus_brenner:
+      role: "Journalist, Vermittler"
+      profession: "Wissenschaftsjournalist"
+      arc: "Recherche → verbindet die Welten → unter Druck"
+      faction: "Neutral"
+      first_appearance: "Buch 1"
+
+    finn_vogt:
+      role: "Lenas Sohn, nächste Generation"
+      age: "7 (Buch 1) → Teenager (Buch 7)"
+      significance: "Zeigt Zeichen ab Buch 5, repräsentiert Zukunft"
+      bloodline: "Erbt Lenas Signatur"
+
+    amira:
+      role: "Lenas erste Lehrerin"
+      faction: "Die Stillen"
+      first_appearance: "Buch 2"
+      arc: "Lehrerin → Verbündete → Brücken-Hüterin"
+
+    eleanor_vance:
+      role: "Kontaktperson zu Archivaren"
+      profession: "Professorin Altphilologie, Cambridge"
+      faction: "Die Archivare"
+      first_appearance: "Buch 2"
+
+    marcus_webb:
+      role: "Antagonist"
+      profession: "CEO NeuroSynth AG"
+      faction: "Ordo Materiae (Hardliner)"
+      motivation: "Kontrolle über Nano-Technologie"
+      first_appearance: "Buch 3"
+      arc: "Bedrohung → Eskalation → Scheitern"
+
+    ezra:
+      role: "Mentor, letzter Brücken-Hüter"
+      age: "Jahrhunderte (Brücke verlangsamt Alterung)"
+      faction: "Brücken-Hüter"
+      first_appearance: "Buch 4"
+      arc: "Mentor → Vermächtnis → Tod (Buch 5)"
+      significance: "Gibt Wissen und Aufgabe an Lena weiter"
+
+    meister_chen:
+      role: "Davids Mentor"
+      faction: "Die Stillen"
+      location: "Berge Yunnans"
+      first_appearance: "Buch 4"
+
+  bloodline_characters:
+    kofi_asante:
+      origin: "Westafrikanisch, Akan-Tradition"
+      first_appearance: "Buch 4"
+      significance: "Zeigt globale Verbreitung der Linien"
+
+    elena_vasquez:
+      origin: "Südamerikanisch, Curandera-Linie"
+      first_appearance: "Buch 4"
+
+    alexei_volkov:
+      origin: "Russisch, sibirische Schamanen"
+      first_appearance: "Buch 5"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# WÄCHTER-GRUPPEN (FRAKTIONEN)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+factions:
+  archivare:
+    motto: "Wir bewahren. Wir urteilen nicht."
+    founding: "~300 v.Chr., Alexandria"
+    alignment: "Strikt neutral"
+    structure: "Dezentral, Zellen in Universitäten"
+    resources: "Archive, Manuskripte, Datenbanken"
+    weakness: "Handeln nicht — nur beobachten"
+    key_members:
+      - "Prof. Eleanor Vance (Cambridge)"
+      - "Dr. Kenji Mori (Kyoto)"
+    history:
+      - "300 v.Chr.: Gründung Alexandria"
+      - "48 v.Chr.: Brand, Flucht nach Osten"
+      - "800 n.Chr.: Blüte in Bagdad"
+      - "1258: Mongolen, Zerstreuung"
+      - "1450+: Integration in Universitäten"
+      - "Heute: ~200 aktive Mitglieder"
+    arc_in_series:
+      book_1: "Andeutung"
+      book_2: "Erster Kontakt"
+      book_3: "Vollständig enthüllt"
+      book_4: "Unter Druck"
+      book_5: "Wählen Seite"
+      book_6-7: "Transformation zu Begleitern"
+
+  ordo_materiae:
+    motto: "In der Materie liegt die Wahrheit."
+    founding: "~1200 n.Chr., aus Alchemisten"
+    alignment: "Nano-nah, materialistisch"
+    structure: "Hierarchisch, Logen-System"
+    resources: "Geld, Einfluss in Pharma/Tech"
+    weakness: "Arroganz, Kontrollzwang"
+    key_members:
+      - "Marcus Webb (CEO, Antagonist)"
+      - "Dr. Isolde Brenner (Tanakas Mentorin)"
+    history:
+      - "1200: Gründung Norditalien"
+      - "1300-1500: Tarnung als Alchemisten"
+      - "1600: Spaltung"
+      - "1800: Einfluss Pharmaindustrie"
+      - "Heute: ~500 Mitglieder, enormer Einfluss"
+    agenda: "Nano-Wesen kontrollieren, nicht verstehen"
+    internal_conflict: "Hardliner vs. Moderate"
+    arc_in_series:
+      book_1: "Unsichtbar (Geldfluss)"
+      book_2: "Andeutung (Datenkauf)"
+      book_3: "Antagonist (Webb)"
+      book_4: "Volle Macht"
+      book_5: "Spaltung"
+      book_6: "Zusammenbruch"
+
+  die_stillen:
+    motto: "Im Schweigen hören wir."
+    founding: "~500 v.Chr., multiple Ursprünge"
+    alignment: "Astral-nah, kontemplativ"
+    structure: "Lose, Meister-Schüler-Linien"
+    resources: "Wenig materiell, viel Wissen"
+    weakness: "Passivität, Weltabgewandtheit"
+    key_members:
+      - "Meister Chen (Yunnan)"
+      - "Amira (Berlin)"
+    history:
+      - "500 v.Chr.: Entstehung Indien, China, Persien"
+      - "200 n.Chr.: Erste Kontakte"
+      - "800 n.Chr.: Sufis/Buddhisten Austausch"
+      - "1959: Tibet-Krise, Zerstreuung"
+      - "Heute: ~50-100 Praktizierende"
+    agenda: "Menschheit muss sich selbst befreien durch Praxis"
+    arc_in_series:
+      book_1: "Unsichtbar"
+      book_2: "Eingeführt (Amira)"
+      book_3: "Vertiefung"
+      book_4: "Mobilisierung"
+      book_5: "Volle Aktivität"
+      book_6-7: "Integration"
+
+  bruecken_hueter:
+    motto: "Weder das Eine noch das Andere — das Dazwischen."
+    founding: "Uralt — älteste Gruppe"
+    alignment: "Balance"
+    structure: "Kaum noch existent"
+    symbol: "∞ mit einem Punkt in der Mitte"
+    resources: "Einzigartiges Wissen"
+    weakness: "Fast ausgestorben"
+    key_members:
+      - "Ezra (der Letzte)"
+      - "Lena (die Neue)"
+    secret: "Wissen, wie Schisma geheilt werden kann"
+    extinction_reason: "Von beiden Seiten gejagt"
+    arc_in_series:
+      book_1: "Unsichtbar"
+      book_2: "Symbol taucht auf"
+      book_3: "Erste Erwähnung"
+      book_4: "Ezra tritt auf"
+      book_5: "Ezra stirbt, Vermächtnis"
+      book_6: "Wiedergeburt durch Lena"
+      book_7: "Etabliert"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# BLUTLINIEN
+# ═══════════════════════════════════════════════════════════════════════════════
+
+bloodlines:
+  concept: |
+    Nicht Genetik allein — Nano-Struktur-Muster.
+    Die Fähigkeit zur Projektion wird vererbt.
+    Spontan-Erwachen möglich, aber selten.
+
+  lena_line:
+    name: "Linie der Ersten"
+    origin: "Die Erste (100.000 v.Chr., Afrika)"
+    path: "Afrika → Europa → Kelten → Druiden → 'Hexen' → Versteckt"
+    trait: "Spontane Projektion, schwer kontrollierbar, Zugang zu BEIDEN Seiten"
+    known_members:
+      - name: "Die Erste"
+        era: "100.000 v.Chr."
+        significance: "Erste bewusste Projektion"
+      - name: "Margarethe"
+        era: "1620"
+        fate: "Verbrannt als Hexe"
+        significance: "Letzte öffentliche Praktikerin"
+      - name: "Hedwig"
+        era: "~1900"
+        role: "Heilerin"
+      - name: "Else Vogt"
+        role: "Großmutter"
+        significance: "Gab Wissen an Lena weiter"
+      - name: "Renate Vogt"
+        role: "Mutter"
+        status: "Unterdrückt die Fähigkeit"
+      - name: "Lena Vogt"
+        role: "Protagonistin"
+      - name: "Finn Vogt"
+        role: "Nächste Generation"
+        status: "Zeigt Zeichen"
+    special: "Identische Nano-Signatur über 100.000 Jahre"
+
+  khoury_line:
+    name: "Khoury-Linie"
+    origin: "Levante (~50.000 v.Chr.)"
+    path: "Mesopotamien → Sufis → Khoury-Familie"
+    trait: "Kontrollierte Fähigkeit, starke Astral-Verbindung"
+    split:
+      traditional: "Samira, ihre Mutter — Wissen bewahren"
+      secular: "David, sein Vater — Flucht in Wissenschaft"
+    known_members:
+      - name: "Yusef ibn Khoury"
+        era: "1200 n.Chr."
+        role: "Kartograf des Unsichtbaren"
+        legacy: "Manuskript mit Wissen beider Seiten"
+      - name: "Samira Khoury"
+        role: "Akademikerin, Tradition bewusst"
+      - name: "David Khoury"
+        role: "Wissenschaftler, Tradition verdrängt"
+
+  tanaka_line:
+    name: "Tanaka-Linie"
+    origin: "Japan (~30.000 v.Chr.)"
+    path: "Jōmon-Schamanen → Miko-Priesterinnen → versteckt"
+    trait: "Subtil, wissenschaftlich 'getarnt', starke Nano-Affinität"
+    discovery: "Tanaka erfährt in Buch 3 von ihrer Großmutter"
+
+  other_lines:
+    - name: "Akan-Linie (Kofi Asante)"
+      origin: "Westafrika"
+    - name: "Curandera-Linie (Elena Vasquez)"
+      origin: "Südamerika"
+    - name: "Sibirische Linie (Alexei Volkov)"
+      origin: "Russland"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ZEITSPRÜNGE (ECHO-KAPITEL)
+# ═══════════════════════════════════════════════════════════════════════════════
+
+time_jumps:
+  - id: "schisma"
+    title: "Das Schisma"
+    epoch: "Vor der Zeit"
+    location: "Kein Ort / Überall"
+    pov: "Das Eine (wird zu Zwei)"
+    length: "1-2 Seiten"
+    appears_in: ["Buch 1 (Prolog)", "Buch 7 (erweitert)"]
+    connection: "Erklärt den Ur-Konflikt"
+    tone: "Poetisch, abstrakt"
+
+  - id: "die_erste"
+    title: "Die Erste"
+    epoch: "~100.000 v.Chr."
+    location: "Afrika, Savanne"
+    pov: "Wechselnd: Frau / Nano / Astral"
+    length: "4-6 Seiten"
+    appears_in: ["Buch 1 (Kapitel 11)"]
+    connection: "Spiegelt Lenas erstes Erwachen"
+    tone: "Intim, transformativ"
+
+  - id: "die_kuenstler"
+    title: "Die Künstler"
+    epoch: "~35.000 v.Chr."
+    location: "Höhle, Südfrankreich"
+    pov: "Ein Maler"
+    length: "2-3 Seiten"
+    appears_in: ["Buch 2"]
+    connection: "Lena sieht diese Bilder, erkennt ihre Erfahrung"
+    tone: "Ehrfürchtig, dokumentierend"
+
+  - id: "der_kartograf"
+    title: "Der Kartograf"
+    epoch: "~1200 n.Chr."
+    location: "Bagdad, Haus der Weisheit"
+    pov: "Yusef ibn Khoury"
+    length: "3-4 Seiten"
+    appears_in: ["Buch 3"]
+    connection: "Samira findet sein Manuskript"
+    tone: "Gelehrt, mystisch"
+
+  - id: "die_hexe"
+    title: "Die Hexe"
+    epoch: "~1620 n.Chr."
+    location: "Deutschland, Dorf"
+    pov: "Margarethe (Lenas Vorfahrin)"
+    length: "2 Seiten"
+    appears_in: ["Buch 2-3"]
+    connection: "Lena entdeckt ihre Linie"
+    tone: "Intensiv, tragisch"
+
+  - id: "das_experiment"
+    title: "Das Experiment"
+    epoch: "~3,8 Milliarden Jahre v.h."
+    location: "Ur-Ozean der Erde"
+    pov: "Nano-Kollektiv"
+    length: "2 Seiten"
+    appears_in: ["Buch 4"]
+    connection: "Erklärt Nano-Ursprung auf Erde"
+    tone: "Fremd, geduldig"
+
+  - id: "die_intervention"
+    title: "Die Intervention"
+    epoch: "~540 Millionen Jahre v.h."
+    location: "Ur-Ozean, weltweit"
+    pov: "Wechselnd: Nano / Astral"
+    length: "2-3 Seiten"
+    appears_in: ["Buch 4"]
+    connection: "Erklärt ersten Konflikt (Kambrium)"
+    tone: "Konfrontativ"
+
+  - id: "die_goetter"
+    title: "Die Götter"
+    epoch: "~3.000 v.Chr."
+    location: "Sumer, Tempel"
+    pov: "Ein Priester"
+    length: "3 Seiten"
+    appears_in: ["Buch 3"]
+    connection: "Zeigt Deutung als 'Götter'"
+    tone: "Ehrfürchtig, verwirrend"
+
+  - id: "die_tote_bruecke"
+    title: "Die Tote Brücke"
+    epoch: "Zeitlos (andere Welt)"
+    location: "Gescheiterter Planet"
+    pov: "Letzter Bewohner / Echo"
+    length: "3-4 Seiten"
+    appears_in: ["Buch 4-5"]
+    connection: "Warnung vor falscher Wahl"
+    tone: "Melancholisch, warnend"
+
+  - id: "das_vergessen"
+    title: "Das Vergessen"
+    epoch: "~1700 n.Chr."
+    location: "Europa"
+    pov: "Wechselnd: Archivar / Nano / Astral"
+    length: "2 Seiten"
+    appears_in: ["Buch 6"]
+    connection: "Erklärt Wissensverlust"
+    tone: "Traurig, hoffnungsvoll"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# SERIEN-STRUKTUR
+# ═══════════════════════════════════════════════════════════════════════════════
+
+series_structure:
+  phases:
+    - name: "Phase 1: Erwachen"
+      books: [1, 2]
+      scale: "Persönlich"
+      focus: "Lena entdeckt, lernt, verbindet sich"
+    
+    - name: "Phase 2: Konflikt"
+      books: [3, 4]
+      scale: "Gesellschaft → Kosmisch"
+      focus: "Spaltung, Krieg der Fraktionen, kosmischer Kontext"
+    
+    - name: "Phase 3: Transformation"
+      books: [5, 6, 7]
+      scale: "Kosmisch → Metaphysisch"
+      focus: "Entscheidung, Transformation, neue Ordnung"
+
+  tension_curve: |
+    SPANNUNG
+        │
+        │                                    ████ Buch 6
+        │                               ████      (Transformation)
+        │                          ████
+        │                     ████ Buch 5
+        │                ████      (Die Wahl)
+        │           ████
+        │      ████ Buch 4
+        │ ████      (Krieg)
+        │████ Buch 3
+        ██    (Schismen)
+       ██ Buch 2
+      █   (Kontakt)
+     █ Buch 1                                         ██ Buch 7
+    █  (Erwachen)                                    █   (Synthese)
+    ┼────────────────────────────────────────────────────────────→ ZEIT

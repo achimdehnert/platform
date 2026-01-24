@@ -1,0 +1,77 @@
+<!-- templates/cad_hub/project_detail.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}{{ project.name }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h2 class="h4 fw-bold mb-0">{{ project.name }}</h2>
+            <a href="{% url 'cad_hub:project_edit' project.pk %}" class="btn btn-sm btn-outline-secondary" title="Bearbeiten">
+                <i class="bi bi-pencil"></i>
+            </a>
+            <a href="{% url 'cad_hub:project_delete' project.pk %}" class="btn btn-sm btn-outline-danger" title="Löschen">
+                <i class="bi bi-trash"></i>
+            </a>
+        </div>
+        {% if project.description %}
+        <p class="text-muted mt-1 mb-0">{{ project.description }}</p>
+        {% endif %}
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'cad_hub:model_upload' project.pk %}" class="btn btn-warning">
+            <i class="bi bi-cloud-upload"></i> IFC hochladen
+        </a>
+        <a href="{% url 'cad_hub:cad_upload' project.pk %}" class="btn btn-primary">
+            <i class="bi bi-upload"></i> CAD Upload
+        </a>
+    </div>
+</div>
+
+<!-- Modell-Versionen -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-layers"></i> Modell-Versionen</h5>
+    </div>
+    <div class="list-group list-group-flush">
+        {% for model in models %}
+        <div class="list-group-item d-flex justify-content-between align-items-center">
+            <a href="{% url 'cad_hub:model_detail' model.pk %}" class="d-flex align-items-center gap-3 text-decoration-none flex-grow-1">
+                <div class="rounded p-2 {% if model.status == 'ready' %}bg-success bg-opacity-10{% elif model.status == 'error' %}bg-danger bg-opacity-10{% else %}bg-primary bg-opacity-10{% endif %}">
+                    {% if model.status == 'ready' %}
+                    <i class="bi bi-check-lg text-success"></i>
+                    {% elif model.status == 'error' %}
+                    <i class="bi bi-x-lg text-danger"></i>
+                    {% else %}
+                    <div class="spinner-border spinner-border-sm text-primary" role="status"></div>
+                    {% endif %}
+                </div>
+                <div>
+                    <span class="fw-medium text-dark">Version {{ model.version }}</span>
+                    <br>
+                    <small class="text-muted">{{ model.ifc_schema|default:"IFC" }} • {{ model.uploaded_at|date:"d.m.Y H:i" }}</small>
+                </div>
+            </a>
+            <div class="d-flex align-items-center gap-3">
+                <span class="badge bg-secondary">{{ model.rooms.count }} Räume</span>
+                <a href="{% url 'cad_hub:model_delete' model.pk %}" class="btn btn-sm btn-outline-danger" title="Löschen">
+                    <i class="bi bi-trash"></i>
+                </a>
+                <a href="{% url 'cad_hub:model_detail' model.pk %}" class="btn btn-sm btn-outline-secondary">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </div>
+        </div>
+        {% empty %}
+        <div class="list-group-item text-center py-5">
+            <p class="text-muted mb-2">Noch keine Modelle hochgeladen</p>
+            <a href="{% url 'cad_hub:model_upload' project.pk %}" class="btn btn-warning">
+                <i class="bi bi-cloud-upload"></i> Erste IFC-Datei hochladen
+            </a>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

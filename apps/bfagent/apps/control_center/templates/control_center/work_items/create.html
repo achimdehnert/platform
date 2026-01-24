@@ -1,0 +1,170 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Neues Work Item{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'control_center:work-items:work-items-dashboard' %}">Work Items</a></li>
+                <li class="breadcrumb-item active">Neu erstellen</li>
+            </ol>
+        </nav>
+        <h1 class="h2">➕ Neues Work Item</h1>
+    </div>
+
+    <form method="post" class="row g-4">
+        {% csrf_token %}
+        
+        <div class="col-lg-8">
+            <!-- Main Form -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Typ <span class="text-danger">*</span></label>
+                        <div class="btn-group w-100" role="group">
+                            {% for code, label in work_item_types %}
+                            <input type="radio" class="btn-check" name="item_type" id="type_{{ code }}" value="{{ code }}" 
+                                   {% if default_type == code %}checked{% endif %}
+                                   onchange="toggleTypeFields('{{ code }}')">
+                            <label class="btn btn-outline-{% if code == 'bug' %}danger{% elif code == 'feature' %}success{% elif code == 'task' %}primary{% else %}secondary{% endif %}" for="type_{{ code }}">
+                                {{ label }}
+                            </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="title" class="form-label">Titel <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control form-control-lg" id="title" name="title" required
+                               placeholder="Kurze, prägnante Beschreibung">
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Beschreibung</label>
+                        <textarea class="form-control" id="description" name="description" rows="4"
+                                  placeholder="Detaillierte Beschreibung des Work Items..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bug-specific fields -->
+            <div class="card border-0 shadow-sm mb-4 border-start border-danger border-3" id="bug-fields" style="display: none;">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">🐛 Bug Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="bug_url" class="form-label">URL wo der Bug auftritt</label>
+                        <input type="url" class="form-control" id="bug_url" name="bug_url" placeholder="https://...">
+                    </div>
+                    <div class="mb-3">
+                        <label for="actual_behavior" class="form-label">Aktuelles Verhalten</label>
+                        <textarea class="form-control" id="actual_behavior" name="actual_behavior" rows="2"
+                                  placeholder="Was passiert aktuell?"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="expected_behavior" class="form-label">Erwartetes Verhalten</label>
+                        <textarea class="form-control" id="expected_behavior" name="expected_behavior" rows="2"
+                                  placeholder="Was sollte stattdessen passieren?"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="steps_to_reproduce" class="form-label">Schritte zur Reproduktion</label>
+                        <textarea class="form-control" id="steps_to_reproduce" name="steps_to_reproduce" rows="3"
+                                  placeholder="1. Öffne Seite X&#10;2. Klicke auf Button Y&#10;3. ..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Feature-specific fields -->
+            <div class="card border-0 shadow-sm mb-4 border-start border-success border-3" id="feature-fields" style="display: none;">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">✨ Feature Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="user_story" class="form-label">User Story</label>
+                        <textarea class="form-control" id="user_story" name="user_story" rows="2"
+                                  placeholder="Als [Rolle] möchte ich [Funktion], damit [Nutzen]"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label for="specification" class="form-label">Technische Spezifikation</label>
+                        <textarea class="form-control" id="specification" name="specification" rows="3"
+                                  placeholder="Technische Details zur Implementierung..."></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Task-specific fields -->
+            <div class="card border-0 shadow-sm mb-4 border-start border-primary border-3" id="task-fields" style="display: none;">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">📋 Task Details</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="estimated_hours" class="form-label">Geschätzte Zeit (Stunden)</label>
+                        <input type="number" class="form-control" id="estimated_hours" name="estimated_hours" 
+                               step="0.5" min="0" placeholder="z.B. 4">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">⚙️ Eigenschaften</h6>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="priority" class="form-label">Priorität</label>
+                        <select class="form-select" id="priority" name="priority">
+                            {% for code, label in work_item_priorities %}
+                            <option value="{{ code }}" {% if code == 'medium' %}selected{% endif %}>{{ label }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="domain" class="form-label">Domain</label>
+                        <select class="form-select" id="domain" name="domain">
+                            <option value="">-- Keine Domain --</option>
+                            {% for domain in domains %}
+                            <option value="{{ domain.id }}">{{ domain.display_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-grid gap-2">
+                <button type="submit" class="btn btn-primary btn-lg">
+                    <i class="bi bi-plus-lg"></i> Work Item erstellen
+                </button>
+                <a href="{% url 'control_center:work-items:work-items-dashboard' %}" class="btn btn-outline-secondary">
+                    Abbrechen
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<script>
+function toggleTypeFields(type) {
+    document.getElementById('bug-fields').style.display = type === 'bug' ? 'block' : 'none';
+    document.getElementById('feature-fields').style.display = type === 'feature' ? 'block' : 'none';
+    document.getElementById('task-fields').style.display = type === 'task' ? 'block' : 'none';
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    const checked = document.querySelector('input[name="item_type"]:checked');
+    if (checked) {
+        toggleTypeFields(checked.value);
+    }
+});
+</script>
+{% endblock %}

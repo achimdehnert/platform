@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}Domain Not Found{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-exclamation-triangle text-warning" style="font-size: 5rem;"></i>
+                    <h1 class="h2 mt-4">Domain Template Not Found</h1>
+                    <p class="lead text-muted">The domain "<code>{{ domain_id }}</code>" could not be found.</p>
+                    
+                    {% if available_domains %}
+                    <div class="alert alert-info text-start mt-4">
+                        <h6>Available Domains:</h6>
+                        <ul class="mb-0">
+                            {% for domain in available_domains %}
+                            <li><code>{{ domain }}</code></li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+
+                    <div class="d-grid gap-2 mt-4">
+                        <a href="{% url 'genagent:domain-list' %}" class="btn btn-primary">
+                            <i class="bi bi-arrow-left"></i> View All Domains
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

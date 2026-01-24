@@ -1,0 +1,1035 @@
+
+
+from django.views.generic import CreateView, UpdateView, DeleteView, ListView, DetailView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Q
+from ..models import Llms
+from ..forms import LlmsForm
+
+
+class LlmsListView(LoginRequiredMixin, ListView):
+    """List view for Llms"""
+    model = Llms
+    template_name = 'bfagent/llms_list.html'
+    context_object_name = 'llmss'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add any common annotations
+        # queryset = queryset.annotate(
+        #     days_since_created=Now() - F('created_at')
+        # )
+
+        # Search functionality
+        search_query = self.request.GET.get('search')
+        if search_query:
+            # CUSTOM_CODE_START: search_fields
+            # Customize search fields here
+            queryset = queryset.filter(
+                Q(name__icontains=search_query)
+                # Add more search fields as needed
+            )
+            # CUSTOM_CODE_END:
+
+        # CUSTOM_CODE_START: queryset_filters
+        # Add custom filtering logic here
+        # CUSTOM_CODE_END:
+
+        # Ordering
+        ordering = self.request.GET.get('ordering', '-created_at')
+        queryset = queryset.order_by(ordering)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['list_fields'] = []
+        context['total_count'] = self.get_queryset().count()
+
+        # CUSTOM_CODE_START: extra_context
+        # Add custom context variables here
+        # CUSTOM_CODE_END:
+
+        return context
+
+
+class LlmsDetailView(LoginRequiredMixin, DetailView):
+    """Detail view for Llms"""
+    model = Llms
+    template_name = 'bfagent/llms_detail.html'
+    context_object_name = 'llms'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add any common annotations
+        # queryset = queryset.annotate(
+        #     days_since_created=Now() - F('created_at')
+        # )
+        return queryset
+
+
+class LlmsCreateView(LoginRequiredMixin, CreateView):
+    """Create view for Llms"""
+    model = Llms
+    form_class = LlmsForm
+    template_name = 'bfagent/llms_form.html'
+    success_url = reverse_lazy('bfagent:llms-list')
+
+    def form_valid(self, form):
+        # CUSTOM_CODE_START: form_valid_create
+        # Add custom logic before saving
+        # Example: form.instance.created_by = self.request.user
+        # CUSTOM_CODE_END:
+
+        response = super().form_valid(form)
+        messages.success(self.request, f'Llms created successfully!')
+
+        # HTMX handling
+        if self.request.headers.get('HX-Request'):
+            context = {
+                'llmss': Llms.objects.all()[:20],
+                'list_fields': [],
+                'messages': messages.get_messages(self.request)
+            }
+            html = render_to_string(
+                'bfagent/partials/llms_partial_list.html',
+                context,
+                request=self.request
+            )
+            return HttpResponse(html)
+        return response
+
+    def form_invalid(self, form):
+        # HTMX error handling
+        if self.request.headers.get('HX-Request'):
+            response = super().form_invalid(form)
+            response['HX-Retarget'] = '#modal-container'
+            response['HX-Reswap'] = 'innerHTML'
+            return response
+        return super().form_invalid(form)
+
+
+class LlmsEditView(LoginRequiredMixin, UpdateView):
+    """Edit view for Llms"""
+    model = Llms
+    form_class = LlmsForm
+    template_name = 'bfagent/llms_form.html'
+    success_url = reverse_lazy('bfagent:llms-list')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add any common annotations
+        # queryset = queryset.annotate(
+        #     days_since_created=Now() - F('created_at')
+        # )
+        return queryset
+
+    def form_valid(self, form):
+        # CUSTOM_CODE_START: form_valid_edit
+        # Add custom logic before saving
+        # Example: form.instance.modified_by = self.request.user
+        # CUSTOM_CODE_END:
+
+        response = super().form_valid(form)
+        messages.success(self.request, f'Llms updated successfully!')
+
+        # HTMX handling
+        if self.request.headers.get('HX-Request'):
+            context = {
+                'llmss': Llms.objects.all()[:20],
+                'list_fields': [],
+                'messages': messages.get_messages(self.request)
+            }
+            html = render_to_string(
+                'bfagent/partials/llms_partial_list.html',
+                context,
+                request=self.request
+            )
+            return HttpResponse(html)
+        return response
+
+
+class LlmsDeleteView(LoginRequiredMixin, DeleteView):
+    """Delete view for Llms"""
+    model = Llms
+    template_name = 'bfagent/llms_confirm_delete.html'
+    success_url = reverse_lazy('bfagent:llms-list')
+
+    def delete(self, request, *args, **kwargs):
+        # CUSTOM_CODE_START: delete_logic
+        # Add custom deletion logic
+        # CUSTOM_CODE_END:
+
+        obj = self.get_object()
+        messages.success(request, f'Llms "{obj}" deleted successfully!')
+
+        if request.headers.get('HX-Request'):
+            super().delete(request, *args, **kwargs)
+            return HttpResponse(status=204)
+        return super().delete(request, *args, **kwargs)
+
+
+# CUSTOM_CODE_START: additional_views
+# Add any additional custom views here
+# CUSTOM_CODE_END:
+
+
+from django.views.generic import CreateView, UpdateView, DeleteView, ListView, DetailView
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.urls import reverse_lazy
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Q
+from ..models import BookProjects
+from ..forms import BookProjectForm
+
+
+class BookProjectsListView(LoginRequiredMixin, ListView):
+    """List view for BookProjects"""
+    model = BookProjects
+    template_name = 'bfagent/bookprojects_list.html'
+    context_object_name = 'bookprojectss'
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add any common annotations
+        # queryset = queryset.annotate(
+        #     days_since_created=Now() - F('created_at')
+        # )
+
+        # Search functionality
+        search_query = self.request.GET.get('search')
+        if search_query:
+            # CUSTOM_CODE_START: search_fields
+            # Customize search fields here
+            queryset = queryset.filter(
+                Q(name__icontains=search_query)
+                # Add more search fields as needed
+            )
+            # CUSTOM_CODE_END:
+
+        # CUSTOM_CODE_START: queryset_filters
+        # Add custom filtering logic here
+        # CUSTOM_CODE_END:
+
+        # Ordering
+        ordering = self.request.GET.get('ordering', '-created_at')
+        queryset = queryset.order_by(ordering)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['list_fields'] = []
+        context['total_count'] = self.get_queryset().count()
+
+        # CUSTOM_CODE_START: extra_context
+        # Add custom context variables here
+        # CUSTOM_CODE_END:
+
+        return context
+
+
+class BookProjectsDetailView(LoginRequiredMixin, DetailView):
+    """Detail view for BookProjects"""
+    model = BookProjects
+    template_name = 'bfagent/bookprojects_detail.html'
+    context_object_name = 'bookprojects'
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add any common annotations
+        # queryset = queryset.annotate(
+        #     days_since_created=Now() - F('created_at')
+        # )
+        return queryset
+
+
+class BookProjectsCreateView(LoginRequiredMixin, CreateView):
+    """Create view for BookProjects"""
+    model = BookProjects
+    form_class = BookProjectForm
+    template_name = 'bfagent/bookprojects_form.html'
+    success_url = reverse_lazy('bfagent:bookprojects-list')
+
+    def form_valid(self, form):
+        # CUSTOM_CODE_START: form_valid_create
+        # Add custom logic before saving
+        # Example: form.instance.created_by = self.request.user
+        # CUSTOM_CODE_END:
+
+        response = super().form_valid(form)
+        messages.success(self.request, f'BookProjects created successfully!')
+
+        # HTMX handling
+        if self.request.headers.get('HX-Request'):
+            context = {
+                'bookprojectss': BookProjects.objects.all()[:20],
+                'list_fields': [],
+                'messages': messages.get_messages(self.request)
+            }
+            html = render_to_string(
+                'bfagent/partials/bookprojects_partial_list.html',
+                context,
+                request=self.request
+            )
+            return HttpResponse(html)
+        return response
+
+    def form_invalid(self, form):
+        # HTMX error handling
+        if self.request.headers.get('HX-Request'):
+            response = super().form_invalid(form)
+            response['HX-Retarget'] = '#modal-container'
+            response['HX-Reswap'] = 'innerHTML'
+            return response
+        return super().form_invalid(form)
+
+
+class BookProjectsEditView(LoginRequiredMixin, UpdateView):
+    """Edit view for BookProjects"""
+    model = BookProjects
+    form_class = BookProjectForm
+    template_name = 'bfagent/bookprojects_form.html'
+    success_url = reverse_lazy('bfagent:bookprojects-list')
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add any common annotations
+        # queryset = queryset.annotate(
+        #     days_since_created=Now() - F('created_at')
+        # )
+        return queryset
+
+    def form_valid(self, form):
+        # CUSTOM_CODE_START: form_valid_edit
+        # Add custom logic before saving
+        # Example: form.instance.modified_by = self.request.user
+        # CUSTOM_CODE_END:
+
+        response = super().form_valid(form)
+        messages.success(self.request, f'BookProjects updated successfully!')
+
+        # HTMX handling
+        if self.request.headers.get('HX-Request'):
+            context = {
+                'bookprojectss': BookProjects.objects.all()[:20],
+                'list_fields': [],
+                'messages': messages.get_messages(self.request)
+            }
+            html = render_to_string(
+                'bfagent/partials/bookprojects_partial_list.html',
+                context,
+                request=self.request
+            )
+            return HttpResponse(html)
+        return response
+
+
+class BookProjectsDeleteView(LoginRequiredMixin, DeleteView):
+    """Delete view for BookProjects"""
+    model = BookProjects
+    template_name = 'bfagent/bookprojects_confirm_delete.html'
+    success_url = reverse_lazy('bfagent:bookprojects-list')
+
+    def delete(self, request, *args, **kwargs):
+        # CUSTOM_CODE_START: delete_logic
+        # Add custom deletion logic
+        # CUSTOM_CODE_END:
+
+        obj = self.get_object()
+        messages.success(request, f'BookProjects "{obj}" deleted successfully!')
+
+        if request.headers.get('HX-Request'):
+            super().delete(request, *args, **kwargs)
+            return HttpResponse(status=204)
+        return super().delete(request, *args, **kwargs)
+
+
+# CUSTOM_CODE_START: additional_views
+# Add any additional custom views here
+# CUSTOM_CODE_END:
+
+
+# ============================================================================
+# BookProjects CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import BookProjects
+from apps.bfagent.forms import BookProjectsForm
+
+
+class BookProjectsListView(ListView):
+    """List view for BookProjects"""
+    model = BookProjects
+    template_name = "bfagent/bookprojects_list.html"
+    context_object_name = "bookprojects_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class BookProjectsDetailView(DetailView):
+    """Detail view for BookProjects"""
+    model = BookProjects
+    template_name = "bfagent/bookprojects_detail.html"
+    context_object_name = "bookprojects"
+
+
+class BookProjectsCreateView(CreateView):
+    """Create view for BookProjects"""
+    model = BookProjects
+    form_class = BookProjectsForm
+    template_name = "bfagent/bookprojects_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookprojects-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookProjects created successfully!")
+        return super().form_valid(form)
+
+
+class BookProjectsUpdateView(UpdateView):
+    """Update view for BookProjects"""
+    model = BookProjects
+    form_class = BookProjectsForm
+    template_name = "bfagent/bookprojects_form.html"
+    context_object_name = "bookprojects"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookprojects-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookProjects updated successfully!")
+        return super().form_valid(form)
+
+
+class BookProjectsDeleteView(DeleteView):
+    """Delete view for BookProjects"""
+    model = BookProjects
+    template_name = "bfagent/bookprojects_confirm_delete.html"
+    context_object_name = "bookprojects"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookprojects-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"BookProjects deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# Agents CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import Agents
+from apps.bfagent.forms import AgentsForm
+
+
+class AgentsListView(ListView):
+    """List view for Agents"""
+    model = Agents
+    template_name = "bfagent/agents_list.html"
+    context_object_name = "agents_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class AgentsDetailView(DetailView):
+    """Detail view for Agents"""
+    model = Agents
+    template_name = "bfagent/agents_detail.html"
+    context_object_name = "agents"
+
+
+class AgentsCreateView(CreateView):
+    """Create view for Agents"""
+    model = Agents
+    form_class = AgentsForm
+    template_name = "bfagent/agents_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:agents-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Agents created successfully!")
+        return super().form_valid(form)
+
+
+class AgentsUpdateView(UpdateView):
+    """Update view for Agents"""
+    model = Agents
+    form_class = AgentsForm
+    template_name = "bfagent/agents_form.html"
+    context_object_name = "agents"
+
+    def get_success_url(self):
+        return reverse("bfagent:agents-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Agents updated successfully!")
+        return super().form_valid(form)
+
+
+class AgentsDeleteView(DeleteView):
+    """Delete view for Agents"""
+    model = Agents
+    template_name = "bfagent/agents_confirm_delete.html"
+    context_object_name = "agents"
+
+    def get_success_url(self):
+        return reverse("bfagent:agents-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"Agents deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# BookChapters CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import BookChapters
+from apps.bfagent.forms import BookChaptersForm
+
+
+class BookChaptersListView(ListView):
+    """List view for BookChapters"""
+    model = BookChapters
+    template_name = "bfagent/bookchapters_list.html"
+    context_object_name = "bookchapters_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class BookChaptersDetailView(DetailView):
+    """Detail view for BookChapters"""
+    model = BookChapters
+    template_name = "bfagent/bookchapters_detail.html"
+    context_object_name = "bookchapters"
+
+
+class BookChaptersCreateView(CreateView):
+    """Create view for BookChapters"""
+    model = BookChapters
+    form_class = BookChaptersForm
+    template_name = "bfagent/bookchapters_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookchapters-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookChapters created successfully!")
+        return super().form_valid(form)
+
+
+class BookChaptersUpdateView(UpdateView):
+    """Update view for BookChapters"""
+    model = BookChapters
+    form_class = BookChaptersForm
+    template_name = "bfagent/bookchapters_form.html"
+    context_object_name = "bookchapters"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookchapters-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookChapters updated successfully!")
+        return super().form_valid(form)
+
+
+class BookChaptersDeleteView(DeleteView):
+    """Delete view for BookChapters"""
+    model = BookChapters
+    template_name = "bfagent/bookchapters_confirm_delete.html"
+    context_object_name = "bookchapters"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookchapters-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"BookChapters deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# StoryArc CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import StoryArc
+from apps.bfagent.forms import StoryArcForm
+
+
+class StoryArcListView(ListView):
+    """List view for StoryArc"""
+    model = StoryArc
+    template_name = "bfagent/storyarc_list.html"
+    context_object_name = "storyarc_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class StoryArcDetailView(DetailView):
+    """Detail view for StoryArc"""
+    model = StoryArc
+    template_name = "bfagent/storyarc_detail.html"
+    context_object_name = "storyarc"
+
+
+class StoryArcCreateView(CreateView):
+    """Create view for StoryArc"""
+    model = StoryArc
+    form_class = StoryArcForm
+    template_name = "bfagent/storyarc_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:storyarc-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"StoryArc created successfully!")
+        return super().form_valid(form)
+
+
+class StoryArcUpdateView(UpdateView):
+    """Update view for StoryArc"""
+    model = StoryArc
+    form_class = StoryArcForm
+    template_name = "bfagent/storyarc_form.html"
+    context_object_name = "storyarc"
+
+    def get_success_url(self):
+        return reverse("bfagent:storyarc-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"StoryArc updated successfully!")
+        return super().form_valid(form)
+
+
+class StoryArcDeleteView(DeleteView):
+    """Delete view for StoryArc"""
+    model = StoryArc
+    template_name = "bfagent/storyarc_confirm_delete.html"
+    context_object_name = "storyarc"
+
+    def get_success_url(self):
+        return reverse("bfagent:storyarc-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"StoryArc deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# PlotPoint CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import PlotPoint
+from apps.bfagent.forms import PlotPointForm
+
+
+class PlotPointListView(ListView):
+    """List view for PlotPoint"""
+    model = PlotPoint
+    template_name = "bfagent/plotpoint_list.html"
+    context_object_name = "plotpoint_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class PlotPointDetailView(DetailView):
+    """Detail view for PlotPoint"""
+    model = PlotPoint
+    template_name = "bfagent/plotpoint_detail.html"
+    context_object_name = "plotpoint"
+
+
+class PlotPointCreateView(CreateView):
+    """Create view for PlotPoint"""
+    model = PlotPoint
+    form_class = PlotPointForm
+    template_name = "bfagent/plotpoint_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:plotpoint-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PlotPoint created successfully!")
+        return super().form_valid(form)
+
+
+class PlotPointUpdateView(UpdateView):
+    """Update view for PlotPoint"""
+    model = PlotPoint
+    form_class = PlotPointForm
+    template_name = "bfagent/plotpoint_form.html"
+    context_object_name = "plotpoint"
+
+    def get_success_url(self):
+        return reverse("bfagent:plotpoint-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PlotPoint updated successfully!")
+        return super().form_valid(form)
+
+
+class PlotPointDeleteView(DeleteView):
+    """Delete view for PlotPoint"""
+    model = PlotPoint
+    template_name = "bfagent/plotpoint_confirm_delete.html"
+    context_object_name = "plotpoint"
+
+    def get_success_url(self):
+        return reverse("bfagent:plotpoint-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"PlotPoint deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# Characters CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import Characters
+from apps.bfagent.forms import CharactersForm
+
+
+class CharactersListView(ListView):
+    """List view for Characters"""
+    model = Characters
+    template_name = "bfagent/characters_list.html"
+    context_object_name = "characters_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class CharactersDetailView(DetailView):
+    """Detail view for Characters"""
+    model = Characters
+    template_name = "bfagent/characters_detail.html"
+    context_object_name = "characters"
+
+
+class CharactersCreateView(CreateView):
+    """Create view for Characters"""
+    model = Characters
+    form_class = CharactersForm
+    template_name = "bfagent/characters_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:characters-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Characters created successfully!")
+        return super().form_valid(form)
+
+
+class CharactersUpdateView(UpdateView):
+    """Update view for Characters"""
+    model = Characters
+    form_class = CharactersForm
+    template_name = "bfagent/characters_form.html"
+    context_object_name = "characters"
+
+    def get_success_url(self):
+        return reverse("bfagent:characters-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Characters updated successfully!")
+        return super().form_valid(form)
+
+
+class CharactersDeleteView(DeleteView):
+    """Delete view for Characters"""
+    model = Characters
+    template_name = "bfagent/characters_confirm_delete.html"
+    context_object_name = "characters"
+
+    def get_success_url(self):
+        return reverse("bfagent:characters-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"Characters deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# BookTypes CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import BookTypes
+from apps.bfagent.forms import BookTypesForm
+
+
+class BookTypesListView(ListView):
+    """List view for BookTypes"""
+    model = BookTypes
+    template_name = "bfagent/booktypes_list.html"
+    context_object_name = "booktypes_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class BookTypesDetailView(DetailView):
+    """Detail view for BookTypes"""
+    model = BookTypes
+    template_name = "bfagent/booktypes_detail.html"
+    context_object_name = "booktypes"
+
+
+class BookTypesCreateView(CreateView):
+    """Create view for BookTypes"""
+    model = BookTypes
+    form_class = BookTypesForm
+    template_name = "bfagent/booktypes_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktypes-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookTypes created successfully!")
+        return super().form_valid(form)
+
+
+class BookTypesUpdateView(UpdateView):
+    """Update view for BookTypes"""
+    model = BookTypes
+    form_class = BookTypesForm
+    template_name = "bfagent/booktypes_form.html"
+    context_object_name = "booktypes"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktypes-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookTypes updated successfully!")
+        return super().form_valid(form)
+
+
+class BookTypesDeleteView(DeleteView):
+    """Delete view for BookTypes"""
+    model = BookTypes
+    template_name = "bfagent/booktypes_confirm_delete.html"
+    context_object_name = "booktypes"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktypes-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"BookTypes deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# Llms CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import Llms
+from apps.bfagent.forms import LlmsForm
+
+
+class LlmsListView(ListView):
+    """List view for Llms"""
+    model = Llms
+    template_name = "bfagent/llms_list.html"
+    context_object_name = "llms_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class LlmsDetailView(DetailView):
+    """Detail view for Llms"""
+    model = Llms
+    template_name = "bfagent/llms_detail.html"
+    context_object_name = "llms"
+
+
+class LlmsCreateView(CreateView):
+    """Create view for Llms"""
+    model = Llms
+    form_class = LlmsForm
+    template_name = "bfagent/llms_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:llms-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Llms created successfully!")
+        return super().form_valid(form)
+
+
+class LlmsUpdateView(UpdateView):
+    """Update view for Llms"""
+    model = Llms
+    form_class = LlmsForm
+    template_name = "bfagent/llms_form.html"
+    context_object_name = "llms"
+
+    def get_success_url(self):
+        return reverse("bfagent:llms-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Llms updated successfully!")
+        return super().form_valid(form)
+
+
+class LlmsDeleteView(DeleteView):
+    """Delete view for Llms"""
+    model = Llms
+    template_name = "bfagent/llms_confirm_delete.html"
+    context_object_name = "llms"
+
+    def get_success_url(self):
+        return reverse("bfagent:llms-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"Llms deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# ============================================================================
+# AgentExecutions CRUD Views (Auto-generated)
+# ============================================================================
+
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView
+from django.urls import reverse
+from django.contrib import messages
+
+from apps.bfagent.models import AgentExecutions
+from apps.bfagent.forms import AgentExecutionsForm
+
+
+class AgentExecutionsListView(ListView):
+    """List view for AgentExecutions"""
+    model = AgentExecutions
+    template_name = "bfagent/agentexecutions_list.html"
+    context_object_name = "agentexecutions_list"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class AgentExecutionsDetailView(DetailView):
+    """Detail view for AgentExecutions"""
+    model = AgentExecutions
+    template_name = "bfagent/agentexecutions_detail.html"
+    context_object_name = "agentexecutions"
+
+
+class AgentExecutionsCreateView(CreateView):
+    """Create view for AgentExecutions"""
+    model = AgentExecutions
+    form_class = AgentExecutionsForm
+    template_name = "bfagent/agentexecutions_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:agentexecutions-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"AgentExecutions created successfully!")
+        return super().form_valid(form)
+
+
+class AgentExecutionsUpdateView(UpdateView):
+    """Update view for AgentExecutions"""
+    model = AgentExecutions
+    form_class = AgentExecutionsForm
+    template_name = "bfagent/agentexecutions_form.html"
+    context_object_name = "agentexecutions"
+
+    def get_success_url(self):
+        return reverse("bfagent:agentexecutions-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"AgentExecutions updated successfully!")
+        return super().form_valid(form)
+
+
+class AgentExecutionsDeleteView(DeleteView):
+    """Delete view for AgentExecutions"""
+    model = AgentExecutions
+    template_name = "bfagent/agentexecutions_confirm_delete.html"
+    context_object_name = "agentexecutions"
+
+    def get_success_url(self):
+        return reverse("bfagent:agentexecutions-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"AgentExecutions deleted successfully!")
+        return super().delete(request, *args, **kwargs)

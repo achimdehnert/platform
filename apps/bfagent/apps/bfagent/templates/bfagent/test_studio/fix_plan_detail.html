@@ -1,0 +1,266 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Fix Plan: {{ plan.fix_description }}{% endblock %}
+
+{% block extra_css %}
+<style>
+.code-review {
+    background: #1e1e1e;
+    color: #d4d4d4;
+    padding: 20px;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    overflow-x: auto;
+    max-height: 600px;
+}
+.code-review .keyword { color: #569cd6; }
+.code-review .string { color: #ce9178; }
+.code-review .comment { color: #6a9955; }
+.code-review .function { color: #dcdcaa; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2><i class="bi bi-wrench-adjustable"></i> Fix Plan Details</h2>
+            <p class="text-muted">{{ plan.fix_description }}</p>
+        </div>
+        <div>
+            <a href="{% url 'bfagent:fix-plan-list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Left Column: Info & Actions -->
+        <div class="col-md-4">
+            <!-- Status Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-{% if plan.status == 'pending' %}warning{% elif plan.status == 'approved' %}info{% elif plan.status == 'executed' %}success{% elif plan.status == 'failed' %}danger{% else %}secondary{% endif %} text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-flag"></i> Status: {{ plan.get_status_display }}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <strong>Fix Type:</strong><br>
+                        <code>{{ plan.fix_type }}</code>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <strong>Handler ID:</strong><br>
+                        <small><code>{{ plan.handler_id }}</code></small>
+                    </div>
+
+                    <div class="mb-3">
+                        <strong>Rollback:</strong><br>
+                        {% if plan.rollback_possible %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Possible</span>
+                        {% else %}
+                            <span class="badge bg-warning"><i class="bi bi-exclamation-triangle"></i> Not Possible</span>
+                        {% endif %}
+                    </div>
+
+                    <hr>
+
+                    <div class="small text-muted">
+                        <i class="bi bi-clock"></i> Created: {{ plan.created_at|date:"Y-m-d H:i" }}<br>
+                        <i class="bi bi-person"></i> By: {{ plan.created_by.username }}<br>
+                        {% if plan.approved_by %}
+                            <i class="bi bi-check"></i> Approved by: {{ plan.approved_by.username }}<br>
+                            <i class="bi bi-calendar"></i> At: {{ plan.approved_at|date:"Y-m-d H:i" }}<br>
+                        {% endif %}
+                        {% if plan.executed_at %}
+                            <i class="bi bi-play-circle"></i> Executed: {{ plan.executed_at|date:"Y-m-d H:i" }}
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Related Requirement -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-link"></i> Related Requirement</h5>
+                </div>
+                <div class="card-body">
+                    <h6>{{ plan.requirement.name }}</h6>
+                    <p class="small text-muted">{{ plan.requirement.description|truncatewords:20 }}</p>
+                    <a href="{% url 'bfagent:requirement-detail' plan.requirement.id %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-eye"></i> View Requirement
+                    </a>
+                </div>
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightning"></i> Actions</h5>
+                </div>
+                <div class="card-body">
+                    {% if plan.status == 'pending' %}
+                        <button class="btn btn-success w-100 mb-2" onclick="approvePlan()">
+                            <i class="bi bi-check-circle"></i> Approve Fix Plan
+                        </button>
+                        <button class="btn btn-danger w-100" onclick="rejectPlan()">
+                            <i class="bi bi-x-circle"></i> Reject Fix Plan
+                        </button>
+                    {% elif plan.status == 'approved' %}
+                        <div class="alert alert-warning mb-3">
+                            <i class="bi bi-exclamation-triangle"></i> 
+                            <strong>Ready to Execute</strong><br>
+                            This will run the fix handler code.
+                        </div>
+                        <button class="btn btn-primary w-100" onclick="executePlan()">
+                            <i class="bi bi-play-circle"></i> Execute Fix Now
+                        </button>
+                    {% elif plan.status == 'executed' %}
+                        <div class="alert alert-success mb-0">
+                            <i class="bi bi-check-all"></i> Fix has been executed successfully
+                        </div>
+                    {% elif plan.status == 'rejected' %}
+                        <div class="alert alert-secondary mb-0">
+                            <i class="bi bi-x-circle"></i> This fix plan was rejected
+                        </div>
+                    {% elif plan.status == 'failed' %}
+                        <div class="alert alert-danger mb-0">
+                            <i class="bi bi-exclamation-triangle"></i> Execution failed
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Code Review -->
+        <div class="col-md-8">
+            <!-- Handler Code -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-code-slash"></i> Generated Handler Code</h5>
+                </div>
+                <div class="card-body p-0">
+                    <pre class="code-review mb-0"><code>{{ plan.handler_code }}</code></pre>
+                </div>
+            </div>
+
+            <!-- Fix Actions Details -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-check"></i> Fix Actions</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-light p-3 rounded">{{ plan.fix_actions|pprint }}</pre>
+                </div>
+            </div>
+
+            <!-- Execution Result (if executed) -->
+            {% if plan.execution_result %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-terminal"></i> Execution Result</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-dark text-light p-3 rounded">{{ plan.execution_result|pprint }}</pre>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Execution Log (if available) -->
+            {% if plan.execution_log %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-journal-text"></i> Execution Log</h5>
+                </div>
+                <div class="card-body">
+                    <pre class="bg-dark text-light p-3 rounded" style="max-height: 400px; overflow-y: auto;">{{ plan.execution_log }}</pre>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+const planId = '{{ plan.id }}';
+const csrftoken = '{{ csrf_token }}';
+
+function approvePlan() {
+    if (!confirm('Are you sure you want to approve this fix plan?')) return;
+    
+    fetch(`/bookwriting/test-studio/fix-plans/${planId}/approve/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Fix plan approved!');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+
+function rejectPlan() {
+    if (!confirm('Are you sure you want to reject this fix plan?')) return;
+    
+    fetch(`/bookwriting/test-studio/fix-plans/${planId}/reject/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('Fix plan rejected');
+            location.reload();
+        } else {
+            alert('Error: ' + data.error);
+        }
+    });
+}
+
+function executePlan() {
+    if (!confirm('⚠️ EXECUTE FIX HANDLER?\n\nThis will run the generated code and apply changes to your database.\n\nAre you sure?')) return;
+    
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Executing...';
+    
+    fetch(`/bookwriting/test-studio/fix-plans/${planId}/execute/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrftoken,
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Fix executed successfully!\n\n' + data.message);
+            location.reload();
+        } else {
+            alert('❌ Execution failed!\n\n' + data.error);
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Fix Now';
+        }
+    })
+    .catch(error => {
+        alert('Error: ' + error);
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-play-circle"></i> Execute Fix Now';
+    });
+}
+</script>
+{% endblock %}

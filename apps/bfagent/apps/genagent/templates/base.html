@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>
+            {% block title %}BF Agent - Book Factory Management{% endblock %}
+        </title>
+        <!-- CSRF Token for HTMX -->
+        <meta name="csrf-token" content="{{ csrf_token }}">
+        <!-- Bootstrap 5 CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+              rel="stylesheet">
+        <!-- Bootstrap Icons -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css"
+              rel="stylesheet">
+
+        <!-- Extra CSS Block for child templates -->
+        {% block extra_css %}{% endblock %}
+
+        <!-- HTMX -->
+        <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+        <!-- HTMX response-targets extension for 422/500 routing -->
+        <script src="https://unpkg.com/htmx.org/dist/ext/response-targets.js"></script>
+        <style>
+        .sidebar {
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        .sidebar .nav-link {
+            color: rgba(255, 255, 255, 0.8);
+            border-radius: 0.5rem;
+            margin: 0.2rem 0;
+        }
+        .sidebar .nav-link:hover, .sidebar .nav-link.active {
+            color: white;
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        .progress-bar-custom {
+            height: 20px;
+            border-radius: 10px;
+        }
+        .card-hover:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s ease;
+        }
+        .status-badge {
+            font-size: 0.75rem;
+            padding: 0.25rem 0.5rem;
+        }
+        .htmx-indicator {
+            opacity: 0;
+            transition: opacity 500ms ease-in;
+        }
+        .htmx-request .htmx-indicator {
+            opacity: 1;
+        }
+        .htmx-request.htmx-indicator {
+            opacity: 1;
+        }
+        /* Utility classes */
+        .pre-wrap { white-space: pre-wrap; }
+        .pre-dark { background-color: #212529; color: #fff; }
+        .fixed-toast { position: fixed; bottom: 0; right: 0; padding: 1rem; z-index: 1080; display: none; }
+        </style>
+    </head>
+    <body>
+        <div class="container-fluid">
+            <div class="row">
+                <!-- Sidebar -->
+                <nav class="col-md-3 col-lg-2 d-md-block sidebar collapse">
+                    <div class="position-sticky pt-3">
+                        <div class="text-center mb-4">
+                            <h4 class="text-white">
+                                <i class="bi bi-book-fill"></i> BF Agent
+                            </h4>
+                            <small class="text-white-50">Book Factory Management</small>
+                        </div>
+                        <ul class="nav flex-column">
+                            <!-- Landing Page Link -->
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.resolver_match.url_name == 'landing' %}active{% endif %}"
+                                   href="/">
+                                    <i class="bi bi-house-door"></i> 🏠 Landing Page
+                                </a>
+                            </li>
+                            
+                            <!-- Separator -->
+                            <li class="nav-item">
+                                <hr class="text-white-50 my-2">
+                            </li>
+                            
+                            <!-- Dashboard -->
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"
+                                   href="{% url 'bfagent:dashboard' %}">
+                                    <i class="bi bi-speedometer2"></i> Dashboard
+                                </a>
+                            </li>
+                            
+                            <!-- Dashboard 2.0 (GenAgent) -->
+                            <li class="nav-item">
+                                <a class="nav-link {% if request.resolver_match.namespace == 'genagent' %}active{% endif %}"
+                                   href="{% url 'genagent:dashboard' %}">
+                                    <i class="bi bi-lightning-charge-fill"></i> Dashboard 2.0
+                                </a>
+                            </li>
+
+                            <!-- WRITING & CONTENT -->
+                            <li class="nav-item mt-3">
+                                <hr class="text-white-50">
+                                <small class="text-white-50 px-3 fw-bold">📝 WRITING & CONTENT</small>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'project' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:project-list' %}">
+                                    <i class="bi bi-journal-bookmark"></i> Projects
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'chapter' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:chapter-list' %}">
+                                    <i class="bi bi-list-ol"></i> Chapters
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'character' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:character-list' %}">
+                                    <i class="bi bi-people"></i> Characters
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'plotpoint' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:plotpoint-list' %}">
+                                    <i class="bi bi-pin-map"></i> Plot Points
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'world' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:world-list' %}">
+                                    <i class="bi bi-globe"></i> Worlds
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'storyarc' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:storyarc-list' %}">
+                                    <i class="bi bi-diagram-3"></i> Story Arcs
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'artifact' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:artifact-list' %}">
+                                    <i class="bi bi-file-earmark-code"></i> Artifacts
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'booktype' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:booktype-list' %}">
+                                    <i class="bi bi-bookmark"></i> Book Types
+                                </a>
+                            </li>
+
+                            <!-- WORKFLOW ENGINE -->
+                            <li class="nav-item mt-3">
+                                <hr class="text-white-50">
+                                <small class="text-white-50 px-3 fw-bold">⚙️ WORKFLOW ENGINE</small>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'agentaction' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:agentaction-list' %}">
+                                    <i class="bi bi-lightning-fill"></i> Agent Actions
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'phaseactionconfig' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:phaseactionconfig-list' %}">
+                                    <i class="bi bi-diagram-3-fill"></i> Phase Configs
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'workflowphase' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:workflowphase-list' %}">
+                                    <i class="bi bi-arrow-right-circle"></i> Workflow Phases
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'booktypephase' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:booktypephase-manage' %}">
+                                    <i class="bi bi-diagram-2"></i> Book Type Phases
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'workflowtemplate' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:workflowtemplate-list' %}">
+                                    <i class="bi bi-file-earmark-text"></i> Workflow Templates
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'workflowphasestep' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:workflowphasestep-list' %}">
+                                    <i class="bi bi-list-check"></i> Workflow Template Phases
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'execution' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:execution-list' %}">
+                                    <i class="bi bi-gear"></i> Executions
+                                </a>
+                            </li>
+
+                            <!-- MASTER DATA & CONTROL -->
+                            <li class="nav-item mt-3">
+                                <hr class="text-white-50">
+                                <small class="text-white-50 px-3 fw-bold">🎛️ MASTER DATA & CONTROL</small>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'agent-list' in request.resolver_match.url_name or 'agent-detail' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:agent-list' %}">
+                                    <i class="bi bi-robot"></i> AI Agents
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'prompttemplate' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:prompttemplate-list' %}">
+                                    <i class="bi bi-file-text"></i> Prompt Templates
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'actiontemplate' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:actiontemplate-list' %}">
+                                    <i class="bi bi-link-45deg"></i> Action → Template Mappings
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'phase-actions' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:phase-actions-manage' %}">
+                                    <i class="bi bi-diagram-3"></i> Phase-Actions Management
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'llm' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:llm-list' %}">
+                                    <i class="bi bi-cpu"></i> LLMs
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'genre' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:genre-list' %}">
+                                    <i class="bi bi-tags"></i> Genres
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'targetaudience' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:targetaudience-list' %}">
+                                    <i class="bi bi-people-fill"></i> Target Audiences
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link {% if 'writingstatus' in request.resolver_match.url_name %}active{% endif %}"
+                                   href="{% url 'bfagent:writingstatus-list' %}">
+                                    <i class="bi bi-flag"></i> Writing Statuses
+                                </a>
+                            </li>
+
+                            <!-- ADMIN -->
+                            <li class="nav-item mt-3">
+                                <hr class="text-white-50">
+                                <a class="nav-link" href="/admin/" target="_blank">
+                                    <i class="bi bi-gear-fill"></i> Admin Panel
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </nav>
+                <!-- Main content -->
+                <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                    <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                        <h1 class="h2">
+                            {% block page_title %}Dashboard{% endblock %}
+                        </h1>
+                        <div class="btn-toolbar mb-2 mb-md-0">
+                            {% block page_actions %}{% endblock %}
+                        </div>
+                    </div>
+                    <!-- Loading indicator -->
+                    <div id="loading-indicator" class="htmx-indicator">
+                        <div class="d-flex justify-content-center">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                    <!-- Main content area -->
+                    {% block content %}{% endblock %}
+                </main>
+            </div>
+        </div>
+        <!-- Bootstrap 5 JS -->
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+        <!-- HTMX Configuration -->
+        <script>
+        // Configure HTMX
+        htmx.config.globalViewTransitions = true;
+        htmx.config.defaultSwapStyle = 'innerHTML';
+
+        // CSRF Token configuration for HTMX
+        document.body.addEventListener('htmx:configRequest', function(evt) {
+            // Try to get CSRF token from meta tag first
+            let csrfToken = document.querySelector('meta[name="csrf-token"]');
+            if (csrfToken) {
+                evt.detail.headers['X-CSRFToken'] = csrfToken.getAttribute('content');
+            } else {
+                // Fallback: try to get from form's csrf token input
+                const form = evt.target.closest('form');
+                if (form) {
+                    const csrfInput = form.querySelector('input[name="csrfmiddlewaretoken"]');
+                    if (csrfInput) {
+                        evt.detail.headers['X-CSRFToken'] = csrfInput.value;
+                    }
+                }
+            }
+        });
+
+        // Auto-refresh functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const refreshElements = document.querySelectorAll('[data-auto-refresh]');
+            refreshElements.forEach(function(element) {
+                const interval = parseInt(element.dataset.autoRefresh) || 30000;
+                setInterval(function() {
+                    htmx.trigger(element, 'refresh');
+                }, interval);
+            });
+        });
+
+        // HTMX CSRF Token Configuration
+        document.body.addEventListener('htmx:configRequest', function(event) {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+            event.detail.headers['X-CSRFToken'] = csrfToken;
+        });
+
+        // Form validation enhancement
+        document.addEventListener('htmx:beforeRequest', function(evt) {
+            const form = evt.target.closest('form');
+            if (form && !form.checkValidity()) {
+                evt.preventDefault();
+                form.reportValidity();
+            }
+        });
+
+        // Success/Error message handling
+        document.addEventListener('htmx:afterRequest', function(evt) {
+            if (evt.detail.xhr.status >= 200 && evt.detail.xhr.status < 300) {
+                console.log('Request successful');
+            } else {
+                console.error('Request failed:', evt.detail.xhr.status);
+            }
+        });
+
+        {% if DEBUG %}
+        // HTMX Debug Mode - 10x faster debugging!
+        htmx.logAll();
+        console.log('🔧 HTMX Debug Mode enabled - check console for all HTMX events');
+        {% endif %}
+        </script>
+        {% block extra_js %}{% endblock %}
+        {% include "partials/theme_switcher.html" %}
+</body>
+</html>

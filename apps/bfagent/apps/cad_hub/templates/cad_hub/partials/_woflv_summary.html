@@ -1,0 +1,48 @@
+<!-- templates/cad_hub/partials/_woflv_summary.html -->
+<!-- WoFlV Wohnflächenübersicht -->
+
+<div class="bg-slate-800 rounded-lg p-6 border border-slate-700">
+    <h3 class="text-white font-semibold mb-4">WoFlV Wohnflächenberechnung</h3>
+
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="bg-slate-700 rounded p-3 text-center">
+            <p class="text-slate-400 text-xs uppercase">Grundfläche</p>
+            <p class="text-white text-lg font-bold">{{ woflv.grundflaeche_gesamt|floatformat:1 }} m²</p>
+        </div>
+
+        <div class="bg-green-900/50 rounded p-3 text-center border border-green-500/30">
+            <p class="text-green-400 text-xs uppercase">Wohnfläche</p>
+            <p class="text-green-400 text-lg font-bold">{{ woflv.wohnflaeche_gesamt|floatformat:1 }} m²</p>
+        </div>
+
+        <div class="bg-slate-700 rounded p-3 text-center">
+            <p class="text-slate-400 text-xs uppercase">Anrechnung</p>
+            <p class="text-white text-lg font-bold">{{ woflv.anrechnungsquote|floatformat:1 }}%</p>
+        </div>
+
+        <div class="bg-slate-700 rounded p-3 text-center">
+            <p class="text-slate-400 text-xs uppercase">Räume</p>
+            <p class="text-white text-lg font-bold">{{ woflv.room_count }}</p>
+        </div>
+    </div>
+
+    <!-- Aufschlüsselung -->
+    <div class="space-y-2 text-sm">
+        <div class="flex justify-between text-slate-300">
+            <span>100% angerechnet:</span>
+            <span>{{ woflv.wohnflaeche_100|floatformat:1 }} m²</span>
+        </div>
+        <div class="flex justify-between text-slate-300">
+            <span>50% angerechnet:</span>
+            <span>{{ woflv.wohnflaeche_50|floatformat:1 }} m²</span>
+        </div>
+        <div class="flex justify-between text-slate-300">
+            <span>25% angerechnet (Balkon etc.):</span>
+            <span>{{ woflv.wohnflaeche_25|floatformat:1 }} m²</span>
+        </div>
+        <div class="flex justify-between text-slate-400">
+            <span>Nicht angerechnet:</span>
+            <span>{{ woflv.nicht_angerechnet|floatformat:1 }} m²</span>
+        </div>
+    </div>
+</div>

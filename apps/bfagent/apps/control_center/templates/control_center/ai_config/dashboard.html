@@ -1,0 +1,124 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}AI Konfiguration - Control Center{% endblock %}
+
+{% block doc_link %}
+<div class="mb-2 text-end">
+    <a href="/static/docs/mcp/bfagent_mcp.html" target="_blank" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-book me-1"></i> BFAgent MCP Docs <i class="bi bi-box-arrow-up-right ms-1 small"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-cpu"></i> AI Konfiguration</h1>
+    </div>
+
+    <div class="row g-4">
+        <!-- LLMs Card -->
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-robot"></i> LLMs (Language Models)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <span class="badge bg-success fs-6">{{ llms_active }} aktiv</span>
+                            <span class="badge bg-secondary fs-6">{{ llms_total }} gesamt</span>
+                        </div>
+                        <a href="{% url 'control_center:llms-list' %}" class="btn btn-primary">
+                            <i class="bi bi-list"></i> Alle anzeigen
+                        </a>
+                    </div>
+                    
+                    {% if recent_llms %}
+                    <h6 class="text-muted">Kürzlich konfiguriert:</h6>
+                    <ul class="list-group list-group-flush">
+                        {% for llm in recent_llms %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                {% if llm.is_active %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                {% else %}
+                                <i class="bi bi-x-circle text-muted"></i>
+                                {% endif %}
+                                {{ llm.name }}
+                                <small class="text-muted">({{ llm.provider }})</small>
+                            </span>
+                            <a href="{% url 'control_center:llm-detail' llm.pk %}" class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-play"></i> Test
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Keine LLMs konfiguriert.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Agents Card -->
+        <div class="col-md-6">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-person-gear"></i> Agents</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-3">
+                        <div>
+                            <span class="badge bg-success fs-6">{{ agents_active }} aktiv</span>
+                            <span class="badge bg-secondary fs-6">{{ agents_total }} gesamt</span>
+                        </div>
+                        <a href="{% url 'control_center:agents-list' %}" class="btn btn-info text-white">
+                            <i class="bi bi-list"></i> Alle anzeigen
+                        </a>
+                    </div>
+                    
+                    {% if recent_agents %}
+                    <h6 class="text-muted">Kürzlich konfiguriert:</h6>
+                    <ul class="list-group list-group-flush">
+                        {% for agent in recent_agents %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <span>
+                                {% if agent.status == 'active' %}
+                                <i class="bi bi-check-circle-fill text-success"></i>
+                                {% else %}
+                                <i class="bi bi-x-circle text-muted"></i>
+                                {% endif %}
+                                {{ agent.name }}
+                            </span>
+                            <a href="{% url 'control_center:agent-detail' agent.pk %}" class="btn btn-sm btn-outline-info">
+                                <i class="bi bi-play"></i> Test
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted">Keine Agents konfiguriert.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Box -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h5><i class="bi bi-info-circle"></i> Wie funktioniert es?</h5>
+                <ol class="mb-0">
+                    <li><strong>LLM konfigurieren:</strong> API-Key, Endpoint und Model eintragen</li>
+                    <li><strong>LLM testen:</strong> Mit dem Live-Test prüfen ob die Verbindung funktioniert</li>
+                    <li><strong>Agent erstellen:</strong> Einen Agent mit System-Prompt und LLM verknüpfen</li>
+                    <li><strong>Verwenden:</strong> LLMs und Agents stehen dann in Writing Hub, Expert Hub etc. zur Verfügung</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

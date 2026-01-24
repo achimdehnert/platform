@@ -1,0 +1,72 @@
+<div class="modal-header">
+    <h5 class="modal-title">Feature Detail: {{ feature.name }}</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <strong>Status:</strong>
+            <span class="badge bg-secondary">{{ feature.get_status_display }}</span>
+        </div>
+        <div class="col-md-6">
+            <strong>Type:</strong> {{ feature.get_component_type_display }}
+        </div>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <strong>Priority:</strong> {{ feature.get_priority_display }}
+        </div>
+        <div class="col-md-6">
+            <strong>Domain:</strong> {{ feature.domain|default:"N/A" }}
+        </div>
+    </div>
+    
+    <div class="mb-3">
+        <strong>Description:</strong>
+        <p>{{ feature.description|default:"No description provided" }}</p>
+    </div>
+    
+    <div class="row mb-3">
+        <div class="col-md-6">
+            <strong>Owner:</strong> {{ feature.owner|default:"Unassigned" }}
+        </div>
+        <div class="col-md-6">
+            <strong>Proposed:</strong> {{ feature.proposed_at|date:"Y-m-d H:i" }}
+        </div>
+    </div>
+    
+    {% if feature.started_at %}
+    <div class="mb-2">
+        <strong>Started:</strong> {{ feature.started_at|date:"Y-m-d H:i" }}
+    </div>
+    {% endif %}
+    
+    {% if feature.completed_at %}
+    <div class="mb-2">
+        <strong>Completed:</strong> {{ feature.completed_at|date:"Y-m-d H:i" }}
+    </div>
+    {% endif %}
+    
+    {% if code_feature %}
+    <hr>
+    <h6>Code Registry Information</h6>
+    <div class="alert alert-info">
+        <p><strong>Matched Feature:</strong> {{ code_feature.name }}</p>
+        <p><strong>Primary Domain:</strong> {{ code_feature.primary_domain }}</p>
+        <p><strong>Supported Domains:</strong> {{ code_feature.supported_domains|join:", " }}</p>
+        <p><strong>Handlers:</strong> {{ code_feature.handlers|length }}</p>
+        {% if code_feature.metadata.cross_domain %}
+        <span class="badge bg-info">Cross-Domain Feature</span>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+<div class="modal-footer">
+    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+    <button type="button" class="btn btn-primary"
+            hx-get="{% url 'control_center:feature-planning-update' feature.pk %}"
+            hx-target="#modal-content">
+        Edit
+    </button>
+</div>

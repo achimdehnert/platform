@@ -1,0 +1,278 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-bar-chart-line me-2"></i>{{ page_title }}
+            </h1>
+            <p class="text-muted mb-0">Übersicht über Errors und Tool-Nutzung</p>
+        </div>
+        <div class="d-flex gap-2">
+            <select class="form-select form-select-sm" style="width: auto;" 
+                    onchange="window.location.href='?days=' + this.value">
+                <option value="7" {% if days == 7 %}selected{% endif %}>7 Tage</option>
+                <option value="14" {% if days == 14 %}selected{% endif %}>14 Tage</option>
+                <option value="30" {% if days == 30 %}selected{% endif %}>30 Tage</option>
+                <option value="90" {% if days == 90 %}selected{% endif %}>90 Tage</option>
+            </select>
+            <a href="{% url 'bfagent:error_list' %}" class="btn btn-outline-danger btn-sm">
+                <i class="bi bi-bug"></i> Alle Errors
+            </a>
+            <a href="{% url 'bfagent:tool_usage_list' %}" class="btn btn-outline-primary btn-sm">
+                <i class="bi bi-tools"></i> Tool Log
+            </a>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-3 mb-4">
+        <!-- Error Stats -->
+        <div class="col-md-3">
+            <div class="card border-danger h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-danger text-uppercase mb-1">Errors</h6>
+                            <h2 class="mb-0">{{ error_stats.total }}</h2>
+                        </div>
+                        <div class="fs-1 text-danger opacity-50">
+                            <i class="bi bi-bug"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-warning me-1">{{ error_stats.unresolved }} offen</span>
+                        <span class="badge bg-success">{{ error_stats.auto_fixable }} auto-fix</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tool Calls -->
+        <div class="col-md-3">
+            <div class="card border-primary h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between">
+                        <div>
+                            <h6 class="text-primary text-uppercase mb-1">Tool Calls</h6>
+                            <h2 class="mb-0">{{ tool_stats.total_calls }}</h2>
+                        </div>
+                        <div class="fs-1 text-primary opacity-50">
+                            <i class="bi bi-tools"></i>
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <span class="badge bg-success">{{ tool_stats.success_rate|floatformat:1 }}% Erfolg</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- By Caller -->
+        <div class="col-md-3">
+            <div class="card border-info h-100">
+                <div class="card-body">
+                    <h6 class="text-info text-uppercase mb-2">Nach Aufrufer</h6>
+                    {% for caller in tool_stats.by_caller %}
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span>{{ caller_icons|default_if_none:"" }}{{ caller.caller_type }}</span>
+                        <span class="badge bg-info">{{ caller.count }}</span>
+                    </div>
+                    {% empty %}
+                    <span class="text-muted">Keine Daten</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Tools -->
+        <div class="col-md-3">
+            <div class="card border-success h-100">
+                <div class="card-body">
+                    <h6 class="text-success text-uppercase mb-2">Top Tools</h6>
+                    {% for tool in tool_stats.by_tool|slice:":5" %}
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <span class="text-truncate" style="max-width: 150px;">{{ tool.tool_name }}</span>
+                        <span class="badge bg-success">{{ tool.count }}</span>
+                    </div>
+                    {% empty %}
+                    <span class="text-muted">Keine Daten</span>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Error Types -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart me-2"></i>Errors nach Typ</h5>
+                    <a href="{% url 'bfagent:error_list' %}" class="btn btn-sm btn-outline-secondary">
+                        Alle anzeigen
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if error_stats.by_type %}
+                    <div class="table-responsive">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Typ</th>
+                                    <th class="text-end">Unique</th>
+                                    <th class="text-end">Gesamt</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in error_stats.by_type %}
+                                <tr>
+                                    <td>
+                                        <span class="badge bg-{{ error_type_colors|default_if_none:'secondary' }}">
+                                            {{ item.error_type }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">{{ item.count }}</td>
+                                    <td class="text-end fw-bold">{{ item.occurrences }}</td>
+                                    <td class="text-end">
+                                        <a href="{% url 'bfagent:error_list' %}?type={{ item.error_type }}" 
+                                           class="btn btn-sm btn-link p-0">
+                                            <i class="bi bi-arrow-right"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-check-circle fs-1"></i>
+                        <p class="mt-2">Keine Errors im Zeitraum</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Errors -->
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Letzte Errors</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_errors %}
+                    <div class="list-group list-group-flush">
+                        {% for error in recent_errors %}
+                        <a href="{% url 'bfagent:error_detail' error.pk %}" 
+                           class="list-group-item list-group-item-action">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="me-2">
+                                    <span class="badge bg-{{ error_type_colors|default_if_none:'secondary' }} me-1">
+                                        {{ error.error_type }}
+                                    </span>
+                                    <small class="text-muted">{{ error.timestamp|timesince }} ago</small>
+                                </div>
+                                {% if error.resolved %}
+                                <span class="badge bg-success">✓</span>
+                                {% elif error.auto_fixable %}
+                                <span class="badge bg-warning">🔧</span>
+                                {% endif %}
+                            </div>
+                            <p class="mb-0 mt-1 text-truncate" style="max-width: 400px;">
+                                {{ error.error_message|truncatechars:80 }}
+                            </p>
+                            {% if error.file_path %}
+                            <small class="text-muted">📁 {{ error.file_path|slice:"-40:" }}</small>
+                            {% endif %}
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p class="mt-2">Keine Errors</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Recent Tool Usage -->
+    <div class="row mt-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-activity me-2"></i>Letzte Tool-Aufrufe</h5>
+                    <a href="{% url 'bfagent:tool_statistics' %}" class="btn btn-sm btn-outline-primary">
+                        <i class="bi bi-graph-up"></i> Statistiken
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Zeit</th>
+                                    <th>Tool</th>
+                                    <th>Aufrufer</th>
+                                    <th>App</th>
+                                    <th class="text-end">Dauer</th>
+                                    <th class="text-center">Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for log in recent_tools %}
+                                <tr>
+                                    <td>
+                                        <small class="text-muted">{{ log.timestamp|timesince }} ago</small>
+                                    </td>
+                                    <td>
+                                        <code>{{ log.tool_name }}</code>
+                                    </td>
+                                    <td>
+                                        <span title="{{ log.get_caller_type_display }}">
+                                            {{ caller_icons|default_if_none:"" }}
+                                        </span>
+                                        {{ log.caller_id|default:"-"|truncatechars:15 }}
+                                    </td>
+                                    <td>{{ log.app_label|default:"-" }}</td>
+                                    <td class="text-end">
+                                        {% if log.execution_time_ms > 1000 %}
+                                        <span class="text-warning">{{ log.execution_time_ms|floatformat:0 }}ms</span>
+                                        {% else %}
+                                        {{ log.execution_time_ms|floatformat:0 }}ms
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        {% if log.success %}
+                                        <span class="text-success">✅</span>
+                                        {% else %}
+                                        <span class="text-danger" title="{{ log.error_message }}">❌</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="6" class="text-center text-muted py-4">
+                                        Keine Tool-Aufrufe im Zeitraum
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

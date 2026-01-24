@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% block title %}Handler Testing{% endblock %}
+{% block content %}
+<div class="container py-4">
+    <h1>🧪 Handler Testing</h1>
+    
+    <div class="card mt-4">
+        <div class="card-header"><h5>📚 Chapter Generator (#28)</h5></div>
+        <div class="card-body">
+            <form id="chapterForm">
+                <select class="form-select mb-2" id="chapter_project" required>
+                    <option value="">Project</option>
+                    {% for p in projects %}<option value="{{p.id}}">{{p.title}}</option>{% endfor %}
+                </select>
+                <select class="form-select mb-2" id="chapter_action" required>
+                    <option value="generate_chapter_outline">Generate Outline</option>
+                </select>
+                <input type="number" class="form-control mb-2" id="chapter_number" value="1" placeholder="Chapter #">
+                <input type="text" class="form-control mb-2" id="chapter_title" value="The Beginning">
+                <button type="submit" class="btn btn-primary">Execute</button>
+            </form>
+            <div id="chapterResult" class="mt-3"></div>
+        </div>
+    </div>
+    
+    <div class="card mt-4">
+        <div class="card-header"><h5>🤖 LLM Direct (#45)</h5></div>
+        <div class="card-body">
+            <form id="llmForm">
+                <textarea class="form-control mb-2" id="user_prompt" rows="3">Write a story opening.</textarea>
+                <button type="submit" class="btn btn-primary">Call LLM</button>
+            </form>
+            <div id="llmResult" class="mt-3"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('chapterForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('chapterResult');
+    result.innerHTML = '<div class="alert alert-info">Processing...</div>';
+    
+    const res = await fetch('/bfagent/handler/execute/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            handler_type: 'chapter',
+            action: document.getElementById('chapter_action').value,
+            project_id: document.getElementById('chapter_project').value,
+            chapter_number: document.getElementById('chapter_number').value,
+            chapter_title: document.getElementById('chapter_title').value,
+            word_count: 3000
+        })
+    });
+    
+    const data = await res.json();
+    result.innerHTML = data.success ? 
+        `<div class="alert alert-success"><pre>${JSON.stringify(data.result, null, 2)}</pre></div>` :
+        `<div class="alert alert-danger">${data.error}</div>`;
+});
+
+document.getElementById('llmForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const result = document.getElementById('llmResult');
+    result.innerHTML = '<div class="alert alert-info">Calling LLM...</div>';
+    
+    const res = await fetch('/bfagent/handler/execute/', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+            handler_type: 'llm',
+            system_prompt: 'You are a writer.',
+            user_prompt: document.getElementById('user_prompt').value,
+            max_tokens: 500
+        })
+    });
+    
+    const data = await res.json();
+    result.innerHTML = data.success ? 
+        `<div class="alert alert-success"><strong>${data.result.llm_used}</strong><hr>${data.result.response}</div>` :
+        `<div class="alert alert-danger">${data.error}</div>`;
+});
+</script>
+{% endblock %}

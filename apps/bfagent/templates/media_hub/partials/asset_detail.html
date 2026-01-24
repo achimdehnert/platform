@@ -1,0 +1,66 @@
+<div class="row">
+    <div class="col-md-6">
+        {% if asset.file_url %}
+        <img src="{{ asset.file_url }}" class="img-fluid rounded shadow" alt="{{ asset.title }}">
+        {% else %}
+        <div class="bg-light rounded d-flex align-items-center justify-content-center" style="min-height: 300px;">
+            {% if asset.asset_type == 'image' %}
+            <i class="bi bi-image text-muted" style="font-size: 5rem;"></i>
+            {% elif asset.asset_type == 'audio' %}
+            <i class="bi bi-music-note-beamed text-muted" style="font-size: 5rem;"></i>
+            {% else %}
+            <i class="bi bi-file-earmark text-muted" style="font-size: 5rem;"></i>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+    <div class="col-md-6">
+        <h5>{{ asset.title|default:"Untitled Asset" }}</h5>
+        <p class="text-muted">{{ asset.description|default:"No description" }}</p>
+        
+        <table class="table table-sm">
+            <tr>
+                <th width="100">ID</th>
+                <td>#{{ asset.id }}</td>
+            </tr>
+            <tr>
+                <th>Type</th>
+                <td>
+                    {% if asset.asset_type == 'image' %}
+                        <i class="bi bi-image text-primary me-1"></i>
+                    {% elif asset.asset_type == 'audio' %}
+                        <i class="bi bi-music-note text-warning me-1"></i>
+                    {% endif %}
+                    {{ asset.asset_type|title }}
+                </td>
+            </tr>
+            {% if asset.job_type %}
+            <tr>
+                <th>Job Type</th>
+                <td>{{ asset.job_type|title }}</td>
+            </tr>
+            {% endif %}
+            <tr>
+                <th>Created</th>
+                <td>{{ asset.created_at }}</td>
+            </tr>
+        </table>
+        
+        {% if asset.file_url %}
+        <div class="d-grid gap-2 mt-3">
+            <a href="{{ asset.file_url }}" target="_blank" class="btn btn-primary">
+                <i class="bi bi-eye me-1"></i>View Full Size
+            </a>
+            <a href="{{ asset.file_url }}" download class="btn btn-outline-secondary">
+                <i class="bi bi-download me-1"></i>Download
+            </a>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if asset.input_snapshot %}
+<hr>
+<h6 class="text-muted mb-2">Generation Parameters</h6>
+<pre class="bg-light p-2 rounded small" style="max-height: 150px; overflow-y: auto;">{{ asset.input_snapshot }}</pre>
+{% endif %}

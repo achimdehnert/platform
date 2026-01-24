@@ -1,0 +1,271 @@
+{% extends "bfagent/base.html" %}
+
+{% block title %}{{ server.display_name }} - MCP Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'control_center:dashboard' %}"><i class="bi bi-house-door"></i> Home</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'mcp_hub:dashboard' %}"><i class="bi bi-cpu-fill"></i> MCP Hub</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'mcp_hub:server-list' %}">Server</a></li>
+            <li class="breadcrumb-item active" aria-current="page">{{ server.display_name|truncatewords:3 }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="mb-2">
+                        <i class="bi bi-hdd-stack text-primary me-2"></i>
+                        {{ server.display_name }}
+                    </h1>
+                    <p class="text-muted mb-2"><code>{{ server.name }}</code></p>
+                    {% if server.description %}
+                    <p class="mb-0">{{ server.description }}</p>
+                    {% endif %}
+                </div>
+                <div class="col-md-4 text-end">
+                    {% if server.status == 'active' %}
+                    <span class="badge bg-success fs-6 mb-2"><i class="bi bi-check-circle"></i> Aktiv</span>
+                    {% elif server.status == 'disabled' %}
+                    <span class="badge bg-secondary fs-6 mb-2"><i class="bi bi-pause-circle"></i> Deaktiviert</span>
+                    {% elif server.status == 'error' %}
+                    <span class="badge bg-danger fs-6 mb-2"><i class="bi bi-x-circle"></i> Fehler</span>
+                    {% else %}
+                    <span class="badge bg-warning fs-6 mb-2"><i class="bi bi-question-circle"></i> Unbekannt</span>
+                    {% endif %}
+                    <br>
+                    <button class="btn btn-{% if server.is_enabled %}warning{% else %}success{% endif %}" 
+                            onclick="toggleServer('{{ server.pk }}')">
+                        <i class="bi bi-{% if server.is_enabled %}pause{% else %}play{% endif %}"></i>
+                        {% if server.is_enabled %}Deaktivieren{% else %}Aktivieren{% endif %}
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Configuration -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Konfiguration</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm">
+                        <tr>
+                            <th style="width: 30%">Command</th>
+                            <td><code>{{ server.command }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Server Typ</th>
+                            <td>{{ server.server_type.name|default:"Nicht definiert" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Config Key</th>
+                            <td><code>{{ server.config_key|default:"-" }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Version</th>
+                            <td>{{ server.version|default:"-" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Erstellt</th>
+                            <td>{{ server.created_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <th>Aktualisiert</th>
+                            <td>{{ server.updated_at|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                    </table>
+                    
+                    {% if server.args %}
+                    <h6 class="mt-3">Arguments</h6>
+                    <pre class="bg-dark text-light p-2 rounded small" style="max-height: 200px; overflow: auto;">{{ server.args|pprint }}</pre>
+                    {% endif %}
+                    
+                    {% if server.env %}
+                    <h6 class="mt-3">Environment</h6>
+                    <pre class="bg-dark text-light p-2 rounded small">{{ server.env|pprint }}</pre>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Tool Stats -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0"><i class="bi bi-tools me-2"></i>Tool Statistik</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <h3 class="mb-0">{{ tool_stats.total }}</h3>
+                            <small class="text-muted">Total</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="mb-0 text-success">{{ tool_stats.enabled }}</h3>
+                            <small class="text-muted">Aktiv</small>
+                        </div>
+                        <div class="col-4">
+                            <h3 class="mb-0 text-danger">{{ tool_stats.disabled }}</h3>
+                            <small class="text-muted">Deaktiviert</small>
+                        </div>
+                    </div>
+                    
+                    {% if server.disabled_tools %}
+                    <hr>
+                    <h6 class="text-warning"><i class="bi bi-exclamation-triangle"></i> Deaktivierte Tools (Config)</h6>
+                    <div class="small" style="max-height: 150px; overflow-y: auto;">
+                        {% for tool in server.disabled_tools %}
+                        <span class="badge bg-secondary me-1 mb-1">{{ tool }}</span>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Paths -->
+            {% if server.source_path or server.repo_url %}
+            <div class="card mb-4">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0"><i class="bi bi-folder me-2"></i>Pfade</h5>
+                </div>
+                <div class="card-body">
+                    {% if server.source_path %}
+                    <p class="mb-2"><strong>Source:</strong><br><code class="small">{{ server.source_path }}</code></p>
+                    {% endif %}
+                    {% if server.repo_url %}
+                    <p class="mb-0"><strong>Repository:</strong><br>
+                        <a href="{{ server.repo_url }}" target="_blank">{{ server.repo_url }}</a>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Tools -->
+    <div class="card mb-4">
+        <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="bi bi-wrench me-2"></i>Tools ({{ tools.count }})</h5>
+        </div>
+        <div class="card-body p-0">
+            {% if tools %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Tool Name</th>
+                            <th>Kategorie</th>
+                            <th>Status</th>
+                            <th>Nutzung</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for tool in tools %}
+                        <tr class="{% if not tool.is_enabled %}table-secondary{% endif %}">
+                            <td>
+                                <strong>{{ tool.name }}</strong>
+                                {% if tool.description %}
+                                <br><small class="text-muted">{{ tool.description|truncatechars:60 }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if tool.category %}
+                                <span class="badge bg-info">{{ tool.category }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if tool.is_enabled %}
+                                <span class="badge bg-success">Aktiv</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Deaktiviert</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-light text-dark">{{ tool.usage_count }}x</span>
+                            </td>
+                            <td>
+                                <button class="btn btn-sm btn-outline-{% if tool.is_enabled %}warning{% else %}success{% endif %}" 
+                                        onclick="toggleTool('{{ tool.pk }}')">
+                                    <i class="bi bi-{% if tool.is_enabled %}pause{% else %}play{% endif %}"></i>
+                                </button>
+                                <a href="{% url 'mcp_hub:tool-detail' tool.pk %}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <div class="text-center py-4 text-muted">
+                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                Keine Tools registriert
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Logs -->
+    {% if logs %}
+    <div class="card">
+        <div class="card-header bg-dark text-white">
+            <h5 class="mb-0"><i class="bi bi-journal-text me-2"></i>Letzte Logs</h5>
+        </div>
+        <div class="list-group list-group-flush">
+            {% for log in logs %}
+            <div class="list-group-item">
+                <div class="d-flex justify-content-between">
+                    <span>
+                        <span class="badge bg-{% if log.level == 'error' %}danger{% elif log.level == 'warning' %}warning{% elif log.level == 'info' %}info{% else %}secondary{% endif %}">
+                            {{ log.level }}
+                        </span>
+                        {{ log.message }}
+                    </span>
+                    <small class="text-muted">{{ log.created_at|date:"d.m.Y H:i" }}</small>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<script>
+async function toggleServer(serverId) {
+    try {
+        const response = await fetch(`/mcp-hub/servers/${serverId}/toggle/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        if ((await response.json()).success) location.reload();
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
+async function toggleTool(toolId) {
+    try {
+        const response = await fetch(`/mcp-hub/tools/${toolId}/toggle/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+        });
+        if ((await response.json()).success) location.reload();
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+</script>
+{% endblock %}

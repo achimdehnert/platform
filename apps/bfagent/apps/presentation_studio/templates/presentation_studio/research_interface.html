@@ -1,0 +1,307 @@
+{% extends 'bfagent/base.html' %}
+{% load static %}
+
+{% block title %}Research Agent - {{ presentation.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'presentation_studio:list' %}">Presentations</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'presentation_studio:detail' presentation.id %}">{{ presentation.title|truncatewords:3 }}</a></li>
+                    <li class="breadcrumb-item active">Research Agent</li>
+                </ol>
+            </nav>
+            
+            <h1 class="mb-3">
+                <i class="bi bi-search"></i> Research Agent
+            </h1>
+            <p class="lead text-muted">
+                Perform research and automatically generate slides from findings
+            </p>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Research Panel -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Research Prompt</h5>
+                </div>
+                <div class="card-body">
+                    <form id="research-form">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="research_prompt" class="form-label">What would you like to research?</label>
+                            <textarea 
+                                class="form-control" 
+                                id="research_prompt" 
+                                name="research_prompt" 
+                                rows="4" 
+                                placeholder="e.g., Latest trends in AI and machine learning"
+                                required
+                            ></textarea>
+                            <small class="text-muted">
+                                Enter a topic or question to research
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Research Sources</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="sources" value="web" id="source_web" checked>
+                                <label class="form-check-label" for="source_web">
+                                    Web Search
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" name="sources" value="knowledge" id="source_knowledge">
+                                <label class="form-check-label" for="source_knowledge">
+                                    Knowledge Base
+                                </label>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="max_results" class="form-label">Max Results</label>
+                            <input type="number" class="form-control" id="max_results" name="max_results" value="10" min="1" max="20">
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100" id="research-btn">
+                            <i class="bi bi-search"></i> Start Research
+                        </button>
+                    </form>
+                    
+                    <button type="button" class="btn btn-warning w-100 mt-2" id="clear-slides-btn">
+                        <i class="bi bi-trash"></i> Clear Research Slides
+                    </button>
+                    <small class="text-muted d-block mt-1">
+                        Reset presentation to original (removes all research slides)
+                    </small>
+                    
+                    <div id="research-status" class="mt-3"></div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Panel -->
+        <div class="col-lg-7">
+            <div class="card shadow-sm">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0"><i class="bi bi-file-earmark-text"></i> Research Findings</h5>
+                </div>
+                <div class="card-body">
+                    <div id="research-results">
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-search" style="font-size: 3rem;"></i>
+                            <p class="mt-3">Enter a research prompt to get started</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="card-footer" id="generate-section" style="display: none;">
+                    <button type="button" class="btn btn-success w-100" id="generate-slides-btn">
+                        <i class="bi bi-file-slides"></i> Generate Slides from Selected Findings
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const researchForm = document.getElementById('research-form');
+    const researchBtn = document.getElementById('research-btn');
+    const researchStatus = document.getElementById('research-status');
+    const researchResults = document.getElementById('research-results');
+    const generateSection = document.getElementById('generate-section');
+    const generateBtn = document.getElementById('generate-slides-btn');
+    
+    // Research form submission
+    researchForm.addEventListener('submit', async function(e) {
+        e.preventDefault();
+        
+        // Disable button
+        researchBtn.disabled = true;
+        researchBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Researching...';
+        
+        // Show status
+        researchStatus.innerHTML = '<div class="alert alert-info"><i class="bi bi-hourglass-split"></i> Performing research...</div>';
+        
+        // Get form data
+        const formData = new FormData(researchForm);
+        
+        // Get checked sources
+        const sources = [];
+        document.querySelectorAll('input[name="sources"]:checked').forEach(cb => {
+            sources.push(cb.value);
+        });
+        
+        // Add sources as array
+        sources.forEach(source => {
+            formData.append('sources[]', source);
+        });
+        
+        try {
+            const response = await fetch('{% url "presentation_studio:perform_research" presentation.id %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show success message
+                researchStatus.innerHTML = `<div class="alert alert-success"><i class="bi bi-check-circle"></i> Found ${data.total_results} results for: "${data.prompt}"</div>`;
+                
+                // Display findings
+                displayFindings(data.findings);
+                
+                // Show generate button
+                generateSection.style.display = 'block';
+            } else {
+                researchStatus.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> ${data.error}</div>`;
+            }
+        } catch (error) {
+            researchStatus.innerHTML = `<div class="alert alert-danger"><i class="bi bi-exclamation-triangle"></i> Error: ${error.message}</div>`;
+        } finally {
+            // Re-enable button
+            researchBtn.disabled = false;
+            researchBtn.innerHTML = '<i class="bi bi-search"></i> Start Research';
+        }
+    });
+    
+    // Display research findings
+    function displayFindings(findings) {
+        if (!findings || findings.length === 0) {
+            researchResults.innerHTML = '<div class="alert alert-warning">No findings found</div>';
+            return;
+        }
+        
+        let html = '<div class="list-group">';
+        
+        findings.forEach((finding, index) => {
+            html += `
+                <div class="list-group-item">
+                    <div class="form-check mb-2">
+                        <input class="form-check-input finding-checkbox" type="checkbox" value="${finding.id}" id="finding_${finding.id}" ${finding.selected ? 'checked' : ''}>
+                        <label class="form-check-label fw-bold" for="finding_${finding.id}">
+                            ${finding.title}
+                        </label>
+                        <span class="badge bg-primary float-end">Relevance: ${(finding.relevance * 100).toFixed(0)}%</span>
+                    </div>
+                    <p class="text-muted small mb-2">${finding.summary}</p>
+                    ${finding.key_points && finding.key_points.length > 0 ? `
+                        <div class="small">
+                            <strong>Key Points:</strong>
+                            <ul class="mb-0">
+                                ${finding.key_points.map(point => `<li>${point}</li>`).join('')}
+                            </ul>
+                        </div>
+                    ` : ''}
+                    ${finding.source ? `<small class="text-muted"><i class="bi bi-link-45deg"></i> ${finding.source}</small>` : ''}
+                </div>
+            `;
+        });
+        
+        html += '</div>';
+        researchResults.innerHTML = html;
+    }
+    
+    // Generate slides button
+    generateBtn.addEventListener('click', async function() {
+        // Get selected findings
+        const selected = [];
+        document.querySelectorAll('.finding-checkbox:checked').forEach(cb => {
+            selected.push(parseInt(cb.value));
+        });
+        
+        if (selected.length === 0) {
+            alert('Please select at least one finding to generate slides');
+            return;
+        }
+        
+        // Disable button
+        generateBtn.disabled = true;
+        generateBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Generating Slides...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('selected_findings', JSON.stringify(selected));
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            const response = await fetch('{% url "presentation_studio:generate_slides_from_research" presentation.id %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                // Show success and redirect
+                alert(`Success! Generated ${data.slides_added} new slides from research.`);
+                window.location.href = '{% url "presentation_studio:detail" presentation.id %}';
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        } finally {
+            // Re-enable button
+            generateBtn.disabled = false;
+            generateBtn.innerHTML = '<i class="bi bi-file-slides"></i> Generate Slides from Selected Findings';
+        }
+    });
+    
+    // Clear Research Slides handler
+    const clearBtn = document.getElementById('clear-slides-btn');
+    clearBtn.addEventListener('click', async function() {
+        if (!confirm('Are you sure you want to clear all research slides? This will reset the presentation to its original state.')) {
+            return;
+        }
+        
+        // Disable button
+        clearBtn.disabled = true;
+        clearBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Clearing...';
+        
+        try {
+            const formData = new FormData();
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            const response = await fetch('{% url "presentation_studio:clear_research_slides" presentation.id %}', {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Research slides cleared successfully! You can now start fresh research.');
+                window.location.reload();
+            } else {
+                alert(`Error: ${data.error}`);
+            }
+        } catch (error) {
+            alert(`Error: ${error.message}`);
+        } finally {
+            // Re-enable button
+            clearBtn.disabled = false;
+            clearBtn.innerHTML = '<i class="bi bi-trash"></i> Clear Research Slides';
+        }
+    });
+});
+</script>
+{% endblock %}

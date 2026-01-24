@@ -1,0 +1,114 @@
+<!-- templates/cad_hub/brandschutz/regelwerk_list.html -->
+{% extends "cad_hub/brandschutz/base_brandschutz.html" %}
+
+{% block breadcrumb_extra %}
+<li><span class="mx-2">/</span></li>
+<li class="text-white">Regelwerke</li>
+{% endblock %}
+
+{% block page_title %}Brandschutz-Regelwerke{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-slate-400 mt-1">Normen, Vorschriften und Richtlinien für Brandschutzprüfungen</p>
+{% endblock %}
+
+{% block brandschutz_content %}
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+    {% for regelwerk in regelwerke %}
+    <div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden hover:border-slate-600 transition">
+        <div class="p-4 border-b border-slate-700 bg-gradient-to-r from-slate-700/50 to-transparent">
+            <div class="flex items-center justify-between">
+                <span class="text-2xl font-bold text-white">{{ regelwerk.kuerzel }}</span>
+                {% if regelwerk.aktiv %}
+                <span class="px-2 py-1 bg-green-900 text-green-300 rounded text-xs">Aktiv</span>
+                {% else %}
+                <span class="px-2 py-1 bg-slate-700 text-slate-400 rounded text-xs">Inaktiv</span>
+                {% endif %}
+            </div>
+            <div class="text-sm text-slate-400 mt-1">Version {{ regelwerk.version }}</div>
+        </div>
+        
+        <div class="p-4">
+            <h3 class="font-medium text-white mb-2">{{ regelwerk.name }}</h3>
+            {% if regelwerk.beschreibung %}
+            <p class="text-sm text-slate-400 mb-4">{{ regelwerk.beschreibung|truncatewords:30 }}</p>
+            {% endif %}
+            
+            <div class="space-y-2 text-sm">
+                {% if regelwerk.gueltig_ab %}
+                <div class="flex items-center gap-2 text-slate-500">
+                    <span>📅</span>
+                    <span>Gültig ab: {{ regelwerk.gueltig_ab|date:"d.m.Y" }}</span>
+                </div>
+                {% endif %}
+                
+                {% if regelwerk.regeln and regelwerk.regeln.kategorien %}
+                <div class="flex items-center gap-2 text-slate-500">
+                    <span>📋</span>
+                    <span>{{ regelwerk.regeln.kategorien|length }} Kategorien</span>
+                </div>
+                {% endif %}
+                
+                {% if regelwerk.quelle_url %}
+                <div class="mt-3">
+                    <a href="{{ regelwerk.quelle_url }}" target="_blank" 
+                       class="text-blue-400 hover:text-blue-300 text-sm flex items-center gap-1">
+                        🔗 Zur Quelle →
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        {% if regelwerk.regeln and regelwerk.regeln.kategorien %}
+        <div class="px-4 pb-4">
+            <div class="flex flex-wrap gap-1">
+                {% for kategorie in regelwerk.regeln.kategorien|slice:":5" %}
+                <span class="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-400">{{ kategorie }}</span>
+                {% endfor %}
+                {% if regelwerk.regeln.kategorien|length > 5 %}
+                <span class="px-2 py-0.5 bg-slate-700 rounded text-xs text-slate-500">+{{ regelwerk.regeln.kategorien|length|add:"-5" }}</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="col-span-3 text-center py-12 text-slate-500">
+        <div class="text-4xl mb-2">📋</div>
+        <div>Keine Regelwerke in der Datenbank</div>
+        <p class="text-sm mt-2">Regelwerke können über den Admin-Bereich hinzugefügt werden.</p>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Info-Box -->
+<div class="mt-8 bg-blue-900/30 border border-blue-700 rounded-xl p-6">
+    <div class="flex items-start gap-4">
+        <span class="text-3xl">ℹ️</span>
+        <div>
+            <h3 class="font-semibold text-white mb-2">Hinweis zu Regelwerken</h3>
+            <p class="text-slate-300 text-sm">
+                Die Brandschutzprüfung erfolgt automatisch gegen alle aktiven Regelwerke. 
+                Bei der Analyse werden die relevanten Regeln basierend auf Gebäudetyp, 
+                Nutzung und erkannten Elementen angewendet. Mängel werden mit der 
+                entsprechenden Regelwerk-Referenz dokumentiert.
+            </p>
+            <div class="mt-4 flex flex-wrap gap-4 text-sm">
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-3 h-3 bg-green-500 rounded-full"></span>
+                    <span>Automatisch geprüft</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                    <span>Manuelle Prüfung empfohlen</span>
+                </div>
+                <div class="flex items-center gap-2 text-slate-400">
+                    <span class="w-3 h-3 bg-blue-500 rounded-full"></span>
+                    <span>Nur Information</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

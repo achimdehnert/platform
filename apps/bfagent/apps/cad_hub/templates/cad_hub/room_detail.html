@@ -1,0 +1,17 @@
+{% extends "cad_hub/base.html" %}
+
+{% block title %}Raum {{ room.number }}{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <div class="mb-6">
+        <a href="{% url 'cad_hub:room_list' room.ifc_model.pk %}"
+           class="text-blue-400 hover:text-blue-300 mb-2 inline-block">
+            ← Zurück zur Raumliste
+        </a>
+        <h1 class="text-3xl font-bold text-slate-100">Raum {{ room.number }}</h1>
+    </div>
+
+    {% include "cad_hub/partials/_room_detail.html" %}
+</div>
+{% endblock %}

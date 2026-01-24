@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Create Field Group{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-md-6 offset-md-3">
+            <h2 class="mb-4"><i class="bi bi-folder-plus"></i> Create Field Group</h2>
+            
+            <form method="post" class="card">
+                {% csrf_token %}
+                
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label for="name" class="form-label">Internal Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="name" name="name" required
+                               pattern="[a-z_]+" placeholder="e.g., plot">
+                        <small class="text-muted">Snake_case only</small>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="display_name" class="form-label">Display Name <span class="text-danger">*</span></label>
+                        <input type="text" class="form-control" id="display_name" name="display_name" required
+                               placeholder="e.g., Plot Elements">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="description" class="form-label">Description</label>
+                        <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label for="icon" class="form-label">Icon Class</label>
+                            <input type="text" class="form-control" id="icon" name="icon" 
+                                   placeholder="e.g., bi-book">
+                            <small class="text-muted">Bootstrap Icons</small>
+                        </div>
+                        
+                        <div class="col-md-6 mb-3">
+                            <label for="color" class="form-label">Color</label>
+                            <input type="color" class="form-control form-control-color" id="color" name="color" 
+                                   value="#007bff">
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="order" class="form-label">Display Order</label>
+                        <input type="number" class="form-control" id="order" name="order" value="0">
+                    </div>
+                </div>
+                
+                <div class="card-footer">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Create Group
+                    </button>
+                    <a href="{% url 'bfagent:field-group-list' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

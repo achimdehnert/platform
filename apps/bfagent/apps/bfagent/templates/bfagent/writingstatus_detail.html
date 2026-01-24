@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}WritingStatus Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-eye"></i> WritingStatus Detail</h1>
+        <div>
+            <a href="{% url 'bfagent:writingstatus-list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+            <a href="{% url 'bfagent:writingstatus-update' object.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Name:</strong></div>
+                <div class="col-md-9">{{ object.name }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Description:</strong></div>
+                <div class="col-md-9">{{ object.description }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Color:</strong></div>
+                <div class="col-md-9">{{ object.color }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Icon:</strong></div>
+                <div class="col-md-9">{{ object.icon }}</div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'bfagent:writingstatus-delete' object.pk %}" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

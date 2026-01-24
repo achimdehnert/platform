@@ -1,0 +1,469 @@
+/* =============================================================================
+ * BF Agent Documentation - Custom Styles
+ * =============================================================================
+ * Ergänzende Styles für das Furo Theme
+ * ============================================================================= */
+
+/* -----------------------------------------------------------------------------
+ * FORCE LIGHT MODE - Override system preference
+ * ----------------------------------------------------------------------------- */
+
+:root,
+:root[data-theme="dark"],
+:root[data-theme="auto"] {
+    /* Force light background */
+    --color-background-primary: #ffffff !important;
+    --color-background-secondary: #f1f5f9 !important;
+    --color-background-hover: #f8fafc !important;
+    --color-background-border: #e2e8f0 !important;
+    
+    /* Force dark text */
+    --color-foreground-primary: #1e293b !important;
+    --color-foreground-secondary: #475569 !important;
+    --color-foreground-muted: #64748b !important;
+    --color-foreground-border: #cbd5e1 !important;
+    
+    /* Sidebar light */
+    --color-sidebar-background: #f8fafc !important;
+    --color-sidebar-background-border: #e2e8f0 !important;
+    --color-sidebar-item-background--current: #dbeafe !important;
+    --color-sidebar-item-background--hover: #e2e8f0 !important;
+    
+    /* Code blocks light */
+    --color-code-background: #f1f5f9 !important;
+    --color-code-foreground: #1e293b !important;
+    
+    /* Links */
+    --color-link: #1e40af !important;
+    --color-link--hover: #1d4ed8 !important;
+}
+
+/* Force light mode on body */
+body {
+    background-color: #ffffff !important;
+    color: #1e293b !important;
+}
+
+/* Force light sidebar */
+.sidebar-drawer,
+.sidebar-container {
+    background-color: #f8fafc !important;
+}
+
+.sidebar-tree .reference {
+    color: #374151 !important;
+}
+
+.sidebar-tree .current > .reference {
+    color: #1e40af !important;
+}
+
+/* Force light content area */
+.main,
+.content {
+    background-color: #ffffff !important;
+}
+
+/* Force light code blocks */
+.highlight,
+pre {
+    background-color: #f1f5f9 !important;
+}
+
+.highlight pre {
+    color: #1e293b !important;
+}
+
+/* -----------------------------------------------------------------------------
+ * General
+ * ----------------------------------------------------------------------------- */
+
+:root {
+    /* BF Agent Brand Colors */
+    --bf-primary: #1e40af;      /* Deep Blue - Trust, Technology */
+    --bf-primary-light: #3b82f6;
+    --bf-primary-dark: #1e3a8a;
+    --bf-secondary: #374151;    /* Gray - Professional */
+    --bf-accent: #f59e0b;       /* Amber - Energy, Innovation */
+    --bf-accent-light: #fbbf24;
+    --bf-success: #10b981;      /* Emerald - Growth, Completion */
+    --bf-warning: #f59e0b;
+    --bf-error: #ef4444;
+    
+    /* Hub Colors */
+    --hub-writing: #8b5cf6;     /* Purple - Creativity */
+    --hub-cad: #06b6d4;         /* Cyan - Technical */
+    --hub-research: #14b8a6;    /* Teal - Discovery */
+    --hub-control: #6366f1;     /* Indigo - Management */
+}
+
+/* -----------------------------------------------------------------------------
+ * Code Blocks
+ * ----------------------------------------------------------------------------- */
+
+/* Syntax Highlighting Enhancement */
+.highlight {
+    border-radius: 8px;
+    margin: 1rem 0;
+}
+
+.highlight pre {
+    padding: 1rem;
+    line-height: 1.5;
+}
+
+/* Code Block Header (Language Label) */
+.highlight::before {
+    content: attr(data-lang);
+    display: block;
+    background: rgba(0, 0, 0, 0.1);
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    border-radius: 8px 8px 0 0;
+    margin: -1rem -1rem 0.5rem -1rem;
+}
+
+/* Inline Code */
+code.literal {
+    background: var(--color-background-secondary);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    font-size: 0.875em;
+}
+
+/* -----------------------------------------------------------------------------
+ * Admonitions (Hinweise, Warnungen, etc.)
+ * ----------------------------------------------------------------------------- */
+
+.admonition {
+    border-radius: 8px;
+    margin: 1.5rem 0;
+    padding: 1rem;
+}
+
+.admonition-title {
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+/* Note */
+.admonition.note {
+    border-left: 4px solid var(--bf-primary);
+    background: rgba(37, 99, 235, 0.1);
+}
+
+/* Warning */
+.admonition.warning {
+    border-left: 4px solid var(--bf-warning);
+    background: rgba(245, 158, 11, 0.1);
+}
+
+/* Danger */
+.admonition.danger {
+    border-left: 4px solid var(--bf-error);
+    background: rgba(239, 68, 68, 0.1);
+}
+
+/* Tip */
+.admonition.tip {
+    border-left: 4px solid var(--bf-success);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+/* See Also */
+.admonition.seealso {
+    border-left: 4px solid var(--bf-secondary);
+    background: rgba(100, 116, 139, 0.1);
+}
+
+/* -----------------------------------------------------------------------------
+ * Tables
+ * ----------------------------------------------------------------------------- */
+
+table.docutils {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1rem 0;
+}
+
+table.docutils th,
+table.docutils td {
+    padding: 0.75rem 1rem;
+    border: 1px solid var(--color-background-border);
+}
+
+table.docutils th {
+    background: var(--color-background-secondary);
+    font-weight: 600;
+    text-align: left;
+}
+
+table.docutils tr:hover {
+    background: var(--color-background-hover);
+}
+
+/* Striped Tables */
+table.docutils tbody tr:nth-child(even) {
+    background: rgba(0, 0, 0, 0.02);
+}
+
+/* -----------------------------------------------------------------------------
+ * API Documentation
+ * ----------------------------------------------------------------------------- */
+
+/* Class/Function Headers */
+dl.py.class > dt,
+dl.py.function > dt,
+dl.py.method > dt {
+    background: var(--color-background-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-family: var(--font-stack--monospace);
+    margin-top: 1.5rem;
+}
+
+/* Parameter Lists */
+.field-list {
+    margin: 1rem 0;
+}
+
+.field-list dt {
+    font-weight: 600;
+    color: var(--bf-primary);
+}
+
+/* Type Annotations */
+.sig-param .n {
+    color: var(--bf-primary);
+}
+
+.sig-param .default_value {
+    color: var(--bf-secondary);
+}
+
+/* -----------------------------------------------------------------------------
+ * Django Model Documentation
+ * ----------------------------------------------------------------------------- */
+
+/* Model Fields Table */
+.django-model-fields {
+    background: var(--color-background-secondary);
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+}
+
+.django-model-fields th {
+    background: var(--bf-primary);
+    color: white;
+}
+
+/* Field Types */
+.field-type {
+    font-family: var(--font-stack--monospace);
+    font-size: 0.875em;
+    color: var(--bf-secondary);
+}
+
+/* -----------------------------------------------------------------------------
+ * Sphinx Design Components
+ * ----------------------------------------------------------------------------- */
+
+/* Cards */
+.sd-card {
+    border-radius: 8px;
+    transition: box-shadow 0.2s ease;
+}
+
+.sd-card:hover {
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.sd-card-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+/* Tabs */
+.sd-tab-set > input:checked + label {
+    border-bottom-color: var(--bf-primary);
+    color: var(--bf-primary);
+}
+
+/* Dropdowns */
+details.sd-dropdown {
+    border-radius: 8px;
+    margin: 0.5rem 0;
+}
+
+details.sd-dropdown > summary {
+    padding: 0.75rem 1rem;
+    font-weight: 500;
+}
+
+/* -----------------------------------------------------------------------------
+ * Mermaid Diagrams
+ * ----------------------------------------------------------------------------- */
+
+.mermaid {
+    background: var(--color-background-secondary);
+    padding: 1rem;
+    border-radius: 8px;
+    margin: 1rem 0;
+    text-align: center;
+}
+
+/* -----------------------------------------------------------------------------
+ * Search
+ * ----------------------------------------------------------------------------- */
+
+.search-button__wrapper {
+    border-radius: 8px;
+}
+
+/* -----------------------------------------------------------------------------
+ * Navigation
+ * ----------------------------------------------------------------------------- */
+
+/* Sidebar Navigation */
+.sidebar-tree .reference {
+    padding: 0.375rem 0;
+    display: block;
+    transition: color 0.2s ease;
+}
+
+.sidebar-tree .reference:hover {
+    color: var(--bf-primary);
+}
+
+/* Current Page Indicator */
+.sidebar-tree .current > .reference {
+    color: var(--bf-primary);
+    font-weight: 600;
+}
+
+/* -----------------------------------------------------------------------------
+ * Table of Contents (TOC)
+ * ----------------------------------------------------------------------------- */
+
+.toc-tree {
+    border-left: 2px solid var(--color-background-border);
+    padding-left: 1rem;
+}
+
+.toc-tree a {
+    display: block;
+    padding: 0.25rem 0;
+}
+
+/* -----------------------------------------------------------------------------
+ * Footer
+ * ----------------------------------------------------------------------------- */
+
+footer {
+    border-top: 1px solid var(--color-background-border);
+    padding-top: 1rem;
+    margin-top: 2rem;
+}
+
+/* -----------------------------------------------------------------------------
+ * Print Styles
+ * ----------------------------------------------------------------------------- */
+
+@media print {
+    .sidebar-container,
+    .toc-drawer,
+    .header-article-container {
+        display: none !important;
+    }
+    
+    .content {
+        max-width: 100% !important;
+    }
+    
+    .highlight {
+        page-break-inside: avoid;
+    }
+}
+
+/* -----------------------------------------------------------------------------
+ * BF Agent Branding
+ * ----------------------------------------------------------------------------- */
+
+/* Logo styling */
+.sidebar-brand {
+    padding: 1rem;
+}
+
+.sidebar-logo {
+    max-height: 50px;
+    width: auto;
+}
+
+/* Hub badges */
+.hub-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.hub-badge-writing { background: var(--hub-writing); color: white; }
+.hub-badge-cad { background: var(--hub-cad); color: white; }
+.hub-badge-research { background: var(--hub-research); color: white; }
+.hub-badge-control { background: var(--hub-control); color: white; }
+
+/* Status badges */
+.status-prod { background: var(--bf-success); color: white; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+.status-beta { background: var(--bf-warning); color: white; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+.status-dev { background: var(--bf-secondary); color: white; padding: 0.125rem 0.5rem; border-radius: 4px; font-size: 0.75rem; }
+
+/* Header accent line */
+.content-container::before {
+    content: '';
+    display: block;
+    height: 3px;
+    background: linear-gradient(90deg, var(--bf-primary), var(--bf-accent));
+    margin-bottom: 1rem;
+}
+
+/* -----------------------------------------------------------------------------
+ * Dark Mode Adjustments
+ * ----------------------------------------------------------------------------- */
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bf-primary: #60a5fa;
+        --bf-primary-light: #93c5fd;
+        --bf-accent: #fbbf24;
+    }
+    
+    table.docutils tbody tr:nth-child(even) {
+        background: rgba(255, 255, 255, 0.02);
+    }
+    
+    .hub-badge-writing { background: #a78bfa; }
+    .hub-badge-cad { background: #22d3ee; }
+    .hub-badge-research { background: #2dd4bf; }
+    .hub-badge-control { background: #818cf8; }
+}
+
+/* -----------------------------------------------------------------------------
+ * Responsive Adjustments
+ * ----------------------------------------------------------------------------- */
+
+@media (max-width: 768px) {
+    .highlight pre {
+        font-size: 0.8rem;
+    }
+    
+    table.docutils {
+        font-size: 0.875rem;
+    }
+    
+    .sd-card {
+        margin-bottom: 1rem;
+    }
+}

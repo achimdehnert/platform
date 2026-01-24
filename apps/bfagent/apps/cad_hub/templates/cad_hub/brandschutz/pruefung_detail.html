@@ -1,0 +1,254 @@
+<!-- templates/cad_hub/brandschutz/pruefung_detail.html -->
+{% extends "cad_hub/brandschutz/base_brandschutz.html" %}
+
+{% block breadcrumb_extra %}
+<li><span class="mx-2">/</span></li>
+<li><a href="{% url 'cad_hub:brandschutz:pruefung_list' %}" class="hover:text-white">Prüfungen</a></li>
+<li><span class="mx-2">/</span></li>
+<li class="text-white">{{ pruefung.titel|truncatewords:3 }}</li>
+{% endblock %}
+
+{% block page_title %}{{ pruefung.titel }}{% endblock %}
+
+{% block page_subtitle %}
+<p class="text-slate-400 mt-1">{{ pruefung.projekt_name }}</p>
+{% endblock %}
+
+{% block page_actions %}
+<div class="flex items-center gap-3">
+    <span class="px-3 py-1 rounded-full text-sm font-medium
+        {% if pruefung.status == 'freigegeben' %}bg-green-900 text-green-300
+        {% elif pruefung.status == 'maengel' %}bg-red-900 text-red-300
+        {% elif pruefung.status == 'in_pruefung' %}bg-blue-900 text-blue-300
+        {% elif pruefung.status == 'abgeschlossen' %}bg-purple-900 text-purple-300
+        {% else %}bg-slate-700 text-slate-300{% endif %}">
+        {{ pruefung.get_status_display }}
+    </span>
+    
+    <div class="relative" x-data="{ open: false }">
+        <button @click="open = !open" class="px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white rounded-lg flex items-center gap-2">
+            📥 Export <span class="text-xs">▼</span>
+        </button>
+        <div x-show="open" @click.away="open = false" 
+             class="absolute right-0 mt-2 w-48 bg-slate-800 border border-slate-700 rounded-lg shadow-xl z-10">
+            <a href="{% url 'cad_hub:brandschutz:report_html' pruefung.pk %}" target="_blank"
+               class="block px-4 py-2 hover:bg-slate-700 text-slate-300">📄 HTML Report</a>
+            <a href="{% url 'cad_hub:brandschutz:report_pdf' pruefung.pk %}"
+               class="block px-4 py-2 hover:bg-slate-700 text-slate-300">📕 PDF Export</a>
+            <a href="{% url 'cad_hub:brandschutz:report_excel' pruefung.pk %}"
+               class="block px-4 py-2 hover:bg-slate-700 text-slate-300">📊 Excel Export</a>
+            <a href="{% url 'cad_hub:brandschutz:report_json' pruefung.pk %}"
+               class="block px-4 py-2 hover:bg-slate-700 text-slate-300">📋 JSON Export</a>
+        </div>
+    </div>
+    
+    <a href="{% url 'cad_hub:brandschutz:pruefung_edit' pruefung.pk %}" 
+       class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+        ✏️ Bearbeiten
+    </a>
+</div>
+{% endblock %}
+
+{% block brandschutz_content %}
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Hauptbereich -->
+    <div class="lg:col-span-2 space-y-6">
+        <!-- Info-Karten -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                <div class="text-2xl font-bold text-white">{{ maengel.count }}</div>
+                <div class="text-slate-400 text-sm">Mängel gesamt</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl p-4 border border-red-700/50">
+                <div class="text-2xl font-bold text-red-400">
+                    {{ maengel|dictsort:"behoben"|first|default:"0" }}
+                </div>
+                <div class="text-slate-400 text-sm">Offen</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                <div class="text-2xl font-bold text-blue-400">{{ symbole.count }}</div>
+                <div class="text-slate-400 text-sm">Symbole</div>
+            </div>
+            <div class="bg-slate-800 rounded-xl p-4 border border-slate-700">
+                <div class="text-2xl font-bold text-white">{{ pruefung.flaeche_qm|default:"-" }}</div>
+                <div class="text-slate-400 text-sm">m² Fläche</div>
+            </div>
+        </div>
+
+        <!-- Mängel-Liste -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700">
+            <div class="p-4 border-b border-slate-700 flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-white">⚠️ Mängel ({{ maengel.count }})</h2>
+                <div class="flex gap-2" x-data="{ filter: 'alle' }">
+                    <button @click="filter = 'alle'" 
+                            :class="filter === 'alle' ? 'bg-slate-600' : 'bg-slate-700'"
+                            class="px-3 py-1 rounded text-sm text-slate-300 hover:bg-slate-600">Alle</button>
+                    <button @click="filter = 'offen'" 
+                            :class="filter === 'offen' ? 'bg-red-600' : 'bg-slate-700'"
+                            class="px-3 py-1 rounded text-sm text-slate-300 hover:bg-slate-600">Offen</button>
+                </div>
+            </div>
+            <div class="divide-y divide-slate-700" id="maengel-liste">
+                {% for kategorie, kategorie_maengel in maengel_by_kategorie.items %}
+                <div class="p-4">
+                    <h3 class="text-sm font-medium text-slate-400 mb-3">{{ kategorie|upper }}</h3>
+                    <div class="space-y-3">
+                        {% for mangel in kategorie_maengel %}
+                        <div id="mangel-{{ mangel.pk }}" 
+                             class="flex items-start gap-3 p-3 bg-slate-700/50 rounded-lg {% if mangel.behoben %}opacity-60{% endif %}">
+                            <button hx-post="{% url 'cad_hub:brandschutz:mangel_toggle' mangel.pk %}"
+                                    hx-target="#mangel-{{ mangel.pk }}"
+                                    hx-swap="outerHTML"
+                                    class="mt-1 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center
+                                        {% if mangel.behoben %}bg-green-600 border-green-600{% else %}border-slate-500 hover:border-green-500{% endif %}">
+                                {% if mangel.behoben %}<span class="text-white text-xs">✓</span>{% endif %}
+                            </button>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm text-white {% if mangel.behoben %}line-through{% endif %}">
+                                    {{ mangel.beschreibung }}
+                                </div>
+                                <div class="flex items-center gap-2 mt-2">
+                                    <span class="text-xs px-2 py-0.5 rounded
+                                        {% if mangel.schweregrad == 'kritisch' %}bg-red-900 text-red-300
+                                        {% elif mangel.schweregrad == 'hoch' %}bg-orange-900 text-orange-300
+                                        {% elif mangel.schweregrad == 'mittel' %}bg-yellow-900 text-yellow-300
+                                        {% else %}bg-green-900 text-green-300{% endif %}">
+                                        {{ mangel.schweregrad|upper }}
+                                    </span>
+                                    {% if mangel.regelwerk_referenz %}
+                                    <span class="text-xs text-slate-500">{{ mangel.regelwerk_referenz }}</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                {% empty %}
+                <div class="p-8 text-center text-slate-500">
+                    <span class="text-4xl">✅</span>
+                    <div class="mt-2">Keine Mängel gefunden</div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Symbole -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700">
+            <div class="p-4 border-b border-slate-700">
+                <h2 class="text-lg font-semibold text-white">🏷️ Vorgeschlagene Symbole ({{ symbole.count }})</h2>
+            </div>
+            <div class="p-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {% for typ, typ_symbole in symbole_by_typ.items %}
+                    <div class="bg-slate-700/50 rounded-lg p-4">
+                        <div class="flex items-center gap-2 mb-3">
+                            <span class="text-xl">
+                                {% if 'F0' in typ %}🧯{% elif 'RM' in typ %}🔔{% elif 'E0' in typ %}🚪{% else %}📍{% endif %}
+                            </span>
+                            <span class="font-medium text-white">{{ typ }}</span>
+                            <span class="text-xs text-slate-400">({{ typ_symbole|length }})</span>
+                        </div>
+                        <div class="space-y-2">
+                            {% for symbol in typ_symbole %}
+                            <div id="symbol-{{ symbol.pk }}" class="flex items-center justify-between text-sm">
+                                <div class="text-slate-300">
+                                    Position: ({{ symbol.position_x|floatformat:0 }}, {{ symbol.position_y|floatformat:0 }})
+                                </div>
+                                <div class="flex gap-1">
+                                    {% if symbol.status == 'vorgeschlagen' %}
+                                    <button hx-post="{% url 'cad_hub:brandschutz:symbol_approve' symbol.pk %}"
+                                            hx-vals='{"action": "genehmigt"}'
+                                            hx-target="#symbol-{{ symbol.pk }}"
+                                            class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs">✓</button>
+                                    <button hx-post="{% url 'cad_hub:brandschutz:symbol_approve' symbol.pk %}"
+                                            hx-vals='{"action": "abgelehnt"}'
+                                            hx-target="#symbol-{{ symbol.pk }}"
+                                            class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">✕</button>
+                                    {% else %}
+                                    <span class="px-2 py-1 rounded text-xs
+                                        {% if symbol.status == 'genehmigt' %}bg-green-900 text-green-300
+                                        {% elif symbol.status == 'abgelehnt' %}bg-red-900 text-red-300
+                                        {% else %}bg-blue-900 text-blue-300{% endif %}">
+                                        {{ symbol.status }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% empty %}
+                    <div class="col-span-2 text-center text-slate-500 py-8">
+                        Keine Symbole vorgeschlagen
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="space-y-6">
+        <!-- Prüfungs-Details -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 class="font-semibold text-white mb-4">📋 Details</h3>
+            <dl class="space-y-3 text-sm">
+                <div>
+                    <dt class="text-slate-500">Gebäudetyp</dt>
+                    <dd class="text-white">{{ pruefung.gebaeude_typ|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-slate-500">Etage</dt>
+                    <dd class="text-white">{{ pruefung.etage|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-slate-500">Fläche</dt>
+                    <dd class="text-white">{{ pruefung.flaeche_qm|default:"-" }} m²</dd>
+                </div>
+                <div>
+                    <dt class="text-slate-500">Prüfer</dt>
+                    <dd class="text-white">{{ pruefung.pruefer|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-slate-500">Prüfdatum</dt>
+                    <dd class="text-white">{{ pruefung.pruef_datum|date:"d.m.Y"|default:"-" }}</dd>
+                </div>
+                <div>
+                    <dt class="text-slate-500">Nächste Prüfung</dt>
+                    <dd class="text-white">{{ pruefung.naechste_pruefung|date:"d.m.Y"|default:"-" }}</dd>
+                </div>
+            </dl>
+        </div>
+
+        <!-- Beschreibung -->
+        {% if pruefung.beschreibung %}
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 class="font-semibold text-white mb-2">📝 Beschreibung</h3>
+            <p class="text-sm text-slate-300">{{ pruefung.beschreibung }}</p>
+        </div>
+        {% endif %}
+
+        <!-- Quelldatei -->
+        {% if pruefung.quelldatei %}
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-4">
+            <h3 class="font-semibold text-white mb-2">📁 Quelldatei</h3>
+            <a href="{{ pruefung.quelldatei.url }}" 
+               class="text-sm text-blue-400 hover:text-blue-300 flex items-center gap-2">
+                📥 {{ pruefung.quelldatei.name|truncatewords:3 }}
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Analyse starten -->
+        <div class="bg-gradient-to-r from-red-600 to-orange-600 rounded-xl p-4">
+            <h3 class="font-semibold text-white mb-2">🔍 Neu analysieren</h3>
+            <p class="text-sm text-red-200 mb-3">CAD-Datei erneut auf Brandschutz prüfen</p>
+            <a href="{% url 'cad_hub:brandschutz:analyse_pruefung' pruefung.pk %}"
+               class="block w-full px-4 py-2 bg-white/20 hover:bg-white/30 rounded-lg text-center text-white font-medium">
+                Analyse starten →
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

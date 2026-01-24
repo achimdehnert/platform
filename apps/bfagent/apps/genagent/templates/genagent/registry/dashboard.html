@@ -1,0 +1,86 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - GenAgent{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="h2 mb-1">
+                <i class="bi bi-collection"></i> Handler Registry
+            </h1>
+            <p class="text-muted">Phase 1 - Dynamic Handler Management System</p>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-4">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-gear-fill text-primary" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ stats.total_handlers }}</h3>
+                    <p class="text-muted mb-0">Total Handlers</p>
+                    <span class="badge bg-{{ stats.initialized|yesno:'success,warning' }} mt-2">
+                        {{ stats.initialized|yesno:'Initialized,Not Initialized' }}
+                    </span>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-diagram-3-fill text-success" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ domains|length }}</h3>
+                    <p class="text-muted mb-0">Domains</p>
+                    <a href="{% url 'genagent:registry-domain-list' %}" class="btn btn-sm btn-outline-success mt-2">
+                        View Domains
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-check-circle-fill text-info" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">{{ stats.by_status.active|default:0 }}</h3>
+                    <p class="text-muted mb-0">Active Handlers</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domains List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3"></i> Registered Domains</h5>
+                </div>
+                <div class="card-body">
+                    {% if domains %}
+                        <div class="list-group">
+                            {% for domain in domains %}
+                                <a href="{% url 'genagent:registry-domain-detail' domain.name %}" 
+                                   class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <h6 class="mb-1">{{ domain.name }}</h6>
+                                        <small class="text-muted">{{ domain.handler_count }} handler{{ domain.handler_count|pluralize }}</small>
+                                    </div>
+                                    <i class="bi bi-arrow-right"></i>
+                                </a>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i> No domains registered yet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,184 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Action → Template Mappings{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-link-45deg"></i> Action → Template Mappings</h2>
+        <a href="{% url 'bfagent:actiontemplate-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Create Mapping
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-3">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label for="agent" class="form-label">Agent</label>
+                    <select name="agent" id="agent" class="form-select">
+                        <option value="">All Agents</option>
+                        {% for agent in all_agents %}
+                            <option value="{{ agent.id }}" {% if current_filters.agent == agent.id|stringformat:"s" %}selected{% endif %}>
+                                {{ agent.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="action" class="form-label">Action</label>
+                    <select name="action" id="action" class="form-select">
+                        <option value="">All Actions</option>
+                        {% for action in all_actions %}
+                            <option value="{{ action.id }}" {% if current_filters.action == action.id|stringformat:"s" %}selected{% endif %}>
+                                {{ action.display_name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="template" class="form-label">Template</label>
+                    <select name="template" id="template" class="form-select">
+                        <option value="">All Templates</option>
+                        {% for template in all_templates %}
+                            <option value="{{ template.id }}" {% if current_filters.template == template.id|stringformat:"s" %}selected{% endif %}>
+                                {{ template.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="is_default" class="form-label">Status</label>
+                    <select name="is_default" id="is_default" class="form-select">
+                        <option value="">All</option>
+                        <option value="true" {% if current_filters.is_default == 'true' %}selected{% endif %}>Default Only</option>
+                        <option value="false" {% if current_filters.is_default == 'false' %}selected{% endif %}>Non-Default</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-secondary w-100">
+                        <i class="bi bi-funnel"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results Table -->
+    <div class="card">
+        <div class="card-body">
+            {% if actiontemplates %}
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Action</th>
+                                <th>Template</th>
+                                <th>Agent</th>
+                                <th class="text-center">Default?</th>
+                                <th class="text-center">Order</th>
+                                <th class="text-center">Usage</th>
+                                <th class="text-end">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for mapping in actiontemplates %}
+                                <tr>
+                                    <td>
+                                        <strong>{{ mapping.action.display_name }}</strong>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'bfagent:prompttemplate-detail' mapping.template.pk %}">
+                                            {{ mapping.template.name }}
+                                        </a>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">
+                                            {{ mapping.action.agent.name }}
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        {% if mapping.is_default %}
+                                            <span class="badge bg-success">
+                                                <i class="bi bi-star-fill"></i> Default
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-light text-dark">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-info">{{ mapping.order }}</span>
+                                    </td>
+                                    <td class="text-center">
+                                        {{ mapping.usage_count }}
+                                    </td>
+                                    <td class="text-end">
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'bfagent:actiontemplate-detail' mapping.pk %}" 
+                                               class="btn btn-outline-primary" title="View">
+                                                <i class="bi bi-eye"></i>
+                                            </a>
+                                            <a href="{% url 'bfagent:actiontemplate-update' mapping.pk %}" 
+                                               class="btn btn-outline-secondary" title="Edit">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <a href="{% url 'bfagent:actiontemplate-delete' mapping.pk %}" 
+                                               class="btn btn-outline-danger" title="Delete">
+                                                <i class="bi bi-trash"></i>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                {% if is_paginated %}
+                    <nav aria-label="Page navigation">
+                        <ul class="pagination justify-content-center">
+                            {% if page_obj.has_previous %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page=1">First</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                                </li>
+                            {% endif %}
+
+                            <li class="page-item active">
+                                <span class="page-link">
+                                    Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}
+                                </span>
+                            </li>
+
+                            {% if page_obj.has_next %}
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                                </li>
+                                <li class="page-item">
+                                    <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                                </li>
+                            {% endif %}
+                        </ul>
+                    </nav>
+                {% endif %}
+
+            {% else %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i> 
+                    No Action → Template mappings found.
+                    <a href="{% url 'bfagent:actiontemplate-create' %}" class="alert-link">Create one now</a>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

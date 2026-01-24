@@ -1,0 +1,131 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Visual Workflow Builder{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'workflow_builder/css/builder.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="workflow-builder-container">
+    <!-- Main Builder Container -->
+    <div id="builder-app" class="builder-container">
+        <!-- Builder Header with Navigation -->
+        <div class="builder-header">
+            <h2>Visual Workflow Builder</h2>
+            <div class="header-actions">
+                <button id="back-to-domains-btn" class="btn btn-outline-secondary" style="display: none;">
+                <h2>Choose Your Domain</h2>
+                <p class="text-muted">Select a domain to start building workflows</p>
+            </div>
+            <div id="domain-grid" class="domain-grid">
+                <!-- Domains loaded via JavaScript -->
+            </div>
+        </div>
+
+        <!-- Workflow Canvas Screen (Hidden initially) -->
+        <div id="workflow-canvas-screen" class="screen">
+            <div class="canvas-toolbar">
+                <button id="back-to-domains-btn" class="btn btn-secondary">
+                    <i class="bi bi-arrow-left"></i> Back to Domains
+                </button>
+                <div class="canvas-info">
+                    <span id="current-domain-name" class="domain-badge"></span>
+                    <span id="current-template-name"></span>
+                </div>
+            </div>
+
+            <!-- Template Selection -->
+            <div id="template-selection" class="template-selection">
+                <h3>Select a Template</h3>
+                <div id="template-list" class="template-list">
+                    <!-- Templates loaded via JavaScript -->
+                </div>
+            </div>
+
+            <!-- Workflow Canvas -->
+            <div id="workflow-canvas" class="workflow-canvas">
+                <!-- Canvas content via JavaScript -->
+            </div>
+            
+            <!-- Execute Button (shown when template loaded) -->
+            <div id="execute-workflow-section" class="execute-section" style="display: none;">
+                <button id="execute-workflow-btn" class="btn btn-success btn-lg">
+                    <i class="bi bi-play-circle"></i> Execute Workflow
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Execution Modal -->
+<div class="modal fade" id="executionModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-play-circle"></i> Execute Workflow
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Variables Form -->
+                <div id="variables-form-section">
+                    <h6 class="mb-3">Required Variables</h6>
+                    <div id="variables-form"></div>
+                </div>
+                
+                <!-- Execution Progress -->
+                <div id="execution-progress-section" style="display: none;">
+                    <h6 class="mb-3">Execution Progress</h6>
+                    <div class="progress mb-3">
+                        <div id="execution-progress-bar" class="progress-bar progress-bar-striped progress-bar-animated" 
+                             role="progressbar" style="width: 0%"></div>
+                    </div>
+                    <div id="execution-status" class="text-muted"></div>
+                </div>
+                
+                <!-- Execution Results -->
+                <div id="execution-results-section" style="display: none;">
+                    <h6 class="mb-3">
+                        <i class="bi bi-check-circle text-success"></i> Execution Complete
+                    </h6>
+                    <div id="execution-results" class="alert alert-success"></div>
+                </div>
+                
+                <!-- Error Display -->
+                <div id="execution-error-section" style="display: none;">
+                    <div id="execution-error" class="alert alert-danger"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" id="start-execution-btn" class="btn btn-success">
+                    <i class="bi bi-play"></i> Start Execution
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Loading Indicator -->
+<div id="loading-overlay" class="loading-overlay" style="display: none;">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- React & ReactDOM from CDN -->
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+
+<!-- Workflow Builder Scripts -->
+<script src="{% static 'workflow_builder/js/api-client.js' %}"></script>
+<script src="{% static 'workflow_builder/js/domain-selector.js' %}"></script>
+<script src="{% static 'workflow_builder/js/workflow-canvas.js' %}"></script>
+<script src="{% static 'workflow_builder/js/workflow-executor.js' %}"></script>
+<script src="{% static 'workflow_builder/js/main.js' %}"></script>
+{% endblock %}

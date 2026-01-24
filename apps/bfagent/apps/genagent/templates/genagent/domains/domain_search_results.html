@@ -1,0 +1,51 @@
+{% if results %}
+<div class="row">
+    <div class="col-12 mb-3">
+        <div class="alert alert-info">
+            Found <strong>{{ result_count }}</strong> domain(s) matching your search.
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% for domain in results %}
+    <div class="col-md-6 col-lg-4 mb-3">
+        <div class="card h-100 shadow-sm">
+            <div class="card-header" style="background-color: {{ domain.color }}20; border-left: 4px solid {{ domain.color }};">
+                <h5 class="card-title mb-0">
+                    <span style="font-size: 1.5rem;">{{ domain.icon }}</span>
+                    {{ domain.display_name }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text text-muted">{{ domain.description }}</p>
+                
+                <div class="mb-3">
+                    {% for tag in domain.tags %}
+                        <span class="badge bg-secondary me-1">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+
+                <div class="d-grid gap-2">
+                    <a href="{% url 'genagent:domain-detail' domain.domain_id %}" class="btn btn-outline-primary">
+                        <i class="bi bi-eye"></i> View Details
+                    </a>
+                    <a href="{% url 'genagent:domain-install' domain.domain_id %}" class="btn btn-primary">
+                        <i class="bi bi-download"></i> Install
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="alert alert-warning">
+            <i class="bi bi-search"></i>
+            No domains found matching your search criteria.
+        </div>
+    </div>
+</div>
+{% endif %}

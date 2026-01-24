@@ -1,0 +1,331 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Session #{{ session.id }} - MCP{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'control_center/mcp/dashboard.css' %}">
+<style>
+    .diff-added { background-color: #d4edda; }
+    .diff-removed { background-color: #f8d7da; }
+    .file-change-card { border-left: 3px solid #6c757d; }
+    .file-change-card.modified { border-left-color: #ffc107; }
+    .file-change-card.added { border-left-color: #28a745; }
+    .file-change-card.deleted { border-left-color: #dc3545; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mcp-dashboard">
+    
+    {# ===== HEADER ===== #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:mcp-dashboard' %}">MCP Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:mcp-sessions' %}">Sessions</a>
+                    </li>
+                    <li class="breadcrumb-item active">Session #{{ session.id }}</li>
+                </ol>
+            </nav>
+            <h1 class="mb-0">
+                Session #{{ session.id }}
+                {% if session.status == 'completed' %}
+                    <span class="badge bg-success ms-2">✓ Completed</span>
+                {% elif session.status == 'in_progress' %}
+                    <span class="badge bg-primary ms-2">
+                        <span class="spinner-border spinner-border-sm"></span> In Progress
+                    </span>
+                {% elif session.status == 'failed' %}
+                    <span class="badge bg-danger ms-2">❌ Failed</span>
+                {% elif session.status == 'cancelled' %}
+                    <span class="badge bg-warning text-dark ms-2">Cancelled</span>
+                {% endif %}
+            </h1>
+            <small class="text-muted">
+                {{ session.domain_config.domain.display_name }} • 
+                Started {{ session.started_at|timesince }} ago
+            </small>
+        </div>
+        <div class="d-flex gap-2">
+            {% if session.status == 'in_progress' %}
+            <button class="btn btn-danger"
+                    hx-post="{% url 'control_center:mcp-cancel-session' session.id %}"
+                    hx-confirm="Cancel this session?"
+                    hx-target="body"
+                    hx-swap="none">
+                <i class="bi bi-stop-fill"></i> Cancel Session
+            </button>
+            {% endif %}
+            <a href="{% url 'control_center:mcp-domain-detail' session.domain_config.domain.domain_id %}" 
+               class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Domain
+            </a>
+        </div>
+    </div>
+    
+    <div class="row">
+        
+        {# ===== LEFT COLUMN ===== #}
+        <div class="col-lg-8">
+            
+            {# Stats Cards #}
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body py-3">
+                            <h3 class="mb-0">{{ session_stats.files_changed }}</h3>
+                            <small class="text-muted">Files Changed</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center border-success">
+                        <div class="card-body py-3">
+                            <h3 class="mb-0 text-success">+{{ session_stats.lines_added }}</h3>
+                            <small class="text-muted">Lines Added</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center border-danger">
+                        <div class="card-body py-3">
+                            <h3 class="mb-0 text-danger">−{{ session_stats.lines_removed }}</h3>
+                            <small class="text-muted">Lines Removed</small>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card text-center">
+                        <div class="card-body py-3">
+                            {% if session_stats.duration %}
+                            <h3 class="mb-0">{{ session_stats.duration|timesince:"" }}</h3>
+                            {% else %}
+                            <h3 class="mb-0">—</h3>
+                            {% endif %}
+                            <small class="text-muted">Duration</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            {# Error Message (if failed) #}
+            {% if session.status == 'failed' and session.error_message %}
+            <div class="alert alert-danger mb-4">
+                <h5 class="alert-heading"><i class="bi bi-exclamation-triangle"></i> Error</h5>
+                <pre class="mb-0 small">{{ session.error_message }}</pre>
+            </div>
+            {% endif %}
+            
+            {# File Changes #}
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">📄 File Changes</h5>
+                    <span class="badge bg-secondary">{{ file_changes|length }} files</span>
+                </div>
+                <div class="card-body">
+                    {% if file_changes %}
+                    <div class="accordion" id="fileChangesAccordion">
+                        {% for change in file_changes %}
+                        <div class="accordion-item file-change-card {{ change.change_type }}">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" 
+                                        type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#change-{{ change.id }}">
+                                    <span class="me-2">
+                                        {% if change.change_type == 'added' %}
+                                            <span class="badge bg-success">+</span>
+                                        {% elif change.change_type == 'deleted' %}
+                                            <span class="badge bg-danger">−</span>
+                                        {% else %}
+                                            <span class="badge bg-warning text-dark">~</span>
+                                        {% endif %}
+                                    </span>
+                                    <code class="me-auto">{{ change.file_path }}</code>
+                                    <span class="text-success small me-2">+{{ change.lines_added }}</span>
+                                    <span class="text-danger small">−{{ change.lines_removed }}</span>
+                                </button>
+                            </h2>
+                            <div id="change-{{ change.id }}" 
+                                 class="accordion-collapse collapse" 
+                                 data-bs-parent="#fileChangesAccordion">
+                                <div class="accordion-body p-0">
+                                    {% if change.diff_content %}
+                                    <pre class="mb-0 p-3 bg-light small" 
+                                         style="max-height: 400px; overflow-y: auto;">{{ change.diff_content }}</pre>
+                                    {% else %}
+                                    <div class="p-3 text-muted">
+                                        No diff content available.
+                                    </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-file-earmark display-4 d-block mb-2"></i>
+                        {% if session.status == 'in_progress' %}
+                            Session is in progress. File changes will appear here.
+                        {% elif session.status == 'pending' %}
+                            Session is pending. No files changed yet.
+                        {% else %}
+                            No file changes recorded for this session.
+                        {% endif %}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+        </div>
+        
+        {# ===== RIGHT COLUMN ===== #}
+        <div class="col-lg-4">
+            
+            {# Session Details #}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📋 Session Details</h5>
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm table-borderless mb-0">
+                        <tr>
+                            <th class="text-muted" style="width: 40%;">Session ID</th>
+                            <td><code>{{ session.id }}</code></td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Domain</th>
+                            <td>
+                                <a href="{% url 'control_center:mcp-domain-detail' session.domain_config.domain.domain_id %}">
+                                    {{ session.domain_config.domain.display_name }}
+                                </a>
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Risk Level</th>
+                            <td>
+                                {% if session.domain_config.risk_level.severity_score >= 80 %}
+                                    <span class="badge bg-danger">🔴 {{ session.domain_config.risk_level.name }}</span>
+                                {% elif session.domain_config.risk_level.severity_score >= 50 %}
+                                    <span class="badge bg-warning text-dark">🟡 {{ session.domain_config.risk_level.name }}</span>
+                                {% else %}
+                                    <span class="badge bg-success">🟢 {{ session.domain_config.risk_level.name }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Status</th>
+                            <td>
+                                {% if session.status == 'completed' %}
+                                    <span class="badge bg-success">Completed</span>
+                                {% elif session.status == 'in_progress' %}
+                                    <span class="badge bg-primary">In Progress</span>
+                                {% elif session.status == 'failed' %}
+                                    <span class="badge bg-danger">Failed</span>
+                                {% elif session.status == 'cancelled' %}
+                                    <span class="badge bg-warning text-dark">Cancelled</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">{{ session.status }}</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        <tr>
+                            <th class="text-muted">Started</th>
+                            <td>{{ session.started_at|date:'Y-m-d H:i:s' }}</td>
+                        </tr>
+                        {% if session.ended_at %}
+                        <tr>
+                            <th class="text-muted">Ended</th>
+                            <td>{{ session.ended_at|date:'Y-m-d H:i:s' }}</td>
+                        </tr>
+                        {% endif %}
+                        <tr>
+                            <th class="text-muted">Triggered By</th>
+                            <td>
+                                {% if session.triggered_by_user %}
+                                    {{ session.triggered_by_user.username }}
+                                {% else %}
+                                    {{ session.triggered_by|default:"system" }}
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% if session.celery_task_id %}
+                        <tr>
+                            <th class="text-muted">Task ID</th>
+                            <td><code class="small">{{ session.celery_task_id|truncatechars:20 }}</code></td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+            
+            {# Components Selected #}
+            {% if session.components_selected %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📦 Components</h5>
+                </div>
+                <div class="card-body">
+                    {% for comp in session.components_selected %}
+                    <span class="badge bg-secondary me-1 mb-1">{{ comp }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+            
+            {# Backup Info #}
+            {% if session.backup_path %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">💾 Backup</h5>
+                </div>
+                <div class="card-body">
+                    <code class="small d-block" style="word-break: break-all;">
+                        {{ session.backup_path }}
+                    </code>
+                    <small class="text-muted mt-2 d-block">
+                        <i class="bi bi-info-circle"></i>
+                        Backup created before changes were applied.
+                    </small>
+                </div>
+            </div>
+            {% endif %}
+            
+            {# Timeline (if events exist) #}
+            {% if timeline_events %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">📅 Timeline</h5>
+                </div>
+                <div class="card-body p-0">
+                    <ul class="list-group list-group-flush">
+                        {% for event in timeline_events %}
+                        <li class="list-group-item py-2">
+                            <div class="d-flex justify-content-between">
+                                <span>{{ event.message }}</span>
+                                <small class="text-muted">
+                                    {{ event.timestamp|timesince }} ago
+                                </small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+            
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'control_center/mcp/dashboard.js' %}"></script>
+{% endblock %}

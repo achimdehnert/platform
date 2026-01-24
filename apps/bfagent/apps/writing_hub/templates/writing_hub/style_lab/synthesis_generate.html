@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+
+{% block title %}Synthese - {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}">Style Lab</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:session-detail' session_id=session.id %}">{{ session.name }}</a></li>
+                    <li class="breadcrumb-item active">Szenen generieren</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary-subtle border-0">
+                    <h4 class="mb-0">
+                        <i class="bi bi-magic me-2"></i>Test-Szenen generieren
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted mb-4">
+                        Wähle Szenentypen aus, für die Test-Texte im extrahierten Stil generiert werden sollen.
+                        Diese Texte dienen als Grundlage für dein Feedback.
+                    </p>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label class="form-label fw-bold">Szenentypen auswählen</label>
+                            <div class="row g-3">
+                                {% for value, label in scene_types %}
+                                <div class="col-md-6">
+                                    <div class="form-check card p-3 {% if value in existing_types %}bg-light{% endif %}">
+                                        <input class="form-check-input" type="checkbox" 
+                                               name="scene_types" value="{{ value }}" 
+                                               id="scene_{{ value }}">
+                                        <label class="form-check-label d-block" for="scene_{{ value }}">
+                                            <strong>{{ label }}</strong>
+                                            {% if value in existing_types %}
+                                            <span class="badge bg-success ms-2">✓ Bereits generiert</span>
+                                            {% endif %}
+                                            <br>
+                                            <small class="text-muted">
+                                                {% if value == 'arrival' %}
+                                                Ankunft an einem neuen Ort, erste Eindrücke
+                                                {% elif value == 'dialogue' %}
+                                                Gespräch zwischen Charakteren
+                                                {% elif value == 'introspection' %}
+                                                Innerer Monolog, Gedanken, Reflexion
+                                                {% elif value == 'action' %}
+                                                Spannende Handlung, Bewegung, Konflikt
+                                                {% elif value == 'description' %}
+                                                Beschreibung von Umgebung oder Person
+                                                {% elif value == 'conflict' %}
+                                                Konflikt
+                                                {% elif value == 'resolution' %}
+                                                Auflösung
+                                                {% elif value == 'transition' %}
+                                                Übergang zwischen Szenen oder Zeitsprung
+                                                {% else %}
+                                                {{ label }}
+                                                {% endif %}
+                                            </small>
+                                        </label>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'writing_hub:session-detail' session_id=session.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>Zurück
+                            </a>
+                            <button type="submit" class="btn btn-primary" id="btn-generate"
+                                    onclick="this.innerHTML='<span class=\'spinner-border spinner-border-sm me-1\'></span>Generiere Szenen...'; this.disabled=true; this.form.submit();">
+                                <i class="bi bi-magic me-1"></i>Szenen generieren
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            {% if existing_candidates %}
+            <div class="card border-0 shadow-sm mt-4">
+                <div class="card-header bg-transparent border-0 d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-check-circle text-success me-2"></i>Bereits generierte Szenen
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Typ</th>
+                                    <th>Vorschau</th>
+                                    <th>LLM</th>
+                                    <th class="text-end">Aktion</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for candidate in existing_candidates %}
+                                <tr>
+                                    <td><span class="badge bg-primary">{{ candidate.get_scene_type_display }}</span></td>
+                                    <td class="small text-muted">{{ candidate.generated_text|truncatechars:60 }}</td>
+                                    <td>
+                                        {% if "Fallback" in candidate.llm_used %}
+                                        <span class="badge bg-warning text-dark" title="{{ candidate.llm_used }}">
+                                            <i class="bi bi-arrow-repeat me-1"></i>{{ candidate.llm_used|truncatechars:25 }}
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ candidate.llm_used|default:"—" }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">
+                                        <form method="post" action="{% url 'writing_hub:synthesis-delete-candidate' candidate_id=candidate.id %}" 
+                                              class="d-inline" onsubmit="return confirm('Szene wirklich löschen?');">
+                                            {% csrf_token %}
+                                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Löschen">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <p class="text-muted mt-2 mb-0 small">
+                        <i class="bi bi-arrow-right me-1"></i>
+                        <a href="{% url 'writing_hub:session-detail' session_id=session.id %}">Zur Session</a> 
+                        um Feedback zu geben.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

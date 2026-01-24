@@ -1,0 +1,3364 @@
+"""
+Main views for BF Agent
+Clean slate for auto-generation
+"""
+
+from django.contrib import messages
+from django.db import models
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from django.template.loader import render_to_string
+from django.utils import timezone
+from django.views.decorators.http import require_POST
+from django.views.generic import TemplateView
+
+from ..models import BookProjects, PhaseActionConfig, ProjectPhaseHistory
+
+# ============================================================================
+# AUTO-GENERATED CRUD VIEWS SECTION
+# ============================================================================
+# Views will be generated here by auto_compliance_fixer.py
+
+
+# ============================================================================
+# CUSTOM WORKFLOW TRANSITION VIEWS
+# ============================================================================
+
+
+@require_POST
+def project_workflow_start(request, pk):
+    """Start workflow for a project - set to first step"""
+    project = get_object_or_404(BookProjects, pk=pk)
+
+    if not project.workflow_template:
+        return HttpResponse("No workflow template assigned", status=400)
+
+    # Get first step
+    first_step = project.workflow_template.steps.order_by("order").first()
+    if not first_step:
+        return HttpResponse("Workflow template has no steps", status=400)
+
+    # Set current step
+    project.current_phase_step = first_step
+    project.save()
+
+    # Create history entry
+    ProjectPhaseHistory.objects.create(
+        project=project,
+        workflow_step=first_step,
+        phase=first_step.phase,
+        entered_at=timezone.now(),
+        entered_by=request.user if request.user.is_authenticated else None,
+    )
+
+    # Render updated workflow status
+    return HttpResponse(
+        render_to_string(
+            "bfagent/partials/workflow_status.html", {"project": project}, request=request
+        )
+    )
+
+
+@require_POST
+def project_workflow_next(request, pk):
+    """Move project to next workflow phase"""
+    project = get_object_or_404(BookProjects, pk=pk)
+
+    if not project.current_phase_step:
+        return HttpResponse("No active workflow step", status=400)
+
+    # Get next step
+    next_step = (
+        project.workflow_template.steps.filter(order__gt=project.current_phase_step.order)
+        .order_by("order")
+        .first()
+    )
+
+    if not next_step:
+        return HttpResponse("Already at final step", status=400)
+
+    # Close current phase in history
+    current_history = project.phase_history.filter(exited_at__isnull=True).first()
+    if current_history:
+        current_history.exited_at = timezone.now()
+        current_history.save()
+
+    # Update to next step
+    project.current_phase_step = next_step
+    project.save()
+
+    # Create new history entry
+    ProjectPhaseHistory.objects.create(
+        project=project,
+        workflow_step=next_step,
+        phase=next_step.phase,
+        entered_at=timezone.now(),
+        entered_by=request.user if request.user.is_authenticated else None,
+    )
+
+    # Render updated workflow status
+    return HttpResponse(
+        render_to_string(
+            "bfagent/partials/workflow_status.html", {"project": project}, request=request
+        )
+    )
+
+
+@require_POST
+def project_workflow_previous(request, pk):
+    """Move project to previous workflow phase"""
+    project = get_object_or_404(BookProjects, pk=pk)
+
+    if not project.current_phase_step:
+        return HttpResponse("No active workflow step", status=400)
+
+    if not project.current_phase_step.can_return:
+        return HttpResponse("Cannot return from this phase", status=400)
+
+    # Get previous step
+    previous_step = (
+        project.workflow_template.steps.filter(order__lt=project.current_phase_step.order)
+        .order_by("-order")
+        .first()
+    )
+
+    if not previous_step:
+        return HttpResponse("Already at first step", status=400)
+
+    # Close current phase in history
+    current_history = project.phase_history.filter(exited_at__isnull=True).first()
+    if current_history:
+        current_history.exited_at = timezone.now()
+        current_history.save()
+
+    # Update to previous step
+    project.current_phase_step = previous_step
+    project.save()
+
+    # Create new history entry
+    ProjectPhaseHistory.objects.create(
+        project=project,
+        workflow_step=previous_step,
+        phase=previous_step.phase,
+        entered_at=timezone.now(),
+        entered_by=request.user if request.user.is_authenticated else None,
+        notes="Returned to previous phase",
+    )
+
+    # Render updated workflow status
+    return HttpResponse(
+        render_to_string(
+            "bfagent/partials/workflow_status.html", {"project": project}, request=request
+        )
+    )
+
+
+# AUTO_GENERATED_START: BookProjects_VIEWS
+# ============================================================================
+# BookProjects CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import BookProjectsForm
+from apps.bfagent.models import BookProjects
+
+
+class BookProjectsListView(ListView):
+    """List view for BookProjects"""
+
+    model = BookProjects
+    template_name = "bfagent/bookprojects_list.html"
+    context_object_name = "bookprojects"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class BookProjectsDetailView(DetailView):
+    """Detail view for BookProjects"""
+
+    model = BookProjects
+    template_name = "bfagent/bookprojects_detail.html"
+    context_object_name = "bookprojects"
+
+
+class BookProjectsCreateView(CreateView):
+    """Create view for BookProjects"""
+
+    model = BookProjects
+    form_class = BookProjectsForm
+    template_name = "bfagent/bookprojects_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookprojects-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookProjects created successfully!")
+        return super().form_valid(form)
+
+
+class BookProjectsUpdateView(UpdateView):
+    """Update view for BookProjects"""
+
+    model = BookProjects
+    form_class = BookProjectsForm
+    template_name = "bfagent/bookprojects_form.html"
+    context_object_name = "bookprojects"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookprojects-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookProjects updated successfully!")
+        return super().form_valid(form)
+
+
+class BookProjectsDeleteView(DeleteView):
+    """Delete view for BookProjects"""
+
+    model = BookProjects
+    template_name = "bfagent/bookprojects_confirm_delete.html"
+    context_object_name = "bookprojects"
+
+    def get_success_url(self):
+        return reverse("bfagent:bookprojects-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"BookProjects deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: BookProjects_VIEWS
+
+
+# AUTO_GENERATED_START: Agents_VIEWS
+# ============================================================================
+# Agents CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import AgentsForm
+from apps.bfagent.models import Agents
+
+
+class AgentsListView(ListView):
+    """List view for Agents"""
+
+    model = Agents
+    template_name = "bfagent/agents_list.html"
+    context_object_name = "agents"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class AgentsDetailView(DetailView):
+    """Detail view for Agents"""
+
+    model = Agents
+    template_name = "bfagent/agents_detail.html"
+    context_object_name = "agents"
+
+
+class AgentsCreateView(CreateView):
+    """Create view for Agents"""
+
+    model = Agents
+    form_class = AgentsForm
+    template_name = "bfagent/agents_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:agent-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Agents created successfully!")
+        return super().form_valid(form)
+
+
+class AgentsUpdateView(UpdateView):
+    """Update view for Agents"""
+
+    model = Agents
+    form_class = AgentsForm
+    template_name = "bfagent/agents_form.html"
+    context_object_name = "agents"
+
+    def get_success_url(self):
+        return reverse("bfagent:agent-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Agents updated successfully!")
+        return super().form_valid(form)
+
+
+class AgentsDeleteView(DeleteView):
+    """Delete view for Agents"""
+
+    model = Agents
+    template_name = "bfagent/agents_confirm_delete.html"
+    context_object_name = "agents"
+
+    def get_success_url(self):
+        return reverse("bfagent:agent-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"Agents deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: Agents_VIEWS
+
+
+# AUTO_GENERATED_START: BookChapters_VIEWS
+# ============================================================================
+# BookChapters CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import BookChaptersForm
+from apps.bfagent.models import BookChapters
+
+
+class BookChaptersListView(ListView):
+    """List view for BookChapters"""
+
+    model = BookChapters
+    template_name = "bfagent/bookchapters_list.html"
+    context_object_name = "bookchapters"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class BookChaptersDetailView(DetailView):
+    """Detail view for BookChapters"""
+
+    model = BookChapters
+    template_name = "bfagent/bookchapters_detail.html"
+    context_object_name = "bookchapters"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add comment stats (using review_comments relation)
+        if hasattr(self.object, 'review_comments'):
+            context['comments_open'] = self.object.review_comments.filter(status='open').count()
+            context['comments_resolved'] = self.object.review_comments.filter(status='resolved').count()
+        else:
+            context['comments_open'] = 0
+            context['comments_resolved'] = 0
+        return context
+
+
+class BookChaptersCreateView(CreateView):
+    """Create view for BookChapters"""
+
+    model = BookChapters
+    form_class = BookChaptersForm
+    template_name = "bfagent/bookchapters_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:chapter-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookChapters created successfully!")
+        return super().form_valid(form)
+
+
+class BookChaptersUpdateView(UpdateView):
+    """Update view for BookChapters"""
+
+    model = BookChapters
+    form_class = BookChaptersForm
+    template_name = "bfagent/bookchapters_form.html"
+    context_object_name = "bookchapters"
+
+    def get_success_url(self):
+        return reverse("bfagent:chapter-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookChapters updated successfully!")
+        return super().form_valid(form)
+
+
+class BookChaptersDeleteView(DeleteView):
+    """Delete view for BookChapters"""
+
+    model = BookChapters
+    template_name = "bfagent/bookchapters_confirm_delete.html"
+    context_object_name = "bookchapters"
+
+    def get_success_url(self):
+        return reverse("bfagent:chapter-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"BookChapters deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: BookChapters_VIEWS
+
+
+# AUTO_GENERATED_START: Characters_VIEWS
+# ============================================================================
+# Characters CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import CharactersForm
+from apps.bfagent.models import Characters
+
+
+class CharactersListView(ListView):
+    """List view for Characters"""
+
+    model = Characters
+    template_name = "bfagent/characters_list.html"
+    context_object_name = "characters"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by project if provided
+        project_id = self.request.GET.get("project")
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+
+        # Search functionality
+        q = self.request.GET.get("q")
+        if q:
+            queryset = queryset.filter(
+                models.Q(name__icontains=q)
+                | models.Q(description__icontains=q)
+                | models.Q(role__icontains=q)
+            )
+
+        return queryset.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Add all projects for filter dropdown
+        context["all_projects"] = BookProjects.objects.all().order_by("title")
+
+        # Add current filters for template
+        context["current_filters"] = {
+            "project": self.request.GET.get("project", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+
+        return context
+
+
+class CharactersDetailView(DetailView):
+    """Detail view for Characters"""
+
+    model = Characters
+    template_name = "bfagent/characters_detail.html"
+    context_object_name = "characters"
+
+
+class CharactersCreateView(CreateView):
+    """Create view for Characters"""
+
+    model = Characters
+    form_class = CharactersForm
+    template_name = "bfagent/characters_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:character-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Characters created successfully!")
+        return super().form_valid(form)
+
+
+class CharactersUpdateView(UpdateView):
+    """Update view for Characters"""
+
+    model = Characters
+    form_class = CharactersForm
+    template_name = "bfagent/characters_form.html"
+    context_object_name = "characters"
+
+    def get_success_url(self):
+        return reverse("bfagent:character-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Characters updated successfully!")
+        return super().form_valid(form)
+
+
+class CharactersDeleteView(DeleteView):
+    """Delete view for Characters"""
+
+    model = Characters
+    template_name = "bfagent/characters_confirm_delete.html"
+    context_object_name = "characters"
+
+    def get_success_url(self):
+        return reverse("bfagent:character-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"Characters deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: Characters_VIEWS
+
+
+# AUTO_GENERATED_START: Llms_VIEWS
+# ============================================================================
+# Llms CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import LlmsForm
+from apps.bfagent.models import Llms
+
+
+class LlmsListView(ListView):
+    """List view for Llms"""
+
+    model = Llms
+    template_name = "bfagent/llms_list.html"
+    context_object_name = "llms"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class LlmsDetailView(DetailView):
+    """Detail view for Llms"""
+
+    model = Llms
+    template_name = "bfagent/llms_detail.html"
+    context_object_name = "llms"
+
+
+class LlmsCreateView(CreateView):
+    """Create view for Llms"""
+
+    model = Llms
+    form_class = LlmsForm
+    template_name = "bfagent/llms_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:llm-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Llms created successfully!")
+        return super().form_valid(form)
+
+
+class LlmsUpdateView(UpdateView):
+    """Update view for Llms"""
+
+    model = Llms
+    form_class = LlmsForm
+    template_name = "bfagent/llms_form.html"
+    context_object_name = "llms"
+
+    def get_success_url(self):
+        return reverse("bfagent:llm-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Llms updated successfully!")
+        return super().form_valid(form)
+
+
+class LlmsDeleteView(DeleteView):
+    """Delete view for Llms"""
+
+    model = Llms
+    template_name = "bfagent/llms_confirm_delete.html"
+    context_object_name = "llms"
+
+    def get_success_url(self):
+        return reverse("bfagent:llm-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"Llms deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: Llms_VIEWS
+
+
+# AUTO_GENERATED_START: StoryArc_VIEWS
+# ============================================================================
+# StoryArc CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import StoryArcForm
+from apps.bfagent.models import StoryArc
+
+
+class StoryArcListView(ListView):
+    """List view for StoryArc"""
+
+    model = StoryArc
+    template_name = "bfagent/storyarc_list.html"
+    context_object_name = "storyarcs"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by project
+        project_id = self.request.GET.get("project")
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+
+        # Search functionality
+        q = self.request.GET.get("q")
+        if q:
+            queryset = queryset.filter(
+                models.Q(name__icontains=q) | models.Q(description__icontains=q)
+            )
+
+        return queryset.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["all_projects"] = BookProjects.objects.all().order_by("title")
+        context["current_filters"] = {
+            "project": self.request.GET.get("project", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class StoryArcDetailView(DetailView):
+    """Detail view for StoryArc"""
+
+    model = StoryArc
+    template_name = "bfagent/storyarc_detail.html"
+    context_object_name = "storyarc"
+
+
+class StoryArcCreateView(CreateView):
+    """Create view for StoryArc"""
+
+    model = StoryArc
+    form_class = StoryArcForm
+    template_name = "bfagent/storyarc_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:storyarc-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"StoryArc created successfully!")
+        return super().form_valid(form)
+
+
+class StoryArcUpdateView(UpdateView):
+    """Update view for StoryArc"""
+
+    model = StoryArc
+    form_class = StoryArcForm
+    template_name = "bfagent/storyarc_form.html"
+    context_object_name = "storyarc"
+
+    def get_success_url(self):
+        return reverse("bfagent:storyarc-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"StoryArc updated successfully!")
+        return super().form_valid(form)
+
+
+class StoryArcDeleteView(DeleteView):
+    """Delete view for StoryArc"""
+
+    model = StoryArc
+    template_name = "bfagent/storyarc_confirm_delete.html"
+    context_object_name = "storyarc"
+
+    def get_success_url(self):
+        return reverse("bfagent:storyarc-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"StoryArc deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: StoryArc_VIEWS
+
+
+# AUTO_GENERATED_START: PlotPoint_VIEWS
+# ============================================================================
+# PlotPoint CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import PlotPointForm
+from apps.bfagent.models import PlotPoint
+
+
+class PlotPointListView(ListView):
+    """List view for PlotPoint"""
+
+    model = PlotPoint
+    template_name = "bfagent/plotpoint_list.html"
+    context_object_name = "plotpoints"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Filter by story_arc
+        story_arc_id = self.request.GET.get("story_arc")
+        if story_arc_id:
+            queryset = queryset.filter(story_arc_id=story_arc_id)
+
+        # Filter by project
+        project_id = self.request.GET.get("project")
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+
+        # Search functionality
+        q = self.request.GET.get("q")
+        if q:
+            queryset = queryset.filter(
+                models.Q(name__icontains=q) | models.Q(description__icontains=q)
+            )
+
+        return queryset.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["all_story_arcs"] = StoryArc.objects.all().order_by("name")
+        context["all_projects"] = BookProjects.objects.all().order_by("title")
+        context["current_filters"] = {
+            "story_arc": self.request.GET.get("story_arc", ""),
+            "project": self.request.GET.get("project", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class PlotPointDetailView(DetailView):
+    """Detail view for PlotPoint"""
+
+    model = PlotPoint
+    template_name = "bfagent/plotpoint_detail.html"
+    context_object_name = "plotpoint"
+
+
+class PlotPointCreateView(CreateView):
+    """Create view for PlotPoint"""
+
+    model = PlotPoint
+    form_class = PlotPointForm
+    template_name = "bfagent/plotpoint_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:plotpoint-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PlotPoint created successfully!")
+        return super().form_valid(form)
+
+
+class PlotPointUpdateView(UpdateView):
+    """Update view for PlotPoint"""
+
+    model = PlotPoint
+    form_class = PlotPointForm
+    template_name = "bfagent/plotpoint_form.html"
+    context_object_name = "plotpoint"
+
+    def get_success_url(self):
+        return reverse("bfagent:plotpoint-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PlotPoint updated successfully!")
+        return super().form_valid(form)
+
+
+class PlotPointDeleteView(DeleteView):
+    """Delete view for PlotPoint"""
+
+    model = PlotPoint
+    template_name = "bfagent/plotpoint_confirm_delete.html"
+    context_object_name = "plotpoint"
+
+    def get_success_url(self):
+        return reverse("bfagent:plotpoint-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"PlotPoint deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: PlotPoint_VIEWS
+
+
+# AUTO_GENERATED_START: AgentExecutions_VIEWS
+# ============================================================================
+# AgentExecutions CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import AgentExecutionsForm
+from apps.bfagent.models import AgentExecutions
+
+
+class AgentExecutionsListView(ListView):
+    """List view for AgentExecutions"""
+
+    model = AgentExecutions
+    template_name = "bfagent/agentexecutions_list.html"
+    context_object_name = "agentexecutions"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class AgentExecutionsDetailView(DetailView):
+    """Detail view for AgentExecutions"""
+
+    model = AgentExecutions
+    template_name = "bfagent/agentexecutions_detail.html"
+    context_object_name = "agentexecutions"
+
+
+class AgentExecutionsCreateView(CreateView):
+    """Create view for AgentExecutions"""
+
+    model = AgentExecutions
+    form_class = AgentExecutionsForm
+    template_name = "bfagent/agentexecutions_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:execution-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"AgentExecutions created successfully!")
+        return super().form_valid(form)
+
+
+class AgentExecutionsUpdateView(UpdateView):
+    """Update view for AgentExecutions"""
+
+    model = AgentExecutions
+    form_class = AgentExecutionsForm
+    template_name = "bfagent/agentexecutions_form.html"
+    context_object_name = "agentexecutions"
+
+    def get_success_url(self):
+        return reverse("bfagent:execution-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"AgentExecutions updated successfully!")
+        return super().form_valid(form)
+
+
+class AgentExecutionsDeleteView(DeleteView):
+    """Delete view for AgentExecutions"""
+
+    model = AgentExecutions
+    template_name = "bfagent/agentexecutions_confirm_delete.html"
+    context_object_name = "agentexecutions"
+
+    def get_success_url(self):
+        return reverse("bfagent:execution-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"AgentExecutions deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: AgentExecutions_VIEWS
+
+
+# AUTO_GENERATED_START: AgentArtifacts_VIEWS
+# ============================================================================
+# AgentArtifacts CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import AgentArtifactsForm
+from apps.bfagent.models import AgentArtifacts
+
+
+class AgentArtifactsListView(ListView):
+    """List view for AgentArtifacts"""
+
+    model = AgentArtifacts
+    template_name = "bfagent/agentartifacts_list.html"
+    context_object_name = "agentartifacts"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("project", "agent")
+
+        # Filter by project
+        project_id = self.request.GET.get("project")
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+
+        # Filter by agent
+        agent_id = self.request.GET.get("agent")
+        if agent_id:
+            queryset = queryset.filter(agent_id=agent_id)
+
+        # Filter by content_type
+        content_type = self.request.GET.get("content_type")
+        if content_type:
+            queryset = queryset.filter(content_type=content_type)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add filter options
+        context["all_projects"] = BookProjects.objects.all().order_by("title")
+        context["all_agents"] = Agents.objects.all().order_by("name")
+        context["content_types"] = AgentArtifacts.CONTENT_TYPES
+        # Keep selected filters with consistent naming
+        context["current_filters"] = {
+            "project": self.request.GET.get("project", ""),
+            "agent": self.request.GET.get("agent", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class AgentArtifactsDetailView(DetailView):
+    """Detail view for AgentArtifacts"""
+
+    model = AgentArtifacts
+    template_name = "bfagent/agentartifacts_detail.html"
+    context_object_name = "agentartifacts"
+
+
+class AgentArtifactsCreateView(CreateView):
+    """Create view for AgentArtifacts"""
+
+    model = AgentArtifacts
+    form_class = AgentArtifactsForm
+    template_name = "bfagent/agentartifacts_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:artifact-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"AgentArtifacts created successfully!")
+        return super().form_valid(form)
+
+
+class AgentArtifactsUpdateView(UpdateView):
+    """Update view for AgentArtifacts"""
+
+    model = AgentArtifacts
+    form_class = AgentArtifactsForm
+    template_name = "bfagent/agentartifacts_form.html"
+    context_object_name = "agentartifacts"
+
+    def get_success_url(self):
+        return reverse("bfagent:artifact-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"AgentArtifacts updated successfully!")
+        return super().form_valid(form)
+
+
+class AgentArtifactsDeleteView(DeleteView):
+    """Delete view for AgentArtifacts"""
+
+    model = AgentArtifacts
+    template_name = "bfagent/agentartifacts_confirm_delete.html"
+    context_object_name = "agentartifacts"
+
+    def get_success_url(self):
+        return reverse("bfagent:artifact-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"AgentArtifacts deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: AgentArtifacts_VIEWS
+
+
+# AUTO_GENERATED_START: Genre_VIEWS
+# ============================================================================
+# Genre CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import GenreForm
+from apps.bfagent.models import Genre
+
+
+class GenreListView(ListView):
+    """List view for Genre"""
+
+    model = Genre
+    template_name = "bfagent/genre_list.html"
+    context_object_name = "genre"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class GenreDetailView(DetailView):
+    """Detail view for Genre"""
+
+    model = Genre
+    template_name = "bfagent/genre_detail.html"
+    context_object_name = "genre"
+
+
+class GenreCreateView(CreateView):
+    """Create view for Genre"""
+
+    model = Genre
+    form_class = GenreForm
+    template_name = "bfagent/genre_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:genre-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Genre created successfully!")
+        return super().form_valid(form)
+
+
+class GenreUpdateView(UpdateView):
+    """Update view for Genre"""
+
+    model = Genre
+    form_class = GenreForm
+    template_name = "bfagent/genre_form.html"
+    context_object_name = "genre"
+
+    def get_success_url(self):
+        return reverse("bfagent:genre-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"Genre updated successfully!")
+        return super().form_valid(form)
+
+
+class GenreDeleteView(DeleteView):
+    """Delete view for Genre"""
+
+    model = Genre
+    template_name = "bfagent/genre_confirm_delete.html"
+    context_object_name = "genre"
+
+    def get_success_url(self):
+        return reverse("bfagent:genre-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"Genre deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: Genre_VIEWS
+
+
+# AUTO_GENERATED_START: TargetAudience_VIEWS
+# ============================================================================
+# TargetAudience CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import TargetAudienceForm
+from apps.bfagent.models import TargetAudience
+
+
+class TargetAudienceListView(ListView):
+    """List view for TargetAudience"""
+
+    model = TargetAudience
+    template_name = "bfagent/targetaudience_list.html"
+    context_object_name = "targetaudience"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class TargetAudienceDetailView(DetailView):
+    """Detail view for TargetAudience"""
+
+    model = TargetAudience
+    template_name = "bfagent/targetaudience_detail.html"
+    context_object_name = "targetaudience"
+
+
+class TargetAudienceCreateView(CreateView):
+    """Create view for TargetAudience"""
+
+    model = TargetAudience
+    form_class = TargetAudienceForm
+    template_name = "bfagent/targetaudience_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:targetaudience-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"TargetAudience created successfully!")
+        return super().form_valid(form)
+
+
+class TargetAudienceUpdateView(UpdateView):
+    """Update view for TargetAudience"""
+
+    model = TargetAudience
+    form_class = TargetAudienceForm
+    template_name = "bfagent/targetaudience_form.html"
+    context_object_name = "targetaudience"
+
+    def get_success_url(self):
+        return reverse("bfagent:targetaudience-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"TargetAudience updated successfully!")
+        return super().form_valid(form)
+
+
+class TargetAudienceDeleteView(DeleteView):
+    """Delete view for TargetAudience"""
+
+    model = TargetAudience
+    template_name = "bfagent/targetaudience_confirm_delete.html"
+    context_object_name = "targetaudience"
+
+    def get_success_url(self):
+        return reverse("bfagent:targetaudience-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"TargetAudience deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: TargetAudience_VIEWS
+
+
+# AUTO_GENERATED_START: WorkflowPhase_VIEWS
+# ============================================================================
+# WorkflowPhase CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import WorkflowPhaseForm
+from apps.bfagent.models import WorkflowPhase
+
+
+class WorkflowPhaseListView(ListView):
+    """List view for WorkflowPhase"""
+
+    model = WorkflowPhase
+    template_name = "bfagent/workflowphase_list.html"
+    context_object_name = "workflowphases"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Search functionality
+        q = self.request.GET.get("q")
+        if q:
+            queryset = queryset.filter(
+                models.Q(name__icontains=q) | models.Q(description__icontains=q)
+            )
+
+        return queryset.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["current_filters"] = {
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class WorkflowPhaseDetailView(DetailView):
+    """Detail view for WorkflowPhase"""
+
+    model = WorkflowPhase
+    template_name = "bfagent/workflowphase_detail.html"
+    context_object_name = "workflowphase"
+
+
+class WorkflowPhaseCreateView(CreateView):
+    """Create view for WorkflowPhase"""
+
+    model = WorkflowPhase
+    form_class = WorkflowPhaseForm
+    template_name = "bfagent/workflowphase_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowphase-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WorkflowPhase created successfully!")
+        return super().form_valid(form)
+
+
+class WorkflowPhaseUpdateView(UpdateView):
+    """Update view for WorkflowPhase"""
+
+    model = WorkflowPhase
+    form_class = WorkflowPhaseForm
+    template_name = "bfagent/workflowphase_form.html"
+    context_object_name = "workflowphase"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowphase-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WorkflowPhase updated successfully!")
+        return super().form_valid(form)
+
+
+class WorkflowPhaseDeleteView(DeleteView):
+    """Delete view for WorkflowPhase"""
+
+    model = WorkflowPhase
+    template_name = "bfagent/workflowphase_confirm_delete.html"
+    context_object_name = "workflowphase"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowphase-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"WorkflowPhase deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: WorkflowPhase_VIEWS
+
+
+# AUTO_GENERATED_START: WorkflowTemplate_VIEWS
+# ============================================================================
+# WorkflowTemplate CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import WorkflowTemplateForm
+from apps.bfagent.models import WorkflowTemplate
+
+
+class WorkflowTemplateListView(ListView):
+    """List view for WorkflowTemplate"""
+
+    model = WorkflowTemplate
+    template_name = "bfagent/workflowtemplate_list.html"
+    context_object_name = "workflowtemplate"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class WorkflowTemplateDetailView(DetailView):
+    """Detail view for WorkflowTemplate"""
+
+    model = WorkflowTemplate
+    template_name = "bfagent/workflowtemplate_detail.html"
+    context_object_name = "workflowtemplate"
+
+
+class WorkflowTemplateCreateView(CreateView):
+    """Create view for WorkflowTemplate"""
+
+    model = WorkflowTemplate
+    form_class = WorkflowTemplateForm
+    template_name = "bfagent/workflowtemplate_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowtemplate-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WorkflowTemplate created successfully!")
+        return super().form_valid(form)
+
+
+class WorkflowTemplateUpdateView(UpdateView):
+    """Update view for WorkflowTemplate"""
+
+    model = WorkflowTemplate
+    form_class = WorkflowTemplateForm
+    template_name = "bfagent/workflowtemplate_form.html"
+    context_object_name = "workflowtemplate"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowtemplate-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WorkflowTemplate updated successfully!")
+        return super().form_valid(form)
+
+
+class WorkflowTemplateDeleteView(DeleteView):
+    """Delete view for WorkflowTemplate"""
+
+    model = WorkflowTemplate
+    template_name = "bfagent/workflowtemplate_confirm_delete.html"
+    context_object_name = "workflowtemplate"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowtemplate-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"WorkflowTemplate deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: WorkflowTemplate_VIEWS
+
+
+# AUTO_GENERATED_START: WorkflowPhaseStep_VIEWS
+# ============================================================================
+# WorkflowPhaseStep CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import WorkflowPhaseStepForm
+from apps.bfagent.models import WorkflowPhaseStep
+
+
+class WorkflowPhaseStepListView(ListView):
+    """List view for WorkflowPhaseStep"""
+
+    model = WorkflowPhaseStep
+    template_name = "bfagent/workflowphasestep_list.html"
+    context_object_name = "workflowphasesteps"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("template", "phase")
+
+        # Filter by template
+        template_id = self.request.GET.get("template")
+        if template_id:
+            queryset = queryset.filter(template_id=template_id)
+
+        # Filter by phase
+        phase_id = self.request.GET.get("phase")
+        if phase_id:
+            queryset = queryset.filter(phase_id=phase_id)
+
+        # Search functionality (WorkflowPhaseStep has no name/description fields)
+        q = self.request.GET.get("q")
+        if q:
+            # Search in phase name via related field
+            queryset = queryset.filter(
+                models.Q(phase__name__icontains=q) | models.Q(template__name__icontains=q)
+            )
+
+        return queryset.order_by("order")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        from apps.bfagent.models import WorkflowTemplate
+
+        context["all_templates"] = WorkflowTemplate.objects.all().order_by("name")
+        context["all_phases"] = WorkflowPhase.objects.all().order_by("name")
+        context["current_filters"] = {
+            "template": self.request.GET.get("template", ""),
+            "phase": self.request.GET.get("phase", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class WorkflowPhaseStepDetailView(DetailView):
+    """Detail view for WorkflowPhaseStep"""
+
+    model = WorkflowPhaseStep
+    template_name = "bfagent/workflowphasestep_detail.html"
+    context_object_name = "workflowphasestep"
+
+
+class WorkflowPhaseStepCreateView(CreateView):
+    """Create view for WorkflowPhaseStep"""
+
+    model = WorkflowPhaseStep
+    form_class = WorkflowPhaseStepForm
+    template_name = "bfagent/workflowphasestep_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowphasestep-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WorkflowPhaseStep created successfully!")
+        return super().form_valid(form)
+
+
+class WorkflowPhaseStepUpdateView(UpdateView):
+    """Update view for WorkflowPhaseStep"""
+
+    model = WorkflowPhaseStep
+    form_class = WorkflowPhaseStepForm
+    template_name = "bfagent/workflowphasestep_form.html"
+    context_object_name = "workflowphasestep"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowphasestep-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WorkflowPhaseStep updated successfully!")
+        return super().form_valid(form)
+
+
+class WorkflowPhaseStepDeleteView(DeleteView):
+    """Delete view for WorkflowPhaseStep"""
+
+    model = WorkflowPhaseStep
+    template_name = "bfagent/workflowphasestep_confirm_delete.html"
+    context_object_name = "workflowphasestep"
+
+    def get_success_url(self):
+        return reverse("bfagent:workflowphasestep-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"WorkflowPhaseStep deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+class WorkflowTemplatePhasesManagementView(TemplateView):
+    """Management view for Workflow Template Phases with drag & drop"""
+
+    template_name = "bfagent/workflow_template_phases_management.html"
+
+    def get_context_data(self, **kwargs):
+        from apps.bfagent.models import WorkflowPhase, WorkflowTemplate
+
+        context = super().get_context_data(**kwargs)
+
+        # Get all templates
+        templates = WorkflowTemplate.objects.all().order_by("name")
+        context["templates"] = templates
+
+        # Get selected template
+        template_id = self.request.GET.get("template")
+        if template_id:
+            try:
+                selected_template = WorkflowTemplate.objects.get(pk=template_id)
+                context["selected_template"] = selected_template
+
+                # Get assigned steps
+                assigned_steps = (
+                    selected_template.steps.all().select_related("phase").order_by("order")
+                )
+                context["assigned_steps"] = assigned_steps
+                context["assigned_count"] = assigned_steps.count()
+
+                # Get assigned phase IDs
+                assigned_phase_ids = assigned_steps.values_list("phase_id", flat=True)
+
+                # Get unassigned phases
+                unassigned_phases = (
+                    WorkflowPhase.objects.filter(is_active=True)
+                    .exclude(id__in=assigned_phase_ids)
+                    .order_by("name")
+                )
+
+                context["unassigned_phases"] = unassigned_phases
+                context["unassigned_count"] = unassigned_phases.count()
+
+            except WorkflowTemplate.DoesNotExist:
+                pass
+
+        return context
+
+
+@require_POST
+def workflow_phase_step_add(request):
+    """HTMX endpoint: Add phase to workflow template"""
+    from django.http import HttpResponse
+
+    template_id = request.POST.get("template_id")
+    phase_id = request.POST.get("phase_id")
+
+    if not template_id or not phase_id:
+        return HttpResponse('<div class="alert alert-danger">Missing parameters</div>', status=400)
+
+    try:
+        from apps.bfagent.models import WorkflowPhase, WorkflowTemplate
+
+        template = WorkflowTemplate.objects.get(pk=template_id)
+        phase = WorkflowPhase.objects.get(pk=phase_id)
+
+        # Get max order
+        max_order = (
+            WorkflowPhaseStep.objects.filter(template=template).aggregate(
+                max_order=models.Max("order")
+            )["max_order"]
+            or 0
+        )
+
+        # Create step
+        step = WorkflowPhaseStep.objects.create(
+            template=template, phase=phase, order=max_order + 1, can_skip=False, can_return=True
+        )
+
+        # Return HTML for the new item
+        html = f"""
+        <div class="list-group-item sortable-item" data-step-id="{step.id}" data-order="{step.order}" style="cursor: move;">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center mb-1">
+                        <i class="bi bi-grip-vertical me-2 text-muted"></i>
+                        <span class="badge bg-secondary me-2">{step.order}</span>
+                        <strong><i class="bi bi-{phase.icon or 'circle'}"></i> {phase.name}</strong>
+                        <span class="badge bg-success ms-2">Required</span>
+                    </div>
+                    <small class="text-muted">Can return</small>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <a href="/workflowphasestep/{step.pk}/edit/" class="btn btn-outline-primary" title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button class="btn btn-outline-danger" title="Remove"
+                            hx-post="/api/workflow-phase-step/remove/"
+                            hx-vals='{{"step_id":"{step.pk}"}}'
+                            hx-confirm="Remove this phase from template?"
+                            hx-target="closest .list-group-item"
+                            hx-swap="outerHTML swap:1s">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        """
+
+        return HttpResponse(html)
+
+    except Exception as e:
+        return HttpResponse(f'<div class="alert alert-danger">Error: {str(e)}</div>', status=500)
+
+
+@require_POST
+def workflow_phase_step_remove(request):
+    """HTMX endpoint: Remove phase from workflow template"""
+    from django.http import HttpResponse
+
+    step_id = request.POST.get("step_id")
+
+    if not step_id:
+        return HttpResponse('<div class="alert alert-danger">Missing step_id</div>', status=400)
+
+    try:
+        step = WorkflowPhaseStep.objects.get(pk=step_id)
+        step.delete()
+
+        # Return empty - HTMX will remove the element
+        return HttpResponse("")
+
+    except WorkflowPhaseStep.DoesNotExist:
+        return HttpResponse('<div class="alert alert-danger">Step not found</div>', status=404)
+    except Exception as e:
+        return HttpResponse(f'<div class="alert alert-danger">Error: {str(e)}</div>', status=500)
+
+
+@require_POST
+def workflow_phase_step_reorder(request):
+    """API endpoint: Update step order via drag & drop"""
+    import json
+
+    from django.http import JsonResponse
+
+    try:
+        data = json.loads(request.body)
+        template_id = data.get("template_id")
+        order_data = data.get("order", [])
+
+        if not template_id or not order_data:
+            return JsonResponse({"success": False, "error": "Missing data"}, status=400)
+
+        # Update each step with new order
+        for item in order_data:
+            step_id = item.get("id")
+            new_order = item.get("order")
+
+            if step_id and new_order:
+                WorkflowPhaseStep.objects.filter(pk=step_id).update(order=new_order)
+
+        return JsonResponse({"success": True, "message": "Order updated successfully"})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+# AUTO_GENERATED_END: WorkflowPhaseStep_VIEWS
+
+
+# AUTO_GENERATED_START: PhaseActionConfig_VIEWS
+# ============================================================================
+# PhaseActionConfig CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse, reverse_lazy
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import AgentActionForm, PhaseActionConfigForm
+from apps.bfagent.models import AgentAction, Agents, PhaseActionConfig
+
+# ============================================================================
+# AgentAction Views
+# ============================================================================
+
+
+class AgentActionListView(ListView):
+    """List view for AgentAction"""
+
+    model = AgentAction
+    template_name = "bfagent/agentaction_list.html"
+    context_object_name = "agentactions"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("agent", "prompt_template")
+
+        # Filter by agent type (more intuitive than individual agent)
+        agent_type = self.request.GET.get("agent_type")
+        if agent_type:
+            queryset = queryset.filter(agent__agent_type=agent_type)
+
+        # Filter by active status
+        is_active = self.request.GET.get("is_active")
+        if is_active:
+            queryset = queryset.filter(is_active=is_active == "true")
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Get unique agent_type values directly from Agents table
+        agent_types = (
+            Agents.objects.values("agent_type")
+            .distinct()
+            .exclude(agent_type__isnull=True)
+            .order_by("agent_type")
+        )
+        # Format for template: [{name, display_name}]
+        context["all_agent_types"] = [
+            {"name": at["agent_type"], "display_name": at["agent_type"].replace("_", " ").title()}
+            for at in agent_types
+        ]
+        # Keep selected filters
+        context["selected_agent_type"] = self.request.GET.get("agent_type", "")
+        context["selected_is_active"] = self.request.GET.get("is_active", "")
+        return context
+
+
+class AgentActionDetailView(DetailView):
+    """Detail view for AgentAction"""
+
+    model = AgentAction
+    template_name = "bfagent/agentaction_detail.html"
+    context_object_name = "agentaction"
+
+
+class AgentActionCreateView(CreateView):
+    """Create view for AgentAction"""
+
+    model = AgentAction
+    form_class = AgentActionForm
+    template_name = "bfagent/agentaction_form.html"
+
+    def form_valid(self, form):
+        messages.success(self.request, "AgentAction created successfully!")
+        return super().form_valid(form)
+
+
+class AgentActionUpdateView(UpdateView):
+    """Update view for AgentAction"""
+
+    model = AgentAction
+    form_class = AgentActionForm
+    template_name = "bfagent/agentaction_form.html"
+
+    def form_valid(self, form):
+        messages.success(self.request, "AgentAction updated successfully!")
+        return super().form_valid(form)
+
+
+class AgentActionDeleteView(DeleteView):
+    """Delete view for AgentAction"""
+
+    model = AgentAction
+    template_name = "bfagent/agentaction_confirm_delete.html"
+    success_url = reverse_lazy("bfagent:agentaction-list")
+
+    def form_valid(self, form):
+        messages.success(self, "AgentAction deleted successfully!")
+        return super().form_valid(form)
+
+
+class AgentActionTestView(DetailView):
+    """Test view for AgentAction - allows testing with real LLM"""
+
+    model = AgentAction
+    template_name = "bfagent/agentaction_test.html"
+    context_object_name = "agentaction"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        # Add LLM for testing
+        from apps.bfagent.models import Llms
+
+        context["available_llms"] = Llms.objects.filter(is_active=True).order_by("name")
+        return context
+
+    def post(self, request, *args, **kwargs):
+        """Execute the action with real LLM"""
+        from django.http import JsonResponse
+        from django.template import Context, Template
+
+        from apps.bfagent.models import Llms
+        from apps.bfagent.services.context_providers import get_context_for_action
+        from apps.bfagent.services.llm_client import LlmRequest, generate_text
+
+        action = self.get_object()
+        llm_id = request.POST.get("llm_id")
+
+        try:
+            # Get LLM
+            llm = Llms.objects.get(id=llm_id, is_active=True)
+
+            # Gather all context parameters
+            context_params = {
+                "context": request.POST.get("context", ""),
+                "requirements": request.POST.get("requirements", ""),
+                "project_id": request.POST.get("project_id"),
+                "chapter_id": request.POST.get("chapter_id"),
+                "character_id": request.POST.get("character_id"),
+                "world_id": request.POST.get("world_id"),
+            }
+
+            # Resolve all applicable context using Context Provider System
+            resolved_context = get_context_for_action(action, **context_params)
+
+            # Build prompt with template rendering
+            template = Template(action.prompt_template.template_text)
+            context = Context(resolved_context)
+            prompt = template.render(context)
+
+            # Create LLM request
+            llm_request = LlmRequest(
+                provider=llm.provider,
+                api_endpoint=llm.api_endpoint,
+                api_key=llm.api_key,
+                model=llm.llm_name,
+                system=action.agent.system_prompt,
+                prompt=prompt,
+                temperature=float(action.agent.creativity_level),
+                max_tokens=2000,
+            )
+
+            # Execute with LLM
+            result = generate_text(llm_request)
+
+            if not result["ok"]:
+                return JsonResponse(
+                    {"success": False, "error": result.get("error", "LLM request failed")},
+                    status=400,
+                )
+
+            # Update usage stats
+            action.usage_count += 1
+            execution_time = (result.get("latency_ms") or 0) / 1000.0
+            action.avg_execution_time = (
+                action.avg_execution_time * (action.usage_count - 1) + execution_time
+            ) / action.usage_count
+            action.save()
+
+            return JsonResponse(
+                {
+                    "success": True,
+                    "result": result.get("text", ""),
+                    "execution_time": round(execution_time, 2),
+                }
+            )
+
+        except Exception as e:
+            return JsonResponse({"success": False, "error": str(e)}, status=400)
+
+
+# ============================================================================
+# PhaseActionConfig Views
+# ============================================================================
+
+
+class PhaseActionConfigListView(ListView):
+    """List view for PhaseActionConfig with Phase and Agent filters"""
+
+    model = PhaseActionConfig
+    template_name = "bfagent/phaseactionconfig_list.html"
+    context_object_name = "phaseactionconfig"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("phase", "action", "action__agent")
+
+        # Filter by Phase
+        phase_id = self.request.GET.get("phase")
+        if phase_id:
+            queryset = queryset.filter(phase_id=phase_id)
+
+        # Filter by Agent
+        agent_id = self.request.GET.get("agent")
+        if agent_id:
+            queryset = queryset.filter(action__agent_id=agent_id)
+
+        # Filter by Required status
+        is_required = self.request.GET.get("required")
+        if is_required:
+            queryset = queryset.filter(is_required=(is_required == "true"))
+
+        return queryset.order_by("phase__name", "order", "action__name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        # Add filter options
+        from apps.bfagent.models import Agents, WorkflowPhase
+
+        context["phases"] = WorkflowPhase.objects.all().order_by("name")
+        context["agents"] = Agents.objects.all().order_by("name")
+
+        # Current filter values
+        context["current_phase"] = self.request.GET.get("phase", "")
+        context["current_agent"] = self.request.GET.get("agent", "")
+        context["current_required"] = self.request.GET.get("required", "")
+
+        return context
+
+
+class PhaseActionConfigDetailView(DetailView):
+    """Detail view for PhaseActionConfig"""
+
+    model = PhaseActionConfig
+    template_name = "bfagent/phaseactionconfig_detail.html"
+    context_object_name = "phaseactionconfig"
+
+
+class PhaseActionConfigCreateView(CreateView):
+    """Create view for PhaseActionConfig"""
+
+    model = PhaseActionConfig
+    form_class = PhaseActionConfigForm
+    template_name = "bfagent/phaseactionconfig_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:phaseactionconfig-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PhaseActionConfig created successfully!")
+        return super().form_valid(form)
+
+
+class PhaseActionConfigUpdateView(UpdateView):
+    """Update view for PhaseActionConfig"""
+
+    model = PhaseActionConfig
+    form_class = PhaseActionConfigForm
+    template_name = "bfagent/phaseactionconfig_form.html"
+    context_object_name = "phaseactionconfig"
+
+    def get_success_url(self):
+        return reverse("bfagent:phaseactionconfig-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PhaseActionConfig updated successfully!")
+        return super().form_valid(form)
+
+
+class PhaseActionConfigDeleteView(DeleteView):
+    """Delete view for PhaseActionConfig"""
+
+    model = PhaseActionConfig
+    template_name = "bfagent/phaseactionconfig_confirm_delete.html"
+    context_object_name = "phaseactionconfig"
+
+    def get_success_url(self):
+        return reverse("bfagent:phaseactionconfig-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"PhaseActionConfig deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+class PhaseActionsManagementView(TemplateView):
+    """
+    Phase-Actions Management Dashboard
+    Matrix view for managing action assignments per phase with drag & drop
+    """
+
+    template_name = "bfagent/phase_actions_management.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        from django.db.models import Count, Q
+
+        from apps.bfagent.models import AgentAction, Agents, WorkflowPhase
+
+        # Get selected phase (default to first)
+        selected_phase_id = self.request.GET.get("phase")
+        phases = WorkflowPhase.objects.all().order_by("name")
+
+        # Annotate phases with active action counts
+        for phase in phases:
+            phase.active_action_count = PhaseActionConfig.objects.filter(
+                phase=phase, action__is_active=True
+            ).count()
+
+        if selected_phase_id:
+            selected_phase = WorkflowPhase.objects.filter(pk=selected_phase_id).first()
+        else:
+            selected_phase = phases.first()
+
+        # Get all agents for filtering
+        agents = Agents.objects.all().order_by("name")
+        selected_agent_id = self.request.GET.get("agent")
+
+        # Get available actions (optionally filtered by agent)
+        available_actions = AgentAction.objects.select_related("agent", "prompt_template").filter(
+            is_active=True
+        )
+
+        if selected_agent_id:
+            available_actions = available_actions.filter(agent_id=selected_agent_id)
+
+        # Get assigned actions for selected phase
+        assigned_configs = []
+        if selected_phase:
+            assigned_configs = (
+                PhaseActionConfig.objects.filter(phase=selected_phase)
+                .select_related("action", "action__agent")
+                .order_by("order", "action__display_name")
+            )
+
+        # Separate assigned vs unassigned actions
+        assigned_action_ids = [config.action_id for config in assigned_configs]
+        unassigned_actions = available_actions.exclude(id__in=assigned_action_ids).order_by(
+            "agent__name", "display_name"
+        )
+
+        context.update(
+            {
+                "phases": phases,
+                "selected_phase": selected_phase,
+                "agents": agents,
+                "selected_agent_id": selected_agent_id or "",
+                "assigned_configs": assigned_configs,
+                "unassigned_actions": unassigned_actions,
+                "available_actions_count": available_actions.count(),
+                "assigned_count": len(assigned_action_ids),
+            }
+        )
+
+        return context
+
+
+@require_POST
+def phase_action_add(request):
+    """HTMX endpoint: Add action to phase"""
+    from django.http import HttpResponse
+
+    phase_id = request.POST.get("phase_id")
+    action_id = request.POST.get("action_id")
+
+    if not phase_id or not action_id:
+        return HttpResponse('<div class="alert alert-danger">Missing parameters</div>', status=400)
+
+    try:
+        from apps.bfagent.models import AgentAction, WorkflowPhase
+
+        phase = WorkflowPhase.objects.get(pk=phase_id)
+        action = AgentAction.objects.get(pk=action_id)
+
+        # Get max order
+        max_order = (
+            PhaseActionConfig.objects.filter(phase=phase).aggregate(max_order=models.Max("order"))[
+                "max_order"
+            ]
+            or 0
+        )
+
+        # Create config
+        config = PhaseActionConfig.objects.create(
+            phase=phase, action=action, order=max_order + 1, is_required=False
+        )
+
+        # Return HTML for the new item
+        html = f"""
+        <div class="list-group-item" data-config-id="{config.id}" data-action-id="{action.id}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="badge bg-secondary me-2">{config.order}</span>
+                        <strong>{action.display_name}</strong>
+                    </div>
+                    <small class="text-muted">
+                        <i class="bi bi-robot"></i> {action.agent.name}
+                    </small>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-primary"
+                            title="Edit"
+                            hx-get="/phaseactionconfig/{config.pk}/update/"
+                            hx-target="#edit-modal-content"
+                            hx-swap="innerHTML"
+                            data-bs-toggle="modal"
+                            data-bs-target="#editModal">
+                        <i class="bi bi-pencil"></i>
+                    </button>
+                    <button class="btn btn-outline-danger"
+                            title="Remove"
+                            hx-delete="/phase-actions/remove/{config.pk}/"
+                            hx-confirm="Remove this action from the phase?"
+                            hx-target="closest .list-group-item"
+                            hx-swap="outerHTML swap:1s">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        """
+
+        return HttpResponse(html)
+
+    except Exception as e:
+        return HttpResponse(f'<div class="alert alert-danger">Error: {str(e)}</div>', status=500)
+
+
+def phase_action_remove(request, pk):
+    """HTMX endpoint: Remove action from phase (DELETE)"""
+    from django.http import HttpResponse
+
+    if request.method != "DELETE":
+        return HttpResponse(status=405)
+
+    try:
+        config = PhaseActionConfig.objects.get(pk=pk)
+        config.delete()
+
+        # Return empty - HTMX will remove the element
+        return HttpResponse("")
+
+    except PhaseActionConfig.DoesNotExist:
+        return HttpResponse('<div class="alert alert-danger">Config not found</div>', status=404)
+    except Exception as e:
+        return HttpResponse(f'<div class="alert alert-danger">Error: {str(e)}</div>', status=500)
+
+
+@require_POST
+def phase_action_reorder(request):
+    """API endpoint: Update action order via drag & drop"""
+    import json
+
+    from django.http import JsonResponse
+
+    try:
+        data = json.loads(request.body)
+        phase_id = data.get("phase_id")
+        order_data = data.get("order", [])
+
+        if not phase_id or not order_data:
+            return JsonResponse({"success": False, "error": "Missing data"}, status=400)
+
+        # Update each config with new order
+        for item in order_data:
+            config_id = item.get("id")
+            new_order = item.get("order")
+
+            if config_id and new_order:
+                PhaseActionConfig.objects.filter(pk=config_id).update(order=new_order)
+
+        return JsonResponse({"success": True, "message": "Order updated successfully"})
+
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+# AUTO_GENERATED_END: PhaseActionConfig_VIEWS
+
+
+# AUTO_GENERATED_START: BookTypes_VIEWS
+# ============================================================================
+# BookTypes CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import BookTypesForm
+from apps.bfagent.models import BookTypes
+
+
+class BookTypesListView(ListView):
+    """List view for BookTypes"""
+
+    model = BookTypes
+    template_name = "bfagent/booktypes_list.html"
+    context_object_name = "booktypes"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+
+        # Search functionality
+        q = self.request.GET.get("q")
+        if q:
+            queryset = queryset.filter(
+                models.Q(name__icontains=q) | models.Q(description__icontains=q)
+            )
+
+        return queryset.order_by("name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["current_filters"] = {
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class BookTypesDetailView(DetailView):
+    """Detail view for BookTypes"""
+
+    model = BookTypes
+    template_name = "bfagent/booktypes_detail.html"
+    context_object_name = "booktypes"
+
+
+class BookTypesCreateView(CreateView):
+    """Create view for BookTypes"""
+
+    model = BookTypes
+    form_class = BookTypesForm
+    template_name = "bfagent/booktypes_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktype-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookTypes created successfully!")
+        return super().form_valid(form)
+
+
+class BookTypesUpdateView(UpdateView):
+    """Update view for BookTypes"""
+
+    model = BookTypes
+    form_class = BookTypesForm
+    template_name = "bfagent/booktypes_form.html"
+    context_object_name = "booktypes"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktype-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"BookTypes updated successfully!")
+        return super().form_valid(form)
+
+
+class BookTypesDeleteView(DeleteView):
+    """Delete view for BookTypes"""
+
+    model = BookTypes
+    template_name = "bfagent/booktypes_confirm_delete.html"
+    context_object_name = "booktypes"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktype-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"BookTypes deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: BookTypes_VIEWS
+
+
+# AUTO_GENERATED_START: QueryPerformanceLog_VIEWS
+# ============================================================================
+# QueryPerformanceLog CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import QueryPerformanceLogForm
+from apps.bfagent.models import QueryPerformanceLog
+
+
+class QueryPerformanceLogListView(ListView):
+    """List view for QueryPerformanceLog"""
+
+    model = QueryPerformanceLog
+    template_name = "bfagent/queryperformancelog_list.html"
+    context_object_name = "queryperformancelog"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class QueryPerformanceLogDetailView(DetailView):
+    """Detail view for QueryPerformanceLog"""
+
+    model = QueryPerformanceLog
+    template_name = "bfagent/queryperformancelog_detail.html"
+    context_object_name = "queryperformancelog"
+
+
+class QueryPerformanceLogCreateView(CreateView):
+    """Create view for QueryPerformanceLog"""
+
+    model = QueryPerformanceLog
+    form_class = QueryPerformanceLogForm
+    template_name = "bfagent/queryperformancelog_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:performance-log-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"QueryPerformanceLog created successfully!")
+        return super().form_valid(form)
+
+
+class QueryPerformanceLogUpdateView(UpdateView):
+    """Update view for QueryPerformanceLog"""
+
+    model = QueryPerformanceLog
+    form_class = QueryPerformanceLogForm
+    template_name = "bfagent/queryperformancelog_form.html"
+    context_object_name = "queryperformancelog"
+
+    def get_success_url(self):
+        return reverse("bfagent:performance-log-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"QueryPerformanceLog updated successfully!")
+        return super().form_valid(form)
+
+
+class QueryPerformanceLogDeleteView(DeleteView):
+    """Delete view for QueryPerformanceLog"""
+
+    model = QueryPerformanceLog
+    template_name = "bfagent/queryperformancelog_confirm_delete.html"
+    context_object_name = "queryperformancelog"
+
+    def get_success_url(self):
+        return reverse("bfagent:performance-log-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"QueryPerformanceLog deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: QueryPerformanceLog_VIEWS
+
+
+# AUTO_GENERATED_START: WritingStatus_VIEWS
+# ============================================================================
+# WritingStatus CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import WritingStatusForm
+from apps.bfagent.models import WritingStatus
+
+
+class WritingStatusListView(ListView):
+    """List view for WritingStatus"""
+
+    model = WritingStatus
+    template_name = "bfagent/writingstatus_list.html"
+    context_object_name = "writingstatus"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class WritingStatusDetailView(DetailView):
+    """Detail view for WritingStatus"""
+
+    model = WritingStatus
+    template_name = "bfagent/writingstatus_detail.html"
+    context_object_name = "writingstatus"
+
+
+class WritingStatusCreateView(CreateView):
+    """Create view for WritingStatus"""
+
+    model = WritingStatus
+    form_class = WritingStatusForm
+    template_name = "bfagent/writingstatus_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:writingstatus-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WritingStatus created successfully!")
+        return super().form_valid(form)
+
+
+class WritingStatusUpdateView(UpdateView):
+    """Update view for WritingStatus"""
+
+    model = WritingStatus
+    form_class = WritingStatusForm
+    template_name = "bfagent/writingstatus_form.html"
+    context_object_name = "writingstatus"
+
+    def get_success_url(self):
+        return reverse("bfagent:writingstatus-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"WritingStatus updated successfully!")
+        return super().form_valid(form)
+
+
+class WritingStatusDeleteView(DeleteView):
+    """Delete view for WritingStatus"""
+
+    model = WritingStatus
+    template_name = "bfagent/writingstatus_confirm_delete.html"
+    context_object_name = "writingstatus"
+
+    def get_success_url(self):
+        return reverse("bfagent:writingstatus-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"WritingStatus deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: WritingStatus_VIEWS
+
+
+# AUTO_GENERATED_START: ProjectPhaseHistory_VIEWS
+# ============================================================================
+# ProjectPhaseHistory CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import ProjectPhaseHistoryForm
+from apps.bfagent.models import ProjectPhaseHistory
+
+
+class ProjectPhaseHistoryListView(ListView):
+    """List view for ProjectPhaseHistory"""
+
+    model = ProjectPhaseHistory
+    template_name = "bfagent/projectphasehistory_list.html"
+    context_object_name = "projectphasehistory"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        # Add select_related/prefetch_related if needed
+        return queryset
+
+
+class ProjectPhaseHistoryDetailView(DetailView):
+    """Detail view for ProjectPhaseHistory"""
+
+    model = ProjectPhaseHistory
+    template_name = "bfagent/projectphasehistory_detail.html"
+    context_object_name = "projectphasehistory"
+
+
+class ProjectPhaseHistoryCreateView(CreateView):
+    """Create view for ProjectPhaseHistory"""
+
+    model = ProjectPhaseHistory
+    form_class = ProjectPhaseHistoryForm
+    template_name = "bfagent/projectphasehistory_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:projectphasehistory-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"ProjectPhaseHistory created successfully!")
+        return super().form_valid(form)
+
+
+class ProjectPhaseHistoryUpdateView(UpdateView):
+    """Update view for ProjectPhaseHistory"""
+
+    model = ProjectPhaseHistory
+    form_class = ProjectPhaseHistoryForm
+    template_name = "bfagent/projectphasehistory_form.html"
+    context_object_name = "projectphasehistory"
+
+    def get_success_url(self):
+        return reverse("bfagent:projectphasehistory-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"ProjectPhaseHistory updated successfully!")
+        return super().form_valid(form)
+
+
+class ProjectPhaseHistoryDeleteView(DeleteView):
+    """Delete view for ProjectPhaseHistory"""
+
+    model = ProjectPhaseHistory
+    template_name = "bfagent/projectphasehistory_confirm_delete.html"
+    context_object_name = "projectphasehistory"
+
+    def get_success_url(self):
+        return reverse("bfagent:projectphasehistory-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"ProjectPhaseHistory deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: ProjectPhaseHistory_VIEWS
+
+
+# ============================================================================
+# CUSTOM_CODE_START: LLM_LIVE_TEST
+# ============================================================================
+# LLM Live Test Feature - Protected from auto-generation
+# This code will NEVER be overwritten by the generator!
+# ============================================================================
+
+import json
+
+from django.template.loader import render_to_string
+from django.views.decorators.http import require_http_methods
+
+from ..models import Llms
+
+
+@require_http_methods(["POST"])
+def llm_live_test(request, pk):
+    """
+    Live LLM Test Feature
+    Test an LLM with custom prompt and display response
+    """
+    llm = get_object_or_404(Llms, pk=pk)
+
+    # Get prompt from POST data
+    data = json.loads(request.body)
+    prompt = data.get("prompt", "")
+
+    if not prompt:
+        return HttpResponse(
+            render_to_string(
+                "bfagent/partials/llm_test_response.html", {"error": "Prompt is required"}
+            ),
+            status=400,
+        )
+
+    try:
+        # Import LLM client function
+        from apps.bfagent.services.llm_client import LlmRequest, generate_text
+
+        # Create request
+        llm_request = LlmRequest(
+            provider=llm.provider,
+            api_endpoint=llm.api_endpoint,
+            api_key=llm.api_key,
+            model=llm.llm_name,
+            system="You are a helpful assistant.",
+            prompt=prompt,
+            temperature=llm.temperature,
+            top_p=llm.top_p,
+            max_tokens=llm.max_tokens,
+        )
+
+        # Make API call
+        response_data = generate_text(llm_request)
+
+        # Check if successful
+        if not response_data.get("ok"):
+            return HttpResponse(
+                render_to_string(
+                    "bfagent/partials/llm_test_response.html",
+                    {"error": response_data.get("error", "Unknown error"), "llm": llm.llm_name},
+                ),
+                status=500,
+            )
+
+        # Render response template
+        return HttpResponse(
+            render_to_string(
+                "bfagent/partials/llm_test_response.html",
+                {
+                    "response": response_data.get("text", ""),
+                    "model": llm.llm_name,
+                    "timestamp": timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                },
+            )
+        )
+
+    except Exception as e:
+        return HttpResponse(
+            render_to_string(
+                "bfagent/partials/llm_test_response.html", {"error": str(e), "llm": llm.llm_name}
+            ),
+            status=500,
+        )
+
+
+# ============================================================================
+# CUSTOM_CODE_END: LLM_LIVE_TEST
+# ============================================================================
+
+
+# ============================================================================
+# CUSTOM_CODE_START: AGENT_LIVE_TEST
+# ============================================================================
+# Agent Live Test Feature - Protected from auto-generation
+# This code will NEVER be overwritten by the generator!
+# ============================================================================
+
+
+@require_http_methods(["POST"])
+def agent_live_test(request, pk):
+    """
+    Live Agent Test Feature
+    Test an Agent with custom prompt and display response
+    """
+    from ..models import Agents
+
+    agent = get_object_or_404(Agents, pk=pk)
+
+    # Get prompt from POST data
+    data = json.loads(request.body)
+    prompt = data.get("prompt", "")
+
+    if not prompt:
+        return HttpResponse(
+            render_to_string(
+                "bfagent/partials/llm_test_response.html", {"error": "Prompt is required"}
+            ),
+            status=400,
+        )
+
+    # Check if agent has LLM assigned
+    if not agent.llm_model_id:
+        return HttpResponse(
+            render_to_string(
+                "bfagent/partials/llm_test_response.html",
+                {"error": "Agent has no LLM assigned", "llm": agent.name},
+            ),
+            status=400,
+        )
+
+    try:
+        # Get associated LLM
+        llm = get_object_or_404(Llms, pk=agent.llm_model_id)
+
+        # Import LLM client function
+        from apps.bfagent.services.llm_client import LlmRequest, generate_text
+
+        # Create request with agent's system prompt and instructions
+        system_message = agent.system_prompt
+        if agent.instructions:
+            system_message = f"{agent.system_prompt}\n\nInstructions:\n{agent.instructions}"
+
+        llm_request = LlmRequest(
+            provider=llm.provider,
+            api_endpoint=llm.api_endpoint,
+            api_key=llm.api_key,
+            model=llm.llm_name,
+            system=system_message,
+            prompt=prompt,
+            temperature=float(agent.creativity_level),
+            top_p=llm.top_p,
+            max_tokens=llm.max_tokens,
+        )
+
+        # Make API call
+        response_data = generate_text(llm_request)
+
+        # Check if successful
+        if not response_data.get("ok"):
+            return HttpResponse(
+                render_to_string(
+                    "bfagent/partials/llm_test_response.html",
+                    {
+                        "error": response_data.get("error", "Unknown error"),
+                        "llm": f"{agent.name} ({llm.llm_name})",
+                    },
+                ),
+                status=500,
+            )
+
+        # Render response template
+        return HttpResponse(
+            render_to_string(
+                "bfagent/partials/llm_test_response.html",
+                {
+                    "response": response_data.get("text", ""),
+                    "model": f"{agent.name} using {llm.llm_name}",
+                    "timestamp": timezone.now().strftime("%Y-%m-%d %H:%M:%S"),
+                },
+            )
+        )
+
+    except Exception as e:
+        return HttpResponse(
+            render_to_string(
+                "bfagent/partials/llm_test_response.html", {"error": str(e), "llm": agent.name}
+            ),
+            status=500,
+        )
+
+
+# ============================================================================
+# CUSTOM_CODE_END: AGENT_LIVE_TEST
+# ============================================================================
+
+
+# AUTO_GENERATED_START: PromptTemplate_VIEWS
+# ============================================================================
+# PromptTemplate CRUD Views (Auto-generated by auto_compliance_fixer.py)
+# DO NOT MANUALLY EDIT THIS SECTION - Changes will be overwritten
+# To customize: Add code in CUSTOM_CODE_START/END blocks below
+# ============================================================================
+
+from django.contrib import messages
+from django.db import models
+from django.urls import reverse, reverse_lazy
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import ActionTemplateForm, PromptTemplateForm
+from apps.bfagent.models import ActionTemplate, AgentAction, Agents, PromptTemplate
+
+
+class ActionTemplateListView(ListView):
+    """List view for ActionTemplate - shows Action→Template mappings"""
+
+    model = ActionTemplate
+    template_name = "bfagent/actiontemplate_list.html"
+    context_object_name = "actiontemplates"
+    paginate_by = 50
+
+    def get_queryset(self):
+        queryset = ActionTemplate.objects.select_related("action", "template", "action__agent")
+
+        # Filter by action
+        action_id = self.request.GET.get("action", "").strip()
+        print(f"DEBUG: action_id = '{action_id}' (type: {type(action_id)})")
+        if action_id:
+            queryset = queryset.filter(action_id=action_id)
+            print(f"DEBUG: Filtering by action_id={action_id}")
+
+        # Filter by template
+        template_id = self.request.GET.get("template", "").strip()
+        print(f"DEBUG: template_id = '{template_id}'")
+        if template_id:
+            queryset = queryset.filter(template_id=template_id)
+            print(f"DEBUG: Filtering by template_id={template_id}")
+
+        # Filter by default status
+        is_default = self.request.GET.get("is_default", "").strip()
+        print(f"DEBUG: is_default = '{is_default}'")
+        if is_default:
+            queryset = queryset.filter(is_default=(is_default.lower() == "true"))
+            print(f"DEBUG: Filtering by is_default={is_default}")
+
+        # Filter by agent
+        agent_id = self.request.GET.get("agent", "").strip()
+        print(f"DEBUG: agent_id = '{agent_id}'")
+        if agent_id:
+            queryset = queryset.filter(action__agent_id=agent_id)
+            print(f"DEBUG: Filtering by agent_id={agent_id}")
+
+        # Search
+        search = self.request.GET.get("q", "").strip()
+        if search:
+            queryset = queryset.filter(
+                models.Q(action__display_name__icontains=search)
+                | models.Q(template__name__icontains=search)
+                | models.Q(description_override__icontains=search)
+            )
+
+        print(f"DEBUG: Final queryset count = {queryset.count()}")
+        return queryset.order_by("action__display_name", "-is_default", "order")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Action → Template Mappings"
+
+        # Get filter options
+        context["all_actions"] = AgentAction.objects.all().order_by("display_name")
+        context["all_templates"] = PromptTemplate.objects.all().order_by("name")
+        context["all_agents"] = Agents.objects.all().order_by("name")
+
+        # Preserve filters
+        context["current_filters"] = {
+            "action": self.request.GET.get("action", ""),
+            "template": self.request.GET.get("template", ""),
+            "is_default": self.request.GET.get("is_default", ""),
+            "agent": self.request.GET.get("agent", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+
+        return context
+
+
+class ActionTemplateDetailView(DetailView):
+    """Detail view for ActionTemplate"""
+
+    model = ActionTemplate
+    template_name = "bfagent/actiontemplate_detail.html"
+    context_object_name = "actiontemplate"
+
+
+class ActionTemplateCreateView(CreateView):
+    """Create view for ActionTemplate"""
+
+    model = ActionTemplate
+    template_name = "bfagent/actiontemplate_form.html"
+    fields = ["action", "template", "is_default", "order", "description_override"]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Create Action Template Mapping"
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Action Template mapping created successfully!")
+        return super().form_valid(form)
+
+
+class ActionTemplateUpdateView(UpdateView):
+    """Update view for ActionTemplate"""
+
+    model = ActionTemplate
+    template_name = "bfagent/actiontemplate_form.html"
+    fields = ["action", "template", "is_default", "order", "description_override"]
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Edit Action Template Mapping"
+        return context
+
+    def form_valid(self, form):
+        messages.success(self.request, "Action Template mapping updated successfully!")
+        return super().form_valid(form)
+
+
+class ActionTemplateDeleteView(DeleteView):
+    """Delete view for ActionTemplate"""
+
+    model = ActionTemplate
+    template_name = "bfagent/actiontemplate_confirm_delete.html"
+    success_url = reverse_lazy("bfagent:actiontemplate-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "Action Template mapping deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+class PromptTemplateListView(ListView):
+    """List view for PromptTemplate"""
+
+    model = PromptTemplate
+    template_name = "bfagent/prompttemplate_list.html"
+    context_object_name = "prompttemplates"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = PromptTemplate.objects.select_related("preferred_llm", "created_by").all()
+
+        # Filter by category
+        category = self.request.GET.get("category", "").strip()
+        if category:
+            queryset = queryset.filter(category=category)
+
+        # Search by name or description
+        search = self.request.GET.get("q", "").strip()
+        if search:
+            queryset = queryset.filter(
+                models.Q(name__icontains=search) | models.Q(description__icontains=search)
+            )
+
+        return queryset.order_by("category", "name")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["title"] = "Prompt Templates"
+        # Get unique categories
+        categories = PromptTemplate.objects.values_list('category', flat=True).distinct().order_by('category')
+        context["all_categories"] = [c for c in categories if c]
+        context["current_filters"] = {
+            "category": self.request.GET.get("category", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class PromptTemplateDetailView(DetailView):
+    """Detail view for PromptTemplate"""
+
+    model = PromptTemplate
+    template_name = "bfagent/prompttemplate_detail.html"
+    context_object_name = "prompttemplate"
+
+
+class PromptTemplateCreateView(CreateView):
+    """Create view for PromptTemplate"""
+
+    model = PromptTemplate
+    form_class = PromptTemplateForm
+    template_name = "bfagent/prompttemplate_form.html"
+
+    def get_success_url(self):
+        return reverse("bfagent:prompttemplate-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PromptTemplate created successfully!")
+        return super().form_valid(form)
+
+
+class PromptTemplateUpdateView(UpdateView):
+    """Update view for PromptTemplate"""
+
+    model = PromptTemplate
+    form_class = PromptTemplateForm
+    template_name = "bfagent/prompttemplate_form.html"
+    context_object_name = "prompttemplate"
+
+    def get_success_url(self):
+        return reverse("bfagent:prompttemplate-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, f"PromptTemplate updated successfully!")
+        return super().form_valid(form)
+
+
+class PromptTemplateDeleteView(DeleteView):
+    """Delete view for PromptTemplate"""
+
+    model = PromptTemplate
+    template_name = "bfagent/prompttemplate_confirm_delete.html"
+    context_object_name = "prompttemplate"
+
+    def get_success_url(self):
+        return reverse("bfagent:prompttemplate-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, f"PromptTemplate deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: PromptTemplate_VIEWS
+
+
+# AUTO_GENERATED_START: BookTypePhase_VIEWS
+# ============================================================================
+# BookTypePhase CRUD Views
+# ============================================================================
+
+from django.contrib import messages
+from django.urls import reverse
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from apps.bfagent.forms import BookTypePhaseForm
+from apps.bfagent.models import BookTypePhase, BookTypes, WorkflowPhase
+
+
+class BookTypePhaseListView(ListView):
+    """List view for BookTypePhase - Workflow configuration per book type"""
+
+    model = BookTypePhase
+    template_name = "bfagent/booktypephase_list.html"
+    context_object_name = "booktypephases"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("book_type", "phase")
+
+        # Filter by book type
+        book_type_id = self.request.GET.get("book_type")
+        if book_type_id:
+            queryset = queryset.filter(book_type_id=book_type_id)
+
+        # Filter by phase
+        phase_id = self.request.GET.get("phase")
+        if phase_id:
+            queryset = queryset.filter(phase_id=phase_id)
+
+        # Search functionality
+        q = self.request.GET.get("q")
+        if q:
+            queryset = queryset.filter(
+                models.Q(book_type__name__icontains=q)
+                | models.Q(phase__name__icontains=q)
+                | models.Q(description_override__icontains=q)
+            )
+
+        return queryset.order_by("book_type", "order")
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["all_book_types"] = BookTypes.objects.filter(is_active=True).order_by("name")
+        context["all_phases"] = WorkflowPhase.objects.filter(is_active=True).order_by("name")
+        context["current_filters"] = {
+            "book_type": self.request.GET.get("book_type", ""),
+            "phase": self.request.GET.get("phase", ""),
+            "q": self.request.GET.get("q", ""),
+        }
+        return context
+
+
+class BookTypePhaseDetailView(DetailView):
+    """Detail view for BookTypePhase"""
+
+    model = BookTypePhase
+    template_name = "bfagent/booktypephase_detail.html"
+    context_object_name = "booktypephase"
+
+
+class BookTypePhaseCreateView(CreateView):
+    """Create view for BookTypePhase"""
+
+    model = BookTypePhase
+    form_class = BookTypePhaseForm
+    template_name = "bfagent/booktypephase_form.html"
+    context_object_name = "booktypephase"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktypephase-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, "Book Type Phase configuration created successfully!")
+        return super().form_valid(form)
+
+
+class BookTypePhaseUpdateView(UpdateView):
+    """Update view for BookTypePhase"""
+
+    model = BookTypePhase
+    form_class = BookTypePhaseForm
+    template_name = "bfagent/booktypephase_form.html"
+    context_object_name = "booktypephase"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktypephase-detail", kwargs={"pk": self.object.pk})
+
+    def form_valid(self, form):
+        messages.success(self.request, "Book Type Phase configuration updated successfully!")
+        return super().form_valid(form)
+
+
+class BookTypePhaseDeleteView(DeleteView):
+    """Delete view for BookTypePhase"""
+
+    model = BookTypePhase
+    template_name = "bfagent/booktypephase_confirm_delete.html"
+    context_object_name = "booktypephase"
+
+    def get_success_url(self):
+        return reverse("bfagent:booktypephase-list")
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "Book Type Phase configuration deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
+
+# AUTO_GENERATED_END: BookTypePhase_VIEWS
+
+
+# ============================================================================
+# BookType-Phases Management Dashboard
+# ============================================================================
+
+
+class BookTypePhaseManagementView(TemplateView):
+    """
+    BookType-Phases Management Dashboard
+    Matrix view for managing phase assignments per book type with add/remove
+    """
+
+    template_name = "bfagent/booktype_phases_management_v2.html"
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+
+        from django.db.models import Count
+
+        from apps.bfagent.models import BookTypePhase, BookTypes, WorkflowPhase
+
+        # Get selected book type (default to first)
+        selected_booktype_id = self.request.GET.get("booktype")
+        booktypes = (
+            BookTypes.objects.filter(is_active=True)
+            .annotate(phase_count=Count("book_type_phases"))
+            .order_by("name")
+        )
+
+        if selected_booktype_id:
+            selected_booktype = BookTypes.objects.filter(pk=selected_booktype_id).first()
+        else:
+            selected_booktype = booktypes.first()
+
+        # Get all phases for filtering
+        phases = WorkflowPhase.objects.filter(is_active=True).order_by("name")
+        selected_phase_filter = self.request.GET.get("phase_filter")
+
+        # Get available phases (optionally filtered)
+        available_phases = phases
+        if selected_phase_filter:
+            available_phases = available_phases.filter(id=selected_phase_filter)
+
+        # Get assigned phases for selected book type with action counts
+        assigned_configs = []
+        if selected_booktype:
+            from apps.bfagent.models import PhaseActionConfig
+
+            assigned_configs = (
+                BookTypePhase.objects.filter(book_type=selected_booktype)
+                .select_related("phase")
+                .order_by("order", "phase__name")
+            )
+
+            # Annotate each config with correct action count
+            for config in assigned_configs:
+                config.action_count = PhaseActionConfig.objects.filter(
+                    phase=config.phase, action__is_active=True
+                ).count()
+
+        # Separate assigned vs unassigned phases
+        assigned_phase_ids = [config.phase_id for config in assigned_configs]
+        unassigned_phases = available_phases.exclude(id__in=assigned_phase_ids).order_by("name")
+
+        context.update(
+            {
+                "booktypes": booktypes,
+                "selected_booktype": selected_booktype,
+                "phases": phases,
+                "selected_phase_filter": selected_phase_filter or "",
+                "assigned_configs": assigned_configs,
+                "unassigned_phases": unassigned_phases,
+                "total_phases_count": phases.count(),
+                "assigned_count": len(assigned_phase_ids),
+            }
+        )
+
+        return context
+
+
+@require_POST
+def booktype_phase_add(request):
+    """HTMX endpoint: Add phase to book type"""
+    from django.http import HttpResponse
+
+    booktype_id = request.POST.get("booktype_id")
+    phase_id = request.POST.get("phase_id")
+
+    if not booktype_id or not phase_id:
+        return HttpResponse('<div class="alert alert-danger">Missing parameters</div>', status=400)
+
+    try:
+        from apps.bfagent.models import BookTypes, WorkflowPhase
+
+        booktype = BookTypes.objects.get(pk=booktype_id)
+        phase = WorkflowPhase.objects.get(pk=phase_id)
+
+        # Get max order
+        max_order = (
+            BookTypePhase.objects.filter(book_type=booktype).aggregate(
+                max_order=models.Max("order")
+            )["max_order"]
+            or 0
+        )
+
+        # Create config
+        config = BookTypePhase.objects.create(
+            book_type=booktype, phase=phase, order=max_order + 1, is_required=True, estimated_days=7
+        )
+
+        # Return HTML for the new item
+        html = f"""
+        <div class="list-group-item" data-config-id="{config.id}" data-phase-id="{phase.id}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="flex-grow-1">
+                    <div class="d-flex align-items-center mb-1">
+                        <span class="badge bg-secondary me-2">{config.order}</span>
+                        <strong><i class="bi bi-{phase.icon or 'circle'}"></i> {phase.name}</strong>
+                        {'<span class="badge bg-success ms-2">Required</span>' if config.is_required else '<span class="badge bg-secondary ms-2">Optional</span>'}
+                    </div>
+                    <small class="text-muted">
+                        {config.estimated_days or 0} days estimated
+                    </small>
+                </div>
+                <div class="btn-group btn-group-sm">
+                    <a href="/booktypephase/{config.pk}/edit/"
+                       class="btn btn-outline-primary"
+                       title="Edit">
+                        <i class="bi bi-pencil"></i>
+                    </a>
+                    <button class="btn btn-outline-danger"
+                            title="Remove"
+                            hx-post="/api/booktype-phase/remove/"
+                            hx-vals='{{"config_id": {config.pk}}}'
+                            hx-confirm="Remove this phase from the book type?"
+                            hx-target="closest .list-group-item"
+                            hx-swap="outerHTML swap:1s">
+                        <i class="bi bi-x-circle"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        """
+
+        return HttpResponse(html)
+
+    except Exception as e:
+        return HttpResponse(f'<div class="alert alert-danger">Error: {str(e)}</div>', status=500)
+
+
+@require_POST
+def booktype_phase_remove(request):
+    """HTMX endpoint: Remove phase from book type"""
+    from django.http import HttpResponse
+
+    config_id = request.POST.get("config_id")
+
+    if not config_id:
+        return HttpResponse("", status=400)
+
+    try:
+        config = BookTypePhase.objects.get(pk=config_id)
+        config.delete()
+        return HttpResponse("")  # Empty response removes the element
+
+    except BookTypePhase.DoesNotExist:
+        return HttpResponse("", status=404)
+    except Exception as e:
+        return HttpResponse(f'<div class="alert alert-danger">Error: {str(e)}</div>', status=500)
+
+
+@require_POST
+def booktype_phase_reorder(request):
+    """API endpoint: Update phase order via drag & drop"""
+    import json
+
+    from django.http import JsonResponse
+
+    try:
+        data = json.loads(request.body)
+        order_data = data.get("order", [])
+
+        if not order_data:
+            return JsonResponse({"success": False, "error": "Missing order data"}, status=400)
+
+        # Update each config with new order
+        updated_count = 0
+        for item in order_data:
+            config_id = item.get("id")
+            new_order = item.get("order")
+
+            if config_id and new_order is not None:
+                BookTypePhase.objects.filter(pk=config_id).update(order=new_order)
+                updated_count += 1
+
+        return JsonResponse(
+            {
+                "success": True,
+                "message": f"Updated {updated_count} phases",
+                "updated": updated_count,
+            }
+        )
+
+    except json.JSONDecodeError:
+        return JsonResponse({"success": False, "error": "Invalid JSON"}, status=400)
+    except Exception as e:
+        return JsonResponse({"success": False, "error": str(e)}, status=500)
+
+
+# =============================================================================
+# ACTION TEMPLATE ASSIGNMENT MODAL
+# =============================================================================
+
+
+def action_template_assign_modal(request, action_id):
+    """HTMX: Load template assignment modal for an action"""
+    from django.shortcuts import render
+    from apps.bfagent.models import AgentAction, PromptTemplate
+
+    action = get_object_or_404(AgentAction, pk=action_id)
+    templates = PromptTemplate.objects.all().order_by("name")
+
+    return render(
+        request,
+        "bfagent/partials/action_template_assign_modal.html",
+        {
+            "action": action,
+            "templates": templates,
+        },
+    )
+
+
+@require_POST
+def action_template_assign_save(request, action_id):
+    """Save template assignment to action"""
+    from django.http import HttpResponse
+    from apps.bfagent.models import AgentAction, PromptTemplate
+
+    action = get_object_or_404(AgentAction, pk=action_id)
+    template_id = request.POST.get("template_id")
+
+    if template_id:
+        template = get_object_or_404(PromptTemplate, pk=template_id)
+        action.prompt_template = template
+        action.save()
+
+        # Return success message with HTMX to close modal and refresh
+        return HttpResponse(
+            f"""
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title">
+                    <i class="bi bi-check-circle"></i> Success!
+                </h5>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-success mb-0">
+                    <i class="bi bi-check-circle"></i> 
+                    Template <strong>{template.name}</strong> assigned to <strong>{action.display_name}</strong>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" data-bs-dismiss="modal" onclick="location.reload()">
+                    <i class="bi bi-arrow-clockwise"></i> Reload Page
+                </button>
+            </div>
+            """
+        )
+
+    return HttpResponse(
+        '<div class="alert alert-danger">Please select a template</div>', status=400
+    )

@@ -1,0 +1,484 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Test Requirements - Test Studio{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb Navigation -->
+    {% include 'bfagent/includes/breadcrumb.html' with breadcrumb_section="Test Studio" breadcrumb_section_url=request.path %}
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-clipboard-check"></i> Test Studio</h1>
+            <small class="text-muted">Cross-Domain Requirements & Test Management</small>
+        </div>
+        <div class="d-flex gap-2">
+            <!-- View Toggle -->
+            <div class="btn-group">
+                <a href="{% url 'control_center:test-studio-dashboard' %}" class="btn btn-primary">
+                    <i class="bi bi-grid-3x3-gap"></i> Grid
+                </a>
+                <a href="{% url 'control_center:test-studio-kanban' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-kanban"></i> Kanban
+                </a>
+            </div>
+            <a href="{% url 'control_center:test-studio-fix-plans' %}" class="btn btn-outline-warning me-2">
+                <i class="bi bi-wrench-adjustable"></i> Fix Plans
+            </a>
+            <a href="{% url 'control_center:test-studio-requirement-create' %}{% if current_category %}?category={{ current_category }}{% endif %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Create Requirement
+            </a>
+        </div>
+    </div>
+
+    <!-- Category Tabs -->
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <a class="nav-link {% if not current_category %}active{% endif %}" href="?{% if current_domain %}domain={{ current_domain }}{% endif %}">
+                <i class="bi bi-grid-3x3-gap"></i> Alle
+                <span class="badge bg-secondary">{{ counts.total }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if current_category == 'bug_fix' %}active{% endif %}" href="?category=bug_fix{% if current_domain %}&domain={{ current_domain }}{% endif %}">
+                <i class="bi bi-bug text-danger"></i> Bugs
+                <span class="badge bg-danger">{{ counts.bugs }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if current_category == 'feature' %}active{% endif %}" href="?category=feature{% if current_domain %}&domain={{ current_domain }}{% endif %}">
+                <i class="bi bi-star text-warning"></i> Features
+                <span class="badge bg-warning text-dark">{{ counts.features }}</span>
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if current_category == 'enhancement' %}active{% endif %}" href="?category=enhancement{% if current_domain %}&domain={{ current_domain }}{% endif %}">
+                <i class="bi bi-lightning text-info"></i> Enhancements
+                <span class="badge bg-info">{{ counts.enhancements }}</span>
+            </a>
+        </li>
+    </ul>
+
+    <!-- Quick Filter Presets -->
+    <div class="mb-3">
+        <span class="text-muted me-2"><i class="bi bi-lightning"></i> Quick:</span>
+        <a href="?category=bug_fix&status=ready" class="btn btn-sm btn-outline-danger me-1">
+            <i class="bi bi-bug"></i> Offene Bugs
+        </a>
+        <a href="?category=bug_fix&status=in_progress" class="btn btn-sm btn-outline-warning me-1">
+            <i class="bi bi-hourglass-split"></i> Bugs in Arbeit
+        </a>
+        <a href="?priority=critical" class="btn btn-sm btn-outline-danger me-1">
+            <i class="bi bi-exclamation-triangle"></i> Kritisch
+        </a>
+        <a href="?priority=high" class="btn btn-sm btn-outline-warning me-1">
+            <i class="bi bi-arrow-up"></i> Hoch
+        </a>
+        <a href="?" class="btn btn-sm btn-outline-secondary">
+            <i class="bi bi-x-circle"></i> Reset
+        </a>
+        <a href="?show_completed=1" class="btn btn-sm btn-outline-dark">
+            <i class="bi bi-archive"></i> + Erledigte
+        </a>
+    </div>
+
+    <!-- Search & Domain Filter -->
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <!-- Search Field -->
+            <div class="row mb-2">
+                <div class="col-md-6">
+                    <form method="get" class="d-flex gap-2">
+                        <div class="input-group">
+                            <span class="input-group-text"><i class="bi bi-search"></i></span>
+                            <input type="text" name="q" class="form-control" placeholder="Suche in Titel, Beschreibung..." value="{{ search_query|default:'' }}">
+                            {% if current_domain %}<input type="hidden" name="domain" value="{{ current_domain }}">{% endif %}
+                            {% if current_category %}<input type="hidden" name="category" value="{{ current_category }}">{% endif %}
+                            {% if current_priority %}<input type="hidden" name="priority" value="{{ current_priority }}">{% endif %}
+                            {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
+                        </div>
+                        <button type="submit" class="btn btn-primary"><i class="bi bi-search"></i></button>
+                        {% if search_query %}
+                        <a href="?{% if current_domain %}domain={{ current_domain }}&{% endif %}{% if current_category %}category={{ current_category }}&{% endif %}{% if current_priority %}priority={{ current_priority }}&{% endif %}{% if current_status %}status={{ current_status }}{% endif %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-x-lg"></i>
+                        </a>
+                        {% endif %}
+                    </form>
+                </div>
+                {% if search_query %}
+                <div class="col-md-6 d-flex align-items-center">
+                    <span class="text-muted">Suchergebnis für: <strong>"{{ search_query }}"</strong> ({{ requirements_data|length }} Treffer)</span>
+                </div>
+                {% endif %}
+            </div>
+            
+            <div class="d-flex flex-wrap align-items-center gap-2">
+                <span class="text-muted"><i class="bi bi-funnel"></i> Domain:</span>
+                <a href="?{% if current_category %}category={{ current_category }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}" class="btn btn-sm {% if not current_domain %}btn-primary{% else %}btn-outline-secondary{% endif %}">
+                    Alle
+                </a>
+                <a href="?domain=writing_hub{% if current_category %}&category={{ current_category }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}" class="btn btn-sm {% if current_domain == 'writing_hub' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    <i class="bi bi-book"></i> Writing Hub
+                </a>
+                <a href="?domain=medtrans{% if current_category %}&category={{ current_category }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}" class="btn btn-sm {% if current_domain == 'medtrans' %}btn-info{% else %}btn-outline-info{% endif %}">
+                    <i class="bi bi-translate"></i> MedTrans
+                </a>
+                <a href="?domain=control_center{% if current_category %}&category={{ current_category }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}" class="btn btn-sm {% if current_domain == 'control_center' %}btn-secondary{% else %}btn-outline-secondary{% endif %}">
+                    <i class="bi bi-gear"></i> Control Center
+                </a>
+                <a href="?domain=core{% if current_category %}&category={{ current_category }}{% endif %}{% if current_priority %}&priority={{ current_priority }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}" class="btn btn-sm {% if current_domain == 'core' %}btn-dark{% else %}btn-outline-dark{% endif %}">
+                    <i class="bi bi-layers"></i> Core
+                </a>
+                
+                <span class="text-muted ms-3"><i class="bi bi-sort-down"></i> Priorität:</span>
+                <a href="?{% if current_domain %}domain={{ current_domain }}&{% endif %}{% if current_category %}category={{ current_category }}&{% endif %}{% if current_status %}status={{ current_status }}&{% endif %}priority=critical" class="btn btn-sm {% if current_priority == 'critical' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+                    🔴 Kritisch
+                </a>
+                <a href="?{% if current_domain %}domain={{ current_domain }}&{% endif %}{% if current_category %}category={{ current_category }}&{% endif %}{% if current_status %}status={{ current_status }}&{% endif %}priority=high" class="btn btn-sm {% if current_priority == 'high' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+                    🟠 Hoch
+                </a>
+                <a href="?{% if current_domain %}domain={{ current_domain }}&{% endif %}{% if current_category %}category={{ current_category }}&{% endif %}{% if current_status %}status={{ current_status }}&{% endif %}priority=medium" class="btn btn-sm {% if current_priority == 'medium' %}btn-info{% else %}btn-outline-info{% endif %}">
+                    🟡 Medium
+                </a>
+                <a href="?{% if current_domain %}domain={{ current_domain }}&{% endif %}{% if current_category %}category={{ current_category }}&{% endif %}{% if current_status %}status={{ current_status }}&{% endif %}priority=low" class="btn btn-sm {% if current_priority == 'low' %}btn-success{% else %}btn-outline-success{% endif %}">
+                    🟢 Low
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+            {{ message }}
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        {% for item in requirements_data %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-{{ item.requirement.priority }}-subtle">
+                    <h5 class="mb-0">
+                        {{ item.requirement.name }}
+                        <span class="badge bg-{{ item.requirement.priority }} float-end">
+                            {{ item.requirement.get_priority_display }}
+                        </span>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <p class="card-text text-muted small">
+                        {{ item.requirement.description|truncatewords:20 }}
+                    </p>
+                    
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <small class="text-muted">Test Coverage</small>
+                            <small class="fw-bold">{{ item.coverage.coverage_percentage|floatformat:0 }}%</small>
+                        </div>
+                        <div class="progress" style="height: 8px;">
+                            <div class="progress-bar {% if item.coverage.coverage_percentage >= 80 %}bg-success{% elif item.coverage.coverage_percentage >= 50 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                 style="width: {{ item.coverage.coverage_percentage }}%"></div>
+                        </div>
+                    </div>
+
+                    <div class="row text-center mb-3">
+                        <div class="col-4">
+                            <div class="fw-bold text-primary">{{ item.coverage.total_criteria }}</div>
+                            <small class="text-muted">Total</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="fw-bold text-success">{{ item.coverage.tests_passing }}</div>
+                            <small class="text-muted">Passing</small>
+                        </div>
+                        <div class="col-4">
+                            <div class="fw-bold text-danger">{{ item.coverage.tests_failing }}</div>
+                            <small class="text-muted">Failing</small>
+                        </div>
+                    </div>
+
+                    <div class="mb-2">
+                        <!-- Domain Badge -->
+                        {% if item.requirement.domain == 'writing_hub' %}
+                        <span class="badge bg-success"><i class="bi bi-book"></i> Writing Hub</span>
+                        {% elif item.requirement.domain == 'medtrans' %}
+                        <span class="badge bg-info"><i class="bi bi-translate"></i> MedTrans</span>
+                        {% elif item.requirement.domain == 'control_center' %}
+                        <span class="badge bg-secondary"><i class="bi bi-gear"></i> Control Center</span>
+                        {% elif item.requirement.domain == 'genagent' %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-robot"></i> GenAgent</span>
+                        {% else %}
+                        <span class="badge bg-dark"><i class="bi bi-layers"></i> Core</span>
+                        {% endif %}
+                        <span class="badge bg-secondary">{{ item.requirement.category }}</span>
+                        <span class="badge bg-{% if item.requirement.status == 'in_progress' %}warning{% elif item.requirement.status == 'done' %}success{% elif item.requirement.status == 'blocked' %}danger{% else %}info{% endif %}">
+                            {% if item.requirement.status == 'in_progress' %}<i class="bi bi-hourglass-split"></i>{% elif item.requirement.status == 'done' %}<i class="bi bi-check-circle"></i>{% elif item.requirement.status == 'blocked' %}<i class="bi bi-x-octagon"></i>{% else %}<i class="bi bi-circle"></i>{% endif %}
+                            {{ item.requirement.status }}
+                        </span>
+                    </div>
+                    
+                    <!-- Status Tracking Info -->
+                    <div class="mb-2 small">
+                        {% if item.last_activity %}
+                        <div class="d-flex align-items-center text-muted mb-1">
+                            <i class="bi bi-clock-history me-1"></i>
+                            <span>Letzte Aktivität: {{ item.last_activity.created_at|timesince }} ago</span>
+                            {% if item.last_activity.is_from_cascade %}
+                            <span class="badge bg-success ms-1" style="font-size: 0.6rem;">🤖 Cascade</span>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                        {% if item.latest_feedback %}
+                        <div class="alert alert-light py-1 px-2 mb-0" style="font-size: 0.75rem;">
+                            <strong>
+                                {% if item.latest_feedback.feedback_type == 'progress' %}<i class="bi bi-arrow-right-circle text-primary"></i>{% elif item.latest_feedback.feedback_type == 'solution' %}<i class="bi bi-check-circle text-success"></i>{% elif item.latest_feedback.feedback_type == 'blocker' %}<i class="bi bi-exclamation-triangle text-danger"></i>{% endif %}
+                            </strong>
+                            {{ item.latest_feedback.content|truncatewords:15 }}
+                        </div>
+                        {% endif %}
+                        {% if item.feedback_count > 0 %}
+                        <div class="text-end">
+                            <span class="badge bg-light text-dark"><i class="bi bi-chat-dots"></i> {{ item.feedback_count }} Updates</span>
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Bug URL - Klickbar für schnellen Zugriff -->
+                    {% if item.requirement.url %}
+                    <div class="mt-2">
+                        <a href="{{ item.requirement.url }}" target="_blank" class="btn btn-sm btn-outline-danger w-100" title="Bug-Seite öffnen für Screenshot">
+                            <i class="bi bi-box-arrow-up-right"></i> Bug-Seite öffnen
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="card-footer">
+                    <div class="d-flex gap-1 mb-2">
+                        <!-- Quick Status Actions -->
+                        {% if item.requirement.status != 'in_progress' %}
+                        <button type="button" class="btn btn-sm btn-warning flex-grow-1" 
+                                onclick="quickStatusChange('{{ item.requirement.id }}', 'in_progress')"
+                                title="Als 'In Arbeit' markieren">
+                            <i class="bi bi-hourglass-split"></i> In Arbeit
+                        </button>
+                        {% endif %}
+                        {% if item.requirement.status != 'done' %}
+                        <button type="button" class="btn btn-sm btn-success flex-grow-1"
+                                onclick="quickStatusChange('{{ item.requirement.id }}', 'done')"
+                                title="Als 'Erledigt' markieren">
+                            <i class="bi bi-check-lg"></i> Done
+                        </button>
+                        {% endif %}
+                        <button type="button" class="btn btn-sm btn-outline-danger"
+                                onclick="quickDelete('{{ item.requirement.id }}', '{{ item.requirement.name|escapejs }}')"
+                                title="Löschen">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                    <div class="d-flex gap-2">
+                        <a href="{% url 'control_center:test-studio-requirement-detail' item.requirement.id %}" class="btn btn-sm btn-outline-primary flex-grow-1">
+                            <i class="bi bi-eye"></i> Details
+                        </a>
+                        <button type="button" class="btn btn-sm btn-success cascade-btn"
+                                onclick="cascadeWorkOn('{{ item.requirement.id }}')"
+                                title="Vollständigen Kontext für Cascade kopieren">
+                            <i class="bi bi-robot"></i> Cascade
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <h5><i class="bi bi-info-circle"></i> No {% if current_category %}{{ current_category }}{% else %}Requirements{% endif %} Yet</h5>
+                <p>Create your first {% if current_category %}{{ current_category }}{% else %}test requirement{% endif %} to get started!</p>
+                <a href="{% url 'control_center:test-studio-requirement-create' %}{% if current_category %}?category={{ current_category }}{% endif %}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> Create {% if current_category %}{{ current_category|title }}{% else %}Requirement{% endif %}
+                </a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<!-- Toast für Feedback -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="cascadeToast" class="toast align-items-center text-bg-success border-0" role="alert">
+        <div class="d-flex">
+            <div class="toast-body">
+                <i class="bi bi-check-circle"></i> <span id="toastMessage">Kontext kopiert!</span>
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast"></button>
+        </div>
+    </div>
+</div>
+
+<script>
+// Quick Status Change
+async function quickStatusChange(id, newStatus) {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/quick-status/${id}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show toast and reload
+            const toastEl = document.getElementById('cascadeToast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = `Status geändert: ${newStatus}`;
+            toastEl.classList.remove('text-bg-success');
+            toastEl.classList.add('text-bg-warning');
+            const toast = new bootstrap.Toast(toastEl, { delay: 2000 });
+            toast.show();
+            
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+// Quick Delete
+async function quickDelete(id, name) {
+    if (!confirm(`Requirement "${name}" wirklich löschen?`)) {
+        return;
+    }
+    
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/quick-delete/${id}/`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Show toast and reload
+            const toastEl = document.getElementById('cascadeToast');
+            const toastMessage = document.getElementById('toastMessage');
+            toastMessage.textContent = `"${name}" gelöscht`;
+            toastEl.classList.remove('text-bg-success');
+            toastEl.classList.add('text-bg-danger');
+            const toast = new bootstrap.Toast(toastEl, { delay: 2000 });
+            toast.show();
+            
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            alert('Fehler: ' + (data.error || 'Unbekannter Fehler'));
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    } finally {
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+
+async function cascadeWorkOn(id) {
+    // Show loading state
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+    
+    try {
+        // Fetch full requirement details from API
+        const response = await fetch(`/control-center/test-studio/api/cascade-context/${id}/`);
+        const data = await response.json();
+        
+        // Generate optimized context for Cascade
+        let context = `## 🎯 Cascade Task: ${data.name}
+
+**Requirement ID:** \`${data.id}\`
+**Domain:** ${data.domain}
+**Category:** ${data.category}
+**Priority:** ${data.priority}
+**Status:** ${data.status}
+`;
+
+        // Add bug-specific info
+        if (data.category === 'bug_fix') {
+            if (data.url) {
+                context += `\n**Bug gefunden auf:** ${data.url}\n`;
+            }
+            if (data.actual_behavior) {
+                context += `\n### ❌ Aktuelles Verhalten:\n${data.actual_behavior}\n`;
+            }
+            if (data.expected_behavior) {
+                context += `\n### ✅ Erwartetes Verhalten:\n${data.expected_behavior}\n`;
+            }
+        }
+
+        // Add description
+        if (data.description) {
+            context += `\n### Beschreibung:\n${data.description}\n`;
+        }
+
+        // Add acceptance criteria
+        if (data.acceptance_criteria && data.acceptance_criteria !== 'Keine Akzeptanzkriterien definiert.') {
+            context += `\n### Akzeptanzkriterien:${data.acceptance_criteria}\n`;
+        }
+
+        // Add tags if present
+        if (data.tags && data.tags.length > 0) {
+            context += `\n**Tags:** ${data.tags.join(', ')}\n`;
+        }
+
+        // Add links
+        context += `\n### Links:
+- **Test Studio Detail:** ${data.detail_url}
+`;
+
+        // Add call to action
+        context += `\n---\n\n**Bitte arbeite an diesem ${data.category === 'bug_fix' ? 'Bug' : 'Feature/Requirement'}.**
+`;
+
+        // Copy to clipboard
+        await navigator.clipboard.writeText(context);
+        
+        // Show success toast
+        const toastEl = document.getElementById('cascadeToast');
+        const toastMessage = document.getElementById('toastMessage');
+        toastMessage.textContent = `"${data.name}" - Vollständiger Kontext kopiert!`;
+        const toast = new bootstrap.Toast(toastEl, { delay: 4000 });
+        toast.show();
+        
+    } catch (err) {
+        console.error('Error fetching cascade context:', err);
+        alert('Fehler beim Laden des Kontexts: ' + err.message);
+    } finally {
+        // Restore button
+        btn.innerHTML = originalHtml;
+        btn.disabled = false;
+    }
+}
+</script>
+{% endblock %}

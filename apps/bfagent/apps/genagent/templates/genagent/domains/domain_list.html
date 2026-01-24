@@ -1,0 +1,192 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Domain Templates - GenAgent{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="bi bi-puzzle"></i> Domain Templates
+                    </h1>
+                    <p class="text-muted">Universal workflow templates for different domains</p>
+                </div>
+                <div>
+                    <a href="{% url 'genagent:custom-domain-create' %}" class="btn btn-success me-2">
+                        <i class="bi bi-plus-circle"></i> Create Custom Domain
+                    </a>
+                    <a href="/" class="btn btn-outline-secondary">
+                        <i class="bi bi-arrow-left"></i> Back to Home
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Templates</h6>
+                    <h2 class="mb-0">{{ stats.total_templates }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Phases</h6>
+                    <h2 class="mb-0">{{ stats.total_phases }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">Total Actions</h6>
+                    <h2 class="mb-0">{{ stats.total_actions }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6 class="card-title">Categories</h6>
+                    <h2 class="mb-0">{{ stats.total_categories }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Search & Filter -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <form hx-get="{% url 'genagent:domain-search' %}" hx-target="#domain-results" hx-trigger="input delay:500ms from:input">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <input type="text" name="q" class="form-control" placeholder="Search domains...">
+                            </div>
+                            <div class="col-md-3">
+                                <select name="category" class="form-select">
+                                    <option value="">All Categories</option>
+                                    {% for cat in categories %}
+                                        <option value="{{ cat }}">{{ cat|title }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-3">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="bi bi-search"></i> Search
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain List -->
+    <div id="domain-results">
+        {% for category, category_domains in domains_by_category.items %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="h4 mb-3">
+                    <i class="bi bi-folder"></i> {{ category|title }}
+                    <span class="badge bg-secondary">{{ category_domains|length }}</span>
+                </h3>
+            </div>
+        </div>
+
+        <div class="row mb-4">
+            {% for domain in category_domains %}
+            <div class="col-md-6 col-lg-4 mb-3">
+                <div class="card h-100 shadow-sm hover-shadow">
+                    <div class="card-header" style="background-color: {{ domain.color }}20; border-left: 4px solid {{ domain.color }};">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <span style="font-size: 1.5rem;">{{ domain.icon }}</span>
+                                {{ domain.display_name }}
+                            </h5>
+                            <span class="badge bg-primary">v{{ domain.version }}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted">{{ domain.description }}</p>
+                        
+                        <div class="mb-3">
+                            {% for tag in domain.tags %}
+                                <span class="badge bg-secondary me-1">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+
+                        <div class="row text-center mb-3">
+                            <div class="col-4">
+                                <div class="text-muted small">Phases</div>
+                                <div class="fw-bold">{{ domain.phases|length }}</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted small">Actions</div>
+                                <div class="fw-bold">{{ domain.get_all_actions|length }}</div>
+                            </div>
+                            <div class="col-4">
+                                <div class="text-muted small">Duration</div>
+                                <div class="fw-bold">{{ domain.estimated_total_duration_seconds|floatformat:0 }}s</div>
+                            </div>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            {% if domain.domain_id %}
+                            <a href="{% url 'genagent:domain-detail' domain.domain_id %}" class="btn btn-outline-primary">
+                                <i class="bi bi-eye"></i> View Details
+                            </a>
+                            <a href="{% url 'genagent:domain-install' domain.domain_id %}" class="btn btn-primary">
+                                <i class="bi bi-download"></i> Install
+                            </a>
+                            {% else %}
+                            <button class="btn btn-outline-secondary" disabled>
+                                <i class="bi bi-exclamation-triangle"></i> Domain ID Missing
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if domain.author %}
+                    <div class="card-footer text-muted small">
+                        By {{ domain.author }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endfor %}
+
+        {% if not domains %}
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle"></i>
+                    No domain templates available. Create one in <code>apps/genagent/domains/templates/</code>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+.hover-shadow {
+    transition: box-shadow 0.3s ease;
+}
+.hover-shadow:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+</style>
+{% endblock %}

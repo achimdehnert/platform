@@ -1,0 +1,177 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Form -->
+        <div class="col-lg-5">
+            <div class="card shadow-sm">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-shield-check me-2"></i>{{ page_title }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        {% if session %}
+                        <div class="alert alert-info py-2">
+                            <small><i class="bi bi-link me-1"></i>Session: <strong>{{ session.name }}</strong></small>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="mb-3">
+                            <label for="equipment_name" class="form-label">Gerätename</label>
+                            <input type="text" class="form-control" id="equipment_name" name="equipment_name" 
+                                   placeholder="z.B. Motor M1, Pumpe P-01">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="ex_marking" class="form-label">Ex-Kennzeichnung *</label>
+                            <input type="text" class="form-control font-monospace" id="ex_marking" name="ex_marking" 
+                                   placeholder="z.B. II 2G Ex d IIB T4" required>
+                            <small class="text-muted">ATEX-konforme Kennzeichnung vom Typenschild</small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="target_zone" class="form-label">Einsatzzone</label>
+                            <select class="form-select" id="target_zone" name="target_zone">
+                                {% for zone in zones %}
+                                <option value="{{ zone }}" {% if zone == "Zone 1" %}selected{% endif %}>{{ zone }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-warning">
+                                <i class="bi bi-search me-1"></i>Prüfen
+                            </button>
+                            {% if session %}
+                            <button type="submit" name="save" value="1" class="btn btn-success">
+                                <i class="bi bi-save me-1"></i>Prüfen & Speichern
+                            </button>
+                            {% endif %}
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Help -->
+            <div class="card mt-3 bg-light border-0">
+                <div class="card-body small">
+                    <h6><i class="bi bi-question-circle me-1"></i>Ex-Kennzeichnung lesen</h6>
+                    <code class="d-block bg-white p-2 rounded mb-2">II 2G Ex d IIB T4</code>
+                    <ul class="mb-0 ps-3">
+                        <li><strong>II</strong> = Gerätegruppe (nicht Bergbau)</li>
+                        <li><strong>2G</strong> = Kategorie 2, Gas</li>
+                        <li><strong>Ex d</strong> = Zündschutzart (druckfest)</li>
+                        <li><strong>IIB</strong> = Explosionsgruppe</li>
+                        <li><strong>T4</strong> = Temperaturklasse (135°C)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="col-lg-7">
+            {% if result %}
+            <div class="card shadow-sm">
+                <div class="card-header bg-{% if result.is_suitable %}success{% else %}danger{% endif %} text-white">
+                    <h5 class="mb-0">
+                        {% if result.is_suitable %}
+                        <i class="bi bi-check-circle me-2"></i>Geeignet für {{ result.target_zone }}
+                        {% else %}
+                        <i class="bi bi-x-circle me-2"></i>NICHT geeignet für {{ result.target_zone }}
+                        {% endif %}
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <!-- Status Badge -->
+                    <div class="text-center mb-4">
+                        {% if result.is_suitable %}
+                        <span class="badge bg-success fs-1 px-5 py-3">
+                            <i class="bi bi-check-lg"></i> OK
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger fs-1 px-5 py-3">
+                            <i class="bi bi-x-lg"></i> MANGEL
+                        </span>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Detected Values -->
+                    <div class="row g-3 mb-4">
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 text-center">
+                                <small class="text-muted d-block">Kategorie</small>
+                                <strong class="fs-5">{{ result.detected.category|default:"-" }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 text-center">
+                                <small class="text-muted d-block">T-Klasse</small>
+                                <strong class="fs-5">{{ result.detected.temperature_class|default:"-" }}</strong>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="border rounded p-3 text-center">
+                                <small class="text-muted d-block">Ex-Gruppe</small>
+                                <strong class="fs-5">{{ result.detected.explosion_group|default:"-" }}</strong>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Requirements -->
+                    <div class="alert alert-secondary">
+                        <h6 class="mb-2"><i class="bi bi-list-check me-1"></i>Anforderungen für {{ result.target_zone }}</h6>
+                        <p class="mb-0">
+                            Erforderliche Kategorie: <strong>{{ result.requirements.min_category }}</strong><br>
+                            Erlaubte Kategorien: <code>{{ result.requirements.allowed|join:", " }}</code>
+                        </p>
+                    </div>
+                    
+                    <!-- Issues -->
+                    {% if result.issues %}
+                    <div class="alert alert-danger">
+                        <h6 class="mb-2"><i class="bi bi-exclamation-triangle me-1"></i>Festgestellte Mängel</h6>
+                        <ul class="mb-0">
+                            {% for issue in result.issues %}
+                            <li>{{ issue }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Recommendations -->
+                    {% if result.recommendations %}
+                    <div class="alert alert-info">
+                        <h6 class="mb-2"><i class="bi bi-lightbulb me-1"></i>Empfehlungen</h6>
+                        <ul class="mb-0">
+                            {% for rec in result.recommendations %}
+                            <li>{{ rec }}</li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                    
+                    <!-- Reference -->
+                    <div class="text-muted small">
+                        <i class="bi bi-journal-text me-1"></i>
+                        Referenz: {{ result.reference }}
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            <div class="card shadow-sm h-100">
+                <div class="card-body d-flex flex-column align-items-center justify-content-center text-muted py-5">
+                    <i class="bi bi-shield-check fs-1 mb-3"></i>
+                    <h5>Prüfungsergebnis</h5>
+                    <p>Geben Sie die Ex-Kennzeichnung ein und klicken Sie auf "Prüfen"</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

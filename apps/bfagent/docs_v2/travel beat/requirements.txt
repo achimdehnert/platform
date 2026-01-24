@@ -1,0 +1,18 @@
+# Travel Story - Location Database & Story Generator
+# ==================================================
+
+# PostgreSQL
+psycopg2-binary>=2.9.0
+
+# Anthropic API (für Story-Generierung)
+anthropic>=0.18.0
+
+# Optional: Async PostgreSQL
+# asyncpg>=0.29.0
+
+# Optional: Web Framework
+# fastapi>=0.109.0
+# uvicorn>=0.27.0
+
+# Optional: E-Book Export
+# ebooklib>=0.18

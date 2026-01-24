@@ -1,0 +1,99 @@
+<!-- Phase Execution Result (HTMX Response) -->
+{% if results.status == 'success' or results.status == 'partial' %}
+<div class="alert alert-{% if results.status == 'success' %}success{% else %}warning{% endif %}">
+    <h5 class="alert-heading">
+        <i class="bi bi-{% if results.status == 'success' %}check-circle-fill{% else %}exclamation-triangle-fill{% endif %}"></i>
+        Phase Execution {% if results.status == 'success' %}Completed{% else %}Partially Completed{% endif %}
+    </h5>
+    <hr>
+    <dl class="row mb-0">
+        <dt class="col-sm-3">Phase:</dt>
+        <dd class="col-sm-9">{{ results.phase }}</dd>
+        
+        <dt class="col-sm-3">Actions Executed:</dt>
+        <dd class="col-sm-9">{{ results.actions_executed }}</dd>
+        
+        <dt class="col-sm-3">Succeeded:</dt>
+        <dd class="col-sm-9">
+            <span class="badge bg-success">{{ results.actions_succeeded }}</span>
+        </dd>
+        
+        {% if results.actions_failed > 0 %}
+        <dt class="col-sm-3">Failed:</dt>
+        <dd class="col-sm-9">
+            <span class="badge bg-danger">{{ results.actions_failed }}</span>
+        </dd>
+        {% endif %}
+        
+        {% if results.actions_skipped > 0 %}
+        <dt class="col-sm-3">Skipped:</dt>
+        <dd class="col-sm-9">
+            <span class="badge bg-secondary">{{ results.actions_skipped }}</span>
+        </dd>
+        {% endif %}
+        
+        <dt class="col-sm-3">Started:</dt>
+        <dd class="col-sm-9">{{ results.started_at }}</dd>
+        
+        <dt class="col-sm-3">Finished:</dt>
+        <dd class="col-sm-9">{{ results.finished_at }}</dd>
+    </dl>
+    
+    {% if results.action_results %}
+    <hr>
+    <h6>Action Results:</h6>
+    <div class="accordion" id="actionResultsAccordion">
+        {% for action_result in results.action_results %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                <button class="accordion-button {% if not forloop.first %}collapsed{% endif %}" type="button" 
+                        data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}">
+                    <span class="badge bg-{% if action_result.status == 'success' %}success{% else %}danger{% endif %} me-2">
+                        {{ action_result.status|upper }}
+                    </span>
+                    {{ action_result.action_name }}
+                    {% if action_result.duration_seconds %}
+                    <small class="text-muted ms-2">({{ action_result.duration_seconds|floatformat:2 }}s)</small>
+                    {% endif %}
+                </button>
+            </h2>
+            <div id="collapse{{ forloop.counter }}" 
+                 class="accordion-collapse collapse {% if forloop.first %}show{% endif %}" 
+                 data-bs-parent="#actionResultsAccordion">
+                <div class="accordion-body">
+                    {% if action_result.status == 'success' %}
+                        <pre class="bg-light p-2 rounded"><code>{{ action_result.result|safe }}</code></pre>
+                        {% if action_result.execution_log_id %}
+                        <a href="{% url 'genagent:execution-log-detail' action_result.execution_log_id %}" target="_blank" class="btn btn-sm btn-outline-primary mt-2">
+                            View Execution Log
+                        </a>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-danger mb-0">
+                            <strong>Error:</strong> {{ action_result.error }}
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+</div>
+{% else %}
+<div class="alert alert-danger">
+    <h5 class="alert-heading">
+        <i class="bi bi-exclamation-triangle-fill"></i> Phase Execution Failed
+    </h5>
+    <hr>
+    <dl class="row mb-0">
+        <dt class="col-sm-3">Phase:</dt>
+        <dd class="col-sm-9">{{ results.phase|default:phase.name }}</dd>
+        
+        <dt class="col-sm-3">Error:</dt>
+        <dd class="col-sm-9">
+            <pre class="mb-0">{{ results.error }}</pre>
+        </dd>
+    </dl>
+</div>
+{% endif %}

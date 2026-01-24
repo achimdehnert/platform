@@ -1,0 +1,279 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Naming Conventions - MCP{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'control_center/mcp/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mcp-dashboard">
+    
+    {# ===== HEADER ===== #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:mcp-dashboard' %}">MCP Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item active">Naming Conventions</li>
+                </ol>
+            </nav>
+            <h1 class="mb-0">📋 Naming Conventions</h1>
+            <small class="text-muted">{{ total }} conventions defined for consistent code structure</small>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin:bfagent_mcp_tablenamingconvention_add' %}" 
+               class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Add Convention
+            </a>
+        </div>
+    </div>
+    
+    {# ===== INFO ===== #}
+    <div class="alert alert-info mb-4">
+        <div class="row align-items-center">
+            <div class="col-md-8">
+                <h5 class="alert-heading mb-1">
+                    <i class="bi bi-info-circle"></i> About Naming Conventions
+                </h5>
+                <p class="mb-0">
+                    Naming conventions ensure consistent file and class naming across the codebase.
+                    <strong>Strict</strong> conventions are enforced during refactoring, 
+                    while <strong>Flexible</strong> conventions are suggestions only.
+                </p>
+            </div>
+            <div class="col-md-4 text-md-end mt-3 mt-md-0">
+                <span class="badge bg-danger me-1">{{ strict_conventions|length }} Strict</span>
+                <span class="badge bg-secondary">{{ flexible_conventions|length }} Flexible</span>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        
+        {# ===== STRICT CONVENTIONS ===== #}
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-shield-lock"></i> Strict Conventions
+                        <span class="badge bg-light text-dark float-end">{{ strict_conventions|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if strict_conventions %}
+                    <div class="accordion accordion-flush" id="strictConventions">
+                        {% for conv in strict_conventions %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" 
+                                        type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#strict-{{ conv.id }}">
+                                    <span class="badge bg-primary me-2">{{ conv.app_label }}</span>
+                                    {{ conv.component_type }}
+                                </button>
+                            </h2>
+                            <div id="strict-{{ conv.id }}" 
+                                 class="accordion-collapse collapse" 
+                                 data-bs-parent="#strictConventions">
+                                <div class="accordion-body">
+                                    <table class="table table-sm table-borderless mb-2">
+                                        <tr>
+                                            <th class="text-muted" style="width: 35%;">File Pattern</th>
+                                            <td><code>{{ conv.file_pattern }}</code></td>
+                                        </tr>
+                                        <tr>
+                                            <th class="text-muted">Class Pattern</th>
+                                            <td><code>{{ conv.class_pattern }}</code></td>
+                                        </tr>
+                                        {% if conv.prefix %}
+                                        <tr>
+                                            <th class="text-muted">Prefix</th>
+                                            <td><code>{{ conv.prefix }}</code></td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if conv.suffix %}
+                                        <tr>
+                                            <th class="text-muted">Suffix</th>
+                                            <td><code>{{ conv.suffix }}</code></td>
+                                        </tr>
+                                        {% endif %}
+                                    </table>
+                                    {% if conv.description %}
+                                    <p class="text-muted small mb-2">{{ conv.description }}</p>
+                                    {% endif %}
+                                    {% if conv.example %}
+                                    <div class="bg-light p-2 rounded">
+                                        <small class="text-muted">Example:</small>
+                                        <code class="d-block">{{ conv.example }}</code>
+                                    </div>
+                                    {% endif %}
+                                    <div class="mt-2">
+                                        <a href="{% url 'admin:bfagent_mcp_tablenamingconvention_change' conv.id %}" 
+                                           class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-check-circle display-4 d-block mb-2"></i>
+                        No strict conventions defined.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        {# ===== FLEXIBLE CONVENTIONS ===== #}
+        <div class="col-lg-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-secondary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightbulb"></i> Flexible Conventions
+                        <span class="badge bg-light text-dark float-end">{{ flexible_conventions|length }}</span>
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if flexible_conventions %}
+                    <div class="accordion accordion-flush" id="flexibleConventions">
+                        {% for conv in flexible_conventions %}
+                        <div class="accordion-item">
+                            <h2 class="accordion-header">
+                                <button class="accordion-button collapsed" 
+                                        type="button" 
+                                        data-bs-toggle="collapse" 
+                                        data-bs-target="#flex-{{ conv.id }}">
+                                    <span class="badge bg-info me-2">{{ conv.app_label }}</span>
+                                    {{ conv.component_type }}
+                                </button>
+                            </h2>
+                            <div id="flex-{{ conv.id }}" 
+                                 class="accordion-collapse collapse" 
+                                 data-bs-parent="#flexibleConventions">
+                                <div class="accordion-body">
+                                    <table class="table table-sm table-borderless mb-2">
+                                        <tr>
+                                            <th class="text-muted" style="width: 35%;">File Pattern</th>
+                                            <td><code>{{ conv.file_pattern }}</code></td>
+                                        </tr>
+                                        <tr>
+                                            <th class="text-muted">Class Pattern</th>
+                                            <td><code>{{ conv.class_pattern }}</code></td>
+                                        </tr>
+                                        {% if conv.prefix %}
+                                        <tr>
+                                            <th class="text-muted">Prefix</th>
+                                            <td><code>{{ conv.prefix }}</code></td>
+                                        </tr>
+                                        {% endif %}
+                                        {% if conv.suffix %}
+                                        <tr>
+                                            <th class="text-muted">Suffix</th>
+                                            <td><code>{{ conv.suffix }}</code></td>
+                                        </tr>
+                                        {% endif %}
+                                    </table>
+                                    {% if conv.description %}
+                                    <p class="text-muted small mb-2">{{ conv.description }}</p>
+                                    {% endif %}
+                                    {% if conv.example %}
+                                    <div class="bg-light p-2 rounded">
+                                        <small class="text-muted">Example:</small>
+                                        <code class="d-block">{{ conv.example }}</code>
+                                    </div>
+                                    {% endif %}
+                                    <div class="mt-2">
+                                        <a href="{% url 'admin:bfagent_mcp_tablenamingconvention_change' conv.id %}" 
+                                           class="btn btn-sm btn-outline-secondary">
+                                            <i class="bi bi-pencil"></i> Edit
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="p-4 text-center text-muted">
+                        <i class="bi bi-collection display-4 d-block mb-2"></i>
+                        No flexible conventions defined.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+    </div>
+    
+    {# ===== CONVENTION PATTERNS REFERENCE ===== #}
+    <div class="card mt-2">
+        <div class="card-header">
+            <h5 class="mb-0">📖 Pattern Variables Reference</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Available Variables</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><code>{app}</code></td>
+                            <td>App name (e.g., "books")</td>
+                        </tr>
+                        <tr>
+                            <td><code>{App}</code></td>
+                            <td>App name capitalized (e.g., "Books")</td>
+                        </tr>
+                        <tr>
+                            <td><code>{model}</code></td>
+                            <td>Model name lowercase (e.g., "chapter")</td>
+                        </tr>
+                        <tr>
+                            <td><code>{Model}</code></td>
+                            <td>Model name PascalCase (e.g., "Chapter")</td>
+                        </tr>
+                        <tr>
+                            <td><code>{domain}</code></td>
+                            <td>Domain ID (e.g., "books")</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Example Patterns</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><code>{model}_handler.py</code></td>
+                            <td>→ chapter_handler.py</td>
+                        </tr>
+                        <tr>
+                            <td><code>{Model}Handler</code></td>
+                            <td>→ ChapterHandler</td>
+                        </tr>
+                        <tr>
+                            <td><code>{app}/{model}_service.py</code></td>
+                            <td>→ books/chapter_service.py</td>
+                        </tr>
+                        <tr>
+                            <td><code>{Domain}{Model}Repository</code></td>
+                            <td>→ BooksChapterRepository</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'control_center/mcp/dashboard.js' %}"></script>
+{% endblock %}

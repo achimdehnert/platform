@@ -1,0 +1,8 @@
+{{CLIPBOARD:@CASCADE: Zeig mir erst den Plan für:
+
+[BESCHREIBUNG DER AUFGABE]
+
+Schritte:
+- [ ] Step 1
+- [ ] Step 2
+- [ ] Step 3}}

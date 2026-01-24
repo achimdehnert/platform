@@ -1,0 +1,11 @@
+{{CLIPBOARD:Erstelle View:
+
+View Name: [NAME]
+URL: /[path]/
+Template: [app]/[name].html
+
+Features:
+- [ ] Feature 1
+- [ ] Feature 2
+
+Tools: BFAgent MCP}}

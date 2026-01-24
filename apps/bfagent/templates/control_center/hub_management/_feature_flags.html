@@ -1,0 +1,58 @@
+<table class="table table-hover mb-0">
+    <thead class="table-light">
+        <tr>
+            <th>Flag</th>
+            <th>Status</th>
+            <th>Aktion</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for flag, value in feature_flags.items %}
+        <tr>
+            <td>
+                <code>{{ flag }}</code>
+                <br>
+                <small class="text-muted">
+                    {% if flag == 'USE_EVENT_BUS' %}
+                    Event-Driven Architecture aktivieren
+                    {% elif flag == 'USE_HUB_REGISTRY' %}
+                    Dynamische Hub-Verwaltung aktivieren
+                    {% elif flag == 'USE_ASYNC_EVENTS' %}
+                    Asynchrone Event-Verarbeitung (Celery)
+                    {% else %}
+                    {{ flag }}
+                    {% endif %}
+                </small>
+            </td>
+            <td>
+                {% if value %}
+                <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiviert</span>
+                {% else %}
+                <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Deaktiviert</span>
+                {% endif %}
+            </td>
+            <td>
+                <form method="post" 
+                      hx-post="{% url 'control_center:feature_flags' %}"
+                      hx-target="#feature-flags-container"
+                      hx-swap="innerHTML"
+                      style="display: inline;">
+                    {% csrf_token %}
+                    <input type="hidden" name="flag" value="{{ flag }}">
+                    {% if value %}
+                    <input type="hidden" name="action" value="disable">
+                    <button type="submit" class="btn btn-sm btn-outline-danger">
+                        <i class="bi bi-toggle-off"></i> Deaktivieren
+                    </button>
+                    {% else %}
+                    <input type="hidden" name="action" value="enable">
+                    <button type="submit" class="btn btn-sm btn-outline-success">
+                        <i class="bi bi-toggle-on"></i> Aktivieren
+                    </button>
+                    {% endif %}
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

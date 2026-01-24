@@ -1,0 +1,272 @@
+# BF Agent - Agent Action Templates v1.0.0
+# ==========================================
+# Defines all agent types and their available actions
+# Used by agent_action_manager.py to automatically create/update actions
+
+# Naming Convention:
+# - agent_type: lowercase_with_underscores (e.g., 'prompt_agent')
+# - action name: lowercase_with_underscores (e.g., 'generate_prompt')
+# - display_name: Title Case With Spaces (e.g., 'Generate Prompt')
+
+agent_action_templates:
+  # ============================================================================
+  # PLANNING & PROJECT MANAGEMENT AGENTS
+  # ============================================================================
+  
+  planning_agent:
+    description: "Handles project planning, structure, and organization"
+    actions:
+      - name: "analyze_project_requirements"
+        display_name: "Analyze Project Requirements"
+        description: "Review and analyze project requirements and constraints"
+        order: 1
+      
+      - name: "generate_project_outline"
+        display_name: "Generate Project Outline"
+        description: "Create high-level project structure and outline"
+        order: 2
+      
+      - name: "create_chapter_breakdown"
+        display_name: "Create Chapter Breakdown"
+        description: "Generate detailed chapter-by-chapter breakdown"
+        order: 3
+      
+      - name: "estimate_word_counts"
+        display_name: "Estimate Word Counts"
+        description: "Calculate target word counts for chapters and sections"
+        order: 4
+      
+      - name: "identify_key_milestones"
+        display_name: "Identify Key Milestones"
+        description: "Define important story milestones and turning points"
+        order: 5
+      
+      - name: "validate_structure"
+        display_name: "Validate Structure"
+        description: "Check if project structure aligns with genre conventions"
+        order: 6
+
+  project_manager_agent:
+    description: "Manages workflow, progress tracking, and coordination"
+    actions:
+      - name: "track_progress"
+        display_name: "Track Progress"
+        description: "Monitor and report on project completion status"
+        order: 1
+      
+      - name: "identify_bottlenecks"
+        display_name: "Identify Bottlenecks"
+        description: "Find areas where progress is blocked"
+        order: 2
+      
+      - name: "suggest_next_steps"
+        display_name: "Suggest Next Steps"
+        description: "Recommend which tasks to work on next"
+        order: 3
+      
+      - name: "estimate_completion_time"
+        display_name: "Estimate Completion Time"
+        description: "Calculate estimated time to project completion"
+        order: 4
+
+  # ============================================================================
+  # CONTENT CREATION AGENTS
+  # ============================================================================
+
+  prompt_agent:
+    description: "Creates and optimizes prompts for other agents"
+    actions:
+      - name: "generate_prompt_template"
+        display_name: "Generate Prompt Template"
+        description: "Create a new prompt template based on requirements"
+        order: 1
+      
+      - name: "optimize_existing_template"
+        display_name: "Optimize Existing Template"
+        description: "Improve an existing prompt template"
+        order: 2
+      
+      - name: "analyze_template_quality"
+        display_name: "Analyze Template Quality"
+        description: "Evaluate the quality of a prompt template"
+        order: 3
+      
+      - name: "generate_template_variations"
+        display_name: "Generate Template Variations"
+        description: "Create multiple variations of a template"
+        order: 4
+
+  character_agent:
+    description: "Develops characters, backstories, and character arcs"
+    actions:
+      - name: "generate_character_cast"
+        display_name: "Generate Character Cast"
+        description: "Create a complete cast of characters"
+        order: 1
+      
+      - name: "derive_characters_from_outline"
+        display_name: "Derive Characters from Outline"
+        description: "Extract and develop characters from story outline"
+        order: 2
+      
+      - name: "develop_character_backstory"
+        display_name: "Develop Character Backstory"
+        description: "Create detailed backstory for a character"
+        order: 3
+      
+      - name: "analyze_character_arc"
+        display_name: "Analyze Character Arc"
+        description: "Review and improve character development arc"
+        order: 4
+
+  chapter_agent:
+    description: "Writes and refines chapter content"
+    actions:
+      - name: "generate_outline"
+        display_name: "Generate Chapter Outline"
+        description: "Create a detailed outline for a chapter"
+        order: 1
+      
+      - name: "write_draft"
+        display_name: "Write Chapter Draft"
+        description: "Generate a complete chapter draft"
+        order: 2
+      
+      - name: "expand_scene"
+        display_name: "Expand Scene"
+        description: "Expand a scene with more details"
+        order: 3
+      
+      - name: "summarize"
+        display_name: "Summarize Chapter"
+        description: "Create a concise summary of the chapter"
+        order: 4
+      
+      - name: "improve_prose"
+        display_name: "Improve Prose"
+        description: "Enhance writing quality and style"
+        order: 5
+      
+      - name: "add_dialogue"
+        display_name: "Add Dialogue"
+        description: "Generate dialogue for scenes"
+        order: 6
+
+  writer_agent:
+    description: "General writing and content enhancement"
+    aliases: ["writer", "WRITER_AGENT"]  # Handle naming variations
+    actions:
+      - name: "expand_scene"
+        display_name: "Expand Scene"
+        description: "Add depth and detail to scenes"
+        order: 1
+      
+      - name: "enhance_description"
+        display_name: "Enhance Description"
+        description: "Improve descriptive passages"
+        order: 2
+      
+      - name: "improve_flow"
+        display_name: "Improve Flow"
+        description: "Enhance narrative flow"
+        order: 3
+
+  # ============================================================================
+  # ANALYSIS & QUALITY AGENTS
+  # ============================================================================
+
+  story_agent:
+    description: "Analyzes and improves story structure"
+    actions:
+      - name: "generate_plot_points"
+        display_name: "Generate Plot Points"
+        description: "Create key plot points for the story"
+        order: 1
+      
+      - name: "analyze_pacing"
+        display_name: "Analyze Pacing"
+        description: "Review story pacing and rhythm"
+        order: 2
+      
+      - name: "check_arc_consistency"
+        display_name: "Check Arc Consistency"
+        description: "Verify story arc consistency"
+        order: 3
+      
+      - name: "suggest_arc_improvements"
+        display_name: "Suggest Arc Improvements"
+        description: "Recommend improvements to story arcs"
+        order: 4
+      
+      - name: "identify_plot_holes"
+        display_name: "Identify Plot Holes"
+        description: "Find and suggest fixes for plot holes"
+        order: 5
+
+  consistency_agent:
+    description: "Ensures consistency across the entire project"
+    actions:
+      - name: "check_consistency"
+        display_name: "Check Consistency"
+        description: "Perform comprehensive consistency check"
+        order: 1
+      
+      - name: "check_character_voice"
+        display_name: "Check Character Voice"
+        description: "Verify character voice consistency"
+        order: 2
+      
+      - name: "check_timeline"
+        display_name: "Check Timeline"
+        description: "Verify timeline consistency"
+        order: 3
+      
+      - name: "check_setting"
+        display_name: "Check Setting"
+        description: "Verify setting consistency"
+        order: 4
+      
+      - name: "calculate_score"
+        display_name: "Calculate Consistency Score"
+        description: "Generate overall consistency score"
+        order: 5
+
+  # ============================================================================
+  # SPECIALIZED AGENTS
+  # ============================================================================
+
+  world_conflict_agent:
+    description: "Develops world-building and conflict elements"
+    actions:
+      - name: "expand_world_details"
+        display_name: "Expand World Details"
+        description: "Add depth to world-building elements"
+        order: 1
+      
+      - name: "develop_conflict"
+        display_name: "Develop Conflict"
+        description: "Create and enhance story conflicts"
+        order: 2
+      
+      - name: "analyze_world_consistency"
+        display_name: "Analyze World Consistency"
+        description: "Check world-building for consistency"
+        order: 3
+
+  outline_agent:
+    description: "Creates and manages story outlines"
+    actions:
+      - name: "generate_full_outline"
+        display_name: "Generate Full Outline"
+        description: "Create comprehensive story outline"
+        order: 1
+      
+      - name: "refine_outline"
+        display_name: "Refine Outline"
+        description: "Improve existing outline structure"
+        order: 2
+      
+      - name: "expand_outline_section"
+        display_name: "Expand Outline Section"
+        description: "Add detail to specific outline sections"
+        order: 3

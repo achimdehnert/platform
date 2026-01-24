@@ -1,0 +1,527 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Test Studio - Kanban Board{% endblock %}
+
+{% block extra_css %}
+<style>
+    .kanban-board {
+        display: flex;
+        gap: 15px;
+        overflow-x: auto;
+        padding-bottom: 20px;
+        min-height: 70vh;
+    }
+    
+    .kanban-column {
+        min-width: 300px;
+        max-width: 300px;
+        background: #f8f9fa;
+        border-radius: 8px;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .kanban-column-header {
+        padding: 12px 15px;
+        font-weight: 600;
+        border-radius: 8px 8px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .kanban-column-header.draft { background: #6c757d; color: white; }
+    .kanban-column-header.ready { background: #0d6efd; color: white; }
+    .kanban-column-header.in_progress { background: #ffc107; color: #000; }
+    .kanban-column-header.done { background: #198754; color: white; }
+    
+    .kanban-items {
+        padding: 10px;
+        flex: 1;
+        overflow-y: auto;
+        min-height: 200px;
+    }
+    
+    .kanban-card {
+        background: white;
+        border-radius: 6px;
+        padding: 12px;
+        margin-bottom: 10px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        cursor: grab;
+        border-left: 4px solid #dee2e6;
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    
+    .kanban-card:hover {
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    
+    .kanban-card.dragging {
+        opacity: 0.5;
+        transform: rotate(3deg);
+    }
+    
+    .kanban-card.priority-critical { border-left-color: #dc3545; }
+    .kanban-card.priority-high { border-left-color: #fd7e14; }
+    .kanban-card.priority-medium { border-left-color: #ffc107; }
+    .kanban-card.priority-low { border-left-color: #198754; }
+    
+    .kanban-card-title {
+        font-weight: 500;
+        font-size: 0.9rem;
+        margin-bottom: 8px;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .kanban-card-meta {
+        display: flex;
+        gap: 5px;
+        flex-wrap: wrap;
+        margin-bottom: 8px;
+    }
+    
+    .kanban-card-actions {
+        display: flex;
+        gap: 5px;
+        border-top: 1px solid #eee;
+        padding-top: 8px;
+        margin-top: 8px;
+    }
+    
+    .kanban-card-actions .btn {
+        flex: 1;
+        font-size: 0.75rem;
+        padding: 4px 8px;
+    }
+    
+    .priority-indicator {
+        display: inline-block;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        margin-right: 5px;
+    }
+    
+    .priority-indicator.critical { background: #dc3545; }
+    .priority-indicator.high { background: #fd7e14; }
+    .priority-indicator.medium { background: #ffc107; }
+    .priority-indicator.low { background: #198754; }
+    
+    .view-toggle {
+        display: flex;
+        gap: 5px;
+    }
+    
+    .cascade-indicator {
+        background: linear-gradient(135deg, #00b894, #00cec9);
+        color: white;
+        font-size: 0.7rem;
+        padding: 2px 6px;
+        border-radius: 3px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb Navigation -->
+    {% include 'bfagent/includes/breadcrumb.html' with breadcrumb_section="Test Studio" breadcrumb_section_url=request.path breadcrumb_current="Kanban" %}
+    
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-kanban"></i> Test Studio - Kanban</h1>
+            <p class="text-muted mb-0">Drag & Drop zum Status-Wechsel</p>
+        </div>
+        <div class="d-flex gap-2">
+            <!-- View Toggle -->
+            <div class="view-toggle btn-group">
+                <a href="{% url 'control_center:test-studio-dashboard' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-grid-3x3-gap"></i> Grid
+                </a>
+                <a href="{% url 'control_center:test-studio-kanban' %}" class="btn btn-primary">
+                    <i class="bi bi-kanban"></i> Kanban
+                </a>
+            </div>
+            <a href="{% url 'control_center:test-studio-requirement-create' %}" class="btn btn-success">
+                <i class="bi bi-plus-circle"></i> Neu
+            </a>
+        </div>
+    </div>
+
+    <!-- Filter Row -->
+    <div class="mb-3">
+        <span class="text-muted me-2"><i class="bi bi-funnel"></i> Filter:</span>
+        <a href="?" class="btn btn-sm {% if not current_category %}btn-primary{% else %}btn-outline-secondary{% endif %}">Alle</a>
+        <a href="?category=bug_fix" class="btn btn-sm {% if current_category == 'bug_fix' %}btn-danger{% else %}btn-outline-danger{% endif %}">
+            <i class="bi bi-bug"></i> Bugs
+        </a>
+        <a href="?category=feature" class="btn btn-sm {% if current_category == 'feature' %}btn-warning{% else %}btn-outline-warning{% endif %}">
+            <i class="bi bi-star"></i> Features
+        </a>
+        <a href="?category=enhancement" class="btn btn-sm {% if current_category == 'enhancement' %}btn-info{% else %}btn-outline-info{% endif %}">
+            <i class="bi bi-lightning"></i> Enhancements
+        </a>
+    </div>
+
+    <!-- Kanban Board -->
+    <div class="kanban-board">
+        <!-- Draft Column -->
+        <div class="kanban-column">
+            <div class="kanban-column-header draft">
+                <span><i class="bi bi-file-earmark"></i> Draft</span>
+                <span class="badge bg-light text-dark">{{ columns.draft|length }}</span>
+            </div>
+            <div class="kanban-items" data-status="draft">
+                {% for item in columns.draft %}
+                <div class="kanban-card priority-{{ item.priority }}" draggable="true" data-id="{{ item.id }}">
+                    <div class="kanban-card-title">
+                        <span class="priority-indicator {{ item.priority }}"></span>
+                        {{ item.name|truncatewords:8 }}
+                    </div>
+                    <div class="kanban-card-meta">
+                        {% if item.category == 'bug_fix' %}
+                        <span class="badge bg-danger"><i class="bi bi-bug"></i></span>
+                        {% elif item.category == 'feature' %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-star"></i></span>
+                        {% else %}
+                        <span class="badge bg-info"><i class="bi bi-lightning"></i></span>
+                        {% endif %}
+                        <span class="badge bg-secondary">{{ item.domain }}</span>
+                        {% if item.cascade_status %}
+                        <span class="cascade-indicator"><i class="bi bi-robot"></i> {{ item.cascade_status }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="kanban-card-actions">
+                        <a href="{% url 'control_center:test-studio-requirement-detail' item.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <button class="btn btn-primary btn-sm" onclick="quickAction('{{ item.id }}', 'ready')">
+                            <i class="bi bi-arrow-right"></i> Ready
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="cascadeWorkOn('{{ item.id }}')">
+                            <i class="bi bi-robot"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox"></i><br>Leer
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Ready Column -->
+        <div class="kanban-column">
+            <div class="kanban-column-header ready">
+                <span><i class="bi bi-check2-circle"></i> Ready</span>
+                <span class="badge bg-light text-dark">{{ columns.ready|length }}</span>
+            </div>
+            <div class="kanban-items" data-status="ready">
+                {% for item in columns.ready %}
+                <div class="kanban-card priority-{{ item.priority }}" draggable="true" data-id="{{ item.id }}">
+                    <div class="kanban-card-title">
+                        <span class="priority-indicator {{ item.priority }}"></span>
+                        {{ item.name|truncatewords:8 }}
+                    </div>
+                    <div class="kanban-card-meta">
+                        {% if item.category == 'bug_fix' %}
+                        <span class="badge bg-danger"><i class="bi bi-bug"></i></span>
+                        {% elif item.category == 'feature' %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-star"></i></span>
+                        {% else %}
+                        <span class="badge bg-info"><i class="bi bi-lightning"></i></span>
+                        {% endif %}
+                        <span class="badge bg-secondary">{{ item.domain }}</span>
+                    </div>
+                    <div class="kanban-card-actions">
+                        <a href="{% url 'control_center:test-studio-requirement-detail' item.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <button class="btn btn-warning btn-sm" onclick="quickAction('{{ item.id }}', 'in_progress')">
+                            <i class="bi bi-play"></i> Start
+                        </button>
+                        <button class="btn btn-success btn-sm" onclick="cascadeWorkOn('{{ item.id }}')">
+                            <i class="bi bi-robot"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox"></i><br>Leer
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- In Progress Column -->
+        <div class="kanban-column">
+            <div class="kanban-column-header in_progress">
+                <span><i class="bi bi-hourglass-split"></i> In Progress</span>
+                <span class="badge bg-light text-dark">{{ columns.in_progress|length }}</span>
+            </div>
+            <div class="kanban-items" data-status="in_progress">
+                {% for item in columns.in_progress %}
+                <div class="kanban-card priority-{{ item.priority }}" draggable="true" data-id="{{ item.id }}">
+                    <div class="kanban-card-title">
+                        <span class="priority-indicator {{ item.priority }}"></span>
+                        {{ item.name|truncatewords:8 }}
+                    </div>
+                    <div class="kanban-card-meta">
+                        {% if item.category == 'bug_fix' %}
+                        <span class="badge bg-danger"><i class="bi bi-bug"></i></span>
+                        {% elif item.category == 'feature' %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-star"></i></span>
+                        {% else %}
+                        <span class="badge bg-info"><i class="bi bi-lightning"></i></span>
+                        {% endif %}
+                        <span class="badge bg-secondary">{{ item.domain }}</span>
+                    </div>
+                    <div class="kanban-card-actions">
+                        <a href="{% url 'control_center:test-studio-requirement-detail' item.id %}" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                        <button class="btn btn-success btn-sm" onclick="quickAction('{{ item.id }}', 'done')">
+                            <i class="bi bi-check"></i> Done
+                        </button>
+                        <button class="btn btn-outline-success btn-sm" onclick="cascadeWorkOn('{{ item.id }}')">
+                            <i class="bi bi-robot"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox"></i><br>Leer
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Done Column -->
+        <div class="kanban-column">
+            <div class="kanban-column-header done">
+                <span><i class="bi bi-check-circle"></i> Done</span>
+                <span class="badge bg-light text-dark">{{ columns.done|length }}</span>
+            </div>
+            <div class="kanban-items" data-status="done">
+                {% for item in columns.done %}
+                <div class="kanban-card priority-{{ item.priority }}" draggable="true" data-id="{{ item.id }}">
+                    <div class="kanban-card-title">
+                        <span class="priority-indicator {{ item.priority }}"></span>
+                        {{ item.name|truncatewords:8 }}
+                    </div>
+                    <div class="kanban-card-meta">
+                        {% if item.category == 'bug_fix' %}
+                        <span class="badge bg-danger"><i class="bi bi-bug"></i></span>
+                        {% elif item.category == 'feature' %}
+                        <span class="badge bg-warning text-dark"><i class="bi bi-star"></i></span>
+                        {% else %}
+                        <span class="badge bg-info"><i class="bi bi-lightning"></i></span>
+                        {% endif %}
+                        <span class="badge bg-secondary">{{ item.domain }}</span>
+                    </div>
+                    <div class="kanban-card-actions">
+                        <a href="{% url 'control_center:test-studio-requirement-detail' item.id %}" class="btn btn-outline-primary btn-sm flex-grow-1">
+                            <i class="bi bi-eye"></i> Details
+                        </a>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="bi bi-inbox"></i><br>Leer
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast for notifications -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+    <div id="statusToast" class="toast" role="alert">
+        <div class="toast-header bg-success text-white">
+            <i class="bi bi-check-circle me-2"></i>
+            <strong class="me-auto">Status Update</strong>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="toast"></button>
+        </div>
+        <div class="toast-body" id="toastBody">
+            Status wurde geändert!
+        </div>
+    </div>
+</div>
+
+<script>
+// Drag & Drop
+let draggedCard = null;
+
+document.querySelectorAll('.kanban-card').forEach(card => {
+    card.addEventListener('dragstart', function(e) {
+        draggedCard = this;
+        this.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    });
+    
+    card.addEventListener('dragend', function() {
+        this.classList.remove('dragging');
+        draggedCard = null;
+    });
+});
+
+document.querySelectorAll('.kanban-items').forEach(column => {
+    column.addEventListener('dragover', function(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        this.style.backgroundColor = '#e9ecef';
+    });
+    
+    column.addEventListener('dragleave', function() {
+        this.style.backgroundColor = '';
+    });
+    
+    column.addEventListener('drop', function(e) {
+        e.preventDefault();
+        this.style.backgroundColor = '';
+        
+        if (draggedCard) {
+            const newStatus = this.dataset.status;
+            const itemId = draggedCard.dataset.id;
+            
+            // Move card visually
+            this.appendChild(draggedCard);
+            
+            // Update status via API
+            updateStatus(itemId, newStatus);
+        }
+    });
+});
+
+// Update status via API
+async function updateStatus(id, newStatus) {
+    try {
+        const response = await fetch(`/control-center/test-studio/api/status/${id}/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({ status: newStatus })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            showToast(`Status → ${newStatus}`);
+        } else {
+            showToast('Fehler: ' + data.error, 'danger');
+            location.reload();
+        }
+    } catch (err) {
+        showToast('Fehler: ' + err.message, 'danger');
+        location.reload();
+    }
+}
+
+// Quick Action buttons
+function quickAction(id, status) {
+    updateStatus(id, status).then(() => {
+        location.reload();
+    });
+}
+
+// Clipboard copy with fallback
+async function copyToClipboard(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+            await navigator.clipboard.writeText(text);
+            return true;
+        } catch (err) {
+            console.warn('Clipboard API failed:', err);
+        }
+    }
+    
+    // Fallback
+    const textarea = document.createElement('textarea');
+    textarea.value = text;
+    textarea.style.cssText = 'position:fixed;left:-9999px';
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        return ok;
+    } catch (e) {
+        document.body.removeChild(textarea);
+        return false;
+    }
+}
+
+// Cascade context copy
+async function cascadeWorkOn(id) {
+    const btn = event.target.closest('button');
+    const origHtml = btn.innerHTML;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch(`/control-center/test-studio/api/cascade-context/${id}/`);
+        const data = await response.json();
+        
+        let context = `## 🎯 Cascade Task: ${data.name}\n\n`;
+        context += `**Requirement ID:** \`${data.id}\`\n`;
+        context += `**Domain:** ${data.domain}\n`;
+        context += `**Category:** ${data.category}\n`;
+        context += `**Priority:** ${data.priority}\n`;
+        context += `**Status:** ${data.status}\n`;
+
+        if (data.category === 'bug_fix') {
+            if (data.url) context += `\n**Bug gefunden auf:** ${data.url}\n`;
+            if (data.actual_behavior) context += `\n### ❌ Aktuelles Verhalten:\n${data.actual_behavior}\n`;
+            if (data.expected_behavior) context += `\n### ✅ Erwartetes Verhalten:\n${data.expected_behavior}\n`;
+        }
+
+        if (data.description) context += `\n### Beschreibung:\n${data.description}\n`;
+        if (data.acceptance_criteria && data.acceptance_criteria !== 'Keine Akzeptanzkriterien definiert.') {
+            context += `\n### Akzeptanzkriterien:${data.acceptance_criteria}\n`;
+        }
+
+        context += `\n### Links:\n- **Test Studio Detail:** ${data.detail_url}\n`;
+        context += `\n---\n\n**Bitte arbeite an diesem ${data.category === 'bug_fix' ? 'Bug' : 'Feature/Requirement'}.**\n`;
+
+        const copied = await copyToClipboard(context);
+        
+        if (copied) {
+            await updateStatus(id, 'in_progress');
+            showToast(`✅ "${data.name}" kopiert & Status → In Progress`);
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            // Fallback: Show content in prompt
+            prompt('Kopieren fehlgeschlagen. Bitte manuell kopieren (Strg+A, Strg+C):', context);
+            btn.innerHTML = origHtml;
+            btn.disabled = false;
+        }
+    } catch (err) {
+        showToast('Fehler: ' + err.message, 'danger');
+        btn.innerHTML = origHtml;
+        btn.disabled = false;
+    }
+}
+
+// Show toast notification
+function showToast(message, type = 'success') {
+    const toast = document.getElementById('statusToast');
+    const toastBody = document.getElementById('toastBody');
+    const toastHeader = toast.querySelector('.toast-header');
+    
+    toastBody.textContent = message;
+    toastHeader.className = `toast-header bg-${type} text-white`;
+    
+    const bsToast = new bootstrap.Toast(toast, { delay: 3000 });
+    bsToast.show();
+}
+</script>
+{% endblock %}

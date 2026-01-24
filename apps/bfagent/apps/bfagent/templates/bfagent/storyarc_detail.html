@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}StoryArc Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-eye"></i> StoryArc Detail</h1>
+        <div>
+            <a href="{% url 'bfagent:storyarc-list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+            <a href="{% url 'bfagent:storyarc-update' object.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Name:</strong></div>
+                <div class="col-md-9">{{ object.name }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Arc Type:</strong></div>
+                <div class="col-md-9">{{ object.arc_type }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Start Chapter:</strong></div>
+                <div class="col-md-9">{{ object.start_chapter }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>End Chapter:</strong></div>
+                <div class="col-md-9">{{ object.end_chapter }}</div>
+            </div>
+            <div class="row mb-3">
+                <div class="col-md-3"><strong>Importance Level:</strong></div>
+                <div class="col-md-9">{{ object.importance_level }}</div>
+            </div>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'bfagent:storyarc-delete' object.pk %}" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,95 @@
+<!-- Single Enrichment Response Item -->
+<div class="card mb-3 enrichment-response-item" id="enrichment-{{ enrichment.id }}">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <div>
+            <strong>{{ enrichment.field_name }}</strong>
+            <span class="badge bg-secondary">{{ enrichment.target_model }}</span>
+        </div>
+        <div>
+            <span class="badge 
+                {% if enrichment.status == 'applied' %}bg-success
+                {% elif enrichment.status == 'edited' %}bg-warning
+                {% elif enrichment.status == 'rejected' %}bg-danger
+                {% else %}bg-info{% endif %}">
+                {{ enrichment.get_status_display }}
+            </span>
+            {% if enrichment.confidence %}
+            <span class="badge bg-info">{{ enrichment.confidence|floatformat:0 }}% confidence</span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card-body">
+        <!-- Display Value -->
+        <div class="mb-3">
+            <label class="form-label text-muted small">Suggested/Edited Value:</label>
+            <div class="p-3 bg-light rounded" style="max-height: 200px; overflow-y: auto;">
+                <pre class="mb-0" style="white-space: pre-wrap;">{% if enrichment.edited_value %}{{ enrichment.edited_value }}{% else %}{{ enrichment.suggested_value }}{% endif %}</pre>
+            </div>
+        </div>
+        
+        {% if enrichment.rationale %}
+        <div class="mb-3">
+            <small class="text-muted">
+                <i class="bi bi-info-circle"></i> <strong>Rationale:</strong> {{ enrichment.rationale }}
+            </small>
+        </div>
+        {% endif %}
+        
+        <!-- Actions -->
+        <div class="d-flex gap-2 mt-3">
+            {% if enrichment.status == 'pending' or enrichment.status == 'edited' %}
+                <a href="{% url 'bfagent:enrichment-response-edit' enrichment.project.id enrichment.id %}" 
+                   class="btn btn-sm btn-outline-primary">
+                    <i class="bi bi-pencil"></i> Edit
+                </a>
+                
+                <button hx-post="{% url 'bfagent:enrichment-response-apply' enrichment.project.id enrichment.id %}"
+                        hx-target="#enrichment-{{ enrichment.id }}"
+                        hx-swap="outerHTML"
+                        class="btn btn-sm btn-success"
+                        onclick="return confirm('Apply to {{ enrichment.field_name }}?')">
+                    <i class="bi bi-check-circle"></i> Apply
+                </button>
+                
+                <button hx-post="{% url 'bfagent:enrichment-response-reject' enrichment.project.id enrichment.id %}"
+                        hx-target="#enrichment-{{ enrichment.id }}"
+                        hx-swap="outerHTML"
+                        class="btn btn-sm btn-outline-danger"
+                        onclick="return confirm('Reject this suggestion?')">
+                    <i class="bi bi-x-circle"></i> Reject
+                </button>
+            {% endif %}
+            
+            {% if enrichment.status == 'applied' %}
+                <span class="text-success">
+                    <i class="bi bi-check-circle-fill"></i> Applied
+                    {% if enrichment.applied_at %}
+                        on {{ enrichment.applied_at|date:"Y-m-d H:i" }}
+                    {% endif %}
+                </span>
+            {% endif %}
+            
+            {% if enrichment.status == 'rejected' %}
+                <span class="text-danger">
+                    <i class="bi bi-x-circle-fill"></i> Rejected
+                </span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="card-footer text-muted small">
+        <div class="row">
+            <div class="col-md-6">
+                <i class="bi bi-robot"></i> {{ enrichment.agent.name }}
+                <span class="mx-2">|</span>
+                <i class="bi bi-clock"></i> {{ enrichment.created_at|date:"Y-m-d H:i" }}
+            </div>
+            <div class="col-md-6 text-end">
+                {% if enrichment.updated_at != enrichment.created_at %}
+                    Updated: {{ enrichment.updated_at|date:"Y-m-d H:i" }}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>

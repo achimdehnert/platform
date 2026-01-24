@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+
+{% block title %}Style DNA erstellen - {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}">Style Lab</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:session-detail' session_id=session.id %}">{{ session.name }}</a></li>
+                    <li class="breadcrumb-item active">Style DNA erstellen</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-success-subtle border-0">
+                    <h4 class="mb-0">
+                        <i class="bi bi-fingerprint me-2"></i>Style DNA finalisieren
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-warning mb-4">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <strong>Achtung:</strong> Nach dem Erstellen wird die Session abgeschlossen 
+                        und kann nicht mehr bearbeitet werden.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name der Style DNA *</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   value="{{ session.name }} DNA"
+                                   placeholder="z.B. 'Mein Thriller-Stil v1.0'">
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="description" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"
+                                      placeholder="Optionale Beschreibung..."></textarea>
+                        </div>
+
+                        <div class="row g-4 mb-4">
+                            <div class="col-md-6">
+                                <div class="card bg-success-subtle h-100">
+                                    <div class="card-body">
+                                        <h6 class="text-success"><i class="bi bi-check-circle me-1"></i>Akzeptierte Patterns (DO)</h6>
+                                        {% if accepted_patterns %}
+                                        <ul class="list-unstyled mb-0 small">
+                                            {% for pattern in accepted_patterns %}
+                                            <li><i class="bi bi-check me-1"></i>{{ pattern }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% else %}
+                                        <p class="text-muted mb-0 small">Keine Patterns</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card bg-danger-subtle h-100">
+                                    <div class="card-body">
+                                        <h6 class="text-danger"><i class="bi bi-x-circle me-1"></i>Abgelehnte Patterns (DON'T)</h6>
+                                        {% if rejected_patterns %}
+                                        <ul class="list-unstyled mb-0 small">
+                                            {% for pattern in rejected_patterns %}
+                                            <li><i class="bi bi-x me-1"></i>{{ pattern }}</li>
+                                            {% endfor %}
+                                        </ul>
+                                        {% else %}
+                                        <p class="text-muted mb-0 small">Keine Patterns</p>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_primary" name="is_primary">
+                                <label class="form-check-label" for="is_primary">
+                                    Als primären Stil festlegen
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'writing_hub:session-detail' session_id=session.id %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>Zurück
+                            </a>
+                            <button type="submit" class="btn btn-success">
+                                <i class="bi bi-lock me-1"></i>Style DNA v1.0 erstellen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

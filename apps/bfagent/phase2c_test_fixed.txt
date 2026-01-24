@@ -1,0 +1,151 @@
+Core services registered successfully
+Input handlers registered: 5
+Processing handlers registered: 3
+Output handlers registered: 3
+Registered tool: htmx_scanner v3.0.0
+Registered tool: template_validator v1.0.0
+Registered tool: system_validator v2.0.0
+Registered tool: code_formatter v1.0.0
+Registered tool: git_sync v3.0.0
+Registered tool: model_checker v3.0.0
+Registered tool: migration_fixer v1.0.0
+Registered tool: phase_agent_manager v1.0.0
+Registered tool: screen_documentation v1.0.0
+Registered tool: visual_explorer v1.0.0
+Registered tool: api_checker v4.0.0
+Registered tool: graphql_generator v3.0.0
+Registered tool: graphql_analyzer v1.0.0
+Registered tool: graphql_monitor v1.0.0
+Registered tool: theme_switcher v3.0.0
+Registered tool: csrf_setup v1.0.0
+Registered tool: enhanced_analyzer v1.0.0
+Registered tool: integrated_analyzer v1.0.0
+Registered tool: hybrid_analyzer v1.0.0
+Registered tool: tool_docs_enhanced v1.0.0
+Registered tool: optimized_analyzer v2.0.0
+Registered tool: unicode_safe_analyzer v1.0.0
+Registered tool: enhanced_unicode_analyzer v2.0.0
+Registered tool: code_repair_tool v1.0.0
+Registered tool: enhanced_cli_analyzer v1.0.0
+Registered tool: safe_auto_fixer v1.0.0
+Tool registry initialized with optimized BF Agent tools
+Registered handler 'apps.genagent.handlers.demo_handlers.WelcomeHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataValidationHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataTransformHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.LogHandler' v1.0.0 for domains: ['demo']
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" WHERE "handlers"."is_active"; args=(); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" LEFT OUTER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handlers"."is_active" ORDER BY "handler_categories"."code" ASC, "handlers"."code" ASC LIMIT 3; args=(); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handler_categories"."code" = 'input' AND "handlers"."is_active"); args=('input',); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handler_categories"."code" = 'processing' AND "handlers"."is_active"); args=('processing',); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handler_categories"."code" = 'output' AND "handlers"."is_active"); args=('output',); alias=default
+(0.000) SELECT "handlers"."code" AS "code", "handlers"."name" AS "name", "handlers"."description" AS "description", "handlers"."category" AS "category", "handlers"."version" AS "version", "handlers"."avg_execution_time_ms" AS "avg_execution_time_ms", "handlers"."success_rate" AS "success_rate" FROM "handlers" WHERE "handlers"."is_active" ORDER BY 4 ASC, 1 ASC; args=(); alias=default
+(0.000) SELECT "handlers"."code" AS "code", "handlers"."name" AS "name", "handlers"."description" AS "description", "handlers"."category" AS "category", "handlers"."version" AS "version", "handlers"."avg_execution_time_ms" AS "avg_execution_time_ms", "handlers"."success_rate" AS "success_rate" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handlers"."is_active" AND "handler_categories"."code" = 'input') ORDER BY 4 ASC, 1 ASC; args=('input',); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" WHERE "handlers"."code" = 'chapter_data' LIMIT 21; args=('chapter_data',); alias=default
+(0.000) SELECT COUNT(*) FROM (SELECT "handlers"."id" AS "col1" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handler_categories"."code" = 'input' ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 2) subquery; args=('input',); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handler_categories"."code" = 'input' ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 2; args=('input',); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handler_categories"."code" = 'processing' ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 1; args=('processing',); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 2 LIMIT 21; args=(2,); alias=default
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" LEFT OUTER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE "handlers"."is_active" ORDER BY "handler_categories"."code" ASC, "handlers"."code" ASC; args=(); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 2; args=(2,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 3; args=(3,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 1; args=(1,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 4; args=(4,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 5; args=(5,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 10; args=(10,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 11; args=(11,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 9; args=(9,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 8; args=(8,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 7; args=(7,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "action_handlers" WHERE "action_handlers"."handler_id" = 6; args=(6,); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handlers"."is_active" AND "handler_categories"."code" = 'input'); args=('input',); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handlers"."is_active" AND "handler_categories"."code" = 'processing'); args=('processing',); alias=default
+(0.000) SELECT COUNT(*) AS "__count" FROM "handlers" INNER JOIN "handler_categories" ON ("handlers"."category_id" = "handler_categories"."id") WHERE ("handlers"."is_active" AND "handler_categories"."code" = 'output'); args=('output',); alias=default
+Traceback (most recent call last):
+  File "C:\Users\achim\github\bfagent\test_phase2c_changes.py", line 141, in test_workflow_api
+    data = response.json() if hasattr(response, 'json') else eval(response.content)
+                                                             ^^^^^^^^^^^^^^^^^^^^^^
+  File "<string>", line 1, in <module>
+NameError: name 'false' is not defined
+(0.000) SELECT "handlers"."id", "handlers"."code", "handlers"."name", "handlers"."description", "handlers"."category_id", "handlers"."category", "handlers"."module_path", "handlers"."class_name", "handlers"."config_schema", "handlers"."input_schema", "handlers"."output_schema", "handlers"."version", "handlers"."is_deprecated", "handlers"."deprecation_reason", "handlers"."replacement_handler_id", "handlers"."avg_execution_time_ms", "handlers"."success_rate", "handlers"."total_executions", "handlers"."is_active", "handlers"."requires_llm", "handlers"."is_experimental", "handlers"."created_at", "handlers"."updated_at", "handlers"."created_by_id", "handlers"."documentation_url", "handlers"."example_config" FROM "handlers" ORDER BY "handlers"."category" ASC, "handlers"."code" ASC LIMIT 1; args=(); alias=default
+(0.000) SELECT "handler_categories"."id", "handler_categories"."code", "handler_categories"."name", "handler_categories"."description", "handler_categories"."icon", "handler_categories"."color", "handler_categories"."display_order", "handler_categories"."config", "handler_categories"."is_active", "handler_categories"."is_system", "handler_categories"."created_at", "handler_categories"."updated_at" FROM "handler_categories" WHERE "handler_categories"."id" = 1 LIMIT 21; args=(1,); alias=default
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+
+======================================================================
+  ­ƒº¬ PHASE 2C CODE CHANGES TEST SUITE
+======================================================================
+
+­ƒº¬ Test 1: Handler Query with category_fk
+======================================================================
+  Ô£à Query successful: 11 handlers found
+     - chapter_data (input)
+     - character_data (input)
+     - project_fields (input)
+
+­ƒº¬ Test 2: Category Filters
+======================================================================
+  Ô£à input: 5 handlers
+  Ô£à processing: 3 handlers
+  Ô£à output: 3 handlers
+
+­ƒº¬ Test 3: Handler Loader
+======================================================================
+  Ô£à list_handlers(): 11 handlers
+  Ô£à list_handlers(category='input'): 5 handlers
+  Ô£à get_handler_info('chapter_data'): Chapter Data
+
+­ƒº¬ Test 4: Handler Category Comparison
+======================================================================
+  Ô£à Category comparison: chapter_data vs character_data
+     Same category: True (should be True)
+  Ô£à Different category: chapter_data vs framework_generator
+     Different: True (should be True)
+
+­ƒº¬ Test 5: Workflow API
+======================================================================
+  ÔØî API test failed: name 'false' is not defined
+
+­ƒº¬ Test 6: Backwards Compatibility
+======================================================================
+  Ô£à handler.handler_id: chapter_data (property)
+  Ô£à handler.code: chapter_data (field)
+  Ô£à handler.category: input (helper property)
+  Ô£à handler.category_fk.code: input (FK)
+  Ô£à handler.display_name: Chapter Data (property)
+  Ô£à handler.name: Chapter Data (field)
+  Ô£à All properties match their underlying fields!
+
+======================================================================
+  ­ƒôè TEST SUMMARY
+======================================================================
+  Ô£à PASSED: Handler Queries
+  Ô£à PASSED: Category Filters
+  Ô£à PASSED: Handler Loader
+  Ô£à PASSED: Category Comparison
+  ÔØî FAILED: Workflow API
+  Ô£à PASSED: Backwards Compatibility
+
+======================================================================
+  Results: 5/6 tests passed
+======================================================================
+
+  ÔÜá´©Å  1 test(s) failed. Please review.
+

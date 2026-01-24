@@ -1,0 +1,279 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{{ domain.display_name }} - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    
+    {# ===================================================================== #}
+    {# HEADER #}
+    {# ===================================================================== #}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex align-items-center justify-content-between">
+                <div class="d-flex align-items-center">
+                    {# Domain Icon #}
+                    <div class="domain-icon-large me-3" 
+                         style="background: linear-gradient(135deg, {{ domain.color|default:'#0d6efd' }} 0%, {{ domain.color|default:'#0d6efd' }}dd 100%);">
+                        <i class="{{ domain.icon }} fs-1"></i>
+                    </div>
+                    
+                    {# Title & Status #}
+                    <div>
+                        <h1 class="display-5 mb-1">{{ domain.display_name }}</h1>
+                        <div>
+                            {% if domain.is_active and not domain.is_experimental %}
+                                <span class="badge bg-success">Active</span>
+                            {% elif domain.is_experimental %}
+                                <span class="badge bg-warning">🧪 Beta</span>
+                            {% else %}
+                                <span class="badge bg-secondary">Coming Soon</span>
+                            {% endif %}
+                            
+                            {% if domain.description %}
+                                <span class="text-muted ms-2">{{ domain.description }}</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                {# Back to Home #}
+                <div>
+                    <a href="/" class="btn btn-outline-secondary">
+                        <i class="bi bi-house"></i>
+                        All Domains
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    {# ===================================================================== #}
+    {# DOMAIN INACTIVE WARNING #}
+    {# ===================================================================== #}
+    {% if not domain.is_active %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle fs-4"></i>
+                    <h4>This domain is not yet active</h4>
+                    <p class="mb-0">
+                        Features and functionality are being prepared. 
+                        Check back soon or contact an administrator for more information.
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+    {# ===================================================================== #}
+    {# STATISTICS #}
+    {# ===================================================================== #}
+    {% if stats %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="mb-3">
+                    <i class="bi bi-graph-up"></i>
+                    Overview
+                </h3>
+            </div>
+        </div>
+        
+        <div class="row g-3 mb-4">
+            {% for key, value in stats.items %}
+                <div class="col-md-3">
+                    <div class="card stat-card h-100">
+                        <div class="card-body text-center">
+                            <div class="stat-value">{{ value }}</div>
+                            <div class="stat-label">{{ key|title }}</div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    {# ===================================================================== #}
+    {# DYNAMIC DASHBOARD WIDGETS FROM SECTIONS #}
+    {# ===================================================================== #}
+    {% if dashboard_widgets %}
+        {% for widget in dashboard_widgets %}
+            <div class="row mb-4">
+                <div class="col-12">
+                    <h3 class="mb-3">
+                        <i class="{{ widget.icon }}" style="color: {{ widget.color }};"></i>
+                        {{ widget.section.name }}
+                    </h3>
+                    {% if widget.section.description %}
+                        <p class="text-muted">{{ widget.section.description }}</p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            {# CARD GRID WIDGET (for <= 6 items) #}
+            {% if widget.widget_type == 'card_grid' %}
+                <div class="row g-3 mb-4">
+                    {% for item in widget.items %}
+                        <div class="col-md-4">
+                            <a href="{% if item.url_name %}{% url item.url_name %}{% elif item.external_url %}{{ item.external_url }}{% else %}#{% endif %}" 
+                               class="text-decoration-none"
+                               {% if item.opens_in_new_tab %}target="_blank"{% endif %}>
+                                <div class="card widget-card h-100 hover-lift">
+                                    <div class="card-body text-center">
+                                        <i class="{{ item.icon }} fs-2 mb-3" style="color: {{ widget.color }};"></i>
+                                        <h5 class="card-title">{{ item.name }}</h5>
+                                        {% if item.description %}
+                                            <p class="card-text text-muted small">{{ item.description|truncatewords:10 }}</p>
+                                        {% endif %}
+                                        {% if item.badge_text %}
+                                            <span class="badge bg-{{ item.badge_color }}">{{ item.badge_text }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+            
+            {# LIST WIDGET (for > 6 items) #}
+            {% elif widget.widget_type == 'list' %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="list-group list-group-flush">
+                                {% for item in widget.items %}
+                                    <a href="{% if item.url_name %}{% url item.url_name %}{% elif item.external_url %}{{ item.external_url }}{% else %}#{% endif %}" 
+                                       class="list-group-item list-group-item-action"
+                                       {% if item.opens_in_new_tab %}target="_blank"{% endif %}>
+                                        <div class="d-flex align-items-center">
+                                            <i class="{{ item.icon }} me-3" style="color: {{ widget.color }};"></i>
+                                            <div class="flex-grow-1">
+                                                <strong>{{ item.name }}</strong>
+                                                {% if item.description %}
+                                                    <br><small class="text-muted">{{ item.description }}</small>
+                                                {% endif %}
+                                            </div>
+                                            {% if item.badge_text %}
+                                                <span class="badge bg-{{ item.badge_color }}">{{ item.badge_text }}</span>
+                                            {% endif %}
+                                        </div>
+                                    </a>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            
+            {# LINKS WIDGET (default) #}
+            {% else %}
+                <div class="row g-2 mb-4">
+                    {% for item in widget.items %}
+                        <div class="col-auto">
+                            <a href="{% if item.url_name %}{% url item.url_name %}{% elif item.external_url %}{{ item.external_url }}{% else %}#{% endif %}" 
+                               class="btn btn-outline-primary"
+                               {% if item.opens_in_new_tab %}target="_blank"{% endif %}>
+                                <i class="{{ item.icon }}"></i>
+                                {{ item.name }}
+                                {% if item.badge_text %}
+                                    <span class="badge bg-{{ item.badge_color }} ms-1">{{ item.badge_text }}</span>
+                                {% endif %}
+                            </a>
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endfor %}
+    {% endif %}
+    
+    {# ===================================================================== #}
+    {# NO DATA AVAILABLE #}
+    {# ===================================================================== #}
+    {% if not dashboard_widgets and not stats %}
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle fs-4"></i>
+                    <h4>No data available yet</h4>
+                    <p class="mb-0">
+                        This domain is configured but doesn't have any sections or data yet.
+                        {% if domain.is_active %}
+                        Start by adding sections and items in the navigation management.
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+</div>
+
+{# ========================================================================= #}
+{# STYLES #}
+{# ========================================================================= #}
+<style>
+.domain-icon-large {
+    width: 80px;
+    height: 80px;
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    transition: transform 0.2s;
+    border: none;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.stat-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    opacity: 0.9;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.widget-card {
+    transition: all 0.3s ease;
+    cursor: pointer;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.widget-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+    border-color: var(--bs-primary);
+}
+
+.hover-lift {
+    transition: transform 0.2s;
+}
+
+.hover-lift:hover {
+    transform: translateY(-3px);
+}
+
+.list-group-item {
+    transition: background-color 0.2s;
+}
+
+.list-group-item:hover {
+    background-color: rgba(0, 0, 0, 0.02);
+}
+</style>
+{% endblock %}

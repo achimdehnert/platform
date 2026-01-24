@@ -1,0 +1,397 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Figuren-Register - {{ project.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .figur-card {
+        transition: all 0.3s ease;
+        border-left: 4px solid #6c757d;
+    }
+    .figur-card.protagonist { border-left-color: #ffc107; }
+    .figur-card.antagonist { border-left-color: #dc3545; }
+    .figur-card.hauptfigur { border-left-color: #0d6efd; }
+    .figur-card.nebenfigur { border-left-color: #6c757d; }
+    .figur-card:hover {
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    }
+    .attribute-badge {
+        font-size: 0.75rem;
+        margin: 2px;
+    }
+    .severity-badge {
+        font-size: 0.7rem;
+        padding: 0.2rem 0.4rem;
+    }
+    .severity-A { background-color: #dc3545; color: white; }
+    .severity-B { background-color: #fd7e14; color: white; }
+    .severity-C { background-color: #ffc107; color: #212529; }
+    .severity-D { background-color: #28a745; color: white; }
+    .severity-E { background-color: #6c757d; color: white; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-2">
+                            <li class="breadcrumb-item"><a href="{% url 'writing_hub:project_hub' project.id %}">{{ project.title|truncatechars:20 }}</a></li>
+                            <li class="breadcrumb-item"><a href="{% url 'writing_hub:lektorat_dashboard' project.id %}">Lektorat</a></li>
+                            <li class="breadcrumb-item active">Figuren</li>
+                        </ol>
+                    </nav>
+                    <h1 class="mb-0">
+                        <span class="me-2">👤</span>Figuren-Register
+                    </h1>
+                    <p class="text-muted mb-0">Modul 1: Figurenkonsistenz prüfen</p>
+                </div>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#addFigurModal">
+                        <i class="bi bi-plus-lg me-1"></i>Figur hinzufügen
+                    </button>
+                    <button class="btn btn-primary" id="analyzeBtn"
+                            hx-post="{% url 'writing_hub:lektorat_figuren_analyze' project.id %}"
+                            hx-swap="none"
+                            hx-indicator="#analyzeSpinner">
+                        <i class="bi bi-robot me-1"></i>AI-Analyse starten
+                        <span id="analyzeSpinner" class="htmx-indicator spinner-border spinner-border-sm ms-1"></span>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Figuren Liste -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-people me-2"></i>Registrierte Figuren ({{ figuren.count }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if figuren %}
+                    <div class="row">
+                        {% for figur in figuren %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card figur-card {{ figur.rolle }} h-100">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h5 class="card-title mb-1">{{ figur.name }}</h5>
+                                            <span class="badge bg-{{ figur.rolle|default:'secondary' }} mb-2">
+                                                {{ figur.get_rolle_display }}
+                                            </span>
+                                        </div>
+                                        <div class="dropdown">
+                                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                                <i class="bi bi-three-dots-vertical"></i>
+                                            </button>
+                                            <ul class="dropdown-menu dropdown-menu-end">
+                                                <li><a class="dropdown-item" href="#" onclick="editFigur({{ figur.id }})">
+                                                    <i class="bi bi-pencil me-2"></i>Bearbeiten
+                                                </a></li>
+                                                <li><hr class="dropdown-divider"></li>
+                                                <li><a class="dropdown-item text-danger" href="#" 
+                                                       hx-post="{% url 'writing_hub:lektorat_figur_delete' project.id figur.id %}"
+                                                       hx-confirm="Figur '{{ figur.name }}' wirklich löschen?">
+                                                    <i class="bi bi-trash me-2"></i>Löschen
+                                                </a></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                    
+                                    {% if figur.name_varianten %}
+                                    <div class="mb-2">
+                                        <small class="text-muted">Varianten:</small>
+                                        {% for variante in figur.name_varianten %}
+                                        <span class="badge bg-light text-dark attribute-badge">{{ variante }}</span>
+                                        {% endfor %}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="small">
+                                        {% if figur.alter %}<span class="me-2">🎂 {{ figur.alter }}</span>{% endif %}
+                                        {% if figur.geschlecht %}<span class="me-2">{{ figur.geschlecht }}</span>{% endif %}
+                                        {% if figur.beruf %}<span class="me-2">💼 {{ figur.beruf }}</span>{% endif %}
+                                    </div>
+                                    
+                                    {% if figur.erste_erwaehnung_kapitel %}
+                                    <div class="mt-2">
+                                        <small class="text-muted">
+                                            Erstmals: Kap. {{ figur.erste_erwaehnung_kapitel }}
+                                            {% if figur.letzte_erwaehnung_kapitel %}
+                                            → {{ figur.letzte_erwaehnung_kapitel }}
+                                            {% endif %}
+                                        </small>
+                                    </div>
+                                    {% endif %}
+                                    
+                                    {% with inkonsistenzen=figur.get_inkonsistenzen %}
+                                    {% if inkonsistenzen %}
+                                    <div class="alert alert-warning py-1 px-2 mt-2 mb-0">
+                                        <small><i class="bi bi-exclamation-triangle me-1"></i>{{ inkonsistenzen|length }} Inkonsistenz(en)</small>
+                                    </div>
+                                    {% endif %}
+                                    {% endwith %}
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <div class="display-4 mb-3">👤</div>
+                        <h5>Keine Figuren registriert</h5>
+                        <p class="text-muted">Starte die AI-Analyse oder füge Figuren manuell hinzu.</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Fehler Sidebar -->
+        <div class="col-lg-4">
+            <div class="card">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Gefundene Fehler ({{ fehler.count }})</h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if fehler %}
+                    <div class="list-group list-group-flush">
+                        {% for f in fehler %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <span class="severity-badge severity-{{ f.severity }} me-2">{{ f.severity }}</span>
+                                <small class="text-muted">{{ f.fehler_typ|default:"Inkonsistenz" }}</small>
+                            </div>
+                            <p class="mb-1 small mt-1">{{ f.beschreibung|truncatechars:100 }}</p>
+                            {% if f.chapter %}
+                            <small class="text-muted">Kap. {{ f.chapter.chapter_number }}</small>
+                            {% endif %}
+                            <div class="mt-1">
+                                {% if f.status == 'offen' %}
+                                <button class="btn btn-sm btn-outline-success"
+                                        hx-post="{% url 'writing_hub:lektorat_fehler_update' project.id f.id %}"
+                                        hx-vals='{"status": "korrigiert"}'
+                                        hx-swap="outerHTML">
+                                    <i class="bi bi-check"></i> Erledigt
+                                </button>
+                                {% else %}
+                                <span class="badge bg-success">✓ Korrigiert</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-4">
+                        <i class="bi bi-check-circle text-success display-4"></i>
+                        <p class="text-muted mt-2 mb-0">Keine Fehler gefunden</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Figur Modal -->
+<div class="modal fade" id="addFigurModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-plus me-2"></i>Neue Figur hinzufügen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="addFigurForm">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Name *</label>
+                            <input type="text" class="form-control" name="name" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Rolle</label>
+                            <select class="form-select" name="rolle">
+                                <option value="nebenfigur">Nebenfigur</option>
+                                <option value="hauptfigur">Hauptfigur</option>
+                                <option value="protagonist">Protagonist</option>
+                                <option value="antagonist">Antagonist</option>
+                                <option value="erwaehnt">Nur erwähnt</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Alter</label>
+                            <input type="text" class="form-control" name="alter" placeholder="z.B. 35">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Geschlecht</label>
+                            <input type="text" class="form-control" name="geschlecht" placeholder="z.B. männlich">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Beruf</label>
+                            <input type="text" class="form-control" name="beruf">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Haarfarbe</label>
+                            <input type="text" class="form-control" name="haarfarbe">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Augenfarbe</label>
+                            <input type="text" class="form-control" name="augenfarbe">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Größe</label>
+                            <input type="text" class="form-control" name="groesse">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Besondere Merkmale</label>
+                        <textarea class="form-control" name="besondere_merkmale" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Charakterzüge</label>
+                        <textarea class="form-control" name="charakterzuege" rows="2"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="saveFigur()">
+                    <i class="bi bi-save me-1"></i>Speichern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+<script>
+const projectId = {{ project.id }};
+
+async function saveFigur() {
+    const form = document.getElementById('addFigurForm');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/lektorat/figuren/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            location.reload();
+        } else {
+            alert('Fehler: ' + result.error);
+        }
+    } catch (error) {
+        alert('Fehler: ' + error.message);
+    }
+}
+
+async function editFigur(figurId) {
+    // Daten der Figur laden und Modal öffnen
+    const figuren = {
+        {% for f in figuren %}
+        {{ f.id }}: {
+            id: {{ f.id }},
+            name: "{{ f.name|escapejs }}",
+            rolle: "{{ f.rolle }}",
+            alter: "{{ f.alter|escapejs }}",
+            geschlecht: "{{ f.geschlecht|escapejs }}",
+            beruf: "{{ f.beruf|escapejs }}",
+            haarfarbe: "{{ f.haarfarbe|escapejs }}",
+            augenfarbe: "{{ f.augenfarbe|escapejs }}",
+            groesse: "{{ f.groesse|escapejs }}",
+            besondere_merkmale: "{{ f.besondere_merkmale|escapejs }}",
+            charakterzuege: "{{ f.charakterzuege|escapejs }}"
+        },
+        {% endfor %}
+    };
+    
+    const figur = figuren[figurId];
+    if (!figur) {
+        alert('Figur nicht gefunden');
+        return;
+    }
+    
+    // Formular mit Daten füllen
+    const form = document.getElementById('addFigurForm');
+    form.querySelector('[name="name"]').value = figur.name;
+    form.querySelector('[name="rolle"]').value = figur.rolle;
+    form.querySelector('[name="alter"]').value = figur.alter;
+    form.querySelector('[name="geschlecht"]').value = figur.geschlecht;
+    form.querySelector('[name="beruf"]').value = figur.beruf;
+    form.querySelector('[name="haarfarbe"]').value = figur.haarfarbe;
+    form.querySelector('[name="augenfarbe"]').value = figur.augenfarbe;
+    form.querySelector('[name="groesse"]').value = figur.groesse;
+    form.querySelector('[name="besondere_merkmale"]').value = figur.besondere_merkmale;
+    form.querySelector('[name="charakterzuege"]').value = figur.charakterzuege;
+    
+    // Hidden field für ID
+    let idField = form.querySelector('[name="id"]');
+    if (!idField) {
+        idField = document.createElement('input');
+        idField.type = 'hidden';
+        idField.name = 'id';
+        form.appendChild(idField);
+    }
+    idField.value = figurId;
+    
+    // Modal-Titel ändern
+    document.querySelector('#addFigurModal .modal-title').innerHTML = '<i class="bi bi-pencil me-2"></i>Figur bearbeiten';
+    
+    // Modal öffnen
+    const modal = new bootstrap.Modal(document.getElementById('addFigurModal'));
+    modal.show();
+}
+
+function resetFigurModal() {
+    const form = document.getElementById('addFigurForm');
+    form.reset();
+    const idField = form.querySelector('[name="id"]');
+    if (idField) idField.value = '';
+    document.querySelector('#addFigurModal .modal-title').innerHTML = '<i class="bi bi-person-plus me-2"></i>Neue Figur hinzufügen';
+}
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// HTMX after-request handler
+document.body.addEventListener('htmx:afterRequest', function(evt) {
+    if (evt.detail.successful) {
+        location.reload();
+    }
+});
+</script>
+{% endblock %}

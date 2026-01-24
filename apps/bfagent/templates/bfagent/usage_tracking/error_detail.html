@@ -1,0 +1,222 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:usage_dashboard' %}">Usage Tracking</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:error_list' %}">Errors</a></li>
+            <li class="breadcrumb-item active">#{{ error.pk }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <span class="badge bg-{{ error.error_type }} me-2">{{ error.get_error_type_display }}</span>
+                        <span class="badge bg-{% if error.severity == 'critical' %}danger{% elif error.severity == 'error' %}warning{% else %}info{% endif %}">
+                            {{ error.get_severity_display }}
+                        </span>
+                    </div>
+                    <div>
+                        {% if error.resolved %}
+                        <span class="badge bg-success"><i class="bi bi-check"></i> Resolved</span>
+                        {% elif error.auto_fixable %}
+                        <span class="badge bg-warning"><i class="bi bi-wrench"></i> Auto-Fixable</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Open</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h5>Error Message</h5>
+                    <pre class="bg-light p-3 rounded mb-4"><code>{{ error.error_message }}</code></pre>
+
+                    {% if error.file_path %}
+                    <div class="row mb-3">
+                        <div class="col-md-8">
+                            <strong>Datei:</strong>
+                            <code>{{ error.file_path }}</code>
+                        </div>
+                        {% if error.line_number %}
+                        <div class="col-md-4">
+                            <strong>Zeile:</strong> {{ error.line_number }}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    {% if error.function_name %}
+                    <p><strong>Funktion:</strong> <code>{{ error.function_name }}</code></p>
+                    {% endif %}
+
+                    {% if error.code_snippet %}
+                    <h5 class="mt-4">Code Snippet</h5>
+                    <pre class="bg-dark text-light p-3 rounded"><code>{{ error.code_snippet }}</code></pre>
+                    {% endif %}
+
+                    {% if error.stack_trace %}
+                    <h5 class="mt-4">Stack Trace</h5>
+                    <details>
+                        <summary class="btn btn-sm btn-outline-secondary mb-2">Stack Trace anzeigen</summary>
+                        <pre class="bg-dark text-danger p-3 rounded small"><code>{{ error.stack_trace }}</code></pre>
+                    </details>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Fix Suggestions -->
+            {% if analysis.suggestions %}
+            <div class="card mb-4">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-lightbulb me-2"></i>Fix Vorschläge
+                </div>
+                <div class="card-body">
+                    {% for suggestion in analysis.suggestions %}
+                    <div class="{% if not forloop.last %}border-bottom pb-3 mb-3{% endif %}">
+                        <h6>
+                            <span class="badge bg-primary me-2">{{ suggestion.pattern }}</span>
+                            {{ suggestion.description }}
+                        </h6>
+                        <pre class="bg-light p-2 rounded mb-0"><code>{{ suggestion.fix }}</code></pre>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Resolution Form -->
+            {% if not error.resolved %}
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-check-circle me-2"></i>Als Resolved markieren
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'bfagent:error_resolve' error.pk %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label class="form-label">Resolution (optional)</label>
+                            <textarea name="resolution" class="form-control" rows="2" 
+                                      placeholder="Wie wurde der Fehler behoben?"></textarea>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-check"></i> Als Resolved markieren
+                        </button>
+                    </form>
+                </div>
+            </div>
+            {% else %}
+            <div class="card">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-check-circle me-2"></i>Resolved
+                </div>
+                <div class="card-body">
+                    {% if error.resolution %}
+                    <p class="mb-0">{{ error.resolution }}</p>
+                    {% else %}
+                    <p class="text-muted mb-0">Keine Resolution-Details angegeben.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Meta Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-2"></i>Details
+                </div>
+                <div class="card-body">
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <td class="text-muted">ID</td>
+                            <td class="fw-bold">#{{ error.pk }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Erstellt</td>
+                            <td>{{ error.timestamp|date:"d.m.Y H:i" }}</td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Source</td>
+                            <td>
+                                {% if error.source == 'cascade' %}🤖
+                                {% elif error.source == 'user' %}👤
+                                {% elif error.source == 'mcp' %}🔧
+                                {% else %}⚙️{% endif %}
+                                {{ error.get_source_display }}
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted">Occurrences</td>
+                            <td>
+                                <span class="badge bg-secondary">{{ error.occurrence_count }}x</span>
+                            </td>
+                        </tr>
+                        {% if error.error_code %}
+                        <tr>
+                            <td class="text-muted">Error Code</td>
+                            <td><code>{{ error.error_code }}</code></td>
+                        </tr>
+                        {% endif %}
+                        {% if error.session_id %}
+                        <tr>
+                            <td class="text-muted">Session</td>
+                            <td><small class="text-truncate d-block" style="max-width: 150px;">{{ error.session_id }}</small></td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <!-- Matched Patterns -->
+            {% if analysis.matched_patterns %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-puzzle me-2"></i>Matched Patterns
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for pattern in analysis.matched_patterns %}
+                    <li class="list-group-item">
+                        <strong>{{ pattern.name }}</strong>
+                        <br><small class="text-muted">{{ pattern.description }}</small>
+                        <br><span class="badge bg-info">{{ pattern.fix_type }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <!-- Similar Errors -->
+            {% if similar_errors %}
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-files me-2"></i>Ähnliche Errors
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% for similar in similar_errors %}
+                    <li class="list-group-item">
+                        <a href="{% url 'bfagent:error_detail' similar.pk %}">
+                            #{{ similar.pk }}
+                        </a>
+                        <small class="text-muted">{{ similar.timestamp|timesince }} ago</small>
+                        {% if similar.resolved %}
+                        <span class="badge bg-success float-end">✓</span>
+                        {% endif %}
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

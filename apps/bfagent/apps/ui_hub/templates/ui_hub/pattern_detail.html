@@ -1,0 +1,72 @@
+{% extends 'ui_hub/base.html' %}
+
+{% block title %}{{ pattern.name }} - UI Hub{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1 class="mb-4">{{ pattern.name }}</h1>
+        <p class="lead">{{ pattern.description }}</p>
+        <span class="badge bg-primary">{{ pattern.get_pattern_type_display }}</span>
+    </div>
+</div>
+
+<div class="row mt-4">
+    {% if pattern.view_template %}
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-success text-white">
+                <h5 class="mb-0">Django View</h5>
+            </div>
+            <div class="card-body">
+                <pre><code>{{ pattern.view_template }}</code></pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if pattern.html_template %}
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-info text-white">
+                <h5 class="mb-0">HTML Template</h5>
+            </div>
+            <div class="card-body">
+                <pre><code>{{ pattern.html_template }}</code></pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if pattern.partial_template %}
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-warning">
+                <h5 class="mb-0">HTMX Partial</h5>
+            </div>
+            <div class="card-body">
+                <pre><code>{{ pattern.partial_template }}</code></pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if pattern.javascript %}
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-secondary text-white">
+                <h5 class="mb-0">JavaScript (Optional)</h5>
+            </div>
+            <div class="card-body">
+                <pre><code>{{ pattern.javascript }}</code></pre>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="mt-4">
+    <a href="{% url 'ui_hub:patterns_list' %}" class="btn btn-secondary">← Back to Patterns</a>
+    <a href="/admin/ui_hub/htmxpattern/{{ pattern.pk }}/change/" class="btn btn-primary">Edit in Admin</a>
+</div>
+{% endblock %}

@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+
+{% block title %}Synthese - {{ candidate.get_scene_type_display }}{% endblock %}
+
+{% block extra_head %}
+<script src="https://unpkg.com/htmx.org@1.9.10"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row">
+        <!-- Haupt-Content -->
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}">Style Lab</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:session-detail' session_id=session.id %}">{{ session.name }}</a></li>
+                    <li class="breadcrumb-item active">{{ candidate.get_scene_type_display }}</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <span class="badge bg-primary me-2">{{ candidate.get_scene_type_display }}</span>
+                            Satz für Satz bewerten
+                        </h5>
+                        <span class="text-muted small">Klicke auf ✅ ⚠️ ❌ für jeden Satz</span>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush" id="sentences-list">
+                        {% for sentence in sentences %}
+                        {% include "writing_hub/style_lab/partials/sentence_row.html" %}
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-3 d-flex gap-2">
+                <a href="{% url 'writing_hub:session-detail' session_id=session.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Zurück
+                </a>
+                <a href="{% url 'writing_hub:consolidation' session_id=session.id %}" class="btn btn-primary">
+                    <i class="bi bi-arrow-right me-1"></i>Zur Konsolidierung
+                </a>
+            </div>
+        </div>
+
+        <!-- Sidebar: Stats -->
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm sticky-top" style="top: 20px;">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">Feedback-Fortschritt</h6>
+                </div>
+                <div class="card-body" 
+                     id="feedback-stats"
+                     hx-get="{% url 'writing_hub:htmx-feedback-stats' candidate_id=candidate.id %}"
+                     hx-trigger="feedbackUpdated from:body"
+                     hx-swap="innerHTML">
+                    {% include "writing_hub/style_lab/partials/feedback_stats.html" %}
+                </div>
+            </div>
+
+            <!-- Pattern Tags -->
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0">Häufige Pattern-Tags</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-1">
+                        <span class="badge bg-light text-dark pattern-tag" data-tag="cool_observer">cool_observer</span>
+                        <span class="badge bg-light text-dark pattern-tag" data-tag="short_rhythm">short_rhythm</span>
+                        <span class="badge bg-light text-dark pattern-tag" data-tag="concrete_images">concrete_images</span>
+                        <span class="badge bg-light text-dark pattern-tag" data-tag="subtext_dialogue">subtext_dialogue</span>
+                        <span class="badge bg-light text-dark pattern-tag" data-tag="too_explanatory">too_explanatory</span>
+                        <span class="badge bg-light text-dark pattern-tag" data-tag="generic_dialogue">generic_dialogue</span>
+                        <span class="badge bg-light text-dark pattern-tag" data-tag="lyrical_drift">lyrical_drift</span>
+                    </div>
+                    <p class="small text-muted mt-2 mb-0">Klicke auf einen Tag, um ihn beim nächsten Feedback zu verwenden</p>
+                </div>
+            </div>
+
+            <!-- Tipps -->
+            <div class="card border-0 shadow-sm mt-3">
+                <div class="card-header bg-transparent border-0">
+                    <h6 class="mb-0"><i class="bi bi-lightbulb me-1"></i>Tipps</h6>
+                </div>
+                <div class="card-body small">
+                    <ul class="mb-0 ps-3">
+                        <li><strong>✅ Passt</strong> = Dieser Satz klingt nach dir</li>
+                        <li><strong>⚠️ Fast</strong> = Richtung stimmt, aber nicht perfekt</li>
+                        <li><strong>❌ Nein</strong> = Das würdest du nie so schreiben</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.sentence-row {
+    transition: background-color 0.2s;
+}
+.sentence-row:hover {
+    background-color: #f8f9fa;
+}
+.sentence-row.rated-accepted {
+    border-left: 3px solid #198754;
+}
+.sentence-row.rated-partial {
+    border-left: 3px solid #ffc107;
+}
+.sentence-row.rated-rejected {
+    border-left: 3px solid #dc3545;
+}
+.pattern-tag {
+    cursor: pointer;
+}
+.pattern-tag:hover {
+    background-color: #e9ecef !important;
+}
+</style>
+{% endblock %}

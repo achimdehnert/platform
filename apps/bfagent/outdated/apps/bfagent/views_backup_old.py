@@ -1,0 +1,176 @@
+from django.contrib import messages
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import HttpResponse
+from django.template.loader import render_to_string
+from django.urls import reverse_lazy
+from django.views.generic import CreateView, DeleteView, DetailView, ListView, UpdateView
+
+from bfagent.forms import WorldsForm
+from bfagent.models import Worlds
+
+
+class WorldsListView(LoginRequiredMixin, ListView):
+    """List view for Worlds"""
+
+    model = Worlds
+    template_name = "bfagent/worlds_list.html"
+    context_object_name = "worldss"
+    paginate_by = 20
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("project")
+
+        # Search functionality
+        search_query = self.request.GET.get("search")
+        if search_query:
+            # CUSTOM_CODE_START: search_fields
+            # Customize search fields here
+            queryset = queryset.filter(
+                Q(name__icontains=search_query)
+                # Add more search fields as needed
+            )
+            # CUSTOM_CODE_END:
+
+        # CUSTOM_CODE_START: queryset_filters
+        # Add custom filtering logic here
+        # CUSTOM_CODE_END:
+
+        # Ordering
+        ordering = self.request.GET.get("ordering", "-created_at")
+        queryset = queryset.order_by(ordering)
+
+        return queryset
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context["list_fields"] = ["id", "name", "description", "world_type", "setting_details"]
+        context["total_count"] = self.get_queryset().count()
+
+        # CUSTOM_CODE_START: extra_context
+        # Add custom context variables here
+        # CUSTOM_CODE_END:
+
+        return context
+
+
+class WorldsDetailView(LoginRequiredMixin, DetailView):
+    """Detail view for Worlds"""
+
+    model = Worlds
+    template_name = "bfagent/worlds_detail.html"
+    context_object_name = "worlds"
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("project")
+        return queryset
+
+
+class WorldsCreateView(LoginRequiredMixin, CreateView):
+    """Create view for Worlds"""
+
+    model = Worlds
+    form_class = WorldsForm
+    template_name = "bfagent/worlds_form.html"
+    success_url = reverse_lazy("bfagent:worlds_list")
+
+    def form_valid(self, form):
+        # CUSTOM_CODE_START: form_valid_create
+        # Add custom logic before saving
+        # Example: form.instance.created_by = self.request.user
+        # CUSTOM_CODE_END:
+
+        response = super().form_valid(form)
+        messages.success(self.request, f"Worlds created successfully!")
+
+        # HTMX handling
+        if self.request.headers.get("HX-Request"):
+            context = {
+                "worldss": Worlds.objects.all()[: self.paginate_by],
+                "messages": messages.get_messages(self.request),
+            }
+            html = render_to_string(
+                "bfagent/worlds_partial_list.html", context, request=self.request
+            )
+            return HttpResponse(html)
+        return response
+
+    def form_invalid(self, form):
+        # HTMX error handling
+        if self.request.headers.get("HX-Request"):
+            response = super().form_invalid(form)
+            response["HX-Retarget"] = "#modal-container"
+            response["HX-Reswap"] = "innerHTML"
+            return response
+        return super().form_invalid(form)
+
+
+class WorldsEditView(LoginRequiredMixin, UpdateView):
+    """Edit view for Worlds"""
+
+    model = Worlds
+    form_class = WorldsForm
+    template_name = "bfagent/worlds_form.html"
+    success_url = reverse_lazy("bfagent:worlds_list")
+
+    def get_queryset(self):
+        queryset = super().get_queryset().select_related("project")
+        return queryset
+
+    def form_valid(self, form):
+        # CUSTOM_CODE_START: form_valid_edit
+        # Add custom logic before saving
+        # Example: form.instance.modified_by = self.request.user
+        # CUSTOM_CODE_END:
+
+        response = super().form_valid(form)
+        messages.success(self.request, f"Worlds updated successfully!")
+
+        # HTMX handling
+        if self.request.headers.get("HX-Request"):
+            context = {
+                "worldss": Worlds.objects.all()[: self.paginate_by],
+                "messages": messages.get_messages(self.request),
+            }
+            html = render_to_string(
+                "bfagent/worlds_partial_list.html", context, request=self.request
+            )
+            return HttpResponse(html)
+        return response
+
+    def form_invalid(self, form):
+        # HTMX error handling
+        if self.request.headers.get("HX-Request"):
+            response = super().form_invalid(form)
+            response["HX-Retarget"] = "#modal-container"
+            response["HX-Reswap"] = "innerHTML"
+            return response
+        return super().form_invalid(form)
+
+
+class WorldsDeleteView(LoginRequiredMixin, DeleteView):
+    """Delete view for Worlds"""
+
+    model = Worlds
+    template_name = "bfagent/worlds_confirm_delete.html"
+    success_url = reverse_lazy("bfagent:worlds_list")
+
+    def delete(self, request, *args, **kwargs):
+        # CUSTOM_CODE_START: delete_logic
+        # Add custom deletion logic
+        # Example: Check if user has permission, log deletion, etc.
+        # CUSTOM_CODE_END:
+
+        obj = self.get_object()
+        messages.success(request, f'{model_name} "{obj}" deleted successfully!')
+
+        if request.headers.get("HX-Request"):
+            super().delete(request, *args, **kwargs)
+            return HttpResponse(status=204)
+        return super().delete(request, *args, **kwargs)
+
+
+# CUSTOM_CODE_START: additional_views
+# Add any additional custom views here
+# CUSTOM_CODE_END:

@@ -1,0 +1,548 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Style Builder - Style Lab{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}"><i class="bi bi-house me-1"></i>Style Lab</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-dna-list' %}">Style DNAs</a></li>
+            {% if editing_mode %}
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-dna-detail' dna_id=builder_data.editing_dna_id %}">{{ builder_data.editing_dna_name }}</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Verfeinern</li>
+            {% else %}
+            <li class="breadcrumb-item active" aria-current="page">Style Builder</li>
+            {% endif %}
+        </ol>
+    </nav>
+
+    <div class="row">
+        <!-- Left: Input & Controls -->
+        <div class="col-lg-5">
+            <!-- Header -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <div>
+                    <h2 class="mb-1">
+                        <i class="bi bi-palette2 text-primary me-2"></i>Style Builder
+                    </h2>
+                    {% if editing_mode %}
+                    <p class="text-muted mb-0">
+                        Verfeinere <strong class="text-primary">{{ builder_data.editing_dna_name }}</strong>
+                    </p>
+                    {% else %}
+                    <p class="text-muted mb-0">Erstelle deinen Schreibstil aus Beispieltexten</p>
+                    {% endif %}
+                </div>
+                <button class="btn btn-outline-secondary btn-sm" onclick="resetBuilder()">
+                    <i class="bi bi-arrow-counterclockwise me-1"></i>Zurücksetzen
+                </button>
+            </div>
+            
+            {% if editing_mode %}
+            <!-- Editing Mode Banner -->
+            <div class="alert alert-info mb-3">
+                <i class="bi bi-pencil-square me-2"></i>
+                <strong>Bearbeitungsmodus:</strong> Du verfeinerst "{{ builder_data.editing_dna_name }}". 
+                Füge neue Beispieltexte hinzu um die Stilregeln zu verbessern.
+            </div>
+            {% endif %}
+
+            <!-- Step 1: LLM Selection -->
+            <div class="card mb-3">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-cpu me-2"></i>LLM auswählen
+                </div>
+                <div class="card-body">
+                    <select class="form-select" id="llm_select">
+                        <option value="">-- Automatisch wählen --</option>
+                        {% for llm in available_llms %}
+                        <option value="{{ llm.id }}" {% if builder_data.preferred_llm_id == llm.id or builder_data.preferred_llm_id|stringformat:"s" == llm.id|stringformat:"s" %}selected{% endif %}>
+                            {{ llm.provider }} - {{ llm.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+
+            <!-- Step 2: Example Text Input -->
+            <div class="card mb-3">
+                <div class="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-file-text me-2"></i>Beispieltext hinzufügen</span>
+                    <span class="badge bg-light text-dark" id="exampleCount">{{ example_count }} Text(e)</span>
+                </div>
+                <div class="card-body">
+                    <textarea class="form-control mb-3" id="exampleText" rows="8" 
+                              placeholder="Füge hier einen Beispieltext ein, der deinen gewünschten Schreibstil zeigt...
+
+Der Text sollte mindestens 100 Zeichen haben. Je mehr Texte du hinzufügst, desto präziser werden die extrahierten Stilregeln."></textarea>
+                    <button class="btn btn-success w-100" onclick="extractRules()" id="extractBtn">
+                        <i class="bi bi-magic me-2"></i>Stilregeln extrahieren
+                    </button>
+                    <div class="form-text mt-2">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Bei mehreren Texten werden die Regeln verfeinert und geschärft.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Test Scene -->
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">
+                    <i class="bi bi-play-circle me-2"></i>Stil testen
+                </div>
+                <div class="card-body">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Szenen-Typ</label>
+                            <select class="form-select" id="sceneType">
+                                <option value="dialogue">Dialogszene</option>
+                                <option value="arrival">Ankunftsszene</option>
+                                <option value="action">Actionszene</option>
+                                <option value="reflection">Reflexion</option>
+                                <option value="tension">Spannungsszene</option>
+                            </select>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label small fw-bold">Thema (optional)</label>
+                            <input type="text" class="form-control" id="testContext" 
+                                   placeholder="z.B. Krimi, Liebesszene...">
+                        </div>
+                    </div>
+                    <button class="btn btn-info w-100" onclick="generateTest()" id="testBtn">
+                        <i class="bi bi-lightning me-2"></i>Testtext generieren
+                    </button>
+                </div>
+            </div>
+
+            <!-- Step 4: Save -->
+            <div class="card border-warning">
+                <div class="card-header bg-warning">
+                    <i class="bi bi-save me-2"></i>
+                    {% if editing_mode %}Style DNA aktualisieren{% else %}Style DNA speichern{% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold">Name der Style DNA *</label>
+                        <input type="text" class="form-control" id="styleName" 
+                               value="{{ builder_data.editing_dna_name|default:'' }}"
+                               placeholder="z.B. 'Mein Krimi-Stil', 'Hemingway-Stil'">
+                    </div>
+                    <div class="form-check mb-3">
+                        <input class="form-check-input" type="checkbox" id="isPrimary">
+                        <label class="form-check-label" for="isPrimary">
+                            <i class="bi bi-star-fill text-warning me-1"></i>Als primären Stil setzen
+                        </label>
+                    </div>
+                    {% if editing_mode %}
+                    <button class="btn btn-warning w-100" onclick="saveStyle()" id="saveBtn">
+                        <i class="bi bi-check-lg me-2"></i>Style DNA aktualisieren
+                    </button>
+                    <input type="hidden" id="editingDnaId" value="{{ builder_data.editing_dna_id }}">
+                    {% else %}
+                    <button class="btn btn-warning w-100" onclick="saveStyle()" id="saveBtn">
+                        <i class="bi bi-check-lg me-2"></i>Style DNA erstellen
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Right: Extracted Rules & Test Output -->
+        <div class="col-lg-7">
+            <!-- Loading Indicator -->
+            <div id="loadingIndicator" class="text-center py-5 d-none">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <p class="text-muted mt-3" id="loadingText">Analysiere Text...</p>
+            </div>
+
+            <!-- Extracted Rules -->
+            <div id="rulesSection" class="{% if not builder_data.do_list %}d-none{% endif %}">
+                <!-- Summary -->
+                <div class="alert alert-primary mb-3" id="styleSummary">
+                    <i class="bi bi-lightbulb me-2"></i>
+                    <strong>Stil-Zusammenfassung:</strong>
+                    <span id="summaryText">{{ builder_data.style_summary|default:"Noch keine Analyse durchgeführt" }}</span>
+                </div>
+
+                <!-- Changes Made (for refinement) -->
+                <div class="alert alert-info mb-3 d-none" id="changesAlert">
+                    <i class="bi bi-arrow-repeat me-2"></i>
+                    <strong>Änderungen:</strong>
+                    <ul class="mb-0 mt-2" id="changesList"></ul>
+                </div>
+
+                <div class="row g-3">
+                    <!-- DO List -->
+                    <div class="col-md-6">
+                        <div class="card border-success h-100">
+                            <div class="card-header bg-success text-white">
+                                <i class="bi bi-check-circle me-2"></i>DO-Liste
+                                <span class="badge bg-light text-success float-end" id="doCount">0</span>
+                            </div>
+                            <div class="card-body p-2">
+                                <textarea class="form-control border-0" id="doList" rows="8" 
+                                          placeholder="Stilmerkmale, die verwendet werden sollen...">{{ builder_data.do_list|join:"\n" }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- DON'T List -->
+                    <div class="col-md-6">
+                        <div class="card border-danger h-100">
+                            <div class="card-header bg-danger text-white">
+                                <i class="bi bi-x-circle me-2"></i>DON'T-Liste
+                                <span class="badge bg-light text-danger float-end" id="dontCount">0</span>
+                            </div>
+                            <div class="card-body p-2">
+                                <textarea class="form-control border-0" id="dontList" rows="8" 
+                                          placeholder="Stilmerkmale, die vermieden werden sollen...">{{ builder_data.dont_list|join:"\n" }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Signature Moves -->
+                    <div class="col-md-6">
+                        <div class="card border-primary h-100">
+                            <div class="card-header bg-primary text-white">
+                                <i class="bi bi-star me-2"></i>Signature Moves
+                                <span class="badge bg-light text-primary float-end" id="sigCount">0</span>
+                            </div>
+                            <div class="card-body p-2">
+                                <textarea class="form-control border-0" id="signatureMoves" rows="6" 
+                                          placeholder="Einzigartige Stilmerkmale...">{{ builder_data.signature_moves|join:"\n" }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Taboo List -->
+                    <div class="col-md-6">
+                        <div class="card border-dark h-100">
+                            <div class="card-header bg-dark text-white">
+                                <i class="bi bi-slash-circle me-2"></i>Taboo-Liste
+                                <span class="badge bg-light text-dark float-end" id="tabooCount">0</span>
+                            </div>
+                            <div class="card-body p-2">
+                                <textarea class="form-control border-0" id="tabooList" rows="6" 
+                                          placeholder="Verbotene Wörter/Phrasen...">{{ builder_data.taboo_list|join:"\n" }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Test Result -->
+            <div id="testResult" class="mt-4 d-none">
+                <div class="card border-info">
+                    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                        <span><i class="bi bi-file-earmark-text me-2"></i>Generierter Testtext</span>
+                        <span class="badge bg-light text-info" id="testLlmUsed"></span>
+                    </div>
+                    <div class="card-body">
+                        <pre id="testOutput" class="mb-0" style="white-space: pre-wrap; font-family: Georgia, serif; line-height: 1.8;"></pre>
+                    </div>
+                    <div class="card-footer bg-light">
+                        <div class="d-flex gap-2">
+                            <button class="btn btn-outline-success btn-sm" onclick="generateTest()">
+                                <i class="bi bi-arrow-repeat me-1"></i>Neu generieren
+                            </button>
+                            <button class="btn btn-outline-warning btn-sm" data-bs-toggle="collapse" data-bs-target="#feedbackTips">
+                                <i class="bi bi-question-circle me-1"></i>Nicht zufrieden?
+                            </button>
+                        </div>
+                        <div class="collapse mt-3" id="feedbackTips">
+                            <div class="alert alert-warning mb-0">
+                                <strong>Tipps zur Verbesserung:</strong>
+                                <ul class="mb-0 mt-2">
+                                    <li>Füge weitere Beispieltexte hinzu</li>
+                                    <li>Passe die DO/DON'T Listen manuell an</li>
+                                    <li>Formuliere Regeln spezifischer</li>
+                                    <li>Probiere ein anderes LLM</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Empty State -->
+            <div id="emptyState" class="{% if builder_data.do_list %}d-none{% endif %} text-center py-5">
+                <i class="bi bi-palette2 display-1 text-muted"></i>
+                <h4 class="text-muted mt-3">Starte mit einem Beispieltext</h4>
+                <p class="text-muted">Füge links einen Text ein, der deinen gewünschten Stil zeigt.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Modal -->
+<div class="modal fade" id="errorModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-danger text-white">
+                <h5 class="modal-title"><i class="bi bi-exclamation-triangle me-2"></i>Fehler</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="errorMessage"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Success Modal -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-check-circle me-2"></i>Erfolg</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="successMessage"></div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <a href="#" class="btn btn-success" id="viewDnaLink">
+                    <i class="bi bi-eye me-1"></i>Style anzeigen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+function showLoading(text) {
+    document.getElementById('loadingIndicator').classList.remove('d-none');
+    document.getElementById('loadingText').textContent = text;
+}
+
+function hideLoading() {
+    document.getElementById('loadingIndicator').classList.add('d-none');
+}
+
+function showError(message) {
+    document.getElementById('errorMessage').textContent = message;
+    new bootstrap.Modal(document.getElementById('errorModal')).show();
+}
+
+function getListFromTextarea(id) {
+    return document.getElementById(id).value.split('\n').filter(x => x.trim());
+}
+
+function setListToTextarea(id, list) {
+    document.getElementById(id).value = (list || []).join('\n');
+}
+
+function updateCounts() {
+    document.getElementById('doCount').textContent = getListFromTextarea('doList').length;
+    document.getElementById('dontCount').textContent = getListFromTextarea('dontList').length;
+    document.getElementById('sigCount').textContent = getListFromTextarea('signatureMoves').length;
+    document.getElementById('tabooCount').textContent = getListFromTextarea('tabooList').length;
+}
+
+async function extractRules() {
+    const text = document.getElementById('exampleText').value.trim();
+    const llmId = document.getElementById('llm_select').value;
+    
+    if (!text) {
+        showError('Bitte füge einen Beispieltext ein.');
+        return;
+    }
+    
+    if (text.length < 100) {
+        showError('Der Text sollte mindestens 100 Zeichen haben.');
+        return;
+    }
+    
+    showLoading('Analysiere Text und extrahiere Stilregeln...');
+    document.getElementById('extractBtn').disabled = true;
+    
+    try {
+        const response = await fetch('{% url "writing_hub:style-builder-extract" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                example_text: text,
+                llm_id: llmId
+            })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        document.getElementById('extractBtn').disabled = false;
+        
+        if (data.ok) {
+            // Update UI
+            setListToTextarea('doList', data.do_list);
+            setListToTextarea('dontList', data.dont_list);
+            setListToTextarea('signatureMoves', data.signature_moves);
+            setListToTextarea('tabooList', data.taboo_list);
+            document.getElementById('summaryText').textContent = data.style_summary || 'Stil analysiert';
+            document.getElementById('exampleCount').textContent = data.example_count + ' Text(e)';
+            
+            // Show changes if refinement
+            if (data.changes_made && data.changes_made.length > 0) {
+                const changesList = document.getElementById('changesList');
+                changesList.innerHTML = data.changes_made.map(c => `<li>${c}</li>`).join('');
+                document.getElementById('changesAlert').classList.remove('d-none');
+            } else {
+                document.getElementById('changesAlert').classList.add('d-none');
+            }
+            
+            // Show rules section
+            document.getElementById('rulesSection').classList.remove('d-none');
+            document.getElementById('emptyState').classList.add('d-none');
+            
+            updateCounts();
+            
+            // Clear input
+            document.getElementById('exampleText').value = '';
+        } else {
+            showError(data.error || 'Extraktion fehlgeschlagen');
+        }
+    } catch (err) {
+        hideLoading();
+        document.getElementById('extractBtn').disabled = false;
+        showError('Netzwerkfehler: ' + err.message);
+    }
+}
+
+async function generateTest() {
+    const sceneType = document.getElementById('sceneType').value;
+    const context = document.getElementById('testContext').value;
+    const llmId = document.getElementById('llm_select').value;
+    
+    showLoading('Generiere Testtext...');
+    document.getElementById('testBtn').disabled = true;
+    
+    try {
+        const response = await fetch('{% url "writing_hub:style-builder-test" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                scene_type: sceneType,
+                context: context,
+                llm_id: llmId,
+                do_list: getListFromTextarea('doList'),
+                dont_list: getListFromTextarea('dontList'),
+                signature_moves: getListFromTextarea('signatureMoves'),
+                taboo_list: getListFromTextarea('tabooList')
+            })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        document.getElementById('testBtn').disabled = false;
+        
+        if (data.ok) {
+            document.getElementById('testOutput').textContent = data.text;
+            document.getElementById('testLlmUsed').textContent = 'LLM: ' + data.llm_used;
+            document.getElementById('testResult').classList.remove('d-none');
+        } else {
+            showError(data.error || 'Generierung fehlgeschlagen');
+        }
+    } catch (err) {
+        hideLoading();
+        document.getElementById('testBtn').disabled = false;
+        showError('Netzwerkfehler: ' + err.message);
+    }
+}
+
+async function saveStyle() {
+    const name = document.getElementById('styleName').value.trim();
+    const isPrimary = document.getElementById('isPrimary').checked;
+    const llmId = document.getElementById('llm_select').value;
+    
+    if (!name) {
+        showError('Bitte gib einen Namen für die Style DNA ein.');
+        return;
+    }
+    
+    const doList = getListFromTextarea('doList');
+    if (doList.length === 0) {
+        showError('Die DO-Liste darf nicht leer sein. Extrahiere erst Stilregeln aus einem Beispieltext.');
+        return;
+    }
+    
+    showLoading('Speichere Style DNA...');
+    document.getElementById('saveBtn').disabled = true;
+    
+    try {
+        const response = await fetch('{% url "writing_hub:style-builder-save" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                name: name,
+                is_primary: isPrimary,
+                llm_id: llmId,
+                do_list: doList,
+                dont_list: getListFromTextarea('dontList'),
+                signature_moves: getListFromTextarea('signatureMoves'),
+                taboo_list: getListFromTextarea('tabooList'),
+                editing_dna_id: document.getElementById('editingDnaId')?.value || null
+            })
+        });
+        
+        const data = await response.json();
+        hideLoading();
+        document.getElementById('saveBtn').disabled = false;
+        
+        if (data.ok) {
+            document.getElementById('successMessage').textContent = data.message;
+            document.getElementById('viewDnaLink').href = '/writing-hub/style-lab/dna/' + data.dna_id + '/';
+            new bootstrap.Modal(document.getElementById('successModal')).show();
+        } else {
+            showError(data.error || 'Speichern fehlgeschlagen');
+        }
+    } catch (err) {
+        hideLoading();
+        document.getElementById('saveBtn').disabled = false;
+        showError('Netzwerkfehler: ' + err.message);
+    }
+}
+
+async function resetBuilder() {
+    if (!confirm('Builder wirklich zurücksetzen? Alle nicht gespeicherten Regeln gehen verloren.')) {
+        return;
+    }
+    
+    try {
+        await fetch('{% url "writing_hub:style-builder-reset" %}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            }
+        });
+        location.reload();
+    } catch (err) {
+        showError('Fehler beim Zurücksetzen: ' + err.message);
+    }
+}
+
+// Update counts on textarea change
+document.querySelectorAll('#doList, #dontList, #signatureMoves, #tabooList').forEach(el => {
+    el.addEventListener('input', updateCounts);
+});
+
+// Initial count update
+updateCounts();
+</script>
+{% endblock %}

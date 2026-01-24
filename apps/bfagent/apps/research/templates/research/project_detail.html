@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ project.name }} - Research Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1><i class="bi bi-folder-fill"></i> {{ project.name }}</h1>
+            <p class="text-muted mb-0">{{ project.query|default:"No query defined" }}</p>
+        </div>
+        <div class="btn-group">
+            <a href="{% url 'research:project_edit' project.pk %}" class="btn btn-outline-secondary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <form method="post" action="{% url 'research:project_delete' project.pk %}" 
+                  onsubmit="return confirm('Delete this project?');" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-outline-danger">
+                    <i class="bi bi-trash"></i> Delete
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Status & Phase -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <small class="text-muted">Status</small>
+                            <h4 class="mb-0">
+                                <span class="badge bg-{% if project.status == 'completed' %}success{% elif project.status == 'in_progress' %}primary{% else %}secondary{% endif %}">
+                                    {{ project.get_status_display }}
+                                </span>
+                            </h4>
+                        </div>
+                        <div>
+                            <small class="text-muted">Current Phase</small>
+                            <h4 class="mb-0">{{ project.current_phase|title }}</h4>
+                        </div>
+                        <div>
+                            <small class="text-muted">Sources</small>
+                            <h4 class="mb-0">{{ sources.count }}</h4>
+                        </div>
+                        <div>
+                            <small class="text-muted">Findings</small>
+                            <h4 class="mb-0">{{ findings.count }}</h4>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <!-- Actions -->
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title"><i class="bi bi-lightning"></i> Actions</h6>
+                    <div class="d-flex gap-2 flex-wrap">
+                        <form method="post" action="{% url 'research:perform_search' project.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <input type="hidden" name="query" value="{{ project.query }}">
+                            <button type="submit" class="btn btn-primary btn-sm">
+                                <i class="bi bi-search"></i> Search Web
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'research:perform_fact_check' project.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-warning btn-sm">
+                                <i class="bi bi-shield-check"></i> Fact Check
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'research:generate_summary' project.pk %}" style="display: inline;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-success btn-sm">
+                                <i class="bi bi-file-text"></i> Generate Summary
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Sources -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="mb-0"><i class="bi bi-link-45deg"></i> Sources</h5>
+                    <span class="badge bg-primary">{{ sources.count }}</span>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% if sources %}
+                    <div class="list-group list-group-flush">
+                        {% for source in sources %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    {% if source.url %}
+                                    <a href="{{ source.url }}" target="_blank" class="text-decoration-none">
+                                        <strong>{{ source.title|truncatechars:60 }}</strong>
+                                    </a>
+                                    {% else %}
+                                    <strong>{{ source.title|truncatechars:60 }}</strong>
+                                    {% endif %}
+                                    <p class="small text-muted mb-0">{{ source.snippet|truncatechars:100 }}</p>
+                                </div>
+                                <span class="badge bg-{% if source.relevance_score > 0.7 %}success{% elif source.relevance_score > 0.4 %}warning{% else %}secondary{% endif %}">
+                                    {{ source.relevance_score|floatformat:0 }}%
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No sources collected yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Findings -->
+        <div class="col-md-6">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between">
+                    <h5 class="mb-0"><i class="bi bi-lightbulb"></i> Key Findings</h5>
+                    <span class="badge bg-warning text-dark">{{ findings.count }}</span>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    {% if findings %}
+                    <div class="list-group list-group-flush">
+                        {% for finding in findings %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <span class="badge bg-secondary me-1">{{ finding.get_finding_type_display }}</span>
+                                    {% if finding.is_verified %}
+                                    <span class="badge bg-success"><i class="bi bi-check"></i> Verified</span>
+                                    {% endif %}
+                                    <p class="mb-0 mt-1">{{ finding.content|truncatechars:150 }}</p>
+                                </div>
+                                <span class="badge bg-info">{{ finding.importance }}/10</span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-3">No findings extracted yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary -->
+    {% if project.metadata.last_summary %}
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-file-text"></i> Summary</h5>
+            <small class="text-muted">Generated: {{ project.metadata.summary_generated_at }}</small>
+        </div>
+        <div class="card-body">
+            <pre style="white-space: pre-wrap; font-family: inherit;">{{ project.metadata.last_summary }}</pre>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Recent Results -->
+    {% if results %}
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0"><i class="bi bi-clock-history"></i> Recent Operations</h5>
+        </div>
+        <div class="card-body">
+            <table class="table table-sm">
+                <thead>
+                    <tr>
+                        <th>Handler</th>
+                        <th>Phase</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for result in results %}
+                    <tr>
+                        <td>{{ result.handler_name }}</td>
+                        <td>{{ result.phase }}</td>
+                        <td>
+                            {% if result.success %}
+                            <span class="text-success"><i class="bi bi-check-circle"></i> Success</span>
+                            {% else %}
+                            <span class="text-danger"><i class="bi bi-x-circle"></i> Failed</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ result.execution_time_ms }}ms</td>
+                        <td>{{ result.created_at|timesince }} ago</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

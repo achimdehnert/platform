@@ -1,0 +1,366 @@
+{% extends "graph_core/base.html" %}
+
+{% block extra_css %}
+<style>
+    .phase-card {
+        border-left: 4px solid var(--phase-color, #6c757d);
+        transition: all 0.2s ease;
+    }
+    .phase-card.phase-complete {
+        border-left-color: #198754;
+        background-color: rgba(25, 135, 84, 0.05);
+    }
+    .step-item {
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #e9ecef;
+        transition: background-color 0.2s ease;
+    }
+    .step-item:last-child {
+        border-bottom: none;
+    }
+    .step-item:hover {
+        background-color: #f8f9fa;
+    }
+    .step-item.step-complete {
+        background-color: rgba(25, 135, 84, 0.05);
+    }
+    .step-checkbox {
+        width: 1.25rem;
+        height: 1.25rem;
+        cursor: pointer;
+    }
+    .step-name {
+        font-weight: 500;
+    }
+    .step-name.completed {
+        text-decoration: line-through;
+        color: #6c757d;
+    }
+    .step-guidance {
+        font-size: 0.875rem;
+        color: #6c757d;
+    }
+    .progress-ring {
+        width: 120px;
+        height: 120px;
+    }
+    .progress-ring circle {
+        transition: stroke-dashoffset 0.5s ease;
+    }
+    .phase-header {
+        cursor: pointer;
+    }
+    .phase-header:hover {
+        background-color: #f8f9fa;
+    }
+    .step-notes {
+        font-size: 0.875rem;
+    }
+    .notes-input {
+        font-size: 0.875rem;
+        resize: none;
+    }
+</style>
+{% endblock %}
+
+{% block graph_content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'graph_core:dashboard' %}">Graph Core</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'writing_hub:project_hub' project.id %}">{{ project.title }}</a></li>
+        <li class="breadcrumb-item active">Workflow</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="mb-1">{{ project.title }}</h2>
+        <p class="text-muted mb-0">
+            <i class="bi bi-diagram-3 me-1"></i>
+            Using <strong>{{ framework.display_name }}</strong>
+            <a href="{% url 'graph_core:select-framework' project.id %}" class="ms-2 text-decoration-none">
+                <i class="bi bi-arrow-repeat"></i> Change
+            </a>
+        </p>
+    </div>
+    
+    <div class="text-center">
+        <svg class="progress-ring" viewBox="0 0 120 120">
+            <circle cx="60" cy="60" r="54" fill="none" stroke="#e9ecef" stroke-width="8"/>
+            <circle cx="60" cy="60" r="54" fill="none" stroke="#0d6efd" stroke-width="8"
+                    stroke-dasharray="339.292" 
+                    style="stroke-dashoffset: calc(339.292 - (339.292 * {{ project_framework.progress_percent }} / 100));"
+                    transform="rotate(-90 60 60)" class="progress-circle"/>
+            <text x="60" y="60" text-anchor="middle" dy="0.3em" class="fw-bold" style="font-size: 1.5rem;">
+                {{ project_framework.progress_percent|floatformat:0 }}%
+            </text>
+        </svg>
+        <div class="small text-muted mt-1">
+            {{ completed_steps }} / {{ total_steps }} Steps
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <div class="accordion" id="phaseAccordion">
+            {% for item in phase_progress %}
+            <div class="card phase-card mb-3 {% if item.is_complete %}phase-complete{% endif %}" 
+                 style="--phase-color: {{ item.phase.color }}">
+                <div class="card-header phase-header p-0" data-bs-toggle="collapse" 
+                     data-bs-target="#phase-{{ item.phase.id }}">
+                    <div class="d-flex align-items-center p-3">
+                        <div class="me-3">
+                            {% if item.is_complete %}
+                            <i class="bi bi-check-circle-fill text-success fs-4"></i>
+                            {% else %}
+                            <i class="bi bi-circle fs-4" style="color: {{ item.phase.color }}"></i>
+                            {% endif %}
+                        </div>
+                        <div class="flex-grow-1">
+                            <h5 class="mb-0">{{ item.phase.name }}</h5>
+                            <small class="text-muted">
+                                {{ item.steps|length }} steps
+                                {% if item.phase.position_start and item.phase.position_end %}
+                                • {{ item.phase.position_start|floatformat:0 }}% - {{ item.phase.position_end|floatformat:0 }}%
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="text-end me-3">
+                            {% with completed=0 %}
+                            {% for s in item.steps %}{% if s.is_complete %}{% with completed=completed|add:1 %}{% endwith %}{% endif %}{% endfor %}
+                            {% endwith %}
+                            <span class="badge bg-secondary">
+                                {% widthratio item.steps|length 1 1 as total %}
+                                {{ item.steps|length }} steps
+                            </span>
+                        </div>
+                        <i class="bi bi-chevron-down"></i>
+                    </div>
+                </div>
+                
+                <div id="phase-{{ item.phase.id }}" class="collapse {% if not item.is_complete %}show{% endif %}" 
+                     data-bs-parent="#phaseAccordion">
+                    <div class="card-body p-0">
+                        {% if item.phase.description %}
+                        <div class="p-3 bg-light border-bottom">
+                            <small class="text-muted">{{ item.phase.description }}</small>
+                        </div>
+                        {% endif %}
+                        
+                        {% for step_item in item.steps %}
+                        <div class="step-item {% if step_item.is_complete %}step-complete{% endif %}"
+                             data-step-id="{{ step_item.step.id }}">
+                            <div class="d-flex align-items-start">
+                                <div class="form-check me-3">
+                                    <input type="checkbox" 
+                                           class="form-check-input step-checkbox" 
+                                           id="step-{{ step_item.step.id }}"
+                                           {% if step_item.is_complete %}checked{% endif %}
+                                           data-pf-id="{{ project_framework.id }}"
+                                           data-step-id="{{ step_item.step.id }}">
+                                </div>
+                                <div class="flex-grow-1">
+                                    <div class="step-name {% if step_item.is_complete %}completed{% endif %}">
+                                        {{ step_item.step.name }}
+                                    </div>
+                                    {% if step_item.step.description %}
+                                    <div class="step-guidance mt-1">
+                                        {{ step_item.step.description }}
+                                    </div>
+                                    {% endif %}
+                                    {% if step_item.step.chapter_guidance %}
+                                    <div class="step-guidance mt-1">
+                                        <i class="bi bi-lightbulb me-1"></i>
+                                        {{ step_item.step.chapter_guidance }}
+                                    </div>
+                                    {% endif %}
+                                    
+                                    <div class="mt-2">
+                                        <a href="#" class="small text-decoration-none toggle-notes" 
+                                           data-step-id="{{ step_item.step.id }}">
+                                            <i class="bi bi-pencil me-1"></i>Notes
+                                        </a>
+                                    </div>
+                                    <div class="notes-section mt-2" id="notes-{{ step_item.step.id }}" style="display: none;">
+                                        <textarea class="form-control notes-input" rows="2" 
+                                                  placeholder="Your notes for this step..."
+                                                  data-pf-id="{{ project_framework.id }}"
+                                                  data-step-id="{{ step_item.step.id }}">{{ step_item.notes }}</textarea>
+                                        <button class="btn btn-sm btn-outline-primary mt-1 save-notes"
+                                                data-pf-id="{{ project_framework.id }}"
+                                                data-step-id="{{ step_item.step.id }}">
+                                            Save Notes
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="text-end">
+                                    {% if step_item.step.estimated_chapters %}
+                                    <span class="badge bg-light text-dark" title="Estimated chapters">
+                                        <i class="bi bi-file-text"></i> {{ step_item.step.estimated_chapters }}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="p-3 text-muted text-center">
+                            <i class="bi bi-info-circle me-1"></i>
+                            No steps defined for this phase
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <div class="col-lg-4">
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-info-circle me-1"></i> Framework Info
+            </div>
+            <div class="card-body">
+                <h6>{{ framework.display_name }}</h6>
+                <p class="small text-muted">{{ framework.description|truncatewords:30 }}</p>
+                <a href="{% url 'graph_core:framework-detail' framework.slug %}" class="btn btn-sm btn-outline-primary">
+                    View Full Framework
+                </a>
+            </div>
+        </div>
+        
+        <div class="card mb-3">
+            <div class="card-header">
+                <i class="bi bi-clock-history me-1"></i> Timeline
+            </div>
+            <div class="card-body">
+                <div class="small">
+                    {% if project_framework.started_at %}
+                    <div class="mb-2">
+                        <strong>Started:</strong><br>
+                        {{ project_framework.started_at|date:"M d, Y H:i" }}
+                    </div>
+                    {% endif %}
+                    {% if project_framework.completed_at %}
+                    <div class="mb-2 text-success">
+                        <strong>Completed:</strong><br>
+                        {{ project_framework.completed_at|date:"M d, Y H:i" }}
+                    </div>
+                    {% endif %}
+                    <div>
+                        <strong>Last Updated:</strong><br>
+                        {{ project_framework.updated_at|date:"M d, Y H:i" }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-link-45deg me-1"></i> Quick Links
+            </div>
+            <div class="list-group list-group-flush">
+                <a href="{% url 'writing_hub:project_hub' project.id %}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-book me-2"></i> Project Overview
+                </a>
+                <a href="{% url 'writing_hub:chapter_writer' project.id %}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-list-ol me-2"></i> Chapters
+                </a>
+                <a href="{% url 'writing_hub:character_editor' project.id %}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-people me-2"></i> Characters
+                </a>
+                <a href="{% url 'graph_core:explorer' project.id %}" class="list-group-item list-group-item-action">
+                    <i class="bi bi-diagram-3 me-2"></i> Graph Explorer
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Toggle step completion
+    document.querySelectorAll('.step-checkbox').forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const pfId = this.dataset.pfId;
+            const stepId = this.dataset.stepId;
+            
+            fetch(`{% url 'graph_core:toggle-step' 0 0 %}`.replace('/0/0/', `/${pfId}/${stepId}/`), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/json',
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const stepItem = this.closest('.step-item');
+                    const stepName = stepItem.querySelector('.step-name');
+                    
+                    if (data.step_complete) {
+                        stepItem.classList.add('step-complete');
+                        stepName.classList.add('completed');
+                    } else {
+                        stepItem.classList.remove('step-complete');
+                        stepName.classList.remove('completed');
+                    }
+                    
+                    // Update progress display
+                    updateProgress(data.progress_percent);
+                }
+            });
+        });
+    });
+    
+    // Toggle notes visibility
+    document.querySelectorAll('.toggle-notes').forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const stepId = this.dataset.stepId;
+            const notesSection = document.getElementById('notes-' + stepId);
+            notesSection.style.display = notesSection.style.display === 'none' ? 'block' : 'none';
+        });
+    });
+    
+    // Save notes
+    document.querySelectorAll('.save-notes').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const pfId = this.dataset.pfId;
+            const stepId = this.dataset.stepId;
+            const textarea = this.previousElementSibling;
+            const notes = textarea.value;
+            
+            fetch(`{% url 'graph_core:update-step-notes' 0 0 %}`.replace('/0/0/', `/${pfId}/${stepId}/`), {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'notes=' + encodeURIComponent(notes)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    this.textContent = 'Saved!';
+                    setTimeout(() => this.textContent = 'Save Notes', 1500);
+                }
+            });
+        });
+    });
+    
+    function updateProgress(percent) {
+        const circle = document.querySelector('.progress-ring circle:last-of-type');
+        const circumference = 339.292;
+        const offset = circumference - (circumference * percent / 100);
+        circle.style.strokeDashoffset = offset;
+        
+        const text = document.querySelector('.progress-ring text');
+        text.textContent = Math.round(percent) + '%';
+    }
+});
+</script>
+{% endblock %}

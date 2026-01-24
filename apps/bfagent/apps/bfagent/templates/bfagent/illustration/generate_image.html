@@ -1,0 +1,377 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Generate Image - {{ block.super }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <div class="col-lg-8 mx-auto">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="bi bi-magic"></i> Generate AI Image
+                    </h4>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <!-- AI Mode Toggle -->
+                        <div class="alert alert-info">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="useRealAI" name="use_real_ai" value="true">
+                                <label class="form-check-label" for="useRealAI">
+                                    <strong><i class="bi bi-magic"></i> Use Real AI Generation</strong>
+                                    <small class="d-block text-muted">Toggle off for instant mock images (free), on for real AI ($0.04-$0.12)</small>
+                                </label>
+                            </div>
+                        </div>
+
+                        <!-- Mock Mode Alert -->
+                        <div id="mockModeAlert" class="alert alert-success">
+                            <i class="bi bi-lightning-fill"></i>
+                            <strong>MOCK MODE ACTIVE:</strong> Instant test images (no real API calls)
+                        </div>
+
+                        <!-- Real AI Alert -->
+                        <div id="realAIAlert" class="alert alert-warning d-none">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <strong>REAL AI MODE:</strong> Using actual OpenAI API - costs $0.04-$0.12 per image
+                        </div>
+
+                        {% if source_chapter %}
+                        <div class="alert alert-primary">
+                            <h5 class="alert-heading mb-2">
+                                <i class="bi bi-book"></i> Bild für Kapitel erstellen
+                            </h5>
+                            <p class="mb-1">
+                                <strong>Projekt:</strong> {{ source_project.title }}<br>
+                                <strong>Kapitel {{ source_chapter.chapter_number }}:</strong> {{ source_chapter.title|default:"Ohne Titel" }}
+                            </p>
+                            {% if source_chapter.content %}
+                            <hr>
+                            <small class="text-muted">
+                                <strong>Kapitelinhalt (Vorschau):</strong><br>
+                                {{ source_chapter.content|truncatewords:50 }}
+                            </small>
+                            {% endif %}
+                            <div class="mt-2">
+                                <a href="/writing-hub/project/{{ source_project.id }}/write/?chapter={{ source_chapter.id }}" class="btn btn-sm btn-outline-primary">
+                                    <i class="bi bi-arrow-left"></i> Zurück zum Kapitel
+                                </a>
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="alert alert-info">
+                            <i class="bi bi-info-circle"></i>
+                            <strong>Tip:</strong> Select a style profile for consistent results, or create a custom prompt!
+                        </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label for="{{ form.project.id_for_label }}" class="form-label">
+                                Book Project (Optional for Testing)
+                            </label>
+                            {{ form.project }}
+                            {% if form.project.errors %}
+                                <div class="text-danger small">{{ form.project.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                <span class="text-success">💡 Testing Mode:</span> You can generate images without selecting a project
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.chapter.id_for_label }}" class="form-label">
+                                Chapter (Optional)
+                            </label>
+                            {{ form.chapter }}
+                            {% if form.chapter.errors %}
+                                <div class="text-danger small">{{ form.chapter.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                <span class="text-info">📖</span> Associate this illustration with a specific chapter
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.style_profile.id_for_label }}" class="form-label">
+                                Style Profile <span class="badge bg-secondary">Mock</span>
+                            </label>
+                            {{ form.style_profile }}
+                            <small class="form-text text-muted">
+                                <span class="text-success">🎯 Mock Mode:</span> Style tracked but not applied to mock images
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.image_type.id_for_label }}" class="form-label">
+                                Image Type <span class="text-danger">*</span> <span class="badge bg-secondary">Mock</span>
+                            </label>
+                            {{ form.image_type }}
+                            <small class="form-text text-muted">
+                                <span class="text-success">🎯 Mock Mode:</span> Type tracked for testing
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.prompt.id_for_label }}" class="form-label">
+                                Prompt <span class="text-danger">*</span>
+                                <button type="button" class="btn btn-sm btn-outline-primary ms-2" onclick="generateFromChapter()">
+                                    <i class="bi bi-magic"></i> Generate from Chapter
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary ms-1" onclick="useExamplePrompt()">
+                                    <i class="bi bi-lightbulb"></i> Example
+                                </button>
+                            </label>
+                            {{ form.prompt }}
+                            {% if form.prompt.errors %}
+                                <div class="text-danger small">{{ form.prompt.errors }}</div>
+                            {% endif %}
+                            <small class="form-text text-muted">
+                                💡 <strong>Tip:</strong> Be specific about style, mood, colors, and composition for better results
+                            </small>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="{{ form.negative_prompt.id_for_label }}" class="form-label">
+                                Negative Prompt (Optional) <span class="badge bg-secondary">Mock</span>
+                            </label>
+                            {{ form.negative_prompt }}
+                            <small class="form-text text-muted">
+                                <span class="text-success">🎯 Mock Mode:</span> Not used in mock generation
+                            </small>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.provider.id_for_label }}" class="form-label">
+                                    AI Provider <span class="badge bg-secondary">Mock</span>
+                                </label>
+                                {{ form.provider }}
+                                <small class="form-text text-muted">
+                                    <span class="text-success">🎯 Mock Mode:</span> Provider selection for testing only
+                                </small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.quality.id_for_label }}" class="form-label">
+                                    Quality <span class="badge bg-secondary">Mock</span>
+                                </label>
+                                {{ form.quality }}
+                                <small class="form-text text-muted">
+                                    <span class="text-success">🎯 Mock Mode:</span> No real quality difference
+                                </small>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="{{ form.size.id_for_label }}" class="form-label">
+                                    Size <span class="badge bg-secondary">Mock</span>
+                                </label>
+                                {{ form.size }}
+                                <small class="form-text text-muted">
+                                    <span class="text-success">🎯 Mock Mode:</span> Placeholder images
+                                </small>
+                            </div>
+                        </div>
+
+                        <div class="alert alert-success">
+                            <strong><i class="bi bi-currency-dollar"></i> Estimated Cost:</strong>
+                            <span id="costEstimate" class="text-success fw-bold">$0.00</span>
+                            <span class="badge bg-success ms-2">MOCK MODE - FREE</span>
+                            <br>
+                            <small class="text-muted">
+                                💡 Real API costs: $0.04 - $0.12 (depending on quality and size)
+                            </small>
+                        </div>
+
+                        <div class="d-flex justify-content-between mt-4">
+                            <div>
+                                <a href="javascript:history.back()" class="btn btn-outline-secondary me-2">
+                                    <i class="bi bi-arrow-left"></i> Zurück
+                                </a>
+                                <a href="/bookwriting/illustrations/gallery/" class="btn btn-outline-primary">
+                                    <i class="bi bi-images"></i> Galerie
+                                </a>
+                            </div>
+                            <button type="submit" class="btn btn-success btn-lg" id="generateBtn">
+                                <i class="bi bi-lightning-fill"></i> Bild generieren
+                                <span class="spinner-border spinner-border-sm d-none" id="spinner"></span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <div class="card mt-4 border-success">
+                <div class="card-header bg-success text-white">
+                    <h5 class="mb-0">⚡ Mock Mode Info</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>Currently in MOCK MODE for instant testing!</strong></p>
+                    <ul>
+                        <li>✅ <strong>Instant results:</strong> 0.5 seconds generation time</li>
+                        <li>✅ <strong>Zero cost:</strong> $0.00 - Free placeholder images</li>
+                        <li>✅ <strong>Perfect for UI testing:</strong> Test the full workflow</li>
+                        <li>✅ <strong>Random images:</strong> Different image each time</li>
+                        <li>✅ <strong>All data saved:</strong> Prompts, styles, and metadata tracked</li>
+                    </ul>
+                    <hr>
+                    <p class="mb-2">
+                        <strong>💰 Cost Comparison:</strong>
+                    </p>
+                    <ul class="mb-3 small">
+                        <li><strong>Mock Mode:</strong> $0.00 per image ✅</li>
+                        <li><strong>Real API (DALL-E 3):</strong> $0.04 - $0.12 per image</li>
+                        <li><strong>Real API (Stable Diffusion):</strong> $0.02 per image</li>
+                    </ul>
+                    <hr>
+                    <p class="mb-0 small">
+                        <strong>To enable real API:</strong> Set <code>mock_mode=False</code> in 
+                        <code>illustration_generation_views.py</code> or use environment variable 
+                        <code>ILLUSTRATION_MOCK_MODE=false</code>
+                    </p>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h5 class="mb-0">📝 Tips for Better Results (Real API)</h5>
+                </div>
+                <div class="card-body">
+                    <ul>
+                        <li><strong>Be specific:</strong> Include details about style, mood, colors, and composition</li>
+                        <li><strong>Use style profiles:</strong> For consistent looks across multiple images</li>
+                        <li><strong>DALL-E 3:</strong> Best for photorealistic and artistic images</li>
+                        <li><strong>Stable Diffusion:</strong> More affordable, good for stylized art</li>
+                        <li><strong>HD Quality:</strong> Only use for final/important images (costs 2x)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Example prompts for testing
+const examplePrompts = [
+    "A mystical forest at twilight with glowing fireflies, ancient oak trees, and a winding cobblestone path leading into the mist. Fantasy art style, ethereal lighting, rich greens and golden hues.",
+    "A cozy medieval tavern interior with wooden beams, flickering candlelight, patrons in period clothing sharing stories by the fireplace. Warm, inviting atmosphere with detailed textures.",
+    "A dramatic castle on a cliff overlooking a stormy sea, lightning illuminating dark clouds, waves crashing against rocks below. Gothic architecture, moody atmosphere, high contrast lighting.",
+    "A peaceful garden courtyard with blooming roses, a stone fountain, dappled sunlight through leaves, and a character reading under a pergola. Romantic, impressionistic style.",
+    "An epic battle scene with knights in shining armor, banners flying, horses charging across a battlefield at sunset. Dynamic composition, heroic fantasy art style."
+];
+
+function useExamplePrompt() {
+    const promptField = document.querySelector('textarea[name="prompt"]');
+    const randomPrompt = examplePrompts[Math.floor(Math.random() * examplePrompts.length)];
+    promptField.value = randomPrompt;
+    promptField.focus();
+}
+
+async function generateFromChapter() {
+    const chapterSelect = document.querySelector('select[name="chapter"]');
+    const promptField = document.querySelector('textarea[name="prompt"]');
+    
+    if (!chapterSelect.value) {
+        alert('Please select a chapter first to generate a prompt from its content.');
+        chapterSelect.focus();
+        return;
+    }
+    
+    // Show loading state
+    const originalValue = promptField.value;
+    promptField.value = 'Analyzing chapter content and generating illustration prompt...';
+    promptField.disabled = true;
+    
+    try {
+        // Call the API endpoint
+        const response = await fetch('/bookwriting/illustrations/generate-chapter-prompt/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                chapter_id: chapterSelect.value
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            promptField.value = data.prompt;
+            // Show success message
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'alert alert-success alert-dismissible fade show mt-2';
+            alertDiv.innerHTML = `
+                <i class="bi bi-check-circle"></i> Generated prompt from <strong>${data.chapter_title}</strong>!
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            promptField.parentNode.appendChild(alertDiv);
+            
+            // Auto-remove alert after 3 seconds
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 3000);
+        } else {
+            throw new Error(data.error || 'Failed to generate prompt');
+        }
+    } catch (error) {
+        console.error('Error generating prompt:', error);
+        promptField.value = originalValue;
+        alert('Error generating prompt from chapter: ' + error.message);
+    } finally {
+        promptField.disabled = false;
+        promptField.focus();
+    }
+}
+
+// Handle AI mode toggle
+function updateUIForMode() {
+    const useRealAI = document.getElementById('useRealAI').checked;
+    const mockAlert = document.getElementById('mockModeAlert');
+    const realAlert = document.getElementById('realAIAlert');
+    const generateBtn = document.querySelector('button[type="submit"]');
+    
+    if (useRealAI) {
+        mockAlert.classList.add('d-none');
+        realAlert.classList.remove('d-none');
+        generateBtn.innerHTML = '<i class="bi bi-magic"></i> Generate Real AI Image ($0.04-$0.12)';
+        generateBtn.className = 'btn btn-danger btn-lg';
+    } else {
+        mockAlert.classList.remove('d-none');
+        realAlert.classList.add('d-none');
+        generateBtn.innerHTML = '<i class="bi bi-lightning"></i> Generate Mock Image (FREE)';
+        generateBtn.className = 'btn btn-success btn-lg';
+    }
+}
+
+// Initialize toggle
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('useRealAI');
+    toggle.addEventListener('change', updateUIForMode);
+    updateUIForMode(); // Set initial state
+});
+
+// Handle form submission with loading state
+document.querySelector('form').addEventListener('submit', function(e) {
+    const btn = document.getElementById('generateBtn');
+    const spinner = document.getElementById('spinner');
+    
+    // Show loading state
+    btn.disabled = true;
+    if (spinner) spinner.classList.remove('d-none');
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Generating... <span class="spinner-border spinner-border-sm"></span>';
+});
+</script>
+{% endblock %}

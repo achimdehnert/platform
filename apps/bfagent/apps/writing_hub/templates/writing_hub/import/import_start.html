@@ -1,0 +1,580 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Projekt importieren | Writing Hub{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --wh-primary: #6366f1;
+        --wh-primary-dark: #4f46e5;
+        --wh-success: #22c55e;
+        --wh-danger: #ef4444;
+        --wh-bg: #f8fafc;
+    }
+    
+    .import-container {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+    }
+    
+    .import-header {
+        text-align: center;
+        margin-bottom: 2rem;
+    }
+    
+    .import-header h1 {
+        font-size: 2rem;
+        color: #1e293b;
+        margin-bottom: 0.5rem;
+    }
+    
+    .import-header p {
+        color: #64748b;
+        font-size: 1.1rem;
+    }
+    
+    .import-card {
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        padding: 2rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .import-card h3 {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 1.25rem;
+        color: #1e293b;
+        margin-bottom: 1rem;
+    }
+    
+    .import-card h3 i {
+        font-size: 1.5rem;
+        color: var(--wh-primary);
+    }
+    
+    .import-card > p {
+        color: #64748b;
+        margin-bottom: 1.5rem;
+        line-height: 1.6;
+    }
+    
+    .file-upload-area {
+        border: 2px dashed #d1d5db;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        transition: all 0.2s;
+        cursor: pointer;
+    }
+    
+    .file-upload-area:hover {
+        border-color: var(--wh-primary);
+        background: #f5f3ff;
+    }
+    
+    .file-upload-area.dragover {
+        border-color: var(--wh-primary);
+        background: #ede9fe;
+    }
+    
+    .file-upload-area i {
+        font-size: 2.5rem;
+        color: #9ca3af;
+        margin-bottom: 0.5rem;
+    }
+    
+    .file-upload-area input[type="file"] {
+        display: none;
+    }
+    
+    /* Queued files list */
+    .queued-files {
+        margin-top: 1rem;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+        max-height: 250px;
+        overflow-y: auto;
+    }
+    
+    .queued-files:empty {
+        display: none;
+    }
+    
+    .queued-file {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        gap: 0.75rem;
+    }
+    
+    .queued-file:last-child {
+        border-bottom: none;
+    }
+    
+    .queued-file i.bi-file-text {
+        color: var(--wh-primary);
+        font-size: 1.25rem;
+    }
+    
+    .queued-file .file-info {
+        flex: 1;
+    }
+    
+    .queued-file .file-name {
+        font-weight: 500;
+        color: #374151;
+    }
+    
+    .queued-file .file-size {
+        font-size: 0.8rem;
+        color: #9ca3af;
+    }
+    
+    .queued-file .remove-btn {
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 0.25rem;
+        border-radius: 4px;
+        transition: all 0.2s;
+    }
+    
+    .queued-file .remove-btn:hover {
+        color: var(--wh-danger);
+        background: #fef2f2;
+    }
+    
+    /* Server file list */
+    .file-list {
+        max-height: 300px;
+        overflow-y: auto;
+        border: 1px solid #e5e7eb;
+        border-radius: 8px;
+    }
+    
+    .file-item {
+        display: flex;
+        align-items: center;
+        padding: 0.75rem 1rem;
+        border-bottom: 1px solid #f3f4f6;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    
+    .file-item:hover {
+        background: #f5f3ff;
+    }
+    
+    .file-item:last-child {
+        border-bottom: none;
+    }
+    
+    .file-item.selected {
+        background: #ede9fe;
+        border-left: 3px solid var(--wh-primary);
+    }
+    
+    .file-item i {
+        color: #6b7280;
+        margin-right: 0.75rem;
+    }
+    
+    .file-item .file-name {
+        flex: 1;
+        font-weight: 500;
+        color: #374151;
+    }
+    
+    .file-item .file-folder {
+        font-size: 0.85rem;
+        color: #9ca3af;
+    }
+    
+    .file-item .checkmark {
+        color: var(--wh-success);
+        display: none;
+    }
+    
+    .file-item.selected .checkmark {
+        display: inline;
+    }
+    
+    /* Buttons */
+    .btn-primary {
+        background: var(--wh-primary);
+        color: white;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-primary:hover {
+        background: var(--wh-primary-dark);
+    }
+    
+    .btn-primary:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+    }
+    
+    .btn-success {
+        background: var(--wh-success);
+        color: white;
+        border: none;
+        padding: 1rem 2rem;
+        border-radius: 10px;
+        font-size: 1.1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .btn-success:hover {
+        background: #16a34a;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+    }
+    
+    .btn-success:disabled {
+        background: #9ca3af;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+    }
+    
+    .btn-secondary {
+        background: white;
+        color: #374151;
+        border: 2px solid #e5e7eb;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+    
+    .btn-secondary:hover {
+        border-color: var(--wh-primary);
+        color: var(--wh-primary);
+    }
+    
+    /* Start Import Section */
+    .start-import-section {
+        background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+        border: 2px solid #86efac;
+        border-radius: 16px;
+        padding: 2rem;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        display: none;
+    }
+    
+    .start-import-section.visible {
+        display: block;
+    }
+    
+    .start-import-section h3 {
+        color: #166534;
+        margin-bottom: 0.5rem;
+    }
+    
+    .start-import-section p {
+        color: #15803d;
+        margin-bottom: 1.5rem;
+    }
+    
+    .file-count-badge {
+        background: var(--wh-primary);
+        color: white;
+        padding: 0.25rem 0.75rem;
+        border-radius: 999px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-left: 0.5rem;
+    }
+    
+    .info-box {
+        background: #f0f9ff;
+        border: 1px solid #bae6fd;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-top: 1.5rem;
+    }
+    
+    .info-box h4 {
+        color: #0369a1;
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
+    }
+    
+    .info-box ul {
+        margin: 0;
+        padding-left: 1.25rem;
+        color: #0284c7;
+        font-size: 0.9rem;
+    }
+    
+    .action-buttons {
+        display: flex;
+        gap: 1rem;
+        justify-content: center;
+        margin-top: 2rem;
+    }
+    
+    .import-options {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    @media (max-width: 768px) {
+        .import-options {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="import-container">
+    <div class="import-header">
+        <h1><i class="bi bi-file-earmark-arrow-up"></i> Projekt importieren</h1>
+        <p>Importiere bestehende Manuskripte oder Planungsdokumente als neues Projekt</p>
+    </div>
+    
+    <!-- Start Import Section (appears when files are selected) -->
+    <div class="start-import-section" id="startImportSection">
+        <h3><i class="bi bi-check-circle"></i> Dateien bereit zum Import</h3>
+        <p><span id="totalFileCount">0</span> Datei(en) ausgewählt</p>
+        <form id="importForm" action="{% url 'writing_hub:import_project_analyze' %}" method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <input type="hidden" name="file_paths" id="selectedFilePaths">
+            
+            <!-- AI Analysis Toggle -->
+            <div class="ai-toggle-section" style="margin-bottom: 1rem;">
+                <label class="ai-toggle" style="display: inline-flex; align-items: center; gap: 0.75rem; cursor: pointer; padding: 0.75rem 1rem; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 8px;">
+                    <input type="checkbox" name="use_ai" value="true" checked id="useAiCheckbox" style="width: 18px; height: 18px; accent-color: #6366f1;">
+                    <div>
+                        <span style="font-weight: 600; color: #0369a1;">🤖 KI-Analyse verwenden</span>
+                        <small style="display: block; color: #0284c7; font-size: 0.8rem;">Intelligente Erkennung von Charakteren, Orten und Struktur</small>
+                    </div>
+                </label>
+            </div>
+            
+            <button type="submit" class="btn-success" id="startImportBtn">
+                <i class="bi bi-play-circle"></i> Import starten
+            </button>
+        </form>
+    </div>
+    
+    <div class="import-options">
+        <!-- Option 1: File Upload -->
+        <div class="import-card">
+            <h3><i class="bi bi-cloud-upload"></i> Dateien hochladen</h3>
+            <p>Lade Markdown-Dateien (.md) von deinem Computer hoch. Mehrfachauswahl möglich!</p>
+            
+            <div class="file-upload-area" onclick="document.getElementById('fileInput').click()" id="uploadArea">
+                <i class="bi bi-file-earmark-plus"></i>
+                <p>Dateien auswählen oder hierher ziehen</p>
+                <small style="color: #9ca3af;">Mehrere Dateien mit Strg+Klick auswählen</small>
+                <input type="file" id="fileInput" name="files" accept=".md" multiple form="importForm">
+            </div>
+            
+            <div class="queued-files" id="queuedFiles"></div>
+        </div>
+        
+        <!-- Option 2: Select from existing files -->
+        <div class="import-card">
+            <h3><i class="bi bi-folder2-open"></i> Vorhandene Dateien auswählen</h3>
+            <p>Wähle Dateien aus dem books-Verzeichnis. Mehrfachauswahl mit Klick!</p>
+            
+            {% if example_files %}
+            <div class="file-list" id="serverFileList">
+                {% for file in example_files %}
+                <div class="file-item" data-path="{{ file.path }}" onclick="toggleServerFile(this, '{{ file.path }}')">
+                    <i class="bi bi-file-text"></i>
+                    <div>
+                        <div class="file-name">{{ file.name }}</div>
+                        <div class="file-folder">{{ file.folder }}</div>
+                    </div>
+                    <i class="bi bi-check-circle-fill checkmark"></i>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="text-muted">Keine Markdown-Dateien im books-Verzeichnis gefunden.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="info-box">
+        <h4><i class="bi bi-info-circle"></i> Unterstützte Formate</h4>
+        <ul>
+            <li><strong>Manuskripte</strong>: Fertige Kapitel mit "KAPITEL X: Titel" Markern</li>
+            <li><strong>Planungsdokumente</strong>: Beat-Sheets, Charakterbögen, Story-Arcs</li>
+            <li><strong>Gemischt</strong>: Kombination aus Prosa und Metadaten</li>
+        </ul>
+    </div>
+    
+    <div class="action-buttons">
+        <a href="{% url 'writing_hub:projects_list' %}" class="btn-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <a href="{% url 'writing_hub:project_wizard' %}" class="btn-secondary">
+            <i class="bi bi-plus-circle"></i> Neues leeres Projekt
+        </a>
+    </div>
+</div>
+
+<script>
+// State management
+let uploadedFiles = [];
+let selectedServerFiles = [];
+
+const fileInput = document.getElementById('fileInput');
+const queuedFilesContainer = document.getElementById('queuedFiles');
+const startImportSection = document.getElementById('startImportSection');
+const totalFileCount = document.getElementById('totalFileCount');
+const selectedFilePathsInput = document.getElementById('selectedFilePaths');
+const uploadArea = document.getElementById('uploadArea');
+
+// Update UI based on selected files
+function updateUI() {
+    const totalCount = uploadedFiles.length + selectedServerFiles.length;
+    totalFileCount.textContent = totalCount;
+    
+    if (totalCount > 0) {
+        startImportSection.classList.add('visible');
+    } else {
+        startImportSection.classList.remove('visible');
+    }
+    
+    // Update hidden input with server file paths
+    selectedFilePathsInput.value = JSON.stringify(selectedServerFiles);
+    
+    // Render queued files
+    renderQueuedFiles();
+}
+
+// Render uploaded files list
+function renderQueuedFiles() {
+    queuedFilesContainer.innerHTML = '';
+    
+    uploadedFiles.forEach((file, index) => {
+        const div = document.createElement('div');
+        div.className = 'queued-file';
+        div.innerHTML = `
+            <i class="bi bi-file-text"></i>
+            <div class="file-info">
+                <div class="file-name">${file.name}</div>
+                <div class="file-size">${formatFileSize(file.size)}</div>
+            </div>
+            <button type="button" class="remove-btn" onclick="removeUploadedFile(${index})">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        `;
+        queuedFilesContainer.appendChild(div);
+    });
+}
+
+// Format file size
+function formatFileSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+// Remove uploaded file
+function removeUploadedFile(index) {
+    uploadedFiles.splice(index, 1);
+    
+    // Update file input
+    const dt = new DataTransfer();
+    uploadedFiles.forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+    
+    updateUI();
+}
+
+// Handle file input change
+fileInput.addEventListener('change', function() {
+    // Add new files to the list
+    for (const file of this.files) {
+        // Check if file already exists
+        if (!uploadedFiles.some(f => f.name === file.name && f.size === file.size)) {
+            uploadedFiles.push(file);
+        }
+    }
+    updateUI();
+});
+
+// Drag and drop
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.classList.add('dragover');
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.classList.remove('dragover');
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.classList.remove('dragover');
+    
+    for (const file of e.dataTransfer.files) {
+        if (file.name.endsWith('.md')) {
+            if (!uploadedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                uploadedFiles.push(file);
+            }
+        }
+    }
+    
+    // Update file input
+    const dt = new DataTransfer();
+    uploadedFiles.forEach(f => dt.items.add(f));
+    fileInput.files = dt.files;
+    
+    updateUI();
+});
+
+// Toggle server file selection
+function toggleServerFile(element, path) {
+    const index = selectedServerFiles.indexOf(path);
+    
+    if (index > -1) {
+        // Deselect
+        selectedServerFiles.splice(index, 1);
+        element.classList.remove('selected');
+    } else {
+        // Select
+        selectedServerFiles.push(path);
+        element.classList.add('selected');
+    }
+    
+    updateUI();
+}
+
+// Initialize
+updateUI();
+</script>
+{% endblock %}

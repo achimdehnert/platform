@@ -1,0 +1,171 @@
+{% extends "trips/wizard/base.html" %}
+
+{% block step_icon %}3-circle{% endblock %}
+{% block step_title %}Schritt 3: Story-Einstellungen{% endblock %}
+
+{% block extra_css %}
+<style>
+    .genre-card {
+        cursor: pointer;
+        border: 2px solid transparent;
+        transition: all 0.2s;
+    }
+    .genre-card:hover {
+        border-color: var(--tb-primary, #6366f1);
+        transform: translateY(-2px);
+    }
+    .genre-card.selected {
+        border-color: var(--tb-primary, #6366f1);
+        background: rgba(99, 102, 241, 0.1);
+    }
+    .genre-card input {
+        display: none;
+    }
+    .spice-btn, .ending-btn, .gender-btn {
+        padding: 0.5rem 1rem;
+        border: 2px solid #dee2e6;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .spice-btn:hover, .ending-btn:hover, .gender-btn:hover {
+        border-color: var(--tb-primary, #6366f1);
+    }
+    .spice-btn input:checked + span,
+    .ending-btn input:checked + span,
+    .gender-btn input:checked + span {
+        color: white;
+    }
+    .spice-btn:has(input:checked),
+    .ending-btn:has(input:checked),
+    .gender-btn:has(input:checked) {
+        background: var(--tb-primary, #6366f1);
+        border-color: var(--tb-primary, #6366f1);
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block step_content %}
+<form method="post" id="wizard-form">
+    {% csrf_token %}
+    
+    <!-- Genre Selection -->
+    <div class="mb-4">
+        <label class="form-label fw-bold mb-3">
+            <i class="bi bi-book"></i> Genre wählen
+        </label>
+        <div class="row g-3">
+            {% for value, label in form.genre.field.choices %}
+            <div class="col-md-4">
+                <label class="card genre-card h-100 {% if form.genre.value == value %}selected{% endif %}">
+                    <input type="radio" name="genre" value="{{ value }}" 
+                           {% if form.genre.value == value %}checked{% endif %}>
+                    <div class="card-body text-center py-3">
+                        <i class="bi bi-{% if value == 'romance' %}heart{% elif value == 'thriller' %}lightning{% elif value == 'mystery' %}search{% elif value == 'fantasy' %}stars{% elif value == 'adventure' %}compass{% else %}book{% endif %} fs-3 mb-2 text-primary"></i>
+                        <h6 class="mb-0">{{ label }}</h6>
+                    </div>
+                </label>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Spice Level -->
+    <div class="mb-4">
+        <label class="form-label fw-bold mb-3">
+            <i class="bi bi-fire"></i> Spice Level
+        </label>
+        <div class="d-flex flex-wrap gap-2">
+            {% for value, label in form.spice_level.field.choices %}
+            <label class="spice-btn">
+                <input type="radio" name="spice_level" value="{{ value }}"
+                       {% if form.spice_level.value == value %}checked{% endif %}>
+                <span>{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Ending Type -->
+    <div class="mb-4">
+        <label class="form-label fw-bold mb-3">
+            <i class="bi bi-flag"></i> Ende der Geschichte
+        </label>
+        <div class="d-flex flex-wrap gap-2">
+            {% for value, label in form.ending_type.field.choices %}
+            <label class="ending-btn">
+                <input type="radio" name="ending_type" value="{{ value }}"
+                       {% if form.ending_type.value == value %}checked{% endif %}>
+                <span>{{ label }}</span>
+            </label>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <hr class="my-4">
+    
+    <!-- Protagonist -->
+    <h5 class="mb-3"><i class="bi bi-person"></i> Protagonist:in</h5>
+    
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <label class="form-label fw-bold">Name (optional)</label>
+            {{ form.protagonist_name }}
+            <div class="form-text">Leer lassen für automatischen Namen</div>
+        </div>
+        <div class="col-md-6">
+            <label class="form-label fw-bold mb-2">Geschlecht</label>
+            <div class="d-flex gap-2">
+                {% for value, label in form.protagonist_gender.field.choices %}
+                <label class="gender-btn">
+                    <input type="radio" name="protagonist_gender" value="{{ value }}"
+                           {% if form.protagonist_gender.value == value %}checked{% endif %}>
+                    <span>{{ label }}</span>
+                </label>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Triggers to Avoid -->
+    <div class="mb-4">
+        <label class="form-label fw-bold">
+            <i class="bi bi-shield-exclamation"></i> Themen vermeiden
+        </label>
+        {{ form.triggers_avoid }}
+        <div class="form-text">{{ form.triggers_avoid.help_text }}</div>
+    </div>
+    
+    <!-- User Notes -->
+    <div class="mb-4">
+        <label class="form-label fw-bold">
+            <i class="bi bi-chat-text"></i> Weitere Wünsche
+        </label>
+        {{ form.user_notes }}
+    </div>
+    
+    <hr class="my-4">
+    
+    <div class="d-flex justify-content-between">
+        <a href="{% url 'trips:wizard_step2' %}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+        <button type="submit" class="btn btn-gradient">
+            Weiter zur Übersicht <i class="bi bi-arrow-right"></i>
+        </button>
+    </div>
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Genre card selection
+    document.querySelectorAll('.genre-card').forEach(card => {
+        card.addEventListener('click', function() {
+            document.querySelectorAll('.genre-card').forEach(c => c.classList.remove('selected'));
+            this.classList.add('selected');
+        });
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,142 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Kreativagent - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h2 mb-1">
+                        <i class="bi bi-lightbulb text-warning"></i>
+                        Kreativagent
+                    </h1>
+                    <p class="text-muted mb-0">Finde und entwickle deine nächste Buchidee</p>
+                </div>
+                <a href="{% url 'writing_hub:creative-create' %}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-plus-circle me-2"></i>Neue Session starten
+                </a>
+            </div>
+        </div>
+    </div>
+
+    {% if active_session %}
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card border-primary">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-play-circle me-2"></i>Aktive Session
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">{{ active_session.name }}</h5>
+                    <p class="card-text text-muted">
+                        Phase: <span class="badge bg-info">{{ active_session.get_current_phase_display }}</span>
+                        | {{ active_session.ideas.count }} Ideen
+                    </p>
+                    <a href="{% url 'writing_hub:creative-session' session_id=active_session.id %}" 
+                       class="btn btn-primary">
+                        <i class="bi bi-arrow-right me-2"></i>Weiter brainstormen
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-clock-history me-2"></i>Letzte Sessions
+                </div>
+                <div class="card-body">
+                    {% if sessions %}
+                    <div class="list-group list-group-flush">
+                        {% for session in sessions %}
+                        <a href="{% url 'writing_hub:creative-session' session_id=session.id %}" 
+                           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="mb-1">{{ session.name }}</h6>
+                                <small class="text-muted">
+                                    {{ session.created_at|date:"d.m.Y H:i" }}
+                                    | {{ session.ideas.count }} Ideen
+                                </small>
+                            </div>
+                            <span class="badge 
+                                {% if session.current_phase == 'completed' %}bg-success
+                                {% elif session.current_phase == 'cancelled' %}bg-secondary
+                                {% else %}bg-primary{% endif %}">
+                                {{ session.get_current_phase_display }}
+                            </span>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5">
+                        <i class="bi bi-lightbulb display-1 text-muted"></i>
+                        <p class="text-muted mt-3">Noch keine Kreativ-Sessions.</p>
+                        <a href="{% url 'writing_hub:creative-create' %}" class="btn btn-outline-primary">
+                            Erste Session starten
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-2"></i>So funktioniert's
+                </div>
+                <div class="card-body">
+                    <ol class="mb-0">
+                        <li class="mb-2">
+                            <strong>Session starten</strong><br>
+                            <small class="text-muted">Teile deine vage Idee oder Genre-Wünsche</small>
+                        </li>
+                        <li class="mb-2">
+                            <strong>Ideen erkunden</strong><br>
+                            <small class="text-muted">Der Agent generiert 3-5 Buchideen</small>
+                        </li>
+                        <li class="mb-2">
+                            <strong>Verfeinern</strong><br>
+                            <small class="text-muted">Bewerte und verfeinere die besten Ideen</small>
+                        </li>
+                        <li class="mb-2">
+                            <strong>Premise erstellen</strong><br>
+                            <small class="text-muted">Lass eine vollständige Premise generieren</small>
+                        </li>
+                        <li>
+                            <strong>Projekt anlegen</strong><br>
+                            <small class="text-muted">Erstelle dein Buchprojekt mit einem Klick</small>
+                        </li>
+                    </ol>
+                </div>
+            </div>
+            
+            {% if style_dnas %}
+            <div class="card mt-3">
+                <div class="card-header">
+                    <i class="bi bi-fingerprint me-2"></i>Deine Style DNAs
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled mb-0">
+                        {% for dna in style_dnas %}
+                        <li class="mb-2">
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            {{ dna.name }}
+                            {% if dna.is_primary %}<span class="badge bg-primary">Primary</span>{% endif %}
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    <small class="text-muted">Style DNA hilft dem Agent, passende Ideen zu generieren.</small>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

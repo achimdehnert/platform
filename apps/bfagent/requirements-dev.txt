@@ -1,0 +1,43 @@
+# ============================================================================
+# BF Agent - Development Requirements
+# Install with: pip install -r requirements-dev.txt
+# ============================================================================
+
+# Include production requirements
+-r requirements.txt
+
+# Code Quality & Linting
+black==25.9.0
+isort==6.0.1
+flake8==7.3.0
+pylint==3.3.8
+mypy==1.18.2
+bandit==1.8.6
+vulture==2.14
+
+# Code Complexity & Metrics
+radon==6.0.1
+mccabe==0.7.0
+
+# HTML/Template Formatting
+djhtml==3.0.9
+djlint==1.36.4
+beautifulsoup4==4.14.2
+
+# Pre-commit Hooks
+pre-commit==4.3.0
+
+# Testing (when we add tests)
+# pytest>=7.4.0
+# pytest-django>=4.5.0
+# pytest-cov>=4.1.0
+
+# Development Server Enhancements
+# django-extensions>=3.2.0  # shell_plus, runserver_plus, etc.
+
+# API Development
+# djangorestframework>=3.14.0  # if we add REST API
+
+# Documentation
+# sphinx>=7.2.0
+# sphinx-rtd-theme>=1.3.0

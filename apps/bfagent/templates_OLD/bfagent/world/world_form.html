@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}{% if is_create %}World Erstellen{% else %}{{ world.name }} bearbeiten{% endif %} - {{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:project-list' %}">Bücher</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:project-detail' project.id %}">{{ project.title }}</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'bfagent:world-detail' project.id %}">World</a></li>
+            <li class="breadcrumb-item active">{% if is_create %}Erstellen{% else %}Bearbeiten{% endif %}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-globe text-primary"></i>
+                {% if is_create %}World Erstellen{% else %}{{ world.name }} bearbeiten{% endif %}
+            </h1>
+            <p class="text-muted mb-0">{{ project.title }}</p>
+        </div>
+        <div>
+            <a href="{% url 'bfagent:world-detail' project.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left"></i> Zurück
+            </a>
+        </div>
+    </div>
+
+    <!-- Form -->
+    <form method="post">
+        {% csrf_token %}
+        
+        <div class="row">
+            <!-- Left Column -->
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Grundinformationen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{% if not is_create %}{{ world.name }}{% endif %}" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="4">{% if not is_create %}{{ world.description }}{% endif %}</textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="time_period" class="form-label">Zeitperiode</label>
+                            <input type="text" class="form-control" id="time_period" name="time_period" 
+                                   value="{% if not is_create %}{{ world.time_period }}{% endif %}"
+                                   placeholder="z.B. 2024, Mittelalter, 2180">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="technology_level" class="form-label">Technologielevel</label>
+                            <input type="text" class="form-control" id="technology_level" name="technology_level" 
+                                   value="{% if not is_create %}{{ world.technology_level }}{% endif %}"
+                                   placeholder="z.B. Modern, Mittelalter, Futuristisch">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="atmosphere" class="form-label">Atmosphäre</label>
+                            <input type="text" class="form-control" id="atmosphere" name="atmosphere" 
+                                   value="{% if not is_create %}{{ world.atmosphere }}{% endif %}"
+                                   placeholder="z.B. Dunkel & düster, Hell & hoffnungsvoll">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Geographie & Kultur</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="geography" class="form-label">Geographie</label>
+                            <textarea class="form-control" id="geography" name="geography" rows="3">{% if not is_create %}{{ world.geography }}{% endif %}</textarea>
+                            <div class="form-text">Physische Geographie, Klima, Landschaften</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="culture" class="form-label">Kultur</label>
+                            <textarea class="form-control" id="culture" name="culture" rows="3">{% if not is_create %}{{ world.culture }}{% endif %}</textarea>
+                            <div class="form-text">Kulturelle Aspekte, Gesellschaft, Bräuche</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column -->
+            <div class="col-lg-6">
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Systeme & Strukturen</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="political_system" class="form-label">Politisches System</label>
+                            <textarea class="form-control" id="political_system" name="political_system" rows="3">{% if not is_create %}{{ world.political_system }}{% endif %}</textarea>
+                            <div class="form-text">Regierung, Politik, Machtstrukturen</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="economy" class="form-label">Wirtschaftssystem</label>
+                            <textarea class="form-control" id="economy" name="economy" rows="3">{% if not is_create %}{{ world.economy }}{% endif %}</textarea>
+                            <div class="form-text">Wirtschaft, Währung, Handel</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="magic_system" class="form-label">Magiesystem</label>
+                            <textarea class="form-control" id="magic_system" name="magic_system" rows="4">{% if not is_create %}{{ world.magic_system }}{% endif %}</textarea>
+                            <div class="form-text">Regeln des Magiesystems (falls vorhanden)</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Geschichte</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <label for="history" class="form-label">Historische Ereignisse</label>
+                            <textarea class="form-control" id="history" name="history" rows="6">{% if not is_create %}{{ world.history }}{% endif %}</textarea>
+                            <div class="form-text">Wichtige historische Ereignisse der Welt</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body d-flex justify-content-between align-items-center">
+                        <div>
+                            <span class="text-muted">
+                                <i class="bi bi-info-circle"></i> 
+                                Felder mit * sind Pflichtfelder
+                            </span>
+                        </div>
+                        <div>
+                            <a href="{% url 'bfagent:world-detail' project.id %}" class="btn btn-secondary me-2">
+                                <i class="bi bi-x-circle"></i> Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-save"></i> Speichern
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}

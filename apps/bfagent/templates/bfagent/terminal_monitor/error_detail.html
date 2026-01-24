@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Error Detail - {{ error.error_class }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:terminal_monitor:dashboard' %}">Terminal Monitor</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:terminal_monitor:error_queue' %}">Error Queue</a>
+                    </li>
+                    <li class="breadcrumb-item active">{{ error.error_class }}</li>
+                </ol>
+            </nav>
+            <h1 class="mb-2">
+                <span class="badge bg-{% if error.severity == 'critical' %}danger{% elif error.severity == 'high' %}warning text-dark{% elif error.severity == 'medium' %}info{% else %}secondary{% endif %} me-2">
+                    {{ error.get_severity_display }}
+                </span>
+                <code>{{ error.error_class }}</code>
+            </h1>
+            <p class="text-muted mb-0">{{ error.message }}</p>
+        </div>
+        <div class="btn-group">
+            {% if error.status not in 'fixed,verified,ignored,wont_fix' %}
+            <button class="btn btn-success" onclick="markFixed()">
+                <i class="bi bi-check-circle"></i> Als behoben markieren
+            </button>
+            <button class="btn btn-outline-secondary" onclick="markIgnored()">
+                <i class="bi bi-x-circle"></i> Ignorieren
+            </button>
+            {% elif error.status == 'fixed' %}
+            <button class="btn btn-outline-success" onclick="verifyFix()">
+                <i class="bi bi-patch-check"></i> Fix verifizieren
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Hauptinhalt -->
+        <div class="col-lg-8">
+            <!-- KI-Lösungsvorschlag -->
+            <div class="card mb-4 border-primary">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-robot"></i> KI-Lösungsvorschlag
+                    </h5>
+                    {% if not error.ai_solution_steps %}
+                    <button class="btn btn-light btn-sm" 
+                            hx-post="{% url 'control_center:terminal_monitor:analyze_error' error.id %}"
+                            hx-target="#ai-solution-content"
+                            hx-indicator="#ai-loading">
+                        <i class="bi bi-magic"></i> Analysieren
+                    </button>
+                    {% else %}
+                    <button class="btn btn-light btn-sm" 
+                            hx-get="{% url 'control_center:terminal_monitor:ai_solution_partial' error.id %}"
+                            hx-target="#ai-solution-content">
+                        <i class="bi bi-arrow-clockwise"></i> Neu analysieren
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body" id="ai-solution-content">
+                    <div id="ai-loading" class="htmx-indicator text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Analysiert...</span>
+                        </div>
+                        <p class="mt-2 mb-0">KI analysiert den Fehler...</p>
+                    </div>
+                    
+                    {% if error.ai_solution_steps %}
+                    <!-- Analyse -->
+                    <div class="mb-4">
+                        <h6><i class="bi bi-search"></i> Analyse</h6>
+                        <p>{{ error.ai_analysis|linebreaks }}</p>
+                        {% if error.ai_confidence %}
+                        <small class="text-muted">
+                            Konfidenz: 
+                            <span class="badge bg-{% if error.ai_confidence >= 0.8 %}success{% elif error.ai_confidence >= 0.5 %}warning text-dark{% else %}danger{% endif %}">
+                                {{ error.ai_confidence|floatformat:0 }}%
+                            </span>
+                        </small>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- Lösungsschritte -->
+                    <h6><i class="bi bi-list-check"></i> Lösungsschritte</h6>
+                    <div class="list-group">
+                        {% for step in error.ai_solution_steps %}
+                        <div class="list-group-item">
+                            <div class="d-flex align-items-start">
+                                <span class="badge bg-primary rounded-pill me-3">{{ step.step }}</span>
+                                <div class="flex-grow-1">
+                                    <strong>{{ step.action }}</strong>
+                                    {% if step.code %}
+                                    <pre class="bg-dark text-light p-2 rounded mt-2 mb-0"><code>{{ step.code }}</code></pre>
+                                    {% endif %}
+                                </div>
+                                <button class="btn btn-sm btn-outline-success ms-2" 
+                                        onclick="markStepDone({{ step.step }})"
+                                        title="Schritt als erledigt markieren">
+                                    <i class="bi bi-check"></i>
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-robot fs-1"></i>
+                        <p class="mt-2 mb-0">Klicke "Analysieren" für KI-Lösungsvorschläge</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Stack Trace -->
+            {% if error.stack_trace %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-code-square"></i> Stack Trace</h5>
+                </div>
+                <div class="card-body p-0">
+                    <pre class="bg-dark text-light p-3 mb-0" style="max-height: 400px; overflow-y: auto;"><code>{{ error.stack_trace }}</code></pre>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Raw Output -->
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-terminal"></i> Original Output</h5>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="copyToClipboard()">
+                        <i class="bi bi-clipboard"></i> Kopieren
+                    </button>
+                </div>
+                <div class="card-body p-0">
+                    <pre class="bg-light p-3 mb-0" id="raw-output" style="max-height: 300px; overflow-y: auto;">{{ error.raw_output }}</pre>
+                </div>
+            </div>
+            
+            <!-- Fix-Versuche -->
+            {% if fix_attempts %}
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-clock-history"></i> Fix-Historie</h5>
+                </div>
+                <div class="card-body p-0">
+                    <div class="list-group list-group-flush">
+                        {% for attempt in fix_attempts %}
+                        <div class="list-group-item">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <strong>{{ attempt.description|truncatechars:100 }}</strong>
+                                    <br>
+                                    <small class="text-muted">
+                                        von {{ attempt.user.username }} · {{ attempt.attempted_at|timesince }} ago
+                                        {% if attempt.used_ai_suggestion %}
+                                        · <span class="badge bg-info">KI-Vorschlag befolgt</span>
+                                        {% endif %}
+                                    </small>
+                                </div>
+                                <span class="badge bg-{% if attempt.result == 'success' %}success{% elif attempt.result == 'partial' %}warning{% else %}danger{% endif %}">
+                                    {{ attempt.get_result_display }}
+                                </span>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Meta-Info -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Details</h5>
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Status</span>
+                        <span class="badge bg-{% if error.status == 'new' %}danger{% elif error.status == 'ready' %}warning text-dark{% elif error.status == 'fixed' %}success{% else %}secondary{% endif %}">
+                            {{ error.get_status_display }}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Typ</span>
+                        <span>{{ error.get_error_type_display }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Source</span>
+                        <span>{{ error.get_source_display }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Vorkommen</span>
+                        <span class="badge bg-secondary">{{ error.occurrence_count }}x</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Erstmals</span>
+                        <small>{{ error.first_seen|date:"d.m.Y H:i" }}</small>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span>Zuletzt</span>
+                        <small>{{ error.last_seen|date:"d.m.Y H:i" }}</small>
+                    </li>
+                </ul>
+            </div>
+            
+            <!-- Datei-Info -->
+            {% if error.file_path %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-file-code"></i> Datei</h5>
+                </div>
+                <div class="card-body">
+                    <p class="mb-1"><strong>Pfad:</strong></p>
+                    <code class="small">{{ error.file_path }}</code>
+                    {% if error.line_number %}
+                    <p class="mb-1 mt-2"><strong>Zeile:</strong> {{ error.line_number }}</p>
+                    {% endif %}
+                    {% if error.function_name %}
+                    <p class="mb-0"><strong>Funktion:</strong> <code>{{ error.function_name }}</code></p>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Notizen -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-sticky"></i> Notizen</h5>
+                </div>
+                <div class="card-body">
+                    <textarea class="form-control" rows="4" placeholder="Notizen hinzufügen..."
+                              id="notes-input">{{ error.notes }}</textarea>
+                    <button class="btn btn-sm btn-outline-primary mt-2" onclick="saveNotes()">
+                        <i class="bi bi-save"></i> Speichern
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function markFixed() {
+    const description = prompt('Beschreibung der Lösung:', 'Manuell behoben');
+    if (description === null) return;
+    
+    fetch('{% url "control_center:terminal_monitor:mark_fixed" error.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({
+            description: description,
+            used_ai_suggestion: {{ error.ai_solution_steps|yesno:"true,false" }}
+        })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function markIgnored() {
+    const reason = prompt('Grund für Ignorieren:', '');
+    if (reason === null) return;
+    
+    fetch('{% url "control_center:terminal_monitor:mark_ignored" error.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({reason: reason})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function verifyFix() {
+    fetch('{% url "control_center:terminal_monitor:verify_fix" error.id %}', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': '{{ csrf_token }}'
+        },
+        body: JSON.stringify({method: 'manual'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        }
+    });
+}
+
+function copyToClipboard() {
+    const text = document.getElementById('raw-output').textContent;
+    navigator.clipboard.writeText(text).then(() => {
+        alert('In Zwischenablage kopiert!');
+    });
+}
+
+function markStepDone(stepNumber) {
+    // Visuelles Feedback
+    event.target.closest('.list-group-item').classList.add('bg-success-subtle');
+    event.target.disabled = true;
+    event.target.innerHTML = '<i class="bi bi-check-lg"></i>';
+}
+</script>
+{% endblock %}

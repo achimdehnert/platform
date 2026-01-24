@@ -1,0 +1,183 @@
+{% extends "base.html" %}
+
+{% block title %}{{ story.title }} - Travel Beat{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row">
+        <!-- Main Content -->
+        <div class="col-lg-8">
+            <!-- Story Header -->
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-3">
+                        <span class="badge 
+                            {% if story.status == 'ready' %}bg-success
+                            {% elif story.status == 'generating' %}bg-warning text-dark
+                            {% elif story.status == 'failed' %}bg-danger
+                            {% else %}bg-secondary{% endif %} mb-2">
+                            {{ story.get_status_display }}
+                        </span>
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-outline-secondary" data-bs-toggle="dropdown">
+                                <i class="bi bi-three-dots"></i>
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end">
+                                <li><a class="dropdown-item" href="{% url 'stories:export_markdown' pk=story.pk %}">
+                                    <i class="bi bi-file-text"></i> Als Markdown
+                                </a></li>
+                                <li><a class="dropdown-item" href="{% url 'stories:export_pdf' pk=story.pk %}">
+                                    <i class="bi bi-file-pdf"></i> Als PDF
+                                </a></li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <h1 class="h2 mb-3">{{ story.title }}</h1>
+                    
+                    {% if story.synopsis %}
+                    <p class="lead text-muted">{{ story.synopsis }}</p>
+                    {% endif %}
+                    
+                    <!-- Story Meta -->
+                    <div class="row g-3 mt-3">
+                        <div class="col-6 col-md-3">
+                            <div class="text-muted small">Genre</div>
+                            <strong>{{ story.get_genre_display }}</strong>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="text-muted small">Spice Level</div>
+                            <strong>{{ story.get_spice_level_display }}</strong>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="text-muted small">Kapitel</div>
+                            <strong>{{ story.generated_chapters }}</strong>
+                        </div>
+                        <div class="col-6 col-md-3">
+                            <div class="text-muted small">Wörter</div>
+                            <strong>~{{ story.total_words|floatformat:0 }}</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                {% if story.status == 'ready' %}
+                <div class="card-footer bg-white">
+                    <a href="{% url 'stories:read' pk=story.pk %}" class="btn btn-gradient btn-lg w-100">
+                        <i class="bi bi-book-half"></i> Jetzt lesen
+                    </a>
+                </div>
+                {% elif story.status == 'generating' %}
+                <div class="card-footer bg-white">
+                    <a href="{% url 'stories:progress' pk=story.pk %}" class="btn btn-warning btn-lg w-100">
+                        <i class="bi bi-hourglass-split"></i> Generierung verfolgen
+                    </a>
+                </div>
+                {% endif %}
+            </div>
+            
+            <!-- Chapter List -->
+            {% if story.status == 'ready' and chapters %}
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-list-ol"></i> Kapitelübersicht</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for chapter in chapters %}
+                    <a href="{% url 'stories:chapter' story_id=story.pk chapter_num=chapter.chapter_number %}"
+                       class="list-group-item list-group-item-action">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-light text-dark me-2">{{ chapter.chapter_number }}</span>
+                                <strong>{{ chapter.title }}</strong>
+                                {% if chapter.location_city %}
+                                <span class="text-muted ms-2">
+                                    <i class="bi bi-geo-alt"></i> {{ chapter.location_city }}
+                                </span>
+                                {% endif %}
+                            </div>
+                            <span class="text-muted small">
+                                {{ chapter.word_count }} Wörter
+                            </span>
+                        </div>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Trip Info -->
+            {% if story.trip %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-airplane"></i> Reise</h6>
+                </div>
+                <div class="card-body">
+                    <h6>{{ story.trip.name }}</h6>
+                    <p class="text-muted small mb-2">
+                        {{ story.trip.start_date|date:"d.m.Y" }} - {{ story.trip.end_date|date:"d.m.Y" }}
+                    </p>
+                    
+                    <!-- Route -->
+                    <div class="small">
+                        <div class="d-flex align-items-center mb-1">
+                            <i class="bi bi-circle-fill text-primary me-2" style="font-size: 8px;"></i>
+                            {{ story.trip.origin }}
+                        </div>
+                        {% for stop in story.trip.stops.all %}
+                        <div class="d-flex align-items-center mb-1 ms-2">
+                            <i class="bi bi-arrow-right me-2 text-muted"></i>
+                            {{ stop.city }}, {{ stop.country }}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Reading Progress -->
+            {% if reading_progress %}
+            <div class="card border-0 shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-bar-chart"></i> Lesefortschritt</h6>
+                </div>
+                <div class="card-body">
+                    <div class="progress mb-2" style="height: 10px;">
+                        <div class="progress-bar bg-gradient-primary" 
+                             style="width: {{ reading_progress.progress_percent }}%"></div>
+                    </div>
+                    <p class="small text-muted mb-0">
+                        {{ reading_progress.chapters_read }} von {{ story.generated_chapters }} Kapiteln gelesen
+                    </p>
+                    {% if reading_progress.last_chapter %}
+                    <a href="{% url 'stories:chapter' story_id=story.pk chapter_num=reading_progress.last_chapter %}" 
+                       class="btn btn-sm btn-outline-primary mt-2">
+                        <i class="bi bi-play-fill"></i> Weiterlesen
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Actions -->
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white">
+                    <h6 class="mb-0"><i class="bi bi-gear"></i> Aktionen</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'stories:export_markdown' pk=story.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-download"></i> Markdown Export
+                        </a>
+                        <a href="{% url 'trips:trip_detail' pk=story.trip.pk %}" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-airplane"></i> Reise anzeigen
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,49 @@
+{
+  "timestamp": "2025-11-17 14:52:42",
+  "app": "all",
+  "errors_count": 9,
+  "errors": [
+    {
+      "type": "missing_table",
+      "model": "LLMExecution",
+      "table": "core_llm_executions"
+    },
+    {
+      "type": "missing_table",
+      "model": "AgentExecution",
+      "table": "core_agent_executions"
+    },
+    {
+      "type": "missing_table",
+      "model": "BookStatus",
+      "table": "book_statuses"
+    },
+    {
+      "type": "missing_table",
+      "model": "PhaseActionConfig",
+      "table": "phase_action_configs"
+    },
+    {
+      "type": "missing_table",
+      "model": "PromptExecution",
+      "table": "prompt_executions"
+    },
+    {
+      "type": "missing_table",
+      "model": "PromptTemplateTest",
+      "table": "prompt_template_tests"
+    },
+    {
+      "type": "missing_table",
+      "model": "GeneratedImage",
+      "table": "generated_images"
+    },
+    {
+      "type": "missing_table",
+      "model": "WorkflowTemplate",
+      "table": "workflow_templates_v2"
+    }
+  ],
+  "warnings": [],
+  "status": "failed"
+}

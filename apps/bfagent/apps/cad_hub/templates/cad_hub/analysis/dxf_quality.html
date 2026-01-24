@@ -1,0 +1,315 @@
+<!-- templates/cad_hub/analysis/dxf_quality.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}DXF Qualitätsprüfung - CAD Hub{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h2 class="h4 fw-bold mb-1"><i class="bi bi-rulers text-warning"></i> DXF Qualitätsprüfung</h2>
+        <p class="text-muted mb-0">Maßketten und Schnittdarstellungen analysieren</p>
+    </div>
+    <div class="col-auto">
+        <a href="{% url 'cad_hub:analysis_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Upload & Ergebnis -->
+    <div class="col-lg-8">
+        <!-- Upload -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-upload"></i> DXF/DWG hochladen</h6>
+            </div>
+            <div class="card-body">
+                <div id="drop-zone" class="border border-2 border-dashed rounded p-4 text-center bg-light">
+                    <i class="bi bi-file-earmark-ruled fs-1 text-muted d-block mb-2"></i>
+                    {% if dwg_supported %}
+                    <p class="mb-2">DXF oder DWG Datei hochladen</p>
+                    <input type="file" id="file-input" class="d-none" accept=".dxf,.dwg">
+                    {% else %}
+                    <p class="mb-2">DXF Datei hochladen</p>
+                    <div class="alert alert-warning py-1 px-2 small mb-2">
+                        <i class="bi bi-exclamation-triangle"></i> DWG nicht unterstützt - 
+                        <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank">ODA installieren</a>
+                    </div>
+                    <input type="file" id="file-input" class="d-none" accept=".dxf">
+                    {% endif %}
+                    <button type="button" class="btn btn-warning" onclick="document.getElementById('file-input').click()">
+                        <i class="bi bi-folder2-open"></i> Datei auswählen
+                    </button>
+                </div>
+                
+                <div id="upload-progress" class="mt-3 d-none">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm text-warning me-2"></div>
+                        <span>Qualitätsprüfung läuft...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ergebnis -->
+        <div id="result-section" class="d-none">
+            <!-- Qualitäts-Score -->
+            <div class="card mb-4">
+                <div class="card-body text-center py-4">
+                    <h5 class="text-muted mb-3">Qualitäts-Score</h5>
+                    <div id="score-display" class="display-1 fw-bold mb-2">--</div>
+                    <div class="progress" style="height: 10px; max-width: 300px; margin: 0 auto;">
+                        <div id="score-bar" class="progress-bar" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Details -->
+            <div class="row">
+                <!-- Maßketten -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-arrow-left-right text-primary"></i> Maßketten</h6>
+                        </div>
+                        <div class="card-body" id="dimension-result">
+                            <p class="text-muted">Keine Daten</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Schnittdarstellungen -->
+                <div class="col-md-6 mb-4">
+                    <div class="card h-100">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-layers text-info"></i> Schnittdarstellungen</h6>
+                        </div>
+                        <div class="card-body" id="section-result">
+                            <p class="text-muted">Keine Daten</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Issues -->
+            <div class="card">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Gefundene Probleme</h6>
+                </div>
+                <div class="card-body p-0" id="issues-list">
+                    <p class="text-muted p-3 mb-0">Keine Probleme gefunden</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Prüfungen -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-check2-all"></i> Prüfungen</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for check in quality_checks %}
+                    <li class="list-group-item">
+                        <strong>{{ check.name }}</strong>
+                        <br><small class="text-muted">{{ check.description }}</small>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Legende -->
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Score-Bewertung</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-success me-2">90-100</span>
+                    <span class="small">Ausgezeichnet</span>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-primary me-2">70-89</span>
+                    <span class="small">Gut</span>
+                </div>
+                <div class="d-flex align-items-center mb-2">
+                    <span class="badge bg-warning me-2">50-69</span>
+                    <span class="small">Verbesserungswürdig</span>
+                </div>
+                <div class="d-flex align-items-center">
+                    <span class="badge bg-danger me-2">0-49</span>
+                    <span class="small">Kritisch</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const progressDiv = document.getElementById('upload-progress');
+    const resultSection = document.getElementById('result-section');
+    
+    // Drag & Drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-warning');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-warning');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-warning');
+        if (e.dataTransfer.files.length > 0) {
+            analyzeFile(e.dataTransfer.files[0]);
+        }
+    });
+    
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            analyzeFile(e.target.files[0]);
+        }
+    });
+    
+    async function analyzeFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        progressDiv.classList.remove('d-none');
+        resultSection.classList.add('d-none');
+        
+        try {
+            const response = await fetch('{% url "cad_hub:dxf_quality_api" %}', {
+                method: 'POST',
+                body: formData,
+                headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+            });
+            
+            const data = await response.json();
+            displayResult(data);
+            
+        } catch (error) {
+            alert('Fehler: ' + error.message);
+        } finally {
+            progressDiv.classList.add('d-none');
+        }
+    }
+    
+    function displayResult(data) {
+        resultSection.classList.remove('d-none');
+        
+        // Fehlerbehandlung
+        if (!data.success && data.error) {
+            document.getElementById('score-display').textContent = '❌';
+            document.getElementById('dimension-result').innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    <strong>Fehler:</strong> ${data.error}
+                </div>
+            `;
+            return;
+        }
+        
+        // Score
+        const score = data.quality_score || 0;
+        document.getElementById('score-display').textContent = Math.round(score);
+        
+        const scoreBar = document.getElementById('score-bar');
+        scoreBar.style.width = score + '%';
+        scoreBar.className = 'progress-bar';
+        if (score >= 90) scoreBar.classList.add('bg-success');
+        else if (score >= 70) scoreBar.classList.add('bg-primary');
+        else if (score >= 50) scoreBar.classList.add('bg-warning');
+        else scoreBar.classList.add('bg-danger');
+        
+        // Maßketten / Bemaßungen
+        const dimResult = document.getElementById('dimension-result');
+        const dims = data.dimension_chains || {};
+        let dimHtml = '';
+        
+        // Format-Info anzeigen wenn vorhanden
+        if (dims.source_format) {
+            dimHtml += `<p class="small text-muted mb-2">
+                <i class="bi bi-file-earmark"></i> Format: <strong>${dims.source_format}</strong>
+                ${dims.was_converted ? '<span class="badge bg-info ms-1">Konvertiert</span>' : ''}
+            </p>`;
+        }
+        
+        if (dims.chain_count > 0 || dims.entity_count > 0) {
+            dimHtml += `<p><strong>${dims.chain_count || 0}</strong> Bemaßungen erkannt</p>`;
+            dimHtml += '<ul class="mb-0">';
+            if (dims.entity_count) dimHtml += `<li>Entities: ${dims.entity_count}</li>`;
+            if (dims.layer_count) dimHtml += `<li>Layer: ${dims.layer_count}</li>`;
+            if (dims.chain_dimensions) dimHtml += `<li>Kettenbemaßungen: ${dims.chain_dimensions}</li>`;
+            if (dims.baseline_dimensions) dimHtml += `<li>Basisbemaßungen: ${dims.baseline_dimensions}</li>`;
+            dimHtml += '</ul>';
+            dimResult.innerHTML = dimHtml;
+        } else {
+            dimResult.innerHTML = dimHtml + '<p class="text-muted mb-0">Keine Bemaßungen gefunden</p>';
+        }
+        
+        // Schnitte / Schraffuren
+        const secResult = document.getElementById('section-result');
+        const secs = data.section_views || {};
+        if (secs.section_view_count > 0 || secs.hatches > 0) {
+            let html = `<p><strong>${secs.section_view_count || secs.hatches || 0}</strong> Schraffuren/Schnitte erkannt</p>`;
+            if (secs.materials && secs.materials.length > 0) {
+                html += '<p class="mb-1">Erkannte Materialien:</p><ul class="mb-0">';
+                secs.materials.forEach(m => {
+                    html += `<li>${m.pattern} → ${m.material}</li>`;
+                });
+                html += '</ul>';
+            }
+            secResult.innerHTML = html;
+        } else {
+            secResult.innerHTML = '<p class="text-muted mb-0">Keine Schnittdarstellungen gefunden</p>';
+        }
+        
+        // Issues
+        const issuesList = document.getElementById('issues-list');
+        const issues = data.issues || [];
+        if (issues.length > 0) {
+            let html = '<ul class="list-group list-group-flush">';
+            issues.forEach(issue => {
+                let icon, bgClass;
+                if (issue.type === 'error') {
+                    icon = 'bi-x-circle text-danger';
+                    bgClass = issue.category === 'conversion' ? 'list-group-item-danger' : '';
+                } else {
+                    icon = 'bi-exclamation-triangle text-warning';
+                    bgClass = '';
+                }
+                html += `<li class="list-group-item ${bgClass}"><i class="bi ${icon} me-2"></i>${issue.message}</li>`;
+            });
+            html += '</ul>';
+            issuesList.innerHTML = html;
+            
+            // Bei Konvertierungsfehlern spezielle Hinweise zeigen
+            const conversionErrors = issues.filter(i => i.category === 'conversion');
+            if (conversionErrors.length > 0) {
+                issuesList.innerHTML += `
+                    <div class="alert alert-info m-3">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Tipp:</strong> Für DWG-Dateien benötigen Sie den 
+                        <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank">ODA File Converter</a> 
+                        oder speichern Sie die Datei als DXF.
+                    </div>
+                `;
+            }
+        } else {
+            issuesList.innerHTML = '<p class="text-success p-3 mb-0"><i class="bi bi-check-circle me-2"></i>Keine Probleme gefunden!</p>';
+        }
+    }
+});
+</script>
+{% endblock %}

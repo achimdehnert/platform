@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+
+{% block title %}LLM Usage Log{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumb -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'control_center:controlling-dashboard' %}">Dashboard</a></li>
+            <li class="breadcrumb-item active">LLM Usage</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">📊 LLM Usage Log</h1>
+            <p class="text-muted mb-0">
+                {{ total_count }} Aufrufe in den letzten {{ days }} Tagen
+                {% if session_id %}<span class="badge bg-info ms-2">Session: {{ session_id }}</span>{% endif %}
+                {% if task_filter %}<span class="badge bg-secondary ms-2">Task: {{ task_filter }}</span>{% endif %}
+            </p>
+        </div>
+        <div class="d-flex gap-2">
+            {% if session_id or task_filter %}
+            <a href="{% url 'control_center:llm-usage-list' %}" class="btn btn-outline-warning btn-sm">
+                ✕ Filter zurücksetzen
+            </a>
+            {% endif %}
+            <a href="{% url 'control_center:controlling-dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                ← Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Zeitpunkt</th>
+                            <th>Agent</th>
+                            <th>Task</th>
+                            <th>Provider</th>
+                            <th>Model</th>
+                            <th class="text-end">Tokens In</th>
+                            <th class="text-end">Tokens Out</th>
+                            <th class="text-end">Kosten</th>
+                            <th class="text-end">Latenz</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr>
+                            <td class="small">
+                                <a href="{% url 'control_center:llm-usage-detail' log.id %}">
+                                    {{ log.timestamp|date:"d.m.Y H:i:s" }}
+                                </a>
+                            </td>
+                            <td><span class="badge bg-info">{{ log.agent }}</span></td>
+                            <td>
+                                <a href="{% url 'control_center:llm-usage-detail' log.id %}" class="text-decoration-none">
+                                    <code class="small">{{ log.task }}</code>
+                                </a>
+                            </td>
+                            <td><span class="badge bg-secondary">{{ log.provider }}</span></td>
+                            <td class="small">{{ log.model }}</td>
+                            <td class="text-end">{{ log.tokens_in }}</td>
+                            <td class="text-end">{{ log.tokens_out }}</td>
+                            <td class="text-end">${{ log.cost_usd|floatformat:5 }}</td>
+                            <td class="text-end">{{ log.latency_ms|floatformat:0 }}ms</td>
+                            <td>
+                                {% if log.success %}
+                                <span class="text-success">✅</span>
+                                {% else %}
+                                <span class="text-danger" title="{{ log.error_message }}">❌</span>
+                                {% endif %}
+                                {% if log.cached %}<span class="badge bg-warning text-dark">cached</span>{% endif %}
+                                {% if log.fallback_used %}<span class="badge bg-info">fallback</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted py-4">
+                                Keine LLM-Aufrufe im gewählten Zeitraum
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

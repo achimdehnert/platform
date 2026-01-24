@@ -1,0 +1,345 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ project.title }} | Writing Hub{% endblock %}
+
+{% block extra_css %}
+<style>
+    :root {
+        --wh-primary: #6366f1;
+        --wh-primary-dark: #4f46e5;
+        --wh-success: #22c55e;
+        --wh-warning: #f59e0b;
+        --wh-bg: #f8fafc;
+    }
+    
+    .hub-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .hub-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 2rem;
+    }
+    
+    .hub-title h1 {
+        font-size: 2rem;
+        color: #1e293b;
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .hub-title p {
+        color: #64748b;
+        margin: 0;
+    }
+    
+    .hub-stats {
+        display: flex;
+        gap: 1.5rem;
+        text-align: right;
+    }
+    
+    .stat-box {
+        background: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+    
+    .stat-box .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: var(--wh-primary);
+    }
+    
+    .stat-box .label {
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+    
+    .progress-overall {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+    }
+    
+    .progress-bar-container {
+        background: #e5e7eb;
+        border-radius: 10px;
+        height: 20px;
+        overflow: hidden;
+    }
+    
+    .progress-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--wh-primary), var(--wh-success));
+        border-radius: 10px;
+        transition: width 0.5s ease;
+    }
+    
+    .progress-label {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 0.5rem;
+        font-size: 0.9rem;
+        color: #64748b;
+    }
+    
+    .phases-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .phase-card {
+        background: white;
+        border-radius: 16px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+        transition: all 0.3s;
+        cursor: pointer;
+        text-decoration: none;
+        display: block;
+        border: 2px solid transparent;
+    }
+    
+    .phase-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        border-color: var(--wh-primary);
+    }
+    
+    .phase-card.complete {
+        border-color: var(--wh-success);
+    }
+    
+    .phase-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .phase-icon {
+        width: 50px;
+        height: 50px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        background: #f1f5f9;
+        color: var(--wh-primary);
+    }
+    
+    .phase-card.complete .phase-icon {
+        background: #dcfce7;
+        color: var(--wh-success);
+    }
+    
+    .phase-info h3 {
+        margin: 0;
+        font-size: 1.1rem;
+        color: #1e293b;
+    }
+    
+    .phase-info p {
+        margin: 0.25rem 0 0 0;
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    
+    .phase-progress {
+        background: #e5e7eb;
+        border-radius: 6px;
+        height: 8px;
+        overflow: hidden;
+    }
+    
+    .phase-progress-fill {
+        height: 100%;
+        background: var(--wh-primary);
+        border-radius: 6px;
+        transition: width 0.3s;
+    }
+    
+    .phase-card.complete .phase-progress-fill {
+        background: var(--wh-success);
+    }
+    
+    .phase-status {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-top: 0.75rem;
+        font-size: 0.8rem;
+    }
+    
+    .phase-status .percentage {
+        font-weight: 600;
+        color: var(--wh-primary);
+    }
+    
+    .phase-card.complete .phase-status .percentage {
+        color: var(--wh-success);
+    }
+    
+    .status-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .status-badge.complete {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+    
+    .status-badge.in-progress {
+        background: #fef3c7;
+        color: #d97706;
+    }
+    
+    .status-badge.pending {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+    
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #64748b;
+        text-decoration: none;
+        margin-bottom: 1rem;
+    }
+    
+    .btn-back:hover {
+        color: var(--wh-primary);
+    }
+    
+    .btn-import {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        background: linear-gradient(135deg, #f0fdf4, #dcfce7);
+        border: 2px solid #86efac;
+        color: #166534;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        font-weight: 600;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+    
+    .btn-import:hover {
+        background: #dcfce7;
+        border-color: #22c55e;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+    }
+    
+    .word-progress {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+    
+    .word-progress .icon {
+        font-size: 1.5rem;
+        color: var(--wh-primary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="hub-container">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <a href="{% url 'writing_hub:projects_list' %}" class="btn-back" style="margin-bottom: 0;">
+            <i class="bi bi-arrow-left"></i> Alle Projekte
+        </a>
+        <a href="{% url 'writing_hub:import_to_project_start' project_id=project.id %}" class="btn-import">
+            <i class="bi bi-plus-circle"></i> Daten importieren
+        </a>
+    </div>
+    
+    <div class="hub-header">
+        <div class="hub-title">
+            <h1><i class="bi bi-book"></i> {{ project.title }}</h1>
+            <p>{{ project.genre|default:"Kein Genre" }} • {{ meta.book_type|default:"Roman" }}</p>
+        </div>
+        <div class="hub-stats">
+            <div class="stat-box">
+                <div class="value">{{ total_words|default:0 }}</div>
+                <div class="label">Wörter</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ chapter_count }}</div>
+                <div class="label">Kapitel</div>
+            </div>
+            <div class="stat-box">
+                <div class="value">{{ character_count }}</div>
+                <div class="label">Charaktere</div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="progress-overall">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <strong>Gesamtfortschritt</strong>
+            <span style="font-size: 1.25rem; font-weight: 700; color: var(--wh-primary);">{{ overall_progress }}%</span>
+        </div>
+        <div class="progress-bar-container">
+            <div class="progress-bar-fill" style="width: {{ overall_progress }}%;"></div>
+        </div>
+        <div class="word-progress">
+            <i class="bi bi-pencil icon"></i>
+            <div style="flex: 1;">
+                <div style="display: flex; justify-content: space-between; font-size: 0.9rem;">
+                    <span>{{ total_words }} / {{ target_words }} Wörter</span>
+                    <span>{{ word_progress }}%</span>
+                </div>
+                <div class="progress-bar-container" style="height: 6px; margin-top: 0.25rem;">
+                    <div class="progress-bar-fill" style="width: {{ word_progress }}%;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <h2 style="margin-bottom: 1rem; color: #1e293b;">Workflow-Phasen</h2>
+    
+    <div class="phases-grid">
+        {% for phase in phases %}
+        <a href="{{ phase.url }}" class="phase-card {% if phase.complete %}complete{% endif %}">
+            <div class="phase-header">
+                <div class="phase-icon">
+                    <i class="bi {{ phase.icon }}"></i>
+                </div>
+                <div class="phase-info">
+                    <h3>{{ phase.name }}</h3>
+                    <p>{{ phase.description }}</p>
+                </div>
+            </div>
+            <div class="phase-progress">
+                <div class="phase-progress-fill" style="width: {{ phase.progress }}%;"></div>
+            </div>
+            <div class="phase-status">
+                <span class="percentage">{{ phase.progress }}%</span>
+                <span class="status-badge {% if phase.complete %}complete{% elif phase.progress > 0 %}in-progress{% else %}pending{% endif %}">
+                    {% if phase.complete %}Fertig{% elif phase.progress > 0 %}In Arbeit{% else %}Ausstehend{% endif %}
+                </span>
+            </div>
+        </a>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

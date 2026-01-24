@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Feature Planning{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <h1><i class="bi bi-kanban"></i> Feature Planning Dashboard</h1>
+            <p class="text-muted">Track proposed, planned, and in-progress features</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <button class="btn btn-primary btn-lg"
+                    hx-get="{% url url_create %}"
+                    hx-target="#modal-content">
+                <i class="bi bi-plus-circle"></i> New Feature
+            </button>
+        </div>
+    </div>
+
+    <!-- Statistics Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-light">
+                <div class="card-body">
+                    <h6 class="card-title text-muted">💡 Proposed</h6>
+                    <h2>{{ status_stats.proposed.count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white">
+                <div class="card-body">
+                    <h6 class="card-title">🚧 In Progress</h6>
+                    <h2>{{ status_stats.in_progress.count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h6 class="card-title">✅ Active</h6>
+                    <h2>{{ status_stats.active.count }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-white">
+                <div class="card-body">
+                    <h6 class="card-title">📋 Total</h6>
+                    <h2>{{ total_count }}</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Priority Stats -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-body">
+                    <h6>Priority Breakdown:</h6>
+                    <div class="d-flex gap-3">
+                        <span><strong>🔥 Critical:</strong> {{ priority_stats.critical }}</span>
+                        <span><strong>🔴 High:</strong> {{ priority_stats.high }}</span>
+                        <span><strong>🟡 Medium:</strong> {{ priority_stats.medium }}</span>
+                        <span><strong>🔵 Low:</strong> {{ priority_stats.low }}</span>
+                        <span><strong>📦 Backlog:</strong> {{ priority_stats.backlog }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-3">
+                    <label>Filter by Status</label>
+                    <select class="form-select" name="status"
+                            hx-get="{% url url_list %}"
+                            hx-target="#feature-table-body"
+                            hx-include="[name='type'],[name='priority'],[name='owner']">
+                        <option value="">All Status</option>
+                        {% for status_code, status_label in available_statuses %}
+                        <option value="{{ status_code }}" {% if status_code == status_filter %}selected{% endif %}>{{ status_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Filter by Type</label>
+                    <select class="form-select" name="type"
+                            hx-get="{% url url_list %}"
+                            hx-target="#feature-table-body"
+                            hx-include="[name='status'],[name='priority'],[name='owner']">
+                        <option value="">All Types</option>
+                        {% for type_code, type_label in available_types %}
+                        <option value="{{ type_code }}" {% if type_code == type_filter %}selected{% endif %}>{{ type_label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Filter by Priority</label>
+                    <select class="form-select" name="priority"
+                            hx-get="{% url url_list %}"
+                            hx-target="#feature-table-body"
+                            hx-include="[name='status'],[name='type'],[name='owner']">
+                        <option value="">All Priorities</option>
+                        <option value="critical" {% if priority_filter == 'critical' %}selected{% endif %}>🔥 Critical</option>
+                        <option value="high" {% if priority_filter == 'high' %}selected{% endif %}>🔴 High</option>
+                        <option value="medium" {% if priority_filter == 'medium' %}selected{% endif %}>🟡 Medium</option>
+                        <option value="low" {% if priority_filter == 'low' %}selected{% endif %}>🔵 Low</option>
+                        <option value="backlog" {% if priority_filter == 'backlog' %}selected{% endif %}>📦 Backlog</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label>Filter by Owner</label>
+                    <select class="form-select" name="owner"
+                            hx-get="{% url url_list %}"
+                            hx-target="#feature-table-body"
+                            hx-include="[name='status'],[name='type'],[name='priority']">
+                        <option value="">All Owners</option>
+                        {% for owner in available_owners %}
+                        <option value="{{ owner }}" {% if owner == owner_filter %}selected{% endif %}>{{ owner }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Features Table -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Features</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Owner</th>
+                            <th>Proposed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="feature-table-body">
+                        {% include "bfagent/feature_planning/feature_list.html" %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="modal-content">
+            <!-- HTMX will load content here -->
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Bootstrap modals
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'modal-content') {
+        var modal = new bootstrap.Modal(document.getElementById('detailModal'));
+        modal.show();
+    }
+});
+</script>
+{% endblock %}

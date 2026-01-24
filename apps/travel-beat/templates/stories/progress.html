@@ -1,0 +1,115 @@
+{% extends "base.html" %}
+
+{% block title %}Story wird generiert - Travel Beat{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <div class="card border-0 shadow">
+                <div class="card-body text-center p-5">
+                    <!-- Loading Animation -->
+                    <div class="mb-4">
+                        <div class="spinner-border text-primary" role="status" style="width: 4rem; height: 4rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    
+                    <h3 class="mb-3">Deine Story wird erstellt...</h3>
+                    
+                    <!-- Progress Info -->
+                    <div id="progress-container">
+                        <p class="text-muted mb-3" id="progress-message">
+                            Initialisiere Generierung...
+                        </p>
+                        
+                        <div class="progress mb-3" style="height: 10px;">
+                            <div class="progress-bar bg-gradient-primary progress-bar-striped progress-bar-animated" 
+                                 role="progressbar" 
+                                 id="progress-bar"
+                                 style="width: 5%"></div>
+                        </div>
+                        
+                        <p class="small text-muted" id="progress-detail">
+                            Dies kann 2-5 Minuten dauern
+                        </p>
+                    </div>
+                    
+                    <!-- Story Info -->
+                    <div class="card bg-light border-0 mt-4">
+                        <div class="card-body py-3">
+                            <div class="row text-start small">
+                                <div class="col-6">
+                                    <span class="text-muted">Story:</span><br>
+                                    <strong>{{ story.title }}</strong>
+                                </div>
+                                <div class="col-6">
+                                    <span class="text-muted">Genre:</span><br>
+                                    <strong>{{ story.get_genre_display }}</strong>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Cancel Link -->
+            <div class="text-center mt-3">
+                <a href="{% url 'trips:dashboard' %}" class="text-muted small">
+                    <i class="bi bi-arrow-left"></i> Zurück zum Dashboard
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const storyId = {{ story.id }};
+    const statusUrl = "{% url 'stories:api_status' pk=story.id %}";
+    
+    function updateProgress() {
+        fetch(statusUrl)
+            .then(response => response.json())
+            .then(data => {
+                // Update progress bar
+                const progressBar = document.getElementById('progress-bar');
+                const progressMessage = document.getElementById('progress-message');
+                const progressDetail = document.getElementById('progress-detail');
+                
+                if (data.progress) {
+                    progressBar.style.width = data.progress + '%';
+                }
+                
+                if (data.message) {
+                    progressMessage.textContent = data.message;
+                }
+                
+                if (data.phase === 'chapter' && data.chapter) {
+                    progressDetail.textContent = `Kapitel ${data.chapter} von ${data.total}`;
+                }
+                
+                // Check if complete or failed
+                if (data.status === 'ready' || data.status === 'completed') {
+                    window.location.href = "{% url 'stories:detail' pk=story.id %}";
+                } else if (data.status === 'failed') {
+                    progressMessage.textContent = 'Generierung fehlgeschlagen';
+                    progressMessage.classList.add('text-danger');
+                    progressBar.classList.remove('progress-bar-animated');
+                    progressBar.classList.add('bg-danger');
+                } else {
+                    // Continue polling
+                    setTimeout(updateProgress, 2000);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                setTimeout(updateProgress, 5000);
+            });
+    }
+    
+    // Start polling
+    setTimeout(updateProgress, 1000);
+</script>
+{% endblock %}

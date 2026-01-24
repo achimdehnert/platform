@@ -1,0 +1,8 @@
+{{CLIPBOARD:@CASCADE: Session abschließen
+
+Bitte erstelle:
+- [ ] Session Summary
+- [ ] Commit & Push vorbereiten
+- [ ] Safe Restart Doku
+
+Was wurde erreicht?}}

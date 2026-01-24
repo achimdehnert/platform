@@ -1,0 +1,75 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Agents - AI Konfiguration{% endblock %}
+
+{% block doc_link %}
+<div class="mb-2 text-end">
+    <a href="/static/docs/hubs/control_center.html#agents" target="_blank" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-book me-1"></i> Agents Docs <i class="bi bi-box-arrow-up-right ms-1 small"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'control_center:ai-config-dashboard' %}">AI Konfiguration</a></li>
+            <li class="breadcrumb-item active">Agents</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-person-gear"></i> Agents</h1>
+        <div>
+            <span class="badge bg-primary fs-6 me-2">{{ active_count }} / {{ total_count }} aktiv</span>
+            <a href="{% url 'control_center:agent-create' %}" class="btn btn-success">
+                <i class="bi bi-plus"></i> Neuer Agent
+            </a>
+        </div>
+    </div>
+
+    <div class="card shadow-sm">
+        <div class="card-body">
+            <table class="table table-hover">
+                <thead>
+                    <tr>
+                        <th>Status</th>
+                        <th>Name</th>
+                        <th>Beschreibung</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for agent in agents %}
+                    <tr>
+                        <td>
+                            {% if agent.status == 'active' %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i> Aktiv</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ agent.status|default:"Inaktiv" }}</span>
+                            {% endif %}
+                        </td>
+                        <td><strong>{{ agent.name }}</strong></td>
+                        <td>{{ agent.description|default:"-"|truncatewords:15 }}</td>
+                        <td>
+                            <a href="{% url 'control_center:agent-detail' agent.pk %}" class="btn btn-sm btn-info text-white">
+                                <i class="bi bi-play-fill"></i> Testen
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-4">
+                            <i class="bi bi-inbox fs-1"></i>
+                            <p class="mt-2">Keine Agents konfiguriert.</p>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

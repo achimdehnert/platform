@@ -1,0 +1,24 @@
+{
+  "mcpServers": {
+    "postgres-bfagent": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://bfagent:bfagent_dev_2024@localhost:5432/bfagent_dev"
+      ],
+      "env": {
+        "PGCONNECT_TIMEOUT": "10"
+      }
+    },
+    "sqlite-bfagent": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-sqlite",
+        "--db-path",
+        "C:\\Users\\achim\\github\\bfagent\\db.sqlite3"
+      ]
+    }
+  }
+}

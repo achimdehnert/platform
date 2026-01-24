@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+
+{% block title %}Neue Style DNA{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-6">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}">Style Lab</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-dna-list' %}">Style DNAs</a></li>
+                    <li class="breadcrumb-item active">Neu erstellen</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-primary-subtle border-0">
+                    <h4 class="mb-0">
+                        <i class="bi bi-fingerprint me-2"></i>Neue Style DNA erstellen
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info mb-4">
+                        <i class="bi bi-info-circle me-2"></i>
+                        <strong>Tipp:</strong> Style DNAs werden normalerweise durch Style Lab Sessions erstellt.
+                        Hier kannst du manuell eine leere DNA anlegen.
+                    </div>
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <!-- Author Selection -->
+                        <div class="mb-3">
+                            <label for="author_id" class="form-label">
+                                <i class="bi bi-person-badge me-1"></i>Autor zuordnen
+                            </label>
+                            <div class="input-group">
+                                <select class="form-select" id="author_id" name="author_id">
+                                    <option value="">-- Kein Autor (eigener Stil) --</option>
+                                    {% for author in authors %}
+                                    <option value="{{ author.id }}">{{ author.name }}</option>
+                                    {% endfor %}
+                                </select>
+                                <button type="button" class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#newAuthorModal" title="Neuen Autor anlegen">
+                                    <i class="bi bi-plus-lg"></i>
+                                </button>
+                            </div>
+                            <div class="form-text">Optional: Ordne diesen Stil einem Autor zu</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" required
+                                   placeholder="z.B. 'Mein Thriller-Stil'">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Beschreibung</label>
+                            <textarea class="form-control" id="description" name="description" rows="3"
+                                      placeholder="Beschreibe deinen Schreibstil..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="genre" class="form-label">Genre</label>
+                            <select class="form-select" id="genre" name="genre">
+                                <option value="">Kein spezifisches Genre</option>
+                                <option value="Roman">Roman</option>
+                                <option value="Thriller">Thriller</option>
+                                <option value="SciFi">Science Fiction</option>
+                                <option value="Fantasy">Fantasy</option>
+                                <option value="Krimi">Krimi</option>
+                                <option value="Historisch">Historisch</option>
+                                <option value="Sachbuch">Sachbuch</option>
+                            </select>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" id="is_primary" name="is_primary">
+                                <label class="form-check-label" for="is_primary">
+                                    Als primären Stil festlegen
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <a href="{% url 'writing_hub:style-dna-list' %}" class="btn btn-outline-secondary">
+                                Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>Erstellen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- New Author Modal -->
+<div class="modal fade" id="newAuthorModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-person-badge me-2"></i>Neuen Autor anlegen</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Name *</label>
+                    <input type="text" class="form-control" id="new-author-name" placeholder="z.B. Freida McFadden">
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Genres</label>
+                    <input type="text" class="form-control" id="new-author-genres" placeholder="Thriller, Suspense (kommagetrennt)">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="createAuthorAndSelect()">
+                    <i class="bi bi-check-lg me-1"></i>Anlegen
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+async function createAuthorAndSelect() {
+    const name = document.getElementById('new-author-name').value.trim();
+    const genresStr = document.getElementById('new-author-genres').value.trim();
+    
+    if (!name) {
+        alert('Bitte Name eingeben');
+        return;
+    }
+    
+    const genres = genresStr ? genresStr.split(',').map(g => g.trim()).filter(g => g) : [];
+    
+    try {
+        const response = await fetch('/writing-hub/api/authors/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: JSON.stringify({ name, genres, bio: '' })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            // Add new option to select and select it
+            const select = document.getElementById('author_id');
+            const option = new Option(data.author.name, data.author.id, true, true);
+            select.add(option);
+            
+            // Close modal
+            bootstrap.Modal.getInstance(document.getElementById('newAuthorModal')).hide();
+            
+            // Clear form
+            document.getElementById('new-author-name').value = '';
+            document.getElementById('new-author-genres').value = '';
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Fehler beim Anlegen');
+    }
+}
+</script>
+{% endblock %}

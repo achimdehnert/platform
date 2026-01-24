@@ -1,0 +1,25 @@
+<!-- templates/cad_hub/brandschutz/partials/symbol_row.html -->
+<div id="symbol-{{ symbol.pk }}" class="flex items-center justify-between text-sm animate-in">
+    <div class="text-slate-300">
+        Position: ({{ symbol.position_x|floatformat:0 }}, {{ symbol.position_y|floatformat:0 }})
+    </div>
+    <div class="flex gap-1">
+        {% if symbol.status == 'vorgeschlagen' %}
+        <button hx-post="{% url 'cad_hub:brandschutz:symbol_approve' symbol.pk %}"
+                hx-vals='{"action": "genehmigt"}'
+                hx-target="#symbol-{{ symbol.pk }}"
+                class="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-xs">✓</button>
+        <button hx-post="{% url 'cad_hub:brandschutz:symbol_approve' symbol.pk %}"
+                hx-vals='{"action": "abgelehnt"}'
+                hx-target="#symbol-{{ symbol.pk }}"
+                class="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-xs">✕</button>
+        {% else %}
+        <span class="px-2 py-1 rounded text-xs
+            {% if symbol.status == 'genehmigt' %}bg-green-900 text-green-300
+            {% elif symbol.status == 'abgelehnt' %}bg-red-900 text-red-300
+            {% else %}bg-blue-900 text-blue-300{% endif %}">
+            {{ symbol.status }}
+        </span>
+        {% endif %}
+    </div>
+</div>

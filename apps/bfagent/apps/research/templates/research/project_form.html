@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - Research Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-folder-plus"></i> {{ title }}</h5>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Project Name *</label>
+                            <input type="text" class="form-control" id="name" name="name" 
+                                   value="{{ project.name|default:'' }}" required
+                                   placeholder="e.g., AI Developments 2024">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="query" class="form-label">Research Query</label>
+                            <input type="text" class="form-control" id="query" name="query" 
+                                   value="{{ project.query|default:'' }}"
+                                   placeholder="e.g., Recent developments in artificial intelligence">
+                            <small class="form-text text-muted">
+                                The main question or topic you want to research
+                            </small>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" 
+                                      rows="3" placeholder="Additional context or notes...">{{ project.description|default:'' }}</textarea>
+                        </div>
+                        
+                        <hr class="my-4">
+                        <h6 class="text-muted mb-3"><i class="bi bi-sliders"></i> Research Settings</h6>
+                        
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="research_type" class="form-label">Research Type</label>
+                                <select class="form-select" id="research_type" name="research_type">
+                                    <option value="quick_facts" {% if project.research_type == 'quick_facts' %}selected{% endif %}>
+                                        🔍 Quick Facts - Fast fact-finding
+                                    </option>
+                                    <option value="deep_dive" {% if project.research_type == 'deep_dive' %}selected{% endif %}>
+                                        📊 Deep Dive - Comprehensive analysis
+                                    </option>
+                                    <option value="academic" {% if project.research_type == 'academic' %}selected{% endif %}>
+                                        🎓 Academic - Scientific with citations
+                                    </option>
+                                </select>
+                                <small class="form-text text-muted">Determines search strategy and output format</small>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="output_format" class="form-label">Output Format</label>
+                                <select class="form-select" id="output_format" name="output_format">
+                                    <option value="markdown" {% if project.output_format == 'markdown' %}selected{% endif %}>Markdown</option>
+                                    <option value="html" {% if project.output_format == 'html' %}selected{% endif %}>HTML</option>
+                                    <option value="latex" {% if project.output_format == 'latex' %}selected{% endif %}>LaTeX</option>
+                                    <option value="bibtex" {% if project.output_format == 'bibtex' %}selected{% endif %}>BibTeX</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div id="academic-options" class="card bg-light mb-3" style="display: none;">
+                            <div class="card-body">
+                                <h6 class="card-title"><i class="bi bi-mortarboard"></i> Academic Options</h6>
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <label for="citation_style" class="form-label">Citation Style</label>
+                                        <select class="form-select" id="citation_style" name="citation_style">
+                                            <option value="apa" {% if project.citation_style == 'apa' %}selected{% endif %}>APA (7th Edition)</option>
+                                            <option value="mla" {% if project.citation_style == 'mla' %}selected{% endif %}>MLA (9th Edition)</option>
+                                            <option value="chicago" {% if project.citation_style == 'chicago' %}selected{% endif %}>Chicago</option>
+                                            <option value="harvard" {% if project.citation_style == 'harvard' %}selected{% endif %}>Harvard</option>
+                                            <option value="ieee" {% if project.citation_style == 'ieee' %}selected{% endif %}>IEEE</option>
+                                            <option value="vancouver" {% if project.citation_style == 'vancouver' %}selected{% endif %}>Vancouver</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6 mb-3 d-flex align-items-end">
+                                        <div class="form-check">
+                                            <input class="form-check-input" type="checkbox" id="require_peer_reviewed" 
+                                                   name="require_peer_reviewed" {% if project.require_peer_reviewed %}checked{% endif %}>
+                                            <label class="form-check-label" for="require_peer_reviewed">
+                                                Require peer-reviewed sources only
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        {% if project %}
+                        <div class="mb-3">
+                            <label for="status" class="form-label">Status</label>
+                            <select class="form-select" id="status" name="status">
+                                {% for value, label in status_choices %}
+                                <option value="{{ value }}" {% if project.status == value %}selected{% endif %}>
+                                    {{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        {% endif %}
+                        
+                        <div class="d-flex justify-content-between">
+                            <a href="{% if project %}{% url 'research:project_detail' project.pk %}{% else %}{% url 'research:project_list' %}{% endif %}" 
+                               class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i> Cancel
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check"></i> {% if project %}Update{% else %}Create{% endif %} Project
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            {% if phases %}
+            <div class="card mt-4">
+                <div class="card-header">
+                    <h6 class="mb-0"><i class="bi bi-list-ol"></i> Research Workflow Phases</h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex flex-wrap gap-2">
+                        {% for phase_id, phase_name in phases %}
+                        <span class="badge bg-secondary">{{ forloop.counter }}. {{ phase_name }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const researchType = document.getElementById('research_type');
+    const academicOptions = document.getElementById('academic-options');
+    
+    function toggleAcademicOptions() {
+        if (researchType.value === 'academic') {
+            academicOptions.style.display = 'block';
+        } else {
+            academicOptions.style.display = 'none';
+        }
+    }
+    
+    researchType.addEventListener('change', toggleAcademicOptions);
+    toggleAcademicOptions(); // Initial check
+});
+</script>
+{% endblock %}

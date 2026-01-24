@@ -1,0 +1,99 @@
+<!-- templates/cad_hub/partials/_window_table.html - Bootstrap 5 -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nummer</th>
+                    <th>Name</th>
+                    <th>Geschoss</th>
+                    <th class="text-end">Breite</th>
+                    <th class="text-end">Höhe</th>
+                    <th class="text-end">Fläche</th>
+                    <th class="text-end">U-Wert</th>
+                    <th>Material</th>
+                    <th class="text-center">Details</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for window in windows %}
+                <tr>
+                    <td><code class="text-info">{{ window.number|default:"-" }}</code></td>
+                    <td><strong>{{ window.name|default:window.ifc_guid|slice:":12" }}</strong></td>
+                    <td>{{ window.floor.name|default:"-" }}</td>
+                    <td class="text-end font-monospace">{{ window.width|floatformat:2|default:"-" }} m</td>
+                    <td class="text-end font-monospace">{{ window.height|floatformat:2|default:"-" }} m</td>
+                    <td class="text-end font-monospace text-info fw-medium">{{ window.area|floatformat:2|default:"-" }} m²</td>
+                    <td class="text-end font-monospace">
+                        {% if window.u_value %}{{ window.u_value|floatformat:2 }} W/m²K{% else %}-{% endif %}
+                    </td>
+                    <td class="text-muted small">{{ window.material|default:"-" }}</td>
+                    <td class="text-center">
+                        {% if window.properties and window.properties|length > 0 %}
+                            <button type="button" class="btn btn-sm btn-outline-info" 
+                                    data-bs-toggle="collapse" data-bs-target="#window-{{ window.id }}-props">
+                                <i class="bi bi-list-ul"></i> {{ window.properties|length }}
+                            </button>
+                        {% else %}
+                            <span class="badge bg-secondary" title="Keine Properties">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if window.properties %}
+                <tr class="collapse" id="window-{{ window.id }}-props">
+                    <td colspan="9" class="bg-light">
+                        <div class="p-2">
+                            <strong class="text-warning"><i class="bi bi-file-earmark-text"></i> IFC Properties:</strong>
+                            {% for pset_name, props in window.properties.items %}
+                            <div class="mt-2 mb-3">
+                                <div class="fw-medium text-primary mb-1">
+                                    <i class="bi bi-folder"></i> {{ pset_name }} 
+                                    <span class="text-muted small">({{ props|length }})</span>
+                                </div>
+                                <div class="ms-3 small">
+                                    {% for key, value in props.items %}
+                                    <div class="row">
+                                        <div class="col-4 text-muted font-monospace">{{ key }}:</div>
+                                        <div class="col-8">{{ value|default:"-" }}</div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="bi bi-window fs-1 d-block mb-2 opacity-50"></i>
+                        Keine Fenster gefunden
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}">← Zurück</a>
+        </li>
+        {% endif %}
+        <li class="page-item disabled">
+            <span class="page-link">Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}">Weiter →</a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}

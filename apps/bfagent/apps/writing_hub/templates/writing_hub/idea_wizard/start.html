@@ -1,0 +1,138 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Ideengenerierung - Writing Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="mb-3">
+                <i class="bi bi-lightbulb text-warning"></i>
+                Ideengenerierung
+            </h1>
+            <p class="text-muted lead">
+                Wähle einen Projekttyp und lass dich durch den Ideenfindungs-Prozess führen.
+            </p>
+        </div>
+    </div>
+
+    <!-- Content Type Selection -->
+    <div class="row mb-5">
+        <div class="col-12">
+            <h4 class="mb-3">Neues Projekt starten</h4>
+        </div>
+        {% for ct in content_types %}
+        <div class="col-md-4 col-lg-3 mb-4">
+            <div class="card h-100 shadow-sm hover-lift">
+                <div class="card-body text-center">
+                    <div class="mb-3">
+                        <i class="{{ ct.icon|default:'bi-file-text' }} fs-1 text-primary"></i>
+                    </div>
+                    <h5 class="card-title">{{ ct.name_de }}</h5>
+                    <p class="card-text text-muted small">
+                        {{ ct.description|default:ct.name_de|truncatewords:15 }}
+                    </p>
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <small class="text-muted">
+                            <i class="bi bi-list-ol"></i>
+                            {{ ct.idea_steps.count }} Schritte
+                        </small>
+                        <small class="text-muted">
+                            <i class="bi bi-file-word"></i>
+                            ~{{ ct.default_word_count|floatformat:0 }} Wörter
+                        </small>
+                    </div>
+                    <form method="post" action="{% url 'writing_hub:idea-wizard-create' ct.slug %}">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-play-fill"></i>
+                            Starten
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i>
+                Keine Projekttypen verfügbar. Bitte führe <code>python manage.py setup_idea_generation</code> aus.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Recent Sessions -->
+    {% if recent_sessions %}
+    <div class="row">
+        <div class="col-12">
+            <h4 class="mb-3">Letzte Ideen-Sessions</h4>
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Titel</th>
+                            <th>Typ</th>
+                            <th>Status</th>
+                            <th>Fortschritt</th>
+                            <th>Letzte Bearbeitung</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for session in recent_sessions %}
+                        <tr>
+                            <td>{{ session.title|default:"Unbenannt" }}</td>
+                            <td>
+                                <i class="{{ session.content_type.icon }}"></i>
+                                {{ session.content_type.name_de }}
+                            </td>
+                            <td>
+                                {% if session.status == 'completed' %}
+                                <span class="badge bg-success">Abgeschlossen</span>
+                                {% elif session.status == 'in_progress' %}
+                                <span class="badge bg-primary">In Bearbeitung</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ session.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="progress" style="height: 6px; width: 100px;">
+                                    <div class="progress-bar" style="width: {{ session.get_progress_percentage }}%"></div>
+                                </div>
+                                <small class="text-muted">{{ session.get_progress_percentage }}%</small>
+                            </td>
+                            <td>{{ session.updated_at|timesince }} ago</td>
+                            <td>
+                                {% if session.status == 'completed' %}
+                                <a href="{% url 'writing_hub:idea-wizard-summary' session.pk %}" class="btn btn-sm btn-outline-secondary">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                {% else %}
+                                <a href="{% url 'writing_hub:idea-wizard-step' session.pk %}" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-arrow-right"></i>
+                                    Fortsetzen
+                                </a>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<style>
+.hover-lift {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.hover-lift:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+</style>
+{% endblock %}

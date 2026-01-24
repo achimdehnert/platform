@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ asset.title|default:"Asset" }} - Media Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'media_hub:dashboard' %}">Media Hub</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'media_hub:asset-browser' %}">Assets</a></li>
+            <li class="breadcrumb-item active">#{{ asset.id }}</li>
+        </ol>
+    </nav>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <div class="card border-0 shadow-sm">
+                <div class="card-body p-0">
+                    {% for file in asset.files %}
+                        {% if file.file_type == 'original' %}
+                        <img src="{{ file.storage_path }}" class="img-fluid w-100" alt="{{ asset.title }}">
+                        {% endif %}
+                    {% empty %}
+                    <div class="bg-light d-flex align-items-center justify-content-center" style="min-height: 400px;">
+                        <i class="bi bi-image text-muted" style="font-size: 6rem;"></i>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-transparent">
+                    <h5 class="mb-0">{{ asset.title|default:"Untitled Asset" }}</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted">{{ asset.description|default:"No description" }}</p>
+                    
+                    <table class="table table-sm mb-0">
+                        <tr>
+                            <th>ID</th>
+                            <td>#{{ asset.id }}</td>
+                        </tr>
+                        <tr>
+                            <th>UUID</th>
+                            <td><code class="small">{{ asset.uuid }}</code></td>
+                        </tr>
+                        <tr>
+                            <th>Type</th>
+                            <td>{{ asset.asset_type|title }}</td>
+                        </tr>
+                        <tr>
+                            <th>Created</th>
+                            <td>{{ asset.created_at }}</td>
+                        </tr>
+                        {% if asset.is_approved %}
+                        <tr>
+                            <th>Status</th>
+                            <td><span class="badge bg-success">Approved</span></td>
+                        </tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+            
+            <div class="card border-0 shadow-sm mb-3">
+                <div class="card-header bg-transparent">
+                    <h6 class="mb-0">Files</h6>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for file in asset.files %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <i class="bi bi-file-earmark me-2"></i>
+                            {{ file.file_type|title }}
+                            {% if file.file_size %}
+                            <small class="text-muted">({{ file.file_size|filesizeformat }})</small>
+                            {% endif %}
+                        </div>
+                        <a href="{{ file.storage_path }}" download class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-download"></i>
+                        </a>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-muted">No files</div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <div class="d-grid gap-2">
+                <a href="{% url 'media_hub:asset-browser' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i>Back to Browser
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}PhaseActionConfig List{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-gear"></i> Phase Action Configurations</h1>
+        <a href="{% url 'bfagent:phaseactionconfig-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Add Configuration
+        </a>
+    </div>
+
+    <div class="card shadow mb-3">
+        <div class="card-body">
+            <!-- Filters -->
+            <form method="get" class="row g-3 mb-3">
+                <div class="col-md-4">
+                    <label for="phase" class="form-label">Filter by Phase</label>
+                    <select name="phase" id="phase" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Phases</option>
+                        {% for phase in phases %}
+                        <option value="{{ phase.id }}" {% if current_phase == phase.id|stringformat:"s" %}selected{% endif %}>
+                            {{ phase.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="agent" class="form-label">Filter by Agent</label>
+                    <select name="agent" id="agent" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Agents</option>
+                        {% for agent in agents %}
+                        <option value="{{ agent.id }}" {% if current_agent == agent.id|stringformat:"s" %}selected{% endif %}>
+                            {{ agent.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                
+                <div class="col-md-4">
+                    <label for="required" class="form-label">Filter by Status</label>
+                    <select name="required" id="required" class="form-select" onchange="this.form.submit()">
+                        <option value="">All Status</option>
+                        <option value="true" {% if current_required == 'true' %}selected{% endif %}>Required</option>
+                        <option value="false" {% if current_required == 'false' %}selected{% endif %}>Optional</option>
+                    </select>
+                </div>
+                
+                {% if current_phase or current_agent or current_required %}
+                <div class="col-12">
+                    <a href="{% url 'bfagent:phaseactionconfig-list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-circle"></i> Clear Filters
+                    </a>
+                </div>
+                {% endif %}
+            </form>
+        </div>
+    </div>
+
+    <div class="card shadow">
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Phase</th>
+                            <th>Action</th>
+                            <th>Agent</th>
+                            <th class="text-center">Required</th>
+                            <th class="text-center">Order</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in page_obj %}
+                        <tr>
+                            <td><strong>{{ item.phase.name }}</strong></td>
+                            <td>{{ item.action.display_name }}</td>
+                            <td><span class="badge bg-secondary">{{ item.action.agent.name }}</span></td>
+                            <td class="text-center">
+                                {% if item.is_required %}
+                                    <span class="badge bg-danger">Required</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">Optional</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-center"><span class="badge bg-info">{{ item.order }}</span></td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'bfagent:phaseactionconfig-detail' item.pk %}"
+                                       class="btn btn-outline-primary" title="View">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    <a href="{% url 'bfagent:phaseactionconfig-update' item.pk %}"
+                                       class="btn btn-outline-secondary" title="Edit">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <a href="{% url 'bfagent:phaseactionconfig-delete' item.pk %}"
+                                       class="btn btn-outline-danger" title="Delete">
+                                        <i class="bi bi-trash"></i>
+                                    </a>
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center text-muted">
+                                No phase action configurations found.
+                                <a href="{% url 'bfagent:phaseactionconfig-create' %}">Create one now</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {% if is_paginated %}
+            <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page=1">First</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.previous_page_number }}">Previous</a>
+                    </li>
+                    {% endif %}
+
+                    <li class="page-item active">
+                        <span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+                    </li>
+
+                    {% if page_obj.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.next_page_number }}">Next</a>
+                    </li>
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}">Last</a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}

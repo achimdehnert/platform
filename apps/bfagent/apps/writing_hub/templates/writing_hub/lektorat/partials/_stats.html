@@ -1,0 +1,32 @@
+<div class="col-md-3 col-6 mb-3">
+    <div class="card stat-card h-100">
+        <div class="card-body text-center">
+            <h2 class="mb-0">{{ stats.total_fehler }}</h2>
+            <small>Gesamt Fehler</small>
+        </div>
+    </div>
+</div>
+<div class="col-md-3 col-6 mb-3">
+    <div class="card stat-card kritisch h-100">
+        <div class="card-body text-center">
+            <h2 class="mb-0">{{ stats.kritisch }}</h2>
+            <small>🔴 Kritisch (A)</small>
+        </div>
+    </div>
+</div>
+<div class="col-md-3 col-6 mb-3">
+    <div class="card stat-card schwer h-100">
+        <div class="card-body text-center">
+            <h2 class="mb-0">{{ stats.schwer }}</h2>
+            <small>🟠 Schwer (B)</small>
+        </div>
+    </div>
+</div>
+<div class="col-md-3 col-6 mb-3">
+    <div class="card stat-card mittel h-100">
+        <div class="card-body text-center">
+            <h2 class="mb-0">{{ stats.mittel }}</h2>
+            <small>🟡 Mittel (C)</small>
+        </div>
+    </div>
+</div>

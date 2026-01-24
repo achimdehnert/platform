@@ -1,0 +1,696 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ world.name }} | Welten{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Breadcrumbs -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:dashboard' %}">Writing Hub</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'writing_hub:world-dashboard' %}">Welten</a></li>
+            <li class="breadcrumb-item active">{{ world.name }}</li>
+        </ol>
+    </nav>
+
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1 class="h2 mb-1">
+                <i class="bi bi-globe me-2"></i>{{ world.name }}
+            </h1>
+            <div class="d-flex gap-2 align-items-center">
+                {% if world.world_type %}
+                <span class="badge bg-primary">{{ world.world_type }}</span>
+                {% endif %}
+                <span class="text-muted small">v{{ world.version }} • {{ world.updated_at|date:"d.m.Y H:i" }}</span>
+            </div>
+        </div>
+        <div class="d-flex gap-2">
+            <button type="button" class="btn btn-outline-primary" id="btnConsistencyCheck" title="Konsistenzprüfung">
+                <i class="bi bi-check2-circle me-1"></i>AI Prüfung
+            </button>
+            <a href="{% url 'writing_hub:world-edit' world_id=world.id %}" class="btn btn-primary">
+                <i class="bi bi-pencil me-1"></i>Bearbeiten
+            </a>
+            <div class="dropdown">
+                <button class="btn btn-outline-secondary" data-bs-toggle="dropdown">
+                    <i class="bi bi-three-dots-vertical"></i>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'writing_hub:world-duplicate' world_id=world.id %}">
+                        <i class="bi bi-copy me-2"></i>Duplizieren
+                    </a></li>
+                    <li><hr class="dropdown-divider"></li>
+                    <li>
+                        <form action="{% url 'writing_hub:world-delete' world_id=world.id %}" method="post" 
+                              onsubmit="return confirm('Welt wirklich löschen?');">
+                            {% csrf_token %}
+                            <button type="submit" class="dropdown-item text-danger">
+                                <i class="bi bi-trash me-2"></i>Löschen
+                            </button>
+                        </form>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabs -->
+    <ul class="nav nav-tabs mb-4" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#overview">
+                <i class="bi bi-info-circle me-1"></i>Übersicht
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#locations">
+                <i class="bi bi-geo-alt me-1"></i>Orte <span class="badge bg-secondary">{{ locations.count }}</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#rules">
+                <i class="bi bi-list-check me-1"></i>Regeln <span class="badge bg-secondary">{{ rules.count }}</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" data-bs-toggle="tab" data-bs-target="#projects">
+                <i class="bi bi-book me-1"></i>Projekte <span class="badge bg-secondary">{{ project_links.count }}</span>
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+        <!-- Overview Tab -->
+        <div class="tab-pane fade show active" id="overview">
+            <div class="row">
+                <div class="col-lg-8">
+                    {% if world.description %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-transparent">
+                            <i class="bi bi-card-text me-2"></i>Beschreibung
+                        </div>
+                        <div class="card-body">
+                            <p class="mb-0">{{ world.description|linebreaks }}</p>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="row g-3">
+                        {% if world.geography %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-transparent py-2">
+                                    <i class="bi bi-map me-1"></i>Geografie
+                                </div>
+                                <div class="card-body small">{{ world.geography|linebreaks }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if world.inhabitants %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-transparent py-2">
+                                    <i class="bi bi-people me-1"></i>Bewohner
+                                </div>
+                                <div class="card-body small">{{ world.inhabitants|linebreaks }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if world.culture %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-transparent py-2">
+                                    <i class="bi bi-music-note-beamed me-1"></i>Kultur
+                                </div>
+                                <div class="card-body small">{{ world.culture|linebreaks }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if world.politics %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-transparent py-2">
+                                    <i class="bi bi-bank me-1"></i>Politik
+                                </div>
+                                <div class="card-body small">{{ world.politics|linebreaks }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if world.magic_system %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-transparent py-2">
+                                    <i class="bi bi-stars me-1"></i>Magiesystem
+                                </div>
+                                <div class="card-body small">{{ world.magic_system|linebreaks }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+
+                        {% if world.history %}
+                        <div class="col-md-6">
+                            <div class="card h-100">
+                                <div class="card-header bg-transparent py-2">
+                                    <i class="bi bi-hourglass-split me-1"></i>Geschichte
+                                </div>
+                                <div class="card-body small">{{ world.history|linebreaks }}</div>
+                            </div>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-header bg-transparent">
+                            <i class="bi bi-info-circle me-2"></i>Details
+                        </div>
+                        <ul class="list-group list-group-flush">
+                            {% if world.setting_era %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">Epoche</span>
+                                <span>{{ world.setting_era }}</span>
+                            </li>
+                            {% endif %}
+                            {% if world.technology_level %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">Technologie</span>
+                                <span>{{ world.technology_level }}</span>
+                            </li>
+                            {% endif %}
+                            {% if world.climate %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">Klima</span>
+                                <span>{{ world.climate|truncatechars:30 }}</span>
+                            </li>
+                            {% endif %}
+                            <li class="list-group-item d-flex justify-content-between">
+                                <span class="text-muted">Erstellt</span>
+                                <span>{{ world.created_at|date:"d.m.Y" }}</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Locations Tab -->
+        <div class="tab-pane fade" id="locations">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Orte in {{ world.name }}</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" id="btnGenerateLocations">
+                        <i class="bi bi-stars me-1"></i>AI generieren
+                    </button>
+                    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addLocationModal">
+                        <i class="bi bi-plus-lg me-1"></i>Ort hinzufügen
+                    </button>
+                </div>
+            </div>
+
+            {% if locations %}
+            <div class="list-group">
+                {% for location in locations %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h6 class="mb-1">
+                                <i class="bi bi-geo-alt me-1"></i>{{ location.name }}
+                            </h6>
+                            <span class="badge bg-light text-dark">{{ location.get_location_type_display }}</span>
+                            {% if location.description %}
+                            <p class="mb-0 mt-1 text-muted small">{{ location.description|truncatechars:100 }}</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% if location.children.exists %}
+                    <div class="ms-4 mt-2">
+                        {% for child in location.children.all %}
+                        <div class="border-start ps-3 py-1">
+                            <i class="bi bi-geo me-1 text-muted"></i>{{ child.name }}
+                            <span class="badge bg-light text-dark small">{{ child.get_location_type_display }}</span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-geo-alt display-4"></i>
+                <p class="mt-2">Noch keine Orte definiert</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Rules Tab -->
+        <div class="tab-pane fade" id="rules">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h5 class="mb-0">Weltregeln</h5>
+                <div class="btn-group">
+                    <button class="btn btn-sm btn-outline-primary" id="btnGenerateRules">
+                        <i class="bi bi-stars me-1"></i>AI generieren
+                    </button>
+                    <button class="btn btn-sm btn-success" data-bs-toggle="modal" data-bs-target="#addRuleModal">
+                        <i class="bi bi-plus-lg me-1"></i>Regel hinzufügen
+                    </button>
+                </div>
+            </div>
+
+            {% if rules %}
+            <div class="list-group">
+                {% for rule in rules %}
+                <div class="list-group-item">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <span class="badge {% if rule.importance == 'absolute' %}bg-danger{% elif rule.importance == 'strong' %}bg-warning text-dark{% else %}bg-info{% endif %} me-2">
+                                {{ rule.get_importance_display }}
+                            </span>
+                            <span class="badge bg-secondary me-2">{{ rule.get_category_display }}</span>
+                        </div>
+                    </div>
+                    <p class="mb-1 mt-2"><strong>{{ rule.rule }}</strong></p>
+                    {% if rule.explanation %}
+                    <p class="mb-0 text-muted small">{{ rule.explanation }}</p>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-list-check display-4"></i>
+                <p class="mt-2">Noch keine Regeln definiert</p>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Projects Tab -->
+        <div class="tab-pane fade" id="projects">
+            <h5 class="mb-3">Projekte die {{ world.name }} verwenden</h5>
+
+            {% if project_links %}
+            <div class="list-group">
+                {% for link in project_links %}
+                <a href="{% url 'writing_hub:project_hub' project_id=link.project.id %}" class="list-group-item list-group-item-action">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-0">{{ link.project.title }}</h6>
+                            <small class="text-muted">{{ link.get_role_display }}</small>
+                        </div>
+                        <i class="bi bi-chevron-right"></i>
+                    </div>
+                </a>
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="text-center text-muted py-5">
+                <i class="bi bi-book display-4"></i>
+                <p class="mt-2">Diese Welt wird noch in keinem Projekt verwendet</p>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- AI Loading Modal -->
+<div class="modal fade" id="aiLoadingModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-body text-center py-5">
+                <div class="spinner-border text-primary mb-3" role="status">
+                    <span class="visually-hidden">Lädt...</span>
+                </div>
+                <h5 id="aiLoadingText">AI arbeitet...</h5>
+                <p class="text-muted mb-0">Dies kann 10-30 Sekunden dauern</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- AI Consistency Result Modal -->
+<div class="modal fade" id="consistencyModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-check2-circle me-2"></i>Konsistenzprüfung</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="consistencyResult">
+            </div>
+            <div class="modal-footer" id="consistencyFooter" style="display: none;">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Schließen</button>
+                <button type="button" class="btn btn-primary" id="btnApplySuggestions">
+                    <i class="bi bi-magic me-1"></i>Vorschläge durch KI integrieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Location Type Selection Modal -->
+<div class="modal fade" id="locationTypeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-stars me-2"></i>Orte mit AI generieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Ort-Typ</label>
+                    <select class="form-select" id="locationTypeSelect">
+                        <option value="continent">Kontinente</option>
+                        <option value="country">Länder</option>
+                        <option value="region">Regionen</option>
+                        <option value="city" selected>Städte</option>
+                        <option value="landmark">Wahrzeichen</option>
+                        <option value="natural">Naturmerkmale</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">Anzahl</label>
+                            <input type="number" class="form-control" id="locationCount" value="3" min="1" max="10">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">Sprache</label>
+                            <select class="form-select" id="locationLanguage">
+                                <option value="de" {% if world.language == 'de' or not world.language %}selected{% endif %}>🇩🇪 Deutsch</option>
+                                <option value="en" {% if world.language == 'en' %}selected{% endif %}>🇬🇧 English</option>
+                                <option value="es" {% if world.language == 'es' %}selected{% endif %}>🇪🇸 Español</option>
+                                <option value="fr" {% if world.language == 'fr' %}selected{% endif %}>🇫🇷 Français</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="locationAutoSave" checked>
+                    <label class="form-check-label">Direkt speichern</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmLocations">
+                    <i class="bi bi-stars me-1"></i>Generieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Rule Category Selection Modal -->
+<div class="modal fade" id="ruleCategoryModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="bi bi-stars me-2"></i>Regeln mit AI generieren</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="form-label">Kategorie</label>
+                    <select class="form-select" id="ruleCategorySelect">
+                        <option value="physics">Physik</option>
+                        <option value="magic" selected>Magie</option>
+                        <option value="social">Gesellschaft</option>
+                        <option value="technology">Technologie</option>
+                        <option value="biology">Biologie</option>
+                        <option value="economy">Wirtschaft</option>
+                    </select>
+                </div>
+                <div class="row">
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">Anzahl</label>
+                            <input type="number" class="form-control" id="ruleCount" value="5" min="1" max="10">
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="mb-3">
+                            <label class="form-label">Sprache</label>
+                            <select class="form-select" id="ruleLanguage">
+                                <option value="de" {% if world.language == 'de' or not world.language %}selected{% endif %}>🇩🇪 Deutsch</option>
+                                <option value="en" {% if world.language == 'en' %}selected{% endif %}>🇬🇧 English</option>
+                                <option value="es" {% if world.language == 'es' %}selected{% endif %}>🇪🇸 Español</option>
+                                <option value="fr" {% if world.language == 'fr' %}selected{% endif %}>🇫🇷 Français</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" id="ruleAutoSave" checked>
+                    <label class="form-check-label">Direkt speichern</label>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" id="btnConfirmRules">
+                    <i class="bi bi-stars me-1"></i>Generieren
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const worldId = '{{ world.id }}';
+    const csrfToken = '{{ csrf_token }}';
+    const worldLanguage = '{{ world.language|default:"de" }}';
+    const loadingModal = new bootstrap.Modal(document.getElementById('aiLoadingModal'));
+    const consistencyModal = new bootstrap.Modal(document.getElementById('consistencyModal'));
+    const locationTypeModal = new bootstrap.Modal(document.getElementById('locationTypeModal'));
+    const ruleCategoryModal = new bootstrap.Modal(document.getElementById('ruleCategoryModal'));
+    
+    // Store consistency data for apply suggestions
+    let lastConsistencyData = null;
+    
+    // Consistency Check
+    document.getElementById('btnConsistencyCheck').addEventListener('click', async function() {
+        document.getElementById('aiLoadingText').textContent = 'Prüfe Konsistenz...';
+        loadingModal.show();
+        
+        try {
+            const response = await fetch(`/writing-hub/worlds/${worldId}/ai/consistency/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({})
+            });
+            
+            const data = await response.json();
+            loadingModal.hide();
+            
+            if (data.success) {
+                lastConsistencyData = data;
+                
+                let html = `
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="display-4 me-3 ${data.consistency_score >= 7 ? 'text-success' : data.consistency_score >= 5 ? 'text-warning' : 'text-danger'}">
+                            ${data.consistency_score}/10
+                        </div>
+                        <div>
+                            <h5 class="mb-0">Konsistenz-Score</h5>
+                            <small class="text-muted">${data.consistency_score >= 7 ? 'Gute Konsistenz' : data.consistency_score >= 5 ? 'Verbesserungspotential' : 'Überarbeitung empfohlen'}</small>
+                        </div>
+                    </div>
+                `;
+                
+                if (data.strengths && data.strengths.length) {
+                    html += '<h6 class="text-success"><i class="bi bi-check-circle me-1"></i>Stärken</h6><ul>';
+                    data.strengths.forEach(s => html += `<li>${s}</li>`);
+                    html += '</ul>';
+                }
+                
+                if (data.issues && data.issues.length) {
+                    html += '<h6 class="text-danger mt-3"><i class="bi bi-exclamation-triangle me-1"></i>Probleme</h6><ul class="list-group">';
+                    data.issues.forEach(i => {
+                        const severity = i.severity === 'high' ? 'danger' : i.severity === 'medium' ? 'warning' : 'info';
+                        html += `<li class="list-group-item list-group-item-${severity}">${i.issue}</li>`;
+                    });
+                    html += '</ul>';
+                }
+                
+                if (data.suggestions && data.suggestions.length) {
+                    html += '<h6 class="text-primary mt-3"><i class="bi bi-lightbulb me-1"></i>Vorschläge</h6><ul>';
+                    data.suggestions.forEach(s => html += `<li>${s}</li>`);
+                    html += '</ul>';
+                }
+                
+                document.getElementById('consistencyResult').innerHTML = html;
+                
+                // Show footer with apply button if there are suggestions
+                const footer = document.getElementById('consistencyFooter');
+                if (data.suggestions && data.suggestions.length > 0) {
+                    footer.style.display = 'flex';
+                } else {
+                    footer.style.display = 'none';
+                }
+                
+                consistencyModal.show();
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannt'));
+            }
+        } catch (error) {
+            loadingModal.hide();
+            alert('Fehler: ' + error.message);
+        }
+    });
+    
+    // Apply Suggestions via AI
+    document.getElementById('btnApplySuggestions').addEventListener('click', async function() {
+        if (!lastConsistencyData || !lastConsistencyData.suggestions) {
+            alert('Keine Vorschläge vorhanden');
+            return;
+        }
+        
+        consistencyModal.hide();
+        document.getElementById('aiLoadingText').textContent = 'Integriere Vorschläge...';
+        loadingModal.show();
+        
+        try {
+            const response = await fetch(`/writing-hub/worlds/${worldId}/ai/apply-suggestions/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    suggestions: lastConsistencyData.suggestions,
+                    issues: lastConsistencyData.issues
+                })
+            });
+            
+            const data = await response.json();
+            loadingModal.hide();
+            
+            if (data.success) {
+                alert('Vorschläge wurden erfolgreich integriert!\n\nÄnderungen:\n' + (data.changes || []).join('\n'));
+                location.reload();
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannt'));
+            }
+        } catch (error) {
+            loadingModal.hide();
+            alert('Fehler: ' + error.message);
+        }
+    });
+    
+    // Generate Locations
+    document.getElementById('btnGenerateLocations').addEventListener('click', function() {
+        locationTypeModal.show();
+    });
+    
+    document.getElementById('btnConfirmLocations').addEventListener('click', async function() {
+        const locationType = document.getElementById('locationTypeSelect').value;
+        const count = parseInt(document.getElementById('locationCount').value);
+        const autoSave = document.getElementById('locationAutoSave').checked;
+        const language = document.getElementById('locationLanguage').value;
+        
+        locationTypeModal.hide();
+        document.getElementById('aiLoadingText').textContent = 'Generiere Orte...';
+        loadingModal.show();
+        
+        try {
+            const response = await fetch(`/writing-hub/worlds/${worldId}/ai/locations/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    location_type: locationType,
+                    count: count,
+                    auto_save: autoSave,
+                    language: language
+                })
+            });
+            
+            const data = await response.json();
+            loadingModal.hide();
+            
+            if (data.success) {
+                if (autoSave && data.saved_locations) {
+                    alert(`${data.saved_locations.length} Orte wurden erstellt!`);
+                    location.reload();
+                } else {
+                    let msg = 'Generierte Orte:\n\n';
+                    data.locations.forEach(l => msg += `• ${l.name}: ${l.description}\n\n`);
+                    alert(msg);
+                }
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannt'));
+            }
+        } catch (error) {
+            loadingModal.hide();
+            alert('Fehler: ' + error.message);
+        }
+    });
+    
+    // Generate Rules
+    document.getElementById('btnGenerateRules').addEventListener('click', function() {
+        ruleCategoryModal.show();
+    });
+    
+    document.getElementById('btnConfirmRules').addEventListener('click', async function() {
+        const category = document.getElementById('ruleCategorySelect').value;
+        const count = parseInt(document.getElementById('ruleCount').value);
+        const autoSave = document.getElementById('ruleAutoSave').checked;
+        const language = document.getElementById('ruleLanguage').value;
+        
+        ruleCategoryModal.hide();
+        document.getElementById('aiLoadingText').textContent = 'Generiere Regeln...';
+        loadingModal.show();
+        
+        try {
+            const response = await fetch(`/writing-hub/worlds/${worldId}/ai/rules/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({
+                    category: category,
+                    count: count,
+                    auto_save: autoSave,
+                    language: language
+                })
+            });
+            
+            const data = await response.json();
+            loadingModal.hide();
+            
+            if (data.success) {
+                if (autoSave && data.saved_rules) {
+                    alert(`${data.saved_rules.length} Regeln wurden erstellt!`);
+                    location.reload();
+                } else {
+                    let msg = 'Generierte Regeln:\n\n';
+                    data.rules.forEach(r => msg += `• ${r.rule}\n  → ${r.explanation}\n\n`);
+                    alert(msg);
+                }
+            } else {
+                alert('Fehler: ' + (data.error || 'Unbekannt'));
+            }
+        } catch (error) {
+            loadingModal.hide();
+            alert('Fehler: ' + error.message);
+        }
+    });
+});
+</script>
+{% endblock %}

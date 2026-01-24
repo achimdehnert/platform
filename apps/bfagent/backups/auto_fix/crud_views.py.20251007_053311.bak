@@ -1,0 +1,757 @@
+"""
+Dynamic CRUD Views using CRUDConfig System
+SAFE: Parallel implementation - doesn't affect existing views
+"""
+
+from django.contrib import messages
+from django.core.paginator import Paginator
+from django.db.models import Q
+from django.http import HttpResponse, JsonResponse
+from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
+from django.views.decorators.http import require_http_methods
+
+from ..forms import BookProjectForm, CharacterForm, WorldsForm
+from ..models import BookProjects, Characters, Worlds, Agents, Llms, BookChapters
+from ..utils.crud_config import BFAgentTheme
+
+
+# ============================================================================
+# DASHBOARD & LIST VIEWS (TODO: Replace with generated CBVs)
+# ============================================================================
+
+def dashboard(request):
+    """Main dashboard with real DB stats"""
+    context = {
+        'total_projects': BookProjects.objects.count(),
+        'total_agents': Agents.objects.count(),
+        'total_llms': Llms.objects.count(),
+        'total_chapters': BookChapters.objects.count(),
+        'recent_projects': BookProjects.objects.all().order_by('-created_at')[:5],
+    }
+    return render(request, 'bfagent/dashboard.html', context)
+
+
+def control_center_health(request):
+    """Health check for control center integration"""
+    context = {
+        'health_score': 100,
+        'status': 'healthy',
+        'tool_count': 7,
+    }
+    return render(request, 'bfagent/partials/control_center_health.html', context)
+
+
+# TODO: Replace these with generated CBVs (ProjectListView, etc.)
+def project_list(request):
+    """Project list - TODO: Use ProjectListView"""
+    # Get all projects
+    projects = BookProjects.objects.all().order_by('-created_at')
+
+    # Filter by status
+    status_filter = request.GET.get('status', '')
+    if status_filter:
+        projects = projects.filter(status=status_filter)
+
+    # Filter by genre
+    genre_filter = request.GET.get('genre', '')
+    if genre_filter:
+        projects = projects.filter(genre=genre_filter)
+
+    # Search
+    search_query = request.GET.get('search', '')
+    if search_query:
+        projects = projects.filter(
+            Q(title__icontains=search_query) |
+            Q(description__icontains=search_query) |
+            Q(tagline__icontains=search_query)
+        )
+
+    # Pagination
+    paginator = Paginator(projects, 12)  # 12 projects per page
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    # Get unique choices for filters
+    status_choices = BookProjects.objects.values_list('status', flat=True).distinct()
+    genre_choices = BookProjects.objects.values_list('genre', flat=True).distinct()
+
+    context = {
+        'page_obj': page_obj,
+        'status_choices': status_choices,
+        'genre_choices': genre_choices,
+        'status_filter': status_filter,
+        'genre_filter': genre_filter,
+        'search_query': search_query,
+    }
+
+    return render(request, 'bfagent/project_list.html', context)
+
+
+def project_detail(request, pk):
+    """Project detail - TODO: Use ProjectDetailView"""
+    project = get_object_or_404(BookProjects, pk=pk)
+    return render(request, 'bfagent/project_detail.html', {'project': project})
+
+
+def project_agent_base_panel(request, pk):
+    """Agent base panel - TODO: Implement"""
+    return HttpResponse("Agent Base Panel - TODO")
+
+
+def project_agent_base_save(request, pk):
+    """Save agent base - TODO: Implement"""
+    return HttpResponse("Saved")
+
+
+def project_enrich_panel(request, pk):
+    """Enrich panel - TODO: Implement"""
+    return HttpResponse("Enrich Panel - TODO")
+
+
+def project_enrich_actions(request, pk):
+    """Enrich actions - TODO: Implement"""
+    return HttpResponse("Actions")
+
+
+def project_enrich_run(request, pk):
+    """Run enrichment - TODO: Implement"""
+    return HttpResponse("Running")
+
+
+def project_enrich_apply(request, pk):
+    """Apply suggestion - TODO: Implement"""
+    return HttpResponse("Applied")
+
+
+def agent_list(request):
+    """Agent list - TODO: Use AgentsListView"""
+    agents = Agents.objects.all().order_by('-created_at')
+    return render(request, 'bfagent/agent_list.html', {'agents': agents})
+
+
+def agent_detail(request, pk):
+    """Agent detail - TODO: Use AgentsDetailView"""
+    agent = get_object_or_404(Agents, pk=pk)
+    return render(request, 'bfagent/agent_detail.html', {'agent': agent})
+
+
+def chapter_list(request):
+    """Chapter list - TODO: Use ChaptersListView"""
+    chapters = BookChapters.objects.all().order_by('-created_at')
+    return render(request, 'bfagent/chapter_list.html', {'chapters': chapters})
+
+
+def chapter_detail(request, pk):
+    """Chapter detail - TODO: Use ChaptersDetailView"""
+    chapter = get_object_or_404(BookChapters, pk=pk)
+    return render(request, 'bfagent/chapter_detail.html', {'chapter': chapter})
+
+
+def chapter_edit(request, pk):
+    """Chapter edit - TODO: Use ChaptersEditView"""
+    chapter = get_object_or_404(BookChapters, pk=pk)
+    return render(request, 'bfagent/chapter_form.html', {'chapter': chapter})
+
+
+def chapter_delete(request, pk):
+    """Chapter delete - TODO: Use ChaptersDeleteView"""
+    if request.method == 'POST':
+        chapter = get_object_or_404(BookChapters, pk=pk)
+        chapter.delete()
+        messages.success(request, 'Chapter deleted successfully')
+        return redirect('bfagent:chapter-list')
+    return HttpResponse("Method not allowed", status=405)
+
+
+def character_list(request):
+    """Character list"""
+    characters = Characters.objects.all().order_by('-created_at')
+    return render(request, 'bfagent/character_list.html', {'characters': characters})
+
+
+def execution_list(request):
+    """Execution list - TODO: Implement"""
+    return render(request, 'bfagent/execution_list.html', {})
+
+
+def llm_list(request):
+    """LLM list - TODO: Use LlmsListView"""
+    llms = Llms.objects.all().order_by('-created_at')
+    return render(request, 'bfagent/llm_list.html', {'llms': llms})
+
+
+def llm_detail(request, pk):
+    """LLM detail - TODO: Use LlmsDetailView"""
+    llm = get_object_or_404(Llms, pk=pk)
+    return render(request, 'bfagent/llm_detail.html', {'llm': llm})
+
+
+def projects_api(request):
+    """Projects API - TODO: Implement properly"""
+    projects = BookProjects.objects.all().values('id', 'title', 'status')
+    return JsonResponse(list(projects), safe=False)
+
+
+# ============================================================================
+# DYNAMIC CRUD VIEWS (CRUDConfig System)
+# ============================================================================
+
+
+@require_http_methods(["GET"])
+def dynamic_project_list(request):
+    """Dynamic project list using CRUDConfig - DEMO/TEST View"""
+
+    # Get CRUDConfig
+    crud_config = BookProjects.get_crud_config()
+
+    # Get projects
+    projects = BookProjects.objects.all()
+
+    # Apply search
+    search_query = request.GET.get("search", "")
+    if search_query:
+        search_fields = crud_config.get_search_fields()
+        search_q = Q()
+        for field in search_fields:
+            search_q |= Q(**{f"{field}__icontains": search_query})
+        projects = projects.filter(search_q)
+
+    # Apply filters
+    for filter_field in crud_config.list_filters:
+        filter_value = request.GET.get(filter_field)
+        if filter_value:
+            projects = projects.filter(**{filter_field: filter_value})
+
+    # Apply ordering
+    projects = projects.order_by(*crud_config.ordering)
+
+    # Pagination
+    paginator = Paginator(projects, crud_config.per_page)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    # Get unique values for filters
+    filter_options = {}
+    for filter_field in crud_config.list_filters:
+        filter_options[filter_field] = (
+            BookProjects.objects.values_list(filter_field, flat=True)
+            .distinct()
+            .exclude(**{f"{filter_field}__isnull": True})
+            .exclude(**{filter_field: ""})
+        )
+
+    context = {
+        "page_obj": page_obj,
+        "crud_config": crud_config,
+        "search_query": search_query,
+        "filter_options": filter_options,
+        "theme": BFAgentTheme,
+        "current_filters": {k: v for k, v in request.GET.items() if k != "page"},
+        "view_type": request.GET.get("view", crud_config.ui_config.get("default_view", "card")),
+    }
+
+    # HTMX partial response
+    if request.htmx:
+        return render(request, "bfagent/dynamic/project_list_partial.html", context)
+
+    return render(request, "bfagent/dynamic/project_list.html", context)
+
+
+@require_http_methods(["GET"])
+def dynamic_project_detail(request, pk):
+    """Dynamic project detail using CRUDConfig"""
+    project = get_object_or_404(BookProjects, pk=pk)
+    crud_config = project.get_crud_config()
+
+    context = {
+        "project": project,
+        "crud_config": crud_config,
+        "theme": BFAgentTheme,
+        "form_layout": crud_config.get_form_layout(),
+    }
+
+    return render(request, "bfagent/dynamic/project_detail.html", context)
+
+
+@require_http_methods(["GET"])
+def crud_config_api(request, model_name):
+    """API endpoint to get CRUDConfig for a model - for debugging"""
+
+    model_map = {
+        "bookprojects": BookProjects,
+        "projects": BookProjects,
+    }
+
+    model_class = model_map.get(model_name.lower())
+    if not model_class:
+        return JsonResponse({"error": "Model not found"}, status=404)
+
+    crud_config = model_class.get_crud_config()
+
+    config_data = {
+        "list_display": crud_config.get_list_display(),
+        "search_fields": crud_config.get_search_fields(),
+        "list_filters": crud_config.list_filters,
+        "form_layout": crud_config.get_form_layout(),
+        "htmx_config": crud_config.htmx_config,
+        "ui_config": crud_config.ui_config,
+        "per_page": crud_config.per_page,
+        "ordering": crud_config.ordering,
+    }
+
+    return JsonResponse(config_data, json_dumps_params={"indent": 2})
+
+
+@require_http_methods(["GET", "POST"])
+def project_create(request):
+    """Create a new project with HTMX support"""
+    if request.method == "POST":
+        form = BookProjectForm(request.POST)
+        if form.is_valid():
+            project = form.save()
+            messages.success(request, f'Project "{project.title}" created successfully!')
+            if request.htmx:
+                # HTMX Success: Redirect to project detail via HX-Redirect header
+                response = HttpResponse(status=204)  # No Content
+                response["HX-Redirect"] = reverse(
+                    "bfagent:project-detail", kwargs={"pk": project.pk}
+                )
+                return response
+            return redirect("bfagent:project-detail", pk=project.pk)
+        else:
+            messages.error(request, "Please correct the highlighted errors and try again.")
+            # For HTMX validation errors, return the form with errors
+            if request.htmx:
+                context = {
+                    "form": form,
+                    "project": None,
+                    "title": "Create New Project",
+                }
+                return render(request, "bfagent/partials/project_form.html", context)
+    else:
+        form = BookProjectForm()
+
+    context = {
+        "form": form,
+        "project": None,
+        "title": "Create New Project",
+    }
+
+    if request.htmx:
+        return render(request, "bfagent/partials/project_form.html", context)
+
+    return render(request, "bfagent/project_form.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def project_edit(request, pk):
+    """Edit a project with HTMX support"""
+    project = get_object_or_404(BookProjects, pk=pk)
+
+    if request.method == "POST":
+        form = BookProjectForm(request.POST, instance=project)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Project "{project.title}" updated successfully!')
+            if request.htmx:
+                # HTMX Success: Redirect to project detail via HX-Redirect header
+                response = HttpResponse(status=204)  # No Content
+                response["HX-Redirect"] = reverse(
+                    "bfagent:project-detail", kwargs={"pk": project.pk}
+                )
+                return response
+            return redirect("bfagent:project-detail", pk=project.pk)
+        else:
+            # DEBUG: Print form errors to console
+            print("🔍 FORM VALIDATION ERRORS:")
+            for field, errors in form.errors.items():
+                print(f"   • {field}: {errors}")
+            if form.non_field_errors():
+                print(f"   • Non-field errors: {form.non_field_errors()}")
+            print(f"   • POST data: {request.POST}")
+
+            messages.error(request, "Please correct the highlighted errors and try again.")
+            # For HTMX validation errors, return the form with errors
+            if request.htmx:
+                context = {
+                    "form": form,
+                    "project": project,
+                    "title": f"Edit {project.title}",
+                }
+                return render(request, "bfagent/partials/project_form.html", context)
+    else:
+        form = BookProjectForm(instance=project)
+
+    context = {
+        "form": form,
+        "project": project,
+        "title": f"Edit {project.title}",
+    }
+
+    if request.htmx:
+        return render(request, "bfagent/partials/project_form.html", context)
+
+    return render(request, "bfagent/project_form.html", context)
+
+
+@require_http_methods(["POST"])
+def project_delete(request, pk):
+    """Delete a project with HTMX support"""
+    project = get_object_or_404(BookProjects, pk=pk)
+    project_title = project.title
+
+    project.delete()
+    messages.success(request, f'Project "{project_title}" deleted successfully!')
+
+    if request.htmx:
+        # Return updated project list
+        projects = BookProjects.objects.all().order_by("-created_at")
+        paginator = Paginator(projects, 12)
+        page_obj = paginator.get_page(1)
+        return render(request, "bfagent/partials/project_list.html", {"page_obj": page_obj})
+
+    return redirect("bfagent:project-list")
+
+
+# ============================================================================
+# CHARACTER CRUD VIEWS
+# ============================================================================
+
+
+@require_http_methods(["GET", "POST"])
+def character_create(request):
+    """Create a new character with HTMX support"""
+    if request.method == "POST":
+        form = CharacterForm(request.POST)
+        if form.is_valid():
+            character = form.save()
+            messages.success(request, f'Character "{character.name}" created successfully!')
+            if request.htmx:
+                # HTMX Success: Return updated character list
+                characters = (
+                    Characters.objects.select_related("project").all().order_by("-created_at")
+                )
+                paginator = Paginator(characters, 20)
+                page_obj = paginator.get_page(1)
+                return render(
+                    request, "bfagent/partials/character_list.html", {"page_obj": page_obj}
+                )
+            return redirect("bfagent:character-list")
+        else:
+            messages.error(request, "Please correct the highlighted errors and try again.")
+            if request.htmx:
+                context = {
+                    "form": form,
+                    "character": None,
+                    "title": "Create New Character",
+                }
+                return render(request, "bfagent/partials/character_form.html", context)
+    else:
+        form = CharacterForm()
+
+    context = {
+        "form": form,
+        "character": None,
+        "title": "Create New Character",
+    }
+
+    if request.htmx:
+        return render(request, "bfagent/partials/character_form.html", context)
+
+    return render(request, "bfagent/character_form.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def character_edit(request, pk):
+    """Edit a character with HTMX support"""
+    character = get_object_or_404(Characters, pk=pk)
+
+    if request.method == "POST":
+        form = CharacterForm(request.POST, instance=character)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Character "{character.name}" updated successfully!')
+            if request.htmx:
+                # HTMX Success: Return updated character list
+                characters = (
+                    Characters.objects.select_related("project").all().order_by("-created_at")
+                )
+                paginator = Paginator(characters, 20)
+                page_obj = paginator.get_page(1)
+                return render(
+                    request, "bfagent/partials/character_list.html", {"page_obj": page_obj}
+                )
+            return redirect("bfagent:character-list")
+        else:
+            messages.error(request, "Please correct the highlighted errors and try again.")
+            if request.htmx:
+                context = {
+                    "form": form,
+                    "character": character,
+                    "title": f"Edit {character.name}",
+                }
+                return render(request, "bfagent/partials/character_form.html", context)
+    else:
+        form = CharacterForm(instance=character)
+
+    context = {
+        "form": form,
+        "character": character,
+        "title": f"Edit {character.name}",
+    }
+
+    if request.htmx:
+        return render(request, "bfagent/partials/character_form.html", context)
+
+    return render(request, "bfagent/character_form.html", context)
+
+
+@require_http_methods(["POST"])
+def character_delete(request, pk):
+    """Delete a character with HTMX support"""
+    character = get_object_or_404(Characters, pk=pk)
+    character_name = character.name
+
+    character.delete()
+    messages.success(request, f'Character "{character_name}" deleted successfully!')
+
+    if request.htmx:
+        # Return updated character list
+        characters = Characters.objects.select_related("project").all().order_by("-created_at")
+        paginator = Paginator(characters, 20)
+        page_obj = paginator.get_page(1)
+        return render(request, "bfagent/partials/character_list.html", {"page_obj": page_obj})
+
+    return redirect("bfagent:character-list")
+
+
+# ============================================================================
+# WORLDS CRUD VIEWS
+# ============================================================================
+
+
+@require_http_methods(["GET", "POST"])
+def world_create(request):
+    """Create a new world with HTMX support"""
+    if request.method == "POST":
+        form = WorldsForm(request.POST)
+        if form.is_valid():
+            world = form.save()
+            messages.success(request, f'World "{world.name}" created successfully!')
+            if request.htmx:
+                # HTMX Success: Return updated world list
+                worlds = Worlds.objects.select_related("project").all().order_by("name")
+                paginator = Paginator(worlds, 20)
+                page_obj = paginator.get_page(1)
+                return render(request, "bfagent/partials/world_list.html", {"page_obj": page_obj})
+            return redirect("bfagent:world-list")
+        else:
+            messages.error(request, "Please correct the highlighted errors and try again.")
+            if request.htmx:
+                context = {
+                    "form": form,
+                    "world": None,
+                    "title": "Create New World",
+                }
+                return render(request, "bfagent/partials/world_form.html", context)
+    else:
+        form = WorldsForm()
+
+    context = {
+        "form": form,
+        "world": None,
+        "title": "Create New World",
+    }
+
+    if request.htmx:
+        return render(request, "bfagent/partials/world_form.html", context)
+
+    return render(request, "bfagent/world_form.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def world_edit(request, pk):
+    """Edit a world with HTMX support"""
+    world = get_object_or_404(Worlds, pk=pk)
+
+    if request.method == "POST":
+        form = WorldsForm(request.POST, instance=world)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'World "{world.name}" updated successfully!')
+            if request.htmx:
+                # HTMX Success: Return updated world list
+                worlds = Worlds.objects.select_related("project").all().order_by("name")
+                paginator = Paginator(worlds, 20)
+                page_obj = paginator.get_page(1)
+                return render(request, "bfagent/partials/world_list.html", {"page_obj": page_obj})
+            return redirect("bfagent:world-list")
+        else:
+            messages.error(request, "Please correct the highlighted errors and try again.")
+            if request.htmx:
+                context = {
+                    "form": form,
+                    "world": world,
+                    "title": f"Edit {world.name}",
+                }
+                return render(request, "bfagent/partials/world_form.html", context)
+    else:
+        form = WorldsForm(instance=world)
+
+    context = {
+        "form": form,
+        "world": world,
+        "title": f"Edit {world.name}",
+    }
+
+    if request.htmx:
+        return render(request, "bfagent/partials/world_form.html", context)
+
+    return render(request, "bfagent/world_form.html", context)
+
+
+@require_http_methods(["POST"])
+def world_delete(request, pk):
+    """Delete a world with HTMX support"""
+    world = get_object_or_404(Worlds, pk=pk)
+    world_name = world.name
+
+    world.delete()
+    messages.success(request, f'World "{world_name}" deleted successfully!')
+
+    if request.htmx:
+        # Return updated world list
+        worlds = Worlds.objects.select_related("project").all().order_by("name")
+        paginator = Paginator(worlds, 20)
+        page_obj = paginator.get_page(1)
+        context = {
+            "page_obj": page_obj,
+            "project_filter": None,
+            "type_filter": None,
+        }
+        return render(request, "bfagent/partials/world_list.html", context)
+
+    return redirect("bfagent:world-list")
+
+
+# ============================================================================
+# WORLDS LIST VIEW (Generated by Enhanced Consistency Framework)
+# ============================================================================
+
+
+@require_http_methods(["GET"])
+def worlds_list(request):
+    """List all Worlds with pagination and filtering"""
+    worlds = Worlds.objects.select_related("project").all()
+
+    # Apply filters
+    project_filter = request.GET.get("project")
+    world_type_filter = request.GET.get("world_type")
+
+    if project_filter:
+        worlds = worlds.filter(project_id=project_filter)
+    if world_type_filter:
+        worlds = worlds.filter(world_type=world_type_filter)
+
+    # ordering
+    worlds = worlds.order_by("name")
+
+    # Pagination
+    paginator = Paginator(worlds, 20)
+    page_number = request.GET.get("page")
+    page_obj = paginator.get_page(page_number)
+
+    context = {
+        "page_obj": page_obj,
+        "project_filter": project_filter,
+        "type_filter": world_type_filter,
+    }
+
+    if request.htmx:
+        return render(request, "bfagent/partials/worlds_list.html", context)
+
+    return render(request, "bfagent/worlds_list.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def worlds_create(request):
+    """Create a new Worlds with HTMX support"""
+    if request.method == "POST":
+        form = WorldsForm(request.POST)
+        if form.is_valid():
+            obj = form.save()
+            messages.success(request, f'Worlds "{obj}" created successfully!')
+            if request.htmx:
+                # HTMX Success: Return updated list
+                items = Worlds.objects.all().order_by("-created_at")
+                paginator = Paginator(items, 20)
+                page_obj = paginator.get_page(1)
+                return render(request, "bfagent/partials/worlds_list.html", {"page_obj": page_obj})
+            return redirect("bfagent:worlds-list")
+        else:
+            messages.error(request, "Please correct the highlighted errors.")
+            if request.htmx:
+                context = {"form": form, "worlds": None, "title": "Create New Worlds"}
+                return render(request, "bfagent/partials/worlds_form.html", context)
+    else:
+        form = WorldsForm()
+
+    context = {"form": form, "worlds": None, "title": "Create New Worlds"}
+
+    if request.htmx:
+        return render(request, "bfagent/partials/worlds_form.html", context)
+
+    return render(request, "bfagent/worlds_form.html", context)
+
+
+@require_http_methods(["GET", "POST"])
+def worlds_edit(request, pk):
+    """Edit a Worlds with HTMX support"""
+    worlds = get_object_or_404(Worlds, pk=pk)
+
+    if request.method == "POST":
+        form = WorldsForm(request.POST, instance=worlds)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Worlds "{worlds}" updated successfully!')
+            if request.htmx:
+                # HTMX Success: Return updated list
+                items = Worlds.objects.all().order_by("-created_at")
+                paginator = Paginator(items, 20)
+                page_obj = paginator.get_page(1)
+                return render(request, "bfagent/partials/worlds_list.html", {"page_obj": page_obj})
+            return redirect("bfagent:worlds-list")
+        else:
+            messages.error(request, "Please correct the highlighted errors.")
+            if request.htmx:
+                context = {"form": form, "worlds": worlds, "title": f"Edit {worlds}"}
+                return render(request, "bfagent/partials/worlds_form.html", context)
+    else:
+        form = WorldsForm(instance=worlds)
+
+    context = {"form": form, "worlds": worlds, "title": f"Edit {worlds}"}
+
+    if request.htmx:
+        return render(request, "bfagent/partials/worlds_form.html", context)
+
+    return render(request, "bfagent/worlds_form.html", context)
+
+
+@require_http_methods(["POST"])
+def worlds_delete(request, pk):
+    """Delete a Worlds with HTMX support"""
+    worlds = get_object_or_404(Worlds, pk=pk)
+    worlds_name = str(worlds)
+
+    worlds.delete()
+    messages.success(request, f'Worlds "{worlds_name}" deleted successfully!')
+
+    if request.htmx:
+        # Return updated list
+        items = Worlds.objects.all().order_by("-created_at")
+        paginator = Paginator(items, 20)
+        page_obj = paginator.get_page(1)
+        return render(request, "bfagent/partials/worlds_list.html", {"page_obj": page_obj})
+
+    return redirect("bfagent:worlds-list")

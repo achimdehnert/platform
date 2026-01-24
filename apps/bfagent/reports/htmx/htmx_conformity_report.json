@@ -1,0 +1,480 @@
+{
+  "summary": {
+    "total_files_scanned": 40,
+    "issues_found": 52,
+    "critical_issues": 6,
+    "warnings": 22,
+    "info_issues": 24,
+    "conformity_score": 0
+  },
+  "issues": [
+    {
+      "file_path": "templates\\bfagent\\chapter_edit.html",
+      "line_number": 32,
+      "issue_type": "form_without_htmx",
+      "description": "Form uses standard POST instead of HTMX",
+      "current_code": "<form method=\"post\" class=\"needs-validation\" novalidate>",
+      "suggested_fix": "Add hx-post=\"{% url '...' %}\" hx-target=\"#target\"",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\character_form.html",
+      "line_number": 19,
+      "issue_type": "missing_validation",
+      "description": "HTMX form missing Bootstrap validation classes",
+      "current_code": "<form method=\"post\" hx-post=\"{% if character %}{% url 'bfagent:character-edit' character.pk %}{% else %}{% url 'bfagent:character-create' %}{% endif %}\"",
+      "suggested_fix": "Add class=\"needs-validation\" novalidate to form",
+      "severity": "info"
+    },
+    {
+      "file_path": "templates\\bfagent\\confirm_delete.html",
+      "line_number": 31,
+      "issue_type": "form_without_htmx",
+      "description": "Form uses standard POST instead of HTMX",
+      "current_code": "<form method=\"post\" class=\"d-flex justify-content-end gap-2\">",
+      "suggested_fix": "Add hx-post=\"{% url '...' %}\" hx-target=\"#target\"",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\llm_detail.html",
+      "line_number": 260,
+      "issue_type": "missing_validation",
+      "description": "HTMX form missing Bootstrap validation classes",
+      "current_code": "hx-post=\"{% url 'bfagent:llm-test' llm.pk %}\"",
+      "suggested_fix": "Add class=\"needs-validation\" novalidate to form",
+      "severity": "info"
+    },
+    {
+      "file_path": "templates\\bfagent\\project_detail.html",
+      "line_number": 269,
+      "issue_type": "form_without_htmx",
+      "description": "Form uses standard POST instead of HTMX",
+      "current_code": "<form method=\"post\" action=\"{% url 'bfagent:project-delete' project.pk %}\" class=\"d-inline\">",
+      "suggested_fix": "Add hx-post=\"{% url '...' %}\" hx-target=\"#target\"",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\components\\live_test_interface.html",
+      "line_number": 7,
+      "issue_type": "missing_validation",
+      "description": "HTMX form missing Bootstrap validation classes",
+      "current_code": "<form hx-post=\"{{ test_url }}\"",
+      "suggested_fix": "Add class=\"needs-validation\" novalidate to form",
+      "severity": "info"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\agent_form.html",
+      "line_number": 2,
+      "issue_type": "missing_csrf",
+      "description": "HTMX form missing CSRF token",
+      "current_code": "<form hx-post=\"{% url 'bfagent:agent-edit' agent.pk %}\"",
+      "suggested_fix": "Add {% csrf_token %} inside form",
+      "severity": "critical"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\agent_list.html",
+      "line_number": 99,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.previous_page_number }}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\agent_list.html",
+      "line_number": 115,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ num }}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\agent_list.html",
+      "line_number": 127,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.next_page_number }}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\chapter_form.html",
+      "line_number": 2,
+      "issue_type": "missing_csrf",
+      "description": "HTMX form missing CSRF token",
+      "current_code": "<form hx-post=\"{% url 'bfagent:chapter-edit' chapter.pk %}\"",
+      "suggested_fix": "Add {% csrf_token %} inside form",
+      "severity": "critical"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\chapter_list.html",
+      "line_number": 125,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.previous_page_number }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\chapter_list.html",
+      "line_number": 140,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ num }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\chapter_list.html",
+      "line_number": 149,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.next_page_number }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\character_form.html",
+      "line_number": 2,
+      "issue_type": "missing_csrf",
+      "description": "HTMX form missing CSRF token",
+      "current_code": "<form hx-post=\"{% url 'bfagent:character-edit' character.pk %}\"",
+      "suggested_fix": "Add {% csrf_token %} inside form",
+      "severity": "critical"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\character_list.html",
+      "line_number": 114,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.previous_page_number }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\character_list.html",
+      "line_number": 130,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ num }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\character_list.html",
+      "line_number": 142,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.next_page_number }}{% if project_filter %}&project={{ project_filter }}{% endif %}{% if role_filter %}&role={{ role_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\execution_list.html",
+      "line_number": 129,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\execution_list.html",
+      "line_number": 145,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\execution_list.html",
+      "line_number": 157,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if agent_filter %}&agent={{ agent_filter }}{% endif %}{% if project_filter %}&project={{ project_filter }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\llm_form.html",
+      "line_number": 2,
+      "issue_type": "missing_csrf",
+      "description": "HTMX form missing CSRF token",
+      "current_code": "<form hx-post=\"{% url 'bfagent:llm-edit' llm.pk %}\"",
+      "suggested_fix": "Add {% csrf_token %} inside form",
+      "severity": "critical"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\llm_list.html",
+      "line_number": 117,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.previous_page_number }}{% if provider_filter %}&provider={{ provider_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\llm_list.html",
+      "line_number": 133,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ num }}{% if provider_filter %}&provider={{ provider_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\llm_list.html",
+      "line_number": 145,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.next_page_number }}{% if provider_filter %}&provider={{ provider_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_agent_base_form.html",
+      "line_number": 17,
+      "issue_type": "invalid_target",
+      "description": "Uses non-existent #content-area target",
+      "current_code": "hx-target=\"#content-area\">",
+      "suggested_fix": "Use valid target like #main-content or #form-container",
+      "severity": "critical"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_agent_base_form.html",
+      "line_number": 134,
+      "issue_type": "invalid_target",
+      "description": "Uses non-existent #content-area target",
+      "current_code": "hx-target=\"#content-area\">Cancel</button>",
+      "suggested_fix": "Use valid target like #main-content or #form-container",
+      "severity": "critical"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_enrich_panel.html",
+      "line_number": 14,
+      "issue_type": "missing_validation",
+      "description": "HTMX form missing Bootstrap validation classes",
+      "current_code": "<form hx-post=\"{% url 'bfagent:project-enrich' project.pk %}\"",
+      "suggested_fix": "Add class=\"needs-validation\" novalidate to form",
+      "severity": "info"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_enrich_panel_fixed.html",
+      "line_number": 14,
+      "issue_type": "missing_validation",
+      "description": "HTMX form missing Bootstrap validation classes",
+      "current_code": "<form hx-post=\"{% url 'bfagent:project-enrich' project.pk %}\"",
+      "suggested_fix": "Add class=\"needs-validation\" novalidate to form",
+      "severity": "info"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_enrich_panel_old.html",
+      "line_number": 14,
+      "issue_type": "missing_validation",
+      "description": "HTMX form missing Bootstrap validation classes",
+      "current_code": "<form hx-post=\"{% url 'bfagent:project-enrich' project.pk %}\"",
+      "suggested_fix": "Add class=\"needs-validation\" novalidate to form",
+      "severity": "info"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_enrich_results.html",
+      "line_number": 16,
+      "issue_type": "missing_validation",
+      "description": "HTMX form missing Bootstrap validation classes",
+      "current_code": "<form hx-post=\"{% url 'bfagent:project-apply-suggestion' project.pk %}\"",
+      "suggested_fix": "Add class=\"needs-validation\" novalidate to form",
+      "severity": "info"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_list.html",
+      "line_number": 97,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.previous_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if genre_filter %}&genre={{ genre_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_list.html",
+      "line_number": 113,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ num }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if genre_filter %}&genre={{ genre_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_list.html",
+      "line_number": 125,
+      "issue_type": "hardcoded_urls",
+      "description": "HTMX uses hardcoded URL instead of Django URL pattern",
+      "current_code": "hx-get=\"?page={{ page_obj.next_page_number }}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if genre_filter %}&genre={{ genre_filter }}{% endif %}{% if search_query %}&search={{ search_query }}{% endif %}\"",
+      "suggested_fix": "Use {% url 'namespace:name' %} pattern",
+      "severity": "warning"
+    },
+    {
+      "file_path": "templates\\bfagent\\partials\\project_list.html",
+      "line_number": 151,
+      "issue_type": "form_without_htmx",
+      "description": "Form uses standard POST instead of HTMX",
+      "current_code": "<form method=\"post\" action=\"{% url 'bfagent:project-delete' project.pk %}\" class=\"d-inline\">",
+      "suggested_fix": "Add hx-post=\"{% url '...' %}\" hx-target=\"#target\"",
+      "severity": "warning"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 19,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 55,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 95,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 111,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 145,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 316,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 332,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 372,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 416,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 432,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 468,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 508,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 524,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 559,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\crud_views.py",
+      "line_number": 600,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\views\\main_views.py",
+      "line_number": 198,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    },
+    {
+      "file_path": "apps\\bfagent\\views\\main_views.py",
+      "line_number": 830,
+      "issue_type": "missing_htmx_response",
+      "description": "POST view may need HTMX response handling",
+      "current_code": "if request.method == \"POST\":",
+      "suggested_fix": "Return partial template or HX-Redirect for HTMX",
+      "severity": "info"
+    }
+  ]
+}

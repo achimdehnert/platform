@@ -1,0 +1,173 @@
+<!-- templates/cad_hub/brandschutz/pruefung_form.html -->
+{% extends "cad_hub/brandschutz/base_brandschutz.html" %}
+
+{% block breadcrumb_extra %}
+<li><span class="mx-2">/</span></li>
+<li><a href="{% url 'cad_hub:brandschutz:pruefung_list' %}" class="hover:text-white">Prüfungen</a></li>
+<li><span class="mx-2">/</span></li>
+<li class="text-white">{{ form_action }}</li>
+{% endblock %}
+
+{% block brandschutz_content %}
+<div class="max-w-2xl">
+    <form method="post" enctype="multipart/form-data" class="space-y-6">
+        {% csrf_token %}
+        
+        <!-- Basis-Informationen -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">📋 Basis-Informationen</h2>
+            
+            <div class="space-y-4">
+                <div>
+                    <label for="id_titel" class="block text-sm font-medium text-slate-300 mb-1">
+                        Titel *
+                    </label>
+                    <input type="text" name="titel" id="id_titel" 
+                           value="{{ form.titel.value|default:'' }}"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                           placeholder="z.B. Brandschutzprüfung Bürogebäude EG" required>
+                    {% if form.titel.errors %}
+                    <p class="mt-1 text-sm text-red-400">{{ form.titel.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                <div>
+                    <label for="id_projekt_name" class="block text-sm font-medium text-slate-300 mb-1">
+                        Projekt-Name *
+                    </label>
+                    <input type="text" name="projekt_name" id="id_projekt_name"
+                           value="{{ form.projekt_name.value|default:'' }}"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                           placeholder="z.B. Neubau Verwaltungsgebäude München" required>
+                    {% if form.projekt_name.errors %}
+                    <p class="mt-1 text-sm text-red-400">{{ form.projekt_name.errors.0 }}</p>
+                    {% endif %}
+                </div>
+                
+                {% if form.status %}
+                <div>
+                    <label for="id_status" class="block text-sm font-medium text-slate-300 mb-1">
+                        Status
+                    </label>
+                    <select name="status" id="id_status"
+                            class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500">
+                        {% for value, label in form.fields.status.choices %}
+                        <option value="{{ value }}" {% if form.status.value == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        
+        <!-- Gebäude-Informationen -->
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">🏢 Gebäude-Informationen</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_gebaeude_typ" class="block text-sm font-medium text-slate-300 mb-1">
+                        Gebäudetyp
+                    </label>
+                    <select name="gebaeude_typ" id="id_gebaeude_typ"
+                            class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500">
+                        <option value="">-- Auswählen --</option>
+                        <option value="buero" {% if form.gebaeude_typ.value == 'buero' %}selected{% endif %}>Bürogebäude</option>
+                        <option value="wohnen" {% if form.gebaeude_typ.value == 'wohnen' %}selected{% endif %}>Wohngebäude</option>
+                        <option value="industrie" {% if form.gebaeude_typ.value == 'industrie' %}selected{% endif %}>Industriebau</option>
+                        <option value="versammlung" {% if form.gebaeude_typ.value == 'versammlung' %}selected{% endif %}>Versammlungsstätte</option>
+                        <option value="verkauf" {% if form.gebaeude_typ.value == 'verkauf' %}selected{% endif %}>Verkaufsstätte</option>
+                        <option value="lager" {% if form.gebaeude_typ.value == 'lager' %}selected{% endif %}>Lagergebäude</option>
+                        <option value="sonstige" {% if form.gebaeude_typ.value == 'sonstige' %}selected{% endif %}>Sonstige</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label for="id_etage" class="block text-sm font-medium text-slate-300 mb-1">
+                        Etage / Bereich
+                    </label>
+                    <input type="text" name="etage" id="id_etage"
+                           value="{{ form.etage.value|default:'' }}"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                           placeholder="z.B. EG, 1.OG, Keller">
+                </div>
+                
+                <div>
+                    <label for="id_flaeche_qm" class="block text-sm font-medium text-slate-300 mb-1">
+                        Fläche (m²)
+                    </label>
+                    <input type="number" name="flaeche_qm" id="id_flaeche_qm" step="0.1"
+                           value="{{ form.flaeche_qm.value|default:'' }}"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                           placeholder="z.B. 450.5">
+                </div>
+                
+                <div>
+                    <label for="id_pruefer" class="block text-sm font-medium text-slate-300 mb-1">
+                        Prüfer
+                    </label>
+                    <input type="text" name="pruefer" id="id_pruefer"
+                           value="{{ form.pruefer.value|default:'' }}"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                           placeholder="Name des Prüfers">
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <label for="id_beschreibung" class="block text-sm font-medium text-slate-300 mb-1">
+                    Beschreibung / Anmerkungen
+                </label>
+                <textarea name="beschreibung" id="id_beschreibung" rows="3"
+                          class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500"
+                          placeholder="Zusätzliche Informationen zur Prüfung...">{{ form.beschreibung.value|default:'' }}</textarea>
+            </div>
+        </div>
+        
+        <!-- Termine -->
+        {% if form.naechste_pruefung %}
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">📅 Termine</h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="id_naechste_pruefung" class="block text-sm font-medium text-slate-300 mb-1">
+                        Nächste Prüfung
+                    </label>
+                    <input type="date" name="naechste_pruefung" id="id_naechste_pruefung"
+                           value="{{ form.naechste_pruefung.value|default:'' }}"
+                           class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500">
+                </div>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Quelldatei -->
+        {% if form.quelldatei %}
+        <div class="bg-slate-800 rounded-xl border border-slate-700 p-6">
+            <h2 class="text-lg font-semibold text-white mb-4">📁 CAD-Datei</h2>
+            
+            <div>
+                <label for="id_quelldatei" class="block text-sm font-medium text-slate-300 mb-1">
+                    DXF/IFC-Datei hochladen
+                </label>
+                <input type="file" name="quelldatei" id="id_quelldatei" accept=".dxf,.ifc"
+                       class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-medium file:bg-blue-600 file:text-white hover:file:bg-blue-700">
+                <p class="mt-1 text-xs text-slate-500">Unterstützte Formate: DXF, IFC</p>
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- Buttons -->
+        <div class="flex items-center justify-between pt-4">
+            <a href="{% url 'cad_hub:brandschutz:pruefung_list' %}" 
+               class="px-4 py-2 text-slate-400 hover:text-white">
+                ← Abbrechen
+            </a>
+            <button type="submit" 
+                    class="px-6 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium">
+                💾 {{ form_action }}
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,60 @@
+{
+  "mcp": {
+    "enabled": true,
+    "defaultTimeout": 30000,
+    "servers": {
+      "metamcp": {
+        "command": "npx",
+        "args": [
+          "-y",
+          "@metamcp/mcp-server-metamcp@latest",
+          "--transport",
+          "stdio"
+        ],
+        "env": {
+          "METAMCP_API_KEY": "mypa_metamcp_2025_secure_key",
+          "METAMCP_API_BASE_URL": "http://localhost:12006"
+        }
+      },
+      "mypa-knowledge-agent": {
+        "command": "docker",
+        "args": [
+          "exec",
+          "mypa-knowledge-agent-mcp",
+          "python",
+          "-m",
+          "mcp_server"
+        ],
+        "env": {
+          "OPENAI_API_KEY": "${env:OPENAI_API_KEY}",
+          "MCP_PORT": "12010"
+        }
+      },
+      "mypa-document-agent": {
+        "command": "docker",
+        "args": [
+          "exec",
+          "mypa-document-agent-mcp",
+          "python",
+          "-m",
+          "mcp_server"
+        ],
+        "env": {
+          "OPENAI_API_KEY": "${env:OPENAI_API_KEY}",
+          "MCP_PORT": "12011"
+        }
+      }
+    }
+  },
+  "ai": {
+    "provider": "claude",
+    "model": "claude-3-opus-20240229",
+    "temperature": 0.7
+  },
+  "mypa": {
+    "metamcp_gui_url": "http://localhost:12006",
+    "workspace": "mypa-workspace",
+    "auto_start_agents": true,
+    "monitoring_enabled": true
+  }
+}

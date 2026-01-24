@@ -1,0 +1,12 @@
+{$BFAgent_DOMAIN} {
+    encode gzip
+    
+    # Serve Sphinx documentation at /docs/
+    handle_path /docs/* {
+        root * /srv/docs
+        file_server
+    }
+    
+    # All other requests go to Django
+    reverse_proxy bfagent-web:8000
+}

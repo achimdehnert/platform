@@ -1,0 +1,18 @@
+<div class="row g-2">
+  {% for file in files %}
+  <div class="col">
+    <div class="card h-100">
+      <div class="card-header small {% if file.is_primary %}bg-primary text-white{% endif %}">
+        {{ file.name|truncatechars:30 }}
+      </div>
+      <div class="card-body p-2">
+        <pre class="small m-0 dlm-diff-code"><code>{{ file.content|truncatechars:2000 }}</code></pre>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="col">
+    <p class="text-muted">No files to compare</p>
+  </div>
+  {% endfor %}
+</div>

@@ -1,0 +1,41 @@
+version: '3.8'
+
+# Local test configuration for docs deployment
+# Usage: docker compose -f docker-compose.local-test.yml up --build
+
+services:
+  bfagent-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bfagent_web_test
+    environment:
+      DEBUG: "1"
+      SECRET_KEY: "test-secret-key-for-local-testing-only"
+      DATABASE_URL: "sqlite:///db.sqlite3"
+      ALLOWED_HOSTS: "localhost,127.0.0.1"
+    volumes:
+      - bfagent_docs_test:/app/docs/build/html
+    networks:
+      - test_network
+
+  caddy:
+    image: caddy:2
+    container_name: bfagent_caddy_test
+    ports:
+      - "8080:80"
+    environment:
+      BFAgent_DOMAIN: ":80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - bfagent_docs_test:/srv/docs:ro
+    depends_on:
+      - bfagent-web
+    networks:
+      - test_network
+
+volumes:
+  bfagent_docs_test:
+
+networks:
+  test_network:

@@ -1,0 +1,16 @@
+{
+  "id": "world_ec82a381",
+  "project_id": "proj_608297a9",
+  "world_name": "",
+  "world_description": "",
+  "locations": [],
+  "factions": [],
+  "elements": [],
+  "timeline": {
+    "id": "timeline_7e5710b6",
+    "name": "World Timeline",
+    "events": []
+  },
+  "created_at": "2025-12-09T12:26:01.080751",
+  "updated_at": "2025-12-09T12:26:01.080751"
+}

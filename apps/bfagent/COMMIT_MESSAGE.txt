@@ -1,0 +1,227 @@
+feat(medtrans): Complete DeepL Translation Pipeline with Edit & Regenerate
+
+BREAKING CHANGES: None (fully backward compatible)
+
+🎉 PRODUCTION-READY: Medical Translation Pipeline - End-to-End Implementation
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 MAJOR FEATURES IMPLEMENTED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ✅ DEEPL API INTEGRATION
+   - Full DeepL REST API integration
+   - Translation cache system (JSON-based)
+   - API key configuration via .env
+   - Error handling & retry logic
+   - Translation method tracking (DeepL/Cache/Manual)
+
+2. ✅ COMPLETE TRANSLATION PIPELINE
+   - Extract: XML-based text extraction from PPTX
+   - Translate: Batch translation via DeepL API
+   - Repackage: PPTX regeneration with translated texts
+   - Status tracking: uploaded → extracting → translating → reviewing → completed
+   - Progress updates: Real-time percentage & text counts
+
+3. ✅ EDIT & REGENERATE FUNCTIONALITY
+   - Professional edit interface with slide-by-slide view
+   - Live text editing in textareas
+   - Manual edit tracking (manually_edited flag)
+   - Save changes with update count
+   - Regenerate PPTX with edited translations
+   - Multiple PPTX versions with timestamps
+
+4. ✅ ADVANCED MANAGEMENT FEATURES
+   - Re-translate: Reset status & delete translations for re-run
+   - Delete: Remove presentations (even hanging processes)
+   - Smart filename schema: {original}_{src}_{tgt}_{timestamp}.pptx
+   - Confirmation dialogs for destructive actions
+   - Django messages for user feedback
+
+5. ✅ GENAGENT HANDLER SYSTEM
+   - ExtractTextsHandler: XML text extraction
+   - TranslateTextsHandler: DeepL translation orchestration
+   - RepackagePPTXHandler: PPTX file regeneration
+   - Modular, testable architecture
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📁 FILES MODIFIED/CREATED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEW FILES:
+- apps/medtrans/handlers/extract_handler.py (XML text extraction)
+- apps/medtrans/handlers/translate_handler.py (DeepL orchestration)
+- apps/medtrans/handlers/repackage_handler.py (PPTX regeneration)
+- apps/medtrans/services/xml_text_extractor.py (from production)
+- apps/medtrans/services/xml_direct_translator.py (from production)
+- apps/medtrans/services/translation_providers.py (DeepL provider)
+- apps/medtrans/services/translation_cache.py (cache system)
+- templates/medtrans/presentation_edit.html (edit interface)
+- clear_cache_and_reset.py (utility script)
+
+MODIFIED FILES:
+- apps/medtrans/models.py (added PresentationText model)
+- apps/medtrans/views.py (added 6 new views)
+- apps/medtrans/urls.py (added 6 new URL patterns)
+- apps/medtrans/admin.py (registered PresentationText)
+- templates/medtrans/presentation_list.html (action buttons)
+- config/settings/base.py (DeepL & translation settings)
+- .env (DEEPL_API_KEY configuration)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🗄️  DATABASE SCHEMA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+NEW TABLE: medtrans_presentation_texts
+- presentation (FK to Presentation)
+- slide_number (IntegerField)
+- text_id (CharField, unique identifier)
+- original_text (TextField)
+- translated_text (TextField)
+- translation_method (CharField: pending/deepl/manual/error)
+- manually_edited (BooleanField)
+- created_at, updated_at (DateTimeField)
+- Indexes: [presentation, slide_number], [presentation, translation_method]
+- Unique constraint: [presentation, text_id]
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 NEW VIEWS & ENDPOINTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. start_translation_pipeline (POST)
+   - /medtrans/presentations/<id>/translate/
+   - Orchestrates 3-step pipeline
+   - HTMX-compatible JSON responses
+
+2. presentation_delete (POST)
+   - /medtrans/presentations/<id>/delete/
+   - Deletes PPTX file & DB entries
+   - Available in all statuses (including hanging)
+
+3. presentation_reset (POST)
+   - /medtrans/presentations/<id>/reset/
+   - Resets to 'uploaded' status
+   - Clears all translations
+
+4. presentation_edit (GET)
+   - /medtrans/presentations/<id>/edit/
+   - Professional edit interface
+   - Slide-by-slide text editing
+
+5. presentation_update_texts (POST)
+   - /medtrans/presentations/<id>/update/
+   - Saves edited translations
+   - Sets manually_edited flag
+
+6. presentation_regenerate (POST)
+   - /medtrans/presentations/<id>/regenerate/
+   - Creates new PPTX with current translations
+   - Timestamped filename
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+⚙️  CONFIGURATION:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+config/settings/base.py:
+- DEEPL_API_KEY (from .env)
+- DEEPL_API_URL = "https://api-free.deepl.com/v2"
+- TRANSLATION_CACHE_ENABLED = True
+- TRANSLATION_MAX_RETRIES = 3
+
+Cache Location:
+- cache/translation_cache.json
+
+Output Directory:
+- media/medtrans/output/
+
+Filename Schema:
+- {original_name}_{source_lang}_{target_lang}_{timestamp}.pptx
+- Example: HNU-Chatbot_de_en_20251027_105300.pptx
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎨 UI IMPROVEMENTS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+ACTION BUTTONS (Status-Based):
+- uploaded: [▶️ Translate] [🗑️ Delete]
+- completed: [✅ Completed] [📝 Edit] [🔄 Re-translate] [🗑️ Delete]
+- processing: [⏳ Processing...] [🗑️ Delete]
+
+EDIT INTERFACE:
+- Breadcrumb navigation
+- Slide number badges
+- Original text reference
+- Editable textareas
+- Translation method badges (DeepL/Cache/Manual)
+- Save Changes button
+- Regenerate PPTX section
+
+CONFIRMATION DIALOGS:
+- Delete: "Delete {filename}? This cannot be undone!"
+- Re-translate: "This will delete existing translations."
+- Processing Delete: "This will stop the running process!"
+- Regenerate: "Generate new PPTX with current translations?"
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🐛 BUGS FIXED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ✅ DeepL API key not passed to RepackagePPTXHandler
+2. ✅ Missing translation_method in database query
+3. ✅ Edit saves using wrong identifier (text_id → primary key)
+4. ✅ Translation cache path resolution
+5. ✅ Django ORM integration for crm_translation_db
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+✅ TESTING COMPLETED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ Full translation pipeline (HNU-Chatbot.pptx: DE → EN)
+✅ DeepL API integration verified
+✅ Translation cache working
+✅ PPTX extraction successful
+✅ PPTX regeneration functional
+✅ Edit interface working
+✅ Save changes persisting correctly
+✅ Regenerate creating new files
+✅ Delete operations working
+✅ Re-translate resetting correctly
+✅ Hanging job deletion enabled
+✅ Timestamped filenames generating
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🎯 USER WORKFLOW:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. Upload PPTX → Select languages → Create
+2. Click "Translate" → Pipeline executes automatically
+3. Status updates: extracting → translating → reviewing → completed
+4. Click "Edit" → Review & modify translations
+5. Click "Save Changes" → Translations updated in DB
+6. Click "Regenerate PPTX" → New file created
+7. Download new PPTX with edited translations
+
+ALTERNATIVE FLOWS:
+- Re-translate: Start over with same file
+- Delete: Remove presentation completely
+- Delete hanging: Stop stuck processes
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+🚀 PRODUCTION READY:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✅ End-to-end translation pipeline functional
+✅ Professional UI with Bootstrap 5
+✅ Comprehensive error handling
+✅ User feedback via Django messages
+✅ Confirmation dialogs for destructive actions
+✅ Security: User-scoped access control
+✅ Logging: Comprehensive debug information
+✅ Scalable: Modular handler architecture
+✅ Maintainable: Clean code structure
+✅ Testable: Isolated handler components
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+This implementation transforms the PoC into a fully functional production-ready
+medical translation system with DeepL integration, professional editing capabilities,
+and robust error handling.

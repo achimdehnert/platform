@@ -1,0 +1,153 @@
+{
+  "errors": {
+    "94ecd786": {
+      "error": {
+        "type": "missing_table",
+        "model": "BookProject",
+        "table": "book_projects_v2"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:28:08.688230",
+      "last_seen": "2025-11-17T13:45:34.412730",
+      "notes": "",
+      "status_changed": "2025-11-17T13:28:30.034870"
+    },
+    "d93034b7": {
+      "error": {
+        "type": "missing_table",
+        "model": "LLMExecution",
+        "table": "core_llm_executions"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.486163",
+      "notes": "",
+      "status_changed": "2025-11-17T13:36:31.408454"
+    },
+    "5972ecde": {
+      "error": {
+        "type": "missing_table",
+        "model": "AgentExecution",
+        "table": "core_agent_executions"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.486163",
+      "notes": "",
+      "status_changed": "2025-11-17T13:36:37.369112"
+    },
+    "64e5443a": {
+      "error": {
+        "type": "missing_table",
+        "model": "BookStatus",
+        "table": "book_statuses"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.486163",
+      "notes": "",
+      "status_changed": "2025-11-17T13:44:14.210291"
+    },
+    "50e9ac0b": {
+      "error": {
+        "type": "missing_table",
+        "model": "Agents",
+        "table": "bfagent_agents_legacy"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T13:45:34.412730",
+      "notes": "",
+      "status_changed": "2025-11-17T13:36:43.411017"
+    },
+    "4e0a2e38": {
+      "error": {
+        "type": "missing_table",
+        "model": "TargetAudience",
+        "table": "writing_target_audiences"
+      },
+      "status": "fixed",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T13:30:22.532388",
+      "notes": "",
+      "fixed_at": "2025-11-17T13:43:46.439983"
+    },
+    "56f182b4": {
+      "error": {
+        "type": "missing_table",
+        "model": "IllustrationStyle",
+        "table": "writing_illustration_styles"
+      },
+      "status": "fixed",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T13:30:22.532388",
+      "notes": "",
+      "fixed_at": "2025-11-17T13:43:46.439983"
+    },
+    "770629c3": {
+      "error": {
+        "type": "missing_table",
+        "model": "PhaseActionConfig",
+        "table": "phase_action_configs"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.486163",
+      "notes": "",
+      "status_changed": "2025-11-17T13:44:20.117954"
+    },
+    "9fbc0c70": {
+      "error": {
+        "type": "missing_table",
+        "model": "PromptExecution",
+        "table": "prompt_executions"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.486163",
+      "notes": "",
+      "status_changed": "2025-11-17T13:36:49.589367"
+    },
+    "c2f9e770": {
+      "error": {
+        "type": "missing_table",
+        "model": "PromptTemplateTest",
+        "table": "prompt_template_tests"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.486163",
+      "notes": "",
+      "status_changed": "2025-11-17T13:36:55.658171"
+    },
+    "730e6e80": {
+      "error": {
+        "type": "missing_table",
+        "model": "GeneratedImage",
+        "table": "generated_images"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.486163",
+      "notes": "",
+      "status_changed": "2025-11-17T13:37:01.962619"
+    },
+    "61fa90f4": {
+      "error": {
+        "type": "missing_table",
+        "model": "WorkflowTemplate",
+        "table": "workflow_templates_v2"
+      },
+      "status": "ignored",
+      "first_seen": "2025-11-17T13:30:22.532388",
+      "last_seen": "2025-11-17T14:52:53.487684",
+      "notes": "",
+      "status_changed": "2025-11-17T13:44:26.257091"
+    }
+  },
+  "last_update": "2025-11-17T14:52:53.487684",
+  "metadata": {
+    "created": "2025-11-17T13:28:08.688230",
+    "version": "1.0"
+  }
+}

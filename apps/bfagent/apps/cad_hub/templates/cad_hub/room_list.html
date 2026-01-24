@@ -1,0 +1,68 @@
+<!-- templates/cad_hub/room_list.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}Raumliste - {{ ifc_model.project.name }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row align-items-center mb-4">
+    <div class="col-12 col-lg-auto mb-2 mb-lg-0">
+        <h2 class="h4 fw-bold mb-1"><i class="bi bi-grid-3x3 text-warning"></i> Raumliste</h2>
+        <p class="text-muted mb-0">{{ ifc_model.project.name }} v{{ ifc_model.version }}</p>
+    </div>
+    <div class="col-12 col-lg">
+        <div class="d-flex gap-2 flex-wrap justify-content-lg-end">
+            <!-- Filter -->
+            <select name="floor" class="form-select form-select-sm" style="width: auto; min-width: 140px;"
+                    hx-get="{% url 'cad_hub:room_list' ifc_model.id %}"
+                    hx-target="#room-table-container"
+                    hx-include="[name='usage'], [name='q']">
+                <option value="">Alle Geschosse</option>
+                {% for floor in floors %}
+                <option value="{{ floor.id }}" {% if request.GET.floor == floor.id|stringformat:"s" %}selected{% endif %}>
+                    {{ floor.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <select name="usage" class="form-select form-select-sm" style="width: auto; min-width: 140px;"
+                    hx-get="{% url 'cad_hub:room_list' ifc_model.id %}"
+                    hx-target="#room-table-container"
+                    hx-include="[name='floor'], [name='q']">
+                <option value="">Alle Nutzungen</option>
+                {% for code, label in usage_choices %}
+                <option value="{{ code }}" {% if request.GET.usage == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+            <!-- Export Dropdown -->
+            <div class="dropdown">
+                <button class="btn btn-warning btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-download"></i> Export
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><a class="dropdown-item" href="{% url 'cad_hub:export_raumbuch' ifc_model.id %}?type=raumbuch">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Raumbuch (Excel)
+                    </a></li>
+                    <li><a class="dropdown-item" href="{% url 'cad_hub:export_raumbuch' ifc_model.id %}?type=din277">
+                        <i class="bi bi-rulers"></i> DIN 277 Flächen
+                    </a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Flächen Summary -->
+<div id="area-summary" class="row row-cols-2 row-cols-md-3 row-cols-lg-5 g-3 mb-4"
+     hx-get="{% url 'cad_hub:area_summary' ifc_model.id %}"
+     hx-trigger="load"
+     hx-swap="innerHTML">
+    {% for i in "12345" %}
+    <div class="col"><div class="card"><div class="card-body placeholder-glow"><span class="placeholder col-6"></span></div></div></div>
+    {% endfor %}
+</div>
+
+<!-- Raumtabelle -->
+<div id="room-table-container">
+    {% include "cad_hub/partials/_room_table.html" %}
+</div>
+{% endblock %}

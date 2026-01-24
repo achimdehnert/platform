@@ -1,0 +1,125 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}{% block avb_title %}AVB - Ausschreibung{% endblock %}{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* AVB Module Styles - Bootstrap Compatible */
+    .avb-subnav {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .avb-subnav .nav-link {
+        color: rgba(255, 255, 255, 0.8);
+        border-radius: 0.375rem;
+        padding: 0.5rem 1rem;
+        font-weight: 500;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+    }
+    
+    .avb-subnav .nav-link:hover {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.15);
+    }
+    
+    .avb-subnav .nav-link.active {
+        color: #fff;
+        background: rgba(255, 255, 255, 0.2);
+    }
+    
+    /* Status Badges */
+    .badge-draft { background-color: #6c757d; }
+    .badge-published { background-color: #0d6efd; }
+    .badge-submission { background-color: #0dcaf0; }
+    .badge-evaluation { background-color: #ffc107; color: #000; }
+    .badge-awarded { background-color: #198754; }
+    .badge-cancelled { background-color: #dc3545; }
+    
+    /* Stat Cards */
+    .stat-card {
+        border-left: 4px solid #667eea;
+        transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .stat-card.success { border-left-color: #198754; }
+    .stat-card.warning { border-left-color: #ffc107; }
+    .stat-card.danger { border-left-color: #dc3545; }
+    .stat-card .stat-value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #212529;
+    }
+    .stat-card .stat-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
+    
+    /* Price Comparison */
+    .price-lowest { background-color: #d1e7dd !important; }
+    .price-highest { background-color: #f8d7da !important; }
+    
+    /* Ranking Badges */
+    .rank-badge {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: 700;
+    }
+    .rank-1 { background: linear-gradient(135deg, #ffc107, #ff9800); color: #000; }
+    .rank-2 { background: linear-gradient(135deg, #adb5bd, #6c757d); color: #fff; }
+    .rank-3 { background: linear-gradient(135deg, #cd7f32, #8b4513); color: #fff; }
+    
+    /* Card hover effect */
+    .card-hover:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 6px 20px rgba(0,0,0,0.12);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- AVB Sub-Navigation -->
+<nav class="avb-subnav">
+    <ul class="nav nav-pills">
+        <li class="nav-item">
+            <a class="nav-link {% if 'avb_project' in request.resolver_match.url_name %}active{% endif %}" 
+               href="{% url 'cad_hub:avb_project_list' %}">
+                <i class="bi bi-building me-1"></i> Bauprojekte
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if 'tender' in request.resolver_match.url_name %}active{% endif %}" 
+               href="{% url 'cad_hub:tender_list' %}">
+                <i class="bi bi-file-earmark-text me-1"></i> Ausschreibungen
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if 'bidder' in request.resolver_match.url_name %}active{% endif %}" 
+               href="{% url 'cad_hub:bidder_list' %}">
+                <i class="bi bi-people me-1"></i> Bieter
+            </a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link {% if 'bid' in request.resolver_match.url_name and 'bidder' not in request.resolver_match.url_name %}active{% endif %}" 
+               href="{% url 'cad_hub:tender_list' %}?status=submission">
+                <i class="bi bi-inbox me-1"></i> Angebote
+            </a>
+        </li>
+    </ul>
+</nav>
+
+{% block avb_content %}{% endblock %}
+{% endblock %}

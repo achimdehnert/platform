@@ -1,0 +1,156 @@
+{% extends "base.html" %}
+
+{% block title %}DLM Hub - Issues{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h1 class="h3 mb-1">
+        <i class="bi bi-exclamation-triangle me-2"></i>Documentation Issues
+      </h1>
+      <div class="text-muted">All detected issues across analysis runs</div>
+    </div>
+    <a href="{% url 'dlm_hub:analysis-history' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back to History
+    </a>
+  </div>
+
+  {% if messages %}
+  {% for message in messages %}
+  <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+    {{ message }}
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  <div class="card mb-4">
+    <div class="card-body">
+      <form method="get" class="row g-3 align-items-end">
+        <div class="col-md-4">
+          <label class="form-label">Status</label>
+          <select name="status" class="form-select">
+            <option value="">All</option>
+            {% for value, label in status_choices %}
+            <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <label class="form-label">Type</label>
+          <select name="type" class="form-select">
+            <option value="">All</option>
+            {% for value, label in type_choices %}
+            <option value="{{ value }}" {% if type_filter == value %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="col-md-4">
+          <button type="submit" class="btn btn-primary w-100">
+            <i class="bi bi-funnel me-1"></i>Filter
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Issues ({{ issues|length }})</strong>
+    </div>
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover mb-0">
+          <thead class="table-light">
+            <tr>
+              <th>File</th>
+              <th>Type</th>
+              <th>Severity</th>
+              <th>Reason</th>
+              <th>Suggestion</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% if issues %}
+            {% for issue in issues %}
+            <tr>
+              <td>
+                <code class="small">{{ issue.file_path|truncatechars:40 }}</code>
+                {% if issue.group_name %}
+                <div class="small text-muted">{{ issue.group_name }}</div>
+                {% endif %}
+              </td>
+              <td>
+                <span class="badge bg-{% if issue.issue_type == 'redundancy' %}warning text-dark{% elif issue.issue_type == 'outdated' %}danger{% else %}info{% endif %}">
+                  {{ issue.get_issue_type_display }}
+                </span>
+              </td>
+              <td>
+                <span class="badge bg-{{ issue.severity_color }}">{{ issue.severity }}</span>
+              </td>
+              <td>
+                <span class="small">{{ issue.reason|truncatechars:50 }}</span>
+              </td>
+              <td>
+                <span class="badge bg-secondary">{{ issue.suggestion }}</span>
+              </td>
+              <td>
+                {% if issue.status == 'open' %}
+                <span class="badge bg-warning text-dark">Open</span>
+                {% elif issue.status == 'resolved' %}
+                <span class="badge bg-success">Resolved</span>
+                {% elif issue.status == 'ignored' %}
+                <span class="badge bg-secondary">Ignored</span>
+                {% else %}
+                <span class="badge bg-info">{{ issue.get_status_display }}</span>
+                {% endif %}
+              </td>
+              <td>
+                <div class="btn-group btn-group-sm">
+                  <a href="{% url 'dlm_hub:file-preview' issue.id %}" class="btn btn-outline-primary" title="Preview">
+                    <i class="bi bi-eye"></i>
+                  </a>
+                  <a href="{% url 'dlm_hub:diff-view' issue.id %}" class="btn btn-outline-info" title="Diff">
+                    <i class="bi bi-layout-split"></i>
+                  </a>
+                  {% if issue.status == 'open' %}
+                  <form method="post" action="{% url 'dlm_hub:archive-file' issue.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-outline-warning" title="Archive" onclick="return confirm('Archive this file?')">
+                      <i class="bi bi-archive"></i>
+                    </button>
+                  </form>
+                  <form method="post" action="{% url 'dlm_hub:resolve-issue' issue.id %}" class="d-inline">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="ignore">
+                    <button type="submit" class="btn btn-outline-secondary" title="Ignore">
+                      <i class="bi bi-x-lg"></i>
+                    </button>
+                  </form>
+                  {% else %}
+                  <span class="btn btn-sm btn-light disabled">
+                    {{ issue.resolved_at|date:"m/d" }}
+                  </span>
+                  {% endif %}
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+            {% else %}
+            <tr>
+              <td colspan="7" class="text-center text-muted p-4">
+                <i class="bi bi-check-circle fs-1 text-success d-block mb-2"></i>
+                No issues found with current filters.
+              </td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

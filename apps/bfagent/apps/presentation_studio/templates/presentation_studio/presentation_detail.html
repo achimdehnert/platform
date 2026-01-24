@@ -1,0 +1,480 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}{{ presentation.title }}{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <nav aria-label="breadcrumb">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'presentation_studio:list' %}">Presentations</a></li>
+            <li class="breadcrumb-item active">{{ presentation.title }}</li>
+        </ol>
+    </nav>
+
+    <h1><i class="bi bi-file-earmark-slides"></i> {{ presentation.title }}</h1>
+
+    <div class="row mt-4">
+        <div class="col-md-8">
+            <div class="card mb-3">
+                <div class="card-header">
+                    <h5 class="mb-0">Presentation Details</h5>
+                </div>
+                <div class="card-body">
+                    <dl class="row">
+                        <dt class="col-sm-3">Status</dt>
+                        <dd class="col-sm-9">
+                            <span class="badge bg-{% if presentation.enhancement_status == 'completed' %}success{% elif presentation.enhancement_status == 'failed' %}danger{% else %}secondary{% endif %}">
+                                {{ presentation.get_enhancement_status_display }}
+                            </span>
+                        </dd>
+
+                        <dt class="col-sm-3">Slides (Original)</dt>
+                        <dd class="col-sm-9">{{ presentation.slide_count_original }}</dd>
+
+                        {% if presentation.is_enhanced %}
+                        <dt class="col-sm-3">Slides (Enhanced)</dt>
+                        <dd class="col-sm-9">{{ presentation.slide_count_enhanced }} <span class="badge bg-success">+{{ presentation.slides_added }}</span></dd>
+                        {% endif %}
+
+                        <dt class="col-sm-3">Uploaded</dt>
+                        <dd class="col-sm-9">{{ presentation.uploaded_at|date:"Y-m-d H:i" }}</dd>
+
+                        {% if presentation.description %}
+                        <dt class="col-sm-3">Description</dt>
+                        <dd class="col-sm-9">{{ presentation.description }}</dd>
+                        {% endif %}
+                    </dl>
+                </div>
+            </div>
+
+            {% if table_of_contents %}
+            <div class="card mb-3">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-ol"></i> Table of Contents</h5>
+                    <span class="badge bg-secondary">{{ table_of_contents|length }} Slides</span>
+                </div>
+                <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                    <div class="list-group list-group-flush">
+                        {% for slide in table_of_contents %}
+                        <div class="list-group-item p-3">
+                            <div class="d-flex w-100 justify-content-between align-items-start">
+                                <a href="{% url 'presentation_studio:slide_viewer' presentation.id slide.slide_number %}" 
+                                   class="flex-grow-1 text-decoration-none">
+                                    <div class="d-flex align-items-center mb-1">
+                                        <span class="badge bg-primary me-2">{{ slide.slide_number }}</span>
+                                        <h6 class="mb-0 text-dark">{{ slide.title }}</h6>
+                                        <i class="bi bi-eye ms-2 text-muted small"></i>
+                                    </div>
+                                    <p class="mb-0 text-muted small">{{ slide.preview_text }}</p>
+                                </a>
+                                <div class="d-flex align-items-center gap-2">
+                                    <small class="text-muted">
+                                        <i class="bi bi-box"></i> {{ slide.shape_count }}
+                                    </small>
+                                    <button 
+                                        class="btn btn-sm btn-outline-danger delete-slide-btn" 
+                                        data-slide-number="{{ slide.slide_number }}"
+                                        data-slide-title="{{ slide.title }}"
+                                        title="Delete slide">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if preview_slides %}
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">
+                        <i class="bi bi-eye"></i> Preview Slides
+                        <span class="badge bg-light text-dark">{{ preview_slides|length }}</span>
+                    </h5>
+                    {% if preview_slides %}
+                    <small class="text-white-50">Click "Convert to PPTX" to add slides to presentation</small>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% for preview in preview_slides %}
+                    <div class="d-flex align-items-center justify-content-between p-2 border-bottom preview-slide-item" id="preview-{{ preview.id }}">
+                        <div class="flex-grow-1">
+                            <span class="badge {% if preview.status == 'converted' %}bg-success{% else %}bg-info{% endif %} me-2">
+                                {% if preview.status == 'converted' %}
+                                    <i class="bi bi-check-circle"></i> Converted
+                                {% else %}
+                                    <i class="bi bi-eye"></i> Preview
+                                {% endif %}
+                            </span>
+                            <strong>{{ preview.preview_order }}.</strong> {{ preview.title }}
+                            {% if preview.source_file_name %}
+                                <small class="text-muted ms-2">
+                                    <i class="bi bi-file-earmark-text"></i> {{ preview.source_file_name }}
+                                </small>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="btn-group" role="group">
+                            {% if preview.can_convert %}
+                            <button class="btn btn-sm btn-success" 
+                                    onclick="convertPreview('{{ preview.id }}', '{{ preview.title }}')"
+                                    id="convert-btn-{{ preview.id }}">
+                                <i class="bi bi-plus-circle"></i> Convert to PPTX
+                            </button>
+                            {% else %}
+                            <span class="badge bg-success">
+                                <i class="bi bi-check-circle"></i> Slide #{{ preview.pptx_slide_number }}
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    {% if preview_slides %}
+                    <div class="mt-3 d-flex gap-2">
+                        <button class="btn btn-primary" onclick="convertAllPreviews()">
+                            <i class="bi bi-lightning-fill"></i> Convert All to PPTX
+                        </button>
+                        <small class="text-muted align-self-center">
+                            {{ preview_slides|length }} preview slide{{ preview_slides|length|pluralize }} ready
+                        </small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Enhancement History</h5>
+                </div>
+                <div class="card-body">
+                    {% if enhancements %}
+                        <div class="list-group">
+                            {% for enhancement in enhancements %}
+                            <div class="list-group-item">
+                                <div class="d-flex justify-content-between">
+                                    <div>
+                                        <strong>{{ enhancement.get_enhancement_type_display }}</strong>
+                                        <span class="badge bg-{% if enhancement.success %}success{% else %}danger{% endif %}">
+                                            {% if enhancement.success %}Success{% else %}Failed{% endif %}
+                                        </span>
+                                    </div>
+                                    <small class="text-muted">{{ enhancement.executed_at|date:"Y-m-d H:i" }}</small>
+                                </div>
+                                <small>Slides: {{ enhancement.slides_before }} → {{ enhancement.slides_after }} (+{{ enhancement.slides_added_count }})</small>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted mb-0">No enhancements yet</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-4">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Actions</h5>
+                </div>
+                <div class="card-body d-grid gap-2">
+                    <a href="{{ presentation.original_file.url }}" class="btn btn-outline-primary" download>
+                        <i class="bi bi-download"></i> Download Original
+                    </a>
+                    
+                    {% if presentation.enhanced_file %}
+                    <a href="{% url 'presentation_studio:download' presentation.id %}" class="btn btn-success">
+                        <i class="bi bi-download"></i> Download Enhanced
+                    </a>
+                    {% endif %}
+                    
+                    <a href="{% url 'presentation_studio:research_interface' presentation.id %}" class="btn btn-info">
+                        <i class="bi bi-search"></i> Research Agent
+                    </a>
+                    
+                    <hr>
+                    
+                    {% if presentation.enhancement_status == 'ready' or presentation.enhancement_status == 'uploaded' or presentation.enhancement_status == 'failed' or presentation.enhancement_status == 'completed' %}
+                    <div class="card border-primary">
+                        <div class="card-header bg-primary bg-opacity-10">
+                            <h6 class="mb-0"><i class="bi bi-magic"></i> Enhance Presentation</h6>
+                        </div>
+                        <div class="card-body">
+                            <form id="enhance-form" enctype="multipart/form-data">
+                                {% csrf_token %}
+                                
+                                <!-- Enhancement Source -->
+                                <div class="mb-3">
+                                    <label class="form-label">Enhancement Source</label>
+                                    <div class="btn-group w-100" role="group">
+                                        <input type="radio" class="btn-check" name="enhancement_source" id="source-template" value="template" checked>
+                                        <label class="btn btn-outline-primary" for="source-template">
+                                            <i class="bi bi-magic"></i> Template
+                                        </label>
+                                        
+                                        <input type="radio" class="btn-check" name="enhancement_source" id="source-file" value="file">
+                                        <label class="btn btn-outline-primary" for="source-file">
+                                            <i class="bi bi-file-earmark-text"></i> From File
+                                        </label>
+                                    </div>
+                                </div>
+                                
+                                <!-- Template Options (shown by default) -->
+                                <div id="template-options">
+                                    <div class="mb-3">
+                                        <label for="enhancement_type" class="form-label">Enhancement Type</label>
+                                        <select class="form-select" id="enhancement_type" name="enhancement_type">
+                                            <option value="medical">Medical Case</option>
+                                            <option value="business">Business Strategy</option>
+                                            <option value="scientific">Scientific Research</option>
+                                            <option value="technical" selected>Technical Documentation</option>
+                                        </select>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="enhancement_mode" class="form-label">Mode</label>
+                                        <select class="form-select" id="enhancement_mode" name="enhancement_mode">
+                                            <option value="append" selected>Append at End</option>
+                                            <option value="smart">Smart Positioning</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- File Upload Option (hidden by default) -->
+                                <div id="file-options" style="display: none;">
+                                    <div class="mb-3">
+                                        <label for="concepts_file" class="form-label">Upload Content File</label>
+                                        <input type="file" class="form-control" id="concepts_file" name="concepts_file" accept=".json,.txt,.pdf,.md,.markdown">
+                                        <small class="text-muted">
+                                            <strong>Supported formats:</strong><br>
+                                            <strong>📄 PDF:</strong> Auto-extract text and structure into slides<br>
+                                            <strong>📋 JSON:</strong> [{"title": "...", "content": "..."}]<br>
+                                            <strong>📝 Markdown:</strong> Structured slide definitions (## SLIDE X: ...)
+                                        </small>
+                                    </div>
+                                </div>
+                                
+                                <button type="submit" class="btn btn-primary w-100" id="enhance-btn">
+                                    <i class="bi bi-magic"></i> Enhance Now
+                                </button>
+                                <div id="enhance-result" class="mt-3"></div>
+                            </form>
+                        </div>
+                    </div>
+                    
+                    <script>
+                    // Toggle between template and file options
+                    document.querySelectorAll('input[name="enhancement_source"]').forEach(radio => {
+                        radio.addEventListener('change', (e) => {
+                            const templateOptions = document.getElementById('template-options');
+                            const fileOptions = document.getElementById('file-options');
+                            
+                            if (e.target.value === 'template') {
+                                templateOptions.style.display = 'block';
+                                fileOptions.style.display = 'none';
+                            } else {
+                                templateOptions.style.display = 'none';
+                                fileOptions.style.display = 'block';
+                            }
+                        });
+                    });
+                    
+                    document.getElementById('enhance-form').addEventListener('submit', async (e) => {
+                        e.preventDefault();
+                        
+                        const btn = document.getElementById('enhance-btn');
+                        const resultDiv = document.getElementById('enhance-result');
+                        
+                        btn.disabled = true;
+                        btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Enhancing...';
+                        
+                        const formData = new FormData(e.target);
+                        
+                        try {
+                            console.log('Sending enhancement request...');
+                            const response = await fetch('{% url "presentation_studio:enhance" presentation.id %}', {
+                                method: 'POST',
+                                body: formData,
+                                headers: {
+                                    'X-CSRFToken': formData.get('csrfmiddlewaretoken')
+                                }
+                            });
+                            
+                            console.log('Response status:', response.status);
+                            
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                console.error('Server error response:', errorText);
+                                throw new Error(`Server error (${response.status}): ${errorText.substring(0, 200)}`);
+                            }
+                            
+                            const data = await response.json();
+                            console.log('Response data:', data);
+                            
+                            if (data.success) {
+                                resultDiv.innerHTML = `
+                                    <div class="alert alert-success">
+                                        <i class="bi bi-check-circle"></i> ${data.message}
+                                    </div>
+                                `;
+                                setTimeout(() => location.reload(), 2000);
+                            } else {
+                                resultDiv.innerHTML = `
+                                    <div class="alert alert-danger">
+                                        <i class="bi bi-x-circle"></i> ${data.error}
+                                    </div>
+                                `;
+                                btn.disabled = false;
+                                btn.innerHTML = '<i class="bi bi-magic"></i> Enhance Now';
+                            }
+                        } catch (error) {
+                            console.error('Enhancement error:', error);
+                            resultDiv.innerHTML = `
+                                <div class="alert alert-danger">
+                                    <i class="bi bi-x-circle"></i> <strong>Enhancement failed:</strong><br>
+                                    ${error.message}<br>
+                                    <small class="text-muted">Check browser console for details</small>
+                                </div>
+                            `;
+                            btn.disabled = false;
+                            btn.innerHTML = '<i class="bi bi-magic"></i> Enhance Now';
+                        }
+                    });
+                    </script>
+                    {% else %}
+                    <div class="alert alert-warning mb-0">
+                        <small><i class="bi bi-info-circle"></i> Enhancement available after upload processing</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Delete Slide functionality
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteButtons = document.querySelectorAll('.delete-slide-btn');
+    
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', async function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            const slideNumber = this.dataset.slideNumber;
+            const slideTitle = this.dataset.slideTitle;
+            
+            if (!confirm(`Are you sure you want to delete Slide ${slideNumber}?\n\n"${slideTitle}"\n\nThis action cannot be undone.`)) {
+                return;
+            }
+            
+            // Disable button
+            this.disabled = true;
+            this.innerHTML = '<span class="spinner-border spinner-border-sm"></span>';
+            
+            try {
+                const response = await fetch(`{% url 'presentation_studio:detail' presentation.id %}slide/${slideNumber}/delete/`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Show success message
+                    alert(`Slide ${slideNumber} deleted successfully!\n\nRemaining slides: ${data.slides_remaining}`);
+                    // Reload page to update table of contents
+                    window.location.reload();
+                } else {
+                    alert(`Error: ${data.error}`);
+                    this.disabled = false;
+                    this.innerHTML = '<i class="bi bi-trash"></i>';
+                }
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+                this.disabled = false;
+                this.innerHTML = '<i class="bi bi-trash"></i>';
+            }
+        });
+    });
+});
+
+// Preview Slide Conversion Functions
+function convertPreview(previewId, previewTitle) {
+    if (!confirm(`Convert "${previewTitle}" to PPTX?`)) return;
+    
+    const button = document.getElementById(`convert-btn-${previewId}`);
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Converting...';
+    
+    fetch(`/pptx-studio/{{ presentation.id }}/preview/${previewId}/convert/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Converted successfully!\n\nNow at slide #${data.slide_number}\nTotal slides: ${data.total_slides}`);
+            location.reload();
+        } else {
+            alert(`❌ Error: ${data.error}`);
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    })
+    .catch(error => {
+        alert(`❌ Error: ${error.message}`);
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+    });
+}
+
+function convertAllPreviews() {
+    const previewCount = {{ preview_slides|length|default:0 }};
+    if (previewCount === 0) return;
+    
+    if (!confirm(`Convert all ${previewCount} preview slides to PPTX?`)) return;
+    
+    const button = event.target;
+    const originalHtml = button.innerHTML;
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Converting...';
+    
+    fetch(`/pptx-studio/{{ presentation.id }}/preview/convert-all/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`✅ Conversion complete!\n\n${data.converted_count} slides converted\nFailed: ${data.failed_count}`);
+            location.reload();
+        } else {
+            alert(`❌ Error: ${data.error}`);
+            button.disabled = false;
+            button.innerHTML = originalHtml;
+        }
+    })
+    .catch(error => {
+        alert(`❌ Error: ${error.message}`);
+        button.disabled = false;
+        button.innerHTML = originalHtml;
+    });
+}
+</script>
+{% endblock %}

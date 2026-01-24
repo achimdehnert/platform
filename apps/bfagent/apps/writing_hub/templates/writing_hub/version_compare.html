@@ -1,0 +1,300 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Vergleich v{{ version.version_number }} - {{ project.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .compare-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .compare-header {
+        background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%);
+        color: white;
+        padding: 1.5rem 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .nav-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: white;
+        text-decoration: none;
+        opacity: 0.9;
+    }
+    
+    .nav-back:hover { opacity: 1; }
+    
+    .compare-info {
+        display: flex;
+        gap: 2rem;
+        align-items: center;
+    }
+    
+    .compare-badge {
+        background: rgba(255,255,255,0.2);
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+    }
+    
+    .chapters-compare {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    
+    .chapter-compare-item {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+    }
+    
+    .chapter-compare-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid #e5e7eb;
+    }
+    
+    .chapter-title {
+        font-weight: 600;
+        font-size: 1.1rem;
+        color: #1e293b;
+    }
+    
+    .chapter-number {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    
+    .change-badge {
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 500;
+    }
+    
+    .change-badge.changed { background: #fef3c7; color: #d97706; }
+    .change-badge.unchanged { background: #dcfce7; color: #16a34a; }
+    .change-badge.deleted { background: #fee2e2; color: #dc2626; }
+    .change-badge.added { background: #dbeafe; color: #2563eb; }
+    
+    .word-diff {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .word-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.9rem;
+    }
+    
+    .word-stat.old { color: #94a3b8; }
+    .word-stat.new { color: #0ea5e9; }
+    .word-stat.diff { color: #22c55e; }
+    .word-stat.diff.negative { color: #ef4444; }
+    
+    .preview-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+    }
+    
+    .preview-box {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    
+    .preview-box h4 {
+        font-size: 0.85rem;
+        color: #64748b;
+        margin: 0 0 0.75rem 0;
+        text-transform: uppercase;
+    }
+    
+    .preview-text {
+        font-family: Georgia, serif;
+        font-size: 0.95rem;
+        line-height: 1.6;
+        color: #475569;
+        max-height: 150px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .preview-text::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 40px;
+        background: linear-gradient(transparent, #f8fafc);
+    }
+    
+    .preview-box.old {
+        border-left: 3px solid #94a3b8;
+    }
+    
+    .preview-box.new {
+        border-left: 3px solid #0ea5e9;
+    }
+    
+    .summary-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 2rem;
+        box-shadow: 0 2px 12px rgba(0,0,0,0.1);
+        display: flex;
+        gap: 2rem;
+    }
+    
+    .summary-stat {
+        text-align: center;
+        flex: 1;
+    }
+    
+    .summary-stat .value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0ea5e9;
+    }
+    
+    .summary-stat .label {
+        font-size: 0.85rem;
+        color: #64748b;
+    }
+    
+    .summary-stat.warning .value { color: #f59e0b; }
+    .summary-stat.success .value { color: #22c55e; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="compare-container">
+    <div class="compare-header">
+        <div>
+            <a href="{% url 'writing_hub:versions_dashboard' project.id %}" class="nav-back">
+                <i class="bi bi-arrow-left"></i> Zurück zu Versionen
+            </a>
+            <h1 style="margin: 0.5rem 0 0 0; font-size: 1.5rem;">Vergleich: v{{ version.version_number }} vs. Aktuell</h1>
+        </div>
+        <div class="compare-info">
+            <div class="compare-badge">
+                <strong>Version:</strong> {{ version.version_name }}
+            </div>
+            <div class="compare-badge">
+                <strong>Erstellt:</strong> {{ version.created_at|date:"d.m.Y H:i" }}
+            </div>
+        </div>
+    </div>
+    
+    {% with changed_count=0 unchanged_count=0 %}
+    <div class="summary-card">
+        <div class="summary-stat">
+            <div class="value">{{ comparisons|length }}</div>
+            <div class="label">Kapitel verglichen</div>
+        </div>
+        <div class="summary-stat warning">
+            <div class="value" id="changedCount">0</div>
+            <div class="label">Geändert</div>
+        </div>
+        <div class="summary-stat success">
+            <div class="value" id="unchangedCount">0</div>
+            <div class="label">Unverändert</div>
+        </div>
+    </div>
+    {% endwith %}
+    
+    <h2 style="margin-bottom: 1rem;"><i class="bi bi-arrows-expand"></i> Kapitel-Vergleich</h2>
+    
+    <div class="chapters-compare">
+        {% for cmp in comparisons %}
+        <div class="chapter-compare-item" data-changed="{{ cmp.changed|yesno:'true,false' }}">
+            <div class="chapter-compare-header">
+                <div>
+                    <span class="chapter-number">Kapitel {{ cmp.chapter_number }}</span>
+                    <h3 class="chapter-title">{{ cmp.title }}</h3>
+                </div>
+                {% if cmp.deleted %}
+                <span class="change-badge deleted"><i class="bi bi-trash"></i> Gelöscht</span>
+                {% elif cmp.changed %}
+                <span class="change-badge changed"><i class="bi bi-pencil"></i> Geändert</span>
+                {% else %}
+                <span class="change-badge unchanged"><i class="bi bi-check"></i> Unverändert</span>
+                {% endif %}
+            </div>
+            
+            {% if not cmp.deleted %}
+            <div class="word-diff">
+                <div class="word-stat old">
+                    <i class="bi bi-file-text"></i>
+                    Version: {{ cmp.old_words }} Wörter
+                </div>
+                <div class="word-stat new">
+                    <i class="bi bi-file-text-fill"></i>
+                    Aktuell: {{ cmp.new_words }} Wörter
+                </div>
+                <div class="word-stat diff {% if cmp.word_diff < 0 %}negative{% endif %}">
+                    <i class="bi bi-{% if cmp.word_diff >= 0 %}plus{% else %}dash{% endif %}-circle"></i>
+                    {% if cmp.word_diff >= 0 %}+{% endif %}{{ cmp.word_diff }} Wörter
+                </div>
+            </div>
+            
+            {% if cmp.changed %}
+            <div class="preview-grid">
+                <div class="preview-box old">
+                    <h4><i class="bi bi-clock-history"></i> Version v{{ version.version_number }}</h4>
+                    <div class="preview-text">{{ cmp.old_preview|default:"(Leer)"|linebreaksbr }}</div>
+                </div>
+                <div class="preview-box new">
+                    <h4><i class="bi bi-file-text-fill"></i> Aktueller Stand</h4>
+                    <div class="preview-text">{{ cmp.new_preview|default:"(Leer)"|linebreaksbr }}</div>
+                </div>
+            </div>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% empty %}
+        <div style="text-align: center; padding: 3rem; color: #94a3b8;">
+            <i class="bi bi-folder2-open" style="font-size: 3rem;"></i>
+            <p>Keine Kapitel zum Vergleichen</p>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const items = document.querySelectorAll('.chapter-compare-item');
+    let changed = 0, unchanged = 0;
+    
+    items.forEach(item => {
+        if (item.dataset.changed === 'true') {
+            changed++;
+        } else {
+            unchanged++;
+        }
+    });
+    
+    document.getElementById('changedCount').textContent = changed;
+    document.getElementById('unchangedCount').textContent = unchanged;
+});
+</script>
+{% endblock %}

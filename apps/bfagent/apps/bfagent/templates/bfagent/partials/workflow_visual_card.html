@@ -1,0 +1,195 @@
+{% load static %}
+
+<!-- Visual Workflow Card -->
+<div class="card shadow mb-4">
+    <div class="card-header">
+        <h5 class="mb-0">
+            <i class="bi bi-diagram-3"></i> Writing Workflow
+            {% if project.book_type %}
+                <span class="badge bg-info ms-2">{{ project.book_type.name }}</span>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if project.book_type %}
+            <!-- Workflow Phases from Book Type -->
+            <div class="workflow-steps">
+                {% for phase_config in project.book_type.book_type_phases.all %}
+                {% with current_order=project.current_phase_step.order|default:1 %}
+                <div class="workflow-step-card mb-3 {% if phase_config.order == current_order %}active{% elif phase_config.order < current_order %}completed{% endif %}"
+                     style="cursor: pointer;"
+                     onclick="window.location.href='{% url 'bfagent:project-enrich-panel' project.pk %}?phase={{ phase_config.phase.id }}&step={{ phase_config.order }}'">
+                    <div class="d-flex align-items-start">
+                        <!-- Step Number & Icon -->
+                        <div class="step-indicator me-3">
+                            {% if phase_config.order < current_order %}
+                                <!-- Completed -->
+                                <div class="step-number bg-success text-white">
+                                    <i class="bi bi-check-lg"></i>
+                                </div>
+                            {% elif phase_config.order == current_order %}
+                                <!-- In Progress -->
+                                <div class="step-number bg-primary text-white pulse">
+                                    {{ phase_config.order }}
+                                </div>
+                            {% else %}
+                                <!-- Not Started -->
+                                <div class="step-number bg-secondary text-white-50">
+                                    {{ phase_config.order }}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Step Content -->
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <h6 class="mb-0">
+                                    <i class="bi bi-{{ phase_config.phase.icon|default:'circle' }} text-{{ phase_config.phase.color|default:'primary' }}"></i>
+                                    {{ phase_config.phase.name }}
+                                </h6>
+                                {% if phase_config.order == current_order %}
+                                    <span class="badge bg-primary">Current</span>
+                                {% elif phase_config.order < current_order %}
+                                    <span class="badge bg-success"><i class="bi bi-check"></i> Done</span>
+                                {% endif %}
+                            </div>
+
+                            {% if phase_config.phase.description %}
+                            <p class="text-muted small mb-1">{{ phase_config.phase.description }}</p>
+                            {% endif %}
+
+                            <!-- Requirements -->
+                            {% if phase_config.is_required %}
+                            <div class="small text-muted">
+                                <i class="bi bi-info-circle"></i>
+                                {% if phase_config.is_required %}
+                                    <span class="badge bg-danger">Required</span>
+                                {% endif %}
+                                Est. {{ phase_config.estimated_days }} days
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <!-- Arrow -->
+                        <div class="ms-2">
+                            <i class="bi bi-chevron-right text-muted"></i>
+                        </div>
+                    </div>
+
+                    <!-- Connector Line -->
+                    {% if not forloop.last %}
+                    <div class="step-connector"></div>
+                    {% endif %}
+                </div>
+                {% endwith %}
+                {% endfor %}
+            </div>
+
+            <!-- Progress Bar -->
+            {% with current_order=project.current_phase_step.order|default:1 total_steps=project.book_type.book_type_phases.count %}
+            <div class="mt-4 mb-3">
+                <div class="d-flex justify-content-between mb-2">
+                    <small class="text-muted"><strong>Overall Progress</strong></small>
+                    <small class="text-muted">
+                        <strong>{{ current_order }}</strong> of <strong>{{ total_steps }}</strong> steps
+                    </small>
+                </div>
+                <div class="progress" style="height: 10px;">
+                    <div class="progress-bar bg-success"
+                         role="progressbar"
+                         style="width: {% widthratio current_order total_steps 100 %}%"
+                         aria-valuenow="{% widthratio current_order total_steps 100 %}"
+                         aria-valuemin="0"
+                         aria-valuemax="100">
+                    </div>
+                </div>
+            </div>
+            {% endwith %}
+
+            <!-- Action Buttons -->
+            <div class="d-grid gap-2 mt-3">
+                <a href="{% url 'bfagent:project-enrich-panel' project.pk %}" class="btn btn-primary">
+                    <i class="bi bi-robot"></i> Open AI Enrichment Panel
+                </a>
+            </div>
+
+        {% else %}
+            <!-- No Book Type -->
+            <div class="text-center py-4">
+                <i class="bi bi-diagram-3" style="font-size: 3rem; opacity: 0.3;"></i>
+                <p class="text-muted mt-3 mb-3">No book type assigned to this project.</p>
+                <a href="{% url 'bfagent:project-edit' project.pk %}" class="btn btn-primary btn-sm">
+                    <i class="bi bi-plus"></i> Assign Book Type
+                </a>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Workflow Card Styles -->
+<style>
+.workflow-step-card {
+    padding: 12px;
+    border: 2px solid #e9ecef;
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    position: relative;
+}
+
+.workflow-step-card:hover {
+    border-color: #0d6efd;
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.workflow-step-card.active {
+    border-color: #0d6efd;
+    background-color: #e7f1ff;
+}
+
+.workflow-step-card.completed {
+    border-color: #198754;
+    background-color: #f0f9f4;
+}
+
+.step-indicator {
+    flex-shrink: 0;
+}
+
+.step-number {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    font-size: 14px;
+}
+
+.step-connector {
+    width: 2px;
+    height: 20px;
+    background-color: #dee2e6;
+    margin-left: 17px;
+    margin-top: 8px;
+    margin-bottom: -12px;
+}
+
+.workflow-step-card.completed .step-connector {
+    background-color: #198754;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        box-shadow: 0 0 0 0 rgba(13, 110, 253, 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 8px rgba(13, 110, 253, 0);
+    }
+}
+
+.pulse {
+    animation: pulse 2s infinite;
+}
+</style>

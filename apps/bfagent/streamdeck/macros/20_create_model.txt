@@ -1,0 +1,11 @@
+{{CLIPBOARD:Erstelle Model:
+
+Model Name: [NAME]
+App: [APP]
+Table Name: [prefix]_[name]
+
+Fields:
+- [ ] Field 1: [type]
+- [ ] Field 2: [type]
+
+Tools: BFAgent MCP naming}}

@@ -1,0 +1,73 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - Handler Registry{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'genagent:dashboard' %}">GenAgent</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'genagent:registry-dashboard' %}">Registry</a></li>
+                    <li class="breadcrumb-item active">Domains</li>
+                </ol>
+            </nav>
+            <h1 class="h2 mb-1">
+                <i class="bi bi-diagram-3-fill"></i> Handler Domains
+            </h1>
+            <p class="text-muted">All registered handler domains</p>
+        </div>
+    </div>
+
+    <!-- Domains List -->
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-list-ul"></i> Domains ({{ domains|length }})</h5>
+                </div>
+                <div class="card-body">
+                    {% if domains %}
+                        <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+                            {% for domain in domains %}
+                                <div class="col">
+                                    <div class="card h-100 border-primary">
+                                        <div class="card-body">
+                                            <h5 class="card-title">
+                                                <i class="bi bi-diagram-3"></i> {{ domain.name }}
+                                            </h5>
+                                            <p class="card-text text-muted">
+                                                <strong>{{ domain.handler_count }}</strong> handler{{ domain.handler_count|pluralize }}
+                                            </p>
+                                            <a href="{% url 'genagent:registry-domain-detail' domain.name %}" 
+                                               class="btn btn-outline-primary w-100">
+                                                <i class="bi bi-arrow-right"></i> View Handlers
+                                            </a>
+                                        </div>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info mb-0">
+                            <i class="bi bi-info-circle"></i> No domains registered yet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <a href="{% url 'genagent:registry-dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Registry
+            </a>
+        </div>
+    </div>
+</div>
+{% endblock %}

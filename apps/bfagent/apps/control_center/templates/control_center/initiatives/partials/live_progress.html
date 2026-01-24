@@ -1,0 +1,171 @@
+{% comment %}
+Live Progress Panel - Zeigt Echtzeit-Status der Initiative
+Inkl. MCP Stats, aktive Tasks, Recent Feedback
+{% endcomment %}
+
+<!-- Progress Stats -->
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <h6 class="mb-0"><i class="bi bi-speedometer2"></i> Live Progress</h6>
+    </div>
+    <div class="card-body py-2">
+        <div class="d-flex justify-content-between mb-1">
+            <span>{{ completed_reqs }}/{{ total_reqs }} Requirements</span>
+            <strong>{{ initiative.progress_percentage }}%</strong>
+        </div>
+        <div class="progress mb-3" style="height: 10px;">
+            <div class="progress-bar bg-success" style="width: {{ initiative.progress_percentage }}%"></div>
+        </div>
+        
+        <div class="row text-center g-1">
+            <div class="col-3">
+                <div class="p-2 rounded bg-light">
+                    <div class="h5 mb-0 text-secondary">{{ draft_reqs|default:0 }}</div>
+                    <small class="text-muted" style="font-size: 0.7rem;">Entwurf</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 rounded bg-light">
+                    <div class="h5 mb-0 text-warning">{{ ready_reqs|default:0 }}</div>
+                    <small class="text-muted" style="font-size: 0.7rem;">Bereit</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 rounded bg-light">
+                    <div class="h5 mb-0 text-primary">{{ in_progress_reqs|default:0 }}</div>
+                    <small class="text-muted" style="font-size: 0.7rem;">Arbeit</small>
+                </div>
+            </div>
+            <div class="col-3">
+                <div class="p-2 rounded bg-light">
+                    <div class="h5 mb-0 text-success">{{ completed_reqs|default:0 }}</div>
+                    <small class="text-muted" style="font-size: 0.7rem;">Fertig</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MCP Stats für diese Initiative -->
+{% if mcp_stats %}
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <h6 class="mb-0"><i class="bi bi-terminal"></i> MCP Nutzung</h6>
+    </div>
+    <div class="card-body py-2">
+        <div class="d-flex justify-content-between mb-1">
+            <span>Erfolgsrate</span>
+            <strong class="{% if mcp_stats.success_rate >= 80 %}text-success{% elif mcp_stats.success_rate >= 50 %}text-warning{% else %}text-danger{% endif %}">
+                {{ mcp_stats.success_rate|floatformat:0 }}%
+            </strong>
+        </div>
+        <div class="progress mb-2" style="height: 6px;">
+            <div class="progress-bar bg-success" style="width: {{ mcp_stats.success_rate }}%"></div>
+            <div class="progress-bar bg-danger" style="width: {{ mcp_stats.error_rate }}%"></div>
+        </div>
+        <div class="row text-center g-1">
+            <div class="col-4">
+                <small class="d-block text-muted">Calls</small>
+                <strong>{{ mcp_stats.total_calls }}</strong>
+            </div>
+            <div class="col-4">
+                <small class="d-block text-muted">OK</small>
+                <strong class="text-success">{{ mcp_stats.success_count }}</strong>
+            </div>
+            <div class="col-4">
+                <small class="d-block text-muted">Fehler</small>
+                <strong class="text-danger">{{ mcp_stats.error_count }}</strong>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Aktive Tasks -->
+{% if active_tasks %}
+<div class="card mb-3">
+    <div class="card-header py-2 d-flex justify-content-between align-items-center">
+        <h6 class="mb-0"><i class="bi bi-gear-fill spin"></i> Aktive Tasks</h6>
+        <span class="badge bg-primary">{{ active_tasks|length }}</span>
+    </div>
+    <div class="list-group list-group-flush" style="max-height: 150px; overflow-y: auto;">
+        {% for task in active_tasks %}
+        <div class="list-group-item py-2">
+            <div class="d-flex justify-content-between align-items-center">
+                <span class="text-truncate" style="max-width: 180px;">{{ task.name }}</span>
+                <span class="badge bg-primary"><i class="bi bi-arrow-repeat spin"></i></span>
+            </div>
+            {% if task.celery_task_id %}
+            <small class="text-muted">Task: {{ task.celery_task_id|truncatechars:12 }}</small>
+            {% endif %}
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Recent Feedback -->
+{% if recent_feedback %}
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <h6 class="mb-0"><i class="bi bi-chat-dots"></i> Letzte Updates</h6>
+    </div>
+    <div class="list-group list-group-flush" style="max-height: 200px; overflow-y: auto;">
+        {% for feedback in recent_feedback %}
+        <div class="list-group-item py-2">
+            <div class="d-flex justify-content-between align-items-start">
+                <div class="d-flex align-items-center">
+                    {% if feedback.feedback_type == 'progress' %}
+                    <i class="bi bi-arrow-right-circle text-primary me-2"></i>
+                    {% elif feedback.feedback_type == 'blocker' %}
+                    <i class="bi bi-exclamation-triangle text-danger me-2"></i>
+                    {% elif feedback.feedback_type == 'solution' %}
+                    <i class="bi bi-check-circle text-success me-2"></i>
+                    {% elif feedback.feedback_type == 'question' %}
+                    <i class="bi bi-question-circle text-warning me-2"></i>
+                    {% else %}
+                    <i class="bi bi-chat text-secondary me-2"></i>
+                    {% endif %}
+                    <span class="small text-truncate" style="max-width: 150px;">
+                        {{ feedback.requirement.name }}
+                    </span>
+                </div>
+                {% if feedback.is_from_cascade %}
+                <span class="badge bg-danger" style="font-size: 0.6rem;">AI</span>
+                {% endif %}
+            </div>
+            <p class="mb-0 small text-muted mt-1">{{ feedback.content|truncatewords:15 }}</p>
+            <small class="text-muted">{{ feedback.created_at|timesince }}</small>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- n8n Integration Status -->
+{% if n8n_status %}
+<div class="card mb-3">
+    <div class="card-header py-2">
+        <h6 class="mb-0"><i class="bi bi-diagram-3"></i> n8n Workflows</h6>
+    </div>
+    <div class="card-body py-2">
+        <div class="d-flex justify-content-between align-items-center">
+            <span>Webhooks getriggert</span>
+            <strong>{{ n8n_status.webhooks_triggered|default:0 }}</strong>
+        </div>
+        {% if n8n_status.last_trigger %}
+        <small class="text-muted">Letzter: {{ n8n_status.last_trigger|timesince }}</small>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<style>
+.spin {
+    animation: spin 2s linear infinite;
+}
+@keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+</style>

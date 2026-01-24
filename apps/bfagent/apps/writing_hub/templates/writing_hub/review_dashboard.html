@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Review - {{ project.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .review-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .review-header {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .review-header h1 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.8rem;
+    }
+    
+    .stats-row {
+        display: flex;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+    
+    .stat-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        flex: 1;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .stat-card .value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #8b5cf6;
+    }
+    
+    .stat-card .label {
+        font-size: 0.9rem;
+        color: #64748b;
+    }
+    
+    .stat-card.warning .value { color: #f59e0b; }
+    .stat-card.success .value { color: #22c55e; }
+    
+    .chapters-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+        gap: 1.5rem;
+    }
+    
+    .chapter-card {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        transition: transform 0.2s;
+    }
+    
+    .chapter-card:hover {
+        transform: translateY(-2px);
+    }
+    
+    .chapter-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 1rem;
+    }
+    
+    .chapter-number {
+        font-size: 0.85rem;
+        color: #64748b;
+        text-transform: uppercase;
+    }
+    
+    .chapter-title {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #1e293b;
+        margin: 0.25rem 0;
+    }
+    
+    .feedback-badges {
+        display: flex;
+        gap: 0.5rem;
+        margin: 1rem 0;
+    }
+    
+    .badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        font-weight: 500;
+    }
+    
+    .badge-open { background: #fef3c7; color: #d97706; }
+    .badge-resolved { background: #dcfce7; color: #16a34a; }
+    
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
+    
+    .workflow-nav {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .workflow-nav a {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #64748b;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .workflow-nav a:hover { background: #f8fafc; }
+    .workflow-nav a.active { background: #8b5cf6; color: white; }
+    
+    .no-content {
+        text-align: center;
+        padding: 2rem;
+        color: #94a3b8;
+    }
+    
+    .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #e5e7eb;
+    }
+    
+    .tab {
+        padding: 0.75rem 1.5rem;
+        background: transparent;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        font-weight: 500;
+        color: #64748b;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+    }
+    
+    .tab:hover { color: #8b5cf6; }
+    .tab.active { color: #8b5cf6; border-bottom-color: #8b5cf6; }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    .project-feedback-form {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
+    
+    .form-group { margin-bottom: 1rem; }
+    .form-group label { display: block; font-size: 0.9rem; font-weight: 500; color: #64748b; margin-bottom: 0.5rem; }
+    .form-group input, .form-group select, .form-group textarea { 
+        width: 100%; padding: 0.75rem; border: 1px solid #e5e7eb; border-radius: 8px; font-size: 0.95rem; 
+    }
+    .form-group textarea { min-height: 80px; resize: vertical; }
+    
+    .project-feedback-item {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .project-feedback-item.resolved { opacity: 0.6; }
+    
+    .pf-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.75rem;
+    }
+    
+    .pf-scope {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.8rem;
+        background: #e5e7eb;
+    }
+    
+    .pf-title { font-weight: 600; font-size: 1.1rem; color: #1e293b; margin: 0.5rem 0; }
+    .pf-content { color: #475569; margin-bottom: 0.75rem; }
+    .pf-chapters { font-size: 0.85rem; color: #64748b; margin-bottom: 0.75rem; }
+    .pf-actions { display: flex; gap: 0.5rem; }
+    
+    .btn-sm { padding: 0.35rem 0.7rem; font-size: 0.8rem; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-outline { background: white; border: 1px solid #e5e7eb; color: #64748b; }
+    
+    .toast {
+        position: fixed; bottom: 2rem; right: 2rem; background: #1e293b; color: white;
+        padding: 1rem 1.5rem; border-radius: 10px; display: none; z-index: 1000;
+    }
+    .toast.success { background: #22c55e; }
+    .toast.error { background: #ef4444; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="review-container">
+    <div class="workflow-nav">
+        <a href="{% url 'writing_hub:chapter_writer' project.id %}"><i class="bi bi-pencil"></i> Schreiben</a>
+        <a href="{% url 'writing_hub:editing_dashboard' project.id %}"><i class="bi bi-magic"></i> Redaktion</a>
+        <a href="{% url 'writing_hub:lektorat_dashboard' project.id %}"><i class="bi bi-check2-all"></i> Lektorat</a>
+        <a href="{% url 'writing_hub:review_dashboard' project.id %}" class="active"><i class="bi bi-chat-dots"></i> Review</a>
+        <a href="{% url 'writing_hub:versions_dashboard' project.id %}"><i class="bi bi-clock-history"></i> Versionen</a>
+        <a href="{% url 'writing_hub:manuscript_preview' project.id %}"><i class="bi bi-book"></i> Manuskript</a>
+        <a href="{% url 'writing_hub:export_dialog' project.id %}"><i class="bi bi-download"></i> Export</a>
+    </div>
+
+    <div class="review-header">
+        <h1><i class="bi bi-chat-dots"></i> Review & Feedback</h1>
+        <p style="margin: 0; opacity: 0.9;">{{ project.title }} - Feedback sammeln und verarbeiten</p>
+    </div>
+    
+    <div class="stats-row">
+        <div class="stat-card">
+            <div class="value">{{ chapters_data|length }}</div>
+            <div class="label">Kapitel</div>
+        </div>
+        <div class="stat-card warning">
+            <div class="value">{{ total_open|add:project_open }}</div>
+            <div class="label">Offene Feedbacks</div>
+        </div>
+        <div class="stat-card success">
+            <div class="value">{{ total_resolved|add:project_resolved }}</div>
+            <div class="label">Erledigt</div>
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" onclick="showTab('chapters')">
+            <i class="bi bi-file-text"></i> Kapitel-Feedback ({{ total_open }})
+        </button>
+        <button class="tab" onclick="showTab('project')">
+            <i class="bi bi-book"></i> Projekt-Feedback ({{ project_open }})
+        </button>
+    </div>
+    
+    <!-- Tab: Kapitel-Feedback -->
+    <div id="tab-chapters" class="tab-content active">
+        <div class="chapters-grid">
+            {% for item in chapters_data %}
+            <div class="chapter-card">
+                <div class="chapter-header">
+                    <div>
+                        <div class="chapter-number">Kapitel {{ item.chapter.chapter_number }}</div>
+                        <h3 class="chapter-title">{{ item.chapter.title }}</h3>
+                        <span style="font-size: 0.85rem; color: #94a3b8;">{{ item.chapter.word_count|default:0 }} Wörter</span>
+                    </div>
+                </div>
+                
+                <div class="feedback-badges">
+                    {% if item.open > 0 %}
+                    <span class="badge badge-open">{{ item.open }} offen</span>
+                    {% endif %}
+                    {% if item.resolved > 0 %}
+                    <span class="badge badge-resolved">{{ item.resolved }} erledigt</span>
+                    {% endif %}
+                    {% if item.total == 0 %}
+                    <span class="badge" style="background: #f1f5f9; color: #64748b;">Kein Feedback</span>
+                    {% endif %}
+                </div>
+                
+                <div style="display: flex; gap: 0.5rem;">
+                    {% if item.chapter.content %}
+                    <a href="{% url 'writing_hub:review_chapter' project.id item.chapter.id %}" class="btn btn-primary">
+                        <i class="bi bi-chat-dots"></i> Feedback
+                    </a>
+                    {% else %}
+                    <span style="color: #94a3b8; font-size: 0.85rem;">Noch kein Inhalt</span>
+                    {% endif %}
+                </div>
+            </div>
+            {% empty %}
+            <div class="no-content" style="grid-column: 1/-1;">
+                <i class="bi bi-folder2-open" style="font-size: 3rem;"></i>
+                <p>Keine Kapitel vorhanden</p>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    
+    <!-- Tab: Projekt-Feedback -->
+    <div id="tab-project" class="tab-content">
+        <div class="project-feedback-form">
+            <h3 style="margin: 0 0 1rem 0;"><i class="bi bi-plus-circle"></i> Neues Projekt-Feedback</h3>
+            <div class="form-row">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="pf-scope">Bereich</label>
+                    <select id="pf-scope">
+                        {% for value, label in feedback_scopes %}
+                        <option value="{{ value }}">{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="pf-title">Titel</label>
+                    <input type="text" id="pf-title" placeholder="Kurze Zusammenfassung">
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="pf-content">Beschreibung</label>
+                <textarea id="pf-content" placeholder="Ausführliche Beschreibung des Feedbacks..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Betroffene Kapitel (optional)</label>
+                <div style="display: flex; flex-wrap: wrap; gap: 0.5rem;">
+                    {% for ch in chapters %}
+                    <label style="display: flex; align-items: center; gap: 0.25rem; padding: 0.25rem 0.5rem; background: #f1f5f9; border-radius: 6px; cursor: pointer;">
+                        <input type="checkbox" class="pf-chapter" value="{{ ch.id }}">
+                        <span style="font-size: 0.85rem;">Kap. {{ ch.chapter_number }}</span>
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+            <button class="btn btn-primary" onclick="addProjectFeedback()">
+                <i class="bi bi-plus-circle"></i> Feedback hinzufügen
+            </button>
+        </div>
+        
+        <h3 style="margin-bottom: 1rem;">Bisheriges Projekt-Feedback ({{ project_feedbacks|length }})</h3>
+        
+        {% for pf in project_feedbacks %}
+        <div class="project-feedback-item {% if pf.status == 'resolved' %}resolved{% endif %}" id="pf-{{ pf.id }}">
+            <div class="pf-header">
+                <span class="pf-scope">{{ pf.get_scope_display }}</span>
+                <span style="font-size: 0.85rem; color: #94a3b8;">{{ pf.reviewer_name }} • {{ pf.created_at|date:"d.m.Y" }}</span>
+            </div>
+            <h4 class="pf-title">{{ pf.title }}</h4>
+            <p class="pf-content">{{ pf.content }}</p>
+            {% if pf.affected_chapters.exists %}
+            <div class="pf-chapters">
+                <i class="bi bi-link-45deg"></i> Betroffene Kapitel:
+                {% for ch in pf.affected_chapters.all %}
+                <a href="{% url 'writing_hub:editing_chapter' project.id ch.id %}" style="color: #8b5cf6;">Kap. {{ ch.chapter_number }}</a>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
+            {% if pf.status != 'resolved' %}
+            <div class="pf-actions">
+                <button class="btn btn-sm btn-success" onclick="resolveProjectFeedback({{ pf.id }})">
+                    <i class="bi bi-check"></i> Erledigt
+                </button>
+                <button class="btn btn-sm btn-danger" onclick="deleteProjectFeedback({{ pf.id }})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+            {% else %}
+            <div style="font-size: 0.85rem; color: #22c55e;"><i class="bi bi-check-circle"></i> Erledigt</div>
+            {% endif %}
+        </div>
+        {% empty %}
+        <div class="no-content">
+            <i class="bi bi-book" style="font-size: 2rem;"></i>
+            <p>Noch kein Projekt-Feedback</p>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Workflow Navigation -->
+    <div class="card border-0 bg-light mt-4">
+        <div class="card-body d-flex justify-content-between align-items-center">
+            <div>
+                <a href="{% url 'writing_hub:chapter_writer' project_id=project.id %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-arrow-left me-1"></i> Zurück zu Kapitel schreiben
+                </a>
+            </div>
+            <div class="text-center">
+                <small class="text-muted d-block">Workflow Schritt 6 von 7</small>
+                <strong>Review & Feedback</strong>
+            </div>
+            <div>
+                <a href="{% url 'writing_hub:publishing_setup' project_id=project.id %}" class="btn btn-primary">
+                    Weiter zu Publishing <i class="bi bi-arrow-right ms-1"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type;
+    toast.style.display = 'block';
+    setTimeout(() => toast.style.display = 'none', 3000);
+}
+
+function showTab(tabName) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    event.target.closest('.tab').classList.add('active');
+    document.getElementById('tab-' + tabName).classList.add('active');
+}
+
+async function addProjectFeedback() {
+    const scope = document.getElementById('pf-scope').value;
+    const title = document.getElementById('pf-title').value.trim();
+    const content = document.getElementById('pf-content').value.trim();
+    const chapters = Array.from(document.querySelectorAll('.pf-chapter:checked')).map(c => parseInt(c.value));
+    
+    if (!title || !content) {
+        showToast('Bitte Titel und Beschreibung eingeben', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch('{% url "writing_hub:add_project_feedback" project.id %}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+            body: JSON.stringify({ scope, title, content, affected_chapters: chapters })
+        });
+        const data = await response.json();
+        if (data.success) {
+            showToast('Projekt-Feedback hinzugefügt', 'success');
+            location.reload();
+        } else {
+            showToast('Fehler: ' + data.error, 'error');
+        }
+    } catch (e) { showToast('Fehler', 'error'); }
+}
+
+async function resolveProjectFeedback(id) {
+    try {
+        const response = await fetch(`/writing-hub/project/{{ project.id }}/project-feedback/${id}/resolve/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: '{}'
+        });
+        const data = await response.json();
+        if (data.success) {
+            showToast('Erledigt', 'success');
+            document.getElementById('pf-' + id).classList.add('resolved');
+        }
+    } catch (e) { showToast('Fehler', 'error'); }
+}
+
+async function deleteProjectFeedback(id) {
+    if (!confirm('Feedback löschen?')) return;
+    try {
+        const response = await fetch(`/writing-hub/project/{{ project.id }}/project-feedback/${id}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') }
+        });
+        const data = await response.json();
+        if (data.success) {
+            showToast('Gelöscht', 'success');
+            document.getElementById('pf-' + id).remove();
+        }
+    } catch (e) { showToast('Fehler', 'error'); }
+}
+</script>
+{% endblock %}

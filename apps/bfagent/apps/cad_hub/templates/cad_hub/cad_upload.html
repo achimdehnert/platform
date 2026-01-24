@@ -1,0 +1,118 @@
+{% extends "cad_hub/base.html" %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto p-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h2 class="text-2xl font-bold text-white">CAD-Datei hochladen</h2>
+        <p class="text-slate-400">{{ project.name }}</p>
+    </div>
+
+    <!-- Upload Form -->
+    <div class="bg-slate-800 rounded-xl border border-slate-700 p-8">
+        <form method="post" enctype="multipart/form-data" class="space-y-6">
+            {% csrf_token %}
+
+            <!-- File Input -->
+            <div>
+                <label class="block text-white font-medium mb-3">Datei auswählen</label>
+                <div class="border-2 border-dashed border-slate-600 rounded-lg p-8 text-center hover:border-amber-500 transition-colors">
+                    <input type="file"
+                           name="file"
+                           id="file-input"
+                           accept=".dwg,.dxf,.pdf,.x83,.x84"
+                           required
+                           class="hidden">
+                    <label for="file-input" class="cursor-pointer">
+                        <div class="text-6xl mb-4">📁</div>
+                        <p class="text-white font-medium mb-2">Klicken zum Auswählen</p>
+                        <p class="text-slate-400 text-sm">oder Datei hierher ziehen</p>
+                        <p class="text-slate-500 text-xs mt-2">DWG, DXF, PDF, X83, X84</p>
+                    </label>
+                </div>
+                <p id="file-name" class="text-slate-400 text-sm mt-2 hidden"></p>
+            </div>
+
+            <!-- Supported Formats -->
+            <div class="bg-slate-900 rounded-lg p-4">
+                <h3 class="text-white font-medium mb-3">Unterstützte Formate:</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    {% for ext, info in supported_formats.items %}
+                    <div class="flex items-center gap-3 p-3 bg-slate-800 rounded-lg">
+                        <span class="text-2xl">{{ info.icon }}</span>
+                        <div>
+                            <p class="text-white text-sm font-medium">{{ info.name }}</p>
+                            <p class="text-slate-400 text-xs">{{ info.description }}</p>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- Info Box -->
+            <div class="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+                <p class="text-blue-400 text-sm">
+                    <strong>Hinweis:</strong> CAD-Dateien werden automatisch zu IFC konvertiert und analysiert.
+                    Dies kann einige Minuten dauern.
+                </p>
+            </div>
+
+            <!-- Buttons -->
+            <div class="flex gap-3">
+                <a href="{% url 'cad_hub:project_detail' project.pk %}"
+                   class="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-center font-medium transition-colors">
+                    Abbrechen
+                </a>
+                <button type="submit"
+                        class="flex-1 px-6 py-3 bg-amber-500 hover:bg-amber-600 rounded-lg text-slate-900 font-medium transition-colors">
+                    📤 Hochladen
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+// File Input Handler
+const fileInput = document.getElementById('file-input');
+const fileName = document.getElementById('file-name');
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        const file = e.target.files[0];
+        fileName.textContent = `Ausgewählt: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`;
+        fileName.classList.remove('hidden');
+    }
+});
+
+// Drag & Drop
+const dropZone = fileInput.parentElement;
+['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+    });
+});
+
+['dragenter', 'dragover'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+        dropZone.classList.add('border-amber-500', 'bg-slate-700/30');
+    });
+});
+
+['dragleave', 'drop'].forEach(eventName => {
+    dropZone.addEventListener(eventName, () => {
+        dropZone.classList.remove('border-amber-500', 'bg-slate-700/30');
+    });
+});
+
+dropZone.addEventListener('drop', (e) => {
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        fileInput.files = files;
+        const event = new Event('change', { bubbles: true });
+        fileInput.dispatchEvent(event);
+    }
+});
+</script>
+{% endblock %}

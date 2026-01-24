@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Workflow Template Phase Detail{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header with Actions -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-list-check"></i> Workflow Template Phase Detail</h2>
+        <div>
+            <a href="{% url 'bfagent:workflowphasestep-list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+            <a href="{% url 'bfagent:workflowphasestep-update' workflowphasestep.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+            <a href="{% url 'bfagent:workflowphasestep-delete' workflowphasestep.pk %}" class="btn btn-danger">
+                <i class="bi bi-trash"></i> Delete
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Info Card -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">Configuration Details</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Workflow Template</label>
+                    <p class="form-control-plaintext">{{ workflowphasestep.template.name }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Workflow Phase</label>
+                    <p class="form-control-plaintext">
+                        <i class="bi bi-{{ workflowphasestep.phase.icon|default:'circle' }}"></i>
+                        {{ workflowphasestep.phase.name }}
+                    </p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Order</label>
+                    <p class="form-control-plaintext">
+                        <span class="badge bg-secondary">{{ workflowphasestep.order }}</span>
+                    </p>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Required Chapters</label>
+                    <p class="form-control-plaintext">{{ workflowphasestep.required_chapters|default:"0" }}</p>
+                </div>
+                <div class="col-md-4 mb-3">
+                    <label class="form-label fw-bold">Required Characters</label>
+                    <p class="form-control-plaintext">{{ workflowphasestep.required_characters|default:"0" }}</p>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Can Skip</label>
+                    <p class="form-control-plaintext">
+                        {% if workflowphasestep.can_skip %}
+                            <span class="badge bg-warning">Yes - Skippable</span>
+                        {% else %}
+                            <span class="badge bg-success">No - Required</span>
+                        {% endif %}
+                    </p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Can Return</label>
+                    <p class="form-control-plaintext">
+                        {% if workflowphasestep.can_return %}
+                            <span class="badge bg-success">Yes</span>
+                        {% else %}
+                            <span class="badge bg-secondary">No</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Template Details Card -->
+    <div class="card mb-3">
+        <div class="card-header">
+            <h5 class="mb-0">Template Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Template Name</label>
+                    <p class="form-control-plaintext">{{ workflowphasestep.template.name }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Book Type</label>
+                    <p class="form-control-plaintext">
+                        {% if workflowphasestep.template.book_type %}
+                            {{ workflowphasestep.template.book_type.name }}
+                        {% else %}
+                            -
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12 mb-3">
+                    <label class="form-label fw-bold">Template Description</label>
+                    <p class="form-control-plaintext">{{ workflowphasestep.template.description|default:"-" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Phase Details Card -->
+    <div class="card">
+        <div class="card-header">
+            <h5 class="mb-0">Phase Information</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Phase Name</label>
+                    <p class="form-control-plaintext">{{ workflowphasestep.phase.name }}</p>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <label class="form-label fw-bold">Phase Icon</label>
+                    <p class="form-control-plaintext">
+                        <i class="bi bi-{{ workflowphasestep.phase.icon|default:'circle' }}"></i>
+                        {{ workflowphasestep.phase.icon|default:"-" }}
+                    </p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-12 mb-3">
+                    <label class="form-label fw-bold">Phase Description</label>
+                    <p class="form-control-plaintext">{{ workflowphasestep.phase.description|default:"-" }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

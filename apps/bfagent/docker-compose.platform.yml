@@ -1,0 +1,81 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # BF Agent (Frontend) - Django/Gunicorn
+  # =============================================================================
+  bfagent-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: bfagent_web
+    environment:
+      # Django
+      DJANGO_SETTINGS_MODULE: config.settings.development
+      USE_POSTGRES: "1"
+
+      # Postgres (bfagent)
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-bfagent_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-bfagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bfagent_dev_2024}
+
+      # Redis
+      REDIS_URL: redis://redis:6379/0
+
+      # Option B: MCP Hub API base URL (Gateway service - will be added next)
+      MCPHUB_API_BASE_URL: http://mcphub-api:8080
+
+    ports:
+      - "${BFAgent_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["bash", "-lc", "./docker/entrypoint.web.sh"]
+    networks:
+      - platform
+
+  # =============================================================================
+  # PostgreSQL - override: add second DB init env + network
+  # =============================================================================
+  postgres:
+    environment:
+      MCPHUB_POSTGRES_DB: ${MCPHUB_POSTGRES_DB:-mcphub_dev}
+    networks:
+      - platform
+
+  # =============================================================================
+  # Redis - override: add network
+  # =============================================================================
+  redis:
+    networks:
+      - platform
+
+  # =============================================================================
+  # MCP Hub API (Option B) - HTTP Gateway for bfagent
+  # =============================================================================
+  mcphub-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.mcphub-api
+    container_name: mcphub_api
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-bfagent_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-bfagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bfagent_dev_2024}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - platform
+
+networks:
+  platform:
+    name: bf_platform

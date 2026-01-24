@@ -1,0 +1,449 @@
+{% extends "writing_hub/base_writing_hub.html" %}
+{% load static %}
+
+{% block title %}Agent-Konfiguration - {{ project.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .agent-card {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s;
+    }
+    .agent-card:hover {
+        border-color: #6366f1;
+        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+    }
+    .agent-card.disabled {
+        opacity: 0.5;
+        background: #f9fafb;
+    }
+    .agent-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.5rem;
+        color: white;
+    }
+    .tier-badge {
+        padding: 0.25rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .tier-bulk { background: #dcfce7; color: #166534; }
+    .tier-standard { background: #dbeafe; color: #1e40af; }
+    .tier-premium { background: #fef3c7; color: #92400e; }
+    
+    .pipeline-card {
+        border: 2px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .pipeline-card:hover {
+        border-color: #6366f1;
+        transform: translateY(-2px);
+    }
+    .pipeline-card.selected {
+        border-color: #6366f1;
+        background: #eef2ff;
+    }
+    
+    .pipeline-steps {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-top: 0.75rem;
+    }
+    .pipeline-step {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        background: #f3f4f6;
+        border-radius: 6px;
+        font-size: 0.75rem;
+    }
+    .pipeline-step i {
+        font-size: 0.875rem;
+    }
+    
+    .cost-estimate {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: #fef3c7;
+        border-radius: 8px;
+        font-size: 0.875rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 1rem;
+        margin-bottom: 2rem;
+    }
+    .stat-card {
+        background: white;
+        border: 1px solid #e5e7eb;
+        border-radius: 12px;
+        padding: 1rem;
+        text-align: center;
+    }
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #1f2937;
+    }
+    .stat-label {
+        font-size: 0.75rem;
+        color: #6b7280;
+        text-transform: uppercase;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:project-list' %}">Projekte</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:project-detail' project.id %}">{{ project.title|truncatechars:30 }}</a></li>
+                    <li class="breadcrumb-item active">Agent-Konfiguration</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">🤖 Agent-Konfiguration</h1>
+            <p class="text-muted mb-0">Konfiguriere AI-Agenten und LLM-Tiers für dieses Projekt</p>
+        </div>
+        <div>
+            <button class="btn btn-outline-secondary me-2" onclick="resetToDefaults()">
+                <i class="bi bi-arrow-counterclockwise"></i> Zurücksetzen
+            </button>
+            <button class="btn btn-primary" onclick="saveConfig()">
+                <i class="bi bi-check-lg"></i> Speichern
+            </button>
+        </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-value">{{ total_calls|default:0 }}</div>
+            <div class="stat-label">Gesamt-Aufrufe</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ total_tokens|default:0|floatformat:0 }}</div>
+            <div class="stat-label">Tokens verwendet</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">${{ total_cost|default:0|floatformat:2 }}</div>
+            <div class="stat-label">Gesamtkosten</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-value">{{ active_agents|default:0 }}/{{ total_agents|default:0 }}</div>
+            <div class="stat-label">Aktive Agenten</div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Agent Configuration -->
+        <div class="col-lg-8">
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-robot me-2"></i>Agenten</h5>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary active" onclick="showAgents('all')">Alle</button>
+                        <button class="btn btn-outline-secondary" onclick="showAgents('core')">Core</button>
+                        <button class="btn btn-outline-secondary" onclick="showAgents('writer')">Writer</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    {% for agent in agent_roles %}
+                    <div class="agent-card {% if not agent.is_enabled %}disabled{% endif %}" 
+                         data-agent="{{ agent.code }}"
+                         data-category="{{ agent.category }}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div class="d-flex gap-3">
+                                <div class="agent-icon" style="background: {{ agent.color }}">
+                                    <i class="{{ agent.icon }}"></i>
+                                </div>
+                                <div>
+                                    <h6 class="mb-1">
+                                        {{ agent.name_de }}
+                                        {% if agent.parent_role %}
+                                        <small class="text-muted">({{ agent.parent_role.name_de }})</small>
+                                        {% endif %}
+                                    </h6>
+                                    <p class="text-muted small mb-2">{{ agent.description_de|default:agent.description }}</p>
+                                    
+                                    <div class="d-flex gap-3 align-items-center">
+                                        <!-- Tier Selection -->
+                                        <div>
+                                            <label class="form-label small mb-1">LLM-Tier</label>
+                                            <select class="form-select form-select-sm" 
+                                                    data-field="tier" 
+                                                    style="width: 140px;"
+                                                    onchange="updateAgentConfig('{{ agent.code }}', 'tier', this.value)">
+                                                <option value="">Standard</option>
+                                                {% for tier in llm_tiers %}
+                                                <option value="{{ tier.code }}" 
+                                                        {% if agent.config.tier_override == tier.code %}selected{% endif %}>
+                                                    {{ tier.name_de }} (x{{ tier.cost_factor }})
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                        
+                                        <!-- LLM Override -->
+                                        <div>
+                                            <label class="form-label small mb-1">LLM Override</label>
+                                            <select class="form-select form-select-sm" 
+                                                    data-field="llm"
+                                                    style="width: 180px;"
+                                                    onchange="updateAgentConfig('{{ agent.code }}', 'llm', this.value)">
+                                                <option value="">Tier-Standard</option>
+                                                {% for llm in available_llms %}
+                                                <option value="{{ llm.id }}"
+                                                        {% if agent.config.llm_override_id == llm.id %}selected{% endif %}>
+                                                    {{ llm.name }}
+                                                </option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="d-flex flex-column align-items-end gap-2">
+                                <div class="form-check form-switch">
+                                    <input class="form-check-input" type="checkbox" 
+                                           id="enable_{{ agent.code }}"
+                                           {% if agent.is_enabled %}checked{% endif %}
+                                           onchange="updateAgentConfig('{{ agent.code }}', 'enabled', this.checked)">
+                                    <label class="form-check-label small" for="enable_{{ agent.code }}">Aktiv</label>
+                                </div>
+                                
+                                {% if agent.config.total_calls > 0 %}
+                                <div class="text-end small text-muted">
+                                    <div>{{ agent.config.total_calls }} Aufrufe</div>
+                                    <div>${{ agent.config.total_cost|floatformat:3 }}</div>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        
+                        <!-- Custom Instructions (Collapsible) -->
+                        <div class="mt-3">
+                            <button class="btn btn-sm btn-link p-0 text-muted" 
+                                    type="button" 
+                                    data-bs-toggle="collapse" 
+                                    data-bs-target="#instructions_{{ agent.code }}">
+                                <i class="bi bi-plus-circle me-1"></i>Zusätzliche Anweisungen
+                            </button>
+                            <div class="collapse mt-2" id="instructions_{{ agent.code }}">
+                                <textarea class="form-control form-control-sm" 
+                                          rows="3" 
+                                          placeholder="Projekt-spezifische Anweisungen für diesen Agenten..."
+                                          onchange="updateAgentConfig('{{ agent.code }}', 'instructions', this.value)">{{ agent.config.custom_instructions|default:'' }}</textarea>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Pipeline Templates -->
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-diagram-3 me-2"></i>Pipeline-Vorlagen</h5>
+                </div>
+                <div class="card-body">
+                    <p class="text-muted small mb-3">
+                        Wähle eine Standard-Pipeline für die Content-Generierung
+                    </p>
+                    
+                    {% for pipeline in pipelines %}
+                    <div class="pipeline-card mb-3 {% if pipeline.code == default_pipeline %}selected{% endif %}"
+                         onclick="selectPipeline('{{ pipeline.code }}')">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">{{ pipeline.name_de }}</h6>
+                                <p class="text-muted small mb-0">{{ pipeline.description }}</p>
+                            </div>
+                            <div class="text-end">
+                                <span class="tier-badge tier-standard">~{{ pipeline.estimated_duration_seconds }}s</span>
+                            </div>
+                        </div>
+                        
+                        <div class="pipeline-steps">
+                            {% for step in pipeline.pipeline_config %}
+                            <div class="pipeline-step">
+                                <i class="bi bi-{{ step.agent_role|slice:':6' }}"></i>
+                                {{ step.agent_role|truncatechars:10 }}
+                                <span class="tier-badge tier-{{ step.tier }}" style="padding: 0.1rem 0.3rem; font-size: 0.65rem;">
+                                    {{ step.tier|slice:':1'|upper }}
+                                </span>
+                            </div>
+                            {% if not forloop.last %}
+                            <i class="bi bi-arrow-right text-muted" style="font-size: 0.75rem;"></i>
+                            {% endif %}
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- LLM Tiers Info -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>LLM-Tiers</h5>
+                </div>
+                <div class="card-body">
+                    {% for tier in llm_tiers %}
+                    <div class="d-flex align-items-center gap-3 mb-3">
+                        <div class="agent-icon" style="background: {{ tier.color }}; width: 40px; height: 40px; font-size: 1.25rem;">
+                            <i class="{{ tier.icon }}"></i>
+                        </div>
+                        <div class="flex-grow-1">
+                            <div class="d-flex justify-content-between">
+                                <strong>{{ tier.name_de }}</strong>
+                                <span class="tier-badge tier-{{ tier.code }}">x{{ tier.cost_factor }}</span>
+                            </div>
+                            <small class="text-muted">{{ tier.description|truncatechars:60 }}</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    
+                    <hr>
+                    
+                    <div class="cost-estimate">
+                        <i class="bi bi-info-circle"></i>
+                        <span>Geschätzte Kosten pro Kapitel: <strong>${{ estimated_chapter_cost|floatformat:2 }}</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const projectId = {{ project.id }};
+    let agentConfigs = {{ agent_configs_json|safe }};
+    let selectedPipeline = '{{ default_pipeline }}';
+    let hasChanges = false;
+
+    function updateAgentConfig(agentCode, field, value) {
+        if (!agentConfigs[agentCode]) {
+            agentConfigs[agentCode] = {};
+        }
+        agentConfigs[agentCode][field] = value;
+        hasChanges = true;
+        
+        // Update UI
+        const card = document.querySelector(`[data-agent="${agentCode}"]`);
+        if (field === 'enabled') {
+            card.classList.toggle('disabled', !value);
+        }
+    }
+
+    function selectPipeline(code) {
+        document.querySelectorAll('.pipeline-card').forEach(card => {
+            card.classList.remove('selected');
+        });
+        event.currentTarget.classList.add('selected');
+        selectedPipeline = code;
+        hasChanges = true;
+    }
+
+    function showAgents(category) {
+        document.querySelectorAll('.agent-card').forEach(card => {
+            if (category === 'all') {
+                card.style.display = '';
+            } else if (category === 'core') {
+                card.style.display = card.dataset.category === 'core' ? '' : 'none';
+            } else if (category === 'writer') {
+                card.style.display = card.dataset.category.includes('writer') ? '' : 'none';
+            }
+        });
+        
+        // Update button states
+        document.querySelectorAll('.btn-group .btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        event.currentTarget.classList.add('active');
+    }
+
+    function resetToDefaults() {
+        if (confirm('Alle Agent-Konfigurationen auf Standard zurücksetzen?')) {
+            fetch(`/writing-hub/project/${projectId}/agents/reset/`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': '{{ csrf_token }}',
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                }
+            });
+        }
+    }
+
+    function saveConfig() {
+        fetch(`/writing-hub/project/${projectId}/agents/save/`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}',
+            },
+            body: JSON.stringify({
+                agent_configs: agentConfigs,
+                default_pipeline: selectedPipeline
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                hasChanges = false;
+                showToast('Konfiguration gespeichert', 'success');
+            } else {
+                showToast('Fehler beim Speichern: ' + data.error, 'danger');
+            }
+        });
+    }
+
+    function showToast(message, type) {
+        const toast = document.createElement('div');
+        toast.className = `alert alert-${type} position-fixed`;
+        toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 250px;';
+        toast.innerHTML = message;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+    }
+
+    // Warn on unsaved changes
+    window.addEventListener('beforeunload', (e) => {
+        if (hasChanges) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    });
+</script>
+{% endblock %}

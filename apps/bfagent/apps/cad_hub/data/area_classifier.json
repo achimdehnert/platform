@@ -1,0 +1,46 @@
+{
+  "version": "1.0",
+  "updated_at": "2024-12-18T13:00:00",
+  "learned": [
+    {
+      "layer_name": "324 - Bodenplatten",
+      "layer_normalized": "bodenplatten",
+      "category": "grundfläche",
+      "confidence": 1.0,
+      "source": "admin",
+      "created_at": "2024-12-18T13:00:00"
+    },
+    {
+      "layer_name": "0_30 - Räume",
+      "layer_normalized": "räume",
+      "category": "grundfläche",
+      "confidence": 1.0,
+      "source": "admin",
+      "created_at": "2024-12-18T13:00:00"
+    },
+    {
+      "layer_name": "352 - Deckenbeläge.Fußbodenaufbauten",
+      "layer_normalized": "deckenbeläge fußbodenaufbauten",
+      "category": "deckenfläche",
+      "confidence": 1.0,
+      "source": "admin",
+      "created_at": "2024-12-18T13:00:00"
+    },
+    {
+      "layer_name": "351 - Deckenkonstruktionen.Decken",
+      "layer_normalized": "deckenkonstruktionen decken",
+      "category": "deckenfläche",
+      "confidence": 1.0,
+      "source": "admin",
+      "created_at": "2024-12-18T13:00:00"
+    },
+    {
+      "layer_name": "332 - Außenwände",
+      "layer_normalized": "außenwände",
+      "category": "wandfläche",
+      "confidence": 1.0,
+      "source": "admin",
+      "created_at": "2024-12-18T13:00:00"
+    }
+  ]
+}

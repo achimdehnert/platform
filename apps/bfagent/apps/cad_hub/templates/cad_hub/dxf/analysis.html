@@ -1,0 +1,564 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}DXF Analyse{% endblock %}
+
+{% block page_title %}
+<i class="bi bi-bar-chart text-primary"></i> DXF/DWG Analyse
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .stat-card {
+        text-align: center;
+        padding: 1.5rem;
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        transition: transform 0.2s;
+    }
+    .stat-card:hover {
+        transform: translateY(-2px);
+    }
+    .stat-value {
+        font-size: 2rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+    .stat-label {
+        font-size: 0.85rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+    
+    #viewer-container {
+        height: 400px;
+        background: #1a1a2e;
+        border-radius: 8px;
+        position: relative;
+    }
+    
+    .upload-zone {
+        border: 2px dashed #6c757d;
+        border-radius: 12px;
+        padding: 3rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+        border-color: #0d6efd;
+        background: rgba(13, 110, 253, 0.05);
+    }
+    
+    .layer-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    .layer-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        margin-right: 0.5rem;
+    }
+    
+    .room-card {
+        background: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .quality-item {
+        padding: 0.5rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+    }
+    .quality-info { background: #d1e7dd; }
+    .quality-warning { background: #fff3cd; }
+    .quality-error { background: #f8d7da; }
+    
+    .block-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        background: #e9ecef;
+        border-radius: 4px;
+        margin: 0.2rem;
+        font-size: 0.85rem;
+    }
+    
+    #loading-overlay {
+        position: absolute;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(26, 26, 46, 0.9);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        border-radius: 8px;
+    }
+    
+    .thumbnail-preview {
+        max-width: 100%;
+        background: white;
+        border-radius: 8px;
+        padding: 0.5rem;
+    }
+    
+    .tab-content {
+        padding-top: 1rem;
+    }
+    
+    .entity-bar {
+        height: 24px;
+        background: #e9ecef;
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+    .entity-bar-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #0d6efd, #6610f2);
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        padding-right: 0.5rem;
+        color: white;
+        font-size: 0.75rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Left: Upload & Info -->
+    <div class="col-lg-4 mb-4">
+        <!-- Upload Zone -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-upload"></i> DXF/DWG hochladen
+            </div>
+            <div class="card-body">
+                <div class="upload-zone" id="upload-zone">
+                    <i class="bi bi-file-earmark-code" style="font-size: 3rem; color: #6c757d;"></i>
+                    <p class="mt-2 mb-1">Datei hierher ziehen</p>
+                    <small class="text-muted">DXF oder DWG</small>
+                    <input type="file" id="file-input" accept=".dxf,.dwg" style="display: none;">
+                </div>
+                <div id="file-info" class="mt-3" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span id="file-name" class="fw-bold"></span>
+                        <button class="btn btn-sm btn-outline-danger" onclick="clearAnalysis()">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Thumbnail -->
+        <div class="card mb-4" id="thumbnail-card" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-image"></i> Vorschau
+            </div>
+            <div class="card-body">
+                <div id="thumbnail-container" class="thumbnail-preview"></div>
+            </div>
+        </div>
+        
+        <!-- DWG Status -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-info-circle"></i> System Status
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <span>DWG-Support:</span>
+                    <span id="dwg-status">
+                        {% if dwg_status.available %}
+                        <span class="badge bg-success">Verfügbar</span>
+                        {% else %}
+                        <span class="badge bg-warning">Nicht installiert</span>
+                        {% endif %}
+                    </span>
+                </div>
+                {% if not dwg_status.available %}
+                <small class="text-muted mt-2 d-block">
+                    Für DWG-Support: <a href="https://www.opendesign.com/guestfiles/oda_file_converter" target="_blank">ODA File Converter</a> installieren
+                </small>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right: Analysis Results -->
+    <div class="col-lg-8">
+        <!-- Stats Cards -->
+        <div class="row mb-4" id="stats-row" style="display: none;">
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-entities">0</div>
+                    <div class="stat-label">Entities</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-layers">0</div>
+                    <div class="stat-label">Layer</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-blocks">0</div>
+                    <div class="stat-label">Blöcke</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-3">
+                <div class="stat-card">
+                    <div class="stat-value" id="stat-area">0</div>
+                    <div class="stat-label">m² (ca.)</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="card" id="analysis-card" style="display: none;">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-overview">
+                            <i class="bi bi-grid"></i> Übersicht
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-layers">
+                            <i class="bi bi-layers"></i> Layer
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-rooms">
+                            <i class="bi bi-house"></i> Räume
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-quality">
+                            <i class="bi bi-check-circle"></i> Qualität
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-viewer">
+                            <i class="bi bi-eye"></i> 3D
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <!-- Overview Tab -->
+                    <div class="tab-pane fade show active" id="tab-overview">
+                        <h6>Entity-Verteilung</h6>
+                        <div id="entity-distribution"></div>
+                        
+                        <h6 class="mt-4">Datei-Info</h6>
+                        <table class="table table-sm">
+                            <tbody id="file-info-table"></tbody>
+                        </table>
+                        
+                        <h6 class="mt-4">Bounding Box</h6>
+                        <div id="bounding-box-info"></div>
+                    </div>
+                    
+                    <!-- Layers Tab -->
+                    <div class="tab-pane fade" id="tab-layers">
+                        <div id="layer-list" style="max-height: 400px; overflow-y: auto;"></div>
+                    </div>
+                    
+                    <!-- Rooms Tab -->
+                    <div class="tab-pane fade" id="tab-rooms">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-house"></i> Erkannte Räume</h6>
+                                <div id="rooms-list"></div>
+                            </div>
+                            <div class="col-md-6">
+                                <h6><i class="bi bi-door-open"></i> Türen & Fenster</h6>
+                                <div id="doors-windows-list"></div>
+                            </div>
+                        </div>
+                        <h6 class="mt-4"><i class="bi bi-rulers"></i> Flächen (geschl. Polygone)</h6>
+                        <div id="areas-list"></div>
+                    </div>
+                    
+                    <!-- Quality Tab -->
+                    <div class="tab-pane fade" id="tab-quality">
+                        <div id="quality-list"></div>
+                    </div>
+                    
+                    <!-- 3D Viewer Tab -->
+                    <div class="tab-pane fade" id="tab-viewer">
+                        <div id="viewer-container">
+                            <canvas id="viewer-canvas"></canvas>
+                            <div id="loading-overlay">
+                                <div class="spinner-border text-primary"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer">
+                <button class="btn btn-primary" onclick="exportJSON()">
+                    <i class="bi bi-download"></i> Export JSON
+                </button>
+                <a href="{% url 'cad_hub:dxf_viewer' %}" class="btn btn-outline-secondary">
+                    <i class="bi bi-eye"></i> Zum Viewer
+                </a>
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div class="card" id="empty-state">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-file-earmark-code" style="font-size: 4rem; color: #dee2e6;"></i>
+                <h5 class="mt-3 text-muted">Keine Datei geladen</h5>
+                <p class="text-muted">Laden Sie eine DXF/DWG-Datei hoch, um die Analyse zu starten.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+let analysisData = null;
+let scene, camera, renderer, controls;
+
+// Upload handling
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+    const filename = file.name.toLowerCase();
+    if (!filename.endsWith('.dxf') && !filename.endsWith('.dwg')) {
+        alert('Bitte nur DXF/DWG-Dateien');
+        return;
+    }
+    
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-info').style.display = 'block';
+    document.getElementById('empty-state').style.display = 'none';
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    fetch('{% url "cad_hub:dxf_analyze_upload" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            analysisData = data;
+            displayAnalysis(data);
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(err => alert('Upload fehlgeschlagen: ' + err));
+}
+
+function displayAnalysis(data) {
+    // Show cards
+    document.getElementById('stats-row').style.display = 'flex';
+    document.getElementById('analysis-card').style.display = 'block';
+    
+    const analysis = data.analysis;
+    
+    // Stats
+    document.getElementById('stat-entities').textContent = analysis.total_entities.toLocaleString();
+    document.getElementById('stat-layers').textContent = analysis.layers.length;
+    document.getElementById('stat-blocks').textContent = analysis.blocks.length;
+    
+    const area = analysis.estimated_area / 1000000; // mm² to m²
+    document.getElementById('stat-area').textContent = area.toFixed(1);
+    
+    // Thumbnail
+    if (data.thumbnail_svg) {
+        document.getElementById('thumbnail-container').innerHTML = data.thumbnail_svg;
+        document.getElementById('thumbnail-card').style.display = 'block';
+    }
+    
+    // Entity distribution
+    const entityHtml = Object.entries(analysis.entity_statistics)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 10)
+        .map(([type, count]) => {
+            const pct = (count / analysis.total_entities * 100).toFixed(1);
+            return `
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <small>${type}</small>
+                        <small>${count}</small>
+                    </div>
+                    <div class="entity-bar">
+                        <div class="entity-bar-fill" style="width: ${pct}%">${pct}%</div>
+                    </div>
+                </div>
+            `;
+        }).join('');
+    document.getElementById('entity-distribution').innerHTML = entityHtml;
+    
+    // File info table
+    document.getElementById('file-info-table').innerHTML = `
+        <tr><td>Version</td><td>${analysis.dxf_version}</td></tr>
+        <tr><td>Einheiten</td><td>${analysis.units}</td></tr>
+        <tr><td>Encoding</td><td>${analysis.encoding}</td></tr>
+        <tr><td>Format</td><td>${analysis.source_format}${analysis.was_converted ? ' (konvertiert)' : ''}</td></tr>
+    `;
+    
+    // Bounding box
+    if (analysis.bounding_box) {
+        const bb = analysis.bounding_box;
+        document.getElementById('bounding-box-info').innerHTML = `
+            <small class="text-muted">
+                Größe: ${(bb.size.width/1000).toFixed(2)}m × ${(bb.size.height/1000).toFixed(2)}m
+            </small>
+        `;
+    }
+    
+    // Layers
+    document.getElementById('layer-list').innerHTML = analysis.layers.map(l => `
+        <div class="layer-item">
+            <div class="layer-color" style="background: ${getColorHex(l.color)}"></div>
+            <span>${l.name}</span>
+            <span class="ms-auto badge bg-secondary">${l.entity_count}</span>
+        </div>
+    `).join('');
+    
+    // Rooms
+    const fp = data.floor_plan;
+    document.getElementById('rooms-list').innerHTML = fp.rooms.length > 0 
+        ? fp.rooms.map(r => `<div class="room-card"><strong>${r.name}</strong><br><small class="text-muted">Layer: ${r.layer}</small></div>`).join('')
+        : '<p class="text-muted">Keine Räume erkannt</p>';
+    
+    document.getElementById('doors-windows-list').innerHTML = `
+        <p><i class="bi bi-door-open"></i> Türen: <strong>${fp.doors.length}</strong></p>
+        <p><i class="bi bi-window"></i> Fenster: <strong>${fp.windows.length}</strong></p>
+    `;
+    
+    document.getElementById('areas-list').innerHTML = fp.room_areas.length > 0
+        ? fp.room_areas.slice(0, 10).map(a => `
+            <div class="room-card d-flex justify-content-between">
+                <span>Layer: ${a.layer}</span>
+                <strong>${(a.area/1000000).toFixed(2)} m²</strong>
+            </div>
+        `).join('')
+        : '<p class="text-muted">Keine geschlossenen Flächen gefunden</p>';
+    
+    // Quality
+    document.getElementById('quality-list').innerHTML = data.quality.length > 0
+        ? data.quality.map(q => `
+            <div class="quality-item quality-${q.severity}">
+                <i class="bi bi-${q.severity === 'error' ? 'x-circle' : q.severity === 'warning' ? 'exclamation-triangle' : 'info-circle'}"></i>
+                ${q.message}
+            </div>
+        `).join('')
+        : '<div class="alert alert-success"><i class="bi bi-check-circle"></i> Keine Probleme gefunden</div>';
+    
+    // Initialize 3D viewer
+    if (data.viewer_data) {
+        initViewer(data.viewer_data);
+    }
+}
+
+function getColorHex(colorIndex) {
+    const colors = {1:'#ff0000',2:'#ffff00',3:'#00ff00',4:'#00ffff',5:'#0000ff',6:'#ff00ff',7:'#ffffff'};
+    return colors[colorIndex] || '#808080';
+}
+
+function clearAnalysis() {
+    analysisData = null;
+    document.getElementById('file-info').style.display = 'none';
+    document.getElementById('stats-row').style.display = 'none';
+    document.getElementById('analysis-card').style.display = 'none';
+    document.getElementById('thumbnail-card').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'block';
+    fileInput.value = '';
+}
+
+function exportJSON() {
+    if (!analysisData) return;
+    const blob = new Blob([JSON.stringify(analysisData.analysis, null, 2)], {type: 'application/json'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = analysisData.filename.replace(/\.\w+$/, '_analysis.json');
+    a.click();
+}
+
+// Simple 3D viewer
+function initViewer(data) {
+    const container = document.getElementById('viewer-container');
+    const canvas = document.getElementById('viewer-canvas');
+    
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+    
+    camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 10000);
+    camera.position.set(0, 0, 100);
+    
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    
+    // Add geometry
+    if (data.grouped && data.grouped.lines) {
+        const positions = [];
+        data.grouped.lines.forEach(l => {
+            positions.push(l.start[0], l.start[1], l.start[2] || 0);
+            positions.push(l.end[0], l.end[1], l.end[2] || 0);
+        });
+        const geom = new THREE.BufferGeometry();
+        geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+        scene.add(new THREE.LineSegments(geom, new THREE.LineBasicMaterial({color: 0x00ff00})));
+    }
+    
+    // Fit view
+    if (data.bounds) {
+        const center = new THREE.Vector3(
+            (data.bounds.min[0] + data.bounds.max[0]) / 2,
+            (data.bounds.min[1] + data.bounds.max[1]) / 2,
+            0
+        );
+        const size = Math.max(data.bounds.max[0] - data.bounds.min[0], data.bounds.max[1] - data.bounds.min[1]);
+        camera.position.set(center.x, center.y, size * 1.5);
+        controls.target.copy(center);
+    }
+    
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+    }
+    animate();
+}
+</script>
+{% endblock %}

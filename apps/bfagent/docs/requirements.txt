@@ -1,0 +1,64 @@
+# =============================================================================
+# BF Agent Documentation - Requirements
+# =============================================================================
+# Install with: pip install -r requirements.txt
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Core Sphinx
+# -----------------------------------------------------------------------------
+Sphinx>=7.0,<10.0
+sphinx-autobuild>=2024.0  # Live-Reload während Entwicklung
+
+# -----------------------------------------------------------------------------
+# Theme
+# -----------------------------------------------------------------------------
+furo>=2024.0              # Modernes, cleanes Theme
+# Alternative: sphinx-rtd-theme>=2.0  # ReadTheDocs Theme
+
+# -----------------------------------------------------------------------------
+# Markdown Support
+# -----------------------------------------------------------------------------
+myst-parser>=3.0          # Markdown in Sphinx
+linkify-it-py>=2.0        # Required for linkify extension in myst-parser
+
+# -----------------------------------------------------------------------------
+# Extensions
+# -----------------------------------------------------------------------------
+sphinx-copybutton>=0.5    # Copy-Button für Code-Blöcke
+sphinx-design>=0.5        # Cards, Tabs, Grids
+sphinxcontrib-mermaid>=0.9  # Mermaid Diagramme
+sphinx-autodoc-typehints>=2.0  # Type Hints in Docs
+
+# -----------------------------------------------------------------------------
+# Django-spezifisch
+# -----------------------------------------------------------------------------
+sphinxcontrib-django>=2.0  # Django Model-Dokumentation
+
+# -----------------------------------------------------------------------------
+# Build-Optimierung
+# -----------------------------------------------------------------------------
+sphinx-autosummary-accessors>=2023.0  # Bessere Autosummary
+
+# -----------------------------------------------------------------------------
+# PDF Export (optional)
+# -----------------------------------------------------------------------------
+# Für PDF-Export: apt-get install latexmk texlive-latex-extra
+# rinohtype  # Alternative zu LaTeX für PDF
+
+# -----------------------------------------------------------------------------
+# Qualitätssicherung
+# -----------------------------------------------------------------------------
+doc8>=1.0                 # RST Linting
+sphinx-lint>=0.9          # Sphinx-spezifisches Linting
+
+# -----------------------------------------------------------------------------
+# API-Docs Generation
+# -----------------------------------------------------------------------------
+# Für automatische API-Docs aus Modul-Struktur
+# sphinx-apidoc (bereits in Sphinx enthalten)
+
+# -----------------------------------------------------------------------------
+# Zusätzliche Formatierung
+# -----------------------------------------------------------------------------
+# sphinxcontrib-towncrier>=0.4  # Changelog aus Fragmenten (optional) - disabled, incompatible with Python 3.11

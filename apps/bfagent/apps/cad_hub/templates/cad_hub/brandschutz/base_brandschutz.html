@@ -1,0 +1,40 @@
+<!-- templates/cad_hub/brandschutz/base_brandschutz.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"Brandschutz" }} | BF Agent{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-0">
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="h4 fw-bold mb-0">
+                <i class="bi bi-fire text-danger"></i> {% block page_title %}{{ page_title|default:"Brandschutz" }}{% endblock %}
+            </h2>
+            {% block page_subtitle %}{% endblock %}
+        </div>
+        <div class="d-flex gap-2">
+            {% block page_actions %}{% endblock %}
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    {% block brandschutz_content %}{% endblock %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{{ block.super }}
+<script>
+    // Brandschutz-spezifische JS
+    document.addEventListener('htmx:afterSwap', function(evt) {
+        // Animate new elements
+        evt.detail.target.querySelectorAll('.animate-in').forEach(el => {
+            el.classList.add('animate__animated', 'animate__pulse');
+            setTimeout(() => el.classList.remove('animate__animated', 'animate__pulse'), 500);
+        });
+    });
+</script>
+{% block brandschutz_js %}{% endblock %}
+{% endblock %}

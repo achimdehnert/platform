@@ -1,0 +1,409 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Handler Generator - AI Powered{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="mb-2">
+                        <i class="bi bi-cpu text-primary"></i> Handler Generator
+                    </h1>
+                    <p class="text-muted mb-0">
+                        Generate production-ready handlers from natural language descriptions using AI
+                    </p>
+                </div>
+                <div>
+                    <span class="badge bg-success">
+                        <i class="bi bi-check-circle"></i> AI Powered
+                    </span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card border-primary">
+                <div class="card-body text-center">
+                    <i class="bi bi-lightning-charge text-primary" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">10-20s</h3>
+                    <p class="text-muted mb-0">Generation Time</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-success">
+                <div class="card-body text-center">
+                    <i class="bi bi-check2-all text-success" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">95%+</h3>
+                    <p class="text-muted mb-0">Success Rate</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-info">
+                <div class="card-body text-center">
+                    <i class="bi bi-shield-check text-info" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">100%</h3>
+                    <p class="text-muted mb-0">Type Safe</p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card border-warning">
+                <div class="card-body text-center">
+                    <i class="bi bi-database text-warning" style="font-size: 2rem;"></i>
+                    <h3 class="mt-2 mb-0">Atomic</h3>
+                    <p class="text-muted mb-0">Deployment</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Generation Form -->
+        <div class="col-lg-6">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-file-earmark-text"></i> Handler Description
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="handler-form" method="post" onsubmit="return false;">
+                        {% csrf_token %}
+                        
+                        <!-- Description -->
+                        <div class="mb-3">
+                            <label for="description" class="form-label fw-bold">
+                                Handler Description
+                                <span class="text-danger">*</span>
+                            </label>
+                            <div class="d-flex gap-2 mb-2">
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="fillPdfExample()">
+                                    <i class="bi bi-file-pdf"></i> PDF Extractor Example
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="document.getElementById('description').value = ''">
+                                    <i class="bi bi-x-circle"></i> Clear
+                                </button>
+                            </div>
+                            <textarea 
+                                class="form-control font-monospace" 
+                                id="description" 
+                                name="description" 
+                                rows="12" 
+                                required
+                                placeholder="Describe your handler here... (click 'PDF Extractor Example' or examples below to get started)"></textarea>
+                            <div class="form-text">
+                                <i class="bi bi-info-circle"></i> Click on an example below or the button above to fill this field, or type your own description.
+                            </div>
+                        </div>
+
+                        <!-- Provider Selection -->
+                        <div class="mb-3">
+                            <label for="llm_provider" class="form-label fw-bold">
+                                AI Provider
+                            </label>
+                            <select class="form-select" id="llm_provider" name="llm_provider">
+                                <option value="anthropic" selected>Anthropic Claude (Recommended)</option>
+                                <option value="openai">OpenAI GPT-4</option>
+                            </select>
+                        </div>
+
+                        <!-- Auto Deploy -->
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="auto_deploy" name="auto_deploy" checked>
+                                <label class="form-check-label" for="auto_deploy">
+                                    <strong>Auto-Deploy</strong> - Automatically deploy to database after generation
+                                </label>
+                            </div>
+                            <small class="text-muted">
+                                If unchecked, handler will be generated but not deployed (for review)
+                            </small>
+                        </div>
+
+                        <!-- Generate Button -->
+                        <div class="d-grid gap-2">
+                            <button type="button" 
+                                    id="generate-button"
+                                    class="btn btn-primary btn-lg"
+                                    onclick="testButtonClick()">
+                                <i class="bi bi-play-circle"></i> Generate Handler
+                            </button>
+                        </div>
+                        
+                        <!-- Debug Info -->
+                        <div id="debug-info" class="mt-2 text-muted small"></div>
+
+                        <!-- Loading Spinner -->
+                        <div id="generation-spinner" class="mt-3" style="display: none;">
+                            <div class="text-center">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Generating...</span>
+                                </div>
+                                <p class="mt-2 text-muted">
+                                    <i class="bi bi-cpu"></i> AI is generating your handler...
+                                    <br>
+                                    <small>This typically takes 10-20 seconds</small>
+                                </p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Example Handlers -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-lightbulb"></i> Example Handlers
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="list-group">
+                        <a href="#" class="list-group-item list-group-item-action example-handler"
+                           data-description="Create an email validator handler that validates email syntax, checks DNS records, detects disposable email providers, and verifies MX records.">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Email Validator</h6>
+                                <small class="text-muted">Input</small>
+                            </div>
+                            <p class="mb-1 small">DNS verification + disposable email detection</p>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action example-handler"
+                           data-description="Create an image resizer handler that resizes images to specified dimensions, maintains aspect ratio, supports multiple formats (JPEG, PNG, WEBP), applies compression, and generates thumbnails.">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Image Resizer</h6>
+                                <small class="text-muted">Processing</small>
+                            </div>
+                            <p class="mb-1 small">Smart resizing with compression & thumbnails</p>
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action example-handler"
+                           data-description="Create a markdown to HTML converter that parses markdown syntax, supports code highlighting, handles tables and lists, sanitizes output, and includes table of contents generation.">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">Markdown Converter</h6>
+                                <small class="text-muted">Processing</small>
+                            </div>
+                            <p class="mb-1 small">Markdown → HTML with code highlighting</p>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results -->
+        <div class="col-lg-6">
+            <div id="generation-results">
+                <!-- Welcome Message -->
+                <div class="card shadow-sm border-info">
+                    <div class="card-body text-center py-5">
+                        <i class="bi bi-stars text-info" style="font-size: 4rem;"></i>
+                        <h3 class="mt-3">Ready to Generate</h3>
+                        <p class="text-muted mb-4">
+                            Describe your handler on the left and click "Generate Handler" to create production-ready code with AI.
+                        </p>
+                        <div class="text-start">
+                            <h6 class="fw-bold">What you'll get:</h6>
+                            <ul class="list-unstyled">
+                                <li><i class="bi bi-check-circle text-success"></i> Complete handler implementation</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Type-safe Pydantic configuration</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Comprehensive test suite</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Full documentation</li>
+                                <li><i class="bi bi-check-circle text-success"></i> Automatic deployment (optional)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// Test button click function
+function testButtonClick() {
+    console.log('🔵 Button clicked!');
+    const debugDiv = document.getElementById('debug-info');
+    debugDiv.innerHTML = '✅ JavaScript is working! Checking HTMX...';
+    
+    // Check if HTMX is loaded
+    if (typeof htmx === 'undefined') {
+        debugDiv.innerHTML = '❌ HTMX not loaded!';
+        alert('HTMX library not loaded. Please refresh the page.');
+        return;
+    }
+    
+    debugDiv.innerHTML = '✅ HTMX loaded! Validating form...';
+    
+    // Validate description
+    const description = document.getElementById('description').value.trim();
+    if (!description) {
+        debugDiv.innerHTML = '❌ Description is empty!';
+        alert('Please enter a handler description or click on an example!');
+        return;
+    }
+    
+    debugDiv.innerHTML = `✅ Description OK (${description.length} chars). Sending request...`;
+    
+    // Show spinner
+    const spinner = document.getElementById('generation-spinner');
+    if (spinner) {
+        spinner.style.display = 'block';
+    }
+    
+    // Trigger HTMX request manually
+    const formData = new FormData(document.getElementById('handler-form'));
+    
+    fetch("{% url 'bfagent:handler-generator-generate' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        debugDiv.innerHTML = `✅ Response received (Status: ${response.status})`;
+        return response.text();
+    })
+    .then(html => {
+        // Hide spinner
+        if (spinner) {
+            spinner.style.display = 'none';
+        }
+        
+        // Insert result
+        document.getElementById('generation-results').innerHTML = html;
+        debugDiv.innerHTML = '✅ Handler generation complete!';
+    })
+    .catch(error => {
+        // Hide spinner
+        if (spinner) {
+            spinner.style.display = 'none';
+        }
+        
+        console.error('❌ Error:', error);
+        debugDiv.innerHTML = `❌ Error: ${error.message}`;
+        alert('Error generating handler: ' + error.message);
+    });
+}
+
+// Fill PDF Extractor Example
+function fillPdfExample() {
+    const exampleText = `Create a PDF text extractor handler that:
+- Extracts text from PDF files
+- Supports OCR for scanned documents
+- Handles password-protected PDFs
+- Returns metadata (author, pages, etc.)
+- Configurable page range selection
+- Multiple output formats (text, markdown, json)`;
+    
+    document.getElementById('description').value = exampleText;
+    document.getElementById('description').focus();
+}
+
+// Example handler click handler
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('.example-handler').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const description = this.dataset.description;
+            document.getElementById('description').value = description;
+            // Scroll to form
+            document.getElementById('description').scrollIntoView({ behavior: 'smooth' });
+        });
+    });
+    
+    // HTMX Spinner Control & Debug
+    document.body.addEventListener('htmx:beforeRequest', function(event) {
+        console.log('🚀 HTMX: beforeRequest triggered', event);
+        
+        // Validate description field
+        const description = document.getElementById('description').value.trim();
+        console.log('📝 Description length:', description.length);
+        
+        if (!description) {
+            event.preventDefault();
+            alert('Please enter a handler description or click on an example!');
+            return false;
+        }
+        
+        // Show spinner when request starts
+        const spinner = document.getElementById('generation-spinner');
+        if (spinner) {
+            console.log('⏳ Showing spinner');
+            spinner.style.display = 'block';
+        }
+    });
+    
+    document.body.addEventListener('htmx:afterRequest', function(event) {
+        console.log('✅ HTMX: afterRequest triggered', event);
+        
+        // Hide spinner when request completes
+        const spinner = document.getElementById('generation-spinner');
+        if (spinner) {
+            console.log('✅ Hiding spinner');
+            spinner.style.display = 'none';
+        }
+    });
+    
+    document.body.addEventListener('htmx:responseError', function(event) {
+        console.error('❌ HTMX: responseError', event);
+    });
+});
+
+// Deploy Handler Function (for Deploy Now button in results)
+function deployHandler(handlerId) {
+    console.log('🚀 Deploy clicked for handler:', handlerId);
+    
+    const button = document.getElementById('deploy-button');
+    const statusDiv = document.getElementById('deploy-status');
+    
+    // Disable button and show loading
+    button.disabled = true;
+    button.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Deploying...';
+    statusDiv.innerHTML = '⏳ Deploying handler to database...';
+    
+    // Create form data exactly like the working Generate button
+    const formData = new FormData();
+    formData.append('handler_id', handlerId);
+    
+    // Get CSRF token from the form in the main page
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]');
+    if (csrfToken) {
+        formData.append('csrfmiddlewaretoken', csrfToken.value);
+    }
+    
+    // Send deployment request (same pattern as Generate button)
+    fetch("{% url 'bfagent:handler-generator-deploy' %}", {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        statusDiv.innerHTML = `✅ Response received (Status: ${response.status})`;
+        return response.text();
+    })
+    .then(html => {
+        console.log('✅ Deployment complete!');
+        
+        // Replace the results area with the new content (same as Generate button)
+        document.getElementById('generation-results').innerHTML = html;
+        statusDiv.innerHTML = '✅ Handler deployed successfully!';
+    })
+    .catch(error => {
+        console.error('❌ Deploy error:', error);
+        statusDiv.innerHTML = `❌ Error: ${error.message}`;
+        button.disabled = false;
+        button.innerHTML = '<i class="bi bi-cloud-upload"></i> Deploy Now';
+    });
+}
+</script>
+{% endblock %}

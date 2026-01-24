@@ -1,0 +1,94 @@
+<!-- templates/cad_hub/partials/_door_table.html - Bootstrap 5 -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Nummer</th>
+                    <th>Name</th>
+                    <th>Geschoss</th>
+                    <th>Typ</th>
+                    <th class="text-end">Breite</th>
+                    <th class="text-end">Höhe</th>
+                    <th>Brandschutz</th>
+                    <th>Material</th>
+                    <th class="text-center">Properties</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for door in doors %}
+                <tr>
+                    <td><strong>{{ door.number|default:"-" }}</strong></td>
+                    <td>{{ door.name|default:door.ifc_guid|slice:":12" }}</td>
+                    <td>{{ door.floor.name|default:"-" }}</td>
+                    <td><small class="text-muted">{{ door.door_type|default:"-" }}</small></td>
+                    <td class="text-end font-monospace">{{ door.width|floatformat:3|default:"-" }}</td>
+                    <td class="text-end font-monospace">{{ door.height|floatformat:3|default:"-" }}</td>
+                    <td>
+                        {% if door.fire_rating %}
+                        <span class="badge bg-danger">{{ door.fire_rating }}</span>
+                        {% else %}-{% endif %}
+                    </td>
+                    <td><small class="text-muted">{{ door.material|default:"-" }}</small></td>
+                    <td class="text-center">
+                        {% if door.properties and door.properties|length > 0 %}
+                        <button class="btn btn-sm btn-outline-primary" onclick="toggleProperties('door-{{ door.id }}')">
+                            <i class="bi bi-list-ul"></i> {{ door.properties|length }}
+                        </button>
+                        {% else %}
+                        <span class="text-muted" title="Keine Properties">-</span>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if door.properties %}
+                <tr id="door-{{ door.id }}-props" class="d-none table-secondary">
+                    <td colspan="9">
+                        <div class="small p-2">
+                            <strong class="text-warning">IFC Properties:</strong>
+                            {% for pset_name, props in door.properties.items %}
+                            <div class="mt-2 mb-3 pb-2 border-bottom">
+                                <strong class="text-primary"><i class="bi bi-folder"></i> {{ pset_name }}</strong>
+                                <span class="text-muted small">({{ props|length }})</span>
+                                <div class="ms-3 mt-1">
+                                    {% for key, value in props.items %}
+                                    <div class="row g-1">
+                                        <div class="col-auto"><code class="text-muted">{{ key }}:</code></div>
+                                        <div class="col">{{ value|default:"-" }}</div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </td>
+                </tr>
+                {% endif %}
+                {% empty %}
+                <tr><td colspan="9" class="text-center text-muted py-4">Keine Türen gefunden</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+function toggleProperties(id) {
+    const row = document.getElementById(id + '-props');
+    if (row) row.classList.toggle('d-none');
+}
+</script>
+
+<!-- Pagination -->
+{% if is_paginated %}
+<nav class="mt-3">
+    <ul class="pagination pagination-sm justify-content-center mb-0">
+        {% if page_obj.has_previous %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.previous_page_number }}">← Zurück</a></li>
+        {% endif %}
+        <li class="page-item active"><span class="page-link">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span></li>
+        {% if page_obj.has_next %}
+        <li class="page-item"><a class="page-link" href="?page={{ page_obj.next_page_number }}">Weiter →</a></li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}

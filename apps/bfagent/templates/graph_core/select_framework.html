@@ -1,0 +1,98 @@
+{% extends "graph_core/base.html" %}
+
+{% block graph_content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'graph_core:dashboard' %}">Graph Core</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'writing_hub:project_hub' project.id %}">{{ project.title }}</a></li>
+        <li class="breadcrumb-item active">Select Framework</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">
+                    <i class="bi bi-diagram-3 me-2"></i>
+                    Select Framework for "{{ project.title }}"
+                </h5>
+            </div>
+            <div class="card-body">
+                {% if existing %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>
+                    Currently using <strong>{{ existing.framework.display_name }}</strong>
+                    ({{ existing.progress_percent|floatformat:0 }}% complete).
+                    Selecting a new framework will reset progress.
+                </div>
+                {% endif %}
+                
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row">
+                        {% for framework in frameworks %}
+                        <div class="col-md-6 mb-3">
+                            <div class="card h-100 {% if existing and existing.framework_id == framework.id %}border-primary{% endif %}">
+                                <div class="card-body">
+                                    <div class="form-check">
+                                        <input class="form-check-input" type="radio" 
+                                               name="framework_id" value="{{ framework.id }}" 
+                                               id="fw-{{ framework.id }}"
+                                               {% if existing and existing.framework_id == framework.id %}checked{% endif %}>
+                                        <label class="form-check-label w-100" for="fw-{{ framework.id }}">
+                                            <h6 class="mb-1">
+                                                <i class="bi bi-{{ framework.icon|default:'diagram-3' }} me-1" 
+                                                   style="color: {{ framework.color }}"></i>
+                                                {{ framework.display_name }}
+                                            </h6>
+                                            <p class="small text-muted mb-2">
+                                                {{ framework.description|truncatewords:20 }}
+                                            </p>
+                                            <div class="d-flex gap-2">
+                                                <span class="badge bg-secondary">
+                                                    {{ framework.phase_count }} Phases
+                                                </span>
+                                                <span class="badge bg-light text-dark">
+                                                    {{ framework.step_count }} Steps
+                                                </span>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="card-footer bg-transparent">
+                                    <a href="{% url 'graph_core:framework-detail' framework.slug %}" 
+                                       class="small text-decoration-none" target="_blank">
+                                        <i class="bi bi-eye me-1"></i> View Details
+                                    </a>
+                                </div>
+                            </div>
+                        </div>
+                        {% empty %}
+                        <div class="col-12">
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                No frameworks available. Please create frameworks first.
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if frameworks %}
+                    <div class="d-flex justify-content-between mt-4">
+                        <a href="{% url 'writing_hub:project_hub' project.id %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-arrow-left me-1"></i> Back to Project
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg me-1"></i> 
+                            {% if existing %}Update Framework{% else %}Apply Framework{% endif %}
+                        </button>
+                    </div>
+                    {% endif %}
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

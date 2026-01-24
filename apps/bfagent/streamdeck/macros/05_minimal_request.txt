@@ -1,0 +1,5 @@
+{{CLIPBOARD:@CASCADE:
+Task: [BESCHREIBUNG]
+Requirements: [LISTE]
+Tools: BFAgent MCP
+Plan: show first}}

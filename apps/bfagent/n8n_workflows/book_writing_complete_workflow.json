@@ -1,0 +1,340 @@
+{
+  "name": "Book Writing Complete Workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "book-workflow-start",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-start",
+      "name": "Webhook Start",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/mcp/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "server",
+              "value": "book-writing-mcp"
+            },
+            {
+              "name": "tool",
+              "value": "book_create_project"
+            },
+            {
+              "name": "params",
+              "value": "={{ JSON.stringify({ title: $json.title, genre: $json.genre, description: $json.description || '' }) }}"
+            },
+            {
+              "name": "context_id",
+              "value": "={{ 'workflow_' + $executionId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "create-project",
+      "name": "1. Create Project",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/mcp/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "server",
+              "value": "book-writing-mcp"
+            },
+            {
+              "name": "tool",
+              "value": "book_generate_premise"
+            },
+            {
+              "name": "params",
+              "value": "={{ JSON.stringify({ project_id: $json.result.project_id, inspiration: $json.inspiration || '' }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-premise",
+      "name": "2. Generate Premise",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/mcp/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "server",
+              "value": "book-writing-mcp"
+            },
+            {
+              "name": "tool",
+              "value": "book_generate_characters"
+            },
+            {
+              "name": "params",
+              "value": "={{ JSON.stringify({ project_id: $('1. Create Project').item.json.result.project_id, character_count: 5 }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-characters",
+      "name": "3. Generate Characters",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [850, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/mcp/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "server",
+              "value": "book-writing-mcp"
+            },
+            {
+              "name": "tool",
+              "value": "book_generate_world"
+            },
+            {
+              "name": "params",
+              "value": "={{ JSON.stringify({ project_id: $('1. Create Project').item.json.result.project_id }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-world",
+      "name": "4. Generate World",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/mcp/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "server",
+              "value": "book-writing-mcp"
+            },
+            {
+              "name": "tool",
+              "value": "book_generate_outline"
+            },
+            {
+              "name": "params",
+              "value": "={{ JSON.stringify({ project_id: $('1. Create Project').item.json.result.project_id, framework: 'save_the_cat', num_chapters: 12 }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "generate-outline",
+      "name": "5. Generate Outline",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/mcp/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "server",
+              "value": "book-writing-mcp"
+            },
+            {
+              "name": "tool",
+              "value": "book_write_all_chapters"
+            },
+            {
+              "name": "params",
+              "value": "={{ JSON.stringify({ project_id: $('1. Create Project').item.json.result.project_id, use_ai: false }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "write-chapters",
+      "name": "6. Write All Chapters",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://localhost:8000/api/mcp/execute",
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "server",
+              "value": "book-writing-mcp"
+            },
+            {
+              "name": "tool",
+              "value": "book_export_manuscript"
+            },
+            {
+              "name": "params",
+              "value": "={{ JSON.stringify({ project_id: $('1. Create Project').item.json.result.project_id, format: 'markdown' }) }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "export-manuscript",
+      "name": "7. Export Manuscript",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [1650, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { success: true, project_id: $('1. Create Project').item.json.result.project_id, manuscript: $json.result } }}"
+      },
+      "id": "response",
+      "name": "Response",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    }
+  ],
+  "connections": {
+    "Webhook Start": {
+      "main": [
+        [
+          {
+            "node": "1. Create Project",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "1. Create Project": {
+      "main": [
+        [
+          {
+            "node": "2. Generate Premise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "2. Generate Premise": {
+      "main": [
+        [
+          {
+            "node": "3. Generate Characters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "3. Generate Characters": {
+      "main": [
+        [
+          {
+            "node": "4. Generate World",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "4. Generate World": {
+      "main": [
+        [
+          {
+            "node": "5. Generate Outline",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "5. Generate Outline": {
+      "main": [
+        [
+          {
+            "node": "6. Write All Chapters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "6. Write All Chapters": {
+      "main": [
+        [
+          {
+            "node": "7. Export Manuscript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "7. Export Manuscript": {
+      "main": [
+        [
+          {
+            "node": "Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "meta": {
+    "instanceId": "bfagent-book-writing"
+  },
+  "tags": [
+    {
+      "name": "book-writing",
+      "createdAt": "2025-12-19T08:00:00.000Z",
+      "updatedAt": "2025-12-19T08:00:00.000Z"
+    }
+  ]
+}

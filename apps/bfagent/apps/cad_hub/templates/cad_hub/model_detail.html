@@ -1,0 +1,127 @@
+<!-- templates/cad_hub/model_detail.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}{{ model.project.name }} - Version {{ model.version }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="h4 fw-bold mb-1">{{ model.project.name }}</h2>
+        <p class="text-muted mb-0">Version {{ model.version }} • {{ model.ifc_schema|default:"IFC" }}</p>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        <a href="{% url 'cad_hub:ifc_content_overview' model.pk %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-file-earmark-bar-graph"></i> IFC Inhalte
+        </a>
+        <a href="{% url 'cad_hub:room_list' model.id %}" class="btn btn-secondary btn-sm">
+            <i class="bi bi-grid-3x3"></i> Raumliste
+        </a>
+        
+        <!-- Export Dropdown -->
+        <div class="dropdown">
+            <button class="btn btn-warning btn-sm dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                <i class="bi bi-download"></i> Export
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="{% url 'cad_hub:export_raumbuch' model.id %}">
+                        <i class="bi bi-file-earmark-spreadsheet"></i> Raumbuch Excel
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'cad_hub:export_woflv' model.id %}">
+                        <i class="bi bi-house"></i> WoFlV Wohnfläche
+                    </a>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'cad_hub:export_gaeb' model.id %}?format=xml">
+                        <i class="bi bi-file-code"></i> GAEB X84 XML
+                    </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" href="{% url 'cad_hub:export_gaeb' model.id %}?format=excel">
+                        <i class="bi bi-file-earmark-excel"></i> GAEB Excel
+                    </a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- Status Banner -->
+{% if model.status == 'processing' %}
+<div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+    <div class="spinner-border spinner-border-sm me-2" role="status"></div>
+    Modell wird verarbeitet...
+</div>
+{% elif model.status == 'error' %}
+<div class="alert alert-danger mb-4" role="alert">
+    <strong>Fehler bei der Verarbeitung</strong>
+    <p class="mb-0 small">{{ model.error_message }}</p>
+</div>
+{% endif %}
+
+<!-- Stats -->
+<div class="row g-3 mb-4">
+    <div class="col-md-3 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <p class="text-muted small mb-1">Geschosse</p>
+                <p class="h3 fw-bold mb-0">{{ floors.count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <p class="text-muted small mb-1">Räume</p>
+                <p class="h3 fw-bold mb-0">{{ room_count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <p class="text-muted small mb-1">Schema</p>
+                <p class="h3 fw-bold mb-0 text-warning">{{ model.ifc_schema|default:"-" }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body">
+                <p class="text-muted small mb-1">Status</p>
+                <p class="h3 fw-bold mb-0 {% if model.status == 'ready' %}text-success{% elif model.status == 'error' %}text-danger{% else %}text-primary{% endif %}">
+                    {{ model.get_status_display }}
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Gebäudestruktur -->
+<div class="card">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-building"></i> Gebäudestruktur</h5>
+    </div>
+    <div class="list-group list-group-flush">
+        {% for floor in floors %}
+        <a href="{% url 'cad_hub:room_list' model.id %}?floor={{ floor.id }}" 
+           class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+            <div class="d-flex align-items-center gap-2">
+                <span class="badge bg-warning rounded-circle p-1">&nbsp;</span>
+                <span>{{ floor.name }}</span>
+                <small class="text-muted">({{ floor.elevation|floatformat:2 }}m)</small>
+            </div>
+            <span class="badge bg-secondary">{{ floor.room_count }} Räume</span>
+        </a>
+        {% empty %}
+        <div class="list-group-item text-center py-4 text-muted">
+            Keine Geschosse gefunden
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

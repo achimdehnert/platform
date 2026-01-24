@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Travel Story - Reise erfassen</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .step-indicator.active { background-color: #3b82f6; color: white; }
+        .step-indicator.completed { background-color: #10b981; color: white; }
+        .form-section { display: none; }
+        .form-section.active { display: block; }
+        .stop-card { animation: slideIn 0.3s ease-out; }
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    
+    <!-- Header -->
+    <header class="bg-gradient-to-r from-blue-600 to-purple-600 text-white py-6 shadow-lg">
+        <div class="max-w-4xl mx-auto px-4">
+            <h1 class="text-3xl font-bold">🌍 Travel Story</h1>
+            <p class="text-blue-100 mt-1">Deine personalisierte Reise-Geschichte</p>
+        </div>
+    </header>
+
+    <!-- Progress Bar -->
+    <div class="bg-white shadow-sm sticky top-0 z-10">
+        <div class="max-w-4xl mx-auto px-4 py-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center space-x-2">
+                    <div id="step1-indicator" class="step-indicator active w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200">1</div>
+                    <span class="text-sm font-medium hidden sm:inline">Reise</span>
+                </div>
+                <div class="flex-1 h-1 bg-gray-200 mx-2"><div id="progress-1" class="h-full bg-blue-500 transition-all" style="width: 0%"></div></div>
+                
+                <div class="flex items-center space-x-2">
+                    <div id="step2-indicator" class="step-indicator w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200">2</div>
+                    <span class="text-sm font-medium hidden sm:inline">Route</span>
+                </div>
+                <div class="flex-1 h-1 bg-gray-200 mx-2"><div id="progress-2" class="h-full bg-blue-500 transition-all" style="width: 0%"></div></div>
+                
+                <div class="flex items-center space-x-2">
+                    <div id="step3-indicator" class="step-indicator w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200">3</div>
+                    <span class="text-sm font-medium hidden sm:inline">Präferenzen</span>
+                </div>
+                <div class="flex-1 h-1 bg-gray-200 mx-2"><div id="progress-3" class="h-full bg-blue-500 transition-all" style="width: 0%"></div></div>
+                
+                <div class="flex items-center space-x-2">
+                    <div id="step4-indicator" class="step-indicator w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold bg-gray-200">4</div>
+                    <span class="text-sm font-medium hidden sm:inline">Story</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Form -->
+    <main class="max-w-4xl mx-auto px-4 py-8">
+        <form id="travel-form">
+            
+            <!-- ═══════════════════════════════════════════════ -->
+            <!-- STEP 1: Basis-Reisedaten -->
+            <!-- ═══════════════════════════════════════════════ -->
+            <section id="step1" class="form-section active">
+                <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span class="bg-blue-100 text-blue-600 w-10 h-10 rounded-full flex items-center justify-center mr-3">1</span>
+                        Deine Reise
+                    </h2>
+                    
+                    <!-- Reisename -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Wie möchtest du diese Reise nennen? <span class="text-gray-400">(optional)</span>
+                        </label>
+                        <input type="text" name="trip_name" placeholder="z.B. Sommerurlaub Italien 2025" 
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                    </div>
+                    
+                    <!-- Datum -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Abreise <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" name="departure_date" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-2">
+                                Rückkehr <span class="text-red-500">*</span>
+                            </label>
+                            <input type="date" name="return_date" required
+                                   class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                        </div>
+                    </div>
+                    
+                    <!-- Startort -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">
+                            Von wo startest du? <span class="text-red-500">*</span>
+                        </label>
+                        <input type="text" name="origin" placeholder="z.B. München" required
+                               class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    
+                    <!-- Reisetyp -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Was für eine Reise ist das? <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="beach" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">🏖️</div>
+                                    <div class="text-sm font-medium">Strandurlaub</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="city" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">🏛️</div>
+                                    <div class="text-sm font-medium">Städtetrip</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="roadtrip" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">🚗</div>
+                                    <div class="text-sm font-medium">Roadtrip</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="adventure" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">🥾</div>
+                                    <div class="text-sm font-medium">Aktivurlaub</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="cultural" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">🎭</div>
+                                    <div class="text-sm font-medium">Kulturreise</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="romantic" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">💕</div>
+                                    <div class="text-sm font-medium">Romantisch</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="wellness" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">🧘</div>
+                                    <div class="text-sm font-medium">Wellness</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="trip_type" value="mixed" class="sr-only peer" checked>
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-1">✨</div>
+                                    <div class="text-sm font-medium">Mix</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Reisebegleitung -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Mit wem reist du? <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="travel_party" value="solo" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🧑</div>
+                                    <div class="text-xs font-medium">Solo</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="travel_party" value="partner" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">👫</div>
+                                    <div class="text-xs font-medium">Partner</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="travel_party" value="friends" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">👯</div>
+                                    <div class="text-xs font-medium">Freunde</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="travel_party" value="family" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">👨‍👩‍👧</div>
+                                    <div class="text-xs font-medium">Familie</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="travel_party" value="business" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">💼</div>
+                                    <div class="text-xs font-medium">Geschäftlich</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="flex justify-end">
+                    <button type="button" onclick="nextStep(1)" 
+                            class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center">
+                        Weiter zur Route
+                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════ -->
+            <!-- STEP 2: Route & Stopps -->
+            <!-- ═══════════════════════════════════════════════ -->
+            <section id="step2" class="form-section">
+                <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span class="bg-blue-100 text-blue-600 w-10 h-10 rounded-full flex items-center justify-center mr-3">2</span>
+                        Deine Route
+                    </h2>
+                    
+                    <p class="text-gray-600 mb-6">Füge deine Reiseziele in der Reihenfolge hinzu, wie du sie besuchst.</p>
+                    
+                    <!-- Stops Container -->
+                    <div id="stops-container" class="space-y-4 mb-6">
+                        <!-- Stop 1 wird automatisch eingefügt -->
+                    </div>
+                    
+                    <!-- Add Stop Button -->
+                    <button type="button" onclick="addStop()" 
+                            class="w-full py-3 border-2 border-dashed border-gray-300 rounded-lg text-gray-500 hover:border-blue-500 hover:text-blue-500 transition flex items-center justify-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+                        </svg>
+                        Weiteren Stopp hinzufügen
+                    </button>
+                </div>
+                
+                <!-- Transport -->
+                <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <h3 class="text-lg font-semibold text-gray-800 mb-4">Haupttransportmittel</h3>
+                    <div class="grid grid-cols-3 md:grid-cols-6 gap-3">
+                        <label class="cursor-pointer">
+                            <input type="radio" name="transport" value="flight" class="sr-only peer" checked>
+                            <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                <div class="text-2xl mb-1">✈️</div>
+                                <div class="text-xs">Flug</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="transport" value="train" class="sr-only peer">
+                            <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                <div class="text-2xl mb-1">🚄</div>
+                                <div class="text-xs">Zug</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="transport" value="car" class="sr-only peer">
+                            <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                <div class="text-2xl mb-1">🚗</div>
+                                <div class="text-xs">Auto</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="transport" value="bus" class="sr-only peer">
+                            <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                <div class="text-2xl mb-1">🚌</div>
+                                <div class="text-xs">Bus</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="transport" value="ship" class="sr-only peer">
+                            <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                <div class="text-2xl mb-1">🚢</div>
+                                <div class="text-xs">Schiff</div>
+                            </div>
+                        </label>
+                        <label class="cursor-pointer">
+                            <input type="radio" name="transport" value="mixed" class="sr-only peer">
+                            <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                <div class="text-2xl mb-1">🔄</div>
+                                <div class="text-xs">Mix</div>
+                            </div>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="flex justify-between">
+                    <button type="button" onclick="prevStep(2)" 
+                            class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Zurück
+                    </button>
+                    <button type="button" onclick="nextStep(2)" 
+                            class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center">
+                        Weiter zu Präferenzen
+                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════ -->
+            <!-- STEP 3: Lese-Präferenzen -->
+            <!-- ═══════════════════════════════════════════════ -->
+            <section id="step3" class="form-section">
+                <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span class="bg-blue-100 text-blue-600 w-10 h-10 rounded-full flex items-center justify-center mr-3">3</span>
+                        Deine Lese-Präferenzen
+                    </h2>
+                    
+                    <!-- Lesegeschwindigkeit -->
+                    <div class="mb-8">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Wie schnell liest du?
+                        </label>
+                        <div class="grid grid-cols-3 gap-4">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="reading_speed" value="slow" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🐢</div>
+                                    <div class="font-medium">Gemütlich</div>
+                                    <div class="text-xs text-gray-500">Ich genieße jeden Satz</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="reading_speed" value="average" class="sr-only peer" checked>
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🚶</div>
+                                    <div class="font-medium">Normal</div>
+                                    <div class="text-xs text-gray-500">Durchschnittliches Tempo</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="reading_speed" value="fast" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🐇</div>
+                                    <div class="font-medium">Schnell</div>
+                                    <div class="text-xs text-gray-500">Ich verschlinge Bücher</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Wann liest du? -->
+                    <div class="mb-8">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Wann wirst du auf der Reise lesen? <span class="text-gray-400">(Mehrfachauswahl)</span>
+                        </label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="checkbox" name="reading_times" value="transport" class="sr-only peer" checked>
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">✈️</div>
+                                    <div class="text-xs">Im Flug/Zug</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="checkbox" name="reading_times" value="morning" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🌅</div>
+                                    <div class="text-xs">Morgens</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="checkbox" name="reading_times" value="pool" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🏖️</div>
+                                    <div class="text-xs">Pool/Strand</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="checkbox" name="reading_times" value="evening" class="sr-only peer" checked>
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🌙</div>
+                                    <div class="text-xs">Abends</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Triggers vermeiden -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Bitte KEINE Inhalte mit: <span class="text-gray-400">(optional)</span>
+                        </label>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" name="triggers" value="violence" class="w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2 text-sm">Detaillierte Gewalt</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" name="triggers" value="death" class="w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2 text-sm">Tod von Kindern/Tieren</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" name="triggers" value="crash" class="w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2 text-sm">Flugzeugabstürze</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" name="triggers" value="assault" class="w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2 text-sm">Sexuelle Übergriffe</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" name="triggers" value="selfharm" class="w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2 text-sm">Suizid/Selbstverletzung</span>
+                            </label>
+                            <label class="flex items-center p-3 border rounded-lg hover:bg-gray-50 cursor-pointer">
+                                <input type="checkbox" name="triggers" value="cheating" class="w-4 h-4 text-blue-600 rounded">
+                                <span class="ml-2 text-sm">Untreue/Betrug</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="flex justify-between">
+                    <button type="button" onclick="prevStep(3)" 
+                            class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Zurück
+                    </button>
+                    <button type="button" onclick="nextStep(3)" 
+                            class="px-8 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition flex items-center">
+                        Weiter zur Story
+                        <svg class="w-5 h-5 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+                        </svg>
+                    </button>
+                </div>
+            </section>
+
+            <!-- ═══════════════════════════════════════════════ -->
+            <!-- STEP 4: Story-Wünsche -->
+            <!-- ═══════════════════════════════════════════════ -->
+            <section id="step4" class="form-section">
+                <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+                    <h2 class="text-2xl font-bold text-gray-800 mb-6 flex items-center">
+                        <span class="bg-blue-100 text-blue-600 w-10 h-10 rounded-full flex items-center justify-center mr-3">4</span>
+                        Deine Story
+                    </h2>
+                    
+                    <!-- Genre -->
+                    <div class="mb-8">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Welches Genre? <span class="text-red-500">*</span>
+                        </label>
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="thriller" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🔪</div>
+                                    <div class="font-medium">Thriller</div>
+                                    <div class="text-xs text-gray-500">Spannung pur</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="romance" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">💕</div>
+                                    <div class="font-medium">Romance</div>
+                                    <div class="text-xs text-gray-500">Liebe & Gefühle</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="mystery" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🔍</div>
+                                    <div class="font-medium">Mystery</div>
+                                    <div class="text-xs text-gray-500">Rätsel & Geheimnisse</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="romantic_suspense" class="sr-only peer" checked>
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">💕🔪</div>
+                                    <div class="font-medium">Romantic Suspense</div>
+                                    <div class="text-xs text-gray-500">Liebe & Spannung</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="adventure" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🗺️</div>
+                                    <div class="font-medium">Abenteuer</div>
+                                    <div class="text-xs text-gray-500">Action & Entdeckung</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="cozy" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">☕</div>
+                                    <div class="font-medium">Cozy</div>
+                                    <div class="text-xs text-gray-500">Gemütlich & warm</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="literary" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">📚</div>
+                                    <div class="font-medium">Literary</div>
+                                    <div class="text-xs text-gray-500">Tiefgründig</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="genre" value="surprise" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🎁</div>
+                                    <div class="font-medium">Überraschung</div>
+                                    <div class="text-xs text-gray-500">Du entscheidest</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Spice Level -->
+                    <div class="mb-8">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Romantische Szenen?
+                        </label>
+                        <div class="grid grid-cols-4 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="spice" value="none" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">❄️</div>
+                                    <div class="text-xs">Keine</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="spice" value="mild" class="sr-only peer" checked>
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🌶️</div>
+                                    <div class="text-xs">Angedeutet</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="spice" value="moderate" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🌶️🌶️</div>
+                                    <div class="text-xs">Moderat</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="spice" value="spicy" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🌶️🌶️🌶️</div>
+                                    <div class="text-xs">Explizit</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Location Sync -->
+                    <div class="mb-8">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Soll die Story an deinen Reiseorten spielen?
+                        </label>
+                        <div class="grid grid-cols-3 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="location_sync" value="exact" class="sr-only peer" checked>
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">📍</div>
+                                    <div class="font-medium">Ja, genau dort</div>
+                                    <div class="text-xs text-gray-500">Maximale Immersion</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="location_sync" value="inspired" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">✨</div>
+                                    <div class="font-medium">Inspiriert</div>
+                                    <div class="text-xs text-gray-500">Ähnliche Atmosphäre</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="location_sync" value="different" class="sr-only peer">
+                                <div class="p-4 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-2xl mb-2">🌍</div>
+                                    <div class="font-medium">Egal</div>
+                                    <div class="text-xs text-gray-500">Andere Orte OK</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- Ending -->
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-3">
+                            Wie soll die Story enden?
+                        </label>
+                        <div class="grid grid-cols-4 gap-3">
+                            <label class="cursor-pointer">
+                                <input type="radio" name="ending" value="happy" class="sr-only peer" checked>
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">😊</div>
+                                    <div class="text-xs">Happy End</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="ending" value="hopeful" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🌅</div>
+                                    <div class="text-xs">Hoffnungsvoll</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="ending" value="bittersweet" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🥲</div>
+                                    <div class="text-xs">Bittersüß</div>
+                                </div>
+                            </label>
+                            <label class="cursor-pointer">
+                                <input type="radio" name="ending" value="surprise" class="sr-only peer">
+                                <div class="p-3 border-2 rounded-lg text-center peer-checked:border-blue-500 peer-checked:bg-blue-50 hover:bg-gray-50 transition">
+                                    <div class="text-xl mb-1">🎲</div>
+                                    <div class="text-xs">Überrasch mich</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Navigation -->
+                <div class="flex justify-between">
+                    <button type="button" onclick="prevStep(4)" 
+                            class="px-6 py-3 border border-gray-300 text-gray-700 font-semibold rounded-lg hover:bg-gray-50 transition flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+                        </svg>
+                        Zurück
+                    </button>
+                    <button type="button" onclick="submitForm()" 
+                            class="px-8 py-3 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 transition flex items-center">
+                        <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                        </svg>
+                        Story generieren
+                    </button>
+                </div>
+            </section>
+        </form>
+    </main>
+
+    <!-- Result Modal -->
+    <div id="result-modal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div class="p-6">
+                <h2 class="text-2xl font-bold text-gray-800 mb-4">📊 Deine Reise-Daten</h2>
+                <pre id="result-json" class="bg-gray-100 p-4 rounded-lg text-sm overflow-x-auto"></pre>
+                <div class="mt-6 flex justify-end space-x-3">
+                    <button onclick="closeModal()" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
+                        Schließen
+                    </button>
+                    <button onclick="copyJson()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                        JSON kopieren
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ═══════════════════════════════════════════════════════════════
+        // STATE
+        // ═══════════════════════════════════════════════════════════════
+        
+        let stopCount = 0;
+        
+        // ═══════════════════════════════════════════════════════════════
+        // NAVIGATION
+        // ═══════════════════════════════════════════════════════════════
+        
+        function nextStep(currentStep) {
+            // Validate current step
+            if (!validateStep(currentStep)) return;
+            
+            // Hide current, show next
+            document.getElementById(`step${currentStep}`).classList.remove('active');
+            document.getElementById(`step${currentStep + 1}`).classList.add('active');
+            
+            // Update indicators
+            document.getElementById(`step${currentStep}-indicator`).classList.remove('active');
+            document.getElementById(`step${currentStep}-indicator`).classList.add('completed');
+            document.getElementById(`step${currentStep + 1}-indicator`).classList.add('active');
+            
+            // Update progress bars
+            document.getElementById(`progress-${currentStep}`).style.width = '100%';
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function prevStep(currentStep) {
+            document.getElementById(`step${currentStep}`).classList.remove('active');
+            document.getElementById(`step${currentStep - 1}`).classList.add('active');
+            
+            document.getElementById(`step${currentStep}-indicator`).classList.remove('active');
+            document.getElementById(`step${currentStep - 1}-indicator`).classList.remove('completed');
+            document.getElementById(`step${currentStep - 1}-indicator`).classList.add('active');
+            
+            document.getElementById(`progress-${currentStep - 1}`).style.width = '0%';
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function validateStep(step) {
+            // Basic validation per step
+            if (step === 1) {
+                const required = ['departure_date', 'return_date', 'origin'];
+                for (const field of required) {
+                    if (!document.querySelector(`[name="${field}"]`).value) {
+                        alert('Bitte fülle alle Pflichtfelder aus.');
+                        return false;
+                    }
+                }
+            }
+            if (step === 2) {
+                if (stopCount === 0) {
+                    alert('Bitte füge mindestens einen Stopp hinzu.');
+                    return false;
+                }
+            }
+            return true;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // STOPS MANAGEMENT
+        // ═══════════════════════════════════════════════════════════════
+        
+        function addStop() {
+            stopCount++;
+            const container = document.getElementById('stops-container');
+            
+            const stopHtml = `
+                <div class="stop-card bg-gray-50 rounded-lg p-4 relative" id="stop-${stopCount}">
+                    <button type="button" onclick="removeStop(${stopCount})" 
+                            class="absolute top-2 right-2 text-gray-400 hover:text-red-500">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                        </svg>
+                    </button>
+                    
+                    <div class="flex items-center mb-3">
+                        <span class="bg-blue-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold mr-2">${stopCount}</span>
+                        <span class="font-medium text-gray-700">Stopp ${stopCount}</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div class="md:col-span-2">
+                            <label class="block text-xs text-gray-500 mb-1">Ort</label>
+                            <input type="text" name="stop_${stopCount}_city" placeholder="z.B. Barcelona" required
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-gray-500 mb-1">Nächte</label>
+                            <input type="number" name="stop_${stopCount}_nights" min="1" max="30" value="3"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                        </div>
+                    </div>
+                    
+                    <div class="mt-3">
+                        <label class="block text-xs text-gray-500 mb-1">Unterkunft</label>
+                        <select name="stop_${stopCount}_accommodation" 
+                                class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                            <option value="hotel">🏨 Hotel</option>
+                            <option value="airbnb">🏠 Airbnb</option>
+                            <option value="hostel">🛏️ Hostel</option>
+                            <option value="resort">🏝️ Resort</option>
+                            <option value="camping">⛺ Camping</option>
+                            <option value="friends">👋 Bei Freunden</option>
+                        </select>
+                    </div>
+                </div>
+            `;
+            
+            container.insertAdjacentHTML('beforeend', stopHtml);
+        }
+        
+        function removeStop(id) {
+            document.getElementById(`stop-${id}`).remove();
+            // Renumber remaining stops
+            const stops = document.querySelectorAll('#stops-container > div');
+            stops.forEach((stop, index) => {
+                const num = index + 1;
+                stop.querySelector('.bg-blue-500').textContent = num;
+                stop.querySelector('.font-medium').textContent = `Stopp ${num}`;
+            });
+            stopCount = stops.length;
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // FORM SUBMISSION
+        // ═══════════════════════════════════════════════════════════════
+        
+        function submitForm() {
+            const formData = collectFormData();
+            
+            // Show result
+            document.getElementById('result-json').textContent = JSON.stringify(formData, null, 2);
+            document.getElementById('result-modal').classList.remove('hidden');
+        }
+        
+        function collectFormData() {
+            const form = document.getElementById('travel-form');
+            const data = {
+                metadata: {
+                    created_at: new Date().toISOString(),
+                    intake_level: 'standard'
+                },
+                trip: {
+                    name: form.querySelector('[name="trip_name"]').value || null,
+                    origin: form.querySelector('[name="origin"]').value,
+                    departure_date: form.querySelector('[name="departure_date"]').value,
+                    return_date: form.querySelector('[name="return_date"]').value,
+                    type: form.querySelector('[name="trip_type"]:checked')?.value || 'mixed',
+                    travel_party: form.querySelector('[name="travel_party"]:checked')?.value || null,
+                    transport: form.querySelector('[name="transport"]:checked')?.value || 'flight'
+                },
+                stops: [],
+                preferences: {
+                    reading_speed: form.querySelector('[name="reading_speed"]:checked')?.value || 'average',
+                    reading_times: Array.from(form.querySelectorAll('[name="reading_times"]:checked')).map(el => el.value),
+                    triggers_avoid: Array.from(form.querySelectorAll('[name="triggers"]:checked')).map(el => el.value)
+                },
+                story: {
+                    genre: form.querySelector('[name="genre"]:checked')?.value || 'romantic_suspense',
+                    spice_level: form.querySelector('[name="spice"]:checked')?.value || 'mild',
+                    location_sync: form.querySelector('[name="location_sync"]:checked')?.value || 'exact',
+                    ending: form.querySelector('[name="ending"]:checked')?.value || 'happy'
+                }
+            };
+            
+            // Collect stops
+            for (let i = 1; i <= stopCount; i++) {
+                const cityInput = form.querySelector(`[name="stop_${i}_city"]`);
+                if (cityInput && cityInput.value) {
+                    data.stops.push({
+                        order: i,
+                        city: cityInput.value,
+                        nights: parseInt(form.querySelector(`[name="stop_${i}_nights"]`)?.value || 3),
+                        accommodation: form.querySelector(`[name="stop_${i}_accommodation"]`)?.value || 'hotel'
+                    });
+                }
+            }
+            
+            // Calculate total nights
+            data.trip.total_nights = data.stops.reduce((sum, stop) => sum + stop.nights, 0);
+            
+            return data;
+        }
+        
+        function closeModal() {
+            document.getElementById('result-modal').classList.add('hidden');
+        }
+        
+        function copyJson() {
+            const json = document.getElementById('result-json').textContent;
+            navigator.clipboard.writeText(json).then(() => {
+                alert('JSON wurde kopiert!');
+            });
+        }
+        
+        // ═══════════════════════════════════════════════════════════════
+        // INIT
+        // ═══════════════════════════════════════════════════════════════
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            // Add first stop automatically
+            addStop();
+            
+            // Set default dates (today + 30 days)
+            const today = new Date();
+            const departure = new Date(today);
+            departure.setDate(today.getDate() + 30);
+            const returnDate = new Date(departure);
+            returnDate.setDate(departure.getDate() + 7);
+            
+            document.querySelector('[name="departure_date"]').value = departure.toISOString().split('T')[0];
+            document.querySelector('[name="return_date"]').value = returnDate.toISOString().split('T')[0];
+        });
+    </script>
+</body>
+</html>

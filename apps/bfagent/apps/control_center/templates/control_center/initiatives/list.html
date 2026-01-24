@@ -1,0 +1,109 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Initiativen{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1"><i class="bi bi-lightbulb text-warning"></i> Initiativen</h1>
+            <p class="text-muted mb-0">Konzepte und Epics verwalten</p>
+        </div>
+        <div>
+            <a href="{% url 'control_center:initiative-kanban' %}" class="btn btn-outline-primary me-2">
+                <i class="bi bi-kanban"></i> Kanban
+            </a>
+            <a href="{% url 'control_center:initiative-create' %}" class="btn btn-success">
+                <i class="bi bi-plus-lg"></i> Neue Initiative
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-4">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">Alle Status</option>
+                        {% for code, name in status_choices %}
+                        <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Domain</label>
+                    <select name="domain" class="form-select" onchange="this.form.submit()">
+                        <option value="">Alle Domains</option>
+                        {% for code, name in domain_choices %}
+                        <option value="{{ code }}" {% if domain_filter == code %}selected{% endif %}>{{ name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4 d-flex align-items-end">
+                    <a href="{% url 'control_center:initiative-list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg"></i> Filter zurücksetzen
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Initiative List -->
+    <div class="row g-4" id="initiative-list">
+        {% for initiative in initiatives %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span class="badge bg-{{ initiative.priority }}">{{ initiative.get_priority_display }}</span>
+                    <span class="badge bg-secondary">{{ initiative.domain }}</span>
+                </div>
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <a href="{% url 'control_center:initiative-detail' pk=initiative.pk %}" class="text-decoration-none">
+                            {{ initiative.title }}
+                        </a>
+                    </h5>
+                    <p class="card-text text-muted small">{{ initiative.description|truncatewords:20 }}</p>
+                    
+                    <!-- Progress -->
+                    <div class="mb-2">
+                        <div class="d-flex justify-content-between small">
+                            <span>Fortschritt</span>
+                            <span>{{ initiative.completed_requirements }}/{{ initiative.requirements_count }}</span>
+                        </div>
+                        <div class="progress" style="height: 6px;">
+                            <div class="progress-bar bg-success" style="width: {{ initiative.progress_percentage }}%"></div>
+                        </div>
+                    </div>
+                    
+                    <!-- Status Badge -->
+                    <span class="badge 
+                        {% if initiative.status == 'completed' %}bg-success
+                        {% elif initiative.status == 'in_progress' %}bg-primary
+                        {% elif initiative.status == 'analysis' %}bg-info
+                        {% elif initiative.status == 'concept' %}bg-warning text-dark
+                        {% else %}bg-secondary{% endif %}">
+                        {{ initiative.get_status_display }}
+                    </span>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <small class="text-muted">
+                        <i class="bi bi-clock"></i> {{ initiative.updated_at|timesince }} ago
+                    </small>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12">
+            <div class="alert alert-info">
+                <i class="bi bi-info-circle"></i> Keine Initiativen gefunden.
+                <a href="{% url 'control_center:initiative-create' %}">Erstelle die erste Initiative</a>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

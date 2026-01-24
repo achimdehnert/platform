@@ -1,0 +1,819 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ session.name }} - Kreativagent{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-container {
+        height: 500px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border-radius: 0.5rem;
+    }
+    .chat-message {
+        margin-bottom: 1rem;
+        max-width: 85%;
+    }
+    .chat-message.user {
+        margin-left: auto;
+    }
+    .chat-message.agent {
+        margin-right: auto;
+    }
+    .chat-message .bubble {
+        padding: 0.75rem 1rem;
+        border-radius: 1rem;
+    }
+    .chat-message.user .bubble {
+        background: #0d6efd;
+        color: white;
+        border-bottom-right-radius: 0.25rem;
+    }
+    .chat-message.agent .bubble {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-bottom-left-radius: 0.25rem;
+    }
+    .chat-message.system .bubble {
+        background: #e9ecef;
+        color: #6c757d;
+        text-align: center;
+        font-size: 0.875rem;
+    }
+    .idea-card {
+        transition: all 0.2s ease;
+        cursor: pointer;
+    }
+    .idea-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .idea-card.selected {
+        border-color: #0d6efd !important;
+        background: #f0f7ff;
+    }
+    .rating-btn {
+        opacity: 0.5;
+        transition: opacity 0.2s;
+    }
+    .rating-btn:hover, .rating-btn.active {
+        opacity: 1;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <a href="{% url 'writing_hub:creative-dashboard' %}" class="text-decoration-none">
+                        <i class="bi bi-arrow-left me-2"></i>Zurück
+                    </a>
+                    <h1 class="h3 mb-1 mt-2">
+                        <i class="bi bi-lightbulb text-warning me-2"></i>{{ session.name }}
+                    </h1>
+                    <span class="badge bg-{% if session.current_phase == 'completed' %}success{% elif session.current_phase == 'cancelled' %}secondary{% else %}primary{% endif %}">
+                        {{ session.get_current_phase_display }}
+                    </span>
+                </div>
+                {% if session.current_phase == 'premise' and session.selected_idea %}
+                <form method="post" action="{% url 'writing_hub:creative-create-project' session_id=session.id %}">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-folder-plus me-2"></i>Projekt erstellen
+                    </button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Chat & Ideas Column -->
+        <div class="col-lg-8">
+            <!-- Ideas Section -->
+            {% if ideas %}
+            <div class="card mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span><i class="bi bi-collection me-2"></i>Buchideen ({{ ideas|length }})</span>
+                    {% if can_generate %}
+                    <button class="btn btn-sm btn-outline-primary" onclick="generateMoreIdeas()">
+                        <i class="bi bi-plus me-1"></i>Mehr Ideen
+                    </button>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="row g-3">
+                        {% for idea in ideas %}
+                        <div class="col-md-6">
+                            <div class="card idea-card h-100 {% if session.selected_idea.id == idea.id %}selected border-primary{% endif %}"
+                                 data-idea-id="{{ idea.id }}">
+                                <div class="card-body">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <h6 class="card-title mb-0">{{ idea.title_sketch }}</h6>
+                                        <span class="badge bg-secondary">{{ idea.genre }}</span>
+                                    </div>
+                                    <p class="card-text small text-muted mb-2">{{ idea.hook }}</p>
+                                    
+                                    <!-- Rating -->
+                                    <div class="btn-group btn-group-sm mb-2" role="group">
+                                        <button type="button" class="btn btn-outline-danger rating-btn {% if idea.user_rating == 'love' %}active{% endif %}"
+                                                onclick="rateIdea('{{ idea.id }}', 'love')">❤️</button>
+                                        <button type="button" class="btn btn-outline-success rating-btn {% if idea.user_rating == 'like' %}active{% endif %}"
+                                                onclick="rateIdea('{{ idea.id }}', 'like')">👍</button>
+                                        <button type="button" class="btn btn-outline-warning rating-btn {% if idea.user_rating == 'maybe' %}active{% endif %}"
+                                                onclick="rateIdea('{{ idea.id }}', 'maybe')">🤔</button>
+                                        <button type="button" class="btn btn-outline-secondary rating-btn {% if idea.user_rating == 'dislike' %}active{% endif %}"
+                                                onclick="rateIdea('{{ idea.id }}', 'dislike')">👎</button>
+                                    </div>
+                                    
+                                    <!-- Actions -->
+                                    <div class="btn-group btn-group-sm w-100 mb-1">
+                                        <button class="btn btn-outline-primary" onclick="refineIdea('{{ idea.id }}')">
+                                            <i class="bi bi-pencil"></i> Verfeinern
+                                        </button>
+                                        {% if idea.has_full_premise %}
+                                        <button class="btn btn-outline-info" onclick="showPremise('{{ idea.id }}')">
+                                            <i class="bi bi-file-text"></i> Premise
+                                        </button>
+                                        {% else %}
+                                        <button class="btn btn-outline-success" onclick="generatePremise('{{ idea.id }}')">
+                                            <i class="bi bi-magic"></i> Premise
+                                        </button>
+                                        {% endif %}
+                                        <button class="btn btn-primary" onclick="selectIdea('{{ idea.id }}')">
+                                            <i class="bi bi-check-lg"></i> Auswählen
+                                        </button>
+                                    </div>
+                                    <button class="btn btn-outline-danger btn-sm w-100" onclick="deleteIdea('{{ idea.id }}', '{{ idea.title_sketch|escapejs }}')">
+                                        <i class="bi bi-trash"></i> Löschen
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Chat Section -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-chat-dots me-2"></i>Chat mit Kreativagent
+                </div>
+                <div class="card-body">
+                    <div class="chat-container p-3" id="chatContainer">
+                        {% for msg in messages %}
+                        <div class="chat-message {{ msg.sender }}">
+                            <div class="bubble">
+                                {% if msg.sender == 'agent' %}
+                                <small class="text-muted d-block mb-1">
+                                    <i class="bi bi-robot"></i> Kreativagent
+                                </small>
+                                {% endif %}
+                                {{ msg.content|linebreaks }}
+                            </div>
+                            <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">
+                                {{ msg.created_at|date:"H:i" }}
+                            </small>
+                        </div>
+                        {% empty %}
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-chat-dots display-4"></i>
+                            <p class="mt-2">Starte das Gespräch!</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    
+                    {% if can_generate %}
+                    <!-- Normal Chat Input -->
+                    <form id="chatForm" class="mt-3">
+                        {% csrf_token %}
+                        <div class="input-group">
+                            <input type="text" class="form-control" id="messageInput" name="message"
+                                   placeholder="Erzähl mir mehr über deine Idee..." autocomplete="off">
+                            <button class="btn btn-primary" type="submit">
+                                <i class="bi bi-send"></i>
+                            </button>
+                        </div>
+                    </form>
+                    
+                    <!-- Editable Idea Form (hidden by default) -->
+                    <div id="refineForm" class="mt-3 d-none">
+                        <div class="card border-primary">
+                            <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                                <span><i class="bi bi-pencil-square me-2"></i>Idee bearbeiten</span>
+                                <button type="button" class="btn btn-sm btn-light" onclick="cancelRefine()">
+                                    <i class="bi bi-x"></i>
+                                </button>
+                            </div>
+                            <div class="card-body">
+                                <input type="hidden" id="refineIdeaId">
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Titel</label>
+                                    <input type="text" class="form-control" id="refineTitle">
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Hook</label>
+                                    <textarea class="form-control" id="refineHook" rows="4"></textarea>
+                                </div>
+                                <div class="row mb-3">
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Genre</label>
+                                        <input type="text" class="form-control" id="refineGenre">
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label class="form-label fw-bold">Setting</label>
+                                        <textarea class="form-control" id="refineSetting" rows="2"></textarea>
+                                    </div>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Protagonist</label>
+                                    <textarea class="form-control" id="refineProtagonist" rows="2"></textarea>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label fw-bold">Konflikt</label>
+                                    <textarea class="form-control" id="refineConflict" rows="3"></textarea>
+                                </div>
+                                
+                                <!-- Editable Characters Section (initially hidden) -->
+                                <div id="refineCharactersSection" class="d-none">
+                                    <hr>
+                                    <div class="d-flex justify-content-between align-items-center mb-2">
+                                        <label class="form-label fw-bold mb-0">🎭 Charaktere</label>
+                                        <button type="button" class="btn btn-sm btn-outline-success" onclick="addCharacterField()">
+                                            <i class="bi bi-plus"></i> Charakter
+                                        </button>
+                                    </div>
+                                    <div id="refineCharactersList"></div>
+                                </div>
+                                
+                                <!-- Editable World Section (initially hidden) -->
+                                <div id="refineWorldSection" class="d-none">
+                                    <hr>
+                                    <label class="form-label fw-bold">🌍 Welt</label>
+                                    <div class="row mb-2">
+                                        <div class="col-md-4">
+                                            <input type="text" class="form-control form-control-sm" id="refineWorldName" placeholder="Name der Welt">
+                                        </div>
+                                        <div class="col-md-8">
+                                            <input type="text" class="form-control form-control-sm" id="refineWorldAtmosphere" placeholder="Atmosphäre">
+                                        </div>
+                                    </div>
+                                    <textarea class="form-control form-control-sm mb-2" id="refineWorldDescription" rows="2" placeholder="Beschreibung der Welt"></textarea>
+                                    <input type="text" class="form-control form-control-sm" id="refineWorldFeatures" placeholder="Besonderheiten (kommagetrennt)">
+                                </div>
+                                
+                                <div class="d-flex gap-2 mt-3">
+                                    <button type="button" class="btn btn-primary flex-grow-1" onclick="submitRefineForm()">
+                                        <i class="bi bi-check-lg me-1"></i>Speichern
+                                    </button>
+                                    <button type="button" class="btn btn-outline-info" onclick="aiRefine()">
+                                        <i class="bi bi-magic me-1"></i>KI verbessern
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Session Info -->
+            <div class="card mb-3">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-2"></i>Session-Info
+                </div>
+                <div class="card-body">
+                    <p class="mb-2">
+                        <strong>Erstellt:</strong> {{ session.created_at|date:"d.m.Y H:i" }}
+                    </p>
+                    {% if session.preferred_genres %}
+                    <p class="mb-2">
+                        <strong>Genres:</strong><br>
+                        {% for genre in session.preferred_genres %}
+                        <span class="badge bg-secondary me-1">{{ genre }}</span>
+                        {% endfor %}
+                    </p>
+                    {% endif %}
+                    {% if session.style_dna %}
+                    <p class="mb-2">
+                        <strong>Style DNA:</strong> {{ session.style_dna.name }}
+                    </p>
+                    {% endif %}
+                    {% if session.initial_input %}
+                    <p class="mb-0">
+                        <strong>Inspiration:</strong><br>
+                        <small class="text-muted">{{ session.initial_input|truncatewords:30 }}</small>
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Selected Idea -->
+            {% if session.selected_idea %}
+            <div class="card border-success mb-3">
+                <div class="card-header bg-success text-white">
+                    <i class="bi bi-check-circle me-2"></i>Ausgewählte Idee
+                </div>
+                <div class="card-body">
+                    <h5>{{ session.selected_idea.title_sketch }}</h5>
+                    <p class="text-muted">{{ session.selected_idea.hook }}</p>
+                    {% if session.selected_idea.has_full_premise %}
+                    <div class="alert alert-info mb-0">
+                        <small>{{ session.selected_idea.full_premise|truncatewords:50 }}</small>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-lightning me-2"></i>Schnellaktionen
+                </div>
+                <div class="list-group list-group-flush">
+                    {% if can_generate %}
+                    <button class="list-group-item list-group-item-action" onclick="generateMoreIdeas()">
+                        <i class="bi bi-plus-circle me-2"></i>Mehr Ideen generieren
+                    </button>
+                    {% endif %}
+                    {% if ideas %}
+                    <button class="list-group-item list-group-item-action" onclick="showAllPremises()">
+                        <i class="bi bi-file-text me-2"></i>Alle Premises anzeigen
+                    </button>
+                    {% endif %}
+                    <a href="{% url 'writing_hub:creative-dashboard' %}" class="list-group-item list-group-item-action">
+                        <i class="bi bi-arrow-left me-2"></i>Zum Dashboard
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Refine Modal -->
+<div class="modal fade" id="refineModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Idee verfeinern</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="refineIdeaId">
+                <div class="mb-3">
+                    <label class="form-label">Was möchtest du ändern?</label>
+                    <textarea class="form-control" id="refineFeedback" rows="3"
+                              placeholder="z.B. 'Mach es düsterer' oder 'Der Protagonist sollte weiblich sein'"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Abbrechen</button>
+                <button type="button" class="btn btn-primary" onclick="submitRefine()">
+                    <i class="bi bi-pencil me-1"></i>Verfeinern
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Premise Modal -->
+<div class="modal fade" id="premiseModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="premiseTitle">Premise</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" id="premiseContent">
+                <!-- Content loaded dynamically -->
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const sessionId = '{{ session.id }}';
+const csrfToken = '{{ csrf_token }}';
+
+// Scroll chat to bottom
+function scrollChat() {
+    const container = document.getElementById('chatContainer');
+    container.scrollTop = container.scrollHeight;
+}
+scrollChat();
+
+// Chat form submission
+document.getElementById('chatForm')?.addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const input = document.getElementById('messageInput');
+    const message = input.value.trim();
+    if (!message) return;
+    
+    // Add user message to chat
+    addChatMessage('user', message);
+    input.value = '';
+    
+    // Get action from form data attributes (refine_idea or chat)
+    const action = this.dataset.action || 'chat';
+    const ideaId = this.dataset.ideaId || '';
+    
+    // Send to server
+    const formData = new FormData();
+    formData.append('message', message);
+    formData.append('action', action);
+    if (ideaId) {
+        formData.append('idea_id', ideaId);
+    }
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    // Show loading indicator
+    addChatMessage('agent', '<em>Denke nach...</em>');
+    
+    try {
+        const response = await fetch(`/writing-hub/creative/${sessionId}/message/`, {
+            method: 'POST',
+            body: formData
+        });
+        const data = await response.json();
+        
+        // Remove loading message
+        const container = document.getElementById('chatContainer');
+        container.lastChild?.remove();
+        
+        if (data.message) {
+            addChatMessage('agent', data.message);
+        }
+        if (data.ideas && data.ideas.length > 0) {
+            // Reload to show updated ideas
+            location.reload();
+        }
+        if (data.error) {
+            addChatMessage('agent', `<span class="text-danger">Fehler: ${data.error}</span>`);
+        }
+        
+        // Keep in refine mode for iterative refinement
+        if (action === 'refine_idea' && !data.error) {
+            input.placeholder = 'Weitere Verfeinerung? Oder "fertig" zum Abschließen...';
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        addChatMessage('agent', '<span class="text-danger">Verbindungsfehler</span>');
+    }
+});
+
+function addChatMessage(sender, content) {
+    const container = document.getElementById('chatContainer');
+    const div = document.createElement('div');
+    div.className = `chat-message ${sender}`;
+    div.innerHTML = `
+        <div class="bubble">${content.replace(/\n/g, '<br>')}</div>
+        <small class="text-muted d-block mt-1" style="font-size: 0.75rem;">Jetzt</small>
+    `;
+    container.appendChild(div);
+    scrollChat();
+}
+
+async function rateIdea(ideaId, rating) {
+    const formData = new FormData();
+    formData.append('rating', rating);
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    await fetch(`/writing-hub/creative/${sessionId}/idea/${ideaId}/rate/`, {
+        method: 'POST',
+        body: formData
+    });
+    location.reload();
+}
+
+// Store idea data for refinement
+const ideaData = {
+    {% for idea in ideas %}
+    '{{ idea.id }}': {
+        title: '{{ idea.title_sketch|escapejs }}',
+        hook: '{{ idea.hook|escapejs }}',
+        genre: '{{ idea.genre|escapejs }}',
+        setting: '{{ idea.setting_sketch|escapejs }}',
+        protagonist: '{{ idea.protagonist_sketch|escapejs }}',
+        conflict: '{{ idea.conflict_sketch|escapejs }}'
+    },
+    {% endfor %}
+};
+
+let currentRefineIdeaId = null;
+
+function refineIdea(ideaId) {
+    currentRefineIdeaId = ideaId;
+    const idea = ideaData[ideaId];
+    
+    if (!idea) {
+        console.error('Idea not found:', ideaId);
+        alert('Idee nicht gefunden');
+        return;
+    }
+    
+    const chatForm = document.getElementById('chatForm');
+    const refineForm = document.getElementById('refineForm');
+    
+    if (!refineForm) {
+        console.error('Refine form not found - session may be completed');
+        alert('Bearbeitung nicht möglich - Session ist abgeschlossen');
+        return;
+    }
+    
+    // Hide chat form, show refine form
+    if (chatForm) chatForm.classList.add('d-none');
+    refineForm.classList.remove('d-none');
+    
+    // Fill form with idea data
+    document.getElementById('refineIdeaId').value = ideaId;
+    document.getElementById('refineTitle').value = idea.title || '';
+    document.getElementById('refineHook').value = idea.hook || '';
+    document.getElementById('refineGenre').value = idea.genre || '';
+    document.getElementById('refineSetting').value = idea.setting || '';
+    document.getElementById('refineProtagonist').value = idea.protagonist || '';
+    document.getElementById('refineConflict').value = idea.conflict || '';
+    
+    // Reset character and world sections
+    document.getElementById('refineCharactersSection').classList.add('d-none');
+    document.getElementById('refineWorldSection').classList.add('d-none');
+    document.getElementById('refineCharactersList').innerHTML = '';
+    window.currentCharacters = [];
+    window.currentWorld = null;
+    
+    // Scroll to form
+    refineForm.scrollIntoView({ behavior: 'smooth' });
+}
+
+function cancelRefine() {
+    // Hide refine form, show chat form
+    const refineForm = document.getElementById('refineForm');
+    const chatForm = document.getElementById('chatForm');
+    if (refineForm) refineForm.classList.add('d-none');
+    if (chatForm) chatForm.classList.remove('d-none');
+    currentRefineIdeaId = null;
+}
+
+async function submitRefineForm() {
+    const ideaId = document.getElementById('refineIdeaId').value;
+    const data = {
+        title_sketch: document.getElementById('refineTitle').value,
+        hook: document.getElementById('refineHook').value,
+        genre: document.getElementById('refineGenre').value,
+        setting_sketch: document.getElementById('refineSetting').value,
+        protagonist_sketch: document.getElementById('refineProtagonist').value,
+        conflict_sketch: document.getElementById('refineConflict').value,
+        characters: window.currentCharacters || [],
+        world: getWorldData()
+    };
+    
+    const formData = new FormData();
+    formData.append('action', 'save_idea');
+    formData.append('idea_id', ideaId);
+    formData.append('idea_data', JSON.stringify(data));
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    await fetch(`/writing-hub/creative/${sessionId}/message/`, {
+        method: 'POST',
+        body: formData
+    });
+    location.reload();
+}
+
+async function aiRefine() {
+    const ideaId = document.getElementById('refineIdeaId').value;
+    const currentData = {
+        title_sketch: document.getElementById('refineTitle').value,
+        hook: document.getElementById('refineHook').value,
+        genre: document.getElementById('refineGenre').value,
+        setting_sketch: document.getElementById('refineSetting').value,
+        protagonist_sketch: document.getElementById('refineProtagonist').value,
+        conflict_sketch: document.getElementById('refineConflict').value
+    };
+    
+    // Show loading
+    const btn = event.target;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>KI arbeitet...';
+    
+    const formData = new FormData();
+    formData.append('action', 'ai_refine');
+    formData.append('idea_id', ideaId);
+    formData.append('idea_data', JSON.stringify(currentData));
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    try {
+        const response = await fetch(`/writing-hub/creative/${sessionId}/message/`, {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        console.log('AI Refine Result:', result);
+        
+        if (result.success && result.idea) {
+            // Update form with AI-refined data
+            document.getElementById('refineTitle').value = result.idea.title;
+            document.getElementById('refineHook').value = result.idea.hook;
+            document.getElementById('refineGenre').value = result.idea.genre;
+            document.getElementById('refineSetting').value = result.idea.setting;
+            document.getElementById('refineProtagonist').value = result.idea.protagonist;
+            document.getElementById('refineConflict').value = result.idea.conflict;
+            
+            // Populate editable character fields
+            if (result.characters && result.characters.length > 0) {
+                document.getElementById('refineCharactersSection').classList.remove('d-none');
+                const charList = document.getElementById('refineCharactersList');
+                charList.innerHTML = '';
+                result.characters.forEach((c, idx) => {
+                    charList.appendChild(createCharacterField(idx, c.name, c.role, c.description, c.motivation));
+                });
+                window.currentCharacters = result.characters;
+            }
+            
+            // Populate editable world fields
+            if (result.world) {
+                document.getElementById('refineWorldSection').classList.remove('d-none');
+                document.getElementById('refineWorldName').value = result.world.name || '';
+                document.getElementById('refineWorldDescription').value = result.world.description || '';
+                document.getElementById('refineWorldAtmosphere').value = result.world.atmosphere || '';
+                document.getElementById('refineWorldFeatures').value = (result.world.key_features || []).join(', ');
+                window.currentWorld = result.world;
+            }
+            
+            // Remove old info box if exists
+            const oldInfoBox = document.getElementById('refineExtraInfo');
+            if (oldInfoBox) oldInfoBox.remove();
+            
+            // Show success feedback
+            btn.classList.remove('btn-outline-info');
+            btn.classList.add('btn-success');
+            setTimeout(() => {
+                btn.classList.remove('btn-success');
+                btn.classList.add('btn-outline-info');
+            }, 2000);
+        } else {
+            // Show error
+            alert('KI-Verbesserung fehlgeschlagen: ' + (result.error || 'Unbekannter Fehler'));
+        }
+    } catch (error) {
+        console.error('AI refine error:', error);
+        alert('Fehler bei der KI-Verbesserung: ' + error.message);
+    }
+    
+    btn.disabled = false;
+    btn.innerHTML = '<i class="bi bi-magic me-1"></i>KI verbessern';
+}
+
+// Character field helpers
+window.currentCharacters = [];
+window.currentWorld = null;
+
+function createCharacterField(idx, name, role, description, motivation) {
+    const div = document.createElement('div');
+    div.className = 'card card-body p-2 mb-2 bg-light';
+    div.id = `charField-${idx}`;
+    div.innerHTML = `
+        <div class="row g-2 mb-1">
+            <div class="col-md-5">
+                <input type="text" class="form-control form-control-sm" placeholder="Name" 
+                       value="${name || ''}" onchange="updateCharacter(${idx}, 'name', this.value)">
+            </div>
+            <div class="col-md-5">
+                <select class="form-select form-select-sm" onchange="updateCharacter(${idx}, 'role', this.value)">
+                    <option value="Protagonist" ${role === 'Protagonist' ? 'selected' : ''}>Protagonist</option>
+                    <option value="Antagonist" ${role === 'Antagonist' ? 'selected' : ''}>Antagonist</option>
+                    <option value="Nebencharakter" ${role === 'Nebencharakter' ? 'selected' : ''}>Nebencharakter</option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="button" class="btn btn-sm btn-outline-danger w-100" onclick="removeCharacter(${idx})">
+                    <i class="bi bi-trash"></i>
+                </button>
+            </div>
+        </div>
+        <textarea class="form-control form-control-sm mb-1" rows="1" placeholder="Beschreibung"
+                  onchange="updateCharacter(${idx}, 'description', this.value)">${description || ''}</textarea>
+        <input type="text" class="form-control form-control-sm" placeholder="Motivation"
+               value="${motivation || ''}" onchange="updateCharacter(${idx}, 'motivation', this.value)">
+    `;
+    return div;
+}
+
+function updateCharacter(idx, field, value) {
+    if (window.currentCharacters[idx]) {
+        window.currentCharacters[idx][field] = value;
+    }
+}
+
+function removeCharacter(idx) {
+    window.currentCharacters.splice(idx, 1);
+    refreshCharacterList();
+}
+
+function addCharacterField() {
+    const newChar = { name: '', role: 'Nebencharakter', description: '', motivation: '' };
+    window.currentCharacters.push(newChar);
+    refreshCharacterList();
+}
+
+function refreshCharacterList() {
+    const charList = document.getElementById('refineCharactersList');
+    charList.innerHTML = '';
+    window.currentCharacters.forEach((c, idx) => {
+        charList.appendChild(createCharacterField(idx, c.name, c.role, c.description, c.motivation));
+    });
+}
+
+function getWorldData() {
+    return {
+        name: document.getElementById('refineWorldName')?.value || '',
+        description: document.getElementById('refineWorldDescription')?.value || '',
+        atmosphere: document.getElementById('refineWorldAtmosphere')?.value || '',
+        key_features: (document.getElementById('refineWorldFeatures')?.value || '').split(',').map(s => s.trim()).filter(s => s)
+    };
+}
+
+async function generatePremise(ideaId) {
+    const formData = new FormData();
+    formData.append('action', 'generate_premise');
+    formData.append('idea_id', ideaId);
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    const response = await fetch(`/writing-hub/creative/${sessionId}/message/`, {
+        method: 'POST',
+        body: formData
+    });
+    location.reload();
+}
+
+function showPremise(ideaId) {
+    // Find idea in page and show modal
+    {% for idea in ideas %}
+    if ('{{ idea.id }}' === ideaId) {
+        document.getElementById('premiseTitle').textContent = '{{ idea.title_sketch }}';
+        document.getElementById('premiseContent').innerHTML = `
+            <div class="mb-3">{{ idea.full_premise|linebreaks }}</div>
+            {% if idea.themes %}
+            <p><strong>Themen:</strong> {% for t in idea.themes %}{{ t }}{% if not forloop.last %}, {% endif %}{% endfor %}</p>
+            {% endif %}
+        `;
+        new bootstrap.Modal(document.getElementById('premiseModal')).show();
+    }
+    {% endfor %}
+}
+
+async function selectIdea(ideaId) {
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    await fetch(`/writing-hub/creative/${sessionId}/idea/${ideaId}/select/`, {
+        method: 'POST',
+        body: formData
+    });
+    location.reload();
+}
+
+async function generateMoreIdeas() {
+    const formData = new FormData();
+    formData.append('action', 'generate_ideas');
+    formData.append('message', '');
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    await fetch(`/writing-hub/creative/${sessionId}/message/`, {
+        method: 'POST',
+        body: formData
+    });
+    location.reload();
+}
+
+async function deleteIdea(ideaId, title) {
+    if (!confirm(`Idee "${title}" wirklich löschen?`)) return;
+    
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', csrfToken);
+    
+    const response = await fetch(`/writing-hub/creative/${sessionId}/idea/${ideaId}/delete/`, {
+        method: 'POST',
+        body: formData
+    });
+    
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Fehler beim Löschen');
+    }
+}
+</script>
+{% endblock %}

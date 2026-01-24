@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+
+{% block title %}Text hinzufügen - {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <nav aria-label="breadcrumb" class="mb-3">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:style-lab-dashboard' %}">Style Lab</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'writing_hub:session-detail' session_id=session.id %}">{{ session.name }}</a></li>
+                    <li class="breadcrumb-item active">Text hinzufügen</li>
+                </ol>
+            </nav>
+
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-transparent border-0">
+                    <h4 class="mb-0">
+                        <i class="bi bi-file-text me-2"></i>Beispieltext hinzufügen
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="source_name" class="form-label fw-bold">Name / Titel</label>
+                            <input type="text" class="form-control" id="source_name" name="source_name" 
+                                   placeholder="z.B. 'Kapitel 1 aus Roman XY'">
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="source_type" class="form-label fw-bold">Typ</label>
+                            <select class="form-select" id="source_type" name="source_type">
+                                {% for value, label in source_types %}
+                                <option value="{{ value }}">{{ label }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text">
+                                <strong>Eigener Text:</strong> Dein eigener Schreibstil<br>
+                                <strong>Referenz:</strong> Stil den du emulieren möchtest<br>
+                                <strong>Anti-Referenz:</strong> Stil den du vermeiden möchtest
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="source_text" class="form-label fw-bold">Text *</label>
+                            <textarea class="form-control" id="source_text" name="source_text" 
+                                      rows="15" required placeholder="Füge hier deinen Beispieltext ein..."></textarea>
+                            <div class="form-text">Mindestens 200 Zeichen für eine aussagekräftige Analyse</div>
+                        </div>
+
+                        <div class="d-flex gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-plus-lg me-1"></i>Text hinzufügen
+                            </button>
+                            <a href="{% url 'writing_hub:session-detail' session_id=session.id %}" class="btn btn-outline-secondary">
+                                Zurück
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

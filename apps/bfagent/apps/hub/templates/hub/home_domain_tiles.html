@@ -1,0 +1,262 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}BF Agent - Domain Hub{% endblock %}
+
+{% block content %}
+<div class="container-fluid p-4">
+    
+    {# Header #}
+    <div class="row mb-4">
+        <div class="col-12">
+            <h1 class="display-4">
+                <i class="bi bi-grid-3x3-gap"></i>
+                BF Agent Platform
+            </h1>
+            <p class="lead text-muted">
+                Select a domain to get started
+            </p>
+        </div>
+    </div>
+    
+    {# ===================================================================== #}
+    {# ACTIVE DOMAINS #}
+    {# ===================================================================== #}
+    {% if active_domains %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="mb-3">
+                    <i class="bi bi-check-circle text-success"></i>
+                    Active Domains
+                </h3>
+            </div>
+        </div>
+        
+        <div class="row g-4 mb-5">
+            {% for domain_data in active_domains %}
+                <div class="col-md-4">
+                    <a href="{{ domain_data.dashboard_url }}" class="text-decoration-none">
+                        <div class="card domain-card domain-active h-100 shadow-sm hover-lift">
+                            <div class="card-body">
+                                {# Icon & Title #}
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="domain-icon me-3" 
+                                         style="background: linear-gradient(135deg, {{ domain_data.domain.color|default:'#0d6efd' }} 0%, {{ domain_data.domain.color|default:'#0d6efd' }}dd 100%);">
+                                        <i class="{{ domain_data.domain.icon }} fs-2"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="card-title mb-1">{{ domain_data.domain.display_name }}</h4>
+                                        <span class="badge bg-success">Active</span>
+                                    </div>
+                                </div>
+                                
+                                {# Description #}
+                                {% if domain_data.domain.description %}
+                                    <p class="card-text text-muted">
+                                        {{ domain_data.domain.description|truncatewords:20 }}
+                                    </p>
+                                {% endif %}
+                                
+                                {# Stats #}
+                                <div class="domain-stats mt-3">
+                                    <small class="text-muted">
+                                        <i class="bi bi-folder"></i>
+                                        {{ domain_data.section_count }} sections
+                                    </small>
+                                </div>
+                                
+                                {# CTA #}
+                                <div class="mt-3">
+                                    <span class="btn btn-sm btn-outline-primary">
+                                        Open Dashboard
+                                        <i class="bi bi-arrow-right"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    {# ===================================================================== #}
+    {# EXPERIMENTAL DOMAINS (Beta) #}
+    {# ===================================================================== #}
+    {% if experimental_domains %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="mb-3">
+                    <i class="bi bi-flask text-warning"></i>
+                    Experimental Domains
+                </h3>
+            </div>
+        </div>
+        
+        <div class="row g-4 mb-5">
+            {% for domain_data in experimental_domains %}
+                <div class="col-md-4">
+                    <a href="{{ domain_data.dashboard_url }}" class="text-decoration-none">
+                        <div class="card domain-card domain-experimental h-100 shadow-sm hover-lift">
+                            <div class="card-body">
+                                {# Icon & Title #}
+                                <div class="d-flex align-items-center mb-3">
+                                    <div class="domain-icon me-3" 
+                                         style="background: linear-gradient(135deg, {{ domain_data.domain.color|default:'#ffc107' }} 0%, {{ domain_data.domain.color|default:'#ffc107' }}dd 100%);">
+                                        <i class="{{ domain_data.domain.icon }} fs-2"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="card-title mb-1">{{ domain_data.domain.display_name }}</h4>
+                                        <span class="badge bg-warning">🧪 Beta</span>
+                                    </div>
+                                </div>
+                                
+                                {# Description #}
+                                {% if domain_data.domain.description %}
+                                    <p class="card-text text-muted">
+                                        {{ domain_data.domain.description|truncatewords:20 }}
+                                    </p>
+                                {% endif %}
+                                
+                                {# Stats #}
+                                <div class="domain-stats mt-3">
+                                    <small class="text-muted">
+                                        <i class="bi bi-folder"></i>
+                                        {{ domain_data.section_count }} sections
+                                    </small>
+                                </div>
+                                
+                                {# CTA #}
+                                <div class="mt-3">
+                                    <span class="btn btn-sm btn-outline-warning">
+                                        Try Beta
+                                        <i class="bi bi-arrow-right"></i>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    {# ===================================================================== #}
+    {# INACTIVE DOMAINS (Coming Soon) #}
+    {# ===================================================================== #}
+    {% if inactive_domains %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <h3 class="mb-3">
+                    <i class="bi bi-hourglass-split text-secondary"></i>
+                    Coming Soon
+                </h3>
+            </div>
+        </div>
+        
+        <div class="row g-4">
+            {% for domain_data in inactive_domains %}
+                <div class="col-md-4">
+                    <div class="card domain-card domain-inactive h-100 shadow-sm">
+                        <div class="card-body">
+                            {# Icon & Title #}
+                            <div class="d-flex align-items-center mb-3">
+                                <div class="domain-icon me-3" 
+                                     style="background: #e9ecef;">
+                                    <i class="{{ domain_data.domain.icon }} fs-2 text-muted"></i>
+                                </div>
+                                <div>
+                                    <h4 class="card-title mb-1 text-muted">{{ domain_data.domain.display_name }}</h4>
+                                    <span class="badge bg-secondary">Coming Soon</span>
+                                </div>
+                            </div>
+                            
+                            {# Description #}
+                            {% if domain_data.domain.description %}
+                                <p class="card-text text-muted">
+                                    {{ domain_data.domain.description|truncatewords:20 }}
+                                </p>
+                            {% endif %}
+                            
+                            {# Status #}
+                            <div class="mt-3">
+                                <small class="text-muted fst-italic">
+                                    <i class="bi bi-info-circle"></i>
+                                    This domain is not yet available
+                                </small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+    
+    {# ===================================================================== #}
+    {# NO DOMAINS #}
+    {# ===================================================================== #}
+    {% if not all_domains %}
+        <div class="row">
+            <div class="col-12">
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle fs-4"></i>
+                    <h4>No domains configured</h4>
+                    <p class="mb-0">Please add domains to the database to get started.</p>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+    
+</div>
+
+{# ========================================================================= #}
+{# STYLES #}
+{# ========================================================================= #}
+<style>
+.domain-card {
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.domain-card.domain-active {
+    border-color: rgba(25, 135, 84, 0.2);
+}
+
+.domain-card.domain-experimental {
+    border-color: rgba(255, 193, 7, 0.3);
+}
+
+.domain-card.domain-inactive {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.domain-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+}
+
+.domain-card.domain-inactive:hover {
+    transform: none;
+}
+
+.domain-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+}
+
+.hover-lift {
+    cursor: pointer;
+}
+
+.domain-stats {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    padding-top: 1rem;
+}
+</style>
+{% endblock %}

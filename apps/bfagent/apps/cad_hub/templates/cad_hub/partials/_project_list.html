@@ -1,0 +1,21 @@
+{% if projects %}
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {% for project in projects %}
+            <a href="{% url 'cad_hub:project_detail' project.pk %}"
+               class="block bg-slate-800 hover:bg-slate-750 rounded-lg p-6 transition-colors">
+                <h3 class="text-xl font-semibold text-slate-100 mb-2">{{ project.name }}</h3>
+                <div class="text-sm text-slate-400 space-y-1">
+                    <div>Modelle: {{ project.models.count }}</div>
+                    <div>Erstellt: {{ project.created_at|date:"d.m.Y" }}</div>
+                    {% if project.created_by %}
+                        <div>Von: {{ project.created_by.username }}</div>
+                    {% endif %}
+                </div>
+            </a>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="bg-slate-800 rounded-lg p-8 text-center">
+        <p class="text-slate-400">Keine Projekte gefunden.</p>
+    </div>
+{% endif %}

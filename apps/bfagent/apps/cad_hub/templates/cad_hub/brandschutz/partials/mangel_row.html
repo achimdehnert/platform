@@ -1,0 +1,31 @@
+<!-- templates/cad_hub/brandschutz/partials/mangel_row.html -->
+<div id="mangel-{{ mangel.pk }}" 
+     class="flex items-start gap-3 p-3 bg-slate-700/50 rounded-lg {% if mangel.behoben %}opacity-60{% endif %} animate-in">
+    <button hx-post="{% url 'cad_hub:brandschutz:mangel_toggle' mangel.pk %}"
+            hx-target="#mangel-{{ mangel.pk }}"
+            hx-swap="outerHTML"
+            class="mt-1 flex-shrink-0 w-5 h-5 rounded border-2 flex items-center justify-center
+                {% if mangel.behoben %}bg-green-600 border-green-600{% else %}border-slate-500 hover:border-green-500{% endif %}">
+        {% if mangel.behoben %}<span class="text-white text-xs">✓</span>{% endif %}
+    </button>
+    <div class="flex-1 min-w-0">
+        <div class="text-sm text-white {% if mangel.behoben %}line-through{% endif %}">
+            {{ mangel.beschreibung }}
+        </div>
+        <div class="flex items-center gap-2 mt-2">
+            <span class="text-xs px-2 py-0.5 rounded
+                {% if mangel.schweregrad == 'kritisch' %}bg-red-900 text-red-300
+                {% elif mangel.schweregrad == 'hoch' %}bg-orange-900 text-orange-300
+                {% elif mangel.schweregrad == 'mittel' %}bg-yellow-900 text-yellow-300
+                {% else %}bg-green-900 text-green-300{% endif %}">
+                {{ mangel.schweregrad|upper }}
+            </span>
+            {% if mangel.regelwerk_referenz %}
+            <span class="text-xs text-slate-500">{{ mangel.regelwerk_referenz }}</span>
+            {% endif %}
+            {% if mangel.behoben %}
+            <span class="text-xs text-green-400">✓ Behoben {{ mangel.behoben_am|date:"d.m.Y" }}</span>
+            {% endif %}
+        </div>
+    </div>
+</div>

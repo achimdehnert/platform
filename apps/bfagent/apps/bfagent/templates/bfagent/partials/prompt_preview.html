@@ -1,0 +1,289 @@
+<!-- Prompt Preview & Edit Step -->
+<div class="card shadow-lg border-primary">
+    <div class="card-header bg-gradient-primary text-white">
+        <h5 class="mb-0">
+            <i class="bi bi-eye"></i> Step 1: Review & Edit Prompt
+        </h5>
+    </div>
+    <div class="card-body">
+        <!-- Agent & Action Info -->
+        <div class="alert alert-info mb-3">
+            <strong><i class="bi bi-robot"></i> Agent:</strong> {{ agent.name }}<br>
+            <strong><i class="bi bi-lightning-charge"></i> Action:</strong> {{ action_name }}
+        </div>
+
+        <!-- Context Builder Section -->
+        <div class="card mb-3">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <strong>📊 Selected Context Data</strong>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="toggleContextBuilder()">
+                    <i class="bi bi-sliders"></i> Modify
+                </button>
+            </div>
+            <div class="card-body">
+                <!-- Auto-Selected Fields -->
+                <div class="mb-2">
+                    <label class="form-label text-muted small">✅ Automatically Included:</label>
+                    <div id="auto-context-badges" class="d-flex flex-wrap gap-2">
+                        {% for key, value in context_data.items %}
+                            {% if key not in additional_fields %}
+                            <span class="badge bg-success">
+                                {{ key }}
+                                <button type="button" class="btn-close btn-close-white ms-1" 
+                                        style="font-size: 0.6rem;"
+                                        onclick="removeContextField('{{ key }}')"
+                                        aria-label="Remove"></button>
+                            </span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                </div>
+
+                <!-- Additional Fields (collapsible) -->
+                <div id="context-builder-panel" style="display: none;" class="mt-3">
+                    <hr>
+                    <label class="form-label">➕ Add More Context:</label>
+                    <select class="form-select mb-2" id="add-context-field">
+                        <option value="">Select fields to add...</option>
+                        <optgroup label="Project Fields">
+                            <option value="project.synopsis">Project Synopsis</option>
+                            <option value="project.themes">Themes</option>
+                            <option value="project.target_audience">Target Audience</option>
+                        </optgroup>
+                        <optgroup label="Previous Action Outputs">
+                            {% for output in previous_outputs %}
+                            <option value="action:{{ output.action_name }}.{{ output.field_name }}">
+                                {{ output.agent_name }} → {{ output.field_name }}
+                            </option>
+                            {% endfor %}
+                        </optgroup>
+                        <optgroup label="Custom Fields">
+                            {% for field in custom_fields %}
+                            <option value="custom.{{ field.name }}">{{ field.label }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    </select>
+                    <button type="button" class="btn btn-sm btn-primary" onclick="addContextField()">
+                        <i class="bi bi-plus-circle"></i> Add Selected
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Filled Prompt Preview -->
+        <form id="confirm-enrichment-form"
+              hx-post="{% url 'bfagent:project-enrich-execute' project.pk %}"
+              hx-target="#results-container"
+              hx-indicator="#execute-spinner">
+            
+            {% csrf_token %}
+            
+            <!-- Hidden fields -->
+            <input type="hidden" name="agent_id" value="{{ agent.id }}">
+            <input type="hidden" name="action" value="{{ action_name }}">
+            <input type="hidden" name="selected_context_fields" id="selected-context-fields" value="{{ selected_fields_json }}">
+
+            <!-- System Prompt (if exists) -->
+            {% if system_prompt %}
+            <div class="mb-3">
+                <label for="final-system-prompt" class="form-label">
+                    <strong><i class="bi bi-gear"></i> System Prompt</strong>
+                    <span class="badge bg-secondary">Editable</span>
+                </label>
+                <textarea name="system_prompt" 
+                          id="final-system-prompt" 
+                          class="form-control font-monospace" 
+                          rows="4"
+                          placeholder="Define the LLM's role and behavior...">{{ system_prompt }}</textarea>
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> This sets the LLM's behavior and constraints
+                </small>
+            </div>
+            {% endif %}
+
+            <!-- Filled Template (User Prompt) -->
+            <div class="mb-3">
+                <label for="final-user-prompt" class="form-label">
+                    <strong><i class="bi bi-chat-left-text"></i> User Prompt (Filled Template)</strong>
+                    <span class="badge bg-warning">Review & Edit</span>
+                </label>
+                <textarea name="user_prompt" 
+                          id="final-user-prompt" 
+                          class="form-control font-monospace" 
+                          rows="15"
+                          placeholder="Template will be filled with context data...">{{ filled_template }}</textarea>
+                <small class="text-muted">
+                    <i class="bi bi-info-circle"></i> All template variables have been filled. You can edit this before execution.
+                </small>
+            </div>
+
+            <!-- User Context (from form) -->
+            {% if user_context %}
+            <div class="mb-3">
+                <label class="form-label">
+                    <strong><i class="bi bi-pencil"></i> Your Additional Instructions:</strong>
+                </label>
+                <div class="alert alert-secondary">
+                    {{ user_context }}
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Action Buttons -->
+            <div class="d-flex gap-2 justify-content-between">
+                <button type="button" class="btn btn-outline-secondary" 
+                        hx-get="{% url 'bfagent:project-enrich-panel' project.pk %}"
+                        hx-target="#enrichment-panel-container">
+                    <i class="bi bi-arrow-left"></i> Back to Configuration
+                </button>
+                
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-info" onclick="copyToClipboard()">
+                        <i class="bi bi-clipboard"></i> Copy Prompt
+                    </button>
+                    
+                    <button type="submit" class="btn btn-success btn-lg">
+                        <i class="bi bi-play-fill"></i> Confirm & Execute
+                    </button>
+                </div>
+            </div>
+
+            <!-- Execute Spinner -->
+            <div id="execute-spinner" class="htmx-indicator text-center mt-3">
+                <div class="spinner-border text-success" role="status">
+                    <span class="visually-hidden">Executing...</span>
+                </div>
+                <p class="mt-2 text-muted">Generating with AI...</p>
+            </div>
+        </form>
+    </div>
+
+    <!-- Template Variables Reference (collapsible) -->
+    <div class="card-footer">
+        <button class="btn btn-sm btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#variables-reference">
+            <i class="bi bi-list-ul"></i> Show Available Variables ({{ context_data|length }})
+        </button>
+        
+        <div class="collapse" id="variables-reference">
+            <div class="table-responsive mt-2">
+                <table class="table table-sm table-striped">
+                    <thead>
+                        <tr>
+                            <th>Variable</th>
+                            <th>Value Preview</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for key, value in context_data.items %}
+                        <tr>
+                            <td><code>{% templatetag openvariable %} {{ key }} {% templatetag closevariable %}</code></td>
+                            <td class="text-truncate" style="max-width: 300px;">
+                                {{ value|truncatewords:15 }}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.htmx-indicator {
+    display: none;
+}
+.htmx-request .htmx-indicator {
+    display: block;
+}
+.bg-gradient-primary {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+</style>
+
+<script>
+// Context Builder Functions
+function toggleContextBuilder() {
+    const panel = document.getElementById('context-builder-panel');
+    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+}
+
+function addContextField() {
+    const select = document.getElementById('add-context-field');
+    const selectedValue = select.value;
+    
+    if (!selectedValue) return;
+    
+    // Add badge to UI
+    const badgesContainer = document.getElementById('auto-context-badges');
+    const badge = document.createElement('span');
+    badge.className = 'badge bg-primary';
+    badge.innerHTML = `
+        ${selectedValue}
+        <button type="button" class="btn-close btn-close-white ms-1" 
+                style="font-size: 0.6rem;"
+                onclick="removeContextField('${selectedValue}')"
+                aria-label="Remove"></button>
+    `;
+    badgesContainer.appendChild(badge);
+    
+    // Update hidden field
+    updateSelectedFields();
+    
+    // Reset select
+    select.value = '';
+    
+    // TODO: Trigger template re-fill with new context
+    console.log('Added context field:', selectedValue);
+}
+
+function removeContextField(fieldName) {
+    // Remove badge from UI
+    event.target.closest('.badge').remove();
+    
+    // Update hidden field
+    updateSelectedFields();
+    
+    // TODO: Trigger template re-fill without this field
+    console.log('Removed context field:', fieldName);
+}
+
+function updateSelectedFields() {
+    const badges = document.querySelectorAll('#auto-context-badges .badge');
+    const fields = Array.from(badges).map(b => {
+        const text = b.textContent.trim();
+        return text.split('\n')[0].trim();
+    });
+    
+    document.getElementById('selected-context-fields').value = JSON.stringify(fields);
+}
+
+function copyToClipboard() {
+    const systemPrompt = document.getElementById('final-system-prompt')?.value || '';
+    const userPrompt = document.getElementById('final-user-prompt').value;
+    
+    const fullPrompt = systemPrompt 
+        ? `SYSTEM:\n${systemPrompt}\n\nUSER:\n${userPrompt}`
+        : userPrompt;
+    
+    navigator.clipboard.writeText(fullPrompt).then(() => {
+        // Show success toast
+        const btn = event.target.closest('button');
+        const originalHTML = btn.innerHTML;
+        btn.innerHTML = '<i class="bi bi-check-circle"></i> Copied!';
+        btn.classList.add('btn-success');
+        btn.classList.remove('btn-outline-info');
+        
+        setTimeout(() => {
+            btn.innerHTML = originalHTML;
+            btn.classList.remove('btn-success');
+            btn.classList.add('btn-outline-info');
+        }, 2000);
+    });
+}
+
+// Initialize selected fields on load
+document.addEventListener('DOMContentLoaded', function() {
+    updateSelectedFields();
+});
+</script>

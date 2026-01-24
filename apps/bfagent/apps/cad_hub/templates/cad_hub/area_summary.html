@@ -1,0 +1,14 @@
+{% extends "cad_hub/base.html" %}
+
+{% block title %}Flächenübersicht DIN 277{% endblock %}
+
+{% block content %}
+<div class="p-6">
+    <div class="mb-6">
+        <h1 class="text-3xl font-bold text-slate-100 mb-2">Flächenübersicht nach DIN 277</h1>
+        <p class="text-slate-400">Modell: {{ model.project.name }} - {{ model.version }}</p>
+    </div>
+
+    {% include "cad_hub/partials/_area_summary.html" %}
+</div>
+{% endblock %}

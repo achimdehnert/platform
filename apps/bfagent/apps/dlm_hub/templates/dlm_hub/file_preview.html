@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}DLM Hub - File Preview{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'dlm_hub/css/dlm_hub.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+  <div class="d-flex align-items-center justify-content-between mb-4">
+    <div>
+      <h1 class="h3 mb-1">
+        <i class="bi bi-file-text me-2"></i>File Preview
+      </h1>
+      <div class="text-muted">{{ file_path }}</div>
+    </div>
+    <a href="{% url 'dlm_hub:issue-list' %}" class="btn btn-outline-secondary">
+      <i class="bi bi-arrow-left me-1"></i>Back
+    </a>
+  </div>
+
+  <div class="card mb-4">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>Issue Details</strong>
+      <span class="badge bg-{{ issue.severity_color }}">{{ issue.severity }}</span>
+    </div>
+    <div class="card-body">
+      <div class="row">
+        <div class="col-md-4">
+          <strong>Type:</strong> {{ issue.get_issue_type_display }}
+        </div>
+        <div class="col-md-8">
+          <strong>Reason:</strong> {{ issue.reason }}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+      <strong>File Content</strong>
+      <div class="btn-group btn-group-sm">
+        <form method="post" action="{% url 'dlm_hub:archive-file' issue.id %}" class="d-inline">
+          {% csrf_token %}
+          <button type="submit" class="btn btn-outline-warning" onclick="return confirm('Archive this file?')">
+            <i class="bi bi-archive me-1"></i>Archive
+          </button>
+        </form>
+        <a href="{% url 'dlm_hub:diff-view' issue.id %}" class="btn btn-outline-info">
+          <i class="bi bi-layout-split me-1"></i>Diff
+        </a>
+        <a href="{% url 'dlm_hub:claude-review' issue.id %}" class="btn btn-outline-primary">
+          <i class="bi bi-robot me-1"></i>Claude Review
+        </a>
+      </div>
+    </div>
+    <div class="card-body">
+      {% if error %}
+      <div class="alert alert-danger">{{ error }}</div>
+      {% elif content %}
+      <pre class="bg-light p-3 rounded dlm-code-block"><code>{{ content }}</code></pre>
+      {% else %}
+      <p class="text-muted">No content available</p>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

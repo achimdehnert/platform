@@ -1,0 +1,197 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Error Queue - Terminal Monitor{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-list-task"></i> Error Queue</h1>
+        <a href="{% url 'control_center:terminal_monitor:capture_input' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Error erfassen
+        </a>
+    </div>
+    
+    <!-- Filter -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="open" {% if current_filters.status == 'open' %}selected{% endif %}>Offen</option>
+                        <option value="all" {% if current_filters.status == 'all' %}selected{% endif %}>Alle</option>
+                        <option value="new" {% if current_filters.status == 'new' %}selected{% endif %}>Neu</option>
+                        <option value="ready" {% if current_filters.status == 'ready' %}selected{% endif %}>Fix Ready</option>
+                        <option value="fixed" {% if current_filters.status == 'fixed' %}selected{% endif %}>Behoben</option>
+                        <option value="ignored" {% if current_filters.status == 'ignored' %}selected{% endif %}>Ignoriert</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Typ</label>
+                    <select name="type" class="form-select">
+                        <option value="">Alle</option>
+                        {% for value, label in error_types %}
+                        <option value="{{ value }}" {% if current_filters.type == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Severity</label>
+                    <select name="severity" class="form-select">
+                        <option value="">Alle</option>
+                        {% for value, label in severities %}
+                        <option value="{{ value }}" {% if current_filters.severity == value %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Suche</label>
+                    <input type="text" name="q" class="form-control" placeholder="Nachricht, Datei, Klasse..." 
+                           value="{{ current_filters.q }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary me-2">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                    <a href="{% url 'control_center:terminal_monitor:error_queue' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x"></i>
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Error Liste -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th style="width: 100px;">Status</th>
+                            <th style="width: 80px;">Severity</th>
+                            <th style="width: 120px;">Typ</th>
+                            <th>Fehler</th>
+                            <th style="width: 200px;">Datei</th>
+                            <th style="width: 100px;">Zuletzt</th>
+                            <th style="width: 60px;">#</th>
+                            <th style="width: 120px;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for error in errors %}
+                        <tr>
+                            <td>
+                                {% if error.status == 'new' %}
+                                <span class="badge bg-danger">Neu</span>
+                                {% elif error.status == 'ready' %}
+                                <span class="badge bg-warning text-dark">
+                                    <i class="bi bi-robot"></i> Ready
+                                </span>
+                                {% elif error.status == 'analyzing' %}
+                                <span class="badge bg-info">
+                                    <i class="bi bi-hourglass-split"></i>
+                                </span>
+                                {% elif error.status == 'fixed' %}
+                                <span class="badge bg-success">Behoben</span>
+                                {% elif error.status == 'verified' %}
+                                <span class="badge bg-success">
+                                    <i class="bi bi-patch-check"></i> Verifiziert
+                                </span>
+                                {% elif error.status == 'ignored' %}
+                                <span class="badge bg-secondary">Ignoriert</span>
+                                {% else %}
+                                <span class="badge bg-secondary">{{ error.get_status_display }}</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <span class="badge bg-{% if error.severity == 'critical' %}danger{% elif error.severity == 'high' %}warning text-dark{% elif error.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                                    {{ error.get_severity_display }}
+                                </span>
+                            </td>
+                            <td>
+                                <small>{{ error.get_error_type_display }}</small>
+                            </td>
+                            <td>
+                                <code class="small">{{ error.error_class }}</code>
+                                <br>
+                                <small class="text-muted">{{ error.message|truncatechars:80 }}</small>
+                            </td>
+                            <td>
+                                {% if error.file_path %}
+                                <small class="text-break">{{ error.file_path|truncatechars:35 }}</small>
+                                {% if error.line_number %}
+                                <br><small class="text-muted">Zeile {{ error.line_number }}</small>
+                                {% endif %}
+                                {% else %}
+                                <small class="text-muted">-</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ error.last_seen|timesince }}</small>
+                            </td>
+                            <td>
+                                <span class="badge bg-secondary">{{ error.occurrence_count }}x</span>
+                            </td>
+                            <td>
+                                <div class="btn-group btn-group-sm">
+                                    <a href="{% url 'control_center:terminal_monitor:error_detail' error.id %}" 
+                                       class="btn btn-outline-primary" title="Details">
+                                        <i class="bi bi-eye"></i>
+                                    </a>
+                                    {% if error.status == 'new' %}
+                                    <button class="btn btn-outline-info" 
+                                            hx-post="{% url 'control_center:terminal_monitor:analyze_error' error.id %}"
+                                            hx-swap="none"
+                                            title="KI-Analyse">
+                                        <i class="bi bi-robot"></i>
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted py-5">
+                                <i class="bi bi-check-circle fs-1"></i>
+                                <p class="mb-0 mt-2">Keine Fehler gefunden</p>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+        <!-- Pagination -->
+        {% if errors.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination mb-0 justify-content-center">
+                    {% if errors.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ errors.previous_page_number }}&status={{ current_filters.status }}&type={{ current_filters.type }}&severity={{ current_filters.severity }}&q={{ current_filters.q }}">
+                            &laquo; Zurück
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item disabled">
+                        <span class="page-link">Seite {{ errors.number }} von {{ errors.paginator.num_pages }}</span>
+                    </li>
+                    
+                    {% if errors.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ errors.next_page_number }}&status={{ current_filters.status }}&type={{ current_filters.type }}&severity={{ current_filters.severity }}&q={{ current_filters.q }}">
+                            Weiter &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

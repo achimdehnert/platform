@@ -1,0 +1,205 @@
+<!-- templates/cad_hub/analysis/format_analyzer.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}Format-Analyse - CAD Hub{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row align-items-center mb-4">
+    <div class="col">
+        <h2 class="h4 fw-bold mb-1"><i class="bi bi-file-earmark-code text-primary"></i> Format-Analyse</h2>
+        <p class="text-muted mb-0">CAD-Dateien hochladen und automatisch analysieren</p>
+    </div>
+    <div class="col-auto">
+        <a href="{% url 'cad_hub:analysis_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Upload Area -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-upload"></i> Datei hochladen</h6>
+            </div>
+            <div class="card-body">
+                <div id="drop-zone" class="border border-2 border-dashed rounded p-5 text-center bg-light">
+                    <i class="bi bi-cloud-arrow-up fs-1 text-muted d-block mb-3"></i>
+                    <p class="mb-2">Datei hierher ziehen oder klicken zum Auswählen</p>
+                    <input type="file" id="file-input" class="d-none" accept=".ifc,.dxf,.dwg,.igs,.iges,.fbx,.gltf,.glb,.3mf,.ply,.stp,.step">
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('file-input').click()">
+                        <i class="bi bi-folder2-open"></i> Datei auswählen
+                    </button>
+                </div>
+                
+                <!-- Progress -->
+                <div id="upload-progress" class="mt-3 d-none">
+                    <div class="d-flex align-items-center">
+                        <div class="spinner-border spinner-border-sm text-primary me-2" role="status"></div>
+                        <span id="progress-text">Analysiere...</span>
+                    </div>
+                    <div class="progress mt-2" style="height: 4px;">
+                        <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Ergebnis -->
+        <div id="result-card" class="card d-none">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-check-circle text-success"></i> Analyse-Ergebnis</h6>
+                <span id="result-format" class="badge bg-primary"></span>
+            </div>
+            <div class="card-body">
+                <div id="result-content"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Unterstützte Formate -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-file-earmark"></i> Unterstützte Formate</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for format in supported_formats.formats %}
+                    <li class="list-group-item d-flex justify-content-between align-items-center py-2">
+                        <div>
+                            <strong>{{ format.name }}</strong>
+                            <br><small class="text-muted">{{ format.description }}</small>
+                        </div>
+                        <span class="badge bg-secondary">{{ format.extensions|join:", " }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        
+        <!-- Letzte Analysen -->
+        {% if recent_analyses %}
+        <div class="card">
+            <div class="card-header">
+                <h6 class="mb-0"><i class="bi bi-clock-history"></i> Letzte Analysen</h6>
+            </div>
+            <div class="card-body p-0">
+                <ul class="list-group list-group-flush">
+                    {% for analysis in recent_analyses %}
+                    <li class="list-group-item py-2">
+                        <div class="d-flex align-items-center">
+                            {% if analysis.success %}
+                            <i class="bi bi-check-circle text-success me-2"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle text-danger me-2"></i>
+                            {% endif %}
+                            <div>
+                                <span class="small">{{ analysis.file_name }}</span>
+                                <br><span class="badge bg-light text-dark">{{ analysis.format|upper }}</span>
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    const progressDiv = document.getElementById('upload-progress');
+    const resultCard = document.getElementById('result-card');
+    const resultContent = document.getElementById('result-content');
+    const resultFormat = document.getElementById('result-format');
+    
+    // Drag & Drop
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.classList.add('border-primary', 'bg-primary', 'bg-opacity-10');
+    });
+    
+    dropZone.addEventListener('dragleave', () => {
+        dropZone.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.classList.remove('border-primary', 'bg-primary', 'bg-opacity-10');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+            uploadFile(files[0]);
+        }
+    });
+    
+    // File Input
+    fileInput.addEventListener('change', (e) => {
+        if (e.target.files.length > 0) {
+            uploadFile(e.target.files[0]);
+        }
+    });
+    
+    function uploadFile(file) {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        progressDiv.classList.remove('d-none');
+        resultCard.classList.add('d-none');
+        document.getElementById('progress-text').textContent = `Analysiere ${file.name}...`;
+        
+        fetch('{% url "cad_hub:format_analyze_api" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            progressDiv.classList.add('d-none');
+            resultCard.classList.remove('d-none');
+            
+            resultFormat.textContent = data.format?.toUpperCase() || 'UNKNOWN';
+            
+            if (data.success) {
+                resultCard.querySelector('.card-header i').className = 'bi bi-check-circle text-success';
+                
+                let html = `<p><strong>Datei:</strong> ${data.file_name}</p>`;
+                
+                if (data.markdown_report) {
+                    html += `<div class="border rounded p-3 bg-light"><pre class="mb-0" style="white-space: pre-wrap;">${data.markdown_report}</pre></div>`;
+                } else if (data.data) {
+                    html += `<pre class="bg-light p-3 rounded">${JSON.stringify(data.data, null, 2)}</pre>`;
+                }
+                
+                resultContent.innerHTML = html;
+            } else {
+                resultCard.querySelector('.card-header i').className = 'bi bi-x-circle text-danger';
+                resultContent.innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <strong>Fehler:</strong> ${data.errors?.join(', ') || data.error || 'Unbekannter Fehler'}
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            progressDiv.classList.add('d-none');
+            resultCard.classList.remove('d-none');
+            resultCard.querySelector('.card-header i').className = 'bi bi-x-circle text-danger';
+            resultContent.innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    <strong>Fehler:</strong> ${error.message}
+                </div>
+            `;
+        });
+    }
+});
+</script>
+{% endblock %}

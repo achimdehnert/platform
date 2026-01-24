@@ -1,0 +1,5 @@
+{{CLIPBOARD:@CASCADE: Checkpoint
+
+- Was ist der Stand?
+- Was fehlt noch?
+- Welche Requirements sind noch offen?}}

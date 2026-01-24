@@ -1,0 +1,1695 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Illustration-System - {{ project.title }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .prompt-container {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 2rem;
+    }
+    
+    .prompt-header {
+        background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    
+    .prompt-header h1 { margin: 0; font-size: 1.8rem; }
+    .prompt-header p { margin: 0.5rem 0 0 0; opacity: 0.9; }
+    
+    .workflow-nav {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 2rem;
+        flex-wrap: wrap;
+    }
+    
+    .workflow-nav a {
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        text-decoration: none;
+        color: #64748b;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .workflow-nav a:hover { background: #f8fafc; }
+    .workflow-nav a.active { background: #8b5cf6; color: white; }
+    
+    .tabs {
+        display: flex;
+        gap: 0.5rem;
+        margin-bottom: 1.5rem;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 0;
+    }
+    
+    .tab {
+        padding: 0.75rem 1.5rem;
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        color: #64748b;
+        border-bottom: 3px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+    }
+    
+    .tab:hover { color: #8b5cf6; }
+    .tab.active {
+        color: #8b5cf6;
+        border-bottom-color: #8b5cf6;
+        font-weight: 600;
+    }
+    
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+    
+    .panel {
+        background: white;
+        border-radius: 12px;
+        padding: 1.5rem;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        margin-bottom: 1.5rem;
+    }
+    
+    .panel-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+    
+    .panel-header h2 {
+        margin: 0;
+        font-size: 1.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        gap: 1rem;
+    }
+    
+    .form-group { margin-bottom: 1rem; }
+    
+    .form-group label {
+        display: block;
+        font-weight: 500;
+        margin-bottom: 0.5rem;
+        color: #374151;
+    }
+    
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.75rem;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 1rem;
+    }
+    
+    .form-group textarea { min-height: 100px; resize: vertical; }
+    .form-group small { color: #6b7280; font-size: 0.85rem; }
+    
+    .btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.75rem 1.5rem;
+        border-radius: 8px;
+        font-size: 1rem;
+        font-weight: 500;
+        text-decoration: none;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+    }
+    
+    .btn-primary {
+        background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
+        color: white;
+    }
+    
+    .btn-primary:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.4);
+    }
+    
+    .btn-ai {
+        background: linear-gradient(135deg, #06b6d4 0%, #0891b2 100%);
+        color: white;
+    }
+    
+    .btn-ai:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(6, 182, 212, 0.4);
+    }
+    
+    .btn-secondary { background: #f1f5f9; color: #475569; }
+    .btn-secondary:hover { background: #e2e8f0; }
+    .btn-success { background: #22c55e; color: white; }
+    .btn-danger { background: #ef4444; color: white; }
+    .btn-sm { padding: 0.5rem 1rem; font-size: 0.9rem; }
+    
+    .ai-generator {
+        background: linear-gradient(135deg, #ecfeff 0%, #cffafe 100%);
+        border: 2px solid #22d3ee;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .ai-generator h3 {
+        margin: 0 0 1rem 0;
+        color: #0891b2;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    
+    .ai-input-group {
+        display: flex;
+        gap: 1rem;
+        align-items: flex-end;
+    }
+    
+    .ai-input-group .form-group { flex: 1; margin: 0; }
+    
+    .item-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+    }
+    
+    .item-card {
+        background: #f8fafc;
+        border-radius: 10px;
+        padding: 1rem;
+        border: 1px solid #e2e8f0;
+        transition: all 0.2s;
+    }
+    
+    .item-card:hover {
+        border-color: #8b5cf6;
+        box-shadow: 0 4px 12px rgba(139, 92, 246, 0.1);
+    }
+    
+    .item-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 0.5rem;
+    }
+    
+    .item-card h4 { margin: 0; font-size: 1rem; color: #1e293b; }
+    
+    .item-card .badge {
+        padding: 0.25rem 0.5rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        font-weight: 500;
+    }
+    
+    .badge-protagonist { background: #fef3c7; color: #d97706; }
+    .badge-mentor { background: #dbeafe; color: #2563eb; }
+    .badge-antagonist { background: #fee2e2; color: #dc2626; }
+    .badge-supporting { background: #e2e8f0; color: #64748b; }
+    .badge-interior { background: #dcfce7; color: #16a34a; }
+    .badge-exterior { background: #cffafe; color: #0891b2; }
+    .badge-landscape { background: #fae8ff; color: #a855f7; }
+    
+    .item-card p {
+        font-size: 0.85rem;
+        color: #64748b;
+        margin: 0.5rem 0;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+    
+    .item-card-actions {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.75rem;
+    }
+    
+    .preview-box {
+        background: #1e293b;
+        color: #e2e8f0;
+        border-radius: 10px;
+        padding: 1rem;
+        font-family: monospace;
+        font-size: 0.9rem;
+        white-space: pre-wrap;
+        word-break: break-word;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    
+    .status-indicator {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        font-size: 0.9rem;
+    }
+    
+    .status-success { background: #dcfce7; color: #16a34a; }
+    .status-warning { background: #fef3c7; color: #d97706; }
+    .status-error { background: #fee2e2; color: #dc2626; }
+    
+    .loading-spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 2px solid #ffffff40;
+        border-top-color: white;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+    
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .modal {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .modal.active { display: flex; }
+    
+    .modal-content {
+        background: white;
+        border-radius: 16px;
+        padding: 2rem;
+        max-width: 600px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+    
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1.5rem;
+    }
+    
+    .modal-header h3 { margin: 0; }
+    .modal-close { background: none; border: none; font-size: 1.5rem; cursor: pointer; }
+    
+    .toast {
+        position: fixed;
+        bottom: 2rem;
+        right: 2rem;
+        background: #1e293b;
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 10px;
+        display: none;
+        z-index: 1001;
+    }
+    
+    .toast.success { background: #22c55e; }
+    .toast.error { background: #ef4444; }
+    
+    .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #94a3b8;
+    }
+    
+    .empty-state i { font-size: 3rem; margin-bottom: 1rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="prompt-container">
+    <div class="workflow-nav">
+        <a href="{% url 'writing_hub:chapter_writer' project.id %}">
+            <i class="bi bi-pencil"></i> Schreiben
+        </a>
+        <a href="{% url 'writing_hub:editing_dashboard' project.id %}">
+            <i class="bi bi-magic"></i> Redaktion
+        </a>
+        <a href="{% url 'writing_hub:illustration_dashboard' project.id %}">
+            <i class="bi bi-image"></i> Illustration
+        </a>
+        <a href="{% url 'writing_hub:prompt_system_setup' project.id %}" class="active">
+            <i class="bi bi-palette2"></i> Illustration-System
+        </a>
+    </div>
+
+    <div class="prompt-header">
+        <div>
+            <h1><i class="bi bi-palette2"></i> Illustration-System</h1>
+            <p>{{ project.title }} - KI-gestützte Bildgenerierung konfigurieren</p>
+        </div>
+        <div>
+            {% if has_master_style %}
+            <span class="status-indicator status-success">
+                <i class="bi bi-check-circle"></i> System konfiguriert
+            </span>
+            {% else %}
+            <span class="status-indicator status-warning">
+                <i class="bi bi-exclamation-triangle"></i> Nicht konfiguriert
+            </span>
+            {% endif %}
+        </div>
+    </div>
+    
+    <!-- Quick Start: Auto-Generate from Book -->
+    <div class="ai-generator" style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); border-color: #22c55e;">
+        <h3 style="color: #16a34a;"><i class="bi bi-magic"></i> Schnellstart: Stil aus Buchdaten generieren</h3>
+        <p style="margin: 0 0 1rem 0; color: #166534;">
+            Generiere automatisch einen passenden Bildstil basierend auf <strong>Titel, Genre, Beschreibung, Atmosphäre</strong> und anderen vorhandenen Buchinformationen.
+        </p>
+        <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
+            <button class="btn btn-success" onclick="suggestFromBook()" style="background: #16a34a;">
+                <i class="bi bi-book"></i> Aus Buchdaten generieren
+            </button>
+            <span style="color: #166534; font-size: 0.9rem;">
+                <i class="bi bi-info-circle"></i> Nutzt vorhandene Projektdaten (Genre, Setting, Charaktere, Kapitel...)
+            </span>
+        </div>
+    </div>
+    
+    <!-- AI Quick Setup -->
+    <div class="ai-generator">
+        <h3><i class="bi bi-stars"></i> KI-Assistent: Illustration-System generieren</h3>
+        <p style="margin: 0 0 1rem 0; color: #0e7490;">
+            Oder beschreibe manuell den gewünschten visuellen Stil und die KI erstellt Master-Stil, Charaktere und Orte.
+        </p>
+        <div class="ai-input-group">
+            <div class="form-group">
+                <label>Beschreibe dein Buch und den gewünschten Bildstil</label>
+                <textarea id="ai-description" placeholder="z.B. Ein kasachisches Märchen mit einem jungen Helden namens Arman. Visueller Stil: Osteuropäische Märchenillustration im Stil von Ivan Bilibin, reich an Juwelentönen und Gold-Akzenten..."></textarea>
+            </div>
+        </div>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+            <button class="btn btn-ai" onclick="generateWithAI()">
+                <i class="bi bi-stars"></i> Mit KI generieren
+            </button>
+            <select id="ai-preset" style="padding: 0.75rem; border-radius: 8px; border: 1px solid #22d3ee;">
+                <option value="">-- Oder Preset wählen --</option>
+                <option value="kazakh_fairytale">🏔️ Kasachisches Märchen</option>
+                <option value="fantasy_epic">⚔️ Fantasy Epos</option>
+                <option value="childrens_watercolor">🎨 Kinderbuch Aquarell</option>
+                <option value="scifi_cinematic">🚀 Sci-Fi Cinematisch</option>
+                <option value="romance_soft">💕 Romance Soft</option>
+            </select>
+            <button class="btn btn-secondary" onclick="loadPreset()">
+                <i class="bi bi-download"></i> Preset laden
+            </button>
+        </div>
+    </div>
+    
+    <!-- Tabs -->
+    <div class="tabs">
+        <button class="tab active" data-tab="master-style">
+            <i class="bi bi-brush"></i> Master-Stil
+        </button>
+        <button class="tab" data-tab="characters">
+            <i class="bi bi-people"></i> Charaktere ({{ characters|length }})
+        </button>
+        <button class="tab" data-tab="locations">
+            <i class="bi bi-geo-alt"></i> Orte ({{ locations|length }})
+        </button>
+        <button class="tab" data-tab="elements">
+            <i class="bi bi-collection"></i> Kulturelle Elemente ({{ cultural_elements|length }})
+        </button>
+        <button class="tab" data-tab="templates">
+            <i class="bi bi-file-earmark-text"></i> Szenen-Templates ({{ scene_templates|length }})
+        </button>
+    </div>
+    
+    <!-- Tab: Master Style -->
+    <div id="tab-master-style" class="tab-content active">
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="bi bi-brush"></i> Master-Stil</h2>
+                <button class="btn btn-ai btn-sm" onclick="generateMasterStyleWithAI()">
+                    <i class="bi bi-stars"></i> Mit KI optimieren
+                </button>
+            </div>
+            
+            <form id="master-style-form">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Stil-Name</label>
+                        <input type="text" name="name" value="{{ master_style.name|default:'' }}" 
+                               placeholder="z.B. Kasachisches Märchen">
+                    </div>
+                    <div class="form-group">
+                        <label>Preset</label>
+                        <select name="preset" onchange="updateMasterPrompt()">
+                            <option value="fairy_tale" {% if master_style.preset == 'fairy_tale' %}selected{% endif %}>🧚 Märchen (Ivan Bilibin)</option>
+                            <option value="cinematic" {% if master_style.preset == 'cinematic' %}selected{% endif %}>🎬 Cinematisch</option>
+                            <option value="watercolor" {% if master_style.preset == 'watercolor' %}selected{% endif %}>🎨 Aquarell Kinderbuch</option>
+                            <option value="manga" {% if master_style.preset == 'manga' %}selected{% endif %}>📚 Manga/Anime</option>
+                            <option value="realistic" {% if master_style.preset == 'realistic' %}selected{% endif %}>📷 Fotorealistisch</option>
+                            <option value="oil_painting" {% if master_style.preset == 'oil_painting' %}selected{% endif %}>🖼️ Ölgemälde</option>
+                            <option value="fantasy" {% if master_style.preset == 'fantasy' %}selected{% endif %}>🐉 Fantasy/Episch</option>
+                            <option value="steampunk" {% if master_style.preset == 'steampunk' %}selected{% endif %}>⚙️ Steampunk</option>
+                            <option value="gothic" {% if master_style.preset == 'gothic' %}selected{% endif %}>🦇 Gothic/Dunkel</option>
+                            <option value="minimalist" {% if master_style.preset == 'minimalist' %}selected{% endif %}>◻️ Minimalistisch</option>
+                            <option value="comic" {% if master_style.preset == 'comic' %}selected{% endif %}>💥 Comic/Graphic Novel</option>
+                            <option value="vintage" {% if master_style.preset == 'vintage' %}selected{% endif %}>📜 Vintage/Retro</option>
+                            <option value="pixel_art" {% if master_style.preset == 'pixel_art' %}selected{% endif %}>👾 Pixel Art</option>
+                            <option value="impressionist" {% if master_style.preset == 'impressionist' %}selected{% endif %}>🌻 Impressionismus</option>
+                            <option value="art_nouveau" {% if master_style.preset == 'art_nouveau' %}selected{% endif %}>🌸 Jugendstil</option>
+                            <option value="custom" {% if master_style.preset == 'custom' %}selected{% endif %}>✏️ Benutzerdefiniert</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label>Basis-Stil-Prompt</label>
+                    <textarea name="style_base_prompt" rows="3" onchange="updateMasterPrompt()" oninput="updateMasterPrompt()">{{ master_style.style_base_prompt|default:'Digital fairy tale illustration, rich jewel tones, cinematic composition, 4K detail' }}</textarea>
+                    <small>Dieser Prompt wird bei JEDEM Bild angehängt</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Kultureller Kontext</label>
+                    <textarea name="cultural_context" rows="2" onchange="updateMasterPrompt()" oninput="updateMasterPrompt()">{{ master_style.cultural_context|default:'' }}</textarea>
+                    <small>z.B. "Kazakh folk art patterns, tribal motifs"</small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Künstlerische Referenzen</label>
+                    <input type="text" name="artistic_references" value="{{ master_style.artistic_references|default:'' }}"
+                           placeholder="z.B. inspired by Ivan Bilibin" onchange="updateMasterPrompt()" oninput="updateMasterPrompt()">
+                </div>
+                
+                <div class="form-group" style="margin-top: 1.5rem; padding: 1rem; background: #f1f5f9; border-radius: 10px; border: 2px solid #8b5cf6;">
+                    <label style="font-weight: 600; color: #7c3aed;">🎯 Master-Prompt (editierbar)</label>
+                    <textarea name="master_prompt" id="master_prompt_field" rows="5" style="font-family: monospace; font-size: 0.9rem;">{{ master_style.master_prompt|default:'' }}</textarea>
+                    <small style="display: flex; justify-content: space-between; align-items: center;">
+                        <span>Der finale Prompt für die Bildgenerierung. Wird automatisch aktualisiert, kann aber manuell editiert werden.</span>
+                        <button type="button" class="btn btn-sm" onclick="regenerateMasterPrompt()" style="padding: 0.25rem 0.5rem; font-size: 0.8rem;">
+                            <i class="bi bi-arrow-repeat"></i> Neu generieren
+                        </button>
+                    </small>
+                </div>
+                
+                <div class="form-group">
+                    <label>Negative Prompt</label>
+                    <textarea name="negative_prompt" rows="2">{{ master_style.negative_prompt|default:'blurry, low quality, text, watermark, ugly, deformed' }}</textarea>
+                    <small>Was in Bildern vermieden werden soll</small>
+                </div>
+                
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Standard-Breite (px)</label>
+                        <input type="number" name="default_width" value="{{ master_style.default_width|default:1024 }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Standard-Höhe (px)</label>
+                        <input type="number" name="default_height" value="{{ master_style.default_height|default:768 }}">
+                    </div>
+                    <div class="form-group">
+                        <label>Guidance Scale</label>
+                        <input type="number" name="guidance_scale" value="{{ master_style.guidance_scale|default:7.5 }}" step="0.5" min="1" max="20">
+                    </div>
+                    <div class="form-group">
+                        <label>Inference Steps</label>
+                        <input type="number" name="inference_steps" value="{{ master_style.inference_steps|default:28 }}" min="10" max="100">
+                    </div>
+                </div>
+                
+                <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-save"></i> Master-Stil speichern
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="previewMasterStyle()">
+                        <i class="bi bi-eye"></i> Prompt-Vorschau
+                    </button>
+                    {% if has_master_style %}
+                    <button type="button" class="btn btn-ai" onclick="generatePreviewImage()" id="btn-generate-preview">
+                        <i class="bi bi-image"></i> Vorschaubild generieren
+                    </button>
+                    {% endif %}
+                </div>
+            </form>
+            
+            <div id="master-style-preview" style="display: none; margin-top: 1rem;">
+                <h4>Generierter Basis-Prompt:</h4>
+                <div class="preview-box" id="master-style-preview-text"></div>
+            </div>
+            
+            <!-- Preview Image Section -->
+            <div id="preview-image-section" class="preview-image-container" style="margin-top: 1.5rem; {% if not master_style.preview_image %}display: none;{% endif %}">
+                <h4><i class="bi bi-image"></i> Stil-Vorschaubild</h4>
+                <div style="display: flex; gap: 1rem; align-items: flex-start;">
+                    <div class="preview-image-wrapper" style="flex: 1; max-width: 512px;">
+                        <img id="preview-image" 
+                             src="{% if master_style.preview_image %}{{ master_style.preview_image.url }}{% endif %}" 
+                             alt="Stil-Vorschau" 
+                             style="width: 100%; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15);">
+                    </div>
+                    <div class="preview-info" style="flex: 0 0 200px;">
+                        <p style="margin: 0; color: #64748b; font-size: 0.9rem;">
+                            <strong>Generiert:</strong><br>
+                            <span id="preview-generated-at">
+                                {% if master_style.preview_generated_at %}
+                                    {{ master_style.preview_generated_at|date:"d.m.Y H:i" }}
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </span>
+                        </p>
+                        <button type="button" class="btn btn-sm btn-secondary" onclick="generatePreviewImage()" style="margin-top: 1rem;">
+                            <i class="bi bi-arrow-clockwise"></i> Neu generieren
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Loading Spinner for Image Generation -->
+            <div id="preview-loading" style="display: none; margin-top: 1.5rem; text-align: center; padding: 2rem;">
+                <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                    <span class="visually-hidden">Generiere Vorschaubild...</span>
+                </div>
+                <p style="margin-top: 1rem; color: #64748b;">Generiere Vorschaubild mit ComfyUI...<br><small>Dies kann 10-30 Sekunden dauern</small></p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tab: Characters -->
+    <div id="tab-characters" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="bi bi-people"></i> Charakter-Definitionen</h2>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-ai btn-sm" onclick="generateCharactersWithAI()">
+                        <i class="bi bi-stars"></i> Charaktere aus Buch extrahieren
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="openCharacterModal()">
+                        <i class="bi bi-plus"></i> Neuer Charakter
+                    </button>
+                </div>
+            </div>
+            
+            <div class="item-list" id="characters-list">
+                {% for char in characters %}
+                <div class="item-card" data-id="{{ char.id }}">
+                    <div class="item-card-header">
+                        <h4>{{ char.name }}</h4>
+                        <span class="badge badge-{{ char.role }}">{{ char.get_role_display }}</span>
+                    </div>
+                    {% if char.portrait_image %}
+                    <div class="character-portrait" style="margin: 0.5rem 0;">
+                        <a href="{{ char.portrait_image.url }}" target="_blank" title="Vollbild anzeigen">
+                            <img src="{{ char.portrait_image.url }}" alt="{{ char.name }}" 
+                                 style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;">
+                        </a>
+                    </div>
+                    {% endif %}
+                    <p>{{ char.appearance_prompt|truncatewords:20 }}</p>
+                    <div class="item-card-actions">
+                        <button class="btn btn-ai btn-sm" onclick="generateCharacterPortrait({{ char.id }}, '{{ char.name|escapejs }}')" title="Portrait generieren">
+                            <i class="bi bi-image"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="editCharacter({{ char.id }})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteCharacter({{ char.id }})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state" style="grid-column: 1/-1;">
+                    <i class="bi bi-people"></i>
+                    <p>Keine Charaktere definiert</p>
+                    <button class="btn btn-ai" onclick="generateCharactersWithAI()">
+                        <i class="bi bi-stars"></i> Mit KI aus Buch extrahieren
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tab: Locations -->
+    <div id="tab-locations" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="bi bi-geo-alt"></i> Ort-Definitionen</h2>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-ai btn-sm" onclick="generateLocationsWithAI()">
+                        <i class="bi bi-stars"></i> Orte aus Buch extrahieren
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="openLocationModal()">
+                        <i class="bi bi-plus"></i> Neuer Ort
+                    </button>
+                </div>
+            </div>
+            
+            <div class="item-list" id="locations-list">
+                {% for loc in locations %}
+                <div class="item-card" data-id="{{ loc.id }}">
+                    <div class="item-card-header">
+                        <h4>{{ loc.name }}</h4>
+                        <span class="badge badge-{{ loc.location_type }}">{{ loc.get_location_type_display }}</span>
+                    </div>
+                    {% if loc.preview_image %}
+                    <div class="location-preview" style="margin: 0.5rem 0;">
+                        <a href="{{ loc.preview_image.url }}" target="_blank" title="Vollbild anzeigen">
+                            <img src="{{ loc.preview_image.url }}" alt="{{ loc.name }}" 
+                                 style="width: 100%; max-height: 150px; object-fit: cover; border-radius: 8px; cursor: pointer;">
+                        </a>
+                    </div>
+                    {% endif %}
+                    <p>{{ loc.environment_prompt|truncatewords:20 }}</p>
+                    <div class="item-card-actions">
+                        <button class="btn btn-ai btn-sm" onclick="generateLocationPreview({{ loc.id }}, '{{ loc.name|escapejs }}')" title="Vorschau generieren">
+                            <i class="bi bi-image"></i>
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="editLocation({{ loc.id }})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteLocation({{ loc.id }})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state" style="grid-column: 1/-1;">
+                    <i class="bi bi-geo-alt"></i>
+                    <p>Keine Orte definiert</p>
+                    <button class="btn btn-ai" onclick="generateLocationsWithAI()">
+                        <i class="bi bi-stars"></i> Mit KI aus Buch extrahieren
+                    </button>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tab: Cultural Elements -->
+    <div id="tab-elements" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="bi bi-collection"></i> Kulturelle Elemente</h2>
+                <div style="display: flex; gap: 0.5rem;">
+                    <button class="btn btn-ai btn-sm" onclick="generateElementsWithAI()">
+                        <i class="bi bi-stars"></i> Elemente generieren
+                    </button>
+                    <button class="btn btn-primary btn-sm" onclick="openElementModal()">
+                        <i class="bi bi-plus"></i> Neues Element
+                    </button>
+                </div>
+            </div>
+            
+            <div class="item-list" id="elements-list">
+                {% for elem in cultural_elements %}
+                <div class="item-card" data-id="{{ elem.id }}">
+                    <div class="item-card-header">
+                        <h4>{{ elem.term_local }} <small>({{ elem.term_english }})</small></h4>
+                        <span class="badge">{{ elem.get_category_display }}</span>
+                    </div>
+                    <p>{{ elem.visual_prompt|truncatewords:15 }}</p>
+                    <div class="item-card-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="editElement({{ elem.id }})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteElement({{ elem.id }})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state" style="grid-column: 1/-1;">
+                    <i class="bi bi-collection"></i>
+                    <p>Keine kulturellen Elemente definiert</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tab: Scene Templates -->
+    <div id="tab-templates" class="tab-content">
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="bi bi-file-earmark-text"></i> Szenen-Templates</h2>
+                <button class="btn btn-primary btn-sm" onclick="openTemplateModal()">
+                    <i class="bi bi-plus"></i> Neues Template
+                </button>
+            </div>
+            
+            <div class="item-list" id="templates-list">
+                {% for tmpl in scene_templates %}
+                <div class="item-card" data-id="{{ tmpl.id }}">
+                    <div class="item-card-header">
+                        <h4>{{ tmpl.name }}</h4>
+                        <span class="badge">{{ tmpl.get_scene_type_display }}</span>
+                    </div>
+                    <p>{{ tmpl.template_prompt|truncatewords:15 }}</p>
+                    <div class="item-card-actions">
+                        <button class="btn btn-secondary btn-sm" onclick="editTemplate({{ tmpl.id }})">
+                            <i class="bi bi-pencil"></i>
+                        </button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteTemplate({{ tmpl.id }})">
+                            <i class="bi bi-trash"></i>
+                        </button>
+                    </div>
+                </div>
+                {% empty %}
+                <div class="empty-state" style="grid-column: 1/-1;">
+                    <i class="bi bi-file-earmark-text"></i>
+                    <p>Keine Szenen-Templates definiert</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Character Modal -->
+<div id="character-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-person-plus"></i> <span id="character-modal-title">Neuer Charakter</span></h3>
+            <button class="modal-close" onclick="closeModal('character-modal')">&times;</button>
+        </div>
+        <form id="character-form">
+            <input type="hidden" name="id" id="character-id">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" id="character-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Rolle</label>
+                    <select name="role" id="character-role">
+                        <option value="protagonist">⭐ Protagonist</option>
+                        <option value="antagonist">👿 Antagonist</option>
+                        <option value="mentor">🧙 Mentor</option>
+                        <option value="sidekick">🤝 Sidekick</option>
+                        <option value="supporting">👥 Nebenrolle</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Erscheinung</label>
+                <textarea name="appearance_prompt" id="character-appearance" rows="3" required
+                          placeholder="Physische Erscheinung: Alter, Gesichtszüge, Körperbau..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Kleidung</label>
+                <textarea name="clothing_prompt" id="character-clothing" rows="2"
+                          placeholder="Typische Kleidung und Accessoires..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Gegenstände/Props</label>
+                <input type="text" name="props_prompt" id="character-props"
+                       placeholder="z.B. Carries an ancestral dagger with turquoise inlay">
+            </div>
+            <div class="form-group">
+                <label>Standard-Ausdruck</label>
+                <input type="text" name="expression_default" id="character-expression"
+                       placeholder="z.B. determined expression">
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-ai" onclick="optimizeCharacterWithAI()">
+                    <i class="bi bi-stars"></i> Mit KI optimieren
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('character-modal')">Abbrechen</button>
+                <button type="submit" class="btn btn-primary">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Location Modal -->
+<div id="location-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3><i class="bi bi-geo-alt-fill"></i> <span id="location-modal-title">Neuer Ort</span></h3>
+            <button class="modal-close" onclick="closeModal('location-modal')">&times;</button>
+        </div>
+        <form id="location-form">
+            <input type="hidden" name="id" id="location-id">
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Name</label>
+                    <input type="text" name="name" id="location-name" required>
+                </div>
+                <div class="form-group">
+                    <label>Typ</label>
+                    <select name="location_type" id="location-type">
+                        <option value="interior">🏠 Innenraum</option>
+                        <option value="exterior">🌄 Außenbereich</option>
+                        <option value="landscape">🏞️ Landschaft</option>
+                        <option value="urban">🏙️ Stadt</option>
+                        <option value="supernatural">✨ Übernatürlich</option>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Umgebung</label>
+                <textarea name="environment_prompt" id="location-environment" rows="3" required
+                          placeholder="Detaillierte Umgebungsbeschreibung..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Beleuchtung (Standard)</label>
+                <textarea name="lighting_default" id="location-lighting" rows="2"
+                          placeholder="Standard-Beleuchtung..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Atmosphäre</label>
+                <textarea name="atmosphere_prompt" id="location-atmosphere" rows="2"
+                          placeholder="Stimmung und Atmosphäre..."></textarea>
+            </div>
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <button type="button" class="btn btn-ai" onclick="optimizeLocationWithAI()">
+                    <i class="bi bi-stars"></i> Mit KI optimieren
+                </button>
+                <button type="button" class="btn btn-secondary" onclick="closeModal('location-modal')">Abbrechen</button>
+                <button type="submit" class="btn btn-primary">Speichern</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script>
+const projectId = {{ project.id }};
+const csrfToken = '{{ csrf_token }}';
+
+// Tab switching
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        tab.classList.add('active');
+        document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+    });
+});
+
+function showToast(message, type = 'info') {
+    const toast = document.getElementById('toast');
+    toast.textContent = message;
+    toast.className = 'toast ' + type;
+    toast.style.display = 'block';
+    setTimeout(() => toast.style.display = 'none', 4000);
+}
+
+// Preset prompts mapping (must match Python model)
+const PRESET_PROMPTS = {
+    'fairy_tale': 'fairy tale illustration style, magical atmosphere, soft lighting, Ivan Bilibin inspired, ornate borders, folk art elements',
+    'cinematic': 'cinematic composition, dramatic lighting, movie still, wide angle, depth of field, professional photography',
+    'watercolor': 'watercolor painting, soft edges, gentle colors, children book illustration, hand-painted look, pastel tones',
+    'manga': 'manga style, anime art, clean lines, vibrant colors, expressive eyes, Japanese illustration style',
+    'realistic': 'photorealistic, highly detailed, natural lighting, 8k resolution, professional photograph',
+    'oil_painting': 'oil painting style, rich textures, classical art, museum quality, masterpiece brushwork',
+    'fantasy': 'epic fantasy art, dramatic lighting, magical elements, detailed armor and weapons, mythical creatures, heroic composition',
+    'steampunk': 'steampunk aesthetic, brass and copper machinery, Victorian era, cogs and gears, industrial fantasy, sepia tones',
+    'gothic': 'gothic art style, dark atmosphere, dramatic shadows, medieval architecture, mysterious mood, moody lighting',
+    'minimalist': 'minimalist illustration, clean lines, simple shapes, limited color palette, modern design, white space',
+    'comic': 'comic book style, bold outlines, dynamic action poses, halftone dots, vibrant colors, graphic novel aesthetic',
+    'vintage': 'vintage illustration, retro aesthetic, aged paper texture, classic typography, nostalgic colors, 1950s style',
+    'pixel_art': 'pixel art style, 16-bit aesthetic, retro gaming, blocky shapes, limited palette, nostalgic',
+    'impressionist': 'impressionist painting style, visible brushstrokes, light and color, outdoor scenes, Monet inspired, atmospheric',
+    'art_nouveau': 'art nouveau style, organic flowing lines, floral motifs, elegant curves, Alphonse Mucha inspired, decorative borders',
+    'custom': ''
+};
+
+// Build combined prompt from form fields
+function buildCombinedPrompt() {
+    const parts = [];
+    
+    const preset = document.querySelector('[name="preset"]').value;
+    if (preset && PRESET_PROMPTS[preset]) {
+        parts.push(PRESET_PROMPTS[preset]);
+    }
+    
+    const basePrompt = document.querySelector('[name="style_base_prompt"]').value.trim();
+    if (basePrompt) parts.push(basePrompt);
+    
+    const cultural = document.querySelector('[name="cultural_context"]').value.trim();
+    if (cultural) parts.push(cultural);
+    
+    const artistic = document.querySelector('[name="artistic_references"]').value.trim();
+    if (artistic) parts.push(artistic);
+    
+    return parts.filter(p => p).join(', ');
+}
+
+// Update master prompt field when components change
+function updateMasterPrompt() {
+    const masterPromptField = document.getElementById('master_prompt_field');
+    // Only auto-update if the field is empty or matches previous auto-generated value
+    if (!masterPromptField.dataset.userEdited) {
+        masterPromptField.value = buildCombinedPrompt();
+    }
+}
+
+// Mark field as user-edited when manually changed
+document.addEventListener('DOMContentLoaded', () => {
+    const masterPromptField = document.getElementById('master_prompt_field');
+    if (masterPromptField) {
+        masterPromptField.addEventListener('input', () => {
+            masterPromptField.dataset.userEdited = 'true';
+        });
+        // Initialize if empty
+        if (!masterPromptField.value.trim()) {
+            updateMasterPrompt();
+        }
+    }
+});
+
+// Force regenerate master prompt from components
+function regenerateMasterPrompt() {
+    const masterPromptField = document.getElementById('master_prompt_field');
+    masterPromptField.dataset.userEdited = '';
+    masterPromptField.value = buildCombinedPrompt();
+    showToast('Master-Prompt neu generiert', 'success');
+}
+
+// Auto-generate style from book data
+async function suggestFromBook() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span> Analysiere Buchdaten...';
+    btn.disabled = true;
+    
+    showToast('Analysiere Buchinhalt und generiere Stil-Vorschlag...', 'info');
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/suggest-from-book/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(result.message, 'success');
+            
+            // Update form fields with generated data
+            if (result.data && result.data.master_style) {
+                const ms = result.data.master_style;
+                document.querySelector('[name="name"]').value = ms.name || '';
+                document.querySelector('[name="preset"]').value = ms.preset || 'custom';
+                document.querySelector('[name="style_base_prompt"]').value = ms.style_base_prompt || '';
+                document.querySelector('[name="cultural_context"]').value = ms.cultural_context || '';
+                document.querySelector('[name="artistic_references"]').value = ms.artistic_references || '';
+                document.querySelector('[name="negative_prompt"]').value = ms.negative_prompt || '';
+            }
+            
+            // Reload page after short delay to show all created elements
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(result.error || 'Fehler bei der Generierung', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
+function closeModal(id) {
+    document.getElementById(id).classList.remove('active');
+}
+
+function openCharacterModal(data = null) {
+    const modal = document.getElementById('character-modal');
+    const title = document.getElementById('character-modal-title');
+    
+    if (data) {
+        title.textContent = 'Charakter bearbeiten';
+        document.getElementById('character-id').value = data.id;
+        document.getElementById('character-name').value = data.name;
+        document.getElementById('character-role').value = data.role;
+        document.getElementById('character-appearance').value = data.appearance_prompt;
+        document.getElementById('character-clothing').value = data.clothing_prompt;
+        document.getElementById('character-props').value = data.props_prompt;
+        document.getElementById('character-expression').value = data.expression_default;
+    } else {
+        title.textContent = 'Neuer Charakter';
+        document.getElementById('character-form').reset();
+        document.getElementById('character-id').value = '';
+    }
+    
+    modal.classList.add('active');
+}
+
+function openLocationModal(data = null) {
+    const modal = document.getElementById('location-modal');
+    const title = document.getElementById('location-modal-title');
+    
+    if (data) {
+        title.textContent = 'Ort bearbeiten';
+        document.getElementById('location-id').value = data.id;
+        document.getElementById('location-name').value = data.name;
+        document.getElementById('location-type').value = data.location_type;
+        document.getElementById('location-environment').value = data.environment_prompt;
+        document.getElementById('location-lighting').value = data.lighting_default;
+        document.getElementById('location-atmosphere').value = data.atmosphere_prompt;
+    } else {
+        title.textContent = 'Neuer Ort';
+        document.getElementById('location-form').reset();
+        document.getElementById('location-id').value = '';
+    }
+    
+    modal.classList.add('active');
+}
+
+// Edit character - find data from DOM and open modal
+function editCharacter(id) {
+    // Get character data from the card
+    const card = document.querySelector(`.item-card[data-id="${id}"]`);
+    if (!card) {
+        showToast('Charakter nicht gefunden', 'error');
+        return;
+    }
+    
+    // We need to fetch the full data from the server
+    fetch(`/writing-hub/project/${projectId}/prompt-system/character/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                openCharacterModal(data.character);
+            } else {
+                showToast(data.error || 'Fehler beim Laden', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading character:', error);
+            showToast('Fehler beim Laden des Charakters', 'error');
+        });
+}
+
+// Edit location - fetch data and open modal
+function editLocation(id) {
+    fetch(`/writing-hub/project/${projectId}/prompt-system/location/${id}/`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                openLocationModal(data.location);
+            } else {
+                showToast(data.error || 'Fehler beim Laden', 'error');
+            }
+        })
+        .catch(error => {
+            console.error('Error loading location:', error);
+            showToast('Fehler beim Laden des Ortes', 'error');
+        });
+}
+
+// AI optimization for character prompts
+async function optimizeCharacterWithAI() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span> Optimiere...';
+    btn.disabled = true;
+    
+    // Collect current form values
+    const data = {
+        name: document.getElementById('character-name').value,
+        role: document.getElementById('character-role').value,
+        appearance_prompt: document.getElementById('character-appearance').value,
+        clothing_prompt: document.getElementById('character-clothing').value,
+        props_prompt: document.getElementById('character-props').value,
+        expression_default: document.getElementById('character-expression').value,
+    };
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/character/optimize-with-ai/`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': csrfToken 
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update form fields with optimized values
+            const opt = result.optimized;
+            if (opt.appearance_prompt) {
+                document.getElementById('character-appearance').value = opt.appearance_prompt;
+            }
+            if (opt.clothing_prompt) {
+                document.getElementById('character-clothing').value = opt.clothing_prompt;
+            }
+            if (opt.props_prompt) {
+                document.getElementById('character-props').value = opt.props_prompt;
+            }
+            if (opt.expression_default) {
+                document.getElementById('character-expression').value = opt.expression_default;
+            }
+            
+            showToast(result.explanation || 'Charakter-Prompts optimiert!', 'success');
+        } else {
+            showToast(result.error || 'Fehler bei der KI-Optimierung', 'error');
+        }
+    } catch (error) {
+        console.error('AI optimization error:', error);
+        showToast('Netzwerkfehler bei der KI-Optimierung', 'error');
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
+// Generate location preview with ComfyUI
+async function generateLocationPreview(locationId, locationName) {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+    
+    showToast(`Generiere Vorschau für ${locationName}...`, 'info');
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/location/${locationId}/generate-preview/`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': csrfToken 
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`Vorschau für ${locationName} generiert!`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(result.error || 'Fehler bei der Vorschau-Generierung', 'error');
+        }
+    } catch (error) {
+        console.error('Preview generation error:', error);
+        showToast('Netzwerkfehler bei der Vorschau-Generierung', 'error');
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
+// AI optimization for location prompts
+async function optimizeLocationWithAI() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span> Optimiere...';
+    btn.disabled = true;
+    
+    // Collect current form values
+    const data = {
+        name: document.getElementById('location-name').value,
+        location_type: document.getElementById('location-type').value,
+        environment_prompt: document.getElementById('location-environment').value,
+        lighting_default: document.getElementById('location-lighting').value,
+        atmosphere_prompt: document.getElementById('location-atmosphere').value,
+    };
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/location/optimize-with-ai/`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': csrfToken 
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update form fields with optimized values
+            const opt = result.optimized;
+            if (opt.environment_prompt) {
+                document.getElementById('location-environment').value = opt.environment_prompt;
+            }
+            if (opt.lighting_default) {
+                document.getElementById('location-lighting').value = opt.lighting_default;
+            }
+            if (opt.atmosphere_prompt) {
+                document.getElementById('location-atmosphere').value = opt.atmosphere_prompt;
+            }
+            
+            showToast(result.explanation || 'Ort-Prompts optimiert!', 'success');
+        } else {
+            showToast(result.error || 'Fehler bei der KI-Optimierung', 'error');
+        }
+    } catch (error) {
+        console.error('AI optimization error:', error);
+        showToast('Netzwerkfehler bei der KI-Optimierung', 'error');
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
+// Master Style Form
+document.getElementById('master-style-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/master-style/save/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('Master-Stil gespeichert!', 'success');
+        } else {
+            showToast(result.error || 'Fehler', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+});
+
+function previewMasterStyle() {
+    const form = document.getElementById('master-style-form');
+    const formData = new FormData(form);
+    
+    // Preset style prompts (must match backend)
+    const presetPrompts = {
+        'fairy_tale': 'fairy tale illustration style, magical atmosphere, soft lighting, Ivan Bilibin inspired, ornate borders, folk art elements',
+        'cinematic': 'cinematic composition, dramatic lighting, movie still, wide angle, depth of field, professional photography',
+        'watercolor': 'watercolor painting, soft edges, gentle colors, children book illustration, hand-painted look, pastel tones',
+        'manga': 'manga style, anime art, clean lines, vibrant colors, expressive eyes, Japanese illustration style',
+        'realistic': 'photorealistic, highly detailed, natural lighting, 8k resolution, professional photograph',
+        'oil_painting': 'oil painting style, rich textures, classical art, museum quality, masterpiece brushwork',
+        'custom': ''
+    };
+    
+    let parts = [];
+    
+    // Add preset prompt first
+    const preset = formData.get('preset');
+    if (preset && presetPrompts[preset]) {
+        parts.push(presetPrompts[preset]);
+    }
+    
+    // Add base prompt
+    if (formData.get('style_base_prompt')) {
+        parts.push(formData.get('style_base_prompt'));
+    }
+    if (formData.get('cultural_context')) {
+        parts.push(formData.get('cultural_context'));
+    }
+    if (formData.get('artistic_references')) {
+        parts.push(formData.get('artistic_references'));
+    }
+    
+    document.getElementById('master-style-preview-text').textContent = parts.join(', ');
+    document.getElementById('master-style-preview').style.display = 'block';
+    
+    // Also trigger image generation
+    generatePreviewImage();
+}
+
+async function generatePreviewImage() {
+    const previewSection = document.getElementById('preview-image-section');
+    const loadingSection = document.getElementById('preview-loading');
+    const generateBtn = document.getElementById('btn-generate-preview');
+    
+    // Show loading, hide preview
+    if (previewSection) previewSection.style.display = 'none';
+    loadingSection.style.display = 'block';
+    if (generateBtn) generateBtn.disabled = true;
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/master-style/generate-preview/`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': csrfToken 
+            },
+            credentials: 'same-origin'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update preview image
+            const previewImg = document.getElementById('preview-image');
+            previewImg.src = result.preview_url + '?t=' + Date.now(); // Cache bust
+            
+            // Update timestamp
+            const generatedAt = document.getElementById('preview-generated-at');
+            if (generatedAt && result.generated_at) {
+                const date = new Date(result.generated_at);
+                generatedAt.textContent = date.toLocaleString('de-DE');
+            }
+            
+            // Show preview section
+            previewSection.style.display = 'block';
+            showToast(`Vorschaubild generiert (${result.generation_time?.toFixed(1) || '?'}s)`, 'success');
+        } else {
+            showToast(result.error || 'Fehler bei der Bildgenerierung', 'error');
+        }
+    } catch (error) {
+        console.error('Preview generation error:', error);
+        showToast('Netzwerkfehler bei der Bildgenerierung', 'error');
+    } finally {
+        loadingSection.style.display = 'none';
+        if (generateBtn) generateBtn.disabled = false;
+    }
+}
+
+// Character Form
+document.getElementById('character-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/character/save/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('Charakter gespeichert!', 'success');
+            closeModal('character-modal');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(result.error || 'Fehler', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+});
+
+// Location Form
+document.getElementById('location-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/location/save/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('Ort gespeichert!', 'success');
+            closeModal('location-modal');
+            setTimeout(() => location.reload(), 500);
+        } else {
+            showToast(result.error || 'Fehler', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+});
+
+// AI Generation
+async function generateWithAI() {
+    const description = document.getElementById('ai-description').value;
+    if (!description) {
+        showToast('Bitte beschreibe dein Buch und den gewünschten Stil', 'error');
+        return;
+    }
+    
+    const btn = event.target;
+    btn.innerHTML = '<span class="loading-spinner"></span> Generiere...';
+    btn.disabled = true;
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/generate-with-ai/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ description })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('Illustration-System generiert! Seite wird neu geladen...', 'success');
+            setTimeout(() => location.reload(), 1500);
+        } else {
+            showToast(result.error || 'Fehler bei der Generierung', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    } finally {
+        btn.innerHTML = '<i class="bi bi-stars"></i> Mit KI generieren';
+        btn.disabled = false;
+    }
+}
+
+async function loadPreset() {
+    const preset = document.getElementById('ai-preset').value;
+    if (!preset) {
+        showToast('Bitte wähle ein Preset', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/load-preset/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ preset })
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('Preset geladen! Seite wird neu geladen...', 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(result.error || 'Fehler', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+}
+
+async function generateCharactersWithAI() {
+    showToast('Extrahiere Charaktere aus Buchinhalt...', 'info');
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/extract-characters/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast(`${result.count} Charaktere extrahiert!`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(result.error || 'Fehler', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+}
+
+async function generateLocationsWithAI() {
+    showToast('Extrahiere Orte aus Buchinhalt...', 'info');
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/extract-locations/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast(`${result.count} Orte extrahiert!`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(result.error || 'Fehler', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+}
+
+async function generateElementsWithAI() {
+    showToast('Extrahiere kulturelle Elemente aus Buchinhalt...', 'info');
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/extract-elements/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast(`${result.count} Elemente extrahiert!`, 'success');
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(result.error || 'Fehler', 'error');
+        }
+    } catch (error) {
+        showToast('Netzwerkfehler', 'error');
+    }
+}
+
+// AI Optimization for Master Style
+async function generateMasterStyleWithAI() {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span> Optimiere...';
+    btn.disabled = true;
+    
+    // Collect current form values
+    const form = document.getElementById('master-style-form');
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData);
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/optimize-master-style/`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': csrfToken 
+            },
+            body: JSON.stringify(data)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            // Update form fields with optimized values
+            const opt = result.optimized;
+            
+            if (opt.style_base_prompt) {
+                document.querySelector('[name="style_base_prompt"]').value = opt.style_base_prompt;
+            }
+            if (opt.cultural_context) {
+                document.querySelector('[name="cultural_context"]').value = opt.cultural_context;
+            }
+            if (opt.artistic_references) {
+                document.querySelector('[name="artistic_references"]').value = opt.artistic_references;
+            }
+            if (opt.negative_prompt) {
+                document.querySelector('[name="negative_prompt"]').value = opt.negative_prompt;
+            }
+            if (opt.master_prompt) {
+                const masterPromptField = document.getElementById('master_prompt_field');
+                masterPromptField.value = opt.master_prompt;
+                masterPromptField.dataset.userEdited = 'true'; // Mark as edited so it doesn't get overwritten
+            }
+            
+            showToast(result.explanation || 'Stil wurde mit KI optimiert!', 'success');
+        } else {
+            showToast(result.error || 'Fehler bei der KI-Optimierung', 'error');
+        }
+    } catch (error) {
+        console.error('AI optimization error:', error);
+        showToast('Netzwerkfehler bei der KI-Optimierung', 'error');
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
+// Generate character portrait with ComfyUI
+async function generateCharacterPortrait(characterId, characterName) {
+    const btn = event.target.closest('button');
+    const originalHTML = btn.innerHTML;
+    btn.innerHTML = '<span class="loading-spinner"></span>';
+    btn.disabled = true;
+    
+    showToast(`Generiere Portrait für ${characterName}...`, 'info');
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/character/${characterId}/generate-portrait/`, {
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json', 
+                'X-CSRFToken': csrfToken 
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            showToast(`Portrait für ${characterName} generiert!`, 'success');
+            // Reload to show the new portrait
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showToast(result.error || 'Fehler bei der Portrait-Generierung', 'error');
+        }
+    } catch (error) {
+        console.error('Portrait generation error:', error);
+        showToast('Netzwerkfehler bei der Portrait-Generierung', 'error');
+    } finally {
+        btn.innerHTML = originalHTML;
+        btn.disabled = false;
+    }
+}
+
+async function deleteCharacter(id) {
+    if (!confirm('Charakter wirklich löschen?')) return;
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/character/${id}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('Gelöscht', 'success');
+            document.querySelector(`.item-card[data-id="${id}"]`).remove();
+        }
+    } catch (error) {
+        showToast('Fehler', 'error');
+    }
+}
+
+async function deleteLocation(id) {
+    if (!confirm('Ort wirklich löschen?')) return;
+    
+    try {
+        const response = await fetch(`/writing-hub/project/${projectId}/prompt-system/location/${id}/delete/`, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken }
+        });
+        
+        const result = await response.json();
+        if (result.success) {
+            showToast('Gelöscht', 'success');
+            document.querySelector(`.item-card[data-id="${id}"]`).remove();
+        }
+    } catch (error) {
+        showToast('Fehler', 'error');
+    }
+}
+</script>
+{% endblock %}

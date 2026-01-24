@@ -1,0 +1,201 @@
+{
+  "name": "Complete Book Writing Workflow",
+  "nodes": [
+    {
+      "parameters": {},
+      "name": "Workflow Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "server": "book-writing-mcp",
+        "tool": "book_create_project",
+        "parameters": "={\"title\": \"{{$json.title}}\", \"genre\": \"{{$json.genre}}\", \"premise\": \"{{$json.premise}}\"}",
+        "contextId": "={{$workflow.id}}_{{$execution.id}}"
+      },
+      "name": "1. Create Project",
+      "type": "n8n-nodes-base.bfAgentMcp",
+      "typeVersion": 1,
+      "position": [450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "server": "book-writing-mcp",
+        "tool": "book_generate_outline",
+        "parameters": "={\"project_id\": \"{{$json.result.project_id}}\", \"acts\": 3}",
+        "contextId": "={{$workflow.id}}_{{$execution.id}}",
+        "mergePreviousResult": true
+      },
+      "name": "2. Generate Outline",
+      "type": "n8n-nodes-base.bfAgentMcp",
+      "typeVersion": 1,
+      "position": [650, 300]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "server": "book-writing-mcp",
+        "tool": "book_create_character",
+        "parameters": "={\"project_id\": \"{{$json.result.project_id}}\", \"name\": \"{{$json.protagonist_name}}\", \"role\": \"protagonist\"}",
+        "contextId": "={{$workflow.id}}_{{$execution.id}}",
+        "mergePreviousResult": true
+      },
+      "name": "3a. Create Protagonist",
+      "type": "n8n-nodes-base.bfAgentMcp",
+      "typeVersion": 1,
+      "position": [850, 200]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "server": "book-writing-mcp",
+        "tool": "book_create_character",
+        "parameters": "={\"project_id\": \"{{$json.result.project_id}}\", \"name\": \"{{$json.antagonist_name}}\", \"role\": \"antagonist\"}",
+        "contextId": "={{$workflow.id}}_{{$execution.id}}",
+        "mergePreviousResult": true
+      },
+      "name": "3b. Create Antagonist",
+      "type": "n8n-nodes-base.bfAgentMcp",
+      "typeVersion": 1,
+      "position": [850, 400]
+    },
+    {
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineAll"
+      },
+      "name": "Merge Characters",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 2,
+      "position": [1050, 300]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "server": "book-writing-mcp",
+        "tool": "book_generate_chapters",
+        "parameters": "={\"project_id\": \"{{$json.result.project_id}}\", \"chapter_count\": {{$json.chapter_count || 20}}}",
+        "contextId": "={{$workflow.id}}_{{$execution.id}}",
+        "mergePreviousResult": true
+      },
+      "name": "4. Generate Chapters",
+      "type": "n8n-nodes-base.bfAgentMcp",
+      "typeVersion": 1,
+      "position": [1250, 300]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "number": [
+            {
+              "value1": "={{$json.result.quality_score}}",
+              "operation": "smaller",
+              "value2": 7
+            }
+          ]
+        }
+      },
+      "name": "Quality Check",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [1450, 300]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "server": "book-writing-mcp",
+        "tool": "book_review_chapter",
+        "parameters": "={\"chapter_id\": \"{{$json.result.chapter_id}}\", \"review_type\": \"standard\"}",
+        "contextId": "={{$workflow.id}}_{{$execution.id}}"
+      },
+      "name": "5. Review & Improve",
+      "type": "n8n-nodes-base.bfAgentMcp",
+      "typeVersion": 1,
+      "position": [1650, 200]
+    },
+    {
+      "parameters": {
+        "operation": "execute",
+        "server": "book-writing-mcp",
+        "tool": "book_export_manuscript",
+        "parameters": "={\"project_id\": \"{{$json.result.project_id}}\", \"format\": \"pdf\"}",
+        "contextId": "={{$workflow.id}}_{{$execution.id}}"
+      },
+      "name": "6. Export PDF",
+      "type": "n8n-nodes-base.bfAgentMcp",
+      "typeVersion": 1,
+      "position": [1850, 300]
+    },
+    {
+      "parameters": {
+        "subject": "Book Writing Complete: {{$json.result.title}}",
+        "text": "Your book '{{$json.result.title}}' has been completed!\n\nChapters: {{$json.result.chapter_count}}\nWord Count: {{$json.result.word_count}}\n\nDownload: {{$json.result.download_url}}",
+        "toEmail": "={{$json.user_email}}"
+      },
+      "name": "7. Send Notification",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2,
+      "position": [2050, 300]
+    }
+  ],
+  "connections": {
+    "Workflow Start": {
+      "main": [[{"node": "1. Create Project", "type": "main", "index": 0}]]
+    },
+    "1. Create Project": {
+      "main": [[{"node": "2. Generate Outline", "type": "main", "index": 0}]]
+    },
+    "2. Generate Outline": {
+      "main": [
+        [
+          {"node": "3a. Create Protagonist", "type": "main", "index": 0},
+          {"node": "3b. Create Antagonist", "type": "main", "index": 0}
+        ]
+      ]
+    },
+    "3a. Create Protagonist": {
+      "main": [[{"node": "Merge Characters", "type": "main", "index": 0}]]
+    },
+    "3b. Create Antagonist": {
+      "main": [[{"node": "Merge Characters", "type": "main", "index": 1}]]
+    },
+    "Merge Characters": {
+      "main": [[{"node": "4. Generate Chapters", "type": "main", "index": 0}]]
+    },
+    "4. Generate Chapters": {
+      "main": [[{"node": "Quality Check", "type": "main", "index": 0}]]
+    },
+    "Quality Check": {
+      "main": [
+        [{"node": "5. Review & Improve", "type": "main", "index": 0}],
+        [{"node": "6. Export PDF", "type": "main", "index": 0}]
+      ]
+    },
+    "5. Review & Improve": {
+      "main": [[{"node": "6. Export PDF", "type": "main", "index": 0}]]
+    },
+    "6. Export PDF": {
+      "main": [[{"node": "7. Send Notification", "type": "main", "index": 0}]]
+    }
+  },
+  "settings": {
+    "saveManualExecutions": true,
+    "callerPolicy": "workflowsFromSameOwner",
+    "errorWorkflow": ""
+  },
+  "staticData": null,
+  "tags": [
+    {
+      "name": "Book Writing",
+      "createdAt": "2025-12-10T15:00:00.000Z",
+      "updatedAt": "2025-12-10T15:00:00.000Z",
+      "id": "1"
+    }
+  ],
+  "pinData": {},
+  "versionId": "1"
+}

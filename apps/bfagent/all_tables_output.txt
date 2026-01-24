@@ -1,0 +1,329 @@
+Core services registered successfully
+Input handlers registered: 5
+Processing handlers registered: 3
+Output handlers registered: 3
+Registered tool: htmx_scanner v3.0.0
+Registered tool: template_validator v1.0.0
+Registered tool: system_validator v2.0.0
+Registered tool: code_formatter v1.0.0
+Registered tool: git_sync v3.0.0
+Registered tool: model_checker v3.0.0
+Registered tool: migration_fixer v1.0.0
+Registered tool: phase_agent_manager v1.0.0
+Registered tool: screen_documentation v1.0.0
+Registered tool: visual_explorer v1.0.0
+Registered tool: api_checker v4.0.0
+Registered tool: graphql_generator v3.0.0
+Registered tool: graphql_analyzer v1.0.0
+Registered tool: graphql_monitor v1.0.0
+Registered tool: theme_switcher v3.0.0
+Registered tool: csrf_setup v1.0.0
+Registered tool: enhanced_analyzer v1.0.0
+Registered tool: integrated_analyzer v1.0.0
+Registered tool: hybrid_analyzer v1.0.0
+Registered tool: tool_docs_enhanced v1.0.0
+Registered tool: optimized_analyzer v2.0.0
+Registered tool: unicode_safe_analyzer v1.0.0
+Registered tool: enhanced_unicode_analyzer v2.0.0
+Registered tool: code_repair_tool v1.0.0
+Registered tool: enhanced_cli_analyzer v1.0.0
+Registered tool: safe_auto_fixer v1.0.0
+Tool registry initialized with optimized BF Agent tools
+Registered handler 'apps.genagent.handlers.demo_handlers.WelcomeHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataValidationHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.DataTransformHandler' v1.0.0 for domains: ['demo']
+Registered handler 'apps.genagent.handlers.demo_handlers.LogHandler' v1.0.0 for domains: ['demo']
+(0.046) SELECT name FROM sqlite_master WHERE type='table' ORDER BY name;; args=None; alias=default
+(0.000) 
+        SELECT name FROM sqlite_master 
+        WHERE type='table' 
+        AND (name LIKE '%handler%' OR name = 'handlers')
+        ORDER BY name;
+    ; args=None; alias=default
+(0.000) SELECT COUNT(*) FROM handler_categories;; args=None; alias=default
+(0.000) SELECT COUNT(*) FROM handler_executions;; args=None; alias=default
+(0.000) SELECT COUNT(*) FROM handler_phases;; args=None; alias=default
+(0.000) SELECT COUNT(*) FROM research_handler_type_lookup;; args=None; alias=default
+(0.000) SELECT COUNT(*) FROM research_researchhandlerexecution;; args=None; alias=default
+Ô£à Using SQLite Database (No Docker required!)
+ Loaded DEVELOPMENT settings
+Ô£à Registered InputHandlerRegistry: project_fields (ProjectFieldsInputHandler)
+Ô£à Registered InputHandlerRegistry: chapter_data (ChapterDataHandler)
+Ô£à Registered InputHandlerRegistry: character_data (CharacterDataHandler)
+Ô£à Registered InputHandlerRegistry: user_input (UserInputHandler)
+Ô£à Registered InputHandlerRegistry: world_data (WorldDataHandler)
+Ô£à Registered ProcessingHandlerRegistry: template_renderer (TemplateRendererHandler)
+Ô£à Registered ProcessingHandlerRegistry: llm_processor (LLMProcessingHandler)
+Ô£à Registered ProcessingHandlerRegistry: framework_generator (FrameworkGeneratorHandler)
+Ô£à Registered OutputHandlerRegistry: simple_text_field (SimpleTextFieldHandler)
+Ô£à Registered OutputHandlerRegistry: chapter_creator (ChapterCreatorHandler)
+Ô£à Registered OutputHandlerRegistry: markdown_file (MarkdownExporter)
+ GenAgent handlers registered
+[OK] Initialized HandlerRegistry with 4 handlers
+
+­ƒôè ALL TABLES in database:
+================================================================================
+  Ô£à action_templates
+  Ô£à agent_actions
+  Ô£à agent_artifacts
+  Ô£à agent_types
+  Ô£à agents
+  Ô£à authtoken_token
+  Ô£à bfagent_bugfixplan
+  Ô£à bfagent_chapterrating
+  Ô£à bfagent_comment
+  Ô£à bfagent_component_change_log
+  Ô£à bfagent_component_registry
+  Ô£à bfagent_component_usage_log
+  Ô£à bfagent_contextenrichmentlog
+  Ô£à bfagent_contextschema
+  Ô£à bfagent_contextsource
+  Ô£à bfagent_feature_document
+  Ô£à bfagent_feature_document_keyword
+  Ô£à bfagent_generatedimage
+  Ô£à bfagent_imagegenerationbatch
+  Ô£à bfagent_imagestyleprofile
+  Ô£à bfagent_migration_conflict
+  Ô£à bfagent_migration_registry
+  Ô£à bfagent_requirementtestlink
+  Ô£à bfagent_reviewparticipant
+  Ô£à bfagent_reviewround
+  Ô£à bfagent_testbug
+  Ô£à bfagent_testcase
+  Ô£à bfagent_testcoveragereport
+  Ô£à bfagent_testexecution
+  Ô£à bfagent_testlog
+  Ô£à bfagent_testrequirement
+  Ô£à bfagent_testscreenshot
+  Ô£à bfagent_testsession
+  Ô£à book_characters_v2
+  Ô£à book_statuses
+  Ô£à book_type_phases
+  Ô£à book_types
+  Ô£à cad_analysis_category
+  Ô£à cad_analysis_jobs
+  Ô£à cad_analysis_reports
+  Ô£à cad_analysis_results
+  Ô£à cad_building_type
+  Ô£à cad_compliance_standard
+  Ô£à cad_drawing_files
+  Ô£à cad_drawing_type
+  Ô£à cad_layer_standard
+  Ô£à cad_severity_level
+  Ô£à chapters_v2
+  Ô£à characters_v2
+  Ô£à checklist_instances
+  Ô£à checklist_item_statuses
+  Ô£à checklist_items
+  Ô£à checklist_templates
+  Ô£à comic_dialogues
+  Ô£à comic_panels
+  Ô£à compliance_audit_log
+  Ô£à compliance_incident_severity
+  Ô£à compliance_priority
+  Ô£à compliance_risk_level
+  Ô£à compliance_status
+  Ô£à compliance_tag
+  Ô£à compliance_tagged_item
+  Ô£à content_blocks
+  Ô£à core_agent_executions
+  Ô£à core_contentitem
+  Ô£à core_customers
+  Ô£à core_domain
+  Ô£à core_locations
+  Ô£à core_naming_convention
+  Ô£à core_plugin_configurations
+  Ô£à core_plugin_executions
+  Ô£à core_plugin_registry
+  Ô£à core_plugin_registry_depends_on
+  Ô£à core_prompt_executions
+  Ô£à core_prompt_templates
+  Ô£à core_prompt_versions
+  Ô£à debug_toolbar_historyentry
+  Ô£à domain_arts
+  Ô£à domain_phases
+  Ô£à domain_projects
+  Ô£à domain_section_items
+  Ô£à domain_sections
+  Ô£à domain_types
+  Ô£à dsb_branche
+  Ô£à dsb_datenkategorie
+  Ô£à dsb_dokument
+  Ô£à dsb_mandant
+  Ô£à dsb_mandant_tom
+  Ô£à dsb_rechtsform
+  Ô£à dsb_rechtsgrundlage
+  Ô£à dsb_tom_kategorie
+  Ô£à dsb_tom_massnahme
+  Ô£à dsb_verarbeitung
+  Ô£à dsb_verarbeitung_datenkategorien
+  Ô£à dsb_vorfall
+  Ô£à dsb_vorfall_typ
+  Ô£à enrichment_responses
+  Ô£à error_strategies
+  Ô£à expert_hub_assessments
+  Ô£à expert_hub_assessments_team_members
+  Ô£à expert_hub_auditlog
+  Ô£à expert_hub_building
+  Ô£à expert_hub_data_source_config
+  Ô£à expert_hub_data_source_metric
+  Ô£à expert_hub_document_type
+  Ô£à expert_hub_equipment
+  Ô£à expert_hub_equipment_category
+  Ô£à expert_hub_equipment_gutachten
+  Ô£à expert_hub_explosion_group
+  Ô£à expert_hub_exschutzdocument
+  Ô£à expert_hub_exzone
+  Ô£à expert_hub_facility
+  Ô£à expert_hub_facility_hazmat
+  Ô£à expert_hub_facility_type
+  Ô£à expert_hub_gefahrstoff
+  Ô£à expert_hub_gutachten
+  Ô£à expert_hub_gutachten_betroffene_vorschriften
+  Ô£à expert_hub_hazmat_catalog
+  Ô£à expert_hub_ignition_protection_type
+  Ô£à expert_hub_physical_state
+  Ô£à expert_hub_processing_status_type
+  Ô£à expert_hub_regulation
+  Ô£à expert_hub_regulation_type
+  Ô£à expert_hub_regulation_verwandte_vorschriften
+  Ô£à expert_hub_schutzmassnahme
+  Ô£à expert_hub_substance_data_import
+  Ô£à expert_hub_temperature_class
+  Ô£à expert_hub_zone_type
+  Ô£à field_definitions
+  Ô£à field_groups
+  Ô£à field_templates
+  Ô£à field_value_history
+  Ô£à genagent_actions
+  Ô£à genagent_custom_domains
+  Ô£à genagent_execution_logs
+  Ô£à genagent_phases
+  Ô£à generated_images
+  Ô£à genres
+  Ô£à graphql_field_usage
+  Ô£à graphql_operations
+  Ô£à graphql_performance_logs
+  Ô£à handler_categories
+  Ô£à handler_executions
+  Ô£à handler_phases
+  Ô£à ideas_v2
+  Ô£à ideas_v2_books
+  Ô£à illustration_ai_providers
+  Ô£à illustration_art_styles
+  Ô£à illustration_image_statuses
+  Ô£à illustration_image_types
+  Ô£à illustration_image_types_recommended_styles
+  Ô£à illustration_styles
+  Ô£à llm_prompt_executions
+  Ô£à llm_prompt_templates
+  Ô£à llms
+  Ô£à locations
+  Ô£à mcp_component_type
+  Ô£à mcp_config_history
+  Ô£à mcp_domain_component
+  Ô£à mcp_domain_config
+  Ô£à mcp_file_change
+  Ô£à mcp_path_category
+  Ô£à mcp_protected_path
+  Ô£à mcp_protection_level
+  Ô£à mcp_refactor_session
+  Ô£à mcp_risk_level
+  Ô£à medtrans_customers
+  Ô£à medtrans_presentation_texts
+  Ô£à medtrans_presentations
+  Ô£à navigation_items
+  Ô£à navigation_items_domains
+  Ô£à navigation_items_required_groups
+  Ô£à navigation_items_required_permissions
+  Ô£à navigation_sections
+  Ô£à navigation_sections_domains
+  Ô£à navigation_sections_required_groups
+  Ô£à navigation_sections_required_permissions
+  Ô£à phase_action_configs
+  Ô£à phase_agent_configs
+  Ô£à presentation_studio_design_profile
+  Ô£à presentation_studio_enhancement
+  Ô£à presentation_studio_presentation
+  Ô£à presentation_studio_preview_slide
+  Ô£à presentation_studio_template_collection
+  Ô£à project_field_values
+  Ô£à project_phase_actions
+  Ô£à project_phase_history
+  Ô£à project_type_phases
+  Ô£à project_types
+  Ô£à prompt_executions
+  Ô£à prompt_template_tests
+  Ô£à prompt_templates_legacy
+  Ô£à research_citation_style_lookup
+  Ô£à research_depth_lookup
+  Ô£à research_focus_lookup
+  Ô£à research_handler_type_lookup
+  Ô£à research_researchhandlerexecution
+  Ô£à research_researchproject
+  Ô£à research_researchresult
+  Ô£à research_researchsession
+  Ô£à research_researchsource
+  Ô£à research_source_type_lookup
+  Ô£à research_synthesis_type_lookup
+  Ô£à story_bibles
+  Ô£à target_audiences
+  Ô£à template_fields
+  Ô£à tool_definitions
+  Ô£à tool_executions
+  Ô£à user_navigation_preferences
+  Ô£à workflow_domains
+  Ô£à workflow_phase_steps
+  Ô£à workflow_phases
+  Ô£à workflow_system_checkpoint
+  Ô£à workflow_system_workflow
+  Ô£à workflow_templates
+  Ô£à workflow_templates_v2
+  Ô£à world_rules
+  Ô£à world_settings
+  Ô£à worlds_v2
+  Ô£à worlds_v2_books
+  Ô£à writing_arc_types
+  Ô£à writing_book_projects
+  Ô£à writing_chapters
+  Ô£à writing_chapters_featured_characters
+  Ô£à writing_chapters_plot_points
+  Ô£à writing_characters
+  Ô£à writing_content_ratings
+  Ô£à writing_generation_logs
+  Ô£à writing_importance_levels
+  Ô£à writing_plot_points
+  Ô£à writing_plot_points_involved_characters
+  Ô£à writing_stages
+  Ô£à writing_statuses
+  Ô£à writing_story_arcs
+  Ô£à writing_story_chapters
+  Ô£à writing_story_memories
+  Ô£à writing_story_memories_characters_involved
+  Ô£à writing_story_projects
+  Ô£à writing_story_strands
+  Ô£à writing_story_strands_converges_with
+  Ô£à writing_story_strands_secondary_characters
+  Ô£à writing_worlds
+
+================================================================================
+
+­ƒöì Searching for possible Handler tables:
+================================================================================
+
+  ­ƒôï handler_categories
+      Records: 3
+
+  ­ƒôï handler_executions
+      Records: 0
+
+  ­ƒôï handler_phases
+      Records: 3
+
+  ­ƒôï research_handler_type_lookup
+      Records: 3
+
+  ­ƒôï research_researchhandlerexecution
+      Records: 0
+
+================================================================================

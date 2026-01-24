@@ -1,0 +1,3 @@
+[submodule "external/mcp-hub"]
+	path = external/mcp-hub
+	url = https://github.com/achimdehnert/mcp-hub.git

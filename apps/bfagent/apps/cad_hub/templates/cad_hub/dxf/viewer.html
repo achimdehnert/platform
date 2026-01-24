@@ -1,0 +1,671 @@
+{% extends "cad_hub/base_cad.html" %}
+{% load static %}
+
+{% block title %}DXF Viewer{% endblock %}
+
+{% block extra_css %}
+<style>
+    #viewer-container {
+        width: 100%;
+        height: 600px;
+        background: #1a1a2e;
+        border-radius: 8px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    #viewer-canvas {
+        width: 100%;
+        height: 100%;
+    }
+    
+    .upload-zone {
+        border: 2px dashed #6c757d;
+        border-radius: 8px;
+        padding: 3rem;
+        text-align: center;
+        transition: all 0.3s;
+        cursor: pointer;
+    }
+    
+    .upload-zone:hover, .upload-zone.dragover {
+        border-color: #0d6efd;
+        background: rgba(13, 110, 253, 0.05);
+    }
+    
+    .layer-list {
+        max-height: 300px;
+        overflow-y: auto;
+    }
+    
+    .layer-item {
+        display: flex;
+        align-items: center;
+        padding: 0.5rem;
+        border-bottom: 1px solid #eee;
+    }
+    
+    .layer-color {
+        width: 16px;
+        height: 16px;
+        border-radius: 3px;
+        margin-right: 0.5rem;
+    }
+    
+    .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+        gap: 0.5rem;
+    }
+    
+    .stat-box {
+        background: #f8f9fa;
+        padding: 0.75rem;
+        border-radius: 6px;
+        text-align: center;
+    }
+    
+    .stat-box .value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+    
+    .stat-box .label {
+        font-size: 0.75rem;
+        color: #6c757d;
+        text-transform: uppercase;
+    }
+    
+    .controls-overlay {
+        position: absolute;
+        bottom: 1rem;
+        left: 1rem;
+        background: rgba(255,255,255,0.9);
+        padding: 0.5rem;
+        border-radius: 6px;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .controls-overlay button {
+        padding: 0.25rem 0.5rem;
+        border: 1px solid #ddd;
+        background: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
+    
+    .controls-overlay button:hover {
+        background: #f0f0f0;
+    }
+    
+    #loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(26, 26, 46, 0.9);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        color: white;
+    }
+    
+    .thumbnail-preview {
+        max-width: 100%;
+        background: white;
+        border-radius: 6px;
+        padding: 0.5rem;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Left: Upload & Controls -->
+    <div class="col-lg-4 mb-4">
+        <!-- Upload Zone -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-upload"></i> DXF/DWG Datei hochladen
+            </div>
+            <div class="card-body">
+                <div class="upload-zone" id="upload-zone">
+                    <i class="bi bi-file-earmark-code" style="font-size: 3rem; color: #6c757d;"></i>
+                    <p class="mt-2 mb-1">DXF/DWG-Datei hierher ziehen</p>
+                    <small class="text-muted">oder klicken zum Auswählen</small>
+                    <input type="file" id="file-input" accept=".dxf,.dwg" style="display: none;">
+                </div>
+                <div id="file-info" class="mt-3" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span id="file-name" class="fw-bold"></span>
+                        <button class="btn btn-sm btn-outline-danger" onclick="clearFile()">
+                            <i class="bi bi-x"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Statistics -->
+        <div class="card mb-4" id="stats-card" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-bar-chart"></i> Statistiken
+            </div>
+            <div class="card-body">
+                <div class="stats-grid" id="stats-grid">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Layers -->
+        <div class="card mb-4" id="layers-card" style="display: none;">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-layers"></i> Layer</span>
+                <div>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleAllLayers(true)">Alle an</button>
+                    <button class="btn btn-sm btn-outline-secondary" onclick="toggleAllLayers(false)">Alle aus</button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="layer-list" id="layer-list">
+                    <!-- Filled by JS -->
+                </div>
+            </div>
+        </div>
+        
+        <!-- Thumbnail -->
+        <div class="card" id="thumbnail-card" style="display: none;">
+            <div class="card-header">
+                <i class="bi bi-image"></i> Vorschau (SVG)
+            </div>
+            <div class="card-body">
+                <div id="thumbnail-container" class="thumbnail-preview"></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right: Viewer -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-eye"></i> 3D Viewer</span>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="resetView()">
+                        <i class="bi bi-house"></i> Reset
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="toggleWireframe()">
+                        <i class="bi bi-grid-3x3"></i> Wireframe
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="toggleView('top')">
+                        <i class="bi bi-arrow-down"></i> Oben
+                    </button>
+                    <button class="btn btn-outline-secondary" onclick="toggleView('front')">
+                        <i class="bi bi-arrow-right"></i> Vorne
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div id="viewer-container">
+                    <canvas id="viewer-canvas"></canvas>
+                    <div id="loading-overlay">
+                        <div class="text-center">
+                            <div class="spinner-border text-primary mb-2" role="status"></div>
+                            <div>Lade DXF...</div>
+                        </div>
+                    </div>
+                    <div class="controls-overlay">
+                        <button onclick="zoomIn()" title="Zoom In"><i class="bi bi-zoom-in"></i></button>
+                        <button onclick="zoomOut()" title="Zoom Out"><i class="bi bi-zoom-out"></i></button>
+                        <button onclick="resetView()" title="Reset"><i class="bi bi-arrows-fullscreen"></i></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Info -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h6><i class="bi bi-info-circle"></i> Steuerung</h6>
+                <div class="row">
+                    <div class="col-md-4">
+                        <small class="text-muted">
+                            <strong>Maus Links:</strong> Rotieren<br>
+                            <strong>Maus Rechts:</strong> Verschieben
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">
+                            <strong>Mausrad:</strong> Zoomen<br>
+                            <strong>Doppelklick:</strong> Zentrieren
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">
+                            <strong>Layer:</strong> Klicken zum Ein/Aus<br>
+                            <strong>Reset:</strong> Ansicht zurücksetzen
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Three.js -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script>
+// Three.js Viewer
+let scene, camera, renderer, controls;
+let dxfGroup = null;
+let layerGroups = {};
+let viewerData = null;
+
+// DXF Color Palette (AutoCAD ACI)
+const DXF_COLORS = {
+    1: 0xff0000,   // Red
+    2: 0xffff00,   // Yellow
+    3: 0x00ff00,   // Green
+    4: 0x00ffff,   // Cyan
+    5: 0x0000ff,   // Blue
+    6: 0xff00ff,   // Magenta
+    7: 0xffffff,   // White
+    8: 0x808080,   // Gray
+    9: 0xc0c0c0,   // Light gray
+    256: 0xffffff  // ByLayer
+};
+
+function initViewer() {
+    const container = document.getElementById('viewer-container');
+    const canvas = document.getElementById('viewer-canvas');
+    
+    // Scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x1a1a2e);
+    
+    // Camera
+    camera = new THREE.PerspectiveCamera(60, container.clientWidth / container.clientHeight, 0.1, 10000);
+    camera.position.set(0, 0, 100);
+    
+    // Renderer
+    renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+    
+    // Controls
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    
+    // Grid
+    const grid = new THREE.GridHelper(100, 20, 0x444444, 0x333333);
+    grid.rotation.x = Math.PI / 2;
+    scene.add(grid);
+    
+    // Lights
+    const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambient);
+    const directional = new THREE.DirectionalLight(0xffffff, 0.4);
+    directional.position.set(1, 1, 1);
+    scene.add(directional);
+    
+    // Resize handler
+    window.addEventListener('resize', onWindowResize);
+    
+    // Animation loop
+    animate();
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+function onWindowResize() {
+    const container = document.getElementById('viewer-container');
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+}
+
+function getColor(colorIndex) {
+    return DXF_COLORS[colorIndex] || DXF_COLORS[7];
+}
+
+function loadDXFData(data) {
+    viewerData = data;
+    
+    // Clear existing
+    if (dxfGroup) {
+        scene.remove(dxfGroup);
+    }
+    
+    dxfGroup = new THREE.Group();
+    layerGroups = {};
+    
+    const grouped = data.grouped;
+    
+    // Lines
+    if (grouped.lines && grouped.lines.length > 0) {
+        const lineGeometry = new THREE.BufferGeometry();
+        const linePositions = [];
+        
+        grouped.lines.forEach(line => {
+            linePositions.push(line.start[0], line.start[1], line.start[2] || 0);
+            linePositions.push(line.end[0], line.end[1], line.end[2] || 0);
+        });
+        
+        lineGeometry.setAttribute('position', new THREE.Float32BufferAttribute(linePositions, 3));
+        const lineMaterial = new THREE.LineBasicMaterial({ color: 0x00ff00 });
+        const lines = new THREE.LineSegments(lineGeometry, lineMaterial);
+        dxfGroup.add(lines);
+    }
+    
+    // Polylines
+    if (grouped.polylines && grouped.polylines.length > 0) {
+        grouped.polylines.forEach(poly => {
+            const points = poly.points.map(p => new THREE.Vector3(p[0], p[1], p[2] || 0));
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: getColor(poly.color) });
+            const line = new THREE.Line(geometry, material);
+            dxfGroup.add(line);
+        });
+    }
+    
+    // Circles
+    if (grouped.circles && grouped.circles.length > 0) {
+        grouped.circles.forEach(circle => {
+            const geometry = new THREE.CircleGeometry(circle.radius, 64);
+            geometry.rotateX(-Math.PI / 2);
+            const edges = new THREE.EdgesGeometry(geometry);
+            const material = new THREE.LineBasicMaterial({ color: getColor(circle.color) });
+            const line = new THREE.LineSegments(edges, material);
+            line.position.set(circle.center[0], circle.center[1], circle.center[2] || 0);
+            dxfGroup.add(line);
+        });
+    }
+    
+    // Arcs
+    if (grouped.arcs && grouped.arcs.length > 0) {
+        grouped.arcs.forEach(arc => {
+            const startAngle = arc.startAngle * Math.PI / 180;
+            const endAngle = arc.endAngle * Math.PI / 180;
+            const curve = new THREE.EllipseCurve(
+                arc.center[0], arc.center[1],
+                arc.radius, arc.radius,
+                startAngle, endAngle,
+                false, 0
+            );
+            const points = curve.getPoints(50);
+            const geometry = new THREE.BufferGeometry().setFromPoints(points);
+            const material = new THREE.LineBasicMaterial({ color: getColor(arc.color) });
+            const line = new THREE.Line(geometry, material);
+            dxfGroup.add(line);
+        });
+    }
+    
+    // 3D Faces
+    if (grouped.faces && grouped.faces.length > 0) {
+        grouped.faces.forEach(face => {
+            const geometry = new THREE.BufferGeometry();
+            const vertices = new Float32Array([
+                face.vertices[0][0], face.vertices[0][1], face.vertices[0][2] || 0,
+                face.vertices[1][0], face.vertices[1][1], face.vertices[1][2] || 0,
+                face.vertices[2][0], face.vertices[2][1], face.vertices[2][2] || 0,
+                face.vertices[2][0], face.vertices[2][1], face.vertices[2][2] || 0,
+                face.vertices[3][0], face.vertices[3][1], face.vertices[3][2] || 0,
+                face.vertices[0][0], face.vertices[0][1], face.vertices[0][2] || 0,
+            ]);
+            geometry.setAttribute('position', new THREE.BufferAttribute(vertices, 3));
+            geometry.computeVertexNormals();
+            
+            const material = new THREE.MeshBasicMaterial({ 
+                color: getColor(face.color),
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 0.7
+            });
+            const mesh = new THREE.Mesh(geometry, material);
+            dxfGroup.add(mesh);
+        });
+    }
+    
+    scene.add(dxfGroup);
+    
+    // Fit to view
+    fitToView();
+    
+    // Update UI
+    updateStats(data.stats);
+    updateLayers(data.layers);
+}
+
+function fitToView() {
+    if (!viewerData || !viewerData.bounds) return;
+    
+    const bounds = viewerData.bounds;
+    const center = new THREE.Vector3(
+        (bounds.min[0] + bounds.max[0]) / 2,
+        (bounds.min[1] + bounds.max[1]) / 2,
+        (bounds.min[2] + bounds.max[2]) / 2
+    );
+    
+    const size = Math.max(
+        bounds.max[0] - bounds.min[0],
+        bounds.max[1] - bounds.min[1],
+        bounds.max[2] - bounds.min[2]
+    );
+    
+    camera.position.set(center.x, center.y, center.z + size * 1.5);
+    controls.target.copy(center);
+    controls.update();
+}
+
+function updateStats(stats) {
+    const grid = document.getElementById('stats-grid');
+    grid.innerHTML = '';
+    
+    const items = [
+        { label: 'Linien', value: stats.lines },
+        { label: 'Kreise', value: stats.circles },
+        { label: 'Bögen', value: stats.arcs },
+        { label: 'Polylinien', value: stats.polylines },
+        { label: 'Texte', value: stats.texts },
+        { label: '3D-Flächen', value: stats.faces }
+    ];
+    
+    items.forEach(item => {
+        if (item.value > 0) {
+            grid.innerHTML += `
+                <div class="stat-box">
+                    <div class="value">${item.value}</div>
+                    <div class="label">${item.label}</div>
+                </div>
+            `;
+        }
+    });
+    
+    document.getElementById('stats-card').style.display = 'block';
+}
+
+function updateLayers(layers) {
+    const list = document.getElementById('layer-list');
+    list.innerHTML = '';
+    
+    layers.forEach(layer => {
+        const color = DXF_COLORS[layer.color] || 0xffffff;
+        const colorHex = '#' + color.toString(16).padStart(6, '0');
+        
+        list.innerHTML += `
+            <div class="layer-item">
+                <input type="checkbox" checked onchange="toggleLayer('${layer.name}', this.checked)" class="form-check-input me-2">
+                <div class="layer-color" style="background: ${colorHex}"></div>
+                <span>${layer.name}</span>
+            </div>
+        `;
+    });
+    
+    document.getElementById('layers-card').style.display = 'block';
+}
+
+function toggleLayer(name, visible) {
+    // TODO: Implement layer visibility toggle
+    console.log('Toggle layer:', name, visible);
+}
+
+function toggleAllLayers(visible) {
+    const checkboxes = document.querySelectorAll('#layer-list input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+        cb.checked = visible;
+    });
+}
+
+function resetView() {
+    fitToView();
+}
+
+function zoomIn() {
+    camera.position.multiplyScalar(0.8);
+    controls.update();
+}
+
+function zoomOut() {
+    camera.position.multiplyScalar(1.2);
+    controls.update();
+}
+
+function toggleWireframe() {
+    if (dxfGroup) {
+        dxfGroup.traverse(obj => {
+            if (obj.material) {
+                obj.material.wireframe = !obj.material.wireframe;
+            }
+        });
+    }
+}
+
+function toggleView(view) {
+    if (!viewerData || !viewerData.bounds) return;
+    
+    const bounds = viewerData.bounds;
+    const center = new THREE.Vector3(
+        (bounds.min[0] + bounds.max[0]) / 2,
+        (bounds.min[1] + bounds.max[1]) / 2,
+        (bounds.min[2] + bounds.max[2]) / 2
+    );
+    
+    const size = Math.max(
+        bounds.max[0] - bounds.min[0],
+        bounds.max[1] - bounds.min[1]
+    ) * 1.5;
+    
+    if (view === 'top') {
+        camera.position.set(center.x, center.y, size);
+        camera.up.set(0, 1, 0);
+    } else if (view === 'front') {
+        camera.position.set(center.x, center.y - size, center.z);
+        camera.up.set(0, 0, 1);
+    }
+    
+    controls.target.copy(center);
+    controls.update();
+}
+
+// File Upload Handling
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+
+uploadZone.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadZone.classList.add('dragover');
+});
+
+uploadZone.addEventListener('dragleave', () => {
+    uploadZone.classList.remove('dragover');
+});
+
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+        handleFile(files[0]);
+    }
+});
+
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+    }
+});
+
+function handleFile(file) {
+    const filename = file.name.toLowerCase();
+    if (!filename.endsWith('.dxf') && !filename.endsWith('.dwg')) {
+        alert('Bitte nur DXF/DWG-Dateien hochladen');
+        return;
+    }
+    
+    document.getElementById('loading-overlay').style.display = 'flex';
+    document.getElementById('file-name').textContent = file.name;
+    document.getElementById('file-info').style.display = 'block';
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    fetch('{% url "cad_hub:dxf_upload" %}', {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-CSRFToken': '{{ csrf_token }}'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        document.getElementById('loading-overlay').style.display = 'none';
+        
+        if (data.success) {
+            loadDXFData(data.data);
+            
+            // Show thumbnail
+            if (data.thumbnail_svg) {
+                document.getElementById('thumbnail-container').innerHTML = data.thumbnail_svg;
+                document.getElementById('thumbnail-card').style.display = 'block';
+            }
+        } else {
+            alert('Fehler: ' + data.error);
+        }
+    })
+    .catch(error => {
+        document.getElementById('loading-overlay').style.display = 'none';
+        alert('Upload fehlgeschlagen: ' + error);
+    });
+}
+
+function clearFile() {
+    if (dxfGroup) {
+        scene.remove(dxfGroup);
+        dxfGroup = null;
+    }
+    viewerData = null;
+    document.getElementById('file-info').style.display = 'none';
+    document.getElementById('stats-card').style.display = 'none';
+    document.getElementById('layers-card').style.display = 'none';
+    document.getElementById('thumbnail-card').style.display = 'none';
+    fileInput.value = '';
+}
+
+// Initialize
+document.addEventListener('DOMContentLoaded', initViewer);
+</script>
+{% endblock %}

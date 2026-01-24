@@ -1,0 +1,22 @@
+<div class="modal-header">
+  <h5 class="modal-title">
+    <i class="bi bi-file-text me-2"></i>{{ file_path }}
+  </h5>
+  <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<div class="modal-body">
+  {% if error %}
+  <div class="alert alert-danger">{{ error }}</div>
+  {% elif content %}
+  <pre class="bg-light p-3 rounded dlm-file-preview"><code>{{ content }}</code></pre>
+  {% else %}
+  <p class="text-muted">No content available</p>
+  {% endif %}
+</div>
+<div class="modal-footer">
+  <span class="text-muted small me-auto">
+    <i class="bi bi-exclamation-triangle me-1"></i>
+    Issue: {{ issue.get_issue_type_display }} - {{ issue.reason|truncatechars:50 }}
+  </span>
+  <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+</div>

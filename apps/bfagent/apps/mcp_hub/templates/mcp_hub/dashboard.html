@@ -1,0 +1,332 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}MCP Hub - Dashboard{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Breadcrumb Navigation -->
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'control_center:dashboard' %}"><i class="bi bi-house-door"></i> Home</a></li>
+            <li class="breadcrumb-item active" aria-current="page"><i class="bi bi-cpu-fill"></i> MCP Hub</li>
+        </ol>
+    </nav>
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1><i class="bi bi-cpu-fill text-primary"></i> MCP Hub</h1>
+            <p class="text-muted mb-0">Model Context Protocol Server Management</p>
+        </div>
+        <div>
+            <button class="btn btn-warning" onclick="restartAllServers()" title="Alle MCP-Server neu starten">
+                <i class="bi bi-arrow-clockwise"></i> Restart All
+            </button>
+            <button class="btn btn-success" onclick="syncFromConfig()">
+                <i class="bi bi-arrow-repeat"></i> Sync from Config
+            </button>
+            <a href="{% url 'mcp_hub:server-list' %}" class="btn btn-outline-primary">
+                <i class="bi bi-list"></i> Alle Server
+            </a>
+        </div>
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="row g-3 mb-4">
+        <div class="col-md-3">
+            <div class="card bg-primary text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">Server Total</h6>
+                            <h2 class="mb-0">{{ stats.total_servers }}</h2>
+                        </div>
+                        <i class="bi bi-hdd-stack fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">Aktive Server</h6>
+                            <h2 class="mb-0">{{ stats.active_servers }}</h2>
+                        </div>
+                        <i class="bi bi-check-circle fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-info text-white h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-white-50 mb-1">Tools Total</h6>
+                            <h2 class="mb-0">{{ stats.total_tools }}</h2>
+                        </div>
+                        <i class="bi bi-tools fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-dark-50 mb-1">Aktive Tools</h6>
+                            <h2 class="mb-0">{{ stats.enabled_tools }}</h2>
+                        </div>
+                        <i class="bi bi-lightning fs-1 opacity-50"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Server List -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-hdd-stack me-2"></i>MCP Server</h5>
+                    <span class="badge bg-light text-dark">{{ servers.count }}</span>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Server</th>
+                                    <th>Typ</th>
+                                    <th>Status</th>
+                                    <th>Tools</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for server in servers %}
+                                <tr>
+                                    <td>
+                                        <a href="{% url 'mcp_hub:server-detail' server.pk %}" class="fw-bold text-decoration-none">
+                                            {{ server.display_name }}
+                                        </a>
+                                        <br>
+                                        <small class="text-muted">{{ server.name }}</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ server.command }}</span>
+                                    </td>
+                                    <td>
+                                        {% if server.status == 'active' %}
+                                        <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                                        {% elif server.status == 'disabled' %}
+                                        <span class="badge bg-secondary"><i class="bi bi-pause-circle"></i> Deaktiviert</span>
+                                        {% elif server.status == 'error' %}
+                                        <span class="badge bg-danger"><i class="bi bi-x-circle"></i> Fehler</span>
+                                        {% else %}
+                                        <span class="badge bg-warning"><i class="bi bi-question-circle"></i> Unbekannt</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-info">{{ server.tool_count }} Tools</span>
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-warning" onclick="restartServer('{{ server.pk }}', '{{ server.name }}')" title="Server neu starten">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                        <button class="btn btn-sm btn-outline-primary" onclick="toggleServer('{{ server.pk }}')" title="{% if server.is_enabled %}Deaktivieren{% else %}Aktivieren{% endif %}">
+                                            <i class="bi bi-{% if server.is_enabled %}pause{% else %}play{% endif %}"></i>
+                                        </button>
+                                        <a href="{% url 'mcp_hub:server-detail' server.pk %}" class="btn btn-sm btn-outline-secondary" title="Details">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center py-4">
+                                        <i class="bi bi-inbox fs-1 text-muted d-block mb-2"></i>
+                                        <p class="text-muted">Keine Server registriert.</p>
+                                        <button class="btn btn-primary" onclick="syncFromConfig()">
+                                            <i class="bi bi-arrow-repeat"></i> Aus Config importieren
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity & Info -->
+        <div class="col-md-4">
+            <!-- Last Sync -->
+            <div class="card mb-3">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-arrow-repeat me-2"></i>Letzter Sync</h6>
+                </div>
+                <div class="card-body">
+                    {% if last_sync %}
+                    <p class="mb-1"><strong>Zeitpunkt:</strong> {{ last_sync.last_sync_at|date:"d.m.Y H:i" }}</p>
+                    <p class="mb-1"><strong>Status:</strong> 
+                        <span class="badge bg-{% if last_sync.sync_status == 'success' %}success{% else %}danger{% endif %}">
+                            {{ last_sync.sync_status }}
+                        </span>
+                    </p>
+                    <p class="mb-0"><strong>Ergebnis:</strong> {{ last_sync.sync_message }}</p>
+                    {% else %}
+                    <p class="text-muted mb-0">Noch kein Sync durchgeführt.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Recent Logs -->
+            <div class="card">
+                <div class="card-header bg-secondary text-white">
+                    <h6 class="mb-0"><i class="bi bi-journal-text me-2"></i>Letzte Aktivitäten</h6>
+                </div>
+                <div class="list-group list-group-flush" style="max-height: 300px; overflow-y: auto;">
+                    {% for log in recent_logs %}
+                    <div class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <span class="badge bg-{% if log.level == 'error' %}danger{% elif log.level == 'warning' %}warning{% elif log.level == 'info' %}info{% else %}secondary{% endif %} me-2">
+                                    {{ log.level }}
+                                </span>
+                                <strong>{{ log.server.name }}</strong>
+                            </div>
+                            <small class="text-muted">{{ log.created_at|timesince }} ago</small>
+                        </div>
+                        <small class="text-muted">{{ log.message|truncatechars:50 }}</small>
+                    </div>
+                    {% empty %}
+                    <div class="list-group-item text-center text-muted py-3">
+                        Keine Aktivitäten
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function syncFromConfig() {
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Synchronisiere...';
+    
+    try {
+        const response = await fetch('{% url "mcp_hub:sync-from-config" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/x-www-form-urlencoded'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ Sync erfolgreich!\n\n${data.servers_added} Server hinzugefügt\n${data.servers_updated} Server aktualisiert\n${data.tools_added} Tools hinzugefügt\n${data.total_servers} Server total`);
+            location.reload();
+        } else {
+            alert('❌ Fehler: ' + data.error);
+        }
+    } catch (err) {
+        alert('❌ Fehler: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+
+async function toggleServer(serverId) {
+    try {
+        const response = await fetch(`/mcp-hub/servers/${serverId}/toggle/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Fehler beim Umschalten');
+        }
+    } catch (err) {
+        alert('Fehler: ' + err.message);
+    }
+}
+
+async function restartServer(serverId, serverName) {
+    if (!confirm(`MCP-Server "${serverName}" neu starten?\n\nHinweis: Windsurf muss danach neu gestartet werden.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/mcp-hub/servers/${serverId}/restart/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ ${data.message}\n\n💡 ${data.hint}`);
+            location.reload();
+        } else {
+            alert('❌ Fehler: ' + data.error);
+        }
+    } catch (err) {
+        alert('❌ Fehler: ' + err.message);
+    }
+}
+
+async function restartAllServers() {
+    if (!confirm('Alle aktiven MCP-Server neu starten?\n\nHinweis: Windsurf muss danach neu gestartet werden.')) {
+        return;
+    }
+    
+    const btn = event.target.closest('button');
+    const originalHtml = btn.innerHTML;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Restarting...';
+    
+    try {
+        const response = await fetch('{% url "mcp_hub:restart-all-servers" %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            alert(`✅ ${data.message}\n\nServer: ${data.servers.join(', ')}\n\n💡 ${data.hint}`);
+            location.reload();
+        } else {
+            alert('❌ Fehler: ' + data.error);
+        }
+    } catch (err) {
+        alert('❌ Fehler: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalHtml;
+    }
+}
+</script>
+{% endblock %}

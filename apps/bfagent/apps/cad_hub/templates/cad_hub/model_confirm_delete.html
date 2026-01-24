@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+
+{% block title %}IFC-Version löschen{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+    <div class="bg-slate-800 rounded-xl border border-red-500/30 p-8">
+        <div class="flex items-center gap-3 mb-6">
+            <span class="text-4xl">⚠️</span>
+            <h1 class="text-2xl font-bold text-white">IFC-Version löschen</h1>
+        </div>
+
+        <div class="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
+            <p class="text-red-400 font-medium mb-2">⚠️ Warnung: Unwiderrufliche Aktion!</p>
+            <p class="text-slate-300">
+                Möchten Sie die IFC-Version <strong class="text-white">{{ object.version }}</strong> wirklich löschen?
+            </p>
+            <p class="text-slate-400 text-sm mt-2">
+                Dies wird alle zugehörigen Räume, Fenster, Türen, Wände und Decken unwiderruflich löschen.
+            </p>
+        </div>
+
+        <div class="bg-slate-900 rounded-lg p-4 mb-6">
+            <div class="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                    <span class="text-slate-400">Projekt:</span>
+                    <span class="text-white font-medium ml-2">{{ object.project.name }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-400">Version:</span>
+                    <span class="text-white font-medium ml-2">{{ object.version }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-400">IFC-Schema:</span>
+                    <span class="text-slate-300 ml-2">{{ object.ifc_schema|default:"-" }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-400">Status:</span>
+                    <span class="text-slate-300 ml-2">{{ object.get_status_display }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-400">Hochgeladen:</span>
+                    <span class="text-slate-300 ml-2">{{ object.uploaded_at|date:"d.m.Y H:i" }}</span>
+                </div>
+                <div>
+                    <span class="text-slate-400">Räume:</span>
+                    <span class="text-slate-300 ml-2">{{ object.rooms.count }}</span>
+                </div>
+            </div>
+        </div>
+
+        <form method="post" class="flex gap-3">
+            {% csrf_token %}
+            <a href="{% url 'cad_hub:project_detail' object.project.pk %}"
+               class="flex-1 px-6 py-3 bg-slate-700 hover:bg-slate-600 rounded-lg text-white text-center font-medium transition-colors">
+                Abbrechen
+            </a>
+            <button type="submit"
+                    class="flex-1 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-lg text-white font-medium transition-colors">
+                Version löschen
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

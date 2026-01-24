@@ -1,0 +1,203 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Statistics - {{ review_round.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="mb-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{% url 'bfagent:review-round-list' %}">Review Rounds</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'bfagent:review-round-detail' review_round.pk %}">{{ review_round.title }}</a></li>
+                <li class="breadcrumb-item active">Statistics</li>
+            </ol>
+        </nav>
+        <h1><i class="bi bi-graph-up"></i> Statistics: {{ review_round.title }}</h1>
+    </div>
+
+    <div class="row">
+        <!-- Overall Stats -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Overall Statistics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-md-3">
+                            <h2 class="text-primary">{{ review_round.total_comments }}</h2>
+                            <p class="text-muted">Total Comments</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h2 class="text-success">{{ review_round.total_participants }}</h2>
+                            <p class="text-muted">Participants</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h2 class="text-info">{{ review_round.total_ratings }}</h2>
+                            <p class="text-muted">Ratings</p>
+                        </div>
+                        <div class="col-md-3">
+                            <h2 class="text-warning">
+                                {% if review_round.average_rating %}
+                                    {{ review_round.average_rating|floatformat:1 }}★
+                                {% else %}
+                                    -
+                                {% endif %}
+                            </h2>
+                            <p class="text-muted">Average Rating</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments by Type -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Comments by Type</h5>
+                </div>
+                <div class="card-body">
+                    {% if comments_by_type %}
+                        {% for item in comments_by_type %}
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>{{ item.comment_type|capfirst }}</span>
+                                    <strong>{{ item.count }}</strong>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar" 
+                                         role="progressbar" 
+                                         style="width: {% widthratio item.count review_round.total_comments 100 %}%">
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No comments yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments by Status -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Comments by Status</h5>
+                </div>
+                <div class="card-body">
+                    {% if comments_by_status %}
+                        {% for item in comments_by_status %}
+                            <div class="mb-3">
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span>{{ item.status|capfirst }}</span>
+                                    <strong>{{ item.count }}</strong>
+                                </div>
+                                <div class="progress">
+                                    <div class="progress-bar bg-{{ item.status|yesno:'success,warning,secondary' }}" 
+                                         role="progressbar" 
+                                         style="width: {% widthratio item.count review_round.total_comments 100 %}%">
+                                    </div>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">No comments yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Ratings by Chapter -->
+        <div class="col-md-12 mb-4">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-star"></i> Ratings by Chapter</h5>
+                </div>
+                <div class="card-body">
+                    {% if ratings_by_chapter %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Chapter</th>
+                                        <th>Average Rating</th>
+                                        <th>Count</th>
+                                        <th>Stars</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for chapter_rating in ratings_by_chapter %}
+                                        <tr>
+                                            <td>{{ chapter_rating.chapter__chapter_number }}</td>
+                                            <td>{{ chapter_rating.chapter__title }}</td>
+                                            <td>{{ chapter_rating.avg_rating|floatformat:1 }}</td>
+                                            <td>{{ chapter_rating.count }}</td>
+                                            <td>
+                                                {% for i in "12345" %}
+                                                    {% if forloop.counter <= chapter_rating.avg_rating %}
+                                                        <i class="bi bi-star-fill text-warning"></i>
+                                                    {% else %}
+                                                        <i class="bi bi-star text-muted"></i>
+                                                    {% endif %}
+                                                {% endfor %}
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No ratings yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Top Commenters -->
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-trophy"></i> Top Commenters</h5>
+                </div>
+                <div class="card-body">
+                    {% if top_commenters %}
+                        <div class="list-group list-group-flush">
+                            {% for participant in top_commenters %}
+                                <div class="list-group-item d-flex justify-content-between align-items-center">
+                                    <div>
+                                        <strong>{{ participant.user.username }}</strong>
+                                        <span class="badge bg-{{ participant.role|yesno:'primary,info' }} ms-2">
+                                            {{ participant.get_role_display }}
+                                        </span>
+                                    </div>
+                                    <div class="text-end">
+                                        <span class="badge bg-primary rounded-pill me-2">
+                                            {{ participant.comments_count }} comments
+                                        </span>
+                                        <span class="badge bg-info rounded-pill">
+                                            {{ participant.ratings_count }} ratings
+                                        </span>
+                                    </div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="text-muted">No participants yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="{% url 'bfagent:review-round-detail' review_round.pk %}" class="btn btn-secondary">
+            <i class="bi bi-arrow-left"></i> Back to Review Round
+        </a>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,76 @@
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0"><i class="bi bi-cpu"></i> LLM Handler Testing (Features #28, #29, #45)</h5>
+    </div>
+    <div class="card-body">
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h6>📚 Chapter Generator (#28)</h6></div>
+                    <div class="card-body">
+                        <form hx-post="{% url 'bfagent:llm-test-execute' %}" 
+                              hx-target="#chapter-result" 
+                              hx-indicator="#chapter-spinner">
+                            <input type="hidden" name="handler_type" value="chapter">
+                            
+                            <label class="form-label">Project:</label>
+                            <select class="form-select mb-2" name="project_id" required>
+                                <option value="">Select Project</option>
+                                {% for p in projects %}
+                                <option value="{{p.id}}">{{p.title}} ({{p.genre}})</option>
+                                {% endfor %}
+                            </select>
+                            
+                            <div class="row">
+                                <div class="col-6">
+                                    <label class="form-label">Chapter #:</label>
+                                    <input type="number" class="form-control mb-2" name="chapter_number" value="1" min="1" required>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Word Count:</label>
+                                    <input type="number" class="form-control mb-2" name="word_count" value="3000" min="100" step="100">
+                                </div>
+                            </div>
+                            
+                            <label class="form-label">Chapter Title:</label>
+                            <input type="text" class="form-control mb-2" name="chapter_title" value="The Beginning" required>
+                            
+                            <label class="form-label">Plot Points (optional, comma-separated):</label>
+                            <textarea class="form-control mb-3" name="plot_points" rows="2" placeholder="Introduction, Character introduction, Setup conflict"></textarea>
+                            
+                            <button type="submit" class="btn btn-primary w-100">
+                                <span class="spinner-border spinner-border-sm d-none" id="chapter-spinner"></span>
+                                <i class="bi bi-magic"></i> Generate Outline with LLM
+                            </button>
+                        </form>
+                        <div id="chapter-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header"><h6>🤖 Direct LLM Call (#45)</h6></div>
+                    <div class="card-body">
+                        <form hx-post="{% url 'bfagent:llm-test-execute' %}" 
+                              hx-target="#llm-result" 
+                              hx-indicator="#llm-spinner">
+                            <input type="hidden" name="handler_type" value="llm">
+                            <textarea class="form-control mb-2" name="user_prompt" rows="4" placeholder="Enter your prompt...">Generate a compelling story opening for a romance novel.</textarea>
+                            <button type="submit" class="btn btn-primary w-100">
+                                <span class="spinner-border spinner-border-sm d-none" id="llm-spinner"></span>
+                                Call LLM
+                            </button>
+                        </form>
+                        <div id="llm-result" class="mt-3"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="alert alert-info mt-4">
+            <strong><i class="bi bi-info-circle"></i> LLM Status:</strong>
+            Active LLMs: {{llms_count}} | Active Agents: {{agents_count}}
+        </div>
+    </div>
+</div>

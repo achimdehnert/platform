@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Context Enrichment Tester{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <h1>🧪 Context Enrichment Tester</h1>
+    
+    <div class="row mt-4">
+        <div class="col-md-5">
+            <div class="card">
+                <div class="card-header bg-primary text-white">Configuration</div>
+                <div class="card-body">
+                    <form id="testForm">
+                        <div class="mb-3">
+                            <label class="form-label">Schema</label>
+                            <select class="form-select" id="schemaSelect" required>
+                                <option value="">Select...</option>
+                                {% for schema in schemas %}
+                                <option value="{{ schema.name }}">{{ schema.display_name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        
+                        <div class="mb-3" id="paramsContainer"></div>
+                        
+                        <div class="mb-3">
+                            <label class="form-label">Mode</label>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mode" value="live" checked>
+                                <label class="form-check-label">🚀 Live</label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="mode" value="dry_run">
+                                <label class="form-check-label">🔍 Dry Run</label>
+                            </div>
+                        </div>
+                        
+                        <button type="submit" class="btn btn-primary w-100">Test Enrichment</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-7">
+            <div id="loading" class="d-none text-center py-5">
+                <div class="spinner-border"></div>
+            </div>
+            
+            <div id="results" class="d-none">
+                <div class="card">
+                    <div class="card-header" id="resultHeader"></div>
+                    <div class="card-body">
+                        <pre id="resultData" style="max-height: 600px; overflow: auto;"></pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+const csrf = '{{ csrf_token }}';
+const API_URLS = {
+    params: '{% url "bfagent:context_enrichment:schema_params" "PLACEHOLDER" %}'.replace('/PLACEHOLDER/', '/'),
+    test: '{% url "bfagent:context_enrichment:test" %}'
+};
+
+document.getElementById('schemaSelect').addEventListener('change', function() {
+    if (!this.value) return;
+    fetch(API_URLS.params + this.value + '/')
+        .then(r => r.json())
+        .then(data => {
+            if (data.success && data.expected_params.length) {
+                let html = '';
+                data.expected_params.forEach(p => {
+                    html += `<label class="form-label">${p}</label>
+                            <input type="text" class="form-control mb-2" name="${p}">`;
+                });
+                document.getElementById('paramsContainer').innerHTML = html;
+            }
+        });
+});
+
+document.getElementById('testForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const schema = document.getElementById('schemaSelect').value;
+    const mode = document.querySelector('input[name="mode"]:checked').value;
+    const params = {};
+    
+    this.querySelectorAll('input[name]:not([type="radio"])').forEach(i => {
+        if (i.value) params[i.name] = i.value;
+    });
+    
+    document.getElementById('loading').classList.remove('d-none');
+    document.getElementById('results').classList.add('d-none');
+    
+    fetch(API_URLS.test, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrf},
+        body: JSON.stringify({schema_name: schema, params: params, dry_run: mode === 'dry_run'})
+    })
+    .then(r => r.json())
+    .then(data => {
+        document.getElementById('loading').classList.add('d-none');
+        document.getElementById('results').classList.remove('d-none');
+        
+        if (data.success) {
+            document.getElementById('resultHeader').className = 'card-header bg-success text-white';
+            document.getElementById('resultHeader').textContent = `✅ Success (${data.execution_time_ms}ms)`;
+            document.getElementById('resultData').textContent = JSON.stringify(data.result, null, 2);
+        } else {
+            document.getElementById('resultHeader').className = 'card-header bg-danger text-white';
+            document.getElementById('resultHeader').textContent = '❌ Error';
+            document.getElementById('resultData').textContent = data.error;
+        }
+    });
+});
+</script>
+{% endblock %}

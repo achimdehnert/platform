@@ -1,0 +1,47 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Upload Presentation{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <h1 class="mb-4"><i class="bi bi-upload"></i> Upload Presentation</h1>
+            
+            <div class="card">
+                <div class="card-body">
+                    <form method="post" enctype="multipart/form-data">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="pptx_file" class="form-label">PowerPoint File (.pptx)</label>
+                            <input type="file" class="form-control" id="pptx_file" name="pptx_file" accept=".pptx" required>
+                            <div class="form-text">Select a .pptx file to upload</div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="title" class="form-label">Title</label>
+                            <input type="text" class="form-control" id="title" name="title" placeholder="Optional - defaults to filename">
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <textarea class="form-control" id="description" name="description" rows="3" placeholder="Optional description"></textarea>
+                        </div>
+                        
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-upload"></i> Upload
+                            </button>
+                            <a href="{% url 'presentation_studio:list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left"></i> Back to List
+                            </a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

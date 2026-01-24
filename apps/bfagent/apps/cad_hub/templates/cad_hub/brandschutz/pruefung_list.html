@@ -1,0 +1,141 @@
+<!-- templates/cad_hub/brandschutz/pruefung_list.html -->
+{% extends "cad_hub/brandschutz/base_brandschutz.html" %}
+
+{% block breadcrumb_extra %}
+<li><span class="mx-2">/</span></li>
+<li class="text-white">Prüfungen</li>
+{% endblock %}
+
+{% block page_actions %}
+<a href="{% url 'cad_hub:brandschutz:pruefung_create' %}" 
+   class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-medium flex items-center gap-2">
+    ➕ Neue Prüfung
+</a>
+{% endblock %}
+
+{% block brandschutz_content %}
+<!-- Filter & Search -->
+<div class="bg-slate-800 rounded-xl border border-slate-700 p-4 mb-6">
+    <form method="get" class="flex flex-wrap items-center gap-4">
+        <div class="flex-1 min-w-64">
+            <input type="text" name="q" value="{{ search_query }}" 
+                   placeholder="Suche nach Titel, Projekt, Prüfer..."
+                   class="w-full px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white placeholder-slate-400 focus:outline-none focus:border-blue-500">
+        </div>
+        <div>
+            <select name="status" class="px-4 py-2 bg-slate-700 border border-slate-600 rounded-lg text-white focus:outline-none focus:border-blue-500">
+                <option value="">Alle Status</option>
+                {% for value, label in status_choices %}
+                <option value="{{ value }}" {% if current_status == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <button type="submit" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg">
+            🔍 Filtern
+        </button>
+        {% if search_query or current_status %}
+        <a href="{% url 'cad_hub:brandschutz:pruefung_list' %}" class="text-slate-400 hover:text-white">
+            ✕ Filter zurücksetzen
+        </a>
+        {% endif %}
+    </form>
+</div>
+
+<!-- Prüfungen-Tabelle -->
+<div class="bg-slate-800 rounded-xl border border-slate-700 overflow-hidden">
+    <table class="w-full">
+        <thead class="bg-slate-700/50">
+            <tr>
+                <th class="px-4 py-3 text-left text-sm font-medium text-slate-300">Prüfung</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-slate-300">Status</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-slate-300">Mängel</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-slate-300">Prüfer</th>
+                <th class="px-4 py-3 text-left text-sm font-medium text-slate-300">Datum</th>
+                <th class="px-4 py-3 text-right text-sm font-medium text-slate-300">Aktionen</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-700">
+            {% for pruefung in pruefungen %}
+            <tr class="hover:bg-slate-700/50 transition">
+                <td class="px-4 py-4">
+                    <a href="{% url 'cad_hub:brandschutz:pruefung_detail' pruefung.pk %}" class="block">
+                        <div class="font-medium text-white hover:text-blue-400">{{ pruefung.titel }}</div>
+                        <div class="text-sm text-slate-400">{{ pruefung.projekt_name }}</div>
+                    </a>
+                </td>
+                <td class="px-4 py-4">
+                    <span class="px-2 py-1 rounded text-xs font-medium
+                        {% if pruefung.status == 'freigegeben' %}bg-green-900 text-green-300
+                        {% elif pruefung.status == 'maengel' %}bg-red-900 text-red-300
+                        {% elif pruefung.status == 'in_pruefung' %}bg-blue-900 text-blue-300
+                        {% elif pruefung.status == 'abgeschlossen' %}bg-purple-900 text-purple-300
+                        {% else %}bg-slate-700 text-slate-300{% endif %}">
+                        {{ pruefung.get_status_display }}
+                    </span>
+                </td>
+                <td class="px-4 py-4">
+                    {% if pruefung.offene_maengel > 0 %}
+                    <span class="text-red-400 font-medium">{{ pruefung.mangel_count }}</span>
+                    <span class="text-slate-500">({{ pruefung.offene_maengel }} offen)</span>
+                    {% else %}
+                    <span class="text-slate-400">{{ pruefung.mangel_count }}</span>
+                    {% endif %}
+                </td>
+                <td class="px-4 py-4 text-slate-300">{{ pruefung.pruefer|default:"-" }}</td>
+                <td class="px-4 py-4 text-slate-400 text-sm">{{ pruefung.pruef_datum|date:"d.m.Y" }}</td>
+                <td class="px-4 py-4 text-right">
+                    <div class="flex items-center justify-end gap-2">
+                        <a href="{% url 'cad_hub:brandschutz:pruefung_detail' pruefung.pk %}" 
+                           class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-sm">
+                            👁️
+                        </a>
+                        <a href="{% url 'cad_hub:brandschutz:report_html' pruefung.pk %}" 
+                           class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-sm"
+                           target="_blank">
+                            📊
+                        </a>
+                        <a href="{% url 'cad_hub:brandschutz:pruefung_edit' pruefung.pk %}" 
+                           class="px-2 py-1 bg-slate-700 hover:bg-slate-600 rounded text-sm">
+                            ✏️
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" class="px-4 py-12 text-center text-slate-500">
+                    <div class="text-4xl mb-2">📋</div>
+                    <div>Keine Prüfungen gefunden</div>
+                    <a href="{% url 'cad_hub:brandschutz:pruefung_create' %}" class="text-blue-400 hover:text-blue-300 mt-2 inline-block">
+                        → Erste Prüfung erstellen
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<div class="mt-6 flex items-center justify-center gap-2">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}" 
+       class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">
+        ← Zurück
+    </a>
+    {% endif %}
+    
+    <span class="px-4 py-2 text-slate-400">
+        Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+    </span>
+    
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% if search_query %}&q={{ search_query }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}" 
+       class="px-3 py-2 bg-slate-700 hover:bg-slate-600 rounded-lg">
+        Weiter →
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+{% endblock %}

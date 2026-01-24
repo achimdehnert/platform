@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Terminal Error Monitor{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-terminal"></i> Terminal Error Monitor</h1>
+        <a href="{% url 'control_center:terminal_monitor:capture_input' %}" class="btn btn-primary">
+            <i class="bi bi-plus-circle"></i> Error erfassen
+        </a>
+    </div>
+    
+    <!-- Statistik-Karten -->
+    <div class="row mb-4">
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Neue Fehler</h5>
+                    <h2 class="mb-0">{{ new_errors }}</h2>
+                    <small>Warten auf Bearbeitung</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h5 class="card-title">Fix Ready</h5>
+                    <h2 class="mb-0">{{ ready_errors }}</h2>
+                    <small>KI-Lösung verfügbar</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-success text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Behoben</h5>
+                    <h2 class="mb-0">{{ fixed_errors }}</h2>
+                    <small>Erfolgreich gefixt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-3">
+            <div class="card bg-secondary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">Gesamt</h5>
+                    <h2 class="mb-0">{{ total_errors }}</h2>
+                    <small>Alle erfassten Fehler</small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Neueste Fehler -->
+        <div class="col-lg-8">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Offene Fehler</h5>
+                    <a href="{% url 'control_center:terminal_monitor:error_queue' %}" class="btn btn-sm btn-outline-primary">
+                        Alle anzeigen
+                    </a>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>Status</th>
+                                    <th>Typ</th>
+                                    <th>Fehler</th>
+                                    <th>Datei</th>
+                                    <th>Zuletzt</th>
+                                    <th>#</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for error in recent_errors %}
+                                <tr>
+                                    <td>
+                                        {% if error.status == 'new' %}
+                                        <span class="badge bg-danger">Neu</span>
+                                        {% elif error.status == 'ready' %}
+                                        <span class="badge bg-warning text-dark">
+                                            <i class="bi bi-robot"></i> Ready
+                                        </span>
+                                        {% elif error.status == 'analyzing' %}
+                                        <span class="badge bg-info">
+                                            <i class="bi bi-hourglass-split"></i> Analysiert...
+                                        </span>
+                                        {% else %}
+                                        <span class="badge bg-secondary">{{ error.get_status_display }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-{{ error.severity }}">
+                                            {{ error.get_error_type_display }}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <code class="small">{{ error.error_class }}</code><br>
+                                        <small class="text-muted">{{ error.message|truncatechars:60 }}</small>
+                                    </td>
+                                    <td>
+                                        {% if error.file_path %}
+                                        <small>{{ error.file_path|truncatechars:30 }}:{{ error.line_number }}</small>
+                                        {% else %}
+                                        <small class="text-muted">-</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <small>{{ error.last_seen|timesince }} ago</small>
+                                    </td>
+                                    <td>
+                                        <span class="badge bg-secondary">{{ error.occurrence_count }}x</span>
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'control_center:terminal_monitor:error_detail' error.id %}" 
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-eye"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="7" class="text-center text-muted py-4">
+                                        <i class="bi bi-check-circle fs-1"></i>
+                                        <p class="mb-0">Keine offenen Fehler</p>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Fehler nach Typ -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-pie-chart"></i> Nach Typ</h5>
+                </div>
+                <div class="card-body">
+                    {% for item in errors_by_type %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>{{ item.error_type }}</span>
+                        <span class="badge bg-primary">{{ item.count }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">Keine Daten</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Fehler nach Severity -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-diamond"></i> Nach Severity</h5>
+                </div>
+                <div class="card-body">
+                    {% for item in errors_by_severity %}
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span class="badge bg-{% if item.severity == 'critical' %}danger{% elif item.severity == 'high' %}warning text-dark{% elif item.severity == 'medium' %}info{% else %}secondary{% endif %}">
+                            {{ item.severity|title }}
+                        </span>
+                        <span class="badge bg-secondary">{{ item.count }}</span>
+                    </div>
+                    {% empty %}
+                    <p class="text-muted mb-0">Keine Daten</p>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'control_center:terminal_monitor:capture_input' %}" class="btn btn-primary w-100 mb-2">
+                        <i class="bi bi-clipboard-plus"></i> Terminal-Output einfügen
+                    </a>
+                    <a href="{% url 'control_center:terminal_monitor:error_queue' %}?status=new" class="btn btn-outline-danger w-100 mb-2">
+                        <i class="bi bi-exclamation-circle"></i> Neue Fehler ({{ new_errors }})
+                    </a>
+                    <a href="{% url 'control_center:terminal_monitor:error_queue' %}?status=ready" class="btn btn-outline-warning w-100">
+                        <i class="bi bi-robot"></i> Mit KI-Lösung ({{ ready_errors }})
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

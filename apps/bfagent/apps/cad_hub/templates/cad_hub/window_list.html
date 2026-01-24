@@ -1,0 +1,42 @@
+<!-- templates/cad_hub/window_list.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}Fenster - {{ model.project.name }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="row align-items-center mb-4">
+    <div class="col-12 col-lg-auto mb-2 mb-lg-0">
+        <h2 class="h4 fw-bold mb-1"><i class="bi bi-window text-info"></i> Fenster</h2>
+        <p class="text-muted mb-0">{{ model.project.name }} • {{ total_count }} Fenster • {{ total_area|floatformat:1 }} m²</p>
+    </div>
+    <div class="col-12 col-lg">
+        <div class="d-flex gap-2 flex-wrap justify-content-lg-end">
+            <!-- Filter -->
+            <select name="floor" class="form-select form-select-sm" style="width: auto; min-width: 140px;"
+                    onchange="this.form.submit()" form="filter-form">
+                <option value="">Alle Geschosse</option>
+                {% for floor in floors %}
+                <option value="{{ floor.id }}" {% if request.GET.floor == floor.id|stringformat:"s" %}selected{% endif %}>
+                    {{ floor.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <a href="{% url 'cad_hub:window_list' model.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-counterclockwise"></i> Reset
+            </a>
+            <a href="{% url 'cad_hub:ifc_content_overview' model.pk %}" class="btn btn-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Übersicht
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Hidden form for filter -->
+<form id="filter-form" method="get" class="d-none"></form>
+
+<!-- Tabelle -->
+<div id="window-table-container">
+    {% include "cad_hub/partials/_window_table.html" %}
+</div>
+{% endblock %}

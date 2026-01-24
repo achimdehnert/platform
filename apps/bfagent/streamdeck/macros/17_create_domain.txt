@@ -1,0 +1,15 @@
+{{CLIPBOARD:### New Domain: [DOMAIN_NAME]
+
+**Purpose:**
+[WAS MACHT DIESE DOMAIN?]
+
+**Models:**
+- [ ] Model 1: [name] - [purpose]
+
+**Handlers:**
+- [ ] Handler 1: [name] - [what it does]
+
+**BFAgent MCP:**
+- [x] get_naming_convention()
+- [x] scaffold_domain()
+- [x] Domain in domain_arts registrieren}}

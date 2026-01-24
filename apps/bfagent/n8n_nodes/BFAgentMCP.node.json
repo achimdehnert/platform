@@ -1,0 +1,124 @@
+{
+  "name": "BF Agent MCP",
+  "displayName": "BF Agent MCP",
+  "description": "Execute tools from BF Agent MCP servers",
+  "version": 1,
+  "icon": "file:bfagent.svg",
+  "group": ["transform"],
+  "inputs": ["main"],
+  "outputs": ["main"],
+  "credentials": [
+    {
+      "name": "bfAgentApi",
+      "required": true
+    }
+  ],
+  "properties": [
+    {
+      "displayName": "Operation",
+      "name": "operation",
+      "type": "options",
+      "options": [
+        {
+          "name": "Execute Tool",
+          "value": "execute",
+          "description": "Execute a tool from any MCP server"
+        },
+        {
+          "name": "List Servers",
+          "value": "listServers",
+          "description": "List all available MCP servers"
+        },
+        {
+          "name": "List Tools",
+          "value": "listTools",
+          "description": "List tools for a server"
+        }
+      ],
+      "default": "execute",
+      "noDataExpression": true
+    },
+    {
+      "displayName": "MCP Server",
+      "name": "server",
+      "type": "options",
+      "displayOptions": {
+        "show": {
+          "operation": ["execute", "listTools"]
+        }
+      },
+      "options": [
+        {
+          "name": "BF Agent MCP",
+          "value": "bfagent-mcp",
+          "description": "Core platform functionality"
+        },
+        {
+          "name": "Book Writing MCP",
+          "value": "book-writing-mcp",
+          "description": "Book writing workflow tools"
+        },
+        {
+          "name": "CAD MCP",
+          "value": "cad-mcp",
+          "description": "BIM/CAD processing tools"
+        }
+      ],
+      "default": "bfagent-mcp",
+      "required": true,
+      "description": "Select the MCP server to use"
+    },
+    {
+      "displayName": "Tool Name",
+      "name": "tool",
+      "type": "string",
+      "displayOptions": {
+        "show": {
+          "operation": ["execute"]
+        }
+      },
+      "default": "",
+      "required": true,
+      "description": "Name of the tool to execute (e.g., book_create_project)",
+      "placeholder": "book_create_project"
+    },
+    {
+      "displayName": "Parameters",
+      "name": "parameters",
+      "type": "json",
+      "displayOptions": {
+        "show": {
+          "operation": ["execute"]
+        }
+      },
+      "default": "{}",
+      "description": "Tool parameters as JSON object",
+      "placeholder": "{\"title\": \"My Book\", \"genre\": \"Fantasy\"}"
+    },
+    {
+      "displayName": "Context ID",
+      "name": "contextId",
+      "type": "string",
+      "displayOptions": {
+        "show": {
+          "operation": ["execute"]
+        }
+      },
+      "default": "",
+      "description": "Workflow context ID to link multiple tool calls",
+      "placeholder": "workflow_{{$workflow.id}}"
+    },
+    {
+      "displayName": "Use Previous Result",
+      "name": "usePreviousResult",
+      "type": "boolean",
+      "displayOptions": {
+        "show": {
+          "operation": ["execute"]
+        }
+      },
+      "default": false,
+      "description": "Merge result from previous node into parameters"
+    }
+  ]
+}

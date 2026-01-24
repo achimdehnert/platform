@@ -1,0 +1,24 @@
+<div class="card border-0 shadow-sm mb-3">
+    <div class="card-body">
+        <div class="d-flex justify-content-between align-items-start mb-2">
+            <span class="badge bg-secondary">{{ observation.get_source_type_display }}</span>
+            <small class="text-muted">{{ observation.created_at|date:"d.m.Y H:i" }}</small>
+        </div>
+        
+        {% if observation.source_title %}
+        <h6 class="card-title">{{ observation.source_title }}</h6>
+        {% endif %}
+        
+        <p class="card-text small text-muted mb-2">
+            {{ observation.text_sample|truncatewords:30 }}
+        </p>
+        
+        {% if observation.observations %}
+        <div class="mt-2">
+            {% for key, value in observation.observations.items %}
+            <span class="badge bg-light text-dark me-1 mb-1">{{ key }}: {{ value }}</span>
+            {% endfor %}
+        </div>
+        {% endif %}
+    </div>
+</div>

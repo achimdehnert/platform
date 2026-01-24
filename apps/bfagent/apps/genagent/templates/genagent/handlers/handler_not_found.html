@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Handler Not Found{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card border-danger">
+                <div class="card-body text-center py-5">
+                    <i class="bi bi-exclamation-triangle text-danger" style="font-size: 4rem;"></i>
+                    <h2 class="mt-4">Handler Not Found</h2>
+                    <p class="lead">The handler <code>{{ handler_path }}</code> could not be found in the registry.</p>
+                    
+                    <hr class="my-4">
+                    
+                    <h5>Possible Reasons:</h5>
+                    <ul class="list-unstyled">
+                        <li><i class="bi bi-x-circle text-danger"></i> Handler class not registered with <code>@register_handler</code> decorator</li>
+                        <li><i class="bi bi-x-circle text-danger"></i> Module not imported on application startup</li>
+                        <li><i class="bi bi-x-circle text-danger"></i> Incorrect handler path format</li>
+                        <li><i class="bi bi-x-circle text-danger"></i> Handler module has import errors</li>
+                    </ul>
+                    
+                    <hr class="my-4">
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-center">
+                        <a href="{% url 'genagent:handler-list' %}" class="btn btn-primary">
+                            <i class="bi bi-list"></i> View All Handlers
+                        </a>
+                        <a href="/" class="btn btn-outline-secondary">
+                            <i class="bi bi-house"></i> Go Home
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

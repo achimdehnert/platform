@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ domain.name }} Features - Control Center{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <!-- Header -->
+    <div class="row mb-4">
+        <div class="col-md-8">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item"><a href="{% url 'control_center:feature-planning-dashboard' %}">Feature Planning</a></li>
+                    <li class="breadcrumb-item active">{{ domain.name }}</li>
+                </ol>
+            </nav>
+            <h1><i class="bi bi-box"></i> {{ domain.name }} Features</h1>
+            <p class="text-muted">{{ domain.description }}</p>
+        </div>
+        <div class="col-md-4 text-end">
+            <a href="{% url 'control_center:feature-planning-dashboard' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Domain Statistics -->
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h5 class="card-title">{{ domain.name }} Statistics</h5>
+                    <div class="row">
+                        <div class="col-md-2">
+                            <small>Total Features</small>
+                            <h3>{{ domain_report.total_features }}</h3>
+                        </div>
+                        <div class="col-md-2">
+                            <small>Active</small>
+                            <h3>{{ domain_report.active_features }}</h3>
+                        </div>
+                        <div class="col-md-2">
+                            <small>Cross-Domain</small>
+                            <h3>{{ domain_report.cross_domain_features }}</h3>
+                        </div>
+                        <div class="col-md-2">
+                            <small>Total Handlers</small>
+                            <h3>{{ domain_report.total_handlers }}</h3>
+                        </div>
+                        <div class="col-md-2">
+                            <small>v2.0 Handlers</small>
+                            <h3>{{ domain_report.base_handler_v2_count }}</h3>
+                        </div>
+                        <div class="col-md-2">
+                            <small>Legacy Handlers</small>
+                            <h3>{{ domain_report.legacy_handler_count }}</h3>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Domain Info -->
+    <div class="row mb-4">
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Domain Information</h5>
+                </div>
+                <div class="card-body">
+                    <p><strong>ID:</strong> {{ domain.id }}</p>
+                    <p><strong>Category:</strong> {{ domain.category.value }}</p>
+                    <p><strong>Version:</strong> {{ domain.version }}</p>
+                    <p><strong>Base Path:</strong> <code>{{ domain.base_path }}</code></p>
+                    <p><strong>Status:</strong> 
+                        {% if domain.is_active %}
+                        <span class="badge bg-success">Active</span>
+                        {% else %}
+                        <span class="badge bg-secondary">Inactive</span>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6">
+            <div class="card">
+                <div class="card-header">
+                    <h5>Category Breakdown</h5>
+                </div>
+                <div class="card-body">
+                    {% for category, count in domain_report.categories.items %}
+                    <p><strong>{{ category|title }}:</strong> {{ count }}</p>
+                    {% empty %}
+                    <p class="text-muted">No categories</p>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Code Features (GlobalFeatureRegistry) -->
+    <div class="card mb-4">
+        <div class="card-header">
+            <h5>Code Registry Features</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Name</th>
+                            <th>Category</th>
+                            <th>Primary Domain</th>
+                            <th>Supported Domains</th>
+                            <th>Priority</th>
+                            <th>Handlers</th>
+                            <th>Version</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for feature in code_features %}
+                        <tr>
+                            <td><span class="badge bg-success">{{ feature.status.value }}</span></td>
+                            <td>
+                                <strong>{{ feature.name }}</strong>
+                                {% if feature.metadata.cross_domain %}
+                                <span class="badge bg-info ms-1">Cross-Domain</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ feature.category }}</td>
+                            <td>
+                                {% if feature.primary_domain == domain.id %}
+                                <span class="badge bg-primary">Primary</span>
+                                {% else %}
+                                {{ feature.primary_domain }}
+                                {% endif %}
+                            </td>
+                            <td>
+                                <small>{{ feature.supported_domains|join:", " }}</small>
+                            </td>
+                            <td>{{ feature.priority.value }}</td>
+                            <td>{{ feature.handlers|length }}</td>
+                            <td>{{ feature.version }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="text-center text-muted">No code features found for this domain</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Database Features (ComponentRegistry) -->
+    <div class="card">
+        <div class="card-header">
+            <h5>Database Features</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Status</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Priority</th>
+                            <th>Owner</th>
+                            <th>Proposed</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for feature in db_features %}
+                        <tr>
+                            <td><span class="badge bg-secondary">{{ feature.get_status_display }}</span></td>
+                            <td><strong>{{ feature.name }}</strong></td>
+                            <td>{{ feature.get_component_type_display }}</td>
+                            <td>{{ feature.get_priority_display }}</td>
+                            <td>{{ feature.owner|default:"Unassigned" }}</td>
+                            <td>{{ feature.proposed_at|date:"Y-m-d" }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-info"
+                                        hx-get="{% url 'control_center:feature-planning-detail' feature.pk %}"
+                                        hx-target="#modal-content">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                                <button class="btn btn-sm btn-warning"
+                                        hx-get="{% url 'control_center:feature-planning-update' feature.pk %}"
+                                        hx-target="#modal-content">
+                                    <i class="bi bi-pencil"></i>
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">No database features found for this domain</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Detail Modal -->
+<div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" id="modal-content">
+            <!-- HTMX will load content here -->
+        </div>
+    </div>
+</div>
+
+<script>
+// Initialize Bootstrap modals
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    if (event.detail.target.id === 'modal-content') {
+        var modal = new bootstrap.Modal(document.getElementById('detailModal'));
+        modal.show();
+    }
+});
+</script>
+{% endblock %}

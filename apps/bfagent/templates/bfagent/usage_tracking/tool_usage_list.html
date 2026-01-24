@@ -1,0 +1,201 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                <i class="bi bi-tools me-2"></i>{{ page_title }}
+            </h1>
+            <p class="text-muted mb-0">{{ total_count }} Tool-Aufrufe</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'bfagent:tool_statistics' %}" class="btn btn-primary btn-sm">
+                <i class="bi bi-graph-up"></i> Statistiken
+            </a>
+            <a href="{% url 'bfagent:usage_dashboard' %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-arrow-left"></i> Dashboard
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label small">Tool</label>
+                    <select name="tool" class="form-select form-select-sm">
+                        <option value="">Alle Tools</option>
+                        {% for tool in available_tools %}
+                        <option value="{{ tool }}" {% if filters.tool == tool %}selected{% endif %}>
+                            {{ tool }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Aufrufer</label>
+                    <select name="caller" class="form-select form-select-sm">
+                        <option value="">Alle</option>
+                        {% for value, label in caller_types %}
+                        <option value="{{ value }}" {% if filters.caller == value %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">App</label>
+                    <select name="app" class="form-select form-select-sm">
+                        <option value="">Alle Apps</option>
+                        {% for app in available_apps %}
+                        <option value="{{ app }}" {% if filters.app == app %}selected{% endif %}>
+                            {{ app }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label small">Status</label>
+                    <select name="success" class="form-select form-select-sm">
+                        <option value="">Alle</option>
+                        <option value="yes" {% if filters.success == 'yes' %}selected{% endif %}>Erfolgreich</option>
+                        <option value="no" {% if filters.success == 'no' %}selected{% endif %}>Fehlgeschlagen</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary btn-sm w-100">
+                        <i class="bi bi-search"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Tool Usage List -->
+    <div class="card">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover table-sm mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Zeit</th>
+                            <th>Tool</th>
+                            <th>Aufrufer</th>
+                            <th>App</th>
+                            <th class="text-end">Dauer</th>
+                            <th class="text-center">Status</th>
+                            <th>Ergebnis</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for log in logs %}
+                        <tr class="{% if not log.success %}table-danger{% endif %}">
+                            <td>
+                                <small>{{ log.timestamp|date:"d.m H:i:s" }}</small>
+                            </td>
+                            <td>
+                                <code class="fw-bold">{{ log.tool_name }}</code>
+                                {% if log.tool_version %}
+                                <small class="text-muted">v{{ log.tool_version }}</small>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.caller_type == 'user' %}👤
+                                {% elif log.caller_type == 'cascade' %}🤖
+                                {% elif log.caller_type == 'mcp' %}🔧
+                                {% elif log.caller_type == 'api' %}🌐
+                                {% elif log.caller_type == 'scheduled' %}⏰
+                                {% else %}⚙️{% endif %}
+                                <small>{{ log.caller_id|default:log.caller_type|truncatechars:20 }}</small>
+                            </td>
+                            <td>
+                                {% if log.app_label %}
+                                <span class="badge bg-light text-dark">{{ log.app_label }}</span>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                {% if log.execution_time_ms > 1000 %}
+                                <span class="text-warning fw-bold">{{ log.execution_time_ms|floatformat:0 }}ms</span>
+                                {% elif log.execution_time_ms > 500 %}
+                                <span class="text-info">{{ log.execution_time_ms|floatformat:0 }}ms</span>
+                                {% else %}
+                                {{ log.execution_time_ms|floatformat:0 }}ms
+                                {% endif %}
+                            </td>
+                            <td class="text-center">
+                                {% if log.success %}
+                                <span class="text-success">✅</span>
+                                {% else %}
+                                <span class="text-danger" data-bs-toggle="tooltip" title="{{ log.error_message }}">❌</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if log.result_summary %}
+                                <small class="text-muted">{{ log.result_summary|truncatechars:40 }}</small>
+                                {% elif log.error_message %}
+                                <small class="text-danger">{{ log.error_message|truncatechars:40 }}</small>
+                                {% else %}
+                                <span class="text-muted">-</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-5 text-muted">
+                                <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                Keine Tool-Aufrufe gefunden
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Pagination -->
+        {% if logs.has_other_pages %}
+        <div class="card-footer">
+            <nav>
+                <ul class="pagination pagination-sm justify-content-center mb-0">
+                    {% if logs.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.previous_page_number }}&tool={{ filters.tool }}&caller={{ filters.caller }}&app={{ filters.app }}&success={{ filters.success }}">
+                            &laquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    {% for num in logs.paginator.page_range %}
+                    {% if logs.number == num %}
+                    <li class="page-item active"><span class="page-link">{{ num }}</span></li>
+                    {% elif num > logs.number|add:'-3' and num < logs.number|add:'3' %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ num }}&tool={{ filters.tool }}&caller={{ filters.caller }}&app={{ filters.app }}&success={{ filters.success }}">
+                            {{ num }}
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% endfor %}
+                    
+                    {% if logs.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ logs.next_page_number }}&tool={{ filters.tool }}&caller={{ filters.caller }}&app={{ filters.app }}&success={{ filters.success }}">
+                            &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

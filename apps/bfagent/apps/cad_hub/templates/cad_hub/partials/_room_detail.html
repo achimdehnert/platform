@@ -1,0 +1,60 @@
+<!-- templates/cad_hub/partials/_room_detail.html -->
+<div class="bg-slate-800 rounded-xl border border-amber-500/30 p-6">
+    <div class="flex items-start justify-between mb-4">
+        <div>
+            <p class="text-amber-400 font-mono text-sm">{{ room.number }}</p>
+            <h3 class="text-white text-lg font-semibold">{{ room.name }}</h3>
+            {% if room.long_name %}
+            <p class="text-slate-400 text-sm">{{ room.long_name }}</p>
+            {% endif %}
+        </div>
+        <button onclick="this.closest('#room-detail-panel').innerHTML = ''"
+                class="text-slate-500 hover:text-white">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+        </button>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <div class="bg-slate-900/50 rounded-lg p-3">
+            <p class="text-slate-500 text-xs">Fläche</p>
+            <p class="text-white font-mono font-bold">{{ room.area|floatformat:2 }} m²</p>
+        </div>
+        <div class="bg-slate-900/50 rounded-lg p-3">
+            <p class="text-slate-500 text-xs">Höhe</p>
+            <p class="text-white font-mono font-bold">{{ room.height|floatformat:2 }} m</p>
+        </div>
+        <div class="bg-slate-900/50 rounded-lg p-3">
+            <p class="text-slate-500 text-xs">Volumen</p>
+            <p class="text-white font-mono font-bold">{{ room.volume|floatformat:2 }} m³</p>
+        </div>
+        <div class="bg-slate-900/50 rounded-lg p-3">
+            <p class="text-slate-500 text-xs">Umfang</p>
+            <p class="text-white font-mono font-bold">{{ room.perimeter|floatformat:2 }} m</p>
+        </div>
+    </div>
+
+    <div class="border-t border-slate-700 pt-4">
+        <dl class="space-y-2 text-sm">
+            <div class="flex justify-between">
+                <dt class="text-slate-400">Geschoss</dt>
+                <dd class="text-white">{{ room.floor.name|default:"-" }}</dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-slate-400">Nutzung (DIN 277)</dt>
+                <dd class="text-white">
+                    {% if room.usage_category %}
+                    {{ room.get_usage_category_display }}
+                    {% else %}
+                    <span class="text-slate-500">Nicht klassifiziert</span>
+                    {% endif %}
+                </dd>
+            </div>
+            <div class="flex justify-between">
+                <dt class="text-slate-400">IFC GUID</dt>
+                <dd class="text-slate-500 font-mono text-xs">{{ room.ifc_guid }}</dd>
+            </div>
+        </dl>
+    </div>
+</div>

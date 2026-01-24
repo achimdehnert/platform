@@ -1,0 +1,310 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block doc_link %}
+<div class="mb-2 text-end">
+    <a href="/static/docs/mcp/code_quality_mcp.html" target="_blank" class="btn btn-outline-secondary btn-sm">
+        <i class="bi bi-book me-1"></i> Code Quality Docs <i class="bi bi-box-arrow-up-right ms-1 small"></i>
+    </a>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.consistency-card {
+    border-left: 4px solid #007bff;
+    transition: all 0.3s ease;
+}
+
+.consistency-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.action-btn {
+    min-width: 120px;
+}
+
+.output-container {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.success-output {
+    color: #198754;
+}
+
+.error-output {
+    color: #dc3545;
+}
+
+.loading-spinner {
+    display: none;
+}
+
+.loading .loading-spinner {
+    display: inline-block;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h1 class="h3 mb-0">
+                    <i class="bi bi-diagram-3"></i> {{ page_title }}
+                </h1>
+                <div class="badge bg-primary">BF Agent v2.0.0</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Control Panel -->
+        <div class="col-md-4">
+            <div class="card consistency-card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-gear"></i> Control Panel
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form id="consistency-form">
+                        {% csrf_token %}
+
+                        <!-- App Selection -->
+                        <div class="mb-3">
+                            <label for="app-select" class="form-label">Django App</label>
+                            <select class="form-select" id="app-select" name="app">
+                                {% for app in available_apps %}
+                                <option value="{{ app }}" {% if app == "bfagent" %}selected{% endif %}>{{ app }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Action Selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Action</label>
+                            {% for action in available_actions %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="action"
+                                       id="action-{{ action.value }}" value="{{ action.value }}"
+                                       {% if action.value == "analyze" %}checked{% endif %}>
+                                <label class="form-check-label" for="action-{{ action.value }}">
+                                    <strong>{{ action.label }}</strong>
+                                    <br><small class="text-muted">{{ action.description }}</small>
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Execute Button -->
+                        <button type="submit" class="btn btn-primary action-btn w-100" id="execute-btn">
+                            <span class="loading-spinner spinner-border spinner-border-sm me-2" role="status"></span>
+                            <i class="bi bi-play-circle"></i> Execute
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h6 class="card-title mb-0">
+                        <i class="bi bi-lightning"></i> Quick Actions
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-success btn-sm quick-action" data-action="analyze">
+                            <i class="bi bi-search"></i> Quick Analyze
+                        </button>
+                        <button class="btn btn-outline-info btn-sm quick-action" data-action="report">
+                            <i class="bi bi-file-text"></i> Generate Report
+                        </button>
+                        <button class="btn btn-outline-warning btn-sm quick-action" data-action="fix" data-dry-run="true">
+                            <i class="bi bi-eye"></i> Preview Fixes
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-terminal"></i> Execution Results
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="results-container">
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-play-circle display-4"></i>
+                            <p class="mt-3">Select an action and click Execute to see results</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Status Cards -->
+            <div class="row mt-3">
+                <div class="col-md-4">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <i class="bi bi-check-circle text-success display-6"></i>
+                            <h6 class="card-title mt-2">Models Checked</h6>
+                            <span class="badge bg-success" id="models-count">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <i class="bi bi-exclamation-triangle text-warning display-6"></i>
+                            <h6 class="card-title mt-2">Issues Found</h6>
+                            <span class="badge bg-warning" id="issues-count">0</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card text-center">
+                        <div class="card-body">
+                            <i class="bi bi-tools text-info display-6"></i>
+                            <h6 class="card-title mt-2">Auto-Fixable</h6>
+                            <span class="badge bg-info" id="fixable-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('consistency-form');
+    const executeBtn = document.getElementById('execute-btn');
+    const resultsContainer = document.getElementById('results-container');
+
+    // Form submission
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        executeConsistencyCheck();
+    });
+
+    // Quick actions
+    document.querySelectorAll('.quick-action').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const action = this.dataset.action;
+            const dryRun = this.dataset.dryRun === 'true';
+
+            // Set form values
+            document.querySelector(`input[value="${action}"]`).checked = true;
+
+            executeConsistencyCheck(dryRun);
+        });
+    });
+
+    function executeConsistencyCheck(dryRun = false) {
+        // Show loading state
+        executeBtn.classList.add('loading');
+        executeBtn.disabled = true;
+
+        const formData = new FormData(form);
+        if (dryRun) {
+            formData.append('dry_run', 'true');
+        }
+
+        fetch('{% url "control_center:model-consistency" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            displayResults(data);
+            updateStatusCards(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            displayError('An error occurred while executing the consistency check.');
+        })
+        .finally(() => {
+            // Hide loading state
+            executeBtn.classList.remove('loading');
+            executeBtn.disabled = false;
+        });
+    }
+
+    function displayResults(data) {
+        let html = '';
+
+        if (data.success) {
+            html = `
+                <div class="alert alert-success">
+                    <i class="bi bi-check-circle"></i>
+                    <strong>Success!</strong> Consistency check completed.
+                </div>
+                <div class="output-container p-3">
+                    <pre class="success-output mb-0">${escapeHtml(data.output)}</pre>
+                </div>
+            `;
+        } else {
+            html = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Error!</strong> Consistency check failed.
+                </div>
+                <div class="output-container p-3">
+                    <pre class="error-output mb-0">${escapeHtml(data.error || data.output)}</pre>
+                </div>
+            `;
+        }
+
+        resultsContainer.innerHTML = html;
+    }
+
+    function displayError(message) {
+        resultsContainer.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle"></i>
+                <strong>Error!</strong> ${message}
+            </div>
+        `;
+    }
+
+    function updateStatusCards(data) {
+        // Parse output for statistics (simplified)
+        const output = data.output || '';
+
+        // Extract numbers from output (this is a simplified approach)
+        const modelsMatch = output.match(/(\d+)\s+models?/i);
+        const issuesMatch = output.match(/(\d+)\s+issues?/i);
+        const fixableMatch = output.match(/(\d+)\s+fixable/i);
+
+        document.getElementById('models-count').textContent = modelsMatch ? modelsMatch[1] : '0';
+        document.getElementById('issues-count').textContent = issuesMatch ? issuesMatch[1] : '0';
+        document.getElementById('fixable-count').textContent = fixableMatch ? fixableMatch[1] : '0';
+    }
+
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+    }
+});
+</script>
+{% endblock %}

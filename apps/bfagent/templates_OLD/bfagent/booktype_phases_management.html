@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}BookType-Phases{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><i class="bi bi-diagram-2"></i> BookType-Phases</h2>
+        <div class="btn-group">
+            <a href="{% url 'bfagent:booktypephase-list' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list"></i> List View
+            </a>
+            <a href="{% url 'bfagent:booktype-create' %}" class="btn btn-primary">
+                <i class="bi bi-plus-circle"></i> Add Book Type
+            </a>
+            <a href="{% url 'bfagent:workflowphase-create' %}" class="btn btn-info">
+                <i class="bi bi-plus-circle"></i> Add Phase
+            </a>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-book"></i> Book Types</h5>
+                </div>
+                <div class="list-group list-group-flush">
+                    {% for bt in booktypes %}
+                        <a href="?booktype={{ bt.id }}" class="list-group-item list-group-item-action {% if bt.id == selected_booktype.id %}active{% endif %}">
+                            {{ bt.name }} <span class="badge bg-secondary float-end">{{ bt.book_type_phases.count }}</span>
+                        </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9">
+            {% if selected_booktype %}
+                <div class="alert alert-info"><strong>{{ selected_booktype.name }}</strong></div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-check-circle"></i> Assigned Phases <span class="badge bg-dark">{{ assigned_count }}</span></h5>
+                    <small class="text-muted">Drag to reorder</small>
+                </div>
+                            <div class="card-body" id="assigned-phases" style="min-height: 400px;">
+                                {% if assigned_configs %}
+                                    <div class="list-group" id="sortable-phases">
+                                        {% for config in assigned_configs %}
+                                            <div class="list-group-item sortable-item" data-config-id="{{ config.id }}" data-order="{{ config.order }}" style="cursor: move;">
+                                                    <div class="flex-grow-1">
+                                                        <div class="d-flex align-items-center mb-1">
+                                                            <i class="bi bi-grip-vertical me-2 text-muted"></i>
+                                                            <span class="badge bg-secondary me-2">{{ config.order }}</span>
+                                                            <strong><i class="bi bi-{{ config.phase.icon|default:'circle' }}"></i> {{ config.phase.name }}</strong>
+                                                            {% if config.is_required %}
+                                                                <span class="badge bg-success ms-2">Required</span>
+                                                            {% else %}
+                                                                <span class="badge bg-secondary ms-2">Optional</span>
+                                                            {% endif %}
+                                                        </div>
+                                                        <small class="text-muted">
+                                                            {{ config.estimated_days|default:"0" }} days estimated
+                                                        </small>
+                                                    </div>
+                                                    <div class="btn-group btn-group-sm">
+                                                        <a href="{% url 'bfagent:booktypephase-update' config.pk %}" class="btn btn-outline-primary" title="Edit">
+                                                            <i class="bi bi-pencil"></i>
+                                                        </a>
+                                                        <button class="btn btn-outline-danger" title="Remove" hx-post="{% url 'bfagent:booktype-phase-remove' %}" hx-vals='{"config_id":"{{ config.pk }}"}' hx-confirm="Remove this phase?" hx-target="closest .list-group-item" hx-swap="outerHTML swap:1s">
+                                                            <i class="bi bi-x-circle"></i>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        {% endfor %}
+                                    </div>
+                                {% else %}
+                                    <div class="text-center text-muted py-5">
+                                        <i class="bi bi-inbox" style="font-size: 3rem;"></i>
+                                        <p class="mt-3">No phases assigned yet.</p>
+                                        <p><small>Select phases from the available list →</small></p>
+                                    </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header bg-info text-dark">
+                                <h5 class="mb-0"><i class="bi bi-arrow-right-circle"></i> Available Phases <span class="badge bg-dark">{{ unassigned_count }}</span></h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="list-group">
+                                    {% for phase in unassigned_phases %}
+                                        <div class="list-group-item">
+                                            <div class="d-flex justify-content-between">
+                                                <div><i class="bi bi-{{ phase.icon|default:'circle' }}"></i> {{ phase.name }}</div>
+                                                <button class="btn btn-sm btn-info" hx-post="{% url 'bfagent:booktype-phase-add' %}" hx-vals='{"booktype_id":"{{ selected_booktype.id }}","phase_id":"{{ phase.id }}"}' hx-target="#assigned-phases .list-group" hx-swap="beforeend"><i class="bi bi-plus"></i></button>
+                                            </div>
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.sortable-item {
+    transition: background-color 0.2s;
+}
+.sortable-item:hover {
+    background-color: #f8f9fa;
+}
+.sortable-ghost {
+    opacity: 0.4;
+    background: #e9ecef;
+}
+.sortable-drag {
+    opacity: 1;
+    background: #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+}
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<!-- SortableJS CDN -->
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+<script>
+// Global variable to store sortable instance
+let sortableInstance = null;
+
+// Function to initialize or reinitialize Sortable
+function initializeSortable() {
+    const sortableList = document.getElementById('sortable-phases');
+
+    if (sortableList) {
+        // Destroy existing instance if it exists
+        if (sortableInstance) {
+            sortableInstance.destroy();
+        }
+
+        // Create new sortable instance
+        sortableInstance = new Sortable(sortableList, {
+            animation: 150,
+            handle: '.sortable-item',
+            ghostClass: 'sortable-ghost',
+            dragClass: 'sortable-drag',
+
+            onEnd: function (evt) {
+                // Get all items in new order
+                const items = sortableList.querySelectorAll('.sortable-item');
+                const orderData = [];
+
+                items.forEach((item, index) => {
+                    const configId = item.dataset.configId;
+                    const newOrder = index + 1;
+                    orderData.push({
+                        id: configId,
+                        order: newOrder
+                    });
+
+                    // Update badge
+                    const badge = item.querySelector('.badge.bg-secondary');
+                    if (badge) {
+                        badge.textContent = newOrder;
+                    }
+                });
+
+                // Send order update to server
+                fetch('{% url "bfagent:booktype-phase-reorder" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': '{{ csrf_token }}'
+                    },
+                    body: JSON.stringify({
+                        booktype_id: '{{ selected_booktype.id }}',
+                        order: orderData
+                    })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        console.log('Order updated successfully');
+                        // Optional: Show success message
+                        const alert = document.createElement('div');
+                        alert.className = 'alert alert-success alert-dismissible fade show position-fixed top-0 end-0 m-3';
+                        alert.style.zIndex = '9999';
+                        alert.innerHTML = '<i class="bi bi-check-circle"></i> Order updated! <button type="button" class="btn-close" data-bs-dismiss="alert"></button>';
+                        document.body.appendChild(alert);
+                        setTimeout(() => alert.remove(), 3000);
+                    } else {
+                        console.error('Failed to update order');
+                        alert('Failed to update order. Please try again.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error updating order. Please try again.');
+                });
+            }
+        });
+    }
+}
+
+// Reinitialize Sortable after HTMX adds new item
+document.body.addEventListener('htmx:afterSwap', function(event) {
+    // Check if the swap target is the assigned-phases list
+    if (event.detail.target.id === 'assigned-phases' ||
+        event.detail.target.closest('#assigned-phases')) {
+        // Reinitialize sortable after new item is added
+        setTimeout(() => initializeSortable(), 100);
+    }
+});
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', function() {
+    initializeSortable();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,166 @@
+{
+  "profile": {
+    "name": "CASCADE Templates",
+    "version": "1.0",
+    "created": "2025-12-11",
+    "buttons": [
+      {
+        "position": "0,0",
+        "type": "folder",
+        "name": "CASCADE",
+        "icon": "🎯",
+        "profile": "CASCADE Templates"
+      },
+      {
+        "position": "0,1",
+        "type": "clipboard",
+        "name": "Feature\nRequest",
+        "icon": "⭐",
+        "text": "### Request: [FEATURE NAME]\n\n**Ziel:**\n[WAS SOLL ERREICHT WERDEN?]\n\n**Requirements:**\n- [ ] Requirement 1\n- [ ] Requirement 2\n- [ ] Requirement 3\n\n**Constraints:**\n- [EINSCHRÄNKUNGEN]\n\n**Tools:**\n- [x] BFAgent MCP für Best Practices\n- [x] Check Protected Paths\n\n**Plan:**\n[x] Zeig mir erst den Plan\n\n**Testing:**\n- [ ] [TESTING REQUIREMENTS]",
+        "toast": "Feature Template copied!",
+        "backgroundColor": "#4CAF50"
+      },
+      {
+        "position": "0,2",
+        "type": "clipboard",
+        "name": "Bug\nFix",
+        "icon": "🐛",
+        "text": "### Bug Fix: [PROBLEM]\n\n**Symptom:**\n[WAS FUNKTIONIERT NICHT?]\n\n**Error Message:**\n```\n[ERROR]\n```\n\n**Location:**\n- File: [PATH]\n- Function: [NAME]\n\n**Expected Behavior:**\n[WAS SOLLTE PASSIEREN?]\n\n**Tools:**\n- [x] BFAgent MCP Protected Paths checken",
+        "toast": "Bug Template copied!",
+        "backgroundColor": "#F44336"
+      },
+      {
+        "position": "0,3",
+        "type": "clipboard",
+        "name": "Quick\nTask",
+        "icon": "⚡",
+        "text": "Task: [ONE-LINER]\n\nRequirements:\n- [ ] Thing 1\n- [ ] Thing 2\n- [ ] Thing 3\n\nTools: BFAgent MCP best_practices\n\nPlan: show first",
+        "toast": "Quick Template copied!",
+        "backgroundColor": "#FF9800"
+      },
+      {
+        "position": "1,0",
+        "type": "clipboard",
+        "name": "Refactor",
+        "icon": "🔧",
+        "text": "### Refactoring: [COMPONENT]\n\n**Ziel:**\n[WARUM REFACTOREN?]\n\n**Scope:**\n- Domain: [DOMAIN]\n- Component: [TYPE]\n\n**Safety Checks:**\n- [x] BFAgent MCP: get_refactor_options('[DOMAIN]')\n- [x] BFAgent MCP: check_path_protection()\n- [x] BFAgent MCP: get_best_practices()\n\n**Plan:**\n[x] Zeig mir erst den Plan",
+        "toast": "Refactor Template copied!",
+        "backgroundColor": "#2196F3"
+      },
+      {
+        "position": "1,1",
+        "type": "clipboard",
+        "name": "Checkpoint",
+        "icon": "✅",
+        "text": "@CASCADE: Checkpoint\n\n- Was ist der Stand?\n- Was fehlt noch?\n- Welche Requirements sind noch offen?",
+        "toast": "Checkpoint copied!",
+        "backgroundColor": "#9C27B0"
+      },
+      {
+        "position": "1,2",
+        "type": "clipboard",
+        "name": "Context\nRequest",
+        "icon": "🔍",
+        "text": "@CASCADE: Context needed\n\n**Frage:**\n[WAS MÖCHTE ICH WISSEN?]\n\n**Nutze:**\n- [ ] code_search\n- [ ] BFAgent MCP: search_handlers\n- [ ] BFAgent MCP: get_domain\n\n**Don't code yet - investigation only**",
+        "toast": "Context Template copied!",
+        "backgroundColor": "#00BCD4"
+      },
+      {
+        "position": "1,3",
+        "type": "clipboard",
+        "name": "MCP\nTools",
+        "icon": "🔧",
+        "text": "Nutze BFAgent MCP:\n- [ ] get_best_practices\n- [ ] check_path_protection\n- [ ] get_naming_convention\n- [ ] search_handlers",
+        "toast": "MCP Tools copied!",
+        "backgroundColor": "#795548"
+      },
+      {
+        "position": "2,0",
+        "type": "clipboard",
+        "name": "Minimal\nRequest",
+        "icon": "📝",
+        "text": "@CASCADE:\nTask: [BESCHREIBUNG]\nRequirements: [LISTE]\nTools: BFAgent MCP\nPlan: show first",
+        "toast": "Minimal Template copied!",
+        "backgroundColor": "#607D8B"
+      },
+      {
+        "position": "2,1",
+        "type": "clipboard",
+        "name": "Plan\nRequest",
+        "icon": "📋",
+        "text": "@CASCADE: Zeig mir erst den Plan für:\n[BESCHREIBUNG]",
+        "toast": "Plan Request copied!",
+        "backgroundColor": "#3F51B5"
+      },
+      {
+        "position": "2,2",
+        "type": "clipboard",
+        "name": "Golden\nRules",
+        "icon": "🏆",
+        "text": "REQUIREMENTS FIRST → Liste was du willst\nPLAN BEFORE CODE → \"Zeig mir erst den Plan\"\nUSE BFAGENT MCP → \"Check mit BFAgent MCP\"",
+        "toast": "Golden Rules copied!",
+        "backgroundColor": "#FFC107"
+      },
+      {
+        "position": "2,3",
+        "type": "open",
+        "name": "Help\nCard",
+        "icon": "❓",
+        "path": "C:\\Users\\achim\\github\\bfagent\\docs\\QUICK_REFERENCE_CARD.md",
+        "backgroundColor": "#E91E63"
+      },
+      {
+        "position": "3,0",
+        "type": "clipboard",
+        "name": "BFAgent\nBest",
+        "icon": "💡",
+        "text": "Frage BFAgent MCP nach Best Practices für: [THEMA]",
+        "toast": "Best Practices request copied!",
+        "backgroundColor": "#8BC34A"
+      },
+      {
+        "position": "3,1",
+        "type": "clipboard",
+        "name": "Protected\nPaths",
+        "icon": "🔒",
+        "text": "Check mit BFAgent MCP die Protected Paths für: [FILE]",
+        "toast": "Protected Paths request copied!",
+        "backgroundColor": "#FF5722"
+      },
+      {
+        "position": "3,2",
+        "type": "clipboard",
+        "name": "Naming\nConvention",
+        "icon": "📛",
+        "text": "Hole Naming Convention von BFAgent MCP für: [DOMAIN]",
+        "toast": "Naming request copied!",
+        "backgroundColor": "#009688"
+      },
+      {
+        "position": "3,3",
+        "type": "clipboard",
+        "name": "Domain\nInfo",
+        "icon": "🏢",
+        "text": "Zeige mir Domain Info via BFAgent MCP für: [DOMAIN]",
+        "toast": "Domain Info request copied!",
+        "backgroundColor": "#673AB7"
+      }
+    ]
+  },
+  "metadata": {
+    "author": "BFAgent Team",
+    "description": "CASCADE Template Launcher für StreamDeck",
+    "category": "Development",
+    "tags": ["cascade", "bfagent", "templates", "automation"],
+    "requiredPlugins": ["com.elgato.system.clipboard", "com.elgato.system.open"]
+  },
+  "notes": [
+    "Import dieses Profil in StreamDeck Software",
+    "Passe Pfade an wenn nötig (z.B. Help Card Path)",
+    "Anpasse Icons nach Geschmack",
+    "Buttons sind vorkonfiguriert und sofort einsatzbereit",
+    "Alle Templates sind in deutscher Sprache",
+    "Toast-Notifications geben Feedback",
+    "Farben helfen bei schneller Orientierung"
+  ]
+}

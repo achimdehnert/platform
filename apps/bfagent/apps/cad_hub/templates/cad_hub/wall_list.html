@@ -1,0 +1,61 @@
+{% extends "cad_hub/base.html" %}
+
+{% block content %}
+<div class="p-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-white">Wände</h2>
+            <p class="text-slate-400">
+                {{ model.project.name }} • {{ total_count }} Wände •
+                Brutto: {{ total_gross_area|floatformat:1 }} m² •
+                Netto: {{ total_net_area|floatformat:1 }} m²
+            </p>
+        </div>
+        <a href="{% url 'cad_hub:ifc_content_overview' model.pk %}"
+           class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded-lg text-white text-sm">
+            ← Zurück zur Übersicht
+        </a>
+    </div>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 gap-4 mb-6">
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <p class="text-slate-400 text-sm">Außenwände</p>
+            <p class="text-2xl font-bold text-purple-400">{{ external_count }}</p>
+        </div>
+        <div class="bg-slate-800 rounded-lg p-4 border border-slate-700">
+            <p class="text-slate-400 text-sm">Innenwände</p>
+            <p class="text-2xl font-bold text-purple-300">{{ internal_count }}</p>
+        </div>
+    </div>
+
+    <!-- Filter -->
+    <div class="bg-slate-800 rounded-lg border border-slate-700 p-4 mb-6">
+        <form method="get" class="flex gap-4">
+            <select name="floor" class="bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white">
+                <option value="">Alle Geschosse</option>
+                {% for floor in floors %}
+                <option value="{{ floor.id }}" {% if request.GET.floor == floor.id|stringformat:"s" %}selected{% endif %}>
+                    {{ floor.name }}
+                </option>
+                {% endfor %}
+            </select>
+            <select name="type" class="bg-slate-900 border border-slate-600 rounded px-3 py-2 text-white">
+                <option value="">Alle Typen</option>
+                <option value="external" {% if request.GET.type == "external" %}selected{% endif %}>Außenwände</option>
+                <option value="internal" {% if request.GET.type == "internal" %}selected{% endif %}>Innenwände</option>
+            </select>
+            <button type="submit" class="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded text-white">
+                Filtern
+            </button>
+            <a href="{% url 'cad_hub:wall_list' model.pk %}" class="bg-slate-700 hover:bg-slate-600 px-4 py-2 rounded text-white">
+                Zurücksetzen
+            </a>
+        </form>
+    </div>
+
+    <!-- Tabelle -->
+    {% include "cad_hub/partials/_wall_table.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,202 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Work Items{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="h2 mb-1">
+                {% if type_filter == 'bug' %}🐛 Bugs
+                {% elif type_filter == 'feature' %}✨ Features
+                {% elif type_filter == 'task' %}📋 Tasks
+                {% else %}📋 Alle Work Items
+                {% endif %}
+            </h1>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0">
+                    <li class="breadcrumb-item"><a href="{% url 'control_center:work-items:work-items-dashboard' %}">Work Items</a></li>
+                    <li class="breadcrumb-item active">Liste</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'control_center:work-items:work-items-kanban' %}{% if type_filter %}?type={{ type_filter }}{% endif %}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-kanban"></i> Kanban
+            </a>
+            <a href="{% url 'control_center:work-items:work-item-create' %}{% if type_filter %}?type={{ type_filter }}{% endif %}" class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Neu
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="card border-0 shadow-sm mb-4">
+        <div class="card-body">
+            <form method="get" class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label">Typ</label>
+                    <select name="type" class="form-select" onchange="this.form.submit()">
+                        <option value="">Alle Typen</option>
+                        {% for code, label in work_item_types %}
+                        <option value="{{ code }}" {% if type_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select" onchange="this.form.submit()">
+                        <option value="">Alle Status</option>
+                        {% for code, label in work_item_statuses %}
+                        <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Priorität</label>
+                    <select name="priority" class="form-select" onchange="this.form.submit()">
+                        <option value="">Alle</option>
+                        {% for code, label in work_item_priorities %}
+                        <option value="{{ code }}" {% if priority_filter == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Domain</label>
+                    <select name="domain" class="form-select" onchange="this.form.submit()">
+                        <option value="">Alle Domains</option>
+                        {% for domain in domains %}
+                        <option value="{{ domain.id }}" {% if domain_filter == domain.id|stringformat:"s" %}selected{% endif %}>{{ domain.display_name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Suche</label>
+                    <input type="text" name="q" class="form-control" placeholder="ID, Titel, Beschreibung..." value="{{ search }}">
+                </div>
+                <div class="col-md-1 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-search"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Results -->
+    <div class="card border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>ID</th>
+                        <th>Typ</th>
+                        <th>Titel</th>
+                        <th>Status</th>
+                        <th>Priorität</th>
+                        <th>Domain</th>
+                        <th>Assigned</th>
+                        <th>LLM Tier</th>
+                        <th>Erstellt</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in items %}
+                    <tr>
+                        <td>
+                            <a href="{% url 'control_center:work-items:work-item-detail' pk=item.pk %}" class="text-decoration-none fw-bold">
+                                {{ item.identifier }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if item.item_type == 'bug' %}danger{% elif item.item_type == 'feature' %}success{% elif item.item_type == 'task' %}primary{% else %}secondary{% endif %}">
+                                {{ item.get_item_type_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'control_center:work-items:work-item-detail' pk=item.pk %}" class="text-decoration-none">
+                                {{ item.title|truncatechars:50 }}
+                            </a>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if item.status == 'done' %}success{% elif item.status == 'in_progress' %}warning{% elif item.status == 'blocked' %}danger{% else %}secondary{% endif %}">
+                                {{ item.get_status_display }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="badge bg-{% if item.priority == 'critical' %}danger{% elif item.priority == 'high' %}warning{% else %}light text-dark{% endif %}">
+                                {{ item.get_priority_display }}
+                            </span>
+                        </td>
+                        <td>
+                            {% if item.domain %}
+                            <span class="badge bg-info">{{ item.domain.display_name }}</span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.assigned_to %}
+                            {{ item.assigned_to.username }}
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if item.llm_tier %}
+                            <span class="badge bg-{% if item.llm_tier == 'tier_1' %}success{% elif item.llm_tier == 'tier_2' %}warning{% else %}danger{% endif %}">
+                                {{ item.get_llm_tier_display }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">-</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <small class="text-muted">{{ item.created_at|date:"d.m.Y H:i" }}</small>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="9" class="text-center py-5 text-muted">
+                            <i class="bi bi-inbox display-4 d-block mb-3"></i>
+                            Keine Work Items gefunden
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Pagination -->
+        {% if items.has_other_pages %}
+        <div class="card-footer bg-transparent">
+            <nav>
+                <ul class="pagination justify-content-center mb-0">
+                    {% if items.has_previous %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ items.previous_page_number }}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}">
+                            &laquo; Zurück
+                        </a>
+                    </li>
+                    {% endif %}
+                    
+                    <li class="page-item disabled">
+                        <span class="page-link">Seite {{ items.number }} von {{ items.paginator.num_pages }}</span>
+                    </li>
+                    
+                    {% if items.has_next %}
+                    <li class="page-item">
+                        <a class="page-link" href="?page={{ items.next_page_number }}{% if type_filter %}&type={{ type_filter }}{% endif %}{% if status_filter %}&status={{ status_filter }}{% endif %}{% if search %}&q={{ search }}{% endif %}">
+                            Weiter &raquo;
+                        </a>
+                    </li>
+                    {% endif %}
+                </ul>
+            </nav>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

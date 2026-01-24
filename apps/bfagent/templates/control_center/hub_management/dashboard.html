@@ -1,0 +1,167 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - BF Agent{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-diagram-3"></i> {{ title }}</h1>
+        <div>
+            <a href="{% url 'control_center:feature_flags' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-toggles"></i> Feature Flags
+            </a>
+            <a href="{% url 'control_center:event_log' %}" class="btn btn-outline-secondary">
+                <i class="bi bi-list-ul"></i> Event Log
+            </a>
+        </div>
+    </div>
+
+    {% if not feature_enabled %}
+    <div class="alert alert-warning">
+        <i class="bi bi-exclamation-triangle"></i>
+        <strong>Hub Registry ist deaktiviert.</strong>
+        Aktiviere <code>USE_HUB_REGISTRY</code> in den Feature Flags oder setze 
+        <code>FEATURE_FLAG_USE_HUB_REGISTRY=true</code> als Environment Variable.
+        <a href="{% url 'control_center:feature_flags' %}" class="alert-link">Feature Flags verwalten</a>
+    </div>
+    {% endif %}
+
+    <!-- Stats Cards -->
+    <div class="row mb-4">
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ hub_stats.total }}</h3>
+                    <small class="text-muted">Gesamt</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center bg-success text-white">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ hub_stats.active }}</h3>
+                    <small>Aktiv</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center bg-secondary text-white">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ hub_stats.inactive }}</h3>
+                    <small>Inaktiv</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ hub_stats.production }}</h3>
+                    <small class="text-success">Production</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ hub_stats.beta }}</h3>
+                    <small class="text-warning">Beta</small>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-2">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h3 class="mb-0">{{ hub_stats.development }}</h3>
+                    <small class="text-info">Development</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hubs Table -->
+    <div class="card">
+        <div class="card-header">
+            <i class="bi bi-grid-3x3"></i> Registrierte Hubs
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th>Hub</th>
+                        <th>Kategorie</th>
+                        <th>Version</th>
+                        <th>Status</th>
+                        <th>Aktiv</th>
+                        <th>Aktionen</th>
+                    </tr>
+                </thead>
+                <tbody id="hub-list">
+                    {% for hub in hubs %}
+                    <tr id="hub-row-{{ hub.id }}">
+                        <td>
+                            <i class="{{ hub.icon }}"></i>
+                            <strong>{{ hub.name }}</strong>
+                            <br><small class="text-muted">{{ hub.description|truncatewords:10 }}</small>
+                        </td>
+                        <td><code>{{ hub.category }}</code></td>
+                        <td>{{ hub.version }}</td>
+                        <td>
+                            {% if hub.status == 'production' %}
+                            <span class="badge bg-success">Production</span>
+                            {% elif hub.status == 'beta' %}
+                            <span class="badge bg-warning">Beta</span>
+                            {% elif hub.status == 'development' %}
+                            <span class="badge bg-info">Development</span>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ hub.status }}</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if hub.is_active %}
+                            <span class="badge bg-success"><i class="bi bi-check-circle"></i> Aktiv</span>
+                            {% else %}
+                            <span class="badge bg-secondary"><i class="bi bi-x-circle"></i> Inaktiv</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <form method="post" action="{% url 'control_center:hub_toggle' hub.id %}" 
+                                  hx-post="{% url 'control_center:hub_toggle' hub.id %}"
+                                  hx-target="#hub-row-{{ hub.id }}"
+                                  hx-swap="outerHTML"
+                                  style="display: inline;">
+                                {% csrf_token %}
+                                {% if hub.is_active %}
+                                <input type="hidden" name="action" value="deactivate">
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Deaktivieren">
+                                    <i class="bi bi-pause-circle"></i>
+                                </button>
+                                {% else %}
+                                <input type="hidden" name="action" value="activate">
+                                <button type="submit" class="btn btn-sm btn-outline-success" title="Aktivieren">
+                                    <i class="bi bi-play-circle"></i>
+                                </button>
+                                {% endif %}
+                            </form>
+                            <a href="{% url 'control_center:hub_detail' hub.id %}" class="btn btn-sm btn-outline-primary" title="Details">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted py-4">
+                            {% if feature_enabled %}
+                            Keine Hubs registriert.
+                            {% else %}
+                            Feature Flag <code>USE_HUB_REGISTRY</code> aktivieren um Hubs zu sehen.
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

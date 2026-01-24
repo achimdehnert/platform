@@ -1,0 +1,192 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Protected Paths - MCP{% endblock %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'control_center/mcp/dashboard.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mcp-dashboard">
+    
+    {# ===== HEADER ===== #}
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'control_center:mcp-dashboard' %}">MCP Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item active">Protected Paths</li>
+                </ol>
+            </nav>
+            <h1 class="mb-0">🔒 Protected Paths</h1>
+            <small class="text-muted">{{ total_paths }} paths protected from refactoring</small>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'admin:bfagent_mcp_mcpprotectedpath_add' %}" 
+               class="btn btn-primary">
+                <i class="bi bi-plus-lg"></i> Add Protected Path
+            </a>
+        </div>
+    </div>
+    
+    {# ===== INFO ALERT ===== #}
+    <div class="alert alert-info mb-4">
+        <i class="bi bi-info-circle"></i>
+        Protected paths are excluded from refactoring operations. 
+        Files matching these patterns will never be modified by the MCP refactoring tools.
+    </div>
+    
+    {# ===== PROTECTION LEVELS LEGEND ===== #}
+    <div class="card mb-4">
+        <div class="card-body py-2">
+            <div class="d-flex flex-wrap gap-3 align-items-center">
+                <strong class="me-2">Protection Levels:</strong>
+                {% for level in protection_levels %}
+                <span class="badge bg-{{ level.color|default:'secondary' }}">
+                    {{ level.icon|default:'🔒' }} {{ level.display_name }}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    
+    {# ===== PATHS BY CATEGORY ===== #}
+    {% for cat_name, cat_data in categories.items %}
+    <div class="card mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                {{ cat_data.category.icon|default:'📁' }}
+                {{ cat_name }}
+            </h5>
+            <span class="badge bg-secondary">{{ cat_data.count }} paths</span>
+        </div>
+        <div class="card-body p-0">
+            <table class="table table-hover mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th style="width: 40%;">Pattern</th>
+                        <th style="width: 15%;">Protection</th>
+                        <th>Reason</th>
+                        <th style="width: 10%;">Status</th>
+                        <th style="width: 80px;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for path in cat_data.paths %}
+                    <tr>
+                        <td>
+                            <code>{{ path.path_pattern }}</code>
+                            {% if path.is_regex %}
+                            <span class="badge bg-info badge-sm ms-1" title="Regular Expression">
+                                regex
+                            </span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <span class="badge bg-{{ path.protection_level.color|default:'secondary' }}">
+                                {{ path.protection_level.icon|default:'🔒' }}
+                                {{ path.protection_level.name }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="text-muted">{{ path.reason|default:"—" }}</span>
+                        </td>
+                        <td>
+                            {% if path.is_active %}
+                            <span class="badge bg-success">Active</span>
+                            {% else %}
+                            <span class="badge bg-secondary">Inactive</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <a href="{% url 'admin:bfagent_mcp_mcpprotectedpath_change' path.id %}" 
+                               class="btn btn-sm btn-outline-secondary"
+                               title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% if cat_data.category.description %}
+        <div class="card-footer text-muted small">
+            {{ cat_data.category.description }}
+        </div>
+        {% endif %}
+    </div>
+    {% empty %}
+    <div class="card">
+        <div class="card-body text-center py-5">
+            <i class="bi bi-unlock display-4 d-block mb-3 text-muted"></i>
+            <h5>No Protected Paths</h5>
+            <p class="text-muted">
+                No paths are currently protected from refactoring.
+            </p>
+            <a href="{% url 'admin:bfagent_mcp_mcpprotectedpath_add' %}" 
+               class="btn btn-primary">
+                <i class="bi bi-plus"></i> Add First Protected Path
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+    
+    {# ===== COMMON PATTERNS REFERENCE ===== #}
+    <div class="card mt-4">
+        <div class="card-header">
+            <h5 class="mb-0">📖 Common Patterns Reference</h5>
+        </div>
+        <div class="card-body">
+            <div class="row">
+                <div class="col-md-6">
+                    <h6>Glob Patterns</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><code>*.py</code></td>
+                            <td>All Python files</td>
+                        </tr>
+                        <tr>
+                            <td><code>**/*.py</code></td>
+                            <td>Python files in all subdirectories</td>
+                        </tr>
+                        <tr>
+                            <td><code>apps/*/migrations/*</code></td>
+                            <td>All migration files</td>
+                        </tr>
+                        <tr>
+                            <td><code>config/**</code></td>
+                            <td>Everything in config directory</td>
+                        </tr>
+                    </table>
+                </div>
+                <div class="col-md-6">
+                    <h6>Regex Patterns</h6>
+                    <table class="table table-sm">
+                        <tr>
+                            <td><code>.*_test\.py$</code></td>
+                            <td>Files ending with _test.py</td>
+                        </tr>
+                        <tr>
+                            <td><code>^apps/(core|auth)/.*</code></td>
+                            <td>Files in core or auth apps</td>
+                        </tr>
+                        <tr>
+                            <td><code>\.env.*</code></td>
+                            <td>All .env files</td>
+                        </tr>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{% static 'control_center/mcp/dashboard.js' %}"></script>
+{% endblock %}

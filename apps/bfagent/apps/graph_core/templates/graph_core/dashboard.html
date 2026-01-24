@@ -1,0 +1,164 @@
+{% extends "graph_core/base.html" %}
+
+{% block graph_content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1"><i class="bi bi-diagram-3 me-2"></i>Graph Core</h1>
+        <p class="text-muted mb-0">Universal Workflow Orchestration Platform</p>
+    </div>
+    <div>
+        <a href="{% url 'graph_core:framework-list' %}" class="btn btn-primary">
+            <i class="bi bi-collection me-1"></i> All Frameworks
+        </a>
+    </div>
+</div>
+
+<!-- Stats Row -->
+<div class="row g-4 mb-4">
+    <div class="col-md-4">
+        <div class="stat-card">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-white-50 mb-1">Total Frameworks</h6>
+                    <h2 class="mb-0">{{ framework_stats.total }}</h2>
+                </div>
+                <i class="bi bi-diagram-3 fs-1 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card story">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-white-50 mb-1">Story Frameworks</h6>
+                    <h2 class="mb-0">{{ framework_stats.story }}</h2>
+                </div>
+                <i class="bi bi-book fs-1 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="stat-card software">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="text-white-50 mb-1">Software Frameworks</h6>
+                    <h2 class="mb-0">{{ framework_stats.software }}</h2>
+                </div>
+                <i class="bi bi-code-square fs-1 opacity-50"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Recent Frameworks -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>Recent Frameworks</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if recent_frameworks %}
+                <div class="list-group list-group-flush">
+                    {% for fw in recent_frameworks %}
+                    <a href="{% url 'graph_core:framework-detail' fw.slug %}" 
+                       class="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ fw.display_name }}</h6>
+                            <small class="text-muted">{{ fw.description|truncatewords:10 }}</small>
+                        </div>
+                        <span class="badge bg-{{ fw.color }} domain-badge">{{ fw.get_domain_display }}</span>
+                    </a>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                    No frameworks yet. Load fixtures to get started!
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    <!-- Projects with Frameworks -->
+    <div class="col-lg-6">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-0">
+                <h5 class="mb-0"><i class="bi bi-folder-check me-2"></i>Projects Using Frameworks</h5>
+            </div>
+            <div class="card-body p-0">
+                {% if projects_with_frameworks %}
+                <div class="list-group list-group-flush">
+                    {% for pf in projects_with_frameworks %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="mb-1">{{ pf.project.title }}</h6>
+                            <small class="text-muted">
+                                {{ pf.framework.display_name }}
+                                {% if pf.is_primary %}<span class="badge bg-success ms-1">Primary</span>{% endif %}
+                            </small>
+                        </div>
+                        <div class="d-flex align-items-center">
+                            <div class="progress me-2" style="width: 100px; height: 8px;">
+                                <div class="progress-bar" style="width: {{ pf.progress_percent }}%;"></div>
+                            </div>
+                            <small>{{ pf.progress_percent|floatformat:0 }}%</small>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% else %}
+                <div class="p-4 text-center text-muted">
+                    <i class="bi bi-folder fs-1 d-block mb-2"></i>
+                    No projects using frameworks yet.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="card border-0 shadow-sm mt-4">
+    <div class="card-header bg-white border-0">
+        <h5 class="mb-0"><i class="bi bi-lightning me-2"></i>Quick Actions</h5>
+    </div>
+    <div class="card-body">
+        <div class="row g-3">
+            <div class="col-md-4">
+                <a href="{% url 'graph_core:framework-list' %}?domain=story" class="btn btn-outline-primary w-100 py-3">
+                    <i class="bi bi-book d-block fs-3 mb-1"></i>
+                    Browse Story Frameworks
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="{% url 'graph_core:framework-list' %}?domain=software" class="btn btn-outline-info w-100 py-3">
+                    <i class="bi bi-code-square d-block fs-3 mb-1"></i>
+                    Browse Software Frameworks
+                </a>
+            </div>
+            <div class="col-md-4">
+                <a href="/admin/graph_core/framework/add/" class="btn btn-outline-success w-100 py-3">
+                    <i class="bi bi-plus-circle d-block fs-3 mb-1"></i>
+                    Create New Framework
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Info Box -->
+<div class="alert alert-info mt-4 d-flex align-items-start">
+    <i class="bi bi-info-circle fs-4 me-3"></i>
+    <div>
+        <h6 class="alert-heading mb-1">Getting Started</h6>
+        <p class="mb-0">
+            Load the built-in story frameworks using: 
+            <code>python manage.py load_story_frameworks</code>
+            <br>
+            This will add Save the Cat, Hero's Journey, and Three-Act Structure.
+        </p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,9 @@
+{{CLIPBOARD:Frage BFAgent MCP nach Best Practices für: [THEMA]
+
+Beispiele:
+- handlers
+- pydantic
+- ai_integration
+- testing
+- error_handling
+- performance}}

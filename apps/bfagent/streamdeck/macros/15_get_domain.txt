@@ -1,0 +1,6 @@
+{{CLIPBOARD:Nutze BFAgent MCP: get_domain()
+
+Domain ID: [DOMAIN_ID]
+Include handlers: [x]
+Include phases: [x]
+Response format: markdown}}

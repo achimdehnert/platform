@@ -1,0 +1,232 @@
+{% extends "bfagent/base.html" %}
+{% load static %}
+
+{% block title %}Code Review - Control Center{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <h2><i class="bi bi-search"></i> Code Review Dashboard</h2>
+            <p class="text-muted">Automated code quality analysis</p>
+        </div>
+    </div>
+
+    <div class="row mt-4">
+        <!-- Configuration Panel -->
+        <div class="col-md-4">
+            <div class="card shadow">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0"><i class="bi bi-gear"></i> Configuration</h5>
+                </div>
+                <div class="card-body">
+                    <form id="reviewForm">
+                        <!-- Path Selection -->
+                        <div class="mb-3">
+                            <label class="form-label">Target Path</label>
+                            <select class="form-select" id="pathSelect" name="path">
+                                {% for path in quick_paths %}
+                                <option value="{{ path.path }}">{{ path.name }}</option>
+                                {% endfor %}
+                            </select>
+                            <small class="text-muted">Or enter custom path below</small>
+                        </div>
+
+                        <div class="mb-3">
+                            <input type="text" class="form-control" id="customPath" placeholder="Custom path...">
+                        </div>
+
+                        <!-- Check Types -->
+                        <div class="mb-3">
+                            <label class="form-label">Check Types</label>
+                            {% for check in available_checks %}
+                            <div class="form-check">
+                                <input class="form-check-input" type="checkbox" 
+                                       id="check{{ check.id }}" name="{{ check.id }}" checked>
+                                <label class="form-check-label" for="check{{ check.id }}">
+                                    {{ check.icon }} {{ check.name }}
+                                </label>
+                            </div>
+                            {% endfor %}
+                        </div>
+
+                        <!-- Output Format -->
+                        <div class="mb-3">
+                            <label class="form-label">Output Format</label>
+                            <select class="form-select" name="format">
+                                {% for format in output_formats %}
+                                <option value="{{ format.id }}">{{ format.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-success" id="runBtn">
+                                <i class="bi bi-play-fill"></i> Run Review
+                            </button>
+                            <button type="button" class="btn btn-outline-secondary" id="clearBtn">
+                                <i class="bi bi-x-circle"></i> Clear Results
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Stats Card -->
+            <div class="card shadow mt-3" id="statsCard" style="display: none;">
+                <div class="card-header bg-info text-white">
+                    <h6 class="mb-0"><i class="bi bi-graph-up"></i> Statistics</h6>
+                </div>
+                <div class="card-body">
+                    <div class="row text-center">
+                        <div class="col-6 mb-2">
+                            <h4 id="totalFindings">0</h4>
+                            <small>Total</small>
+                        </div>
+                        <div class="col-6 mb-2">
+                            <h4 id="filesReviewed">0</h4>
+                            <small>Files</small>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-danger" id="criticalCount">0</h5>
+                            <small>Critical</small>
+                        </div>
+                        <div class="col-6">
+                            <h5 class="text-warning" id="warningCount">0</h5>
+                            <small>Warnings</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Panel -->
+        <div class="col-md-8">
+            <div class="card shadow">
+                <div class="card-header bg-dark text-white d-flex justify-content-between">
+                    <h5 class="mb-0"><i class="bi bi-terminal"></i> Results</h5>
+                    <button class="btn btn-sm btn-outline-light" id="downloadBtn" style="display: none;">
+                        <i class="bi bi-download"></i> Download
+                    </button>
+                </div>
+                <div class="card-body" style="height: 600px; overflow-y: auto;">
+                    <div id="loadingIndicator" style="display: none;" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-3">Analyzing code...</p>
+                    </div>
+
+                    <div id="resultsContainer">
+                        <div class="text-center text-muted py-5">
+                            <i class="bi bi-play-circle" style="font-size: 4rem;"></i>
+                            <p class="mt-3">Click "Run Review" to start analysis</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.getElementById('reviewForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    
+    // Get form data
+    const customPath = document.getElementById('customPath').value;
+    const selectedPath = document.getElementById('pathSelect').value;
+    const path = customPath || selectedPath;
+    
+    const formData = new FormData();
+    formData.append('path', path);
+    formData.append('security', document.getElementById('checksecurity').checked);
+    formData.append('performance', document.getElementById('checkperformance').checked);
+    formData.append('illustration', document.getElementById('checkillustration').checked);
+    formData.append('format', document.querySelector('select[name="format"]').value);
+    
+    // Show loading
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('resultsContainer').innerHTML = '';
+    document.getElementById('runBtn').disabled = true;
+    
+    try {
+        const response = await fetch('{% url "control_center:code-review-run" %}', {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}'
+            }
+        });
+        
+        const data = await response.json();
+        
+        // Hide loading
+        document.getElementById('loadingIndicator').style.display = 'none';
+        document.getElementById('runBtn').disabled = false;
+        
+        if (data.success) {
+            // Show stats
+            document.getElementById('statsCard').style.display = 'block';
+            document.getElementById('totalFindings').textContent = data.stats.total;
+            document.getElementById('filesReviewed').textContent = data.files_reviewed;
+            document.getElementById('criticalCount').textContent = data.stats.critical + data.stats.error;
+            document.getElementById('warningCount').textContent = data.stats.warning;
+            
+            // Show results
+            document.getElementById('resultsContainer').innerHTML = 
+                '<pre class="bg-dark text-light p-3 rounded">' + 
+                escapeHtml(data.output) + 
+                '</pre>';
+            
+            // Show download button
+            document.getElementById('downloadBtn').style.display = 'inline-block';
+            document.getElementById('downloadBtn').onclick = function() {
+                downloadResults(data.output, 'review-report.txt');
+            };
+        } else {
+            document.getElementById('resultsContainer').innerHTML = 
+                '<div class="alert alert-danger">❌ Error: ' + data.error + '</div>';
+        }
+    } catch (error) {
+        document.getElementById('loadingIndicator').style.display = 'none';
+        document.getElementById('runBtn').disabled = false;
+        document.getElementById('resultsContainer').innerHTML = 
+            '<div class="alert alert-danger">❌ Request failed: ' + error.message + '</div>';
+    }
+});
+
+document.getElementById('clearBtn').addEventListener('click', function() {
+    document.getElementById('resultsContainer').innerHTML = 
+        '<div class="text-center text-muted py-5">' +
+        '<i class="bi bi-play-circle" style="font-size: 4rem;"></i>' +
+        '<p class="mt-3">Click "Run Review" to start analysis</p>' +
+        '</div>';
+    document.getElementById('statsCard').style.display = 'none';
+    document.getElementById('downloadBtn').style.display = 'none';
+});
+
+function escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+function downloadResults(content, filename) {
+    const blob = new Blob([content], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+}
+</script>
+
+<style>
+    .hover-shadow:hover {
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15) !important;
+    }
+</style>
+{% endblock %}

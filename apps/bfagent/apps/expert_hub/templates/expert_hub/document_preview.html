@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}{{ page_title }} - {{ session.name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-2">
+                    <li class="breadcrumb-item"><a href="{% url 'expert_hub:dashboard' %}">Expert Hub</a></li>
+                    <li class="breadcrumb-item"><a href="{% url 'expert_hub:session_detail' session_id=session.id %}">{{ session.name }}</a></li>
+                    <li class="breadcrumb-item active">Dokument-Export</li>
+                </ol>
+            </nav>
+            <h2 class="mb-1">
+                <i class="bi bi-file-earmark-word me-2"></i>
+                Explosionsschutzdokument erstellen
+            </h2>
+            <p class="text-muted mb-0">Vorschau und Export als Word-Dokument</p>
+        </div>
+        <div class="d-flex gap-2">
+            <a href="{% url 'expert_hub:session_detail' session_id=session.id %}" class="btn btn-outline-secondary">
+                <i class="bi bi-arrow-left me-1"></i>Zurück
+            </a>
+            <a href="{% url 'expert_hub:document_export' session_id=session.id %}" class="btn btn-primary btn-lg">
+                <i class="bi bi-download me-2"></i>Word herunterladen
+            </a>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Linke Spalte: Vorschau -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-eye me-2"></i>Vorschau</h5>
+                    <span class="badge bg-info">HTML-Ansicht</span>
+                </div>
+                <div class="card-body" style="max-height: 800px; overflow-y: auto;">
+                    {{ html_preview|safe }}
+                </div>
+            </div>
+        </div>
+        
+        <!-- Rechte Spalte: Optionen -->
+        <div class="col-lg-4">
+            <!-- Fehler (Pflichtfelder) -->
+            {% if errors %}
+            <div class="card shadow-sm mb-4 border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-triangle me-2"></i>Pflichtfelder fehlen</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0 small">
+                        {% for error in errors %}
+                        <li class="text-danger">{{ error }}</li>
+                        {% endfor %}
+                    </ul>
+                    <hr>
+                    <p class="small text-muted mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Export erst möglich wenn alle Pflichtfelder ausgefüllt sind.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Warnungen -->
+            {% if warnings %}
+            <div class="card shadow-sm mb-4 border-warning">
+                <div class="card-header bg-warning text-dark">
+                    <h5 class="mb-0"><i class="bi bi-exclamation-circle me-2"></i>Hinweise</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="mb-0 small">
+                        {% for warning in warnings %}
+                        <li>{{ warning }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+            
+            <!-- Vollständigkeit -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-{% if completeness_percent >= 80 %}success{% elif completeness_percent >= 50 %}warning{% else %}danger{% endif %} text-white">
+                    <h5 class="mb-0"><i class="bi bi-check2-square me-2"></i>Vollständigkeit</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-flex justify-content-between mb-2">
+                        <span>{{ completed_count }} von {{ total_count }} Kapiteln</span>
+                        <span class="fw-bold">{{ completeness_percent }}%</span>
+                    </div>
+                    <div class="progress mb-3" style="height: 10px;">
+                        <div class="progress-bar bg-{% if completeness_percent >= 80 %}success{% elif completeness_percent >= 50 %}warning{% else %}danger{% endif %}" 
+                             style="width: {{ completeness_percent }}%"></div>
+                    </div>
+                    
+                    <ul class="list-unstyled small mb-0">
+                        {% for ps in phase_stats %}
+                        <li class="mb-1">
+                            {% if ps.has_content %}
+                            <i class="bi bi-check-circle-fill text-success me-1"></i>
+                            {% elif ps.is_required %}
+                            <i class="bi bi-exclamation-circle-fill text-danger me-1"></i>
+                            {% else %}
+                            <i class="bi bi-circle text-muted me-1"></i>
+                            {% endif %}
+                            <a href="{% url 'expert_hub:phase_detail' session_id=session.id phase_id=ps.phase.id %}"
+                               class="{% if ps.is_required and not ps.has_content %}text-danger fw-bold{% endif %}">
+                                {{ ps.phase.number }} {{ ps.phase.title }}
+                                {% if ps.is_required %}<span class="badge bg-secondary ms-1">Pflicht</span>{% endif %}
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            
+            <!-- Anhänge auswählen -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-paperclip me-2"></i>Anhänge</h5>
+                </div>
+                <div class="card-body">
+                    {% if documents %}
+                    <p class="small text-muted">Folgende Dokumente werden als Anhang aufgelistet:</p>
+                    <ul class="list-group list-group-flush">
+                        {% for doc in documents %}
+                        <li class="list-group-item px-0 d-flex align-items-center">
+                            <input type="checkbox" class="form-check-input me-2" checked disabled>
+                            <div class="text-truncate">
+                                <i class="bi bi-file-earmark me-1"></i>
+                                {{ doc.original_filename }}
+                                <br>
+                                <small class="text-muted">{{ doc.get_document_type_display }}</small>
+                            </div>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <p class="text-muted mb-0">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Keine Dokumente hochgeladen.
+                    </p>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Export-Optionen -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0"><i class="bi bi-gear me-2"></i>Export-Optionen</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-3">
+                        <label class="form-label">Format</label>
+                        <select class="form-select" disabled>
+                            <option selected>Word (.docx)</option>
+                            <option>PDF (über Word)</option>
+                        </select>
+                        <small class="text-muted">PDF kann aus Word erstellt werden</small>
+                    </div>
+                    
+                    {% if session.template_file %}
+                    <div class="alert alert-success mb-0 small">
+                        <i class="bi bi-check-circle me-1"></i>
+                        Corporate Design Vorlage: {{ session.template_file.name|cut:"expert_hub/templates/" }}
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info mb-0 small">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Keine Vorlage hinterlegt. Standard-Format wird verwendet.
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <!-- Download Button -->
+            <div class="d-grid gap-2">
+                {% if can_export %}
+                <a href="{% url 'expert_hub:document_export' session_id=session.id %}" class="btn btn-primary btn-lg">
+                    <i class="bi bi-download me-2"></i>
+                    Word-Dokument herunterladen
+                </a>
+                <p class="text-muted text-center small mb-0">
+                    <i class="bi bi-info-circle me-1"></i>
+                    Inhaltsverzeichnis in Word aktualisieren:<br>
+                    Rechtsklick → "Feld aktualisieren"
+                </p>
+                {% else %}
+                <button class="btn btn-secondary btn-lg" disabled>
+                    <i class="bi bi-download me-2"></i>
+                    Word-Dokument herunterladen
+                </button>
+                <p class="text-danger text-center small mb-0">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    Bitte füllen Sie alle Pflichtfelder aus bevor Sie exportieren.
+                </p>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

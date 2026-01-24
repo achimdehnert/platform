@@ -1,0 +1,285 @@
+{% extends "cad_hub/base.html" %}
+
+{% block extra_head %}
+<style>
+    #viewer-container {
+        width: 100%;
+        height: calc(100vh - 200px);
+        min-height: 600px;
+        position: relative;
+        background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    #viewer-canvas {
+        width: 100%;
+        height: 100%;
+        display: block;
+    }
+    .viewer-controls {
+        position: absolute;
+        top: 16px;
+        right: 16px;
+        z-index: 10;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+    .viewer-btn {
+        background: rgba(30, 41, 59, 0.9);
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(148, 163, 184, 0.2);
+        color: white;
+        padding: 10px 16px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 14px;
+        transition: all 0.2s;
+    }
+    .viewer-btn:hover {
+        background: rgba(51, 65, 85, 0.9);
+        border-color: rgba(148, 163, 184, 0.4);
+    }
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(15, 23, 42, 0.95);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 100;
+    }
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid rgba(59, 130, 246, 0.3);
+        border-top-color: #3b82f6;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-8">
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+        <div>
+            <h2 class="text-2xl font-bold text-white">3D Viewer</h2>
+            <p class="text-slate-400">{{ model.project.name }} • Version {{ model.version }}</p>
+        </div>
+        <div class="flex items-center gap-3">
+            <a href="{% url 'cad_hub:model_detail' model.pk %}"
+               class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-sm">
+                ← Zurück zum Modell
+            </a>
+            <a href="{% url 'cad_hub:ifc_content_overview' model.pk %}"
+               class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg text-sm">
+                📊 IFC Inhalte
+            </a>
+        </div>
+    </div>
+
+    <!-- Viewer Container -->
+    <div id="viewer-container">
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <p class="text-white mt-4">IFC-Modell wird geladen...</p>
+            <p id="loading-progress" class="text-slate-400 text-sm mt-2">0%</p>
+        </div>
+
+        <canvas id="viewer-canvas"></canvas>
+
+        <div class="viewer-controls">
+            <button class="viewer-btn" onclick="resetCamera()">🎯 Kamera zurücksetzen</button>
+            <button class="viewer-btn" onclick="toggleWireframe()">📐 Wireframe</button>
+            <button class="viewer-btn" onclick="fitToView()">🔍 Alles anzeigen</button>
+        </div>
+    </div>
+
+    <!-- Info -->
+    <div class="mt-4 bg-slate-800 rounded-lg p-4 border border-slate-700">
+        <div class="grid grid-cols-3 gap-4 text-sm">
+            <div>
+                <span class="text-slate-400">Steuerung:</span>
+                <span class="text-white ml-2">Linke Maustaste = Drehen</span>
+            </div>
+            <div>
+                <span class="text-slate-400">Verschieben:</span>
+                <span class="text-white ml-2">Rechte Maustaste</span>
+            </div>
+            <div>
+                <span class="text-slate-400">Zoom:</span>
+                <span class="text-white ml-2">Mausrad</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- THREE.js r139 - Stabile Version -->
+<script src="https://cdn.jsdelivr.net/npm/three@0.139.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.139.0/examples/js/controls/OrbitControls.js"></script>
+<!-- Web IFC API -->
+<script src="https://unpkg.com/web-ifc@0.0.34/web-ifc-api.js"></script>
+<!-- Web IFC Three - UMD Version -->
+<script src="https://unpkg.com/web-ifc-three@0.0.115/IFCLoader.js"></script>
+
+<script>
+let scene, camera, renderer, controls, ifcLoader;
+let ifcModel = null;
+let wireframeMode = false;
+
+function initViewer() {
+    const container = document.getElementById('viewer-container');
+    const canvas = document.getElementById('viewer-canvas');
+
+    // Scene
+    scene = new THREE.Scene();
+    scene.background = new THREE.Color(0x0f172a);
+
+    // Camera
+    camera = new THREE.PerspectiveCamera(
+        75,
+        container.clientWidth / container.clientHeight,
+        0.1,
+        1000
+    );
+    camera.position.set(50, 50, 50);
+
+    // Renderer
+    renderer = new THREE.WebGLRenderer({
+        canvas: canvas,
+        antialias: true
+    });
+    renderer.setSize(container.clientWidth, container.clientHeight);
+    renderer.setPixelRatio(window.devicePixelRatio);
+
+    // Controls
+    controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // Lights
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+
+    const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    directionalLight.position.set(50, 100, 50);
+    scene.add(directionalLight);
+
+    // Grid
+    const gridHelper = new THREE.GridHelper(100, 100, 0x475569, 0x1e293b);
+    scene.add(gridHelper);
+
+    // Axes
+    const axesHelper = new THREE.AxesHelper(20);
+    scene.add(axesHelper);
+
+    // IFC Loader
+    ifcLoader = new THREE.IFCLoader();
+    ifcLoader.ifcManager.setWasmPath('https://unpkg.com/web-ifc@0.0.34/');
+
+    // Load IFC
+    loadIFCModel('{{ model.ifc_file.url }}');
+
+    // Animation loop
+    animate();
+
+    // Resize handler
+    window.addEventListener('resize', onWindowResize);
+}
+
+function loadIFCModel(url) {
+    const loadingOverlay = document.getElementById('loading-overlay');
+    const loadingProgress = document.getElementById('loading-progress');
+
+    ifcLoader.load(
+        url,
+        // onLoad
+        (model) => {
+            ifcModel = model.mesh;
+            scene.add(ifcModel);
+
+            // Center and fit to view
+            fitToView();
+
+            // Hide loading
+            loadingOverlay.style.display = 'none';
+
+            console.log('IFC Model loaded successfully');
+        },
+        // onProgress
+        (progress) => {
+            if (progress.lengthComputable) {
+                const percentComplete = (progress.loaded / progress.total * 100).toFixed(0);
+                loadingProgress.textContent = percentComplete + '%';
+            }
+        },
+        // onError
+        (error) => {
+            console.error('Error loading IFC:', error);
+            loadingOverlay.innerHTML = '<p class="text-red-400">Fehler beim Laden des IFC-Modells</p>';
+        }
+    );
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+function onWindowResize() {
+    const container = document.getElementById('viewer-container');
+    camera.aspect = container.clientWidth / container.clientHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(container.clientWidth, container.clientHeight);
+}
+
+function resetCamera() {
+    camera.position.set(50, 50, 50);
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    controls.update();
+}
+
+function toggleWireframe() {
+    if (!ifcModel) return;
+
+    wireframeMode = !wireframeMode;
+    ifcModel.traverse((child) => {
+        if (child.isMesh) {
+            child.material.wireframe = wireframeMode;
+        }
+    });
+}
+
+function fitToView() {
+    if (!ifcModel) return;
+
+    const box = new THREE.Box3().setFromObject(ifcModel);
+    const center = box.getCenter(new THREE.Vector3());
+    const size = box.getSize(new THREE.Vector3());
+
+    const maxDim = Math.max(size.x, size.y, size.z);
+    const fov = camera.fov * (Math.PI / 180);
+    let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+    cameraZ *= 1.5; // Zoom out a bit
+
+    camera.position.set(center.x + cameraZ, center.y + cameraZ, center.z + cameraZ);
+    camera.lookAt(center);
+    controls.target.copy(center);
+    controls.update();
+}
+
+// Initialize on load
+document.addEventListener('DOMContentLoaded', initViewer);
+</script>
+{% endblock %}

@@ -1,0 +1,104 @@
+{% load static %}
+
+<div class="alert alert-success">
+    <h5><i class="bi bi-check-circle"></i> Framework Outline Generated!</h5>
+    <p class="mb-0">Generated {{ suggestions|length }} suggestion(s) using <strong>{{ agent.name }}</strong></p>
+</div>
+
+{% for suggestion in suggestions %}
+<div class="card mb-3">
+    <div class="card-header bg-light">
+        <div class="d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Field:</strong> {{ suggestion.field_name }}
+                {% if suggestion.confidence %}
+                <span class="badge bg-primary">{{ suggestion.confidence|floatformat:0 }}% confidence</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        {% if suggestion.rationale %}
+        <p class="text-muted mb-2"><small><i class="bi bi-info-circle"></i> {{ suggestion.rationale }}</small></p>
+        {% endif %}
+        
+        <div class="mb-3">
+            <label class="form-label"><strong>Generated Content:</strong></label>
+            <textarea class="form-control font-monospace" 
+                      rows="15" 
+                      readonly
+                      style="white-space: pre-wrap;">{{ suggestion.new_value }}</textarea>
+        </div>
+        
+        {% if suggestion.metadata %}
+        <div class="alert alert-info">
+            <strong>Metadata:</strong>
+            <ul class="mb-0">
+                {% for key, value in suggestion.metadata.items %}
+                <li><strong>{{ key }}:</strong> {{ value }}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+    <div class="card-footer">
+        <div class="btn-group">
+            <button type="button" 
+                    class="btn btn-success"
+                    onclick="applyOutlineToProject('{{ suggestion.field_name }}', this.closest('.card').querySelector('textarea').value, {{ project.pk }})">
+                <i class="bi bi-check2"></i> Apply to Project
+            </button>
+            <button type="button" class="btn btn-outline-secondary" 
+                    onclick="navigator.clipboard.writeText(this.closest('.card').querySelector('textarea').value); this.innerHTML='<i class=\'bi bi-check\'></i> Copied!'; setTimeout(() => this.innerHTML='<i class=\'bi bi-clipboard\'></i> Copy to Clipboard', 2000);">
+                <i class="bi bi-clipboard"></i> Copy to Clipboard
+            </button>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<div class="mt-3">
+    <button type="button" class="btn btn-outline-secondary"
+            hx-get="{% url 'bfagent:project-enrich-panel' project.pk %}?phase={{ request.GET.phase }}&step={{ request.GET.step }}"
+            hx-target="body"
+            hx-push-url="true">
+        <i class="bi bi-arrow-left"></i> Back to Enrichment Panel
+    </button>
+</div>
+
+<script>
+function applyOutlineToProject(fieldName, content, projectId) {
+    if (!confirm('Apply this outline to the project field "' + fieldName + '"?')) {
+        return;
+    }
+    
+    // Create form data
+    const formData = new FormData();
+    formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+    formData.append('field_name', 'description');  // Always use description field
+    formData.append('field_value', content);
+    
+    // Submit via fetch to the dedicated update-field endpoint
+    fetch(`/projects/${projectId}/update-field/`, {
+        method: 'POST',
+        body: formData,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            // Optionally reload project detail or update UI
+            // window.location.reload();
+        } else {
+            alert('❌ Error: ' + (data.error || 'Failed to apply outline'));
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('❌ Error applying outline: ' + error);
+    });
+}
+</script>

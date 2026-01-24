@@ -1,0 +1,233 @@
+<!-- templates/cad_hub/ifc_content_overview.html - Bootstrap 5 -->
+{% extends "cad_hub/base_cad.html" %}
+
+{% block title %}IFC Inhalte - {{ model.project.name }}{% endblock %}
+
+{% block content %}
+<!-- Header -->
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h2 class="h4 fw-bold mb-1">
+            <i class="bi bi-file-earmark-bar-graph text-primary"></i> IFC Inhalts-Übersicht
+        </h2>
+        <p class="text-muted mb-0">{{ model.project.name }} • Version {{ model.version }}</p>
+    </div>
+    <a href="{% url 'cad_hub:model_detail' model.pk %}" class="btn btn-secondary btn-sm">
+        <i class="bi bi-arrow-left"></i> Zurück zum Modell
+    </a>
+</div>
+
+<!-- Statistiken -->
+<div class="row g-3 mb-4">
+    <div class="col-lg-2 col-md-4 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-1">Geschosse</p>
+                <p class="h3 fw-bold mb-0">{{ stats.floors }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-1">Räume</p>
+                <p class="h3 fw-bold mb-0 text-warning">{{ stats.rooms }}</p>
+                <small class="text-muted">{{ stats.total_room_area|floatformat:1 }} m²</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-1">Fenster</p>
+                <p class="h3 fw-bold mb-0 text-info">{{ stats.windows }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-1">Türen</p>
+                <p class="h3 fw-bold mb-0 text-success">{{ stats.doors }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-1">Wände</p>
+                <p class="h3 fw-bold mb-0 text-primary">{{ stats.walls }}</p>
+                <small class="text-muted">{{ stats.external_walls }} außen</small>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-2 col-md-4 col-6">
+        <div class="card card-stat h-100">
+            <div class="card-body text-center">
+                <p class="text-muted small mb-1">Decken</p>
+                <p class="h3 fw-bold mb-0 text-danger">{{ stats.slabs }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Geschoss-Übersicht -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-layers"></i> Pro Geschoss</h5>
+    </div>
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Geschoss</th>
+                    <th class="text-end">Räume</th>
+                    <th class="text-end">Fläche</th>
+                    <th class="text-end">Fenster</th>
+                    <th class="text-end">Türen</th>
+                    <th class="text-end">Wände</th>
+                    <th class="text-end">Decken</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in floors_with_stats %}
+                <tr>
+                    <td>
+                        <strong>{{ item.floor.name }}</strong>
+                        <small class="text-muted ms-2">({{ item.floor.elevation|floatformat:2 }}m)</small>
+                    </td>
+                    <td class="text-end">{{ item.rooms }}</td>
+                    <td class="text-end text-muted">{{ item.room_area|floatformat:1 }} m²</td>
+                    <td class="text-end text-info">{{ item.windows }}</td>
+                    <td class="text-end text-success">{{ item.doors }}</td>
+                    <td class="text-end text-primary">{{ item.walls }}</td>
+                    <td class="text-end text-danger">{{ item.slabs }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Element-Listen -->
+<div class="row g-4">
+    <!-- Räume -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-grid-3x3 text-warning"></i> Räume ({{ stats.rooms }})</h6>
+                <a href="{% url 'cad_hub:room_list' model.pk %}" class="btn btn-sm btn-outline-warning">
+                    Alle <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for room in sample_rooms %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ room.number }} - {{ room.name }}</span>
+                    <span class="text-muted">{{ room.area|floatformat:1 }} m²</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Keine Räume</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Fenster -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-window text-info"></i> Fenster ({{ stats.windows }})</h6>
+                <a href="{% url 'cad_hub:window_list' model.pk %}" class="btn btn-sm btn-outline-info">
+                    Alle <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for window in sample_windows %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ window.number|default:window.name|default:window.ifc_guid|slice:":8" }}</span>
+                    <span class="text-muted">
+                        {% if window.width and window.height %}
+                            {{ window.width|floatformat:2 }} × {{ window.height|floatformat:2 }} m
+                        {% endif %}
+                    </span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Keine Fenster extrahiert</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Türen -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-door-open text-success"></i> Türen ({{ stats.doors }})</h6>
+                <a href="{% url 'cad_hub:door_list' model.pk %}" class="btn btn-sm btn-outline-success">
+                    Alle <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for door in sample_doors %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ door.number|default:door.name|default:door.ifc_guid|slice:":8" }}</span>
+                    <span class="text-muted">
+                        {% if door.fire_rating %}{{ door.fire_rating }}{% elif door.width %}{{ door.width|floatformat:2 }} m{% endif %}
+                    </span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Keine Türen extrahiert</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Wände -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-bricks text-primary"></i> Wände ({{ stats.walls }})</h6>
+                <a href="{% url 'cad_hub:wall_list' model.pk %}" class="btn btn-sm btn-outline-primary">
+                    Alle <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for wall in sample_walls %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>
+                        {% if wall.is_external %}<i class="bi bi-building"></i>{% else %}<i class="bi bi-house"></i>{% endif %}
+                        {{ wall.name|default:wall.ifc_guid|slice:":12" }}
+                    </span>
+                    <span class="text-muted">{% if wall.gross_area %}{{ wall.gross_area|floatformat:1 }} m²{% endif %}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Keine Wände extrahiert</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Decken -->
+    <div class="col-md-6">
+        <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-layers-half text-danger"></i> Decken ({{ stats.slabs }})</h6>
+                <a href="{% url 'cad_hub:slab_list' model.pk %}" class="btn btn-sm btn-outline-danger">
+                    Alle <i class="bi bi-arrow-right"></i>
+                </a>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for slab in sample_slabs %}
+                <li class="list-group-item d-flex justify-content-between">
+                    <span>{{ slab.name|default:slab.ifc_guid|slice:":12" }}</span>
+                    <span class="text-muted">{% if slab.area %}{{ slab.area|floatformat:1 }} m²{% endif %}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-muted">Keine Decken extrahiert</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

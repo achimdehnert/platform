@@ -1,0 +1,84 @@
+<div class="modal-header">
+    <h5 class="modal-title">✏️ Edit Feature</h5>
+    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+</div>
+<form hx-post="{% url url_update feature.pk %}" hx-swap="none">
+    <div class="modal-body">
+        {% csrf_token %}
+        
+        <div class="mb-3">
+            <label class="form-label">Feature Name *</label>
+            <input type="text" class="form-control" name="name" required value="{{ feature.name }}">
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Component Type *</label>
+            <input type="text" class="form-control" name="component_type" value="{{ feature.component_type }}" readonly>
+            <small class="text-muted">Cannot change type after creation</small>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Description *</label>
+            <textarea class="form-control" name="description" rows="4" required>{{ feature.description }}</textarea>
+        </div>
+        
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Priority</label>
+                <select class="form-select" name="priority">
+                    <option value="critical" {% if feature.priority == 'critical' %}selected{% endif %}>🔴 Critical</option>
+                    <option value="high" {% if feature.priority == 'high' %}selected{% endif %}>🟠 High</option>
+                    <option value="medium" {% if feature.priority == 'medium' %}selected{% endif %}>🟡 Medium</option>
+                    <option value="low" {% if feature.priority == 'low' %}selected{% endif %}>🟢 Low</option>
+                    <option value="backlog" {% if feature.priority == 'backlog' %}selected{% endif %}>⚪ Backlog</option>
+                </select>
+            </div>
+            
+            <div class="col-md-6 mb-3">
+                <label class="form-label">Status</label>
+                <select class="form-select" name="status">
+                    {% for value, label in available_statuses %}
+                    <option value="{{ value }}" {% if feature.status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Domain</label>
+            <input type="text" class="form-control" name="domain" value="{{ feature.domain }}" placeholder="e.g. book, medtrans, shared">
+        </div>
+        
+        <div class="mb-3">
+            <label class="form-label">Owner</label>
+            <select class="form-select" name="owner">
+                <option value="">-- None --</option>
+                {% for user in available_users %}
+                <option value="{{ user.pk }}" {% if feature.owner_id == user.pk %}selected{% endif %}>{{ user.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    
+    <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-save"></i> Save Changes
+        </button>
+    </div>
+</form>
+
+<script>
+// Close modal and refresh page on success
+document.body.addEventListener('featureUpdated', function() {
+    var modalEl = document.getElementById('detailModal');
+    var modal = bootstrap.Modal.getInstance(modalEl);
+    if (modal) {
+        modal.hide();
+    }
+    // Reload page to show updated feature
+    setTimeout(function() {
+        window.location.reload();
+    }, 200);
+});
+</script>

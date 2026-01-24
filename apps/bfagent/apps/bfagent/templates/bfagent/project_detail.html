@@ -1,0 +1,310 @@
+{% extends "base.html" %}
+{% load static %}
+<!-- 🔴 TEMPLATE: project_detail.html (CRUD_VIEWS) 🔴 -->
+
+{% block title %}{{ project.title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-journal-bookmark"></i> {{ project.title }}</h1>
+        <div>
+            <a href="{% url 'bfagent:project-list' %}" class="btn btn-secondary">
+                <i class="bi bi-arrow-left"></i> Back to List
+            </a>
+            <a href="{% url 'bfagent:project-edit' project.pk %}" class="btn btn-primary">
+                <i class="bi bi-pencil"></i> Edit
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            <!-- Main Content -->
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-info-circle"></i> Project Details</h5>
+                </div>
+                <div class="card-body">
+                    {% if project.tagline %}
+                    <div class="alert alert-info">
+                        <i class="bi bi-quote"></i> {{ project.tagline }}
+                    </div>
+                    {% endif %}
+
+                    {% if project.description %}
+                    <div class="mb-4">
+                        <h6 class="text-muted">Description</h6>
+                        <p>{{ project.description }}</p>
+                    </div>
+                    {% endif %}
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <strong>Book Type:</strong> {{ project.book_type|default:"Novel" }}
+                        </div>
+                        <div class="col-md-6">
+                            <strong>Status:</strong>
+                            <span class="badge
+                                {% if project.status == 'planning' %}bg-info
+                                {% elif project.status == 'writing' %}bg-warning
+                                {% elif project.status == 'editing' %}bg-primary
+                                {% elif project.status == 'completed' %}bg-success
+                                {% else %}bg-secondary{% endif %}">
+                                {{ project.status|default:"draft"|title }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <h6 class="text-muted">Progress</h6>
+                        <div class="progress mb-2" style="height: 20px;">
+                            <div class="progress-bar" role="progressbar"
+                                 style="width: {{ project.progress_percentage|default:0 }}%"
+                                 aria-valuenow="{{ project.progress_percentage|default:0 }}"
+                                 aria-valuemin="0" aria-valuemax="100">
+                                {{ project.progress_percentage|default:0 }}%
+                            </div>
+                        </div>
+                    </div>
+
+                    {% if project.total_chapters %}
+                    <div class="mb-3">
+                        <strong>Chapters:</strong> {{ project.total_chapters }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Chapters -->
+            <div class="card shadow mb-4" id="chapters">
+                <div class="card-header d-flex justify-content-between align-items-center" style="background: linear-gradient(to right, #667eea 0%, #764ba2 100%); color: white;">
+                    <h5 class="mb-0">
+                        <i class="bi bi-list-ol"></i> 📚 KAPITEL MIT GALLERY BUTTONS! 
+                        <span class="badge bg-warning text-dark">{{ project.chapters.count }}</span>
+                    </h5>
+                    <div>
+                        <a href="{% url 'bfagent:chapter-create' %}?project={{ project.pk }}" class="btn btn-sm btn-primary">
+                            <i class="bi bi-plus"></i> Kapitel hinzufügen
+                        </a>
+                        <button class="btn btn-sm btn-success" onclick="alert('Alle Generieren - Coming Soon!')">
+                            <i class="bi bi-magic"></i> Alle Generieren
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover mb-0">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Titel</th>
+                                    <th>Zielwörter</th>
+                                    <th>Status</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for chapter in project.chapters.all %}
+                                <tr>
+                                    <td>{{ chapter.chapter_number }}</td>
+                                    <td>
+                                        <strong>{{ chapter.title }}</strong>
+                                        {% if chapter.summary %}
+                                        <br><small class="text-muted">{{ chapter.summary|truncatewords:10 }}</small>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ chapter.target_word_count|default:"—" }} / {{ chapter.word_count|default:0 }}</td>
+                                    <td><span class="badge bg-info">{{ chapter.writing_stage|default:"In Arbeit" }}</span></td>
+                                    <td>
+                                        <div class="btn-group btn-group-sm" role="group">
+                                            <a href="{% url 'book_reader:chapter_view' project.pk chapter.chapter_number %}" 
+                                               class="btn btn-outline-info" title="📖 Reader">
+                                                <i class="bi bi-book"></i>
+                                            </a>
+                                            <a href="{% url 'book_reader:chapter_edit' project.pk chapter.chapter_number %}" 
+                                               class="btn btn-outline-warning" title="✏️ Editor">
+                                                <i class="bi bi-pencil-square"></i>
+                                            </a>
+                                            <a href="{% url 'bfagent:chapter-edit' project.pk chapter.pk %}" 
+                                               class="btn btn-outline-primary" title="🔧 Edit Metadata">
+                                                <i class="bi bi-pencil"></i>
+                                            </a>
+                                            <button class="btn btn-outline-success generate-chapter-btn" 
+                                                    title="🤖 KI Generieren" 
+                                                    data-project-id="{{ project.pk }}"
+                                                    data-chapter-id="{{ chapter.pk }}"
+                                                    data-chapter-number="{{ chapter.chapter_number }}">
+                                                <i class="bi bi-stars"></i>
+                                            </button>
+                                            <a href="{% url 'bfagent:illustration:chapter-gallery' chapter.pk %}" 
+                                               class="btn btn-outline-info" title="🖼️ Gallery">
+                                                <i class="bi bi-images"></i>
+                                            </a>
+                                            <!-- Flying Partial for Bugs & Testing -->
+                                            <button class="btn btn-outline-danger btn-sm flying-partial-btn" 
+                                                    title="🐛 Debug & Test" 
+                                                    data-chapter-id="{{ chapter.pk }}">
+                                                <i class="bi bi-bug"></i>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="5" class="text-center text-muted py-4">
+                                        Noch keine Kapitel. <a href="{% url 'bfagent:chapter-create' %}?project={{ project.pk }}">Erstellen</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Review Rounds -->
+            <div class="card shadow mb-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-chat-left-text"></i> Review Rounds</h5>
+                    <a href="{% url 'bfagent:review-round-create' %}?project={{ project.pk }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus"></i> New Review Round
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if project.review_rounds.all %}
+                    <div class="list-group">
+                        {% for round in project.review_rounds.all|slice:":3" %}
+                        <a href="{% url 'bfagent:review-round-detail' round.pk %}"
+                           class="list-group-item list-group-item-action">
+                            <div class="d-flex w-100 justify-content-between">
+                                <h6 class="mb-1">{{ round.title }}</h6>
+                                <span class="badge bg-{{ round.status|yesno:'success,warning,secondary' }}">
+                                    {{ round.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mt-2">
+                                <small class="text-muted">
+                                    <i class="bi bi-chat-dots"></i> {{ round.total_comments }} comments
+                                    <i class="bi bi-people ms-2"></i> {{ round.total_participants }} readers
+                                </small>
+                                <small class="text-muted">{{ round.created_at|date:"M d" }}</small>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    </div>
+                    {% if project.review_rounds.count > 3 %}
+                    <a href="{% url 'bfagent:review-round-list' %}" class="btn btn-sm btn-outline-primary mt-2">
+                        View all {{ project.review_rounds.count }} review rounds
+                    </a>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted mb-2">No review rounds yet.</p>
+                    <a href="{% url 'bfagent:review-round-create' %}?project={{ project.pk }}" class="btn btn-sm btn-success">
+                        <i class="bi bi-plus-circle"></i> Start First Review Round
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Characters -->
+            <div class="card shadow">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-people"></i> Characters</h5>
+                    <a href="{% url 'bfagent:character-create' %}?project={{ project.pk }}" class="btn btn-sm btn-primary">
+                        <i class="bi bi-plus"></i> Add Character
+                    </a>
+                </div>
+                <div class="card-body">
+                    {% if project.characters.all %}
+                    <div class="row">
+                        {% for character in project.characters.all|slice:":6" %}
+                        <div class="col-md-4 mb-3">
+                            <div class="card">
+                                <div class="card-body">
+                                    <h6>{{ character.name }}</h6>
+                                    <small class="text-muted">{{ character.role|default:"Character" }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% if project.characters.count > 6 %}
+                    <a href="{% url 'bfagent:character-list' %}?project={{ project.pk }}" class="btn btn-sm btn-outline-primary">
+                        View all {{ project.characters.count }} characters
+                    </a>
+                    {% endif %}
+                    {% else %}
+                    <p class="text-muted">No characters yet.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Actions -->
+            <div class="card shadow mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-lightning"></i> Quick Actions</h5>
+                </div>
+                <div class="card-body">
+                    <div class="d-grid gap-2">
+                        <a href="{% url 'bfagent:project-edit' project.pk %}" class="btn btn-primary">
+                            <i class="bi bi-pencil"></i> Edit Project
+                        </a>
+                        <a href="{% url 'bfagent:chapter-create' %}?project={{ project.pk }}" class="btn btn-info">
+                            <i class="bi bi-plus"></i> New Chapter
+                        </a>
+                        <a href="{% url 'bfagent:character-create' %}?project={{ project.pk }}" class="btn btn-warning">
+                            <i class="bi bi-plus"></i> New Character
+                        </a>
+                        <button class="btn btn-warning" onclick="alert('Character durch LLM erstellen - Coming Soon!')" style="background: linear-gradient(45deg, #f39c12, #e67e22); border: none;">
+                            <i class="bi bi-magic"></i> Character durch LLM
+                        </button>
+                        <a href="{% url 'bfagent:project-worlds-list' project.pk %}" class="btn btn-secondary">
+                            <i class="bi bi-globe"></i> Project Worlds
+                        </a>
+                        <a href="/bookwriting/books/{{ project.pk }}/worlds/" class="btn btn-success">
+                            <i class="bi bi-star"></i> TEST Welten
+                        </a>
+                        <hr>
+                        <a href="{% url 'bfagent:review-round-create' %}?project={{ project.pk }}" class="btn btn-success">
+                            <i class="bi bi-chat-left-text"></i> Start Review Round
+                        </a>
+                        <a href="{% url 'bfagent:review-round-list' %}" class="btn btn-outline-secondary">
+                            <i class="bi bi-list"></i> All Review Rounds
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visual Workflow Card -->
+            {% include "bfagent/partials/workflow_visual_card.html" with project=project %}
+
+            <!-- Metadata -->
+            <div class="card shadow">
+                <div class="card-header">
+                    <h5 class="mb-0"><i class="bi bi-calendar"></i> Metadata</h5>
+                </div>
+                <div class="card-body">
+                    <div class="mb-2">
+                        <small class="text-muted">Created:</small><br>
+                        {{ project.created_at|date:"M d, Y" }}
+                    </div>
+                    <div class="mb-2">
+                        <small class="text-muted">Last Updated:</small><br>
+                        {{ project.updated_at|date:"M d, Y H:i" }}
+                    </div>
+                    {% if project.completion_date %}
+                    <div>
+                        <small class="text-muted">Completed:</small><br>
+                        {{ project.completion_date|date:"M d, Y" }}
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

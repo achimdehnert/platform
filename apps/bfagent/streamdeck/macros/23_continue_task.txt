@@ -1,0 +1,8 @@
+{{CLIPBOARD:@CASCADE: Continue mit letzter Task
+
+Context:
+- Letzte Anfrage war: [BESCHREIBUNG]
+- Stand ist: [STATUS]
+- Nächster Schritt: [STEP]
+
+Bitte fortfahren!}}

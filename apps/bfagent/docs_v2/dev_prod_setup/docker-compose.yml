@@ -1,0 +1,94 @@
+version: '3.8'
+
+services:
+  # =============================================================================
+  # PostgreSQL Database for Development
+  # =============================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: bfagent_db
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-bfagent_dev}
+      POSTGRES_USER: ${POSTGRES_USER:-bfagent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-bfagent_dev_2024}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-bfagent} -d ${POSTGRES_DB:-bfagent_dev}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # Redis for Caching & Celery (optional, for later)
+  # =============================================================================
+  redis:
+    image: redis:7-alpine
+    container_name: bfagent_redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # =============================================================================
+  # pgAdmin (optional - Web UI for PostgreSQL)
+  # =============================================================================
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: bfagent_pgadmin
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_EMAIL:-admin@bfagent.local}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_PASSWORD:-admin}
+      PGADMIN_CONFIG_SERVER_MODE: 'False'
+    ports:
+      - "${PGADMIN_PORT:-5050}:80"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    profiles:
+      - tools  # Only starts with: docker-compose --profile tools up
+
+volumes:
+  postgres_data:
+    name: bfagent_postgres_data
+  redis_data:
+    name: bfagent_redis_data
+  pgadmin_data:
+    name: bfagent_pgadmin_data
+
+# =============================================================================
+# Usage:
+# =============================================================================
+# Start PostgreSQL + Redis:
+#   docker-compose up -d
+#
+# Start with pgAdmin:
+#   docker-compose --profile tools up -d
+#
+# Stop:
+#   docker-compose down
+#
+# View logs:
+#   docker-compose logs -f postgres
+#
+# Connect to PostgreSQL:
+#   docker exec -it bfagent_db psql -U bfagent -d bfagent_dev
+#
+# Backup database:
+#   docker exec bfagent_db pg_dump -U bfagent bfagent_dev > backup.sql
+#
+# Restore database:
+#   docker exec -i bfagent_db psql -U bfagent bfagent_dev < backup.sql
+# =============================================================================

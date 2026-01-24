@@ -1,0 +1,550 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}NL2CAD - CAD Analyse{% endblock %}
+
+{% block page_title %}
+<i class="bi bi-chat-dots text-primary"></i> NL2CAD
+<small class="text-muted ms-2">Natural Language CAD Analysis</small>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .chat-container {
+        height: 400px;
+        overflow-y: auto;
+        background: #f8f9fa;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+    .message {
+        margin-bottom: 1rem;
+        max-width: 80%;
+    }
+    .message-user {
+        margin-left: auto;
+        background: #0d6efd;
+        color: white;
+        border-radius: 12px 12px 0 12px;
+        padding: 0.75rem 1rem;
+    }
+    .message-bot {
+        background: white;
+        border: 1px solid #dee2e6;
+        border-radius: 12px 12px 12px 0;
+        padding: 0.75rem 1rem;
+    }
+    
+    .upload-zone {
+        border: 2px dashed #6c757d;
+        border-radius: 12px;
+        padding: 2rem;
+        text-align: center;
+        cursor: pointer;
+        transition: all 0.3s;
+    }
+    .upload-zone:hover, .upload-zone.dragover {
+        border-color: #0d6efd;
+        background: rgba(13, 110, 253, 0.05);
+    }
+    .upload-zone.has-file {
+        border-color: #198754;
+        background: rgba(25, 135, 84, 0.05);
+    }
+    
+    .result-card {
+        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+        border-radius: 12px;
+        padding: 1.5rem;
+    }
+    
+    .stat-box {
+        text-align: center;
+        padding: 1rem;
+        background: white;
+        border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+    .stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0d6efd;
+    }
+    .stat-label {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+    
+    .room-item {
+        background: white;
+        padding: 0.75rem;
+        border-radius: 6px;
+        margin-bottom: 0.5rem;
+        border-left: 4px solid #0d6efd;
+    }
+    
+    .gaeb-position {
+        font-family: monospace;
+        background: #f8f9fa;
+        padding: 0.5rem;
+        border-radius: 4px;
+        margin-bottom: 0.5rem;
+    }
+    
+    .din277-badge {
+        display: inline-block;
+        padding: 0.25rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    .din277-nuf { background: #d1e7dd; color: #0f5132; }
+    .din277-vf { background: #cfe2ff; color: #084298; }
+    .din277-tf { background: #fff3cd; color: #664d03; }
+    
+    .query-examples {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+    .query-example {
+        padding: 0.25rem 0.75rem;
+        background: #e9ecef;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .query-example:hover {
+        background: #0d6efd;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Left: Upload & Chat -->
+    <div class="col-lg-5 mb-4">
+        <!-- Upload -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <i class="bi bi-upload"></i> CAD-Datei laden
+            </div>
+            <div class="card-body">
+                <div class="upload-zone" id="upload-zone">
+                    <i class="bi bi-file-earmark-code" style="font-size: 2.5rem; color: #6c757d;"></i>
+                    <p class="mt-2 mb-0">IFC, DXF oder DWG</p>
+                    <input type="file" id="file-input" accept=".ifc,.dxf,.dwg" style="display: none;">
+                </div>
+                <div id="file-loaded" class="mt-3 alert alert-success" style="display: none;">
+                    <i class="bi bi-check-circle"></i>
+                    <span id="loaded-filename"></span>
+                    <button class="btn btn-sm btn-outline-danger float-end" onclick="clearFile()">
+                        <i class="bi bi-x"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Chat Interface -->
+        <div class="card">
+            <div class="card-header">
+                <i class="bi bi-chat-dots"></i> Fragen Sie Ihre CAD-Datei
+            </div>
+            <div class="card-body">
+                <div class="chat-container" id="chat-container">
+                    <div class="message message-bot">
+                        <strong>NL2CAD</strong><br>
+                        Laden Sie eine CAD-Datei und stellen Sie Fragen wie:
+                        <div class="query-examples">
+                            <span class="query-example" onclick="askQuery(this)">Zeige alle Räume</span>
+                            <span class="query-example" onclick="askQuery(this)">Wie groß ist die Gesamtfläche?</span>
+                            <span class="query-example" onclick="askQuery(this)">Wie viele Türen gibt es?</span>
+                            <span class="query-example" onclick="askQuery(this)">Prüfe Qualität</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="input-group mt-3">
+                    <input type="text" class="form-control" id="query-input" 
+                           placeholder="Frage eingeben..." 
+                           onkeypress="if(event.key==='Enter') sendQuery()">
+                    <button class="btn btn-primary" onclick="sendQuery()">
+                        <i class="bi bi-send"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Right: Results -->
+    <div class="col-lg-7">
+        <!-- Quick Stats -->
+        <div class="row mb-4" id="stats-row" style="display: none;">
+            <div class="col-md-3 col-6 mb-2">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-rooms">0</div>
+                    <div class="stat-label">Räume</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-area">0</div>
+                    <div class="stat-label">m²</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-doors">0</div>
+                    <div class="stat-label">Türen</div>
+                </div>
+            </div>
+            <div class="col-md-3 col-6 mb-2">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-windows">0</div>
+                    <div class="stat-label">Fenster</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="card" id="results-card" style="display: none;">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" role="tablist">
+                    <li class="nav-item">
+                        <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-rooms">
+                            <i class="bi bi-house"></i> Räume
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-din277">
+                            <i class="bi bi-diagram-3"></i> DIN 277
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-massen">
+                            <i class="bi bi-calculator"></i> Massen
+                        </button>
+                    </li>
+                    <li class="nav-item">
+                        <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-gaeb">
+                            <i class="bi bi-file-text"></i> GAEB
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content">
+                    <!-- Rooms -->
+                    <div class="tab-pane fade show active" id="tab-rooms">
+                        <div id="rooms-list"></div>
+                    </div>
+                    
+                    <!-- DIN 277 -->
+                    <div class="tab-pane fade" id="tab-din277">
+                        <div id="din277-summary"></div>
+                    </div>
+                    
+                    <!-- Massen -->
+                    <div class="tab-pane fade" id="tab-massen">
+                        <div id="massen-list"></div>
+                    </div>
+                    
+                    <!-- GAEB -->
+                    <div class="tab-pane fade" id="tab-gaeb">
+                        <div id="gaeb-list"></div>
+                        <button class="btn btn-primary mt-3" onclick="exportGAEB()">
+                            <i class="bi bi-download"></i> GAEB Export
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Empty State -->
+        <div class="card" id="empty-state">
+            <div class="card-body text-center py-5">
+                <i class="bi bi-building" style="font-size: 4rem; color: #dee2e6;"></i>
+                <h5 class="mt-3 text-muted">Keine CAD-Datei geladen</h5>
+                <p class="text-muted">Laden Sie eine IFC, DXF oder DWG Datei hoch.</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentFile = null;
+let analysisData = null;
+
+// Upload handling
+const uploadZone = document.getElementById('upload-zone');
+const fileInput = document.getElementById('file-input');
+
+uploadZone.addEventListener('click', () => fileInput.click());
+uploadZone.addEventListener('dragover', (e) => { e.preventDefault(); uploadZone.classList.add('dragover'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('dragover'));
+uploadZone.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadZone.classList.remove('dragover');
+    if (e.dataTransfer.files.length > 0) handleFile(e.dataTransfer.files[0]);
+});
+fileInput.addEventListener('change', (e) => {
+    if (e.target.files.length > 0) handleFile(e.target.files[0]);
+});
+
+function handleFile(file) {
+    currentFile = file;
+    uploadZone.classList.add('has-file');
+    document.getElementById('file-loaded').style.display = 'block';
+    document.getElementById('loaded-filename').textContent = file.name;
+    
+    // Auto-analyze
+    analyzeFile(file);
+}
+
+function clearFile() {
+    currentFile = null;
+    analysisData = null;
+    uploadZone.classList.remove('has-file');
+    document.getElementById('file-loaded').style.display = 'none';
+    document.getElementById('stats-row').style.display = 'none';
+    document.getElementById('results-card').style.display = 'none';
+    document.getElementById('empty-state').style.display = 'block';
+    fileInput.value = '';
+}
+
+function analyzeFile(file) {
+    addMessage('Analysiere ' + file.name + '...', 'bot');
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    fetch('{% url "cad_hub:nl2cad_upload" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            analysisData = data;
+            displayResults(data);
+            addMessage('Analyse abgeschlossen! ' + (data.data.room_count || 0) + ' Räume gefunden.', 'bot');
+        } else {
+            addMessage('Fehler: ' + (data.error || 'Unbekannter Fehler'), 'bot');
+        }
+    })
+    .catch(err => addMessage('Fehler: ' + err, 'bot'));
+}
+
+function displayResults(data) {
+    document.getElementById('empty-state').style.display = 'none';
+    document.getElementById('stats-row').style.display = 'flex';
+    document.getElementById('results-card').style.display = 'block';
+    
+    const d = data.data;
+    
+    // Stats
+    document.getElementById('stat-rooms').textContent = d.room_count || 0;
+    document.getElementById('stat-area').textContent = (d.total_area || 0).toFixed(1);
+    document.getElementById('stat-doors').textContent = d.door_count || 0;
+    document.getElementById('stat-windows').textContent = d.window_count || 0;
+    
+    // Rooms
+    const rooms = d.rooms || [];
+    document.getElementById('rooms-list').innerHTML = rooms.length > 0
+        ? rooms.map(r => `
+            <div class="room-item">
+                <div class="d-flex justify-content-between">
+                    <strong>${r.name}</strong>
+                    <span>${r.area_formatted || ''}</span>
+                </div>
+                <small class="text-muted">
+                    ${r.din277_code ? `<span class="din277-badge din277-${r.din277_code.toLowerCase().replace(' ', '-')}">${r.din277_code}</span>` : ''}
+                    ${r.layer ? `Layer: ${r.layer}` : ''}
+                </small>
+            </div>
+        `).join('')
+        : '<p class="text-muted">Keine Räume erkannt</p>';
+    
+    // DIN 277
+    const din = d.din277_summary || {};
+    document.getElementById('din277-summary').innerHTML = Object.keys(din).length > 0
+        ? Object.entries(din).map(([code, info]) => `
+            <div class="room-item">
+                <div class="d-flex justify-content-between">
+                    <span><span class="din277-badge din277-${code.toLowerCase().replace(' ', '-')}">${code}</span> ${info.category}</span>
+                    <strong>${info.area_formatted}</strong>
+                </div>
+                <small class="text-muted">${info.count} Räume</small>
+            </div>
+        `).join('')
+        : '<p class="text-muted">Keine DIN 277 Klassifikation</p>';
+    
+    // Massen
+    const cats = d.categories || {};
+    document.getElementById('massen-list').innerHTML = Object.keys(cats).length > 0
+        ? Object.entries(cats).map(([name, cat]) => `
+            <div class="mb-3">
+                <h6>${cat.name} <span class="badge bg-primary">${cat.total_formatted}</span></h6>
+                ${cat.items.map(i => `
+                    <div class="gaeb-position">
+                        <span>${i.description}</span>
+                        <span class="float-end">${i.formatted}</span>
+                    </div>
+                `).join('')}
+            </div>
+        `).join('')
+        : '<p class="text-muted">Keine Massen berechnet</p>';
+    
+    // GAEB
+    const gaeb = d.gaeb_positions || [];
+    document.getElementById('gaeb-list').innerHTML = gaeb.length > 0
+        ? gaeb.map(g => `
+            <div class="gaeb-position">
+                <strong>${g.position}</strong> ${g.text}
+                <span class="float-end">${g.quantity.toFixed(2)} ${g.unit}</span>
+            </div>
+        `).join('')
+        : '<p class="text-muted">Keine GAEB-Positionen</p>';
+}
+
+function addMessage(text, type) {
+    const container = document.getElementById('chat-container');
+    const msg = document.createElement('div');
+    msg.className = `message message-${type}`;
+    msg.innerHTML = type === 'bot' ? `<strong>NL2CAD</strong><br>${text}` : text;
+    container.appendChild(msg);
+    container.scrollTop = container.scrollHeight;
+}
+
+function askQuery(elem) {
+    document.getElementById('query-input').value = elem.textContent;
+    sendQuery();
+}
+
+let lastUnknownQuery = null;
+
+function sendQuery() {
+    const input = document.getElementById('query-input');
+    const query = input.value.trim();
+    if (!query) return;
+    
+    addMessage(query, 'user');
+    input.value = '';
+    
+    const formData = new FormData();
+    formData.append('query', query);
+    if (currentFile) formData.append('file', currentFile);
+    
+    fetch('{% url "cad_hub:nl2cad_query" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        let response = data.response || data.error || 'Keine Antwort';
+        
+        // If unknown, offer learning
+        if (data.can_learn && data.intent === 'unknown') {
+            lastUnknownQuery = query;
+            response += '<div class="mt-2"><small class="text-muted">Was meinten Sie?</small>';
+            response += '<div class="query-examples mt-1">';
+            const intents = data.available_intents || [];
+            intents.slice(0, 6).forEach(intent => {
+                response += `<span class="query-example learn-btn" data-intent="${intent}" onclick="learnIntent('${intent}')">${formatIntent(intent)}</span>`;
+            });
+            response += '</div></div>';
+        }
+        
+        // Show suggestions if available
+        if (data.suggestions && data.suggestions.length > 0) {
+            response += '<div class="mt-2"><small class="text-muted">Ähnliche Anfragen:</small>';
+            response += '<div class="query-examples mt-1">';
+            data.suggestions.forEach(s => {
+                response += `<span class="query-example" onclick="askQuery(this)">${s}</span>`;
+            });
+            response += '</div></div>';
+        }
+        
+        addMessage(response, 'bot');
+    })
+    .catch(err => addMessage('Fehler: ' + err, 'bot'));
+}
+
+function formatIntent(intent) {
+    const labels = {
+        'room_list': '🏠 Räume',
+        'room_area': '📐 Raumfläche',
+        'total_area': '📊 Gesamtfläche',
+        'layer_info': '📑 Layer',
+        'entity_count': '🔢 Zählen',
+        'dimension_info': '📏 Maße',
+        'door_count': '🚪 Türen',
+        'window_count': '🪟 Fenster',
+        'quality_check': '✅ Prüfung',
+        'export': '💾 Export'
+    };
+    return labels[intent] || intent;
+}
+
+function learnIntent(intent) {
+    if (!lastUnknownQuery) return;
+    
+    fetch('{% url "cad_hub:nl2cad_learn" %}', {
+        method: 'POST',
+        body: JSON.stringify({ query: lastUnknownQuery, intent: intent }),
+        headers: { 
+            'X-CSRFToken': '{{ csrf_token }}',
+            'Content-Type': 'application/json'
+        }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            addMessage(`✅ Gelernt! "${lastUnknownQuery}" → ${formatIntent(intent)}`, 'bot');
+            // Retry the query
+            document.getElementById('query-input').value = lastUnknownQuery;
+            lastUnknownQuery = null;
+            sendQuery();
+        } else {
+            addMessage('Fehler beim Lernen: ' + data.error, 'bot');
+        }
+    });
+}
+
+function exportGAEB() {
+    if (!currentFile) {
+        alert('Bitte zuerst eine Datei laden');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', currentFile);
+    
+    fetch('{% url "cad_hub:nl2cad_gaeb" %}', {
+        method: 'POST',
+        body: formData,
+        headers: { 'X-CSRFToken': '{{ csrf_token }}' }
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const blob = new Blob([JSON.stringify(data.gaeb, null, 2)], {type: 'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'gaeb_export.json';
+            a.click();
+        } else {
+            alert('Export fehlgeschlagen: ' + data.error);
+        }
+    });
+}
+</script>
+{% endblock %}

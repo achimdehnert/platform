@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "bfagent-sqlite": {
+      "command": "c:\\Users\\achim\\github\\bfagent\\.venv\\Scripts\\python.exe",
+      "args": [
+        "c:\\Users\\achim\\github\\bfagent\\manage.py",
+        "run_mcp_server"
+      ],
+      "env": {
+        "DJANGO_SETTINGS_MODULE": "config.settings"
+      }
+    }
+  }
+}

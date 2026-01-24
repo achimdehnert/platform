@@ -1,0 +1,52 @@
+<!-- templates/cad_hub/partials/_area_summary.html - Bootstrap 5 -->
+<!-- DIN 277:2021 Flächenübersicht -->
+
+<div class="col">
+    <div class="card card-stat h-100 text-center">
+        <div class="card-body py-3">
+            <p class="text-muted small text-uppercase mb-1">BGF</p>
+            <p class="h4 fw-bold mb-1">{{ areas.bgf|floatformat:0|default:"0" }} m²</p>
+            <p class="text-muted small mb-0">Brutto-Grundfläche</p>
+        </div>
+    </div>
+</div>
+
+<div class="col">
+    <div class="card card-stat h-100 text-center">
+        <div class="card-body py-3">
+            <p class="text-muted small text-uppercase mb-1">NRF</p>
+            <p class="h4 fw-bold mb-1">{{ areas.ngf|floatformat:0|default:"0" }} m²</p>
+            <p class="text-muted small mb-0">Netto-Raumfläche</p>
+        </div>
+    </div>
+</div>
+
+<div class="col">
+    <div class="card card-stat h-100 text-center border-warning">
+        <div class="card-body py-3">
+            <p class="text-warning small text-uppercase mb-1">NF</p>
+            <p class="h4 fw-bold text-warning mb-1">{{ areas.nf|floatformat:0|default:"0" }} m²</p>
+            <p class="text-muted small mb-0">Nutzfläche</p>
+        </div>
+    </div>
+</div>
+
+<div class="col">
+    <div class="card card-stat h-100 text-center">
+        <div class="card-body py-3">
+            <p class="text-muted small text-uppercase mb-1">TF</p>
+            <p class="h4 fw-bold mb-1">{{ areas.tf|floatformat:0|default:"0" }} m²</p>
+            <p class="text-muted small mb-0">Technikfläche</p>
+        </div>
+    </div>
+</div>
+
+<div class="col">
+    <div class="card card-stat h-100 text-center">
+        <div class="card-body py-3">
+            <p class="text-muted small text-uppercase mb-1">VF</p>
+            <p class="h4 fw-bold mb-1">{{ areas.vf|floatformat:0|default:"0" }} m²</p>
+            <p class="text-muted small mb-0">Verkehrsfläche</p>
+        </div>
+    </div>
+</div>
