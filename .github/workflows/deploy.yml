@@ -1,0 +1,114 @@
+name: Deploy Platform
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  # ==========================================================================
+  # Detect which apps changed
+  # ==========================================================================
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      bfagent: ${{ steps.filter.outputs.bfagent }}
+      travel-beat: ${{ steps.filter.outputs.travel-beat }}
+      packages: ${{ steps.filter.outputs.packages }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            bfagent:
+              - 'apps/bfagent/**'
+              - 'packages/**'
+            travel-beat:
+              - 'apps/travel-beat/**'
+              - 'packages/**'
+            packages:
+              - 'packages/**'
+
+  # ==========================================================================
+  # Build & Deploy BFAgent
+  # ==========================================================================
+  deploy-bfagent:
+    needs: changes
+    if: needs.changes.outputs.bfagent == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push BFAgent
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/bfagent
+          file: ./apps/bfagent/docker/Dockerfile.prod
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/bfagent-web:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/bfagent-web:${{ github.sha }}
+
+      - name: Deploy to Hetzner
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/bfagent-app
+            echo "BFAGENT_IMAGE_TAG=${{ github.sha }}" > .env.deploy
+            docker compose --env-file .env.prod --env-file .env.deploy -f docker-compose.prod.yml pull bfagent-web
+            docker compose --env-file .env.prod --env-file .env.deploy -f docker-compose.prod.yml up -d bfagent-web
+            docker system prune -f
+
+  # ==========================================================================
+  # Build & Deploy Travel Beat
+  # ==========================================================================
+  deploy-travel-beat:
+    needs: changes
+    if: needs.changes.outputs.travel-beat == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Travel Beat
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apps/travel-beat
+          file: ./apps/travel-beat/docker/Dockerfile
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/travel-beat:latest
+            ${{ env.REGISTRY }}/${{ github.repository_owner }}/travel-beat:${{ github.sha }}
+
+      - name: Deploy to Hetzner
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/travel-beat
+            echo "TRAVELBEAT_IMAGE_TAG=${{ github.sha }}" > .env.deploy
+            docker compose --env-file .env.prod --env-file .env.deploy -f docker-compose.prod.yml pull travel-beat-web
+            docker compose --env-file .env.prod --env-file .env.deploy -f docker-compose.prod.yml up -d
+            docker system prune -f
