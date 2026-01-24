@@ -1,0 +1,281 @@
+{% extends "control_center/base.html" %}
+{% load static %}
+
+{% block title %}Sphinx Export - {{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h1 class="h3 mb-1">
+                        <i class="bi bi-file-earmark-text text-primary"></i>
+                        Sphinx → Markdown Export
+                    </h1>
+                    <p class="text-muted mb-0">Konvertiere Sphinx-Dokumentation zu einer einzelnen Markdown-Datei</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if messages %}
+    <div class="row mb-3">
+        <div class="col-12">
+            {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="row">
+        <!-- Projekte -->
+        <div class="col-lg-8">
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-folder2-open"></i> Dokumentationsprojekte
+                    </h5>
+                </div>
+                <div class="card-body">
+                    {% if projects %}
+                    {% for project in projects %}
+                    <div class="border rounded p-3 mb-3 {% if project.valid %}border-success{% else %}border-warning{% endif %}">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h6 class="mb-1">
+                                    {% if project.valid %}
+                                    <i class="bi bi-check-circle-fill text-success"></i>
+                                    {% else %}
+                                    <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                                    {% endif %}
+                                    {{ project.name }}
+                                </h6>
+                                <p class="text-muted small mb-2">{{ project.description }}</p>
+                                <div class="d-flex gap-3 small text-muted">
+                                    <span><i class="bi bi-folder"></i> {{ project.path }}</span>
+                                    <span><i class="bi bi-file-text"></i> {{ project.doc_count }} Dokumente</span>
+                                </div>
+                                {% if project.errors %}
+                                <div class="mt-2">
+                                    {% for error in project.errors %}
+                                    <span class="badge bg-warning text-dark">{{ error }}</span>
+                                    {% endfor %}
+                                </div>
+                                {% endif %}
+                            </div>
+                            <div>
+                                {% if project.valid %}
+                                <form method="post" action="{% url 'sphinx_export:export' %}" class="d-inline">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="source_path" value="{{ project.path }}">
+                                    <input type="hidden" name="title" value="{{ project.name }}">
+                                    <button type="submit" class="btn btn-primary btn-sm">
+                                        <i class="bi bi-download"></i> Exportieren
+                                    </button>
+                                </form>
+                                {% else %}
+                                <button class="btn btn-secondary btn-sm" disabled>
+                                    <i class="bi bi-x-circle"></i> Nicht valide
+                                </button>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-folder-x display-4"></i>
+                        <p class="mt-2">Keine Sphinx-Projekte gefunden</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Custom Export -->
+            <div class="card shadow-sm">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-gear"></i> Benutzerdefinierter Export
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'sphinx_export:export' %}">
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="form-label">Source-Pfad</label>
+                                <input type="text" name="source_path" class="form-control" 
+                                       value="docs/source" placeholder="z.B. docs/source">
+                                <div class="form-text">Relativer Pfad zum Sphinx source-Verzeichnis</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Titel</label>
+                                <input type="text" name="title" class="form-control" 
+                                       value="BF Agent Documentation" placeholder="Dokumenttitel">
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="include_toc" id="includeToc" checked>
+                                    <label class="form-check-label" for="includeToc">
+                                        Inhaltsverzeichnis generieren
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="checkbox" name="include_api" id="includeApi">
+                                    <label class="form-check-label" for="includeApi">
+                                        API-Referenz einschließen
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-download"></i> Exportieren
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Sidebar -->
+        <div class="col-lg-4">
+            <!-- Sync Status -->
+            <div class="card shadow-sm mb-4 {% if sync_report and sync_report.has_changes %}border-warning{% else %}border-success{% endif %}">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-arrow-repeat"></i> Dokumentations-Sync
+                    </h5>
+                    {% if sync_report %}
+                    <span class="badge {% if sync_report.has_changes %}bg-warning text-dark{% else %}bg-success{% endif %}">
+                        {{ sync_report.total_issues }} Issues
+                    </span>
+                    {% endif %}
+                </div>
+                <div class="card-body">
+                    {% if sync_report %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span><i class="bi bi-file-code"></i> Python-Änderungen</span>
+                            <span class="{% if sync_report.python_changes %}text-warning{% else %}text-success{% endif %}">
+                                {{ sync_report.python_changes|length }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span><i class="bi bi-file-text"></i> Dok-Änderungen</span>
+                            <span class="{% if sync_report.doc_changes %}text-warning{% else %}text-success{% endif %}">
+                                {{ sync_report.doc_changes|length }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span><i class="bi bi-x-circle"></i> Fehlende Doku</span>
+                            <span class="{% if sync_report.missing_docs %}text-danger{% else %}text-success{% endif %}">
+                                {{ sync_report.missing_docs|length }}
+                            </span>
+                        </div>
+                        <div class="d-flex justify-content-between small">
+                            <span><i class="bi bi-clock"></i> Veraltet</span>
+                            <span class="{% if sync_report.outdated_docs %}text-warning{% else %}text-success{% endif %}">
+                                {{ sync_report.outdated_docs|length }}
+                            </span>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted small mb-3">Sync-Status wird geladen...</p>
+                    {% endif %}
+                    
+                    <!-- Sync Actions -->
+                    <div class="d-grid gap-2">
+                        <form method="post" action="{% url 'sphinx_export:sync' %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="check">
+                            <button type="submit" class="btn btn-outline-primary btn-sm w-100">
+                                <i class="bi bi-search"></i> Prüfen
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'sphinx_export:sync' %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="generate-stubs">
+                            <button type="submit" class="btn btn-outline-secondary btn-sm w-100">
+                                <i class="bi bi-plus-circle"></i> Stubs generieren
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'sphinx_export:sync' %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="rebuild">
+                            <button type="submit" class="btn btn-outline-info btn-sm w-100">
+                                <i class="bi bi-hammer"></i> Rebuild
+                            </button>
+                        </form>
+                        <form method="post" action="{% url 'sphinx_export:sync' %}" class="d-inline">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="full-sync">
+                            <button type="submit" class="btn btn-success btn-sm w-100">
+                                <i class="bi bi-arrow-repeat"></i> Full Sync
+                            </button>
+                        </form>
+                    </div>
+                    
+                    <div class="mt-2 text-center">
+                        <a href="{% url 'sphinx_export:sync_report' %}" class="small text-muted">
+                            <i class="bi bi-file-text"></i> Detaillierter Report
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recent Exports -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-white">
+                    <h5 class="card-title mb-0">
+                        <i class="bi bi-clock-history"></i> Letzte Exports
+                    </h5>
+                </div>
+                <div class="card-body p-0">
+                    {% if recent_exports %}
+                    <ul class="list-group list-group-flush">
+                        {% for export in recent_exports %}
+                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <i class="bi bi-file-earmark-text text-primary"></i>
+                                <span class="small">{{ export.name }}</span>
+                            </div>
+                            <a href="{% url 'sphinx_export:download' %}?file={{ export.name }}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-download"></i>
+                            </a>
+                        </li>
+                        {% endfor %}
+                    </ul>
+                    {% else %}
+                    <div class="text-center text-muted py-4">
+                        <i class="bi bi-inbox"></i>
+                        <p class="small mb-0">Noch keine Exports</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Info -->
+            <div class="card shadow-sm bg-light">
+                <div class="card-body">
+                    <h6><i class="bi bi-info-circle"></i> Hinweise</h6>
+                    <ul class="small mb-0">
+                        <li>Export kombiniert alle RST/MD-Dateien</li>
+                        <li>Interne Links werden zu Anchors</li>
+                        <li>Tabellen werden konvertiert</li>
+                        <li>Ideal für Reviews in einem Dokument</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
