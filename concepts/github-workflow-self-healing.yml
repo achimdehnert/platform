@@ -1,0 +1,422 @@
+# .github/workflows/self-healing-deploy.yml
+# Self-Healing Hetzner Deployment Pipeline
+#
+# Dieses Workflow:
+# 1. Führt das Deployment aus
+# 2. Bei Fehler: Analysiert den Fehler mit Claude
+# 3. Führt sichere Auto-Fixes aus
+# 4. Erstellt PR für manuelle Reviews
+
+name: 🚀 Self-Healing Hetzner Deploy
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment Environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+          - staging
+          - production
+      auto_fix:
+        description: 'Enable Auto-Fix for safe errors'
+        required: false
+        default: true
+        type: boolean
+
+env:
+  HETZNER_REGION: nbg1
+  DOCKER_REGISTRY: ghcr.io/${{ github.repository }}
+
+jobs:
+  # ============================================================================
+  # JOB 1: BUILD & TEST
+  # ============================================================================
+  build:
+    name: 🔨 Build & Test
+    runs-on: ubuntu-latest
+    outputs:
+      image_tag: ${{ steps.meta.outputs.tags }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+      
+      - name: Login to Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Docker Meta
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.DOCKER_REGISTRY }}
+          tags: |
+            type=sha,prefix=
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+      
+      - name: Build & Push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ============================================================================
+  # JOB 2: DEPLOY
+  # ============================================================================
+  deploy:
+    name: 🚀 Deploy to Hetzner
+    needs: build
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'staging' }}
+    outputs:
+      status: ${{ steps.deploy.outcome }}
+      error_log: ${{ steps.capture_error.outputs.log }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.6"
+      
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.HETZNER_SSH_PRIVATE_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.HETZNER_SERVER_IP }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy Application
+        id: deploy
+        continue-on-error: true
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+          IMAGE_TAG: ${{ needs.build.outputs.image_tag }}
+        run: |
+          set -o pipefail
+          
+          # Deployment Script mit Logging
+          {
+            echo "=== DEPLOYMENT START: $(date -Iseconds) ==="
+            echo "Environment: ${{ inputs.environment || 'staging' }}"
+            echo "Image: $IMAGE_TAG"
+            echo ""
+            
+            # Terraform Apply
+            cd terraform
+            terraform init -input=false
+            terraform apply -auto-approve -var="image_tag=$IMAGE_TAG"
+            
+            # Docker Compose Deploy via SSH
+            ssh -o StrictHostKeyChecking=accept-new \
+                deploy@${{ secrets.HETZNER_SERVER_IP }} \
+                "cd /opt/app && docker-compose pull && docker-compose up -d"
+            
+            # Health Check
+            for i in {1..30}; do
+              if curl -sf "https://${{ secrets.APP_DOMAIN }}/health"; then
+                echo "✅ Health check passed"
+                exit 0
+              fi
+              echo "Waiting for health check... ($i/30)"
+              sleep 10
+            done
+            
+            echo "❌ Health check failed after 5 minutes"
+            exit 1
+            
+          } 2>&1 | tee deploy.log
+      
+      - name: Capture Error Log
+        id: capture_error
+        if: steps.deploy.outcome == 'failure'
+        run: |
+          # Letzte 200 Zeilen als Output
+          ERROR_LOG=$(tail -200 deploy.log | base64 -w 0)
+          echo "log=$ERROR_LOG" >> $GITHUB_OUTPUT
+          
+          # Auch als Artifact speichern
+          cp deploy.log ${{ github.workspace }}/
+      
+      - name: Upload Deploy Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: deploy-log-${{ github.run_id }}
+          path: deploy.log
+          retention-days: 7
+
+  # ============================================================================
+  # JOB 3: ERROR ANALYSIS & AUTO-FIX
+  # ============================================================================
+  analyze-and-fix:
+    name: 🔧 Analyze & Fix Errors
+    needs: deploy
+    if: needs.deploy.outputs.status == 'failure'
+    runs-on: ubuntu-latest
+    outputs:
+      fix_action: ${{ steps.analyze.outputs.action }}
+      fix_applied: ${{ steps.auto_fix.outcome }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Dependencies
+        run: pip install httpx
+      
+      - name: Download Deploy Log
+        uses: actions/download-artifact@v4
+        with:
+          name: deploy-log-${{ github.run_id }}
+      
+      - name: Analyze Error with Claude
+        id: analyze
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Error Log dekodieren falls Base64
+          if [ -n "${{ needs.deploy.outputs.error_log }}" ]; then
+            echo "${{ needs.deploy.outputs.error_log }}" | base64 -d > deploy.log
+          fi
+          
+          # Claude API Call für Analyse
+          ERROR_CONTEXT=$(cat <<EOF
+          {
+            "project": "${{ github.repository }}",
+            "environment": "${{ inputs.environment || 'staging' }}",
+            "commit": "${{ github.sha }}",
+            "branch": "${{ github.ref_name }}",
+            "run_id": "${{ github.run_id }}"
+          }
+          EOF
+          )
+          
+          ERROR_LOG=$(cat deploy.log | tail -150 | jq -Rs .)
+          
+          RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @- <<EOF
+          {
+            "model": "claude-sonnet-4-20250514",
+            "max_tokens": 4096,
+            "system": "Du bist ein DevOps-Agent für Hetzner Cloud. Analysiere den Fehler und antworte NUR mit JSON: {\"analysis\":{\"category\":\"...\",\"severity\":\"...\",\"confidence\":0-100,\"root_cause\":\"...\"},\"fix\":{\"action\":\"AUTO-FIX|HUMAN_REVIEW\",\"risk\":\"LOW|MEDIUM|HIGH\",\"commands\":[],\"rollback\":[],\"validation\":[],\"prevention\":\"...\"}}",
+            "messages": [{
+              "role": "user",
+              "content": "KONTEXT: $ERROR_CONTEXT\n\nERROR LOG:\n$ERROR_LOG"
+            }]
+          }
+          EOF
+          )
+          
+          # Response parsen
+          ANALYSIS=$(echo "$RESPONSE" | jq -r '.content[0].text')
+          echo "Claude Analysis:"
+          echo "$ANALYSIS" | tee analysis.json
+          
+          # Outputs setzen
+          ACTION=$(echo "$ANALYSIS" | jq -r '.fix.action // "HUMAN_REVIEW"')
+          CONFIDENCE=$(echo "$ANALYSIS" | jq -r '.analysis.confidence // 0')
+          RISK=$(echo "$ANALYSIS" | jq -r '.fix.risk // "HIGH"')
+          
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "confidence=$CONFIDENCE" >> $GITHUB_OUTPUT
+          echo "risk=$RISK" >> $GITHUB_OUTPUT
+          
+          # Commands als Multiline Output
+          COMMANDS=$(echo "$ANALYSIS" | jq -r '.fix.commands | join("\n")')
+          {
+            echo 'commands<<EOF'
+            echo "$COMMANDS"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+      
+      - name: Upload Analysis
+        uses: actions/upload-artifact@v4
+        with:
+          name: error-analysis-${{ github.run_id }}
+          path: analysis.json
+      
+      - name: Execute Auto-Fix
+        id: auto_fix
+        if: |
+          inputs.auto_fix == true &&
+          steps.analyze.outputs.action == 'AUTO-FIX' &&
+          steps.analyze.outputs.confidence >= 85 &&
+          steps.analyze.outputs.risk == 'LOW'
+        env:
+          HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+        run: |
+          echo "🔧 Executing Auto-Fix..."
+          echo "Confidence: ${{ steps.analyze.outputs.confidence }}%"
+          echo "Risk: ${{ steps.analyze.outputs.risk }}"
+          echo ""
+          echo "Commands to execute:"
+          echo "${{ steps.analyze.outputs.commands }}"
+          echo ""
+          
+          # Befehle ausführen (nur sichere!)
+          while IFS= read -r cmd; do
+            # Skip Kommentare und leere Zeilen
+            [[ "$cmd" =~ ^#.*$ ]] && continue
+            [[ -z "$cmd" ]] && continue
+            
+            echo "$ $cmd"
+            eval "$cmd" || true
+          done <<< "${{ steps.analyze.outputs.commands }}"
+      
+      - name: Re-run Deploy After Fix
+        id: redeploy
+        if: steps.auto_fix.outcome == 'success'
+        continue-on-error: true
+        run: |
+          echo "🔄 Re-running deployment after auto-fix..."
+          # Hier würde das Deployment erneut getriggert werden
+          # z.B. via workflow_dispatch oder direktes Script
+          
+          # Simplified: Health Check
+          for i in {1..10}; do
+            if curl -sf "https://${{ secrets.APP_DOMAIN }}/health"; then
+              echo "✅ Deployment successful after auto-fix!"
+              exit 0
+            fi
+            sleep 10
+          done
+          exit 1
+      
+      - name: Create Fix PR
+        if: |
+          steps.analyze.outputs.action == 'HUMAN_REVIEW' ||
+          steps.analyze.outputs.confidence < 85 ||
+          steps.analyze.outputs.risk != 'LOW'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: fix/deployment-${{ github.run_id }}
+          title: "🔧 [Auto-Generated] Deployment Fix Required"
+          body: |
+            ## 🚨 Deployment Fehler erkannt
+            
+            **Run:** [#${{ github.run_id }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+            **Commit:** ${{ github.sha }}
+            **Branch:** ${{ github.ref_name }}
+            
+            ## 🔍 Fehler-Analyse
+            
+            ```json
+            $(cat analysis.json | jq .)
+            ```
+            
+            ## 🔧 Vorgeschlagene Befehle
+            
+            ```bash
+            ${{ steps.analyze.outputs.commands }}
+            ```
+            
+            ## ⚠️ Hinweis
+            
+            Diese Änderungen erfordern eine manuelle Überprüfung weil:
+            - Confidence: ${{ steps.analyze.outputs.confidence }}% (Threshold: 85%)
+            - Risk Level: ${{ steps.analyze.outputs.risk }}
+            - Action: ${{ steps.analyze.outputs.action }}
+            
+            Bitte prüfe die vorgeschlagenen Änderungen sorgfältig vor dem Merge.
+          labels: |
+            deployment
+            auto-fix
+            needs-review
+
+  # ============================================================================
+  # JOB 4: NOTIFICATION
+  # ============================================================================
+  notify:
+    name: 📢 Notify
+    needs: [deploy, analyze-and-fix]
+    if: always()
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Slack Notification
+        if: needs.deploy.outputs.status == 'failure'
+        uses: slackapi/slack-github-action@v1
+        with:
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "${{ needs.analyze-and-fix.outputs.fix_applied == 'success' && '✅ Auto-Fix Applied' || '🚨 Deployment Failed' }}"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {"type": "mrkdwn", "text": "*Repository:*\n${{ github.repository }}"},
+                    {"type": "mrkdwn", "text": "*Branch:*\n${{ github.ref_name }}"},
+                    {"type": "mrkdwn", "text": "*Fix Action:*\n${{ needs.analyze-and-fix.outputs.fix_action }}"},
+                    {"type": "mrkdwn", "text": "*Run:*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Details>"}
+                  ]
+                }
+              ]
+            }
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SLACK_WEBHOOK_TYPE: INCOMING_WEBHOOK
+
+  # ============================================================================
+  # JOB 5: CLEANUP (Optional)
+  # ============================================================================
+  cleanup:
+    name: 🧹 Cleanup
+    needs: [deploy, analyze-and-fix]
+    if: always() && needs.deploy.outputs.status == 'success'
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Cleanup Old Artifacts
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifacts = await github.rest.actions.listArtifactsForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              per_page: 100
+            });
+            
+            const oldArtifacts = artifacts.data.artifacts
+              .filter(a => a.name.startsWith('deploy-log-') || a.name.startsWith('error-analysis-'))
+              .filter(a => new Date(a.created_at) < new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
+            
+            for (const artifact of oldArtifacts) {
+              await github.rest.actions.deleteArtifact({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                artifact_id: artifact.id
+              });
+              console.log(`Deleted artifact: ${artifact.name}`);
+            }
