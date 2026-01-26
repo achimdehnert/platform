@@ -1,3 +1,0 @@
-"""
-Travel Beat - Apps Package
-"""

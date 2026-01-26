@@ -1,2 +1,0 @@
--- Placeholder (intentionally empty).
--- Kept to ensure initdb.d directory exists in all environments.

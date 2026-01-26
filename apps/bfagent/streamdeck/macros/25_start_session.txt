@@ -1,9 +1,0 @@
-{{CLIPBOARD:@CASCADE: Neue Session starten
-
-Session Goal: [HAUPTZIEL]
-
-Tasks:
-- [ ] Task 1
-- [ ] Task 2
-
-Erstelle Plan und ACTIVE_CONTEXT.md!}}

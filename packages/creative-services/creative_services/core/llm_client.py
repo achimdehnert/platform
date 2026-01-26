@@ -49,8 +49,15 @@ class LLMResponse(BaseModel):
     content: str
     model: str
     provider: LLMProvider
-    usage: dict[str, int] = Field(default_factory=dict)
+    usage: dict[str, Any] = Field(default_factory=dict)  # Allow nested dicts from OpenAI API
     raw_response: Optional[dict[str, Any]] = None
+    
+    @property
+    def total_tokens(self) -> int:
+        """Get total tokens used."""
+        return self.usage.get('total_tokens', 0) or (
+            self.usage.get('prompt_tokens', 0) + self.usage.get('completion_tokens', 0)
+        )
 
 
 class LLMClient:

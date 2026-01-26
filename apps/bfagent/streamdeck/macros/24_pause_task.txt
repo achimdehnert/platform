@@ -1,8 +1,0 @@
-{{CLIPBOARD:@CASCADE: Pause aktuelle Task
-
-Bitte speichere:
-- [ ] Aktuellen Stand
-- [ ] Offene TODOs
-- [ ] Nächste Schritte
-
-Dokumentiere in: ACTIVE_CONTEXT.md}}

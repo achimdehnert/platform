@@ -1,6 +1,0 @@
-{{CLIPBOARD:Zeige mir Domain Info via BFAgent MCP für: [DOMAIN]
-
-Include:
-- [x] Handlers
-- [x] Phases
-- [x] Status}}

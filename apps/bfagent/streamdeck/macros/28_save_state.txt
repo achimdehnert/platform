@@ -1,8 +1,0 @@
-{{CLIPBOARD:@CASCADE: Save current state
-
-Erstelle/Update:
-- ACTIVE_CONTEXT.md
-- Alle TODOs
-- Offene Requirements
-
-Für sicheren Restart!}}

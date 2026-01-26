@@ -1,7 +1,0 @@
-{{CLIPBOARD:Hole Refactoring Options von BFAgent MCP für Domain: [DOMAIN]
-
-Zeige:
-- Available components
-- Risk level
-- Dependencies
-- Protected paths}}

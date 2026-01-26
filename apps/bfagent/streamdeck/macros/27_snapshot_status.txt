@@ -1,7 +1,0 @@
-{{CLIPBOARD:@CASCADE: Status Snapshot
-
-Checkpoint:
-- Was ist der Stand?
-- Was fehlt noch?
-- Welche Files geändert?
-- Bereit für Commit?}}

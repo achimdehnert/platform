@@ -1,5 +1,0 @@
-{# Session Row Partial - Full row for OOB swaps #}
-<tr id="session-row-{{ session.id }}"
-    class="{% if session.status == 'in_progress' %}table-info{% elif session.status == 'failed' %}table-danger{% elif session.status == 'cancelled' %}table-warning{% endif %}">
-    {% include "control_center/mcp/partials/session_row_content.html" with session=session %}
-</tr>

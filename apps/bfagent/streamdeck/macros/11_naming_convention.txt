@@ -1,3 +1,0 @@
-{{CLIPBOARD:Hole Naming Convention von BFAgent MCP für: [DOMAIN]
-
-Domains: books, core, expert_hub, ui_hub, etc.}}
