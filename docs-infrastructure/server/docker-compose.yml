@@ -1,0 +1,32 @@
+# Docs Static Server
+# ==================
+# nginx:alpine serving Sphinx HTML from /var/www/docs/current
+#
+# Usage:
+#   docker compose up -d
+#   docker compose logs -f docs
+
+services:
+  docs:
+    image: nginx:1.27-alpine
+    container_name: docs-static
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - /var/www/docs/current:/usr/share/nginx/html:ro
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ | grep -qi '<html'"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "com.bfagent.service=docs"
+      - "com.bfagent.description=Sphinx Documentation Server"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

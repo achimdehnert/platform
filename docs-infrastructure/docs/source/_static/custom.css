@@ -1,0 +1,37 @@
+/* Custom CSS for BF Agent Platform Docs */
+
+/* Code blocks */
+.highlight pre {
+    border-radius: 8px;
+}
+
+/* Cards */
+.sd-card {
+    border-radius: 8px;
+    transition: transform 0.2s ease-in-out;
+}
+
+.sd-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Admonitions */
+.admonition {
+    border-radius: 8px;
+}
+
+/* Tables */
+table.docutils {
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Build info */
+.build-info {
+    font-size: 0.85em;
+    color: var(--color-foreground-muted);
+    background: var(--color-background-secondary);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-family: monospace;
+}
