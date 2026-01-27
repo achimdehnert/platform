@@ -1,30 +1,45 @@
 # 🏗️ BF Agent Platform
 
-Monorepo für BFAgent, Travel Beat und geteilte Packages.
+Shared packages and deployment concepts for the BF Agent ecosystem.
 
 ## 🆕 Latest Update (Januar 2026)
 
-### Hetzner Deployment Concepts
+### Packages
+- **creative-services** - Shared LLM client with tier system, usage tracking, and adapters
+- **sphinx-export** - Sphinx → Markdown Export utility
+
+### Deployment Concepts
 - **Auto-Healer** - Self-healing deployment scripts for Hetzner Cloud
 - **GitHub Workflow** - Self-healing CI/CD pipeline
-- **Deployment Prompts** - AI-assisted deployment configuration
 
 ## 📁 Struktur
 
 ```
 platform/
-├── packages/           # Shared Python packages
-│   ├── sphinx-export/  # Sphinx → Markdown Export
-│   └── mcp-tools/      # MCP Server Utilities
-├── apps/               # Django Applications
-│   ├── bfagent/        # BF Agent (Writing Hub, etc.)
-│   └── travel-beat/    # Travel Story Generator
-├── concepts/           # Deployment & Infrastructure Concepts
-│   ├── hetzner_auto_healer.py
-│   ├── hetzner_deployment_prompt.md
-│   └── github-workflow-self-healing.yml
-├── docker/             # Shared Docker configs
-└── docs/               # Platform documentation
+├── packages/                    # Shared Python packages
+│   ├── creative-services/       # LLM Client, Registry, Usage Tracker
+│   │   ├── creative_services/
+│   │   │   ├── core/            # LLMClient, LLMRegistry, UsageTracker
+│   │   │   ├── adapters/        # Django, BFAgent adapters
+│   │   │   ├── character/       # Character generation
+│   │   │   ├── scene/           # Scene generation
+│   │   │   ├── story/           # Story generation
+│   │   │   └── world/           # World building
+│   │   └── pyproject.toml
+│   └── sphinx-export/           # Sphinx → Markdown Export
+├── concepts/                    # Deployment & Infrastructure Concepts
+├── docs/                        # Sphinx documentation
+└── README.md
+```
+
+## 📦 Installation
+
+```bash
+# Install creative-services
+pip install -e packages/creative-services
+
+# With optional providers
+pip install -e "packages/creative-services[openai,anthropic]"
 ```
 
 ## 🚀 Deployment
