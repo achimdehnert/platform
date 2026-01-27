@@ -1,0 +1,241 @@
+# Docs CI/CD Pipeline
+# ====================
+# - PR: Build + Linkcheck (warnings as errors)
+# - main: Deploy to /releases/<sha>/ + atomic symlink switch
+# - tags v*: Deploy to /versions/<tag>/
+
+name: Docs
+
+on:
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'docs-infrastructure/**'
+      - 'packages/*/docs/**'
+      - 'packages/**/*.py'           # Code-Änderungen → API-Docs aktualisieren
+      - '.github/workflows/docs.yml'
+  push:
+    branches: ["main"]
+    tags: ["v*"]
+    paths:
+      - 'docs/**'
+      - 'docs-infrastructure/**'
+      - 'packages/*/docs/**'
+      - 'packages/**/*.py'           # Code-Änderungen → API-Docs aktualisieren
+      - '.github/workflows/docs.yml'
+  schedule:
+    # Täglich um 6:00 UTC - stellt sicher, dass Docs aktuell bleiben
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    inputs:
+      force_deploy:
+        description: 'Force deploy even without docs changes'
+        required: false
+        default: 'false'
+        type: boolean
+
+permissions:
+  contents: read
+  pull-requests: write  # For PR comments
+
+concurrency:
+  group: docs-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHON_VERSION: "3.12"
+  DOCS_DIR: "docs-infrastructure/docs"
+
+jobs:
+  # ===========================================================================
+  # Build Job - Runs on all triggers
+  # ===========================================================================
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      artifact_name: ${{ steps.upload.outputs.artifact-name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for git info
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+          cache-dependency-path: '${{ env.DOCS_DIR }}/requirements.txt'
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          python -m pip install --upgrade pip wheel
+          python -m pip install -r ${{ env.DOCS_DIR }}/requirements.txt
+
+      - name: Build HTML (warnings as errors)
+        run: |
+          set -euo pipefail
+          sphinx-build -W --keep-going -b html \
+            ${{ env.DOCS_DIR }}/source \
+            ${{ env.DOCS_DIR }}/_build/html
+        env:
+          DOCS_PROJECT_NAME: "BF Agent Platform"
+          DOCS_AUTHOR: "BF Agent Team"
+          DOCS_RELEASE: ${{ github.ref_name }}
+          DOCS_SITE_URL: "https://docs.bfagent.de/"
+
+      - name: Linkcheck
+        run: |
+          set -euo pipefail
+          sphinx-build -b linkcheck \
+            ${{ env.DOCS_DIR }}/source \
+            ${{ env.DOCS_DIR }}/_build/linkcheck
+        continue-on-error: true  # Don't fail on external link issues
+
+      - name: Write build info
+        run: |
+          set -euo pipefail
+          cat > ${{ env.DOCS_DIR }}/_build/html/build-info.txt << EOF
+          ref=${{ github.ref }}
+          sha=${{ github.sha }}
+          sha_short=${GITHUB_SHA::8}
+          branch=${{ github.ref_name }}
+          built_at_utc=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+          workflow_run=${{ github.run_id }}
+          actor=${{ github.actor }}
+          EOF
+
+      - name: Upload artifact
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: sphinx-html-${{ github.sha }}
+          path: ${{ env.DOCS_DIR }}/_build/html
+          retention-days: 7
+
+      - name: Comment on PR with preview link
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const artifactUrl = `https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}`;
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: `📚 **Docs Build Successful**\n\nDownload the built docs from [Actions Artifacts](${artifactUrl}).\n\n_Commit: ${{ github.sha }}_`
+            });
+
+  # ===========================================================================
+  # Deploy Job - Only on main branch or tags
+  # ===========================================================================
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) ||
+      github.event_name == 'schedule'
+    environment:
+      name: production
+      url: https://docs.iil.pet
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: sphinx-html-${{ github.sha }}
+          path: html
+
+      - name: Install SSH key
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.HETZNER_SSH_KEY }}
+
+      - name: Add host key
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -p ${{ secrets.HETZNER_PORT || 22 }} -H "${{ secrets.HETZNER_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy (atomic release + switch)
+        env:
+          HOST: ${{ secrets.HETZNER_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+          PORT: ${{ secrets.HETZNER_PORT || 22 }}
+          SHA: ${{ github.sha }}
+          REF: ${{ github.ref }}
+          DOCS_ROOT: /var/www/docs.iil.pet
+        run: |
+          set -euo pipefail
+
+          SSH="ssh -p ${PORT} ${USER}@${HOST}"
+          SCP="scp -P ${PORT}"
+
+          # Determine target directory
+          # iil.pet serves docs from /var/www/bfagent/docs/
+          if [[ "${REF}" == "refs/heads/main" ]]; then
+            TARGET_DIR="${DOCS_ROOT}/releases/${SHA}"
+            LINK="${DOCS_ROOT}/current"
+            echo "📦 Deploying main branch to ${TARGET_DIR}"
+          else
+            TAG="${REF#refs/tags/}"
+            TARGET_DIR="${DOCS_ROOT}/versions/${TAG}"
+            LINK=""
+            echo "🏷️ Deploying tag ${TAG} to ${TARGET_DIR}"
+          fi
+
+          # Create target directory
+          ${SSH} "mkdir -p '${TARGET_DIR}'"
+
+          # Sync files (atomic: upload to temp, then move)
+          TEMP_DIR="${DOCS_ROOT}/.deploy-${SHA}"
+          ${SSH} "mkdir -p '${TEMP_DIR}'"
+          
+          rsync -az --delete \
+            -e "ssh -p ${PORT}" \
+            html/ "${USER}@${HOST}:${TEMP_DIR}/"
+
+          # Atomic move
+          ${SSH} "rm -rf '${TARGET_DIR}' && mv '${TEMP_DIR}' '${TARGET_DIR}'"
+
+          # Update symlink for main branch
+          if [[ -n "${LINK}" ]]; then
+            ${SSH} "ln -sfn '${TARGET_DIR}' '${LINK}'"
+            echo "🔗 Updated symlink: ${LINK} -> ${TARGET_DIR}"
+            
+            # Retention: keep last 20 releases
+            ${SSH} "cd ${DOCS_ROOT}/releases && ls -1dt */ | tail -n +21 | xargs -r rm -rf"
+            echo "🧹 Cleaned up old releases (keeping last 20)"
+          fi
+
+          echo "✅ Deploy complete!"
+
+      - name: Verify deployment
+        env:
+          HOST: ${{ secrets.HETZNER_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+          PORT: ${{ secrets.HETZNER_PORT || 22 }}
+        run: |
+          set -euo pipefail
+          
+          SSH="ssh -p ${PORT} ${USER}@${HOST}"
+          
+          # Check symlink
+          ${SSH} "ls -la /var/www/docs.iil.pet/current"
+          
+          # Check build info
+          ${SSH} "cat /var/www/docs.iil.pet/current/build-info.txt"
+
+      - name: Notify on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '🚨 Docs Deploy Failed',
+              body: `Docs deployment failed for commit ${{ github.sha }}.\n\nSee [workflow run](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.`,
+              labels: ['bug', 'documentation']
+            });

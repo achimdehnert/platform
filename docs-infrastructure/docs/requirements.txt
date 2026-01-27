@@ -1,0 +1,24 @@
+# Sphinx Core
+sphinx>=7.2,<8.0
+sphinx-autobuild>=2024.2.4
+
+# Theme
+furo>=2024.8.6
+
+# Markdown Support
+myst-parser>=3.0.1
+
+# API Documentation
+sphinx-autoapi>=3.0.0
+sphinx-autodoc-typehints>=2.0.0
+
+# Extensions
+sphinxext-opengraph>=0.9.1
+sphinx-copybutton>=0.5.2
+sphinx-design>=0.5.0
+
+# Optional: PDF generation
+# sphinx-simplepdf>=1.6.0
+
+# Optional: Search
+# readthedocs-sphinx-search>=0.3.2
