@@ -6,13 +6,14 @@ Shared AI-powered creative writing services for **BF Agent**, **Travel Beat**, a
 
 This package provides modular, reusable creative AI services:
 
+- **Prompt Template System** - Type-safe prompt management with Pydantic schemas
 - **LLM Client** - Unified client for OpenAI, Anthropic, Groq, Ollama
 - **LLM Registry** - DB-driven LLM configuration (switch models without code changes)
 - **Dynamic Client** - Tier-based LLM selection (economy/standard/premium)
 - **Usage Tracker** - Token and cost tracking
-- **Character Service** - Generate characters with personality, motivation, background
-- **World Service** - Create and expand fictional worlds or real location profiles
-- **Story Service** - Generate outlines, write chapters, review content
+- **Security** - Prompt injection detection and input sanitization
+- **Caching** - Redis and in-memory caching with TTL
+- **Observability** - Prometheus metrics and structured events
 
 ## Installation
 
@@ -83,18 +84,33 @@ result = generate_text("Hello", tier="standard")
 
 ```
 creative_services/
-├── core/
-│   ├── llm_client.py      # Unified LLM client (OpenAI, Anthropic, Groq, Ollama)
-│   ├── llm_registry.py    # DB-driven LLM configuration & tier selection
-│   ├── usage_tracker.py   # Token and cost tracking
-│   ├── base_handler.py    # Base class for all handlers
-│   └── context.py         # Context classes for handlers
-├── adapters/
-│   ├── django_adapter.py  # Django ORM integration
-│   └── bfagent_compat.py  # BFAgent backward compatibility
-├── character/             # Character generation
-├── world/                 # World building & location profiles
-└── story/                 # Outlines, chapters, structures
+├── prompts/                    # 🆕 Prompt Template System
+│   ├── schemas/                # Pydantic schemas (frozen, immutable)
+│   │   ├── variables.py        # PromptVariable, VariableType
+│   │   ├── llm_config.py       # LLMConfig, RetryConfig
+│   │   ├── template.py         # PromptTemplateSpec
+│   │   └── execution.py        # PromptExecution, ExecutionStatus
+│   ├── security/               # Injection detection & sanitization
+│   ├── registry/               # Template storage backends
+│   │   ├── memory.py           # InMemoryRegistry
+│   │   ├── file.py             # FileRegistry (YAML/JSON)
+│   │   └── django_registry.py  # DjangoRegistry
+│   ├── execution/              # Execution engine
+│   │   ├── executor.py         # PromptExecutor
+│   │   ├── renderer.py         # Jinja2 template rendering
+│   │   ├── cache.py            # InMemoryCache
+│   │   ├── redis_cache.py      # RedisCache
+│   │   └── retry.py            # Retry with backoff
+│   ├── observability/          # Metrics & events
+│   ├── migration/              # BFAgent compatibility
+│   └── integration/            # Ready-to-use clients
+│       ├── bfagent.py          # BFAgent integration
+│       └── llm_clients.py      # OpenAI, Anthropic clients
+├── core/                       # Core LLM infrastructure
+├── adapters/                   # Django adapters
+├── character/                  # Character generation
+├── world/                      # World building
+└── story/                      # Story generation
 ```
 
 ## LLM Tiers
@@ -127,6 +143,67 @@ creative_services/
 1. Install creative-services
 2. Replace direct OpenAI calls with `DynamicLLMClient`
 3. Use `LLMTier.STANDARD` for story generation
+
+## Prompt Template System (New!)
+
+Type-safe prompt management with 195 tests:
+
+```python
+from creative_services.prompts import (
+    PromptTemplateSpec,
+    PromptVariable,
+    PromptExecutor,
+    InMemoryRegistry,
+)
+from creative_services.prompts.integration import OpenAIClient
+
+# Define template
+template = PromptTemplateSpec(
+    template_key="greeting.v1",
+    domain_code="examples",
+    name="Greeting",
+    system_prompt="You are friendly.",
+    user_prompt="Say hello to {{ name }}!",
+    variables=[PromptVariable(name="name", required=True)],
+)
+
+# Save and execute
+registry = InMemoryRegistry()
+registry.save(template)
+
+executor = PromptExecutor(
+    registry=registry,
+    llm_client=OpenAIClient(),
+    app_name="my_app",
+)
+
+result = await executor.execute(
+    template_key="greeting.v1",
+    variables={"name": "Alice"},
+)
+print(result.content)
+```
+
+### BFAgent Integration
+
+```python
+from creative_services.prompts.integration import create_bfagent_executor
+
+executor = create_bfagent_executor()
+result = await executor.execute(
+    template_key="character.backstory.v1",
+    variables={"name": "Elara", "genre": "fantasy"},
+)
+```
+
+## Documentation
+
+Full documentation available at `docs/`:
+
+```bash
+cd docs && make html
+# Open _build/html/index.html
+```
 
 ## License
 
