@@ -3,7 +3,7 @@
 import json
 import re
 from abc import ABC, abstractmethod
-from typing import Any, Generic, TypeVar, Optional
+from typing import Any, Generic, TypeVar, Optional, Union
 from pydantic import BaseModel
 
 from creative_services.core.llm_client import LLMClient, LLMConfig, LLMResponse
@@ -21,7 +21,7 @@ class HandlerResult(BaseModel, Generic[TResult]):
     data: Optional[TResult] = None
     error: Optional[str] = None
     llm_used: Optional[str] = None
-    usage: dict[str, int] = {}
+    usage: dict[str, Any] = {}
     
     @classmethod
     def ok(cls, data: TResult, llm_used: str = None, usage: dict = None):
