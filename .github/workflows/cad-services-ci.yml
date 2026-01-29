@@ -1,0 +1,37 @@
+name: cad-services CI
+
+on:
+  pull_request:
+    paths:
+      - "packages/cad-services/**"
+  push:
+    branches: [main]
+    paths:
+      - "packages/cad-services/**"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install package (editable) + dev deps
+        working-directory: packages/cad-services
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e ".[dev]"
+
+      - name: Ruff
+        working-directory: packages/cad-services
+        run: |
+          python -m ruff check .
+
+      - name: Pytest
+        working-directory: packages/cad-services
+        run: |
+          python -m pytest -q

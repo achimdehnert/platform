@@ -1,0 +1,48 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "cad-services"
+version = "0.1.0"
+description = "Domain-agnostic CAD parsing services (IFC/DXF), normalization and quantities"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+    { name = "BF Agent Team" }
+]
+keywords = ["cad", "ifc", "dxf", "bim", "saas"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "pydantic>=2.0",
+    "structlog>=24.0",
+    "ezdxf>=1.1",
+]
+
+[project.optional-dependencies]
+ifc = ["ifcopenshell"]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.1",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/cad_services"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.pytest.ini_options]
+python_files = ["test_*.py"]
+testpaths = ["tests"]
