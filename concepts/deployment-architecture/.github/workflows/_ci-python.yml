@@ -1,0 +1,283 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  REUSABLE CI WORKFLOW - Python Projects                                    ║
+# ║  Platform Repository: achimdehnert/platform                                ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# Usage in app repository:
+#   jobs:
+#     ci:
+#       uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1
+#       with:
+#         python_version: "3.12"
+#         coverage_threshold: 70
+#       secrets: inherit
+
+name: _CI Python
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version to use'
+        required: false
+        default: '3.12'
+        type: string
+      coverage_threshold:
+        description: 'Minimum coverage percentage'
+        required: false
+        default: 70
+        type: number
+      requirements_file:
+        description: 'Path to requirements file'
+        required: false
+        default: 'requirements.txt'
+        type: string
+      dev_requirements_file:
+        description: 'Path to dev requirements file'
+        required: false
+        default: 'requirements/dev.txt'
+        type: string
+      source_dir:
+        description: 'Source directory for linting/testing'
+        required: false
+        default: 'apps/'
+        type: string
+      run_security_scan:
+        description: 'Run Bandit security scan'
+        required: false
+        default: true
+        type: boolean
+      django_settings_module:
+        description: 'Django settings module for tests'
+        required: false
+        default: 'config.settings.test'
+        type: string
+      skip_tests:
+        description: 'Skip test execution (emergency only)'
+        required: false
+        default: false
+        type: boolean
+
+    outputs:
+      lint_passed:
+        description: 'Whether linting passed'
+        value: ${{ jobs.lint.outputs.passed }}
+      tests_passed:
+        description: 'Whether tests passed'
+        value: ${{ jobs.test.outputs.passed }}
+      coverage:
+        description: 'Test coverage percentage'
+        value: ${{ jobs.test.outputs.coverage }}
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # LINT & FORMAT CHECK
+  # ═══════════════════════════════════════════════════════════════════════════
+  lint:
+    name: "🔍 Lint & Format"
+    runs-on: ubuntu-latest
+    outputs:
+      passed: ${{ steps.result.outputs.passed }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Ruff
+        run: pip install ruff
+
+      - name: Ruff Lint
+        id: lint
+        run: |
+          ruff check ${{ inputs.source_dir }} --output-format=github 2>&1 | tee lint.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Ruff Format Check
+        id: format
+        run: |
+          ruff format --check ${{ inputs.source_dir }} 2>&1 | tee format.log
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Set Result
+        id: result
+        run: |
+          if [ "${{ steps.lint.outputs.exit_code }}" == "0" ] && [ "${{ steps.format.outputs.exit_code }}" == "0" ]; then
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SECURITY SCAN
+  # ═══════════════════════════════════════════════════════════════════════════
+  security:
+    name: "🔒 Security Scan"
+    runs-on: ubuntu-latest
+    if: ${{ inputs.run_security_scan }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Security Tools
+        run: pip install bandit safety
+
+      - name: Bandit (Code Security)
+        id: bandit
+        run: |
+          bandit -r ${{ inputs.source_dir }} -ll -ii -x tests -f json -o bandit-report.json || true
+          
+          if [ -f bandit-report.json ]; then
+            HIGH=$(jq '.metrics._totals."SEVERITY.HIGH" // 0' bandit-report.json)
+            MEDIUM=$(jq '.metrics._totals."SEVERITY.MEDIUM" // 0' bandit-report.json)
+            
+            echo "high_issues=$HIGH" >> $GITHUB_OUTPUT
+            echo "medium_issues=$MEDIUM" >> $GITHUB_OUTPUT
+            
+            if [ "$HIGH" -gt 0 ]; then
+              echo "::error::Found $HIGH high severity security issues"
+            fi
+            if [ "$MEDIUM" -gt 2 ]; then
+              echo "::warning::Found $MEDIUM medium severity security issues"
+            fi
+          fi
+
+      - name: Safety (Dependencies)
+        run: |
+          if [ -f "${{ inputs.requirements_file }}" ]; then
+            safety check --file ${{ inputs.requirements_file }} --full-report || true
+          fi
+
+      - name: Upload Bandit Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bandit-report
+          path: bandit-report.json
+          retention-days: 7
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TESTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  test:
+    name: "🧪 Tests"
+    runs-on: ubuntu-latest
+    needs: [lint]
+    if: ${{ !inputs.skip_tests }}
+    outputs:
+      passed: ${{ steps.result.outputs.passed }}
+      coverage: ${{ steps.coverage.outputs.percentage }}
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+
+      - name: Install Dependencies
+        run: |
+          if [ -f "${{ inputs.dev_requirements_file }}" ]; then
+            pip install -r ${{ inputs.dev_requirements_file }}
+          else
+            pip install -r ${{ inputs.requirements_file }}
+            pip install pytest pytest-django pytest-cov pytest-xdist
+          fi
+
+      - name: Run Migrations Check
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          SECRET_KEY: test-secret-key-for-ci
+          DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
+        run: |
+          python manage.py makemigrations --check --dry-run || true
+          python manage.py migrate --noinput
+
+      - name: Run Tests
+        id: test
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test_db
+          REDIS_URL: redis://localhost:6379/0
+          SECRET_KEY: test-secret-key-for-ci
+          DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
+        run: |
+          pytest -n auto \
+            --cov=${{ inputs.source_dir }} \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ inputs.coverage_threshold }} \
+            -v 2>&1 | tee test.log
+          
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      - name: Extract Coverage
+        id: coverage
+        run: |
+          COVERAGE=$(grep -oP 'TOTAL.*\s+\K\d+(?=%)' test.log || echo "0")
+          echo "percentage=$COVERAGE" >> $GITHUB_OUTPUT
+          echo "Coverage: $COVERAGE%"
+
+      - name: Set Result
+        id: result
+        run: |
+          if [ "${{ steps.test.outputs.exit_code }}" == "0" ]; then
+            echo "passed=true" >> $GITHUB_OUTPUT
+          else
+            echo "passed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Coverage Report
+        uses: codecov/codecov-action@v4
+        if: always()
+        continue-on-error: true
+        with:
+          files: ./coverage.xml
+          fail_ci_if_error: false
+
+      - name: Upload Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: |
+            test.log
+            coverage.xml
+          retention-days: 7

@@ -1,0 +1,173 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  REUSABLE WORKFLOW: Python CI (Lint, Test, Security)                       ║
+# ║  Usage: uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1    ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: Python CI
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version'
+        required: false
+        default: '3.12'
+        type: string
+      coverage_threshold:
+        description: 'Minimum coverage percentage'
+        required: false
+        default: 70
+        type: number
+      requirements_file:
+        description: 'Path to requirements.txt'
+        required: false
+        default: 'requirements.txt'
+        type: string
+      dev_requirements_file:
+        description: 'Path to dev requirements'
+        required: false
+        default: 'requirements/dev.txt'
+        type: string
+      source_dir:
+        description: 'Source directory for linting'
+        required: false
+        default: '.'
+        type: string
+      django_settings_module:
+        description: 'Django settings module for tests'
+        required: false
+        default: ''
+        type: string
+      skip_tests:
+        description: 'Skip tests (emergency only)'
+        required: false
+        default: false
+        type: boolean
+      enable_security_scan:
+        description: 'Run security scans'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  lint:
+    name: "Lint & Format"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+      
+      - name: Install linters
+        run: pip install ruff black isort mypy
+      
+      - name: Ruff check
+        run: ruff check ${{ inputs.source_dir }} --output-format=github
+      
+      - name: Black check
+        run: black --check ${{ inputs.source_dir }} || true
+      
+      - name: isort check
+        run: isort --check-only ${{ inputs.source_dir }} || true
+
+  security:
+    name: "Security Scan"
+    runs-on: ubuntu-latest
+    if: ${{ inputs.enable_security_scan }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+      
+      - name: Install security tools
+        run: pip install bandit safety pip-audit
+      
+      - name: Bandit (code scan)
+        run: bandit -r ${{ inputs.source_dir }} -ll -ii -x '**/tests/**' || true
+      
+      - name: Safety (dependency scan)
+        run: |
+          if [ -f "${{ inputs.requirements_file }}" ]; then
+            safety check -r ${{ inputs.requirements_file }} --output json || true
+          fi
+      
+      - name: pip-audit
+        run: |
+          if [ -f "${{ inputs.requirements_file }}" ]; then
+            pip install -r ${{ inputs.requirements_file }}
+            pip-audit || true
+          fi
+
+  test:
+    name: "Tests"
+    runs-on: ubuntu-latest
+    if: ${{ !inputs.skip_tests }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+      redis:
+        image: redis:7-alpine
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          pip install -r ${{ inputs.requirements_file }}
+          if [ -f "${{ inputs.dev_requirements_file }}" ]; then
+            pip install -r ${{ inputs.dev_requirements_file }}
+          fi
+          pip install pytest pytest-django pytest-cov pytest-xdist
+      
+      - name: Run tests
+        env:
+          DATABASE_URL: postgresql://test:test@localhost:5432/test
+          REDIS_URL: redis://localhost:6379/0
+          DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
+          SECRET_KEY: test-secret-key-for-ci
+        run: |
+          pytest \
+            --cov=${{ inputs.source_dir }} \
+            --cov-report=xml \
+            --cov-report=term-missing \
+            --cov-fail-under=${{ inputs.coverage_threshold }} \
+            -n auto \
+            -v
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false

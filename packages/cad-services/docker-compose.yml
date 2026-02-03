@@ -1,0 +1,71 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: cadhub-db
+    environment:
+      POSTGRES_DB: cadhub
+      POSTGRES_USER: bfagent
+      POSTGRES_PASSWORD: bfagent_dev_2024
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bfagent -d cadhub"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  fastapi:
+    build:
+      context: .
+      target: fastapi
+    container_name: cadhub-api
+    environment:
+      DB_HOST: db
+      DB_NAME: cadhub
+      DB_USER: bfagent
+      DB_PASSWORD: bfagent_dev_2024
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  django:
+    build:
+      context: .
+      target: django
+    container_name: cadhub-django
+    environment:
+      DB_HOST: db
+      DB_NAME: cadhub
+      DB_USER: bfagent
+      DB_PASSWORD: bfagent_dev_2024
+      DJANGO_SETTINGS_MODULE: cad_services.django.settings
+    ports:
+      - "8001:8001"
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:alpine
+    container_name: cadhub-nginx
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ../../landing:/usr/share/nginx/html/landing:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - fastapi
+      - django
+    restart: unless-stopped
+
+volumes:
+  postgres_data:

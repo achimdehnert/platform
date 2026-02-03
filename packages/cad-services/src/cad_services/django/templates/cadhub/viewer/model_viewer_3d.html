@@ -1,0 +1,397 @@
+{% extends "cadhub/base.html" %}
+{% load static %}
+
+{% block title %}3D-Viewer - {{ model.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    #viewer-container {
+        width: 100%;
+        height: calc(100vh - 200px);
+        min-height: 500px;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    
+    #xeokit-canvas {
+        width: 100%;
+        height: 100%;
+    }
+    
+    .viewer-toolbar {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        display: flex;
+        gap: 5px;
+    }
+    
+    .viewer-toolbar .btn {
+        background: rgba(255,255,255,0.9);
+        border: none;
+        padding: 8px 12px;
+    }
+    
+    .viewer-toolbar .btn:hover {
+        background: white;
+    }
+    
+    .viewer-info {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 10px 15px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+    
+    .property-panel {
+        max-height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+    
+    .tree-view {
+        max-height: 300px;
+        overflow-y: auto;
+        font-size: 13px;
+    }
+    
+    .tree-view ul {
+        list-style: none;
+        padding-left: 15px;
+    }
+    
+    .tree-view > ul {
+        padding-left: 0;
+    }
+    
+    .tree-item {
+        cursor: pointer;
+        padding: 3px 5px;
+        border-radius: 3px;
+    }
+    
+    .tree-item:hover {
+        background: #e9ecef;
+    }
+    
+    .tree-item.selected {
+        background: #007bff;
+        color: white;
+    }
+    
+    .loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0,0,0,0.8);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        z-index: 200;
+    }
+    
+    .nav-cube {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        width: 120px;
+        height: 120px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 4px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-3">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <div>
+            <h4 class="mb-1">
+                <i class="bi bi-box"></i> 3D-Viewer
+            </h4>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-0 small">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'cadhub:dashboard' %}">CAD-Hub</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'cadhub:model-detail' model.pk %}">{{ model.name }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">3D-Viewer</li>
+                </ol>
+            </nav>
+        </div>
+        <div>
+            <a href="{% url 'cadhub:floorplan-viewer' model.pk %}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-grid-3x3"></i> 2D-Ansicht
+            </a>
+            <button class="btn btn-outline-primary btn-sm" id="btn-fullscreen">
+                <i class="bi bi-fullscreen"></i> Vollbild
+            </button>
+        </div>
+    </div>
+    
+    <div class="row">
+        <!-- Viewer -->
+        <div class="col-lg-9">
+            <div id="viewer-container">
+                <!-- Loading overlay -->
+                <div class="loading-overlay" id="loading-overlay">
+                    <div class="text-center">
+                        <div class="spinner-border text-light mb-3" role="status">
+                            <span class="visually-hidden">Laden...</span>
+                        </div>
+                        <div>Modell wird geladen...</div>
+                        <div class="small text-muted mt-2" id="loading-progress">0%</div>
+                    </div>
+                </div>
+                
+                <!-- Toolbar -->
+                <div class="viewer-toolbar">
+                    <button class="btn btn-sm" id="btn-home" title="Zurücksetzen">
+                        <i class="bi bi-house"></i>
+                    </button>
+                    <button class="btn btn-sm" id="btn-fit" title="Einpassen">
+                        <i class="bi bi-aspect-ratio"></i>
+                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-sm" id="btn-orbit" title="Orbit">
+                            <i class="bi bi-arrow-repeat"></i>
+                        </button>
+                        <button class="btn btn-sm" id="btn-pan" title="Pan">
+                            <i class="bi bi-arrows-move"></i>
+                        </button>
+                    </div>
+                    <div class="btn-group">
+                        <button class="btn btn-sm" id="btn-section-x" title="Schnitt X">
+                            <i class="bi bi-border-width"></i> X
+                        </button>
+                        <button class="btn btn-sm" id="btn-section-y" title="Schnitt Y">
+                            <i class="bi bi-border-width"></i> Y
+                        </button>
+                        <button class="btn btn-sm" id="btn-section-z" title="Schnitt Z">
+                            <i class="bi bi-border-width"></i> Z
+                        </button>
+                    </div>
+                    <button class="btn btn-sm" id="btn-measure" title="Messen">
+                        <i class="bi bi-rulers"></i>
+                    </button>
+                </div>
+                
+                <!-- Canvas -->
+                <canvas id="xeokit-canvas"></canvas>
+                
+                <!-- Navigation Cube placeholder -->
+                <div class="nav-cube" id="nav-cube"></div>
+                
+                <!-- Info panel -->
+                <div class="viewer-info">
+                    <span id="info-objects">0</span> Objekte | 
+                    <span id="info-triangles">0</span> Dreiecke
+                </div>
+            </div>
+        </div>
+        
+        <!-- Side panel -->
+        <div class="col-lg-3">
+            <!-- Tree view -->
+            <div class="card mb-3">
+                <div class="card-header py-2">
+                    <i class="bi bi-diagram-3"></i> Modellstruktur
+                </div>
+                <div class="card-body p-2">
+                    <input type="text" class="form-control form-control-sm mb-2" 
+                           placeholder="Suchen..." id="tree-search">
+                    <div class="tree-view" id="model-tree">
+                        <ul>
+                            <li class="tree-item">
+                                <i class="bi bi-building"></i> {{ model.name }}
+                                <ul>
+                                    {% for floor in floors %}
+                                    <li class="tree-item" data-floor-id="{{ floor.id }}">
+                                        <i class="bi bi-layers"></i> {{ floor.name }}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Properties -->
+            <div class="card">
+                <div class="card-header py-2">
+                    <i class="bi bi-list-ul"></i> Eigenschaften
+                </div>
+                <div class="card-body p-2 property-panel" id="property-panel">
+                    <p class="text-muted small mb-0">
+                        Wählen Sie ein Element im Viewer aus.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- xeokit SDK - Include from CDN or local -->
+<script src="https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk/dist/xeokit-sdk.min.js"></script>
+<!-- CADHub Viewer Controller -->
+<script src="{% static 'js/xeokit-viewer.js' %}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const modelId = {{ model.id }};
+    const xktUrl = '{{ xkt_url|default:"/media/xkt/model_"|add:model.id|add:".xkt" }}';
+    const metadataUrl = '{{ metadata_url|default:"" }}';
+    
+    let viewer = null;
+    
+    // Check if xeokit is available
+    if (typeof xeokit !== 'undefined' && typeof CADHubViewer !== 'undefined') {
+        viewer = new CADHubViewer('xeokit-canvas', {
+            saoEnabled: true,
+            edgesEnabled: true
+        });
+        
+        // Load model
+        viewer.loadModel(xktUrl, metadataUrl || null)
+            .then(() => {
+                console.log('Model loaded successfully');
+            })
+            .catch(err => {
+                console.error('Failed to load model:', err);
+                showError('Modell konnte nicht geladen werden: ' + err.message);
+            });
+    } else {
+        // Fallback demo mode
+        console.warn('xeokit SDK not loaded - running in demo mode');
+        simulateLoading();
+    }
+    
+    function simulateLoading() {
+        let progress = 0;
+        const progressEl = document.getElementById('loading-progress');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        
+        const interval = setInterval(() => {
+            progress += 10;
+            progressEl.textContent = progress + '%';
+            if (progress >= 100) {
+                clearInterval(interval);
+                loadingOverlay.style.display = 'none';
+            }
+        }, 200);
+    }
+    
+    function showError(message) {
+        const overlay = document.getElementById('loading-overlay');
+        overlay.innerHTML = `
+            <div class="text-center">
+                <i class="bi bi-exclamation-triangle fs-1 text-warning"></i>
+                <p class="mt-3">${message}</p>
+                <a href="{% url 'cadhub:model-detail' model.id %}" class="btn btn-light">
+                    Zurück zum Modell
+                </a>
+            </div>`;
+    }
+    
+    // Toolbar handlers
+    document.getElementById('btn-home').addEventListener('click', () => {
+        if (viewer) viewer.setView('iso');
+    });
+    
+    document.getElementById('btn-fit').addEventListener('click', () => {
+        if (viewer) viewer.fitToView();
+    });
+    
+    document.getElementById('btn-section').addEventListener('click', () => {
+        if (viewer) viewer.addSectionPlane('y', 0.5);
+    });
+    
+    document.getElementById('btn-measure').addEventListener('click', function() {
+        if (!viewer) return;
+        this.classList.toggle('active');
+        if (this.classList.contains('active')) {
+            viewer.enableMeasurement();
+        } else {
+            viewer.disableMeasurement();
+        }
+    });
+    
+    document.getElementById('btn-fullscreen').addEventListener('click', () => {
+        const container = document.getElementById('viewer-container');
+        if (container.requestFullscreen) {
+            container.requestFullscreen();
+        }
+    });
+    
+    // Object selection handler
+    document.addEventListener('objectSelected', function(e) {
+        const props = e.detail;
+        showProperties(props);
+        
+        // Fetch full properties from API
+        fetch(`/api/viewer3d/${modelId}/properties/?guid=${props.id}`)
+            .then(r => r.json())
+            .then(data => showProperties(data))
+            .catch(err => console.error('Failed to load properties:', err));
+    });
+    
+    document.addEventListener('selectionCleared', function() {
+        document.getElementById('property-panel').innerHTML = `
+            <p class="text-muted small mb-0">
+                Wählen Sie ein Element im Viewer aus.
+            </p>`;
+    });
+    
+    function showProperties(props) {
+        const panel = document.getElementById('property-panel');
+        let html = '<table class="table table-sm table-borderless mb-0">';
+        for (const [key, value] of Object.entries(props)) {
+            if (value !== null && key !== 'propertySet') {
+                const label = key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+                html += `<tr><th class="text-muted">${label}</th><td>${value}</td></tr>`;
+            }
+        }
+        html += '</table>';
+        panel.innerHTML = html;
+    }
+    
+    // Tree view selection
+    document.querySelectorAll('.tree-item').forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.stopPropagation();
+            document.querySelectorAll('.tree-item').forEach(i => i.classList.remove('selected'));
+            this.classList.add('selected');
+            
+            const floorId = this.dataset.floorId;
+            const ifcGuid = this.dataset.ifcGuid;
+            if (ifcGuid && viewer) {
+                viewer.isolate([ifcGuid]);
+            }
+        });
+    });
+    
+    // Search in tree
+    document.getElementById('tree-search').addEventListener('input', function() {
+        const query = this.value.toLowerCase();
+        document.querySelectorAll('.tree-item').forEach(item => {
+            const text = item.textContent.toLowerCase();
+            item.style.display = text.includes(query) ? '' : 'none';
+        });
+    });
+});
+</script>
+{% endblock %}

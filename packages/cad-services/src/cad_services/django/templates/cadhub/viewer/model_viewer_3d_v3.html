@@ -1,0 +1,437 @@
+{% extends "cadhub/base.html" %}
+{% load static %}
+
+{% block title %}3D Viewer - {{ model.name }}{% endblock %}
+
+{% block extra_css %}
+<style>
+    .viewer-container {
+        display: flex;
+        height: calc(100vh - 120px);
+    }
+    
+    .viewer-main {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        position: relative;
+    }
+    
+    #xeokit-canvas {
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(180deg, #f0f0f0 0%, #e0e0e0 100%);
+    }
+    
+    .viewer-toolbar {
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        z-index: 100;
+        display: flex;
+        gap: 5px;
+        background: rgba(255,255,255,0.95);
+        padding: 8px;
+        border-radius: 8px;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    
+    .viewer-toolbar .btn {
+        width: 36px;
+        height: 36px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+    
+    .viewer-toolbar .btn-group {
+        margin-left: 10px;
+        padding-left: 10px;
+        border-left: 1px solid #dee2e6;
+    }
+    
+    .sidebar {
+        width: 320px;
+        background: #fff;
+        border-left: 1px solid #dee2e6;
+        display: flex;
+        flex-direction: column;
+    }
+    
+    .sidebar-tabs {
+        display: flex;
+        border-bottom: 1px solid #dee2e6;
+    }
+    
+    .sidebar-tabs .nav-link {
+        flex: 1;
+        text-align: center;
+        border-radius: 0;
+        color: #666;
+        padding: 12px;
+    }
+    
+    .sidebar-tabs .nav-link.active {
+        background: #f8f9fa;
+        color: #0d6efd;
+        border-bottom: 2px solid #0d6efd;
+    }
+    
+    .sidebar-content {
+        flex: 1;
+        overflow-y: auto;
+    }
+    
+    #model-tree {
+        padding: 10px;
+        font-size: 13px;
+    }
+    
+    #model-tree .tree-node {
+        padding: 4px 8px;
+        cursor: pointer;
+        border-radius: 4px;
+    }
+    
+    #model-tree .tree-node:hover {
+        background: #f0f0f0;
+    }
+    
+    #model-tree .tree-node.selected {
+        background: #e3f2fd;
+    }
+    
+    #property-panel {
+        padding: 15px;
+    }
+    
+    #property-panel .table th {
+        width: 40%;
+        font-weight: 500;
+        color: #666;
+    }
+    
+    #loading-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(255,255,255,0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 200;
+    }
+    
+    .loading-spinner {
+        width: 50px;
+        height: 50px;
+        border: 4px solid #f3f3f3;
+        border-top: 4px solid #0d6efd;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        0% { transform: rotate(0deg); }
+        100% { transform: rotate(360deg); }
+    }
+    
+    .loading-message {
+        margin-top: 15px;
+        color: #666;
+    }
+    
+    .view-buttons {
+        position: absolute;
+        bottom: 10px;
+        right: 10px;
+        z-index: 100;
+    }
+    
+    .stats-bar {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        z-index: 100;
+        background: rgba(0,0,0,0.7);
+        color: #fff;
+        padding: 5px 10px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb mb-1">
+                <li class="breadcrumb-item"><a href="{% url 'cadhub:dashboard' %}">CAD-Hub</a></li>
+                <li class="breadcrumb-item"><a href="{% url 'cadhub:project-detail' model.project.pk %}">{{ model.project.name }}</a></li>
+                <li class="breadcrumb-item active">{{ model.name }}</li>
+            </ol>
+        </nav>
+        <h4 class="mb-0">
+            <i class="bi bi-box text-primary me-2"></i>
+            3D Viewer - {{ model.name }}
+        </h4>
+    </div>
+    <div>
+        <a href="{% url 'cadhub:model-detail' model.pk %}" class="btn btn-outline-secondary" title="Zurück zum Modell">
+            <i class="bi bi-arrow-left"></i> Zurück
+        </a>
+    </div>
+</div>
+
+<div class="viewer-container">
+    <!-- Main Viewer Area -->
+    <div class="viewer-main">
+        <!-- Canvas -->
+        <canvas id="xeokit-canvas"></canvas>
+        
+        <!-- Loading Overlay -->
+        <div id="loading-overlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-message">Modell wird geladen...</div>
+        </div>
+        
+        <!-- Toolbar -->
+        <div class="viewer-toolbar">
+            <button class="btn btn-light" id="btn-fit" title="Gesamtansicht">
+                <i class="bi bi-arrows-fullscreen"></i>
+            </button>
+            <button class="btn btn-light" id="btn-reset" title="Ansicht zurücksetzen">
+                <i class="bi bi-house"></i>
+            </button>
+            
+            <div class="btn-group">
+                <button class="btn btn-light" id="btn-section-x" title="Schnittebene X">
+                    <i class="bi bi-layout-split"></i>
+                </button>
+                <button class="btn btn-light" id="btn-section-y" title="Schnittebene Y">
+                    <i class="bi bi-layout-sidebar"></i>
+                </button>
+                <button class="btn btn-light" id="btn-section-clear" title="Schnittebenen löschen">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-light" id="btn-isolate" title="Auswahl isolieren">
+                    <i class="bi bi-eye"></i>
+                </button>
+                <button class="btn btn-light" id="btn-hide" title="Auswahl ausblenden">
+                    <i class="bi bi-eye-slash"></i>
+                </button>
+                <button class="btn btn-light" id="btn-show-all" title="Alles anzeigen">
+                    <i class="bi bi-layers"></i>
+                </button>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-light" id="btn-xray" title="X-Ray Modus">
+                    <i class="bi bi-radioactive"></i>
+                </button>
+            </div>
+            
+            <div class="btn-group">
+                <button class="btn btn-light" id="btn-save-viewpoint" title="Viewpoint speichern">
+                    <i class="bi bi-camera"></i>
+                </button>
+            </div>
+        </div>
+        
+        <!-- View Buttons -->
+        <div class="view-buttons btn-group-vertical">
+            <button class="btn btn-sm btn-light" data-view="front" title="Vorderansicht">V</button>
+            <button class="btn btn-sm btn-light" data-view="back" title="Rückansicht">H</button>
+            <button class="btn btn-sm btn-light" data-view="left" title="Links">L</button>
+            <button class="btn btn-sm btn-light" data-view="right" title="Rechts">R</button>
+            <button class="btn btn-sm btn-light" data-view="top" title="Draufsicht">O</button>
+            <button class="btn btn-sm btn-light" data-view="iso" title="Isometrisch">3D</button>
+        </div>
+        
+        <!-- Stats Bar -->
+        <div class="stats-bar" id="stats-bar">
+            <span id="object-count">-</span> Objekte | 
+            <span id="selected-count">0</span> ausgewählt
+        </div>
+    </div>
+    
+    <!-- Sidebar -->
+    <div class="sidebar">
+        <ul class="nav sidebar-tabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-tree" type="button" role="tab">
+                    <i class="bi bi-diagram-3"></i> Struktur
+                </button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-properties" type="button" role="tab">
+                    <i class="bi bi-list-ul"></i> Eigenschaften
+                </button>
+            </li>
+        </ul>
+        
+        <div class="tab-content sidebar-content">
+            <div class="tab-pane fade show active" id="tab-tree" role="tabpanel">
+                <div class="p-2">
+                    <input type="text" class="form-control form-control-sm" id="tree-search" placeholder="Suchen...">
+                </div>
+                <div id="model-tree"></div>
+            </div>
+            <div class="tab-pane fade" id="tab-properties" role="tabpanel">
+                <div id="property-panel">
+                    <p class="text-muted text-center py-4">
+                        <i class="bi bi-cursor"></i><br>
+                        Objekt auswählen
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- xeokit SDK v3 -->
+<script src="https://cdn.jsdelivr.net/npm/@xeokit/xeokit-sdk@3/dist/xeokit-sdk.min.js"></script>
+
+<!-- CAD-Hub Viewer V3 -->
+<script src="{% static 'js/cadhub-viewer-v3.js' %}"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', async function() {
+    // Model data from Django
+    const modelConfig = {
+        id: '{{ model.pk }}',
+        name: '{{ model.name|escapejs }}',
+        xgfUrl: '{{ xgf_url|default:"/media/xgf/model_"|add:model.pk|add:".xgf" }}',
+        datamodelUrl: '{{ datamodel_url|default:"/media/xgf/model_"|add:model.pk|add:".json" }}',
+        ifcUrl: '{{ ifc_url|default:"" }}',
+        format: '{{ format|default:"xgf" }}'
+    };
+    
+    // Initialize Viewer V3
+    const viewer = new CADHubViewerV3({
+        canvasId: 'xeokit-canvas',
+        treeViewId: 'model-tree',
+        propertyPanelId: 'property-panel'
+    });
+    
+    try {
+        await viewer.init();
+        
+        // Load model
+        const loadConfig = {
+            id: modelConfig.id,
+            src: modelConfig.format === 'ifc' ? modelConfig.ifcUrl : modelConfig.xgfUrl,
+            datamodelSrc: modelConfig.datamodelUrl,
+            format: modelConfig.format
+        };
+        
+        await viewer.loadModel(loadConfig);
+        
+        // Update stats
+        document.getElementById('object-count').textContent = 
+            Object.keys(viewer.scene.objects).length;
+        
+    } catch (error) {
+        console.error('Failed to initialize viewer:', error);
+        document.querySelector('.loading-message').textContent = 
+            'Fehler beim Laden: ' + error.message;
+    }
+    
+    // ========== TOOLBAR HANDLERS ==========
+    
+    // Fit to view
+    document.getElementById('btn-fit').onclick = () => viewer.fitToModel();
+    
+    // Reset view
+    document.getElementById('btn-reset').onclick = () => {
+        viewer.showAll();
+        viewer.clearSectionPlanes();
+        viewer.clearSelection();
+        viewer.fitToModel();
+    };
+    
+    // Section planes
+    document.getElementById('btn-section-x').onclick = () => viewer.addSectionPlane('x');
+    document.getElementById('btn-section-y').onclick = () => viewer.addSectionPlane('y');
+    document.getElementById('btn-section-clear').onclick = () => viewer.clearSectionPlanes();
+    
+    // Visibility
+    document.getElementById('btn-isolate').onclick = () => {
+        if (viewer.selectedObjects.length > 0) {
+            viewer.isolateObjects(viewer.selectedObjects);
+        }
+    };
+    
+    document.getElementById('btn-hide').onclick = () => {
+        if (viewer.selectedObjects.length > 0) {
+            viewer.hideObjects(viewer.selectedObjects);
+            viewer.clearSelection();
+        }
+    };
+    
+    document.getElementById('btn-show-all').onclick = () => viewer.showAll();
+    
+    // X-Ray mode
+    let xrayMode = false;
+    document.getElementById('btn-xray').onclick = () => {
+        xrayMode = !xrayMode;
+        if (xrayMode) {
+            viewer.xrayAll(viewer.selectedObjects);
+        } else {
+            viewer.showAll();
+        }
+    };
+    
+    // Save viewpoint
+    document.getElementById('btn-save-viewpoint').onclick = async () => {
+        const viewpoint = viewer.saveBCFViewpoint({ snapshot: true });
+        console.log('BCF Viewpoint:', viewpoint);
+        
+        // TODO: Save to server
+        alert('Viewpoint gespeichert (siehe Console)');
+    };
+    
+    // View buttons
+    document.querySelectorAll('[data-view]').forEach(btn => {
+        btn.onclick = () => viewer.setView(btn.dataset.view);
+    });
+    
+    // ========== EVENT HANDLERS ==========
+    
+    viewer.on('objectSelected', (data) => {
+        document.getElementById('selected-count').textContent = 
+            viewer.selectedObjects.length;
+        
+        // Switch to properties tab
+        const propsTab = document.querySelector('[data-bs-target="#tab-properties"]');
+        if (propsTab) {
+            const tab = new bootstrap.Tab(propsTab);
+            tab.show();
+        }
+    });
+    
+    viewer.on('selectionCleared', () => {
+        document.getElementById('selected-count').textContent = '0';
+    });
+    
+    // Tree search
+    document.getElementById('tree-search').oninput = (e) => {
+        const query = e.target.value.toLowerCase();
+        // TODO: Implement tree filtering
+    };
+    
+    // Make viewer globally accessible for debugging
+    window.viewer = viewer;
+});
+</script>
+{% endblock %}
