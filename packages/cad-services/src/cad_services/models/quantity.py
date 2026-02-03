@@ -65,14 +65,15 @@ class CADQuantity(BaseModel):
     def _validate_invariants(self):
         expected = _EXPECTED_UNITS.get(self.quantity_type)
         if expected is not None and self.unit not in expected:
-            raise ValueError(f"unit '{self.unit}' not allowed for quantity_type '{self.quantity_type}'")
+            raise ValueError(
+                f"unit '{self.unit}' not allowed for quantity_type '{self.quantity_type}'"
+            )
 
         computed_methods = {
             QuantityMethod.COMPUTED_GEOMETRY,
             QuantityMethod.COMPUTED_2D,
             QuantityMethod.COMPUTED_HEURISTIC,
         }
-        if self.method in computed_methods:
-            if self.inputs is None or self.formula is None:
-                raise ValueError("computed quantities require inputs and formula")
+        if self.method in computed_methods and (self.inputs is None or self.formula is None):
+            raise ValueError("computed quantities require inputs and formula")
         return self

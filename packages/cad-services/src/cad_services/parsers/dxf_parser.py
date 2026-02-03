@@ -3,12 +3,12 @@ from __future__ import annotations
 import time
 from pathlib import Path
 
-from .base import BaseParser
 from ..exceptions import CADParseError, CADResourceError
 from ..extractors import DXFExtractor
 from ..mapping import MappingProfile
 from ..models import CADParseResult, CADParseStatistics, SourceFormat
 from ..utils.hash import sha256_file
+from .base import BaseParser
 
 
 class DXFParser(BaseParser):
@@ -21,9 +21,17 @@ class DXFParser(BaseParser):
         try:
             file_size_bytes = file_path.stat().st_size
         except FileNotFoundError as e:
-            raise CADParseError(code="FILE_NOT_FOUND", message="Datei nicht gefunden", file_path=str(file_path)) from e
+            raise CADParseError(
+                code="FILE_NOT_FOUND",
+                message="Datei nicht gefunden",
+                file_path=str(file_path),
+            ) from e
         except PermissionError as e:
-            raise CADParseError(code="FILE_ACCESS_DENIED", message="Kein Zugriff auf Datei", file_path=str(file_path)) from e
+            raise CADParseError(
+                code="FILE_ACCESS_DENIED",
+                message="Kein Zugriff auf Datei",
+                file_path=str(file_path),
+            ) from e
 
         file_size_mb = file_size_bytes / (1024 * 1024)
         if file_size_mb > self.max_file_size_mb:
@@ -39,7 +47,11 @@ class DXFParser(BaseParser):
             doc = ezdxf.readfile(str(file_path))
             msp = doc.modelspace()
         except Exception as e:
-            raise CADParseError(code="DXF_PARSE_FAILED", message=f"Ungültige DXF-Datei: {e}", file_path=str(file_path)) from e
+            raise CADParseError(
+                code="DXF_PARSE_FAILED",
+                message=f"Ungültige DXF-Datei: {e}",
+                file_path=str(file_path),
+            ) from e
 
         extractor = DXFExtractor(profile=self.profile)
         elements = extractor.extract(msp)

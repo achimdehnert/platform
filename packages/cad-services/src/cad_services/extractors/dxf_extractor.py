@@ -20,7 +20,7 @@ def _polygon_area(points: list[tuple[float, float]]) -> float:
         return 0.0
 
     area = 0.0
-    for (x1, y1), (x2, y2) in zip(points, points[1:] + [points[0]]):
+    for (x1, y1), (x2, y2) in zip(points, points[1:] + [points[0]], strict=False):
         area += x1 * y2 - x2 * y1
     return abs(area) / 2.0
 

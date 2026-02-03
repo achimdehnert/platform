@@ -1,7 +1,7 @@
 import pytest
 
-from cad_services.parsers import DXFParser
 from cad_services.models import SourceFormat
+from cad_services.parsers import DXFParser
 
 
 def test_dxf_parser_parses_minimal(tmp_path):

@@ -30,7 +30,12 @@ dependencies = [
 ifc = ["ifcopenshell"]
 dev = [
     "pytest>=8.0",
+    "pytest-cov>=4.0",
     "ruff>=0.1",
+]
+report = [
+    "reportlab>=4.0",
+    "openpyxl>=3.1",
 ]
 
 [tool.hatch.build.targets.wheel]
@@ -39,10 +44,72 @@ packages = ["src/cad_services"]
 [tool.ruff]
 line-length = 100
 target-version = "py311"
+src = ["src"]
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "migrations",
+    "*.pyc",
+]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "N", "W"]
+select = [
+    "F",      # pyflakes (unused imports, undefined names)
+    "B",      # flake8-bugbear (real bugs like B904)
+    "SIM",    # flake8-simplify (cleaner code)
+]
+ignore = [
+    "B008",   # function calls in defaults (OK for FastAPI Depends)
+]
+
+[tool.ruff.lint.per-file-ignores]
+"__init__.py" = ["F401"]  # unused imports in __init__ are OK
+"tests/*" = ["S101"]      # assert in tests is OK
+
+[tool.ruff.lint.isort]
+known-first-party = ["cad_services"]
+force-single-line = false
+lines-after-imports = 2
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+[tool.black]
+line-length = 100
+target-version = ["py311"]
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.venv
+  | __pycache__
+  | migrations
+)/
+'''
 
 [tool.pytest.ini_options]
 python_files = ["test_*.py"]
 testpaths = ["tests"]
+addopts = "-v --tb=short"
+
+[tool.coverage.run]
+source = ["src/cad_services"]
+branch = true
+omit = [
+    "*/migrations/*",
+    "*/__pycache__/*",
+    "*/tests/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "raise NotImplementedError",
+]
+fail_under = 60
+show_missing = true

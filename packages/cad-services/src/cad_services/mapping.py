@@ -28,11 +28,11 @@ class MappingProfile(BaseModel):
     property_aliases: dict[str, str] = Field(default_factory=dict)
 
     @classmethod
-    def default(cls) -> "MappingProfile":
+    def default(cls) -> MappingProfile:
         return cls.default_de()
 
     @classmethod
-    def default_de(cls) -> "MappingProfile":
+    def default_de(cls) -> MappingProfile:
         return cls(
             name="default_de",
             layer_mappings=[
@@ -44,7 +44,7 @@ class MappingProfile(BaseModel):
         )
 
     @classmethod
-    def from_json(cls, path: Path) -> "MappingProfile":
+    def from_json(cls, path: Path) -> MappingProfile:
         data = json.loads(path.read_text(encoding="utf-8"))
         return cls.model_validate(data)
 

@@ -1,0 +1,305 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  REUSABLE SECURITY SCAN WORKFLOW                                           ║
+# ║  Platform Repository: achimdehnert/platform                                ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# Usage in app repository:
+#   jobs:
+#     security:
+#       uses: achimdehnert/platform/.github/workflows/_security-scan.yml@v1
+#       secrets: inherit
+
+name: _Security Scan
+
+on:
+  workflow_call:
+    inputs:
+      scan_filesystem:
+        description: 'Run Trivy filesystem scan'
+        required: false
+        default: true
+        type: boolean
+      scan_secrets:
+        description: 'Run Gitleaks secret scan'
+        required: false
+        default: true
+        type: boolean
+      scan_dependencies:
+        description: 'Run Safety dependency scan'
+        required: false
+        default: true
+        type: boolean
+      scan_image:
+        description: 'Scan container image'
+        required: false
+        default: false
+        type: boolean
+      image_ref:
+        description: 'Container image to scan (required if scan_image=true)'
+        required: false
+        default: ''
+        type: string
+      severity:
+        description: 'Severity threshold (CRITICAL,HIGH,MEDIUM,LOW)'
+        required: false
+        default: 'CRITICAL,HIGH'
+        type: string
+      fail_on_vulnerability:
+        description: 'Fail workflow if vulnerabilities found'
+        required: false
+        default: false
+        type: boolean
+      requirements_file:
+        description: 'Path to requirements file for Safety scan'
+        required: false
+        default: 'requirements.txt'
+        type: string
+
+    outputs:
+      vulnerabilities_found:
+        description: 'Whether vulnerabilities were found'
+        value: ${{ jobs.aggregate.outputs.vulnerabilities_found }}
+      critical_count:
+        description: 'Number of critical vulnerabilities'
+        value: ${{ jobs.aggregate.outputs.critical_count }}
+      high_count:
+        description: 'Number of high vulnerabilities'
+        value: ${{ jobs.aggregate.outputs.high_count }}
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # TRIVY - Filesystem & Container Scan
+  # ═══════════════════════════════════════════════════════════════════════════
+  trivy:
+    name: "🔍 Trivy Scan"
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scan_filesystem || inputs.scan_image }}
+    outputs:
+      vulnerabilities: ${{ steps.count.outputs.vulnerabilities }}
+      critical: ${{ steps.count.outputs.critical }}
+      high: ${{ steps.count.outputs.high }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Trivy Filesystem Scan
+        if: ${{ inputs.scan_filesystem }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-fs-results.sarif'
+          severity: ${{ inputs.severity }}
+          ignore-unfixed: true
+
+      - name: Trivy Image Scan
+        if: ${{ inputs.scan_image && inputs.image_ref != '' }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'image'
+          image-ref: ${{ inputs.image_ref }}
+          format: 'sarif'
+          output: 'trivy-image-results.sarif'
+          severity: ${{ inputs.severity }}
+          ignore-unfixed: true
+
+      - name: Trivy JSON Report (for counting)
+        if: ${{ inputs.scan_filesystem }}
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'json'
+          output: 'trivy-results.json'
+          severity: ${{ inputs.severity }}
+
+      - name: Count Vulnerabilities
+        id: count
+        run: |
+          if [ -f trivy-results.json ]; then
+            CRITICAL=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length' trivy-results.json 2>/dev/null || echo "0")
+            HIGH=$(jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length' trivy-results.json 2>/dev/null || echo "0")
+            TOTAL=$((CRITICAL + HIGH))
+            
+            echo "critical=$CRITICAL" >> $GITHUB_OUTPUT
+            echo "high=$HIGH" >> $GITHUB_OUTPUT
+            echo "vulnerabilities=$TOTAL" >> $GITHUB_OUTPUT
+            
+            echo "## 🔍 Trivy Scan Results" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "critical=0" >> $GITHUB_OUTPUT
+            echo "high=0" >> $GITHUB_OUTPUT
+            echo "vulnerabilities=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload to GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always() && inputs.scan_filesystem
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-fs-results.sarif'
+
+      - name: Upload Trivy Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: trivy-results
+          path: |
+            trivy-*.sarif
+            trivy-results.json
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # GITLEAKS - Secret Detection
+  # ═══════════════════════════════════════════════════════════════════════════
+  gitleaks:
+    name: "🔐 Secret Scan"
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scan_secrets }}
+    outputs:
+      secrets_found: ${{ steps.scan.outputs.secrets_found }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for thorough scan
+
+      - name: Gitleaks Scan
+        id: scan
+        uses: gitleaks/gitleaks-action@v2
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set Output
+        run: |
+          if [ "${{ steps.scan.outcome }}" == "failure" ]; then
+            echo "secrets_found=true" >> $GITHUB_OUTPUT
+            echo "::error::Potential secrets detected in repository!"
+          else
+            echo "secrets_found=false" >> $GITHUB_OUTPUT
+          fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # SAFETY - Python Dependency Vulnerabilities
+  # ═══════════════════════════════════════════════════════════════════════════
+  safety:
+    name: "🐍 Dependency Scan"
+    runs-on: ubuntu-latest
+    if: ${{ inputs.scan_dependencies }}
+    outputs:
+      vulnerabilities: ${{ steps.scan.outputs.vulnerabilities }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Safety
+        run: pip install safety
+
+      - name: Safety Check
+        id: scan
+        run: |
+          if [ -f "${{ inputs.requirements_file }}" ]; then
+            # Run safety and capture output
+            safety check --file ${{ inputs.requirements_file }} --json --output safety-report.json || true
+            
+            if [ -f safety-report.json ]; then
+              VULN_COUNT=$(jq 'length' safety-report.json 2>/dev/null || echo "0")
+              echo "vulnerabilities=$VULN_COUNT" >> $GITHUB_OUTPUT
+              
+              if [ "$VULN_COUNT" -gt 0 ]; then
+                echo "::warning::Found $VULN_COUNT vulnerable dependencies"
+              fi
+            else
+              echo "vulnerabilities=0" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "Requirements file not found: ${{ inputs.requirements_file }}"
+            echo "vulnerabilities=0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Upload Safety Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: safety-report
+          path: safety-report.json
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # AGGREGATE RESULTS
+  # ═══════════════════════════════════════════════════════════════════════════
+  aggregate:
+    name: "📊 Security Summary"
+    needs: [trivy, gitleaks, safety]
+    if: always()
+    runs-on: ubuntu-latest
+    outputs:
+      vulnerabilities_found: ${{ steps.summary.outputs.vulnerabilities_found }}
+      critical_count: ${{ steps.summary.outputs.critical_count }}
+      high_count: ${{ steps.summary.outputs.high_count }}
+
+    steps:
+      - name: Aggregate Results
+        id: summary
+        run: |
+          TRIVY_VULNS="${{ needs.trivy.outputs.vulnerabilities || '0' }}"
+          TRIVY_CRITICAL="${{ needs.trivy.outputs.critical || '0' }}"
+          TRIVY_HIGH="${{ needs.trivy.outputs.high || '0' }}"
+          SECRETS="${{ needs.gitleaks.outputs.secrets_found || 'false' }}"
+          SAFETY_VULNS="${{ needs.safety.outputs.vulnerabilities || '0' }}"
+          
+          TOTAL_VULNS=$((TRIVY_VULNS + SAFETY_VULNS))
+          
+          if [ "$TOTAL_VULNS" -gt 0 ] || [ "$SECRETS" == "true" ]; then
+            echo "vulnerabilities_found=true" >> $GITHUB_OUTPUT
+          else
+            echo "vulnerabilities_found=false" >> $GITHUB_OUTPUT
+          fi
+          
+          echo "critical_count=$TRIVY_CRITICAL" >> $GITHUB_OUTPUT
+          echo "high_count=$TRIVY_HIGH" >> $GITHUB_OUTPUT
+          
+          # Create summary
+          echo "## 🛡️ Security Scan Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          
+          if [ "$TRIVY_VULNS" -gt 0 ]; then
+            echo "| Trivy | ⚠️ | $TRIVY_CRITICAL critical, $TRIVY_HIGH high |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Trivy | ✅ | No vulnerabilities |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "$SECRETS" == "true" ]; then
+            echo "| Gitleaks | ❌ | Secrets detected |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Gitleaks | ✅ | No secrets found |" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          if [ "$SAFETY_VULNS" -gt 0 ]; then
+            echo "| Safety | ⚠️ | $SAFETY_VULNS vulnerable packages |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "| Safety | ✅ | Dependencies secure |" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Fail if Required
+        if: ${{ inputs.fail_on_vulnerability && steps.summary.outputs.vulnerabilities_found == 'true' }}
+        run: |
+          echo "::error::Security vulnerabilities detected!"
+          exit 1

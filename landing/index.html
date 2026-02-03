@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CAD-Hub - BIM-Analyse Platform</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏗️</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <a href="/" class="logo">🏗️ CAD-Hub</a>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#pricing">Preise</a>
+                <a href="#about">Über uns</a>
+                <a href="login.html" class="btn btn-secondary">Login</a>
+                <a href="register.html" class="btn btn-primary">Kostenlos testen</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <h1>BIM-Analyse<br><span class="gradient-text">intelligent & automatisiert</span></h1>
+                <p class="hero-subtitle">
+                    IFC-Dateien analysieren, Fensterlisten erstellen, DIN 277 Flächen berechnen.
+                    Alles in einer Plattform.
+                </p>
+                <div class="hero-buttons">
+                    <a href="register.html" class="btn btn-primary btn-lg">Kostenlos starten</a>
+                    <a href="#demo" class="btn btn-outline btn-lg">Demo ansehen</a>
+                </div>
+                <div class="hero-stats">
+                    <div class="stat">
+                        <span class="stat-value">50+</span>
+                        <span class="stat-label">Projekte analysiert</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">10.000+</span>
+                        <span class="stat-label">Räume erfasst</span>
+                    </div>
+                    <div class="stat">
+                        <span class="stat-value">99.9%</span>
+                        <span class="stat-label">Uptime</span>
+                    </div>
+                </div>
+            </div>
+            <div class="hero-visual">
+                <div class="hero-card">
+                    <div class="card-header">
+                        <span class="dot red"></span>
+                        <span class="dot yellow"></span>
+                        <span class="dot green"></span>
+                        <span class="card-title">IFC-Analyse</span>
+                    </div>
+                    <div class="card-content">
+                        <div class="analysis-item">
+                            <span class="icon">📊</span>
+                            <div>
+                                <strong>DIN 277 Berechnung</strong>
+                                <p>Automatische Flächenermittlung</p>
+                            </div>
+                            <span class="badge success">✓ Fertig</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="icon">🪟</span>
+                            <div>
+                                <strong>Fensterliste</strong>
+                                <p>47 Fenster, 89.5 m²</p>
+                            </div>
+                            <span class="badge success">✓ Fertig</span>
+                        </div>
+                        <div class="analysis-item">
+                            <span class="icon">🚪</span>
+                            <div>
+                                <strong>Türliste</strong>
+                                <p>32 Türen exportiert</p>
+                            </div>
+                            <span class="badge success">✓ Fertig</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="features">
+        <div class="container">
+            <h2 class="section-title">Leistungsstarke BIM-Analyse</h2>
+            <p class="section-subtitle">Alles was Sie für professionelle Gebäudeanalyse brauchen</p>
+            
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">📁</div>
+                    <h3>IFC-Import</h3>
+                    <p>Laden Sie IFC-Dateien hoch und erhalten Sie sofort eine vollständige Analyse aller Gebäudeelemente.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📊</div>
+                    <h3>DIN 277 Berechnung</h3>
+                    <p>Automatische Flächenberechnung nach DIN 277 mit NUF, TF, VF und NGF Aufschlüsselung.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏠</div>
+                    <h3>WoFlV Berechnung</h3>
+                    <p>Wohnflächenberechnung nach WoFlV mit korrekten Anrechnungsfaktoren.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🪟</div>
+                    <h3>Fensterlisten</h3>
+                    <p>Detaillierte Fensterlisten mit Maßen, U-Werten und Materialangaben.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🚪</div>
+                    <h3>Türlisten</h3>
+                    <p>Vollständige Türlisten mit allen relevanten Eigenschaften.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">📤</div>
+                    <h3>Excel-Export</h3>
+                    <p>Exportieren Sie alle Analysen als Excel-Dateien für die Weiterverarbeitung.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Pricing Section -->
+    <section id="pricing" class="pricing">
+        <div class="container">
+            <h2 class="section-title">Transparente Preise</h2>
+            <p class="section-subtitle">Wählen Sie den Plan, der zu Ihnen passt</p>
+            
+            <div class="pricing-grid">
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Free</h3>
+                        <div class="price">€0<span>/Monat</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>✓ 2 Benutzer</li>
+                        <li>✓ 1 GB Speicher</li>
+                        <li>✓ 5 Projekte</li>
+                        <li>✓ Basis-Analysen</li>
+                        <li class="disabled">✗ Excel-Export</li>
+                        <li class="disabled">✗ API-Zugang</li>
+                    </ul>
+                    <a href="register.html" class="btn btn-outline">Kostenlos starten</a>
+                </div>
+                
+                <div class="pricing-card featured">
+                    <div class="pricing-badge">Beliebt</div>
+                    <div class="pricing-header">
+                        <h3>Professional</h3>
+                        <div class="price">€149<span>/Monat</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>✓ 25 Benutzer</li>
+                        <li>✓ 100 GB Speicher</li>
+                        <li>✓ Unbegrenzte Projekte</li>
+                        <li>✓ Alle Analysen</li>
+                        <li>✓ Excel-Export</li>
+                        <li>✓ API-Zugang</li>
+                    </ul>
+                    <a href="register.html" class="btn btn-primary">Jetzt starten</a>
+                </div>
+                
+                <div class="pricing-card">
+                    <div class="pricing-header">
+                        <h3>Enterprise</h3>
+                        <div class="price">€499<span>/Monat</span></div>
+                    </div>
+                    <ul class="pricing-features">
+                        <li>✓ Unbegrenzte Benutzer</li>
+                        <li>✓ 1 TB Speicher</li>
+                        <li>✓ Unbegrenzte Projekte</li>
+                        <li>✓ Alle Analysen</li>
+                        <li>✓ Prioritäts-Support</li>
+                        <li>✓ On-Premise Option</li>
+                    </ul>
+                    <a href="contact.html" class="btn btn-outline">Kontakt</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="cta">
+        <div class="container">
+            <h2>Bereit für effizientere BIM-Analyse?</h2>
+            <p>Starten Sie noch heute kostenlos und erleben Sie, wie einfach Gebäudeanalyse sein kann.</p>
+            <a href="register.html" class="btn btn-primary btn-lg">Kostenlos starten</a>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <a href="/" class="logo">🏗️ CAD-Hub</a>
+                    <p>BIM-Analyse Platform für Architekten und Planer.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Produkt</h4>
+                    <a href="#features">Features</a>
+                    <a href="#pricing">Preise</a>
+                    <a href="api.html">API</a>
+                </div>
+                <div class="footer-links">
+                    <h4>Rechtliches</h4>
+                    <a href="privacy.html">Datenschutz</a>
+                    <a href="terms.html">AGB</a>
+                    <a href="imprint.html">Impressum</a>
+                </div>
+                <div class="footer-links">
+                    <h4>Kontakt</h4>
+                    <a href="mailto:info@cad-hub.de">info@cad-hub.de</a>
+                    <a href="support.html">Support</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2026 CAD-Hub. Alle Rechte vorbehalten.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

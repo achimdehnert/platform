@@ -1,6 +1,4 @@
-from .version import __version__
 from .calculators import BaseCalculator, FootprintAreaQuantityRule, QuantityEngine, QuantityRule
-from .pipeline import run_pipeline
 from .exceptions import CADError, CADParseError, CADResourceError, CADSecurityError
 from .extractors import BaseExtractor, DXFExtractor, IFCExtractor
 from .mapping import LayerMapping, MappingProfile
@@ -20,9 +18,12 @@ from .models import (
     SourceFormat,
 )
 from .parsers import BaseParser, DXFParser, IFCParser
+from .pipeline import run_pipeline
 from .repositories import FileProfileRepository, MappingProfileRepository
 from .utils.hash import sha256_file
 from .utils.path_validation import validate_file_path
+from .version import __version__
+
 
 __all__ = [
     "__version__",

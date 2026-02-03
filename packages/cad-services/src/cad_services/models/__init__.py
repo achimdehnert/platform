@@ -5,6 +5,7 @@ from .parse_result import CADParseResult, CADParseStatistics, CADWarning
 from .property import CADProperty, PropertySource
 from .quantity import CADQuantity, QuantityMethod, QuantityType
 
+
 __all__ = [
     "CADElement",
     "ElementCategory",

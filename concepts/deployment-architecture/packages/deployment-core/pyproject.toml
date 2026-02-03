@@ -1,0 +1,82 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "deployment-core"
+version = "0.1.0"
+description = "Shared deployment utilities for BF Agent Platform"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+authors = [
+    { name = "Achim Dehnert", email = "achim@example.com" },
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: System :: Systems Administration",
+]
+keywords = ["deployment", "devops", "ci-cd", "hetzner", "docker"]
+
+dependencies = [
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "structlog>=23.1.0",
+]
+
+[project.optional-dependencies]
+anthropic = [
+    "anthropic>=0.18.0",
+]
+notifications = [
+    "slack-sdk>=3.21.0",
+]
+all = [
+    "deployment-core[anthropic,notifications]",
+]
+dev = [
+    "deployment-core[all]",
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "respx>=0.20.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/achimdehnert/platform"
+Documentation = "https://docs.iil.pet/platform/"
+Repository = "https://github.com/achimdehnert/platform"
+
+[project.scripts]
+deploy-health = "deployment_core.cli:health_check"
+deploy-analyze = "deployment_core.cli:analyze_error"
+
+[tool.hatch.build.targets.wheel]
+packages = ["deployment_core"]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP", "B", "C4", "SIM"]
+ignore = ["E501"]
+
+[tool.mypy]
+python_version = "3.10"
+strict = true
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --cov=deployment_core --cov-report=term-missing"

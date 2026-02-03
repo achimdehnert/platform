@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tenant-Verwaltung - Platform Admin</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏢</text></svg>">
+    <link rel="stylesheet" href="styles.css">
+    <script src="admin.js" defer></script>
+</head>
+<body>
+    <div class="admin-banner">
+        <strong>👑 Admin-Bereich</strong> - Vollzugriff auf alle Systemfunktionen
+    </div>
+    
+    <header class="header">
+        <div class="header-logo">Platform <span class="admin-badge">ADMIN</span></div>
+        <nav class="header-nav">
+            <button class="logout-btn" onclick="location.href='/'">Abmelden</button>
+        </nav>
+    </header>
+    
+    <div class="main">
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <div class="sidebar-title">Verwaltung</div>
+                <nav class="sidebar-menu">
+                    <a href="index.html">📊 Dashboard</a>
+                    <a href="tenants.html" class="active">🏢 Tenants</a>
+                    <a href="users.html">👥 Benutzer</a>
+                    <a href="plans.html">💎 Pläne</a>
+                    <a href="roles.html">🔐 Rollen</a>
+                </nav>
+            </div>
+            <div class="sidebar-section">
+                <div class="sidebar-title">System</div>
+                <nav class="sidebar-menu">
+                    <a href="services.html">🖥️ Services</a>
+                    <a href="deployments.html">🚀 Deployments</a>
+                    <a href="logs.html">📋 Logs</a>
+                    <a href="settings.html">⚙️ Einstellungen</a>
+                </nav>
+            </div>
+        </aside>
+        
+        <main class="content">
+            <div class="content-header">
+                <h1>🏢 Tenant-Verwaltung</h1>
+                <p>Alle registrierten Tenants und deren Abonnements</p>
+            </div>
+            
+            <div class="toolbar">
+                <button class="btn btn-primary" onclick="Admin.createTenant()">+ Neuer Tenant</button>
+                <button class="btn btn-secondary" onclick="Admin.exportTenants()">📤 Export CSV</button>
+            </div>
+            
+            <div class="filter-bar">
+                <select id="planFilter" title="Nach Plan filtern" onchange="Admin.filterTenants()">
+                    <option value="">Alle Pläne</option>
+                    <option value="free">Free</option>
+                    <option value="starter">Starter</option>
+                    <option value="professional">Professional</option>
+                    <option value="enterprise">Enterprise</option>
+                </select>
+                <select id="statusFilter" title="Nach Status filtern" onchange="Admin.filterTenants()">
+                    <option value="">Alle Status</option>
+                    <option value="active">Aktiv</option>
+                    <option value="suspended">Gesperrt</option>
+                    <option value="deleted">Gelöscht</option>
+                </select>
+                <input type="text" id="searchInput" placeholder="Suche nach Tenant..." 
+                       class="search-input" oninput="Admin.filterTenants()">
+            </div>
+            
+            <div class="card">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Tenant</th>
+                            <th>Slug</th>
+                            <th>Plan</th>
+                            <th>Benutzer</th>
+                            <th>Status</th>
+                            <th>Erstellt</th>
+                            <th>Aktionen</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tenant-table-body">
+                        <!-- Dynamisch geladen -->
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class="pagination">
+                <span id="pagination-info">Zeige 0 Tenants</span>
+                <div class="pagination-buttons" id="pagination-buttons">
+                    <!-- Dynamisch geladen -->
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <!-- Modal Container -->
+    <div id="modal-container"></div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            Admin.init();
+            Admin.loadTenants();
+        });
+    </script>
+</body>
+</html>

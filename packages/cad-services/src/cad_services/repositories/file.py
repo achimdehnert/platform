@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from .base import MappingProfileRepository
 from ..mapping import MappingProfile
+from .base import MappingProfileRepository
 
 
 class FileProfileRepository(MappingProfileRepository):

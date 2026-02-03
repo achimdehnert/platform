@@ -1,7 +1,5 @@
 import json
 
-import pytest
-
 from cad_services.mapping import LayerMapping, MappingProfile
 from cad_services.models import ElementCategory
 
