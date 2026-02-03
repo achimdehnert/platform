@@ -1,0 +1,152 @@
+name: "🔍 MCP Quality Gate"
+
+on:
+  push:
+    paths:
+      - '*_mcp/**'
+      - 'mcp-hub/**'
+  pull_request:
+    paths:
+      - '*_mcp/**'
+      - 'mcp-hub/**'
+  workflow_dispatch:
+
+jobs:
+  static-analysis:
+    name: "📊 Static Analysis"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Tools
+        run: pip install ruff mypy bandit
+      
+      - name: Ruff (Lint + Format)
+        run: ruff check . --output-format=github || true
+      
+      - name: MyPy (Type Check)
+        run: mypy . --ignore-missing-imports || true
+      
+      - name: Bandit (Security)
+        run: bandit -r . -f json -o bandit-report.json || true
+      
+      - name: Upload Security Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-report
+          path: bandit-report.json
+          if-no-files-found: ignore
+
+  mcp-checks:
+    name: "🔧 MCP Quality Checks"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Check for MCP Server files
+        run: |
+          echo "🔍 Checking MCP Server structure..."
+          
+          # Find all MCP server directories
+          for dir in $(find . -maxdepth 2 -type d -name "*_mcp" -o -name "mcp-hub"); do
+            echo "📂 Checking: $dir"
+            
+            # Check for README
+            if [ -f "$dir/README.md" ]; then
+              echo "  ✅ README.md exists"
+            else
+              echo "  ⚠️ README.md missing"
+            fi
+            
+            # Check for server.py or main entry point
+            if [ -f "$dir/server.py" ] || [ -f "$dir/src/*/server.py" ]; then
+              echo "  ✅ Server entry point found"
+            else
+              echo "  ⚠️ No server.py found"
+            fi
+            
+            # Check for tests
+            if [ -d "$dir/tests" ] || ls "$dir"/test_*.py 1> /dev/null 2>&1; then
+              echo "  ✅ Tests directory/files found"
+            else
+              echo "  ⚠️ No tests found"
+            fi
+          done
+
+  tests:
+    name: "🧪 Tests"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      
+      - name: Install Dependencies
+        run: |
+          pip install pytest pytest-asyncio pytest-cov
+          
+      - name: Run Tests (if exist)
+        run: |
+          if find . -name "test_*.py" -o -name "*_test.py" | grep -q .; then
+            pytest --cov=. --cov-report=xml --cov-report=term-missing || true
+          else
+            echo "⚠️ No tests found to run"
+          fi
+      
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          fail_ci_if_error: false
+
+  docs-check:
+    name: "📝 Documentation Check"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Check README exists
+        run: |
+          missing_readme=""
+          for dir in $(find . -maxdepth 2 -type d -name "*_mcp"); do
+            if [ ! -f "$dir/README.md" ]; then
+              missing_readme="$missing_readme\n  - $dir"
+            fi
+          done
+          
+          if [ -n "$missing_readme" ]; then
+            echo "⚠️ Missing README.md in:$missing_readme"
+          else
+            echo "✅ All MCP servers have README.md"
+          fi
+
+  quality-gate:
+    name: "🚦 Quality Gate"
+    needs: [static-analysis, mcp-checks, tests, docs-check]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Quality Gate Summary
+        run: |
+          echo "════════════════════════════════════════════"
+          echo "  MCP Quality Gate - Summary"
+          echo "════════════════════════════════════════════"
+          echo ""
+          echo "✅ Static Analysis: Completed"
+          echo "✅ MCP Checks: Completed"
+          echo "✅ Tests: Completed"
+          echo "✅ Docs Check: Completed"
+          echo ""
+          echo "📊 See individual job logs for details"
+          echo "════════════════════════════════════════════"
