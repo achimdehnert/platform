@@ -1,0 +1,80 @@
+{% extends "cadhub/base.html" %}
+
+{% block title %}Projekte - CAD-Hub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Projekte</h1>
+    <a href="{% url 'cadhub:project-create' %}" class="btn btn-primary">
+        <i class="bi bi-plus"></i> Neues Projekt
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="form-label">Suche</label>
+                <input type="text" name="q" class="form-control" 
+                       placeholder="Projektname..." value="{{ request.GET.q }}">
+            </div>
+            <div class="col-md-3">
+                <label class="form-label" for="status-filter">Status</label>
+                <select name="status" id="status-filter" class="form-select" aria-label="Status Filter">
+                    <option value="">Alle</option>
+                    <option value="active" {% if request.GET.status == 'active' %}selected{% endif %}>
+                        Aktiv
+                    </option>
+                    <option value="archived" {% if request.GET.status == 'archived' %}selected{% endif %}>
+                        Archiviert
+                    </option>
+                </select>
+            </div>
+            <div class="col-md-2">
+                <button type="submit" class="btn btn-outline-primary w-100">
+                    <i class="bi bi-search"></i> Filtern
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Project List -->
+<div class="card">
+    <div class="card-body p-0">
+        <div id="project-list">
+            {% include "cadhub/projects/partials/project_list.html" %}
+        </div>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}" title="Vorherige Seite" aria-label="Vorherige Seite">
+                <i class="bi bi-chevron-left" aria-hidden="true"></i>
+            </a>
+        </li>
+        {% endif %}
+        
+        {% for num in page_obj.paginator.page_range %}
+        <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+            <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+        </li>
+        {% endfor %}
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}" title="Nächste Seite" aria-label="Nächste Seite">
+                <i class="bi bi-chevron-right" aria-hidden="true"></i>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

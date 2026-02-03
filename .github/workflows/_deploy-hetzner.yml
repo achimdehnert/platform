@@ -1,0 +1,352 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  REUSABLE WORKFLOW: Hetzner VM Deployment                                  ║
+# ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: Deploy to Hetzner
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        description: 'Application name'
+        required: true
+        type: string
+      deploy_path:
+        description: 'Deployment directory on server'
+        required: true
+        type: string
+      health_url:
+        description: 'Health check URL'
+        required: true
+        type: string
+      compose_file:
+        description: 'Docker Compose file name'
+        required: false
+        default: 'docker-compose.prod.yml'
+        type: string
+      env_file:
+        description: 'Environment file name'
+        required: false
+        default: '.env.prod'
+        type: string
+      image_tag:
+        description: 'Docker image tag to deploy'
+        required: false
+        default: ''
+        type: string
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'production'
+        type: string
+      health_check_retries:
+        description: 'Number of health check retries'
+        required: false
+        default: 10
+        type: number
+      health_check_interval:
+        description: 'Seconds between health checks'
+        required: false
+        default: 10
+        type: number
+      enable_auto_healer:
+        description: 'Enable AI-powered error analysis'
+        required: false
+        default: false
+        type: boolean
+      enable_rollback:
+        description: 'Enable automatic rollback on failure'
+        required: false
+        default: true
+        type: boolean
+      run_migrations:
+        description: 'Run database migrations'
+        required: false
+        default: true
+        type: boolean
+      notify_slack:
+        description: 'Send Slack notifications'
+        required: false
+        default: false
+        type: boolean
+    secrets:
+      HETZNER_HOST:
+        required: true
+      HETZNER_USER:
+        required: true
+      HETZNER_SSH_KEY:
+        required: true
+      ANTHROPIC_API_KEY:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # PREPARE: Acquire lock, save state
+  # ─────────────────────────────────────────────────────────────────────────
+  prepare:
+    name: "Prepare"
+    runs-on: ubuntu-latest
+    outputs:
+      previous_tag: ${{ steps.state.outputs.previous_tag }}
+      deployment_id: ${{ steps.state.outputs.deployment_id }}
+      lock_acquired: ${{ steps.lock.outputs.acquired }}
+    steps:
+      - name: Acquire deployment lock
+        id: lock
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            LOCK_FILE="${{ inputs.deploy_path }}/.deploy.lock"
+            
+            # Check for existing lock
+            if [ -f "$LOCK_FILE" ]; then
+              LOCK_AGE=$(($(date +%s) - $(stat -c %Y "$LOCK_FILE" 2>/dev/null || echo 0)))
+              if [ $LOCK_AGE -lt 600 ]; then
+                echo "❌ Deployment in progress (lock age: ${LOCK_AGE}s)"
+                exit 1
+              fi
+              echo "⚠️ Stale lock detected (${LOCK_AGE}s), removing"
+            fi
+            
+            # Acquire lock
+            echo "${{ github.sha }}" > "$LOCK_FILE"
+            echo "acquired=true"
+
+      - name: Capture current state
+        id: state
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd ${{ inputs.deploy_path }}
+            
+            # Get current image tag
+            APP_ENV=$(echo "${{ inputs.app_name }}" | tr '[:lower:]-' '[:upper:]_')
+            PREV_TAG=$(grep "${APP_ENV}_IMAGE_TAG" ${{ inputs.env_file }} 2>/dev/null | cut -d= -f2 || echo "unknown")
+            
+            # Generate deployment ID
+            DEPLOY_ID="${{ inputs.app_name }}-$(date +%Y%m%d%H%M%S)"
+            
+            echo "previous_tag=$PREV_TAG"
+            echo "deployment_id=$DEPLOY_ID"
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # DEPLOY: Rolling update
+  # ─────────────────────────────────────────────────────────────────────────
+  deploy:
+    name: "Deploy"
+    needs: [prepare]
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    outputs:
+      deployed_tag: ${{ steps.deploy.outputs.tag }}
+      previous_tag: ${{ needs.prepare.outputs.previous_tag }}
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${GITHUB_SHA::7}" >> $GITHUB_OUTPUT
+          fi
+      
+      - name: Backup current state
+        id: backup
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd ${{ inputs.deploy_path }}
+            
+            # Save current image tag
+            CURRENT_TAG=$(grep -oP 'IMAGE_TAG=\K.*' ${{ inputs.env_file }} 2>/dev/null || echo "unknown")
+            echo "previous_tag=$CURRENT_TAG" >> /tmp/deploy_state
+            
+            # Backup database (if postgres container exists)
+            if docker ps --format '{{.Names}}' | grep -q '_db'; then
+              DB_CONTAINER=$(docker ps --format '{{.Names}}' | grep '_db' | head -1)
+              docker exec $DB_CONTAINER pg_dumpall -U postgres > /tmp/pre_deploy_backup.sql 2>/dev/null || true
+            fi
+            
+            echo "Backup completed. Previous tag: $CURRENT_TAG"
+      
+      - name: Deploy
+        id: deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd ${{ inputs.deploy_path }}
+            
+            # Update image tag (app name converted to ENV format)
+            APP_ENV_NAME=$(echo "${{ inputs.app_name }}" | tr '[:lower:]-' '[:upper:]_')
+            sed -i "s/^.*IMAGE_TAG=.*/${APP_ENV_NAME}_IMAGE_TAG=${{ steps.tag.outputs.tag }}/" ${{ inputs.env_file }}
+            
+            # Pull new images
+            docker compose -f ${{ inputs.compose_file }} pull
+            
+            # Rolling update
+            docker compose -f ${{ inputs.compose_file }} up -d --remove-orphans
+            
+            # Log deployment
+            echo '{"timestamp":"'$(date -Iseconds)'","app":"${{ inputs.app_name }}","tag":"${{ steps.tag.outputs.tag }}","commit":"${{ github.sha }}","actor":"${{ github.actor }}"}' >> deployments.log
+            
+            echo "tag=${{ steps.tag.outputs.tag }}" >> $GITHUB_OUTPUT
+      
+      - name: Run migrations
+        if: ${{ inputs.run_migrations }}
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd ${{ inputs.deploy_path }}
+            
+            # Wait for containers to be ready
+            sleep 10
+            
+            # Find web container and run migrations
+            WEB_CONTAINER=$(docker ps --format '{{.Names}}' | grep -E '_web$' | head -1)
+            if [ -n "$WEB_CONTAINER" ]; then
+              docker exec $WEB_CONTAINER python manage.py migrate --noinput || true
+              docker exec $WEB_CONTAINER python manage.py collectstatic --noinput || true
+            fi
+
+  verify:
+    name: "Health Check"
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    outputs:
+      healthy: ${{ steps.health.outputs.healthy }}
+    
+    steps:
+      - name: Wait for startup
+        run: sleep 15
+      
+      - name: Health check
+        id: health
+        run: |
+          RETRIES=${{ inputs.health_check_retries }}
+          INTERVAL=${{ inputs.health_check_interval }}
+          
+          for i in $(seq 1 $RETRIES); do
+            echo "Health check attempt $i/$RETRIES..."
+            
+            HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' "${{ inputs.health_url }}" || echo "000")
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Health check passed (HTTP $HTTP_CODE)"
+              echo "healthy=true" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            echo "❌ Health check failed (HTTP $HTTP_CODE)"
+            sleep $INTERVAL
+          done
+          
+          echo "healthy=false" >> $GITHUB_OUTPUT
+          exit 1
+
+  rollback:
+    name: "Rollback"
+    needs: [deploy, verify]
+    if: ${{ failure() && inputs.enable_rollback }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Rollback deployment
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd ${{ inputs.deploy_path }}
+            
+            # Read previous tag
+            PREVIOUS_TAG=$(cat /tmp/deploy_state 2>/dev/null | grep previous_tag | cut -d= -f2 || echo "latest")
+            
+            echo "🔄 Rolling back to $PREVIOUS_TAG..."
+            
+            # Restore previous tag
+            APP_ENV_NAME=$(echo "${{ inputs.app_name }}" | tr '[:lower:]-' '[:upper:]_')
+            sed -i "s/^.*IMAGE_TAG=.*/${APP_ENV_NAME}_IMAGE_TAG=$PREVIOUS_TAG/" ${{ inputs.env_file }}
+            
+            # Rollback
+            docker compose -f ${{ inputs.compose_file }} pull
+            docker compose -f ${{ inputs.compose_file }} up -d --remove-orphans
+            
+            # Log rollback
+            echo '{"timestamp":"'$(date -Iseconds)'","app":"${{ inputs.app_name }}","action":"rollback","to_tag":"'$PREVIOUS_TAG'","reason":"health_check_failed"}' >> deployments.log
+            
+            echo "✅ Rollback completed"
+
+  notify:
+    name: "Notify"
+    needs: [deploy, verify]
+    if: ${{ always() && inputs.notify_slack }}
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Send Slack notification
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          if [ "${{ needs.verify.outputs.healthy }}" = "true" ]; then
+            STATUS="✅ Success"
+            COLOR="good"
+          else
+            STATUS="❌ Failed"
+            COLOR="danger"
+          fi
+          
+          curl -X POST -H 'Content-type: application/json' \
+            --data "{
+              \"attachments\": [{
+                \"color\": \"$COLOR\",
+                \"title\": \"${{ inputs.app_name }} Deployment $STATUS\",
+                \"fields\": [
+                  {\"title\": \"Environment\", \"value\": \"${{ inputs.environment }}\", \"short\": true},
+                  {\"title\": \"Tag\", \"value\": \"${{ needs.deploy.outputs.deployed_tag }}\", \"short\": true},
+                  {\"title\": \"Actor\", \"value\": \"${{ github.actor }}\", \"short\": true},
+                  {\"title\": \"Commit\", \"value\": \"${{ github.sha }}\", \"short\": true}
+                ]
+              }]
+            }" \
+            "$SLACK_WEBHOOK_URL" || true
+
+  # ─────────────────────────────────────────────────────────────────────────
+  # CLEANUP: Release deployment lock
+  # ─────────────────────────────────────────────────────────────────────────
+  cleanup:
+    name: "Cleanup"
+    needs: [prepare, verify]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Release deployment lock
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            rm -f "${{ inputs.deploy_path }}/.deploy.lock"
+            echo "🔓 Deployment lock released"
