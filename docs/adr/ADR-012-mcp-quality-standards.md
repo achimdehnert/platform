@@ -2,11 +2,11 @@
 
 | Metadata | Value |
 |----------|-------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Date** | 2026-02-03 |
 | **Author** | Achim Dehnert |
-| **Scope** | core |
-| **Reviewers** | — |
+| **Scope** | core (plattformübergreifend, nicht nur mcp-hub) |
+| **Reviewers** | Cascade AI, Achim Dehnert |
 | **Supersedes** | — |
 | **Related** | ADR-009 (Deployment Architecture), ADR-011 (Centralized ADR Management) |
 
@@ -1236,11 +1236,19 @@ if __name__ == "__main__":
 | Error Handling | Dev | MCPError, Validation |
 | Unit Tests für mcp-core | Dev | >90% Coverage |
 
-### Phase 3: Migration (Woche 5-8)
+### Phase 3a: Pilot Migration (Woche 5-6)
 
 | Task | Owner | Deliverable |
 |------|-------|-------------|
-| Production Server migrieren | Dev | 7 Server auf mcp-core |
+| Pilot: 3 Server migrieren | Dev | llm_mcp, deployment_mcp, bfagent_mcp auf mcp-core |
+| Pilot Evaluation | Team | Lessons Learned dokumentiert |
+| mcp-core Anpassungen | Dev | Fixes basierend auf Pilot |
+
+### Phase 3b: Full Migration (Woche 7-10)
+
+| Task | Owner | Deliverable |
+|------|-------|-------------|
+| Remaining Production Server | Dev | 4 weitere Server auf mcp-core |
 | Beta Server upgraden | Dev | 6 Server quality-compliant |
 | Documentation Update | Dev | Alle READMEs aktualisiert |
 | Final Review | Team | Alle Server ≥ Grade C |
@@ -1285,6 +1293,7 @@ if __name__ == "__main__":
 | Zu strenge Standards | Medium | Medium | Grade C als Minimum für Production |
 | Migration unterbricht Development | Medium | High | Feature Freeze während Migration vermeiden |
 | mcp-core wird zum Bottleneck | Low | High | Minimal Dependencies, Good Docs |
+| Backward Compatibility | Medium | Medium | Alte Server ohne mcp-core bleiben lauffähig, Migration optional |
 
 ---
 
@@ -1314,3 +1323,4 @@ if __name__ == "__main__":
 | Date | Author | Change |
 |------|--------|--------|
 | 2026-02-03 | Achim Dehnert | Initial version |
+| 2026-02-03 | Cascade AI | Review: Accepted with improvements (Pilot Phase, Scope clarification) |
