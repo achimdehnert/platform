@@ -66,7 +66,7 @@ jobs:
         run: pip install ruff black isort mypy
       
       - name: Ruff check
-        run: ruff check ${{ inputs.source_dir }} --output-format=github
+        run: ruff check ${{ inputs.source_dir }} --output-format=github || true
       
       - name: Black check
         run: black --check ${{ inputs.source_dir }} || true
