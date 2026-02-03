@@ -184,80 +184,114 @@ Wir etablieren ein **Hybrid Human-AI Development Model** mit:
 
 ## 4. AI Agent Architecture
 
-### 4.1 Model Hierarchy
+### 4.1 Model Hierarchy (Windsurf-Optimiert)
+
+**Strategie:** Windsurf-native Modelle für 90% der Tasks, Claude Opus 4.5 (Thinking) für komplexe Architektur.
 
 ```
 ┌──────────────────────────────────────────────────────────────────────────┐
 │                       AI MODEL HIERARCHY                                 │
 ├──────────────────────────────────────────────────────────────────────────┤
 │                                                                          │
-│  🧠 TIER 1: OPUS 4.5 - "The Architect & Lead"                           │
-│  ════════════════════════════════════════════                            │
+│  🧠 TIER 1: CLAUDE OPUS 4.5 (THINKING) - "The Architect"                │
+│  ═══════════════════════════════════════════════════════                 │
 │                                                                          │
-│  Model ID: claude-opus-4-5-20250514                                     │
-│  Cost: $15/1M input, $75/1M output tokens                               │
-│  Context: 200K tokens                                                    │
+│  Access: Windsurf BYOK (Individual) oder via Credits                    │
+│  Cost: $5/1M input, $25/1M output tokens (API)                          │
+│  Extended Thinking: Aktiviert für tiefes Reasoning                       │
 │                                                                          │
-│  Use Cases:                                                             │
+│  Use Cases (~5% der Tasks):                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐│
-│  │ ✅ Architecture decisions                                           ││
-│  │ ✅ ADR creation and review                                          ││
+│  │ ✅ Architecture decisions (ADRs)                                    ││
 │  │ ✅ Complex problem decomposition                                    ││
 │  │ ✅ Cross-component integration design                               ││
-│  │ ✅ Security-sensitive code review                                   ││
+│  │ ✅ Security-sensitive reviews                                       ││
 │  │ ✅ Breaking change planning                                         ││
 │  │ ✅ Edge case analysis                                               ││
-│  │ ✅ Team lead coordination                                           ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │                                                                          │
-│  Temperature: 0.3-0.4 (more deterministic for architecture)             │
+│  Trigger: "architecture", "security", "breaking", "design", "strategy"  │
 │                                                                          │
 │  ════════════════════════════════════════════════════════════════════   │
 │                                                                          │
-│  ⚡ TIER 2: SONNET 4.5 - "The Implementer"                              │
-│  ═════════════════════════════════════════                               │
+│  ⚡ TIER 2: SWE-1.5 - "The Implementer" (PRIMARY)                       │
+│  ════════════════════════════════════════════════                        │
 │                                                                          │
-│  Model ID: claude-sonnet-4-5-20250514                                   │
-│  Cost: $3/1M input, $15/1M output tokens                                │
-│  Context: 200K tokens                                                    │
+│  Access: Windsurf Native (inkludiert in Pro/Teams)                      │
+│  Speed: 13x schneller als Claude 4.5                                    │
+│  Performance: Near Claude 4.5-Level                                     │
 │                                                                          │
-│  Use Cases:                                                             │
+│  Use Cases (~90% der Tasks):                                            │
 │  ┌─────────────────────────────────────────────────────────────────────┐│
 │  │ ✅ Feature implementation                                           ││
-│  │ ✅ Bug fixes (standard complexity)                                  ││
+│  │ ✅ Bug fixes (alle Komplexitätsstufen)                              ││
 │  │ ✅ Code refactoring                                                 ││
 │  │ ✅ API implementation                                               ││
-│  │ ✅ Standard code reviews                                            ││
-│  │ ✅ MCP server tool implementation                                   ││
+│  │ ✅ Code reviews                                                     ││
+│  │ ✅ MCP server implementation                                        ││
 │  │ ✅ Integration work                                                 ││
+│  │ ✅ Test generation                                                  ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │                                                                          │
-│  Temperature: 0.2 (consistent code generation)                          │
+│  Default für: Alle Standard-Entwicklungsaufgaben                        │
 │                                                                          │
 │  ════════════════════════════════════════════════════════════════════   │
 │                                                                          │
-│  🚀 TIER 3: HAIKU 4.5 - "The Worker"                                    │
-│  ════════════════════════════════════                                    │
+│  🚀 TIER 3: LLAMA 3.1 (70B/405B) - "Quick Tasks"                        │
+│  ═══════════════════════════════════════════════                         │
 │                                                                          │
-│  Model ID: claude-haiku-4-5-20250514                                    │
-│  Cost: $0.25/1M input, $1.25/1M output tokens                           │
-│  Context: 200K tokens                                                    │
+│  Access: Windsurf Native (70B: Free, 405B: Pro/Teams)                   │
+│  Cost: Unlimited (keine Credits)                                        │
+│  Speed: Schnellste Option                                               │
 │                                                                          │
-│  Use Cases:                                                             │
+│  Use Cases (~5% der Tasks):                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐│
-│  │ ✅ Test generation                                                  ││
-│  │ ✅ Documentation writing                                            ││
-│  │ ✅ Docstring completion                                             ││
-│  │ ✅ Linting fixes                                                    ││
-│  │ ✅ Simple refactoring                                               ││
-│  │ ✅ Boilerplate code                                                 ││
-│  │ ✅ Issue triage                                                     ││
-│  │ ✅ Changelog generation                                             ││
+│  │ ✅ Documentation lookup                                             ││
+│  │ ✅ Simple questions                                                 ││
+│  │ ✅ Boilerplate generation                                           ││
+│  │ ✅ Changelog drafts                                                 ││
+│  │ ✅ Quick explanations                                               ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │                                                                          │
-│  Temperature: 0.1 (very consistent for repetitive tasks)                │
+│  Trigger: "quick", "simple", "explain", "what is"                       │
 │                                                                          │
 └──────────────────────────────────────────────────────────────────────────┘
+```
+
+### 4.1.1 Model Access Configuration
+
+```yaml
+# Windsurf Model Strategy
+models:
+  primary:
+    name: "SWE-1.5"
+    access: "windsurf-native"
+    cost: "included"
+    usage: "90%"
+    
+  secondary:
+    name: "Claude Opus 4.5 (Thinking)"
+    access: "byok"  # oder credits
+    api_key: "${ANTHROPIC_API_KEY}"
+    cost: "$5/$25 per MTok"
+    usage: "5%"
+    triggers:
+      - "architecture"
+      - "security" 
+      - "breaking"
+      - "design"
+      - "strategy"
+      - "adr"
+    
+  tertiary:
+    name: "Llama 3.1 405B"
+    access: "windsurf-native"
+    cost: "unlimited"
+    usage: "5%"
+    triggers:
+      - "quick"
+      - "simple"
+      - "explain"
 ```
 
 ### 4.2 Model Selection Matrix
@@ -2479,3 +2513,4 @@ Rückkehr zu traditionellem Modell wenn nach **6 Monaten**:
 | 2026-02-03 | Achim Dehnert | Initial version |
 | 2026-02-03 | AI Review | Added: Alternatives (3.1), Security (14.5), Continuity (14.6), Exit Criteria (14.7) |
 | 2026-02-03 | AI Review | Updated: Realistic metrics, 12-16 week timeline, fixed code issues |
+| 2026-02-03 | Achim Dehnert | Model Strategy: SWE-1.5 primary, Claude Opus 4.5 (Thinking) for architecture |
