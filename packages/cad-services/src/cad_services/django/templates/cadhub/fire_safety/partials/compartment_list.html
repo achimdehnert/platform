@@ -1,0 +1,46 @@
+<table class="table table-sm table-hover mb-0">
+    <thead class="table-light">
+        <tr>
+            <th>Name</th>
+            <th>Etage</th>
+            <th class="text-end">Fläche</th>
+            <th class="text-end">Max.</th>
+            <th>Sprinkler</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for c in compartments %}
+        <tr>
+            <td>{{ c.name }}</td>
+            <td>{{ c.floor.name|default:"-" }}</td>
+            <td class="text-end">{{ c.area_m2 }} m²</td>
+            <td class="text-end">{{ c.max_area_m2 }} m²</td>
+            <td>
+                {% if c.has_sprinkler %}
+                <span class="badge bg-info">Ja</span>
+                {% else %}
+                <span class="badge bg-secondary">Nein</span>
+                {% endif %}
+            </td>
+            <td>
+                {% if c.status == "compliant" %}
+                <span class="badge bg-success">Konform</span>
+                {% elif c.status == "warning" %}
+                <span class="badge bg-warning">Warnung</span>
+                {% elif c.status == "violation" %}
+                <span class="badge bg-danger">Verstoß</span>
+                {% else %}
+                <span class="badge bg-secondary">Ausstehend</span>
+                {% endif %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" class="text-center text-muted">
+                Keine Brandabschnitte definiert
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>

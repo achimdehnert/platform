@@ -1,0 +1,238 @@
+{% extends "cadhub/base.html" %}
+{% load static %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row mb-3">
+        <div class="col">
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'cadhub:project-list' %}">Projekte</a>
+                    </li>
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'cadhub:model-detail' model.pk %}">{{ model.name }}</a>
+                    </li>
+                    <li class="breadcrumb-item active">Grundriss</li>
+                </ol>
+            </nav>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-md-3 col-lg-2">
+            <div class="card">
+                <div class="card-header">
+                    <i class="bi bi-layers"></i> Etagen
+                </div>
+                <div class="list-group list-group-flush" id="floor-list">
+                    {% for floor in floors %}
+                    <a href="?floor={{ floor.pk }}"
+                       class="list-group-item list-group-item-action {% if selected_floor.pk == floor.pk %}active{% endif %}"
+                       hx-get="{% url 'cadhub:floorplan-svg' model.pk %}?floor={{ floor.pk }}"
+                       hx-target="#svg-container"
+                       hx-swap="innerHTML">
+                        <i class="bi bi-building"></i>
+                        {{ floor.name|default:floor.code }}
+                        {% if floor.elevation_m %}
+                        <small class="text-muted">({{ floor.elevation_m }}m)</small>
+                        {% endif %}
+                    </a>
+                    {% empty %}
+                    <div class="list-group-item text-muted">
+                        Keine Etagen gefunden
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <i class="bi bi-sliders"></i> Ansicht
+                </div>
+                <div class="card-body">
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="showLabels" checked
+                               onchange="updateViewer()">
+                        <label class="form-check-label" for="showLabels">
+                            Raumbeschriftung
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" id="showFire"
+                               onchange="updateViewer()">
+                        <label class="form-check-label" for="showFire">
+                            Brandschutz anzeigen
+                        </label>
+                    </div>
+                    <hr>
+                    <label class="form-label small">Zoom</label>
+                    <input type="range" class="form-range" id="zoomRange" 
+                           min="50" max="200" value="100"
+                           onchange="updateZoom(this.value)">
+                    <div class="d-flex justify-content-between small text-muted">
+                        <span>50%</span>
+                        <span id="zoomValue">100%</span>
+                        <span>200%</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <i class="bi bi-download"></i> Export
+                </div>
+                <div class="card-body">
+                    <a href="{% url 'cadhub:floorplan-svg' model.pk %}{% if selected_floor %}?floor={{ selected_floor.pk }}{% endif %}"
+                       class="btn btn-outline-primary btn-sm w-100 mb-2"
+                       download="{{ model.name }}_grundriss.svg"
+                       title="SVG herunterladen">
+                        <i class="bi bi-filetype-svg"></i> SVG
+                    </a>
+                    <button class="btn btn-outline-secondary btn-sm w-100"
+                            onclick="printFloorplan()"
+                            title="Grundriss drucken">
+                        <i class="bi bi-printer"></i> Drucken
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-9 col-lg-10">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <span>
+                        <i class="bi bi-grid-3x3"></i>
+                        {{ model.name }}
+                        {% if selected_floor %} - {{ selected_floor.name|default:selected_floor.code }}{% endif %}
+                    </span>
+                    <div class="btn-group btn-group-sm">
+                        <button class="btn btn-outline-secondary" onclick="zoomIn()" title="Vergrößern">
+                            <i class="bi bi-zoom-in"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="zoomOut()" title="Verkleinern">
+                            <i class="bi bi-zoom-out"></i>
+                        </button>
+                        <button class="btn btn-outline-secondary" onclick="resetZoom()" title="Zurücksetzen">
+                            <i class="bi bi-arrows-fullscreen"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div id="viewer-container" 
+                         style="width: 100%; height: calc(100vh - 250px); overflow: auto; background: #f8f9fa;">
+                        <div id="svg-container" style="transform-origin: top left; transition: transform 0.2s;">
+                            <iframe id="floorplan-iframe"
+                                    src="{% url 'cadhub:floorplan-svg' model.pk %}{% if selected_floor %}?floor={{ selected_floor.pk }}{% endif %}"
+                                    style="width: 100%; height: 100%; min-height: 500px; border: none;"
+                                    title="Grundriss Ansicht">
+                            </iframe>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mt-3">
+                <div class="card-header">
+                    <i class="bi bi-info-circle"></i> Raumübersicht
+                    {% if selected_floor %}({{ selected_floor.name|default:selected_floor.code }}){% endif %}
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive" style="max-height: 200px; overflow-y: auto;">
+                        <table class="table table-sm table-hover mb-0">
+                            <thead class="table-light sticky-top">
+                                <tr>
+                                    <th>Nr.</th>
+                                    <th>Name</th>
+                                    <th>Kategorie</th>
+                                    <th class="text-end">Fläche</th>
+                                </tr>
+                            </thead>
+                            <tbody id="room-table"
+                                   hx-get="{% url 'cadhub:room-list' %}?model={{ model.pk }}{% if selected_floor %}&floor={{ selected_floor.pk }}{% endif %}&format=table"
+                                   hx-trigger="load"
+                                   hx-swap="innerHTML">
+                                <tr>
+                                    <td colspan="4" class="text-center text-muted">
+                                        <div class="spinner-border spinner-border-sm" role="status">
+                                            <span class="visually-hidden">Lädt...</span>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentZoom = 100;
+const modelId = {{ model.pk }};
+const currentFloorId = {{ selected_floor.pk|default:"null" }};
+
+function updateViewer() {
+    const showLabels = document.getElementById('showLabels').checked ? '1' : '0';
+    const showFire = document.getElementById('showFire').checked ? '1' : '0';
+    const iframe = document.getElementById('floorplan-iframe');
+    
+    let url = '{% url "cadhub:floorplan-svg" model.pk %}';
+    url += '?labels=' + showLabels + '&fire=' + showFire;
+    if (currentFloorId) {
+        url += '&floor=' + currentFloorId;
+    }
+    
+    iframe.src = url;
+}
+
+function updateZoom(value) {
+    currentZoom = parseInt(value);
+    document.getElementById('zoomValue').textContent = currentZoom + '%';
+    const container = document.getElementById('svg-container');
+    container.style.transform = 'scale(' + (currentZoom / 100) + ')';
+}
+
+function zoomIn() {
+    const newZoom = Math.min(currentZoom + 25, 200);
+    document.getElementById('zoomRange').value = newZoom;
+    updateZoom(newZoom);
+}
+
+function zoomOut() {
+    const newZoom = Math.max(currentZoom - 25, 50);
+    document.getElementById('zoomRange').value = newZoom;
+    updateZoom(newZoom);
+}
+
+function resetZoom() {
+    document.getElementById('zoomRange').value = 100;
+    updateZoom(100);
+}
+
+function printFloorplan() {
+    const iframe = document.getElementById('floorplan-iframe');
+    iframe.contentWindow.print();
+}
+
+document.addEventListener('keydown', function(e) {
+    if (e.ctrlKey || e.metaKey) {
+        if (e.key === '+' || e.key === '=') {
+            e.preventDefault();
+            zoomIn();
+        } else if (e.key === '-') {
+            e.preventDefault();
+            zoomOut();
+        } else if (e.key === '0') {
+            e.preventDefault();
+            resetZoom();
+        }
+    }
+});
+</script>
+{% endblock %}

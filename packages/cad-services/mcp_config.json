@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "cadhub": {
+      "command": "wsl",
+      "args": [
+        "-e",
+        "bash",
+        "-c",
+        "cd /mnt/u/home/dehnert/github/platform/packages/cad-services && source .venv/bin/activate && python -m cad_services.mcp.server"
+      ],
+      "env": {
+        "PYTHONPATH": "/mnt/u/home/dehnert/github/platform/packages/cad-services/src",
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/cadhub"
+      }
+    }
+  }
+}

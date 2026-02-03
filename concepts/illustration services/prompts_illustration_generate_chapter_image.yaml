@@ -1,0 +1,299 @@
+# =============================================================================
+# Image Generation Template: Kapitel-Illustration
+# =============================================================================
+#
+# Datei: prompts/illustration/generate/chapter_image.yaml
+# Registry-Key: illustration.generate.chapter_image
+#
+# Dieses Template generiert Kapitelbilder für Sci-Fi Romane.
+# Es nutzt den Style-Partial "illustration.style.scifi_book_v1" für
+# konsistente visuelle Gestaltung.
+#
+# Verwendung:
+#   executor.execute(
+#       template_key="illustration.generate.chapter_image",
+#       variables={
+#           "subject": "a lone astronaut",
+#           "environment": "an empty space station corridor",
+#           "mood": "contemplative, silent"
+#       }
+#   )
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# IDENTITY
+# -----------------------------------------------------------------------------
+key: illustration.generate.chapter_image
+name: "Kapitel-Illustration Generator"
+version: "1.0"
+type: standard
+domain: illustration
+
+tags:
+  - chapter
+  - book
+  - scifi
+  - generation
+
+description: |
+  Generiert atmosphärische Kapitelbilder für Sci-Fi Romane.
+  
+  Input: Szenen-Beschreibung (Subjekt, Umgebung, Stimmung)
+  Output: Positive & Negative Prompts + SD-Parameter
+  
+  Der Style wird vollständig vom referenzierten Style-Partial kontrolliert.
+  Dieses Template definiert nur die CONTENT-Variablen.
+
+# -----------------------------------------------------------------------------
+# OUTPUT FORMAT
+# -----------------------------------------------------------------------------
+output_format: image
+
+# -----------------------------------------------------------------------------
+# PARTIALS (Style-Referenz)
+# -----------------------------------------------------------------------------
+partials:
+  style: illustration.style.scifi_book_v1
+
+# -----------------------------------------------------------------------------
+# SYSTEM PROMPT (für Logging/Audit, nicht für SD)
+# -----------------------------------------------------------------------------
+system_prompt: |
+  Generating chapter illustration for book illustration project.
+  Style: {{ partial:style.name }}
+  Template Version: {{ version }}
+
+# -----------------------------------------------------------------------------
+# USER PROMPT (wird zu SD-Positive-Prompt)
+# -----------------------------------------------------------------------------
+user_prompt: |
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  {# STYLE BLOCK (aus Partial)                                                #}
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  {{ partial:style.style_block }}
+  
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  {# CONTENT BLOCK (variabel pro Bild)                                        #}
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  illustration of
+  {{ subject }}
+  {% if action %}{{ action }}{% endif %}
+  {% if environment %}in {{ environment }}{% endif %},
+  
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  {# MOOD BLOCK (optional)                                                    #}
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  {% if mood %}{{ mood }} atmosphere{% else %}calm, contemplative atmosphere{% endif %}
+  
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  {# QUALITY TAGS (optional, aus image_params)                                #}
+  {# ═══════════════════════════════════════════════════════════════════════ #}
+  {% if quality_tags %}
+  {{ quality_tags | join(', ') }}
+  {% endif %}
+
+# -----------------------------------------------------------------------------
+# VARIABLES
+# -----------------------------------------------------------------------------
+variables:
+  # Pflicht-Variablen
+  - name: subject
+    description: |
+      Hauptmotiv der Illustration.
+      Sollte einfach und klar sein, keine komplexen Szenen.
+      
+      Gute Beispiele:
+      - "a lone astronaut"
+      - "an ancient alien artifact"
+      - "a vast empty hangar"
+      
+      Schlechte Beispiele:
+      - "astronaut fighting aliens while ship explodes" (zu komplex)
+      - "beautiful detailed spaceship" (zu vage)
+    required: true
+    type: string
+    examples:
+      - "a lone astronaut"
+      - "an ancient alien artifact"
+      - "a vast empty hangar"
+      - "a single tree on a barren planet"
+      - "a small spacecraft"
+  
+  # Optionale Variablen
+  - name: action
+    description: |
+      Handlung oder Pose des Subjekts.
+      Sollte ruhig und kontemplativ sein.
+      
+      Gute Beispiele:
+      - "standing quietly"
+      - "gazing at the horizon"
+      - "resting on the ground"
+      
+      Schlechte Beispiele:
+      - "running fast" (zu dynamisch)
+      - "fighting" (nicht kontemplativ)
+    required: false
+    type: string
+    default: null
+    examples:
+      - "standing quietly at a viewport"
+      - "sitting in contemplation"
+      - "walking slowly"
+      - "floating weightlessly"
+  
+  - name: environment
+    description: |
+      Umgebung/Setting der Szene.
+      Sollte die Stimmung unterstützen.
+      
+      Gute Beispiele:
+      - "an empty space station corridor"
+      - "a vast alien desert"
+      - "a dimly lit control room"
+    required: false
+    type: string
+    default: null
+    examples:
+      - "an empty space station corridor"
+      - "a vast alien desert at twilight"
+      - "a dimly lit control room"
+      - "the surface of a barren moon"
+      - "a quiet observation deck"
+  
+  - name: mood
+    description: |
+      Stimmung/Atmosphäre der Szene.
+      Ergänzt die Basis-Stimmung des Stils.
+    required: false
+    type: string
+    default: "calm, contemplative"
+    examples:
+      - "calm, contemplative"
+      - "melancholic, quiet"
+      - "awe-inspiring, vast"
+      - "lonely, isolated"
+      - "mysterious, ancient"
+  
+  # Buchkontext (für Audit/Tracking)
+  - name: book_title
+    description: "Titel des Buchs (für Tracking)"
+    required: false
+    type: string
+    default: null
+  
+  - name: chapter_number
+    description: "Kapitelnummer (für Tracking)"
+    required: false
+    type: integer
+    default: null
+  
+  - name: chapter_title
+    description: "Kapiteltitel (für Tracking)"
+    required: false
+    type: string
+    default: null
+
+# -----------------------------------------------------------------------------
+# IMAGE PARAMETERS
+# -----------------------------------------------------------------------------
+image_params:
+  # Style-Referenz
+  style_partial_key: illustration.style.scifi_book_v1
+  
+  # Negative Prompt (wird aus Style-Partial geladen)
+  negative_prompt_template: "{{ partial:style.negative_prompt }}"
+  
+  # SD-Parameter Override (null = Style-Defaults verwenden)
+  sd_params_override: null
+  
+  # Validierung
+  forbidden_terms:
+    # Diese Terme dürfen NICHT im generierten Prompt vorkommen
+    - photorealistic
+    - 3d render
+    - anime
+    - cartoon
+    - dramatic
+    - explosion
+    - fighting
+    - action
+    - dynamic pose
+    - running
+    - screaming
+  
+  required_terms:
+    # Diese Terme MÜSSEN im generierten Prompt vorkommen
+    - illustration
+  
+  # Quality Tags
+  auto_append_quality_tags: true
+  quality_tags:
+    - masterpiece
+    - best quality
+    - professional illustration
+
+# -----------------------------------------------------------------------------
+# METADATA
+# -----------------------------------------------------------------------------
+author: "Platform Creative Team"
+is_active: true
+created_at: "2026-01-29T10:00:00Z"
+updated_at: "2026-01-29T10:00:00Z"
+
+# -----------------------------------------------------------------------------
+# EXAMPLES (für Dokumentation & Testing)
+# -----------------------------------------------------------------------------
+examples:
+  - name: "Astronaut im Korridor"
+    variables:
+      subject: "a lone astronaut in a worn spacesuit"
+      action: "standing quietly"
+      environment: "an empty space station corridor with distant windows"
+      mood: "contemplative, isolated"
+    expected_contains:
+      - "astronaut"
+      - "corridor"
+      - "contemplative"
+  
+  - name: "Artefakt auf fremdem Planeten"
+    variables:
+      subject: "an ancient alien artifact, smooth and geometric"
+      environment: "a vast desert under a pale sky"
+      mood: "mysterious, ancient"
+    expected_contains:
+      - "artifact"
+      - "desert"
+      - "mysterious"
+  
+  - name: "Leere Brücke"
+    variables:
+      subject: "an empty ship's bridge"
+      environment: "surrounded by stars visible through large windows"
+      mood: "quiet, awe-inspiring"
+    expected_contains:
+      - "bridge"
+      - "stars"
+      - "quiet"
+
+# -----------------------------------------------------------------------------
+# TESTING
+# -----------------------------------------------------------------------------
+test_config:
+  # Regression-Test Motive (sollten immer ähnliche Ergebnisse liefern)
+  regression_motifs:
+    - subject: "a single geometric shape"
+      environment: "floating in empty space"
+      mood: "minimal, abstract"
+    
+    - subject: "a human silhouette"
+      action: "standing with back to viewer"
+      environment: "facing a vast landscape"
+      mood: "contemplative"
+  
+  # Seed für reproduzierbare Tests
+  test_seed: 42
+  
+  # Akzeptable Style-Drift (in %)
+  max_style_drift_percent: 15

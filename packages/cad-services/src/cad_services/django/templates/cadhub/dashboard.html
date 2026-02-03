@@ -1,0 +1,120 @@
+{% extends "cadhub/base.html" %}
+
+{% block title %}Dashboard - CAD-Hub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Dashboard</h1>
+    <a href="{% url 'cadhub:project-create' %}" class="btn btn-primary">
+        <i class="bi bi-plus"></i> Neues Projekt
+    </a>
+</div>
+
+<!-- Statistics - HTMX auto-refresh -->
+<div class="row g-4 mb-4" 
+     hx-get="{% url 'cadhub:dashboard-stats' %}" 
+     hx-trigger="load, every 30s"
+     hx-swap="innerHTML">
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.project_count }}</div>
+            <div class="stat-label">Projekte</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.model_count }}</div>
+            <div class="stat-label">Modelle</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.room_count }}</div>
+            <div class="stat-label">Räume</div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card">
+            <div class="stat-value">{{ stats.window_count }}</div>
+            <div class="stat-label">Fenster</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Recent Projects -->
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <span>Aktuelle Projekte</span>
+                <a href="{% url 'cadhub:project-list' %}" class="btn btn-sm btn-outline-primary">
+                    Alle anzeigen
+                </a>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-hover mb-0">
+                    <thead>
+                        <tr>
+                            <th>Projekt</th>
+                            <th>Modelle</th>
+                            <th>Status</th>
+                            <th>Erstellt</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for project in recent_projects %}
+                        <tr>
+                            <td>
+                                <a href="{% url 'cadhub:project-detail' project.id %}">
+                                    {{ project.name }}
+                                </a>
+                            </td>
+                            <td>{{ project.model_count }}</td>
+                            <td>
+                                <span class="badge badge-{{ project.status }}">
+                                    {{ project.get_status_display }}
+                                </span>
+                            </td>
+                            <td>{{ project.created_at|date:"d.m.Y" }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center text-muted py-4">
+                                Noch keine Projekte vorhanden.
+                                <a href="{% url 'cadhub:project-create' %}">
+                                    Erstes Projekt erstellen
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Recent Activity -->
+    <div class="col-lg-4">
+        <div class="card">
+            <div class="card-header">Letzte Aktivitäten</div>
+            <div class="card-body">
+                {% for activity in recent_activity %}
+                <div class="d-flex align-items-start mb-3">
+                    <div class="me-3">
+                        <i class="bi bi-{{ activity.icon }} text-{{ activity.color }}"></i>
+                    </div>
+                    <div>
+                        <div class="fw-medium">{{ activity.title }}</div>
+                        <small class="text-muted">{{ activity.time }}</small>
+                    </div>
+                </div>
+                {% empty %}
+                <p class="text-muted text-center mb-0">
+                    Keine Aktivitäten vorhanden.
+                </p>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
