@@ -1,0 +1,296 @@
+# =============================================================================
+# Style-Partial: Sci-Fi Buchillustration
+# =============================================================================
+#
+# Datei: prompts/illustration/styles/scifi_book_v1.yaml
+# Registry-Key: illustration.style.scifi_book_v1
+#
+# Dieses Style-Manifest definiert den visuellen Stil für Hard/Philosophical
+# Sci-Fi Romanillustrationen. Es folgt dem Platform-Architektur-Prinzip
+# "Spec vs. Derived": Alle Werte hier sind SPECS (Fakten), die Prompt-Blöcke
+# werden zur Laufzeit DERIVED (berechnet).
+#
+# Governance:
+#   - Änderungen erfordern Review durch Art Direction
+#   - Neue Version = neues File (z.B. scifi_book_v2.yaml)
+#   - Niemals bestehende Version überschreiben
+#
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# IDENTITY
+# -----------------------------------------------------------------------------
+key: illustration.style.scifi_book_v1
+name: "Sci-Fi Buchillustration - Kontemplativ"
+version: "1.0"
+type: style_partial
+domain: illustration
+
+tags:
+  - scifi
+  - book
+  - watercolor
+  - ink
+  - contemplative
+  - philosophical
+
+description: |
+  Illustrationsstil für Hard/Philosophical Sci-Fi Romane im Stil von
+  Le Guin, Lem, Chiang. Betont Stille, Fremdheit und existentielle
+  Momente statt Action. Bilder zeigen keine Handlung, sondern
+  "Existenz im fremden Raum".
+  
+  Geeignet für:
+  - Kapitelbilder
+  - Vignetten
+  - Innentitel
+  
+  Nicht geeignet für:
+  - Cover (zu subtil)
+  - Action-Szenen
+  - Technische Diagramme
+
+# -----------------------------------------------------------------------------
+# STYLE SPECIFICATION
+# -----------------------------------------------------------------------------
+style_spec:
+  schema_version: 1
+  
+  # Identity (redundant mit Top-Level, aber für Spec-Vollständigkeit)
+  style_key: scifi_book_v1
+  version: "1.0"
+  name: "Sci-Fi Buchillustration - Kontemplativ"
+  status: active
+  
+  # Metadata
+  author: "Art Direction Team"
+  created_at: "2026-01-15T10:00:00Z"
+  approved_at: "2026-01-20T14:30:00Z"
+  tags:
+    - scifi
+    - philosophical
+    - watercolor
+    - ink
+  
+  # ---------------------------------------------------------------------------
+  # ZIEL & WIRKUNG
+  # ---------------------------------------------------------------------------
+  emotion:
+    - ruhig
+    - fremd
+    - kontemplativ
+    - melancholisch
+    - ehrfürchtig
+  
+  target_audience: "Erwachsene Sci-Fi-Leser, eher 'Le Guin / Lem / Chiang' als Space Opera"
+  
+  image_function:
+    - atmosphärisch
+    - erzählend
+  
+  # ---------------------------------------------------------------------------
+  # MEDIUM & TECHNIK
+  # ---------------------------------------------------------------------------
+  medium:
+    medium: "ink and watercolor illustration with subtle sci-fi elements"
+    line_character: "thin, precise ink lines, architectural clarity, no sketching"
+    color_application: "soft watercolor washes, translucent layers, visible bleeding"
+    texture: "natural paper grain, no digital smoothness, subtle imperfections"
+  
+  # ---------------------------------------------------------------------------
+  # FARBPALETTE
+  # ---------------------------------------------------------------------------
+  colors:
+    primary:
+      - hex_code: "#5B6E7A"
+        name: dusty_blue
+        role: primary
+        semantic: "Weite, Kälte des Alls, Technologie"
+        usage_hint: "Dominante Farbe für Hintergründe und große Flächen"
+      
+      - hex_code: "#8A8F94"
+        name: muted_grey
+        role: primary
+        semantic: "Neutralität, Zeit, Metall"
+        usage_hint: "Für technische Elemente und Schatten"
+      
+      - hex_code: "#E6E1D8"
+        name: warm_offwhite
+        role: primary
+        semantic: "Papier, Menschlichkeit, Licht"
+        usage_hint: "Für Highlights und Negativraum"
+    
+    accent:
+      - hex_code: "#6FAFB2"
+        name: cool_cyan
+        role: accent
+        semantic: "Technologie, Energie, Zukunft"
+        usage_hint: "Sparsam für leuchtende Elemente, Displays, Energie"
+      
+      - hex_code: "#B87A4B"
+        name: rust_orange
+        role: accent
+        semantic: "Vergangenheit, Verfall, Wärme"
+        usage_hint: "Sparsam für organische Elemente, Rost, menschliche Wärme"
+    
+    forbidden:
+      - pattern: "neon"
+        reason: "Zu grell, zerstört kontemplative Stimmung"
+      
+      - hex_code: "#000000"
+        reason: "Kein reines Schwarz - wirkt zu hart und digital"
+      
+      - hex_code: "#FFFFFF"
+        reason: "Kein reines Weiß - Papierfarbe stattdessen"
+      
+      - pattern: "saturated RGB"
+        reason: "Stark gesättigte Farben wirken unnatürlich"
+      
+      - pattern: "pink"
+        reason: "Passt nicht zur Farbwelt"
+      
+      - pattern: "purple"
+        reason: "Zu fantastisch, nicht Hard-Sci-Fi"
+  
+  # ---------------------------------------------------------------------------
+  # LICHT & KONTRAST
+  # ---------------------------------------------------------------------------
+  lighting:
+    lighting: diffuse
+    lighting_description: "diffuse, global, atmospheric haze, no harsh shadows"
+    contrast: moderate
+    atmosphere: "leicht neblig oder staubig"
+  
+  # ---------------------------------------------------------------------------
+  # KOMPOSITION
+  # ---------------------------------------------------------------------------
+  composition:
+    composition: centered
+    composition_description: "centered or slightly asymmetric, generous negative space"
+    perspective: eye_level
+    negative_space: generous
+    detail_level: reduced
+  
+  # ---------------------------------------------------------------------------
+  # STILANKER (Referenzbilder)
+  # ---------------------------------------------------------------------------
+  anchors:
+    - name: "Architektur / Raumstation (leer)"
+      description: |
+        Leere Korridore oder Hallen einer Raumstation.
+        Zeigt: Architektonische Linien, Leere, Maßstab.
+        Keine Menschen, keine Action.
+      image_path: null  # TODO: Referenzbild hochladen
+    
+    - name: "Landschaft fremder Planet (still)"
+      description: |
+        Weite Landschaft eines fremden Planeten.
+        Zeigt: Fremdartigkeit, Stille, Horizont.
+        Keine dramatischen Wolken oder Explosionen.
+      image_path: null
+    
+    - name: "Menschliche Figur (Rückenansicht)"
+      description: |
+        Einzelne Person, Rücken zum Betrachter.
+        Zeigt: Einsamkeit, Kontemplation, Maßstab.
+        Keine Gesichtszüge, keine Emotion im Gesicht.
+      image_path: null
+    
+    - name: "Objekt / Artefakt"
+      description: |
+        Einzelnes technisches oder außerirdisches Objekt.
+        Zeigt: Fremdartigkeit, Detailtiefe, Materialität.
+        Zentriert, viel Negativraum.
+      image_path: null
+  
+  # ---------------------------------------------------------------------------
+  # EXPLIZIT VERBOTEN
+  # ---------------------------------------------------------------------------
+  forbidden_elements:
+    # Realismus
+    - photorealistic
+    - photo
+    - realistic
+    - hyperrealistic
+    
+    # 3D / Digital
+    - 3d render
+    - cgi
+    - unreal engine
+    - octane render
+    - ray tracing
+    - digital painting
+    - digital art
+    
+    # Cartoon / Anime
+    - anime
+    - cartoon
+    - comic book
+    - manga
+    - pixar
+    - disney
+    
+    # Dramatik
+    - dramatic lighting
+    - cinematic lighting
+    - volumetric lighting
+    - god rays
+    - lens flare
+    - bloom
+    - high contrast
+    - dark shadows
+    
+    # Details
+    - highly detailed
+    - intricate details
+    - complex
+    - busy
+    - cluttered
+    
+    # Effekte
+    - explosion
+    - fire
+    - smoke
+    - particles
+    - sparks
+    - glowing
+    
+    # Texturen
+    - plastic
+    - glossy
+    - shiny
+    - metallic
+    - chrome
+  
+  # ---------------------------------------------------------------------------
+  # STABLE DIFFUSION PARAMETER
+  # ---------------------------------------------------------------------------
+  sd_params:
+    base_model: "sd_xl_base_1.0"
+    vae: "sdxl_vae"
+    sampler: "DPM++ 2M Karras"
+    steps: 30
+    cfg_scale: 5.5
+    width: 768
+    height: 1024
+    lora_key: "scifi_book_style_v1"
+    lora_strength: 1.0
+    seed: null  # Random pro Bild
+    enable_hr: false
+
+# -----------------------------------------------------------------------------
+# TEMPLATE OVERRIDES (optional)
+# -----------------------------------------------------------------------------
+# Wenn null, werden diese aus style_spec generiert.
+# Nur setzen wenn spezielle Formatierung nötig.
+
+style_block_template: null  # Auto-generate aus style_spec
+
+negative_prompt_template: null  # Auto-generate aus forbidden_elements
+
+# -----------------------------------------------------------------------------
+# GOVERNANCE
+# -----------------------------------------------------------------------------
+is_active: true
+created_at: "2026-01-15T10:00:00Z"
+updated_at: "2026-01-29T09:00:00Z"

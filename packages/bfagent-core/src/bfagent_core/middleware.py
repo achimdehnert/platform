@@ -114,3 +114,66 @@ class SubdomainTenantMiddleware(MiddlewareMixin):
             return model.objects.filter(**{slug_field: slug}).first()
         except Exception:
             return None
+
+
+class TenantPermissionMiddleware(MiddlewareMixin):
+    """
+    Middleware for resolving CoreUser and attaching permissions.
+    
+    Should be placed AFTER SubdomainTenantMiddleware and AuthenticationMiddleware.
+    
+    Attaches:
+        request.core_user: CoreUser instance (if available)
+        request.membership: TenantMembership instance (if in tenant context)
+        request.permissions: FrozenSet of permission codes
+    """
+    
+    def process_request(self, request: HttpRequest) -> HttpResponse | None:
+        request.core_user = None
+        request.membership = None
+        request.permissions = frozenset()
+        
+        # Require authenticated user
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return None
+        
+        # Get or create CoreUser from auth_user
+        try:
+            from bfagent_core.models import CoreUser, TenantMembership
+            
+            core_user = CoreUser.objects.filter(legacy_user_id=user.id).first()
+            if not core_user:
+                # Auto-create CoreUser for existing auth_user
+                core_user = CoreUser.objects.create(
+                    legacy_user_id=user.id,
+                    provider="local",
+                    email=user.email,
+                    display_name=user.get_full_name() or user.username,
+                )
+            
+            request.core_user = core_user
+            
+            # Get membership if in tenant context
+            tenant_id = getattr(request, "tenant_id", None)
+            if tenant_id and core_user:
+                membership = TenantMembership.objects.get_membership(
+                    tenant_id,
+                    core_user.id,
+                )
+                if membership:
+                    request.membership = membership
+                    
+                    # Resolve permissions
+                    from bfagent_core.permissions import get_permission_checker
+                    checker = get_permission_checker()
+                    request.permissions = checker.get_permissions(
+                        core_user.id,
+                        tenant_id,
+                    )
+        
+        except Exception:
+            # Don't break request on permission errors
+            pass
+        
+        return None

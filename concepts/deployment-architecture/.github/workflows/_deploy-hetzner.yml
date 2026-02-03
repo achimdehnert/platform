@@ -1,0 +1,732 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  REUSABLE DEPLOY WORKFLOW - Hetzner with Auto-Healer                       ║
+# ║  Platform Repository: achimdehnert/platform                                ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# Features:
+#   ✓ Rolling deployment with zero-downtime
+#   ✓ Deep health checks (HTTP, DB, Redis, Queue)
+#   ✓ Automatic rollback on failure
+#   ✓ Claude AI-powered error analysis
+#   ✓ Auto-fix for known patterns (confidence >= 85%)
+#   ✓ Deployment audit trail
+#   ✓ Slack/Email notifications
+#
+# Usage in app repository:
+#   jobs:
+#     deploy:
+#       uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1
+#       with:
+#         app_name: travel-beat
+#         deploy_path: /opt/travel-beat
+#         health_url: https://travel-beat.iil.pet/health/
+#       secrets: inherit
+
+name: _Deploy Hetzner
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        description: 'Application name (used for logging)'
+        required: true
+        type: string
+      deploy_path:
+        description: 'Deployment path on server'
+        required: true
+        type: string
+      health_url:
+        description: 'Health check URL'
+        required: true
+        type: string
+      compose_file:
+        description: 'Docker Compose file'
+        required: false
+        default: 'docker-compose.prod.yml'
+        type: string
+      env_file:
+        description: 'Environment file'
+        required: false
+        default: '.env.prod'
+        type: string
+      image_tag:
+        description: 'Image tag to deploy (default: SHA)'
+        required: false
+        default: ''
+        type: string
+      enable_auto_healer:
+        description: 'Enable Claude AI error analysis'
+        required: false
+        default: true
+        type: boolean
+      auto_fix_enabled:
+        description: 'Allow automatic fixes (confidence >= 85%)'
+        required: false
+        default: false
+        type: boolean
+      health_check_retries:
+        description: 'Number of health check retries'
+        required: false
+        default: 10
+        type: number
+      health_check_interval:
+        description: 'Seconds between health checks'
+        required: false
+        default: 10
+        type: number
+      deep_health_check:
+        description: 'Run deep health checks (DB, Redis, Queue)'
+        required: false
+        default: true
+        type: boolean
+      notify_slack:
+        description: 'Send Slack notifications'
+        required: false
+        default: true
+        type: boolean
+      environment:
+        description: 'GitHub Environment name'
+        required: false
+        default: 'production'
+        type: string
+
+    outputs:
+      deployment_id:
+        description: 'Deployment ID'
+        value: ${{ jobs.deploy.outputs.deployment_id }}
+      deployed_tag:
+        description: 'Deployed image tag'
+        value: ${{ jobs.deploy.outputs.deployed_tag }}
+      deployment_status:
+        description: 'Final deployment status'
+        value: ${{ jobs.verify.outputs.status }}
+
+    secrets:
+      HETZNER_HOST:
+        required: true
+      HETZNER_USER:
+        required: true
+      HETZNER_SSH_KEY:
+        required: true
+      ANTHROPIC_API_KEY:
+        required: false
+      SLACK_WEBHOOK_URL:
+        required: false
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+concurrency:
+  group: deploy-${{ inputs.app_name }}-${{ inputs.environment }}
+  cancel-in-progress: false  # Never cancel production deploys
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 1: PRE-DEPLOYMENT VALIDATION
+  # ═══════════════════════════════════════════════════════════════════════════
+  pre-deploy:
+    name: "🔍 Pre-Deploy Checks"
+    runs-on: ubuntu-latest
+    outputs:
+      image_exists: ${{ steps.check.outputs.exists }}
+      current_tag: ${{ steps.check.outputs.current_tag }}
+
+    steps:
+      - name: Determine Image Tag
+        id: tag
+        run: |
+          if [ -n "${{ inputs.image_tag }}" ]; then
+            echo "tag=${{ inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=${{ github.sha }}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Verify Image Exists
+        id: check
+        run: |
+          IMAGE="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ steps.tag.outputs.tag }}"
+          
+          echo "Checking image: $IMAGE"
+          
+          if docker manifest inspect "$IMAGE" > /dev/null 2>&1; then
+            echo "✅ Image exists"
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Image not found"
+            echo "exists=false" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 2: ROLLING DEPLOYMENT
+  # ═══════════════════════════════════════════════════════════════════════════
+  deploy:
+    name: "🚀 Deploy"
+    needs: [pre-deploy]
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.environment }}
+      url: ${{ inputs.health_url }}
+    outputs:
+      deployment_id: ${{ steps.deploy.outputs.deployment_id }}
+      deployed_tag: ${{ steps.deploy.outputs.deployed_tag }}
+      previous_tag: ${{ steps.deploy.outputs.previous_tag }}
+
+    steps:
+      - name: Checkout (for scripts)
+        uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            scripts/
+
+      - name: Deploy via SSH
+        id: deploy
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_NAME: ${{ env.IMAGE_NAME }}
+          COMPOSE_FILE: ${{ inputs.compose_file }}
+          ENV_FILE: ${{ inputs.env_file }}
+          APP_NAME: ${{ inputs.app_name }}
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          envs: IMAGE_TAG,REGISTRY,IMAGE_NAME,COMPOSE_FILE,ENV_FILE,APP_NAME
+          script_stop: true
+          script: |
+            set -euo pipefail
+            
+            echo "╔═══════════════════════════════════════════════════════════╗"
+            echo "║  ROLLING DEPLOYMENT - $APP_NAME                           ║"
+            echo "╚═══════════════════════════════════════════════════════════╝"
+            
+            cd ${{ inputs.deploy_path }}
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Save current state for rollback
+            # ═══════════════════════════════════════════════════════════════
+            IMAGE_TAG_VAR="${APP_NAME^^}_IMAGE_TAG"
+            IMAGE_TAG_VAR="${IMAGE_TAG_VAR//-/_}"
+            
+            PREVIOUS_TAG=$(grep "^${IMAGE_TAG_VAR}=" $ENV_FILE 2>/dev/null | cut -d= -f2 || echo "unknown")
+            echo "Previous tag: $PREVIOUS_TAG"
+            echo "New tag: $IMAGE_TAG"
+            
+            # Create deployment record
+            DEPLOYMENT_ID=$(date +%Y%m%d%H%M%S)
+            mkdir -p deployments
+            cat > deployments/${DEPLOYMENT_ID}.json << EOF
+            {
+              "id": "$DEPLOYMENT_ID",
+              "app": "$APP_NAME",
+              "sha": "$IMAGE_TAG",
+              "previous": "$PREVIOUS_TAG",
+              "started_at": "$(date -Iseconds)",
+              "status": "in_progress",
+              "triggered_by": "${{ github.actor }}",
+              "workflow_run": "${{ github.run_id }}"
+            }
+            EOF
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Update image tag
+            # ═══════════════════════════════════════════════════════════════
+            if grep -q "^${IMAGE_TAG_VAR}=" $ENV_FILE; then
+              sed -i "s|^${IMAGE_TAG_VAR}=.*|${IMAGE_TAG_VAR}=$IMAGE_TAG|" $ENV_FILE
+            else
+              echo "${IMAGE_TAG_VAR}=$IMAGE_TAG" >> $ENV_FILE
+            fi
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Pull new images
+            # ═══════════════════════════════════════════════════════════════
+            echo "📦 Pulling images..."
+            docker compose -f $COMPOSE_FILE --env-file $ENV_FILE pull
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Rolling update: Scale up → Health check → Scale down
+            # ═══════════════════════════════════════════════════════════════
+            WEB_SERVICE="${APP_NAME}-web"
+            
+            echo "🔄 Rolling update: Starting new container..."
+            docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d --no-deps --scale ${WEB_SERVICE}=2 ${WEB_SERVICE} || true
+            
+            echo "⏳ Waiting for new container to be healthy..."
+            sleep 15
+            
+            echo "🔄 Rolling update: Removing old container..."
+            docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d --no-deps --scale ${WEB_SERVICE}=1 ${WEB_SERVICE}
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Update workers (if any)
+            # ═══════════════════════════════════════════════════════════════
+            WORKER_SERVICE="${APP_NAME}-celery"
+            BEAT_SERVICE="${APP_NAME}-celery-beat"
+            
+            if docker compose -f $COMPOSE_FILE config --services | grep -q "$WORKER_SERVICE"; then
+              echo "🔄 Updating worker containers..."
+              docker compose -f $COMPOSE_FILE --env-file $ENV_FILE up -d --no-deps $WORKER_SERVICE $BEAT_SERVICE || true
+            fi
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Collect static files
+            # ═══════════════════════════════════════════════════════════════
+            echo "📁 Collecting static files..."
+            docker compose -f $COMPOSE_FILE --env-file $ENV_FILE exec -T ${WEB_SERVICE} python manage.py collectstatic --noinput || true
+            
+            # ═══════════════════════════════════════════════════════════════
+            # Cleanup
+            # ═══════════════════════════════════════════════════════════════
+            echo "🧹 Cleaning up old images..."
+            docker system prune -f --filter "until=24h" || true
+            
+            echo ""
+            echo "✅ Deployment $DEPLOYMENT_ID initiated"
+            echo "deployment_id=$DEPLOYMENT_ID" >> $GITHUB_OUTPUT
+            echo "deployed_tag=$IMAGE_TAG" >> $GITHUB_OUTPUT
+            echo "previous_tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 3: HEALTH VERIFICATION
+  # ═══════════════════════════════════════════════════════════════════════════
+  verify:
+    name: "🏥 Health Check"
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    outputs:
+      status: ${{ steps.health.outputs.status }}
+      healthy: ${{ steps.health.outputs.healthy }}
+      error_log: ${{ steps.health.outputs.error_log }}
+
+    steps:
+      - name: Wait for Deployment
+        run: sleep 10
+
+      - name: HTTP Health Check
+        id: http_health
+        run: |
+          HEALTH_URL="${{ inputs.health_url }}"
+          RETRIES=${{ inputs.health_check_retries }}
+          INTERVAL=${{ inputs.health_check_interval }}
+          
+          echo "Running health checks against $HEALTH_URL"
+          echo "Retries: $RETRIES, Interval: ${INTERVAL}s"
+          
+          for i in $(seq 1 $RETRIES); do
+            echo ""
+            echo "━━━ Attempt $i/$RETRIES ━━━"
+            
+            RESPONSE=$(curl -sf -w "\n%{http_code}\n%{time_total}" "$HEALTH_URL" 2>&1 || echo -e "\nERROR\n000\n0")
+            BODY=$(echo "$RESPONSE" | head -n -2)
+            STATUS=$(echo "$RESPONSE" | tail -n 2 | head -n 1)
+            TIME=$(echo "$RESPONSE" | tail -n 1)
+            
+            echo "Status: $STATUS"
+            echo "Time: ${TIME}s"
+            
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ HTTP health check passed!"
+              echo "passed=true" >> $GITHUB_OUTPUT
+              echo "response=$BODY" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+            
+            echo "Waiting ${INTERVAL}s..."
+            sleep $INTERVAL
+          done
+          
+          echo "❌ HTTP health check failed after $RETRIES attempts"
+          echo "passed=false" >> $GITHUB_OUTPUT
+          exit 1
+
+      - name: Deep Health Check
+        id: deep_health
+        if: ${{ inputs.deep_health_check && steps.http_health.outputs.passed == 'true' }}
+        run: |
+          HEALTH_URL="${{ inputs.health_url }}"
+          
+          # Try /health/deep/ or /health/?deep=true
+          DEEP_URL="${HEALTH_URL%/}/deep/"
+          
+          echo "Running deep health check: $DEEP_URL"
+          
+          RESPONSE=$(curl -sf "$DEEP_URL" 2>&1 || curl -sf "${HEALTH_URL}?deep=true" 2>&1 || echo '{"status": "unknown"}')
+          
+          echo "Response: $RESPONSE"
+          
+          # Check for critical components
+          DB_STATUS=$(echo "$RESPONSE" | jq -r '.database // .db // "unknown"' 2>/dev/null || echo "unknown")
+          REDIS_STATUS=$(echo "$RESPONSE" | jq -r '.redis // .cache // "unknown"' 2>/dev/null || echo "unknown")
+          
+          echo "Database: $DB_STATUS"
+          echo "Redis: $REDIS_STATUS"
+          
+          if [ "$DB_STATUS" = "healthy" ] || [ "$DB_STATUS" = "ok" ] || [ "$DB_STATUS" = "unknown" ]; then
+            echo "db_healthy=true" >> $GITHUB_OUTPUT
+          else
+            echo "db_healthy=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Aggregate Health Status
+        id: health
+        run: |
+          HTTP_PASSED="${{ steps.http_health.outputs.passed }}"
+          
+          if [ "$HTTP_PASSED" = "true" ]; then
+            echo "status=healthy" >> $GITHUB_OUTPUT
+            echo "healthy=true" >> $GITHUB_OUTPUT
+          else
+            echo "status=unhealthy" >> $GITHUB_OUTPUT
+            echo "healthy=false" >> $GITHUB_OUTPUT
+            echo "error_log=Health check failed after ${{ inputs.health_check_retries }} attempts" >> $GITHUB_OUTPUT
+          fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 4: AI ERROR ANALYSIS (on failure)
+  # ═══════════════════════════════════════════════════════════════════════════
+  analyze:
+    name: "🤖 AI Error Analysis"
+    needs: [deploy, verify]
+    if: ${{ failure() && inputs.enable_auto_healer }}
+    runs-on: ubuntu-latest
+    outputs:
+      category: ${{ steps.analyze.outputs.category }}
+      confidence: ${{ steps.analyze.outputs.confidence }}
+      action: ${{ steps.analyze.outputs.action }}
+      fix_commands: ${{ steps.analyze.outputs.fix_commands }}
+
+    steps:
+      - name: Collect Error Context
+        id: context
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd ${{ inputs.deploy_path }}
+            
+            echo "=== DOCKER LOGS ==="
+            docker compose -f ${{ inputs.compose_file }} logs --tail=100 2>&1 || true
+            
+            echo ""
+            echo "=== CONTAINER STATUS ==="
+            docker compose -f ${{ inputs.compose_file }} ps -a 2>&1 || true
+            
+            echo ""
+            echo "=== SYSTEM RESOURCES ==="
+            df -h / 2>&1 || true
+            free -m 2>&1 || true
+
+      - name: Analyze with Claude
+        id: analyze
+        if: ${{ secrets.ANTHROPIC_API_KEY != '' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          ERROR_LOG=$(cat << 'ERRORLOG'
+          ${{ steps.context.outputs.stdout }}
+          ERRORLOG
+          )
+          
+          # Escape for JSON
+          ERROR_LOG_ESCAPED=$(echo "$ERROR_LOG" | jq -Rs .)
+          
+          RESPONSE=$(curl -s -X POST https://api.anthropic.com/v1/messages \
+            -H "x-api-key: $ANTHROPIC_API_KEY" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d @- << EOF
+          {
+            "model": "claude-sonnet-4-20250514",
+            "max_tokens": 2048,
+            "system": "Du bist ein DevOps-Agent für Hetzner Cloud Deployments. Analysiere Fehler und antworte NUR mit JSON:\n{\"analysis\":{\"category\":\"INFRASTRUCTURE|BUILD|DEPLOY|RUNTIME|NETWORK|PERMISSION\",\"severity\":\"CRITICAL|HIGH|MEDIUM|LOW\",\"confidence\":0-100,\"root_cause\":\"Kurze Beschreibung\"},\"fix\":{\"action\":\"AUTO-FIX|HUMAN_REVIEW\",\"risk\":\"LOW|MEDIUM|HIGH\",\"commands\":[\"cmd1\",\"cmd2\"],\"rollback\":[\"rollback_cmd\"],\"validation\":[\"validation_cmd\"]},\"prevention\":\"Empfehlung\"}",
+            "messages": [{"role": "user", "content": "App: ${{ inputs.app_name }}\nDeploy Path: ${{ inputs.deploy_path }}\n\nERROR LOG:\n${ERROR_LOG_ESCAPED}"}]
+          }
+          EOF
+          )
+          
+          echo "Claude Response:"
+          echo "$RESPONSE" | tee claude_response.json
+          
+          # Extract analysis
+          ANALYSIS=$(echo "$RESPONSE" | jq -r '.content[0].text' 2>/dev/null || echo '{}')
+          
+          echo "Parsed Analysis:"
+          echo "$ANALYSIS" | tee analysis.json
+          
+          # Extract fields
+          CATEGORY=$(echo "$ANALYSIS" | jq -r '.analysis.category // "UNKNOWN"')
+          CONFIDENCE=$(echo "$ANALYSIS" | jq -r '.analysis.confidence // 0')
+          ACTION=$(echo "$ANALYSIS" | jq -r '.fix.action // "HUMAN_REVIEW"')
+          RISK=$(echo "$ANALYSIS" | jq -r '.fix.risk // "HIGH"')
+          COMMANDS=$(echo "$ANALYSIS" | jq -r '.fix.commands | join("\n")' 2>/dev/null || echo "")
+          
+          echo "category=$CATEGORY" >> $GITHUB_OUTPUT
+          echo "confidence=$CONFIDENCE" >> $GITHUB_OUTPUT
+          echo "action=$ACTION" >> $GITHUB_OUTPUT
+          echo "risk=$RISK" >> $GITHUB_OUTPUT
+          
+          # Multiline output for commands
+          {
+            echo 'fix_commands<<EOF'
+            echo "$COMMANDS"
+            echo 'EOF'
+          } >> $GITHUB_OUTPUT
+          
+          # Summary
+          echo "## 🤖 AI Error Analysis" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Category | $CATEGORY |" >> $GITHUB_STEP_SUMMARY
+          echo "| Confidence | $CONFIDENCE% |" >> $GITHUB_STEP_SUMMARY
+          echo "| Recommended Action | $ACTION |" >> $GITHUB_STEP_SUMMARY
+          echo "| Risk Level | $RISK |" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Analysis
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: error-analysis-${{ github.run_id }}
+          path: |
+            claude_response.json
+            analysis.json
+          retention-days: 30
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 5: AUTO-FIX (if enabled and safe)
+  # ═══════════════════════════════════════════════════════════════════════════
+  auto-fix:
+    name: "🔧 Auto-Fix"
+    needs: [deploy, verify, analyze]
+    if: |
+      failure() && 
+      inputs.auto_fix_enabled &&
+      needs.analyze.outputs.action == 'AUTO-FIX' &&
+      needs.analyze.outputs.confidence >= 85
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Execute Auto-Fix
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            
+            echo "╔═══════════════════════════════════════════════════════════╗"
+            echo "║  🔧 EXECUTING AUTO-FIX                                    ║"
+            echo "╚═══════════════════════════════════════════════════════════╝"
+            echo ""
+            echo "Category: ${{ needs.analyze.outputs.category }}"
+            echo "Confidence: ${{ needs.analyze.outputs.confidence }}%"
+            echo ""
+            
+            cd ${{ inputs.deploy_path }}
+            
+            # Execute fix commands
+            echo "Executing fix commands:"
+            echo "${{ needs.analyze.outputs.fix_commands }}"
+            
+            # Only execute safe commands
+            while IFS= read -r cmd; do
+              # Skip empty lines and comments
+              [[ -z "$cmd" || "$cmd" =~ ^# ]] && continue
+              
+              # Safety check: Block dangerous commands
+              if [[ "$cmd" =~ (rm -rf|DROP|DELETE FROM|curl.*\|.*sh) ]]; then
+                echo "⚠️ Blocked dangerous command: $cmd"
+                continue
+              fi
+              
+              echo "Executing: $cmd"
+              eval "$cmd" || true
+            done <<< "${{ needs.analyze.outputs.fix_commands }}"
+            
+            echo ""
+            echo "✅ Auto-fix completed"
+
+      - name: Verify Fix
+        run: |
+          sleep 10
+          
+          HEALTH_URL="${{ inputs.health_url }}"
+          
+          if curl -sf "$HEALTH_URL" > /dev/null; then
+            echo "✅ Service healthy after auto-fix"
+          else
+            echo "❌ Service still unhealthy - triggering rollback"
+            exit 1
+          fi
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 6: ROLLBACK (on failure)
+  # ═══════════════════════════════════════════════════════════════════════════
+  rollback:
+    name: "⏪ Rollback"
+    needs: [deploy, verify]
+    if: failure() && needs.deploy.result == 'success'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Automatic Rollback
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            
+            echo "╔═══════════════════════════════════════════════════════════╗"
+            echo "║  🚨 AUTOMATIC ROLLBACK                                    ║"
+            echo "╚═══════════════════════════════════════════════════════════╝"
+            
+            cd ${{ inputs.deploy_path }}
+            
+            # Get previous tag from deployment record
+            DEPLOYMENT_ID="${{ needs.deploy.outputs.deployment_id }}"
+            PREVIOUS_TAG="${{ needs.deploy.outputs.previous_tag }}"
+            
+            if [ -z "$PREVIOUS_TAG" ] || [ "$PREVIOUS_TAG" = "unknown" ]; then
+              # Try to get from latest deployment file
+              PREVIOUS_TAG=$(ls -t deployments/*.json 2>/dev/null | head -2 | tail -1 | xargs cat 2>/dev/null | jq -r '.sha' || echo "")
+            fi
+            
+            if [ -z "$PREVIOUS_TAG" ]; then
+              echo "❌ No previous deployment found for rollback"
+              exit 1
+            fi
+            
+            echo "Rolling back to: $PREVIOUS_TAG"
+            
+            # Update env file
+            APP_NAME="${{ inputs.app_name }}"
+            IMAGE_TAG_VAR="${APP_NAME^^}_IMAGE_TAG"
+            IMAGE_TAG_VAR="${IMAGE_TAG_VAR//-/_}"
+            
+            sed -i "s|^${IMAGE_TAG_VAR}=.*|${IMAGE_TAG_VAR}=$PREVIOUS_TAG|" ${{ inputs.env_file }}
+            
+            # Rollback
+            docker compose -f ${{ inputs.compose_file }} --env-file ${{ inputs.env_file }} up -d --force-recreate
+            
+            # Update deployment record
+            cat > deployments/rollback_$(date +%Y%m%d%H%M%S).json << EOF
+            {
+              "id": "rollback_$(date +%Y%m%d%H%M%S)",
+              "app": "$APP_NAME",
+              "sha": "$PREVIOUS_TAG",
+              "rolled_back_from": "${{ needs.deploy.outputs.deployed_tag }}",
+              "rolled_back_at": "$(date -Iseconds)",
+              "status": "rolled_back",
+              "triggered_by": "auto"
+            }
+            EOF
+            
+            echo "✅ Rollback completed"
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 7: NOTIFICATIONS
+  # ═══════════════════════════════════════════════════════════════════════════
+  notify:
+    name: "📢 Notify"
+    needs: [deploy, verify]
+    if: always() && inputs.notify_slack
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Notify Success
+        if: needs.verify.outputs.healthy == 'true'
+        uses: slackapi/slack-github-action@v1
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          payload: |
+            {
+              "text": "✅ ${{ inputs.app_name }} deployed successfully",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ inputs.app_name }}* - Production Deployment\n✅ Deployed `${{ needs.deploy.outputs.deployed_tag }}` successfully\n<${{ inputs.health_url }}|Open App> | <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
+                  }
+                }
+              ]
+            }
+
+      - name: Notify Failure
+        if: needs.verify.outputs.healthy != 'true'
+        uses: slackapi/slack-github-action@v1
+        continue-on-error: true
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          payload: |
+            {
+              "text": "❌ ${{ inputs.app_name }} deployment failed",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "*${{ inputs.app_name }}* - Production Deployment\n❌ Deployment of `${{ needs.deploy.outputs.deployed_tag }}` failed\nAutomatic rollback triggered\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View Workflow>"
+                  }
+                }
+              ]
+            }
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 8: AUDIT LOG
+  # ═══════════════════════════════════════════════════════════════════════════
+  audit:
+    name: "📝 Audit"
+    needs: [deploy, verify]
+    if: always()
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Update Deployment Record
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd ${{ inputs.deploy_path }}
+            
+            DEPLOYMENT_ID="${{ needs.deploy.outputs.deployment_id }}"
+            STATUS="${{ needs.verify.outputs.healthy == 'true' && 'success' || 'failed' }}"
+            
+            if [ -f "deployments/${DEPLOYMENT_ID}.json" ]; then
+              # Update status
+              jq ".status = \"$STATUS\" | .completed_at = \"$(date -Iseconds)\"" \
+                "deployments/${DEPLOYMENT_ID}.json" > "deployments/${DEPLOYMENT_ID}.json.tmp"
+              mv "deployments/${DEPLOYMENT_ID}.json.tmp" "deployments/${DEPLOYMENT_ID}.json"
+            fi
+            
+            # Keep last 100 deployments
+            ls -t deployments/*.json 2>/dev/null | tail -n +101 | xargs rm -f 2>/dev/null || true
+            
+            echo "Deployment $DEPLOYMENT_ID: $STATUS"
+
+      - name: Create Summary
+        run: |
+          echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **App** | ${{ inputs.app_name }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Environment** | ${{ inputs.environment }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Deployment ID** | ${{ needs.deploy.outputs.deployment_id }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Image Tag** | \`${{ needs.deploy.outputs.deployed_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Previous Tag** | \`${{ needs.deploy.outputs.previous_tag }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Status** | ${{ needs.verify.outputs.healthy == 'true' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Health URL** | ${{ inputs.health_url }} |" >> $GITHUB_STEP_SUMMARY

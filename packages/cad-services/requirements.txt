@@ -1,0 +1,40 @@
+# CAD-Hub Platform Requirements
+# ADR-009: Database-driven, no hardcoding
+
+# Django
+Django>=5.0,<6.0
+psycopg2-binary>=2.9.9
+whitenoise>=6.6.0
+django-htmx>=1.17.0
+
+# FastAPI
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+python-multipart>=0.0.6
+asyncpg>=0.29.0
+
+# IFC/CAD Processing
+ifcopenshell>=0.7.0
+ezdxf>=1.1.0
+shapely>=2.0.0
+
+# Graph Algorithms (Escape Routes)
+networkx>=3.2
+
+# Geometry
+numpy>=1.26.0
+
+# Utilities
+python-decouple>=3.8
+httpx>=0.26.0
+
+# Development
+pytest>=7.4.0
+pytest-django>=4.7.0
+pytest-asyncio>=0.23.0
+ruff>=0.1.0
+black>=24.0.0
+
+# Production
+gunicorn>=21.2.0
