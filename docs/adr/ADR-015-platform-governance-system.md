@@ -65,6 +65,21 @@ Dieses ADR etabliert ein **vollständiges Platform Governance System**, das sich
 | **Defense in Depth** | Mehrere Enforcement-Layer |
 | **Audit Everything** | Vollständige Nachvollziehbarkeit |
 
+### 2.4 Considered Alternatives
+
+| Option | Beschreibung | Bewertung | Warum verworfen/gewählt |
+|--------|--------------|-----------|-------------------------|
+| **A: Code-basierte Rules (AST)** | Regeln als Python-Code mit AST-Parsing | ❌ | Keine zentrale Verwaltung, schwer änderbar |
+| **B: External Policy Engine (OPA)** | Open Policy Agent für Enforcement | ❌ | Zusätzliche Infrastruktur, Komplexität |
+| **C: Git Hooks Only** | Pre-commit Hooks ohne DB | ❌ | Keine Runtime-Enforcement, leicht umgehbar |
+| **D: Database-Driven (gewählt)** | Regeln in PostgreSQL, Services lesen | ✅ GEWÄHLT | Zentral, flexibel, auditierbar |
+
+**Rationale für Option D:**
+- Zentrale Verwaltung aller Regeln über Django Admin
+- Änderungen ohne Deployment möglich
+- Vollständiges Audit-Trail in Datenbank
+- Integration mit bestehendem PostgreSQL-Stack
+
 ---
 
 ## 3. Decision
@@ -277,9 +292,12 @@ CREATE TABLE platform.lkp_domain (
 );
 
 -- Choice values
+-- NOTE: domain is denormalized for query performance (cached via index)
+-- domain_id is the FK, domain VARCHAR is derived from lkp_domain.code
 CREATE TABLE platform.lkp_choice (
     id              BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     domain_id       BIGINT NOT NULL REFERENCES platform.lkp_domain(id),
+    -- domain is redundant but kept for query performance; enforce via trigger
     domain          VARCHAR(50) NOT NULL,
     code            VARCHAR(50) NOT NULL,
     name            VARCHAR(200) NOT NULL,
@@ -1939,7 +1957,7 @@ Or use the Django admin / management command.
 
 ## 11. Implementation Plan
 
-### 11.1 Phase 1: Foundation (Week 1-2)
+### 11.1 Phase 1: Foundation (Week 1-3)
 
 | Task | Owner | Status |
 |------|-------|--------|
@@ -1950,7 +1968,7 @@ Or use the Django admin / management command.
 | Write LookupService tests | Architect | ⬜ |
 | Create Django admin for lookups | Architect | ⬜ |
 
-### 11.2 Phase 2: Registry (Week 3-4)
+### 11.2 Phase 2: Registry (Week 4-6)
 
 | Task | Owner | Status |
 |------|-------|--------|
@@ -1961,7 +1979,7 @@ Or use the Django admin / management command.
 | Write registry_mcp tests | Architect | ⬜ |
 | Update AI agent system prompts | Architect | ⬜ |
 
-### 11.3 Phase 3: Governance Rules (Week 5-6)
+### 11.3 Phase 3: Governance Rules (Week 7-10)
 
 | Task | Owner | Status |
 |------|-------|--------|
@@ -1972,7 +1990,7 @@ Or use the Django admin / management command.
 | Write governance_check.py | Architect | ⬜ |
 | Create GitHub Actions workflow | Architect | ⬜ |
 
-### 11.4 Phase 4: Rollout (Week 7-8)
+### 11.4 Phase 4: Rollout (Week 11-14)
 
 | Task | Owner | Status |
 |------|-------|--------|
@@ -1985,9 +2003,114 @@ Or use the Django admin / management command.
 
 ---
 
-## 12. Consequences
+## 12. Security Considerations
 
-### 12.1 Positive
+### 12.1 Secrets Management
+
+| Secret | Storage | Access |
+|--------|---------|--------|
+| LLM API Keys (Anthropic, OpenAI) | Environment Variables / Vault | LLMGateway only |
+| Database Credentials | Docker Secrets / .env.prod | Application containers |
+| GitHub Tokens | GitHub Actions Secrets | CI/CD only |
+
+**Prinzip:** Secrets NIEMALS in Code oder Datenbank speichern.
+
+### 12.2 Access Control
+
+| Ressource | Wer darf lesen | Wer darf schreiben |
+|-----------|----------------|-------------------|
+| `lkp_*` Tabellen | Alle Services | Architect, Admin |
+| `reg_*` Tabellen | Alle Services | Team Leads, Architect |
+| `gov_*` Regeln | Alle Services | Architect only |
+| `gov_enforcement_log` | Architect, Audit | System only (append) |
+
+### 12.3 LLMGateway Exception
+
+`LLMGateway` ist die **einzige** autorisierte Komponente für direkte LLM-SDK-Imports:
+
+```python
+# gov_import_rule Ausnahme
+INSERT INTO platform.gov_import_rule (code, name, import_pattern, ..., exceptions) VALUES
+('no_import_openai', 'No Direct OpenAI', 'import openai|from openai', ..., 
+ ARRAY['governance.services.llm_gateway']),
+('no_import_anthropic', 'No Direct Anthropic', 'import anthropic|from anthropic', ..., 
+ ARRAY['governance.services.llm_gateway']);
+```
+
+---
+
+## 13. Testing Strategy
+
+### 13.1 Test Coverage Targets
+
+| Layer | Test Type | Coverage Target | Tools |
+|-------|-----------|-----------------|-------|
+| LookupService | Unit | 90% | pytest |
+| GovernanceService | Unit + Integration | 85% | pytest, factory_boy |
+| LLMGateway | Unit + Mock | 80% | pytest, responses |
+| registry_mcp | Integration | 80% | pytest-mcp |
+| governance_check.py | E2E | 100% (all rules) | pytest |
+
+### 13.2 Critical Test Cases
+
+```python
+# test_governance_service.py
+def test_import_rule_blocks_direct_openai():
+    """Verify direct OpenAI imports are blocked."""
+    result = GovernanceService.check_import("from openai import OpenAI", "apps/feature/service.py")
+    assert result.action == "block"
+    assert "llm_mcp" in result.suggestion
+
+def test_import_rule_allows_llm_gateway():
+    """Verify LLMGateway exception works."""
+    result = GovernanceService.check_import("from openai import OpenAI", "governance/services/llm_gateway.py")
+    assert result.action == "allow"
+
+def test_lookup_service_caching():
+    """Verify cache invalidation on DB change."""
+    LookupService.get_choices('status')  # Populate cache
+    # Simulate DB change
+    LookupChoice.objects.filter(domain='status', code='new').create(...)
+    # Verify cache invalidated
+    choices = LookupService.get_choices('status')
+    assert any(c.code == 'new' for c in choices)
+```
+
+---
+
+## 14. Rollback Strategy
+
+### 14.1 Emergency Disable
+
+```python
+# settings.py
+GOVERNANCE_ENFORCEMENT_ENABLED = env.bool('GOVERNANCE_ENABLED', True)
+GOVERNANCE_ENFORCEMENT_MODE = env.str('GOVERNANCE_MODE', 'block')  # block, warn, log, off
+```
+
+### 14.2 Gradual Rollback Steps
+
+| Schritt | Aktion | Downtime |
+|---------|--------|----------|
+| 1 | `GOVERNANCE_MODE=warn` | 0 |
+| 2 | `GOVERNANCE_MODE=log` | 0 |
+| 3 | `GOVERNANCE_MODE=off` | 0 |
+| 4 | Disable CI/CD checks (remove workflow) | 0 |
+
+### 14.3 Database Rollback
+
+```sql
+-- Deaktiviere alle Regeln ohne Datenverlust
+UPDATE platform.gov_import_rule SET is_active = false;
+UPDATE platform.gov_naming_rule SET is_active = false;
+UPDATE platform.gov_pattern_rule SET is_active = false;
+```
+
+---
+
+## 15. Consequences
+
+### 15.1 Positive
 
 | Consequence | Impact |
 |-------------|--------|
@@ -1998,7 +2121,7 @@ Or use the Django admin / management command.
 | **Complete audit trail** | Compliance, debugging, trend analysis |
 | **AI agents discover existing code** | Reduced technical debt |
 
-### 12.2 Negative
+### 15.2 Negative
 
 | Consequence | Mitigation |
 |-------------|------------|
@@ -2007,7 +2130,7 @@ Or use the Django admin / management command.
 | Learning curve | System prompts, examples |
 | Database dependency for lookups | Caching, fallback defaults |
 
-### 12.3 Risks
+### 15.3 Risks
 
 | Risk | Probability | Impact | Mitigation |
 |------|-------------|--------|------------|
@@ -2018,9 +2141,9 @@ Or use the Django admin / management command.
 
 ---
 
-## 13. Appendix
+## 16. Appendix
 
-### 13.1 Available Lookup Domains
+### 16.1 Available Lookup Domains
 
 ```
 status          - Component lifecycle (planned, production, deprecated)
@@ -2041,7 +2164,7 @@ country         - Countries (ISO 3166)
 language        - Languages (ISO 639)
 ```
 
-### 13.2 Quick Reference
+### 16.2 Quick Reference
 
 ```python
 # Get all choices for a domain
@@ -2070,7 +2193,7 @@ response = await LLMGateway.generate(
 )
 ```
 
-### 13.3 Related ADRs
+### 16.3 Related ADRs
 
 | ADR | Relationship |
 |-----|--------------|
@@ -2080,15 +2203,16 @@ response = await LLMGateway.generate(
 
 ---
 
-## 14. Change Log
+## 17. Change Log
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
 | 1.0 | 2026-02-03 | Achim Dehnert | Initial version |
+| 1.1 | 2026-02-03 | AI Review | Added: Security (§12), Testing (§13), Rollback (§14), Considered Alternatives (§2.4). Fixed: Timeline 8→14 weeks, section numbering, LLMGateway exception doc |
 
 ---
 
-## 15. Approval
+## 18. Approval
 
 | Role | Name | Date | Signature |
 |------|------|------|-----------|
