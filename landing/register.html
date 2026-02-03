@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrieren - CAD-Hub</title>
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        .auth-page {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 20px;
+        }
+        
+        .auth-card {
+            background: white;
+            padding: 48px;
+            border-radius: 16px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 480px;
+        }
+        
+        .auth-header {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+        
+        .auth-header .logo {
+            font-size: 32px;
+            margin-bottom: 16px;
+            display: block;
+        }
+        
+        .auth-header h1 {
+            font-size: 24px;
+            color: #0f172a;
+            margin-bottom: 8px;
+        }
+        
+        .auth-header p {
+            color: #64748b;
+            font-size: 14px;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 14px 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #2563eb;
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+        
+        .form-terms {
+            margin-bottom: 24px;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .form-terms a {
+            color: #2563eb;
+            text-decoration: none;
+        }
+        
+        .auth-card .btn {
+            width: 100%;
+            justify-content: center;
+            padding: 16px;
+            font-size: 16px;
+        }
+        
+        .auth-footer {
+            text-align: center;
+            margin-top: 24px;
+            padding-top: 24px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 14px;
+            color: #64748b;
+        }
+        
+        .auth-footer a {
+            color: #2563eb;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        
+        .plan-selector {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        
+        .plan-option {
+            padding: 16px;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .plan-option:hover {
+            border-color: #2563eb;
+        }
+        
+        .plan-option.selected {
+            border-color: #2563eb;
+            background: #eff6ff;
+        }
+        
+        .plan-option strong {
+            display: block;
+            margin-bottom: 4px;
+        }
+        
+        .plan-option span {
+            font-size: 12px;
+            color: #64748b;
+        }
+    </style>
+</head>
+<body>
+    <div class="auth-page">
+        <div class="auth-card">
+            <div class="auth-header">
+                <a href="index.html" class="logo">🏗️ CAD-Hub</a>
+                <h1>Konto erstellen</h1>
+                <p>Starten Sie kostenlos mit CAD-Hub</p>
+            </div>
+            
+            <form id="registerForm" onsubmit="handleRegister(event)">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="firstName">Vorname</label>
+                        <input type="text" id="firstName" name="firstName" required
+                               placeholder="Max">
+                    </div>
+                    <div class="form-group">
+                        <label for="lastName">Nachname</label>
+                        <input type="text" id="lastName" name="lastName" required
+                               placeholder="Mustermann">
+                    </div>
+                </div>
+                
+                <div class="form-group">
+                    <label for="company">Unternehmen</label>
+                    <input type="text" id="company" name="company"
+                           placeholder="Architekturbüro Mustermann">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">E-Mail</label>
+                    <input type="email" id="email" name="email" required
+                           placeholder="max@architekten.de">
+                </div>
+                
+                <div class="form-group">
+                    <label for="password">Passwort</label>
+                    <input type="password" id="password" name="password" required
+                           placeholder="Mindestens 8 Zeichen" minlength="8">
+                </div>
+                
+                <div class="form-group">
+                    <label>Plan auswählen</label>
+                    <div class="plan-selector">
+                        <div class="plan-option selected" data-plan="free">
+                            <strong>Free</strong>
+                            <span>€0/Monat</span>
+                        </div>
+                        <div class="plan-option" data-plan="starter">
+                            <strong>Starter</strong>
+                            <span>€49/Monat</span>
+                        </div>
+                        <div class="plan-option" data-plan="professional">
+                            <strong>Professional</strong>
+                            <span>€149/Monat</span>
+                        </div>
+                    </div>
+                    <input type="hidden" id="selectedPlan" name="plan" value="free">
+                </div>
+                
+                <div class="form-terms">
+                    <label>
+                        <input type="checkbox" required>
+                        Ich akzeptiere die <a href="terms.html">AGB</a> und 
+                        <a href="privacy.html">Datenschutzerklärung</a>
+                    </label>
+                </div>
+                
+                <button type="submit" class="btn btn-primary">
+                    Kostenlos registrieren
+                </button>
+            </form>
+            
+            <div class="auth-footer">
+                Bereits registriert? <a href="login.html">Anmelden</a>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Plan selector
+        document.querySelectorAll('.plan-option').forEach(option => {
+            option.addEventListener('click', () => {
+                document.querySelectorAll('.plan-option').forEach(o => {
+                    o.classList.remove('selected');
+                });
+                option.classList.add('selected');
+                document.getElementById('selectedPlan').value = option.dataset.plan;
+            });
+        });
+        
+        function handleRegister(event) {
+            event.preventDefault();
+            
+            const formData = {
+                firstName: document.getElementById('firstName').value,
+                lastName: document.getElementById('lastName').value,
+                company: document.getElementById('company').value,
+                email: document.getElementById('email').value,
+                plan: document.getElementById('selectedPlan').value,
+                created_at: new Date().toISOString()
+            };
+            
+            // Store in localStorage (in production: API call)
+            localStorage.setItem('cadhub_user', JSON.stringify(formData));
+            
+            // Redirect to dashboard
+            window.location.href = 'app/dashboard.html';
+        }
+    </script>
+</body>
+</html>

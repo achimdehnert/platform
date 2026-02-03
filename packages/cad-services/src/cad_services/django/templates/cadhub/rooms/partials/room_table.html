@@ -1,0 +1,83 @@
+<table class="table table-hover mb-0">
+    <thead>
+        <tr>
+            <th>Nr.</th>
+            <th>Name</th>
+            <th>Etage</th>
+            <th class="text-end">Fläche</th>
+            <th class="text-end">Höhe</th>
+            <th class="text-end">Volumen</th>
+            <th>Kategorie</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for room in rooms %}
+        <tr hx-get="{% url 'cadhub:room-detail' room.id %}" 
+            hx-target="#room-detail-modal .modal-content"
+            hx-trigger="click"
+            data-bs-toggle="modal"
+            data-bs-target="#room-detail-modal"
+            style="cursor: pointer;">
+            <td class="fw-medium">{{ room.number }}</td>
+            <td>{{ room.name }}</td>
+            <td>{{ room.floor.name|default:"-" }}</td>
+            <td class="text-end font-monospace">{{ room.area_m2|floatformat:2 }} m²</td>
+            <td class="text-end font-monospace">{{ room.height_m|floatformat:2 }} m</td>
+            <td class="text-end font-monospace">{{ room.volume_m3|floatformat:2 }} m³</td>
+            <td>
+                {% if room.usage_category %}
+                <span class="badge bg-info">{{ room.usage_category.code }}</span>
+                {% else %}
+                <span class="text-muted">-</span>
+                {% endif %}
+            </td>
+            <td>
+                <button class="btn btn-sm btn-outline-primary" 
+                        title="Bearbeiten"
+                        hx-get="{% url 'cadhub:room-edit' room.id %}"
+                        hx-target="#edit-modal .modal-content"
+                        data-bs-toggle="modal"
+                        data-bs-target="#edit-modal"
+                        onclick="event.stopPropagation();">
+                    <i class="bi bi-pencil"></i>
+                    <span class="visually-hidden">Bearbeiten</span>
+                </button>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="8" class="text-center text-muted py-4">
+                Keine Räume gefunden.
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+    <tfoot class="table-light">
+        <tr>
+            <td colspan="3" class="fw-bold">Summe</td>
+            <td class="text-end fw-bold font-monospace">{{ total_area|floatformat:2 }} m²</td>
+            <td></td>
+            <td class="text-end fw-bold font-monospace">{{ total_volume|floatformat:2 }} m³</td>
+            <td colspan="2"></td>
+        </tr>
+    </tfoot>
+</table>
+
+<!-- Room Detail Modal -->
+<div class="modal fade" id="room-detail-modal" tabindex="-1" aria-labelledby="roomDetailLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <!-- Content loaded via HTMX -->
+        </div>
+    </div>
+</div>
+
+<!-- Edit Modal -->
+<div class="modal fade" id="edit-modal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <!-- Content loaded via HTMX -->
+        </div>
+    </div>
+</div>
