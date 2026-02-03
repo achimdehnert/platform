@@ -1,0 +1,50 @@
+{% extends "cadhub/base.html" %}
+
+{% block title %}DIN 277 Berechnung - CAD-Hub{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">DIN 277 Flächenberechnung</h1>
+</div>
+
+<!-- Model Selection -->
+<div class="card mb-4">
+    <div class="card-header">Modell auswählen</div>
+    <div class="card-body">
+        <form hx-post="{% url 'cadhub:din277-calculate' %}"
+              hx-target="#calculation-results"
+              hx-indicator="#loading">
+            {% csrf_token %}
+            <div class="row align-items-end">
+                <div class="col-md-6">
+                    <label for="model_id" class="form-label">CAD-Modell</label>
+                    <select name="model_id" id="model_id" class="form-select" required>
+                        <option value="">Modell auswählen...</option>
+                        {% for model in models %}
+                        <option value="{{ model.id }}">{{ model.name }} ({{ model.project.name }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-calculator"></i> Berechnen
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Loading Indicator -->
+<div id="loading" class="htmx-indicator text-center py-4">
+    <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Berechne...</span>
+    </div>
+    <p class="mt-2 text-muted">Berechnung läuft...</p>
+</div>
+
+<!-- Results -->
+<div id="calculation-results">
+    {% include "cadhub/calculations/partials/din277_results.html" %}
+</div>
+{% endblock %}

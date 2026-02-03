@@ -1,0 +1,148 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  TRAVEL BEAT - SIMPLIFIED CI/CD PIPELINE (after migration)                 ║
+# ║  Using platform reusable workflows                                         ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+#
+# BEFORE: ~800 lines across 4 workflow files
+# AFTER:  ~80 lines in 1 file
+#
+# This workflow demonstrates how apps use the platform's reusable workflows.
+
+name: CI/CD
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests (emergency only)'
+        required: false
+        default: false
+        type: boolean
+      environment:
+        description: 'Target environment'
+        required: false
+        default: 'production'
+        type: choice
+        options:
+          - staging
+          - production
+
+jobs:
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 1: CI - Lint, Security, Tests
+  # ═══════════════════════════════════════════════════════════════════════════
+  ci:
+    name: "CI"
+    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1
+    with:
+      python_version: "3.12"
+      coverage_threshold: 70
+      requirements_file: "requirements.txt"
+      dev_requirements_file: "requirements/dev.txt"
+      source_dir: "apps/"
+      django_settings_module: "config.settings.test"
+      skip_tests: ${{ inputs.skip_tests || false }}
+    secrets: inherit
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 2: Security Scan
+  # ═══════════════════════════════════════════════════════════════════════════
+  security:
+    name: "Security"
+    uses: achimdehnert/platform/.github/workflows/_security-scan.yml@v1
+    with:
+      scan_filesystem: true
+      scan_secrets: true
+      scan_dependencies: true
+      severity: "CRITICAL,HIGH"
+    secrets: inherit
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 3: Build Docker Images
+  # ═══════════════════════════════════════════════════════════════════════════
+  build:
+    name: "Build"
+    needs: [ci]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1
+    with:
+      dockerfile: "docker/Dockerfile"
+      context: "."
+      platforms: "linux/amd64"
+      scan_image: true
+    secrets: inherit
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # STAGE 4: Deploy to Production
+  # ═══════════════════════════════════════════════════════════════════════════
+  deploy:
+    name: "Deploy"
+    needs: [build, security]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1
+    with:
+      app_name: travel-beat
+      deploy_path: /opt/travel-beat
+      health_url: https://travel-beat.iil.pet/health/
+      compose_file: docker-compose.prod.yml
+      env_file: .env.prod
+      environment: ${{ inputs.environment || 'production' }}
+      
+      # Health check configuration
+      health_check_retries: 10
+      health_check_interval: 10
+      deep_health_check: true
+      
+      # AI-powered auto-healer
+      enable_auto_healer: true
+      auto_fix_enabled: false  # Set to true after testing
+      
+      # Notifications
+      notify_slack: true
+    secrets:
+      HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+      HETZNER_USER: ${{ secrets.HETZNER_USER }}
+      HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+
+  # ═══════════════════════════════════════════════════════════════════════════
+  # OPTIONAL: App-specific post-deployment tasks
+  # ═══════════════════════════════════════════════════════════════════════════
+  post-deploy:
+    name: "Post-Deploy"
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    if: success()
+    
+    steps:
+      - name: Run Database Migrations
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            cd /opt/travel-beat
+            docker compose -f docker-compose.prod.yml exec -T travel-beat-web \
+              python manage.py migrate --noinput
+
+      - name: Warm Up Caches
+        run: |
+          # Hit key endpoints to warm caches
+          curl -sf https://travel-beat.iil.pet/ > /dev/null || true
+          curl -sf https://travel-beat.iil.pet/api/destinations/ > /dev/null || true
+
+      - name: Create Sentry Release
+        if: ${{ vars.SENTRY_ORG != '' }}
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+        run: |
+          curl -sL https://sentry.io/get-cli/ | bash
+          sentry-cli releases new ${{ github.sha }}
+          sentry-cli releases set-commits ${{ github.sha }} --auto
+          sentry-cli releases finalize ${{ github.sha }}

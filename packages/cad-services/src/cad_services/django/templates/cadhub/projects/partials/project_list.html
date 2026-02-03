@@ -1,0 +1,77 @@
+<table class="table table-hover mb-0">
+    <thead>
+        <tr>
+            <th>Projekt</th>
+            <th>Beschreibung</th>
+            <th>Modelle</th>
+            <th>Status</th>
+            <th>Erstellt</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for project in projects %}
+        <tr>
+            <td>
+                <a href="{% url 'cadhub:project-detail' project.id %}" class="fw-medium">
+                    {{ project.name }}
+                </a>
+            </td>
+            <td class="text-muted">
+                {{ project.description|truncatewords:10 }}
+            </td>
+            <td>{{ project.model_count }}</td>
+            <td>
+                {% if project.status == 'active' %}
+                <span class="badge badge-success">Aktiv</span>
+                {% else %}
+                <span class="badge badge-warning">Archiviert</span>
+                {% endif %}
+            </td>
+            <td>{{ project.created_at|date:"d.m.Y" }}</td>
+            <td>
+                <div class="dropdown">
+                    <button class="btn btn-sm btn-outline-secondary" 
+                            data-bs-toggle="dropdown"
+                            title="Aktionen"
+                            aria-label="Projektaktionen">
+                        <i class="bi bi-three-dots" aria-hidden="true"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end">
+                        <li>
+                            <a class="dropdown-item" 
+                               href="{% url 'cadhub:project-detail' project.id %}">
+                                <i class="bi bi-eye"></i> Anzeigen
+                            </a>
+                        </li>
+                        <li>
+                            <a class="dropdown-item" 
+                               href="{% url 'cadhub:model-upload' project.id %}">
+                                <i class="bi bi-upload"></i> Modell hochladen
+                            </a>
+                        </li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li>
+                            <a class="dropdown-item text-danger" href="#">
+                                <i class="bi bi-archive"></i> Archivieren
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" class="text-center text-muted py-5">
+                <i class="bi bi-folder fs-1 d-block mb-3"></i>
+                Keine Projekte gefunden.
+                <div class="mt-3">
+                    <a href="{% url 'cadhub:project-create' %}" class="btn btn-primary">
+                        <i class="bi bi-plus"></i> Erstes Projekt erstellen
+                    </a>
+                </div>
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
