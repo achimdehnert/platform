@@ -260,20 +260,22 @@ Wir etablieren ein **Hybrid Human-AI Development Model** mit:
 
 ### 4.1.1 Model Access Configuration
 
+> **Hinweis:** BYOK (Bring Your Own Key) ist für Teams/Enterprise-Pläne NICHT verfügbar.
+> Claude-Modelle werden über Windsurf Credits abgerechnet.
+
 ```yaml
-# Windsurf Model Strategy
+# Windsurf Model Strategy (Teams/Enterprise)
 models:
   primary:
     name: "SWE-1.5"
     access: "windsurf-native"
-    cost: "included"
+    cost: "included in subscription"
     usage: "90%"
     
   secondary:
-    name: "Claude Opus 4.5 (Thinking)"
-    access: "byok"  # oder credits
-    api_key: "${ANTHROPIC_API_KEY}"
-    cost: "$5/$25 per MTok"
+    name: "Claude Opus 4 (Thinking)"
+    access: "windsurf-credits"  # NICHT BYOK für Teams!
+    cost: "credits-based"
     usage: "5%"
     triggers:
       - "architecture"
@@ -286,13 +288,23 @@ models:
   tertiary:
     name: "Llama 3.1 405B"
     access: "windsurf-native"
-    cost: "unlimited"
+    cost: "unlimited (Pro/Teams)"
     usage: "5%"
     triggers:
       - "quick"
       - "simple"
       - "explain"
 ```
+
+### 4.1.2 Model-Wechsel in Windsurf
+
+Um das Model zu wechseln: Dropdown unter dem Prompt-Eingabefeld → Model auswählen.
+
+| Situation | Wähle |
+|-----------|-------|
+| Standard-Entwicklung | SWE-1.5 (default) |
+| Architektur-Entscheidung | Claude Opus 4 (Thinking) |
+| Schnelle Frage | Llama 3.1 405B (Premier) |
 
 ### 4.2 Model Selection Matrix
 
