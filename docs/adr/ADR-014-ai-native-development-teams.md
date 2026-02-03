@@ -237,12 +237,12 @@ Wir etablieren ein **Hybrid Human-AI Development Model** mit:
 │                                                                          │
 │  ════════════════════════════════════════════════════════════════════   │
 │                                                                          │
-│  🚀 TIER 3: LLAMA 3.1 (70B/405B) - "Quick Tasks"                        │
-│  ═══════════════════════════════════════════════                         │
+│  🚀 TIER 3: GPT-5-2 (LOW REASONING) - "Quick Tasks"                     │
+│  ═══════════════════════════════════════════════════                     │
 │                                                                          │
-│  Access: Windsurf Native (70B: Free, 405B: Pro/Teams)                   │
-│  Cost: Unlimited (keine Credits)                                        │
-│  Speed: Schnellste Option                                               │
+│  Access: Windsurf Credits                                               │
+│  Mode: Low Reasoning (schneller, günstiger)                             │
+│  Qualität: Besser als Llama für strukturierte Tasks                     │
 │                                                                          │
 │  Use Cases (~5% der Tasks):                                             │
 │  ┌─────────────────────────────────────────────────────────────────────┐│
@@ -251,9 +251,10 @@ Wir etablieren ein **Hybrid Human-AI Development Model** mit:
 │  │ ✅ Boilerplate generation                                           ││
 │  │ ✅ Changelog drafts                                                 ││
 │  │ ✅ Quick explanations                                               ││
+│  │ ✅ Code formatting                                                  ││
 │  └─────────────────────────────────────────────────────────────────────┘│
 │                                                                          │
-│  Trigger: "quick", "simple", "explain", "what is"                       │
+│  Trigger: "quick", "simple", "explain", "format"                        │
 │                                                                          │
 └──────────────────────────────────────────────────────────────────────────┘
 ```
@@ -286,14 +287,15 @@ models:
       - "adr"
     
   tertiary:
-    name: "Llama 3.1 405B"
-    access: "windsurf-native"
-    cost: "unlimited (Pro/Teams)"
+    name: "GPT-5-2 (Low Reasoning)"
+    access: "windsurf-credits"
+    cost: "credits-based (günstig)"
     usage: "5%"
     triggers:
       - "quick"
       - "simple"
       - "explain"
+      - "format"
 ```
 
 ### 4.1.2 Model-Wechsel in Windsurf
@@ -304,7 +306,7 @@ Um das Model zu wechseln: Dropdown unter dem Prompt-Eingabefeld → Model auswä
 |-----------|-------|
 | Standard-Entwicklung | SWE-1.5 (default) |
 | Architektur-Entscheidung | Claude Opus 4 (Thinking) |
-| Schnelle Frage | Llama 3.1 405B (Premier) |
+| Schnelle Frage / Formatierung | GPT-5-2 (Low Reasoning) |
 
 ### 4.2 Model Selection Matrix
 
