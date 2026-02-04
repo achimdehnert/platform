@@ -88,6 +88,47 @@ Nachvollziehbarkeit:                ████░░░░░░░░░░�
 - Ersatz für direkte Kommunikation im Team
 - Micromanagement von Entwicklungsaufgaben
 
+### 2.6 Systemabgrenzung
+
+> **WICHTIG:** DDL ist ein **Meta-System** für die Entwicklungssteuerung und **unabhängig** von allen Fachdomänen.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                     PLATFORM ECOSYSTEM                              │
+├─────────────────────────────────────────────────────────────────────┤
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │              DDL (Domain Development Lifecycle)              │   │
+│  │                    Schema: platform                          │   │
+│  │                                                              │   │
+│  │  • Business Cases    • Use Cases    • ADRs                  │   │
+│  │  • Inception         • Reviews      • Status Tracking       │   │
+│  │                                                              │   │
+│  │  UNABHÄNGIG von Fachdomänen - steuert deren Entwicklung     │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                              │                                      │
+│                              │ beschreibt/steuert                   │
+│                              ▼                                      │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌───────────┐ │
+│  │ travel-beat │  │  pptx-hub   │  │  weltenhub  │  │    ...    │ │
+│  │             │  │             │  │             │  │           │ │
+│  │ Eigene DB   │  │ Eigene DB   │  │ Eigene DB   │  │ Eigene DB │ │
+│  │ Eigene      │  │ Eigene      │  │ Eigene      │  │ Eigene    │ │
+│  │ Lookups     │  │ Lookups     │  │ Lookups     │  │ Lookups   │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └───────────┘ │
+│                                                                     │
+│                    FACHDOMÄNEN (unabhängig)                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+| Aspekt | DDL | Fachdomänen |
+|--------|-----|-------------|
+| **Zweck** | Entwicklungsprozess steuern | Fachliche Funktionalität |
+| **Schema** | `platform` | Eigenes Schema pro Domäne |
+| **Lookups** | `platform.lkp_*` (DDL-spezifisch) | Eigene `lkp_*` Tabellen |
+| **Deployment** | Zentral (Platform) | Unabhängig pro Domäne |
+| **Datenbank** | PostgreSQL (Governance DB) | Kann variieren |
+
 ---
 
 ## 3. Decision
@@ -152,10 +193,25 @@ Nachvollziehbarkeit:                ████░░░░░░░░░░�
 
 #### 3.2.1 Lookup-Tabellen (lkp_*)
 
+> **Hinweis:** DDL verwendet eigene Lookup-Tabellen im `platform` Schema. Diese sind **unabhängig** von Lookups in Fachdomänen (z.B. `weltenhub.lkp_genre`).
+
 | Tabelle | Zweck | Beispiel-Werte |
 |---------|-------|----------------|
-| `lkp_domain` | Lookup-Domänen | bc_status, uc_priority, adr_status |
-| `lkp_choice` | Lookup-Werte | draft, approved, high, critical |
+| `platform.lkp_domain` | Lookup-Domänen | bc_status, uc_priority, adr_status |
+| `platform.lkp_choice` | Lookup-Werte | draft, approved, high, critical |
+
+**Wichtig:** Alle Auswahllisten in DDL kommen aus diesen Tabellen - **keine hardcoded Enums** im Code:
+
+```python
+# ❌ FALSCH - Hardcoded Enum
+RELATIONSHIP_TYPES = [('implements', 'Implementiert'), ...]
+
+# ✅ RICHTIG - FK zu lkp_choice
+relationship_type = models.ForeignKey(
+    'governance.LookupChoice',
+    limit_choices_to={'domain__code': 'adr_uc_relationship'},
+)
+```
 
 #### 3.2.2 Domain-Tabellen (dom_*)
 
@@ -356,6 +412,8 @@ adr_status                     • trivial (1 SP)
 | LLM-Kosten bei hoher Nutzung | Mittel | Mittel | Token-Budgets, Caching |
 | Adoption-Widerstand | Niedrig | Hoch | Einfache MCP-Integration |
 | Datenqualität bei schlechtem Input | Mittel | Mittel | Validation Rules |
+| LLM-Ausfall/Quota erschöpft | Niedrig | Hoch | Expliziter Fehler + Web-UI Fallback |
+| Rollback erforderlich | Niedrig | Hoch | Rollback-Scripts pro Phase |
 
 ---
 
@@ -363,14 +421,79 @@ adr_status                     • trivial (1 SP)
 
 ### 5.1 Phasen-Roadmap
 
-| Phase | Umfang | Timeline | Status |
-|-------|--------|----------|--------|
-| **P1: Foundation** | Datenmodell, Django Models, Admin | Woche 1-2 | 🔲 Geplant |
-| **P2: Services** | BusinessCaseService, LookupService | Woche 3-4 | 🔲 Geplant |
-| **P3: MCP Server** | inception_mcp mit Inception Dialog | Woche 5-6 | 🔲 Geplant |
-| **P4: Web-UI** | governance_app mit HTMX | Woche 7-8 | 🔲 Geplant |
-| **P5: Sphinx** | db_docs Extension | Woche 9 | 🔲 Geplant |
-| **P6: GitHub Actions** | Automated Docs Build | Woche 10 | 🔲 Geplant |
+| Phase | Umfang | Timeline | Status | Rollback |
+|-------|--------|----------|--------|----------|
+| **P1: Foundation** | Datenmodell, Django Models, Admin | Woche 1-2 | 🔲 Geplant | `DROP SCHEMA platform CASCADE` |
+| **P2: Services** | BusinessCaseService, LookupService | Woche 3-4 | 🔲 Geplant | Revert Django App |
+| **P3: MCP Server** | inception_mcp mit Inception Dialog | Woche 5-6 | 🔲 Geplant | MCP Config entfernen |
+| **P4: Web-UI** | governance_app mit HTMX | Woche 7-8 | 🔲 Geplant | URLs deaktivieren |
+| **P5: Sphinx** | db_docs Extension | Woche 9 | 🔲 Geplant | Extension entfernen |
+| **P6: GitHub Actions** | Automated Docs Build | Woche 10 | 🔲 Geplant | Workflow deaktivieren |
+
+### 5.1.1 Rollback-Strategie
+
+```bash
+#!/usr/bin/env bash
+# rollback.sh - DDL Governance Rollback
+# Usage: ./rollback.sh <PHASE>
+#
+# Exit Codes:
+#   0 - Success
+#   1 - Invalid phase
+#   2 - Rollback failed
+
+set -euo pipefail
+
+PHASE="${1:-}"
+
+case "$PHASE" in
+    p1|foundation)
+        log_info "Rolling back P1: Foundation"
+        # Daten sichern vor DROP
+        pg_dump -h localhost -U governance -d governance \
+            --schema=platform -f "backup_platform_$(date +%Y%m%d_%H%M%S).sql"
+        # Schema entfernen
+        psql -h localhost -U governance -d governance \
+            -c "DROP SCHEMA IF EXISTS platform CASCADE;"
+        ;;
+    p2|services)
+        log_info "Rolling back P2: Services"
+        # Django App deaktivieren (INSTALLED_APPS)
+        sed -i "s/'apps.governance',/#'apps.governance',/" config/settings/base.py
+        ;;
+    p3|mcp)
+        log_info "Rolling back P3: MCP Server"
+        # MCP Server aus Config entfernen
+        jq 'del(.mcpServers."inception-mcp")' ~/.codeium/windsurf/mcp_config.json > tmp.json
+        mv tmp.json ~/.codeium/windsurf/mcp_config.json
+        ;;
+    p4|webui)
+        log_info "Rolling back P4: Web-UI"
+        # URLs deaktivieren
+        sed -i "s|path('governance/'|#path('governance/'|" config/urls.py
+        ;;
+    *)
+        log_error "Unknown phase: $PHASE"
+        echo "Usage: $0 <p1|p2|p3|p4|p5|p6>"
+        exit 1
+        ;;
+esac
+
+log_success "Rollback completed for phase: $PHASE"
+```
+
+### 5.1.2 Feature Flags
+
+```sql
+-- Feature Flags für graduellen Rollout
+-- In platform.lkp_choice mit domain='feature_flag'
+
+INSERT INTO platform.lkp_choice (domain_id, domain, code, name, is_active, metadata)
+VALUES
+    (1, 'feature_flag', 'ddl_inception_enabled', 'DDL Inception MCP', false, '{"rollout_percentage": 0}'),
+    (1, 'feature_flag', 'ddl_webui_enabled', 'DDL Web-UI', false, '{"rollout_percentage": 0}'),
+    (1, 'feature_flag', 'ddl_sphinx_enabled', 'DDL Sphinx Docs', false, '{"rollout_percentage": 0}');
+```
 
 ### 5.2 Technologie-Stack
 
