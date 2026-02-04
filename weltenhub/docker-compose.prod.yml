@@ -1,0 +1,98 @@
+# =============================================================================
+# Weltenhub Production Docker Compose
+# =============================================================================
+# Deployment: Hetzner VM 88.198.191.108
+# Uses: bfagent_db (PostgreSQL), bfagent_redis (Redis) via bf_platform_prod network
+# 
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#
+# Prerequisites:
+#   - .env file with all required variables
+#   - Database 'weltenhub' created in bfagent_db
+#   - DNS configured for weltenhub.iil.pet
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Weltenhub Django Application
+  # ---------------------------------------------------------------------------
+  weltenhub-web:
+    image: ghcr.io/achimdehnert/weltenhub:${IMAGE_TAG:-latest}
+    container_name: weltenhub_web
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+    ports:
+      - "8081:8000"
+    volumes:
+      - weltenhub_media:/app/media
+      - weltenhub_static:/app/staticfiles
+    networks:
+      - bf_platform_prod
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  # ---------------------------------------------------------------------------
+  # Celery Worker (Background Tasks)
+  # ---------------------------------------------------------------------------
+  weltenhub-celery:
+    image: ghcr.io/achimdehnert/weltenhub:${IMAGE_TAG:-latest}
+    container_name: weltenhub_celery
+    restart: unless-stopped
+    command: celery -A config worker -l INFO --concurrency=2
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+    volumes:
+      - weltenhub_media:/app/media
+    networks:
+      - bf_platform_prod
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+
+  # ---------------------------------------------------------------------------
+  # Celery Beat (Scheduled Tasks)
+  # ---------------------------------------------------------------------------
+  weltenhub-beat:
+    image: ghcr.io/achimdehnert/weltenhub:${IMAGE_TAG:-latest}
+    container_name: weltenhub_beat
+    restart: unless-stopped
+    command: celery -A config beat -l INFO --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    env_file:
+      - .env
+    environment:
+      - DJANGO_SETTINGS_MODULE=config.settings.production
+    networks:
+      - bf_platform_prod
+
+# =============================================================================
+# Networks - Uses existing bf_platform_prod network from bfagent
+# =============================================================================
+networks:
+  bf_platform_prod:
+    external: true
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  weltenhub_media:
+    name: weltenhub_media_prod
+  weltenhub_static:
+    name: weltenhub_static_prod

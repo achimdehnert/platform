@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+
+{% block title %}Weltenforger - Welten erschaffen, Geschichten erzählen{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="bg-gradient-primary text-white py-5">
+    <div class="container py-5">
+        <div class="row align-items-center">
+            <div class="col-lg-6">
+                <h1 class="display-4 fw-bold mb-4">
+                    Erschaffe deine Welten.<br>
+                    Erzähle deine Geschichten.
+                </h1>
+                <p class="lead mb-4">
+                    Weltenforger ist deine kreative Plattform für Worldbuilding, 
+                    Charakterentwicklung und Storytelling. Verbinde deine Welten 
+                    mit deinen Geschichten.
+                </p>
+                <div class="d-flex gap-3">
+                    <a href="{% url 'admin:index' %}" class="btn btn-light btn-lg">
+                        <i class="bi bi-rocket-takeoff me-2"></i>Jetzt starten
+                    </a>
+                    <a href="#features" class="btn btn-outline-light btn-lg">
+                        Mehr erfahren
+                    </a>
+                </div>
+            </div>
+            <div class="col-lg-6 text-center mt-5 mt-lg-0">
+                <i class="bi bi-globe2 display-1" style="font-size: 12rem; opacity: 0.3;"></i>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section id="features" class="py-5">
+    <div class="container py-5">
+        <h2 class="text-center mb-5">Was ist Weltenforger?</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3">
+                            <i class="bi bi-globe text-primary fs-1"></i>
+                        </div>
+                        <h5 class="card-title">Welten erschaffen</h5>
+                        <p class="card-text text-muted">
+                            Baue komplexe Welten mit Regeln, Orten und Kulturen. 
+                            Von Fantasy-Reichen bis zu Sci-Fi-Universen.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3">
+                            <i class="bi bi-people text-primary fs-1"></i>
+                        </div>
+                        <h5 class="card-title">Charaktere entwickeln</h5>
+                        <p class="card-text text-muted">
+                            Erschaffe tiefgründige Charaktere mit Beziehungen, 
+                            Entwicklungsbögen und einzigartigen Persönlichkeiten.
+                        </p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="bg-primary bg-opacity-10 rounded-circle d-inline-flex p-3 mb-3">
+                            <i class="bi bi-book text-primary fs-1"></i>
+                        </div>
+                        <h5 class="card-title">Geschichten erzählen</h5>
+                        <p class="card-text text-muted">
+                            Strukturiere deine Geschichten mit Szenen, Kapiteln 
+                            und Handlungssträngen. Alles miteinander verbunden.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="bg-light py-5">
+    <div class="container py-5 text-center">
+        <h2 class="mb-4">Bereit, deine Welt zu erschaffen?</h2>
+        <p class="lead text-muted mb-4">
+            Starte jetzt kostenlos und bringe deine kreativen Ideen zum Leben.
+        </p>
+        <a href="{% url 'admin:index' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-arrow-right-circle me-2"></i>Zum Dashboard
+        </a>
+    </div>
+</section>
+{% endblock %}

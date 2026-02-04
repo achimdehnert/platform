@@ -1,0 +1,3 @@
+"""
+Weltenhub Configuration Package
+"""
