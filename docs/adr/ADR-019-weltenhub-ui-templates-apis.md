@@ -56,6 +56,17 @@ Dieses ADR definiert die **vollständige UI-Architektur** für Weltenhub/Weltenf
 
 ## 3. Decision
 
+### 3.0 Architektur-Prinzipien (Produktionsreife)
+
+| Prinzip | Umsetzung | Status |
+|---------|-----------|--------|
+| **Tenant-Isolation** | Alle CRUD-Views via `TenantRequiredMixin` | 🔜 Phase 2 |
+| **Database-First** | Alle Choices aus `lkp_*` Tables | ✅ Core |
+| **FK-Strategie** | UUID für Tenant-Models, Integer für Lookups | ✅ Definiert |
+| **Separation of Concerns** | Models → Services → Views → Templates | 🔜 Phase 2+ |
+| **HTMX-First** | Alle interaktiven Views via HTMX | 🔜 Phase 2 |
+| **Type Hints** | Alle Python-Dateien mit Type Hints | ⚠️ Nachzuholen |
+
 ### 3.1 App-Struktur
 
 ```
@@ -102,6 +113,53 @@ public/impressum.html
 
 public/datenschutz.html
 └── DSGVO-konforme Datenschutzerklärung
+```
+
+### 3.2.1 Layer-Architektur (Separation of Concerns)
+
+```
+apps/[entity]/
+├── models.py          # Data Layer - Django Models
+├── services.py        # Business Logic - MANDATORY für Phase 2+
+├── views.py           # HTTP Layer (dünn, delegiert an Services)
+├── serializers.py     # API Transformation (DRF)
+├── permissions.py     # Access Control
+├── admin.py           # Admin UI
+└── urls.py            # Routing
+```
+
+**Service-Pattern (obligatorisch):**
+
+```python
+# apps/worlds/services.py
+from typing import Optional, List
+from django.db.models import QuerySet
+from apps.tenants.models import Tenant
+from .models import World
+
+
+class WorldService:
+    """Business logic for World operations."""
+    
+    @staticmethod
+    def create_world(
+        tenant: Tenant,
+        name: str,
+        genre_id: Optional[int] = None,
+        **kwargs
+    ) -> World:
+        """Create a new world with validation."""
+        return World.objects.create(
+            tenant=tenant,
+            name=name,
+            genre_id=genre_id,
+            **kwargs
+        )
+    
+    @staticmethod
+    def get_worlds_for_tenant(tenant: Tenant) -> QuerySet[World]:
+        """Get all worlds for a tenant."""
+        return World.objects.filter(tenant=tenant)
 ```
 
 ### 3.3 Design System
@@ -188,8 +246,28 @@ class DashboardView(LoginRequiredMixin, TenantMixin, TemplateView):
 ### 4.3 Phase 3: Entity CRUD
 
 ```python
+# apps/core/mixins.py - TenantRequiredMixin (MANDATORY)
+from django.core.exceptions import PermissionDenied
+from apps.core.middleware.tenant import get_current_tenant
+
+
+class TenantRequiredMixin:
+    """Mixin das Tenant-Context erzwingt."""
+    
+    def dispatch(self, request, *args, **kwargs):
+        tenant = get_current_tenant()
+        if not tenant:
+            raise PermissionDenied("Tenant context required")
+        return super().dispatch(request, *args, **kwargs)
+```
+
+```python
 # Zero-Hardcoding Pattern aus BFAgent übernehmen
-class WorldCRUDView(CRUDConfigMixin, TenantMixin, View):
+from django.contrib.auth.mixins import LoginRequiredMixin
+from apps.core.mixins import TenantRequiredMixin
+
+
+class WorldCRUDView(LoginRequiredMixin, TenantRequiredMixin, CRUDConfigMixin, View):
     model = World
     
     class CRUDConfig:
@@ -199,6 +277,51 @@ class WorldCRUDView(CRUDConfigMixin, TenantMixin, View):
             "Details": ["rules", "setting_details"]
         }
         htmx_config = {"auto_save": True}
+```
+
+### 4.4 Vollständige UI-Roadmap
+
+| Phase | Sprint | Entität | Views | Templates | API-Integration | Tenant |
+|-------|--------|---------|-------|-----------|-----------------|--------|
+| 1 | ✅ Done | Public | 3 | 3 | — | Nein |
+| 2 | S1 | Dashboard | 1 | 1 | Lookups, Stats | ✅ Ja |
+| 3 | S1 | World | 4 (CRUD) | 4 | WorldViewSet | ✅ Ja |
+| 4 | S2 | Location | 4 (CRUD) | 4 | LocationViewSet | ✅ Ja |
+| 5 | S2 | Character | 4 (CRUD) | 4 | CharacterViewSet | ✅ Ja |
+| 6 | S3 | Scene | 4 (CRUD) | 4 | SceneViewSet | ✅ Ja |
+| 7 | S3 | Story | 4 (CRUD) | 4 | StoryViewSet | ✅ Ja |
+
+**Total: 24 Views, 24 Templates, 6 Sprints**
+
+### 4.5 Normalisierungs-Korrekturen (Database-First)
+
+**Aktuell hardcoded (zu migrieren):**
+
+| Model | Hardcoded Choice | Neue Lookup-Table | Migration |
+|-------|------------------|-------------------|-----------|
+| `WorldRule` | `Category` | `lkp_rule_category` | S1 |
+| `WorldRule` | `Importance` | `lkp_rule_importance` | S1 |
+| `TenantUser` | `Role` | `lkp_tenant_role` | S2 |
+
+```sql
+-- Migration: Lookup-Tables für hardcoded Choices
+CREATE TABLE IF NOT EXISTS lkp_rule_category (
+    id SERIAL PRIMARY KEY,
+    code VARCHAR(50) UNIQUE NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    name_de VARCHAR(100),
+    description TEXT,
+    "order" INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE
+);
+
+INSERT INTO lkp_rule_category (code, name, name_de, "order") VALUES
+    ('physics', 'Physics', 'Physik', 10),
+    ('magic', 'Magic', 'Magie', 20),
+    ('social', 'Society', 'Gesellschaft', 30),
+    ('technology', 'Technology', 'Technologie', 40),
+    ('biology', 'Biology', 'Biologie', 50),
+    ('economy', 'Economy', 'Wirtschaft', 60);
 ```
 
 ---
@@ -233,6 +356,43 @@ ssh root@88.198.191.108 'cd /opt/weltenhub && \
   docker compose -f docker-compose.prod.yml down && \
   docker compose -f docker-compose.prod.yml up -d'
 ```
+
+---
+
+### 5.3 HTMX Integration (KRITISCH für Phase 2+)
+
+```html
+<!-- templates/base.html - VOR </body> ergänzen -->
+
+<!-- HTMX 2.0 -->
+<script src="https://unpkg.com/htmx.org@2.0.0"></script>
+<script>
+    // CSRF Token für HTMX
+    document.body.addEventListener('htmx:configRequest', function(evt) {
+        evt.detail.headers['X-CSRFToken'] = document.querySelector('[name=csrfmiddlewaretoken]')?.value 
+            || '{{ csrf_token }}';
+    });
+    
+    // Error Handling
+    document.body.addEventListener('htmx:responseError', function(evt) {
+        console.error('HTMX Error:', evt.detail);
+    });
+</script>
+```
+
+### 5.4 Produktions-Checkliste
+
+| Komponente | Status | Priorität | Verantwortlich |
+|------------|--------|-----------|----------------|
+| ✅ Landingpage | Live | P1 | Done |
+| ✅ Impressum | Live | P1 | Done |
+| ✅ Datenschutz | Live | P1 | Done |
+| ❌ HTMX einbinden | Fehlt | P1 | Sprint 1 |
+| ❌ TenantRequiredMixin | Fehlt | P1 | Sprint 1 |
+| ❌ Custom Error Pages | Fehlt | P2 | Sprint 1 |
+| ❌ Type Hints ergänzen | Fehlt | P2 | Sprint 1 |
+| ❌ Services Layer | Fehlt | P2 | Sprint 2 |
+| ⚠️ DB_PASSWORD auf Server | Warning | P1 | Sofort |
 
 ---
 
