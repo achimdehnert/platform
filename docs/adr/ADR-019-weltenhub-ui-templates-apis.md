@@ -395,12 +395,13 @@ ssh root@88.198.191.108 'cd /opt/weltenhub && \
 | ✅ Landingpage | Live | P1 | Done |
 | ✅ Impressum | Live | P1 | Done |
 | ✅ Datenschutz | Live | P1 | Done |
+| ✅ TenantRequiredMixin | Implementiert | P1 | Done (2026-02-04) |
+| ✅ Lookup Tables (Database-First) | Implementiert | P1 | Done (2026-02-04) |
+| ✅ Seed Data (55 choices) | Geladen | P1 | Done (2026-02-04) |
 | ❌ HTMX einbinden | Fehlt | P1 | Sprint 1 |
-| ❌ TenantRequiredMixin | Fehlt | P1 | Sprint 1 |
 | ❌ Custom Error Pages | Fehlt | P2 | Sprint 1 |
 | ❌ Type Hints ergänzen | Fehlt | P2 | Sprint 1 |
 | ❌ Services Layer | Fehlt | P2 | Sprint 2 |
-| ⚠️ DB_PASSWORD auf Server | Warning | P1 | Sofort |
 
 ---
 
