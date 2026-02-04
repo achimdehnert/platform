@@ -65,6 +65,7 @@ THIRD_PARTY_APPS = [
 LOCAL_APPS = [
     "apps.core",
     "apps.public",
+    "apps.dashboard",
     "apps.tenants",
     "apps.lookups",
     "apps.governance",  # DDL: Business Cases, Use Cases, ADRs (ADR-017)
@@ -94,6 +95,14 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "django_htmx.middleware.HtmxMiddleware",
 ]
+
+# =============================================================================
+# Authentication
+# =============================================================================
+
+LOGIN_URL = "/dashboard/login/"
+LOGIN_REDIRECT_URL = "/dashboard/"
+LOGOUT_REDIRECT_URL = "/"
 
 # =============================================================================
 # Templates

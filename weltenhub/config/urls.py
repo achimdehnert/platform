@@ -39,8 +39,11 @@ urlpatterns = [
         name="swagger-ui"
     ),
 
-    # Governance (DDL Web UI)
-    path("governance/", include("apps.governance.urls")),
+    # Dashboard (authenticated users)
+    path("dashboard/", include("apps.dashboard.urls")),
+
+    # Governance (DDL Web UI) - served at root for governance.iil.pet
+    path("", include("apps.governance.urls")),
 
     # API v1
     path("api/v1/tenants/", include("apps.tenants.urls")),

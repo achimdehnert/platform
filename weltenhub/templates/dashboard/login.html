@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Login - Weltenforger{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-lg-5">
+            <div class="card shadow">
+                <div class="card-body p-5">
+                    <div class="text-center mb-4">
+                        <i class="bi bi-globe2 text-primary" style="font-size: 3rem;"></i>
+                        <h2 class="mt-3">Willkommen zurück</h2>
+                        <p class="text-muted">Melde dich an, um deine Welten zu erkunden</p>
+                    </div>
+
+                    {% if form.errors %}
+                    <div class="alert alert-danger">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        Benutzername oder Passwort ist falsch.
+                    </div>
+                    {% endif %}
+
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-3">
+                            <label for="id_username" class="form-label">Benutzername</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input type="text" name="username" id="id_username" 
+                                       class="form-control" placeholder="Dein Benutzername" required autofocus>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="id_password" class="form-label">Passwort</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <input type="password" name="password" id="id_password" 
+                                       class="form-control" placeholder="Dein Passwort" required>
+                            </div>
+                        </div>
+
+                        <input type="hidden" name="next" value="{{ next }}">
+
+                        <button type="submit" class="btn btn-primary w-100 py-2">
+                            <i class="bi bi-box-arrow-in-right me-2"></i>Anmelden
+                        </button>
+                    </form>
+
+                    <hr class="my-4">
+
+                    <div class="text-center">
+                        <a href="{% url 'public:landing' %}" class="text-muted text-decoration-none">
+                            <i class="bi bi-arrow-left me-1"></i>Zurück zur Startseite
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

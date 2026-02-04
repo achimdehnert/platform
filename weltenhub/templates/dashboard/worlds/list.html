@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Meine Welten - Weltenforger{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <!-- Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb mb-1">
+                    <li class="breadcrumb-item">
+                        <a href="{% url 'dashboard:index' %}">Dashboard</a>
+                    </li>
+                    <li class="breadcrumb-item active">Welten</li>
+                </ol>
+            </nav>
+            <h1 class="h3 mb-0">
+                <i class="bi bi-globe2 me-2 text-primary"></i>Meine Welten
+            </h1>
+        </div>
+        <a href="{% url 'dashboard:world-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Neue Welt
+        </a>
+    </div>
+
+    <!-- World Grid -->
+    {% if worlds %}
+    <div class="row g-4">
+        {% for world in worlds %}
+        <div class="col-md-6 col-lg-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-start mb-2">
+                        <h5 class="card-title mb-0">
+                            <a href="{% url 'dashboard:world-detail' world.pk %}" 
+                               class="text-decoration-none text-dark">
+                                {{ world.name }}
+                            </a>
+                        </h5>
+                        {% if world.is_public %}
+                        <span class="badge bg-success">Öffentlich</span>
+                        {% endif %}
+                    </div>
+                    
+                    {% if world.genre %}
+                    <span class="badge bg-primary mb-2">{{ world.genre.name }}</span>
+                    {% endif %}
+                    
+                    <p class="card-text text-muted small">
+                        {{ world.description|truncatewords:30|default:"Keine Beschreibung" }}
+                    </p>
+                    
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <small class="text-muted">
+                            <i class="bi bi-calendar me-1"></i>
+                            {{ world.created_at|date:"d.m.Y" }}
+                        </small>
+                        <div>
+                            <a href="{% url 'dashboard:world-edit' world.pk %}" 
+                               class="btn btn-sm btn-outline-secondary">
+                                <i class="bi bi-pencil"></i>
+                            </a>
+                            <a href="{% url 'dashboard:world-detail' world.pk %}" 
+                               class="btn btn-sm btn-outline-primary">
+                                <i class="bi bi-eye"></i>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- Pagination -->
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            
+            {% for num in page_obj.paginator.page_range %}
+            <li class="page-item {% if page_obj.number == num %}active{% endif %}">
+                <a class="page-link" href="?page={{ num }}">{{ num }}</a>
+            </li>
+            {% endfor %}
+            
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <!-- Empty State -->
+    <div class="text-center py-5">
+        <div class="mb-4">
+            <i class="bi bi-globe2 text-muted" style="font-size: 5rem;"></i>
+        </div>
+        <h3>Noch keine Welten</h3>
+        <p class="text-muted mb-4">
+            Erstelle deine erste Welt und beginne mit dem Worldbuilding!
+        </p>
+        <a href="{% url 'dashboard:world-create' %}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-lg me-2"></i>Erste Welt erstellen
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
