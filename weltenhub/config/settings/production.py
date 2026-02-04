@@ -56,8 +56,24 @@ DATABASES = {
             "connect_timeout": 10,
             "options": "-c statement_timeout=30000",
         },
-    }
+    },
+    "platform": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": config("PLATFORM_DB_NAME", default="platform"),
+        "USER": config("DB_USER"),
+        "PASSWORD": config("DB_PASSWORD"),
+        "HOST": config("PLATFORM_DB_HOST", default=config("DB_HOST")),
+        "PORT": config("DB_PORT", default="5432"),
+        "CONN_MAX_AGE": 60,
+        "OPTIONS": {
+            "connect_timeout": 10,
+            "options": "-c search_path=platform,public",
+        },
+    },
 }
+
+# Database Router for Governance app
+DATABASE_ROUTERS = ["apps.governance.db_router.GovernanceRouter"]
 
 # =============================================================================
 # Caching - Redis

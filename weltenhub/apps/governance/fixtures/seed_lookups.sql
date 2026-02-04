@@ -45,8 +45,8 @@ ON CONFLICT (code) DO UPDATE SET
 -- LOOKUP CHOICES: Business Case Status
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('draft', 'Draft', 'Entwurf', 10, '#6c757d', 'bi-pencil'),
@@ -70,8 +70,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Business Case Category
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('feature', 'New Feature', 'Neue Funktion', 10, '#007bff', 'bi-plus-circle'),
@@ -95,8 +95,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Business Case Priority
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('critical', 'Critical', 'Kritisch', 10, '#dc3545', 'bi-exclamation-triangle'),
@@ -117,8 +117,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Use Case Status
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('draft', 'Draft', 'Entwurf', 10, '#6c757d', 'bi-pencil'),
@@ -142,8 +142,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Use Case Priority (same as BC Priority)
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('critical', 'Critical', 'Kritisch', 10, '#dc3545', 'bi-exclamation-triangle'),
@@ -164,8 +164,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Use Case Complexity
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('trivial', 'Trivial', 'Trivial', 10, '#28a745', 'bi-1-circle'),
@@ -187,8 +187,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: ADR Status
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('draft', 'Draft', 'Entwurf', 10, '#6c757d', 'bi-pencil'),
@@ -210,8 +210,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: ADR-UC Relationship
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('implements', 'Implements', 'Implementiert', 10, '#007bff', 'bi-code'),
@@ -231,8 +231,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Conversation Status
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('active', 'Active', 'Aktiv', 10, '#28a745', 'bi-chat-dots'),
@@ -253,8 +253,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Conversation Role
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('user', 'User', 'Benutzer', 10, '#007bff', 'bi-person'),
@@ -274,8 +274,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Review Entity Type
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('business_case', 'Business Case', 'Business Case', 10, '#007bff', 'bi-briefcase'),
@@ -295,8 +295,8 @@ ON CONFLICT (domain_id, code) DO UPDATE SET
 -- LOOKUP CHOICES: Review Decision
 -- =============================================================================
 
-INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order, color, icon, is_active, created_at, updated_at)
-SELECT d.id, v.code, v.name, v.name_de, v.sort_order, v.color, v.icon, true, NOW(), NOW()
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, description, sort_order, color, icon, metadata, is_active, created_at, updated_at)
+SELECT d.id, v.code, v.name, v.name_de, v.name, v.sort_order, v.color, v.icon, '{}', true, NOW(), NOW()
 FROM platform.lkp_domain d
 CROSS JOIN (VALUES
     ('approved', 'Approved', 'Genehmigt', 10, '#28a745', 'bi-check-circle'),

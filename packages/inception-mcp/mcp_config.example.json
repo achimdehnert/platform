@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "inception": {
+      "command": "python",
+      "args": ["-m", "inception_mcp.server"],
+      "cwd": "/path/to/platform/packages/inception-mcp/src",
+      "env": {
+        "DATABASE_URL": "postgresql://postgres:postgres@localhost:5432/platform",
+        "LLM_GATEWAY_URL": "http://localhost:8080/v1",
+        "LLM_API_KEY": "",
+        "LLM_MODEL": "claude-3-sonnet"
+      }
+    }
+  }
+}
