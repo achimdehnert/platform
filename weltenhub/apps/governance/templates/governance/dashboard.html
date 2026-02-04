@@ -1,0 +1,176 @@
+{% extends "governance/base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-speedometer2"></i> Governance Dashboard</h1>
+    <a href="{% url 'governance:bc-create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Neuer Business Case
+    </a>
+</div>
+
+<!-- Statistics Cards -->
+<div class="row g-3 mb-4" hx-get="{% url 'governance:bc-stats-partial' %}" hx-trigger="every 30s" hx-swap="innerHTML">
+    <div class="col-md-3">
+        <div class="card stat-card draft">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">Gesamt</h6>
+                        <h2 class="mb-0">{{ bc_total }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-briefcase fs-1 text-muted"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card draft">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">Entwurf</h6>
+                        <h2 class="mb-0">{{ bc_draft }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-pencil fs-1 text-secondary"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card review">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">In Review</h6>
+                        <h2 class="mb-0">{{ bc_in_review }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-hourglass-split fs-1 text-warning"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card stat-card approved">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h6 class="text-muted mb-1">Genehmigt</h6>
+                        <h2 class="mb-0">{{ bc_approved }}</h2>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-check-circle fs-1 text-success"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Recent Business Cases -->
+    <div class="col-lg-8">
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-clock-history"></i> Aktuelle Business Cases</h5>
+                <a href="{% url 'governance:bc-list' %}" class="btn btn-sm btn-outline-primary">Alle anzeigen</a>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Code</th>
+                                <th>Titel</th>
+                                <th>Kategorie</th>
+                                <th>Status</th>
+                                <th>Erstellt</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for bc in recent_bcs %}
+                            <tr class="cursor-pointer" onclick="window.location='{% url 'governance:bc-detail' bc.code %}'">
+                                <td><code>{{ bc.code }}</code></td>
+                                <td>{{ bc.title|truncatechars:40 }}</td>
+                                <td>
+                                    {% if bc.category %}
+                                    <span class="badge" style="background-color: {{ bc.category.color|default:'#6c757d' }}">
+                                        {{ bc.category.name }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if bc.status %}
+                                    <span class="badge" style="background-color: {{ bc.status.color|default:'#6c757d' }}">
+                                        {{ bc.status.name }}
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td><small class="text-muted">{{ bc.created_at|date:"d.m.Y" }}</small></td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    Keine Business Cases vorhanden
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Pending Reviews -->
+    <div class="col-lg-4">
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-clipboard-check"></i> Wartende Reviews</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for bc in pending_reviews %}
+                <li class="list-group-item">
+                    <a href="{% url 'governance:bc-detail' bc.code %}" class="text-decoration-none">
+                        <div class="d-flex justify-content-between">
+                            <span><code>{{ bc.code }}</code> {{ bc.title|truncatechars:25 }}</span>
+                            <span class="badge bg-warning">Review</span>
+                        </div>
+                    </a>
+                </li>
+                {% empty %}
+                <li class="list-group-item text-center text-muted py-4">
+                    <i class="bi bi-check-all"></i> Keine offenen Reviews
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+
+        <!-- Quick Stats: Use Cases -->
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-list-task"></i> Use Cases</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <span>Gesamt</span>
+                    <span class="badge bg-primary fs-6">{{ uc_total }}</span>
+                </div>
+            </div>
+            <div class="card-footer">
+                <a href="{% url 'governance:uc-list' %}" class="btn btn-sm btn-outline-primary w-100">
+                    Alle Use Cases anzeigen
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,77 @@
+{% extends "governance/base.html" %}
+
+{% block title %}Neuer Business Case{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'governance:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'governance:bc-list' %}">Business Cases</a></li>
+        <li class="breadcrumb-item active">Neu</li>
+    </ol>
+</nav>
+
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Neuer Business Case</h5>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Titel *</label>
+                        <input type="text" name="title" class="form-control" required 
+                               placeholder="Kurzer, aussagekräftiger Titel">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Kategorie *</label>
+                        <select name="category" class="form-select" required>
+                            <option value="">-- Kategorie wählen --</option>
+                            {% for cat in categories %}
+                            <option value="{{ cat.id }}">{{ cat.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Problemstellung *</label>
+                        <textarea name="problem_statement" class="form-control" rows="4" required
+                                  placeholder="Was ist das Problem? Warum muss es gelöst werden?"></textarea>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Zielgruppe</label>
+                        <input type="text" name="target_audience" class="form-control"
+                               placeholder="Wer profitiert von dieser Lösung?">
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label">Scope</label>
+                        <textarea name="scope" class="form-control" rows="3"
+                                  placeholder="Was soll konkret umgesetzt werden?"></textarea>
+                    </div>
+                    
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-lg"></i> Business Case erstellen
+                        </button>
+                        <a href="{% url 'governance:bc-list' %}" class="btn btn-outline-secondary">
+                            Abbrechen
+                        </a>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="alert alert-info mt-4">
+            <i class="bi bi-lightbulb"></i>
+            <strong>Tipp:</strong> Für eine AI-gestützte Business Case Erstellung nutze den 
+            <code>start_business_case</code> MCP-Tool in Windsurf.
+        </div>
+    </div>
+</div>
+{% endblock %}

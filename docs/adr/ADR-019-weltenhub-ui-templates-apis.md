@@ -2,7 +2,7 @@
 
 | Metadata | Value |
 |----------|-------|
-| **Status** | Accepted |
+| **Status** | ✅ Accepted (Reviewed 2026-02-04) |
 | **Date** | 2026-02-04 |
 | **Author** | Achim Dehnert |
 | **Scope** | weltenhub |
@@ -60,8 +60,8 @@ Dieses ADR definiert die **vollständige UI-Architektur** für Weltenhub/Weltenf
 
 | Prinzip | Umsetzung | Status |
 |---------|-----------|--------|
-| **Tenant-Isolation** | Alle CRUD-Views via `TenantRequiredMixin` | 🔜 Phase 2 |
-| **Database-First** | Alle Choices aus `lkp_*` Tables | ✅ Core |
+| **Tenant-Isolation** | `TenantRequiredMixin` in `apps/core/mixins.py` | ✅ Implementiert |
+| **Database-First** | Alle Choices aus `lkp_*` Tables | ✅ Implementiert |
 | **FK-Strategie** | UUID für Tenant-Models, Integer für Lookups | ✅ Definiert |
 | **Separation of Concerns** | Models → Services → Views → Templates | 🔜 Phase 2+ |
 | **HTMX-First** | Alle interaktiven Views via HTMX | 🔜 Phase 2 |
@@ -231,12 +231,20 @@ USt-IdNr: DE236928454
 
 ```python
 # apps/dashboard/views.py
-class DashboardView(LoginRequiredMixin, TenantMixin, TemplateView):
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.views.generic import TemplateView
+from apps.core.mixins import TenantRequiredMixin
+from apps.core.middleware.tenant import get_current_tenant
+
+
+class DashboardView(LoginRequiredMixin, TenantRequiredMixin, TemplateView):
+    """Tenant-isolated dashboard showing recent entities."""
+    
     template_name = "dashboard/index.html"
     
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        tenant = self.get_tenant()
+        tenant = get_current_tenant()  # Thread-local tenant
         context["worlds"] = World.objects.filter(tenant=tenant)[:5]
         context["characters"] = Character.objects.filter(tenant=tenant)[:5]
         context["stories"] = Story.objects.filter(tenant=tenant)[:5]
