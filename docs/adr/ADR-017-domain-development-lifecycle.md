@@ -841,6 +841,58 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON SCHEMA platform IS 'Domain Development Lifecycle tables';
+
+-- ============================================
+-- Lookup Seed Data (ADR-015 konform)
+-- ============================================
+
+-- Domain: adr_uc_relationship (für ADRUseCaseLink)
+INSERT INTO platform.lkp_domain (code, name, description)
+VALUES ('adr_uc_relationship', 'ADR-UseCase Beziehungstyp', 'Typen der Beziehung zwischen ADR und Use Case')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order)
+SELECT d.id, v.code, v.name, v.name_de, v.sort_order
+FROM platform.lkp_domain d,
+     (VALUES
+         ('implements', 'Implements', 'Implementiert', 1),
+         ('affects', 'Affects', 'Beeinflusst', 2),
+         ('references', 'References', 'Referenziert', 3)
+     ) AS v(code, name, name_de, sort_order)
+WHERE d.code = 'adr_uc_relationship'
+ON CONFLICT DO NOTHING;
+
+-- Domain: review_entity_type (für Review und StatusHistory)
+INSERT INTO platform.lkp_domain (code, name, description)
+VALUES ('review_entity_type', 'Review Entity-Typ', 'Typen von Entities die reviewed werden können')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order)
+SELECT d.id, v.code, v.name, v.name_de, v.sort_order
+FROM platform.lkp_domain d,
+     (VALUES
+         ('business_case', 'Business Case', 'Business Case', 1),
+         ('use_case', 'Use Case', 'Use Case', 2),
+         ('adr', 'ADR', 'ADR', 3)
+     ) AS v(code, name, name_de, sort_order)
+WHERE d.code = 'review_entity_type'
+ON CONFLICT DO NOTHING;
+
+-- Domain: review_decision (für Review)
+INSERT INTO platform.lkp_domain (code, name, description)
+VALUES ('review_decision', 'Review Entscheidung', 'Mögliche Entscheidungen bei einem Review')
+ON CONFLICT (code) DO NOTHING;
+
+INSERT INTO platform.lkp_choice (domain_id, code, name, name_de, sort_order)
+SELECT d.id, v.code, v.name, v.name_de, v.sort_order
+FROM platform.lkp_domain d,
+     (VALUES
+         ('approved', 'Approved', 'Genehmigt', 1),
+         ('rejected', 'Rejected', 'Abgelehnt', 2),
+         ('changes_requested', 'Changes Requested', 'Änderungen erforderlich', 3)
+     ) AS v(code, name, name_de, sort_order)
+WHERE d.code = 'review_decision'
+ON CONFLICT DO NOTHING;
 ```
 
 ### 5.5 Error Handling & Idempotenz
