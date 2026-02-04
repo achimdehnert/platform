@@ -346,7 +346,7 @@ adr_status                     • trivial (1 SP)
 |-----------|------------|
 | Initialer Implementierungsaufwand | Modularer Rollout in Phasen |
 | Lernkurve für Entwickler | MCP-Integration macht Adoption einfach |
-| Abhängigkeit von LLM für Inception | Fallback auf manuelle Erfassung |
+| Abhängigkeit von LLM für Inception | Expliziter Fehler + Web-UI Alternative (kein stilles Fallback) |
 | Zusätzliche DB-Tabellen | Klare Schema-Trennung (platform.*) |
 
 ### 4.3 Risiken
@@ -377,12 +377,16 @@ adr_status                     • trivial (1 SP)
 | Komponente | Technologie | Version |
 |------------|-------------|---------|
 | Backend | Django | 5.x |
-| Database | PostgreSQL | 15+ |
+| Database | PostgreSQL | 16.x |
+| Connection Pool | PgBouncer | 1.22+ |
 | Frontend | HTMX + Alpine.js | 2.x |
 | MCP Server | Python MCP SDK | Latest |
 | LLM | Claude API (via LLM Gateway) | 3.x |
 | Documentation | Sphinx | 7.x |
 | CI/CD | GitHub Actions | - |
+| Container Runtime | Docker + Compose | 24.x / 2.x |
+| Reverse Proxy | Traefik | 3.x |
+| Target Platform | Hetzner Cloud VMs | - |
 
 ### 5.3 Dateien/Module
 
@@ -425,6 +429,442 @@ docs/
     ├── business_cases.rst
     ├── use_cases.rst
     └── adrs.rst
+```
+
+### 5.4 Infrastructure & Deployment
+
+#### 5.4.1 Docker Compose Stack
+
+```yaml
+# docker-compose.prod.yml
+# DDL Governance Stack - Hetzner Deployment
+#
+# Voraussetzungen:
+#   - Docker 24.x, Compose 2.x
+#   - .env.prod mit DATABASE_URL, ANTHROPIC_API_KEY
+#   - Traefik Netzwerk 'web' existiert
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d
+#   docker compose -f docker-compose.prod.yml logs -f governance
+
+version: "3.9"
+
+services:
+  # ============================================
+  # PostgreSQL 16 - Persistente Datenbank
+  # ============================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: ddl_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-governance}
+      POSTGRES_USER: ${POSTGRES_USER:-governance}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD required}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-governance} -d ${POSTGRES_DB:-governance}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - internal
+
+  # ============================================
+  # PgBouncer - Connection Pooling
+  # ============================================
+  pgbouncer:
+    image: edoburu/pgbouncer:1.22.1
+    container_name: ddl_pgbouncer
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-governance}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-governance}
+      POOL_MODE: transaction
+      MAX_CLIENT_CONN: 100
+      DEFAULT_POOL_SIZE: 20
+    networks:
+      - internal
+
+  # ============================================
+  # Django Governance App
+  # ============================================
+  governance:
+    image: ghcr.io/achimdehnert/platform/governance:${IMAGE_TAG:-latest}
+    container_name: ddl_governance
+    restart: unless-stopped
+    depends_on:
+      pgbouncer:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    environment:
+      # Database (via pgbouncer)
+      DATABASE_URL: postgres://${POSTGRES_USER:-governance}:${POSTGRES_PASSWORD}@pgbouncer:6432/${POSTGRES_DB:-governance}
+      # Django
+      DJANGO_SETTINGS_MODULE: config.settings.production
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY required}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-governance.iil.pet}
+      # LLM Gateway
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:?ANTHROPIC_API_KEY required}
+      LLM_GATEWAY_URL: ${LLM_GATEWAY_URL:-http://llm-gateway:8080}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.governance.rule=Host(`${TRAEFIK_HOST:-governance.iil.pet}`)"
+      - "traefik.http.routers.governance.tls=true"
+      - "traefik.http.routers.governance.tls.certresolver=letsencrypt"
+      - "traefik.http.services.governance.loadbalancer.server.port=8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - internal
+      - web
+
+volumes:
+  postgres_data:
+    name: ddl_postgres_data
+
+networks:
+  internal:
+    name: ddl_internal
+  web:
+    external: true
+```
+
+#### 5.4.2 Deployment Script
+
+```bash
+#!/usr/bin/env bash
+# deploy.sh - DDL Governance Deployment
+#
+# Usage:
+#   ./deploy.sh [IMAGE_TAG]
+#
+# Exit Codes:
+#   0 - Success
+#   1 - Missing dependencies
+#   2 - Missing environment variables
+#   3 - Docker compose failed
+#   4 - Health check failed
+#
+# Idempotent: Safe to run multiple times
+
+set -euo pipefail
+
+# ============================================
+# Configuration
+# ============================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+COMPOSE_FILE="${SCRIPT_DIR}/docker-compose.prod.yml"
+ENV_FILE="${SCRIPT_DIR}/.env.prod"
+IMAGE_TAG="${1:-latest}"
+HEALTH_CHECK_URL="http://localhost:8000/health/"
+HEALTH_CHECK_RETRIES=30
+HEALTH_CHECK_INTERVAL=2
+
+# ============================================
+# Functions
+# ============================================
+log_info() { echo "[INFO] $(date '+%Y-%m-%d %H:%M:%S') $*"; }
+log_error() { echo "[ERROR] $(date '+%Y-%m-%d %H:%M:%S') $*" >&2; }
+log_success() { echo "[OK] $(date '+%Y-%m-%d %H:%M:%S') $*"; }
+
+check_dependencies() {
+    local missing=0
+    for cmd in docker curl; do
+        if ! command -v "$cmd" &>/dev/null; then
+            log_error "Missing required command: $cmd"
+            missing=1
+        fi
+    done
+    return $missing
+}
+
+check_env_file() {
+    if [[ ! -f "$ENV_FILE" ]]; then
+        log_error "Environment file not found: $ENV_FILE"
+        return 1
+    fi
+    
+    # Validate required variables
+    local required_vars=("POSTGRES_PASSWORD" "SECRET_KEY" "ANTHROPIC_API_KEY")
+    local missing=0
+    
+    # shellcheck source=/dev/null
+    source "$ENV_FILE"
+    
+    for var in "${required_vars[@]}"; do
+        if [[ -z "${!var:-}" ]]; then
+            log_error "Missing required environment variable: $var"
+            missing=1
+        fi
+    done
+    
+    return $missing
+}
+
+wait_for_health() {
+    local retries=$HEALTH_CHECK_RETRIES
+    log_info "Waiting for service health..."
+    
+    while [[ $retries -gt 0 ]]; do
+        if curl -sf "$HEALTH_CHECK_URL" &>/dev/null; then
+            log_success "Service is healthy"
+            return 0
+        fi
+        retries=$((retries - 1))
+        sleep $HEALTH_CHECK_INTERVAL
+    done
+    
+    log_error "Health check failed after $HEALTH_CHECK_RETRIES attempts"
+    return 1
+}
+
+# ============================================
+# Main
+# ============================================
+main() {
+    log_info "Starting DDL Governance deployment (tag: $IMAGE_TAG)"
+    
+    # Pre-flight checks
+    if ! check_dependencies; then
+        exit 1
+    fi
+    
+    if ! check_env_file; then
+        exit 2
+    fi
+    
+    # Export for docker compose
+    export IMAGE_TAG
+    
+    # Pull latest images (idempotent)
+    log_info "Pulling images..."
+    if ! docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" pull; then
+        log_error "Failed to pull images"
+        exit 3
+    fi
+    
+    # Deploy (idempotent - recreates only if changed)
+    log_info "Deploying services..."
+    if ! docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --remove-orphans; then
+        log_error "Failed to deploy services"
+        exit 3
+    fi
+    
+    # Run migrations (idempotent)
+    log_info "Running database migrations..."
+    if ! docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" exec -T governance \
+        python manage.py migrate --no-input; then
+        log_error "Failed to run migrations"
+        exit 3
+    fi
+    
+    # Health check
+    if ! wait_for_health; then
+        log_error "Deployment failed health check"
+        docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" logs --tail=50 governance
+        exit 4
+    fi
+    
+    log_success "Deployment completed successfully"
+    exit 0
+}
+
+main "$@"
+```
+
+#### 5.4.3 Database Initialization
+
+```sql
+-- scripts/init-db.sql
+-- DDL Governance - Database Initialization
+--
+-- Idempotent: Uses IF NOT EXISTS
+-- Run by: docker-entrypoint-initdb.d
+
+-- Create schema (idempotent)
+CREATE SCHEMA IF NOT EXISTS platform;
+
+-- Set search path
+ALTER DATABASE governance SET search_path TO platform, public;
+
+-- Grant permissions
+GRANT ALL ON SCHEMA platform TO governance;
+GRANT ALL ON ALL TABLES IN SCHEMA platform TO governance;
+GRANT ALL ON ALL SEQUENCES IN SCHEMA platform TO governance;
+
+-- Extensions
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";  -- For search
+
+-- Audit function (idempotent via OR REPLACE)
+CREATE OR REPLACE FUNCTION platform.update_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = CURRENT_TIMESTAMP;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+COMMENT ON SCHEMA platform IS 'Domain Development Lifecycle tables';
+```
+
+### 5.5 Error Handling & Idempotenz
+
+#### 5.5.1 Service Error Handling
+
+| Komponente | Error Handling | Kein stilles Fallback |
+|------------|----------------|----------------------|
+| **InceptionService** | Explizite `InceptionError` Exception | LLM-Fehler → `raise`, kein Mock |
+| **BusinessCaseService** | `ValidationError` mit Felddetails | Ungültiger Status → `raise` |
+| **LookupService** | `LookupNotFoundError` | Fehlender Lookup → `raise`, kein Default |
+| **MCP Tools** | JSON-RPC Error Codes | `-32602` für ungültige Parameter |
+
+#### 5.5.2 Idempotenz-Garantien
+
+| Operation | Idempotenz-Strategie |
+|-----------|---------------------|
+| `start_business_case` | Eindeutiger `session_id`, Duplikat-Check |
+| `finalize_business_case` | Status-Check vor Transition |
+| `docker compose up` | `--remove-orphans`, Container-Hash |
+| `migrate` | Django Migrations sind idempotent |
+| `init-db.sql` | `IF NOT EXISTS`, `OR REPLACE` |
+
+#### 5.5.3 Python Service Pattern
+
+```python
+# services/business_case_service.py
+"""
+BusinessCaseService - CRUD und Workflow für Business Cases.
+
+Error Handling:
+- ValidationError: Ungültige Eingabedaten
+- TransitionError: Ungültiger Status-Übergang
+- NotFoundError: BC nicht gefunden
+
+Idempotenz:
+- create(): Prüft auf Duplikate via title+category
+- transition(): Prüft aktuellen Status vor Änderung
+"""
+from dataclasses import dataclass
+from typing import Optional
+import logging
+
+from django.db import transaction
+from django.core.exceptions import ValidationError
+
+from .exceptions import TransitionError, NotFoundError
+from ..models import BusinessCase, StatusHistory
+
+logger = logging.getLogger(__name__)
+
+
+@dataclass
+class OperationResult:
+    """Standardisiertes Ergebnis für Service-Operationen."""
+    success: bool
+    data: Optional[dict] = None
+    error: Optional[str] = None
+    error_code: Optional[str] = None
+
+
+class BusinessCaseService:
+    """Service für Business Case Operationen."""
+    
+    # Explizite Status-Übergänge (kein "magisches" Verhalten)
+    VALID_TRANSITIONS = {
+        'draft': ['submitted'],
+        'submitted': ['in_review', 'rejected'],
+        'in_review': ['approved', 'rejected'],
+        'rejected': ['draft'],  # Zurück zur Überarbeitung
+        'approved': ['in_progress'],
+        'in_progress': ['completed'],
+        'completed': ['archived'],
+    }
+    
+    @transaction.atomic
+    def transition_status(
+        self,
+        bc_code: str,
+        new_status: str,
+        user_id: int,
+        comment: Optional[str] = None
+    ) -> OperationResult:
+        """
+        Führt Status-Übergang durch.
+        
+        Args:
+            bc_code: Business Case Code (z.B. "BC-042")
+            new_status: Ziel-Status
+            user_id: User der die Transition durchführt
+            comment: Optionaler Kommentar
+            
+        Returns:
+            OperationResult mit success/error
+            
+        Raises:
+            NotFoundError: BC existiert nicht
+            TransitionError: Ungültiger Übergang
+        """
+        # 1. BC laden (expliziter Fehler wenn nicht gefunden)
+        try:
+            bc = BusinessCase.objects.select_for_update().get(code=bc_code)
+        except BusinessCase.DoesNotExist:
+            logger.error(f"BusinessCase not found: {bc_code}")
+            raise NotFoundError(f"BusinessCase {bc_code} nicht gefunden")
+        
+        current_status = bc.status.code
+        
+        # 2. Transition validieren (kein stilles Fallback)
+        valid_targets = self.VALID_TRANSITIONS.get(current_status, [])
+        if new_status not in valid_targets:
+            logger.warning(
+                f"Invalid transition: {bc_code} {current_status} -> {new_status}"
+            )
+            raise TransitionError(
+                f"Ungültiger Übergang: {current_status} → {new_status}. "
+                f"Erlaubt: {valid_targets}"
+            )
+        
+        # 3. Idempotenz: Bereits im Ziel-Status?
+        if current_status == new_status:
+            logger.info(f"BC {bc_code} already in status {new_status}")
+            return OperationResult(
+                success=True,
+                data={'code': bc_code, 'status': new_status, 'changed': False}
+            )
+        
+        # 4. Transition durchführen
+        old_status = bc.status
+        bc.status = self._get_status_choice(new_status)
+        bc.save(update_fields=['status', 'updated_at'])
+        
+        # 5. Audit Trail
+        StatusHistory.objects.create(
+            content_object=bc,
+            old_status=old_status,
+            new_status=bc.status,
+            changed_by_id=user_id,
+            comment=comment or ''
+        )
+        
+        logger.info(f"BC {bc_code} transitioned: {current_status} -> {new_status}")
+        
+        return OperationResult(
+            success=True,
+            data={'code': bc_code, 'status': new_status, 'changed': True}
+        )
 ```
 
 ---

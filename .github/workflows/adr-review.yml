@@ -1,0 +1,102 @@
+# ADR Architecture Review - Simplified Workflow
+#
+# Uses the adr-review package for clean, testable reviews
+#
+# Setup:
+#   1. Add ANTHROPIC_API_KEY secret to repository
+#   2. Ensure packages/adr-review is available
+#
+# Cost: ~$0.03-0.05 per review
+
+name: "📋 ADR Review"
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+    paths:
+      - 'docs/adr/**'
+      - 'adr/**'
+      - '**/ADR-*.md'
+      - 'concepts/**/*.md'
+
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR Number to review'
+        required: true
+        type: number
+
+concurrency:
+  group: adr-review-${{ github.event.pull_request.number || inputs.pr_number }}
+  cancel-in-progress: true
+
+jobs:
+  review:
+    name: "🤖 AI Review"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install adr-review
+        run: pip install ./packages/adr-review
+
+      - name: Run ADR Review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number || inputs.pr_number }}"
+          adr-review --pr $PR_NUMBER --repo ${{ github.repository }}
+
+  ensure-labels:
+    name: "🏷️ Ensure Labels"
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      # Labels mit --force sind idempotent (überschreibt existierende)
+      # Explizite Fehlerbehandlung statt stilles || true
+      - name: Create labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          
+          create_label() {
+            local name="$1"
+            local color="$2"
+            local description="$3"
+            
+            echo "[INFO] Creating/updating label: $name"
+            if ! gh label create "$name" \
+              --repo "${{ github.repository }}" \
+              --color "$color" \
+              --description "$description" \
+              --force 2>&1; then
+              echo "[WARN] Label creation returned non-zero, checking if exists..."
+              if gh label list --repo "${{ github.repository }}" | grep -q "^$name"; then
+                echo "[OK] Label $name already exists"
+              else
+                echo "[ERROR] Failed to create label: $name"
+                return 1
+              fi
+            fi
+          }
+          
+          create_label "adr-review-passed" "0E8A16" "ADR Review passed (Score ≥7)"
+          create_label "adr-review-concerns" "FBCA04" "ADR Review with concerns (Score 5-6)"
+          create_label "adr-review-failed" "D93F0B" "ADR Review failed (Score <5)"
+          
+          echo "[OK] All labels created/verified"
