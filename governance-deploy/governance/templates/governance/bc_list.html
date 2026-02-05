@@ -1,0 +1,144 @@
+{% extends "governance/base.html" %}
+
+{% block title %}Business Cases{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h1><i class="bi bi-briefcase"></i> Business Cases</h1>
+    <a href="{% url 'governance:bc-create' %}" class="btn btn-primary">
+        <i class="bi bi-plus-lg"></i> Neuer BC
+    </a>
+</div>
+
+<!-- Filters -->
+<div class="card mb-4">
+    <div class="card-body">
+        <form hx-get="{% url 'governance:bc-list-partial' %}" hx-target="#bc-table-body" hx-trigger="change, keyup delay:300ms from:#search-input">
+            <div class="row g-3">
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        <option value="">Alle Status</option>
+                        {% for status in status_choices %}
+                        <option value="{{ status.code }}" {% if current_status == status.code %}selected{% endif %}>
+                            {{ status.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Kategorie</label>
+                    <select name="category" class="form-select">
+                        <option value="">Alle Kategorien</option>
+                        {% for cat in category_choices %}
+                        <option value="{{ cat.code }}" {% if current_category == cat.code %}selected{% endif %}>
+                            {{ cat.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-4">
+                    <label class="form-label">Suche</label>
+                    <input type="text" name="q" id="search-input" class="form-control" 
+                           placeholder="Titel, Code..." value="{{ current_search }}">
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-outline-primary w-100">
+                        <i class="bi bi-search"></i> Filtern
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Code</th>
+                    <th>Titel</th>
+                    <th>Kategorie</th>
+                    <th>Status</th>
+                    <th>Use Cases</th>
+                    <th>Erstellt</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody id="bc-table-body">
+                {% for bc in business_cases %}
+                <tr>
+                    <td><code>{{ bc.code }}</code></td>
+                    <td>
+                        <a href="{% url 'governance:bc-detail' bc.code %}" class="text-decoration-none">
+                            {{ bc.title|truncatechars:50 }}
+                        </a>
+                    </td>
+                    <td>
+                        {% if bc.category %}
+                        <span class="badge" style="background-color: {{ bc.category.color|default:'#6c757d' }}">
+                            {{ bc.category.name }}
+                        </span>
+                        {% else %}
+                        <span class="text-muted">-</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if bc.status %}
+                        <span class="badge" style="background-color: {{ bc.status.color|default:'#6c757d' }}">
+                            {{ bc.status.name }}
+                        </span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-secondary">{{ bc.use_cases.count }}</span>
+                    </td>
+                    <td><small class="text-muted">{{ bc.created_at|date:"d.m.Y" }}</small></td>
+                    <td>
+                        <a href="{% url 'governance:bc-detail' bc.code %}" class="btn btn-sm btn-outline-primary">
+                            <i class="bi bi-eye"></i>
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center text-muted py-5">
+                        <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                        Keine Business Cases gefunden
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Pagination -->
+{% if page_obj.has_other_pages %}
+<nav class="mt-4">
+    <ul class="pagination justify-content-center">
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_search %}&q={{ current_search }}{% endif %}">
+                &laquo; Zurück
+            </a>
+        </li>
+        {% endif %}
+        
+        <li class="page-item disabled">
+            <span class="page-link">Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}</span>
+        </li>
+        
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_category %}&category={{ current_category }}{% endif %}{% if current_search %}&q={{ current_search }}{% endif %}">
+                Weiter &raquo;
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+{% endif %}
+{% endblock %}

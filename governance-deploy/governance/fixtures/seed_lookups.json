@@ -1,0 +1,81 @@
+[
+  {"model": "governance.lookupdomain", "pk": 1, "fields": {"code": "bc_status", "name": "Business Case Status", "name_de": "Business Case Status", "description": "Status values for Business Cases", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 2, "fields": {"code": "bc_category", "name": "Business Case Category", "name_de": "Business Case Kategorie", "description": "Categories for Business Cases", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 3, "fields": {"code": "bc_priority", "name": "Business Case Priority", "name_de": "Business Case Priorität", "description": "Priority levels for Business Cases", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 4, "fields": {"code": "uc_status", "name": "Use Case Status", "name_de": "Use Case Status", "description": "Status values for Use Cases", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 5, "fields": {"code": "uc_priority", "name": "Use Case Priority", "name_de": "Use Case Priorität", "description": "Priority levels for Use Cases", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 6, "fields": {"code": "uc_complexity", "name": "Use Case Complexity", "name_de": "Use Case Komplexität", "description": "Complexity levels for Use Cases", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 7, "fields": {"code": "adr_status", "name": "ADR Status", "name_de": "ADR Status", "description": "Status values for ADRs", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 8, "fields": {"code": "adr_uc_relationship", "name": "ADR-UC Relationship", "name_de": "ADR-UC Beziehung", "description": "Relationship types between ADRs and Use Cases", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 9, "fields": {"code": "conversation_status", "name": "Conversation Status", "name_de": "Konversation Status", "description": "Status of inception conversations", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 10, "fields": {"code": "conversation_role", "name": "Conversation Role", "name_de": "Konversation Rolle", "description": "Role in conversation", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 11, "fields": {"code": "review_entity_type", "name": "Review Entity Type", "name_de": "Review Entity Typ", "description": "Type of entity being reviewed", "is_active": true}},
+  {"model": "governance.lookupdomain", "pk": 12, "fields": {"code": "review_decision", "name": "Review Decision", "name_de": "Review Entscheidung", "description": "Review decision outcomes", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 1, "fields": {"domain": 1, "code": "draft", "name": "Draft", "name_de": "Entwurf", "sort_order": 10, "color": "#6c757d", "icon": "bi-pencil", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 2, "fields": {"domain": 1, "code": "submitted", "name": "Submitted", "name_de": "Eingereicht", "sort_order": 20, "color": "#17a2b8", "icon": "bi-send", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 3, "fields": {"domain": 1, "code": "in_review", "name": "In Review", "name_de": "In Prüfung", "sort_order": 30, "color": "#ffc107", "icon": "bi-eye", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 4, "fields": {"domain": 1, "code": "approved", "name": "Approved", "name_de": "Genehmigt", "sort_order": 40, "color": "#28a745", "icon": "bi-check-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 5, "fields": {"domain": 1, "code": "rejected", "name": "Rejected", "name_de": "Abgelehnt", "sort_order": 50, "color": "#dc3545", "icon": "bi-x-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 6, "fields": {"domain": 1, "code": "on_hold", "name": "On Hold", "name_de": "Pausiert", "sort_order": 60, "color": "#6c757d", "icon": "bi-pause-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 7, "fields": {"domain": 1, "code": "archived", "name": "Archived", "name_de": "Archiviert", "sort_order": 70, "color": "#6c757d", "icon": "bi-archive", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 8, "fields": {"domain": 2, "code": "feature", "name": "New Feature", "name_de": "Neue Funktion", "sort_order": 10, "color": "#007bff", "icon": "bi-plus-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 9, "fields": {"domain": 2, "code": "enhancement", "name": "Enhancement", "name_de": "Verbesserung", "sort_order": 20, "color": "#17a2b8", "icon": "bi-arrow-up-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 10, "fields": {"domain": 2, "code": "bugfix", "name": "Bug Fix", "name_de": "Fehlerbehebung", "sort_order": 30, "color": "#dc3545", "icon": "bi-bug", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 11, "fields": {"domain": 2, "code": "refactoring", "name": "Refactoring", "name_de": "Refactoring", "sort_order": 40, "color": "#6f42c1", "icon": "bi-recycle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 12, "fields": {"domain": 2, "code": "infrastructure", "name": "Infrastructure", "name_de": "Infrastruktur", "sort_order": 50, "color": "#fd7e14", "icon": "bi-server", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 13, "fields": {"domain": 2, "code": "documentation", "name": "Documentation", "name_de": "Dokumentation", "sort_order": 60, "color": "#20c997", "icon": "bi-file-text", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 14, "fields": {"domain": 2, "code": "security", "name": "Security", "name_de": "Sicherheit", "sort_order": 70, "color": "#dc3545", "icon": "bi-shield-check", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 15, "fields": {"domain": 3, "code": "critical", "name": "Critical", "name_de": "Kritisch", "sort_order": 10, "color": "#dc3545", "icon": "bi-exclamation-triangle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 16, "fields": {"domain": 3, "code": "high", "name": "High", "name_de": "Hoch", "sort_order": 20, "color": "#fd7e14", "icon": "bi-arrow-up", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 17, "fields": {"domain": 3, "code": "medium", "name": "Medium", "name_de": "Mittel", "sort_order": 30, "color": "#ffc107", "icon": "bi-dash", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 18, "fields": {"domain": 3, "code": "low", "name": "Low", "name_de": "Niedrig", "sort_order": 40, "color": "#28a745", "icon": "bi-arrow-down", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 19, "fields": {"domain": 4, "code": "draft", "name": "Draft", "name_de": "Entwurf", "sort_order": 10, "color": "#6c757d", "icon": "bi-pencil", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 20, "fields": {"domain": 4, "code": "defined", "name": "Defined", "name_de": "Definiert", "sort_order": 20, "color": "#17a2b8", "icon": "bi-check", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 21, "fields": {"domain": 4, "code": "approved", "name": "Approved", "name_de": "Genehmigt", "sort_order": 30, "color": "#28a745", "icon": "bi-check-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 22, "fields": {"domain": 4, "code": "implemented", "name": "Implemented", "name_de": "Implementiert", "sort_order": 40, "color": "#007bff", "icon": "bi-code", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 23, "fields": {"domain": 4, "code": "tested", "name": "Tested", "name_de": "Getestet", "sort_order": 50, "color": "#20c997", "icon": "bi-clipboard-check", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 24, "fields": {"domain": 4, "code": "deployed", "name": "Deployed", "name_de": "Deployed", "sort_order": 60, "color": "#6f42c1", "icon": "bi-rocket", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 25, "fields": {"domain": 4, "code": "deprecated", "name": "Deprecated", "name_de": "Veraltet", "sort_order": 70, "color": "#6c757d", "icon": "bi-archive", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 26, "fields": {"domain": 5, "code": "critical", "name": "Critical", "name_de": "Kritisch", "sort_order": 10, "color": "#dc3545", "icon": "bi-exclamation-triangle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 27, "fields": {"domain": 5, "code": "high", "name": "High", "name_de": "Hoch", "sort_order": 20, "color": "#fd7e14", "icon": "bi-arrow-up", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 28, "fields": {"domain": 5, "code": "medium", "name": "Medium", "name_de": "Mittel", "sort_order": 30, "color": "#ffc107", "icon": "bi-dash", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 29, "fields": {"domain": 5, "code": "low", "name": "Low", "name_de": "Niedrig", "sort_order": 40, "color": "#28a745", "icon": "bi-arrow-down", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 30, "fields": {"domain": 6, "code": "trivial", "name": "Trivial", "name_de": "Trivial", "sort_order": 10, "color": "#28a745", "icon": "bi-1-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 31, "fields": {"domain": 6, "code": "simple", "name": "Simple", "name_de": "Einfach", "sort_order": 20, "color": "#20c997", "icon": "bi-2-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 32, "fields": {"domain": 6, "code": "moderate", "name": "Moderate", "name_de": "Moderat", "sort_order": 30, "color": "#ffc107", "icon": "bi-3-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 33, "fields": {"domain": 6, "code": "complex", "name": "Complex", "name_de": "Komplex", "sort_order": 40, "color": "#fd7e14", "icon": "bi-4-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 34, "fields": {"domain": 6, "code": "very_complex", "name": "Very Complex", "name_de": "Sehr Komplex", "sort_order": 50, "color": "#dc3545", "icon": "bi-5-circle", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 35, "fields": {"domain": 7, "code": "draft", "name": "Draft", "name_de": "Entwurf", "sort_order": 10, "color": "#6c757d", "icon": "bi-pencil", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 36, "fields": {"domain": 7, "code": "proposed", "name": "Proposed", "name_de": "Vorgeschlagen", "sort_order": 20, "color": "#17a2b8", "icon": "bi-send", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 37, "fields": {"domain": 7, "code": "accepted", "name": "Accepted", "name_de": "Akzeptiert", "sort_order": 30, "color": "#28a745", "icon": "bi-check-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 38, "fields": {"domain": 7, "code": "deprecated", "name": "Deprecated", "name_de": "Veraltet", "sort_order": 40, "color": "#ffc107", "icon": "bi-exclamation-triangle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 39, "fields": {"domain": 7, "code": "superseded", "name": "Superseded", "name_de": "Ersetzt", "sort_order": 50, "color": "#6c757d", "icon": "bi-arrow-repeat", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 40, "fields": {"domain": 8, "code": "implements", "name": "Implements", "name_de": "Implementiert", "sort_order": 10, "color": "#007bff", "icon": "bi-code", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 41, "fields": {"domain": 8, "code": "affects", "name": "Affects", "name_de": "Beeinflusst", "sort_order": 20, "color": "#ffc107", "icon": "bi-lightning", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 42, "fields": {"domain": 8, "code": "references", "name": "References", "name_de": "Referenziert", "sort_order": 30, "color": "#6c757d", "icon": "bi-link", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 43, "fields": {"domain": 9, "code": "active", "name": "Active", "name_de": "Aktiv", "sort_order": 10, "color": "#28a745", "icon": "bi-chat-dots", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 44, "fields": {"domain": 9, "code": "paused", "name": "Paused", "name_de": "Pausiert", "sort_order": 20, "color": "#ffc107", "icon": "bi-pause-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 45, "fields": {"domain": 9, "code": "completed", "name": "Completed", "name_de": "Abgeschlossen", "sort_order": 30, "color": "#007bff", "icon": "bi-check-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 46, "fields": {"domain": 9, "code": "abandoned", "name": "Abandoned", "name_de": "Abgebrochen", "sort_order": 40, "color": "#6c757d", "icon": "bi-x-circle", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 47, "fields": {"domain": 10, "code": "user", "name": "User", "name_de": "Benutzer", "sort_order": 10, "color": "#007bff", "icon": "bi-person", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 48, "fields": {"domain": 10, "code": "assistant", "name": "Assistant", "name_de": "Assistent", "sort_order": 20, "color": "#28a745", "icon": "bi-robot", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 49, "fields": {"domain": 10, "code": "system", "name": "System", "name_de": "System", "sort_order": 30, "color": "#6c757d", "icon": "bi-gear", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 50, "fields": {"domain": 11, "code": "business_case", "name": "Business Case", "name_de": "Business Case", "sort_order": 10, "color": "#007bff", "icon": "bi-briefcase", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 51, "fields": {"domain": 11, "code": "use_case", "name": "Use Case", "name_de": "Use Case", "sort_order": 20, "color": "#17a2b8", "icon": "bi-person-workspace", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 52, "fields": {"domain": 11, "code": "adr", "name": "ADR", "name_de": "ADR", "sort_order": 30, "color": "#6f42c1", "icon": "bi-file-earmark-text", "is_active": true}},
+
+  {"model": "governance.lookupchoice", "pk": 53, "fields": {"domain": 12, "code": "approved", "name": "Approved", "name_de": "Genehmigt", "sort_order": 10, "color": "#28a745", "icon": "bi-check-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 54, "fields": {"domain": 12, "code": "rejected", "name": "Rejected", "name_de": "Abgelehnt", "sort_order": 20, "color": "#dc3545", "icon": "bi-x-circle", "is_active": true}},
+  {"model": "governance.lookupchoice", "pk": 55, "fields": {"domain": 12, "code": "changes_requested", "name": "Changes Requested", "name_de": "Änderungen angefordert", "sort_order": 30, "color": "#ffc107", "icon": "bi-pencil-square", "is_active": true}}
+]

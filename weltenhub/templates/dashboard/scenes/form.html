@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+
+{% block title %}{% if object %}{{ object.title }} bearbeiten{% else %}Neue Szene{% endif %} - Weltenforger{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-3">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item"><a href="{% url 'dashboard:index' %}">Dashboard</a></li>
+            <li class="breadcrumb-item"><a href="{% url 'dashboard:scene-list' %}">Szenen</a></li>
+            <li class="breadcrumb-item active">
+                {% if object %}{{ object.title }}{% else %}Neue Szene{% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="card shadow-sm">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-film text-primary me-2"></i>
+                        {% if object %}Szene bearbeiten{% else %}Neue Szene erstellen{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+
+                        <div class="row">
+                            <div class="col-md-8 mb-3">
+                                <label for="id_title" class="form-label">Titel *</label>
+                                <input type="text" name="title" id="id_title" 
+                                       class="form-control {% if form.title.errors %}is-invalid{% endif %}"
+                                       value="{{ form.title.value|default:'' }}" required>
+                                {% if form.title.errors %}
+                                <div class="invalid-feedback">{{ form.title.errors.0 }}</div>
+                                {% endif %}
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="id_order" class="form-label">Reihenfolge</label>
+                                <input type="number" name="order" id="id_order" 
+                                       class="form-control"
+                                       value="{{ form.order.value|default:'0' }}">
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="id_story" class="form-label">Geschichte *</label>
+                                <select name="story" id="id_story" class="form-select" required>
+                                    <option value="">-- Wählen --</option>
+                                    {% for story in form.fields.story.queryset %}
+                                    <option value="{{ story.pk }}" 
+                                            {% if form.story.value == story.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ story.title }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="id_pov_character" class="form-label">POV-Charakter</label>
+                                <select name="pov_character" id="id_pov_character" class="form-select">
+                                    <option value="">-- Keiner --</option>
+                                    {% for char in form.fields.pov_character.queryset %}
+                                    <option value="{{ char.pk }}"
+                                            {% if form.pov_character.value == char.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ char.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="id_status" class="form-label">Status</label>
+                                <select name="status" id="id_status" class="form-select">
+                                    <option value="idea" {% if form.status.value == 'idea' %}selected{% endif %}>Idee</option>
+                                    <option value="outlined" {% if form.status.value == 'outlined' %}selected{% endif %}>Skizziert</option>
+                                    <option value="drafted" {% if form.status.value == 'drafted' %}selected{% endif %}>Entwurf</option>
+                                    <option value="revised" {% if form.status.value == 'revised' %}selected{% endif %}>Überarbeitet</option>
+                                    <option value="final" {% if form.status.value == 'final' %}selected{% endif %}>Final</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="id_mood" class="form-label">Stimmung</label>
+                                <select name="mood" id="id_mood" class="form-select">
+                                    <option value="">-- Keine --</option>
+                                    {% for mood in form.fields.mood.queryset %}
+                                    <option value="{{ mood.pk }}"
+                                            {% if form.mood.value == mood.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ mood.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="id_conflict_level" class="form-label">Konfliktlevel</label>
+                                <select name="conflict_level" id="id_conflict_level" class="form-select">
+                                    <option value="">-- Keins --</option>
+                                    {% for cl in form.fields.conflict_level.queryset %}
+                                    <option value="{{ cl.pk }}"
+                                            {% if form.conflict_level.value == cl.pk|stringformat:"s" %}selected{% endif %}>
+                                        {{ cl.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_summary" class="form-label">Zusammenfassung</label>
+                            <textarea name="summary" id="id_summary" class="form-control" rows="3">{{ form.summary.value|default:'' }}</textarea>
+                            <div class="form-text">Kurze Beschreibung, was in der Szene passiert.</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_goal" class="form-label">Ziel der Szene</label>
+                            <textarea name="goal" id="id_goal" class="form-control" rows="2">{{ form.goal.value|default:'' }}</textarea>
+                            <div class="form-text">Was soll diese Szene in der Geschichte erreichen?</div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_content" class="form-label">Inhalt</label>
+                            <textarea name="content" id="id_content" class="form-control" rows="10">{{ form.content.value|default:'' }}</textarea>
+                            <div class="form-text">Der vollständige Text der Szene.</div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'dashboard:scene-list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="bi bi-check-lg me-1"></i>
+                                {% if object %}Speichern{% else %}Erstellen{% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

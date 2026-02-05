@@ -1,0 +1,90 @@
+{% extends "base.html" %}
+
+{% block title %}Geschichten - Weltenforger{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-book-fill text-primary me-2"></i>Geschichten</h1>
+        <a href="{% url 'dashboard:story-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Neue Geschichte
+        </a>
+    </div>
+
+    {% if stories %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for story in stories %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        {% if story.genre %}
+                        <span class="badge bg-primary me-2">{{ story.genre.name }}</span>
+                        {% endif %}
+                        {% if story.mood %}
+                        <span class="badge bg-info">{{ story.mood.name }}</span>
+                        {% endif %}
+                    </div>
+                    <h5 class="card-title">{{ story.title }}</h5>
+                    <p class="card-text text-muted small mb-2">
+                        <i class="bi bi-globe2 me-1"></i>{{ story.world.name }}
+                    </p>
+                    {% if story.logline %}
+                    <p class="card-text fst-italic">{{ story.logline|truncatewords:25 }}</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent border-top-0">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard:story-detail' story.pk %}" 
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i> Details
+                        </a>
+                        <a href="{% url 'dashboard:story-edit' story.pk %}" 
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-pencil"></i> Bearbeiten
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <nav class="mt-4">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">
+                    Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-book display-1 text-muted"></i>
+        <h3 class="mt-3">Noch keine Geschichten</h3>
+        <p class="text-muted">Erstelle deine erste Geschichte!</p>
+        <a href="{% url 'dashboard:story-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Geschichte erstellen
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

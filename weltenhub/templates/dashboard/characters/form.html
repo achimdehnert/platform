@@ -1,0 +1,196 @@
+{% extends "base.html" %}
+
+{% block title %}
+{% if object %}{{ object.name }} bearbeiten{% else %}Neuer Charakter{% endif %} - Weltenforger
+{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'dashboard:index' %}">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'dashboard:character-list' %}">Charaktere</a>
+            </li>
+            <li class="breadcrumb-item active">
+                {% if object %}Bearbeiten{% else %}Neu{% endif %}
+            </li>
+        </ol>
+    </nav>
+
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <div class="card shadow">
+                <div class="card-header">
+                    <h4 class="mb-0">
+                        <i class="bi bi-person-plus me-2"></i>
+                        {% if object %}Charakter bearbeiten{% else %}Neuer Charakter{% endif %}
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="id_name" class="form-label">Name *</label>
+                                <input type="text" name="name" id="id_name" 
+                                       class="form-control" required
+                                       value="{{ form.name.value|default:'' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="id_title" class="form-label">Titel</label>
+                                <input type="text" name="title" id="id_title" 
+                                       class="form-control" placeholder="Dr., König, etc."
+                                       value="{{ form.title.value|default:'' }}">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="id_nickname" class="form-label">Spitzname</label>
+                                <input type="text" name="nickname" id="id_nickname" 
+                                       class="form-control"
+                                       value="{{ form.nickname.value|default:'' }}">
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="id_world" class="form-label">Welt *</label>
+                                <select name="world" id="id_world" class="form-select" required>
+                                    <option value="">-- Welt auswählen --</option>
+                                    {% for world in form.fields.world.queryset %}
+                                    <option value="{{ world.pk }}"
+                                        {% if form.world.value == world.pk %}selected{% endif %}>
+                                        {{ world.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_role" class="form-label">Rolle</label>
+                                <select name="role" id="id_role" class="form-select">
+                                    <option value="">-- Rolle auswählen --</option>
+                                    {% for role in form.fields.role.queryset %}
+                                    <option value="{{ role.pk }}"
+                                        {% if form.role.value == role.pk %}selected{% endif %}>
+                                        {{ role.name }}
+                                    </option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-4">
+                                <label for="id_age" class="form-label">Alter</label>
+                                <input type="text" name="age" id="id_age" 
+                                       class="form-control" placeholder="z.B. 25 oder Mitte 30"
+                                       value="{{ form.age.value|default:'' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <label for="id_gender" class="form-label">Geschlecht</label>
+                                <input type="text" name="gender" id="id_gender" 
+                                       class="form-control"
+                                       value="{{ form.gender.value|default:'' }}">
+                            </div>
+                            <div class="col-md-4">
+                                <div class="form-check mt-4 pt-2">
+                                    <input type="checkbox" name="is_protagonist" id="id_is_protagonist" 
+                                           class="form-check-input"
+                                           {% if form.is_protagonist.value %}checked{% endif %}>
+                                    <label for="id_is_protagonist" class="form-check-label">
+                                        <i class="bi bi-star-fill text-warning"></i> Protagonist
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="id_description" class="form-label">Beschreibung</label>
+                            <textarea name="description" id="id_description" 
+                                      class="form-control" rows="3"
+                                      placeholder="Physische Beschreibung des Charakters...">{{ form.description.value|default:'' }}</textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="id_personality" class="form-label">Persönlichkeit</label>
+                            <textarea name="personality" id="id_personality" 
+                                      class="form-control" rows="3"
+                                      placeholder="Persönlichkeitszüge und Verhalten...">{{ form.personality.value|default:'' }}</textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="id_backstory" class="form-label">Hintergrundgeschichte</label>
+                            <textarea name="backstory" id="id_backstory" 
+                                      class="form-control" rows="4"
+                                      placeholder="Die Geschichte des Charakters...">{{ form.backstory.value|default:'' }}</textarea>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="id_motivation" class="form-label">Motivation</label>
+                                <textarea name="motivation" id="id_motivation" 
+                                          class="form-control" rows="3"
+                                          placeholder="Was treibt diesen Charakter an?">{{ form.motivation.value|default:'' }}</textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_goals" class="form-label">Ziele</label>
+                                <textarea name="goals" id="id_goals" 
+                                          class="form-control" rows="3"
+                                          placeholder="Ziele und Wünsche...">{{ form.goals.value|default:'' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="row mb-4">
+                            <div class="col-md-6">
+                                <label for="id_strengths" class="form-label">Stärken</label>
+                                <textarea name="strengths" id="id_strengths" 
+                                          class="form-control" rows="3"
+                                          placeholder="Stärken und Fähigkeiten...">{{ form.strengths.value|default:'' }}</textarea>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="id_flaws" class="form-label">Schwächen</label>
+                                <textarea name="flaws" id="id_flaws" 
+                                          class="form-control" rows="3"
+                                          placeholder="Schwächen und Fehler...">{{ form.flaws.value|default:'' }}</textarea>
+                            </div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="id_voice" class="form-label">Sprachstil</label>
+                            <textarea name="voice" id="id_voice" 
+                                      class="form-control" rows="2"
+                                      placeholder="Wie spricht der Charakter? Typische Ausdrücke...">{{ form.voice.value|default:'' }}</textarea>
+                        </div>
+
+                        <div class="mb-4">
+                            <div class="form-check">
+                                <input type="checkbox" name="is_public" id="id_is_public" 
+                                       class="form-check-input"
+                                       {% if form.is_public.value %}checked{% endif %}>
+                                <label for="id_is_public" class="form-check-label">
+                                    Öffentlich (kann von anderen Nutzern verwendet werden)
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'dashboard:character-list' %}" class="btn btn-outline-secondary">
+                                <i class="bi bi-arrow-left me-1"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-primary">
+                                {% if object %}
+                                <i class="bi bi-save me-1"></i>Speichern
+                                {% else %}
+                                <i class="bi bi-check-lg me-1"></i>Erstellen
+                                {% endif %}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
