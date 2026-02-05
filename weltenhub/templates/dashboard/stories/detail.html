@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+
+{% block title %}{{ story.title }} - Weltenforger{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <nav aria-label="breadcrumb" class="mb-4">
+        <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+                <a href="{% url 'dashboard:index' %}">Dashboard</a>
+            </li>
+            <li class="breadcrumb-item">
+                <a href="{% url 'dashboard:story-list' %}">Geschichten</a>
+            </li>
+            <li class="breadcrumb-item active">{{ story.title }}</li>
+        </ol>
+    </nav>
+
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <h1>{{ story.title }}</h1>
+            <p class="lead text-muted mb-0">
+                <i class="bi bi-globe2 me-1"></i>{{ story.world.name }}
+                {% if story.genre %}
+                <span class="badge bg-primary ms-2">{{ story.genre.name }}</span>
+                {% endif %}
+                {% if story.mood %}
+                <span class="badge bg-info ms-1">{{ story.mood.name }}</span>
+                {% endif %}
+            </p>
+        </div>
+        <div>
+            <a href="{% url 'dashboard:story-edit' story.pk %}" 
+               class="btn btn-primary me-2">
+                <i class="bi bi-pencil me-1"></i>Bearbeiten
+            </a>
+            <a href="{% url 'dashboard:story-delete' story.pk %}" 
+               class="btn btn-outline-danger">
+                <i class="bi bi-trash me-1"></i>Löschen
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-8">
+            {% if story.logline %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-chat-quote me-1"></i>Logline
+                </div>
+                <div class="card-body">
+                    <p class="lead fst-italic mb-0">{{ story.logline }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if story.synopsis %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-file-text me-1"></i>Synopsis
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ story.synopsis|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if story.themes %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-tags me-1"></i>Themen
+                </div>
+                <div class="card-body">
+                    <p class="mb-0">{{ story.themes|linebreaks }}</p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-lg-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <i class="bi bi-info-circle me-1"></i>Details
+                </div>
+                <ul class="list-group list-group-flush">
+                    {% if story.conflict_level %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span class="text-muted">Konfliktebene</span>
+                        <span>{{ story.conflict_level.name }}</span>
+                    </li>
+                    {% endif %}
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span class="text-muted">Öffentlich</span>
+                        <span>
+                            {% if story.is_public %}
+                            <i class="bi bi-check-circle-fill text-success"></i>
+                            {% else %}
+                            <i class="bi bi-x-circle-fill text-muted"></i>
+                            {% endif %}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between">
+                        <span class="text-muted">Erstellt</span>
+                        <span>{{ story.created_at|date:"d.m.Y" }}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

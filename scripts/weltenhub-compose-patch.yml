@@ -1,0 +1,3 @@
+# Patch for weltenhub docker-compose to add settings volume mount
+# Add this line after "- weltenhub_static:/app/staticfiles" in volumes section:
+#      - ./repo/config/settings/production.py:/app/config/settings/production.py:ro

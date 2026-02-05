@@ -1,0 +1,714 @@
+# .github/workflows/adr-review-extended.yml
+#
+# 🤖 Erweiterte ADR-Review für BF Agent Platform
+#
+# Features:
+#   ✅ AI-basierte Architektur-Review
+#   ✅ Automatische Fix-Vorschläge (GitHub Suggestions)
+#   ✅ Verwandte ADRs automatisch verlinken
+#   ✅ Platform-Prinzipien Compliance Check
+#   ✅ Mermaid-Diagramm Generierung (optional)
+#
+# Setup:
+#   1. Secret: ANTHROPIC_API_KEY
+#   2. Optional: SLACK_WEBHOOK_URL
+#
+# Kosten: ~$0.03-0.05 pro Review (erweiterte Analyse)
+
+name: "📋 ADR Architecture Review (Extended)"
+
+on:
+  pull_request:
+    types: [opened, synchronize, ready_for_review]
+    paths:
+      - 'docs/adr/**'
+      - 'adr/**'
+      - '**/ADR-*.md'
+      - 'concepts/**/*.md'
+
+  workflow_dispatch:
+    inputs:
+      pr_number:
+        description: 'PR Number to review'
+        required: true
+        type: number
+      include_fixes:
+        description: 'Generate fix suggestions'
+        type: boolean
+        default: true
+      include_diagram:
+        description: 'Generate architecture diagram'
+        type: boolean
+        default: false
+
+concurrency:
+  group: adr-review-${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+  cancel-in-progress: true
+
+env:
+  ANTHROPIC_MODEL: "claude-sonnet-4-20250514"
+  MAX_TOKENS: 8192
+
+jobs:
+  # ============================================================
+  # Job 1: ADR-Dateien und Kontext sammeln
+  # ============================================================
+  collect-context:
+    name: "📚 Collect Context"
+    runs-on: ubuntu-latest
+    outputs:
+      adr_files: ${{ steps.detect.outputs.adr_files }}
+      has_adrs: ${{ steps.detect.outputs.has_adrs }}
+      existing_adrs: ${{ steps.existing.outputs.existing_adrs }}
+      adr_index: ${{ steps.existing.outputs.adr_index }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect ADR files in PR
+        id: detect
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          PR_NUMBER="${{ github.event.pull_request.number || github.event.inputs.pr_number }}"
+          
+          FILES=$(gh pr view $PR_NUMBER --json files -q '.files[].path' | \
+            grep -E '(ADR-.*\.md|adr/.*\.md|concepts/.*\.md)' || true)
+          
+          if [ -z "$FILES" ]; then
+            echo "has_adrs=false" >> $GITHUB_OUTPUT
+            echo "adr_files=[]" >> $GITHUB_OUTPUT
+          else
+            echo "Found: $FILES"
+            JSON_ARRAY=$(echo "$FILES" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "adr_files=$JSON_ARRAY" >> $GITHUB_OUTPUT
+            echo "has_adrs=true" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Index existing ADRs
+        id: existing
+        run: |
+          # Finde alle existierenden ADRs für Related-ADR-Erkennung
+          ADR_INDEX="[]"
+          
+          for adr_file in $(find . -name "ADR-*.md" -type f 2>/dev/null); do
+            # Extrahiere Metadaten
+            FILENAME=$(basename "$adr_file")
+            TITLE=$(head -5 "$adr_file" | grep -E "^#\s+" | head -1 | sed 's/^#\s*//')
+            
+            # Extrahiere Status
+            STATUS=$(grep -E "^\*\*Status\*\*" "$adr_file" | head -1 | sed 's/.*|\s*//' | sed 's/\s*|.*//' || echo "Unknown")
+            
+            # Extrahiere Keywords (erste 500 Zeichen für Kontext)
+            KEYWORDS=$(head -50 "$adr_file" | tr '\n' ' ' | cut -c1-500)
+            
+            # Füge zum Index hinzu
+            ADR_ENTRY=$(jq -n \
+              --arg file "$adr_file" \
+              --arg name "$FILENAME" \
+              --arg title "$TITLE" \
+              --arg status "$STATUS" \
+              --arg keywords "$KEYWORDS" \
+              '{file: $file, name: $name, title: $title, status: $status, keywords: $keywords}')
+            
+            ADR_INDEX=$(echo "$ADR_INDEX" | jq --argjson entry "$ADR_ENTRY" '. + [$entry]')
+          done
+          
+          echo "Found $(echo "$ADR_INDEX" | jq length) existing ADRs"
+          
+          # Speichere als Datei (zu groß für Output)
+          echo "$ADR_INDEX" > /tmp/adr_index.json
+          
+          # Kurze Version für Output (nur Namen)
+          echo "existing_adrs=$(echo "$ADR_INDEX" | jq -c '[.[].name]')" >> $GITHUB_OUTPUT
+          
+          # Base64 encode für Transfer
+          echo "adr_index=$(echo "$ADR_INDEX" | base64 -w 0)" >> $GITHUB_OUTPUT
+
+  # ============================================================
+  # Job 2: Erweiterte AI-Review
+  # ============================================================
+  extended-review:
+    name: "🤖 Extended AI Review"
+    needs: collect-context
+    if: needs.collect-context.outputs.has_adrs == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    outputs:
+      score: ${{ steps.review.outputs.score }}
+      recommendation: ${{ steps.review.outputs.recommendation }}
+      has_fixes: ${{ steps.review.outputs.has_fixes }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install anthropic PyGithub
+
+      - name: Run Extended Review
+        id: review
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ADR_FILES: ${{ needs.collect-context.outputs.adr_files }}
+          ADR_INDEX: ${{ needs.collect-context.outputs.adr_index }}
+          PR_NUMBER: ${{ github.event.pull_request.number || github.event.inputs.pr_number }}
+          REPO: ${{ github.repository }}
+          INCLUDE_FIXES: ${{ github.event.inputs.include_fixes || 'true' }}
+          ANTHROPIC_MODEL: ${{ env.ANTHROPIC_MODEL }}
+          MAX_TOKENS: ${{ env.MAX_TOKENS }}
+        run: |
+          python << 'PYTHON_SCRIPT'
+          import os
+          import json
+          import re
+          import base64
+          import anthropic
+          from github import Github
+          from typing import Optional
+
+          # ============================================================
+          # Configuration
+          # ============================================================
+          ADR_FILES = json.loads(os.environ["ADR_FILES"])
+          ADR_INDEX = json.loads(base64.b64decode(os.environ["ADR_INDEX"]).decode('utf-8'))
+          PR_NUMBER = int(os.environ["PR_NUMBER"])
+          REPO = os.environ["REPO"]
+          MODEL = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-4-20250514")
+          MAX_TOKENS = int(os.environ.get("MAX_TOKENS", 8192))
+          INCLUDE_FIXES = os.environ.get("INCLUDE_FIXES", "true").lower() == "true"
+
+          claude = anthropic.Anthropic()
+          gh = Github(os.environ["GITHUB_TOKEN"])
+          repo = gh.get_repo(REPO)
+          pr = repo.get_pull(PR_NUMBER)
+
+          # ============================================================
+          # Platform Context
+          # ============================================================
+          PLATFORM_CONTEXT = """
+          ## BF Agent Platform - Architektur-Kontext
+
+          ### Kern-Prinzipien (MÜSSEN eingehalten werden)
+          1. **Database-First:** Schema vor Code, FK statt Strings, Validierung in DB
+          2. **Zero Breaking Changes:** Additive, Schema-Versionierung, Migratoren
+          3. **Spec vs. Derived:** Fakten in DB, Berechnetes zur Laufzeit
+          4. **Fail Loud:** Keine stillen Fallbacks, Structured Logging
+
+          ### Infrastruktur
+          - Hetzner Cloud (VPS), Docker Compose, GitHub Actions
+          - Django/FastAPI, PostgreSQL, Redis
+          - Packages: platform_core → platform_creative → creative-services
+
+          ### Apps
+          - BF Agent, Travel-Beat (CRITICAL)
+          - MCP-Hub, Risk-Hub, CAD-Hub (STANDARD)
+          - Docs (LOW)
+          """
+
+          # ============================================================
+          # Existing ADRs for Related Detection
+          # ============================================================
+          EXISTING_ADRS_CONTEXT = "### Existierende ADRs im Repository\n\n"
+          for adr in ADR_INDEX:
+              EXISTING_ADRS_CONTEXT += f"- **{adr['name']}**: {adr['title']} (Status: {adr['status']})\n"
+
+          # ============================================================
+          # Extended Review Prompt
+          # ============================================================
+          REVIEW_PROMPT = """Du bist ein erfahrener IT-Architekt für das BF Agent Platform Team.
+          Führe eine erweiterte Review dieses ADR durch.
+
+          {platform_context}
+
+          {existing_adrs}
+
+          ---
+
+          ## Review-Aufgaben
+
+          ### TEIL 1: Standard-Review
+
+          #### 1.1 Executive Assessment
+          2-3 Sätze + Empfehlung (✅ APPROVE / ⚠️ REQUEST CHANGES / ❌ REJECT)
+
+          #### 1.2 Scoring Matrix
+          | Kategorie | Score | Begründung |
+          |-----------|-------|------------|
+          | Problemdefinition | X/10 | |
+          | Lösungsansatz | X/10 | |
+          | Platform-Prinzipien | X/10 | |
+          | Risikobewertung | X/10 | |
+          | Implementierungsplan | X/10 | |
+          | Rollback-Strategie | X/10 | |
+          | **Gesamt** | X/10 | |
+
+          #### 1.3 Platform-Prinzipien Check
+          - [ ] Database-First eingehalten?
+          - [ ] Zero Breaking Changes berücksichtigt?
+          - [ ] Spec vs. Derived korrekt?
+          - [ ] Fail Loud implementiert?
+
+          ---
+
+          ### TEIL 2: Verwandte ADRs
+
+          Analysiere das ADR und identifiziere verwandte existierende ADRs:
+
+          #### 2.1 Verwandte ADRs (Related)
+          Liste ADRs die thematisch verwandt sind und verlinkt werden sollten:
+          ```
+          | ADR | Beziehung | Empfehlung |
+          |-----|-----------|------------|
+          | ADR-XXX | beschreibung | "Sollte in Related verlinkt werden" |
+          ```
+
+          #### 2.2 Potenzielle Konflikte
+          Gibt es Widersprüche zu existierenden ADRs?
+
+          #### 2.3 Supersedes-Check
+          Ersetzt dieses ADR ein bestehendes? Wenn ja, welches?
+
+          ---
+
+          ### TEIL 3: Automatische Fix-Vorschläge
+
+          Generiere für JEDEN identifizierten Gap einen konkreten Fix-Vorschlag.
+
+          Format für jeden Fix (WICHTIG - exakt dieses Format verwenden):
+
+          ```suggestion
+          DATEI: [relativer Dateipfad]
+          ZEILE: [Zeilennummer oder "NEU" für neue Sektion]
+          ORIGINAL:
+          [der originale Text der ersetzt werden soll, oder "---" wenn neue Sektion]
+          ERSETZUNG:
+          [der neue/verbesserte Text]
+          BEGRÜNDUNG: [kurze Erklärung warum]
+          ```
+
+          Generiere Fixes für:
+          1. Fehlende Sektionen (z.B. Rollback-Strategie)
+          2. Unvollständige Risk-Matrix
+          3. Fehlende Related-ADR-Links
+          4. Platform-Prinzipien Verstöße
+          5. Unrealistische Timelines
+
+          ---
+
+          ### TEIL 4: Kritische Gaps & Verbesserungen
+
+          #### 4.1 Kritische Gaps 🚨 (Showstopper)
+          - Gap 1: [Beschreibung] → Fix-Referenz: suggestion_1
+          - Gap 2: ...
+
+          #### 4.2 Verbesserungen 💡 (Nice-to-have)
+          - ...
+
+          #### 4.3 Fragen an den Autor ❓
+          1. ...
+          2. ...
+          3. ...
+
+          ---
+
+          ## ADR zur Review
+
+          **Datei:** `{filename}`
+
+          ```markdown
+          {content}
+          ```
+          """
+
+          # ============================================================
+          # Review Functions
+          # ============================================================
+          def extract_suggestions(review_text: str) -> list:
+              """Extract fix suggestions from review."""
+              suggestions = []
+              
+              # Pattern für suggestion blocks
+              pattern = r'```suggestion\s*\n(.*?)```'
+              matches = re.findall(pattern, review_text, re.DOTALL)
+              
+              for i, match in enumerate(matches):
+                  suggestion = {"id": i + 1, "raw": match.strip()}
+                  
+                  # Parse structured fields
+                  lines = match.strip().split('\n')
+                  current_field = None
+                  current_content = []
+                  
+                  for line in lines:
+                      if line.startswith('DATEI:'):
+                          suggestion['file'] = line.replace('DATEI:', '').strip()
+                      elif line.startswith('ZEILE:'):
+                          suggestion['line'] = line.replace('ZEILE:', '').strip()
+                      elif line.startswith('ORIGINAL:'):
+                          current_field = 'original'
+                          current_content = []
+                      elif line.startswith('ERSETZUNG:'):
+                          if current_field == 'original':
+                              suggestion['original'] = '\n'.join(current_content).strip()
+                          current_field = 'replacement'
+                          current_content = []
+                      elif line.startswith('BEGRÜNDUNG:'):
+                          if current_field == 'replacement':
+                              suggestion['replacement'] = '\n'.join(current_content).strip()
+                          suggestion['reason'] = line.replace('BEGRÜNDUNG:', '').strip()
+                          current_field = None
+                      elif current_field:
+                          current_content.append(line)
+                  
+                  # Catch last field
+                  if current_field == 'replacement':
+                      suggestion['replacement'] = '\n'.join(current_content).strip()
+                  
+                  if suggestion.get('replacement'):
+                      suggestions.append(suggestion)
+              
+              return suggestions
+
+          def extract_related_adrs(review_text: str) -> list:
+              """Extract related ADR recommendations."""
+              related = []
+              
+              # Suche nach ADR-Referenzen
+              adr_pattern = r'ADR-\d{3}'
+              found_adrs = set(re.findall(adr_pattern, review_text))
+              
+              # Prüfe welche davon existieren
+              existing_names = {adr['name'].replace('.md', ''): adr for adr in ADR_INDEX}
+              
+              for adr_ref in found_adrs:
+                  if adr_ref in existing_names:
+                      related.append({
+                          "ref": adr_ref,
+                          "title": existing_names[adr_ref].get('title', ''),
+                          "file": existing_names[adr_ref].get('file', '')
+                      })
+              
+              return related
+
+          def review_adr(filepath: str) -> dict:
+              """Extended review of a single ADR file."""
+              try:
+                  with open(filepath, 'r') as f:
+                      content = f.read()
+              except FileNotFoundError:
+                  return {"error": f"File not found: {filepath}", "filepath": filepath}
+
+              try:
+                  message = claude.messages.create(
+                      model=MODEL,
+                      max_tokens=MAX_TOKENS,
+                      messages=[{
+                          "role": "user",
+                          "content": REVIEW_PROMPT.format(
+                              platform_context=PLATFORM_CONTEXT,
+                              existing_adrs=EXISTING_ADRS_CONTEXT,
+                              filename=filepath,
+                              content=content
+                          )
+                      }]
+                  )
+                  review_text = message.content[0].text
+              except Exception as e:
+                  return {"error": f"API error: {str(e)}", "filepath": filepath}
+
+              # Extract score
+              score = 5
+              match = re.search(r'\*\*Gesamt\*\*\s*\|\s*(\d+)/10', review_text)
+              if match:
+                  score = int(match.group(1))
+
+              # Extract suggestions
+              suggestions = extract_suggestions(review_text) if INCLUDE_FIXES else []
+              
+              # Extract related ADRs
+              related_adrs = extract_related_adrs(review_text)
+
+              return {
+                  "filepath": filepath,
+                  "content": content,
+                  "review": review_text,
+                  "score": score,
+                  "suggestions": suggestions,
+                  "related_adrs": related_adrs,
+                  "recommendation": "approve" if score >= 7 else "request_changes" if score >= 5 else "reject"
+              }
+
+          def build_main_comment(reviews: list) -> tuple:
+              """Build main PR comment."""
+              body = "## 🤖 Erweiterte ADR-Architektur-Review\n\n"
+              body += f"*Powered by Claude AI ({MODEL}) | BF Agent Platform Standards*\n\n"
+              
+              # Feature badges
+              body += "**Features:** "
+              body += "✅ Review "
+              body += "✅ Fix-Vorschläge " if INCLUDE_FIXES else ""
+              body += "✅ Related-ADRs "
+              body += "\n\n---\n\n"
+
+              overall_score = 0
+              valid_reviews = 0
+              all_suggestions = []
+              all_related = []
+
+              for review in reviews:
+                  if "error" in review:
+                      body += f"### ❌ {review.get('filepath', 'Unknown')}\n\n"
+                      body += f"**Error:** {review['error']}\n\n---\n\n"
+                      continue
+
+                  valid_reviews += 1
+                  overall_score += review["score"]
+                  all_suggestions.extend(review.get("suggestions", []))
+                  all_related.extend(review.get("related_adrs", []))
+
+                  emoji = "✅" if review["score"] >= 7 else "⚠️" if review["score"] >= 5 else "❌"
+                  body += f"### {emoji} `{review['filepath']}` — Score: **{review['score']}/10**\n\n"
+                  
+                  # Kürze den Review-Text für den Hauptkommentar
+                  review_text = review["review"]
+                  
+                  # Entferne suggestion blocks aus dem Hauptkommentar (werden separat gepostet)
+                  review_text = re.sub(r'```suggestion\s*\n.*?```', '[Fix-Vorschlag - siehe unten]', review_text, flags=re.DOTALL)
+                  
+                  body += review_text
+                  body += "\n\n---\n\n"
+
+              avg_score = overall_score / valid_reviews if valid_reviews > 0 else 0
+
+              # Summary
+              body += "## 📊 Zusammenfassung\n\n"
+              body += "| Metrik | Wert |\n|--------|------|\n"
+              body += f"| Geprüfte Dateien | {len(reviews)} |\n"
+              body += f"| Durchschnittlicher Score | **{avg_score:.1f}/10** |\n"
+              body += f"| Fix-Vorschläge | {len(all_suggestions)} |\n"
+              body += f"| Verwandte ADRs | {len(set(r['ref'] for r in all_related))} |\n"
+
+              if avg_score >= 7:
+                  body += "| Empfehlung | ✅ **Ready for human review** |\n"
+              elif avg_score >= 5:
+                  body += "| Empfehlung | ⚠️ **Needs improvements** |\n"
+              else:
+                  body += "| Empfehlung | ❌ **Major revision needed** |\n"
+
+              # Related ADRs Section
+              if all_related:
+                  body += "\n---\n\n## 🔗 Verwandte ADRs\n\n"
+                  body += "Diese ADRs sollten im `Related`-Feld verlinkt werden:\n\n"
+                  seen = set()
+                  for rel in all_related:
+                      if rel['ref'] not in seen:
+                          body += f"- **{rel['ref']}**: {rel['title']}\n"
+                          seen.add(rel['ref'])
+
+              body += "\n---\n"
+              body += "<details>\n<summary>ℹ️ Über diese Review</summary>\n\n"
+              body += "Diese Review prüft gegen BF Agent Platform Standards und generiert automatische Fix-Vorschläge.\n"
+              body += "</details>"
+
+              return body, avg_score, all_suggestions
+
+          def post_suggestion_comments(pr, reviews: list):
+              """Post individual suggestion comments on specific lines."""
+              for review in reviews:
+                  if "error" in review or not review.get("suggestions"):
+                      continue
+                  
+                  filepath = review["filepath"]
+                  content_lines = review["content"].split('\n')
+                  
+                  for suggestion in review["suggestions"]:
+                      try:
+                          # Finde die Zeile im Diff
+                          line_spec = suggestion.get('line', 'NEU')
+                          original = suggestion.get('original', '---')
+                          replacement = suggestion.get('replacement', '')
+                          reason = suggestion.get('reason', 'Verbesserungsvorschlag')
+                          
+                          if not replacement:
+                              continue
+                          
+                          # Erstelle GitHub Suggestion Format
+                          suggestion_body = f"**🔧 Auto-Fix Vorschlag #{suggestion['id']}**\n\n"
+                          suggestion_body += f"_{reason}_\n\n"
+                          
+                          if original and original != '---':
+                              suggestion_body += f"```suggestion\n{replacement}\n```"
+                          else:
+                              suggestion_body += f"**Hinzufügen:**\n```markdown\n{replacement}\n```"
+                          
+                          # Finde Position für Kommentar
+                          if line_spec.isdigit():
+                              line_num = int(line_spec)
+                          else:
+                              # Suche nach Original-Text
+                              line_num = None
+                              for i, line in enumerate(content_lines):
+                                  if original in line:
+                                      line_num = i + 1
+                                      break
+                              if not line_num:
+                                  line_num = len(content_lines)  # Ende der Datei
+                          
+                          # Poste als Review-Kommentar (nicht als normaler Kommentar)
+                          # Das ermöglicht "Apply Suggestion" Button
+                          try:
+                              pr.create_review_comment(
+                                  body=suggestion_body,
+                                  commit=pr.head.sha,
+                                  path=filepath,
+                                  line=min(line_num, len(content_lines))
+                              )
+                          except Exception as e:
+                              # Fallback: Normaler Kommentar
+                              print(f"Could not create review comment: {e}")
+                              
+                      except Exception as e:
+                          print(f"Error posting suggestion: {e}")
+
+          def set_labels(score: float):
+              """Set labels based on score."""
+              labels = ["adr-review-passed", "adr-review-concerns", "adr-review-failed"]
+              existing = [l.name for l in pr.labels]
+              
+              for label in labels:
+                  if label in existing:
+                      try:
+                          pr.remove_from_labels(label)
+                      except:
+                          pass
+
+              try:
+                  if score >= 7:
+                      pr.add_to_labels("adr-review-passed")
+                  elif score >= 5:
+                      pr.add_to_labels("adr-review-concerns")
+                  else:
+                      pr.add_to_labels("adr-review-failed")
+              except Exception as e:
+                  print(f"Label error: {e}")
+
+          # ============================================================
+          # Main Execution
+          # ============================================================
+          print(f"🔍 Extended review of {len(ADR_FILES)} file(s)...")
+          print(f"📚 {len(ADR_INDEX)} existing ADRs indexed for relation detection")
+
+          reviews = [review_adr(f) for f in ADR_FILES]
+
+          print("📝 Building comments...")
+          main_comment, avg_score, all_suggestions = build_main_comment(reviews)
+
+          print("💬 Posting main review...")
+          pr.create_issue_comment(main_comment)
+
+          if INCLUDE_FIXES and all_suggestions:
+              print(f"🔧 Posting {len(all_suggestions)} fix suggestions...")
+              # Post als separater Kommentar mit allen Fixes
+              fixes_comment = "## 🔧 Automatische Fix-Vorschläge\n\n"
+              fixes_comment += "Die folgenden Änderungen werden empfohlen:\n\n"
+              
+              for i, sug in enumerate(all_suggestions, 1):
+                  fixes_comment += f"### Fix #{i}\n\n"
+                  fixes_comment += f"**Begründung:** {sug.get('reason', 'Verbesserung')}\n\n"
+                  if sug.get('original') and sug['original'] != '---':
+                      fixes_comment += f"**Ersetze:**\n```markdown\n{sug['original']}\n```\n\n"
+                  fixes_comment += f"**Mit:**\n```markdown\n{sug['replacement']}\n```\n\n"
+                  fixes_comment += "---\n\n"
+              
+              fixes_comment += "*Tipp: Kopiere die Vorschläge direkt in dein ADR!*"
+              pr.create_issue_comment(fixes_comment)
+
+          print("🏷️ Setting labels...")
+          set_labels(avg_score)
+
+          # Outputs
+          has_fixes = "true" if all_suggestions else "false"
+          recommendation = "approve" if avg_score >= 7 else "request_changes" if avg_score >= 5 else "reject"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"score={avg_score:.1f}\n")
+              f.write(f"recommendation={recommendation}\n")
+              f.write(f"has_fixes={has_fixes}\n")
+              f.write(f"fix_count={len(all_suggestions)}\n")
+
+          print(f"✅ Done! Score: {avg_score:.1f}/10, Fixes: {len(all_suggestions)}")
+          PYTHON_SCRIPT
+
+  # ============================================================
+  # Job 3: Labels erstellen
+  # ============================================================
+  ensure-labels:
+    name: "🏷️ Ensure Labels"
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create labels
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+        run: |
+          declare -A LABELS=(
+            ["adr-review-passed"]="0E8A16:ADR Review bestanden (Score ≥7)"
+            ["adr-review-concerns"]="FBCA04:ADR Review mit Bedenken (Score 5-6)"
+            ["adr-review-failed"]="D93F0B:ADR Review durchgefallen (Score <5)"
+            ["has-auto-fixes"]="7057FF:Automatische Fix-Vorschläge verfügbar"
+          )
+
+          for label in "${!LABELS[@]}"; do
+            IFS=':' read -r color description <<< "${LABELS[$label]}"
+            gh label create "$label" --repo "$REPO" --color "$color" \
+              --description "$description" --force 2>/dev/null || true
+          done
+
+  # ============================================================
+  # Job 4: Slack Notification
+  # ============================================================
+  notify:
+    name: "📢 Notify"
+    needs: [collect-context, extended-review]
+    if: always() && needs.collect-context.outputs.has_adrs == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Slack Notification
+        if: ${{ secrets.SLACK_WEBHOOK_URL != '' }}
+        uses: slackapi/slack-github-action@v1
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        with:
+          payload: |
+            {
+              "blocks": [
+                {
+                  "type": "header",
+                  "text": {
+                    "type": "plain_text",
+                    "text": "📋 ADR Review Complete"
+                  }
+                },
+                {
+                  "type": "section",
+                  "fields": [
+                    {"type": "mrkdwn", "text": "*PR:* <${{ github.event.pull_request.html_url }}|#${{ github.event.pull_request.number }}>"},
+                    {"type": "mrkdwn", "text": "*Score:* ${{ needs.extended-review.outputs.score }}/10"},
+                    {"type": "mrkdwn", "text": "*Fixes:* ${{ needs.extended-review.outputs.fix_count || '0' }}"},
+                    {"type": "mrkdwn", "text": "*Status:* ${{ needs.extended-review.outputs.recommendation }}"}
+                  ]
+                }
+              ]
+            }

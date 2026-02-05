@@ -1,0 +1,198 @@
+{% extends "governance/base.html" %}
+
+{% block title %}{{ bc.code }} - {{ bc.title }}{% endblock %}
+
+{% block content %}
+<nav aria-label="breadcrumb" class="mb-3">
+    <ol class="breadcrumb">
+        <li class="breadcrumb-item"><a href="{% url 'governance:dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item"><a href="{% url 'governance:bc-list' %}">Business Cases</a></li>
+        <li class="breadcrumb-item active">{{ bc.code }}</li>
+    </ol>
+</nav>
+
+<div class="d-flex justify-content-between align-items-start mb-4">
+    <div>
+        <h1 class="mb-1">
+            <code class="me-2">{{ bc.code }}</code>
+            {{ bc.title }}
+        </h1>
+        <div class="d-flex gap-2 mt-2">
+            {% if bc.category %}
+            <span class="badge fs-6" style="background-color: {{ bc.category.color|default:'#6c757d' }}">
+                {{ bc.category.name }}
+            </span>
+            {% endif %}
+            {% if bc.status %}
+            <span class="badge fs-6" style="background-color: {{ bc.status.color|default:'#6c757d' }}">
+                {{ bc.status.name }}
+            </span>
+            {% endif %}
+            {% if bc.priority %}
+            <span class="badge fs-6 bg-secondary">{{ bc.priority.name }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <div class="btn-group">
+        <a href="{% url 'admin:governance_businesscase_change' bc.pk %}" class="btn btn-outline-secondary" target="_blank">
+            <i class="bi bi-pencil"></i> Bearbeiten
+        </a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-lg-8">
+        <!-- Problem Statement -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-exclamation-triangle"></i> Problemstellung</h5>
+            </div>
+            <div class="card-body">
+                {{ bc.problem_statement|default:"Keine Problemstellung definiert"|linebreaks }}
+            </div>
+        </div>
+
+        <!-- Scope -->
+        {% if bc.scope %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-bullseye"></i> Scope</h5>
+            </div>
+            <div class="card-body">
+                {{ bc.scope|linebreaks }}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Expected Benefits -->
+        {% if bc.expected_benefits %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-star"></i> Erwartete Vorteile</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for benefit in bc.expected_benefits %}
+                    <li>{{ benefit }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Success Criteria -->
+        {% if bc.success_criteria %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-check2-circle"></i> Erfolgskriterien</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    {% for criterion in bc.success_criteria %}
+                    <li>{{ criterion }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Use Cases -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0"><i class="bi bi-list-task"></i> Verknüpfte Use Cases</h5>
+                <span class="badge bg-primary">{{ bc.use_cases.count }}</span>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for uc in bc.use_cases.all %}
+                <li class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <a href="{% url 'governance:uc-detail' uc.code %}" class="text-decoration-none">
+                            <code>{{ uc.code }}</code> {{ uc.title }}
+                        </a>
+                    </div>
+                    {% if uc.status %}
+                    <span class="badge" style="background-color: {{ uc.status.color|default:'#6c757d' }}">
+                        {{ uc.status.name }}
+                    </span>
+                    {% endif %}
+                </li>
+                {% empty %}
+                <li class="list-group-item text-center text-muted py-4">
+                    <i class="bi bi-inbox"></i> Keine Use Cases verknüpft
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div class="col-lg-4">
+        <!-- Meta Info -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Details</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Zielgruppe</span>
+                    <span>{{ bc.target_audience|default:"-" }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">ADR erforderlich</span>
+                    <span>
+                        {% if bc.requires_adr %}
+                        <i class="bi bi-check-circle text-success"></i> Ja
+                        {% else %}
+                        <i class="bi bi-x-circle text-secondary"></i> Nein
+                        {% endif %}
+                    </span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Erstellt</span>
+                    <span>{{ bc.created_at|date:"d.m.Y H:i" }}</span>
+                </li>
+                <li class="list-group-item d-flex justify-content-between">
+                    <span class="text-muted">Aktualisiert</span>
+                    <span>{{ bc.updated_at|date:"d.m.Y H:i" }}</span>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Out of Scope -->
+        {% if bc.out_of_scope %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-x-circle"></i> Außerhalb Scope</h5>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0 text-muted">
+                    {% for item in bc.out_of_scope %}
+                    <li>{{ item }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Risks -->
+        {% if bc.risks %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5 class="mb-0"><i class="bi bi-exclamation-diamond"></i> Risiken</h5>
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for risk in bc.risks %}
+                <li class="list-group-item">
+                    <div class="fw-bold">{{ risk.description }}</div>
+                    <small class="text-muted">
+                        Wahrscheinlichkeit: {{ risk.probability|default:"?" }} |
+                        Auswirkung: {{ risk.impact|default:"?" }}
+                    </small>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

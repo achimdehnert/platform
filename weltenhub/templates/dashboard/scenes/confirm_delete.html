@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+
+{% block title %}Szene löschen - Weltenforger{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="card shadow-sm border-danger">
+                <div class="card-header bg-danger text-white">
+                    <h5 class="mb-0">
+                        <i class="bi bi-exclamation-triangle me-2"></i>Szene löschen
+                    </h5>
+                </div>
+                <div class="card-body text-center">
+                    <p class="lead">
+                        Bist du sicher, dass du die Szene 
+                        <strong>"{{ scene.title }}"</strong> löschen möchtest?
+                    </p>
+                    <p class="text-muted">
+                        Diese Aktion kann nicht rückgängig gemacht werden.
+                    </p>
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="d-flex justify-content-center gap-3">
+                            <a href="{% url 'dashboard:scene-detail' scene.pk %}" 
+                               class="btn btn-outline-secondary">
+                                <i class="bi bi-x-lg me-1"></i>Abbrechen
+                            </a>
+                            <button type="submit" class="btn btn-danger">
+                                <i class="bi bi-trash me-1"></i>Endgültig löschen
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
