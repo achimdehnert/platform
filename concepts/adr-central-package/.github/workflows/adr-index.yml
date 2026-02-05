@@ -1,0 +1,228 @@
+# .github/workflows/adr-index.yml
+#
+# 📋 ADR Index - Auto-generate and validate
+#
+# Ensures the ADR index is always up to date.
+
+name: "📋 ADR Index"
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/adr/**'
+  
+  pull_request:
+    paths:
+      - 'docs/adr/**'
+  
+  workflow_dispatch:
+
+jobs:
+  # ============================================================
+  # Job 1: Check if index needs update
+  # ============================================================
+  check-index:
+    name: "🔍 Check ADR Index"
+    runs-on: ubuntu-latest
+    outputs:
+      needs_update: ${{ steps.check.outputs.needs_update }}
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Check Index
+        id: check
+        run: |
+          if python3 scripts/generate-adr-index.py --check; then
+            echo "needs_update=false" >> $GITHUB_OUTPUT
+          else
+            echo "needs_update=true" >> $GITHUB_OUTPUT
+          fi
+
+  # ============================================================
+  # Job 2: Update index on main branch
+  # ============================================================
+  update-index:
+    name: "📝 Update ADR Index"
+    needs: check-index
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.check-index.outputs.needs_update == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Generate Index
+        run: python3 scripts/generate-adr-index.py
+
+      - name: Commit & Push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add docs/adr/README.md
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "docs(adr): Auto-update index [skip ci]"
+            git push
+          fi
+
+  # ============================================================
+  # Job 3: Validate ADR structure
+  # ============================================================
+  validate-structure:
+    name: "✅ Validate ADR Structure"
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check required directories
+        run: |
+          echo "Checking ADR directory structure..."
+          
+          REQUIRED_DIRS="docs/adr/drafts docs/adr/core docs/adr/shared docs/adr/_archive"
+          MISSING=""
+          
+          for dir in $REQUIRED_DIRS; do
+            if [ ! -d "$dir" ]; then
+              MISSING="$MISSING $dir"
+            fi
+          done
+          
+          if [ -n "$MISSING" ]; then
+            echo "❌ Missing directories:$MISSING"
+            echo "Run: ./scripts/setup-adr-structure.sh"
+            exit 1
+          fi
+          
+          echo "✅ All required directories exist"
+
+      - name: Check ADR numbering
+        run: |
+          echo "Checking ADR number uniqueness..."
+          
+          # Extract all ADR numbers
+          NUMBERS=$(find docs/adr -name "ADR-[0-9]*.md" -exec basename {} \; | grep -oP 'ADR-\K\d{3}' | sort)
+          DUPLICATES=$(echo "$NUMBERS" | uniq -d)
+          
+          if [ -n "$DUPLICATES" ]; then
+            echo "❌ Duplicate ADR numbers found:"
+            echo "$DUPLICATES"
+            exit 1
+          fi
+          
+          echo "✅ All ADR numbers are unique"
+
+      - name: Check scope boundaries
+        run: |
+          echo "Checking ADR numbers are in correct scope..."
+          
+          check_scope() {
+            local scope=$1
+            local min=$2
+            local max=$3
+            
+            for adr in docs/adr/$scope/ADR-*.md; do
+              [ -f "$adr" ] || continue
+              num=$(basename "$adr" | grep -oP 'ADR-\K\d{3}')
+              if [ "$num" -lt "$min" ] || [ "$num" -gt "$max" ]; then
+                echo "❌ $adr: Number $num outside range $min-$max for scope $scope"
+                exit 1
+              fi
+            done
+          }
+          
+          check_scope "core" 1 19
+          check_scope "bfagent" 20 29
+          check_scope "travel-beat" 30 39
+          check_scope "mcp-hub" 40 49
+          check_scope "risk-hub" 50 59
+          check_scope "cad-hub" 60 69
+          check_scope "pptx-hub" 70 79
+          check_scope "shared" 80 99
+          
+          echo "✅ All ADRs are in correct scope ranges"
+
+      - name: Check templates exist
+        run: |
+          if [ ! -f "docs/adr/TEMPLATE.md" ]; then
+            echo "⚠️ Missing TEMPLATE.md"
+          fi
+          
+          if [ ! -f "docs/adr/TRIAGE.md" ]; then
+            echo "⚠️ Missing TRIAGE.md"
+          fi
+          
+          echo "✅ Template check complete"
+
+  # ============================================================
+  # Job 4: PR Comment (for PRs only)
+  # ============================================================
+  pr-comment:
+    name: "💬 PR Summary"
+    needs: [check-index, validate-structure]
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate Summary
+        id: summary
+        run: |
+          # Count ADRs changed in this PR
+          CHANGED=$(git diff --name-only origin/main...HEAD | grep "^docs/adr/.*ADR-.*\.md$" | wc -l)
+          NEW=$(git diff --name-only --diff-filter=A origin/main...HEAD | grep "^docs/adr/.*ADR-.*\.md$" | wc -l)
+          
+          echo "changed=$CHANGED" >> $GITHUB_OUTPUT
+          echo "new=$NEW" >> $GITHUB_OUTPUT
+
+      - name: Comment on PR
+        if: steps.summary.outputs.changed != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const changed = ${{ steps.summary.outputs.changed }};
+            const newAdrs = ${{ steps.summary.outputs.new }};
+            
+            let body = `## 📋 ADR Changes\n\n`;
+            body += `- **Changed:** ${changed} ADR(s)\n`;
+            body += `- **New:** ${newAdrs} ADR(s)\n\n`;
+            
+            if (newAdrs > 0) {
+              body += `### Checklist for new ADRs\n`;
+              body += `- [ ] Correct scope directory?\n`;
+              body += `- [ ] Number in correct range?\n`;
+              body += `- [ ] All template sections filled?\n`;
+              body += `- [ ] Status set to "Proposed"?\n`;
+            }
+            
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });

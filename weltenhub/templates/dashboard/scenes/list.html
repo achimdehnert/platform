@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Szenen - Weltenforger{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1><i class="bi bi-film text-primary me-2"></i>Szenen</h1>
+        <a href="{% url 'dashboard:scene-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Neue Szene
+        </a>
+    </div>
+
+    {% if scenes %}
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% for scene in scenes %}
+        <div class="col">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <span class="badge bg-{% if scene.status == 'final' %}success{% elif scene.status == 'drafted' %}info{% else %}secondary{% endif %} me-2">
+                            {{ scene.get_status_display }}
+                        </span>
+                        {% if scene.mood %}
+                        <span class="badge bg-light text-dark">{{ scene.mood.name }}</span>
+                        {% endif %}
+                    </div>
+                    <h5 class="card-title">{{ scene.title }}</h5>
+                    <p class="card-text text-muted small mb-2">
+                        <i class="bi bi-book me-1"></i>{{ scene.story.title }}
+                    </p>
+                    {% if scene.pov_character %}
+                    <p class="card-text text-muted small mb-2">
+                        <i class="bi bi-person me-1"></i>POV: {{ scene.pov_character.name }}
+                    </p>
+                    {% endif %}
+                    {% if scene.summary %}
+                    <p class="card-text">{{ scene.summary|truncatewords:15 }}</p>
+                    {% endif %}
+                </div>
+                <div class="card-footer bg-transparent border-top-0">
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'dashboard:scene-detail' scene.pk %}"
+                           class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-eye"></i> Details
+                        </a>
+                        <a href="{% url 'dashboard:scene-edit' scene.pk %}"
+                           class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-pencil"></i> Bearbeiten
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+
+    {% if is_paginated %}
+    <nav class="mt-4" aria-label="Seitennavigation">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}">
+                    <i class="bi bi-chevron-left"></i>
+                </a>
+            </li>
+            {% endif %}
+            <li class="page-item disabled">
+                <span class="page-link">
+                    Seite {{ page_obj.number }} von {{ page_obj.paginator.num_pages }}
+                </span>
+            </li>
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}">
+                    <i class="bi bi-chevron-right"></i>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+    {% endif %}
+
+    {% else %}
+    <div class="text-center py-5">
+        <i class="bi bi-film display-1 text-muted"></i>
+        <h3 class="mt-3">Noch keine Szenen</h3>
+        <p class="text-muted">Erstelle deine erste Szene, um deine Geschichte zum Leben zu erwecken.</p>
+        <a href="{% url 'dashboard:scene-create' %}" class="btn btn-primary">
+            <i class="bi bi-plus-lg me-1"></i>Erste Szene erstellen
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

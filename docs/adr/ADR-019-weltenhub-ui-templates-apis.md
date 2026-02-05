@@ -46,11 +46,11 @@ Dieses ADR definiert die **vollständige UI-Architektur** für Weltenhub/Weltenf
 | R2 | Impressum (§5 TMG) mit IIL GmbH Daten | CRITICAL | ✅ Done |
 | R3 | Datenschutzerklärung (DSGVO) | CRITICAL | ✅ Done |
 | R4 | Footer mit Links zu Legal Pages | HIGH | ✅ Done |
-| R5 | Dashboard für eingeloggte User | HIGH | Pending |
-| R6 | World CRUD Views | HIGH | Pending |
-| R7 | Character CRUD Views | HIGH | Pending |
+| R5 | Dashboard für eingeloggte User | HIGH | ✅ Done |
+| R6 | World CRUD Views | HIGH | ✅ Done |
+| R7 | Character CRUD Views | HIGH | ✅ Done |
 | R8 | Scene CRUD Views | MEDIUM | Pending |
-| R9 | Story CRUD Views | MEDIUM | Pending |
+| R9 | Story CRUD Views | MEDIUM | ✅ Done |
 
 ---
 
@@ -182,9 +182,9 @@ class WorldService:
 | `/impressum/` | `ImpressumView` | `public/impressum.html` | ✅ |
 | `/datenschutz/` | `DatenschutzView` | `public/datenschutz.html` | ✅ |
 | `/admin/` | Django Admin | — | ✅ |
-| `/dashboard/` | `DashboardView` | `dashboard/index.html` | 🔜 |
-| `/worlds/` | `WorldListView` | `worlds/list.html` | 🔜 |
-| `/worlds/<uuid>/` | `WorldDetailView` | `worlds/detail.html` | 🔜 |
+| `/dashboard/` | `DashboardView` | `dashboard/index.html` | ✅ |
+| `/dashboard/worlds/` | `WorldListView` | `dashboard/worlds/list.html` | ✅ |
+| `/dashboard/worlds/<uuid>/` | `WorldDetailView` | `dashboard/worlds/detail.html` | ✅ |
 | `/characters/` | `CharacterListView` | `characters/list.html` | 🔜 |
 | `/api/v1/...` | DRF ViewSets | — | ✅ |
 
