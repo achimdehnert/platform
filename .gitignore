@@ -29,3 +29,5 @@ Thumbs.db
 output_batch/
 app_backup/
 docs_legacy/
+# Sphinx build output
+docs/_build/
