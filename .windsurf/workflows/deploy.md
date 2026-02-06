@@ -20,6 +20,7 @@ User says one of:
 | risk-hub | 88.198.191.108 | /opt/risk-hub | docker-compose.prod.yml | https://risk-hub.iil.pet/ |
 | mcp-hub | 88.198.191.108 | /opt/mcp-hub | docker-compose.yml | https://mcp-hub.iil.pet/ |
 | cad-hub | 88.198.191.108 | /opt/cad-hub | docker-compose.yml | https://cadhub.iil.pet/ |
+| weltenhub | 88.198.191.108 | /opt/weltenhub | docker-compose.prod.yml | https://weltenforger.com/ |
 
 ## Step 1: Identify App
 
