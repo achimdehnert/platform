@@ -1,0 +1,57 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# (B) Deploy Staging — Copy to <app>/.github/workflows/deploy-staging.yml
+# ═══════════════════════════════════════════════════════════════════════════════
+# Trigger: push to main (after CI build succeeds)
+# Environment: staging — auto-deploy, no manual approval
+#
+# Replace [ORG], [APP], [DEPLOY_PATH], [HEALTH_URL] with your values.
+# ═══════════════════════════════════════════════════════════════════════════════
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
+jobs:
+  deploy-staging:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Determine image tag
+        id: tag
+        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            /srv/[APP]/scripts/deploy-remote.sh \
+              --app [APP] \
+              --tag "${{ steps.tag.outputs.tag }}" \
+              --deploy-dir /srv/[APP] \
+              --compose-file docker-compose.prod.yml \
+              --env-file .env.prod \
+              --health-retries 12 \
+              --health-interval 5
+
+      - name: Post status
+        if: always()
+        run: |
+          echo "## Staging Deploy" >> $GITHUB_STEP_SUMMARY
+          echo "- **Tag:** \`${{ steps.tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
