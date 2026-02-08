@@ -19,6 +19,7 @@ Zentrale Dokumentation für das BF Agent Ecosystem.
    architecture/overview
    architecture/weltenhub
    architecture/bfagent
+   architecture/travel_beat
    architecture/infrastructure
 
 .. toctree::
