@@ -23,6 +23,13 @@ via `python manage.py sync_adrs --direction db-to-rst`.
 | ADR-019 | Weltenhub UI, Templates, APIs | Accepted | Frontend |
 | ADR-020 | Dokumentationsstrategie | Proposed | Sphinx + DB |
 
+### Travel-Beat ADRs
+
+| ADR | Titel | Status | Scope |
+|-----|-------|--------|-------|
+| TB-019 | Story Review & Optimization | **Implemented** | Review pipeline |
+| TB-020 | Stop-Enrichment & Weltenhub Pipeline | **Implemented** | Enrichment |
+
 ## ADR-Template
 
 Alle ADRs folgen diesem Schema:
