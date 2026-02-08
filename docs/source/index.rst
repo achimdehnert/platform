@@ -51,6 +51,7 @@ Zentrale Dokumentation für das BF Agent Ecosystem.
 
    deployment/infrastructure
    deployment/docker
+   deployment/mcp-tools
 
 Indices
 -------
