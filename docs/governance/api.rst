@@ -3,26 +3,39 @@ API-Referenz
 
 DDL Governance bietet eine Web-UI mit HTMX-basierter Interaktion.
 
+Authentifizierung
+-----------------
+
+.. note::
+
+   DDL Governance läuft als internes Tool im Docker-Netzwerk
+   ``bf_platform_prod``. Aktuell keine Authentifizierung implementiert,
+   da der Zugriff nur über den internen Nginx Reverse Proxy möglich ist.
+
+   **Geplant (Prio niedrig)**: Integration mit BFAgent Auth-System
+   (Groups: ``Superuser`` für vollen Zugang, ``Governance`` Gruppe
+   für Lese-/Schreibzugriff).
+
 URL-Struktur
 ------------
 
-+---------------------------+----------------------------------+
-| URL                       | View                             |
-+===========================+==================================+
-| ``/``                     | Dashboard                        |
-+---------------------------+----------------------------------+
-| ``/business-cases/``      | Business Case Liste              |
-+---------------------------+----------------------------------+
-| ``/business-cases/<id>/`` | Business Case Detail             |
-+---------------------------+----------------------------------+
-| ``/business-cases/new/``  | Business Case erstellen          |
-+---------------------------+----------------------------------+
-| ``/use-cases/``           | Use Case Liste                   |
-+---------------------------+----------------------------------+
-| ``/use-cases/<id>/``      | Use Case Detail                  |
-+---------------------------+----------------------------------+
-| ``/health/``              | Health Check (JSON)              |
-+---------------------------+----------------------------------+
++---------------------------+----------------------------------+----------+
+| URL                       | View                             | Methode  |
++===========================+==================================+==========+
+| ``/``                     | Dashboard                        | GET      |
++---------------------------+----------------------------------+----------+
+| ``/business-cases/``      | Business Case Liste              | GET      |
++---------------------------+----------------------------------+----------+
+| ``/business-cases/<id>/`` | Business Case Detail             | GET      |
++---------------------------+----------------------------------+----------+
+| ``/business-cases/new/``  | Business Case erstellen          | GET/POST |
++---------------------------+----------------------------------+----------+
+| ``/use-cases/``           | Use Case Liste                   | GET      |
++---------------------------+----------------------------------+----------+
+| ``/use-cases/<id>/``      | Use Case Detail                  | GET      |
++---------------------------+----------------------------------+----------+
+| ``/health/``              | Health Check (JSON)              | GET      |
++---------------------------+----------------------------------+----------+
 
 Views
 -----
@@ -71,21 +84,37 @@ HTMX Integration
 Partials
 ^^^^^^^^
 
-HTMX-Partials für dynamische Updates:
+HTMX-Partials für dynamische Updates ohne Page-Reload:
 
-* ``partials/bc_list_rows.html`` - Business Case Tabellenzeilen
-* ``partials/bc_stats.html`` - Dashboard Statistiken
-* ``partials/bc_status_badge.html`` - Status Badge
++-------------------------------------+---------------------------------------+
+| Partial Template                    | Funktion                              |
++=====================================+=======================================+
+| ``partials/bc_list_rows.html``      | Business Case Tabellenzeilen          |
++-------------------------------------+---------------------------------------+
+| ``partials/bc_stats.html``          | Dashboard Statistiken                 |
++-------------------------------------+---------------------------------------+
+| ``partials/bc_status_badge.html``   | Status Badge mit Farbe/Icon           |
++-------------------------------------+---------------------------------------+
 
-Beispiel HTMX-Request:
+HTMX-Attribute:
 
 .. code-block:: html
 
-   <button hx-get="/business-cases/?status=draft" 
+   <!-- Filter: Nur Drafts anzeigen -->
+   <button hx-get="/business-cases/?status=draft"
            hx-target="#bc-list"
            hx-swap="innerHTML">
        Nur Drafts
    </button>
+
+   <!-- Status ändern via HTMX -->
+   <select hx-post="/business-cases/{{ bc.id }}/status/"
+           hx-target="#status-badge"
+           hx-swap="outerHTML">
+       {% for status in statuses %}
+       <option value="{{ status.id }}">{{ status.name }}</option>
+       {% endfor %}
+   </select>
 
 Health Check
 ------------
@@ -106,13 +135,13 @@ BusinessCase
 .. code-block:: python
 
    from governance.models import BusinessCase, LookupChoice
-   
+
    # Alle Business Cases
    BusinessCase.objects.all()
-   
+
    # Nach Status filtern
    BusinessCase.objects.filter(status__code="draft")
-   
+
    # Mit Use Cases
    bc = BusinessCase.objects.get(code="BC-042")
    bc.use_cases.all()
@@ -123,10 +152,10 @@ LookupChoice
 .. code-block:: python
 
    from governance.models import LookupChoice
-   
+
    # Alle Status-Optionen
    LookupChoice.objects.filter(domain__code="bc_status")
-   
+
    # Aktive Prioritäten
    LookupChoice.objects.filter(
        domain__code="bc_priority",
