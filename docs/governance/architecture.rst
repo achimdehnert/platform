@@ -42,7 +42,9 @@ Datenbank
 * **Host**: ``bfagent_db`` Container
 * **Database**: PostgreSQL
 * **Schema**: ``platform``
-* **Tabellen**: ``lkp_domain``, ``lkp_choice``, ``dom_business_case``, etc.
+* **Tabellen**: ``lkp_domain``, ``lkp_choice``, ``dom_business_case``,
+  ``dom_use_case``, ``gov_access_rule``, ``gov_import_rule``,
+  ``gov_naming_rule``, ``gov_pattern_rule``, ``gov_enforcement_log``
 
 Nginx Reverse Proxy
 ^^^^^^^^^^^^^^^^^^^
@@ -75,5 +77,9 @@ Designprinzipien
 
 1. **Separation of Concerns**: Eigenständiger Service, nicht Teil von weltenhub
 2. **ADR-015 Lookup Pattern**: Keine Hardcoded Enums
-3. **Managed=False Models**: Django liest nur, keine Migrations
+3. **Managed=False Models**: Django liest/schreibt die Tabellen, erstellt sie
+   aber nicht via Migrations. Das ``platform`` Schema wird von mehreren
+   Services geteilt — Schema-Änderungen erfolgen ausschließlich per SQL-Script.
 4. **Volume Mounts**: Hot-Reload für Entwicklung
+5. **Idempotente Seed-Daten**: ``INSERT ... ON CONFLICT DO UPDATE`` Pattern
+   ermöglicht wiederholtes Laden ohne Datenverlust
