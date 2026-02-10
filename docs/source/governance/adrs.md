@@ -22,6 +22,7 @@ via `python manage.py sync_adrs --direction db-to-rst`.
 | ADR-018 | Weltenhub Architecture | Accepted | Story platform |
 | ADR-019 | Weltenhub UI, Templates, APIs | Accepted | Frontend |
 | ADR-020 | Dokumentationsstrategie | Proposed | Sphinx + DB |
+| ADR-022 | Platform Consistency Standard | Accepted | Deployment, CI/CD |
 
 ### Travel-Beat ADRs
 

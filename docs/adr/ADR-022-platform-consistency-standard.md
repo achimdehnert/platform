@@ -1,7 +1,8 @@
 # ADR-022: Platform Consistency Standard (v3)
 
-- **Status**: Proposed
+- **Status**: Accepted (Phase 0-4 implementiert)
 - **Date**: 2026-02-10 (v3: Input-Review eingearbeitet, Referenz-Templates)
+- **Updated**: 2026-02-10 (Phase 0-4 abgeschlossen, repo_checker Tool)
 - **Supersedes**: ADR-022 v1, v2
 - **Relates to**: ADR-021 (Unified Deployment Pattern)
 
@@ -540,19 +541,66 @@ Jedes Projekt gilt als ADR-022 compliant wenn alle Punkte erfuellt sind:
 [ ] Settings: config/settings/ Verzeichnis (base/dev/prod)
 ```
 
-### Aktueller Compliance-Status
+### Aktueller Compliance-Status (Stand 2026-02-10, nach Phase 0-4)
 
-| Repo | Erfuellt | Von 9 | Groesste Luecke |
-| --- | --- | --- | --- |
-| risk-hub | 4 | 9 | Migrate-Service, healthz.py Haertung |
-| travel-beat | 3 | 9 | Compose-Pfad, Migrate-Service |
-| weltenhub | 2 | 9 | Server-Migration, Compose |
-| bfagent | 1 | 9 | Fast alles |
-| pptx-hub | 1 | 9 | Nicht deployt, healthz.py fehlt |
+| Feature | bfagent | risk-hub | travel-beat | weltenhub | pptx-hub |
+| --- | --- | --- | --- | --- | --- |
+| OCI Labels | ✅ | ✅ | ✅ | ✅ | ✅ |
+| HEALTHCHECK 127.0.0.1 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Non-root USER | ⚠️ exempt | ✅ | ✅ | ✅ | ✅ |
+| env_file: .env.prod | ❌ ${VAR} | ❌ ${VAR} | ✅ | ✅ | ✅ |
+| healthz.py (HEALTH_PATHS) | ✅ | ✅ | ✅ | ✅ | ✅ |
+| @csrf_exempt + @require_GET | ✅ | ✅ | ✅ | ✅ | ✅ |
+| deploy-remote.sh | ✅ | ✅ | ✅ | ✅ | ⏭️ N/A |
+| CI/CD @v1 | ✅ | ✅ | ✅ | ✅ hybrid | PyPI |
+| IMAGE_TAG standardisiert | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+**Verbleibende Abweichungen (tracked, nicht kritisch):**
+
+1. bfagent + risk-hub: `environment:` mit `${VAR}` statt `env_file`
+2. bfagent llm-gateway: Healthcheck nutzt `curl` (Go-Image)
+3. bfagent: Non-root USER exempt (Python 3.11 Risiko)
+4. pptx-hub: Kein `deploy-remote.sh` (noch nicht auf Hetzner)
 
 ---
 
-## 9. Entscheidungsgruende
+## 9. Automatisierte Compliance-Pruefung
+
+### repo_checker CLI Tool
+
+Pfad: `platform/tools/repo_checker.py`
+
+Prueft alle 5 Repos automatisch auf ADR-022 Compliance:
+
+```bash
+# Alle Repos pruefen
+python3 tools/repo_checker.py
+
+# Einzelnes Repo
+python3 tools/repo_checker.py /path/to/repo
+
+# JSON-Output
+python3 tools/repo_checker.py --json
+```
+
+**Pruefkategorien:**
+
+| Kategorie | Pruefungen |
+| --- | --- |
+| compose | IMAGE_TAG, env_file, healthcheck IP/endpoint, urllib |
+| dockerfile | OCI Labels, HEALTHCHECK (multi-line), non-root USER |
+| cicd | Platform @v1 Workflows, health_url /livez/ |
+| health | healthz.py, HEALTH_PATHS, csrf_exempt, require_GET |
+| deploy | deploy-remote.sh Existenz + IMAGE_TAG |
+| config | manage.py, wsgi.py, urls.py mit /livez/ |
+
+**MCP-Integration:** Verfuegbar als `check_repos` Tool im orchestrator_mcp.
+
+**Letzter Lauf (2026-02-10):** 88 OK, 1 Warning, 0 Errors.
+
+---
+
+## 10. Entscheidungsgruende
 
 - **Sicherheit**: PAT-Tokens, fehlende csrf_exempt, fehlende HEALTH_PATHS
 - **Zuverlaessigkeit**: Migrate-Service verhindert Race Conditions bei parallelem Start
@@ -561,4 +609,4 @@ Jedes Projekt gilt als ADR-022 compliant wenn alle Punkte erfuellt sind:
 - **Multi-Tenancy**: HEALTH_PATHS Middleware-Exclusion fuer Docker-Healthchecks
 - **DRY**: Platform Reusable Workflows, Named Volumes, einheitliche Variablennamen
 - **Onboarding**: Template kopieren, APP_NAME aendern, deployen
-- **Automatisierung**: MCP-Tools brauchen konsistente Pfade, Ports, Endpoints
+- **Automatisierung**: repo_checker + MCP-Tools fuer konsistente Pruefung
