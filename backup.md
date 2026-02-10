@@ -18,6 +18,7 @@ User says one of:
 | bfagent | bfagent_prod | /opt/backups/bfagent/ |
 | cad-hub | cadhub_prod | /opt/backups/cadhub/ |
 | travel-beat | travelbeat_prod | /opt/backups/travelbeat/ |
+| trading-hub | tradinghub_prod | /opt/backups/tradinghub/ |
 
 Host: 88.198.191.108
 
