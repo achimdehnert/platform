@@ -2,6 +2,7 @@
 
 - **Reviewer**: Cascade (Production-Critical Code Review)
 - **Datum**: 2026-02-10
+- **Updated**: 2026-02-10 (Post-Implementation Review)
 - **Gegenstand**: ADR-022 + alle 5 docker-compose.prod.yml + Health-Endpoints + Server-State
 - **Methode**: ADR-Aussagen gegen tatsächlichen Code und Server-Infrastruktur geprüft
 
@@ -12,6 +13,27 @@
 Standard formuliert, obwohl die Realität weit davon entfernt ist. Das ADR muss
 den IST-Zustand ehrlich dokumentieren und den SOLL-Zustand als Migrationsschritt
 kennzeichnen.
+
+### Implementation-Status (2026-02-10)
+
+**Phase 0-4 wurden am selben Tag implementiert.** 8 von 12 Befunden sind
+behoben oder entschaerft. Der `repo_checker` (`platform/tools/repo_checker.py`)
+validiert automatisch 88 Pruefpunkte ueber alle 5 Repos.
+
+| Befund | Status | Massnahme |
+|--------|--------|-----------|
+| B1: Health-Endpoints | ✅ RESOLVED | Alle 5 Repos haben healthz.py mit HEALTH_PATHS |
+| B2: Port-Registry | ⚠️ DOCUMENTED | ADR aktualisiert, IST-Ports dokumentiert |
+| B3: env_file vs environment | ⚠️ TRACKED | bfagent + risk-hub brauchen groesseren Refactor |
+| B4: Image-Naming | ✅ RESOLVED | IMAGE_TAG standardisiert in allen Repos |
+| B5: travel-beat Compose | ⚠️ TRACKED | Compose nach Root Migration steht aus |
+| B6: Netzwerk-Naming | ⚠️ TRACKED | Korrektur bei naechstem Deploy |
+| B7: Postgres-Version | ℹ️ ACCEPTED | pg15 EOL erst Nov 2027 |
+| B8: Shared DB | ℹ️ ACCEPTED | Dokumentiert als Tech Debt |
+| B9: version: Key | ℹ️ MINOR | Kein funktionaler Impact |
+| B10: Weltenhub Deploy | ⚠️ TRACKED | Image-Pull Migration geplant |
+| B11: PAT-Token | ✅ RESOLVED | SSH Remotes + Token rotiert |
+| B12: DB-Separierung | ℹ️ ACCEPTED | Dokumentiert als Tech Debt |
 
 ---
 
