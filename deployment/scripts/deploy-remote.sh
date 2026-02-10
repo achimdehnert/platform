@@ -92,8 +92,9 @@ done
 DEPLOY_DIR="${DEPLOY_DIR:-/opt/${APP_NAME}}"
 WEB_SERVICE="${WEB_SERVICE:-${APP_NAME}-web}"
 
-# Derive env var prefix: bfagent -> BFAGENT, travel-beat -> TRAVEL_BEAT
-TAG_VAR="$(echo "${APP_NAME}" | tr '[:lower:]-' '[:upper:]_')_IMAGE_TAG"
+# Standardized: all apps use IMAGE_TAG (ADR-022)
+# Each app has its own .env.prod, so no collision
+TAG_VAR="IMAGE_TAG"
 
 # ─── Validate environment ───────────────────────────────────────────────────
 [[ -d "$DEPLOY_DIR" ]]               || die "Deploy dir not found: $DEPLOY_DIR" 1
