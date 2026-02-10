@@ -43,6 +43,19 @@ models.Model
                  └─ World / Character / Story / Scene / Location
 ```
 
+## Character Trait System (seit 2026-02-10)
+
+Charaktere haben **bipolare Trait-Slider** (0–100):
+
+| Tabelle | Zweck |
+|---------|-------|
+| `lkp_character_trait` | 10 Traits mit low/high Labels |
+| `wh_character_trait_value` | Character × Trait → Wert 0–100 |
+
+Traits (z.B. Vorsichtig ↔ Mutig) werden im Character-Formular
+als Range-Slider angezeigt und fließen automatisch in die
+AI-Enrichment-Prompts als `{traits}` Platzhalter ein.
+
 ## Enrichment System
 
 DB-driven AI-Anreicherung: Prompts in `lkp_enrichment_action`, Logs in `wh_enrichment_log`.
@@ -54,9 +67,11 @@ DB-driven AI-Anreicherung: Prompts in `lkp_enrichment_action`, Logs in `wh_enric
 3. User klickt "Übernehmen" → `EnrichApplyView`
 4. `apply_preview(log_id)` → Felder gesetzt, status=success
 
+**Character-Aktionen**: `character_full_profile`, `character_profile`, `character_motivation`
+
 ## Referenz-ADRs
 
 - **ADR-018**: Weltenhub Architecture
 - **ADR-019**: Weltenhub UI, Templates, APIs
 
-Vollständige Architektur-Doku: `weltenhub/docs/ARCHITECTURE.md`
+Vollständige Architektur-Doku: `weltenhub/docs/ARCHITECTURE.md` (v1.1.0)

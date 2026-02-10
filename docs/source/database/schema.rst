@@ -34,7 +34,8 @@ Weltenhub Entity-Tabellen
        ├── wh_location (hierarchisch, parent FK)
        │
        ├── wh_character
-       │       └── wh_character_arc
+       │       ├── wh_character_arc
+       │       └── wh_character_trait_value ──► lkp_character_trait
        │
        ├── wh_story
        │       └── wh_chapter
