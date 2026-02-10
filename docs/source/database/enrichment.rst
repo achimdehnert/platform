@@ -38,6 +38,19 @@ Aktionen
 | scene_dialog        | Scene         | Dialog-Vorschlag                       |
 +---------------------+---------------+----------------------------------------+
 
+Charakter-Aktionen (seit 2026-02-10)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
++-------------------------+---------------+----------------------------------------+
+| Code                    | Entity        | Beschreibung                           |
++=========================+===============+========================================+
+| character_full_profile  | Character     | Vollständiges Charakterprofil (8 Felder)|
++-------------------------+---------------+----------------------------------------+
+| character_profile       | Character     | Profil generieren                      |
++-------------------------+---------------+----------------------------------------+
+| character_motivation    | Character     | Motivation generieren                  |
++-------------------------+---------------+----------------------------------------+
+
 Flow
 ----
 
@@ -51,3 +64,19 @@ Flow
    6. apply_preview() liest output_data aus Log
    7. Felder auf Entity gesetzt (mit CharField-Truncation)
    8. Log-Status → success
+
+Character Trait Integration
+--------------------------
+
+Charaktere besitzen **bipolare Trait-Slider** (0–100) aus
+``lkp_character_trait`` (z.B. Vorsichtig ↔ Mutig).
+
+Die ``_build_context()`` Funktion in ``enrichment/services.py``
+konvertiert Slider-Werte in natürlichsprachliche Beschreibungen:
+
+- Wert ≤ 20 → "sehr {low_label}"
+- Wert ≤ 40 → "eher {low_label}"
+- Wert ≥ 60 → "eher {high_label}"
+- Wert ≥ 80 → "sehr {high_label}"
+
+Diese werden als ``{traits}`` Platzhalter im Prompt übergeben.

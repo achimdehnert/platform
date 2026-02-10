@@ -23,6 +23,8 @@ Weltenhub Lookups
 +-----------------------------+-------------------------------+
 | ``lkp_character_role``      | Charakter-Archetypen          |
 +-----------------------------+-------------------------------+
+| ``lkp_character_trait``     | Bipolare Charakter-Traits     |
++-----------------------------+-------------------------------+
 | ``lkp_transport_type``      | Transport-Arten               |
 +-----------------------------+-------------------------------+
 | ``lkp_enrichment_action``   | AI-Enrichment Konfiguration   |
