@@ -1,0 +1,146 @@
+# ===========================================================================
+# docker-compose.prod.yml — Platform Standard (ADR-022)
+# ===========================================================================
+# Rules:
+#   - EINE Datei im Root (keine Duplikate)
+#   - Kein version: Key (deprecated since Compose v2)
+#   - env_file: .env.prod (keine environment: mit ${VAR} Interpolation)
+#   - image: ghcr.io/achimdehnert/<app>:${IMAGE_TAG:-latest}
+#   - Alle Services: logging + memory limits + restart policy
+#   - Port-Binding: 127.0.0.1:<PORT>:8000 (localhost-only)
+#   - Healthcheck: python urllib auf /livez/ (kein curl)
+# ===========================================================================
+
+services:
+  # -------------------------------------------------------------------------
+  # Migration job — runs once, then exits
+  # Prevents race conditions when multiple containers start simultaneously.
+  # -------------------------------------------------------------------------
+  migrate:
+    image: ghcr.io/achimdehnert/${APP_NAME}:${IMAGE_TAG:-latest}
+    command: ["python", "manage.py", "migrate", "--noinput", "--skip-checks"]
+    env_file: .env.prod
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    deploy:
+      restart_policy:
+        condition: none
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+  # -------------------------------------------------------------------------
+  # Web — gunicorn serving Django
+  # -------------------------------------------------------------------------
+  web:
+    image: ghcr.io/achimdehnert/${APP_NAME}:${IMAGE_TAG:-latest}
+    command: ["web"]
+    env_file: .env.prod
+    ports:
+      - "127.0.0.1:${APP_PORT:-8000}:8000"  # localhost-only
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c",
+             "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # -------------------------------------------------------------------------
+  # Worker — celery task processing (optional, comment out if not needed)
+  # -------------------------------------------------------------------------
+  worker:
+    image: ghcr.io/achimdehnert/${APP_NAME}:${IMAGE_TAG:-latest}
+    command: ["worker"]
+    env_file: .env.prod
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # -------------------------------------------------------------------------
+  # Database — PostgreSQL 16
+  # -------------------------------------------------------------------------
+  db:
+    image: postgres:16-alpine
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    env_file: .env.prod
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
+  # -------------------------------------------------------------------------
+  # Redis — cache + celery broker (optional, comment out if not needed)
+  # -------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "3"
+
+volumes:
+  pgdata:
+    name: ${APP_NAME}_pgdata  # Named volume for clarity
+  redis_data:
+    name: ${APP_NAME}_redis_data
