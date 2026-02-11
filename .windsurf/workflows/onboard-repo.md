@@ -38,6 +38,7 @@ Ich brauche folgende Infos:
 | 8090 | risk-hub |
 | 8091 | bfagent |
 | 8092 | pptx-hub |
+| 8093      | wedding-hub       |
 | 8093 | *nächster freier* |
 
 ## Step 1: Repository-Struktur erstellen
