@@ -93,7 +93,14 @@ Die `settings.py` MUSS folgende Patterns implementieren:
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost").split(",")
-CSRF_TRUSTED_ORIGINS = os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",")
+CSRF_TRUSTED_ORIGINS = [
+    o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
+]
+
+# Reverse proxy (Nginx) terminates SSL — CRITICAL for CSRF behind proxy
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
 
 # Database via DATABASE_URL
 import dj_database_url
@@ -111,6 +118,11 @@ SECRET_KEY=change-me-in-production
 DEBUG=false
 DJANGO_ALLOWED_HOSTS=<app>.iil.pet,localhost
 CSRF_TRUSTED_ORIGINS=https://<app>.iil.pet
+
+# === Superuser (auto-created on first start) ===
+DJANGO_SUPERUSER_USERNAME=admin
+DJANGO_SUPERUSER_EMAIL=achim@dehnert.com
+DJANGO_SUPERUSER_PASSWORD=bfagent2024!
 
 # === Database ===
 POSTGRES_DB=<app_underscore>
@@ -282,6 +294,26 @@ python manage.py migrate --noinput --skip-checks
 
 echo "Collecting static files..."
 python manage.py collectstatic --noinput
+
+# Auto-create superuser if DJANGO_SUPERUSER_USERNAME is set
+if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
+    python -c "
+import os, django
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+django.setup()
+from django.contrib.auth.models import User
+username = os.environ['DJANGO_SUPERUSER_USERNAME']
+if not User.objects.filter(username=username).exists():
+    User.objects.create_superuser(
+        username=username,
+        email=os.environ.get('DJANGO_SUPERUSER_EMAIL', ''),
+        password=os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'changeme'),
+    )
+    print('Superuser %s created' % username)
+else:
+    print('Superuser %s already exists' % username)
+" || echo "Superuser creation skipped"
+fi
 
 if [ "$1" = "web" ]; then
     echo "Starting web server (gunicorn)..."
@@ -472,6 +504,10 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 5s;
+        proxy_read_timeout 120s;
+        proxy_next_upstream error timeout http_502;
+        proxy_next_upstream_tries 2;
     }
 }
 ```
@@ -496,7 +532,24 @@ Via Hetzner DNS API oder mcp5_network_manage.
 
 ## Step 6: Platform-Integration
 
-### 6.1 Deploy-Workflow aktualisieren
+### 6.1 MCP-Orchestrator registrieren (CRITICAL)
+
+Füge das Repo in **zwei Dateien** im `mcp-hub` Repo hinzu:
+
+1. `orchestrator_mcp/local_tools.py` — `_ALLOWED_REPOS` dict:
+```python
+"<REPO>": "/home/dehnert/github/<REPO>",
+```
+
+2. `orchestrator_mcp/server.py` — `run_git` Tool-Schema `enum`:
+```python
+"<REPO>",
+```
+
+Dann `mcp10_run_git` für mcp-hub committen + pushen.
+**Ohne diesen Schritt funktioniert `mcp10_run_git(repo="<REPO>")` nicht!**
+
+### 6.2 Deploy-Workflow aktualisieren
 
 Füge die neue App zur Tabelle in `.windsurf/workflows/deploy.md` hinzu:
 
@@ -504,7 +557,7 @@ Füge die neue App zur Tabelle in `.windsurf/workflows/deploy.md` hinzu:
 | <REPO> | 88.198.191.108 | /opt/<REPO> | docker-compose.prod.yml | https://<DOMAIN>/ |
 ```
 
-### 6.2 Backup-Workflow aktualisieren
+### 6.3 Backup-Workflow aktualisieren
 
 Füge die neue DB zur Tabelle in `.windsurf/workflows/backup.md` hinzu:
 
@@ -512,11 +565,11 @@ Füge die neue DB zur Tabelle in `.windsurf/workflows/backup.md` hinzu:
 | <REPO> | <DB_NAME> | /opt/backups/<REPO>/ |
 ```
 
-### 6.3 ADR-Scope registrieren
+### 6.4 ADR-Scope registrieren
 
 Falls App-spezifische ADRs erwartet, Scope in `.windsurf/workflows/adr.md` hinzufügen.
 
-### 6.4 SSH/Deployment Memory aktualisieren
+### 6.5 SSH/Deployment Memory aktualisieren
 
 Erstelle/aktualisiere Memory mit:
 - Container-Namen
