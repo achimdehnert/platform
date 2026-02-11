@@ -268,9 +268,9 @@ USER app
 
 EXPOSE 8000
 
-# Health check (python urllib, no curl)
+# Health check (python urllib, no curl — ALWAYS use localhost, NOT 127.0.0.1)
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')" || exit 1
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')" || exit 1
 
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["web"]
@@ -412,7 +412,7 @@ services:
     ports:
       - "127.0.0.1:<PORT>:8000"
     healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')\""]
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')\""]
       interval: 15s
       timeout: 5s
       retries: 3
@@ -431,6 +431,68 @@ services:
     networks:
       - <REPO_UNDERSCORE>_network
 
+  # --- Celery Worker (if needed) ---
+  <REPO>-worker:
+    image: ghcr.io/${GHCR_OWNER:-achimdehnert}/${GHCR_REPO:-<REPO>}/<REPO>-web:${IMAGE_TAG:-latest}
+    container_name: <REPO_UNDERSCORE>_worker
+    restart: unless-stopped
+    env_file: .env.prod
+    entrypoint: ["/entrypoint.sh"]
+    command: ["worker"]
+    healthcheck:
+      test: ["CMD-SHELL", "celery -A config inspect ping --timeout 10 2>/dev/null | grep -q OK"]
+      interval: 60s
+      timeout: 15s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      <REPO>-db:
+        condition: service_healthy
+      <REPO>-redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - <REPO_UNDERSCORE>_network
+
+  # --- Celery Beat (if needed) ---
+  <REPO>-beat:
+    image: ghcr.io/${GHCR_OWNER:-achimdehnert}/${GHCR_REPO:-<REPO>}/<REPO>-web:${IMAGE_TAG:-latest}
+    container_name: <REPO_UNDERSCORE>_beat
+    restart: unless-stopped
+    env_file: .env.prod
+    entrypoint: ["/entrypoint.sh"]
+    command: ["beat"]
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import os; os.kill(1, 0)\""]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    depends_on:
+      <REPO>-db:
+        condition: service_healthy
+      <REPO>-redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    networks:
+      - <REPO_UNDERSCORE>_network
+
 volumes:
   <REPO_UNDERSCORE>_pgdata:
 
@@ -439,9 +501,9 @@ networks:
     driver: bridge
 ```
 
-## Step 4: Health-Check Endpoint
+## Step 4: Health-Check Endpoint & Regeln
 
-Füge in `urls.py` hinzu:
+### 4.1 Endpoint in `urls.py`
 
 ```python
 from django.http import HttpResponse
@@ -451,6 +513,16 @@ urlpatterns = [
     # ... andere URLs
 ]
 ```
+
+### 4.2 Healthcheck-Regeln (KRITISCH)
+
+| Regel | Begründung |
+|-------|------------|
+| **IMMER `localhost` statt `127.0.0.1`** | Django ALLOWED_HOSTS hat oft nur `localhost`, nicht `127.0.0.1` → HTTP 400 |
+| **IMMER `python urllib` statt `curl`** | Slim Python-Images haben kein `curl` installiert |
+| **IMMER Compose-HC für Worker/Beat** | Dockerfile-HC wird von ALLEN Containern geerbt — Worker/Beat haben kein Gunicorn → port 8000 nicht offen |
+| **Worker-HC: `celery inspect ping`** | Prüft ob Worker tatsächlich Aufgaben verarbeitet |
+| **Beat-HC: `os.kill(1, 0)`** | Prüft ob PID 1 (Celery Beat) lebt — beat hat keinen inspect-Endpoint |
 
 ## Step 5: Server-Infrastruktur einrichten
 
