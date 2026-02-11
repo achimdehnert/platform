@@ -21,7 +21,7 @@ User says one of:
 | mcp-hub | 88.198.191.108 | /opt/mcp-hub | docker-compose.yml | https://mcp-hub.iil.pet/ |
 | cad-hub | 88.198.191.108 | /opt/cad-hub | docker-compose.yml | https://cadhub.iil.pet/ |
 | weltenhub | 88.198.191.108 | /opt/weltenhub | docker-compose.prod.yml | https://weltenforger.com/ |
-| trading-hub | 88.198.191.108 | /opt/trading-hub | docker-compose.prod.yml | https://trading-hub.iil.pet/ |
+| trading-hub | 88.198.191.108 | /opt/trading-hub | docker-compose.prod.yml | https://ai-trades.de/livez/ |
 
 ## Step 1: Identify App
 
