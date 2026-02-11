@@ -398,52 +398,82 @@ Zweiter Trip nach Frankfurt → $0.00 (Cache via `research_status=deep`).
 
 ## 7. Migration & Rollout
 
-### 7.1 Phase 1: Weltenhub Location-Erweiterung
+### 7.1 Phase 1: Model + Lookup (0.5 Tage)
 
-- `research_data` JSONField + `research_status` auf Location-Model
-- API-Endpoints für Research-Daten
-- Migration + Deployment
+- `lkp_research_status` Lookup-Table erstellen (Seed-Migration)
+- `research_data` JSONField, `research_status` FK, `researched_at` auf `wh_location`
+- Django-Migration generieren + deployen
+- **Risiko:** Minimal — 3 neue nullable Spalten, kein Datenverlust
 
-### 7.2 Phase 2: Recherche-Hub Modul (bfagent)
+### 7.2 Phase 2: `apps/location_research/` Modul (1.5 Tage)
 
-- `apps/recherche/` Modul mit Models, Services, API
-- LocationResearcher mit LLM-Integration
-- Celery Task für async Recherche
-- REST API für Trigger + Callback
+- Modul-Skeleton: `schemas.py`, `services/researcher.py`, `views.py`
+- `LocationResearcher` mit bestehenden `llm_client` integrieren
+- `lkp_enrichment_action` Seed: `location_deep_research`
+- `country_resolver.py`: Hierarchie-Traversierung
+- In `INSTALLED_APPS` registrieren
 
-### 7.3 Phase 3: Integration
+### 7.3 Phase 3: API + UI (1 Tag)
 
-- Weltenhub ResearchTrigger Service
-- travel-beat: Enrichment v2 nutzt Weltenhub research_data
-- travel-beat: Orchestrator prüft research_status vor Story-Generierung
+- DRF ViewSet-Actions: `research`, `research_status` auf `LocationViewSet`
+- HTMX-Button "Recherchieren" auf Location-Detail-Page
+- Batch-Endpoint: `POST /api/v1/locations/batch-research/`
 
-### 7.4 Phase 4: UI & Batch
+### 7.4 Phase 4: travel-beat Integration (1 Tag)
 
-- Weltenhub UI: "Recherchieren"-Button auf Location-Detail
-- Batch-Job: Nightly Research für unrecherchierte Locations
-- travel-beat UI: Enrichment-Status auf Trip-Detail
+- travel-beat Orchestrator: `research_status` prüfen vor Story-Generierung
+- travel-beat: `research_data` in Story-Prompt injizieren
+- Optional: Celery-Worker für async LLM-Calls ergänzen
+
+### 7.5 Phase 5: Tests (1 Tag)
+
+- `test_schemas.py`: Pydantic-Schema Validierung
+- `test_researcher.py`: Mock-LLM, Cache-Check, Country-Resolver
+- `test_views.py`: API-Endpoints, Auth, Tenant-Isolation
 
 ---
 
 ## 8. Abgrenzung
 
-- **ADR-025 (travel-beat)**: 3-Phasen-Pipeline konsumiert Recherche-Daten
-- **ADR-026 (travel-beat)**: Enrichment v2 triggert Recherche, nutzt Ergebnisse
-- **ADR-018 (platform)**: Weltenhub-Architektur — dieses ADR erweitert das Location-Model
+- **ADR-025 (travel-beat)**: 3-Phasen-Pipeline **konsumiert** Recherche-Daten
+- **ADR-026 (travel-beat)**: Enrichment v2 **triggert** Recherche via API
 - Dieses ADR ändert **nicht** die Story-Generierung (das ist ADR-025)
 - Dieses ADR ändert **nicht** die Enrichment-Pipeline (das ist ADR-026)
+- Dieses ADR erweitert das `wh_location`-Model und fügt ein neues Weltenhub-Modul hinzu
 
 ---
 
 ## 9. Umsetzungsreihenfolge
 
-1. **Weltenhub: Location Model-Erweiterung** (1 Tag)
-2. **Weltenhub: Research API-Endpoints** (1 Tag)
-3. **bfagent: `apps/recherche/` Modul-Skeleton** (1 Tag)
-4. **bfagent: LocationResearcher Service** (2 Tage)
-5. **bfagent: REST API + Celery Task** (1 Tag)
-6. **Weltenhub: ResearchTrigger Service** (1 Tag)
-7. **Integration travel-beat → weltenhub → recherche-hub** (2 Tage)
-8. **Tests** (2 Tage)
+| # | Aufgabe | Repo | Aufwand |
+|---|---------|------|---------|
+| 1 | `lkp_research_status` Lookup-Table + Seed | weltenhub | 0.25 Tage |
+| 2 | `wh_location`: 3 neue Felder + Migration | weltenhub | 0.25 Tage |
+| 3 | `apps/location_research/schemas.py` (Pydantic) | weltenhub | 0.25 Tage |
+| 4 | `LocationResearcher` Service + `country_resolver` | weltenhub | 1 Tag |
+| 5 | DRF ViewSet-Actions + HTMX-Button | weltenhub | 0.5 Tage |
+| 6 | `lkp_enrichment_action` Seed: `location_deep_research` | weltenhub | 0.25 Tage |
+| 7 | travel-beat: research_data in Story-Prompt | travel-beat | 0.5 Tage |
+| 8 | Management Command: `research_locations` (Batch) | weltenhub | 0.25 Tage |
+| 9 | Tests (Schema, Researcher, API, Integration) | weltenhub | 1 Tag |
 
-**Geschätzter Gesamtaufwand: ~11 Tage**
+**Geschätzter Gesamtaufwand: ~4.25 Tage** (vs. ~11 Tage in v1)
+
+---
+
+## 10. Review-Befunde (v1 → v2)
+
+Folgende Befunde aus dem Code-Review (2026-02-11) wurden in v2 adressiert:
+
+| # | Befund (v1) | Fix (v2) |
+|---|------------|---------|
+| F1 | LLMRouter/ClaudeClient existieren nicht in bfagent | Weltenhub hat `llm_client.py` ✅ |
+| F2 | Celery/Redis existieren nicht in bfagent | Weltenhub hat Redis im Compose ✅ |
+| F3 | UUID vs. int PK-Mismatch | `location_id: uuid.UUID` ✅ |
+| F4 | `apps/recherche/` vs. `apps/research/` Naming-Konflikt | Neues Modul: `apps/location_research/` ✅ |
+| F5 | Keine Tenant-Isolation in bfagent | `TenantAwareModel` in Weltenhub ✅ |
+| F6 | Unauthentifizierter Callback PUT | Kein Callback nötig (direkter DB-Zugriff) ✅ |
+| F7 | `parent.name` ≠ Country | `_resolve_country()` traversiert Hierarchie ✅ |
+| F8 | research_data ohne Schema-Validierung | Pydantic `ResearchData` Schema (E3) ✅ |
+| F9 | CharField statt Lookup-Table | `lkp_research_status` FK ✅ |
+| F10 | Synchroner requests.post ohne Error-Handling | Kein HTTP-Call (lokal im selben Prozess) ✅ |
