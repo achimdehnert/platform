@@ -55,16 +55,22 @@ Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:
 │   └── app/
 │       ├── Dockerfile             # Production Dockerfile (siehe Step 3)
 │       └── entrypoint.sh          # Entrypoint-Script (siehe Step 3)
-├── src/                           # Oder apps/ — Django-Quellcode
-│   ├── config/
-│   │   ├── settings.py            # Django settings
-│   │   ├── urls.py
-│   │   └── wsgi.py
-│   └── apps/
-│       └── <app_name>/
+├── config/                        # Django-Konfiguration
+│   ├── __init__.py
+│   ├── settings/                  # Split-Settings (EMPFOHLEN)
+│   │   ├── __init__.py            # → from .production import * (oder .development)
+│   │   ├── base.py                # Gemeinsame Settings
+│   │   ├── development.py         # DEBUG=True, sqlite, etc.
+│   │   └── production.py          # SECURE_*, DATABASE_URL, etc.
+│   ├── urls.py
+│   ├── celery.py                  # Falls Celery benötigt
+│   └── wsgi.py
+├── apps/                          # Django-Apps
+│   └── <app_name>/
 ├── requirements.txt               # Oder requirements/base.txt + dev.txt
-├── docker-compose.prod.yml        # Production Compose (siehe Step 4)
+├── docker-compose.prod.yml        # Production Compose (siehe Step 3.3)
 ├── pyproject.toml                 # Projekt-Metadaten
+├── .dockerignore                  # PFLICHT — siehe Step 1.5
 ├── .env.example                   # Beispiel-Umgebungsvariablen
 └── README.md
 ```
@@ -86,10 +92,14 @@ Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:
 
 ### 1.3 Django Settings (MANDATORY)
 
-Die `settings.py` MUSS folgende Patterns implementieren:
+**Empfohlen: Split-Settings** (`config/settings/base.py` + `production.py`).  
+Alternativ: Single `config/settings.py` (z.B. risk-hub).
+
+**`config/settings/base.py`** (gemeinsame Settings):
 
 ```python
-# Environment-driven (NEVER hardcoded)
+import os
+
 SECRET_KEY = os.environ.get("SECRET_KEY", "change-me-in-production")
 DEBUG = os.environ.get("DEBUG", "false").lower() == "true"
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "localhost").split(",")
@@ -97,17 +107,25 @@ CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
 ]
 
-# Reverse proxy (Nginx) terminates SSL — CRITICAL for CSRF behind proxy
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-SESSION_COOKIE_SECURE = not DEBUG
-CSRF_COOKIE_SECURE = not DEBUG
-
-# Database via DATABASE_URL
+# Database via DATABASE_URL (Standard)
+# Fallback: Individuelle POSTGRES_* Vars möglich, aber DATABASE_URL bevorzugen
 import dj_database_url
 DATABASES = {"default": dj_database_url.config(default="sqlite:///db.sqlite3")}
+```
 
-# Health check endpoint
-# URL: /livez/ → HttpResponse("ok")
+**`config/settings/production.py`** (Production-Overrides):
+
+```python
+from .base import *  # noqa: F401,F403
+
+DEBUG = False
+
+# CRITICAL: Reverse proxy (Nginx) terminates SSL
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
 ```
 
 ### 1.4 `.env.example` erstellen
@@ -122,7 +140,7 @@ CSRF_TRUSTED_ORIGINS=https://<app>.iil.pet
 # === Superuser (auto-created on first start) ===
 DJANGO_SUPERUSER_USERNAME=admin
 DJANGO_SUPERUSER_EMAIL=achim@dehnert.com
-DJANGO_SUPERUSER_PASSWORD=bfagent2024!
+DJANGO_SUPERUSER_PASSWORD=CHANGE_ME_BEFORE_DEPLOY
 
 # === Database ===
 POSTGRES_DB=<app_underscore>
@@ -137,6 +155,35 @@ REDIS_URL=redis://<app>-redis:6379/0
 GHCR_OWNER=achimdehnert
 GHCR_REPO=<repo-name>
 IMAGE_TAG=latest
+```
+
+### 1.5 `.dockerignore` erstellen (PFLICHT)
+
+Ohne `.dockerignore` landet `.git/` (~50-200MB), `__pycache__/`, `.env.prod` im Build-Context.
+
+```dockerignore
+.git
+.gitignore
+__pycache__
+*.pyc
+*.pyo
+.env*
+!.env.example
+.venv
+venv
+env
+node_modules
+*.egg-info
+.pytest_cache
+.mypy_cache
+.ruff_cache
+docker-compose*.yml
+!docker/
+docs/
+tests/
+*.md
+!README.md
+.windsurf/
 ```
 
 ## Step 2: GitHub Actions CI/CD
@@ -215,15 +262,50 @@ jobs:
 | Secret | Wert |
 |--------|------|
 | `DEPLOY_HOST` | `88.198.191.108` |
-| `DEPLOY_USER` | `root` |
+| `DEPLOY_USER` | `root` (O-02: Bei Multi-Server-Setup dedizierten `deploy`-User mit sudo empfehlen) |
 | `DEPLOY_SSH_KEY` | SSH Private Key (gleicher wie andere Repos) |
+
+### N-05: Image-Tag-Strategie & Rollback (O-10)
+
+CI/CD soll **zwei Tags** pushen:
+
+- `:latest` — für normales Deployment
+- `:sha-<7char>` — für Rollback-Fähigkeit (Git-SHA der letzten 7 Zeichen)
+
+**Manueller Rollback:**
+
+```bash
+# Auf Server: vorheriges Image deployen
+cd /opt/<REPO>
+IMAGE_TAG=sha-abc1234 docker compose -f docker-compose.prod.yml up -d --force-recreate <REPO>-web
+```
+
+**DB-Migration-Reversal:** Django-Migrationen sind **nicht** automatisch rückwärtskompatibel.
+Bei Schema-Änderungen: `python manage.py migrate <app> <previous_migration>` vor Image-Rollback.
 
 ## Step 3: Docker Setup
 
 ### 3.1 Dockerfile (`docker/app/Dockerfile`)
 
 ```dockerfile
-FROM python:3.12-slim
+# =============================================================================
+# Multi-Stage Build (O-04): build-essential nur in Builder-Stage
+# =============================================================================
+
+# --- Stage 1: Builder (compile C-extensions, then discard build-deps) ---
+FROM python:3.12-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir --prefix=/install \
+    -r /tmp/requirements.txt \
+    gunicorn whitenoise
+
+# --- Stage 2: Runtime (slim, no build-essential ~200MB saved) ---
+FROM python:3.12-slim AS runtime
 
 # OCI Labels
 ARG APP_NAME=<REPO_NAME>
@@ -233,32 +315,27 @@ LABEL org.opencontainers.image.description="<APP_DESCRIPTION>"
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
-
-# System deps (add app-specific deps here)
+# Runtime-only system deps (libpq for psycopg, add app-specific here)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Python dependencies
-COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -U pip \
-    && pip install --no-cache-dir -r requirements.txt \
-    && pip install --no-cache-dir gunicorn whitenoise
+# Copy pre-built Python packages from builder
+COPY --from=builder /install /usr/local
+
+WORKDIR /app
 
 COPY docker/app/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-COPY src /app/src
-WORKDIR /app/src
+COPY . /app
 
-ENV PYTHONPATH=/app/src
-
-# Collect static files at build time
+# Collect static files at build time (O-03: show errors, don't abort)
 RUN DJANGO_SECRET_KEY=build-only \
-    DJANGO_SETTINGS_MODULE=config.settings \
+    DJANGO_SETTINGS_MODULE=config.settings.production \
     DATABASE_URL=sqlite:///dev-null \
-    python manage.py collectstatic --noinput 2>/dev/null || true
+    python manage.py collectstatic --noinput \
+    || echo "WARN: collectstatic failed (non-fatal at build time)"
 
 # Non-root user
 RUN groupadd --gid 1000 app && \
@@ -268,7 +345,10 @@ USER app
 
 EXPOSE 8000
 
-# Health check (python urllib, no curl — ALWAYS use localhost, NOT 127.0.0.1)
+# Health check (ALWAYS localhost, NEVER 127.0.0.1, NEVER curl)
+# ⚠️ WARNING: This HEALTHCHECK is inherited by ALL containers using this image.
+#    Worker/Beat services MUST override this in docker-compose.prod.yml!
+#    See Step 4.2 Healthcheck-Regeln.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')" || exit 1
 
@@ -282,24 +362,39 @@ CMD ["web"]
 #!/bin/sh
 set -e
 
+# O-08: DB-Wait via Django (funktioniert mit jedem DB-Backend, kein psycopg-Import nötig)
 echo "Waiting for database..."
-until python -c "import psycopg; psycopg.connect('$DATABASE_URL')" 2>/dev/null; do
+until python -c "
+import django, os
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
+django.setup()
+from django.db import connection
+connection.ensure_connection()
+" 2>/dev/null; do
     echo "  DB not ready, waiting..."
     sleep 2
 done
 echo "Database ready!"
 
-echo "Running migrations..."
-python manage.py migrate --noinput --skip-checks
+# N-07: Migrations NUR im web-Container (verhindert Race-Condition bei parallelem Start)
+if [ "$1" = "web" ]; then
+    echo "Running migrations..."
+    python manage.py migrate --noinput --skip-checks
 
-echo "Collecting static files..."
-python manage.py collectstatic --noinput
+    # N-04: collectstatic nur wenn nötig (bereits im Docker-Build gelaufen)
+    if [ ! -d "/app/staticfiles" ] || [ -z "$(ls -A /app/staticfiles 2>/dev/null)" ]; then
+        echo "Collecting static files..."
+        python manage.py collectstatic --noinput
+    else
+        echo "Static files already present, skipping collectstatic"
+    fi
+fi
 
 # Auto-create superuser if DJANGO_SUPERUSER_USERNAME is set
 if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
     python -c "
 import os, django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
+os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
 django.setup()
 from django.contrib.auth.models import User
 username = os.environ['DJANGO_SUPERUSER_USERNAME']
@@ -342,14 +437,15 @@ exit 1
 
 ```yaml
 services:
+  # N-03: ALLE Variablen via env_file, KEINE ${VAR} Interpolation in environment-Blöcken.
+  #        Docker Compose liest ${VAR} aus .env (nicht .env.prod!).
+  #        Daher: ln -sf .env.prod .env ODER nur env_file nutzen.
+
   <REPO>-db:
     image: postgres:16-alpine
     container_name: <REPO_UNDERSCORE>_db
     restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB:-<REPO_UNDERSCORE>}
-      POSTGRES_USER: ${POSTGRES_USER:-<REPO_UNDERSCORE>}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    env_file: .env.prod
     volumes:
       - <REPO_UNDERSCORE>_pgdata:/var/lib/postgresql/data
     healthcheck:
@@ -392,16 +488,11 @@ services:
       - <REPO_UNDERSCORE>_network
 
   <REPO>-web:
-    image: ghcr.io/${GHCR_OWNER:-achimdehnert}/${GHCR_REPO:-<REPO>}/<REPO>-web:${IMAGE_TAG:-latest}
+    # O-07: Einfacher GHCR-Pfad (konsistent mit Naming-Table)
+    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
     container_name: <REPO_UNDERSCORE>_web
     restart: unless-stopped
     env_file: .env.prod
-    environment:
-      DJANGO_ENV: production
-      DJANGO_SETTINGS_MODULE: config.settings
-      DATABASE_URL: postgres://${POSTGRES_USER:-<REPO_UNDERSCORE>}:${POSTGRES_PASSWORD}@<REPO>-db:5432/${POSTGRES_DB:-<REPO_UNDERSCORE>}
-      REDIS_URL: redis://<REPO>-redis:6379/0
-      DEBUG: "false"
     depends_on:
       <REPO>-db:
         condition: service_healthy
@@ -433,7 +524,7 @@ services:
 
   # --- Celery Worker (if needed) ---
   <REPO>-worker:
-    image: ghcr.io/${GHCR_OWNER:-achimdehnert}/${GHCR_REPO:-<REPO>}/<REPO>-web:${IMAGE_TAG:-latest}
+    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
     container_name: <REPO_UNDERSCORE>_worker
     restart: unless-stopped
     env_file: .env.prod
@@ -464,7 +555,7 @@ services:
 
   # --- Celery Beat (if needed) ---
   <REPO>-beat:
-    image: ghcr.io/${GHCR_OWNER:-achimdehnert}/${GHCR_REPO:-<REPO>}/<REPO>-web:${IMAGE_TAG:-latest}
+    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
     container_name: <REPO_UNDERSCORE>_beat
     restart: unless-stopped
     env_file: .env.prod
@@ -501,15 +592,38 @@ networks:
     driver: bridge
 ```
 
-## Step 4: Health-Check Endpoint & Regeln
+## Step 4: Health-Check Endpoints & Regeln
 
-### 4.1 Endpoint in `urls.py`
+### 4.1 Standardisierte Endpoints (N-02)
+
+Jedes Repo MUSS diese 3 Endpoints haben:
+
+| Endpoint | Zweck | Prüft | Für |
+|----------|-------|-------|-----|
+| `/livez/` | Liveness | App-Prozess lebt | **Docker Healthcheck** |
+| `/healthz/` | Readiness | App + DB-Verbindung | Monitoring, Alerting |
+| `/health/` | Backwards-Compat | Alias für `/livez/` | Legacy-URLs |
+
+**`config/urls.py`:**
 
 ```python
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
+from django.db import connection
+
+def liveness(request):
+    return HttpResponse("ok")
+
+def readiness(request):
+    try:
+        connection.ensure_connection()
+        return JsonResponse({"status": "ok", "db": "connected"})
+    except Exception as e:
+        return JsonResponse({"status": "error", "db": str(e)}, status=503)
 
 urlpatterns = [
-    path("livez/", lambda r: HttpResponse("ok"), name="health-liveness"),
+    path("livez/", liveness, name="liveness"),
+    path("healthz/", readiness, name="healthz"),
+    path("health/", liveness, name="health-check"),  # backwards compat
     # ... andere URLs
 ]
 ```
@@ -523,6 +637,40 @@ urlpatterns = [
 | **IMMER Compose-HC für Worker/Beat** | Dockerfile-HC wird von ALLEN Containern geerbt — Worker/Beat haben kein Gunicorn → port 8000 nicht offen |
 | **Worker-HC: `celery inspect ping`** | Prüft ob Worker tatsächlich Aufgaben verarbeitet |
 | **Beat-HC: `os.kill(1, 0)`** | Prüft ob PID 1 (Celery Beat) lebt — beat hat keinen inspect-Endpoint |
+| **Docker-HC nutzt `/livez/`** | Liveness = minimal, schnell, keine DB-Abhängigkeit |
+| **Monitoring nutzt `/healthz/`** | Readiness = prüft DB, kann 503 zurückgeben |
+
+### 4.3 Logging-Empfehlung (O-11)
+
+**Minimum** (bereits in Compose-Templates):
+
+- JSON-Logging via Docker `json-file` Driver mit `max-size`/`max-file`
+- Gunicorn `--access-logfile -` (stdout)
+
+**Empfohlen** für neue Repos:
+
+```python
+# config/settings/base.py
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "json": {
+            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
+            "format": "%(asctime)s %(name)s %(levelname)s %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "json",
+        },
+    },
+    "root": {"level": "INFO", "handlers": ["console"]},
+}
+```
+
+**Optional:** Sentry für Error-Tracking (`sentry-sdk[django]` in requirements).
 
 ## Step 5: Server-Infrastruktur einrichten
 
