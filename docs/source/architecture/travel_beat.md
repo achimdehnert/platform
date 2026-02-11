@@ -13,8 +13,11 @@ Trip Import (CSV/Manual)
     → Plausibility → Geocoding → Weather → Culture → Weltenhub
   → Story Generation (Orchestrator)
     → Input Collection (TripInputHandler, WeatherInputHandler)
-    → Outline Generation (LLM)
-    → Chapter Generation (LLM, per stop)
+    → V2 Legacy: Outline → Chapter Generation (per stop)
+    → V3 Three-Phase (ADR-025, feature-gated):
+      Phase 1: Storyline (LLM → PlotThreads, StopNarrativeRoles)
+      Phase 2: Chapter Consolidation (deterministic)
+      Phase 3: Chapter Generation (LLM, per chapter)
     → Post-Generation Review (ADR TB-019)
       → PlanReviewer → StoryReviewer → StoryOptimizer
     → Weltenhub Sync (World + Locations)
@@ -45,6 +48,28 @@ Files: `apps/trips/services/enrichment/`
 
 Files: `apps/stories/services/review/`
 
+### 3-Phase Story Pipeline (ADR-025)
+
+Feature-gated via `TierConfig.has_feature("three_phase_pipeline")`.
+Falls back to V2 legacy pipeline when disabled.
+
+| Phase | Service | Type | Output |
+|-------|---------|------|--------|
+| 1. Storyline | `StorylineGenerator` | LLM call | PlotThreads, StopNarrativeRoles, TransportMoments |
+| 2. Consolidation | `ChapterConsolidator` | Deterministic | Chapter plans (stops → chapters) |
+| 3. Chapters | Orchestrator loop | LLM calls | Final chapter text |
+
+New models (Migration 0014):
+
+- `PlotThread` — Named story arcs spanning multiple stops
+- `StopNarrativeRole` — Per-stop narrative role + emotional tone
+- `TransportMoment` — Narrative use of transport segments
+
+Files: `apps/stories/services/storyline_generator.py`,
+`apps/stories/services/chapter_consolidator.py`,
+`apps/stories/models/storyline.py`,
+`apps/stories/schemas/storyline_spec.py`
+
 ### Tier-Gating
 
 All enrichment and review features are gated via `TierConfig`:
@@ -56,6 +81,7 @@ All enrichment and review features are gated via `TierConfig`:
 | Plan Compliance Check | No | Yes | Yes |
 | Full Quality Review | No | No | Yes |
 | Auto-Optimization | No | No | Yes |
+| 3-Phase Pipeline (ADR-025) | No | No | Yes |
 
 ### Weltenhub Integration
 
@@ -72,7 +98,13 @@ Trip (1) ──→ (N) Stop
   │                 └── enriched_at (DateTimeField)
   │
   └──→ (N) Story
+              ├── pipeline_version (V2_LEGACY / V3_THREE_PHASE)
               ├── (N) Chapter
+              ├── (1) StoryOutline
+              │         ├── storyline_theme, narrative_arc (V3)
+              │         ├── (N) PlotThread (V3)
+              │         ├── (N) StopNarrativeRole (V3)
+              │         └── (N) TransportMoment (V3)
               ├── (1) StoryReview
               │         ├── compliance_report (JSON)
               │         ├── quality_report (JSON)
@@ -97,3 +129,5 @@ Trip (1) ──→ (N) Stop
 |-----|-------|--------|
 | TB-019 | Story Review & Optimization | Implemented |
 | TB-020 | Stop-Enrichment & Weltenhub Pipeline | Implemented |
+| ADR-025 | 3-Phase Story Generation Pipeline | **Implemented** |
+| ADR-026 | Smart Location Enrichment v2 | Proposed |

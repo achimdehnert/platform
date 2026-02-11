@@ -23,6 +23,7 @@ via `python manage.py sync_adrs --direction db-to-rst`.
 | ADR-019 | Weltenhub UI, Templates, APIs | Accepted | Frontend |
 | ADR-020 | Dokumentationsstrategie | Proposed | Sphinx + DB |
 | ADR-022 | Platform Consistency Standard | Accepted | Deployment, CI/CD |
+| ADR-024 | Location-Recherche als Weltenhub-Modul | **Implemented** | Weltenhub |
 
 ### Travel-Beat ADRs
 
@@ -30,6 +31,8 @@ via `python manage.py sync_adrs --direction db-to-rst`.
 |-----|-------|--------|-------|
 | TB-019 | Story Review & Optimization | **Implemented** | Review pipeline |
 | TB-020 | Stop-Enrichment & Weltenhub Pipeline | **Implemented** | Enrichment |
+| ADR-025 | 3-Phase Story Generation Pipeline | **Implemented** | Story pipeline |
+| ADR-026 | Smart Location Enrichment v2 | Proposed | Enrichment |
 
 ## ADR-Template
 
