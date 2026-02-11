@@ -19,6 +19,7 @@ User says one of:
 | cad-hub | cadhub_prod | /opt/backups/cadhub/ |
 | travel-beat | travelbeat_prod | /opt/backups/travelbeat/ |
 | trading-hub | tradinghub_prod | /opt/backups/tradinghub/ |
+| wedding-hub | wedding_hub | /opt/backups/wedding-hub/ |
 
 Host: 88.198.191.108
 
