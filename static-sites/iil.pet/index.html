@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IIL Platform</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --surface: #1e293b;
+            --border: #334155;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #3b82f6;
+            --green: #22c55e;
+            --amber: #f59e0b;
+            --red: #ef4444;
+            --purple: #a855f7;
+            --cyan: #06b6d4;
+            --pink: #ec4899;
+            --orange: #f97316;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .container { max-width: 1100px; margin: 0 auto; padding: 3rem 1.5rem; }
+        header { text-align: center; margin-bottom: 3rem; }
+        header h1 {
+            font-size: 2.5rem;
+            font-weight: 800;
+            letter-spacing: -0.03em;
+            background: linear-gradient(135deg, var(--accent), var(--cyan));
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        header p { color: var(--muted); font-size: 1.1rem; margin-top: 0.5rem; }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1.25rem;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            text-decoration: none;
+            color: var(--text);
+            transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+        .card:hover {
+            transform: translateY(-3px);
+            border-color: var(--accent);
+            box-shadow: 0 8px 30px rgba(59,130,246,0.12);
+        }
+        .card-header { display: flex; align-items: center; gap: 0.75rem; }
+        .icon {
+            width: 42px; height: 42px;
+            border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 1.3rem;
+            flex-shrink: 0;
+        }
+        .card-header h2 { font-size: 1.15rem; font-weight: 700; }
+        .card p.desc { color: var(--muted); font-size: 0.88rem; line-height: 1.5; flex-grow: 1; }
+        .tag {
+            display: inline-block;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            padding: 0.2em 0.6em;
+            border-radius: 4px;
+        }
+        .tags { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+        .card-links {
+            display: flex;
+            gap: 0.5rem;
+            margin-top: 0.5rem;
+            padding-top: 0.5rem;
+            border-top: 1px solid var(--border);
+        }
+        .card-links a {
+            font-size: 0.78rem;
+            font-weight: 600;
+            text-decoration: none;
+            padding: 0.3em 0.7em;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .card-links .link-app {
+            color: var(--accent);
+            background: rgba(59,130,246,0.1);
+        }
+        .card-links .link-app:hover { background: rgba(59,130,246,0.2); }
+        .card-links .link-admin {
+            color: var(--amber);
+            background: rgba(245,158,11,0.1);
+        }
+        .card-links .link-admin:hover { background: rgba(245,158,11,0.2); }
+        .version {
+            color: var(--muted);
+            font-size: 0.75rem;
+            opacity: 0.6;
+        }
+        footer {
+            text-align: center;
+            margin-top: 3rem;
+            padding-top: 1.5rem;
+            border-top: 1px solid var(--border);
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+        footer a { color: var(--accent); text-decoration: none; }
+        @media (max-width: 700px) {
+            .grid { grid-template-columns: 1fr; }
+            header h1 { font-size: 1.8rem; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>IIL Platform</h1>
+            <p>Integrated Intelligence Layer &mdash; App Ecosystem</p>
+        </header>
+
+        <div class="grid" id="app-grid"></div>
+
+        <footer>
+            <p>
+                IIL Platform &bull; Hetzner Cloud &bull;
+                <a href="https://github.com/achimdehnert">GitHub</a>
+                <span class="version" id="version-tag"></span>
+            </p>
+        </footer>
+    </div>
+
+    <script>
+    const COLORS = {
+        orange:  { bg: 'rgba(249,115,22,0.15)', fg: 'var(--orange)' },
+        red:     { bg: 'rgba(239,68,68,0.15)',   fg: 'var(--red)' },
+        purple:  { bg: 'rgba(168,85,247,0.15)',  fg: 'var(--purple)' },
+        cyan:    { bg: 'rgba(6,182,212,0.15)',    fg: 'var(--cyan)' },
+        pink:    { bg: 'rgba(236,72,153,0.15)',   fg: 'var(--pink)' },
+        amber:   { bg: 'rgba(245,158,11,0.15)',   fg: 'var(--amber)' },
+        green:   { bg: 'rgba(34,197,94,0.15)',    fg: 'var(--green)' },
+        accent:  { bg: 'rgba(59,130,246,0.15)',   fg: 'var(--accent)' },
+        muted:   { bg: 'rgba(148,163,184,0.15)',  fg: 'var(--muted)' },
+    };
+
+    function renderCard(app) {
+        const c = COLORS[app.color] || COLORS.accent;
+        const tagsHtml = (app.tags || []).map(t =>
+            `<span class="tag" style="background:${c.bg};color:${c.fg};">${t}</span>`
+        ).join('');
+        const statusTag = app.status === 'live'
+            ? '<span class="tag" style="background:rgba(34,197,94,0.15);color:var(--green);">Live</span>'
+            : `<span class="tag">${app.status}</span>`;
+
+        return `
+        <div class="card">
+            <div class="card-header">
+                <div class="icon" style="background:${c.bg};color:${c.fg};">${app.icon}</div>
+                <h2>${app.name}</h2>
+            </div>
+            <p class="desc">${app.description}</p>
+            <div class="tags">${tagsHtml}${statusTag}</div>
+            <div class="card-links">
+                <a href="${app.url}" class="link-app">&#9654; App</a>
+                ${app.admin_url ? `<a href="${app.admin_url}" class="link-admin">&#9881; Admin</a>` : ''}
+            </div>
+        </div>`;
+    }
+
+    fetch('apps.json?v=' + Date.now())
+        .then(r => r.json())
+        .then(apps => {
+            document.getElementById('app-grid').innerHTML = apps.map(renderCard).join('');
+            document.getElementById('version-tag').textContent =
+                ' \u00b7 v' + new Date().toISOString().slice(0, 10);
+        })
+        .catch(() => {
+            document.getElementById('app-grid').innerHTML =
+                '<p style="color:var(--red);text-align:center;">Failed to load apps.json</p>';
+        });
+    </script>
+</body>
+</html>
