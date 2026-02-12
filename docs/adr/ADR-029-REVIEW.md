@@ -1,200 +1,135 @@
 # ADR-029 Review: CAD Hub Extraction from bfagent
 
 **Reviewer**: Cascade (AI Pair Programmer)
+**Review Rounds**: 2 (initial + comprehensive)
 **Date**: 2026-02-12
-**Reviewed against**: ADR-021, ADR-022, onboard-repo.md, Global Development Rules
+**Reviewed against**: ADR-021, ADR-022 (incl. `input/*` templates), onboard-repo.md, Global Development Rules, actual cad_hub source code
 
 ---
 
-## Verdict: **REVISE** — 7 Critical, 5 Important, 4 Minor Issues
+## Review Round 2 Verdict: **REVISE** — 7 New Critical, 6 New Important, 5 New Minor
+
+Round 1 found 7C/5I/4M (all addressed in v2). Round 2 found additional issues by deep-checking ADR-022 reference templates and actual cad_hub code.
 
 ---
 
-## CRITICAL Issues (Must Fix Before Accept)
+## NEW CRITICAL Issues (Round 2)
 
-### C-1: Wrong Port — 8030 does not exist in Port Map
+### C2-1: Missing `migrate` service in Compose (ADR-022 A1)
 
-ADR says `Internal port: 8030 → 8000`. The onboard-repo Port Map has no 8030:
+ADR-022 §3.5 + `input/docker-compose.prod.yml` require a **separate migrate service** (`restart: "no"`, `service_completed_successfully`). ADR-029 only lists `cad_hub_web` + `cad_hub_worker`. Web/worker depend on `migrate` completing.
 
-| Port | App |
-|------|-----|
-| 8080 | governance |
-| 8081 | weltenhub |
-| 8088 | trading-hub |
-| 8089 | travel-beat |
-| 8090 | risk-hub |
-| 8091 | bfagent |
-| 8092 | pptx-hub |
-| 8093 | wedding-hub |
+**Fix**: Add `cad_hub_migrate` container. Use `input/docker-compose.prod.yml` as basis.
 
-**Fix**: Use `8094` (next free) and update the Port Map in `onboard-repo.md`.
+### C2-2: Missing Redis service (Celery requires broker)
 
-### C-2: Wrong Domain — nl2cad.de already configured, not cad-hub.iil.pet
+ADR-029 says "Task queue: Celery" but lists no Redis container. `input/docker-compose.prod.yml` includes Redis. Without it, Celery cannot start.
 
-ADR says `Domain: cad-hub.iil.pet (initial, TBD)`. DNS screenshot shows:
-- `nl2cad.de` A-Record → `88.198.191.108` (already live!)
-- `www.nl2cad.de` A-Record → `88.198.191.108`
+**Fix**: Add `cad_hub_redis` (redis:7-alpine) to deployment parameters.
 
-**Fix**: Domain = `nl2cad.de`. Remove "TBD". Add `www.nl2cad.de`.
+### C2-3: healthz.py in wrong location
 
-### C-3: Missing entrypoint.sh — MANDATORY per onboard-repo.md
+ADR-029 puts health endpoints in `config/healthz.py`. ADR-022 §3.3 + §3.7 specifies `apps/core/healthz.py`. The import path `from apps.core.healthz import HEALTH_PATHS` is used in SubdomainTenantMiddleware.
 
-ADR repo structure shows no `docker/app/entrypoint.sh`. Per onboard-repo Step 3.2, this is **PFLICHT** — handles DB wait, migrations, superuser auto-creation, web/worker/beat dispatch.
+**Fix**: Move to `apps/core/healthz.py`. Must include `HEALTH_PATHS = frozenset(...)`, `@csrf_exempt`, `@require_GET`.
 
-**Fix**: Add `docker/app/entrypoint.sh` to repo structure tree.
+### C2-4: tasks.py uses plain functions, not Celery tasks
 
-### C-4: Missing .env.example and .dockerignore — MANDATORY
+Current `tasks.py` has `def process_ifc_upload(model_id)` — a plain function, no `@shared_task`. ADR says Celery but doesn't address this conversion. Also missing `config/celery.py`.
 
-Per onboard-repo Steps 1.4 and 1.5:
-- `.env.example` is **PFLICHT** (template for `.env.prod`)
-- `.dockerignore` is **PFLICHT** (prevents .git/, .env.prod in build context)
+**Fix**: Add `config/celery.py` to repo structure. Note tasks.py → `@shared_task` conversion in migration plan.
 
-Neither appears in ADR-029 repo structure.
+### C2-5: 15 handlers not mapped to target apps
 
-**Fix**: Add both to repo structure tree.
+`handlers/` directory has 15 files (area_classifier, brandschutz, nl_query, pdf_vision, pdf_lageplan, pdf_abstandsflaechen, massen, cad_file_input, nl_learning, room_analysis, use_case_tracker, base, brandschutz_report, brandschutz_symbols). ADR-029 repo structure doesn't show where these go.
 
-### C-5: Missing Platform Integration Steps (onboard-repo Step 6)
+**Fix**: Map each handler to its target app (e.g., `handlers/brandschutz*.py` → `apps/brandschutz/handlers/`).
 
-ADR-029 has **zero mention** of:
-1. MCP-Orchestrator registration (`orchestrator_mcp/local_tools.py` + `server.py`)
-2. Deploy workflow update (`.windsurf/workflows/deploy.md` table)
-3. Backup workflow update (`.windsurf/workflows/backup.md` table)
-4. ADR scope registration
-5. SSH/Deployment Memory creation
+### C2-6: `ifc_complete_parser/` submodule not addressed
 
-These are required by onboard-repo Step 6 and ensure the platform tools can manage the new app.
+4-file submodule with 705-line `models.py` (dataclasses, not Django models). Not mentioned in ADR-029. Contains core IFC parsing logic with ifcopenshell dependency.
 
-**Fix**: Add Phase 2.5 or Phase 3 substep for platform integration.
+**Fix**: Map to `apps/ifc/parser/` or `apps/ifc/services/complete_parser/`.
 
-### C-6: CI/CD Workflow uses wrong pattern
+### C2-7: Entrypoint pattern conflict — ADR-022 vs onboard-repo
 
-ADR says `cd-production.yml`. Onboard standard is `ci-cd.yml` using **platform reusable workflows** (`_ci-python.yml`, `_build-docker.yml`, `_deploy-hetzner.yml`).
+ADR-022 `input/entrypoint.sh`: `#!/bin/bash` + `set -euo pipefail` + NO migrations (separate service).
+onboard-repo entrypoint: `#!/bin/sh` + `set -e` + migrations IN entrypoint.
 
-**Fix**: Specify `ci-cd.yml` with reusable workflows. Don't create standalone pipeline.
+ADR-029 must pick one. Since ADR-022 is the canonical reference, use `input/entrypoint.sh`.
 
-### C-7: Multi-Tenancy is incomplete
-
-ADR says "add `tenant_id`" but Global Development Rules require:
-- `tenant_id = UUIDField(db_index=True)` on every user-data model ✓
-- **Organization model** with `id != tenant_id` — not mentioned
-- **Tenant middleware** sets `request.tenant_id` from subdomain — not mentioned
-- **All queries MUST filter by `tenant_id`** — not mentioned
-- Missing models: `Floor`, `Room`, `Window`, `Door`, `Wall`, `Slab` also need tenant isolation
-
-**Fix**: Specify Organization model, middleware, and queryset filtering. List ALL affected models (not just 5).
+**Fix**: Specify `input/entrypoint.sh` pattern (bash, strict, no inline migrations).
 
 ---
 
-## IMPORTANT Issues (Should Fix)
+## NEW IMPORTANT Issues (Round 2)
 
-### I-1: Missing Verification Checklist (onboard-repo Step 7)
+### I2-1: 48 templates not accounted for
 
-ADR has no verification checklist. Onboard-repo requires a complete checklist covering:
-repo structure, server provisioning, network (DNS/Nginx/SSL), CI/CD, platform integration.
+Current cad_hub has 48+ HTML templates in 6 subdirectories (analysis/, avb/, brandschutz/, dxf/, nl2cad/, partials/). ADR-029 template section only shows 3 files (base.html, landing.html, login.html).
 
-**Fix**: Add verification checklist from onboard-repo Step 7 template.
+**Fix**: Show template distribution per app in repo structure or migration plan.
 
-### I-2: File Split Plan doesn't enforce 500-line limit
+### I2-2: 3 admin files not mapped
 
-The split plan moves files between apps but doesn't specify target sizes. For example:
-- `views.py` (29k) → `apps/ifc/views.py` — how big will this be? Still oversized?
-- `mcp_bridge.py` (35k) → single file? Still oversized.
-- `dxf_analyzer.py` (54k) → single file? Definitely oversized.
+`admin.py`, `admin_avb.py`, `admin_brandschutz.py` must be split into per-app admin modules. Not mentioned in file split plan.
 
-Global Rules: "Maximum file length: 500 lines".
+**Fix**: Add admin file mapping (admin.py → apps/ifc/admin.py, admin_avb.py → apps/avb/admin.py, etc.)
 
-**Fix**: Each target file must be ≤500 lines. Add explicit sub-split targets for the 3 largest files.
+### I2-3: tenant_id model list incomplete + incorrect
 
-### I-3: Service Layer Pattern not specified
+ADR lists `DesignProfile`, `TemplateCollection`, `ResearchCache` — these don't exist in `models/__init__.py`. Missing actual AVB sub-models: `ProjectMilestone`, `CostEstimate`, `CostGroup`, `ProjectPhase`, `TenderPosition`, `TenderGroup`, `BidPosition`. Also: `BrandschutzKategorie`, `Feuerwiderstandsklasse` etc. are TextChoices, NOT models — they don't need tenant_id.
 
-Global Rules require `views.py → services.py → models.py`. The current cad_hub has business logic in views (29k lines). The split plan moves views between apps but doesn't mention creating service layers.
+**Fix**: List only actual Django Model classes that store user data. Verify against `models/__init__.py`.
 
-**Fix**: Each app must have `services.py` with business logic extracted from views.
+### I2-4: Missing `requirements.txt`
 
-### I-4: No Landing Page mentioned
+ADR shows `pyproject.toml` but no `requirements.txt`. Dockerfile template (`input/Dockerfile`) uses `COPY requirements.txt` + `pip install -r requirements.txt`. Either provide requirements.txt or adapt Dockerfile.
 
-All deployed apps have a public landing page (DriftTales, Weltenforger, Prezimo). ADR-029 doesn't mention creating one for nl2cad.de.
+**Fix**: Add `requirements.txt` to repo structure (Dockerfile depends on it).
 
-**Fix**: Add landing page to Phase 2 (before deploy).
+### I2-5: Missing `shm_size: 128m` for postgres
 
-### I-5: Worker type unclear — Django Q2 or Celery?
+ADR-021 §2.10 requires `shm_size: 128m` for postgres to prevent "could not resize shared memory" errors.
 
-bfagent uses Django Q2. The onboard entrypoint template uses Celery. ADR-029 doesn't specify which task queue system cad-hub will use.
+**Fix**: Add to compose DB service definition.
 
-**Fix**: Explicitly state Celery (per onboard standard) or Django Q2 (if preferred).
+### I2-6: DJANGO_SETTINGS_MODULE not specified
 
----
+Split settings require explicit module path. Production: `config.settings.production`. CI: `config.settings.base` or `config.settings.test`. Not specified anywhere in ADR.
 
-## MINOR Issues (Nice to Fix)
-
-### M-1: GHCR Image naming inconsistency
-
-ADR says `ghcr.io/achimdehnert/cad-hub:latest`. ADR-021 says flat naming. But existing pptx-hub uses `ghcr.io/achimdehnert/pptx-hub/pptx-hub-web:latest` (nested). Pick one pattern and be consistent.
-
-**Recommendation**: Use flat `ghcr.io/achimdehnert/cad-hub:latest` per ADR-021.
-
-### M-2: Settings pattern recommendation
-
-ADR says `config/settings.py` (single file). Onboard-repo recommends split settings (`config/settings/base.py` + `production.py`). Both are acceptable, but split is recommended for new projects.
-
-**Recommendation**: Use split settings for a new greenfield project.
-
-### M-3: Health endpoint `/health/` backwards-compat missing
-
-Onboard-repo specifies 3 endpoints: `/livez/`, `/healthz/`, `/health/` (compat). ADR-029 only mentions `/livez/` and `/healthz/`.
-
-**Fix**: Add `/health/` to health endpoints list.
-
-### M-4: No mention of reference templates
-
-ADR-022 v3 defines 4 canonical reference templates in `platform/docs/adr/input/`:
-- `input/Dockerfile`
-- `input/docker-compose.prod.yml`
-- `input/entrypoint.sh`
-- `input/healthz.py`
-
-ADR-029 should state "Use ADR-022 reference templates as basis".
+**Fix**: Add to deployment parameters table and CI/CD config.
 
 ---
 
-## Positive Aspects
+## NEW MINOR Issues (Round 2)
 
-- **Problem statement is clear** — domain mismatch between bfagent and CAD is well articulated
-- **3-phase approach** (scaffold → deploy → cleanup) is pragmatic
-- **External dependency analysis** is thorough — only 3 dependencies to resolve
-- **Alternatives considered** section is well-reasoned
-- **Consequences section** covers positive, negative, and risks
+### M2-1: Network naming missing
+
+ADR-022 requires named network. Should be `cad_hub_network` (bridge).
+
+### M2-2: Volume naming missing
+
+ADR-022 requires `${APP_NAME}_pgdata`, `${APP_NAME}_redis_data`.
+
+### M2-3: Compose service naming not specified
+
+Services: `cad-hub-web`, `cad-hub-worker`, `cad-hub-db` (hyphens). Containers: `cad_hub_web` etc. (underscores). Per ADR-021 §2.2.
+
+### M2-4: No www redirect strategy
+
+Both `nl2cad.de` and `www.nl2cad.de` have DNS records. Nginx should redirect `www` → non-www (or vice versa). Not specified.
+
+### M2-5: Port registry update needed in BOTH ADR-021 AND onboard-repo
+
+Port 8094 must be added to ADR-021 §2.9 AND onboard-repo Port Map. Currently only onboard mentioned.
 
 ---
 
-## Recommended ADR-029 Updates
+## Round 1 Issues Status (all fixed in v2)
 
-```
-Section 2.1 (Repo Structure):
-  + docker/app/entrypoint.sh
-  + .env.example
-  + .dockerignore
-  + .github/workflows/ci-cd.yml (not cd-production.yml)
-
-Section 2.2 (Deployment Parameters):
-  Domain: nl2cad.de (+ www.nl2cad.de)
-  Port: 8094 → 8000
-  CI/CD: ci-cd.yml with platform reusable workflows
-  Health: /livez/, /healthz/, /health/
-
-Section 2.3 (Migration Strategy):
-  Phase 1: Add service layer creation to each app
-  Phase 2: Add landing page, entrypoint.sh, .env.example
-  Phase 2.5 (NEW): Platform integration (MCP, deploy/backup workflows)
-  Phase 3: Add onboard-repo Step 7 verification checklist
-
-Section 2.5 (File Split):
-  Add target sizes (≤500 lines each)
-  Add sub-splits for mcp_bridge.py and dxf_analyzer.py
-
-Section 2.6 (Multi-Tenancy):
-  Add Organization model
-  Add tenant middleware
-  List ALL affected models (not just 5)
-  Specify queryset filtering requirement
-```
+All 7C + 5I + 4M from Round 1 were addressed:
+- C-1 Port 8030→8094 ✅ | C-2 Domain nl2cad.de ✅ | C-3 entrypoint.sh ✅
+- C-4 .env.example/.dockerignore ✅ | C-5 Platform integration ✅
+- C-6 ci-cd.yml ✅ | C-7 Multi-tenancy expanded ✅
+- I-1 through I-5 ✅ | M-1 through M-4 ✅
