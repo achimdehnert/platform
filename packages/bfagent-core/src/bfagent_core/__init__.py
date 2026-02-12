@@ -1,6 +1,12 @@
 """
 bfagent-core: Shared core components for BFAgent Hub ecosystem.
 
+As of v0.2.0, the framework-agnostic foundation (context, middleware, db,
+audit, outbox, exceptions) has been extracted to `platform-context`
+(see ADR-028). This package re-exports everything for backward compatibility.
+
+New projects should depend on `platform-context` directly.
+
 Provides:
 - Request context management (tenant, user, request_id)
 - Multi-tenancy with Tenant, Membership, and RBAC
@@ -17,19 +23,24 @@ Usage:
     from bfagent_core.handlers import TenantCreateHandler
 """
 
-from bfagent_core.context import (
+import warnings
+
+# Re-export from platform-context (ADR-028 compatibility shim)
+from platform_context.context import (
     RequestContext,
+    clear_context,
     get_context,
     set_request_id,
     set_tenant,
     set_user_id,
 )
-from bfagent_core.audit import emit_audit_event
-from bfagent_core.outbox import emit_outbox_event
-from bfagent_core.db import set_db_tenant, get_db_tenant
+from platform_context.audit import emit_audit_event
+from platform_context.outbox import emit_outbox_event
+from platform_context.db import set_db_tenant, get_db_tenant
 
-# Models (lazy import to avoid circular deps)
+
 def _get_models():
+    """Lazy import to avoid circular deps."""
     from bfagent_core.models import (
         Plan,
         CoreUser,
@@ -58,17 +69,18 @@ def _get_models():
 __version__ = "0.2.0"
 
 __all__ = [
-    # Context
+    # Context (from platform-context)
     "RequestContext",
+    "clear_context",
     "get_context",
     "set_request_id",
     "set_tenant",
     "set_user_id",
-    # Audit
+    # Audit (from platform-context)
     "emit_audit_event",
-    # Outbox
+    # Outbox (from platform-context)
     "emit_outbox_event",
-    # DB
+    # DB (from platform-context)
     "set_db_tenant",
     "get_db_tenant",
 ]
