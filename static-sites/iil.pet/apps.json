@@ -1,0 +1,92 @@
+[
+  {
+    "name": "Schutztat",
+    "url": "https://schutztat.iil.pet",
+    "admin_url": "https://schutztat.iil.pet/web#action=base.open_module_tree",
+    "description": "Occupational safety & risk assessment platform. Django API + Odoo management reporting with automated sync.",
+    "icon": "\ud83d\udee1\ufe0f",
+    "color": "orange",
+    "tags": ["Odoo 18", "Django"],
+    "status": "live"
+  },
+  {
+    "name": "Schutztat Risk Hub",
+    "url": "https://demo.schutztat.de",
+    "admin_url": "https://demo.schutztat.de/admin/",
+    "description": "Gef\u00e4hrdungsbeurteilungen, Hazard-Analyse, Ma\u00dfnahmen-Tracking. Multi-Tenant SaaS mit KI-Unterst\u00fctzung.",
+    "icon": "\u26a0\ufe0f",
+    "color": "red",
+    "tags": ["Django Ninja"],
+    "status": "live"
+  },
+  {
+    "name": "BF Agent",
+    "url": "https://bfagent.iil.pet",
+    "admin_url": "https://bfagent.iil.pet/admin/",
+    "description": "Book Factory Agent \u2014 AI-powered project management for creative writing, world-building and publishing.",
+    "icon": "\ud83d\udcda",
+    "color": "purple",
+    "tags": ["AI Agent"],
+    "status": "live"
+  },
+  {
+    "name": "DriftTales",
+    "url": "https://drifttales.app",
+    "admin_url": "https://drifttales.app/admin/",
+    "description": "AI-generated travel stories with smart location enrichment, three-phase story pipeline and tiered publishing.",
+    "icon": "\u2708\ufe0f",
+    "color": "cyan",
+    "tags": ["Travel"],
+    "status": "live"
+  },
+  {
+    "name": "Weltenforger",
+    "url": "https://writing-hub.iil.pet",
+    "admin_url": "https://writing-hub.iil.pet/admin/",
+    "description": "Story universe platform \u2014 world-building, location research and narrative design for interconnected fiction.",
+    "icon": "\ud83c\udf10",
+    "color": "pink",
+    "tags": ["Creative"],
+    "status": "live"
+  },
+  {
+    "name": "Prezimo",
+    "url": "https://prezimo.de",
+    "admin_url": "https://prezimo.com/app/admin/",
+    "description": "Presentation studio \u2014 AI-assisted PPTX generation with templates, data-driven slides and brand consistency.",
+    "icon": "\ud83d\udcca",
+    "color": "amber",
+    "tags": ["PPTX"],
+    "status": "live"
+  },
+  {
+    "name": "Trading Hub",
+    "url": "https://trading-hub.iil.pet",
+    "admin_url": "https://trading-hub.iil.pet/admin/",
+    "description": "Algorithmic trading signals, portfolio analysis and market data aggregation platform.",
+    "icon": "\ud83d\udcc8",
+    "color": "green",
+    "tags": ["Finance"],
+    "status": "live"
+  },
+  {
+    "name": "Control Center",
+    "url": "https://control-center.iil.pet",
+    "admin_url": "https://control-center.iil.pet",
+    "description": "Platform operations \u2014 deployment orchestration, health monitoring and infrastructure management.",
+    "icon": "\u2699\ufe0f",
+    "color": "accent",
+    "tags": ["DevOps"],
+    "status": "live"
+  },
+  {
+    "name": "Governance",
+    "url": "https://governance.iil.pet",
+    "admin_url": "https://governance.iil.pet",
+    "description": "ADR registry, platform standards, shared packages and cross-app architecture governance.",
+    "icon": "\ud83d\udcdc",
+    "color": "muted",
+    "tags": ["Docs"],
+    "status": "live"
+  }
+]
