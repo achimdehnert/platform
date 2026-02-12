@@ -1,0 +1,143 @@
+# =============================================================================
+# _CI Odoo (Reusable) — Lint + Odoo Tests against PostgreSQL service
+# =============================================================================
+# Usage in app repo ci.yml:
+#   lint_test:
+#     uses: achimdehnert/platform/.github/workflows/_ci-odoo.yml@main
+#     with:
+#       odoo_image: "odoo:18.0"
+#       modules_to_test: "reporting_core,reporting_sales"
+# =============================================================================
+name: _CI Odoo (Reusable)
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        type: string
+        required: false
+        default: "3.12"
+      odoo_image:
+        type: string
+        required: false
+        default: "odoo:18.0"
+      addons_path:
+        type: string
+        required: false
+        default: "addons"
+      modules_to_test:
+        type: string
+        required: true
+        description: "Comma-separated list, e.g. reporting_core,reporting_sales"
+      postgres_version:
+        type: string
+        required: false
+        default: "16"
+      db_name:
+        type: string
+        required: false
+        default: "test_db"
+      lint_cmd:
+        type: string
+        required: false
+        default: "python -m ruff check ."
+      odoo_conf:
+        type: string
+        required: false
+        default: ""
+    secrets:
+      PIP_INDEX_URL:
+        required: false
+
+jobs:
+  lint_test:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ${{ inputs.odoo_image }}
+
+    services:
+      postgres:
+        image: postgres:${{ inputs.postgres_version }}-alpine
+        env:
+          POSTGRES_DB: ${{ inputs.db_name }}
+          POSTGRES_USER: odoo
+          POSTGRES_PASSWORD: odoo
+        options: >-
+          --health-cmd "pg_isready -U odoo -d ${{ inputs.db_name }}"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DB_HOST: postgres
+      DB_PORT: "5432"
+      DB_USER: odoo
+      DB_PASSWORD: odoo
+      DB_NAME: ${{ inputs.db_name }}
+      ADDONS_PATH: ${{ inputs.addons_path }}
+      MODULES_TO_TEST: ${{ inputs.modules_to_test }}
+      PIP_INDEX_URL: ${{ secrets.PIP_INDEX_URL }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install lint tooling
+        run: |
+          python -V
+          pip install --no-cache-dir ruff
+
+      - name: Lint
+        run: ${{ inputs.lint_cmd }}
+
+      - name: Validate addons path
+        run: |
+          if [ ! -d "$GITHUB_WORKSPACE/${ADDONS_PATH}" ]; then
+            echo "ERROR: Addons path not found: $GITHUB_WORKSPACE/${ADDONS_PATH}"
+            exit 1
+          fi
+
+      - name: Odoo tests
+        run: |
+          ODOO_BIN="$(command -v odoo || true)"
+          if [ -z "$ODOO_BIN" ]; then
+            echo "ERROR: 'odoo' not found. Set inputs.odoo_image to a proper Odoo image."
+            exit 1
+          fi
+
+          CONF_ARG=""
+          if [ -n "${{ inputs.odoo_conf }}" ]; then
+            CONF_ARG="--config=$GITHUB_WORKSPACE/${{ inputs.odoo_conf }}"
+          fi
+
+          EXTRA="/mnt/extra-addons"
+          if [ -d "$EXTRA" ]; then
+            AP="${EXTRA},$GITHUB_WORKSPACE/${ADDONS_PATH}"
+          else
+            AP="$GITHUB_WORKSPACE/${ADDONS_PATH}"
+          fi
+
+          echo "Addons path: $AP"
+          echo "Modules: $MODULES_TO_TEST"
+
+          "$ODOO_BIN" $CONF_ARG \
+            --db_host="$DB_HOST" \
+            --db_port="$DB_PORT" \
+            --db_user="$DB_USER" \
+            --db_password="$DB_PASSWORD" \
+            -d "$DB_NAME" \
+            --addons-path="$AP" \
+            --init="$MODULES_TO_TEST" \
+            --test-enable \
+            --stop-after-init \
+            --log-level=test
+
+      - name: Job summary
+        if: always()
+        run: |
+          echo "## Odoo CI Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Odoo image:** \`${{ inputs.odoo_image }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **DB:** \`${{ inputs.db_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Addons:** \`${{ inputs.addons_path }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Modules tested:** \`${{ inputs.modules_to_test }}\`" >> $GITHUB_STEP_SUMMARY

@@ -25,33 +25,59 @@ All static landing pages and web assets live in the `platform` repo under
 `static-sites/<domain>/`. The server directory `/var/www/<domain>/` is a
 **deployment target**, never the source of truth.
 
-```text
+```
 platform/
 └── static-sites/
     ├── iil.pet/
-    │   ├── index.html      # Landing page template
-    │   └── apps.json       # App registry (single source of truth)
-    └── deploy.sh           # rsync-based deploy script
+    │   └── index.html          # Landing page
+    ├── prezimo.com/             # (if applicable)
+    └── deploy.sh               # rsync-based deploy script
 ```
 
 ### 2. Deployment via Script (not ad-hoc file_write)
 
 ```bash
-# From platform repo root:
-bash static-sites/deploy.sh iil.pet
+# platform/static-sites/deploy.sh
+#!/bin/bash
+set -euo pipefail
+SITE="${1:?Usage: deploy.sh <site-dir>}"
+HOST="88.198.191.108"
+rsync -avz --checksum "static-sites/${SITE}/" "root@${HOST}:/var/www/${SITE}/"
+echo "Deployed ${SITE} → ${HOST}:/var/www/${SITE}/"
 ```
-
-The script creates a timestamped backup before overwriting.
 
 ### 3. Landing Page App Registry
 
-The landing page reads its app cards from `apps.json` instead of
-hardcoded HTML. Adding/removing apps is a data change, not a template rewrite.
+The landing page reads its app cards from a structured JSON registry instead of
+hardcoded HTML. This ensures that adding/removing apps is a data change, not a
+template rewrite.
+
+```
+platform/static-sites/iil.pet/
+├── index.html          # Template that reads apps.json
+└── apps.json           # App registry (single source of truth)
+```
+
+#### apps.json Schema
+
+```json
+[
+  {
+    "name": "Schutztat",
+    "url": "https://schutztat.iil.pet",
+    "admin_url": "https://schutztat.iil.pet/web#action=base.open_module_tree",
+    "description": "Occupational safety & risk assessment platform.",
+    "icon": "🛡️",
+    "color": "orange",
+    "tags": ["Odoo 18", "Django"],
+    "status": "live"
+  }
+]
+```
 
 Each app entry has:
-
 - **`url`** — public app URL
-- **`admin_url`** — admin/backend URL
+- **`admin_url`** — admin/backend URL (the missing piece!)
 - **`tags`** — technology tags
 - **`status`** — `live`, `staging`, `maintenance`
 
@@ -63,6 +89,14 @@ Before overwriting any file in `/var/www/`:
 2. **Check if git-managed** — prefer editing in `platform/static-sites/`
 3. **Never use `file_write` directly** for production web assets
 4. **Always commit to git first**, then deploy from git
+
+### 5. Backup on Deploy
+
+The deploy script creates a timestamped backup before overwriting:
+
+```bash
+ssh root@${HOST} "cp -r /var/www/${SITE} /var/www/.backup/${SITE}-$(date +%Y%m%d-%H%M%S)" 2>/dev/null || true
+```
 
 ## Consequences
 

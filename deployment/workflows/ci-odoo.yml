@@ -44,7 +44,7 @@ jobs:
       - name: Lint custom addons
         run: ruff check addons/ --output-format=github
 
-  # ── Test (Odoo --test-enable) ───────────────────────────────
+  # ── Test (Odoo --test-enable) ─────────────────────────────────
   test:
     needs: [lint]
     runs-on: ubuntu-latest

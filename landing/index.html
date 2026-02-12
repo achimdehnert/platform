@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>iil.pet — Platform Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg: #0f1117;
+            --surface: #1a1d27;
+            --surface-hover: #232736;
+            --border: #2a2e3b;
+            --text: #e4e5ea;
+            --text-muted: #8b8fa3;
+            --accent: #6366f1;
+            --accent-hover: #818cf8;
+            --green: #22c55e;
+            --amber: #f59e0b;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Inter', -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+        }
+        .header {
+            text-align: center;
+            padding: 3rem 1rem 2rem;
+            border-bottom: 1px solid var(--border);
+        }
+        .header h1 {
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: -0.03em;
+            margin-bottom: 0.5rem;
+        }
+        .header h1 span {
+            background: linear-gradient(135deg, var(--accent), #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .header p {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: center;
+            gap: 2rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+        .status-bar .stat {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+        .dot {
+            width: 8px; height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .dot-green {
+            background: var(--green);
+            box-shadow: 0 0 6px var(--green);
+        }
+        .dot-amber { background: var(--amber); }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem 1.5rem 4rem;
+        }
+        .section-label {
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--text-muted);
+            margin-bottom: 1rem;
+            padding-left: 0.25rem;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2.5rem;
+        }
+        .card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 1.5rem;
+            transition: all 0.2s ease;
+        }
+        .card:hover {
+            background: var(--surface-hover);
+            border-color: var(--accent);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px rgba(99, 102, 241, 0.08);
+        }
+        .card-top {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        .card-icon {
+            width: 44px; height: 44px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
+        }
+        .card-badge {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            padding: 0.2rem 0.5rem;
+            border-radius: 20px;
+        }
+        .badge-live { background: rgba(34, 197, 94, 0.1); }
+        .badge-dev { background: rgba(245, 158, 11, 0.1); }
+        .card h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 0.15rem;
+        }
+        .card .brand {
+            font-size: 0.8rem;
+            color: var(--accent);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        .card .desc {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            line-height: 1.5;
+            margin-bottom: 1rem;
+        }
+        .card-links {
+            display: flex;
+            gap: 0.5rem;
+            flex-wrap: wrap;
+        }
+        .card-links a {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.35rem;
+            padding: 0.4rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.15s ease;
+        }
+        .btn-app {
+            background: var(--accent);
+            color: #fff;
+        }
+        .btn-app:hover { background: var(--accent-hover); }
+        .btn-admin {
+            background: rgba(99, 102, 241, 0.12);
+            color: var(--accent);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+        }
+        .btn-admin:hover { background: rgba(99, 102, 241, 0.2); }
+        .btn-gh {
+            background: rgba(255, 255, 255, 0.06);
+            color: var(--text-muted);
+            border: 1px solid var(--border);
+        }
+        .btn-gh:hover {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text);
+        }
+        .tech {
+            font-size: 0.7rem;
+            color: var(--text-muted);
+            margin-top: 0.75rem;
+            display: flex;
+            gap: 0.4rem;
+            flex-wrap: wrap;
+        }
+        .tech span {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.15rem 0.45rem;
+            border-radius: 4px;
+            border: 1px solid var(--border);
+        }
+        .icon-blue   { background: rgba(59, 130, 246, 0.15); color: #60a5fa; }
+        .icon-purple { background: rgba(139, 92, 246, 0.15); color: #a78bfa; }
+        .icon-green  { background: rgba(34, 197, 94, 0.15); color: #4ade80; }
+        .icon-amber  { background: rgba(245, 158, 11, 0.15); color: #fbbf24; }
+        .icon-cyan   { background: rgba(6, 182, 212, 0.15); color: #22d3ee; }
+        .icon-pink   { background: rgba(236, 72, 153, 0.15); color: #f472b6; }
+        .icon-red    { background: rgba(239, 68, 68, 0.15); color: #f87171; }
+        .icon-gray   { background: rgba(148, 163, 184, 0.1); color: #94a3b8; }
+        .footer {
+            text-align: center;
+            padding: 2rem 1rem;
+            border-top: 1px solid var(--border);
+            color: var(--text-muted);
+            font-size: 0.8rem;
+        }
+        .footer a {
+            color: var(--accent);
+            text-decoration: none;
+        }
+        .footer a:hover { text-decoration: underline; }
+        @media (max-width: 640px) {
+            .header h1 { font-size: 1.5rem; }
+            .grid { grid-template-columns: 1fr; }
+            .status-bar { flex-wrap: wrap; gap: 1rem; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="header">
+    <h1><span>iil.pet</span> &mdash; Platform Dashboard</h1>
+    <p>Hetzner VM &middot; Docker &middot; Nginx &middot; PostgreSQL 16</p>
+    <div class="status-bar">
+        <div class="stat">
+            <span class="dot dot-green"></span> 8 Services
+        </div>
+        <div class="stat">Ubuntu 22.04</div>
+    </div>
+</div>
+
+<div class="container">
+
+<!-- ==================== Production Apps ==================== -->
+<div class="section-label">Production Apps</div>
+<div class="grid">
+
+    <!-- DriftTales -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-blue">&#9992;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>travel-beat</h3>
+        <div class="brand">DriftTales</div>
+        <div class="desc">
+            KI-Reisegeschichten &mdash; Trip-Planung, V3-Story-Pipeline,
+            Export (PDF/EPUB/HTML/MD)
+        </div>
+        <div class="card-links">
+            <a href="https://drifttales.com/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; App</a>
+            <a href="https://drifttales.com/admin/" target="_blank" rel="noopener"
+               class="btn-admin">&#x2699; Admin</a>
+            <a href="https://github.com/achimdehnert/travel-beat"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span><span>Celery</span>
+            <span>WeasyPrint</span><span>HTMX</span><span>Caddy</span>
+        </div>
+    </div>
+
+    <!-- Weltenforger -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-purple">&#127760;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>weltenhub</h3>
+        <div class="brand">Weltenforger</div>
+        <div class="desc">
+            Story-Universen &mdash; Welten, Recherche-Module,
+            Locations, DriftTales-Integration
+        </div>
+        <div class="card-links">
+            <a href="https://weltenforger.com/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; App</a>
+            <a href="https://weltenforger.com/admin/" target="_blank" rel="noopener"
+               class="btn-admin">&#x2699; Admin</a>
+            <a href="https://github.com/achimdehnert/weltenhub"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span><span>Celery</span><span>HTMX</span>
+        </div>
+    </div>
+
+    <!-- Schutztat -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-green">&#x1F6E1;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>risk-hub</h3>
+        <div class="brand">Schutztat</div>
+        <div class="desc">
+            Multi-Tenant Arbeitsschutz-SaaS &mdash;
+            Gef&auml;hrdungsbeurteilungen, Audits, Compliance
+        </div>
+        <div class="card-links">
+            <a href="https://demo.schutztat.de/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; App</a>
+            <a href="https://demo.schutztat.de/admin/" target="_blank" rel="noopener"
+               class="btn-admin">&#x2699; Admin</a>
+            <a href="https://github.com/achimdehnert/risk-hub"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span><span>Multi-Tenant</span>
+            <span>HTMX</span>
+        </div>
+    </div>
+
+    <!-- AI Trades -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-amber">&#x1F4C8;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>trading-hub</h3>
+        <div class="brand">AI Trades</div>
+        <div class="desc">
+            KI-Trading-Analyse &mdash; Marktdaten, Signale,
+            Portfolio-Tracking
+        </div>
+        <div class="card-links">
+            <a href="https://ai-trades.de/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; App</a>
+            <a href="https://ai-trades.de/admin/" target="_blank" rel="noopener"
+               class="btn-admin">&#x2699; Admin</a>
+            <a href="https://github.com/achimdehnert/trading-hub"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span><span>HTMX</span>
+        </div>
+    </div>
+
+    <!-- BF Agent -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-cyan">&#x1F916;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>bfagent</h3>
+        <div class="brand">Book Factory Agent</div>
+        <div class="desc">
+            Agent-basiertes Buchprojekt-Management &mdash;
+            Workflows, Handler-Generator, KI-Enrichment
+        </div>
+        <div class="card-links">
+            <a href="https://bfagent.iil.pet/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; App</a>
+            <a href="https://bfagent.iil.pet/admin/" target="_blank" rel="noopener"
+               class="btn-admin">&#x2699; Admin</a>
+            <a href="https://github.com/achimdehnert/bfagent"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span><span>HTMX</span><span>Caddy</span>
+        </div>
+    </div>
+
+    <!-- Wedding Hub -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-pink">&#x1F492;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>wedding-hub</h3>
+        <div class="brand">Wedding Hub</div>
+        <div class="desc">
+            Hochzeitsplanung &mdash; G&auml;stelisten,
+            Tischordnung, Einladungen
+        </div>
+        <div class="card-links">
+            <a href="https://wedding-hub.iil.pet/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; App</a>
+            <a href="https://wedding-hub.iil.pet/admin/"
+               target="_blank" rel="noopener" class="btn-admin">&#x2699; Admin</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span><span>HTMX</span>
+        </div>
+    </div>
+
+</div>
+
+<!-- ==================== Platform & Infra ==================== -->
+<div class="section-label">Platform &amp; Infrastruktur</div>
+<div class="grid">
+
+    <!-- Governance -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-gray">&#x1F4DC;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>governance</h3>
+        <div class="brand">Platform Governance</div>
+        <div class="desc">
+            Sphinx-Dokumentation &mdash; ADRs, Roadmaps,
+            Architektur-Entscheidungen
+        </div>
+        <div class="card-links">
+            <a href="https://governance.iil.pet/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; Docs</a>
+            <a href="https://github.com/achimdehnert/platform"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>Sphinx</span><span>Gunicorn</span>
+        </div>
+    </div>
+
+    <!-- Control Center -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-red">&#x1F3DB;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>control-center</h3>
+        <div class="brand">Control Center</div>
+        <div class="desc">
+            Zentrales Monitoring &amp; Admin-Dashboard
+            f&uuml;r alle Platform-Services
+        </div>
+        <div class="card-links">
+            <a href="https://control-center.iil.pet/" target="_blank" rel="noopener"
+               class="btn-app">&#x2197; Dashboard</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span>
+        </div>
+    </div>
+
+    <!-- MCP Hub -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-cyan">&#x26A1;</div>
+            <div class="card-badge badge-live">
+                <span class="dot dot-green"></span> Live
+            </div>
+        </div>
+        <h3>mcp-hub</h3>
+        <div class="brand">MCP Server Collection</div>
+        <div class="desc">
+            Deployment-MCP, LLM-Gateway, Orchestrator &mdash;
+            Model Context Protocol Server
+        </div>
+        <div class="card-links">
+            <a href="https://github.com/achimdehnert/mcp-hub"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>FastMCP</span><span>Python</span>
+            <span>uvicorn</span>
+        </div>
+    </div>
+
+    <!-- Prezimo -->
+    <div class="card">
+        <div class="card-top">
+            <div class="card-icon icon-gray">&#x1F4CA;</div>
+            <div class="card-badge badge-dev">
+                <span class="dot dot-amber"></span> Dev
+            </div>
+        </div>
+        <h3>pptx-hub</h3>
+        <div class="brand">Prezimo</div>
+        <div class="desc">
+            Presentation Studio &mdash; KI-gest&uuml;tzte
+            PowerPoint-Erstellung (noch nicht deployed)
+        </div>
+        <div class="card-links">
+            <a href="https://github.com/achimdehnert/pptx-hub"
+               target="_blank" rel="noopener" class="btn-gh">GitHub</a>
+        </div>
+        <div class="tech">
+            <span>Django 5</span><span>python-pptx</span>
+        </div>
+    </div>
+
+</div>
+
+</div>
+
+<div class="footer">
+    <p>
+        &copy; 2026 iil.pet Platform &middot;
+        <a href="https://github.com/achimdehnert">
+            GitHub @achimdehnert
+        </a>
+    </p>
+</div>
+
+</body>
+</html>
