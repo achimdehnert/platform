@@ -1,0 +1,144 @@
+# =============================================================================
+# Odoo docker-compose.prod.yml — Hetzner VM Deploy (fits deploy-remote.sh)
+# =============================================================================
+# Secrets via .env.prod (never committed).
+# deploy-remote.sh expects:
+#   IMAGE_TAG — set in .env.prod, overwritten on deploy
+#   WEB_SERVICE — defaults to <app>-web
+# =============================================================================
+
+services:
+  # -- Odoo Web (Runtime) ----------------------------------------------------
+  app-web:
+    image: ghcr.io/${GHCR_OWNER}/${GHCR_REPO}:${IMAGE_TAG:-latest}
+    container_name: ${APP_NAME}_odoo
+    restart: unless-stopped
+    env_file: .env.prod
+    environment:
+      HOST: postgres
+      PORT: "5432"
+      USER: ${POSTGRES_USER}
+      PASSWORD: ${POSTGRES_PASSWORD}
+      PROXY_MODE: "true"
+      WORKERS: "${ODOO_WORKERS:-2}"
+      LIMIT_TIME_CPU: "${ODOO_LIMIT_TIME_CPU:-60}"
+      LIMIT_TIME_REAL: "${ODOO_LIMIT_TIME_REAL:-120}"
+    volumes:
+      - odoo_data:/var/lib/odoo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8069/web/login >/dev/null || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 1G
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    networks:
+      - platform
+
+  # -- Odoo Migration (expand-only gate) -------------------------------------
+  # Run via: docker compose --profile migration run --rm app-migrate
+  app-migrate:
+    image: ghcr.io/${GHCR_OWNER}/${GHCR_REPO}:${IMAGE_TAG:-latest}
+    container_name: ${APP_NAME}_odoo_migrate
+    profiles: ["migration"]
+    restart: "no"
+    env_file: .env.prod
+    environment:
+      HOST: postgres
+      PORT: "5432"
+      USER: ${POSTGRES_USER}
+      PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - odoo_data:/var/lib/odoo
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command:
+      [
+        "odoo",
+        "-d", "${POSTGRES_DB}",
+        "-u", "${ODOO_UPGRADE_MODULES:-base}",
+        "--stop-after-init",
+        "--log-level", "info"
+      ]
+    networks:
+      - platform
+
+  # -- PostgreSQL -------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: ${APP_NAME}_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 15s
+    shm_size: 256m
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+  # -- Nginx Reverse Proxy (optional) ----------------------------------------
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: ${APP_NAME}_nginx
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${NGINX_PORT:-8080}:80"
+    volumes:
+      - ./nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      app-web:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost/ >/dev/null 2>&1 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+volumes:
+  postgres_data:
+    name: ${APP_NAME}_postgres_data
+  odoo_data:
+    name: ${APP_NAME}_odoo_data
+
+networks:
+  platform:
+    name: bf_platform_prod
+    external: true
