@@ -31,8 +31,9 @@ done
 [ -z "$COMPOSE" ] && { echo "ERROR: No compose file found in ${DEPLOY_DIR}"; exit 1; }
 
 # Detect GHCR image name (3 strategies)
+# NOTE: All commands must tolerate failure due to set -eo pipefail
 # 1. From compose file literal (e.g. risk-hub)
-IMAGE=$(grep -oP 'ghcr\.io/achimdehnert/[^:"]+:latest' "$COMPOSE" | head -1)
+IMAGE=$(grep -oP 'ghcr\.io/achimdehnert/[^:"]+:latest' "$COMPOSE" 2>/dev/null | head -1 || true)
 # 2. From running container (handles ${VAR} interpolation in compose, e.g. trading-hub)
 if [ -z "$IMAGE" ]; then
     CONTAINER="${APP//-/_}_web"
@@ -114,11 +115,11 @@ update_status "HEALTH"
 
 # Extract host port from ports: section (formats: "8088:8000", "127.0.0.1:8088:8000")
 # Specifically look for web service ports, skip db/redis/rabbitmq
-HEALTH_PORT=$(grep -A2 'ports:' "$COMPOSE" | grep -oP '\b(8[0-9]{3}):\d+' | head -1 | cut -d: -f1)
+HEALTH_PORT=$(grep -A2 'ports:' "$COMPOSE" 2>/dev/null | grep -oP '\b(8[0-9]{3}):\d+' | head -1 | cut -d: -f1 || true)
 # Fallback: try to get from running web container
 if [ -z "$HEALTH_PORT" ]; then
     CONTAINER="${APP//-/_}_web"
-    HEALTH_PORT=$(docker port "$CONTAINER" 2>/dev/null | grep -oP '\d+$' | head -1)
+    HEALTH_PORT=$(docker port "$CONTAINER" 2>/dev/null | grep -oP '\d+$' | head -1 || true)
 fi
 [ -z "$HEALTH_PORT" ] && HEALTH_PORT="8088"
 
