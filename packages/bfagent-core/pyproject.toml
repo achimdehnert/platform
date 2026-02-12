@@ -1,6 +1,6 @@
 [project]
 name = "bfagent-core"
-version = "0.1.0"
+version = "0.2.0"
 description = "Shared core components for BFAgent Hub ecosystem (Tenancy, Auth, Audit, Outbox)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -21,6 +21,7 @@ dependencies = [
     "Django>=5.0,<6.0",
     "pydantic>=2.0",
     "structlog>=24.0",
+    "platform-context>=0.1.0",
 ]
 
 [project.optional-dependencies]
