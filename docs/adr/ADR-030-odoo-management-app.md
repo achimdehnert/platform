@@ -6,7 +6,7 @@ _Einführung von Odoo als zweite Applikationsplattform neben Django, mit konkret
 | --- | --- |
 | **ADR-ID** | ADR-030 |
 | **Titel** | Erste Odoo Management-App — Dual-Framework-Governance |
-| **Status** | Proposed (v2) |
+| **Status** | Accepted (v3) |
 | **Datum** | 2026-02-12 |
 | **Autor** | Achim Dehnert / Cascade (IT-Architekt-Perspektive) |
 | **Reviewer** | — |
@@ -23,6 +23,7 @@ _Einführung von Odoo als zweite Applikationsplattform neben Django, mit konkret
 | --- | --- | --- |
 | v1 | 2026-02-12 | Initialer Entwurf. Basiert auf Input-Dokument `docs/adr/inputs/odoo-integration.md` und Review `docs/reviews/REVIEW-odoo-management-app.md`. |
 | v2 | 2026-02-12 | Scope-Entscheidung: risk-hub (Schutztat) als erste Datenquelle. Datenstrategie: API-First + Read-Replica (phasenweise). Konkrete Odoo-Models aus Django-Domain abgeleitet. DRF-API-Voraussetzungen dokumentiert. |
+| v3 | 2026-02-12 | Status → **Accepted**. Phase 0 abgeschlossen. Phase 1 teilweise implementiert: schutztat_reporting deployed auf 46.225.127.211, Sync läuft, Domain + SSL aktiv. CI-Odoo-Workflow-Template erstellt. Implementierungsplan-Checkliste aktualisiert. |
 
 ---
 
@@ -567,7 +568,7 @@ class SyncLog(models.Model):
 
 ### 5.1 Odoo CI Pipeline
 
-Reusable Workflow `_ci-odoo.yml` (bereits erstellt):
+Reusable Workflow `ci-odoo.yml` (Template in `deployment/workflows/`):
 
 1. **Lint:** `ruff check` auf Custom Addons
 2. **Test:** `odoo --test-enable --stop-after-init` gegen PostgreSQL Service
@@ -601,7 +602,7 @@ Jedes Modul MUSS enthalten:
 ### 6.2 API-Kommunikation
 
 - Django → Odoo: Nicht vorgesehen (Odoo initiiert Sync)
-- Odoo → Django: Token-basierte Auth (`Authorization: Token <key>`)
+- Odoo → Django: Token-basierte Auth (`Authorization: Bearer <key>`)
 - API-Keys als `ir.config_parameter` in Odoo (nicht hardcoded)
 - HTTPS zwischen Servern (nach SSL-Setup)
 
@@ -645,57 +646,54 @@ Jedes Modul MUSS enthalten:
 
 ## 9. Implementierungsplan
 
-### Phase 0: Voraussetzungen (1 Woche)
+### Phase 0: Voraussetzungen (1 Woche) — ✅ ABGESCHLOSSEN
 
 **Django-Seite (risk-hub) — Django Ninja API (`/api/v1/`):**
 
 risk-hub nutzt **Django Ninja** (nicht DRF) mit `ApiKeyAuth` (Bearer Token via `ApiKey` Model).
 
-Bereits vorhanden:
-
 - [x] `GET /api/v1/risk/assessments` — List + Detail + Create + Approve
 - [x] `GET /api/v1/actions` — List + Detail + Create
 - [x] ApiKey-basierte Auth (Bearer Token, setzt tenant_id via Context)
 - [x] Offset/Limit Pagination auf allen List-Endpoints
-
-Noch zu erstellen:
-
 - [x] `GET /api/v1/risk/hazards` — List (mit assessment_id Filter) + Detail
+- [x] ApiKey für Odoo Service-Account konfiguriert (ir.config_parameter)
 - [ ] Tests für Hazards-Endpoint
-- [ ] ApiKey für Odoo Service-Account anlegen (auf Prod-Server)
 
 **Infrastruktur:**
 
 - [x] D-03 bis D-06 entschieden (Community, schutztat.iil.pet, kein SSO, Public IP)
-- [ ] GitHub-Repository erstellen: `schutztat-reporting`
-- [ ] `.env.prod` auf Odoo-Server (46.225.127.211) vorbereiten
+- [x] GitHub-Repository: `schutztat-reporting` (deployed via addons/ volume)
+- [x] `.env` auf Odoo-Server (46.225.127.211) konfiguriert
+- [x] Domain schutztat.iil.pet + SSL (Certbot)
+- [x] Firewall fw-odoo-prod (TCP 22/80/443, ICMP)
 
-### Phase 1: Proof-of-Concept (2 Wochen)
+### Phase 1: Proof-of-Concept (2 Wochen) — 🚧 IN PROGRESS
 
 **Odoo-Modul `schutztat_reporting`:**
 
-- [ ] 5 Models: Assessment, Hazard, ActionItem, ApprovalLog, SyncLog
-- [ ] Sync-Engine: `SyncLog._sync_model()` mit Pagination
-- [ ] Scheduled Actions: 3 Crons (Assessments, Hazards, Actions) alle 15 Min
-- [ ] Views: List + Form für alle Models
+- [x] 5 Models: Assessment, Hazard, ActionItem, ApprovalLog, SyncLog
+- [x] Sync-Engine: `SyncLog._sync_model()` mit Pagination + ISO-8601 Datetime-Parsing
+- [x] Scheduled Actions: 3 Crons (Assessments, Hazards, Actions) alle 15 Min
+- [x] Views: List + Form für alle Models
 - [ ] Views: Pivot (Assessments nach Status × Kategorie)
 - [ ] Views: Graph (Risk Score Verteilung)
 - [ ] Views: Kanban (ActionItems nach Status)
-- [ ] Security: `group_schutztat_reader` + `group_schutztat_manager`
-- [ ] `ir.model.access.csv` + `security.xml`
-- [ ] CI grün (`_ci-odoo.yml`)
-- [ ] Deployed auf 46.225.127.211
+- [x] Security: `group_schutztat_reader` + `group_schutztat_manager`
+- [x] `ir.model.access.csv` + `security.xml`
+- [ ] CI grün (`ci-odoo.yml` — Template erstellt in `deployment/workflows/`)
+- [x] Deployed auf 46.225.127.211
 
 ### Phase 2: Production-Ready (2 Wochen)
 
-- [ ] Domain + SSL (Certbot)
-- [ ] Backup-Cronjob (daily, 10 Retention)
+- [x] Domain + SSL (Certbot) — schutztat.iil.pet
+- [ ] Backup-Cronjob (daily, 10 Retention) — Script: `deployment/scripts/backup-odoo.sh`
 - [ ] Off-Server Backup Copy
 - [ ] Health-Monitoring
 - [ ] QWeb PDF Report (Assessment-Bericht)
 - [ ] User-Acceptance-Test mit echten risk-hub Daten
 - [ ] Read-Replica Setup (PG Streaming von risk-hub-DB)
-- [ ] ADR-030 Status → **Accepted**
+- [x] ADR-030 Status → **Accepted**
 
 ### Phase 3: Ausbau (nach Bedarf)
 
@@ -715,7 +713,7 @@ Jedes Odoo-Modul MUSS folgende Artefakte haben:
 - [ ] `security/security.xml` für Record Rules
 - [ ] `tests/` mit mindestens Unit Tests für Business-Logik
 - [ ] Docker-Setup folgt `deployment/templates/odoo/` Pattern
-- [ ] CI Pipeline via `_ci-odoo.yml`
+- [ ] CI Pipeline via `ci-odoo.yml`
 - [ ] Backup via `deployment/scripts/backup-odoo.sh`
 - [ ] Keine Kern-Überschreibungen (nur Erweiterung/Vererbung)
 - [ ] Nginx Reverse Proxy mit SSL
@@ -727,6 +725,8 @@ Jedes Odoo-Modul MUSS folgende Artefakte haben:
 - `docs/adr/inputs/odoo-integration.md` — Vollständiges Input-Dokument
 - `docs/reviews/REVIEW-odoo-management-app.md` — Kritischer Review
 - `docs/guides/FRAMEWORK-GUIDE.md` — Wann Odoo, wann Django, wann Hybrid
-- `deployment/templates/odoo/` — Compose, Dockerfile, Nginx Templates
-- `.github/workflows/_ci-odoo.yml` — Reusable CI Workflow
-- `deployment/scripts/backup-odoo.sh` — Backup-Script
+- `deployment/templates/odoo/docker-compose.prod.yml` — Odoo Compose Template
+- `deployment/templates/odoo/Dockerfile` — Odoo Image Baseline
+- `deployment/templates/odoo/nginx/default.conf` — Nginx Reverse Proxy
+- `deployment/workflows/ci-odoo.yml` — Odoo CI Workflow Template
+- `deployment/scripts/backup-odoo.sh` — DB + Filestore Backup Script
