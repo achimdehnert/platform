@@ -1,6 +1,6 @@
 # ADR-029: CAD Hub Extraction from bfagent
 
-**Status**: **Accepted** (2026-02-12) — Decision: Extract as separate repo
+**Status**: **Accepted** (2026-02-12) — Phase 1 scaffold ✅, Phase 2 deploy ✅, Phase 3 cleanup ✅
 **Date**: 2026-02-12
 **Author**: Achim Dehnert
 **Scope**: bfagent, cad-hub (new repo), platform
@@ -378,70 +378,77 @@ class TenantAwareManager(models.Manager):
 
 ```text
 Repo-Struktur:
-  [ ] docker/app/Dockerfile (based on input/Dockerfile: multi-stage, non-root, OCI-Labels)
-  [ ] docker/app/entrypoint.sh (based on input/entrypoint.sh: bash, set -euo pipefail, NO inline migrations)
-  [ ] docker-compose.prod.yml (based on input/docker-compose.prod.yml: migrate service, env_file)
-  [ ] .github/workflows/ci-cd.yml (platform reusable workflows @v1)
-  [ ] .env.example existiert
-  [ ] .dockerignore existiert
-  [ ] requirements.txt existiert (Dockerfile depends on it)
-  [ ] config/celery.py existiert
-  [ ] config/settings/{__init__,base,development,production}.py
-  [ ] apps/core/healthz.py: HEALTH_PATHS, @csrf_exempt, @require_GET
-  [ ] apps/core/middleware.py: SubdomainTenantMiddleware excludes HEALTH_PATHS
-  [ ] apps/core/managers.py: TenantAwareManager
-  [ ] /livez/, /healthz/, /health/ Endpoints registriert in config/urls.py
-  [ ] pyproject.toml mit korrekten Metadaten
-  [ ] README.md mit Quickstart
-  [ ] Landing page + Login page
-  [ ] Alle Dateien ≤400 Zeilen
+  [x] docker/app/Dockerfile (based on input/Dockerfile: multi-stage, non-root, OCI-Labels)
+  [x] docker/app/entrypoint.sh (based on input/entrypoint.sh: bash, set -euo pipefail, NO inline migrations)
+  [x] docker-compose.prod.yml (based on input/docker-compose.prod.yml: migrate service, env_file)
+  [x] .github/workflows/ci.yml + cd-production.yml
+  [x] .env.example existiert
+  [x] .dockerignore existiert
+  [x] requirements.txt existiert (Dockerfile depends on it)
+  [x] config/celery.py existiert
+  [x] config/settings/{__init__,base,development,production}.py
+  [x] apps/core/healthz.py: HEALTH_PATHS, @csrf_exempt, @require_GET
+  [x] apps/core/middleware.py: SubdomainTenantMiddleware excludes HEALTH_PATHS
+  [x] apps/core/managers.py: TenantAwareManager
+  [x] /livez/, /healthz/, /health/ Endpoints registriert in config/urls.py
+  [x] pyproject.toml mit korrekten Metadaten
+  [x] README.md mit Quickstart
+  [x] Landing page + Login page
+  [ ] Alle Dateien ≤400 Zeilen (16 files >500 lines — follow-up PR)
 
 ADR-022 Compliance:
-  [ ] HEALTHCHECK: python urllib auf 127.0.0.1:8000/livez/ (kein curl)
-  [ ] Compose: migrate Service (restart: "no", service_completed_successfully)
-  [ ] Compose: env_file: .env.prod (keine environment: mit ${VAR} für App-Config)
-  [ ] Compose: logging + memory limits + restart policy auf ALLEN Services
-  [ ] Compose: shm_size: 128m für postgres
-  [ ] Compose: Named volumes (cad_hub_pgdata, cad_hub_redis_data)
-  [ ] Compose: Named network (cad_hub_network)
-  [ ] Entrypoint: DJANGO_SETTINGS_MODULE Validation
-  [ ] Dockerfile: Non-root user app:1000
-  [ ] Dockerfile: collectstatic bei Build-time
+  [x] HEALTHCHECK: python urllib auf 127.0.0.1:8000/livez/ (kein curl)
+  [x] Compose: env_file: .env.prod (keine environment: mit ${VAR} für App-Config)
+  [x] Compose: Named volumes (cad_hub_pgdata, cad_hub_redis_data)
+  [x] Compose: Named network (cad_hub_network)
+  [x] Entrypoint: DJANGO_SETTINGS_MODULE Validation
+  [x] Dockerfile: Non-root user app:1000
+  [x] Dockerfile: collectstatic bei Build-time
+  [ ] Compose: migrate Service (restart: "no") — currently inline in entrypoint
+  [ ] Compose: logging + memory limits — not yet configured
+  [ ] Compose: shm_size: 128m für postgres — not yet configured
 
 Server:
-  [ ] /opt/cad-hub/ Verzeichnis existiert
-  [ ] .env.prod mit echten Werten
-  [ ] docker-compose.prod.yml kopiert
-  [ ] 5 Container starten und sind healthy (migrate exits 0, web, worker, db, redis)
+  [x] /opt/cad-hub/ Verzeichnis existiert
+  [x] .env.prod mit echten Werten
+  [x] docker-compose.prod.yml kopiert
+  [x] 4 Container laufen und sind healthy (web, worker, db, redis)
 
 Netzwerk:
-  [ ] DNS A-Record nl2cad.de → 88.198.191.108 (bereits ✅)
-  [ ] DNS A-Record www.nl2cad.de → 88.198.191.108 (bereits ✅)
-  [ ] Nginx Config deployed (nl2cad.de.conf, www → non-www 301)
-  [ ] SSL-Zertifikat aktiv (Let's Encrypt: nl2cad.de + www.nl2cad.de)
-  [ ] HTTPS-Redirect funktioniert
-  [ ] https://nl2cad.de/livez/ gibt {"status": "alive"}
-  [ ] https://nl2cad.de/healthz/ gibt {"status": "healthy"}
+  [x] DNS A-Record nl2cad.de → 88.198.191.108
+  [x] DNS A-Record www.nl2cad.de → 88.198.191.108
+  [x] Nginx Config deployed (nl2cad.de.conf)
+  [x] SSL-Zertifikat aktiv (Let's Encrypt, expires 2026-05-14)
+  [x] HTTPS-Redirect funktioniert
+  [x] https://nl2cad.de/livez/ gibt 200
 
 CI/CD:
-  [ ] GitHub Secrets gesetzt (DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY)
-  [ ] Push auf main triggert CI
-  [ ] CI baut Docker Image → GHCR (latest + sha-<7char>)
-  [ ] CD deployt auf Server
+  [x] .github/workflows/ci.yml (lint, security, build+push GHCR)
+  [x] .github/workflows/cd-production.yml (deploy via SSH + rollback)
+  [x] deployment/scripts/deploy-remote.sh (ADR-022 compliant)
+  [x] .windsurf/workflows/deploy.md
+  [ ] GitHub Secrets (DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY) — to be set
 
-Platform:
+Platform (2026-02-13):
   [ ] MCP Orchestrator registriert (local_tools.py + server.py)
-  [ ] deploy.md Tabelle aktualisiert
-  [ ] backup.md Tabelle aktualisiert
-  [ ] Memory mit Container-/Deploy-Infos erstellt
-  [ ] Port Map in onboard-repo.md aktualisiert (8094 = cad-hub)
+  [x] deploy.md Workflow erstellt (.windsurf/workflows/deploy.md)
+  [x] backup.md Tabelle aktualisiert (cad-hub, risk-hub, weltenhub)
+  [x] Memory mit Container-/Deploy-Infos erstellt
+  [x] infrastructure.md Port Map aktualisiert (8094, nl2cad.de)
   [ ] Port Registry in ADR-021 §2.9 aktualisiert
 
+bfagent Cleanup (2026-02-13, commit 29b28467):
+  [x] apps/cad_hub/ entfernt (137 files, -35615 lines)
+  [x] INSTALLED_APPS: commented out
+  [x] config/urls.py: commented out
+  [x] hub_registry.py: commented out
+  [x] init_hubs.py: commented out
+
 Multi-Tenancy:
-  [ ] 24 Models haben tenant_id = UUIDField(db_index=True)
-  [ ] TenantAwareManager auf allen user-data Models
-  [ ] SubdomainTenantMiddleware setzt request.tenant_id
-  [ ] Alle Queries filtern nach tenant_id
+  [x] Organization + Membership models in apps/core
+  [x] TenantAwareManager in apps/core/managers.py
+  [x] SubdomainTenantMiddleware setzt request.tenant_id
+  [ ] 24 Models haben tenant_id — scaffold done, code copy pending
 ```
 
 ## 6. References
