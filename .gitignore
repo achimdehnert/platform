@@ -31,3 +31,4 @@ app_backup/
 docs_legacy/
 # Sphinx build output
 docs/_build/
+*:Zone.Identifier
