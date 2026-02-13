@@ -1,0 +1,279 @@
+# =============================================================================
+# BF Agent Platform — Shared Tooling Configuration
+# =============================================================================
+#
+# Diese Datei enthält die plattformweiten Tool-Konfigurationen für:
+#   - ruff (Linter + Formatter, ersetzt flake8/isort/black/pyupgrade)
+#   - pytest
+#   - mypy (optional, für Type-Checking)
+#
+# Verwendung:
+#   Diese Sektion wird in jede pyproject.toml eines Platform-Packages
+#   oder einer App eingefügt. Bei Konflikten gilt: App > Platform.
+#
+# Referenzen:
+#   - odoo-standards-analyse.md, Abschnitt 5 "Tooling-Konfiguration"
+#   - PLATFORM_ARCHITECTURE_MASTER.md
+#   - Ruff Docs: https://docs.astral.sh/ruff/configuration/
+#
+# Hinweis: Bestehende creative-services pyproject.toml hat line-length=100
+#          und target-version="py311". Neue Packages nutzen die Werte unten.
+#          Bestehende Packages werden NICHT automatisch angepasst
+#          (Stable-File Preservation Rule, Abschnitt 2.7 der Analyse).
+#
+# Datum: 2026-02-13
+# =============================================================================
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# RUFF — Unified Python Linter + Formatter
+# ─────────────────────────────────────────────────────────────────────────────
+# Ruff ersetzt: flake8, isort, black, pyupgrade, bandit (teilweise)
+# Installiert über: pip install ruff>=0.15 oder als pre-commit Hook
+
+[tool.ruff]
+# Maximale Zeilenlänge (PEP 8 empfiehlt 79, wir nutzen 120 wie Odoo/Django-Community)
+line-length = 120
+
+# Ziel-Python-Version (bestimmt welche Syntax-Upgrades pyupgrade vorschlägt)
+# py312 = f-strings, match/case, ExceptionGroup, etc.
+target-version = "py312"
+
+# Dateien/Verzeichnisse die Ruff ignoriert
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "node_modules",
+    ".eggs",
+    "build",
+    "dist",
+    "docs/source/conf.py",          # Sphinx Config hat eigene Konventionen
+]
+
+
+[tool.ruff.format]
+# Formatter-Stil (kompatibel mit Black)
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+docstring-code-format = true       # Code-Blöcke in Docstrings formatieren
+
+
+[tool.ruff.lint]
+# Aktivierte Regel-Sets
+# Jedes Set hat einen Buchstaben-Prefix und prüft eine Kategorie
+select = [
+    # ── Kern-Regeln (immer aktiv) ──────────────────────────────────────
+    "E",        # pycodestyle errors (Einrückung, Whitespace, etc.)
+    "W",        # pycodestyle warnings
+    "F",        # pyflakes (unbenutzte Imports, undefined names, etc.)
+
+    # ── Import-Ordnung ─────────────────────────────────────────────────
+    # Ersetzt isort. Konfiguration siehe [tool.ruff.lint.isort]
+    "I",        # isort-kompatible Import-Sortierung
+
+    # ── Naming Conventions ─────────────────────────────────────────────
+    "N",        # pep8-naming (ClassName, function_name, CONSTANT_NAME)
+
+    # ── Bug Prevention ─────────────────────────────────────────────────
+    "B",        # flake8-bugbear
+                #   B001: Bare `except:` (VERBOTEN laut Exception Policy)
+                #   B006: Mutable default arguments
+                #   B007: Unused loop control variable
+                #   B009: Do not call `getattr` with constant attribute
+
+    # ── Code Simplification ────────────────────────────────────────────
+    "SIM",      # flake8-simplicity
+                #   SIM105: Use `contextlib.suppress(...)` statt try/except/pass
+                #   SIM108: Use ternary operator
+                #   SIM110: Use any() / all() statt for-loop
+
+    # ── Python Upgrade ─────────────────────────────────────────────────
+    "UP",       # pyupgrade (automatisch moderne Python-Syntax vorschlagen)
+                #   UP006: Use `list` statt `List` (Python 3.9+)
+                #   UP007: Use `X | Y` statt `Union[X, Y]` (Python 3.10+)
+                #   UP035: Import from `collections.abc` (Python 3.9+)
+
+    # ── Ruff-eigene Regeln ─────────────────────────────────────────────
+    "RUF",      # Ruff-spezifisch
+                #   RUF001: Ambiguous Unicode character
+                #   RUF012: Mutable class variable annotation
+
+    # ── Security (Basis) ───────────────────────────────────────────────
+    "S",        # flake8-bandit (Security-relevante Patterns)
+                #   S101: assert used (nur in Tests erlaubt)
+                #   S105: Hardcoded password
+                #   S110: try/except/pass (silent exception — VERBOTEN)
+
+    # ── Django-spezifisch ──────────────────────────────────────────────
+    "DJ",       # flake8-django
+                #   DJ001: Null on CharField (should use blank=True)
+                #   DJ003: Locals in render context (security risk)
+]
+
+# Regeln die global ignoriert werden
+ignore = [
+    "E501",     # Line too long — wird durch Formatter gehandhabt, nicht Linter
+    "S101",     # assert in Tests ist OK — wird per-file-ignores nur für Tests erlaubt
+]
+
+# Regeln die automatisch gefixt werden dürfen
+fixable = ["ALL"]
+
+# Regeln die NIE automatisch gefixt werden (nur melden)
+unfixable = [
+    "F841",     # Unused variable — könnte beabsichtigt sein (z.B. unpacking)
+]
+
+
+[tool.ruff.lint.per-file-ignores]
+# Django-Migrations: Auto-generiert, nicht unsere Verantwortung
+"*/migrations/*.py" = [
+    "E501",     # Zeilen können beliebig lang sein
+    "N",        # Naming irrelevant in Migrations
+    "RUF012",   # Mutable class variables sind OK in Migrations
+]
+
+# Tests: assert ist erlaubt, Security-Regeln relaxed
+"*/tests/*.py" = [
+    "S101",     # assert ist das Haupt-Tool in Tests
+    "S105",     # Hardcoded passwords in Test-Fixtures OK
+    "S106",     # Hardcoded passwords in function args OK (Test data)
+]
+"**/conftest.py" = [
+    "S101",
+    "S105",
+]
+
+# Management Commands: print() ist OK (CLI output)
+"*/management/commands/*.py" = [
+    "T201",     # print() erlaubt in Management Commands
+]
+
+# Settings: Wildcard imports, lange Zeilen üblich
+"**/settings/*.py" = [
+    "F403",     # Wildcard imports (from .base import *)
+    "F405",     # Undefined names from wildcard
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ISORT-KONFIGURATION (via Ruff)
+# ─────────────────────────────────────────────────────────────────────────────
+# Implementiert die 4-Gruppen-Regel aus der Odoo-Analyse (Abschnitt 2.3):
+#
+#   Gruppe 1: Python Standard Library (import os, from pathlib import Path)
+#   Gruppe 2: Third-Party (django, pydantic, httpx, rest_framework)
+#   Gruppe 3: Platform Packages (platform_core, creative_services, etc.)
+#   Gruppe 4: Local App (from .models import Story)
+#
+# Jede Gruppe wird durch eine Leerzeile getrennt.
+# Innerhalb jeder Gruppe: alphabetisch sortiert.
+
+[tool.ruff.lint.isort]
+# Bekannte Platform-Packages (Gruppe 3)
+# Diese werden ZWISCHEN Third-Party und Local-App einsortiert
+known-first-party = [
+    "platform_core",
+    "platform_creative",
+    "creative_services",
+    "bfagent_core",
+    "deployment_core",
+    "mcp_governance",
+]
+
+# Bekannte Third-Party die manchmal falsch erkannt werden
+known-third-party = [
+    "django",
+    "rest_framework",
+    "pydantic",
+    "httpx",
+    "celery",
+    "tenacity",
+]
+
+# Import-Sections Reihenfolge
+section-order = [
+    "future",           # from __future__ import annotations
+    "standard-library", # import os, from pathlib import Path
+    "third-party",      # import django, from pydantic import BaseModel
+    "first-party",      # from platform_core import ... (unsere Packages)
+    "local-folder",     # from .models import Story
+]
+
+# Leerzeile zwischen jeder Section erzwingen
+force-sort-within-sections = false
+
+# Relative Imports in Local-Folder bevorzugen
+relative-imports-order = "closest-to-furthest"
+
+# Einzelne Imports pro Zeile (kein `from x import a, b, c` über 120 chars)
+force-single-line = false
+
+# Klammern für mehrzeilige Imports
+force-wrap-aliases = false
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# PYTEST
+# ─────────────────────────────────────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+# Asyncio-Modus für async Tests (Django Channels, httpx, etc.)
+asyncio_mode = "auto"
+
+# Test-Verzeichnisse (Standard + App-spezifisch)
+testpaths = ["tests"]
+
+# Marker die wir verwenden
+markers = [
+    "slow: Marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: Marks tests requiring external services",
+    "security: Marks security-related tests",
+]
+
+# Minimale Pytest-Version
+minversion = "7.0"
+
+# Warnings die als Fehler behandelt werden
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning:pkg_resources",  # setuptools legacy
+    "ignore::django.utils.deprecation.RemovedInDjango60Warning",
+]
+
+# Coverage-Konfiguration (wenn pytest-cov installiert)
+addopts = [
+    "--strict-markers",     # Unbekannte Marker sind Fehler
+    "--strict-config",      # Konfigurationsfehler sind Fehler
+    "-ra",                  # Zusammenfassung am Ende (all except passed)
+]
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# MYPY (Optional — für Type-Checking)
+# ─────────────────────────────────────────────────────────────────────────────
+# Nur relevant wenn mypy im Projekt aktiviert ist.
+# Empfehlung: Schrittweise einführen, nicht alles auf einmal.
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = true
+warn_unused_configs = true
+warn_unused_ignores = true
+check_untyped_defs = true
+
+# Django-Plugin (wenn installiert)
+plugins = [
+    "mypy_django_plugin.main",
+]
+
+# Drittanbieter ohne Stubs ignorieren
+[[tool.mypy.overrides]]
+module = [
+    "rest_framework.*",
+    "celery.*",
+    "tenacity.*",
+]
+ignore_missing_imports = true

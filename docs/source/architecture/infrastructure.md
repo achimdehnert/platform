@@ -22,8 +22,8 @@ Alle Apps auf einem Hetzner Cloud VM: `88.198.191.108`
 │  │ bfagent    │ travel-beat  │ weltenhub            │   │
 │  │ :8000      │ :8002        │ :8081                │   │
 │  ├────────────┼──────────────┼──────────────────────┤   │
-│  │ mcp-hub    │ cad-hub      │                      │   │
-│  │ :8003      │ :8004        │                      │   │
+│  │ mcp-hub    │ cad-hub      │ risk-hub             │   │
+│  │ :8003      │ :8094        │ :8091                │   │
 │  └────────────┴──────────────┴──────────────────────┘   │
 └──────────────────────────────────────────────────────────┘
 ```
@@ -36,7 +36,8 @@ Alle Apps auf einem Hetzner Cloud VM: `88.198.191.108`
 | drifttales.com | travel-beat | Let's Encrypt |
 | weltenforger.com | weltenhub | Let's Encrypt |
 | mcp-hub.iil.pet | mcp-hub | Let's Encrypt |
-| cadhub.iil.pet | cad-hub | Let's Encrypt |
+| nl2cad.de | cad-hub | Let's Encrypt |
+| schutztat.de | risk-hub | Let's Encrypt |
 
 ## Deploy-Prozess
 

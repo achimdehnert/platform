@@ -1,0 +1,165 @@
+# =============================================================================
+# BF Agent Platform — CI: Code Quality & Commit Validation
+# =============================================================================
+#
+# Reusable Workflow für Code-Qualitätsprüfungen.
+# Wird von App-spezifischen Workflows aufgerufen:
+#
+#   jobs:
+#     quality:
+#       uses: achimdehnert/platform/.github/workflows/_ci-quality.yml@main
+#       with:
+#         python_version: "3.12"
+#
+# Prüfungen:
+#   1. Commit-Message-Format (auf PR-Commits, nicht Merge-Commits)
+#   2. Ruff Lint + Format Check (kein Auto-Fix in CI — nur Fehlermeldung)
+#   3. Security: Gitleaks Scan
+#
+# Referenzen:
+#   - ADR-009: Deployment Architecture (Reusable Workflows)
+#   - odoo-standards-analyse.md, Phase 1
+# =============================================================================
+
+name: "Code Quality"
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: "Python-Version für Ruff und Checks"
+        type: string
+        default: "3.12"
+      ruff_version:
+        description: "Ruff-Version (leer = latest)"
+        type: string
+        default: "0.15.0"
+      check_commits:
+        description: "Commit-Messages validieren (true/false)"
+        type: boolean
+        default: true
+
+jobs:
+  # ── Commit-Message Validierung ────────────────────────────────────────────
+  # Prüft alle Commits im PR (nicht den Merge-Commit selbst)
+  commit-messages:
+    if: ${{ inputs.check_commits && github.event_name == 'pull_request' }}
+    runs-on: ubuntu-latest
+    name: "Commit Messages"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          # Alle Commits des PR laden (nicht nur HEAD)
+          fetch-depth: 0
+
+      - name: Validate commit messages
+        # Jeder Commit im PR wird gegen das Format geprüft:
+        # [TAG] module: description (15-72 chars)
+        run: |
+          set -euo pipefail
+
+          echo "::group::Commit-Message-Validierung"
+
+          # Basis-Branch ermitteln (z.B. origin/main)
+          BASE="${{ github.event.pull_request.base.sha }}"
+          HEAD="${{ github.event.pull_request.head.sha }}"
+
+          echo "Prüfe Commits: ${BASE}..${HEAD}"
+
+          # Erlaubte Tags
+          TAGS="FIX|IMP|REF|SEC|MIG|ADR|MOV|REV|REL|DOC|TST|CI|MERGE|WIP"
+          # Header-Pattern: [TAG] modul: beschreibung
+          PATTERN="^\[(${TAGS})\] [a-z][a-z0-9_-]*: .{5,}"
+
+          ERRORS=0
+
+          while IFS= read -r commit_hash; do
+              # Commit-Message holen (nur erste Zeile = Header)
+              HEADER=$(git log --format='%s' -n 1 "$commit_hash")
+
+              # Merge-Commits automatisch durchlassen
+              if echo "$HEADER" | grep -qE '^Merge (branch|pull request|remote-tracking)'; then
+                  echo "✅ ${commit_hash:0:8}: [MERGE] $HEADER"
+                  continue
+              fi
+
+              # Revert-Commits durchlassen
+              if echo "$HEADER" | grep -qE '^Revert "'; then
+                  echo "✅ ${commit_hash:0:8}: [REVERT] $HEADER"
+                  continue
+              fi
+
+              # Format prüfen
+              if echo "$HEADER" | grep -qE "$PATTERN"; then
+                  echo "✅ ${commit_hash:0:8}: $HEADER"
+              else
+                  echo "❌ ${commit_hash:0:8}: $HEADER"
+                  echo "::error title=Invalid Commit Message::Commit ${commit_hash:0:8} does not match format: [TAG] module: description"
+                  ERRORS=$((ERRORS + 1))
+              fi
+          done < <(git log --format='%H' "${BASE}..${HEAD}")
+
+          echo "::endgroup::"
+
+          if [ "$ERRORS" -gt 0 ]; then
+              echo ""
+              echo "╔═══════════════════════════════════════════════════════════╗"
+              echo "║  ${ERRORS} Commit(s) mit ungültigem Message-Format       ║"
+              echo "║                                                           ║"
+              echo "║  Erwartetes Format:                                       ║"
+              echo "║    [TAG] modul: kurze beschreibung                        ║"
+              echo "║                                                           ║"
+              echo "║  Erlaubte Tags:                                           ║"
+              echo "║    FIX IMP REF SEC MIG ADR MOV REV REL DOC TST CI        ║"
+              echo "║                                                           ║"
+              echo "║  Beispiel:                                                ║"
+              echo "║    [FIX] travel-beat: prevent duplicate booking           ║"
+              echo "║                                                           ║"
+              echo "║  Fix: git rebase -i HEAD~N (squash/reword)               ║"
+              echo "╚═══════════════════════════════════════════════════════════╝"
+              exit 1
+          fi
+
+          echo "✅ Alle ${ERRORS:-0} Commits haben gültiges Format."
+
+  # ── Ruff Lint + Format Check ──────────────────────────────────────────────
+  ruff:
+    runs-on: ubuntu-latest
+    name: "Ruff Lint & Format"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+
+      - name: Install Ruff
+        run: pip install "ruff==${{ inputs.ruff_version }}"
+
+      - name: Ruff Check (Lint)
+        # --output-format=github erzeugt inline-Annotations im PR
+        run: ruff check --output-format=github .
+
+      - name: Ruff Format Check
+        # --check gibt Exit 1 wenn Dateien nicht formatiert sind (kein Auto-Fix)
+        run: ruff format --check --diff .
+
+  # ── Security: Gitleaks ────────────────────────────────────────────────────
+  gitleaks:
+    runs-on: ubuntu-latest
+    name: "Secret Detection"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Nur neue Commits scannen (nicht gesamte History)
+          GITLEAKS_ENABLE_COMMENTS: false
