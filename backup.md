@@ -16,10 +16,10 @@ User says one of:
 | App | Database Name | Backup Path |
 |-----|---------------|-------------|
 | bfagent | bfagent_prod | /opt/backups/bfagent/ |
-| cad-hub | cadhub_prod | /opt/backups/cadhub/ |
+| cad-hub | cad_hub | /opt/backups/cad-hub/ |
+| risk-hub | risk_hub | /opt/backups/risk-hub/ |
 | travel-beat | travelbeat_prod | /opt/backups/travelbeat/ |
-| trading-hub | tradinghub_prod | /opt/backups/tradinghub/ |
-| wedding-hub | wedding_hub | /opt/backups/wedding-hub/ |
+| weltenhub | weltenhub | /opt/backups/weltenhub/ |
 
 Host: 88.198.191.108
 
