@@ -1,0 +1,136 @@
+# =============================================================================
+# BF Agent Platform — Pre-Commit Configuration
+# =============================================================================
+#
+# Zentrale Code-Qualitäts-Hooks für alle Platform-Repositories.
+#
+# Installation:
+#   pip install pre-commit
+#   pre-commit install --hook-type pre-commit --hook-type commit-msg
+#
+# Manueller Testlauf (alle Dateien):
+#   pre-commit run --all-files
+#
+# Versionen aktualisieren:
+#   pre-commit autoupdate
+#
+# Referenzen:
+#   - Odoo Git Guidelines (adaptiert)
+#   - odoo-standards-analyse.md, Abschnitt 4 "Implementierungsplan"
+#   - PLATFORM_ARCHITECTURE_MASTER.md
+#
+# Hook-Reihenfolge (wichtig!):
+#   1. Basis-Hygiene (trailing whitespace, EOF, YAML/TOML check)
+#   2. Security (Gitleaks — vor Code-Änderungen prüfen)
+#   3. Ruff Linter mit --fix (kann Code ändern)
+#   4. Ruff Formatter (formatiert geänderten Code)
+#   5. Commit-Message-Validierung (commit-msg Stage)
+#
+# Versionen (Stand: 2026-02-13):
+#   pre-commit-hooks  v6.0.0
+#   ruff-pre-commit   v0.15.0
+#   gitleaks          v8.22.1
+# =============================================================================
+
+# ── 1. Basis-Hygiene ────────────────────────────────────────────────────────
+# Quelle: pre-commit/pre-commit-hooks (offizielle Standard-Hooks)
+# Zweck:  Konsistente Dateistruktur, keine kaputten Configs in Git
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v6.0.0
+  hooks:
+    # Whitespace am Zeilenende entfernen
+    - id: trailing-whitespace
+      args: [--markdown-linebreak-ext=md]  # Markdown-Linebreaks respektieren
+
+    # Jede Datei muss mit Newline enden (POSIX-Konvention)
+    - id: end-of-file-fixer
+
+    # YAML-Syntax validieren (docker-compose, CI-Workflows, etc.)
+    - id: check-yaml
+      args: [--allow-multiple-documents]  # Für multi-doc YAML (z.B. K8s)
+
+    # TOML-Syntax validieren (pyproject.toml, etc.)
+    - id: check-toml
+
+    # JSON-Syntax validieren (MCP configs, package.json, etc.)
+    - id: check-json
+
+    # Große Dateien blockieren (versehentliche DB-Dumps, Bilder, etc.)
+    # 500 KB Default — passt für unseren Einsatz
+    - id: check-added-large-files
+      args: [--maxkb=500]
+
+    # Merge-Conflict-Marker erkennen (<<<, ===, >>>)
+    - id: check-merge-conflict
+
+    # Kein direkter Commit auf main/master (nur über PR)
+    - id: no-commit-to-branch
+      args: [--branch, main, --branch, master]
+
+    # Python-Syntax prüfen (schneller als Ruff für Parse-Fehler)
+    - id: check-ast
+
+    # Debug-Statements erkennen (print(), breakpoint(), pdb.set_trace())
+    - id: debug-statements
+
+# ── 2. Security: Secrets Detection ──────────────────────────────────────────
+# Quelle: gitleaks (Go-basierter Scanner)
+# Zweck:  API-Keys, Passwörter, Tokens vor dem Commit abfangen
+# Hinweis: .gitleaksignore im Repo-Root für bekannte False Positives
+- repo: https://github.com/gitleaks/gitleaks
+  rev: v8.22.1
+  hooks:
+    - id: gitleaks
+
+# ── 3. Python: Linting & Formatting ────────────────────────────────────────
+# Quelle: astral-sh/ruff-pre-commit (Ruff in Rust, 10-100x schneller als flake8)
+# Zweck:  Einheitlicher Code-Stil + automatische Fixes
+#
+# Reihenfolge WICHTIG:
+#   ruff-check --fix ZUERST (kann Imports sortieren, Code ändern)
+#   ruff-format DANACH (formatiert das Ergebnis)
+#
+# Konfiguration: Zentral in pyproject.toml (nicht hier via args)
+# Siehe: pyproject.toml [tool.ruff] und [tool.ruff.lint]
+- repo: https://github.com/astral-sh/ruff-pre-commit
+  rev: v0.15.0
+  hooks:
+    # Linter: Fehler finden + Auto-Fix wo möglich
+    - id: ruff-check
+      args: [--fix, --exit-non-zero-on-fix, --show-fixes]
+      types_or: [python, pyi]
+
+    # Formatter: Einheitliche Formatierung (ersetzt Black)
+    - id: ruff-format
+      types_or: [python, pyi]
+
+# ── 4. pyproject.toml Validierung ───────────────────────────────────────────
+# Quelle: abravalheri/validate-pyproject
+# Zweck:  Sicherstellen dass pyproject.toml schema-konform ist
+#         (fängt Tippfehler in Build-Config ab)
+- repo: https://github.com/abravalheri/validate-pyproject
+  rev: v0.23
+  hooks:
+    - id: validate-pyproject
+      additional_dependencies: ["validate-pyproject-schema-store[all]"]
+
+# ── 5. Commit-Message-Validierung ───────────────────────────────────────────
+# Quelle: Lokales Script (scripts/check-commit-msg.sh)
+# Zweck:  Erzwingt [TAG] module: description Format
+#         (adaptiert von Odoo Git Guidelines)
+#
+# Format:  [TAG] module: short description (15-72 chars)
+# Tags:    FIX, IMP, REF, SEC, MIG, ADR, MOV, REV, REL, DOC, TST, CI, MERGE, WIP
+#
+# Beispiel: [FIX] travel-beat: prevent duplicate booking on race condition
+#
+# WICHTIG: Erfordert Installation mit --hook-type commit-msg:
+#   pre-commit install --hook-type pre-commit --hook-type commit-msg
+- repo: local
+  hooks:
+    - id: bf-commit-msg
+      name: "BF Agent Commit Message Format"
+      entry: scripts/check-commit-msg.sh
+      language: script
+      stages: [commit-msg]
+      always_run: true
