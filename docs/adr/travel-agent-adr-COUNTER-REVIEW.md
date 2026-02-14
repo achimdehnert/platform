@@ -518,16 +518,90 @@ Der Agent ist **einer von drei parallelen Einstiegspfaden** zur Trip-Erstellung.
 | `create_trip` | Trip anlegen (Name, Origin, Dates, TripType) in `transaction.atomic` | 0.5 Tag |
 | `update_stop` | Existierenden Stop bearbeiten | 0.25 Tag |
 | `add_transport` | Transport zwischen Stops anlegen | 0.5 Tag |
+| `add_segment` | Aktivität/Szene zu einem Stop hinzufügen (→ `TripSegment`) | 0.75 Tag |
 | `finalize_trip` | Status → READY, Return URL für Wizard Step 3 | 0.25 Tag |
-| System-Prompt | Konversationsfluss für Reiseplanung, erlaubte TripTypes | 0.5 Tag |
+| System-Prompt | Konversationsfluss inkl. proaktiver Aktivitäten-Abfrage | 0.5 Tag |
 | Rate-Limiting (K7) | Cache-basiert, analog zu Upload-Pfad | 0.5 Tag |
 | Tests | Unit + Integration | 0.5 Tag |
 
-**Geschätzter Aufwand: ~3 Tage**
+**Geschätzter Aufwand: ~4 Tage**
+
+### Szenen- und Aktivitäten-Schicht (ADR-009 Segment-System)
+
+Der Agent muss **nicht nur Stops erstellen**, sondern auch erfragen, **was an jedem Stop passieren soll**. Diese Aktivitäten, Unterkünfte und Erlebnisse sind die Szenen der späteren Story und werden als `TripSegment` gespeichert.
+
+**Datenmodell-Mapping:**
+
+```
+Trip: "Wellnessreise Rom" (wellness)
+├── Stop: Bozen (3 Tage)
+│   ├── TripSegment: accommodation/hotel (Wellness-Hotel)
+│   ├── TripSegment: activity/spa (Thermalbad)
+│   └── TripSegment: activity/hiking (Dolomiten-Wanderung)
+├── Stop: Verona (2 Tage)
+│   ├── TripSegment: accommodation/hotel
+│   ├── TripSegment: activity/museum (Arena, Julias Balkon)
+│   └── TripSegment: activity/restaurant (Abendessen Piazza Erbe)
+└── Stop: Rom (Endziel)
+    └── TripSegment: ...
+```
+
+**Existierende Datenstruktur (`apps/trips/models/segments.py`):**
+
+- `SegmentCategory` — Top-Level: `transport`, `accommodation`, `activity`
+- `SegmentType` — Spezifisch: `museum`, `restaurant`, `spa`, `hotel`, `flight`, etc.
+- `TripSegment` — Instanz verknüpft mit Trip + Stop, enthält:
+  - `segment_data` (JSONField) — flexible Daten (Name, Details)
+  - `story_notes` — Notizen für Story-Generierung
+  - `emotional_tone` — "romantisch", "aufregend", "nachdenklich"
+  - `duration_minutes` — Dauer der Aktivität
+  - `reading_efficiency` — Wie viel der Zeit zum Lesen nutzbar ist (aus `SegmentType`)
+
+**`add_segment`-Tool-Schema (Entwurf):**
+
+```python
+{
+    "type": "function",
+    "function": {
+        "name": "add_segment",
+        "description": (
+            "Add an activity, accommodation, or experience to a stop. "
+            "Each segment becomes a scene in the generated story."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "stop_id": {"type": "integer", "description": "Stop to add segment to"},
+                "category": {
+                    "type": "string",
+                    "enum": ["activity", "accommodation"],
+                    "description": "Segment category",
+                },
+                "type_slug": {
+                    "type": "string",
+                    "description": "Segment type: museum, restaurant, spa, hotel, hiking, ...",
+                },
+                "description": {"type": "string", "description": "What the traveler wants to do"},
+                "duration_minutes": {"type": "integer", "description": "Estimated duration"},
+                "emotional_tone": {
+                    "type": "string",
+                    "description": "Desired mood: romantisch, aufregend, nachdenklich, entspannt",
+                },
+            },
+            "required": ["stop_id", "category", "type_slug", "description"],
+        },
+    },
+}
+```
+
+**System-Prompt-Verhalten:** Der Agent muss **proaktiv** nach Aktivitäten fragen, wenn der User nur Orte nennt. Beispiel:
+
+> User: "3 Tage Bozen, dann 2 Tage Verona"
+> Agent: "Was möchtest du in Bozen erleben? Hast du bestimmte Aktivitäten geplant — Wandern, Wellness, Stadtbummel? Und in Verona hast du Museen und gutes Essen erwähnt — gibt es bestimmte Restaurants oder Sehenswürdigkeiten die du besuchen möchtest?"
 
 ### Konvergenz-Design
 
-Entscheidend: Der Agent muss **nicht** Story-Settings, Enrichment oder Story-Generierung implementieren. Er erstellt Trip + Stops und gibt ab:
+Entscheidend: Der Agent muss **nicht** Story-Settings, Enrichment oder Story-Generierung implementieren. Er erstellt Trip + Stops + Segmente und gibt ab:
 
 ```python
 # Letzter Schritt des Agent-Pfads:
@@ -543,26 +617,47 @@ async def handle_finalize_trip(user, args):
     }
 ```
 
-Der User wird dann auf die Trip-Edit-Seite geleitet, wo Wizard Steps 3+4 (Story-Preferences, Review+Generate) wie gewohnt ablaufen — identisch zu Pfad B (Wizard) und Pfad C (Upload).
+Der User wird dann auf die Trip-Edit-Seite geleitet, wo Wizard Steps 3+4 (Story-Preferences, Review+Generate) wie gewohnt ablaufen — identisch zu Pfad B (Wizard) und Pfad C (Upload). Die TripSegmente (Szenen) fließen automatisch in die Story-Generierung ein, weil der `PromptBuilder` bereits `TripSegment.get_prompt_context()` nutzt.
 
 ### Beispiel-Konversation (Soll-Zustand nach Implementierung)
 
 ```
-User:  Ich möchte eine Wellnessreise nach Bali, 10 Tage im März.
-       Zuerst Ubud, dann Seminyak am Strand, dann Nusa Penida.
+User:  Ich möchte eine Wellnessreise nach Rom machen.
+       Ein Stopp soll drei Tage in Bozen sein und zwei Tage in Verona.
+       Dort möchte ich Museen besuchen und gut essen.
 
-Agent: [create_trip] → Trip "Wellnessreise Bali" (wellness, 01.03-10.03)
-       [add_stop]    → Ubud, Indonesien (01.03-04.03)
-       [add_stop]    → Seminyak, Indonesien (04.03-08.03)
-       [add_stop]    → Nusa Penida, Indonesien (08.03-10.03)
-       [add_transport] → Ubud → Seminyak (Auto, 90 Min)
-       [add_transport] → Seminyak → Nusa Penida (Fähre, 45 Min)
+Agent: Super! Ich lege die Reise an.
 
-       Ich habe deine Reise erstellt:
-       • 3 Stopps: Ubud → Seminyak → Nusa Penida
-       • 10 Tage, 2 Transporte
-       Soll ich noch etwas anpassen, oder möchtest du mit den
-       Story-Einstellungen weitermachen? [Link: /trips/42/edit/]
+       [create_trip] → Trip "Wellnessreise Rom" (wellness)
+       [add_stop]    → Bozen, Italien (3 Tage)
+       [add_stop]    → Verona, Italien (2 Tage)
+       [add_stop]    → Rom, Italien (Endziel)
+
+       Für Verona habe ich notiert: Museen und gutes Essen.
+
+       [add_segment] → Verona: activity/museum "Museumsbesuche"
+       [add_segment] → Verona: activity/restaurant "Kulinarische Erlebnisse"
+
+       Was möchtest du in Bozen machen? Wellness, Wandern in den
+       Dolomiten, Stadtbummel? Und wie lange planst du in Rom zu sein?
+
+User:  In Bozen Wellness und eine Dolomiten-Wanderung.
+       Rom dann 3 Tage mit Kolosseum und Vatikan.
+
+Agent: [add_segment] → Bozen: activity/spa "Wellness/Thermalbad"
+       [add_segment] → Bozen: activity/hiking "Dolomiten-Wanderung"
+       [add_segment] → Rom: activity/sightseeing "Kolosseum"
+       [add_segment] → Rom: activity/sightseeing "Vatikan"
+
+       Perfekt! Deine Reise:
+       • Bozen (3 Tage): Wellness + Dolomiten-Wanderung
+       • Verona (2 Tage): Museen + kulinarische Erlebnisse
+       • Rom (3 Tage): Kolosseum + Vatikan
+       • 8 Tage gesamt, 6 geplante Aktivitäten
+
+       Soll ich noch Unterkünfte oder Transporte zwischen den
+       Stopps ergänzen, oder möchtest du mit den Story-Einstellungen
+       weitermachen? [Link: /trips/42/edit/]
 ```
 
 ### Review-Defizit
@@ -580,9 +675,11 @@ Weder Original-Review noch Counter-Review v1 erkennen die **3-Pfade-Architektur*
 | Technische Infrastruktur (LiteLLM, async, DB-Config) | 🟢 Solide |
 | Read-/Query-Tools (search, details, stats) | 🟢 Vollständig |
 | Trip-Creation-Tools (create, transport, finalize) | 🔴 Fehlen |
-| Konvergenz mit existierendem Flow (Steps 3+4) | 🟢 Architektonisch klar, nur `finalize_trip`-Tool fehlt |
+| Szenen-/Aktivitäten-Layer (`add_segment` → `TripSegment`) | 🔴 Fehlt — kritisch für Story-Qualität |
+| Proaktive Aktivitäten-Abfrage im System-Prompt | 🔴 Fehlt |
+| Konvergenz mit existierendem Flow (Steps 3+4) | 🟢 Architektonisch klar, `TripSegment.get_prompt_context()` existiert |
 | Rate-Limiting | 🔴 Fehlt (Pfad C hat es bereits: 20/h, 100/Tag) |
-| Gesamtaufwand bis MVP | **~3 Tage** |
+| Gesamtaufwand bis MVP | **~4 Tage** |
 
 ---
 
