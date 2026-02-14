@@ -1,7 +1,14 @@
 """Core module with base classes, LLM client, registry, and contexts."""
 
 from creative_services.core.base_handler import BaseHandler
-from creative_services.core.llm_client import LLMClient, LLMConfig, LLMProvider, LLMResponse
+from creative_services.core.llm_client import (
+    CompletionResponse,
+    LLMClient,
+    LLMConfig,
+    LLMProvider,
+    LLMResponse,
+    ToolCall,
+)
 from creative_services.core.llm_registry import (
     LLMTier,
     LLMEntry,
@@ -27,6 +34,9 @@ __all__ = [
     "LLMConfig",
     "LLMProvider",
     "LLMResponse",
+    # Tool-Use (complete() API)
+    "ToolCall",
+    "CompletionResponse",
     # LLM Registry (DB-driven)
     "LLMTier",
     "LLMEntry",
