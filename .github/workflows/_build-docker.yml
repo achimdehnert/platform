@@ -104,6 +104,8 @@ jobs:
           build-args: |
             GIT_SHA=${{ github.sha }}
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
+          secrets: |
+            github_token=${{ secrets.GITHUB_TOKEN }}
       
       - name: Trivy vulnerability scan
         if: ${{ inputs.scan_image }}
