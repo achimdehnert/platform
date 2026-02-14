@@ -28,8 +28,10 @@ dependencies = [
 
 [project.optional-dependencies]
 ifc = ["ifcopenshell"]
+db = ["asyncpg>=0.29"]
 dev = [
     "pytest>=8.0",
+    "pytest-asyncio>=0.23",
     "pytest-cov>=4.0",
     "ruff>=0.1",
 ]
