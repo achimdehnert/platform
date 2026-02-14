@@ -442,131 +442,148 @@ Die Implementierung ist **architektonisch deutlich sauberer** als der ADR-Entwur
 1. **LiteLLM statt SDK-Lock-in** — Provider-Swap via DB ohne Code-Änderung
 2. **OpenAI-Format Tool-Schema** — Portabel, standardisiert, JSON-serialisierbar
 3. **Async-First** — Kein Worker-Blocking
-4. **Minimal Scope** — Agent ist Trip-Management, nicht Wizard-Ersatz
+4. **Klarer Scope** — Agent ist Trip-Creation-Pfad (einer von drei), konvergiert mit Wizard/Upload
 5. **Usage-Logging** — Automatisch via `AIUsageLog` für jeden Call
 6. **User-Auth per Handler** — Saubere Durchreichung, kein mutable State
 
 ---
 
-## ADDENDUM: Scope-Gap-Analyse — Kernvorgabe vs. Implementierung
+## ADDENDUM: Scope-Gap-Analyse — 3-Pfade-Architektur
 
-> **Hinzugefügt:** 2026-02-14 (nach interner Prüfung)
+> **Version:** v2 (2026-02-14, korrigiert nach Stakeholder-Feedback)
 > **Anlass:** Weder Original-Review noch Counter-Review prüfen, ob die **funktionale Kernvorgabe** abgedeckt ist.
 
 ### Kernvorgabe
 
-> Der Agent soll in einem quasi-Gespräch vom Benutzer die Anforderungen an die Reise erheben und diese dann als Trip-Stops und Szenen in travel-beat integrieren.
+Der Agent ist **einer von drei parallelen Einstiegspfaden** zur Trip-Erstellung. Alle drei Pfade konvergieren am selben Punkt: Trip + Stops existieren in der DB. Danach geht es für alle Pfade identisch weiter (Story-Settings → Review → Generate).
 
-Das bedeutet konkret:
-
-1. **Konversationelle Erhebung** — Agent fragt: Wohin? Wann? Wie lange? Welche Stopps? Welche Aktivitäten?
-2. **Progressive Extraktion** — Aus dem Gespräch werden strukturierte Daten (Trip, Stops, Transport) extrahiert
-3. **DB-Integration** — Trip + Stops + Transport werden in travel-beat erstellt
-4. **Story-/Szenen-Anbindung** — Erstellte Daten fließen in die Story-Generierung (Genre, Szenen, Enrichment)
-
-### Ist-Zustand: Wizard vs. Agent
-
-Der existierende **Wizard** (`apps/trips/wizard.py`) deckt den vollständigen Erstellungsflow ab:
-
-| Step | Wizard | URL |
-|------|--------|-----|
-| 1 | Basics (Name, Origin, Dates, TripType) | `/new/basics/` |
-| 1.5 | Travelers (Reiseparty) | `/new/travelers/` |
-| 2 | Stops + Transport (StopFormSet) | `/new/stops/` |
-| 3 | Story-Preferences (Genre, Spice, Ending, Triggers) | `/new/preferences/` |
-| 4 | Review + Generate | `/new/review/` |
-
-Der existierende **Agent** (`apps/trips/agent/`) hat einen **fundamental engeren Scope**:
-
-| Tool | Funktion | Wizard-Äquivalent |
-|------|----------|-------------------|
-| `search_trips` | Bestehende Trips durchsuchen | — (kein Äquivalent) |
-| `get_trip_details` | Trip-Details anzeigen | — (Read-Only) |
-| `add_stop` | Einzelnen Stop zu **existierendem** Trip hinzufügen | Teilweise Step 2 |
-| `suggest_activities` | Aktivitäten vorschlagen (kein DB-Write) | — |
-| `get_trip_stats` | Statistiken berechnen | — (Read-Only) |
-
-### Gap-Matrix: Vorgabe → Implementierung
-
-| Vorgabe | Wizard | Agent | Status |
-|---------|--------|-------|--------|
-| Trip erstellen (Name, Dates, Origin) | ✅ Step 1 | ❌ Kein `create_trip`-Tool | 🔴 FEHLT |
-| Stops im Gespräch erheben | ❌ (Formular) | ⚠️ Nur `add_stop` zu existierendem Trip | 🟠 TEILWEISE |
-| Transport zwischen Stops | ✅ Step 2 (Modal) | ❌ Kein `add_transport`-Tool | 🔴 FEHLT |
-| Reiseparty/Travelers | ✅ Step 1.5 | ❌ Kein Tool | 🔴 FEHLT |
-| Story-Settings (Genre, Spice) | ✅ Step 3 | ❌ Kein Tool | 🔴 FEHLT |
-| Story-Generierung triggern | ✅ Step 4 | ❌ Kein Tool | 🔴 FEHLT |
-| Enrichment (ADR-020/026) | ✅ Pipeline | ❌ Kein Tool | 🔴 FEHLT |
-| Konversationelle Erhebung | ❌ (nur Formulare) | ✅ Multi-Turn Chat | 🟢 NUR IM AGENT |
-| Progressive Extraktion | ❌ | ❌ | 🔴 FEHLT |
-
-### Bewertung
-
-**Der Agent ist ein Trip-Management-Assistent, kein Trip-Creation-Agent.**
-
-Er kann bestehende Trips durchsuchen und einzelne Stops ergänzen — aber er kann **nicht**:
-- Einen neuen Trip aus einem Gespräch erstellen
-- Stops progressiv aus dem Dialog extrahieren
-- Transport-Verbindungen anlegen
-- Story-Settings erheben
-- Story-Generierung anstoßen
-
-Die **technische Infrastruktur** (LiteLLM, Tool-Use-Loop, async, DB-driven Config) ist solide. Was fehlt, ist die **funktionale Abdeckung** der Kernvorgabe.
-
-### Fehlende Tools für Kernvorgabe
+### 3-Pfade-Architektur (Soll)
 
 ```
-Minimal Viable Agent (Wizard Steps 1+2 als Gespräch):
-├── create_trip          — Trip anlegen (Name, Origin, Dates, TripType)
-├── add_stop             — ✅ existiert
-├── update_stop          — Stop bearbeiten
-├── add_transport        — Transport zwischen Stops
-└── finalize_trip        — Status → READY, Redirect auf Wizard Step 3
-
-Erweiterter Agent (komplett konversationell):
-├── ... (wie oben)
-├── add_traveler         — Reisende hinzufügen
-├── set_story_prefs      — Genre, Spice, Ending, Triggers
-├── trigger_enrichment   — Stop-Enrichment anstoßen
-└── generate_story       — Story-Generierung via Celery
+                    ┌─────────────────────────────┐
+                    │     TRIP CREATION PHASE      │
+                    │   (3 parallele Einstiege)    │
+                    └─────────────────────────────┘
+                                 │
+            ┌────────────────────┼────────────────────┐
+            ▼                    ▼                     ▼
+   ┌─────────────────┐ ┌─────────────────┐  ┌─────────────────┐
+   │  Pfad A: AGENT  │ │ Pfad B: WIZARD  │  │ Pfad C: UPLOAD  │
+   │  (Konversation) │ │ (Manuell/Forms) │  │ (CSV/PDF/ICS)   │
+   │                 │ │                  │  │                  │
+   │  User erzählt   │ │ Step 1: Basics   │  │ Datei hochladen  │
+   │  → Agent fragt  │ │ Step 1.5: Party  │  │ → AI-Parsing     │
+   │  → Agent erstellt│ │ Step 2: Stops   │  │ → Bestätigung    │
+   └────────┬────────┘ └────────┬─────────┘  └────────┬─────────┘
+            │                    │                      │
+            └────────────────────┼──────────────────────┘
+                                 ▼
+                    ┌─────────────────────────────┐
+                    │  KONVERGENZPUNKT:            │
+                    │  Trip + Stops in DB          │
+                    │  (Status: DRAFT/READY)       │
+                    └──────────────┬──────────────┘
+                                   ▼
+                    ┌─────────────────────────────┐
+                    │  GEMEINSAMER WEITERFLUSS     │
+                    │  Step 3: Story-Preferences   │
+                    │  Step 4: Review + Generate   │
+                    │  → Enrichment (ADR-020/026)  │
+                    │  → Story-Pipeline (ADR-025)  │
+                    └─────────────────────────────┘
 ```
 
-### Empfehlung
+### Ist-Zustand der 3 Pfade
 
-**Phase 1 (MVP, ~3 Tage):** Agent ersetzt Wizard Steps 1+2
+| Pfad | Status | Implementierung |
+|------|--------|----------------|
+| **B: Wizard** (Manuell) | ✅ Vollständig | `apps/trips/wizard.py` — Steps 1→1.5→2→3→4 |
+| **C: Upload** (CSV/PDF) | ✅ Vollständig | `apps/trips/views_import.py` (ADR-016) — AI-Parsing, Rate-Limiting, Bestätigung |
+| **A: Agent** (Konversation) | 🟠 Infrastruktur da, Funktion fehlt | `apps/trips/agent/` — Tool-Loop existiert, aber **kein `create_trip`-Tool** |
 
-| Tool | Handler | Aufwand |
-|------|---------|--------|
-| `create_trip` | `Trip.objects.create()` in `transaction.atomic` | 0.5 Tag |
-| `update_stop` | `Stop.objects.filter(trip__user=user).update()` | 0.25 Tag |
-| `add_transport` | `Transport.objects.create()` mit From/To-Stop-Validierung | 0.5 Tag |
-| `finalize_trip` | Status → READY, Return Wizard-Step-3-URL | 0.25 Tag |
-| System-Prompt erweitern | Konversationsfluss für Reiseplanung | 0.5 Tag |
-| Rate-Limiting (K7) | Cache-basiert | 0.5 Tag |
-| Tests | Unit + Integration für neue Tools | 0.5 Tag |
+### Agent-Pfad: Was existiert vs. was fehlt
 
-Nach Phase 1 kann ein User sagen:
+**Existierende Infrastruktur (solide):**
 
-> "Ich möchte eine Wellnessreise nach Bali, 10 Tage im März. Zuerst 3 Tage Ubud, dann 4 Tage Seminyak am Strand, dann 3 Tage Nusa Penida."
+- `ConversationalTripAgent` mit async Tool-Use-Loop
+- LiteLLM-basiert, DB-driven Config via `AIActionType`
+- OpenAI-Format Tool-Schemas, JSON-serialisierbar
+- Usage-Logging via `AIUsageLog`
+- 5 Read/Add-Tools (`search_trips`, `get_trip_details`, `add_stop`, `suggest_activities`, `get_trip_stats`)
 
-Der Agent erstellt Trip + 3 Stops + 2 Transporte und leitet auf Step 3 (Story-Settings) weiter.
+**Fehlende Creation-Tools für Kernvorgabe:**
 
-**Phase 2 (Optional, +2 Tage):** Agent übernimmt auch Steps 3+4
+| Tool | Zweck | Aufwand |
+|------|-------|--------|
+| `create_trip` | Trip anlegen (Name, Origin, Dates, TripType) in `transaction.atomic` | 0.5 Tag |
+| `update_stop` | Existierenden Stop bearbeiten | 0.25 Tag |
+| `add_transport` | Transport zwischen Stops anlegen | 0.5 Tag |
+| `finalize_trip` | Status → READY, Return URL für Wizard Step 3 | 0.25 Tag |
+| System-Prompt | Konversationsfluss für Reiseplanung, erlaubte TripTypes | 0.5 Tag |
+| Rate-Limiting (K7) | Cache-basiert, analog zu Upload-Pfad | 0.5 Tag |
+| Tests | Unit + Integration | 0.5 Tag |
 
-- `set_story_prefs` + `generate_story` Tools
-- Komplett konversationeller Flow
-- Kein Wizard-Redirect mehr nötig
+**Geschätzter Aufwand: ~3 Tage**
+
+### Konvergenz-Design
+
+Entscheidend: Der Agent muss **nicht** Story-Settings, Enrichment oder Story-Generierung implementieren. Er erstellt Trip + Stops und gibt ab:
+
+```python
+# Letzter Schritt des Agent-Pfads:
+async def handle_finalize_trip(user, args):
+    trip = Trip.objects.get(id=args["trip_id"], user=user)
+    trip.status = Trip.Status.READY
+    trip.save(update_fields=["status", "updated_at"])
+    return {
+        "success": True,
+        "message": f"Reise '{trip.name}' bereit!",
+        "next_url": f"/trips/{trip.pk}/edit/",
+        "hint": "Story-Einstellungen können jetzt konfiguriert werden.",
+    }
+```
+
+Der User wird dann auf die Trip-Edit-Seite geleitet, wo Wizard Steps 3+4 (Story-Preferences, Review+Generate) wie gewohnt ablaufen — identisch zu Pfad B (Wizard) und Pfad C (Upload).
+
+### Beispiel-Konversation (Soll-Zustand nach Implementierung)
+
+```
+User:  Ich möchte eine Wellnessreise nach Bali, 10 Tage im März.
+       Zuerst Ubud, dann Seminyak am Strand, dann Nusa Penida.
+
+Agent: [create_trip] → Trip "Wellnessreise Bali" (wellness, 01.03-10.03)
+       [add_stop]    → Ubud, Indonesien (01.03-04.03)
+       [add_stop]    → Seminyak, Indonesien (04.03-08.03)
+       [add_stop]    → Nusa Penida, Indonesien (08.03-10.03)
+       [add_transport] → Ubud → Seminyak (Auto, 90 Min)
+       [add_transport] → Seminyak → Nusa Penida (Fähre, 45 Min)
+
+       Ich habe deine Reise erstellt:
+       • 3 Stopps: Ubud → Seminyak → Nusa Penida
+       • 10 Tage, 2 Transporte
+       Soll ich noch etwas anpassen, oder möchtest du mit den
+       Story-Einstellungen weitermachen? [Link: /trips/42/edit/]
+```
 
 ### Review-Defizit
 
-| Dokument | Prüft Kernvorgabe? | Warum nicht? |
-|----------|-------------------|--------------|
-| Original-Review | ❌ | Fokus auf technische Bugs im ADR-Draft |
-| Counter-Review v1 | ❌ | Fokus auf Revalidierung der 16 Befunde |
-| **Dieses Addendum** | ✅ | Scope-Gap explizit adressiert |
+Weder Original-Review noch Counter-Review v1 erkennen die **3-Pfade-Architektur** als Design-Prinzip:
 
-Der Original-Review behandelt den ADR-Code als ob er die Kernvorgabe umsetzen würde, identifiziert aber nur **Code-Fehler** (falsche Felder, fehlender atomic, etc.). Er bewertet nicht, ob der vorgeschlagene Funktionsumfang (nur `create_trip` + `search_trips` + `add_stop`) die Vorgabe "konversationelle Anforderungserhebung → Trip/Stops/Szenen" tatsächlich erfüllt. Mein Counter-Review macht denselben Fehler — er validiert die 16 technischen Befunde, aber übersieht die funktionale Lücke.
+- **Original-Review** prüft technische Bugs im ADR-Draft, versteht aber nicht, dass der Agent nur Trip-Erstellung verantwortet und danach an den existierenden Flow abgibt
+- **Counter-Review v1** validiert die 16 Befunde gegen Code, stuft den Agent fälschlich als "Trip-Management-Assistent" ein — tatsächlich ist er als Trip-Creation-Pfad gedacht, nur mit unvollständiger Tool-Ausstattung
+- **S2 im Original-Review** ("Story-Settings fehlen im Agent-Flow") ist kein Fehler — der Agent soll explizit **nicht** Story-Settings abfragen, sondern nach Trip-Erstellung an Steps 3+4 übergeben
+
+### Zusammenfassung
+
+| Aspekt | Bewertung |
+|--------|-----------|
+| Technische Infrastruktur (LiteLLM, async, DB-Config) | 🟢 Solide |
+| Read-/Query-Tools (search, details, stats) | 🟢 Vollständig |
+| Trip-Creation-Tools (create, transport, finalize) | 🔴 Fehlen |
+| Konvergenz mit existierendem Flow (Steps 3+4) | 🟢 Architektonisch klar, nur `finalize_trip`-Tool fehlt |
+| Rate-Limiting | 🔴 Fehlt (Pfad C hat es bereits: 20/h, 100/Tag) |
+| Gesamtaufwand bis MVP | **~3 Tage** |
 
 ---
 
-*Counter-Review + Addendum abgeschlossen: 2026-02-14*
+*Counter-Review + Addendum v2 abgeschlossen: 2026-02-14*
