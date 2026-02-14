@@ -25,7 +25,7 @@ from enum import Enum
 from typing import Optional, Protocol, runtime_checkable
 from pydantic import BaseModel, Field
 
-from .llm_client import LLMClient, LLMConfig, LLMProvider, LLMResponse
+from .llm_client import CompletionResponse, LLMClient, LLMConfig, LLMProvider, LLMResponse, ToolCall
 
 
 class LLMTier(str, Enum):
@@ -320,10 +320,51 @@ class DynamicLLMClient:
         
         return response
     
+    async def complete(
+        self,
+        messages: list[dict],
+        tools: list[dict] | None = None,
+        tool_choice: str = "auto",
+        llm_id: Optional[int] = None,
+        llm_name: Optional[str] = None,
+        tier: Optional[LLMTier] = None,
+        **kwargs,
+    ) -> CompletionResponse:
+        """Messages-based completion with tool-use and dynamic LLM selection.
+
+        Priority: llm_id > llm_name > tier > default.
+
+        Args:
+            messages: Chat messages [{"role": "...", "content": "..."}].
+            tools: Tool definitions (auto-converted between providers).
+            tool_choice: "auto", "none", or "required".
+            llm_id: Explicit LLM selection by ID.
+            llm_name: Explicit LLM selection by name.
+            tier: Tier-based selection (economy/standard/premium).
+            **kwargs: Override temperature, max_tokens, etc.
+
+        Returns:
+            CompletionResponse with content and/or tool_calls.
+        """
+        entry = self._resolve_entry(llm_id, llm_name, tier)
+        client = self._get_or_create_client(entry)
+
+        response = await client.complete(
+            messages=messages,
+            tools=tools,
+            tool_choice=tool_choice,
+            **kwargs,
+        )
+
+        # TODO: Track usage via UsageTracker
+        # self._track_usage(entry, response)
+
+        return response
+
     def get_entry_for_tier(self, tier: LLMTier) -> Optional[LLMEntry]:
         """Get the LLM entry that would be used for a tier."""
         return self.registry.get_by_tier(tier)
-    
+
     def list_available(self) -> list[LLMEntry]:
         """List all available LLMs."""
         return self.registry.list_active()

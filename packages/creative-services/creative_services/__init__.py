@@ -17,7 +17,7 @@ Core Features:
 - Adapters: Django ORM integration, BFAgent compatibility layer
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from creative_services.core import (
     # Base
@@ -28,6 +28,9 @@ from creative_services.core import (
     LLMConfig,
     LLMProvider,
     LLMResponse,
+    # Tool-Use (complete() API)
+    ToolCall,
+    CompletionResponse,
     # LLM Registry (DB-driven)
     LLMTier,
     LLMEntry,
@@ -53,6 +56,9 @@ __all__ = [
     "LLMConfig",
     "LLMProvider",
     "LLMResponse",
+    # Tool-Use (complete() API)
+    "ToolCall",
+    "CompletionResponse",
     # LLM Registry (DB-driven)
     "LLMTier",
     "LLMEntry",
