@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "creative-services"
-version = "0.1.0"
-description = "Shared AI-powered creative writing services for BF Agent and Travel Beat"
+version = "0.2.0"
+description = "Shared AI-powered creative writing and tool-use services for BF Agent ecosystem"
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
