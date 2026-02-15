@@ -98,7 +98,8 @@ class AgentResponse(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     content: str | None = Field(
-        description="Final text response from the agent"
+        default=None,
+        description="Final text response from the agent",
     )
     rounds: int = Field(
         default=1,
@@ -108,3 +109,16 @@ class AgentResponse(BaseModel):
         default=0,
         description="Total tool calls executed",
     )
+    error: str | None = Field(
+        default=None,
+        description="Error message if the agent failed",
+    )
+    model: str = Field(
+        default="",
+        description="LLM model used for the response",
+    )
+
+    @property
+    def success(self) -> bool:
+        """True if no error occurred."""
+        return self.error is None

@@ -22,6 +22,7 @@ from .session import (
     RedisSessionBackend,
     SessionBackend,
 )
+from .composite import CompositeToolkit
 from .toolkit import DomainToolkit
 
 __all__ = [
@@ -36,6 +37,7 @@ __all__ = [
     "ChatSession",
     "ToolResult",
     # Toolkit
+    "CompositeToolkit",
     "DomainToolkit",
     # Session
     "SessionBackend",

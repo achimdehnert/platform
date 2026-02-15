@@ -10,6 +10,7 @@ import pytest
 from chat_agent import (
     AgentContext,
     ChatAgent,
+    CompositeToolkit,
     DomainToolkit,
     InMemorySessionBackend,
     ToolResult,
@@ -332,3 +333,201 @@ class TestInMemorySessionBackend:
         await backend.save(ChatSession(id="del-me", messages=[]))
         await backend.delete("del-me")
         assert await backend.load("del-me") is None
+
+
+# ------------------------------------------------------------------
+# Tests: AgentResponse error/success
+# ------------------------------------------------------------------
+
+
+class TestAgentResponse:
+    def test_should_be_success_without_error(self) -> None:
+        from chat_agent.models import AgentResponse
+
+        resp = AgentResponse(content="Hello")
+        assert resp.success
+        assert resp.error is None
+
+    def test_should_be_failure_with_error(self) -> None:
+        from chat_agent.models import AgentResponse
+
+        resp = AgentResponse(error="timeout")
+        assert not resp.success
+        assert resp.error == "timeout"
+
+    def test_should_have_model_field(self) -> None:
+        from chat_agent.models import AgentResponse
+
+        resp = AgentResponse(content="ok", model="gpt-4")
+        assert resp.model == "gpt-4"
+
+
+# ------------------------------------------------------------------
+# Tests: ChatAgent error handling
+# ------------------------------------------------------------------
+
+
+class TestChatAgentErrorHandling:
+    @pytest.mark.asyncio
+    async def test_should_return_error_on_completion_exception(
+        self,
+    ) -> None:
+        class FailingBackend:
+            async def complete(self, **kwargs: Any) -> Any:
+                raise RuntimeError("API down")
+
+        agent = ChatAgent(
+            toolkit=EchoToolkit(),
+            completion=FailingBackend(),
+            session_backend=InMemorySessionBackend(),
+            system_prompt="Test",
+        )
+
+        resp = await agent.chat(
+            session_id="err1", user_message="Hi"
+        )
+
+        assert not resp.success
+        assert "LLM call failed" in resp.error
+        assert resp.content is None
+
+    @pytest.mark.asyncio
+    async def test_should_return_error_on_max_rounds(
+        self,
+    ) -> None:
+        backend = FakeCompletionBackend([
+            # Always returns tool calls — never stops
+            FakeCompletionResponse(
+                tool_calls=[
+                    FakeToolCall(
+                        id=f"tc_{i}",
+                        name="echo",
+                        arguments={"message": "loop"},
+                    )
+                ],
+            )
+            for i in range(5)
+        ])
+
+        agent = ChatAgent(
+            toolkit=EchoToolkit(),
+            completion=backend,
+            session_backend=InMemorySessionBackend(),
+            system_prompt="Test",
+            max_rounds=3,
+        )
+
+        resp = await agent.chat(
+            session_id="mr1", user_message="Loop"
+        )
+
+        assert not resp.success
+        assert "Max tool rounds" in resp.error
+        assert resp.rounds == 3
+        assert resp.tool_calls_made == 3
+
+
+# ------------------------------------------------------------------
+# Tests: CompositeToolkit
+# ------------------------------------------------------------------
+
+
+class MathToolkit(DomainToolkit):
+    """Second toolkit for composite tests."""
+
+    @property
+    def name(self) -> str:
+        return "math"
+
+    @property
+    def tool_schemas(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "type": "function",
+                "function": {
+                    "name": "add",
+                    "description": "Add two numbers",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "a": {"type": "number"},
+                            "b": {"type": "number"},
+                        },
+                        "required": ["a", "b"],
+                    },
+                },
+            }
+        ]
+
+    async def execute(
+        self,
+        tool_name: str,
+        arguments: dict[str, Any],
+        ctx: AgentContext,
+    ) -> ToolResult:
+        if tool_name == "add":
+            return ToolResult(
+                success=True,
+                data={"sum": arguments["a"] + arguments["b"]},
+            )
+        return ToolResult(
+            success=False, error=f"Unknown: {tool_name}"
+        )
+
+
+class TestCompositeToolkit:
+    def test_should_merge_schemas(self) -> None:
+        composite = CompositeToolkit([
+            EchoToolkit(), MathToolkit()
+        ])
+        names = {
+            s["function"]["name"]
+            for s in composite.tool_schemas
+        }
+        assert names == {"echo", "add"}
+
+    def test_should_combine_names(self) -> None:
+        composite = CompositeToolkit([
+            EchoToolkit(), MathToolkit()
+        ])
+        assert composite.name == "echo+math"
+
+    def test_should_reject_name_collision(self) -> None:
+        with pytest.raises(ValueError, match="collision"):
+            CompositeToolkit([
+                EchoToolkit(), EchoToolkit()
+            ])
+
+    @pytest.mark.asyncio
+    async def test_should_dispatch_to_correct_toolkit(
+        self,
+    ) -> None:
+        composite = CompositeToolkit([
+            EchoToolkit(), MathToolkit()
+        ])
+        ctx = AgentContext(session_id="t1")
+
+        echo_result = await composite.execute(
+            "echo", {"message": "hi"}, ctx
+        )
+        assert echo_result.success
+        assert echo_result.data == {"echoed": "hi"}
+
+        math_result = await composite.execute(
+            "add", {"a": 2, "b": 3}, ctx
+        )
+        assert math_result.success
+        assert math_result.data == {"sum": 5}
+
+    @pytest.mark.asyncio
+    async def test_should_return_error_for_unknown_tool(
+        self,
+    ) -> None:
+        composite = CompositeToolkit([EchoToolkit()])
+        ctx = AgentContext(session_id="t2")
+
+        result = await composite.execute(
+            "nonexistent", {}, ctx
+        )
+        assert not result.success
+        assert "Unknown tool" in result.error
