@@ -96,3 +96,29 @@ class TestSubdomainTenantMiddleware:
         result = self.middleware.process_request(request)
         assert result is None
         assert request.tenant_id is None
+
+    def test_should_clear_context_on_response(self):
+        from django.http import HttpResponse
+
+        from django_tenancy.context import get_context
+
+        org = Organization.objects.create(
+            name="Ctx", slug="ctx", status="active",
+        )
+        # Simulate a request that sets tenant context
+        request = self.factory.get(
+            "/", HTTP_HOST="ctx.example.com",
+        )
+        self.middleware.process_request(request)
+        assert request.tenant_id == org.tenant_id
+
+        # Verify context is set
+        ctx = get_context()
+        assert ctx.tenant_id == org.tenant_id
+
+        # process_response should clear it
+        response = HttpResponse("ok")
+        self.middleware.process_response(request, response)
+        ctx = get_context()
+        assert ctx.tenant_id is None
+        assert ctx.tenant_slug is None
