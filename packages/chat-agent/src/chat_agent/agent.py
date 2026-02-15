@@ -116,14 +116,28 @@ class ChatAgent:
 
         total_tool_calls = 0
         content: str | None = None
+        error: str | None = None
+        model: str = ""
         round_num = 0
 
         for round_num in range(self.max_rounds):
-            result = await self.completion.complete(
-                messages=session.messages,
-                tools=self.toolkit.tool_schemas,
-                tool_choice="auto",
-            )
+            try:
+                result = await self.completion.complete(
+                    messages=session.messages,
+                    tools=self.toolkit.tool_schemas,
+                    tool_choice="auto",
+                )
+            except Exception as exc:
+                logger.exception(
+                    "Completion backend failed in session %s",
+                    session_id,
+                )
+                error = f"LLM call failed: {exc}"
+                break
+
+            # Track model if available
+            if hasattr(result, "model") and result.model:
+                model = result.model
 
             if not result.has_tool_calls:
                 content = result.content
@@ -147,12 +161,14 @@ class ChatAgent:
                 )
                 session.messages.append(tool_msg)
         else:
+            error = (
+                f"Max tool rounds ({self.max_rounds}) exceeded"
+            )
             logger.warning(
                 "Max rounds (%d) reached for session %s",
                 self.max_rounds,
                 session_id,
             )
-            content = result.content if hasattr(result, "content") else None
 
         await self.session_backend.save(session)
 
@@ -160,6 +176,8 @@ class ChatAgent:
             content=content,
             rounds=round_num + 1,
             tool_calls_made=total_tool_calls,
+            error=error,
+            model=model,
         )
 
     async def _execute_tool(

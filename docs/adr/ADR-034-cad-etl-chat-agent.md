@@ -2,10 +2,11 @@
 
 | Metadata    | Value |
 | ----------- | ----- |
-| **Status**  | Proposed |
+| **Status**  | Proposed (Review v1: 2026-02-14) |
 | **Date**    | 2026-02-14 |
 | **Author**  | Achim Dehnert |
-| **Related** | ADR-009 (Segment-System), ADR-010 (MCP-Governance), ADR-022 (Platform Consistency) |
+| **Reviewer** | Cascade (ADR Review v1) |
+| **Related** | ADR-009 (Segment-System), ADR-010 (MCP-Governance), ADR-022 (Platform Consistency), ADR-029 (cad-hub Extraction) |
 | **Packages** | `cad-services`, `creative-services`, `chat-agent` (neu) |
 
 ---
@@ -90,10 +91,12 @@ IFC/DXF-Datei
 | IFC-Parser | ✅ Implementiert | `cad_services/parsers/ifc_parser.py` |
 | DXF-Parser | ✅ Implementiert | `cad_services/parsers/dxf_parser.py` |
 | QuantityEngine | ✅ Implementiert | `cad_services/calculators/quantity_engine.py` |
-| Pipeline | ✅ Implementiert | `cad_services/pipeline.py` |
-| SQL-Schema (normalisiert) | ✅ 6 Migrations | `cad_services/sql/001-006` |
+| Pipeline | ✅ Implementiert (Pydantic-Output) | `cad_services/pipeline.py` |
+| SQL-Schema (normalisiert) | ✅ 6 SQL-Dateien (Reference) | `cad_services/sql/001-006` |
 | Pydantic-Modelle | ✅ Implementiert | `cad_services/models/` |
-| RLS-Policies (Multi-Tenant) | ✅ Implementiert | `sql/004_rls_policies.sql` |
+| RLS-Policies (Multi-Tenant) | ✅ SQL-Definition vorhanden | `sql/004_rls_policies.sql` |
+| DB-Writer (Pipeline → PG) | ❌ Fehlt | — |
+| Django ORM Models (cad-hub) | ⚠️ Vorhanden, aber inkonsistent mit SQL | `cad-hub/apps/ifc/models.py` |
 
 ### 2.3 Schema-Design-Entscheidungen
 
@@ -474,9 +477,31 @@ async def chat_view(request):
 
 **Migration: Non-breaking.** Der existierende Agent wird zu einem Thin-Wrapper.
 
-### 4.2 creative-services
+### 4.2 creative-services (ÄNDERUNG ERFORDERLICH)
 
-Keine Änderungen. `chat-agent` nutzt `creative-services.LLMClient` als Dependency.
+> **Review-Finding F-02:** `LLMClient.generate(prompt, system_prompt)` hat kein Tool-Use.
+> `chat-agent` benötigt eine Messages-API mit Tool-Use-Support.
+
+**Erforderliche Erweiterung** (siehe §8, Entscheidung E-02):
+
+```python
+# creative_services/core/llm_client.py — NEUE Methode (Port von bfagent L1)
+async def complete(
+    self,
+    messages: list[dict],
+    tools: list[dict] | None = None,
+    tool_choice: str = "auto",
+    **kwargs,
+) -> CompletionResponse:
+    """Messages-based completion with Tool-Use support.
+
+    Nutzt anthropic/openai SDK (nicht httpx) für natives Tool-Use.
+    Bestehende generate() bleibt unverändert (backward-compatible).
+    """
+    ...
+```
+
+Aufwand: ~2 Tage. Muss **vor Phase 1** (ChatAgent-Extraktion) abgeschlossen sein.
 
 ### 4.3 platform-context
 
@@ -498,27 +523,34 @@ ctx = AgentContext(
 
 | Phase | Aufgabe | Aufwand | Status |
 | ----- | ------- | ------- | ------ |
+| -1 | **creative-services Tool-Use** (E-02): `LLMClient.complete(messages, tools)` | 2 Tage | **Blocker** |
 | 0 | travel-beat Agent fertig ausbauen (create_trip, add_segment, finalize) | ~4 Tage | Pending |
-| 1 | `ChatAgent` + `DomainToolkit` aus TripAgent extrahieren → `chat-agent` Package | 1 Tag | Blocked by Phase 0 |
+| 0.5 | **Schema-Konsolidierung** (E-01): Django ORM ← cad-services SQL, RLS als RunSQL | 1.5 Tage | Blocked by E-01 Entscheidung |
+| 1 | `ChatAgent` + `DomainToolkit` aus TripAgent extrahieren → `chat-agent` Package | 1 Tag | Blocked by Phase -1 + 0 |
 | 2 | `SessionBackend` Protocol + InMemory + Redis | 0.5 Tag | Blocked by Phase 1 |
 | 3 | `ToolkitRegistry` + Django AppConfig Integration | 0.5 Tag | Blocked by Phase 1 |
-| 4a | cad-hub `CADToolkit` + DB-Writer für ETL-Pipeline | 2 Tage | Blocked by Phase 1 + §2 |
+| 4a | cad-hub `CADToolkit` + DB-Writer für ETL-Pipeline | 2 Tage | Blocked by Phase 0.5 + 1 |
 | 4b | bfagent `BookFactoryToolkit` (optional, Validierung) | 1 Tag | Optional |
 | 5 | Tests + Docs + pyproject.toml | 1 Tag | Blocked by Phase 3 |
-| | **Gesamt** | **~10 Tage** | |
+| | **Gesamt** | **~13.5 Tage** | |
 
 ### 5.1 Phasen-Abhängigkeiten
 
-```
-Phase 0 (travel-beat Agent)
+```text
+Phase -1 (creative-services Tool-Use)
     │
     ▼
-Phase 1 (ChatAgent extrahieren) ──► Phase 2 (Session) + Phase 3 (Registry)
-    │                                        │
-    ▼                                        ▼
-Phase 4a (CADToolkit)              Phase 4b (BookFactoryToolkit)
-    │                                        │
-    └────────────────┬───────────────────────┘
+Phase 0 (travel-beat Agent)     Phase 0.5 (Schema-Konsolidierung)
+    │                                │
+    ▼                                │
+Phase 1 (ChatAgent extrahieren) ◄────┘
+    │
+    ├──► Phase 2 (Session) + Phase 3 (Registry)
+    │                                │
+    ▼                                ▼
+Phase 4a (CADToolkit)      Phase 4b (BookFactoryToolkit)
+    │                                │
+    └────────────────┬───────────────┘
                      ▼
                Phase 5 (Tests + Docs)
 ```
@@ -551,3 +583,224 @@ Phase 4a (CADToolkit)              Phase 4b (BookFactoryToolkit)
 ---
 
 *Proposed: 2026-02-14. §2 (ETL) stabil. §3 (Chat-Agent) pending Phase 0 travel-beat.*
+
+---
+
+## 8. Review v1 — Findings und Architektur-Entscheidungen
+
+> Reviewer: Cascade, 2026-02-14
+> Methodik: Codebase-Verifikation gegen tatsächlichen Code in `cad-hub`, `cad-services`,
+> `creative-services`, `bfagent/apps/core/services/llm/`.
+
+### 8.1 Architektur-Entscheidung E-01: Schema-Autorität
+
+**Frage:** cad-hub Django ORM oder cad-services SQL als Schema-Autorität?
+
+**Befund:** Es existieren zwei inkompatible Schemas für dieselbe Domäne:
+
+| Aspekt | cad-services SQL (`002_cadhub_schema.sql`) | cad-hub Django ORM (`apps/ifc/models.py`) |
+|--------|------------------------------------------|------------------------------------------|
+| PK-Typ | `SERIAL INTEGER` | `UUID` |
+| Tenant-FK | `INTEGER REFERENCES core_tenant(id)` | `UUIDField` (kein FK, kein Constraint) |
+| Tenant-Tabelle | `core_tenant(id SERIAL, slug, plan_id)` | `Organization(id UUID, tenant_id UUID)` |
+| Feld-Benennung | `area_m2`, `height_m`, `thickness_m` | `area`, `height`, `width` (keine Unit-Suffixe) |
+| Property-Speicherung | EAV `cadhub_element_property` | `JSONField(properties)` pro Model |
+| Constraints | CHECK, UNIQUE, FK mit ON DELETE | Keine DB-Level-Constraints |
+
+**Entscheidung: HYBRID — Django ORM als Autorität, cad-services SQL als Design-Referenz.**
+
+| Schritt | Aktion |
+|---------|--------|
+| 1 | Django-Models in `apps/ifc/models.py` anpassen: Felder umbenennen (`area` → `area_m2`), Constraints hinzufügen |
+| 2 | CHECK-Constraints, Indizes via `Meta.constraints` und `Meta.indexes` |
+| 3 | RLS-Policies als `RunSQL`-Migration innerhalb Django |
+| 4 | EAV-Tabelle `cadhub_element_property` als `RunSQL`-Migration (oder Django-Model mit `GenericForeignKey`) |
+| 5 | Stammdaten (Units, DIN 277) als `RunPython` Data-Migrations |
+| 6 | `cad-services/sql/` → `platform/docs/reference/cad-schema/` (Archiv, nicht löschen) |
+
+**Begründung:**
+- cad-hub ist Django → `makemigrations`/`migrate` ist der natürliche Lifecycle
+- cad-services SQL hat wertvolle Normalisierung → wird in Django-Migrations übernommen
+- Ein einziger Schema-Lifecycle verhindert Drift zwischen SQL-Dateien und Django-Models
+- `managed = False` wäre eine Alternative, aber verliert Django-Admin und Migrations-Versionierung
+
+**Risiko:** MITTEL — Erfordert einmalige Migration der bestehenden Daten (falls vorhanden).
+
+---
+
+### 8.2 Architektur-Entscheidung E-02: creative-services Tool-Use
+
+**Frage:** Wie bekommt `chat-agent` Tool-Use-Support?
+
+**Befund:** `creative-services/core/llm_client.py` hat nur:
+- `generate(prompt: str, system_prompt: str)` — kein `messages`, kein `tools`
+- Raw httpx, kein SDK — Tool-Use-Parsing müsste manuell implementiert werden
+- `LLMResponse` hat nur `content: str` — kein `tool_calls` Attribut
+
+`bfagent/apps/core/services/llm/` (L1) hat bereits:
+- `AnthropicClient._generate_structured_sdk()` — Tool-Use via Anthropic SDK
+- `OpenAIClient._generate_structured_sdk()` — Tool-Use via OpenAI SDK
+- Beide nutzen offizielle SDKs, nicht httpx
+
+**Entscheidung: Option B — bfagent L1 nach creative-services portieren.**
+
+| Aspekt | Detail |
+|--------|--------|
+| Neue Methode | `LLMClient.complete(messages, tools, tool_choice) → CompletionResponse` |
+| SDK-Basis | `anthropic.Anthropic()` + `openai.OpenAI()` (statt httpx) |
+| Backward-Compat | `generate(prompt)` bleibt unverändert |
+| Return-Typ | `CompletionResponse(content, tool_calls, has_tool_calls, model, usage)` |
+| Registry-Integration | `DynamicLLMClient` bekommt ebenfalls `complete()` |
+| UsageTracker | Automatisches Tracking auch für `complete()` |
+
+```python
+# creative_services/core/llm_client.py — Neue Typen
+
+@dataclass(frozen=True)
+class ToolCall:
+    """Einzelner Tool-Call aus LLM-Response."""
+
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+
+@dataclass(frozen=True)
+class CompletionResponse:
+    """Response von complete() mit optionalen Tool-Calls."""
+
+    content: str | None
+    tool_calls: list[ToolCall]
+    model: str
+    provider: LLMProvider
+    usage: dict[str, Any]
+
+    @property
+    def has_tool_calls(self) -> bool:
+        return len(self.tool_calls) > 0
+```
+
+**Begründung:**
+- bfagent L1 ist produktionsbewährt mit Tool-Use
+- Kein neuer Client (kein LiteLLM), kein httpx-Workaround
+- Registry + UsageTracker bleiben integriert
+- `chat-agent` §3.7 `completion()` wird zu `creative_services.DynamicLLMClient.complete()`
+
+**Aufwand:** ~2 Tage. **Blocker für Phase 1.**
+
+---
+
+### 8.3 Architektur-Entscheidung E-03: Tenant-Isolation
+
+**Frage:** `TenantAwareManager` auf allen Models oder RLS als alleinige Isolation?
+
+**Entscheidung: BEIDES — Defense in Depth.**
+
+| Schicht | Rolle | Enforcement |
+|---------|-------|-------------|
+| RLS (PostgreSQL) | Sicherheitsnetz — verhindert Data Leaks auch bei vergessenen Filtern | DB-Level, nicht umgehbar |
+| TenantAwareManager (Django) | Developer UX — macht Code lesbar und explizit | App-Level, kann umgangen werden |
+| Middleware (Glue) | Setzt `SET LOCAL app.current_tenant_id` pro Request | HTTP-Request-Level |
+
+**Begründung:**
+- RLS allein: Django-Admin, Celery-Tasks, Management-Commands brechen ohne `SET LOCAL`
+- Manager allein: Jeder vergessene `.for_tenant()` ist ein Data Leak
+- Beides: RLS fängt vergessene Filter ab, Manager macht Code explizit
+
+**Kritischer Glue-Code (fehlt im ADR, muss ergänzt werden):**
+
+```python
+# cad-hub: apps/core/middleware.py
+from django.db import connection
+
+
+class TenantRLSMiddleware:
+    """Setzt PostgreSQL session variable für RLS-Policies.
+
+    Muss NACH TenantMiddleware in MIDDLEWARE kommen.
+    """
+
+    def __init__(self, get_response):
+        self.get_response = get_response
+
+    def __call__(self, request):
+        tenant_id = getattr(request, "tenant_id", None)
+        if tenant_id:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SET LOCAL app.current_tenant_id = %s",
+                    [str(tenant_id)],
+                )
+        return self.get_response(request)
+```
+
+```python
+# cad-hub: apps/core/decorators.py — Für Celery-Tasks
+from functools import wraps
+from django.db import connection
+
+
+def with_tenant(tenant_id):
+    """Decorator für Celery-Tasks: setzt RLS tenant_id."""
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    "SET LOCAL app.current_tenant_id = %s",
+                    [str(tenant_id)],
+                )
+            return func(*args, **kwargs)
+        return wrapper
+    return decorator
+```
+
+**Risiko:** NIEDRIG — Additiver Change, kein bestehender Code bricht.
+
+---
+
+### 8.4 Architektur-Entscheidung E-04: UUID vs SERIAL INTEGER
+
+**Frage:** cad-hub `IFCProject.id = UUID` — beibehalten oder zu SERIAL wechseln?
+
+**Entscheidung: UUID beibehalten.**
+
+| Aspekt | UUID | SERIAL |
+|--------|------|--------|
+| IFC-Kompatibilität | IFC GUIDs sind UUID-nah | Braucht extra `ifc_guid` Feld |
+| IDOR-Schutz | Nicht erratbar (`/api/projects/abc-def/`) | Sequenziell (`/api/projects/1/`) |
+| Multi-Tenant Merge | Kein Namespace-Konflikt | ID-Kollisionen bei DB-Merge |
+| Performance (<100k Rows) | Vernachlässigbar | Minimal besser |
+| Django-Ökosystem | Standard in neueren SaaS-Projekten | Legacy-Default |
+
+**Konsequenzen:**
+- cad-services SQL-Reference anpassen: `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`
+- Tool-Schemas (§3.5) anpassen: `"project_id": {"type": "string", "format": "uuid"}`
+- `AgentContext.tenant_id` von `str | None` auf `UUID | None` ändern
+- `ifc_guid VARCHAR(22)` als **separates Feld** beibehalten (IFC GUIDs sind Base64, keine Standard-UUIDs)
+
+---
+
+### 8.5 Weitere Review-Findings
+
+| ID | Befund | Schwere | Empfehlung |
+|----|--------|---------|------------|
+| F-03 | EAV-Tabelle `cadhub_element_property` hat polymorphen FK ohne referenzielle Integrität | MITTEL | `AFTER DELETE` Trigger auf Element-Tabellen, oder separate Property-Tabellen pro Typ |
+| F-05 | `cad-hub/apps/ifc/models_components.py` fehlt `import uuid` | NIEDRIG | 1-Zeiler Fix |
+| F-06 | `TenantAwareManager` definiert aber keinem Model zugewiesen | NIEDRIG | Wird durch E-03 (Defense in Depth) gelöst |
+| F-08 | `AgentContext.tenant_id: str` statt `UUID` | NIEDRIG | Wird durch E-04 gelöst: `UUID` oder `None` |
+| F-10 | Kein Idempotenz-Konzept für ETL Re-Import | MITTEL | `file_hash VARCHAR(64)` + `UNIQUE(project_id, file_hash)` auf `cad_model` |
+| F-11 | Session-TTL für Redis nicht spezifiziert | NIEDRIG | Default 24h TTL, konfigurierbar pro App |
+
+---
+
+### 8.6 Zusammenfassung Review-Status
+
+| Blocker | Status | Lösung |
+|---------|--------|--------|
+| **F-01: Zwei inkompatible Schemas** | Entschieden (E-01) | Django ORM als Autorität, cad-services SQL als Reference |
+| **F-02: creative-services hat kein Tool-Use** | Entschieden (E-02) | L1-Port nach creative-services, neue `complete()` Methode |
+
+**ADR ist implementierbar nach Umsetzung von E-01 und E-02.**
+§3.7 `ChatAgent.chat()` muss `completion()` durch `DynamicLLMClient.complete()` ersetzen.
