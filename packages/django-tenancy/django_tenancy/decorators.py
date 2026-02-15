@@ -19,7 +19,9 @@ Usage::
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import inspect
 from functools import wraps
 from uuid import UUID
 
@@ -51,9 +53,23 @@ def tenant_context(tenant_id: UUID, slug: str | None = None):
         clear_context()
 
 
+def _resolve_arg(func, arg_name: str, args: tuple, kwargs: dict):
+    """Extract a named argument from args/kwargs."""
+    raw_value = kwargs.get(arg_name)
+    if raw_value is None:
+        sig = inspect.signature(func)
+        params = list(sig.parameters.keys())
+        if arg_name in params:
+            idx = params.index(arg_name)
+            if idx < len(args):
+                raw_value = args[idx]
+    return raw_value
+
+
 def with_tenant_from_arg(arg_name: str = "tenant_id"):
     """Decorator that extracts tenant_id from a function argument.
 
+    Works with both sync and async functions.
     The argument value must be a string UUID or UUID instance.
 
     Args:
@@ -66,23 +82,29 @@ def with_tenant_from_arg(arg_name: str = "tenant_id"):
         def my_task(tenant_id: str, payload: dict):
             # RLS + contextvars active
             ...
+
+        @with_tenant_from_arg("tenant_id")
+        async def my_async_task(tenant_id: str):
+            # Also works with async functions
+            ...
     """
 
     def decorator(func):
+        if asyncio.iscoroutinefunction(func):
+            @wraps(func)
+            async def async_wrapper(*args, **kwargs):
+                raw_value = _resolve_arg(func, arg_name, args, kwargs)
+                if raw_value is not None:
+                    tid = UUID(str(raw_value)) if not isinstance(raw_value, UUID) else raw_value
+                    with tenant_context(tid):
+                        return await func(*args, **kwargs)
+                return await func(*args, **kwargs)
+
+            return async_wrapper
+
         @wraps(func)
         def wrapper(*args, **kwargs):
-            raw_value = kwargs.get(arg_name)
-            if raw_value is None:
-                # Try positional args via introspection
-                import inspect
-
-                sig = inspect.signature(func)
-                params = list(sig.parameters.keys())
-                if arg_name in params:
-                    idx = params.index(arg_name)
-                    if idx < len(args):
-                        raw_value = args[idx]
-
+            raw_value = _resolve_arg(func, arg_name, args, kwargs)
             if raw_value is not None:
                 tid = UUID(str(raw_value)) if not isinstance(raw_value, UUID) else raw_value
                 with tenant_context(tid):
