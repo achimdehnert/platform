@@ -28,44 +28,64 @@ logger = logging.getLogger(__name__)
 # Patterns indicating the agent explicitly declined a request.
 # German and English variants.
 DECLINE_PATTERNS: list[re.Pattern] = [
+    # German: "Ich kann leider nicht...", "kann ich nicht..."
     re.compile(
-        r"kann ich (leider |zurzeit )?nicht",
+        r"kann (ich )?(leider |zurzeit |momentan )?nicht",
         re.IGNORECASE,
     ),
+    # German: "ist mir leider nicht möglich"
     re.compile(
         r"ist mir (leider )?nicht m.glich",
         re.IGNORECASE,
     ),
+    # German: "habe ich keinen Zugriff", "habe keinen Zugriff"
     re.compile(
-        r"habe ich (leider )?keinen Zugriff",
+        r"habe (ich )?(leider )?keinen Zugriff",
         re.IGNORECASE,
     ),
+    # German: "liegt außerhalb meiner"
     re.compile(
         r"(liegt|f.llt) (leider )?au.erhalb meiner",
         re.IGNORECASE,
     ),
+    # German: "steht mir nicht zur Verfügung"
     re.compile(
         r"steh(t|en) mir (leider )?nicht zur Verf.gung",
         re.IGNORECASE,
     ),
+    # English: "I can't", "I cannot", "I'm unable to"
     re.compile(
         r"I (unfortunately )?(can'?t|cannot|am unable to)",
         re.IGNORECASE,
     ),
+    # English: "I don't have access"
     re.compile(
         r"I don'?t have (access|the ability)",
         re.IGNORECASE,
     ),
+    # English: "outside my capabilities"
     re.compile(
         r"outside (of )?my (capabilities|scope)",
         re.IGNORECASE,
     ),
+    # German: "nicht über die Tools"
     re.compile(
         r"nicht .ber die( entsprechenden)? Tools",
         re.IGNORECASE,
     ),
+    # German: "verfügbaren Tools beschränken sich"
     re.compile(
         r"verf.gbaren Tools beschr.nken sich",
+        re.IGNORECASE,
+    ),
+    # German: "nicht direkt auf externe Systeme zugreifen"
+    re.compile(
+        r"nicht direkt auf externe",
+        re.IGNORECASE,
+    ),
+    # German: "Das liegt außerhalb", "Das kann ich nicht"
+    re.compile(
+        r"leider nicht (direkt |in der Lage )",
         re.IGNORECASE,
     ),
 ]
