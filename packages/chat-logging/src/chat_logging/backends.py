@@ -138,9 +138,20 @@ class LoggingSessionBackend:
             )
 
         if msg_objects:
-            await sync_to_async(
+            saved = await sync_to_async(
                 ChatMessage.objects.bulk_create
             )(msg_objects)
+
+            # Auto-detect use-case candidates
+            try:
+                await self._detect_use_cases(
+                    new_messages, conversation, saved
+                )
+            except Exception:
+                logger.exception(
+                    "Use-case detection failed for %s",
+                    session_id,
+                )
 
         # Update conversation metrics
         total = len(messages)
@@ -242,8 +253,64 @@ class LoggingSessionBackend:
         await sync_to_async(conversation.save)(
             update_fields=["ended_at", "outcome_status"]
         )
+
+        # Auto-detect use-case candidates on finalize
+        try:
+            await self._detect_use_cases_finalize(
+                conversation
+            )
+        except Exception:
+            logger.exception(
+                "Use-case detection (finalize) failed for %s",
+                session_id,
+            )
+
         logger.debug(
             "Finalized conversation %s (%s)",
             session_id,
             conversation.outcome_status,
         )
+
+    async def _detect_use_cases(
+        self,
+        new_messages: list[dict],
+        conversation: ChatConversation,
+        saved_messages: list,
+    ) -> None:
+        """Run message-level use-case detection."""
+        from .detection import run_detection_on_messages
+        from .models import UseCaseCandidate
+
+        candidates = run_detection_on_messages(
+            new_messages, conversation, saved_messages
+        )
+        if candidates:
+            await sync_to_async(
+                UseCaseCandidate.objects.bulk_create
+            )(candidates)
+            logger.info(
+                "Created %d use-case candidate(s) for %s",
+                len(candidates),
+                conversation.session_id,
+            )
+
+    async def _detect_use_cases_finalize(
+        self,
+        conversation: ChatConversation,
+    ) -> None:
+        """Run session-level use-case detection."""
+        from .detection import run_detection_on_finalize
+        from .models import UseCaseCandidate
+
+        candidates = await sync_to_async(
+            run_detection_on_finalize
+        )(conversation)
+        if candidates:
+            await sync_to_async(
+                UseCaseCandidate.objects.bulk_create
+            )(candidates)
+            logger.info(
+                "Created %d use-case candidate(s) on finalize for %s",
+                len(candidates),
+                conversation.session_id,
+            )
