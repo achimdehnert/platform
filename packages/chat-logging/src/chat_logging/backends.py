@@ -9,6 +9,7 @@ factory needs updating.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import TYPE_CHECKING, Any
@@ -95,7 +96,7 @@ class LoggingSessionBackend:
         latency_ms: int = 0,
     ) -> None:
         """Persist only new messages since last save."""
-        from .models import ChatConversation, ChatMessage  # noqa: F811
+        from .models import ChatMessage
 
         session_id = session.id
         messages = session.messages
@@ -142,16 +143,13 @@ class LoggingSessionBackend:
                 ChatMessage.objects.bulk_create
             )(msg_objects)
 
-            # Auto-detect use-case candidates
-            try:
-                await self._detect_use_cases(
-                    new_messages, conversation, saved
-                )
-            except Exception:
-                logger.exception(
-                    "Use-case detection failed for %s",
+            # Auto-detect use-case candidates (fire-and-forget)
+            asyncio.create_task(
+                self._detect_use_cases_safe(
+                    new_messages, conversation, saved,
                     session_id,
                 )
+            )
 
         # Update conversation metrics
         total = len(messages)
@@ -270,6 +268,25 @@ class LoggingSessionBackend:
             session_id,
             conversation.outcome_status,
         )
+
+    async def _detect_use_cases_safe(
+        self,
+        new_messages: list[dict],
+        conversation: ChatConversation,
+        saved_messages: list,
+        session_id: str,
+    ) -> None:
+        """Fire-and-forget LLM detection wrapper."""
+        try:
+            await self._detect_use_cases(
+                new_messages, conversation,
+                saved_messages,
+            )
+        except Exception:
+            logger.exception(
+                "Use-case detection failed for %s",
+                session_id,
+            )
 
     async def _detect_use_cases(
         self,
