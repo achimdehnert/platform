@@ -1,19 +1,18 @@
 """Base context classes for creative services."""
 
 from typing import Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class BaseContext(BaseModel):
     """Base context for all creative service operations."""
-    
+
+    model_config = ConfigDict(extra="allow")
+
     genre: Optional[str] = Field(default=None, description="Genre (fantasy, sci-fi, romance, travel, etc.)")
     tone: Optional[str] = Field(default=None, description="Tone (serious, humorous, dramatic, etc.)")
     language: str = Field(default="en", description="Output language code")
     style_notes: Optional[str] = Field(default=None, description="Additional style guidance")
-    
-    class Config:
-        extra = "allow"
 
 
 class CharacterContext(BaseContext):

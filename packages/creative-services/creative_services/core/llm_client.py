@@ -19,7 +19,7 @@ from enum import Enum
 from typing import Any, Optional
 
 import httpx
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 logger = logging.getLogger(__name__)
@@ -35,7 +35,7 @@ class LLMProvider(str, Enum):
 
 class LLMConfig(BaseModel):
     """Configuration for LLM client."""
-    
+
     provider: LLMProvider = Field(default=LLMProvider.OPENAI)
     model: str = Field(default="gpt-4o-mini")
     api_key: Optional[str] = Field(default=None)
@@ -43,21 +43,19 @@ class LLMConfig(BaseModel):
     temperature: float = Field(default=0.7, ge=0, le=2)
     max_tokens: int = Field(default=4096, ge=1)
     timeout: float = Field(default=120.0)
-    
-    def __init__(self, **data):
-        super().__init__(**data)
+
+    @model_validator(mode="after")
+    def _load_api_key_from_env(self) -> "LLMConfig":
+        """Load API key from environment if not provided."""
         if self.api_key is None:
-            self._load_api_key_from_env()
-    
-    def _load_api_key_from_env(self):
-        """Load API key from environment based on provider."""
-        env_vars = {
-            LLMProvider.OPENAI: "OPENAI_API_KEY",
-            LLMProvider.ANTHROPIC: "ANTHROPIC_API_KEY",
-            LLMProvider.GROQ: "GROQ_API_KEY",
-        }
-        if self.provider in env_vars:
-            self.api_key = os.getenv(env_vars[self.provider])
+            env_vars = {
+                LLMProvider.OPENAI: "OPENAI_API_KEY",
+                LLMProvider.ANTHROPIC: "ANTHROPIC_API_KEY",
+                LLMProvider.GROQ: "GROQ_API_KEY",
+            }
+            if self.provider in env_vars:
+                self.api_key = os.getenv(env_vars[self.provider])
+        return self
 
 
 @dataclass(frozen=True)
@@ -80,7 +78,7 @@ class CompletionResponse:
     content: str | None
     tool_calls: list[ToolCall] = field(default_factory=list)
     model: str = ""
-    provider: "LLMProvider" = None  # type: ignore[assignment]
+    provider: LLMProvider | None = None
     usage: dict[str, Any] = field(default_factory=dict)
     latency_ms: int = 0
 
