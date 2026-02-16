@@ -277,11 +277,11 @@ class LoggingSessionBackend:
         conversation: ChatConversation,
         saved_messages: list,
     ) -> None:
-        """Run message-level use-case detection."""
-        from .detection import run_detection_on_messages
+        """Run LLM-based use-case detection on new messages."""
+        from .llm_detection import detect_via_llm
         from .models import UseCaseCandidate
 
-        candidates = run_detection_on_messages(
+        candidates = await detect_via_llm(
             new_messages, conversation, saved_messages
         )
         if candidates:
