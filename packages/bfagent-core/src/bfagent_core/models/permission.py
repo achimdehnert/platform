@@ -69,8 +69,11 @@ class CoreRolePermission(models.Model):
     
     class Meta:
         db_table = "core_role_permission"
-        unique_together = [["role", "permission"]]
         constraints = [
+            models.UniqueConstraint(
+                fields=["role", "permission"],
+                name="role_permission_unique",
+            ),
             models.CheckConstraint(
                 check=models.Q(role__in=["owner", "admin", "member", "viewer"]),
                 name="role_permission_role_chk",
@@ -138,7 +141,12 @@ class MembershipPermissionOverride(models.Model):
     
     class Meta:
         db_table = "core_membership_permission_override"
-        unique_together = [["membership", "permission"]]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["membership", "permission"],
+                name="override_membership_perm_unique",
+            ),
+        ]
         indexes = [
             models.Index(fields=["membership"]),
             models.Index(

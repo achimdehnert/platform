@@ -7,8 +7,12 @@ Migration: Create permission tables.
 """
 
 import uuid
-from django.db import migrations, models
+from django.db import connection, migrations, models
 import django.db.models.deletion
+
+
+def is_postgres():
+    return connection.vendor == "postgresql"
 
 
 class Migration(migrations.Migration):
@@ -137,40 +141,52 @@ class Migration(migrations.Migration):
             },
         ),
         
-        # Partial index for expiring overrides
+        # Partial index for expiring overrides (PostgreSQL only)
         migrations.RunSQL(
-            sql="""
-                CREATE INDEX core_override_expires_idx 
-                ON core_membership_permission_override(expires_at) 
+            sql=(
+                """
+                CREATE INDEX core_override_expires_idx
+                ON core_membership_permission_override(expires_at)
                 WHERE expires_at IS NOT NULL;
-            """,
+                """
+                if is_postgres()
+                else "SELECT 1;"
+            ),
             reverse_sql="DROP INDEX IF EXISTS core_override_expires_idx;",
         ),
         
-        # Trigger to increment membership.permission_version on override changes
+        # Trigger to increment membership.permission_version on override changes (PostgreSQL only)
         migrations.RunSQL(
-            sql="""
+            sql=(
+                """
                 CREATE OR REPLACE FUNCTION trg_override_permission_version()
                 RETURNS TRIGGER AS $$
                 BEGIN
-                    UPDATE core_tenant_membership 
+                    UPDATE core_tenant_membership
                     SET permission_version = permission_version + 1,
                         updated_at = NOW()
                     WHERE id = COALESCE(NEW.membership_id, OLD.membership_id);
                     RETURN NEW;
                 END;
                 $$ LANGUAGE plpgsql;
-                
+
                 DROP TRIGGER IF EXISTS override_permission_version_trigger ON core_membership_permission_override;
-                
+
                 CREATE TRIGGER override_permission_version_trigger
                     AFTER INSERT OR UPDATE OR DELETE ON core_membership_permission_override
                     FOR EACH ROW
                     EXECUTE FUNCTION trg_override_permission_version();
-            """,
-            reverse_sql="""
+                """
+                if is_postgres()
+                else "SELECT 1;"
+            ),
+            reverse_sql=(
+                """
                 DROP TRIGGER IF EXISTS override_permission_version_trigger ON core_membership_permission_override;
                 DROP FUNCTION IF EXISTS trg_override_permission_version();
-            """,
+                """
+                if is_postgres()
+                else "SELECT 1;"
+            ),
         ),
     ]

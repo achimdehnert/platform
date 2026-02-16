@@ -7,9 +7,12 @@ This module re-exports them and keeps TenantPermissionMiddleware
 which depends on bfagent-core models.
 """
 
+import logging
 import warnings
 
 from django.http import HttpRequest, HttpResponse
+
+logger = logging.getLogger(__name__)
 from django.utils.deprecation import MiddlewareMixin
 
 # Re-export from platform-context
@@ -80,6 +83,6 @@ class TenantPermissionMiddleware(MiddlewareMixin):
                     )
 
         except Exception:
-            pass
+            logger.exception("Failed to resolve core_user/permissions")
 
         return None
