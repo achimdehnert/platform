@@ -4,12 +4,15 @@ Extracts fire ratings from IFC elements and checks compliance
 with DIN 4102 / EN 13501 requirements.
 """
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import ifcopenshell
+if TYPE_CHECKING:
+    import ifcopenshell
 
 
 class FireRatingStandard(str, Enum):
@@ -168,7 +171,7 @@ class FireSafetyService:
             self.max_compartment_area *= 2
             self.max_escape_distance *= 2
 
-    def analyze(self, ifc_model: ifcopenshell.file, model_id: int) -> FireSafetyResult:
+    def analyze(self, ifc_model: ifcopenshell.file, model_id: int) -> FireSafetyResult:  # noqa: F821
         """Perform complete fire safety analysis.
 
         Args:
@@ -204,7 +207,7 @@ class FireSafetyService:
 
         return result
 
-    def _extract_fire_rated_elements(self, ifc_model: ifcopenshell.file) -> list[FireRatedElement]:
+    def _extract_fire_rated_elements(self, ifc_model: ifcopenshell.file) -> list[FireRatedElement]:  # noqa: F821
         """Extract all elements with fire rating properties."""
         elements = []
 
@@ -233,6 +236,8 @@ class FireSafetyService:
 
     def _get_fire_rating(self, element: Any, pset_mappings: list[tuple[str, str]]) -> str | None:
         """Get fire rating from element's property sets."""
+        import ifcopenshell.util.element  # lazy import — optional dep
+
         for pset_name, prop_name in pset_mappings:
             try:
                 psets = ifcopenshell.util.element.get_psets(element)
@@ -300,7 +305,7 @@ class FireSafetyService:
 
         return stats
 
-    def extract_fire_doors(self, ifc_model: ifcopenshell.file) -> list[FireRatedElement]:
+    def extract_fire_doors(self, ifc_model: ifcopenshell.file) -> list[FireRatedElement]:  # noqa: F821
         """Extract only fire-rated doors."""
         doors = []
         try:
@@ -326,7 +331,7 @@ class FireSafetyService:
 
         return doors
 
-    def extract_fire_walls(self, ifc_model: ifcopenshell.file) -> list[FireRatedElement]:
+    def extract_fire_walls(self, ifc_model: ifcopenshell.file) -> list[FireRatedElement]:  # noqa: F821
         """Extract only fire-rated walls."""
         walls = []
         try:
@@ -343,6 +348,8 @@ class FireSafetyService:
 
                 is_compartment = False
                 try:
+                    import ifcopenshell.util.element  # lazy import
+
                     psets = ifcopenshell.util.element.get_psets(wall)
                     if "Pset_WallCommon" in psets:
                         is_compartment = psets["Pset_WallCommon"].get("Compartmentation", False)
