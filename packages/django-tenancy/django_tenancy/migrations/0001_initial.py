@@ -86,7 +86,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="organization",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     status__in=[
                         "trial", "active", "suspended", "deleted",
                     ]
@@ -181,7 +181,7 @@ class Migration(migrations.Migration):
         migrations.AddConstraint(
             model_name="membership",
             constraint=models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     role__in=[
                         "owner", "admin", "member",
                         "viewer", "external",
