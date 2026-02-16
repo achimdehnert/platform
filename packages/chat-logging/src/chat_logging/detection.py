@@ -33,6 +33,16 @@ DECLINE_PATTERNS: list[re.Pattern] = [
         r"kann (ich )?(leider |zurzeit |momentan )?nicht",
         re.IGNORECASE,
     ),
+    # German: "kann keine/kein/keinen" (negation with indef. article)
+    re.compile(
+        r"kann (ich )?(leider )?keine[nr]?\b",
+        re.IGNORECASE,
+    ),
+    # German: "Nein, ich kann..." (explicit refusal start)
+    re.compile(
+        r"^Nein,? ich kann ",
+        re.IGNORECASE | re.MULTILINE,
+    ),
     # German: "ist mir leider nicht möglich"
     re.compile(
         r"ist mir (leider )?nicht m.glich",
