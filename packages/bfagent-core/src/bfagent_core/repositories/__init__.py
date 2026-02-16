@@ -4,7 +4,6 @@ Repository layer for data access.
 Provides abstraction over Django ORM for testability.
 """
 
-from abc import ABC, abstractmethod
 from typing import List, Optional, Sequence
 from uuid import UUID
 

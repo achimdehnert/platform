@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from typing import FrozenSet, Optional
 from uuid import UUID
 
-from bfagent_core.context import get_context
+from platform_context.context import get_context
 from bfagent_core.permissions.cache import get_permission_cache
 from bfagent_core.permissions.resolver import PermissionResolver, PermissionResult
 

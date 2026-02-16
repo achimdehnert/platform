@@ -8,7 +8,7 @@ and orchestrate complex operations.
 from typing import FrozenSet, Optional
 from uuid import UUID
 
-from bfagent_core.context import get_context
+from platform_context.context import get_context
 from bfagent_core.permissions.checker import get_permission_checker
 
 

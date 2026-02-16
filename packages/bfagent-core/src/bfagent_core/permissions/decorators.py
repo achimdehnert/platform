@@ -16,7 +16,7 @@ from typing import Callable, TypeVar, ParamSpec
 from django.core.exceptions import PermissionDenied
 from django.http import HttpRequest
 
-from bfagent_core.context import get_context
+from platform_context.context import get_context
 from bfagent_core.permissions.enums import Permission
 from bfagent_core.permissions.checker import get_permission_checker
 
