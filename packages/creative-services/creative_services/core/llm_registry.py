@@ -25,7 +25,7 @@ from enum import Enum
 from typing import Optional, Protocol, runtime_checkable
 from pydantic import BaseModel, Field
 
-from .llm_client import CompletionResponse, LLMClient, LLMConfig, LLMProvider, LLMResponse, ToolCall
+from .llm_client import CompletionResponse, LLMClient, LLMConfig, LLMProvider, LLMResponse
 
 
 class LLMTier(str, Enum):
