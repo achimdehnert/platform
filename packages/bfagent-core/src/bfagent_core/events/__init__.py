@@ -6,10 +6,9 @@ Events are emitted via the outbox pattern for reliability.
 
 from dataclasses import dataclass, asdict
 from datetime import datetime, timezone
-from typing import Optional
 from uuid import UUID
 
-from bfagent_core.outbox import emit_outbox_event
+from platform_context.outbox import emit_outbox_event
 
 
 def _utc_now() -> datetime:

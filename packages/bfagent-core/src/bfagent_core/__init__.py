@@ -23,8 +23,6 @@ Usage:
     from bfagent_core.handlers import TenantCreateHandler
 """
 
-import warnings
-
 # Re-export from platform-context (ADR-028 compatibility shim)
 from platform_context.context import (
     RequestContext,

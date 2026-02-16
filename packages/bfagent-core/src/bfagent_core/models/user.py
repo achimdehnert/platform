@@ -6,7 +6,7 @@ Bridges Django auth_user with external identity providers.
 
 import uuid
 from django.db import models
-from django.conf import settings
+from django.conf import settings  # noqa: F401 — used by consumers
 
 
 class CoreUserManager(models.Manager):
@@ -133,7 +133,6 @@ class CoreUser(models.Model):
         """Get linked Django auth_user if exists."""
         if self.legacy_user_id is None:
             return None
-        User = settings.AUTH_USER_MODEL
         from django.contrib.auth import get_user_model
         UserModel = get_user_model()
         try:

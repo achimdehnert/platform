@@ -5,8 +5,12 @@ User-Tenant relationship with role and permission_version.
 """
 
 import uuid
-from django.db import migrations, models
+from django.db import connection, migrations, models
 import django.db.models.deletion
+
+
+def is_postgres():
+    return connection.vendor == "postgresql"
 
 
 class Migration(migrations.Migration):
@@ -117,42 +121,54 @@ class Migration(migrations.Migration):
             index=models.Index(fields=['user', 'status'], name='core_membership_user_status_idx'),
         ),
         
-        # Partial index for pending invitations
+        # Partial index for pending invitations (PostgreSQL only)
         migrations.RunSQL(
-            sql="""
-                CREATE INDEX core_membership_pending_idx 
-                ON core_tenant_membership(invitation_expires_at) 
+            sql=(
+                """
+                CREATE INDEX core_membership_pending_idx
+                ON core_tenant_membership(invitation_expires_at)
                 WHERE status = 'pending';
-            """,
+                """
+                if is_postgres()
+                else "SELECT 1;"
+            ),
             reverse_sql="DROP INDEX IF EXISTS core_membership_pending_idx;",
         ),
         
         # Trigger for permission_version increment on role change (PostgreSQL only)
         migrations.RunSQL(
-            sql=[
-                ("""
-                    CREATE OR REPLACE FUNCTION trg_membership_permission_version()
-                    RETURNS TRIGGER AS $$
-                    BEGIN
-                        IF OLD.role <> NEW.role THEN
-                            NEW.permission_version := OLD.permission_version + 1;
-                        END IF;
-                        RETURN NEW;
-                    END;
-                    $$ LANGUAGE plpgsql;
-                """, None),
-                ("DROP TRIGGER IF EXISTS membership_permission_version_trigger ON core_tenant_membership;", None),
-                ("""
-                    CREATE TRIGGER membership_permission_version_trigger
-                        BEFORE UPDATE OF role ON core_tenant_membership
-                        FOR EACH ROW
-                        EXECUTE FUNCTION trg_membership_permission_version();
-                """, None),
-            ],
-            reverse_sql=[
-                ("DROP TRIGGER IF EXISTS membership_permission_version_trigger ON core_tenant_membership;", None),
-                ("DROP FUNCTION IF EXISTS trg_membership_permission_version();", None),
-            ],
+            sql=(
+                [
+                    ("""
+                        CREATE OR REPLACE FUNCTION trg_membership_permission_version()
+                        RETURNS TRIGGER AS $$
+                        BEGIN
+                            IF OLD.role <> NEW.role THEN
+                                NEW.permission_version := OLD.permission_version + 1;
+                            END IF;
+                            RETURN NEW;
+                        END;
+                        $$ LANGUAGE plpgsql;
+                    """, None),
+                    ("DROP TRIGGER IF EXISTS membership_permission_version_trigger ON core_tenant_membership;", None),
+                    ("""
+                        CREATE TRIGGER membership_permission_version_trigger
+                            BEFORE UPDATE OF role ON core_tenant_membership
+                            FOR EACH ROW
+                            EXECUTE FUNCTION trg_membership_permission_version();
+                    """, None),
+                ]
+                if is_postgres()
+                else "SELECT 1;"
+            ),
+            reverse_sql=(
+                [
+                    ("DROP TRIGGER IF EXISTS membership_permission_version_trigger ON core_tenant_membership;", None),
+                    ("DROP FUNCTION IF EXISTS trg_membership_permission_version();", None),
+                ]
+                if is_postgres()
+                else "SELECT 1;"
+            ),
             state_operations=[],
         ),
     ]

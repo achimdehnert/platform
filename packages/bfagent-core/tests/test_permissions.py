@@ -46,7 +46,7 @@ class PermissionEnumTests(TestCase):
         """Test all roles have permissions defined."""
         for role in ["owner", "admin", "member", "viewer"]:
             self.assertIn(role, ROLE_PERMISSIONS)
-            self.assertIsInstance(ROLE_PERMISSIONS[role], set)
+            self.assertIsInstance(ROLE_PERMISSIONS[role], (set, frozenset))
     
     def test_owner_has_all_permissions(self):
         """Test owner role has all permissions."""
