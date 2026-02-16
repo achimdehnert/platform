@@ -1,8 +1,9 @@
 # ADR-038: DSB-Modul — Externer Datenschutzbeauftragter
 
-**Status**: Proposed
+**Status**: Draft (zurück aus Proposed — Review R1, siehe ADR-038-REVIEW.md)
 **Datum**: 2026-02-16
 **Autoren**: Achim Dehnert
+**Reviewer**: Cascade (AI Architect), 2026-02-16
 
 ## Kontext
 
@@ -19,9 +20,23 @@ DSGVO-Unterlagen und koordinieren datenschutzrelevante Tätigkeiten:
 - **Schulungsnachweise** für Mitarbeiter
 - **Auftragsverarbeitungsverträge** (AVV) gemäß Art. 28 DSGVO
 
+### Tenant-Modell (Review R1: F-3/F-5 — Klarstellung)
+
+Der Tenant (Organization) ist das **DSB-Büro** (z.B. "Datenschutz Müller GmbH").
+Die betreuten Unternehmen werden als `DSBMandate` modelliert — **kein** Tenant,
+sondern Subentität innerhalb des Tenants.
+
+```text
+Organization (Tenant = DSB-Büro)
+  └── DSBMandate (betreutes Unternehmen, kein Tenant)
+       ├── ProcessingActivity (VVT)
+       ├── PrivacyAudit
+       └── DataBreach
+```
+
 ## Entscheidung
 
-### ✅ Empfehlung: risk-hub (schutztat.de) um DSB-App erweitern
+### Empfehlung: risk-hub (schutztat.de) um DSB-App erweitern
 
 **Kein separates Repository.** Das DSB-Modul wird als neue Django-App `src/dsb/`
 innerhalb von risk-hub implementiert.
@@ -56,7 +71,7 @@ innerhalb von risk-hub implementiert.
 src/dsb/
 ├── models/
 │   ├── __init__.py
-│   ├── client.py          # DSBClient (Mandant des DSB)
+│   ├── mandate.py         # DSBMandate (betreutes Unternehmen)
 │   ├── vvt.py             # ProcessingActivity (Verarbeitungsverzeichnis)
 │   ├── tom.py             # TechnicalMeasure, OrganizationalMeasure
 │   ├── dsfa.py            # DataProtectionImpactAssessment
