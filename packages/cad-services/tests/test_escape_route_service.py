@@ -10,6 +10,13 @@ from cad_services.services.escape_route_service import (
     EscapeRouteService,
 )
 
+try:
+    import networkx  # noqa: F401
+
+    HAS_NETWORKX = True
+except ImportError:
+    HAS_NETWORKX = False
+
 
 class TestEscapeRoute:
     """Test EscapeRoute dataclass."""
@@ -64,6 +71,7 @@ class TestEscapeRouteResult:
         assert len(result.violations) == 1
 
 
+@pytest.mark.skipif(not HAS_NETWORKX, reason="networkx not installed")
 class TestEscapeRouteService:
     """Test EscapeRouteService."""
 

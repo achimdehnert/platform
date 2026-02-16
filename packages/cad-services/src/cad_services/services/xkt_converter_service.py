@@ -134,7 +134,7 @@ class XKTConverterService:
                 stats = self._get_file_stats(xkt_path, metadata_path)
                 return ConversionResult(
                     success=True,
-                    xkt_path=xkt_path,
+                    output_path=xkt_path,
                     metadata_path=metadata_path if metadata_path.exists() else None,
                     stats=stats,
                 )
@@ -181,7 +181,7 @@ class XKTConverterService:
             )
 
             if result.returncode == 0 and gltf_path.exists():
-                return ConversionResult(success=True, xkt_path=gltf_path)
+                return ConversionResult(success=True, output_path=gltf_path)
             else:
                 return ConversionResult(
                     success=False,
@@ -221,7 +221,7 @@ class XKTConverterService:
                 stats = self._get_file_stats(xkt_path, metadata_path)
                 return ConversionResult(
                     success=True,
-                    xkt_path=xkt_path,
+                    output_path=xkt_path,
                     metadata_path=metadata_path if metadata_path.exists() else None,
                     stats=stats,
                 )
