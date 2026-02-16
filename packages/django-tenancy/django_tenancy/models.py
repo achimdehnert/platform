@@ -65,7 +65,7 @@ class Organization(models.Model):
         db_table = "tenancy_organization"
         constraints = [
             models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     status__in=["trial", "active", "suspended", "deleted"],
                 ),
                 name="org_status_chk",
@@ -136,7 +136,7 @@ class Membership(models.Model):
                 name="membership_unique",
             ),
             models.CheckConstraint(
-                check=models.Q(
+                condition=models.Q(
                     role__in=["owner", "admin", "member", "viewer", "external"],
                 ),
                 name="membership_role_chk",
