@@ -143,11 +143,11 @@ Always respond with valid JSON."""
     
     def build_prompt(self, context: CharacterContext) -> str:
         """Build travel-specific character prompt."""
-        
-        # Set travel genre if not specified
+
+        # Use a copy with travel genre if not specified
         if not context.genre:
-            context.genre = "travel"
-        
+            context = context.model_copy(update={"genre": "travel"})
+
         base_prompt = super().build_prompt(context)
         
         travel_additions = """
