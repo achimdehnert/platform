@@ -1,0 +1,73 @@
+# safety-net-deploy.yml
+# ADR-042: Runs every 2 hours. For each app, checks if there are
+# undeployed commits on main. If yes, triggers deploy.
+
+name: "\U0001f6e1\ufe0f Safety-Net Deploy Check"
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'  # Every 2 hours
+  workflow_dispatch:        # Manual trigger for testing
+
+jobs:
+  check-and-deploy:
+    runs-on: [self-hosted, hetzner, dev]
+    strategy:
+      matrix:
+        app:
+          - { name: bfagent,     repo: achimdehnert/bfagent,      workflow: deploy.yml }
+          - { name: travel-beat, repo: achimdehnert/travel-beat,   workflow: deploy.yml }
+          - { name: mcp-hub,     repo: achimdehnert/mcp-hub,      workflow: deploy.yml }
+          - { name: risk-hub,    repo: achimdehnert/risk-hub,      workflow: deploy.yml }
+          - { name: weltenhub,   repo: achimdehnert/weltenhub,     workflow: deploy.yml }
+          - { name: pptx-hub,    repo: achimdehnert/pptx-hub,      workflow: deploy.yml }
+          - { name: trading-hub, repo: achimdehnert/trading-hub,   workflow: deploy.yml }
+      max-parallel: 1  # Sequential deploys to avoid PROD overload
+
+    steps:
+      - name: Check for undeployed commits
+        id: check
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          REPO="${{ matrix.app.repo }}"
+
+          # Get SHA of last successful deploy (filter by deploy.yml workflow!)
+          WORKFLOW="${{ matrix.app.workflow }}"
+          LAST_DEPLOY_SHA=$(gh api \
+            "repos/${REPO}/actions/workflows/${WORKFLOW}/runs?status=success&per_page=1&branch=main" \
+            --jq '.workflow_runs[0].head_sha // empty' 2>/dev/null || echo "")
+
+          # Get current HEAD of main
+          MAIN_SHA=$(gh api "repos/${REPO}/git/ref/heads/main" \
+            --jq '.object.sha' 2>/dev/null || echo "")
+
+          if [ -z "$MAIN_SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "\u26a0\ufe0f  ${{ matrix.app.name }}: could not determine main SHA"
+            exit 0
+          fi
+
+          if [ "$LAST_DEPLOY_SHA" = "$MAIN_SHA" ]; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+            echo "\u2705 ${{ matrix.app.name }}: up to date ($MAIN_SHA)"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+            echo "\U0001f514 ${{ matrix.app.name }}: undeployed commits detected"
+            echo "   Last deploy: ${LAST_DEPLOY_SHA:-none}"
+            echo "   Current main: $MAIN_SHA"
+          fi
+
+      - name: Trigger deploy
+        if: steps.check.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_DEPLOY_TOKEN }}
+        run: |
+          set -euo pipefail
+          echo "\U0001f680 Triggering deploy for ${{ matrix.app.name }}..."
+          gh workflow run "${{ matrix.app.workflow }}" \
+            --repo "${{ matrix.app.repo }}" \
+            --ref main \
+            -f environment=production

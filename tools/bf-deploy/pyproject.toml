@@ -1,0 +1,14 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "bf-deploy"
+version = "0.1.0"
+description = "BF Agent Platform — Deploy CLI"
+requires-python = ">=3.10"
+dependencies = ["click>=8.0", "httpx>=0.25"]
+authors = [{name = "Achim Dehnert", email = "achim@dehnert.dev"}]
+
+[project.scripts]
+bf = "bf_deploy.cli:cli"
