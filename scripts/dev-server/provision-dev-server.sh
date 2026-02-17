@@ -44,7 +44,8 @@ chmod 600 /home/deploy/.ssh/authorized_keys
 
 # Disable root SSH login
 sed -i 's/^PermitRootLogin.*/PermitRootLogin no/' /etc/ssh/sshd_config
-systemctl restart sshd
+# Ubuntu 24.04 uses ssh.service, not sshd.service
+systemctl restart ssh || systemctl restart sshd || true
 
 # ── 5. Firewall ──────────────────────────────────────────────────
 echo "[5/7] Configuring firewall..."
