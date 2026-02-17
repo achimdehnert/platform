@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import httpx
 
-from .config import DEPLOY_WORKFLOW
-
 
 def trigger_workflow(
     repo: str,
     token: str,
+    workflow: str = "deploy.yml",
     ref: str = "main",
     environment: str = "production",
 ) -> int:
@@ -18,7 +17,7 @@ def trigger_workflow(
     """
     url = (
         f"https://api.github.com/repos/{repo}"
-        f"/actions/workflows/{DEPLOY_WORKFLOW}/dispatches"
+        f"/actions/workflows/{workflow}/dispatches"
     )
     headers = {
         "Accept": "application/vnd.github+json",
