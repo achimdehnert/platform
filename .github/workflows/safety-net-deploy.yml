@@ -11,8 +11,7 @@ on:
 
 jobs:
   check-and-deploy:
-    # TODO(ADR-042): Switch to [self-hosted, hetzner, dev] when runner is ready
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, hetzner, dev]
     strategy:
       matrix:
         app:
@@ -47,16 +46,16 @@ jobs:
 
           if [ -z "$MAIN_SHA" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "⚠️  ${{ matrix.app.name }}: could not determine main SHA"
+            echo "Warning: ${{ matrix.app.name }}: could not determine main SHA"
             exit 0
           fi
 
           if [ "$LAST_DEPLOY_SHA" = "$MAIN_SHA" ]; then
             echo "skip=true" >> "$GITHUB_OUTPUT"
-            echo "✅ ${{ matrix.app.name }}: up to date ($MAIN_SHA)"
+            echo "OK: ${{ matrix.app.name }}: up to date ($MAIN_SHA)"
           else
             echo "skip=false" >> "$GITHUB_OUTPUT"
-            echo "🔔 ${{ matrix.app.name }}: undeployed commits detected"
+            echo "DEPLOY: ${{ matrix.app.name }}: undeployed commits detected"
             echo "   Last deploy: ${LAST_DEPLOY_SHA:-none}"
             echo "   Current main: $MAIN_SHA"
           fi
@@ -67,8 +66,7 @@ jobs:
           GH_TOKEN: ${{ secrets.PLATFORM_DEPLOY_TOKEN }}
         run: |
           set -euo pipefail
-          echo "🚀 Triggering deploy for ${{ matrix.app.name }}..."
+          echo "Triggering deploy for ${{ matrix.app.name }}..."
           gh workflow run "${{ matrix.app.workflow }}" \
             --repo "${{ matrix.app.repo }}" \
-            --ref main \
-            -f environment=production
+            --ref main
