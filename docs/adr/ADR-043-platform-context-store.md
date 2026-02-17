@@ -69,7 +69,18 @@ Measure 4: Memory Curation     -- Session-persistent knowledge
 
 Measures are additive. Each can be implemented and validated in isolation. No new infrastructure services required.
 
-### 2.2 Rejected Alternatives
+### 2.2 Key Design Decision: Separation of Platform vs. Project Rules (K-01)
+
+The Global Rule is **split into two Always-On files**:
+
+| File | Scope | Content | Token Budget |
+|------|-------|---------|-------------|
+| `platform-principles.md` | **Platform-wide** (identical in all repos) | Architecture rules, naming conventions, service layer, settings structure | ~800 chars |
+| `project-facts.md` | **Per-repo** (different content per repo) | Apps, AUTH_USER_MODEL, HTMX pattern, Docker, containers, middleware | ~1,200 chars |
+
+**Rationale**: The original v1 mixed travel-beat-specific facts into a "platform" rule. When loaded in bfagent (no HTMX) or weltenhub (uses `django_htmx`), these facts were **wrong**. Per-repo `project-facts.md` eliminates cross-contamination.
+
+### 2.3 Rejected Alternatives
 
 **Option A: RAG over Codebase** — Rejected. Infrastructure overhead (vector DB, embeddings). Project context is structured, not unstructured.
 
@@ -96,80 +107,205 @@ Windsurf enforces a **12,000-character combined limit** for rules. The stratifie
 ```text
 12,000 chars total
   Global Rules (always loaded):     ~2,000 chars
-    platform-principles.md          Always On
+    platform-principles.md          Always On  (~800 chars)
+    project-facts.md                Always On  (~1,200 chars)
   Workspace Rules (context-aware):  ~8,000 chars
     django-conventions.md           Glob: apps/*/models.py, apps/*/views.py
     htmx-templates.md               Glob: **/templates/**
-    url-routing.md                  Glob: apps/*/urls.py
-    testing.md                      Glob: **/tests/**
+    url-routing.md                  Glob: apps/*/urls.py, */urls.py
+    testing.md                      Glob: **/tests/**, **/test_*.py
     docker-deployment.md            Glob: Dockerfile, docker-compose*.yml
   Reserve:                          ~2,000 chars
 ```
 
-#### Global Rule: `platform-principles.md` (Always On)
-
-All facts verified against the actual codebase as of 2026-02-17.
+#### Global Rule: `platform-principles.md` (Always On — identical in all repos)
 
 ```markdown
-# BF Agent Platform — Core Principles
+# Platform Principles (all repos)
 
-## Project Structure (verified)
-- Settings: `config.settings.base` (split: base/development/production/test)
-- Root URL conf: `config.urls`
-- WSGI: `config.wsgi.application`
-- DEFAULT_AUTO_FIELD: `django.db.models.BigAutoField` (NOT UUIDs)
-- Auth: `django-allauth` (session-based, NOT DRF TokenAuthentication)
-- Templates: `templates/` at project root (NOT per-app)
-- Dockerfile: `docker/Dockerfile` (NOT project root)
-- Compose: `docker-compose.prod.yml` at project root
-
-## Apps (travel-beat — verified)
-- `apps.core` — health checks, legal pages
-- `apps.accounts` — User model (AUTH_USER_MODEL = "accounts.User")
-- `apps.trips` — trips, stops, transport (namespace: "trips")
-- `apps.locations` — location data (namespace: "locations")
-- `apps.stories` — AI story generation (namespace: "stories")
-- `apps.worlds` — characters, places (namespace: "worlds")
-- `apps.ai_services` — LLM endpoints (namespace: "ai_services")
-
-## HTMX (no django_htmx package)
-- Check: `request.headers.get("HX-Request")` (NOT `request.htmx`)
-- Partials: `templates/<app>/partials/<component>.html`
-- Full pages extend `templates/base.html`
+## Settings Structure (verified across all repos)
+- Settings: config.settings.base (or config.settings for single-file repos)
+- Root URL conf: config.urls
+- WSGI: config.wsgi.application
+- DEFAULT_AUTO_FIELD: django.db.models.BigAutoField (NOT UUIDs)
+- Templates: templates/ at project root (NOT per-app)
 
 ## Architecture Rules
-- Zero Breaking Changes: Deprecate first, remove after 2 releases
-- Spec vs. Derived: Computed values are @property, never DB columns
 - Service Layer: views.py -> services.py -> models.py
+- Views handle HTTP only, services contain business logic
+- Zero Breaking Changes: deprecate first, remove after 2 releases
+- Spec vs. Derived: computed values are @property, never DB columns
 
-## Multi-Tenancy Status
-- RequestContextMiddleware active (sets request_id, user_id)
-- RLS: NOT implemented in travel-beat (planned)
-- travel-beat is single-tenant (user-scoped via request.user)
+## Naming Conventions
+- Apps: apps.<app_name> (snake_case)
+- URLs: path("<prefix>/", include("apps.<app>.urls", namespace="<app>"))
+- Templates: templates/<app>/<model>_<action>.html
+- Partials: templates/<app>/partials/<component>.html
+- Tests: test_should_<expected_behavior>
 
-## Docker (travel-beat — verified)
-- Image: ghcr.io/achimdehnert/travel-beat:latest
-- Container: travel_beat_web (gunicorn port 8000)
-- PostgreSQL 15: travel_beat_db
-- Redis 7: travel_beat_redis
+## Infrastructure
 - Server: 88.198.191.108
+- Registry: ghcr.io/achimdehnert/<repo>:latest
+- Compose: docker-compose.prod.yml at project root
+- env_file: .env.prod (NEVER ${VAR} interpolation in compose environment:)
 ```
 
-#### Workspace Rule: `django-conventions.md` (Glob: `apps/*/models.py`, `apps/*/views.py`)
+#### Global Rule: `project-facts.md` (Always On — per-repo, 4 variants shown)
+
+**travel-beat:**
+```markdown
+# Project Facts: travel-beat (DriftTales)
+
+## Apps (from config/settings/base.py LOCAL_APPS)
+core, accounts, trips, locations, stories, worlds, ai_services
+
+## Auth
+- django-allauth (session-based)
+- AUTH_USER_MODEL = "accounts.User"
+- Login: /accounts/ (allauth URLs)
+
+## HTMX
+- NO django_htmx package installed
+- Check: request.headers.get("HX-Request")
+- DO NOT use request.htmx
+
+## URL Namespace Map (from config/urls.py)
+- "" -> trips | "stories/" -> stories | "locations/" -> locations
+- "world/" -> worlds | "profile/" -> accounts | "ai/" -> ai_services
+
+## Docker
+- Dockerfile: docker/Dockerfile
+- Container: travel_beat_web (gunicorn:8000)
+- DB: travel_beat_db (postgres:15) | Redis: travel_beat_redis (redis:7)
+- Celery: travel_beat_celery + travel_beat_celery_beat
+- Production: https://drifttales.app
+```
+
+**bfagent:**
+```markdown
+# Project Facts: bfagent (Book Factory Agent)
+
+## Apps (from config/settings/base.py INSTALLED_APPS)
+core, bfagent, control_center, writing_hub, dlm_hub, medtrans, research,
+expert_hub, presentation_studio, media_hub, ui_hub, mcp_hub, graph_core,
+hub, genagent, workflow_system, api, sphinx_export
+
+## Auth
+- Django built-in auth (NO allauth)
+- Default User model (auth.User) — no AUTH_USER_MODEL override
+- Login: /login/ (django.contrib.auth views)
+
+## HTMX
+- NO HTMX usage in this project
+- No django_htmx, no HX-Request checks
+
+## URL Namespace Map (from config/urls.py)
+- "bookwriting/" -> bfagent | "ui-hub/" -> ui_hub
+- "control-center/" -> control_center | "expert-hub/" -> expert_hub
+- "writing-hub/" -> writing_hub | "research/" -> research
+- "dlm-hub/" -> dlm_hub | "media-hub/" -> media_hub
+- "workflow/" -> workflow_system | "genagent/" -> genagent
+- "graph/" -> graph_core | "medtrans/" -> medtrans
+- "mcp-hub/" -> mcp_hub | "pptx-studio/" -> presentation_studio
+- "" -> hub (catch-all, MUST be last)
+
+## Docker
+- Dockerfile: Dockerfile (project root — NOT docker/)
+- Container: bfagent_web (gunicorn:8000)
+- DB: bfagent_db (postgres:15)
+- Production: https://bfagent.iil.pet
+```
+
+**weltenhub:**
+```markdown
+# Project Facts: weltenhub (Weltenforger)
+
+## Apps (from config/settings/base.py LOCAL_APPS)
+core, public, dashboard, tenants, lookups, governance, worlds, locations,
+characters, scenes, stories, enrichment, location_research
+
+## Auth
+- django-allauth (session-based)
+- Default User model (no AUTH_USER_MODEL override)
+- Login: /accounts/ (allauth URLs)
+
+## HTMX
+- django_htmx IS installed and active
+- HtmxMiddleware in MIDDLEWARE
+- Use request.htmx (NOT raw header check)
+
+## URL Namespace Map (from config/urls.py)
+- "" -> public | "dashboard/" -> dashboard
+- "enrichment/" -> enrichment
+- API v1: "api/v1/tenants/" -> tenants | "api/v1/worlds/" -> worlds
+- "api/v1/locations/" -> locations | "api/v1/characters/" -> characters
+- "api/v1/scenes/" -> scenes | "api/v1/stories/" -> stories
+
+## Multi-Tenancy
+- TenantMiddleware: apps.core.middleware.tenant.TenantMiddleware
+- platform_context.middleware.RequestContextMiddleware active
+
+## Docker
+- Dockerfile: Dockerfile (project root — NOT docker/)
+- Container: weltenhub_web (gunicorn:8000)
+- DB: weltenhub_db (postgres:15) | Redis: weltenhub_redis (redis:7)
+- Celery: weltenhub_celery + weltenhub_celery_beat
+- Production: https://weltenforger.com
+```
+
+**risk-hub:**
+```markdown
+# Project Facts: risk-hub (Schutztat)
+
+## Apps (from src/config/settings.py INSTALLED_APPS)
+NOTE: Apps have NO "apps." prefix — use bare names
+common, tenancy, identity, permissions, audit, outbox, risk, actions,
+documents, reporting, explosionsschutz, substances, notifications,
+dashboard, approvals, ai_analysis, dsb
+
+## Auth
+- Django built-in auth (NO allauth)
+- AUTH_USER_MODEL = "identity.User"
+- Login: /accounts/login/ (django.contrib.auth views)
+
+## HTMX
+- django_htmx IS installed and active
+- HtmxMiddleware in MIDDLEWARE
+- Use request.htmx (NOT raw header check)
+
+## Settings
+- SINGLE file: src/config/settings.py (NOT split base/dev/prod)
+- Source in src/ subdirectory
+
+## URL Namespace Map (from src/config/urls.py)
+- "" -> home | "dashboard/" -> dashboard
+- "risk/" -> risk | "documents/" -> documents | "actions/" -> actions
+- "ex/" -> explosionsschutz (HTML) | "api/ex/" -> explosionsschutz (API)
+- "substances/" -> substances (HTML) | "api/substances/" -> substances (API)
+- "notifications/" -> notifications | "audit/" -> audit | "dsb/" -> dsb
+- "api/v1/" -> Django Ninja API
+
+## Multi-Tenancy
+- SubdomainTenantMiddleware: common.middleware.SubdomainTenantMiddleware
+- RequestContextMiddleware: common.middleware.RequestContextMiddleware
+
+## Docker
+- Dockerfile: docker/app/Dockerfile
+- Container: risk_hub_web
+- DB: risk_hub_db (postgres:16) | Redis: risk_hub_redis (redis:7)
+- Production: https://demo.schutztat.de
+```
+
+#### Workspace Rule: `django-conventions.md` (Glob: `apps/*/models.py`, `apps/*/views.py`, `*/models.py`, `*/views.py`)
 
 ```markdown
 # Django Conventions
 
 ## Models
-- Inherit from django.db.models.Model (no custom base classes in travel-beat)
+- Inherit from django.db.models.Model (no custom base classes)
 - DEFAULT_AUTO_FIELD is BigAutoField — IDs are integers, not UUIDs
 - Foreign keys: on_delete=models.PROTECT by default
 - Define class Meta: ordering = ["-created_at"] where applicable
-
-## Views — HTMX Pattern
-- Check HTMX: if request.headers.get("HX-Request"):
-- Return partial: return render(request, "trips/partials/stop_card.html", ctx)
-- DO NOT use request.htmx — django_htmx is not installed
 
 ## Service Layer
 - views.py handles HTTP request/response only
@@ -179,25 +315,21 @@ All facts verified against the actual codebase as of 2026-02-17.
 
 #### Workspace Rule: `htmx-templates.md` (Glob: `**/templates/**`)
 
+**travel-beat variant (no django_htmx):**
 ```markdown
 # HTMX Template Conventions
 
+## HTMX Detection (travel-beat: raw headers)
+- Check: if request.headers.get("HX-Request"):
+- DO NOT use request.htmx — django_htmx is NOT installed
+- Partial: return render(request, "<app>/partials/<component>.html", ctx)
+- Full page: return render(request, "<app>/<model>_<action>.html", ctx)
+
 ## Template Locations (verified)
 - Full pages: templates/<app>/<model>_<action>.html (extend base.html)
-- Partials: templates/<app>/partials/<component>.html (fragments)
+- Partials: templates/<app>/partials/<component>.html (fragments, no extends)
 - Shared includes: templates/includes/
 - Account templates: templates/account/ (allauth overrides)
-
-## Existing Partials (travel-beat)
-- templates/trips/partials/stop_card.html
-- templates/trips/partials/stop_form.html
-- templates/trips/partials/stop_confirm_delete.html
-- templates/trips/partials/traveler_card.html
-- templates/trips/partials/traveler_form.html
-- templates/stories/partials/chapter_plan.html
-- templates/stories/partials/chapter_quality.html
-- templates/worlds/partials/character_card.html
-- templates/worlds/partials/place_card.html
 
 ## HTMX Attributes
 - Target: hx-target="#section-content"
@@ -206,143 +338,94 @@ All facts verified against the actual codebase as of 2026-02-17.
 - Empty response for delete: view returns HttpResponse("")
 ```
 
-#### Workspace Rule: `url-routing.md` (Glob: `apps/*/urls.py`, `config/urls.py`)
+**weltenhub/risk-hub variant (with django_htmx):**
+```markdown
+# HTMX Template Conventions
+
+## HTMX Detection (django_htmx installed)
+- Check: if request.htmx:
+- Partial: return render(request, "<app>/partials/<component>.html", ctx)
+- Full page: return render(request, "<app>/<model>_<action>.html", ctx)
+- Access headers: request.htmx.target, request.htmx.trigger
+
+## Template Locations
+- Full pages: templates/<app>/<model>_<action>.html (extend base.html)
+- Partials: templates/<app>/partials/<component>.html (fragments, no extends)
+
+## HTMX Attributes
+- Target: hx-target="#section-content"
+- Swap: hx-swap="innerHTML" (default), outerHTML for replace
+- Delete: hx-delete="..." hx-confirm="Wirklich loeschen?"
+- Empty response for delete: view returns HttpResponse("")
+```
+
+#### Workspace Rule: `url-routing.md` (Glob: `apps/*/urls.py`, `*/urls.py`, `config/urls.py`)
 
 ```markdown
-# URL Routing Conventions (travel-beat — verified)
+# URL Routing Conventions
 
 ## Root URL Config
-- File: config/urls.py
-- ROOT_URLCONF = "config.urls"
+- File: config/urls.py (ROOT_URLCONF = "config.urls")
 - Health checks: /livez/ (liveness), /healthz/ (readiness), /health/ (compat)
-- Admin: /admin/
-- Auth: /accounts/ (django-allauth)
 
-## App URL Registration Pattern
-Every app URL file follows this pattern:
-  from django.urls import path
-  from . import views
-  app_name = "<app_name>"
-  urlpatterns = [...]
-
-Root urls.py includes apps via:
-  path("<prefix>/", include("apps.<app>.urls", namespace="<app>"))
-
-## Namespace Map (from config/urls.py)
-- "" -> trips (root, no prefix)
-- "stories/" -> stories
-- "locations/" -> locations
-- "world/" -> worlds (NOTE: prefix is "world", namespace is "worlds")
-- "profile/" -> accounts
-- "ai/" -> ai_services
-
-## reverse() Usage
-- Always use namespace: reverse("trips:trip_detail", kwargs={"pk": pk})
-- In templates: {% url "trips:trip_detail" pk=trip.pk %}
-- NEVER use bare names: reverse("trip_detail") will FAIL
+## App URL Registration
+- Every app: app_name = "<app_name>" in urls.py
+- Root: path("<prefix>/", include("apps.<app>.urls", namespace="<app>"))
+- reverse() ALWAYS with namespace: reverse("trips:trip_detail", kwargs={"pk": pk})
+- Templates: {% url "trips:trip_detail" pk=trip.pk %}
+- NEVER bare names: reverse("trip_detail") will FAIL
 
 ## URL Naming Convention
-- List: <model>_list (e.g., trip_list)
-- Detail: <model>_detail
-- Create: <model>_create
-- Edit: <model>_edit
-- Delete: <model>_delete
-- HTMX partials: <model>_add, <model>_edit (same name, different HTTP method)
-
-## HTMX Partial URLs
-- Nested under parent: trips/<int:pk>/stops/add/
-- Standalone edit: stops/<int:pk>/edit/
-- API endpoints: trips/api/segment-fields/
+- List: <model>_list | Detail: <model>_detail
+- Create: <model>_create | Edit: <model>_edit | Delete: <model>_delete
 ```
 
 #### Workspace Rule: `testing.md` (Glob: `**/tests/**`, `**/test_*.py`)
 
 ```markdown
-# Testing Conventions (travel-beat — verified)
+# Testing Conventions
 
 ## Framework
 - pytest with pytest-django
-- Config: pytest.ini at project root
-- DJANGO_SETTINGS_MODULE = config.settings.test
-- addopts: -v --tb=short
-- testpaths: apps tests
+- DJANGO_SETTINGS_MODULE = config.settings.test (or config.settings for risk-hub)
+- Run all: python -m pytest
+- Run app: python -m pytest apps/<app>/
+- Run file: python -m pytest apps/<app>/tests/test_<module>.py
 
-## Test File Locations
+## Test Structure
 - App tests: apps/<app>/tests/test_<module>.py
-- Integration tests: tests/test_<feature>.py
-- NO conftest.py exists yet — create if shared fixtures needed
-
-## Test Naming
-- Functions: test_should_<expected_behavior> (e.g., test_should_create_trip)
-- Classes: Test<Feature> (e.g., TestStoryExport)
-
-## Running Tests
-- All: python -m pytest
-- Single app: python -m pytest apps/stories/
-- Single file: python -m pytest apps/stories/tests/test_services.py
-- Pattern: python -m pytest -k "test_should_export"
+- Integration: tests/test_<feature>.py
 
 ## Test Patterns
-- Use @pytest.mark.django_db for DB access
-- Mock external services (LLM calls, HTTP)
-- Factory Boy for test data (if installed)
-- Max 5 assertions per test, max 30 lines per test function
-
-## Existing Test Files (travel-beat)
-- apps/stories/tests/test_services.py, test_export.py, test_handlers.py,
-  test_integration.py, test_regeneration.py, test_review.py,
-  test_chapter_planner.py, test_editing_service.py, test_storyline_schemas.py
-- apps/trips/tests/test_csv_scene_stops.py, test_enrichment.py
-- tests/test_chat_views.py, test_creative_services.py, test_csv_parser.py,
-  test_llm_service.py, test_story_toolkit.py, test_toolkit.py, test_trip_agent.py
+- @pytest.mark.django_db for DB access
+- Functions: test_should_<expected_behavior>
+- Max 5 assertions per test, max 30 lines per function
+- Mock external services (LLM, HTTP)
 ```
 
 #### Workspace Rule: `docker-deployment.md` (Glob: `Dockerfile`, `docker-compose*.yml`, `.env*`)
 
 ```markdown
-# Docker & Deployment Conventions (verified)
+# Docker & Deployment Conventions
 
-## Dockerfile
-- Location varies per repo:
-  travel-beat: docker/Dockerfile
-  bfagent: Dockerfile (project root)
-  weltenhub: Dockerfile (project root)
-  risk-hub: docker/app/Dockerfile
-  pptx-hub: docker/app/Dockerfile
-- Target standard (per User Rules): docker/app/Dockerfile
-- Base image: python:3.12-slim
-- Non-root user: groupadd + useradd per app name
-- HEALTHCHECK via python urllib (no curl): /livez/
-- EXPOSE 8000
+## Dockerfile Location (varies per repo)
+- Target standard: docker/app/Dockerfile (per User Rules)
+- travel-beat: docker/Dockerfile
+- bfagent: Dockerfile (project root)
+- weltenhub: Dockerfile (project root)
+- risk-hub: docker/app/Dockerfile
+- Base: python:3.12-slim | Non-root user | EXPOSE 8000
 
-## Docker Compose (production)
-- File: docker-compose.prod.yml at project root
-- env_file: .env.prod (NEVER use ${VAR} interpolation in environment: section)
+## Docker Compose
+- File: docker-compose.prod.yml | env_file: .env.prod
 - Image: ghcr.io/achimdehnert/<app>:${IMAGE_TAG:-latest}
-- Container naming: <app_snake>_web, <app_snake>_db, <app_snake>_redis
-- Networks: app-specific + external bfagent_platform
-- Resource limits: memory per service
-- Logging: json-file driver, max-size 10-20m
+- NEVER commit .env.prod to git
 
-## Services Pattern (travel-beat example)
-- travel-beat-web: gunicorn on 0.0.0.0:8000 (4 workers, gthread)
-- travel-beat-caddy: reverse proxy on 127.0.0.1:8089
-- travel-beat-celery: celery -A config worker
-- travel-beat-celery-beat: celery -A config beat
-- travel-beat-db: postgres:15-alpine
-- travel-beat-redis: redis:7-alpine (128mb, allkeys-lru)
-
-## Deployment Flow (ADR-042)
+## Deploy Flow (ADR-042)
 1. git push origin main
-2. bf deploy <app> (triggers workflow_dispatch)
-3. GitHub Actions: docker build + push to GHCR
-4. SSH to 88.198.191.108: docker compose pull + up -d --force-recreate
-5. Health check: /livez/ returns 200
-
-## CRITICAL: .env.prod
-- Never commit .env.prod to git
-- Contains: SECRET_KEY, DATABASE_URL, ALLOWED_HOSTS, CSRF_TRUSTED_ORIGINS
-- DJANGO_SETTINGS_MODULE=config.settings.production
+2. GitHub Actions: docker build + push to GHCR
+3. SSH 88.198.191.108: docker compose pull + up -d --force-recreate
+4. Health check: /livez/ returns 200
 ```
 
 ### 3.2 Measure 2: Windsurf Workflows
@@ -542,7 +625,8 @@ Inputs: App name, model name, action (list/detail/create/edit/delete).
 
 2. Create or update the view function in apps/{app_name}/views.py:
    - For list/detail/create/edit: standard view with form handling
-   - Check HTMX: if request.headers.get("HX-Request"):
+   - HTMX detection: use project-facts.md to determine pattern
+     (request.htmx for django_htmx repos, request.headers.get("HX-Request") otherwise)
    - HTMX: return render(request, "{app_name}/partials/{model}_{action}.html", ctx)
    - Non-HTMX: return render(request, "{app_name}/{model}_{action}.html", ctx)
    - Add @login_required decorator
@@ -584,7 +668,9 @@ No new MCP servers needed for Phase 1. A `platform-context` MCP server is deferr
 
 ### 3.4 Measure 4: Memory Curation Strategy
 
-**Verified memories to set (travel-beat workspace):**
+**Verified memories to set (per workspace):**
+
+Memories should match `project-facts.md` for each repo. Example for travel-beat:
 
 ```text
 Settings module: config.settings.base (split: base/development/production/test)
@@ -603,7 +689,7 @@ Production domain: drifttales.app. Server: 88.198.191.108
 1. Open Windsurf Settings > Manage Memories
 2. Delete memories referencing refactored files/patterns
 3. Delete duplicate memories
-4. Verify remaining memories match current `config/settings/base.py`
+4. Verify remaining memories match current `project-facts.md`
 
 ---
 
@@ -613,13 +699,13 @@ Production domain: drifttales.app. Server: 88.198.191.108
 
 | Day | Task | Deliverable |
 |-----|------|-------------|
-| 1 | Create `platform-principles.md` global rule | `.windsurf/rules/platform-principles.md` |
+| 1 | Create `platform-principles.md` + `project-facts.md` | `.windsurf/rules/` (2 Always-On files per repo) |
 | 1 | Create 5 workspace rules (django, templates, URLs, testing, docker) | `.windsurf/rules/*.md` |
-| 2 | Set verified memories for travel-beat workspace | Curated memories |
+| 2 | Set verified memories per workspace | Curated memories |
 | 2 | Create `/deploy-check` + `/adr-create` workflows | `.windsurf/workflows/*.md` |
 | 3 | Create `/new-django-app` + `/htmx-view` + `/pr-review` workflows | 3 workflow files |
 | 4 | Test all rules and workflows on travel-beat | Validation pass |
-| 5 | Rollout rules to bfagent + weltenhub repos (adapt per-repo facts) | Adapted rules |
+| 5 | Rollout adapted rules to bfagent, weltenhub, risk-hub | Per-repo `project-facts.md` |
 
 ### Phase 2: MCP Context Server (Week 2-3, if Phase 1 effective)
 
@@ -642,7 +728,8 @@ Production domain: drifttales.app. Server: 88.198.191.108
 
 ### 5.1 Positive
 
-- **Correct paths and settings from session start** via Always-On rule
+- **Correct paths and settings from session start** via Always-On rules
+- **No cross-repo contamination** — `project-facts.md` is per-repo
 - **Repeatable processes as `/command`** compress 10-min tasks to single invocation
 - **Minimal token waste** via Glob-pattern activation
 - **No new infrastructure** — rules and workflows are markdown files
@@ -663,6 +750,7 @@ Production domain: drifttales.app. Server: 88.198.191.108
 | Memory staleness | Weekly cleanup; prefer rules over memories |
 | Windsurf lock-in | Rule content is plain markdown (portable); MCP is standard |
 | Rules degrade Cascade behavior | Rollback: delete `.windsurf/rules/` to restore pre-ADR state |
+| Cross-repo contamination | project-facts.md is per-repo; platform-principles.md has NO repo-specific content |
 
 ---
 
@@ -670,9 +758,10 @@ Production domain: drifttales.app. Server: 88.198.191.108
 
 ### 6.1 Binary (pass/fail)
 
-- [ ] `platform-principles.md` rule active in all workspaces
+- [ ] `platform-principles.md` identical in all repos
+- [ ] `project-facts.md` correct per repo (verified against settings.py)
 - [ ] Cascade generates correct `config.urls` (not `travel_beat.urls`) in new session
-- [ ] Cascade uses `request.headers.get("HX-Request")` (not `request.htmx`)
+- [ ] Cascade uses correct HTMX pattern per repo (raw headers vs. django_htmx)
 - [ ] Cascade creates templates in `templates/<app>/` (not `apps/<app>/templates/`)
 - [ ] `/deploy-check` workflow runs all steps without manual intervention
 - [ ] `/new-django-app` scaffolds correct structure with `BigAutoField`
@@ -682,7 +771,7 @@ Production domain: drifttales.app. Server: 88.198.191.108
 
 ### 6.2 Qualitative
 
-- [ ] All 7 repos have `.windsurf/rules/` with platform-principles
+- [ ] All 4 main repos have `.windsurf/rules/` with adapted project-facts
 - [ ] Developer reports: "Cascade knows my project without re-explaining"
 
 ---
@@ -703,4 +792,5 @@ Production domain: drifttales.app. Server: 88.198.191.108
 |------|--------|--------|
 | 2026-02-17 | Achim Dehnert | v1: Initial draft (Platform Context Store) |
 | 2026-02-17 | Achim Dehnert | v2: Merged ADR-043 + ADR-044, corrected all codebase facts, reduced scope |
-| 2026-02-17 | Achim Dehnert | v2.1: K-03 fix — all 5 rules and 5 workflows fully defined; K-04 idempotency guards; K-05 error handling |
+| 2026-02-17 | Achim Dehnert | v2.1: K-03 — all 5 rules and 5 workflows fully defined |
+| 2026-02-17 | Achim Dehnert | v2.2: K-01 — split Global Rule into platform-principles.md + project-facts.md per repo; 4 repo variants defined |
