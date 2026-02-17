@@ -9,41 +9,40 @@ from pathlib import Path
 APPS: dict[str, dict[str, str]] = {
     "bfagent": {
         "repo": "achimdehnert/bfagent",
+        "workflow": "ci.yml",
         "health": "https://bfagent.iil.pet/health/",
     },
     "travel-beat": {
         "repo": "achimdehnert/travel-beat",
+        "workflow": "deploy.yml",
         "health": "https://drifttales.app/health/",
-    },
-    "mcp-hub": {
-        "repo": "achimdehnert/mcp-hub",
-        "health": "https://mcp-hub.iil.pet/health/",
     },
     "risk-hub": {
         "repo": "achimdehnert/risk-hub",
-        "health": "https://schutztat.app/health/",
+        "workflow": "docker-build.yml",
+        "health": "https://demo.schutztat.de/health/",
     },
     "weltenhub": {
         "repo": "achimdehnert/weltenhub",
-        "health": "https://weltenforger.app/health/",
+        "workflow": "ci.yml",
+        "health": "https://weltenforger.com/health/",
     },
     "pptx-hub": {
         "repo": "achimdehnert/pptx-hub",
-        "health": "https://pptx-hub.iil.pet/health/",
+        "workflow": "cd-production.yml",
+        "health": "https://prezimo.de/health/",
     },
     "trading-hub": {
         "repo": "achimdehnert/trading-hub",
+        "workflow": "ci-cd.yml",
         "health": "https://trading-hub.iil.pet/health/",
     },
 }
 
-# ── Prod Server ──────────────────────────────────────────────────
+# ── Prod Server ──────────────────────────────────────────────
 PROD_HOST = "88.198.191.108"
 PROD_USER = "root"
 
-# ── Debounce ─────────────────────────────────────────────────────
+# ── Debounce ─────────────────────────────────────────────────
 DEBOUNCE_FILE = Path.home() / ".bf-deploy" / "debounce.json"
 DEBOUNCE_SECONDS = 60
-
-# ── Deploy Workflow ──────────────────────────────────────────────
-DEPLOY_WORKFLOW = "deploy.yml"

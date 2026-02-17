@@ -73,7 +73,10 @@ def deploy(
             )
             continue
 
-        status_code = trigger_workflow(APPS[app]["repo"], token)
+        cfg = APPS[app]
+        status_code = trigger_workflow(
+            cfg["repo"], token, workflow=cfg["workflow"],
+        )
         if status_code == 204:
             mark_triggered(app)
             click.echo(f"\U0001f680 {app}: deploy triggered (async)")
