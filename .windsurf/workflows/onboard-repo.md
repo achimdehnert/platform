@@ -68,6 +68,12 @@ Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:
 │   └── wsgi.py
 ├── apps/                          # Django-Apps
 │   └── <app_name>/
+│       ├── components/            # ADR-041: Component modules (get_context + fragment_view)
+│       └── templatetags/          # ADR-041: <app>_components.py (inclusion tags)
+├── templates/                     # Templates at project root
+│   └── <app_name>/
+│       ├── partials/              # Template partials
+│       └── components/            # ADR-041: _<name>.html (underscore prefix!)
 ├── requirements.txt               # Oder requirements/base.txt + dev.txt
 ├── docker-compose.prod.yml        # Production Compose (siehe Step 3.3)
 ├── pyproject.toml                 # Projekt-Metadaten
@@ -814,6 +820,9 @@ Repo-Struktur:
   [ ] /livez/ Health-Endpoint existiert
   [ ] pyproject.toml mit korrekten Metadaten
   [ ] README.md mit Quickstart
+  [ ] apps/<app>/components/ Verzeichnis existiert (ADR-041)
+  [ ] apps/<app>/templatetags/<app>_components.py existiert
+  [ ] templates/<app>/components/ Verzeichnis existiert
 
 Server:
   [ ] /opt/<REPO>/ Verzeichnis existiert
@@ -839,6 +848,15 @@ Platform:
   [ ] backup.md Tabelle aktualisiert
   [ ] Memory mit Container-/Deploy-Infos erstellt
 ```
+
+### 6.6 Windsurf Rules kopieren
+
+Kopiere `.windsurf/rules/` und `.windsurf/workflows/` aus einem bestehenden Repo (z.B. travel-beat).
+**PFLICHT-Dateien:**
+- `platform-principles.md` (Always On, identisch in allen Repos)
+- `project-facts.md` (Always On, angepasst pro Repo)
+- `component-pattern.md` (Glob, ADR-041 Component Pattern)
+- `django-conventions.md`, `url-routing.md`, `testing.md`, `docker-deployment.md`
 
 ## Referenz: Bestehende Repos als Vorlage
 
