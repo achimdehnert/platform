@@ -129,12 +129,7 @@ class TestHtmxResponseMixin:
         class BadView(HtmxResponseMixin):
             partial_template_name = ""
 
-            def get_template_names(self_inner):
-                return super(
-                    HtmxResponseMixin, self_inner,
-                ).get_template_names()
-
         view = BadView()
         view.request = rf.get("/", HTTP_HX_REQUEST="true")
         with pytest.raises(ImproperlyConfigured):
-            view.get_template_names()
+            HtmxResponseMixin.get_template_names(view)
