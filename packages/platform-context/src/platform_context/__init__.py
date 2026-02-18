@@ -25,8 +25,13 @@ from platform_context.context import (
     set_user_id,
 )
 from platform_context.db import get_db_tenant, set_db_tenant
+from platform_context.htmx import (
+    HtmxErrorMiddleware,
+    HtmxResponseMixin,
+    is_htmx_request,
+)
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     # Context
@@ -39,4 +44,8 @@ __all__ = [
     # DB
     "get_db_tenant",
     "set_db_tenant",
+    # HTMX (ADR-048)
+    "HtmxErrorMiddleware",
+    "HtmxResponseMixin",
+    "is_htmx_request",
 ]
