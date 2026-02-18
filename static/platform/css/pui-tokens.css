@@ -1,0 +1,120 @@
+/*
+ * Platform UI Design Tokens (ADR-049)
+ *
+ * Two-layer architecture:
+ *   Layer 1: CSS Custom Properties (this file, runtime)
+ *   Layer 2: Tailwind Config (tailwind.config.shared.js, build-time)
+ *
+ * Prefix: --pui- (Platform UI) to avoid conflicts with --tw-*, --bs-*, etc.
+ *
+ * Include in every app's base.html:
+ *   <link rel="stylesheet" href="{% static 'platform/css/pui-tokens.css' %}">
+ */
+
+/* ========================================================================
+   PRIMITIVE TOKENS (internal only -- never use directly in templates)
+   ======================================================================== */
+
+:root {
+  --pui-blue-500: #2563eb;
+  --pui-blue-600: #1d4ed8;
+  --pui-gray-50:  #f9fafb;
+  --pui-gray-100: #f3f4f6;
+  --pui-gray-200: #e5e7eb;
+  --pui-gray-500: #6b7280;
+  --pui-gray-900: #111827;
+  --pui-green-500: #22c55e;
+  --pui-red-500:   #ef4444;
+  --pui-amber-500: #f59e0b;
+}
+
+/* ========================================================================
+   SEMANTIC TOKENS (public API -- consumed via Tailwind classes)
+   ======================================================================== */
+
+:root {
+  /* Brand */
+  --pui-primary:       var(--pui-blue-500);
+  --pui-primary-hover: var(--pui-blue-600);
+
+  /* Status */
+  --pui-success: var(--pui-green-500);
+  --pui-danger:  var(--pui-red-500);
+  --pui-warning: var(--pui-amber-500);
+
+  /* Text */
+  --pui-foreground: var(--pui-gray-900);
+  --pui-muted:      var(--pui-gray-500);
+
+  /* Surfaces */
+  --pui-surface:     #ffffff;
+  --pui-surface-alt: var(--pui-gray-50);
+
+  /* Borders */
+  --pui-border:        var(--pui-gray-200);
+  --pui-border-strong: var(--pui-gray-500);
+
+  /* Spacing */
+  --pui-space-1:  0.25rem;  /* 4px */
+  --pui-space-2:  0.5rem;   /* 8px */
+  --pui-space-3:  0.75rem;  /* 12px */
+  --pui-space-4:  1rem;     /* 16px */
+  --pui-space-6:  1.5rem;   /* 24px */
+  --pui-space-8:  2rem;     /* 32px */
+  --pui-space-12: 3rem;     /* 48px */
+
+  /* Border Radius */
+  --pui-radius-sm: 0.25rem;
+  --pui-radius-md: 0.375rem;
+  --pui-radius-lg: 0.5rem;
+
+  /* Shadows */
+  --pui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --pui-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  --pui-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+
+  /* Transitions */
+  --pui-transition: 150ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ========================================================================
+   APP-SPECIFIC OVERRIDES (via data-app on <body>)
+   ======================================================================== */
+
+[data-app="travel-beat"] {
+  --pui-primary:       #0ea5e9;  /* Sky Blue */
+  --pui-primary-hover: #0284c7;
+}
+
+[data-app="risk-hub"] {
+  --pui-primary:       #8b5cf6;  /* Purple */
+  --pui-primary-hover: #7c3aed;
+}
+
+[data-app="weltenhub"] {
+  --pui-primary:       #10b981;  /* Emerald */
+  --pui-primary-hover: #059669;
+}
+
+[data-app="bfagent"] {
+  --pui-primary:       #2563eb;  /* Blue (default) */
+  --pui-primary-hover: #1d4ed8;
+}
+
+[data-app="pptx-hub"] {
+  --pui-primary:       #f97316;  /* Orange */
+  --pui-primary-hover: #ea580c;
+}
+
+/* ========================================================================
+   DARK MODE (opt-in via data-theme="dark" on <body>)
+   ======================================================================== */
+
+[data-theme="dark"] {
+  --pui-foreground:    var(--pui-gray-100);
+  --pui-muted:         var(--pui-gray-500);
+  --pui-surface:       #1f2937;
+  --pui-surface-alt:   #111827;
+  --pui-border:        #374151;
+  --pui-border-strong: #4b5563;
+}
