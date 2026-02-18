@@ -1,7 +1,7 @@
 # SOPS configuration for platform secrets (ADR-045)
-# Recipients: add your age public keys here
+# Primary: developer machine | Backup: safe storage
 creation_rules:
   - path_regex: secrets\.enc\.env$
     age: >-
-      age1TODO_PRIMARY_KEY_HERE,
-      age1TODO_BACKUP_KEY_HERE
+      age1efdys3yj3y8gvu64v9h8m449h0gh5spwvzyrpcjtkj26w4q5g46q8nuf67,
+      age16ugm28mck7y95c5p2ul8hqctcn26qdagylj5fa4ykxytsz5nf4ssq49hef
