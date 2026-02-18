@@ -1143,8 +1143,172 @@ Keine zusätzliche Infrastruktur erforderlich. Playwright läuft headless in Git
 
 ---
 
-## 8. Changelog
+## 8. Amendment: Anti-Pattern Enforcement + Token Compliance (2026-02-18)
 
-| Datum | Autor | Änderung |
-|-------|-------|----------|
-| 2026-02-16 | Achim Dehnert | Initial Draft — kombiniert Option A (Manifest) + Option C (Playwright) |
+### 8.1 Motivation
+
+The original ADR-040 defines **what** must be present (UI manifest + Playwright
+E2E). Two new ADRs extend the platform's frontend quality system:
+
+- **ADR-048** (HTMX Playbook) defines canonical patterns and banned anti-patterns
+- **ADR-049** (Design Token System) defines semantic CSS tokens
+
+This amendment integrates their enforcement rules into ADR-040's existing
+completeness checker and CI pipeline.
+
+### 8.2 Extended Manifest Format (v2.0)
+
+The manifest gains two new sections: `forbidden_patterns` and `token_rules`.
+
+```yaml
+# ui-manifests/dashboard.yaml (additions to v1.0 format)
+manifest_version: "2.0"
+
+# ... existing components and htmx_contracts sections ...
+
+# NEW: Anti-pattern checks (from ADR-048)
+forbidden_patterns:
+  - pattern: 'style="'
+    severity: ERROR
+    message: "Inline styles banned (AP-004) -- use Tailwind + design tokens"
+  - pattern: 'onclick="'
+    severity: ERROR
+    message: "onclick banned with HTMX (AP-003) -- use hx-* attributes"
+  - pattern: 'hx-boost="true"'
+    context: form
+    severity: ERROR
+    message: "hx-boost on forms banned (AP-002) -- causes double-submit"
+
+# NEW: Token compliance (from ADR-049)
+token_rules:
+  ban_direct_colors: true       # Flag bg-blue-500, text-red-600 etc.
+  ban_hardcoded_hex: true       # Flag #2563eb in CSS/style attributes
+  require_semantic_classes: true # Require bg-primary, text-danger etc.
+```
+
+### 8.3 Checker Extensions
+
+The existing `check_frontend.py` gains two new check methods:
+
+```python
+# tools/check_frontend.py -- Extensions for v2.0
+
+class FrontendCompletenessChecker:
+    """Extended with anti-pattern and token compliance checks."""
+
+    def check_anti_patterns(
+        self, html_content: str, manifest: dict,
+    ) -> list[CheckResult]:
+        """Check against ADR-048 banned patterns (AP-001..007)."""
+        results: list[CheckResult] = []
+        for rule in manifest.get("forbidden_patterns", []):
+            if rule["pattern"] in html_content:
+                results.append(CheckResult(
+                    status=Status.FAIL,
+                    rule=rule.get("id", "AP-xxx"),
+                    message=rule["message"],
+                    severity=rule.get("severity", "ERROR"),
+                ))
+        return results
+
+    def check_token_compliance(
+        self, html_content: str, manifest: dict,
+    ) -> list[CheckResult]:
+        """Check against ADR-049 design token rules."""
+        import re
+
+        rules = manifest.get("token_rules", {})
+        results: list[CheckResult] = []
+
+        if rules.get("ban_direct_colors"):
+            pattern = re.compile(
+                r"\b(?:bg|text|border)"
+                r"-(?:blue|red|green|gray|amber|sky|purple)"
+                r"-\d{2,3}\b"
+            )
+            for match in pattern.finditer(html_content):
+                results.append(CheckResult(
+                    status=Status.WARNING,
+                    rule="TOKEN-001",
+                    message=(
+                        f"Direct color '{match.group()}'"
+                        f" -- use semantic class (bg-primary, text-danger)"
+                    ),
+                ))
+
+        if rules.get("ban_hardcoded_hex"):
+            hex_pattern = re.compile(
+                r"(?:color|background|border-color)"
+                r"\s*:\s*#[0-9a-fA-F]{3,8}"
+            )
+            for match in hex_pattern.finditer(html_content):
+                results.append(CheckResult(
+                    status=Status.FAIL,
+                    rule="TOKEN-002",
+                    message=(
+                        f"Hardcoded color '{match.group()}'"
+                        f" -- use --pui-* CSS variable"
+                    ),
+                ))
+
+        return results
+```
+
+### 8.4 CI Pipeline Extension
+
+The existing `frontend-quality.yml` workflow adds token and pattern checks:
+
+```yaml
+# .github/workflows/frontend-quality.yml (addition to static-analysis job)
+      - name: Run Frontend Checks (v2.0)
+        run: |
+          set -euo pipefail
+          python -m tools.check_frontend \
+            --ci \
+            --check-anti-patterns \
+            --check-token-compliance \
+            --format json \
+            > frontend-report.json
+```
+
+### 8.5 Pre-Commit Integration
+
+Two new hooks complement the existing manifest check:
+
+```yaml
+# .pre-commit-config.yaml (additions)
+      - id: htmx-anti-patterns
+        name: "HTMX Anti-Pattern Check (ADR-048)"
+        entry: python -m tools.check_htmx_patterns
+        language: python
+        files: '\.html$'
+        pass_filenames: true
+
+      - id: design-token-check
+        name: "Design Token Compliance (ADR-049)"
+        entry: python -m tools.check_design_tokens
+        language: python
+        files: '\.(html|css)$'
+        pass_filenames: true
+```
+
+### 8.6 Enforcement Summary
+
+| Check | Layer | Speed | Source ADR |
+| ----- | ----- | ----- | ---------- |
+| `data-testid` on interactive elements | Pre-commit | ~1s | ADR-040 |
+| Anti-patterns AP-001..004 (regex) | Pre-commit | ~1s | ADR-048 |
+| Token compliance (direct colors) | Pre-commit | ~1s | ADR-049 |
+| Full manifest check (components, HTMX contracts) | CI | ~5s | ADR-040 |
+| Anti-patterns AP-005..007 (manifest-aware) | CI | ~5s | ADR-048 |
+| Token compliance (hardcoded hex in CSS) | CI | ~5s | ADR-049 |
+| Playwright E2E (browser-based) | CI | ~60s | ADR-040 |
+
+---
+
+## 9. Changelog
+
+| Datum      | Autor          | Änderung                                                                    |
+|------------|----------------|-----------------------------------------------------------------------------|
+| 2026-02-16 | Achim Dehnert | Initial Draft -- kombiniert Option A (Manifest) + Option C (Playwright)      |
+| 2026-02-18 | Achim Dehnert | Amendment: Anti-Pattern Enforcement (ADR-048) + Token Compliance (ADR-049)   |
