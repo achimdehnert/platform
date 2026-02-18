@@ -9,6 +9,7 @@
 | **Supersedes** | — |
 | **Related** | ADR-021 (Unified Deployment), ADR-022 (Platform Consistency), ADR-044 (MCP-Hub Architecture) |
 | **Based on** | `konzept-env-secrets-management.md`, `review-secrets-management.md` |
+| **Version** | 2 (incorporates critical review findings R-01 through A-06) |
 
 ---
 
@@ -33,12 +34,12 @@ reads from its own `.env` file, and has no rotation or audit capability.
 **Critical distinction** that the original concept did not address:
 
 - **Django apps** (bfagent, travel-beat, weltenhub, risk-hub, pptx-hub) run as
-  **Docker containers on Hetzner** (88.198.191.108). They read `.env.prod` at
-  container start. Secrets change rarely (deploy-time).
+  **Docker containers on Hetzner** (88.198.191.108). They use `django.conf.settings`
+  with `os.environ.get()` or `python-decouple`. Secrets change rarely (deploy-time).
 
 - **MCP servers** (deployment_mcp, orchestrator_mcp, llm_mcp) run **locally in
-  WSL** on the developer machine. They use subprocess SSH to manage remote
-  infrastructure. They do NOT run on Hetzner.
+  WSL** on the developer machine. They use `pydantic-settings` with `env_prefix`.
+  They do NOT run on Hetzner.
 
 This means a PostgreSQL-based secrets provider on Hetzner would require the
 local MCP servers to maintain a persistent remote DB connection just to load
@@ -59,54 +60,145 @@ Three approaches were evaluated in the review phase:
 
 ## 2. Decision
 
-### We adopt Variante C: Hybrid — SOPS for deployment secrets, PostgreSQL for runtime config only
+### We adopt Variante C: Hybrid — SOPS for deployment secrets, file-based secrets for runtime
 
 ### 2.1 Separation of Concerns
 
 ```text
 SOPS + age (encrypted in Git, decrypted at deploy-time):
-  → API keys, tokens, credentials (AMADEUS_CLIENT_SECRET, HCLOUD_TOKEN, HF_TOKEN)
-  → SSH keys stay as FILES on host (chmod 600), never in DB or SOPS
-  → Decrypted to /run/secrets/ at deploy-time via deploy script
+  -> API keys, tokens, credentials (AMADEUS_CLIENT_SECRET, HCLOUD_TOKEN, HF_TOKEN)
+  -> SSH keys stay as FILES on host (chmod 600), never in DB or SOPS
+  -> Decrypted in CI/CD pipeline, pushed to /run/secrets/ via SSH
 
-PostgreSQL (existing bfagent_db, unencrypted):
-  → Feature flags, log levels, non-sensitive config
-  → Only for Django apps on Hetzner (not for local MCP servers)
-  → Optional: runtime-changeable config without redeploy
+Django apps (Hetzner Docker containers):
+  -> Read from /run/secrets/ via read_secret() helper (see 2.4)
+  -> Fallback to environment variables for backward compatibility
+  -> No pydantic-settings dependency
 
-Local MCP servers (WSL):
-  → Read from ~/.config/mcp-hub/.env (gitignored)
-  → No DB dependency, no remote calls for settings
-  → pydantic-settings reads .env directly
+MCP servers (pydantic-settings, WSL):
+  -> Read from ~/.config/mcp-hub/.env (gitignored)
+  -> secrets_dir="/run/secrets" for production (unused in WSL)
+  -> No DB dependency, no remote calls for settings
 ```
 
 ### 2.2 SOPS + age for Secrets
+
+```yaml
+# .sops.yaml — MUST have at least 2 recipients (bus factor)
+creation_rules:
+  - path_regex: secrets\.enc\.env$
+    age: >-
+      age1<primary-developer-key>,
+      age1<backup-key-stored-in-safe>
+```
 
 ```text
 # Per-repo encrypted secrets file
 mcp-hub/secrets.enc.env        # MCP server secrets
 bfagent/secrets.enc.env        # bfagent production secrets
 travel-beat/secrets.enc.env    # travel-beat production secrets
-...
-
-# .sops.yaml in each repo
-creation_rules:
-  - path_regex: secrets\.enc\.env$
-    age: >-
-      age1xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
-```bash
-# Deploy script decrypts to /run/secrets/
-sops -d secrets.enc.env | while IFS='=' read -r key value; do
-    echo "$value" > "/run/secrets/${key,,}"
-    chmod 400 "/run/secrets/${key,,}"
-done
+**Key management rule:** Minimum 2 age recipients in every `.sops.yaml`:
+one primary (developer machine) and one backup (physically separate storage,
+e.g., USB key in a safe). Loss of primary key does not cause irrecoverable
+secret loss.
+
+### 2.3 Secret-Zero: Decrypt in CI/CD, Not on Server
+
+The age private key **never** resides on the Hetzner production server.
+Decryption happens in the GitHub Actions CI/CD pipeline, which pushes
+the plaintext files to `/run/secrets/` via SSH.
+
+```text
++-----------------------------------------------------+
+|  GitHub Actions Runner (ephemeral)                   |
+|                                                      |
+|  1. Checkout repo (includes secrets.enc.env)         |
+|  2. Decrypt: SOPS_AGE_KEY=${{ secrets.SOPS_AGE_KEY }}|
+|     sops -d secrets.enc.env -> plaintext in memory   |
+|  3. SSH to Hetzner: write each secret to             |
+|     /run/secrets/<key> (chmod 400, root:root)        |
+|  4. Verify: required secrets exist and are non-empty |
+|  5. docker compose up --force-recreate               |
++-----------------------------------------------------+
+
+Consequence:
+  - age private key exists ONLY in GitHub Secrets (encrypted at rest)
+  - Hetzner server never has the age key -> cannot decrypt Git history
+  - Compromised server exposes current /run/secrets/ only, not historical
 ```
 
-### 2.3 pydantic-settings with secrets_dir
+**GitHub Secret required:** `SOPS_AGE_KEY` — the full contents of the age
+private key file (starts with `AGE-SECRET-KEY-1...`).
 
-All Django apps and MCP servers adopt the same Settings pattern:
+### 2.4 Settings Patterns (Two Worlds)
+
+#### Pattern A: Django Apps (bfagent, travel-beat, weltenhub, risk-hub)
+
+Django apps use `django.conf.settings`, not pydantic-settings. A shared
+utility function reads from `/run/secrets/` with env var fallback:
+
+```python
+"""config/secrets.py — Shared across all Django apps."""
+
+import os
+from pathlib import Path
+
+SECRETS_DIR = Path(os.environ.get("SECRETS_DIR", "/run/secrets"))
+
+
+def read_secret(
+    key: str,
+    default: str = "",
+    required: bool = False,
+) -> str:
+    """Read secret from /run/secrets/ file, fall back to env var.
+
+    Priority: /run/secrets/<key_lower> -> os.environ[KEY] -> default.
+    Raises ValueError in production if required=True and no value found.
+    """
+    secret_file = SECRETS_DIR / key.lower()
+    if secret_file.is_file():
+        value = secret_file.read_text().strip()
+        if value:
+            return value
+
+    value = os.environ.get(key, "")
+    if value:
+        return value
+
+    if required and os.environ.get(
+        "DJANGO_SETTINGS_MODULE", ""
+    ).endswith("production"):
+        raise ValueError(
+            f"Required secret {key!r} not found in "
+            f"{SECRETS_DIR} or environment"
+        )
+
+    return default
+```
+
+Usage in `config/settings/production.py`:
+
+```python
+from config.secrets import read_secret
+
+SECRET_KEY = read_secret("DJANGO_SECRET_KEY", required=True)
+DATABASE_URL = read_secret("DATABASE_URL", required=True)
+AMADEUS_CLIENT_SECRET = read_secret("AMADEUS_CLIENT_SECRET", required=True)
+```
+
+Usage in `config/settings/development.py`:
+
+```python
+# No /run/secrets/ needed — reads from environment or .env via decouple
+from decouple import config
+
+SECRET_KEY = config("DJANGO_SECRET_KEY", default="dev-insecure-key")
+```
+
+#### Pattern B: MCP Servers (pydantic-settings)
 
 ```python
 from pydantic import Field, SecretStr
@@ -117,8 +209,8 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="TRAVEL_MCP_",
         env_file=".env",                    # Local dev
-        secrets_dir="/run/secrets",          # Production (SOPS-decrypted)
-        secrets_dir_missing="warn",          # No crash in dev
+        secrets_dir="/run/secrets",          # Production (CI/CD-decrypted)
+        secrets_dir_missing="warn",          # No crash in dev (WSL)
         extra="ignore",
         case_sensitive=False,
     )
@@ -135,16 +227,13 @@ class Settings(BaseSettings):
 **Priority chain (pydantic-settings native):**
 
 ```text
-1. Environment variables          ← docker-compose env_file, systemd
-2. .env file                      ← local development
-3. /run/secrets/ files            ← SOPS-decrypted production secrets
-4. Default values                 ← code
+1. Environment variables          <- docker-compose env_file, systemd
+2. .env file                      <- local development
+3. /run/secrets/ files            <- CI/CD-decrypted production secrets
+4. Default values                 <- code
 ```
 
-This means `.env` in local dev overrides `/run/secrets/`, which is the correct
-behavior: developers can override production-style secrets locally.
-
-### 2.4 Standardized Prefix Convention
+### 2.5 Standardized Prefix Convention
 
 ```text
 Format: <SERVICE>_<KEY>
@@ -173,58 +262,93 @@ class AmadeusSettings(BaseSettings):
     )
 ```
 
-### 2.5 Rules
+### 2.6 Rules
 
 | Rule | Rationale |
 |------|-----------|
-| All credentials as `SecretStr` | Prevents accidental logging via `repr()` |
+| All credentials as `SecretStr` (MCP) or `read_secret(required=True)` (Django) | Prevents accidental logging, fail-fast in production |
 | No default value for required secrets | Forces explicit configuration, prevents empty production |
-| `secrets_dir="/run/secrets"` in every Settings class | Native Docker Secrets compatible path |
-| `env_file=".env"` in every Settings class | Consistent local dev |
+| `secrets_dir="/run/secrets"` in every MCP Settings class | Native Docker Secrets compatible path |
+| `config/secrets.py` with `read_secret()` in every Django app | Consistent pattern, no pydantic dependency |
+| `env_file=".env"` in every MCP Settings class | Consistent local dev |
 | `extra="ignore"` | Prevents crash from unrelated env vars |
 | SSH keys stay as host files (`chmod 600`) | Never in DB, never in SOPS |
 | `.env.example` in every repo | Documents required variables |
 | Never use `${VAR}` interpolation in compose `environment:` | Use `env_file:` exclusively (platform rule) |
+| Minimum 2 age recipients in `.sops.yaml` | Bus factor — backup key in physically separate storage |
+| `secrets.env` in `.gitignore` AND Gitleaks patterns | Prevents accidental plaintext commit |
+| age private key ONLY in GitHub Secrets | Never on Hetzner server, never in Git |
 
 ---
 
 ## 3. Implementation Plan
 
-### Phase 1: SOPS Setup (Day 1)
+### Phase 1: SOPS + age Setup (Day 1)
 
 ```bash
-# Install age + sops on dev machine
-brew install age sops    # or: apt install age, pip install sops
+# Install age + sops on dev machine (WSL)
+sudo apt install age
+pip install sops  # or: wget from GitHub releases
 
-# Generate age keypair (once)
+# Generate PRIMARY age keypair
 age-keygen -o ~/.config/sops/age/keys.txt
-# Public key → .sops.yaml in each repo
-# Private key → stays on dev machine + Hetzner host
+# Output: public key: age1abc...
+# -> Save public key for .sops.yaml
 
-# Create .sops.yaml in platform repo (template for all)
+# Generate BACKUP age keypair (store on USB / password manager)
+age-keygen -o /tmp/backup-age-key.txt
+# -> Copy to physically separate storage, then:
+shred -u /tmp/backup-age-key.txt
+
+# Create .sops.yaml template in platform repo
 cat > .sops.yaml << 'EOF'
 creation_rules:
   - path_regex: secrets\.enc\.env$
     age: >-
-      age1<your-public-key-here>
+      age1<primary-key>,
+      age1<backup-key>
 EOF
 ```
 
 ### Phase 2: Migrate Existing Secrets (Day 1-2)
 
-Per repo: extract current `.env.prod` secrets into `secrets.enc.env`:
+Per repo: encrypt current secrets directly via pipe (no plaintext on disk):
 
 ```bash
-# Example for travel-beat
-cd /home/dehnert/github/travel-beat
-echo "TRAVEL_MCP_AMADEUS_CLIENT_ID=actual_value" > secrets.env
-echo "TRAVEL_MCP_AMADEUS_CLIENT_SECRET=actual_value" >> secrets.env
-sops -e secrets.env > secrets.enc.env
-rm secrets.env  # plaintext must not persist
+# Example for travel-beat — secrets piped, never written to disk
+sops -e --input-type dotenv --output-type dotenv /dev/stdin \
+    <<< "DJANGO_SECRET_KEY=actual_value
+DATABASE_URL=postgresql://...
+AMADEUS_CLIENT_SECRET=xyz" \
+    > secrets.enc.env
+
+# Verify encryption worked
+sops -d secrets.enc.env  # should show plaintext
+
+# Commit encrypted file
 git add secrets.enc.env .sops.yaml
+git commit -m "feat: add SOPS-encrypted secrets (ADR-045)"
 ```
 
-### Phase 3: Update Settings Classes (Day 2)
+Update `.gitignore` in every repo:
+
+```text
+# Secrets — NEVER commit plaintext
+secrets.env
+.env.prod
+.env.local
+
+# Encrypted secrets — safe to commit
+!secrets.enc.env
+```
+
+### Phase 3: Add read_secret() to Django Apps (Day 2)
+
+Create `config/secrets.py` in each Django app (see Pattern A in section 2.4).
+Update `config/settings/production.py` to use `read_secret()`.
+Keep `config/settings/development.py` unchanged (uses `decouple`).
+
+### Phase 4: Update MCP Server Settings (Day 2)
 
 Per MCP server: add `secrets_dir` to Settings, migrate to `SecretStr`:
 
@@ -233,51 +357,79 @@ Per MCP server: add `secrets_dir` to Settings, migrate to `SecretStr`:
 api_key: str = ""
 
 # After
-api_key: SecretStr  # No default → fails fast if missing
+api_key: SecretStr  # No default -> fails fast if missing
 ```
 
-### Phase 4: Deploy Script Update (Day 2-3)
+### Phase 5: CI/CD Pipeline Update (Day 2-3)
 
-Update `deploy-remote.sh` (ADR-022 pattern) to decrypt SOPS before container start:
+Add SOPS decrypt step to GitHub Actions deploy workflow:
 
-```bash
-# In deploy-remote.sh, before docker compose up:
-if command -v sops &> /dev/null && [ -f secrets.enc.env ]; then
-    mkdir -p /run/secrets
-    sops -d secrets.enc.env | while IFS='=' read -r key value; do
-        key_lower=$(echo "$key" | tr '[:upper:]' '[:lower:]')
-        printf '%s' "$value" > "/run/secrets/${key_lower}"
-        chmod 400 "/run/secrets/${key_lower}"
+```yaml
+- name: Decrypt and deploy secrets
+  env:
+    SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+  run: |
+    # Decrypt secrets in runner memory (single call)
+    decrypted=$(sops -d secrets.enc.env)
+    count=0
+
+    # Write each secret to /run/secrets/ on remote host via SSH
+    while IFS='=' read -r key value; do
+      [ -z "$key" ] && continue
+      key_lower=$(echo "$key" | tr '[:upper:]' '[:lower:]')
+      # printf prevents trailing newline (critical for API keys)
+      ssh $DEPLOY_HOST "mkdir -p /run/secrets && \
+        printf '%s' '${value}' > /run/secrets/${key_lower} && \
+        chmod 400 /run/secrets/${key_lower}"
+      count=$((count + 1))
+    done <<< "$decrypted"
+
+    echo "Deployed ${count} secrets to /run/secrets/"
+
+- name: Verify required secrets
+  run: |
+    ssh $DEPLOY_HOST 'for f in django_secret_key database_url; do
+      if [ ! -s "/run/secrets/$f" ]; then
+        echo "FATAL: Missing or empty secret: $f" >&2
+        exit 1
+      fi
     done
-    echo "Decrypted $(sops -d secrets.enc.env | wc -l) secrets to /run/secrets/"
-fi
+    echo "All required secrets verified."'
 ```
 
-### Phase 5: Cleanup (Day 3)
+### Phase 6: Reboot Resilience (Day 3)
+
+`/run/` is tmpfs — cleared on reboot. Secrets must be re-deployed after any
+server restart. Install a systemd service that blocks Docker startup until
+secrets are present:
+
+```ini
+# /etc/systemd/system/secrets-check.service
+[Unit]
+Description=Verify /run/secrets/ populated before Docker
+Before=docker.service
+ConditionPathExists=/run/secrets
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'test -s /run/secrets/django_secret_key || exit 1'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+```
+
+After a reboot, Docker will not start containers until the next CI/CD deploy
+pushes secrets. This is intentional: **no secrets = no service**, preventing
+silent startup with missing credentials.
+
+### Phase 7: Cleanup (Day 3)
 
 ```bash
-# Remove .env.prod from Hetzner servers (replaced by /run/secrets/)
-# Keep .env.example in repos
-# Update .gitignore: secrets.env (plaintext), keep secrets.enc.env (encrypted)
+# Remove .env.prod from Hetzner server (replaced by /run/secrets/)
+# Keep .env.example in repos (documents required variables)
+# Verify Gitleaks catches secrets.env if accidentally staged
 ```
-
-### Phase 6: Optional — PostgreSQL Config Store (Week 2+)
-
-Only if runtime-changeable config is needed (feature flags, log levels):
-
-```sql
-CREATE TABLE IF NOT EXISTS app_config (
-    id          SERIAL PRIMARY KEY,
-    app_name    VARCHAR(64) NOT NULL,
-    key         VARCHAR(128) NOT NULL,
-    value       TEXT NOT NULL,
-    updated_at  TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT uq_app_key UNIQUE (app_name, key)
-);
-```
-
-This is **not** for secrets — only for non-sensitive config that should be
-changeable without redeploy.
 
 ---
 
@@ -288,18 +440,21 @@ changeable without redeploy.
 | Component | Before | After |
 |-----------|--------|-------|
 | **Secret storage** | `.env.prod` files on server | `secrets.enc.env` in Git (encrypted) |
-| **Secret decryption** | N/A (plaintext files) | SOPS + age at deploy-time → `/run/secrets/` |
-| **Settings classes** | Mixed `str`/`SecretStr`, no `secrets_dir` | All `SecretStr`, `secrets_dir="/run/secrets"` |
+| **Secret decryption** | N/A (plaintext files) | SOPS + age in CI/CD, SSH to `/run/secrets/` |
+| **Django settings** | `os.environ.get()` / decouple | `read_secret()` with `/run/secrets/` + env fallback |
+| **MCP settings** | Mixed `str`/`SecretStr`, no `secrets_dir` | All `SecretStr`, `secrets_dir="/run/secrets"` |
 | **Prefix convention** | 6 different patterns | Unified `<SERVICE>_<KEY>` |
 | **Local dev** | `.env` per repo | `.env` per repo (unchanged) |
 | **MCP servers (WSL)** | `.env` in repo dir | `.env` in `~/.config/mcp-hub/` (unchanged) |
-| **Rotation** | Manual, requires SSH + edit .env.prod | `sops -e`, git push, deploy |
+| **Rotation** | Manual SSH + edit .env.prod | Update `secrets.enc.env`, git push, deploy |
 | **Audit trail** | None | Git history on `secrets.enc.env` |
+| **Reboot behavior** | Containers restart with .env.prod | Containers blocked until CI/CD re-deploys secrets |
 
 ### 4.2 What Does NOT Change
 
-- pydantic-settings remains the settings framework
-- Local development workflow unchanged (`.env` files)
+- Django settings framework (`django.conf.settings`) remains primary for Django apps
+- pydantic-settings remains primary for MCP servers
+- Local development workflow unchanged (`.env` files, `decouple`)
 - MCP servers in WSL do NOT need DB access for secrets
 - Docker Compose structure unchanged
 - No new services to operate (no Vault, no extra DB)
@@ -311,12 +466,15 @@ changeable without redeploy.
 | No live rotation (redeploy needed) | PostgreSQL + LISTEN/NOTIFY (adds DB-SPOF, WSL latency) |
 | Shared age key (no per-service isolation) | Per-service encryption keys (complexity for 8 servers) |
 | Git-based audit trail | Custom audit_log table (overengineered for current scale) |
+| Reboot requires re-deploy | Persistent secrets on disk (defeats tmpfs security benefit) |
+| CI/CD dependency for secrets | age key on server (secret-zero: server compromise exposes all history) |
 
 ### 4.4 Migration Risk
 
 - **Low**: Settings classes gain `secrets_dir` param (additive, non-breaking)
 - **Low**: `AliasChoices` allows old + new env var names simultaneously
-- **Medium**: Deploy scripts need SOPS decrypt step (testable in staging)
+- **Low**: `read_secret()` falls back to `os.environ`, no behavior change if `/run/secrets/` absent
+- **Medium**: Deploy pipeline needs SOPS decrypt step (testable with `--dry-run`)
 - **Zero**: Local dev workflow unchanged
 
 ---
@@ -333,32 +491,42 @@ rotation. Rejected because:
   between services, race conditions during rotation (K-01 from review)
 - **pydantic-settings fallback chain violated** — DB injection at priority 2
   would override `.env` files, breaking local dev override (K-03)
+- **Django apps ignored** — the concept only addressed pydantic-settings;
+  Django apps use `django.conf.settings` which has no `secrets_dir` (R-01)
 - **WSL architecture mismatch** — MCP servers run locally, not on Hetzner;
   persistent DB connection from WSL to remote PostgreSQL is fragile
+- **Secret-zero unsolved** — age key on server means server compromise
+  exposes all historical secrets from Git, worse than current state (R-02)
 - **Custom encryption** — Fernet is fine but unnecessary; SOPS/age is
   battle-tested, CNCF-adjacent, requires zero custom code
 - **5 days effort** vs. 3 days for hybrid approach
 
 ### 5.2 HashiCorp Vault
 
-Overkill for 8 servers. Requires operating a separate cluster. ~50€/month for
-managed Vault. Revisit if the platform grows beyond 20 services.
+Overkill for 8 servers. Requires operating a separate cluster. ~50 EUR/month
+for managed Vault. Revisit if the platform grows beyond 20 services.
 
 ### 5.3 Doppler / Infisical (SaaS)
 
-Data sovereignty concern. Secrets leave our infrastructure. 20-100€/month.
+Data sovereignty concern. Secrets leave our infrastructure. 20-100 EUR/month.
 Vendor lock-in.
+
+### 5.4 PostgreSQL Config Store (Deferred)
+
+Runtime-changeable config (feature flags, log levels) via a PostgreSQL
+`app_config` table was considered as Phase 6. Deferred to a separate ADR
+when a concrete use case arises. This ADR focuses strictly on secrets.
 
 ---
 
 ## 6. Open Questions
 
-1. **age key distribution**: How to securely distribute the age private key to
-   the Hetzner server? Current answer: SCP once, store at
-   `/root/.config/sops/age/keys.txt` with `chmod 600`.
-
-2. **Rotation cadence**: Proposed 90 days for API tokens, annual for
+1. **Rotation cadence**: Proposed 90 days for API tokens, annual for
    infrastructure credentials. Needs team agreement.
 
-3. **Phase 6 (Config Store)**: Is runtime-changeable config actually needed, or
-   is redeploy sufficient? Decision deferred to when a concrete use case arises.
+2. **Gitleaks rule**: Exact pattern for detecting unencrypted `secrets.env`
+   files in pre-commit hooks. To be defined during Phase 2 implementation.
+
+3. **Per-app required secrets list**: Each Django app and MCP server should
+   declare its required secrets (for Phase 5 verification step). Format TBD
+   (e.g., `REQUIRED_SECRETS` list in `config/secrets.py` or `.secrets-manifest`).
