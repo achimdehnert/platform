@@ -32,6 +32,10 @@ color palette or spacing scale.
 
 ### 1. Architecture: Two-Layer Token System
 
+> **Naming**: The prefix `pui` stands for **Platform UI**. It avoids
+> conflicts with third-party CSS variables (e.g., `--tw-*` from Tailwind,
+> `--bs-*` from Bootstrap).
+
 ```text
 ┌─────────────────────────────────────────────────────┐
 │               TOKEN ARCHITECTURE                     │
@@ -63,7 +67,7 @@ any template code.
 #### Primitive Tokens (raw values, never used directly in templates)
 
 ```css
-/* static/platform/css/tokens.css */
+/* static/platform/css/pui-tokens.css */
 
 :root {
   /* === Primitive Tokens (internal only) === */
@@ -92,8 +96,8 @@ any template code.
   --pui-warning:       var(--pui-amber-500);
 
   /* Text */
-  --pui-text-primary:   var(--pui-gray-900);
-  --pui-text-secondary: var(--pui-gray-500);
+  --pui-foreground:  var(--pui-gray-900);
+  --pui-muted:       var(--pui-gray-500);
 
   /* Surfaces */
   --pui-surface:     #ffffff;
@@ -102,6 +106,15 @@ any template code.
   /* Borders */
   --pui-border:        var(--pui-gray-200);
   --pui-border-strong: var(--pui-gray-500);
+
+  /* Spacing (consistent scale across apps) */
+  --pui-space-1: 0.25rem;   /* 4px */
+  --pui-space-2: 0.5rem;    /* 8px */
+  --pui-space-3: 0.75rem;   /* 12px */
+  --pui-space-4: 1rem;      /* 16px */
+  --pui-space-6: 1.5rem;    /* 24px */
+  --pui-space-8: 2rem;      /* 32px */
+  --pui-space-12: 3rem;     /* 48px */
 
   /* Layout */
   --pui-radius-sm: 0.25rem;
@@ -140,8 +153,8 @@ any template code.
 
 ```css
 [data-theme="dark"] {
-  --pui-text-primary:   var(--pui-gray-100);
-  --pui-text-secondary: var(--pui-gray-500);
+  --pui-foreground:  var(--pui-gray-100);
+  --pui-muted:       var(--pui-gray-500);
   --pui-surface:        #1f2937;
   --pui-surface-alt:    #111827;
   --pui-border:         #374151;
@@ -154,7 +167,7 @@ any template code.
 Each app imports a shared config that maps semantic names to CSS variables:
 
 ```javascript
-// packages/platform-tailwind/tailwind.config.shared.js
+// shared/tailwind/tailwind.config.shared.js
 
 module.exports = {
   theme: {
@@ -167,8 +180,8 @@ module.exports = {
         success:         "var(--pui-success)",
         danger:          "var(--pui-danger)",
         warning:         "var(--pui-warning)",
-        "text-primary":  "var(--pui-text-primary)",
-        "text-secondary":"var(--pui-text-secondary)",
+        foreground:      "var(--pui-foreground)",
+        muted:           "var(--pui-muted)",
         border:          "var(--pui-border)",
         "border-strong": "var(--pui-border-strong)",
       },
@@ -191,30 +204,25 @@ module.exports = {
 };
 ```
 
-**Per-app usage:**
-
-```javascript
-// travel-beat/tailwind.config.js
-const shared = require("@platform/tailwind-config");
-
-module.exports = {
-  presets: [shared],
-  content: ["./templates/**/*.html"],
-};
-```
+**Per-app usage** (see Section 6 for distribution options).
 
 ### 4. Template Usage
 
 ```html
 {# Developers write semantic Tailwind classes: #}
 <div class="bg-surface border border-border rounded-lg p-5 hover:shadow-md">
-  <h2 class="text-text-primary text-xl font-semibold">{{ title }}</h2>
-  <p class="text-text-secondary text-sm mt-1">{{ description }}</p>
+  <h2 class="text-foreground text-xl font-semibold">{{ title }}</h2>
+  <p class="text-muted text-sm mt-1">{{ description }}</p>
   <button class="bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded">
     Action
   </button>
 </div>
 ```
+
+> **Why `text-foreground` not `text-text-primary`?** The Tailwind prefix
+> `text-` combined with a color named `text-primary` would produce the
+> redundant class `text-text-primary`. Using `foreground` / `muted` as
+> color names yields clean classes: `text-foreground`, `text-muted`.
 
 **The `<body>` tag sets the app identity:**
 
@@ -223,12 +231,45 @@ module.exports = {
 <body data-app="{{ APP_NAME }}" data-theme="light">
 ```
 
-Where `APP_NAME` is set via Django settings:
+Where `APP_NAME` is set via Django settings and injected by a context
+processor:
 
 ```python
 # config/settings/base.py
-APP_NAME = "travel-beat"  # Used in templates via context processor
+APP_NAME = "travel-beat"
+
+# config/context_processors.py
+def app_metadata(request):
+    """Inject APP_NAME into every template context."""
+    from django.conf import settings
+    return {
+        "APP_NAME": getattr(settings, "APP_NAME", ""),
+    }
 ```
+
+```python
+# config/settings/base.py (TEMPLATES)
+TEMPLATES = [{
+    "OPTIONS": {
+        "context_processors": [
+            # ... existing processors ...
+            "config.context_processors.app_metadata",
+        ],
+    },
+}]
+```
+
+#### Dark Mode Preference Storage
+
+The `data-theme` toggle requires user preference persistence:
+
+- **Default**: `localStorage.getItem("pui-theme")` — client-side, no
+  backend dependency, survives page reloads
+- **Authenticated users** (future): Optional `User.theme_preference`
+  CharField, synced via a one-line JS snippet on login
+- **Server-side rendering**: SSR always renders `data-theme="light"`;
+  a `<script>` in `<head>` (before paint) reads `localStorage` and
+  sets the attribute to avoid FOUC (flash of unstyled content)
 
 ### 5. Token Compliance Check
 
@@ -258,14 +299,32 @@ HARDCODED_HEX = re.compile(
 INLINE_STYLE = re.compile(r'\bstyle\s*=\s*"[^"]*"')
 
 SEMANTIC_MAP = {
+    # Primary
     "bg-blue-500": "bg-primary",
     "bg-blue-600": "bg-primary-hover",
-    "text-gray-900": "text-text-primary",
-    "text-gray-500": "text-text-secondary",
+    "text-blue-500": "text-primary",
+    "text-blue-600": "text-primary",
+    "border-blue-500": "border-primary",
+    # Text
+    "text-gray-900": "text-foreground",
+    "text-gray-500": "text-muted",
+    "text-gray-400": "text-muted",
+    # Surfaces
+    "bg-gray-50": "bg-surface-alt",
+    "bg-gray-100": "bg-surface-alt",
+    "bg-white": "bg-surface",
+    # Status
     "bg-red-500": "bg-danger",
+    "text-red-500": "text-danger",
+    "text-red-600": "text-danger",
     "bg-green-500": "bg-success",
+    "text-green-500": "text-success",
     "bg-amber-500": "bg-warning",
+    "text-amber-500": "text-warning",
+    # Borders
     "border-gray-200": "border-border",
+    "border-gray-300": "border-border",
+    "border-gray-500": "border-border-strong",
 }
 
 
@@ -305,23 +364,56 @@ if __name__ == "__main__":
     sys.exit(main())
 ```
 
-### 6. File Layout
+### 6. File Layout and Distribution
+
+**No npm package infrastructure required.** The shared config lives in
+the `platform` repo and is distributed via `collectstatic` or git
+subpath checkout:
 
 ```text
-packages/platform-tailwind/
-├── tailwind.config.shared.js    # Shared Tailwind config
-├── tokens.css                   # CSS Custom Properties
-└── package.json                 # npm package for cross-app sharing
+platform/
+├── static/platform/css/
+│   └── pui-tokens.css                # CSS Custom Properties (canonical)
+└── shared/tailwind/
+    └── tailwind.config.shared.js     # Shared Tailwind config
 
-# In each app:
-<app>/static/<app>/css/
-└── tokens.css → symlink or copy of packages/platform-tailwind/tokens.css
+# Distribution to each app (choose ONE):
+
+# Option A: Git subpath (recommended for CI)
+# In each app's Makefile or CI:
+#   curl -sL https://raw.githubusercontent.com/achimdehnert/platform/main/\
+#     static/platform/css/pui-tokens.css > static/platform/css/pui-tokens.css
+
+# Option B: Django collectstatic (if platform is an installed package)
+# INSTALLED_APPS = ["platform_core", ...]
+# collectstatic gathers static/platform/css/ automatically
+
+# Option C: Symlink (local dev only)
+# ln -s ../../platform/static/platform/css/pui-tokens.css \
+#   static/platform/css/pui-tokens.css
 ```
 
-The `tokens.css` file is included in every app's `base.html`:
+The `pui-tokens.css` file is included in every app's `base.html`:
 
 ```html
-<link rel="stylesheet" href="{% static 'platform/css/tokens.css' %}">
+<link rel="stylesheet" href="{% static 'platform/css/pui-tokens.css' %}">
+```
+
+**Tailwind config sharing** uses a simple file copy or `require()` with
+a relative path — no npm registry or workspace setup needed:
+
+```javascript
+// travel-beat/tailwind.config.js
+// Option A: relative require (monorepo / symlink)
+const shared = require("../platform/shared/tailwind/tailwind.config.shared");
+
+// Option B: copied file in repo
+// const shared = require("./tailwind.config.shared");
+
+module.exports = {
+  presets: [shared],
+  content: ["./templates/**/*.html"],
+};
 ```
 
 ## Consequences
@@ -340,14 +432,32 @@ The `tokens.css` file is included in every app's `base.html`:
 
 - **Tailwind config must be shared**: Adds a cross-app dependency
 - **Color opacity**: `var()` in Tailwind doesn't support opacity modifiers
-  (`bg-primary/50` won't work) -- use explicit `bg-primary bg-opacity-50`
+  (`bg-primary/50` won't work). Workaround: use `color-mix()` in CSS
+  (e.g., `color-mix(in srgb, var(--pui-primary) 50%, transparent)`)
+  or define explicit `-light` token variants. Note: `bg-opacity-50`
+  is deprecated in Tailwind v4.
 - **Learning curve**: Developers must use semantic names instead of direct colors
+- **No per-tenant DB-driven branding** (yet): Token values are static CSS.
+  Future: a TenantBranding model could inject `--pui-primary` via
+  inline `<style>` in `base.html`, but this is out of scope for v1.
 
 ### Mitigations
 
-- Shared config is a simple npm preset, 1-line import per app
+- Shared config is a plain JS file, 1-line import per app (no npm registry)
 - Opacity limitation is minor -- only affects rare transparency use cases
 - Semantic names are shorter and more readable than hex codes
+
+### Migration Strategy
+
+Existing templates use direct Tailwind colors (`bg-blue-500`, etc.).
+Migration path:
+
+1. **Week 1**: Deploy `pui-tokens.css` + shared Tailwind config to all apps
+2. **Week 2-3**: Run `check_design_tokens.py` in warning mode (CI reports
+   violations but does not block)
+3. **Week 4+**: Enable blocking mode in CI (`--strict` flag)
+4. **Auto-fix** (future): A `sed`-based script or codemod using the
+   `SEMANTIC_MAP` dictionary to batch-replace direct colors
 
 ## Alternatives Considered
 

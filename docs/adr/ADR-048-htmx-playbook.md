@@ -35,7 +35,7 @@ suffers from **recurring errors** due to missing canonical patterns:
 | trading-hub | Yes | `request.headers.get("HX-Request")` | Light usage |
 | bfagent | **No** | N/A | No HTMX at all |
 
-This ADR defines **six canonical patterns** (HP-001..006), **seven banned
+This ADR defines **seven canonical patterns** (HP-001..007), **seven banned
 anti-patterns** (AP-001..007), and a **portable error middleware** that works
 regardless of whether `django_htmx` is installed.
 
@@ -55,7 +55,7 @@ def is_htmx_request(request) -> bool:
 Apps that have `django_htmx` installed MAY use `request.htmx` in
 app-specific code, but shared middleware and mixins MUST NOT depend on it.
 
-### 2. Canonical Patterns (HP-001 through HP-006)
+### 2. Canonical Patterns (HP-001 through HP-007)
 
 #### HP-001: Partial Response (Basis)
 
@@ -63,14 +63,21 @@ Every HTMX view returns a **partial template** for HTMX requests and a
 **full template** for normal requests:
 
 ```python
-# Pattern: HTMX-aware view
+# Pattern: HTMX-aware view (service layer, tenant-aware)
 def trip_list(request):
-    trips = Trip.objects.filter(user=request.user)
+    trips = TripService.list_for_user(
+        user=request.user,
+        tenant_id=request.tenant_id,  # Multi-tenancy: ALWAYS filter
+    )
     context = {"trips": trips}
     if is_htmx_request(request):
         return render(request, "trips/partials/_trip_list.html", context)
     return render(request, "trips/trip_list.html", context)
 ```
+
+> **Platform Rule**: Views MUST delegate to services (`views.py → services.py
+> → models.py`). Views handle HTTP only. All queries MUST filter by
+> `tenant_id` (see Multi-Tenancy rules).
 
 ```html
 {# trips/partials/_trip_list.html #}
@@ -119,6 +126,7 @@ def trip_list(request):
 - Delete MUST have `hx-confirm`
 - Target MUST use `closest` to remove the correct DOM element
 - Swap MUST include transition delay (`swap:500ms`) for visual feedback
+- Backend view MUST use `@require_http_methods(["DELETE"])` decorator
 
 #### HP-003: Live Search
 
@@ -171,6 +179,8 @@ def trip_list(request):
 - Swap `afterend` (append after the trigger element)
 - The trigger element is replaced by the next page's content
 - View must return the next page's items + a new trigger element
+- For large datasets (>10k rows), prefer **cursor-based pagination**
+  (`?after=<last_id>`) over offset pagination (`?page=N`) for O(1) lookups
 
 #### HP-005: Error Response (Middleware)
 
@@ -224,10 +234,16 @@ class HtmxErrorMiddleware:
 
 **Installation** (in each app's `config/settings/base.py`):
 
+The middleware lives in its own module: `apps/core/middleware/htmx.py`
+(max 500 lines per file rule).
+
 ```python
 MIDDLEWARE = [
-    # ... after SecurityMiddleware, SessionMiddleware, etc.
-    "apps.core.middleware.HtmxErrorMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    # ... auth middleware ...
+    "apps.core.middleware.tenant.TenantMiddleware",   # tenant_id available
+    "apps.core.middleware.htmx.HtmxErrorMiddleware",  # AFTER tenant/auth
     # ...
 ]
 ```
@@ -256,9 +272,12 @@ def trip_create(request):
     form = TripForm(request.POST or None)
     if request.method == "POST":
         if form.is_valid():
-            trip = form.save(commit=False)
-            trip.user = request.user
-            trip.save()
+            # Service layer handles creation + tenant assignment
+            trip = TripService.create(
+                form=form,
+                user=request.user,
+                tenant_id=request.tenant_id,
+            )
             if is_htmx_request(request):
                 response = HttpResponse(status=204)
                 response["HX-Trigger"] = "tripCreated"
@@ -283,6 +302,45 @@ def trip_create(request):
 - Invalid form: return `422` + re-rendered form partial (HP-005 skips 422)
 - Never return `200` with error content (HTMX cannot distinguish)
 
+#### HP-007: Class-Based View Mixin
+
+For apps using CBVs, a reusable mixin eliminates boilerplate:
+
+```python
+class HtmxResponseMixin:
+    """Mixin for CBVs that return partials for HTMX requests.
+
+    Set `partial_template_name` to the HTMX partial template.
+    The full template is resolved via standard `get_template_names()`.
+    """
+
+    partial_template_name: str = ""  # MUST override in subclass
+
+    def get_template_names(self) -> list[str]:
+        if is_htmx_request(self.request):
+            if not self.partial_template_name:
+                raise ImproperlyConfigured(
+                    f"{self.__class__.__name__} requires partial_template_name"
+                )
+            return [self.partial_template_name]
+        return super().get_template_names()
+```
+
+**Usage:**
+
+```python
+class TripListView(HtmxResponseMixin, LoginRequiredMixin, ListView):
+    model = Trip
+    template_name = "trips/trip_list.html"
+    partial_template_name = "trips/partials/_trip_list.html"
+
+    def get_queryset(self):
+        return TripService.list_for_user(
+            user=self.request.user,
+            tenant_id=self.request.tenant_id,
+        )
+```
+
 ### 3. Banned Anti-Patterns (AP-001 through AP-007)
 
 | ID | Anti-Pattern | Why Banned | Enforcement |
@@ -294,6 +352,17 @@ def trip_create(request):
 | AP-005 | `hx-get`/`hx-post` without `hx-indicator` | No loading feedback, user clicks again | CI manifest check |
 | AP-006 | Interactive element without `data-testid` | Untestable by Playwright (ADR-040) | CI manifest check |
 | AP-007 | Hardcoded hex colors in templates | Bypasses design token system | CI token check |
+
+> **Escape hatch for AP-004**: Add `{# noqa: AP-004 #}` on the same line for
+> legitimate dynamic styles (e.g., `style="width: {{ progress }}%"`). The
+> pre-commit checker skips lines containing `noqa:` markers.
+>
+> **Note on AP-004/AP-007 overlap with ADR-049**: The token compliance
+> checker (ADR-049) also flags inline styles and hardcoded colors. AP-004
+> and AP-007 are enforced here at the **HTMX template level** via pre-commit;
+> ADR-049's checker runs at the **CI level** with richer diagnostics and
+> auto-fix suggestions. The pre-commit layer is intentionally fast and
+> coarse-grained.
 
 ### 4. Pre-Commit Enforcement
 
@@ -339,12 +408,30 @@ PATTERNS: dict[str, tuple[str, str]] = {
 
 
 def check_file(path: Path) -> list[str]:
-    """Check a single file for anti-patterns."""
+    """Check a single file for anti-patterns.
+
+    Skips lines containing '{# noqa: AP-xxx #}' markers and
+    lines inside {% comment %}...{% endcomment %} blocks.
+    """
     content = path.read_text(encoding="utf-8")
+    # Strip Django comment blocks to avoid false positives
+    content = re.sub(
+        r"\{%\s*comment\s*%\}.*?\{%\s*endcomment\s*%\}",
+        "",
+        content,
+        flags=re.DOTALL,
+    )
+    # Strip HTML comments
+    content = re.sub(r"<!--.*?-->", "", content, flags=re.DOTALL)
     errors = []
     for ap_id, (pattern, message) in PATTERNS.items():
-        if re.search(pattern, content, re.DOTALL | re.IGNORECASE):
-            errors.append(f"  {path}: {ap_id}: {message}")
+        for match in re.finditer(pattern, content, re.DOTALL | re.IGNORECASE):
+            # Check for noqa marker on the same line
+            line_start = content.rfind("\n", 0, match.start()) + 1
+            line_end = content.find("\n", match.end())
+            line = content[line_start:line_end if line_end != -1 else len(content)]
+            if f"noqa: {ap_id}" not in line and "noqa: AP-" not in line:
+                errors.append(f"  {path}: {ap_id}: {message}")
     return errors
 
 
@@ -367,7 +454,7 @@ if __name__ == "__main__":
 
 ### Positive
 
-- **Six canonical patterns** eliminate guesswork for HTMX interactions
+- **Seven canonical patterns** (incl. CBV mixin) eliminate guesswork for HTMX interactions
 - **Portable middleware** works across all apps (no django_htmx dependency)
 - **Pre-commit enforcement** catches anti-patterns before they reach CI
 - **Error handling** prevents DOM corruption on server errors
@@ -392,3 +479,4 @@ if __name__ == "__main__":
 2. **django-htmx as mandatory** -- Forces package on all apps, overkill for light usage
 3. **Client-side error handling only** -- JS `htmx:responseError` event is fragile
 4. **Full UI framework (Stimulus, Alpine)** -- Additional JS dependency, not needed
+5. **Only CBV mixins (no FBV patterns)** -- Many views are simple FBVs, both needed
