@@ -1,0 +1,42 @@
+name: Docs Agent CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "packages/docs-agent/**"
+  pull_request:
+    branches: [main]
+    paths:
+      - "packages/docs-agent/**"
+
+concurrency:
+  group: docs-agent-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/docs-agent
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install typer rich pytest pytest-cov libcst
+
+      - name: Run tests
+        run: |
+          python -m pytest tests/ -v --tb=short
+
+      - name: Smoke test CLI
+        run: |
+          PYTHONPATH=src python -m docs_agent.cli audit ../../ --scope docstrings --output json
