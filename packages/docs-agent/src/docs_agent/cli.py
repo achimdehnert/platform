@@ -1,7 +1,8 @@
-"""Docs Agent CLI — audit and report on documentation quality."""
+"""Docs Agent CLI \u2014 audit and report on documentation quality."""
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 from typing import Optional
 
@@ -243,3 +244,156 @@ def _audit_diataxis(
             f" confidence < 70%"
             f" (candidates for LLM reclassification)[/]"
         )
+
+
+@app.command()
+def generate(
+    repo_path: Path = typer.Argument(
+        ...,
+        help="Path to the repository root.",
+        exists=True,
+        dir_okay=True,
+        file_okay=False,
+    ),
+    apps_only: bool = typer.Option(
+        False,
+        "--apps-only",
+        help="Only scan apps/ directory.",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--apply",
+        help="Preview changes (default) or apply them.",
+    ),
+    max_items: int = typer.Option(
+        20,
+        "--max-items",
+        help="Maximum items to generate docstrings for.",
+    ),
+    gateway_url: str = typer.Option(
+        "http://localhost:8100",
+        "--llm-url",
+        help="URL of the llm_mcp HTTP gateway.",
+    ),
+    model: str = typer.Option(
+        "gpt-4o-mini",
+        "--model",
+        help="LLM model name.",
+    ),
+) -> None:
+    """Generate docstrings for undocumented code items via LLM."""
+    from docs_agent.generator.code_inserter import insert_docstrings
+    from docs_agent.generator.docstring_gen import generate_docstrings
+    from docs_agent.llm_client import LLMConfig
+
+    repo_path = repo_path.resolve()
+    mode = "[yellow]DRY RUN[/]" if dry_run else "[red]APPLY[/]"
+    console.print(
+        f"\n[bold blue]docs-agent generate[/] \u2014 {repo_path.name}"
+        f" ({mode})\n"
+    )
+
+    # 1. Scan for undocumented items
+    coverage = scan_repo(repo_path, apps_only=apps_only)
+    undoc = []
+    for m in coverage.modules:
+        undoc.extend(m.undocumented)
+
+    if not undoc:
+        console.print("[green]All items are documented![/]")
+        return
+
+    console.print(
+        f"Found [bold]{len(undoc)}[/] undocumented items."
+    )
+    items = undoc[:max_items]
+    console.print(
+        f"Generating docstrings for [bold]{len(items)}[/] items...\n"
+    )
+
+    # 2. Generate via LLM
+    config = LLMConfig(
+        gateway_url=gateway_url,
+        model=model,
+    )
+
+    results = asyncio.run(
+        generate_docstrings(items, config=config)
+    )
+
+    if not results:
+        console.print(
+            "[red]No docstrings generated."
+            " Check LLM connection.[/]"
+        )
+        raise typer.Exit(code=1)
+
+    console.print(
+        f"Generated [bold green]{len(results)}[/] docstrings.\n"
+    )
+
+    # 3. Show / apply via libcst
+    by_file: dict[Path, dict[str, str]] = {}
+    for gen in results:
+        by_file.setdefault(gen.item.file_path, {})[gen.item.name] = gen.docstring
+
+    total_inserted = 0
+    for file_path, docstrings_map in by_file.items():
+        rel = str(file_path.relative_to(repo_path))
+        result = insert_docstrings(
+            file_path, docstrings_map, dry_run=dry_run
+        )
+        total_inserted += result.items_inserted
+
+        if result.changed:
+            action = "would insert" if dry_run else "inserted"
+            console.print(
+                f"  [cyan]{rel}[/]: {action}"
+                f" {result.items_inserted} docstrings"
+            )
+
+            if dry_run:
+                _show_diff_preview(
+                    result.original_source,
+                    result.modified_source,
+                    rel,
+                )
+
+    console.print(
+        f"\n[bold]Total:[/] {total_inserted} docstrings"
+        f" {'would be ' if dry_run else ''}inserted."
+    )
+    if dry_run:
+        console.print(
+            "\n[yellow]Run with --apply to write changes.[/]"
+        )
+
+
+def _show_diff_preview(
+    original: str,
+    modified: str,
+    filename: str,
+) -> None:
+    """Show a unified diff preview."""
+    import difflib
+
+    diff = difflib.unified_diff(
+        original.splitlines(),
+        modified.splitlines(),
+        fromfile=f"a/{filename}",
+        tofile=f"b/{filename}",
+        lineterm="",
+    )
+    diff_lines = list(diff)
+    if diff_lines:
+        for line in diff_lines[:30]:
+            if line.startswith("+") and not line.startswith("+++"):
+                console.print(f"  [green]{line}[/]")
+            elif line.startswith("-") and not line.startswith("---"):
+                console.print(f"  [red]{line}[/]")
+            else:
+                console.print(f"  {line}")
+        if len(diff_lines) > 30:
+            console.print(
+                f"  ... ({len(diff_lines) - 30} more lines)"
+            )
