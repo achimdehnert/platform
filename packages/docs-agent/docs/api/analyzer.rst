@@ -21,8 +21,6 @@ DIATAXIS Classifier (Heuristic)
 
 .. autofunction:: classify_repo
 
-.. autodata:: TRIGGER_PATTERNS
-
 .. autodata:: DOC_EXTENSIONS
 
 .. autodata:: SKIP_DIRS
