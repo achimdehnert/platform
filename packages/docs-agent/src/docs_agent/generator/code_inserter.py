@@ -12,6 +12,8 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+MODULE_DOCSTRING_KEY = "__module__"
+
 
 @dataclass
 class InsertionResult:
@@ -40,6 +42,7 @@ def insert_docstrings(
     Args:
         file_path: Path to the Python file.
         docstrings: Mapping of item name → docstring text.
+            Use key "__module__" for module-level docstrings.
         dry_run: If True, do not write changes to disk.
 
     Returns:
@@ -98,18 +101,12 @@ class _DocstringInserter:
         if not isinstance(tree, cst.Module):
             return tree
 
-        # Module-level docstring
-        module_name = None
-        for name in self.docstrings:
-            if "." not in name and name == name.lower():
-                module_name = name
-                break
-
         new_body = list(tree.body)
 
-        if module_name and module_name in self.docstrings:
+        # Module-level docstring only via explicit __module__ key
+        if MODULE_DOCSTRING_KEY in self.docstrings:
             if not _has_docstring_node(new_body):
-                ds = self.docstrings[module_name]
+                ds = self.docstrings[MODULE_DOCSTRING_KEY]
                 new_body = [_make_docstring_stmt(ds)] + new_body
                 self.inserted += 1
             else:
