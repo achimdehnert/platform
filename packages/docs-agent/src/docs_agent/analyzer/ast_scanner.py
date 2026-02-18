@@ -164,7 +164,8 @@ def scan_module(file_path: Path) -> ModuleCoverage:
             is_method = any(
                 isinstance(parent, ast.ClassDef)
                 for parent in ast.walk(tree)
-                if hasattr(parent, "body") and node in parent.body
+                if isinstance(getattr(parent, "body", None), list)
+                and node in parent.body
             )
             kind = ItemKind.METHOD if is_method else ItemKind.FUNCTION
 
