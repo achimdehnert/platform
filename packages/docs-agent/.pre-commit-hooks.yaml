@@ -1,0 +1,17 @@
+- id: docs-agent-coverage
+  name: docs-agent docstring coverage
+  description: Check docstring coverage meets minimum threshold
+  entry: docs-agent audit --scope docstrings --output table
+  language: python
+  types: [python]
+  pass_filenames: false
+  additional_dependencies: ["typer>=0.12.0", "rich>=13.0.0"]
+
+- id: docs-agent-coverage-strict
+  name: docs-agent coverage (strict)
+  description: Fail if docstring coverage is below 50%
+  entry: docs-agent audit --scope docstrings --min-coverage 50
+  language: python
+  types: [python]
+  pass_filenames: false
+  additional_dependencies: ["typer>=0.12.0", "rich>=13.0.0"]
