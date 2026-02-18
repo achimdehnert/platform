@@ -1,4 +1,4 @@
-"""Docs Agent CLI \u2014 audit and report on documentation quality."""
+"""Docs Agent CLI — audit and report on documentation quality."""
 
 from __future__ import annotations
 
@@ -49,6 +49,16 @@ def audit(
         "table",
         help="Output format: table or json.",
     ),
+    refine: bool = typer.Option(
+        False,
+        "--refine",
+        help="Use LLM to refine low-confidence DIATAXIS classifications.",
+    ),
+    llm_url: str = typer.Option(
+        "http://localhost:8100",
+        "--llm-url",
+        help="URL of the llm_mcp HTTP gateway (for --refine).",
+    ),
 ) -> None:
     """Audit a repository for documentation quality."""
     repo_path = repo_path.resolve()
@@ -64,7 +74,10 @@ def audit(
         )
 
     if scope in ("diataxis", "all"):
-        _audit_diataxis(repo_path, output=output)
+        _audit_diataxis(
+            repo_path, output=output,
+            refine=refine, llm_url=llm_url,
+        )
 
     if min_coverage is not None and scope in ("docstrings", "all"):
         coverage = scan_repo(repo_path, apps_only=apps_only)
@@ -121,8 +134,12 @@ def _audit_docstrings(
     table.add_column("Documented", justify="right")
     table.add_column("Coverage", justify="right")
 
-    for module in sorted(coverage.modules, key=lambda m: m.coverage_pct):
-        rel_path = str(module.file_path.relative_to(repo_path))
+    for module in sorted(
+        coverage.modules, key=lambda m: m.coverage_pct
+    ):
+        rel_path = str(
+            module.file_path.relative_to(repo_path)
+        )
         pct = module.coverage_pct
         style = (
             "green" if pct >= 80
@@ -157,14 +174,18 @@ def _audit_docstrings(
             f" ({len(undoc)} total):[/]\n"
         )
         for item in undoc[:15]:
-            rel = str(item.file_path.relative_to(repo_path))
+            rel = str(
+                item.file_path.relative_to(repo_path)
+            )
             console.print(
                 f"  {item.kind.value:8s} "
                 f"[cyan]{rel}[/]:{item.line} "
                 f"[bold]{item.name}[/]"
             )
         if len(undoc) > 15:
-            console.print(f"  ... and {len(undoc) - 15} more")
+            console.print(
+                f"  ... and {len(undoc) - 15} more"
+            )
 
     return 0
 
@@ -173,10 +194,31 @@ def _audit_diataxis(
     repo_path: Path,
     *,
     output: str = "table",
+    refine: bool = False,
+    llm_url: str = "http://localhost:8100",
 ) -> None:
     """Run DIATAXIS classification audit."""
     console.print("\n[bold]DIATAXIS Classification[/]\n")
     results = classify_repo(repo_path)
+
+    if refine and results:
+        from docs_agent.analyzer.llm_classifier import (
+            reclassify_low_confidence,
+        )
+        from docs_agent.llm_client import LLMConfig
+
+        low = sum(1 for r in results if r.confidence < 0.7)
+        if low:
+            console.print(
+                f"[yellow]Refining {low} low-confidence"
+                f" classifications via LLM...[/]\n"
+            )
+            config = LLMConfig(gateway_url=llm_url)
+            results = asyncio.run(
+                reclassify_low_confidence(
+                    results, config=config
+                )
+            )
 
     if not results:
         console.print("[yellow]No documentation files found.[/]")
@@ -187,7 +229,9 @@ def _audit_diataxis(
 
         data = [
             {
-                "file": str(r.file_path.relative_to(repo_path)),
+                "file": str(
+                    r.file_path.relative_to(repo_path)
+                ),
                 "quadrant": r.quadrant.value,
                 "confidence": r.confidence,
             }
@@ -212,7 +256,9 @@ def _audit_diataxis(
 
     for result in results:
         rel = str(result.file_path.relative_to(repo_path))
-        color = quadrant_colors.get(result.quadrant, "white")
+        color = quadrant_colors.get(
+            result.quadrant, "white"
+        )
         conf_style = (
             "green" if result.confidence >= 0.7
             else "yellow" if result.confidence >= 0.4
@@ -221,7 +267,8 @@ def _audit_diataxis(
         table.add_row(
             rel,
             f"[{color}]{result.quadrant.value}[/{color}]",
-            f"[{conf_style}]{result.confidence:.0%}[/{conf_style}]",
+            f"[{conf_style}]{result.confidence:.0%}"
+            f"[/{conf_style}]",
         )
 
     console.print(table)
@@ -231,12 +278,18 @@ def _audit_diataxis(
     for r in results:
         counts[r.quadrant] = counts.get(r.quadrant, 0) + 1
 
-    low_confidence = sum(1 for r in results if r.confidence < 0.7)
+    low_confidence = sum(
+        1 for r in results if r.confidence < 0.7
+    )
 
     console.print("\n[bold]Distribution:[/]")
-    for q, count in sorted(counts.items(), key=lambda x: -x[1]):
+    for q, count in sorted(
+        counts.items(), key=lambda x: -x[1]
+    ):
         color = quadrant_colors.get(q, "white")
-        console.print(f"  [{color}]{q.value:12s}[/{color}] {count}")
+        console.print(
+            f"  [{color}]{q.value:12s}[/{color}] {count}"
+        )
 
     if low_confidence:
         console.print(
@@ -335,7 +388,9 @@ def generate(
     # 3. Show / apply via libcst
     by_file: dict[Path, dict[str, str]] = {}
     for gen in results:
-        by_file.setdefault(gen.item.file_path, {})[gen.item.name] = gen.docstring
+        by_file.setdefault(gen.item.file_path, {})[
+            gen.item.name
+        ] = gen.docstring
 
     total_inserted = 0
     for file_path, docstrings_map in by_file.items():
