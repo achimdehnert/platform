@@ -39,7 +39,7 @@ def insert_docstrings(
 
     Args:
         file_path: Path to the Python file.
-        docstrings: Mapping of item name \u2192 docstring text.
+        docstrings: Mapping of item name → docstring text.
         dry_run: If True, do not write changes to disk.
 
     Returns:
@@ -62,7 +62,7 @@ def insert_docstrings(
         )
 
     transformer = _DocstringInserter(docstrings)
-    modified_tree = tree.visit(transformer)
+    modified_tree = transformer.transform(tree)
     modified_source = modified_tree.code
 
     result = InsertionResult(
@@ -84,15 +84,15 @@ def insert_docstrings(
 
 
 class _DocstringInserter:
-    """CST transformer that inserts docstrings."""
+    """Manual CST transformer that inserts docstrings."""
 
     def __init__(self, docstrings: dict[str, str]) -> None:
         self.docstrings = docstrings
         self.inserted = 0
         self.skipped = 0
 
-    def visit(self, tree: object) -> object:
-        """Visit the CST tree and insert docstrings."""
+    def transform(self, tree: object) -> object:
+        """Transform the CST tree by inserting docstrings."""
         import libcst as cst
 
         if not isinstance(tree, cst.Module):
@@ -101,7 +101,6 @@ class _DocstringInserter:
         # Module-level docstring
         module_name = None
         for name in self.docstrings:
-            # Module names don't have dots
             if "." not in name and name == name.lower():
                 module_name = name
                 break
@@ -209,7 +208,7 @@ def _make_docstring_stmt(docstring: str) -> object:
     return cst.SimpleStatementLine(
         body=[
             cst.Expr(
-                value=cst.SimpleString(f'"""{ escaped}"""')
+                value=cst.SimpleString(f'"""{escaped}"""')
             )
         ]
     )
@@ -225,7 +224,7 @@ def _prepend_docstring(body: object, docstring: str) -> object:
     ds_stmt = cst.SimpleStatementLine(
         body=[
             cst.Expr(
-                value=cst.SimpleString(f'"""{ docstring}"""')
+                value=cst.SimpleString(f'"""{docstring}"""')
             )
         ]
     )
