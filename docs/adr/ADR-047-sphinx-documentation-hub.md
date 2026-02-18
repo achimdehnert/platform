@@ -2,9 +2,9 @@
 
 | Status | Proposed |
 | ------ | -------- |
-| Date | 2026-02-18 |
+| Date   | 2026-02-18 |
 | Author | Achim Dehnert |
-| Scope | Platform-wide |
+| Scope  | Platform-wide |
 
 ## Context
 
@@ -29,53 +29,195 @@ documentation for all repositories.
 
 ### 1. Architecture Overview
 
+The system separates into five single-responsibility components:
+
 ```text
-┌──────────────────────────────────────────────────────────┐
-│                  sphinx.iil.pet (Nginx)                  │
-│               Static HTML served from                    │
-│          /var/www/sphinx.iil.pet/html/                   │
-└──────────────────────┬───────────────────────────────────┘
-                       │
-┌──────────────────────▼───────────────────────────────────┐
-│              sphinx-hub Container (Docker)                │
-│                                                          │
-│  ┌─────────────┐  ┌──────────────┐  ┌─────────────────┐ │
-│  │ git clone / │  │  docs-agent  │  │  sphinx-build   │ │
-│  │ git pull    │──▶│  audit +     │──▶│  per-repo +    │ │
-│  │ all repos   │  │  generate    │  │  master index   │ │
-│  └─────────────┘  └──────────────┘  └─────────────────┘ │
-│                          │                               │
-│                   ┌──────▼──────┐                        │
-│                   │  llm_mcp    │                        │
-│                   │  gateway    │                        │
-│                   └─────────────┘                        │
-└──────────────────────────────────────────────────────────┘
+┌───────────────────────────────────────────────────────────┐
+│                  sphinx.iil.pet (Nginx)                    │
+│          Static HTML from /opt/sphinx-hub/output/html/     │
+└───────────────────────────┬───────────────────────────────┘
+                            │ reads
+┌───────────────────────────▼───────────────────────────────┐
+│            sphinx-builder Container (Docker)                │
+│                                                            │
+│  ┌──────────────┐                                          │
+│  │ Orchestrator │ reads repos.yaml, runs steps per repo    │
+│  └──────┬───────┘                                          │
+│         │ delegates to                                     │
+│  ┌──────▼───────┐  ┌──────────────┐  ┌─────────────────┐  │
+│  │  RepoSyncer  │  │ DocsScaffold │  │  SphinxBuilder  │  │
+│  │  git pull    │  │ conf.py from │  │  build per repo  │  │
+│  │  per repo    │  │ template     │  │  + master index  │  │
+│  └──────────────┘  └──────────────┘  └─────────────────┘  │
+│                                                            │
+│  ┌──────────────┐  ┌──────────────┐                        │
+│  │ LLMEnricher  │  │   Reporter   │                        │
+│  │ docs-agent   │  │ coverage %,  │                        │
+│  │ → PR branch  │  │ health.json  │                        │
+│  └──────┬───────┘  └──────────────┘                        │
+│         │ calls                                            │
+│  ┌──────▼───────┐                                          │
+│  │  llm_mcp     │                                          │
+│  │  gateway     │                                          │
+│  └──────────────┘                                          │
+└────────────────────────────────────────────────────────────┘
 ```
 
-### 2. Repository Coverage
+#### Component Responsibilities (SRP)
 
-| Repo | Brand | Type | Port | URL |
-| ---- | ----- | ---- | ---- | --- |
-| platform | Platform | Shared packages, ADRs | — | `/platform/` |
-| bfagent | Book Factory | Django app | 8088 | `/bfagent/` |
-| risk-hub | Schutztat | Django app | 8081 | `/risk-hub/` |
-| travel-beat | DriftTales | Django app | 8090 | `/travel-beat/` |
-| weltenhub | Weltenforger | Django app | 8091 | `/weltenhub/` |
-| mcp-hub | MCP Servers | FastMCP collection | 8093 | `/mcp-hub/` |
-| pptx-hub | Prezimo | Django app | 8089 | `/pptx-hub/` |
-| trading-hub | AI Trades | Django app | — | `/trading-hub/` |
-| odoo-hub | Odoo | Odoo modules | 8069 | `/odoo-hub/` |
-| wedding-hub | Wedding | Django app | — | `/wedding-hub/` |
+| Component | Responsibility | Input | Output |
+| --------- | -------------- | ----- | ------ |
+| `RepoSyncer` | `git clone` / `git pull` per repo | `repos.yaml` | Updated clones |
+| `DocsScaffolder` | Generate `conf.py`, `index.rst` from templates | Repo source tree | `docs/` directory |
+| `LLMEnricher` | Generate docstrings, push to PR branch | Repo clone, LLM gateway | Git branch + PR |
+| `SphinxBuilder` | `sphinx-build` per repo + master index | `docs/` directory | HTML in staging dir |
+| `Reporter` | Coverage trends, DIATAXIS stats, `health.json` | Build results | JSON reports |
+| `Orchestrator` | Coordinate steps, error isolation per repo | `repos.yaml` | Aggregated status |
 
-### 3. Per-Repo Documentation Structure
+### 2. Declarative Repo Configuration
+
+All repos are configured in a single YAML file. No hardcoded repo lists.
+
+```yaml
+# /opt/sphinx-hub/config/repos.yaml
+defaults:
+  type: django
+  settings_module: config.settings.base
+  llm_enrichment: true
+  max_llm_items_per_run: 50
+
+repos:
+  - name: bfagent
+    brand: Book Factory Agent
+    url: git@github.com:achimdehnert/bfagent.git
+    source_dirs: [apps, config]
+    autodoc_mock_imports:
+      - psycopg2
+      - redis
+      - celery
+      - django_extensions
+
+  - name: risk-hub
+    brand: Schutztat
+    url: git@github.com:achimdehnert/risk-hub.git
+    source_dirs: [apps, config]
+    autodoc_mock_imports:
+      - psycopg2
+      - redis
+      - celery
+
+  - name: travel-beat
+    brand: DriftTales
+    url: git@github.com:achimdehnert/travel-beat.git
+    source_dirs: [apps, config]
+    autodoc_mock_imports:
+      - psycopg2
+      - redis
+      - celery
+
+  - name: weltenhub
+    brand: Weltenforger
+    url: git@github.com:achimdehnert/weltenhub.git
+    source_dirs: [apps, config]
+    autodoc_mock_imports:
+      - psycopg2
+      - redis
+      - celery
+      - django_htmx
+
+  - name: mcp-hub
+    brand: MCP Servers
+    url: git@github.com:achimdehnert/mcp-hub.git
+    type: fastmcp
+    source_dirs: [modules]
+    settings_module: null
+    autodoc_mock_imports: []
+
+  - name: pptx-hub
+    brand: Prezimo
+    url: git@github.com:achimdehnert/pptx-hub.git
+    source_dirs: [apps, config]
+    autodoc_mock_imports:
+      - psycopg2
+      - python_pptx
+
+  - name: platform
+    brand: Platform
+    url: git@github.com:achimdehnert/platform.git
+    type: library
+    source_dirs: [packages]
+    settings_module: null
+    autodoc_mock_imports: []
+
+  - name: trading-hub
+    brand: AI Trades
+    url: git@github.com:achimdehnert/trading-hub.git
+    source_dirs: [apps, config]
+    autodoc_mock_imports:
+      - psycopg2
+
+  - name: odoo-hub
+    brand: Odoo Hub
+    url: git@github.com:achimdehnert/odoo-hub.git
+    type: odoo
+    llm_enrichment: false
+    autodoc_mock_imports: []
+
+  - name: wedding-hub
+    brand: Wedding Hub
+    url: git@github.com:achimdehnert/wedding-hub.git
+    source_dirs: [apps, config]
+    autodoc_mock_imports:
+      - psycopg2
+```
+
+### 3. Directory Layout
+
+Single base directory. No split between `/opt/` and `/var/www/`:
+
+```text
+/opt/sphinx-hub/
+├── config/
+│   ├── repos.yaml           # Declarative repo configuration
+│   └── templates/
+│       ├── conf.py.j2       # Sphinx conf.py Jinja2 template
+│       ├── index.rst.j2     # Per-repo index template
+│       └── master.html.j2   # Landing page template
+├── repos/                   # Git clones (ephemeral, gitignored)
+│   ├── bfagent/
+│   ├── risk-hub/
+│   └── ...
+├── output/
+│   ├── html/                # Sphinx build output (Nginx root)
+│   │   ├── index.html       # Master landing page
+│   │   ├── bfagent/
+│   │   ├── risk-hub/
+│   │   └── ...
+│   └── reports/             # JSON quality reports
+│       ├── health.json      # Aggregated build status
+│       ├── bfagent.json
+│       └── ...
+├── staging/                 # Atomic build staging area
+│   └── html/
+├── scripts/
+│   ├── orchestrator.py      # Main entry point
+│   ├── repo_syncer.py
+│   ├── docs_scaffolder.py
+│   ├── llm_enricher.py
+│   ├── sphinx_builder.py
+│   └── reporter.py
+└── docker-compose.yml
+```
+
+### 4. Per-Repo Documentation Structure
 
 Each repo gets a Sphinx project with this standard layout:
 
 ```text
 <repo>/docs/
-├── conf.py              # Auto-generated from template
-├── index.rst            # Auto-generated master index
-├── quickstart.rst       # From README.md (auto-converted)
+├── conf.py              # Auto-generated from conf.py.j2
+├── index.rst            # Auto-generated from index.rst.j2
+├── quickstart.rst       # Converted from README.md (m2r2)
 ├── api/                 # autodoc from Python source
 │   ├── models.rst
 │   ├── views.rst
@@ -86,149 +228,213 @@ Each repo gets a Sphinx project with this standard layout:
 └── changelog.rst        # From git tags + commit history
 ```
 
-### 4. LLM-Autonomous Pipeline
+### 5. Build Pipeline (5 Phases)
 
-The build pipeline runs in 4 phases:
-
-#### Phase 1: Clone and Scan (no LLM)
-
-```bash
-# Clone/pull all repos
-for repo in bfagent risk-hub travel-beat weltenhub mcp-hub pptx-hub ...; do
-    git clone --depth 1 https://github.com/achimdehnert/$repo /opt/sphinx-hub/repos/$repo
-done
-
-# Scan docstring coverage per repo
-docs-agent audit /opt/sphinx-hub/repos/$repo --output json > /opt/sphinx-hub/reports/$repo.json
-```
-
-#### Phase 2: LLM Enrichment (autonomous)
-
-```bash
-# Generate missing docstrings (batch, max 50 per repo per run)
-docs-agent generate /opt/sphinx-hub/repos/$repo --apply --max-items 50
-
-# Classify documentation files
-docs-agent audit /opt/sphinx-hub/repos/$repo --scope diataxis --refine --output json
-```
-
-#### Phase 3: Sphinx Build (per-repo + master)
-
-```bash
-# Build each repo's docs
-sphinx-build -b html /opt/sphinx-hub/repos/$repo/docs /var/www/sphinx.iil.pet/html/$repo
-
-# Build master index (links to all repos)
-sphinx-build -b html /opt/sphinx-hub/master /var/www/sphinx.iil.pet/html/
-```
-
-#### Phase 4: Report and Notify
-
-- Generate quality dashboard (coverage %, DIATAXIS distribution)
-- Compare with previous run (trend tracking)
-- Log results to `/opt/sphinx-hub/reports/`
-
-### 5. Master Index (Landing Page)
-
-The root `https://sphinx.iil.pet/` shows a dashboard:
-
-```text
-┌─────────────────────────────────────────────────────┐
-│           Platform Documentation Hub                 │
-│              sphinx.iil.pet                          │
-├─────────────────────────────────────────────────────┤
-│                                                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │  bfagent    │  │  risk-hub   │  │ travel-beat  │ │
-│  │  Coverage:  │  │  Coverage:  │  │  Coverage:   │ │
-│  │  67%        │  │  54%        │  │  72%         │ │
-│  │  ▶ Docs     │  │  ▶ Docs     │  │  ▶ Docs      │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘ │
-│                                                      │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐ │
-│  │  weltenhub  │  │  mcp-hub    │  │  platform    │ │
-│  │  Coverage:  │  │  Coverage:  │  │  Coverage:   │ │
-│  │  61%        │  │  78%        │  │  85%         │ │
-│  │  ▶ Docs     │  │  ▶ Docs     │  │  ▶ Docs      │ │
-│  └─────────────┘  └─────────────┘  └─────────────┘ │
-│                                                      │
-│  ADRs: 47 │ Total Coverage: 68% │ Last Build: 2h ago│
-└─────────────────────────────────────────────────────┘
-```
-
-### 6. Automation Schedule
-
-| Trigger | Action |
-| ------- | ------ |
-| Cron daily 03:00 UTC | Full rebuild (clone, scan, enrich, build) |
-| GitHub webhook (push to main) | Incremental rebuild (pull + build affected repo) |
-| Manual `/deploy sphinx` | Force full rebuild |
-
-### 7. Docker Setup
-
-```yaml
-# /opt/sphinx-hub/docker-compose.yml
-services:
-  sphinx-builder:
-    image: python:3.12-slim
-    volumes:
-      - sphinx-repos:/opt/sphinx-hub/repos
-      - sphinx-html:/var/www/sphinx.iil.pet/html
-      - sphinx-reports:/opt/sphinx-hub/reports
-    environment:
-      - DOCS_AGENT_LLM_URL=http://host.docker.internal:8100
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-    command: python /opt/sphinx-hub/scripts/build_all.py
-    # Runs on cron, not always-on
-
-volumes:
-  sphinx-repos:
-  sphinx-html:
-  sphinx-reports:
-```
-
-### 8. Nginx Configuration
-
-```nginx
-server {
-    listen 443 ssl http2;
-    listen [::]:443 ssl http2;
-    server_name sphinx.iil.pet;
-
-    ssl_certificate /etc/letsencrypt/live/sphinx.iil.pet/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/sphinx.iil.pet/privkey.pem;
-
-    root /var/www/sphinx.iil.pet/html;
-    index index.html;
-
-    location / {
-        try_files $uri $uri/ =404;
-    }
-
-    # Per-repo docs
-    location ~ ^/(bfagent|risk-hub|travel-beat|weltenhub|mcp-hub|pptx-hub|platform|trading-hub|odoo-hub|wedding-hub)/ {
-        try_files $uri $uri/ =404;
-    }
-
-    # Reports API (JSON)
-    location /api/reports/ {
-        alias /opt/sphinx-hub/reports/;
-        autoindex on;
-        types { application/json json; }
-    }
-}
-```
-
-### 9. conf.py Template (Auto-Generated)
+#### Phase 1: Sync (RepoSyncer, no LLM)
 
 ```python
-# Template for each repo's docs/conf.py
+class RepoSyncer:
+    """Clone or pull repos from repos.yaml. One repo at a time."""
+
+    def sync(self, repo: RepoConfig) -> SyncResult:
+        repo_path = REPOS_DIR / repo.name
+        if repo_path.exists():
+            run(["git", "pull", "--ff-only"], cwd=repo_path)
+        else:
+            run(["git", "clone", "--depth", "1", repo.url, str(repo_path)])
+        return SyncResult(repo=repo.name, commit=get_head_sha(repo_path))
+```
+
+#### Phase 2: Scaffold (DocsScaffolder, no LLM)
+
+```python
+class DocsScaffolder:
+    """Generate docs/ skeleton from Jinja2 templates if missing."""
+
+    def scaffold(self, repo: RepoConfig) -> None:
+        docs_dir = REPOS_DIR / repo.name / "docs"
+        if (docs_dir / "conf.py").exists():
+            return  # Repo has its own docs, respect them
+
+        docs_dir.mkdir(exist_ok=True)
+        self._render_template("conf.py.j2", docs_dir / "conf.py", repo)
+        self._render_template("index.rst.j2", docs_dir / "index.rst", repo)
+        self._generate_api_stubs(repo)
+```
+
+#### Phase 3: LLM Enrichment (LLMEnricher, persistent PR workflow)
+
+```python
+class LLMEnricher:
+    """Generate missing docstrings and open PRs for review."""
+
+    BRANCH_PREFIX = "docs/auto-enrich"
+
+    def enrich(self, repo: RepoConfig) -> EnrichResult:
+        if not repo.llm_enrichment:
+            return EnrichResult(repo=repo.name, skipped=True)
+
+        repo_path = REPOS_DIR / repo.name
+        branch = f"{self.BRANCH_PREFIX}/{date.today().isoformat()}"
+
+        # 1. Create enrichment branch from main
+        run(["git", "checkout", "-B", branch, "origin/main"], cwd=repo_path)
+
+        # 2. Run docs-agent generate (writes docstrings into source)
+        result = run([
+            "docs-agent", "generate", str(repo_path),
+            "--apply",
+            "--max-items", str(repo.max_llm_items_per_run),
+        ])
+
+        # 3. If changes exist, commit + push + open PR
+        if has_uncommitted_changes(repo_path):
+            run(["git", "add", "-A"], cwd=repo_path)
+            run(["git", "commit", "-m",
+                 f"docs: auto-generate docstrings ({result.count} items)"],
+                cwd=repo_path)
+            run(["git", "push", "origin", branch, "--force"], cwd=repo_path)
+            self._open_or_update_pr(repo, branch)
+
+        # 4. Return to main for Sphinx build
+        run(["git", "checkout", "main"], cwd=repo_path)
+        return EnrichResult(repo=repo.name, items=result.count, branch=branch)
+
+    def _open_or_update_pr(self, repo: RepoConfig, branch: str) -> None:
+        """Create or update a GitHub PR via gh CLI or GitHub API."""
+        # Title: "docs: Auto-generated docstrings (2026-02-18)"
+        # Body: Coverage report + list of enriched items
+        # Labels: ["documentation", "auto-generated"]
+        # Auto-assign: repo maintainer
+        ...
+```
+
+#### Phase 4: Sphinx Build (SphinxBuilder, no LLM)
+
+Builds into a **staging directory**, then does an **atomic swap**:
+
+```python
+class SphinxBuilder:
+    """Build Sphinx HTML per repo with atomic deploy."""
+
+    def build(self, repo: RepoConfig) -> BuildResult:
+        source_dir = REPOS_DIR / repo.name / "docs"
+        staging_dir = STAGING_DIR / repo.name
+        output_dir = OUTPUT_HTML_DIR / repo.name
+
+        # Build into staging (not live)
+        staging_dir.mkdir(parents=True, exist_ok=True)
+        result = run([
+            "sphinx-build", "-b", "html",
+            "-D", f"autodoc_mock_imports={repo.autodoc_mock_imports}",
+            str(source_dir), str(staging_dir),
+        ])
+
+        if result.returncode == 0:
+            # Atomic swap: rename staging -> live
+            backup = output_dir.with_suffix(".bak")
+            if output_dir.exists():
+                output_dir.rename(backup)
+            staging_dir.rename(output_dir)
+            if backup.exists():
+                shutil.rmtree(backup)
+
+        return BuildResult(
+            repo=repo.name,
+            success=result.returncode == 0,
+            warnings=count_warnings(result.stderr),
+        )
+
+    def build_master_index(self, results: list[BuildResult]) -> None:
+        """Render the landing page from Jinja2 template."""
+        ...
+```
+
+#### Phase 5: Report (Reporter, no LLM)
+
+```python
+class Reporter:
+    """Generate quality reports and health status."""
+
+    def generate(self, results: list[BuildResult]) -> None:
+        # Per-repo reports (coverage, DIATAXIS)
+        for result in results:
+            report = self._scan_repo(result)
+            self._write_json(REPORTS_DIR / f"{result.repo}.json", report)
+
+        # Aggregated health status
+        health = HealthStatus(
+            timestamp=datetime.utcnow().isoformat(),
+            repos={r.repo: r.success for r in results},
+            total_coverage=self._calc_total_coverage(results),
+        )
+        self._write_json(REPORTS_DIR / "health.json", health)
+```
+
+### 6. Orchestrator (Error Isolation + Filelock)
+
+```python
+class Orchestrator:
+    """Coordinate pipeline steps with per-repo error isolation."""
+
+    LOCK_FILE = Path("/opt/sphinx-hub/.build.lock")
+
+    def run(self) -> None:
+        # Prevent concurrent builds (cron + webhook race)
+        with FileLock(self.LOCK_FILE, timeout=10):
+            self._run_pipeline()
+
+    def _run_pipeline(self) -> None:
+        config = load_config(CONFIG_DIR / "repos.yaml")
+        results: list[BuildResult] = []
+
+        for repo in config.repos:
+            if not repo.enabled:
+                continue
+            try:
+                self.syncer.sync(repo)
+                self.scaffolder.scaffold(repo)
+                self.enricher.enrich(repo)
+                result = self.builder.build(repo)
+                results.append(result)
+            except Exception as exc:
+                logger.error("Build failed for %s: %s", repo.name, exc)
+                results.append(BuildResult(
+                    repo=repo.name, success=False, error=str(exc),
+                ))
+                continue  # Next repo, don't abort pipeline
+
+        self.builder.build_master_index(results)
+        self.reporter.generate(results)
+```
+
+### 7. autodoc Mock Strategy
+
+Django apps cannot be imported without dependencies. Each repo declares
+`autodoc_mock_imports` in `repos.yaml`. The generated `conf.py` includes:
+
+```python
+# Auto-generated from conf.py.j2
 import sys
 from pathlib import Path
+from unittest.mock import MagicMock
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-project = "{repo_display_name}"
+# Mock heavy dependencies so autodoc can import modules
+autodoc_mock_imports = {{ repo.autodoc_mock_imports | tojson }}
+
+# Minimal Django setup for autodoc
+import os
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "{{ repo.settings_module }}")
+
+import django
+try:
+    django.setup()
+except Exception:
+    pass  # Best-effort; autodoc_mock_imports handles missing deps
+
+project = "{{ repo.brand }}"
 copyright = "2026, Achim Dehnert"
 author = "Achim Dehnert"
 
@@ -240,115 +446,193 @@ extensions = [
 ]
 
 html_theme = "furo"
-html_title = "{repo_display_name} Documentation"
+html_title = "{{ repo.brand }} Documentation"
 autodoc_member_order = "bysource"
 autodoc_typehints = "description"
 napoleon_google_docstring = True
 
 intersphinx_mapping = {
     "python": ("https://docs.python.org/3", None),
-    # Cross-link between repos
-    "platform": ("https://sphinx.iil.pet/platform/", None),
+{% for other in all_repos if other.name != repo.name %}
+    "{{ other.name }}": ("https://sphinx.iil.pet/{{ other.name }}/", None),
+{% endfor %}
 }
 ```
 
-### 10. Build Script (build_all.py)
+### 8. LLM Enrichment Rules (Persistent PR Workflow)
 
-Core logic of the autonomous builder:
+The LLM enrichment creates **reviewable Pull Requests**, never commits
+directly to `main`:
 
-```python
-async def build_all():
-    repos = load_repo_config()
+1. Create branch `docs/auto-enrich/YYYY-MM-DD` from `origin/main`
+2. Run `docs-agent generate --apply --max-items 50`
+3. Commit changes with message `docs: auto-generate docstrings (N items)`
+4. Force-push branch (one active PR per repo at a time)
+5. Create or update PR with title, coverage diff, and item list
+6. Labels: `documentation`, `auto-generated`
+7. PR body includes before/after coverage comparison
+8. **Human merges PR after review** (never auto-merge)
+9. DIATAXIS reclassification is reporting-only (no file changes)
+10. Temperature: 0.3 (deterministic output)
+11. Model: `gpt-4o-mini` (cost-efficient)
 
-    for repo in repos:
-        # Phase 1: Clone/Pull
-        clone_or_pull(repo)
+### 9. Automation Schedule
 
-        # Phase 2: Scaffold docs if missing
-        if not (repo.path / "docs" / "conf.py").exists():
-            scaffold_sphinx_docs(repo)
+| Trigger | Action | Scope |
+| ------- | ------ | ----- |
+| Cron daily 03:00 UTC | Full pipeline (sync, scaffold, enrich, build, report) | All repos |
+| GitHub webhook (push to main) | Sync + build (no LLM enrichment) | Changed repo only |
+| Manual `sphinx-hub build` | Force full pipeline | All repos |
+| Manual `sphinx-hub build <repo>` | Single-repo pipeline | One repo |
 
-        # Phase 3: LLM enrichment (optional, needs gateway)
-        if llm_available():
-            run_docs_agent_generate(repo, max_items=50)
+### 10. Docker Setup
 
-        # Phase 4: Sphinx build
-        sphinx_build(repo)
-
-    # Phase 5: Master index
-    build_master_index(repos)
-    generate_quality_report(repos)
+```yaml
+# /opt/sphinx-hub/docker-compose.yml
+services:
+  sphinx-builder:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - /opt/sphinx-hub/config:/opt/sphinx-hub/config:ro
+      - /opt/sphinx-hub/repos:/opt/sphinx-hub/repos
+      - /opt/sphinx-hub/output:/opt/sphinx-hub/output
+      - /opt/sphinx-hub/staging:/opt/sphinx-hub/staging
+      - /opt/sphinx-hub/scripts:/opt/sphinx-hub/scripts:ro
+    env_file: /opt/sphinx-hub/.env
+    user: "1000:1000"
+    command: python /opt/sphinx-hub/scripts/orchestrator.py
 ```
 
-### 11. Cross-Repo Features
+```dockerfile
+# /opt/sphinx-hub/Dockerfile
+FROM python:3.12-slim
 
-- **Intersphinx links** between repos (e.g., `weltenhub` can link to
-  `platform` ADRs)
-- **Shared ADR index** — all ADRs from `platform/docs/adr/` appear in
-  the master index
-- **Global search** — Sphinx search index across all repos
-- **Quality trends** — JSON reports tracking coverage over time
+RUN apt-get update && apt-get install -y git && rm -rf /var/lib/apt/lists/*
+RUN pip install --no-cache-dir \
+    sphinx furo sphinx-intersphinx-inv \
+    docs-agent \
+    jinja2 pyyaml filelock
 
-### 12. LLM Enrichment Rules
+WORKDIR /opt/sphinx-hub
+```
 
-The LLM enrichment is **additive only** — it never deletes or modifies
-existing documentation:
+```bash
+# /opt/sphinx-hub/.env
+DOCS_AGENT_LLM_URL=http://host.docker.internal:8100
+GITHUB_TOKEN=ghp_...
+```
 
-1. Only generate docstrings for items with `has_docstring = False`
-2. Only generate Google-style docstrings
-3. Generated docstrings are committed to a `docs/auto-generated` branch
-   (not main) for review
-4. DIATAXIS reclassification is read-only (reporting, no file changes)
-5. Max 50 items per repo per daily run (cost control)
-6. Temperature: 0.3 (deterministic output)
+### 11. Nginx Configuration
 
-### 13. Implementation Plan
+```nginx
+server {
+    listen 443 ssl http2;
+    listen [::]:443 ssl http2;
+    server_name sphinx.iil.pet;
+
+    ssl_certificate /etc/letsencrypt/live/sphinx.iil.pet/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/sphinx.iil.pet/privkey.pem;
+
+    root /opt/sphinx-hub/output/html;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location /reports/ {
+        alias /opt/sphinx-hub/output/reports/;
+        autoindex on;
+        add_header Content-Type application/json;
+    }
+
+    # Health check endpoint
+    location = /health {
+        alias /opt/sphinx-hub/output/reports/health.json;
+        add_header Content-Type application/json;
+    }
+}
+```
+
+### 12. Cross-Repo Features
+
+- **Intersphinx links** between all repos (auto-generated from `repos.yaml`)
+- **Shared ADR index** in master landing page (all ADRs from `platform/`)
+- **Global search** via Sphinx search index per repo
+- **Quality trends** via JSON reports tracking coverage over time
+- **Health endpoint** at `https://sphinx.iil.pet/health`
+
+### 13. Monitoring and Health
+
+The `/health` endpoint returns:
+
+```json
+{
+  "timestamp": "2026-02-18T03:15:42Z",
+  "status": "ok",
+  "repos": {
+    "bfagent": {"success": true, "coverage": 67.2, "warnings": 3},
+    "risk-hub": {"success": true, "coverage": 54.1, "warnings": 0},
+    "travel-beat": {"success": false, "error": "conf.py SyntaxError"}
+  },
+  "total_coverage": 68.4,
+  "build_duration_seconds": 312,
+  "next_scheduled": "2026-02-19T03:00:00Z"
+}
+```
+
+### 14. Implementation Plan
 
 | Phase | Deliverable | Effort |
 | ----- | ----------- | ------ |
 | A | SSL cert + Nginx config for sphinx.iil.pet | 15 min |
-| B | Build script (`build_all.py`) + conf.py template | 2h |
-| C | Master index (Jinja2 landing page) | 1h |
-| D | Docker compose + cron job | 30 min |
-| E | Per-repo docs scaffolding (all 10 repos) | 2h |
-| F | LLM enrichment integration | 1h |
-| G | Quality dashboard + reports | 1h |
+| B | `repos.yaml` + Jinja2 templates (`conf.py.j2`, `index.rst.j2`) | 1h |
+| C | `RepoSyncer` + `DocsScaffolder` | 1h |
+| D | `SphinxBuilder` with atomic deploy + staging | 1.5h |
+| E | `LLMEnricher` with PR workflow (branch, commit, push, PR) | 2h |
+| F | `Orchestrator` with filelock + error isolation | 1h |
+| G | `Reporter` + health.json + master landing page | 1h |
+| H | Dockerfile + docker-compose + cron | 30 min |
+| I | Smoke test: build all 10 repos end-to-end | 1h |
 
-Total estimated: approximately 8 hours
+Total estimated: approximately 9 hours
 
 ## Consequences
 
 ### Positive
 
 - **Single source of truth** for all project documentation
-- **Autonomous improvement** via LLM — coverage increases over time
-- **Cross-repo discoverability** — search across all projects
-- **CI integration** — PRs can check if docs coverage drops
-- **Intersphinx** enables rich cross-linking between repos
-- **Low maintenance** — cron-driven, self-healing
+- **Autonomous improvement** via LLM with human review gate (PRs)
+- **Cross-repo discoverability** via intersphinx + master landing page
+- **Error isolation** per repo (one failing repo does not block others)
+- **Atomic deploys** prevent broken pages during builds
+- **Declarative config** in `repos.yaml` (add a repo = add 5 lines)
+- **Monitoring** via `/health` endpoint and JSON reports
 
 ### Negative
 
-- **LLM costs** — ~50 items x 10 repos x daily = ~500 LLM calls/day
-  (~$0.50/day with gpt-4o-mini)
-- **Build time** — full rebuild takes 5-10 minutes
-- **Server disk** — ~200MB for all HTML outputs
-- **Generated docstrings** need human review before merging to main
+- **LLM costs** of approximately 500 calls/day (~$0.50/day with gpt-4o-mini)
+- **Build time** of 5-10 min for full rebuild (10 repos)
+- **PR review overhead** for LLM-generated docstrings
+- **autodoc mock** may miss some type annotations from mocked packages
 
 ### Mitigations
 
-- Use `gpt-4o-mini` for cost efficiency
+- `gpt-4o-mini` for cost efficiency, configurable per repo
 - Incremental builds via webhook (only rebuild changed repo)
-- Generated docstrings go to separate branch, not auto-merged
-- Disk usage is negligible on current server (100GB+ free)
+- PRs include coverage diff, making review fast
+- `autodoc_mock_imports` is extensible per repo in `repos.yaml`
+- Disk: approximately 200MB total, negligible on 100GB+ server
 
 ## Alternatives Considered
 
-1. **MkDocs** — Simpler but lacks autodoc for Python APIs
-2. **Read the Docs** — SaaS, but no cross-repo linking and requires
-   per-repo config
-3. **Docusaurus** — React-based, overkill for Python projects
-4. **Manual docs only** — Does not scale, docs rot quickly
+1. **MkDocs** -- Simpler but lacks `autodoc` for Python APIs
+2. **Read the Docs** -- SaaS, no cross-repo linking, per-repo config
+3. **Docusaurus** -- React-based, overkill for Python projects
+4. **Manual docs only** -- Does not scale, docs rot quickly
+5. **Direct commit (no PR)** -- Risky, LLM output needs human review
 
 ## Related
 
