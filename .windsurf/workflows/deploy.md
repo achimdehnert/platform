@@ -53,8 +53,12 @@ Proceed? [Ja/Nein]
 
 ## Step 4: Deploy (after user confirms)
 
+**IMPORTANT**: Use MCP deploy tools (`mcp5_cicd_manage` with `bfagent_deploy` action) when available.
+These tools automatically acquire a **DeployLock** (atomic `mkdir` at `{project_path}/.deploy.lock/`)
+to prevent concurrent deploys. If another deploy is in progress, you'll get `code: "deploy_locked"`.
+
 // turbo
-Execute via SSH:
+Execute via MCP or SSH:
 ```bash
 ssh root@[host] "cd [project_path] && docker compose -f [compose_file] pull && docker compose -f [compose_file] up -d --force-recreate"
 ```
