@@ -5,15 +5,22 @@ on:
 
 jobs:
   nginx-deploy:
-    runs-on: [self-hosted, hetzner, dev]
+    runs-on: ubuntu-latest
     steps:
-      - name: Deploy schutztat.de nginx config
-        run: |
-          curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
-            -o /tmp/schutztat.de.conf
-          sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
-          sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
-          sudo nginx -t
-          sudo systemctl reload nginx
-          echo "Done. Testing upstream..."
-          curl -s -o /dev/null -w "Upstream 46.225.113.1:8090 → %{http_code}\n" http://46.225.113.1:8090/livez/
+      - name: Deploy schutztat.de nginx config via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
+              -o /tmp/schutztat.de.conf
+            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
+            sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
+            sudo nginx -t
+            sudo systemctl reload nginx
+            echo "Nginx reloaded. Testing upstream..."
+            curl -s -o /dev/null -w "Upstream 46.225.113.1:8090 → HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || echo "Upstream not reachable from prod-server"
+            echo "Done."
