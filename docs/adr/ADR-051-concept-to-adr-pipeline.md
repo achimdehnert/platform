@@ -43,47 +43,266 @@ Introduce a **two-phase pipeline** that spans two tools:
 
 ### Phase A: Concept Capture (dev-hub)
 
-A new `Concept` model in the `adr_lifecycle` app captures early-stage ideas:
+#### Data Model
+
+Module-level status choices with explicit state machine (following
+`ADRStatus` / `VALID_TRANSITIONS` pattern in `adr_lifecycle`):
+
+```python
+class ConceptStatus(models.TextChoices):
+    DRAFT = "draft", "Draft"
+    UNDER_REVIEW = "under_review", "Under Review"
+    READY_FOR_ADR = "ready_for_adr", "Ready for ADR"
+    PROMOTED = "promoted", "Promoted to ADR"
+    PARKED = "parked", "Parked"
+    REJECTED = "rejected", "Rejected"
+
+
+CONCEPT_TRANSITIONS: dict[str, list[str]] = {
+    ConceptStatus.DRAFT: [
+        ConceptStatus.UNDER_REVIEW,
+        ConceptStatus.PARKED,
+        ConceptStatus.REJECTED,
+    ],
+    ConceptStatus.UNDER_REVIEW: [
+        ConceptStatus.READY_FOR_ADR,
+        ConceptStatus.DRAFT,
+        ConceptStatus.PARKED,
+        ConceptStatus.REJECTED,
+    ],
+    ConceptStatus.READY_FOR_ADR: [
+        ConceptStatus.PROMOTED,
+        ConceptStatus.UNDER_REVIEW,
+    ],
+    ConceptStatus.PROMOTED: [],   # terminal
+    ConceptStatus.PARKED: [
+        ConceptStatus.DRAFT,
+    ],
+    ConceptStatus.REJECTED: [],   # terminal
+}
+```
+
+The `Concept` model captures early-stage ideas with minimal structure:
 
 ```python
 class Concept(TenantAwareModel):
-    title = CharField(max_length=300)
-    description = TextField(help_text="Freeform idea description")
-    motivation = TextField(blank=True, help_text="Why is this needed?")
-    author = ForeignKey(User, on_delete=SET_NULL, null=True)
-    status = CharField(choices=[
-        ("draft", "Draft"),
-        ("under_review", "Under Review"),
-        ("ready_for_adr", "Ready for ADR"),
-        ("promoted", "Promoted to ADR"),
-        ("parked", "Parked"),
-        ("rejected", "Rejected"),
-    ], default="draft")
-    promoted_to_adr_id = CharField(
-        max_length=20, blank=True,
-        help_text="ADR ID after promotion, e.g. ADR-052"
+    """Early-stage idea that may be promoted to a formal ADR."""
+
+    title = models.CharField(max_length=300)
+    description = models.TextField(
+        help_text="Freeform idea description.",
     )
-    tags = JSONField(default=list, blank=True)
-    created_at = DateTimeField(auto_now_add=True)
-    updated_at = DateTimeField(auto_now=True)
+    motivation = models.TextField(
+        blank=True,
+        help_text="Why is this needed?",
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="concepts_created",
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=ConceptStatus.choices,
+        default=ConceptStatus.DRAFT,
+        db_index=True,
+    )
+    promoted_to_adr = models.ForeignKey(
+        "ADR",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="originating_concepts",
+        help_text="Linked after ADR import into DB.",
+    )
+    tags = models.JSONField(default=list, blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "title"],
+                name="uq_concept_tenant_title",
+            ),
+            models.CheckConstraint(
+                condition=models.Q(
+                    status__in=[s.value for s in ConceptStatus],
+                ),
+                name="concept_status_chk",
+            ),
+        ]
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(
+                fields=["tenant_id", "status"],
+                name="idx_concept_tenant_status",
+            ),
+            models.Index(
+                fields=["tenant_id", "-created_at"],
+                name="idx_concept_tenant_created",
+            ),
+        ]
+
+    def __str__(self) -> str:
+        return self.title
+
+    @property
+    def allowed_transitions(self) -> list[str]:
+        """Status values this Concept can transition to."""
+        return CONCEPT_TRANSITIONS.get(self.status, [])
+
+    @property
+    def is_promotable(self) -> bool:
+        return self.status == ConceptStatus.READY_FOR_ADR
+
+    @property
+    def status_color(self) -> str:
+        """Tailwind color class for status badge."""
+        colors = {
+            ConceptStatus.DRAFT: "gray",
+            ConceptStatus.UNDER_REVIEW: "yellow",
+            ConceptStatus.READY_FOR_ADR: "blue",
+            ConceptStatus.PROMOTED: "green",
+            ConceptStatus.PARKED: "orange",
+            ConceptStatus.REJECTED: "red",
+        }
+        return colors.get(self.status, "gray")
 ```
 
 File attachments for supporting materials:
 
 ```python
+def concept_upload_path(instance: ConceptAttachment, filename: str) -> str:
+    """Tenant-isolated upload path."""
+    return f"concepts/{instance.tenant_id}/{filename}"
+
+
 class ConceptAttachment(TenantAwareModel):
-    concept = ForeignKey(Concept, related_name="attachments", on_delete=CASCADE)
-    file = FileField(upload_to="concepts/%Y/%m/")
-    filename = CharField(max_length=255)
-    description = CharField(max_length=500, blank=True)
-    uploaded_by = ForeignKey(User, on_delete=SET_NULL, null=True)
-    uploaded_at = DateTimeField(auto_now_add=True)
+    """File attached to a Concept (diagrams, specs, screenshots)."""
+
+    concept = models.ForeignKey(
+        Concept,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    file = models.FileField(upload_to=concept_upload_path)
+    original_filename = models.CharField(
+        max_length=255,
+        help_text="Original upload filename for display.",
+    )
+    description = models.CharField(max_length=500, blank=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name="concept_attachments_created",
+    )
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self) -> str:
+        return f"{self.original_filename} on {self.concept.title}"
 ```
 
-**Key design choice**: The Concept does NOT create an ADR in the database.
-It only captures the idea. The `promoted_to_adr_id` field is a simple string
-reference (e.g. "ADR-052"), not a ForeignKey — because the ADR is created in
-GitHub first and only later imported into the DB.
+**Design notes**:
+
+- `promoted_to_adr` is a **nullable ForeignKey** to `ADR`, not a string.
+  It is `null` while the concept is pre-promotion. After Cascade creates
+  the ADR in GitHub and imports it into the DB, the FK is linked via the
+  `link_concept_to_adr()` service function.
+- `original_filename` preserves the upload name independently of the
+  storage backend path (same pattern as pptx-hub `Presentation`).
+- `created_by` is consistent across both models (not `author` / `uploaded_by`).
+- Upload path includes `tenant_id` for filesystem-level tenant isolation.
+- `created_at` / `updated_at` are inherited from `TenantAwareModel`.
+
+#### Service Layer
+
+All business logic lives in `adr_lifecycle/services.py` (not in views):
+
+```python
+def create_concept(
+    *,
+    tenant_id: UUID,
+    title: str,
+    description: str,
+    motivation: str = "",
+    tags: list[str] | None = None,
+    created_by: User | None = None,
+) -> Concept:
+    """Create a new Concept and emit audit event."""
+    concept = Concept.objects.create(
+        tenant_id=tenant_id,
+        title=title,
+        description=description,
+        motivation=motivation,
+        tags=tags or [],
+        created_by=created_by,
+        status=ConceptStatus.DRAFT,
+    )
+    emit_audit_event(
+        tenant_id=tenant_id,
+        category="adr_lifecycle",
+        action="concept_created",
+        entity_type="Concept",
+        entity_id=concept.pk,
+        payload={"title": title},
+    )
+    return concept
+
+
+def transition_concept_status(
+    *,
+    concept: Concept,
+    to_status: str,
+    actor: User | None = None,
+    reason: str = "",
+) -> Concept:
+    """Transition Concept status with validation against state machine."""
+    allowed = CONCEPT_TRANSITIONS.get(concept.status, [])
+    if to_status not in allowed:
+        raise ValueError(
+            f"Cannot transition from {concept.status} to {to_status}. "
+            f"Allowed: {allowed}"
+        )
+    old_status = concept.status
+    concept.status = to_status
+    concept.save(update_fields=["status", "updated_at"])
+    emit_audit_event(
+        tenant_id=concept.tenant_id,
+        category="adr_lifecycle",
+        action="concept_status_changed",
+        entity_type="Concept",
+        entity_id=concept.pk,
+        payload={
+            "from_status": old_status,
+            "to_status": to_status,
+            "reason": reason,
+        },
+    )
+    return concept
+
+
+def link_concept_to_adr(
+    *,
+    concept: Concept,
+    adr: ADR,
+) -> Concept:
+    """Link a promoted Concept to its resulting ADR after import."""
+    concept.promoted_to_adr = adr
+    concept.status = ConceptStatus.PROMOTED
+    concept.save(update_fields=["promoted_to_adr", "status", "updated_at"])
+    emit_audit_event(
+        tenant_id=concept.tenant_id,
+        category="adr_lifecycle",
+        action="concept_promoted",
+        entity_type="Concept",
+        entity_id=concept.pk,
+        payload={"adr_id": adr.adr_id},
+    )
+    return concept
+```
 
 ### Phase B: ADR Creation (IDE + Cascade)
 
@@ -97,7 +316,7 @@ Cascade then:
 1. **Reads the Concept** from the dev-hub database (via postgres MCP)
 2. **Determines next ADR number** by scanning `platform/docs/adr/` on GitHub:
    - Parse all `ADR-NNN-*.md` filenames
-   - Filter to standard range (001–099 series)
+   - Filter to standard range (001–399)
    - `next_id = max(standard_numbers) + 1`
    - Present to user: "Next available: ADR-052. Confirm?"
 3. **Writes the ADR markdown** using the concept's content as input:
@@ -108,10 +327,8 @@ Cascade then:
    - Consequences (positive, negative, risks)
    - References to attachments (if any)
 4. **Pushes to GitHub** (`platform/docs/adr/ADR-052-<slug>.md` on main)
-5. **Updates the Concept** in dev-hub DB:
-   - Sets `status = "promoted"`
-   - Sets `promoted_to_adr_id = "ADR-052"`
-6. **Imports the new ADR** into dev-hub DB (same as existing import flow)
+5. **Imports the new ADR** into dev-hub DB (same as existing import flow)
+6. **Links the Concept** via `link_concept_to_adr()` service function
 
 ### ADR Number Assignment — Robust Algorithm
 
@@ -151,7 +368,7 @@ The filesystem in the platform repo is the authoritative numbering source.
 │  9. Cascade writes ADR-052-<slug>.md                │
 │  10. Cascade pushes to GitHub (SSOT!)               │
 │  11. Cascade imports ADR into devhub DB             │
-│  12. Cascade sets concept status → "promoted"       │
+│  12. Cascade links concept → ADR via service fn     │
 └──────────────────────┬──────────────────────────────┘
                        │
                        ▼
@@ -160,7 +377,7 @@ The filesystem in the platform repo is the authoritative numbering source.
 │                                                     │
 │  • GitHub: ADR-052-<slug>.md exists (SSOT)          │
 │  • devhub: ADR-052 visible in /adrs/ (draft)        │
-│  • devhub: Concept #42 marked "promoted"            │
+│  • devhub: Concept #42 status=promoted, FK→ADR-052  │
 │  • Audit trail: concept → ADR link preserved        │
 └─────────────────────────────────────────────────────┘
 ```
@@ -169,23 +386,24 @@ The filesystem in the platform repo is the authoritative numbering source.
 
 ```python
 # In adr_lifecycle/urls.py
-path("concepts/", ConceptListView, name="concept-list"),
-path("concepts/new/", ConceptCreateView, name="concept-create"),
-path("concepts/<int:pk>/", ConceptDetailView, name="concept-detail"),
-path("concepts/<int:pk>/upload/", upload_attachment_view, name="concept-upload"),
+path("concepts/", ConceptListView.as_view(), name="concept-list"),
+path("concepts/new/", ConceptCreateView.as_view(), name="concept-create"),
+path("concepts/<int:pk>/", ConceptDetailView.as_view(), name="concept-detail"),
+path("concepts/<int:pk>/transition/", concept_transition_view, name="concept-transition"),
+path("concepts/<int:pk>/upload/", concept_upload_view, name="concept-upload"),
 ```
 
 **Concept List** (`/adrs/concepts/`):
 - Filterable by status (draft, under_review, ready_for_adr, promoted, parked)
-- Shows title, author, status, created date, attachment count
+- Shows title, created_by, status badge, created date, attachment count
 - "New Concept" button (prominent)
 
 **Concept Detail** (`/adrs/concepts/<id>/`):
 - Edit title, description, motivation, tags (while draft/under_review)
 - Upload/remove attachments
-- Status transitions: draft → under_review → ready_for_adr
+- Status transitions via `transition_concept_status()` service
 - Park / Reject with reason
-- If promoted: link to the resulting ADR
+- If promoted: link to the resulting ADR via `promoted_to_adr` FK
 
 **No "Promote" button in dev-hub**: Promotion happens via Cascade in the IDE.
 The dev-hub only marks concepts as `ready_for_adr`. This enforces the SSOT
@@ -196,12 +414,14 @@ principle — ADRs are always created in GitHub first.
 ### Positive
 
 - **SSOT preserved**: ADRs always originate in GitHub, DB is only a mirror
+- **Strictly normalized**: FK to ADR (not string ref), TextChoices, constraints
+- **State machine**: Explicit `CONCEPT_TRANSITIONS` with validation in service
+- **Service layer**: All mutations via `services.py` with audit events
 - **Low barrier**: Ideas captured quickly in browser, no markdown knowledge needed
 - **AI-assisted quality**: Cascade writes structured ADRs from freeform concepts
-- **Audit trail**: Every ADR traces back to its originating concept
-- **File support**: Diagrams, specs, screenshots attached to concepts early
+- **Audit trail**: Every ADR traces back via `originating_concepts` reverse FK
+- **File support**: Tenant-isolated uploads with original filename preserved
 - **Robust numbering**: ADR numbers derived from filesystem, no DB race conditions
-- **Review workflow**: Concepts discussed before becoming formal ADRs
 
 ### Negative
 
@@ -220,29 +440,32 @@ principle — ADRs are always created in GitHub first.
 
 - Concepts may accumulate without promotion → mitigate with periodic review
 - File uploads need size limits (max 10 MB) and type validation
-- Concept model adds complexity to `adr_lifecycle` — monitor for >3 unrelated
-  models (monolith guard per ADR-050)
+- `adr_lifecycle` app grows to 5 models (ADR, ADRStatusTransition, ADRComment,
+  Concept, ConceptAttachment) — acceptable since all are ADR-pipeline related,
+  but monitor: split if unrelated models appear (monolith guard per ADR-050)
 
 ## Implementation Plan
 
 ### Phase 1: Models + Admin (MVP)
-- Add `Concept` and `ConceptAttachment` models to `adr_lifecycle`
+- Add `ConceptStatus`, `CONCEPT_TRANSITIONS`, `Concept`, `ConceptAttachment`
+- Add service functions: `create_concept()`, `transition_concept_status()`,
+  `link_concept_to_adr()`
 - Register in Django admin for immediate use
-- Configure media storage (Docker volume)
+- Configure media storage (Docker volume mount for `/app/media/`)
 - Migration + deploy to devhub.iil.pet
 
 ### Phase 2: Concept UI
 - Concept list view with status filters
-- Concept create form with file upload
-- Concept detail view with edit + status transitions
+- Concept create form with file upload (HTMX for dynamic attachment list)
+- Concept detail view with edit + status transitions via service layer
 - Link from ADR detail back to originating concept
 
 ### Phase 3: Cascade Integration
 - Document the Cascade workflow in a Windsurf workflow file
-  (`/windsurf/workflows/concept-to-adr.md`)
+  (`.windsurf/workflows/concept-to-adr.md`)
 - Cascade reads concepts via postgres MCP (`postgres` server, devhub DB)
 - Cascade scans `platform/docs/adr/` for next ADR number
-- Cascade writes + pushes ADR, updates concept status
+- Cascade writes + pushes ADR, updates concept via `link_concept_to_adr()`
 
 ### Phase 4: Dashboard Integration
 - "Recent Concepts" widget on dev-hub dashboard
@@ -253,8 +476,9 @@ principle — ADRs are always created in GitHub first.
 
 ### A: Fully automated promotion in dev-hub (v1 of this ADR)
 A "Promote to ADR" button in dev-hub that creates the ADR directly in the
-database. **Rejected** because: violates SSOT principle (GitHub must be
-canonical), ADR numbering in DB is fragile, and template-generated ADRs are
+database with `promoted_to_adr_id = CharField`. **Rejected** because: violates
+SSOT principle (GitHub must be canonical), string reference violates strict
+normalization, ADR numbering in DB is fragile, and template-generated ADRs are
 lower quality than Cascade-assisted authoring.
 
 ### B: Direct ADR creation without Concept stage
@@ -269,3 +493,14 @@ would live outside the platform ecosystem.
 Use GitHub Issues with a "concept" label. **Rejected** because: not
 tenant-aware, not integrated with dev-hub lifecycle, no file preview,
 no structured promotion workflow.
+
+## Review Changelog
+
+- **v1** (2026-02-19): Initial draft with in-DB promotion and string reference.
+  Rejected after review: SSOT violation, no state machine, inline choices.
+- **v2** (2026-02-19): Split into two-phase pipeline (devhub + Cascade).
+  Still had: CharField for ADR ref, inline tuples, missing constraints.
+- **v3** (2026-02-19): Full platform compliance. Fixed: FK normalization,
+  TextChoices, UniqueConstraint, CONCEPT_TRANSITIONS state machine,
+  related_name on all FKs, consistent `created_by` naming, tenant-isolated
+  upload path, DB indexes, explicit service layer with audit events.
