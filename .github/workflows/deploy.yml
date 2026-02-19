@@ -128,12 +128,12 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            echo "=== Removing old conflicting config ==="
-            sudo rm -f /etc/nginx/sites-enabled/schutztat.de.conf
-            echo "=== Verifying new config is in place ==="
-            ls -la /etc/nginx/sites-enabled/schutztat.de* || true
-            sudo nginx -t
-            sudo systemctl reload nginx
-            echo "=== Testing upstream ==="
-            curl -s -o /dev/null -w "HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || true
+            echo "=== UFW status ==="
+            sudo ufw status | grep -E "80|443|Nginx|Status"
+            echo "=== Opening ports 80 + 443 ==="
+            sudo ufw allow 80/tcp
+            sudo ufw allow 443/tcp
+            sudo ufw status | grep -E "80|443"
+            echo "=== Nginx status ==="
+            sudo systemctl is-active nginx
             echo "Done."
