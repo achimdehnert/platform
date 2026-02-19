@@ -128,12 +128,20 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            echo "=== Nginx listening ports ==="
-            sudo ss -tlnp | grep nginx || sudo netstat -tlnp 2>/dev/null | grep nginx || true
-            echo "=== Nginx processes ==="
-            ps aux | grep nginx | grep -v grep
-            echo "=== Nginx error log (last 10) ==="
-            sudo tail -10 /var/log/nginx/error.log 2>/dev/null || true
-            echo "=== Test local HTTP ==="
-            curl -s -o /dev/null -w "localhost:80 → HTTP %{http_code}\n" http://localhost/ || echo "no response"
-            curl -s -o /dev/null -w "localhost:443 → HTTP %{http_code}\n" https://localhost/ -k || echo "no response"
+            echo "=== Overwriting old schutztat.de.conf with new upstream ==="
+            curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
+              -o /tmp/schutztat.de.conf
+            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de.conf
+            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
+            echo "=== Removing duplicate symlinks ==="
+            sudo rm -f /etc/nginx/sites-enabled/schutztat.de.conf
+            sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
+            echo "=== Active schutztat configs ==="
+            ls -la /etc/nginx/sites-enabled/schutztat* || true
+            echo "=== Upstream in active config ==="
+            grep "upstream\|server " /etc/nginx/sites-enabled/schutztat.de | head -5
+            sudo nginx -t
+            sudo systemctl reload nginx
+            echo "=== Test local ==="
+            curl -s -o /dev/null -w "localhost:80 → HTTP %{http_code}\n" http://localhost/ || true
+            echo "Done."
