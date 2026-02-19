@@ -25,7 +25,30 @@ Der aktuelle `OrderManager` (`services/order_manager.py`) verletzt mehrere Platf
 
 ---
 
-## 2. Entscheidung: Port-Adapter-Pattern
+## 2. Kontext
+
+- Trading-Hub ist ein Multi-Tenant-System mit RLS via `TenantModel`
+- Broker-Anbindung erfolgt aktuell direkt im `OrderManager` (monolithisch, nicht austauschbar)
+- Strategien und Signale sollen broker-unabhängig bleiben
+- IBKR-Integration ist neu; bestehende Adapter (CCXT, Alpaca, OANDA) müssen erhalten bleiben
+- Celery-Worker führen Orders asynchron aus — Reconnect-Szenarien sind produktionsrelevant
+
+---
+
+## 3. Optionen
+
+| Option | Beschreibung | Bewertung |
+| --- | --- | --- |
+| **A: Status quo** | `if/elif` im `OrderManager` erweitern | ❌ Nicht skalierbar, nicht testbar |
+| **B: Strategy-Pattern** | Broker-Logik als austauschbare Strategie-Objekte | ⚠️ Kein klares Interface, kein Idempotenz-Konzept |
+| **C: Port-Adapter-Pattern** | `BrokerPort` (ABC) als Interface-Vertrag, Adapter pro Broker | ✅ Testbar, austauschbar, erweiterbar |
+| **D: Externe Message Queue** | Orders via Queue an separaten Broker-Service | ⚠️ Overengineering für aktuelle Projektgröße |
+
+**Entscheidung: Option C** — Port-Adapter-Pattern bietet klare Schichtentrennung, ist mit `PaperBrokerAdapter` sofort testbar und erlaubt schrittweise Migration.
+
+---
+
+## 4. Entscheidung: Port-Adapter-Pattern
 
 ```
 ExecutionService (broker-blind)
@@ -46,7 +69,7 @@ ExecutionService (broker-blind)
 
 ---
 
-## 3. Verzeichnisstruktur
+## 5. Verzeichnisstruktur
 
 ```
 trading_hub/
@@ -74,7 +97,7 @@ trading_hub/
 
 ---
 
-## 4. Domain-DTOs (`domain/dtos.py`)
+## 6. Domain-DTOs (`domain/dtos.py`)
 
 ```python
 from dataclasses import dataclass, field
@@ -164,7 +187,7 @@ class AccountSnapshot:
 
 ---
 
-## 5. Exception-Hierarchie (`domain/exceptions.py`)
+## 7. Exception-Hierarchie (`domain/exceptions.py`)
 
 ```python
 class BrokerError(Exception):
@@ -197,7 +220,7 @@ class DuplicateOrderError(BrokerError):
 
 ---
 
-## 6. BrokerPort (`brokers/port.py`)
+## 8. BrokerPort (`brokers/port.py`)
 
 ```python
 from abc import ABC, abstractmethod
@@ -237,12 +260,12 @@ class BrokerPort(ABC):
     def get_positions(self) -> list[Position]: ...
 
     @abstractmethod
-    def get_account_snapshot(self) -> AccountSnapshot: ...
+    def get_account_snapshot(self, currency: str = "USD") -> AccountSnapshot: ...
 ```
 
 ---
 
-## 7. IBKRAdapter (`brokers/adapters/ibkr.py`)
+## 9. IBKRAdapter (`brokers/adapters/ibkr.py`)
 
 ```python
 import logging
@@ -252,7 +275,6 @@ from decimal import Decimal
 from ib_insync import IB, Forex, LimitOrder, MarketOrder, Stock
 
 from trading_hub.brokers.port import BrokerPort
-from trading_hub.django.models import Trade
 from trading_hub.domain.dtos import (
     AccountSnapshot, Instrument, OrderIntent, OrderState, OrderStatus, Position
 )
@@ -299,9 +321,8 @@ class IBKRAdapter(BrokerPort):
         )
 
     def place_order(self, intent: OrderIntent) -> OrderState:
-        # Idempotenz-Prüfung auf DB-Ebene — robust gegen Restarts und Race Conditions
-        if Trade.objects.filter(client_order_id=intent.client_order_id).exists():
-            raise DuplicateOrderError(intent.client_order_id)
+        # Hinweis: Idempotenz-Prüfung erfolgt im ExecutionService (DB-unique constraint).
+        # Der Adapter vertraut darauf, dass client_order_id einmalig ist.
         ib_order = self._to_ib_order(intent)
         ib_order.orderRef = intent.client_order_id
         trade = self._ib.placeOrder(self._to_contract(intent.instrument), ib_order)
@@ -406,7 +427,89 @@ class IBKRAdapter(BrokerPort):
 
 ---
 
-## 8. ExecutionService (`services/execution_service.py`)
+## 10. PaperBrokerAdapter (`brokers/adapters/paper.py`)
+
+Explizit getrennt von Live-Adaptern — kein `mode`-Flag im Service.
+
+```python
+import uuid
+from datetime import datetime, timezone
+from decimal import Decimal
+
+from trading_hub.brokers.port import BrokerPort
+from trading_hub.domain.dtos import (
+    AccountSnapshot, Instrument, OrderIntent, OrderState, OrderStatus, Position
+)
+from trading_hub.domain.exceptions import DuplicateOrderError
+
+
+class PaperBrokerAdapter(BrokerPort):
+    """Simulation ohne echten Broker. Für Tests und Paper-Trading."""
+
+    def __init__(self):
+        self._orders: dict[str, OrderState] = {}
+        self._connected = False
+
+    def connect(self) -> None:
+        self._connected = True
+
+    def disconnect(self) -> None:
+        self._connected = False
+
+    def is_connected(self) -> bool:
+        return self._connected
+
+    def resolve_instrument(self, instrument: Instrument) -> Instrument:
+        return instrument  # Paper: kein Contract-Lookup nötig
+
+    def place_order(self, intent: OrderIntent) -> OrderState:
+        if intent.client_order_id in self._orders:
+            raise DuplicateOrderError(intent.client_order_id)
+        now = datetime.now(timezone.utc)
+        state = OrderState(
+            client_order_id=intent.client_order_id,
+            broker_order_id=str(uuid.uuid4()),
+            status=OrderStatus.FILLED,          # Paper: sofort filled
+            filled_qty=intent.quantity,
+            avg_fill_price=intent.limit_price,  # None bei Market-Order — Aufrufer nutzt price_at_signal
+            submitted_at=now,
+            last_updated=now,
+        )
+        self._orders[intent.client_order_id] = state
+        return state
+
+    def cancel_order(self, client_order_id: str) -> OrderState:
+        state = self._orders[client_order_id]
+        self._orders[client_order_id] = OrderState(
+            **{**state.__dict__, "status": OrderStatus.CANCELLED, "last_updated": datetime.now(timezone.utc)}
+        )
+        return self._orders[client_order_id]
+
+    def get_order_state(self, client_order_id: str) -> OrderState:
+        return self._orders[client_order_id]
+
+    def get_open_orders(self) -> list[OrderState]:
+        return [
+            s for s in self._orders.values()
+            if s.status not in (OrderStatus.FILLED, OrderStatus.CANCELLED, OrderStatus.REJECTED)
+        ]
+
+    def get_positions(self) -> list[Position]:
+        return []  # Paper: Positionen werden aus Trade-Aggregation berechnet
+
+    def get_account_snapshot(self, currency: str = "USD") -> AccountSnapshot:
+        return AccountSnapshot(
+            cash=Decimal("100000"),
+            equity=Decimal("100000"),
+            margin_used=Decimal("0"),
+            currency=currency,
+            timestamp=datetime.now(timezone.utc),
+        )
+```
+
+---
+
+## 11. ExecutionService (`services/execution_service.py`)
 
 `ExecutionService` ist **ausschließlich** für Order-Lifecycle zuständig. Signal-Lifecycle (`executed`-Flag) liegt im `SignalService`.
 
@@ -502,7 +605,7 @@ class ExecutionService:
                 trade.save(update_fields=["entry_price"])
 ```
 
-## 8a. SignalService (`services/signal_service.py`)
+## 11a. SignalService (`services/signal_service.py`)
 
 Signal-Lifecycle ist **getrennt** vom ExecutionService:
 
@@ -521,7 +624,7 @@ class SignalService:
 
 ---
 
-## 9. Adapter-Registry (`brokers/registry.py`)
+## 12. Adapter-Registry (`brokers/registry.py`)
 
 ```python
 from django.conf import settings
@@ -560,11 +663,11 @@ def get_broker(account: ExchangeAccount) -> BrokerPort:
 
 ---
 
-## 10. Model-Erweiterungen (Migration)
+## 13. Model-Erweiterungen (Migration)
 
 Additive Migrationen — kein Breaking Change:
 
-### 10.1 Trade-Model
+### 13.1 Trade-Model
 
 ```python
 # Zwei neue Felder — ersetzen exchange_order_id
@@ -586,7 +689,7 @@ broker_order_id = models.CharField(
 `null=True` statt `default=""` — semantisch klar: `None` = noch nicht gesetzt, leerer String ist kein valider Sentinel.
 `unique=True` — DB-Constraint verhindert Duplicate-Orders auch bei Race Conditions.
 
-### 10.2 TradingPair-Model
+### 13.2 TradingPair-Model
 
 ```python
 # broker_symbol cachen — verhindert wiederholte IBKR-Contract-Abfragen
@@ -602,7 +705,7 @@ broker_symbol_updated_at = models.DateTimeField(
 
 `resolve_instrument()` schreibt `broker_symbol` zurück auf `TradingPair` (TTL: 24h). Kein erneuter IBKR-Contract-Lookup bei jedem Neustart.
 
-### 10.3 Portfolio-Model — AccountSnapshot-Persistenz
+### 13.3 Portfolio-Model — AccountSnapshot-Persistenz
 
 Das bestehende `Portfolio`-Model (`cash_balance`, `total_value`, `unrealized_pnl`) wird als Persistenzschicht für `AccountSnapshot` genutzt:
 
@@ -620,13 +723,13 @@ last_synced_at = models.DateTimeField(
 
 `PortfolioSyncService.sync(account)` ruft `get_account_snapshot()` auf und schreibt Ergebnisse in `Portfolio` — **nicht** der `ExecutionService`.
 
-### 10.4 Position-Persistenz
+### 13.4 Position-Persistenz
 
 Positionen werden **nicht** als separates Model eingeführt (bereits in `Trade`-Aggregation ableitbar). `get_positions()` dient ausschließlich der Reconciliation — kein eigenes Persistenzmodell nötig.
 
 ---
 
-## 11. IBKR-Fallen und Lösungen
+## 14. IBKR-Fallen und Lösungen
 
 | Problem | Lösung |
 | --- | --- |
@@ -640,7 +743,7 @@ Positionen werden **nicht** als separates Model eingeführt (bereits in `Trade`-
 
 ---
 
-## 12. Phasenplan
+## 15. Phasenplan
 
 ### Phase A — Spike (experimentell, ~2 Tage)
 
@@ -668,7 +771,7 @@ Deliverable: Spike-Script, wegwerfbar. Nicht produktionsreif.
 
 ---
 
-## 13. Risiken
+## 16. Risiken
 
 | ID | Risiko | Wahrscheinlichkeit | Impact | Mitigation |
 | --- | --- | --- | --- | --- |
@@ -676,3 +779,23 @@ Deliverable: Spike-Script, wegwerfbar. Nicht produktionsreif.
 | R-2 | `ib_insync` async/sync Konflikte mit Django | Mittel | Mittel | Adapter in eigenem Thread/Prozess (Celery Worker) |
 | R-3 | IBKR Contract-Details-Caching veraltet | Niedrig | Mittel | TTL-Cache mit täglichem Refresh |
 | R-4 | Partial Fill nicht erkannt | Niedrig | Hoch | `OrderStatus.PARTIAL` explizit, Polling via Celery Beat |
+
+---
+
+## 17. Konsequenzen
+
+### Positiv
+- `ExecutionService` ist vollständig broker-blind und unit-testbar via `PaperBrokerAdapter`
+- Neuer Broker = neue Adapter-Klasse, kein Eingriff in bestehenden Code
+- Idempotenz via DB-`unique=True` auf `client_order_id` — Race Conditions ausgeschlossen
+- Signal-Lifecycle und Order-Lifecycle sind sauber getrennt
+- `broker_symbol`-Caching auf `TradingPair` eliminiert wiederholte IBKR-Contract-Lookups
+
+### Negativ / Trade-offs
+- `IBKRAdapter` läuft synchron via `ib_insync` — muss in Celery-Worker isoliert werden (kein Django-Request-Kontext)
+- `PaperBrokerAdapter` hält Orders In-Memory — kein Persistenz-Audit für Paper-Trades (bewusste Vereinfachung)
+- Migration auf `client_order_id unique=True` erfordert Datenmigration für bestehende `Trade`-Rows (NULL setzen)
+
+### Nicht entschieden
+- WebSocket-basiertes Order-Status-Streaming (Phase C)
+- Multi-Account-Support pro Tenant (Phase C)
