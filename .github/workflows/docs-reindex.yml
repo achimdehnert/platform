@@ -1,0 +1,57 @@
+name: Docs Reindex
+
+on:
+  push:
+    paths:
+      - 'docs/**'
+      - 'docs/source/**'
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  reindex:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Sphinx
+        run: |
+          pip install sphinx myst-parser sphinx-rtd-theme
+
+      - name: Build Sphinx HTML
+        run: |
+          cd docs && make html
+
+      - name: Reindex via SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          SERVER: 88.198.191.108
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
+          # Sync built HTML to server
+          rsync -avz --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
+            docs/_build/html/ \
+            root@$SERVER:/tmp/platform-docs-build/
+
+          # Run indexer in knowledge_db context
+          ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no \
+            root@$SERVER \
+            'source /opt/knowledge-db/.env.prod && \
+             cd /tmp/platform-docs-build && \
+             python3 /opt/knowledge-db/run_indexer.py \
+               --source /tmp/platform-docs-build \
+               --dsn "postgresql://knowledge:knowledge-prod-2026@127.0.0.1:5433/knowledge" \
+               2>&1 | tail -20'
+
+      - name: Cleanup
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
