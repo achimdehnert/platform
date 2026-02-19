@@ -128,10 +128,15 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            echo "=== Active schutztat config ==="
-            ls -la /etc/nginx/sites-enabled/schutztat* || true
-            grep "server " /etc/nginx/sites-available/schutztat.de | head -3
-            echo "=== Upstream reachable ==="
-            curl -s -o /dev/null -w "46.225.113.1:8090 → HTTP %{http_code}\n" http://46.225.113.1:8090/livez/
             echo "=== Nginx status ==="
+            sudo systemctl status nginx --no-pager | head -20
+            echo "=== Listening ports ==="
+            sudo ss -tlnp | grep -E "80|443" || echo "nothing on 80/443"
+            echo "=== Start/restart nginx if needed ==="
+            sudo systemctl restart nginx
+            sleep 2
             sudo systemctl is-active nginx
+            sudo ss -tlnp | grep -E "80|443"
+            echo "=== Test local ==="
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" http://localhost/
+            echo "Done."
