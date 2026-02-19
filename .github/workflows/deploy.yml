@@ -128,19 +128,11 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            echo "=== Existing configs referencing schutztat.de ==="
-            grep -rl "schutztat\.de" /etc/nginx/sites-enabled/ || true
-            echo "=== Removing conflicting configs ==="
-            for f in $(grep -rl "schutztat\.de" /etc/nginx/sites-enabled/); do
-              echo "Removing: $f"
-              sudo rm -f "$f"
-            done
-            echo "=== Installing new config ==="
-            curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
-              -o /tmp/schutztat.de.conf
-            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
-            sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
-            sudo nginx -t
-            sudo systemctl reload nginx
-            echo "=== Done. Testing ==="
-            curl -s -o /dev/null -w "HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || true
+            echo "=== All sites-enabled ==="
+            ls -la /etc/nginx/sites-enabled/
+            echo "=== Configs with schutztat.de ==="
+            grep -rl "schutztat\.de" /etc/nginx/sites-enabled/ /etc/nginx/sites-available/ 2>/dev/null || true
+            echo "=== Content of sites-enabled/schutztat.de (if exists) ==="
+            cat /etc/nginx/sites-enabled/schutztat.de 2>/dev/null | head -20 || echo "not found"
+            echo "=== Symlink target ==="
+            readlink -f /etc/nginx/sites-enabled/schutztat.de 2>/dev/null || echo "no symlink"
