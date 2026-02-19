@@ -4,7 +4,7 @@
 | --- | --- |
 | **ADR-ID** | ADR-052 |
 | **Titel** | Trading Hub — Broker-Adapter-Architektur |
-| **Status** | Proposed |
+| **Status** | Draft |
 | **Datum** | 2026-02-19 |
 | **Betrifft** | trading-hub |
 | **Related ADRs** | ADR-022, ADR-027, ADR-043 |
@@ -50,6 +50,8 @@ ExecutionService (broker-blind)
 
 ```
 trading_hub/
+├── django/
+│   └── models.py            # BESTEHEND — Trade, TradingPair, Portfolio, ExchangeAccount …
 ├── domain/
 │   ├── dtos.py              # Instrument, OrderIntent, OrderState, Fill, Position, AccountSnapshot
 │   └── exceptions.py        # BrokerError-Hierarchie
@@ -64,8 +66,11 @@ trading_hub/
 │       └── paper.py
 └── services/
     ├── execution_service.py # Einziger Einstiegspunkt
+    ├── signal_service.py    # Signal-Lifecycle (executed-Flag) — NICHT im ExecutionService
     └── order_manager.py     # DEPRECATED (entfernt in 2 Releases)
 ```
+
+**Einbettung in bestehende Struktur:** `domain/` und `brokers/` sind neue Untermodule neben dem bestehenden `django/`, `services/`, `tasks/`. Kein Umbenennen bestehender Pfade.
 
 ---
 
@@ -112,7 +117,7 @@ class Instrument:
     exchange: str         # "SMART", "NASDAQ", "binance"
     currency: str         # "USD", "USDT"
     asset_class: str      # "stock", "crypto", "forex"
-    broker_symbol: str = ""  # nach resolve_instrument()
+    broker_symbol: str = ""  # nach resolve_instrument() — wird in TradingPair.broker_symbol persistiert
 
 
 @dataclass(frozen=True)
@@ -247,6 +252,7 @@ from decimal import Decimal
 from ib_insync import IB, Forex, LimitOrder, MarketOrder, Stock
 
 from trading_hub.brokers.port import BrokerPort
+from trading_hub.django.models import Trade
 from trading_hub.domain.dtos import (
     AccountSnapshot, Instrument, OrderIntent, OrderState, OrderStatus, Position
 )
@@ -266,7 +272,6 @@ class IBKRAdapter(BrokerPort):
         self._port = port
         self._client_id = client_id
         self._ib = IB()
-        self._known_order_ids: set[str] = set()
 
     def connect(self) -> None:
         try:
@@ -294,7 +299,8 @@ class IBKRAdapter(BrokerPort):
         )
 
     def place_order(self, intent: OrderIntent) -> OrderState:
-        if intent.client_order_id in self._known_order_ids:
+        # Idempotenz-Prüfung auf DB-Ebene — robust gegen Restarts und Race Conditions
+        if Trade.objects.filter(client_order_id=intent.client_order_id).exists():
             raise DuplicateOrderError(intent.client_order_id)
         ib_order = self._to_ib_order(intent)
         ib_order.orderRef = intent.client_order_id
@@ -302,7 +308,6 @@ class IBKRAdapter(BrokerPort):
         self._ib.sleep(0.5)
         if trade.orderStatus.status in ("Inactive", "ApiCancelled"):
             raise OrderRejectedError(f"{intent.client_order_id}: {trade.orderStatus.status}")
-        self._known_order_ids.add(intent.client_order_id)
         return self._to_order_state(intent.client_order_id, trade)
 
     def cancel_order(self, client_order_id: str) -> OrderState:
@@ -340,13 +345,13 @@ class IBKRAdapter(BrokerPort):
             for p in self._ib.positions()
         ]
 
-    def get_account_snapshot(self) -> AccountSnapshot:
-        vals = {v.tag: v.value for v in self._ib.accountValues() if v.currency == "USD"}
+    def get_account_snapshot(self, currency: str = "USD") -> AccountSnapshot:
+        vals = {v.tag: v.value for v in self._ib.accountValues() if v.currency == currency}
         return AccountSnapshot(
             cash=Decimal(vals.get("CashBalance", "0")),
             equity=Decimal(vals.get("NetLiquidation", "0")),
             margin_used=Decimal(vals.get("MaintMarginReq", "0")),
-            currency="USD",
+            currency=currency,
             timestamp=datetime.now(timezone.utc),
         )
 
@@ -382,13 +387,18 @@ class IBKRAdapter(BrokerPort):
             avg_price = Decimal(str(
                 sum(f.execution.price * f.execution.shares for f in fills) / total
             ))
+        # submitted_at aus Trade-Log (erster Eintrag) — nicht aus Abruf-Zeitpunkt
+        submitted_at = (
+            trade.log[0].time.replace(tzinfo=timezone.utc)
+            if trade.log else datetime.now(timezone.utc)
+        )
         return OrderState(
             client_order_id=client_order_id,
             broker_order_id=str(trade.order.orderId),
             status=status_map.get(trade.orderStatus.status, OrderStatus.PENDING),
             filled_qty=Decimal(str(trade.orderStatus.filled)),
             avg_fill_price=avg_price,
-            submitted_at=datetime.now(timezone.utc),
+            submitted_at=submitted_at,
             last_updated=datetime.now(timezone.utc),
             broker_raw={"status": trade.orderStatus.status},
         )
@@ -397,6 +407,8 @@ class IBKRAdapter(BrokerPort):
 ---
 
 ## 8. ExecutionService (`services/execution_service.py`)
+
+`ExecutionService` ist **ausschließlich** für Order-Lifecycle zuständig. Signal-Lifecycle (`executed`-Flag) liegt im `SignalService`.
 
 ```python
 import logging
@@ -408,26 +420,29 @@ from django.db import transaction
 from trading_hub.brokers.port import BrokerPort
 from trading_hub.domain.dtos import Instrument, OrderIntent, OrderSide, OrderType
 from trading_hub.domain.exceptions import BrokerError, DuplicateOrderError
-from trading_hub.django.models import Signal, Trade, TradeStatus
+from trading_hub.django.models import Trade, TradeStatus
 
 logger = logging.getLogger("trading_hub.execution")
 
 
 class ExecutionService:
-    """Einziger Einstiegspunkt. Broker-blind — kennt nur BrokerPort."""
+    """Einziger Einstiegspunkt für Order-Execution. Broker-blind — kennt nur BrokerPort."""
 
-    def __init__(self, broker: BrokerPort):
+    def __init__(self, broker: BrokerPort, tenant_id):
         self._broker = broker
+        self._tenant_id = tenant_id
 
-    def execute_signal(self, signal: Signal, quantity: Decimal) -> Trade | None:
+    def execute_signal(self, signal, quantity: Decimal) -> Trade | None:
+        """Führt Signal aus. Signal-Lifecycle (executed-Flag) obliegt dem Aufrufer (SignalService)."""
         if signal.signal_type == "hold":
             return None
 
+        pair = signal.trading_pair
         instrument = self._broker.resolve_instrument(Instrument(
-            symbol=signal.trading_pair.symbol,
-            exchange=signal.trading_pair.exchange_account.exchange,
-            currency=signal.trading_pair.exchange_account.currency,
-            asset_class=signal.trading_pair.asset_class,
+            symbol=pair.symbol,
+            exchange=pair.exchange_account.exchange,
+            currency=pair.exchange_account.currency,
+            asset_class=pair.asset_class,
         ))
         client_order_id = str(uuid.uuid4())
         intent = OrderIntent(
@@ -440,14 +455,14 @@ class ExecutionService:
 
         with transaction.atomic():
             trade = Trade.objects.create(
-                tenant_id=signal.tenant_id,
+                tenant_id=self._tenant_id,
                 signal=signal,
                 strategy=signal.strategy,
-                trading_pair=signal.trading_pair,
-                exchange_account=signal.trading_pair.exchange_account,
+                trading_pair=pair,
+                exchange_account=pair.exchange_account,
                 side=intent.side.value,
                 status=TradeStatus.OPEN,
-                mode=signal.trading_pair.exchange_account.mode,
+                mode=pair.exchange_account.mode,
                 quantity=quantity,
                 entry_price=signal.price_at_signal,
                 client_order_id=client_order_id,
@@ -467,14 +482,17 @@ class ExecutionService:
         trade.broker_order_id = order_state.broker_order_id
         trade.entry_price = order_state.avg_fill_price or signal.price_at_signal
         trade.save(update_fields=["broker_order_id", "entry_price"])
-        signal.executed = True
-        signal.save(update_fields=["executed"])
         return trade
 
     def reconcile_open_orders(self) -> None:
-        """Nach Reconnect: offene Orders mit Broker abgleichen."""
+        """Nach Reconnect: offene Orders dieses Tenants mit Broker abgleichen."""
         broker_orders = {o.client_order_id: o for o in self._broker.get_open_orders()}
-        for trade in Trade.objects.filter(status=TradeStatus.OPEN).exclude(client_order_id=""):
+        open_trades = Trade.objects.filter(
+            tenant_id=self._tenant_id,          # Tenant-Scope — kein Cross-Tenant-Zugriff
+            status=TradeStatus.OPEN,
+            client_order_id__isnull=False,
+        )
+        for trade in open_trades:
             broker_state = broker_orders.get(trade.client_order_id)
             if broker_state is None:
                 trade.status = TradeStatus.CANCELLED
@@ -484,37 +502,57 @@ class ExecutionService:
                 trade.save(update_fields=["entry_price"])
 ```
 
+## 8a. SignalService (`services/signal_service.py`)
+
+Signal-Lifecycle ist **getrennt** vom ExecutionService:
+
+```python
+from trading_hub.django.models import Signal
+
+
+class SignalService:
+    """Verwaltet Signal-Lifecycle. Unabhängig von Broker-Execution."""
+
+    @staticmethod
+    def mark_executed(signal: Signal) -> None:
+        signal.executed = True
+        signal.save(update_fields=["executed"])
+```
+
 ---
 
 ## 9. Adapter-Registry (`brokers/registry.py`)
 
 ```python
+from django.conf import settings
+
+from trading_hub.brokers.adapters.alpaca import AlpacaAdapter
+from trading_hub.brokers.adapters.ccxt import CCXTAdapter
+from trading_hub.brokers.adapters.ibkr import IBKRAdapter
+from trading_hub.brokers.adapters.oanda import OANDAAdapter
+from trading_hub.brokers.adapters.paper import PaperBrokerAdapter
 from trading_hub.brokers.port import BrokerPort
 from trading_hub.django.models import ExchangeAccount, TradingMode
+
+_CCXT_EXCHANGES = frozenset({"binance", "coinbase", "kraken"})
 
 
 def get_broker(account: ExchangeAccount) -> BrokerPort:
     if account.mode == TradingMode.PAPER:
-        from trading_hub.brokers.adapters.paper import PaperBrokerAdapter
         return PaperBrokerAdapter()
 
     exchange = account.exchange.lower()
     if exchange == "ibkr":
-        from django.conf import settings
-        from trading_hub.brokers.adapters.ibkr import IBKRAdapter
         return IBKRAdapter(
             host=getattr(settings, "IBKR_HOST", "127.0.0.1"),
             port=getattr(settings, "IBKR_PORT", 7497),
             client_id=getattr(settings, "IBKR_CLIENT_ID", 1),
         )
-    if exchange in ("binance", "coinbase", "kraken"):
-        from trading_hub.brokers.adapters.ccxt import CCXTAdapter
+    if exchange in _CCXT_EXCHANGES:
         return CCXTAdapter(account)
     if exchange == "alpaca":
-        from trading_hub.brokers.adapters.alpaca import AlpacaAdapter
         return AlpacaAdapter(account)
     if exchange == "oanda":
-        from trading_hub.brokers.adapters.oanda import OANDAAdapter
         return OANDAAdapter(account)
 
     raise ValueError(f"Kein Adapter für Exchange: {account.exchange}")
@@ -522,15 +560,20 @@ def get_broker(account: ExchangeAccount) -> BrokerPort:
 
 ---
 
-## 10. Model-Erweiterung (Migration)
+## 10. Model-Erweiterungen (Migration)
 
-Additive Migration — kein Breaking Change:
+Additive Migrationen — kein Breaking Change:
+
+### 10.1 Trade-Model
 
 ```python
-# Trade-Model: zwei neue Felder
+# Zwei neue Felder — ersetzen exchange_order_id
 client_order_id = models.CharField(
-    max_length=36, db_index=True, blank=True, default="",
-    help_text="UUID für Idempotenz-Schutz"
+    max_length=36,
+    null=True, blank=True,
+    unique=True,                    # DB-seitiger Idempotenz-Schutz
+    db_index=True,
+    help_text="UUID — Idempotenz-Schlüssel (einmalig pro Order)"
 )
 broker_order_id = models.CharField(
     max_length=100, blank=True,
@@ -539,6 +582,47 @@ broker_order_id = models.CharField(
 ```
 
 `exchange_order_id` → **depreciert**, entfernt in 2 Releases (ADR-022 Zero-Breaking-Changes).
+
+`null=True` statt `default=""` — semantisch klar: `None` = noch nicht gesetzt, leerer String ist kein valider Sentinel.
+`unique=True` — DB-Constraint verhindert Duplicate-Orders auch bei Race Conditions.
+
+### 10.2 TradingPair-Model
+
+```python
+# broker_symbol cachen — verhindert wiederholte IBKR-Contract-Abfragen
+broker_symbol = models.CharField(
+    max_length=50, blank=True,
+    help_text="Broker-spezifisches Symbol nach resolve_instrument() — gecacht"
+)
+broker_symbol_updated_at = models.DateTimeField(
+    null=True, blank=True,
+    help_text="Zeitpunkt der letzten broker_symbol-Auflösung (UTC)"
+)
+```
+
+`resolve_instrument()` schreibt `broker_symbol` zurück auf `TradingPair` (TTL: 24h). Kein erneuter IBKR-Contract-Lookup bei jedem Neustart.
+
+### 10.3 Portfolio-Model — AccountSnapshot-Persistenz
+
+Das bestehende `Portfolio`-Model (`cash_balance`, `total_value`, `unrealized_pnl`) wird als Persistenzschicht für `AccountSnapshot` genutzt:
+
+```python
+# Zwei neue Felder auf Portfolio
+margin_used = models.DecimalField(
+    max_digits=14, decimal_places=2, default=Decimal("0"),
+    help_text="Aktuell gebundene Margin (vom Broker)"
+)
+last_synced_at = models.DateTimeField(
+    null=True, blank=True,
+    help_text="Zeitpunkt des letzten AccountSnapshot-Syncs (UTC)"
+)
+```
+
+`PortfolioSyncService.sync(account)` ruft `get_account_snapshot()` auf und schreibt Ergebnisse in `Portfolio` — **nicht** der `ExecutionService`.
+
+### 10.4 Position-Persistenz
+
+Positionen werden **nicht** als separates Model eingeführt (bereits in `Trade`-Aggregation ableitbar). `get_positions()` dient ausschließlich der Reconciliation — kein eigenes Persistenzmodell nötig.
 
 ---
 
