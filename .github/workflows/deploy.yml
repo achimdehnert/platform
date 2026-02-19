@@ -114,13 +114,13 @@ jobs:
             docker system prune -f
 
   # ==========================================================================
-  # One-time: Deploy Nginx config for schutztat.de (only on workflow_dispatch)
+  # Nginx health check for schutztat.de (only on workflow_dispatch)
   # ==========================================================================
   nginx-schutztat:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Fix conflicting nginx config for schutztat.de
+      - name: Verify nginx config for schutztat.de
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HETZNER_HOST }}
@@ -128,20 +128,10 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            echo "=== Overwriting old schutztat.de.conf with new upstream ==="
-            curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
-              -o /tmp/schutztat.de.conf
-            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de.conf
-            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
-            echo "=== Removing duplicate symlinks ==="
-            sudo rm -f /etc/nginx/sites-enabled/schutztat.de.conf
-            sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
-            echo "=== Active schutztat configs ==="
+            echo "=== Active schutztat config ==="
             ls -la /etc/nginx/sites-enabled/schutztat* || true
-            echo "=== Upstream in active config ==="
-            grep "upstream\|server " /etc/nginx/sites-enabled/schutztat.de | head -5
-            sudo nginx -t
-            sudo systemctl reload nginx
-            echo "=== Test local ==="
-            curl -s -o /dev/null -w "localhost:80 → HTTP %{http_code}\n" http://localhost/ || true
-            echo "Done."
+            grep "server " /etc/nginx/sites-available/schutztat.de | head -3
+            echo "=== Upstream reachable ==="
+            curl -s -o /dev/null -w "46.225.113.1:8090 → HTTP %{http_code}\n" http://46.225.113.1:8090/livez/
+            echo "=== Nginx status ==="
+            sudo systemctl is-active nginx
