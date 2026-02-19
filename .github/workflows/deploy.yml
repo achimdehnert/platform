@@ -120,7 +120,7 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy schutztat.de nginx config
+      - name: Fix conflicting nginx config for schutztat.de
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HETZNER_HOST }}
@@ -128,11 +128,19 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
+            echo "=== Existing configs referencing schutztat.de ==="
+            grep -rl "schutztat\.de" /etc/nginx/sites-enabled/ || true
+            echo "=== Removing conflicting configs ==="
+            for f in $(grep -rl "schutztat\.de" /etc/nginx/sites-enabled/); do
+              echo "Removing: $f"
+              sudo rm -f "$f"
+            done
+            echo "=== Installing new config ==="
             curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
               -o /tmp/schutztat.de.conf
             sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
             sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
             sudo nginx -t
             sudo systemctl reload nginx
-            echo "Nginx reloaded."
-            curl -s -o /dev/null -w "Upstream 46.225.113.1:8090 → HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || true
+            echo "=== Done. Testing ==="
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || true
