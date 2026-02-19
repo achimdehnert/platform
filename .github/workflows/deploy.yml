@@ -128,12 +128,12 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            echo "=== UFW status ==="
-            sudo ufw status | grep -E "80|443|Nginx|Status"
-            echo "=== Opening ports 80 + 443 ==="
-            sudo ufw allow 80/tcp
-            sudo ufw allow 443/tcp
-            sudo ufw status | grep -E "80|443"
-            echo "=== Nginx status ==="
-            sudo systemctl is-active nginx
-            echo "Done."
+            echo "=== Nginx listening ports ==="
+            sudo ss -tlnp | grep nginx || sudo netstat -tlnp 2>/dev/null | grep nginx || true
+            echo "=== Nginx processes ==="
+            ps aux | grep nginx | grep -v grep
+            echo "=== Nginx error log (last 10) ==="
+            sudo tail -10 /var/log/nginx/error.log 2>/dev/null || true
+            echo "=== Test local HTTP ==="
+            curl -s -o /dev/null -w "localhost:80 → HTTP %{http_code}\n" http://localhost/ || echo "no response"
+            curl -s -o /dev/null -w "localhost:443 → HTTP %{http_code}\n" https://localhost/ -k || echo "no response"
