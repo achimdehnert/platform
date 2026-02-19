@@ -1,23 +1,24 @@
 ---
 id: ADR-051
-title: "Concept-to-ADR Pipeline — Idea Capture & Promotion Workflow"
+title: "Concept-to-ADR Pipeline — Idea Capture & AI-Assisted Promotion"
 status: draft
 date: 2026-02-19
 author: Achim Dehnert
 owner: Achim Dehnert
-scope: dev-hub
-tags: [dev-hub, adr-lifecycle, workflow, concept, governance]
-related: [ADR-050, ADR-015]
+scope: dev-hub, platform
+tags: [dev-hub, adr-lifecycle, workflow, concept, governance, cascade]
+related: [ADR-050, ADR-015, ADR-054]
 last_verified: 2026-02-19
 ---
 
-# ADR-051: Concept-to-ADR Pipeline — Idea Capture & Promotion Workflow
+# ADR-051: Concept-to-ADR Pipeline — Idea Capture & AI-Assisted Promotion
 
 ## Context
 
 The platform uses Architecture Decision Records (ADRs) to document significant
-technical decisions. Currently, ADRs are created as markdown files in the
-`platform` repository and imported into dev-hub for lifecycle management.
+technical decisions. ADRs live as markdown files in the `platform` repository
+(GitHub = Single Source of Truth) and are imported into dev-hub for lifecycle
+management and browsing.
 
 **Problem**: There is no structured path from "I have an idea" to "This is a
 formal ADR". Ideas get lost in chat conversations, Windsurf sessions, or
@@ -30,13 +31,19 @@ may have been forgotten or diluted.
 - No review workflow for concepts before they become formal ADRs
 - ADRs can only be imported from existing markdown files, not created in-app
 
+**SSOT constraint**: GitHub (`platform/docs/adr/`) is the canonical location
+for all ADRs. The dev-hub database is a read mirror. Any new ADR **must** be
+created as a `.md` file in the platform repo first, then imported into dev-hub.
+
 ## Decision
 
-Introduce a **two-stage pipeline** in the dev-hub `adr_lifecycle` app:
+Introduce a **two-phase pipeline** that spans two tools:
+- **dev-hub** (devhub.iil.pet) = Concept Inbox — low-barrier idea capture
+- **IDE + Cascade** = ADR Author — AI-assisted ADR writing & GitHub push
 
-### Stage 1: Concept
+### Phase A: Concept Capture (dev-hub)
 
-A new `Concept` model captures early-stage ideas with minimal structure:
+A new `Concept` model in the `adr_lifecycle` app captures early-stage ideas:
 
 ```python
 class Concept(TenantAwareModel):
@@ -47,17 +54,21 @@ class Concept(TenantAwareModel):
     status = CharField(choices=[
         ("draft", "Draft"),
         ("under_review", "Under Review"),
+        ("ready_for_adr", "Ready for ADR"),
         ("promoted", "Promoted to ADR"),
         ("parked", "Parked"),
         ("rejected", "Rejected"),
     ], default="draft")
-    promoted_to_adr = ForeignKey("ADR", null=True, blank=True, on_delete=SET_NULL)
+    promoted_to_adr_id = CharField(
+        max_length=20, blank=True,
+        help_text="ADR ID after promotion, e.g. ADR-052"
+    )
     tags = JSONField(default=list, blank=True)
     created_at = DateTimeField(auto_now_add=True)
     updated_at = DateTimeField(auto_now=True)
 ```
 
-**Attachments** are stored via a separate model:
+File attachments for supporting materials:
 
 ```python
 class ConceptAttachment(TenantAwareModel):
@@ -69,147 +80,192 @@ class ConceptAttachment(TenantAwareModel):
     uploaded_at = DateTimeField(auto_now_add=True)
 ```
 
-### Stage 2: Promotion to ADR
+**Key design choice**: The Concept does NOT create an ADR in the database.
+It only captures the idea. The `promoted_to_adr_id` field is a simple string
+reference (e.g. "ADR-052"), not a ForeignKey — because the ADR is created in
+GitHub first and only later imported into the DB.
 
-A service function `promote_concept_to_adr()` creates a Draft ADR from a
-Concept:
+### Phase B: ADR Creation (IDE + Cascade)
 
-```python
-def promote_concept_to_adr(
-    concept: Concept,
-    actor: User,
-) -> ADR:
-    """Promote a Concept to a Draft ADR with pre-filled template."""
-    next_id = _get_next_adr_id(concept.tenant_id)
-    adr = ADR.objects.create(
-        tenant_id=concept.tenant_id,
-        adr_id=f"ADR-{next_id:03d}",
-        title=concept.title,
-        status="draft",
-        author=actor.get_full_name() or actor.username,
-        content_markdown=_render_adr_template(concept),
-        tags=concept.tags,
-    )
-    concept.status = "promoted"
-    concept.promoted_to_adr = adr
-    concept.save()
-    emit_audit_event(
-        tenant_id=concept.tenant_id,
-        category="adr_lifecycle",
-        action="concept_promoted",
-        entity_type="Concept",
-        entity_id=concept.pk,
-        payload={"adr_id": adr.adr_id},
-    )
-    return adr
+When a concept is marked `ready_for_adr`, the user switches to their IDE and
+tells Cascade:
+
+> "Concept #42 in devhub is ready for an ADR."
+
+Cascade then:
+
+1. **Reads the Concept** from the dev-hub database (via postgres MCP)
+2. **Determines next ADR number** by scanning `platform/docs/adr/` on GitHub:
+   - Parse all `ADR-NNN-*.md` filenames
+   - Filter to standard range (001–099 series)
+   - `next_id = max(standard_numbers) + 1`
+   - Present to user: "Next available: ADR-052. Confirm?"
+3. **Writes the ADR markdown** using the concept's content as input:
+   - Full YAML frontmatter (id, title, status:draft, date, author, tags)
+   - Context section from concept description
+   - Motivation section from concept motivation
+   - Decision section (Cascade drafts based on context, user refines)
+   - Consequences (positive, negative, risks)
+   - References to attachments (if any)
+4. **Pushes to GitHub** (`platform/docs/adr/ADR-052-<slug>.md` on main)
+5. **Updates the Concept** in dev-hub DB:
+   - Sets `status = "promoted"`
+   - Sets `promoted_to_adr_id = "ADR-052"`
+6. **Imports the new ADR** into dev-hub DB (same as existing import flow)
+
+### ADR Number Assignment — Robust Algorithm
+
+```
+1. List all files matching ADR-*.md in platform/docs/adr/
+2. Extract numeric part: ADR-001 → 1, ADR-050 → 50
+3. Ignore non-standard ranges: ADR-400 (special), ADR-2026-001 (yearly)
+4. Standard range = numbers 1–399
+5. next_id = max(standard_range) + 1
+6. Confirm with user before creating
 ```
 
-The generated ADR markdown follows the standard template:
+**Why no auto-increment in DB**: ADR numbers must be globally unique across
+all environments (GitHub, dev-hub, local clones). A DB sequence would diverge.
+The filesystem in the platform repo is the authoritative numbering source.
 
-```markdown
----
-id: ADR-{NNN}
-title: "{concept.title}"
-status: draft
-date: {today}
-author: {actor}
----
+### End-to-End Workflow
 
-# ADR-{NNN}: {concept.title}
-
-## Context
-
-{concept.description}
-
-## Motivation
-
-{concept.motivation}
-
-## Decision
-
-[To be defined]
-
-## Consequences
-
-[To be defined]
-
-## Attachments
-
-- [List of linked concept attachments]
+```
+┌─────────────────────────────────────────────────────┐
+│  Phase A: Concept Capture (devhub.iil.pet)          │
+│                                                     │
+│  1. User clicks "New Concept" on /adrs/concepts/    │
+│  2. Fills in: title, description, motivation, tags  │
+│  3. Uploads files (PDFs, diagrams, screenshots)     │
+│  4. Saves as "draft"                                │
+│  5. Optional: reviews, edits, sets "ready_for_adr"  │
+└──────────────────────┬──────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│  Phase B: ADR Creation (IDE + Cascade)              │
+│                                                     │
+│  6. User: "Concept #42 is ready for ADR"            │
+│  7. Cascade reads concept from devhub DB            │
+│  8. Cascade determines next ADR number              │
+│  9. Cascade writes ADR-052-<slug>.md                │
+│  10. Cascade pushes to GitHub (SSOT!)               │
+│  11. Cascade imports ADR into devhub DB             │
+│  12. Cascade sets concept status → "promoted"       │
+└──────────────────────┬──────────────────────────────┘
+                       │
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│  Result                                             │
+│                                                     │
+│  • GitHub: ADR-052-<slug>.md exists (SSOT)          │
+│  • devhub: ADR-052 visible in /adrs/ (draft)        │
+│  • devhub: Concept #42 marked "promoted"            │
+│  • Audit trail: concept → ADR link preserved        │
+└─────────────────────────────────────────────────────┘
 ```
 
-### UI Workflow
-
-1. **Dashboard** → "New Concept" button (prominent, low-barrier)
-2. **Create Concept** form: title, description, motivation, tags, file uploads
-3. **Concept List** view with status filters (like ADR list)
-4. **Concept Detail** view with:
-   - Edit capability (while in draft/under_review)
-   - Comment thread for review discussion
-   - "Promote to ADR" button (creates Draft ADR)
-   - "Park" / "Reject" actions with reason
-5. **ADR Detail** shows backlink to originating Concept (if any)
-
-### URL Structure
+### UI: Concept Views in dev-hub
 
 ```python
 # In adr_lifecycle/urls.py
 path("concepts/", ConceptListView, name="concept-list"),
 path("concepts/new/", ConceptCreateView, name="concept-create"),
 path("concepts/<int:pk>/", ConceptDetailView, name="concept-detail"),
-path("concepts/<int:pk>/promote/", promote_to_adr_view, name="concept-promote"),
 path("concepts/<int:pk>/upload/", upload_attachment_view, name="concept-upload"),
 ```
+
+**Concept List** (`/adrs/concepts/`):
+- Filterable by status (draft, under_review, ready_for_adr, promoted, parked)
+- Shows title, author, status, created date, attachment count
+- "New Concept" button (prominent)
+
+**Concept Detail** (`/adrs/concepts/<id>/`):
+- Edit title, description, motivation, tags (while draft/under_review)
+- Upload/remove attachments
+- Status transitions: draft → under_review → ready_for_adr
+- Park / Reject with reason
+- If promoted: link to the resulting ADR
+
+**No "Promote" button in dev-hub**: Promotion happens via Cascade in the IDE.
+The dev-hub only marks concepts as `ready_for_adr`. This enforces the SSOT
+principle — ADRs are always created in GitHub first.
 
 ## Consequences
 
 ### Positive
 
-- **Low barrier to entry**: Ideas can be captured quickly without ADR formalism
-- **Audit trail**: Every ADR can trace back to its originating concept
-- **File support**: Diagrams, specs, screenshots can be attached early
-- **Review workflow**: Concepts can be discussed before becoming formal ADRs
-- **Nothing gets lost**: Parked concepts remain searchable for future reference
+- **SSOT preserved**: ADRs always originate in GitHub, DB is only a mirror
+- **Low barrier**: Ideas captured quickly in browser, no markdown knowledge needed
+- **AI-assisted quality**: Cascade writes structured ADRs from freeform concepts
+- **Audit trail**: Every ADR traces back to its originating concept
+- **File support**: Diagrams, specs, screenshots attached to concepts early
+- **Robust numbering**: ADR numbers derived from filesystem, no DB race conditions
+- **Review workflow**: Concepts discussed before becoming formal ADRs
 
 ### Negative
 
-- Additional model complexity in `adr_lifecycle` app
-- File storage needs to be configured (media volume in Docker)
-- Monolith guard: `adr_lifecycle` app grows — monitor for >3 unrelated models
+- Two-tool workflow (browser + IDE) — slightly more friction than single-tool
+- Requires Cascade/IDE for ADR creation (no fully self-service web flow)
+- File attachments live in dev-hub media storage, not in GitHub
+
+### Mitigations
+
+- Two-tool friction is acceptable: dev-hub for capture, IDE for authoring
+  matches natural workflow (quick idea → deep technical writing)
+- Attachments: referenced by URL in ADR markdown; important diagrams can
+  be copied to `platform/docs/assets/` if needed for long-term preservation
 
 ### Risks
 
-- Concepts may accumulate without promotion → need periodic review/cleanup
-- File uploads need size limits and type validation
+- Concepts may accumulate without promotion → mitigate with periodic review
+- File uploads need size limits (max 10 MB) and type validation
+- Concept model adds complexity to `adr_lifecycle` — monitor for >3 unrelated
+  models (monolith guard per ADR-050)
 
 ## Implementation Plan
 
 ### Phase 1: Models + Admin (MVP)
-- Add `Concept` and `ConceptAttachment` models
+- Add `Concept` and `ConceptAttachment` models to `adr_lifecycle`
 - Register in Django admin for immediate use
-- Migration + deploy
+- Configure media storage (Docker volume)
+- Migration + deploy to devhub.iil.pet
 
-### Phase 2: Views + Templates
-- Concept list, detail, create views
-- File upload handling
-- "Promote to ADR" service + view
+### Phase 2: Concept UI
+- Concept list view with status filters
+- Concept create form with file upload
+- Concept detail view with edit + status transitions
+- Link from ADR detail back to originating concept
 
-### Phase 3: Integration
-- Dashboard widget showing recent concepts
-- Search integration (concepts in unified search)
-- Backlink from ADR detail to originating concept
+### Phase 3: Cascade Integration
+- Document the Cascade workflow in a Windsurf workflow file
+  (`/windsurf/workflows/concept-to-adr.md`)
+- Cascade reads concepts via postgres MCP (`postgres` server, devhub DB)
+- Cascade scans `platform/docs/adr/` for next ADR number
+- Cascade writes + pushes ADR, updates concept status
+
+### Phase 4: Dashboard Integration
+- "Recent Concepts" widget on dev-hub dashboard
+- Concepts included in unified search
+- Concept count in ADR lifecycle statistics
 
 ## Alternatives Considered
 
-### A: Direct ADR creation with upload
-Skip the Concept stage, allow creating Draft ADRs directly in the UI with
-file uploads. **Rejected** because: not every idea should become an ADR, and
-the ADR format is too structured for early-stage brainstorming.
+### A: Fully automated promotion in dev-hub (v1 of this ADR)
+A "Promote to ADR" button in dev-hub that creates the ADR directly in the
+database. **Rejected** because: violates SSOT principle (GitHub must be
+canonical), ADR numbering in DB is fragile, and template-generated ADRs are
+lower quality than Cascade-assisted authoring.
 
-### B: External tool (Notion, Miro, etc.)
-Use an external tool for ideation. **Rejected** because: breaks the
-single-source-of-truth principle — ideas would live outside the platform.
+### B: Direct ADR creation without Concept stage
+Allow creating Draft ADRs directly. **Rejected** because: not every idea
+should become an ADR, and the ADR format is too structured for brainstorming.
 
-### C: GitHub Issues as concepts
+### C: External tool (Notion, Miro, etc.)
+Use an external tool for ideation. **Rejected** because: breaks SSOT, ideas
+would live outside the platform ecosystem.
+
+### D: GitHub Issues as concepts
 Use GitHub Issues with a "concept" label. **Rejected** because: not
-tenant-aware, not integrated with dev-hub lifecycle, no file preview.
+tenant-aware, not integrated with dev-hub lifecycle, no file preview,
+no structured promotion workflow.
