@@ -112,3 +112,27 @@ jobs:
             docker compose --env-file .env.prod --env-file .env.deploy -f docker-compose.prod.yml pull travel-beat-web
             docker compose --env-file .env.prod --env-file .env.deploy -f docker-compose.prod.yml up -d
             docker system prune -f
+
+  # ==========================================================================
+  # One-time: Deploy Nginx config for schutztat.de (only on workflow_dispatch)
+  # ==========================================================================
+  nginx-schutztat:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy schutztat.de nginx config
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
+              -o /tmp/schutztat.de.conf
+            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
+            sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
+            sudo nginx -t
+            sudo systemctl reload nginx
+            echo "Nginx reloaded."
+            curl -s -o /dev/null -w "Upstream 46.225.113.1:8090 → HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || true
