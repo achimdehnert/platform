@@ -7,7 +7,7 @@ author: Achim Dehnert
 owner: Achim Dehnert
 scope: Platform-wide (all repositories)
 tags: [architecture, decomposition, multi-tenancy, developer-portal, migration]
-related: [ADR-021, ADR-035, ADR-041, ADR-044, ADR-047, ADR-048, ADR-049]
+related: [ADR-021, ADR-035, ADR-041, ADR-044, ADR-047, ADR-048, ADR-049, ADR-054]
 last_verified: 2026-02-19
 ---
 
@@ -18,7 +18,7 @@ last_verified: 2026-02-19
 | Date | 2026-02-19 |
 | Author | Achim Dehnert |
 | Scope | Platform-wide (all repositories) |
-| Related | ADR-021 (Unified Deployment), ADR-035 (Shared Tenancy), ADR-038 (DSB Module), ADR-044 (MCP Hub Architecture), ADR-047 (Sphinx Docs Hub) |
+| Related | ADR-021 (Unified Deployment), ADR-035 (Shared Tenancy), ADR-038 (DSB), ADR-044 (MCP Hub), ADR-048 (HTMX Playbook), ADR-054 (Platform Agents) |
 
 ## 1. Context
 
@@ -30,11 +30,12 @@ platform-wide infrastructure with domain-specific features:
 | Problem | Impact |
 | ------- | ------ |
 | 18 Django apps in one repo, 786+ lines in single view files | Cognitive overload, slow CI, merge conflicts |
-| Platform tools (LLM Config, MCP Dashboard) coupled to Book Factory | Cannot reuse in other apps without importing all of bfagent |
+| Platform tools (LLM Config, MCP Dashboard) coupled to Book Factory | Cannot reuse without importing all of bfagent |
 | No consistent multi-tenancy across apps | Some apps have `org_id`, some don't, no shared middleware |
 | Domain-specific apps cannot be deployed independently | All-or-nothing deployments |
-| No central Developer Portal | Service status, agent results, and docs scattered across repos |
+| No central Developer Portal | Service status, agent results, docs scattered across repos |
 | Deprecated modules still in codebase | MedTrans, GenAgent, PresentationStudio |
+| Business logic lives in views, no service layer | Untestable, tightly coupled to HTTP |
 
 ### 1.2 Current bfagent Structure
 
@@ -61,15 +62,34 @@ multi-tenancy and no central management:
 `weltenhub`, `risk-hub`, `travel-beat`, `pptx-hub`, `wedding-hub`,
 `trading-hub`, `odoo-hub`, `cad-hub`.
 
+### 1.4 Existing Shared Infrastructure
+
+The `platform-context` package (v0.2.0) already provides production-ready
+components that **must be reused, not reinvented**:
+
+- `SubdomainTenantMiddleware` — Subdomain-based tenant resolution with
+  DB-verified tenant lookup and Postgres RLS session variable integration
+- `RequestContextMiddleware` — Thread-safe context propagation via
+  `contextvars` (request_id, tenant_id, user_id)
+- `set_db_tenant()` / `get_db_tenant()` — Postgres RLS session variables
+- `HtmxResponseMixin` / `HtmxErrorMiddleware` — HTMX utilities (ADR-048)
+- `emit_audit_event()` — Structured audit trail for compliance
+- `emit_outbox_event()` — Reliable event publishing (outbox pattern)
+
 ## 2. Decision
 
-### 2.1 Three Core Decisions
+### 2.1 Five Core Decisions
 
 1. **Decompose bfagent** into purpose-built hub repositories.
-2. **Create `dev-hub`** as the central Developer Portal and Management
-   platform, inspired by Backstage concepts but implemented in Django.
-3. **All hubs are tenant-capable** from day one via shared `tenant_id`
-   pattern (ADR-035).
+2. **Create `dev-hub`** as the central Developer Portal, inspired by
+   Backstage concepts but implemented in Django (HTMX, Tailwind).
+3. **All hubs are tenant-capable** from day one via the existing
+   `platform-context` multi-tenancy stack (SubdomainTenantMiddleware,
+   Postgres RLS, TenantAwareManager).
+4. **Database is Source of Truth** for all managed entities. YAML files
+   (e.g., `catalog-info.yaml`) are import formats, not canonical sources.
+5. **Strict Service Layer** — every hub follows `views → services → models`.
+   Views handle HTTP only; business logic lives exclusively in services.
 
 ### 2.2 Why Django, Not Backstage
 
@@ -77,15 +97,31 @@ multi-tenancy and no central management:
 | --------- | ------------------- | -------------- |
 | Tech stack | TypeScript, React, Express | Python, Django, HTMX, Tailwind |
 | Consistency | New stack to maintain | Same stack as all other hubs |
-| Agent integration | REST adapter needed (Python → Node) | Native `from agents import guardian` |
+| Agent integration | REST adapter needed (Python → Node) | Native Python import |
 | Plugin ecosystem | 200+ plugins (Kubernetes, PagerDuty...) | Not needed for 14 hubs |
 | Docker image size | ~500 MB | ~50 MB |
 | Team expertise | TypeScript learning curve | Existing Django expertise |
 | Deployment | Different pipeline | Same Docker Compose pattern |
 
 **Decision**: Adopt Backstage's **data model and conventions**
-(`catalog-info.yaml`, Entity taxonomy) but implement in Django. This
-preserves future migration compatibility without the TypeScript overhead.
+(`catalog-info.yaml` format, Entity taxonomy) but implement in Django. The
+DB is the authoritative source; YAML is an import/export format that
+preserves Backstage compatibility for potential future migration.
+
+### 2.3 Source of Truth: Database
+
+| Aspect | Source of Truth | Rationale |
+| ------ | -------------- | --------- |
+| Service Catalog entities | **DB** (dev-hub PostgreSQL) | Relationships, audit, real-time queries |
+| LLM / Agent configuration | **DB** (dev-hub PostgreSQL) | CRUD via UI, version history, tenant-scoped |
+| Hub health status | **DB** (dev-hub PostgreSQL) | Polled periodically, cached, alertable |
+| ADR documents | **Git** (platform repo) | Markdown, versioned via Git |
+| Deployment config | **Git** (per-hub repo) | docker-compose.prod.yml, Dockerfile |
+
+`catalog-info.yaml` files in each repo serve as **import seeds**: a CI
+pipeline or management command reads them and upserts into the DB. After
+import, the DB record is authoritative. Manual edits via dev-hub UI take
+precedence over stale YAML.
 
 ## 3. Hub Landscape
 
@@ -136,12 +172,12 @@ preserves future migration compatibility without the TypeScript overhead.
 | # | Repository | Domain | Tenant | Database | Production URL | Source |
 | --- | --------- | ------ | ------ | -------- | -------------- | ------ |
 | 1 | `dev-hub` | Developer Portal & Management | ✅ | `devhub_db` | devhub.iil.pet | **NEW** |
-| 2 | `writing-hub` | Book Factory (Stories, Prompts, Publishing, Lektorat) | ✅ | `writing_hub_db` | writing.iil.pet | **NEW** (ex-bfagent) |
-| 3 | `media-hub` | Media Generation (ComfyUI, TTS, Assets) | ✅ | `media_hub_db` | media.iil.pet | **NEW** (ex-bfagent) |
-| 4 | `research-hub` | Research (Brave Search, Facts, Citations) | ✅ | `research_hub_db` | research.iil.pet | **NEW** (ex-bfagent) |
-| 5 | `weltenhub` | Story Universe Platform (Weltenforger) | ✅ | `weltenhub_db` | weltenforger.com | Exists |
+| 2 | `writing-hub` | Book Factory | ✅ | `writing_hub_db` | writing.iil.pet | **NEW** (ex-bfagent) |
+| 3 | `media-hub` | Media Generation (ComfyUI, TTS) | ✅ | `media_hub_db` | media.iil.pet | **NEW** (ex-bfagent) |
+| 4 | `research-hub` | Research (Brave, Facts, Citations) | ✅ | `research_hub_db` | research.iil.pet | **NEW** (ex-bfagent) |
+| 5 | `weltenhub` | Story Universe (Weltenforger) | ✅ | `weltenhub_db` | weltenforger.com | Exists |
 | 6 | `risk-hub` | Compliance & Safety (Schutztat + Expert Hub + DSB) | ✅ | `risk_hub_db` | schutztat.de | Exists |
-| 7 | `travel-beat` | Travel Story Platform (DriftTales) | ✅ | `travel_beat_db` | drifttales.app | Exists |
+| 7 | `travel-beat` | Travel Stories (DriftTales) | ✅ | `travel_beat_db` | drifttales.app | Exists |
 | 8 | `pptx-hub` | Presentation Studio | ✅ | `pptx_hub_db` | pptx.iil.pet | Exists |
 | 9 | `wedding-hub` | Wedding Planning | ✅ | `wedding_hub_db` | wedding.iil.pet | Exists |
 | 10 | `trading-hub` | Trading / Market Scanner | ✅ | `trading_hub_db` | trading.iil.pet | Exists |
@@ -162,77 +198,253 @@ all hubs     ──REST──►  dev-hub         LLM config, agent results
 
 All inter-hub calls use **REST API** with:
 
-- JWT token authentication (tenant-aware)
-- API versioning (`/api/v1/`)
-- DRF Spectacular for schema generation
+- **Service-to-service auth**: Shared HMAC secret per hub pair,
+  `X-Hub-Signature` header, verified in DRF authentication class
+- **Tenant propagation**: Calling hub passes `X-Tenant-ID` header;
+  receiving hub validates tenant exists in its own DB before processing
+- **API versioning**: `/api/v1/` namespace, DRF Spectacular schema
+- **Timeout + retry**: 5s connect, 30s read, 3 retries with backoff
 
 ## 4. dev-hub Architecture
 
-### 4.1 App Structure
+### 4.1 Phased App Deployment
+
+To avoid recreating a monolith, dev-hub apps are deployed in phases.
+Each phase has a clear bounded context. An app is split when its
+`services.py` exceeds 500 lines.
+
+```text
+Phase A (MVP — 3 apps):
+  core              Base models, TenantAwareManager, shared utilities
+  catalog           Service Catalog (Backstage Entity Model)
+  health            Server, Container, DB health polling
+
+Phase B (Management — 2 apps):
+  ai_config         LLM + Agent CRUD (from bfagent)
+  controlling       Usage tracking, costs, alerts (from bfagent)
+
+Phase C (Full Portal — 4 apps):
+  mcp_management    MCP Server Management (from bfagent)
+  agents_dashboard  Platform Agents UI (ADR-054)
+  techdocs          ADR Browser + Sphinx Integration (ADR-047)
+  onboarding        Onboarding Coach Web UI
+```
+
+**Monolith Guard Rule**: If any app accumulates >3 models with no FK
+relationship to other models in the same app, it is a candidate for
+extraction into its own hub.
+
+### 4.2 App Structure
 
 ```text
 dev-hub/
 ├── config/
 │   └── settings/
-│       ├── base.py                  # Django 5.x, HTMX, Tailwind
+│       ├── base.py                  # Django 5.x, platform-context
 │       ├── development.py
 │       └── production.py
 ├── apps/
-│   ├── core/                        # Base models, HTMX mixins, SSE
-│   │   ├── middleware.py            # TenantMiddleware
-│   │   ├── mixins.py               # HTMXResponseMixin (from bfagent)
-│   │   └── models.py               # TenantAwareModel (abstract)
+│   ├── core/                        # Shared foundation
+│   │   ├── models.py               # TenantAwareModel, TenantAwareManager
+│   │   └── auth.py                 # HubServiceAuthentication (HMAC)
 │   ├── catalog/                     # Service Catalog
-│   │   ├── models.py               # Component, API, System, Resource
-│   │   └── importers.py            # catalog-info.yaml → DB sync
-│   ├── techdocs/                    # ADR Browser + Sphinx Integration
-│   ├── agents_dashboard/            # Platform Agents UI
-│   ├── ai_config/                   # LLM + Agent CRUD (from bfagent)
-│   ├── mcp_management/              # MCP Server Management (from bfagent)
-│   ├── controlling/                 # Usage, Costs, Alerts (from bfagent)
-│   ├── health/                      # Server, Container, DB Health
-│   └── onboarding/                  # Onboarding Coach Web UI
+│   │   ├── models.py               # Normalized entity models
+│   │   ├── services.py             # CatalogImportService, CatalogSyncService
+│   │   └── importers.py            # catalog-info.yaml parser
+│   ├── health/                      # Health Dashboard
+│   │   ├── models.py               # HealthCheck, HealthCheckResult
+│   │   └── services.py             # HealthPollingService
+│   ├── ai_config/                   # Phase B
+│   │   ├── models.py               # LLMProvider, AgentConfig
+│   │   └── services.py             # LLMTestService, AgentConfigService
+│   ├── controlling/                 # Phase B
+│   │   ├── models.py               # UsageRecord, CostAlert
+│   │   └── services.py             # UsageAggregationService
+│   ├── mcp_management/              # Phase C
+│   ├── agents_dashboard/            # Phase C
+│   ├── techdocs/                    # Phase C
+│   └── onboarding/                  # Phase C
 ├── templates/                       # Tailwind + HTMX
 ├── docker-compose.prod.yml
 ├── catalog-info.yaml                # Self-describing
 └── Dockerfile
 ```
 
-### 4.2 Service Catalog — Backstage Entity Model
+Every app with business logic **must** have a `services.py`. Views
+import services, never models directly for mutations.
 
-dev-hub adopts Backstage's entity taxonomy as Django models:
+### 4.3 Service Catalog — Normalized Entity Model
+
+The catalog adopts Backstage's entity taxonomy with **strict
+normalization**: no denormalized strings, proper FKs, DB constraints.
 
 ```python
-class Component(TenantAwareModel):
-    """A software component (service, website, library)."""
+from django.db import models
+
+
+class ComponentType(models.TextChoices):
+    SERVICE = "service", "Service"
+    WEBSITE = "website", "Website"
+    LIBRARY = "library", "Library"
+    MCP_SERVER = "mcp_server", "MCP Server"
+
+
+class Lifecycle(models.TextChoices):
+    PRODUCTION = "production", "Production"
+    EXPERIMENTAL = "experimental", "Experimental"
+    DEPRECATED = "deprecated", "Deprecated"
+
+
+class APIType(models.TextChoices):
+    OPENAPI = "openapi", "OpenAPI"
+    GRPC = "grpc", "gRPC"
+    GRAPHQL = "graphql", "GraphQL"
+    DJANGO_REST = "drf", "Django REST Framework"
+
+
+class DependencyKind(models.TextChoices):
+    RUNTIME = "runtime", "Runtime"
+    BUILD_TIME = "build_time", "Build-Time"
+    OPTIONAL = "optional", "Optional"
+
+
+class Domain(TenantAwareModel):
+    """Top-level business domain grouping systems."""
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    type = models.CharField(max_length=50)  # service, website, library
-    lifecycle = models.CharField(max_length=50)  # production, experimental
-    owner = models.CharField(max_length=200)
-    system = models.ForeignKey("System", on_delete=models.SET_NULL, null=True)
-    repo_url = models.URLField(blank=True)
-    provides_apis = models.ManyToManyField("API", blank=True)
-    depends_on = models.ManyToManyField("self", blank=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "name"],
+                name="uq_domain_tenant_name",
+            )
+        ]
 
 
-class API(TenantAwareModel):
-    """An API provided by a component."""
+class Owner(TenantAwareModel):
+    """Team or person owning components."""
     name = models.CharField(max_length=200)
-    type = models.CharField(max_length=50)  # openapi, grpc, graphql
-    definition_url = models.URLField(blank=True)
-    owner = models.CharField(max_length=200)
+    email = models.EmailField(blank=True)
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "name"],
+                name="uq_owner_tenant_name",
+            )
+        ]
 
 
 class System(TenantAwareModel):
     """A collection of components forming a system."""
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
-    owner = models.CharField(max_length=200)
-    domain = models.CharField(max_length=200)
+    owner = models.ForeignKey(Owner, on_delete=models.PROTECT)
+    domain = models.ForeignKey(Domain, on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "name"],
+                name="uq_system_tenant_name",
+            )
+        ]
+
+
+class Component(TenantAwareModel):
+    """A software component (service, website, library)."""
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    type = models.CharField(
+        max_length=50, choices=ComponentType.choices,
+    )
+    lifecycle = models.CharField(
+        max_length=50, choices=Lifecycle.choices,
+    )
+    owner = models.ForeignKey(Owner, on_delete=models.PROTECT)
+    system = models.ForeignKey(
+        System, on_delete=models.SET_NULL, null=True, blank=True,
+    )
+    repo_url = models.URLField(blank=True)
+    provides_apis = models.ManyToManyField(
+        "API", blank=True, related_name="provided_by",
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "name"],
+                name="uq_component_tenant_name",
+            )
+        ]
+
+
+class ComponentDependency(TenantAwareModel):
+    """Typed dependency between components (through-model)."""
+    source = models.ForeignKey(
+        Component, on_delete=models.CASCADE, related_name="dependencies",
+    )
+    target = models.ForeignKey(
+        Component, on_delete=models.CASCADE, related_name="dependents",
+    )
+    kind = models.CharField(
+        max_length=50, choices=DependencyKind.choices,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "source", "target"],
+                name="uq_dependency_source_target",
+            )
+        ]
+
+
+class API(TenantAwareModel):
+    """An API provided by a component."""
+    name = models.CharField(max_length=200)
+    type = models.CharField(max_length=50, choices=APIType.choices)
+    definition_url = models.URLField(blank=True)
+    owner = models.ForeignKey(Owner, on_delete=models.PROTECT)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "name"],
+                name="uq_api_tenant_name",
+            )
+        ]
+
+
+class Resource(TenantAwareModel):
+    """Infrastructure resource (database, cache, queue)."""
+    name = models.CharField(max_length=200)
+    type = models.CharField(max_length=50)  # postgres, redis, s3
+    owner = models.ForeignKey(Owner, on_delete=models.PROTECT)
+    system = models.ForeignKey(
+        System, on_delete=models.SET_NULL, null=True, blank=True,
+    )
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["tenant_id", "name"],
+                name="uq_resource_tenant_name",
+            )
+        ]
 ```
 
-Each repository contains a `catalog-info.yaml`:
+### 4.4 catalog-info.yaml (Import Format)
+
+Each repository contains a `catalog-info.yaml` in Backstage-compatible
+format. This file is **not** the source of truth — it is an import seed.
 
 ```yaml
 apiVersion: backstage.io/v1alpha1
@@ -255,74 +467,269 @@ spec:
     - resource:weltenhub-redis
 ```
 
-### 4.3 Features Migrated from bfagent Control Center
+**Sync trigger**: CI pipeline on push to `main` runs
+`python manage.py import_catalog --repo <url>`. The importer upserts
+into the DB and logs changes via `emit_audit_event()`.
 
-| bfagent Module | dev-hub App | Key Features |
-| -------------- | ----------- | ------------ |
-| `views_ai_config.py` | `ai_config` | LLM CRUD, Agent CRUD, Live Test |
-| `views_mcp.py` | `mcp_management` | MCP Domains, Sessions, SSE Real-time |
-| `views_hub_management.py` | `catalog` | Hub Registry, Feature Flags, Event Bus |
-| `views_controlling.py` | `controlling` | LLM Usage, Orchestration Logs, Alerts |
-| `HTMXResponseMixin` | `core.mixins` | Partial rendering, OOB Swaps, Toasts |
-| `MCPSessionSSEView` | `core.mixins` | Server-Sent Events pattern |
-| `tool_registry` | `core` | Tool registration + execution + health |
+### 4.5 Features Migrated from bfagent Control Center
 
-## 5. Multi-Tenancy Standard
+| bfagent Source | dev-hub App | Migration Notes |
+| -------------- | ----------- | --------------- |
+| `views_ai_config.py` | `ai_config` | Extract business logic into `services.py` |
+| `views_mcp.py` | `mcp_management` | SSE pattern from `platform-context` |
+| `views_hub_management.py` | `catalog` | Replace with normalized Entity Model |
+| `views_controlling.py` | `controlling` | Extract aggregation into `services.py` |
 
-### 5.1 Base Model
+**Not migrated** (already in `platform-context` v0.2.0):
+- `HTMXResponseMixin` → `platform_context.htmx.HtmxResponseMixin`
+- `HtmxErrorMiddleware` → `platform_context.htmx.HtmxErrorMiddleware`
+- `SSE pattern` → `platform_context.htmx.is_htmx_request()`
 
-Every hub uses the same abstract base model:
+## 5. Service Layer Standard
+
+### 5.1 Architecture Rule
+
+Every hub **must** follow the service layer pattern. This is non-negotiable
+for all new code and required for all migrated bfagent code:
+
+```text
+┌─────────────┐     ┌──────────────┐     ┌─────────────┐
+│   views.py  │────►│ services.py  │────►│  models.py  │
+│  HTTP only  │     │ Business     │     │  Data only  │
+│  No logic   │     │ Logic        │     │  No HTTP    │
+└─────────────┘     └──────────────┘     └─────────────┘
+       │                    │                    │
+   Validates           Orchestrates          Persists
+   HTTP input          Domain rules          via ORM
+   Returns             Calls models          Defines
+   Response            Emits events          Schema
+```
+
+### 5.2 Rules
+
+| Rule | Enforcement |
+| ---- | ----------- |
+| Views may not import models directly for mutations | Code review + Guardian |
+| Views may not contain `if/else` business logic | Code review |
+| Services receive typed dataclasses or Pydantic models, not `request` | Code review |
+| Services call `emit_audit_event()` for all mutations | Code review + tests |
+| Services are independently testable without HTTP | pytest |
+| Maximum `services.py` length: 500 lines | Linter |
+
+### 5.3 Example: Catalog Import
 
 ```python
+# apps/catalog/views.py
+class CatalogImportView(LoginRequiredMixin, View):
+    """Trigger catalog-info.yaml import for a repository."""
+
+    def post(self, request: HttpRequest, component_id: int) -> HttpResponse:
+        component = get_object_or_404(
+            Component.objects.for_tenant(request.tenant_id),
+            pk=component_id,
+        )
+        result = catalog_import_service.import_from_repo(
+            tenant_id=request.tenant_id,
+            component=component,
+            actor_user_id=request.user.id,
+        )
+        if is_htmx_request(request):
+            return render(request, "catalog/partials/_import_result.html", {
+                "result": result,
+            })
+        return redirect("catalog:component-detail", pk=component.pk)
+
+
+# apps/catalog/services.py
+@dataclass(frozen=True)
+class ImportResult:
+    created: int
+    updated: int
+    errors: list[str]
+
+
+def import_from_repo(
+    *,
+    tenant_id: UUID,
+    component: Component,
+    actor_user_id: int,
+) -> ImportResult:
+    """Import catalog-info.yaml from component's repo."""
+    yaml_data = _fetch_catalog_yaml(component.repo_url)
+    parsed = _parse_catalog_yaml(yaml_data)
+
+    created, updated, errors = 0, 0, []
+    for entity in parsed.entities:
+        try:
+            _upsert_entity(tenant_id, entity)
+            # ... count created/updated
+        except ValidationError as exc:
+            errors.append(str(exc))
+
+    emit_audit_event(
+        tenant_id=tenant_id,
+        category="catalog",
+        action="imported",
+        entity_type="catalog.Component",
+        entity_id=component.pk,
+        payload={"created": created, "updated": updated},
+    )
+    return ImportResult(created=created, updated=updated, errors=errors)
+```
+
+## 6. Multi-Tenancy Standard
+
+### 6.1 Two-Layer Isolation
+
+Tenant isolation is enforced at **two independent layers**. Neither layer
+may be skipped.
+
+```text
+┌─────────────────────────────────────────────────────────┐
+│  Layer 1: Application (Python / Django ORM)              │
+│  ─────────────────────────────────────────               │
+│  TenantAwareManager.for_tenant(tid) filters queries      │
+│  SubdomainTenantMiddleware sets request.tenant_id         │
+│  Guardian rule G-003 blocks models without tenant_id      │
+└─────────────────────────┬───────────────────────────────┘
+                          │
+┌─────────────────────────┴───────────────────────────────┐
+│  Layer 2: Database (Postgres Row Level Security)         │
+│  ─────────────────────────────────────────               │
+│  set_db_tenant() sets session variable                   │
+│  RLS policy: tenant_id = current_setting(...)            │
+│  Even raw SQL or ORM bugs cannot leak cross-tenant       │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 6.2 TenantAwareModel + TenantAwareManager
+
+Provided by `platform-context` (extended in this ADR):
+
+```python
+from __future__ import annotations
+
 import uuid
+from typing import TYPE_CHECKING
+
 from django.db import models
+
+if TYPE_CHECKING:
+    from uuid import UUID
+
+
+class TenantAwareQuerySet(models.QuerySet):
+    """QuerySet that enforces tenant filtering."""
+
+    def for_tenant(self, tenant_id: UUID) -> TenantAwareQuerySet:
+        """Filter by tenant. Primary entry point for all queries."""
+        return self.filter(tenant_id=tenant_id)
+
+
+class TenantAwareManager(models.Manager):
+    """Manager that provides tenant-scoped queries."""
+
+    def get_queryset(self) -> TenantAwareQuerySet:
+        return TenantAwareQuerySet(self.model, using=self._db)
+
+    def for_tenant(self, tenant_id: UUID) -> TenantAwareQuerySet:
+        """Convenience: Model.objects.for_tenant(tid)."""
+        return self.get_queryset().for_tenant(tenant_id)
 
 
 class TenantAwareModel(models.Model):
     """Abstract base for all tenant-scoped models."""
+
     tenant_id = models.UUIDField(db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    objects = TenantAwareManager()
 
     class Meta:
         abstract = True
 ```
 
-### 5.2 TenantMiddleware
+**Usage** (the only acceptable pattern):
 
 ```python
-class TenantMiddleware:
-    """Sets request.tenant_id from subdomain or header."""
+# ✅ Correct — explicit tenant scope
+projects = Project.objects.for_tenant(request.tenant_id)
+project = get_object_or_404(
+    Project.objects.for_tenant(request.tenant_id), pk=pk
+)
 
-    def __init__(self, get_response):
-        self.get_response = get_response
-
-    def __call__(self, request):
-        # Priority: X-Tenant-ID header > subdomain > default
-        tenant_id = (
-            request.headers.get("X-Tenant-ID")
-            or self._resolve_from_subdomain(request)
-            or settings.DEFAULT_TENANT_ID
-        )
-        request.tenant_id = uuid.UUID(tenant_id)
-        return self.get_response(request)
-```
-
-### 5.3 Query Filter Rule
-
-**CRITICAL**: All queries MUST filter by `tenant_id`:
-
-```python
-# ✅ Correct
-projects = Project.objects.filter(tenant_id=request.tenant_id)
-
-# ❌ NEVER — exposes cross-tenant data
+# ❌ FORBIDDEN — bypasses tenant isolation
 projects = Project.objects.all()
+projects = Project.objects.filter(name="foo")
 ```
 
-The Architecture Guardian agent (A2) enforces this via rule G-003.
+### 6.3 Middleware Stack
 
-## 6. Deployment Pattern
+Every hub uses `platform-context` middleware. **No custom tenant
+middleware allowed.**
+
+```python
+# config/settings/base.py
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    # --- Platform middleware (this order) ---
+    "platform_context.middleware.RequestContextMiddleware",
+    "platform_context.middleware.SubdomainTenantMiddleware",
+    "platform_context.htmx.HtmxErrorMiddleware",
+]
+
+# Required settings for SubdomainTenantMiddleware
+TENANT_BASE_DOMAIN = "iil.pet"          # or "localhost" in dev
+TENANT_MODEL = "core.Organization"       # per-hub tenant model
+TENANT_SLUG_FIELD = "slug"
+TENANT_ID_FIELD = "tenant_id"
+TENANT_ALLOW_LOCALHOST = DEBUG           # admin access in dev only
+```
+
+### 6.4 Postgres Row Level Security (RLS)
+
+Every hub **must** enable RLS on all tenant-scoped tables:
+
+```sql
+-- Migration: enable RLS on a table
+ALTER TABLE catalog_component ENABLE ROW LEVEL SECURITY;
+ALTER TABLE catalog_component FORCE ROW LEVEL SECURITY;
+
+CREATE POLICY tenant_isolation ON catalog_component
+    USING (tenant_id = current_setting('app.current_tenant')::uuid);
+```
+
+The `SubdomainTenantMiddleware` calls `set_db_tenant()` which sets the
+Postgres session variable `app.current_tenant`. This ensures that even
+raw SQL or ORM `.all()` bugs cannot leak cross-tenant data.
+
+### 6.5 Audit Trail
+
+All mutations in all hubs **must** emit audit events via
+`platform_context.audit.emit_audit_event()`:
+
+```python
+from platform_context.audit import emit_audit_event
+
+emit_audit_event(
+    tenant_id=tenant_id,
+    category="ai_config",
+    action="updated",
+    entity_type="ai_config.LLMProvider",
+    entity_id=provider.pk,
+    payload={"field": "api_key", "changed_by": actor_user_id},
+)
+```
+
+The audit model is configured per hub via `PLATFORM_AUDIT_MODEL` in
+Django settings.
+
+## 7. Deployment Pattern
 
 Every hub follows ADR-021 (Unified Deployment):
 
@@ -342,38 +749,45 @@ Infrastructure:
 - **Server**: Hetzner VM `88.198.191.108`
 - **Reverse Proxy**: Nginx + Let's Encrypt TLS
 - **Registry**: `ghcr.io/achimdehnert/<hub>:latest`
-- **Database**: PostgreSQL 16 (one database per hub)
+- **Database**: PostgreSQL 16 (one database per hub, RLS enabled)
 - **Cache/Broker**: Redis 7
 
-## 7. bfagent Migration Plan
+## 8. bfagent Migration Plan
 
-### 7.1 Migration Phases
+### 8.1 Migration Phases
 
 | Phase | What | Target | Priority |
 | ----- | ---- | ------ | -------- |
-| **M0** | Deprecate MedTrans, GenAgent, PresentationStudio | Remove from bfagent | Immediate |
-| **M1** | Create `dev-hub` with core + catalog + health | New repo | High |
-| **M2** | Migrate AI Config, MCP Dashboard, Controlling → dev-hub | dev-hub apps | High |
+| **M0** | Remove MedTrans, GenAgent, PresentationStudio | bfagent cleanup | Immediate |
+| **M1** | Create `dev-hub` (core + catalog + health) | New repo | High |
+| **M2** | Migrate AI Config, Controlling → dev-hub | dev-hub Phase B | High |
 | **M3** | Extract Writing Hub → `writing-hub` | New repo | Medium |
 | **M4** | Extract Media Hub → `media-hub` | New repo | Medium |
 | **M5** | Extract Research → `research-hub` | New repo | Medium |
 | **M6** | Migrate Expert Hub + DSB → `risk-hub` | Existing repo | Medium |
-| **M7** | Migrate DLM Hub → dev-hub `techdocs` | dev-hub app | Low |
-| **M8** | Archive `bfagent` repository | GitHub archive | Final |
+| **M7** | Migrate MCP Dashboard, Agents UI → dev-hub | dev-hub Phase C | Low |
+| **M8** | Migrate DLM Hub → dev-hub `techdocs` | dev-hub Phase C | Low |
+| **M9** | Archive `bfagent` repository | GitHub archive | Final |
 
-### 7.2 Migration Strategy Per Module
+### 8.2 Migration Strategy Per Module
 
 For each module extraction:
 
-1. **Create target repo** with Django skeleton + Docker + CI
-2. **Copy models** with fresh migrations (no migration history)
-3. **Data migration** via `pg_dump` / `pg_restore` of relevant tables
-4. **Adapt views** to follow current patterns (Service Layer, HTMX)
-5. **Add `catalog-info.yaml`** for service catalog registration
-6. **Deploy** and verify with health checks
-7. **Deprecate** in bfagent (redirect or remove)
+1. **Backup** source database via `pg_dump`
+2. **Create target repo** with Django skeleton + Docker + CI
+3. **Copy models** with fresh migrations (no migration history)
+4. **Introduce service layer**: Extract business logic from views into
+   `services.py`. Views become thin HTTP handlers.
+5. **Add `TenantAwareModel`** base to all models, add `tenant_id` where
+   missing
+6. **Enable Postgres RLS** on all tenant-scoped tables
+7. **Data migration** via `pg_dump` / `pg_restore` of relevant tables,
+   backfill `tenant_id` for existing rows
+8. **Add `catalog-info.yaml`** for service catalog registration
+9. **Deploy** and verify with health checks
+10. **Deprecate** in bfagent (redirect or remove)
 
-### 7.3 bfagent Deprecated Modules
+### 8.3 bfagent Deprecated Modules
 
 | Module | Reason | Action |
 | ------ | ------ | ------ |
@@ -381,53 +795,70 @@ For each module extraction:
 | `genagent` | Replaced by MCP Orchestrator (`mcp-hub`) | Remove immediately |
 | `presentation_studio` | Extracted to `pptx-hub` | Remove immediately |
 
-## 8. Shared Infrastructure
+## 9. Shared Infrastructure
 
-### 8.1 platform Repository
+### 9.1 platform Repository
 
 Remains the home for:
 
 - **ADRs** (`docs/adr/`)
-- **Platform Agents** (`agents/` — Guardian, Drift Detector, ADR Scribe, Onboarding Coach, Context Reviewer)
+- **Platform Agents** (`agents/` — Guardian, Drift Detector, ADR Scribe,
+  Onboarding Coach, Context Reviewer; see ADR-054)
 - **Shared Packages** (`packages/platform-context`, `packages/docs-agent`)
 - **CI/CD Workflows** (`.github/workflows/`)
 
-### 8.2 mcp-hub Repository
+### 9.2 platform-context Package (v0.2.0+)
+
+Already provides and will be extended with:
+
+| Module | Status | Provides |
+| ------ | ------ | -------- |
+| `context.py` | ✅ Exists | `RequestContext`, `set_tenant()`, `get_context()` |
+| `middleware.py` | ✅ Exists | `SubdomainTenantMiddleware`, `RequestContextMiddleware` |
+| `db.py` | ✅ Exists | `set_db_tenant()`, `get_db_tenant()` (RLS) |
+| `htmx.py` | ✅ Exists | `HtmxResponseMixin`, `HtmxErrorMiddleware`, `is_htmx_request()` |
+| `audit.py` | ✅ Exists | `emit_audit_event()` |
+| `outbox.py` | ✅ Exists | `emit_outbox_event()` |
+| `exceptions.py` | ✅ Exists | Platform exception hierarchy |
+| `models.py` | **NEW** | `TenantAwareModel`, `TenantAwareManager`, `TenantAwareQuerySet` |
+| `auth.py` | **NEW** | `HubServiceAuthentication` (HMAC for inter-hub calls) |
+
+**Versioning rule**: Breaking changes to `platform-context` require a
+major version bump and must be documented in a new ADR. Non-breaking
+additions (new functions, new optional fields) use minor bumps.
+
+### 9.3 mcp-hub Repository
 
 Remains the home for:
 
-- **MCP Servers** (deployment, orchestrator, LLM, database, filesystem, etc.)
+- **MCP Servers** (deployment, orchestrator, LLM, database, filesystem)
 - **Orchestrator** with `AGENT_GATE_MAP` for all platform agents
 
-### 8.3 Shared Python Package
+## 10. Consequences
 
-`platform-context` (already exists in `platform/packages/platform-context/`)
-is extended with:
-
-- `TenantAwareModel` abstract base
-- `TenantMiddleware`
-- `HTMXResponseMixin` (extracted from bfagent)
-- Common API authentication utilities
-
-## 9. Consequences
-
-### 9.1 Positive
+### 10.1 Positive
 
 - **Clear ownership**: Each hub has a single purpose and independent lifecycle
 - **Independent deployment**: Update writing-hub without touching risk-hub
-- **Consistent multi-tenancy**: `tenant_id` on every model, enforced by Guardian
+- **Two-layer tenant isolation**: Application-level `TenantAwareManager` +
+  DB-level Postgres RLS — defense in depth
 - **Central management**: dev-hub provides single pane of glass for all hubs
 - **Smaller codebases**: Faster CI, easier onboarding, fewer merge conflicts
-- **API-first**: Hubs communicate via REST, enabling future microservice scaling
+- **Testable business logic**: Service layer enables unit testing without HTTP
+- **Audit trail**: All mutations tracked via `emit_audit_event()`
+- **API-first**: Hubs communicate via REST, enabling future scaling
+- **No reinvention**: Reuses existing `platform-context` infrastructure
 
-### 9.2 Negative
+### 10.2 Negative
 
 - **More repositories**: 14 hubs + 2 infra = 16 repos to manage
-- **Migration effort**: Extracting from bfagent requires careful data migration
+- **Migration effort**: Extracting from bfagent requires careful data
+  migration and service layer introduction
 - **Cross-hub queries**: No direct DB joins; must use API calls
-- **Shared package versioning**: platform-context changes affect all hubs
+- **Shared package versioning**: `platform-context` changes affect all hubs
+- **RLS overhead**: Postgres RLS adds ~1-2% query overhead per table
 
-### 9.3 Risks
+### 10.3 Risks
 
 | Risk | Mitigation |
 | ---- | ---------- |
@@ -435,29 +866,31 @@ is extended with:
 | Inconsistent patterns across hubs | ADR-050 defines standards, Guardian enforces |
 | API latency for cross-hub calls | Cache frequently accessed data, async where possible |
 | Too many repos for small team | dev-hub Service Catalog provides central overview |
+| `platform-context` breaking change | Major version bumps, ADR required, phased rollout |
+| 14 hubs on single server | Monitor resources; horizontal scaling via second VM when needed |
 
-## 10. Implementation Priority
+## 11. Implementation Priority
 
 ```text
-Phase 1 (Immediate):
+Phase 1 — Foundation (Immediate):
   ├── ADR-050 ✅ (this document)
+  ├── Add TenantAwareModel + TenantAwareManager to platform-context
   ├── Create dev-hub repo + Django skeleton
-  ├── Implement core app (HTMX Mixins, TenantMiddleware)
-  └── Implement health app (Server/Container status)
+  └── Implement core + catalog + health (Phase A apps)
 
-Phase 2 (Short-term):
-  ├── Migrate AI Config → dev-hub
-  ├── Migrate MCP Dashboard → dev-hub
-  ├── Implement Service Catalog with catalog-info.yaml
+Phase 2 — Management (Short-term):
+  ├── Migrate AI Config → dev-hub (with service layer)
+  ├── Migrate Controlling → dev-hub (with service layer)
   └── Add catalog-info.yaml to all existing repos
 
-Phase 3 (Medium-term):
+Phase 3 — Extraction (Medium-term):
   ├── Extract writing-hub from bfagent
   ├── Extract media-hub from bfagent
   ├── Extract research-hub from bfagent
   └── Migrate Expert Hub + DSB → risk-hub
 
-Phase 4 (Final):
+Phase 4 — Completion (Final):
+  ├── Migrate MCP Dashboard, Agents UI → dev-hub (Phase C apps)
   ├── Migrate DLM Hub → dev-hub techdocs
   ├── Remove deprecated modules from bfagent
   └── Archive bfagent repository
