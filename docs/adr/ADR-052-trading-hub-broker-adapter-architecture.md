@@ -4,7 +4,7 @@
 | --- | --- |
 | **ADR-ID** | ADR-052 |
 | **Titel** | Trading Hub — Broker-Adapter-Architektur |
-| **Status** | Draft |
+| **Status** | Proposed |
 | **Datum** | 2026-02-19 |
 | **Betrifft** | trading-hub |
 | **Related ADRs** | ADR-022, ADR-027, ADR-043 |
