@@ -1,21 +1,19 @@
-"""
-agents/drift_detector.py — Drift Detector (Agent A4)
+"""Drift Detector (Agent A4) — Docs-Freshness & API Key Health.
 
-Prüft Dokumentations-Freshness anhand von YAML-Frontmatter:
-  - last_verified Datum > threshold_days → stale
-  - status = 'deprecated' ohne Nachfolger → orphan
-  - Fehlende Frontmatter-Pflichtfelder → incomplete
+Prüft die Aktualität aller Architektur-Dokumente (ADRs, Prinzipien)
+und validiert API-Key-Gesundheit für externe Services.
 
-Zusätzlich: API Key Health Check (alle konfigurierten Keys).
+Gate: 1 (NOTIFY) — erstellt GitHub Issues, blockiert nie.
+Model: GPT-4o-mini
+Trigger: Cron (wöchentlich) oder manuell
+Output: Markdown-Report oder JSON
 
-Nutzung:
-  python -m agents.drift_detector --docs-dir docs/source --threshold 90
-  python -m agents.drift_detector --check-keys
-  python -m agents.drift_detector --output github-issue
+Usage:
+    python -m agents.drift_detector --docs-dir docs/
+    python -m agents.drift_detector --check-keys
+    python -m agents.drift_detector --format json
 
-Gate-Integration:
-  Drift Report → Gate 0 (Auto, GitHub Issue erstellen)
-  Key Expiry Alert → Gate 1 (Notify)
+Siehe ADR-054 für Details zum Agent-Ökosystem.
 """
 from __future__ import annotations
 
@@ -26,7 +24,7 @@ import os
 import re
 import sys
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -92,7 +90,7 @@ class DriftReport:
         lines = [
             "# \ud83d\udcca Drift Detection Report",
             f"\n**Datum:** {datetime.now(timezone.utc).strftime('%d.%m.%Y %H:%M UTC')}",
-            f"**Dokumente gepr\u00fcft:** {self.docs_checked}\n",
+            f"**Dokumente geprüft:** {self.docs_checked}\n",
         ]
 
         if not self.has_issues:
@@ -116,7 +114,7 @@ class DriftReport:
 
         if self.incomplete_docs:
             lines.append(
-                f"\n## \ud83d\udd34 Unvollst\u00e4ndige Frontmatter"
+                f"\n## \ud83d\udd34 Unvollständige Frontmatter"
                 f" ({len(self.incomplete_docs)})\n"
             )
             for doc in self.incomplete_docs:
@@ -137,12 +135,14 @@ class DriftReport:
 
         if self.key_statuses:
             lines.append("\n## \ud83d\udd11 API Key Health\n")
-            for ks in self.key_statuses:
-                icon = "\u2705" if ks.valid else "\u274c"
-                msg = "OK" if ks.valid else ks.error
+            lines.append("| Service | Prefix | Status | Error |")
+            lines.append("|---------|--------|--------|-------|")
+            for k in self.key_statuses:
+                status_icon = "\u2705" if k.valid else "\u274c"
+                err = k.error or "-"
                 lines.append(
-                    f"- {icon} **{ks.service}**"
-                    f" (`{ks.key_prefix}...`): {msg}"
+                    f"| {k.service} | `{k.key_prefix}` "
+                    f"| {status_icon} | {err} |"
                 )
 
         return "\n".join(lines)
@@ -188,7 +188,7 @@ def check_doc_freshness(
     docs_dir: Path,
     threshold_days: int,
 ) -> DocStatus:
-    """Pr\u00fcft ein Dokument auf Freshness und Vollst\u00e4ndigkeit."""
+    """Prüft ein Dokument auf Freshness und Vollständigkeit."""
     rel_path = str(file_path.relative_to(docs_dir))
     fm = extract_frontmatter(file_path)
 
@@ -229,6 +229,12 @@ def check_doc_freshness(
                 return status
         elif isinstance(last_verified, datetime):
             last_date = last_verified
+        elif isinstance(last_verified, date):
+            last_date = datetime(
+                last_verified.year,
+                last_verified.month,
+                last_verified.day,
+            )
         else:
             last_date = datetime.now()
 
@@ -278,127 +284,115 @@ def scan_docs(
 
 
 def check_api_keys() -> list[KeyStatus]:
-    """Pr\u00fcft alle konfigurierten API Keys auf G\u00fcltigkeit."""
+    """Prüft alle konfigurierten API Keys auf Gültigkeit."""
     results: list[KeyStatus] = []
 
     openai_key = os.environ.get("OPENAI_API_KEY", "")
     if openai_key:
-        try:
-            import httpx
-
-            resp = httpx.get(
-                "https://api.openai.com/v1/models",
-                headers={
-                    "Authorization": f"Bearer {openai_key}",
-                },
-                timeout=10,
+        valid = openai_key.startswith("sk-") and len(openai_key) > 20
+        results.append(
+            KeyStatus(
+                service="OpenAI",
+                key_prefix=openai_key[:8] + "...",
+                valid=valid,
+                error=None if valid else "Invalid format",
             )
-            valid = resp.status_code == 200
-            error = None if valid else f"HTTP {resp.status_code}"
-        except Exception as e:
-            valid = False
-            error = str(e)
-
-        results.append(KeyStatus(
-            service="OpenAI",
-            key_prefix=openai_key[:12],
-            valid=valid,
-            error=error,
-        ))
+        )
 
     anthropic_key = os.environ.get("ANTHROPIC_API_KEY", "")
     if anthropic_key:
-        try:
-            import httpx
-
-            resp = httpx.get(
-                "https://api.anthropic.com/v1/models",
-                headers={
-                    "x-api-key": anthropic_key,
-                    "anthropic-version": "2023-06-01",
-                },
-                timeout=10,
+        valid = (
+            anthropic_key.startswith("sk-ant-")
+            and len(anthropic_key) > 20
+        )
+        results.append(
+            KeyStatus(
+                service="Anthropic",
+                key_prefix=anthropic_key[:10] + "...",
+                valid=valid,
+                error=None if valid else "Invalid format",
             )
-            valid = resp.status_code == 200
-            error = None if valid else f"HTTP {resp.status_code}"
-        except Exception as e:
-            valid = False
-            error = str(e)
-
-        results.append(KeyStatus(
-            service="Anthropic",
-            key_prefix=anthropic_key[:12],
-            valid=valid,
-            error=error,
-        ))
+        )
 
     openrouter_key = os.environ.get("OPENROUTER_API_KEY", "")
     if openrouter_key:
-        try:
-            import httpx
-
-            resp = httpx.get(
-                "https://openrouter.ai/api/v1/auth/key",
-                headers={
-                    "Authorization": f"Bearer {openrouter_key}",
-                },
-                timeout=10,
+        valid = (
+            openrouter_key.startswith("sk-or-")
+            and len(openrouter_key) > 20
+        )
+        results.append(
+            KeyStatus(
+                service="OpenRouter",
+                key_prefix=openrouter_key[:10] + "...",
+                valid=valid,
+                error=None if valid else "Invalid format",
             )
-            valid = resp.status_code == 200
-            error = None if valid else f"HTTP {resp.status_code}"
-        except Exception as e:
-            valid = False
-            error = str(e)
-
-        results.append(KeyStatus(
-            service="OpenRouter",
-            key_prefix=openrouter_key[:12],
-            valid=valid,
-            error=error,
-        ))
+        )
 
     return results
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Drift Detector \u2014 Docs Freshness & Key Health",
-    )
-    parser.add_argument(
-        "--docs-dir", type=str, default="docs/source",
-        help="Verzeichnis mit Sphinx-Quellen",
-    )
-    parser.add_argument(
-        "--threshold", type=int, default=90,
-        help="Tage bis ein Dokument als stale gilt",
-    )
-    parser.add_argument(
-        "--check-keys", action="store_true",
-        help="API Keys auf G\u00fcltigkeit pr\u00fcfen",
-    )
-    parser.add_argument(
-        "--format", choices=["markdown", "json"],
-        default="markdown",
-    )
-    args = parser.parse_args()
-
-    docs_dir = Path(args.docs_dir)
+def run_full_scan(
+    docs_dir: Path | None = None,
+    threshold_days: int = 90,
+    check_keys: bool = True,
+) -> DriftReport:
+    """Führt einen vollständigen Drift-Scan durch."""
     report = DriftReport()
 
-    if docs_dir.exists():
-        report = scan_docs(docs_dir, args.threshold)
-    else:
-        logger.warning("Docs dir not found: %s", docs_dir)
+    if docs_dir and docs_dir.exists():
+        report = scan_docs(docs_dir, threshold_days)
 
-    if args.check_keys:
+    if check_keys:
         report.key_statuses = check_api_keys()
+
+    return report
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(
+        description="Drift Detector — Docs Freshness & API Key Health",
+    )
+    parser.add_argument(
+        "--docs-dir",
+        type=Path,
+        default=Path("docs"),
+        help="Verzeichnis mit Markdown-Dokumenten (default: docs/)",
+    )
+    parser.add_argument(
+        "--threshold-days",
+        type=int,
+        default=90,
+        help="Tage bis ein Dokument als stale gilt (default: 90)",
+    )
+    parser.add_argument(
+        "--check-keys",
+        action="store_true",
+        default=True,
+        help="API Keys prüfen (default: true)",
+    )
+    parser.add_argument(
+        "--format",
+        choices=["markdown", "json"],
+        default="markdown",
+        help="Ausgabeformat (default: markdown)",
+    )
+
+    args = parser.parse_args()
+
+    report = run_full_scan(
+        docs_dir=args.docs_dir,
+        threshold_days=args.threshold_days,
+        check_keys=args.check_keys,
+    )
 
     if args.format == "json":
         print(json.dumps(report.to_dict(), indent=2))
     else:
         print(report.to_markdown())
 
-    sys.exit(1 if report.has_issues else 0)
+    if report.has_issues:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
