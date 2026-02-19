@@ -1,0 +1,74 @@
+name: Architecture Guardian
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  guardian:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get PR diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+
+      - name: Run Architecture Guardian
+        id: guardian
+        run: |
+          python -m agents.guardian --diff /tmp/pr.diff --format json > /tmp/result.json || true
+          echo "result=$(cat /tmp/result.json)" >> $GITHUB_OUTPUT
+          python -m agents.guardian --diff /tmp/pr.diff --format markdown > /tmp/comment.md || true
+
+      - name: Post PR Comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const comment = fs.readFileSync('/tmp/comment.md', 'utf8');
+            const result = JSON.parse(fs.readFileSync('/tmp/result.json', 'utf8'));
+
+            // Find existing guardian comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes('Architecture Guardian')
+            );
+
+            const body = comment + '\n\n---\n*Architecture Guardian v0.1.0*';
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
+
+            // Fail if blocking violations
+            if (result.blocking) {
+              core.setFailed('Architecture Guardian: Blocking violations found (Gate 2+)');
+            }
