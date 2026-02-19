@@ -1,8 +1,8 @@
-# ADR-050: Trading Hub — Broker-Adapter-Architektur
+# ADR-052: Trading Hub — Broker-Adapter-Architektur
 
 | Feld | Wert |
 | --- | --- |
-| **ADR-ID** | ADR-050 |
+| **ADR-ID** | ADR-052 |
 | **Titel** | Trading Hub — Broker-Adapter-Architektur |
 | **Status** | Proposed |
 | **Datum** | 2026-02-19 |
