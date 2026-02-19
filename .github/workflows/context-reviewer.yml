@@ -1,0 +1,90 @@
+name: Context Reviewer
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  context-review:
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Get PR diff
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr.diff
+
+      - name: Run Context Reviewer
+        id: reviewer
+        run: |
+          python -m agents.context_reviewer \
+            --diff /tmp/pr.diff \
+            --format json > /tmp/result.json || true
+          python -m agents.context_reviewer \
+            --diff /tmp/pr.diff \
+            --format markdown > /tmp/comment.md || true
+
+      - name: Post PR Comment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let comment = '';
+            let result = { insights_count: 0 };
+
+            try {
+              comment = fs.readFileSync('/tmp/comment.md', 'utf8');
+              result = JSON.parse(
+                fs.readFileSync('/tmp/result.json', 'utf8')
+              );
+            } catch (e) {
+              console.log('No reviewer output:', e.message);
+              return;
+            }
+
+            // Skip if no insights
+            if (result.insights_count === 0) {
+              console.log('No context insights — skipping comment.');
+              return;
+            }
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' &&
+              c.body.includes('Context Reviewer')
+            );
+
+            const body = comment +
+              '\n\n---\n*Context Reviewer v0.1.0 — ' +
+              'informativ, nie blockierend*';
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: body,
+              });
+            }
