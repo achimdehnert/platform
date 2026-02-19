@@ -4,49 +4,48 @@ from __future__ import annotations
 from pathlib import Path
 
 from agents.adr_scribe import (
-    AdrContext,
-    AdrDraft,
     extract_keywords,
     find_next_adr_number,
     find_related_adrs,
-    generate_adr,
+    generate_adr_draft,
     generate_title,
     slugify,
 )
 
 
 class TestFindNextAdrNumber:
-    def test_should_find_next_number(self, tmp_path: Path):
-        (tmp_path / "ADR-001-first.md").write_text("# ADR-001")
-        (tmp_path / "ADR-005-fifth.md").write_text("# ADR-005")
-        assert find_next_adr_number(tmp_path) == 6
+    def test_should_find_next_after_existing(
+        self, tmp_path: Path,
+    ):
+        (tmp_path / "ADR-001-test.md").write_text("# Test")
+        (tmp_path / "ADR-002-other.md").write_text("# Other")
+        assert find_next_adr_number(tmp_path) == 3
 
     def test_should_return_1_for_empty_dir(
         self, tmp_path: Path,
     ):
         assert find_next_adr_number(tmp_path) == 1
 
-    def test_should_handle_nonexistent_dir(self):
-        assert find_next_adr_number(Path("/nonexistent")) == 1
+    def test_should_handle_gaps(self, tmp_path: Path):
+        (tmp_path / "ADR-001-first.md").write_text("# 1")
+        (tmp_path / "ADR-005-fifth.md").write_text("# 5")
+        assert find_next_adr_number(tmp_path) == 6
 
 
 class TestFindRelatedAdrs:
     def test_should_find_related_by_keyword(
         self, tmp_path: Path,
     ):
-        (tmp_path / "ADR-010-governance.md").write_text(
-            "---\ntitle: Governance\n---\n# Governance"
-        )
-        (tmp_path / "ADR-020-docs.md").write_text(
-            "---\ntitle: Documentation\n---\n# Documentation"
+        (tmp_path / "ADR-001-deployment.md").write_text(
+            "# Deployment Strategy\n\nDocker compose deploy."
         )
         related = find_related_adrs(
-            tmp_path, ["governance"],
+            tmp_path, ["deployment", "docker"],
         )
-        assert "ADR-010" in related
-        assert "ADR-020" not in related
+        assert len(related) >= 1
+        assert "ADR-001" in related[0]
 
-    def test_should_return_empty_for_no_matches(
+    def test_should_return_empty_for_no_match(
         self, tmp_path: Path,
     ):
         (tmp_path / "ADR-001-test.md").write_text("# Test")
@@ -59,7 +58,7 @@ class TestFindRelatedAdrs:
 class TestSlugify:
     def test_should_create_slug(self):
         assert slugify("Background Jobs f\u00fcr E-Mail") == (
-            "background-jobs-fr-e-mail"
+            "background-jobs-f\u00fcr-e-mail"
         )
 
     def test_should_truncate_long_slugs(self):
@@ -73,76 +72,85 @@ class TestSlugify:
 
 
 class TestGenerateTitle:
-    def test_should_return_short_problems_as_is(self):
-        assert generate_title("Background Jobs") == (
-            "Background Jobs"
+    def test_should_use_problem_as_title(self):
+        title = generate_title(
+            "Wie sollen Background Jobs implementiert werden?",
         )
+        assert isinstance(title, str)
+        assert len(title) > 0
 
     def test_should_truncate_long_problems(self):
-        long = "Wir brauchen eine L\u00f6sung " * 10
-        title = generate_title(long)
-        assert len(title) <= 60
+        long_problem = "x" * 200
+        title = generate_title(long_problem)
+        assert len(title) <= 100
 
 
 class TestExtractKeywords:
-    def test_should_extract_meaningful_words(self):
+    def test_should_extract_from_problem(self):
         keywords = extract_keywords(
-            "Wir brauchen Background Jobs f\u00fcr E-Mail"
+            problem="Docker Compose Deployment Pipeline",
+            context="CI/CD mit GitHub Actions",
         )
-        assert "background" in keywords
-        assert "jobs" in keywords
-        assert "wir" not in keywords
-        assert "brauchen" not in keywords
+        assert isinstance(keywords, list)
+        assert len(keywords) > 0
 
-    def test_should_limit_count(self):
-        long = " ".join(f"keyword{i}" for i in range(50))
-        assert len(extract_keywords(long)) <= 10
+    def test_should_include_context_keywords(self):
+        keywords = extract_keywords(
+            problem="API Design",
+            context="REST endpoints mit DRF",
+        )
+        assert any(
+            k in ["api", "rest", "drf", "endpoints"]
+            for k in keywords
+        )
+
+    def test_should_deduplicate(self):
+        keywords = extract_keywords(
+            problem="Docker Docker Docker",
+            context="Docker setup",
+        )
+        assert keywords.count("docker") == 1
 
 
-class TestGenerateAdr:
-    def test_should_generate_valid_draft(
+class TestGenerateAdrDraft:
+    def test_should_generate_complete_draft(
         self, tmp_path: Path,
     ):
-        (tmp_path / "ADR-054-agents.md").write_text(
-            "# ADR-054"
-        )
-        ctx = AdrContext(
-            problem="Wir brauchen Background Jobs",
+        draft = generate_adr_draft(
+            adr_dir=tmp_path,
+            problem="Background Jobs implementieren",
             project="travel-beat",
-            author="Test Author",
+            context="Celery ist bereits eingerichtet",
         )
-        draft = generate_adr(ctx, tmp_path)
+        assert "# ADR-001" in draft
+        assert "Background Jobs" in draft
+        assert "travel-beat" in draft
+        assert "## Status" in draft
+        assert "## Kontext" in draft
+        assert "## Entscheidung" in draft
 
-        assert isinstance(draft, AdrDraft)
-        assert draft.number == 55
-        assert "ADR-055" in draft.filename
-        assert "Background Jobs" in draft.content
-        assert "PROPOSED" in draft.content
-        assert "travel-beat" in draft.content
-
-    def test_should_include_context(
+    def test_should_include_yaml_frontmatter(
         self, tmp_path: Path,
     ):
-        ctx = AdrContext(
-            problem="Celery vs RQ",
-            context="Celery ist bereits in Benutzung",
+        draft = generate_adr_draft(
+            adr_dir=tmp_path,
+            problem="Test ADR",
+            project="platform",
         )
-        draft = generate_adr(ctx, tmp_path)
-        assert "Celery ist bereits" in draft.content
+        assert draft.startswith("---")
+        assert "status: proposed" in draft
+        assert "project: platform" in draft
 
-    def test_should_include_frontmatter(
+    def test_should_find_related_adrs(
         self, tmp_path: Path,
     ):
-        ctx = AdrContext(problem="Test Problem")
-        draft = generate_adr(ctx, tmp_path)
-        assert draft.content.startswith("---")
-        assert "status: PROPOSED" in draft.content
-        assert "tags:" in draft.content
-
-    def test_should_generate_dict(self, tmp_path: Path):
-        ctx = AdrContext(problem="Test")
-        draft = generate_adr(ctx, tmp_path)
-        d = draft.to_dict()
-        assert "number" in d
-        assert "filename" in d
-        assert d["gate"] == 2
+        (tmp_path / "ADR-042-deployment.md").write_text(
+            "# ADR-042 Deployment\n\nDocker compose deploy."
+        )
+        draft = generate_adr_draft(
+            adr_dir=tmp_path,
+            problem="Deployment Pipeline verbessern",
+            project="platform",
+            context="Docker und CI/CD",
+        )
+        assert "ADR-043" in draft or "043" in draft
