@@ -128,11 +128,12 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            echo "=== All sites-enabled ==="
-            ls -la /etc/nginx/sites-enabled/
-            echo "=== Configs with schutztat.de ==="
-            grep -rl "schutztat\.de" /etc/nginx/sites-enabled/ /etc/nginx/sites-available/ 2>/dev/null || true
-            echo "=== Content of sites-enabled/schutztat.de (if exists) ==="
-            cat /etc/nginx/sites-enabled/schutztat.de 2>/dev/null | head -20 || echo "not found"
-            echo "=== Symlink target ==="
-            readlink -f /etc/nginx/sites-enabled/schutztat.de 2>/dev/null || echo "no symlink"
+            echo "=== Removing old conflicting config ==="
+            sudo rm -f /etc/nginx/sites-enabled/schutztat.de.conf
+            echo "=== Verifying new config is in place ==="
+            ls -la /etc/nginx/sites-enabled/schutztat.de* || true
+            sudo nginx -t
+            sudo systemctl reload nginx
+            echo "=== Testing upstream ==="
+            curl -s -o /dev/null -w "HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || true
+            echo "Done."
