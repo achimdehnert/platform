@@ -279,7 +279,7 @@ from trading_hub.domain.dtos import (
     AccountSnapshot, Instrument, OrderIntent, OrderState, OrderStatus, Position
 )
 from trading_hub.domain.exceptions import (
-    BrokerConnectionError, BrokerError, DuplicateOrderError,
+    BrokerConnectionError, BrokerError,
     OrderRejectedError, SymbolNotFoundError,
 )
 
@@ -480,10 +480,17 @@ class PaperBrokerAdapter(BrokerPort):
 
     def cancel_order(self, client_order_id: str) -> OrderState:
         state = self._orders[client_order_id]
-        self._orders[client_order_id] = OrderState(
-            **{**state.__dict__, "status": OrderStatus.CANCELLED, "last_updated": datetime.now(timezone.utc)}
+        cancelled = OrderState(
+            client_order_id=state.client_order_id,
+            broker_order_id=state.broker_order_id,
+            status=OrderStatus.CANCELLED,
+            filled_qty=state.filled_qty,
+            avg_fill_price=state.avg_fill_price,
+            submitted_at=state.submitted_at,
+            last_updated=datetime.now(timezone.utc),
         )
-        return self._orders[client_order_id]
+        self._orders[client_order_id] = cancelled
+        return cancelled
 
     def get_order_state(self, client_order_id: str) -> OrderState:
         return self._orders[client_order_id]
@@ -556,6 +563,9 @@ class ExecutionService:
             client_order_id=client_order_id,
         )
 
+        # Trade wird VOR dem Broker-Call persistiert (Idempotenz via unique constraint).
+        # place_order() liegt bewusst AUßERHALB des atomic()-Blocks:
+        # Broker-Calls dürfen keine DB-Transaction offen halten.
         with transaction.atomic():
             trade = Trade.objects.create(
                 tenant_id=self._tenant_id,
@@ -605,7 +615,7 @@ class ExecutionService:
                 trade.save(update_fields=["entry_price"])
 ```
 
-## 11a. SignalService (`services/signal_service.py`)
+## 11b. SignalService (`services/signal_service.py`)
 
 Signal-Lifecycle ist **getrennt** vom ExecutionService:
 
@@ -674,8 +684,7 @@ Additive Migrationen — kein Breaking Change:
 client_order_id = models.CharField(
     max_length=36,
     null=True, blank=True,
-    unique=True,                    # DB-seitiger Idempotenz-Schutz
-    db_index=True,
+    unique=True,                    # DB-seitiger Idempotenz-Schutz (impliziert Index)
     help_text="UUID — Idempotenz-Schlüssel (einmalig pro Order)"
 )
 broker_order_id = models.CharField(
