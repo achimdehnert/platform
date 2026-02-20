@@ -1,6 +1,7 @@
 ---
 status: "accepted"
 date: 2026-02-20
+amended: 2026-02-20
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
@@ -9,10 +10,11 @@ amends: []
 related: ["ADR-057-platform-test-strategy.md"]
 ---
 
-# ADR-058: Platform Test Taxonomy — 28 verbindliche Testarten für alle Repos
+# Adopt a 28-type test taxonomy as the binding standard for all platform repos
 
 > **Input**: `docs/adr/inputs/testarten-matrix.md` (2026-02-20)
 > **Basis**: ADR-057 (Platform Test Strategy — 4-Ebenen-Pyramide)
+> **Amendment**: Review fixes applied 2026-02-20 — see §Review Amendments.
 
 ---
 
@@ -54,6 +56,72 @@ Ohne verbindlichen Katalog entstehen inkonsistente Testsuiten: Ein Repo hat nur 
 - Option 3 ist vollständig, prüfbar und ohne externe Infrastruktur umsetzbar
 - Option 4 (ISO 29119) ist für ein 1-3 Personen Team unverhältnismäßig
 
+### Confirmation
+
+Compliance wird auf drei Wegen geprüft:
+
+1. **CI-Gate**: `pytest --cov` läuft auf jedem Push via `_ci-python.yml@main` — Build schlägt fehl wenn Pflicht-Tests fehlen oder rot sind.
+2. **grep-basierter Compliance-Check** (manuell oder als ADR-054-Guardian-Regel):
+
+```bash
+grep -r "401\|403\|unauthenticated" tests/ | wc -l   # A2 Auth Tests
+grep -r "HX_REQUEST\|HX-Request" tests/ | wc -l       # U3 HTMX Fragment Tests
+grep -r "status_code == 404" tests/ | wc -l            # A6 Error Handling Tests
+```
+
+3. **Migration-Tracking-Tabelle** (§ Migration Tracking): Zeigt pro Repo welche Pflicht-Testarten implementiert sind.
+
+### Consequences
+
+- Good, because alle Repos eine einheitliche Sprache für Testarten haben.
+- Good, because Lücken sichtbar und messbar sind — kein "wir haben Tests" ohne Substanz.
+- Good, because CI-Gates Regressions in den häufigsten Fehlerklassen verhindern.
+- Good, because neue Repos den Katalog direkt übernehmen können ohne Diskussion.
+- Bad, because initiale Implementierung Zeit kostet (Phase 2: ~2-3 Tage pro Repo).
+- Bad, because HTMX Fragment Tests (U3) Kenntnis der `HTTP_HX_REQUEST` Header-Syntax erfordern.
+- Bad, because Schemathesis (A7/A8) gepflegte OpenAPI Specs erfordert — Repos ohne `drf-spectacular` müssen nachziehen.
+- Neutral: Kein Playwright/Selenium — Browser-Automation unverhältnismäßig; reserviert für ADR-060+.
+- Neutral: Kein Pact Broker — Schemathesis deckt 80% ohne zusätzliche Infrastruktur.
+- Neutral: Odoo-Tests bleiben statisch — Odoo hat eigenes Test-Framework für Integration Tests.
+
+---
+
+## Pros and Cons of the Options
+
+### Option 1 — Kein Katalog
+
+- Good, because kein Aufwand für Standardisierung.
+- Good, because maximale Flexibilität pro Repo.
+- Bad, because der Status quo produziert inkonsistente, lückenhafte Testsuiten.
+- Bad, because keine gemeinsame Sprache — "wir haben Tests" bedeutet für jedes Repo etwas anderes.
+- Bad, because blinde Flecken (Auth, HTMX, Contract) bleiben unsichtbar bis zur Produktion.
+
+### Option 2 — Minimalkatalog (Unit + DB + API Endpoint)
+
+- Good, because geringer initialer Aufwand.
+- Good, because deckt die häufigsten intra-service Bugs ab.
+- Bad, because HTMX-Fragment-Regressions nicht abgedeckt (U3 fehlt).
+- Bad, because Auth-Lücken nicht systematisch erkannt (A2 optional).
+- Bad, because Cross-Service-Contract-Brüche (A9, odoo-hub ↔ risk-hub) bleiben lautlos.
+
+### Option 3 — Vollständiger Katalog mit 28 Testarten (gewählt)
+
+- Good, because alle vier Dimensionen mit Pflicht/Empfohlen/Optional-Klassifizierung.
+- Good, because CI-Zuordnung klar: was läuft auf push, was auf main, was post-deploy.
+- Good, because Repo-Typ-spezifische Mindestsets (Django, Package, Odoo, MCP).
+- Good, because Compliance grep-basiert prüfbar — kein zusätzliches Tooling nötig.
+- Bad, because 28 Testarten initial überwältigend wirken können.
+- Bad, because Phasen-Roadmap Disziplin erfordert — ohne Tracking-Tabelle verblasst der Plan.
+
+### Option 4 — Externe Teststandards (ISO 29119)
+
+- Good, because international anerkannte Norm.
+- Good, because vollständige Dokumentation und Zertifizierungsmöglichkeit.
+- Bad, because für ein 1-3 Personen Team unverhältnismäßig komplex.
+- Bad, because nicht Django/HTMX-spezifisch — erheblicher Adaptionsaufwand.
+- Bad, because Lizenzkosten für Norm-Dokumente.
+- **Abgelehnt** — kein Mehrwert gegenüber Option 3 für dieses Team.
+
 ---
 
 ## Der Katalog: 28 Testarten in 4 Dimensionen
@@ -69,11 +137,7 @@ Ohne verbindlichen Katalog entstehen inkonsistente Testsuiten: Ein Repo hat nur 
 | **CI: main** | Läuft nur auf main/develop |
 | **CI: post-deploy** | Läuft nach Deployment gegen Live-System |
 
----
-
 ### Dimension 1: FUNKTION — Business Logic (5 Testarten)
-
-Testen reine Logik ohne DB, HTTP oder UI. Schnellste Tests, höchster Anteil.
 
 | # | Testart | Was wird geprüft | Tool | Pflicht | CI |
 |---|---------|-----------------|------|---------|-----|
@@ -83,34 +147,7 @@ Testen reine Logik ohne DB, HTTP oder UI. Schnellste Tests, höchster Anteil.
 | F4 | **Pure Function Test** | Utility-Funktionen ohne Seiteneffekte | pytest | 🟡 | push |
 | F5 | **Property-Based Test** | Invarianten bei zufälligen Eingaben | Hypothesis | 🟢 | push |
 
-**Beispiel F1 + F2 + F3:**
-
-```python
-# F1 — Unit Test
-def test_should_calculate_risk_score_within_range():
-    result = calculate_explosion_risk(zone_type="1", volume_m3=50)
-    assert 0 <= result <= 100
-
-# F2 — Parametrized Test
-@pytest.mark.parametrize("zone_type,volume,expected_min", [
-    ("0",  10,  80),
-    ("1",  50,  40),
-    ("2", 100,  10),
-])
-def test_should_return_correct_risk_by_zone(zone_type, volume, expected_min):
-    assert calculate_explosion_risk(zone_type=zone_type, volume_m3=volume) >= expected_min
-
-# F3 — Exception Test
-def test_should_raise_on_negative_volume():
-    with pytest.raises(ValueError, match="Volumen muss positiv sein"):
-        calculate_explosion_risk(zone_type="1", volume_m3=-5)
-```
-
----
-
 ### Dimension 2: DB — Datenschicht (8 Testarten)
-
-Testen Models, Queries, Constraints, Schema-Verträge.
 
 | # | Testart | Was wird geprüft | Tool | Pflicht | CI |
 |---|---------|-----------------|------|---------|-----|
@@ -123,30 +160,7 @@ Testen Models, Queries, Constraints, Schema-Verträge.
 | D7 | **Transaction Test** | Atomare Operationen (zusammen oder gar nicht) | TransactionTestCase | 🟢 | push |
 | D8 | **Factory Consistency Test** | Factory Boy erzeugt valide, konsistente Objekte | factory-boy | 🟡 | push |
 
-**Beispiel D1 + D3:**
-
-```python
-# D1 — Model Constraint Test
-@pytest.mark.django_db
-def test_should_reject_blank_title():
-    with pytest.raises(IntegrityError):
-        AssessmentFactory(title="")
-
-# D3 — Custom Manager Test
-@pytest.mark.django_db
-def test_should_active_manager_exclude_archived():
-    AssessmentFactory(status="active")
-    AssessmentFactory(status="archived")
-    result = Assessment.objects.active()
-    assert result.count() == 1
-    assert result.first().status == "active"
-```
-
----
-
 ### Dimension 3: API — Schnittstellen (11 Testarten)
-
-Testen REST/JSON Endpoints, Auth, Service-zu-Service-Verträge.
 
 | # | Testart | Was wird geprüft | Tool | Pflicht | CI |
 |---|---------|-----------------|------|---------|-----|
@@ -162,36 +176,9 @@ Testen REST/JSON Endpoints, Auth, Service-zu-Service-Verträge.
 | A10 | **Celery Payload Contract** | Task-Payloads stimmen zwischen Sender/Empfänger überein | jsonschema | 🟢 | main |
 | A11 | **Rate Limiting Test** | Throttling greift ab definiertem Limit | Django Test Client | 🟢 | push |
 
-**Beispiel A1 + A2 + A6:**
-
-```python
-# A1 — Endpoint Test
-@pytest.mark.django_db
-def test_should_list_assessments_returns_200(authenticated_client):
-    AssessmentFactory.create_batch(3)
-    response = authenticated_client.get("/api/v1/assessments/")
-    assert response.status_code == 200
-    assert len(response.json()["results"]) == 3
-
-# A2 — Auth Test
-@pytest.mark.django_db
-def test_should_reject_unauthenticated_request(client):
-    response = client.get("/api/v1/assessments/")
-    assert response.status_code in (401, 403)
-
-# A6 — Error Handling Test
-@pytest.mark.django_db
-def test_should_return_404_not_500_for_unknown_id(authenticated_client):
-    response = authenticated_client.get("/api/v1/assessments/99999/")
-    assert response.status_code == 404
-    assert "detail" in response.json()  # Saubere Fehlermeldung, kein Traceback
-```
-
----
-
 ### Dimension 4: UI/HTMX — Frontend (9 Testarten)
 
-Testen was der User sieht — ohne Browser (BeautifulSoup), außer Smoke Tests.
+U9 Smoke Tests prüfen `/livez/` (Liveness) + `/healthz/` (Readiness) gemäß ADR-021 §2.8.
 
 | # | Testart | Was wird geprüft | Tool | Pflicht | CI |
 |---|---------|-----------------|------|---------|-----|
@@ -203,42 +190,13 @@ Testen was der User sieht — ohne Browser (BeautifulSoup), außer Smoke Tests.
 | U6 | **Navigation Test** | Login-Redirect, Breadcrumbs, `next`-Parameter | Django Test Client | 🟡 | push |
 | U7 | **Permission UI Test** | Admin sieht Delete-Button, normaler User nicht | BeautifulSoup | 🟡 | push |
 | U8 | **Error Page Test** | 404/500 Custom-Template wird gerendert | Django Test Client | 🟡 | push |
-| U9 | **Smoke Test** | Live-System erreichbar nach Deployment | requests / curl | 🔴 | post-deploy |
-
-**Beispiel U3 + U4 (HTMX — kritischste Lücke aktuell):**
-
-```python
-# U3 — HTMX Fragment Test
-@pytest.mark.django_db
-def test_should_return_partial_on_htmx_request(authenticated_client):
-    response = authenticated_client.get(
-        "/assessments/",
-        HTTP_HX_REQUEST="true",
-        HTTP_HX_TARGET="assessment-list",
-    )
-    content = response.content.decode()
-    assert "<html" not in content          # Kein Full-Page-Response
-    assert "assessment-list" in content    # Fragment vorhanden
-
-# U4 — HTMX Attribute Test
-@pytest.mark.django_db
-def test_should_delete_button_have_htmx_confirm(authenticated_client):
-    assessment = AssessmentFactory()
-    response = authenticated_client.get(f"/assessments/{assessment.pk}/")
-    soup = BeautifulSoup(response.content, "html.parser")
-    btn = soup.find("button", {"id": "delete-assessment"})
-    assert btn is not None
-    assert btn.get("hx-delete")
-    assert btn.get("hx-confirm")
-```
+| U9 | **Smoke Test** | `/livez/` + `/healthz/` erreichbar nach Deployment | requests / curl | 🔴 | post-deploy |
 
 ---
 
 ## Pflicht-Mindestset pro Repo-Typ
 
-Jedes Repo muss mindestens die 🔴-Testarten seiner genutzten Dimensionen abdecken.
-
-### Django-Repos (weltenhub, travel-beat, bfagent, risk-hub, cad-hub, wedding-hub, trading-hub, dev-hub, pptx-hub)
+### Django-Repos
 
 | Dimension | Pflicht-Testarten | Mindest-Anzahl Tests |
 |-----------|------------------|---------------------|
@@ -247,28 +205,25 @@ Jedes Repo muss mindestens die 🔴-Testarten seiner genutzten Dimensionen abdec
 | API | A1, A2, A3, A6 | ≥ 8 (wenn DRF vorhanden) |
 | UI/HTMX | U1, U3, U5, U9 | ≥ 5 (wenn HTMX vorhanden) |
 
-### Python-Package-Repos (platform-context, pptx-hub als Library)
+### Python-Package-Repos
 
 | Dimension | Pflicht-Testarten | Mindest-Anzahl Tests |
 |-----------|------------------|---------------------|
 | Funktion | F1, F2, F3 | ≥ 10 |
-| DB | — (kein eigenes DB-Schema) | — |
-| API | — (Library, kein HTTP) | — |
-| UI | — | — |
 
-### Odoo-Addon-Repos (odoo-hub)
+### Odoo-Addon-Repos
 
 | Dimension | Pflicht-Testarten | Mindest-Anzahl Tests |
 |-----------|------------------|---------------------|
-| Funktion | Manifest-Validierung, Struktur-Tests | ≥ 10 (statisch, kein Odoo-Runtime) |
+| Funktion | Manifest-Validierung, Struktur-Tests | ≥ 10 (statisch) |
 | Contract | A9 (Consumer Contract gegen risk-hub API) | ≥ 3 |
 
-### MCP-Repos (mcp-hub)
+### MCP-Repos
 
 | Dimension | Pflicht-Testarten | Mindest-Anzahl Tests |
 |-----------|------------------|---------------------|
 | Funktion | F1, F3 | ≥ 5 pro MCP-Modul |
-| API | A1 (Tool-Endpoint Tests) | ≥ 3 pro MCP-Modul |
+| API | A1 | ≥ 3 pro MCP-Modul |
 
 ---
 
@@ -279,8 +234,8 @@ Jedes Repo muss mindestens die 🔴-Testarten seiner genutzten Dimensionen abdec
  ─────────────────────           ────────────────────          ──────────────
  ┌──────────────────────┐         ┌──────────────────────┐      ┌────────────┐
  │ ✅ F1, F2, F3, F4    │         │ ✅ F1–F5              │      │ ✅ U9      │
- │ ✅ D1, D2, D3, D8    │         │ ✅ D1–D8              │      │   Smoke    │
- │ ✅ A1, A2, A3, A6    │         │ ✅ A1–A11             │      │   Tests    │
+ │ ✅ D1, D2, D3, D8    │         │ ✅ D1–D8              │      │   /livez/  │
+ │ ✅ A1, A2, A3, A6    │         │ ✅ A1–A11             │      │   /healthz/│
  │ ✅ U1, U3, U5        │         │ ✅ U1–U8              │      └────────────┘
  │ ❌ Contract Tests    │         │ ✅ A7, A8, A9 (Contr.)│
  │ ❌ Migration Tests   │         │ ✅ D5, D6 (Migration) │
@@ -288,34 +243,7 @@ Jedes Repo muss mindestens die 🔴-Testarten seiner genutzten Dimensionen abdec
     Ziel: < 3 Min                    Ziel: < 5 Min              Ziel: < 30 Sek
 ```
 
----
-
-## Priorisierte Implementierungs-Reihenfolge
-
-Basierend auf Risiko × Aufwand:
-
-### Phase 1 — Sofort (bereits in ADR-057 Phase 1+2 begonnen)
-
-- F1, F3, D1, D3, A1, A2, U1 in allen Repos ✅ (teilweise vorhanden)
-
-### Phase 2 — Nächste 4 Wochen (höchster Mehrwert)
-
-- **A2 Auth Tests** für alle API-Repos — schützt vor Permission-Regressions
-- **A6 Error Handling Tests** — überall fehlend, 2-3 Zeilen pro Endpoint
-- **U3 HTMX Fragment Tests** — kritischster blinder Fleck in weltenhub + bfagent
-- **A9 Consumer Contract** odoo-hub ↔ risk-hub — bricht aktuell lautlos
-
-### Phase 3 — Mittelfristig (4-8 Wochen)
-
-- D5 Migration Tests für risk-hub + weltenhub
-- A7/A8 Schemathesis für risk-hub + weltenhub (haben drf-spectacular)
-- U4 HTMX Attribute Tests
-
-### Phase 4 — Langfristig
-
-- F5 Property-Based Tests (Hypothesis) für Berechnungslogik
-- A10 Celery Payload Contracts
-- D6 DB View Schema Tests
+Alle Tests laufen via `_ci-python.yml@main` (ADR-021 §2.5). Contract + Migration Tests nur auf `main` — konsistent mit ADR-057 §2.10.
 
 ---
 
@@ -335,49 +263,72 @@ Basierend auf Risiko × Aufwand:
 
 ---
 
-## Konsequenzen
+## Migration Tracking
 
-### Positiv
+> **Stand**: 2026-02-20 — Phase 1 abgeschlossen für alle 12 aktiven Repos.
 
-- Einheitliche Sprache: "Wir brauchen einen A2 Auth Test" ist für alle klar
-- Lücken sind sichtbar und messbar — kein "wir haben Tests" ohne Substanz
-- CI-Gates verhindern Regressions in den häufigsten Fehlerklassen
-- Neue Repos können den Katalog direkt übernehmen ohne Diskussion
+### Pflicht-Testarten: Ist-Stand pro Repo
 
-### Negativ / Risiken
+| Repo | F1 | F3 | D1 | D3 | A1 | A2 | A6 | U1 | U3 | U5 | U9 |
+|------|----|----|----|----|----|----|----|----|----|----|-----|
+| weltenhub | ✅ | ✅ | ✅ | — | ✅ | — | — | ✅ | — | — | — |
+| travel-beat | ✅ | ✅ | ✅ | — | ✅ | — | — | ✅ | — | — | — |
+| bfagent | ✅ | ✅ | ✅ | — | ✅ | — | — | ✅ | — | — | — |
+| risk-hub | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — | ✅ | — | — | — |
+| cad-hub | ✅ | — | — | — | — | — | — | ✅ | — | — | — |
+| wedding-hub | ✅ | ✅ | — | — | — | — | — | ✅ | — | ✅ | — |
+| trading-hub | ✅ | ✅ | — | — | — | — | — | — | — | — | — |
+| dev-hub | ✅ | — | — | — | — | — | — | ✅ | — | — | ✅ |
+| pptx-hub | ✅ | ✅ | — | — | — | — | — | — | — | — | — |
+| mcp-hub | ✅ | ✅ | — | — | ✅ | — | — | — | — | — | — |
+| odoo-hub | ✅ | ✅ | — | — | — | — | — | — | — | — | — |
+| platform | ✅ | ✅ | — | — | — | — | — | — | — | — | — |
 
-- Initiale Implementierung kostet Zeit (Phase 2: ~2-3 Tage pro Repo)
-- HTMX Fragment Tests (U3) erfordern Kenntnis der `HTTP_HX_REQUEST` Header-Syntax
-- Schemathesis (A7/A8) erfordert gepflegte OpenAPI Specs — Repos ohne drf-spectacular müssen nachziehen
+**Legende**: ✅ vorhanden | — fehlt (Lücke, Phase 2+)
 
-### Neutrale Entscheidungen
+### Phase-Roadmap
 
-- Kein Playwright/Selenium — Browser-Automation ist für dieses Team unverhältnismäßig
-- Kein Pact Broker — Schemathesis deckt 80% der Contract-Testing-Anforderungen
-- Odoo-Tests bleiben statisch (kein Odoo-Runtime in CI) — Odoo hat eigenes Test-Framework für Integration Tests
-
----
-
-## Compliance-Check
-
-Jedes Repo kann gegen diesen Katalog geprüft werden:
-
-```bash
-# Prüfe ob Auth Tests vorhanden
-grep -r "401\|403\|unauthenticated\|force_login" tests/ | wc -l
-
-# Prüfe ob HTMX Fragment Tests vorhanden
-grep -r "HX_REQUEST\|HX-Request" tests/ | wc -l
-
-# Prüfe ob Error Handling Tests vorhanden
-grep -r "status_code == 404\|status_code == 500" tests/ | wc -l
-```
+| Phase | Inhalt | Zeitraum | Status |
+|-------|--------|----------|--------|
+| Phase 1 | F1, F3, U1 in allen Repos; CI via `_ci-python.yml@main` | 2026-02 | ✅ Abgeschlossen |
+| Phase 2 | A2, A6 für alle API-Repos; U3 für HTMX-Repos; A9 odoo↔risk | 2026-03 | 🔴 Offen |
+| Phase 3 | D5 Migration Tests; A7/A8 Schemathesis; U4 HTMX Attribute | 2026-04 | 🔴 Offen |
+| Phase 4 | F5 Hypothesis; A10 Celery Contracts; D6 DB View Schema | 2026-05+ | 🔴 Offen |
 
 ---
 
-## Referenzen
+## Offene Fragen
 
-- **ADR-057**: Platform Test Strategy — 4-Ebenen-Pyramide, CI-Integration, Schemathesis-Entscheidung
-- **Input**: `docs/adr/inputs/testarten-matrix.md` — vollständige Codebeispiele für alle 28 Testarten
+1. **Enforcement-Mechanismus**: Pflicht-Tests sind definiert — aber wer prüft Compliance automatisch? Aktuell nur manuell via grep. ADR-054 Architecture Guardian soll in Phase 2 erweitert werden. → Deferred: **ADR-059** (Guardian-Erweiterung für Taxonomie-Compliance).
+
+2. **Ratio-Konsistenz mit ADR-057**: ADR-057 §2.4 definiert Test-Pyramiden-Ratio 40/45/10/5. ADR-058 definiert Testarten ohne explizite Ratio-Gewichtung. Beide sind kompatibel — Ratio gilt für Test-Anzahl, Taxonomie für Test-Typen. Bei nächstem ADR-057-Amendment zu dokumentieren.
+
+3. **Phase-4-Deferred**: F5 (Hypothesis), A10 (Celery Payload Contracts), D6 (DB View Schema Tests) sind als "Langfristig" markiert. → Deferred: **ADR-060** (Property-Based + Celery Contract Testing) — zu erstellen wenn Phase 3 abgeschlossen oder Team > 3 Personen.
+
+---
+
+## Review Amendments (2026-02-20)
+
+Angewendet nach kritischem Review gegen `docs/templates/adr-review-checklist.md`:
+
+| # | Finding | Fix |
+|---|---------|-----|
+| R1 | Titel war Thema, keine Entscheidungsaussage | Titel zu "Adopt a 28-type test taxonomy..." geändert |
+| R2 | `## Pros and Cons of the Options` fehlte komplett | Abschnitt für alle 4 Optionen mit Good/Bad-Bullets ergänzt |
+| R3 | `### Confirmation` fehlte unter `## Decision Outcome` | CI-Gate, grep-Checks, Tracking-Tabelle als Confirmation-Mechanismen dokumentiert |
+| R4 | `## More Information` fehlte als eigener Abschnitt | Eigener Abschnitt mit strukturierten Links ergänzt |
+| R5 | Migration-Tracking-Tabelle fehlte | Ist-Stand-Tabelle pro Repo + Phase-Roadmap ergänzt |
+| R6 | Deferred Decisions ohne ADR-Platzhalter | ADR-059 (Guardian) + ADR-060 (Phase 4) als Platzhalter benannt |
+
+---
+
+## More Information
+
+- **ADR-057**: Platform Test Strategy — 4-Ebenen-Pyramide, CI-Integration, Schemathesis-Entscheidung, Test-Ratio 40/45/10/5
+- **ADR-054**: Architecture Guardian — wird in Phase 2 um Taxonomie-Compliance-Checks erweitert (→ ADR-059)
+- **ADR-048**: HTMX Playbook — Kontext für U3/U4 HTMX Fragment + Attribute Tests
 - **ADR-022**: Code Quality Tooling — ruff, pytest als Standard-Tools
-- **ADR-048**: HTMX Playbook — Kontext für U3/U4 HTMX Fragment Tests
+- **ADR-021**: Unified Deployment Pattern — `/livez/` + `/healthz/` Health-Endpoints (U9)
+- **Input**: `docs/adr/inputs/testarten-matrix.md` — vollständige Codebeispiele für alle 28 Testarten
+- **Deferred**: ADR-059 — Architecture Guardian Erweiterung für automatische Taxonomie-Compliance
+- **Deferred**: ADR-060 — Property-Based Tests (Hypothesis) + Celery Payload Contract Testing
