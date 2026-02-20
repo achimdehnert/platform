@@ -475,13 +475,15 @@ on the remote host.
 
 ## Implementation Plan
 
-| Phase | Files changed | Effort | Prerequisite |
-|-------|--------------|--------|--------------|
-| 1a — Timeout entries | `timeout_config.py` | 15 min | — |
-| 1b — Semaphore decoupling | `clients/ssh_client.py` | 20 min | — |
-| 1c — Watchdog task | `server.py` | 20 min | — |
-| 2 — Circuit Breaker | `clients/circuit_breaker.py` (new), `ssh_client.py`, `debug_tools.py` | 2h | Phase 1 |
-| 3 — Async Jobs | `jobs/job_manager.py` (new), `tools/job_tools.py` (new), `server.py` | 4h | Phase 2 |
+> **Stand 2026-02-20: Alle Phasen vollständig implementiert.**
+
+| Phase | Files | Status | Verbesserungen gegenüber ADR-Spezifikation |
+|-------|-------|--------|--------------------------------------------|
+| 1a — Timeout entries | `timeout_config.py` | ✅ Done | `SSH_SEM_ACQUIRE_TIMEOUT = 10` als eigene Konstante; `ssh_manage: 30`, `ssh_exec: 45` etc. |
+| 1b — Semaphore decoupling | `clients/ssh_client.py` | ✅ Done | `SSH_SEM_ACQUIRE_TIMEOUT` importiert aus `timeout_config`; Circuit Breaker direkt integriert |
+| 1c — Watchdog | `server.py` | ✅ Done | Kein `sem._value` — Semaphore-Druck via `all_breaker_states()` aus Circuit Breaker |
+| 2 — Circuit Breaker | `clients/circuit_breaker.py` | ✅ Done | Lazy Lock-Init (kein "no running event loop"); `Semaphore(1)` für half_open statt `probing`-State; `all_breaker_states()` für Observability |
+| 3 — Async Jobs | `jobs/job_manager.py`, `tools/job_tools.py` | ✅ Done | GC-safe `_tasks: set` + `add_done_callback`; Log-Streaming via `job.log_lines`; `ASYNC_ELIGIBLE_TOOLS` als `frozenset` in `timeout_config.py` |
 
 Each phase is independently releasable via the existing `mcp-hub` CI/CD pipeline.
 
@@ -493,3 +495,4 @@ Each phase is independently releasable via the existing `mcp-hub` CI/CD pipeline
 |-------|-------|----------|
 | 2026-02-20 | Achim Dehnert | Initial — implementiert in commit `4888fc0` (Phase 1 vollständig) |
 | 2026-02-20 | Review | Fix: `scope` korrigiert auf `mcp-hub`; `sem._value` private API → eigener `_SSH_BUSY`-Counter; Circuit-Breaker `half_open` race condition → `probing`-State; `job_start`/`job_status` Interface vollständig spezifiziert |
+| 2026-02-20 | Achim Dehnert | Phase 2+3 vollständig implementiert: `circuit_breaker.py` (lazy Lock, `Semaphore(1)` für half_open, `all_breaker_states()`), `job_manager.py` (GC-safe tasks, Log-Streaming), `job_tools.py` (`job_start`/`job_status`/`job_list`), `ASYNC_ELIGIBLE_TOOLS` in `timeout_config.py` |
