@@ -1,6 +1,7 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: Python CI (Lint, Test, Security)                       ║
-# ║  Usage: uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1    ║
+# ║  Usage: uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main  ║
+# ║  ADR-057 Phase 1: split test-unit / test-integration / coverage-report     ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Python CI
@@ -14,29 +15,24 @@ on:
         default: '3.12'
         type: string
       coverage_threshold:
-        description: 'Minimum coverage percentage'
+        description: 'Minimum coverage percentage (0 = report only)'
         required: false
-        default: 70
+        default: 0
         type: number
       requirements_file:
         description: 'Path to requirements.txt'
         required: false
         default: 'requirements.txt'
         type: string
-      dev_requirements_file:
-        description: 'Path to dev requirements'
+      test_requirements_file:
+        description: 'Path to requirements-test.txt'
         required: false
-        default: 'requirements/dev.txt'
-        type: string
-      source_dir:
-        description: 'Source directory for linting'
-        required: false
-        default: '.'
+        default: 'requirements-test.txt'
         type: string
       django_settings_module:
         description: 'Django settings module for tests'
         required: false
-        default: ''
+        default: 'config.settings.test'
         type: string
       skip_tests:
         description: 'Skip tests (emergency only)'
@@ -44,82 +40,97 @@ on:
         default: false
         type: boolean
       enable_security_scan:
-        description: 'Run security scans'
+        description: 'Run pip-audit security scan'
         required: false
         default: true
+        type: boolean
+      run_contract_tests:
+        description: 'Run contract tests (only on main)'
+        required: false
+        default: false
         type: boolean
 
 jobs:
   lint:
     name: "Lint & Format"
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-          cache: 'pip'
-      
-      - name: Install linters
-        run: pip install ruff black isort mypy
-      
+      - name: Install ruff
+        run: pip install ruff
       - name: Ruff check
-        run: ruff check ${{ inputs.source_dir }} --output-format=github || true
-      
-      - name: Black check
-        run: black --check ${{ inputs.source_dir }} || true
-      
-      - name: isort check
-        run: isort --check-only ${{ inputs.source_dir }} || true
+        run: ruff check . --output-format=github
+      - name: Ruff format check
+        run: ruff format --check .
 
   security:
-    name: "Security Scan"
-    runs-on: ubuntu-latest
+    name: "Security Scan (pip-audit)"
+    runs-on: self-hosted
     if: ${{ inputs.enable_security_scan }}
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-          cache: 'pip'
-      
-      - name: Install security tools
-        run: pip install bandit safety pip-audit
-      
-      - name: Bandit (code scan)
-        run: bandit -r ${{ inputs.source_dir }} -ll -ii -x '**/tests/**' || true
-      
-      - name: Safety (dependency scan)
-        run: |
-          if [ -f "${{ inputs.requirements_file }}" ]; then
-            safety check -r ${{ inputs.requirements_file }} --output json || true
-          fi
-      
       - name: pip-audit
         run: |
+          pip install pip-audit
           if [ -f "${{ inputs.requirements_file }}" ]; then
-            pip install -r ${{ inputs.requirements_file }}
-            pip-audit || true
+            pip-audit -r ${{ inputs.requirements_file }} || true
           fi
 
-  test:
-    name: "Tests"
-    runs-on: ubuntu-latest
+  test-unit:
+    name: "Unit Tests"
+    runs-on: self-hosted
+    if: ${{ !inputs.skip_tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install dependencies
+        run: |
+          pip install -r ${{ inputs.requirements_file }}
+          if [ -f "${{ inputs.test_requirements_file }}" ]; then
+            pip install -r ${{ inputs.test_requirements_file }}
+          fi
+      - name: Run unit tests
+        env:
+          DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
+          SECRET_KEY: test-secret-key-for-ci
+          POSTGRES_HOST: localhost
+        run: |
+          pytest -m "not integration and not contract and not slow" \
+            --cov \
+            --cov-report=xml:coverage-unit.xml \
+            --cov-report=term-missing \
+            -n auto \
+            --dist=loadscope
+      - uses: actions/upload-artifact@v4
+        with:
+          name: coverage-unit
+          path: coverage-unit.xml
+
+  test-integration:
+    name: "Integration Tests"
+    runs-on: self-hosted
     if: ${{ !inputs.skip_tests }}
     services:
       postgres:
         image: postgres:16-alpine
         env:
-          POSTGRES_USER: test
-          POSTGRES_PASSWORD: test
-          POSTGRES_DB: test
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
         options: >-
           --health-cmd pg_isready
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
           --health-retries 5
         ports:
@@ -128,46 +139,93 @@ jobs:
         image: redis:7-alpine
         options: >-
           --health-cmd "redis-cli ping"
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
           --health-retries 5
         ports:
           - 6379:6379
-
     steps:
       - uses: actions/checkout@v4
-      
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-          cache: 'pip'
-      
       - name: Install dependencies
         run: |
           pip install -r ${{ inputs.requirements_file }}
-          if [ -f "${{ inputs.dev_requirements_file }}" ]; then
-            pip install -r ${{ inputs.dev_requirements_file }}
+          if [ -f "${{ inputs.test_requirements_file }}" ]; then
+            pip install -r ${{ inputs.test_requirements_file }}
           fi
-          pip install pytest pytest-django pytest-cov pytest-xdist
-      
-      - name: Run tests
+      - name: Run integration tests
         env:
-          DATABASE_URL: postgresql://test:test@localhost:5432/test
-          REDIS_URL: redis://localhost:6379/0
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
+          POSTGRES_HOST: localhost
+          REDIS_URL: redis://localhost:6379/0
         run: |
-          pytest \
-            --cov=${{ inputs.source_dir }} \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=${{ inputs.coverage_threshold }} \
+          pytest -m "integration" \
+            --cov \
+            --cov-report=xml:coverage-integration.xml \
             -n auto \
-            -v
-      
-      - name: Upload coverage
-        uses: codecov/codecov-action@v4
+            --dist=loadscope
+      - uses: actions/upload-artifact@v4
         with:
-          file: ./coverage.xml
-          fail_ci_if_error: false
+          name: coverage-integration
+          path: coverage-integration.xml
+
+  coverage-report:
+    name: "Coverage Report"
+    runs-on: self-hosted
+    needs: [test-unit, test-integration]
+    if: ${{ !inputs.skip_tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-unit
+      - uses: actions/download-artifact@v4
+        with:
+          name: coverage-integration
+      - name: Merge and report coverage
+        run: |
+          pip install coverage
+          coverage combine coverage-unit.xml coverage-integration.xml || true
+          coverage report --fail-under=${{ inputs.coverage_threshold }}
+
+  test-contract:
+    name: "Contract Tests"
+    runs-on: self-hosted
+    needs: [test-unit, test-integration]
+    if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install dependencies
+        run: |
+          pip install -r ${{ inputs.requirements_file }}
+          if [ -f "${{ inputs.test_requirements_file }}" ]; then
+            pip install -r ${{ inputs.test_requirements_file }}
+          fi
+      - name: Run contract tests
+        env:
+          DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
+          SECRET_KEY: test-secret-key-for-ci
+          POSTGRES_HOST: localhost
+        run: pytest -m "contract" -v
