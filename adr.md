@@ -50,16 +50,17 @@ Soll ich stattdessen einen Workflow erstellen? [Ja/ADR trotzdem]
 
 Analyze the topic using these keywords:
 
-| Keywords | Scope | Number Range |
-|----------|-------|--------------|
-| Agent, Handler, Tool, Memory, Conversation, LLM, Prompt | `bfagent` | 050-099 |
-| Story, Travel, Trip, Timing, Drifttales, Content | `travel-beat` | 100-149 |
-| MCP, Server, Protocol, Registry, Tool-Server | `mcp-hub` | 150-199 |
-| Risk, Assessment, Scoring, Compliance | `risk-hub` | 200-249 |
-| CAD, IFC, XGF, XKT, Viewer, Model, BIM | `cad-hub` | 250-299 |
-| PPTX, PowerPoint, Slide, Template, Presentation | `pptx-hub` | 300-349 |
-| CI/CD, Deployment, Docker, DB, Monitoring, Security, Platform | `core` | 001-049 |
-| API, Auth, Logging, "alle Apps", "shared", Cross-App | `shared` | 350-399 |
+| Keywords | Scope / Repo | Number Range |
+|----------|-------------|--------------|
+| CI/CD, Deployment, Docker, DB, Monitoring, Security, Platform-wide | `platform` | 001–049 |
+| Agent, Handler, Tool, Memory, Conversation, LLM, Prompt | `bfagent` | 050–099 |
+| Story, Travel, Trip, Timing, Drifttales, Content | `travel-beat` | 100–149 |
+| MCP, Server, Protocol, Registry, Tool-Server | `mcp-hub` | 150–199 |
+| Risk, Assessment, Scoring, Compliance | `risk-hub` | 200–249 |
+| CAD, IFC, XGF, XKT, Viewer, Model, BIM | `cad-hub` | 250–299 |
+| PPTX, PowerPoint, Slide, Template, Presentation | `pptx-hub` | 300–349 |
+| API, Auth, Logging, "alle Apps", "shared", Cross-App | `shared` | 350–399 |
+| Trading, Market, Exchange, Bot, Signal, Order, Portfolio | `trading-hub` | 400–449 |
 
 ## Step 2: Show Scope Suggestion
 
@@ -84,27 +85,75 @@ Scope korrekt? [Ja/Nein]
 After user confirms:
 
 1. Find next available number in scope range
-2. Create file using TEMPLATE structure
+2. Create file using TEMPLATE structure below
 3. Fill in metadata and content from user's concept (if provided)
 
-## Step 4: Post-ADR Workflow
+### Pflicht-Metadaten-Template (IMMER verwenden)
 
-After ADR is created, show:
+```markdown
+| Attribut       | Wert                        |
+|----------------|-----------------------------|
+| **Status**     | Proposed                    |
+| **Scope**      | [scope aus Step 1]          |
+| **Repo**       | [repo aus Step 1]           |
+| **Erstellt**   | [YYYY-MM-DD]                |
+| **Autor**      | Achim Dehnert               |
+| **Reviewer**   | –                           |
+| **Supersedes** | –                           |
+| **Relates to** | [ADR-NNN (Titel), ...]      |
+```
+
+**Pflichtfelder**: `Status`, `Scope`, `Repo`, `Erstellt` — niemals weglassen.
+
+**Gültige Status-Werte**: `Proposed` | `Accepted` | `Deprecated` | `Superseded` | `Draft`
+
+**Gültige Repo-Werte**: `platform` | `bfagent` | `travel-beat` | `mcp-hub` | `risk-hub` | `cad-hub` | `pptx-hub` | `shared` | `trading-hub`
+
+### Pflicht-Abschnitte (Reihenfolge einhalten)
+
+```
+1. Kontext (1.1 Ausgangslage, 1.2 Problem/Lücken, 1.3 Constraints)
+2. Entscheidung
+3. Betrachtete Alternativen
+4. Begründung im Detail
+5. Implementation Plan (phasenweise wenn sinnvoll)
+6. Risiken
+7. Konsequenzen (7.1 Positiv, 7.2 Trade-offs, 7.3 Nicht in Scope)
+8. Validation Criteria (pro Phase wenn mehrphasig)
+9. Referenzen
+10. Changelog
+```
+
+## Step 4: INDEX.md aktualisieren (Pflicht nach jedem ADR)
+
+Nach dem Erstellen der ADR-Datei **immer** `docs/adr/INDEX.md` aktualisieren:
+
+1. Neue Zeile in der passenden Sektion eintragen:
+   ```
+   | [NNN] | [Titel] | `Proposed` | `[repo]` | [ADR-NNN-slug.md](ADR-NNN-slug.md) |
+   ```
+2. "Letzte Aktualisierung"-Datum oben in INDEX.md aktualisieren
+
+## Step 5: Post-ADR Workflow
+
+After ADR is created and INDEX.md updated, show:
 
 ```text
 📋 ADR-[NNN] erstellt: [Title]
+📋 INDEX.md aktualisiert
 
 Status: Proposed → Review erforderlich
+Repo: [repo]
 
 Nächste Schritte:
 1. 👀 Review: "Review ADR-[NNN]" (AI + Team)
-2. ✅ Approval: Status → Accepted/Rejected
+2. ✅ Approval: Status → Accepted  (dann INDEX.md + ADR-Datei + Changelog aktualisieren)
 3. 🚀 Implementation: Gemäß Implementation Plan
 
 Soll ich das ADR jetzt reviewen? [Ja/Nein]
 ```
 
-## Step 5: ADR Review (if requested)
+## Step 6: ADR Review (if requested)
 
 Review the ADR against these criteria:
 
@@ -141,4 +190,45 @@ Output format:
 
 ### 🎯 Empfehlung
 [Accept / Accept with changes / Reject]
+```
+
+## Step 7: Status-Wechsel-Prozedur
+
+Wenn ein ADR seinen Status ändert (z.B. `Proposed` → `Accepted`), immer **drei Stellen** aktualisieren:
+
+### 7.1 ADR-Datei selbst
+
+```markdown
+| **Status**     | Accepted    |   ← ändern
+```
+
+Changelog-Eintrag ergänzen:
+```markdown
+| [YYYY-MM-DD] | Achim Dehnert | Status: Proposed → Accepted |
+```
+
+### 7.2 INDEX.md aktualisieren
+
+In `docs/adr/INDEX.md`:
+- Status-Spalte der entsprechenden Zeile ändern
+- "Letzte Aktualisierung"-Datum oben aktualisieren
+
+### 7.3 Ausgabe nach Status-Wechsel
+
+```text
+✅ ADR-[NNN] Status aktualisiert: [Alt] → [Neu]
+
+Geändert in:
+- docs/adr/ADR-[NNN]-[slug].md  (Status-Feld + Changelog)
+- docs/adr/INDEX.md             (Status-Spalte + Datum)
+```
+
+### Gültige Status-Übergänge
+
+```
+Proposed ──▶ Accepted     (nach positivem Review)
+Proposed ──▶ Draft        (nach Review mit Änderungsbedarf)
+Draft    ──▶ Proposed     (nach Überarbeitung)
+Accepted ──▶ Deprecated   (veraltet, kein direkter Nachfolger)
+Accepted ──▶ Superseded   (abgelöst durch ADR-NNN)
 ```
