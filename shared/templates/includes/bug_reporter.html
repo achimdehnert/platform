@@ -1,0 +1,251 @@
+{% if user.is_authenticated and SHOW_BUG_REPORTER %}
+{#
+  ADR-055: Cross-App Bug & Feature Management
+  Shared template — copy to templates/includes/bug_reporter.html in each app.
+
+  Required context variables (via context processor):
+    SHOW_BUG_REPORTER  — True in dev, False in prod
+    BUG_REPORTER_APP   — app name, e.g. "dev-hub"
+    BUG_REPORTER_REPO  — repo path, e.g. "/home/deploy/projects/dev-hub"
+
+  API: POST https://bfagent.iil.pet/api/bugs/report/
+#}
+<style>
+#br-fab{position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:10px;align-items:center}
+.br-fab-btn{width:52px;height:52px;border-radius:50%;border:none;cursor:pointer;font-size:22px;box-shadow:0 4px 14px rgba(0,0,0,.25);transition:transform .2s,box-shadow .2s;display:flex;align-items:center;justify-content:center}
+.br-fab-btn:hover{transform:scale(1.12);box-shadow:0 6px 20px rgba(0,0,0,.35)}
+.br-fab-btn.bug{background:linear-gradient(135deg,#667eea,#764ba2);color:#fff}
+.br-fab-btn.feat{background:linear-gradient(135deg,#00b894,#00cec9);color:#fff}
+#br-dev-badge{font-size:9px;font-weight:700;background:#f39c12;color:#fff;padding:2px 7px;border-radius:8px;letter-spacing:.5px;text-transform:uppercase;white-space:nowrap}
+#br-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:100000;justify-content:center;align-items:center}
+#br-overlay.show{display:flex}
+.br-modal{background:#fff;border-radius:12px;padding:24px;max-width:480px;width:92%;max-height:88vh;overflow-y:auto;box-shadow:0 12px 48px rgba(0,0,0,.3)}
+.br-modal h4{margin:0 0 18px;font-size:17px;font-weight:700;display:flex;align-items:center;gap:8px}
+.br-fg{margin-bottom:14px}
+.br-lbl{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:4px}
+.br-inp{width:100%;padding:8px 11px;border:1px solid #d1d5db;border-radius:7px;font-size:13px;box-sizing:border-box}
+.br-inp:focus{outline:none;border-color:#6366f1;box-shadow:0 0 0 3px rgba(99,102,241,.1)}
+.br-row{display:flex;gap:8px;margin-top:18px;flex-wrap:wrap}
+.br-btn{padding:8px 16px;border-radius:7px;border:none;font-size:13px;font-weight:600;cursor:pointer}
+.br-btn-sec{background:#e5e7eb;color:#374151}
+.br-btn-clip{background:#f59e0b;color:#fff}
+.br-btn-sub{background:#6366f1;color:#fff}
+.br-btn-feat{background:#10b981;color:#fff}
+.br-preview{background:#0f172a;color:#e2e8f0;border-radius:7px;padding:11px;font-family:monospace;font-size:11px;line-height:1.6;max-height:140px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-top:6px}
+.br-result{margin-top:12px;padding:10px 12px;border-radius:7px;font-size:13px}
+.br-ok{background:#f0fdf4;border:1px solid #bbf7d0;color:#15803d}
+.br-warn{background:#fffbeb;border:1px solid #fde68a;color:#d97706}
+.br-toast{position:fixed;bottom:100px;right:20px;z-index:100001;background:#1e293b;color:#fff;padding:9px 16px;border-radius:8px;font-size:13px;font-weight:600;opacity:0;transform:translateY(8px);transition:opacity .3s,transform .3s;pointer-events:none}
+.br-toast.show{opacity:1;transform:translateY(0)}
+</style>
+
+<div id="br-fab">
+  <span id="br-dev-badge">DEV</span>
+  <button class="br-fab-btn feat" onclick="brOpen('feat')" title="📋 Feature / Requirement">📋</button>
+  <button class="br-fab-btn bug"  onclick="brOpen('bug')"  title="🐛 Bug melden">🐛</button>
+</div>
+
+<div id="br-overlay" onclick="if(event.target===this)brClose()">
+  <div class="br-modal">
+    <h4 id="br-title">🐛 Bug melden</h4>
+
+    <div class="br-fg">
+      <label class="br-lbl">Seite (auto)</label>
+      <input id="br-url" class="br-inp" readonly>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="br-fg">
+        <label class="br-lbl" id="br-title-lbl">Titel *</label>
+        <input id="br-inp-title" class="br-inp" placeholder="Kurze Beschreibung">
+      </div>
+      <div class="br-fg">
+        <label class="br-lbl">Priorität</label>
+        <select id="br-prio" class="br-inp">
+          <option value="critical">🔴 Critical</option>
+          <option value="high">🟠 High</option>
+          <option value="medium" selected>🟡 Medium</option>
+          <option value="low">🟢 Low</option>
+        </select>
+      </div>
+    </div>
+    <div class="br-fg">
+      <label class="br-lbl" id="br-desc-lbl">Beschreibung *</label>
+      <textarea id="br-desc" class="br-inp" rows="3" placeholder="Was ist passiert?"></textarea>
+    </div>
+    <div class="br-fg" id="br-expected-wrap">
+      <label class="br-lbl">Erwartetes Verhalten</label>
+      <input id="br-expected" class="br-inp" placeholder="Was sollte passieren?">
+    </div>
+    <div class="br-fg">
+      <label class="br-lbl">Screenshot (optional)</label>
+      <input type="file" id="br-screenshot" accept="image/*" class="br-inp" style="padding:4px">
+      <small style="color:#9ca3af;font-size:11px">Oder Ctrl+V um Screenshot einzufügen</small>
+    </div>
+    <div class="br-fg">
+      <label class="br-lbl">Cascade Prompt (Vorschau)</label>
+      <div id="br-preview" class="br-preview">— Felder ausfüllen —</div>
+    </div>
+
+    <div class="br-row">
+      <button class="br-btn br-btn-sec" onclick="brClose()">Abbrechen</button>
+      <button class="br-btn br-btn-clip" onclick="brCopy()">📋 Nur kopieren</button>
+      <button class="br-btn br-btn-sub" id="br-submit-btn" onclick="brSubmit()">Absenden + kopieren</button>
+    </div>
+    <div id="br-result"></div>
+  </div>
+</div>
+
+<div id="br-toast" class="br-toast"></div>
+
+<script>
+(function(){
+const API = 'https://bfagent.iil.pet/api/bugs/report/';
+const APP  = '{{ BUG_REPORTER_APP|default:"unknown" }}';
+const REPO = '{{ BUG_REPORTER_REPO|default:"" }}';
+const GITHUB_REPO = '{{ BUG_REPORTER_GITHUB_REPO|default:"" }}';
+
+let _type = 'bug';
+let _screenshot = null;
+
+window.brOpen = function(t) {
+  _type = t;
+  _screenshot = null;
+  document.getElementById('br-url').value = window.location.href;
+  document.getElementById('br-inp-title').value = '';
+  document.getElementById('br-desc').value = '';
+  document.getElementById('br-expected').value = '';
+  document.getElementById('br-result').innerHTML = '';
+  document.getElementById('br-screenshot').value = '';
+  document.getElementById('br-preview').textContent = '— Felder ausfüllen —';
+
+  const isBug = t === 'bug';
+  document.getElementById('br-title').innerHTML = isBug ? '🐛 Bug melden' : '📋 Feature / Requirement';
+  document.getElementById('br-desc-lbl').textContent = isBug ? 'Was ist falsch? *' : 'Beschreibung *';
+  document.getElementById('br-expected-wrap').style.display = isBug ? '' : 'none';
+  document.getElementById('br-submit-btn').className = 'br-btn ' + (isBug ? 'br-btn-sub' : 'br-btn-feat');
+  document.getElementById('br-overlay').classList.add('show');
+  document.getElementById('br-inp-title').focus();
+};
+
+window.brClose = function() {
+  document.getElementById('br-overlay').classList.remove('show');
+};
+
+function buildPrompt() {
+  const url      = document.getElementById('br-url').value;
+  const title    = document.getElementById('br-inp-title').value || '?';
+  const desc     = document.getElementById('br-desc').value || '?';
+  const prio     = document.getElementById('br-prio').value;
+  const expected = document.getElementById('br-expected').value;
+  const repo     = GITHUB_REPO || 'achimdehnert/' + APP;
+  const path     = REPO || '/home/deploy/projects/' + APP;
+
+  if (_type === 'bug') {
+    return `## 🐛 Bug Fix — ${APP}\n\n**Repo:** \`${repo}\`\n**Pfad:** \`${path}\`\n**Seite:** ${url}\n**Priorität:** ${prio}\n\n### ❌ Aktuelles Verhalten\n${title}: ${desc}\n${expected ? '\n### ✅ Erwartetes Verhalten\n' + expected + '\n' : ''}\n### Aufgabe\nAnalysiere den Bug, finde die Ursache in \`${path}\` und behebe ihn minimal. Schreibe einen Regressionstest falls sinnvoll.`;
+  } else {
+    return `## 📋 Feature — ${APP}\n\n**Repo:** \`${repo}\`\n**Pfad:** \`${path}\`\n**Kontext:** ${url}\n**Priorität:** ${prio}\n\n### Feature: ${title}\n\n### Beschreibung\n${desc}\n\n### Aufgabe\nImplementiere dieses Feature in \`${path}\`. Halte dich an die bestehende Architektur.`;
+  }
+}
+
+function updatePreview() {
+  const t = document.getElementById('br-inp-title').value;
+  const d = document.getElementById('br-desc').value;
+  if (t || d) document.getElementById('br-preview').textContent = buildPrompt();
+}
+
+window.brCopy = function() {
+  const txt = buildPrompt();
+  navigator.clipboard.writeText(txt)
+    .then(() => toast('✅ Cascade Prompt kopiert!'))
+    .catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = txt; ta.style.cssText = 'position:fixed;opacity:0';
+      document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); document.body.removeChild(ta);
+      toast('✅ Prompt kopiert');
+    });
+};
+
+function toast(msg) {
+  const el = document.getElementById('br-toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+window.brSubmit = function() {
+  const title = document.getElementById('br-inp-title').value.trim();
+  const desc  = document.getElementById('br-desc').value.trim();
+  if (!title && !desc) { toast('⚠️ Bitte Titel oder Beschreibung ausfüllen'); return; }
+
+  const btn = document.getElementById('br-submit-btn');
+  const res = document.getElementById('br-result');
+  btn.disabled = true; btn.textContent = '⏳ Wird gesendet...';
+  res.innerHTML = '';
+
+  const payload = {
+    type:              _type,
+    title:             title,
+    description:       desc,
+    url:               document.getElementById('br-url').value,
+    priority:          document.getElementById('br-prio').value,
+    app_name:          APP,
+    expected_behavior: document.getElementById('br-expected').value,
+    screenshot:        _screenshot || '',
+  };
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-App-Name': APP },
+    body: JSON.stringify(payload),
+  })
+  .then(r => r.json())
+  .then(data => {
+    const prompt = data.cascade_prompt || buildPrompt();
+    navigator.clipboard.writeText(prompt).catch(() => {});
+    if (data.success) {
+      res.innerHTML = `<div class="br-result br-ok">✅ ${data.message || 'Erfasst!'}<br><small>📋 Cascade Prompt kopiert${data.view_url ? ' · <a href="' + data.view_url + '" target="_blank" style="color:#6366f1">→ Öffnen</a>' : ''}</small></div>`;
+    } else {
+      brCopy();
+      res.innerHTML = `<div class="br-result br-warn">⚠️ API-Fehler: ${data.error || '?'}<br><small>📋 Prompt wurde trotzdem kopiert</small></div>`;
+    }
+  })
+  .catch(() => {
+    brCopy();
+    res.innerHTML = `<div class="br-result br-warn">⚠️ bfagent nicht erreichbar<br><small>📋 Cascade Prompt wurde trotzdem kopiert</small></div>`;
+  })
+  .finally(() => {
+    btn.disabled = false;
+    btn.textContent = 'Absenden + kopieren';
+  });
+};
+
+// Screenshot paste
+document.addEventListener('paste', function(e) {
+  if (!document.getElementById('br-overlay').classList.contains('show')) return;
+  for (const item of e.clipboardData.items) {
+    if (item.type.startsWith('image/')) {
+      e.preventDefault();
+      const reader = new FileReader();
+      reader.onload = ev => { _screenshot = ev.target.result; toast('📸 Screenshot eingefügt'); };
+      reader.readAsDataURL(item.getAsFile());
+      break;
+    }
+  }
+});
+
+// Screenshot file upload
+document.getElementById('br-screenshot').addEventListener('change', function(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => { _screenshot = ev.target.result; };
+  reader.readAsDataURL(file);
+});
+
+// Live preview
+['br-inp-title', 'br-desc', 'br-expected'].forEach(id => {
+  document.getElementById(id).addEventListener('input', updatePreview);
+});
+})();
+</script>
+{% endif %}

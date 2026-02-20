@@ -69,6 +69,7 @@
 | 051 | Concept-to-ADR Pipeline — Idea Capture & Promotion Workflow | `?` | `platform` | [ADR-051-concept-to-adr-pipeline.md](ADR-051-concept-to-adr-pipeline.md) |
 | 053 | deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes | `?` | `platform` | [ADR-053-deployment-mcp-robustness.md](ADR-053-deployment-mcp-robustness.md) |
 | 054 | Deployment Pre-Flight Validation & platform-context als Managed Package | `Draft` | `platform` | [ADR-054-deployment-preflight-validation.md](ADR-054-deployment-preflight-validation.md) |
+| 055 | Cross-App Bug & Feature Management | `Accepted` | `platform` | [ADR-055-cross-app-bug-management.md](ADR-055-cross-app-bug-management.md) |
 
 ### MCP Hub (150–199)
 
