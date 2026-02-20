@@ -1,17 +1,18 @@
 name: "🚀 New App Onboarding"
-description: "Checkliste für das Onboarding einer neuen App in die Platform (ADR-054 M2)"
+description: "Checkliste für das Onboarding einer neuen App in die Platform (ADR-056 M2)"
 title: "Onboarding: [APP-NAME]"
 labels: ["onboarding", "deployment"]
 body:
   - type: markdown
     attributes:
       value: |
-        ## Pre-Deployment Checkliste
+        ## Pre-Deployment Checkliste (ADR-056)
         Alle Punkte müssen abgehakt sein, bevor der erste Workflow-Run gestartet wird.
         Führe zuerst das Pre-Flight-Script aus:
         ```bash
         ./scripts/validate-deployment-readiness.sh --repo <repo> --app <app> --pat <PAT>
         ```
+        Server: `88.198.191.108` | Registry: `ghcr.io/achimdehnert/` | Runner: `self-hosted`
 
   - type: input
     id: app_name
@@ -29,6 +30,14 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: port
+    attributes:
+      label: App-Port (Host)
+      placeholder: "z.B. 8088 — muss in ADR-021 §2.9 registriert sein"
+    validations:
+      required: true
+
   - type: checkboxes
     id: github_checks
     attributes:
@@ -37,15 +46,15 @@ body:
       options:
         - label: "`allowed_actions` ist auf `all` oder `selected` gesetzt (NICHT `local_only`)"
           required: true
-        - label: "Secret `HETZNER_HOST` ist gesetzt"
+        - label: "Secret `DEPLOY_HOST` ist gesetzt (Wert: `88.198.191.108`)"
           required: true
-        - label: "Secret `HETZNER_USER` ist gesetzt"
+        - label: "Secret `DEPLOY_USER` ist gesetzt (Wert: `root`)"
           required: true
-        - label: "Secret `HETZNER_SSH_KEY` ist gesetzt"
-          required: true
-        - label: "Secret `GHCR_TOKEN` ist gesetzt"
+        - label: "Secret `DEPLOY_SSH_KEY` ist gesetzt (SSH-Private-Key)"
           required: true
         - label: "GitHub Actions ist für das Repo aktiviert"
+          required: true
+        - label: "`permissions: packages: write` ist im Workflow deklariert"
           required: true
 
   - type: checkboxes
@@ -58,43 +67,47 @@ body:
           required: true
         - label: "Keine absoluten lokalen Pfade (`/home/`, `/opt/`) in `pyproject.toml` oder `requirements.txt`"
           required: true
-        - label: "`platform_context` ist als Package installiert (nicht via `wheels/`)"
+        - label: "`platform_context` ist via GHCR-Package installiert (nicht via `wheels/`) — ADR-056 §2.3"
           required: false
-        - label: "Image-Name in `docker-compose.prod.yml` stimmt mit Build-Output überein"
+        - label: "Image-Name in `docker-compose.prod.yml` stimmt mit Build-Output überein (`ghcr.io/achimdehnert/<repo>:latest`)"
+          required: true
+        - label: "Build pusht sowohl `latest` als auch `<sha7>`-Tag (für Rollback)"
           required: true
 
   - type: checkboxes
     id: workflow_checks
     attributes:
       label: "3. Workflow-Konfiguration (Fehlerklasse C)"
-      description: "Verhindert startup_failure durch falsche Workflow-Struktur"
+      description: "Verhindert startup_failure durch falsche Workflow-Struktur — ADR-056 §2.2"
       options:
-        - label: "Reusable Workflows und normale Jobs sind NICHT gemischt (nur eines pro Workflow)"
+        - label: "Inline `ci-cd.yml` Template verwendet (ADR-056 §2.2) — KEIN Mischen von Reusable + normalen Jobs"
           required: true
-        - label: "`workflow_call`-Inputs sind nicht bei Push-Triggern verwendet"
+        - label: "Kein `inputs.*` bei Push-Triggern"
           required: true
-        - label: "`actionlint` läuft ohne Fehler auf allen Workflow-Dateien"
-          required: false
-        - label: "Reusable Workflows referenzieren `@main` oder einen festen Tag (nicht `@latest`)"
+        - label: "`runs-on: self-hosted` in allen Jobs"
+          required: true
+        - label: "Health-Check via `/livez/` nach Deploy-Job vorhanden"
           required: true
 
   - type: checkboxes
     id: server_checks
     attributes:
       label: "4. Server-Konfiguration (Fehlerklasse D)"
-      description: "Verhindert 502 Bad Gateway und Backup-Fehler"
+      description: "Verhindert 502 Bad Gateway und Infrastructure Drift — Server: 88.198.191.108"
       options:
-        - label: "Deploy-Pfad `/opt/<app>/` existiert auf dem Dev-Server (46.225.113.1)"
+        - label: "Deploy-Pfad `/opt/<app>/` existiert auf `88.198.191.108`"
           required: true
         - label: "`.env.prod` liegt in `/opt/<app>/.env.prod`"
           required: true
         - label: "`.env.prod` enthält: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `SECRET_KEY`, `ALLOWED_HOSTS`"
           required: true
-        - label: "Nginx `proxy_pass` zeigt auf `46.225.113.1:<port>` (NICHT `127.0.0.1`)"
+        - label: "Nginx-Config in `/etc/nginx/sites-enabled/` vorhanden und proxy_pass korrekt"
           required: true
-        - label: "Port-Binding im Compose ist `0.0.0.0:<port>:8000` (NICHT `127.0.0.1`)"
+        - label: "Kein `proxy_pass http://127.0.0.1:...` in Nginx (muss auf Container-Port zeigen)"
           required: true
-        - label: "SSL-Zertifikat für die Domain ist auf dem Prod-Server (88.198.191.108) vorhanden"
+        - label: "SSL-Zertifikat für die Domain via Let's Encrypt vorhanden"
+          required: true
+        - label: "Port in ADR-021 §2.9 Port-Registry eingetragen"
           required: true
 
   - type: checkboxes
@@ -102,18 +115,19 @@ body:
     attributes:
       label: "5. Pre-Flight Script"
       options:
-        - label: "`./scripts/validate-deployment-readiness.sh` läuft ohne Fehler durch"
+        - label: "`./scripts/validate-deployment-readiness.sh --repo <repo> --app <app>` läuft ohne Fehler (exit 0)"
           required: true
 
   - type: textarea
     id: port_mapping
     attributes:
-      label: Port-Mapping
-      description: "Dokumentiere das Port-Mapping für spätere Referenz"
+      label: Port-Mapping & Domain
+      description: "Dokumentiere das Port-Mapping für ADR-021 §2.9"
       placeholder: |
-        - App-Port: 0.0.0.0:XXXX:8000
-        - Nginx proxy_pass: http://46.225.113.1:XXXX
-        - Domain: https://app.iil.pet
+        - App-Port (Host): 0.0.0.0:XXXX:8000
+        - Nginx proxy_pass: http://localhost:XXXX
+        - Domain: https://app.example.com
+        - SSL: Let's Encrypt ✓
     validations:
       required: true
 
@@ -121,4 +135,4 @@ body:
     id: notes
     attributes:
       label: Notizen / Abweichungen
-      description: "Besonderheiten oder begründete Abweichungen vom Standard-Setup"
+      description: "Besonderheiten oder begründete Abweichungen vom Standard-Setup (ADR-056)"
