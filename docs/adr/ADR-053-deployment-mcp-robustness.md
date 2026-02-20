@@ -5,7 +5,7 @@ status: implemented
 date: 2026-02-20
 author: Achim Dehnert
 owner: Achim Dehnert
-scope: mcp-hub / deployment_mcp
+scope: mcp-hub
 tags: [mcp-hub, deployment, ssh, robustness, circuit-breaker, async, reliability]
 related: [ADR-044, ADR-042, ADR-021]
 last_verified: 2026-02-20
@@ -122,14 +122,26 @@ timeout (30s).
 
 #### 1c: Watchdog background task
 
+> **Fix (Review 2026-02-20):** `sem._value` ist eine private asyncio-API (undokumentiert,
+> kann sich in Python 3.12+ ändern). Stattdessen wird ein eigener atomarer Counter geführt.
+
 ```python
+# ssh_client.py — eigener Busy-Counter neben dem Semaphore
+_SSH_BUSY: dict[str, int] = {}   # host → aktive Slots
+
+def _get_busy(host: str) -> int:
+    return _SSH_BUSY.get(host, 0)
+
+# In _run_once(): vor sem.acquire() → _SSH_BUSY[host] += 1
+#                 in finally:        → _SSH_BUSY[host] -= 1
+
 # server.py — run_server()
 async def _watchdog(interval: int = 30) -> None:
     """Log semaphore pressure every 30s for observability."""
     while True:
         await asyncio.sleep(interval)
-        for host, sem in _SSH_SEMAPHORES.items():
-            busy = _SSH_CONCURRENCY - sem._value
+        for host in list(_SSH_SEMAPHORES):
+            busy = _get_busy(host)
             if busy > 0:
                 logger.warning(
                     "SSH semaphore: %d/%d slots busy host=%s",
@@ -203,6 +215,10 @@ class CircuitBreaker:
                         f"Circuit OPEN host={self.host},"
                         f" retry in {remaining}s"
                     )
+            # half_open: nur 1 gleichzeitiger Probe-Call erlaubt
+            # Weitere Calls werden wie OPEN behandelt bis Probe abgeschlossen
+            if self.state == "half_open":
+                self.state = "probing"   # blockiert weitere Calls
         try:
             result = await coro
             await self._record_success()
@@ -210,6 +226,10 @@ class CircuitBreaker:
         except Exception:
             await self._record_failure()
             raise
+
+    # Erweiterung: 'probing' als interner Zustand
+    # _record_success: probing → closed
+    # _record_failure: probing → open (reset timer)
 
     async def _record_success(self) -> None:
         async with self._lock:
@@ -348,6 +368,41 @@ def get_job_manager() -> JobManager:
 New MCP tools: `job_start`, `job_status`, `job_list` (new file
 `deployment_mcp/tools/job_tools.py`).
 
+#### `job_start` Interface
+
+```python
+# Input
+{
+  "tool": "compose_up",          # Name des async-fähigen Tools
+  "args": {                       # Tool-Argumente (identisch zum direkten Aufruf)
+    "service": "trading-hub-web",
+    "detach": true
+  }
+}
+# Output (sofort, ohne auf Completion zu warten)
+{
+  "job_id": "a3f9c1d2e4b5",
+  "status": "pending",
+  "tool": "compose_up",
+  "submitted_at": "2026-02-20T10:00:00Z"
+}
+```
+
+#### `job_status` Interface
+
+```python
+# Input
+{ "job_id": "a3f9c1d2e4b5" }
+# Output (laufend)
+{ "job_id": "...", "status": "running", "elapsed_s": 12, "tool": "compose_up" }
+# Output (fertig)
+{ "job_id": "...", "status": "done", "elapsed_s": 34, "result": { ... } }
+# Output (fehlgeschlagen)
+{ "job_id": "...", "status": "failed", "elapsed_s": 8, "error": "exit code 1: ..." }
+```
+
+**Cascade-Polling-Pattern:** `job_start` → warte 5s → `job_status` (loop bis `done`/`failed`).
+
 Tools eligible for async mode:
 
 ```python
@@ -429,3 +484,12 @@ on the remote host.
 | 3 — Async Jobs | `jobs/job_manager.py` (new), `tools/job_tools.py` (new), `server.py` | 4h | Phase 2 |
 
 Each phase is independently releasable via the existing `mcp-hub` CI/CD pipeline.
+
+---
+
+## Changelog
+
+| Datum | Autor | Änderung |
+|-------|-------|----------|
+| 2026-02-20 | Achim Dehnert | Initial — implementiert in commit `4888fc0` (Phase 1 vollständig) |
+| 2026-02-20 | Review | Fix: `scope` korrigiert auf `mcp-hub`; `sem._value` private API → eigener `_SSH_BUSY`-Counter; Circuit-Breaker `half_open` race condition → `probing`-State; `job_start`/`job_status` Interface vollständig spezifiziert |
