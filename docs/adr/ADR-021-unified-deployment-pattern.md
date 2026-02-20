@@ -1,17 +1,19 @@
-# ADR-021: Unified Deployment Architecture
+---
+status: "accepted"
+date: 2026-02-10
+amended: 2026-02-20
+decision-makers: [Achim Dehnert]
+consulted: []
+informed: []
+---
 
-**Status**: Accepted (Amended 2026-02-20)
-**Date**: 2026-02-10
-**Amended**: 2026-02-20
-**Author**: Achim Dehnert
-**Scope**: All platform projects
-**Supersedes**: Per-project ad-hoc deployment setups
+# Adopt unified single-service deployment pipeline for all platform projects
 
 > **Amendment 2026-02-20**: Added §2.14 (`infra-deploy` repo as Agent-API), §2.15 (Fast-Deploy Override), §2.16 (Expand-Contract Migrations Convention), updated §2.3 (dev-hub added), §2.9 (port registry updated), §4 (current state updated).
 
 ---
 
-## 1. Problem Statement
+## Context and Problem Statement
 
 Five Django projects deploy to one Hetzner VM. Each evolved its own CI/CD pipeline independently, creating **unnecessary cognitive load** and **fragile, inconsistent automation**:
 
@@ -22,11 +24,117 @@ Five Django projects deploy to one Hetzner VM. Each evolved its own CI/CD pipeli
 
 **Cost of status quo**: Every deploy requires re-discovering project-specific details. AI assistants re-probe server layout on every invocation. Workflow bugs are fixed per-repo instead of once.
 
-## 2. Decision
+---
+
+## Decision Drivers
+
+* **Operational efficiency**: Reduce per-deploy cognitive load for a 1–3 person team
+* **Consistency**: One rollback mechanism, one health-check convention, one secrets pattern
+* **AI-agent compatibility**: Agents must find all deploy parameters without probing the server
+* **Budget constraint**: Single Hetzner VPS — no Kubernetes, no expensive SaaS tooling
+* **Security**: No secrets in code or config files; SSH-key auth only
+* **Maintainability**: Fix a workflow bug once in `platform`, all projects benefit
+
+---
+
+## Considered Options
+
+1. **Status quo** — keep per-project ad-hoc pipelines
+2. **Unified platform reusable workflows** (`_ci-python.yml`, `_build-docker.yml`, `_deploy-hetzner.yml`) — all projects adopt the same three-stage pipeline
+3. **`infra-deploy` central repository** — dedicated repo acts as deployment API for agents and cross-repo orchestration (extends Option 2)
+4. **Kamal (formerly MRSK)** — Rails-ecosystem deploy tool, SSH-based, zero-downtime
+5. **Traefik v3 as reverse proxy** — replace Nginx with automatic service discovery and Let's Encrypt
+
+---
+
+## Decision Outcome
+
+**Chosen option: Option 2 + Option 3 (combined)**, because:
+
+- Option 2 eliminates per-project CI/CD drift with minimal migration effort (~30 min/project).
+- Option 3 adds a stable API surface for AI agents and manual overrides without replacing the existing CI/CD flow.
+- Option 4 (Kamal) introduces a Ruby dependency and opinionated conventions that conflict with existing Docker Compose setup.
+- Option 5 (Traefik) is deferred — Nginx is already working and the migration risk is not justified at current scale (see §2.10).
+
+The two options are **additive**: `_deploy-hetzner.yml` handles push-triggered CI/CD; `infra-deploy` handles agent-triggered and manual deploys.
+
+### Confirmation
+
+Compliance is verified by:
+
+1. **CI check**: Each service repo's `ci-cd.yml` references `achimdehnert/platform/.github/workflows/_ci-python.yml@v1` — reviewable in GitHub Actions tab.
+2. **Migration table**: §5 tracks each project's migration status; items are closed when the PR merges.
+3. **Health endpoint test**: `curl -sf https://<domain>/healthz/` returns `{"status": "ok"}` — verified post-deploy by `deploy-remote.sh`.
+4. **ADR-054 Architecture Guardian**: The agent checks new workflow files for platform-workflow usage on every PR.
+
+### Consequences
+
+* Good, because a single platform workflow fix propagates to all projects automatically.
+* Good, because AI agents find all deploy parameters in §2.3 without server probing.
+* Good, because rollback is consistent and tested across all projects.
+* Good, because new projects are onboarded in ~30 min (copy template + fill 6 parameters).
+* Bad, because a platform workflow bug now affects all projects simultaneously — mitigated by `@v1` version pinning.
+* Bad, because the one-time migration effort per project (~30 min) must be scheduled.
+* Bad, because shared DB between weltenhub and bfagent creates concurrent-migration risk — mitigated by deploy-remote.sh file locking (per-app only).
+
+---
+
+## Pros and Cons of the Options
+
+### Option 1 — Status quo (per-project ad-hoc pipelines)
+
+* Good, because zero migration effort.
+* Good, because project-specific quirks are already handled.
+* Bad, because every workflow bug must be fixed in 5+ places.
+* Bad, because AI agents must re-probe server layout on every invocation.
+* Bad, because no consistent rollback mechanism exists.
+
+### Option 2 — Unified platform reusable workflows
+
+* Good, because single source of truth for CI/CD logic.
+* Good, because rollback, health checks, and image tagging are standardised.
+* Good, because secrets are managed once (org-level GitHub secrets).
+* Bad, because projects with non-standard layouts (bfagent, travel-beat) require migration.
+* Bad, because reusable workflow limitations (no `env:` block passthrough) require workarounds.
+
+### Option 3 — `infra-deploy` central repository (extends Option 2)
+
+* Good, because agents and manual operators have a single entry point.
+* Good, because secrets (SSH key) are isolated in one repo, not scattered across 5+.
+* Good, because `repository_dispatch` enables cross-repo orchestration.
+* Bad, because adds one more repo to maintain.
+* Bad, because self-hosted runner on dev-server must stay registered and healthy.
+
+### Option 4 — Kamal
+
+* Good, because zero-downtime blue-green deploys out of the box.
+* Good, because simple CLI interface.
+* Bad, because requires Ruby runtime on CI and server.
+* Bad, because opinionated conventions conflict with existing Docker Compose setup.
+* Bad, because team has no Ruby expertise — operational risk at 3 AM.
+
+### Option 5 — Traefik v3 as reverse proxy
+
+* Good, because automatic TLS and service discovery reduce manual Nginx config.
+* Good, because native Docker label-based routing fits compose setup.
+* Bad, because Nginx is already working and battle-tested on this server.
+* Bad, because migration risk is not justified at current scale.
+* Bad, because Traefik's dynamic config model requires learning curve for small team.
+
+---
+
+## More Information
+
+- **Related ADRs**: ADR-008 (infrastructure), ADR-022 (code quality tooling), ADR-042 (dev environment deploy workflow), ADR-045 (secrets/SOPS), ADR-054 (LLM Agent Ecosystem / Architecture Guardian)
+- **Traefik decision**: Deferred to a future ADR. Nginx retained consciously (see §2.10).
+- **SSH as root**: Conscious decision documented in §2.1.
+- **Migration tracking**: §5 lists all open migration tasks with priority.
+
+---
+
+## 2. Implementation Details
 
 ### 2.1 Infrastructure Constants
-
-These values are identical across all projects and **MUST NOT be re-discovered**:
 
 | Constant | Value |
 | --- | --- |
@@ -38,13 +146,15 @@ These values are identical across all projects and **MUST NOT be re-discovered**
 | Internal app port | `8000` (Gunicorn) |
 | Env file on server | `.env.prod` (never committed) |
 
+> **SSH as root — conscious decision**: The Hetzner VM is a single-tenant server. Using `root` avoids `sudo` complexity in deploy scripts. Risk is mitigated by: SSH-key-only auth (password disabled), firewall restricting port 22 to known IPs. A future ADR may introduce a dedicated `deploy` user if the team grows.
+
 ### 2.2 Conventions (MUST for new projects, SHOULD for existing)
 
 | Convention | Standard | Rationale |
 | --- | --- | --- |
 | Dockerfile | `docker/app/Dockerfile` | Separates infra from app code |
 | Compose | `docker-compose.prod.yml` (root) | Predictable, one level |
-| Health endpoints | `/livez/` (liveness) + `/healthz/` (readiness) | Matches `deploy-remote.sh` default + platform template |
+| Health endpoints | `/livez/` + `/healthz/` | Matches `deploy-remote.sh` default + platform template |
 | Image name | `ghcr.io/achimdehnert/<repo>:<tag>` | Flat; no nested sub-images |
 | Image tags | `latest` + git SHA short (7 chars) | Rollback by SHA, default by latest |
 | Server path | `/opt/<repo>` | Exception: bfagent → `/opt/bfagent-app` (legacy) |
@@ -53,11 +163,13 @@ These values are identical across all projects and **MUST NOT be re-discovered**
 | Non-root user | Required in Dockerfile | Security; `USER <appname>` |
 | HEALTHCHECK | Required in Dockerfile | `python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')"` |
 | Multi-stage build | Recommended | Smaller images, no build tools in prod |
+| SSH known hosts | Use `ssh-keyscan` | Never use `StrictHostKeyChecking=no` — use `ssh-keyscan 88.198.191.108 >> ~/.ssh/known_hosts` |
 
 ### 2.3 Per-Project Parameters (the only things that vary)
 
 | Parameter | bfagent | risk-hub | travel-beat | weltenhub | pptx-hub | dev-hub |
 | --- | --- | --- | --- | --- | --- | --- |
+| `deploy_via` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `infra-deploy` |
 | `deploy_path` | `/opt/bfagent-app` | `/opt/risk-hub` | `/opt/travel-beat` | `/opt/weltenhub` | `/opt/pptx-hub` | `/opt/dev-hub` |
 | `dockerfile` | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` ¹ | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` |
 | `compose_file` | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `deploy/docker-compose.prod.yml` ¹ | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `docker-compose.prod.yml` |
@@ -76,8 +188,6 @@ These values are identical across all projects and **MUST NOT be re-discovered**
 
 ### 2.4 deploy-remote.sh Defaults
 
-The deploy script lives at `platform/deployment/scripts/deploy-remote.sh` and is synced to the VM by `_deploy-hetzner.yml`. Key defaults that projects must be aware of:
-
 | Parameter | Default | Override flag |
 | --- | --- | --- |
 | `DEPLOY_DIR` | `/srv/<app>` ⚠️ (not `/opt/`) | `--deploy-dir` (always pass explicitly!) |
@@ -88,11 +198,9 @@ The deploy script lives at `platform/deployment/scripts/deploy-remote.sh` and is
 | `HEALTH_RETRIES` | 12 | `--health-retries` |
 | `HEALTH_INTERVAL` | 5s | `--health-interval` |
 
-**Worker restart**: The script auto-restarts `<app>-worker` if it exists, but does **NOT** restart beat or custom services like `weltenhub-celery`, `weltenhub-beat`. These must be handled via compose dependency chains or manual restart.
+**Worker restart**: The script auto-restarts `<app>-worker` if it exists, but does **NOT** restart beat or custom services. These must be handled via compose dependency chains or manual restart.
 
 ### 2.5 CI/CD: Three-Stage Platform Pipeline
-
-Every project uses the same three reusable workflows from `achimdehnert/platform`:
 
 ```yaml
 # .github/workflows/ci-cd.yml — canonical template
@@ -100,7 +208,7 @@ name: CI/CD Pipeline
 
 permissions:
   contents: read
-  packages: write
+  packages: write   # Required for GHCR push via GITHUB_TOKEN
 
 on:
   push:
@@ -117,37 +225,34 @@ on:
 
 jobs:
   ci:
-    name: "CI"
     uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1
     with:
-      python_version: "3.12"          # per-project
-      source_dir: "src"               # per-project
-      django_settings_module: "config.settings"  # per-project
+      python_version: "3.12"
+      source_dir: "src"
+      django_settings_module: "config.settings"
       coverage_threshold: 0
       skip_tests: ${{ inputs.skip_tests || false }}
     secrets: inherit
 
   build:
-    name: "Build"
     needs: [ci]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1
     with:
-      dockerfile: "docker/app/Dockerfile"  # per-project
+      dockerfile: "docker/app/Dockerfile"
       scan_image: true
     secrets: inherit
 
   deploy:
-    name: "Deploy"
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1
     with:
-      app_name: "risk-hub"            # per-project
-      deploy_path: "/opt/risk-hub"    # per-project
-      health_url: "https://demo.schutztat.de/health/"  # per-project
+      app_name: "risk-hub"
+      deploy_path: "/opt/risk-hub"
+      health_url: "https://demo.schutztat.de/healthz/"
       compose_file: "docker-compose.prod.yml"
-      web_service: "risk-hub-web"     # per-project
+      web_service: "risk-hub-web"
       run_migrations: true
       enable_rollback: true
     secrets:
@@ -160,7 +265,7 @@ jobs:
 
 | Secret | Source | Notes |
 | --- | --- | --- |
-| `GITHUB_TOKEN` | Automatic | GHCR push (packages:write) |
+| `GITHUB_TOKEN` | Automatic | Requires `packages: write` in workflow permissions |
 | `DEPLOY_HOST` | `88.198.191.108` | Same for all repos |
 | `DEPLOY_USER` | `root` | Same for all repos |
 | `DEPLOY_SSH_KEY` | SSH private key | Same key, shared across repos |
@@ -169,13 +274,11 @@ jobs:
 
 ### 2.7 Rollback Strategy
 
-| Scenario | Action | Command |
-| --- | --- | --- |
-| Health check fails after deploy | `deploy-remote.sh` auto-rollback | Automatic (keeps previous image digest) |
-| Bad deploy discovered later | Redeploy previous SHA | `docker compose pull && up -d` with previous tag |
-| Database migration broke | Manual rollback migration | `docker exec <container> python manage.py migrate <app> <previous_migration>` |
-
-The `_deploy-hetzner.yml` workflow already supports `enable_rollback: true`, which saves the current image digest before deploying and restores it if the health check fails.
+| Scenario | Action |
+| --- | --- |
+| Health check fails after deploy | `deploy-remote.sh` auto-rollback (keeps previous image digest) |
+| Bad deploy discovered later | Redeploy previous SHA via `docker compose pull && up -d` |
+| Database migration broke | `docker exec <container> python manage.py migrate <app> <previous_migration>` |
 
 ### 2.8 Image Tagging Strategy
 
@@ -185,11 +288,7 @@ The `_deploy-hetzner.yml` workflow already supports `enable_rollback: true`, whi
 | `<sha7>` | Every push to `main` | Immutable; rollback target |
 | `v1.2.3` | Semver git tag | Release marker |
 
-The `_build-docker.yml` workflow auto-generates all three tags via `docker/metadata-action`.
-
 ### 2.9 Port Allocation Registry
-
-All projects bind to `127.0.0.1:<port>` on the host. Nginx/Caddy forwards from 443.
 
 | Port | Project | Service |
 | --- | --- | --- |
@@ -204,55 +303,39 @@ All projects bind to `127.0.0.1:<port>` on the host. Nginx/Caddy forwards from 4
 
 **Rule**: New projects pick the next available port in the 80xx range. Update this table.
 
-### 2.10 Compose Hardening (MUST for all projects)
+### 2.10 Reverse Proxy: Nginx (Conscious Decision)
 
-The reference template is at `platform/deployment/templates/docker-compose.prod.yml`. All production compose files MUST include:
+**Decision**: Nginx is retained. Traefik v3 was evaluated but deferred.
+
+**Rationale**: Nginx is already operational with Let's Encrypt TLS on all domains. Migration to Traefik would require reconfiguring all virtual hosts — significant risk for a small team with no downtime budget. If the service count grows beyond ~10 or multi-VM deployment is needed, Traefik v3 should be re-evaluated in a dedicated ADR.
+
+### 2.11 Compose Hardening (MUST for all projects)
 
 | Requirement | Why | Example |
 | --- | --- | --- |
-| `logging.driver: json-file` with `max-size` + `max-file` | Prevents disk-full from unbounded logs | `max-size: "20m"`, `max-file: "5"` |
-| `deploy.resources.limits.memory` | Prevents OOM killing other services | `512M` for web, `384M` for worker |
-| `healthcheck` on all services | Docker restart + deploy-remote.sh probing | See template |
+| `logging.driver: json-file` with `max-size` + `max-file` | Prevents disk-full | `max-size: "20m"`, `max-file: "5"` |
+| `deploy.resources.limits.memory` | Prevents OOM | `512M` for web, `384M` for worker |
+| `healthcheck` on all services | Docker restart + deploy probing | See platform template |
 | `restart: unless-stopped` | Auto-recovery after host reboot | — |
-| `shm_size: 128m` for postgres | Prevents "could not resize shared memory" | — |
-
-**Current gaps**: risk-hub, travel-beat, weltenhub, pptx-hub compose files are missing log rotation and/or memory limits. Migration tracked in §5.
-
-### 2.11 Platform Reference Templates
-
-The `platform/deployment/` directory contains production-ready templates:
-
-| File | Purpose |
-| --- | --- |
-| `templates/docker-compose.prod.yml` | Full compose template with all hardening |
-| `templates/django/healthz.py` | `/livez/` + `/healthz/` views (DB, Redis, disk, migrations) |
-| `scripts/deploy-remote.sh` | Atomic deploy with backup, migration gate, rollback |
-| `workflows/ci.yml` | CI template |
-| `workflows/deploy-prod.yml` | Deploy template |
-
-New projects should copy these, not reinvent.
+| `shm_size: 128m` for postgres | Prevents shared memory errors | — |
 
 ### 2.12 Manual Deploy via MCP Tools
-
-For Windsurf/Cascade-driven deploys outside of CI:
 
 ```bash
 # 1. Build + Push (local)
 docker build -f docker/app/Dockerfile -t ghcr.io/achimdehnert/<repo>:latest .
 docker push ghcr.io/achimdehnert/<repo>:latest
 
-# 2. Deploy (via deployment-mcp ssh_manage or direct SSH)
+# 2. Deploy via SSH
 ssh root@88.198.191.108 '
   cd /opt/<repo> &&
   docker compose -f docker-compose.prod.yml pull <web_service> &&
-  docker compose -f docker-compose.prod.yml up -d --force-recreate <web_service> <extra_services> &&
+  docker compose -f docker-compose.prod.yml up -d --force-recreate <web_service> &&
   sleep 5 &&
-  curl -sf http://127.0.0.1:<host_port>/health/ &&
+  curl -sf http://127.0.0.1:<host_port>/healthz/ &&
   docker logs <container> --tail 10
 '
 ```
-
-Substitute parameters from the table in §2.3.
 
 ### 2.13 Monitoring After Deploy
 
@@ -263,47 +346,29 @@ Substitute parameters from the table in §2.3.
 | Container restart policy | `restart: unless-stopped` | Automatic |
 | Log inspection | `docker logs` / `deployment-mcp` | On demand |
 
-**Missing (future)**: Uptime monitoring (e.g. Uptime Kuma), centralized logging (e.g. Loki), alerting.
+### 2.14 `infra-deploy` Repository as Deployment API
 
-### 2.14 `infra-deploy` Repository — Deployment API for Agents and Humans
-
-**Decision (2026-02-20):** A dedicated `achimdehnert/infra-deploy` repository serves as the single entry point for all deployments — callable by humans, Cascade, and autonomous agents alike.
-
-**Rationale:**
-
-- Isolates deployment secrets (SSH keys, GHCR token) to one repo — not duplicated across all service repos
-- Provides a stable `workflow_dispatch` + `repository_dispatch` API that agents can call without code changes
-- Enables autonomous rollback: an agent detecting errors can trigger `rollback.yml` without human intervention
-- Creates a single audit trail (`deploy.log`) across all services
+**Decision (2026-02-20):** A dedicated `achimdehnert/infra-deploy` repository acts as the single entry point for agent-triggered and manually-orchestrated deployments.
 
 **Repository structure:**
 
 ```text
-infra-deploy/
+achimdehnert/infra-deploy/
 ├── .github/workflows/
-│   ├── deploy-service.yml      # Trigger: repository_dispatch (from CI) or workflow_dispatch (manual/agent)
-│   └── rollback.yml            # Trigger: workflow_dispatch — inputs: service, environment, target_tag
+│   ├── deploy-service.yml
+│   └── rollback.yml
 ├── scripts/
-│   ├── deploy.sh               # Atomic deploy: pull → migrate → up → health-check → rollback on failure
-│   └── rollback.sh             # Explicit rollback to previous or named tag
+│   ├── deploy.sh
+│   └── rollback.sh
 └── README.md
 ```
 
-**Server state directory** (on 88.198.191.108, gitignored):
-
-```text
-/opt/deploy/production/.deployed/
-├── <service>.tag               # Currently active image tag
-├── <service>.tag.prev          # Previous tag (rollback target)
-└── deploy.log                  # Append-only: timestamp | service | old→new | SUCCESS/ROLLBACK
-```
-
-**`deploy-service.yml`** — unified trigger:
+**`deploy-service.yml`:**
 
 ```yaml
 on:
   repository_dispatch:
-    types: [deploy-service]     # Triggered by _deploy-trigger.yml from service repos
+    types: [deploy-service]
   workflow_dispatch:
     inputs:
       service:    { required: true }
@@ -312,32 +377,29 @@ on:
 
 concurrency:
   group: deploy-production-${{ github.event.client_payload.service || inputs.service }}
-  cancel-in-progress: false     # Never cancel a running deploy
+  cancel-in-progress: false
 
 jobs:
   deploy:
     runs-on: [self-hosted, dev-server]
     steps:
+      - name: Add server to known hosts
+        run: ssh-keyscan 88.198.191.108 >> ~/.ssh/known_hosts
+
       - name: Deploy
         run: |
-          ssh -o StrictHostKeyChecking=no root@88.198.191.108 \
+          ssh root@88.198.191.108 \
             "bash /opt/infra-deploy/scripts/deploy.sh \
               ${{ github.event.client_payload.service || inputs.service }} \
               ${{ github.event.client_payload.image_tag || inputs.image_tag }} \
               ${{ github.event.client_payload.has_migrations || inputs.has_migrations }}"
 ```
 
-**Relationship to existing `_deploy-hetzner.yml`:**
-The existing reusable workflow `_deploy-hetzner.yml` (§2.5) deploys directly via SSH from GitHub-hosted runners. `infra-deploy` is an **additional** entry point — not a replacement. Both coexist:
-
-- `_deploy-hetzner.yml`: used by service repos for standard CI/CD push-triggered deploys
-- `infra-deploy/deploy-service.yml`: used by agents, manual overrides, and cross-service orchestration
+**Relationship to `_deploy-hetzner.yml`**: Both coexist and are additive. `_deploy-hetzner.yml` handles push-triggered CI/CD; `infra-deploy` handles agent-triggered and manual deploys.
 
 ### 2.15 Fast-Deploy Override Mechanism
 
-**Decision (2026-02-20):** Fast-Deploy (`git pull` + `docker cp` + `gunicorn reload`, ~6s) is retained as an explicit **emergency override** mechanism alongside the standard image-build flow.
-
-**When to use:**
+**Decision (2026-02-20):** Fast-Deploy is retained as an explicit **emergency override** mechanism.
 
 | Scenario | Mechanism | Latency |
 | --- | --- | --- |
@@ -346,19 +408,11 @@ The existing reusable workflow `_deploy-hetzner.yml` (§2.5) deploys directly vi
 | Agent-triggered rollback | `infra-deploy/rollback.yml` | ~15s |
 | Manual MCP deploy | `deploy-remote.sh` via SSH | ~30s |
 
-**Fast-Deploy is NOT suitable for:**
-
-- Migrations (no image versioning → no rollback possible)
-- Dependency changes (new packages not in container)
-- Any change requiring a new Docker image
-
-**Implementation:** Fast-Deploy runs on the self-hosted runner (dev-server, 46.225.113.1) via `workflow_dispatch` only — never auto-triggered on push. Script: `/opt/scripts/deploy.sh <service>`.
+**Fast-Deploy is NOT suitable for**: migrations, dependency changes, or any change requiring a new Docker image. Runs on self-hosted runner via `workflow_dispatch` only — never auto-triggered on push.
 
 ### 2.16 Expand-Contract Migrations Convention
 
-**Decision (2026-02-20):** All database migrations MUST follow the Expand-Contract pattern. This is a **convention enforced via PR checklist**, not a CI linter.
-
-**Rule:** Never delete or rename a column in the same release where the code stops referencing it.
+**Decision (2026-02-20):** All DB migrations MUST follow the Expand-Contract pattern. Enforced via PR checklist, not CI linter.
 
 | Allowed in one release | NOT allowed in one release |
 | --- | --- |
@@ -367,12 +421,7 @@ The existing reusable workflow `_deploy-hetzner.yml` (§2.5) deploys directly vi
 | Add/remove index | NOT NULL without default on existing column |
 | Data migrations (RunPython) | Type change on existing column |
 
-**Two-release pattern:**
-
-- Release 1: Add `email_v2`, code uses both `email` and `email_v2`
-- Release 2: Remove `email`, code uses only `email_v2`
-
-**PR checklist** (add to `.github/pull_request_template.md` in each service repo):
+**PR checklist** (add to `.github/pull_request_template.md`):
 
 ```markdown
 - [ ] DB migrations follow Expand-Contract (no DROP/RENAME in same release as code change)
@@ -380,20 +429,20 @@ The existing reusable workflow `_deploy-hetzner.yml` (§2.5) deploys directly vi
 - [ ] Migration is backwards-compatible (old code works with new DB schema)
 ```
 
-**Rationale:** The `KeyError: 'last_verified'` incident (2026-02-20, dev-hub) was caused by a container-generated migration removing a field that the repo migration chain still referenced. Expand-Contract prevents this class of error.
+---
 
 ## 3. What Is Legitimately Project-Specific
 
-Not every difference is an inconsistency. These vary by design:
-
 | Aspect | Example | Why |
 | --- | --- | --- |
-| System deps | risk-hub/travel-beat need WeasyPrint (pango, cairo) | PDF rendering |
-| Reverse proxy sidecar | bfagent/travel-beat include Caddy in compose | Static files, auto-TLS for subdomains |
-| Worker process | Celery (travel-beat, weltenhub), django-q2 (pptx-hub), Celery (risk-hub) | Async architecture choice |
+| System deps | risk-hub/travel-beat need WeasyPrint | PDF rendering |
+| Reverse proxy sidecar | bfagent/travel-beat include Caddy | Static files, auto-TLS |
+| Worker process | Celery (travel-beat, weltenhub, risk-hub), django-q2 (pptx-hub) | Async architecture choice |
 | Shared vs own DB | weltenhub shares `bfagent_db`; others self-contained | Coupling decision |
 | Python version | bfagent still on 3.11 | Migration planned |
 | Extra build steps | bfagent builds Sphinx docs in Docker | Documentation delivery |
+
+---
 
 ## 4. Current State (as of 2026-02-20)
 
@@ -406,6 +455,19 @@ Not every difference is an inconsistency. These vary by design:
 | pptx-hub | ❌ CI-only (test + PyPI) | ❌ not deployed | ❌ | ✅ created |
 | dev-hub | ✅ fast-deploy only (§2.15) | ✅ on push to main | ✅ (~6s) | ✅ |
 
+### `_deploy-hetzner.yml` → `infra-deploy` Migration Tracking
+
+| Service | Currently uses | Target | Status | Notes |
+| --- | --- | --- | --- | --- |
+| bfagent | custom 3-file workflow | `_deploy-hetzner.yml` | 🔴 Not started | Migrate CI first (Priority 1) |
+| risk-hub | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | ✅ Done | No change needed |
+| travel-beat | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | ✅ Done | No change needed |
+| weltenhub | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | ✅ Done | No change needed |
+| pptx-hub | CI-only | `_deploy-hetzner.yml` | 🔴 Not started | Needs server provisioning first |
+| dev-hub | fast-deploy | `infra-deploy` | 🟡 In progress | ADR-021 §2.14 target |
+
+---
+
 ## 5. Remaining Migration Tasks
 
 ### Priority 0 — Amendment 2026-02-20 (new)
@@ -417,8 +479,8 @@ Not every difference is an inconsistency. These vary by design:
 
 ### Priority 1 — Functional gaps
 
-- [ ] **Health endpoints**: All projects must implement `/livez/` + `/healthz/` using `platform/deployment/templates/django/healthz.py`
-- [ ] **risk-hub**: Add `/healthz/` endpoint (currently `/` returns HTML, not JSON health)
+- [ ] **Health endpoints**: All projects must implement `/livez/` + `/healthz/`
+- [ ] **risk-hub**: Add `/healthz/` endpoint
 - [ ] **travel-beat**: Rename `/health/` → `/healthz/`
 - [ ] **weltenhub**: Rename `/health/` → `/healthz/`
 - [ ] bfagent: Migrate 3 workflow files → single `ci-cd.yml` using platform workflows
@@ -426,11 +488,10 @@ Not every difference is an inconsistency. These vary by design:
 
 ### Priority 2 — Compose hardening (operational risk)
 
-- [ ] risk-hub: Add `logging` (json-file with rotation) to all services
-- [ ] risk-hub: Add `deploy.resources.limits.memory` to all services
-- [ ] travel-beat: Add `logging` + `deploy.resources` to compose
-- [ ] weltenhub: Add `logging` + `deploy.resources` to compose
-- [ ] pptx-hub: Add `logging` + `deploy.resources` to compose
+- [ ] risk-hub: Add `logging` (json-file with rotation) + `deploy.resources.limits.memory`
+- [ ] travel-beat: Add `logging` + `deploy.resources`
+- [ ] weltenhub: Add `logging` + `deploy.resources`
+- [ ] pptx-hub: Add `logging` + `deploy.resources`
 - [ ] deploy-remote.sh: Change default `DEPLOY_DIR` from `/srv/` to `/opt/`
 - [ ] deploy-remote.sh: Add `--extra-services` flag for beat/celery restart
 
@@ -449,6 +510,8 @@ Not every difference is an inconsistency. These vary by design:
 - [ ] Add Uptime Kuma monitoring for all `/healthz/` endpoints
 - [ ] Create `platform/deployment/templates/Dockerfile` as reference
 - [ ] Formalize Nginx config management (currently manual on server)
+
+---
 
 ## 6. Consequences
 
