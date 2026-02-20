@@ -1,0 +1,115 @@
+name: "Deploy via SSH"
+description: |
+  Composite Action: SSH-Deploy auf Hetzner VM (ADR-054 M3).
+  Alternative zu appleboy/ssh-action für Repos mit allowed_actions: local_only.
+  Verwendet nur bash + ssh — keine externen Actions erforderlich.
+
+inputs:
+  host:
+    description: "SSH Host (Dev-Server IP)"
+    required: true
+  user:
+    description: "SSH User"
+    required: true
+  ssh_key:
+    description: "SSH Private Key (PEM)"
+    required: true
+  deploy_path:
+    description: "Deploy-Pfad auf dem Server (z.B. /opt/trading-hub)"
+    required: true
+  app_name:
+    description: "App-Name"
+    required: true
+  image_tag:
+    description: "Docker Image Tag"
+    required: true
+  compose_file:
+    description: "Compose-Datei"
+    required: false
+    default: "docker-compose.prod.yml"
+  env_file:
+    description: "Env-Datei"
+    required: false
+    default: ".env.prod"
+  run_migrations:
+    description: "Migrations ausführen"
+    required: false
+    default: "true"
+  skip_backup:
+    description: "DB-Backup überspringen"
+    required: false
+    default: "false"
+  web_service:
+    description: "Web-Service-Name im Compose"
+    required: false
+    default: ""
+  health_retries:
+    description: "Anzahl Healthcheck-Versuche"
+    required: false
+    default: "12"
+  health_interval:
+    description: "Sekunden zwischen Healthchecks"
+    required: false
+    default: "5"
+
+outputs:
+  exit_code:
+    description: "Exit-Code des Deploy-Scripts"
+    value: ${{ steps.deploy.outputs.exit_code }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup SSH key
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        echo "${{ inputs.ssh_key }}" > ~/.ssh/deploy_key
+        chmod 600 ~/.ssh/deploy_key
+        ssh-keyscan -H "${{ inputs.host }}" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+    - name: Sync deploy script
+      shell: bash
+      run: |
+        scp -i ~/.ssh/deploy_key \
+          -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          deployment/scripts/deploy-remote.sh \
+          "${{ inputs.user }}@${{ inputs.host }}:${{ inputs.deploy_path }}/scripts/deploy-remote.sh"
+        ssh -i ~/.ssh/deploy_key \
+          -o StrictHostKeyChecking=no \
+          "${{ inputs.user }}@${{ inputs.host }}" \
+          "chmod +x '${{ inputs.deploy_path }}/scripts/deploy-remote.sh'"
+
+    - name: Execute deploy
+      id: deploy
+      shell: bash
+      run: |
+        EXTRA_ARGS=""
+        [ "${{ inputs.run_migrations }}" = "false" ] && EXTRA_ARGS="$EXTRA_ARGS --skip-migrate"
+        [ "${{ inputs.skip_backup }}"    = "true"  ] && EXTRA_ARGS="$EXTRA_ARGS --skip-backup"
+        [ -n "${{ inputs.web_service }}" ]           && EXTRA_ARGS="$EXTRA_ARGS --web-service ${{ inputs.web_service }}"
+
+        EXIT_CODE=0
+        ssh -i ~/.ssh/deploy_key \
+          -o StrictHostKeyChecking=no \
+          -o ConnectTimeout=10 \
+          "${{ inputs.user }}@${{ inputs.host }}" \
+          "set -euo pipefail
+           '${{ inputs.deploy_path }}/scripts/deploy-remote.sh' \
+             --app '${{ inputs.app_name }}' \
+             --tag '${{ inputs.image_tag }}' \
+             --deploy-dir '${{ inputs.deploy_path }}' \
+             --compose-file '${{ inputs.compose_file }}' \
+             --env-file '${{ inputs.env_file }}' \
+             --health-retries '${{ inputs.health_retries }}' \
+             --health-interval '${{ inputs.health_interval }}' \
+             $EXTRA_ARGS" || EXIT_CODE=$?
+
+        echo "exit_code=${EXIT_CODE}" >> "$GITHUB_OUTPUT"
+        exit $EXIT_CODE
+
+    - name: Cleanup SSH key
+      if: always()
+      shell: bash
+      run: rm -f ~/.ssh/deploy_key
