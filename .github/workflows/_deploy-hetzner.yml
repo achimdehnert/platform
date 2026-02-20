@@ -101,6 +101,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Pre-flight lint (ADR-054 M1)
+        run: |
+          set -euo pipefail
+          ERRORS=0
+
+          # Check 1: Keine Cross-Repo COPY in Dockerfile
+          if [ -f "Dockerfile" ]; then
+            if grep -qE "^COPY packages/" Dockerfile 2>/dev/null; then
+              echo "::error::Cross-repo COPY in Dockerfile gefunden (ADR-054 M4: platform_context als Package installieren)"
+              grep -nE "^COPY packages/" Dockerfile
+              ERRORS=$((ERRORS+1))
+            fi
+          fi
+
+          # Check 2: Compose-Datei vorhanden
+          if [ ! -f "${{ inputs.compose_file }}" ]; then
+            echo "::error::Compose-Datei nicht gefunden: ${{ inputs.compose_file }}"
+            ERRORS=$((ERRORS+1))
+          fi
+
+          # Check 3: Keine absoluten lokalen Pfade in pyproject.toml
+          for f in pyproject.toml requirements.txt; do
+            if [ -f "$f" ] && grep -qE "file://|/home/|/opt/|/srv/" "$f" 2>/dev/null; then
+              echo "::error::Absolute lokale Pfade in ${f} — bricht CI (ADR-054 M4)"
+              grep -nE "file://|/home/|/opt/|/srv/" "$f"
+              ERRORS=$((ERRORS+1))
+            fi
+          done
+
+          if [ "$ERRORS" -gt 0 ]; then
+            echo "::error::Pre-flight: ${ERRORS} Problem(e) — Deploy abgebrochen"
+            exit 1
+          fi
+          echo "✅ Pre-flight lint: OK"
+
       - name: Determine image tag
         id: tag
         run: |
