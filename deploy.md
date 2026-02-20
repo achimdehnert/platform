@@ -1,84 +1,57 @@
 ---
-description: Deploy any app to production (bfagent, cad-hub, travel-beat, etc.)
+description: Deploy any app to production server (88.198.191.108)
 ---
 
-# Universal Deployment Workflow
+# Deploy Workflow
 
-## Trigger
+Deploys the specified app to production via SSH.
 
-User says one of:
-- "Deploy [app-name]"
-- "Deploye [app-name]"
-- "Deploy latest changes to [app-name]"
+## Usage
 
-## App Configuration
+`/deploy dev-hub` | `/deploy bfagent` | `/deploy weltenhub` | `/deploy travel-beat` | `/deploy risk-hub`
 
-| App Name | Host | Project Path | Compose File | Verify URL |
-|----------|------|--------------|--------------|------------|
-| bfagent | 88.198.191.108 | /opt/bfagent-app | docker-compose.prod.yml | https://bfagent.iil.pet/login/ |
-| travel-beat | 88.198.191.108 | /opt/travel-beat | docker-compose.prod.yml | https://travel-beat.iil.pet/ |
-| risk-hub | 88.198.191.108 | /opt/risk-hub | docker-compose.prod.yml | https://risk-hub.iil.pet/ |
-| mcp-hub | 88.198.191.108 | /opt/mcp-hub | docker-compose.yml | https://mcp-hub.iil.pet/ |
-| cad-hub | 88.198.191.108 | /opt/cad-hub | docker-compose.yml | https://cadhub.iil.pet/ |
-| weltenhub | 88.198.191.108 | /opt/weltenhub | docker-compose.prod.yml | https://weltenforger.com/ |
-| trading-hub | 88.198.191.108 | /opt/trading-hub | docker-compose.prod.yml | https://ai-trades.de/livez/ |
-| wedding-hub | 88.198.191.108 | /opt/wedding-hub | docker-compose.prod.yml | https://wedding-hub.iil.pet/ |
+## Step 1: Setup (first time only)
 
-## Step 1: Identify App
+Einmalig die Deploy-Scripts auf den Server kopieren:
 
-Parse user input to determine which app to deploy.
-If unclear, ask: "Welche App soll ich deployen?"
-
-## Step 2: Get Latest Commit (AUTOMATIC)
-
-// turbo
-Get the latest commit SHA automatically - DO NOT ask the user:
-```
-mcp7_list_commits owner=achimdehnert repo=[app-name] perPage=1
-```
-
-## Step 3: Show Deployment Plan
-
-```text
-🚀 Deployment Plan
-
-App: [app-name]
-Host: [host]
-Path: [project_path]
-Latest Commit: [sha] - "[message]"
-URL: [verify_url]
-
-Proceed? [Ja/Nein]
-```
-
-## Step 4: Deploy (after user confirms)
-
-**IMPORTANT**: Use MCP deploy tools (`mcp5_cicd_manage` with `bfagent_deploy` action) when available.
-These tools automatically acquire a **DeployLock** (atomic `mkdir` at `{project_path}/.deploy.lock/`)
-to prevent concurrent deploys. If another deploy is in progress, you'll get `code: "deploy_locked"`.
-
-// turbo
-Execute via MCP or SSH:
 ```bash
-ssh root@[host] "cd [project_path] && docker compose -f [compose_file] pull && docker compose -f [compose_file] up -d --force-recreate"
+ssh root@88.198.191.108 'cd /opt/dev-hub && git pull origin main && cp -r scripts /opt/scripts && chmod +x /opt/scripts/*.sh && echo SETUP OK'
 ```
 
-## Step 5: Verify
+## Step 2: Deploy
+
+Ersetze `<app>` mit dem App-Namen:
 
 // turbo
-1. Check container status: mcp5_container_list
-2. Verify all containers are running
+Run: `ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh dev-hub'`
 
-## Step 6: Report
+**Andere Apps:**
+```bash
+# bfagent
+ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh bfagent'
 
-```text
-✅ Deployment Complete
+# weltenhub
+ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh weltenhub'
 
-App: [app-name]
-Commit: [sha]
-Status: [running/failed]
-URL: [verify_url]
+# travel-beat
+ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh travel-beat'
 
-Container Status:
-[list of containers and their status]
+# risk-hub
+ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh risk-hub'
 ```
+
+## Erwartete Ausgabe
+
+```
+[dev-hub] git pull...
+[dev-hub] docker cp...
+[dev-hub] migrate...
+[dev-hub] reload...
+DEPLOY OK: dev-hub
+```
+
+## Troubleshooting
+
+- **`No such file or directory`**: Setup (Step 1) noch nicht ausgeführt
+- **Migration error**: Logs prüfen: `docker logs devhub_web --tail 30`
+- **500 nach Deploy**: `docker logs devhub_web --tail 50`
