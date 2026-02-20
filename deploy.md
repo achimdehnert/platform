@@ -4,41 +4,35 @@ description: Deploy any app to production server (88.198.191.108)
 
 # Deploy Workflow
 
-Deploys the specified app to production via SSH.
+## Einmalig: Setup (nur beim ersten Mal)
 
-## Usage
+// turbo
+Run: `ssh root@88.198.191.108 'cd /opt/dev-hub && git pull origin main && cp -r scripts /opt/scripts && chmod +x /opt/scripts/*.sh && echo SETUP OK'`
 
-`/deploy dev-hub` | `/deploy bfagent` | `/deploy weltenhub` | `/deploy travel-beat` | `/deploy risk-hub`
-
-## Step 1: Setup (first time only)
-
-Einmalig die Deploy-Scripts auf den Server kopieren:
-
-```bash
-ssh root@88.198.191.108 'cd /opt/dev-hub && git pull origin main && cp -r scripts /opt/scripts && chmod +x /opt/scripts/*.sh && echo SETUP OK'
-```
-
-## Step 2: Deploy
-
-Ersetze `<app>` mit dem App-Namen:
+## dev-hub (https://devhub.iil.pet)
 
 // turbo
 Run: `ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh dev-hub'`
 
-**Andere Apps:**
-```bash
-# bfagent
-ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh bfagent'
+## bfagent (https://bfagent.iil.pet)
 
-# weltenhub
-ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh weltenhub'
+// turbo
+Run: `ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh bfagent'`
 
-# travel-beat
-ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh travel-beat'
+## weltenhub (https://weltenforger.com)
 
-# risk-hub
-ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh risk-hub'
-```
+// turbo
+Run: `ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh weltenhub'`
+
+## travel-beat (https://drifttales.app)
+
+// turbo
+Run: `ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh travel-beat'`
+
+## risk-hub (Schutztat)
+
+// turbo
+Run: `ssh root@88.198.191.108 'bash /opt/scripts/deploy.sh risk-hub'`
 
 ## Erwartete Ausgabe
 
@@ -52,6 +46,5 @@ DEPLOY OK: dev-hub
 
 ## Troubleshooting
 
-- **`No such file or directory`**: Setup (Step 1) noch nicht ausgeführt
-- **Migration error**: Logs prüfen: `docker logs devhub_web --tail 30`
-- **500 nach Deploy**: `docker logs devhub_web --tail 50`
+- **`No such file or directory`**: Setup oben ausführen
+- **500 nach Deploy**: `ssh root@88.198.191.108 'docker logs devhub_web --tail 50'`
