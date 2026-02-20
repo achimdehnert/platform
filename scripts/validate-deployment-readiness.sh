@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
 # =============================================================================
 # validate-deployment-readiness.sh — Pre-Flight Check für neue App-Deployments
-# ADR-054 M1 Teil A
+# ADR-056 §2.1 (updated from ADR-054 M1)
 #
 # Usage:
 #   ./scripts/validate-deployment-readiness.sh --repo trading-hub --app trading-hub
 #   ./scripts/validate-deployment-readiness.sh --repo cad-hub --app cad-hub --pat ghp_xxx
 #
-# Requires: curl, ssh, actionlint (optional), jq
+# Requires: curl, ssh, jq
+# Optional: actionlint, sops
 # =============================================================================
 set -euo pipefail
 
@@ -15,10 +16,10 @@ set -euo pipefail
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; RESET='\033[0m'
 
-pass()  { echo -e "${GREEN}  ✓${RESET} $*"; }
-fail()  { echo -e "${RED}  ✗${RESET} $*"; ERRORS=$((ERRORS+1)); }
-warn()  { echo -e "${YELLOW}  ⚠${RESET} $*"; WARNINGS=$((WARNINGS+1)); }
-info()  { echo -e "${BLUE}  →${RESET} $*"; }
+pass()   { echo -e "${GREEN}  ✓${RESET} $*"; }
+fail()   { echo -e "${RED}  ✗${RESET} $*"; ERRORS=$((ERRORS+1)); }
+warn()   { echo -e "${YELLOW}  ⚠${RESET} $*"; WARNINGS=$((WARNINGS+1)); }
+info()   { echo -e "${BLUE}  →${RESET} $*"; }
 section(){ echo -e "\n${BOLD}$*${RESET}"; }
 
 ERRORS=0
@@ -29,19 +30,20 @@ REPO=""
 APP=""
 PAT="${GITHUB_TOKEN:-}"
 ORG="achimdehnert"
-DEPLOY_SERVER="46.225.113.1"
-DEPLOY_USER="deploy"
-SSH_KEY="${HETZNER_SSH_KEY_PATH:-$HOME/.ssh/id_rsa}"
+DEPLOY_HOST="${DEPLOY_HOST:-88.198.191.108}"
+DEPLOY_USER="${DEPLOY_USER:-root}"
+DEPLOY_SSH_KEY="${DEPLOY_SSH_KEY:-}"
+SSH_KEY_PATH="${HETZNER_SSH_KEY_PATH:-$HOME/.ssh/id_rsa}"
 DEPLOY_PATH=""
 DOCKERFILE="Dockerfile"
 COMPOSE_FILE="docker-compose.prod.yml"
 
 while [[ $# -gt 0 ]]; do
   case $1 in
-    --repo)    REPO="$2";        shift 2 ;;
-    --app)     APP="$2";         shift 2 ;;
-    --pat)     PAT="$2";         shift 2 ;;
-    --ssh-key) SSH_KEY="$2";     shift 2 ;;
+    --repo)        REPO="$2";        shift 2 ;;
+    --app)         APP="$2";         shift 2 ;;
+    --pat)         PAT="$2";         shift 2 ;;
+    --ssh-key)     SSH_KEY_PATH="$2"; shift 2 ;;
     --deploy-path) DEPLOY_PATH="$2"; shift 2 ;;
     --dockerfile)  DOCKERFILE="$2";  shift 2 ;;
     --compose)     COMPOSE_FILE="$2"; shift 2 ;;
@@ -58,9 +60,9 @@ echo -e "${BOLD}║  Pre-Flight Validation: ${REPO}${RESET}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${RESET}"
 
 # =============================================================================
-# 1. GITHUB CHECKS (benötigt PAT)
+# 1. GITHUB CHECKS (Fehlerklasse A)
 # =============================================================================
-section "1. GitHub Repository Checks"
+section "1. GitHub Repository Checks (Fehlerklasse A)"
 
 if [[ -z "$PAT" ]]; then
   warn "Kein PAT verfügbar (--pat oder \$GITHUB_TOKEN) — GitHub API-Checks übersprungen"
@@ -72,17 +74,17 @@ else
     | jq -r '.allowed_actions // "unknown"' 2>/dev/null || echo "error")
 
   if [[ "$ALLOWED" == "local_only" ]]; then
-    fail "allowed_actions = local_only → Reusable Workflows aus platform@main werden NICHT ausgeführt"
-    info "Fix: GitHub → ${REPO} → Settings → Actions → General → 'Allow all actions'"
+    fail "allowed_actions = local_only → externe Actions (actions/checkout@v4 etc.) werden NICHT ausgeführt"
+    info "Fix: GitHub → ${REPO} → Settings → Actions → General → 'Allow all actions and reusable workflows'"
   elif [[ "$ALLOWED" == "error" ]]; then
     warn "GitHub API nicht erreichbar oder PAT fehlt Berechtigung"
   else
     pass "allowed_actions = ${ALLOWED}"
   fi
 
-  # 1b: Secrets vorhanden (presence check, nicht Wert)
-  info "Prüfe Pflicht-Secrets..."
-  REQUIRED_SECRETS=("HETZNER_HOST" "HETZNER_USER" "HETZNER_SSH_KEY" "GHCR_TOKEN")
+  # 1b: Pflicht-Secrets (ADR-056 §2.1 + ADR-021 §2.6)
+  info "Prüfe Pflicht-Secrets (DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY)..."
+  REQUIRED_SECRETS=("DEPLOY_HOST" "DEPLOY_USER" "DEPLOY_SSH_KEY")
   SECRETS_JSON=$(curl -sf -H "Authorization: Bearer ${PAT}" \
     "https://api.github.com/repos/${ORG}/${REPO}/actions/secrets" \
     | jq -r '[.secrets[].name]' 2>/dev/null || echo "[]")
@@ -92,13 +94,13 @@ else
     if [[ "$EXISTS" == "true" ]]; then
       pass "Secret ${SECRET} vorhanden"
     else
-      fail "Secret ${SECRET} FEHLT im Repo"
+      fail "Secret ${SECRET} FEHLT im Repo (ADR-021 §2.6)"
     fi
   done
 fi
 
 # 1c: Workflow-Syntax (actionlint)
-section "2. Workflow-Syntax"
+section "2. Workflow-Syntax (Fehlerklasse C)"
 if command -v actionlint &>/dev/null; then
   info "Linting .github/workflows/..."
   if actionlint .github/workflows/*.yml 2>&1 | grep -q "error"; then
@@ -106,121 +108,169 @@ if command -v actionlint &>/dev/null; then
   else
     pass "Alle Workflow-Dateien syntaktisch valide"
   fi
+  # inputs.* bei push-Trigger (class C anti-pattern)
+  if grep -rn 'inputs\.' .github/workflows/*.yml 2>/dev/null | grep -q 'push'; then
+    warn "Mögliches inputs.* bei push-Trigger gefunden — prüfe manuell (ADR-056 §2.4 Klasse C)"
+  fi
 else
   warn "actionlint nicht installiert — Workflow-Syntax nicht geprüft"
   info "Install: https://github.com/rhysd/actionlint#installation"
 fi
 
 # =============================================================================
-# 2. DOCKERFILE CHECKS
+# 2. DOCKERFILE CHECKS (Fehlerklasse B)
 # =============================================================================
-section "3. Dockerfile Checks"
+section "3. Dockerfile Checks (Fehlerklasse B)"
 
 if [[ ! -f "$DOCKERFILE" ]]; then
   fail "Dockerfile nicht gefunden: ${DOCKERFILE}"
 else
-  pass "Dockerfile gefunden"
+  pass "Dockerfile gefunden: ${DOCKERFILE}"
 
   # Cross-Repo COPY
   if grep -qE "^COPY packages/" "$DOCKERFILE" 2>/dev/null; then
     fail "Cross-Repo COPY gefunden: $(grep -E '^COPY packages/' "$DOCKERFILE")"
-    info "Fix: platform_context als Package installieren (ADR-054 M4)"
+    info "Fix: platform_context als GHCR-Package installieren (ADR-056 §2.3)"
   else
     pass "Keine Cross-Repo COPY-Referenzen"
   fi
 
-  # Absolute lokale Pfade in wheels/
+  # wheels/ Pattern
   if grep -qE "COPY.*wheels/" "$DOCKERFILE" 2>/dev/null; then
-    warn "wheels/-Pattern gefunden — wird durch platform_context Package ersetzt (ADR-054 M4)"
-    grep -E "COPY.*wheels/" "$DOCKERFILE" | while read -r line; do
-      info "  $line"
-    done
+    warn "wheels/-Pattern gefunden — durch platform_context GHCR-Package ersetzen (ADR-056 §2.3)"
+    grep -E "COPY.*wheels/" "$DOCKERFILE" | while read -r line; do info "  $line"; done
   else
     pass "Kein wheels/-Pattern"
   fi
 
-  # Image-Name in Compose prüfen
+  # SHA-Tag in Compose prüfen
   if [[ -f "$COMPOSE_FILE" ]]; then
     IMAGE_IN_COMPOSE=$(grep -oE "ghcr\.io/[^:\"']+" "$COMPOSE_FILE" | head -1 || echo "")
     if [[ -n "$IMAGE_IN_COMPOSE" ]]; then
       pass "Image in Compose: ${IMAGE_IN_COMPOSE}"
     else
-      warn "Kein ghcr.io Image-Referenz in ${COMPOSE_FILE} gefunden"
+      warn "Kein ghcr.io Image in ${COMPOSE_FILE} — prüfe Image-Pfad"
     fi
   fi
 fi
 
 # =============================================================================
-# 3. PYPROJECT / REQUIREMENTS CHECKS
+# 3. DEPENDENCY CHECKS (Fehlerklasse B)
 # =============================================================================
-section "4. Dependency Checks"
+section "4. Dependency Checks (Fehlerklasse B)"
 
 for DEP_FILE in pyproject.toml requirements.txt requirements-dev.txt; do
   [[ ! -f "$DEP_FILE" ]] && continue
   if grep -qE "file://|/home/|/opt/|/srv/" "$DEP_FILE" 2>/dev/null; then
     fail "Absolute lokale Pfade in ${DEP_FILE}:"
-    grep -nE "file://|/home/|/opt/|/srv/" "$DEP_FILE" | while read -r line; do
-      info "  $line"
-    done
-    info "Fix: platform_context als Package installieren (ADR-054 M4)"
+    grep -nE "file://|/home/|/opt/|/srv/" "$DEP_FILE" | while read -r line; do info "  $line"; done
+    info "Fix: platform_context als GHCR-Package (ADR-056 §2.3)"
   else
     pass "${DEP_FILE}: keine absoluten lokalen Pfade"
   fi
 done
 
+# platform_context importierbar?
+if command -v python3 &>/dev/null; then
+  if python3 -c "import platform_context" &>/dev/null; then
+    pass "platform_context importierbar"
+  else
+    warn "platform_context nicht importierbar — im CI via GHCR-Package installieren (ADR-056 §2.3)"
+  fi
+fi
+
 # =============================================================================
-# 4. SERVER CHECKS (SSH)
+# 4. SERVER CHECKS via SSH (Fehlerklasse D)
 # =============================================================================
-section "5. Server Checks (${DEPLOY_SERVER})"
+section "5. Server Checks (${DEPLOY_HOST}) — Fehlerklasse D"
 
-SSH_OPTS="-o ConnectTimeout=5 -o StrictHostKeyChecking=no -o BatchMode=yes"
-[[ -f "$SSH_KEY" ]] && SSH_OPTS="$SSH_OPTS -i $SSH_KEY"
+# SSH known_hosts via ssh-keyscan (kein StrictHostKeyChecking=no — ADR-056 §2.2)
+KNOWN_HOSTS_FILE=$(mktemp)
+if ssh-keyscan -H "${DEPLOY_HOST}" >> "$KNOWN_HOSTS_FILE" 2>/dev/null; then
+  pass "ssh-keyscan für ${DEPLOY_HOST} erfolgreich"
+else
+  warn "ssh-keyscan fehlgeschlagen — Server-Checks übersprungen"
+  rm -f "$KNOWN_HOSTS_FILE"
+  KNOWN_HOSTS_FILE=""
+fi
 
-if ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_SERVER}" "echo OK" &>/dev/null; then
-  pass "SSH-Verbindung zu ${DEPLOY_SERVER} erfolgreich"
+SSH_OPTS="-o ConnectTimeout=5 -o UserKnownHostsFile=${KNOWN_HOSTS_FILE} -o BatchMode=yes"
+# SSH-Key: aus Argument, Env-Variable oder Standard-Pfad
+if [[ -n "$DEPLOY_SSH_KEY" ]]; then
+  TMPKEY=$(mktemp)
+  echo "$DEPLOY_SSH_KEY" > "$TMPKEY"
+  chmod 600 "$TMPKEY"
+  SSH_OPTS="$SSH_OPTS -i $TMPKEY"
+elif [[ -f "$SSH_KEY_PATH" ]]; then
+  SSH_OPTS="$SSH_OPTS -i $SSH_KEY_PATH"
+fi
 
-  # deploy_path existiert
-  if ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_SERVER}" "test -d '${DEPLOY_PATH}'" 2>/dev/null; then
+if [[ -n "$KNOWN_HOSTS_FILE" ]] && ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_HOST}" "echo OK" &>/dev/null; then
+  pass "SSH-Verbindung zu ${DEPLOY_HOST} erfolgreich"
+
+  # deploy_path
+  if ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_HOST}" "test -d '${DEPLOY_PATH}'" 2>/dev/null; then
     pass "Deploy-Pfad ${DEPLOY_PATH} existiert"
   else
     fail "Deploy-Pfad ${DEPLOY_PATH} existiert NICHT"
-    info "Fix: sudo mkdir -p ${DEPLOY_PATH} && sudo chown deploy:deploy ${DEPLOY_PATH}"
+    info "Fix: mkdir -p ${DEPLOY_PATH}"
   fi
 
-  # .env.prod vorhanden und Pflichtfelder
+  # .env.prod
   ENV_FILE="${DEPLOY_PATH}/.env.prod"
-  if ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_SERVER}" "test -f '${ENV_FILE}'" 2>/dev/null; then
+  if ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_HOST}" "test -f '${ENV_FILE}'" 2>/dev/null; then
     pass ".env.prod vorhanden"
-    REQUIRED_ENV=("POSTGRES_USER" "POSTGRES_PASSWORD" "SECRET_KEY" "ALLOWED_HOSTS")
-    for VAR in "${REQUIRED_ENV[@]}"; do
-      if ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_SERVER}" "grep -q '^${VAR}=' '${ENV_FILE}'" 2>/dev/null; then
-        pass "  .env.prod: ${VAR} gesetzt"
-      else
-        fail "  .env.prod: ${VAR} FEHLT"
-      fi
-    done
+
+    # SOPS-Check (ADR-056 §2.1 SOPS note)
+    IS_SOPS=$(ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_HOST}" \
+      "head -1 '${ENV_FILE}' | grep -c 'sops' || true" 2>/dev/null || echo "0")
+    if [[ "$IS_SOPS" -gt 0 ]]; then
+      warn ".env.prod ist SOPS-verschlüsselt — Pflichtfeld-Check via 'sops -d' erforderlich"
+      info "Manuell prüfen: sops -d ${ENV_FILE} | grep REQUIRED_KEY"
+    else
+      REQUIRED_ENV=("POSTGRES_USER" "POSTGRES_PASSWORD" "SECRET_KEY" "ALLOWED_HOSTS")
+      for VAR in "${REQUIRED_ENV[@]}"; do
+        if ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_HOST}" "grep -q '^${VAR}=' '${ENV_FILE}'" 2>/dev/null; then
+          pass "  .env.prod: ${VAR} gesetzt"
+        else
+          fail "  .env.prod: ${VAR} FEHLT"
+        fi
+      done
+    fi
   else
     fail ".env.prod fehlt in ${DEPLOY_PATH}"
     info "Fix: Datei nach ${ENV_FILE} kopieren"
   fi
 
   # Nginx proxy_pass Check
-  info "Prüfe Nginx proxy_pass Konfiguration..."
-  NGINX_WRONG=$(ssh $SSH_OPTS "root@88.198.191.108" \
+  info "Prüfe Nginx-Konfiguration für ${APP}..."
+  NGINX_WRONG=$(ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_HOST}" \
     "grep -rn 'proxy_pass.*127\.0\.0\.1' /etc/nginx/sites-enabled/ 2>/dev/null | grep -i '${APP}' || true" \
     2>/dev/null || echo "")
   if [[ -n "$NGINX_WRONG" ]]; then
-    fail "Nginx proxy_pass auf 127.0.0.1 statt 46.225.113.1:"
+    fail "Nginx proxy_pass auf 127.0.0.1 (Infrastructure Drift):"
     info "  $NGINX_WRONG"
-    info "Fix: proxy_pass http://46.225.113.1:<port>;"
+    info "Fix: proxy_pass http://localhost:<port>; oder direkt auf Container-Port"
   else
-    pass "Nginx proxy_pass: kein 127.0.0.1-Problem gefunden"
+    pass "Nginx proxy_pass: kein 127.0.0.1-Problem für ${APP}"
+  fi
+
+  # Nginx config vorhanden?
+  NGINX_CONF=$(ssh $SSH_OPTS "${DEPLOY_USER}@${DEPLOY_HOST}" \
+    "ls /etc/nginx/sites-enabled/ 2>/dev/null | grep -i '${APP}' || true" 2>/dev/null || echo "")
+  if [[ -n "$NGINX_CONF" ]]; then
+    pass "Nginx-Config gefunden: ${NGINX_CONF}"
+  else
+    warn "Keine Nginx-Config für '${APP}' in /etc/nginx/sites-enabled/ — ggf. anderen Namen prüfen"
   fi
 
 else
-  warn "SSH-Verbindung zu ${DEPLOY_SERVER} nicht möglich — Server-Checks übersprungen"
-  info "Prüfe SSH-Key: ${SSH_KEY}"
+  warn "SSH-Verbindung zu ${DEPLOY_HOST} nicht möglich — Server-Checks übersprungen"
 fi
+
+# Cleanup
+[[ -n "${KNOWN_HOSTS_FILE:-}" ]] && rm -f "$KNOWN_HOSTS_FILE"
+[[ -n "${TMPKEY:-}" ]] && rm -f "$TMPKEY"
 
 # =============================================================================
 # ZUSAMMENFASSUNG
@@ -228,7 +278,7 @@ fi
 echo -e "\n${BOLD}╔══════════════════════════════════════════════════════╗${RESET}"
 echo -e "${BOLD}║  Ergebnis                                            ║${RESET}"
 echo -e "${BOLD}╚══════════════════════════════════════════════════════╝${RESET}"
-echo -e "  Fehler:   ${RED}${ERRORS}${RESET}"
+echo -e "  Fehler:    ${RED}${ERRORS}${RESET}"
 echo -e "  Warnungen: ${YELLOW}${WARNINGS}${RESET}"
 
 if [[ $ERRORS -eq 0 ]]; then
