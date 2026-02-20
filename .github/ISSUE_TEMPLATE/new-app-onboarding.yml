@@ -1,0 +1,124 @@
+name: "🚀 New App Onboarding"
+description: "Checkliste für das Onboarding einer neuen App in die Platform (ADR-054 M2)"
+title: "Onboarding: [APP-NAME]"
+labels: ["onboarding", "deployment"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Pre-Deployment Checkliste
+        Alle Punkte müssen abgehakt sein, bevor der erste Workflow-Run gestartet wird.
+        Führe zuerst das Pre-Flight-Script aus:
+        ```bash
+        ./scripts/validate-deployment-readiness.sh --repo <repo> --app <app> --pat <PAT>
+        ```
+
+  - type: input
+    id: app_name
+    attributes:
+      label: App-Name
+      placeholder: "z.B. trading-hub"
+    validations:
+      required: true
+
+  - type: input
+    id: repo_url
+    attributes:
+      label: GitHub Repository URL
+      placeholder: "https://github.com/achimdehnert/<repo>"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: github_checks
+    attributes:
+      label: "1. GitHub Repository Settings (Fehlerklasse A)"
+      description: "Verhindert startup_failure durch falsche Actions-Permissions"
+      options:
+        - label: "`allowed_actions` ist auf `all` oder `selected` gesetzt (NICHT `local_only`)"
+          required: true
+        - label: "Secret `HETZNER_HOST` ist gesetzt"
+          required: true
+        - label: "Secret `HETZNER_USER` ist gesetzt"
+          required: true
+        - label: "Secret `HETZNER_SSH_KEY` ist gesetzt"
+          required: true
+        - label: "Secret `GHCR_TOKEN` ist gesetzt"
+          required: true
+        - label: "GitHub Actions ist für das Repo aktiviert"
+          required: true
+
+  - type: checkboxes
+    id: dockerfile_checks
+    attributes:
+      label: "2. Dockerfile & Dependencies (Fehlerklasse B)"
+      description: "Verhindert ModuleNotFoundError und Build-Fehler im CI"
+      options:
+        - label: "Kein `COPY packages/` (Cross-Repo COPY) im Dockerfile"
+          required: true
+        - label: "Keine absoluten lokalen Pfade (`/home/`, `/opt/`) in `pyproject.toml` oder `requirements.txt`"
+          required: true
+        - label: "`platform_context` ist als Package installiert (nicht via `wheels/`)"
+          required: false
+        - label: "Image-Name in `docker-compose.prod.yml` stimmt mit Build-Output überein"
+          required: true
+
+  - type: checkboxes
+    id: workflow_checks
+    attributes:
+      label: "3. Workflow-Konfiguration (Fehlerklasse C)"
+      description: "Verhindert startup_failure durch falsche Workflow-Struktur"
+      options:
+        - label: "Reusable Workflows und normale Jobs sind NICHT gemischt (nur eines pro Workflow)"
+          required: true
+        - label: "`workflow_call`-Inputs sind nicht bei Push-Triggern verwendet"
+          required: true
+        - label: "`actionlint` läuft ohne Fehler auf allen Workflow-Dateien"
+          required: false
+        - label: "Reusable Workflows referenzieren `@main` oder einen festen Tag (nicht `@latest`)"
+          required: true
+
+  - type: checkboxes
+    id: server_checks
+    attributes:
+      label: "4. Server-Konfiguration (Fehlerklasse D)"
+      description: "Verhindert 502 Bad Gateway und Backup-Fehler"
+      options:
+        - label: "Deploy-Pfad `/opt/<app>/` existiert auf dem Dev-Server (46.225.113.1)"
+          required: true
+        - label: "`.env.prod` liegt in `/opt/<app>/.env.prod`"
+          required: true
+        - label: "`.env.prod` enthält: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `SECRET_KEY`, `ALLOWED_HOSTS`"
+          required: true
+        - label: "Nginx `proxy_pass` zeigt auf `46.225.113.1:<port>` (NICHT `127.0.0.1`)"
+          required: true
+        - label: "Port-Binding im Compose ist `0.0.0.0:<port>:8000` (NICHT `127.0.0.1`)"
+          required: true
+        - label: "SSL-Zertifikat für die Domain ist auf dem Prod-Server (88.198.191.108) vorhanden"
+          required: true
+
+  - type: checkboxes
+    id: preflight_script
+    attributes:
+      label: "5. Pre-Flight Script"
+      options:
+        - label: "`./scripts/validate-deployment-readiness.sh` läuft ohne Fehler durch"
+          required: true
+
+  - type: textarea
+    id: port_mapping
+    attributes:
+      label: Port-Mapping
+      description: "Dokumentiere das Port-Mapping für spätere Referenz"
+      placeholder: |
+        - App-Port: 0.0.0.0:XXXX:8000
+        - Nginx proxy_pass: http://46.225.113.1:XXXX
+        - Domain: https://app.iil.pet
+    validations:
+      required: true
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notizen / Abweichungen
+      description: "Besonderheiten oder begründete Abweichungen vom Standard-Setup"
