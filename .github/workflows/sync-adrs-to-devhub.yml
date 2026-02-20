@@ -1,0 +1,22 @@
+name: Sync ADRs to DevHub
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "docs/adr/**.md"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: Trigger ADR sync on DevHub
+    runs-on: [self-hosted, hetzner, dev]
+
+    steps:
+      - name: Trigger import_adrs in running DevHub container
+        run: |
+          docker exec devhub_web python manage.py import_adrs \
+            --repo achimdehnert/platform \
+            --path docs/adr \
+            --tenant-slug devhub
