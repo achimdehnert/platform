@@ -1,0 +1,24 @@
+# requirements-test.txt — ADR-057 §2.1 standardised test dependencies
+# Copy to each service repo as requirements-test.txt
+# Usage in CI: pip install -r requirements.txt -r requirements-test.txt
+
+# Test runner
+pytest>=8.0
+pytest-django>=4.8
+pytest-cov>=5.0
+pytest-xdist>=3.5
+pytest-randomly>=3.15
+
+# Test data factories
+factory-boy>=3.3
+
+# HTTP mocking
+responses>=0.25          # for requests-based clients
+respx>=0.21              # for httpx-based async clients
+
+# Contract testing
+schemathesis>=3.30        # REST/JSON API contract tests via WSGI
+jsonschema>=4.21          # Celery task payload + DB view schema validation
+
+# HTML parsing (HTMX fragment tests)
+beautifulsoup4>=4.12
