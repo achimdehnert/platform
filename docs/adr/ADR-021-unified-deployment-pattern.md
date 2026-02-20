@@ -1,10 +1,13 @@
 # ADR-021: Unified Deployment Architecture
 
-**Status**: Accepted
+**Status**: Accepted (Amended 2026-02-20)
 **Date**: 2026-02-10
+**Amended**: 2026-02-20
 **Author**: Achim Dehnert
 **Scope**: All platform projects
 **Supersedes**: Per-project ad-hoc deployment setups
+
+> **Amendment 2026-02-20**: Added §2.14 (`infra-deploy` repo as Agent-API), §2.15 (Fast-Deploy Override), §2.16 (Expand-Contract Migrations Convention), updated §2.3 (dev-hub added), §2.9 (port registry updated), §4 (current state updated).
 
 ---
 
@@ -53,20 +56,20 @@ These values are identical across all projects and **MUST NOT be re-discovered**
 
 ### 2.3 Per-Project Parameters (the only things that vary)
 
-| Parameter | bfagent | risk-hub | travel-beat | weltenhub | pptx-hub |
-| --- | --- | --- | --- | --- | --- |
-| `deploy_path` | `/opt/bfagent-app` | `/opt/risk-hub` | `/opt/travel-beat` | `/opt/weltenhub` | `/opt/pptx-hub` |
-| `dockerfile` | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` ¹ | `Dockerfile` ¹ | `docker/app/Dockerfile` |
-| `compose_file` | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `deploy/docker-compose.prod.yml` ¹ | `docker-compose.prod.yml` | `docker-compose.prod.yml` |
-| `health_url` | `https://bfagent.iil.pet/healthz/` | `https://demo.schutztat.de/healthz/` ² | `https://drifttales.com/healthz/` ² | `https://weltenforger.com/healthz/` ² | *not deployed* |
-| `web_service` | `bfagent-web` | `risk-hub-web` | `web` ¹ | `weltenhub-web` | `web` |
-| `extra_services` | — | `risk-hub-worker` | `celery` | `weltenhub-celery weltenhub-beat` | `worker` |
-| `container` | `bfagent_web` | `risk_hub_web` | `travelbeat_web` | `weltenhub_web` | `pptx_hub_web` |
-| `host_port` | 8088 | 8090 | 8002 | 8081 | 8020 |
-| `database` | shared (`bfagent_db`) | own stack | own stack | shared (`bfagent_db`) | own stack |
-| `python` | 3.11 | 3.12 | 3.12 | 3.12 | 3.12 |
-| `source_dir` | `.` | `src` | `apps` | `apps` | `src` |
-| `settings_module` | `config.settings` | `config.settings` | `config.settings` | `config.settings.base` | `tests.settings` |
+| Parameter | bfagent | risk-hub | travel-beat | weltenhub | pptx-hub | dev-hub |
+| --- | --- | --- | --- | --- | --- | --- |
+| `deploy_path` | `/opt/bfagent-app` | `/opt/risk-hub` | `/opt/travel-beat` | `/opt/weltenhub` | `/opt/pptx-hub` | `/opt/dev-hub` |
+| `dockerfile` | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` ¹ | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` |
+| `compose_file` | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `deploy/docker-compose.prod.yml` ¹ | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `docker-compose.prod.yml` |
+| `health_url` | `https://bfagent.iil.pet/healthz/` | `https://demo.schutztat.de/healthz/` ² | `https://drifttales.com/healthz/` ² | `https://weltenforger.com/healthz/` ² | *not deployed* | `https://devhub.iil.pet/livez/` |
+| `web_service` | `bfagent-web` | `risk-hub-web` | `web` ¹ | `weltenhub-web` | `web` | `devhub-web` |
+| `extra_services` | — | `risk-hub-worker` | `celery` | `weltenhub-celery weltenhub-beat` | `worker` | `devhub-celery devhub-beat` |
+| `container` | `bfagent_web` | `risk_hub_web` | `travelbeat_web` | `weltenhub_web` | `pptx_hub_web` | `devhub_web` |
+| `host_port` | 8088 | 8090 | 8002 | 8081 | 8020 | 8085 |
+| `database` | shared (`bfagent_db`) | own stack | own stack | shared (`bfagent_db`) | own stack | shared (`bfagent_db`) |
+| `python` | 3.11 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 |
+| `source_dir` | `.` | `src` | `apps` | `apps` | `src` | `.` |
+| `settings_module` | `config.settings` | `config.settings` | `config.settings` | `config.settings.base` | `tests.settings` | `config.settings.base` |
 
 > ¹ Deviates from convention — migration tracked in §5.
 > ² Health endpoint migration to `/healthz/` tracked in §5.
@@ -193,6 +196,7 @@ All projects bind to `127.0.0.1:<port>` on the host. Nginx/Caddy forwards from 4
 | 8002 | travel-beat | Gunicorn (direct) |
 | 8020 | pptx-hub | Gunicorn (planned) |
 | 8081 | weltenhub | Gunicorn |
+| 8085 | dev-hub | Gunicorn |
 | 8088 | bfagent | Caddy → Gunicorn |
 | 8089 | travel-beat | Caddy |
 | 8090 | risk-hub | Gunicorn |
@@ -261,6 +265,123 @@ Substitute parameters from the table in §2.3.
 
 **Missing (future)**: Uptime monitoring (e.g. Uptime Kuma), centralized logging (e.g. Loki), alerting.
 
+### 2.14 `infra-deploy` Repository — Deployment API for Agents and Humans
+
+**Decision (2026-02-20):** A dedicated `achimdehnert/infra-deploy` repository serves as the single entry point for all deployments — callable by humans, Cascade, and autonomous agents alike.
+
+**Rationale:**
+
+- Isolates deployment secrets (SSH keys, GHCR token) to one repo — not duplicated across all service repos
+- Provides a stable `workflow_dispatch` + `repository_dispatch` API that agents can call without code changes
+- Enables autonomous rollback: an agent detecting errors can trigger `rollback.yml` without human intervention
+- Creates a single audit trail (`deploy.log`) across all services
+
+**Repository structure:**
+
+```text
+infra-deploy/
+├── .github/workflows/
+│   ├── deploy-service.yml      # Trigger: repository_dispatch (from CI) or workflow_dispatch (manual/agent)
+│   └── rollback.yml            # Trigger: workflow_dispatch — inputs: service, environment, target_tag
+├── scripts/
+│   ├── deploy.sh               # Atomic deploy: pull → migrate → up → health-check → rollback on failure
+│   └── rollback.sh             # Explicit rollback to previous or named tag
+└── README.md
+```
+
+**Server state directory** (on 88.198.191.108, gitignored):
+
+```text
+/opt/deploy/production/.deployed/
+├── <service>.tag               # Currently active image tag
+├── <service>.tag.prev          # Previous tag (rollback target)
+└── deploy.log                  # Append-only: timestamp | service | old→new | SUCCESS/ROLLBACK
+```
+
+**`deploy-service.yml`** — unified trigger:
+
+```yaml
+on:
+  repository_dispatch:
+    types: [deploy-service]     # Triggered by _deploy-trigger.yml from service repos
+  workflow_dispatch:
+    inputs:
+      service:    { required: true }
+      image_tag:  { required: true }
+      has_migrations: { default: "false" }
+
+concurrency:
+  group: deploy-production-${{ github.event.client_payload.service || inputs.service }}
+  cancel-in-progress: false     # Never cancel a running deploy
+
+jobs:
+  deploy:
+    runs-on: [self-hosted, dev-server]
+    steps:
+      - name: Deploy
+        run: |
+          ssh -o StrictHostKeyChecking=no root@88.198.191.108 \
+            "bash /opt/infra-deploy/scripts/deploy.sh \
+              ${{ github.event.client_payload.service || inputs.service }} \
+              ${{ github.event.client_payload.image_tag || inputs.image_tag }} \
+              ${{ github.event.client_payload.has_migrations || inputs.has_migrations }}"
+```
+
+**Relationship to existing `_deploy-hetzner.yml`:**
+The existing reusable workflow `_deploy-hetzner.yml` (§2.5) deploys directly via SSH from GitHub-hosted runners. `infra-deploy` is an **additional** entry point — not a replacement. Both coexist:
+
+- `_deploy-hetzner.yml`: used by service repos for standard CI/CD push-triggered deploys
+- `infra-deploy/deploy-service.yml`: used by agents, manual overrides, and cross-service orchestration
+
+### 2.15 Fast-Deploy Override Mechanism
+
+**Decision (2026-02-20):** Fast-Deploy (`git pull` + `docker cp` + `gunicorn reload`, ~6s) is retained as an explicit **emergency override** mechanism alongside the standard image-build flow.
+
+**When to use:**
+
+| Scenario | Mechanism | Latency |
+| --- | --- | --- |
+| Normal push to `main` | CI → Build → `_deploy-hetzner.yml` | ~3-5 min |
+| Emergency hotfix (template/view only) | Fast-Deploy via `workflow_dispatch` | ~6s |
+| Agent-triggered rollback | `infra-deploy/rollback.yml` | ~15s |
+| Manual MCP deploy | `deploy-remote.sh` via SSH | ~30s |
+
+**Fast-Deploy is NOT suitable for:**
+
+- Migrations (no image versioning → no rollback possible)
+- Dependency changes (new packages not in container)
+- Any change requiring a new Docker image
+
+**Implementation:** Fast-Deploy runs on the self-hosted runner (dev-server, 46.225.113.1) via `workflow_dispatch` only — never auto-triggered on push. Script: `/opt/scripts/deploy.sh <service>`.
+
+### 2.16 Expand-Contract Migrations Convention
+
+**Decision (2026-02-20):** All database migrations MUST follow the Expand-Contract pattern. This is a **convention enforced via PR checklist**, not a CI linter.
+
+**Rule:** Never delete or rename a column in the same release where the code stops referencing it.
+
+| Allowed in one release | NOT allowed in one release |
+| --- | --- |
+| Add new column (nullable or with default) | DROP COLUMN |
+| Add new table | RENAME COLUMN |
+| Add/remove index | NOT NULL without default on existing column |
+| Data migrations (RunPython) | Type change on existing column |
+
+**Two-release pattern:**
+
+- Release 1: Add `email_v2`, code uses both `email` and `email_v2`
+- Release 2: Remove `email`, code uses only `email_v2`
+
+**PR checklist** (add to `.github/pull_request_template.md` in each service repo):
+
+```markdown
+- [ ] DB migrations follow Expand-Contract (no DROP/RENAME in same release as code change)
+- [ ] `python manage.py makemigrations --check` shows no missing migrations
+- [ ] Migration is backwards-compatible (old code works with new DB schema)
+```
+
+**Rationale:** The `KeyError: 'last_verified'` incident (2026-02-20, dev-hub) was caused by a container-generated migration removing a field that the repo migration chain still referenced. Expand-Contract prevents this class of error.
+
 ## 3. What Is Legitimately Project-Specific
 
 Not every difference is an inconsistency. These vary by design:
@@ -274,17 +395,25 @@ Not every difference is an inconsistency. These vary by design:
 | Python version | bfagent still on 3.11 | Migration planned |
 | Extra build steps | bfagent builds Sphinx docs in Docker | Documentation delivery |
 
-## 4. Current State (as of 2026-02-10)
+## 4. Current State (as of 2026-02-20)
 
-| Project | CI/CD via platform workflows | Auto-deploy | Windsurf `/deploy` |
-| --- | --- | --- | --- |
-| bfagent | ❌ custom (3 workflow files) | ✅ on push to main | ✅ |
-| risk-hub | ✅ migrated | ✅ on push to main | ✅ |
-| travel-beat | ✅ reference implementation | ✅ on push to main | ✅ |
-| weltenhub | ✅ migrated | ✅ on push to main | ✅ |
-| pptx-hub | ❌ CI-only (test + PyPI) | ❌ not deployed | ✅ created |
+| Project | CI/CD via platform workflows | Auto-deploy | Fast-Deploy | Windsurf `/deploy` |
+| --- | --- | --- | --- | --- |
+| bfagent | ❌ custom (3 workflow files) | ✅ on push to main | ❌ | ✅ |
+| risk-hub | ✅ migrated | ✅ on push to main | ❌ | ✅ |
+| travel-beat | ✅ reference implementation | ✅ on push to main | ❌ | ✅ |
+| weltenhub | ✅ migrated | ✅ on push to main | ❌ | ✅ |
+| pptx-hub | ❌ CI-only (test + PyPI) | ❌ not deployed | ❌ | ✅ created |
+| dev-hub | ✅ fast-deploy only (§2.15) | ✅ on push to main | ✅ (~6s) | ✅ |
 
 ## 5. Remaining Migration Tasks
+
+### Priority 0 — Amendment 2026-02-20 (new)
+
+- [ ] Create `achimdehnert/infra-deploy` repo with `deploy-service.yml`, `rollback.yml`, `deploy.sh`, `rollback.sh` (§2.14)
+- [ ] Add `_deploy-trigger.yml` reusable workflow to `platform/.github/workflows/` (§2.14)
+- [ ] Add `.github/pull_request_template.md` with Expand-Contract checklist to all service repos (§2.16)
+- [ ] dev-hub: Migrate Fast-Deploy to `workflow_dispatch`-only trigger; add standard CI/CD build flow (§2.15)
 
 ### Priority 1 — Functional gaps
 
