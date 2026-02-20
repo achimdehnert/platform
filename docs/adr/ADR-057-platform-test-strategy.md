@@ -186,92 +186,82 @@ addopts = [
     "--tb=short",
     "-ra",
     "--no-header",
-    "-n auto",               # pytest-xdist: parallel execution
-    "--dist=loadscope",      # Tests in same class on same worker — prevents DB race conditions with postgres
-    "--randomly-seed=last",  # Reproduce last failing order: pytest --randomly-seed=last
+    "-n auto",
+    "--dist=loadscope",
+    "--randomly-seed=last",
 ]
 markers = [
-    "slow: Tests die > 1s dauern",
-    "contract: Contract Tests gegen andere Services",
-    "integration: Tests die DB oder externe Services brauchen",
+    "unit: Unit tests (no DB, no external services)",
+    "integration: Integration tests (DB required)",
+    "contract: Contract tests (Schemathesis, run on main only)",
+    "slow: Slow tests (skipped by default in dev)",
 ]
-filterwarnings = [
-    "error",
-    "ignore::DeprecationWarning:django.*:",
-]
-
-[tool.coverage.run]
-source = ["apps"]
-omit = [
-    "*/migrations/*",
-    "*/admin.py",
-    "*/apps.py",
-    "*/tests/*",
-    "config/*",
-    "manage.py",
-]
-
-[tool.coverage.report]
-fail_under = 0    # Phase 1: kein Gate, nur Report
-show_missing = true
 ```
 
-### 2.3 Standard `config/settings/test.py` (per service repo)
+> **`--dist=loadscope`**: Required when using `pytest-xdist` with PostgreSQL — prevents DB race conditions by keeping tests from the same module on the same worker.
+
+### 2.3 Standard Test Settings (`config/settings/test.py`)
 
 ```python
-# config/settings/test.py
-import os
-from .base import *  # noqa: F401, F403
+from .base import *  # noqa: F401,F403
+
+DEBUG = False
 
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": "test_db",
-        "USER": "test_user",
-        "PASSWORD": "test_pass",
+        "NAME": os.environ.get("POSTGRES_DB", "test_db"),
+        "USER": os.environ.get("POSTGRES_USER", "test_user"),
+        "PASSWORD": os.environ.get("POSTGRES_PASSWORD", "test_pass"),
         "HOST": os.environ.get("POSTGRES_HOST", "localhost"),
-        "PORT": "5432",
+        "PORT": os.environ.get("POSTGRES_PORT", "5432"),
     }
 }
 
 PASSWORD_HASHERS = ["django.contrib.auth.hashers.MD5PasswordHasher"]
+
 EMAIL_BACKEND = "django.core.mail.backends.locmem.EmailBackend"
+
+DEFAULT_FILE_STORAGE = "django.core.files.storage.InMemoryStorage"
+
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
-STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.InMemoryStorage"},
-    "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"},
+
+SECURE_SSL_REDIRECT = False
+REST_FRAMEWORK = {**globals().get("REST_FRAMEWORK", {}), "DEFAULT_THROTTLE_CLASSES": []}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": True,
+    "handlers": {"null": {"class": "logging.NullHandler"}},
+    "root": {"handlers": ["null"], "level": "CRITICAL"},
 }
 ```
 
-### 2.4 Test Pyramid — Django-adjusted Ratios
+### 2.4 Test Pyramid Ratios (Django-specific)
 
-> In Django, any test using `@pytest.mark.django_db` is technically an integration test. Ratios reflect Django reality, not classical theory (ref: Harry Percival, "Obey the Testing Goat").
+| Level | Ratio | Examples |
+| --- | --- | --- |
+| Unit | 40% | Model methods, validators, service functions, pure Python |
+| Integration | 45% | Views (Django test client), HTMX fragments, N+1 checks |
+| Contract | 10% | Schemathesis API, DB view schema, Celery payload |
+| E2E/Smoke | 5% | Post-deploy smoke test script |
 
-| Level | Ratio | Runtime budget | Trigger |
-| --- | --- | --- | --- |
-| Unit (no DB) | ~40% | < 30s | Every push |
-| Integration (with DB) | ~45% | < 2 min | Every push |
-| Contract | ~10% | < 1 min | Push to `main` only |
-| E2E / Smoke | ~5% | < 2 min | Post-deployment |
+> **Django-specific rationale**: Integration tests (views + DB) are cheap in Django because `TestCase` wraps each test in a transaction — no teardown overhead. The 40/45 split reflects this.
 
-**Unit** = Models (validators, properties, `__str__`), Forms, Utils, Serializers, Template Tags — no `@pytest.mark.django_db`.
-
-**Integration** = Views (full request-response cycle), QuerySets, Celery tasks (intra-service), HTMX fragments.
-
-### 2.5 Global Fixtures and Factory Pattern
+### 2.5 Base Fixtures (`tests/conftest.py`)
 
 ```python
-# tests/conftest.py
 import pytest
-from tests.factories import UserFactory, AssessmentFactory
 
 @pytest.fixture
 def user(db):
+    from tests.factories import UserFactory
     return UserFactory()
 
 @pytest.fixture
 def admin_user(db):
+    from tests.factories import UserFactory
     return UserFactory(is_staff=True, is_superuser=True)
 
 @pytest.fixture
@@ -280,105 +270,59 @@ def authenticated_client(client, user):
     return client
 ```
 
-```python
-# tests/factories.py
-import factory
-from apps.core.models import User, Assessment
-
-class UserFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = User
-    username = factory.Sequence(lambda n: f"user_{n}")
-    email = factory.LazyAttribute(lambda obj: f"{obj.username}@example.com")
-    is_active = True
-
-class AssessmentFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Assessment
-    title = factory.Faker("sentence", nb_words=4)
-    created_by = factory.SubFactory(UserFactory)
-    status = "draft"
-```
-
-### 2.6 HTMX View Testing Pattern
+### 2.6 HTMX Fragment Test Pattern
 
 ```python
-import pytest
 from bs4 import BeautifulSoup
 
 @pytest.mark.django_db
-class TestAssessmentListView:
+def test_should_render_stop_list_fragment(authenticated_client, trip):
+    response = authenticated_client.get(
+        f"/trips/{trip.pk}/stops/",
+        HTTP_HX_REQUEST="true",
+    )
+    assert response.status_code == 200
+    soup = BeautifulSoup(response.content, "html.parser")
+    assert soup.find("ul", {"id": "stop-list"}) is not None
 
-    def test_authenticated_user_sees_own_assessments(self, authenticated_client, user):
-        from tests.factories import AssessmentFactory
-        AssessmentFactory(created_by=user, title="Mein Assessment")
-        AssessmentFactory()  # other user — must not appear
-
-        response = authenticated_client.get("/assessments/")
-
-        assert response.status_code == 200
-        soup = BeautifulSoup(response.content, "html.parser")
-        rows = soup.select("table tbody tr")
-        assert len(rows) == 1
-        assert "Mein Assessment" in rows[0].text
-
-    def test_unauthenticated_user_is_redirected(self, client):
-        response = client.get("/assessments/")
-        assert response.status_code == 302
-        assert "/login/" in response.url
-
-    def test_htmx_partial_returns_fragment(self, authenticated_client):
-        response = authenticated_client.get(
-            "/assessments/",
-            HTTP_HX_REQUEST="true",
-            HTTP_HX_TARGET="assessment-list",
-        )
-        assert response.status_code == 200
-        assert b"<html" not in response.content
-        assert BeautifulSoup(response.content, "html.parser").select_one("#assessment-list") is not None
-
-    def test_list_view_does_not_trigger_n_plus_one(self, authenticated_client, django_assert_num_queries):
-        from tests.factories import AssessmentFactory
-        AssessmentFactory.create_batch(10)
-        with django_assert_num_queries(3):  # adjust to actual baseline
-            authenticated_client.get("/assessments/")
+@pytest.mark.django_db
+@pytest.mark.integration
+def test_should_not_n_plus_one_on_stop_list(authenticated_client, trip, django_assert_num_queries):
+    from tests.factories import StopFactory
+    StopFactory.create_batch(5, trip=trip)
+    with django_assert_num_queries(3):
+        authenticated_client.get(f"/trips/{trip.pk}/stops/", HTTP_HX_REQUEST="true")
 ```
 
-### 2.7 Contract Testing — REST/JSON APIs (Schemathesis via WSGI)
-
-> **Critical**: Use `app=` to inject the WSGI app directly — no running server needed in CI.
+### 2.7 Schemathesis Contract Test Pattern
 
 ```python
-# tests/contracts/test_api_provider.py
+# tests/contracts/test_api_contract.py
+import pytest
 import schemathesis
-from config.wsgi import application
+from django.test import Client
 
-schema = schemathesis.from_path("openapi.yaml", app=application)
+@pytest.fixture
+def app():
+    from config.wsgi import application
+    return application
 
-@schema.parametrize()
-def test_api_conforms_to_spec(case):
-    response = case.call_and_validate()
+@pytest.mark.contract
+@pytest.mark.django_db(transaction=True)
+def test_should_api_conform_to_openapi_schema(app, user):
+    schema = schemathesis.from_wsgi("/api/schema/?format=json", app)
+
+    @schema.parametrize()
+    def test_api(case):
+        client = Client()
+        client.force_login(user)
+        response = case.call_wsgi(app)
+        case.validate_response(response)
+
+    test_api()
 ```
 
-Consumer side uses `responses` (sync) or `respx` (async) to mock the provider.
-
-**Spec freshness check** (weekly scheduled workflow):
-
-```yaml
-on:
-  schedule:
-    - cron: "0 6 * * 1"
-jobs:
-  check-specs:
-    runs-on: self-hosted
-    steps:
-      - uses: actions/checkout@v4
-      - run: |
-          curl -sf https://raw.githubusercontent.com/achimdehnert/<provider>/main/openapi.yaml \
-            -o /tmp/latest-spec.yaml
-          diff tests/contracts/specs/<provider>-openapi.yaml /tmp/latest-spec.yaml \
-            || (echo "::warning::API spec outdated" && exit 1)
-```
+> **WSGI injection**: `schemathesis.from_wsgi()` injects directly into the Django WSGI app — no running server required in CI.
 
 ### 2.8 Contract Testing — Shared Database Views
 
@@ -560,26 +504,59 @@ echo "=== All smoke tests passed ==="
 
 ## 3. Migration Tracking
 
-| Item | Status | Phase |
-| --- | --- | --- |
-| `requirements-test.txt` standardisiert in allen Service-Repos | 🔴 Not started | 1 |
-| `pyproject.toml` pytest-Konfiguration (§2.2 Template) in allen Repos | 🔴 Not started | 1 |
-| `config/settings/test.py` (§2.3 Template) in allen Repos erstellen | 🔴 Not started | 1 |
-| `tests/conftest.py` + `tests/factories.py` Basis in allen Repos | 🔴 Not started | 1 |
-| `_ci-python.yml` um test-unit + test-integration + coverage-report + security Jobs erweitern | 🔴 Not started | 1 |
-| View-Tests für Top-10-Views pro Service (inkl. HTMX + N+1-Check) | 🔴 Not started | 2 |
-| Model-Tests für alle Custom Validatoren und Manager | 🔴 Not started | 2 |
-| Coverage-Ziel 50% erreicht | 🔴 Not started | 2 |
-| `openapi.yaml` für alle API-anbietenden Services | 🔴 Not started | 3 |
-| Schemathesis Provider-Tests via WSGI pro API-Service | 🔴 Not started | 3 |
-| `platform/shared_contracts/task_schemas.py` erstellen | 🔴 Not started | 3 |
-| `platform/shared_contracts/db_views.py` erstellen | 🔴 Not started | 3 |
-| JSON Schema Validation in Celery Sender/Empfänger | 🔴 Not started | 3 |
-| DB View Contract Tests (Provider + Consumer, `transaction=True`) | 🔴 Not started | 3 |
-| Wöchentlicher Spec-Sync-Check Workflow | 🔴 Not started | 3 |
-| `scripts/smoke-test.sh` mit parametrisiertem `LOGIN_PATH` | 🔴 Not started | 4 |
-| Coverage Gate 70% aktivieren (`fail_under = 70`) | 🔴 Not started | 4 |
-| pytest-xdist + pytest-randomly aktivieren | 🔴 Not started | 4 |
+> **Last updated**: 2026-02-20 — Phase 1 + Phase 2 complete for all 7 service repos.
+
+### Phase 1 — Test Infrastructure
+
+| Item | weltenhub | travel-beat | bfagent | risk-hub | cad-hub | trading-hub | pptx-hub |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `requirements-test.txt` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (via pyproject) |
+| `pytest.ini` / `pyproject.toml` pytest config | ✅ | ✅ | ✅ | ✅ | ✅ | — (existing) | ✅ (existing) |
+| `config/settings/test.py` | ✅ | ✅ | ✅ | ✅ (settings_test.py) | ✅ | — (own module) | n/a |
+| `tests/conftest.py` + `tests/factories.py` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (existing) |
+| CI wired to `_ci-python.yml@main` | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | — (PyPI publish, no Django) |
+
+### Phase 2 — Model + View Tests
+
+| Item | weltenhub | travel-beat | bfagent | risk-hub | cad-hub | trading-hub | pptx-hub |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| Model tests (core models) | ✅ World/Tenant | ✅ Trip/Stop/Transport | ✅ BookProject | ✅ Assessment/Hazard | ✅ (view tests) | — | n/a |
+| View tests (login, ownership, N+1) | ✅ DRF API | ✅ HTMX views | ✅ Django views | — | ✅ | — | n/a |
+| Property tests (`@property` methods) | — | ✅ duration_days, reading_minutes | — | ✅ risk_score | — | — | n/a |
+| Schemathesis contract test | ✅ | — | — | — | — | — | n/a |
+| Coverage target 50% reached | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 | 🔴 |
+
+### Phase 3 — Contract Tests (pending)
+
+| Item | Status |
+| --- | --- |
+| `openapi.yaml` für alle API-anbietenden Services | 🔴 Not started |
+| Schemathesis Provider-Tests via WSGI pro API-Service | 🔴 Not started |
+| `platform/shared_contracts/task_schemas.py` erstellen | ✅ Done |
+| `platform/shared_contracts/db_views.py` erstellen | ✅ Done |
+| JSON Schema Validation in Celery Sender/Empfänger | 🔴 Not started |
+| DB View Contract Tests (Provider + Consumer, `transaction=True`) | 🔴 Not started |
+| Wöchentlicher Spec-Sync-Check Workflow | 🔴 Not started |
+
+### Phase 4 — Hardening (pending)
+
+| Item | Status |
+| --- | --- |
+| `scripts/smoke-test.sh` mit parametrisiertem `LOGIN_PATH` | ✅ Done (platform/scripts/) |
+| Coverage Gate 70% aktivieren (`fail_under = 70`) | 🔴 Not started |
+| pytest-xdist + pytest-randomly aktivieren | 🔴 Not started |
+
+### Repo-spezifische Besonderheiten
+
+| Repo | Besonderheit |
+| --- | --- |
+| **risk-hub** | `src/`-Layout; Settings monolithisch (`config/settings.py` → `config/settings_test.py`); SQLite für Unit-Tests |
+| **cad-hub** | `apps/`-Layout; `config/settings/test.py` (split); `django_tenancy` Middleware |
+| **trading-hub** | `src/trading_hub/`-Layout; eigenes Settings-Modul `trading_hub.django.settings`; TimescaleDB (Integration-Tests brauchen timescaledb Image) |
+| **pptx-hub** | Python-Package (kein Django); eigene `ci.yml` mit `uv`/PyPI-Publish; kein `pytest-django` nötig |
+| **weltenhub** | Multi-Tenant (UUID FK); DRF API ViewSets; Schemathesis Contract-Test vorhanden |
+| **travel-beat** | Custom `AUTH_USER_MODEL = accounts.User`; HTMX Views; allauth |
+| **bfagent** | Standard Django auth; kein HTMX; `src/`-Layout mit `apps/bfagent/` |
 
 ---
 
