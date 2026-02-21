@@ -111,7 +111,7 @@ Manueller Review aller ADRs alle 3 Monate.
 
 **Gewählte Option: Option A — Automatisierter Drift-Detector in dev-hub**
 
-Der bestehende `AgentType.DRIFT_DETECTOR` in `agents_dashboard` wird implementiert. Das `ADR`-Model in `adr_lifecycle` erhält drei neue Felder: `review_needed`, `drift_reason`, `last_drift_check`. Ein wöchentlicher Celery-Beat-Task prüft alle ADRs gegen 5 Staleness-Kriterien und setzt Flags automatisch. Die Ergebnisse sind in dev-hub filterbar und werden als `AgentRun` in `agents_dashboard` protokolliert.
+Der bestehende `AgentType.DRIFT_DETECTOR` in `agents_dashboard` wird implementiert. Das `ADR`-Model in `adr_lifecycle` erhält vier neue Felder: `review_needed`, `drift_reasons`, `last_drift_check`, `staleness_months`. Ein wöchentlicher Celery-Beat-Task prüft alle ADRs gegen 5 Staleness-Kriterien und setzt Flags automatisch. Die Ergebnisse sind in dev-hub filterbar und werden als `AgentRun` in `agents_dashboard` protokolliert.
 
 ---
 
@@ -390,9 +390,10 @@ class ADRListView(LoginRequiredMixin, ListView):
 | `dev-hub` — Celery Task | 1 | ⬜ Ausstehend | – | `run_drift_detector` |
 | `dev-hub` — Beat Schedule | 1 | ⬜ Ausstehend | – | Montag 06:00 |
 | `dev-hub` — UI Filter | 2 | ⬜ Ausstehend | – | `?review_needed=1` |
-| `platform` — Triage-Skript | 0 | ⬜ Ausstehend | – | Einmalig: 42 `?`-ADRs normalisieren |
+| `platform` — Triage-Skript | 0 | ✅ Abgeschlossen | 2026-02-21 | `scripts/adr_triage.py` erstellt |
 | `platform` — ADR-Template v2 | 0 | ✅ Abgeschlossen | 2026-02-21 | `docs/templates/adr-template.md` |
-| `platform` — `?`-ADRs normalisiert | 3 | ⬜ Ausstehend | – | Status-Triage für alle 42 ADRs |
+| `platform` — YAML-Frontmatter (46 ADRs) | 0 | ✅ Abgeschlossen | 2026-02-21 | `adr_triage.py --apply` ausgeführt |
+| `platform` — Status-Triage (superseded/accepted) | 3 | ⬜ Ausstehend | – | Manuelle Bestätigung der Vorschläge |
 
 ---
 
@@ -436,7 +437,7 @@ class ADRListView(LoginRequiredMixin, ListView):
 1. **Wöchentlicher AgentRun**: `AgentRun.objects.filter(agent_type="drift_detector").latest("created_at")` — muss < 8 Tage alt sein
 2. **Review-Count sinkt**: `ADR.objects.filter(review_needed=True).count()` — Ziel: < 5 nach initialer Triage
 3. **Neue ADRs haben Frontmatter**: CI-Check `grep -L "^---" docs/adr/ADR-*.md` — muss leer sein für ADRs nach 2026-02-21
-4. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft — Staleness-Schwelle: 12 Monate
+4. **Celery Beat aktiv**: `AgentRun.objects.filter(agent_type="drift_detector").latest("created_at")` — fehlt Eintrag > 8 Tage → manuelle Prüfung ob Beat-Worker läuft
 
 ---
 
@@ -455,3 +456,4 @@ class ADRListView(LoginRequiredMixin, ListView):
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-21 | Achim Dehnert | Initial: Status Proposed — auf Basis ADR-Template v2.0 |
+| 2026-02-21 | Achim Dehnert | Review-Fixes: Migration Tracking aktualisiert, Decision Outcome Feldanzahl korrigiert, Confirmation §4 self-reference entfernt |
