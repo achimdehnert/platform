@@ -7,7 +7,8 @@ defined in ADR-058 (Platform Test Taxonomy):
 - A6: Error handling (JSON body, no traceback)
 - U3: HTMX fragment responses
 - U9: Smoke / graceful degradation
-- Celery dispatch verification
+- A10: Celery dispatch verification
+- API: DRF 401 authentication (assert_api_auth_required)
 
 Example usage::
 
@@ -15,6 +16,7 @@ Example usage::
         assert_htmx_fragment,
         assert_login_required,
         assert_no_data_leak,
+        assert_api_auth_required,
     )
 
     def test_should_return_fragment(auth_client):
@@ -24,10 +26,8 @@ Example usage::
     def test_should_require_login(client):
         assert_login_required(client, "/dashboard/")
 
-    def test_should_isolate_user_data(client):
-        trip = TripFactory()
-        other = UserFactory()
-        assert_no_data_leak(client, f"/trips/{trip.pk}/", other)
+    def test_should_api_require_auth(api_client):
+        assert_api_auth_required(api_client, "/api/v1/worlds/")
 """
 
 from __future__ import annotations
@@ -253,4 +253,48 @@ def assert_celery_dispatched(
         f"Expected Celery task to be dispatched {count} time(s), "
         f"but it was called {mock_delay.call_count} time(s). "
         f"Check that the view calls task.delay() exactly once per request."
+    )
+
+
+def assert_api_auth_required(
+    api_client: object,
+    url: str,
+    *,
+    method: str = "get",
+    expected_status: int = 401,
+) -> None:
+    """ADR-058 A2: Assert that a DRF API endpoint requires authentication.
+
+    Verifies that an unauthenticated DRF request returns 401 Unauthorized
+    (not 302 redirect, which is the Django session auth behavior).
+
+    Use this for REST API endpoints that use TokenAuthentication or
+    SessionAuthentication with DRF's default 401 response.
+
+    Args:
+        api_client: Unauthenticated DRF APIClient instance.
+        url: API URL to test.
+        method: HTTP method to use (default: "get").
+        expected_status: Expected status code (default: 401).
+                         Use 403 for IsAuthenticated with SessionAuthentication.
+
+    Raises:
+        AssertionError: If the API endpoint does not require authentication.
+
+    Example::
+
+        def test_should_api_require_auth(api_client):
+            assert_api_auth_required(api_client, "/api/v1/worlds/")
+
+        def test_should_api_require_auth_post(api_client):
+            assert_api_auth_required(api_client, "/api/v1/worlds/", method="post")
+    """
+    request_method = getattr(api_client, method.lower())
+    response = request_method(url)
+    assert response.status_code == expected_status, (
+        f"Expected {expected_status} for unauthenticated API request to {url!r}, "
+        f"got {response.status_code}. "
+        f"Ensure the view uses IsAuthenticated permission class. "
+        f"Note: DRF with SessionAuthentication may return 403 instead of 401 — "
+        f"pass expected_status=403 if needed."
     )
