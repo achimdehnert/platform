@@ -33,13 +33,14 @@ Ich brauche folgende Infos:
 |------|-----|
 | 8080 | governance |
 | 8081 | weltenhub |
+| 8082 | dev-hub |
 | 8088 | trading-hub |
 | 8089 | travel-beat |
 | 8090 | risk-hub |
 | 8091 | bfagent |
 | 8092 | pptx-hub |
-| 8093      | wedding-hub       |
-| 8093 | *nächster freier* |
+| 8093 | wedding-hub |
+| 8094 | *nächster freier* |
 
 ## Step 1: Repository-Struktur erstellen
 
@@ -62,7 +63,8 @@ Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:
 │   │   ├── __init__.py            # → from .production import * (oder .development)
 │   │   ├── base.py                # Gemeinsame Settings
 │   │   ├── development.py         # DEBUG=True, sqlite, etc.
-│   │   └── production.py          # SECURE_*, DATABASE_URL, etc.
+│   │   ├── production.py          # SECURE_*, DATABASE_URL, etc.
+│   │   └── test.py                # Test-Settings (WHITENOISE_MANIFEST_STRICT=False etc.)
 │   ├── urls.py
 │   ├── celery.py                  # Falls Celery benötigt
 │   └── wsgi.py
@@ -74,9 +76,15 @@ Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:
 │   └── <app_name>/
 │       ├── partials/              # Template partials
 │       └── components/            # ADR-041: _<name>.html (underscore prefix!)
+├── tests/                         # Test-Infrastruktur (ADR-058)
+│   ├── __init__.py
+│   ├── conftest.py
+│   ├── factories.py
+│   └── test_auth.py
 ├── requirements.txt               # Oder requirements/base.txt + dev.txt
+├── requirements-test.txt          # platform-context[testing]>=0.3.1 (ADR-058)
 ├── docker-compose.prod.yml        # Production Compose (siehe Step 3.3)
-├── pyproject.toml                 # Projekt-Metadaten
+├── pyproject.toml                 # Projekt-Metadaten + pytest config
 ├── .dockerignore                  # PFLICHT — siehe Step 1.5
 ├── .env.example                   # Beispiel-Umgebungsvariablen
 └── README.md
@@ -99,8 +107,7 @@ Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:
 
 ### 1.3 Django Settings (MANDATORY)
 
-**Empfohlen: Split-Settings** (`config/settings/base.py` + `production.py`).  
-Alternativ: Single `config/settings.py` (z.B. risk-hub).
+**Empfohlen: Split-Settings** (`config/settings/base.py` + `production.py` + `test.py`).
 
 **`config/settings/base.py`** (gemeinsame Settings):
 
@@ -114,25 +121,32 @@ CSRF_TRUSTED_ORIGINS = [
     o.strip() for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
 ]
 
-# Database via DATABASE_URL (Standard)
-# Fallback: Individuelle POSTGRES_* Vars möglich, aber DATABASE_URL bevorzugen
 import dj_database_url
 DATABASES = {"default": dj_database_url.config(default="sqlite:///db.sqlite3")}
 ```
 
-**`config/settings/production.py`** (Production-Overrides):
+**`config/settings/production.py`**:
 
 ```python
 from .base import *  # noqa: F401,F403
 
 DEBUG = False
-
-# CRITICAL: Reverse proxy (Nginx) terminates SSL
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_BROWSER_XSS_FILTER = True
 SECURE_CONTENT_TYPE_NOSNIFF = True
+```
+
+**`config/settings/test.py`** (PFLICHT für pytest):
+
+```python
+from .base import *  # noqa: F401,F403
+
+DEBUG = True
+DATABASES = {"default": {"ENGINE": "django.db.backends.sqlite3", "NAME": ":memory:"}}
+WHITENOISE_MANIFEST_STRICT = False
+STATICFILES_STORAGE = "whitenoise.storage.CompressedStaticFilesStorage"
 ```
 
 ### 1.4 `.env.example` erstellen
@@ -159,14 +173,10 @@ DATABASE_URL=postgres://<app_underscore>:CHANGE_ME@<app>-db:5432/<app_underscore
 REDIS_URL=redis://<app>-redis:6379/0
 
 # === GHCR ===
-GHCR_OWNER=achimdehnert
-GHCR_REPO=<repo-name>
 IMAGE_TAG=latest
 ```
 
 ### 1.5 `.dockerignore` erstellen (PFLICHT)
-
-Ohne `.dockerignore` landet `.git/` (~50-200MB), `__pycache__/`, `.env.prod` im Build-Context.
 
 ```dockerignore
 .git
@@ -193,12 +203,47 @@ tests/
 .windsurf/
 ```
 
+### 1.6 Test-Infrastruktur einrichten (PFLICHT — ADR-058)
+
+Vollständige Anleitung: `.windsurf/workflows/testing-setup.md`
+
+**Kurzfassung:**
+
+```bash
+# requirements-test.txt
+platform-context[testing]>=0.3.1
+pytest-django>=4.8
+factory-boy>=3.3
+```
+
+```python
+# tests/conftest.py
+from platform_context.testing.fixtures import (  # noqa: F401
+    admin_client, admin_user, auth_client,
+)
+import pytest
+
+@pytest.fixture
+def user(db):
+    from tests.factories import UserFactory
+    return UserFactory()
+```
+
+```ini
+# pyproject.toml
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "--tb=short -q"
+```
+
 ## Step 2: GitHub Actions CI/CD
 
-Erstelle `.github/workflows/ci-cd.yml` mit Platform Reusable Workflows:
+Erstelle `.github/workflows/ci-cd.yml`:
 
 ```yaml
-# <APP_NAME> CI/CD — Using Platform Reusable Workflows
 name: CI/CD Pipeline
 
 permissions:
@@ -219,36 +264,35 @@ on:
         type: boolean
 
 jobs:
-  # STAGE 1: CI (Lint, Test, Security Scan)
   ci:
     name: "CI"
-    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1
+    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main
     with:
       python_version: "3.12"
-      coverage_threshold: 0
+      coverage_threshold: 80
+      platform_context_version: ">=0.3.1"
       requirements_file: "requirements.txt"
-      source_dir: "src"
-      django_settings_module: "config.settings"
+      test_requirements_file: "requirements-test.txt"
+      django_settings_module: "config.settings.test"
       skip_tests: ${{ inputs.skip_tests || false }}
+      enable_security_scan: true
     secrets: inherit
 
-  # STAGE 2: Build Docker Image → GHCR
   build:
     name: "Build"
     needs: [ci]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1
+    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@main
     with:
       dockerfile: "docker/app/Dockerfile"
       scan_image: true
     secrets: inherit
 
-  # STAGE 3: Deploy to Hetzner
   deploy:
     name: "Deploy"
     needs: [build]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1
+    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
     with:
       app_name: <REPO_NAME>
       deploy_path: /opt/<REPO_NAME>
@@ -257,11 +301,7 @@ jobs:
       web_service: <REPO_NAME>-web
       run_migrations: true
       enable_rollback: true
-      notify_slack: false
-    secrets:
-      HETZNER_HOST: ${{ secrets.DEPLOY_HOST }}
-      HETZNER_USER: ${{ secrets.DEPLOY_USER }}
-      HETZNER_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+    secrets: inherit
 ```
 
 ### GitHub Secrets (MÜSSEN im Repo gesetzt sein)
@@ -269,184 +309,112 @@ jobs:
 | Secret | Wert |
 |--------|------|
 | `DEPLOY_HOST` | `88.198.191.108` |
-| `DEPLOY_USER` | `root` (O-02: Bei Multi-Server-Setup dedizierten `deploy`-User mit sudo empfehlen) |
-| `DEPLOY_SSH_KEY` | SSH Private Key (gleicher wie andere Repos) |
-
-### N-05: Image-Tag-Strategie & Rollback (O-10)
-
-CI/CD soll **zwei Tags** pushen:
-
-- `:latest` — für normales Deployment
-- `:sha-<7char>` — für Rollback-Fähigkeit (Git-SHA der letzten 7 Zeichen)
-
-**Manueller Rollback:**
-
-```bash
-# Auf Server: vorheriges Image deployen
-cd /opt/<REPO>
-IMAGE_TAG=sha-abc1234 docker compose -f docker-compose.prod.yml up -d --force-recreate <REPO>-web
-```
-
-**DB-Migration-Reversal:** Django-Migrationen sind **nicht** automatisch rückwärtskompatibel.
-Bei Schema-Änderungen: `python manage.py migrate <app> <previous_migration>` vor Image-Rollback.
+| `DEPLOY_USER` | `root` |
+| `DEPLOY_SSH_KEY` | SSH Private Key |
 
 ## Step 3: Docker Setup
 
 ### 3.1 Dockerfile (`docker/app/Dockerfile`)
 
 ```dockerfile
-# =============================================================================
-# Multi-Stage Build (O-04): build-essential nur in Builder-Stage
-# =============================================================================
-
-# --- Stage 1: Builder (compile C-extensions, then discard build-deps) ---
 FROM python:3.12-slim AS builder
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY requirements.txt /tmp/requirements.txt
-RUN pip install --no-cache-dir --prefix=/install \
-    -r /tmp/requirements.txt \
-    gunicorn whitenoise
-
-# --- Stage 2: Runtime (slim, no build-essential ~200MB saved) ---
-FROM python:3.12-slim AS runtime
-
-# OCI Labels
-ARG APP_NAME=<REPO_NAME>
-LABEL org.opencontainers.image.source="https://github.com/achimdehnert/${APP_NAME}"
-LABEL org.opencontainers.image.description="<APP_DESCRIPTION>"
-
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-
-# Runtime-only system deps (libpq for psycopg, add app-specific here)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 \
-    && rm -rf /var/lib/apt/lists/*
-
-# Copy pre-built Python packages from builder
-COPY --from=builder /install /usr/local
+    build-essential libpq-dev && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
+COPY requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.12-slim
+
+LABEL org.opencontainers.image.title="<REPO_NAME>" \
+      org.opencontainers.image.description="<DESCRIPTION>" \
+      org.opencontainers.image.version="1.0.0"
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /install /usr/local
+WORKDIR /app
+COPY . .
+
+RUN addgroup --system appgroup && adduser --system --ingroup appgroup appuser
+RUN chown -R appuser:appgroup /app
 
 COPY docker/app/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-COPY . /app
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
+    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')"
 
-# Collect static files at build time (O-03: show errors, don't abort)
-RUN DJANGO_SECRET_KEY=build-only \
-    DJANGO_SETTINGS_MODULE=config.settings.production \
-    DATABASE_URL=sqlite:///dev-null \
-    python manage.py collectstatic --noinput \
-    || echo "WARN: collectstatic failed (non-fatal at build time)"
-
-# Non-root user
-RUN groupadd --gid 1000 app && \
-    useradd --uid 1000 --gid 1000 --create-home app && \
-    chown -R app:app /app
-USER app
-
+USER appuser
 EXPOSE 8000
-
-# Health check (ALWAYS localhost, NEVER 127.0.0.1, NEVER curl)
-# ⚠️ WARNING: This HEALTHCHECK is inherited by ALL containers using this image.
-#    Worker/Beat services MUST override this in docker-compose.prod.yml!
-#    See Step 4.2 Healthcheck-Regeln.
-HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')" || exit 1
-
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["web"]
 ```
 
-### 3.2 Entrypoint (`docker/app/entrypoint.sh`)
+**KRITISCH:** Healthcheck nutzt `127.0.0.1` (nicht `localhost`) — `localhost` kann HTTP 400 erzeugen wenn ALLOWED_HOSTS es nicht enthält.
+
+### 3.2 `entrypoint.sh`
 
 ```bash
-#!/bin/sh
+#!/bin/bash
 set -e
 
-# O-08: DB-Wait via Django (funktioniert mit jedem DB-Backend, kein psycopg-Import nötig)
-echo "Waiting for database..."
-until python -c "
-import django, os
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
-django.setup()
-from django.db import connection
-connection.ensure_connection()
-" 2>/dev/null; do
-    echo "  DB not ready, waiting..."
-    sleep 2
-done
-echo "Database ready!"
-
-# N-07: Migrations NUR im web-Container (verhindert Race-Condition bei parallelem Start)
-if [ "$1" = "web" ]; then
-    echo "Running migrations..."
-    python manage.py migrate --noinput --skip-checks
-
-    # N-04: collectstatic nur wenn nötig (bereits im Docker-Build gelaufen)
-    if [ ! -d "/app/staticfiles" ] || [ -z "$(ls -A /app/staticfiles 2>/dev/null)" ]; then
-        echo "Collecting static files..."
-        python manage.py collectstatic --noinput
-    else
-        echo "Static files already present, skipping collectstatic"
-    fi
-fi
-
-# Auto-create superuser if DJANGO_SUPERUSER_USERNAME is set
-if [ -n "$DJANGO_SUPERUSER_USERNAME" ]; then
-    python -c "
-import os, django
-os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings.production')
-django.setup()
-from django.contrib.auth.models import User
-username = os.environ['DJANGO_SUPERUSER_USERNAME']
-if not User.objects.filter(username=username).exists():
-    User.objects.create_superuser(
-        username=username,
-        email=os.environ.get('DJANGO_SUPERUSER_EMAIL', ''),
-        password=os.environ.get('DJANGO_SUPERUSER_PASSWORD', 'changeme'),
-    )
-    print('Superuser %s created' % username)
-else:
-    print('Superuser %s already exists' % username)
-" || echo "Superuser creation skipped"
-fi
-
-if [ "$1" = "web" ]; then
-    echo "Starting web server (gunicorn)..."
+case "$1" in
+  web)
+    python manage.py migrate --noinput
+    python manage.py collectstatic --noinput
     exec gunicorn config.wsgi:application \
-        --bind 0.0.0.0:8000 \
-        --workers "${GUNICORN_WORKERS:-2}" \
-        --timeout 120 \
-        --access-logfile -
-fi
-
-if [ "$1" = "worker" ]; then
-    echo "Starting Celery worker..."
-    exec celery -A config worker -l info --concurrency 2
-fi
-
-if [ "$1" = "beat" ]; then
-    echo "Starting Celery beat..."
-    exec celery -A config beat -l info
-fi
-
-echo "Usage: /entrypoint.sh [web|worker|beat]"
-exit 1
+      --bind 0.0.0.0:8000 \
+      --workers 2 \
+      --timeout 120 \
+      --access-logfile -
+    ;;
+  worker)
+    exec celery -A config worker --loglevel=info
+    ;;
+  beat)
+    exec celery -A config beat --loglevel=info
+    ;;
+  *)
+    exec "$@"
+    ;;
+esac
 ```
 
 ### 3.3 `docker-compose.prod.yml`
 
 ```yaml
 services:
-  # N-03: ALLE Variablen via env_file, KEINE ${VAR} Interpolation in environment-Blöcken.
-  #        Docker Compose liest ${VAR} aus .env (nicht .env.prod!).
-  #        Daher: ln -sf .env.prod .env ODER nur env_file nutzen.
+  <REPO>-web:
+    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
+    container_name: <REPO_UNDERSCORE>_web
+    restart: unless-stopped
+    env_file: .env.prod
+    ports:
+      - "127.0.0.1:<PORT>:8000"
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on:
+      <REPO>-db:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - <REPO_UNDERSCORE>_network
 
   <REPO>-db:
     image: postgres:16-alpine
@@ -456,138 +424,14 @@ services:
     volumes:
       - <REPO_UNDERSCORE>_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-<REPO_UNDERSCORE>}"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - <REPO_UNDERSCORE>_network
-
-  <REPO>-redis:
-    image: redis:7-alpine
-    container_name: <REPO_UNDERSCORE>_redis
-    restart: unless-stopped
-    command: ["redis-server", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
-    healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
-      interval: 5s
-      timeout: 3s
-      retries: 30
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-    networks:
-      - <REPO_UNDERSCORE>_network
-
-  <REPO>-web:
-    # O-07: Einfacher GHCR-Pfad (konsistent mit Naming-Table)
-    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
-    container_name: <REPO_UNDERSCORE>_web
-    restart: unless-stopped
-    env_file: .env.prod
-    depends_on:
-      <REPO>-db:
-        condition: service_healthy
-      <REPO>-redis:
-        condition: service_healthy
-    entrypoint: ["/entrypoint.sh"]
-    command: ["web"]
-    ports:
-      - "127.0.0.1:<PORT>:8000"
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')\""]
-      interval: 15s
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
       timeout: 5s
-      retries: 3
-      start_period: 30s
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-        reservations:
-          memory: 256M
-    logging:
-      driver: json-file
-      options:
-        max-size: "20m"
-        max-file: "5"
-    networks:
-      - <REPO_UNDERSCORE>_network
-
-  # --- Celery Worker (if needed) ---
-  <REPO>-worker:
-    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
-    container_name: <REPO_UNDERSCORE>_worker
-    restart: unless-stopped
-    env_file: .env.prod
-    entrypoint: ["/entrypoint.sh"]
-    command: ["worker"]
-    healthcheck:
-      test: ["CMD-SHELL", "celery -A config inspect ping --timeout 10 2>/dev/null | grep -q OK"]
-      interval: 60s
-      timeout: 15s
-      retries: 3
-      start_period: 30s
-    depends_on:
-      <REPO>-db:
-        condition: service_healthy
-      <REPO>-redis:
-        condition: service_healthy
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - <REPO_UNDERSCORE>_network
-
-  # --- Celery Beat (if needed) ---
-  <REPO>-beat:
-    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
-    container_name: <REPO_UNDERSCORE>_beat
-    restart: unless-stopped
-    env_file: .env.prod
-    entrypoint: ["/entrypoint.sh"]
-    command: ["beat"]
-    healthcheck:
-      test: ["CMD-SHELL", "python -c \"import os; os.kill(1, 0)\""]
-      interval: 60s
-      timeout: 5s
-      retries: 3
-      start_period: 30s
-    depends_on:
-      <REPO>-db:
-        condition: service_healthy
-      <REPO>-redis:
-        condition: service_healthy
+      retries: 5
     deploy:
       resources:
         limits:
           memory: 256M
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
     networks:
       - <REPO_UNDERSCORE>_network
 
@@ -599,27 +443,31 @@ networks:
     driver: bridge
 ```
 
-## Step 4: Health-Check Endpoints & Regeln
+## Step 4: Health-Check Endpoints
 
 ### 4.1 Standardisierte Endpoints (N-02)
-
-Jedes Repo MUSS diese 3 Endpoints haben:
 
 | Endpoint | Zweck | Prüft | Für |
 |----------|-------|-------|-----|
 | `/livez/` | Liveness | App-Prozess lebt | **Docker Healthcheck** |
-| `/healthz/` | Readiness | App + DB-Verbindung | Monitoring, Alerting |
-| `/health/` | Backwards-Compat | Alias für `/livez/` | Legacy-URLs |
+| `/healthz/` | Readiness | App + DB-Verbindung | Monitoring |
+| `/health/` | Backwards-Compat | Alias für `/livez/` | Legacy |
 
 **`config/urls.py`:**
 
 ```python
 from django.http import HttpResponse, JsonResponse
 from django.db import connection
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_GET
 
+@csrf_exempt
+@require_GET
 def liveness(request):
     return HttpResponse("ok")
 
+@csrf_exempt
+@require_GET
 def readiness(request):
     try:
         connection.ensure_connection()
@@ -630,54 +478,20 @@ def readiness(request):
 urlpatterns = [
     path("livez/", liveness, name="liveness"),
     path("healthz/", readiness, name="healthz"),
-    path("health/", liveness, name="health-check"),  # backwards compat
+    path("health/", liveness, name="health-check"),
     # ... andere URLs
 ]
 ```
 
-### 4.2 Healthcheck-Regeln (KRITISCH)
+### 4.2 Healthcheck-Regeln (KRITISCH — ADR-022)
 
 | Regel | Begründung |
 |-------|------------|
-| **IMMER `localhost` statt `127.0.0.1`** | Django ALLOWED_HOSTS hat oft nur `localhost`, nicht `127.0.0.1` → HTTP 400 |
-| **IMMER `python urllib` statt `curl`** | Slim Python-Images haben kein `curl` installiert |
-| **IMMER Compose-HC für Worker/Beat** | Dockerfile-HC wird von ALLEN Containern geerbt — Worker/Beat haben kein Gunicorn → port 8000 nicht offen |
-| **Worker-HC: `celery inspect ping`** | Prüft ob Worker tatsächlich Aufgaben verarbeitet |
-| **Beat-HC: `os.kill(1, 0)`** | Prüft ob PID 1 (Celery Beat) lebt — beat hat keinen inspect-Endpoint |
-| **Docker-HC nutzt `/livez/`** | Liveness = minimal, schnell, keine DB-Abhängigkeit |
+| **IMMER `127.0.0.1` statt `localhost`** | `localhost` kann IPv6 auflösen → Verbindungsfehler |
+| **IMMER `python urllib` statt `curl`** | Slim Python-Images haben kein `curl` |
+| **`csrf_exempt` + `require_GET`** | Health-Endpoints brauchen kein CSRF, nur GET |
+| **Docker-HC nutzt `/livez/`** | Liveness = minimal, keine DB-Abhängigkeit |
 | **Monitoring nutzt `/healthz/`** | Readiness = prüft DB, kann 503 zurückgeben |
-
-### 4.3 Logging-Empfehlung (O-11)
-
-**Minimum** (bereits in Compose-Templates):
-
-- JSON-Logging via Docker `json-file` Driver mit `max-size`/`max-file`
-- Gunicorn `--access-logfile -` (stdout)
-
-**Empfohlen** für neue Repos:
-
-```python
-# config/settings/base.py
-LOGGING = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "json": {
-            "()": "pythonjsonlogger.jsonlogger.JsonFormatter",
-            "format": "%(asctime)s %(name)s %(levelname)s %(message)s",
-        },
-    },
-    "handlers": {
-        "console": {
-            "class": "logging.StreamHandler",
-            "formatter": "json",
-        },
-    },
-    "root": {"level": "INFO", "handlers": ["console"]},
-}
-```
-
-**Optional:** Sentry für Error-Tracking (`sentry-sdk[django]` in requirements).
 
 ## Step 5: Server-Infrastruktur einrichten
 
@@ -688,8 +502,6 @@ ssh root@88.198.191.108 "mkdir -p /opt/<REPO>"
 ```
 
 ### 5.2 `.env.prod` auf Server erstellen
-
-Kopiere `.env.example` → `.env.prod` mit echten Werten:
 
 ```bash
 scp .env.prod root@88.198.191.108:/opt/<REPO>/.env.prod
@@ -702,8 +514,6 @@ scp docker-compose.prod.yml root@88.198.191.108:/opt/<REPO>/docker-compose.prod.
 ```
 
 ### 5.4 Nginx Server-Block erstellen
-
-Erstelle `/etc/nginx/sites-enabled/<DOMAIN>.conf`:
 
 ```nginx
 server {
@@ -733,21 +543,15 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_connect_timeout 5s;
         proxy_read_timeout 120s;
-        proxy_next_upstream error timeout http_502;
-        proxy_next_upstream_tries 2;
     }
 }
 ```
 
-### 5.5 SSL-Zertifikat holen (vor HTTPS-Aktivierung)
-
-Erst HTTP-only Config deployen, dann:
+### 5.5 SSL-Zertifikat holen
 
 ```bash
 ssh root@88.198.191.108 "certbot certonly --webroot -w /var/www/html -d <DOMAIN> --non-interactive --agree-tos --email achim@dehnert.com"
 ```
-
-Dann HTTPS-Config deployen + `nginx -t && nginx -s reload`.
 
 ### 5.6 DNS A-Record erstellen
 
@@ -755,54 +559,55 @@ Dann HTTPS-Config deployen + `nginx -t && nginx -s reload`.
 <DOMAIN> → 88.198.191.108 (TTL 60)
 ```
 
-Via Hetzner DNS API oder mcp5_network_manage.
-
 ## Step 6: Platform-Integration
 
-### 6.1 MCP-Orchestrator registrieren (CRITICAL)
+### 6.1 registry/repos.yaml aktualisieren (PFLICHT — Single Source of Truth)
 
-Füge das Repo in **zwei Dateien** im `mcp-hub` Repo hinzu:
+Füge das neue Repo in `platform/registry/repos.yaml` ein:
 
-1. `orchestrator_mcp/local_tools.py` — `_ALLOWED_REPOS` dict:
+```yaml
+- name: <REPO_NAME>
+  repo: <REPO_NAME>
+  description: <DESCRIPTION>
+  github: achimdehnert/<REPO_NAME>
+  deployed: true
+  url: https://<DOMAIN>
+  type: django
+  lifecycle: experimental   # → production wenn stabil
+  dockerfile: docker/app/Dockerfile
+  compose: docker-compose.prod.yml
+  coverage_threshold: 80
+```
+
+**Danach:** GitHub Action `sync-registry-to-devhub.yml` triggert automatisch → devhub.iil.pet/repos zeigt das neue Repo.
+
+### 6.2 MCP-Orchestrator registrieren
+
+Füge das Repo in `mcp-hub/orchestrator_mcp/local_tools.py` hinzu:
+
 ```python
 "<REPO>": "/home/dehnert/github/<REPO>",
 ```
 
-2. `orchestrator_mcp/server.py` — `run_git` Tool-Schema `enum`:
-```python
-"<REPO>",
+### 6.3 Deploy-Workflow aktualisieren
+
+Füge die neue App zur Tabelle in `.windsurf/workflows/deploy.md` hinzu.
+
+### 6.4 Backup-Workflow aktualisieren
+
+Füge die neue DB zur Tabelle in `.windsurf/workflows/backup.md` hinzu.
+
+### 6.5 Workstation SSH-Setup prüfen (ADR-060)
+
+Sicherstellen dass kein `core.sshCommand` im neuen Repo gesetzt wird:
+
+```bash
+# NIEMALS setzen:
+# git config core.sshCommand "ssh -i ~/.ssh/github_ed25519 ..."
+
+# Standard: ~/.ssh/config mit id_ed25519 greift automatisch
+ssh -T git@github.com  # → Hi achimdehnert!
 ```
-
-Dann `mcp10_run_git` für mcp-hub committen + pushen.
-**Ohne diesen Schritt funktioniert `mcp10_run_git(repo="<REPO>")` nicht!**
-
-### 6.2 Deploy-Workflow aktualisieren
-
-Füge die neue App zur Tabelle in `.windsurf/workflows/deploy.md` hinzu:
-
-```markdown
-| <REPO> | 88.198.191.108 | /opt/<REPO> | docker-compose.prod.yml | https://<DOMAIN>/ |
-```
-
-### 6.3 Backup-Workflow aktualisieren
-
-Füge die neue DB zur Tabelle in `.windsurf/workflows/backup.md` hinzu:
-
-```markdown
-| <REPO> | <DB_NAME> | /opt/backups/<REPO>/ |
-```
-
-### 6.4 ADR-Scope registrieren
-
-Falls App-spezifische ADRs erwartet, Scope in `.windsurf/workflows/adr.md` hinzufügen.
-
-### 6.5 SSH/Deployment Memory aktualisieren
-
-Erstelle/aktualisiere Memory mit:
-- Container-Namen
-- Deploy-Commands
-- Credentials (falls Admin-User)
-- Production-URLs
 
 ## Step 7: Verifikation
 
@@ -812,17 +617,30 @@ Erstelle/aktualisiere Memory mit:
 ✅ Verifikation für [REPO]
 
 Repo-Struktur:
-  [ ] docker/app/Dockerfile existiert
+  [ ] docker/app/Dockerfile existiert (mit 127.0.0.1 Healthcheck)
   [ ] docker/app/entrypoint.sh existiert (chmod +x)
   [ ] docker-compose.prod.yml existiert
-  [ ] .github/workflows/ci-cd.yml existiert
+  [ ] .github/workflows/ci-cd.yml existiert (coverage_threshold: 80)
   [ ] .env.example existiert
-  [ ] /livez/ Health-Endpoint existiert
-  [ ] pyproject.toml mit korrekten Metadaten
+  [ ] /livez/ Health-Endpoint existiert (csrf_exempt, require_GET)
+  [ ] pyproject.toml mit [tool.pytest.ini_options]
   [ ] README.md mit Quickstart
   [ ] apps/<app>/components/ Verzeichnis existiert (ADR-041)
-  [ ] apps/<app>/templatetags/<app>_components.py existiert
   [ ] templates/<app>/components/ Verzeichnis existiert
+
+Testing (ADR-058):
+  [ ] requirements-test.txt mit platform-context[testing]>=0.3.1
+  [ ] tests/__init__.py existiert
+  [ ] tests/conftest.py importiert platform_context.testing.fixtures
+  [ ] tests/factories.py mit UserFactory
+  [ ] config/settings/test.py mit WHITENOISE_MANIFEST_STRICT=False
+  [ ] pytest tests/ -v läuft lokal ohne Fehler
+
+Platform-Integration:
+  [ ] platform/registry/repos.yaml Eintrag hinzugefügt
+  [ ] devhub.iil.pet/repos zeigt neues Repo (nach GitHub Action)
+  [ ] deploy.md Tabelle aktualisiert
+  [ ] backup.md Tabelle aktualisiert
 
 Server:
   [ ] /opt/<REPO>/ Verzeichnis existiert
@@ -834,37 +652,22 @@ Netzwerk:
   [ ] DNS A-Record zeigt auf 88.198.191.108
   [ ] Nginx Config deployed
   [ ] SSL-Zertifikat aktiv
-  [ ] HTTPS-Redirect funktioniert
   [ ] https://<DOMAIN>/livez/ gibt "ok"
 
 CI/CD:
   [ ] GitHub Secrets gesetzt (DEPLOY_HOST, DEPLOY_USER, DEPLOY_SSH_KEY)
-  [ ] Push auf main triggert CI
-  [ ] CI baut Docker Image → GHCR
+  [ ] Push auf main triggert CI (grün)
   [ ] CD deployt auf Server
-
-Platform:
-  [ ] deploy.md Tabelle aktualisiert
-  [ ] backup.md Tabelle aktualisiert
-  [ ] Memory mit Container-/Deploy-Infos erstellt
+  [ ] Kein core.sshCommand in .git/config (ADR-060)
 ```
-
-### 6.6 Windsurf Rules kopieren
-
-Kopiere `.windsurf/rules/` und `.windsurf/workflows/` aus einem bestehenden Repo (z.B. travel-beat).
-**PFLICHT-Dateien:**
-- `platform-principles.md` (Always On, identisch in allen Repos)
-- `project-facts.md` (Always On, angepasst pro Repo)
-- `component-pattern.md` (Glob, ADR-041 Component Pattern)
-- `django-conventions.md`, `url-routing.md`, `testing.md`, `docker-deployment.md`
 
 ## Referenz: Bestehende Repos als Vorlage
 
 | Vorlage für | Bestes Beispiel |
 |-------------|----------------|
-| CI/CD mit Reusable Workflows | `risk-hub/.github/workflows/docker-build.yml` |
+| CI/CD mit Reusable Workflows | `risk-hub/.github/workflows/` |
 | Dockerfile + Entrypoint | `risk-hub/docker/app/` |
 | docker-compose.prod.yml | `risk-hub/docker-compose.prod.yml` |
-| CI Pipeline (eigenständig) | `travel-beat/.github/workflows/ci.yml` |
-| CD Pipeline (eigenständig) | `travel-beat/.github/workflows/cd-production.yml` |
-| Nginx + SSL Setup | Gerade für bfagent-Subdomains gemacht |
+| Test-Infrastruktur (conftest, factories) | `travel-beat/tests/` |
+| registry/repos.yaml | `platform/registry/repos.yaml` |
+| SSH-Setup | ADR-060 |
