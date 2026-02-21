@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-401: Autonomer Trading Bot — Execution-Loop & Bot-Architektur
 
 | Attribut       | Wert                                                                                                      |

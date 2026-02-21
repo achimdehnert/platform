@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-036: Chat-Agent Ecosystem — DomainToolkits, Research Integration & Shared Chat-Widget
 
 | Metadata    | Value |

@@ -1,3 +1,9 @@
+---
+status: accepted
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-031: Static Asset Versioning & Landing Page Registry
 
 | Field | Value |

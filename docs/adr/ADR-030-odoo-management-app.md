@@ -1,3 +1,9 @@
+---
+status: accepted
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-030: Erste Odoo Management-App — Dual-Framework-Governance
 
 _Einführung von Odoo als zweite Applikationsplattform neben Django, mit konkretem erstem Use Case_

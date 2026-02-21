@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-039: Seating Drag & Drop Layout-Editor
 
 _Visueller Grundriss-Editor für freie Tisch-Positionierung im Wedding Hub_

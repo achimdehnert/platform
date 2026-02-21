@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-037: Chat Conversation Logging & Quality Management
 
 | Metadata    | Value |

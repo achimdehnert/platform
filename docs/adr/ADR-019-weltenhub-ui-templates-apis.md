@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-019: Weltenhub UI, Templates, Views & APIs für weltenforger.com
 
 | Metadata | Value |

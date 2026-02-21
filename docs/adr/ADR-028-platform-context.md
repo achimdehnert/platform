@@ -1,3 +1,9 @@
+---
+status: accepted
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-028: Platform Context – Konsolidierung der Platform Foundation
 
 _Migration von `bfagent-core` zu `platform-context` als einheitliches Foundation-Package für alle Django-Projekte_
