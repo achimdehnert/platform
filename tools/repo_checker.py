@@ -74,43 +74,57 @@ class RepoReport:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Config: Known repos and their properties
+# Config: Load from registry/repos.yaml (Single Source of Truth — ADR-022)
 # ─────────────────────────────────────────────────────────────────────────────
 
-REPO_CONFIG: dict[str, dict] = {
-    "bfagent": {
-        "type": "django",
-        "deployed": True,
-        "dockerfile": "Dockerfile",
-        "compose": "docker-compose.prod.yml",
-        "nonroot_exempt": True,
-        "nonroot_reason": "Python 3.11 risk",
-    },
-    "risk-hub": {
-        "type": "django",
-        "deployed": True,
-        "dockerfile": "docker/app/Dockerfile",
-        "compose": "docker-compose.prod.yml",
-    },
-    "travel-beat": {
-        "type": "django",
-        "deployed": True,
-        "dockerfile": "docker/Dockerfile",
-        "compose": "docker-compose.prod.yml",
-    },
-    "weltenhub": {
-        "type": "django",
-        "deployed": True,
-        "dockerfile": "Dockerfile",
-        "compose": "docker-compose.prod.yml",
-    },
-    "pptx-hub": {
-        "type": "django",
-        "deployed": False,
-        "dockerfile": "docker/app/Dockerfile",
-        "compose": "docker-compose.prod.yml",
-    },
+_REGISTRY_PATH = Path(__file__).parent.parent / "registry" / "repos.yaml"
+
+_NONROOT_EXEMPT: dict[str, dict] = {
+    "bfagent": {"nonroot_exempt": True, "nonroot_reason": "Python 3.11 risk"},
 }
+
+
+def _load_repo_config() -> dict[str, dict]:
+    """Load REPO_CONFIG from registry/repos.yaml (Single Source of Truth).
+
+    Falls back gracefully if pyyaml is unavailable or file missing.
+    Only includes repos with type in (django, python).
+    """
+    try:
+        import yaml
+    except ImportError:
+        sys.stderr.write("Warning: pyyaml not installed, REPO_CONFIG empty\n")
+        return {}
+
+    if not _REGISTRY_PATH.exists():
+        sys.stderr.write(f"Warning: {_REGISTRY_PATH} not found\n")
+        return {}
+
+    try:
+        data = yaml.safe_load(_REGISTRY_PATH.read_text(encoding="utf-8"))
+    except Exception as exc:
+        sys.stderr.write(f"Warning: failed to parse repos.yaml: {exc}\n")
+        return {}
+
+    config: dict[str, dict] = {}
+    for domain in data.get("domains", []):
+        for sys_entry in domain.get("systems", []):
+            repo = sys_entry.get("repo") or sys_entry.get("name")
+            repo_type = sys_entry.get("type", "django")
+            if repo_type not in ("django", "python"):
+                continue
+            entry: dict = {
+                "type": repo_type,
+                "deployed": sys_entry.get("deployed", False),
+                "dockerfile": sys_entry.get("dockerfile", "Dockerfile"),
+                "compose": sys_entry.get("compose", "docker-compose.prod.yml"),
+            }
+            entry.update(_NONROOT_EXEMPT.get(repo, {}))
+            config[repo] = entry
+    return config
+
+
+REPO_CONFIG: dict[str, dict] = _load_repo_config()
 
 
 # ─────────────────────────────────────────────────────────────────────────────
