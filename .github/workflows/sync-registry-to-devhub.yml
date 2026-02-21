@@ -1,0 +1,42 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  SYNC REGISTRY → DEVHUB                                                   ║
+# ║  Triggers: push to registry/repos.yaml on main                            ║
+# ║  Action: runs populate_catalog on dev-hub server via SSH                  ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: Sync Registry to DevHub
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'registry/repos.yaml'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: "Sync repos.yaml → devhub catalog"
+    runs-on: self-hosted
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate registry
+        run: |
+          pip install pyyaml
+          python registry/sync_registry.py --list
+
+      - name: Sync to devhub via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          script: |
+            cd /opt/dev-hub
+            docker compose exec -T dev-hub-web \
+              python manage.py populate_catalog --tenant-slug devhub
+            echo "Catalog synced at $(date)"
+
+      - name: Verify devhub health
+        run: |
+          curl -sf https://devhub.iil.pet/livez/ || echo "Health check failed"
