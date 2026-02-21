@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-016: Import von Reiseplänen als Trip-Stops
 
 | Metadata | Value |

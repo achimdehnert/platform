@@ -1,3 +1,9 @@
+---
+status: accepted
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-012: MCP Server Quality Standards
 
 | Metadata | Value |

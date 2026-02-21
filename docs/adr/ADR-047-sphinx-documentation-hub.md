@@ -1,3 +1,9 @@
+---
+status: superseded
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-047: Sphinx Documentation Hub (sphinx.iil.pet)
 
 | Status | Proposed |

@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-16
+decision-makers: Achim Dehnert
+---
+
 # ADR-038: DSB-Modul — Externer Datenschutzbeauftragter
 
 **Status**: Proposed (R1 + R2 eingearbeitet — siehe ADR-038-REVIEW.md)

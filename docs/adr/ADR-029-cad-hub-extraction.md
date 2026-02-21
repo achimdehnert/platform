@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-029: CAD Hub Extraction from bfagent
 
 **Status**: **Accepted** (2026-02-12) — Phase 1 scaffold ✅, Phase 2 deploy ✅, Phase 3 cleanup ✅

@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-043: AI-Assisted Development — Context & Workflow Optimization
 
 | Metadata | Value |

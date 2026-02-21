@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # Architecture Decision Record
 
 _Shared Backend Services Library für Django-Projekte_

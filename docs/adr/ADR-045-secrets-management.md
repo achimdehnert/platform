@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-045: Secrets & Environment Management
 
 | Metadata | Value |
