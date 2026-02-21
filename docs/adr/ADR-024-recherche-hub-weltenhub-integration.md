@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-024: Location-Recherche als Weltenhub-Modul
 
 | Metadata    | Value                                                              |

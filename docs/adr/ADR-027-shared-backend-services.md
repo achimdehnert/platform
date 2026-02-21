@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-027: Shared Backend Services für Django-Projekte
 
 _Zentralisierte Cross-Cutting Concerns als modulare Packages_

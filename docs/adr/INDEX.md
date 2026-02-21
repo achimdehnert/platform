@@ -2,6 +2,7 @@
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
 > **Letzte Aktualisierung**: 2026-02-21
+> **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
 
@@ -72,6 +73,7 @@
 | 055 | Cross-App Bug & Feature Management | `Accepted` | `platform` | [ADR-055-cross-app-bug-management.md](ADR-055-cross-app-bug-management.md) |
 | 056 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Proposed` | `platform` | [ADR-056-multi-tenancy-schema-isolation.md](ADR-056-multi-tenancy-schema-isolation.md) |
 | 058 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-058-multi-tenancy-testing-strategy.md](ADR-058-multi-tenancy-testing-strategy.md) |
+| 059 | Adopt Automated ADR Drift Detection and Staleness Management | `Proposed` | `platform` | [ADR-059-adr-drift-detector.md](ADR-059-adr-drift-detector.md) |
 
 ### MCP Hub (150–199)
 

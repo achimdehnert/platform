@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-010: MCP Tool Governance — Specification Standard, Service Discovery & Composition
 
 | Metadata | Value |

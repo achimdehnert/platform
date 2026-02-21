@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-032: Domain Development Lifecycle (DDL)
 
 | Metadata    | Value |

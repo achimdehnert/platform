@@ -1,3 +1,9 @@
+---
+status: accepted
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-035: Shared Django Tenancy Package
 
 | Metadata    | Value |

@@ -1,3 +1,9 @@
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-034: CAD-Daten ETL-Pipeline + Chat-Agent als Platform-Service
 
 | Metadata    | Value |

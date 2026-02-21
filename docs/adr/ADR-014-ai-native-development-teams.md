@@ -1,3 +1,9 @@
+---
+status: accepted
+date: 2026-02-21
+decision-makers: Achim Dehnert
+---
+
 # ADR-014: AI-Native Development Teams
 
 | Metadata | Value |
