@@ -1,4 +1,12 @@
-# ADR-056: Multi-Tenancy via PostgreSQL-Schema-Isolation
+---
+status: proposed
+date: 2026-02-21
+decision-makers: Achim Dehnert
+consulted: –
+informed: –
+---
+
+# ADR-056: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
@@ -10,6 +18,17 @@
 | **Reviewer**   | –                                                                    |
 | **Supersedes** | –                                                                    |
 | **Relates to** | ADR-035 (Shared Django Tenancy Package), ADR-021 (Unified Deployment), ADR-042 (Dev Environment), ADR-045 (Secrets Management) |
+
+---
+
+## Decision Drivers
+
+- **DSGVO Art. 17/20**: Recht auf Löschung und Datenportabilität müssen pro Mandant automatisierbar sein
+- **SaaS-Isolation**: Kein vergessener `.filter(tenant_id=...)` darf zu Datenleck führen — strukturelle Erzwingung nötig
+- **VPS-Constraint**: 1 Hetzner VPS — keine 100 separaten DB-Instanzen betreibbar
+- **1 Entwickler**: Minimaler Code-Overhead, bewährtes Tooling (`django-tenants` seit 2013 aktiv)
+- **Bestehende Infrastruktur**: Docker Compose, Nginx, Self-Hosted Runner — keine Kubernetes-Einführung
+- **Skalierungsziel**: 20–100+ Mandanten in 12–24 Monaten auf bestehender Hardware
 
 ---
 
@@ -145,13 +164,54 @@ Bestehende Cross-DB-Views werden durch REST-API-Calls ersetzt (Option 2a). Für 
 Subdomain-basiertes Routing (`tenant1.bfa.example.com`) erfordert:
 - Wildcard-DNS-Eintrag (`*.bfa.example.com → 88.198.191.108`)
 - Wildcard-SSL via Let's Encrypt DNS-Challenge (nicht HTTP-Challenge)
-- Traefik-Konfiguration für Wildcard-Routing
+- **Nginx** als Wildcard-Reverse-Proxy (ADR-021 §2.10: Traefik deferred — gilt weiterhin)
 
-Dies ist ein separater Ops-Task (kein ADR erforderlich, aber Checkliste in ADR-042 ergänzen).
+```nginx
+# /etc/nginx/sites-enabled/bfa-wildcard.conf
+server {
+    listen 443 ssl;
+    server_name ~^(?<tenant>[^.]+)\.bfa\.example\.com$;
+    ssl_certificate /etc/letsencrypt/live/bfa.example.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/bfa.example.com/privkey.pem;
+    location / {
+        proxy_pass http://46.225.113.1:8000;
+        proxy_set_header Host $host;  # django-tenants liest Host-Header
+    }
+}
+```
 
-### 4.5 Migrations-Performance
+**Traefik bleibt deferred** gemäß ADR-021. Eine Traefik-Einführung erfordert ein eigenes ADR (ADR-057 reserviert). Ops-Task: Wildcard-Certbot-DNS-Challenge in ADR-042-Checkliste ergänzen.
 
-Bei 100 Mandanten × 3 Services = 300 Schema-Migrationen pro Deployment:
+### 4.5 Health-Endpoints bei Subdomain-Routing
+
+`/livez/` und `/healthz/` (ADR-021 §2.8) müssen im `public`-Schema laufen, nicht im Tenant-Schema. `django-tenants` bietet dafür `PUBLIC_SCHEMA_URLCONF`:
+
+```python
+# config/settings/base.py
+PUBLIC_SCHEMA_URLCONF = "config.urls_public"  # enthält /livez/ + /healthz/
+ROOT_URLCONF = "config.urls_tenant"           # tenant-spezifische URLs
+```
+
+Health-Endpoints antworten damit unabhängig vom Tenant-Context — kein Einfluss auf bestehende Deployment-Pipeline.
+
+### 4.6 weltenhub/bfagent Shared Database
+
+`weltenhub` und `bfagent` teilen aktuell `bfagent_db` (dokumentiert in ADR-035). Dies ist eine **Voraussetzung** für die Schema-Isolation in `bfagent`:
+
+**Pflicht vor Phase 2 (`bfagent`):** `weltenhub` muss in eine eigene Datenbank (`weltenhub_db`) migriert werden. Solange `weltenhub` und `bfagent` dieselbe DB teilen, kann `bfagent` keine Schema-Isolation einführen — `django-tenants` erwartet exklusive Kontrolle über die DB-Schemas.
+
+| Schritt | Aufwand | Zeitpunkt |
+|---------|---------|----------|
+| `weltenhub_db` anlegen | Niedrig | Vor Phase 2 |
+| `weltenhub` Django-Settings auf neue DB umstellen | Niedrig | Vor Phase 2 |
+| Datenmigration `bfagent_db` → `weltenhub_db` | Mittel | Vor Phase 2 |
+| `bfagent_db` bereinigen | Niedrig | Nach Verifikation |
+
+Dieser Schritt ist **nicht optional** und wird als Phase 1.5 in den Implementation Plan aufgenommen.
+
+### 4.7 Migrations-Performance
+
+Bei 100 Mandanten × 3 Services = 300 Schema-Migrationen pro Deployment. Der Self-Hosted Runner läuft auf demselben VPS — Migrations-Parallelisierung darf CPU nicht saturieren (max. 2 Workers in CI, 4 Workers im manuellen Deploy):
 
 ```bash
 # Parallelisierung via multiprocessing executor
@@ -165,7 +225,24 @@ Erwartete Dauer bei 100 Mandanten, 4 Workers: ~2 Minuten. Akzeptabel für Deploy
 
 ---
 
-## 5. Implementation Plan
+## 5. Migration Tracking
+
+Status pro Service — wird bei jedem Phase-Abschluss aktualisiert:
+
+| Service | Phase | Status | Datum | Notizen |
+|---------|-------|--------|-------|---------|
+| `cad-hub` | Phase 1 (Pilot) | ⬜ Ausstehend | – | Einfachste Struktur, keine Shared Views |
+| `travel-beat` | Phase 2 | ⬜ Ausstehend | – | – |
+| `risk-hub` | Phase 2 | ⬜ Ausstehend | – | Hat bereits Tenancy-Infrastruktur (ADR-035) |
+| `weltenhub` | Phase 1.5 (DB-Trennung) | ⬜ Ausstehend | – | Voraussetzung für bfagent |
+| `bfagent` | Phase 2 | ⬜ Ausstehend | – | Erst nach weltenhub DB-Trennung |
+| `trading-hub` | Out of Scope | ➖ | – | Internes Tool, kein SaaS-Bedarf Phase 1 |
+| `mcp-hub` | Out of Scope | ➖ | – | Internes Tool, kein SaaS-Bedarf Phase 1 |
+| `dev-hub` | Out of Scope | ➖ | – | Internes Tool |
+
+---
+
+## 6. Implementation Plan
 
 ### Phase 0: Vorbereitung (Woche 1–2)
 
@@ -174,7 +251,7 @@ Erwartete Dauer bei 100 Mandanten, 4 Workers: ~2 Minuten. Akzeptabel für Deploy
 - [ ] Wildcard-DNS + SSL für Pilot-Domain konfigurieren
 - [ ] PgBouncer-Konfiguration für alle Service-DBs vorbereiten
 
-### Phase 1: Pilot-Service (Woche 3–5)
+### Phase 1: Pilot-Service — `cad-hub` (Woche 3–5)
 
 Pilot: **`cad-hub`** (einfachste Datenstruktur, keine Shared DB Views)
 
@@ -185,9 +262,16 @@ Pilot: **`cad-hub`** (einfachste Datenstruktur, keine Shared DB Views)
 - [ ] Tenant-Isolation-Tests schreiben und in CI integrieren
 - [ ] Smoke-Test: 2 Mandanten parallel auf Staging
 
+### Phase 1.5: weltenhub DB-Trennung (Woche 5–6, Voraussetzung für bfagent)
+
+- [ ] `weltenhub_db` auf dev-server anlegen
+- [ ] `weltenhub` Django-Settings auf neue DB umstellen
+- [ ] Datenmigration `bfagent_db.weltenhub_*` → `weltenhub_db`
+- [ ] `bfagent_db` bereinigen und verifizieren
+
 ### Phase 2: Weitere Services (Woche 6–9)
 
-Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent`
+Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent` (nach Phase 1.5)
 
 - [ ] Shared DB Views durch REST-APIs ersetzen (inkrementell: erst API parallel, dann View entfernen)
 - [ ] `TenantAwareHttpClient` in alle Service-zu-Service-Calls einbauen
@@ -212,7 +296,7 @@ Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent`
 
 ---
 
-## 6. Risiken
+## 7. Risiken
 
 | Risiko | W'keit | Impact | Mitigation |
 |--------|--------|--------|-----------|
@@ -226,9 +310,9 @@ Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent`
 
 ---
 
-## 7. Konsequenzen
+## 8. Konsequenzen
 
-### 7.1 Positiv
+### 8.1 Good
 
 - **DSGVO-Compliance strukturell erzwungen** — kein vergessener Filter möglich
 - **Recht auf Löschung (Art. 17):** `DROP SCHEMA tenant_X CASCADE` — vollständig und auditierbar
@@ -237,7 +321,7 @@ Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent`
 - **Skalierung bis 100+ Mandanten** auf einem VPS mit PgBouncer
 - **Kein Anwendungscode-Overhead** — `django-tenants` handhabt `search_path` transparent
 
-### 7.2 Trade-offs
+### 8.2 Bad
 
 - **Migrations-Komplexität:** N Mandanten × M Services Migrationen pro Deployment
 - **Wildcard-DNS/SSL:** Ops-Aufwand für DNS-Challenge-Zertifikate
@@ -245,7 +329,7 @@ Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent`
 - **Shared DB Views:** Müssen durch REST-APIs ersetzt werden (Latenz-Overhead)
 - **`django-tenants` Dependency:** Externe Library mit eigenem Release-Zyklus
 
-### 7.3 Nicht in Scope
+### 8.3 Nicht in Scope
 
 - `trading-hub` und `mcp-hub` — interne Tools, kein SaaS-Bedarf in Phase 1
 - Kubernetes oder Managed Cloud — explizit ausgeschlossen für Phase 1–2
@@ -254,7 +338,19 @@ Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent`
 
 ---
 
-## 8. Validation Criteria
+## 9. Confirmation
+
+Compliance mit diesem ADR wird wie folgt verifiziert:
+
+1. **CI-Gate (Pflicht):** Tenant-Isolation-Test in jedem SaaS-Service — blockiert Merge bei Fehler (ADR-058)
+2. **Linter-Check:** `ruff`/`grep` prüft auf direktes `.filter(tenant_id=...)` in `TENANT_APPS` — verboten nach Migration
+3. **Migration-Tracking-Tabelle** (§5 dieses ADR) wird bei jedem Phase-Abschluss aktualisiert
+4. **Deployment-Check:** `migrate_schemas --check` im Deploy-Step — schlägt fehl wenn unapplied Migrations existieren
+5. **DSGVO-Verifikation:** `DROP SCHEMA tenant_test CASCADE` + Restore-Test im Staging vor jedem Produktions-Onboarding
+
+---
+
+## 10. Validation Criteria
 
 ### Phase 1 (Pilot cad-hub)
 
@@ -281,20 +377,23 @@ Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent`
 
 ---
 
-## 9. Referenzen
+## 11. More Information
 
 - [django-tenants Dokumentation](https://django-tenants.readthedocs.io/)
 - [tenant-schemas-celery](https://github.com/maciej-gol/tenant-schemas-celery)
+- ADR-021: Unified Deployment Architecture (Nginx retained, Traefik deferred)
 - ADR-035: Shared Django Tenancy Package (Row-Level-Basis, bleibt gültig für interne Tools)
-- ADR-021: Unified Deployment Architecture
 - ADR-042: Development Environment & Deployment Workflow
 - ADR-045: Secrets & Environment Management
+- ADR-057: Traefik-Einführung (reserviert, deferred)
+- ADR-058: Multi-Tenancy Testing-Strategie
 - Konzeptpapier: Multi-Tenancy für das Multi-Repo Django-Portfolio (2026-02-20, Achim Dehnert)
 
 ---
 
-## 10. Changelog
+## 12. Changelog
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-21 | Achim Dehnert | Initial: Status Proposed |
+| 2026-02-21 | Achim Dehnert | Review-Fixes: YAML-Frontmatter, Decision Drivers, Traefik→Nginx, weltenhub DB-Trennung, Health-Endpoints, Confirmation, Migration-Tracking |
