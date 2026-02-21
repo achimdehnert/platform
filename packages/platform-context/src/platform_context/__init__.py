@@ -10,6 +10,7 @@ Provides:
 - Exception hierarchy
 - Django template context processors
 - Shared test helpers (platform_context.testing)
+- Multi-tenancy utilities (platform_context.tenant_utils) — ADR-056
 
 Usage::
 
@@ -24,6 +25,16 @@ Test helpers (install with platform-context[testing])::
 
     # tests
     from platform_context.testing.assertions import assert_htmx_fragment, assert_login_required
+
+Multi-tenancy utilities (ADR-056, requires django-tenants in consuming service)::
+
+    from platform_context.tenant_utils.http_client import TenantAwareHttpClient
+    from platform_context.tenant_utils.middleware import TenantPropagationMiddleware
+    from platform_context.tenant_utils.celery import TenantAwareTask, send_cross_service_task
+    from platform_context.tenant_utils.provisioning import provision_tenant
+
+    # In conftest.py:
+    from platform_context.tenant_utils.testing import tenant_a, tenant_b  # noqa: F401
 """
 
 from platform_context.context import (
@@ -41,7 +52,7 @@ from platform_context.htmx import (
     is_htmx_request,
 )
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 __all__ = [
     # Context
@@ -61,4 +72,10 @@ __all__ = [
     # Testing helpers (platform-context[testing])
     # Import via: from platform_context.testing.assertions import ...
     # Import via: from platform_context.testing.fixtures import ...
+    # Multi-tenancy utilities (ADR-056, requires django-tenants)
+    # Import via: from platform_context.tenant_utils.http_client import TenantAwareHttpClient
+    # Import via: from platform_context.tenant_utils.middleware import TenantPropagationMiddleware
+    # Import via: from platform_context.tenant_utils.celery import TenantAwareTask
+    # Import via: from platform_context.tenant_utils.provisioning import provision_tenant
+    # Import via: from platform_context.tenant_utils.testing import tenant_a, tenant_b
 ]
