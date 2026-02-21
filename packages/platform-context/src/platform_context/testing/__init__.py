@@ -14,10 +14,12 @@ Usage in tests::
         assert_login_required,
         assert_no_data_leak,
         assert_json_error,
+        assert_api_auth_required,
     )
 """
 
 from platform_context.testing.assertions import (
+    assert_api_auth_required,
     assert_celery_dispatched,
     assert_graceful_degradation,
     assert_htmx_fragment,
@@ -28,6 +30,7 @@ from platform_context.testing.assertions import (
 )
 
 __all__ = [
+    "assert_api_auth_required",
     "assert_celery_dispatched",
     "assert_graceful_degradation",
     "assert_htmx_fragment",
