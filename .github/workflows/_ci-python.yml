@@ -200,7 +200,7 @@ jobs:
           name: coverage-integration
       - name: Merge and enforce coverage gate
         run: |
-          pip install coverage
+          pip install coverage --break-system-packages || pip install coverage
           coverage combine coverage-unit.xml coverage-integration.xml || true
           coverage report --fail-under=${{ inputs.coverage_threshold }}
 
