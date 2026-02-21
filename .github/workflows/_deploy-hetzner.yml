@@ -76,6 +76,11 @@ on:
         required: false
         default: false
         type: boolean
+      extra_deploy_args:
+        description: 'Extra flags passed to deploy-remote.sh (e.g. --django-tenants)'
+        required: false
+        default: ''
+        type: string
     secrets:
       HETZNER_HOST:
         required: true
@@ -167,7 +172,7 @@ jobs:
             set -euo pipefail
             chmod +x "${{ inputs.deploy_path }}/scripts/deploy-remote.sh"
 
-            EXTRA_ARGS=""
+            EXTRA_ARGS="${{ inputs.extra_deploy_args }}"
             if [ "${{ inputs.run_migrations }}" = "false" ]; then
               EXTRA_ARGS="$EXTRA_ARGS --skip-migrate"
             fi
