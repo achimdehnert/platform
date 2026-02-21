@@ -16,13 +16,15 @@ During CI/local development runs the following warning appeared:
 Warning: Identity file /home/dehnert/.ssh/github_ed25519 not accessible: No such file or directory.
 ```
 
-The SSH config referenced `github_ed25519` as the identity file for GitHub, but the actual key on the workstation is named `id_ed25519` (OpenSSH default). This caused:
+Investigation revealed **two separate root causes**:
 
-- Silent fallback to password auth (which fails for GitHub)
-- Confusing warning on every `git pull / push`
-- Inconsistency between documentation, global user rules, and actual filesystem state
-
-There was no authoritative, documented standard for SSH key naming and `~/.ssh/config` layout across developer workstations.
+1. `~/.ssh/config` GitHub block was missing `User git` and `HostName github.com`
+2. **Repo-local `core.sshCommand`** in `.git/config` explicitly referenced `github_ed25519`:
+   ```
+   [core]
+       sshCommand = ssh -i /home/dehnert/.ssh/github_ed25519 -o StrictHostKeyChecking=no
+   ```
+   This overrides the global `~/.ssh/config` entirely and was set when `github_ed25519` was the active key name.
 
 ---
 
@@ -30,14 +32,12 @@ There was no authoritative, documented standard for SSH key naming and `~/.ssh/c
 
 ### 1. Canonical SSH Key Name: `id_ed25519`
 
-The platform standard key for GitHub authentication is:
-
 ```
 ~/.ssh/id_ed25519        (private key)
 ~/.ssh/id_ed25519.pub    (public key)
 ```
 
-**Rationale:** `id_ed25519` is the OpenSSH default. It is picked up automatically without any `IdentityFile` directive, eliminating the need for explicit config and reducing misconfiguration risk.
+`id_ed25519` is the OpenSSH default — picked up automatically without any explicit config.
 
 ### 2. Canonical `~/.ssh/config` for GitHub
 
@@ -50,30 +50,40 @@ Host github.com
     AddKeysToAgent yes
 ```
 
-- `IdentitiesOnly yes` — prevents SSH from trying other keys (avoids agent noise)
-- `AddKeysToAgent yes` — adds key to ssh-agent on first use (no repeated passphrase prompts)
-- **No** `github_ed25519` or custom names — use the default
+- `User git` — **required**, without it SSH tries `$USER@github.com` which fails
+- `HostName github.com` — explicit, avoids DNS/alias ambiguity
+- `IdentitiesOnly yes` — prevents SSH from trying other keys
+- `AddKeysToAgent yes` — no repeated passphrase prompts
 
-### 3. Git URL Rewrite (global)
+### 3. No `core.sshCommand` in any repo
+
+Repo-local `core.sshCommand` **must not** be set. It overrides the global SSH config and causes stale key references to persist even after `~/.ssh/config` is corrected.
+
+```bash
+# Remove from all repos (run once after migration)
+for repo in ~/github/*/; do
+  val=$(git -C "$repo" config --local core.sshCommand 2>/dev/null)
+  if [ -n "$val" ]; then
+    echo "Removing core.sshCommand from: $repo"
+    git -C "$repo" config --unset core.sshCommand
+  fi
+done
+```
+
+### 4. Git URL Rewrite (global)
 
 ```bash
 git config --global url."git@github.com:".insteadOf "https://github.com/"
 ```
 
-This ensures all `git clone https://...` calls transparently use SSH.
-
-### 4. Verification Command
+### 5. Verification
 
 ```bash
 ssh -T git@github.com
 # Expected: Hi achimdehnert! You've successfully authenticated...
-```
 
-### 5. Key Generation (if key missing)
-
-```bash
-ssh-keygen -t ed25519 -C "achim.dehnert@iil.gmbh" -f ~/.ssh/id_ed25519
-# Then add ~/.ssh/id_ed25519.pub to GitHub → Settings → SSH Keys
+git -C ~/github/travel-beat pull origin main
+# Expected: no Warning lines
 ```
 
 ---
@@ -82,44 +92,45 @@ ssh-keygen -t ed25519 -C "achim.dehnert@iil.gmbh" -f ~/.ssh/id_ed25519
 
 ### Positive
 - No more `Identity file not accessible` warnings
-- Consistent setup across all developer machines and CI environments
-- Self-documenting: OpenSSH default requires zero config to work
+- Consistent setup across all developer machines
+- `~/.ssh/config` is the single place for SSH key configuration
 
 ### Negative
-- Developers with existing `github_ed25519` keys must rename or update `~/.ssh/config`
+- Requires one-time cleanup of `core.sshCommand` in existing repos
 
-### Migration for existing `github_ed25519` setups
+---
+
+## Migration Checklist
 
 ```bash
-# Option A: Rename key (recommended)
-mv ~/.ssh/github_ed25519 ~/.ssh/id_ed25519
-mv ~/.ssh/github_ed25519.pub ~/.ssh/id_ed25519.pub
-chmod 600 ~/.ssh/id_ed25519
+# 1. Ensure id_ed25519 exists
+ls -la ~/.ssh/id_ed25519
 
-# Option B: Update config only (keep old key name)
-# Edit ~/.ssh/config: change IdentityFile to ~/.ssh/github_ed25519
-# (non-standard, not recommended)
+# 2. Fix ~/.ssh/config GitHub block
+cat ~/.ssh/config | grep -A6 "Host github.com"
+# Must contain: HostName, User git, IdentityFile ~/.ssh/id_ed25519
+
+# 3. Remove core.sshCommand from all repos
+for repo in ~/github/*/; do
+  val=$(git -C "$repo" config --local core.sshCommand 2>/dev/null)
+  if [ -n "$val" ]; then
+    echo "Removing from: $repo"
+    git -C "$repo" config --unset core.sshCommand
+  fi
+done
+
+# 4. Verify no github_ed25519 references remain
+grep -r "github_ed25519" ~/.gitconfig ~/.ssh/config ~/github/*/.git/config 2>/dev/null \
+  || echo "clean"
+
+# 5. Test
+ssh -T git@github.com
+git -C ~/github/travel-beat pull origin main
 ```
 
 ---
 
-## Enforcement
-
-### `repo_checker.py` check (informational)
-
-`check_ssh_config` is **not** added to `repo_checker.py` — SSH config is a workstation concern, not a repo concern.
-
-### Onboarding checklist (`onboard-repo.md`)
-
-The `/onboard-repo` workflow references this ADR in the developer setup section.
-
-### Global User Rules
-
-The global user rules memory is updated to reflect `id_ed25519` as the canonical key name (replacing the previous `github_ed25519` reference).
-
----
-
-## Reference: Complete WSL2 Setup Sequence
+## Reference: Complete WSL2 Setup Sequence (new machine)
 
 ```bash
 # 1. Generate key (skip if id_ed25519 already exists)
@@ -140,7 +151,7 @@ Host github.com
 EOF
 chmod 600 ~/.ssh/config
 
-# 4. Configure git URL rewrite
+# 4. Git URL rewrite
 git config --global url."git@github.com:".insteadOf "https://github.com/"
 
 # 5. Verify
