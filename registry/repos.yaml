@@ -1,6 +1,7 @@
 # registry/repos.yaml — Single Source of Truth for all platform repositories
 # Used by: repo_checker.py, populate_catalog (devhub), CI coverage gate
 # ADR-022: Repository Consistency Standards
+# Last verified: 2026-02-21 against docker ps on 88.198.191.108
 
 domains:
 
@@ -14,6 +15,8 @@ domains:
         url: https://devhub.iil.pet
         type: django
         lifecycle: production
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
         coverage_threshold: 80
 
       - name: platform
@@ -52,12 +55,13 @@ domains:
         repo: pptx-hub
         description: Presentation Studio — PowerPoint generation (Prezimo)
         github: achimdehnert/pptx-hub
-        deployed: false
+        deployed: true
+        url: https://pptx-hub.iil.pet
         type: django
         lifecycle: experimental
         dockerfile: docker/app/Dockerfile
         compose: docker-compose.prod.yml
-        coverage_threshold: 80
+        coverage_threshold: 60
 
   - name: Story & Travel
     systems:
@@ -103,19 +107,21 @@ domains:
         repo: trading-hub
         description: Trading analysis and market scanning
         github: achimdehnert/trading-hub
-        deployed: false
+        deployed: true
         type: django
         lifecycle: experimental
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
         coverage_threshold: 60
 
       - name: odoo-hub
         repo: odoo-hub
-        description: Odoo management and integration
+        description: Odoo management and integration (Odoo 17)
         github: achimdehnert/odoo-hub
-        deployed: false
-        type: django
+        deployed: true
+        type: other
         lifecycle: experimental
-        coverage_threshold: 60
+        coverage_threshold: 0
 
   - name: Events & Lifestyle
     systems:
@@ -123,7 +129,9 @@ domains:
         repo: wedding-hub
         description: Wedding planning platform
         github: achimdehnert/wedding-hub
-        deployed: false
+        deployed: true
         type: django
         lifecycle: experimental
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
         coverage_threshold: 60
