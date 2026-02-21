@@ -11,16 +11,17 @@
 #   deploy-remote.sh --tag <IMAGE_TAG> --app <APP_NAME> [OPTIONS]
 #
 # Options:
-#   --tag           Docker image tag to deploy (required)
-#   --app           Application name, e.g. bfagent (required)
-#   --compose-file  Compose file (default: docker-compose.prod.yml)
-#   --env-file      Env file (default: .env.prod)
-#   --deploy-dir    Deploy directory (default: /srv/<app>)
-#   --web-service   Web service name in compose (default: <app>-web)
-#   --skip-migrate  Skip database migrations
-#   --skip-backup   Skip pre-deploy DB backup
-#   --dry-run       Print actions without executing
-#   --rollback-to   Rollback to a specific tag (skips pull/migrate)
+#   --tag              Docker image tag to deploy (required)
+#   --app              Application name, e.g. bfagent (required)
+#   --compose-file     Compose file (default: docker-compose.prod.yml)
+#   --env-file         Env file (default: .env.prod)
+#   --deploy-dir       Deploy directory (default: /srv/<app>)
+#   --web-service      Web service name in compose (default: <app>-web)
+#   --skip-migrate     Skip database migrations
+#   --skip-backup      Skip pre-deploy DB backup
+#   --dry-run          Print actions without executing
+#   --rollback-to      Rollback to a specific tag (skips pull/migrate)
+#   --django-tenants   Use migrate_schemas instead of migrate (ADR-056)
 #
 # Exit codes:
 #   0 = success
@@ -45,6 +46,7 @@ ROLLBACK_TO=""
 HEALTH_RETRIES=12
 HEALTH_INTERVAL=5
 HEALTH_ENDPOINT="/healthz/"
+DJANGO_TENANTS=false
 
 # ─── Colors ──────────────────────────────────────────────────────────────────
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -82,6 +84,7 @@ while [[ $# -gt 0 ]]; do
         --health-retries)    HEALTH_RETRIES="$2";    shift 2 ;;
         --health-interval)   HEALTH_INTERVAL="$2";   shift 2 ;;
         --health-endpoint)   HEALTH_ENDPOINT="$2";   shift 2 ;;
+        --django-tenants)    DJANGO_TENANTS=true;     shift   ;;
         *) die "Unknown option: $1" 1 ;;
     esac
 done
@@ -110,6 +113,9 @@ compose() { docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"; }
 log "═══════════════════════════════════════════════════════════"
 log "  Deploy: ${APP_NAME}  Tag: ${IMAGE_TAG}"
 log "  Dir: ${DEPLOY_DIR}  Compose: ${COMPOSE_FILE}"
+if $DJANGO_TENANTS; then
+    log "  Mode: django-tenants (migrate_schemas)"
+fi
 log "═══════════════════════════════════════════════════════════"
 
 # ─── 1. Save current state for rollback ──────────────────────────────────────
@@ -165,12 +171,44 @@ compose pull "$WEB_SERVICE" || die "Image pull failed for tag ${IMAGE_TAG}" 1
 
 # ─── 5. Run DB migrations BEFORE container switch (expand-only) ─────────────
 if ! $SKIP_MIGRATE && [[ -z "$ROLLBACK_TO" ]]; then
-    log "Running migrations (expand phase)..."
-    # Run migrations in a temporary container from the NEW image
-    # This ensures migrations run against the new code but old containers stay up
     MIGRATE_EXIT=0
-    compose run --rm --no-deps "$WEB_SERVICE" \
-        python manage.py migrate --noinput 2>&1 | tee /tmp/migrate.log || MIGRATE_EXIT=$?
+
+    if $DJANGO_TENANTS; then
+        # ADR-056: django-tenants requires migrate_schemas, NOT plain migrate.
+        # Step 5a: shared schema (creates tenants_client, tenants_domain tables)
+        log "Running migrate_schemas --shared (django-tenants)..."
+        compose run --rm --no-deps "$WEB_SERVICE" \
+            python manage.py migrate_schemas --shared --noinput 2>&1 | tee /tmp/migrate.log || MIGRATE_EXIT=$?
+
+        if [[ $MIGRATE_EXIT -ne 0 ]]; then
+            err "migrate_schemas --shared FAILED (exit code: ${MIGRATE_EXIT})"
+            sed -i "s|^${TAG_VAR}=.*|${TAG_VAR}=${PREV_TAG}|" "$ENV_FILE"
+            audit "migrate" "failed" "step=shared,exit=${MIGRATE_EXIT}"
+            exit 4
+        fi
+
+        # Step 5b: provision default tenant if not yet present (idempotent)
+        log "Provisioning default tenant (idempotent)..."
+        compose run --rm --no-deps "$WEB_SERVICE" python manage.py shell -c "
+from apps.tenants.models import Client, Domain
+if not Client.objects.filter(schema_name='${APP_NAME}').exists():
+    t = Client(schema_name='${APP_NAME}', name='${APP_NAME}')
+    t.save(verbosity=0)
+    print('Tenant created: ${APP_NAME}')
+else:
+    print('Tenant already exists: ${APP_NAME}')
+" 2>&1 || warn "Tenant provisioning warning — check logs"
+
+        # Step 5c: all tenant schemas
+        log "Running migrate_schemas (all tenants)..."
+        compose run --rm --no-deps "$WEB_SERVICE" \
+            python manage.py migrate_schemas --noinput 2>&1 | tee -a /tmp/migrate.log || MIGRATE_EXIT=$?
+    else
+        # Standard Django migration
+        log "Running migrations (expand phase)..."
+        compose run --rm --no-deps "$WEB_SERVICE" \
+            python manage.py migrate --noinput 2>&1 | tee /tmp/migrate.log || MIGRATE_EXIT=$?
+    fi
 
     if [[ $MIGRATE_EXIT -ne 0 ]]; then
         err "Migration FAILED (exit code: ${MIGRATE_EXIT})"
