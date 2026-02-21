@@ -1,6 +1,6 @@
 [project]
 name = "platform-context"
-version = "0.3.0"
+version = "0.3.1"
 description = "Shared platform foundation for all Django projects (Context, Tenancy, Audit, Outbox)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -25,10 +25,14 @@ dependencies = [
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.8",
+    "pytest-mock>=3.12",
+    "factory-boy>=3.3",
 ]
 testing = [
     "pytest>=8.0",
     "pytest-django>=4.8",
+    "pytest-mock>=3.12",
+    "factory-boy>=3.3",
 ]
 
 [build-system]
