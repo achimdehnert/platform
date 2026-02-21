@@ -113,6 +113,8 @@ Manueller Review aller ADRs alle 3 Monate.
 
 Der bestehende `AgentType.DRIFT_DETECTOR` in `agents_dashboard` wird implementiert. Das `ADR`-Model in `adr_lifecycle` erhält vier neue Felder: `review_needed`, `drift_reasons`, `last_drift_check`, `staleness_months`. Ein wöchentlicher Celery-Beat-Task prüft alle ADRs gegen 5 Staleness-Kriterien und setzt Flags automatisch. Die Ergebnisse sind in dev-hub filterbar und werden als `AgentRun` in `agents_dashboard` protokolliert.
 
+**Begründung gegenüber Alternativen:** Option B (GitHub Issues) bricht die techdocs-Integration — Staleness-Daten müssen maschinenlesbar im `ADR`-Model liegen, nicht in unstrukturierten Issues. Option C (manuelle Triage) ist bereits gescheitert: die 42 `?`-ADRs sind das direkte Ergebnis fehlender Automatisierung. Option A nutzt ausschließlich bestehende Infrastruktur (Celery Beat, `agents_dashboard`, GitHub-Sync) und erfordert keine neuen externen Abhängigkeiten.
+
 ---
 
 ## 4. Implementation Details
@@ -158,6 +160,8 @@ class ADR(TenantAwareModel):
 ```
 
 ### 4.2 Drift-Detector Celery Task
+
+> **Service Layer**: Die Drift-Check-Logik wird in `apps/adr_lifecycle/services.py` als `run_drift_check(adr, status_map) -> list[DriftReason]` ausgelagert. Der Task ruft nur `run_drift_check()` auf — keine direkte Business-Logik im Task (ADR-021 §2.13 Service Layer Pattern).
 
 ```python
 # apps/adr_lifecycle/tasks.py — neuer Task
@@ -417,7 +421,7 @@ class ADRListView(LoginRequiredMixin, ListView):
 
 - Automatisches Schreiben von ADR-Korrekturen (bleibt manuell)
 - Cross-Repo-Drift (ob Code in `bfagent` noch dem ADR entspricht) — Phase 2
-- LLM-basierte Inhaltsanalyse ("ist dieser ADR noch fachlich korrekt?") — separates ADR
+- LLM-basierte Inhaltsanalyse ("ist dieser ADR noch fachlich korrekt?") — separates ADR (→ ADR-062, noch nicht erstellt)
 
 ---
 
@@ -438,6 +442,7 @@ class ADRListView(LoginRequiredMixin, ListView):
 2. **Review-Count sinkt**: `ADR.objects.filter(review_needed=True).count()` — Ziel: < 5 nach initialer Triage
 3. **Neue ADRs haben Frontmatter**: CI-Check `grep -L "^---" docs/adr/ADR-*.md` — muss leer sein für ADRs nach 2026-02-21
 4. **Celery Beat aktiv**: `AgentRun.objects.filter(agent_type="drift_detector").latest("created_at")` — fehlt Eintrag > 8 Tage → manuelle Prüfung ob Beat-Worker läuft
+5. **Migration CI-Gate**: `python manage.py makemigrations --check` läuft in `_ci-python.yml` und schlägt fehl wenn unapplied Migrations vorhanden — verhindert fehlende Migration-Dateien in Produktion
 
 ---
 
@@ -457,3 +462,4 @@ class ADRListView(LoginRequiredMixin, ListView):
 |-------|-------|----------|
 | 2026-02-21 | Achim Dehnert | Initial: Status Proposed — auf Basis ADR-Template v2.0 |
 | 2026-02-21 | Achim Dehnert | Review-Fixes: Migration Tracking aktualisiert, Decision Outcome Feldanzahl korrigiert, Confirmation §4 self-reference entfernt |
+| 2026-02-21 | Achim Dehnert | Review v2: Decision Outcome Begründung ergänzt, Service Layer Hinweis §4.2, Confirmation §8.5 makemigrations CI-Gate, Deferred ADR-062 referenziert |
