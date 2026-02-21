@@ -10,12 +10,63 @@ decision-makers: Achim Dehnert
 |----------|-------|
 | **Status** | Proposed |
 | **Date** | 2026-02-18 |
+| **Last Reviewed** | 2026-02-21 |
 | **Author** | Achim Dehnert |
 | **Reviewers** | ADR Board |
 | **Supersedes** | — |
-| **Related** | ADR-021 (Unified Deployment), ADR-022 (Platform Consistency), ADR-044 (MCP-Hub Architecture) |
+| **Related** | ADR-021 (Unified Deployment), ADR-022 (Platform Consistency), ADR-044 (MCP-Hub Architecture), ADR-056 (Multi-Tenancy) |
 | **Based on** | `konzept-env-secrets-management.md`, `review-secrets-management.md` |
-| **Version** | 2 (incorporates critical review findings R-01 through A-06) |
+| **Version** | 3 (2026-02-21: implementation status review, ADR-056 gap added) |
+
+---
+
+## Implementation Status (as of 2026-02-21)
+
+> **Status: Proposed — not yet implemented.** The decision is accepted; execution has not started.
+
+| Phase | Description | Status |
+|-------|-------------|--------|
+| Phase 1 | SOPS + age keypair setup on WSL dev machine | ❌ Pending — `sops`/`age` not installed in WSL |
+| Phase 2 | Encrypt existing secrets into `secrets.enc.env` per repo | ❌ Pending — no repo has `secrets.enc.env` yet |
+| Phase 3 | `config/secrets.py` + `read_secret()` in Django apps | ❌ Pending — not implemented in any app |
+| Phase 4 | MCP server Settings: `SecretStr` + `secrets_dir` | ❌ Pending |
+| Phase 5 | CI/CD pipeline: SOPS decrypt step + `/run/secrets/` push | ❌ Pending — `_deploy-hetzner.yml` has no SOPS step |
+| Phase 6 | Reboot resilience: systemd `secrets-check.service` | ❌ Pending |
+| Phase 7 | Cleanup: remove `.env.prod` from server | ❌ Pending — all apps still use `.env.prod` |
+
+### What IS done
+
+| Item | Status |
+|------|--------|
+| `.sops.yaml` in `platform` repo with 2 age recipients | ✅ Committed (`platform/.sops.yaml`) |
+| Decision accepted (Variante C: Hybrid SOPS + file-based) | ✅ |
+| `deploy-remote.sh` uses `env_file:` not `${VAR}` interpolation | ✅ (platform rule already enforced) |
+
+### Current Production Reality (legacy, to be migrated)
+
+All apps currently use `.env.prod` files on the Hetzner server (`88.198.191.108`):
+
+```text
+/opt/travel-beat/.env.prod     ← active
+/opt/bfagent-app/.env.prod     ← active
+/opt/weltenhub/.env.prod       ← active
+/opt/risk-hub/.env.prod        ← active (if deployed)
+```
+
+`/run/secrets/` does **not** exist on the server. `sops` and `age` are **not** installed in WSL.
+This is the pre-migration baseline. The `.env.prod` approach remains safe for now — it is
+the target state that needs to change, not an active security incident.
+
+### Gap: ADR-056 Multi-Tenancy (travel-beat)
+
+ADR-056 introduced `apps.tenants` with `Client` and `Domain` models in travel-beat.
+The tenant provisioning step (creating the default `drifttales` tenant) currently runs
+as an inline `manage.py shell` command in `deploy-remote.sh`. This is acceptable for
+Phase 1 but must be revisited in ADR-045 Phase 5:
+
+- The tenant provisioning command must run **after** `/run/secrets/` is populated
+- The `DATABASE_URL` secret must be available before `migrate_schemas` runs
+- Future: per-tenant secrets (e.g., tenant-specific API keys) are out of scope for ADR-045
 
 ---
 
@@ -368,7 +419,7 @@ api_key: SecretStr  # No default -> fails fast if missing
 
 ### Phase 5: CI/CD Pipeline Update (Day 2-3)
 
-Add SOPS decrypt step to GitHub Actions deploy workflow:
+Add SOPS decrypt step to GitHub Actions deploy workflow (`_deploy-hetzner.yml`):
 
 ```yaml
 - name: Decrypt and deploy secrets
@@ -402,6 +453,11 @@ Add SOPS decrypt step to GitHub Actions deploy workflow:
     done
     echo "All required secrets verified."'
 ```
+
+**Note (ADR-056 interaction):** For travel-beat, the SOPS decrypt step must run
+**before** `migrate_schemas`, as the DB connection requires `DATABASE_URL` from
+`/run/secrets/`. The tenant provisioning step in `deploy-remote.sh` is unaffected
+(it runs after container start, which reads from `/run/secrets/` via `read_secret()`).
 
 ### Phase 6: Reboot Resilience (Day 3)
 
@@ -536,3 +592,18 @@ when a concrete use case arises. This ADR focuses strictly on secrets.
 3. **Per-app required secrets list**: Each Django app and MCP server should
    declare its required secrets (for Phase 5 verification step). Format TBD
    (e.g., `REQUIRED_SECRETS` list in `config/secrets.py` or `.secrets-manifest`).
+
+4. **ADR-056 interaction**: travel-beat uses `django-tenants` — the `DATABASE_URL`
+   secret must be available before `migrate_schemas --shared` runs. The ordering
+   in `_deploy-hetzner.yml` (SOPS decrypt → migrate → tenant provision) must be
+   validated when Phase 5 is implemented.
+
+---
+
+## 7. Changelog
+
+| Version | Date | Change |
+|---------|------|--------|
+| 1 | 2026-02-18 | Initial draft |
+| 2 | 2026-02-18 | Incorporates critical review R-01 through A-06 |
+| 3 | 2026-02-21 | Implementation status review: all phases still pending. `.sops.yaml` committed to `platform`. ADR-056 gap documented. Open Question 4 added. |
