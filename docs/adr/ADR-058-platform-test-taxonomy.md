@@ -1,7 +1,7 @@
 ---
 status: "accepted"
 date: 2026-02-20
-amended: 2026-02-20
+amended: 2026-02-21
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
@@ -14,7 +14,7 @@ related: ["ADR-057-platform-test-strategy.md"]
 
 > **Input**: `docs/adr/inputs/testarten-matrix.md` (2026-02-20)
 > **Basis**: ADR-057 (Platform Test Strategy — 4-Ebenen-Pyramide)
-> **Amendment**: Review fixes applied 2026-02-20 — see §Review Amendments.
+> **Amendment**: Review fixes applied 2026-02-20/21 — see §Review Amendments.
 
 ---
 
@@ -71,7 +71,9 @@ grep -r "status_code == 404" tests/ | wc -l            # A6 Error Handling Tests
 
 3. **Migration-Tracking-Tabelle** (§ Migration Tracking): Zeigt pro Repo welche Pflicht-Testarten implementiert sind.
 
-### Consequences
+---
+
+## Consequences
 
 - Good, because alle Repos eine einheitliche Sprache für Testarten haben.
 - Good, because Lücken sichtbar und messbar sind — kein "wir haben Tests" ohne Substanz.
@@ -307,7 +309,9 @@ Alle Tests laufen via `_ci-python.yml@main` (ADR-021 §2.5). Contract + Migratio
 
 ---
 
-## Review Amendments (2026-02-20)
+## Review Amendments
+
+### v2 — 2026-02-20
 
 Angewendet nach kritischem Review gegen `docs/templates/adr-review-checklist.md`:
 
@@ -319,6 +323,12 @@ Angewendet nach kritischem Review gegen `docs/templates/adr-review-checklist.md`
 | R4 | `## More Information` fehlte als eigener Abschnitt | Eigener Abschnitt mit strukturierten Links ergänzt |
 | R5 | Migration-Tracking-Tabelle fehlte | Ist-Stand-Tabelle pro Repo + Phase-Roadmap ergänzt |
 | R6 | Deferred Decisions ohne ADR-Platzhalter | ADR-059 (Guardian) + ADR-060 (Phase 4) als Platzhalter benannt |
+
+### v3 — 2026-02-21
+
+| # | Finding | Fix |
+|---|---------|-----|
+| R7 | `### Consequences` war Unterabschnitt von `## Decision Outcome` | Als eigenen Top-Level `## Consequences` herausgelöst (MADR 4.0 §1.8) |
 
 ---
 
