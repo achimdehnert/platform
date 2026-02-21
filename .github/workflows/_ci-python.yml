@@ -2,6 +2,7 @@
 # ║  REUSABLE WORKFLOW: Python CI (Lint, Test, Security)                       ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main  ║
 # ║  ADR-057 Phase 1: split test-unit / test-integration / coverage-report     ║
+# ║  ADR-058: coverage_threshold=80 default, platform-context[testing] auto    ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Python CI
@@ -15,9 +16,9 @@ on:
         default: '3.12'
         type: string
       coverage_threshold:
-        description: 'Minimum coverage percentage (0 = report only)'
+        description: 'Minimum coverage % — CI fails below this (ADR-058)'
         required: false
-        default: 0
+        default: 80
         type: number
       requirements_file:
         description: 'Path to requirements.txt'
@@ -49,6 +50,11 @@ on:
         required: false
         default: false
         type: boolean
+      platform_context_version:
+        description: 'platform-context[testing] version to install (empty = skip)'
+        required: false
+        default: '>=0.3.1'
+        type: string
 
 jobs:
   lint:
@@ -100,6 +106,9 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
+      - name: Install platform-context[testing] (ADR-058)
+        if: ${{ inputs.platform_context_version != '' }}
+        run: pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
       - name: Run unit tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
@@ -156,6 +165,9 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
+      - name: Install platform-context[testing] (ADR-058)
+        if: ${{ inputs.platform_context_version != '' }}
+        run: pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
       - name: Run integration tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
@@ -174,7 +186,7 @@ jobs:
           path: coverage-integration.xml
 
   coverage-report:
-    name: "Coverage Report"
+    name: "Coverage Gate (≥${{ inputs.coverage_threshold }}%)"
     runs-on: self-hosted
     needs: [test-unit, test-integration]
     if: ${{ !inputs.skip_tests }}
@@ -186,7 +198,7 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: coverage-integration
-      - name: Merge and report coverage
+      - name: Merge and enforce coverage gate
         run: |
           pip install coverage
           coverage combine coverage-unit.xml coverage-integration.xml || true
@@ -223,6 +235,9 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
+      - name: Install platform-context[testing] (ADR-058)
+        if: ${{ inputs.platform_context_version != '' }}
+        run: pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
       - name: Run contract tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
