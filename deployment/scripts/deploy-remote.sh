@@ -18,6 +18,7 @@
 #   --deploy-dir       Deploy directory (default: /opt/<app>)
 #   --web-service      Web service name in compose (default: <app>-web)
 #   --health-endpoint  Health check path (default: /healthz/)
+#   --health-host      Host header for healthcheck (optional, needed for tenant middleware)
 #   --health-retries   Number of health check retries (default: 12)
 #   --health-interval  Seconds between retries (default: 5)
 #   --skip-migrate     Skip database migrations
@@ -49,6 +50,7 @@ ROLLBACK_TO=""
 HEALTH_RETRIES=12
 HEALTH_INTERVAL=5
 HEALTH_ENDPOINT="/healthz/"
+HEALTH_HOST=""
 DJANGO_TENANTS=false
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
@@ -86,6 +88,7 @@ while [[ $# -gt 0 ]]; do
         --health-retries)    HEALTH_RETRIES="$2";    shift 2 ;;
         --health-interval)   HEALTH_INTERVAL="$2";   shift 2 ;;
         --health-endpoint)   HEALTH_ENDPOINT="$2";   shift 2 ;;
+        --health-host)       HEALTH_HOST="$2";       shift 2 ;;
         --django-tenants)    DJANGO_TENANTS=true;    shift   ;;
         *) die "Unknown option: $1" 1 ;;
     esac
@@ -240,10 +243,15 @@ else
 fi
 info "Health URL: ${HEALTH_URL}"
 
+# Build curl args — add Host header if --health-host is set
+# (required when TenantMainMiddleware is active: it resolves tenant by domain)
+CURL_ARGS=(-sf -o /dev/null -w '%{http_code}')
+[[ -n "$HEALTH_HOST" ]] && CURL_ARGS+=(-H "Host: ${HEALTH_HOST}")
+
 HEALTHY=false
 for i in $(seq 1 "$HEALTH_RETRIES"); do
     sleep "$HEALTH_INTERVAL"
-    HTTP_CODE=$(curl -sf -o /dev/null -w '%{http_code}' "$HEALTH_URL" 2>/dev/null || echo "000")
+    HTTP_CODE=$(curl "${CURL_ARGS[@]}" "$HEALTH_URL" 2>/dev/null || echo "000")
     if [[ "$HTTP_CODE" == "200" ]]; then
         log "Healthcheck PASSED (attempt ${i}/${HEALTH_RETRIES})"
         HEALTHY=true
@@ -263,7 +271,7 @@ if ! $HEALTHY; then
         compose pull "$WEB_SERVICE" || true
         compose up -d --no-deps --force-recreate "$WEB_SERVICE"
         sleep 10
-        RB_CODE=$(curl -sf -o /dev/null -w '%{http_code}' "$HEALTH_URL" 2>/dev/null || echo "000")
+        RB_CODE=$(curl "${CURL_ARGS[@]}" "$HEALTH_URL" 2>/dev/null || echo "000")
         if [[ "$RB_CODE" == "200" ]]; then
             warn "Rollback SUCCEEDED (HTTP ${RB_CODE})"
             audit "rollback" "ok" "to=${PREV_TAG}"
