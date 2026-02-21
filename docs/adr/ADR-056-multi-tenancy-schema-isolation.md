@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
 consulted: –
@@ -10,7 +10,7 @@ informed: –
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
-| **Status**     | Proposed                                                             |
+| **Status**     | Accepted                                                             |
 | **Scope**      | platform                                                             |
 | **Repo**       | platform                                                             |
 | **Erstellt**   | 2026-02-21                                                           |
@@ -36,7 +36,7 @@ informed: –
 
 ### 1.1 Ausgangslage
 
-Das Portfolio besteht aus mehreren unabhängigen Django/HTMX-Services (bfagent, cad-hub, travel-beat, trading-hub, risk-hub u.a.), die jeweils auf einem einzelnen Hetzner VPS laufen. Jeder Service hat seine eigene PostgreSQL-Datenbank und kommuniziert über drei Kanäle:
+Das Portfolio besteht aus mehreren unabhängigen Django/HTMX-Services (bfagent, travel-beat, trading-hub, risk-hub u.a.), die jeweils auf einem einzelnen Hetzner VPS laufen. Jeder Service hat seine eigene PostgreSQL-Datenbank und kommuniziert über drei Kanäle:
 
 - **REST/JSON APIs** zwischen Services
 - **Shared Database Views** (Cross-DB-Zugriffe)
@@ -67,7 +67,7 @@ Das Portfolio soll als SaaS an Dritte angeboten werden:
 - **1 Hetzner VPS** (4 Cores, 16 GB RAM) — kein horizontales Scaling in Phase 1
 - **Self-Hosted GitHub Actions Runner** auf demselben VPS
 - **Docker Compose** als Deployment-Mechanismus (kein Kubernetes)
-- **Nginx** auf Prod-Server (88.198.191.108) proxied zu Dev-Server (46.225.113.1)
+- **Nginx** auf Prod-Server (88.198.191.108)
 - **`platform_context`** als vendored Shared Library in allen Services
 - **1 Entwickler** — Implementierungsaufwand muss realistisch sein
 
@@ -141,30 +141,99 @@ ADR-056 **erweitert** ADR-035 für SaaS-fähige Services. Die `platform_context`
 
 **Kanal 1: REST/JSON APIs**
 
-Service-zu-Service-Calls über das interne Docker-Netzwerk (nicht über Subdomain) nutzen einen `X-Tenant-Schema`-Header:
+Service-zu-Service-Calls über das interne Docker-Netzwerk nutzen einen `X-Tenant-Schema`-Header:
 
 ```python
 # In platform_context/tenant_utils/http_client.py
+TENANT_HEADER = "X-Tenant-Schema"
+
 class TenantAwareHttpClient:
+    def __init__(self, base_url: str):
+        self.base_url = base_url
+
     def _headers(self) -> dict:
         from django.db import connection
-        return {"X-Tenant-Schema": connection.schema_name}
+        return {
+            TENANT_HEADER: connection.schema_name,
+            "Content-Type": "application/json",
+        }
+
+    def get(self, path: str, **kwargs):
+        import httpx
+        return httpx.get(f"{self.base_url}{path}", headers=self._headers(), **kwargs)
+
+    def post(self, path: str, **kwargs):
+        import httpx
+        return httpx.post(f"{self.base_url}{path}", headers=self._headers(), **kwargs)
+```
+
+Empfangender Service liest den Header via `TenantPropagationMiddleware` (nur für Service-zu-Service-Calls, nicht für User-Requests die über Subdomain kommen):
+
+```python
+# In platform_context/tenant_utils/middleware.py
+class TenantPropagationMiddleware:
+    def __call__(self, request):
+        if not hasattr(request, "tenant") and TENANT_HEADER in request.headers:
+            from django.db import connection
+            connection.set_schema(request.headers[TENANT_HEADER])
+        return self.get_response(request)
 ```
 
 **Kanal 2: Shared DB Views**
 
-Bestehende Cross-DB-Views werden durch REST-API-Calls ersetzt (Option 2a). Für Performance-kritische Fälle: Materialized Views per Celery-Sync im lokalen Tenant-Schema.
+Bestehende Cross-DB-Views werden durch REST-API-Calls ersetzt (Standard). Für Performance-kritische Fälle: Materialized Views per Celery-Sync im lokalen Tenant-Schema.
+
+```
+VORHER:  Service A → SQL View → Service B's DB
+NACHHER: Service A → REST API (X-Tenant-Schema Header) → Service B → Service B's DB
+```
 
 **Kanal 3: Celery Tasks**
 
-`tenant-schemas-celery` serialisiert den Schema-Namen automatisch in die Celery-Message. Cross-Service-Tasks übergeben `_tenant_schema` im Payload.
+`tenant-schemas-celery` serialisiert den Schema-Namen automatisch in die Celery-Message. Cross-Service-Tasks übergeben `_tenant_schema` im Payload:
 
-### 4.4 Wildcard-DNS und SSL
+```python
+# Cross-Service-Task senden
+def send_cross_service_task(task_name: str, **kwargs):
+    from django.db import connection
+    from celery import current_app
+    kwargs["_tenant_schema"] = connection.schema_name
+    current_app.send_task(task_name, kwargs=kwargs)
+
+# Empfangender Service: Basis-Task mit Schema-Switching
+from celery import Task
+from django_tenants.utils import schema_context
+
+class TenantAwareTask(Task):
+    def __call__(self, *args, **kwargs):
+        schema = kwargs.pop("_tenant_schema", "public")
+        with schema_context(schema):
+            return super().__call__(*args, **kwargs)
+```
+
+### 4.4 `platform_context` Tenant-Utils Struktur
+
+Alle tenant-spezifische Logik die in jedem Service identisch ist, wird in `platform_context` als `tenant_utils`-Modul ausgeliefert:
+
+```
+platform_context/
+└── tenant_utils/
+    ├── __init__.py
+    ├── middleware.py       # TenantPropagationMiddleware (Service-zu-Service)
+    ├── http_client.py      # TenantAwareHttpClient
+    ├── celery.py           # send_cross_service_task, TenantAwareTask
+    ├── testing.py          # pytest fixtures: tenant_a, tenant_b, tenant_a_client
+    └── provisioning.py     # provision_tenant() — erstellt Schema in allen Service-DBs
+```
+
+**Installation:** Bereits in allen Services via `platform-context[testing]>=0.3.1` — kein neues Package nötig.
+
+### 4.5 Wildcard-DNS und SSL
 
 Subdomain-basiertes Routing (`tenant1.bfa.example.com`) erfordert:
 - Wildcard-DNS-Eintrag (`*.bfa.example.com → 88.198.191.108`)
 - Wildcard-SSL via Let's Encrypt DNS-Challenge (nicht HTTP-Challenge)
-- **Nginx** als Wildcard-Reverse-Proxy (ADR-021 §2.10: Traefik deferred — gilt weiterhin)
+- **Nginx** als Wildcard-Reverse-Proxy
 
 ```nginx
 # /etc/nginx/sites-enabled/bfa-wildcard.conf
@@ -174,17 +243,17 @@ server {
     ssl_certificate /etc/letsencrypt/live/bfa.example.com/fullchain.pem;
     ssl_certificate_key /etc/letsencrypt/live/bfa.example.com/privkey.pem;
     location / {
-        proxy_pass http://46.225.113.1:8000;
+        proxy_pass http://127.0.0.1:<PORT>;
         proxy_set_header Host $host;  # django-tenants liest Host-Header
     }
 }
 ```
 
-**Traefik bleibt deferred** gemäß ADR-021. Eine Traefik-Einführung erfordert ein eigenes ADR (ADR-057 reserviert). Ops-Task: Wildcard-Certbot-DNS-Challenge in ADR-042-Checkliste ergänzen.
+**Traefik bleibt deferred** gemäß ADR-021. ADR-057 reserviert für Traefik-Einführung.
 
-### 4.5 Health-Endpoints bei Subdomain-Routing
+### 4.6 Health-Endpoints bei Subdomain-Routing
 
-`/livez/` und `/healthz/` (ADR-021 §2.8) müssen im `public`-Schema laufen, nicht im Tenant-Schema. `django-tenants` bietet dafür `PUBLIC_SCHEMA_URLCONF`:
+`/livez/` und `/healthz/` (ADR-021) müssen im `public`-Schema laufen:
 
 ```python
 # config/settings/base.py
@@ -192,36 +261,82 @@ PUBLIC_SCHEMA_URLCONF = "config.urls_public"  # enthält /livez/ + /healthz/
 ROOT_URLCONF = "config.urls_tenant"           # tenant-spezifische URLs
 ```
 
-Health-Endpoints antworten damit unabhängig vom Tenant-Context — kein Einfluss auf bestehende Deployment-Pipeline.
+### 4.7 weltenhub/bfagent Shared Database
 
-### 4.6 weltenhub/bfagent Shared Database
-
-`weltenhub` und `bfagent` teilen aktuell `bfagent_db` (dokumentiert in ADR-035). Dies ist eine **Voraussetzung** für die Schema-Isolation in `bfagent`:
-
-**Pflicht vor Phase 2 (`bfagent`):** `weltenhub` muss in eine eigene Datenbank (`weltenhub_db`) migriert werden. Solange `weltenhub` und `bfagent` dieselbe DB teilen, kann `bfagent` keine Schema-Isolation einführen — `django-tenants` erwartet exklusive Kontrolle über die DB-Schemas.
+`weltenhub` und `bfagent` teilen aktuell `bfagent_db`. **Pflicht vor Phase 2 (`bfagent`):** `weltenhub` muss in eine eigene `weltenhub_db` migriert werden — `django-tenants` erwartet exklusive Kontrolle über die DB-Schemas.
 
 | Schritt | Aufwand | Zeitpunkt |
 |---------|---------|----------|
 | `weltenhub_db` anlegen | Niedrig | Vor Phase 2 |
-| `weltenhub` Django-Settings auf neue DB umstellen | Niedrig | Vor Phase 2 |
+| `weltenhub` Django-Settings umstellen | Niedrig | Vor Phase 2 |
 | Datenmigration `bfagent_db` → `weltenhub_db` | Mittel | Vor Phase 2 |
 | `bfagent_db` bereinigen | Niedrig | Nach Verifikation |
 
-Dieser Schritt ist **nicht optional** und wird als Phase 1.5 in den Implementation Plan aufgenommen.
+### 4.8 Migrations-Performance und Expand-Contract-Pattern
 
-### 4.7 Migrations-Performance
+Bei 100 Mandanten × 3 Services = 300 Schema-Migrationen pro Deployment.
 
-Bei 100 Mandanten × 3 Services = 300 Schema-Migrationen pro Deployment. Der Self-Hosted Runner läuft auf demselben VPS — Migrations-Parallelisierung darf CPU nicht saturieren (max. 2 Workers in CI, 4 Workers im manuellen Deploy):
+**Parallelisierung:**
 
 ```bash
-# Parallelisierung via multiprocessing executor
-python manage.py migrate_schemas --executor=multiprocessing
-# Nur wenn nötig
-python manage.py migrate_schemas --check 2>&1 | grep -q "unapplied" && \
-  python manage.py migrate_schemas --executor=multiprocessing
+# Nur migrieren wenn nötig
+if python manage.py migrate_schemas --check 2>&1 | grep -q "unapplied migration"; then
+    python manage.py migrate_schemas --executor=multiprocessing
+fi
 ```
 
-Erwartete Dauer bei 100 Mandanten, 4 Workers: ~2 Minuten. Akzeptabel für Deployment-Fenster.
+**Expand-Contract-Pattern** für Schema-Änderungen (verhindert Downtime):
+
+1. **Expand:** Neue Spalte hinzufügen (nullable), Code liest beide Spalten
+2. **Migrate:** Daten in neue Spalte kopieren
+3. **Contract:** Alte Spalte entfernen, Code liest nur neue Spalte
+
+**Erwartete Migrations-Dauer:**
+
+| Anzahl Mandanten | Sequentiell | 4 Workers |
+|-----------------|-------------|-----------|
+| 10 | ~30 Sek | ~10 Sek |
+| 50 | ~2–3 Min | ~45 Sek |
+| 100 | ~5–8 Min | ~2 Min |
+| 500 | ~25–40 Min | ~8 Min |
+
+Bei 100 Mandanten auf einem 4-Core VPS: ~2 Minuten — akzeptabel. Migration Squashing alle 6 Monate empfohlen.
+
+### 4.9 VPS-Ressourcen-Impact
+
+PostgreSQL-Schemas sind leichtgewichtig — sie teilen sich Buffer Pool und Connections:
+
+| Ressource | Single-Tenant | 10 Mandanten | 50 Mandanten | 100 Mandanten |
+|-----------|--------------|--------------|--------------|---------------|
+| DB-Connections (Pool) | ~20 | ~30 | ~50 | ~80 |
+| DB Storage | 500 MB | 2 GB | 8 GB | 15 GB |
+| RAM (PostgreSQL) | 2 GB | 2,5 GB | 3 GB | 4 GB |
+| Migration-Dauer | 10 Sek | 30 Sek | 1,5 Min | 3 Min |
+| Container-Count | Unverändert — gleiche Container, nur mehr Schemas |
+
+**Connection Pooling ist kritisch:** PgBouncer (transaction mode) vor jeder PostgreSQL-Instanz ist Pflicht ab Phase 2.
+
+```yaml
+# docker-compose.prod.yml — PgBouncer
+pgbouncer:
+  image: bitnami/pgbouncer:latest
+  environment:
+    POSTGRESQL_HOST: db
+    PGBOUNCER_POOL_MODE: transaction
+    PGBOUNCER_MAX_CLIENT_CONN: 200
+    PGBOUNCER_DEFAULT_POOL_SIZE: 20
+  depends_on:
+    - db
+```
+
+### 4.10 Skalierungsschwellen
+
+| Schwellwert | Symptom | Nächster Schritt |
+|------------|---------|-----------------|
+| >50 Mandanten | DB spürbar langsamer | Hetzner Managed DB (dedizierter DB-Server) |
+| >100 Mandanten | Migration >5 Min | Background-Migration, Worker-Scaling |
+| >200 Mandanten | VPS reicht nicht | 2. VPS + Load Balancer |
+| >500 Mandanten | Architektur-Grenze | Kubernetes oder Managed Platform |
 
 ---
 
@@ -231,13 +346,12 @@ Status pro Service — wird bei jedem Phase-Abschluss aktualisiert:
 
 | Service | Phase | Status | Datum | Notizen |
 |---------|-------|--------|-------|---------|
-| `cad-hub` | Phase 1 (Pilot) | ⬜ Ausstehend | – | Einfachste Struktur, keine Shared Views |
-| `travel-beat` | Phase 2 | ⬜ Ausstehend | – | – |
+| `travel-beat` | Phase 1 (Pilot) | ⬜ Ausstehend | – | Einfachste Struktur für Pilot |
 | `risk-hub` | Phase 2 | ⬜ Ausstehend | – | Hat bereits Tenancy-Infrastruktur (ADR-035) |
 | `weltenhub` | Phase 1.5 (DB-Trennung) | ⬜ Ausstehend | – | Voraussetzung für bfagent |
 | `bfagent` | Phase 2 | ⬜ Ausstehend | – | Erst nach weltenhub DB-Trennung |
 | `trading-hub` | Out of Scope | ➖ | – | Internes Tool, kein SaaS-Bedarf Phase 1 |
-| `mcp-hub` | Out of Scope | ➖ | – | Internes Tool, kein SaaS-Bedarf Phase 1 |
+| `mcp-hub` | Out of Scope | ➖ | – | Internes Tool |
 | `dev-hub` | Out of Scope | ➖ | – | Internes Tool |
 
 ---
@@ -251,9 +365,7 @@ Status pro Service — wird bei jedem Phase-Abschluss aktualisiert:
 - [ ] Wildcard-DNS + SSL für Pilot-Domain konfigurieren
 - [ ] PgBouncer-Konfiguration für alle Service-DBs vorbereiten
 
-### Phase 1: Pilot-Service — `cad-hub` (Woche 3–5)
-
-Pilot: **`cad-hub`** (einfachste Datenstruktur, keine Shared DB Views)
+### Phase 1: Pilot-Service (Woche 3–5)
 
 - [ ] `django-tenants` + `tenant-schemas-celery` installieren
 - [ ] `Client`- und `Domain`-Model im `public`-Schema
@@ -264,16 +376,16 @@ Pilot: **`cad-hub`** (einfachste Datenstruktur, keine Shared DB Views)
 
 ### Phase 1.5: weltenhub DB-Trennung (Woche 5–6, Voraussetzung für bfagent)
 
-- [ ] `weltenhub_db` auf dev-server anlegen
+- [ ] `weltenhub_db` auf Server anlegen
 - [ ] `weltenhub` Django-Settings auf neue DB umstellen
 - [ ] Datenmigration `bfagent_db.weltenhub_*` → `weltenhub_db`
 - [ ] `bfagent_db` bereinigen und verifizieren
 
 ### Phase 2: Weitere Services (Woche 6–9)
 
-Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent` (nach Phase 1.5)
+Reihenfolge: `risk-hub` → `bfagent` (nach Phase 1.5)
 
-- [ ] Shared DB Views durch REST-APIs ersetzen (inkrementell: erst API parallel, dann View entfernen)
+- [ ] Shared DB Views durch REST-APIs ersetzen (inkrementell)
 - [ ] `TenantAwareHttpClient` in alle Service-zu-Service-Calls einbauen
 - [ ] `tenant-schemas-celery` in alle Services integrieren
 - [ ] PgBouncer vor jede PostgreSQL-Instanz
@@ -302,7 +414,7 @@ Reihenfolge nach Komplexität: `travel-beat` → `risk-hub` → `bfagent` (nach 
 |--------|--------|--------|-----------|
 | Migration-Dauer explodiert bei 100+ Mandanten | Mittel | Hoch | Parallel-Executor, Skip-wenn-aktuell, Squashing alle 6 Monate |
 | Shared DB Views sind schwer umzubauen | Hoch | Mittel | Inkrementell: REST-API parallel aufbauen, dann View entfernen |
-| Tenant-Context geht bei Cross-Service-Call verloren | Mittel | Kritisch | `platform_context` Shared Library, Isolation-Tests im CI als Gate |
+| Tenant-Context geht bei Cross-Service-Call verloren | Mittel | Kritisch | `platform_context.tenant_utils`, Isolation-Tests im CI als Gate |
 | VPS-Ressourcen reichen nicht (>100 Mandanten) | Niedrig | Hoch | PgBouncer, Monitoring, Migrationspfad zu Hetzner Managed DB |
 | `django-tenants` Breaking Change | Niedrig | Mittel | Version pinnen, Changelog monitoren |
 | Wildcard-SSL DNS-Challenge schlägt fehl | Niedrig | Mittel | Fallback: manuelle Zertifikate pro Subdomain |
@@ -352,7 +464,7 @@ Compliance mit diesem ADR wird wie folgt verifiziert:
 
 ## 10. Validation Criteria
 
-### Phase 1 (Pilot cad-hub)
+### Phase 1 (Pilot)
 
 - [ ] 2 Mandanten laufen parallel ohne Datenleck (Isolation-Test grün)
 - [ ] `pg_dump --schema=tenant_X` liefert vollständigen Mandanten-Export
@@ -386,7 +498,7 @@ Compliance mit diesem ADR wird wie folgt verifiziert:
 - ADR-042: Development Environment & Deployment Workflow
 - ADR-045: Secrets & Environment Management
 - ADR-057: Traefik-Einführung (reserviert, deferred)
-- ADR-058: Multi-Tenancy Testing-Strategie
+- ADR-058: Platform Test Taxonomy
 - Konzeptpapier: Multi-Tenancy für das Multi-Repo Django-Portfolio (2026-02-20, Achim Dehnert)
 
 ---
@@ -397,3 +509,4 @@ Compliance mit diesem ADR wird wie folgt verifiziert:
 |-------|-------|----------|
 | 2026-02-21 | Achim Dehnert | Initial: Status Proposed |
 | 2026-02-21 | Achim Dehnert | Review-Fixes: YAML-Frontmatter, Decision Drivers, Traefik→Nginx, weltenhub DB-Trennung, Health-Endpoints, Confirmation, Migration-Tracking |
+| 2026-02-21 | Achim Dehnert | Accepted: VPS-Ressourcen-Tabelle, Skalierungsschwellen, platform_context tenant_utils Struktur, Expand-Contract-Pattern, TenantAwareHttpClient vollständig, PgBouncer Compose-Snippet |
