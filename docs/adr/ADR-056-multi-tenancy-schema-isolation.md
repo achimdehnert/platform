@@ -346,7 +346,8 @@ Status pro Service — wird bei jedem Phase-Abschluss aktualisiert:
 
 | Service | Phase | Status | Datum | Notizen |
 |---------|-------|--------|-------|---------|
-| `travel-beat` | Phase 1 (Pilot) | ⬜ Ausstehend | – | Einfachste Struktur für Pilot |
+| `travel-beat` | Phase 0 (Vorbereitung) | ✅ Abgeschlossen | 2026-02-21 | `platform_context[tenants]>=0.4.0` verfügbar |
+| `travel-beat` | Phase 1 (Pilot) | In Arbeit | – | Pilot-Service bestätigt |
 | `risk-hub` | Phase 2 | ⬜ Ausstehend | – | Hat bereits Tenancy-Infrastruktur (ADR-035) |
 | `weltenhub` | Phase 1.5 (DB-Trennung) | ⬜ Ausstehend | – | Voraussetzung für bfagent |
 | `bfagent` | Phase 2 | ⬜ Ausstehend | – | Erst nach weltenhub DB-Trennung |
@@ -358,22 +359,34 @@ Status pro Service — wird bei jedem Phase-Abschluss aktualisiert:
 
 ## 6. Implementation Plan
 
-### Phase 0: Vorbereitung (Woche 1–2)
+### Phase 0: Vorbereitung ✅ ABGESCHLOSSEN (2026-02-21)
 
-- [ ] `platform_context` um `tenant_utils/` erweitern (Middleware, HTTP-Client, Celery-Helpers, Test-Fixtures)
-- [ ] Shared DB Views inventarisieren (alle Services)
-- [ ] Wildcard-DNS + SSL für Pilot-Domain konfigurieren
-- [ ] PgBouncer-Konfiguration für alle Service-DBs vorbereiten
+- [x] `platform_context` um `tenant_utils/` erweitern — v0.4.0 released
+  - `middleware.py` — TenantPropagationMiddleware
+  - `http_client.py` — TenantAwareHttpClient
+  - `celery.py` — TenantAwareTask, send_cross_service_task
+  - `testing.py` — tenant_a, tenant_b, tenant_a_client fixtures
+  - `provisioning.py` — TenantProvisioningRequest, provision_tenant()
+  - Tests: `tests/test_tenant_utils.py` (18 test cases)
+- [x] Pilot-Service festgelegt: `travel-beat` (DriftTales)
+- [ ] Shared DB Views in travel-beat inventarisieren
+- [ ] Wildcard-DNS + SSL für `*.drifttales.app` konfigurieren
+- [ ] PgBouncer-Konfiguration für travel-beat-db vorbereiten
 
-### Phase 1: Pilot-Service (Woche 3–5)
+### Phase 1: Pilot-Service — `travel-beat` (Woche 3–5)
 
-- [ ] `django-tenants` + `tenant-schemas-celery` installieren
-- [ ] `Client`- und `Domain`-Model im `public`-Schema
-- [ ] `SHARED_APPS` / `TENANT_APPS` trennen
-- [ ] Bestehende Daten in Default-Tenant-Schema migrieren
-- [ ] Tenant-Isolation-Tests schreiben und in CI integrieren
+**Voraussetzungen:** Phase 0 vollständig abgeschlossen
+
+- [ ] `apps/tenants/` App erstellen: `Client`- und `Domain`-Model
+- [ ] `SHARED_APPS` / `TENANT_APPS` in `config/settings/base.py` trennen
+- [ ] `DATABASE_ENGINE` auf `django_tenants.postgresql_backend` umstellen
+- [ ] `TenantMainMiddleware` als erste Middleware eintragen
+- [ ] `PUBLIC_SCHEMA_URLCONF = "config.urls_public"` für `/livez/` + `/healthz/`
+- [ ] Bestehende Daten in Default-Tenant-Schema `drifttales` migrieren
+- [ ] `config/celery.py` auf `TenantAwareCeleryApp` umstellen
+- [ ] Tenant-Isolation-Tests schreiben (aus `platform_context.tenant_utils.testing`)
+- [ ] CI: Tenant-Isolation-Test als Pflicht-Gate eintragen
 - [ ] Smoke-Test: 2 Mandanten parallel auf Staging
-
 ### Phase 1.5: weltenhub DB-Trennung (Woche 5–6, Voraussetzung für bfagent)
 
 - [ ] `weltenhub_db` auf Server anlegen
@@ -510,3 +523,4 @@ Compliance mit diesem ADR wird wie folgt verifiziert:
 | 2026-02-21 | Achim Dehnert | Initial: Status Proposed |
 | 2026-02-21 | Achim Dehnert | Review-Fixes: YAML-Frontmatter, Decision Drivers, Traefik→Nginx, weltenhub DB-Trennung, Health-Endpoints, Confirmation, Migration-Tracking |
 | 2026-02-21 | Achim Dehnert | Accepted: VPS-Ressourcen-Tabelle, Skalierungsschwellen, platform_context tenant_utils Struktur, Expand-Contract-Pattern, TenantAwareHttpClient vollständig, PgBouncer Compose-Snippet |
+| 2026-02-21 | Achim Dehnert | Phase 0 abgeschlossen: platform_context v0.4.0 tenant_utils/ shipped, travel-beat als Pilot bestätigt |
