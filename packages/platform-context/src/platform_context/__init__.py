@@ -9,11 +9,21 @@ Provides:
 - Outbox pattern for reliable events
 - Exception hierarchy
 - Django template context processors
+- Shared test helpers (platform_context.testing)
 
-Usage:
+Usage::
+
     from platform_context import get_context, set_tenant, set_user_id
     from platform_context.middleware import SubdomainTenantMiddleware
     from platform_context.audit import emit_audit_event
+
+Test helpers (install with platform-context[testing])::
+
+    # conftest.py
+    from platform_context.testing.fixtures import user, admin_user, auth_client  # noqa: F401
+
+    # tests
+    from platform_context.testing.assertions import assert_htmx_fragment, assert_login_required
 """
 
 from platform_context.context import (
@@ -31,7 +41,7 @@ from platform_context.htmx import (
     is_htmx_request,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     # Context
@@ -48,4 +58,7 @@ __all__ = [
     "HtmxErrorMiddleware",
     "HtmxResponseMixin",
     "is_htmx_request",
+    # Testing helpers (platform-context[testing])
+    # Import via: from platform_context.testing.assertions import ...
+    # Import via: from platform_context.testing.fixtures import ...
 ]
