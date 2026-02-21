@@ -1,0 +1,129 @@
+# registry/repos.yaml — Single Source of Truth for all platform repositories
+# Used by: repo_checker.py, populate_catalog (devhub), CI coverage gate
+# ADR-022: Repository Consistency Standards
+
+domains:
+
+  - name: Developer Platform
+    systems:
+      - name: dev-hub
+        repo: dev-hub
+        description: Central Developer Portal & Platform Management Hub
+        github: achimdehnert/dev-hub
+        deployed: true
+        url: https://devhub.iil.pet
+        type: django
+        lifecycle: production
+        coverage_threshold: 80
+
+      - name: platform
+        repo: platform
+        description: Shared packages, ADRs, governance, platform agents
+        github: achimdehnert/platform
+        deployed: false
+        type: library
+        lifecycle: production
+        coverage_threshold: 80
+
+      - name: mcp-hub
+        repo: mcp-hub
+        description: MCP server collection (deployment, orchestrator, LLM)
+        github: achimdehnert/mcp-hub
+        deployed: true
+        type: python
+        lifecycle: production
+        coverage_threshold: 80
+
+  - name: Content & Publishing
+    systems:
+      - name: bfagent
+        repo: bfagent
+        description: Book Factory Agent — AI-assisted book creation
+        github: achimdehnert/bfagent
+        deployed: true
+        url: https://bfagent.iil.pet
+        type: django
+        lifecycle: production
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+
+      - name: pptx-hub
+        repo: pptx-hub
+        description: Presentation Studio — PowerPoint generation (Prezimo)
+        github: achimdehnert/pptx-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        dockerfile: docker/app/Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+
+  - name: Story & Travel
+    systems:
+      - name: weltenhub
+        repo: weltenhub
+        description: Story universe platform (Weltenforger)
+        github: achimdehnert/weltenhub
+        deployed: true
+        url: https://weltenforger.com
+        type: django
+        lifecycle: production
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+
+      - name: travel-beat
+        repo: travel-beat
+        description: Travel story platform (DriftTales)
+        github: achimdehnert/travel-beat
+        deployed: true
+        url: https://drifttales.app
+        type: django
+        lifecycle: production
+        dockerfile: docker/Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+
+  - name: Business & Safety
+    systems:
+      - name: risk-hub
+        repo: risk-hub
+        description: Multi-tenant occupational safety SaaS (Schutztat)
+        github: achimdehnert/risk-hub
+        deployed: true
+        url: https://demo.schutztat.de
+        type: django
+        lifecycle: production
+        dockerfile: docker/app/Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+
+      - name: trading-hub
+        repo: trading-hub
+        description: Trading analysis and market scanning
+        github: achimdehnert/trading-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        coverage_threshold: 60
+
+      - name: odoo-hub
+        repo: odoo-hub
+        description: Odoo management and integration
+        github: achimdehnert/odoo-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        coverage_threshold: 60
+
+  - name: Events & Lifestyle
+    systems:
+      - name: wedding-hub
+        repo: wedding-hub
+        description: Wedding planning platform
+        github: achimdehnert/wedding-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        coverage_threshold: 60
