@@ -118,7 +118,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          POSTGRES_HOST: localhost
+          USE_POSTGRES: "0"
         run: |
           pytest -m "not integration and not contract and not slow" \
             --cov \
