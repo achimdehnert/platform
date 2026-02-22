@@ -108,7 +108,12 @@ jobs:
           fi
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
-        run: pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+        run: |
+          if [ -d "vendor/platform_context" ]; then
+            pip install -e "vendor/platform_context[testing]"
+          else
+            pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+          fi
       - name: Run unit tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
@@ -167,7 +172,12 @@ jobs:
           fi
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
-        run: pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+        run: |
+          if [ -d "vendor/platform_context" ]; then
+            pip install -e "vendor/platform_context[testing]"
+          else
+            pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+          fi
       - name: Run integration tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
@@ -237,7 +247,12 @@ jobs:
           fi
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
-        run: pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+        run: |
+          if [ -d "vendor/platform_context" ]; then
+            pip install -e "vendor/platform_context[testing]"
+          else
+            pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+          fi
       - name: Run contract tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
