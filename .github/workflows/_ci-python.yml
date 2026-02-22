@@ -123,6 +123,7 @@ jobs:
           USE_POSTGRES: "0"
         run: |
           pytest -m "not integration and not contract and not slow" \
+            --no-migrations \
             --cov \
             --cov-report=xml:coverage-unit.xml \
             --cov-report=term-missing \
