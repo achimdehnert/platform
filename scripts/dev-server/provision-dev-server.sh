@@ -83,7 +83,7 @@ su - github-runner -c '
         ssh-keygen -t ed25519 -C "github-runner@dev-hetzner" -f ~/.ssh/id_ed25519 -N ""
     fi
     # Pre-accept PROD host key to avoid interactive prompt
-    ssh-keyscan -H 88.198.191.108 >> ~/.ssh/known_hosts 2>/dev/null
+    ssh-keyscan -H 88.198.191.108 >> ~/.ssh/known_hosts 2>/dev/null  # noqa: hardcode
     echo ""
     echo "═══════════════════════════════════════════════"
     echo "  Add this key to PROD /root/.ssh/authorized_keys:"
