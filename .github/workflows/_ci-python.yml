@@ -261,4 +261,4 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
-        run: pytest -m "contract" -v
+        run: pytest -m "contract" -v || ([ $? -eq 5 ] && echo "No contract tests found, skipping." && exit 0)
