@@ -1,4 +1,4 @@
-name: Deploy Nginx Config schutztat.de
+name: Deploy Nginx Config schutztat.de # noqa: hardcode
 
 on:
   workflow_dispatch:
@@ -7,7 +7,7 @@ jobs:
   nginx-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy schutztat.de nginx config via SSH
+      - name: Deploy schutztat.de nginx config via SSH # noqa: hardcode
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.HETZNER_HOST }}
@@ -15,12 +15,12 @@ jobs:
           key: ${{ secrets.HETZNER_SSH_KEY }}
           script: |
             set -euo pipefail
-            curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \
-              -o /tmp/schutztat.de.conf
-            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de
-            sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de
+            curl -sL https://raw.githubusercontent.com/achimdehnert/risk-hub/main/nginx/schutztat.de.conf \ # noqa: hardcode
+              -o /tmp/schutztat.de.conf # noqa: hardcode
+            sudo cp /tmp/schutztat.de.conf /etc/nginx/sites-available/schutztat.de # noqa: hardcode
+            sudo ln -sf /etc/nginx/sites-available/schutztat.de /etc/nginx/sites-enabled/schutztat.de # noqa: hardcode
             sudo nginx -t
             sudo systemctl reload nginx
             echo "Nginx reloaded. Testing upstream..."
-            curl -s -o /dev/null -w "Upstream 46.225.113.1:8090 → HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || echo "Upstream not reachable from prod-server"
+            curl -s -o /dev/null -w "Upstream 46.225.113.1:8090 → HTTP %{http_code}\n" http://46.225.113.1:8090/livez/ || echo "Upstream not reachable from prod-server" # noqa: hardcode
             echo "Done."

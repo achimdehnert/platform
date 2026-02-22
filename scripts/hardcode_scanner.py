@@ -91,6 +91,7 @@ IGNORE_DIRS = {
     ".pytest_cache",
     "dist",
     "build",
+    "_build",
     "migrations",  # Django migrations — oft legitime Werte
     "_archive",
     "vendor",

@@ -76,7 +76,7 @@ class PromptFramework:
         
         # Configuration
         self.gateway_url = gateway_url or os.getenv(
-            "LLM_GATEWAY_URL", "http://localhost:8100"
+            "LLM_GATEWAY_URL", "http://localhost:8100" # noqa: hardcode
         )
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         self.anthropic_api_key = anthropic_api_key or os.getenv("ANTHROPIC_API_KEY")

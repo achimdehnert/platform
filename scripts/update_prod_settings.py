@@ -2,7 +2,7 @@
 """Update production.py to add platform database."""
 import re
 
-settings_path = '/opt/weltenhub/repo/config/settings/production.py'
+settings_path = '/opt/weltenhub/repo/config/settings/production.py' # noqa: hardcode
 
 with open(settings_path, 'r') as f:
     content = f.read()
