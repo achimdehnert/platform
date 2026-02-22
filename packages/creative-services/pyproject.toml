@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "creative-services"
-version = "0.2.0"
+version = "0.3.0"
 description = "Shared AI-powered creative writing and tool-use services for BF Agent ecosystem"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -29,10 +29,18 @@ dependencies = [
 [project.optional-dependencies]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.18"]
+storage = [
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "sqlalchemy>=2.0",
+]
 all = [
     "openai>=1.0",
     "anthropic>=0.18",
     "groq>=0.4",
+    "asyncpg>=0.29",
+    "alembic>=1.13",
+    "sqlalchemy>=2.0",
 ]
 dev = [
     "pytest>=7.0",
