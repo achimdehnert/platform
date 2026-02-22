@@ -314,6 +314,10 @@ Diese ADR gilt als implementiert wenn:
 | bfagent API-Keys entfernt | ✅ Done | 2026-02-21 | views_ai_config.py |
 | CI-Job in sync-adrs-to-devhub.yml | ✅ Done | 2026-02-21 | platform repo |
 | ADR-061 erstellt | ✅ Done | 2026-02-21 | |
-| GitHub Secrets setzen | ⏳ Pending | | GEMINI/GROQ/ANTHROPIC_API_KEY |
-| BFG Repo Cleaner (bfagent history) | ⏳ Pending | | Koordination nötig |
+| CI-Gate in dev-hub ci-cd.yml | ✅ Done | 2026-02-22 | hardcode-scan Job, exit 1 bei Critical |
+| dev-hub hardcoded IP entfernt | ✅ Done | 2026-02-22 | ci-cd.yml + populate_catalog.py |
+| bfagent Git-History bereinigt | ✅ Done | 2026-02-22 | Echte Keys als ***REMOVED*** — keine Keys mehr in History |
+| ADR-061 Review-Fixes | ✅ Done | 2026-02-22 | MADR 4.0 Compliance, SOPS-Abgrenzung, Pros/Cons |
+| GitHub Secrets setzen | ⏳ Pending | | GEMINI/GROQ/ANTHROPIC_API_KEY in bfagent |
 | Phase 2 Bereinigung | ⏳ Pending | | 62 bfagent PORT-findings |
+| Scanner noqa-Support | ⏳ Pending | | False Positives (test passwords, dummy keys) |
