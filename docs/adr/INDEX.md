@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-22 (ADR-065 hinzugefügt)
+> **Letzte Aktualisierung**: 2026-02-22 (Review + Überarbeitung ADR-062/065/066)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -45,7 +45,7 @@
 | 010 | MCP Tool Governance | `?` | `mcp-hub` | [ADR-010-mcp-tool-governance.md](ADR-010-mcp-tool-governance.md) |
 | 012 | MCP Server Quality Standards | `?` | `mcp-hub` | [ADR-012-mcp-quality-standards.md](ADR-012-mcp-quality-standards.md) |
 | 013 | Team Organization & MCP Ownership | `?` | `platform` | [ADR-013-team-organization-mcp-ownership.md](ADR-013-team-organization-mcp-ownership.md) |
-| 014 | AI-Native Development Teams | `?` | `platform` | [ADR-014-ai-native-development-teams.md](ADR-014-ai-native-development-teams.md) |
+| 014 | AI-Native Development Teams | `Superseded` | `platform` | [ADR-014-ai-native-development-teams.md](ADR-014-ai-native-development-teams.md) |
 | 015 | Platform Governance System | `?` | `platform` | [ADR-015-platform-governance-system.md](ADR-015-platform-governance-system.md) |
 | 017 | Domain Development Lifecycle (DDL) | `?` | `platform` | [ADR-017-domain-development-lifecycle.md](ADR-017-domain-development-lifecycle.md) |
 | 020 | Dokumentationsstrategie — Sphinx, DB-driven, ADR-basiert | `?` | `platform` | [ADR-020-documentation-strategy.md](ADR-020-documentation-strategy.md) |
@@ -71,11 +71,21 @@
 | 053 | deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes | `?` | `platform` | [ADR-053-deployment-mcp-robustness.md](ADR-053-deployment-mcp-robustness.md) |
 | 054 | Deployment Pre-Flight Validation & platform-context als Managed Package | `Draft` | `platform` | [ADR-054-deployment-preflight-validation.md](ADR-054-deployment-preflight-validation.md) |
 | 055 | Cross-App Bug & Feature Management | `Accepted` | `platform` | [ADR-055-cross-app-bug-management.md](ADR-055-cross-app-bug-management.md) |
+<<<<<<< HEAD
 | 056 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Proposed` | `platform` | [ADR-056-multi-tenancy-schema-isolation.md](ADR-056-multi-tenancy-schema-isolation.md) |
 | 058 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-058-multi-tenancy-testing-strategy.md](ADR-058-multi-tenancy-testing-strategy.md) |
 | 059 | Adopt Automated ADR Drift Detection and Staleness Management | `Proposed` | `platform` | [ADR-059-adr-drift-detector.md](ADR-059-adr-drift-detector.md) |
 | 060 | Developer Workstation SSH Configuration | `Proposed` | `platform` | [ADR-060-developer-workstation-ssh-configuration.md](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Hardcoding Elimination Strategy — Platform-wide | `Proposed` | `platform` | [ADR-061-hardcoding-elimination-strategy.md](ADR-061-hardcoding-elimination-strategy.md) |
+=======
+| 056 | Deployment Preflight & Pipeline Hardening | `Accepted` | `platform` | [ADR-056-deployment-preflight-and-pipeline-hardening.md](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
+| 057 | Platform Test Strategy — 4-Ebenen-Pyramide | `Accepted` | `platform` | [ADR-057-platform-test-strategy.md](ADR-057-platform-test-strategy.md) |
+| 058 | Platform Test Taxonomy — 28-Typen-Katalog | `Accepted` | `platform` | [ADR-058-platform-test-taxonomy.md](ADR-058-platform-test-taxonomy.md) |
+| 062 | Content Store — Shared PostgreSQL Schema für AI-Inhalte | `Proposed` | `platform` | [ADR-062-content-store-shared-persistence.md](ADR-062-content-store-shared-persistence.md) |
+| 064 | Coach-Hub KI ohne Risiko — Row-Level Multi-Tenant SaaS | `Proposed` | `platform` | [ADR-064-coach-hub-ki-ohne-risiko-architecture.md](ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
+| 065 | ADR Numbering — Filesystem-First Vergabe-Strategie | `Accepted` | `platform` | [ADR-065-adr-numbering-filesystem-first.md](ADR-065-adr-numbering-filesystem-first.md) |
+| 066 | AI Engineering Squad — Rollenbasierte Agenten + Gate-Workflows | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
+>>>>>>> 152900e (docs: ADR-062 content-store (reviewed), ADR-065 filesystem-first numbering, ADR-066 ai-engineering-squad + INDEX.md aktualisiert)
 
 ### MCP Hub (150–199)
 
