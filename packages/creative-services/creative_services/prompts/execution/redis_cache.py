@@ -27,20 +27,20 @@ class RedisCache:
     Supports TTL, connection pooling, and cluster mode.
     
     Example:
-        cache = RedisCache(host="localhost", port=6379, db=0)
+        cache = RedisCache(host="localhost", port=6379, db=0) # noqa: hardcode
         cache.set("key", "value", ttl_seconds=3600)
         value = cache.get("key")
         
         # With connection URL
-        cache = RedisCache.from_url("redis://localhost:6379/0")
+        cache = RedisCache.from_url("redis://localhost:6379/0") # noqa: hardcode
         
         # With prefix for namespacing
-        cache = RedisCache(host="localhost", prefix="prompts:")
+        cache = RedisCache(host="localhost", prefix="prompts:") # noqa: hardcode
     """
 
     def __init__(
         self,
-        host: str = "localhost",
+        host: str = "localhost", # noqa: hardcode
         port: int = 6379,
         db: int = 0,
         password: str | None = None,
@@ -99,7 +99,7 @@ class RedisCache:
         Create RedisCache from connection URL.
         
         Args:
-            url: Redis connection URL (e.g., "redis://localhost:6379/0")
+            url: Redis connection URL (e.g., "redis://localhost:6379/0") # noqa: hardcode
             prefix: Key prefix
             default_ttl: Default TTL
             
@@ -247,7 +247,7 @@ class AsyncRedisCache:
     Requires redis[hiredis] for best performance.
     
     Example:
-        cache = await AsyncRedisCache.create(host="localhost")
+        cache = await AsyncRedisCache.create(host="localhost") # noqa: hardcode
         await cache.set("key", "value")
         value = await cache.get("key")
     """
@@ -266,7 +266,7 @@ class AsyncRedisCache:
     @classmethod
     async def create(
         cls,
-        host: str = "localhost",
+        host: str = "localhost", # noqa: hardcode
         port: int = 6379,
         db: int = 0,
         password: str | None = None,

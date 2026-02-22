@@ -35,7 +35,7 @@ class GatewayLLMAdapter(LLMClientProtocol):
     
     def __init__(
         self,
-        base_url: str = "http://localhost:8100",
+        base_url: str = "http://localhost:8100", # noqa: hardcode
         timeout: float = 120.0,
         api_key: Optional[str] = None,
     ):
