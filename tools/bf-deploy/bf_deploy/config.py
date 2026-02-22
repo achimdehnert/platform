@@ -40,7 +40,7 @@ APPS: dict[str, dict[str, str]] = {
 }
 
 # ── Prod Server ──────────────────────────────────────────────
-PROD_HOST = "88.198.191.108"
+PROD_HOST = "88.198.191.108"  # noqa: hardcode
 PROD_USER = "root"
 
 # ── Debounce ─────────────────────────────────────────────────

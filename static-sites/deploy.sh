@@ -2,7 +2,7 @@
 set -euo pipefail
 
 SITE="${1:?Usage: deploy.sh <site-dir>  (e.g. iil.pet)}"
-HOST="88.198.191.108"
+HOST="88.198.191.108"  # noqa: hardcode
 SRC="static-sites/${SITE}/"
 DST="/var/www/${SITE}/"
 

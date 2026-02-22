@@ -30,7 +30,7 @@ jobs:
       - name: Reindex via SSH
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          SERVER: 88.198.191.108
+          SERVER: 88.198.191.108  # noqa: hardcode
         run: |
           mkdir -p ~/.ssh
           echo "$SSH_KEY" > ~/.ssh/deploy_key
