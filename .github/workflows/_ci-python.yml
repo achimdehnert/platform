@@ -109,6 +109,8 @@ jobs:
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
         run: |
+          echo "PWD: $(pwd)"
+          echo "vendor dir exists: $([ -d vendor/platform_context ] && echo YES || echo NO)"
           if [ -d "vendor/platform_context" ]; then
             pip install -e "vendor/platform_context[testing]"
           else
