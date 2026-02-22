@@ -80,12 +80,40 @@ Datei: docs/adr/ADR-[NNN]-[title-slug].md
 Scope korrekt? [Ja/Nein]
 ```
 
-## Step 3: Create ADR File
+## Step 3: Nächste ADR-Nummer ermitteln (PFLICHT — nie aus Gedächtnis!)
 
-After user confirms:
+**KRITISCH**: Die nächste Nummer IMMER durch Filesystem-Scan ermitteln. Niemals raten oder aus dem Gedächtnis nehmen.
 
-1. Find next available number in scope range
-2. Create file using TEMPLATE structure below
+### 3.1 Scan-Befehl (immer ausführen)
+
+Verwende `find_by_name` auf `docs/adr/` mit Pattern `ADR-*.md` und MaxDepth 1.
+Extrahiere alle vorhandenen Nummern aus den Dateinamen.
+Die nächste freie Nummer = max(vorhandene Nummern) + 1.
+
+**Beispiel**: Wenn `ADR-064-*.md` die höchste ist → nächste Nummer = **065**.
+
+### 3.2 Nummernbereich-Konzept (AUFGEGEBEN ab ADR-059)
+
+Das ursprüngliche Bereichskonzept (platform: 001-049, bfagent: 050-099 etc.) wird
+**nicht mehr durchgesetzt**. Alle neuen ADRs erhalten die nächste freie Globalnummer.
+Historische Nummern bleiben unverändert.
+
+### 3.3 Kollisionsprüfung
+
+Vor dem Erstellen prüfen: Existiert `docs/adr/ADR-NNN-*.md` bereits?
+Falls ja → Nummer + 1 nehmen und erneut prüfen.
+
+### 3.4 INDEX.md sofort aktualisieren
+
+Nach dem Erstellen der ADR-Datei **sofort** INDEX.md ergänzen (neue Zeile in Core Platform Sektion).
+Datum "Letzte Aktualisierung" aktualisieren.
+
+## Step 4: Create ADR File
+
+After number is confirmed via filesystem scan:
+
+1. Create file `docs/adr/ADR-NNN-[title-slug].md`
+2. Use TEMPLATE structure below
 3. Fill in metadata and content from user's concept (if provided)
 
 ### Pflicht-Metadaten-Template (IMMER verwenden)
