@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-21 (ADR-060, ADR-061 hinzugefügt)
+> **Letzte Aktualisierung**: 2026-02-22 (ADR-065 hinzugefügt)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -111,6 +111,7 @@
 |----|-------|--------|------|-------|
 | 036 | Chat-Agent Ecosystem — DomainToolkits, Research Integration | `?` | `bfagent` | [ADR-036-chat-agent-ecosystem.md](ADR-036-chat-agent-ecosystem.md) |
 | 037 | Chat Conversation Logging & Quality Management | `?` | `bfagent` | [ADR-037-chat-conversation-logging.md](ADR-037-chat-conversation-logging.md) |
+| 065 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-065-bfagent-ci-test-strategy.md](ADR-065-bfagent-ci-test-strategy.md) |
 
 ### Shared / Cross-App (350–399)
 
