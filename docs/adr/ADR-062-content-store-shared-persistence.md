@@ -37,12 +37,12 @@ informed: –
 
 ## Decision Drivers
 
-- **Kein Content-Memory**: `creative-services` ist ein reiner Execution-Layer — jeder LLM-Call ist stateless, generierter Content geht verloren oder landet unstrukturiert in App-DBs
-- **4 aktive Consumer** mit unterschiedlichen Anforderungen: AI-Agent-Team (ADR-059), DriftTales, bfagent, creative-services selbst
-- **ADR-059 Context-Problem**: Der Tech-Lead-Agent hat ohne persistierten Content kein Gedächtnis — TaskPlans, ImpactReports und Entscheidungen gehen nach jedem Run verloren
-- **Doppelte Datenhaltung**: Charaktere, Welten und Orte werden in mehreren Services redundant gespeichert ohne Cross-Service-Referenzierbarkeit
-- **Keine Versionierung**: AI-generierte Drafts überschreiben sich — kein A/B-Vergleich, kein Rollback
-- **Multi-Tenancy von Anfang an**: Nachträgliches Einbauen von `tenant_id` ist die teuerste Migration (Erfahrung aus ADR-056)
+- **Kein Content-Memory**: `creative-services` ist ein reiner Execution-Layer — jeder LLM-Call ist stateless, generierter Content geht verloren
+- **4 aktive Consumer** mit unterschiedlichen Anforderungen: AI-Agent-Team, DriftTales, bfagent, creative-services selbst
+- **ADR-059 Context-Problem**: Der Tech-Lead-Agent hat ohne persistierten Content kein Gedächtnis
+- **Keine Redundanz-Erkennung**: Doppelte Implementierungen und widersprüchliche ADR-Compliance werden nicht systematisch erkannt
+- **Kein Change-Safety-Context**: Vor jeder Änderung ist unklar welche Dateien, Tests und ADRs betroffen sind
+- **Multi-Tenancy von Anfang an**: Nachträgliches Einbauen von `tenant_id` ist die teuerste Migration (Erfahrung ADR-056)
 
 ---
 
@@ -50,32 +50,37 @@ informed: –
 
 ### 1.1 Ist-Zustand
 
-Das Platform-Package `creative-services` stellt einen vollständigen AI-Execution-Layer bereit: LLM-Client mit Tier-System, Prompt-Template-System (195 Tests), Usage-Tracker, Redis-Caching und Django-Adapter. Domain-Module für `character/`, `world/`, `story/` und `scene/` existieren bereits.
-
-**Was fehlt:** Persistenz. Jeder LLM-Call generiert Content der entweder verworfen wird oder unstrukturiert in der jeweiligen App-DB landet. Es gibt keinen gemeinsamen Content-Store, keine Versionierung, keine Cross-Service-Referenzierbarkeit und keine MCP-Zugangsschicht für den AI-Agent-Team.
+Das Platform-Package `creative-services` stellt einen vollständigen AI-Execution-Layer bereit. **Was fehlt:** Persistenz und Kontext. Es gibt keinen gemeinsamen Content-Store, keine Versionierung, keinen Code-Graphen und keine systematische ADR-Compliance-Verfolgung.
 
 ```
-HEUTE — vollständige Isolation:
+HEUTE — vollständige Isolation + kein Change-Safety-Context:
 
 bfagent DB          travel-beat DB        agent-team (kein Store)
 ┌──────────────┐    ┌──────────────┐      ┌──────────────────────┐
 │ drafts (raw) │    │ chapters(raw)│      │ TaskPlans:    weg    │
 │ kein Kontext │    │ kein Kontext │      │ ImpactReports: weg   │
 └──────────────┘    └──────────────┘      └──────────────────────┘
+
+Vor jeder Änderung unklar:
+  - Welche anderen Dateien importieren das geänderte Modul?
+  - Welche Tests decken es ab?
+  - Welche ADRs gelten dafür?
+  - Gibt es redundante Implementierungen?
+  - Sind pending Migrations vorhanden?
 ```
 
-### 1.2 Consumer-Analyse: 4 verschiedene Content-Typen
+### 1.2 Consumer-Analyse
 
-| Consumer | Content-Typ | Tenant-Isolation | Versionierung | Graph | Volumen |
+| Consumer | Content-Typ | Tenant | Versionierung | Graph | Volumen |
 |---|---|---|---|---|---|
-| **A: AI-Agent-Team** | `DecisionContent` — TaskPlans, ImpactReports, Reviews | NEIN (plattformweit) | JA (Audit-Trail) | JA (ADR→Task→Code) | Niedrig |
-| **B: DriftTales** | `NarrativeContent` — Story-Kapitel, Reisebeschreibungen | JA (strikt) | JA (User-Feedback) | NEIN | Hoch |
-| **C: bfagent** | `DraftContent` — Kapitel-Drafts, Varianten | NEIN (single-tenant) | JA (A/B-Vergleich) | NEIN | Mittel |
-| **D: creative-services** | `ExecutionContent` — LLM-Call-Metadaten, Scores | BEIDES | NEIN | NEIN | Sehr hoch |
+| **A: AI-Agent-Team** | DecisionContent — TaskPlans, ImpactReports | NEIN | JA (Audit-Trail) | JA | Niedrig |
+| **B: DriftTales** | NarrativeContent — Story-Kapitel | JA (strikt) | JA | NEIN | Hoch |
+| **C: bfagent** | DraftContent — Kapitel-Drafts, Varianten | NEIN | JA (A/B) | NEIN | Mittel |
+| **D: creative-services** | ExecutionContent — LLM-Metadaten | BEIDES | NEIN | NEIN | Sehr hoch |
 
 ### 1.3 Warum jetzt
 
-ADR-059 definiert einen Tech-Lead-Agenten der ADRs liest, Tasks plant und Entscheidungen trifft. Ohne Content-Store hat dieser Agent kein Gedächtnis — jeder Run startet bei Null. Das ist der unmittelbare Auslöser.
+ADR-059 Agent-Team braucht persistenten Kontext. Zusätzlich: Jede Änderung soll auf dem aktuellen Stand aufsetzen und Redundanzen erkennen — das erfordert persistierten Kontext über Code, Infra und ADR-Compliance.
 
 ---
 
@@ -83,45 +88,44 @@ ADR-059 definiert einen Tech-Lead-Agenten der ADRs liest, Tasks plant und Entsch
 
 ### Option A: Shared PostgreSQL Schema `content_store.*` in `creative-services` ✅
 
-Erweiterung des bestehenden `creative-services` Package um `storage/` und `graph/` Module. Das Datenbankschema `content_store.*` lebt in der bestehenden Postgres-Instanz (shared DB, eigenes Schema). Kein neuer Service, kein neues Repo.
+Erweiterung um `storage/`, `graph/`, `compliance/` und `snapshot/` Module. Kein neuer Service, kein neues Repo.
 
-**Pros:**
-- Kein neues Repo, kein neuer Service, keine neue Infrastruktur
-- `creative-services` bereits in `bfagent` und `travel-beat` installiert — direkter Upgrade-Pfad
-- `tenant_id IS NULL` für plattformweite Inhalte (Agent-Team), `tenant_id IS NOT NULL` für tenant-isolierte (DriftTales) — ein Schema, zwei Modi
-- Klarer Migrationspfad zu eigenem Repo wenn Trigger-Bedingungen erfüllt sind
+**Pros:** Keine neue Infrastruktur, direkter Upgrade-Pfad, ein Schema für plattformweite und tenant-isolierte Inhalte, klarer Migrationspfad zu eigenem Repo.
 
-**Cons:**
-- Shared DB: Content-Store-Queries belasten dieselbe Postgres-Instanz wie App-Queries
-- Schema-Änderungen in `creative-services` betreffen alle Consumer gleichzeitig
+**Cons:** Shared DB-Last, koordiniertes Versioning nötig.
 
-### Option B: Eigenes `content-hub` Repository (Django-Service)
+### Option B: Eigenes `content-hub` Repository
 
-**Abgelehnt weil:** Trigger-Bedingungen (≥5 aktive Consumer, >5 GB Volumen, eigene Business-Logik) sind heute nicht erfüllt. Neuer SPOF. Overengineering für den aktuellen Stand. Wird als Migrationsziel mit expliziten Trigger-Bedingungen (§4.6) definiert.
+**Abgelehnt:** Trigger-Bedingungen heute nicht erfüllt. Wird als Migrationsziel mit expliziten Trigger-Bedingungen (§4.7) definiert.
 
 ### Option C: `content_mcp` als primärer Datenspeicher
 
-**Abgelehnt weil:** MCP ist ein LLM-Tool-Protokoll, kein Service-to-Service-Protokoll. Django-Services können MCP nicht direkt aufrufen. MCP bleibt Zugangsschicht (Phase 3), nicht Datenspeicher.
+**Abgelehnt:** MCP ist LLM-Tool-Protokoll, kein Service-to-Service-Protokoll. Bleibt Zugangsschicht (Phase 3).
 
 ### Option D: Event-basierter Index ohne zentralen Store
 
-**Abgelehnt als primäre Strategie weil:** Eventual Consistency löst das ADR-059 Context-Problem nicht — der Agent braucht synchronen Zugriff auf seine eigenen Artefakte. Bleibt als ergänzendes Muster für Cross-Service-Referenzen (Phase 2).
+**Abgelehnt als primäre Strategie:** Eventual Consistency löst das ADR-059 Context-Problem nicht.
 
 ---
 
 ## 3. Decision Outcome
 
-**Gewählte Option: Option A — Shared PostgreSQL Schema `content_store.*` in `creative-services`**
+**Gewählte Option: Option A — 4-Schichten-Architektur in `content_store.*`**
 
-`creative-services` wird vom reinen Execution-Layer zum vollständigen Content-Repository erweitert. Pilot-Consumer ist das AI-Agent-Team (ADR-059): niedrigstes Volumen, schnellster Feedback-Loop (eigene Entwicklungsarbeit), größter unmittelbarer Nutzen.
+`creative-services` wird zum **Change-Safety-Context-System** erweitert:
 
-Option B wird als Migrationsziel definiert — mit expliziten, messbaren Trigger-Bedingungen (§4.6). Die Migration ist trivial weil das Datenbankschema identisch bleibt.
+| Schicht | Tabellen | Befüllt durch | Aktualität |
+|---|---|---|---|
+| **1 Content** | `items`, `relations` | LLM-Calls, Agent-Team | Bei Generierung |
+| **2 Compliance** | `adr_compliance` | Drift-Detector (ADR-059) | Täglich |
+| **3 Code-Graph** | `code_graph_nodes`, `code_graph_edges` | AST-Walker bei Git-Push | Bei jedem Push |
+| **4 Infra-Snapshot** | `infra_snapshots` | Infra-Poller | Stündlich |
 
 ---
 
 ## 4. Implementation Details
 
-### 4.1 Datenbankschema
+### 4.1 Schicht 1: Content-Layer
 
 ```sql
 CREATE SCHEMA IF NOT EXISTS content_store;
@@ -131,7 +135,7 @@ CREATE TABLE content_store.items (
     source_svc    TEXT        NOT NULL,
     source_type   TEXT        NOT NULL,
     source_id     TEXT        NOT NULL,
-    tenant_id     UUID,                   -- NULL = plattformweit (Agent-Team)
+    tenant_id     UUID,                   -- NULL = plattformweit
     content       TEXT        NOT NULL,
     content_hash  TEXT        NOT NULL,   -- SHA-256
     prompt_key    TEXT,
@@ -142,13 +146,13 @@ CREATE TABLE content_store.items (
     properties    JSONB       NOT NULL DEFAULT '{}',
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at    TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    embedding     vector(1536)            -- pgvector, optional
+    embedding     vector(1536)
 );
 
 CREATE TABLE content_store.relations (
     id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
     source_item   UUID        NOT NULL REFERENCES content_store.items(id) ON DELETE CASCADE,
-    target_ref    TEXT        NOT NULL,   -- "adr:ADR-059" | "trip:42" | "char:7"
+    target_ref    TEXT        NOT NULL,   -- "adr:ADR-059" | "file:apps/trips/models.py"
     relation_type TEXT        NOT NULL,   -- 'implements' | 'references' | 'derived_from'
     tenant_id     UUID,
     weight        FLOAT       NOT NULL DEFAULT 1.0,
@@ -156,23 +160,16 @@ CREATE TABLE content_store.relations (
     created_at    TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
--- Indizes
 CREATE INDEX ON content_store.items (source_svc, source_type, source_id);
 CREATE INDEX ON content_store.items (tenant_id) WHERE tenant_id IS NOT NULL;
 CREATE INDEX ON content_store.items (parent_id) WHERE parent_id IS NOT NULL;
-CREATE INDEX ON content_store.items (created_at DESC);
 CREATE INDEX ON content_store.items USING GIN (tags);
 CREATE INDEX ON content_store.relations (source_item, relation_type);
 CREATE INDEX ON content_store.relations (target_ref);
 
--- Consumer-spezifische Views
 CREATE VIEW content_store.v_decisions AS
     SELECT * FROM content_store.items
     WHERE source_svc = 'agent-team' AND tenant_id IS NULL;
-
-CREATE VIEW content_store.v_narrative AS
-    SELECT * FROM content_store.items
-    WHERE source_svc = 'travel-beat' AND tenant_id IS NOT NULL;
 
 CREATE VIEW content_store.v_drafts AS
     SELECT *, ROW_NUMBER() OVER (
@@ -181,171 +178,175 @@ CREATE VIEW content_store.v_drafts AS
     FROM content_store.items WHERE source_svc = 'bfagent';
 ```
 
-### 4.2 Python-Modelle (`creative_services/storage/models.py`)
+### 4.2 Schicht 2: Compliance-Layer
 
-```python
-from __future__ import annotations
-from datetime import datetime
-from typing import Any, Literal
-from uuid import UUID, uuid4
-from pydantic import BaseModel, ConfigDict, Field
+Befüllt durch den **ADR-Drift-Detector** (`mcp-hub/orchestrator_mcp/`) — der bereits existiert, aber Ergebnisse nur loggt. Erweiterung: Persistenz in `adr_compliance`.
 
-SourceService = Literal["bfagent", "travel-beat", "agent-team", "creative-services"]
-SourceType = Literal[
-    "chapter", "story", "scene", "character_description",
-    "task_plan", "impact_report", "code_review", "adr_analysis",
-    "draft", "draft_variant",
-    "llm_execution", "prompt_result",
-]
+```sql
+CREATE TABLE content_store.adr_compliance (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    adr_id       TEXT        NOT NULL,    -- 'ADR-056'
+    adr_status   TEXT        NOT NULL,    -- 'proposed' | 'accepted' | 'deprecated'
+    repo         TEXT        NOT NULL,    -- 'travel-beat', 'bfagent'
+    impl_status  TEXT        NOT NULL,    -- 'compliant' | 'pending' | 'violated' | 'n_a'
+    drift_score  FLOAT       NOT NULL DEFAULT 0.0,
+    checked_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    evidence     JSONB       NOT NULL DEFAULT '{}',
+    checker      TEXT        NOT NULL    -- 'drift_detector' | 'ci_gate' | 'manual'
+);
 
-class ContentItem(BaseModel):
-    model_config = ConfigDict(frozen=True)
+CREATE INDEX ON content_store.adr_compliance (adr_id, repo);
+CREATE INDEX ON content_store.adr_compliance (impl_status) WHERE impl_status != 'compliant';
+CREATE INDEX ON content_store.adr_compliance (checked_at DESC);
 
-    id: UUID = Field(default_factory=uuid4)
-    source_svc: SourceService
-    source_type: SourceType
-    source_id: str = Field(description="ID im Quell-Service")
-    tenant_id: UUID | None = Field(
-        default=None,
-        description="NULL = plattformweit, UUID = tenant-isoliert",
-    )
-    content: str
-    content_hash: str
-    prompt_key: str | None = None
-    model_used: str
-    version: int = Field(default=1, ge=1)
-    parent_id: UUID | None = None
-    tags: list[str] = Field(default_factory=list)
-    properties: dict[str, Any] = Field(default_factory=dict)
-    created_at: datetime = Field(default_factory=datetime.utcnow)
+CREATE VIEW content_store.v_adr_current AS
+    SELECT DISTINCT ON (adr_id, repo)
+        adr_id, repo, adr_status, impl_status, drift_score, checked_at, evidence
+    FROM content_store.adr_compliance
+    ORDER BY adr_id, repo, checked_at DESC;
 
-
-class ContentRelation(BaseModel):
-    model_config = ConfigDict(frozen=True)
-
-    id: UUID = Field(default_factory=uuid4)
-    source_item: UUID
-    target_ref: str = Field(description="Format: '<type>:<id>', z.B. 'adr:ADR-059'")
-    relation_type: Literal[
-        "implements", "references", "derived_from",
-        "tested_by", "appears_in", "located_in",
-    ]
-    tenant_id: UUID | None = None
-    weight: float = Field(default=1.0, ge=0.0, le=1.0)
-    properties: dict[str, Any] = Field(default_factory=dict)
+CREATE VIEW content_store.v_adr_violations AS
+    SELECT * FROM content_store.v_adr_current
+    WHERE impl_status = 'violated'
+    ORDER BY drift_score DESC;
 ```
 
-### 4.3 ContentStore API (`creative_services/storage/store.py`)
+### 4.3 Schicht 3: Code-Graph-Layer
 
-```python
-class ContentStore:
-    """Persistenz-Layer fuer AI-generierten Content.
-    Zugriff via asyncpg direkt (kein Django ORM).
-    """
+AST-Walker (Python stdlib `ast`, ~100 LOC). Befüllt bei jedem Git-Push via GitHub Actions.
 
-    async def save(self, item: ContentItem) -> ContentItem: ...
-    async def get(self, item_id: UUID) -> ContentItem | None: ...
-    async def get_versions(self, source_svc: str, source_id: str) -> list[ContentItem]: ...
-    async def latest(self, source_svc: str, source_id: str) -> ContentItem | None: ...
-    async def add_relation(self, relation: ContentRelation) -> ContentRelation: ...
-    async def find_by_ref(
-        self,
-        target_ref: str,
-        relation_type: str | None = None,
-        tenant_id: UUID | None = None,
-    ) -> list[ContentItem]: ...
-    async def search(
-        self,
-        query: str,
-        source_svc: str | None = None,
-        source_type: str | None = None,
-        tenant_id: UUID | None = None,
-        limit: int = 10,
-    ) -> list[ContentItem]: ...
+```sql
+CREATE TABLE content_store.code_graph_nodes (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    repo         TEXT        NOT NULL,
+    file_path    TEXT        NOT NULL,
+    node_type    TEXT        NOT NULL,   -- 'module' | 'class' | 'function' | 'test'
+    node_name    TEXT        NOT NULL,
+    git_sha      TEXT        NOT NULL,
+    properties   JSONB       NOT NULL DEFAULT '{}',
+    scanned_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (repo, file_path, node_name, git_sha)
+);
+
+CREATE TABLE content_store.code_graph_edges (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    source_node  UUID        NOT NULL REFERENCES content_store.code_graph_nodes(id) ON DELETE CASCADE,
+    target_node  UUID        NOT NULL REFERENCES content_store.code_graph_nodes(id) ON DELETE CASCADE,
+    edge_type    TEXT        NOT NULL,   -- 'imports' | 'calls' | 'tested_by' | 'inherits'
+    repo         TEXT        NOT NULL,
+    properties   JSONB       NOT NULL DEFAULT '{}'
+);
+
+CREATE INDEX ON content_store.code_graph_nodes (repo, file_path);
+CREATE INDEX ON content_store.code_graph_nodes (node_type, repo);
+CREATE INDEX ON content_store.code_graph_edges (source_node, edge_type);
+CREATE INDEX ON content_store.code_graph_edges (target_node, edge_type);
+
+-- Direkte Abhängigkeiten einer Datei (Pre-Change-Impact)
+CREATE VIEW content_store.v_file_dependents AS
+    SELECT
+        src.file_path  AS changed_file,
+        tgt.file_path  AS dependent_file,
+        e.edge_type,
+        src.repo
+    FROM content_store.code_graph_edges e
+    JOIN content_store.code_graph_nodes src ON e.source_node = src.id
+    JOIN content_store.code_graph_nodes tgt ON e.target_node = tgt.id;
+
+-- Redundanz-Kandidaten: gleicher Name, verschiedene Dateien
+CREATE VIEW content_store.v_redundancy_candidates AS
+    SELECT
+        node_name, node_type, repo,
+        COUNT(*) AS occurrences,
+        ARRAY_AGG(file_path ORDER BY file_path) AS locations
+    FROM content_store.code_graph_nodes
+    WHERE node_type IN ('function', 'class')
+    GROUP BY node_name, node_type, repo
+    HAVING COUNT(*) > 1
+    ORDER BY occurrences DESC;
 ```
 
-### 4.4 Event-Contract (`shared_contracts/content_events.py`)
+### 4.4 Schicht 4: Snapshot-Layer
 
-```python
-from __future__ import annotations
-from datetime import datetime
-from typing import Any, Literal
-from uuid import UUID
-from pydantic import BaseModel, ConfigDict, Field
+Stündliche Snapshots via Celery Beat. **Der Store ist immer Spiegel, nie Original** — das ist die korrekte Architektur für Infra-Zustand.
 
-class ContentStoredEvent(BaseModel):
-    """Wird nach jedem save() via Celery publiziert."""
-    model_config = ConfigDict(frozen=True)
+```sql
+CREATE TABLE content_store.infra_snapshots (
+    id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+    snapshot_type TEXT       NOT NULL,   -- 'containers' | 'ssl' | 'migrations' | 'disk'
+    target       TEXT        NOT NULL,   -- '88.198.191.108' | 'travel-beat'
+    data         JSONB       NOT NULL,
+    data_hash    TEXT        NOT NULL,   -- SHA-256 (Änderungserkennung)
+    collected_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    collector    TEXT        NOT NULL
+);
 
-    event_type: Literal["content.stored"] = "content.stored"
-    item_id: UUID
-    source_svc: str
-    source_type: str
-    source_id: str
-    tenant_id: UUID | None
-    version: int
-    model_used: str
-    tags: list[str]
-    occurred_at: datetime = Field(default_factory=datetime.utcnow)
+CREATE INDEX ON content_store.infra_snapshots (snapshot_type, target);
+CREATE INDEX ON content_store.infra_snapshots (collected_at DESC);
 
+CREATE VIEW content_store.v_infra_current AS
+    SELECT DISTINCT ON (snapshot_type, target)
+        snapshot_type, target, data, data_hash, collected_at
+    FROM content_store.infra_snapshots
+    ORDER BY snapshot_type, target, collected_at DESC;
 
-class EntityPublishedEvent(BaseModel):
-    """Publiziert wenn eine Domain-Entitaet cross-service sichtbar werden soll."""
-    model_config = ConfigDict(frozen=True)
-
-    event_type: Literal["entity.published"] = "entity.published"
-    entity_type: Literal["character", "world", "location", "story", "trip"]
-    entity_id: str
-    source_svc: str
-    tenant_id: UUID
-    display_name: str
-    summary: str = Field(description="Max 500 Zeichen")
-    canonical_url: str
-    published_at: datetime = Field(default_factory=datetime.utcnow)
-    properties: dict[str, Any] = Field(default_factory=dict)
+-- Kritisch: Services mit pending Migrations
+CREATE VIEW content_store.v_pending_migrations AS
+    SELECT
+        target AS service,
+        (data->>'pending_count')::int AS pending_count,
+        data->'pending_migrations' AS pending_migrations,
+        collected_at
+    FROM content_store.v_infra_current
+    WHERE snapshot_type = 'migrations'
+    AND (data->>'pending_count')::int > 0;
 ```
 
-### 4.5 Pilot-Integration: AI-Agent-Team (Consumer A)
+### 4.5 Change-Safety-Context: Pre-Change-Check
 
 ```python
-# orchestrator_mcp/agent_team/tech_lead.py — Erweiterung
-from creative_services.storage import ContentStore, ContentItem, ContentRelation
-
-async def plan_from_adr(adr_path: str) -> TaskPlan:
-    plan = await _parse_and_plan(adr_path)
+# orchestrator_mcp/agent_team/guardian.py
+async def pre_change_check(file_path: str, repo: str) -> ChangeSafetyReport:
     store = ContentStore()
-    item = await store.save(ContentItem(
-        source_svc="agent-team",
-        source_type="task_plan",
-        source_id=f"adr:{adr_path}",
-        tenant_id=None,  # plattformweit
-        content=plan.model_dump_json(),
-        content_hash=_sha256(plan.model_dump_json()),
-        model_used="claude-opus-4",
-        tags=["task_plan", "adr"],
-        properties={"adr_path": adr_path, "task_count": len(plan.tasks)},
-    ))
-    await store.add_relation(ContentRelation(
-        source_item=item.id,
-        target_ref=f"adr:{adr_path}",
-        relation_type="implements",
-    ))
-    return plan
+    dependents  = await store.query_view("v_file_dependents",
+                      changed_file=file_path, repo=repo)
+    adrs        = await store.query_view("v_adr_current", repo=repo)
+    redundancies= await store.query_view("v_redundancy_candidates", repo=repo)
+    pending     = await store.query_view("v_pending_migrations", service=repo)
+
+    return ChangeSafetyReport(
+        file_path=file_path,
+        repo=repo,
+        affected_files=[d["dependent_file"] for d in dependents],
+        relevant_adrs=adrs,
+        redundancies=redundancies,
+        pending_migrations=pending,
+        safe_to_proceed=(
+            len(pending) == 0
+            and all(a["impl_status"] != "violated" for a in adrs)
+        ),
+    )
 ```
 
-### 4.6 Trigger-Bedingungen fuer Migration zu `content-hub`
+### 4.6 Aktualitäts-Mechanismen
 
-Migration wird ausgeloest wenn **mindestens 2** der folgenden Bedingungen erfuellt sind:
+| Mechanismus | Trigger | Granularität | Schicht |
+|---|---|---|---|
+| **M1: Git-Webhook** | Jeder Push auf `main` | Sofort | Code-Graph |
+| **M2: Drift-Detector** | Täglich, Celery Beat | 24h | ADR-Compliance |
+| **M3: Infra-Poller** | Stündlich, Celery Beat | 1h | Infra-Snapshots |
 
-| Trigger | Messgrösse | Monitoring |
-|---|---|---|
-| Consumer-Zahl | >= 5 aktive Services schreiben Content | `GROUP BY source_svc` |
-| Volumen | > 5 GB im Schema | `pg_schema_size('content_store')` |
-| DB-Last | > 25% aller Queries betreffen `content_store.*` | `pg_stat_statements` |
-| Business-Logik | Approval-Workflows, Embargo, Lizenzierung | Manuell bewertet |
-| Schema-Aenderungsrate | > 3 Migrationen in 4 Wochen | Git-Log |
+### 4.7 Trigger-Bedingungen für Migration zu `content-hub`
 
-**Migration ist trivial:** Das Datenbankschema `content_store.*` bleibt identisch — nur der Zugangspfad aendert sich von direktem asyncpg-Zugriff zu REST-API-Calls.
+| Trigger | Messgröße |
+|---|---|
+| Consumer-Zahl | >= 5 aktive Services |
+| Volumen | > 5 GB im Schema |
+| DB-Last | > 25% aller Queries |
+| Business-Logik | Approval-Workflows, Lizenzierung |
+| Schema-Änderungsrate | > 3 Migrationen in 4 Wochen |
+
+Migration ausgelöst wenn **mindestens 2** erfüllt. Schema bleibt identisch — nur Zugangspfad ändert sich.
 
 ---
 
@@ -353,14 +354,16 @@ Migration wird ausgeloest wenn **mindestens 2** der folgenden Bedingungen erfuel
 
 | Repo / Service | Phase | Status | Datum | Notizen |
 |---|---|---|---|---|
-| `platform` / `creative-services` | 1 — Schema + Storage-API | ⬜ Ausstehend | – | `storage/` + `graph/` Module, SQL-Schema |
+| `platform` / `creative-services` | 1 — Alle 4 Schichten SQL-Schema | ⬜ Ausstehend | – | `storage/`, `graph/`, `compliance/`, `snapshot/` |
 | `platform` / `shared_contracts` | 1 — Event-Contracts | ⬜ Ausstehend | – | `content_events.py` |
-| `mcp-hub` / `orchestrator_mcp` | 2 — Pilot Consumer A | ⬜ Ausstehend | – | Agent-Team: TaskPlan + ImpactReport |
-| `mcp-hub` / `query_agent_mcp` | 2 — MCP-Tools | ⬜ Ausstehend | – | `find_decision_history`, `get_content_versions` |
+| `mcp-hub` / `orchestrator_mcp` | 2 — Pilot Consumer A | ⬜ Ausstehend | – | Agent-Team + adr_compliance Persistenz |
+| `mcp-hub` / `query_agent_mcp` | 2 — AST-Walker + Code-Graph | ⬜ Ausstehend | – | Git-Push-Trigger, `ast_walker.py` |
+| `mcp-hub` / `orchestrator_mcp` | 2 — Infra-Poller | ⬜ Ausstehend | – | Stündlicher Celery-Beat-Job |
+| `mcp-hub` / `orchestrator_mcp` | 2 — Guardian Pre-Change-Check | ⬜ Ausstehend | – | `pre_change_check()` |
 | `travel-beat` | 3 — Consumer B | ⬜ Ausstehend | – | Story-Kapitel mit tenant_id |
 | `bfagent` | 4 — Consumer C | ⬜ Ausstehend | – | Draft-Varianten via `bfagent_compat.py` |
-| `mcp-hub` / `content_mcp` | 5 — MCP-Zugangsschicht | ⬜ Ausstehend | – | Erst nach Phase 2 stabil |
-| `content-hub` (neues Repo) | 6 — Eigener Service | ⬜ Ausstehend | – | Nur wenn Trigger-Bedingungen (§4.6) erfuellt |
+| `mcp-hub` / `content_mcp` | 5 — MCP-Zugangsschicht | ⬜ Ausstehend | – | `pre_change_check`, `find_redundancies` Tools |
+| `content-hub` (neues Repo) | 6 — Eigener Service | ⬜ Ausstehend | – | Nur wenn Trigger-Bedingungen (§4.7) erfüllt |
 
 ---
 
@@ -368,22 +371,24 @@ Migration wird ausgeloest wenn **mindestens 2** der folgenden Bedingungen erfuel
 
 ### 6.1 Good
 
-- **ADR-059 Context-Problem geloest**: Tech-Lead-Agent hat persistentes Gedaechtnis
-- **Keine neue Infrastruktur**: Postgres-Schema in bestehender DB
-- **Versionierung von Anfang an**: `parent_id`-Kette ermoeglicht vollstaendige Versionshistorie
-- **Multi-Tenancy korrekt**: `tenant_id IS NULL` fuer plattformweit, `IS NOT NULL` fuer tenant-isoliert
-- **Klarer Migrationspfad**: Trigger-Bedingungen fuer `content-hub` sind messbar
+- **Change-Safety**: Vor jeder Änderung vollständiger Kontext — betroffene Dateien, ADR-Compliance, Redundanzen, pending Migrations
+- **Redundanz-Erkennung**: `v_redundancy_candidates` liefert sofort alle doppelten Implementierungen
+- **ADR-Compliance messbar**: `v_adr_violations` zeigt welche ADRs in welchen Repos verletzt sind
+- **Infra-Zustand abrufbar**: Pending Migrations, SSL-Ablauf, Container-Status als Snapshot
+- **Kein neuer Service**: Alle 4 Schichten im bestehenden Postgres-Schema
+- **Aktualitäts-SLAs**: Code-Graph sofort, Infra 1h, ADR-Compliance 24h
 
 ### 6.2 Bad
 
-- **Shared DB**: Content-Store-Queries belasten dieselbe Postgres-Instanz — Monitoring erforderlich
-- **Koordiniertes Versioning**: Schema-Aenderungen betreffen alle Consumer gleichzeitig
-- **asyncpg-Dependency**: Direkter DB-Zugriff ohne Django ORM — erfordert Connection-Management
+- **Shared DB**: 4 Schichten erhöhen die Query-Last — Monitoring via `pg_stat_statements` Pflicht
+- **AST-Walker-Komplexität**: Import-Graph ist nie 100% vollständig (dynamische Imports, `__import__`)
+- **Snapshot-Latenz**: Infra-Zustand ist max. 1h veraltet — kein Live-Monitoring
+- **Koordiniertes Versioning**: Schema-Änderungen betreffen alle Consumer gleichzeitig
 
 ### 6.3 Nicht in Scope
 
-- Eigenes `content-hub` Repo — erst wenn Trigger-Bedingungen (§4.6) erfuellt
-- Elasticsearch oder dedizierter Vektor-Store — pgvector reicht fuer Phase 1–3
+- Live-Monitoring (Prometheus/Grafana) — das ist ein Ops-Tool, kein Entwicklungs-Kontext-System
+- Eigenes `content-hub` Repo — erst wenn Trigger-Bedingungen (§4.7) erfüllt
 - Cross-Tenant-Graph — DSGVO-Konflikt, explizit ausgeschlossen
 - Medien/Assets (Bilder, PDFs) — separates ADR
 
@@ -393,41 +398,45 @@ Migration wird ausgeloest wenn **mindestens 2** der folgenden Bedingungen erfuel
 
 | Risiko | W'keit | Impact | Mitigation |
 |---|---|---|---|
-| Shared DB wird zum Bottleneck | Mittel | Hoch | `pg_stat_statements` Monitoring, Trigger §4.6 |
-| Schema-Aenderung bricht Consumer | Mittel | Hoch | Expand-Contract-Pattern: additive Aenderungen zuerst |
-| `tenant_id IS NULL` versehentlich fuer tenant-gebundene Daten | Niedrig | Kritisch | Pydantic-Validator: TENANT_SERVICES erzwingt tenant_id |
-| asyncpg Connection-Leak | Niedrig | Mittel | `asyncpg.create_pool()`, Context-Manager-Pattern |
-| pgvector nicht installiert | Niedrig | Niedrig | `embedding`-Feld optional, Fallback auf Volltext |
+| Shared DB wird zum Bottleneck | Mittel | Hoch | `pg_stat_statements` Monitoring, Trigger §4.7 |
+| AST-Walker erkennt dynamische Imports nicht | Hoch | Niedrig | Explizit dokumentiert — kein falsches Sicherheitsgefühl |
+| Snapshot veraltet → falscher Change-Safety-Check | Mittel | Mittel | SLA-Anzeige im Report: "Code-Graph: 2h alt" |
+| Schema-Änderung bricht Consumer | Mittel | Hoch | Expand-Contract-Pattern: additive Änderungen zuerst |
+| `tenant_id IS NULL` versehentlich für tenant-gebundene Daten | Niedrig | Kritisch | Pydantic-Validator erzwingt tenant_id für TENANT_SERVICES |
+| Drift-Detector schreibt nicht in content_store | Niedrig | Hoch | CI-Gate: `v_adr_current` muss Einträge haben nach Drift-Check |
 
 ---
 
 ## 8. Confirmation
 
-1. **Schema-Existenz-Test (CI)**: `pytest` prueft ob `content_store.items` und `content_store.relations` existieren — blockiert Merge bei Fehler
-2. **Tenant-Isolation-Test**: `test_should_not_leak_content_across_tenants` — zwei Tenants schreiben Content, keiner sieht den anderen
-3. **Versionierungs-Test**: `test_should_create_new_version_on_save` — zweiter `save()` mit gleicher `source_id` inkrementiert `version`
-4. **Null-Tenant-Test**: `test_should_allow_null_tenant_for_platform_content` — Agent-Team-Content mit `tenant_id=None` lesbar ohne Tenant-Kontext
-5. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualitaet geprueft — Staleness-Schwelle: 12 Monate
+1. **Schema-Existenz-Test (CI)**: Alle 4 Schichten müssen existieren — blockiert Merge bei Fehler
+2. **Tenant-Isolation-Test**: `test_should_not_leak_content_across_tenants`
+3. **Redundanz-Erkennungs-Test**: `test_should_detect_duplicate_function_names` — zwei identisch benannte Funktionen in verschiedenen Dateien → `v_redundancy_candidates` zeigt sie
+4. **Pre-Change-Check-Test**: `test_should_report_affected_files_on_change` — Änderung an `models.py` → alle importierenden Dateien im Report
+5. **ADR-Compliance-Test**: `test_should_persist_drift_detector_results` — Drift-Detector-Run → Eintrag in `adr_compliance`
+6. **Snapshot-Aktualitäts-Test**: `test_should_flag_stale_infra_snapshot` — Snapshot älter als 2h → `collected_at`-Warnung im Report
+7. **Drift-Detector**: Dieses ADR wird von ADR-059 auf Aktualität geprüft — Staleness-Schwelle: 12 Monate
 
 ---
 
 ## 9. More Information
 
-- ADR-056: Multi-Tenancy Schema Isolation — `tenant_id`-Muster und Schema-Isolation-Strategie
-- ADR-059: ADR-Drift-Detector — Confirmation-Mechanismus fuer dieses ADR
-- ADR-014: AI-Native Development Teams — Kontext fuer Consumer A (Agent-Team)
+- ADR-056: Multi-Tenancy Schema Isolation — `tenant_id`-Muster
+- ADR-059: ADR-Drift-Detector — wird um `adr_compliance`-Persistenz erweitert
+- ADR-014: AI-Native Development Teams — Kontext für Consumer A
 - ADR-057: Platform Test Strategy — Test-Anforderungen §8
 - [asyncpg Dokumentation](https://magicstack.github.io/asyncpg/)
 - [pgvector](https://github.com/pgvector/pgvector)
-- `packages/creative-services/README.md` — bestehende creative-services Architektur
+- Python `ast` stdlib — AST-Walker ohne externe Dependency
 
 ---
 
 ## 10. Changelog
 
-| Datum | Autor | Aenderung |
+| Datum | Autor | Änderung |
 |---|---|---|
-| 2026-02-22 | Achim Dehnert | Initial: Status Proposed |
+| 2026-02-22 | Achim Dehnert | Initial: Status Proposed — Content-Layer (Schicht 1) |
+| 2026-02-22 | Achim Dehnert | Amendment: 4-Schichten-Architektur — Compliance, Code-Graph, Infra-Snapshot, Change-Safety |
 
 ---
 
@@ -438,5 +447,7 @@ Migration wird ausgeloest wenn **mindestens 2** der folgenden Bedingungen erfuel
       - platform/packages/creative-services/creative_services/storage/
       - platform/shared_contracts/content_events.py
       - mcp-hub/orchestrator_mcp/agent_team/
+      - mcp-hub/query_agent_mcp/ast_walker.py
+      - mcp-hub/orchestrator_mcp/infra_poller.py
   - supersedes_check: true
 -->
