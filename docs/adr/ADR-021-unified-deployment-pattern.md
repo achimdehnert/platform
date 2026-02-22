@@ -1,7 +1,7 @@
 ---
 status: "accepted"
 date: 2026-02-10
-amended: 2026-02-20
+amended: 2026-02-22
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
@@ -10,6 +10,7 @@ informed: []
 # Adopt unified single-service deployment pipeline for all platform projects
 
 > **Amendment 2026-02-20**: Added §2.14 (`infra-deploy` repo as Agent-API), §2.15 (Fast-Deploy Override), §2.16 (Expand-Contract Migrations Convention), updated §2.3 (dev-hub added), §2.9 (port registry updated), §4 (current state updated).
+> **Amendment 2026-02-22**: Added coach-hub to §2.3 (port 8007, domain kiohnerisiko.de), §4 current state updated.
 
 ---
 
@@ -167,21 +168,21 @@ Compliance is verified by:
 
 ### 2.3 Per-Project Parameters (the only things that vary)
 
-| Parameter | bfagent | risk-hub | travel-beat | weltenhub | pptx-hub | dev-hub |
-| --- | --- | --- | --- | --- | --- | --- |
-| `deploy_via` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `infra-deploy` |
-| `deploy_path` | `/opt/bfagent-app` | `/opt/risk-hub` | `/opt/travel-beat` | `/opt/weltenhub` | `/opt/pptx-hub` | `/opt/dev-hub` |
-| `dockerfile` | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` ¹ | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` |
-| `compose_file` | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `deploy/docker-compose.prod.yml` ¹ | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `docker-compose.prod.yml` |
-| `health_url` | `https://bfagent.iil.pet/healthz/` | `https://demo.schutztat.de/healthz/` ² | `https://drifttales.com/healthz/` ² | `https://weltenforger.com/healthz/` ² | *not deployed* | `https://devhub.iil.pet/livez/` |
-| `web_service` | `bfagent-web` | `risk-hub-web` | `web` ¹ | `weltenhub-web` | `web` | `devhub-web` |
-| `extra_services` | — | `risk-hub-worker` | `celery` | `weltenhub-celery weltenhub-beat` | `worker` | `devhub-celery devhub-beat` |
-| `container` | `bfagent_web` | `risk_hub_web` | `travelbeat_web` | `weltenhub_web` | `pptx_hub_web` | `devhub_web` |
-| `host_port` | 8088 | 8090 | 8002 | 8081 | 8020 | 8085 |
-| `database` | shared (`bfagent_db`) | own stack | own stack | shared (`bfagent_db`) | own stack | shared (`bfagent_db`) |
-| `python` | 3.11 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 |
-| `source_dir` | `.` | `src` | `apps` | `apps` | `src` | `.` |
-| `settings_module` | `config.settings` | `config.settings` | `config.settings` | `config.settings.base` | `tests.settings` | `config.settings.base` |
+| Parameter | bfagent | risk-hub | travel-beat | weltenhub | pptx-hub | dev-hub | coach-hub |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| `deploy_via` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | `infra-deploy` | `_deploy-hetzner.yml` |
+| `deploy_path` | `/opt/bfagent-app` | `/opt/risk-hub` | `/opt/travel-beat` | `/opt/weltenhub` | `/opt/pptx-hub` | `/opt/dev-hub` | `/opt/coach-hub` |
+| `dockerfile` | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` ¹ | `Dockerfile` ¹ | `docker/app/Dockerfile` | `docker/Dockerfile` | `docker/app/Dockerfile` |
+| `compose_file` | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `deploy/docker-compose.prod.yml` ¹ | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `docker-compose.prod.yml` | `docker-compose.prod.yml` |
+| `health_url` | `https://bfagent.iil.pet/healthz/` | `https://demo.schutztat.de/healthz/` ² | `https://drifttales.com/healthz/` ² | `https://weltenforger.com/healthz/` ² | *not deployed* | `https://devhub.iil.pet/livez/` | `https://kiohnerisiko.de/healthz/` |
+| `web_service` | `bfagent-web` | `risk-hub-web` | `web` ¹ | `weltenhub-web` | `web` | `devhub-web` | `coach-hub-web` |
+| `extra_services` | — | `risk-hub-worker` | `celery` | `weltenhub-celery weltenhub-beat` | `worker` | `devhub-celery devhub-beat` | `coach-hub-worker coach-hub-beat` |
+| `container` | `bfagent_web` | `risk_hub_web` | `travelbeat_web` | `weltenhub_web` | `pptx_hub_web` | `devhub_web` | `coach_hub_web` |
+| `host_port` | 8088 | 8090 | 8002 | 8081 | 8020 | 8085 | 8007 |
+| `database` | shared (`bfagent_db`) | own stack | own stack | shared (`bfagent_db`) | own stack | shared (`bfagent_db`) | own stack |
+| `python` | 3.11 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 |
+| `source_dir` | `.` | `src` | `apps` | `apps` | `src` | `.` | `apps` |
+| `settings_module` | `config.settings` | `config.settings` | `config.settings` | `config.settings.base` | `tests.settings` | `config.settings.base` | `config.settings.base` |
 
 > ¹ Deviates from convention — migration tracked in §5.
 > ² Health endpoint migration to `/healthz/` tracked in §5.
@@ -198,108 +199,59 @@ Compliance is verified by:
 | `HEALTH_RETRIES` | 12 | `--health-retries` |
 | `HEALTH_INTERVAL` | 5s | `--health-interval` |
 
-**Worker restart**: The script auto-restarts `<app>-worker` if it exists, but does **NOT** restart beat or custom services. These must be handled via compose dependency chains or manual restart.
-
-### 2.5 CI/CD: Three-Stage Platform Pipeline
+### 2.5 Three-Stage CI/CD Pipeline
 
 ```yaml
-# .github/workflows/ci-cd.yml — canonical template
-name: CI/CD Pipeline
-
-permissions:
-  contents: read
-  packages: write   # Required for GHCR push via GITHUB_TOKEN
-
-on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
-  workflow_dispatch:
-    inputs:
-      skip_tests:
-        description: "Skip tests (emergency only)"
-        required: false
-        default: false
-        type: boolean
-
+# .github/workflows/ci-cd.yml (per-project)
 jobs:
   ci:
     uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1
-    with:
-      python_version: "3.12"
-      source_dir: "src"
-      django_settings_module: "config.settings"
-      coverage_threshold: 0
-      skip_tests: ${{ inputs.skip_tests || false }}
-    secrets: inherit
-
   build:
     needs: [ci]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1
-    with:
-      dockerfile: "docker/app/Dockerfile"
-      scan_image: true
-    secrets: inherit
-
   deploy:
     needs: [build]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@v1
-    with:
-      app_name: "risk-hub"
-      deploy_path: "/opt/risk-hub"
-      health_url: "https://demo.schutztat.de/healthz/"
-      compose_file: "docker-compose.prod.yml"
-      web_service: "risk-hub-web"
-      run_migrations: true
-      enable_rollback: true
-    secrets:
-      HETZNER_HOST: ${{ secrets.DEPLOY_HOST }}
-      HETZNER_USER: ${{ secrets.DEPLOY_USER }}
-      HETZNER_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
 ```
 
-### 2.6 Required GitHub Secrets (per repository)
+### 2.6 Secrets Inventory
 
-| Secret | Source | Notes |
+| Secret | Scope | Used by |
 | --- | --- | --- |
-| `GITHUB_TOKEN` | Automatic | Requires `packages: write` in workflow permissions |
-| `DEPLOY_HOST` | `88.198.191.108` | Same for all repos |
-| `DEPLOY_USER` | `root` | Same for all repos |
-| `DEPLOY_SSH_KEY` | SSH private key | Same key, shared across repos |
+| `DEPLOY_SSH_KEY` | Org-level (target) | `_deploy-hetzner.yml` |
+| `DEPLOY_HOST` | Org-level | `_deploy-hetzner.yml` |
+| `DEPLOY_USER` | Org-level | `_deploy-hetzner.yml` |
+| `GHCR_TOKEN` / `GITHUB_TOKEN` | Auto (Actions) | `_build-docker.yml` |
 
-> All three `DEPLOY_*` secrets should be set as **organization-level secrets** to avoid per-repo duplication.
+### 2.7 Rollback Procedure
 
-### 2.7 Rollback Strategy
+```bash
+# 1. Identify last good SHA
+docker images ghcr.io/achimdehnert/<repo> --format "{{.Tag}}"
 
-| Scenario | Action |
-| --- | --- |
-| Health check fails after deploy | `deploy-remote.sh` auto-rollback (keeps previous image digest) |
-| Bad deploy discovered later | Redeploy previous SHA via `docker compose pull && up -d` |
-| Database migration broke | `docker exec <container> python manage.py migrate <app> <previous_migration>` |
+# 2. Deploy specific SHA
+cd /opt/<repo>
+IMAGE_TAG=sha-abc1234 docker compose -f docker-compose.prod.yml up -d --force-recreate <web_service>
 
-### 2.8 Image Tagging Strategy
+# 3. Verify
+curl -sf http://127.0.0.1:<host_port>/healthz/
+```
 
-| Tag | When applied | Purpose |
+### 2.8 DeployLock Safety
+
+Each deploy acquires a file lock at `/tmp/deploy-<app>.lock` to prevent concurrent deploys of the same app. Lock is released on exit (success or failure).
+
+### 2.9 Port Registry
+
+| Port | App | Domain |
 | --- | --- | --- |
-| `latest` | Every push to `main` | Default pull target |
-| `<sha7>` | Every push to `main` | Immutable; rollback target |
-| `v1.2.3` | Semver git tag | Release marker |
-
-### 2.9 Port Allocation Registry
-
-| Port | Project | Service |
-| --- | --- | --- |
-| 8002 | travel-beat | Gunicorn (direct) |
-| 8020 | pptx-hub | Gunicorn (planned) |
-| 8081 | weltenhub | Gunicorn |
-| 8085 | dev-hub | Gunicorn |
-| 8088 | bfagent | Caddy → Gunicorn |
-| 8089 | travel-beat | Caddy |
-| 8090 | risk-hub | Gunicorn |
-| 8100 | bfagent | LLM Gateway (internal) |
+| 8002 | travel-beat | drifttales.com |
+| 8007 | coach-hub | kiohnerisiko.de |
+| 8020 | pptx-hub | — |
+| 8081 | weltenhub | weltenforger.com |
+| 8085 | dev-hub | devhub.iil.pet |
+| 8088 | bfagent | bfagent.iil.pet |
+| 8090 | risk-hub | demo.schutztat.de |
 
 **Rule**: New projects pick the next available port in the 80xx range. Update this table.
 
@@ -437,14 +389,14 @@ jobs:
 | --- | --- | --- |
 | System deps | risk-hub/travel-beat need WeasyPrint | PDF rendering |
 | Reverse proxy sidecar | bfagent/travel-beat include Caddy | Static files, auto-TLS |
-| Worker process | Celery (travel-beat, weltenhub, risk-hub), django-q2 (pptx-hub) | Async architecture choice |
+| Worker process | Celery (travel-beat, weltenhub, risk-hub, coach-hub), django-q2 (pptx-hub) | Async architecture choice |
 | Shared vs own DB | weltenhub shares `bfagent_db`; others self-contained | Coupling decision |
 | Python version | bfagent still on 3.11 | Migration planned |
 | Extra build steps | bfagent builds Sphinx docs in Docker | Documentation delivery |
 
 ---
 
-## 4. Current State (as of 2026-02-20)
+## 4. Current State (as of 2026-02-22)
 
 | Project | CI/CD via platform workflows | Auto-deploy | Fast-Deploy | Windsurf `/deploy` |
 | --- | --- | --- | --- | --- |
@@ -454,6 +406,7 @@ jobs:
 | weltenhub | ✅ migrated | ✅ on push to main | ❌ | ✅ |
 | pptx-hub | ❌ CI-only (test + PyPI) | ❌ not deployed | ❌ | ✅ created |
 | dev-hub | ✅ fast-deploy only (§2.15) | ✅ on push to main | ✅ (~6s) | ✅ |
+| coach-hub | ⬜ not started | ⬜ not started | ❌ | ⬜ pending |
 
 ### `_deploy-hetzner.yml` → `infra-deploy` Migration Tracking
 
@@ -465,6 +418,7 @@ jobs:
 | weltenhub | `_deploy-hetzner.yml` | `_deploy-hetzner.yml` | ✅ Done | No change needed |
 | pptx-hub | CI-only | `_deploy-hetzner.yml` | 🔴 Not started | Needs server provisioning first |
 | dev-hub | fast-deploy | `infra-deploy` | 🟡 In progress | ADR-021 §2.14 target |
+| coach-hub | — | `_deploy-hetzner.yml` | 🔴 Not started | New project — onboarding pending |
 
 ---
 
@@ -476,6 +430,13 @@ jobs:
 - [ ] Add `_deploy-trigger.yml` reusable workflow to `platform/.github/workflows/` (§2.14)
 - [ ] Add `.github/pull_request_template.md` with Expand-Contract checklist to all service repos (§2.16)
 - [ ] dev-hub: Migrate Fast-Deploy to `workflow_dispatch`-only trigger; add standard CI/CD build flow (§2.15)
+
+### Priority 0 — Amendment 2026-02-22 (new)
+
+- [ ] coach-hub: Provision `/opt/coach-hub` on server
+- [ ] coach-hub: Nginx config + SSL for `kiohnerisiko.de`
+- [ ] coach-hub: CI/CD pipeline setup (`ci-cd.yml`)
+- [ ] coach-hub: Register in Windsurf `/deploy` workflow
 
 ### Priority 1 — Functional gaps
 
