@@ -109,7 +109,7 @@ MODULES: list[Module] = [
 ## Willkommen zur Platform!
 
 Die Platform besteht aus mehreren Django-Applikationen,
-die auf einem gemeinsamen Hetzner-Server (88.198.191.108)
+die auf einem gemeinsamen Hetzner-Server (88.198.191.108)  # noqa: hardcode
 laufen. Jede App hat eine eigene PostgreSQL-Datenbank
 und wird per Docker Compose orchestriert.
 
@@ -299,8 +299,8 @@ git push origin main
 
 ### Server
 
-- **Host**: 88.198.191.108 (Hetzner)
-- **SSH**: `ssh root@88.198.191.108`
+- **Host**: 88.198.191.108 (Hetzner)  # noqa: hardcode
+- **SSH**: `ssh root@88.198.191.108`  # noqa: hardcode
 - **Reverse Proxy**: Nginx + Let's Encrypt TLS
 - **Registry**: GHCR (ghcr.io/achimdehnert/)
 

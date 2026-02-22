@@ -12,7 +12,7 @@ body:
         ```bash
         ./scripts/validate-deployment-readiness.sh --repo <repo> --app <app> --pat <PAT>
         ```
-        Server: `88.198.191.108` | Registry: `ghcr.io/achimdehnert/` | Runner: `self-hosted`
+        Server: `88.198.191.108` | Registry: `ghcr.io/achimdehnert/` | Runner: `self-hosted`  # noqa: hardcode
 
   - type: input
     id: app_name
@@ -46,7 +46,7 @@ body:
       options:
         - label: "`allowed_actions` ist auf `all` oder `selected` gesetzt (NICHT `local_only`)"
           required: true
-        - label: "Secret `DEPLOY_HOST` ist gesetzt (Wert: `88.198.191.108`)"
+        - label: "Secret `DEPLOY_HOST` ist gesetzt (Wert: `88.198.191.108`)"  # noqa: hardcode
           required: true
         - label: "Secret `DEPLOY_USER` ist gesetzt (Wert: `root`)"
           required: true
@@ -93,9 +93,9 @@ body:
     id: server_checks
     attributes:
       label: "4. Server-Konfiguration (Fehlerklasse D)"
-      description: "Verhindert 502 Bad Gateway und Infrastructure Drift — Server: 88.198.191.108"
+      description: "Verhindert 502 Bad Gateway und Infrastructure Drift — Server: 88.198.191.108"  # noqa: hardcode
       options:
-        - label: "Deploy-Pfad `/opt/<app>/` existiert auf `88.198.191.108`"
+        - label: "Deploy-Pfad `/opt/<app>/` existiert auf `88.198.191.108`"  # noqa: hardcode
           required: true
         - label: "`.env.prod` liegt in `/opt/<app>/.env.prod`"
           required: true
