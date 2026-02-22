@@ -90,6 +90,8 @@ on:
         required: true
       SLACK_WEBHOOK_URL:
         required: false
+      GHCR_TOKEN:
+        required: false
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────
@@ -168,9 +170,19 @@ jobs:
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           command_timeout: 10m
+          envs: GHCR_TOKEN
           script: |
             set -euo pipefail
             chmod +x "${{ inputs.deploy_path }}/scripts/deploy-remote.sh"
+            # Inject GHCR_TOKEN into env file for docker login
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              ENV_FILE="${{ inputs.deploy_path }}/${{ inputs.env_file }}"
+              if grep -q "^GHCR_TOKEN=" "$ENV_FILE" 2>/dev/null; then
+                sed -i "s|^GHCR_TOKEN=.*|GHCR_TOKEN=${GHCR_TOKEN}|" "$ENV_FILE"
+              else
+                echo "GHCR_TOKEN=${GHCR_TOKEN}" >> "$ENV_FILE"
+              fi
+            fi
 
             EXTRA_ARGS="${{ inputs.extra_deploy_args }}"
             if [ "${{ inputs.run_migrations }}" = "false" ]; then
