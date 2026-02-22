@@ -90,8 +90,6 @@ on:
         required: true
       SLACK_WEBHOOK_URL:
         required: false
-      GHCR_TOKEN:
-        required: false
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────
@@ -165,6 +163,8 @@ jobs:
       - name: Execute deploy
         id: run
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          GHCR_TOKEN: ${{ github.token }}
         with:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
@@ -174,7 +174,7 @@ jobs:
           script: |
             set -euo pipefail
             chmod +x "${{ inputs.deploy_path }}/scripts/deploy-remote.sh"
-            # Inject GHCR_TOKEN into env file for docker login
+            # Inject GHCR_TOKEN into env file for docker login in deploy-remote.sh
             if [ -n "${GHCR_TOKEN:-}" ]; then
               ENV_FILE="${{ inputs.deploy_path }}/${{ inputs.env_file }}"
               if grep -q "^GHCR_TOKEN=" "$ENV_FILE" 2>/dev/null; then
