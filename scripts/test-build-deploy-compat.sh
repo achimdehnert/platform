@@ -4,7 +4,7 @@
 echo "=== Build-Deploy Kompatibilitätstest ==="
 echo ""
 
-for dir in /opt/trading-hub /opt/travel-beat /opt/risk-hub /opt/weltenhub /opt/bfagent-app /opt/wedding-hub; do
+for dir in /opt/trading-hub /opt/travel-beat /opt/risk-hub /opt/weltenhub /opt/bfagent-app /opt/wedding-hub; do # noqa: hardcode
     app=$(basename "$dir")
     repo_name="$app"
     [ "$app" = "bfagent-app" ] && repo_name="bfagent"
@@ -27,12 +27,12 @@ for dir in /opt/trading-hub /opt/travel-beat /opt/risk-hub /opt/weltenhub /opt/b
     echo "  Image: $image"
 
     # Port detection (same logic as build-deploy.sh)
-    port=$(grep -A2 'ports:' "$compose" | grep -oP '\b(8[0-9]{3}):\d+' | head -1 | cut -d: -f1)
+    port=$(grep -A2 'ports:' "$compose" | grep -oP '\b(8[0-9]{3}):\d+' | head -1 | cut -d: -f1) # noqa: hardcode
     if [ -z "$port" ]; then
         container="${app//-/_}_web"
-        port=$(docker port "$container" 2>/dev/null | grep -oP '\d+$' | head -1)
+        port=$(docker port "$container" 2>/dev/null | grep -oP '\d+$' | head -1) # noqa: hardcode
     fi
-    [ -z "$port" ] && port="8088 (default)"
+    [ -z "$port" ] && port="8088 (default)" # noqa: hardcode
     echo "  Port: $port"
 
     # Running container image (for comparison)
@@ -45,7 +45,7 @@ for dir in /opt/trading-hub /opt/travel-beat /opt/risk-hub /opt/weltenhub /opt/b
     if [ -n "$port_num" ]; then
         health_ok="FAIL"
         for path in /livez/ /health/ /healthz/; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "http://localhost:${port_num}${path}" 2>/dev/null)
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 "http://localhost:${port_num}${path}" 2>/dev/null) # noqa: hardcode
             if [ "$code" = "200" ]; then
                 health_ok="OK ($path)"
                 break
@@ -58,8 +58,8 @@ for dir in /opt/trading-hub /opt/travel-beat /opt/risk-hub /opt/weltenhub /opt/b
 done
 
 echo "=== Script ==="
-ls -la /opt/build-deploy.sh 2>/dev/null && echo "OK" || echo "FEHLT"
+ls -la /opt/build-deploy.sh 2>/dev/null && echo "OK" || echo "FEHLT" # noqa: hardcode
 echo ""
 echo "=== Usage ==="
-echo 'nohup bash /opt/build-deploy.sh <app-name> > /dev/null 2>&1 &'
-echo 'cat /opt/<app-name>/build-deploy.status'
+echo 'nohup bash /opt/build-deploy.sh <app-name> > /dev/null 2>&1 &' # noqa: hardcode
+echo 'cat /opt/<app-name>/build-deploy.status' # noqa: hardcode

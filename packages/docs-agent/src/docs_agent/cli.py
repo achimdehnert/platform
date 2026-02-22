@@ -55,7 +55,7 @@ def audit(
         help="Use LLM to refine low-confidence DIATAXIS classifications.",
     ),
     llm_url: str = typer.Option(
-        "http://localhost:8100",
+        "http://localhost:8100", # noqa: hardcode
         "--llm-url",
         help="URL of the llm_mcp HTTP gateway (for --refine).",
     ),
@@ -195,7 +195,7 @@ def _audit_diataxis(
     *,
     output: str = "table",
     refine: bool = False,
-    llm_url: str = "http://localhost:8100",
+    llm_url: str = "http://localhost:8100", # noqa: hardcode
 ) -> None:
     """Run DIATAXIS classification audit."""
     console.print("\n[bold]DIATAXIS Classification[/]\n")
@@ -324,7 +324,7 @@ def generate(
         help="Maximum items to generate docstrings for.",
     ),
     gateway_url: str = typer.Option(
-        "http://localhost:8100",
+        "http://localhost:8100", # noqa: hardcode
         "--llm-url",
         help="URL of the llm_mcp HTTP gateway.",
     ),

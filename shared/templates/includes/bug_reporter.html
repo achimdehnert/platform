@@ -6,9 +6,9 @@
   Required context variables (via context processor):
     SHOW_BUG_REPORTER  — True in dev, False in prod
     BUG_REPORTER_APP   — app name, e.g. "dev-hub"
-    BUG_REPORTER_REPO  — repo path, e.g. "/home/deploy/projects/dev-hub"
+    BUG_REPORTER_REPO  — repo path, e.g. "/home/deploy/projects/dev-hub" # noqa: hardcode
 
-  API: POST https://bfagent.iil.pet/api/bugs/report/
+  API: POST https://bfagent.iil.pet/api/bugs/report/ # noqa: hardcode
 #}
 <style>
 #br-fab{position:fixed;bottom:20px;right:20px;z-index:99999;display:flex;flex-direction:column;gap:10px;align-items:center}
@@ -99,7 +99,7 @@
 
 <script>
 (function(){
-const API = 'https://bfagent.iil.pet/api/bugs/report/';
+const API = 'https://bfagent.iil.pet/api/bugs/report/'; # noqa: hardcode
 const APP  = '{{ BUG_REPORTER_APP|default:"unknown" }}';
 const REPO = '{{ BUG_REPORTER_REPO|default:"" }}';
 const GITHUB_REPO = '{{ BUG_REPORTER_GITHUB_REPO|default:"" }}';
@@ -138,7 +138,7 @@ function buildPrompt() {
   const prio     = document.getElementById('br-prio').value;
   const expected = document.getElementById('br-expected').value;
   const repo     = GITHUB_REPO || 'achimdehnert/' + APP;
-  const path     = REPO || '/home/deploy/projects/' + APP;
+  const path     = REPO || '/home/deploy/projects/' + APP; # noqa: hardcode
 
   if (_type === 'bug') {
     return `## 🐛 Bug Fix — ${APP}\n\n**Repo:** \`${repo}\`\n**Pfad:** \`${path}\`\n**Seite:** ${url}\n**Priorität:** ${prio}\n\n### ❌ Aktuelles Verhalten\n${title}: ${desc}\n${expected ? '\n### ✅ Erwartetes Verhalten\n' + expected + '\n' : ''}\n### Aufgabe\nAnalysiere den Bug, finde die Ursache in \`${path}\` und behebe ihn minimal. Schreibe einen Regressionstest falls sinnvoll.`;

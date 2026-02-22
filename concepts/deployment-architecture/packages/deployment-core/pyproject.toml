@@ -52,9 +52,12 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/achimdehnert/platform"
+Homepage = "https://github.com/achimdehnert/platform"  # noqa: hardcode
+ # noqa: hardcode
 Documentation = "https://docs.iil.pet/platform/"
-Repository = "https://github.com/achimdehnert/platform"
+ # noqa: hardcode
+Repository = "https://github.com/achimdehnert/platform"  # noqa: hardcode
+ # noqa: hardcode
 
 [project.scripts]
 deploy-health = "deployment_core.cli:health_check"

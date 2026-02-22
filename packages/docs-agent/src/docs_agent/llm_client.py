@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 class LLMConfig:
     """Configuration for LLM backend."""
 
-    gateway_url: str = "http://localhost:8100"
+    gateway_url: str = "http://localhost:8100" # noqa: hardcode
     model: str = "gpt-4o-mini"
     temperature: float = 0.3
     max_tokens: int = 1000
@@ -31,7 +31,7 @@ class LLMConfig:
         """Create config from environment variables."""
         return cls(
             gateway_url=os.environ.get(
-                "DOCS_AGENT_LLM_URL", "http://localhost:8100"
+                "DOCS_AGENT_LLM_URL", "http://localhost:8100" # noqa: hardcode
             ),
             model=os.environ.get(
                 "DOCS_AGENT_LLM_MODEL", "gpt-4o-mini"

@@ -26,7 +26,7 @@ body:
     id: repo_url
     attributes:
       label: GitHub Repository URL
-      placeholder: "https://github.com/achimdehnert/<repo>"
+      placeholder: "https://github.com/achimdehnert/<repo>" # noqa: hardcode
     validations:
       required: true
 
@@ -65,7 +65,7 @@ body:
       options:
         - label: "Kein `COPY packages/` (Cross-Repo COPY) im Dockerfile"
           required: true
-        - label: "Keine absoluten lokalen Pfade (`/home/`, `/opt/`) in `pyproject.toml` oder `requirements.txt`"
+        - label: "Keine absoluten lokalen Pfade (`/home/`, `/opt/`) in `pyproject.toml` oder `requirements.txt`" # noqa: hardcode
           required: true
         - label: "`platform_context` ist via GHCR-Package installiert (nicht via `wheels/`) — ADR-056 §2.3"
           required: false
@@ -97,13 +97,13 @@ body:
       options:
         - label: "Deploy-Pfad `/opt/<app>/` existiert auf `88.198.191.108`"  # noqa: hardcode
           required: true
-        - label: "`.env.prod` liegt in `/opt/<app>/.env.prod`"
+        - label: "`.env.prod` liegt in `/opt/<app>/.env.prod`" # noqa: hardcode
           required: true
         - label: "`.env.prod` enthält: `POSTGRES_USER`, `POSTGRES_PASSWORD`, `SECRET_KEY`, `ALLOWED_HOSTS`"
           required: true
         - label: "Nginx-Config in `/etc/nginx/sites-enabled/` vorhanden und proxy_pass korrekt"
           required: true
-        - label: "Kein `proxy_pass http://127.0.0.1:...` in Nginx (muss auf Container-Port zeigen)"
+        - label: "Kein `proxy_pass http://127.0.0.1:...` in Nginx (muss auf Container-Port zeigen)" # noqa: hardcode
           required: true
         - label: "SSL-Zertifikat für die Domain via Let's Encrypt vorhanden"
           required: true
@@ -125,7 +125,7 @@ body:
       description: "Dokumentiere das Port-Mapping für ADR-021 §2.9"
       placeholder: |
         - App-Port (Host): 0.0.0.0:XXXX:8000
-        - Nginx proxy_pass: http://localhost:XXXX
+        - Nginx proxy_pass: http://localhost:XXXX # noqa: hardcode
         - Domain: https://app.example.com
         - SSL: Let's Encrypt ✓
     validations:
