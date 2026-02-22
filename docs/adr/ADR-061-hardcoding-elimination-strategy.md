@@ -1,6 +1,6 @@
 ---
 adr_id: ADR-061
-title: "Hardcoding Elimination Strategy — Platform-wide"
+title: "Adopt hardcode_scanner.py as Platform-wide Hardcoding Prevention Tool"
 status: Proposed
 date: 2026-02-21
 author: Achim Dehnert
@@ -14,11 +14,12 @@ repos:
   - cad-hub
   - travel-beat
   - risk-hub
-related: ADR-021 (Deployment Standard), ADR-046 (Docs Hygiene), ADR-059 (ADR Drift Detector), ADR-060 (Developer Workstation SSH)
+related: ADR-021 (Deployment Standard), ADR-045 (Secrets Management/SOPS), ADR-046 (Docs Hygiene), ADR-059 (ADR Drift Detector), ADR-060 (Developer Workstation SSH)
+amended: 2026-02-22
 tags: [security, governance, hardcoding, secrets, configuration]
 ---
 
-# ADR-061: Hardcoding Elimination Strategy — Platform-wide
+# ADR-061: Adopt hardcode_scanner.py as Platform-wide Hardcoding Prevention Tool
 
 ## 1. Executive Summary
 
@@ -87,6 +88,8 @@ aller Hardcoding-Probleme sowie zur Prävention neuer Verstöße.
 
 **Gewählt: Option C** — `hardcode_scanner.py` als primäres Tool, in CI integriert.
 
+**Begründung:** Option C wird gewählt, weil (a) platform-spezifische Pattern (IPs, Ports, Pfade) von generischen Tools wie `detect-secrets` nicht erkannt werden, (b) kein externer Dependency eingeführt wird, (c) der JSON-Output direkt in dev-hub AgentRun-Dashboard integrierbar ist, und (d) Severity-Stufen ein pragmatisches, phasenweises Vorgehen ermöglichen. Option D (C + `detect-secrets`) wird für Phase 3 vorgesehen, wenn der Scanner stabil ist.
+
 ### 5.1 Kategorien und Severity
 
 | Kategorie | Severity | Beispiel | Fix-Strategie |
@@ -125,6 +128,42 @@ BASE_URL = config('BASE_URL', default='http://localhost:8000')
 | Basis-URLs | `<SERVICE>_BASE_URL` | `DEVHUB_BASE_URL` |
 | Pfade | `<SERVICE>_DEPLOY_PATH` | `DEVHUB_DEPLOY_PATH=/opt/dev-hub` |
 | GitHub | `GITHUB_ORG`, `GITHUB_TOKEN` | `achimdehnert` |
+
+---
+
+## 5a. Pros and Cons of the Options
+
+### Option A: Manuelle Code-Reviews
+
+- **Pro:** Kein Tooling-Aufwand
+- **Con:** Nicht skalierbar über 8 Repos
+- **Con:** Keine Garantie — menschliche Fehler unvermeidbar
+- **Con:** Kein Audit-Trail
+
+### Option B: `detect-secrets` (Yelp)
+
+- **Pro:** Etabliertes, gut gepflegtes Tool
+- **Pro:** Viele Secret-Pattern out-of-the-box
+- **Con:** Erkennt nur Secrets — keine IPs, Ports, Pfade, URLs
+- **Con:** Hohe False-Positive-Rate ohne Platform-Kontext
+- **Con:** Kein JSON-Output für dev-hub Integration
+
+### Option C: Eigener `hardcode_scanner.py` ✅ Gewählt
+
+- **Pro:** Platform-spezifische Pattern (IPs, Ports, Pfade, GitHub-Org)
+- **Pro:** Severity-Stufen (Critical/High/Low) für phasenweises Vorgehen
+- **Pro:** JSON-Output direkt in dev-hub AgentRun integrierbar
+- **Pro:** Kein externer Dependency
+- **Con:** Eigene Wartung nötig — Pattern müssen aktuell gehalten werden
+- **Con:** Kein Baseline-Mechanismus (alle Findings bei jedem Lauf)
+
+### Option D: Kombination C + `detect-secrets`
+
+- **Pro:** Beste Coverage (Platform-Pattern + Secret-Pattern)
+- **Pro:** Defense-in-depth
+- **Con:** Zwei Tools zu pflegen
+- **Con:** Erhöhte CI-Laufzeit
+- **Entscheidung:** Für Phase 3 vorgesehen (nach Scanner-Stabilisierung)
 
 ---
 
@@ -175,6 +214,24 @@ python3 scripts/hardcode_scanner.py --format json > findings.json
 python3 scripts/hardcode_scanner.py --severity high
 ```
 
+### CI-Gate Workflow-Snippet
+
+```yaml
+- name: Hardcoding Scan (Critical Gate)
+  run: |
+    python3 scripts/hardcode_scanner.py \
+      --severity critical \
+      --format json \
+      --output findings.json
+    CRITICAL=$(python3 -c "import json; d=json.load(open('findings.json')); print(sum(1 for f in d.get('findings',[]) if f['severity']=='critical'))")
+    if [ "$CRITICAL" -gt 0 ]; then
+      echo "❌ $CRITICAL critical hardcoding finding(s) — merge blocked"
+      cat findings.json
+      exit 1
+    fi
+    echo "✅ No critical hardcoding findings"
+```
+
 ### Neue Pattern hinzufügen
 
 Pattern werden in `PATTERNS`-Liste in `hardcode_scanner.py` definiert:
@@ -203,10 +260,26 @@ Pattern werden in `PATTERNS`-Liste in `hardcode_scanner.py` definiert:
 - **Git-History**: Alte Commits enthalten noch die Keys → BFG Repo Cleaner nötig (separater Task)
 - **False Positives**: Scanner kann legitime Werte flaggen (z.B. Beispiel-IPs in Docs) → `exclude_dirs` konfigurieren
 - **Env-Var Proliferation**: Viele neue env vars → `.env.example` muss gepflegt werden
+- **SOPS/ADR-045**: Für hochsensible Secrets (API-Keys in Prod) ist `os.environ.get()` ausreichend; SOPS-Encryption (ADR-045) bleibt optionale Erweiterung für Repos mit erhöhtem Schutzbedarf
 
 ### Offene Fragen
-- BFG Repo Cleaner für bfagent-History: wann, wer, Koordination mit Team?
-- Staging-Environment: Wann wird das eingeführt? (Voraussetzung für vollständige 12-Factor-Compliance)
+- BFG Repo Cleaner für bfagent-History: wann, wer, Koordination mit Team? → Separater Task, kein ADR nötig
+- Staging-Environment: Voraussetzung für vollständige 12-Factor-Compliance → wird in **ADR-062 (Staging Environment Strategy)** adressiert (geplant Q2 2026)
+
+---
+
+## 8a. Secrets Management Abgrenzung (ADR-045)
+
+Diese ADR adressiert **Erkennung und Prävention** von Hardcoding. Die Frage *wie* Secrets sicher gespeichert werden, ist in **ADR-045 (Secrets Management / SOPS)** geregelt:
+
+| Aspekt | ADR-061 (diese ADR) | ADR-045 |
+|--------|--------------------|---------|
+| Scope | Erkennung von Hardcoding im Code | Sichere Speicherung von Secrets |
+| Tool | `hardcode_scanner.py` | SOPS / python-decouple |
+| Trigger | CI-Gate (jeder Push) | Deployment-Zeit |
+| Ziel | Kein Secret im Git | Verschlüsselte `.env.prod` |
+
+Für Repos mit erhöhtem Schutzbedarf (z.B. bfagent mit Anthropic/Groq-Keys) wird SOPS-Encryption gemäß ADR-045 **empfohlen**, ist aber nicht Pflicht dieser ADR.
 
 ---
 
@@ -220,7 +293,20 @@ Diese ADR gilt als implementiert wenn:
 
 ---
 
-## 10. Migration Tracking
+## 10. More Information
+
+- **ADR-021**: Deployment Standard — Env-Var Konventionen für `DEPLOY_HOST`, `DEPLOY_USER`
+- **ADR-045**: Secrets Management / SOPS — Sichere Speicherung von Credentials
+- **ADR-046**: Docs Hygiene — `.env.example` Pflege
+- **ADR-054**: Architecture Guardian — automatische Compliance-Prüfung
+- **ADR-059**: ADR Drift Detector — Quarterly Full-Scan als Celery-Task
+- **ADR-060**: Developer Workstation SSH — SSH-Key Konventionen
+- **`hardcode_scanner.py`**: `platform/scripts/hardcode_scanner.py`
+- **MADR 4.0**: https://adr.github.io/madr/
+
+---
+
+## 11. Migration Tracking
 
 | Schritt | Status | Datum | Notiz |
 |---------|--------|-------|-------|
