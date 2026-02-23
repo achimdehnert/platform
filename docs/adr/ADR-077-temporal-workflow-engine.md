@@ -614,7 +614,7 @@ Temporal replayed Workflow-Code bei Crash. Nicht-deterministischer Code führt z
 | `platform_context`     | 4     | ✅ Abgeschlossen | 2026-02-23 | `temporal_client.py` als shared Module v0.5.0 + `[temporal]` extra + vendored in bfagent + mcp-hub |
 | `deploy-hub`           | 5     | ✅ Abgeschlossen | 2026-02-23 | `DeploymentWorkflow` in bfagent — triggert `repository_dispatch` → deploy-hub GitHub Actions |
 | `dev-hub`              | 5     | ✅ Abgeschlossen | 2026-02-23 | Temporal UI: `/agents/temporal/` + Detail-View + Nav-Link in base.html |
-| Celery (bfagent)       | 6     | ⬜ Ausstehend   | –     | Celery auf Scheduled Tasks + echte Fire-and-Forget reduzieren   |
+| Celery (bfagent)       | 6     | ✅ Abgeschlossen | 2026-02-23 | cascade_api.py → Temporal; tasks.py deprecated (BEHALTEN als Fallback); auto_illustrate_chapter_task bleibt Celery |
 
 ---
 
