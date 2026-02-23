@@ -1,0 +1,31 @@
+# catalog-info.yaml — Backstage-compatible service catalog entry
+# Copy this file to the root of each service repo and fill in the values.
+# dev-hub imports this file via: manage.py populate_catalog --repo <url>
+#
+# Reference: ADR-050 §4.3, ADR-053
+
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: <service-name>                    # e.g. travel-beat
+  description: <short description>
+  annotations:
+    github.com/project-slug: achimdehnert/<repo-name>
+    deployment/server: "88.198.191.108"
+    deployment/path: "/opt/<service-name>"
+    deployment/port: "<host-port>"
+    deployment/health-url: "https://<domain>/health/"
+    deployment/image: "ghcr.io/achimdehnert/<image>:latest"
+    deployment/compose-service: "<compose-service-name>"
+    deployment/db-container: "<db-container-name>"
+    deployment/db-name: "<database-name>"
+spec:
+  type: service                           # service | website | library | mcp_server
+  lifecycle: production                   # production | experimental | deprecated
+  owner: achimdehnert
+  system: <system-name>                   # e.g. content-publishing
+  domain: <domain-name>                   # e.g. content
+  providesApis: []
+  dependsOn:
+    - resource:postgresql
+    - resource:redis
