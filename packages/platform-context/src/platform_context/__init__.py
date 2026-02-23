@@ -11,6 +11,7 @@ Provides:
 - Django template context processors
 - Shared test helpers (platform_context.testing)
 - Multi-tenancy utilities (platform_context.tenant_utils) — ADR-056
+- Temporal Client singleton (platform_context.temporal_client) — ADR-077
 
 Usage::
 
@@ -52,7 +53,7 @@ from platform_context.htmx import (
     is_htmx_request,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     # Context
@@ -78,4 +79,6 @@ __all__ = [
     # Import via: from platform_context.tenant_utils.celery import TenantAwareTask
     # Import via: from platform_context.tenant_utils.provisioning import provision_tenant
     # Import via: from platform_context.tenant_utils.testing import tenant_a, tenant_b
+    # Temporal Client (ADR-077, requires platform-context[temporal])
+    # Import via: from platform_context.temporal_client import get_temporal_client
 ]
