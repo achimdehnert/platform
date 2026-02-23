@@ -1,0 +1,11 @@
+repos:
+  - repo: local
+    hooks:
+      - id: adr-number-guard
+        name: ADR Number Guard (no duplicate numbers)
+        language: python
+        entry: python3 scripts/adr_next_number.py --check
+        pass_filenames: false
+        always_run: false
+        files: ^docs/adr/ADR-.*\.md$
+        stages: [pre-commit]

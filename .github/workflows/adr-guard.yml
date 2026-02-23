@@ -1,0 +1,23 @@
+name: ADR Number Guard
+
+on:
+  push:
+    paths:
+      - "docs/adr/ADR-*.md"
+  pull_request:
+    paths:
+      - "docs/adr/ADR-*.md"
+
+jobs:
+  adr-guard:
+    name: Check ADR number uniqueness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ADR Number Guard
+        run: python3 scripts/adr_next_number.py --check
+
+      - name: Run ADR Audit (on failure)
+        if: failure()
+        run: python3 scripts/adr_audit.py --fix-hints
