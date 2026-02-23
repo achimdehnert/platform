@@ -1,276 +1,225 @@
 ---
 title: "OpenCLAW Integration in AI Engineering Squad (ADR-066/067/068)"
 id: "CONCEPT-001"
-status: "draft"
+status: "review"
 date: 2026-02-23
+revised: 2026-02-23
 author: [Achim Dehnert]
 related_adrs:
   - ADR-066-ai-engineering-team.md
   - ADR-067-deployment-execution-strategy.md
   - ADR-068-adaptive-model-routing.md
-tags: [openclaw, ai-agents, orchestration, multi-agent, adr-066, adr-068]
+tags: [openclaw, ai-agents, orchestration, multi-agent, adr-066, adr-068, make-or-buy]
 ---
 
 # OpenCLAW Integration in AI Engineering Squad (ADR-066/067/068)
 
-> **Zweck**: Analyse ob und wie OpenCLAW (Open Cognitive LLM Agent Workflow) und seine
-> Ergänzungen (CLAW-Eval, CLAW-Tools, CLAW-Trace, CLAW-Retry) in die bestehende
-> AI-Engineering-Squad-Architektur (ADR-066), die Deployment-Strategie (ADR-067) und
-> das Adaptive Model Routing (ADR-068) integriert werden können.
+> **Zweck**: Make-or-Buy Analyse: OpenCLAW Szenario A (Framework-Integration) vs.
+> Eigenimplementierung mit OpenCLAW-Prinzipien. Basis ist der tatsächliche
+> Implementierungsstand von `orchestrator_mcp/agent_team/` (mcp-hub).
 
 ---
 
 ## 1. Executive Summary
 
-OpenCLAW ist ein Open-Source Framework für strukturierte, auditierbare LLM-Workflows
-mit nativem Multi-Agent-Support, Pydantic v2 Structured Outputs, Retry-Logik und
-OpenTelemetry-Observability. Die Platform betreibt mit ADR-066/068 eine eigene
-Agent-Team-Architektur in `orchestrator_mcp/agent_team/`, die konzeptuell mit OpenCLAW
-überlappt — aber auf einer höheren Abstraktionsebene operiert.
+Nach gründlicher Analyse des tatsächlichen Implementierungsstands in
+`orchestrator_mcp/agent_team/` wird **Szenario A (OpenCLAW als Execution-Layer)
+verworfen**. Die Empfehlung lautet: **Eigenimplementierung der fehlenden Komponenten
+unter Übernahme der OpenCLAW-Prinzipien**.
 
-**Kernaussage**: OpenCLAW ist kein Ersatz für die bestehende Architektur, sondern ein
-potentieller **Execution-Layer** unterhalb der ADR-066-Rollen. Die höchste
-Integrationstiefe liegt im `Developer`- und `Tester`-Agenten (ADR-066) sowie im
-`QualityEvaluator` (ADR-068). Für ADR-067 (Deployment via GitHub Actions) ist
-OpenCLAW nicht relevant. **Empfehlung: Szenario A** — selektive Integration als
-Execution-Layer ab ADR-066 Phase 3.
+**Begründung in einem Satz**: OpenCLAW würde ~80 Zeilen Boilerplate sparen, aber
+~400 Zeilen bereits funktionierenden Code erfordern, eine externe Abhängigkeit
+mit unklarer API-Stabilität einführen und das bestehende Gate-System neu integrieren
+müssen — bei einem Netto-Nutzen nahe null.
 
----
-
-## 2. Motivation und Problemkontext
-
-### 2.1 Ausgangssituation
-
-ADR-066 definiert 4 AI-Rollen + Guardian mit konkreter Implementierungsstruktur in
-`orchestrator_mcp/agent_team/`. Die Implementierung befindet sich in Phase 1
-(Datenmodell). Vor Phase 3 (Tester) und Phase 4 (Developer) stellt sich die Frage:
-Soll der LLM-Execution-Layer selbst gebaut werden oder kann OpenCLAW als Basis dienen?
-
-**Konkrete Lücken in der aktuellen ADR-066/068-Spezifikation:**
-
-| Lücke | Betrifft | OpenCLAW-Lösung |
-|-------|----------|------------------|
-| Kein Tool-Calling-Protokoll definiert | ADR-066 Developer, TL | `CLAWTools` Registry |
-| Keine Retry-Logik spezifiziert | ADR-066 alle Agenten | `CLAWRetry` Exponential Backoff |
-| Kein Streaming für lange Tasks | ADR-066 Re-Engineer, TL | `CLAWAgent` Streaming |
-| Observability nicht adressiert | ADR-068 AuditStore | `CLAWTrace` OpenTelemetry |
-| QualityEvaluator: kein Framework | ADR-068 Phase 4 | `CLAWEval` |
-| Token-Kosten-Tracking manuell | ADR-068 `cost_usd` | `CLAWTrace` Budget-Tracking |
-
-### 2.2 Relevante bestehende ADRs
-
-| ADR | Titel | Relevanz |
-|-----|-------|----------|
-| ADR-066 | AI Engineering Squad | **HOCH** — Rollen, Workflows, Execution-Layer |
-| ADR-067 | Deployment Execution Strategy | **KEINE** — GitHub Actions, kein Agent-Framework |
-| ADR-068 | Adaptive Model Routing | **HOCH** — QualityEvaluator, AuditStore, Fallback-Chain |
-| ADR-044 | MCP-Hub Architecture | **MITTEL** — Ziel-Repo für `orchestrator_mcp` |
-
-### 2.3 Nicht-Ziele
-
-- OpenCLAW als Ersatz für `orchestrator_mcp` (zu invasiv)
-- OpenCLAW für Deployment-Operationen (ADR-067 ist GitHub-Actions-basiert, kein Agent-Framework)
-- Vollständige Evaluation aller Alternativen (LangChain, LlamaIndex, AutoGen, CrewAI)
-- Produktions-Entscheidung in diesem Dokument → folgt als ADR-069 nach PoC
+**Fehlende Komponenten** (`developer.py`, `evaluator.py`, `router.py`, `metrics.py`)
+werden eigenständig mit `litellm` + Pydantic v2 implementiert. Die OpenCLAW-Prinzipien
+(Anti-Bias-Evaluation, Structured Outputs, Retry-Chain, explizite Workflows) werden
+direkt übernommen — ohne Framework-Abhängigkeit.
 
 ---
 
-## 3. OpenCLAW Analyse
+## 2. Tatsächlicher Implementierungsstand (Stand 2026-02-23)
 
-### 3.1 Überblick
+> **Kritische Erkenntnis**: Das initiale Konzeptpapier (v1) ging von "Phase 1
+> (Datenmodell)" aus. Die tatsächliche Implementierung ist deutlich weiter.
 
-OpenCLAW positioniert sich zwischen raw LLM-API-Calls (zu niedrig-level) und
-vollständigen Frameworks wie LangChain (zu opinionated). Es ist **workflow-first**:
-Workflows sind explizit definiert, nicht emergent. Lizenz: Apache 2.0.
+### 2.1 Bereits vollständig implementiert
 
-**Kernprinzipien:**
-- **Structured Outputs**: Pydantic v2 nativ, kein JSON-Parsing-Overhead
-- **Auditierbar**: Jeder Step ist traceable (OpenTelemetry-kompatibel)
-- **Modell-agnostisch**: Anthropic, OpenAI, Ollama, MiniMax
-- **Retry-native**: Exponential Backoff, Fallback-Chains konfigurierbar
-- **Composable**: Steps können sequentiell oder parallel kombiniert werden
+| Datei | Inhalt | Vollständigkeit |
+|-------|--------|----------------|
+| `agent_team/models.py` | `EngineeringTask`, `TaskPlan`, `WorkflowExecution`, `ImpactReport`, `TestGapReport` — alle Pydantic v2 | ✅ vollständig |
+| `agent_team/workflows.py` | `create_workflow()`, `advance_workflow()`, `request_changes()` — Iteration-Counter, Eskalation | ✅ vollständig |
+| `agent_team/tech_lead.py` | `parse_adr()`, `create_task_plan()`, `review_task()` | ✅ vollständig |
+| `agent_team/tester.py` | `run_test_suite()`, `analyze_test_gaps()` — async pytest-Runner mit Regex-Parsing | ✅ vollständig |
+| `agent_team/guardian.py` | Ruff/Bandit/MyPy Quality Gate | ✅ vollständig |
+| `agent_team/config.py` | Tier-Mapping, Gate-Definitionen, Coverage-Targets | ✅ vollständig |
+| `orchestrator_mcp/audit_store.py` | PostgreSQL + In-Memory-Fallback, vollständiges Schema inkl. `cost_usd` | ✅ vollständig |
 
-**OpenCLAW-Ecosystem (relevante Ergänzungen):**
+### 2.2 Fehlende Komponenten (tatsächliche Lücken)
 
-| Modul | Funktion | Relevanz |
-|-------|----------|----------|
-| **CLAW-Eval** | LLM-basierte Output-Evaluation (Evaluator ≠ Executor) | **HOCH** — ADR-068 QualityEvaluator |
-| **CLAW-Tools** | Tool-Registry mit Schema-Validation | **HOCH** — ADR-066 Developer/TL |
-| **CLAW-Trace** | OpenTelemetry Tracing + Budget-Tracking | **HOCH** — ADR-068 AuditStore |
-| **CLAW-Retry** | Strukturierte Retry-Logik + Fallback-Chains | **HOCH** — ADR-068 FALLBACK_CHAIN |
-
-### 3.2 Kernfähigkeiten und Relevanz
-
-| Fähigkeit | Beschreibung | Relevanz für Platform |
-|-----------|-------------|----------------------|
-| `CLAWAgent` | LLM-Agent mit Pydantic v2 Output | **HOCH** — ADR-066 Developer, Tester |
-| `CLAWWorkflow` | Sequentielle + parallele Step-Chains | **HOCH** — ADR-066 Workflow A/B/C |
-| `CLAWEval` | Evaluation: Evaluator ≠ Executor (Bias-Vermeidung) | **HOCH** — ADR-068 Phase 4 |
-| `CLAWRetry` | Exponential Backoff + Tier-Fallback | **HOCH** — ADR-068 FALLBACK_CHAIN |
-| `CLAWTrace` | Span/Trace pro Step, Token-Kosten | **MITTEL** — ADR-068 cost_usd |
-| Streaming | Token-Streaming für lange Tasks | **MITTEL** — Re-Engineer, TL |
-| Budget-Tracking | Token-Kosten pro Step und Workflow | **HOCH** — ADR-068 TaskQualityScore |
-
-### 3.3 Mapping: OpenCLAW → ADR-066/068 Konzepte
-
-| ADR-066/068 Konzept | OpenCLAW Äquivalent | Überlappung |
-|--------------------|--------------------|--------------|
-| `AgentRole` (TL, Dev, Tester, RE) | `CLAWAgent` mit Role-Config | **DIREKT** |
-| `TaskPlan` (Pydantic v2) | `CLAWOutput[TaskPlan]` | **DIREKT** |
-| Workflow A/B/C (Sequenz) | `CLAWWorkflow(steps=[...])` | **DIREKT** |
-| `FALLBACK_CHAIN` (ADR-068) | `CLAWRetry(fallback_model=...)` | **DIREKT** |
-| `QualityEvaluator` (ADR-068) | `CLAWEval(evaluator=budget_model)` | **DIREKT** |
-| `AuditStore` (ADR-068) | `CLAWTrace` → PostgreSQL Exporter | **INDIREKT** |
-| `Guardian` (regelbasiert) | Kein Äquivalent — bleibt eigenständig | **KEIN** |
-| `TaskRouter` (ADR-068) | `CLAWRouter` (experimentell) | **TEILWEISE** |
-| Gate-System (0–4) | Kein natives Äquivalent | **KEIN** |
-
-### 3.4 Einschränkungen und Risiken
-
-| Einschränkung | Schwere | Mitigation |
-|---------------|---------|------------|
-| OpenCLAW jung (< 1 Jahr) — API-Stabilität unklar | MEDIUM | Wrapper-Layer; kein direkter Import in Business-Logic |
-| Gate-System (ADR-066 Gate 0–4) hat kein Äquivalent | MEDIUM | Gate-System bleibt eigenständig in `workflows.py` |
-| `CLAWRouter` experimentell — nicht production-ready | HIGH | Nur `CLAWAgent` + `CLAWWorkflow` verwenden; Router selbst bauen |
-| Vendor-Abhängigkeit | MEDIUM | Abstraktion via `agent_team/` Interface; OpenCLAW nur im Execution-Layer |
-| Lizenz: Apache 2.0 | NIEDRIG | Kompatibel mit Platform-Anforderungen |
+| Datei | Funktion | ADR-Referenz |
+|-------|----------|-------------|
+| `agent_team/developer.py` | LLM-basierte Code-Generierung / Koordinations-Wrapper | ADR-066 Phase 4 |
+| `agent_team/evaluator.py` | QualityEvaluator (Evaluator ≠ Executor) | ADR-068 Phase 4 |
+| `agent_team/router.py` | TaskRouter — Tier-Zuweisung per Task-Typ | ADR-068 Phase 2 |
+| `agent_team/metrics.py` | `TaskQualityScore`, Feedback-Loop, Routing-Matrix-Update | ADR-068 Phase 3 |
+| `agent_team/utils.py` | `llm_call_with_retry()`, FALLBACK_CHAIN | ADR-068 Phase 2 |
 
 ---
 
-## 4. Integrations-Szenarien
+## 3. Make-or-Buy Analyse: OpenCLAW vs. Eigenimplementierung
 
-### Szenario A — Execution-Layer für Developer + Tester + QualityEvaluator (Empfohlen)
+### 3.1 Was OpenCLAW tatsächlich lösen würde
 
-`CLAWAgent` + `CLAWWorkflow` ersetzen den manuellen LLM-Call-Code in `developer.py`
-und `tester.py`. `CLAWEval` wird als Basis für `evaluator.py` (ADR-068) verwendet.
-`CLAWTrace` liefert Token-Kosten für `TaskQualityScore.cost_usd`.
+| OpenCLAW-Komponente | Theoretischer Nutzen | Tatsächlicher Nutzen nach Ist-Analyse |
+|--------------------|---------------------|--------------------------------------|
+| `CLAWAgent` für `tester.py` | Structured Outputs, Retry | **KEIN** — `tester.py` ist kein LLM-Agent, ruft `pytest` als Subprocess auf |
+| `CLAWWorkflow` für `workflows.py` | Sequentielle Step-Chains | **KEIN** — `workflows.py` ist bereits vollständig implementiert |
+| `CLAWEval` für `evaluator.py` | Anti-Bias-Evaluation | **GERING** — `litellm.acompletion()` + Pydantic v2 reicht (~80 Zeilen) |
+| `CLAWTrace` für `audit_store.py` | Token-Kosten-Tracking | **KEIN** — `audit_store.py` existiert bereits mit `cost_usd`-Feld |
+| `CLAWRetry` für alle Agenten | Exponential Backoff | **GERING** — ~15 Zeilen `utils.py` mit `litellm` |
+| `CLAWAgent` für `developer.py` | LLM-Execution-Layer | **FRAGLICH** — Developer-Agent ist Cascade selbst, kein autonomer LLM-Caller |
 
-Der `TaskRouter`, das Gate-System und der `Guardian` bleiben eigenständig.
+### 3.2 Kosten der OpenCLAW-Integration
 
-```
-ADR-066 Workflow A (vereinfacht)
+| Kostenfaktor | Beschreibung | Aufwand |
+|-------------|-------------|---------|
+| Umschreiben funktionierenden Codes | `tester.py`, `workflows.py` müssten auf CLAWAgent/CLAWWorkflow umgestellt werden | ~400 Zeilen |
+| Gate-System-Integration | Kein OpenCLAW-Äquivalent — muss als Wrapper um CLAWWorkflow gebaut werden | ~100 Zeilen |
+| Neue externe Abhängigkeit | OpenCLAW < 1 Jahr alt, API-Stabilität unklar | Risiko: HOCH |
+| Debugging-Komplexität | Framework-Layer zwischen eigenem Code und LLM-API | Dauerhaft |
+| Lernaufwand | OpenCLAW-Dokumentation, Patterns, Breaking Changes verfolgen | 1–2 Tage + laufend |
 
-TechLead.parse_adr()          ← Eigenständig (High-Reasoning)
-  → TaskPlan
+### 3.3 Kosten der Eigenimplementierung
 
-Developer.implement()         ← CLAWWorkflow
-  CLAWAgent(
-    model=router.get_tier(task),    ← ADR-068 TaskRouter
-    tools=[read_file, write_file, run_tests],
-    output_schema=ImplementationResult,
-    retry=CLAWRetry(max=3, fallback=next_tier),
-  )
+| Fehlende Komponente | Ansatz | Aufwand |
+|--------------------|--------|---------|
+| `utils.py` — `llm_call_with_retry()` | `litellm` + `asyncio.sleep(2**attempt)` | ~20 Zeilen |
+| `router.py` — TaskRouter | Heuristische Matrix + optionaler Budget-LLM-Call | ~120 Zeilen |
+| `evaluator.py` — QualityEvaluator | `litellm.acompletion()` + Pydantic v2 + Anti-Bias-Assertion | ~80 Zeilen |
+| `metrics.py` — Feedback-Loop | `TaskQualityScore` Dataclass + `update_routing_matrix()` | ~100 Zeilen |
+| `developer.py` — Koordinations-Wrapper | Workflow-Koordination + optionaler LLM-Call für autonome Tasks | ~100 Zeilen |
+| **Gesamt** | | **~420 Zeilen, 0 neue Abhängigkeiten** |
 
-Guardian.check()              ← Eigenständig (Ruff/Bandit/MyPy)
+### 3.4 Direkter Vergleich
 
-Tester.validate()             ← CLAWAgent
-  CLAWAgent(
-    model=lean_local,
-    tools=[run_pytest, read_coverage],
-    output_schema=TestResult,
-  )
+| Aspekt | OpenCLAW Szenario A | Eigenimplementierung |
+|--------|--------------------|--------------------|
+| Neue externe Abhängigkeit | Ja — junges Framework | Nein — nur `litellm` (bereits vorhanden) |
+| Bereits vorhandener Code | Muss umgeschrieben werden | Bleibt unverändert |
+| Netto-Boilerplate-Ersparnis | ~80 Zeilen | — |
+| Zusätzlicher Umbau-Aufwand | ~500 Zeilen | — |
+| Risiko API-Breaking-Change | HOCH | KEINE |
+| Gate-System-Kompatibilität | Muss nachgebaut werden | Bereits implementiert |
+| `litellm` bereits vorhanden? | Ja (chat-logging, travel-beat) | Ja |
+| Debugging-Komplexität | Framework-Layer | Direkter Stack-Trace |
+| Volle Kontrolle über Verhalten | Nein | Ja |
 
-QualityEvaluator              ← CLAWEval
-  CLAWEval(
-    evaluator_model=budget_cloud,   ← != executor_model (Bias-Vermeidung)
-    metrics=[completion, adr_compliance, code_quality],
-    output_schema=TaskQualityScore, ← ADR-068
-  )
+---
 
-TechLead.review()             ← Eigenständig (High-Reasoning, Gate 2)
+## 4. Übernommene OpenCLAW-Prinzipien (ohne Framework)
+
+Die wertvollen Ideen aus OpenCLAW werden direkt in die Eigenimplementierung übernommen:
+
+### Prinzip 1: Evaluator ≠ Executor (Anti-Bias)
+```python
+# evaluator.py — erzwungen durch Assertion:
+def evaluate_task(task_result, executor_model: str) -> TaskQualityScore:
+    evaluator_model = FALLBACK_CHAIN[executor_model]  # immer anderes Modell
+    assert evaluator_model != executor_model, "Anti-bias: evaluator must differ"
 ```
 
-**Aufwand**: MEDIUM (2–3 Wochen, ab ADR-066 Phase 3)
+### Prinzip 2: Structured Outputs immer via Pydantic v2
+```python
+# Bereits in models.py — konsequent fortführen:
+response = await litellm.acompletion(
+    model=evaluator_model,
+    messages=[...],
+    response_format=TaskQualityScore,  # litellm unterstützt das nativ
+)
+```
 
-**Nutzen**:
-- Retry-Logik + Fallback-Chains out-of-the-box (~200 Zeilen Boilerplate gespart)
-- `CLAWEval` implementiert QualityEvaluator (ADR-068 Phase 4) direkt
-- `CLAWTrace` liefert `cost_usd` und `duration_seconds` für `TaskQualityScore`
-- Structured Outputs via Pydantic v2 — kein JSON-Parsing-Overhead
-- Modell-Agnostizität: Tier-Wechsel nur in `agent_team_config.yaml`
+### Prinzip 3: Retry mit expliziter Fallback-Chain
+```python
+# utils.py — einmal schreiben, überall nutzen:
+FALLBACK_CHAIN = {
+    "lean_local": "budget_cloud",
+    "budget_cloud": "standard_coding",
+    "standard_coding": "high_reasoning",
+}
 
-**Abhängigkeiten**: ADR-066 Phase 1 (Datenmodell) abgeschlossen
+async def llm_call_with_retry(model, messages, schema, max_retries=3):
+    for attempt in range(max_retries):
+        try:
+            return await litellm.acompletion(model=model, messages=messages,
+                                              response_format=schema)
+        except (RateLimitError, APIError):
+            if attempt == max_retries - 1:
+                fallback = FALLBACK_CHAIN.get(model)
+                if fallback:
+                    return await llm_call_with_retry(fallback, messages, schema)
+                raise
+            await asyncio.sleep(2 ** attempt)
+```
+
+### Prinzip 4: Jeder LLM-Step loggt Token-Kosten
+```python
+# AuditStore bereits vorhanden — cost_usd Feld bereits im Schema:
+cost = response.usage.total_tokens * COST_PER_TOKEN[model]
+audit_store.log({"task_id": task_id, "cost_usd": cost, "model": model, ...})
+```
+
+### Prinzip 5: Workflows sind explizit, nicht emergent
+```python
+# workflows.py bereits so implementiert — konsequent beibehalten.
+# KEIN dynamisches Agent-Spawning, KEINE emergenten Chains.
+```
 
 ---
 
-### Szenario B — Nur CLAWEval für QualityEvaluator
+## 5. Revidierte Bewertungsmatrix
 
-Nur `CLAWEval` für `evaluator.py` (ADR-068 Phase 4). Alle anderen Agenten bleiben
-eigenständig.
+> Bewertung nach Kenntnis des tatsächlichen Implementierungsstands.
 
-**Aufwand**: LOW (1 Woche)
-**Nutzen**: Schnellste Integration; minimales Risiko
-**Nachteil**: Kein Retry/Fallback, kein Tracing für Developer/Tester
+| Kriterium | Gewicht | A (OpenCLAW) | E (Eigenimpl.) | C (Vollst. OpenCLAW) | D (Nichts tun) |
+|-----------|---------|-------------|----------------|---------------------|----------------|
+| Technischer Nutzen | 30% | 0.3 | 0.9 | 0.5 | 0.0 |
+| Implementierungsaufwand | 25% | 0.2 | 0.9 | 0.1 | 1.0 |
+| Wartbarkeit | 20% | 0.5 | 0.9 | 0.3 | 0.7 |
+| Risiko (invertiert) | 15% | 0.4 | 1.0 | 0.2 | 0.8 |
+| Strategische Passung | 10% | 0.6 | 0.9 | 0.5 | 0.1 |
+| **Gesamt** | 100% | **0.39** | **0.92** | **0.32** | **0.54** |
 
----
-
-### Szenario C — Vollständige Integration (alle Agenten + CLAWRouter)
-
-Alle 4 Agenten als `CLAWAgent`. `CLAWRouter` ersetzt ADR-068 TaskRouter.
-
-**Aufwand**: HIGH (4–6 Wochen)
-**Risiko**: HIGH — `CLAWRouter` experimentell; Gate-System muss neu integriert werden
-**Empfehlung**: Nicht empfohlen
-
----
-
-### Szenario D — Nicht integrieren
-
-ADR-066/068 sind selbst ausreichend spezifiziert. OpenCLAW würde externe
-Abhängigkeit ohne klaren Mehrwert einführen.
-
-**Wann sinnvoll**: Wenn API-Stabilität nicht nachgewiesen oder Lizenzprobleme entstehen.
-
----
-
-## 5. Bewertungsmatrix
-
-| Kriterium | Gewicht | A (Execution) | B (Eval-only) | C (Vollst.) | D (Nicht) |
-|-----------|---------|--------------|--------------|-------------|----------|
-| Technischer Nutzen | 30% | 0.9 | 0.5 | 0.8 | 0.0 |
-| Implementierungsaufwand | 25% | 0.6 | 0.9 | 0.2 | 1.0 |
-| Wartbarkeit | 20% | 0.7 | 0.8 | 0.4 | 0.9 |
-| Risiko (invertiert) | 15% | 0.7 | 0.9 | 0.3 | 1.0 |
-| Strategische Passung | 10% | 0.9 | 0.6 | 0.7 | 0.2 |
-| **Gesamt** | 100% | **0.76** | **0.72** | **0.44** | **0.60** |
-
-> Bewertung: 0.0 = schlecht, 1.0 = optimal. Szenario A gewinnt.
+> Szenario A fällt von 0.76 (v1, ohne Kenntnis des Ist-Stands) auf **0.39** (v2, nach Ist-Analyse).
+> Eigenimplementierung gewinnt klar mit **0.92**.
 
 ---
 
 ## 6. Empfehlung
 
-### 6.1 Empfohlenes Szenario: A — OpenCLAW als Execution-Layer
+### 6.1 Entscheidung: Eigenimplementierung mit OpenCLAW-Prinzipien
 
-OpenCLAW wird als **Implementierungsdetail**, nicht als Architektur eingesetzt.
-Das Gate-System, der `Guardian` und der `TaskRouter` bleiben vollständig eigenständig.
+OpenCLAW wird **nicht integriert**. Die fehlenden Komponenten werden eigenständig
+mit `litellm` + Pydantic v2 implementiert. Die OpenCLAW-Prinzipien (Anti-Bias,
+Structured Outputs, Retry-Chain, explizite Workflows) werden direkt übernommen.
 
-**Klare Integrationsgrenze:**
+### 6.2 Implementierungsplan
 
-| ADR-066/068 Komponente | Ansatz | Begründung |
-|------------------------|--------|-------------|
-| `developer.py` | `CLAWAgent` + `CLAWWorkflow` | Retry, Structured Outputs, Tools |
-| `tester.py` | `CLAWAgent` | Structured Outputs, Lean-Local-Tier |
-| `evaluator.py` (ADR-068) | `CLAWEval` | Bias-Vermeidung erzwungen, Metriken |
-| `audit_store.py` (ADR-068) | `CLAWTrace` → PostgreSQL | Token-Kosten, Latenz automatisch |
-| `router.py` (ADR-068) | **Eigenständig** | `CLAWRouter` zu experimentell |
-| `guardian.py` | **Eigenständig** | Regelbasiert, kein LLM |
-| `tech_lead.py` | **Eigenständig** | High-Reasoning, Gate 2–4 |
-| `re_engineer.py` | **Optional** | `CLAWAgent` wenn Streaming nötig |
+| Komponente | Datei | Priorität | Aufwand | ADR-Phase |
+|-----------|-------|-----------|---------|-----------|
+| Retry-Utility + FALLBACK_CHAIN | `agent_team/utils.py` | HIGH | ~20 Zeilen | ADR-068 Phase 2 |
+| TaskRouter (heuristisch) | `agent_team/router.py` | HIGH | ~120 Zeilen | ADR-068 Phase 2 |
+| QualityEvaluator | `agent_team/evaluator.py` | HIGH | ~80 Zeilen | ADR-068 Phase 4 |
+| TaskQualityScore + Feedback-Loop | `agent_team/metrics.py` | MEDIUM | ~100 Zeilen | ADR-068 Phase 3 |
+| Developer-Koordinations-Wrapper | `agent_team/developer.py` | MEDIUM | ~100 Zeilen | ADR-066 Phase 4 |
 
-### 6.2 Nächste Schritte
-
-| Schritt | Verantwortlich | Zieldatum | Ergebnis |
-|---------|---------------|-----------|----------|
-| OpenCLAW PoC: `CLAWAgent` für Developer-Task | Cascade (ADR-066 Phase 4) | 2026-Q2 | PoC-Branch in mcp-hub |
-| `CLAWEval` für QualityEvaluator evaluieren | Cascade (ADR-068 Phase 4) | 2026-Q2 | Entscheidung A oder B |
-| `CLAWTrace` → AuditStore-Exporter | Cascade (ADR-068 Phase 3) | 2026-Q2 | `audit_store.py` |
-| ADR-069 erstellen | Achim Dehnert | 2026-Q2 | ADR-069 (accepted) |
+**Reihenfolge**: `utils.py` → `router.py` → `evaluator.py` → `metrics.py` → `developer.py`
 
 ### 6.3 ADR-Kandidaten
 
-- [ ] **ADR-069**: OpenCLAW als Execution-Layer für AI Engineering Squad
-  *(Entscheidung nach PoC-Ergebnis in ADR-066 Phase 4)*
+- [ ] **ADR-069**: Eigenimplementierung der ADR-068-Komponenten mit OpenCLAW-Prinzipien
+  *(ersetzt den ursprünglichen ADR-069-Kandidaten "OpenCLAW als Execution-Layer")*
 
 ---
 
@@ -278,20 +227,18 @@ Das Gate-System, der `Guardian` und der `TaskRouter` bleiben vollständig eigens
 
 | Frage | Priorität | Wer klärt es? |
 |-------|-----------|---------------|
-| Ist OpenCLAW-API ab v0.x stabil genug für Production? | HIGH | PoC in ADR-066 Phase 4 |
-| Kann `CLAWTrace` direkt in PostgreSQL (AuditStore) exportieren? | HIGH | PoC Phase 3 |
-| Unterstützt `CLAWEval` das `evaluator != executor`-Constraint aus ADR-068? | HIGH | PoC Phase 4 |
-| Ist `CLAWTools` kompatibel mit bestehenden MCP-Tools in `deployment-mcp`? | MEDIUM | ADR-066 Phase 4 |
-| Lizenz-Kompatibilität bei kommerziellem Einsatz (coach-hub, risk-hub)? | MEDIUM | Achim Dehnert |
+| Ist `developer.py` ein autonomer LLM-Caller oder rein ein Koordinations-Wrapper für Cascade? | HIGH | Achim Dehnert — architektonische Entscheidung |
+| Welches Budget-Modell für `router.py` (heuristisch vs. LLM-basiert)? | MEDIUM | ADR-068 Phase 2 |
+| Soll `metrics.py` die Routing-Matrix persistent in PostgreSQL speichern? | MEDIUM | ADR-068 Phase 3 |
 
 ---
 
 ## 8. Referenzen
 
-- [OpenCLAW GitHub](https://github.com/openclaw/openclaw)
 - [ADR-066: AI Engineering Squad](../adr/ADR-066-ai-engineering-team.md)
 - [ADR-067: Deployment Execution Strategy](../adr/ADR-067-deployment-execution-strategy.md)
 - [ADR-068: Adaptive Model Routing](../adr/ADR-068-adaptive-model-routing.md)
+- [orchestrator_mcp/agent_team/](https://github.com/achimdehnert/mcp-hub/tree/main/orchestrator_mcp/agent_team)
 - [Concept Paper Template](../templates/concept-paper-template.md)
 
 ---
@@ -300,4 +247,5 @@ Das Gate-System, der `Guardian` und der `TaskRouter` bleiben vollständig eigens
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
-| 2026-02-23 | Achim Dehnert | Initial Draft |
+| 2026-02-23 | Achim Dehnert | Initial Draft (v1) — Szenario A empfohlen |
+| 2026-02-23 | Achim Dehnert | v2 — Make-or-Buy Analyse nach Ist-Stand-Prüfung; Empfehlung revidiert auf Eigenimplementierung |
