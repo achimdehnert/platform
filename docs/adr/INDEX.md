@@ -117,6 +117,18 @@
 | 029 | CAD Hub Extraction from bfagent | `Accepted` | `cad-hub` | [ADR-029-cad-hub-extraction.md](ADR-029-cad-hub-extraction.md) |
 | 034 | CAD-Daten ETL-Pipeline + Chat-Agent als Platform-Service | `?` | `cad-hub` | [ADR-034-cad-etl-chat-agent.md](ADR-034-cad-etl-chat-agent.md) |
 
+### coach-hub
+
+| Nr | Titel | Status | Repo | Datei |
+|----|-------|--------|------|-------|
+| 064 | Coach-Hub KI ohne Risiko — Row-Level Multi-Tenant SaaS | `Proposed` | `coach-hub` | [ADR-064-coach-hub-ki-ohne-risiko-architecture.md](ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
+
+### deploy-hub (infra-deploy)
+
+| Nr | Titel | Status | Repo | Datei |
+|----|-------|--------|------|-------|
+| 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Proposed` | `deploy-hub` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
+
 ### bfagent (050–099)
 
 | Nr | Titel | Status | Repo | Datei |
