@@ -314,10 +314,10 @@ Agents, Workflows und Phasen-Status.
 | 1 | Datenmodell + Pydantic v2 models | `models.py` mit allen Klassen, Tests grün | ✅ done (2026-02-23) |
 | 2 | Guardian Agent (Ruff/Bandit/MyPy) | `guardian.py` implementiert, quality_gate() läuft | ✅ done (2026-02-23) |
 | 3 | Tester Agent (pytest + Coverage) | `tester.py` implementiert, run_suite() läuft | ✅ done (2026-02-23) |
-| 4 | Developer Agent (Code-Generierung) | Workflow B (Test-Verbesserung) End-to-End lauffähig | ⬜ pending |
-| 5 | Re-Engineer Agent (Analyse + Refactoring) | Impact-Report für ein bestehendes Modul generiert | ⬜ pending |
-| 6 | Tech Lead Agent (ADR-Parsing + Orchestrierung) | Workflow A (ADR-basiert) End-to-End lauffähig | ⬜ pending |
-| 7 | Workflow-Integration + End-to-End Tests | Alle 3 Workflows grün, Audit-Log vollständig | ⬜ pending |
+| 4 | Developer Agent (Code-Generierung) | Workflow B (Test-Verbesserung) End-to-End lauffähig | ✅ done (2026-02-23) |
+| 5 | Re-Engineer Agent (Analyse + Refactoring) | Impact-Report für ein bestehendes Modul generiert | ✅ done (2026-02-23) |
+| 6 | Tech Lead Agent (ADR-Parsing + Orchestrierung) | Workflow A (ADR-basiert) End-to-End lauffähig | ✅ done (2026-02-23) |
+| 7 | Workflow-Integration + End-to-End Tests | Alle 3 Workflows grün, Audit-Log vollständig | ✅ done (2026-02-23) |
 
 ---
 
