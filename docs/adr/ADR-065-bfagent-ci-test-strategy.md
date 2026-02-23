@@ -246,8 +246,8 @@ Django löst `"core.PromptApp"` ForeignKey-Referenzen über den App-Label auf. O
 
 | Entscheidung | Begründung | Zieldatum | Referenz |
 |--------------|------------|-----------|----------|
-| Factory Boy für alle Fixtures einführen | Reduziert manuelle Fixture-Pflege, verhindert Code-Generator-Bugs | 2026-04-30 | ADR-057 Phase 1 |
-| Kaputte View-Tests reparieren (`test_agents.py`, `test_llms.py`, `test_worlds.py`) | Login-Redirect-Assertions, HTMX-Assertions, Form-Validierungen sind pre-existierende Code-Generator-Bugs | 2026-04-30 | `conftest.py collect_ignore` |
+| Factory Boy für alle Fixtures einführen | Reduziert manuelle Fixture-Pflege, verhindert Code-Generator-Bugs | 2026-04-30 | ADR-057 Phase 1 · [bfagent#12](https://github.com/achimdehnert/bfagent/issues/12) |
+| Kaputte View-Tests reparieren (`test_agents.py`, `test_llms.py`, `test_worlds.py`) | Login-Redirect-Assertions, HTMX-Assertions, Form-Validierungen sind pre-existierende Code-Generator-Bugs | 2026-04-30 | `conftest.py collect_ignore` · [bfagent#10](https://github.com/achimdehnert/bfagent/issues/10) |
 | E2E-Tests mit Playwright | Für JavaScript-schwere Interaktionen; aktuell kein JS-heavy Frontend | 2026-Q3 | ADR-057 Phase 4 |
 | Pact Consumer-Driven Contract Testing | Wenn Team > 5 Personen | Offen | ADR-057 §More Information |
 
