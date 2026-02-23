@@ -155,7 +155,7 @@ jobs:
             # Strip surrounding quotes from value if present
             value="${value#\'}" ; value="${value%\'}"
             value="${value#\"}" ; value="${value%\"}"
-            printf '%s' "$value" | $SSH "cat > /run/secrets/${key_lower} && chmod 400 /run/secrets/${key_lower}"
+            printf '%s' "$value" | $SSH "rm -f /run/secrets/${key_lower} && cat > /run/secrets/${key_lower} && chmod 400 /run/secrets/${key_lower}"
             count=$((count + 1))
           done <<< "$decrypted"
 
