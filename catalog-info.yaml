@@ -1,0 +1,16 @@
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: platform
+  description: Platform ADRs, Governance, Reusable GitHub Actions Workflows
+  tags: [governance, adr, github-actions, documentation]
+  annotations:
+    github.com/project-slug: achimdehnert/platform
+spec:
+  type: library
+  lifecycle: production
+  owner: achimdehnert
+  system: platform-management
+  domain: platform
+  providesApis: []
+  dependsOn: []
