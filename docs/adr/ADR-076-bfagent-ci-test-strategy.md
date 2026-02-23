@@ -9,7 +9,7 @@ supersedes: []
 related: ["ADR-057-platform-test-strategy.md", "ADR-058-platform-test-taxonomy.md"]
 ---
 
-# Adopt a three-tier test marker strategy with SQLite/Postgres split and vendored package support for bfagent CI
+# ADR-076: Adopt a three-tier test marker strategy with SQLite/Postgres split and vendored package support for bfagent CI
 
 | Attribut       | Wert                                                                       |
 |----------------|----------------------------------------------------------------------------|

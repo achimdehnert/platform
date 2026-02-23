@@ -4,7 +4,7 @@ date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
 
-# ADR-057 — Repo Scope & Migration Status (all 10 repos)
+# ADR-073 — Repo Scope & Migration Status (all 10 repos)
 
 > Supplement to `ADR-057-platform-test-strategy.md` §3.
 > **Last updated**: 2026-02-20

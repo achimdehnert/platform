@@ -4,7 +4,7 @@ date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
 
-# ADR-022 Amendment: Code Quality Tooling
+# ADR-071 Amendment: Code Quality Tooling (amends ADR-022)
 
 | Metadata    | Value |
 | ----------- | ----- |
