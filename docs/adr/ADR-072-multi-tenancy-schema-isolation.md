@@ -6,7 +6,7 @@ consulted: –
 informed: –
 ---
 
-# ADR-056: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy
+# ADR-072: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
