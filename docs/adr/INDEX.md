@@ -71,21 +71,19 @@
 | 053 | deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes | `?` | `platform` | [ADR-053-deployment-mcp-robustness.md](ADR-053-deployment-mcp-robustness.md) |
 | 054 | Deployment Pre-Flight Validation & platform-context als Managed Package | `Draft` | `platform` | [ADR-054-deployment-preflight-validation.md](ADR-054-deployment-preflight-validation.md) |
 | 055 | Cross-App Bug & Feature Management | `Accepted` | `platform` | [ADR-055-cross-app-bug-management.md](ADR-055-cross-app-bug-management.md) |
-<<<<<<< HEAD
+| 056 | Deployment Preflight & Pipeline Hardening | `Accepted` | `platform` | [ADR-056-deployment-preflight-and-pipeline-hardening.md](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
 | 056 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Proposed` | `platform` | [ADR-056-multi-tenancy-schema-isolation.md](ADR-056-multi-tenancy-schema-isolation.md) |
+| 057 | Platform Test Strategy — 4-Ebenen-Pyramide | `Accepted` | `platform` | [ADR-057-platform-test-strategy.md](ADR-057-platform-test-strategy.md) |
+| 058 | Platform Test Taxonomy — 28-Typen-Katalog | `Accepted` | `platform` | [ADR-058-platform-test-taxonomy.md](ADR-058-platform-test-taxonomy.md) |
 | 058 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-058-multi-tenancy-testing-strategy.md](ADR-058-multi-tenancy-testing-strategy.md) |
 | 059 | Adopt Automated ADR Drift Detection and Staleness Management | `Proposed` | `platform` | [ADR-059-adr-drift-detector.md](ADR-059-adr-drift-detector.md) |
 | 060 | Developer Workstation SSH Configuration | `Proposed` | `platform` | [ADR-060-developer-workstation-ssh-configuration.md](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Hardcoding Elimination Strategy — Platform-wide | `Proposed` | `platform` | [ADR-061-hardcoding-elimination-strategy.md](ADR-061-hardcoding-elimination-strategy.md) |
-=======
-| 056 | Deployment Preflight & Pipeline Hardening | `Accepted` | `platform` | [ADR-056-deployment-preflight-and-pipeline-hardening.md](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
-| 057 | Platform Test Strategy — 4-Ebenen-Pyramide | `Accepted` | `platform` | [ADR-057-platform-test-strategy.md](ADR-057-platform-test-strategy.md) |
-| 058 | Platform Test Taxonomy — 28-Typen-Katalog | `Accepted` | `platform` | [ADR-058-platform-test-taxonomy.md](ADR-058-platform-test-taxonomy.md) |
 | 062 | Content Store — Shared PostgreSQL Schema für AI-Inhalte | `Proposed` | `platform` | [ADR-062-content-store-shared-persistence.md](ADR-062-content-store-shared-persistence.md) |
 | 064 | Coach-Hub KI ohne Risiko — Row-Level Multi-Tenant SaaS | `Proposed` | `platform` | [ADR-064-coach-hub-ki-ohne-risiko-architecture.md](ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
 | 065 | ADR Numbering — Filesystem-First Vergabe-Strategie | `Accepted` | `platform` | [ADR-065-adr-numbering-filesystem-first.md](ADR-065-adr-numbering-filesystem-first.md) |
 | 066 | AI Engineering Squad — Rollenbasierte Agenten + Gate-Workflows | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
->>>>>>> 152900e (docs: ADR-062 content-store (reviewed), ADR-065 filesystem-first numbering, ADR-066 ai-engineering-squad + INDEX.md aktualisiert)
+| 067 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Proposed` | `platform` | [ADR-067-deployment-execution-strategy.md](ADR-067-deployment-execution-strategy.md) |
 
 ### MCP Hub (150–199)
 
