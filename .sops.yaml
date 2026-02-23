@@ -3,5 +3,4 @@
 creation_rules:
   - path_regex: secrets\.enc\.env$
     age: >-
-      age1efdys3yj3y8gvu64v9h8m449h0gh5spwvzyrpcjtkj26w4q5g46q8nuf67,
-      age16ugm28mck7y95c5p2ul8hqctcn26qdagylj5fa4ykxytsz5nf4ssq49hef
+      age10969ptm2jganauy82l64famvsun7zw9efr2z6skg6rz3kjplpvdsxp3djg
