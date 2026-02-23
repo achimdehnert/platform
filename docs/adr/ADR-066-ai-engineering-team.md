@@ -6,7 +6,7 @@ consulted: []
 informed: []
 supersedes: ["ADR-014-ai-native-development-teams.md"]
 amends: []
-related: ["ADR-058-platform-test-taxonomy.md", "ADR-065-adr-numbering-filesystem-first.md"]
+related: ["ADR-057-platform-test-strategy.md", "ADR-058-platform-test-taxonomy.md", "ADR-067-work-management-strategy.md"]
 ---
 
 # Adopt a structured AI Engineering Squad with role-based agents and gate-controlled workflows
@@ -109,6 +109,42 @@ Cascade/Windsurf übernimmt alle Aufgaben ohne definierte Rollen.
 - Nur statische Checks, keine adaptive Qualitätssicherung
 
 **Verworfen**: Deckt nur Quality-Gate-Aspekte ab, nicht ADR-basierte Entwicklung.
+
+---
+
+## Pros and Cons of the Options
+
+### Option 1 — AI Engineering Squad (gewählt)
+
+- **Pro**: Klare Verantwortlichkeiten — kein "alles macht Cascade"
+- **Pro**: Guardian als statisches Quality Gate ohne LLM-Overhead
+- **Pro**: ADR-basierte Entwicklung ist nachvollziehbar und reproduzierbar
+- **Pro**: Bestehende `orchestrator_mcp`-Infrastruktur wird erweitert, nicht ersetzt
+- **Pro**: Modell-Tiers ermöglichen Kostenoptimierung pro Aufgabentyp
+- **Con**: Höhere Komplexität als Single-Agent-Ansatz
+- **Con**: High-Reasoning-Modelle für Tech Lead und Re-Engineer erhöhen API-Kosten
+- **Con**: Sequentielle Workflows erhöhen Durchlaufzeit gegenüber Single-Agent
+
+### Option 2 — Single-Agent ohne Rollenstruktur (Status Quo)
+
+- **Pro**: Einfach, kein Setup-Aufwand
+- **Con**: Inkonsistente Qualität — kein definierter Prozess
+- **Con**: Kein Audit-Trail auf Rollen-Ebene
+- **Con**: Kein systematisches Quality Gate
+
+### Option 3 — Vollautonomes System ohne Human-in-the-Loop
+
+- **Pro**: Maximale Geschwindigkeit
+- **Con**: Kein menschliches Korrektiv bei Architekturentscheidungen
+- **Con**: Nicht vereinbar mit Platform-Governance-Anforderungen
+- **Con**: Gate 3–4 sind nicht an AI delegierbar
+
+### Option 4 — Externes CI/CD-only (GitHub Actions)
+
+- **Pro**: Kein lokaler Agent-Overhead, Standard-Tooling
+- **Con**: Kein ADR-Parsing, keine intelligente Task-Zerlegung
+- **Con**: Kein Re-Engineering oder Code-Review durch AI
+- **Con**: Nur statische Checks, keine adaptive Qualitätssicherung
 
 ---
 
@@ -362,6 +398,38 @@ git:
 - Gate-Eskalationen an Mensch (Gate 3+): ≤ 20% aller Tasks — gemessen via Audit-Log
 - ADR-Compliance-Rate: 100% — Guardian-Check blockiert bei Violations
 - Alle Workflows haben definierten Timeout und Fehlerbehandlung
+
+---
+
+## Deferred Decisions
+
+| Entscheidung | Begründung | Zieldatum | Referenz |
+|--------------|------------|-----------|----------|
+| API-Key-Management für AI-Agenten | Agenten benötigen eigene API-Keys (Anthropic, OpenAI) — Rotation, Secrets-Handling und Kostentracking noch nicht definiert | 2026-Q2 | ADR-045 (Secrets Management) |
+| Ziel-Repo für `orchestrator_mcp/agent_team/` | Liegt `agent_team/` in `mcp-hub` oder `platform`? Entscheidung nach Phase 1 (Datenmodell) | 2026-Q2 | ADR-044 (MCP-Hub Architecture) |
+| Kostenschwelle für High-Reasoning-Tier | Ab welchem monatlichen API-Kostenvolumen wird auf Standard-Tier downgestuft? SLA noch nicht definiert | 2026-Q3 | ADR-067 (Work Management) |
+| GitHub Issues Integration für Task-Store | Sollen AI-Tasks als GitHub Issues getrackt werden (ADR-067) oder nur intern im AuditStore? | 2026-Q2 | ADR-067 (Work Management) |
+
+---
+
+## More Information
+
+- ADR-014: AI-Native Development Teams — superseded by this ADR
+- ADR-057: Platform Test Strategy — Coverage-Ziele (Tier-1 ≥ 80%, Tier-2 ≥ 60%)
+- ADR-058: Platform Test Taxonomy — Test-Typen für Tester-Agent
+- ADR-067: Work Management Strategy — GitHub Issues als Task-Store für AI-Agenten
+- ADR-044: MCP-Hub Architecture — Ziel-Repo für `orchestrator_mcp/agent_team/`
+- ADR-045: Secrets Management — API-Key-Handling für AI-Agenten
+- Konzeptbasis: `mcp-hub` Branch `claude/ai-engineering-team-concept-06LJF` (2026-02-22)
+
+---
+
+## Changelog
+
+| Datum | Autor | Änderung |
+|-------|-------|----------|
+| 2026-02-22 | Achim Dehnert | Initial — Status: Proposed |
+| 2026-02-23 | Achim Dehnert | Review: Pros/Cons-Sektion, More Information, Deferred Decisions ergänzt; ADR-Link korrigiert |
 
 ---
 
