@@ -70,7 +70,7 @@ Ohne standardisiertes Work Management entstehen folgende Probleme:
 |-----|----------|------------|
 | ADR-046 (Docs Hygiene) | Dokumentationsstandards | ✅ Issues ergänzen ADRs, ersetzen sie nicht |
 | ADR-057 (Test Strategy) | Deferred Decisions in Tests | ✅ Alle Deferred Decisions erhalten Issue-Links |
-| ADR-066 (AI Engineering Team) | AI-Agenten als Team-Mitglieder | ✅ AI-Agent-Protokoll direkt auf ADR-066 abgestimmt |
+| ADR-066 (AI Engineering Team) | AI-Agenten als Team-Mitglieder | ⚠️ ADR-066 ist `Proposed`, noch nicht implementiert — AI-Agent-Protokoll in ADR-067 ist Vorarbeit dafür |
 
 ### Confirmation
 
@@ -247,9 +247,10 @@ ADR-065 Deferred Decision
 
 | Entscheidung | Begründung | Zieldatum | Referenz |
 |--------------|------------|-----------|----------|
-| GitHub Actions CI-Check für PR-Issue-Linking | Technische Implementierung nach Team-Aufbau | 2026-Q2 | ADR-066 |
+| GitHub Actions CI-Check für PR-Issue-Linking | Technische Implementierung nach Team-Aufbau | 2026-Q2 | ADR-066 (Proposed) |
 | Automatische Issue-Erstellung aus ADR Deferred Decisions | MCP-Tool `create_issue_from_adr` | 2026-Q3 | ADR-044 (MCP-Hub) |
-| SLA-Definition für AI-assignable Issues | Wenn Team > 3 AI-Agenten aktiv | 2026-Q3 | ADR-066 |
+| SLA-Definition für AI-assignable Issues | Wenn Team > 3 AI-Agenten aktiv | 2026-Q3 | ADR-066 (Proposed) |
+| AI Engineering Team implementieren (ADR-066 → Accepted) | Voraussetzung für volles AI-Agent-Protokoll | 2026-Q2 | ADR-066 |
 
 ---
 
@@ -257,7 +258,7 @@ ADR-065 Deferred Decision
 
 - GitHub Issues API: https://docs.github.com/en/rest/issues
 - GitHub Projects API: https://docs.github.com/en/issues/planning-and-tracking-with-projects
-- ADR-066: AI Engineering Team — Rollen und Gate-Workflows
+- ADR-066: AI Engineering Team — Rollen und Gate-Workflows (`Proposed`, noch nicht implementiert)
 - ADR-046: Docs Hygiene — Dokumentationsstandards
 - Bestehende Issues als Referenz: [bfagent#10](https://github.com/achimdehnert/bfagent/issues/10), [bfagent#12](https://github.com/achimdehnert/bfagent/issues/12)
 
@@ -268,3 +269,4 @@ ADR-065 Deferred Decision
 | Datum      | Autor         | Änderung              |
 |------------|---------------|-----------------------|
 | 2026-02-23 | Achim Dehnert | Initial — Status: Proposed |
+| 2026-02-23 | Achim Dehnert | Fix: ADR-066 als `Proposed` (nicht implementiert) korrekt referenziert |
