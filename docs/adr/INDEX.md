@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-23 (ADR-071–076 Nummernkorrekturen — alle Doppelnummern behoben via ADR Number Guard)
+> **Letzte Aktualisierung**: 2026-02-23 (ADR-069 Web Intelligence MCP)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -83,6 +83,7 @@
 | 066 | AI Engineering Squad — Rollenbasierte Agenten + Gate-Workflows | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
 | 067 | Work Management Strategy — GitHub Issues + Projects + AI-Agent-Protokoll | `Proposed` | `platform` | [ADR-067-work-management-strategy.md](ADR-067-work-management-strategy.md) |
 | 068 | Adaptive Model Routing + Quality Feedback Loop | `Proposed` | `platform` | [ADR-068-adaptive-model-routing.md](ADR-068-adaptive-model-routing.md) |
+| 069 | Web Intelligence MCP — Plattformweiter Web-Zugriff für KI-Agenten | `Proposed` | `mcp-hub` | [ADR-069-web-intelligence-mcp.md](ADR-069-web-intelligence-mcp.md) |
 | 071 | Amendment: Code Quality Tooling (amends ADR-022) | `Proposed` | `platform` | [ADR-071-amendment-code-quality-tooling.md](ADR-071-amendment-code-quality-tooling.md) |
 | 072 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Accepted` | `platform` | [ADR-072-multi-tenancy-schema-isolation.md](ADR-072-multi-tenancy-schema-isolation.md) |
 | 073 | Repo Scope & Migration Status | `Proposed` | `platform` | [ADR-073-repo-scope.md](ADR-073-repo-scope.md) |
