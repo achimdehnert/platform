@@ -299,13 +299,13 @@ oder eigener FastAPI-Service).
 
 | Schritt | Abhängigkeit | Status | Datum |
 |---------|-------------|--------|-------|
-| `migrate.yml` in `infra-deploy` erstellen | — | ⬜ pending | — |
-| `db-backup.yml` in `infra-deploy` erstellen | — | ⬜ pending | — |
-| `health-check.yml` in `infra-deploy` erstellen | — | ⬜ pending | — |
-| `deployment-mcp` Write-Tools mit Deprecation-Warning versehen | migrate.yml done | ⬜ pending | — |
-| ADR-053 als Superseded markieren | ADR-075 accepted | ⬜ pending | — |
-| Windsurf-Workflow `/deploy` auf `infra-deploy` umstellen | alle Workflows done | ⬜ pending | — |
-| Self-hosted Runner Health-Monitor einrichten | — | ⬜ pending | — |
+| `migrate.yml` in `infra-deploy` erstellen | — | ✅ done (2026-02-23) | — |
+| `db-backup.yml` in `infra-deploy` erstellen | — | ✅ done (2026-02-23) | — |
+| `health-check.yml` in `infra-deploy` erstellen | — | ✅ done (2026-02-23) | — |
+| `deployment-mcp` Write-Tools mit Deprecation-Warning versehen | migrate.yml done | ✅ done (2026-02-23) | — |
+| ADR-053 als Superseded markieren | ADR-075 accepted | ✅ done (2026-02-23) | — |
+| Windsurf-Workflow `/deploy` auf `infra-deploy` umstellen | alle Workflows done | ✅ done (2026-02-23) | — |
+| Self-hosted Runner Health-Monitor einrichten | — | ✅ done (2026-02-23) | runner-health.yml |
 
 ---
 
