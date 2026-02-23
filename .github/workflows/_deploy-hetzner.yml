@@ -144,8 +144,8 @@ jobs:
 
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST}"
 
-          # Create /run/secrets/ on server
-          $SSH "mkdir -p /run/secrets && chmod 700 /run/secrets"
+          # Create /run/secrets/ on server (sudo needed — /run is root-owned)
+          $SSH "sudo mkdir -p /run/secrets && sudo chown ${DEPLOY_USER}:${DEPLOY_USER} /run/secrets && chmod 700 /run/secrets"
 
           # Write each secret as individual file
           count=0
