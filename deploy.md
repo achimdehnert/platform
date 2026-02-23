@@ -4,7 +4,7 @@ description: Deploy any app to production (bfagent, cad-hub, travel-beat, etc.)
 
 # Deploy Workflow
 
-> **Architektur (ADR-067)**: Write-Ops (Deploy, Migrate, Backup) laufen über
+> **Architektur (ADR-075)**: Write-Ops (Deploy, Migrate, Backup) laufen über
 > `infra-deploy` GitHub Actions — NICHT via direktem SSH (hängt).
 > Read-Ops (Logs, Status) via `deployment-mcp` Tools.
 
@@ -83,4 +83,4 @@ Verwende `deployment-mcp` → `compose_ps` Tool.
 - **Workflow hängt**: Runner-Status → https://github.com/achimdehnert/infra-deploy/settings/actions/runners
 - **Deploy fehlgeschlagen**: Auto-Rollback greift — Deploy-Log via `deployment-mcp` → `ssh_manage file_read /opt/deploy/production/.deployed/deploy.log`
 - **Health-Check manuell**: `infra-deploy` → `health-check.yml` → Run workflow
-- **NIEMALS**: `deployment-mcp` Write-Tools (compose_up, compose_restart) für Deploys verwenden → hängt (ADR-067)
+- **NIEMALS**: `deployment-mcp` Write-Tools (compose_up, compose_restart) für Deploys verwenden → hängt (ADR-075)
