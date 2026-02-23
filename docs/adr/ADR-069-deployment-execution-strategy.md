@@ -253,12 +253,12 @@ oder eigener FastAPI-Service).
 
 | Tool | Kategorie | Aktion | Bis |
 |------|-----------|--------|-----|
-| `compose_up` | Write | Deprecated → `deploy-service.yml` | ADR-067 accepted |
-| `compose_restart` | Write | Deprecated → `deploy-service.yml` | ADR-067 accepted |
-| `compose_down` | Write | Deprecated → manuell (Gate 4) | ADR-067 accepted |
-| `container_restart` | Write | Deprecated → `deploy-service.yml` | ADR-067 accepted |
-| `migrate` (db_manage) | Write | Deprecated → `migrate.yml` | ADR-067 accepted |
-| `backup` (db_manage) | Write | Deprecated → `db-backup.yml` | ADR-067 accepted |
+| `compose_up` | Write | Deprecated → `deploy-service.yml` | ADR-069 accepted |
+| `compose_restart` | Write | Deprecated → `deploy-service.yml` | ADR-069 accepted |
+| `compose_down` | Write | Deprecated → manuell (Gate 4) | ADR-069 accepted |
+| `container_restart` | Write | Deprecated → `deploy-service.yml` | ADR-069 accepted |
+| `migrate` (db_manage) | Write | Deprecated → `migrate.yml` | ADR-069 accepted |
+| `backup` (db_manage) | Write | Deprecated → `db-backup.yml` | ADR-069 accepted |
 | `container_logs` | Read | Bleibt in deployment-mcp | — |
 | `container_list` | Read | Bleibt in deployment-mcp | — |
 | `compose_ps` | Read | Bleibt in deployment-mcp | — |
@@ -303,7 +303,7 @@ oder eigener FastAPI-Service).
 | `db-backup.yml` in `infra-deploy` erstellen | — | ⬜ pending | — |
 | `health-check.yml` in `infra-deploy` erstellen | — | ⬜ pending | — |
 | `deployment-mcp` Write-Tools mit Deprecation-Warning versehen | migrate.yml done | ⬜ pending | — |
-| ADR-053 als Superseded markieren | ADR-067 accepted | ⬜ pending | — |
+| ADR-053 als Superseded markieren | ADR-069 accepted | ⬜ pending | — |
 | Windsurf-Workflow `/deploy` auf `infra-deploy` umstellen | alle Workflows done | ⬜ pending | — |
 | Self-hosted Runner Health-Monitor einrichten | — | ⬜ pending | — |
 
@@ -335,8 +335,8 @@ oder eigener FastAPI-Service).
 
 | Was wird deprecated | Bis wann | Ersatz |
 |--------------------|----------|--------|
-| `deployment-mcp` Write-Tools (compose_up, migrate, backup, restart) | ADR-067 `accepted` | `infra-deploy` Workflows |
-| ADR-053 (deployment-mcp Robustness) | ADR-067 `accepted` | Dieses ADR |
+| `deployment-mcp` Write-Tools (compose_up, migrate, backup, restart) | ADR-069 `accepted` | `infra-deploy` Workflows |
+| ADR-053 (deployment-mcp Robustness) | ADR-069 `accepted` | Dieses ADR |
 
 ---
 
