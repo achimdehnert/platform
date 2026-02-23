@@ -407,8 +407,8 @@ quality_thresholds:
 | 3 | `metrics.py` + `audit_store.py` | Schema implementiert, PostgreSQL-Migration grün | ✅ done (2026-02-23) |
 | 4 | `evaluator.py` (LLM-Bewertung) | Evaluator läuft gegen 5 Test-Tasks, Scores plausibel | ✅ done (2026-02-23) |
 | 5 | `feedback.py` (Feedback-Loop) | Matrix-Update nach N=20 synthetischen Tasks korrekt | ✅ done (2026-02-23) |
-| 6 | Integration mit ADR-066 Workflows | Workflow A/B/C nutzen Router statt statisches Mapping | ⬜ pending |
-| 7 | Playbook + End-to-End Test | Agentic-Coding-Workflow dokumentiert und getestet | ⬜ pending |
+| 6 | Integration mit ADR-066 Workflows | Workflow A/B/C nutzen Router statt statisches Mapping | ✅ done (2026-02-23) |
+| 7 | Playbook + End-to-End Test | Agentic-Coding-Workflow dokumentiert und getestet | ✅ done (2026-02-23) |
 
 ---
 
