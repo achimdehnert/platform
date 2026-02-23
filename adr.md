@@ -82,26 +82,35 @@ Scope korrekt? [Ja/Nein]
 
 ## Step 3: Nächste ADR-Nummer ermitteln (PFLICHT — nie aus Gedächtnis!)
 
-**KRITISCH**: Die nächste Nummer IMMER durch Filesystem-Scan ermitteln. Niemals raten oder aus dem Gedächtnis nehmen.
+**KRITISCH**: Die nächste Nummer IMMER durch das ADR Number Guard Script ermitteln.
+Niemals raten, niemals aus dem Gedächtnis nehmen, niemals manuell zählen.
 
-### 3.1 Scan-Befehl (immer ausführen)
+### 3.1 Pflicht-Aufruf: adr_next_number.py (primär)
+
+```bash
+python3 scripts/adr_next_number.py --repo platform
+```
+
+Ausgabe: `ADR-NNN` — diese Nummer verwenden. Fertig.
+
+**Vor dem Erstellen zusätzlich Konflikt-Check:**
+```bash
+python3 scripts/adr_next_number.py --check
+```
+→ Gibt es Konflikte: erst `python3 scripts/adr_audit.py --fix-hints` ausführen und
+  Konflikte beheben, bevor das neue ADR erstellt wird.
+
+### 3.2 Fallback: find_by_name (nur wenn Script nicht ausführbar)
 
 Verwende `find_by_name` auf `docs/adr/` mit Pattern `ADR-*.md` und MaxDepth 1.
-Extrahiere alle vorhandenen Nummern aus den Dateinamen.
-Die nächste freie Nummer = max(vorhandene Nummern) + 1.
+Extrahiere alle vorhandenen Nummern. Nächste freie = höchste + 1, aber:
+**Kollisionsprüfung**: Existiert `docs/adr/ADR-NNN-*.md` bereits? → +1 wiederholen.
 
-**Beispiel**: Wenn `ADR-064-*.md` die höchste ist → nächste Nummer = **065**.
-
-### 3.2 Nummernbereich-Konzept (AUFGEGEBEN ab ADR-059)
+### 3.3 Nummernbereich-Konzept (AUFGEGEBEN ab ADR-059)
 
 Das ursprüngliche Bereichskonzept (platform: 001-049, bfagent: 050-099 etc.) wird
 **nicht mehr durchgesetzt**. Alle neuen ADRs erhalten die nächste freie Globalnummer.
 Historische Nummern bleiben unverändert.
-
-### 3.3 Kollisionsprüfung
-
-Vor dem Erstellen prüfen: Existiert `docs/adr/ADR-NNN-*.md` bereits?
-Falls ja → Nummer + 1 nehmen und erneut prüfen.
 
 ### 3.4 INDEX.md sofort aktualisieren
 
