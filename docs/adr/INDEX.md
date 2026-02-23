@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-22 (Review + Überarbeitung ADR-062/065/066)
+> **Letzte Aktualisierung**: 2026-02-23 (ADR-067 Work Management Strategy)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -122,6 +122,8 @@
 | 036 | Chat-Agent Ecosystem — DomainToolkits, Research Integration | `?` | `bfagent` | [ADR-036-chat-agent-ecosystem.md](ADR-036-chat-agent-ecosystem.md) |
 | 037 | Chat Conversation Logging & Quality Management | `?` | `bfagent` | [ADR-037-chat-conversation-logging.md](ADR-037-chat-conversation-logging.md) |
 | 065 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-065-bfagent-ci-test-strategy.md](ADR-065-bfagent-ci-test-strategy.md) |
+| 066 | AI Engineering Squad mit role-based agents | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
+| 067 | Work Management Strategy (GitHub Issues + Projects + AI-Agent-Protokoll) | `Proposed` | `platform` | [ADR-067-work-management-strategy.md](ADR-067-work-management-strategy.md) |
 
 ### Shared / Cross-App (350–399)
 
