@@ -49,7 +49,7 @@ services:
     networks:
       - platform
 
-  # ── Worker (Celery / Outbox) ──────────────────────────────────
+  # ── Worker (Celery) ──────────────────────────────────────────
   app-worker:
     image: ghcr.io/${GHCR_OWNER}/${GHCR_REPO}:${APP_IMAGE_TAG:-latest}
     container_name: ${APP_NAME}_worker
@@ -62,17 +62,57 @@ services:
       redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD-SHELL", "celery -A config inspect ping --timeout 5"]
+      # NOTE: pidof python3.12 — nicht 'python' (slim-Images benennen den Binary versioniert)
+      # NICHT: celery inspect ping — schlägt fehl wenn Broker kurz nicht erreichbar
+      test: ["CMD-SHELL", "pidof python3.12 || exit 1"]
       interval: 30s
-      timeout: 10s
+      timeout: 5s
       retries: 3
-      start_period: 30s
+      start_period: 20s
     deploy:
       resources:
         limits:
           memory: 384M
         reservations:
           memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - platform
+
+  # ── Beat (Celery Scheduler) ───────────────────────────────────
+  # WICHTIG: Volume-Permissions — Named Volumes werden als root erstellt.
+  # Der Beat-Prozess läuft als non-root (appuser) → Permission denied ohne chown.
+  # Fix: entrypoint.sh führt 'chown -R appuser /celerybeat' als root aus, dann 'exec su appuser'.
+  # Alternativ: init-Container (busybox chown) vor Beat-Start.
+  app-beat:
+    image: ghcr.io/${GHCR_OWNER}/${GHCR_REPO}:${APP_IMAGE_TAG:-latest}
+    container_name: ${APP_NAME}_beat
+    restart: unless-stopped
+    env_file: .env.prod
+    command: ["beat"]
+    volumes:
+      - beat_data:/celerybeat
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "pidof python3.12 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+        reservations:
+          memory: 64M
     logging:
       driver: json-file
       options:
@@ -172,6 +212,8 @@ volumes:
     name: ${APP_NAME}_media
   app_static:
     name: ${APP_NAME}_static
+  beat_data:
+    name: ${APP_NAME}_beat_data
 
 networks:
   platform:

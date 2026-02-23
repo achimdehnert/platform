@@ -345,16 +345,16 @@ RUN chown -R appuser:appgroup /app
 COPY docker/app/entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')"
-
 USER appuser
 EXPOSE 8000
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["web"]
 ```
 
-**KRITISCH:** Healthcheck nutzt `127.0.0.1` (nicht `localhost`) — `localhost` kann HTTP 400 erzeugen wenn ALLOWED_HOSTS es nicht enthält.
+**KRITISCH — KEIN `HEALTHCHECK` IM DOCKERFILE:**
+- `HEALTHCHECK` im Dockerfile gilt für **alle** Container die aus dem Image starten (web, worker, beat).
+- Worker und Beat haben keinen Web-Server → Healthcheck schlägt fehl → Restart-Loop.
+- **Regel:** Healthchecks IMMER in `docker-compose.prod.yml` pro Service definieren, NIE im Dockerfile.
 
 ### 3.2 `entrypoint.sh`
 
@@ -376,13 +376,25 @@ case "$1" in
     exec celery -A config worker --loglevel=info
     ;;
   beat)
-    exec celery -A config beat --loglevel=info
+    # KRITISCH: Named Volumes werden als root erstellt.
+    # Beat läuft als non-root (appuser) → Permission denied ohne chown.
+    # Entrypoint läuft initial als root (vor USER-Switch) → chown hier sicher.
+    mkdir -p /celerybeat
+    chown -R appuser:appgroup /celerybeat 2>/dev/null || true
+    exec celery -A config beat --loglevel=info \
+      --schedule=/celerybeat/celerybeat-schedule
     ;;
   *)
     exec "$@"
     ;;
 esac
 ```
+
+**KRITISCH — Volume-Permissions bei non-root Containern:**
+- Named Docker Volumes werden beim ersten Start als `root:root` erstellt.
+- Wenn der Container-Prozess als non-root läuft (z.B. `appuser`), schlägt Schreiben fehl: `[Errno 13] Permission denied`.
+- **Fix:** `chown` im `entrypoint.sh` **vor** dem `exec`-Aufruf — der Entrypoint läuft initial als root (ENTRYPOINT wird vor `USER` ausgeführt wenn kein `USER` im entrypoint selbst gesetzt ist).
+- **Alternativ:** `docker run --rm -v <volume>:/dir busybox chown -R 1000:1000 /dir` einmalig auf dem Server.
 
 ### 3.3 `docker-compose.prod.yml`
 
@@ -395,6 +407,7 @@ services:
     env_file: .env.prod
     ports:
       - "127.0.0.1:<PORT>:8000"
+    # Healthcheck HIER definieren, NICHT im Dockerfile (gilt sonst für alle Container!)
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')\""]
       interval: 30s
@@ -414,7 +427,67 @@ services:
         max-size: "10m"
         max-file: "3"
     networks:
-      - <REPO_UNDERSCORE>_network
+      - bf_platform_prod
+
+  # Optional: nur wenn Celery benötigt wird
+  <REPO>-worker:
+    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
+    container_name: <REPO_UNDERSCORE>_worker
+    restart: unless-stopped
+    env_file: .env.prod
+    command: ["worker"]
+    depends_on:
+      - <REPO>-db
+      - <REPO>-redis
+    # Worker hat keinen Web-Server → pidof python3.12 (NICHT curl, NICHT celery inspect ping)
+    healthcheck:
+      test: ["CMD-SHELL", "pidof python3.12 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - bf_platform_prod
+
+  # Optional: nur wenn Celery Beat (Scheduler) benötigt wird
+  <REPO>-beat:
+    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
+    container_name: <REPO_UNDERSCORE>_beat
+    restart: unless-stopped
+    env_file: .env.prod
+    command: ["beat"]
+    volumes:
+      # Named Volume → wird als root erstellt → entrypoint.sh macht chown vor exec
+      - <REPO_UNDERSCORE>_beatdata:/celerybeat
+    depends_on:
+      - <REPO>-db
+      - <REPO>-redis
+    healthcheck:
+      test: ["CMD-SHELL", "pidof python3.12 || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    networks:
+      - bf_platform_prod
 
   <REPO>-db:
     image: postgres:16-alpine
@@ -424,7 +497,7 @@ services:
     volumes:
       - <REPO_UNDERSCORE>_pgdata:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -433,14 +506,22 @@ services:
         limits:
           memory: 256M
     networks:
-      - <REPO_UNDERSCORE>_network
+      - bf_platform_prod
+
+  <REPO>-redis:
+    image: redis:7-alpine
+    container_name: <REPO_UNDERSCORE>_redis
+    restart: unless-stopped
+    networks:
+      - bf_platform_prod
 
 volumes:
   <REPO_UNDERSCORE>_pgdata:
+  <REPO_UNDERSCORE>_beatdata:   # Nur wenn Beat verwendet wird
 
 networks:
-  <REPO_UNDERSCORE>_network:
-    driver: bridge
+  bf_platform_prod:
+    external: true
 ```
 
 ## Step 4: Health-Check Endpoints
@@ -492,6 +573,10 @@ urlpatterns = [
 | **`csrf_exempt` + `require_GET`** | Health-Endpoints brauchen kein CSRF, nur GET |
 | **Docker-HC nutzt `/livez/`** | Liveness = minimal, keine DB-Abhängigkeit |
 | **Monitoring nutzt `/healthz/`** | Readiness = prüft DB, kann 503 zurückgeben |
+| **KEIN `HEALTHCHECK` im Dockerfile** | Gilt für alle Container aus dem Image — Worker/Beat haben keinen Web-Server |
+| **Worker/Beat: `pidof python3.12`** | Slim-Images benennen den Binary versioniert — `pidof python` schlägt fehl |
+| **NICHT `celery inspect ping`** | Schlägt fehl wenn Broker kurz nicht erreichbar → unnötige Restarts |
+| **Beat-Volume: `chown` im entrypoint.sh** | Named Volumes werden als root erstellt — non-root Prozess braucht explizites chown |
 
 ## Step 5: Server-Infrastruktur einrichten
 
@@ -617,8 +702,8 @@ ssh -T git@github.com  # → Hi achimdehnert!
 ✅ Verifikation für [REPO]
 
 Repo-Struktur:
-  [ ] docker/app/Dockerfile existiert (mit 127.0.0.1 Healthcheck)
-  [ ] docker/app/entrypoint.sh existiert (chmod +x)
+  [ ] docker/app/Dockerfile existiert (KEIN HEALTHCHECK drin — gehört in Compose!)
+  [ ] docker/app/entrypoint.sh existiert (chmod +x, mit beat-Case + chown /celerybeat)
   [ ] docker-compose.prod.yml existiert
   [ ] .github/workflows/ci-cd.yml existiert (coverage_threshold: 80)
   [ ] .env.example existiert
@@ -642,11 +727,18 @@ Platform-Integration:
   [ ] deploy.md Tabelle aktualisiert
   [ ] backup.md Tabelle aktualisiert
 
+Docker (KRITISCH):
+  [ ] Kein HEALTHCHECK im Dockerfile (gehört pro-Service in Compose!)
+  [ ] entrypoint.sh: beat-Case mit chown /celerybeat vor exec
+  [ ] Worker/Beat Healthcheck: pidof python3.12 (NICHT curl, NICHT celery inspect ping)
+  [ ] Beat-Volume in docker-compose.prod.yml definiert (<REPO_UNDERSCORE>_beatdata)
+
 Server:
   [ ] /opt/<REPO>/ Verzeichnis existiert
   [ ] .env.prod mit echten Werten
   [ ] docker-compose.prod.yml kopiert
   [ ] Container starten und sind healthy
+  [ ] Falls Beat-Volume Permission-Fehler: docker run --rm -v <vol>:/dir busybox chown -R 1000:1000 /dir
 
 Netzwerk:
   [ ] DNS A-Record zeigt auf 88.198.191.108
