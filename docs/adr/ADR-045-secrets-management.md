@@ -20,19 +20,19 @@ decision-makers: Achim Dehnert
 
 ---
 
-## Implementation Status (as of 2026-02-21)
+## Implementation Status (as of 2026-02-23)
 
-> **Status: Proposed — not yet implemented.** The decision is accepted; execution has not started.
+> **Status: In Progress — Phases 1, 3, 5, 6 abgeschlossen. Phase 2 wartet auf age-Key. Phase 4, 7 ausstehend.**
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| Phase 1 | SOPS + age keypair setup on WSL dev machine | ❌ Pending — `sops`/`age` not installed in WSL |
-| Phase 2 | Encrypt existing secrets into `secrets.enc.env` per repo | ❌ Pending — no repo has `secrets.enc.env` yet |
-| Phase 3 | `config/secrets.py` + `read_secret()` in Django apps | ❌ Pending — not implemented in any app |
+| Phase 1 | SOPS + age keypair setup | ✅ `age` 1.1.1 + `sops` 3.9.4 auf dev-server installiert. age-Key auf Entwicklermaschine prüfen + `SOPS_AGE_KEY` in GitHub Secrets setzen |
+| Phase 2 | Encrypt existing secrets into `secrets.enc.env` per repo | ⏳ `scripts/create-secrets.sh` fertig — User muss mit age-Key ausführen |
+| Phase 3 | `config/secrets.py` + `read_secret()` in Django apps | ✅ `bfagent` + `dev-hub` production.py umgestellt. Fallback: `/run/secrets/` → env var |
 | Phase 4 | MCP server Settings: `SecretStr` + `secrets_dir` | ❌ Pending |
-| Phase 5 | CI/CD pipeline: SOPS decrypt step + `/run/secrets/` push | ❌ Pending — `_deploy-hetzner.yml` has no SOPS step |
-| Phase 6 | Reboot resilience: systemd `secrets-check.service` | ❌ Pending |
-| Phase 7 | Cleanup: remove `.env.prod` from server | ❌ Pending — all apps still use `.env.prod` |
+| Phase 5 | CI/CD pipeline: SOPS decrypt step + `/run/secrets/` push | ✅ `_deploy-hetzner.yml`: `secrets` Job vor `deploy`, skipped wenn `SOPS_AGE_KEY` nicht gesetzt |
+| Phase 6 | Reboot resilience: systemd `secrets-check.service` | ✅ `deployment/systemd/secrets-check.service` committed — noch nicht auf Server installiert |
+| Phase 7 | Cleanup: remove `.env.prod` from server | ❌ Pending — nach erstem erfolgreichen SOPS-Deploy |
 
 ### What IS done
 
@@ -53,9 +53,9 @@ All apps currently use `.env.prod` files on the Hetzner server (`88.198.191.108`
 /opt/risk-hub/.env.prod        ← active (if deployed)
 ```
 
-`/run/secrets/` does **not** exist on the server. `sops` and `age` are **not** installed in WSL.
-This is the pre-migration baseline. The `.env.prod` approach remains safe for now — it is
-the target state that needs to change, not an active security incident.
+`age` 1.1.1 und `sops` 3.9.4 sind auf dem dev-server (46.225.113.1) installiert.
+`/run/secrets/` existiert noch nicht — wird beim ersten SOPS-Deploy erstellt.
+`.env.prod` bleibt als Fallback aktiv bis Phase 7 abgeschlossen ist.
 
 ### Gap: ADR-056 Multi-Tenancy (travel-beat)
 
