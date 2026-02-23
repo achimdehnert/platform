@@ -403,10 +403,10 @@ quality_thresholds:
 | Phase | Inhalt | Definition of Done | Status |
 |-------|--------|--------------------|--------|
 | 1 | Task-Template (`ai-task.yaml`) | Template in `.windsurf/templates/`, dokumentiert | ✅ done |
-| 2 | Routing-Matrix + `router.py` | Heuristische Matrix, Unit-Tests grün | ⬜ pending |
-| 3 | `metrics.py` + `audit_store.py` | Schema implementiert, PostgreSQL-Migration grün | ⬜ pending |
-| 4 | `evaluator.py` (LLM-Bewertung) | Evaluator läuft gegen 5 Test-Tasks, Scores plausibel | ⬜ pending |
-| 5 | `feedback.py` (Feedback-Loop) | Matrix-Update nach N=20 synthetischen Tasks korrekt | ⬜ pending |
+| 2 | Routing-Matrix + `router.py` | Heuristische Matrix, Unit-Tests grün | ✅ done (2026-02-23) |
+| 3 | `metrics.py` + `audit_store.py` | Schema implementiert, PostgreSQL-Migration grün | ✅ done (2026-02-23) |
+| 4 | `evaluator.py` (LLM-Bewertung) | Evaluator läuft gegen 5 Test-Tasks, Scores plausibel | ✅ done (2026-02-23) |
+| 5 | `feedback.py` (Feedback-Loop) | Matrix-Update nach N=20 synthetischen Tasks korrekt | ✅ done (2026-02-23) |
 | 6 | Integration mit ADR-066 Workflows | Workflow A/B/C nutzen Router statt statisches Mapping | ⬜ pending |
 | 7 | Playbook + End-to-End Test | Agentic-Coding-Workflow dokumentiert und getestet | ⬜ pending |
 
