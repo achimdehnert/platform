@@ -1,13 +1,14 @@
 ---
 id: ADR-053
 title: "deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes & Async Job Pattern"
-status: implemented
+status: superseded
 date: 2026-02-20
 author: Achim Dehnert
 owner: Achim Dehnert
 scope: mcp-hub
 tags: [mcp-hub, deployment, ssh, robustness, circuit-breaker, async, reliability]
 related: [ADR-044, ADR-042, ADR-021]
+superseded_by: ADR-075
 last_verified: 2026-02-20
 implemented: 2026-02-20
 commit: 4888fc0
