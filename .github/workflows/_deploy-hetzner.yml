@@ -90,8 +90,84 @@ on:
         required: true
       SLACK_WEBHOOK_URL:
         required: false
+      SOPS_AGE_KEY:
+        required: false
 
 jobs:
+  # ─────────────────────────────────────────────────────────────────────────
+  # SECRETS: SOPS decrypt → push to /run/secrets/ on server (ADR-045 Phase 5)
+  # Skipped if SOPS_AGE_KEY is not set (backward compat during migration)
+  # ─────────────────────────────────────────────────────────────────────────
+  secrets:
+    name: "Decrypt & push secrets"
+    runs-on: ubuntu-latest
+    if: ${{ secrets.SOPS_AGE_KEY != '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install sops
+        run: |
+          curl -sLo /usr/local/bin/sops \
+            "https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64"
+          chmod +x /usr/local/bin/sops
+
+      - name: Decrypt secrets.enc.env → /run/secrets/ on server
+        if: hashFiles('secrets.enc.env') != ''
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.HETZNER_HOST }}
+          DEPLOY_USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          set -euo pipefail
+
+          # Decrypt in runner memory — never written to disk as plaintext
+          decrypted=$(sops -d --input-type dotenv --output-type dotenv secrets.enc.env)
+
+          # Setup SSH
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST}"
+
+          # Create /run/secrets/ on server
+          $SSH "mkdir -p /run/secrets && chmod 700 /run/secrets"
+
+          # Write each secret as individual file
+          count=0
+          while IFS='=' read -r key value; do
+            [[ -z "$key" || "$key" == \#* ]] && continue
+            key_lower=$(echo "$key" | tr '[:upper:]' '[:lower:]')
+            # printf prevents trailing newline (critical for API keys)
+            $SSH "printf '%s' '${value}' > /run/secrets/${key_lower} && chmod 400 /run/secrets/${key_lower}"
+            count=$((count + 1))
+          done <<< "$decrypted"
+
+          echo "✅ Deployed ${count} secrets to /run/secrets/ on ${DEPLOY_HOST}"
+
+      - name: Verify required secrets
+        if: hashFiles('secrets.enc.env') != ''
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+          DEPLOY_HOST: ${{ secrets.HETZNER_HOST }}
+          DEPLOY_USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST}"
+
+          $SSH 'for f in django_secret_key db_password; do
+            if [ ! -s "/run/secrets/$f" ]; then
+              echo "FATAL: Missing or empty secret: $f" >&2
+              exit 1
+            fi
+          done
+          echo "✅ Required secrets verified."'
+
   # ─────────────────────────────────────────────────────────────────────────
   # DEPLOY via deploy-remote.sh (handles lock, backup, migrate, restart,
   #   healthcheck, rollback — all in one atomic script)
@@ -99,6 +175,8 @@ jobs:
   deploy:
     name: "Deploy ${{ inputs.app_name }}"
     runs-on: ubuntu-latest
+    needs: [secrets]
+    if: always() && (needs.secrets.result == 'success' || needs.secrets.result == 'skipped')
     environment: ${{ inputs.environment }}
     outputs:
       deployed_tag: ${{ steps.tag.outputs.tag }}
