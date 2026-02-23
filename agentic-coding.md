@@ -36,21 +36,30 @@ Pflichtfelder:
 
 ---
 
-## Step 2: TaskRouter aufrufen (ADR-068)
+## Step 2: TaskRouter aufrufen (ADR-068 Phase 2 — implementiert)
 
 Der Router analysiert das Task-Template und empfiehlt einen Modell-Tier.
 
 ```python
-# Manuell bis router.py implementiert (Phase 2 ADR-068):
-# Nutze Routing-Matrix aus ADR-068 §Implementation Details
+from orchestrator_mcp.agent_team.router import TaskRouter
+from orchestrator_mcp.models import TaskComplexity, RiskLevel
 
-# Kurzregel:
-# trivial/low    → lean_local oder budget_cloud
-# simple/medium  → budget_cloud
-# moderate       → standard_coding
-# complex/high   → standard_coding oder high_reasoning
-# architectural  → high_reasoning
+router = TaskRouter()
+decision = router.route(
+    task_id="t-001",
+    complexity=TaskComplexity.MODERATE,
+    risk_level=RiskLevel.MEDIUM,
+    requires_planning=True,
+)
+print(decision.recommended_tier, decision.confidence, decision.reason)
 ```
+
+Kurzregel (Routing-Matrix):
+- `trivial/low`    → `lean_local` oder `budget_cloud`
+- `simple/medium`  → `budget_cloud`
+- `moderate`       → `standard_coding`
+- `complex/high`   → `standard_coding` oder `high_reasoning`
+- `architectural`  → `high_reasoning`
 
 **Confidence < 0.7 oder risk_level = critical**: Gate 2 — Mensch entscheidet Tier.
 
@@ -106,12 +115,40 @@ Coverage-Delta muss ≥ 0 sein (ADR-068 Quality Gate).
 
 ---
 
-## Step 6: Quality Evaluator (ADR-068)
+## Step 6: Quality Evaluator (ADR-068 Phase 4 — implementiert)
 
-Bis `evaluator.py` implementiert ist — manuell prüfen:
+```python
+from orchestrator_mcp.agent_team.evaluator import QualityEvaluator
+
+evaluator = QualityEvaluator()
+score = evaluator.evaluate(result)  # WorkflowResult
+print(score.composite_score, score.completion_score)
+```
+
+Oder direkt via `run_workflow()` mit Router (kombiniert Schritte 2–6):
+
+```python
+from orchestrator_mcp.agent_team.workflows import run_workflow
+from orchestrator_mcp.agent_team.router import TaskRouter
+from orchestrator_mcp.agent_team.models import Task, TaskType, TaskComplexity, TaskRisk
+
+task = Task(
+    task_id="t-001",
+    title="Add unit tests for guardian",
+    type=TaskType.TEST,
+    complexity=TaskComplexity.SIMPLE,
+    risk_level=TaskRisk.LOW,
+    acceptance_criteria=["Coverage >= 80%", "All tests pass"],
+    affected_paths=["orchestrator_mcp/agent_team/"],
+)
+result = run_workflow(task, router=TaskRouter())
+print(result.model_tier_used, result.completion_score, result.status)
+```
+
+Quality-Ziele:
 
 | Metrik | Ziel | Prüfung |
-|--------|------|---------|
+|--------|------|--------|
 | `completion_score` | ≥ 0.80 | Alle Acceptance Criteria erfüllt? |
 | `guardian_passed` | 100% | Schritt 4 grün? |
 | `coverage_delta` | ≥ 0 | Schritt 5 Coverage nicht gesunken? |
@@ -141,9 +178,33 @@ PR-Beschreibung muss enthalten:
 
 ---
 
-## Step 8: Metriken in AuditStore schreiben (ADR-068)
+## Step 8: Metriken in AuditStore schreiben (ADR-068 Phase 3 — implementiert)
 
-Bis `audit_store.py` implementiert — als Kommentar im GitHub Issue dokumentieren:
+```python
+from orchestrator_mcp.audit_store import AuditStore
+from orchestrator_mcp.models import TaskQualityScore, ModelTier, TaskComplexity, RiskLevel
+
+store = AuditStore()  # PostgreSQL wenn ORCHESTRATOR_DATABASE_URL gesetzt, sonst in-memory
+
+score = TaskQualityScore(
+    task_id="t-001",
+    model_tier=ModelTier.SWE,
+    model_name="claude-sonnet-4",
+    task_type="test",
+    task_complexity=TaskComplexity.SIMPLE,
+    risk_level=RiskLevel.LOW,
+    guardian_passed=True,
+    coverage_delta=2.0,
+    iteration_count=1,
+    completion_score=0.92,
+    adr_compliance_score=1.0,
+    code_quality_score=0.88,
+)
+store.log_quality_score(score)
+print(score.composite_score)  # gewichteter Score 0.0–1.0
+```
+
+Fallback: Als Kommentar im GitHub Issue dokumentieren:
 
 ```markdown
 ## Task Quality Score
