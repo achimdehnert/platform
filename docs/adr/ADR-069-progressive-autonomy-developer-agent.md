@@ -2,52 +2,158 @@
 
 | Feld | Wert |
 |------|------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-02-23 |
 | **Autor** | Achim Dehnert |
 | **Supersedes** | — |
-| **Related** | ADR-066, ADR-068, CONCEPT-001 |
+| **Related** | ADR-066, ADR-067, ADR-068, CONCEPT-001 |
 
 ---
 
 ## Kontext
 
 ADR-066 definiert den `Developer`-Agenten als eine der vier Kernrollen des
-AI Engineering Squad. Die offene architektonische Frage lautet:
+AI Engineering Squad. Zwei architektonische Fragen wurden in dieser Version
+beantwortet:
 
-> Ist `developer.py` ein **autonomer LLM-Caller** (schreibt selbstständig Code
-> via LLM-API) oder ein **Koordinations-Wrapper** (delegiert an Cascade/Windsurf)?
+1. **Hybrid-Architektur**: `developer.py` ist weder rein autonom noch rein
+   Cascade-gesteuert, sondern ein **Progressive Autonomy Hybrid** (→ Entscheidung
+   unten).
 
-Beide Extreme haben Nachteile:
-- **Rein autonom**: Unkontrolliertes Risiko bei komplexen Tasks; kein Lernen aus
-  Fehlern; Gate-System wird umgangen wenn Qualität schlecht ist
-- **Rein Cascade-gesteuert**: Kein Skalierungspotential; Cascade ist Flaschenhals;
-  keine Messung was tatsächlich autonom funktioniert
-
-Gleichzeitig zeigt `config.py` bereits ein `hybrid`-Szenario mit `fallback`-Feldern
-pro Agent — die Infrastruktur für differenzierte Steuerung ist vorhanden.
-
-Der `AuditStore` (`audit_store.py`) loggt bereits `cost_usd`, `model`, `gate` und
-`status` pro Aktion — die Datenbasis für Qualitätsmessung existiert.
+2. **`cascade_execute()` Implementierung**: Direkter Funktionsaufruf oder
+   MCP-Tool-Call? (→ Entscheidung unten, tiefe Analyse in §3)
 
 ---
 
-## Entscheidung
+## Entscheidung 1: Progressive Autonomy Hybrid
 
-Wir implementieren `developer.py` als **Progressive Autonomy Hybrid**:
-
-> Der Developer-Agent startet als Cascade-gesteuerter Koordinations-Wrapper
-> (Gate 1–2). Für jeden Task-Typ wird separat gemessen, ob autonome LLM-Execution
-> zuverlässig funktioniert. Bei nachgewiesener Qualität (≥ 3 Erfolge, Score ≥ 0.85)
-> wird der Task-Typ auf Gate 0 (Autonomous) herabgestuft. Bei Qualitätsverlust
-> wird automatisch zurückgestuft.
-
-Das Pattern heißt **Progressive Autonomy**: Kontrolle wird sukzessive an den
-automomen LLM-Caller zurückgegeben — messbar, reversibel, task-typ-spezifisch.
+Der Developer-Agent startet als Cascade-gesteuerter Koordinations-Wrapper
+(Gate 1–2). Für jeden Task-Typ wird separat gemessen, ob autonome LLM-Execution
+zuverlässig funktioniert. Bei nachgewiesener Qualität (≥ 3 Erfolge, Score ≥ 0.85)
+wird der Task-Typ auf Gate 0 (Autonomous) herabgestuft. Bei Qualitätsverlust
+wird automatisch zurückgestuft.
 
 ---
 
-## Architektur
+## Entscheidung 2: `cascade_execute()` als direkter Funktionsaufruf
+
+**`cascade_execute()` wird als direkter Python-Funktionsaufruf implementiert —
+kein MCP-Tool-Call.**
+
+### Analyse: MCP-Tool-Call vs. direkter Funktionsaufruf
+
+#### Das MCP-Problem (aus ADR-067, empirisch belegt)
+
+ADR-067 dokumentiert die konkreten Symptome des MCP-SSH-Problems:
+
+```
+git_manage stash         → hängt, kein Response nach 60s
+docker_manage compose_up → blockiert Windsurf-Event-Loop
+ssh_manage exec          → Timeout bei langen Operationen (30–120s)
+```
+
+**Ursache**: Das MCP-Protokoll ist **synchron**. Jeder Tool-Call öffnet eine neue
+Verbindung, wartet auf Antwort, blockiert den Event-Loop. Das ist kein
+Konfigurationsfehler — es ist ein strukturelles Protokoll-Problem.
+
+Ein `cascade_execute()` als MCP-Tool-Call würde **dasselbe strukturelle Problem**
+in `developer.py` einführen:
+
+```
+developer.py ruft MCP-Tool auf
+  → MCP öffnet Verbindung zu Cascade/Windsurf
+  → Wartet auf Antwort (synchron)
+  → Bei langen Code-Generierungs-Tasks (30–120s): Timeout
+  → Event-Loop blockiert
+  → Identisches Problem wie deployment-mcp Write-Tools
+```
+
+#### Warum "Cascade ruft sich selbst via MCP auf" nicht funktioniert
+
+Das Konzept "Cascade ruft sich selbst via MCP auf" hat einen fundamentalen
+Architektur-Fehler: **Cascade ist der MCP-Client, nicht der MCP-Server**.
+
+```
+FALSCH (konzeptuell):
+  developer.py (läuft in Cascade)
+    → mcp_tool_call("cascade_execute", ...)
+    → Cascade empfängt Tool-Call von sich selbst
+    → Führt aus
+    → Antwortet an sich selbst
+  Problem: Cascade ist kein MCP-Server. Es gibt keinen Endpoint.
+
+RICHTIG:
+  developer.py (läuft in Cascade)
+    → cascade_execute(plan)  # direkter Funktionsaufruf
+    → Cascade führt den Plan als nächste Aktion aus
+    → Kein Netzwerk-Overhead, kein Timeout-Risiko
+```
+
+#### Best Practices: Wann MCP, wann direkter Aufruf?
+
+| Kriterium | MCP-Tool-Call | Direkter Funktionsaufruf |
+|-----------|--------------|--------------------------|
+| **Externe Ressource** (SSH, GitHub, DB) | ✅ richtig | — |
+| **Interner Aufruf** (gleicher Prozess) | ❌ Overhead | ✅ richtig |
+| **Lange Operation** (> 10s) | ❌ Timeout-Risiko | ✅ kein Timeout |
+| **Audit-Trail nötig** | ✅ MCP-Log | ✅ AuditStore direkt |
+| **Fehlerbehandlung** | ❌ MCP-Error-Wrapping | ✅ native Python-Exceptions |
+| **Testbarkeit** | ❌ Mock-Aufwand | ✅ direkt mockbar |
+| **Autonomie-Ziel** | ❌ Flaschenhals | ✅ skaliert |
+
+**Fazit**: MCP ist das richtige Protokoll für **externe Ressourcen** (ADR-067:
+GitHub Actions, SSH-Read-Ops). Für **interne Koordination** innerhalb von
+`developer.py` ist es der falsche Layer.
+
+#### Die drei Ausführungsmodi ohne MCP
+
+```python
+async def cascade_execute(plan: TaskPlan, mode: DeveloperMode) -> ExecutionResult:
+    """
+    Direkter Funktionsaufruf — kein MCP-Tool-Call.
+
+    CASCADE_CONTROLLED: LLM erstellt Plan, Cascade führt aus.
+      → plan enthält strukturierte Anweisungen (Pydantic v2)
+      → Cascade liest plan.steps und führt sie sequentiell aus
+      → Kein Netzwerk-Hop, kein Timeout
+
+    SUPERVISED: LLM führt aus, Ergebnis wird geprüft.
+      → litellm.acompletion() mit code_generation-Prompt
+      → Ergebnis wird durch evaluator.py bewertet
+      → Bei Score < threshold: Cascade übernimmt
+
+    AUTONOMOUS: LLM führt vollständig aus.
+      → litellm.acompletion() ohne Cascade-Eingriff
+      → Nur QualityEvaluator prüft
+    """
+    match mode:
+        case DeveloperMode.CASCADE_CONTROLLED:
+            return await _cascade_controlled_execute(plan)
+        case DeveloperMode.SUPERVISED:
+            return await _supervised_execute(plan)
+        case DeveloperMode.AUTONOMOUS:
+            return await _autonomous_execute(plan)
+```
+
+#### Audit-Trail ohne MCP
+
+Der AuditStore (`audit_store.py`) loggt jeden Aufruf direkt — kein MCP-Log nötig:
+
+```python
+audit_store.log({
+    "task_id": task.task_id,
+    "action": f"cascade_execute:{mode.value}",
+    "model": model_config["model"],
+    "gate": gate_for_mode(mode),
+    "status": "success" | "failure",
+    "cost_usd": response.usage.total_tokens * COST_PER_TOKEN,
+    "details": f"quality_score={quality.score:.3f} promoted={promoted}",
+})
+```
+
+---
+
+## Architektur: Progressive Autonomy
 
 ### Drei Ausführungsmodi
 
@@ -57,94 +163,47 @@ DeveloperMode.SUPERVISED           # Gate 1 — LLM führt aus, Cascade überwac
 DeveloperMode.AUTONOMOUS           # Gate 0 — LLM führt vollständig autonom aus
 ```
 
-### Autonomie-Profil pro Task-Typ
+### Promotion / Demotion
 
 ```
-AutonomyProfile (pro TaskType):
-  mode: DeveloperMode          # aktueller Modus
-  success_count: int           # konsekutive Erfolge im aktuellen Modus
-  failure_count: int           # konsekutive Fehler
-  avg_quality_score: float     # Ø TaskQualityScore der letzten N Executions
-  promoted_at: datetime | None # wann zuletzt hochgestuft
-  demoted_at: datetime | None  # wann zuletzt zurückgestuft
-```
-
-### Promotion / Demotion Schwellwerte
-
-```
-PROMOTION_THRESHOLD:
-  min_consecutive_successes: 3
-  min_avg_quality_score: 0.85
-  min_gate_level_for_promotion: 1  # CASCADE_CONTROLLED → SUPERVISED
-
-DEMOTION_THRESHOLD:
-  max_consecutive_failures: 1      # sofort bei erstem Fehler
-  min_quality_score_trigger: 0.70  # unter diesem Score → Demotion
+PROMOTION: 3 konsekutive Erfolge mit Score ≥ 0.85 → nächster Modus
+DEMOTION:  Score < 0.70 → sofort zurück zum vorherigen Modus
+HYSTERESE: min. 24h zwischen Promotions (verhindert Pendeln)
 ```
 
 ### Ablauf pro Task-Execution
 
 ```
-execute_task(task: EngineeringTask) -> ExecutionResult:
+execute_task(task) → ExecutionResult:
 
   1. Lade AutonomyProfile für task.task_type
-  2. Wähle Ausführungsmodus:
-     mode = profile.mode
+  2. Wähle mode = profile.mode
 
-  3. Führe aus:
-     CASCADE_CONTROLLED:
-       → plan = llm_call(model, task)          # LLM erstellt Plan
-       → result = cascade_execute(plan)        # Cascade führt aus
-       → quality = evaluate(result, task)
+  3. Führe aus (direkter Funktionsaufruf, kein MCP):
+     CASCADE_CONTROLLED → _cascade_controlled_execute(plan)
+     SUPERVISED         → _supervised_execute(plan)
+     AUTONOMOUS         → _autonomous_execute(plan)
 
-     SUPERVISED:
-       → result = llm_execute(model, task)     # LLM führt aus
-       → cascade_review(result)               # Cascade prüft
-       → quality = evaluate(result, task)
+  4. evaluate(result) via evaluator.py (ADR-068)
 
-     AUTONOMOUS:
-       → result = llm_execute(model, task)     # LLM führt vollständig aus
-       → quality = evaluate(result, task)      # nur QualityEvaluator
+  5. Update AutonomyProfile (promote/demote)
 
-  4. Update AutonomyProfile:
-     if quality.score >= PROMOTION_THRESHOLD.min_avg_quality_score:
-       profile.success_count += 1
-       profile.failure_count = 0
-       if profile.success_count >= PROMOTION_THRESHOLD.min_consecutive_successes:
-         promote(profile)  # mode += 1 (max: AUTONOMOUS)
-     else:
-       profile.failure_count += 1
-       profile.success_count = 0
-       if quality.score < DEMOTION_THRESHOLD.min_quality_score_trigger:
-         demote(profile)   # mode -= 1 (min: CASCADE_CONTROLLED)
+  6. Log in AuditStore (direkt, kein MCP)
 
-  5. Log in AuditStore:
-     {task_id, mode, quality_score, promoted, demoted, cost_usd}
-
-  6. Return ExecutionResult
+  7. Return ExecutionResult
 ```
 
-### Visualisierung des Autonomie-Fortschritts
+### Task-Typ-Deckel (max_mode_ceiling)
 
-```
-Task-Typ: "lint" (einfach, deterministisch)
-  Start:    CASCADE_CONTROLLED
-  Run 1–3:  Score 0.92, 0.89, 0.91  → promote → SUPERVISED
-  Run 4–6:  Score 0.88, 0.90, 0.87  → promote → AUTONOMOUS
-  Run 7:    Score 0.95               → bleibt AUTONOMOUS
-
-Task-Typ: "db_migration" (komplex, riskant)
-  Start:    CASCADE_CONTROLLED
-  Run 1:    Score 0.72               → kein Promote (< 0.85)
-  Run 2:    Score 0.65               → Demotion-Trigger → bleibt CASCADE_CONTROLLED
-  → Bleibt dauerhaft CASCADE_CONTROLLED bis Qualität steigt
-
-Task-Typ: "feature" (mittel)
-  Start:    CASCADE_CONTROLLED
-  Run 1–3:  Score 0.86, 0.88, 0.85  → promote → SUPERVISED
-  Run 4:    Score 0.68               → demote → CASCADE_CONTROLLED
-  Run 5–7:  Score 0.87, 0.90, 0.88  → promote → SUPERVISED
-  → Pendelt je nach Komplexität der konkreten Feature-Tasks
+```python
+"max_mode_ceiling": {
+    "db_migration":   DeveloperMode.SUPERVISED,       # nie AUTONOMOUS
+    "security":       DeveloperMode.SUPERVISED,       # nie AUTONOMOUS
+    "breaking_change": DeveloperMode.SUPERVISED,      # nie AUTONOMOUS
+    "lint":           DeveloperMode.AUTONOMOUS,       # kein Deckel
+    "typo":           DeveloperMode.AUTONOMOUS,       # kein Deckel
+    "docs":           DeveloperMode.AUTONOMOUS,       # kein Deckel
+}
 ```
 
 ---
@@ -153,95 +212,29 @@ Task-Typ: "feature" (mittel)
 
 ```
 orchestrator_mcp/agent_team/
-  developer.py          # Haupt-Implementierung (NEU)
-  autonomy_store.py     # Persistenz der AutonomyProfiles (NEU)
-  evaluator.py          # QualityEvaluator — ADR-068 (NEU, parallel)
-  utils.py              # llm_call_with_retry(), FALLBACK_CHAIN (NEU)
+  utils.py              # llm_call_with_retry(), FALLBACK_CHAIN  (NEU — zuerst)
+  evaluator.py          # QualityEvaluator — ADR-068             (NEU — Voraussetzung)
+  autonomy_store.py     # AutonomyProfile Persistenz             (NEU)
+  developer.py          # Progressive Autonomy Hybrid            (NEU)
+  metrics.py            # TaskQualityScore + Feedback-Loop       (NEU — danach)
 ```
 
-### developer.py — Kernstruktur
+**Reihenfolge**: `utils.py` → `evaluator.py` → `autonomy_store.py` → `developer.py` → `metrics.py`
 
-```python
-class DeveloperMode(str, Enum):
-    CASCADE_CONTROLLED = "cascade_controlled"  # Gate 2
-    SUPERVISED = "supervised"                  # Gate 1
-    AUTONOMOUS = "autonomous"                  # Gate 0
-
-
-class AutonomyProfile(BaseModel):
-    task_type: str
-    mode: DeveloperMode = DeveloperMode.CASCADE_CONTROLLED
-    success_count: int = 0
-    failure_count: int = 0
-    avg_quality_score: float = 0.0
-    total_executions: int = 0
-    promoted_at: datetime | None = None
-    demoted_at: datetime | None = None
-
-
-class ExecutionResult(BaseModel):
-    task_id: str
-    mode_used: DeveloperMode
-    quality_score: float
-    promoted: bool = False
-    demoted: bool = False
-    cost_usd: float = 0.0
-    output: str
-    duration_seconds: float
-```
-
-### autonomy_store.py — Persistenz
-
-Profile werden in PostgreSQL (AuditStore-DB) gespeichert:
+### Datenbank-Schema (autonomy_store)
 
 ```sql
 CREATE TABLE developer_autonomy_profiles (
-    task_type VARCHAR(50) PRIMARY KEY,
-    mode VARCHAR(30) NOT NULL DEFAULT 'cascade_controlled',
-    success_count INTEGER DEFAULT 0,
-    failure_count INTEGER DEFAULT 0,
+    task_type        VARCHAR(50) PRIMARY KEY,
+    mode             VARCHAR(30) NOT NULL DEFAULT 'cascade_controlled',
+    success_count    INTEGER DEFAULT 0,
+    failure_count    INTEGER DEFAULT 0,
     avg_quality_score NUMERIC(4,3) DEFAULT 0.0,
     total_executions INTEGER DEFAULT 0,
-    promoted_at TIMESTAMPTZ,
-    demoted_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ DEFAULT NOW()
+    promoted_at      TIMESTAMPTZ,
+    demoted_at       TIMESTAMPTZ,
+    updated_at       TIMESTAMPTZ DEFAULT NOW()
 );
-```
-
-Fallback: In-Memory-Dict (analog zu `AuditStore`).
-
----
-
-## Konfiguration
-
-Erweiterung von `config.py`:
-
-```python
-AUTONOMY_CONFIG: Final[dict[str, object]] = {
-    "promotion_threshold": {
-        "min_consecutive_successes": 3,
-        "min_avg_quality_score": 0.85,
-    },
-    "demotion_threshold": {
-        "max_consecutive_failures": 1,
-        "min_quality_score_trigger": 0.70,
-    },
-    "initial_mode": DeveloperMode.CASCADE_CONTROLLED,
-    "task_type_overrides": {
-        # Bestimmte Task-Typen starten höher oder bleiben gedeckelt
-        "lint": DeveloperMode.SUPERVISED,       # Einfach — direkt SUPERVISED
-        "typo": DeveloperMode.SUPERVISED,        # Einfach — direkt SUPERVISED
-        "db_migration": DeveloperMode.CASCADE_CONTROLLED,  # Immer Kontrolle
-        "security": DeveloperMode.CASCADE_CONTROLLED,      # Immer Kontrolle
-        "breaking_change": DeveloperMode.CASCADE_CONTROLLED,
-    },
-    "max_mode_ceiling": {
-        # Bestimmte Task-Typen können nie AUTONOMOUS werden
-        "db_migration": DeveloperMode.SUPERVISED,
-        "security": DeveloperMode.SUPERVISED,
-        "breaking_change": DeveloperMode.SUPERVISED,
-    },
-}
 ```
 
 ---
@@ -250,56 +243,30 @@ AUTONOMY_CONFIG: Final[dict[str, object]] = {
 
 ### Positiv
 
-- **Messbar**: Jede Promotion/Demotion ist im AuditStore nachvollziehbar
-- **Reversibel**: Qualitätsverlust führt sofort zur Rückstufung
-- **Task-typ-spezifisch**: `lint` kann AUTONOMOUS sein, `db_migration` nie
-- **Lernend**: Das System akkumuliert Erfahrung pro Task-Typ über Zeit
-- **Skalierend**: Autonome Tasks kosten weniger (kein Cascade-Overhead)
-- **Sicher**: Riskante Task-Typen haben `max_mode_ceiling` — kein Weg zu AUTONOMOUS
-- **Transparent**: Dashboard-fähig — Autonomie-Grad pro Task-Typ sichtbar
+- **Kein MCP-Timeout-Risiko**: Direkter Funktionsaufruf — kein Event-Loop-Block
+- **Vollständig autonom skalierbar**: AUTONOMOUS-Modus braucht keine Cascade-Interaktion
+- **Testbar**: Alle drei Modi direkt mockbar ohne MCP-Infrastruktur
+- **Audit-Trail**: AuditStore loggt jeden Aufruf direkt
+- **Konsistent mit ADR-067**: MCP nur für externe Ressourcen (GitHub, SSH-Read)
+- **Task-typ-spezifisch lernend**: `lint` wird autonom, `db_migration` nie
 
 ### Negativ / Risiken
 
-- **Komplexer als reine Variante**: Zwei zusätzliche Dateien (`developer.py`,
-  `autonomy_store.py`)
-- **Kalt-Start-Problem**: Neue Task-Typen beginnen immer bei CASCADE_CONTROLLED
-  — erste Tasks sind langsamer
-- **Score-Abhängigkeit**: Qualität der Promotion/Demotion hängt von
-  `evaluator.py` (ADR-068) ab — muss zuerst implementiert sein
-- **Pendeln möglich**: Bei grenzwertigen Task-Typen kann das System zwischen
-  Modi pendeln — Hysterese-Mechanismus nötig (min. 24h zwischen Promotions)
-
-### Mitigationen
-
 | Risiko | Mitigation |
 |--------|------------|
-| Score-Abhängigkeit | `evaluator.py` vor `developer.py` implementieren |
-| Pendeln | `min_hours_between_promotions: 24` in `AUTONOMY_CONFIG` |
-| Kalt-Start | `task_type_overrides` für bekannt-einfache Task-Typen |
-| Falsche Demotion | Demotion erst nach 2 Fehlern (konfigurierbar) |
+| `evaluator.py` Voraussetzung | Implementierungsreihenfolge erzwingen |
+| Pendeln bei Grenzwert-Tasks | Hysterese: 24h zwischen Promotions |
+| Kalt-Start neue Task-Typen | `task_type_overrides` für bekannte einfache Typen |
 
 ---
 
-## Implementierungsreihenfolge
+## Offene Fragen (gelöst)
 
-```
-1. utils.py          — llm_call_with_retry(), FALLBACK_CHAIN
-2. evaluator.py      — QualityEvaluator (Voraussetzung für Scoring)
-3. autonomy_store.py — AutonomyProfile Persistenz
-4. developer.py      — Progressive Autonomy Hybrid
-5. metrics.py        — TaskQualityScore + Feedback-Loop (ADR-068)
-```
-
----
-
-## Offene Fragen
-
-| Frage | Priorität |
-|-------|----------|
-| Soll `cascade_execute()` in `developer.py` ein MCP-Tool-Call sein oder ein direkter Funktionsaufruf? | HIGH |
-| Wie wird der Autonomie-Status im Windsurf-UI sichtbar gemacht (Dashboard)? | MEDIUM |
-| Soll es eine manuelle Override-Funktion geben ("force AUTONOMOUS für Task-Typ X")? | MEDIUM |
-| Hysterese: 24h zwischen Promotions — oder besser N Executions? | LOW |
+| Frage | Entscheidung |
+|-------|-------------|
+| MCP-Tool-Call oder direkter Aufruf? | **Direkter Funktionsaufruf** — MCP strukturell ungeeignet |
+| Hysterese: Zeit oder Executions? | **24h** — verhindert schnelles Pendeln bei Burst-Tasks |
+| Manuelle Override-Funktion? | **Ja** — `force_mode(task_type, mode)` in `autonomy_store.py` |
 
 ---
 
@@ -307,4 +274,5 @@ AUTONOMY_CONFIG: Final[dict[str, object]] = {
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
-| 2026-02-23 | Achim Dehnert | Initial Proposed |
+| 2026-02-23 | Achim Dehnert | v1 — Initial Proposed, offene Frage cascade_execute() |
+| 2026-02-23 | Achim Dehnert | v2 — Accepted; cascade_execute() als direkter Funktionsaufruf entschieden; tiefe MCP-Analyse ergänzt |
