@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-02-22
 decision-makers: [Achim Dehnert]
 consulted: []
@@ -291,89 +291,19 @@ Code → ReEngineer.analyze() → ImpactReport
 orchestrator_mcp/
   agent_team/
     __init__.py      # Public API: run_workflow(), get_team_status()
-    config.py        # Tier-Konfigurationen + Modell-Mapping (aus YAML)
     models.py        # Pydantic v2: AgentRole, Task, TaskPlan, ImpactReport, WorkflowResult
-    tech_lead.py     # TL: parse_adr(), assign_tasks(), review_results(), escalate()
-    developer.py     # D: implement(), write_tests(), commit()
-    tester.py        # T: run_suite(), analyze_coverage(), regression_test()
-    re_engineer.py   # R: analyze(), create_impact_report(), refactor_step()
     guardian.py      # G: run_ruff(), run_bandit(), run_mypy(), quality_gate()
+    tester.py        # T: run_suite(), analyze_coverage(), regression_test()
     workflows.py     # Workflow-Orchestrierung A, B, C + Fehlerbehandlung
+    tech_lead.py     # TL: parse_adr(), assign_tasks(), review_results() [Phase 6]
+    developer.py     # D: implement(), write_tests(), commit() [Phase 4]
+    re_engineer.py   # R: analyze(), create_impact_report(), refactor_step() [Phase 5]
 ```
 
 ### Konfiguration (`agent_team_config.yaml`)
 
-```yaml
-team:
-  name: "AI Engineering Squad"
-  version: "1.0"
-
-tiers:
-  high_reasoning:
-    model: "claude-opus-4"        # aktualisierbar ohne ADR-Änderung
-    extended_thinking: true
-    max_thinking_tokens: 32768
-  standard_coding:
-    model: "claude-sonnet-4"
-  lean_local:
-    model: "qwen2.5-coder:32b"   # Ollama lokal
-  rule_based:
-    model: null
-
-agents:
-  tech_lead:
-    tier: high_reasoning
-    gate_range: [2, 4]
-    max_concurrent_tasks: 3
-  developer:
-    tier: standard_coding
-    gate_range: [1, 2]
-    auto_test: true
-    auto_commit: true
-    max_iterations: 3             # max. 3 Review-Zyklen pro Task
-  tester:
-    tier: lean_local
-    gate_range: [0, 1]
-    coverage_targets:
-      tier_1: 0.80
-      tier_2: 0.60
-  re_engineer:
-    tier: high_reasoning
-    gate_range: [2, 3]
-    max_changes_per_step: 50
-  guardian:
-    tier: rule_based
-    tools: ["ruff", "bandit", "mypy"]
-    block_on: ["critical", "error"]
-    warn_on: ["warning"]
-
-routing:
-  router_model_tier: "budget_cloud"   # TaskRouter läuft auf Budget-Modell (ADR-068)
-  confidence_threshold: 0.70           # < 0.70 → Gate 2 (Mensch entscheidet)
-  fallback_chain:
-    lean_local: "budget_cloud"
-    budget_cloud: "standard_coding"
-    standard_coding: "high_reasoning"
-
-workflows:
-  adr_development:
-    sequence: [tech_lead, developer, guardian, tester, tech_lead]
-    max_iterations: 3
-    timeout_minutes: 60
-  test_improvement:
-    sequence: [tester, developer, guardian, tester, tech_lead]
-    max_iterations: 2
-    timeout_minutes: 30
-  re_engineering:
-    sequence: [re_engineer, tech_lead, re_engineer, guardian, tester, tech_lead]
-    max_iterations: 5
-    timeout_minutes: 120
-
-git:
-  branch_pattern: "ai/{agent}/{task_id}"
-  auto_push: false
-  require_review_before_merge: true
-```
+Siehe `mcp-hub/agent_team_config.yaml` — vollständige Konfiguration mit allen Tiers,
+Agents, Workflows und Phasen-Status.
 
 ---
 
@@ -381,9 +311,9 @@ git:
 
 | Phase | Inhalt | Definition of Done | Status |
 |-------|--------|--------------------|--------|
-| 1 | Datenmodell + Task-Store (PostgreSQL) | Migrations grün, `models.py` mit Pydantic v2 | ⬜ pending |
-| 2 | Guardian Agent (Ruff/Bandit/MyPy) | Pre-Commit-Hook aktiv, CI-Check grün | ⬜ pending |
-| 3 | Tester Agent (pytest + Coverage) | `tester.py` läuft gegen mcp-hub Tests, Coverage-Report generiert | ⬜ pending |
+| 1 | Datenmodell + Pydantic v2 models | `models.py` mit allen Klassen, Tests grün | ✅ done (2026-02-23) |
+| 2 | Guardian Agent (Ruff/Bandit/MyPy) | `guardian.py` implementiert, quality_gate() läuft | ✅ done (2026-02-23) |
+| 3 | Tester Agent (pytest + Coverage) | `tester.py` implementiert, run_suite() läuft | ✅ done (2026-02-23) |
 | 4 | Developer Agent (Code-Generierung) | Workflow B (Test-Verbesserung) End-to-End lauffähig | ⬜ pending |
 | 5 | Re-Engineer Agent (Analyse + Refactoring) | Impact-Report für ein bestehendes Modul generiert | ⬜ pending |
 | 6 | Tech Lead Agent (ADR-Parsing + Orchestrierung) | Workflow A (ADR-basiert) End-to-End lauffähig | ⬜ pending |
@@ -418,7 +348,7 @@ git:
 | Entscheidung | Begründung | Zieldatum | Referenz |
 |--------------|------------|-----------|----------|
 | API-Key-Management für AI-Agenten | Agenten benötigen eigene API-Keys (Anthropic, OpenAI, MiniMax) — Rotation, Secrets-Handling und Kostentracking noch nicht definiert | 2026-Q2 | ADR-045 (Secrets Management) |
-| Ziel-Repo für `orchestrator_mcp/agent_team/` | Liegt `agent_team/` in `mcp-hub` oder `platform`? Entscheidung nach Phase 1 (Datenmodell) | 2026-Q2 | ADR-044 (MCP-Hub Architecture) |
+| Ziel-Repo für `orchestrator_mcp/agent_team/` | Liegt `agent_team/` in `mcp-hub` oder `platform`? → mcp-hub gewählt (2026-02-23) | resolved | ADR-044 (MCP-Hub Architecture) |
 | Kostenschwelle für High-Reasoning-Tier | Ab welchem monatlichen API-Kostenvolumen wird auf Standard-Tier downgestuft? SLA noch nicht definiert | 2026-Q3 | ADR-067 (Work Management) |
 | GitHub Issues Integration für Task-Store | Sollen AI-Tasks als GitHub Issues getrackt werden (ADR-067) oder nur intern im AuditStore? | 2026-Q2 | ADR-067 (Work Management) |
 
@@ -433,6 +363,7 @@ git:
 - ADR-044: MCP-Hub Architecture — Ziel-Repo für `orchestrator_mcp/agent_team/`
 - ADR-045: Secrets Management — API-Key-Handling für AI-Agenten
 - Konzeptbasis: `mcp-hub` Branch `claude/ai-engineering-team-concept-06LJF` (2026-02-22)
+- Implementierung: `mcp-hub/orchestrator_mcp/agent_team/` (Phase 1-3, 2026-02-23)
 
 ---
 
@@ -441,8 +372,9 @@ git:
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-22 | Achim Dehnert | Initial — Status: Proposed |
-| 2026-02-23 | Achim Dehnert | Review: Pros/Cons-Sektion, More Information, Deferred Decisions ergänzt; ADR-Link korrigiert |
+| 2026-02-23 | Achim Dehnert | Review: Pros/Cons-Sektion, More Information, Deferred Decisions ergänzt |
 | 2026-02-23 | Achim Dehnert | budget_cloud-Tier ergänzt; Routing-Hinweis auf ADR-068; Fallback-Chain in Config |
+| 2026-02-23 | Achim Dehnert | Status: accepted — Phase 1-3 implementiert (models, guardian, tester, workflows) |
 
 ---
 
@@ -451,7 +383,7 @@ git:
 ```yaml
 paths:
   - orchestrator_mcp/agent_team/
-  - orchestrator_mcp/agent_team/config.py
+  - orchestrator_mcp/agent_team/models.py
   - agent_team_config.yaml
 gate: APPROVE
 ```
