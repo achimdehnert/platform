@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-23 (Nummernbereiche erweitert, Karteileichen deprecated)
+> **Letzte Aktualisierung**: 2026-02-23 (ADR-068 Adaptive Model Routing, Task-Template)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -120,9 +120,9 @@
 | 036 | Chat-Agent Ecosystem — DomainToolkits, Research Integration | `?` | `bfagent` | [ADR-036-chat-agent-ecosystem.md](ADR-036-chat-agent-ecosystem.md) |
 | 037 | Chat Conversation Logging & Quality Management | `?` | `bfagent` | [ADR-037-chat-conversation-logging.md](ADR-037-chat-conversation-logging.md) |
 | 065 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-065-bfagent-ci-test-strategy.md](ADR-065-bfagent-ci-test-strategy.md) |
-| 023 | Shared Scoring and Routing Engine | `Deprecated` | `platform` | [ADR-023-shared-scoring-routing-engine.md](ADR-023-shared-scoring-routing-engine.md) |
 | 066 | AI Engineering Squad mit role-based agents | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
 | 067 | Work Management Strategy (GitHub Issues + Projects + AI-Agent-Protokoll) | `Proposed` | `platform` | [ADR-067-work-management-strategy.md](ADR-067-work-management-strategy.md) |
+| 068 | Adaptive Model Routing + Quality Feedback Loop | `Proposed` | `platform` | [ADR-068-adaptive-model-routing.md](ADR-068-adaptive-model-routing.md) |
 
 ### Shared / Cross-App (350–399)
 
