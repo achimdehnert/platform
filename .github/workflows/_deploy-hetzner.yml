@@ -101,18 +101,30 @@ jobs:
   secrets:
     name: "Decrypt & push secrets"
     runs-on: ubuntu-latest
-    if: ${{ secrets.SOPS_AGE_KEY != '' }}
     steps:
       - uses: actions/checkout@v4
 
+      - name: Check SOPS_AGE_KEY available
+        id: sops_check
+        env:
+          SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
+        run: |
+          if [ -z "${SOPS_AGE_KEY:-}" ]; then
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+            echo "⚠️ SOPS_AGE_KEY not set — skipping secrets deploy (backward compat)"
+          else
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Install sops
+        if: steps.sops_check.outputs.has_key == 'true' && hashFiles('secrets.enc.env') != ''
         run: |
           curl -sLo /usr/local/bin/sops \
             "https://github.com/getsops/sops/releases/download/v3.9.4/sops-v3.9.4.linux.amd64"
           chmod +x /usr/local/bin/sops
 
       - name: Decrypt secrets.enc.env → /run/secrets/ on server
-        if: hashFiles('secrets.enc.env') != ''
+        if: steps.sops_check.outputs.has_key == 'true' && hashFiles('secrets.enc.env') != ''
         env:
           SOPS_AGE_KEY: ${{ secrets.SOPS_AGE_KEY }}
           SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
@@ -148,7 +160,7 @@ jobs:
           echo "✅ Deployed ${count} secrets to /run/secrets/ on ${DEPLOY_HOST}"
 
       - name: Verify required secrets
-        if: hashFiles('secrets.enc.env') != ''
+        if: steps.sops_check.outputs.has_key == 'true' && hashFiles('secrets.enc.env') != ''
         env:
           SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
           DEPLOY_HOST: ${{ secrets.HETZNER_HOST }}
