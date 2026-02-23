@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-23 (ADR-069 Deployment Execution Strategy, ADR-070 bfagent CI — Nummernkorrekturen via ADR Number Guard)
+> **Letzte Aktualisierung**: 2026-02-23 (ADR-071–076 Nummernkorrekturen — alle Doppelnummern behoben via ADR Number Guard)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -72,10 +72,8 @@
 | 054 | Deployment Pre-Flight Validation & platform-context als Managed Package | `Draft` | `platform` | [ADR-054-deployment-preflight-validation.md](ADR-054-deployment-preflight-validation.md) |
 | 055 | Cross-App Bug & Feature Management | `Accepted` | `platform` | [ADR-055-cross-app-bug-management.md](ADR-055-cross-app-bug-management.md) |
 | 056 | Deployment Preflight & Pipeline Hardening | `Accepted` | `platform` | [ADR-056-deployment-preflight-and-pipeline-hardening.md](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
-| 056 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Proposed` | `platform` | [ADR-056-multi-tenancy-schema-isolation.md](ADR-056-multi-tenancy-schema-isolation.md) |
 | 057 | Platform Test Strategy — 4-Ebenen-Pyramide | `Accepted` | `platform` | [ADR-057-platform-test-strategy.md](ADR-057-platform-test-strategy.md) |
 | 058 | Platform Test Taxonomy — 28-Typen-Katalog | `Accepted` | `platform` | [ADR-058-platform-test-taxonomy.md](ADR-058-platform-test-taxonomy.md) |
-| 058 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-058-multi-tenancy-testing-strategy.md](ADR-058-multi-tenancy-testing-strategy.md) |
 | 059 | Adopt Automated ADR Drift Detection and Staleness Management | `Proposed` | `platform` | [ADR-059-adr-drift-detector.md](ADR-059-adr-drift-detector.md) |
 | 060 | Developer Workstation SSH Configuration | `Proposed` | `platform` | [ADR-060-developer-workstation-ssh-configuration.md](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Hardcoding Elimination Strategy — Platform-wide | `Proposed` | `platform` | [ADR-061-hardcoding-elimination-strategy.md](ADR-061-hardcoding-elimination-strategy.md) |
@@ -85,7 +83,11 @@
 | 066 | AI Engineering Squad — Rollenbasierte Agenten + Gate-Workflows | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
 | 067 | Work Management Strategy — GitHub Issues + Projects + AI-Agent-Protokoll | `Proposed` | `platform` | [ADR-067-work-management-strategy.md](ADR-067-work-management-strategy.md) |
 | 068 | Adaptive Model Routing + Quality Feedback Loop | `Proposed` | `platform` | [ADR-068-adaptive-model-routing.md](ADR-068-adaptive-model-routing.md) |
-| 069 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Proposed` | `platform` | [ADR-069-deployment-execution-strategy.md](ADR-069-deployment-execution-strategy.md) |
+| 071 | Amendment: Code Quality Tooling (amends ADR-022) | `Proposed` | `platform` | [ADR-071-amendment-code-quality-tooling.md](ADR-071-amendment-code-quality-tooling.md) |
+| 072 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Accepted` | `platform` | [ADR-072-multi-tenancy-schema-isolation.md](ADR-072-multi-tenancy-schema-isolation.md) |
+| 073 | Repo Scope & Migration Status | `Proposed` | `platform` | [ADR-073-repo-scope.md](ADR-073-repo-scope.md) |
+| 074 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-074-multi-tenancy-testing-strategy.md](ADR-074-multi-tenancy-testing-strategy.md) |
+| 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Proposed` | `platform` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
 
 ### MCP Hub (150–199)
 
@@ -121,7 +123,7 @@
 |----|-------|--------|------|-------|
 | 036 | Chat-Agent Ecosystem — DomainToolkits, Research Integration | `?` | `bfagent` | [ADR-036-chat-agent-ecosystem.md](ADR-036-chat-agent-ecosystem.md) |
 | 037 | Chat Conversation Logging & Quality Management | `?` | `bfagent` | [ADR-037-chat-conversation-logging.md](ADR-037-chat-conversation-logging.md) |
-| 070 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-070-bfagent-ci-test-strategy.md](ADR-070-bfagent-ci-test-strategy.md) |
+| 076 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-076-bfagent-ci-test-strategy.md](ADR-076-bfagent-ci-test-strategy.md) |
 
 ### Shared / Cross-App (350–399)
 
@@ -169,17 +171,13 @@ Die folgenden Dateien sind Review-Protokolle, keine eigenständigen ADRs — sol
 - `ADR-044-review-deployment-mcp.md`
 - `ADR-046-merged-REVIEW.md`
 
-### ⚠️ Nummernkonflikte (verbleibend — Behebung ausstehend)
+### ⚠️ Nummernkonflikte (verbleibend)
 
 | Konflikt | Dateien | Empfehlung |
 |----------|---------|------------|
-| ADR-022 doppelt | `ADR-022-amendment-code-quality-tooling.md` + `ADR-022-platform-consistency-standard.md` | Amendment in ADR-022 integrieren oder auf ADR-071 umbenennen |
-| ADR-056 doppelt | `ADR-056-deployment-preflight-and-pipeline-hardening.md` + `ADR-056-multi-tenancy-schema-isolation.md` | Multi-Tenancy auf ADR-072 umbenennen |
-| ADR-057 doppelt | `ADR-057-platform-test-strategy.md` + `ADR-057-repo-scope.md` | repo-scope auf ADR-073 umbenennen |
-| ADR-058 doppelt | `ADR-058-multi-tenancy-testing-strategy.md` + `ADR-058-platform-test-taxonomy.md` | Testing-Strategy auf ADR-074 umbenennen |
 | ADR-052 falscher Bereich | `ADR-052-trading-hub-broker-adapter-architecture.md` | Umbenennen zu ADR-402 |
 
-> **Guard**: `python3 scripts/adr_next_number.py --check` erkennt alle Konflikte automatisch.
+> **Guard**: `python3 scripts/adr_next_number.py --check` — keine Konflikte mehr (Stand 2026-02-23).
 > **Audit**: `python3 scripts/adr_audit.py --fix-hints` zeigt konkrete Rename-Befehle.
 
 ---
