@@ -6,7 +6,7 @@ consulted: []
 informed: []
 supersedes: ["ADR-014-ai-native-development-teams.md"]
 amends: []
-related: ["ADR-057-platform-test-strategy.md", "ADR-058-platform-test-taxonomy.md", "ADR-067-work-management-strategy.md"]
+related: ["ADR-057-platform-test-strategy.md", "ADR-058-platform-test-taxonomy.md", "ADR-067-work-management-strategy.md", "ADR-068-adaptive-model-routing.md"]
 ---
 
 # Adopt a structured AI Engineering Squad with role-based agents and gate-controlled workflows
@@ -221,8 +221,12 @@ aktualisiert werden.
 |------|---------------|--------------------------------------|
 | **High-Reasoning** | Extended Thinking, Architektur, Analyse | Claude Opus, o3 |
 | **Standard-Coding** | Code-Generierung, Tests, Commits | Claude Sonnet, GPT-4o |
-| **Lean / Lokal** | Test-Ausführung, Coverage, Regression | Qwen 2.5 lokal, Haiku |
+| **Budget-Cloud** | Agentic, SWE-Bench ≥75%, günstig | MiniMax M2.5, GLM-5, Haiku |
+| **Lean / Lokal** | Test-Ausführung, Coverage, kein API-Cost | Qwen 2.5 lokal, Phi-4 |
 | **Regelbasiert** | Statische Analyse, kein LLM | Ruff, Bandit, MyPy |
+
+> **Hinweis**: Tier-Zuweisung erfolgt dynamisch durch den TaskRouter (ADR-068).
+> Die Rollentabelle unten zeigt Default-Tiers — der Router kann abweichen.
 
 > Konkrete Modellnamen und Kosten werden in `agent_team_config.yaml` gepflegt.
 > Kostenschätzung (Feb 2026, Hybrid-Szenario): ~$80–110/Monat bei 50 Workflows.
@@ -343,6 +347,14 @@ agents:
     block_on: ["critical", "error"]
     warn_on: ["warning"]
 
+routing:
+  router_model_tier: "budget_cloud"   # TaskRouter läuft auf Budget-Modell (ADR-068)
+  confidence_threshold: 0.70           # < 0.70 → Gate 2 (Mensch entscheidet)
+  fallback_chain:
+    lean_local: "budget_cloud"
+    budget_cloud: "standard_coding"
+    standard_coding: "high_reasoning"
+
 workflows:
   adr_development:
     sequence: [tech_lead, developer, guardian, tester, tech_lead]
@@ -405,7 +417,7 @@ git:
 
 | Entscheidung | Begründung | Zieldatum | Referenz |
 |--------------|------------|-----------|----------|
-| API-Key-Management für AI-Agenten | Agenten benötigen eigene API-Keys (Anthropic, OpenAI) — Rotation, Secrets-Handling und Kostentracking noch nicht definiert | 2026-Q2 | ADR-045 (Secrets Management) |
+| API-Key-Management für AI-Agenten | Agenten benötigen eigene API-Keys (Anthropic, OpenAI, MiniMax) — Rotation, Secrets-Handling und Kostentracking noch nicht definiert | 2026-Q2 | ADR-045 (Secrets Management) |
 | Ziel-Repo für `orchestrator_mcp/agent_team/` | Liegt `agent_team/` in `mcp-hub` oder `platform`? Entscheidung nach Phase 1 (Datenmodell) | 2026-Q2 | ADR-044 (MCP-Hub Architecture) |
 | Kostenschwelle für High-Reasoning-Tier | Ab welchem monatlichen API-Kostenvolumen wird auf Standard-Tier downgestuft? SLA noch nicht definiert | 2026-Q3 | ADR-067 (Work Management) |
 | GitHub Issues Integration für Task-Store | Sollen AI-Tasks als GitHub Issues getrackt werden (ADR-067) oder nur intern im AuditStore? | 2026-Q2 | ADR-067 (Work Management) |
@@ -430,6 +442,7 @@ git:
 |-------|-------|----------|
 | 2026-02-22 | Achim Dehnert | Initial — Status: Proposed |
 | 2026-02-23 | Achim Dehnert | Review: Pros/Cons-Sektion, More Information, Deferred Decisions ergänzt; ADR-Link korrigiert |
+| 2026-02-23 | Achim Dehnert | budget_cloud-Tier ergänzt; Routing-Hinweis auf ADR-068; Fallback-Chain in Config |
 
 ---
 
