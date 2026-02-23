@@ -172,7 +172,7 @@ jobs:
           ssh-keyscan -H "$DEPLOY_HOST" >> ~/.ssh/known_hosts 2>/dev/null
           SSH="ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no ${DEPLOY_USER}@${DEPLOY_HOST}"
 
-          $SSH 'for f in django_secret_key db_password; do
+          $SSH 'for f in secret_key postgres_password; do
             if [ ! -s "/run/secrets/$f" ]; then
               echo "FATAL: Missing or empty secret: $f" >&2
               exit 1
