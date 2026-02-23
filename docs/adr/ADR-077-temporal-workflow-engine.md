@@ -609,12 +609,11 @@ Temporal replayed Workflow-Code bei Crash. Nicht-deterministischer Code führt z
 |------------------------|-------|-----------------|-------|------------------------------------------------------------------|
 | `platform`             | 1     | ✅ Abgeschlossen | 2026-02-23 | `docker-compose.temporal.yml` + Namespace `platform-dev` + UI auf Port 8233 |
 | `bfagent`              | 2     | ✅ Abgeschlossen | 2026-02-23 | `RequirementProcessingWorkflow` + Activities + Worker + `temporalio` in requirements |
-| `bfagent`              | 2     | ⬜ Ausstehend   | –     | N8n-Callback-Endpoint `/api/n8n/signal/` implementieren         |
-| `bfagent`              | 2     | ⬜ Ausstehend   | –     | `execute_delegated_task` → Temporal Activity                    |
+| `bfagent`              | 4     | ✅ Abgeschlossen | 2026-02-23 | N8n-Callback `/api/n8n/signal/` + `execute_delegated_task_activity` + `DeploymentWorkflow` |
 | `mcp-hub`              | 3     | ✅ Abgeschlossen | 2026-02-23 | `AgentTeamWorkflow` + Activities + Worker + `temporalio` in pyproject.toml + `temporal_client.py` |
-| `platform_context`     | 3     | ⬜ Ausstehend   | –     | `CrossSystemSagaWorkflow` + `get_temporal_client()` als shared  |
-| `deploy-hub`           | 4     | ⬜ Ausstehend   | –     | `DeploymentWorkflow` als Temporal-Wrapper um GitHub Actions API |
-| `dev-hub`              | 5     | ⬜ Ausstehend   | –     | Temporal UI in dev-hub Monitoring-Dashboard integrieren         |
+| `platform_context`     | 4     | ✅ Abgeschlossen | 2026-02-23 | `temporal_client.py` als shared Module v0.5.0 + `[temporal]` extra + vendored in bfagent + mcp-hub |
+| `deploy-hub`           | 5     | ✅ Abgeschlossen | 2026-02-23 | `DeploymentWorkflow` in bfagent — triggert `repository_dispatch` → deploy-hub GitHub Actions |
+| `dev-hub`              | 5     | ✅ Abgeschlossen | 2026-02-23 | Temporal UI: `/agents/temporal/` + Detail-View + Nav-Link in base.html |
 | Celery (bfagent)       | 6     | ⬜ Ausstehend   | –     | Celery auf Scheduled Tasks + echte Fire-and-Forget reduzieren   |
 
 ---
