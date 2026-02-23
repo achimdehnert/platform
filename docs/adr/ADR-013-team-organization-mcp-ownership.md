@@ -1,14 +1,16 @@
 ---
-status: proposed
+status: "deprecated"
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
+
+> **Deprecated**: superseded by ADR-066 (AI Engineering Team) — team model replaced
 
 # ADR-013: Team Organization & MCP Ownership
 
 | Metadata | Value |
 |----------|-------|
-| **Status** | Proposed |
+| **Status** | Deprecated |
 | **Date** | 2026-02-03 |
 | **Author** | Achim Dehnert |
 | **Scope** | core |

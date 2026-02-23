@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-23 (ADR-067 Work Management Strategy)
+> **Letzte Aktualisierung**: 2026-02-23 (Nummernbereiche erweitert, Karteileichen deprecated)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -21,41 +21,41 @@
 
 | Repo | Beschreibung | ADR-Nummernbereich |
 |------|-------------|-------------------|
-| `platform` | CI/CD, Deployment, Docker, DB, Security, Cross-App | 001–049 |
-| `bfagent` | Agent, Handler, Tool, Memory, LLM, Prompt | 050–099 |
-| `travel-beat` | Story, Travel, Trip, Timing, Content | 100–149 |
-| `mcp-hub` | MCP, Server, Protocol, Registry | 150–199 |
-| `risk-hub` | Risk, Assessment, Scoring, Compliance | 200–249 |
-| `cad-hub` | CAD, IFC, XGF, Viewer, BIM | 250–299 |
-| `pptx-hub` | PPTX, PowerPoint, Slide, Presentation | 300–349 |
-| `shared` | API, Auth, Logging, Shared, Cross-App | 350–399 |
+| `platform` | CI/CD, Deployment, Docker, DB, Security, Governance, Work Management | 001–099 |
+| `bfagent` | Agent, Handler, Tool, Memory, LLM, Prompt | 100–149 |
+| `travel-beat` | Story, Travel, Trip, Timing, Content | 150–199 |
+| `mcp-hub` | MCP, Server, Protocol, Registry | 200–249 |
+| `risk-hub` | Risk, Assessment, Scoring, Compliance | 250–299 |
+| `cad-hub` | CAD, IFC, XGF, Viewer, BIM | 300–349 |
+| `pptx-hub` | PPTX, PowerPoint, Slide, Presentation | 350–399 |
 | `trading-hub` | Trading, Market, Exchange, Bot | 400–449 |
+| `shared` | API, Auth, Logging, Shared, Cross-App | 450–499 |
 
 ---
 
 ## ADR-Katalog
 
-### Core Platform (001–049)
+### Core Platform (001–099)
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
 | 007 | Tenant- & RBAC-Architektur | `?` | `platform` | [ADR-007-FINAL-PRODUCTION.md](ADR-007-FINAL-PRODUCTION.md) |
-| 008 | Infrastructure Services & Self-Healing Deployment | `?` | `platform` | [ADR-008-INFRASTRUCTURE.md](ADR-008-INFRASTRUCTURE.md) |
-| 009 | Platform Architecture - Optimized | `?` | `platform` | [ADR-009-PLATFORM-ARCHITECTURE-OPTIMIZED.md](ADR-009-PLATFORM-ARCHITECTURE-OPTIMIZED.md) |
+| 008 | Infrastructure Services & Self-Healing Deployment | `Deprecated` | `platform` | [ADR-008-INFRASTRUCTURE.md](ADR-008-INFRASTRUCTURE.md) |
+| 009 | Platform Architecture - Optimized | `Deprecated` | `platform` | [ADR-009-PLATFORM-ARCHITECTURE-OPTIMIZED.md](ADR-009-PLATFORM-ARCHITECTURE-OPTIMIZED.md) |
 | 010 | MCP Tool Governance | `?` | `mcp-hub` | [ADR-010-mcp-tool-governance.md](ADR-010-mcp-tool-governance.md) |
 | 012 | MCP Server Quality Standards | `?` | `mcp-hub` | [ADR-012-mcp-quality-standards.md](ADR-012-mcp-quality-standards.md) |
-| 013 | Team Organization & MCP Ownership | `?` | `platform` | [ADR-013-team-organization-mcp-ownership.md](ADR-013-team-organization-mcp-ownership.md) |
+| 013 | Team Organization & MCP Ownership | `Deprecated` | `platform` | [ADR-013-team-organization-mcp-ownership.md](ADR-013-team-organization-mcp-ownership.md) |
 | 014 | AI-Native Development Teams | `Superseded` | `platform` | [ADR-014-ai-native-development-teams.md](ADR-014-ai-native-development-teams.md) |
 | 015 | Platform Governance System | `?` | `platform` | [ADR-015-platform-governance-system.md](ADR-015-platform-governance-system.md) |
-| 017 | Domain Development Lifecycle (DDL) | `?` | `platform` | [ADR-017-domain-development-lifecycle.md](ADR-017-domain-development-lifecycle.md) |
-| 020 | Dokumentationsstrategie — Sphinx, DB-driven, ADR-basiert | `?` | `platform` | [ADR-020-documentation-strategy.md](ADR-020-documentation-strategy.md) |
+| 017 | Domain Development Lifecycle (DDL) | `Superseded` | `platform` | [ADR-017-domain-development-lifecycle.md](ADR-017-domain-development-lifecycle.md) |
+| 020 | Dokumentationsstrategie — Sphinx, DB-driven, ADR-basiert | `Superseded` | `platform` | [ADR-020-documentation-strategy.md](ADR-020-documentation-strategy.md) |
 | 021 | Unified Deployment Architecture | `Accepted` | `platform` | [ADR-021-unified-deployment-pattern.md](ADR-021-unified-deployment-pattern.md) |
 | 022 | Platform Consistency Standard (v3) | `?` | `platform` | [ADR-022-platform-consistency-standard.md](ADR-022-platform-consistency-standard.md) |
 | 027 | Shared Backend Services | `?` | `shared` | [ADR-027-shared-backend-services.md](ADR-027-shared-backend-services.md) |
 | 028 | Platform Context — Konsolidierung der Platform Foundation | `?` | `platform` | [ADR-028-platform-context.md](ADR-028-platform-context.md) |
 | 031 | Static Asset Versioning & Landing Page Registry | `?` | `platform` | [ADR-031-static-asset-versioning.md](ADR-031-static-asset-versioning.md) |
-| 032 | Domain Development Lifecycle (DDL) | `?` | `platform` | [ADR-032-domain-development-lifecycle.md](ADR-032-domain-development-lifecycle.md) |
-| 033 | Dual-Framework-Governance (Django + Odoo) | `?` | `platform` | [ADR-033-dual-framework-governance.md](ADR-033-dual-framework-governance.md) |
+| 032 | Domain Development Lifecycle (DDL) | `Deprecated` | `platform` | [ADR-032-domain-development-lifecycle.md](ADR-032-domain-development-lifecycle.md) |
+| 033 | Dual-Framework-Governance (Django + Odoo) | `Superseded` | `platform` | [ADR-033-dual-framework-governance.md](ADR-033-dual-framework-governance.md) |
 | 035 | Shared Django Tenancy Package | `?` | `shared` | [ADR-035-shared-django-tenancy.md](ADR-035-shared-django-tenancy.md) |
 | 040 | Frontend Completeness Gate | `?` | `platform` | [ADR-040-frontend-completeness-gate.md](ADR-040-frontend-completeness-gate.md) |
 | 041 | Django Component Pattern — Reusable UI Blocks | `?` | `platform` | [ADR-041-django-component-pattern.md](ADR-041-django-component-pattern.md) |
@@ -63,7 +63,7 @@
 | 043 | AI-Assisted Development — Context & Workflow Optimization | `?` | `platform` | [ADR-043-ai-assisted-development.md](ADR-043-ai-assisted-development.md) |
 | 045 | Secrets & Environment Management | `?` | `platform` | [ADR-045-secrets-management.md](ADR-045-secrets-management.md) |
 | 046 | Documentation Governance — Hygiene, DIATAXIS & Docs Agent | `?` | `platform` | [ADR-046-docs-hygiene.md](ADR-046-docs-hygiene.md) |
-| 047 | Sphinx Documentation Hub | `?` | `platform` | [ADR-047-sphinx-documentation-hub.md](ADR-047-sphinx-documentation-hub.md) |
+| 047 | Sphinx Documentation Hub | `Superseded` | `platform` | [ADR-047-sphinx-documentation-hub.md](ADR-047-sphinx-documentation-hub.md) |
 | 048 | HTMX Playbook — Canonical Patterns for Django-HTMX | `?` | `platform` | [ADR-048-htmx-playbook.md](ADR-048-htmx-playbook.md) |
 | 049 | Design Token System — CSS Custom Properties + Tailwind Bridge | `?` | `platform` | [ADR-049-design-token-system.md](ADR-049-design-token-system.md) |
 | 050 | Platform Decomposition — Hub Landscape & Developer Portal | `?` | `platform` | [ADR-050-platform-decomposition-hub-landscape.md](ADR-050-platform-decomposition-hub-landscape.md) |
@@ -120,6 +120,7 @@
 | 036 | Chat-Agent Ecosystem — DomainToolkits, Research Integration | `?` | `bfagent` | [ADR-036-chat-agent-ecosystem.md](ADR-036-chat-agent-ecosystem.md) |
 | 037 | Chat Conversation Logging & Quality Management | `?` | `bfagent` | [ADR-037-chat-conversation-logging.md](ADR-037-chat-conversation-logging.md) |
 | 065 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-065-bfagent-ci-test-strategy.md](ADR-065-bfagent-ci-test-strategy.md) |
+| 023 | Shared Scoring and Routing Engine | `Deprecated` | `platform` | [ADR-023-shared-scoring-routing-engine.md](ADR-023-shared-scoring-routing-engine.md) |
 | 066 | AI Engineering Squad mit role-based agents | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
 | 067 | Work Management Strategy (GitHub Issues + Projects + AI-Agent-Protokoll) | `Proposed` | `platform` | [ADR-067-work-management-strategy.md](ADR-067-work-management-strategy.md) |
 

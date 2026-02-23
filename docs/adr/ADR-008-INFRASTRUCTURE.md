@@ -1,8 +1,10 @@
 ---
-status: proposed
+status: "deprecated"
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
+
+> **Deprecated**: superseded by ADR-021 (Unified Deployment) and ADR-042 (Dev Environment) — Self-Healing concept never implemented
 
 # ADR-008: Infrastructure Services & Self-Healing Deployment
 
