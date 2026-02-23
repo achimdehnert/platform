@@ -147,13 +147,15 @@ jobs:
           # Create /run/secrets/ on server (sudo needed — /run is root-owned)
           $SSH "sudo mkdir -p /run/secrets && sudo chown ${DEPLOY_USER}:${DEPLOY_USER} /run/secrets && chmod 700 /run/secrets"
 
-          # Write each secret as individual file
+          # Write each secret as individual file (pipe via stdin — safe for quotes/special chars)
           count=0
           while IFS='=' read -r key value; do
             [[ -z "$key" || "$key" == \#* ]] && continue
             key_lower=$(echo "$key" | tr '[:upper:]' '[:lower:]')
-            # printf prevents trailing newline (critical for API keys)
-            $SSH "printf '%s' '${value}' > /run/secrets/${key_lower} && chmod 400 /run/secrets/${key_lower}"
+            # Strip surrounding quotes from value if present
+            value="${value#\'}" ; value="${value%\'}"
+            value="${value#\"}" ; value="${value%\"}"
+            printf '%s' "$value" | $SSH "cat > /run/secrets/${key_lower} && chmod 400 /run/secrets/${key_lower}"
             count=$((count + 1))
           done <<< "$decrypted"
 
