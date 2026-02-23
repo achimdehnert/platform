@@ -1,8 +1,10 @@
 ---
-status: proposed
+status: "deprecated"
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
+
+> **Deprecated**: concept paper, never formally decided — superseded by concrete ADRs (021, 028, 035)
 
 # ADR-009: Platform Architecture - Optimized
 
