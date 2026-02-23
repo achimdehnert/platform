@@ -1,14 +1,16 @@
 ---
-status: proposed
+status: "deprecated"
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
+
+> **Deprecated**: duplicate of ADR-017 (already superseded) — DDL concept not adopted
 
 # ADR-032: Domain Development Lifecycle (DDL)
 
 | Metadata    | Value |
 | ----------- | ----- |
-| **Status**  | Proposed |
+| **Status** | Deprecated |
 | **Date**    | 2026-02-13 |
 | **Author**  | Achim Dehnert |
 | **Related** | ADR-010 (MCP Tool Governance), ADR-022 (Platform Consistency) |

@@ -52,14 +52,14 @@ Analyze the topic using these keywords:
 
 | Keywords | Scope / Repo | Number Range |
 |----------|-------------|--------------|
-| CI/CD, Deployment, Docker, DB, Monitoring, Security, Platform-wide | `platform` | 001–049 |
-| Agent, Handler, Tool, Memory, Conversation, LLM, Prompt | `bfagent` | 050–099 |
-| Story, Travel, Trip, Timing, Drifttales, Content | `travel-beat` | 100–149 |
-| MCP, Server, Protocol, Registry, Tool-Server | `mcp-hub` | 150–199 |
-| Risk, Assessment, Scoring, Compliance | `risk-hub` | 200–249 |
-| CAD, IFC, XGF, XKT, Viewer, Model, BIM | `cad-hub` | 250–299 |
-| PPTX, PowerPoint, Slide, Template, Presentation | `pptx-hub` | 300–349 |
-| API, Auth, Logging, "alle Apps", "shared", Cross-App | `shared` | 350–399 |
+| CI/CD, Deployment, Docker, DB, Monitoring, Security, Platform-wide, Work Management, Governance | `platform` | 001–099 |
+| Agent, Handler, Tool, Memory, Conversation, LLM, Prompt | `bfagent` | 100–149 |
+| Story, Travel, Trip, Timing, Drifttales, Content | `travel-beat` | 150–199 |
+| MCP, Server, Protocol, Registry, Tool-Server | `mcp-hub` | 200–249 |
+| Risk, Assessment, Scoring, Compliance | `risk-hub` | 250–299 |
+| CAD, IFC, XGF, XKT, Viewer, Model, BIM | `cad-hub` | 300–349 |
+| PPTX, PowerPoint, Slide, Template, Presentation | `pptx-hub` | 350–399 |
+| API, Auth, Logging, "alle Apps", "shared", Cross-App | `shared` | 450–499 |
 | Trading, Market, Exchange, Bot, Signal, Order, Portfolio | `trading-hub` | 400–449 |
 
 ## Step 2: Show Scope Suggestion

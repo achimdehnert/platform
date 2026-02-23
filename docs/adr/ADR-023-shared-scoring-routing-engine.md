@@ -1,14 +1,16 @@
 ---
-status: proposed
+status: "deprecated"
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
+
+> **Deprecated**: never implemented, no successor planned — concept archived
 
 # ADR-023: Shared Scoring and Routing Engine
 
 | Metadata    | Value                                                      |
 |-------------|-------------------------------------------------------------|
-| **Status**  | Proposed                                                    |
+| **Status** | Deprecated                                                    |
 | **Date**    | 2026-02-10                                                  |
 | **Author**  | Achim Dehnert                                               |
 | **Scope**   | cross-repo (bfagent, mcp-hub, platform)                     |
