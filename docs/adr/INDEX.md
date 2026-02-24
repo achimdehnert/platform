@@ -58,7 +58,7 @@
 | 033 | Dual-Framework-Governance (Django + Odoo) | `Superseded` | `platform` | [ADR-033-dual-framework-governance.md](ADR-033-dual-framework-governance.md) |
 | 035 | Shared Django Tenancy Package | `Accepted` | `shared` | [ADR-035-shared-django-tenancy.md](ADR-035-shared-django-tenancy.md) |
 | 040 | Frontend Completeness Gate | `Proposed` | `platform` | [ADR-040-frontend-completeness-gate.md](ADR-040-frontend-completeness-gate.md) |
-| 041 | Django Component Pattern — Reusable UI Blocks | `Proposed` | `platform` | [ADR-041-django-component-pattern.md](ADR-041-django-component-pattern.md) |
+| 041 | Django Component Pattern — Reusable UI Blocks | `Accepted` | `platform` | [ADR-041-django-component-pattern.md](ADR-041-django-component-pattern.md) |
 | 042 | Development Environment & Deployment Workflow | `Accepted` | `platform` | [ADR-042-dev-environment-deploy-workflow.md](ADR-042-dev-environment-deploy-workflow.md) |
 | 043 | AI-Assisted Development — Context & Workflow Optimization | `Accepted` | `platform` | [ADR-043-ai-assisted-development.md](ADR-043-ai-assisted-development.md) |
 | 045 | Secrets & Environment Management | `Accepted` | `platform` | [ADR-045-secrets-management.md](ADR-045-secrets-management.md) |
