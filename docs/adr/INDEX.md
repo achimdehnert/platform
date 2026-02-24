@@ -64,8 +64,8 @@
 | 045 | Secrets & Environment Management | `Accepted` | `platform` | [ADR-045-secrets-management.md](ADR-045-secrets-management.md) |
 | 046 | Documentation Governance — Hygiene, DIATAXIS & Docs Agent | `Accepted` | `platform` | [ADR-046-docs-hygiene.md](ADR-046-docs-hygiene.md) |
 | 047 | Sphinx Documentation Hub | `Superseded` | `platform` | [ADR-047-sphinx-documentation-hub.md](ADR-047-sphinx-documentation-hub.md) |
-| 048 | HTMX Playbook — Canonical Patterns for Django-HTMX | `Proposed` | `platform` | [ADR-048-htmx-playbook.md](ADR-048-htmx-playbook.md) |
-| 049 | Design Token System — CSS Custom Properties + Tailwind Bridge | `Proposed` | `platform` | [ADR-049-design-token-system.md](ADR-049-design-token-system.md) |
+| 048 | HTMX Playbook — Canonical Patterns for Django-HTMX | `Accepted` | `platform` | [ADR-048-htmx-playbook.md](ADR-048-htmx-playbook.md) |
+| 049 | Design Token System — CSS Custom Properties + Tailwind Bridge | `Accepted` | `platform` | [ADR-049-design-token-system.md](ADR-049-design-token-system.md) |
 | 050 | Platform Decomposition — Hub Landscape & Developer Portal | `Accepted` | `platform` | [ADR-050-platform-decomposition-hub-landscape.md](ADR-050-platform-decomposition-hub-landscape.md) |
 | 051 | Concept-to-ADR Pipeline — Idea Capture & Promotion Workflow | `Accepted` | `platform` | [ADR-051-concept-to-adr-pipeline.md](ADR-051-concept-to-adr-pipeline.md) |
 | 053 | deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes | `Superseded` | `platform` | [ADR-053-deployment-mcp-robustness.md](ADR-053-deployment-mcp-robustness.md) |
