@@ -1,9 +1,9 @@
 # ADR-069: Web Intelligence MCP — Plattformweiter Web-Zugriff
 
 ```yaml
-status: proposed
+status: accepted
 date: 2026-02-23
-amended: 2026-02-23
+amended: 2026-02-24
 decision-makers: [achim.dehnert]
 tags: [mcp-hub, web-scraping, web-intelligence, httpx, trafilatura, crawl4ai, playwright, redis, coach-hub, weltenhub, travel-beat, bfagent]
 drift-detector: paths=[mcp-hub/web_intelligence_mcp/], adr=ADR-069
