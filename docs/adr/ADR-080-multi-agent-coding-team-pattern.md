@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
@@ -9,11 +9,11 @@ amends: ADR-066-ai-engineering-team.md
 related: ADR-066, ADR-068, ADR-070, ADR-075
 ---
 
-# ADR-080: Multi-Agent Coding Team Pattern — Handoff, Parallelisierung und Rollback
+# ADR-080: Wir implementieren ein Multi-Agent Coding Team Pattern mit strukturiertem Handoff, paralleler Branch-Ausführung und definierter Rollback-Strategie
 
 | Feld | Wert |
 |------|------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-02-24 |
 | **Autor** | Achim Dehnert |
 | **Amends** | ADR-066 (AI Engineering Squad) |
@@ -111,6 +111,17 @@ Externe Bibliothek (CrewAI, AutoGen) für Multi-Agent-Koordination.
 parallele Task-Branches als Opt-in für komplexe Tasks.
 
 Der **Planner** ist eine neue, eigenständige Agenten-Rolle (ergänzt ADR-066).
+
+### Confirmation
+
+Die Implementierung gilt als korrekt, wenn:
+
+1. **AgentHandoff**: Jeder Workflow-Schritt erzeugt ein `AgentHandoff`-Objekt — verifizierbar via `test_handoff.py` und `test_workflows.py`
+2. **Planner**: `Planner.decompose()` wird für `complexity >= COMPLEX` aufgerufen — verifizierbar via `test_planner.py` + `TestPlannerIntegration`
+3. **Merger**: `Merger.merge()` wird nach paralleler Branch-Ausführung aufgerufen — verifizierbar via `test_merger.py` + Integration in `run_workflow()`
+4. **Rollback**: Level-1–4-Leiter wird bei Test-Failure ausgelöst — verifizierbar via `test_guardrails.py`
+5. **160+ Unit-Tests grün**: `pytest orchestrator_mcp/agent_team/tests/ -q` zeigt 0 Failures
+6. **Planner v2**: `_llm_decompose()` via Budget-Tier ersetzt rule-based Zerlegung (deferred — v2)
 
 ---
 
@@ -214,6 +225,13 @@ Rollback-Pfad (Eskalations-Leiter):
 
 ### 5.5 Planner-Logik
 
+**v1 (implementiert): Rule-based** — Zerlegung nach TaskType (FEATURE, BUGFIX, REFACTOR, ADR).
+Jeder Typ erzeugt vordefinierte Branches mit klaren Rollenzuweisungen.
+
+**v2 (deferred): LLM-gestützt** via Budget-Tier — `_llm_decompose()` ersetzt rule-based Zerlegung
+für dynamischere Sub-Task-Strukturen. Trigger: wenn rule-based Branches überlappen oder
+`acceptance_criteria` eine Zerlegung jenseits der Typ-Defaults erfordert.
+
 ```python
 class Planner:
     """Zerlegt komplexe Tasks in parallelisierbare Sub-Tasks (ADR-080)."""
@@ -221,21 +239,15 @@ class Planner:
     def decompose(self, task: Task) -> TaskGraph:
         """
         Nur für complexity >= complex.
-        Einfachere Tasks bypassen den Planner direkt.
+        Einfachere Tasks bypassen den Planner direkt (single_branch).
+        v1: rule-based per TaskType
+        v2: LLM-gestützt via Budget-Tier (deferred)
         """
         if task.complexity < TaskComplexity.COMPLEX:
             return TaskGraph.single_branch(task)
-
-        # LLM-gestützte Zerlegung (Budget-Tier)
-        sub_tasks = self._llm_decompose(task)
-        dependencies = self._analyze_dependencies(sub_tasks)
-        return TaskGraph(sub_tasks=sub_tasks, dependencies=dependencies)
-
-    def _analyze_dependencies(self, sub_tasks: list[Task]) -> dict[str, list[str]]:
-        """Bestimmt welche Sub-Tasks parallel laufen können."""
-        # Sub-Tasks ohne gemeinsame affected_paths → parallel
-        # Sub-Tasks mit shared paths → sequentiell
-        ...
+        branches = self._build_branches(task)  # rule-based v1
+        parallel_groups = _compute_parallel_groups(branches)
+        return TaskGraph(...)
 ```
 
 ---
@@ -353,13 +365,13 @@ Der `agentic-coding.md` Workflow wird auf v2 gehoben:
 
 ---
 
-## 11. Offene Fragen
+## 11. Entschiedene Fragen (vormals „Offen“)
 
-| Frage | Empfehlung |
-|-------|-----------|
-| Soll Planner ein eigenes LLM-Modell nutzen oder Budget-Tier? | Budget-Tier (`budget_cloud`) — Zerlegung ist kein High-Reasoning-Task |
-| Wie viele parallele Branches max? | `MAX_PARALLEL_BRANCHES = 3` als Config-Wert |
-| AgentHandoff in DB oder nur im AuditStore? | AuditStore reicht für v1 — DB-Migration wenn Handoff-History gebraucht wird |
+| Frage | Entscheidung |
+|-------|-------------|
+| Soll Planner ein eigenes LLM-Modell nutzen oder Budget-Tier? | **Budget-Tier** (`budget_cloud`) — entschieden. v1 rule-based, v2 Budget-Tier LLM (deferred) |
+| Wie viele parallele Branches max? | **`MAX_PARALLEL_BRANCHES = 3`** — implementiert in `planner.py` |
+| AgentHandoff in DB oder nur im AuditStore? | **AuditStore für v1** — DB-Migration nur wenn Handoff-History-Abfragen benötigt werden |
 
 ---
 
@@ -368,3 +380,5 @@ Der `agentic-coding.md` Workflow wird auf v2 gehoben:
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-24 | Achim Dehnert | v1 — Initial Proposed; Handoff + Planner + Rollback-Architektur |
+| 2026-02-24 | Achim Dehnert | v2 — Accepted nach Review; 5 kritische Fixes: Confirmation-Subsection, Planner-Role (TECH_LEAD→PLANNER), Merger in run_workflow() eingebunden, AgentHandoff initial erzeugt, L4 snapshot_hash Guard |
+| 2026-02-24 | Achim Dehnert | §5.5 LLM-Deferred-Notiz, §11 offene Fragen geschlossen, get_team_status() PLANNER+MERGER |
