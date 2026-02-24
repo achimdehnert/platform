@@ -1,0 +1,270 @@
+/*
+ * Platform UI Design Tokens (ADR-049)
+ * ====================================
+ * CSS Custom Properties for consistent styling across all Django apps.
+ *
+ * Usage in templates:
+ *   {% load static %}
+ *   <link rel="stylesheet" href="{% static 'platform/css/pui-tokens.css' %}">
+ *
+ * Usage in Tailwind apps (tailwind.config.js preset):
+ *   const shared = require(".../platform/shared/tailwind/tailwind.config.shared");
+ *   module.exports = { presets: [shared], ... };
+ *   → bg-primary compiles to background-color: var(--pui-primary)
+ *
+ * App-specific branding: set data-app="<slug>" on <body>
+ * Dark mode: set data-theme="dark" on <html> or <body>
+ */
+
+/* ==========================================================================
+   Layer 1: Primitive Tokens (internal — never use directly in templates)
+   ========================================================================== */
+
+:root {
+  --pui-blue-50:   #eff6ff;
+  --pui-blue-100:  #dbeafe;
+  --pui-blue-500:  #2563eb;
+  --pui-blue-600:  #1d4ed8;
+  --pui-blue-700:  #1e40af;
+
+  --pui-gray-50:   #f9fafb;
+  --pui-gray-100:  #f3f4f6;
+  --pui-gray-200:  #e5e7eb;
+  --pui-gray-300:  #d1d5db;
+  --pui-gray-400:  #9ca3af;
+  --pui-gray-500:  #6b7280;
+  --pui-gray-700:  #374151;
+  --pui-gray-800:  #1f2937;
+  --pui-gray-900:  #111827;
+
+  --pui-green-50:  #f0fdf4;
+  --pui-green-500: #22c55e;
+  --pui-green-600: #16a34a;
+
+  --pui-red-50:    #fef2f2;
+  --pui-red-500:   #ef4444;
+  --pui-red-600:   #dc2626;
+
+  --pui-amber-50:  #fffbeb;
+  --pui-amber-500: #f59e0b;
+  --pui-amber-600: #d97706;
+
+  --pui-sky-500:   #0ea5e9;
+  --pui-sky-600:   #0284c7;
+
+  --pui-purple-500: #8b5cf6;
+  --pui-purple-600: #7c3aed;
+
+  --pui-emerald-500: #10b981;
+  --pui-emerald-600: #059669;
+
+  --pui-orange-500: #f97316;
+  --pui-orange-600: #ea580c;
+}
+
+/* ==========================================================================
+   Layer 2: Semantic Tokens (public API — use these in templates/components)
+   ========================================================================== */
+
+:root {
+  /* --- Brand / Action --- */
+  --pui-primary:       var(--pui-blue-500);
+  --pui-primary-hover: var(--pui-blue-600);
+  --pui-primary-light: var(--pui-blue-50);
+
+  --pui-secondary:       var(--pui-gray-500);
+  --pui-secondary-hover: var(--pui-gray-700);
+
+  /* --- Feedback States --- */
+  --pui-success:       var(--pui-green-500);
+  --pui-success-hover: var(--pui-green-600);
+  --pui-success-light: var(--pui-green-50);
+
+  --pui-danger:        var(--pui-red-500);
+  --pui-danger-hover:  var(--pui-red-600);
+  --pui-danger-light:  var(--pui-red-50);
+
+  --pui-warning:       var(--pui-amber-500);
+  --pui-warning-hover: var(--pui-amber-600);
+  --pui-warning-light: var(--pui-amber-50);
+
+  /* --- Text --- */
+  --pui-foreground:    var(--pui-gray-900);
+  --pui-foreground-md: var(--pui-gray-700);
+  --pui-muted:         var(--pui-gray-500);
+  --pui-muted-light:   var(--pui-gray-400);
+
+  /* --- Surfaces --- */
+  --pui-surface:       #ffffff;
+  --pui-surface-alt:   var(--pui-gray-50);
+  --pui-surface-raise: var(--pui-gray-100);
+
+  /* --- Borders --- */
+  --pui-border:        var(--pui-gray-200);
+  --pui-border-strong: var(--pui-gray-300);
+
+  /* --- Spacing (consistent scale) --- */
+  --pui-space-1:  0.25rem;   /* 4px  */
+  --pui-space-2:  0.5rem;    /* 8px  */
+  --pui-space-3:  0.75rem;   /* 12px */
+  --pui-space-4:  1rem;      /* 16px */
+  --pui-space-6:  1.5rem;    /* 24px */
+  --pui-space-8:  2rem;      /* 32px */
+  --pui-space-12: 3rem;      /* 48px */
+  --pui-space-16: 4rem;      /* 64px */
+
+  /* --- Shape --- */
+  --pui-radius-sm: 0.25rem;   /* 4px  */
+  --pui-radius-md: 0.375rem;  /* 6px  */
+  --pui-radius-lg: 0.5rem;    /* 8px  */
+  --pui-radius-xl: 0.75rem;   /* 12px */
+  --pui-radius-2xl: 1rem;     /* 16px */
+  --pui-radius-full: 9999px;
+
+  /* --- Elevation --- */
+  --pui-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+  --pui-shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --pui-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* --- Motion --- */
+  --pui-transition:      150ms cubic-bezier(0.4, 0, 0.2, 1);
+  --pui-transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* --- Typography --- */
+  --pui-font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --pui-font-mono: "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+
+  --pui-text-xs:   0.75rem;    /* 12px */
+  --pui-text-sm:   0.875rem;   /* 14px */
+  --pui-text-base: 1rem;       /* 16px */
+  --pui-text-lg:   1.125rem;   /* 18px */
+  --pui-text-xl:   1.25rem;    /* 20px */
+  --pui-text-2xl:  1.5rem;     /* 24px */
+  --pui-text-3xl:  1.875rem;   /* 30px */
+}
+
+/* ==========================================================================
+   Layer 3: App-Specific Brand Overrides
+   Set data-app="<slug>" on <body> for per-app accent colors.
+   ========================================================================== */
+
+[data-app="travel-beat"] {
+  --pui-primary:       var(--pui-sky-500);
+  --pui-primary-hover: var(--pui-sky-600);
+  --pui-primary-light: #f0f9ff;
+}
+
+[data-app="risk-hub"] {
+  --pui-primary:       var(--pui-purple-500);
+  --pui-primary-hover: var(--pui-purple-600);
+  --pui-primary-light: #f5f3ff;
+}
+
+[data-app="cad-hub"] {
+  --pui-primary:       var(--pui-blue-500);
+  --pui-primary-hover: var(--pui-blue-600);
+  --pui-primary-light: var(--pui-blue-50);
+}
+
+[data-app="bfagent"] {
+  --pui-primary:       var(--pui-emerald-500);
+  --pui-primary-hover: var(--pui-emerald-600);
+  --pui-primary-light: #ecfdf5;
+}
+
+[data-app="trading-hub"] {
+  --pui-primary:       var(--pui-orange-500);
+  --pui-primary-hover: var(--pui-orange-600);
+  --pui-primary-light: #fff7ed;
+}
+
+[data-app="weltenhub"] {
+  --pui-primary:       var(--pui-emerald-500);
+  --pui-primary-hover: var(--pui-emerald-600);
+  --pui-primary-light: #ecfdf5;
+}
+
+/* ==========================================================================
+   Layer 4: Dark Mode (opt-in via data-theme="dark")
+   ========================================================================== */
+
+[data-theme="dark"] {
+  --pui-foreground:    var(--pui-gray-100);
+  --pui-foreground-md: var(--pui-gray-300);
+  --pui-muted:         var(--pui-gray-400);
+  --pui-muted-light:   var(--pui-gray-500);
+
+  --pui-surface:       #1f2937;
+  --pui-surface-alt:   #111827;
+  --pui-surface-raise: var(--pui-gray-800);
+
+  --pui-border:        #374151;
+  --pui-border-strong: #4b5563;
+}
+
+/* ==========================================================================
+   Utility: Semantic helper classes (opt-in, CSS-only, no Tailwind needed)
+   These work in ALL apps regardless of Tailwind usage.
+   ========================================================================== */
+
+.pui-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pui-space-2);
+  padding: var(--pui-space-2) var(--pui-space-4);
+  border-radius: var(--pui-radius-md);
+  font-size: var(--pui-text-sm);
+  font-weight: 500;
+  transition: background-color var(--pui-transition), color var(--pui-transition);
+  cursor: pointer;
+  border: none;
+  text-decoration: none;
+}
+
+.pui-btn-primary {
+  background-color: var(--pui-primary);
+  color: #ffffff;
+}
+.pui-btn-primary:hover {
+  background-color: var(--pui-primary-hover);
+  color: #ffffff;
+}
+
+.pui-btn-secondary {
+  background-color: var(--pui-surface-raise);
+  color: var(--pui-foreground);
+  border: 1px solid var(--pui-border);
+}
+.pui-btn-secondary:hover {
+  background-color: var(--pui-border);
+}
+
+.pui-btn-danger {
+  background-color: var(--pui-danger);
+  color: #ffffff;
+}
+.pui-btn-danger:hover {
+  background-color: var(--pui-danger-hover);
+  color: #ffffff;
+}
+
+.pui-card {
+  background-color: var(--pui-surface);
+  border: 1px solid var(--pui-border);
+  border-radius: var(--pui-radius-lg);
+  box-shadow: var(--pui-shadow-sm);
+  padding: var(--pui-space-4) var(--pui-space-6);
+}
+
+.pui-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--pui-space-1) var(--pui-space-2);
+  border-radius: var(--pui-radius-full);
+  font-size: var(--pui-text-xs);
+  font-weight: 500;
+}
+.pui-badge-success { background-color: var(--pui-success-light); color: var(--pui-success-hover); }
+.pui-badge-danger  { background-color: var(--pui-danger-light);  color: var(--pui-danger-hover);  }
+.pui-badge-warning { background-color: var(--pui-warning-light); color: var(--pui-warning-hover); }
+.pui-badge-primary { background-color: var(--pui-primary-light); color: var(--pui-primary-hover); }
