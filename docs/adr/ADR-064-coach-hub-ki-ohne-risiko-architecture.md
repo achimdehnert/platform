@@ -1,9 +1,9 @@
 # ADR-064: Adopt Row-Level Multi-Tenant Django SaaS for coach-hub „KI ohne Risiko™"
 
 ```yaml
-status: proposed
+status: accepted
 date: 2026-02-22
-amended: 2026-02-22
+amended: 2026-02-24
 decision-makers: [achim.dehnert]
 tags: [coach-hub, multi-tenant, assessment, governance, learning, django, htmx]
 drift-detector: paths=[coach-hub/], adr=ADR-064
