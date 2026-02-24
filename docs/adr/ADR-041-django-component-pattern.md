@@ -434,17 +434,16 @@ Keine zusätzlichen Dependencies erforderlich — rein Django-Bordmittel.
 
 ## 8. Migration Tracking
 
-| Service | Inclusion Tags | components/ Module | Fragment Views | Tests | Status |
-|---------|---------------|-------------------|----------------|-------|--------|
-| `travel-beat` | ✅ trip/world/story/location_components.py | ✅ stop_card, traveler_card, weltenhub_sidebar, stop_timeline, trip_card | ⬜ Ausstehend | ⬜ | Basis done |
-| `risk-hub` | ✅ dsb_components.py, tenancy_components.py | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ | Basis done |
-| `bfagent` | ✅ expert_hub_tags.py, navigation_tags.py | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ | Basis done |
-| `cad-hub` | ✅ avb_components.py (neu 2026-02-24) | ✅ page_header, stat_card, empty_state | ⬜ Ausstehend | ✅ test_avb_components.py | Phase 1 done |
+| Service | Inclusion Tags | components/ Module | Fragment Views | data-testid | Tests | Status |
+|---------|---------------|-------------------|----------------|-------------|-------|--------|
+| `travel-beat` | ✅ trip/world/story/location_components.py | ✅ trip_card, stop_card, traveler_card, stop_timeline, weltenhub_sidebar, character_card, place_card, story_card, location_card | ✅ Alle 8 Components | ✅ alle Templates | ⬜ | ✅ Phase 2 done |
+| `risk-hub` | ✅ dsb_components.py, tenancy_components.py | ⬜ | ⬜ | ⬜ | ⬜ | Basis done |
+| `bfagent` | ✅ expert_hub_tags.py, navigation_tags.py | ⬜ | ⬜ | ⬜ | ⬜ | Basis done |
+| `cad-hub` | ✅ avb_components.py | ✅ page_header, stat_card, empty_state | ⬜ | ✅ alle Templates | ✅ test_avb_components.py | Phase 1 done |
 
 **Nächste Schritte:**
-- Fragment Views (HTMX lazy-loading) für travel-beat Components
-- `data-testid` systematisch in alle Component-Templates einbauen (Voraussetzung ADR-040)
-- risk-hub + bfagent components/ Module ergänzen
+- ADR-040: UI-Manifest + Playwright E2E für travel-beat (Phase 3)
+- risk-hub + bfagent components/ Module + Fragment Views ergänzen
 
 ---
 
@@ -452,5 +451,6 @@ Keine zusätzlichen Dependencies erforderlich — rein Django-Bordmittel.
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-02-24 | Achim Dehnert | travel-beat: Fragment Views für alle 8 Components + URL-Registrierung |
 | 2026-02-24 | Achim Dehnert | cad-hub: avb_components templatetags + 3 Components + Tests |
 | 2026-02-16 | Achim Dehnert | Initial Draft — Component Pattern mit 3 Zugangswegen |
