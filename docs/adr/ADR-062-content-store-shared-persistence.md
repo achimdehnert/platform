@@ -1,6 +1,7 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-02-15
+amended: 2026-02-24
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []

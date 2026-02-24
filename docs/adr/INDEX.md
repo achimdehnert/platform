@@ -77,18 +77,18 @@
 | 059 | Adopt Automated ADR Drift Detection and Staleness Management | `Proposed` | `platform` | [ADR-059-adr-drift-detector.md](ADR-059-adr-drift-detector.md) |
 | 060 | Developer Workstation SSH Configuration | `Proposed` | `platform` | [ADR-060-developer-workstation-ssh-configuration.md](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Hardcoding Elimination Strategy — Platform-wide | `Proposed` | `platform` | [ADR-061-hardcoding-elimination-strategy.md](ADR-061-hardcoding-elimination-strategy.md) |
-| 062 | Content Store — Shared PostgreSQL Schema für AI-Inhalte | `Proposed` | `platform` | [ADR-062-content-store-shared-persistence.md](ADR-062-content-store-shared-persistence.md) |
+| 062 | Content Store — Shared PostgreSQL Schema für AI-Inhalte | `Accepted` | `platform` | [ADR-062-content-store-shared-persistence.md](ADR-062-content-store-shared-persistence.md) |
 | 064 | Coach-Hub KI ohne Risiko — Row-Level Multi-Tenant SaaS | `Proposed` | `platform` | [ADR-064-coach-hub-ki-ohne-risiko-architecture.md](ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
 | 065 | ADR Numbering — Filesystem-First Vergabe-Strategie | `Accepted` | `platform` | [ADR-065-adr-numbering-filesystem-first.md](ADR-065-adr-numbering-filesystem-first.md) |
-| 066 | AI Engineering Squad — Rollenbasierte Agenten + Gate-Workflows | `Proposed` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
+| 066 | AI Engineering Squad — Rollenbasierte Agenten + Gate-Workflows | `Accepted` | `platform` | [ADR-066-ai-engineering-team.md](ADR-066-ai-engineering-team.md) |
 | 067 | Work Management Strategy — GitHub Issues + Projects + AI-Agent-Protokoll | `Proposed` | `platform` | [ADR-067-work-management-strategy.md](ADR-067-work-management-strategy.md) |
-| 068 | Adaptive Model Routing + Quality Feedback Loop | `Proposed` | `platform` | [ADR-068-adaptive-model-routing.md](ADR-068-adaptive-model-routing.md) |
+| 068 | Adaptive Model Routing + Quality Feedback Loop | `Accepted` | `platform` | [ADR-068-adaptive-model-routing.md](ADR-068-adaptive-model-routing.md) |
 | 069 | Web Intelligence MCP — Plattformweiter Web-Zugriff für KI-Agenten | `Proposed` | `mcp-hub` | [ADR-069-web-intelligence-mcp.md](ADR-069-web-intelligence-mcp.md) |
 | 071 | Amendment: Code Quality Tooling (amends ADR-022) | `Proposed` | `platform` | [ADR-071-amendment-code-quality-tooling.md](ADR-071-amendment-code-quality-tooling.md) |
 | 072 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Accepted` | `platform` | [ADR-072-multi-tenancy-schema-isolation.md](ADR-072-multi-tenancy-schema-isolation.md) |
 | 073 | Repo Scope & Migration Status | `Proposed` | `platform` | [ADR-073-repo-scope.md](ADR-073-repo-scope.md) |
 | 074 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-074-multi-tenancy-testing-strategy.md](ADR-074-multi-tenancy-testing-strategy.md) |
-| 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Proposed` | `platform` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
+| 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Accepted` | `platform` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
 | 078 | Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml | `Accepted` | `platform` | [ADR-078-amendment-docker-healthcheck-convention.md](ADR-078-amendment-docker-healthcheck-convention.md) |
 
 ### MCP Hub (150–199)
