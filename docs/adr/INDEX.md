@@ -95,6 +95,7 @@
 | 078 | Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml | `Accepted` | `platform` | [ADR-078-amendment-docker-healthcheck-convention.md](ADR-078-amendment-docker-healthcheck-convention.md) |
 | 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | `Accepted` | `platform` | [ADR-079-temporal-workflow-engine.md](ADR-079-temporal-workflow-engine.md) |
 | 080 | Multi-Agent Coding Team Pattern — Handoff, Parallelisierung, Rollback | `Proposed` | `platform` | [ADR-080-multi-agent-coding-team-pattern.md](ADR-080-multi-agent-coding-team-pattern.md) |
+| 081 | Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback | `Proposed` | `platform` | [ADR-081-agent-guardrails-code-safety.md](ADR-081-agent-guardrails-code-safety.md) |
 
 ### MCP Hub (150–199)
 
