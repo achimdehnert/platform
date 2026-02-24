@@ -33,6 +33,7 @@ storage = [
     "asyncpg>=0.29",
     "alembic>=1.13",
     "sqlalchemy>=2.0",
+    "asgiref>=3.7",
 ]
 all = [
     "openai>=1.0",
@@ -41,6 +42,7 @@ all = [
     "asyncpg>=0.29",
     "alembic>=1.13",
     "sqlalchemy>=2.0",
+    "asgiref>=3.7",
 ]
 dev = [
     "pytest>=7.0",
