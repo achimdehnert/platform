@@ -1318,7 +1318,7 @@ Two new hooks complement the existing manifest check:
 |---------|-------------|----------------|----------------|-------------|--------|
 | `travel-beat` | ✅ dashboard.yaml, trip_list.yaml | ✅ check_frontend.py + test_manifest_completeness.py | ✅ test_dashboard.py, test_trip_list.py | ✅ dashboard + trip_list | Phase 1 done |
 | `cad-hub` | ✅ avb_project_list.yaml, avb_tender_list.yaml | ✅ test_manifest_completeness.py | ⬜ | ✅ project_list + tender_list | Phase 1 done |
-| `risk-hub` | ⬜ | ⬜ | ⬜ | ⬜ | Ausstehend |
+| `risk-hub` | ✅ dsb_dashboard.yaml, dsb_vvt_list.yaml | ✅ test_manifest_completeness.py | ⬜ | ✅ dashboard + vvt_list | Phase 1 done |
 | `bfagent` | ⬜ | ⬜ | ⬜ | ⬜ | Ausstehend |
 
 **Nächste Schritte:**
