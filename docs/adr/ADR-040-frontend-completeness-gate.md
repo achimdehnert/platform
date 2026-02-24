@@ -1316,14 +1316,13 @@ Two new hooks complement the existing manifest check:
 
 | Service | UI-Manifests | Static Checker | Playwright E2E | data-testid | Status |
 |---------|-------------|----------------|----------------|-------------|--------|
-| `travel-beat` | ✅ dashboard.yaml, trip_list.yaml, trip_detail.yaml | ✅ check_frontend.py + test_manifest_completeness.py | ✅ test_dashboard.py, test_trip_list.py, test_trip_detail.py | ✅ dashboard + trip_list + trip_detail | Phase 2 done |
+| `travel-beat` | ✅ dashboard, trip_list, trip_detail, world_detail, story_list (5×) | ✅ check_frontend.py + test_manifest_completeness.py | ✅ 5 Playwright test files | ✅ alle 5 Seiten | Phase 3 done |
 | `cad-hub` | ✅ avb_project_list.yaml, avb_tender_list.yaml | ✅ test_manifest_completeness.py | ⬜ | ✅ project_list + tender_list | Phase 1 done |
 | `risk-hub` | ✅ dsb_dashboard.yaml, dsb_vvt_list.yaml | ✅ test_manifest_completeness.py | ⬜ | ✅ dashboard + vvt_list | Phase 1 done |
 | `bfagent` | ⬜ | ⬜ | ⬜ | ⬜ | Ausstehend |
 
 **Nächste Schritte:**
-- CI-Integration: `pytest tests/completeness/ -m "not e2e"` als Gate vor Deploy
-- Weitere Manifeste: world_detail, story_list (travel-beat)
+- CI-Integration: `pytest tests/completeness/` als Gate in GitHub Actions (travel-beat, cad-hub, risk-hub)
 - bfagent UI-Manifeste + data-testid ergänzen
 
 ---
