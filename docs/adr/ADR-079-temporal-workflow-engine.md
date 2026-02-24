@@ -1,18 +1,19 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-23
+amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
 ---
 
-# ADR-077: Adopt Temporal Self-Hosted as Primary Durable Workflow Engine
+# ADR-079: Adopt Temporal Self-Hosted as Primary Durable Workflow Engine
 
 ## Metadaten
 
 | Attribut          | Wert                                                                              |
 |-------------------|-----------------------------------------------------------------------------------|
-| **Status**        | Proposed                                                                          |
+| **Status**        | Accepted                                                                          |
 | **Scope**         | platform                                                                          |
 | **Erstellt**      | 2026-02-23                                                                        |
 | **Autor**         | Achim Dehnert                                                                     |
