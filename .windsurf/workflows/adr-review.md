@@ -1,5 +1,5 @@
 ---
-description: Review an ADR against the platform-specific checklist (MADR 4.0 + infrastructure conventions)
+description: Review an ADR against the platform-specific checklist (MADR 4.0 + infrastructure conventions + Modern Platform Patterns)
 ---
 
 # ADR Review Workflow
@@ -19,17 +19,18 @@ Also load the review checklist:
 
 ---
 
-## Step 2: Run through all 7 checklist categories
+## Step 2: Run through all 8 checklist categories
 
 Work through each category systematically:
 
 1. **MADR 4.0 Compliance** — frontmatter, title, sections, Confirmation
 2. **Platform Infrastructure Specifics** — server IP, SSH, registry, ports, Nginx
-3. **CI/CD & Docker Conventions** — Dockerfile location, compose, health checks, pipeline
+3. **CI/CD & Docker Conventions** — Dockerfile location, compose, health checks (NOT in Dockerfile!), pipeline
 4. **Database & Migration Safety** — Expand-Contract, tenant_id, shared DB risk
 5. **Security & Secrets** — no hardcoded secrets, SOPS, org-level secrets
 6. **Architectural Consistency** — service layer, no ADR contradictions, Guardian compatibility
 7. **Open Questions & Deferred Decisions** — all open questions addressed
+8. **Modern Platform Patterns** — infra-deploy, Multi-Tenancy, Content Store, catalog-info.yaml, Drift-Detector, Runner labels, Temporal (nur wenn relevant)
 
 For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note.
 
@@ -51,7 +52,7 @@ For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note
 ❌ 2.3 StrictHostKeyChecking=no found in deploy-service.yml line 42 — replace with ssh-keyscan
 ...
 
-[Continue for all 7 categories]
+[Continue for all 8 categories]
 
 ---
 
@@ -60,11 +61,14 @@ For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note
 | Category | Score | Notes |
 |----------|-------|-------|
 | MADR 4.0 compliance | 4/5 | Missing Confirmation subsection |
-| Platform specifics | 5/5 | |
-| Security | 3/5 | StrictHostKeyChecking=no must be fixed |
-| Architectural consistency | 5/5 | |
-| Clarity & completeness | 4/5 | |
-| **Overall** | **4.2/5** | |
+| Platform Infrastructure Specifics | 5/5 | |
+| CI/CD & Docker Conventions | 5/5 | |
+| Database & Migration Safety | 5/5 | |
+| Security & Secrets | 3/5 | StrictHostKeyChecking=no must be fixed |
+| Architectural Consistency | 5/5 | |
+| Open Questions | 4/5 | |
+| Modern Platform Patterns | 5/5 | n/a for this ADR |
+| **Overall** | **4.5/5** | |
 
 ---
 
@@ -93,9 +97,10 @@ If user says "Ja" or "apply" or "fix it":
 
 1. Apply all ❌ critical fixes directly to the ADR file
 2. Apply ⚠️ minor improvements if user confirms
-3. Push to GitHub with commit message:
+3. Update ADR frontmatter: `amended: [today's date]`
+4. If review outcome is **Accept**: update `platform/docs/adr/INDEX.md` — Status `Proposed` → `Accepted`
+5. Push to GitHub with commit message:
    `fix(ADR-[NNN]): address review findings — [summary of changes]`
-4. Update ADR frontmatter: `amended: [today's date]`
 
 ---
 
@@ -109,6 +114,7 @@ If the ADR has a migration tracking table (§4 or §5 pattern from ADR-021):
 
 ## Reference
 
-- Checklist: `platform/docs/templates/adr-review-checklist.md`
+- Checklist: `platform/docs/templates/adr-review-checklist.md` (v2.0)
 - ADR Index: `platform/docs/adr/INDEX.md`
 - MADR 4.0: https://adr.github.io/madr/
+- Modern Platform Patterns: ADR-059, ADR-062, ADR-072, ADR-075, ADR-077

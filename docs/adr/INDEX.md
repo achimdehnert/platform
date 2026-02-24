@@ -68,7 +68,7 @@
 | 049 | Design Token System — CSS Custom Properties + Tailwind Bridge | `?` | `platform` | [ADR-049-design-token-system.md](ADR-049-design-token-system.md) |
 | 050 | Platform Decomposition — Hub Landscape & Developer Portal | `?` | `platform` | [ADR-050-platform-decomposition-hub-landscape.md](ADR-050-platform-decomposition-hub-landscape.md) |
 | 051 | Concept-to-ADR Pipeline — Idea Capture & Promotion Workflow | `?` | `platform` | [ADR-051-concept-to-adr-pipeline.md](ADR-051-concept-to-adr-pipeline.md) |
-| 053 | deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes | `?` | `platform` | [ADR-053-deployment-mcp-robustness.md](ADR-053-deployment-mcp-robustness.md) |
+| 053 | deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes | `Superseded` | `platform` | [ADR-053-deployment-mcp-robustness.md](ADR-053-deployment-mcp-robustness.md) |
 | 054 | Deployment Pre-Flight Validation & platform-context als Managed Package | `Draft` | `platform` | [ADR-054-deployment-preflight-validation.md](ADR-054-deployment-preflight-validation.md) |
 | 055 | Cross-App Bug & Feature Management | `Accepted` | `platform` | [ADR-055-cross-app-bug-management.md](ADR-055-cross-app-bug-management.md) |
 | 056 | Deployment Preflight & Pipeline Hardening | `Accepted` | `platform` | [ADR-056-deployment-preflight-and-pipeline-hardening.md](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
@@ -89,6 +89,7 @@
 | 073 | Repo Scope & Migration Status | `Proposed` | `platform` | [ADR-073-repo-scope.md](ADR-073-repo-scope.md) |
 | 074 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-074-multi-tenancy-testing-strategy.md](ADR-074-multi-tenancy-testing-strategy.md) |
 | 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Proposed` | `platform` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
+| 078 | Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml | `Accepted` | `platform` | [ADR-078-amendment-docker-healthcheck-convention.md](ADR-078-amendment-docker-healthcheck-convention.md) |
 
 ### MCP Hub (150–199)
 
