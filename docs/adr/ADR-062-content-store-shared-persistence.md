@@ -224,7 +224,7 @@ Flag direkt in `content_store.adr_compliance` (mit `tenant_id` aus Konfiguration
 | Schema auf Prod deployed (88.198.191.108) | ✅ done | 2026-02-22 |
 | `CONTENT_STORE_DSN` in allen Repos gesetzt | ✅ done | 2026-02-22 |
 | Drift Detector implementiert | ✅ done | 2026-02-15 |
-| `SyncContentStore` auf `asgiref.async_to_sync` umgestellt | ⬜ pending | — |
+| `SyncContentStore` auf `asgiref.async_to_sync` umgestellt | ✅ done | 2026-02-24 |
 
 ---
 
