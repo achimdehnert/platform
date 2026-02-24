@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
@@ -464,6 +464,20 @@ Migration path:
 3. **Week 4+**: Enable blocking mode in CI (`--strict` flag)
 4. **Auto-fix** (future): A `sed`-based script or codemod using the
    `SEMANTIC_MAP` dictionary to batch-replace direct colors
+
+## Migration Tracking
+
+| Item | Status | Datum | Notizen |
+|------|--------|-------|--------|
+| `pui-tokens.css` erstellen (platform_context/static/) | ✅ done | 2026-02-24 | Layer 1-4 + Utility-Klassen |
+| `travel-beat/base.html` — pui-tokens.css einbinden | ✅ done | 2026-02-24 | bereits vorhanden + data-app="{{ APP_NAME }}" |
+| `risk-hub/base.html` — pui-tokens.css + data-app | ✅ done | 2026-02-24 | data-app="risk-hub" → Purple accent |
+| `cad-hub/base.html` — pui-tokens.css + data-app | ✅ done | 2026-02-24 | Lokale Kopie in apps/core/static/ |
+| `shared/tailwind/tailwind.config.shared.js` — semantische Farbnamen | ✅ done | pre-2026 | bereits vorhanden |
+| CI-Lint: `check_design_tokens.py` — Violations reporten | ⬜ Ausstehend | — | warning-mode erst, dann strict |
+| Per-App Tailwind-Config mit shared preset (wenn Build-Step vorhanden) | ⬜ Ausstehend | — | CDN-Apps: nur pui-tokens.css nötig |
+
+---
 
 ## Alternatives Considered
 
