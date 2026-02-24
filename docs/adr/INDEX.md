@@ -74,8 +74,8 @@
 | 056 | Deployment Preflight & Pipeline Hardening | `Accepted` | `platform` | [ADR-056-deployment-preflight-and-pipeline-hardening.md](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
 | 057 | Platform Test Strategy — 4-Ebenen-Pyramide | `Accepted` | `platform` | [ADR-057-platform-test-strategy.md](ADR-057-platform-test-strategy.md) |
 | 058 | Platform Test Taxonomy — 28-Typen-Katalog | `Accepted` | `platform` | [ADR-058-platform-test-taxonomy.md](ADR-058-platform-test-taxonomy.md) |
-| 059 | Adopt Automated ADR Drift Detection and Staleness Management | `Proposed` | `platform` | [ADR-059-adr-drift-detector.md](ADR-059-adr-drift-detector.md) |
-| 060 | Developer Workstation SSH Configuration | `Proposed` | `platform` | [ADR-060-developer-workstation-ssh-configuration.md](ADR-060-developer-workstation-ssh-configuration.md) |
+| 059 | Adopt Automated ADR Drift Detection and Staleness Management | `Accepted` | `platform` | [ADR-059-adr-drift-detector.md](ADR-059-adr-drift-detector.md) |
+| 060 | Developer Workstation SSH Configuration | `Accepted` | `platform` | [ADR-060-developer-workstation-ssh-configuration.md](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Hardcoding Elimination Strategy — Platform-wide | `Accepted` | `platform` | [ADR-061-hardcoding-elimination-strategy.md](ADR-061-hardcoding-elimination-strategy.md) |
 | 062 | Content Store — Shared PostgreSQL Schema für AI-Inhalte | `Accepted` | `platform` | [ADR-062-content-store-shared-persistence.md](ADR-062-content-store-shared-persistence.md) |
 | 064 | Coach-Hub KI ohne Risiko — Row-Level Multi-Tenant SaaS | `Accepted` | `platform` | [ADR-064-coach-hub-ki-ohne-risiko-architecture.md](ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
@@ -87,7 +87,7 @@
 | 071 | Amendment: Code Quality Tooling (amends ADR-022) | `Accepted` | `platform` | [ADR-071-amendment-code-quality-tooling.md](ADR-071-amendment-code-quality-tooling.md) |
 | 072 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Accepted` | `platform` | [ADR-072-multi-tenancy-schema-isolation.md](ADR-072-multi-tenancy-schema-isolation.md) |
 | 073 | Repo Scope & Migration Status | `Accepted` | `platform` | [ADR-073-repo-scope.md](ADR-073-repo-scope.md) |
-| 074 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Proposed` | `platform` | [ADR-074-multi-tenancy-testing-strategy.md](ADR-074-multi-tenancy-testing-strategy.md) |
+| 074 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Accepted` | `platform` | [ADR-074-multi-tenancy-testing-strategy.md](ADR-074-multi-tenancy-testing-strategy.md) |
 | 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Accepted` | `platform` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
 | 078 | Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml | `Accepted` | `platform` | [ADR-078-amendment-docker-healthcheck-convention.md](ADR-078-amendment-docker-healthcheck-convention.md) |
 
