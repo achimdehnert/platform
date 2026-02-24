@@ -459,14 +459,20 @@ with schema_context("public"): ...      # Expliziter public-Schema-Zugriff
 | `platform_context/tenant_utils/testing.py` — Fixtures (tenant_a/b, clients) | ✅ done | 2026-02-24 | Schema-Teardown ergänzt (ADR-074) |
 | `platform_context/tenant_utils/testing.py` — Import-Fix (Any oben) | ✅ done | 2026-02-24 | War am Ende der Datei |
 
-### Service-Tests (Implementierung ausstehend)
+### Service-Tests
 
 | Service | Layer 1 (Isolation) | Layer 2 (Propagation) | Layer 3 (Provisioning) | CI-Gate |
 |---------|--------------------|-----------------------|------------------------|---------|
-| `cad-hub` | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ |
-| `travel-beat` | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ |
-| `risk-hub` | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ |
-| `bfagent` | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ |
+| `cad-hub` | ✅ done 2026-02-24 | ✅ done 2026-02-24 | ⬜ Ausstehend | ⬜ |
+| `travel-beat` | ✅ done (existiert) | ✅ done (existiert) | ⬜ Ausstehend | ⬜ |
+| `risk-hub` | ✅ done 2026-02-24 | ✅ done 2026-02-24 | ⬜ Ausstehend | ⬜ |
+| `bfagent` | ✅ done 2026-02-24 | ✅ done 2026-02-24 | ⬜ Ausstehend | ⬜ |
+
+**Test-Dateien:**
+- `cad-hub/tests/test_tenant_isolation.py` — ConstructionProject isolation via TenantAwareManager
+- `travel-beat/apps/tenants/tests/test_tenant_isolation.py` — bereits vorhanden (django-tenants Schema-Isolation)
+- `risk-hub/src/tests/test_tenant_isolation.py` — Organization/Site/ApiKey isolation via tenant_id
+- `bfagent/apps/core/tests/test_tenant_isolation.py` — TenantPromptOverride isolation via tenant_id
 
 ---
 
