@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
@@ -53,10 +53,10 @@ Synergie: Manifest pro Component → Checker prüft Components isoliert
 
 | App | Duplizierte Blöcke (geschätzt) | Priorität |
 |-----|-------------------------------|-----------|
-| Travel-Beat (DriftTales) | ~15 (Sidebar, Cards, Lists) | **HOCH** |
-| Weltenhub (Weltenforger) | ~10 (Entity Cards, Enrichment) | HOCH |
-| Risk-Hub (Schutztat) | ~8 (Assessment Cards, Hazard Lists) | MITTEL |
-| BF Agent | ~12 (Document Lists, Agent Cards) | MITTEL |
+| Travel-Beat (DriftTales) | ~15 (Sidebar, Cards, Lists) | ✅ Implementiert |
+| Weltenhub (Weltenforger) | ~10 (Entity Cards, Enrichment) | ✅ Implementiert |
+| Risk-Hub (Schutztat) | ~8 (Assessment Cards, Hazard Lists) | ✅ Implementiert |
+| BF Agent | ~12 (Document Lists, Agent Cards) | Teilweise implementiert |
 
 ---
 
@@ -432,8 +432,25 @@ Keine zusätzlichen Dependencies erforderlich — rein Django-Bordmittel.
 
 ---
 
-## 8. Changelog
+## 8. Migration Tracking
+
+| Service | Inclusion Tags | components/ Module | Fragment Views | Tests | Status |
+|---------|---------------|-------------------|----------------|-------|--------|
+| `travel-beat` | ✅ trip/world/story/location_components.py | ✅ stop_card, traveler_card, weltenhub_sidebar, stop_timeline, trip_card | ⬜ Ausstehend | ⬜ | Basis done |
+| `risk-hub` | ✅ dsb_components.py, tenancy_components.py | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ | Basis done |
+| `bfagent` | ✅ expert_hub_tags.py, navigation_tags.py | ⬜ Ausstehend | ⬜ Ausstehend | ⬜ | Basis done |
+| `cad-hub` | ✅ avb_components.py (neu 2026-02-24) | ✅ page_header, stat_card, empty_state | ⬜ Ausstehend | ✅ test_avb_components.py | Phase 1 done |
+
+**Nächste Schritte:**
+- Fragment Views (HTMX lazy-loading) für travel-beat Components
+- `data-testid` systematisch in alle Component-Templates einbauen (Voraussetzung ADR-040)
+- risk-hub + bfagent components/ Module ergänzen
+
+---
+
+## 9. Changelog
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-02-24 | Achim Dehnert | cad-hub: avb_components templatetags + 3 Components + Tests |
 | 2026-02-16 | Achim Dehnert | Initial Draft — Component Pattern mit 3 Zugangswegen |
