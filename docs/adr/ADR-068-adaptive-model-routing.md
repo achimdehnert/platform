@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-02-23
 decision-makers: [Achim Dehnert]
 consulted: []
@@ -461,6 +461,7 @@ quality_thresholds:
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-23 | Achim Dehnert | Initial — Status: Proposed |
+| 2026-02-24 | Cascade | Status: Accepted — alle 7 Phasen implementiert |
 
 ---
 
