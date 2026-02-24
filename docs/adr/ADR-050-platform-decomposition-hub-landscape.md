@@ -1,7 +1,7 @@
 ---
 id: ADR-050
 title: "Platform Decomposition — Hub Landscape & Developer Portal"
-status: proposed
+status: accepted
 date: 2026-02-19
 author: Achim Dehnert
 owner: Achim Dehnert

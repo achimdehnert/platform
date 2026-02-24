@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: deprecated
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---

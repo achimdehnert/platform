@@ -1,3 +1,11 @@
+---
+status: accepted
+date: 2026-02-23
+decision-makers: Achim Dehnert
+consulted: –
+informed: –
+---
+
 # ADR-070: Progressive Autonomy Pattern für den Developer-Agenten
 
 | Feld | Wert |
