@@ -1,6 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
+amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
@@ -10,7 +11,7 @@ informed: –
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
-| **Status**     | Proposed                                                             |
+| **Status**     | Accepted                                                             |
 | **Scope**      | platform                                                             |
 | **Repo**       | platform                                                             |
 | **Erstellt**   | 2026-02-21                                                           |
@@ -452,6 +453,13 @@ with schema_context("public"): ...      # Expliziter public-Schema-Zugriff
 ---
 
 ## 5. Migration Tracking — Test-Abdeckung pro Service
+
+| Item | Status | Datum | Notizen |
+|------|--------|-------|--------|
+| `platform_context/tenant_utils/testing.py` — Fixtures (tenant_a/b, clients) | ✅ done | 2026-02-24 | Schema-Teardown ergänzt (ADR-074) |
+| `platform_context/tenant_utils/testing.py` — Import-Fix (Any oben) | ✅ done | 2026-02-24 | War am Ende der Datei |
+
+### Service-Tests (Implementierung ausstehend)
 
 | Service | Layer 1 (Isolation) | Layer 2 (Propagation) | Layer 3 (Provisioning) | CI-Gate |
 |---------|--------------------|-----------------------|------------------------|---------|
