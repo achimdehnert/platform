@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-23 (ADR-069 Web Intelligence MCP)
+> **Letzte Aktualisierung**: 2026-02-24 (Batch-Triage: 22 ADRs ? → Accepted, ADR-070/079 eingetragen)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -39,37 +39,37 @@
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 007 | Tenant- & RBAC-Architektur | `?` | `platform` | [ADR-007-FINAL-PRODUCTION.md](ADR-007-FINAL-PRODUCTION.md) |
+| 007 | Tenant- & RBAC-Architektur | `Accepted` | `platform` | [ADR-007-FINAL-PRODUCTION.md](ADR-007-FINAL-PRODUCTION.md) |
 | 008 | Infrastructure Services & Self-Healing Deployment | `Deprecated` | `platform` | [ADR-008-INFRASTRUCTURE.md](ADR-008-INFRASTRUCTURE.md) |
 | 009 | Platform Architecture - Optimized | `Deprecated` | `platform` | [ADR-009-PLATFORM-ARCHITECTURE-OPTIMIZED.md](ADR-009-PLATFORM-ARCHITECTURE-OPTIMIZED.md) |
-| 010 | MCP Tool Governance | `?` | `mcp-hub` | [ADR-010-mcp-tool-governance.md](ADR-010-mcp-tool-governance.md) |
-| 012 | MCP Server Quality Standards | `?` | `mcp-hub` | [ADR-012-mcp-quality-standards.md](ADR-012-mcp-quality-standards.md) |
+| 010 | MCP Tool Governance | `Accepted` | `mcp-hub` | [ADR-010-mcp-tool-governance.md](ADR-010-mcp-tool-governance.md) |
+| 012 | MCP Server Quality Standards | `Accepted` | `mcp-hub` | [ADR-012-mcp-quality-standards.md](ADR-012-mcp-quality-standards.md) |
 | 013 | Team Organization & MCP Ownership | `Deprecated` | `platform` | [ADR-013-team-organization-mcp-ownership.md](ADR-013-team-organization-mcp-ownership.md) |
 | 014 | AI-Native Development Teams | `Superseded` | `platform` | [ADR-014-ai-native-development-teams.md](ADR-014-ai-native-development-teams.md) |
-| 015 | Platform Governance System | `?` | `platform` | [ADR-015-platform-governance-system.md](ADR-015-platform-governance-system.md) |
+| 015 | Platform Governance System | `Accepted` | `platform` | [ADR-015-platform-governance-system.md](ADR-015-platform-governance-system.md) |
 | 017 | Domain Development Lifecycle (DDL) | `Superseded` | `platform` | [ADR-017-domain-development-lifecycle.md](ADR-017-domain-development-lifecycle.md) |
 | 020 | Dokumentationsstrategie — Sphinx, DB-driven, ADR-basiert | `Superseded` | `platform` | [ADR-020-documentation-strategy.md](ADR-020-documentation-strategy.md) |
 | 021 | Unified Deployment Architecture | `Accepted` | `platform` | [ADR-021-unified-deployment-pattern.md](ADR-021-unified-deployment-pattern.md) |
-| 022 | Platform Consistency Standard (v3) | `?` | `platform` | [ADR-022-platform-consistency-standard.md](ADR-022-platform-consistency-standard.md) |
-| 027 | Shared Backend Services | `?` | `shared` | [ADR-027-shared-backend-services.md](ADR-027-shared-backend-services.md) |
-| 028 | Platform Context — Konsolidierung der Platform Foundation | `?` | `platform` | [ADR-028-platform-context.md](ADR-028-platform-context.md) |
-| 031 | Static Asset Versioning & Landing Page Registry | `?` | `platform` | [ADR-031-static-asset-versioning.md](ADR-031-static-asset-versioning.md) |
+| 022 | Platform Consistency Standard (v3) | `Accepted` | `platform` | [ADR-022-platform-consistency-standard.md](ADR-022-platform-consistency-standard.md) |
+| 027 | Shared Backend Services | `Accepted` | `shared` | [ADR-027-shared-backend-services.md](ADR-027-shared-backend-services.md) |
+| 028 | Platform Context — Konsolidierung der Platform Foundation | `Accepted` | `platform` | [ADR-028-platform-context.md](ADR-028-platform-context.md) |
+| 031 | Static Asset Versioning & Landing Page Registry | `Accepted` | `platform` | [ADR-031-static-asset-versioning.md](ADR-031-static-asset-versioning.md) |
 | 032 | Domain Development Lifecycle (DDL) | `Deprecated` | `platform` | [ADR-032-domain-development-lifecycle.md](ADR-032-domain-development-lifecycle.md) |
 | 033 | Dual-Framework-Governance (Django + Odoo) | `Superseded` | `platform` | [ADR-033-dual-framework-governance.md](ADR-033-dual-framework-governance.md) |
-| 035 | Shared Django Tenancy Package | `?` | `shared` | [ADR-035-shared-django-tenancy.md](ADR-035-shared-django-tenancy.md) |
-| 040 | Frontend Completeness Gate | `?` | `platform` | [ADR-040-frontend-completeness-gate.md](ADR-040-frontend-completeness-gate.md) |
-| 041 | Django Component Pattern — Reusable UI Blocks | `?` | `platform` | [ADR-041-django-component-pattern.md](ADR-041-django-component-pattern.md) |
-| 042 | Development Environment & Deployment Workflow | `?` | `platform` | [ADR-042-dev-environment-deploy-workflow.md](ADR-042-dev-environment-deploy-workflow.md) |
-| 043 | AI-Assisted Development — Context & Workflow Optimization | `?` | `platform` | [ADR-043-ai-assisted-development.md](ADR-043-ai-assisted-development.md) |
-| 045 | Secrets & Environment Management | `?` | `platform` | [ADR-045-secrets-management.md](ADR-045-secrets-management.md) |
-| 046 | Documentation Governance — Hygiene, DIATAXIS & Docs Agent | `?` | `platform` | [ADR-046-docs-hygiene.md](ADR-046-docs-hygiene.md) |
+| 035 | Shared Django Tenancy Package | `Accepted` | `shared` | [ADR-035-shared-django-tenancy.md](ADR-035-shared-django-tenancy.md) |
+| 040 | Frontend Completeness Gate | `Proposed` | `platform` | [ADR-040-frontend-completeness-gate.md](ADR-040-frontend-completeness-gate.md) |
+| 041 | Django Component Pattern — Reusable UI Blocks | `Proposed` | `platform` | [ADR-041-django-component-pattern.md](ADR-041-django-component-pattern.md) |
+| 042 | Development Environment & Deployment Workflow | `Accepted` | `platform` | [ADR-042-dev-environment-deploy-workflow.md](ADR-042-dev-environment-deploy-workflow.md) |
+| 043 | AI-Assisted Development — Context & Workflow Optimization | `Accepted` | `platform` | [ADR-043-ai-assisted-development.md](ADR-043-ai-assisted-development.md) |
+| 045 | Secrets & Environment Management | `Accepted` | `platform` | [ADR-045-secrets-management.md](ADR-045-secrets-management.md) |
+| 046 | Documentation Governance — Hygiene, DIATAXIS & Docs Agent | `Accepted` | `platform` | [ADR-046-docs-hygiene.md](ADR-046-docs-hygiene.md) |
 | 047 | Sphinx Documentation Hub | `Superseded` | `platform` | [ADR-047-sphinx-documentation-hub.md](ADR-047-sphinx-documentation-hub.md) |
-| 048 | HTMX Playbook — Canonical Patterns for Django-HTMX | `?` | `platform` | [ADR-048-htmx-playbook.md](ADR-048-htmx-playbook.md) |
-| 049 | Design Token System — CSS Custom Properties + Tailwind Bridge | `?` | `platform` | [ADR-049-design-token-system.md](ADR-049-design-token-system.md) |
-| 050 | Platform Decomposition — Hub Landscape & Developer Portal | `?` | `platform` | [ADR-050-platform-decomposition-hub-landscape.md](ADR-050-platform-decomposition-hub-landscape.md) |
-| 051 | Concept-to-ADR Pipeline — Idea Capture & Promotion Workflow | `?` | `platform` | [ADR-051-concept-to-adr-pipeline.md](ADR-051-concept-to-adr-pipeline.md) |
+| 048 | HTMX Playbook — Canonical Patterns for Django-HTMX | `Proposed` | `platform` | [ADR-048-htmx-playbook.md](ADR-048-htmx-playbook.md) |
+| 049 | Design Token System — CSS Custom Properties + Tailwind Bridge | `Proposed` | `platform` | [ADR-049-design-token-system.md](ADR-049-design-token-system.md) |
+| 050 | Platform Decomposition — Hub Landscape & Developer Portal | `Accepted` | `platform` | [ADR-050-platform-decomposition-hub-landscape.md](ADR-050-platform-decomposition-hub-landscape.md) |
+| 051 | Concept-to-ADR Pipeline — Idea Capture & Promotion Workflow | `Accepted` | `platform` | [ADR-051-concept-to-adr-pipeline.md](ADR-051-concept-to-adr-pipeline.md) |
 | 053 | deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes | `Superseded` | `platform` | [ADR-053-deployment-mcp-robustness.md](ADR-053-deployment-mcp-robustness.md) |
-| 054 | Deployment Pre-Flight Validation & platform-context als Managed Package | `Draft` | `platform` | [ADR-054-deployment-preflight-validation.md](ADR-054-deployment-preflight-validation.md) |
+| 054 | Deployment Pre-Flight Validation & platform-context als Managed Package | `Proposed` | `platform` | [ADR-054-deployment-preflight-validation.md](ADR-054-deployment-preflight-validation.md) |
 | 055 | Cross-App Bug & Feature Management | `Accepted` | `platform` | [ADR-055-cross-app-bug-management.md](ADR-055-cross-app-bug-management.md) |
 | 056 | Deployment Preflight & Pipeline Hardening | `Accepted` | `platform` | [ADR-056-deployment-preflight-and-pipeline-hardening.md](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
 | 057 | Platform Test Strategy — 4-Ebenen-Pyramide | `Accepted` | `platform` | [ADR-057-platform-test-strategy.md](ADR-057-platform-test-strategy.md) |
@@ -84,6 +84,7 @@
 | 067 | Work Management Strategy — GitHub Issues + Projects + AI-Agent-Protokoll | `Accepted` | `platform` | [ADR-067-work-management-strategy.md](ADR-067-work-management-strategy.md) |
 | 068 | Adaptive Model Routing + Quality Feedback Loop | `Accepted` | `platform` | [ADR-068-adaptive-model-routing.md](ADR-068-adaptive-model-routing.md) |
 | 069 | Web Intelligence MCP — Plattformweiter Web-Zugriff für KI-Agenten | `Accepted` | `mcp-hub` | [ADR-069-web-intelligence-mcp.md](ADR-069-web-intelligence-mcp.md) |
+| 070 | Progressive Autonomy Pattern für den Developer-Agenten | `Accepted` | `platform` | [ADR-070-progressive-autonomy-developer-agent.md](ADR-070-progressive-autonomy-developer-agent.md) |
 | 071 | Amendment: Code Quality Tooling (amends ADR-022) | `Accepted` | `platform` | [ADR-071-amendment-code-quality-tooling.md](ADR-071-amendment-code-quality-tooling.md) |
 | 072 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Accepted` | `platform` | [ADR-072-multi-tenancy-schema-isolation.md](ADR-072-multi-tenancy-schema-isolation.md) |
 | 073 | Repo Scope & Migration Status | `Accepted` | `platform` | [ADR-073-repo-scope.md](ADR-073-repo-scope.md) |
@@ -98,58 +99,58 @@
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 023 | Shared Scoring and Routing Engine | `?` | `mcp-hub` | [ADR-023-shared-scoring-routing-engine.md](ADR-023-shared-scoring-routing-engine.md) |
-| 044 | MCP-Hub Architecture Consolidation | `?` | `mcp-hub` | [ADR-044-mcp-hub-architecture-consolidation.md](ADR-044-mcp-hub-architecture-consolidation.md) |
+| 023 | Shared Scoring and Routing Engine | `Accepted` | `mcp-hub` | [ADR-023-shared-scoring-routing-engine.md](ADR-023-shared-scoring-routing-engine.md) |
+| 044 | MCP-Hub Architecture Consolidation | `Accepted` | `mcp-hub` | [ADR-044-mcp-hub-architecture-consolidation.md](ADR-044-mcp-hub-architecture-consolidation.md) |
 
 ### Travel Beat (100–149)
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 016 | Import von Reiseplänen als Trip-Stops | `?` | `travel-beat` | [ADR-016-trip-plan-import.md](ADR-016-trip-plan-import.md) |
+| 016 | Import von Reiseplänen als Trip-Stops | `Accepted` | `travel-beat` | [ADR-016-trip-plan-import.md](ADR-016-trip-plan-import.md) |
 
 ### Weltenhub / Story
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 018 | Weltenhub — Zentrale Story-Universe Plattform | `?` | `weltenhub` | [ADR-018-weltenhub-architecture.md](ADR-018-weltenhub-architecture.md) |
-| 019 | Weltenhub UI, Templates, Views & APIs | `?` | `weltenhub` | [ADR-019-weltenhub-ui-templates-apis.md](ADR-019-weltenhub-ui-templates-apis.md) |
-| 024 | Location-Recherche als Weltenhub-Modul | `?` | `weltenhub` | [ADR-024-recherche-hub-weltenhub-integration.md](ADR-024-recherche-hub-weltenhub-integration.md) |
+| 018 | Weltenhub — Zentrale Story-Universe Plattform | `Accepted` | `weltenhub` | [ADR-018-weltenhub-architecture.md](ADR-018-weltenhub-architecture.md) |
+| 019 | Weltenhub UI, Templates, Views & APIs | `Accepted` | `weltenhub` | [ADR-019-weltenhub-ui-templates-apis.md](ADR-019-weltenhub-ui-templates-apis.md) |
+| 024 | Location-Recherche als Weltenhub-Modul | `Accepted` | `weltenhub` | [ADR-024-recherche-hub-weltenhub-integration.md](ADR-024-recherche-hub-weltenhub-integration.md) |
 
 ### CAD Hub (250–299)
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
 | 029 | CAD Hub Extraction from bfagent | `Accepted` | `cad-hub` | [ADR-029-cad-hub-extraction.md](ADR-029-cad-hub-extraction.md) |
-| 034 | CAD-Daten ETL-Pipeline + Chat-Agent als Platform-Service | `?` | `cad-hub` | [ADR-034-cad-etl-chat-agent.md](ADR-034-cad-etl-chat-agent.md) |
+| 034 | CAD-Daten ETL-Pipeline + Chat-Agent als Platform-Service | `Accepted` | `cad-hub` | [ADR-034-cad-etl-chat-agent.md](ADR-034-cad-etl-chat-agent.md) |
 
 ### coach-hub
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 064 | Coach-Hub KI ohne Risiko — Row-Level Multi-Tenant SaaS | `Proposed` | `coach-hub` | [ADR-064-coach-hub-ki-ohne-risiko-architecture.md](ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
+| 064 | Coach-Hub KI ohne Risiko — Row-Level Multi-Tenant SaaS | `Accepted` | `coach-hub` | [ADR-064-coach-hub-ki-ohne-risiko-architecture.md](ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
 
 ### deploy-hub (infra-deploy)
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Proposed` | `deploy-hub` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
+| 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Accepted` | `deploy-hub` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
 
 ### bfagent (050–099)
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 036 | Chat-Agent Ecosystem — DomainToolkits, Research Integration | `?` | `bfagent` | [ADR-036-chat-agent-ecosystem.md](ADR-036-chat-agent-ecosystem.md) |
-| 037 | Chat Conversation Logging & Quality Management | `?` | `bfagent` | [ADR-037-chat-conversation-logging.md](ADR-037-chat-conversation-logging.md) |
+| 036 | Chat-Agent Ecosystem — DomainToolkits, Research Integration | `Accepted` | `bfagent` | [ADR-036-chat-agent-ecosystem.md](ADR-036-chat-agent-ecosystem.md) |
+| 037 | Chat Conversation Logging & Quality Management | `Accepted` | `bfagent` | [ADR-037-chat-conversation-logging.md](ADR-037-chat-conversation-logging.md) |
 | 076 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-076-bfagent-ci-test-strategy.md](ADR-076-bfagent-ci-test-strategy.md) |
 
 ### Shared / Cross-App (350–399)
 
 | Nr | Titel | Status | Repo | Datei |
 |----|-------|--------|------|-------|
-| 030 | Erste Odoo Management-App — Dual-Framework-Governance | `?` | `shared` | [ADR-030-odoo-management-app.md](ADR-030-odoo-management-app.md) |
-| 038 | DSB-Modul — Externer Datenschutzbeauftragter | `Draft` | `shared` | [ADR-038-dsb-datenschutzbeauftragter-module.md](ADR-038-dsb-datenschutzbeauftragter-module.md) |
-| 039 | Seating Drag & Drop Layout-Editor | `?` | `shared` | [ADR-039-seating-drag-drop-layout-editor.md](ADR-039-seating-drag-drop-layout-editor.md) |
-| 052 | Trading Hub — Broker-Adapter-Architektur | `?` | `trading-hub` | [ADR-052-trading-hub-broker-adapter-architecture.md](ADR-052-trading-hub-broker-adapter-architecture.md) |
+| 030 | Erste Odoo Management-App — Dual-Framework-Governance | `Accepted` | `shared` | [ADR-030-odoo-management-app.md](ADR-030-odoo-management-app.md) |
+| 038 | DSB-Modul — Externer Datenschutzbeauftragter | `Proposed` | `shared` | [ADR-038-dsb-datenschutzbeauftragter-module.md](ADR-038-dsb-datenschutzbeauftragter-module.md) |
+| 039 | Seating Drag & Drop Layout-Editor | `Deprecated` | `shared` | [ADR-039-seating-drag-drop-layout-editor.md](ADR-039-seating-drag-drop-layout-editor.md) |
+| 052 | Trading Hub — Broker-Adapter-Architektur | `Accepted` | `trading-hub` | [ADR-052-trading-hub-broker-adapter-architecture.md](ADR-052-trading-hub-broker-adapter-architecture.md) |
 
 ### Trading Hub (400–449)
 

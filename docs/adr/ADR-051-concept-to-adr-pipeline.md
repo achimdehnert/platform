@@ -1,7 +1,7 @@
 ---
 id: ADR-051
 title: "Concept-to-ADR Pipeline — Idea Capture & AI-Assisted Promotion"
-status: draft
+status: accepted
 date: 2026-02-19
 author: Achim Dehnert
 owner: Achim Dehnert
