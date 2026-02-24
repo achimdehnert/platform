@@ -167,8 +167,8 @@ spec:
 | 2 | Nginx-Config: `proxy_pass` auf `127.0.0.1:8085` korrigiert | ✅ done |
 | 3 | `platform/docs/platform-context.md` als statisches Fallback | ✅ done |
 | 4 | `catalog-info-template.yaml` in `platform/docs/templates/` | ✅ done |
-| 5 | `catalog-info.yaml` in alle aktiven Repos eintragen | ⬜ pending |
-| 6 | Webhook: auto-import bei Push auf main (GitHub Actions) | ⬜ pending |
+| 5 | `catalog-info.yaml` in alle aktiven Repos eintragen | ✅ done (2026-02-24) |
+| 6 | Webhook: auto-import bei Push auf main (GitHub Actions) | ✅ done (2026-02-24) |
 
 ---
 
