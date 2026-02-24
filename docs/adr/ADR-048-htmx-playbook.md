@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
@@ -478,6 +478,21 @@ if __name__ == "__main__":
 - Pattern catalog is short (6 patterns) and each has a copy-paste example
 - Pre-commit is fast (regex-only, no AST parsing)
 - Middleware installation is documented per-app
+
+## Migration Tracking
+
+| Item | Status | Datum | Notizen |
+|------|--------|-------|--------|
+| `platform_context/htmx.py` — `is_htmx_request()` | ✅ done | pre-2026 | Portabel, kein django_htmx erforderlich |
+| `platform_context/htmx.py` — `HtmxResponseMixin` | ✅ done | pre-2026 | CBV-Mixin für Partial/Full-Switch |
+| `platform_context/htmx.py` — `HtmxErrorMiddleware` | ✅ done | pre-2026 | 4xx/5xx → Toast-Notification |
+| `travel-beat` — HtmxErrorMiddleware in MIDDLEWARE | ✅ done | pre-2026 | Bereits aktiv |
+| `risk-hub` — HtmxErrorMiddleware in MIDDLEWARE | ✅ done | pre-2026 | Bereits aktiv |
+| `cad-hub` — HtmxErrorMiddleware | ⬜ Ausstehend | — | platform_context nicht vendored |
+| `pre-commit` Hook — Anti-Pattern-Checker | ⬜ Ausstehend | — | check_htmx.py aus ADR noch nicht deployed |
+| `data-testid` auf HTMX-Elementen (travel-beat, risk-hub) | ⬜ Ausstehend | — | Voraussetzung für ADR-040 |
+
+---
 
 ## Alternatives Considered
 
