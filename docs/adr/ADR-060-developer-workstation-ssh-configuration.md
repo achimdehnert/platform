@@ -1,3 +1,14 @@
+---
+status: "accepted"
+date: 2026-02-21
+decision-makers: [Achim Dehnert]
+consulted: []
+informed: []
+supersedes: []
+amends: []
+related: ["ADR-021-unified-deployment-pattern.md", "ADR-022-repository-consistency.md"]
+---
+
 # ADR-060: Developer Workstation SSH Key Configuration Standard
 
 **Status:** Accepted  

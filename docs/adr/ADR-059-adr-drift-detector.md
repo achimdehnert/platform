@@ -1,6 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
+amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
@@ -12,7 +13,7 @@ informed: –
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted                                                             |
 | **Scope**       | platform                                                             |
 | **Erstellt**    | 2026-02-21                                                           |
 | **Autor**       | Achim Dehnert                                                        |
@@ -390,14 +391,14 @@ class ADRListView(LoginRequiredMixin, ListView):
 
 | Repo / Service | Phase | Status | Datum | Notizen |
 |----------------|-------|--------|-------|---------|
-| `dev-hub` — Model-Migration | 1 | ⬜ Ausstehend | – | 3 neue Felder auf `ADR` |
-| `dev-hub` — Celery Task | 1 | ⬜ Ausstehend | – | `run_drift_detector` |
-| `dev-hub` — Beat Schedule | 1 | ⬜ Ausstehend | – | Montag 06:00 |
-| `dev-hub` — UI Filter | 2 | ⬜ Ausstehend | – | `?review_needed=1` |
+| `dev-hub` — Model-Migration | 1 | ✅ done | 2026-02-21 | `0010_adr_drift_detector_fields.py` |
+| `dev-hub` — Celery Task | 1 | ✅ done | 2026-02-21 | `run_drift_detector` in `tasks.py` |
+| `dev-hub` — Beat Schedule | 1 | ✅ done | 2026-02-21 | Montag 06:00 in `settings/base.py` |
+| `dev-hub` — UI Filter | 2 | ✅ done | 2026-02-21 | `?review_needed=1` in `views.py` |
 | `platform` — Triage-Skript | 0 | ✅ Abgeschlossen | 2026-02-21 | `scripts/adr_triage.py` erstellt |
 | `platform` — ADR-Template v2 | 0 | ✅ Abgeschlossen | 2026-02-21 | `docs/templates/adr-template.md` |
 | `platform` — YAML-Frontmatter (46 ADRs) | 0 | ✅ Abgeschlossen | 2026-02-21 | `adr_triage.py --apply` ausgeführt |
-| `platform` — Status-Triage (superseded/accepted) | 3 | ⬜ Ausstehend | – | Manuelle Bestätigung der Vorschläge |
+| `platform` — Status-Triage (superseded/accepted) | 3 | ✅ done | 2026-02-24 | 11 ADRs Proposed → Accepted, 1 → Superseded |
 
 ---
 

@@ -1,5 +1,5 @@
 """
-Tenant test fixtures — ADR-056 §9.2.
+Tenant test fixtures — ADR-074 (Multi-Tenancy Testing Strategy).
 
 pytest fixtures for multi-tenant tests. Requires django-tenants.
 
@@ -28,16 +28,18 @@ Usage in tests::
 
 from __future__ import annotations
 
+from typing import Any, Generator
+
 import pytest
 
 
 @pytest.fixture
-def tenant_a(db: None) -> Any:
+def tenant_a(db: None) -> Generator[Any, None, None]:
     """
     Creates Tenant A for multi-tenant tests.
-    Requires django-tenants Client and Domain models.
+    Drops the schema on teardown to prevent test pollution.
     """
-    from django_tenants.test.cases import TenantTestCase  # noqa: F401
+    from django.db import connection
     from tenants.models import Client, Domain
 
     tenant = Client(
@@ -50,15 +52,19 @@ def tenant_a(db: None) -> Any:
         tenant=tenant,
         is_primary=True,
     )
-    return tenant
+    yield tenant
+    with connection.cursor() as cursor:
+        cursor.execute("DROP SCHEMA IF EXISTS test_tenant_a CASCADE")
 
 
 @pytest.fixture
-def tenant_b(db: None) -> Any:
+def tenant_b(db: None) -> Generator[Any, None, None]:
     """
     Creates Tenant B for isolation tests.
     Use together with tenant_a to verify cross-tenant data isolation.
+    Drops the schema on teardown to prevent test pollution.
     """
+    from django.db import connection
     from tenants.models import Client, Domain
 
     tenant = Client(
@@ -71,7 +77,9 @@ def tenant_b(db: None) -> Any:
         tenant=tenant,
         is_primary=True,
     )
-    return tenant
+    yield tenant
+    with connection.cursor() as cursor:
+        cursor.execute("DROP SCHEMA IF EXISTS test_tenant_b CASCADE")
 
 
 @pytest.fixture
@@ -86,6 +94,3 @@ def tenant_b_client(tenant_b: Any) -> Any:
     """Django TenantClient in the context of Tenant B."""
     from django_tenants.test.client import TenantClient
     return TenantClient(tenant_b)
-
-
-from typing import Any
