@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
@@ -8,7 +8,7 @@ decision-makers: Achim Dehnert
 
 | Metadata | Value |
 |----------|-------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Date** | 2026-02-16 |
 | **Author** | Achim Dehnert |
 | **Reviewers** | — |
@@ -1312,9 +1312,26 @@ Two new hooks complement the existing manifest check:
 
 ---
 
-## 9. Changelog
+## 9. Migration Tracking
+
+| Service | UI-Manifests | Static Checker | Playwright E2E | data-testid | Status |
+|---------|-------------|----------------|----------------|-------------|--------|
+| `travel-beat` | ✅ dashboard.yaml, trip_list.yaml | ✅ check_frontend.py + test_manifest_completeness.py | ✅ test_dashboard.py, test_trip_list.py | ✅ dashboard + trip_list | Phase 1 done |
+| `cad-hub` | ⬜ | ⬜ | ⬜ | ✅ avb Components | Basis done |
+| `risk-hub` | ⬜ | ⬜ | ⬜ | ⬜ | Ausstehend |
+| `bfagent` | ⬜ | ⬜ | ⬜ | ⬜ | Ausstehend |
+
+**Nächste Schritte:**
+- CI-Integration: `pytest tests/completeness/ -m "not e2e"` als Gate vor Deploy
+- Weitere Manifeste für trip_detail, world_detail, story_list
+- cad-hub + risk-hub UI-Manifeste erstellen
+
+---
+
+## 10. Changelog
 
 | Datum      | Autor          | Änderung                                                                    |
 |------------|----------------|-----------------------------------------------------------------------------|
+| 2026-02-24 | Achim Dehnert | travel-beat: UI-Manifeste + Playwright E2E + Static Checker implementiert |
 | 2026-02-16 | Achim Dehnert | Initial Draft -- kombiniert Option A (Manifest) + Option C (Playwright)      |
 | 2026-02-18 | Achim Dehnert | Amendment: Anti-Pattern Enforcement (ADR-048) + Token Compliance (ADR-049)   |
