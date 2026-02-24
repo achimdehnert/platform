@@ -89,7 +89,10 @@
 | 073 | Repo Scope & Migration Status | `Accepted` | `platform` | [ADR-073-repo-scope.md](ADR-073-repo-scope.md) |
 | 074 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | `Accepted` | `platform` | [ADR-074-multi-tenancy-testing-strategy.md](ADR-074-multi-tenancy-testing-strategy.md) |
 | 075 | Deployment Execution Strategy — Read/Write-Split MCP vs GitHub Actions | `Accepted` | `platform` | [ADR-075-deployment-execution-strategy.md](ADR-075-deployment-execution-strategy.md) |
+| 076 | bfagent CI Test Strategy | `Accepted` | `bfagent` | [ADR-076-bfagent-ci-test-strategy.md](ADR-076-bfagent-ci-test-strategy.md) |
+| 077 | Infrastructure Context System — catalog-info.yaml + Webhook Auto-Import | `Accepted` | `platform` | [ADR-077-infrastructure-context-system.md](ADR-077-infrastructure-context-system.md) |
 | 078 | Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml | `Accepted` | `platform` | [ADR-078-amendment-docker-healthcheck-convention.md](ADR-078-amendment-docker-healthcheck-convention.md) |
+| 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | `Accepted` | `platform` | [ADR-079-temporal-workflow-engine.md](ADR-079-temporal-workflow-engine.md) |
 
 ### MCP Hub (150–199)
 
