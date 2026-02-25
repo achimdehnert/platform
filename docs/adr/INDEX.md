@@ -99,6 +99,7 @@
 | 082 | LLM-Tool-Integration — Autonome Coding-Tasks via StepExecutor + ToolRegistry | `Accepted` | `platform` | [ADR-082-llm-tool-integration-autonomous-coding.md](ADR-082-llm-tool-integration-autonomous-coding.md) |
 | 083 | Hybrid ADR Governance — Platform + Repo-lokale ADRs | `Proposed` | `platform` | [ADR-083-hybrid-adr-governance.md](ADR-083-hybrid-adr-governance.md) |
 | 084 | Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung | `Accepted` | `platform` / `mcp-hub` | [ADR-084-model-registry-dynamic-llm-routing.md](ADR-084-model-registry-dynamic-llm-routing.md) |
+| 085 | Use Case Pipeline — Natural Language → Structured TaskGraph | `Accepted` | `platform` / `mcp-hub` | [ADR-085-use-case-pipeline-nl-to-taskgraph.md](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
 
 ### MCP Hub (150–199)
 
