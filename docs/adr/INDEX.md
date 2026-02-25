@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-25 (ADR-080/081 Accepted, ADR-082 Proposed)
+> **Letzte Aktualisierung**: 2026-02-25 (ADR-083 Hybrid ADR Governance)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -97,6 +97,7 @@
 | 080 | Multi-Agent Coding Team Pattern — Handoff, Parallelisierung, Rollback | `Accepted` | `platform` | [ADR-080-multi-agent-coding-team-pattern.md](ADR-080-multi-agent-coding-team-pattern.md) |
 | 081 | Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback | `Accepted` | `platform` | [ADR-081-agent-guardrails-code-safety.md](ADR-081-agent-guardrails-code-safety.md) |
 | 082 | LLM-Tool-Integration — Autonome Coding-Tasks via StepExecutor + ToolRegistry | `Proposed` | `platform` | [ADR-082-llm-tool-integration-autonomous-coding.md](ADR-082-llm-tool-integration-autonomous-coding.md) |
+| 083 | Hybrid ADR Governance — Platform + Repo-lokale ADRs | `Proposed` | `platform` | [ADR-083-hybrid-adr-governance.md](ADR-083-hybrid-adr-governance.md) |
 
 ### MCP Hub (150–199)
 
