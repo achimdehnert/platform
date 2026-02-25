@@ -1,6 +1,7 @@
 ---
 status: accepted
 date: 2026-02-25
+implemented: 2026-02-25
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
@@ -498,12 +499,19 @@ warnings.warn(
 
 | Komponente | Status | Target | Notiz |
 |------------|--------|--------|-------|
-| `TIER_MODELS` in `orchestrator_mcp/config.py` | 🔴 hardcoded | `ModelRegistry.get_model()` | Phase 2 |
-| `MODEL_SCENARIOS` in `agent_team/config.py` | 🔴 hardcoded | Tier-Referenzen | Phase 2 |
-| `OrchestratorLLMAdapter` Modell-Auflösung | 🔴 direkt aus config | `ModelRegistry` | Phase 2 |
-| `refresh_models` MCP-Tool | 🟡 geplant (Write-Op) | GitHub Actions Workflow | Phase 3 |
-| `set_active_model` MCP-Tool | 🟡 geplant (Write-Op) | GitHub Actions Workflow | Phase 3 |
-| CI-Guard `grep claude-\|gpt-4` | 🔴 fehlt | CI-Check (warn→error) | Phase 4 |
+| `registry_mcp/migrations/001_model_registry.sql` | 🟢 implementiert | — | Phase 1, Commit b95a938 |
+| `orchestrator_mcp/model_registry.py` | 🟢 implementiert | — | Phase 2, ModelSpec + Cache + Fallback |
+| `orchestrator_mcp/model_registry_updater.py` | 🟢 implementiert | — | Phase 2, OpenRouter-Sync + TierRules |
+| `orchestrator_mcp/model_registry_cli.py` | 🟢 implementiert | — | Phase 2, CLI für GitHub Actions |
+| `OrchestratorLLMAdapter` Modell-Auflösung | 🟢 tier= statt model= | `ModelRegistry` | Phase 2, Commit 2721bd6 |
+| `TIER_MODELS` in `orchestrator_mcp/config.py` | � Deprecation-Warning ausstehend | `ModelRegistry.get_model()` | Release N+1 |
+| `MODEL_SCENARIOS` in `agent_team/config.py` | � auf Tier-Referenzen umstellen | Tier-Referenzen | Release N+1 |
+| `model-registry-refresh.yml` GitHub Actions | � implementiert | — | Phase 3, wöchentlicher Cron |
+| `model-registry-set-active.yml` GitHub Actions | 🟢 implementiert | — | Phase 3, manuell mit Audit-Trail |
+| `list_models` MCP-Tool (read-only) | � implementiert | — | Phase 3, registry_mcp/__main__.py |
+| `decompose_use_case` MCP-Tool | � implementiert | — | Phase 3+, UseCaseDecomposer (premium tier) |
+| CI-Guard `grep claude-\|gpt-4` | � warn-mode aktiv | CI-Check (warn→error) | Phase 4, ci.yml Job adr084-model-registry-guard |
+| Tests (29 ModelRegistry + 27 UseCaseDecomposer) | 🟢 272 passed | — | Phase 4 |
 
 *Legende: 🔴 offen · 🟡 in Planung · 🟢 abgeschlossen*
 
