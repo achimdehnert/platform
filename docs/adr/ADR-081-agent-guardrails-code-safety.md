@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
@@ -13,7 +13,7 @@ related: ADR-066, ADR-068, ADR-070, ADR-080
 
 | Feld | Wert |
 |------|------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-02-24 |
 | **Autor** | Achim Dehnert |
 | **Amends** | ADR-066 (AI Engineering Squad), ADR-080 (Multi-Agent Handoff) |
@@ -365,13 +365,13 @@ Step 4: Ausführung + Handoff (mit Guardrails)
 
 ---
 
-## 10. Offene Fragen
+## 10. Entschiedene Fragen
 
-| Frage | Empfehlung |
+| Frage | Entscheidung |
 |-------|-----------|
-| Soll Scope-Verifier im CI laufen (nicht nur lokal)? | Ja — als eigener pytest-Check in `tests/guardrails/` |
-| Wie werden `ALWAYS_FORBIDDEN_PATHS` aktualisiert? | In `forbidden_paths.py` versioniert, Änderung via ADR-Amendment |
-| Scope-Lock für parallele Branches bei TaskGraph? | Pro Branch eigener Lock — kein gemeinsamer Shared State |
+| Soll Scope-Verifier im CI laufen (nicht nur lokal)? | **Ja** — pytest-Check in `tests/guardrails/`; umgesetzt v1 |
+| Wie werden `ALWAYS_FORBIDDEN_PATHS` aktualisiert? | `forbidden_paths.py` versioniert, Änderung via ADR-Amendment — umgesetzt |
+| Scope-Lock für parallele Branches bei TaskGraph? | Pro Branch eigener Lock — kein Shared State — umgesetzt in `merger.py` |
 
 ---
 
@@ -379,4 +379,5 @@ Step 4: Ausführung + Handoff (mit Guardrails)
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-02-25 | Achim Dehnert | v1: Implementierung abgeschlossen, Status → Accepted; §10 Fragen entschieden |
 | 2026-02-24 | Achim Dehnert | v1 — Initial Proposed; Scope-Lock, Pre/Post-Gates, Rollback-Engine |
