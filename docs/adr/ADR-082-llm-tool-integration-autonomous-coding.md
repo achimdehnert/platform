@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-25
 decision-makers: Achim Dehnert
 consulted: –
@@ -13,7 +13,7 @@ related: ADR-066, ADR-068, ADR-070, ADR-080, ADR-081
 
 | Feld | Wert |
 |------|------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-02-25 |
 | **Autor** | Achim Dehnert |
 | **Amends** | ADR-066 (AI Engineering Squad), ADR-080 (Multi-Agent Handoff) |
@@ -546,13 +546,13 @@ SHELL_ALLOWLIST: frozenset[str] = frozenset({
 
 ## 10. Offene Fragen
 
-| Frage | Empfehlung |
-|-------|-----------|
-| Welcher LLM-Provider wird zuerst integriert? | OpenAI (breiteste Tool-Calling-Unterstützung, JSON-Mode) |
-| Soll `git commit` autonom erlaubt sein? | Ja — nur staged files, nur auf `ai/<type>/<task_id>`-Branch |
-| Wie werden LLM-API-Keys sicher verwaltet? | Über `OPENAI_API_KEY` etc. in `.env` — niemals im Code |
-| Soll Phase 1 einen Dry-Run-Modus haben? | Ja — `DRY_RUN=true` loggt Tool-Calls ohne Ausführung |
-| Welche Mindest-Test-Coverage für autonomen Code? | 80% auf neue Dateien — durch Tester-Step und Guardian verifiziert |
+| Frage | Entscheidung |
+|-------|-------------|
+| Welcher LLM-Provider wird zuerst integriert? | **OpenAI** via `OrchestratorLLMAdapter` wrapping `DynamicLLMClient` (creative-services) |
+| Soll `git commit` autonom erlaubt sein? | **Ja** — nur staged files via `GitStageTool` (ScopeLock-validiert), nur auf `ai/<type>/<task_id>`-Branch |
+| Wie werden LLM-API-Keys sicher verwaltet? | **`.env`** — `OPENAI_API_KEY` etc., niemals im Code |
+| Soll Phase 1 einen Dry-Run-Modus haben? | **Ja** — `DRY_RUN=true` loggt Tool-Calls ohne Ausführung |
+| Welche Mindest-Test-Coverage für autonomen Code? | **80%** auf neue Dateien — Guardian + Tester-Step verifizieren |
 
 ---
 
@@ -561,3 +561,4 @@ SHELL_ALLOWLIST: frozenset[str] = frozenset({
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-25 | Achim Dehnert | v0: Initial Draft — LLM-Execution-Layer, Tool-Registry, Feature-Flags, 3-Phasen-Migration |
+| 2026-02-25 | Cascade | v1: Accepted — Review-Blocker B1–B5 implementiert und verifiziert (216 Tests grün, commit 2eddd3d) |
