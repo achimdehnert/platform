@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-24 (Batch-Triage: 22 ADRs ? → Accepted, ADR-070/079 eingetragen)
+> **Letzte Aktualisierung**: 2026-02-25 (ADR-080/081 Accepted, ADR-082 Proposed)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -94,8 +94,9 @@
 | 077 | Infrastructure Context System — catalog-info.yaml + Webhook Auto-Import | `Accepted` | `platform` | [ADR-077-infrastructure-context-system.md](ADR-077-infrastructure-context-system.md) |
 | 078 | Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml | `Accepted` | `platform` | [ADR-078-amendment-docker-healthcheck-convention.md](ADR-078-amendment-docker-healthcheck-convention.md) |
 | 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | `Accepted` | `platform` | [ADR-079-temporal-workflow-engine.md](ADR-079-temporal-workflow-engine.md) |
-| 080 | Multi-Agent Coding Team Pattern — Handoff, Parallelisierung, Rollback | `Proposed` | `platform` | [ADR-080-multi-agent-coding-team-pattern.md](ADR-080-multi-agent-coding-team-pattern.md) |
-| 081 | Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback | `Proposed` | `platform` | [ADR-081-agent-guardrails-code-safety.md](ADR-081-agent-guardrails-code-safety.md) |
+| 080 | Multi-Agent Coding Team Pattern — Handoff, Parallelisierung, Rollback | `Accepted` | `platform` | [ADR-080-multi-agent-coding-team-pattern.md](ADR-080-multi-agent-coding-team-pattern.md) |
+| 081 | Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback | `Accepted` | `platform` | [ADR-081-agent-guardrails-code-safety.md](ADR-081-agent-guardrails-code-safety.md) |
+| 082 | LLM-Tool-Integration — Autonome Coding-Tasks via StepExecutor + ToolRegistry | `Proposed` | `platform` | [ADR-082-llm-tool-integration-autonomous-coding.md](ADR-082-llm-tool-integration-autonomous-coding.md) |
 
 ### MCP Hub (150–199)
 
