@@ -96,7 +96,7 @@
 | 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | `Accepted` | `platform` | [ADR-079-temporal-workflow-engine.md](ADR-079-temporal-workflow-engine.md) |
 | 080 | Multi-Agent Coding Team Pattern — Handoff, Parallelisierung, Rollback | `Accepted` | `platform` | [ADR-080-multi-agent-coding-team-pattern.md](ADR-080-multi-agent-coding-team-pattern.md) |
 | 081 | Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback | `Accepted` | `platform` | [ADR-081-agent-guardrails-code-safety.md](ADR-081-agent-guardrails-code-safety.md) |
-| 082 | LLM-Tool-Integration — Autonome Coding-Tasks via StepExecutor + ToolRegistry | `Proposed` | `platform` | [ADR-082-llm-tool-integration-autonomous-coding.md](ADR-082-llm-tool-integration-autonomous-coding.md) |
+| 082 | LLM-Tool-Integration — Autonome Coding-Tasks via StepExecutor + ToolRegistry | `Accepted` | `platform` | [ADR-082-llm-tool-integration-autonomous-coding.md](ADR-082-llm-tool-integration-autonomous-coding.md) |
 | 083 | Hybrid ADR Governance — Platform + Repo-lokale ADRs | `Proposed` | `platform` | [ADR-083-hybrid-adr-governance.md](ADR-083-hybrid-adr-governance.md) |
 
 ### MCP Hub (150–199)
