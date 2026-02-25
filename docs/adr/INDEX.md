@@ -1,7 +1,7 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-25 (ADR-083 Hybrid ADR Governance)
+> **Letzte Aktualisierung**: 2026-02-25 (ADR-084 Model Registry — Dynamisches LLM-Modell-Routing)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
 ---
@@ -98,6 +98,7 @@
 | 081 | Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback | `Accepted` | `platform` | [ADR-081-agent-guardrails-code-safety.md](ADR-081-agent-guardrails-code-safety.md) |
 | 082 | LLM-Tool-Integration — Autonome Coding-Tasks via StepExecutor + ToolRegistry | `Accepted` | `platform` | [ADR-082-llm-tool-integration-autonomous-coding.md](ADR-082-llm-tool-integration-autonomous-coding.md) |
 | 083 | Hybrid ADR Governance — Platform + Repo-lokale ADRs | `Proposed` | `platform` | [ADR-083-hybrid-adr-governance.md](ADR-083-hybrid-adr-governance.md) |
+| 084 | Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung | `Proposed` | `platform` / `mcp-hub` | [ADR-084-model-registry-dynamic-llm-routing.md](ADR-084-model-registry-dynamic-llm-routing.md) |
 
 ### MCP Hub (150–199)
 
