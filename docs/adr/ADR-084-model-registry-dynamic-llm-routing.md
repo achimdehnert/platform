@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-25
 decision-makers: Achim Dehnert
 consulted: –
@@ -13,7 +13,7 @@ related: ADR-068, ADR-082, ADR-045, ADR-080
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
-| **Status**     | Proposed                                                             |
+| **Status**     | Accepted                                                             |
 | **Scope**      | Platform-wide — AI Infrastructure                                    |
 | **Repo**       | platform / mcp-hub                                                   |
 | **Erstellt**   | 2026-02-25                                                           |
@@ -607,4 +607,5 @@ ADR-084-Compliance wird wie folgt im laufenden Betrieb verifiziert:
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-25 | Achim Dehnert | v0: Initial Draft — PostgreSQL Model Registry, Tier-Abstraktion, OpenRouter-Sync |
+| 2026-02-25 | Achim Dehnert | v2: Status Proposed → Accepted nach Review |
 | 2026-02-25 | Achim Dehnert | v1: Review-Fixes — Decision Drivers, ADR-075-Konformität (Write-Ops → GitHub Actions), Confirmation, Migration-Tracking, Drift-Detector, Deferred Decisions, Zero-Breaking-Changes Deprecation-Plan |

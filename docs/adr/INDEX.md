@@ -98,7 +98,7 @@
 | 081 | Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback | `Accepted` | `platform` | [ADR-081-agent-guardrails-code-safety.md](ADR-081-agent-guardrails-code-safety.md) |
 | 082 | LLM-Tool-Integration — Autonome Coding-Tasks via StepExecutor + ToolRegistry | `Accepted` | `platform` | [ADR-082-llm-tool-integration-autonomous-coding.md](ADR-082-llm-tool-integration-autonomous-coding.md) |
 | 083 | Hybrid ADR Governance — Platform + Repo-lokale ADRs | `Proposed` | `platform` | [ADR-083-hybrid-adr-governance.md](ADR-083-hybrid-adr-governance.md) |
-| 084 | Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung | `Proposed` | `platform` / `mcp-hub` | [ADR-084-model-registry-dynamic-llm-routing.md](ADR-084-model-registry-dynamic-llm-routing.md) |
+| 084 | Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung | `Accepted` | `platform` / `mcp-hub` | [ADR-084-model-registry-dynamic-llm-routing.md](ADR-084-model-registry-dynamic-llm-routing.md) |
 
 ### MCP Hub (150–199)
 
