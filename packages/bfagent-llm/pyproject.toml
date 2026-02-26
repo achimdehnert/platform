@@ -1,7 +1,7 @@
 [project]
 name = "bfagent-llm"
-version = "0.1.0"
-description = "LLM integration for BFAgent Hub ecosystem (Prompt Framework, Adapters, Gateway Client)"
+version = "1.0.0"
+description = "LLM integration for BFAgent Hub ecosystem — DB-driven routing, LiteLLM backend, resilient adapters (ADR-089)"
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "MIT"}
@@ -18,7 +18,6 @@ classifiers = [
 ]
 
 dependencies = [
-    "Django>=5.0,<6.0",
     "pydantic>=2.0",
     "httpx>=0.27",
     "jinja2>=3.1",
@@ -30,12 +29,23 @@ dependencies = [
 [project.optional-dependencies]
 openai = ["openai>=1.0"]
 anthropic = ["anthropic>=0.25"]
-all = ["openai>=1.0", "anthropic>=0.25"]
+litellm = ["litellm>=1.55,<1.60"]
+django = [
+    "Django>=5.0,<6.0",
+    "litellm>=1.55,<1.60",
+]
+all = [
+    "openai>=1.0",
+    "anthropic>=0.25",
+    "litellm>=1.55,<1.60",
+    "Django>=5.0,<6.0",
+]
 dev = [
     "pytest>=8.0",
     "pytest-django>=4.8",
     "pytest-asyncio>=0.23",
     "respx>=0.21",
+    "factory-boy>=3.3",
 ]
 
 [build-system]
