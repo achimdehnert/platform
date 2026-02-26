@@ -101,7 +101,7 @@ class TestBuildLitellmModelString:
         assert _build_litellm_model_string(model) == "openai/gpt-4o"
 
 
-@pytest.mark.django_db(transaction=True)
+@pytest.mark.django_db
 class TestCompletion:
     @pytest.mark.asyncio
     async def test_should_complete_and_log_usage(self, test_action):
