@@ -1,7 +1,7 @@
 """
 Django test settings for bfagent-llm.
 
-Minimal Django config for running tests with SQLite.
+Uses PostgreSQL (matching production). Override via environment variables.
 """
 
 import os
@@ -20,8 +20,12 @@ INSTALLED_APPS = [
 
 DATABASES = {
     "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": ":memory:",
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("TEST_DB_NAME", "test_bfagent_llm"),
+        "USER": os.environ.get("TEST_DB_USER", "postgres"),
+        "PASSWORD": os.environ.get("TEST_DB_PASSWORD", "postgres"),
+        "HOST": os.environ.get("TEST_DB_HOST", "localhost"),
+        "PORT": os.environ.get("TEST_DB_PORT", "5432"),
     }
 }
 
