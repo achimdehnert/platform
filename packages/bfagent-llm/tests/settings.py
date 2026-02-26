@@ -6,6 +6,8 @@ Minimal Django config for running tests with SQLite.
 
 import os
 
+os.environ["DJANGO_ALLOW_ASYNC_UNSAFE"] = "true"
+
 SECRET_KEY = "test-secret-key-not-for-production"
 DEBUG = True
 ALLOWED_HOSTS = ["*"]
