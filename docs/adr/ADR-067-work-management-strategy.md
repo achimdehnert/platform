@@ -145,13 +145,19 @@ gh pr list --repo achimdehnert/bfagent --state merged --json number,body \
 
 | Kategorie | Labels | Farbe |
 |-----------|--------|-------|
-| **Typ** | `bug`, `enhancement`, `tech-debt`, `security`, `docs`, `ci-cd` | Blau-Töne |
-| **Priorität** | `P0-critical`, `P1-high`, `P2-medium`, `P3-low` | Rot → Grün |
-| **Status** | `needs-triage`, `in-progress`, `blocked`, `ready-for-review` | Gelb-Töne |
-| **Scope** | `platform`, `bfagent`, `mcp-hub`, `trading-hub`, `cad-hub` | Grau |
+| **Typ** | `bug`, `enhancement`, `task`, `use-case`, `adr`, `hotfix`, `tech-debt`, `ci-cd` | Blau-Töne |
+| **Severity** | `severity:critical`, `severity:high`, `severity:medium`, `severity:low` | Rot → Grün |
+| **Status** | `triage`, `blocked`, `wontfix` | Gelb-Töne |
+| **Meta** | `documentation`, `security`, `performance`, `dependencies`, `good first issue` | Grau |
 | **AI-Agent** | `ai-assignable`, `ai-in-progress`, `ai-review-needed` | Lila |
 
-**Regel**: Jedes Issue hat mindestens einen Typ-Label und einen Prioritäts-Label.
+> **Amendment 2026-02-26**: `P0/P1/P2/P3`-Labels durch `severity:*`-Labels ersetzt.
+> Begründung: Severity beschreibt das *Problem* (technische Schwere), Priority ist ein *Workflow-Attribut*
+> das im GitHub Project Field `Priority` abgebildet wird — automatisch gesetzt durch `issue-triage.yml`
+> via `severity:*` → `Critical/High/Medium/Low`. Keine redundante Label-Ebene nötig.
+> Bootstrap-Script: `.github/scripts/bootstrap_labels.py` (idempotent, alle 10 Repos).
+
+**Regel**: Jedes Issue hat mindestens einen Typ-Label. Bug-Issues zusätzlich einen Severity-Label.
 
 ### 2. Issue-Template (Standard)
 
@@ -270,3 +276,4 @@ ADR-065 Deferred Decision
 |------------|---------------|-----------------------|
 | 2026-02-23 | Achim Dehnert | Initial — Status: Proposed |
 | 2026-02-23 | Achim Dehnert | Fix: ADR-066 als `Proposed` (nicht implementiert) korrekt referenziert |
+| 2026-02-26 | Achim Dehnert | Amendment: `P0/P1/P2/P3` → `severity:*` Labels; `issue-triage.yml` + `bootstrap_labels.py` auf alle 10 Repos ausgerollt |
