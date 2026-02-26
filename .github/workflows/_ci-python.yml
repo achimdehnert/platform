@@ -116,6 +116,17 @@ jobs:
           else
             pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
           fi
+      - name: Install additional vendor packages
+        run: |
+          if [ -d "vendor" ]; then
+            for pkg in vendor/*/; do
+              pkg_name=$(basename "$pkg")
+              if [ "$pkg_name" != "platform_context" ] && [ -f "$pkg/pyproject.toml" -o -f "$pkg/setup.py" -o -f "$pkg/setup.cfg" ]; then
+                echo "Installing vendor/$pkg_name..."
+                pip install -e "$pkg" || true
+              fi
+            done
+          fi
       - name: Run unit tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
@@ -180,6 +191,17 @@ jobs:
             pip install -e "vendor/platform_context[testing]"
           else
             pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+          fi
+      - name: Install additional vendor packages
+        run: |
+          if [ -d "vendor" ]; then
+            for pkg in vendor/*/; do
+              pkg_name=$(basename "$pkg")
+              if [ "$pkg_name" != "platform_context" ] && [ -f "$pkg/pyproject.toml" -o -f "$pkg/setup.py" -o -f "$pkg/setup.cfg" ]; then
+                echo "Installing vendor/$pkg_name..."
+                pip install -e "$pkg" || true
+              fi
+            done
           fi
       - name: Run integration tests
         env:
