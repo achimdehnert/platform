@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-26
 decision-makers: [Platform Team]
 ---
@@ -237,7 +237,7 @@ class SearchService:
                 SearchResult(
                     chunk_id=str(row[0]), source_type=row[1],
                     source_id=str(row[2]), content=row[3],
-                    score=1.0 - row[4],  # distance → similarity
+                    score=1.0 - row[4],
                 )
                 for row in cursor.fetchall()
             ]
@@ -250,7 +250,7 @@ class SearchService:
         source_types: list[str] | None,
         top_k: int,
     ) -> list[SearchResult]:
-        """Full-text search via PostgreSQL tsvector + ts_rank."""
+        """Full-text search via PostgreSQL tsvector."""
         with connections[cls.DB_ALIAS].cursor() as cursor:
             cursor.execute(
                 "SELECT id, source_type, source_id, content, "
