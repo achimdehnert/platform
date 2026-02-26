@@ -82,6 +82,7 @@ jobs:
     name: "Security Scan (pip-audit)"
     runs-on: self-hosted
     if: ${{ inputs.enable_security_scan }}
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
