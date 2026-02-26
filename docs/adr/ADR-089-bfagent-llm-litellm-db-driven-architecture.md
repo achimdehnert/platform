@@ -14,7 +14,7 @@ related: ADR-084, ADR-082, ADR-045, ADR-056, ADR-080, ADR-068
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
-| **Status**     | **Accepted** (v2 — Phase 1 implementiert)                            |
+| **Status**     | **Accepted** (v3 — Phase 2 in progress)                             |
 | **Scope**      | Platform-wide — AI Infrastructure                                    |
 | **Repo**       | platform (`packages/bfagent-llm/`)                                   |
 | **Erstellt**   | 2026-02-26                                                           |
@@ -120,6 +120,28 @@ bfagent-llm v1.0 (implementiert)
 4. **Naming:** `AIActionType.code` MUSS `^[a-z][a-z0-9_]{2,49}$` matchen (snake_case).
 5. **Idempotenz:** Management Commands nutzen `update_or_create()`, nie `create()`.
 6. **DB-Tabellen:** Prefix `bfllm_` (bfllm_providers, bfllm_models, bfllm_action_types, bfllm_usage_logs).
+7. **Explicit `app_label` (v3):** Jede `AppConfig` in einem reusable Django-Package
+   MUSS ein explizites `label` setzen, das dem Package-Namen entspricht.
+   Niemals den automatisch abgeleiteten Label verwenden.
+   ```python
+   # ✅ RICHTIG:
+   class BfagentLlmConfig(AppConfig):
+       name = "bfagent_llm.django_app"
+       label = "bfagent_llm"  # explicit!
+
+   # ❌ FALSCH: ohne label → Django leitet "django_app" ab
+   class BfagentLlmConfig(AppConfig):
+       name = "bfagent_llm.django_app"
+       # label fehlt → app_label = "django_app" (generisch, fragil)
+   ```
+   **Begründung:** Ohne explizites Label erzeugt Django den Label aus dem
+   letzten Modul-Segment. Bei `pkg.django_app` wird das `"django_app"` —
+   generisch, kollidiert mit anderen Packages, verwirrt Entwickler UND
+   AI-Agenten bei Migration-Dependencies.
+8. **Explicit `related_name` (v3):** Jeder `ForeignKey` zu `AUTH_USER_MODEL`
+   in einem reusable Package MUSS ein explizites `related_name` haben.
+   Ohne `related_name` erzeugt Django identische Reverse-Accessors wenn
+   die Consumer-App ein Model mit gleichem Namen hat (E304).
 
 ### 2.2 Zwei Modi
 
@@ -165,12 +187,16 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 - pyproject.toml v1.0.0 mit `[django]` und `[litellm]` extras
 - Tests: models, service, management commands
 
-### Phase 2: travel-beat Migration (pending)
+### Phase 2: travel-beat Migration 🔄 IN PROGRESS
 
-1. `bfagent-llm[django]` in requirements.txt
-2. DB-Migration: bfllm_* Tabellen + Daten kopieren + ai_llm_* droppen
-3. llm_service.py → bfagent_llm.django_app.service
-4. Rollback: pg_dump vor Migration
+1. ✅ `bfagent-llm[django]` in requirements.txt (PR #11 merged)
+2. ✅ `bfagent_llm.django_app` in `TENANT_APPS`
+3. ✅ DB-Migration: `0003_copy_to_bfllm` (data copy per tenant schema)
+4. ✅ `llm_service.py` Adapter (bfagent-llm primary, LiteLLM fallback)
+5. ✅ Fix: `app_label="bfagent_llm"` (Invariante 7)
+6. ✅ Fix: `related_name="bfllm_usage_logs"` (Invariante 8)
+7. 🔄 Deploy + Migrate auf Server
+8. ⏳ Cleanup: `llm_client.py`, `llm_providers.py` entfernen
 
 ### Phase 3: Weitere Apps (pending)
 
@@ -205,8 +231,9 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 | R-06 | Code Naming | NIEDRIG | ✅ v1 |
 | R-07 | Index-Strategie | MITTEL | ✅ v1 |
 | R-08 | Idempotenz | MITTEL | ✅ v1 |
-| R-09 | App-Name | NIEDRIG | ✅ v1 |
+| R-09 | App-Label generisch ("django_app") | **HOCH** | ✅ v3 — `label="bfagent_llm"` + Invariante 7 |
 | R-10 | Rollback-Plan | HOCH | ✅ v1 |
+| R-11 | ForeignKey ohne related_name | HOCH | ✅ v3 — `related_name="bfllm_usage_logs"` + Invariante 8 |
 
 ---
 
@@ -217,3 +244,4 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 | 2026-02-26 | Achim Dehnert | v0: Initial Draft |
 | 2026-02-26 | Achim Dehnert | v1: Review-Fixes R-01 bis R-10 |
 | 2026-02-26 | Achim Dehnert | v2: Status → Accepted. Phase 1 implementiert (bfagent-llm v1.0.0) |
+| 2026-02-26 | Achim Dehnert | v3: Invarianten 7+8 (explicit app_label + related_name). R-09 Risiko NIEDRIG→HOCH. R-11 neu. Phase 2 Status aktualisiert. |
