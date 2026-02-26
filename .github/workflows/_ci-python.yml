@@ -55,6 +55,11 @@ on:
         required: false
         default: '>=0.3.1'
         type: string
+      pytest_workers:
+        description: 'Number of parallel pytest workers (default: auto)'
+        required: false
+        default: 'auto'
+        type: string
 
 jobs:
   lint:
@@ -138,7 +143,7 @@ jobs:
             --cov \
             --cov-report=xml:coverage-unit.xml \
             --cov-report=term-missing \
-            -n auto \
+            -n ${{ inputs.pytest_workers }} \
             --dist=loadscope
       - uses: actions/upload-artifact@v4
         with:
@@ -213,7 +218,7 @@ jobs:
           pytest -m "integration" \
             --cov \
             --cov-report=xml:coverage-integration.xml \
-            -n auto \
+            -n ${{ inputs.pytest_workers }} \
             --dist=loadscope
       - uses: actions/upload-artifact@v4
         with:
