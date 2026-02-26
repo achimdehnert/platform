@@ -57,6 +57,7 @@ packages = ["src/bfagent_llm"]
 
 [tool.pytest.ini_options]
 DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]
 python_files = ["test_*.py"]
 asyncio_mode = "auto"
 
