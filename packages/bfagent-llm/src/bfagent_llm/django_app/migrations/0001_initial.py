@@ -97,7 +97,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         on_delete=django.db.models.deletion.CASCADE,
                         related_name="models",
-                        to="django_app.llmprovider",
+                        to="bfagent_llm.llmprovider",
                     ),
                 ),
             ],
@@ -146,7 +146,7 @@ class Migration(migrations.Migration):
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
                         related_name="default_for_actions",
-                        to="django_app.llmmodel",
+                        to="bfagent_llm.llmmodel",
                     ),
                 ),
                 (
@@ -156,7 +156,7 @@ class Migration(migrations.Migration):
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
                         related_name="fallback_for_actions",
-                        to="django_app.llmmodel",
+                        to="bfagent_llm.llmmodel",
                     ),
                 ),
             ],
@@ -205,7 +205,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
-                        to="django_app.aiactiontype",
+                        to="bfagent_llm.aiactiontype",
                     ),
                 ),
                 (
@@ -213,7 +213,7 @@ class Migration(migrations.Migration):
                     models.ForeignKey(
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
-                        to="django_app.llmmodel",
+                        to="bfagent_llm.llmmodel",
                     ),
                 ),
                 (
@@ -222,6 +222,7 @@ class Migration(migrations.Migration):
                         blank=True,
                         null=True,
                         on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="bfllm_usage_logs",
                         to=settings.AUTH_USER_MODEL,
                     ),
                 ),
