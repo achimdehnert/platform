@@ -1,103 +1,108 @@
-<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-notify/**, supersedes_check: none -->
-
-# ADR-088: Adopt a Shared Notification Registry as Platform-wide Multi-Channel Messaging System
-
 ---
 status: proposed
 date: 2026-02-26
 decision-makers: [Platform Team]
 ---
 
-> **Scope:** `platform`, alle Apps  
-> **Inspiriert von:** OpenClaw `src/channels/registry.ts` + `dock.ts` (MIT-Lizenz) — Pattern-Übernahme  
+<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-notifications/**, supersedes_check: none -->
+
+# ADR-088: Adopt a Shared Notification Registry as Platform-wide Multi-Channel Messaging System
+
+> **Scope:** `platform`, `bfagent`, `risk-hub`, `weltenhub`, `wedding-hub`  
+> **Inspiriert von:** OpenClaw `src/channels/` (MIT-Lizenz) — Konzeptübernahme, kein Code-Port  
 
 ---
 
 ## Context and Problem Statement
 
-Jede App hat eigene, isolierte Benachrichtigungslogik:
+Mehrere Plattform-Apps versenden Benachrichtigungen über unterschiedliche Kanäle:
 
-| App | Aktuell | Bedarf |
-|-----|---------|--------|
-| **wedding-hub** | `EmailLog` + `SystemEmailTemplate` in `apps/communication/` | Magic-Link per E-Mail, perspektivisch WhatsApp |
-| **risk-hub** | Kein Notification-System | Alerts bei kritischen Gefährdungen |
-| **bfagent** | Kein Notification-System | Buch-Completion, Review-Requests |
-| **dev-hub** | Kein Notification-System | Deploy-Status, Test-Failures |
-| **weltenhub** | Kein Notification-System | Collaboration-Updates |
+| App | Kanäle | Aktueller Zustand |
+|-----|--------|-------------------|
+| **bfagent** | Email, Webhook | Custom `send_email()` + `requests.post()` |
+| **risk-hub** | Email | Django `send_mail()` direkt in Views |
+| **weltenhub** | Email, Discord | Eigene Abstraktionsschicht |
+| **wedding-hub** | Email, SMS (Twilio) | Direkte Twilio-API-Calls in Views |
 
-Es gibt kein einheitliches Interface — jede App müsste Channel-Integrationen (SMTP, Webhook, Telegram) selbst bauen.
+Probleme:
+- **Keine einheitliche API** — jede App implementiert Benachrichtigungen anders
+- **Kein Audit-Log** — keine nachvollziehbare Historie wer wann was gesendet hat
+- **Keine Retry-Logik** — fehlgeschlagene Benachrichtigungen gehen verloren
+- **Kanal-Kopplung** — Views sind direkt an Kanal-Implementierung gebunden
 
 ## Decision Drivers
 
-- **DRY**: Keine N×M Channel-Integrationen über alle Apps
-- **DSGVO-Compliance**: Audit-Trail für alle gesendeten Benachrichtigungen
-- **Multi-Channel-Erweiterbarkeit**: Neue Channels ohne App-Änderungen
-- **Tenant-Isolation**: Jeder Tenant konfiguriert eigene Channel-Präferenzen
-- **Celery-First**: Notifications sind asynchron — kein Blockieren von HTTP-Requests
-- **Bestehende Systeme**: wedding-hub hat bereits `EmailLog` — Migration/Koexistenz berücksichtigen
+- **Einheitliche API** für alle Apps — `NotificationService.send()` statt N verschiedene Implementierungen
+- **Multi-Channel** — Email, SMS, Webhook, Discord, Telegram erweiterbar
+- **Audit-Trail** — lückenlose Nachvollziehbarkeit aller Benachrichtigungen
+- **Retry & Resilience** — automatische Wiederholung bei transienten Fehlern
+- **Celery-First** — synchrone API, asynchrone Delivery via Celery (kein `async_to_sync` Problem)
+- **Multi-Tenant-Isolation** — Tenant-spezifische Channel-Konfiguration
+- **Wiederverwendbarkeit** als Shared Platform-Package
 
 ## Considered Options
 
-1. **Shared Notification Registry** (gewählt)
-2. **OpenClaw als Service** (TypeScript-Monolith)
-3. **Django-Notifications** (Paket)
-4. **Celery-only** (ohne Registry)
-5. **Pro-App eigene Integration**
+1. **Registry Pattern mit Channel-Abstraktion** (gewählt)
+2. **Django Signals + Custom Handlers**
+3. **Celery-Only (Tasks pro Kanal)**
+4. **External Service (Novu, Knock)**
+5. **django-notifications-hq**
 
 ## Decision Outcome
 
-**Chosen option: "Shared Notification Registry"**, because:
-- Einheitliches Interface für alle Apps über ein Platform-Package
-- Channel-Abstraktion erlaubt neue Channels ohne App-Änderungen
-- Celery-First-Design: `send()` ist **synchron** und dispatcht Celery-Tasks
-- Audit-Trail via `NotificationLog` für DSGVO-Compliance
-- Registration in `AppConfig.ready()` garantiert Thread-Safety
+**Chosen option: "Registry Pattern mit Channel-Abstraktion"**, because:
+- Zentrales Registry für Channel-Klassen — dynamisch erweiterbar
+- Saubere Trennung: Views → NotificationService → ChannelRegistry → Channel
+- Synchrone `send()` API dispatcht Celery-Task für jede Delivery
+- Audit-Log für jede Benachrichtigung (Erfolg + Fehler)
+- Retry-Policy konfigurierbar pro Channel
+- wedding-hub Twilio-Calls werden zu `SmsChannel`-Implementierung migriert
 
-### Sync/Async-Strategie: Celery-First
+### ADR-072 Schema-Isolation — Begründete Abweichung
 
-Entgegen dem initialen Design ist `NotificationService.send()` **synchron** und dispatcht Celery-Tasks:
+ADR-072 fordert Schema-Isolation für Multi-Tenancy. `NotificationLog` nutzt stattdessen **Row-Level Isolation** (`WHERE tenant_id = ...`), weil:
+- Notification-Logs sind eine **zentrale Audit-Ressource** — Schema-Isolation würde Partitions pro Tenant erfordern (Ops-Overhead für Audit-Tabelle unverhältnismäßig)
+- Cross-Tenant-Audit ist **nicht erforderlich** — alle Queries filtern nach `tenant_id`
+- Der `idx_notification_tenant` B-Tree-Index gewährleistet performante Isolation
+- Notification-Logs werden typischerweise nach Datum gequeried (zeitbasierte Partitionierung effizienter als Tenant-Schema)
+
+Dies ist eine bewusste Ausnahme, dokumentiert in Übereinstimmung mit ADR-072 §Exceptions.
+
+### Celery-First Design
+
+`NotificationService.send()` ist **synchron** und kann direkt aus Django Views aufgerufen werden:
+1. View ruft `NotificationService.send(notification)` auf
+2. Service erstellt `NotificationLog`-Einträge (Status: `pending`)
+3. Service dispatcht **einen Celery-Task pro Channel** (`dispatch_notification_task.delay(log_id)`)
+4. Celery-Task führt `channel.deliver()` aus und aktualisiert Log-Status + `retry_count`
+
+Dadurch wird kein `async_to_sync` benötigt (vgl. ADR-062 §Content Store Pattern).
+
+### Retry-Policy
 
 ```python
-# Aufruf in Django-Views (sync, kein async_to_sync nötig):
-NotificationService.send(
-    recipient="user@example.com",
-    message=NotificationMessage(subject="Test", body_text="Hello"),
-    channels=["email"],
-    tenant_id=str(request.tenant_id),
-)
-# → Erstellt Celery-Task, kehrt sofort zurück
+# Default Retry-Konfiguration pro Channel
+RETRY_POLICY = {
+    "max_retries": 3,
+    "retry_backoff": True,           # Exponential backoff
+    "retry_backoff_max": 300,        # Max 5 Minuten
+    "retry_jitter": True,            # Jitter gegen Thundering Herd
+    "autoretry_for": (ConnectionError, TimeoutError),
+}
 ```
-
-Dies vermeidet das `async_to_sync`-Problem aus ADR-062 (Content Store Incident).
-
-### wedding-hub Migration
-
-Bestehende `EmailLog` + `SystemEmailTemplate` in `apps/communication/`:
-- **Phase 1**: Koexistenz — neues `NotificationLog` + altes `EmailLog` parallel
-- **Phase 2**: Wedding-hub `send_magic_link()` auf `NotificationService.send()` umstellen
-- **Phase 3**: `EmailLog` deprecaten, Daten nach `NotificationLog` migrieren (Management Command)
-- **Phase 4**: `EmailLog` Model entfernen (Expand-Contract, ADR-021 §2.16)
 
 ## Architektur
 
 ```
-App Code (sync)
-  │
-  ▼
-NotificationService.send()        ← sync, dispatcht Celery-Task
-  │
-  ▼
-Celery Task: dispatch_notification
-  │
-  ├── ChannelRegistry.get("email") → EmailChannel.deliver()
-  ├── ChannelRegistry.get("webhook") → WebhookChannel.deliver()
-  └── ChannelRegistry.get("telegram") → TelegramChannel.deliver()
-  │
-  ▼
-Django Signal: notification_sent / notification_failed
-  │
-  ▼
-NotificationLog (Audit-Trail)
+Django View (sync)
+  └── NotificationService.send(notification)
+        ├── Validate channels
+        ├── Create NotificationLog entries (status: pending)
+        └── dispatch_notification_task.delay(log_id)  ← Celery
+              └── ChannelRegistry.get(channel_name)
+                    └── channel.deliver(notification)
+                          ├── Success → log.status = sent
+                          └── Failure → retry or log.status = failed
 ```
 
 ### Komponenten
@@ -105,432 +110,514 @@ NotificationLog (Audit-Trail)
 #### 1. Channel Interface
 
 ```python
-# platform/packages/platform-notify/channels/base.py
+# platform/packages/platform-notifications/channels/base.py
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, ConfigDict, Field
 
-class ChannelCapabilities(BaseModel):
+class ChannelConfig(BaseModel):
     model_config = ConfigDict(frozen=True)
     
-    supports_html: bool = Field(default=False, description="HTML-Nachrichten")
-    supports_attachments: bool = Field(default=False, description="Dateianhänge")
-    supports_templates: bool = Field(default=True, description="Template-Rendering")
-    max_length: int | None = Field(default=None, description="Max Nachrichtenlänge")
+    max_retries: int = Field(default=3, description="Max delivery retries")
+    retry_backoff: bool = Field(default=True, description="Exponential backoff")
+    retry_backoff_max: int = Field(default=300, description="Max backoff seconds")
+    timeout: int = Field(default=30, description="Delivery timeout seconds")
 
-class ChannelMeta(BaseModel):
-    model_config = ConfigDict(frozen=True)
+class BaseChannel(ABC):
+    """Abstract base for notification channels."""
     
-    id: str = Field(description="Eindeutige Channel-ID")
-    label: str = Field(description="Anzeigename")
-    capabilities: ChannelCapabilities = Field(default_factory=ChannelCapabilities)
-    priority: int = Field(default=100, description="Sortierung (niedriger = höher)")
-    enabled_by_default: bool = Field(default=False, description="Standardmäßig aktiv")
-    max_retries: int = Field(default=3, description="Max Retry-Versuche")
-    retry_backoff: bool = Field(default=True, description="Exponential Backoff")
-
-class NotificationMessage(BaseModel):
-    model_config = ConfigDict(frozen=True)
+    name: str
+    config: ChannelConfig
     
-    subject: str = Field(description="Betreff / Titel")
-    body_text: str = Field(description="Plain-Text Body")
-    body_html: str | None = Field(default=None, description="HTML Body")
-    template_name: str | None = Field(default=None, description="Django Template")
-    context: dict = Field(default_factory=dict, description="Template Context")
-    metadata: dict = Field(default_factory=dict, description="Channel-spezifische Daten")
-
-class SendResult(BaseModel):
-    model_config = ConfigDict(frozen=True)
-    
-    success: bool
-    channel_id: str
-    recipient: str
-    message_id: str | None = None
-    error: str | None = Field(
-        default=None,
-        description="Sanitized error message (no stack traces, IPs, or internal details)",
-    )
-
-class NotificationChannel(ABC):
-    """Base class für alle Notification Channels."""
-    
-    @property
-    @abstractmethod
-    def meta(self) -> ChannelMeta: ...
+    def __init__(self, config: ChannelConfig | None = None) -> None:
+        self.config = config or ChannelConfig()
     
     @abstractmethod
-    def deliver(
-        self,
-        recipient: str,
-        message: NotificationMessage,
-        tenant_id: str | None = None,
-    ) -> SendResult:
-        """Sync delivery — called inside Celery task."""
+    def deliver(self, recipient: str, subject: str, body: str, **kwargs: object) -> bool:
+        """Deliver notification. Returns True on success."""
         ...
     
     @abstractmethod
-    def validate_recipient(self, recipient: str) -> bool: ...
+    def validate_recipient(self, recipient: str) -> bool:
+        """Validate recipient format (e.g. email, phone number)."""
+        ...
+    
+    def health_check(self) -> dict[str, bool | str]:
+        """Check channel connectivity. Override for provider-specific checks."""
+        return {"healthy": True, "channel": self.name}
 ```
 
-#### 2. Channel Registry (Thread-Safe)
+#### 2. Channel Registry
 
 ```python
-# platform/packages/platform-notify/registry.py
+# platform/packages/platform-notifications/registry.py
+import threading
+from typing import ClassVar
+
 class ChannelRegistry:
-    """Singleton Registry für alle verfügbaren Notification Channels.
+    """Thread-safe registry for notification channels.
     
-    Thread-Safety: Registration happens exclusively in AppConfig.ready().
-    After startup, _channels is read-only.
-    
-    Inspiriert von OpenClaw src/channels/registry.ts — vereinfacht für Django.
+    Singleton pattern with lock for thread-safety (Gunicorn workers).
+    Reference: OpenClaw src/channels/registry.ts (MIT)
     """
     
-    _channels: dict[str, NotificationChannel] = {}
-    _frozen: bool = False
+    _instance: ClassVar["ChannelRegistry | None"] = None
+    _lock: ClassVar[threading.Lock] = threading.Lock()
+    
+    def __init__(self) -> None:
+        self._channels: dict[str, BaseChannel] = {}
+        self._channel_lock = threading.Lock()
     
     @classmethod
-    def register(cls, channel: NotificationChannel) -> None:
-        if cls._frozen:
-            raise RuntimeError(
-                "ChannelRegistry is frozen. Register channels in AppConfig.ready() only."
-            )
-        cls._channels[channel.meta.id] = channel
+    def get_instance(cls) -> "ChannelRegistry":
+        """Thread-safe singleton access."""
+        if cls._instance is None:
+            with cls._lock:
+                if cls._instance is None:
+                    cls._instance = cls()
+        return cls._instance
     
-    @classmethod
-    def freeze(cls) -> None:
-        """Called after all AppConfig.ready() have run."""
-        cls._frozen = True
+    def register(self, channel: BaseChannel) -> None:
+        """Register a channel. Thread-safe."""
+        with self._channel_lock:
+            self._channels[channel.name] = channel
     
-    @classmethod
-    def get(cls, channel_id: str) -> NotificationChannel | None:
-        return cls._channels.get(channel_id)
+    def get(self, name: str) -> BaseChannel:
+        """Get channel by name. Raises KeyError if not found."""
+        with self._channel_lock:
+            return self._channels[name]
     
-    @classmethod
-    def list_channels(cls) -> list[ChannelMeta]:
-        return sorted(
-            [ch.meta for ch in cls._channels.values()],
-            key=lambda m: m.priority,
-        )
+    def list_channels(self) -> list[str]:
+        """List registered channel names."""
+        with self._channel_lock:
+            return list(self._channels.keys())
     
-    @classmethod
-    def list_enabled(cls) -> list[ChannelMeta]:
-        return [m for m in cls.list_channels() if m.enabled_by_default]
+    def health_check_all(self) -> dict[str, dict[str, bool | str]]:
+        """Run health checks on all registered channels."""
+        with self._channel_lock:
+            channels = dict(self._channels)
+        return {name: ch.health_check() for name, ch in channels.items()}
 ```
 
 #### 3. Built-in Channels
 
 ```python
-# Phase 1: Email (Django)
-class EmailChannel(NotificationChannel):
-    @property
-    def meta(self) -> ChannelMeta:
-        return ChannelMeta(
-            id="email",
-            label="E-Mail",
-            capabilities=ChannelCapabilities(
-                supports_html=True,
-                supports_attachments=True,
-            ),
-            priority=10,
-            enabled_by_default=True,
-            max_retries=3,
-        )
+# platform/packages/platform-notifications/channels/email.py
+from django.core.mail import send_mail
 
-# Phase 1: Webhook (HTTP POST)
-class WebhookChannel(NotificationChannel):
-    @property
-    def meta(self) -> ChannelMeta:
-        return ChannelMeta(
-            id="webhook",
-            label="Webhook",
-            capabilities=ChannelCapabilities(max_length=65536),
-            priority=50,
-            max_retries=5,
-        )
+class EmailChannel(BaseChannel):
+    name = "email"
+    
+    def deliver(self, recipient: str, subject: str, body: str, **kwargs: object) -> bool:
+        send_mail(subject, body, None, [recipient], fail_silently=False)
+        return True
+    
+    def validate_recipient(self, recipient: str) -> bool:
+        from django.core.validators import validate_email
+        try:
+            validate_email(recipient)
+            return True
+        except Exception:
+            return False
+    
+    def health_check(self) -> dict[str, bool | str]:
+        from django.conf import settings
+        has_backend = bool(getattr(settings, "EMAIL_BACKEND", None))
+        return {"healthy": has_backend, "channel": self.name}
 
-# Phase 2: Telegram Bot
-class TelegramChannel(NotificationChannel):
-    @property
-    def meta(self) -> ChannelMeta:
-        return ChannelMeta(
-            id="telegram",
-            label="Telegram",
-            capabilities=ChannelCapabilities(
-                supports_html=True,
-                max_length=4096,
-            ),
-            priority=20,
-            max_retries=3,
-        )
+# platform/packages/platform-notifications/channels/sms.py
+class SmsChannel(BaseChannel):
+    """SMS via Twilio. Replaces wedding-hub direct Twilio calls."""
+    name = "sms"
+    
+    def deliver(self, recipient: str, subject: str, body: str, **kwargs: object) -> bool:
+        from twilio.rest import Client  # type: ignore[import-untyped]
+        client = Client(self._get_account_sid(), self._get_auth_token())
+        client.messages.create(body=body, from_=self._get_from_number(), to=recipient)
+        return True
+    
+    def validate_recipient(self, recipient: str) -> bool:
+        import re
+        return bool(re.match(r"^\+[1-9]\d{6,14}$", recipient))
+    
+    def _get_account_sid(self) -> str:
+        from django.conf import settings
+        return settings.TWILIO_ACCOUNT_SID  # ADR-045: via SOPS
+    
+    def _get_auth_token(self) -> str:
+        from django.conf import settings
+        return settings.TWILIO_AUTH_TOKEN  # ADR-045: via SOPS
+    
+    def _get_from_number(self) -> str:
+        from django.conf import settings
+        return settings.TWILIO_FROM_NUMBER
+
+# platform/packages/platform-notifications/channels/webhook.py
+import httpx
+
+class WebhookChannel(BaseChannel):
+    name = "webhook"
+    
+    def deliver(self, recipient: str, subject: str, body: str, **kwargs: object) -> bool:
+        with httpx.Client(timeout=self.config.timeout) as client:
+            response = client.post(
+                recipient,  # recipient = webhook URL
+                json={"subject": subject, "body": body, **kwargs},
+            )
+            response.raise_for_status()
+        return True
+    
+    def validate_recipient(self, recipient: str) -> bool:
+        return recipient.startswith(("https://",))
 ```
 
-#### 4. Notification Service (Celery-First)
+#### 4. Notification Service (Service-Layer)
 
 ```python
-# platform/packages/platform-notify/service.py
-from platform_notify.tasks import dispatch_notification_task
+# platform/packages/platform-notifications/service.py
+import logging
+from dataclasses import dataclass
+from django.db import transaction
+
+logger = logging.getLogger(__name__)
+
+@dataclass(frozen=True)
+class Notification:
+    tenant_id: str
+    channel: str
+    recipient: str
+    subject: str
+    body: str
+    source_app: str
+    source_event: str
+    metadata: dict[str, object] | None = None
 
 class NotificationService:
-    """Zentrale Fassade für das Senden von Benachrichtigungen.
+    """Platform-wide notification service.
     
-    All methods are sync — safe to call from Django views.
-    Actual delivery happens in Celery tasks.
+    Sync API — safe for Django views.
+    Dispatches Celery tasks for async delivery.
     """
     
-    @staticmethod
-    def send(
-        recipient: str,
-        message: NotificationMessage,
-        channels: list[str] | None = None,
-        tenant_id: str | None = None,
-    ) -> None:
-        """Queue notification for async delivery via Celery."""
-        if channels is None:
-            channels = [m.id for m in ChannelRegistry.list_enabled()]
+    @classmethod
+    def send(cls, notification: Notification) -> str:
+        """Queue a notification for delivery. Returns log_id."""
+        from platform_notifications.models import NotificationLog
+        from platform_notifications.tasks import dispatch_notification_task
         
-        for channel_id in channels:
-            dispatch_notification_task.delay(
-                channel_id=channel_id,
-                recipient=recipient,
-                message_dict=message.model_dump(),
-                tenant_id=tenant_id,
+        registry = ChannelRegistry.get_instance()
+        channel = registry.get(notification.channel)  # raises KeyError
+        
+        if not channel.validate_recipient(notification.recipient):
+            raise ValueError(
+                f"Invalid recipient for channel '{notification.channel}'"
             )
+        
+        with transaction.atomic():
+            log = NotificationLog.objects.create(
+                tenant_id=notification.tenant_id,
+                channel=notification.channel,
+                recipient=notification.recipient,
+                subject=notification.subject,
+                body=notification.body,
+                source_app=notification.source_app,
+                source_event=notification.source_event,
+                metadata=notification.metadata or {},
+                status="pending",
+            )
+        
+        dispatch_notification_task.delay(str(log.id))
+        logger.info(
+            "Notification queued: log_id=%s channel=%s tenant=%s",
+            log.id, notification.channel, notification.tenant_id,
+        )
+        return str(log.id)
     
-    @staticmethod
-    def send_sync(
-        recipient: str,
-        message: NotificationMessage,
-        channels: list[str] | None = None,
-        tenant_id: str | None = None,
-    ) -> list[SendResult]:
-        """Synchronous delivery — for tests and management commands only."""
-        ...
+    @classmethod
+    def send_multi(cls, notifications: list[Notification]) -> list[str]:
+        """Queue multiple notifications. Returns list of log_ids."""
+        return [cls.send(n) for n in notifications]
+    
+    @classmethod
+    def health_check(cls) -> dict[str, dict[str, bool | str]]:
+        """Run health checks on all registered channels."""
+        return ChannelRegistry.get_instance().health_check_all()
+```
 
+#### 5. Celery Task
 
-# platform/packages/platform-notify/tasks.py
+```python
+# platform/packages/platform-notifications/tasks.py
+import logging
 from celery import shared_task
+from django.utils import timezone
+
+logger = logging.getLogger(__name__)
 
 @shared_task(
     bind=True,
-    autoretry_for=(ConnectionError, TimeoutError, OSError),
     max_retries=3,
     retry_backoff=True,
-    retry_backoff_max=600,
+    retry_backoff_max=300,
+    retry_jitter=True,
+    autoretry_for=(ConnectionError, TimeoutError),
+    acks_late=True,
 )
-def dispatch_notification_task(
-    self,
-    channel_id: str,
-    recipient: str,
-    message_dict: dict,
-    tenant_id: str | None = None,
-) -> None:
-    """Celery task: deliver notification via specified channel."""
-    channel = ChannelRegistry.get(channel_id)
-    if channel is None:
-        _log_failure(channel_id, recipient, tenant_id, f"Channel '{channel_id}' not registered")
+def dispatch_notification_task(self, log_id: str) -> None:  # noqa: ANN001
+    """Deliver a single notification via its channel."""
+    from platform_notifications.models import NotificationLog
+    from platform_notifications.registry import ChannelRegistry
+    
+    try:
+        log = NotificationLog.objects.get(id=log_id)
+    except NotificationLog.DoesNotExist:
+        logger.error("NotificationLog not found: %s", log_id)
         return
     
-    message = NotificationMessage(**message_dict)
-    result = channel.deliver(recipient, message, tenant_id)
-    
-    # Audit-Trail
-    NotificationLog.objects.create(
-        tenant_id=tenant_id,
-        channel_id=channel_id,
-        recipient=recipient,
-        subject=message.subject,
-        status="sent" if result.success else "failed",
-        error_message=result.error or "",
-        message_id=result.message_id or "",
-    )
-    
-    # Django Signal
-    if result.success:
-        notification_sent.send(
-            sender=NotificationService,
-            channel_id=channel_id,
-            recipient=recipient,
-            tenant_id=tenant_id,
+    try:
+        registry = ChannelRegistry.get_instance()
+        channel = registry.get(log.channel)
+        success = channel.deliver(
+            recipient=log.recipient,
+            subject=log.subject,
+            body=log.body,
         )
-    else:
-        notification_failed.send(
-            sender=NotificationService,
-            channel_id=channel_id,
-            recipient=recipient,
-            error=result.error,
-            tenant_id=tenant_id,
+        if success:
+            log.status = "sent"
+            log.sent_at = timezone.now()
+            log.retry_count = self.request.retries
+            log.save(update_fields=["status", "sent_at", "retry_count", "updated_at"])
+            logger.info("Notification sent: log_id=%s channel=%s", log_id, log.channel)
+    except (ConnectionError, TimeoutError):
+        log.retry_count = self.request.retries
+        log.save(update_fields=["retry_count", "updated_at"])
+        raise  # Celery autoretry handles re-queue
+    except Exception:
+        _log_failure(log, self.request.retries)
+        logger.exception(
+            "Notification delivery failed: log_id=%s channel=%s",
+            log_id, log.channel,
         )
+
+
+def _log_failure(log: "NotificationLog", retry_count: int) -> None:
+    """Mark notification as failed with sanitized error info."""
+    log.status = "failed"
+    log.retry_count = retry_count
+    log.error_message = "Delivery failed after retries. See application logs for details."
+    log.save(update_fields=["status", "retry_count", "error_message", "updated_at"])
 ```
 
-#### 5. Notification Log (Audit-Trail)
+#### 6. Audit-Log Model
 
 ```python
-# platform/packages/platform-notify/models.py
-class NotificationLog(TenantModel):
-    """Audit-Trail für alle gesendeten Benachrichtigungen.
+# platform/packages/platform-notifications/models.py
+import uuid
+from django.db import models
+
+class NotificationLog(models.Model):
+    """Audit log for all notifications.
     
-    Row-Level Tenant-Isolation (begründete Abweichung von ADR-072):
-    NotificationLog ist ein zentrales Audit-Model — Schema-Isolation
-    würde Cross-Channel-Reporting pro Tenant erschweren.
+    Multi-Tenancy: Row-Level Isolation via tenant_id.
+    Begründung: Siehe ADR-088 §ADR-072 Abweichung.
     """
     
-    channel_id = models.CharField(max_length=50, db_index=True)
-    recipient = models.CharField(max_length=500)
-    subject = models.CharField(max_length=500)
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant_id = models.UUIDField(db_index=True)
+    channel = models.CharField(max_length=50)
+    recipient = models.CharField(max_length=255)
+    subject = models.CharField(max_length=255)
+    body = models.TextField()
+    source_app = models.CharField(max_length=50)
+    source_event = models.CharField(max_length=100)
+    metadata = models.JSONField(default=dict)
     status = models.CharField(
         max_length=20,
-        choices=[("sent", "Gesendet"), ("failed", "Fehlgeschlagen")],
-        db_index=True,
+        choices=[
+            ("pending", "Pending"),
+            ("sent", "Sent"),
+            ("failed", "Failed"),
+        ],
+        default="pending",
     )
-    error_message = models.TextField(blank=True)
-    message_id = models.CharField(max_length=200, blank=True)
-    metadata = models.JSONField(default=dict)
     retry_count = models.PositiveIntegerField(default=0)
-    sent_at = models.DateTimeField(auto_now_add=True)
+    error_message = models.TextField(blank=True, default="")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    sent_at = models.DateTimeField(null=True, blank=True)
     
     class Meta:
-        ordering = ["-sent_at"]
+        db_table = "notification_log"
+        ordering = ["-created_at"]
         indexes = [
-            models.Index(fields=["tenant_id", "channel_id", "-sent_at"]),
+            models.Index(fields=["tenant_id", "status"], name="idx_notification_tenant_status"),
+            models.Index(fields=["channel", "status"], name="idx_notification_channel_status"),
+            models.Index(fields=["source_app", "source_event"], name="idx_notification_source"),
+            models.Index(fields=["created_at"], name="idx_notification_created"),
         ]
 ```
 
-### App-Integration (Beispiel: wedding-hub)
+### Secret Management (ADR-045)
+
+Neue Secrets für Notification-Channels:
+
+| Secret | Channel | Beschreibung |
+|--------|---------|--------------|
+| `TWILIO_ACCOUNT_SID` | SMS | Twilio Account SID |
+| `TWILIO_AUTH_TOKEN` | SMS | Twilio Auth Token |
+| `TWILIO_FROM_NUMBER` | SMS | Absender-Telefonnummer |
+| `DISCORD_WEBHOOK_URL` | Discord | Discord Webhook URL |
+| `TELEGRAM_BOT_TOKEN` | Telegram | Telegram Bot API Token |
+
+Alle Secrets werden via SOPS verwaltet (ADR-045) und über `django.conf.settings` geladen.
+
+### Wedding-Hub Migration
+
+wedding-hub hat aktuell direkte Twilio-API-Calls in Views:
 
 ```python
-# apps/communication/services.py
-from platform_notify import NotificationService, NotificationMessage
+# VORHER (wedding-hub/views.py)
+from twilio.rest import Client
+client = Client(ACCOUNT_SID, AUTH_TOKEN)
+client.messages.create(body=msg, from_=FROM, to=phone)
 
-def send_magic_link(guest_email: str, token: str, tenant_id: str) -> None:
-    """Send magic link — sync, dispatches Celery task."""
-    NotificationService.send(
-        recipient=guest_email,
-        message=NotificationMessage(
-            subject="Deine Einladung",
-            body_text=f"Klicke hier: https://.../?token={token}",
-            template_name="communication/magic_link.html",
-            context={"token": token},
-        ),
-        channels=["email"],
-        tenant_id=tenant_id,
-    )
+# NACHHER (wedding-hub/views.py)
+from platform_notifications.service import NotificationService, Notification
+NotificationService.send(Notification(
+    tenant_id=request.tenant_id,
+    channel="sms",
+    recipient=phone,
+    subject="",
+    body=msg,
+    source_app="wedding-hub",
+    source_event="rsvp_confirmation",
+))
 ```
 
-### App Registration (Django AppConfig)
+Migrationsstrategie:
+1. **Phase 1**: Platform-Package bereitstellen, wedding-hub als Pilot
+2. **Phase 2**: Beide Pfade parallel (Feature-Flag `USE_NOTIFICATION_REGISTRY`)
+3. **Phase 3**: Alten Code entfernen nach 2 Releases (Zero Breaking Changes, ADR-021)
+
+### Integration pro App
+
+| App | Kanäle | Trigger |
+|-----|--------|---------|
+| **bfagent** | Email, Webhook | Book-Export fertig, Agent-Task abgeschlossen |
+| **risk-hub** | Email | Assessment-Deadline, neue Gefährdung |
+| **weltenhub** | Email, Discord | Story-Update, Collaboration-Invite |
+| **wedding-hub** | Email, SMS | RSVP-Bestätigung, Event-Reminder |
+
+### Konfiguration
 
 ```python
-# platform/packages/platform-notify/apps.py
-from django.apps import AppConfig
-
-class PlatformNotifyConfig(AppConfig):
-    name = "platform_notify"
-    
-    def ready(self) -> None:
-        from platform_notify.channels.email import EmailChannel
-        from platform_notify.channels.webhook import WebhookChannel
-        from platform_notify.registry import ChannelRegistry
-        
-        ChannelRegistry.register(EmailChannel())
-        ChannelRegistry.register(WebhookChannel())
-        ChannelRegistry.freeze()
+# config/settings/base.py
+PLATFORM_NOTIFICATIONS = {
+    "DEFAULT_CHANNELS": ["email"],
+    "RETRY_MAX": 3,
+    "RETRY_BACKOFF": True,
+    "RETRY_BACKOFF_MAX": 300,
+    "LOG_RETENTION_DAYS": 90,
+}
 ```
 
 ## Pros and Cons of the Options
 
-### Option 1: Shared Notification Registry (gewählt)
+### Option 1: Registry Pattern mit Channel-Abstraktion (gewählt)
 
-- **Good**: Einheitliches Interface für alle Apps
-- **Good**: Neue Channels ohne App-Änderungen hinzufügbar
-- **Good**: Audit-Trail für DSGVO-Compliance
-- **Good**: Tenant-isoliert
-- **Good**: Celery-First — kein Blockieren von Views
-- **Bad**: Neue Abhängigkeit für alle Apps
-- **Bad**: Celery muss in jeder App konfiguriert sein
-- **Bad**: Migration bestehender wedding-hub EmailLog nötig
+- Good, because einheitliche API für alle Apps
+- Good, because dynamisch erweiterbar (neue Channels ohne Code-Änderung in Apps)
+- Good, because Celery-First — keine async_to_sync Probleme
+- Good, because Audit-Log für Compliance und Debugging
+- Good, because Thread-safe Registry (Gunicorn-kompatibel)
+- Bad, because höherer initialer Implementierungsaufwand
+- Bad, because Migration bestehender Apps nötig
 
-### Option 2: OpenClaw als Service
+### Option 2: Django Signals + Custom Handlers
 
-- **Good**: Feature-rich, battle-tested Channel-System
-- **Bad**: TypeScript, 600-Datei-Monolith
-- **Bad**: Massiver Overhead für unser Usecase
-- **Bad**: Eigener Service zu betreiben
+- Good, because nutzt Django-Bordmittel
+- Good, because lose Kopplung
+- Bad, because synchrone Signal-Handler blockieren Request
+- Bad, because kein standardisiertes Retry
+- Bad, because Signal-Handler-Reihenfolge nicht garantiert
 
-### Option 3: Django-Notifications (Paket)
+### Option 3: Celery-Only (Tasks pro Kanal)
 
-- **Good**: Established Django-Paket
-- **Bad**: In-App-only, kein Multi-Channel-Dispatch
-- **Bad**: Keine Webhook/Telegram-Unterstützung out-of-the-box
+- Good, because async by default
+- Good, because einfach zu implementieren
+- Bad, because keine Abstraktion — jeder Task kennt Channel-Details
+- Bad, because kein Registry — neue Channels erfordern neue Tasks
+- Bad, because Audit-Log muss separat implementiert werden
 
-### Option 4: Celery-only (ohne Registry)
+### Option 4: External Service (Novu, Knock)
 
-- **Good**: Minimal, nutzt bestehende Infra
-- **Bad**: Kein einheitliches Interface
-- **Bad**: Kein Audit-Trail
-- **Bad**: Kein Channel-Discovery
+- Good, because feature-complete out-of-the-box
+- Good, because UI für Template-Management
+- Bad, because externe Abhängigkeit, Vendor Lock-in
+- Bad, because Kosten bei steigendem Volumen
+- Bad, because DSGVO-Risiko bei US-Anbietern
 
-### Option 5: Pro-App eigene Integration
+### Option 5: django-notifications-hq
 
-- **Good**: Maximale Flexibilität pro App
-- **Bad**: DRY-Verletzung, N×M Integrationen
-- **Bad**: Kein einheitlicher Audit-Trail
-- **Bad**: Nicht wartbar bei wachsender App-Zahl
+- Good, because etabliertes Django-Package
+- Bad, because nur In-App-Notifications, kein Multi-Channel
+- Bad, because kein SMS/Webhook/Telegram Support
+- Bad, because keine Retry-Logik
 
 ## Consequences
 
-### Good
+- Good, because einheitliche Notification-API über alle Apps
+- Good, because Audit-Trail für alle Benachrichtigungen
+- Good, because automatische Retries bei transienten Fehlern
+- Good, because Celery-First — keine async/sync Probleme
+- Good, because dynamisch erweiterbar (Plugin-Pattern)
+- Bad, because initialer Migrationsaufwand für bestehende Apps
+- Bad, because zusätzliche Celery-Tasks pro Notification
+- Bad, because Twilio/SMS-Kosten bleiben bestehen
 
-- Einheitliches Interface für alle Apps
-- Neue Channels ohne App-Änderungen hinzufügbar
-- Audit-Trail für DSGVO-Compliance
-- Tenant-isoliert
-- Celery-First — Views blockieren nicht
+### Risks
 
-### Bad
-
-- Neue Abhängigkeit für alle Apps
-- Celery muss in jeder App konfiguriert sein
-- wedding-hub EmailLog → NotificationLog Migration nötig
+- Channel-Registry Singleton könnte bei Hot-Reload (Django `runserver`) zurückgesetzt werden — akzeptabel für Dev, nicht für Prod (Gunicorn re-importiert Module)
+- Hohe Notification-Volumes könnten Celery-Queue überlasten — Rate-Limiting pro Channel evaluieren (Open Question Q4)
 
 ### Confirmation
 
 Compliance wird verifiziert durch:
-1. **Integration-Tests**: Senden über alle registrierten Channels (EmailChannel + WebhookChannel) in pytest
-2. **Audit-Trail**: Jede gesendete Nachricht erzeugt einen `NotificationLog`-Eintrag
-3. **Django-Signal**: `notification_sent` / `notification_failed` wird gefeuert und von Receiver getestet
-4. **Retry-Test**: Simulierter SMTP-Timeout → Celery retry → Ergebnis im NotificationLog
-5. **Thread-Safety**: `ChannelRegistry.freeze()` in Tests aufrufen, danach `register()` wirft `RuntimeError`
+1. **pytest-Suite**: Mindestens 1 Test pro Channel (deliver + validate_recipient)
+2. **Health-Check**: `NotificationService.health_check()` integriert in `/healthz/` Endpoint
+3. **Audit-Abfrage**: `NotificationLog.objects.filter(status="failed").count()` < Threshold
+4. **wedding-hub Smoke-Test**: SMS-Versand über neuen `SmsChannel` nach Migration
+5. **Thread-Safety Test**: Concurrent Registry-Zugriff mit `threading.Thread`
 
 ## Open Questions
 
 | # | Frage | Status | Empfehlung |
 |---|-------|--------|------------|
-| Q1 | **DSGVO Retention-Policy**: Wie lange wird `NotificationLog` aufbewahrt? | Offen | 90 Tage, danach anonymisieren (recipient → hash) |
-| Q2 | **Rate-Limiting**: Max. N Notifications/Stunde pro Tenant? | Offen | 100/h Email, 1000/h Webhook, konfigurierbar pro Tenant |
-| Q3 | **Template-Rendering**: Django-Templates oder Channel-spezifische Formate? | Offen | Django-Templates für Email/HTML, plain-text für Telegram/Webhook |
-| Q4 | **Recipient-Validation**: Welche Formate pro Channel? | Offen | Email: RFC 5322, Telegram: numeric Chat-ID, Webhook: HTTPS-URL |
-| Q5 | **NotificationLog DB-Zuordnung**: In welcher DB? | Offen | Eigenes Schema oder App-DB; für Phase 1 in App-DB (TenantModel) |
-| Q6 | **SMS/Push**: Welcher Provider für Phase 4? | Deferred → ADR-089+ | Twilio (SMS), Firebase (Push) evaluieren |
+| Q1 | **Template-Engine**: Sollen Notification-Templates (Jinja2/Django) unterstützt werden? | Offen | Phase 2 — zunächst Plain-Text |
+| Q2 | **Rate-Limiting**: Max Notifications pro Tenant pro Zeiteinheit? | Offen | 100/h pro Channel als Default |
+| Q3 | **Batch-Notifications**: Digest-Modus (z.B. tägliche Zusammenfassung)? | Deferred | Eigenes ADR nach Phase 3 |
+| Q4 | **Queue-Isolation**: Dedizierte Celery-Queue für Notifications? | Offen | Ja — `notifications` Queue mit eigenen Workers |
+| Q5 | **DB-Zuordnung**: Eigene DB oder Content Store für NotificationLog? | Offen | Eigene DB `notification_db` — trennt Audit-Daten von Content |
+| Q6 | **Log-Retention**: Wie lange werden NotificationLogs aufbewahrt? | Offen | 90 Tage, dann Celery-Beat Task archiviert/löscht |
 
 ## Implementierungsplan
 
-1. **Phase 1** (Q3 2026): EmailChannel + WebhookChannel + NotificationLog + Celery-Tasks
-2. **Phase 2** (Q3 2026): TelegramChannel (Bot API)
-3. **Phase 3** (Q3 2026): wedding-hub Migration (EmailLog → NotificationLog)
-4. **Phase 4** (Q4 2026): Tenant-Präferenzen (Django Admin: welche Channels pro Org)
-5. **Phase 5** (2027): SMS-Channel, Push-Notifications (→ eigenes ADR)
+1. **Phase 1**: `platform/packages/platform-notifications/` Package — BaseChannel, Registry, NotificationService, EmailChannel
+2. **Phase 2**: wedding-hub Migration (SMS → SmsChannel) + Feature-Flag
+3. **Phase 3**: bfagent + risk-hub Integration
+4. **Phase 4**: weltenhub (Discord-Channel) + Telegram-Channel
 
 ## More Information
 
 ### Related ADRs
 
-- **ADR-021**: Platform Infrastructure — Expand-Contract Migration (§2.16)
+- **ADR-021**: Platform Infrastructure — Zero Breaking Changes (§6.3)
 - **ADR-035**: Shared Django Tenancy Package — `TenantModel` base class
-- **ADR-045**: Secret Management — `EMAIL_HOST_PASSWORD`, `TELEGRAM_BOT_TOKEN` via SOPS
-- **ADR-062**: Content Store — `async_to_sync` Incident (vermieden durch Celery-First)
-- **ADR-072**: Multi-Tenancy Schema-Isolation — begründete Abweichung für Audit-Models
+- **ADR-045**: Secret Management — Twilio/Discord/Telegram Secrets via SOPS
+- **ADR-062**: Content Store — Sync-Pattern Referenz (kein async_to_sync)
+- **ADR-072**: Multi-Tenancy Schema-Isolation — begründete Abweichung (Row-Level)
 
 ### External References
 
-- OpenClaw `src/channels/registry.ts` — Channel-Registry-Pattern (MIT)
-- OpenClaw `src/channels/dock.ts` — Channel-Adapter mit Capabilities (MIT)
-- Django Signals: `django.dispatch.Signal`
-- Celery: `autoretry_for`, `retry_backoff` patterns
+- OpenClaw `src/channels/registry.ts` — Channel-Registry Pattern (MIT)
+- OpenClaw `src/channels/dock.ts` — Channel-Adapter Pattern (MIT)
+- [Celery Retry Documentation](https://docs.celeryq.dev/en/stable/userguide/tasks.html#retrying)
