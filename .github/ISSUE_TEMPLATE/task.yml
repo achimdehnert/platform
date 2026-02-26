@@ -1,0 +1,29 @@
+name: "\u2699\uFE0F Maintenance / Task"
+description: Chores, technical debt, or infrastructure updates
+title: "[TASK] "
+labels: ["task", "triage"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: "\U0001F4A1 Motivation"
+      description: Why are we doing this task?
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: "\U0001F3AF Scope of Work"
+      description: What needs to be changed?
+    validations:
+      required: true
+  - type: dropdown
+    id: risk
+    attributes:
+      label: "\u26A0\uFE0F Risk Level"
+      options:
+        - Low (No logic change)
+        - Medium (Logic change, low impact)
+        - High (Breaking change or data migration)
+    validations:
+      required: true

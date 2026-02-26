@@ -1,0 +1,6 @@
+# platform - Code Owners
+* @achimdehnert
+
+/.github/ @achimdehnert
+/registry/ @achimdehnert
+/packages/ @achimdehnert

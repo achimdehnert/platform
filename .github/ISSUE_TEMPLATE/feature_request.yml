@@ -1,0 +1,44 @@
+name: "\U0001F680 Feature Request"
+description: Propose a new feature
+title: "[FEATURE] "
+labels: ["enhancement", "triage"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## \U0001F3AF Goal
+        Provide a clear and concise description of the feature and its value.
+  - type: textarea
+    id: user-story
+    attributes:
+      label: "\U0001F464 User Story"
+      description: AS A [role], I WANT [feature], SO THAT [benefit].
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: "\u2705 Acceptance Criteria"
+      description: List the conditions that must be met for this feature to be considered done.
+      placeholder: |
+        - [ ] Criterion 1...
+    validations:
+      required: true
+  - type: dropdown
+    id: layer
+    attributes:
+      label: "\U0001F9F1 Focus Layer"
+      options:
+        - Database / Models
+        - Service / Business Logic
+        - UI / HTMX Partial
+        - API / External Sync
+    validations:
+      required: true
+  - type: textarea
+    id: tech-specs
+    attributes:
+      label: "\U0001F4D6 Technical References"
+      description: Link to relevant files in `docs/konzept/` or `docs/adr/`.
+    validations:
+      required: true
