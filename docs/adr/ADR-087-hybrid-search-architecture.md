@@ -1,14 +1,19 @@
-# ADR-087: Hybrid Search Architecture — pgvector + FTS + Reciprocal Rank Fusion
+<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-search/**, supersedes_check: none -->
 
-> **Status:** Proposed  
-> **Datum:** 2026-02-26  
-> **Autor:** Platform Team  
-> **Scope:** `platform`, `bfagent`, `dev-hub`, `risk-hub`  
+# ADR-087: Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine
+
+---
+status: proposed
+date: 2026-02-26
+decision-makers: [Platform Team]
+---
+
+> **Scope:** `platform`, `bfagent`, `dev-hub`, `risk-hub`, `weltenhub`  
 > **Inspiriert von:** OpenClaw `src/memory/` (MIT-Lizenz) — Konzeptübernahme, kein Code-Port  
 
 ---
 
-## Kontext
+## Context and Problem Statement
 
 Mehrere Plattform-Apps benötigen semantische Suche über große Textmengen:
 
@@ -24,11 +29,51 @@ Aktuelle Suche ist keyword-basiert (Django ORM `__icontains` / `__search`). Das 
 - Semantische Ähnlichkeit ("Held rettet Prinzessin" ≈ "Ritter befreit Gefangene")
 - Cross-Language-Suche (DE↔EN)
 
-## Entscheidung
+## Decision Drivers
 
-Wir implementieren ein **Hybrid Search System** als Platform-Package, das zwei Suchstrategien kombiniert:
+- **Semantische Suche** über heterogene Textmengen (Bücher, Docs, Assessments, Stories)
+- **Kein zusätzlicher Infra-Service** — PostgreSQL bereits vorhanden
+- **Multi-Tenant-Isolation** — jeder Tenant sieht nur eigene Daten
+- **Wiederverwendbarkeit** als Shared Platform-Package
+- **Kosteneffizienz** — OpenAI Embeddings sind günstig ($0.02/1M Tokens)
+- **Erweiterbarkeit** — MMR, Temporal Decay, Faceted Search nachträglich addierbar
 
-### Architektur
+## Considered Options
+
+1. **pgvector + FTS Hybrid Search** (gewählt)
+2. **Elasticsearch / OpenSearch**
+3. **SQLite + sqlite-vec** (OpenClaw-Ansatz)
+4. **Nur Vector Search** (pgvector ohne FTS)
+5. **Nur Full-Text Search** (PostgreSQL tsvector)
+6. **ChromaDB / Pinecone** (Managed Vector DB)
+
+## Decision Outcome
+
+**Chosen option: "pgvector + FTS Hybrid Search"**, because:
+- Nutzt bestehende PostgreSQL-Infrastruktur (kein neuer Service)
+- Kombiniert semantische Ähnlichkeit (Embeddings) mit exakter Keyword-Suche (FTS)
+- Reciprocal Rank Fusion (RRF) merged beide Ergebnismengen robust
+- Tenant-Isolation via `WHERE tenant_id = ...` (Row-Level, siehe §ADR-072 Abweichung)
+- Alle Apps profitieren über ein Shared Package
+
+### ADR-072 Schema-Isolation — Begründete Abweichung
+
+ADR-072 fordert Schema-Isolation für Multi-Tenancy. `search_chunks` nutzt stattdessen **Row-Level Isolation** (`WHERE tenant_id = ...`), weil:
+- Die `search_chunks` Tabelle ist eine **zentrale Cross-App-Ressource** — Schema-Isolation würde pgvector-Indizes pro Tenant duplizieren (Memory-Overhead bei IVFFlat/HNSW)
+- Embedding-Indizes skalieren besser als einzelne Tabelle (IVFFlat `lists`-Parameter bezieht sich auf Gesamtdatenvolumen)
+- Cross-Tenant-Suche ist **nicht erforderlich** — alle Queries filtern immer nach `tenant_id`
+- Der `idx_chunks_tenant` B-Tree-Index auf `tenant_id` gewährleistet performante Isolation
+
+Dies ist eine bewusste Ausnahme, dokumentiert in Übereinstimmung mit ADR-072 §Exceptions.
+
+### DB-Zuordnung
+
+Die `search_chunks` Tabelle wird in der **Content Store DB** (`content_store`, vgl. ADR-062) angelegt, nicht in den App-DBs:
+- Content Store ist bereits für AI-generierte/verarbeitete Inhalte vorgesehen
+- `CONTENT_STORE_DSN` ist bereits als Secret konfiguriert (ADR-045)
+- Apps connecten über `SearchService` → Content Store DB (read/write via Service-Layer)
+
+## Architektur
 
 ```
 Query
@@ -47,6 +92,7 @@ Query
 #### 1. Vector Store (pgvector)
 
 ```sql
+-- Deployed in content_store DB (ADR-062)
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE search_chunks (
@@ -58,6 +104,7 @@ CREATE TABLE search_chunks (
     content TEXT NOT NULL,
     embedding vector(1536),             -- OpenAI text-embedding-3-small
     metadata JSONB DEFAULT '{}',
+    embedding_model VARCHAR(100) NOT NULL DEFAULT 'text-embedding-3-small',
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
     
@@ -67,11 +114,13 @@ CREATE TABLE search_chunks (
     ) STORED
 );
 
+-- HNSW index preferred for <1M rows (better recall than IVFFlat)
 CREATE INDEX idx_chunks_embedding ON search_chunks
-    USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
+    USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX idx_chunks_fts ON search_chunks USING gin(search_vector);
 CREATE INDEX idx_chunks_tenant ON search_chunks (tenant_id);
 CREATE INDEX idx_chunks_source ON search_chunks (source_type, source_id);
+CREATE INDEX idx_chunks_model ON search_chunks (embedding_model);
 ```
 
 #### 2. Embedding Service
@@ -96,10 +145,10 @@ async def embed_texts(
     ...
 ```
 
-#### 3. Hybrid Search mit RRF
+#### 3. Search Service (Service-Layer)
 
 ```python
-# platform/packages/platform-search/hybrid.py
+# platform/packages/platform-search/service.py
 from dataclasses import dataclass
 
 @dataclass(frozen=True)
@@ -111,6 +160,36 @@ class SearchResult:
     score: float
     vector_rank: int | None = None
     text_rank: int | None = None
+
+class SearchService:
+    """Platform-wide hybrid search service.
+    
+    Usage from Django views (sync):
+        results = SearchService.search(query, tenant_id=request.tenant_id)
+    """
+    
+    @staticmethod
+    def search(
+        query: str,
+        tenant_id: str,
+        source_types: list[str] | None = None,
+        top_k: int = 10,
+        vector_weight: float = 0.6,
+        text_weight: float = 0.4,
+    ) -> list[SearchResult]:
+        """Sync hybrid search — safe for Django views."""
+        vector_results = _vector_search(query, tenant_id, source_types, top_k)
+        text_results = _text_search(query, tenant_id, source_types, top_k)
+        return reciprocal_rank_fusion(
+            vector_results, text_results,
+            vector_weight=vector_weight,
+            text_weight=text_weight,
+        )
+    
+    @staticmethod
+    def health_check() -> dict:
+        """Check pgvector availability for /healthz/ endpoint."""
+        ...
 
 def reciprocal_rank_fusion(
     vector_results: list[SearchResult],
@@ -221,41 +300,116 @@ PLATFORM_SEARCH = {
 }
 ```
 
-## Alternativen (verworfen)
+### Graceful Degradation
 
-| Alternative | Warum verworfen |
-|-------------|----------------|
-| **Elasticsearch** | Separate Infrastruktur, Overhead für unsere Größe |
-| **SQLite + sqlite-vec** (OpenClaw-Ansatz) | Wir haben bereits PostgreSQL; pgvector ist nativer |
-| **Nur Vector Search** | Keyword-Matches (exakte Begriffe, IDs) gehen verloren |
-| **Nur FTS** | Keine semantische Ähnlichkeit |
-| **ChromaDB / Pinecone** | Externe Abhängigkeit, Kosten, kein Self-Hosting |
+- **pgvector nicht installiert**: `SearchService.search()` fällt auf reine FTS zurück, loggt Warning
+- **Embedding-API nicht erreichbar**: Nur FTS-Ergebnisse werden geliefert, `vector_results = []`
+- **Content Store DB nicht erreichbar**: `SearchServiceUnavailableError` wird geworfen, App degradiert graceful (wie ADR-062 Content Store Pattern)
 
-## Konsequenzen
+## Pros and Cons of the Options
 
-### Positiv
+### Option 1: pgvector + FTS Hybrid Search (gewählt)
+
+- **Good**: Nutzt bestehende PostgreSQL-Infrastruktur
+- **Good**: Kombiniert semantische + keyword-basierte Suche
+- **Good**: Tenant-isoliert, wiederverwendbar als Package
+- **Good**: Kein zusätzlicher Service zu betreiben
+- **Bad**: Embedding-Kosten (OpenAI API) — ca. $0.02/1M Tokens
+- **Bad**: Initiales Indexing bei großen Datenmengen zeitaufwändig
+- **Bad**: pgvector Extension muss auf Server installiert werden
+
+### Option 2: Elasticsearch / OpenSearch
+
+- **Good**: Bewährte Volltextsuchmaschine mit Vector-Support
+- **Good**: Exzellente Performance bei sehr großen Datenmengen (>10M docs)
+- **Bad**: Separate Infrastruktur (JVM, Cluster, RAM)
+- **Bad**: Massiver Overhead für unsere Datenvolumen (1k–100k Docs)
+- **Bad**: Zusätzliche Ops-Last (Updates, Monitoring, Backup)
+
+### Option 3: SQLite + sqlite-vec (OpenClaw-Ansatz)
+
+- **Good**: Zero-Dependency, embedded
+- **Good**: OpenClaw-Referenzimplementierung vorhanden
+- **Bad**: Wir haben bereits PostgreSQL — kein Grund für SQLite
+- **Bad**: Kein Multi-User-Support, keine Tenant-Isolation
+- **Bad**: Kein FTS in gleicher Qualität wie PostgreSQL
+
+### Option 4: Nur Vector Search
+
+- **Good**: Einfacher — nur ein Suchpfad
+- **Bad**: Keyword-Matches (exakte Begriffe, IDs, Codes) gehen verloren
+- **Bad**: Schlechtere Ergebnisse bei technischen/fachspezifischen Begriffen
+
+### Option 5: Nur Full-Text Search
+
+- **Good**: Kein Embedding-Provider nötig, keine API-Kosten
+- **Bad**: Keine semantische Ähnlichkeit
+- **Bad**: Cross-Language-Suche nicht möglich
+
+### Option 6: ChromaDB / Pinecone
+
+- **Good**: Managed Service, wenig Ops
+- **Bad**: Externe Abhängigkeit, Vendor Lock-in
+- **Bad**: Kosten bei wachsendem Volumen
+- **Bad**: Kein Self-Hosting (DSGVO-Risiko)
+
+## Consequences
+
+### Good
+
 - Semantische + Keyword-Suche in einer Query
 - Kein zusätzlicher Service (pgvector = PostgreSQL Extension)
 - Tenant-isoliert (WHERE tenant_id = ...)
 - Wiederverwendbar als Platform-Package
+- Graceful Degradation bei Service-Ausfällen
 
-### Negativ
+### Bad
+
 - Embedding-Kosten (OpenAI API) — ca. $0.02/1M Tokens
 - Initiales Indexing bei großen Datenmengen
 - pgvector Extension muss auf Server installiert werden
 
-### Risiken
-- pgvector IVFFlat-Index erfordert Re-Build bei signifikantem Datenwachstum
-- Embedding-Modell-Wechsel erfordert vollständiges Re-Indexing
+### Risks
+
+- HNSW-Index Memory-Overhead bei >1M rows — dann IVFFlat evaluieren
+- Embedding-Modell-Wechsel erfordert vollständiges Re-Indexing (tracking via `embedding_model` Column)
+
+### Confirmation
+
+Compliance wird verifiziert durch:
+1. **pytest-Suite**: Mindestens 3 Known-Good-Queries pro App mit erwarteten Ergebnissen
+2. **Health-Check**: `SearchService.health_check()` integriert in `/healthz/` Endpoint jeder App
+3. **Re-Indexing-Tracking**: `embedding_model` Column erlaubt Identifikation veralteter Embeddings
+4. **Graceful Degradation Test**: Test dass FTS-Fallback funktioniert wenn Embedding-API unavailable
+
+## Open Questions
+
+| # | Frage | Status | Empfehlung |
+|---|-------|--------|------------|
+| Q1 | **Chunk-Größe**: Wie groß sollten Chunks sein? | Offen | 512–1024 Tokens, mit 128-Token Overlap |
+| Q2 | **Overlap-Strategie**: Sliding Window vs. Paragraph-basiert? | Offen | Paragraph-basiert für narrative Texte (bfagent, weltenhub), Sliding Window für technische Docs (risk-hub, dev-hub) |
+| Q3 | **HNSW vs. IVFFlat**: Ab welcher Datenmenge wechseln? | Offen | HNSW bis 1M rows, dann IVFFlat evaluieren |
+| Q4 | **Re-Indexing-Prozess**: Wie wird bei Modell-Wechsel re-indexed? | Offen | Celery-Task iteriert über alle Chunks mit altem `embedding_model`, batched re-embed |
+| Q5 | **FTS-Sprache**: Nur `german` oder auch `english` + `simple`? | Offen | `german` als Default, `simple` als Fallback für Mixed-Content |
+| Q6 | **MMR/Temporal Decay Aktivierung**: Wann werden optionale Features aktiviert? | Deferred | Nach Phase 3 evaluieren basierend auf User-Feedback |
 
 ## Implementierungsplan
 
-1. **Phase 1**: `platform/packages/platform-search/` Grundstruktur
+1. **Phase 1**: `platform/packages/platform-search/` Grundstruktur + SearchService
 2. **Phase 2**: pgvector auf Prod-Server installieren (`apt install postgresql-16-pgvector`)
 3. **Phase 3**: Integration in bfagent (Proof of Concept)
-4. **Phase 4**: Integration in dev-hub + risk-hub
+4. **Phase 4**: Integration in dev-hub + risk-hub + weltenhub
 
-## Referenzen
+## More Information
+
+### Related ADRs
+
+- **ADR-035**: Shared Django Tenancy Package — `TenantModel` base class
+- **ADR-045**: Secret Management — `OPENAI_API_KEY` via SOPS
+- **ADR-062**: Content Store — DB-Zuordnung für `search_chunks`
+- **ADR-072**: Multi-Tenancy Schema-Isolation — begründete Abweichung (Row-Level)
+
+### External References
 
 - [pgvector](https://github.com/pgvector/pgvector) — PostgreSQL vector extension
 - [Reciprocal Rank Fusion](https://plg.uwaterloo.ca/~gvcormac/cormacksigir09-rrf.pdf) — Cormack et al. 2009
