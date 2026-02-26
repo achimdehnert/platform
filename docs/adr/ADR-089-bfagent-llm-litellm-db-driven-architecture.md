@@ -14,7 +14,7 @@ related: ADR-084, ADR-082, ADR-045, ADR-056, ADR-080, ADR-068
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
-| **Status**     | **Accepted** (v4 — Phase 2 in progress)                             |
+| **Status**     | **Accepted** (v5 — Phase 2 deployed ✅)                             |
 | **Scope**      | Platform-wide — AI Infrastructure                                    |
 | **Repo**       | platform (`packages/bfagent-llm/`)                                   |
 | **Erstellt**   | 2026-02-26                                                           |
@@ -156,6 +156,31 @@ bfagent-llm v1.0 (implementiert)
    # ✅ RICHTIG: Immer bumpen
    version = "1.0.1"  # Neuer Dateiname → kein Cache-Hit
    ```
+10. **Explicit AppConfig class ref in INSTALLED_APPS (v5):** Consumer-Apps
+    MÜSSEN reusable Django-Packages mit der **vollen AppConfig-Klasse** in
+    `INSTALLED_APPS` / `TENANT_APPS` referenzieren, NICHT mit dem Modul-Pfad.
+    Django 5.0+ Auto-Discovery findet AppConfig-Klassen in `__init__.py` von
+    Wheel-installierten Packages **nicht zuverlässig** und fällt auf die
+    Default-`AppConfig` zurück (Label wird aus Modul-Segment abgeleitet).
+    ```python
+    # ✅ RICHTIG: Explizite Klassen-Referenz
+    TENANT_APPS = [
+        ...,
+        "bfagent_llm.django_app.BfagentLlmConfig",
+    ]
+
+    # ❌ FALSCH: Modul-Pfad → Django 5.0 Auto-Discovery schlägt fehl
+    TENANT_APPS = [
+        ...,
+        "bfagent_llm.django_app",  # → Class=AppConfig, label="django_app"
+    ]
+    ```
+    **Begründung:** Django 5.0+ Auto-Discovery sucht AppConfig-Subklassen
+    in `apps.py` (bevorzugt) oder im `__init__.py` des App-Moduls. Bei
+    Wheel-installierten Packages wird die `__init__.py` manchmal nicht
+    korrekt durchsucht — Django erstellt dann eine Default-AppConfig mit
+    dem generischen Label. Die explizite Klassen-Referenz umgeht die
+    Auto-Discovery komplett und ist der einzig zuverlässige Weg.
 
 ### 2.2 Zwei Modi
 
@@ -163,7 +188,7 @@ bfagent-llm v1.0 (implementiert)
 
 ```python
 # settings.py:
-INSTALLED_APPS = [..., "bfagent_llm.django_app"]
+INSTALLED_APPS = [..., "bfagent_llm.django_app.BfagentLlmConfig"]
 
 # Service:
 from bfagent_llm.django_app.service import completion
@@ -198,20 +223,21 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 - `bfagent_llm/django_app/` mit Models, Admin, Service, Checks, Migrations
 - `LiteLLMAdapter` in adapters.py
 - Management Commands: `init_llm_config`, `check_llm_config`
-- pyproject.toml v1.0.0 mit `[django]` und `[litellm]` extras
+- pyproject.toml v1.0.1 mit `[django]` und `[litellm]` extras
 - Tests: models, service, management commands
 
-### Phase 2: travel-beat Migration 🔄 IN PROGRESS
+### Phase 2: travel-beat Migration ✅ DONE
 
 1. ✅ `bfagent-llm[django]` in requirements.txt (PR #11 merged)
-2. ✅ `bfagent_llm.django_app` in `TENANT_APPS`
+2. ✅ `bfagent_llm.django_app.BfagentLlmConfig` in `TENANT_APPS`
 3. ✅ DB-Migration: `0003_copy_to_bfllm` (data copy per tenant schema)
 4. ✅ `llm_service.py` Adapter (bfagent-llm primary, LiteLLM fallback)
 5. ✅ Fix: `app_label="bfagent_llm"` (Invariante 7)
 6. ✅ Fix: `related_name="bfllm_usage_logs"` (Invariante 8)
 7. ✅ Fix: Version-Bump 1.0.0 → 1.0.1 (Invariante 9)
-8. 🔄 Deploy + Migrate auf Server
-9. ⏳ Cleanup: `llm_client.py`, `llm_providers.py` entfernen
+8. ✅ Fix: Explicit AppConfig class ref in TENANT_APPS (Invariante 10)
+9. ✅ Deploy + Migrate auf Server (2026-02-26)
+10. ⏳ Cleanup: `llm_client.py`, `llm_providers.py` entfernen
 
 ### Phase 3: Weitere Apps (pending)
 
@@ -250,6 +276,7 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 | R-10 | Rollback-Plan | HOCH | ✅ v1 |
 | R-11 | ForeignKey ohne related_name | HOCH | ✅ v3 — `related_name="bfllm_usage_logs"` + Invariante 8 |
 | R-12 | Wheel ohne Version-Bump deployed | **HOCH** | ✅ v4 — Invariante 9: Pflicht-Bump bei Code-Änderung |
+| R-13 | Django 5.0 AppConfig Auto-Discovery versagt bei Wheels | **KRITISCH** | ✅ v5 — Invariante 10: Explizite Klassen-Referenz in INSTALLED_APPS |
 
 ---
 
@@ -262,3 +289,4 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 | 2026-02-26 | Achim Dehnert | v2: Status → Accepted. Phase 1 implementiert (bfagent-llm v1.0.0) |
 | 2026-02-26 | Achim Dehnert | v3: Invarianten 7+8 (explicit app_label + related_name). R-09 NIEDRIG→HOCH. R-11 neu. |
 | 2026-02-26 | Achim Dehnert | v4: Invariante 9 (Pflicht-Version-Bump). R-12 neu. Bump 1.0.0→1.0.1. |
+| 2026-02-26 | Achim Dehnert | v5: Invariante 10 (Explicit AppConfig class ref). R-13 neu. Phase 2 deployed ✅. |
