@@ -148,8 +148,10 @@ class TestResilientPromptService:
     
     @pytest.mark.asyncio
     async def test_tier_fallback(self):
-        """Should fall back to next tier on failure."""
-        # Create client that fails for premium but works for standard
+        """Should fall back to next tier on failure.
+
+        Premium → groq_fast (ADR-084 v3 tier chain).
+        """
         class TierAwareClient:
             async def complete(self, messages, model, **kwargs):
                 if "gpt-4o" in model and "mini" not in model:
@@ -174,7 +176,7 @@ class TestResilientPromptService:
         
         assert result.success
         assert result.fallback_used
-        assert result.tier_used == "standard"
+        assert result.tier_used == "groq_fast"
     
     def test_get_circuit_status(self, service):
         """Should return circuit breaker status."""
