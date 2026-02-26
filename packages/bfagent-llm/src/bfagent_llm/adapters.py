@@ -7,6 +7,7 @@ Provides adapters for different LLM providers:
 - OpenAILLMAdapter: Direct OpenAI API
 - AnthropicLLMAdapter: Direct Anthropic API
 - GroqLLMAdapter: Groq LPU-accelerated inference (ADR-084 v3)
+- LiteLLMAdapter: Universal adapter via litellm (ADR-089)
 - FallbackLLMAdapter: Chain with automatic fallback
 """
 
@@ -364,6 +365,104 @@ class GroqLLMAdapter(LLMClientProtocol):
             tokens_out=usage.completion_tokens if usage else 0,
             cost=Decimal("0"),  # Groq developer tier = free
             raw_response=response.model_dump(),
+        )
+
+
+class LiteLLMAdapter(LLMClientProtocol):
+    """
+    Universal LLM adapter via litellm (ADR-089).
+
+    Supports 100+ providers through a single interface.
+    Uses litellm.acompletion() with 'provider/model' format.
+
+    Usage:
+        adapter = LiteLLMAdapter(api_key="sk-...", provider="openai")
+        response = await adapter.complete(
+            messages, model="gpt-4o", ...
+        )
+
+    Or with explicit model string:
+        adapter = LiteLLMAdapter()
+        response = await adapter.complete(
+            messages, model="groq/qwen-qwen3-32b", ...
+        )
+    """
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+        provider: Optional[str] = None,
+        base_url: Optional[str] = None,
+    ):
+        self.api_key = api_key
+        self.provider = provider
+        self.base_url = base_url
+
+    def _build_model_string(self, model: str) -> str:
+        """Build litellm-compatible model string."""
+        if "/" in model:
+            return model
+        if self.provider:
+            return f"{self.provider}/{model}"
+        return model
+
+    async def complete(
+        self,
+        messages: List[Dict[str, str]],
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        **kwargs,
+    ) -> LLMResponse:
+        """Execute completion via litellm."""
+        try:
+            import litellm
+        except ImportError:
+            raise ImportError(
+                "litellm package required. "
+                "Install with: pip install bfagent-llm[litellm]"
+            )
+
+        model_string = self._build_model_string(model)
+
+        call_kwargs: Dict[str, Any] = {
+            "model": model_string,
+            "messages": messages,
+            "max_tokens": max_tokens,
+            "temperature": temperature,
+        }
+
+        if self.api_key:
+            call_kwargs["api_key"] = self.api_key
+        if self.base_url:
+            call_kwargs["api_base"] = self.base_url
+
+        call_kwargs.update(kwargs)
+
+        response = await litellm.acompletion(**call_kwargs)
+
+        choice = response.choices[0]
+        usage = response.usage
+
+        cost = Decimal("0")
+        try:
+            cost = Decimal(str(litellm.completion_cost(
+                completion_response=response
+            )))
+        except Exception:
+            pass
+
+        return LLMResponse(
+            content=choice.message.content or "",
+            model=response.model or model_string,
+            tokens_in=usage.prompt_tokens if usage else 0,
+            tokens_out=usage.completion_tokens if usage else 0,
+            cost=cost,
+            raw_response=(
+                response.model_dump()
+                if hasattr(response, "model_dump")
+                else None
+            ),
         )
 
 
