@@ -1,12 +1,12 @@
-<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-search/**, supersedes_check: none -->
-
-# ADR-087: Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine
-
 ---
 status: proposed
 date: 2026-02-26
 decision-makers: [Platform Team]
 ---
+
+<!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-search/**, supersedes_check: none -->
+
+# ADR-087: Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine
 
 > **Scope:** `platform`, `bfagent`, `dev-hub`, `risk-hub`, `weltenhub`  
 > **Inspiriert von:** OpenClaw `src/memory/` (MIT-Lizenz) — Konzeptübernahme, kein Code-Port  
@@ -59,8 +59,8 @@ Aktuelle Suche ist keyword-basiert (Django ORM `__icontains` / `__search`). Das 
 ### ADR-072 Schema-Isolation — Begründete Abweichung
 
 ADR-072 fordert Schema-Isolation für Multi-Tenancy. `search_chunks` nutzt stattdessen **Row-Level Isolation** (`WHERE tenant_id = ...`), weil:
-- Die `search_chunks` Tabelle ist eine **zentrale Cross-App-Ressource** — Schema-Isolation würde pgvector-Indizes pro Tenant duplizieren (Memory-Overhead bei IVFFlat/HNSW)
-- Embedding-Indizes skalieren besser als einzelne Tabelle (IVFFlat `lists`-Parameter bezieht sich auf Gesamtdatenvolumen)
+- Die `search_chunks` Tabelle ist eine **zentrale Cross-App-Ressource** — Schema-Isolation würde pgvector-Indizes pro Tenant duplizieren (Memory-Overhead bei HNSW)
+- Embedding-Indizes skalieren besser als einzelne Tabelle (HNSW `ef_construction` bezieht sich auf Gesamtdatenvolumen)
 - Cross-Tenant-Suche ist **nicht erforderlich** — alle Queries filtern immer nach `tenant_id`
 - Der `idx_chunks_tenant` B-Tree-Index auf `tenant_id` gewährleistet performante Isolation
 
@@ -68,10 +68,17 @@ Dies ist eine bewusste Ausnahme, dokumentiert in Übereinstimmung mit ADR-072 §
 
 ### DB-Zuordnung
 
-Die `search_chunks` Tabelle wird in der **Content Store DB** (`content_store`, vgl. ADR-062) angelegt, nicht in den App-DBs:
+Die `search_chunks` Tabelle wird in der **Content Store DB** (`content_store`, vgl. ADR-062) angelegt:
 - Content Store ist bereits für AI-generierte/verarbeitete Inhalte vorgesehen
 - `CONTENT_STORE_DSN` ist bereits als Secret konfiguriert (ADR-045)
 - Apps connecten über `SearchService` → Content Store DB (read/write via Service-Layer)
+
+### Schema-Evolution (Expand-Contract)
+
+Zukünftige Schema-Änderungen (z.B. Dimensions-Wechsel bei Embedding-Modell-Upgrade) folgen dem Expand-Contract-Pattern (ADR-021 §2.16):
+1. **Expand**: Neue Column `embedding_v2 vector(N)` hinzufügen, parallel befüllen
+2. **Migrate**: Celery-Task re-embedded alle Chunks mit neuem Modell (tracking via `embedding_model`)
+3. **Contract**: Alte `embedding` Column entfernen nach vollständigem Re-Indexing
 
 ## Architektur
 
@@ -98,23 +105,20 @@ CREATE EXTENSION IF NOT EXISTS vector;
 CREATE TABLE search_chunks (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     tenant_id UUID NOT NULL,
-    source_type VARCHAR(50) NOT NULL,   -- 'book_chapter', 'tech_doc', 'risk_assessment'
+    source_type VARCHAR(50) NOT NULL,
     source_id UUID NOT NULL,
     chunk_index INTEGER NOT NULL,
     content TEXT NOT NULL,
-    embedding vector(1536),             -- OpenAI text-embedding-3-small
+    embedding vector(1536),
     metadata JSONB DEFAULT '{}',
     embedding_model VARCHAR(100) NOT NULL DEFAULT 'text-embedding-3-small',
     created_at TIMESTAMPTZ DEFAULT now(),
     updated_at TIMESTAMPTZ DEFAULT now(),
-    
-    -- FTS column
     search_vector tsvector GENERATED ALWAYS AS (
         to_tsvector('german', content)
     ) STORED
 );
 
--- HNSW index preferred for <1M rows (better recall than IVFFlat)
 CREATE INDEX idx_chunks_embedding ON search_chunks
     USING hnsw (embedding vector_cosine_ops) WITH (m = 16, ef_construction = 64);
 CREATE INDEX idx_chunks_fts ON search_chunks USING gin(search_vector);
@@ -127,6 +131,7 @@ CREATE INDEX idx_chunks_model ON search_chunks (embedding_model);
 
 ```python
 # platform/packages/platform-search/embeddings.py
+import httpx
 from pydantic import BaseModel, ConfigDict, Field
 
 class EmbeddingConfig(BaseModel):
@@ -137,12 +142,28 @@ class EmbeddingConfig(BaseModel):
     dimensions: int = Field(default=1536, description="Vector dimensions")
     batch_size: int = Field(default=100, description="Chunks per API call")
 
-async def embed_texts(
+def embed_texts(
     texts: list[str],
-    config: EmbeddingConfig,
+    config: EmbeddingConfig | None = None,
 ) -> list[list[float]]:
-    """Embed texts via configured provider."""
-    ...
+    """Embed texts via configured provider (sync — safe for Django views + Celery)."""
+    if config is None:
+        config = EmbeddingConfig()
+    # httpx sync client for OpenAI Embeddings API
+    with httpx.Client(timeout=30.0) as client:
+        response = client.post(
+            "https://api.openai.com/v1/embeddings",
+            headers={"Authorization": f"Bearer {_get_api_key()}"},
+            json={"input": texts, "model": config.model},
+        )
+        response.raise_for_status()
+        data = response.json()
+    return [item["embedding"] for item in data["data"]]
+
+def _get_api_key() -> str:
+    """Load OPENAI_API_KEY from Django settings (ADR-045)."""
+    from django.conf import settings
+    return settings.OPENAI_API_KEY
 ```
 
 #### 3. Search Service (Service-Layer)
@@ -150,6 +171,7 @@ async def embed_texts(
 ```python
 # platform/packages/platform-search/service.py
 from dataclasses import dataclass
+from django.db import connections
 
 @dataclass(frozen=True)
 class SearchResult:
@@ -164,12 +186,15 @@ class SearchResult:
 class SearchService:
     """Platform-wide hybrid search service.
     
-    Usage from Django views (sync):
-        results = SearchService.search(query, tenant_id=request.tenant_id)
+    All methods are sync — safe for Django views and Celery tasks.
+    Uses content_store DB connection (ADR-062).
     """
     
-    @staticmethod
+    DB_ALIAS = "content_store"
+    
+    @classmethod
     def search(
+        cls,
         query: str,
         tenant_id: str,
         source_types: list[str] | None = None,
@@ -178,18 +203,88 @@ class SearchService:
         text_weight: float = 0.4,
     ) -> list[SearchResult]:
         """Sync hybrid search — safe for Django views."""
-        vector_results = _vector_search(query, tenant_id, source_types, top_k)
-        text_results = _text_search(query, tenant_id, source_types, top_k)
+        vector_results = cls._vector_search(query, tenant_id, source_types, top_k)
+        text_results = cls._text_search(query, tenant_id, source_types, top_k)
         return reciprocal_rank_fusion(
             vector_results, text_results,
             vector_weight=vector_weight,
             text_weight=text_weight,
         )
     
-    @staticmethod
-    def health_check() -> dict:
+    @classmethod
+    def _vector_search(
+        cls,
+        query: str,
+        tenant_id: str,
+        source_types: list[str] | None,
+        top_k: int,
+    ) -> list[SearchResult]:
+        """Embed query and find nearest neighbors via pgvector."""
+        from platform_search.embeddings import embed_texts
+        query_embedding = embed_texts([query])[0]
+        with connections[cls.DB_ALIAS].cursor() as cursor:
+            cursor.execute(
+                "SELECT id, source_type, source_id, content, "
+                "embedding <=> %s::vector AS distance "
+                "FROM search_chunks WHERE tenant_id = %s "
+                + ("AND source_type = ANY(%s) " if source_types else "")
+                + "ORDER BY distance LIMIT %s",
+                [query_embedding, tenant_id]
+                + ([source_types] if source_types else [])
+                + [top_k],
+            )
+            return [
+                SearchResult(
+                    chunk_id=str(row[0]), source_type=row[1],
+                    source_id=str(row[2]), content=row[3],
+                    score=1.0 - row[4],  # distance → similarity
+                )
+                for row in cursor.fetchall()
+            ]
+    
+    @classmethod
+    def _text_search(
+        cls,
+        query: str,
+        tenant_id: str,
+        source_types: list[str] | None,
+        top_k: int,
+    ) -> list[SearchResult]:
+        """Full-text search via PostgreSQL tsvector + ts_rank."""
+        with connections[cls.DB_ALIAS].cursor() as cursor:
+            cursor.execute(
+                "SELECT id, source_type, source_id, content, "
+                "ts_rank(search_vector, plainto_tsquery('german', %s)) AS rank "
+                "FROM search_chunks WHERE tenant_id = %s "
+                "AND search_vector @@ plainto_tsquery('german', %s) "
+                + ("AND source_type = ANY(%s) " if source_types else "")
+                + "ORDER BY rank DESC LIMIT %s",
+                [query, tenant_id, query]
+                + ([source_types] if source_types else [])
+                + [top_k],
+            )
+            return [
+                SearchResult(
+                    chunk_id=str(row[0]), source_type=row[1],
+                    source_id=str(row[2]), content=row[3],
+                    score=row[4],
+                )
+                for row in cursor.fetchall()
+            ]
+    
+    @classmethod
+    def health_check(cls) -> dict[str, bool | str]:
         """Check pgvector availability for /healthz/ endpoint."""
-        ...
+        try:
+            with connections[cls.DB_ALIAS].cursor() as cursor:
+                cursor.execute("SELECT extversion FROM pg_extension WHERE extname = 'vector'")
+                row = cursor.fetchone()
+                if row:
+                    return {"healthy": True, "pgvector_version": row[0]}
+                return {"healthy": False, "error": "pgvector extension not installed"}
+        except Exception as exc:
+            return {"healthy": False, "error": str(exc)}
+
 
 def reciprocal_rank_fusion(
     vector_results: list[SearchResult],
@@ -310,69 +405,62 @@ PLATFORM_SEARCH = {
 
 ### Option 1: pgvector + FTS Hybrid Search (gewählt)
 
-- **Good**: Nutzt bestehende PostgreSQL-Infrastruktur
-- **Good**: Kombiniert semantische + keyword-basierte Suche
-- **Good**: Tenant-isoliert, wiederverwendbar als Package
-- **Good**: Kein zusätzlicher Service zu betreiben
-- **Bad**: Embedding-Kosten (OpenAI API) — ca. $0.02/1M Tokens
-- **Bad**: Initiales Indexing bei großen Datenmengen zeitaufwändig
-- **Bad**: pgvector Extension muss auf Server installiert werden
+- Good, because it nutzt bestehende PostgreSQL-Infrastruktur
+- Good, because it kombiniert semantische + keyword-basierte Suche
+- Good, because it ist tenant-isoliert und wiederverwendbar als Package
+- Good, because kein zusätzlicher Service zu betreiben
+- Bad, because Embedding-Kosten (OpenAI API) — ca. $0.02/1M Tokens
+- Bad, because initiales Indexing bei großen Datenmengen zeitaufwändig
+- Bad, because pgvector Extension muss auf Server installiert werden
 
 ### Option 2: Elasticsearch / OpenSearch
 
-- **Good**: Bewährte Volltextsuchmaschine mit Vector-Support
-- **Good**: Exzellente Performance bei sehr großen Datenmengen (>10M docs)
-- **Bad**: Separate Infrastruktur (JVM, Cluster, RAM)
-- **Bad**: Massiver Overhead für unsere Datenvolumen (1k–100k Docs)
-- **Bad**: Zusätzliche Ops-Last (Updates, Monitoring, Backup)
+- Good, because bewährte Volltextsuchmaschine mit Vector-Support
+- Good, because exzellente Performance bei >10M docs
+- Bad, because separate Infrastruktur (JVM, Cluster, RAM)
+- Bad, because massiver Overhead für unsere Datenvolumen (1k–100k Docs)
+- Bad, because zusätzliche Ops-Last
 
 ### Option 3: SQLite + sqlite-vec (OpenClaw-Ansatz)
 
-- **Good**: Zero-Dependency, embedded
-- **Good**: OpenClaw-Referenzimplementierung vorhanden
-- **Bad**: Wir haben bereits PostgreSQL — kein Grund für SQLite
-- **Bad**: Kein Multi-User-Support, keine Tenant-Isolation
-- **Bad**: Kein FTS in gleicher Qualität wie PostgreSQL
+- Good, because zero-dependency, embedded
+- Good, because OpenClaw-Referenzimplementierung vorhanden
+- Bad, because wir haben bereits PostgreSQL
+- Bad, because kein Multi-User-Support, keine Tenant-Isolation
 
 ### Option 4: Nur Vector Search
 
-- **Good**: Einfacher — nur ein Suchpfad
-- **Bad**: Keyword-Matches (exakte Begriffe, IDs, Codes) gehen verloren
-- **Bad**: Schlechtere Ergebnisse bei technischen/fachspezifischen Begriffen
+- Good, because einfacher — nur ein Suchpfad
+- Bad, because keyword-Matches (exakte Begriffe, IDs) gehen verloren
+- Bad, because schlechtere Ergebnisse bei fachspezifischen Begriffen
 
 ### Option 5: Nur Full-Text Search
 
-- **Good**: Kein Embedding-Provider nötig, keine API-Kosten
-- **Bad**: Keine semantische Ähnlichkeit
-- **Bad**: Cross-Language-Suche nicht möglich
+- Good, because kein Embedding-Provider nötig, keine API-Kosten
+- Bad, because keine semantische Ähnlichkeit
+- Bad, because Cross-Language-Suche nicht möglich
 
 ### Option 6: ChromaDB / Pinecone
 
-- **Good**: Managed Service, wenig Ops
-- **Bad**: Externe Abhängigkeit, Vendor Lock-in
-- **Bad**: Kosten bei wachsendem Volumen
-- **Bad**: Kein Self-Hosting (DSGVO-Risiko)
+- Good, because managed Service, wenig Ops
+- Bad, because externe Abhängigkeit, Vendor Lock-in
+- Bad, because kein Self-Hosting (DSGVO-Risiko)
 
 ## Consequences
 
-### Good
-
-- Semantische + Keyword-Suche in einer Query
-- Kein zusätzlicher Service (pgvector = PostgreSQL Extension)
-- Tenant-isoliert (WHERE tenant_id = ...)
-- Wiederverwendbar als Platform-Package
-- Graceful Degradation bei Service-Ausfällen
-
-### Bad
-
-- Embedding-Kosten (OpenAI API) — ca. $0.02/1M Tokens
-- Initiales Indexing bei großen Datenmengen
-- pgvector Extension muss auf Server installiert werden
+- Good, because semantische + keyword-Suche in einer Query
+- Good, because kein zusätzlicher Service (pgvector = PostgreSQL Extension)
+- Good, because tenant-isoliert (WHERE tenant_id = ...)
+- Good, because wiederverwendbar als Platform-Package
+- Good, because Graceful Degradation bei Service-Ausfällen
+- Bad, because Embedding-Kosten (OpenAI API) — ca. $0.02/1M Tokens
+- Bad, because initiales Indexing bei großen Datenmengen
+- Bad, because pgvector Extension muss auf Server installiert werden
 
 ### Risks
 
 - HNSW-Index Memory-Overhead bei >1M rows — dann IVFFlat evaluieren
-- Embedding-Modell-Wechsel erfordert vollständiges Re-Indexing (tracking via `embedding_model` Column)
+- Embedding-Modell-Wechsel erfordert Re-Indexing (Expand-Contract, siehe oben)
 
 ### Confirmation
 
@@ -387,9 +475,9 @@ Compliance wird verifiziert durch:
 | # | Frage | Status | Empfehlung |
 |---|-------|--------|------------|
 | Q1 | **Chunk-Größe**: Wie groß sollten Chunks sein? | Offen | 512–1024 Tokens, mit 128-Token Overlap |
-| Q2 | **Overlap-Strategie**: Sliding Window vs. Paragraph-basiert? | Offen | Paragraph-basiert für narrative Texte (bfagent, weltenhub), Sliding Window für technische Docs (risk-hub, dev-hub) |
+| Q2 | **Overlap-Strategie**: Sliding Window vs. Paragraph-basiert? | Offen | Paragraph-basiert für narrative Texte, Sliding Window für technische Docs |
 | Q3 | **HNSW vs. IVFFlat**: Ab welcher Datenmenge wechseln? | Offen | HNSW bis 1M rows, dann IVFFlat evaluieren |
-| Q4 | **Re-Indexing-Prozess**: Wie wird bei Modell-Wechsel re-indexed? | Offen | Celery-Task iteriert über alle Chunks mit altem `embedding_model`, batched re-embed |
+| Q4 | **Re-Indexing-Prozess**: Wie wird bei Modell-Wechsel re-indexed? | Offen | Celery-Task iteriert über Chunks mit altem `embedding_model`, batched re-embed |
 | Q5 | **FTS-Sprache**: Nur `german` oder auch `english` + `simple`? | Offen | `german` als Default, `simple` als Fallback für Mixed-Content |
 | Q6 | **MMR/Temporal Decay Aktivierung**: Wann werden optionale Features aktiviert? | Deferred | Nach Phase 3 evaluieren basierend auf User-Feedback |
 
@@ -404,6 +492,7 @@ Compliance wird verifiziert durch:
 
 ### Related ADRs
 
+- **ADR-021**: Platform Infrastructure — Expand-Contract Migration (§2.16)
 - **ADR-035**: Shared Django Tenancy Package — `TenantModel` base class
 - **ADR-045**: Secret Management — `OPENAI_API_KEY` via SOPS
 - **ADR-062**: Content Store — DB-Zuordnung für `search_chunks`
