@@ -259,6 +259,7 @@ class AIUsageLog(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
+        related_name="bfllm_usage_logs",
     )
 
     input_tokens = models.IntegerField(default=0)
