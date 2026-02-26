@@ -177,18 +177,39 @@ class ResilientPromptService:
     DEFAULT_RETRY_MULTIPLIER = 2.0
     DEFAULT_TIMEOUT = 60
     
-    # Default tier configurations
+    # Default tier configurations (ADR-084 v3: includes groq_fast)
     DEFAULT_TIERS = {
         "premium": TierConfig(
             code="premium",
             model="gpt-4o",
             max_tokens=4000,
             temperature=0.7,
-            fallback_tier="standard",
+            fallback_tier="groq_fast",
         ),
         "standard": TierConfig(
             code="standard",
             model="gpt-4o-mini",
+            max_tokens=2000,
+            temperature=0.7,
+            fallback_tier="groq_fast",
+        ),
+        "groq_fast": TierConfig(
+            code="groq_fast",
+            model="qwen/qwen3-32b",
+            max_tokens=4000,
+            temperature=0.7,
+            fallback_tier="economy",
+        ),
+        "groq_large": TierConfig(
+            code="groq_large",
+            model="openai/gpt-oss-120b",
+            max_tokens=4000,
+            temperature=0.7,
+            fallback_tier="groq_fast",
+        ),
+        "groq_instant": TierConfig(
+            code="groq_instant",
+            model="meta-llama/llama-3.1-8b-instant",
             max_tokens=2000,
             temperature=0.7,
             fallback_tier="economy",
@@ -209,15 +230,6 @@ class ResilientPromptService:
         max_retries: int = DEFAULT_MAX_RETRIES,
         timeout: int = DEFAULT_TIMEOUT,
     ):
-        """
-        Initialize ResilientPromptService.
-        
-        Args:
-            llm_client: LLM client for API calls
-            tiers: Optional tier configurations (default: standard tiers)
-            max_retries: Maximum retry attempts
-            timeout: Timeout in seconds
-        """
         self.llm_client = llm_client
         self.tiers = tiers or self.DEFAULT_TIERS
         self.max_retries = max_retries
@@ -261,6 +273,14 @@ class ResilientPromptService:
             "claude-3-sonnet": {"input": 3.00, "output": 15.00},
             "claude-3-haiku": {"input": 0.25, "output": 1.25},
         }
+        
+        # Groq models: always free (developer tier)
+        groq_prefixes = (
+            "qwen/", "openai/gpt-oss", "meta-llama/",
+            "groq/", "moonshotai/",
+        )
+        if any(model.startswith(p) for p in groq_prefixes):
+            return Decimal("0")
         
         price = None
         for model_key, model_price in PRICES.items():

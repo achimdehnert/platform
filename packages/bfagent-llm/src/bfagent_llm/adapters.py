@@ -6,12 +6,14 @@ Provides adapters for different LLM providers:
 - GatewayLLMAdapter: BFAgent LLM Gateway
 - OpenAILLMAdapter: Direct OpenAI API
 - AnthropicLLMAdapter: Direct Anthropic API
+- GroqLLMAdapter: Groq LPU-accelerated inference (ADR-084 v3)
 - FallbackLLMAdapter: Chain with automatic fallback
 """
 
 from __future__ import annotations
 
 import logging
+import os
 from dataclasses import dataclass
 from decimal import Decimal
 from typing import Any, Dict, List, Optional
@@ -19,6 +21,21 @@ from typing import Any, Dict, List, Optional
 from bfagent_llm.service import LLMClientProtocol, LLMResponse
 
 logger = logging.getLogger(__name__)
+
+# Groq model name mapping: short name → Groq API model ID
+GROQ_MODEL_MAP: Dict[str, str] = {
+    "qwen3-32b": "qwen/qwen3-32b",
+    "gpt-oss-120b": "openai/gpt-oss-120b",
+    "gpt-oss-20b": "openai/gpt-oss-20b",
+    "llama-3.3-70b": "meta-llama/llama-3.3-70b-versatile",
+    "llama-3.3-70b-versatile": "meta-llama/llama-3.3-70b-versatile",
+    "llama-4-scout-17b": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "llama-3.1-8b": "meta-llama/llama-3.1-8b-instant",
+    "llama-3.1-8b-instant": "meta-llama/llama-3.1-8b-instant",
+    "compound": "groq/compound",
+    "compound-mini": "groq/compound-mini",
+    "kimi-k2": "moonshotai/kimi-k2-instruct-0905",
+}
 
 
 class GatewayLLMAdapter(LLMClientProtocol):
@@ -35,18 +52,10 @@ class GatewayLLMAdapter(LLMClientProtocol):
     
     def __init__(
         self,
-        base_url: str = "http://localhost:8100", # noqa: hardcode
+        base_url: str = "http://localhost:8100",  # noqa: hardcode
         timeout: float = 120.0,
         api_key: Optional[str] = None,
     ):
-        """
-        Initialize Gateway adapter.
-        
-        Args:
-            base_url: Gateway base URL
-            timeout: Request timeout in seconds
-            api_key: Optional API key for gateway auth
-        """
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
         self.api_key = api_key
@@ -70,7 +79,6 @@ class GatewayLLMAdapter(LLMClientProtocol):
         """Execute completion via gateway."""
         client = await self._get_client()
         
-        # Build request
         payload = {
             "prompt": messages[-1]["content"] if messages else "",
             "system_prompt": next(
@@ -125,14 +133,6 @@ class OpenAILLMAdapter(LLMClientProtocol):
         organization: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
-        """
-        Initialize OpenAI adapter.
-        
-        Args:
-            api_key: OpenAI API key (or from OPENAI_API_KEY env)
-            organization: Optional organization ID
-            base_url: Optional custom base URL
-        """
         self.api_key = api_key
         self.organization = organization
         self.base_url = base_url
@@ -205,13 +205,6 @@ class AnthropicLLMAdapter(LLMClientProtocol):
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
     ):
-        """
-        Initialize Anthropic adapter.
-        
-        Args:
-            api_key: Anthropic API key (or from ANTHROPIC_API_KEY env)
-            base_url: Optional custom base URL
-        """
         self.api_key = api_key
         self.base_url = base_url
         self._client: Optional[Any] = None
@@ -247,13 +240,11 @@ class AnthropicLLMAdapter(LLMClientProtocol):
         """Execute completion via Anthropic API."""
         client = self._get_client()
         
-        # Extract system message
         system = next(
             (m["content"] for m in messages if m["role"] == "system"),
             "",
         )
         
-        # Filter to user/assistant messages
         chat_messages = [
             m for m in messages if m["role"] in ("user", "assistant")
         ]
@@ -280,25 +271,115 @@ class AnthropicLLMAdapter(LLMClientProtocol):
         )
 
 
+class GroqLLMAdapter(LLMClientProtocol):
+    """
+    Adapter for Groq LPU-accelerated inference (ADR-084 v3).
+
+    Groq provides an OpenAI-compatible API with ultra-fast inference
+    on custom LPU hardware. Developer tier is free ($0 per token).
+
+    Supported models (via GROQ_MODEL_MAP):
+      - qwen/qwen3-32b (best coding)
+      - openai/gpt-oss-120b (largest reasoning)
+      - meta-llama/llama-3.3-70b-versatile (proven workhorse)
+      - meta-llama/llama-3.1-8b-instant (ultra-fast)
+      - groq/compound, groq/compound-mini (agentic)
+      - moonshotai/kimi-k2-instruct-0905 (MoE)
+
+    Usage:
+        adapter = GroqLLMAdapter(api_key="gsk_...")
+        response = await adapter.complete(
+            messages, model="qwen3-32b", ...
+        )
+    """
+
+    GROQ_BASE_URL = "https://api.groq.com/openai/v1"
+
+    def __init__(
+        self,
+        api_key: Optional[str] = None,
+    ):
+        self.api_key = api_key or os.environ.get("GROQ_API_KEY", "")
+        self._client: Optional[Any] = None
+
+    def _resolve_model(self, model: str) -> str:
+        """Resolve short name to full Groq model ID."""
+        if model in GROQ_MODEL_MAP:
+            return GROQ_MODEL_MAP[model]
+        if "/" in model:
+            return model
+        return model
+
+    def _get_client(self):
+        """Get or create OpenAI client pointed at Groq."""
+        if self._client is None:
+            try:
+                from openai import AsyncOpenAI
+            except ImportError:
+                raise ImportError(
+                    "openai package required. "
+                    "Install with: pip install openai"
+                )
+
+            if not self.api_key:
+                raise ValueError(
+                    "Groq API key required. Set GROQ_API_KEY env var "
+                    "or pass api_key to GroqLLMAdapter."
+                )
+
+            self._client = AsyncOpenAI(
+                api_key=self.api_key,
+                base_url=self.GROQ_BASE_URL,
+            )
+
+        return self._client
+
+    async def complete(
+        self,
+        messages: List[Dict[str, str]],
+        model: str,
+        max_tokens: int,
+        temperature: float,
+        **kwargs,
+    ) -> LLMResponse:
+        """Execute completion via Groq API."""
+        client = self._get_client()
+        resolved_model = self._resolve_model(model)
+
+        response = await client.chat.completions.create(
+            model=resolved_model,
+            messages=messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            **kwargs,
+        )
+
+        choice = response.choices[0]
+        usage = response.usage
+
+        return LLMResponse(
+            content=choice.message.content or "",
+            model=response.model,
+            tokens_in=usage.prompt_tokens if usage else 0,
+            tokens_out=usage.completion_tokens if usage else 0,
+            cost=Decimal("0"),  # Groq developer tier = free
+            raw_response=response.model_dump(),
+        )
+
+
 class FallbackLLMAdapter(LLMClientProtocol):
     """
     Adapter that chains multiple adapters with automatic fallback.
     
     Usage:
         adapter = FallbackLLMAdapter([
-            GatewayLLMAdapter(base_url="http://llm-gateway:8100"),
+            GroqLLMAdapter(api_key="gsk_..."),
             OpenAILLMAdapter(api_key="sk-..."),
         ])
         response = await adapter.complete(messages, model="gpt-4o-mini", ...)
     """
     
     def __init__(self, adapters: List[LLMClientProtocol]):
-        """
-        Initialize fallback adapter.
-        
-        Args:
-            adapters: List of adapters to try in order
-        """
         if not adapters:
             raise ValueError("At least one adapter required")
         self.adapters = adapters
