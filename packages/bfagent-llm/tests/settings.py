@@ -2,6 +2,9 @@
 Django test settings for bfagent-llm.
 
 Uses PostgreSQL (matching production). Override via environment variables.
+
+Local WSL: peer auth over Unix socket (HOST="").
+CI/Docker: TCP with password (HOST="localhost").
 """
 
 import os
@@ -22,10 +25,10 @@ DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
         "NAME": os.environ.get("TEST_DB_NAME", "test_bfagent_llm"),
-        "USER": os.environ.get("TEST_DB_USER", "postgres"),
-        "PASSWORD": os.environ.get("TEST_DB_PASSWORD", "postgres"),
-        "HOST": os.environ.get("TEST_DB_HOST", "localhost"),
-        "PORT": os.environ.get("TEST_DB_PORT", "5432"),
+        "USER": os.environ.get("TEST_DB_USER", os.environ.get("USER", "dehnert")),
+        "PASSWORD": os.environ.get("TEST_DB_PASSWORD", ""),
+        "HOST": os.environ.get("TEST_DB_HOST", ""),
+        "PORT": os.environ.get("TEST_DB_PORT", ""),
     }
 }
 
