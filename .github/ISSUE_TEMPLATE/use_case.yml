@@ -1,0 +1,91 @@
+name: "\U0001F3AF Use Case"
+description: "Einen neuen Use Case definieren und tracken"
+title: "[UC] "
+labels: ["use-case", "triage"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Use Case
+        Formale Use-Case-Beschreibung nach RUP/UML-Konvention.
+
+  - type: input
+    id: uc_id
+    attributes:
+      label: "Use Case ID"
+      description: "Format: UC-XXX"
+      placeholder: "UC-007"
+    validations:
+      required: true
+
+  - type: input
+    id: uc_name
+    attributes:
+      label: "Use Case Name"
+      placeholder: "Feature beschreiben"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: uc_level
+    attributes:
+      label: "Use Case Level"
+      options:
+        - "summary \u2014 \u00dcbergeordnetes Ziel (Epics)"
+        - "user-goal \u2014 Prim\u00e4res Nutzerziel (Standard)"
+        - "subfunction \u2014 Teil-Funktion / Helper UC"
+    validations:
+      required: true
+
+  - type: input
+    id: primary_actor
+    attributes:
+      label: "Prim\u00e4rer Akteur"
+      placeholder: "Admin / Developer / System"
+    validations:
+      required: true
+
+  - type: textarea
+    id: preconditions
+    attributes:
+      label: "Vorbedingungen"
+      placeholder: |
+        - Nutzer ist eingeloggt
+    validations:
+      required: true
+
+  - type: textarea
+    id: main_flow
+    attributes:
+      label: "Hauptszenario (Happy Path)"
+      description: "Nummerierte Schritt-f\u00fcr-Schritt-Beschreibung"
+      placeholder: |
+        1. Nutzer \u00f6ffnet Seite
+        2. Nutzer klickt Button
+        3. System verarbeitet
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternative_flows
+    attributes:
+      label: "Alternative Szenarien / Ausnahmen"
+    validations:
+      required: false
+
+  - type: textarea
+    id: postconditions
+    attributes:
+      label: "Nachbedingungen (Erfolgsfall)"
+    validations:
+      required: true
+
+  - type: textarea
+    id: related
+    attributes:
+      label: "Verkn\u00fcpfte Issues / ADRs / UCs"
+      placeholder: "ADR-001, #12"
+    validations:
+      required: false
