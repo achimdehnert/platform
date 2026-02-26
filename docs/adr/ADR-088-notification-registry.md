@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-26
 decision-makers: [Platform Team]
 ---
@@ -232,20 +232,31 @@ class SmsChannel(BaseChannel):
     def deliver(self, recipient: str, subject: str, body: str, **kwargs: object) -> bool:
         from twilio.rest import Client  # type: ignore[import-untyped]
         client = Client(self._get_account_sid(), self._get_auth_token())
-        client.messages.create(body=body, from_=self._get_from_number(), to=recipient)
+        client.messages.create(
+            body=body,
+            from_=self._get_from_number(),
+            to=recipient,
+        )
         return True
     
     def validate_recipient(self, recipient: str) -> bool:
         import re
-        return bool(re.match(r"^\+[1-9]\d{6,14}$", recipient))
+        return bool(re.match(r"^\+[1-9]\d{1,14}$", recipient))
+    
+    def health_check(self) -> dict[str, bool | str]:
+        try:
+            self._get_account_sid()
+            return {"healthy": True, "channel": self.name}
+        except Exception as exc:
+            return {"healthy": False, "channel": self.name, "error": str(exc)}
     
     def _get_account_sid(self) -> str:
         from django.conf import settings
-        return settings.TWILIO_ACCOUNT_SID  # ADR-045: via SOPS
+        return settings.TWILIO_ACCOUNT_SID
     
     def _get_auth_token(self) -> str:
         from django.conf import settings
-        return settings.TWILIO_AUTH_TOKEN  # ADR-045: via SOPS
+        return settings.TWILIO_AUTH_TOKEN
     
     def _get_from_number(self) -> str:
         from django.conf import settings
@@ -255,95 +266,90 @@ class SmsChannel(BaseChannel):
 import httpx
 
 class WebhookChannel(BaseChannel):
+    """Generic webhook channel."""
     name = "webhook"
     
     def deliver(self, recipient: str, subject: str, body: str, **kwargs: object) -> bool:
         with httpx.Client(timeout=self.config.timeout) as client:
             response = client.post(
-                recipient,  # recipient = webhook URL
+                recipient,
                 json={"subject": subject, "body": body, **kwargs},
             )
             response.raise_for_status()
         return True
     
     def validate_recipient(self, recipient: str) -> bool:
-        return recipient.startswith(("https://",))
+        return recipient.startswith("https://")
+    
+    def health_check(self) -> dict[str, bool | str]:
+        return {"healthy": True, "channel": self.name}
 ```
 
-#### 4. Notification Service (Service-Layer)
+#### 4. Notification Service
 
 ```python
 # platform/packages/platform-notifications/service.py
 import logging
-from dataclasses import dataclass
-from django.db import transaction
+from pydantic import BaseModel, ConfigDict, Field
 
 logger = logging.getLogger(__name__)
 
-@dataclass(frozen=True)
-class Notification:
-    tenant_id: str
-    channel: str
-    recipient: str
-    subject: str
-    body: str
-    source_app: str
-    source_event: str
-    metadata: dict[str, object] | None = None
+class Notification(BaseModel):
+    model_config = ConfigDict(frozen=True)
+    
+    tenant_id: str = Field(description="Tenant UUID")
+    channel: str = Field(description="Channel name (email, sms, webhook, ...)")
+    recipient: str = Field(description="Recipient address")
+    subject: str = Field(default="", description="Notification subject")
+    body: str = Field(description="Notification body")
+    source_app: str = Field(description="Sending app (bfagent, risk-hub, ...)")
+    source_event: str = Field(description="Event type (rsvp_confirmation, ...)")
+    metadata: dict = Field(default_factory=dict, description="Additional metadata")
 
 class NotificationService:
     """Platform-wide notification service.
     
-    Sync API — safe for Django views.
-    Dispatches Celery tasks for async delivery.
+    Synchronous API — dispatches Celery tasks for async delivery.
     """
     
     @classmethod
     def send(cls, notification: Notification) -> str:
-        """Queue a notification for delivery. Returns log_id."""
+        """Send notification. Returns log_id. Sync — safe for Django views."""
         from platform_notifications.models import NotificationLog
         from platform_notifications.tasks import dispatch_notification_task
         
         registry = ChannelRegistry.get_instance()
-        channel = registry.get(notification.channel)  # raises KeyError
+        channel = registry.get(notification.channel)
         
         if not channel.validate_recipient(notification.recipient):
-            raise ValueError(
-                f"Invalid recipient for channel '{notification.channel}'"
-            )
+            raise ValueError(f"Invalid recipient for channel {notification.channel}")
         
-        with transaction.atomic():
-            log = NotificationLog.objects.create(
-                tenant_id=notification.tenant_id,
-                channel=notification.channel,
-                recipient=notification.recipient,
-                subject=notification.subject,
-                body=notification.body,
-                source_app=notification.source_app,
-                source_event=notification.source_event,
-                metadata=notification.metadata or {},
-                status="pending",
-            )
+        log = NotificationLog.objects.create(
+            tenant_id=notification.tenant_id,
+            channel=notification.channel,
+            recipient=notification.recipient,
+            subject=notification.subject,
+            body=notification.body,
+            source_app=notification.source_app,
+            source_event=notification.source_event,
+            metadata=notification.metadata,
+            status="pending",
+        )
         
         dispatch_notification_task.delay(str(log.id))
         logger.info(
-            "Notification queued: log_id=%s channel=%s tenant=%s",
-            log.id, notification.channel, notification.tenant_id,
+            "Notification queued: log_id=%s channel=%s app=%s",
+            log.id, notification.channel, notification.source_app,
         )
         return str(log.id)
     
     @classmethod
-    def send_multi(cls, notifications: list[Notification]) -> list[str]:
-        """Queue multiple notifications. Returns list of log_ids."""
-        return [cls.send(n) for n in notifications]
-    
-    @classmethod
     def health_check(cls) -> dict[str, dict[str, bool | str]]:
-        """Run health checks on all registered channels."""
+        """Health check all registered channels."""
         return ChannelRegistry.get_instance().health_check_all()
 ```
 
-#### 5. Celery Task
+#### 5. Celery Task (Celery-First)
 
 ```python
 # platform/packages/platform-notifications/tasks.py
@@ -360,21 +366,16 @@ logger = logging.getLogger(__name__)
     retry_backoff_max=300,
     retry_jitter=True,
     autoretry_for=(ConnectionError, TimeoutError),
-    acks_late=True,
 )
-def dispatch_notification_task(self, log_id: str) -> None:  # noqa: ANN001
-    """Deliver a single notification via its channel."""
+def dispatch_notification_task(self, log_id: str) -> None:
+    """Deliver notification via channel. Celery-First pattern."""
     from platform_notifications.models import NotificationLog
     from platform_notifications.registry import ChannelRegistry
     
-    try:
-        log = NotificationLog.objects.get(id=log_id)
-    except NotificationLog.DoesNotExist:
-        logger.error("NotificationLog not found: %s", log_id)
-        return
+    log = NotificationLog.objects.get(id=log_id)
+    registry = ChannelRegistry.get_instance()
     
     try:
-        registry = ChannelRegistry.get_instance()
         channel = registry.get(log.channel)
         success = channel.deliver(
             recipient=log.recipient,
