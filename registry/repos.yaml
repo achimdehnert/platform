@@ -1,7 +1,16 @@
 # registry/repos.yaml — Single Source of Truth for all platform repositories
 # Used by: repo_checker.py, populate_catalog (devhub), CI coverage gate
 # ADR-022: Repository Consistency Standards
-# Last verified: 2026-02-21 against docker ps on 88.198.191.108
+# Last verified: 2026-02-26 against docker-compose.prod.yml in each repo
+#
+# DEPLOY FIELDS (added 2026-02-26 to prevent misidentified containers/paths):
+#   deploy.server_path   — absolute path on Hetzner VM 88.198.191.108
+#   deploy.image         — full GHCR image reference
+#   deploy.web_container — container_name from docker-compose.prod.yml
+#   deploy.web_service   — service name from docker-compose.prod.yml
+#   deploy.migrate_cmd   — correct Django migrate command
+#   deploy.multi_tenant  — true if django-tenants is used
+#   deploy.port          — host port mapped to container
 
 domains:
 
@@ -50,6 +59,14 @@ domains:
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
+        deploy:
+          server_path: /opt/bfagent
+          image: ghcr.io/achimdehnert/bfagent-web:${IMAGE_TAG:-latest}
+          web_container: bfagent_web
+          web_service: bfagent-web
+          migrate_cmd: python manage.py migrate --noinput
+          multi_tenant: false
+          port: 8091
 
       - name: pptx-hub
         repo: pptx-hub
@@ -88,6 +105,18 @@ domains:
         dockerfile: docker/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
+        deploy:
+          server_path: /opt/travel-beat
+          image: ghcr.io/achimdehnert/travel-beat:${IMAGE_TAG:-latest}
+          web_container: travel_beat_web
+          web_service: travel-beat-web
+          migrate_cmd: python manage.py migrate_schemas --tenant
+          multi_tenant: true
+          port: 8089
+          notes: >
+            django-tenants: NEVER use 'migrate --noinput' alone.
+            Always use 'migrate_schemas --shared' and 'migrate_schemas --tenant'.
+            deploy-remote.sh has a known bug using 'migrate --noinput'.
 
   - name: Business & Safety
     systems:
@@ -102,6 +131,14 @@ domains:
         dockerfile: docker/app/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
+        deploy:
+          server_path: /opt/risk-hub
+          image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+          web_container: risk_hub_web
+          web_service: risk-hub-web
+          migrate_cmd: python manage.py migrate --noinput
+          multi_tenant: false
+          port: 8090
 
       - name: trading-hub
         repo: trading-hub
@@ -135,3 +172,24 @@ domains:
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
+
+      - name: 137-hub
+        repo: 137-hub
+        description: 137herz.de — Community & Supersystem Platform
+        github: achimdehnert/137-hub
+        deployed: true
+        url: https://137herz.de
+        type: django
+        lifecycle: production
+        dockerfile: docker/Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+        deploy:
+          server_path: /opt/137-hub
+          image: ghcr.io/achimdehnert/137-hub/hub137-web:latest
+          web_container: hub137_web
+          web_service: hub137-web
+          migrate_cmd: python manage.py migrate --noinput
+          multi_tenant: false
+          port: 8095
+          deploy_script: /opt/137-hub/deploy.sh
