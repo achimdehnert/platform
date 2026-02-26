@@ -101,8 +101,16 @@ class TestBuildLitellmModelString:
         assert _build_litellm_model_string(model) == "openai/gpt-4o"
 
 
-@pytest.mark.django_db
+@pytest.mark.django_db(transaction=True)
 class TestCompletion:
+    """Async tests need transaction=True.
+
+    completion() is async and may use a separate DB connection.
+    With savepoint-wrapped tests (default), the fixture data is
+    invisible to that second connection (transaction isolation).
+    transaction=True commits fixture data before the test runs.
+    """
+
     @pytest.mark.asyncio
     async def test_should_complete_and_log_usage(self, test_action):
         mock_response = MagicMock()
