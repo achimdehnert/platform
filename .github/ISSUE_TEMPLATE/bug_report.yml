@@ -1,0 +1,49 @@
+name: "\U0001F41B Bug Report"
+description: Report a bug to help improve the system
+title: "[BUG] "
+labels: ["bug", "triage"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      label: "\U0001F4DD Description"
+      description: What is the current behavior?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: "\U0001F504 Reproduction Steps"
+      description: How can we reproduce this bug?
+      placeholder: |
+        1. Go to...
+        2. Click on...
+        3. See error...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: "\u26A1 Expected Behavior"
+      description: What should have happened?
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: "\U0001F4BB Environment"
+      description: Browser, OS, Python/Django version if relevant.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: "\U0001F525 Severity"
+      options:
+        - "critical \u2014 System down / data loss"
+        - "high \u2014 Major feature broken"
+        - "medium \u2014 Feature partially broken"
+        - "low \u2014 Minor issue / cosmetic"
+    validations:
+      required: true
