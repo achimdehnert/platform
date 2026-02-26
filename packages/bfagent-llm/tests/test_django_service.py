@@ -106,8 +106,6 @@ class TestCompletion:
     """Async tests need transaction=True.
 
     completion() is async and may use a separate DB connection.
-    With savepoint-wrapped tests (default), the fixture data is
-    invisible to that second connection (transaction isolation).
     transaction=True commits fixture data before the test runs.
     """
 
@@ -126,14 +124,11 @@ class TestCompletion:
         with (
             patch.dict(os.environ, {"GROQ_API_KEY": "gsk_test"}),
             patch(
-                "bfagent_llm.django_app.service.litellm",
-                create=True,
-            ) as mock_litellm,
+                "litellm.acompletion",
+                new_callable=AsyncMock,
+                return_value=mock_response,
+            ),
         ):
-            mock_litellm.acompletion = AsyncMock(
-                return_value=mock_response
-            )
-
             from bfagent_llm.django_app.service import completion
 
             result = await completion(
@@ -148,7 +143,6 @@ class TestCompletion:
             assert result.tokens_out == 5
             assert result.provider == "groq"
 
-            # Verify usage was logged
             assert AIUsageLog.objects.filter(
                 tenant_id=TENANT_ID,
                 success=True,
