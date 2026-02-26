@@ -1,10 +1,10 @@
 # ADR Index — Platform Architecture Decision Records
 
 > **Pflege**: Wird automatisch aktualisiert beim Erstellen/Ändern eines ADR via `/adr` Workflow.  
-> **Letzte Aktualisierung**: 2026-02-26 (ADR-Migration: repo-spezifische ADRs verschoben)
+> **Letzte Aktualisierung**: 2026-02-26 (ADR-087 + ADR-088: OpenClaw-Übernahme)
 > **ADR-Template**: v2.0 — `docs/templates/adr-template.md`
 
-> 🔢 **Nächste freie Nummer (platform-weit):** `ADR-086`  
+> 🔢 **Nächste freie Nummer (platform-weit):** `ADR-089`  
 > 🔢 **Nächste freie Nummer (trading-hub):** `ADR-402`
 
 ---
@@ -115,8 +115,11 @@
 | 083 | Hybrid ADR Governance — Platform + Repo-lokale ADRs | `Proposed` | `platform` | [ADR-083-hybrid-adr-governance.md](ADR-083-hybrid-adr-governance.md) |
 | 084 | Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung | `Accepted` | `platform` / `mcp-hub` | [ADR-084-model-registry-dynamic-llm-routing.md](ADR-084-model-registry-dynamic-llm-routing.md) |
 | 085 | Use Case Pipeline — Natural Language → Structured TaskGraph | `Accepted` | `platform` / `mcp-hub` | [ADR-085-use-case-pipeline-nl-to-taskgraph.md](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
+| 086 | Agent Team Workflow Definition | `Accepted` | `platform` | [ADR-086-agent-team-workflow-definition.md](ADR-086-agent-team-workflow-definition.md) |
+| 087 | Hybrid Search Architecture — pgvector + FTS + Reciprocal Rank Fusion | `Proposed` | `platform` | [ADR-087-hybrid-search-architecture.md](ADR-087-hybrid-search-architecture.md) |
+| 088 | Notification Registry — Einheitliches Multi-Channel-Benachrichtigungssystem | `Proposed` | `platform` | [ADR-088-notification-registry.md](ADR-088-notification-registry.md) |
 
-> ✅ **Nächste freie Nummer (Core Platform):** `ADR-086`
+> ✅ **Nächste freie Nummer (Core Platform):** `ADR-089`
 
 ### MCP Hub (150–199)
 
