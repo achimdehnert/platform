@@ -1,8 +1,9 @@
 """
 Django test settings for bfagent-llm.
 
-Uses PostgreSQL via Docker (docker-compose.test.yml).
-Run: bash scripts/test.sh -v
+Uses the existing bfagent_db Docker container (port 5432).
+Django test runner auto-creates a 'test_<NAME>' database.
+Override via TEST_DB_* env vars for CI.
 """
 
 import os
@@ -22,11 +23,11 @@ INSTALLED_APPS = [
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("TEST_DB_NAME", "test_bfagent_llm"),
-        "USER": os.environ.get("TEST_DB_USER", "test"),
-        "PASSWORD": os.environ.get("TEST_DB_PASSWORD", "test"),
+        "NAME": os.environ.get("TEST_DB_NAME", "bfagent_llm_test"),
+        "USER": os.environ.get("TEST_DB_USER", "bfagent"),
+        "PASSWORD": os.environ.get("TEST_DB_PASSWORD", "bfagent_dev_2024"),
         "HOST": os.environ.get("TEST_DB_HOST", "localhost"),
-        "PORT": os.environ.get("TEST_DB_PORT", "5433"),
+        "PORT": os.environ.get("TEST_DB_PORT", "5432"),
     }
 }
 
