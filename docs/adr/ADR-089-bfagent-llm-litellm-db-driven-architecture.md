@@ -14,7 +14,7 @@ related: ADR-084, ADR-082, ADR-045, ADR-056, ADR-080, ADR-068
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
-| **Status**     | **Accepted** (v3 — Phase 2 in progress)                             |
+| **Status**     | **Accepted** (v4 — Phase 2 in progress)                             |
 | **Scope**      | Platform-wide — AI Infrastructure                                    |
 | **Repo**       | platform (`packages/bfagent-llm/`)                                   |
 | **Erstellt**   | 2026-02-26                                                           |
@@ -142,6 +142,20 @@ bfagent-llm v1.0 (implementiert)
    in einem reusable Package MUSS ein explizites `related_name` haben.
    Ohne `related_name` erzeugt Django identische Reverse-Accessors wenn
    die Consumer-App ein Model mit gleichem Namen hat (E304).
+9. **Version-Bump bei Code-Änderungen (v4):** Jede Code-Änderung an einem
+   veröffentlichten Package MUSS einen Version-Bump in `pyproject.toml`
+   beinhalten. NIEMALS den gleichen Versions-String für geänderten Code
+   verwenden. `pip wheel` und Docker-Build-Cache nutzen den Dateinamen
+   (`pkg-X.Y.Z-py3-none-any.whl`) als Cache-Key — gleiche Version +
+   geänderter Code = stale Wheel im Container.
+   ```
+   # ❌ FALSCH: Code ändern ohne Version-Bump
+   # → pip/Docker liefert altes 1.0.0 Wheel aus Cache
+   version = "1.0.0"  # Code geändert, aber Version nicht!
+
+   # ✅ RICHTIG: Immer bumpen
+   version = "1.0.1"  # Neuer Dateiname → kein Cache-Hit
+   ```
 
 ### 2.2 Zwei Modi
 
@@ -195,8 +209,9 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 4. ✅ `llm_service.py` Adapter (bfagent-llm primary, LiteLLM fallback)
 5. ✅ Fix: `app_label="bfagent_llm"` (Invariante 7)
 6. ✅ Fix: `related_name="bfllm_usage_logs"` (Invariante 8)
-7. 🔄 Deploy + Migrate auf Server
-8. ⏳ Cleanup: `llm_client.py`, `llm_providers.py` entfernen
+7. ✅ Fix: Version-Bump 1.0.0 → 1.0.1 (Invariante 9)
+8. 🔄 Deploy + Migrate auf Server
+9. ⏳ Cleanup: `llm_client.py`, `llm_providers.py` entfernen
 
 ### Phase 3: Weitere Apps (pending)
 
@@ -234,6 +249,7 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 | R-09 | App-Label generisch ("django_app") | **HOCH** | ✅ v3 — `label="bfagent_llm"` + Invariante 7 |
 | R-10 | Rollback-Plan | HOCH | ✅ v1 |
 | R-11 | ForeignKey ohne related_name | HOCH | ✅ v3 — `related_name="bfllm_usage_logs"` + Invariante 8 |
+| R-12 | Wheel ohne Version-Bump deployed | **HOCH** | ✅ v4 — Invariante 9: Pflicht-Bump bei Code-Änderung |
 
 ---
 
@@ -244,4 +260,5 @@ response = await adapter.complete(messages=messages, model="qwen/qwen3-32b", ...
 | 2026-02-26 | Achim Dehnert | v0: Initial Draft |
 | 2026-02-26 | Achim Dehnert | v1: Review-Fixes R-01 bis R-10 |
 | 2026-02-26 | Achim Dehnert | v2: Status → Accepted. Phase 1 implementiert (bfagent-llm v1.0.0) |
-| 2026-02-26 | Achim Dehnert | v3: Invarianten 7+8 (explicit app_label + related_name). R-09 Risiko NIEDRIG→HOCH. R-11 neu. Phase 2 Status aktualisiert. |
+| 2026-02-26 | Achim Dehnert | v3: Invarianten 7+8 (explicit app_label + related_name). R-09 NIEDRIG→HOCH. R-11 neu. |
+| 2026-02-26 | Achim Dehnert | v4: Invariante 9 (Pflicht-Version-Bump). R-12 neu. Bump 1.0.0→1.0.1. |
