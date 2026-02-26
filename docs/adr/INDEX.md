@@ -115,8 +115,8 @@
 | 084 | Shared Test Fixtures Package | `Proposed` | `platform` | [ADR-084](ADR-084-shared-fixtures.md) |
 | 085 | OpenClaw Adoption Strategy | `Accepted` | `platform` | [ADR-085](ADR-085-openclaw-adoption.md) |
 | 086 | Agent Team Workflow Definition | `Accepted` | `platform` | [ADR-086](ADR-086-agent-team-workflow-definition.md) |
-| 087 | Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine | `Proposed` | `platform` | [ADR-087](ADR-087-hybrid-search-architecture.md) |
-| 088 | Adopt a Shared Notification Registry as Platform-wide Multi-Channel Messaging System | `Proposed` | `platform` | [ADR-088](ADR-088-notification-registry.md) |
+| 087 | Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine | `Accepted` | `platform` | [ADR-087](ADR-087-hybrid-search-architecture.md) |
+| 088 | Adopt a Shared Notification Registry as Platform-wide Multi-Channel Messaging System | `Accepted` | `platform` | [ADR-088](ADR-088-notification-registry.md) |
 
 ---
 
