@@ -186,6 +186,40 @@ jobs:
               fi
             done
           fi
+      # ADR-090 Stage ③: Migration Graph Check — catches NodeNotFoundError BEFORE deploy
+      - name: Migration Graph Check
+        env:
+          DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
+          SECRET_KEY: test-secret-key-for-ci
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        run: |
+          set -euo pipefail
+          python manage.py migrate --check 2>&1 && echo "OK: Migration graph consistent" || {
+            echo "FAIL: Migration graph inconsistent — pending or broken migrations detected!"
+            python manage.py showmigrations 2>&1 | grep -E '^\s+\[ \]' || true
+            exit 1
+          }
+
+      # ADR-090 Stage ③: AppConfig Label Check — catches default AppConfig without explicit label
+      - name: AppConfig Label Check
+        env:
+          DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
+          SECRET_KEY: test-secret-key-for-ci
+          POSTGRES_HOST: localhost
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        run: |
+          set -euo pipefail
+          python manage.py check --deploy --fail-level ERROR 2>&1 || {
+            echo "FAIL: Django system check failed!"
+            exit 1
+          }
+          echo "OK: Django system check passed"
+
       - name: Run integration tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
