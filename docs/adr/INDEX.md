@@ -1,7 +1,7 @@
 # Architecture Decision Records — Index
 
 > **Last updated:** 2026-02-27  
-> **Next free ADR number:** 092
+> **Next free ADR number:** 095
 
 ## Legend
 
@@ -89,7 +89,7 @@
 | 061 | Adopt hardcode_scanner.py as Platform-wide Tooling | `Accepted` | [ADR-061](ADR-061-hardcoding-elimination-strategy.md) |
 | 062 | Shared PostgreSQL Schema `content_store` for AI-generated Content | `Accepted` | [ADR-062](ADR-062-content-store-shared-persistence.md) |
 | 063 | Staging Environment Strategy | `Accepted` | [ADR-063](ADR-063-staging-environment-strategy.md) |
-| 064 | coach-hub „KI ohne Risiko™“ Architecture | `Archived` | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
+| 064 | coach-hub „KI ohne Risiko™" Architecture | `Archived` | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
 | 065 | Filesystem-first ADR Numbering — max(existing) + 1 | `Accepted` | [ADR-065](ADR-065-adr-numbering-filesystem-first.md) |
 | 066 | AI Engineering Squad with Role-based Agents | `Accepted` | [ADR-066](ADR-066-ai-engineering-team.md) |
 | 067 | GitHub Issues + Projects as Single Source of Truth | `Accepted` | [ADR-067](ADR-067-work-management-strategy.md) |
@@ -117,6 +117,9 @@
 | 089 | bfagent-llm — LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline — Python + PostgreSQL → Docker Deploy | `Accepted` | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
 | 091 | Shared Backend Services Library für Django-Projekte | `Accepted` | [ADR-091](ADR-091-shared-backend-services.md) |
+| 092 | Tenant-Aware Seed Commands | `Accepted` | [ADR-092](ADR-092-tenant-aware-seed-commands.md) |
+| 093 | AI Config App | `Accepted` | [ADR-093](ADR-093-ai-config-app.md) |
+| 094 | AI Context Defense-in-Depth — 4-Layer RAP Architecture | `Accepted` | [ADR-094](ADR-094-ai-context-defense-in-depth.md) |
 
 ## Gaps (intentional — deleted/archived ADRs)
 
@@ -133,3 +136,4 @@
 - [x] ADR-091 (Shared Backend Services): `Accepted` ✅
 - [x] ADRs archiviert (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): in `_archive/superseded/` verschoben ✅
 - [x] ADR-063 (Staging): `Accepted` — Branch-basiertes Staging, Port-Offset +100, Q2–Q4 2026 ✅
+- [x] ADR-094 (AI Context Defense-in-Depth): `Accepted` — 4 Layer vollständig implementiert ✅
