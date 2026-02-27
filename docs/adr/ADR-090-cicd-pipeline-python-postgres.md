@@ -14,7 +14,7 @@ repo: platform
 
 | Attribut       | Wert                                                        |
 |----------------|-------------------------------------------------------------|
-| **Status**     | **Accepted** (v4 — Hardened)                                |
+| **Status**     | **Accepted** (v5 — Implementation-Hardened)                 |
 | **Scope**      | Platform-wide — all Django repos                            |
 | **Erstellt**   | 2026-02-26                                                  |
 | **Autor**      | Achim Dehnert                                               |
@@ -167,10 +167,10 @@ permissions:
   contents: read
   packages: write
 
-# v4: Concurrency-Control — verhindert parallele Deploys
+# v5: Concurrency-Control — cancel stale CI, protect deploys via environment
 concurrency:
-  group: deploy-${{ github.repository }}
-  cancel-in-progress: false  # Laufenden Deploy NIEMALS abbrechen!
+  group: ci-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true  # Stale CI-Runs bei neuem Push sofort canceln
 
 env:
   DEPLOY_IMAGE: ${{ vars.DEPLOY_IMAGE }}
@@ -181,11 +181,13 @@ env:
   DEPLOY_MIGRATE_CMD: ${{ vars.DEPLOY_MIGRATE_CMD }}
 ```
 
-**v4 Concurrency-Regeln:**
-- `cancel-in-progress: false` — ein laufender Deploy wird **nie** abgebrochen
-- Nachfolgende Pushes warten in der Queue bis der aktuelle Deploy abgeschlossen ist
-- Verhindert Race Conditions wenn z.B. 2 Pushes schnell hintereinander kommen
-- Scope ist pro Repository (`deploy-${{ github.repository }}`)
+**v5 Concurrency-Regeln** (gefixt nach 137-hub Implementation):
+- `cancel-in-progress: true` — stale CI-Runs werden bei neuem Push sofort gecancelt
+- Concurrency-Gruppe inkludiert `${{ github.ref }}` → PRs und main haben separate Gruppen
+- **Deploy-Safety** wird NICHT durch Concurrency gelöst, sondern durch `environment: production`
+  (GitHub verhindert parallele Deployments zum selben Environment automatisch)
+- v4-Bug: `cancel-in-progress: false` auf Workflow-Level blockierte neue CI-Runs hinter
+  alten (mit stale Code), was bei schnellen Fix-Commits zu langen Wartezeiten führte
 
 ### 5.1 Stage ① Development (Lokal)
 
@@ -964,7 +966,7 @@ Diese Pipeline hätte **alle 4 Fehler** des travel-beat Deployments verhindert:
 | M4 | Nur /livez/, kein /healthz/ | MODERAT | ✅ v3 — Beide Endpoints |
 | M5 | pre-commit-hooks veraltet | MODERAT | ✅ v3 — v6.0.0 |
 | M6 | maxkb=5000 zu hoch | MODERAT | ✅ v3 — 500 KB |
-| O1 | Kein Concurrency-Control | HOCH | ✅ v4 — `concurrency:` Block |
+| O1 | Kein Concurrency-Control | HOCH | ✅ v4 — `concurrency:` Block, ⚠️ v5 — cancel-in-progress:true |
 | O2 | Keine Job-Timeouts | HOCH | ✅ v4 — `timeout-minutes: 5` auf allen Jobs |
 | O3 | Kein DB-Backup vor Migration | HOCH | ✅ v4 — pg_dump vor migrate |
 | O4 | Kein Reusable Workflow | MITTEL | ✅ v4 — Template in §6 definiert |
@@ -980,3 +982,4 @@ Diese Pipeline hätte **alle 4 Fehler** des travel-beat Deployments verhindert:
 | 2026-02-27 | Achim Dehnert | v2: Hybrid Matrix — Fast Checks Gate, dann ②b ‖ ③ parallel |
 | 2026-02-27 | Achim Dehnert | v3: Post-Review — 19 Befunde (5K, 8S, 6M) gefixt. MADR 4.0 compliant. |
 | 2026-02-27 | Achim Dehnert | v4: Hardened — Concurrency-Control, 5min Job-Timeouts, DB-Backup vor Migration, Reusable Workflow Template, GitHub Environment Protection, Artifact Retention. |
+| 2026-02-27 | Achim Dehnert | v5: Implementation-Hardened — Concurrency-Bug gefixt (cancel-in-progress:true + ref-basierte Gruppe), Requirements-Trennung (prod vs dev), ruff src-Config, Pillow CVE-2026-25990. |
