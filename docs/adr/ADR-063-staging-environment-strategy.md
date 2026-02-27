@@ -1,8 +1,8 @@
-# ADR-062: Staging Environment Strategy
+# ADR-063: Staging Environment Strategy
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context and Problem Statement
 
@@ -56,10 +56,13 @@ Chosen option: **Option 3 — Branch-basiertes Staging auf dev-server**, weil:
 | bfagent | 8080 | 8180 |
 | dev-hub | 8081 | 8181 |
 | travel-beat | 8082 | 8182 |
+| weltenhub | 8085 | 8185 |
+| trading-hub | 8088 | 8188 |
 | risk-hub | 8090 | 8190 |
 | cad-hub | 8094 | 8194 |
-| trading-hub | 8088 | 8188 |
-| weltenhub | 8085 | 8185 |
+| pptx-hub | 8095 | 8195 |
+| coach-hub | 8007 | 8107 |
+| wedding-hub | 8096 | 8196 |
 
 ### Branch-Strategie
 

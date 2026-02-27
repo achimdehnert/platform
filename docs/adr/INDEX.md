@@ -88,7 +88,7 @@
 | 060 | Developer Workstation SSH Key Configuration Standard | `Accepted` | [ADR-060](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Adopt hardcode_scanner.py as Platform-wide Tooling | `Accepted` | [ADR-061](ADR-061-hardcoding-elimination-strategy.md) |
 | 062 | Shared PostgreSQL Schema `content_store` for AI-generated Content | `Accepted` | [ADR-062](ADR-062-content-store-shared-persistence.md) |
-| 063 | Staging Environment Strategy | `Proposed` | [ADR-063](ADR-063-staging-environment-strategy.md) |
+| 063 | Staging Environment Strategy | `Accepted` | [ADR-063](ADR-063-staging-environment-strategy.md) |
 | 064 | coach-hub „KI ohne Risiko™“ Architecture | `Archived` | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
 | 065 | Filesystem-first ADR Numbering — max(existing) + 1 | `Accepted` | [ADR-065](ADR-065-adr-numbering-filesystem-first.md) |
 | 066 | AI Engineering Squad with Role-based Agents | `Accepted` | [ADR-066](ADR-066-ai-engineering-team.md) |
@@ -132,4 +132,4 @@
 - [x] ADR-083 (Hybrid ADR Governance): `Accepted` ✅
 - [x] ADR-091 (Shared Backend Services): `Accepted` ✅
 - [x] ADRs archiviert (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): in `_archive/superseded/` verschoben ✅
-- [ ] ADR-063 (Staging): Noch `Proposed` — Staging-Umgebung auf dev-server evaluieren (Docker-only, kein extra Server)
+- [x] ADR-063 (Staging): `Accepted` — Branch-basiertes Staging, Port-Offset +100, Q2–Q4 2026 ✅
