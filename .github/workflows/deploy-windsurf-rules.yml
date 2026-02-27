@@ -1,0 +1,39 @@
+name: Deploy Windsurf Rules to All Repos
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'windsurf-rules/**'
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        repo:
+          - travel-beat
+          - bfagent
+          - weltenhub
+          - risk-hub
+          - trading-hub
+          - pptx-hub
+          - cad-hub
+
+    steps:
+      - name: Trigger receive-windsurf-rules in ${{ matrix.repo }}
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PLATFORM_DEPLOY_TOKEN }}
+          script: |
+            await github.rest.repos.createDispatchEvent({
+              owner: 'achimdehnert',
+              repo: '${{ matrix.repo }}',
+              event_type: 'windsurf-rules-updated',
+              client_payload: {
+                source_commit: context.sha,
+                triggered_by: 'platform/windsurf-rules'
+              }
+            });
+            console.log('Dispatched to ${{ matrix.repo }}');
