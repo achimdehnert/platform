@@ -644,71 +644,6 @@ ssh root@88.198.191.108 "certbot certonly --webroot -w /var/www/html -d <DOMAIN>
 <DOMAIN> → 88.198.191.108 (TTL 60)
 ```
 
-## Step 5b: Platform-Packages integrieren (falls benötigt)
-
-Falls die App ein Package aus dem `platform` Repo nutzt (z.B. `platform-notifications`, `platform-search`):
-
-### Warum Vendor-Pattern?
-
-Private GitHub Repos können im Docker-Build nicht per `git+https://` installiert werden
-(keine Auth im Build-Context). Lösung: Package wird unter `vendor/` im Repo eingebunden.
-
-### 5b.1 Package lokal klonen
-
-```bash
-cd <REPO>/
-mkdir -p vendor
-git clone --depth 1 git@github.com:achimdehnert/platform.git /tmp/platform-sparse
-cd /tmp/platform-sparse
-git sparse-checkout set packages/<PACKAGE_NAME>
-cp -r packages/<PACKAGE_NAME> <REPO>/vendor/<PACKAGE_NAME>
-rm -rf /tmp/platform-sparse
-```
-
-### 5b.2 requirements.txt anpassen
-
-```text
-# Platform packages (vendored — private repo)
-vendor/<PACKAGE_NAME>
-```
-
-**NICHT**: `git+https://github.com/achimdehnert/platform.git#subdirectory=packages/<PACKAGE_NAME>`
-
-### 5b.3 Dockerfile anpassen
-
-```dockerfile
-# VOR pip install:
-COPY vendor /app/vendor
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-```
-
-### 5b.4 Django Settings
-
-```python
-INSTALLED_APPS = [
-    ...
-    "<package_module>",  # z.B. "platform_notifications"
-]
-```
-
-### 5b.5 Server: vendor aktualisieren
-
-Bei Package-Updates muss der vendor-Ordner auf dem Server aktualisiert werden:
-
-```bash
-ssh root@88.198.191.108
-cd /opt/<REPO>
-
-# Alten vendor löschen und neu klonen
-rm -rf vendor/<PACKAGE_NAME>
-git clone --depth 1 https://<GITHUB_PAT>@github.com/achimdehnert/platform.git /tmp/platform-pkg
-cp -r /tmp/platform-pkg/packages/<PACKAGE_NAME> vendor/<PACKAGE_NAME>
-rm -rf /tmp/platform-pkg
-```
-
-Detaillierte Anleitung: `<REPO>/.windsurf/workflows/platform-package-integration.md`
-
 ## Step 6: Platform-Integration
 
 ### 6.1 registry/repos.yaml aktualisieren (PFLICHT — Single Source of Truth)
@@ -799,11 +734,12 @@ Docker (KRITISCH):
   [ ] Beat-Volume in docker-compose.prod.yml definiert (<REPO_UNDERSCORE>_beatdata)
 
 Platform-Packages (falls verwendet):
-  [ ] vendor/<PACKAGE_NAME> Verzeichnis existiert
-  [ ] requirements.txt referenziert vendor/<PACKAGE_NAME> (NICHT git+https)
-  [ ] Dockerfile: COPY vendor /app/vendor VOR pip install
-  [ ] INSTALLED_APPS enthält Package-Modul
-  [ ] Server: vendor/<PACKAGE_NAME> aktuell
+  [ ] vendor/<PACKAGE>/ existiert mit pyproject.toml
+  [ ] requirements.txt: `vendor/<PACKAGE>` (KEIN git+https!)
+  [ ] Dockerfile: `COPY vendor /app/vendor` VOR `pip install`
+  [ ] .gitignore: vendor/ NICHT ausgeschlossen
+  [ ] .dockerignore: vendor/ NICHT ausgeschlossen
+  [ ] INSTALLED_APPS: Package-App hinzugefügt
 
 Server:
   [ ] /opt/<REPO>/ Verzeichnis existiert
@@ -835,4 +771,3 @@ CI/CD:
 | Test-Infrastruktur (conftest, factories) | `travel-beat/tests/` |
 | registry/repos.yaml | `platform/registry/repos.yaml` |
 | SSH-Setup | ADR-060 |
-| Platform-Package Vendoring | `wedding-hub/vendor/` |
