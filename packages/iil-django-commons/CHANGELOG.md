@@ -1,5 +1,13 @@
 # Changelog — iil-django-commons
 
+## [0.3.0] — 2026-02-27
+
+### Added
+- `iil_commons.email`: `EmailService` — provider-agnostic email abstraction (SMTP + Resend), `EmailMessage` dataclass
+- `iil_commons.tasks`: `BaseTask` — Celery base class with auto-retry (exponential backoff), structured logging, Correlation-ID propagation
+- `iil_commons.monitoring`: `PrometheusMiddleware` (request_count, request_latency, in_progress metrics), `metrics_view` for `/metrics/` endpoint, no-op when `prometheus_client` not installed
+- 9 new tests (email + monitoring + tasks) — total: 31 tests green
+
 ## [0.2.0] — 2026-02-27
 
 ### Added
