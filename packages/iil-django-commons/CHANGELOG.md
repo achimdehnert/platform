@@ -1,5 +1,13 @@
 # Changelog — iil-django-commons
 
+## [0.2.0] — 2026-02-27
+
+### Added
+- `iil_commons.ratelimit`: `RateLimitMiddleware` (global, path-based sliding window), `@rate_limit(requests, window, key)` decorator, `X-RateLimit-*` headers, 429 + `Retry-After` response
+- `iil_commons.security`: `SecurityHeadersMiddleware` — adds `X-Content-Type-Options`, `X-Frame-Options`, `X-XSS-Protection`, `Referrer-Policy`, `Permissions-Policy`, `Content-Security-Policy` (configurable via `IIL_COMMONS["CSP_POLICY"]`)
+- 9 new tests (ratelimit + security) — total: 22 tests green
+- Version bump: Alpha → Beta (`Development Status :: 4 - Beta`)
+
 ## [0.1.0] — 2026-02-27
 
 ### Added

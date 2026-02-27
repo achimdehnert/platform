@@ -1,6 +1,6 @@
 [project]
 name = "iil-django-commons"
-version = "0.1.0"
+version = "0.2.0"
 description = "Shared backend services library for Django projects (Logging, Health, Cache, Rate Limiting, Security)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -9,7 +9,7 @@ authors = [
     {name = "Achim Dehnert", email = "achim@dehnert.com"}
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Framework :: Django :: 5.0",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
