@@ -170,7 +170,7 @@ if ! $SKIP_MIGRATE && [[ -z "$ROLLBACK_TO" ]]; then
         # Step 5a: shared schema
         log "Running migrate_schemas --shared (django-tenants)..."
         compose run --rm --no-deps "$WEB_SERVICE" \
-            python manage.py migrate_schemas --shared --noinput 2>&1 | tee /tmp/migrate.log || MIGRATE_EXIT=$?
+            python manage.py migrate_schemas --shared --noinput 2>&1 | tee "${DEPLOY_DIR}/migrate.log" || MIGRATE_EXIT=$?
 
         if [[ $MIGRATE_EXIT -ne 0 ]]; then
             err "migrate_schemas --shared FAILED (exit code: ${MIGRATE_EXIT})"
@@ -197,10 +197,10 @@ else:
         # Step 5c: all tenant schemas
         log "Running migrate_schemas (all tenants)..."
         compose run --rm --no-deps "$WEB_SERVICE" \
-            python manage.py migrate_schemas --noinput 2>&1 | tee -a /tmp/migrate.log || MIGRATE_EXIT=$?
+            python manage.py migrate_schemas --noinput 2>&1 | tee -a "${DEPLOY_DIR}/migrate.log" || MIGRATE_EXIT=$?
     else
         compose run --rm --no-deps "$WEB_SERVICE" \
-            python manage.py migrate --noinput 2>&1 | tee /tmp/migrate.log || MIGRATE_EXIT=$?
+            python manage.py migrate --noinput 2>&1 | tee "${DEPLOY_DIR}/migrate.log" || MIGRATE_EXIT=$?
     fi
 
     if [[ $MIGRATE_EXIT -ne 0 ]]; then
