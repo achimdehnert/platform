@@ -1,6 +1,6 @@
 [project]
 name = "iil-django-commons"
-version = "0.2.0"
+version = "0.3.0"
 description = "Shared backend services library for Django projects (Logging, Health, Cache, Rate Limiting, Security)"
 readme = "README.md"
 requires-python = ">=3.11"
