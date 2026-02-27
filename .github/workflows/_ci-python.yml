@@ -206,11 +206,17 @@ jobs:
           POSTGRES_DB: test_db
         run: |
           set -euo pipefail
-          python manage.py migrate --check 2>&1 && echo "OK: Migration graph consistent" || {
-            echo "FAIL: Migration graph inconsistent — pending or broken migrations detected!"
-            python manage.py showmigrations 2>&1 | grep -E '^\s+\[ \]' || true
-            exit 1
-          }
+          # Skip migrate --check for in-memory/SQLite test databases (no migrations applied)
+          DB_ENGINE=$(python -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE'])" 2>/dev/null || echo "unknown")
+          if echo "$DB_ENGINE" | grep -q "sqlite"; then
+            echo "OK: Skipping migrate --check for SQLite test DB (in-memory, no migrations applied)"
+          else
+            python manage.py migrate --check 2>&1 && echo "OK: Migration graph consistent" || {
+              echo "FAIL: Migration graph inconsistent — pending or broken migrations detected!"
+              python manage.py showmigrations 2>&1 | grep -E '^\s+\[ \]' || true
+              exit 1
+            }
+          fi
 
       # ADR-090 Stage ③: AppConfig Label Check — catches default AppConfig without explicit label
       - name: AppConfig Label Check
