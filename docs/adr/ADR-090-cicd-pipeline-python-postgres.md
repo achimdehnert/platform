@@ -14,7 +14,7 @@ repo: platform
 
 | Attribut       | Wert                                                        |
 |----------------|-------------------------------------------------------------|
-| **Status**     | **Accepted** (v3 — Post-Review)                             |
+| **Status**     | **Accepted** (v4 — Hardened)                                |
 | **Scope**      | Platform-wide — all Django repos                            |
 | **Erstellt**   | 2026-02-26                                                  |
 | **Autor**      | Achim Dehnert                                               |
@@ -47,6 +47,8 @@ automatisierte Prüfungen verhindert worden wären:
 - **Sicherheit:** Keine Secrets in YAML (ADR-061), kein `StrictHostKeyChecking=no` (ADR-042)
 - **Rollback-Fähigkeit:** SHA-getaggte Images für deterministisches Rollback (ADR-056 R2)
 - **Compliance:** MADR 4.0 Format, ADR-059 Drift Detector kompatibel
+- **Concurrency-Safety:** Kein paralleler Deploy auf denselben Server (v4)
+- **Datenintegrität:** DB-Backup vor jeder Migration (v4)
 
 ---
 
@@ -89,11 +91,15 @@ Kombiniert Kostenkontrolle mit maximaler Parallelität.
 - Teure Postgres-Jobs starten nur wenn Code grundsätzlich valide ist
 - SHA-7 Image-Tags ermöglichen deterministisches Rollback
 - AppConfig + Migration-Graph Checks verhindern die travel-beat Fehlerklasse
+- Concurrency-Control verhindert Race Conditions bei schnellen Pushes (v4)
+- DB-Backup vor Migration schützt vor Datenverlust (v4)
+- Reusable Workflow eliminiert Drift zwischen Repos (v4)
 
 **Bad:**
 - Höhere Workflow-Komplexität als lineare Pipeline
 - Coverage-Merge erfordert Artifact-Passing zwischen Jobs
 - Self-Hosted Runner muss gewartet werden (ADR-042)
+- Environment Protection erfordert initiales GitHub-Setup pro Repo (v4)
 
 ### 3.3 Confirmation
 
@@ -104,6 +110,8 @@ Die Pipeline-Compliance wird verifiziert durch:
 4. Coverage ≥ 80% wird in ④ als Gate enforced
 5. `/livez/` + `/healthz/` in ⑥ verifizieren laufende Applikation + DB-Verbindung
 6. SHA-7 Rollback in ⑦ verifiziert durch erneuten Health-Check
+7. `concurrency:` Block verhindert parallele Deploys (v4)
+8. DB-Backup existiert vor jeder Migration (v4)
 
 ---
 
@@ -127,11 +135,13 @@ Die Pipeline-Compliance wird verifiziert durch:
                     ④ Quality Gate
                     coverage merge ≥80%
                           │
-                    ⑤ Build + Push
-                    Docker → GHCR (SHA-7 + latest)
+                ┌── ⑤ Build + Push ──┐
+                │   Docker → GHCR    │ environment: production
+                │   (SHA-7 + latest) │ (manual approval)
+                └────────────────────┘
                           │
                     ⑥ Migrate + Verify
-                    migrations → health → smoke
+                    DB-backup → migrations → health → smoke
                           │
                     ⑦ Error Handling
                     rollback (SHA-7) + notify
@@ -157,6 +167,11 @@ permissions:
   contents: read
   packages: write
 
+# v4: Concurrency-Control — verhindert parallele Deploys
+concurrency:
+  group: deploy-${{ github.repository }}
+  cancel-in-progress: false  # Laufenden Deploy NIEMALS abbrechen!
+
 env:
   DEPLOY_IMAGE: ${{ vars.DEPLOY_IMAGE }}
   DEPLOY_DOCKERFILE: ${{ vars.DEPLOY_DOCKERFILE }}
@@ -165,6 +180,12 @@ env:
   DEPLOY_PORT: ${{ vars.DEPLOY_PORT }}
   DEPLOY_MIGRATE_CMD: ${{ vars.DEPLOY_MIGRATE_CMD }}
 ```
+
+**v4 Concurrency-Regeln:**
+- `cancel-in-progress: false` — ein laufender Deploy wird **nie** abgebrochen
+- Nachfolgende Pushes warten in der Queue bis der aktuelle Deploy abgeschlossen ist
+- Verhindert Race Conditions wenn z.B. 2 Pushes schnell hintereinander kommen
+- Scope ist pro Repository (`deploy-${{ github.repository }}`)
 
 ### 5.1 Stage ① Development (Lokal)
 
@@ -228,6 +249,7 @@ pytest tests/unit/ -x --tb=short
 ```yaml
   fast-checks:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
 
@@ -262,6 +284,7 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
 ```yaml
   python-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: fast-checks
     steps:
       - uses: actions/checkout@v4
@@ -310,6 +333,7 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
         with:
           name: coverage-python
           path: .coverage
+          retention-days: 7
 ```
 
 **Gate:** Tests grün, Wheels valide.
@@ -323,6 +347,7 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
 ```yaml
   postgres-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: fast-checks          # ← same dependency as ②b → parallel!
     services:
       postgres:
@@ -407,7 +432,7 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
         with:
           name: coverage-postgres
           path: .coverage
-
+          retention-days: 7
 ```
 
 **django-tenants Variante:**
@@ -431,6 +456,7 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
 ```yaml
   quality-gate:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [python-tests, postgres-tests]
     steps:
       - uses: actions/checkout@v4
@@ -464,8 +490,11 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
 ```yaml
   deploy-build:
     runs-on: [self-hosted, hetzner]
+    timeout-minutes: 5
     needs: quality-gate
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # v4: Environment Protection — erfordert manuelles Approval in GitHub
+    environment: production
     steps:
       - uses: actions/checkout@v4
 
@@ -532,8 +561,14 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
     outputs:
       previous_sha: ${{ steps.pre_deploy.outputs.previous_sha }}
       deploy_sha: ${{ github.sha }}
-
 ```
+
+**v4 Environment Protection:**
+- GitHub Environment `production` muss im Repo konfiguriert werden
+  (Settings → Environments → New → `production`)
+- Optional: Required Reviewers aktivieren → manuelles Approval vor Deploy
+- Optional: Wait Timer (z.B. 5 Minuten Wartezeit vor Deploy)
+- Secrets können Environment-spezifisch sein (z.B. `DEPLOY_SSH_KEY` nur in `production`)
 
 **Gate:** Image mit SHA-7 Tag UND latest gepusht. Previous SHA gespeichert.
 
@@ -541,11 +576,12 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
 
 ### 5.7 Stage ⑥ Migrate + Deploy Verify
 
-**Ziel:** Migrations VOR App-Start, dann Health + Smoke.
+**Ziel:** DB-Backup, Migrations VOR App-Start, dann Health + Smoke.
 
 ```yaml
   deploy-verify:
     runs-on: [self-hosted, hetzner]
+    timeout-minutes: 5
     needs: deploy-build
     steps:
       - name: Setup SSH
@@ -564,7 +600,20 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
             docker compose -f docker-compose.prod.yml pull
           "
 
-      # S6 Fix: Migrations BEFORE app starts serving requests
+      # v4: DB-Backup vor Migration — Safety Net bei Schema-Änderungen
+      - name: Backup Database
+        run: |
+          set -euo pipefail
+          BACKUP_FILE="${{ vars.DEPLOY_APP_NAME }}-pre-${GITHUB_SHA::7}-$(date +%Y%m%d-%H%M%S).sql.gz"
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} "
+            mkdir -p /opt/backups && \
+            docker exec ${{ vars.DEPLOY_DB_CONTAINER }} \
+              pg_dump -U \${POSTGRES_USER:-postgres} \${POSTGRES_DB:-app} \
+              | gzip > /opt/backups/${BACKUP_FILE} && \
+            echo 'Backup OK: /opt/backups/${BACKUP_FILE} ('$(du -h /opt/backups/${BACKUP_FILE} | cut -f1)')'
+          "
+
+      # Migrations BEFORE app starts serving requests (S6 fix)
       - name: Run Migrations (before app start)
         run: |
           set -euo pipefail
@@ -622,7 +671,14 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
           echo "- **Readiness:** /healthz/ → 200" >> "$GITHUB_STEP_SUMMARY"
 ```
 
-**Gate:** Migrations OK, Liveness 200, Readiness 200, keine kritischen Log-Fehler.
+**v4 DB-Backup Regeln:**
+- Backup wird **vor** jeder Migration erstellt
+- Dateiname enthält App-Name, Git-SHA und Timestamp für Eindeutigkeit
+- Gespeichert in `/opt/backups/` auf dem Server
+- Bei Rollback (Stage ⑦) kann das Backup manuell restored werden
+- Cleanup: `find /opt/backups -name '*.sql.gz' -mtime +30 -delete` (Cron)
+
+**Gate:** Backup OK, Migrations OK, Liveness 200, Readiness 200, keine kritischen Log-Fehler.
 
 ---
 
@@ -633,6 +689,7 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
 ```yaml
   rollback:
     runs-on: [self-hosted, hetzner]
+    timeout-minutes: 5
     needs: deploy-verify
     if: failure()
     steps:
@@ -682,15 +739,108 @@ Fail → Pipeline stoppt sofort (kein Postgres-Container gestartet).
           set -euo pipefail
           echo "## 🔴 Deployment FAILED — Rollback Executed" >> "$GITHUB_STEP_SUMMARY"
           echo "- **Rolled back to:** ${{ needs.deploy-build.outputs.previous_sha }}" >> "$GITHUB_STEP_SUMMARY"
+          echo "- **DB Backup available** in /opt/backups/" >> "$GITHUB_STEP_SUMMARY"
           curl -sf -X POST "${{ secrets.SLACK_WEBHOOK_URL }}" \
             -H 'Content-Type: application/json' \
-            -d "{\"text\":\"🔴 Deployment FAILED: ${{ vars.DEPLOY_APP_NAME }} — Rollback to ${{ needs.deploy-build.outputs.previous_sha }}. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Logs>\"}" \
+            -d "{\"text\":\"🔴 Deployment FAILED: ${{ vars.DEPLOY_APP_NAME }} — Rollback to ${{ needs.deploy-build.outputs.previous_sha }}. DB backup in /opt/backups/. <${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|Logs>\"}" \
             || echo "WARN: Slack notification failed (webhook not configured?)"
 ```
 
 ---
 
-## 6. Per-App Configuration
+## 6. Reusable Workflow (v4)
+
+Statt in jedem Repo eine Kopie der Pipeline zu pflegen, kann ein **Reusable Workflow**
+im `platform` Repository definiert werden:
+
+### 6.1 Template in platform
+
+```yaml
+# platform/.github/workflows/ci-cd-template.yml
+name: CI/CD Template (ADR-090)
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        required: true
+        type: string
+      dockerfile:
+        required: true
+        type: string
+      image:
+        required: true
+        type: string
+      container:
+        required: true
+        type: string
+      web_service:
+        required: true
+        type: string
+      server_path:
+        required: true
+        type: string
+      port:
+        required: true
+        type: string
+      migrate_cmd:
+        required: true
+        type: string
+      db_container:
+        required: true
+        type: string
+    secrets:
+      DEPLOY_SSH_KEY:
+        required: true
+      DEPLOY_HOST:
+        required: true
+      DEPLOY_USER:
+        required: true
+      SLACK_WEBHOOK_URL:
+        required: false
+
+# ... (alle Jobs wie in §5 definiert, mit inputs.* statt vars.*)
+```
+
+### 6.2 Nutzung in Consumer-Repos
+
+```yaml
+# travel-beat/.github/workflows/ci-cd.yml
+name: CI/CD
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pipeline:
+    uses: achimdehnert/platform/.github/workflows/ci-cd-template.yml@main
+    with:
+      app_name: travel-beat
+      dockerfile: docker/Dockerfile
+      image: ghcr.io/achimdehnert/travel-beat
+      container: travel_beat_web
+      web_service: travel-beat-web
+      server_path: /opt/travel-beat
+      port: "8089"
+      migrate_cmd: "python manage.py migrate_schemas --tenant"
+      db_container: travel_beat_db
+    secrets: inherit
+```
+
+**Vorteile:**
+- **DRY:** Pipeline-Logik existiert genau einmal in `platform`
+- **Kein Drift:** Alle Repos nutzen automatisch die neueste Version
+- **Einfaches Onboarding:** Neues Repo = 20 Zeilen YAML
+- **Zentrale Updates:** Fix in `platform` → alle Repos profitieren
+
+**Implementierung:** Phase 2, nachdem die Pipeline in einem Repo (137-hub) validiert ist.
+
+---
+
+## 7. Per-App Configuration
 
 Jedes Repo definiert seine Pipeline-Variablen als **GitHub Repository Variables**
 (Settings → Secrets and variables → Actions → Variables):
@@ -702,11 +852,12 @@ Jedes Repo definiert seine Pipeline-Variablen als **GitHub Repository Variables*
 | `DEPLOY_IMAGE` | ghcr.io/achimdehnert/travel-beat | ghcr.io/achimdehnert/137-hub/hub137-web |
 | `DEPLOY_CONTAINER` | travel_beat_web | hub137_web |
 | `DEPLOY_WEB_SERVICE` | travel-beat-web | hub137-web |
+| `DEPLOY_DB_CONTAINER` | travel_beat_db | hub137_db |
 | `DEPLOY_SERVER_PATH` | /opt/travel-beat | /opt/137-hub |
 | `DEPLOY_PORT` | 8089 | 8095 |
 | `DEPLOY_MIGRATE_CMD` | python manage.py migrate_schemas --tenant | python manage.py migrate --noinput |
 
-**Secrets** (Repository-Level):
+**Secrets** (Repository-Level oder Environment-Level):
 
 | Secret | Beschreibung |
 |--------|-------------|
@@ -715,45 +866,56 @@ Jedes Repo definiert seine Pipeline-Variablen als **GitHub Repository Variables*
 | `DEPLOY_USER` | SSH User (z.B. `root`) |
 | `SLACK_WEBHOOK_URL` | Optional: Slack Incoming Webhook |
 
+**GitHub Environment** (v4):
+
+| Setting | Wert |
+|---------|------|
+| Name | `production` |
+| Required Reviewers | Optional (empfohlen für kritische Apps) |
+| Wait Timer | Optional (z.B. 0–5 Minuten) |
+| Deployment Branches | `main` only |
+
 Source of truth: `platform/registry/repos.yaml`.
 
 ---
 
-## 7. Pipeline Timing (geschätzt)
+## 8. Pipeline Timing (geschätzt)
 
 ```
-Linearer Ansatz (v1):          Hybrid Matrix (v3):
+Linearer Ansatz (v1):          Hybrid Matrix (v4):
 ──────────────────             ──────────────────
 ②  Python CI    3min           ②a Fast Checks   0.5min
 ③  Postgres CI  4min           ②b Python Tests ─┐
 ④  Gate         0.5min              3min        │ parallel
 ⑤  Build        3min           ③  Postgres     ─┘  = 4min
 ⑥  Deploy       2min           ④  Gate           0.5min
-                               ⑤  Build          3min
-Total: ~12.5min                ⑥  Deploy         2min
+                               ⑤  Build          3min (+ approval wait)
+Total: ~12.5min                ⑥  Deploy         2min (inkl. backup)
 
-                               Total: ~10min (−20%)
+                               Total: ~10min (−20%) + approval
                                Bei Lint-Fail: 0.5min statt 3min!
+                               Max Job-Timeout: 5min (v4)
 ```
 
 ---
 
-## 8. Implementierungsprioritäten
+## 9. Implementierungsprioritäten
 
 | Prio | Stage | Aufwand | Wert | Status |
 |------|-------|---------|------|--------|
 | 1 | ②a Fast Checks | 30min | **Billigster Gate, größter ROI** | ⏳ |
 | 2 | ③ Migration Graph + AppConfig Check | 1h | **Verhindert NodeNotFoundError** | ⏳ |
 | 3 | ②b Wheel Verification | 1h | **Verhindert stale Wheel deploys** | ⏳ |
-| 4 | ⑤ Build + Push mit SHA-Tag | 2h | Rollback-fähige Images | ⏳ |
-| 5 | ⑥ Migrate-first + Health + Smoke | 2h | Keine App mit altem Schema | ⏳ |
+| 4 | ⑤ Build + Push + Environment | 2h | Rollback-fähige Images + Approval | ⏳ |
+| 5 | ⑥ Backup + Migrate-first + Health | 2h | Datenintegrität + keine App mit altem Schema | ⏳ |
 | 6 | ④ Coverage Gate | 1h | Qualitätssicherung | ⏳ |
 | 7 | ⑦ SHA-Rollback + Slack | 3h | Automatische Fehlerbehandlung | ⏳ |
 | 8 | ① Pre-commit (kanonisch) | 30min | Lokales Feedback | ⏳ |
+| 9 | Reusable Workflow Template | 3h | DRY über alle Repos | ⏳ |
 
 ---
 
-## 9. Lessons Learned (travel-beat 2026-02-26)
+## 10. Lessons Learned (travel-beat 2026-02-26)
 
 Diese Pipeline hätte **alle 4 Fehler** des travel-beat Deployments verhindert:
 
@@ -768,7 +930,7 @@ Diese Pipeline hätte **alle 4 Fehler** des travel-beat Deployments verhindert:
 
 ---
 
-## 10. More Information
+## 11. More Information
 
 - ADR-042: Self-Hosted Runner Setup auf Hetzner Dev-Server
 - ADR-056: Multi-Tenancy Deploy Patterns (migrate_schemas)
@@ -779,7 +941,7 @@ Diese Pipeline hätte **alle 4 Fehler** des travel-beat Deployments verhindert:
 
 ---
 
-## 11. Review-Protokoll
+## 12. Review-Protokoll
 
 | # | Befund | Risiko | Status |
 |---|--------|--------|--------|
@@ -802,13 +964,19 @@ Diese Pipeline hätte **alle 4 Fehler** des travel-beat Deployments verhindert:
 | M4 | Nur /livez/, kein /healthz/ | MODERAT | ✅ v3 — Beide Endpoints |
 | M5 | pre-commit-hooks veraltet | MODERAT | ✅ v3 — v6.0.0 |
 | M6 | maxkb=5000 zu hoch | MODERAT | ✅ v3 — 500 KB |
+| O1 | Kein Concurrency-Control | HOCH | ✅ v4 — `concurrency:` Block |
+| O2 | Keine Job-Timeouts | HOCH | ✅ v4 — `timeout-minutes: 5` auf allen Jobs |
+| O3 | Kein DB-Backup vor Migration | HOCH | ✅ v4 — pg_dump vor migrate |
+| O4 | Kein Reusable Workflow | MITTEL | ✅ v4 — Template in §6 definiert |
+| O5 | Keine Environment Protection | MITTEL | ✅ v4 — `environment: production` |
 
 ---
 
-## 12. Changelog
+## 13. Changelog
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-02-26 | Achim Dehnert | v1: Initial — 7-Stufen-Pipeline aus ADR-056/057/071/054 + Lessons Learned |
 | 2026-02-27 | Achim Dehnert | v2: Hybrid Matrix — Fast Checks Gate, dann ②b ‖ ③ parallel |
-| 2026-02-27 | Achim Dehnert | v3: Post-Review — 19 Befunde (5K, 8S, 6M) gefixt. MADR 4.0 compliant. Security-Fixes (SSH, Secrets). Coverage-Merge korrigiert. Migration-Reihenfolge. SHA-7 Rollback. Vollständiger Workflow. |
+| 2026-02-27 | Achim Dehnert | v3: Post-Review — 19 Befunde (5K, 8S, 6M) gefixt. MADR 4.0 compliant. |
+| 2026-02-27 | Achim Dehnert | v4: Hardened — Concurrency-Control, 5min Job-Timeouts, DB-Backup vor Migration, Reusable Workflow Template, GitHub Environment Protection, Artifact Retention. |
