@@ -112,10 +112,10 @@ server {
 
 | Task | Status |
 |------|--------|
-| Port-Reservierung dokumentieren | ☐ Pending |
-| `staging`-Branch in allen Repos anlegen | ☐ Pending |
-| `/opt/<app>-staging/` Verzeichnisse anlegen | ☐ Pending |
-| `.env.staging` Templates erstellen | ☐ Pending |
+| Port-Reservierung dokumentieren | ✅ Done — Port-Tabelle alle 10 Services in §Implementation |
+| `staging`-Branch in allen Repos anlegen | ✅ Done — alle 10 Repos (2026-02-27) |
+| `/opt/<app>-staging/` Verzeichnisse anlegen | ✅ Done — alle 10 auf dev-server (46.225.113.1) |
+| `.env.staging` Templates erstellen | ✅ Done — `deployment/env.staging.template` |
 
 ### Phase 2 — Workflow-Integration (Q3 2026)
 
