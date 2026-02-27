@@ -139,13 +139,22 @@ jobs:
           SECRET_KEY: test-secret-key-for-ci
           USE_POSTGRES: "0"
         run: |
-          pytest -m "not integration and not contract and not slow" \
-            --no-migrations \
-            --cov \
-            --cov-report=xml:coverage-unit.xml \
-            --cov-report=term-missing \
-            -n ${{ inputs.pytest_workers }} \
-            --dist=loadscope
+          WORKERS=${{ inputs.pytest_workers }}
+          if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
+            pytest -m "not integration and not contract and not slow" \
+              --no-migrations \
+              --cov \
+              --cov-report=xml:coverage-unit.xml \
+              --cov-report=term-missing
+          else
+            pytest -m "not integration and not contract and not slow" \
+              --no-migrations \
+              --cov \
+              --cov-report=xml:coverage-unit.xml \
+              --cov-report=term-missing \
+              -n "$WORKERS" \
+              --dist=loadscope
+          fi
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-unit
@@ -227,12 +236,19 @@ jobs:
           POSTGRES_HOST: localhost
           REDIS_URL: redis://localhost:6379/0
         run: |
+          WORKERS=${{ inputs.pytest_workers }}
           set +e
-          pytest -m "integration" \
-            --cov \
-            --cov-report=xml:coverage-integration.xml \
-            -n ${{ inputs.pytest_workers }} \
-            --dist=loadscope
+          if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
+            pytest -m "integration" \
+              --cov \
+              --cov-report=xml:coverage-integration.xml
+          else
+            pytest -m "integration" \
+              --cov \
+              --cov-report=xml:coverage-integration.xml \
+              -n "$WORKERS" \
+              --dist=loadscope
+          fi
           EXIT_CODE=$?
           if [ "$EXIT_CODE" -eq 5 ]; then
             echo "No integration tests collected — creating empty coverage report"
