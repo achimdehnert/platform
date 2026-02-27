@@ -92,14 +92,13 @@ Verwende `deployment-mcp` → `compose_ps` Tool.
 ### Private Repo Dependencies im Docker-Build
 
 `git+https://` in `requirements.txt` schlägt im Docker-Build fehl (keine GitHub-Auth).
-
 **Lösung**: Vendor-Pattern — Package unter `vendor/` im Repo, `requirements.txt` referenziert lokalen Pfad.
 Siehe: `wedding-hub/.windsurf/workflows/platform-package-integration.md`
 
 ### SSH-Timeouts bei Build-Operationen
 
 | Operation | Min. Timeout |
-|-----------|-------------|
+| --- | --- |
 | Docker Build | 300-600s |
 | Docker Push | 300s |
 | Compose Pull | 120s |
@@ -110,7 +109,6 @@ Bei `deployment-mcp` → `ssh_manage exec` immer `timeout: 600` für Build-Opera
 ### DB-Credentials nie raten
 
 Immer zuerst Container-Environment inspizieren:
-
 ```bash
 docker inspect <container> --format '{{range .Config.Env}}{{println .}}{{end}}' | grep POSTGRES
 ```
@@ -118,12 +116,6 @@ docker inspect <container> --format '{{range .Config.Env}}{{println .}}{{end}}' 
 ### Server-Pfade nachschlagen
 
 Nicht raten — in `project-facts.md` des jeweiligen Repos nachschauen oder:
-
 ```bash
 find /opt -maxdepth 2 -name "docker-compose.prod.yml" 2>/dev/null
 ```
-
-### Cross-Repo-Edits via Windsurf
-
-Windsurf Edit-Tools (edit, multi_edit) funktionieren nur zuverlässig **innerhalb des aktiven Workspace**.
-Für Dateien in anderen Repos: **GitHub API** (`mcp7_push_files`) oder **Terminal** verwenden.
