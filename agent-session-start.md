@@ -1,0 +1,120 @@
+---
+description: Pflicht-Ritual vor jeder Coding-Agent-Session — Kontext laden, Stand prüfen, sicher starten
+---
+
+# Agent Session Start Workflow
+
+**Trigger:** Jede neue Windsurf/Cascade-Session, bevor der erste Code-Change gemacht wird.
+
+> Dieses Ritual verhindert, dass ein Agent ohne Kontext blind drauflos arbeitet.
+> Dauer: ~2 Minuten. Spart Stunden an Debugging und Rollbacks.
+
+---
+
+## Step 1: Repo-Kontext laden (immer)
+
+Lese in dieser Reihenfolge — alle drei, kein Überspringen:
+
+```
+1. docs/CORE_CONTEXT.md        — Tech Stack, Architektur-Regeln, Verbotene Muster
+2. docs/AGENT_HANDOVER.md      — Was wurde zuletzt getan? Was ist offen?
+3. docs/adr/README.md          — Welche ADRs gelten? (Index genügt)
+```
+
+Falls diese Dateien nicht existieren → `/new-github-project` aufrufen.
+
+**Bestätigung (Agent spricht laut aus):**
+```
+Ich habe gelesen:
+- CORE_CONTEXT: [3 Sätze Zusammenfassung — Tech Stack + kritische Constraints]
+- AGENT_HANDOVER: [Letzter Stand + offene Aufgaben]
+- ADRs: [Anzahl + relevanteste für diese Session]
+```
+
+---
+
+## Step 2: Aufgabe klären (immer)
+
+Bevor irgendetwas implementiert wird:
+
+- [ ] GitHub Issue vorhanden? (Pflicht bei complexity >= simple — ADR-067)
+- [ ] Use Case dokumentiert? (Pflicht bei neuer User-Facing-Funktion)
+- [ ] ADR nötig? (→ `/adr` aufrufen wenn Architektur-Entscheidung nötig)
+- [ ] Governance-Check nötig? (→ `/governance-check` bei complexity >= moderate)
+
+**Bei unklarem Auftrag:** Erst klären, dann starten. Lieber 2 Fragen stellen als 2h falsch implementieren.
+
+---
+
+## Step 3: Branch-Status prüfen
+
+// turbo
+```bash
+git status && git log --oneline -5
+```
+
+Erwartung:
+- Sauberer Stand (kein uncommitted work von anderer Session)
+- Auf korrektem Branch (main oder feature/XXX)
+- Falls dirty: erst aufräumen (commit, stash, oder bewusst weiterführen)
+
+---
+
+## Step 4: Tests baseline (bei Test-kritischen Repos)
+
+// turbo
+```bash
+pytest tests/ -q --tb=no 2>&1 | tail -5
+```
+
+Zweck: Sicherstellen dass Tests VOR meinen Änderungen grün waren.  
+Falls Tests rot: **Erst fixen, dann neue Arbeit starten.** Nie auf roter Basis aufbauen.
+
+---
+
+## Step 5: Arbeitsplan aufstellen
+
+Agent erstellt IMMER einen expliziten Plan vor der Ausführung:
+
+```
+Mein Plan für diese Session:
+1. [Schritt 1 — konkreter Deliverable]
+2. [Schritt 2]
+3. [Schritt 3]
+
+Geschätzte Komplexität: trivial | simple | moderate | complex
+Risk Level: low | medium | high
+Gate Level: 0 (autonom) | 1 (notify) | 2 (approve) | 3 (sync)
+```
+
+Bei complexity >= moderate → `/agentic-coding` verwenden.
+
+---
+
+## Step 6: Session-Ende Checkliste
+
+Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
+
+- [ ] `docs/AGENT_HANDOVER.md` aktualisiert (Was wurde getan? Was ist noch offen?)
+- [ ] Alle Tests grün (`pytest tests/ -q`)
+- [ ] Kein uncommitted work (oder bewusster WIP-Commit mit `wip:` Präfix)
+- [ ] Offene Issues / PRs verlinkt
+- [ ] Neues ADR angelegt falls Architektur-Entscheidung getroffen
+
+---
+
+## Schnell-Referenz: Welcher Workflow wofür?
+
+| Situation | Workflow |
+|-----------|----------|
+| Neue Feature-Implementierung | `/agentic-coding` |
+| Bug in Produktion | `/hotfix` |
+| Neues Repo aufsetzen | `/onboard-repo` |
+| GitHub-Infra in Repo verankern | `/new-github-project` |
+| ADR anlegen | `/adr` |
+| ADR reviewen | `/adr-review` |
+| Use Case definieren | `/use-case` |
+| Governance prüfen | `/governance-check` |
+| Deployen | `/deploy` |
+| DB-Backup | `/backup` |
+| Windsurf-Verbindung tot | `/windsurf-clean` |
