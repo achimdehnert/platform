@@ -188,6 +188,65 @@ gh workflow run deploy-prod.yml \
 6. Verify healthcheck passes
 7. Document drill date and results
 
+## Service-spezifische Deploy-Besonderheiten
+
+### coach-hub (KI ohne Risiko) — Manuelles SSH-Deploy
+
+coach-hub hat **keinen GitHub Actions Runner** und wird manuell via SSH deployed.
+
+**Build-Server:** `root@88.198.191.108` (Produktionsserver)  
+**Build-Verzeichnis:** `/tmp/coach-hub-build`  
+**Compose:** `/opt/coach-hub/docker-compose.prod.yml`  
+**URL:** `https://kiohnerisiko.de` (Port `127.0.0.1:8007:8000`)
+
+#### Deploy-Ablauf
+
+```bash
+# 1. SSH auf Produktionsserver
+ssh root@88.198.191.108
+
+# 2. Build-Verzeichnis aktualisieren
+cd /tmp/coach-hub-build
+git pull origin main
+
+# 3. Image bauen und deployen
+docker compose -f /opt/coach-hub/docker-compose.prod.yml pull
+docker compose -f /opt/coach-hub/docker-compose.prod.yml up -d --build
+
+# 4. Health-Check (intern — kein öffentlicher /livez!)
+curl -s http://127.0.0.1:8007/livez/
+```
+
+#### Kritische Besonderheiten
+
+- **KEIN HEALTHCHECK im Dockerfile** — nur in `docker-compose.prod.yml` pro Service (ADR-078)
+- **Beat-Volume Permission:** `chown -R appuser:appgroup /celerybeat` im `entrypoint.sh` vor `exec` (Beat-Container schlägt sonst mit Permission denied fehl)
+- **Worker/Beat Healthcheck:** `pidof python3.12 || exit 1` (nicht `celery inspect ping`)
+- **Port nicht öffentlich:** `127.0.0.1:8007:8000` — Nginx auf `88.198.191.108` proxied zu `46.225.113.1:8007`
+- **Auth:** django-allauth (nicht Django built-in) → Login unter `/accounts/`
+
+#### Runner einrichten (Zukunft)
+
+Wenn coach-hub einen Runner bekommen soll:
+
+```bash
+# Auf dev-server (46.225.113.1) als root:
+TOKEN=$(curl -s -X POST -H "Authorization: Bearer <PAT>" \
+  "https://api.github.com/repos/achimdehnert/coach-hub/actions/runners/registration-token" \
+  | python3 -c "import json,sys; print(json.load(sys.stdin).get('token',''))")
+sudo mkdir -p /home/github-runner/runner-achimdehnert-coach-hub
+sudo tar xzf /home/github-runner/actions-runner/actions-runner-linux-x64-2.331.0.tar.gz \
+  -C /home/github-runner/runner-achimdehnert-coach-hub
+sudo chown -R github-runner:github-runner /home/github-runner/runner-achimdehnert-coach-hub
+sudo -u github-runner bash -c "cd /home/github-runner/runner-achimdehnert-coach-hub && \
+  ./config.sh --url https://github.com/achimdehnert/coach-hub --token $TOKEN \
+  --name dev-hetzner --labels 'self-hosted,hetzner,dev' --work '_work' --unattended --replace"
+sudo bash -c "cd /home/github-runner/runner-achimdehnert-coach-hub && ./svc.sh install github-runner"
+sudo bash -c "cd /home/github-runner/runner-achimdehnert-coach-hub && ./svc.sh start"
+```
+
+---
+
 ## Expand/Contract Migration Pattern
 
 ```
