@@ -121,10 +121,10 @@ server {
 
 | Task | Status |
 |------|--------|
-| `_deploy-hetzner.yml` um Staging-Support erweitern | ☐ Pending |
-| `docker-compose.staging.yml` pro App | ☐ Pending |
-| Nginx-Staging-Configs auf Prod-Server | ☐ Pending |
-| SSL-Zertifikate für `staging.*`-Domains | ☐ Pending |
+| `_deploy-hetzner.yml` um Staging-Support erweitern | ✅ Done — `environment` Input war bereits vorhanden, `deploy-staging` Job in App-Workflows |
+| `docker-compose.staging.yml` pro App | ✅ Done (Pilot: wedding-hub) — `*_staging` Container/Volumes, Port +100 |
+| Nginx-Staging-Configs auf Prod-Server | ✅ Done — `staging.wedding-hub.iil.pet` Config erstellt |
+| SSL-Zertifikate für `staging.*`-Domains | ☐ Pending — Certbot auf 88.198.191.108 nach erstem Deploy |
 
 ### Phase 3 — Vollbetrieb (Q4 2026)
 
