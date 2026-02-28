@@ -1,6 +1,6 @@
 # Architecture Decision Records — Index
 
-> **Last updated:** 2026-02-27  
+> **Last updated:** 2026-02-28  
 > **Next free ADR number:** 095
 
 ## Legend
@@ -117,9 +117,9 @@
 | 089 | bfagent-llm — LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline — Python + PostgreSQL → Docker Deploy | `Accepted` | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
 | 091 | Shared Backend Services Library für Django-Projekte | `Accepted` | [ADR-091](ADR-091-shared-backend-services.md) |
-| 092 | Tenant-Aware Seed Commands | `Accepted` | [ADR-092](ADR-092-tenant-aware-seed-commands.md) |
-| 093 | AI Config App | `Accepted` | [ADR-093](ADR-093-ai-config-app.md) |
-| 094 | AI Context Defense-in-Depth — 4-Layer RAP Architecture | `Accepted` | [ADR-094](ADR-094-ai-context-defense-in-depth.md) |
+| 092 | Tenant-aware Seed Commands | `Accepted` | [ADR-092](ADR-092-tenant-aware-seed-commands.md) |
+| 093 | AI & LLM Configuration App in dev-hub | `Proposed` | [ADR-093](ADR-093-ai-config-app.md) |
+| 094 | Shared AI Services als wiederverwendbare Python-Pakete | `Proposed` | [ADR-094](ADR-094-shared-ai-services-package.md) |
 
 ## Gaps (intentional — deleted/archived ADRs)
 
@@ -136,4 +136,4 @@
 - [x] ADR-091 (Shared Backend Services): `Accepted` ✅
 - [x] ADRs archiviert (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): in `_archive/superseded/` verschoben ✅
 - [x] ADR-063 (Staging): `Accepted` — Branch-basiertes Staging, Port-Offset +100, Q2–Q4 2026 ✅
-- [x] ADR-094 (AI Context Defense-in-Depth): `Accepted` — 4 Layer vollständig implementiert ✅
+- [ ] ADR-094 (Shared AI Services): Phase 1 — `iil-django-ai-services` in platform/packages/ anlegen
