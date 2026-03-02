@@ -46,7 +46,24 @@ Bevor irgendetwas implementiert wird:
 
 ---
 
-## Step 3: Branch-Status prüfen
+## Step 3: Repo syncen (immer — verhindert "overwritten by merge")
+
+// turbo
+```bash
+bash ~/github/platform/scripts/sync-repo.sh
+```
+
+Synct WSL-Checkout mit GitHub (Single Source of Truth).
+Cascade schreibt gleichzeitig lokal (filesystem MCP) und remote (GitHub MCP) —
+ohne Sync divergieren Repos und jeder `git pull` schlägt fehl.
+
+Varianten:
+- Alle Repos: `bash ~/github/platform/scripts/sync-repo.sh --all`
+- Inkl. Server: `bash ~/github/platform/scripts/sync-repo.sh --full`
+
+---
+
+## Step 4: Branch-Status prüfen
 
 // turbo
 ```bash
@@ -60,19 +77,19 @@ Erwartung:
 
 ---
 
-## Step 4: Tests baseline (bei Test-kritischen Repos)
+## Step 5: Tests baseline (bei Test-kritischen Repos)
 
 // turbo
 ```bash
 pytest tests/ -q --tb=no 2>&1 | tail -5
 ```
 
-Zweck: Sicherstellen dass Tests VOR meinen Änderungen grün waren.  
+Zweck: Sicherstellen dass Tests VOR meinen Änderungen grün waren.
 Falls Tests rot: **Erst fixen, dann neue Arbeit starten.** Nie auf roter Basis aufbauen.
 
 ---
 
-## Step 5: Arbeitsplan aufstellen
+## Step 6: Arbeitsplan aufstellen
 
 Agent erstellt IMMER einen expliziten Plan vor der Ausführung:
 
@@ -91,7 +108,7 @@ Bei complexity >= moderate → `/agentic-coding` verwenden.
 
 ---
 
-## Step 6: Session-Ende Checkliste
+## Step 7: Session-Ende Checkliste
 
 Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 
@@ -100,6 +117,7 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 - [ ] Kein uncommitted work (oder bewusster WIP-Commit mit `wip:` Präfix)
 - [ ] Offene Issues / PRs verlinkt
 - [ ] Neues ADR angelegt falls Architektur-Entscheidung getroffen
+- [ ] Repo syncen: `bash ~/github/platform/scripts/sync-repo.sh`
 
 ---
 
@@ -118,3 +136,4 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 | Deployen | `/deploy` |
 | DB-Backup | `/backup` |
 | Windsurf-Verbindung tot | `/windsurf-clean` |
+| Repo-Sync nach Cascade-Session | `/sync-repo` |
