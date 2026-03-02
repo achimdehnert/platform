@@ -1,69 +1,93 @@
 ---
-description: Sync WSL repo(s) with GitHub remote — löst den "overwritten by merge" Fehler dauerhaft
+description: 3-Node Sync WSL ↔ GitHub ↔ Server — konsistenter Stand aller Repos auf allen Knoten
 ---
 
-# Sync Repo Workflow
+# /sync-repo — 3-Node Sync Workflow
 
-**Trigger:** Immer wenn `git pull` mit "Your local changes would be overwritten" oder "untracked files" scheitert.
+**Das Problem:** Cascade schreibt gleichzeitig über filesystem MCP (WSL/lokal) und GitHub MCP (remote).
+Resultat: lokale Repos divergieren → `git pull` scheitert mit "overwritten by merge" / "untracked files".
 
-**Problem:** Cascade schreibt Dateien sowohl lokal (filesystem MCP) als auch direkt auf GitHub (GitHub MCP). Das lokale Repo divergiert dabei — lokale Dateien existieren bereits wenn das Remote sie hinzufügt.
+## Architektur
 
-**Lösung:** `scripts/sync-repo.sh` committet wertvolle lokale Dateien automatisch, stasht den Rest, und pullt dann sauber.
+```
+GitHub          = Single Source of Truth (immer autoritativ)
+   ↑↓
+WSL             = Git-Checkouts ~/github/<repo>  →  git pull --rebase
+   ↓ SSH
+Server          = /opt/platform/  → Git-Checkout  →  git pull --rebase
+                  /opt/<app>/     → Docker-only   →  docker pull + compose up -d
+```
+
+**Was der Server NICHT hat:** Git-Checkouts der App-Repos (bfagent, travel-beat etc.).
+Die laufen dort nur als Docker-Container. Updates kommen via `docker pull`, nicht `git pull`.
 
 ---
 
-## Step 1: Einzelnes Repo syncen (Normalfall)
+## Schnellreferenz
 
-Für `platform`:
+| Befehl | Was passiert |
+|--------|--------------|
+| `bash scripts/sync-repo.sh` | WSL: platform syncen (Normalfall) |
+| `bash scripts/sync-repo.sh ~/github/bfagent` | WSL: einzelnes Repo |
+| `bash scripts/sync-repo.sh --all` | WSL: alle 14 Repos |
+| `bash scripts/sync-repo.sh --server` | Server: platform git pull + alle Apps docker pull |
+| `bash scripts/sync-repo.sh --server platform` | Server: nur /opt/platform |
+| `bash scripts/sync-repo.sh --server bfagent` | Server: nur bfagent docker pull |
+| `bash scripts/sync-repo.sh --full` | WSL --all + Server alles (vollständig) |
+
+---
+
+## Normalfall: WSL nach Cascade-Session syncen
 
 // turbo
 ```bash
 cd ~/github/platform && bash scripts/sync-repo.sh
 ```
 
-Für ein anderes Repo:
+## Alle WSL-Repos syncen
 
 ```bash
-bash ~/github/platform/scripts/sync-repo.sh ~/github/bfagent
+bash scripts/sync-repo.sh --all
 ```
 
-## Step 2: Alle Repos auf einmal syncen
+Synct: platform, bfagent, travel-beat, weltenhub, risk-hub, pptx-hub, mcp-hub,
+aifw, promptfw, authoringfw, cad-hub, trading-hub, wedding-hub, dev-hub
+
+## Server syncen (nach ADR-Commits oder zwischen Deployments)
 
 ```bash
-bash ~/github/platform/scripts/sync-repo.sh --all
+bash scripts/sync-repo.sh --server
 ```
 
-Synct: `platform`, `bfagent`, `travel-beat`, `weltenhub`, `risk-hub`, `pptx-hub`, `mcp-hub`, `aifw`, `promptfw`, `authoringfw`
+Server-Aktionen:
+- `/opt/platform/` → `git pull --rebase origin main`
+- `/opt/bfagent-app/`, `/opt/travel-beat/`, etc. → `docker compose pull && up -d`
 
-## Step 3: Status prüfen
+## Vollständiger 3-Node-Sync
 
 ```bash
-cd ~/github/platform && git log --oneline -5
+bash scripts/sync-repo.sh --full
 ```
+
+Dauer: ~30–60 Sekunden für alle Nodes.
 
 ---
 
-## Was das Script macht (Sicherheitsgarantien)
+## Sicherheitsgarantien
 
-- **Nie `--hard` reset** — keine Datenverluste
-- **Nie force-push** — Remote bleibt unberührt
-- **Auto-commit** für: `windsurf-rules/`, `scripts/`, `docs/adr/`, `.windsurf/workflows/`
-- **Stash** für alles andere (`.env`, temp files, etc.)
-- **Stash-restore** nach dem Pull — lokale Arbeit bleibt erhalten
-- **Rebase-Fallback** auf merge wenn rebase scheitert
+- **Kein `git reset --hard`** — lokale Arbeit geht nie verloren
+- **Kein force-push** — GitHub wird nie überschrieben
+- **Auto-commit** für Cascade-Patterns: `windsurf-rules/`, `scripts/`, `docs/adr/`,
+  `.windsurf/workflows/`, `docs/CORE_CONTEXT.md`, `docs/AGENT_HANDOVER.md`
+- **Stash + restore** für alles andere (`.env`, WIP-Code, temp-Dateien)
+- **Rebase-Fallback** auf merge wenn Konflikte entstehen
+- **Idempotent**: mehrfach ausführbar, keine Seiteneffekte
 
-## Wann diesen Workflow verwenden
+## Empfehlung: In täglichen Workflow integrieren
 
-- Nach jeder Cascade-Session die ADRs oder windsurf-rules geschrieben hat
-- Bevor eine neue Cascade-Session startet (als Teil von `/agent-session-start`)
-- Wenn `git pull` mit obigem Fehler abbricht
-
-## Integration in agent-session-start
-
-Empfehlung: Am Anfang jeder Session einmalig ausführen:
-
+Nach jeder Cascade-Session:
 ```bash
-bash ~/github/platform/scripts/sync-repo.sh
+bash ~/github/platform/scripts/sync-repo.sh        # platform
+# oder vollständig:
+bash ~/github/platform/scripts/sync-repo.sh --full
 ```
-
-Dauer: ~5 Sekunden pro Repo.
