@@ -1,7 +1,9 @@
 # iil Package Ecosystem — Usage Rules
 
 > Always-On Rule — loaded in every Cascade session.
-> Applies to: ALL repos (bfagent, travel-beat, weltenhub, pptx-hub, risk-hub)
+> Applies to: ALL repos (bfagent, travel-beat, weltenhub, pptx-hub, risk-hub,
+>   cad-hub, trading-hub, mcp-hub, coach-hub, dev-hub, 137-hub, odoo-hub,
+>   wedding-hub, aifw, authoringfw, promptfw, weltenfw, nl2cad, infra-deploy)
 > Source: PyPI account `iildehnert`
 
 ## Package Registry
