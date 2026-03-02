@@ -119,7 +119,7 @@
 | 091 | Shared Backend Services Library fuer Django-Projekte | `Accepted` | [ADR-091](ADR-091-shared-backend-services.md) |
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
-| 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Accepted` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
+| 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Proposed` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -138,7 +138,7 @@
 - [x] ADRs archiviert (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): in `_archive/superseded/` verschoben
 - [x] ADR-063 (Staging): `Accepted` -- Branch-basiertes Staging, Port-Offset +100, Q2-Q4 2026
 - [x] ADR-094 (Migration Conflict Resolution): `Accepted` -- 2026-03-02
-- [x] ADR-095 (aifw Quality-Level Routing): `Accepted` -- 2026-03-02
+- [x] ADR-095 rev1: alle Blocker + Highs aus externem Review resolved -- 2026-03-02
+- [ ] ADR-095: zweites Review abwarten → dann Status auf `Accepted` heben
 - [ ] ADR-060-aifw-quality-level-routing.md Tombstone → in `_archive/superseded/` verschieben (manuell)
-- [ ] OQ-1: promptfw template naming convention → ADR-096
-- [ ] OQ-3: authoringfw scope formalisation → ADR-097
+- [ ] OQ-3: authoringfw scope formalisation → ADR-096
