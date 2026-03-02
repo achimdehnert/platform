@@ -50,7 +50,8 @@ from functools import wraps
 from typing import Callable
 
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.http import HttpRequest, HttpResponse
+from django.template.loader import render_to_string
 from django.utils.deprecation import MiddlewareMixin
 
 logger = logging.getLogger(__name__)
@@ -128,6 +129,27 @@ def _check_module_access(
     return None
 
 
+def _render_error(
+    request: HttpRequest,
+    module: str,
+    error: str,
+) -> HttpResponse:
+    """Render module_access.html error page. Falls back to plain text on failure."""
+    try:
+        body = render_to_string(
+            "errors/module_access.html",
+            {"module": module, "error_message": error},
+            request=request,
+        )
+        return HttpResponse(body, status=403, content_type="text/html")
+    except Exception:
+        return HttpResponse(
+            f"Access denied: {error}",
+            status=403,
+            content_type="text/plain",
+        )
+
+
 class ModuleAccessMiddleware(MiddlewareMixin):
     """Coarse URL-prefix based module access guard.
 
@@ -195,7 +217,7 @@ class ModuleAccessMiddleware(MiddlewareMixin):
                 path, matched_module, tenant_id,
                 getattr(user, "username", "?"), error,
             )
-            return HttpResponseForbidden(f"Access denied: {error}")
+            return _render_error(request, matched_module, error)
 
         return None
 
@@ -235,7 +257,7 @@ def require_module(module: str, min_role: str = "viewer") -> Callable:
                     view_func.__name__, module, min_role, tenant_id,
                     getattr(user, "username", "?"), error,
                 )
-                return HttpResponseForbidden(f"Access denied: {error}")
+                return _render_error(request, module, error)
 
             return view_func(request, *args, **kwargs)
 
