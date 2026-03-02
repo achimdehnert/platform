@@ -8,197 +8,184 @@
 
 ## Context
 
-All consumer apps (bfagent, travel-beat, weltenhub, …) call `aifw.sync_completion(action_code=..., messages=...)` to execute LLM tasks. The current `AIActionType` model maps `action_code` → `(default_model, fallback_model)` — a single fixed mapping.
+All consumer apps call `aifw.sync_completion(action_code=..., messages=...)` to execute LLM tasks.  
+The current `AIActionType` maps `action_code → (default_model, fallback_model)` — a single fixed mapping.
 
 **Problems this ADR solves:**
 
-1. **Tier-based quality:** Premium users in travel-beat should get GPT-4o or Claude Sonnet; freemium users get Qwen/Llama (cheaper). Currently impossible without code changes.
-2. **Speed vs. quality trade-off:** Some use cases need fast responses (Groq, Together AI), others need maximum quality (Claude, GPT-4o). Not expressible via current API.
-3. **Prompt complexity:** Complex tasks require better models AND more sophisticated prompts. `promptfw` template selection and `aifw` model selection are currently independent — they should be driven by the same `quality_level`.
-4. **Rapid change cycles:** AI-assisted development means frequent model upgrades. The API must be stable even as models change.
+1. **Tier-based quality:** Premium users get GPT-4o/Claude; freemium gets Qwen/Llama.
+2. **Speed vs. quality:** Some use cases need fast (Groq), others need max quality (Claude).
+3. **Prompt complexity:** Complex tasks need better models AND more sophisticated prompts. `promptfw` template selection and `aifw` model selection must be driven by the same `quality_level`.
+4. **Rapid change cycles:** API must be stable while models change frequently.
+5. **Template-key coordination:** Orchestrators (authoringfw) must know which `promptfw` template to use per action + quality level — currently hardcoded, should be DB-driven.
+
+---
+
+## Package Dependency Graph
+
+```
+promptfw    deps: jinja2, pyyaml          (no aifw dependency — safe)
+aifw        deps: Django, litellm         (no promptfw dependency — safe)
+authoringfw deps: aifw, promptfw          (orchestrates both)
+consumer    deps: authoringfw + aifw      (for writing/research/analysis tasks)
+```
+
+No circular dependencies. `AIActionType.prompt_template_key` is a plain string — `aifw` never imports `promptfw`.
 
 ---
 
 ## Decision
 
-### 1. Extend `sync_completion` API with optional parameters (backwards-compatible)
+### 1. Extend `sync_completion` API (backwards-compatible)
 
 ```python
-# Current API — unchanged, still works:
+# Current — unchanged:
 result = sync_completion(action_code="story_writing", messages=[...])
 
-# Extended API — all new params are optional with defaults:
+# Extended — all new params optional with None defaults:
 result = sync_completion(
     action_code="story_writing",
     messages=[...],
-    quality_level=7,        # int 1-9, default=None (catch-all)
-    priority="quality",     # "fast" | "balanced" | "quality", default=None (catch-all)
+    quality_level=7,        # int 1-9, default=None (catch-all, current behavior)
+    priority="quality",     # "fast"|"balanced"|"quality", default=None (catch-all)
 )
 ```
 
-**Contract:**
-- `quality_level=None` (default) → use the catch-all `AIActionType` entry (current behavior, zero breaking change)
-- `quality_level=1..3` → cheap/fast models (Together AI, Groq, OpenRouter open models)
-- `quality_level=4..6` → balanced (GPT-4o-mini, Gemini Flash, Llama 3.3 70B)
-- `quality_level=7..9` → premium (GPT-4o, Claude Sonnet, Claude Opus)
-- `priority="fast"` → prefer low-latency providers (Groq < 500ms, Together AI Turbo)
-- `priority="quality"` → prefer highest-quality model at that level
+**quality_level contract:**
+- `None` → catch-all entry (zero breaking change)
+- `1..3` → cheap/fast (Together AI, Groq, OpenRouter open models)
+- `4..6` → balanced (GPT-4o-mini, Gemini Flash, Llama 3.3 70B)
+- `7..9` → premium (GPT-4o, Claude Sonnet, Claude Opus)
+
+**priority contract:**
+- `"fast"` → lowest-latency provider (Groq < 500ms, Together AI Turbo ~1s)
+- `"balanced"` → default tradeoff
+- `"quality"` → highest-quality model at given level
 
 ### 2. Extend `AIActionType` DB model
 
 ```
 AIActionType
-├── code              VARCHAR  — action identifier (e.g. "story_writing")
-├── quality_level     INT NULL — 1-9 or NULL (catch-all)
-├── priority          VARCHAR NULL — "fast"|"balanced"|"quality" or NULL (catch-all)
-├── default_model     FK → LLMModel
-├── fallback_model    FK → LLMModel (nullable)
-├── max_tokens        INT
-├── temperature       FLOAT
-└── is_active         BOOL
+├── code                 VARCHAR  — e.g. "story_writing", "research_assistant"
+├── quality_level        INT NULL — 1-9 or NULL (catch-all)
+├── priority             VARCHAR NULL — "fast"|"balanced"|"quality"|NULL
+├── prompt_template_key  VARCHAR NULL — promptfw template key, e.g. "story_writing_detailed"
+├── default_model        FK → LLMModel
+├── fallback_model       FK → LLMModel (nullable)
+├── max_tokens           INT
+├── temperature          FLOAT
+└── is_active            BOOL
 ```
 
-**Lookup logic (priority order):**
-1. Exact match: `(code, quality_level, priority)`
-2. Partial match: `(code, quality_level, NULL)`
-3. Partial match: `(code, NULL, priority)`
-4. Catch-all: `(code, NULL, NULL)` ← current behavior, always exists
+**`prompt_template_key`** is a plain string (not a FK). It is passed to `promptfw.render()` by the caller. `aifw` stores it but never imports `promptfw`. The caller (authoringfw / consumer-app) reads it from the returned config and uses it for prompt rendering.
 
-Full backwards compatibility — existing entries with `quality_level=NULL, priority=NULL` are always found.
+**Lookup logic (cascade):**
+1. Exact: `(code, quality_level, priority)`
+2. Partial: `(code, quality_level, NULL)`
+3. Partial: `(code, NULL, priority)`
+4. Catch-all: `(code, NULL, NULL)` ← always exists, current behavior
 
-### 3. Unique constraint
+**Unique constraint:** `UNIQUE (code, quality_level, priority)`
 
-```sql
-UNIQUE (code, quality_level, priority)
-```
-
-### 4. Consumer-app usage pattern
+### 3. `check_action_code()` returns config including template key
 
 ```python
-# In a view/service, resolve quality_level from user tier:
-def get_quality_level(user) -> int:
-    if user.subscription == "premium":
-        return 8
-    elif user.subscription == "pro":
-        return 5
-    return 2  # freemium
-
-# Call aifw:
-result = sync_completion(
+# New helper — returns full config dict:
+config = get_action_config(
     action_code="story_writing",
-    messages=messages,
-    quality_level=get_quality_level(request.user),
-    priority="balanced",
+    quality_level=8,
+    priority="quality",
 )
+# config = {
+#   "model": "anthropic/claude-sonnet-4-20250514",
+#   "prompt_template_key": "story_writing_detailed",
+#   "max_tokens": 4096,
+#   "temperature": 0.8,
+# }
 ```
-
-The tier → quality_level mapping lives in the **consumer app**, not in aifw. aifw is tier-agnostic.
 
 ---
 
-## Package Orchestration Architecture
+## Orchestrator Scope: `authoringfw`
 
-### Role of each package
+`authoringfw` orchestrates **Writing + Research + Analysis** — not just writing.
 
 ```
-promptfw     → "HOW to formulate?" — Template rendering, variable injection
-              Input:  template_key + context + quality_level
-              Output: messages: list[dict]  (ready for LLM)
-
-aifw         → "WHO executes?" — Model routing + execution + logging
-              Input:  action_code + messages + quality_level + priority
-              Output: LLMResult
-
-authoringfw  → "WHAT + WITH WHICH QUALITY?" — Writing workflow orchestration
-              Input:  task (ChapterRequest, OutlineRequest, …) + quality_level
-              Calls:  promptfw.render(...) → then aifw.sync_completion(...)
-              Output: domain result (ChapterResult, OutlineResult, …)
-
-consumer-app → "FOR WHOM?" — User tier → quality_level resolution
-              Input:  request + user
-              Calls:  authoringfw (for writing tasks) or aifw directly (simple tasks)
+authoringfw scope:
+├── Writing:   ChapterWriter, OutlineWriter, CharacterBuilder
+├── Research:  ResearchOrchestrator, FactChecker
+└── Analysis:  ContentAnalyzer, StyleAnalyzer, SentimentAnalyzer
 ```
 
-### `authoringfw` as Writing Orchestrator
-
-`authoringfw` is the **only component that combines** prompt complexity and model quality for writing tasks:
+It is **not** a master that "triggers" `promptfw` and `aifw` — it is a **domain orchestrator** that uses both as tools:
 
 ```python
-# authoringfw example — ChapterWriter:
-class ChapterWriter:
-    def write(self, request: ChapterRequest, quality_level: int = 5) -> ChapterResult:
-        # 1. Select prompt template based on complexity + quality_level
-        template_key = self._select_template(request, quality_level)
-        messages = promptfw.render(template_key, context=request.to_context())
-
-        # 2. Call aifw with matching quality_level
+# authoringfw — generic pattern for all task types:
+class BaseContentOrchestrator:
+    def execute(self, task, quality_level: int = 5) -> ContentResult:
+        # 1. Get action config from aifw (includes template key)
+        config = get_action_config(
+            action_code=task.action_code,
+            quality_level=quality_level,
+        )
+        # 2. Render prompt via promptfw using template from config
+        messages = promptfw.render(
+            config["prompt_template_key"] or task.action_code,
+            context=task.to_context(),
+        )
+        # 3. Execute LLM call
         result = sync_completion(
-            action_code="chapter_generation",
+            action_code=task.action_code,
             messages=messages,
             quality_level=quality_level,
-            priority="quality" if quality_level >= 7 else "balanced",
         )
-        return ChapterResult.from_llm_result(result)
-
-    def _select_template(self, request, quality_level: int) -> str:
-        if quality_level >= 7:
-            return "chapter_generation_detailed"   # longer, more structured prompt
-        elif quality_level >= 4:
-            return "chapter_generation_standard"
-        return "chapter_generation_fast"           # minimal prompt for speed
+        return ContentResult.from_llm_result(result)
 ```
 
-**Key insight:** `quality_level` drives **both** prompt selection (in `promptfw`) and model selection (in `aifw`) through the same single value. No separate coordination needed.
+**Non-writing apps** (risk-hub, pptx-hub) call `aifw` directly — no `authoringfw` dependency needed.
 
-### `promptfw` role with quality_level
+---
 
-`promptfw` templates can optionally use `quality_level` as a variable — or the caller selects the template key based on level:
+## Consumer-App Pattern
 
 ```python
-# Option A: Template key varies by level (recommended)
-template_key = f"story_writing_q{quality_level // 3}"  # q0, q1, q2, q3
+# In any consumer-app view/service:
+def get_quality_level(user) -> int:
+    tiers = {"premium": 8, "pro": 5, "freemium": 2}
+    return tiers.get(user.subscription, 5)
 
-# Option B: quality_level as template variable
-messages = promptfw.render("story_writing", context={
-    "quality_level": quality_level,
-    "use_chain_of_thought": quality_level >= 7,
-    ...
-})
+# Writing/Research/Analysis → via authoringfw:
+result = authoringfw.execute(
+    task=ChapterRequest(...),
+    quality_level=get_quality_level(request.user),
+)
+
+# Simple tasks → direct aifw:
+result = sync_completion(
+    action_code="book_description",
+    messages=messages,
+    quality_level=get_quality_level(request.user),
+)
 ```
 
-### Data flow diagram
+---
+
+## Data Flow
 
 ```
-consumer-app (travel-beat)
+consumer-app
     │  user.tier → quality_level=8
     ▼
-authoringfw.ChapterWriter.write(request, quality_level=8)
+authoringfw.execute(task, quality_level=8)
     │
-    ├─► promptfw.render("chapter_generation_detailed", context)
-    │       └─► messages: [system, user]  (complex, structured prompt)
+    ├─► aifw.get_action_config("story_writing", quality_level=8)
+    │       └─► AIActionType lookup → {model: claude-sonnet-4, template: "story_writing_detailed"}
     │
-    └─► aifw.sync_completion(
-            action_code="chapter_generation",
-            messages=messages,
-            quality_level=8,
-            priority="quality"
-        )
-            └─► AIActionType lookup: (chapter_generation, 8, quality)
-                    └─► LLMModel: anthropic/claude-sonnet-4
-                            └─► LLMResult
-```
-
-### When to call `aifw` directly (without `authoringfw`)
-
-Not all tasks need `authoringfw`. Simple, non-writing tasks call `aifw` directly:
-
-```python
-# Simple tasks — direct aifw call is correct:
-sync_completion(action_code="book_description", messages=messages, quality_level=quality_level)
-sync_completion(action_code="research_assistant", messages=messages)
-
-# Complex writing tasks — go through authoringfw:
-authoringfw.ChapterWriter().write(request, quality_level=quality_level)
+    ├─► promptfw.render("story_writing_detailed", context)
+    │       └─► messages: [system_prompt, user_prompt]  (complex, structured)
+    │
+    └─► aifw.sync_completion("story_writing", messages, quality_level=8)
+            └─► LLMResult (claude-sonnet-4)
 ```
 
 ---
@@ -206,53 +193,34 @@ authoringfw.ChapterWriter().write(request, quality_level=quality_level)
 ## Consequences
 
 ### Positive
-- **Zero breaking changes:** All existing `sync_completion()` calls work unchanged.
-- **Single control variable:** `quality_level` drives both prompt complexity AND model quality — no dual-configuration.
-- **DB-driven:** Model assignments per quality level editable in Django Admin without deploys.
-- **Package separation:** `promptfw`, `aifw`, `authoringfw` remain independently deployable.
-- **Cost transparency:** `AIUsageLog` records model used per quality level → cost analysis per user tier.
+- Zero breaking changes — all existing calls work unchanged
+- Single `quality_level` drives both prompt complexity AND model quality
+- `prompt_template_key` DB-driven — no code deploy needed to change templates
+- `authoringfw` scope covers Writing + Research + Analysis uniformly
+- `promptfw` and `aifw` remain independently deployable (no cross-dependency)
+- `AIUsageLog` records model + quality_level → cost analysis per tier
 
 ### Negative
-- **DB entries multiply:** 20 action codes × 3 quality tiers = up to 60 `AIActionType` rows.
-- **aifw migration required:** `iil-aifw` 0.6.0 needs new columns + lookup logic.
-- **authoringfw must be updated** to accept + propagate `quality_level`.
-- **promptfw template naming convention** needs to be defined (see Option A above).
+- `AIActionType` rows multiply (20 codes × 3 levels = ~60 rows)
+- `aifw` 0.6.0 migration required (new columns)
+- `authoringfw` must be updated to use `get_action_config()`
+- `promptfw` template naming convention must be defined
 
 ---
 
 ## Migration Path
 
-1. `iil-aifw` 0.6.0: `quality_level` + `priority` columns, updated `sync_completion` lookup
-2. `promptfw`: optional — add quality-level template variants for key writing tasks
-3. `authoringfw`: accept `quality_level` parameter, select templates + pass to aifw
-4. `init_bfagent_aifw_config`: seed quality-level `AIActionType` entries
-5. Consumer apps: `travel-beat` first — tier → quality_level in views/services
+1. `iil-aifw` 0.6.0: `quality_level`, `priority`, `prompt_template_key` columns + lookup logic + `get_action_config()`
+2. `iil-promptfw`: add quality-level template variants for key action codes
+3. `authoringfw`: adopt `BaseContentOrchestrator` pattern with `get_action_config()`
+4. `init_bfagent_aifw_config`: seed quality-level `AIActionType` entries with template keys
+5. Consumer apps: `travel-beat` first — tier → quality_level resolution
 
 ---
 
-## Alternatives Considered
+## Alternatives Rejected
 
-### A: `authoringfw` as single entry point (hub pattern)
-All LLM calls go through `authoringfw`, which internally calls `promptfw` + `aifw`.
-**Rejected:** Too tight coupling. Non-writing apps (risk-hub, pptx-hub) would have wrong dependency. `aifw` must remain callable directly.
-
-### B: action_code suffixes (`story_writing_premium`, `story_writing_free`)
-**Rejected:** Pollutes namespace, no structured speed preference, combinatorial explosion.
-
-### C: Separate `routing-fw` package
-**Rejected:** Unnecessary complexity. `quality_level` as a parameter is sufficient.
-
----
-
-## Implementation Note
-
-`priority="fast"` provider preference:
-- `groq` → sub-500ms P50
-- `together_ai` Turbo → ~1s
-- `openrouter` open models → ~2s
-
-`priority="quality"` at level 7-9:
-- `anthropic/claude-sonnet-4` (creative writing)
-- `openai/gpt-4o` (structured/analytical)
-
-Model assignments per `(code, quality_level, priority)` configured in DB via Django Admin or `init_bfagent_aifw_config --force`.
+- **`authoringfw` as master hub:** Too tight coupling — non-writing apps would need wrong dependency.
+- **action_code suffixes:** Pollutes namespace, no structured speed preference.
+- **`aifw` imports `promptfw`:** Circular risk — rejected. Template key is a plain string only.
+- **Separate `routing-fw`:** Unnecessary — `quality_level` parameter is sufficient.
