@@ -13,13 +13,25 @@ jobs:
     strategy:
       matrix:
         repo:
-          - travel-beat
+          - 137-hub
+          - aifw
+          - authoringfw
           - bfagent
-          - weltenhub
+          - cad-hub
+          - coach-hub
+          - dev-hub
+          - infra-deploy
+          - mcp-hub
+          - nl2cad
+          - odoo-hub
+          - pptx-hub
+          - promptfw
           - risk-hub
           - trading-hub
-          - pptx-hub
-          - cad-hub
+          - travel-beat
+          - wedding-hub
+          - weltenfw
+          - weltenhub
 
     steps:
       - name: Trigger receive-windsurf-rules in ${{ matrix.repo }}
