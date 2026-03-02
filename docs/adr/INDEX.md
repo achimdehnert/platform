@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
 > **Last updated:** 2026-03-02  
-> **Next free ADR number:** 096
+> **Next free ADR number:** 098
 
 ## Legend
 
@@ -120,6 +120,8 @@
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Proposed` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
+| 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Proposed` | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
+| 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Proposed` | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -132,13 +134,11 @@
 
 ## Open Points / Hygiene Backlog
 
-- [x] ADR-054 (Deployment Pre-Flight): `Superseded` by ADR-056
-- [x] ADR-083 (Hybrid ADR Governance): `Accepted`
-- [x] ADR-091 (Shared Backend Services): `Accepted`
-- [x] ADRs archiviert (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): in `_archive/superseded/` verschoben
-- [x] ADR-063 (Staging): `Accepted` -- Branch-basiertes Staging, Port-Offset +100, Q2-Q4 2026
 - [x] ADR-094 (Migration Conflict Resolution): `Accepted` -- 2026-03-02
 - [x] ADR-095 rev1: alle Blocker + Highs aus externem Review resolved -- 2026-03-02
+- [x] ADR-096 (authoringfw Scope): `Proposed` -- 2026-03-02
+- [x] ADR-097 (aifw 0.6.0 Contract): `Proposed` -- 2026-03-02
 - [ ] ADR-095: zweites Review abwarten → dann Status auf `Accepted` heben
+- [ ] ADR-096: Review + `Accepted` nach ADR-095 Acceptance
+- [ ] ADR-097: Review + `Accepted` nach ADR-095 Acceptance → dann aifw 0.6.0 implementieren
 - [ ] ADR-060-aifw-quality-level-routing.md Tombstone → in `_archive/superseded/` verschieben (manuell)
-- [ ] OQ-3: authoringfw scope formalisation → ADR-096
