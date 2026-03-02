@@ -112,6 +112,21 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
+      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad)
+        run: |
+          pip install \
+            "iil-aifw>=0.5.0,<1" \
+            "iil-promptfw>=0.5.1,<1" \
+            "iil-authoringfw>=0.3.0,<1" \
+            "iil-weltenfw>=0.1.0,<1" \
+            "iil-nl2cad>=0.1.0,<1" \
+            2>/dev/null || \
+          pip install \
+            "aifw>=0.5.0,<1" \
+            "promptfw>=0.2.0,<1" \
+            "authoringfw>=0.3.0,<1" \
+            "weltenfw>=0.1.0,<1" \
+            2>/dev/null || true
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
         run: |
@@ -176,6 +191,21 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
+      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad)
+        run: |
+          pip install \
+            "iil-aifw>=0.5.0,<1" \
+            "iil-promptfw>=0.5.1,<1" \
+            "iil-authoringfw>=0.3.0,<1" \
+            "iil-weltenfw>=0.1.0,<1" \
+            "iil-nl2cad>=0.1.0,<1" \
+            2>/dev/null || \
+          pip install \
+            "aifw>=0.5.0,<1" \
+            "promptfw>=0.2.0,<1" \
+            "authoringfw>=0.3.0,<1" \
+            "weltenfw>=0.1.0,<1" \
+            2>/dev/null || true
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
         run: |
@@ -195,7 +225,6 @@ jobs:
               fi
             done
           fi
-      # ADR-090 Stage ③: Migration Graph Check — catches NodeNotFoundError BEFORE deploy
       - name: Migration Graph Check
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
@@ -206,7 +235,6 @@ jobs:
           POSTGRES_DB: test_db
         run: |
           set -euo pipefail
-          # Skip migrate --check for in-memory/SQLite test databases (no migrations applied)
           DB_ENGINE=$(python -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE'])" 2>/dev/null || echo "unknown")
           if echo "$DB_ENGINE" | grep -q "sqlite"; then
             echo "OK: Skipping migrate --check for SQLite test DB (in-memory, no migrations applied)"
@@ -218,7 +246,6 @@ jobs:
             }
           fi
 
-      # ADR-090 Stage ③: AppConfig Label Check — catches default AppConfig without explicit label
       - name: AppConfig Label Check
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
@@ -317,6 +344,21 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
+      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad)
+        run: |
+          pip install \
+            "iil-aifw>=0.5.0,<1" \
+            "iil-promptfw>=0.5.1,<1" \
+            "iil-authoringfw>=0.3.0,<1" \
+            "iil-weltenfw>=0.1.0,<1" \
+            "iil-nl2cad>=0.1.0,<1" \
+            2>/dev/null || \
+          pip install \
+            "aifw>=0.5.0,<1" \
+            "promptfw>=0.2.0,<1" \
+            "authoringfw>=0.3.0,<1" \
+            "weltenfw>=0.1.0,<1" \
+            2>/dev/null || true
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
         run: |
