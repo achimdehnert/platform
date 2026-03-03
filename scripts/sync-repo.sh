@@ -14,11 +14,10 @@
 # WHAT THIS SCRIPT DOES:
 #
 #   Mode 1: WSL sync (default)
-#     - Detects unpushed commits and parks them on a backup branch (SAFE)
-#     - Auto-commits Cascade-generated files (windsurf-rules/, scripts/,
+#     - Commits local Cascade-generated files (windsurf-rules/, scripts/,
 #       docs/adr/, .windsurf/workflows/) before pulling
 #     - Stashes remaining local changes
-#     - git pull --no-rebase (merge) from GitHub
+#     - git pull --rebase from GitHub
 #     - Restores stash
 #
 #   Mode 2: Server sync (--server or --all)
@@ -26,7 +25,6 @@
 #     - For app repos: docker pull + docker compose up -d (no git)
 #
 #   Mode 3: All repos (--all)
-#     - Bootstrap: syncs platform FIRST (self-update before loop)
 #     - Runs WSL sync for all known repos
 #     - Runs server sync for platform + all deployed apps
 #
@@ -37,16 +35,20 @@
 #   bash scripts/sync-repo.sh --server                # Server: sync platform + apps
 #   bash scripts/sync-repo.sh --server platform       # Server: sync platform only
 #   bash scripts/sync-repo.sh --full                  # WSL + Server: everything
+#   bash scripts/sync-repo.sh --quick-deploy weltenhub # Fast: git clone+cp+restart
 #
 # SAFETY GUARANTEES:
 #   - Never git reset --hard (no data loss)
 #   - Never force-push (remote always authoritative)
-#   - Unpushed commits are ALWAYS parked on backup/sync-TIMESTAMP branch
 #   - Auto-commit only for known Cascade-generated file patterns
 #   - Stash + restore for all other local changes
 #   - SSH operations are read-only git pulls + docker pull (no destructive ops)
-#   - Pull failure: warns and continues (does not abort entire --all run)
-#   - Bootstrap: platform synced first so new scripts are immediately available
+#
+# --quick-deploy CONTRACT:
+#   - Requires: changes already pushed to GitHub main
+#   - Action: server clones repo, docker cp apps/templates/config, restart
+#   - Use for: Python/template/URL changes (no Docker rebuild needed)
+#   - Never use for: requirements.txt, Dockerfile, new INSTALLED_APPS
 #
 # =============================================================================
 set -euo pipefail
@@ -54,11 +56,10 @@ set -euo pipefail
 # ── Constants ─────────────────────────────────────────────────────────────────
 readonly SERVER_HOST="88.198.191.108"
 readonly SERVER_PLATFORM_PATH="/opt/platform"
-readonly PLATFORM_BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+readonly PLATFORM_BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly GITHUB_BASE="$(dirname "$PLATFORM_BASE")"
 
 # All repos with Git checkouts on WSL
-# Repos not cloned locally are silently skipped (skip message only).
 readonly WSL_REPOS=(
     platform bfagent travel-beat weltenhub risk-hub
     pptx-hub mcp-hub aifw promptfw authoringfw nl2cad weltenfw
@@ -69,6 +70,26 @@ readonly WSL_REPOS=(
 # Verified against live server /opt/ on 2026-03-03.
 # To add a new app: append [repo-name]="/opt/<path>" and ensure
 # docker-compose.prod.yml exists at that path on the server.
+
+# Quick-deploy: container name for --quick-deploy mode.
+# Format: [repo-name]="<container_name>"
+declare -A QUICK_DEPLOY_CONTAINERS=(
+    [weltenhub]="weltenhub_web"
+    [bfagent]="bfagent_web"
+    [travel-beat]="travel_beat_web"
+    [risk-hub]="risk_hub_web"
+    [pptx-hub]="pptx_hub_web"
+)
+
+# Health-check port per app (internal Docker port on server)
+declare -A QUICK_DEPLOY_PORTS=(
+    [weltenhub]="8081"
+    [bfagent]="8088"
+    [travel-beat]="8089"
+    [risk-hub]="8090"
+    [pptx-hub]="8020"
+)
+
 declare -A SERVER_APP_PATHS=(
     [bfagent]="/opt/bfagent-app"
     [travel-beat]="/opt/travel-beat"
@@ -112,8 +133,10 @@ wsl_sync_repo() {
     local branch
     branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo 'main')"
 
-    local behind modified untracked
+    # Check if we're behind remote — skip everything if already up-to-date
+    local behind
     behind="$(git rev-list --count "HEAD..origin/$branch" 2>/dev/null || echo '0')"
+    local modified untracked
     modified="$(git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')"
     untracked="$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')"
 
@@ -124,40 +147,27 @@ wsl_sync_repo() {
 
     log "State: $modified modified, $untracked untracked, $behind commits behind remote"
 
-    # 2. Detect + park unpushed local commits
-    #
-    #    ROOT CAUSE of "could not apply <sha>... rebase conflict":
-    #    git pull --rebase replays local commits on top of origin. When those
-    #    commits touch the same files as remote commits, the replay fails.
-    #
-    #    FIX: Count commits in origin/$branch..HEAD. If any exist, create a
-    #    backup branch pointing at current HEAD, then reset --soft to origin
-    #    (moves pointer only, working tree untouched), then stash staged changes.
-    #    Result: clean HEAD at origin — pull proceeds conflict-free.
+    # 2. Detect unpushed local commits
     local unpushed
     unpushed="$(git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo '0')"
 
     local backup_branch=""
     if [[ "$unpushed" -gt 0 ]]; then
         backup_branch="backup/sync-$(date +%Y%m%d-%H%M%S)"
-        warn "$repo_name — $unpushed unpushed commit(s) detected (will be parked):"
+        warn "$repo_name — $unpushed unpushed commit(s) detected:"
         git log --oneline "origin/$branch..HEAD" | sed 's/^/    /'
-        log "Creating backup branch: $backup_branch"
+        log "Parking unpushed commits on branch: $backup_branch"
         git branch "$backup_branch"
-        # reset --soft: moves HEAD to origin, stages the diff — tree unchanged
         git reset --soft "origin/$branch"
-        # stash the staged changes so pull finds a clean index
-        git stash push -m "sync-repo.sh: parked unpushed from $backup_branch $(date +%Y-%m-%dT%H:%M:%S)"
-        log "Recovery options if needed:"
-        log "  git checkout $backup_branch   — restore original commits"
-        log "  git stash show -p             — inspect parked staged changes"
-        ok "$repo_name — unpushed commits parked safely on $backup_branch"
+        git stash push -m "sync-repo.sh: parked from $backup_branch $(date +%Y-%m-%dT%H:%M:%S)"
+        log "Backup branch $backup_branch and stash created — restore manually if needed:"
+        log "  git checkout $backup_branch  (to see original commits)"
+        log "  git stash show -p            (to see staged changes)"
     fi
 
-    # 3. Auto-commit Cascade-generated files that belong in version control
+    # 3. Auto-commit Cascade-generated files
     if [[ "$modified" -gt 0 || "$untracked" -gt 0 ]]; then
         local to_add=()
-
         local -a patterns=(
             "windsurf-rules/"
             "scripts/"
@@ -187,7 +197,7 @@ wsl_sync_repo() {
         fi
     fi
 
-    # 4. Stash remaining changes (env files, temp files, work-in-progress)
+    # 4. Stash remaining changes
     local remaining_m remaining_u
     remaining_m="$(git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')"
     remaining_u="$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')"
@@ -200,26 +210,22 @@ wsl_sync_repo() {
             2>/dev/null && stashed=true
     fi
 
-    # 5. Pull — using merge (not rebase) after parking unpushed commits above.
-    #    --no-rebase avoids replay conflicts; merge creates a clean merge commit
-    #    when needed. Backup branch preserves full history of parked commits.
-    log "Pulling origin/$branch (merge)..."
+    # 5. Pull
+    log "Pulling origin/$branch..."
     if git pull --no-rebase origin "$branch" 2>/dev/null; then
         ok "$repo_name — synced to origin/$branch"
     else
-        warn "Pull failed — attempting explicit fetch + merge..."
+        warn "Pull failed — attempting fetch + reset to origin..."
         git fetch origin "$branch" 2>/dev/null
         git merge --no-edit "origin/$branch" 2>/dev/null || {
-            warn "$repo_name — merge had conflicts. Manual resolution needed:"
-            warn "  cd $repo_path && git status && git diff"
-            [[ -n "$backup_branch" ]] && \
-                warn "  Unpushed commits preserved on: $backup_branch"
-            # Return 1 (not err/exit) so --all continues with other repos
+            warn "$repo_name — merge had conflicts."
+            warn "Manual resolution: cd $repo_path && git status && git diff"
+            warn "Unpushed commits are safe on branch: ${backup_branch:-<none>}"
             return 1
         }
     fi
 
-    # 6. Restore stash if we stashed anything
+    # 6. Restore stash
     if [[ "$stashed" == true ]]; then
         local stash_count
         stash_count="$(git stash list 2>/dev/null | wc -l | tr -d ' ')"
@@ -230,7 +236,6 @@ wsl_sync_repo() {
         fi
     fi
 
-    # 7. Report final state
     local final_changes
     final_changes="$(git status --short 2>/dev/null | wc -l | tr -d ' ')"
     if [[ "$final_changes" -eq 0 ]]; then
@@ -249,10 +254,12 @@ server_sync_platform() {
     ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$SERVER_HOST" bash <<'REMOTE'
 set -euo pipefail
 cd /opt/platform
+echo "[server] Branch: $(git rev-parse --abbrev-ref HEAD)"
+echo "[server] Before: $(git log --oneline -1)"
 git fetch origin
 BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
 if [[ "$BEHIND" -eq 0 ]]; then
-    echo "[server] ✓ platform already up-to-date: $(git log --oneline -1)"
+    echo "[server] ✓ platform already up-to-date"
 else
     echo "[server] $BEHIND commit(s) behind — pulling..."
     git pull --rebase origin main
@@ -278,18 +285,85 @@ server_sync_app() {
     || warn "$app_name — docker update had warnings (check server logs)"
 }
 
+# ── Quick Deploy: git clone on server + docker cp + container restart ─────────
+# Use for pure Python/template/URL changes — NO Docker rebuild needed.
+#
+# WHY this is better than individual mcp5_ssh_manage docker cp calls:
+#   - Single SSH session (1 connection, not N)
+#   - Atomic: all files or none (no partial state)
+#   - Idempotent: safe to run multiple times
+#   - Self-contained: no dependency on local file paths
+#   - Fast: ~10-15 seconds vs minutes for Docker rebuild
+#
+# NEVER use for: requirements.txt changes, new INSTALLED_APPS, Dockerfile edits
+quick_deploy() {
+    local app_name="$1"
+    local app_path="${SERVER_APP_PATHS[$app_name]:-}"
+    local container_name="${QUICK_DEPLOY_CONTAINERS[$app_name]:-}"
+    local health_port="${QUICK_DEPLOY_PORTS[$app_name]:-8080}"
+
+    [[ -z "$app_path" ]] && err "$app_name — not in SERVER_APP_PATHS"
+    [[ -z "$container_name" ]] && err "$app_name — not in QUICK_DEPLOY_CONTAINERS"
+
+    header "QUICK-DEPLOY: $app_name → $container_name (port $health_port)"
+    log "Prerequisites: changes must already be pushed to GitHub main"
+
+    if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$SERVER_HOST" true 2>/dev/null; then
+        err "Cannot reach $SERVER_HOST — check SSH key"
+    fi
+
+    # Build the remote script as a heredoc-safe string
+    # Variables expanded locally ($app_name, $container_name, $health_port)
+    # Server-side variables escaped (\$REPO, \$dir, \$HTTP_CODE)
+    local remote_script
+    remote_script="$(cat <<REMOTE
+set -euo pipefail
+
+# Clone latest main from GitHub
+cd /tmp
+rm -rf qd_${app_name}
+git clone --depth 1 \"https://\$(cat /root/.github_token)@github.com/achimdehnert/${app_name}.git\" qd_${app_name} 2>&1 | tail -2
+REPO=/tmp/qd_${app_name}
+echo \"Cloned: \$(git -C \$REPO log --oneline -1)\"
+
+# Copy Python app code + templates into running container
+for dir in apps config templates; do
+    if [ -d \"\$REPO/\$dir\" ]; then
+        docker cp \"\$REPO/\$dir/.\" ${container_name}:/app/\$dir/
+        echo \"  Copied \$dir/\"
+    fi
+done
+
+# Restart (gunicorn picks up new .py files)
+docker restart ${container_name}
+echo \"Restarted ${container_name}\"
+
+# Health check
+sleep 4
+HTTP_CODE=\$(curl -s -o /dev/null -w \"%{http_code}\" http://127.0.0.1:${health_port}/health/ 2>/dev/null || echo \"000\")
+if [ \"\$HTTP_CODE\" = \"200\" ]; then
+    echo \"Health: \$HTTP_CODE ✓\"
+else
+    echo \"Health: \$HTTP_CODE ✗ — check: docker logs ${container_name} --tail 20\"
+    exit 1
+fi
+
+# Cleanup
+rm -rf /tmp/qd_${app_name}
+REMOTE
+)"
+
+    if ssh -o BatchMode=yes -o ConnectTimeout=60 "root@$SERVER_HOST" bash <<< "$remote_script"; then
+        ok "$app_name — quick-deploy complete ✓"
+    else
+        err "$app_name — quick-deploy failed. Run: ssh root@$SERVER_HOST 'docker logs $container_name --tail 20'"
+    fi
+}
+
 # ── Mode: WSL all ─────────────────────────────────────────────────────────────
 mode_wsl_all() {
     log "WSL sync — ${#WSL_REPOS[@]} repos in $GITHUB_BASE"
 
-    # Bootstrap fix: sync platform FIRST and separately before the main loop.
-    #
-    # Root cause of "No such file or directory" for new scripts (publish-package.sh etc.):
-    # sync-repo.sh is launched FROM the local platform repo. If platform is stale,
-    # new scripts added to GitHub are not available locally until the next --all run.
-    #
-    # Fix: always pull platform first (outside the loop). The loop then skips it
-    # via the already-up-to-date check, so there is no double-pull cost.
     header "Bootstrap: platform (self-update first)"
     if [[ -d "$PLATFORM_BASE/.git" ]]; then
         wsl_sync_repo "$PLATFORM_BASE" || warn "platform bootstrap pull failed — continuing with local version"
@@ -309,7 +383,6 @@ mode_wsl_all() {
 
 # ── Mode: Server all ──────────────────────────────────────────────────────────
 mode_server_all() {
-    # Check SSH connectivity first
     if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$SERVER_HOST" true 2>/dev/null; then
         err "Cannot reach $SERVER_HOST — check SSH key and connectivity"
     fi
@@ -329,7 +402,6 @@ print_summary() {
     echo "  WSL    = git pull complete for all local checkouts"
     echo "  Server = platform git pull + app docker pulls (if --server/--full)"
     echo ""
-    echo "  Backup branches (if created): git branch -a | grep backup/sync"
     echo "  Next time: bash ~/github/platform/scripts/sync-repo.sh [--full]"
     echo ""
 }
@@ -340,13 +412,11 @@ main() {
 
     case "$mode" in
         --full)
-            # WSL all repos + Server platform + Server app docker pulls
             mode_wsl_all
             mode_server_all
             print_summary
             ;;
         --server)
-            # Server only (platform git + all app docker)
             local target="${2:-all}"
             if [[ "$target" == "all" ]]; then
                 mode_server_all
@@ -357,15 +427,20 @@ main() {
             fi
             ;;
         --all)
-            # WSL all repos only (no server)
             mode_wsl_all
             print_summary
             ;;
+        --quick-deploy)
+            # Fast path: git clone on server + docker cp + container restart
+            # Use for Python/template/URL changes — no Docker rebuild needed
+            local target="${2:-}"
+            [[ -z "$target" ]] && err "Usage: --quick-deploy <app-name>  (e.g. weltenhub, bfagent)"
+            quick_deploy "$target"
+            ;;
         --help|-h)
-            sed -n '3,50p' "${BASH_SOURCE[0]}"
+            sed -n '3,55p' "${BASH_SOURCE[0]}"
             ;;
         *)
-            # Single repo — argument is path or defaults to platform
             local target_path="${1:-$PLATFORM_BASE}"
             if [[ "$target_path" == -* ]]; then
                 err "Unknown flag: $target_path. Run with --help for usage."
