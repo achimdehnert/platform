@@ -58,13 +58,17 @@ readonly PLATFORM_BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly GITHUB_BASE="$(dirname "$PLATFORM_BASE")"
 
 # All repos with Git checkouts on WSL
+# Repos not cloned locally are silently skipped (skip message only).
 readonly WSL_REPOS=(
     platform bfagent travel-beat weltenhub risk-hub
-    pptx-hub mcp-hub aifw promptfw authoringfw
-    cad-hub trading-hub wedding-hub dev-hub
+    pptx-hub mcp-hub aifw promptfw authoringfw nl2cad weltenfw
+    cad-hub trading-hub wedding-hub dev-hub coach-hub 137-hub
 )
 
 # App repos deployed as Docker on server (name → compose dir)
+# Verified against live server /opt/ on 2026-03-03.
+# To add a new app: append [repo-name]="/opt/<path>" and ensure
+# docker-compose.prod.yml exists at that path on the server.
 declare -A SERVER_APP_PATHS=(
     [bfagent]="/opt/bfagent-app"
     [travel-beat]="/opt/travel-beat"
@@ -74,6 +78,10 @@ declare -A SERVER_APP_PATHS=(
     [trading-hub]="/opt/trading-hub"
     [wedding-hub]="/opt/wedding-hub"
     [cad-hub]="/opt/cad-hub"
+    [dev-hub]="/opt/devhub-worker"
+    [coach-hub]="/opt/coach-hub"
+    [137-hub]="/opt/137-hub"
+    # mcp-hub: llm_gateway runs inside bfagent-app stack — no separate compose path
 )
 
 # ── Logging ───────────────────────────────────────────────────────────────────
