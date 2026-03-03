@@ -24,6 +24,7 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | Use Case definieren | Use Case | `/use-case` |
 | Governance vor Implementierung prüfen | Governance Check | `/governance-check` |
 | **Repo/Package Vollständigkeit prüfen** | **Repo Health Check** | **`/repo-health-check`** |
+| **Tests vor Package-Release prüfen** | **Testing Conventions** | **`/testing-conventions`** |
 | Vor Production-Deploy | Deploy Check | `/deploy-check` |
 | Deployen | Deploy | `/deploy` |
 | DB-Backup | Backup | `/backup` |
@@ -63,7 +64,10 @@ Neue Session startet
         │       └─ /pr-review
         │
         ├─ Unvollständige Angaben / fehlende Dateien gemeldet?
-        │       └─ /repo-health-check  ← NEU
+        │       └─ /repo-health-check
+        │
+        ├─ Vor Package-Release / nach Test-Failures?
+        │       └─ /testing-conventions  ← NEU
         │
         ├─ Deployen?
         │       ├─ Pre-check → /deploy-check
@@ -106,6 +110,9 @@ Prüft vor Implementierung: Existiert Komponente bereits? LLM/DB/Lookup-Zugriff 
 ### `/repo-health-check`
 Verbindlicher Vollständigkeits-Check für Repos/Packages. Profile: `python-package` + `django-app`. BLOCK-Items müssen alle grün sein. Maschinenausführbar: `tools/repo_health_check.py`. **Pflicht bei jedem neuen Package/Repo und wenn unvollständige Angaben gemeldet werden.**
 
+### `/testing-conventions`
+Prüft Test-Files auf die 3 häufigsten Fehler-Patterns vor Package-Release: T-01 `pytest.importorskip` für optionale Deps, T-02 `AsyncMock(side_effect=)` statt `wraps=`, T-03 `pytest.raises()` für Exception-Contracts. Referenz: `docs/conventions/TESTING_CONVENTIONS.md`. **Pflicht vor jedem `git tag vX.Y.Z`.**
+
 ### `/deploy-check`
 Pre-Deploy Gate: Tests grün, CI grün, Migrations gecheckt, Env aktuell, Post-Deploy Health-Check.
 
@@ -147,6 +154,11 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 /new-github-project
     └─ ergänzt: /onboard-repo (nicht ersetzt)
     └─ braucht: /adr für ersten echten ADR
+
+/testing-conventions  ← NEU
+    └─ Pflicht vor: git tag vX.Y.Z (Package-Release)
+    └─ Referenz: docs/conventions/TESTING_CONVENTIONS.md
+    └─ Scan-Tools: grep T-01/T-02/T-03
 ```
 
 ---
@@ -161,26 +173,31 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 | **Guardian** | Linting, Security, Quality | Eingebettet in `/agentic-coding` Step 6+7 |
 | **Re-Engineer** | Rollback-Handling, Refactoring | `/agentic-coding` Step 4b |
 | **Infra** | Onboarding, Deployment, Health Checks | `/onboard-repo`, `/new-github-project`, `/deploy`, `/repo-health-check` |
+| **QA** | Test-Conventions, Release-Gates | `/testing-conventions`, `/repo-health-check` |
 
 ---
 
 ## Non-Negotiable Rules (immer, egal welcher Workflow)
 
 ```
-1. CORE_CONTEXT.md lesen BEVOR Code geändert wird
-2. Service Layer: views → services → models (nie überspringen)
-3. BigAutoField — niemals UUID als Primary Key
-4. Templates: src/templates/<app>/ (nicht per-app)
-5. Secrets: nur via decouple.config() / env_file
-6. Tests: test_should_* Naming, min. 1 per Feature
-7. Zero Breaking Changes: erst deprecaten
-8. AGENT_HANDOVER.md am Session-Ende aktualisieren
-9. Destructive Actions: IMMER zuerst fragen
+1.  CORE_CONTEXT.md lesen BEVOR Code geändert wird
+2.  Service Layer: views → services → models (nie überspringen)
+3.  BigAutoField — niemals UUID als Primary Key
+4.  Templates: src/templates/<app>/ (nicht per-app)
+5.  Secrets: nur via decouple.config() / env_file
+6.  Tests: test_should_* Naming, min. 1 per Feature
+7.  Zero Breaking Changes: erst deprecaten
+8.  AGENT_HANDOVER.md am Session-Ende aktualisieren
+9.  Destructive Actions: IMMER zuerst fragen
 10. Kein HEALTHCHECK im Dockerfile
 11. /repo-health-check IMMER vor erstem Publish oder Deploy eines neuen Repos
+12. /testing-conventions IMMER vor git tag vX.Y.Z (Package-Release)
+    → T-01: pytest.importorskip() für opt. Deps
+    → T-02: AsyncMock(side_effect=) statt wraps=
+    → T-03: pytest.raises() für Exception-Contracts
 ```
 
 ---
 
-*Workflow Index v1.1 — Platform Coding Agent System | 2026-03-03*
+*Workflow Index v1.2 — Platform Coding Agent System | 2026-03-03*
 *Alle Workflows: `/home/deploy/projects/platform/.windsurf/workflows/`*
