@@ -3,28 +3,48 @@
 # sync-repo.sh — Platform-wide 3-Node Sync: WSL ↔ GitHub ↔ Server
 # =============================================================================
 #
-# ARCHITECTURE:
+# ARCHITECTURE (read before modifying):
+#
 #   GitHub           = Single Source of Truth for ALL repos
 #   WSL              = Developer workstation — Git checkouts in ~/github/<repo>
 #   Server           = Hetzner 88.198.191.108
 #                      - /opt/platform/  : Git checkout (docs, scripts, ADRs)
 #                      - /opt/<app>/     : Docker-only, updated via docker pull
 #
+# WHAT THIS SCRIPT DOES:
+#
+#   Mode 1: WSL sync (default)
+#     - Detects unpushed commits and parks them on a backup branch (SAFE)
+#     - Auto-commits Cascade-generated files (windsurf-rules/, scripts/,
+#       docs/adr/, .windsurf/workflows/) before pulling
+#     - Stashes remaining local changes
+#     - git pull --no-rebase (merge) from GitHub
+#     - Restores stash
+#
+#   Mode 2: Server sync (--server or --all)
+#     - SSH into server, git pull /opt/platform/ from GitHub
+#     - For app repos: docker pull + docker compose up -d (no git)
+#
+#   Mode 3: All repos (--all)
+#     - Runs WSL sync for all known repos
+#     - Runs server sync for platform + all deployed apps
+#
 # USAGE:
 #   bash scripts/sync-repo.sh                         # WSL: sync platform only
 #   bash scripts/sync-repo.sh ~/github/bfagent        # WSL: sync specific repo
-#   bash scripts/sync-repo.sh --all                   # WSL: all 14 repos
-#   bash scripts/sync-repo.sh --server                # Server: platform git + all apps docker
-#   bash scripts/sync-repo.sh --server platform       # Server: platform only
-#   bash scripts/sync-repo.sh --server bfagent        # Server: bfagent docker pull only
-#   bash scripts/sync-repo.sh --full                  # WSL --all + Server --all
+#   bash scripts/sync-repo.sh --all                   # WSL: sync all repos
+#   bash scripts/sync-repo.sh --server                # Server: sync platform + apps
+#   bash scripts/sync-repo.sh --server platform       # Server: sync platform only
+#   bash scripts/sync-repo.sh --full                  # WSL + Server: everything
 #
 # SAFETY GUARANTEES:
 #   - Never git reset --hard (no data loss)
 #   - Never force-push (remote always authoritative)
+#   - Unpushed commits are ALWAYS parked on backup/sync-TIMESTAMP branch
 #   - Auto-commit only for known Cascade-generated file patterns
 #   - Stash + restore for all other local changes
-#   - SSH operations: read-only git pulls + docker pull/up (no destructive ops)
+#   - SSH operations are read-only git pulls + docker pull (no destructive ops)
+#   - Pull failure: warns and continues (does not abort entire --all run)
 #
 # =============================================================================
 set -euo pipefail
@@ -32,7 +52,7 @@ set -euo pipefail
 # ── Constants ─────────────────────────────────────────────────────────────────
 readonly SERVER_HOST="88.198.191.108"
 readonly SERVER_PLATFORM_PATH="/opt/platform"
-readonly PLATFORM_BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.."; pwd)"
+readonly PLATFORM_BASE="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 readonly GITHUB_BASE="$(dirname "$PLATFORM_BASE")"
 
 # All repos with Git checkouts on WSL
@@ -42,7 +62,7 @@ readonly WSL_REPOS=(
     cad-hub trading-hub wedding-hub dev-hub
 )
 
-# App repos on server: name → compose directory (Docker-only, no git checkout)
+# App repos deployed as Docker on server (name → compose dir)
 declare -A SERVER_APP_PATHS=(
     [bfagent]="/opt/bfagent-app"
     [travel-beat]="/opt/travel-beat"
@@ -65,7 +85,7 @@ warn()   { echo -e "${_YELLOW}[sync] ⚠${_RESET} $*" >&2; }
 err()    { echo -e "${_RED}[sync] ✗${_RESET} $*" >&2; exit 1; }
 skip()   { echo -e "[sync] – $* (skipped)"; }
 
-# ── WSL Sync: single repo ─────────────────────────────────────────────────────
+# ── WSL Sync ──────────────────────────────────────────────────────────────────
 wsl_sync_repo() {
     local repo_path="$1"
     [[ -d "$repo_path/.git" ]] || { skip "Not a git repo: $repo_path"; return 0; }
@@ -75,7 +95,7 @@ wsl_sync_repo() {
     repo_name="$(basename "$repo_path")"
     header "WSL: $repo_name"
 
-    # 1. Fetch to know remote state without changing anything
+    # 1. Fetch to know remote state (no local changes)
     log "Fetching origin..."
     git fetch origin 2>/dev/null
 
@@ -94,9 +114,41 @@ wsl_sync_repo() {
 
     log "State: $modified modified, $untracked untracked, $behind commit(s) behind remote"
 
-    # 2. Auto-commit Cascade-generated files (they belong in version control)
+    # 2. Detect + park unpushed local commits
+    #
+    #    ROOT CAUSE of "could not apply <sha>... rebase conflict":
+    #    git pull --rebase replays local commits on top of origin. When those
+    #    commits touch the same files as remote commits, the replay fails.
+    #
+    #    FIX: Count commits in origin/$branch..HEAD. If any exist, create a
+    #    backup branch pointing at current HEAD, then reset --soft to origin
+    #    (moves pointer only, working tree untouched), then stash staged changes.
+    #    Result: clean HEAD at origin — pull proceeds conflict-free.
+    local unpushed
+    unpushed="$(git rev-list --count "origin/$branch..HEAD" 2>/dev/null || echo '0')"
+
+    local backup_branch=""
+    if [[ "$unpushed" -gt 0 ]]; then
+        backup_branch="backup/sync-$(date +%Y%m%d-%H%M%S)"
+        warn "$repo_name — $unpushed unpushed commit(s) detected (will be parked):"
+        git log --oneline "origin/$branch..HEAD" | sed 's/^/    /'
+        log "Creating backup branch: $backup_branch"
+        git branch "$backup_branch"
+        # reset --soft: moves HEAD to origin, stages the diff — tree unchanged
+        git reset --soft "origin/$branch"
+        # stash the staged changes so pull finds a clean index
+        git stash push -m "sync-repo.sh: parked unpushed from $backup_branch $(date +%Y-%m-%dT%H:%M:%S)"
+        log "Recovery options if needed:"
+        log "  git checkout $backup_branch   — restore original commits"
+        log "  git stash show -p             — inspect parked staged changes"
+        ok "$repo_name — unpushed commits parked safely on $backup_branch"
+    fi
+
+    # 3. Auto-commit Cascade-generated files that belong in version control
     if [[ "$modified" -gt 0 || "$untracked" -gt 0 ]]; then
         local to_add=()
+
+        # Patterns written by Cascade that should be versioned, not stashed
         local -a patterns=(
             "windsurf-rules/"
             "scripts/"
@@ -126,32 +178,39 @@ wsl_sync_repo() {
         fi
     fi
 
-    # 3. Stash remaining changes (.env, temp files, WIP code)
-    local remaining_m remaining_u stashed=false
+    # 4. Stash remaining changes (env files, temp files, work-in-progress)
+    local remaining_m remaining_u
     remaining_m="$(git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')"
     remaining_u="$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')"
+    local stashed=false
 
     if [[ "$remaining_m" -gt 0 || "$remaining_u" -gt 0 ]]; then
         log "Stashing $remaining_m modified + $remaining_u untracked files..."
         git stash push --include-untracked \
-            -m "sync-repo.sh auto-stash $(date +%Y-%m-%dT%H:%M:%S)" 2>/dev/null \
-            && stashed=true
+            -m "sync-repo.sh auto-stash $(date +%Y-%m-%dT%H:%M:%S)" \
+            2>/dev/null && stashed=true
     fi
 
-    # 4. Pull with rebase — clean linear history
-    log "Pulling origin/$branch --rebase..."
-    if git pull --rebase origin "$branch" 2>/dev/null; then
+    # 5. Pull — using merge (not rebase) after parking unpushed commits above.
+    #    --no-rebase avoids replay conflicts; merge creates a clean merge commit
+    #    when needed. Backup branch preserves full history of parked commits.
+    log "Pulling origin/$branch (merge)..."
+    if git pull --no-rebase origin "$branch" 2>/dev/null; then
         ok "$repo_name — synced to origin/$branch"
     else
-        warn "Rebase conflict — aborting, falling back to merge..."
-        git rebase --abort 2>/dev/null || true
-        git merge --no-edit "origin/$branch" \
-            -m "chore: sync merge fallback [sync-repo.sh]" || {
-            err "$repo_name — merge failed. Manual fix: cd $repo_path && git status"
+        warn "Pull failed — attempting explicit fetch + merge..."
+        git fetch origin "$branch" 2>/dev/null
+        git merge --no-edit "origin/$branch" 2>/dev/null || {
+            warn "$repo_name — merge had conflicts. Manual resolution needed:"
+            warn "  cd $repo_path && git status && git diff"
+            [[ -n "$backup_branch" ]] && \
+                warn "  Unpushed commits preserved on: $backup_branch"
+            # Return 1 (not err/exit) so --all continues with other repos
+            return 1
         }
     fi
 
-    # 5. Restore stash
+    # 6. Restore stash if we stashed anything
     if [[ "$stashed" == true ]]; then
         local stash_count
         stash_count="$(git stash list 2>/dev/null | wc -l | tr -d ' ')"
@@ -162,20 +221,22 @@ wsl_sync_repo() {
         fi
     fi
 
-    # 6. Report
-    local final
-    final="$(git status --short 2>/dev/null | wc -l | tr -d ' ')"
-    if [[ "$final" -eq 0 ]]; then
+    # 7. Report final state
+    local final_changes
+    final_changes="$(git status --short 2>/dev/null | wc -l | tr -d ' ')"
+    if [[ "$final_changes" -eq 0 ]]; then
         ok "$repo_name — clean ✓"
     else
-        ok "$repo_name — synced ($final local change(s) preserved)"
+        ok "$repo_name — synced ($final_changes local change(s) preserved)"
         git status --short | head -10 | sed 's/^/  /'
     fi
 }
 
-# ── Server Sync: platform Git checkout ────────────────────────────────────────
+# ── Server Sync: platform (Git checkout) ─────────────────────────────────────
 server_sync_platform() {
-    header "SERVER: platform (git pull /opt/platform)"
+    header "SERVER: platform (git pull)"
+    log "SSH → $SERVER_HOST: git pull $SERVER_PLATFORM_PATH"
+
     ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$SERVER_HOST" bash <<'REMOTE'
 set -euo pipefail
 cd /opt/platform
@@ -186,31 +247,31 @@ if [[ "$BEHIND" -eq 0 ]]; then
 else
     echo "[server] $BEHIND commit(s) behind — pulling..."
     git pull --rebase origin main
-    echo "[server] ✓ synced: $(git log --oneline -1)"
+    echo "[server] ✓ platform synced: $(git log --oneline -1)"
 fi
 REMOTE
-    ok "server /opt/platform synced"
+    ok "server platform sync complete"
 }
 
-# ── Server Sync: app Docker pull + compose up ──────────────────────────────────
+# ── Server Sync: app repos (Docker pull + compose up) ────────────────────────
 server_sync_app() {
     local app_name="$1"
     local app_path="${SERVER_APP_PATHS[$app_name]:-}"
+
     [[ -z "$app_path" ]] && { skip "$app_name — not in SERVER_APP_PATHS"; return 0; }
 
-    header "SERVER: $app_name (docker pull + compose up)"
-    # shellcheck disable=SC2029
+    header "SERVER: $app_name (docker pull)"
+    log "SSH → $SERVER_HOST: docker compose pull + up -d in $app_path"
+
     ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$SERVER_HOST" \
-        "cd $app_path \
-         && docker compose -f docker-compose.prod.yml pull --quiet 2>&1 | tail -2 \
-         && docker compose -f docker-compose.prod.yml up -d --remove-orphans 2>&1 | tail -3" \
+        "bash -c 'cd $app_path && docker compose -f docker-compose.prod.yml pull --quiet 2>&1 | tail -3 && docker compose -f docker-compose.prod.yml up -d --remove-orphans 2>&1 | tail -5'" \
     && ok "$app_name — docker updated" \
-    || warn "$app_name — docker update had warnings"
+    || warn "$app_name — docker update had warnings (check server logs)"
 }
 
-# ── Mode: WSL all repos ────────────────────────────────────────────────────────
+# ── Mode: WSL all ─────────────────────────────────────────────────────────────
 mode_wsl_all() {
-    log "WSL sync: ${#WSL_REPOS[@]} repos under $GITHUB_BASE"
+    log "WSL sync — ${#WSL_REPOS[@]} repos in $GITHUB_BASE"
     local failed=()
     for repo in "${WSL_REPOS[@]}"; do
         local rpath="$GITHUB_BASE/$repo"
@@ -220,21 +281,23 @@ mode_wsl_all() {
             skip "$repo — not cloned at $rpath"
         fi
     done
-    [[ "${#failed[@]}" -gt 0 ]] && warn "Failed: ${failed[*]}" || true
+    [[ "${#failed[@]}" -gt 0 ]] && warn "Failed repos: ${failed[*]}" || true
 }
 
-# ── Mode: Server all ───────────────────────────────────────────────────────────
+# ── Mode: Server all ──────────────────────────────────────────────────────────
 mode_server_all() {
     if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$SERVER_HOST" true 2>/dev/null; then
-        err "Cannot reach $SERVER_HOST — check SSH connectivity"
+        err "Cannot reach $SERVER_HOST — check SSH key and connectivity"
     fi
+
     server_sync_platform
+
     for app_name in "${!SERVER_APP_PATHS[@]}"; do
         server_sync_app "$app_name" || warn "$app_name server sync failed (continuing)"
     done
 }
 
-# ── Summary ────────────────────────────────────────────────────────────────────
+# ── Summary ───────────────────────────────────────────────────────────────────
 print_summary() {
     echo ""
     echo -e "${_BOLD}[sync] ══ Summary ══${_RESET}"
@@ -242,13 +305,15 @@ print_summary() {
     echo "  WSL    = all local checkouts pulled to GitHub HEAD"
     echo "  Server = /opt/platform pulled + app containers updated (if --server/--full)"
     echo ""
-    echo "  Repeat: bash ~/github/platform/scripts/sync-repo.sh [--full]"
+    echo "  Backup branches (if created): git branch -a | grep backup/sync"
+    echo "  Next time: bash ~/github/platform/scripts/sync-repo.sh [--full]"
     echo ""
 }
 
-# ── Main ───────────────────────────────────────────────────────────────────────
+# ── Main ──────────────────────────────────────────────────────────────────────
 main() {
     local mode="${1:-wsl-single}"
+
     case "$mode" in
         --full)
             mode_wsl_all
@@ -257,27 +322,30 @@ main() {
             ;;
         --server)
             local target="${2:-all}"
-            case "$target" in
-                all)      mode_server_all ;;
-                platform) server_sync_platform ;;
-                *)        server_sync_app "$target" ;;
-            esac
+            if [[ "$target" == "all" ]]; then
+                mode_server_all
+            elif [[ "$target" == "platform" ]]; then
+                server_sync_platform
+            else
+                server_sync_app "$target"
+            fi
             ;;
         --all)
             mode_wsl_all
             print_summary
             ;;
         --help|-h)
-            grep '^#' "${BASH_SOURCE[0]}" | head -30 | sed 's/^# \?//'
-            ;;
-        -*)
-            err "Unknown flag: $mode. Use --help for usage."
+            sed -n '3,50p' "${BASH_SOURCE[0]}"
             ;;
         *)
-            # Single repo path, or default to platform
-            wsl_sync_repo "$(realpath "${1:-$PLATFORM_BASE}")"
+            local target_path="${1:-$PLATFORM_BASE}"
+            if [[ "$target_path" == -* ]]; then
+                err "Unknown flag: $target_path. Run with --help for usage."
+            fi
+            wsl_sync_repo "$(realpath "$target_path")"
             ;;
     esac
+
     log "=== Done ==="
 }
 
