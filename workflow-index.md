@@ -23,6 +23,7 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | ADR reviewen | ADR Review | `/adr-review` |
 | Use Case definieren | Use Case | `/use-case` |
 | Governance vor Implementierung prüfen | Governance Check | `/governance-check` |
+| **Repo/Package Vollständigkeit prüfen** | **Repo Health Check** | **`/repo-health-check`** |
 | Vor Production-Deploy | Deploy Check | `/deploy-check` |
 | Deployen | Deploy | `/deploy` |
 | DB-Backup | Backup | `/backup` |
@@ -60,6 +61,9 @@ Neue Session startet
         │
         ├─ PR reviewen?
         │       └─ /pr-review
+        │
+        ├─ Unvollständige Angaben / fehlende Dateien gemeldet?
+        │       └─ /repo-health-check  ← NEU
         │
         ├─ Deployen?
         │       ├─ Pre-check → /deploy-check
@@ -99,6 +103,9 @@ Use Case nach RUP/UML-Standard: Steckbrief → Dok-Datei → GitHub Issue → In
 ### `/governance-check`
 Prüft vor Implementierung: Existiert Komponente bereits? LLM/DB/Lookup-Zugriff korrekt? Neue Komponente registrieren.
 
+### `/repo-health-check`
+Verbindlicher Vollständigkeits-Check für Repos/Packages. Profile: `python-package` + `django-app`. BLOCK-Items müssen alle grün sein. Maschinenausführbar: `tools/repo_health_check.py`. **Pflicht bei jedem neuen Package/Repo und wenn unvollständige Angaben gemeldet werden.**
+
 ### `/deploy-check`
 Pre-Deploy Gate: Tests grün, CI grün, Migrations gecheckt, Env aktuell, Post-Deploy Health-Check.
 
@@ -121,6 +128,7 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 ```
 /onboard-repo
     └─ ruft auf: /testing-setup (Step 1.6)
+    └─ ruft auf: /repo-health-check (Step 1.0 — vor allem anderen)
     └─ ergänzt durch: /new-github-project (Docs/Templates)
 
 /agentic-coding
@@ -152,7 +160,7 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 | **Planner** | Use Cases, Task-Decomposition | `/use-case`, `/agentic-coding` Step 2 |
 | **Guardian** | Linting, Security, Quality | Eingebettet in `/agentic-coding` Step 6+7 |
 | **Re-Engineer** | Rollback-Handling, Refactoring | `/agentic-coding` Step 4b |
-| **Infra** | Onboarding, Deployment | `/onboard-repo`, `/new-github-project`, `/deploy` |
+| **Infra** | Onboarding, Deployment, Health Checks | `/onboard-repo`, `/new-github-project`, `/deploy`, `/repo-health-check` |
 
 ---
 
@@ -169,9 +177,10 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 8. AGENT_HANDOVER.md am Session-Ende aktualisieren
 9. Destructive Actions: IMMER zuerst fragen
 10. Kein HEALTHCHECK im Dockerfile
+11. /repo-health-check IMMER vor erstem Publish oder Deploy eines neuen Repos
 ```
 
 ---
 
-*Workflow Index v1.0 — Platform Coding Agent System | 2026-02-26*
+*Workflow Index v1.1 — Platform Coding Agent System | 2026-03-03*
 *Alle Workflows: `/home/deploy/projects/platform/.windsurf/workflows/`*
