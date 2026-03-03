@@ -211,9 +211,9 @@ wsl_sync_repo() {
             2>/dev/null && stashed=true
     fi
 
-    # 5. Pull — using merge (not rebase) after parking unpushed commits above.
-    #    --no-rebase avoids replay conflicts; merge creates a clean merge commit
-    #    when needed. Backup branch preserves full history of parked commits.
+    # 5. Pull — no rebase (avoids replay conflicts with any remaining commits)
+    #    --no-rebase (merge) is safer after parking unpushed commits above.
+    #    Backup branch preserves full history of parked commits.
     log "Pulling origin/$branch (merge)..."
     if git pull --no-rebase origin "$branch" 2>/dev/null; then
         ok "$repo_name — synced to origin/$branch"
@@ -260,13 +260,15 @@ server_sync_platform() {
     ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$SERVER_HOST" bash <<'REMOTE'
 set -euo pipefail
 cd /opt/platform
+echo "[server] Branch: $(git rev-parse --abbrev-ref HEAD)"
+echo "[server] Before: $(git log --oneline -1)"
 git fetch origin
 BEHIND=$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
 if [[ "$BEHIND" -eq 0 ]]; then
-    echo "[server] ✓ platform already up-to-date: $(git log --oneline -1)"
+    echo "[server] ✓ platform already up-to-date"
 else
     echo "[server] $BEHIND commit(s) behind — pulling..."
-    git pull --rebase origin main
+    git pull --no-rebase origin main
     echo "[server] ✓ platform synced: $(git log --oneline -1)"
 fi
 REMOTE
@@ -274,6 +276,11 @@ REMOTE
 }
 
 # ── Server Sync: app repos (Docker pull + compose up) ────────────────────────
+#
+# FIX: Use heredoc (unquoted REMOTE) so $app_path expands locally before SSH.
+# Previous bug: single-quoted 'bash -c ...' prevented $app_path from expanding
+# → cd failed silently → docker compose ran in wrong directory.
+#
 server_sync_app() {
     local app_name="$1"
     local app_path="${SERVER_APP_PATHS[$app_name]:-}"
@@ -283,10 +290,17 @@ server_sync_app() {
     header "SERVER: $app_name (docker pull)"
     log "SSH → $SERVER_HOST: docker compose pull + up -d in $app_path"
 
-    ssh -o BatchMode=yes -o ConnectTimeout=10 "root@$SERVER_HOST" \
-        "bash -c 'cd $app_path && docker compose -f docker-compose.prod.yml pull --quiet 2>&1 | tail -3 && docker compose -f docker-compose.prod.yml up -d --remove-orphans 2>&1 | tail -5'" \
-    && ok "$app_name — docker updated" \
-    || warn "$app_name — docker update had warnings (check server logs)"
+    if ssh -o BatchMode=yes -o ConnectTimeout=30 "root@$SERVER_HOST" bash <<REMOTE
+set -euo pipefail
+cd ${app_path}
+docker compose -f docker-compose.prod.yml pull --quiet 2>&1 | tail -3
+docker compose -f docker-compose.prod.yml up -d --remove-orphans 2>&1 | tail -5
+REMOTE
+    then
+        ok "$app_name — docker updated"
+    else
+        warn "$app_name — docker update had warnings (check server logs)"
+    fi
 }
 
 # ── Quick Deploy: single app — docker compose pull + up ──────────────────────
