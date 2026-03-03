@@ -30,9 +30,8 @@
 #     - Runs WSL sync for all known repos
 #
 #   Mode 4: Quick deploy (--quick-deploy)
-#     - No CI/CD cycle, no Docker image rebuild
-#     - Git-backed server dirs: git pull + compose up (~15s)
-#     - Image-only dirs: docker compose pull + up (~30s)
+#     - docker compose pull + up -d for a single app (or all)
+#     - No CI/CD cycle, no image rebuild (~30s)
 #
 # USAGE:
 #   bash scripts/sync-repo.sh                          # WSL: sync platform only
@@ -44,14 +43,10 @@
 #   bash scripts/sync-repo.sh --quick-deploy weltenhub # Fast deploy: no CI/CD cycle
 #   bash scripts/sync-repo.sh --quick-deploy all       # Fast deploy: all server apps
 #
-# QUICK-DEPLOY MODES (--quick-deploy):
-#   Git-backed server dirs (bfagent, cad-hub, trading-hub):
-#     → git pull origin main + docker compose up -d (no rebuild)
-#     → use for config/env/compose changes — NOT for Python code changes
-#   Image-only dirs (weltenhub, travel-beat, risk-hub, etc.):
-#     → docker compose pull + docker compose up -d --remove-orphans
-#     → requires prior CI/CD build+push to GHCR
-#   Use case: push to GitHub → --quick-deploy to get live (~30s vs ~5min CI/CD)
+# QUICK-DEPLOY MODE (--quick-deploy):
+#   All apps: docker compose pull + docker compose up -d --remove-orphans
+#   Requires prior CI/CD build+push to GHCR (GitHub Actions on push to main).
+#   Use case: CI/CD has built+pushed image → --quick-deploy to get live (~30s)
 #
 # SAFETY GUARANTEES:
 #   - Never git reset --hard (no data loss)
@@ -98,15 +93,6 @@ declare -A SERVER_APP_PATHS=(
     [coach-hub]="/opt/coach-hub"
     [137-hub]="/opt/137-hub"
     # mcp-hub: llm_gateway runs inside bfagent-app stack — no separate compose path
-)
-
-# Server dirs that contain a Git checkout (verified 2026-03-03: git=yes)
-# These use git pull + compose up instead of docker compose pull + up.
-# All others are image-only: docker compose pull + up.
-readonly SERVER_GIT_DIRS=(
-    bfagent
-    cad-hub
-    trading-hub
 )
 
 # ── Logging ───────────────────────────────────────────────────────────────────
@@ -303,18 +289,10 @@ server_sync_app() {
     || warn "$app_name — docker update had warnings (check server logs)"
 }
 
-# ── Quick Deploy: single app — no CI/CD cycle, no image rebuild ───────────────
+# ── Quick Deploy: single app — docker compose pull + up ──────────────────────
 #
-# Two strategies based on whether the server dir has a Git checkout:
-#
-#   Git-backed (bfagent, cad-hub, trading-hub):
-#     git pull origin main → docker compose up -d (uses already-built image)
-#     → use for config/env/compose changes. Python code changes need CI/CD rebuild.
-#
-#   Image-only (weltenhub, travel-beat, risk-hub, etc.):
-#     docker compose pull → docker compose up -d --remove-orphans
-#     → pulls latest image from GHCR (requires prior CI/CD build+push)
-#     → faster than full --server run: skips WSL sync, focuses on one app
+# Uniform strategy for ALL apps: docker compose pull + up -d --remove-orphans.
+# Requires prior CI/CD build+push to GHCR. Skips WSL sync — ~30s total.
 #
 server_quick_deploy() {
     local app_name="$1"
@@ -323,34 +301,9 @@ server_quick_deploy() {
     [[ -z "$app_path" ]] && { err "Unknown app: $app_name. Valid apps: ${!SERVER_APP_PATHS[*]}"; }
 
     header "QUICK-DEPLOY: $app_name"
+    log "SSH → $SERVER_HOST: compose pull + up in $app_path"
 
-    # Determine strategy: git-backed vs image-only
-    local is_git_backed=false
-    for git_app in "${SERVER_GIT_DIRS[@]}"; do
-        [[ "$git_app" == "$app_name" ]] && is_git_backed=true && break
-    done
-
-    if [[ "$is_git_backed" == true ]]; then
-        log "Strategy: git pull + compose up (git-backed dir: $app_path)"
-        ssh -o BatchMode=yes -o ConnectTimeout=15 "root@$SERVER_HOST" bash <<REMOTE
-set -euo pipefail
-cd ${app_path}
-echo "[quick-deploy] Before: \$(git log --oneline -1)"
-git fetch origin
-BEHIND=\$(git rev-list --count HEAD..origin/main 2>/dev/null || echo 0)
-if [[ "\$BEHIND" -eq 0 ]]; then
-    echo "[quick-deploy] Already up-to-date — restarting containers anyway"
-else
-    echo "[quick-deploy] \$BEHIND new commit(s) — pulling..."
-    git pull --rebase origin main
-    echo "[quick-deploy] After: \$(git log --oneline -1)"
-fi
-docker compose -f docker-compose.prod.yml up -d --remove-orphans 2>&1 | tail -8
-echo "[quick-deploy] ✓ ${app_name} live"
-REMOTE
-    else
-        log "Strategy: docker compose pull + up (image-only dir: $app_path)"
-        ssh -o BatchMode=yes -o ConnectTimeout=30 "root@$SERVER_HOST" bash <<REMOTE
+    ssh -o BatchMode=yes -o ConnectTimeout=30 "root@$SERVER_HOST" bash <<REMOTE
 set -euo pipefail
 cd ${app_path}
 echo "[quick-deploy] Pulling latest image for ${app_name}..."
@@ -358,7 +311,6 @@ docker compose -f docker-compose.prod.yml pull 2>&1 | tail -5
 docker compose -f docker-compose.prod.yml up -d --remove-orphans 2>&1 | tail -8
 echo "[quick-deploy] ✓ ${app_name} live"
 REMOTE
-    fi
 
     ok "$app_name — quick-deploy complete"
 }
@@ -457,9 +409,7 @@ main() {
             print_summary
             ;;
         --quick-deploy)
-            # Fast deploy: no CI/CD cycle, no image rebuild
-            # Git-backed dirs: git pull + compose up
-            # Image-only dirs: docker compose pull + up
+            # docker compose pull + up for one app or all
             local qd_target="${2:-}"
             [[ -z "$qd_target" ]] && err "Usage: --quick-deploy <app-name|all>"
             if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$SERVER_HOST" true 2>/dev/null; then
