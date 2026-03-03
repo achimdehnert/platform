@@ -26,6 +26,7 @@
 #     - For app repos: docker pull + docker compose up -d (no git)
 #
 #   Mode 3: All repos (--all)
+#     - Bootstrap: syncs platform FIRST (self-update before loop)
 #     - Runs WSL sync for all known repos
 #     - Runs server sync for platform + all deployed apps
 #
@@ -45,6 +46,7 @@
 #   - Stash + restore for all other local changes
 #   - SSH operations are read-only git pulls + docker pull (no destructive ops)
 #   - Pull failure: warns and continues (does not abort entire --all run)
+#   - Bootstrap: platform synced first so new scripts are immediately available
 #
 # =============================================================================
 set -euo pipefail
@@ -95,7 +97,7 @@ wsl_sync_repo() {
     repo_name="$(basename "$repo_path")"
     header "WSL: $repo_name"
 
-    # 1. Fetch to know remote state (no local changes)
+    # 1. Fetch to know remote state
     log "Fetching origin..."
     git fetch origin 2>/dev/null
 
@@ -112,7 +114,7 @@ wsl_sync_repo() {
         return 0
     fi
 
-    log "State: $modified modified, $untracked untracked, $behind commit(s) behind remote"
+    log "State: $modified modified, $untracked untracked, $behind commits behind remote"
 
     # 2. Detect + park unpushed local commits
     #
@@ -148,7 +150,6 @@ wsl_sync_repo() {
     if [[ "$modified" -gt 0 || "$untracked" -gt 0 ]]; then
         local to_add=()
 
-        # Patterns written by Cascade that should be versioned, not stashed
         local -a patterns=(
             "windsurf-rules/"
             "scripts/"
@@ -272,6 +273,20 @@ server_sync_app() {
 # ── Mode: WSL all ─────────────────────────────────────────────────────────────
 mode_wsl_all() {
     log "WSL sync — ${#WSL_REPOS[@]} repos in $GITHUB_BASE"
+
+    # Bootstrap fix: sync platform FIRST and separately before the main loop.
+    #
+    # Root cause of "No such file or directory" for new scripts (publish-package.sh etc.):
+    # sync-repo.sh is launched FROM the local platform repo. If platform is stale,
+    # new scripts added to GitHub are not available locally until the next --all run.
+    #
+    # Fix: always pull platform first (outside the loop). The loop then skips it
+    # via the already-up-to-date check, so there is no double-pull cost.
+    header "Bootstrap: platform (self-update first)"
+    if [[ -d "$PLATFORM_BASE/.git" ]]; then
+        wsl_sync_repo "$PLATFORM_BASE" || warn "platform bootstrap pull failed — continuing with local version"
+    fi
+
     local failed=()
     for repo in "${WSL_REPOS[@]}"; do
         local rpath="$GITHUB_BASE/$repo"
@@ -286,6 +301,7 @@ mode_wsl_all() {
 
 # ── Mode: Server all ──────────────────────────────────────────────────────────
 mode_server_all() {
+    # Check SSH connectivity first
     if ! ssh -o BatchMode=yes -o ConnectTimeout=5 "root@$SERVER_HOST" true 2>/dev/null; then
         err "Cannot reach $SERVER_HOST — check SSH key and connectivity"
     fi
@@ -301,9 +317,9 @@ mode_server_all() {
 print_summary() {
     echo ""
     echo -e "${_BOLD}[sync] ══ Summary ══${_RESET}"
-    echo "  GitHub = Source of Truth (authoritative, unchanged)"
-    echo "  WSL    = all local checkouts pulled to GitHub HEAD"
-    echo "  Server = /opt/platform pulled + app containers updated (if --server/--full)"
+    echo "  GitHub = Source of Truth (unchanged)"
+    echo "  WSL    = git pull complete for all local checkouts"
+    echo "  Server = platform git pull + app docker pulls (if --server/--full)"
     echo ""
     echo "  Backup branches (if created): git branch -a | grep backup/sync"
     echo "  Next time: bash ~/github/platform/scripts/sync-repo.sh [--full]"
@@ -316,11 +332,13 @@ main() {
 
     case "$mode" in
         --full)
+            # WSL all repos + Server platform + Server app docker pulls
             mode_wsl_all
             mode_server_all
             print_summary
             ;;
         --server)
+            # Server only (platform git + all app docker)
             local target="${2:-all}"
             if [[ "$target" == "all" ]]; then
                 mode_server_all
@@ -331,6 +349,7 @@ main() {
             fi
             ;;
         --all)
+            # WSL all repos only (no server)
             mode_wsl_all
             print_summary
             ;;
@@ -338,6 +357,7 @@ main() {
             sed -n '3,50p' "${BASH_SOURCE[0]}"
             ;;
         *)
+            # Single repo — argument is path or defaults to platform
             local target_path="${1:-$PLATFORM_BASE}"
             if [[ "$target_path" == -* ]]; then
                 err "Unknown flag: $target_path. Run with --help for usage."
