@@ -1,0 +1,122 @@
+# ==============================================================================
+# BF Agent Platform — Compose Hardening Template (ADR-098)
+# ==============================================================================
+# Merge the relevant blocks into each app's docker-compose.prod.yml.
+# Adjust memory/cpu values per §3.3 tier overrides in ADR-098.
+# ==============================================================================
+
+services:
+
+  # ── Web (Gunicorn) ──────────────────────────────────────────────────────────
+  web:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 384M      # Tier override: cad-hub -> 512M
+          cpus: "1.0"       # Tier override: cad-hub -> 2.0, trading-hub -> 1.5
+        reservations:
+          memory: 192M
+          cpus: "0.25"
+
+  # ── Worker (Celery) ─────────────────────────────────────────────────────────
+  worker:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    deploy:
+      resources:
+        limits:
+          memory: 512M      # Tier override: cad-hub -> 1024M
+          cpus: "1.5"       # Tier override: bfagent/mcp-hub/cad-hub -> 2.0
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+
+  # ── Beat (Celery Scheduler) ─────────────────────────────────────────────────
+  beat:
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+        reservations:
+          memory: 64M
+          cpus: "0.1"
+
+  # ── Database (PostgreSQL 16) ────────────────────────────────────────────────
+  db:
+    restart: unless-stopped
+    shm_size: "128m"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: >
+      postgres
+      -c shared_buffers=128MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c effective_cache_size=256MB
+      -c max_connections=50
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=8MB
+      -c random_page_cost=1.1
+      -c log_min_duration_statement=200
+      -c log_connections=off
+      -c log_disconnections=off
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.75"
+        reservations:
+          memory: 256M
+          cpus: "0.25"
+
+  # ── Redis (Cache + Celery Broker) ───────────────────────────────────────────
+  redis:
+    restart: unless-stopped
+    command: >
+      redis-server
+      --maxmemory 96mb
+      --maxmemory-policy allkeys-lru
+      --save ""
+      --appendonly no
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+    deploy:
+      resources:
+        limits:
+          memory: 128M
+          cpus: "0.25"
+        reservations:
+          memory: 48M
+          cpus: "0.1"
+
+  # ── Migrate (one-shot, must exit) ───────────────────────────────────────────
+  migrate:
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: "0.5"
