@@ -1,6 +1,6 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-03-04  
+> **Last updated:** 2026-03-04
 > **Next free ADR number:** 100
 
 ## Legend
@@ -26,6 +26,11 @@
 | cad-hub | `cad-hub` |
 | coach-hub | `coach-hub` |
 | trading-hub | `trading-hub` |
+| dev-hub | `dev-hub` |
+| odoo-hub | `odoo-hub` |
+| promptfw | `promptfw` |
+| riskfw | `riskfw` |
+| iil-aifw | `iil-aifw` |
 
 ---
 
@@ -122,13 +127,14 @@
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Proposed` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
 | 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Proposed` | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
 | 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Proposed` | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
+| 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Proposed` | [ADR-099](ADR-099-devhub-release-management-ui.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
-> Luecken werden nie wiederverwendet (ADR-065). Folgende Nummern sind permanent frei:  
-> ADR-001 bis ADR-006 (pre-filesystem era), ADR-011, ADR-025, ADR-026, ADR-092, ADR-098  
-> Archivierte ADRs (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): siehe `_archive/superseded/`  
+> Luecken werden nie wiederverwendet (ADR-065). Folgende Nummern sind permanent frei:
+> ADR-001 bis ADR-006 (pre-filesystem era), ADR-011, ADR-025, ADR-026, ADR-092
+> Archivierte ADRs (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): siehe `_archive/superseded/`
 > ADR-060-aifw-quality-level-routing.md: Tombstone (falsche Nummer, ersetzt durch ADR-095)
 
 ---
@@ -139,9 +145,11 @@
 - [x] ADR-095 rev1: alle Blocker + Highs aus externem Review resolved -- 2026-03-02
 - [x] ADR-096 (authoringfw Scope): `Proposed` -- 2026-03-02
 - [x] ADR-097 (aifw 0.6.0 Contract): `Proposed` -- 2026-03-02
+- [x] ADR-098 (3-Layer Tuning Standard): `Accepted` -- 2026-03-04
 - [x] ADR-099 (dev-hub Release Management UI): `Proposed` -- 2026-03-04
 - [ ] ADR-095: zweites Review abwarten → dann Status auf `Accepted` heben
 - [ ] ADR-096: Review + `Accepted` nach ADR-095 Acceptance
 - [ ] ADR-097: Review + `Accepted` nach ADR-095 Acceptance → dann aifw 0.6.0 implementieren
 - [ ] ADR-099: Review + `Accepted` → dann dev-hub `releases` App implementieren
 - [ ] ADR-060-aifw-quality-level-routing.md Tombstone → in `_archive/superseded/` verschieben (manuell)
+- [ ] ADR-073: Repo Scope aktualisieren (war 10 Repos, jetzt 16)
