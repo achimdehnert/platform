@@ -5,6 +5,9 @@
 > (ChatGPT, Claude, Gemini, etc.) about platform architecture, requirements, or analysis.
 >
 > **Live version** (always current): `https://devhub.iil.pet/api/v1/context/?format=markdown`
+>
+> ⚠️ **This file is a static fallback snapshot.** The devhub API is authoritative.
+> Do NOT manually edit the Service Registry table — use `manage.py populate_catalog` instead.
 
 ---
 
@@ -25,32 +28,60 @@ GET https://devhub.iil.pet/api/v1/context/?format=json       → JSON
 
 ## Infrastructure
 
-- **Platform**: achimdehnert Platform
-- **Server**: Hetzner VM `88.198.191.108` (all services)
-- **Registry**: `ghcr.io/achimdehnert/`
-- **Stack**: Python 3.12, Django 5.x, Docker Compose, PostgreSQL 16, Redis 7, Nginx + Let's Encrypt
-- **Deployment**: GHCR images → SSH pull → `docker compose up --force-recreate` via `infra-deploy` GitHub Actions
-- **CI/CD**: GitHub Actions (platform reusable workflows + `infra-deploy` for write ops)
-- **Secrets**: SOPS + age (ADR-045)
-- **Multi-Tenancy**: Row-Level Isolation via `tenant_id` UUIDField + Postgres RLS (ADR-050)
+| Component | Value |
+|-----------|-------|
+| **Platform** | achimdehnert Platform |
+| **PROD Server** | Hetzner CPX52 — 16 vCPU, 32 GB RAM — `88.198.191.108` |
+| **DEV Server** | Hetzner CCX33 — 8 vCPU dedicated, 32 GB RAM — `46.225.113.1` |
+| **Odoo Server** | Hetzner CPX32 — 4 vCPU, 8 GB RAM — `46.225.127.211` |
+| **Registry** | `ghcr.io/achimdehnert/` |
+| **Stack** | Python 3.12, Django 5.x, Docker Compose, PostgreSQL 16, Redis 7, Nginx + Let's Encrypt |
+| **Deployment** | GHCR images → SSH pull → `docker compose up --force-recreate` via `infra-deploy` |
+| **CI/CD** | GitHub Actions (platform reusable workflows + `infra-deploy` for write ops) |
+| **Secrets** | SOPS + age (ADR-045) |
+| **Multi-Tenancy** | Row-Level Isolation via `tenant_id` UUIDField + Postgres RLS (ADR-050) |
 
 ---
 
-## Service Registry
+## Repository Registry (20 Repos)
 
-| Service | Brand | Domain | URL | Port | Status |
-|---------|-------|--------|-----|------|--------|
+> Source of truth: filesystem at `u:\home\dehnert\github\*.*` + GitHub `achimdehnert/`
+> Canonical catalog: `https://devhub.iil.pet/api/v1/context/`
+
+### Django Apps (deployed services)
+
+| Repo | Brand | Domain | URL | Port | Status |
+|------|-------|--------|-----|------|--------|
 | `bfagent` | BF Agent | Content & Publishing | https://bfagent.iil.pet | 8088 | Production |
 | `travel-beat` | DriftTales | Content & Publishing | https://drifttales.com | 8089 | Production |
 | `weltenhub` | Weltenforger | Content & Publishing | https://weltenforger.com | 8081 | Production |
 | `risk-hub` | Schutztat | Compliance & Safety | https://demo.schutztat.de | 8090 | Production |
 | `dev-hub` | DevHub | Platform | https://devhub.iil.pet | 8085 | Production |
 | `pptx-hub` | Prezimo | Platform | https://prezimo.com | 8020 | Production |
-| `coach-hub` | KI ohne Risiko | Compliance & Safety | https://kiohnerisiko.de | 8007 | Experimental |
-| `trading-hub` | — | Finance & Trading | https://trading-hub.iil.pet | 8088 | Experimental |
-| `wedding-hub` | — | Events & Lifestyle | https://wedding-hub.iil.pet | 8093 | Experimental |
-| `cad-hub` | nl2cad | Engineering | https://nl2cad.de | 8094 | Stopped |
-| `mcp-hub` | — | Platform | intern | — | Production |
+| `coach-hub` | KI ohne Risiko | Compliance & Safety | https://kiohnerisiko.de | 8007 | Active |
+| `trading-hub` | — | Finance & Trading | https://ai-trades.de | 8088 | Active |
+| `wedding-hub` | — | Events & Lifestyle | https://wedding-hub.iil.pet | 8093 | Active |
+| `cad-hub` | nl2cad | Engineering | https://nl2cad.de | 8094 | Active |
+| `137-hub` | 137herz | Content & Publishing | https://137herz.de | — | Active |
+| `odoo-hub` | — | ERP | intern (Odoo server) | 8069 | Production |
+
+### Platform & Infrastructure
+
+| Repo | Typ | Beschreibung | Status |
+|------|-----|-------------|--------|
+| `platform` | Platform | ADRs, shared packages, governance | Production |
+| `mcp-hub` | MCP Server | Deployment MCP, LLM MCP, Orchestrator | Production |
+| `infra-deploy` | CI/Scripts | GitHub Actions infra deploy runner | Production |
+
+### Python Frameworks & Libraries
+
+| Repo | Package | Beschreibung | Status |
+|------|---------|-------------|--------|
+| `aifw` | `iil-aifw` | AI Framework — LiteLLM, model routing, quality levels | Active |
+| `authoringfw` | `authoringfw` | Content Orchestration Framework | Active |
+| `promptfw` | `promptfw` | Prompt Template Framework (4-layer Jinja2) | Active |
+| `weltenfw` | `weltenfw` | Welten Framework | Active |
+| `nl2cad` | `nl2cad` | NL-to-CAD library | Active |
 
 ---
 
@@ -61,14 +92,14 @@ GET https://devhub.iil.pet/api/v1/context/?format=json       → JSON
 - **HTMX**: Dynamic interactions without custom JS frameworks
 - **API**: Django REST Framework (`/api/v1/`) or Django Ninja (risk-hub)
 - **Testing**: pytest + pytest-django, minimum 80% coverage
-- **ADRs**: All architecture decisions documented in `platform/docs/adr/` (ADR-001 to ADR-067+)
+- **ADRs**: All architecture decisions documented in `platform/docs/adr/`
 
 ---
 
 ## Deployment Topology
 
 ```
-Hetzner VM 88.198.191.108
+Hetzner PROD VM 88.198.191.108 (CPX52, 32 GB)
 ├── Nginx (reverse proxy, SSL termination)
 ├── Docker Compose stacks per service
 │   ├── <service>-web (gunicorn)
@@ -82,6 +113,14 @@ Hetzner VM 88.198.191.108
     ├── deploy-service.yml — on dispatch
     ├── db-backup.yml     — daily 02:00 UTC
     └── migrate.yml       — on demand
+
+Hetzner DEV VM 46.225.113.1 (CCX33, 32 GB dedicated)
+├── Windsurf SSH Remote workspace
+├── GitHub self-hosted runners
+└── All repos cloned at ~/projects/
+
+Hetzner Odoo VM 46.225.127.211 (CPX32, 8 GB)
+└── Odoo ERP instance (odoo-hub)
 ```
 
 ---
@@ -91,14 +130,13 @@ Hetzner VM 88.198.191.108
 | ADR | Title | Status |
 |-----|-------|--------|
 | ADR-021 | Unified Deployment Pattern | Accepted |
+| ADR-022 | Platform Consistency Standard | Accepted |
 | ADR-037 | Chat Logging | Accepted |
 | ADR-045 | Secrets Management (SOPS+age) | Accepted |
 | ADR-050 | Platform Decomposition (Hub Landscape) | Accepted |
-| ADR-053 | Documentation Strategy | Accepted |
-| ADR-062 | Content Store Shared Persistence | Proposed |
-| ADR-064 | coach-hub | Accepted |
-| ADR-066 | AI Engineering Team | Proposed |
 | ADR-067 | Deployment Execution Strategy (infra-deploy) | Accepted |
+| ADR-077 | Infrastructure Context System (catalog-info.yaml) | Accepted |
+| ADR-098 | 3-Layer Tuning Standard PROD/DEV Infrastructure | Accepted |
 
 Full ADR index: https://github.com/achimdehnert/platform/blob/main/docs/adr/INDEX.md
 
