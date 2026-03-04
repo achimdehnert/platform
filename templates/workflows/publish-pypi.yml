@@ -1,0 +1,87 @@
+# =============================================================================
+# publish-pypi.yml — Reusable GitHub Actions workflow template for PyPI publishing
+# Source: achimdehnert/platform/templates/workflows/publish-pypi.yml
+#
+# USAGE: Copy to .github/workflows/publish.yml in your repo and adapt:
+#   1. Adjust tag patterns in `on.push.tags`
+#   2. Set ROOT_PACKAGES if repo has packages in root (not under packages/)
+#   3. Configure PyPI Trusted Publisher:
+#      - Repository: achimdehnert/<your-repo>
+#      - Workflow:   publish.yml
+#      - Environment: pypi
+#
+# TAG FORMAT (mandatory): <package-name>@<semver>
+#   Examples: nl2cad-core@0.2.0  |  iil-nl2cadfw@1.0.0  |  mypackage@0.3.1
+#
+# KEY FEATURE: Version is set automatically from the tag — NO manual
+#   pyproject.toml version bump required before tagging.
+#
+# RELEASE WORKFLOW (after copying):
+#   git tag mypackage@1.2.3
+#   git push origin mypackage@1.2.3
+#   # → GitHub Actions builds, sets version, publishes via OIDC — zero tokens
+# =============================================================================
+name: Publish to PyPI
+
+on:
+  push:
+    tags:
+      - "*@*"   # matches any <package>@<version> tag — narrow down in your copy
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write   # required for OIDC Trusted Publishing
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.11
+
+      - name: Determine package and version from tag
+        id: pkg
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          # Tag format: <package-name>@<semver>  e.g.  nl2cad-core@0.2.0
+          PACKAGE="${TAG%@*}"
+          VERSION="${TAG#*@}"
+          echo "package=$PACKAGE" >> $GITHUB_OUTPUT
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Publishing: $PACKAGE v$VERSION"
+
+      - name: Set version from tag into pyproject.toml
+        run: |
+          PACKAGE="${{ steps.pkg.outputs.package }}"
+          VERSION="${{ steps.pkg.outputs.version }}"
+          # Packages listed in ROOT_PACKAGES live in repo root (no packages/ subdir)
+          ROOT_PACKAGES="${ROOT_PACKAGES:-}"
+          if echo ",$ROOT_PACKAGES," | grep -q ",$PACKAGE,"; then
+            uv version "$VERSION"
+          else
+            uv version --package "$PACKAGE" "$VERSION"
+          fi
+          echo "Set $PACKAGE version → $VERSION"
+        env:
+          # Comma-separated list of package names that live in the repo root
+          # Example: ROOT_PACKAGES: "iil-nl2cadfw,my-meta-package"
+          ROOT_PACKAGES: ""
+
+      - name: Install workspace dependencies
+        run: uv sync --all-packages
+
+      - name: Build package
+        run: uv build --package ${{ steps.pkg.outputs.package }}
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
