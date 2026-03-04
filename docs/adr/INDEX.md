@@ -13,24 +13,42 @@
 | `Superseded` | Vollstaendig ersetzt |
 | `Archived` | In `_archive/superseded/` verschoben -- nicht mehr aktiv |
 
-| Repository | Kuerzel |
-|-----------|---------|
-| platform | `platform` |
-| bfagent | `bfagent` |
-| risk-hub | `risk-hub` |
-| weltenhub | `weltenhub` |
-| travel-beat | `travel-beat` |
-| mcp-hub | `mcp-hub` |
-| wedding-hub | `wedding-hub` |
-| pptx-hub | `pptx-hub` |
-| cad-hub | `cad-hub` |
-| coach-hub | `coach-hub` |
-| trading-hub | `trading-hub` |
-| dev-hub | `dev-hub` |
-| odoo-hub | `odoo-hub` |
-| promptfw | `promptfw` |
-| riskfw | `riskfw` |
-| iil-aifw | `iil-aifw` |
+## Repository Registry (20 Repos)
+
+> Source of truth: filesystem `u:\home\dehnert\github\*.*`
+> Canonical live catalog: `https://devhub.iil.pet/api/v1/context/`
+
+### Django Apps
+| Repository | Kuerzel | URL | Status |
+|-----------|---------|-----|--------|
+| platform | `platform` | — | Production |
+| bfagent | `bfagent` | bfagent.iil.pet | Production |
+| risk-hub | `risk-hub` | demo.schutztat.de | Production |
+| weltenhub | `weltenhub` | weltenforger.com | Production |
+| travel-beat | `travel-beat` | drifttales.com | Production |
+| dev-hub | `dev-hub` | devhub.iil.pet | Production |
+| pptx-hub | `pptx-hub` | prezimo.com | Production |
+| cad-hub | `cad-hub` | nl2cad.de | Active |
+| coach-hub | `coach-hub` | kiohnerisiko.de | Active |
+| trading-hub | `trading-hub` | ai-trades.de | Active |
+| wedding-hub | `wedding-hub` | wedding-hub.iil.pet | Active |
+| 137-hub | `137-hub` | 137herz.de | Active |
+| odoo-hub | `odoo-hub` | intern (Odoo) | Production |
+
+### Platform & Infrastructure
+| Repository | Kuerzel | Beschreibung | Status |
+|-----------|---------|-------------|--------|
+| mcp-hub | `mcp-hub` | MCP Servers (deployment, llm, orchestrator) | Production |
+| infra-deploy | `infra-deploy` | GitHub Actions infra deploy runner | Production |
+
+### Python Frameworks & Libraries
+| Repository | Kuerzel | Package | Status |
+|-----------|---------|---------|--------|
+| aifw | `aifw` | iil-aifw | Active |
+| authoringfw | `authoringfw` | authoringfw | Active |
+| promptfw | `promptfw` | promptfw | Active |
+| weltenfw | `weltenfw` | weltenfw | Active |
+| nl2cad | `nl2cad` | nl2cad | Active |
 
 ---
 
@@ -147,9 +165,11 @@
 - [x] ADR-097 (aifw 0.6.0 Contract): `Proposed` -- 2026-03-02
 - [x] ADR-098 (3-Layer Tuning Standard): `Accepted` -- 2026-03-04
 - [x] ADR-099 (dev-hub Release Management UI): `Proposed` -- 2026-03-04
+- [x] Repo-Tabelle auf 20 Repos aktualisiert -- 2026-03-04
 - [ ] ADR-095: zweites Review abwarten → dann Status auf `Accepted` heben
 - [ ] ADR-096: Review + `Accepted` nach ADR-095 Acceptance
 - [ ] ADR-097: Review + `Accepted` nach ADR-095 Acceptance → dann aifw 0.6.0 implementieren
 - [ ] ADR-099: Review + `Accepted` → dann dev-hub `releases` App implementieren
+- [ ] ADR-073: Repo Scope aktualisieren (war 10 Repos, jetzt 20) — neues ADR oder Amendment
 - [ ] ADR-060-aifw-quality-level-routing.md Tombstone → in `_archive/superseded/` verschieben (manuell)
-- [ ] ADR-073: Repo Scope aktualisieren (war 10 Repos, jetzt 16)
+- [ ] catalog-info.yaml in allen 20 Repos pruefen/erstellen (ADR-077 compliance)
