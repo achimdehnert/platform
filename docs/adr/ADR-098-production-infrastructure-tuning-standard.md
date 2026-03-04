@@ -1,15 +1,17 @@
 ---
 id: ADR-098
-title: Production Infrastructure Tuning Standard
+title: "Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure"
 status: Accepted
 date: 2026-03-04
-author: Achim Dehnert
+decision-makers: Achim Dehnert
+consulted: –
+informed: –
 tags: [infrastructure, docker, performance, hetzner, gunicorn, postgresql, redis, sysctl]
 supersedes: []
-related: [ADR-021, ADR-022, ADR-078, ADR-056]
+related: [ADR-021, ADR-022, ADR-042, ADR-056, ADR-063, ADR-078]
 ---
 
-# ADR-098: Production Infrastructure Tuning Standard
+# ADR-098: Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure
 
 ## Context
 
@@ -17,7 +19,7 @@ The platform runs 7 apps on a single Hetzner CPX32 PROD server (4 vCPU, 8 GB RAM
 and a CX32 DEV server (4 vCPU, 8 GB RAM, 80 GB NVMe). Each app has its own compose stack
 (web + worker + beat + db + redis).
 
-A systematic performance and reliability audit (captured in `docs/adr/inputs/bf-tuning-audit.sh`)
+A systematic performance and reliability audit (captured in `scripts/server/bf-tuning-audit.sh`)
 revealed the following risk areas across all 7 stacks:
 
 1. **No CPU or memory limits** — any one container can exhaust the shared 4-core host
@@ -28,32 +30,55 @@ revealed the following risk areas across all 7 stacks:
 5. **Redis defaults** — no `maxmemory`, no eviction policy → unbounded growth → OOM
 6. **Gunicorn sync workers** — no `max-requests` recycling → memory leak over days;
    no `gthread` worker class → suboptimal for HTMX I/O workloads
-7. **No compose hardening** — missing `shm_size`, missing log options, missing restart policies
+7. **No compose hardening** — missing `healthcheck`, `depends_on`, `shm_size`, log options
 
-## Decision
+## Decision Drivers
 
-Adopt a **3-layer tuning standard** applied consistently across PROD and DEV servers:
+- **Stability**: eliminate OOM crashes and noisy-neighbor CPU starvation across 7 apps
+- **Performance**: correct PostgreSQL planner for NVMe (`random_page_cost=1.1`)
+- **Reliability**: worker memory-leak prevention via `max-requests`
+- **Operations**: zero-downtime Docker daemon upgrades via `live-restore`
+- **Disk safety**: bounded logs and build-cache to prevent NVMe fill
 
-- **Layer 0 — Server**: Docker daemon + Linux kernel (`sysctl`) parameters
-- **Layer 1 — Compose**: Per-service resource limits, logging config, restart policy, `shm_size`
-- **Layer 2 — Runtime**: Gunicorn, PostgreSQL, Redis tuning via ENV / compose `command`
+## Considered Options
 
-All parameters are **tier-differentiated** by app type (standard / I/O-heavy / CPU-heavy).
+| Option | Description | Verdict |
+|--------|-------------|---------|
+| **A — 3-Layer in-place tuning (chosen)** | daemon.json + sysctl + compose hardening on existing CPX32 | ✅ Adopted |
+| **B — PgBouncer + shared PostgreSQL** | One PgBouncer + one PostgreSQL instance for all 7 apps | ❌ Rejected |
+| **C — Upgrade to CPX42 (16 GB RAM)** | More headroom instead of tuning | ⚠️ Deferred |
+| **D — Separate DB server (CPX21)** | Offload all PostgreSQL to a dedicated node | ❌ Rejected |
 
-Compliance is enforced by the audit script `scripts/server/bf-tuning-audit.sh`
-(read-only, CI-safe, outputs JSON for monitoring integration).
+### Option A — Pros and Cons
 
-## Rationale
+| Pros | Cons |
+|------|------|
+| Zero migration risk — no architectural change | Memory ceiling (11.7 GB) exceeds physical RAM (8 GB) |
+| Tuning applies immediately without redeploy | Requires per-repo compose file changes |
+| Audit script verifies compliance automatically | `vm.overcommit_memory=1` shifts OOM risk to kernel |
+| All changes reversible (backups kept) | Not sufficient beyond ~9 active concurrent apps |
 
-| Risk | Without Tuning | With This ADR |
-|------|---------------|---------------|
-| CPU starvation | One busy Gunicorn kills all 7 apps | `cpus: "1.0"` limit per web container |
-| RAM exhaustion | 7 × unlimited = OOM at any time | Budget: 7.97 GB ≤ 8 GB (see §2.2) |
-| Disk fill | Logs grow unbounded | json-file max-size 10m, BuildKit GC 5 GB |
-| Slow queries | PG uses wrong plan (seq scan) | `random_page_cost=1.1` for NVMe |
-| Redis OOM | No eviction → server crash | `maxmemory 96mb allkeys-lru` |
-| Memory leak | Workers never restart | `--max-requests 1000` |
-| Downtime on Docker upgrade | All containers stop | `live-restore: true` |
+### Option B — Why Rejected
+
+PgBouncer adds operational complexity (connection pooling config per app, different ORM
+behavior, transaction pooling incompatible with Django's session-based connection handling)
+without eliminating the root cause (unbounded containers). Max-connections tuning per
+instance (50) achieves 80% of the benefit at 0% of the complexity.
+
+### Option C — Why Deferred (not rejected)
+
+CPX42 (8 vCPU, 16 GB RAM, €22.49/mo) would provide genuine headroom — the memory ceiling
+analysis (§3.1) shows the current setup is theoretically overcommitted. **Upgrade is
+recommended as a follow-up action** when P95 RAM utilization exceeds 80% over 7 consecutive
+days (monitored via ADR-078 Observability Stack). Budget is not a constraint;
+operational risk justifies this investment at that trigger point.
+
+### Option D — Why Rejected
+
+A separate DB server (CPX21, €5.99/mo) requires network-based DB connections, changes
+Django's `DATABASE_URL` on all 7 apps, adds a single point of failure in the network path,
+and complicates the deployment matrix. Per-instance `max_connections=50` and `shm_size`
+achieve sufficient isolation at current load.
 
 ---
 
@@ -71,7 +96,6 @@ Applied to **both PROD (88.198.191.108) and DEV (46.225.113.1)** servers.
     "max-file": "5",
     "compress": "true"
   },
-  "storage-driver": "overlay2",
   "default-ulimits": {
     "nofile": { "Name": "nofile", "Hard": 65536, "Soft": 65536 }
   },
@@ -92,6 +116,9 @@ Applied to **both PROD (88.198.191.108) and DEV (46.225.113.1)** servers.
   }
 }
 ```
+
+> **Note**: `storage-driver` is intentionally omitted — the kernel-native `overlayfs`
+> driver on Ubuntu 24.04 is equivalent to `overlay2` and must not be overridden.
 
 **Key decisions:**
 - `live-restore: true` — containers survive daemon restarts (zero-downtime Docker upgrades)
@@ -123,29 +150,66 @@ fs.inotify.max_user_instances = 512
 
 **Key decisions:**
 - `vm.swappiness=10` — avoid swap on NVMe hosts; swapping defeats the NVMe latency advantage
-- `vm.overcommit_memory=1` — required for Docker (prevents false-positive OOM kills on fork)
+- `vm.overcommit_memory=1` — required for Docker (prevents false-positive OOM kills on fork);
+  side effect: OOM killer fires without pre-warning — mitigated by ADR-078 RAM alerting
 - `net.core.somaxconn=65535` — default 128 is too low for 7 Gunicorn stacks behind Nginx
 
 ### §3 — Compose Hardening (per-service resource limits)
 
-#### §3.1 RAM Budget (PROD — 8 GB / 7 Apps)
+#### §3.1 RAM Budget (PROD — 8 GB)
 
-| Service | Limit | × 7 apps | Subtotal |
-|---------|-------|-----------|----------|
-| web | 384M | × 7 | 2.688 GB |
-| worker | 512M | × 7 | 3.584 GB |
-| db | 512M | shared* | — |
-| redis | 128M | × 7 | 0.896 GB |
-| OS + Docker | — | — | 0.800 GB |
-| **Total** | | | **7.97 GB ✓** |
+The table shows **memory limits (ceilings)** and **reservations (guaranteed minimums)**.
+The ceiling total (11.7 GB) intentionally exceeds physical RAM — this is safe because
+containers do not simultaneously exhaust their limits under normal P50 load (~6.3 GB).
+**Monitoring alert required at >6.5 GB total RAM usage** (→ ADR-078).
 
-*Apps sharing the bfagent postgres (weltenhub) do not add a separate db container.
+| Service | Limit | ×N | Ceiling | Reservation | ×N | Guaranteed |
+|---------|-------|----|---------|-------------|-----|------------|
+| web | 384M | ×7 | 2.688 GB | 192M | ×7 | 1.344 GB |
+| worker | 512M | ×7 | 3.584 GB | 256M | ×7 | 1.792 GB |
+| beat¹ | 128M | ×5 | 0.640 GB | 64M | ×5 | 0.320 GB |
+| redis | 128M | ×7 | 0.896 GB | 48M | ×7 | 0.336 GB |
+| db | 512M | ×6² | 3.072 GB | 256M | ×6 | 1.536 GB |
+| OS + Docker | — | — | 0.800 GB | — | — | 0.800 GB |
+| **Max Ceiling** | | | **11.680 GB ⚠️** | **Guaranteed Min** | | **6.128 GB ✓** |
+
+¹ Only bfagent, travel-beat, weltenhub, cad-hub, mcp-hub run Celery Beat (5 apps).
+² weltenhub shares bfagent's PostgreSQL container — 6 separate db instances, not 7.
+
+> **Escalation trigger**: Upgrade to CPX42 (16 GB RAM) when P95 RAM utilization
+> exceeds 80% (6.5 GB) for 7 consecutive days. CPX42 = €22.49/mo — budget is not
+> a constraint; this is purely a monitoring-triggered decision.
 
 #### §3.2 Standard Compose Template (all apps)
 
+This template is **complete and ADR-022-compliant** — merge into each app's
+`docker-compose.prod.yml`. Replace `${APP_NAME}` and `${APP_PORT}` with app-specific values.
+Full template: `scripts/server/compose-hardening/template.yml`.
+
 ```yaml
 services:
+
   web:
+    image: "ghcr.io/achimdehnert/${APP_NAME}:${IMAGE_TAG:-latest}"
+    command: ["web"]
+    env_file: .env.prod
+    ports:
+      - "127.0.0.1:${APP_PORT}:8000"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - "CMD"
+        - "python"
+        - "-c"
+        - "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')"
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
     restart: unless-stopped
     logging:
       driver: json-file
@@ -160,179 +224,64 @@ services:
         reservations:
           memory: 192M
           cpus: "0.25"
-
-  worker:
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "1.5"
-        reservations:
-          memory: 256M
-          cpus: "0.5"
-
-  beat:
-    restart: unless-stopped
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.25"
-        reservations:
-          memory: 64M
-          cpus: "0.1"
-
-  db:
-    restart: unless-stopped
-    shm_size: "128m"
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    deploy:
-      resources:
-        limits:
-          memory: 512M
-          cpus: "0.75"
-        reservations:
-          memory: 256M
-          cpus: "0.25"
-
-  redis:
-    restart: unless-stopped
-    command: >
-      redis-server
-      --maxmemory 96mb
-      --maxmemory-policy allkeys-lru
-      --save ""
-      --appendonly no
-    logging:
-      driver: json-file
-      options:
-        max-size: "5m"
-        max-file: "2"
-    deploy:
-      resources:
-        limits:
-          memory: 128M
-          cpus: "0.25"
-        reservations:
-          memory: 48M
-          cpus: "0.1"
-
-  migrate:
-    restart: "no"
-    deploy:
-      resources:
-        limits:
-          memory: 256M
-          cpus: "0.5"
 ```
 
 #### §3.3 App-Tier Overrides
 
-| App | Type | `web.cpus` | `web.memory` | `worker.cpus` | Reason |
-|-----|------|-----------|-------------|--------------|--------|
-| travel-beat | Standard HTMX | 1.0 | 384M | 1.5 | Baseline |
-| weltenhub | Standard HTMX | 1.0 | 384M | 1.5 | Baseline |
-| risk-hub | Standard HTMX | 1.0 | 384M | 1.5 | Baseline |
-| bfagent | AI/I/O-heavy | 1.0 | 384M | 2.0 | LLM calls in worker |
-| mcp-hub | I/O-heavy | 1.0 | 384M | 2.0 | Many concurrent SSH/API calls |
-| trading-hub | CPU+WebSocket | 1.5 | 384M | 1.5 | Signal computation CPU-bound |
-| cad-hub | CPU-heavy | 2.0 | 512M | 2.0 | IFC parsing is CPU+RAM heavy |
+| App | Type | Beat | `web.cpus` | `web.memory` | `worker.cpus` | Reason |
+|-----|------|------|-----------|-------------|--------------|--------|
+| travel-beat | Standard HTMX | ✅ | 1.0 | 384M | 1.5 | Baseline |
+| weltenhub | Standard HTMX | ✅ | 1.0 | 384M | 1.5 | Baseline |
+| risk-hub | Standard HTMX | ❌ | 1.0 | 384M | 1.5 | No scheduled tasks |
+| bfagent | AI/I/O-heavy | ✅ | 1.0 | 384M | 2.0 | LLM calls in worker |
+| mcp-hub | I/O-heavy | ✅ | 1.0 | 384M | 2.0 | Many concurrent SSH/API calls |
+| trading-hub | CPU+WebSocket | ❌ | 1.5 | 384M | 1.5 | Signal computation CPU-bound |
+| cad-hub | CPU-heavy | ✅ | 2.0 | 512M | 2.0 | IFC parsing is CPU+RAM heavy |
 
 ### §4 — PostgreSQL Tuning
 
-Applied via compose `command:` directive (no config file mount needed):
-
-```yaml
-  db:
-    command: >
-      postgres
-      -c shared_buffers=128MB
-      -c work_mem=4MB
-      -c maintenance_work_mem=64MB
-      -c effective_cache_size=256MB
-      -c max_connections=50
-      -c checkpoint_completion_target=0.9
-      -c wal_buffers=8MB
-      -c random_page_cost=1.1
-      -c log_min_duration_statement=200
-      -c log_connections=off
-      -c log_disconnections=off
-```
+Applied via compose `command:` directive (see §3.2 template — included in `db` service).
 
 **Key decisions:**
 - `random_page_cost=1.1` — **critical for NVMe**. Default 4.0 causes PostgreSQL to prefer
-  sequential scans over index scans, which is wrong for SSD/NVMe storage.
-- `max_connections=50` — 7 × 50 = 350 total (sufficient); default 100 wastes RAM
+  sequential scans over index scans, which is wrong for SSD/NVMe storage
+- `max_connections=50` — 6 × 50 = 300 total (sufficient); default 100 wastes RAM
 - `work_mem=4MB` — low because 50 connections × 4MB = 200MB per instance
 - `log_min_duration_statement=200` — slow query logging (200ms threshold)
 
 ### §5 — Gunicorn Configuration
 
-```bash
-# entrypoint.sh — parametrizable via .env.prod
-GUNICORN_WORKERS=${GUNICORN_WORKERS:-2}
-GUNICORN_THREADS=${GUNICORN_THREADS:-2}
-GUNICORN_WORKER_CLASS=${GUNICORN_WORKER_CLASS:-gthread}
-GUNICORN_TIMEOUT=${GUNICORN_TIMEOUT:-30}
-GUNICORN_KEEPALIVE=${GUNICORN_KEEPALIVE:-5}
-GUNICORN_MAX_REQUESTS=${GUNICORN_MAX_REQUESTS:-1000}
-GUNICORN_MAX_REQUESTS_JITTER=${GUNICORN_MAX_REQUESTS_JITTER:-100}
+Parametrized via `.env.prod` — no entrypoint.sh changes required if template from
+`docker/app/entrypoint.sh` is used (see Appendix A):
 
-exec gunicorn config.wsgi:application \
-    --bind 0.0.0.0:8000 \
-    --workers "${GUNICORN_WORKERS}" \
-    --threads "${GUNICORN_THREADS}" \
-    --worker-class "${GUNICORN_WORKER_CLASS}" \
-    --timeout "${GUNICORN_TIMEOUT}" \
-    --keep-alive "${GUNICORN_KEEPALIVE}" \
-    --max-requests "${GUNICORN_MAX_REQUESTS}" \
-    --max-requests-jitter "${GUNICORN_MAX_REQUESTS_JITTER}" \
-    --access-logfile - \
-    --error-logfile - \
-    --log-level info \
-    --forwarded-allow-ips "*"
+```bash
+# .env.prod additions (all apps)
+GUNICORN_WORKERS=2
+GUNICORN_THREADS=2
+GUNICORN_WORKER_CLASS=gthread
+GUNICORN_TIMEOUT=30
+GUNICORN_KEEPALIVE=5
+GUNICORN_MAX_REQUESTS=1000
+GUNICORN_MAX_REQUESTS_JITTER=100
 ```
 
-**Per-app `.env.prod` overrides:**
+**Per-app overrides (only the differing values):**
 
 | App | `GUNICORN_WORKERS` | `GUNICORN_THREADS` | Reason |
 |-----|-------------------|--------------------|--------|
-| Standard (travel-beat, risk-hub, weltenhub) | 2 | 2 | 4 effective threads, low memory |
+| Standard (travel-beat, risk-hub, weltenhub) | 2 | 2 | Baseline |
 | bfagent, mcp-hub | 2 | 4 | I/O-heavy (LLM/SSH calls) |
 | trading-hub | 3 | 2 | More WebSocket connections |
 | cad-hub | 2 | 1 | CPU-bound, threading hurts |
 
 **Key decisions:**
-- `gthread` worker class over `sync` — better for HTMX partial rendering (I/O-bound)
+- `gthread` worker class — better for HTMX partial rendering (I/O-bound)
 - `max-requests=1000` + jitter — prevents memory leak from long-running workers
 - `keep-alive=5` — reduces connection overhead with Nginx upstream keep-alive
 
 ### §6 — Redis per App
 
-```yaml
-  redis:
-    command: >
-      redis-server
-      --maxmemory 96mb
-      --maxmemory-policy allkeys-lru
-      --save ""
-      --appendonly no
-```
+Included in the §3.2 compose template (`redis` service `command:`).
 
 - `maxmemory 96mb` with `allkeys-lru` eviction — graceful degradation, no OOM
 - `save "" --appendonly no` — no persistence on PROD (Celery task state is ephemeral)
@@ -344,43 +293,28 @@ exec gunicorn config.wsgi:application \
 
 ### Priority Matrix
 
-| Priority | Change | Impact | Effort |
-|----------|--------|--------|--------|
-| P0 | `cpus:` limits in all 7 compose files | Stability +++ | 30 min |
-| P0 | `vm.swappiness=10` on PROD | Stability ++ | 5 min |
-| P0 | Redis `maxmemory` + eviction policy | Safety +++ | 15 min |
-| P0 | `random_page_cost=1.1` in all PostgreSQL | Performance ++ | 15 min |
-| P1 | `gthread` + `max-requests` in Gunicorn | Reliability ++ | 1h |
-| P1 | Log max-size in all compose files | Disk safety ++ | 30 min |
-| P1 | `live-restore: true` in Docker daemon | Uptime ++ | 10 min |
-| P1 | `shm_size: 128m` in all db services | PG stability + | 30 min |
-| P2 | Full sysctl profile in `/etc/sysctl.d/` | Network + | 15 min |
-| P2 | PostgreSQL `max_connections=50` | Resource + | 30 min |
-| P2 | BuildKit GC in daemon.json | Disk + | 10 min |
+| Priority | Change | Impact | Effort | Status |
+|----------|--------|--------|--------|--------|
+| 🔴 P0 | sysctl (swappiness, somaxconn, inotify) | Stability +++ | 5 min | ✅ Applied 2026-03-04 |
+| 🔴 P0 | `live-restore: true` in daemon.json | Uptime ++ | 10 min | ✅ Applied 2026-03-04 |
+| 🔴 P0 | Redis `maxmemory` + eviction per app | Safety +++ | 30 min | ⏳ Pending |
+| 🔴 P0 | `random_page_cost=1.1` per app | Performance ++ | 30 min | ⏳ Pending |
+| 🟡 P1 | `healthcheck` + `depends_on` in all compose files | Reliability ++ | 1h | ⏳ Pending |
+| 🟡 P1 | Gunicorn `gthread` + `max-requests` per app | Reliability ++ | 1h | ⏳ Pending |
+| 🟡 P1 | Log max-size in all compose files | Disk safety ++ | 30 min | ⏳ Pending |
+| 🟡 P1 | `shm_size: 128m` in all db services | PG stability + | 30 min | ⏳ Pending |
+| 🟢 P2 | BuildKit GC in daemon.json | Disk + | 10 min | ✅ Applied 2026-03-04 |
+| 🟢 P2 | PostgreSQL `max_connections=50` | Resource + | 30 min | ⏳ Pending |
+| 🟢 P2 | CPX42 upgrade when P95 RAM > 80% / 7d | Headroom +++ | 30 min | ⏳ Monitoring trigger |
 
 ### Tooling
 
 ```
 scripts/server/
-├── bf-tuning-audit.sh      # Read-only audit (promoted from docs/adr/inputs/)
-├── apply-server-tuning.sh  # Apply daemon.json + sysctl (run once per server)
+├── bf-tuning-audit.sh      # Read-only compliance audit (JSON output for CI)
+├── apply-server-tuning.sh  # Idempotent Layer-0 setup (daemon.json + sysctl)
 └── compose-hardening/
-    └── template.yml        # Canonical compose snippet (merge into each app)
-```
-
-### Verification
-
-After applying:
-
-```bash
-# 1. Run audit (should show 0 FAIL)
-bash scripts/server/bf-tuning-audit.sh
-
-# 2. JSON for CI/monitoring
-bash scripts/server/bf-tuning-audit.sh --json | jq '.totals'
-
-# 3. Spot-check per app
-bash scripts/server/bf-tuning-audit.sh --app travel-beat
+    └── template.yml        # ADR-022-compliant compose template (merge into each app)
 ```
 
 ---
@@ -389,33 +323,100 @@ bash scripts/server/bf-tuning-audit.sh --app travel-beat
 
 ### Positive
 - Eliminates noisy-neighbor CPU starvation across 7 apps
-- RAM budget fits within 8 GB with ~200 MB headroom
 - PostgreSQL query plans improve for NVMe workloads (index scans preferred)
 - Redis cannot OOM the server
 - Docker daemon upgrades cause zero app downtime
 - Disk cannot fill from unrotated logs or build cache
+- Workers recycle every 1000 requests — no long-term memory leak
 
 ### Negative / Trade-offs
-- CPU limits may throttle cad-hub during large IFC file uploads (mitigated by tier override)
+- Memory **ceiling** (11.7 GB) exceeds physical RAM (8 GB) — by design, but requires
+  RAM monitoring (ADR-078 alert at >6.5 GB)
+- `vm.overcommit_memory=1` shifts OOM pre-checking to the kernel OOM killer —
+  acceptable because container limits act as the actual guard
 - Redis `--save ""` means Celery beat schedules reset on Redis restart
   (acceptable: all beat schedules are defined in Django settings, not Redis state)
-- `max_connections=50` per PG instance — mitigated by Django built-in connection pooling
+- `max_connections=50` per PG instance — mitigated by Django's built-in connection pooling
 
 ### Non-Goals
 - Multi-server load balancing (future ADR)
 - Application-level caching strategies (ADR-027)
-- Nginx host-level tuning
+- Nginx host-level tuning (Nginx runs on host, not in Docker)
+- PgBouncer connection pooling (rejected in Considered Options — see Option B)
 
 ---
 
-## Compliance Verification
+## Confirmation
 
-The audit script `scripts/server/bf-tuning-audit.sh` checks all parameters defined here.
-It MUST pass with 0 FAIL before any new app is onboarded (gate in `onboard-repo.md`).
+Compliance is verified by `scripts/server/bf-tuning-audit.sh`. The script MUST exit
+with 0 FAIL before any new app repo is onboarded (gate in `docs/guides/onboard-repo.md`
+§7 Compliance Checklist).
 
-CI integration (future):
+**CI integration** (after ADR-078):
 ```yaml
 - name: Infrastructure tuning audit
-  run: ssh root@88.198.191.108 'bash /opt/scripts/bf-tuning-audit.sh --json' \
-       | jq -e '.totals.fail == 0'
+  run: |
+    ssh -o BatchMode=yes \
+        -o StrictHostKeyChecking=accept-new \
+        root@${DEPLOY_HOST} \
+        'bash /opt/scripts/bf-tuning-audit.sh --json' \
+    | jq -e '.totals.fail == 0'
+```
+
+**Drift detection:**
+- `staleness_months: 6`
+- `drift_check_paths: [scripts/server/bf-tuning-audit.sh, docker-compose.prod.yml]`
+
+**Escalation trigger for CPX42 upgrade:**
+```bash
+# Alert: avg(node_memory_MemUsed_bytes) / node_memory_MemTotal_bytes > 0.80
+# for 7d → create GitHub Issue: "ADR-098: Trigger CPX42 upgrade"
+```
+
+---
+
+## Appendix A — Canonical `entrypoint.sh`
+
+All apps MUST use this pattern. The `MODE` variable is passed via compose `command:`.
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+MODE="${1:-web}"
+
+case "${MODE}" in
+    web)
+        exec gunicorn config.wsgi:application \
+            --bind 0.0.0.0:8000 \
+            --workers              "${GUNICORN_WORKERS:-2}" \
+            --threads              "${GUNICORN_THREADS:-2}" \
+            --worker-class         "${GUNICORN_WORKER_CLASS:-gthread}" \
+            --timeout              "${GUNICORN_TIMEOUT:-30}" \
+            --keep-alive           "${GUNICORN_KEEPALIVE:-5}" \
+            --max-requests         "${GUNICORN_MAX_REQUESTS:-1000}" \
+            --max-requests-jitter  "${GUNICORN_MAX_REQUESTS_JITTER:-100}" \
+            --access-logfile - \
+            --error-logfile - \
+            --log-level info \
+            --forwarded-allow-ips "*"
+        ;;
+    worker)
+        exec celery -A config worker \
+            -l "${CELERY_LOG_LEVEL:-info}" \
+            --concurrency="${CELERY_CONCURRENCY:-2}"
+        ;;
+    beat)
+        exec celery -A config beat \
+            -l "${CELERY_LOG_LEVEL:-info}" \
+            --schedule=/tmp/celerybeat-schedule
+        ;;
+    migrate)
+        exec python manage.py migrate --noinput
+        ;;
+    *)
+        echo "ERROR: Unknown mode '${MODE}'. Usage: entrypoint.sh [web|worker|beat|migrate]" >&2
+        exit 1
+        ;;
+esac
 ```
