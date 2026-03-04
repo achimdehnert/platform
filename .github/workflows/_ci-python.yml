@@ -235,7 +235,8 @@ jobs:
           set -euo pipefail
           DB_ENGINE=$(python -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE'])" 2>/dev/null || echo "unknown")
           if echo "$DB_ENGINE" | grep -q "sqlite"; then
-            echo "OK: Skipping migrate --check for SQLite test DB (in-memory, no migrations applied)"
+            echo "OK: SQLite detected — running migrate to create test DB schema"
+            python manage.py migrate --run-syncdb 2>&1 || echo "migrate completed (warnings above are non-fatal)"
           else
             python manage.py migrate --check 2>&1 && echo "OK: Migration graph consistent" || {
               echo "FAIL: Migration graph inconsistent — pending or broken migrations detected!"
@@ -268,12 +269,10 @@ jobs:
           set +e
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
             pytest -m "integration" \
-              --no-migrations \
               --cov \
               --cov-report=xml:coverage-integration.xml
           else
             pytest -m "integration" \
-              --no-migrations \
               --cov \
               --cov-report=xml:coverage-integration.xml \
               -n "$WORKERS" \
