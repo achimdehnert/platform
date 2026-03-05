@@ -30,6 +30,7 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | DB-Backup | Backup | `/backup` |
 | Windsurf-Verbindung tot | Windsurf Clean | `/windsurf-clean` |
 | Tests einrichten (neues Repo) | Testing Setup | `/testing-setup` |
+| WSL ↔ GitHub ↔ Server synchronisieren | Sync Repo | `/sync-repo` |
 
 ---
 
@@ -67,7 +68,10 @@ Neue Session startet
         │       └─ /repo-health-check
         │
         ├─ Vor Package-Release / nach Test-Failures?
-        │       └─ /testing-conventions  ← NEU
+        │       └─ /testing-conventions
+        │
+        ├─ Repos synchronisieren (WSL / GitHub / Server)?
+        │       └─ /sync-repo
         │
         ├─ Deployen?
         │       ├─ Pre-check → /deploy-check
@@ -111,7 +115,7 @@ Prüft vor Implementierung: Existiert Komponente bereits? LLM/DB/Lookup-Zugriff 
 Verbindlicher Vollständigkeits-Check für Repos/Packages. Profile: `python-package` + `django-app`. BLOCK-Items müssen alle grün sein. Maschinenausführbar: `tools/repo_health_check.py`. **Pflicht bei jedem neuen Package/Repo und wenn unvollständige Angaben gemeldet werden.**
 
 ### `/testing-conventions`
-Prüft Test-Files auf die 3 häufigsten Fehler-Patterns vor Package-Release: T-01 `pytest.importorskip` für optionale Deps, T-02 `AsyncMock(side_effect=)` statt `wraps=`, T-03 `pytest.raises()` für Exception-Contracts. Referenz: `docs/conventions/TESTING_CONVENTIONS.md`. **Pflicht vor jedem `git tag vX.Y.Z`.**
+Prüft Test-Files auf die 3 häufigsten Fehler-Patterns vor Package-Release: T-01 `pytest.importorskip` für optionale Deps, T-02 `AsyncMock(side_effect=)` statt `wraps=`, T-03 `pytest.raises()` für Exception-Contracts. **Pflicht vor jedem `git tag vX.Y.Z`.**
 
 ### `/deploy-check`
 Pre-Deploy Gate: Tests grün, CI grün, Migrations gecheckt, Env aktuell, Post-Deploy Health-Check.
@@ -127,6 +131,9 @@ Stale Windsurf-Server-Prozesse killen wenn SSH-Reconnect fehlschlägt.
 
 ### `/testing-setup`
 Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories, pyproject.toml.
+
+### `/sync-repo`
+3-Node-Sync: WSL ↔ GitHub ↔ Server konsistent halten. Vor und nach jeder Session ausführen wenn Code auf mehreren Nodes bearbeitet wurde.
 
 ---
 
@@ -155,10 +162,9 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
     └─ ergänzt: /onboard-repo (nicht ersetzt)
     └─ braucht: /adr für ersten echten ADR
 
-/testing-conventions  ← NEU
-    └─ Pflicht vor: git tag vX.Y.Z (Package-Release)
-    └─ Referenz: docs/conventions/TESTING_CONVENTIONS.md
-    └─ Scan-Tools: grep T-01/T-02/T-03
+/sync-repo
+    └─ empfohlen: vor /agent-session-start wenn multi-node
+    └─ empfohlen: nach /deploy wenn Server-Stand unklar
 ```
 
 ---
@@ -199,5 +205,5 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 
 ---
 
-*Workflow Index v1.2 — Platform Coding Agent System | 2026-03-03*
-*Alle Workflows: `/home/deploy/projects/platform/.windsurf/workflows/`*
+*Workflow Index v1.3 — Platform Coding Agent System | 2026-03-05*
+*Alle Workflows: `~/github/platform/.windsurf/workflows/`*
