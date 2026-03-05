@@ -12,9 +12,9 @@ Resultat: lokale Repos divergieren → `git pull` scheitert mit "overwritten by 
 ```
 GitHub          = Single Source of Truth (immer autoritativ)
    ↑↓
-WSL             = Git-Checkouts ~/github/<repo>  →  git pull --rebase
+WSL             = Git-Checkouts ~/github/<repo>  →  git pull --no-rebase
    ↓ SSH
-Server          = /opt/platform/  → Git-Checkout  →  git pull --rebase
+Server          = /opt/platform/  → Git-Checkout  →  git pull --no-rebase
                   /opt/<app>/     → Docker-only   →  docker pull + compose up -d
 ```
 
@@ -27,46 +27,50 @@ Die laufen dort nur als Docker-Container. Updates kommen via `docker pull`, nich
 
 | Befehl | Was passiert |
 |--------|--------------|
-| `bash scripts/sync-repo.sh` | WSL: platform syncen (Normalfall) |
-| `bash scripts/sync-repo.sh ~/github/bfagent` | WSL: einzelnes Repo |
-| `bash scripts/sync-repo.sh --all` | WSL: alle 14 Repos |
-| `bash scripts/sync-repo.sh --server` | Server: platform git pull + alle Apps docker pull |
-| `bash scripts/sync-repo.sh --server platform` | Server: nur /opt/platform |
-| `bash scripts/sync-repo.sh --server bfagent` | Server: nur bfagent docker pull |
-| `bash scripts/sync-repo.sh --full` | WSL --all + Server alles (vollständig) |
+| `bash ~/github/platform/scripts/sync-repo.sh` | WSL: **CWD-Repo** syncen |
+| `bash ~/github/platform/scripts/sync-repo.sh ~/github/bfagent` | WSL: explizites Repo |
+| `bash ~/github/platform/scripts/sync-repo.sh --all` | WSL: alle 24 Repos |
+| `bash ~/github/platform/scripts/sync-repo.sh --server` | Server: platform git pull + alle Apps docker pull |
+| `bash ~/github/platform/scripts/sync-repo.sh --server platform` | Server: nur /opt/platform |
+| `bash ~/github/platform/scripts/sync-repo.sh --server bfagent` | Server: nur bfagent docker pull |
+| `bash ~/github/platform/scripts/sync-repo.sh --full` | WSL --all + Server alles (vollständig) |
 
 ---
 
-## Normalfall: WSL nach Cascade-Session syncen
+## Normalfall: CWD-Repo nach Cascade-Session syncen
 
 // turbo
 ```bash
-cd ~/github/platform && bash scripts/sync-repo.sh
+bash ~/github/platform/scripts/sync-repo.sh
 ```
 
-## Alle WSL-Repos syncen
+Synct das **aktuelle Verzeichnis** — von jedem Repo aus aufrufbar.
+
+## Alle WSL-Repos syncen (24 Repos)
 
 ```bash
-bash scripts/sync-repo.sh --all
+bash ~/github/platform/scripts/sync-repo.sh --all
 ```
 
 Synct: platform, bfagent, travel-beat, weltenhub, risk-hub, pptx-hub, mcp-hub,
-aifw, promptfw, authoringfw, cad-hub, trading-hub, wedding-hub, dev-hub
+aifw, promptfw, authoringfw, nl2cad, weltenfw, cad-hub, trading-hub, wedding-hub,
+dev-hub, coach-hub, 137-hub, billing-hub, illustration-hub, illustration-fw,
+odoo-hub, infra-deploy, testkit
 
 ## Server syncen (nach ADR-Commits oder zwischen Deployments)
 
 ```bash
-bash scripts/sync-repo.sh --server
+bash ~/github/platform/scripts/sync-repo.sh --server
 ```
 
 Server-Aktionen:
-- `/opt/platform/` → `git pull --rebase origin main`
+- `/opt/platform/` → `git pull --no-rebase origin main`
 - `/opt/bfagent-app/`, `/opt/travel-beat/`, etc. → `docker compose pull && up -d`
 
 ## Vollständiger 3-Node-Sync
 
 ```bash
-bash scripts/sync-repo.sh --full
+bash ~/github/platform/scripts/sync-repo.sh --full
 ```
 
 Dauer: ~30–60 Sekunden für alle Nodes.
@@ -77,17 +81,21 @@ Dauer: ~30–60 Sekunden für alle Nodes.
 
 - **Kein `git reset --hard`** — lokale Arbeit geht nie verloren
 - **Kein force-push** — GitHub wird nie überschrieben
+- **Kein blindes `git stash drop`** — Stash wird nach Pull wiederhergestellt
 - **Auto-commit** für Cascade-Patterns: `windsurf-rules/`, `scripts/`, `docs/adr/`,
   `.windsurf/workflows/`, `docs/CORE_CONTEXT.md`, `docs/AGENT_HANDOVER.md`
 - **Stash + restore** für alles andere (`.env`, WIP-Code, temp-Dateien)
-- **Rebase-Fallback** auf merge wenn Konflikte entstehen
+- **Backup-Branch** für unpushed commits: `backup/sync-TIMESTAMP`
 - **Idempotent**: mehrfach ausführbar, keine Seiteneffekte
 
 ## Empfehlung: In täglichen Workflow integrieren
 
-Nach jeder Cascade-Session:
+Am Anfang **jeder** Cascade-Session:
 ```bash
-bash ~/github/platform/scripts/sync-repo.sh        # platform
-# oder vollständig:
+bash ~/github/platform/scripts/sync-repo.sh
+```
+
+Am Ende einer Session (nach ADR-Commits via GitHub MCP):
+```bash
 bash ~/github/platform/scripts/sync-repo.sh --full
 ```
