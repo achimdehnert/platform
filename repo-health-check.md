@@ -101,7 +101,6 @@ done
 **BLOCK: Publish-Gate** — `publish.yml` muss `needs: test` haben:
 ```bash
 grep -A2 'jobs:' .github/workflows/publish.yml | grep 'test\|needs'
-# Oder prüfe: build job needs test job
 grep 'needs:' .github/workflows/publish.yml
 ```
 - [ ] `build` Job hat `needs: test` — **kein Publish ohne grüne Tests**
@@ -253,4 +252,16 @@ Exit-Code:
 
 ---
 
-*repo-health-check v1.0 | Platform Coding Agent System | 2026-03-03*
+## Server / Container Status
+
+Laufzeit-Status der Platform-Server (Container up/down, Memory, Uptime) ist **getrennt** davon:
+
+→ **[Operations Dashboard](https://devhub.iil.pet/operations/)** — Server-Status, Windsurf, Container-Logs
+→ **[Health Dashboard](https://devhub.iil.pet/health/)** — Endpoint-Monitoring aller Hubs
+
+Dieser Workflow prüft **Repo-Vollständigkeit** (CI, Tests, Dateien).
+Das Operations Dashboard zeigt **Laufzeit-Status** (Server, Container).
+
+---
+
+*repo-health-check v1.1 | Platform Coding Agent System | 2026-03-05*
