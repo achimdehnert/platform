@@ -74,10 +74,11 @@ readonly WSL_REPOS=(
     platform bfagent travel-beat weltenhub risk-hub
     pptx-hub mcp-hub aifw promptfw authoringfw nl2cad weltenfw
     cad-hub trading-hub wedding-hub dev-hub coach-hub 137-hub
+    billing-hub illustration-hub illustration-fw odoo-hub infra-deploy testkit
 )
 
 # App repos deployed as Docker on server (name → compose dir)
-# Verified against live server /opt/ on 2026-03-03.
+# Verified against live server /opt/ on 2026-03-05.
 # To add a new app: append [repo-name]="/opt/<path>" and ensure
 # docker-compose.prod.yml exists at that path on the server.
 declare -A SERVER_APP_PATHS=(
