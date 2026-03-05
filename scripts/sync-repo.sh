@@ -34,7 +34,7 @@
 #     - No CI/CD cycle, no image rebuild (~30s)
 #
 # USAGE:
-#   bash scripts/sync-repo.sh                          # WSL: sync platform only
+#   bash scripts/sync-repo.sh                          # WSL: sync CWD repo
 #   bash scripts/sync-repo.sh ~/github/bfagent         # WSL: sync specific repo
 #   bash scripts/sync-repo.sh --all                    # WSL: sync all repos
 #   bash scripts/sync-repo.sh --server                 # Server: sync platform + apps
@@ -440,8 +440,8 @@ main() {
             sed -n '3,60p' "${BASH_SOURCE[0]}"
             ;;
         *)
-            # Single repo — argument is path or defaults to platform
-            local target_path="${1:-$PLATFORM_BASE}"
+            # Single repo — defaults to CWD if no argument given
+            local target_path="${1:-$(pwd)}"
             if [[ "$target_path" == -* ]]; then
                 err "Unknown flag: $target_path. Run with --help for usage."
             fi
