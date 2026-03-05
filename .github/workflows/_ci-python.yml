@@ -60,6 +60,11 @@ on:
         required: false
         default: 'auto'
         type: string
+      ruff_version:
+        description: 'Pinned ruff version to install (e.g. ==0.15.4). Empty = latest. Pin to match pyproject.toml required-version.'
+        required: false
+        default: '==0.15.4'
+        type: string
 
 jobs:
   lint:
@@ -72,7 +77,7 @@ jobs:
         with:
           python-version: ${{ inputs.python_version }}
       - name: Install ruff
-        run: pip install ruff
+        run: pip install "ruff${{ inputs.ruff_version }}"
       - name: Ruff check
         run: ruff check . --output-format=github
       - name: Ruff format check
