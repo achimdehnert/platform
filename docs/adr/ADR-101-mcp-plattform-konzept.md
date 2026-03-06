@@ -274,6 +274,9 @@ Tier 1 (3) + Tier 2 (0-3) + Tier 3 (0-2) = max 8.
 | **G-07: Performance** | Keine Response-Time-Baselines | In-Memory Ring Buffer in health_dashboard | P2 |
 | **G-08: Registry** | Modul-Registry nicht in MCP-Config | `registry` Server aufnehmen (disabled) | P1 |
 | **G-09: Library Docs** | AI halluziniert Django 6.0, Tailwind 4 APIs | Context7 MCP evaluieren | P1 |
+| **G-10: Hetzner Volumes/Traffic** | Volumes und Traffic-Stats nicht in server_manage (16 andere Hetzner Cloud Actions existieren bereits) | 2 Actions in `server_manage` ergaenzen (HetznerClient erweitern) | P2 |
+| **G-11: DNS-Vereinheitlichung** | 2 DNS-Provider (Hetzner DNS fuer iil.pet, IONOS fuer kiohnerisiko.de), IONOS hat keine API | Beide Domains zu **Cloudflare** migrieren → einheitliche API + CDN + DDoS + WAF + SSL-Auto | P0 |
+| **G-12: Cloudflare MCP** | Nach DNS-Migration: Cloudflare-Sichtbarkeit fuer Cascade | Offizieller `cloudflare-api` Remote-MCP als Tier-2 (2 Tools: search, execute) | P1 |
 
 ### 4.5 Verbesserungen bestehender Server
 
@@ -286,6 +289,9 @@ Tier 1 (3) + Tier 2 (0-3) + Tier 3 (0-2) = max 8.
 | **I-05** | code-quality | ruff statt flake8, HTMX-Update | P2 |
 | **I-06** | test-generator | Factory-Boy, Django-Fixtures | P2 |
 | **I-07** | llm-mcp | Migration auf PyPI (iil-aifw) | P1 |
+| **I-08** | deployment-mcp | `server_manage volumes` Action (Hetzner Volumes API) | P2 |
+| **I-09** | deployment-mcp | `server_manage traffic` Action (Hetzner Metrics API) | P2 |
+| **I-10** | deployment-mcp | `firewall_manage audit` Action (Cloud-FW ↔ Nginx Cross-Check) | P1 |
 
 ### 4.6 health_dashboard Implementierung
 
@@ -336,6 +342,10 @@ Das erfordert 2-3 Tage Aufwand und wird in separatem ADR adressiert.
 | Cross-Container Logs | 2 | ⬜ Ausstehend | – | |
 | secret_audit (Tier 2) | 3 | ⬜ Ausstehend | – | Explizite Aktivierung |
 | Performance-Baselines | 3 | ⬜ Ausstehend | – | In-Memory Ring Buffer |
+| Cloudflare DNS-Migration (iil.pet + kiohnerisiko.de) | 1 | ⬜ Ausstehend | – | G-11, ADR-102 |
+| Cloudflare MCP als Tier-2 | 2 | ⬜ Ausstehend | – | G-12, nach DNS-Migration |
+| server_manage volumes + traffic | 2 | ⬜ Ausstehend | – | G-10, I-08/I-09 |
+| firewall_manage audit | 2 | ⬜ Ausstehend | – | I-10 |
 
 ---
 
@@ -348,6 +358,7 @@ Das erfordert 2-3 Tage Aufwand und wird in separatem ADR adressiert.
 - Klare Tier-Zuordnung verhindert MCP-Server-Wildwuchs
 - SSH-Nutzung sinkt um ~70% durch strukturiertes Tool-Routing
 - Jeder neue Server wird gegen Tool-Budget geprueft
+- Cloudflare-Migration bringt CDN, DDoS, WAF, SSL-Auto fuer $0/Monat
 
 ### 6.2 Bad
 
@@ -355,6 +366,7 @@ Das erfordert 2-3 Tage Aufwand und wird in separatem ADR adressiert.
 - In-Memory Health-History geht bei MCP-Restart verloren
 - Dependency-Tracking auf pip check/audit begrenzt (kein AST-basiertes Breaking-Change)
 - docs-search und registry brauchen lokale PostgreSQL (nicht immer verfuegbar)
+- Cloudflare-Migration erfordert DNS-NS-Umstellung (bis 48h Propagation)
 
 ### 6.3 Nicht in Scope
 
@@ -363,6 +375,7 @@ Das erfordert 2-3 Tage Aufwand und wird in separatem ADR adressiert.
 - MCP Auto-Activation per Workspace-Ordner (Phase 3, separates Konzept)
 - Semantische Breaking-Change-Analyse (separates ADR)
 - Context7 Integration (Evaluation in Phase 2, ggf. eigenes ADR)
+- Cloudflare Tunnel (Server-IP komplett verstecken) — Phase 4, separates Konzept
 
 ---
 
@@ -375,6 +388,7 @@ Das erfordert 2-3 Tage Aufwand und wird in separatem ADR adressiert.
 | stdio-Transport Latenz bei vielen Servern | Niedrig | Mittel | Max 8 gleichzeitig aktiv; Streamable HTTP als Escape-Hatch |
 | docs-search/registry DB nicht verfuegbar | Mittel | Niedrig | Tier-2 (disabled by default); Graceful Degradation |
 | secret_audit exponiert .env.prod Metadaten | Niedrig | Hoch | Nur als Tier-2, explizite Aktivierung, User-Confirmation |
+| Cloudflare DNS-Migration Propagation | Niedrig | Mittel | NS-Change vorbereiten, TTL vorher auf 300s senken, Monitoring |
 
 ---
 
@@ -398,7 +412,8 @@ Tier 1 (Always-On):    42 Tools / 100
   github:              26
   platform-context:     4
 
-Tier 2 (disabled):     34 Tools
+Tier 2 (disabled):     36 Tools
+  cloudflare-api:       2  (NEU: search + execute, Remote-hosted)
   docs-search:          5 (query_agent_mcp)
   registry:             5
   test-generator:       3
@@ -413,7 +428,7 @@ Tier 3 (disabled):     15 Tools
   cadhub:               3
   illustration:         3
                        ──
-Max bei allen aktiv:   76 / 100 (24 Reserve)
+Max bei allen aktiv:   78 / 100 (22 Reserve)
 ```
 
 **Regel**: Neue Capabilities als Actions in bestehende Tools einbauen
@@ -437,6 +452,9 @@ eigene Kategorie zwingend (z.B. docs-search braucht pgvector).
 | E-09 | secret_audit nur als Tier-2-Tool, nicht Always-On | Security: .env.prod Metadaten nicht im Always-On-Scope |
 | E-10 | stdio-Transport fuer alle Server (kein HTTP) | Streamable HTTP noch nicht stabil; Evaluation in Phase 3 |
 | E-11 | dependency_mcp: kein semantisches Breaking-Change (nur pip check/audit) | 4h-Scope realistisch; AST-Analyse = separates ADR |
+| E-12 | Beide Domains (iil.pet, kiohnerisiko.de) zu Cloudflare migrieren | DNS-Vereinheitlichung + CDN + DDoS + WAF + SSL-Auto fuer $0; IONOS hat keine API → MCP-blind |
+| E-13 | Hetzner Cloud API ist KEIN Gap — 16 Actions existieren bereits (server_manage 9 + firewall_manage 7) | Nur Volumes + Traffic + Firewall-Audit als Restluecken ergaenzen |
+| E-14 | Cloudflare API MCP als Tier-2 Remote-Server (nach DNS-Migration) | 2 Tool-Slots (search, execute), 2500+ Endpoints, OAuth, kein eigener Code |
 
 ---
 
@@ -444,7 +462,7 @@ eigene Kategorie zwingend (z.B. docs-search braucht pgvector).
 
 | Metrik | Ist | Ziel (KW 15) |
 |--------|-----|-------------|
-| MCP-Server total | 14 | 14 (konsolidiert) |
+| MCP-Server total | 14 | 15 (+cloudflare-api Tier-2) |
 | Tier-1-Server (Always-On) | 4 | 3 (test-gen → Tier 2) |
 | Tool-Slots aktiv | 45 | 42 |
 | Repo-Coverage (Project-Facts) | 7/23 | 23/23 |
@@ -452,6 +470,9 @@ eigene Kategorie zwingend (z.B. docs-search braucht pgvector).
 | ADR-Suche | manuell | semantisch via RAG |
 | Dependency-Sichtbarkeit | keine | pip check + pip-audit |
 | SSH-Anteil an Tool-Nutzung | ~90% | ~30% |
+| DNS-Provider | 2 (Hetzner + IONOS) | 1 (Cloudflare) |
+| CDN | keins | Cloudflare Anycast (300+ PoPs) |
+| DDoS-Schutz (Layer 7) | keins | Cloudflare WAF + DDoS |
 
 ---
 
@@ -465,6 +486,9 @@ eigene Kategorie zwingend (z.B. docs-search braucht pgvector).
 - ADR-069: Web Intelligence MCP
 - ADR-083: collectstatic Docker Pattern
 - ADR-100: iil-testkit Shared Package
+- ADR-102: Cloudflare Migration (geplant)
+- [Cloudflare MCP](https://github.com/cloudflare/mcp) — Offizieller Remote-MCP
+- [Cloudflare MCP Docs](https://developers.cloudflare.com/agents/model-context-protocol/)
 
 ---
 
@@ -474,3 +498,4 @@ eigene Kategorie zwingend (z.B. docs-search braucht pgvector).
 |-------|-------|-----------|
 | 2026-03-06 | Cascade + AD | Initial: Konzeptpapier als ADR |
 | 2026-03-06 | Cascade | v2: MADR 4.0 Migration, Review-Findings K-01..M-06, SSH-vs-MCP Routing, Tool-Budget Windsurf-Constraint, test-generator → Tier 2, E-08..E-11 |
+| 2026-03-06 | Cascade + AD | v3: Hetzner/Cloudflare-Ergaenzung bewertet; G-10..G-12 + E-12..E-14; Cloudflare DNS-Migration als P0; Hetzner Cloud API Bestand korrigiert (16 Actions existieren); Tool-Budget +2 (cloudflare-api) |
