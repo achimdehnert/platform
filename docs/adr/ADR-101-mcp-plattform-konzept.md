@@ -1,6 +1,6 @@
 # ADR-101: MCP-Plattformkonzept — Optimale Nutzung von Model Context Protocol
 
-- **Status**: PROPOSED
+- **Status**: ACCEPTED
 - **Datum**: 2026-03-06
 - **Autor**: Cascade + AD
 - **Scope**: Alle 23 GitHub-Repos der BF Platform
@@ -311,7 +311,35 @@ Neuer MCP-Server fuer Cross-Repo Dependency-Management.
 
 ---
 
-## 11. Metriken
+## 11. Tool-Budget (Windsurf 100-Tool-Limit)
+
+```
+Aktiv (Tier 1):        45 Tools / 100
+  deployment-mcp:      12 (inkl. health_dashboard, health_check)
+  github:              26
+  platform-context:     4
+  test-generator:       3
+
+Disabled (Tier 2+3):   31 Tools
+  docs-search:          5 (query_agent_mcp)
+  registry:             5
+  code-quality:         1
+  llm-mcp:              2
+  orchestrator:         3
+  bfagent:              5
+  bfagent-db:           2
+  bfagent-monitoring:   2
+  cadhub:               3
+  illustration:         3
+                       ──
+Max bei allen aktiv:   76 / 100 (24 Reserve)
+```
+
+**Regel**: Neue MCP-Server als Actions in bestehende Tools einbauen
+wenn moeglich (0 neue Tool-Slots). Standalone-Server nur wenn
+eigene Kategorie zwingend (z.B. docs-search braucht pgvector).
+
+## 12. Metriken
 
 | Metrik | Ist | Ziel (KW 15) |
 |--------|-----|-------------|
