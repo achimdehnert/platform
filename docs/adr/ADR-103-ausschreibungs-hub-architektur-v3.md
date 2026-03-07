@@ -61,7 +61,7 @@ Bestehende Lösungen (DTAD >500 EUR/Monat) sind zu teuer für KMU oder nicht KI-
 
 ## 2. Considered Options
 
-### Option A: Eigenes Repo `ausschreibungs-hub` (Django 6 + DRF + aifw) ✅
+### Option A: Eigenes Repo `ausschreibungs-hub` (Django 5.x + DRF + aifw) ✅
 **Pros:** Volle iil-Stack-Integration, Multi-Tenant RLS, eigenständiger Deploy  
 **Cons:** ~16 Wochen MVP, Branchenexpertise (VOB/HOAI/GAEB) erforderlich
 
@@ -93,7 +93,7 @@ Bestehende Lösungen (DTAD >500 EUR/Monat) sind zu teuer für KMU oder nicht KI-
 
 ## 4. Decision Outcome
 
-**Gewählt: Option A** — Eigenständiges Django 6-Projekt mit branchenspezifischen Apps,
+**Gewählt: Option A** — Eigenständiges Django 5.x-Projekt (<6.0) mit branchenspezifischen Apps,
 KI-gestützter Angebotsgenerierung via aifw, Fördermodul.
 Multi-Tenancy via `tenant_id = BigIntegerField` (ADR-007/072). Billing via billing-hub (ADR-062).
 
@@ -112,7 +112,7 @@ Multi-Tenancy via `tenant_id = BigIntegerField` (ADR-007/072). Billing via billi
 | **Container**    | `ausschreibungs_hub_web`, `_worker`, `_beat`  |
 | **Network**      | `bf_platform_prod`                            |
 | **Python**       | 3.12                                          |
-| **Django**       | **6.0** (Platform-Standard)                   |
+| **Django**       | **5.x (<6.0)** (Platform-Standard)            |
 | **DB**           | PostgreSQL 16 + pgvector Extension            |
 | **Cache**        | Redis 7                                       |
 
@@ -869,7 +869,7 @@ emit_outbox_event(
 ```toml
 [tool.poetry.dependencies]
 python                         = "^3.12"
-Django                         = "6.0.*"
+Django                         = ">=5.2,<6.0"
 gunicorn                       = ">=23.0"
 whitenoise                     = ">=6.8"
 psycopg                        = {version = ">=3.2", extras = ["binary"]}
@@ -1011,6 +1011,7 @@ pip-audit      = ">=2.7"
 | 2026-03-06 | Cascade + AD                    | v1: Initial Proposed                                                                          |
 | 2026-03-06 | Claude (Principal IT Architect) | v2: 3 Blocker + 7 kritische + 6 hohe Befunde eingearbeitet                                   |
 | 2026-03-07 | Cascade (Senior Architect)      | v3: Status Accepted; VectorField-Migration explizit; BillingHubClient via httpx; ComplianceCheck vollstaendig; FoerderSkizze-PromptBuilder; pgvector Confirmation-Check; pyproject.toml vollstaendig; UniqueConstraints konditionell |
+| 2026-03-07 | Achim Dehnert                   | v3.1: Django >=5.2,<6.0 (Platform-Standard) -- Django 6.0 war irrtümlich eingetragen |
 
 ---
 
@@ -1018,7 +1019,7 @@ pip-audit      = ">=2.7"
 
 | Befund | Schwere | v2 | v3 |
 |--------|---------|----|----||
-| B-01: Django 5.1 statt 6.0 | BLOCKER | korrigiert | yes |
+| B-01: Django 5.1 statt 6.0 -- Zielversion 5.x (<6.0) | BLOCKER | korrigiert | yes -- >=5.2,<6.0 |
 | B-02: BinaryField statt VectorField | BLOCKER | Kommentar | Migration 0002 explizit + Confirmation |
 | B-03: Lokales Tenant-Modell | BLOCKER | tenant_id ueberall | yes |
 | K-01: GAEB als JSONField | KRITISCH | LVPosition normalisiert | yes |
