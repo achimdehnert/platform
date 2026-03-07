@@ -17,8 +17,9 @@ trigger: always_on
 ## orchestrator MCP — Neue Tools
 
 ### `deploy_check`
-Prüft Deployment-Status für bekannte Repos.
-- `action: targets` — zeigt alle bekannten Deploy-Konfigurationen
+Prüft Deployment-Status für 8 bekannte Repos:
+coach-hub, billing-hub, travel-beat, weltenhub, trading-hub, cad-hub, pptx-hub, risk-hub
+- `action: targets` — zeigt alle Deploy-Konfigurationen
 - `action: health` — curl Health-Check (repo oder custom URL)
 - `action: status` — docker compose ps via SSH
 
