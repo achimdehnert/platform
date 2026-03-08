@@ -44,3 +44,5 @@ infra/
 .github/workflows/validate-ports.yml
 # Markdownlint local config override
 .markdownlint.json
+# Concept review drafts (local working copies, not for VCS)
+docs/concepts/REVIEW-*
