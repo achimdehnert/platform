@@ -11,7 +11,7 @@ User = get_user_model()
 
 @pytest.fixture
 def org(db):
-    return Organization.objects.create(slug="acme", name="Acme GmbH", status="active")
+    return Organization.objects.create(slug="acme", name="Acme GmbH")
 
 
 @pytest.fixture
@@ -23,7 +23,7 @@ def user(db):
 def subscription(db, org):
     return ModuleSubscription.objects.create(
         organization=org,
-        tenant_id=org.tenant_id,
+        tenant_id=org.pk,
         module="risk",
         status=ModuleSubscription.Status.ACTIVE,
     )
@@ -32,7 +32,7 @@ def subscription(db, org):
 @pytest.fixture
 def membership(db, org, user):
     return ModuleMembership.objects.create(
-        tenant_id=org.tenant_id,
+        tenant_id=org.pk,
         user=user,
         module="risk",
         role=ModuleMembership.Role.MEMBER,
@@ -48,7 +48,7 @@ class TestModuleSubscription:
     def test_suspended_not_accessible(self, org, db):
         sub = ModuleSubscription.objects.create(
             organization=org,
-            tenant_id=org.tenant_id,
+            tenant_id=org.pk,
             module="dsb",
             status=ModuleSubscription.Status.SUSPENDED,
         )
@@ -57,7 +57,7 @@ class TestModuleSubscription:
     def test_trial_is_accessible(self, org, db):
         sub = ModuleSubscription.objects.create(
             organization=org,
-            tenant_id=org.tenant_id,
+            tenant_id=org.pk,
             module="ex",
             status=ModuleSubscription.Status.TRIAL,
         )
@@ -68,22 +68,21 @@ class TestModuleSubscription:
         with pytest.raises(IntegrityError):
             ModuleSubscription.objects.create(
                 organization=org,
-                tenant_id=org.tenant_id,
+                tenant_id=org.pk,
                 module="risk",
-                status="active",
             )
 
     def test_for_tenant_manager(self, subscription, org, db):
         other_org = Organization.objects.create(
-            slug="other", name="Other GmbH", status="active",
+            slug="other", name="Other GmbH",
         )
         ModuleSubscription.objects.create(
             organization=other_org,
-            tenant_id=other_org.tenant_id,
+            tenant_id=other_org.pk,
             module="risk",
             status="active",
         )
-        qs = ModuleSubscription.objects.for_tenant(org.tenant_id)
+        qs = ModuleSubscription.objects.for_tenant(org.pk)
         assert qs.count() == 1
         assert qs.first().organization == org
 
@@ -101,7 +100,7 @@ class TestModuleMembership:
         from django.db import IntegrityError
         with pytest.raises(IntegrityError):
             ModuleMembership.objects.create(
-                tenant_id=org.tenant_id,
+                tenant_id=org.pk,
                 user=user,
                 module="risk",
                 role="viewer",
@@ -109,7 +108,7 @@ class TestModuleMembership:
 
     def test_different_modules_allowed(self, membership, org, user, db):
         m2 = ModuleMembership.objects.create(
-            tenant_id=org.tenant_id,
+            tenant_id=org.pk,
             user=user,
             module="dsb",
             role="admin",
@@ -119,15 +118,15 @@ class TestModuleMembership:
     def test_for_tenant_manager(self, membership, org, db):
         other_user = User.objects.create_user(username="bob", password="pw")
         other_org = Organization.objects.create(
-            slug="other2", name="Other2 GmbH", status="active",
+            slug="other2", name="Other2 GmbH",
         )
         ModuleMembership.objects.create(
-            tenant_id=other_org.tenant_id,
+            tenant_id=other_org.pk,
             user=other_user,
             module="risk",
             role="viewer",
         )
-        qs = ModuleMembership.objects.for_tenant(org.tenant_id)
+        qs = ModuleMembership.objects.for_tenant(org.pk)
         assert qs.count() == 1
 
     def test_str(self, membership):

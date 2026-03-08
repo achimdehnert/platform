@@ -18,6 +18,7 @@ from enum import Enum
 from typing import Callable, Optional
 
 from django.conf import settings
+from django.db import models
 from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 
 from .context import set_current_tenant_id
@@ -63,6 +64,13 @@ class SubdomainTenantMiddleware:
 
     def process_request(self, request: HttpRequest) -> Optional[HttpResponse]:
         if self.mode == TenancyMode.DISABLED:
+            request.tenant = None
+            request.tenant_id = 0
+            return None
+
+        # ADR-022: health check paths exempt from tenant resolution
+        from .healthz import HEALTH_PATHS
+        if request.path in HEALTH_PATHS:
             request.tenant = None
             request.tenant_id = 0
             return None

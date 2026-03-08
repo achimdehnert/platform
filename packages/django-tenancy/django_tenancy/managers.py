@@ -28,3 +28,7 @@ class TenantManager(models.Manager):
 
     def active(self) -> TenantQuerySet:
         return self.get_queryset().active()
+
+
+# Alias used by module_models.py
+TenantAwareManager = TenantManager
