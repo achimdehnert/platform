@@ -1,14 +1,14 @@
 ---
 id: ADR-099
 title: "dev-hub Release Management UI — PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet"
-status: proposed
+status: accepted
 date: 2026-03-04
 author: Achim Dehnert
 owner: Achim Dehnert
 scope: dev-hub, platform, nl2cad, all Python package repos
 tags: [dev-hub, release-management, pypi, github-actions, ui, management-console]
-related: [ADR-050, ADR-077, ADR-086, ADR-090]
-last_verified: 2026-03-04
+related: [ADR-050, ADR-077, ADR-086, ADR-090, ADR-100]
+last_verified: 2026-03-08
 ---
 
 # ADR-099: dev-hub Release Management UI
@@ -276,18 +276,59 @@ das eigentliche Publizieren läuft weiterhin via OIDC in GitHub Actions.
 
 ## 4. Implementierungsplan
 
-| Phase | Feature | Aufwand |
-|-------|---------|---------|
-| **P1** | `PyPIPackage` + `ReleaseRun` Models + Migrations | 2h |
-| **P1** | `catalog-info.yaml` Import für `x-pypi-packages` | 1h |
-| **P2** | `GitHubClient.create_tag()` + `ReleaseService.trigger_release()` | 2h |
-| **P2** | `PackageListView` + `PackageDetailView` + Templates | 2h |
-| **P3** | `TriggerReleaseView` + HTMX-Polling Status-Widget | 2h |
-| **P3** | PyPI API Integration (aktuelle Version abrufen) | 1h |
-| **P4** | Trusted Publisher Checker (PyPI API) | 1h |
-| **P4** | `nl2cad/catalog-info.yaml` mit `x-pypi-packages` | 30min |
+| Phase | Feature | Aufwand | Status |
+|-------|---------|---------|--------|
+| **P1** | `PyPIPackage` + `ReleaseRun` Models + Migrations | 2h | ✅ done |
+| **P1** | `catalog-info.yaml` Import für `x-pypi-packages` | 1h | pending |
+| **P2** | `GitHubClient.create_tag()` + `ReleaseService.trigger_release()` | 2h | ✅ done |
+| **P2** | `PackageListView` + `PackageDetailView` + Templates | 2h | ✅ done |
+| **P3** | `TriggerReleaseView` + HTMX-Polling Status-Widget | 2h | ✅ done |
+| **P3** | PyPI API Integration (aktuelle Version abrufen) | 1h | ✅ done |
+| **P4** | Trusted Publisher Checker (PyPI API) | 1h | pending |
+| **P4** | `outlinefw/catalog-info.yaml` mit `x-pypi-packages` | 30min | ✅ done |
 
 **Gesamtaufwand**: ~11h | **Target**: devhub.iil.pet/releases/
+
+---
+
+## 4b. Implementation — Live-Stand (2026-03-08)
+
+### dev-hub `releases` App
+
+- `apps/releases/models.py`: `PyPIPackage` + `ReleaseRun` — Migration `0001_initial` applied
+- `apps/releases/services.py`: `ReleaseService` mit `trigger_release()`, `get_pypi_version()`, `refresh_run_status()`
+- `apps/releases/views.py`: `PackageListView`, `PackageDetailView`, `TriggerReleaseView`, `RunStatusView` (HTMX-Polling)
+- `apps/releases/urls.py`: Namespace `releases:*` unter `/releases/`
+- Registriert in `INSTALLED_APPS` + `config/urls.py` — Live: `devhub.iil.pet/releases/`
+
+### Erstes Live-Package: `iil-outlinefw`
+
+| Feld | Wert |
+|------|------|
+| `PyPIPackage.repo` | `outlinefw` |
+| `PyPIPackage.tag_prefix` | `v` |
+| `PyPIPackage.workflow_file` | `publish.yml` |
+| PyPI Trusted Publisher | ✅ konfiguriert (GitHub OIDC, env `pypi`) |
+| Erste Version | `0.1.0` — 2026-03-08 |
+| PyPI URL | https://pypi.org/project/iil-outlinefw/ |
+
+### Validierter Release-Flow
+
+```
+POST /releases/iil-outlinefw/release/  version="0.1.0"
+  → ReleaseService.trigger_release()
+  → GitHub Tag v0.1.0 @ HEAD-SHA (via GitHub REST API)
+  → publish.yml: Tests ✅ → hatch build ✅ → pypa/gh-action-pypi-publish ✅
+  → iil-outlinefw 0.1.0 live auf PyPI
+  → writing-hub: iil-outlinefw>=0.1.0,<1 in requirements.txt
+```
+
+### Abweichungen vom Design
+
+| Punkt | Design | Ist |
+|-------|--------|-----|
+| Tag-Format | `package@0.2.0` | `v0.1.0` (SemVer-Standard) |
+| Catalog-Import | `populate_catalog` Erweiterung | `catalog-info.yaml` vorhanden, Import pending |
 
 ---
 
