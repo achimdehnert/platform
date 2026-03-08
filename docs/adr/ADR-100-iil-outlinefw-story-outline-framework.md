@@ -124,15 +124,57 @@ Jeder Beat hat: `name`, `position` (0.0–1.0), `act` (act_1/2a/2b/3), `descript
 `OutlineGenerator` nimmt ein Objekt entgegen, das das `LLMRouter`-Protocol erfüllt:
 
 ```python
+@runtime_checkable
 class LLMRouter(Protocol):
     def completion(
         self,
         action_code: str,
-        messages: list[dict],
-        quality_level: int | None = None,
+        messages: list[dict[str, str]],
+        quality: LLMQuality = LLMQuality.STANDARD,
         priority: str = "balanced",
     ) -> str: ...
 ```
+
+- `@runtime_checkable` — `isinstance(router, LLMRouter)` wird im Konstruktor erzwungen
+- Fehler-Hierarchie: `LLMRouterError` → `LLMRouterTimeout`
+- Kompatibel mit `iil-aifw` und jedem Custom-Router
+
+### Enums (v0.1.0)
+
+| Enum | Werte | Zweck |
+|------|-------|-------|
+| `LLMQuality` | DRAFT=1, STANDARD=2, PREMIUM=3 | Ersetzt `quality_level: int \| None` |
+| `GenerationStatus` | SUCCESS, PARTIAL, PARSE_ERROR, LLM_ERROR, VALIDATION_ERROR | Feingranularer Ergebnis-Status |
+| `ParseStatus` | SUCCESS, EMPTY, MALFORMED_JSON, PARTIAL, SCHEMA_MISMATCH | Parser-Outcome |
+| `ActPhase` | ACT_1, ACT_2A, ACT_2B, ACT_3, ACT_OPEN, ACT_CLOSE | Struktureller Akt |
+| `TensionLevel` | LOW, MEDIUM, HIGH, PEAK | Narrative Spannung |
+
+### ABC-basierter Django-Adapter
+
+Statt Stubs verwendet der Adapter eine abstrakte Basisklasse:
+
+```python
+class OutlineServiceBase(ABC):
+    @abstractmethod
+    def get_tenant_id(self, request: Any) -> int: ...
+    @abstractmethod
+    def persist_outline(self, result, context, tenant_id) -> Any: ...
+    @abstractmethod
+    def get_llm_router(self, tenant_id: int) -> Any: ...
+
+    def generate_and_persist(self, framework_key, context, request, quality) -> OutlineResult:
+        """Template method — subclasses implement nur die 3 abstrakten Methoden."""
+```
+
+`InMemoryOutlineService` ist eine fertige Test-Implementierung ohne Django.
+
+### FrameworkDefinition Validierung (K-2)
+
+`FrameworkDefinition` ist ein frozen Pydantic-Model das beim Import validiert:
+- Keine doppelten Beat-Positionen
+- Beats sind nach Position sortiert
+- Erster Beat ≤ 0.1, letzter Beat ≥ 0.9
+- Kein Gap zwischen adjacent Beats > 0.30
 
 Kompatibel mit `iil-aifw` und jedem Custom-Router.
 
@@ -147,12 +189,28 @@ Kompatibel mit `iil-aifw` und jedem Custom-Router.
 - `apps/authoring/services/outline_service.py` als dünne Facade
 - `apps/outlines/` — eigenständige Django-App mit Liste, Detail, Inline-Edit
 
-### Phase 2 — Eigenständiges Repo (abgeschlossen 2026-03-08)
+### Phase 2 — Eigenständiges Repo + Production Quality (abgeschlossen 2026-03-08)
 
 - Repo: `github.com/achimdehnert/outlinefw`
 - PyPI-Name: `iil-outlinefw`
-- `pyproject.toml` nach `iil-authoringfw`-Muster (hatchling build)
-- Tests: `tests/test_frameworks.py`, `tests/test_parser.py`
+- `pyproject.toml`: hatchling build, `py.typed` (PEP 561), `django` optional dep, mypy strict
+- Test-Suite: `tests/test_outlinefw.py` mit 30+ Tests (Schemas, Frameworks, Parser, Generator, Adapter)
+- writing-hub: `src/outlinefw/` aktualisiert auf v0.1.0, commit `055cea8`
+
+**Applied fixes from review:**
+
+| Fix-ID | Beschreibung |
+|--------|-------------|
+| K-1 | `py.typed` für PEP 561 Compliance |
+| K-2 | `FrameworkDefinition` validiert Beat-Positionen (keine Dups, keine Gaps >0.30) |
+| K-3 | `OutlineResult` mit `GenerationStatus` Enum + `completion_ratio` + `raise_if_failed()` |
+| K-4 | `ParseResult` unterscheidet EMPTY/MALFORMED_JSON/PARTIAL/SCHEMA_MISMATCH/SUCCESS |
+| H-1 | Explizites `__all__` in `__init__.py` |
+| H-2 | `LLMQuality` Enum ersetzt `quality_level: int \| None` |
+| H-3 | `pyproject.toml` komplett (py.typed, django optional, mypy strict, ruff erweitert) |
+| H-4 | Jedes Framework hat expliziten `version` String |
+| B-2 | `LLMRouter` Protocol mit `LLMRouterError` + `LLMRouterTimeout` |
+| B-3 | `django_adapter` nutzt ABC (`OutlineServiceBase`) statt Stubs |
 
 ### Phase 3 — Migration (pending)
 
@@ -206,3 +264,5 @@ Kompatibel mit `iil-aifw` und jedem Custom-Router.
 - Repo: https://github.com/achimdehnert/outlinefw
 - writing-hub MVP: `writing-hub/src/outlinefw/` (commit `2c79c27`)
 - Outlines-App: `writing-hub/apps/outlines/` (commit `a6db87f`)
+- writing-hub v0.1.0: `writing-hub/src/outlinefw/` (commit `055cea8`)
+- outlinefw Repo v0.1.0: commit `7b9bc63`
