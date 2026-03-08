@@ -1,94 +1,47 @@
-"""Tests for Organization and Membership models."""
-
+"""
+Tests for Organization model and TenantModel.
+"""
 import pytest
-from django.contrib.auth import get_user_model
-
-from django_tenancy.models import Membership, Organization
-
-User = get_user_model()
+from django_tenancy.models import Organization, TenantModel
+from django.db import models
 
 
 @pytest.mark.django_db
 class TestOrganization:
-    """Tests for Organization model."""
+    def test_create_organization(self):
+        org = Organization.objects.create(name="ACME", slug="acme")
+        assert org.pk is not None
+        assert org.public_id is not None
+        assert org.effective_subdomain == "acme"
+        assert org.language == "de"
 
-    def test_should_create_organization_with_defaults(self):
-        org = Organization.objects.create(name="Acme Corp", slug="acme")
-        assert org.name == "Acme Corp"
-        assert org.slug == "acme"
-        assert org.status == Organization.Status.TRIAL
-        assert org.plan_code == "free"
-        assert org.tenant_id is not None
-        assert org.id != org.tenant_id
-
-    def test_should_have_unique_tenant_id(self):
-        org1 = Organization.objects.create(name="Org 1", slug="org1")
-        org2 = Organization.objects.create(name="Org 2", slug="org2")
-        assert org1.tenant_id != org2.tenant_id
-
-    def test_should_have_unique_slug(self):
-        Organization.objects.create(name="Org 1", slug="same-slug")
-        with pytest.raises(Exception):
-            Organization.objects.create(name="Org 2", slug="same-slug")
-
-    def test_should_report_active_for_trial(self):
-        org = Organization(status=Organization.Status.TRIAL)
-        assert org.is_active is True
-
-    def test_should_report_active_for_active(self):
-        org = Organization(status=Organization.Status.ACTIVE)
-        assert org.is_active is True
-
-    def test_should_report_inactive_for_suspended(self):
-        org = Organization(status=Organization.Status.SUSPENDED)
-        assert org.is_active is False
-
-    def test_should_report_inactive_for_deleted(self):
-        org = Organization(status=Organization.Status.DELETED)
-        assert org.is_active is False
-
-    def test_should_str_return_name(self):
-        org = Organization(name="Test Org")
-        assert str(org) == "Test Org"
-
-
-@pytest.mark.django_db
-class TestMembership:
-    """Tests for Membership model."""
-
-    def test_should_create_membership(self):
-        org = Organization.objects.create(name="Acme", slug="acme")
-        user = User.objects.create_user(username="alice", password="test")
-        membership = Membership.objects.create(
-            tenant_id=org.tenant_id,
-            organization=org,
-            user=user,
-            role=Membership.Role.ADMIN,
+    def test_subdomain_override(self):
+        org = Organization.objects.create(
+            name="Test", slug="test", subdomain="custom"
         )
-        assert membership.role == "admin"
-        assert membership.tenant_id == org.tenant_id
+        assert org.effective_subdomain == "custom"
 
-    def test_should_enforce_unique_per_tenant_user(self):
-        org = Organization.objects.create(name="Acme", slug="acme")
-        user = User.objects.create_user(username="bob", password="test")
-        Membership.objects.create(
-            tenant_id=org.tenant_id,
-            organization=org,
-            user=user,
-        )
-        with pytest.raises(Exception):
-            Membership.objects.create(
-                tenant_id=org.tenant_id,
-                organization=org,
-                user=user,
-            )
+    def test_for_tenant_manager(self):
+        org = Organization.objects.create(name="T1", slug="t1")
+        found = Organization.objects.active().get(slug="t1")
+        assert found.pk == org.pk
 
-    def test_should_default_to_member_role(self):
-        org = Organization.objects.create(name="Acme", slug="acme")
-        user = User.objects.create_user(username="carol", password="test")
-        m = Membership.objects.create(
-            tenant_id=org.tenant_id,
-            organization=org,
-            user=user,
-        )
-        assert m.role == Membership.Role.MEMBER
+    def test_soft_delete_excluded_from_active(self):
+        from django.utils import timezone
+        org = Organization.objects.create(name="Dead", slug="dead")
+        org.deleted_at = timezone.now()
+        org.save()
+        assert Organization.objects.active().filter(slug="dead").count() == 0
+
+
+class TestTenantModelAbstract:
+    def test_tenant_model_is_abstract(self):
+        assert TenantModel._meta.abstract is True
+
+    def test_tenant_id_is_bigintegerfield(self):
+        field = TenantModel._meta.get_field("tenant_id")
+        assert isinstance(field, models.BigIntegerField)
+
+    def test_tenant_id_is_not_foreignkey(self):
+        field = TenantModel._meta.get_field("tenant_id")
+        assert not isinstance(field, models.ForeignKey)

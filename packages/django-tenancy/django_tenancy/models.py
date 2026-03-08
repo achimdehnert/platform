@@ -1,153 +1,118 @@
-"""Concrete tenancy models: Organization and Membership.
-
-Based on risk-hub's production-proven implementation (ADR-003).
-Apps install ``django_tenancy`` in INSTALLED_APPS and get these
-tables via ``manage.py migrate django_tenancy``.
-
-CRITICAL (Global Rules §3.3):
-    Organization.id != Organization.tenant_id
-    Always use org.tenant_id for data isolation, never org.id.
 """
+django_tenancy/models.py
 
+Organization (Tenant entity) and TenantModel (abstract base).
+
+Platform standards (ADR-109):
+  - BigAutoField PK
+  - public_id UUIDField
+  - tenant_id = BigIntegerField (NOT FK — ADR-109 Fix B-1)
+  - deleted_at soft-delete
+  - TenantManager with for_tenant() + active()
+"""
 from __future__ import annotations
 
 import uuid
 
 from django.conf import settings
 from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+from .managers import TenantManager
 
 
 class Organization(models.Model):
-    """Tenant organization with lifecycle management.
+    """
+    Tenant entity. One Organization = one tenant.
 
-    Attributes:
-        id: Internal primary key (UUID). Do NOT use for tenant filtering.
-        tenant_id: Public tenant identifier. Use THIS for data isolation.
-        slug: Subdomain slug (e.g. ``acme`` for ``acme.example.com``).
-        status: Lifecycle state (trial → active → suspended → deleted).
-        plan_code: Billing plan identifier.
+    Subdomain routing: <slug>.hub.domain.tld
+    Language: overrides platform default per tenant (ADR-110).
     """
 
-    class Status(models.TextChoices):
-        TRIAL = "trial", "Trial"
-        ACTIVE = "active", "Active"
-        SUSPENDED = "suspended", "Suspended"
-        DELETED = "deleted", "Deleted"
-
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False,
+    id = models.BigAutoField(primary_key=True)
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name=_("Public ID"),
     )
-    tenant_id = models.UUIDField(
-        unique=True, default=uuid.uuid4, editable=False, db_index=True,
+    name = models.CharField(max_length=200, verbose_name=_("Name"))
+    slug = models.SlugField(
+        max_length=100,
+        unique=True,
+        verbose_name=_("Slug"),
+        help_text=_("Used as subdomain identifier"),
     )
-    slug = models.SlugField(max_length=63, unique=True)
-    name = models.CharField(max_length=200)
-
-    # Lifecycle
-    status = models.CharField(
-        max_length=20,
-        choices=Status.choices,
-        default=Status.TRIAL,
+    subdomain = models.CharField(
+        max_length=100,
+        blank=True,
+        verbose_name=_("Subdomain override"),
+        help_text=_("Leave blank to use slug"),
     )
-    plan_code = models.CharField(max_length=50, default="free")
-    trial_ends_at = models.DateTimeField(null=True, blank=True)
-    suspended_at = models.DateTimeField(null=True, blank=True)
-    suspended_reason = models.TextField(blank=True, default="")
-    deleted_at = models.DateTimeField(null=True, blank=True)
+    language = models.CharField(
+        max_length=8,
+        default="de",
+        verbose_name=_("Language"),
+        help_text=_("Tenant-default language (ADR-110)"),
+    )
+    is_active = models.BooleanField(default=True, verbose_name=_("Active"))
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, db_index=True, verbose_name=_("Deleted At")
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated At"))
 
-    # Tenant-specific configuration (not for structured data)
-    settings = models.JSONField(default=dict, blank=True)
-
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    objects = TenantManager()
 
     class Meta:
-        db_table = "tenancy_organization"
+        app_label = "django_tenancy"
+        verbose_name = _("Organization")
+        verbose_name_plural = _("Organizations")
+        ordering = ["name"]
         constraints = [
-            models.CheckConstraint(
-                condition=models.Q(
-                    status__in=["trial", "active", "suspended", "deleted"],
-                ),
-                name="org_status_chk",
+            models.UniqueConstraint(
+                fields=["slug"],
+                condition=models.Q(deleted_at__isnull=True),
+                name="unique_active_org_slug",
             ),
-        ]
-        indexes = [
-            models.Index(fields=["status"], name="idx_org_status"),
         ]
 
     def __str__(self) -> str:
         return self.name
 
     @property
-    def is_active(self) -> bool:
-        """Whether the organization can serve requests."""
-        return self.status in (self.Status.TRIAL, self.Status.ACTIVE)
+    def effective_subdomain(self) -> str:
+        return self.subdomain or self.slug
 
 
-class Membership(models.Model):
-    """Maps a user to an organization with a role.
+class TenantModel(models.Model):
+    """
+    Abstract base class for all tenant-scoped models.
 
-    Attributes:
-        tenant_id: Denormalized from organization for query efficiency.
-        role: Permission level within the organization.
+    Fix B-1 (ADR-109): tenant_id is BigIntegerField, NOT ForeignKey.
+    Rationale: FK would enforce ON DELETE CASCADE/RESTRICT, breaking
+    Celery tasks and cross-DB scenarios.
     """
 
-    class Role(models.TextChoices):
-        OWNER = "owner", "Owner"
-        ADMIN = "admin", "Admin"
-        MEMBER = "member", "Member"
-        VIEWER = "viewer", "Viewer"
-        EXTERNAL = "external", "External"
+    id = models.BigAutoField(primary_key=True)
+    public_id = models.UUIDField(
+        default=uuid.uuid4,
+        unique=True,
+        editable=False,
+        verbose_name=_("Public ID"),
+    )
+    # NOT a FK — intentional (ADR-109 B-1)
+    tenant_id = models.BigIntegerField(
+        db_index=True,
+        verbose_name=_("Tenant ID"),
+    )
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, db_index=True, verbose_name=_("Deleted At")
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated At"))
 
-    id = models.UUIDField(
-        primary_key=True, default=uuid.uuid4, editable=False,
-    )
-    tenant_id = models.UUIDField(db_index=True)
-    organization = models.ForeignKey(
-        Organization,
-        on_delete=models.CASCADE,
-        related_name="memberships",
-    )
-    user = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.CASCADE,
-        related_name="memberships",
-    )
-    role = models.CharField(
-        max_length=20, choices=Role.choices, default=Role.MEMBER,
-    )
-    invited_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL,
-        related_name="+",
-    )
-    invited_at = models.DateTimeField(null=True, blank=True)
-    accepted_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
+    objects = TenantManager()
 
     class Meta:
-        db_table = "tenancy_membership"
-        constraints = [
-            models.UniqueConstraint(
-                fields=["tenant_id", "user"],
-                name="membership_unique",
-            ),
-            models.CheckConstraint(
-                condition=models.Q(
-                    role__in=["owner", "admin", "member", "viewer", "external"],
-                ),
-                name="membership_role_chk",
-            ),
-        ]
-        indexes = [
-            models.Index(
-                fields=["tenant_id", "role"],
-                name="idx_membership_tenant_role",
-            ),
-        ]
-
-    def __str__(self) -> str:
-        return f"{self.user} -> {self.organization} ({self.role})"
+        abstract = True
