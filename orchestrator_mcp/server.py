@@ -11,6 +11,7 @@ Usage (in mcp_config or Windsurf MCP settings):
 ADR-107 Phase 4: agent_team_status + agent_plan_task registered.
 ADR-108 Phase 5: get_cost_estimate, evaluate_task, verify_task registered.
 Infra Context: get_infra_context registered (Hetzner + Cloudflare + Deploy-Targets).
+Payment Agent: get_payment_context registered (Stripe + billing-hub, ADR-062).
 """
 
 from __future__ import annotations
@@ -28,6 +29,7 @@ from orchestrator_mcp.tools import (
     evaluate_task,
     get_cost_estimate,
     get_infra_context,
+    get_payment_context,
     verify_task,
 )
 
@@ -56,7 +58,7 @@ _TOOLS: dict[str, dict[str, Any]] = {
         "description": (
             "Decompose a task description using the Planner. "
             "Returns a TaskGraph with branches and sub-tasks. "
-            "task_type: feature|bugfix|refactor|test|docs|infra|deployment|pr_review|adr|architecture. "
+            "task_type: feature|bugfix|refactor|test|docs|infra|deployment|payment|pr_review|adr|architecture. "
             "complexity: trivial|simple|moderate|complex|architectural."
         ),
         "inputSchema": {
@@ -259,6 +261,20 @@ _TOOLS: dict[str, dict[str, Any]] = {
         },
         "handler": lambda _args: get_infra_context(),
     },
+    "get_payment_context": {
+        "description": (
+            "Get Stripe + billing-hub context for the Payment Agent. "
+            "Returns billing-hub location, Stripe key locations (NOT keys), "
+            "Price ID workflow, internal API endpoints, pending setup_plans action. "
+            "ADR-062: Central billing for all 9 hubs."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "handler": lambda _args: get_payment_context(),
+    },
 }
 
 
@@ -281,7 +297,7 @@ def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 "capabilities": {"tools": {}},
                 "serverInfo": {
                     "name": "orchestrator",
-                    "version": "3.1.0",
+                    "version": "3.2.0",
                 },
             },
         }
@@ -344,7 +360,7 @@ def main() -> None:
         stream=sys.stderr,
     )
     logger.info(
-        "orchestrator_mcp server v3.1 starting (ADR-107+108+infra, %d tools)",
+        "orchestrator_mcp server v3.2 starting (ADR-107+108+infra+payment, %d tools)",
         len(_TOOLS),
     )
 

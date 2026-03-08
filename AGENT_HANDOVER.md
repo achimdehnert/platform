@@ -85,49 +85,84 @@ Package-Repos (PyPI): `aifw`, `authoringfw`, `promptfw`, `weltenfw`,
 
 ---
 
-## 6. MCP-Tool Quick-Reference für Deployment
+## 6. Stripe / Payment Agent
+
+**Zugang:** Stripe API-Keys in Windsurf-Secrets + `/opt/billing-hub/.env` auf Prod
+
+| Was | Wert |
+|---|---|
+| billing-hub Prod | `/opt/billing-hub` auf 88.198.191.108 |
+| Health-URL | `https://billing.iil.pet/healthz/` |
+| Stripe Webhook | `POST https://billing.iil.pet/api/webhook/stripe/` |
+| Keys Prod | `/opt/billing-hub/.env` (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET) |
+| Keys lokal | `billing-hub/.env` (nie committen — in Windsurf-Secrets) |
+
+**Price IDs: noch ausstehend** — müssen im Stripe Dashboard angelegt werden.
+Danach sofort ausführen:
+```bash
+# via mcp5_ssh_manage:
+cd /opt/billing-hub
+docker compose -f docker-compose.prod.yml exec web \
+  python manage.py setup_plans --stripe-monthly=price_xxx --stripe-yearly=price_xxx
+```
+
+**Payment Agent aktivieren:** `mcp11_get_payment_context()` — liefert vollständigen Stripe-Kontext.
+
+**Regeln:**
+- STRIPE_SECRET_KEY NIEMALS im Code oder in Logs
+- Gate-2 vor jeder Stripe-Konfigurationsanderung
+- Webhook-Signatur muss verifiziert werden (STRIPE_WEBHOOK_SECRET)
+- Nach jeder Änderung: `mcp11_deploy_check(action='health', repo='billing-hub')`
+
+---
+
+## 7. MCP-Tool Quick-Reference für Deployment
 
 ```python
 # Health-Check eines Repos
-mcp11_deploy_check(action='health', repo='weltenhub')
+mcp11_deploy_check(action="health", repo="weltenhub")
 
 # Container-Status auf Prod
-mcp11_deploy_check(action='status', repo='weltenhub')
+mcp11_deploy_check(action="status", repo="weltenhub")
 
 # SSH-Command auf Prod (read-only)
-mcp5_ssh_manage(host='hetzner-prod', action='execute',
-                command='docker compose -f /opt/weltenhub/docker-compose.prod.yml ps')
+mcp5_ssh_manage(host="hetzner-prod", action="execute",
+                command="docker compose -f /opt/weltenhub/docker-compose.prod.yml ps")
 
 # Docker Compose Logs
-mcp5_docker_manage(host='hetzner-prod', action='compose_logs',
-                   path='/opt/weltenhub', service='web', tail=50)
+mcp5_docker_manage(host="hetzner-prod", action="compose_logs",
+                   path="/opt/weltenhub", service="web", tail=50)
 
 # DNS-Eintrag prüfen (Cloudflare)
-mcp_cloudflare_dns_list(zone='weltenforger.com')
+mcp_cloudflare_dns_list(zone="weltenforger.com")
 
 # GitHub PR kommentieren
-mcp8_add_issue_comment(owner='achimdehnert', repo='weltenhub',
-                       issue_number=42, body='Deploy status: ...')
+mcp8_add_issue_comment(owner="achimdehnert", repo="weltenhub",
+                       issue_number=42, body="Deploy status: ...")
+
+# Stripe-Kontext für Payment Agent
+mcp11_get_payment_context()
 ```
 
 ---
 
-## 7. Wichtige Regeln
+## 8. Wichtige Regeln
 
 - **Prod-Server WRITE:** Nur via `scripts/ship.sh` oder GitHub Actions CI/CD
 - **Direkte DB-Änderungen auf Prod:** NIEMALS — nur via Migrations
-- **API-Keys:** Alle in Windsurf-Secrets hinterlegt — nie im Code hardcoden
-- **Gate-2 Deployments:** Immer `mcp11_request_approval` vor Prod-Deploy
+- **API-Keys (Hetzner, Cloudflare, Stripe):** Alle in Windsurf-Secrets — nie im Code
+- **Gate-2 Deployments + Stripe-Config:** Immer `mcp11_request_approval` vorher
 - **Nach jedem Deploy:** `mcp11_deploy_check(action="health", repo=...)` ausführen
 
 ---
 
-## 8. Session-Start Checklist (Agent)
+## 9. Session-Start Checklist (Agent)
 
 ```
 1. Diese Datei lesen (AGENT_HANDOVER.md im platform Root) ✓
-2. mcp11_agent_team_status() -> aktueller Team-Stand
+2. mcp11_agent_team_status() -> aktueller Team-Stand (8 Rollen inkl. Payment Agent)
 3. mcp11_deploy_check(action='targets') -> Deploy-Konfiguration
-4. mcp11_get_infra_context() -> vollständiger Infra-Kontext (MCP-Tool)
-5. Offene Issues prüfen: mcp8_list_issues(owner='achimdehnert', repo=<repo>)
+4. mcp11_get_infra_context() -> vollständiger Infra-Kontext
+5. mcp11_get_payment_context() -> Stripe-Kontext (bei Billing-Tasks)
+6. Offene Issues prüfen: mcp8_list_issues(owner='achimdehnert', repo=<repo>)
 ```

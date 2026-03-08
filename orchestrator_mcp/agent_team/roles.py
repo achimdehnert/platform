@@ -31,6 +31,7 @@ class AgentRole(str, Enum):
     DEVELOPER = "developer"
     TESTER = "tester"
     DEPLOYMENT = "deployment"
+    PAYMENT = "payment"
     REVIEW = "review"
     RE_ENGINEER = "re_engineer"
     GUARDIAN = "guardian"
@@ -334,6 +335,104 @@ timeout {t} {manage_py_path} migrate --noinput
 
 
 # ---------------------------------------------------------------------------
+# Payment Agent
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PaymentAgentConfig:
+    """
+    Full specification for the Payment Agent (Stripe + billing-hub).
+
+    MCP Tools (concrete, available in Windsurf):
+      - mcp5_ssh_manage      : SSH on hetzner-prod to run management commands
+      - mcp8_add_issue_comment: GitHub PR/Issue comments
+      - mcp11_deploy_check   : Health check for billing-hub
+
+    Stripe API-Keys: NEVER in code. Location:
+      - Prod: /opt/billing-hub/.env  (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
+      - Local: billing-hub .env (never committed)
+
+    Price IDs: Set via management command after creation in Stripe Dashboard.
+    setup_plans command: python manage.py setup_plans --stripe-monthly=<id> --stripe-yearly=<id>
+
+    billing-hub internal API (HMAC-Auth, Docker-Network only):
+      - GET  /api/access/{platform}/{email}/{module}/
+      - GET  /api/customer/{email}/
+      - POST /api/webhook/stripe/  (Stripe-Signature, not HMAC)
+      - GET  /healthz/
+    """
+
+    role: AgentRole = AgentRole.PAYMENT
+    gate_level: GateLevel = GateLevel.TWO
+
+    description: str = (
+        "Manages Stripe subscriptions, Price IDs, webhook health, and "
+        "billing-hub internal API. Requires Gate-2 for any Stripe config change. "
+        "ADR-062: Central billing service for all 9 hubs."
+    )
+
+    def can_auto_execute(self) -> bool:
+        """Payment Agent always requires Gate-2 — never auto."""
+        return False
+
+    @property
+    def allowed_tools(self) -> list[str]:
+        return [
+            "mcp5_ssh_manage",
+            "mcp11_deploy_check",
+            "mcp8_add_issue_comment",
+        ]
+
+    @property
+    def payment_context(self) -> dict[str, Any]:
+        """Stripe + billing-hub config — eliminates per-session guesswork."""
+        return {
+            "billing_hub": {
+                "host": "hetzner-prod",
+                "path": "/opt/billing-hub",
+                "health": "https://billing.iil.pet/healthz/",
+                "internal_url": "http://billing-hub-web:8000",
+                "port": 8092,
+            },
+            "stripe": {
+                "account": "one Stripe account for all 9 hubs (ADR-062)",
+                "webhook_endpoint": "POST /api/webhook/stripe/",
+                "keys_location": "/opt/billing-hub/.env (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)",
+                "keys_local": "billing-hub/.env (never committed — in Windsurf-Secrets)",
+                "price_ids_status": "PENDING — must be created in Stripe Dashboard first",
+                "setup_command": (
+                    "python manage.py setup_plans "
+                    "--stripe-monthly=price_xxx --stripe-yearly=price_xxx"
+                ),
+            },
+            "platforms": [
+                "coach-hub", "billing-hub", "travel-beat", "weltenhub",
+                "trading-hub", "cad-hub", "pptx-hub", "risk-hub", "ausschreibungs-hub",
+            ],
+            "subscription_tiers": ["free", "registered", "premium", "enterprise"],
+            "internal_api": {
+                "auth": "HMAC (X-Internal-Token header, 30s replay protection)",
+                "secret_location": "BILLING_INTERNAL_SECRET in each hub's .env",
+                "access_check": "GET /api/access/{platform}/{email}/{module}/",
+                "customer_info": "GET /api/customer/{email}/",
+            },
+            "rules": [
+                "Gate-2 required before any Stripe config change",
+                "STRIPE_SECRET_KEY only in .env — never in code or logs",
+                "Webhook signature must be verified (STRIPE_WEBHOOK_SECRET)",
+                "setup_plans only after Price IDs created in Stripe Dashboard",
+                "Use mcp11_deploy_check(action='health', repo='billing-hub') after changes",
+            ],
+            "pending_actions": [
+                "Create Price IDs in Stripe Dashboard for each hub/tier",
+                "Run: python manage.py setup_plans --stripe-monthly=<id> --stripe-yearly=<id>",
+                "Verify webhook endpoint in Stripe Dashboard points to billing.iil.pet",
+            ],
+        }
+
+
+# ---------------------------------------------------------------------------
 # Review Agent
 # ---------------------------------------------------------------------------
 
@@ -455,7 +554,7 @@ class ReviewAgentConfig:
 
         lines.append("")
         lines.append("| Check | Status | Blocking |")
-        lines.append("|-------|--------|----------|")
+        lines.append("|-------|--------|----------|")  
 
         for r in results:
             status = "Pass" if r.passed else ("Fail" if r.blocking else "Warn")
@@ -501,6 +600,7 @@ ROLE_REGISTRY: dict[AgentRole, AgentRoleProtocol] = {
         description="Tests schreiben, Coverage pr\u00fcfen, CI-Fehler analysieren.",
     ),
     AgentRole.DEPLOYMENT: DeploymentAgentConfig(),
+    AgentRole.PAYMENT: PaymentAgentConfig(),
     AgentRole.REVIEW: ReviewAgentConfig(),
     AgentRole.RE_ENGINEER: BaseAgentRole(
         role=AgentRole.RE_ENGINEER,

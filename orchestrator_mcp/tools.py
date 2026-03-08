@@ -8,7 +8,7 @@ to include Deployment Agent, Review Agent, and role routing.
 
 Phase 5 (ADR-108): QA cycle tools added.
 
-Phase 6: get_infra_context added — Hetzner + Cloudflare + Deploy-Targets.
+Phase 6: get_infra_context + get_payment_context added.
 
 Tools exposed via orchestrator_mcp MCP server:
   - agent_team_status   : current agent team configuration + active roles
@@ -20,6 +20,7 @@ Tools exposed via orchestrator_mcp MCP server:
   - evaluate_task       : compute QualityScore + rollback decision (ADR-108)
   - verify_task         : run tests/lint + check acceptance criteria (ADR-108)
   - get_infra_context   : full infra context (Hetzner, Cloudflare, deploy targets)
+  - get_payment_context : Stripe + billing-hub context (ADR-062)
   - log_action          : audit log entry
   - get_audit_log       : retrieve audit log entries
 """
@@ -118,6 +119,7 @@ def _get_routing_summary() -> list[dict[str, str]]:
         {"task_type": "bugfix", "routes_to": AgentRole.DEVELOPER.value, "gate": "1"},
         {"task_type": "test", "routes_to": AgentRole.TESTER.value, "gate": "0"},
         {"task_type": "deployment", "routes_to": AgentRole.DEPLOYMENT.value, "gate": "2"},
+        {"task_type": "payment", "routes_to": AgentRole.PAYMENT.value, "gate": "2"},
         {"task_type": "pr_review", "routes_to": AgentRole.REVIEW.value, "gate": "1"},
         {"task_type": "refactor", "routes_to": AgentRole.RE_ENGINEER.value, "gate": "2"},
         {"task_type": "tech_debt", "routes_to": AgentRole.RE_ENGINEER.value, "gate": "2"},
@@ -140,7 +142,7 @@ def agent_plan_task(
     Args:
         description: Task description in natural language.
         task_type:   One of feature, bugfix, refactor, test, docs, infra,
-                     deployment, pr_review, adr, architecture.
+                     deployment, payment, pr_review, adr, architecture.
         complexity:  One of trivial, simple, moderate, complex, architectural.
 
     Returns:
@@ -179,6 +181,9 @@ def analyze_task(description: str) -> dict[str, Any]:
         complexity = "architectural"
     elif any(kw in description_lower for kw in ("deploy", "deployment", "migrate", "migration")):
         task_type = "deployment"
+        complexity = "moderate"
+    elif any(kw in description_lower for kw in ("stripe", "payment", "billing", "price", "subscription")):
+        task_type = "payment"
         complexity = "moderate"
     elif any(kw in description_lower for kw in ("test", "coverage", "pytest", "fixture")):
         task_type = "test"
@@ -221,7 +226,7 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
     Deployment and destructive operations always require Gate-2.
     """
     DESTRUCTIVE_ACTIONS = {"delete", "drop", "truncate", "rollback", "migrate"}
-    GATE2_COMPONENTS = {"production", "database", "migrations", "ssh", "docker"}
+    GATE2_COMPONENTS = {"production", "database", "migrations", "ssh", "docker", "stripe", "billing"}
 
     action_lower = action.lower()
     component_lower = component.lower()
@@ -476,10 +481,6 @@ def get_infra_context() -> dict[str, Any]:
 
     Eliminates per-session guesswork about hosts, MCP tools, and deploy targets.
     Call this at session start or before any deployment/infra operation.
-
-    Sources:
-      - DeploymentAgentConfig.infra_context (roles.py)
-      - MCP server registry (this session)
     """
     from orchestrator_mcp.agent_team.roles import DeploymentAgentConfig
 
@@ -496,7 +497,8 @@ def get_infra_context() -> dict[str, Any]:
             "prefix": "mcp11_",
             "capabilities": ["agent_team_status", "agent_plan_task", "analyze_task",
                               "deploy_check", "get_cost_estimate", "evaluate_task",
-                              "verify_task", "get_infra_context", "log_action"],
+                              "verify_task", "get_infra_context", "get_payment_context",
+                              "log_action"],
             "target": "local (platform/orchestrator_mcp)",
         },
         "platform-context": {
@@ -537,4 +539,55 @@ def get_infra_context() -> dict[str, Any]:
             "dns_check": "mcp_cloudflare_dns_list(zone='<domain>')",
             "github_comment": "mcp8_add_issue_comment(owner='achimdehnert', repo='<repo>', issue_number=<n>, body='...')",
         },
+    }
+
+
+# ---------------------------------------------------------------------------
+# get_payment_context
+# ---------------------------------------------------------------------------
+
+
+def get_payment_context() -> dict[str, Any]:
+    """
+    Returns the full Stripe + billing-hub context for the Payment Agent.
+
+    Covers: billing-hub location, Stripe key locations (NOT keys),
+    Price ID workflow, internal API endpoints, pending setup_plans action.
+
+    IMPORTANT: Never returns actual API keys — only their storage locations.
+    Keys are in Windsurf-Secrets and /opt/billing-hub/.env on prod.
+    """
+    from orchestrator_mcp.agent_team.roles import PaymentAgentConfig
+
+    payment_cfg = PaymentAgentConfig()
+
+    return {
+        "payment_context": payment_cfg.payment_context,
+        "allowed_tools": payment_cfg.allowed_tools,
+        "quick_reference": {
+            "billing_health": "mcp11_deploy_check(action='health', repo='billing-hub')",
+            "billing_status": "mcp11_deploy_check(action='status', repo='billing-hub')",
+            "run_setup_plans": (
+                "mcp5_ssh_manage(host='hetzner-prod', action='execute', "
+                "command='cd /opt/billing-hub && docker compose -f docker-compose.prod.yml "
+                "exec web python manage.py setup_plans "
+                "--stripe-monthly=price_xxx --stripe-yearly=price_xxx')"
+            ),
+            "check_stripe_env": (
+                "mcp5_ssh_manage(host='hetzner-prod', action='execute', "
+                "command='grep STRIPE /opt/billing-hub/.env | grep -v SECRET')"
+            ),
+            "billing_logs": (
+                "mcp5_docker_manage(host='hetzner-prod', action='compose_logs', "
+                "path='/opt/billing-hub', service='web', tail=50)"
+            ),
+        },
+        "stripe_price_id_workflow": [
+            "1. Open Stripe Dashboard → Products → Create product per hub/tier",
+            "2. Copy Price ID (price_xxx) for monthly + yearly billing",
+            "3. SSH to hetzner-prod: run setup_plans management command",
+            "4. Verify: mcp11_deploy_check(action='health', repo='billing-hub')",
+            "5. Test webhook: Stripe Dashboard → Webhooks → Send test event",
+        ],
+        "adr_reference": "ADR-062",
     }
