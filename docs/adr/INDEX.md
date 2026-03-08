@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-03-04
-> **Next free ADR number:** 100
+> **Last updated:** 2026-03-08
+> **Next free ADR number:** 101
 
 ## Legend
 
@@ -147,6 +147,7 @@
 | 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Proposed` | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
 | 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Proposed` | [ADR-099](ADR-099-devhub-release-management-ui.md) |
+| 100 | iil-outlinefw -- Zentrales Story-Outline-Framework als PyPI-Package | `Accepted` | [ADR-100](ADR-100-iil-outlinefw-story-outline-framework.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -165,6 +166,7 @@
 - [x] ADR-097 (aifw 0.6.0 Contract): `Proposed` -- 2026-03-02
 - [x] ADR-098 (3-Layer Tuning Standard): `Accepted` -- 2026-03-04
 - [x] ADR-099 (dev-hub Release Management UI): `Proposed` -- 2026-03-04
+- [x] ADR-100 (iil-outlinefw): `Accepted` -- 2026-03-08
 - [x] Repo-Tabelle auf 20 Repos aktualisiert -- 2026-03-04
 - [ ] ADR-095: zweites Review abwarten → dann Status auf `Accepted` heben
 - [ ] ADR-096: Review + `Accepted` nach ADR-095 Acceptance
