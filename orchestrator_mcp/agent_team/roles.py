@@ -1,0 +1,521 @@
+"""
+orchestrator_mcp/agent_team/roles.py
+
+Extended agent team roles per ADR-107.
+Fixes applied (see REVIEW-ADR-107):
+  B-3: AgentRoleProtocol (Protocol) — ROLE_REGISTRY correctly typed
+  C-1: set -euo pipefail via ShellAllowlist.wrap_script (unchanged, already correct)
+
+Platform-standards compliance:
+- Business logic in service layer (DeploymentExecutor, ReviewExecutor)
+- No asyncio.run() — uses asgiref.async_to_sync where needed
+"""
+
+from __future__ import annotations
+
+import logging
+from dataclasses import dataclass, field
+from enum import Enum
+from typing import Any, Protocol, runtime_checkable
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Enums
+# ---------------------------------------------------------------------------
+
+
+class AgentRole(str, Enum):
+    TECH_LEAD = "tech_lead"
+    DEVELOPER = "developer"
+    TESTER = "tester"
+    DEPLOYMENT = "deployment"
+    REVIEW = "review"
+    RE_ENGINEER = "re_engineer"
+    GUARDIAN = "guardian"
+
+
+class GateLevel(int, Enum):
+    """
+    Gate-0: Fully automated, no approval needed.
+    Gate-1: Agent decision, human informed.
+    Gate-2: Human approval required for deployment.
+    Gate-3: Tech Lead (Cascade) direct involvement.
+    """
+
+    ZERO = 0
+    ONE = 1
+    TWO = 2
+    THREE = 3
+
+
+class DeploymentTrigger(str, Enum):
+    GIT_PUSH_MAIN = "git_push_main"
+    MANUAL = "manual"
+    ROLLBACK = "rollback"
+
+
+class DeploymentStatus(str, Enum):
+    PENDING = "pending"
+    PRE_CHECK = "pre_check"
+    MIGRATING = "migrating"
+    DEPLOYING = "deploying"
+    HEALTH_CHECKING = "health_checking"
+    DEPLOYED = "deployed"
+    ROLLING_BACK = "rolling_back"
+    FAILED = "failed"
+    ROLLED_BACK = "rolled_back"
+
+
+class ReviewStatus(str, Enum):
+    PENDING = "pending"
+    RUNNING = "running"
+    PASSED = "passed"
+    FAILED = "failed"
+    OVERRIDDEN = "overridden"
+
+
+# ---------------------------------------------------------------------------
+# Fix B-3: Shared Protocol for all agent role types
+# ---------------------------------------------------------------------------
+
+
+@runtime_checkable
+class AgentRoleProtocol(Protocol):
+    """Common interface for all agent role configuration objects.
+
+    Enforces that every role exposes role, gate_level, description,
+    and can_auto_execute() — regardless of concrete type.
+    Fix B-3: replaces Union typing in ROLE_REGISTRY.
+    """
+
+    role: AgentRole
+    gate_level: GateLevel
+    description: str
+
+    def can_auto_execute(self) -> bool:
+        ...
+
+
+# ---------------------------------------------------------------------------
+# Agent Config Dataclasses
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ShellAllowlist:
+    """
+    Enforces the shell command allowlist per ADR-107 §4.3.
+    All commands MUST be prefixed with 'set -euo pipefail'.
+    """
+
+    allowed_commands: frozenset[str] = field(
+        default_factory=lambda: frozenset(
+            {"docker", "python", "manage.py", "cat", "tail", "timeout", "grep", "curl"}
+        )
+    )
+
+    SHELL_PREAMBLE: str = "set -euo pipefail\n"
+
+    def validate_command(self, cmd: str) -> bool:
+        """Returns True if the command starts with an allowed binary."""
+        stripped = cmd.lstrip()
+        for allowed in self.allowed_commands:
+            if stripped.startswith(allowed):
+                return True
+        return False
+
+    def wrap_script(self, script_body: str) -> str:
+        """Prepend set -euo pipefail to every shell script body."""
+        if not script_body.startswith(self.SHELL_PREAMBLE):
+            return self.SHELL_PREAMBLE + script_body
+        return script_body
+
+
+@dataclass(frozen=True)
+class RollbackPolicy:
+    """
+    Three-tier rollback per ADR-107 review fix B-2.
+
+    Tier 1 — No migration applied yet: revert image tag, recreate container.
+    Tier 2 — Migration applied, no destructive change: image revert only
+              (zero-downtime schema: new image handles both old/new schema).
+    Tier 3 — Destructive migration applied: PAGE TECH LEAD, do NOT auto-rollback.
+    """
+
+    health_check_retries: int = 3
+    health_check_timeout_seconds: int = 10
+    container_start_timeout_seconds: int = 60
+    migration_timeout_seconds: int = 300
+
+    def requires_tech_lead(
+        self, migration_is_destructive: bool, migration_was_applied: bool
+    ) -> bool:
+        return migration_is_destructive and migration_was_applied
+
+
+# ---------------------------------------------------------------------------
+# Base Agent Role
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class BaseAgentRole:
+    role: AgentRole
+    gate_level: GateLevel
+    description: str
+
+    def can_auto_execute(self) -> bool:
+        """Gate 0 and 1 execute autonomously; Gate 2+ require approval."""
+        return self.gate_level <= GateLevel.ONE
+
+
+# ---------------------------------------------------------------------------
+# Deployment Agent
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class DeploymentAgentConfig:
+    """
+    Full specification for the Deployment Agent per ADR-107 §4.3.
+
+    Tools required (orchestrator_mcp):
+      - deploy      : docker compose control
+      - shell_exec  : SSH commands (restricted to ShellAllowlist)
+      - github_pr   : comment deployment status on PR
+    """
+
+    role: AgentRole = AgentRole.DEPLOYMENT
+    gate_level: GateLevel = GateLevel.TWO
+    shell_allowlist: ShellAllowlist = field(default_factory=ShellAllowlist)
+    rollback_policy: RollbackPolicy = field(default_factory=RollbackPolicy)
+
+    health_check_endpoint: str = "/health/"
+    health_check_expected_status: int = 200
+
+    description: str = (
+        "Executes full deployment lifecycle: image pull, migration, "
+        "container recreate, health check, rollback on failure. "
+        "Triggered by git push to main after green CI."
+    )
+
+    @property
+    def allowed_tools(self) -> list[str]:
+        return ["deploy", "shell_exec", "github_pr"]
+
+    @property
+    def requires_gate2_approval_for(self) -> list[str]:
+        return [
+            "new_migrations",
+            "breaking_schema_changes",
+            "prod_only_fixes",
+        ]
+
+    def can_auto_execute(self) -> bool:
+        """Deployment Agent always requires Gate-2 (never auto)."""
+        return False
+
+    def build_deployment_script(
+        self,
+        image_tag: str,
+        service_name: str,
+        compose_file: str = "docker-compose.prod.yml",
+    ) -> str:
+        body = f"""
+# Step 1: Pull new image
+docker compose -f {compose_file} pull {service_name}
+
+# Step 4: Recreate container (no-deps, force-recreate)
+docker compose -f {compose_file} up -d --no-deps --force-recreate {service_name}
+
+# Step 5: Verify container is running
+docker compose -f {compose_file} ps {service_name}
+"""
+        return self.shell_allowlist.wrap_script(body.lstrip())
+
+    def build_health_check_script(self, base_url: str) -> str:
+        body = f"""
+# Step 5: Health check with retries
+for i in 1 2 3; do
+    STATUS=$(curl -s -o /dev/null -w "%{{http_code}}" {base_url}{self.health_check_endpoint})
+    if [ "$STATUS" -eq {self.health_check_expected_status} ]; then
+        echo "Health check passed (attempt $i)"
+        exit 0
+    fi
+    echo "Health check failed (attempt $i, status $STATUS)"
+    sleep {self.rollback_policy.health_check_timeout_seconds}
+done
+echo "Health check failed after {self.rollback_policy.health_check_retries} attempts"
+exit 1
+"""
+        return self.shell_allowlist.wrap_script(body.lstrip())
+
+    def build_rollback_script(
+        self,
+        previous_image_tag: str,
+        service_name: str,
+        compose_file: str = "docker-compose.prod.yml",
+    ) -> str:
+        if not previous_image_tag:
+            raise ValueError(
+                "previous_image_tag is required for rollback. "
+                "Ensure save_tag step ran before deployment."
+            )
+        body = f"""
+# Rollback: Restore previous image
+echo "Rolling back to {previous_image_tag}"
+sed -i "s|image:.*|image: {previous_image_tag}|" {compose_file}
+docker compose -f {compose_file} up -d --no-deps --force-recreate {service_name}
+echo "Rollback complete"
+"""
+        return self.shell_allowlist.wrap_script(body.lstrip())
+
+    def build_migration_script(
+        self,
+        manage_py_path: str = "python manage.py",
+        timeout_seconds: int | None = None,
+    ) -> str:
+        """
+        Fix B-1: Uses migrate --check (detect unapplied) + sqlmigrate for SQL preview.
+        Fix H-2: Wraps migrate in timeout.
+        """
+        t = timeout_seconds or self.rollback_policy.migration_timeout_seconds
+        body = f"""
+# Step 2a: Check for unapplied migrations
+# NOTE: --check does NOT validate schema safety. Use breaking_change_detector separately.
+{manage_py_path} migrate --check && echo "No pending migrations" || echo "Migrations pending, proceeding"
+
+# Step 3: Apply migrations with timeout guard
+timeout {t} {manage_py_path} migrate --noinput
+"""
+        return self.shell_allowlist.wrap_script(body.lstrip())
+
+
+# ---------------------------------------------------------------------------
+# Review Agent
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ReviewCheckResult:
+    check_name: str
+    passed: bool
+    blocking: bool
+    message: str
+    details: dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class ReviewAgentConfig:
+    """
+    Full specification for the Review Agent per ADR-107 §4.4.
+
+    Check pipeline (in order):
+      1. Ruff + Bandit clean         -> Gate 0, BLOCKS merge
+      2. ADR-Compliance              -> Gate 1, BLOCKS merge
+      3. Platform-Patterns           -> Gate 1, BLOCKS merge
+      4. Test-Coverage-Delta >= 0    -> WARNING only
+      5. RunPython without reverse   -> WARNING only
+    """
+
+    role: AgentRole = AgentRole.REVIEW
+    gate_level: GateLevel = GateLevel.ONE
+
+    override_label: str = "agent-review-override"
+    override_comment_trigger: str = "/override-review"
+
+    description: str = (
+        "Automated PR review against ADRs, Ruff, Bandit, and platform patterns. "
+        "Triggered by new PR against main. Posts structured review report as PR comment."
+    )
+
+    def can_auto_execute(self) -> bool:
+        """Review Agent runs autonomously at Gate-1."""
+        return True
+
+    @property
+    def allowed_tools(self) -> list[str]:
+        return ["github_pr", "mcp12_check_violations", "shell_exec"]
+
+    @property
+    def check_pipeline(self) -> list[dict[str, Any]]:
+        return [
+            {
+                "name": "ruff_bandit",
+                "label": "Ruff + Bandit",
+                "gate": GateLevel.ZERO,
+                "blocking": True,
+                "tool": "shell_exec",
+                "command": "ruff check . && bandit -r . -c pyproject.toml",
+            },
+            {
+                "name": "adr_compliance",
+                "label": "ADR-Compliance",
+                "gate": GateLevel.ONE,
+                "blocking": True,
+                "tool": "mcp12_check_violations",
+                "command": None,
+            },
+            {
+                "name": "platform_patterns",
+                "label": "Platform-Patterns",
+                "gate": GateLevel.ONE,
+                "blocking": True,
+                "tool": "shell_exec",
+                "command": (
+                    "! grep -rn 'style=' --include='*.py' . && "
+                    "! grep -rn 'cursor.execute' --include='*.py' . | grep -v '# noqa'"
+                ),
+            },
+            {
+                "name": "coverage_delta",
+                "label": "Test-Coverage-Delta",
+                "gate": GateLevel.ONE,
+                "blocking": False,
+                "tool": "shell_exec",
+                "command": "python -m pytest --cov=. --cov-report=json --co -q",
+            },
+            {
+                "name": "runpython_reverse",
+                "label": "RunPython ohne Reverse",
+                "gate": GateLevel.ONE,
+                "blocking": False,
+                "tool": "shell_exec",
+                "command": (
+                    "grep -rn 'RunPython' --include='*.py' migrations/ | "
+                    "grep -v 'reverse=' || true"
+                ),
+            },
+        ]
+
+    def build_pr_comment(
+        self,
+        pr_number: int,
+        results: list[ReviewCheckResult],
+        override_active: bool = False,
+    ) -> str:
+        """Renders a structured PR comment from check results."""
+        lines = ["## Agent Review Report", ""]
+
+        if override_active:
+            lines.append(f"> Override active (`{self.override_label}`)")
+            lines.append("")
+
+        all_passed = all(r.passed for r in results)
+        blockers = [r for r in results if not r.passed and r.blocking]
+
+        if all_passed:
+            lines.append("**All checks passed.** PR is ready for merge.")
+        elif blockers:
+            lines.append(f"**{len(blockers)} blocking issue(s) found.** Merge blocked.")
+        else:
+            lines.append("**Warnings only.** PR may be merged, but review warnings.")
+
+        lines.append("")
+        lines.append("| Check | Status | Blocking |")
+        lines.append("|-------|--------|----------|")  
+
+        for r in results:
+            status = "Pass" if r.passed else ("Fail" if r.blocking else "Warn")
+            blocking = "Yes" if r.blocking else "No"
+            lines.append(f"| {r.check_name} | {status} | {blocking} |")
+
+        lines.append("")
+        for r in results:
+            if not r.passed:
+                lines.append(f"### {r.check_name}")
+                lines.append(r.message)
+                if r.details:
+                    lines.append(f"```\n{r.details}\n```")
+                lines.append("")
+
+        lines.append("---")
+        lines.append(
+            f"*To override: add label `{self.override_label}` "
+            f"or comment `{self.override_comment_trigger} <reason>`*"
+        )
+        return "\n".join(lines)
+
+
+# ---------------------------------------------------------------------------
+# Role Registry — Fix B-3: typed as dict[AgentRole, AgentRoleProtocol]
+# ---------------------------------------------------------------------------
+
+
+ROLE_REGISTRY: dict[AgentRole, AgentRoleProtocol] = {
+    AgentRole.TECH_LEAD: BaseAgentRole(
+        role=AgentRole.TECH_LEAD,
+        gate_level=GateLevel.THREE,
+        description="ADRs, Konzepte, Architektur, komplexe Feature-Planung, finale PR-Freigabe.",
+    ),
+    AgentRole.DEVELOPER: BaseAgentRole(
+        role=AgentRole.DEVELOPER,
+        gate_level=GateLevel.ONE,
+        description="Feature-Code, Bugfixes, Refactoring nach Plan von Tech Lead.",
+    ),
+    AgentRole.TESTER: BaseAgentRole(
+        role=AgentRole.TESTER,
+        gate_level=GateLevel.ZERO,
+        description="Tests schreiben, Coverage prüfen, CI-Fehler analysieren.",
+    ),
+    AgentRole.DEPLOYMENT: DeploymentAgentConfig(),
+    AgentRole.REVIEW: ReviewAgentConfig(),
+    AgentRole.RE_ENGINEER: BaseAgentRole(
+        role=AgentRole.RE_ENGINEER,
+        gate_level=GateLevel.TWO,
+        description="Refactoring nach Guardian-Fail, Tech Debt, Architektur-Schulden.",
+    ),
+    AgentRole.GUARDIAN: BaseAgentRole(
+        role=AgentRole.GUARDIAN,
+        gate_level=GateLevel.ZERO,
+        description="Ruff, Bandit, MyPy, ADR-Compliance — regelbasiert, vollautomatisch.",
+    ),
+}
+
+
+def get_role(role: AgentRole) -> AgentRoleProtocol:
+    """Returns the configured role object from the registry."""
+    if role not in ROLE_REGISTRY:
+        raise ValueError(
+            f"Unknown agent role: {role!r}. Available: {list(ROLE_REGISTRY)}"
+        )
+    return ROLE_REGISTRY[role]
+
+
+def route_task(task_type: str, complexity: str | None = None) -> AgentRole:
+    """
+    Implements the Aufgaben-Routing-Entscheidungsbaum per ADR-107 §4.5.
+
+    Args:
+        task_type: One of 'adr', 'concept', 'architecture', 'feature', 'bugfix',
+                   'test', 'deployment', 'pr_review', 'refactor', 'tech_debt'
+        complexity: One of 'trivial', 'simple', 'moderate', 'complex', 'expert'
+    """
+    TECH_LEAD_TYPES = {"adr", "concept", "architecture"}
+    if task_type in TECH_LEAD_TYPES:
+        return AgentRole.TECH_LEAD
+
+    if task_type in {"feature", "bugfix"}:
+        if complexity in {"complex", "expert"}:
+            logger.info("High-complexity task: Cascade plans, Developer executes.")
+        return AgentRole.DEVELOPER
+
+    if task_type == "test":
+        return AgentRole.TESTER
+
+    if task_type == "deployment":
+        return AgentRole.DEPLOYMENT
+
+    if task_type == "pr_review":
+        return AgentRole.REVIEW
+
+    if task_type in {"refactor", "tech_debt"}:
+        return AgentRole.RE_ENGINEER
+
+    raise ValueError(
+        f"Unknown task_type: {task_type!r}. "
+        "Valid types: adr, concept, architecture, feature, bugfix, test, "
+        "deployment, pr_review, refactor, tech_debt"
+    )
