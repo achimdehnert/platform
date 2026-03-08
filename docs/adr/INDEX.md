@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
 > **Last updated:** 2026-03-08
-> **Next free ADR number:** 101
+> **Next free ADR number:** 112
 
 ## Legend
 
@@ -148,6 +148,11 @@
 | 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Proposed` | [ADR-099](ADR-099-devhub-release-management-ui.md) |
 | 100 | iil-outlinefw -- Zentrales Story-Outline-Framework als PyPI-Package | `Accepted` | [ADR-100](ADR-100-iil-outlinefw-story-outline-framework.md) |
+| 107 | Extended Agent Team -- Deployment Agent | `Accepted` | [ADR-107](ADR-107-extended-agent-team-deployment-agent.md) |
+| 108 | Agent QA Cycle -- Quality Evaluator, Completion, AuditStore | `Accepted` | [ADR-108](ADR-108-agent-qa-cycle.md) |
+| 109 | Multi-Tenancy Platform Standard (alle UI-Hubs) | `Accepted` | [ADR-109](ADR-109-multi-tenancy-platform-standard.md) |
+| 110 | i18n Platform Standard (alle UI-Hubs) | `Accepted` | [ADR-110](ADR-110-i18n-platform-standard.md) |
+| 111 | Private Package Distribution via GitHub Packages | `Accepted` | [ADR-111](ADR-111-private-package-distribution.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -167,6 +172,11 @@
 - [x] ADR-098 (3-Layer Tuning Standard): `Accepted` -- 2026-03-04
 - [x] ADR-099 (dev-hub Release Management UI): `Proposed` -- 2026-03-04
 - [x] ADR-100 (iil-outlinefw): `Accepted` -- 2026-03-08
+- [x] ADR-107 (Extended Agent Team): `Accepted` -- 2026-03-08
+- [x] ADR-108 (Agent QA Cycle): `Accepted` -- 2026-03-08
+- [x] ADR-109 (Multi-Tenancy Platform Standard): `Accepted` -- 2026-03-08
+- [x] ADR-110 (i18n Platform Standard): `Accepted` -- 2026-03-08
+- [x] ADR-111 (Private Package Distribution): `Accepted` -- 2026-03-08
 - [x] Repo-Tabelle auf 20 Repos aktualisiert -- 2026-03-04
 - [ ] ADR-095: zweites Review abwarten → dann Status auf `Accepted` heben
 - [ ] ADR-096: Review + `Accepted` nach ADR-095 Acceptance
