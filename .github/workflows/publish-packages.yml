@@ -1,57 +1,16 @@
-name: Publish Platform Packages
+# GitHub Packages does not provide a PyPI-compatible registry for Python wheels.
+# Platform packages are distributed via git+https using PROJECT_PAT.
+# See: https://docs.github.com/en/packages/learn-github-packages/introduction-to-github-packages
+#
+# This file is intentionally minimal — kept as placeholder for future PyPI publishing
+# if a self-hosted registry (e.g. Cloudsmith, Gemfury, or Gitea) is introduced.
+name: Package Info
 
-# Runs on every push to main that touches packages/.
-# Also triggerable manually per package.
 on:
-  push:
-    branches: [main]
-    paths:
-      - "packages/**"
   workflow_dispatch:
-    inputs:
-      package:
-        description: "Package to publish (leave empty for all)"
-        required: false
-        default: ""
-
-permissions:
-  contents: read
-  packages: write
 
 jobs:
-  publish:
+  info:
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        package:
-          - django-tenancy
-          - django-module-shop
-          - platform-context
-
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Skip if manual run targets different package
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.package != '' && github.event.inputs.package != matrix.package
-        run: echo "Skipping ${{ matrix.package }} (not selected)" && exit 0
-
-      - name: Set up Python 3.12
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install build tools
-        run: pip install build twine
-
-      - name: Build wheel + sdist
-        working-directory: packages/${{ matrix.package }}
-        run: python -m build
-
-      - name: Publish to GitHub Packages (PyPI)
-        working-directory: packages/${{ matrix.package }}
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          TWINE_REPOSITORY_URL: https://python.pkg.github.com/achimdehnert/
-        run: twine upload --skip-existing dist/*
+      - run: echo "Platform packages are distributed via git+https with PROJECT_PAT"
