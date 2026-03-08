@@ -125,7 +125,7 @@ class ReviewLog(models.Model):
             models.UniqueConstraint(
                 fields=["tenant_id", "repository", "pr_number"],
                 condition=models.Q(
-                    status__in=[s.value for s in ReviewLog._ACTIVE_STATUSES]
+                    status__in=["pending", "in_review"]
                 ),
                 name="unique_active_review_per_pr",
             ),
