@@ -17,6 +17,7 @@
 #     - Detects unpushed commits and parks them on a backup branch (SAFE)
 #     - Auto-commits Cascade-generated files (windsurf-rules/, scripts/,
 #       docs/adr/, .windsurf/workflows/) before pulling
+#     - Detects untracked files colliding with remote → backs up + removes
 #     - Stashes remaining local changes
 #     - git pull --no-rebase (merge) from GitHub
 #     - Restores stash
@@ -53,6 +54,7 @@
 #   - Never force-push (remote always authoritative)
 #   - Unpushed commits are ALWAYS parked on backup/sync-TIMESTAMP branch
 #   - Auto-commit only for known Cascade-generated file patterns
+#   - Colliding untracked files: backed up to /tmp/sync-backup-*/ before removal
 #   - Stash + restore for all other local changes
 #   - SSH operations are read-only git pulls + docker pull (no destructive ops)
 #   - Pull failure: warns and continues (does not abort entire --all run)
@@ -199,7 +201,49 @@ wsl_sync_repo() {
         fi
     fi
 
-    # 4. Stash remaining changes (env files, temp files, work-in-progress)
+    # 4. Handle untracked files that would be overwritten by the remote pull.
+    #
+    #    ROOT CAUSE of "would be overwritten by merge":
+    #    Cascade writes files locally (write_to_file) that were simultaneously
+    #    committed to GitHub via GitHub MCP. These files are untracked locally
+    #    but exist in the incoming remote commit. git pull refuses to overwrite
+    #    them. git stash --include-untracked does NOT help: stash pop after pull
+    #    creates a conflict on the same path.
+    #
+    #    FIX: Before stashing, detect which untracked files collide with the
+    #    incoming remote changes. Back them up to /tmp/sync-backup-TIMESTAMP/,
+    #    then remove them so git pull can proceed. GitHub is SSOT — the remote
+    #    version is authoritative. The backup is for recovery only.
+    #
+    local backup_dir="/tmp/sync-backup-$(date +%Y%m%d-%H%M%S)-${repo_name}"
+    local colliding_untracked=()
+
+    # Files the remote will add/modify in this pull
+    local incoming_files
+    incoming_files="$(git diff --name-only HEAD "origin/$branch" 2>/dev/null || true)"
+
+    while IFS= read -r f; do
+        [[ -z "$f" ]] && continue
+        if echo "$incoming_files" | grep -qF "$f"; then
+            colliding_untracked+=("$f")
+        fi
+    done < <(git ls-files --others --exclude-standard 2>/dev/null)
+
+    if [[ "${#colliding_untracked[@]}" -gt 0 ]]; then
+        mkdir -p "$backup_dir"
+        warn "$repo_name — ${#colliding_untracked[@]} untracked file(s) collide with remote (GitHub is SSOT):"
+        for f in "${colliding_untracked[@]}"; do
+            local fdir
+            fdir="$(dirname "$backup_dir/$f")"
+            mkdir -p "$fdir"
+            cp "$f" "$backup_dir/$f" 2>/dev/null && warn "  backed up: $f → $backup_dir/$f"
+            rm -f "$f"
+            log "  removed local copy (remote version incoming): $f"
+        done
+        warn "Recovery: local copies saved to $backup_dir"
+    fi
+
+    # 4b. Stash remaining changes (env files, temp files, work-in-progress)
     local remaining_m remaining_u
     remaining_m="$(git diff --name-only HEAD 2>/dev/null | wc -l | tr -d ' ')"
     remaining_u="$(git ls-files --others --exclude-standard 2>/dev/null | wc -l | tr -d ' ')"
@@ -392,6 +436,7 @@ print_summary() {
     echo "  Server = platform git pull + app docker pulls (if --server/--full)"
     echo ""
     echo "  Backup branches (if created): git branch -a | grep backup/sync"
+    echo "  Collision backups (if any):   ls /tmp/sync-backup-*"
     echo "  Next time: bash ~/github/platform/scripts/sync-repo.sh [--full]"
     echo ""
 }
