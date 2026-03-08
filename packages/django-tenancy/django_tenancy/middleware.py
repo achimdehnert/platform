@@ -14,8 +14,8 @@ Middleware order (critical — ADR-110 B-4):
 from __future__ import annotations
 
 import logging
-from enum import Enum
-from typing import Callable, Optional
+from collections.abc import Callable
+from enum import StrEnum
 
 from django.conf import settings
 from django.db import models
@@ -28,7 +28,7 @@ from .models import Organization
 logger = logging.getLogger(__name__)
 
 
-class TenancyMode(str, Enum):
+class TenancyMode(StrEnum):
     SUBDOMAIN = "subdomain"  # Prod: <slug>.hub.domain.tld
     SESSION = "session"      # Dev: session["tenant_id"]
     HEADER = "header"        # API/CI: X-Tenant-ID header
@@ -48,11 +48,11 @@ class SubdomainTenantMiddleware:
         mode_str = getattr(settings, "TENANCY_MODE", "session")
         try:
             self.mode = TenancyMode(mode_str)
-        except ValueError:
+        except ValueError as exc:
             raise ValueError(
                 f"Invalid TENANCY_MODE '{mode_str}'. "
                 f"Valid values: {[m.value for m in TenancyMode]}"
-            )
+            ) from exc
         self.fallback_url = getattr(settings, "TENANCY_FALLBACK_URL", "/onboarding/")
 
     def __call__(self, request: HttpRequest) -> HttpResponse:
@@ -62,7 +62,7 @@ class SubdomainTenantMiddleware:
         response = self.get_response(request)
         return self.process_response(request, response)
 
-    def process_request(self, request: HttpRequest) -> Optional[HttpResponse]:
+    def process_request(self, request: HttpRequest) -> HttpResponse | None:
         if self.mode == TenancyMode.DISABLED:
             request.tenant = None
             request.tenant_id = 0
@@ -126,8 +126,8 @@ class SubdomainTenantMiddleware:
             return Organization.objects.active().get(
                 models.Q(subdomain=subdomain) | models.Q(slug=subdomain)
             )
-        except Organization.DoesNotExist:
-            raise TenantNotFound(f"No tenant for subdomain: {subdomain}")
+        except Organization.DoesNotExist as exc:
+            raise TenantNotFound(f"No tenant for subdomain: {subdomain}") from exc
 
     def _resolve_session(self, request: HttpRequest) -> Organization:
         tenant_id = request.session.get("tenant_id")
@@ -135,8 +135,8 @@ class SubdomainTenantMiddleware:
             raise TenantNotFound("No tenant_id in session")
         try:
             return Organization.objects.active().get(pk=tenant_id)
-        except Organization.DoesNotExist:
-            raise TenantNotFound(f"No tenant with id: {tenant_id}")
+        except Organization.DoesNotExist as exc:
+            raise TenantNotFound(f"No tenant with id: {tenant_id}") from exc
 
     def _resolve_header(self, request: HttpRequest) -> Organization:
         tenant_id = request.headers.get("X-Tenant-ID")
@@ -144,5 +144,5 @@ class SubdomainTenantMiddleware:
             raise TenantNotFound("X-Tenant-ID header missing")
         try:
             return Organization.objects.active().get(pk=int(tenant_id))
-        except (Organization.DoesNotExist, ValueError):
-            raise TenantNotFound(f"No tenant with id: {tenant_id}")
+        except (Organization.DoesNotExist, ValueError) as exc:
+            raise TenantNotFound(f"No tenant with id: {tenant_id}") from exc

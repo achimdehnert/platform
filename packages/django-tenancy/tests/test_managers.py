@@ -2,6 +2,7 @@
 Tests for TenantManager and TenantQuerySet.
 """
 import pytest
+
 from django_tenancy.models import Organization
 
 

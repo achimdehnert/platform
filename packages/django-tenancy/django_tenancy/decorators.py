@@ -7,15 +7,15 @@ from __future__ import annotations
 
 import functools
 import inspect
+from collections.abc import Callable
 from contextlib import contextmanager
-from typing import Callable, Optional
 from uuid import UUID
 
 from .context import TenantContext, clear_context, set_tenant
 
 
 @contextmanager
-def tenant_context(tenant_id: UUID, slug: Optional[str] = None):
+def tenant_context(tenant_id: UUID, slug: str | None = None):
     """Context manager: run a block under a specific tenant."""
     with TenantContext(tenant_id, slug):
         yield
