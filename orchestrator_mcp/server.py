@@ -10,6 +10,8 @@ Usage (in mcp_config or Windsurf MCP settings):
 
 ADR-107 Phase 4: agent_team_status + agent_plan_task registered.
 ADR-108 Phase 5: get_cost_estimate, evaluate_task, verify_task registered.
+Infra Context: get_infra_context registered (Hetzner + Cloudflare + Deploy-Targets).
+ADR-112 Phase 3: agent_memory + scan_repo registered (Skill Registry v1.0).
 """
 
 from __future__ import annotations
@@ -19,6 +21,7 @@ import logging
 import sys
 from typing import Any
 
+from orchestrator_mcp.skills import discover_skills, invoke_skill
 from orchestrator_mcp.tools import (
     agent_plan_task,
     agent_team_status,
@@ -26,8 +29,12 @@ from orchestrator_mcp.tools import (
     check_gate,
     evaluate_task,
     get_cost_estimate,
+    get_infra_context,
+    get_payment_context,
     verify_task,
 )
+
+_SKILLS_LOADED = discover_skills()
 
 logger = logging.getLogger(__name__)
 
@@ -243,6 +250,116 @@ _TOOLS: dict[str, dict[str, Any]] = {
             adr_violations=args.get("adr_violations", 0),
         ),
     },
+    "get_infra_context": {
+        "description": (
+            "Get full platform infrastructure context: Hetzner hosts, "
+            "Cloudflare domains, deploy targets (9 repos), MCP server registry, "
+            "and quick-reference tool calls. Call at session start or before "
+            "any deployment/infra operation to eliminate guesswork."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "handler": lambda _args: get_infra_context(),
+    },
+    "get_payment_context": {
+        "description": (
+            "Get Stripe + billing-hub context for the Payment Agent. "
+            "Returns billing-hub location, Stripe key locations (NOT keys), "
+            "Price ID workflow, internal API endpoints, pending setup_plans action. "
+            "ADR-062: Central billing for all 9 hubs."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "handler": lambda _args: get_payment_context(),
+    },
+    "agent_memory": {
+        "description": (
+            "Read or write the persistent Agent Memory Store (AGENT_MEMORY.md). "
+            "Operations: read (all entries), upsert (add/update entry), "
+            "gc (remove expired entries), query (filter by type or tag). "
+            "ADR-112: git-tracked context store for cross-session agent knowledge."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "operation": {
+                    "type": "string",
+                    "enum": ["read", "upsert", "gc", "query"],
+                    "description": "Operation to perform",
+                    "default": "read",
+                },
+                "entry": {
+                    "type": "object",
+                    "description": "MemoryEntry dict (required for upsert)",
+                },
+                "agent": {
+                    "type": "string",
+                    "description": "Name of the writing agent",
+                    "default": "unknown-agent",
+                },
+                "filter_type": {
+                    "type": "string",
+                    "description": "Filter by entry type (for query)",
+                },
+                "filter_tag": {
+                    "type": "string",
+                    "description": "Filter by tag (for query)",
+                },
+                "commit": {
+                    "type": "boolean",
+                    "description": "Git-commit after write (default: true)",
+                    "default": True,
+                },
+            },
+            "required": [],
+        },
+        "handler": lambda args: invoke_skill("session_memory", **args).model_dump(),
+    },
+    "scan_repo": {
+        "description": (
+            "Scan a GitHub repository and store infra context in AGENT_MEMORY.md. "
+            "Detects framework, health URL, migration status, open agent issues, "
+            "and AGENT_HANDOVER.md preview. Requires GITHUB_TOKEN or PROJECT_PAT. "
+            "ADR-112: automated repo onboarding."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "repo_name": {
+                    "type": "string",
+                    "description": "Repository name (without org prefix)",
+                },
+                "org": {
+                    "type": "string",
+                    "description": "GitHub org (default: achimdehnert)",
+                    "default": "achimdehnert",
+                },
+                "branch": {
+                    "type": "string",
+                    "description": "Branch to scan (default: main)",
+                    "default": "main",
+                },
+                "dry_run": {
+                    "type": "boolean",
+                    "description": "Scan without saving to AGENT_MEMORY.md",
+                    "default": False,
+                },
+                "commit": {
+                    "type": "boolean",
+                    "description": "Git-commit after scan (default: true)",
+                    "default": True,
+                },
+            },
+            "required": ["repo_name"],
+        },
+        "handler": lambda args: invoke_skill("repo_scan", **args).model_dump(),
+    },
 }
 
 
@@ -327,7 +444,7 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         stream=sys.stderr,
     )
-    logger.info("orchestrator_mcp server v3.0 starting (ADR-107+108 Phase 5, %d tools)", len(_TOOLS))
+    logger.info("orchestrator_mcp server v3.2 starting (ADR-107+108+112, %d tools, %d skills)", len(_TOOLS), _SKILLS_LOADED)
 
     for line in sys.stdin:
         line = line.strip()
