@@ -1,20 +1,19 @@
 # ADR-110: Internationalisierung (i18n) als Plattform-Standard für alle UI-Hubs
 
-- **Status:** Accepted
+- **Status:** Accepted (updated 2026-03-08 — REVIEW-ADR-109-110 BLOCKER fixes)
 - **Datum:** 2026-03-08
 - **Parallel zu:** ADR-109 (Multi-Tenancy Platform Standard)
 - **Betrifft:** alle Django-Hub-Repos mit Frontend-UI
+- **Review:** `docs/adr/reviews/REVIEW-ADR-109-110.md`
 
 ---
 
 ## Kontext
 
-Identisch zu Multi-Tenancy (ADR-109): i18n ist in einzelnen Hubs bereits vorhanden,
-aber nicht plattformweit standardisiert. Das führt zu inkonsistenter Sprachunterstützung,
-doppeltem Aufwand und fehlenden Übersetzungen bei neuen Features.
+i18n ist in einzelnen Hubs bereits vorhanden, aber nicht plattformweit standardisiert.
+Das führt zu inkonsistenter Sprachunterstützung und fehlenden Übersetzungen bei neuen Features.
 
-**Analogie zu ADR-109:** So wie jeder Hub Multi-Tenancy braucht, braucht jeder Hub
-eine konsistente i18n-Infrastruktur — auch wenn initial nur `de` + `en` unterstützt werden.
+**Referenz-Implementierung:** `docs/adr/inputs/Input ADR 109 110/`
 
 ## Entscheidung
 
@@ -24,18 +23,20 @@ Django i18n nach dem folgenden Plattform-Standard ist **Pflicht** für alle UI-H
 
 | Komponente | Standard |
 |-----------|---------|
-| Backend | Django `USE_I18N = True`, `USE_L10N = True` |
-| Sprachen | `de` (default) + `en` (Pflicht), weitere optional |
-| Translation files | `locale/<lang>/LC_MESSAGES/django.po` + `.mo` |
+| Backend | Django `USE_I18N = True`, `USE_L10N = True`, `USE_TZ = True` |
+| Sprachen | `de` (default) + `en` (Pflicht), weitere optional per Hub |
+| Translation files | `locale/<lang>/LC_MESSAGES/django.po` + `.mo` (`.mo` in `.gitignore`!) |
 | Template-Tags | `{% trans %}`, `{% blocktrans %}` — kein Hardcode-Text |
-| URL-Prefix | `i18n_patterns()` → `/de/`, `/en/` oder Session-based |
-| Tenant-Sprache | `Organization.language` FK → User-Präferenz überschreibt Default |
+| URL-Prefix | `i18n_patterns()` + `prefix_default_language=False` (neue Hubs) |
+| Tenant-Sprache | `Organization.language` → ASGI-safe via Cookie (kein `translation.activate()`) |
 | Zahlen/Datum | `USE_TZ = True`, `USE_L10N = True` immer |
+| Cookie-Name | `LANGUAGE_COOKIE_NAME = "iil_lang"` (Fix M-3: plattformweit einheitlich) |
 
 ### Settings-Standard
 
 ```python
 # settings.py — Pflicht für alle UI-Hubs
+# Referenz: docs/adr/inputs/Input ADR 109 110/settings_template.py
 USE_I18N = True
 USE_L10N = True
 USE_TZ = True
@@ -48,73 +49,112 @@ LANGUAGES = [
 
 LOCALE_PATHS = [BASE_DIR / "locale"]
 
+# Fix M-3: Einheitlicher Cookie-Name — kein Konflikt bei mehreren Hubs auf *.domain.tld
+LANGUAGE_COOKIE_NAME = "iil_lang"
+LANGUAGE_COOKIE_AGE = 60 * 60 * 24 * 365  # 1 Jahr
+LANGUAGE_COOKIE_SECURE = True  # prod-settings
+```
+
+### Fix B-4: MIDDLEWARE-Reihenfolge (kritisch)
+
+```python
 MIDDLEWARE = [
-    # ... vor SessionMiddleware
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    # ↓ Session MUSS vor Locale (liest Session-Sprachpräferenz)
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    # ↓ Locale MUSS nach Session, VOR Tenancy
     "django.middleware.locale.LocaleMiddleware",
+    # ↓ Tenancy nach Locale (setzt tenant_id + LANGUAGE_CODE)
+    "django_tenancy.middleware.SubdomainTenantMiddleware",
+    "django.middleware.common.CommonMiddleware",
     # ...
 ]
 ```
 
+**Falsche Reihenfolge:** Tenant-Sprache wird nicht aktiviert, Session-Sprache überschreibt Tenant.
+
+### Fix H-5: `gettext_lazy` vs `gettext`
+
+```python
+# Models, Forms — IMMER lazy (bei DB-Zugriff aufgelöst)
+from django.utils.translation import gettext_lazy as _
+class MyModel(models.Model):
+    name = models.CharField(verbose_name=_("Name"), ...)
+
+# Views, Services — eager (sofort aufgelöst, Request-Kontext vorhanden)
+from django.utils.translation import gettext as _
+def my_view(request):
+    message = _("Gespeichert")
+```
+
+Verwechslung führt zu `lazy_string`-Objekten in JSON-Responses.
+
 ### URL-Routing
 
 ```python
-# urls.py
-from django.conf.urls.i18n import i18n_patterns
-from django.urls import include, path
-
+# urls.py — Referenz: docs/adr/inputs/Input ADR 109 110/urls_template.py
 urlpatterns = [
-    path("i18n/", include("django.conf.urls.i18n")),  # set_language view
+    path("i18n/", include("django.conf.urls.i18n")),  # set_language POST
+    path("admin/", admin.site.urls),
+    path("health/", include("django_tenancy.urls.health")),  # außerhalb i18n
+    path("onboarding/", include("apps.onboarding.urls")),
 ] + i18n_patterns(
     path("", include("apps.core.urls")),
-    # alle App-URLs hier
-    prefix_default_language=False,  # /de/ weglassen für default
+    # Fix M-4: prefix_default_language=False für neue Hubs
+    # Für bestehende Hubs mit Traffic: 3-Stufen-Migration (s.u.)
+    prefix_default_language=False,
 )
 ```
+
+### Fix M-4: `prefix_default_language` Breaking-Change-Strategie
+
+Für **bestehende Hubs** mit gecachten URLs (Google, CDN):
+1. `prefix_default_language=True` deployen → alle Sprachen bekommen `/de/`-Prefix
+2. 301-Redirects von alten URLs auf neue mit `/de/`-Prefix
+3. Nach Ablauf der Cache-TTL: `prefix_default_language=False` aktivieren
+
+Für **neue Hubs**: direkt `False` verwenden.
 
 ### Template-Standard
 
 ```html
 {% load i18n %}
-
-<!-- Einzelner String -->
 <h1>{% trans "Dashboard" %}</h1>
-
-<!-- Mit Variable -->
 {% blocktrans with name=user.name %}Hallo {{ name }}{% endblocktrans %}
 
-<!-- Language Switcher (Pflicht im Base-Template) -->
+<!-- Fix H-6: Language-Switcher (Pflicht im Base-Template) -->
 {% include "i18n/language_switcher.html" %}
+<!-- Referenz: docs/adr/inputs/Input ADR 109 110/language_switcher.html -->
 ```
 
-### Tenant-Integration (mit ADR-109)
-
-```python
-# Organization-Model Erweiterung
-class Organization(models.Model):
-    # ... existing fields
-    language = models.CharField(
-        max_length=8,
-        choices=settings.LANGUAGES,
-        default="de",
-    )
-```
+### Fix B-5: Tenant-Language ASGI-safe (kein `translation.activate()`)
 
 ```python
-# SubdomainTenantMiddleware Erweiterung
-def process_request(self, request):
-    # ... tenant_id setzen
-    if hasattr(request, "tenant") and request.tenant.language:
-        translation.activate(request.tenant.language)
-        request.LANGUAGE_CODE = request.tenant.language
+# FALSCH (thread-local, ASGI-unsafe):
+translation.activate(request.tenant.language)  # ← VERBOTEN
+
+# KORREKT (aus middleware.py):
+# Nur request.LANGUAGE_CODE setzen — LocaleMiddleware aktiviert die Sprache.
+# Cookie setzen so dass LocaleMiddleware beim nächsten Request die Tenant-Sprache liest.
+request.LANGUAGE_CODE = tenant.language
+request._tenant_language = tenant.language  # → Cookie in process_response
+
+# In Views bei Bedarf:
+with translation.override(tenant.language):
+    return render(request, "template.html", context)
 ```
+
+`translation.activate()` setzt thread-local State — in ASGI (Django 5.x async views, Daphne)
+führt das zu Race Conditions zwischen parallelen Requests.
 
 ### Rollout-Reihenfolge (parallel zu ADR-109)
 
 | Prio | Repo | Sprachen | Besonderheit |
 |------|------|---------|-------------|
-| ✅ | `coach-hub` | de, en | Prüfen ob vollständig |
-| ✅ | `risk-hub` | de, en | Prüfen ob vollständig |
-| ✅ | `research-hub` | de, en | Prüfen ob vollständig |
+| ✅ | `coach-hub` | de, en | Vollständigkeit prüfen |
+| ✅ | `risk-hub` | de, en | Vollständigkeit prüfen |
+| ✅ | `research-hub` | de, en | Vollständigkeit prüfen |
 | 1 | `weltenhub` | de, en | Creative content → ggf. mehr Sprachen |
 | 2 | `pptx-hub` | de, en | UI-Strings prioritär |
 | 3 | `trading-hub` | de, en | Zahlenformat wichtig |
@@ -126,49 +166,63 @@ def process_request(self, request):
 
 ### Migration-Checkliste je Repo
 
-- [ ] `settings.py`: `USE_I18N`, `LANGUAGES`, `LOCALE_PATHS`, `LocaleMiddleware`
-- [ ] `urls.py`: `i18n_patterns()` + `i18n/` URL
-- [ ] `locale/de/LC_MESSAGES/django.po` initialisieren (`makemessages -l de`)
-- [ ] `locale/en/LC_MESSAGES/django.po` initialisieren (`makemessages -l en`)
-- [ ] Templates: alle Hardcode-Strings mit `{% trans %}` wrappen
-- [ ] Language-Switcher ins Base-Template
-- [ ] `Organization.language` Feld (wenn ADR-109 implementiert)
-- [ ] `compilemessages` in CI/CD (`Dockerfile`: `RUN python manage.py compilemessages`)
+- [ ] `settings.py`: `USE_I18N`, `LANGUAGES`, `LOCALE_PATHS`, `LocaleMiddleware` (B-4 Reihenfolge!)
+- [ ] `settings.py`: `LANGUAGE_COOKIE_NAME = "iil_lang"` (M-3)
+- [ ] `urls.py`: `i18n_patterns()` + `i18n/` URL + `prefix_default_language` Strategie (M-4)
+- [ ] `locale/de/LC_MESSAGES/` + `locale/en/LC_MESSAGES/` anlegen
+- [ ] `.gitignore`: `*.mo` eintragen (Binärdateien — nicht committen)
+- [ ] `python manage.py makemessages -l de -l en --ignore=venv --ignore=node_modules`
+- [ ] Templates: Hardcode-Strings mit `{% trans %}` wrappen
+- [ ] Models/Forms: `gettext_lazy as _` (H-5)
+- [ ] Views/Services: `gettext as _` (H-5)
+- [ ] Language-Switcher ins Base-Template (H-6)
+- [ ] `Organization.language` Feld + ASGI-safe Middleware (B-5, wenn ADR-109 implementiert)
+- [ ] `compilemessages --locale=de --locale=en` in Dockerfile (H-7)
+- [ ] CI: `makemessages` mit `--ignore` Flags + `git diff --exit-code "*.po"` (B-2, B-6)
 - [ ] Tests: `@override_settings(LANGUAGE_CODE="en")` für kritische Views
 
-### CI/CD-Integration
-
-```dockerfile
-# Dockerfile — Pflicht nach collectstatic
-RUN python manage.py compilemessages
-```
+### Fix B-2 + B-6: CI/CD-Integration
 
 ```yaml
-# GitHub Actions — Pflicht in CI
-- name: Check translations
+# .github/workflows/ci.yml
+# Referenz: docs/adr/inputs/Input ADR 109 110/ci_template.yml
+- name: "Check translations"
   run: |
-    python manage.py makemessages -l de -l en --no-location
-    git diff --exit-code locale/  # schlägt fehl wenn neue Strings unübersetzt
+    set -euo pipefail
+    python manage.py makemessages \
+      --locale=de --locale=en --no-location \
+      --ignore=venv --ignore=node_modules --ignore=staticfiles
+    # Fix B-6: Nur .po Dateien prüfen (NICHT .mo Binärdateien)
+    git diff --exit-code "*.po"
+```
+
+### Fix H-7: Dockerfile
+
+```dockerfile
+# Fix H-7: Nur definierte Locales kompilieren (nicht alle System-Locales)
+# Fix B-2: set -euo pipefail
+RUN set -euo pipefail && \
+    python manage.py compilemessages --locale=de --locale=en
 ```
 
 ## Konsequenzen
 
 **Positiv:**
 - Plattformweite Mehrsprachigkeit ohne Mehraufwand bei neuen Features
-- Tenant-Sprache überschreibt Default → B2B-ready
-- Zahlen/Datums-Formate korrekt für alle Märkte
+- Tenant-Sprache via Cookie — ASGI-safe, kein Thread-State
+- Einheitlicher Cookie-Name verhindert Cross-Hub-Konflikte
 - `makemessages` in CI verhindert vergessene Übersetzungen
 
 **Negativ / Aufwand:**
-- Initiales Wrapping aller Template-Strings (~2-4h pro Hub)
+- Initiales Wrapping aller Template-Strings (~2–4h pro Hub)
 - `.po`-Dateien müssen gepflegt werden
 - `compilemessages` verlängert Docker-Build minimal (~5s)
 
 ## Abgrenzung
 
-- **Übersetzungsinhalt** (User-generated content) ist **nicht** Scope dieses ADR
-- **RTL-Sprachen** (Arabisch, Hebräisch) erfordern separates ADR (Frontend-Anpassungen)
+- **Übersetzungsinhalt** (User-generated content) ist nicht Scope dieses ADR
+- **RTL-Sprachen** erfordern separates ADR (Frontend-Anpassungen)
 - **Automatische Übersetzung via LLM** ist Scope ADR-11x (zukünftig)
 
 ---
-*ADR-110 | Platform Architecture | 2026-03-08*
+*ADR-110 | Platform Architecture | 2026-03-08 | Updated after REVIEW-ADR-109-110*
