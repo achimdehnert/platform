@@ -1,28 +1,25 @@
-"""Minimal Django settings for testing django-tenancy."""
-
 SECRET_KEY = "test-secret-key-not-for-production"
-
-ALLOWED_HOSTS = ["*"]
-
+DEBUG = True
+INSTALLED_APPS = [
+    "django.contrib.contenttypes",
+    "django.contrib.auth",
+    "django.contrib.sessions",
+    "django_tenancy",
+]
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
     }
 }
-
-INSTALLED_APPS = [
-    "django.contrib.auth",
-    "django.contrib.contenttypes",
-    "django_tenancy",
-]
-
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
-    }
-}
-
+TENANCY_MODE = "session"
+TENANCY_FALLBACK_URL = "/onboarding/"
+LANGUAGE_COOKIE_NAME = "iil_lang"
+MIDDLEWARE = [
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    "django_tenancy.middleware.SubdomainTenantMiddleware",
+]
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 ROOT_URLCONF = "tests.urls"

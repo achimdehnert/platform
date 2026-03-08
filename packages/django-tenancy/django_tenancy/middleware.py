@@ -1,158 +1,140 @@
-"""Subdomain-based tenant resolution middleware.
-
-Resolution order:
-    1. Subdomain: ``acme.example.com`` → Organization(slug="acme")
-    2. Header: ``X-Tenant-ID: <uuid>`` (for API clients and tests)
-    3. None: ``request.tenant_id = None`` (public pages, health endpoints)
-
-Sets on request:
-    - ``request.tenant_id``: UUID (from Organization.tenant_id)
-    - ``request.tenant``: Organization instance
-    - ``request.tenant_slug``: str subdomain
-
-Propagates to:
-    - ``django_tenancy.context``: contextvars for async-safe access
-    - ``SET app.tenant_id``: PostgreSQL RLS session variable
 """
+django_tenancy/middleware.py
 
+SubdomainTenantMiddleware with TenancyMode strategy.
+
+Fixes (ADR-109 REVIEW):
+  B-3: Redirect to TENANCY_FALLBACK_URL on TenantNotFound (no 500)
+  B-5: ASGI-safe language — only request.LANGUAGE_CODE, no translation.activate()
+  H-3: TenancyMode enum (SUBDOMAIN / SESSION / HEADER / DISABLED)
+
+Middleware order (critical — ADR-110 B-4):
+  SessionMiddleware → LocaleMiddleware → SubdomainTenantMiddleware
+"""
 from __future__ import annotations
 
 import logging
-import uuid as _uuid
+from enum import Enum
+from typing import Callable, Optional
 
-from django.http import HttpRequest, HttpResponse
-from django.utils.deprecation import MiddlewareMixin
+from django.conf import settings
+from django.http import HttpRequest, HttpResponse, HttpResponseRedirect
 
-from .context import clear_context, set_db_tenant, set_request_id, set_tenant, set_user
-from .healthz import HEALTH_PATHS
+from .context import set_current_tenant_id
+from .exceptions import TenantNotFound
+from .models import Organization
 
 logger = logging.getLogger(__name__)
 
 
-class SubdomainTenantMiddleware(MiddlewareMixin):
-    """Subdomain-based tenant resolution with header fallback."""
+class TenancyMode(str, Enum):
+    SUBDOMAIN = "subdomain"  # Prod: <slug>.hub.domain.tld
+    SESSION = "session"      # Dev: session["tenant_id"]
+    HEADER = "header"        # API/CI: X-Tenant-ID header
+    DISABLED = "disabled"    # billing-hub, dev-hub
 
-    def process_request(self, request: HttpRequest) -> HttpResponse | None:
-        """Resolve tenant from subdomain or header."""
-        # Generate request ID for tracing
-        set_request_id()
 
-        # Set user context if authenticated
-        user = getattr(request, "user", None)
-        if user and getattr(user, "is_authenticated", False):
-            user_id = getattr(user, "pk", None)
-            if user_id:
-                try:
-                    set_user(_uuid.UUID(str(user_id)))
-                except (ValueError, TypeError):
-                    pass
+class SubdomainTenantMiddleware:
+    """
+    Resolves the current tenant from the request and sets:
+      - request.tenant  (Organization instance)
+      - request.tenant_id  (int)
+      - request.LANGUAGE_CODE  (ASGI-safe, ADR-110 B-5)
+    """
 
-        # Skip health endpoints
-        if request.path in HEALTH_PATHS:
-            request.tenant_id = None
+    def __init__(self, get_response: Callable) -> None:
+        self.get_response = get_response
+        mode_str = getattr(settings, "TENANCY_MODE", "session")
+        try:
+            self.mode = TenancyMode(mode_str)
+        except ValueError:
+            raise ValueError(
+                f"Invalid TENANCY_MODE '{mode_str}'. "
+                f"Valid values: {[m.value for m in TenancyMode]}"
+            )
+        self.fallback_url = getattr(settings, "TENANCY_FALLBACK_URL", "/onboarding/")
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        response = self.process_request(request)
+        if response is not None:
+            return response
+        response = self.get_response(request)
+        return self.process_response(request, response)
+
+    def process_request(self, request: HttpRequest) -> Optional[HttpResponse]:
+        if self.mode == TenancyMode.DISABLED:
             request.tenant = None
-            request.tenant_slug = None
+            request.tenant_id = 0
             return None
 
-        # Try subdomain resolution
-        host = request.get_host().split(":")[0]
-        parts = host.split(".")
+        try:
+            tenant = self._resolve(request)
+        except TenantNotFound as exc:
+            # Fix B-3: no 500 — redirect to onboarding
+            logger.info("Tenant not found: %s — redirecting to %s", exc, self.fallback_url)
+            return HttpResponseRedirect(self.fallback_url)
 
-        if len(parts) > 2:
-            subdomain = parts[0]
-            if subdomain not in ("www", "api"):
-                result = self._resolve_from_subdomain(request, subdomain)
-                if result is not None:
-                    return result
-                return None
+        request.tenant = tenant
+        request.tenant_id = tenant.pk
+        set_current_tenant_id(tenant.pk)
 
-        # Try header fallback (API clients, tests)
-        header_tenant = request.META.get("HTTP_X_TENANT_ID")
-        if header_tenant:
-            result = self._resolve_from_header(request, header_tenant)
-            if result is not None:
-                return result
-            return None
+        # Fix B-5: ASGI-safe language — only set request attribute,
+        # never call translation.activate() (thread-local, ASGI-unsafe)
+        if tenant.language:
+            request.LANGUAGE_CODE = tenant.language
+            request._tenant_language = tenant.language
 
-        # No tenant context
-        request.tenant_id = None
-        request.tenant = None
-        request.tenant_slug = None
         return None
 
     def process_response(
         self, request: HttpRequest, response: HttpResponse
     ) -> HttpResponse:
-        """Clear context at end of request."""
-        clear_context()
+        # Set language cookie so LocaleMiddleware picks it up next request
+        lang = getattr(request, "_tenant_language", None)
+        if lang:
+            cookie_name = getattr(settings, "LANGUAGE_COOKIE_NAME", "iil_lang")
+            response.set_cookie(
+                cookie_name,
+                lang,
+                max_age=getattr(settings, "LANGUAGE_COOKIE_AGE", 60 * 60 * 24 * 365),
+                secure=getattr(settings, "LANGUAGE_COOKIE_SECURE", False),
+                samesite="Lax",
+            )
         return response
 
-    def _resolve_from_subdomain(
-        self, request: HttpRequest, subdomain: str
-    ) -> HttpResponse | None:
-        """Resolve tenant from subdomain slug.
+    def _resolve(self, request: HttpRequest) -> Organization:
+        if self.mode == TenancyMode.SUBDOMAIN:
+            return self._resolve_subdomain(request)
+        if self.mode == TenancyMode.SESSION:
+            return self._resolve_session(request)
+        if self.mode == TenancyMode.HEADER:
+            return self._resolve_header(request)
+        raise TenantNotFound("No resolver for mode: disabled")
 
-        Returns None on success, HttpResponse on error.
-        """
-        from .models import Organization
-
+    def _resolve_subdomain(self, request: HttpRequest) -> Organization:
+        host = request.get_host().split(":")[0]  # strip port
+        subdomain = host.split(".")[0]
         try:
-            org = Organization.objects.get(slug=subdomain)
+            return Organization.objects.active().get(
+                models.Q(subdomain=subdomain) | models.Q(slug=subdomain)
+            )
         except Organization.DoesNotExist:
-            logger.warning("Unknown tenant subdomain: %s", subdomain)
-            request.tenant_id = None
-            request.tenant = None
-            request.tenant_slug = None
-            return None
+            raise TenantNotFound(f"No tenant for subdomain: {subdomain}")
 
-        if not org.is_active:
-            logger.warning("Inactive tenant: %s (status=%s)", subdomain, org.status)
-            request.tenant_id = None
-            request.tenant = None
-            request.tenant_slug = None
-            return None
-
-        self._set_tenant_context(request, org, subdomain)
-        return None
-
-    def _resolve_from_header(
-        self, request: HttpRequest, header_value: str
-    ) -> HttpResponse | None:
-        """Resolve tenant from X-Tenant-ID header.
-
-        Returns None on success, HttpResponse on error.
-        """
-        from .models import Organization
-
+    def _resolve_session(self, request: HttpRequest) -> Organization:
+        tenant_id = request.session.get("tenant_id")
+        if not tenant_id:
+            raise TenantNotFound("No tenant_id in session")
         try:
-            tenant_uuid = _uuid.UUID(header_value)
-        except (ValueError, TypeError):
-            logger.warning("Invalid X-Tenant-ID header: %s", header_value)
-            request.tenant_id = None
-            request.tenant = None
-            request.tenant_slug = None
-            return None
-
-        try:
-            org = Organization.objects.get(tenant_id=tenant_uuid)
+            return Organization.objects.active().get(pk=tenant_id)
         except Organization.DoesNotExist:
-            logger.warning("Unknown tenant from header: %s", tenant_uuid)
-            request.tenant_id = None
-            request.tenant = None
-            request.tenant_slug = None
-            return None
+            raise TenantNotFound(f"No tenant with id: {tenant_id}")
 
-        self._set_tenant_context(request, org, org.slug)
-        return None
-
-    @staticmethod
-    def _set_tenant_context(
-        request: HttpRequest, org: "Organization", slug: str
-    ) -> None:
-        """Set tenant on request + contextvars + RLS."""
-        request.tenant_id = org.tenant_id
-        request.tenant = org
-        request.tenant_slug = slug
-
-        set_tenant(org.tenant_id, slug)
-        set_db_tenant(org.tenant_id)
+    def _resolve_header(self, request: HttpRequest) -> Organization:
+        tenant_id = request.headers.get("X-Tenant-ID")
+        if not tenant_id:
+            raise TenantNotFound("X-Tenant-ID header missing")
+        try:
+            return Organization.objects.active().get(pk=int(tenant_id))
+        except (Organization.DoesNotExist, ValueError):
+            raise TenantNotFound(f"No tenant with id: {tenant_id}")
