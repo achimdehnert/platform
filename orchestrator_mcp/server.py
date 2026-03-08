@@ -9,6 +9,7 @@ Usage (in mcp_config or Windsurf MCP settings):
     args: ["-m", "orchestrator_mcp.server"]
 
 ADR-107 Phase 4: agent_team_status + agent_plan_task registered.
+ADR-108 Phase 5: get_cost_estimate, evaluate_task, verify_task registered.
 """
 
 from __future__ import annotations
@@ -23,6 +24,9 @@ from orchestrator_mcp.tools import (
     agent_team_status,
     analyze_task,
     check_gate,
+    evaluate_task,
+    get_cost_estimate,
+    verify_task,
 )
 
 logger = logging.getLogger(__name__)
@@ -110,6 +114,124 @@ _TOOLS: dict[str, dict[str, Any]] = {
             "required": ["action", "component"],
         },
         "handler": lambda args: check_gate(args["action"], args["component"]),
+    },
+    "get_cost_estimate": {
+        "description": (
+            "Get cost estimate for a task. "
+            "model: opus|swe|gpt_low. "
+            "Returns cost_usd, token_budget, budget_status. Per ADR-108."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task identifier"},
+                "model": {
+                    "type": "string",
+                    "enum": ["opus", "swe", "gpt_low"],
+                    "description": "Model to use",
+                },
+                "estimated_tokens": {
+                    "type": "integer",
+                    "description": "Estimated total tokens",
+                },
+            },
+            "required": ["task_id", "model"],
+        },
+        "handler": lambda args: get_cost_estimate(
+            task_id=args["task_id"],
+            model=args["model"],
+            estimated_tokens=args.get("estimated_tokens"),
+        ),
+    },
+    "evaluate_task": {
+        "description": (
+            "Compute QualityScore + rollback decision for a completed task. "
+            "Returns composite_score, rollback_level (none/soft/hard/escalate), "
+            "sub_scores, and recommendation. Per ADR-108."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task identifier"},
+                "completion_score": {
+                    "type": "number",
+                    "description": "0.0-1.0 — fraction of acceptance criteria met",
+                },
+                "guardian_passed": {
+                    "type": "boolean",
+                    "description": "True if Guardian found no blocking issues",
+                },
+                "adr_violations": {
+                    "type": "integer",
+                    "description": "Number of ADR violations found",
+                },
+                "iterations_used": {
+                    "type": "integer",
+                    "description": "How many agent iterations were needed",
+                },
+                "tokens_used": {
+                    "type": "integer",
+                    "description": "Total tokens consumed",
+                },
+                "complexity": {
+                    "type": "string",
+                    "default": "moderate",
+                    "description": "trivial|simple|moderate|complex|architectural",
+                },
+            },
+            "required": [
+                "task_id", "completion_score", "guardian_passed",
+                "adr_violations", "iterations_used", "tokens_used",
+            ],
+        },
+        "handler": lambda args: evaluate_task(
+            task_id=args["task_id"],
+            completion_score=args["completion_score"],
+            guardian_passed=args["guardian_passed"],
+            adr_violations=args["adr_violations"],
+            iterations_used=args["iterations_used"],
+            tokens_used=args["tokens_used"],
+            complexity=args.get("complexity", "moderate"),
+        ),
+    },
+    "verify_task": {
+        "description": (
+            "Verify a completed task: checks acceptance criteria + test/lint results. "
+            "Tester-Agent entry point after Developer implementation. "
+            "Returns is_complete, blocking_open, score, next_action. Per ADR-108."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "task_id": {"type": "string", "description": "Task identifier"},
+                "criteria": {
+                    "type": "array",
+                    "description": "List of {description, met, blocking, evidence}",
+                    "items": {"type": "object"},
+                },
+                "tests_passed": {
+                    "type": "boolean",
+                    "description": "True if pytest passed, False if failed, omit if not run",
+                },
+                "lint_passed": {
+                    "type": "boolean",
+                    "description": "True if ruff passed, False if failed, omit if not run",
+                },
+                "adr_violations": {
+                    "type": "integer",
+                    "default": 0,
+                    "description": "Number of ADR violations found",
+                },
+            },
+            "required": ["task_id", "criteria"],
+        },
+        "handler": lambda args: verify_task(
+            task_id=args["task_id"],
+            criteria=args.get("criteria", []),
+            tests_passed=args.get("tests_passed"),
+            lint_passed=args.get("lint_passed"),
+            adr_violations=args.get("adr_violations", 0),
+        ),
     },
 }
 

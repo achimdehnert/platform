@@ -6,13 +6,17 @@ MCP Tool implementations for the Orchestrator.
 Phase 4 (ADR-107): agent_team_status and agent_plan_task updated
 to include Deployment Agent, Review Agent, and role routing.
 
+Phase 5 (ADR-108): QA cycle tools added.
+
 Tools exposed via orchestrator_mcp MCP server:
   - agent_team_status   : current agent team configuration + active roles
   - agent_plan_task     : decompose task into sub-tasks and assign to roles
   - analyze_task        : classify task and recommend model/gate
   - check_gate          : verify action is allowed at current gate level
   - deploy_check        : deployment health check for known repos
-  - get_cost_estimate   : token cost estimate per model
+  - get_cost_estimate   : token cost estimate per model (ADR-108)
+  - evaluate_task       : compute QualityScore + rollback decision (ADR-108)
+  - verify_task         : run tests/lint + check acceptance criteria (ADR-108)
   - log_action          : audit log entry
   - get_audit_log       : retrieve audit log entries
 """
@@ -24,7 +28,6 @@ from datetime import datetime, timezone
 from typing import Any
 
 from orchestrator_mcp.agent_team.planner import (
-    TaskPlan,
     build_task_plan,
     classify_task,
 )
@@ -33,7 +36,6 @@ from orchestrator_mcp.agent_team.roles import (
     AgentRole,
     GateLevel,
     get_role,
-    route_task,
 )
 
 logger = logging.getLogger(__name__)
@@ -241,5 +243,206 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
         "allowed": True,
         "required_gate": GateLevel.ONE.value,
         "reason": f"Action '{action}' on '{component}' is auto-eligible at Gate-1.",
-        "adr_reference": "ADR-107 \u00a74.1",
+        "adr_reference": "ADR-107 §4.1",
+    }
+
+
+# ---------------------------------------------------------------------------
+# get_cost_estimate  (ADR-108)
+# ---------------------------------------------------------------------------
+
+# Cost per 1k tokens (input+output blended estimate)
+_COST_PER_1K: dict[str, float] = {
+    "opus":    0.015,   # Claude Opus
+    "swe":     0.003,   # SWE-1 / claude-3-5-sonnet
+    "gpt_low": 0.001,   # GPT-4o-mini
+}
+
+
+def get_cost_estimate(
+    task_id: str,
+    model: str,
+    estimated_tokens: int | None = None,
+) -> dict[str, Any]:
+    """
+    Returns a cost estimate for a task given model and token count.
+
+    Args:
+        task_id:          Identifier for the task.
+        model:            One of 'opus', 'swe', 'gpt_low'.
+        estimated_tokens: Estimated token count. If omitted, uses moderate budget.
+
+    Returns:
+        Dict with cost_usd, model, tokens, budget_status.
+    """
+    from orchestrator_mcp.agent_team.evaluator import TOKEN_BUDGETS
+
+    tokens = estimated_tokens or TOKEN_BUDGETS["moderate"]
+    rate = _COST_PER_1K.get(model, _COST_PER_1K["swe"])
+    cost_usd = round((tokens / 1000) * rate, 4)
+    budget = TOKEN_BUDGETS["moderate"]
+    over_budget = tokens > budget
+
+    return {
+        "task_id": task_id,
+        "model": model,
+        "estimated_tokens": tokens,
+        "cost_usd": cost_usd,
+        "token_budget": budget,
+        "over_budget": over_budget,
+        "budget_status": "over" if over_budget else "ok",
+        "adr_reference": "ADR-108",
+    }
+
+
+# ---------------------------------------------------------------------------
+# evaluate_task  (ADR-108)
+# ---------------------------------------------------------------------------
+
+
+def evaluate_task(
+    task_id: str,
+    completion_score: float,
+    guardian_passed: bool,
+    adr_violations: int,
+    iterations_used: int,
+    tokens_used: int,
+    complexity: str = "moderate",
+) -> dict[str, Any]:
+    """
+    Computes a QualityScore for a completed task and determines rollback level.
+
+    Args:
+        task_id:          Identifier for the task.
+        completion_score: 0.0–1.0 — fraction of acceptance criteria met.
+        guardian_passed:  True if Guardian agent found no blocking issues.
+        adr_violations:   Number of ADR violations found by platform-context.
+        iterations_used:  How many agent iterations were needed.
+        tokens_used:      Total tokens consumed.
+        complexity:       trivial / simple / moderate / complex / architectural.
+
+    Returns:
+        Dict with composite score, sub-scores, rollback_level, and recommendation.
+    """
+    from orchestrator_mcp.agent_team.evaluator import QualityEvaluator
+
+    evaluator = QualityEvaluator()
+    score = evaluator.evaluate(
+        completion_score=completion_score,
+        guardian_passed=guardian_passed,
+        adr_violations=adr_violations,
+        iterations_used=iterations_used,
+        tokens_used=tokens_used,
+        complexity=complexity,
+    )
+
+    recommendation = {
+        "none":     "Task complete — ship it.",
+        "soft":     "Retry with feedback — score below threshold.",
+        "hard":     "Revert to last known good — critical quality gap.",
+        "escalate": "Human intervention required — score critically low.",
+    }[score.rollback_level.value]
+
+    return {
+        "task_id": task_id,
+        "composite_score": round(score.composite, 3),
+        "rollback_level": score.rollback_level.value,
+        "recommendation": recommendation,
+        "sub_scores": {
+            "completion":    round(score.completion_score, 3),
+            "guardian":      round(score.guardian_score, 3),
+            "adr_compliance": round(score.adr_compliance_score, 3),
+            "iteration":     round(score.iteration_score, 3),
+            "token":         round(score.token_score, 3),
+        },
+        "metrics": {
+            "iterations_used": score.iterations_used,
+            "tokens_used":     score.tokens_used,
+            "token_budget":    score.token_budget,
+            "complexity":      score.complexity,
+        },
+        "adr_reference": "ADR-108",
+    }
+
+
+# ---------------------------------------------------------------------------
+# verify_task  (ADR-108)
+# ---------------------------------------------------------------------------
+
+
+def verify_task(
+    task_id: str,
+    criteria: list[dict[str, Any]],
+    tests_passed: bool | None = None,
+    lint_passed: bool | None = None,
+    adr_violations: int = 0,
+) -> dict[str, Any]:
+    """
+    Verifies a completed task by checking acceptance criteria + test/lint results.
+
+    This is the Tester-Agent entry point: after a Developer implementation,
+    call verify_task to determine if the task is truly done.
+
+    Args:
+        task_id:       Identifier for the task.
+        criteria:      List of dicts: {description, met, blocking, evidence}.
+        tests_passed:  True/False/None (None = not run yet).
+        lint_passed:   True/False/None (None = not run yet).
+        adr_violations: Number of ADR violations found.
+
+    Returns:
+        Dict with is_complete, blocking_open, score, and next_action.
+    """
+    from orchestrator_mcp.agent_team.completion import TaskCompletionChecker
+
+    checker = TaskCompletionChecker()
+
+    enriched = list(criteria)
+    if tests_passed is not None:
+        enriched.append({
+            "description": "All tests pass",
+            "met": tests_passed,
+            "blocking": True,
+            "evidence": "pytest exit code 0" if tests_passed else "pytest failures",
+        })
+    if lint_passed is not None:
+        enriched.append({
+            "description": "Lint clean (ruff)",
+            "met": lint_passed,
+            "blocking": True,
+            "evidence": "ruff check passed" if lint_passed else "ruff errors found",
+        })
+    if adr_violations > 0:
+        enriched.append({
+            "description": f"No ADR violations ({adr_violations} found)",
+            "met": False,
+            "blocking": True,
+            "evidence": f"{adr_violations} violation(s) from platform-context check",
+        })
+
+    result = checker.from_dict(enriched)
+
+    if result.is_complete:
+        next_action = "task_complete — proceed to evaluate_task for QA score"
+    elif tests_passed is False:
+        next_action = "fix_tests — re-run pytest and address failures"
+    elif lint_passed is False:
+        next_action = "fix_lint — run ruff check --fix"
+    elif adr_violations > 0:
+        next_action = "fix_adr — resolve platform-context violations"
+    else:
+        next_action = f"fix_criteria — {len(result.blocking_open)} blocking criteria open"
+
+    return {
+        "task_id": task_id,
+        "is_complete": result.is_complete,
+        "score": round(result.score, 3),
+        "blocking_open": result.blocking_open,
+        "criteria_total": len(result.criteria),
+        "criteria_met": sum(1 for c in result.criteria if c.met),
+        "tests_passed": tests_passed,
+        "lint_passed": lint_passed,
+        "adr_violations": adr_violations,
+        "next_action": next_action,
+        "adr_reference": "ADR-108",
     }
