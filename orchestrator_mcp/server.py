@@ -10,6 +10,7 @@ Usage (in mcp_config or Windsurf MCP settings):
 
 ADR-107 Phase 4: agent_team_status + agent_plan_task registered.
 ADR-108 Phase 5: get_cost_estimate, evaluate_task, verify_task registered.
+Infra Context: get_infra_context registered (Hetzner + Cloudflare + Deploy-Targets).
 """
 
 from __future__ import annotations
@@ -26,6 +27,7 @@ from orchestrator_mcp.tools import (
     check_gate,
     evaluate_task,
     get_cost_estimate,
+    get_infra_context,
     verify_task,
 )
 
@@ -243,6 +245,20 @@ _TOOLS: dict[str, dict[str, Any]] = {
             adr_violations=args.get("adr_violations", 0),
         ),
     },
+    "get_infra_context": {
+        "description": (
+            "Get full platform infrastructure context: Hetzner hosts, "
+            "Cloudflare domains, deploy targets (9 repos), MCP server registry, "
+            "and quick-reference tool calls. Call at session start or before "
+            "any deployment/infra operation to eliminate guesswork."
+        ),
+        "inputSchema": {
+            "type": "object",
+            "properties": {},
+            "required": [],
+        },
+        "handler": lambda _args: get_infra_context(),
+    },
 }
 
 
@@ -265,7 +281,7 @@ def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 "capabilities": {"tools": {}},
                 "serverInfo": {
                     "name": "orchestrator",
-                    "version": "3.0.0",
+                    "version": "3.1.0",
                 },
             },
         }
@@ -327,7 +343,10 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         stream=sys.stderr,
     )
-    logger.info("orchestrator_mcp server v3.0 starting (ADR-107+108 Phase 5, %d tools)", len(_TOOLS))
+    logger.info(
+        "orchestrator_mcp server v3.1 starting (ADR-107+108+infra, %d tools)",
+        len(_TOOLS),
+    )
 
     for line in sys.stdin:
         line = line.strip()
