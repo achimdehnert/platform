@@ -255,7 +255,7 @@ def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 "capabilities": {"tools": {}},
                 "serverInfo": {
                     "name": "orchestrator",
-                    "version": "2.0.0",
+                    "version": "3.0.0",
                 },
             },
         }
@@ -317,7 +317,7 @@ def main() -> None:
         format="%(asctime)s %(name)s %(levelname)s %(message)s",
         stream=sys.stderr,
     )
-    logger.info("orchestrator_mcp server v2.0 starting (ADR-107 Phase 4)")
+    logger.info("orchestrator_mcp server v3.0 starting (ADR-107+108 Phase 5, %d tools)", len(_TOOLS))
 
     for line in sys.stdin:
         line = line.strip()
