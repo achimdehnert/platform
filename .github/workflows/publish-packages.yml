@@ -1,16 +1,140 @@
-# GitHub Packages does not provide a PyPI-compatible registry for Python wheels.
-# Platform packages are distributed via git+https using PROJECT_PAT.
-# See: https://docs.github.com/en/packages/learn-github-packages/introduction-to-github-packages
-#
-# This file is intentionally minimal — kept as placeholder for future PyPI publishing
-# if a self-hosted registry (e.g. Cloudsmith, Gemfury, or Gitea) is introduced.
-name: Package Info
+name: Publish Packages to PyPI
 
 on:
+  push:
+    tags:
+      - "packages/v*.*.*"
   workflow_dispatch:
+    inputs:
+      target:
+        description: "Upload target (pypi or testpypi)"
+        required: false
+        default: "pypi"
+        type: choice
+        options:
+          - pypi
+          - testpypi
+      package:
+        description: "Package to publish (django-tenancy or all)"
+        required: false
+        default: "all"
+        type: choice
+        options:
+          - all
+          - django-tenancy
 
 jobs:
-  info:
+  test-django-tenancy:
+    name: Test iil-django-tenancy
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    defaults:
+      run:
+        working-directory: packages/django-tenancy
     steps:
-      - run: echo "Platform packages are distributed via git+https with PROJECT_PAT"
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pip install -e ".[dev]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest tests/ -v --tb=short --no-cov
+
+  build-django-tenancy:
+    name: Build iil-django-tenancy
+    runs-on: ubuntu-latest
+    needs: test-django-tenancy
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    defaults:
+      run:
+        working-directory: packages/django-tenancy
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install hatch
+        run: pip install hatch
+
+      - name: Read version
+        id: meta
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building iil-django-tenancy==$VERSION"
+
+      - name: Build wheel + sdist
+        run: hatch build
+
+      - name: Verify dist
+        run: ls -la dist/
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-django-tenancy-${{ steps.meta.outputs.version }}
+          path: packages/django-tenancy/dist/
+          retention-days: 7
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build-django-tenancy
+    runs-on: ubuntu-latest
+    if: |
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/packages/v')) ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'pypi' || github.event.inputs.target == ''))
+    environment:
+      name: pypi
+      url: https://pypi.org/project/iil-django-tenancy/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-django-tenancy-${{ needs.build-django-tenancy.outputs.version }}
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: build-django-tenancy
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'testpypi'
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/project/iil-django-tenancy/
+    permissions:
+      id-token: write
+    steps:
+      - name: Download dist artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist-django-tenancy-${{ needs.build-django-tenancy.outputs.version }}
+          path: dist/
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          print-hash: true
