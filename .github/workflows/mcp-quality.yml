@@ -111,6 +111,39 @@ jobs:
         with:
           fail_ci_if_error: false
 
+  orchestrator-tests:
+    name: "🤖 Orchestrator MCP Tests (ADR-107+108)"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install orchestrator_mcp
+        run: pip install -e ".[dev]"
+        working-directory: orchestrator_mcp
+        continue-on-error: true
+
+      - name: Install deps directly (fallback)
+        run: pip install pytest pytest-cov ruff pydantic
+        
+      - name: Ruff (hard fail)
+        run: ruff check orchestrator_mcp/
+        
+      - name: Tests (hard fail)
+        run: |
+          pytest orchestrator_mcp/agent_team/tests/ \
+            -q --tb=short \
+            --cov=orchestrator_mcp \
+            --cov-report=term-missing \
+            --cov-fail-under=70
+
   docs-check:
     name: "📝 Documentation Check"
     runs-on: ubuntu-latest

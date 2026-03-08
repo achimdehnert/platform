@@ -253,9 +253,19 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
 
 # Cost per 1k tokens (input+output blended estimate)
 _COST_PER_1K: dict[str, float] = {
-    "opus":    0.015,   # Claude Opus
+    "opus":    0.015,   # Claude Opus / Cascade Pro
     "swe":     0.003,   # SWE-1 / claude-3-5-sonnet
     "gpt_low": 0.001,   # GPT-4o-mini
+    "cascade": 0.015,   # Windsurf Cascade (Opus-tier, for comparison)
+}
+
+# Cascade baseline: typical tokens per session type (empirical estimates)
+_CASCADE_BASELINE: dict[str, int] = {
+    "trivial":       15_000,
+    "simple":        40_000,
+    "moderate":      80_000,
+    "complex":      150_000,
+    "architectural": 250_000,
 }
 
 
@@ -263,34 +273,65 @@ def get_cost_estimate(
     task_id: str,
     model: str,
     estimated_tokens: int | None = None,
+    complexity: str = "moderate",
+    cascade_tokens: int | None = None,
 ) -> dict[str, Any]:
     """
-    Returns a cost estimate for a task given model and token count.
+    Returns a cost estimate + Cascade vs Agent comparison report.
+
+    No budget enforcement — reporting only.
 
     Args:
         task_id:          Identifier for the task.
-        model:            One of 'opus', 'swe', 'gpt_low'.
-        estimated_tokens: Estimated token count. If omitted, uses moderate budget.
+        model:            Agent model: 'opus' | 'swe' | 'gpt_low'.
+        estimated_tokens: Agent token count. If omitted, uses complexity budget.
+        complexity:       trivial | simple | moderate | complex | architectural.
+        cascade_tokens:   Actual Cascade token count (if known). Falls back to baseline.
 
     Returns:
-        Dict with cost_usd, model, tokens, budget_status.
+        Dict with cost_usd, cascade comparison, savings, budget_status.
     """
     from orchestrator_mcp.agent_team.evaluator import TOKEN_BUDGETS
 
-    tokens = estimated_tokens or TOKEN_BUDGETS["moderate"]
-    rate = _COST_PER_1K.get(model, _COST_PER_1K["swe"])
-    cost_usd = round((tokens / 1000) * rate, 4)
-    budget = TOKEN_BUDGETS["moderate"]
-    over_budget = tokens > budget
+    agent_tokens = estimated_tokens or TOKEN_BUDGETS.get(complexity, TOKEN_BUDGETS["moderate"])
+    agent_rate = _COST_PER_1K.get(model, _COST_PER_1K["swe"])
+    agent_cost = round((agent_tokens / 1000) * agent_rate, 4)
+
+    # Cascade comparison (always Opus-tier pricing)
+    cascade_tok = cascade_tokens or _CASCADE_BASELINE.get(complexity, _CASCADE_BASELINE["moderate"])
+    cascade_cost = round((cascade_tok / 1000) * _COST_PER_1K["cascade"], 4)
+
+    savings_usd = round(cascade_cost - agent_cost, 4)
+    savings_pct = round((savings_usd / cascade_cost) * 100, 1) if cascade_cost > 0 else 0.0
+
+    budget = TOKEN_BUDGETS.get(complexity, TOKEN_BUDGETS["moderate"])
 
     return {
         "task_id": task_id,
-        "model": model,
-        "estimated_tokens": tokens,
-        "cost_usd": cost_usd,
-        "token_budget": budget,
-        "over_budget": over_budget,
-        "budget_status": "over" if over_budget else "ok",
+        "complexity": complexity,
+        "agent": {
+            "model": model,
+            "tokens": agent_tokens,
+            "cost_usd": agent_cost,
+            "token_budget": budget,
+            "budget_used_pct": round((agent_tokens / budget) * 100, 1),
+        },
+        "cascade": {
+            "model": "cascade (opus-tier)",
+            "tokens": cascade_tok,
+            "cost_usd": cascade_cost,
+            "source": "actual" if cascade_tokens else "baseline_estimate",
+        },
+        "comparison": {
+            "savings_usd": savings_usd,
+            "savings_pct": savings_pct,
+            "cheaper": "agent" if agent_cost < cascade_cost else "cascade",
+            "verdict": (
+                f"Agent {savings_pct}% cheaper ({savings_usd:.4f} USD saved)"
+                if agent_cost < cascade_cost
+                else f"Cascade {abs(savings_pct)}% cheaper ({abs(savings_usd):.4f} USD saved)"
+            ),
+        },
         "adr_reference": "ADR-108",
     }
 

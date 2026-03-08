@@ -117,9 +117,8 @@ _TOOLS: dict[str, dict[str, Any]] = {
     },
     "get_cost_estimate": {
         "description": (
-            "Get cost estimate for a task. "
-            "model: opus|swe|gpt_low. "
-            "Returns cost_usd, token_budget, budget_status. Per ADR-108."
+            "Cost estimate + Cascade vs Agent comparison report (reporting only, no enforcement). "
+            "model: opus|swe|gpt_low. Returns agent cost, cascade baseline, savings_pct. Per ADR-108."
         ),
         "inputSchema": {
             "type": "object",
@@ -134,6 +133,15 @@ _TOOLS: dict[str, dict[str, Any]] = {
                     "type": "integer",
                     "description": "Estimated total tokens",
                 },
+                "complexity": {
+                    "type": "string",
+                    "default": "moderate",
+                    "description": "trivial|simple|moderate|complex|architectural",
+                },
+                "cascade_tokens": {
+                    "type": "integer",
+                    "description": "Actual Cascade session tokens (optional, for exact comparison)",
+                },
             },
             "required": ["task_id", "model"],
         },
@@ -141,6 +149,8 @@ _TOOLS: dict[str, dict[str, Any]] = {
             task_id=args["task_id"],
             model=args["model"],
             estimated_tokens=args.get("estimated_tokens"),
+            complexity=args.get("complexity", "moderate"),
+            cascade_tokens=args.get("cascade_tokens"),
         ),
     },
     "evaluate_task": {

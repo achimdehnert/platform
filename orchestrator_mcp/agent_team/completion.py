@@ -7,7 +7,6 @@ Checks whether all acceptance criteria for a task have been fulfilled.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass

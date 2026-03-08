@@ -10,32 +10,48 @@ from orchestrator_mcp.tools import evaluate_task, get_cost_estimate, verify_task
 
 
 class TestGetCostEstimate:
-    def test_opus_cost(self):
+    def test_agent_cost_structure(self):
         result = get_cost_estimate("t1", "opus", estimated_tokens=10_000)
-        assert result["cost_usd"] == pytest.approx(0.15, rel=0.01)
-        assert result["model"] == "opus"
-        assert result["budget_status"] == "ok"
+        assert result["agent"]["model"] == "opus"
+        assert result["agent"]["cost_usd"] == pytest.approx(0.15, rel=0.01)
+        assert result["agent"]["tokens"] == 10_000
 
-    def test_swe_cost(self):
-        result = get_cost_estimate("t2", "swe", estimated_tokens=60_000)
-        assert result["cost_usd"] == pytest.approx(0.18, rel=0.01)
-        assert result["budget_status"] == "ok"
+    def test_cascade_comparison_present(self):
+        result = get_cost_estimate("t2", "swe", complexity="moderate")
+        assert "cascade" in result
+        assert "comparison" in result
+        assert result["cascade"]["cost_usd"] > 0
 
-    def test_over_budget(self):
-        result = get_cost_estimate("t3", "swe", estimated_tokens=120_000)
-        assert result["over_budget"] is True
-        assert result["budget_status"] == "over"
+    def test_agent_cheaper_than_cascade(self):
+        result = get_cost_estimate("t3", "gpt_low", complexity="moderate")
+        assert result["comparison"]["cheaper"] == "agent"
+        assert result["comparison"]["savings_pct"] > 0
 
-    def test_default_tokens(self):
-        result = get_cost_estimate("t4", "gpt_low")
-        assert result["estimated_tokens"] == 60_000
+    def test_opus_same_as_cascade(self):
+        result = get_cost_estimate("t4", "opus", estimated_tokens=80_000, complexity="moderate")
+        assert result["comparison"]["savings_pct"] == pytest.approx(0.0, abs=5.0)
+
+    def test_cascade_tokens_override(self):
+        result = get_cost_estimate("t5", "swe", cascade_tokens=200_000, complexity="moderate")
+        assert result["cascade"]["tokens"] == 200_000
+        assert result["cascade"]["source"] == "actual"
+
+    def test_cascade_baseline_fallback(self):
+        result = get_cost_estimate("t6", "swe", complexity="complex")
+        assert result["cascade"]["source"] == "baseline_estimate"
+        assert result["cascade"]["tokens"] == 150_000
+
+    def test_complexity_affects_budget(self):
+        simple = get_cost_estimate("t7a", "swe", complexity="simple")
+        arch = get_cost_estimate("t7b", "swe", complexity="architectural")
+        assert simple["agent"]["token_budget"] < arch["agent"]["token_budget"]
 
     def test_unknown_model_falls_back_to_swe(self):
-        result = get_cost_estimate("t5", "unknown_model", estimated_tokens=1_000)
-        assert result["cost_usd"] > 0
+        result = get_cost_estimate("t8", "unknown_model", estimated_tokens=1_000)
+        assert result["agent"]["cost_usd"] > 0
 
     def test_adr_reference(self):
-        result = get_cost_estimate("t6", "swe")
+        result = get_cost_estimate("t9", "swe")
         assert result["adr_reference"] == "ADR-108"
 
 
