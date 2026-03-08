@@ -4,9 +4,18 @@ description: Deploy any app to production (bfagent, cad-hub, travel-beat, etc.)
 
 # Deploy Workflow
 
-> **Architektur (ADR-075)**: Write-Ops (Deploy, Migrate, Backup) laufen über
-> `infra-deploy` GitHub Actions — NICHT via direktem SSH (hängt).
+> **Architektur (ADR-075 + ADR-100)**: Deployments sind Aufgabe des **Deployment Agent**.
+> Cascade (Tech Lead) genehmigt nur bei Gate-2-Situationen (neue Migrations, Breaking Changes).
+> Write-Ops laufen über GitHub Actions — NICHT via direktem SSH (hängt).
 > Read-Ops (Logs, Status) via `deployment-mcp` Tools.
+
+## Rollen-Trennung (ADR-100)
+
+| Wer | Was |
+|-----|-----|
+| **Deployment Agent** | Automatischer Deploy nach CI grün (Gate 2, autonom bei Routine) |
+| **Cascade (Tech Lead)** | Gate-2-Approval bei neuen Migrations / Breaking Changes |
+| **Mensch** | Gate-3/4 bei kritischen Prod-Änderungen |
 
 ## Workflow-Übersicht
 
