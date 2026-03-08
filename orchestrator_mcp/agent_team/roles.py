@@ -181,10 +181,15 @@ class DeploymentAgentConfig:
     """
     Full specification for the Deployment Agent per ADR-107 §4.3.
 
-    Tools required (orchestrator_mcp):
-      - deploy      : docker compose control
-      - shell_exec  : SSH commands (restricted to ShellAllowlist)
-      - github_pr   : comment deployment status on PR
+    MCP Tools (concrete, available in Windsurf):
+      - mcp5_ssh_manage      : SSH on hetzner-prod (88.198.191.108)
+      - mcp5_docker_manage   : Docker Compose control on hetzner-prod
+      - mcp8_add_issue_comment: GitHub PR/Issue comments
+      - mcp11_deploy_check   : Health check + status for known repos
+      - mcp_cloudflare_*     : DNS/Tunnel management via Cloudflare API
+
+    Deploy rule: NEVER write directly to prod. Use scripts/ship.sh or CI/CD.
+    After every deploy: mcp11_deploy_check(action="health", repo=<name>)
     """
 
     role: AgentRole = AgentRole.DEPLOYMENT
@@ -203,7 +208,42 @@ class DeploymentAgentConfig:
 
     @property
     def allowed_tools(self) -> list[str]:
-        return ["deploy", "shell_exec", "github_pr"]
+        return [
+            "mcp5_ssh_manage",
+            "mcp5_docker_manage",
+            "mcp8_add_issue_comment",
+            "mcp11_deploy_check",
+            "mcp_cloudflare_dns_list",
+            "mcp_cloudflare_dns_create",
+        ]
+
+    @property
+    def infra_context(self) -> dict[str, Any]:
+        """Concrete infra config — eliminates per-session guesswork."""
+        return {
+            "prod_host": "hetzner-prod",
+            "prod_ip": "88.198.191.108",
+            "prod_user": "deploy",
+            "dev_host": "hetzner-dev",
+            "cloudflare_access": "via mcp_cloudflare_* (API-Keys in Windsurf-Secrets)",
+            "deploy_targets": {
+                "coach-hub": {"path": "/opt/coach-hub", "health": "https://kiohnerisiko.de/healthz/"},
+                "billing-hub": {"path": "/opt/billing-hub", "health": "https://billing.iil.pet/healthz/"},
+                "travel-beat": {"path": "/opt/travel-beat", "health": "https://drifttales.de/healthz/"},
+                "weltenhub": {"path": "/opt/weltenhub", "health": "https://weltenforger.com/healthz/"},
+                "trading-hub": {"path": "/opt/trading-hub", "health": "https://ai-trades.de/healthz/"},
+                "cad-hub": {"path": "/opt/cad-hub", "health": "https://nl2cad.de/healthz/"},
+                "pptx-hub": {"path": "/opt/pptx-hub", "health": "https://prezimo.de/healthz/"},
+                "risk-hub": {"path": "/opt/risk-hub", "health": "https://risk-hub.iil.pet/healthz/"},
+                "ausschreibungs-hub": {"path": "/opt/ausschreibungs-hub", "health": "https://bieterpilot.de/healthz/"},
+            },
+            "rules": [
+                "Gate-2 required before any prod deploy",
+                "Use mcp11_deploy_check(action='health') after every deploy",
+                "DB changes only via Django migrations, never direct SQL on prod",
+                "API-Keys are in Windsurf-Secrets — never hardcode",
+            ],
+        }
 
     @property
     def requires_gate2_approval_for(self) -> list[str]:
@@ -415,7 +455,7 @@ class ReviewAgentConfig:
 
         lines.append("")
         lines.append("| Check | Status | Blocking |")
-        lines.append("|-------|--------|----------|")  
+        lines.append("|-------|--------|----------|")
 
         for r in results:
             status = "Pass" if r.passed else ("Fail" if r.blocking else "Warn")
@@ -458,7 +498,7 @@ ROLE_REGISTRY: dict[AgentRole, AgentRoleProtocol] = {
     AgentRole.TESTER: BaseAgentRole(
         role=AgentRole.TESTER,
         gate_level=GateLevel.ZERO,
-        description="Tests schreiben, Coverage prüfen, CI-Fehler analysieren.",
+        description="Tests schreiben, Coverage pr\u00fcfen, CI-Fehler analysieren.",
     ),
     AgentRole.DEPLOYMENT: DeploymentAgentConfig(),
     AgentRole.REVIEW: ReviewAgentConfig(),
