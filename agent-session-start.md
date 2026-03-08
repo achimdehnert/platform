@@ -16,19 +16,29 @@ description: Pflicht-Ritual vor jeder Coding-Agent-Session — Kontext laden, St
 Lese in dieser Reihenfolge — alle drei, kein Überspringen:
 
 ```
-1. docs/CORE_CONTEXT.md        — Tech Stack, Architektur-Regeln, Verbotene Muster
-2. docs/AGENT_HANDOVER.md      — Was wurde zuletzt getan? Was ist offen?
+1. AGENT_HANDOVER.md           — Infra-Kontext: Hetzner, Cloudflare, Deploy-Targets, MCP-Tools
+2. docs/CORE_CONTEXT.md        — Tech Stack, Architektur-Regeln, Verbotene Muster
 3. docs/adr/README.md          — Welche ADRs gelten? (Index genügt)
 ```
 
 Falls diese Dateien nicht existieren → `/new-github-project` aufrufen.
 
+Danach MCP-Kontext aktiv abrufen:
+
+```
+MCP: mcp11_get_infra_context()
+  → Liefert: Hetzner-Hosts, Cloudflare-Domains, Deploy-Targets (9 Repos),
+    MCP-Server-Registry, Quick-Reference-Tool-Calls
+  → Einmalig pro Session aufrufen — danach ist der Infra-Kontext bekannt
+```
+
 **Bestätigung (Agent spricht laut aus):**
 ```
 Ich habe gelesen:
+- AGENT_HANDOVER: Hetzner-Prod=88.198.191.108, 9 Deploy-Targets bekannt
 - CORE_CONTEXT: [3 Sätze Zusammenfassung — Tech Stack + kritische Constraints]
-- AGENT_HANDOVER: [Letzter Stand + offene Aufgaben]
 - ADRs: [Anzahl + relevanteste für diese Session]
+- Infra-Kontext: mcp11_get_infra_context() aufgerufen ✓
 ```
 
 ---
@@ -112,7 +122,7 @@ Bei complexity >= moderate → `/agentic-coding` verwenden.
 
 Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 
-- [ ] `docs/AGENT_HANDOVER.md` aktualisiert (Was wurde getan? Was ist noch offen?)
+- [ ] `AGENT_HANDOVER.md` aktualisiert falls neue Infra-Änderungen
 - [ ] Alle Tests grün (`pytest tests/ -q`)
 - [ ] Kein uncommitted work (oder bewusster WIP-Commit mit `wip:` Präfix)
 - [ ] Offene Issues / PRs verlinkt
