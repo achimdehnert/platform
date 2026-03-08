@@ -1,24 +1,18 @@
-# django-tenancy
+# iil-django-tenancy
 
-Shared multi-tenancy infrastructure for the BF Agent platform — per ADR-035.
+Platform-standard multi-tenancy package for all IIL Django UI Hubs.
 
-## Core Components
-
-- **Organization**: Tenant model with lifecycle management (trial → active → suspended → deleted)
-- **Membership**: User-to-organization mapping with roles (owner, admin, member, viewer, external)
-- **SubdomainTenantMiddleware**: Resolves tenant from subdomain or `X-Tenant-ID` header
-- **TenantAwareManager**: Explicit `.for_tenant(uuid)` queryset filtering
-- **Context propagation**: Async-safe contextvars + PostgreSQL RLS session variable
-- **Health endpoints**: `/livez/` (liveness) + `/healthz/` (readiness with DB + Redis checks)
-- **Decorators**: `tenant_context()` context manager, `@with_tenant_from_arg()` for Celery tasks
+**ADR references:** ADR-035 (shared-django-tenancy), ADR-109 (multi-tenancy platform standard)
 
 ## Installation
 
 ```bash
-pip install -e ".[dev]"
+pip install iil-django-tenancy
+# or for local development:
+pip install -e packages/django-tenancy
 ```
 
-## Usage
+## Quick Start
 
 ```python
 # settings.py
@@ -27,30 +21,45 @@ INSTALLED_APPS = [
     "django_tenancy",
 ]
 
+TENANCY_MODE = "subdomain"   # subdomain | session | header | disabled
+TENANCY_FALLBACK_URL = "/onboarding/"
+
 MIDDLEWARE = [
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
+    "django_tenancy.middleware.SubdomainTenantMiddleware",  # after Locale
+    "django.middleware.common.CommonMiddleware",
     ...
-    "django_tenancy.middleware.SubdomainTenantMiddleware",
 ]
 
-# urls.py
-from django_tenancy.healthz import liveness, readiness
-
-urlpatterns = [
-    path("livez/", liveness),
-    path("healthz/", readiness),
-]
-
-# In views / services:
-from django_tenancy.managers import TenantAwareManager
-
-class MyModel(models.Model):
-    tenant_id = models.UUIDField(db_index=True)
-    objects = TenantAwareManager()
-
-# Query with tenant isolation:
-MyModel.objects.for_tenant(request.tenant_id)
+TEMPLATES[0]["OPTIONS"]["context_processors"].append(
+    "django_tenancy.context_processors.tenant",
+)
 ```
 
-## Critical Rule
+```python
+# models.py — inherit from TenantModel
+from django_tenancy.models import TenantModel
 
-`Organization.id != Organization.tenant_id` — **always** use `org.tenant_id` for data isolation.
+class MyContent(TenantModel):
+    title = models.CharField(max_length=200)
+    # tenant_id (BigIntegerField), public_id (UUID), deleted_at inherited
+```
+
+## TenancyMode
+
+| Mode | Use case |
+|------|----------|
+| `subdomain` | Production — `tenant.hub.domain.tld` |
+| `session` | Local dev — no subdomain setup needed |
+| `header` | API / CI — `X-Tenant-ID` header |
+| `disabled` | billing-hub, dev-hub — single tenant |
+
+## Components
+
+- `django_tenancy.models.Organization` — Tenant entity
+- `django_tenancy.models.TenantModel` — Abstract base for all tenant-scoped models
+- `django_tenancy.middleware.SubdomainTenantMiddleware` — Resolves tenant per request
+- `django_tenancy.managers.TenantManager` — `for_tenant()`, `active()` QuerySet
+- `django_tenancy.context_processors.tenant` — `request.tenant` in templates
+- `django_tenancy.decorators.with_tenant` — Celery task decorator
