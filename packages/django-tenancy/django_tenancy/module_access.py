@@ -46,8 +46,8 @@ from __future__ import annotations
 
 import logging
 import uuid
+from collections.abc import Callable
 from functools import wraps
-from typing import Callable
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
@@ -68,7 +68,7 @@ def _role_sufficient(user_role: str, min_role: str) -> bool:
         return False
 
 
-def _resolve_tenant_from_membership(user) -> "uuid.UUID | None":
+def _resolve_tenant_from_membership(user) -> uuid.UUID | None:
     """Resolve tenant_id from user's first active membership (dev fallback)."""
     try:
         from .models import Membership
@@ -81,8 +81,8 @@ def _resolve_tenant_from_membership(user) -> "uuid.UUID | None":
         )
         if m and m.organization.is_active:
             return m.organization.tenant_id
-    except Exception:
-        pass
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("Could not resolve tenant from membership: %s", exc)
     return None
 
 

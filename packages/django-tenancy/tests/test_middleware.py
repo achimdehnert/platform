@@ -1,11 +1,11 @@
 """
 Tests for SubdomainTenantMiddleware.
 """
+
 import pytest
-from unittest.mock import MagicMock
 from django.test import RequestFactory
-from django_tenancy.middleware import SubdomainTenantMiddleware, TenancyMode
-from django_tenancy.exceptions import TenantNotFound
+
+from django_tenancy.middleware import SubdomainTenantMiddleware
 from django_tenancy.models import Organization
 
 

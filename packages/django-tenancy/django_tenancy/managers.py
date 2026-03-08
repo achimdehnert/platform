@@ -10,11 +10,11 @@ from django.db import models
 
 
 class TenantQuerySet(models.QuerySet):
-    def for_tenant(self, tenant_id: int) -> "TenantQuerySet":
+    def for_tenant(self, tenant_id: int) -> TenantQuerySet:
         """Filter to rows belonging to the given tenant."""
         return self.filter(tenant_id=tenant_id)
 
-    def active(self) -> "TenantQuerySet":
+    def active(self) -> TenantQuerySet:
         """Exclude soft-deleted rows."""
         return self.filter(deleted_at__isnull=True)
 

@@ -20,17 +20,16 @@ from __future__ import annotations
 
 import uuid
 from contextvars import ContextVar
-from typing import Optional
 from uuid import UUID
 
 from .types import RequestContext
 
-_tenant_id: ContextVar[Optional[UUID]] = ContextVar("tenant_id", default=None)
-_tenant_slug: ContextVar[Optional[str]] = ContextVar(
+_tenant_id: ContextVar[UUID | None] = ContextVar("tenant_id", default=None)
+_tenant_slug: ContextVar[str | None] = ContextVar(
     "tenant_slug", default=None
 )
-_user_id: ContextVar[Optional[UUID]] = ContextVar("user_id", default=None)
-_request_id: ContextVar[Optional[str]] = ContextVar("request_id", default=None)
+_user_id: ContextVar[UUID | None] = ContextVar("user_id", default=None)
+_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
 
 
 def get_context() -> RequestContext:
@@ -43,7 +42,7 @@ def get_context() -> RequestContext:
     )
 
 
-def set_tenant(tenant_id: UUID, slug: Optional[str] = None) -> None:
+def set_tenant(tenant_id: UUID, slug: str | None = None) -> None:
     """Set the current tenant context."""
     _tenant_id.set(tenant_id)
     _tenant_slug.set(slug)
@@ -54,7 +53,7 @@ def set_user(user_id: UUID) -> None:
     _user_id.set(user_id)
 
 
-def set_request_id(request_id: Optional[str] = None) -> str:
+def set_request_id(request_id: str | None = None) -> str:
     """Set (or generate) a request ID. Returns the ID used."""
     rid = request_id or str(uuid.uuid4())
     _request_id.set(rid)
@@ -73,13 +72,13 @@ def clear_context() -> None:
 # Legacy aliases
 # ---------------------------------------------------------------------------
 
-def get_current_tenant_id() -> Optional[int]:
+def get_current_tenant_id() -> int | None:
     """Legacy: return tenant_id as int (or None)."""
     tid = _tenant_id.get()
     return int(tid) if tid is not None else None
 
 
-def set_current_tenant_id(tenant_id: Optional[int]) -> None:
+def set_current_tenant_id(tenant_id: int | None) -> None:
     """Legacy: set tenant_id from int."""
     _tenant_id.set(UUID(int=tenant_id) if tenant_id is not None else None)
 
@@ -87,12 +86,12 @@ def set_current_tenant_id(tenant_id: Optional[int]) -> None:
 class TenantContext:
     """Context manager for scoping a block to a specific tenant."""
 
-    def __init__(self, tenant_id: UUID, slug: Optional[str] = None) -> None:
+    def __init__(self, tenant_id: UUID, slug: str | None = None) -> None:
         self._tenant_id = tenant_id
         self._slug = slug
-        self._prev: Optional[RequestContext] = None
+        self._prev: RequestContext | None = None
 
-    def __enter__(self) -> "TenantContext":
+    def __enter__(self) -> TenantContext:
         self._prev = get_context()
         set_tenant(self._tenant_id, self._slug)
         return self

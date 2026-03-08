@@ -2,8 +2,9 @@
 Tests for Organization model and TenantModel.
 """
 import pytest
-from django_tenancy.models import Organization, TenantModel
 from django.db import models
+
+from django_tenancy.models import Organization, TenantModel
 
 
 @pytest.mark.django_db
