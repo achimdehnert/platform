@@ -1,0 +1,27 @@
+{% extends 'base.html' %}
+{% block title %}Module & Funktionen{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+  <div>
+    <h2 class="fw-bold mb-0">Module & Funktionen</h2>
+    <p class="text-muted small mb-0">Aktiviere oder deaktiviere Funktionen für dein Team</p>
+  </div>
+</div>
+
+{% for category in categories %}
+<div class="mb-5">
+  <h5 class="text-uppercase fw-semibold mb-3" style="color:#a5b4fc;font-size:.8rem;letter-spacing:.05em">
+    <i class="bi bi-grid me-2"></i>{{ category|capfirst }}
+  </h5>
+  <div class="row g-3">
+    {% for code, module in catalogue.items %}
+    {% if module.category == category %}
+    <div class="col-md-6 col-lg-4" id="module-card-{{ module.code }}">
+      {% include 'django_module_shop/partials/module_card.html' with module=module active_modules=active_modules organization=organization %}
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+</div>
+{% endfor %}
+{% endblock %}
