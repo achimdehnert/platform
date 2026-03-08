@@ -196,7 +196,7 @@ class DeploymentLog(models.Model):
             models.UniqueConstraint(
                 fields=["tenant_id", "service_name"],
                 condition=models.Q(
-                    status__in=[s.value for s in DeploymentLog._ACTIVE_STATUSES]
+                    status__in=["pending", "pre_check", "deploying"]
                 ),
                 name="unique_active_deployment_per_service",
             ),

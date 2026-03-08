@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import uuid
 
-import django.db.models.deletion
 from django.db import migrations, models
 
 
