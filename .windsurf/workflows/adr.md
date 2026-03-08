@@ -31,14 +31,14 @@ Before creating an ADR, check if the topic is truly an **Architecture Decision**
 ### Response if NOT an ADR
 
 ```text
-🤔 Das klingt nicht nach einem ADR
+Das klingt nicht nach einem ADR
 
 Thema: "[User's topic]"
 
-❌ Warum kein ADR?
+Warum kein ADR?
    → [Reason]
 
-✅ Bessere Alternativen:
+Bessere Alternativen:
    1. Workflow erstellen
    2. Dokumentation
    3. Oder meinst du eine Architektur-Entscheidung?
@@ -65,13 +65,13 @@ Analyze the topic using these keywords:
 ## Step 2: Show Scope Suggestion
 
 ```text
-📋 ADR-Vorschlag
+ADR-Vorschlag
 
 Thema: "[User's topic]"
 
-🎯 Scope-Erkennung:
+Scope-Erkennung:
    → [scope] ([range])
-   
+
    Begründung: [Why this scope was chosen]
 
 Nächste Nummer: ADR-[NNN]
@@ -82,35 +82,52 @@ Scope korrekt? [Ja/Nein]
 
 ## Step 3: Nächste ADR-Nummer ermitteln (PFLICHT — nie aus Gedächtnis!)
 
-**KRITISCH**: Die nächste Nummer IMMER durch das ADR Number Guard Script ermitteln.
-Niemals raten, niemals aus dem Gedächtnis nehmen, niemals manuell zählen.
+> **ACHTUNG**: Dieser Schritt ist der häufigste Fehlerort. ADR-107 entstand durch
+> falschen Algorithmus. Die einzige korrekte Quelle ist das Script.
 
-### 3.1 Pflicht-Aufruf: adr_next_number.py (primär)
+### 3.1 Pflicht-Aufruf: adr_next_number.py (EINZIGE erlaubte Methode)
 
 ```bash
-python3 scripts/adr_next_number.py --repo platform
+python3 scripts/adr_next_number.py
 ```
 
-Ausgabe: `ADR-NNN` — diese Nummer verwenden. Fertig.
+Ausgabe: `ADR-NNN` — diese Nummer direkt verwenden. Keine weitere Prüfung nötig.
 
 **Vor dem Erstellen zusätzlich Konflikt-Check:**
 ```bash
 python3 scripts/adr_next_number.py --check
 ```
-→ Gibt es Konflikte: erst `python3 scripts/adr_audit.py --fix-hints` ausführen und
-  Konflikte beheben, bevor das neue ADR erstellt wird.
+→ Gibt es Konflikte: erst Konflikte beheben, dann erst neue ADR erstellen.
 
-### 3.2 Fallback: find_by_name (nur wenn Script nicht ausführbar)
+### 3.2 Fallback: VERBOTEN
 
-Verwende `find_by_name` auf `docs/adr/` mit Pattern `ADR-*.md` und MaxDepth 1.
-Extrahiere alle vorhandenen Nummern. Nächste freie = höchste + 1, aber:
-**Kollisionsprüfung**: Existiert `docs/adr/ADR-NNN-*.md` bereits? → +1 wiederholen.
+> **NIEMALS** `find_by_name` oder manuelle Zählung als Fallback verwenden.
+>
+> Root Cause von ADR-107 (Nummerierungsfehler 2026-03-08):
+> `find_by_name` mit unvollständigem Pattern lieferte nur einen Teil der Dateien.
+> Manuelles Auswerten des "Maximum" übersah bereits belegte Nummern.
+>
+> Wenn `python3 scripts/adr_next_number.py` nicht ausführbar ist:
+> **STOPPEN** und den Fehler beheben, bevor eine ADR-Nummer vergeben wird.
+> Fehlerursachen: falsches CWD, Python nicht verfügbar, Script fehlt.
+
+Wenn das Script fehlt — prüfen:
+```bash
+# Script vorhanden?
+ls scripts/adr_next_number.py
+
+# Script ausführbar machen falls nötig
+chmod +x scripts/adr_next_number.py
+
+# Direkte Python-Ausführung
+python3 scripts/adr_next_number.py
+```
 
 ### 3.3 Nummernbereich-Konzept (AUFGEGEBEN ab ADR-059)
 
 Das ursprüngliche Bereichskonzept (platform: 001-049, bfagent: 050-099 etc.) wird
 **nicht mehr durchgesetzt**. Alle neuen ADRs erhalten die nächste freie Globalnummer.
-Historische Nummern bleiben unverändert.
+Historische Nummern bleiben unverändert. Das Script implementiert dies korrekt.
 
 ### 3.4 INDEX.md sofort aktualisieren
 
@@ -119,7 +136,7 @@ Datum "Letzte Aktualisierung" aktualisieren.
 
 ## Step 4: Create ADR File
 
-After number is confirmed via filesystem scan:
+After number is confirmed via Script:
 
 1. Create file `docs/adr/ADR-NNN-[title-slug].md`
 2. Use TEMPLATE structure below
@@ -129,7 +146,7 @@ After number is confirmed via filesystem scan:
 
 ```markdown
 | Attribut       | Wert                        |
-|----------------|-----------------------------|
+|----------------|------------------------------|
 | **Status**     | Proposed                    |
 | **Scope**      | [scope aus Step 1]          |
 | **Repo**       | [repo aus Step 1]           |
@@ -176,16 +193,16 @@ Nach dem Erstellen der ADR-Datei **immer** `docs/adr/INDEX.md` aktualisieren:
 After ADR is created and INDEX.md updated, show:
 
 ```text
-📋 ADR-[NNN] erstellt: [Title]
-📋 INDEX.md aktualisiert
+ADR-[NNN] erstellt: [Title]
+INDEX.md aktualisiert
 
 Status: Proposed → Review erforderlich
 Repo: [repo]
 
 Nächste Schritte:
-1. 👀 Review: "Review ADR-[NNN]" (AI + Team)
-2. ✅ Approval: Status → Accepted  (dann INDEX.md + ADR-Datei + Changelog aktualisieren)
-3. 🚀 Implementation: Gemäß Implementation Plan
+1. Review: "Review ADR-[NNN]" (AI + Team)
+2. Approval: Status → Accepted  (dann INDEX.md + ADR-Datei + Changelog aktualisieren)
+3. Implementation: Gemäß Implementation Plan
 
 Soll ich das ADR jetzt reviewen? [Ja/Nein]
 ```
@@ -205,27 +222,27 @@ Review the ADR against these criteria:
 Output format:
 
 ```text
-## 🔍 ADR Review: ADR-[NNN]
+ADR Review: ADR-[NNN]
 
-### ✅ Stärken
+Stärken
 - [Positive points]
 
-### ⚠️ Verbesserungsvorschläge
+Verbesserungsvorschläge
 - [Suggestions]
 
-### ❌ Kritische Punkte (falls vorhanden)
+Kritische Punkte (falls vorhanden)
 - [Critical issues that must be addressed]
 
-### 📊 Bewertung
+Bewertung
 | Kriterium | Score |
 |-----------|-------|
-| Vollständigkeit | ⭐⭐⭐⭐☆ |
-| Klarheit | ⭐⭐⭐⭐⭐ |
-| Begründung | ⭐⭐⭐⭐☆ |
-| Umsetzbarkeit | ⭐⭐⭐☆☆ |
-| Konsistenz | ⭐⭐⭐⭐⭐ |
+| Vollständigkeit | 4/5 |
+| Klarheit | 5/5 |
+| Begründung | 4/5 |
+| Umsetzbarkeit | 3/5 |
+| Konsistenz | 5/5 |
 
-### 🎯 Empfehlung
+Empfehlung
 [Accept / Accept with changes / Reject]
 ```
 
@@ -253,7 +270,7 @@ In `docs/adr/INDEX.md`:
 ### 7.3 Ausgabe nach Status-Wechsel
 
 ```text
-✅ ADR-[NNN] Status aktualisiert: [Alt] → [Neu]
+ADR-[NNN] Status aktualisiert: [Alt] → [Neu]
 
 Geändert in:
 - docs/adr/ADR-[NNN]-[slug].md  (Status-Feld + Changelog)
@@ -263,9 +280,9 @@ Geändert in:
 ### Gültige Status-Übergänge
 
 ```
-Proposed ──▶ Accepted     (nach positivem Review)
-Proposed ──▶ Draft        (nach Review mit Änderungsbedarf)
-Draft    ──▶ Proposed     (nach Überarbeitung)
-Accepted ──▶ Deprecated   (veraltet, kein direkter Nachfolger)
-Accepted ──▶ Superseded   (abgelöst durch ADR-NNN)
+Proposed --> Accepted     (nach positivem Review)
+Proposed --> Draft        (nach Review mit Änderungsbedarf)
+Draft    --> Proposed     (nach Überarbeitung)
+Accepted --> Deprecated   (veraltet, kein direkter Nachfolger)
+Accepted --> Superseded   (abgelöst durch ADR-NNN)
 ```
