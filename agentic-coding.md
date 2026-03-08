@@ -1,278 +1,226 @@
 ---
-description: Fully Agentic Coding — Task definieren, planen, routen, ausführen, bewerten (v2)
+description: Fully Agentic Coding — Task definieren, planen, routen, ausführen, bewerten (v3)
 ---
 
-# Agentic Coding Workflow v2
+# Agentic Coding Workflow v3
 
-Operationalisiert ADR-066 (AI Engineering Squad) + ADR-068 (Adaptive Model Routing)
-+ ADR-080 (Multi-Agent Coding Team Pattern — Handoff, Parallelisierung, Rollback).
-
----
-
-## Voraussetzungen
-
-- `agent_team_config.yaml` im Repo vorhanden und aktuell
-- GitHub Issue für den Task existiert (ADR-067: Issues als Single Source of Truth)
-- Betroffene ADRs sind bekannt
+Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108.
+**v3**: Vollständig auf verfügbare MCP-Tools umgestellt — kein Pseudo-Code mehr.
 
 ---
 
-## Step 0: Governance Check (immer — Gate 0)
+## Übersicht: Der vollständige Loop
 
-Vor jedem nicht-trivialen Task (complexity >= moderate):
-
-```bash
-# /governance-check aufrufen
-# Prüft: ADR-Compliance, Platform-Patterns, bekannte Anti-Patterns
+```
+Step 0: Governance Check       → mcp12_get_context_for_task
+Step 1: Task definieren        → analyze_task + agent_plan_task
+Step 2: Kostenschätzung        → get_cost_estimate
+Step 3: Implementieren         → Developer (Gate 1)
+Step 4: Guardian-Check         → ruff + bandit (Gate 0)
+Step 5: Verifikation           → verify_task  ← NEU (ADR-108)
+Step 6: QA Score               → evaluate_task ← NEU (ADR-108)
+Step 7: PR + Commit
+Step 8: AuditStore + Issue
 ```
 
-**Blockiert bei ADR-Verletzung.** Kein Weiter ohne grünen Governance-Check.
+Bei Fail in Step 5/6 → Rollback-Pfad, zurück zu Step 3.
 
 ---
 
-## Step 1: Task-Template ausfüllen
+## Step 0: Governance Check (immer bei complexity >= moderate)
 
-Kopiere `.windsurf/templates/ai-task.yaml` und fülle alle Pflichtfelder aus:
-
-```bash
-cp .windsurf/templates/ai-task.yaml /tmp/task-$(date +%s).yaml
+```
+MCP: mcp12_get_context_for_task(repo, file_type)
+MCP: mcp12_check_violations(code_snippet)
+MCP: mcp12_get_banned_patterns(context)
 ```
 
-Pflichtfelder:
-- `title` — kurze imperative Beschreibung
-- `type` — feature | bugfix | refactor | test | adr | review | infra
-- `complexity` — trivial | simple | moderate | complex | architectural
-- `risk_level` — low | medium | high | critical
-- `github_issue` — verlinktes Issue (z.B. `achimdehnert/platform#4`)
-- `acceptance_criteria` — mindestens 1 maschinenprüfbares Kriterium
-- `affected_paths` — betroffene Dateien/Verzeichnisse
+**Blockiert bei ADR-Verletzung.** Kein Weiter ohne grünen Check.
 
 ---
 
-## Step 2: Planner (ADR-080 — nur bei complexity >= complex)
+## Step 1: Task analysieren + planen
 
-Bei einfachen Tasks diesen Schritt überspringen → direkt zu Step 3.
+```
+MCP: analyze_task(description)
+→ liefert: task_type, complexity, recommended_role, gate_level, model_recommendation
 
-```python
-from orchestrator_mcp.agent_team.planner import Planner
-
-planner = Planner()
-task_graph = planner.decompose(task)
-# task_graph.branches: Liste von Sub-Tasks
-# task_graph.dependencies: Welche Branches parallel laufen können
-print(task_graph.summary())
+MCP: agent_plan_task(description, task_type, complexity)
+→ liefert: branches[], estimated_steps, assigned_role, gate_level
 ```
 
-**Ergebnis:** `TaskGraph` mit 1–3 Branches. Unabhängige Branches (disjunkte
-`affected_paths`) laufen in Step 4 parallel.
+Rollen-Zuweisung nach Gate:
 
----
-
-## Step 3: TaskRouter aufrufen (ADR-068)
-
-Der Router analysiert das Task-Template und empfiehlt einen Modell-Tier pro Branch.
-
-```python
-from orchestrator_mcp.agent_team.router import TaskRouter
-
-router = TaskRouter()
-decision = router.route(
-    task_id="t-001",
-    complexity=TaskComplexity.MODERATE,
-    risk_level=RiskLevel.MEDIUM,
-    requires_planning=True,
-)
-print(decision.recommended_tier, decision.confidence, decision.reason)
-```
-
-Routing-Matrix:
-- `trivial/low`    → `lean_local`
-- `simple/medium`  → `budget_cloud`
-- `moderate`       → `standard_coding`
-- `complex/high`   → `standard_coding` oder `high_reasoning`
-- `architectural`  → `high_reasoning`
-
-**Confidence < 0.7 oder risk_level = critical**: Gate 2 — Mensch entscheidet Tier.
-
----
-
-## Step 4: Agent-Rolle + Ausführung (ADR-066 + ADR-080)
-
-### Rollen-Zuweisung
-
-| Task-Typ | Primäre Rolle | Gate |
-|----------|--------------|------|
-| `feature` | Developer → TL Review | Gate 2 |
+| Task-Typ | Rolle | Gate |
+|----------|-------|------|
+| `feature` | Developer | Gate 1 |
 | `bugfix` | Developer | Gate 1 |
-| `refactor` | Re-Engineer → TL Approve | Gate 2 |
-| `test` | Tester → Developer | Gate 1 |
-| `adr` | Tech Lead | Gate 2 |
-| `review` | Tech Lead | Gate 2 |
-| `infra` | Tech Lead | Gate 3 |
+| `test` | Tester | Gate 0 |
+| `refactor` | Re-Engineer | Gate 2 |
+| `adr` / `architecture` | Tech Lead | Gate 2 |
+| `deployment` | Deployment Agent | Gate 2 |
+| `pr_review` | Review Agent | Gate 1 |
 
-### Parallele Ausführung (bei TaskGraph mit Branches)
-
-```python
-from orchestrator_mcp.agent_team.workflows import run_workflow
-
-result = run_workflow(task_graph, router=TaskRouter())
-# Bei mehreren Branches: parallel wenn affected_paths disjunkt
-# Jeder Branch produziert ein AgentHandoff-Objekt
-```
-
-Jeder Agenten-Übergang produziert ein `AgentHandoff` (ADR-080):
-- `artifacts_produced` — erzeugte Dateien/Änderungen
-- `criteria_fulfilled` / `criteria_open` — Acceptance-Criteria-Status
-- `context_summary` — ≤ 500 Zeichen für den nächsten Agenten
-- `blocking_issues` — leer = kein Block, sonst → Rollback-Pfad (Step 4b)
-
-### Step 4b: Rollback-Pfad (ADR-080)
-
-Bei `blocking_issues` oder `quality_score < 0.70`:
-
-```
-Level 1: Re-Engineer (automatisch, Gate 0) — max. 1 Retry
-Level 2: Tech Lead Review (Gate 2) — Architektur-Entscheidung
-Level 3: Human-in-the-Loop (Gate 3) — User-Benachrichtigung
-Level 4: Task-Abort (Gate 4) — AuditStore: status=aborted
-```
+Gate 2+ → `mcp11_request_approval` aufrufen, bevor weitergemacht wird.
 
 ---
 
-## Step 5: Merger (ADR-080 — nur bei parallelen Branches)
+## Step 2: Kostenschätzung (optional, empfohlen bei complex+)
 
-```python
-from orchestrator_mcp.agent_team.merger import Merger
-
-merger = Merger()
-merged = merger.merge(task_graph.branches)
-# Merge-Konflikt → Level 2 Rollback (Tech Lead)
+```
+MCP: get_cost_estimate(task_id, model, estimated_tokens)
+→ liefert: cost_usd, budget_status (ok/over), token_budget
 ```
 
-Bei Single-Branch-Tasks diesen Schritt überspringen.
+Modell-Wahl:
+- `trivial/simple` → `gpt_low`
+- `moderate` → `swe`
+- `complex/architectural` → `opus`
+
+Bei `budget_status = over` → complexity herunterstufen oder Task splitten.
 
 ---
 
-## Step 6: Guardian-Check (Gate 0 — immer, nach Merge)
+## Step 3: Implementieren (Developer / Gate 1)
+
+Cascade implementiert den Task.
+
+**Pflicht-Konventionen:**
+- Kein direktes `print()` in Produktion — Logger verwenden
+- Imports immer am Dateianfang
+- Keine Hard-coded Credentials
+- Tests für jede neue Funktion
+- Commit-Message: `type(scope): description\n\nCloses #N\nADR: ADR-XXX`
+
+---
+
+## Step 4: Guardian-Check (Gate 0 — immer nach Implementierung)
 
 ```bash
-# Ruff
+# Ruff (Linter + Formatter)
 ruff check . --fix
 
-# Bandit
+# Bandit (Security)
 bandit -r . -ll
 
-# MyPy (wenn typed)
-mypy . --ignore-missing-imports
+# Tests
+pytest tests/ -q --tb=short
 ```
 
-Guardian-Fail → Level 1 Rollback (Re-Engineer, max. 1 Retry).
-2× Fail → Level 2 (Tech Lead).
+**Bei Fail**: sofort fixen — nicht weitermachen.
 
 ---
 
-## Step 7: Quality Evaluator (ADR-068)
+## Step 5: Verifikation — verify_task (ADR-108, Gate 0)
 
-```python
-from orchestrator_mcp.agent_team.evaluator import QualityEvaluator
-
-evaluator = QualityEvaluator()
-score = evaluator.evaluate(result)
-print(score.composite_score, score.completion_score)
+```
+MCP: verify_task(
+    task_id,
+    criteria=[
+        {"description": "Tests grün", "met": True/False, "blocking": True},
+        {"description": "Ruff clean", "met": True/False, "blocking": True},
+        {"description": "Acceptance Criteria erfüllt", "met": True/False, "blocking": True},
+    ],
+    tests_passed=True/False,
+    lint_passed=True/False,
+    adr_violations=0,
+)
 ```
 
-Quality-Ziele:
-
-| Metrik | Ziel | Bei Unterschreitung |
-|--------|------|---------------------|
-| `completion_score` | ≥ 0.80 | Level 1 Rollback |
-| `guardian_passed` | 100% | Level 1 Rollback |
-| `coverage_delta` | ≥ 0 | Warnung (kein Block) |
-| `iteration_count` | ≤ 2 | Level 2 Rollback |
-| `adr_compliance` | 100% | Level 2 Rollback |
+**Ergebnis:**
+- `is_complete = True` → weiter zu Step 6
+- `is_complete = False` → `next_action` lesen → zurück zu Step 3 (max. 3 Retries)
+- 3× Fail → `mcp11_request_approval` (Gate 2 Escalation)
 
 ---
 
-## Step 8: PR erstellen (ADR-067 + ADR-080)
+## Step 6: QA Score — evaluate_task (ADR-108)
+
+```
+MCP: evaluate_task(
+    task_id,
+    completion_score,     # aus verify_task.score
+    guardian_passed,      # aus Step 4
+    adr_violations,       # aus mcp12_check_violations
+    iterations_used,      # Anzahl Implementierungs-Iterationen
+    tokens_used,          # geschätzt aus Kontext
+    complexity,
+)
+```
+
+**Rollback-Entscheidung:**
+
+| Score | Level | Aktion |
+|-------|-------|--------|
+| ≥ 0.85 | `none` | Ship it → Step 7 |
+| 0.70–0.84 | `soft` | Retry mit Feedback → Step 3 |
+| 0.50–0.69 | `hard` | Revert, neu planen → Step 1 |
+| < 0.50 | `escalate` | `mcp11_request_approval` Gate 2 |
+
+---
+
+## Step 7: Commit + PR
 
 ```bash
-git checkout -b ai/{agent-role}/{task-id}
-
-git commit -m "feat(scope): description
+git checkout -b ai/{role}/{task-id}
+git add .
+git commit -m "type(scope): description
 
 Closes #{issue-number}
-ADR: ADR-066, ADR-068, ADR-080
-Task: {task-id}"
+ADR: ADR-066, ADR-068, ADR-080, ADR-107, ADR-108
+Task: {task-id}
+QA: composite={score} rollback=none"
 ```
 
-**PR-Body wird aus `AgentHandoff.context_summary` + Quality-Score automatisch generiert:**
+PR-Body enthält:
+- Acceptance Criteria (✅ / ⬜)
+- QA Score + Rollback-Level
+- ADR-Referenzen
 
-```markdown
-## Agent Handoff Summary
-{handoff.context_summary}
+---
 
-## Acceptance Criteria
-✅ {criteria_fulfilled}
-⬜ {criteria_open}
+## Step 8: AuditStore + GitHub Issue Update (ADR-068)
 
-## Quality Score
-- Composite: {score.composite_score}
-- Guardian: ✅ / ❌
-- Coverage Delta: {delta}
-- Iterations: {count}
-- ADR Compliance: ✅ / ❌
+```
+MCP: mcp11_log_action(task_id, action, status, details)
+MCP: mcp8_add_issue_comment(owner, repo, issue_number, body)
+```
+
+Issue-Kommentar enthält: QA Score, verify_task Ergebnis, Cost-Estimate, Rollback-Level.
+
+---
+
+## Rollback-Pfad
+
+```
+verify_task → is_complete=False
+    │
+    ├─ next_action=fix_tests    → pytest failures beheben → retry Step 4
+    ├─ next_action=fix_lint     → ruff check --fix → retry Step 4
+    ├─ next_action=fix_adr      → platform-context violations beheben → retry Step 4
+    └─ next_action=fix_criteria → Acceptance Criteria offen → retry Step 3
+
+evaluate_task → rollback_level
+    │
+    ├─ soft     → Feedback an Developer → retry Step 3 (max. 1×)
+    ├─ hard     → git revert → neu planen ab Step 1
+    └─ escalate → mcp11_request_approval → Human-in-the-Loop
 ```
 
 ---
 
-## Step 9: AuditStore + GitHub Issue Update (ADR-068)
-
-```python
-from orchestrator_mcp.audit_store import AuditStore
-
-store = AuditStore()
-store.log_quality_score(score)         # Quality-Score
-store.log_handoff(handoff)             # AgentHandoff (ADR-080)
-```
-
-GitHub Issue erhält automatisch Kommentar mit Quality-Score-Summary.
-
----
-
-## Entscheidungsbaum: Wann welcher Tier?
+## Workflow auf einen Blick (v3)
 
 ```
-Task eingehend
-    │
-    ├─ complexity=trivial, risk=low → lean_local
-    │
-    ├─ complexity=simple|moderate, risk=low|medium → budget_cloud
-    │   └─ Score < 0.80 nach 3 Versuchen → upgrade zu standard_coding
-    │
-    ├─ complexity=moderate|complex, risk=medium|high → standard_coding
-    │   └─ Score < 0.80 nach 3 Versuchen → upgrade zu high_reasoning
-    │
-    ├─ complexity=architectural, risk=high|critical → high_reasoning
-    │   └─ Kein automatischer Upgrade — Gate 4 (Human-Only)
-    │
-    └─ risk=critical (immer) → Gate 2: Mensch bestätigt Tier
-```
-
----
-
-## Workflow auf einen Blick (v2)
-
-```
-Step 0: Governance Check        (immer bei complexity >= moderate)
-Step 1: Task-Template           (immer)
-Step 2: Planner / TaskGraph     (nur bei complexity >= complex)
-Step 3: TaskRouter              (immer, pro Branch)
-Step 4: Ausführung + Handoff    (immer) → bei Fail: Rollback L1–L4
-Step 5: Merger                  (nur bei parallelen Branches)
-Step 6: Guardian                (immer) → bei Fail: Rollback L1–L2
-Step 7: Quality Evaluator       (immer) → bei Score < 0.70: Rollback
-Step 8: PR + Handoff-Summary    (immer)
-Step 9: AuditStore + Issue      (immer)
+Step 0: Governance Check    → mcp12_get_context_for_task   (complexity >= moderate)
+Step 1: analyze + plan      → analyze_task, agent_plan_task (immer)
+Step 2: Kostenschätzung     → get_cost_estimate             (complex+)
+Step 3: Implementieren      → Developer Gate 1              (immer)
+Step 4: Guardian            → ruff, bandit, pytest          (immer)
+Step 5: verify_task         → is_complete?                  (immer) ← ADR-108
+Step 6: evaluate_task       → rollback_level?               (immer) ← ADR-108
+Step 7: Commit + PR                                         (immer)
+Step 8: AuditStore + Issue  → log_action, Issue-Kommentar   (immer)
 ```
 
 ---
@@ -283,4 +231,5 @@ Step 9: AuditStore + Issue      (immer)
 - ADR-067: Work Management — Issues, AI-Agent-Protokoll
 - ADR-068: Adaptive Model Routing — Routing-Matrix, Quality Metrics
 - ADR-080: Multi-Agent Coding Team Pattern — Handoff, Parallelisierung, Rollback
-- Template: `.windsurf/templates/ai-task.yaml`
+- ADR-107: Extended Agent Team — Deployment Agent, Review Agent
+- ADR-108: Agent QA Cycle — QualityEvaluator, TaskCompletionChecker, AuditStore
