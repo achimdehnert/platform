@@ -1,6 +1,6 @@
 # ADR-113 — Telegram Gateway + pgvector Memory Store
 
-**Status:** Accepted (v2 — Review-Korrekturen eingearbeitet)
+**Status:** Accepted (v3 — Implementierung abgeschlossen)
 **Datum:** 2026-03-08 | **Revision:** 2026-03-08
 **Autoren:** Cascade Agent Team
 **Review:** Principal IT-Architekt (ADR-113-review-implementation.md)
@@ -252,133 +252,74 @@ Wenn GitHub Actions abgeschlossen:
 
 ---
 
-## Implementierungsplan
+## Implementierungsplan (abgeschlossen)
 
-### Phase 1: pgvector Memory — `orchestrator_mcp/memory/`
+### Phase 1 ✅ pgvector Memory — `orchestrator_mcp/memory/`
 
-**Stack:** SQLAlchemy Core + psycopg3 (kein Django ORM)
+Dateien implementiert in `mcp-hub`:
+- `orchestrator_mcp/memory/__init__.py` — Public API
+- `orchestrator_mcp/memory/schema.py` — SQLAlchemy Table + HNSW Index + FTS Index
+- `orchestrator_mcp/memory/store.py` — upsert() + search() + gc() + content_hash Cache
+- `orchestrator_mcp/memory/embeddings.py` — OpenAI EmbeddingClient (feature-flag driven)
 
-**Dateien in `mcp-hub/orchestrator_mcp/memory/`:**
+### Phase 1b ✅ Migration Script
+
+- `orchestrator_mcp/memory/migrate_from_md.py` — `--dry-run`, idempotent
+
 ```
-orchestrator_mcp/memory/
-├── __init__.py
-├── schema.py       # SQLAlchemy Table + CREATE TABLE + HNSW Index (RunSQL)
-├── store.py        # upsert(), search(), gc() — content_hash Cache eingebaut
-└── embeddings.py   # OpenAI + Ollama EmbeddingClient, embed_batch()
-```
-
-**`store.py` Kernlogik — content_hash Cache + embedding defer:**
-```python
-def upsert(*, entry_key: str, content: str, ...) -> None:
-    new_hash = hashlib.sha256(content.encode()).hexdigest()
-    existing = _get_by_key(entry_key)  # SELECT ohne embedding-Spalte (defer)
-    if existing and existing["content_hash"] == new_hash:
-        return  # Content unverändert — kein API-Call, kein DB-Write
-    embedding = client.embed(content)  # nur wenn nötig
-    _write(entry_key=entry_key, content=content,
-           content_hash=new_hash, embedding=embedding, ...)
-
-def search(*, query: str, ...) -> list[dict]:
-    # SELECT id, title, content, entry_type, tags, final_score
-    # embedding-Spalte (6KB/Entry) wird NICHT geladen — nur für Ähnlichkeits-Berechnung
-    # im WHERE/ORDER BY via pgvector Operator (<=>), nicht im Resultset
-    ...
+python -m orchestrator_mcp.memory.migrate_from_md --file AGENT_MEMORY.md --dry-run
 ```
 
-**Neue `orchestrator_mcp` Tools (in `server.py` v3.3):**
-- `agent_memory_search` — Semantic Search mit Temporal Decay
-- `agent_memory_upsert` — Entry erstellen/aktualisieren (content_hash-gesichert)
-- `agent_memory_context` — Top-K relevante Entries für aktuellen Task
+### Phase 2 ✅ Telegram Bot — `orchestrator_mcp/telegram/`
 
-**`orchestrator_mcp/skills/session_memory.py`** wird umgeschrieben:
-- Schreibt nicht mehr in `AGENT_MEMORY.md`
-- Ruft `store.upsert()` direkt auf (kein REST-Umweg)
-- `AGENT_MEMORY.md` bleibt als Read-only Fallback (`SKILL_MEMORY_BACKEND=markdown`)
+Dateien implementiert:
+- `orchestrator_mcp/telegram/__init__.py` — Entry Point
+- `orchestrator_mcp/telegram/settings.py` — `TelegramSettings` + `list[int]` Validator
+- `orchestrator_mcp/telegram/bot.py` — `_bot_loop` Pattern + `start_bot()` + `stop_bot()`
+- `orchestrator_mcp/telegram/handlers.py` — 8 Commands + Rate-Limiting + Auth
+- `orchestrator_mcp/telegram/dispatcher.py` — GitHub API + tenacity Retry (3×)
 
-### Phase 1b: Migration Script AGENT_MEMORY.md → pgvector
+### Phase 3 ✅ orchestrator_mcp v3.3 + Infra
 
-**`orchestrator_mcp/memory/migrate_from_md.py`** (eigenständiges Python-Script):
+- `server.py` v3.3: `agent_memory_search`, `agent_memory_upsert`, `agent_memory_context`
+- `pyproject.toml` v3.3.0: alle neuen Dependencies
+- `docker-compose.yml`: `pgvector/pgvector:pg16` db + `telegram-bot` Service
+- `orchestrator_mcp/Dockerfile`: python 3.11-slim
+- `.env.example`: alle ADR-113 Vars dokumentiert
+
+### Phase 4: Pending — hetzner-prod Deployment
+
+```bash
+# 1. Env-Vars in .env auf hetzner-prod setzen
+ORCHESTRATOR_MCP_TELEGRAM_BOT_TOKEN=<von @BotFather>
+ORCHESTRATOR_MCP_TELEGRAM_ALLOWED_USER_IDS=<deine Telegram User-ID>
+OPENAI_API_KEY=<bereits vorhanden>
+ORCHESTRATOR_MCP_MEMORY_DB_URL=postgresql+psycopg://...
+
+# 2. Docker Compose starten
+docker compose up -d
+
+# 3. Schema bootstrappen (einmalig)
+docker compose exec telegram-bot python -c "from orchestrator_mcp.memory import init_db; init_db()"
+
+# 4. Migration ausführen
+docker compose exec telegram-bot \
+  python -m orchestrator_mcp.memory.migrate_from_md \
+  --file /path/to/AGENT_MEMORY.md --dry-run
 ```
-Usage: python -m orchestrator_mcp.memory.migrate_from_md \
-    --file AGENT_MEMORY.md --dry-run
-```
-- Liest JSON-Blöcke aus `AGENT_MEMORY.md` (ADR-112 Format)
-- Idempotent: `get_or_create` via `entry_key`
-- Batch-Embedding für Effizienz
-- `--dry-run` Mode ohne DB-Writes
-
-### Phase 2: Telegram Bot — `orchestrator_mcp/telegram/`
-
-**Stack:** `python-telegram-bot>=21`, `pydantic-settings`, `tenacity` für Retry
-
-**Dateien in `mcp-hub/orchestrator_mcp/telegram/`:**
-```
-orchestrator_mcp/telegram/
-├── __init__.py     # python -m orchestrator_mcp.telegram Entry Point
-├── settings.py     # TelegramSettings (pydantic-settings, list[int] für IDs)
-├── bot.py          # Application + threading-safe Loop-Management
-├── handlers.py     # cmd_* mit Rate-Limiting via dict+time.time()
-└── dispatcher.py   # GitHub API Trigger mit tenacity Retry (3 Versuche)
-```
-
-**Docker-Service in `docker-compose.yml`:**
-```yaml
-telegram-bot:
-  build: .
-  command: python -m orchestrator_mcp.telegram
-  restart: unless-stopped
-  environment:
-    - ORCHESTRATOR_MCP_TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
-    - ORCHESTRATOR_MCP_TELEGRAM_ALLOWED_USER_IDS=${TELEGRAM_ALLOWED_USER_IDS}
-    - ORCHESTRATOR_MCP_GITHUB_TOKEN=${GITHUB_TOKEN}
-    - ORCHESTRATOR_MCP_OPENAI_API_KEY=${OPENAI_API_KEY}
-    - ORCHESTRATOR_MCP_MEMORY_DB_URL=${DATABASE_URL}
-  healthcheck:
-    test: ["CMD", "python", "-c",
-           "import httpx; httpx.get('https://api.telegram.org', timeout=5)"]
-    interval: 60s
-    timeout: 10s
-    retries: 3
-    start_period: 30s
-  depends_on:
-    db:
-      condition: service_healthy
-```
-
-### Phase 3: GitHub Actions Response Pipeline
-
-**Ergänzungen in bestehenden Workflows:**
-- `agent-task-dispatch.yml`: Telegram-Notification bei Abschluss
-- `agent-task-issue.yml`: Telegram-Notification bei Gate-Requests
-- `agent-gate-decision.yml`: Telegram-Push wenn `/approve` oder `/reject` via Issue-Kommentar
-
-### Phase 4: orchestrator_mcp v3.3 + Dokumentation
-
-- `server.py` v3.3: `agent_memory_search`, `agent_memory_upsert`, `agent_memory_context` registrieren
-- `AGENT_HANDOVER.md`: Telegram-Befehle dokumentieren
-- `AGENT_MEMORY.md`: Migration via `migrate_from_md.py` ausführen
-- `pyproject.toml`: `python-telegram-bot>=21.0`, `tenacity>=8.0`, `psycopg[binary]>=3.1` ergänzen
 
 ---
 
 ## Technische Dependencies
 
 ```toml
-# orchestrator_mcp/pyproject.toml — dependencies Ergänzungen
+# orchestrator_mcp/pyproject.toml v3.3.0
 "psycopg[binary]>=3.1.0",   # psycopg3 (Upgrade von psycopg2-binary)
 "pgvector>=0.3.0",           # pgvector Python Client (SQL Helper)
 "openai>=1.0.0",             # Embeddings API (text-embedding-3-small)
 "python-telegram-bot>=21.0", # Telegram Bot Framework (async)
 "tenacity>=8.0.0",           # Retry-Logik für GitHub API Calls
 "httpx>=0.27.0",             # Async HTTP für /health Command
-```
-
-**Server-Voraussetzungen:**
-```bash
-# hetzner-prod: pgvector Extension installieren
-sudo apt install postgresql-16-pgvector
-# oder via Docker:
-# image: pgvector/pgvector:pg16
 ```
 
 ---
@@ -409,12 +350,12 @@ sudo apt install postgresql-16-pgvector
 ## Rollback-Plan
 
 1. `AGENT_MEMORY.md` bleibt als Fallback — Migration-Script ist reversibel
-2. Telegram Bot: `docker stop telegram-bot` — alle anderen Services unberührt
+2. Telegram Bot: `docker compose stop telegram-bot` — alle anderen Services unberührt
 3. pgvector Queries: Feature-Flag `SKILL_MEMORY_BACKEND=markdown|pgvector` (default: `pgvector`)
 
 ---
 
-## Entschiedene Fragen (waren offen in v1)
+## Entschiedene Fragen (alle geschlossen)
 
 - ✅ `half_life_days` Defaults per `entry_type`: siehe Tabelle in Komponente 1
 - ✅ Migration: automatisiert via `migrate_from_md.py` (idempotent, `--dry-run`)
@@ -422,11 +363,12 @@ sudo apt install postgresql-16-pgvector
 - ✅ Vektor-Index: HNSW (nicht ivfflat) für <100k Entries
 - ✅ GC-Strategie: Soft-Delete via `is_active=FALSE` (decay_factor < 0.05)
 - ✅ tenant_id: INTEGER DEFAULT 1 im Schema (iilgmbh=1, Multi-Tenant ab Phase 2)
+- ✅ **Embedding-Provider: OpenAI `text-embedding-3-small`** — `OPENAI_API_KEY` vorhanden (aifw)
+- ✅ **Telegram-Zugang: Einzelperson** — `TELEGRAM_ALLOWED_USER_IDS` komma-separiert
 
 ## Offene Fragen
 
-- [ ] Embedding-Provider: OpenAI `text-embedding-3-small` (1536 dims) oder lokales Modell via Ollama auf hetzner-dev (keine API-Kosten)?
-- [ ] Telegram Chat-ID: Einzelperson oder Gruppe mit mehreren autorisierten User-IDs?
+keine — alle Entscheidungen getroffen.
 
 ---
 
