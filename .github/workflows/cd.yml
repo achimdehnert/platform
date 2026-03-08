@@ -1,0 +1,376 @@
+##############################################################################
+# .github/workflows/cd.yml
+#
+# Deployment Agent Workflow per ADR-107
+#
+# Fixes applied (see REVIEW-ADR-107):
+#   C-2: umask 077 + printf for SSH key write (no race condition)
+#   C-3: PostgreSQL service container for migration analysis (no SQLite, no Staging-DB)
+#   M-2: Explicit gate2_approval dependency in deploy job
+#   I-1: Previous image tag saved before pull (Step 0), used in rollback
+##############################################################################
+
+name: "CD — Deployment Agent"
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+  workflow_dispatch:
+    inputs:
+      gate2_approved:
+        description: "Gate-2 manually approved by Tech Lead"
+        required: true
+        type: boolean
+        default: false
+      reason:
+        description: "Reason for manual deployment"
+        required: true
+        type: string
+
+concurrency:
+  group: deployment-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pull-requests: write
+  deployments: write
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Pre-Check: Only deploy if CI passed
+  # ---------------------------------------------------------------------------
+  gate_check:
+    name: "Gate Check"
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success')
+    outputs:
+      should_deploy: ${{ steps.check.outputs.should_deploy }}
+      sha: ${{ steps.check.outputs.sha }}
+    steps:
+      - name: "Determine deployment eligibility"
+        id: check
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "sha=${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.workflow_run.conclusion }}" == "success" ]; then
+            echo "should_deploy=true" >> "$GITHUB_OUTPUT"
+            echo "sha=${{ github.event.workflow_run.head_sha }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_deploy=false" >> "$GITHUB_OUTPUT"
+            echo "CI did not pass — deployment skipped"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Breaking Change Detection
+  # Fix C-3: PostgreSQL service container (no SQLite, no Staging-DB dependency)
+  # ---------------------------------------------------------------------------
+  detect_breaking_changes:
+    name: "Detect Breaking Schema Changes"
+    runs-on: ubuntu-latest
+    needs: gate_check
+    if: needs.gate_check.outputs.should_deploy == 'true'
+    outputs:
+      has_breaking_changes: ${{ steps.detect.outputs.has_breaking_changes }}
+      migration_summary: ${{ steps.detect.outputs.migration_summary }}
+      gate2_required: ${{ steps.detect.outputs.gate2_required }}
+
+    # Fix C-3: Use a fresh PostgreSQL container — sqlmigrate only needs schema knowledge
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: ci_analysis
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.gate_check.outputs.sha }}
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: "Install dependencies"
+        run: |
+          set -euo pipefail
+          pip install -r requirements.txt
+
+      - name: "Create schema for sqlmigrate"
+        env:
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_analysis"
+          DJANGO_SETTINGS_MODULE: "config.settings.ci"
+        run: |
+          set -euo pipefail
+          python manage.py migrate --run-syncdb --noinput
+
+      - name: "Analyse pending migrations"
+        id: detect
+        env:
+          DATABASE_URL: "postgresql://ci:ci@localhost:5432/ci_analysis"
+          DJANGO_SETTINGS_MODULE: "config.settings.ci"
+        run: |
+          set -euo pipefail
+          python - << 'EOF'
+          import os
+          import sys
+          sys.path.insert(0, ".")
+
+          import django
+          django.setup()
+
+          from orchestrator_mcp.agent_team.breaking_change_detector import (
+              analyse_all_pending_migrations,
+              get_deployment_gate_level,
+          )
+
+          analyses = analyse_all_pending_migrations()
+          gate_level, auto_eligible, reason = get_deployment_gate_level(analyses)
+          has_breaking = any(a.has_breaking_changes for a in analyses)
+
+          print(f"Pending migrations: {len(analyses)}")
+          print(f"Breaking changes: {has_breaking}")
+          print(f"Auto-eligible: {auto_eligible}")
+          print(f"Gate reason: {reason}")
+
+          with open(os.environ["GITHUB_OUTPUT"], "a") as f:
+              f.write(f"has_breaking_changes={str(has_breaking).lower()}\n")
+              f.write(f"migration_summary={reason}\n")
+              f.write(f"gate2_required={str(not auto_eligible).lower()}\n")
+
+          summary = "\n".join(a.summary() for a in analyses) if analyses else "No pending migrations"
+          print(f"\nSummary:\n{summary}")
+          EOF
+
+  # ---------------------------------------------------------------------------
+  # Gate-2 Approval (only when breaking changes detected)
+  # ---------------------------------------------------------------------------
+  gate2_approval:
+    name: "Gate-2 Approval (Breaking Changes)"
+    runs-on: ubuntu-latest
+    needs: [gate_check, detect_breaking_changes]
+    if: |
+      needs.detect_breaking_changes.outputs.gate2_required == 'true' &&
+      github.event.inputs.gate2_approved != 'true'
+    environment:
+      name: production-gate2
+    steps:
+      - name: "Await Gate-2 Approval"
+        run: |
+          set -euo pipefail
+          echo "Breaking schema changes detected. Awaiting Gate-2 approval."
+          echo "Migration summary: ${{ needs.detect_breaking_changes.outputs.migration_summary }}"
+
+  # ---------------------------------------------------------------------------
+  # Deployment
+  # Fix M-2: Explicit gate2_approval dependency — result must be success or skipped
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: "Deploy — Deployment Agent"
+    runs-on: ubuntu-latest
+    needs: [gate_check, detect_breaking_changes, gate2_approval]
+    # Fix M-2: explicit gate2_approval result check
+    if: |
+      always() &&
+      needs.gate_check.outputs.should_deploy == 'true' &&
+      needs.detect_breaking_changes.result == 'success' &&
+      (
+        needs.gate2_approval.result == 'success' ||
+        needs.gate2_approval.result == 'skipped'
+      )
+    environment:
+      name: production
+    steps:
+      # Fix C-2: umask 077 before key write — no race condition, no world-readable key
+      - name: "Setup SSH"
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.DEPLOY_SSH_PRIVATE_KEY }}" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          cat >> ~/.ssh/config << 'SSHEOF'
+          Host ${{ secrets.HETZNER_HOST }}
+            User deploy
+            IdentityFile ~/.ssh/deploy_key
+            StrictHostKeyChecking accept-new
+            ServerAliveInterval 30
+            ConnectTimeout 15
+          SSHEOF
+
+      # Fix I-1: Save current image tag BEFORE pull — used for deterministic rollback
+      - name: "Step 0 — Save current image tag for rollback"
+        id: save_tag
+        run: |
+          set -euo pipefail
+          PREV_TAG=$(ssh ${{ secrets.HETZNER_HOST }} \
+            "docker inspect ${{ vars.SERVICE_NAME }} \
+             --format '{{index .Config.Image}}' 2>/dev/null || echo ''")
+          echo "previous_tag=${PREV_TAG}" >> "$GITHUB_OUTPUT"
+          echo "Saved previous tag: ${PREV_TAG}"
+
+      - name: "Step 1 — Pull new image"
+        run: |
+          set -euo pipefail
+          ssh ${{ secrets.HETZNER_HOST }} << 'ENDSSH'
+          set -euo pipefail
+          cd /opt/app
+          docker compose -f docker-compose.prod.yml pull ${{ vars.SERVICE_NAME }}
+          ENDSSH
+
+      - name: "Step 2 — Check for pending migrations"
+        id: migration_check
+        run: |
+          set -euo pipefail
+          HAS_PENDING=$(ssh ${{ secrets.HETZNER_HOST }} << 'ENDSSH'
+          set -euo pipefail
+          cd /opt/app
+          python manage.py migrate --check 2>&1 && echo "false" || echo "true"
+          ENDSSH
+          )
+          echo "has_pending=${HAS_PENDING}" >> "$GITHUB_OUTPUT"
+
+      - name: "Step 3 — Apply migrations (with timeout guard)"
+        if: steps.migration_check.outputs.has_pending == 'true'
+        run: |
+          set -euo pipefail
+          ssh ${{ secrets.HETZNER_HOST }} << 'ENDSSH'
+          set -euo pipefail
+          cd /opt/app
+          timeout 300 python manage.py migrate --noinput
+          ENDSSH
+
+      - name: "Step 4 — Recreate container"
+        id: container_recreate
+        run: |
+          set -euo pipefail
+          ssh ${{ secrets.HETZNER_HOST }} << 'ENDSSH'
+          set -euo pipefail
+          cd /opt/app
+          docker compose -f docker-compose.prod.yml up -d \
+            --no-deps \
+            --force-recreate \
+            ${{ vars.SERVICE_NAME }}
+          ENDSSH
+
+      - name: "Step 5 — Health check"
+        id: health_check
+        run: |
+          set -euo pipefail
+          for i in 1 2 3; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+              "https://${{ vars.APP_HOST }}/health/" \
+              --max-time 10 || echo "000")
+            if [ "$STATUS" -eq 200 ]; then
+              echo "Health check passed (attempt $i)"
+              exit 0
+            fi
+            echo "Health check failed (attempt $i, status $STATUS)"
+            sleep 10
+          done
+          echo "Health check failed after 3 attempts"
+          exit 1
+
+      # Fix I-1: Use saved tag from Step 0 — deterministic rollback
+      - name: "Step 6 — Rollback on failure"
+        if: failure() && steps.container_recreate.outcome == 'success'
+        env:
+          PREV_TAG: ${{ steps.save_tag.outputs.previous_tag }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PREV_TAG}" ]; then
+            echo "ERROR: No previous image tag saved — manual intervention required"
+            exit 1
+          fi
+          echo "Deployment failed. Rolling back to ${PREV_TAG}"
+          ssh ${{ secrets.HETZNER_HOST }} << ENDSSH
+          set -euo pipefail
+          cd /opt/app
+          sed -i "s|image:.*${{ vars.SERVICE_NAME }}.*|image: ${PREV_TAG}|" docker-compose.prod.yml
+          docker compose -f docker-compose.prod.yml up -d \
+            --no-deps \
+            --force-recreate \
+            ${{ vars.SERVICE_NAME }}
+          echo "Rollback to ${PREV_TAG} complete"
+          ENDSSH
+
+      - name: "Step 7 — Write AuditStore deployment log"
+        if: always()
+        env:
+          DEPLOYMENT_STATUS: ${{ job.status }}
+          GIT_SHA: ${{ needs.gate_check.outputs.sha }}
+          IMAGE_TAG: ${{ github.sha }}
+          SERVICE_NAME: ${{ vars.SERVICE_NAME }}
+          HAD_MIGRATIONS: ${{ steps.migration_check.outputs.has_pending }}
+          HAD_BREAKING: ${{ needs.detect_breaking_changes.outputs.has_breaking_changes }}
+          AUDIT_API_URL: ${{ secrets.AUDIT_API_URL }}
+        run: |
+          set -euo pipefail
+          curl -s -X POST "${AUDIT_API_URL}/api/deployment-logs/" \
+            -H "Authorization: Token ${{ secrets.AUDIT_API_TOKEN }}" \
+            -H "Content-Type: application/json" \
+            -d "{
+              \"repository\": \"${{ github.repository }}\",
+              \"service_name\": \"${SERVICE_NAME}\",
+              \"image_tag\": \"${IMAGE_TAG}\",
+              \"git_sha\": \"${GIT_SHA}\",
+              \"git_branch\": \"main\",
+              \"triggered_by\": \"${{ github.actor }}\",
+              \"trigger\": \"git_push_main\",
+              \"status\": \"${DEPLOYMENT_STATUS}\",
+              \"had_pending_migrations\": ${HAD_MIGRATIONS:-false},
+              \"had_breaking_migrations\": ${HAD_BREAKING:-false}
+            }"
+
+      - name: "Comment deployment status on PR"
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}';
+            const emoji = status === 'success' ? '✅' : '❌';
+            const sha = '${{ needs.gate_check.outputs.sha }}';
+            const prevTag = '${{ steps.save_tag.outputs.previous_tag }}';
+            const rolledBack = '${{ steps.container_recreate.outcome }}' === 'success' && status !== 'success';
+            const body = [
+              `${emoji} **Deployment Agent** \u2014 \`${status}\``,
+              ``,
+              `SHA: \`${sha.substring(0, 7)}\``,
+              `Service: \`${{ vars.SERVICE_NAME }}\``,
+              `Migrations applied: ${{ steps.migration_check.outputs.has_pending }}`,
+              rolledBack ? `\u26a0\ufe0f Rolled back to: \`${prevTag}\`` : '',
+            ].filter(Boolean).join('\n');
+
+            const prs = await github.rest.repos.listPullRequestsAssociatedWithCommit({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              commit_sha: sha,
+            });
+
+            for (const pr of prs.data) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body,
+              });
+            }
