@@ -35,6 +35,8 @@ class AgentRole(str, Enum):
     REVIEW = "review"
     RE_ENGINEER = "re_engineer"
     GUARDIAN = "guardian"
+    PLANNER = "planner"              # ADR-116: Task-Planung
+    SECURITY_AUDITOR = "security_auditor"  # ADR-116 UC-SE-5: Security Audit
 
 
 class GateLevel(int, Enum):
@@ -611,6 +613,19 @@ ROLE_REGISTRY: dict[AgentRole, AgentRoleProtocol] = {
         role=AgentRole.GUARDIAN,
         gate_level=GateLevel.ZERO,
         description="Ruff, Bandit, MyPy, ADR-Compliance — regelbasiert, vollautomatisch.",
+    ),
+    AgentRole.PLANNER: BaseAgentRole(
+        role=AgentRole.PLANNER,
+        gate_level=GateLevel.ONE,
+        description="Task-Zerlegung, Abhängigkeitsanalyse, Sprint-Planung (ADR-116).",
+    ),
+    AgentRole.SECURITY_AUDITOR: BaseAgentRole(
+        role=AgentRole.SECURITY_AUDITOR,
+        gate_level=GateLevel.ONE,
+        description=(
+            "CVE-Analyse, Dependency-Audit, SBOM. "
+            "Niemals Budget-Downgrade (ADR-116 UC-SE-5)."
+        ),
     ),
 }
 
