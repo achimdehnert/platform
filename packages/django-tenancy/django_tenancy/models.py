@@ -1,7 +1,7 @@
 """
 django_tenancy/models.py
 
-Organization (Tenant entity) and TenantModel (abstract base).
+Organization (Tenant entity), Membership, and TenantModel (abstract base).
 
 Platform standards (ADR-109):
   - BigAutoField PK
@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import uuid
 
+from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -82,6 +83,64 @@ class Organization(models.Model):
     @property
     def effective_subdomain(self) -> str:
         return self.subdomain or self.slug
+
+
+class Membership(models.Model):
+    """
+    Links a User to an Organization with a role.
+
+    One user can have at most one Membership per Organization.
+    """
+
+    class Role(models.TextChoices):
+        ADMIN = "admin", _("Admin")
+        MANAGER = "manager", _("Manager")
+        MEMBER = "member", _("Member")
+        VIEWER = "viewer", _("Viewer")
+
+    id = models.BigAutoField(primary_key=True)
+    organization = models.ForeignKey(
+        Organization,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+        verbose_name=_("Organization"),
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="memberships",
+        verbose_name=_("User"),
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=Role.choices,
+        default=Role.MEMBER,
+        verbose_name=_("Role"),
+    )
+    tenant_id = models.BigIntegerField(
+        db_index=True,
+        verbose_name=_("Tenant ID"),
+        help_text=_("Denormalized from organization.id for fast filtering"),
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name=_("Created At"))
+    updated_at = models.DateTimeField(auto_now=True, verbose_name=_("Updated At"))
+
+    class Meta:
+        app_label = "django_tenancy"
+        verbose_name = _("Membership")
+        verbose_name_plural = _("Memberships")
+        constraints = [
+            models.UniqueConstraint(
+                fields=["organization", "user"],
+                name="unique_membership_org_user",
+            ),
+        ]
+        indexes = [
+            models.Index(fields=["tenant_id", "user"], name="idx_membership_tenant_user"),
+        ]
+
+    def __str__(self) -> str:
+        return f"{self.user} @ {self.organization} ({self.role})"
 
 
 class TenantModel(models.Model):
