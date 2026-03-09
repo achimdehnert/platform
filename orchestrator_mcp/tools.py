@@ -8,6 +8,8 @@ to include Deployment Agent, Review Agent, and role routing.
 
 Phase 5 (ADR-108): QA cycle tools added.
 
+Phase 6: get_infra_context + get_payment_context added.
+
 Tools exposed via orchestrator_mcp MCP server:
   - agent_team_status   : current agent team configuration + active roles
   - agent_plan_task     : decompose task into sub-tasks and assign to roles
@@ -17,6 +19,8 @@ Tools exposed via orchestrator_mcp MCP server:
   - get_cost_estimate   : token cost estimate per model (ADR-108)
   - evaluate_task       : compute QualityScore + rollback decision (ADR-108)
   - verify_task         : run tests/lint + check acceptance criteria (ADR-108)
+  - get_infra_context   : full infra context (Hetzner, Cloudflare, deploy targets)
+  - get_payment_context : Stripe + billing-hub context (ADR-062)
   - log_action          : audit log entry
   - get_audit_log       : retrieve audit log entries
 """
@@ -115,6 +119,7 @@ def _get_routing_summary() -> list[dict[str, str]]:
         {"task_type": "bugfix", "routes_to": AgentRole.DEVELOPER.value, "gate": "1"},
         {"task_type": "test", "routes_to": AgentRole.TESTER.value, "gate": "0"},
         {"task_type": "deployment", "routes_to": AgentRole.DEPLOYMENT.value, "gate": "2"},
+        {"task_type": "payment", "routes_to": AgentRole.PAYMENT.value, "gate": "2"},
         {"task_type": "pr_review", "routes_to": AgentRole.REVIEW.value, "gate": "1"},
         {"task_type": "refactor", "routes_to": AgentRole.RE_ENGINEER.value, "gate": "2"},
         {"task_type": "tech_debt", "routes_to": AgentRole.RE_ENGINEER.value, "gate": "2"},
@@ -137,7 +142,7 @@ def agent_plan_task(
     Args:
         description: Task description in natural language.
         task_type:   One of feature, bugfix, refactor, test, docs, infra,
-                     deployment, pr_review, adr, architecture.
+                     deployment, payment, pr_review, adr, architecture.
         complexity:  One of trivial, simple, moderate, complex, architectural.
 
     Returns:
@@ -176,6 +181,9 @@ def analyze_task(description: str) -> dict[str, Any]:
         complexity = "architectural"
     elif any(kw in description_lower for kw in ("deploy", "deployment", "migrate", "migration")):
         task_type = "deployment"
+        complexity = "moderate"
+    elif any(kw in description_lower for kw in ("stripe", "payment", "billing", "price", "subscription")):
+        task_type = "payment"
         complexity = "moderate"
     elif any(kw in description_lower for kw in ("test", "coverage", "pytest", "fixture")):
         task_type = "test"
@@ -218,7 +226,7 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
     Deployment and destructive operations always require Gate-2.
     """
     DESTRUCTIVE_ACTIONS = {"delete", "drop", "truncate", "rollback", "migrate"}
-    GATE2_COMPONENTS = {"production", "database", "migrations", "ssh", "docker"}
+    GATE2_COMPONENTS = {"production", "database", "migrations", "ssh", "docker", "stripe", "billing"}
 
     action_lower = action.lower()
     component_lower = component.lower()
@@ -243,7 +251,7 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
         "allowed": True,
         "required_gate": GateLevel.ONE.value,
         "reason": f"Action '{action}' on '{component}' is auto-eligible at Gate-1.",
-        "adr_reference": "ADR-107 §4.1",
+        "adr_reference": "ADR-107 \u00a74.1",
     }
 
 
@@ -277,62 +285,52 @@ def get_cost_estimate(
     cascade_tokens: int | None = None,
 ) -> dict[str, Any]:
     """
-    Returns a cost estimate + Cascade vs Agent comparison report.
-
-    No budget enforcement — reporting only.
-
-    Args:
-        task_id:          Identifier for the task.
-        model:            Agent model: 'opus' | 'swe' | 'gpt_low'.
-        estimated_tokens: Agent token count. If omitted, uses complexity budget.
-        complexity:       trivial | simple | moderate | complex | architectural.
-        cascade_tokens:   Actual Cascade token count (if known). Falls back to baseline.
-
-    Returns:
-        Dict with cost_usd, cascade comparison, savings, budget_status.
+    Estimates agent cost and compares to Cascade baseline.
+    Reporting only — no budget enforcement.
     """
-    from orchestrator_mcp.agent_team.evaluator import TOKEN_BUDGETS
+    if model not in _COST_PER_1K:
+        valid = list(_COST_PER_1K.keys())
+        return {"error": f"Unknown model '{model}'. Valid: {valid}"}
 
-    agent_tokens = estimated_tokens or TOKEN_BUDGETS.get(complexity, TOKEN_BUDGETS["moderate"])
-    agent_rate = _COST_PER_1K.get(model, _COST_PER_1K["swe"])
-    agent_cost = round((agent_tokens / 1000) * agent_rate, 4)
+    budget_tokens = _CASCADE_BASELINE.get(complexity, _CASCADE_BASELINE["moderate"])
+    tokens = estimated_tokens or budget_tokens
 
-    # Cascade comparison (always Opus-tier pricing)
-    cascade_tok = cascade_tokens or _CASCADE_BASELINE.get(complexity, _CASCADE_BASELINE["moderate"])
-    cascade_cost = round((cascade_tok / 1000) * _COST_PER_1K["cascade"], 4)
+    agent_cost = (tokens / 1000) * _COST_PER_1K[model]
 
-    savings_usd = round(cascade_cost - agent_cost, 4)
-    savings_pct = round((savings_usd / cascade_cost) * 100, 1) if cascade_cost > 0 else 0.0
+    cascade_tk = cascade_tokens or budget_tokens
+    cascade_cost = (cascade_tk / 1000) * _COST_PER_1K["cascade"]
 
-    budget = TOKEN_BUDGETS.get(complexity, TOKEN_BUDGETS["moderate"])
+    savings = cascade_cost - agent_cost
+    savings_pct = (savings / cascade_cost * 100) if cascade_cost > 0 else 0.0
+
+    if savings_pct > 50:
+        verdict = f"Agent {savings_pct:.0f}% cheaper than Cascade"
+    elif savings_pct > 0:
+        verdict = f"Agent {savings_pct:.0f}% cheaper than Cascade (marginal)"
+    else:
+        verdict = "Agent not cheaper than Cascade for this task"
 
     return {
         "task_id": task_id,
+        "model": model,
         "complexity": complexity,
         "agent": {
-            "model": model,
-            "tokens": agent_tokens,
-            "cost_usd": agent_cost,
-            "token_budget": budget,
-            "budget_used_pct": round((agent_tokens / budget) * 100, 1),
+            "tokens": tokens,
+            "cost_usd": round(agent_cost, 4),
+            "budget_tokens": budget_tokens,
+            "within_budget": tokens <= budget_tokens,
         },
         "cascade": {
-            "model": "cascade (opus-tier)",
-            "tokens": cascade_tok,
-            "cost_usd": cascade_cost,
-            "source": "actual" if cascade_tokens else "baseline_estimate",
+            "tokens": cascade_tk,
+            "cost_usd": round(cascade_cost, 4),
+            "baseline_estimate": cascade_tokens is None,
         },
         "comparison": {
-            "savings_usd": savings_usd,
-            "savings_pct": savings_pct,
-            "cheaper": "agent" if agent_cost < cascade_cost else "cascade",
-            "verdict": (
-                f"Agent {savings_pct}% cheaper ({savings_usd:.4f} USD saved)"
-                if agent_cost < cascade_cost
-                else f"Cascade {abs(savings_pct)}% cheaper ({abs(savings_usd):.4f} USD saved)"
-            ),
+            "savings_usd": round(savings, 4),
+            "savings_pct": round(savings_pct, 1),
+            "verdict": verdict,
         },
-        "adr_reference": "ADR-108",
+        "note": "Reporting only — no enforcement. ADR-108.",
     }
 
 
@@ -351,21 +349,12 @@ def evaluate_task(
     complexity: str = "moderate",
 ) -> dict[str, Any]:
     """
-    Computes a QualityScore for a completed task and determines rollback level.
-
-    Args:
-        task_id:          Identifier for the task.
-        completion_score: 0.0–1.0 — fraction of acceptance criteria met.
-        guardian_passed:  True if Guardian agent found no blocking issues.
-        adr_violations:   Number of ADR violations found by platform-context.
-        iterations_used:  How many agent iterations were needed.
-        tokens_used:      Total tokens consumed.
-        complexity:       trivial / simple / moderate / complex / architectural.
-
-    Returns:
-        Dict with composite score, sub-scores, rollback_level, and recommendation.
+    Computes QualityScore and rollback recommendation per ADR-108.
     """
-    from orchestrator_mcp.agent_team.evaluator import QualityEvaluator
+    from orchestrator_mcp.agent_team.evaluator import QualityEvaluator, TOKEN_BUDGETS
+
+    budget = TOKEN_BUDGETS.get(complexity, TOKEN_BUDGETS["moderate"])
+    efficiency = min(1.0, budget / max(tokens_used, 1))
 
     evaluator = QualityEvaluator()
     score = evaluator.evaluate(
@@ -373,35 +362,22 @@ def evaluate_task(
         guardian_passed=guardian_passed,
         adr_violations=adr_violations,
         iterations_used=iterations_used,
-        tokens_used=tokens_used,
-        complexity=complexity,
+        token_efficiency=efficiency,
     )
-
-    recommendation = {
-        "none":     "Task complete — ship it.",
-        "soft":     "Retry with feedback — score below threshold.",
-        "hard":     "Revert to last known good — critical quality gap.",
-        "escalate": "Human intervention required — score critically low.",
-    }[score.rollback_level.value]
 
     return {
         "task_id": task_id,
         "composite_score": round(score.composite, 3),
         "rollback_level": score.rollback_level.value,
-        "recommendation": recommendation,
+        "recommendation": score.recommendation,
         "sub_scores": {
-            "completion":    round(score.completion_score, 3),
-            "guardian":      round(score.guardian_score, 3),
-            "adr_compliance": round(score.adr_compliance_score, 3),
-            "iteration":     round(score.iteration_score, 3),
-            "token":         round(score.token_score, 3),
+            "completion": round(score.completion, 3),
+            "guardian": round(score.guardian, 3),
+            "adr": round(score.adr, 3),
+            "efficiency": round(score.efficiency, 3),
         },
-        "metrics": {
-            "iterations_used": score.iterations_used,
-            "tokens_used":     score.tokens_used,
-            "token_budget":    score.token_budget,
-            "complexity":      score.complexity,
-        },
+        "tokens_used": tokens_used,
+        "budget_tokens": budget,
         "adr_reference": "ADR-108",
     }
 
@@ -419,43 +395,48 @@ def verify_task(
     adr_violations: int = 0,
 ) -> dict[str, Any]:
     """
-    Verifies a completed task by checking acceptance criteria + test/lint results.
-
-    This is the Tester-Agent entry point: after a Developer implementation,
-    call verify_task to determine if the task is truly done.
-
-    Args:
-        task_id:       Identifier for the task.
-        criteria:      List of dicts: {description, met, blocking, evidence}.
-        tests_passed:  True/False/None (None = not run yet).
-        lint_passed:   True/False/None (None = not run yet).
-        adr_violations: Number of ADR violations found.
-
-    Returns:
-        Dict with is_complete, blocking_open, score, and next_action.
+    Verifies task completion against acceptance criteria.
+    Tester-Agent entry point after Developer implementation.
     """
-    from orchestrator_mcp.agent_team.completion import TaskCompletionChecker
+    from orchestrator_mcp.agent_team.completion import AcceptanceCriterion, TaskCompletionChecker
 
     checker = TaskCompletionChecker()
 
     enriched = list(criteria)
-    if tests_passed is not None:
+
+    if tests_passed is False:
         enriched.append({
-            "description": "All tests pass",
-            "met": tests_passed,
+            "description": "All tests pass (pytest)",
+            "met": False,
             "blocking": True,
-            "evidence": "pytest exit code 0" if tests_passed else "pytest failures",
+            "evidence": "tests_passed=False",
         })
-    if lint_passed is not None:
+    elif tests_passed is True:
         enriched.append({
-            "description": "Lint clean (ruff)",
-            "met": lint_passed,
+            "description": "All tests pass (pytest)",
+            "met": True,
             "blocking": True,
-            "evidence": "ruff check passed" if lint_passed else "ruff errors found",
+            "evidence": "tests_passed=True",
         })
+
+    if lint_passed is False:
+        enriched.append({
+            "description": "Ruff lint clean",
+            "met": False,
+            "blocking": True,
+            "evidence": "lint_passed=False",
+        })
+    elif lint_passed is True:
+        enriched.append({
+            "description": "Ruff lint clean",
+            "met": True,
+            "blocking": True,
+            "evidence": "lint_passed=True",
+        })
+
     if adr_violations > 0:
         enriched.append({
-            "description": f"No ADR violations ({adr_violations} found)",
+            "description": "No ADR violations",
             "met": False,
             "blocking": True,
             "evidence": f"{adr_violations} violation(s) from platform-context check",
@@ -486,4 +467,127 @@ def verify_task(
         "adr_violations": adr_violations,
         "next_action": next_action,
         "adr_reference": "ADR-108",
+    }
+
+
+# ---------------------------------------------------------------------------
+# get_infra_context
+# ---------------------------------------------------------------------------
+
+
+def get_infra_context() -> dict[str, Any]:
+    """
+    Returns the full platform infrastructure context for the Deployment Agent.
+
+    Eliminates per-session guesswork about hosts, MCP tools, and deploy targets.
+    Call this at session start or before any deployment/infra operation.
+    """
+    from orchestrator_mcp.agent_team.roles import DeploymentAgentConfig
+
+    deployment_cfg = DeploymentAgentConfig()
+
+    mcp_servers = {
+        "deployment-mcp": {
+            "prefix": "mcp5_",
+            "capabilities": ["ssh_manage", "docker_manage", "git_manage",
+                              "database_manage", "system_manage"],
+            "target": "hetzner-prod (88.198.191.108), user=deploy",
+        },
+        "orchestrator": {
+            "prefix": "mcp11_",
+            "capabilities": ["agent_team_status", "agent_plan_task", "analyze_task",
+                              "deploy_check", "get_cost_estimate", "evaluate_task",
+                              "verify_task", "get_infra_context", "get_payment_context",
+                              "log_action"],
+            "target": "local (platform/orchestrator_mcp)",
+        },
+        "platform-context": {
+            "prefix": "mcp12_",
+            "capabilities": ["get_context_for_task", "check_violations",
+                              "get_banned_patterns", "get_project_facts"],
+            "target": "local (ADR knowledge graph)",
+        },
+        "github": {
+            "prefix": "mcp8_",
+            "capabilities": ["issues", "pull_requests", "repos", "branches",
+                              "reviews", "push_files"],
+            "target": "github.com/achimdehnert",
+        },
+        "cloudflare-api": {
+            "prefix": "mcp_cloudflare_",
+            "capabilities": ["dns_list", "dns_create", "dns_update",
+                              "zones", "tunnels"],
+            "target": "Cloudflare (API-Keys in Windsurf-Secrets)",
+        },
+    }
+
+    return {
+        "mcp_servers": mcp_servers,
+        "infra": deployment_cfg.infra_context,
+        "deployment_allowed_tools": deployment_cfg.allowed_tools,
+        "session_start_checklist": [
+            "Read AGENT_HANDOVER.md in platform root",
+            "Call mcp11_agent_team_status() for team state",
+            "Call mcp11_deploy_check(action='targets') for deploy config",
+            "Call mcp11_get_infra_context() — this tool",
+        ],
+        "quick_reference": {
+            "health_check": "mcp11_deploy_check(action='health', repo='<name>')",
+            "container_status": "mcp11_deploy_check(action='status', repo='<name>')",
+            "ssh_command": "mcp5_ssh_manage(host='hetzner-prod', action='execute', command='...')",
+            "docker_logs": "mcp5_docker_manage(host='hetzner-prod', action='compose_logs', path='/opt/<repo>', service='web', tail=50)",
+            "dns_check": "mcp_cloudflare_dns_list(zone='<domain>')",
+            "github_comment": "mcp8_add_issue_comment(owner='achimdehnert', repo='<repo>', issue_number=<n>, body='...')",
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
+# get_payment_context
+# ---------------------------------------------------------------------------
+
+
+def get_payment_context() -> dict[str, Any]:
+    """
+    Returns the full Stripe + billing-hub context for the Payment Agent.
+
+    Covers: billing-hub location, Stripe key locations (NOT keys),
+    Price ID workflow, internal API endpoints, pending setup_plans action.
+
+    IMPORTANT: Never returns actual API keys — only their storage locations.
+    Keys are in Windsurf-Secrets and /opt/billing-hub/.env on prod.
+    """
+    from orchestrator_mcp.agent_team.roles import PaymentAgentConfig
+
+    payment_cfg = PaymentAgentConfig()
+
+    return {
+        "payment_context": payment_cfg.payment_context,
+        "allowed_tools": payment_cfg.allowed_tools,
+        "quick_reference": {
+            "billing_health": "mcp11_deploy_check(action='health', repo='billing-hub')",
+            "billing_status": "mcp11_deploy_check(action='status', repo='billing-hub')",
+            "run_setup_plans": (
+                "mcp5_ssh_manage(host='hetzner-prod', action='execute', "
+                "command='cd /opt/billing-hub && docker compose -f docker-compose.prod.yml "
+                "exec web python manage.py setup_plans "
+                "--stripe-monthly=price_xxx --stripe-yearly=price_xxx')"
+            ),
+            "check_stripe_env": (
+                "mcp5_ssh_manage(host='hetzner-prod', action='execute', "
+                "command='grep STRIPE /opt/billing-hub/.env | grep -v SECRET')"
+            ),
+            "billing_logs": (
+                "mcp5_docker_manage(host='hetzner-prod', action='compose_logs', "
+                "path='/opt/billing-hub', service='web', tail=50)"
+            ),
+        },
+        "stripe_price_id_workflow": [
+            "1. Open Stripe Dashboard → Products → Create product per hub/tier",
+            "2. Copy Price ID (price_xxx) for monthly + yearly billing",
+            "3. SSH to hetzner-prod: run setup_plans management command",
+            "4. Verify: mcp11_deploy_check(action='health', repo='billing-hub')",
+            "5. Test webhook: Stripe Dashboard → Webhooks → Send test event",
+        ],
+        "adr_reference": "ADR-062",
     }

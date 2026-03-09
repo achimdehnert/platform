@@ -31,6 +31,7 @@ class AgentRole(str, Enum):
     DEVELOPER = "developer"
     TESTER = "tester"
     DEPLOYMENT = "deployment"
+    PAYMENT = "payment"
     REVIEW = "review"
     RE_ENGINEER = "re_engineer"
     GUARDIAN = "guardian"
@@ -181,10 +182,15 @@ class DeploymentAgentConfig:
     """
     Full specification for the Deployment Agent per ADR-107 §4.3.
 
-    Tools required (orchestrator_mcp):
-      - deploy      : docker compose control
-      - shell_exec  : SSH commands (restricted to ShellAllowlist)
-      - github_pr   : comment deployment status on PR
+    MCP Tools (concrete, available in Windsurf):
+      - mcp5_ssh_manage      : SSH on hetzner-prod (88.198.191.108)
+      - mcp5_docker_manage   : Docker Compose control on hetzner-prod
+      - mcp8_add_issue_comment: GitHub PR/Issue comments
+      - mcp11_deploy_check   : Health check + status for known repos
+      - mcp_cloudflare_*     : DNS/Tunnel management via Cloudflare API
+
+    Deploy rule: NEVER write directly to prod. Use scripts/ship.sh or CI/CD.
+    After every deploy: mcp11_deploy_check(action="health", repo=<name>)
     """
 
     role: AgentRole = AgentRole.DEPLOYMENT
@@ -203,7 +209,42 @@ class DeploymentAgentConfig:
 
     @property
     def allowed_tools(self) -> list[str]:
-        return ["deploy", "shell_exec", "github_pr"]
+        return [
+            "mcp5_ssh_manage",
+            "mcp5_docker_manage",
+            "mcp8_add_issue_comment",
+            "mcp11_deploy_check",
+            "mcp_cloudflare_dns_list",
+            "mcp_cloudflare_dns_create",
+        ]
+
+    @property
+    def infra_context(self) -> dict[str, Any]:
+        """Concrete infra config — eliminates per-session guesswork."""
+        return {
+            "prod_host": "hetzner-prod",
+            "prod_ip": "88.198.191.108",
+            "prod_user": "deploy",
+            "dev_host": "hetzner-dev",
+            "cloudflare_access": "via mcp_cloudflare_* (API-Keys in Windsurf-Secrets)",
+            "deploy_targets": {
+                "coach-hub": {"path": "/opt/coach-hub", "health": "https://kiohnerisiko.de/healthz/"},
+                "billing-hub": {"path": "/opt/billing-hub", "health": "https://billing.iil.pet/healthz/"},
+                "travel-beat": {"path": "/opt/travel-beat", "health": "https://drifttales.de/healthz/"},
+                "weltenhub": {"path": "/opt/weltenhub", "health": "https://weltenforger.com/healthz/"},
+                "trading-hub": {"path": "/opt/trading-hub", "health": "https://ai-trades.de/healthz/"},
+                "cad-hub": {"path": "/opt/cad-hub", "health": "https://nl2cad.de/healthz/"},
+                "pptx-hub": {"path": "/opt/pptx-hub", "health": "https://prezimo.de/healthz/"},
+                "risk-hub": {"path": "/opt/risk-hub", "health": "https://risk-hub.iil.pet/healthz/"},
+                "ausschreibungs-hub": {"path": "/opt/ausschreibungs-hub", "health": "https://bieterpilot.de/healthz/"},
+            },
+            "rules": [
+                "Gate-2 required before any prod deploy",
+                "Use mcp11_deploy_check(action='health') after every deploy",
+                "DB changes only via Django migrations, never direct SQL on prod",
+                "API-Keys are in Windsurf-Secrets — never hardcode",
+            ],
+        }
 
     @property
     def requires_gate2_approval_for(self) -> list[str]:
@@ -291,6 +332,104 @@ echo "Rollback complete"
 timeout {t} {manage_py_path} migrate --noinput
 """
         return self.shell_allowlist.wrap_script(body.lstrip())
+
+
+# ---------------------------------------------------------------------------
+# Payment Agent
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class PaymentAgentConfig:
+    """
+    Full specification for the Payment Agent (Stripe + billing-hub).
+
+    MCP Tools (concrete, available in Windsurf):
+      - mcp5_ssh_manage      : SSH on hetzner-prod to run management commands
+      - mcp8_add_issue_comment: GitHub PR/Issue comments
+      - mcp11_deploy_check   : Health check for billing-hub
+
+    Stripe API-Keys: NEVER in code. Location:
+      - Prod: /opt/billing-hub/.env  (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)
+      - Local: billing-hub .env (never committed)
+
+    Price IDs: Set via management command after creation in Stripe Dashboard.
+    setup_plans command: python manage.py setup_plans --stripe-monthly=<id> --stripe-yearly=<id>
+
+    billing-hub internal API (HMAC-Auth, Docker-Network only):
+      - GET  /api/access/{platform}/{email}/{module}/
+      - GET  /api/customer/{email}/
+      - POST /api/webhook/stripe/  (Stripe-Signature, not HMAC)
+      - GET  /healthz/
+    """
+
+    role: AgentRole = AgentRole.PAYMENT
+    gate_level: GateLevel = GateLevel.TWO
+
+    description: str = (
+        "Manages Stripe subscriptions, Price IDs, webhook health, and "
+        "billing-hub internal API. Requires Gate-2 for any Stripe config change. "
+        "ADR-062: Central billing service for all 9 hubs."
+    )
+
+    def can_auto_execute(self) -> bool:
+        """Payment Agent always requires Gate-2 — never auto."""
+        return False
+
+    @property
+    def allowed_tools(self) -> list[str]:
+        return [
+            "mcp5_ssh_manage",
+            "mcp11_deploy_check",
+            "mcp8_add_issue_comment",
+        ]
+
+    @property
+    def payment_context(self) -> dict[str, Any]:
+        """Stripe + billing-hub config — eliminates per-session guesswork."""
+        return {
+            "billing_hub": {
+                "host": "hetzner-prod",
+                "path": "/opt/billing-hub",
+                "health": "https://billing.iil.pet/healthz/",
+                "internal_url": "http://billing-hub-web:8000",
+                "port": 8092,
+            },
+            "stripe": {
+                "account": "one Stripe account for all 9 hubs (ADR-062)",
+                "webhook_endpoint": "POST /api/webhook/stripe/",
+                "keys_location": "/opt/billing-hub/.env (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET)",
+                "keys_local": "billing-hub/.env (never committed — in Windsurf-Secrets)",
+                "price_ids_status": "PENDING — must be created in Stripe Dashboard first",
+                "setup_command": (
+                    "python manage.py setup_plans "
+                    "--stripe-monthly=price_xxx --stripe-yearly=price_xxx"
+                ),
+            },
+            "platforms": [
+                "coach-hub", "billing-hub", "travel-beat", "weltenhub",
+                "trading-hub", "cad-hub", "pptx-hub", "risk-hub", "ausschreibungs-hub",
+            ],
+            "subscription_tiers": ["free", "registered", "premium", "enterprise"],
+            "internal_api": {
+                "auth": "HMAC (X-Internal-Token header, 30s replay protection)",
+                "secret_location": "BILLING_INTERNAL_SECRET in each hub's .env",
+                "access_check": "GET /api/access/{platform}/{email}/{module}/",
+                "customer_info": "GET /api/customer/{email}/",
+            },
+            "rules": [
+                "Gate-2 required before any Stripe config change",
+                "STRIPE_SECRET_KEY only in .env — never in code or logs",
+                "Webhook signature must be verified (STRIPE_WEBHOOK_SECRET)",
+                "setup_plans only after Price IDs created in Stripe Dashboard",
+                "Use mcp11_deploy_check(action='health', repo='billing-hub') after changes",
+            ],
+            "pending_actions": [
+                "Create Price IDs in Stripe Dashboard for each hub/tier",
+                "Run: python manage.py setup_plans --stripe-monthly=<id> --stripe-yearly=<id>",
+                "Verify webhook endpoint in Stripe Dashboard points to billing.iil.pet",
+            ],
+        }
 
 
 # ---------------------------------------------------------------------------
@@ -458,9 +597,10 @@ ROLE_REGISTRY: dict[AgentRole, AgentRoleProtocol] = {
     AgentRole.TESTER: BaseAgentRole(
         role=AgentRole.TESTER,
         gate_level=GateLevel.ZERO,
-        description="Tests schreiben, Coverage prüfen, CI-Fehler analysieren.",
+        description="Tests schreiben, Coverage pr\u00fcfen, CI-Fehler analysieren.",
     ),
     AgentRole.DEPLOYMENT: DeploymentAgentConfig(),
+    AgentRole.PAYMENT: PaymentAgentConfig(),
     AgentRole.REVIEW: ReviewAgentConfig(),
     AgentRole.RE_ENGINEER: BaseAgentRole(
         role=AgentRole.RE_ENGINEER,

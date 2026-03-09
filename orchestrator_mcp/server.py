@@ -147,7 +147,7 @@ _TOOLS: dict[str, dict[str, Any]] = {
                 },
                 "cascade_tokens": {
                     "type": "integer",
-                    "description": "Actual Cascade session tokens (optional, for exact comparison)",
+                    "description": "Actual Cascade session tokens (optional)",
                 },
             },
             "required": ["task_id", "model"],
@@ -228,11 +228,11 @@ _TOOLS: dict[str, dict[str, Any]] = {
                 },
                 "tests_passed": {
                     "type": "boolean",
-                    "description": "True if pytest passed, False if failed, omit if not run",
+                    "description": "True if pytest passed, False if failed",
                 },
                 "lint_passed": {
                     "type": "boolean",
-                    "description": "True if ruff passed, False if failed, omit if not run",
+                    "description": "True if ruff passed, False if failed",
                 },
                 "adr_violations": {
                     "type": "integer",
@@ -382,7 +382,7 @@ def _handle_request(request: dict[str, Any]) -> dict[str, Any]:
                 "capabilities": {"tools": {}},
                 "serverInfo": {
                     "name": "orchestrator",
-                    "version": "3.0.0",
+                    "version": "3.2.0",
                 },
             },
         }
