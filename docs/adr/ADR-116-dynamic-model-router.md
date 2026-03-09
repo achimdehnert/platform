@@ -1,185 +1,263 @@
-# ADR-116: Dynamic Model Router — Flexibles LLM-Routing im Agent Coding Team
+# ADR-116: Dynamic Model Router — Budget-Aware Rule-Based Fallback Router
 
 ## Status
 
-Accepted
+Accepted — v2.0 (2026-03-09, Post-Review)
+
+**Änderungen gegenüber v1.0**: Vollständige Überarbeitung nach Review.
+Alle 3 Blocker (B-01/B-02/B-03) und 3 kritische Befunde (K-01/K-02/K-03) behoben.
+Siehe `docs/adr/reviews/ADR-116-review.md` und `docs/adr/reviews/ADR-116-input-bewertung.md`.
 
 ## Context
 
-Das AI Engineering Squad (ADR-100) führt Tasks über 25 Repos aus. Bisher wird
-ein statisches Default-Modell für alle Agenten verwendet. Das führt zu:
+Das AI Engineering Squad (ADR-100) führt Tasks über 25 Repos aus. ADR-068 (TaskRouter)
+ist vollständig implementiert (7/7 Phasen ✅) und liefert LLM-basiertes Routing mit
+Confidence-Score und Feedback-Loop.
 
-- **Zu hohe Kosten**: Einfache Status-Checks mit teuren Modellen (z.B. claude-3.5-sonnet
-  für einen `/health` Discord-Command)
-- **Suboptimale Qualität**: Billige Modelle für komplexe Architektur-Entscheidungen
-- **Provider-Lock-in**: Modell-Name hardcoded im Code — Wechsel erfordert Code-Änderungen
-- **Kein Budget-Schutz**: Kein automatischer Fallback bei Kosten-Überschreitung
+Folgende Lücken bestehen noch:
 
-Das Grafana Controlling Dashboard (ADR-115) liefert jetzt Daten über tatsächliche
-Kosten pro Model und Task — die Grundlage für datengetriebenes Routing.
+- **Kein Budget-Schutz**: ADR-068 prüft kein Tages-Budget — bei hohem Durchsatz
+  können teure Modelle das Budget sprengen
+- **Kein Cost-Sensitive Fallback**: Kein automatischer Downgrade bei Budget-Überschreitung
+- **Route-Tabelle hardcoded**: Modell-Wechsel erfordern Code-Deployment
+- **Security-Audits ungeschützt**: Budget-Downgrade könnte sicherheitskritische
+  Analyse auf günstigere Modelle degradieren (UC-SE-5)
 
-Wir werden **häufig Provider wechseln** — wenn ein besseres Model erscheint,
-wenn sich Preise ändern, oder wenn ein spezialisiertes Model für einen Repo-Typ
-besser geeignet ist. Der Router muss das ohne Code-Änderungen im Caller ermöglichen.
+Das Grafana Controlling Dashboard (ADR-115) liefert Kosten-Daten in `llm_calls` —
+diese Tabelle ist die Grundlage für persistentes Budget-Tracking.
 
 ## Decision
 
-Wir implementieren einen **Model Selector** als dynamischen Teil des Agent Coding Teams.
+ADR-116 erweitert ADR-068 um einen **Budget-Aware Rule-Based Fallback Layer**.
+Es ist **kein paralleles System** — es ist ein Pre-Filter vor dem bestehenden
+`TaskRouter`, der bei Budget-Überschreitung die LLM-Routing-Entscheidung übernimmt.
 
-### Architektur
-
-```
-Agent Coding Team
-  ├── Developer Agent
-  ├── Tester Agent          ─── rufen alle auf:
-  ├── Guardian Agent             model_selector.select_model(role, complexity)
-  ├── Tech Lead                       ↓
-  └── Model Selector        ←── neu: regelbasiert + budget-aware
-            ↓
-       llm_mcp /v1/chat (OpenRouter, provider-agnostisch)
-            ↓
-       OpenRouter → GPT-4o / Claude / Llama / ... (wechselbar)
-```
-
-Der Model Selector ist **kein LLM** — er ist ein regelbasierter Service:
-1. **Route-Tabelle**: `(AgentRole, TaskComplexity) → (model, tier, provider)`
-2. **Budget-Tracking**: Tages-Cap über `MODEL_SELECTOR_DAILY_BUDGET_USD`
-3. **Cost-Sensitive Mode**: Automatischer Downgrade bei 80% Budget-Verbrauch
-4. **Fallback-Kette**: Kein Match → einfachere Complexity → budget default
-
-### Route-Tabelle (Stand 2026-03)
-
-| Agent | Complexity | Model | Tier | Kosten/1K Token |
-|---|---|---|---|---|
-| discord_status | trivial | gpt-4o-mini | budget | $0.000375 |
-| discord_ask | simple | llama-3.1-8b | local | $0.000055 |
-| discord_ask | moderate | gpt-4o-mini | budget | $0.000375 |
-| discord_chat | moderate | gpt-4o | standard | $0.006250 |
-| discord_chat | complex | claude-3.5-sonnet | premium | $0.009000 |
-| developer | simple | gpt-4o-mini | budget | $0.000375 |
-| developer | moderate | gpt-4o | standard | $0.006250 |
-| developer | complex | claude-3.5-sonnet | premium | $0.009000 |
-| tester | simple/moderate | gpt-4o-mini | budget | $0.000375 |
-| tester | complex | gpt-4o | standard | $0.006250 |
-| guardian | moderate | gpt-4o | standard | $0.006250 |
-| guardian | complex | claude-3.5-sonnet | premium | $0.009000 |
-| tech_lead/planner | complex/architectural | claude-3.5-sonnet | premium | $0.009000 |
-
-### Budget-Automatik
+### Revised Architecture
 
 ```
-MODEL_SELECTOR_DAILY_BUDGET_USD=10.0    # Default: $10/Tag
-MODEL_SELECTOR_BUDGET_WARNING_PCT=0.80  # Warnung + Downgrade bei 80%
-
-Wenn Budget ≥ 80%:
-  premium → openai/gpt-4o
-  standard → openai/gpt-4o-mini
-  budget → meta-llama/llama-3.1-8b-instruct
-
-Wenn Budget 100% überschritten:
-  ALLE Calls → openai/gpt-4o-mini (minimalste Kosten)
+Agent Coding Team (developer, tester, guardian, tech_lead, planner,
+                   re_engineer, security_auditor)
+        │
+        ▼
+TaskRouter.route_with_budget_guard()        ← ADR-116 Erweiterung
+        │
+        ├── Budget < 80%
+        │       └── ADR-068 TaskRouter._llm_route()    (LLM-basiert, Confidence-Score,
+        │                                                Feedback-Loop, AuditStore)
+        │
+        └── Budget ≥ 80%  ODER  Emergency
+                └── RuleBasedBudgetRouter.select()     (regelbasiert, kein LLM-Call)
+                        │
+                        ├── Route aus DB (ModelRouteConfig)
+                        ├── Budget-Check via llm_calls SUM (PostgreSQL)
+                        ├── routing_reason → llm_calls.routing_reason
+                        └── Fallback-Kette: unbekannt → MODERATE → Emergency
+        │
+        ▼
+   llm_mcp /v1/chat (ADR-114, OpenRouter, provider-agnostisch)
+        │
+        ▼
+   OpenRouter → GPT-4o / Claude / Llama / ... (wechselbar ohne Code-Änderung)
 ```
 
-### Provider-Wechsel
+**Discord-Commands sind NICHT Teil dieses Routers.**
+Discord nutzt eigene ENV-basierte Config (`discord/config.py`, K-02 Fix).
 
-Ein Provider-Wechsel erfordert **nur eine Änderung** in `model_selector.py`:
-
-```python
-# Alt:
-(AgentRole.DEVELOPER, TaskComplexityHint.COMPLEX): ("anthropic/claude-3.5-sonnet", "premium", "anthropic"),
-
-# Neu (z.B. bei Wechsel zu Gemini):
-(AgentRole.DEVELOPER, TaskComplexityHint.COMPLEX): ("google/gemini-2.0-flash-thinking", "premium", "google"),
-```
-
-Kein Caller-Code muss geändert werden.
-
-### Integration mit bestehenden ADRs
-
-- **ADR-068 (TaskRouter)**: Bestehende `TaskComplexity` Enum wird gemappt auf
-  `TaskComplexityHint` via `_map_task_complexity()`
-- **ADR-084 (ModelRegistry)**: `ModelRegistry` bleibt für DB-getriebene Tier-Auflösung
-  bestehen. `ModelSelector` ist der opinionated Routing-Layer darüber.
-- **ADR-114 (llm_mcp Gateway)**: `sel.openrouter_model` wird direkt als `model`
-  Parameter an `/v1/chat` übergeben.
-- **ADR-115 (Grafana)**: `record_llm_cost()` trackt Kosten täglich;
-  `llm_calls` Tabelle enthält Model-Tracking für Grafana-Auswertung.
-
-### Implementierung
+### Neue Dateistruktur
 
 ```
 orchestrator_mcp/
-  model_selector.py               — ModelSelector, AgentRole, select_model()
-  agent_team/
-    model_router_integration.py   — get_model_for_agent(), record_llm_cost()
+├── agent_team/
+│   ├── router.py                    # ADR-068 (bestehend) — TaskRouterBudgetGuardMixin ergänzt
+│   ├── rule_based_router.py         # NEU: RuleBasedBudgetRouter (Kernkomponente)
+│   └── budget_tracker.py            # NEU: PostgreSQL-backed Budget-Check
+├── models/
+│   └── model_route_config.py        # NEU: DB-Model für Route-Tabelle
+└── migrations/
+    └── 0043_model_route_config.py   # NEU: Alembic-Migration + Seed-Daten
 ```
 
-**Usage in einem Agent:**
+### Agent-Rollen (AgentRole Enum)
 
 ```python
-from orchestrator_mcp.model_selector import select_model, AgentRole
-
-# Einfachste Form:
-sel = select_model(AgentRole.DEVELOPER, "complex")
-# sel.openrouter_model → "anthropic/claude-3.5-sonnet"
-# sel.tier → "premium"
-# sel.reason → "role=developer | complexity=complex | tier=premium"
-
-# Via Integration-Shim (empfohlen in agent_team/):
-from orchestrator_mcp.agent_team.model_router_integration import get_model_for_agent
-sel = get_model_for_agent("developer", task.complexity)
+class AgentRole(str, enum.Enum):
+    DEVELOPER        = "developer"
+    TESTER           = "tester"
+    GUARDIAN         = "guardian"
+    TECH_LEAD        = "tech_lead"
+    PLANNER          = "planner"
+    RE_ENGINEER      = "re_engineer"
+    SECURITY_AUDITOR = "security_auditor"  # UC-SE-5: niemals Budget-Downgrade
 ```
+
+Discord-Rollen (`discord_status`, `discord_ask`, `discord_chat`) sind **keine**
+AgentRoles — sie werden über `DISCORD_*_MODEL` ENV-Variablen konfiguriert.
+
+### Route-Tabelle (DB-backed, Stand 2026-03)
+
+Route-Tabelle wird in PostgreSQL (`model_route_configs`) verwaltet.
+Änderungen erfordern **kein Code-Deployment** — nur DB-Update oder Admin-UI.
+
+| Agent | Complexity | Model (Normal) | Tier | Budget-Downgrade |
+|---|---|---|---|---|
+| developer | simple | gpt-4o-mini | budget | llama-3.1-8b (local) |
+| developer | moderate | gpt-4o | standard | gpt-4o-mini (budget) |
+| developer | complex | claude-3.5-sonnet | premium | gpt-4o (standard) |
+| tester | simple/moderate | gpt-4o-mini | budget | llama-3.1-8b (local) |
+| tester | complex | gpt-4o | standard | gpt-4o-mini (budget) |
+| guardian | trivial | gpt-4o-mini | budget | llama-3.1-8b (local) |
+| guardian | moderate | gpt-4o | standard | gpt-4o-mini (budget) |
+| guardian | complex | claude-3.5-sonnet | premium | gpt-4o (standard) |
+| tech_lead | complex/architectural | claude-3.5-sonnet | premium | gpt-4o (standard) |
+| planner | complex | claude-3.5-sonnet | premium | gpt-4o (standard) |
+| re_engineer | moderate | gpt-4o | standard | gpt-4o-mini (budget) |
+| re_engineer | complex | claude-3.5-sonnet | premium | gpt-4o (standard) |
+| **security_auditor** | **moderate/complex** | **claude-3.5-sonnet** | **premium** | **claude-3.5-sonnet** ⚠️ |
+
+**security_auditor**: `budget_model == model` — kein Downgrade auch bei 80%+ Budget.
+CVE-Analyse auf gpt-4o-mini würde Sicherheitslücken übersehen (UC-SE-5).
+
+### Budget-Tracking (PostgreSQL-backed)
+
+```sql
+-- Tages-Budget: direkte Aggregation auf llm_calls (ADR-115)
+SELECT COALESCE(SUM(cost_usd), 0) AS spent_today
+FROM llm_calls
+WHERE created_at >= date_trunc('day', NOW() AT TIME ZONE 'UTC')
+  AND deleted_at IS NULL;
+```
+
+- **Multi-Container-safe**: alle Instanzen lesen dieselbe DB
+- **Tages-Reset**: automatisch über UTC-Datumstrunkierung — kein Cron-Job
+- **Redis-Cache**: 60s TTL für Performance (kein DB-Hit bei jedem Call)
+- **Fallback**: Bei Redis-Ausfall direkter DB-Query
+
+### Budget-Modi
+
+```
+Budget  < 80%  → NORMAL:         ADR-068 LLM-Router (volle Qualität)
+Budget 80-100% → COST_SENSITIVE:  RuleBasedBudgetRouter mit budget_model
+Budget > 100%  → EMERGENCY:       Alle Calls → openai/gpt-4o-mini
+                                   (Ausnahme: security_auditor bleibt premium)
+```
+
+### Routing-Audit-Trail
+
+Jede Entscheidung wird in `llm_calls.routing_reason` geschrieben (K-01 Fix):
+
+```
+rule:developer+complex→premium|budget=50.0%
+budget_downgrade:85.0%|normal=anthropic/claude-3.5-sonnet|downgrade=openai/gpt-4o
+emergency:budget=105.0%>$10.00|role=tech_lead|complexity=complex
+fallback:no_route|role=new_role|complexity=complex
+adr068_router:confidence=0.85
+```
+
+### Feature-Flag für sicheres Rollout
+
+```bash
+BUDGET_GUARD_ENABLED=false   # Default: ADR-068 Original-Verhalten
+BUDGET_GUARD_ENABLED=true    # ADR-116 Budget-Guard aktiv
+```
+
+Rollback = `BUDGET_GUARD_ENABLED=false` → sofort, ohne Deployment.
+
+### Usage
+
+```python
+# In router.py (TaskRouterBudgetGuardMixin):
+result = await task_router.route_with_budget_guard(
+    task=task,
+    session=db_session,
+    budget_tracker=budget_tracker,  # FastAPI DI Singleton
+)
+# result.model → z.B. "anthropic/claude-3.5-sonnet"
+# result.routing_reason → "rule:developer+complex→premium|budget=45.2%"
+
+# RuleBasedBudgetRouter direkt (für Tests):
+router = RuleBasedBudgetRouter(budget_tracker)
+selection = await router.select(
+    session=session,
+    agent_role="security_auditor",
+    complexity="complex",
+    tenant_id=tenant_id,
+    task_id=task_id,
+)
+```
+
+### Discord-Trennung (K-02 Fix)
+
+```python
+# discord/config.py — völlig unabhängig von RuleBasedBudgetRouter
+from orchestrator_mcp.discord.config import get_discord_model
+
+config = get_discord_model("chat")   # → DiscordModelConfig(model="openai/gpt-4o")
+config = get_discord_model("ask")    # → DiscordModelConfig(model="meta-llama/llama-3.1-8b-instruct")
+```
+
+ENV-Variablen: `DISCORD_STATUS_MODEL`, `DISCORD_ASK_MODEL`, `DISCORD_CHAT_MODEL`,
+`DISCORD_CODE_MODEL`. Kein DB-Eintrag, kein Code-Deployment bei Änderung.
 
 ## Alternatives Considered
 
-### A: LLM-basierter Router (Meta-LLM entscheidet)
+### A: ADR-116 als eigenständiges paralleles System (v1.0 — verworfen)
 
-- **Pro**: Kann komplexe Kontext-Faktoren berücksichtigen
-- **Contra**: Kosten für den Router selbst, Latenz, Zirkuläres Problem
-- **Entscheidung**: Regelbasiert ist deterministisch, schnell, kostenlos
+- **Problem**: Zwei konkurrierende Routing-Systeme im selben Package (B-01 Blocker)
+- **Entscheidung**: ADR-116 als Erweiterung von ADR-068, nicht als Ersatz
 
-### B: Prometheus-Metriken + automatisches Routing
+### B: In-Memory Budget-Counter
 
-- **Pro**: Echte Performance-Daten steuern Routing
-- **Contra**: Zu komplex, Prometheus-Setup für 25 Repos overhead
-- **Entscheidung**: Grafana + manuelle Anpassung der Route-Tabelle reicht
+- **Problem**: Bei Docker-Restart oder Multi-Worker-Setup wird Counter auf 0 zurückgesetzt
+- **Entscheidung**: PostgreSQL-Aggregation auf `llm_calls` — kein neues Schema nötig
 
-### C: Routing direkt in llm_mcp (Server-seitig)
+### C: Budget-Guard als Post-Filter (nach ADR-068 Routing)
 
-- **Pro**: Zentraler Punkt
-- **Contra**: llm_mcp kennt dann Agent-Semantik (SRP-Verletzung), schwerer testbar
-- **Entscheidung**: Routing im orchestrator_mcp — kennt Agenten, Tasks, Budget
+- **Problem**: ADR-068 macht bereits LLM-Call (Kosten + Latenz) bevor Budget geprüft wird
+- **Entscheidung**: Pre-Filter — Budget ≥ 80% → kein LLM-Call für Routing nötig
+
+### D: `no_budget_downgrade` Flag auf ModelRouteConfig
+
+- **Pro**: Flexibel per Route konfigurierbar ohne neue Enum-Rolle
+- **Contra**: Weniger semantisch klar als eigene AgentRole
+- **Entscheidung**: `SECURITY_AUDITOR` als eigene Rolle (Option A) — klare Abgrenzung.
+  `no_budget_downgrade` Flag kann später ergänzt werden.
 
 ## Consequences
 
 ### Positiv
 
-- **60-80% Kosten-Reduktion**: Einfache Tasks gehen auf günstige Models
-- **Provider-Wechsel in <5 Minuten**: Nur Route-Tabelle anpassen, kein Deployment
-- **Budget-Schutz**: Kein unerwartetes Überschreiten des Tages-Budgets
-- **Grafana-Sichtbarkeit**: Jede Routing-Entscheidung landet in `llm_calls`
-- **Rückwärtskompatibel**: Bestehende Agenten können `get_model_for_agent()` gradually adopten
+- **60-80% Kosten-Reduktion**: Budget-aware Routing eliminiert teure Calls bei Engpässen
+- **Provider-Wechsel ohne Deployment**: DB-backed Route-Tabelle — Admin-UI genügt
+- **Budget-Schutz**: Automatischer Downgrade bei 80%, Emergency-Stop bei 100%
+- **Security-garantiert**: `security_auditor` wird nie downgegradet — CVE-Analyse bleibt zuverlässig
+- **Grafana-Sichtbarkeit**: `routing_reason` in `llm_calls` — nachvollziehbar warum Modell X
+- **Rückwärtskompatibel**: Feature-Flag, bestehende ADR-068 `route()` unverändert
 
 ### Negativ / Risiken
 
-- Route-Tabelle muss bei neuen Models manuell aktualisiert werden
-- `TaskComplexityHint` muss vom Caller korrekt gesetzt werden
-- Budget-Reset ist täglich (nicht per-Task)
+- Route-Tabelle muss bei neuen AgentRoles initial befüllt werden (Migration)
+- 60s Redis-Cache bedeutet: Budget-Überschreitung wird bis zu 60s verzögert erkannt
+- `security_auditor` ist immer premium — auch wenn Budget bei 99% steht
 
 ### Migrations-Plan
 
-1. `discord/handlers.py`: Discord-Commands nutzen `select_model(AgentRole.DISCORD_*)` ✅ (nächster Schritt)
-2. `agent_team/developer.py`: Developer-Agent nutzt `get_model_for_agent("developer", ...)`
-3. `agent_team/tester.py`, `guardian.py`: analog
-4. `agent_team/tech_lead.py`, `planner.py`: analog
-5. Nach 30 Tagen Grafana-Daten: Route-Tabelle data-driven anpassen
+```
+Schritt 1: Migration 0043 deployen (model_route_configs + llm_calls.routing_reason)
+Schritt 2: RuleBasedBudgetRouter + BudgetTracker deployen (BUDGET_GUARD_ENABLED=false)
+Schritt 3: discord/handlers.py auf discord/config.py umstellen
+Schritt 4: BUDGET_GUARD_ENABLED=true nach Monitoring-Check (7 Tage Grafana-Daten)
+Schritt 5: Nach 30 Tagen: Route-Tabelle data-driven über DB-Admin anpassen
+```
 
 ## References
 
-- ADR-068: Task Router (Tier-Konzept, ROUTING_MATRIX)
+- ADR-068: Task Router (LLM-basiert, Confidence-Score, Feedback-Loop)
 - ADR-082: LLM Adapter Architecture
 - ADR-084: Model Registry (DB-Backend für Tier-Auflösung)
-- ADR-100: Extended Agent Team
+- ADR-100: Extended Agent Team (Agent-Rollen)
 - ADR-114: Discord + LLM Gateway
-- ADR-115: Grafana Agent Controlling Dashboard
+- ADR-115: Grafana Agent Controlling Dashboard (`llm_calls` Schema)
+- `docs/adr/reviews/ADR-116-review.md` — Blocker-Review (2026-03-09)
+- `docs/adr/reviews/ADR-116-input-bewertung.md` — Input-Bewertung + UC-SE-2/3/5
+- `docs/adr/inputs/dynamic router/` — Implementierungsplan + alle Input-Dateien
 - [OpenRouter Models](https://openrouter.ai/models)

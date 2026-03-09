@@ -328,9 +328,9 @@ Tag 3:
 | M-02: Kostenangaben $/1K vs $/1M | nicht adressiert | ℹ️ Kein Code-Impact |
 | M-03: Keine Tests | `test_rule_based_router.py` | ✅ Behoben (367 Zeilen) |
 | M-04: Fehlende Parameter | select() hat tenant_id + task_id | ✅ Behoben |
-| **Neu: TIMESTAMPTZ-Bug** | `model_route_config_model.py` Z.23 | ❌ Fix erforderlich |
-| **Neu: UniqueConstraint-Bug** | `model_route_config_model.py` Z.198 | ❌ Fix erforderlich |
-| **Neu: UC-SE-5 Security** | Route-Tabelle fehlt no-downgrade | ⚠️ Erweiterung empfohlen |
+| **Neu: TIMESTAMPTZ-Bug** | `model_route_config_model.py` Z.22 | ✅ Behoben — `DateTime(timezone=True)` |
+| **Neu: UniqueConstraint-Bug** | `model_route_config_model.py` Z.199 | ✅ Behoben — `Index(unique=True, postgresql_where=...)` |
+| **Neu: UC-SE-5 Security** | Route-Tabelle + Migration `0043` | ✅ Implementiert — `SECURITY_AUDITOR` (no-downgrade) |
 
 ---
 
@@ -339,11 +339,12 @@ Tag 3:
 Die Input-Dateien beheben alle 3 Blocker und alle 3 kritischen Befunde des Reviews korrekt.  
 Der Implementierungsplan ist strukturell solide und backward-compatible.
 
-**Vor Deployment zwingend fixen**:
-1. `TIMESTAMPTZ` → `DateTime(timezone=True)` in `model_route_config_model.py`
-2. `UniqueConstraint(postgresql_where=...)` → `Index(unique=True, postgresql_where=...)` in `model_route_config_model.py`
+Alle identifizierten Fixes und Erweiterungen wurden implementiert (2026-03-09):
 
-**Empfohlene Erweiterung** (UC-SE-5):
-3. `AgentRole.SECURITY_AUDITOR` mit `budget_model == model` (kein Downgrade für Security-Audits)
+1. ✅ `TIMESTAMPTZ` → `DateTime(timezone=True)` in `model_route_config_model.py`
+2. ✅ `UniqueConstraint(postgresql_where=...)` → `Index(unique=True, postgresql_where=...)` in `model_route_config_model.py`
+3. ✅ `AgentRole.SECURITY_AUDITOR` mit `budget_model == model` (UC-SE-5: kein Downgrade für Security-Audits)
+4. ✅ `guardian + trivial` Route für Format-Checks (UC-SE-2)
+5. ✅ Tests: `TestSecurityAuditorNoDowngrade` + `TestRouteCacheInvalidation` (5 neue Test-Cases)
 
-Nach diesen 3 Fixes: **ADR-116 v2.0 kann als ACCEPTED deployt werden.**
+**ADR-116 v2.0 ist ACCEPTED und deployment-ready.**
