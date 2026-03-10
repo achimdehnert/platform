@@ -92,6 +92,8 @@ on:
         required: false
       SOPS_AGE_KEY:
         required: false
+      PROJECT_PAT:
+        required: false
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────
@@ -257,22 +259,31 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         env:
           GHCR_TOKEN: ${{ github.token }}
+          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
         with:
           host: ${{ secrets.HETZNER_HOST }}
           username: ${{ secrets.HETZNER_USER }}
           key: ${{ secrets.HETZNER_SSH_KEY }}
           command_timeout: 10m
-          envs: GHCR_TOKEN
+          envs: GHCR_TOKEN,PROJECT_PAT
           script: |
             set -euo pipefail
             chmod +x "${{ inputs.deploy_path }}/scripts/deploy-remote.sh"
+            ENV_FILE="${{ inputs.deploy_path }}/${{ inputs.env_file }}"
             # Inject GHCR_TOKEN into env file for docker login in deploy-remote.sh
             if [ -n "${GHCR_TOKEN:-}" ]; then
-              ENV_FILE="${{ inputs.deploy_path }}/${{ inputs.env_file }}"
               if grep -q "^GHCR_TOKEN=" "$ENV_FILE" 2>/dev/null; then
                 sed -i "s|^GHCR_TOKEN=.*|GHCR_TOKEN=${GHCR_TOKEN}|" "$ENV_FILE"
               else
                 echo "GHCR_TOKEN=${GHCR_TOKEN}" >> "$ENV_FILE"
+              fi
+            fi
+            # Inject PROJECT_PAT as GITHUB_TOKEN for ADR-055 Bug-Report → GitHub Issue creation
+            if [ -n "${PROJECT_PAT:-}" ]; then
+              if grep -q "^GITHUB_TOKEN=" "$ENV_FILE" 2>/dev/null; then
+                sed -i "s|^GITHUB_TOKEN=.*|GITHUB_TOKEN=${PROJECT_PAT}|" "$ENV_FILE"
+              else
+                echo "GITHUB_TOKEN=${PROJECT_PAT}" >> "$ENV_FILE"
               fi
             fi
 
