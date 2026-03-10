@@ -1,0 +1,20 @@
+# grafana/provisioning/dashboards/dashboard.yml
+#
+# Grafana Dashboard-Provisioning — ADR-115
+# 
+# Dashboards werden automatisch beim Start geladen.
+# Änderungen via UI werden NICHT persistiert (updateIntervalSeconds = 0 für Prod).
+# Für Dev-Modus: allowUiUpdates: true setzen.
+
+apiVersion: 1
+
+providers:
+  - name: "Agent Controlling"
+    orgId: 1
+    type: file
+    disableDeletion: true      # Dashboards nicht via API löschbar
+    updateIntervalSeconds: 60  # Reload bei Dateiänderung (für IaC-Updates)
+    allowUiUpdates: false       # UI-Änderungen werden nicht gespeichert (Prod)
+    options:
+      path: /etc/grafana/provisioning/dashboards
+      foldersFromFilesStructure: true

@@ -348,3 +348,65 @@ Alle identifizierten Fixes und Erweiterungen wurden implementiert (2026-03-09):
 5. ✅ Tests: `TestSecurityAuditorNoDowngrade` + `TestRouteCacheInvalidation` (5 neue Test-Cases)
 
 **ADR-116 v2.0 ist ACCEPTED und deployment-ready.**
+
+---
+
+## 10. Deployment-Status (2026-03-09)
+
+### Prod-Deployment ✅ vollständig abgeschlossen
+
+| Komponente | Status | Details |
+|---|---|---|
+| `model_route_configs` Tabelle | ✅ LIVE | 16 Seed-Einträge in `mcp_hub_db` |
+| `routing_reason` Spalte in `llm_calls` | ✅ LIVE | Migration `0003_model_route_config.py` |
+| `agent_role` + `complexity` in `llm_calls` | ✅ LIVE | via `llm_mcp_service` v1.4.0 |
+| `BUDGET_GUARD_ENABLED` | OFF | Nach 7 Tagen Monitoring auf `true` setzen |
+
+### Agent Coding Team Tracking ✅ vollständig
+
+Der komplette Tracking-Stack für Agent-Calls ist produktiv:
+
+```
+Aufgabe → orchestrator_mcp → OrchestratorLLMAdapter.complete_with_tools()
+                               → _log_to_llm_mcp() [fire-and-forget]
+                                 → https://llm-mcp.iil.pet/v1/agent
+                                   → llm_calls (agent_role, complexity, routing_reason, cost_usd)
+                                     → Grafana Dashboard (Panel 13/14/15)
+```
+
+**Neu implementierte Dateien/Endpunkte (mcp-hub repo):**
+- `llm_mcp_service/main.py` v1.4.0 — `/v1/agent` Endpoint
+- `llm_mcp_service/services/usage_logger.py` — `LlmCallRecord` + `agent_role`, `complexity`, `routing_reason`
+- `llm_mcp_service/models/llm_call.py` — SQLAlchemy Model erweitert
+- `orchestrator_mcp/agent_team/llm_adapter.py` — fire-and-forget `_log_to_llm_mcp()` nach jedem LLM-Call
+
+**Infrastruktur:**
+- `https://llm-mcp.iil.pet` — Nginx-Proxy + Let's Encrypt SSL (gültig bis 2026-06-07)
+- DNS: `llm-mcp.iil.pet` → A → `88.198.191.108` (Cloudflare, Proxy OFF)
+- Port `8001` auf `127.0.0.1` exposed in `docker-compose.llm-mcp.yml`
+
+**Grafana Dashboard v3 — 15 Panels:**
+- Panel 11: Agent Calls (Zeitraum) — Stat
+- Panel 12: Agent Kosten (Zeitraum) — Stat
+- Panel 13: Agent Calls nach Rolle — Piechart
+- Panel 14: Agent Calls nach Complexity — Barchart
+- Panel 15: Agent Calls Detail — Table (Rolle × Complexity × Tokens × Kosten × Latenz)
+
+**Lokale Konfiguration (WSL orchestrator_mcp):**
+```
+~/.config/mcp-hub/.env:
+  LLM_MCP_URL=https://llm-mcp.iil.pet
+  LLM_MCP_API_KEY=iil-llm-gateway-2024
+```
+
+### GitHub Commits (mcp-hub main)
+| SHA | Beschreibung |
+|---|---|
+| `b3e68f7` | `llm_mcp_service/main.py` + `usage_logger.py` v1.4.0 |
+| `602eb76` | `llm_mcp_service/models/llm_call.py` + agent tracking Felder |
+| `7db243e` | `llm_mcp_service/pyproject.toml` Version 1.4.0 |
+
+### Nächste Schritte
+1. Windsurf neu starten → `LLM_MCP_*` Env-Vars vom orchestrator_mcp laden
+2. Nach 7 Tagen: `BUDGET_GUARD_ENABLED=true` setzen + `docker restart mcp_hub_web`
+3. `mcp-hub` repo: `llm_adapter.py` Änderungen in GitHub committen

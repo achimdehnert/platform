@@ -1,0 +1,30 @@
+# grafana/provisioning/datasources/postgres.yml
+# 
+# Grafana PostgreSQL Datasource — ADR-115
+# Read-Only User (grafana_ro) — Sicherheits-Fix K-01
+#
+# Dokumentation: https://grafana.com/docs/grafana/latest/administration/provisioning/#data-sources
+
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL (orchestrator_mcp)
+    type: postgres
+    uid: orchestrator_pg  # Feste UID für Dashboard-Referenzen
+    url: ${GRAFANA_DB_HOST}:${GRAFANA_DB_PORT}
+    user: grafana_ro      # Read-Only User! Nicht der App-User.
+    
+    jsonData:
+      database: ${GRAFANA_DB_NAME}
+      sslmode: disable    # Für interne Docker-Kommunikation
+      maxOpenConns: 10    # Connection Pool
+      maxIdleConns: 5
+      connMaxLifetime: 14400  # 4 Stunden
+      postgresVersion: 1600   # PostgreSQL 16
+      timescaledb: false
+      
+    secureJsonData:
+      password: ${GRAFANA_DB_PASSWORD}
+
+    isDefault: true
+    editable: false  # Im Prod-Betrieb nicht via UI editierbar

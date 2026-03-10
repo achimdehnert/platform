@@ -1,0 +1,325 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_POSTGRESQL",
+      "label": "PostgreSQL (orchestrator_mcp)",
+      "type": "datasource",
+      "pluginId": "postgres",
+      "pluginName": "PostgreSQL"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "11.0.0" },
+    { "type": "datasource", "id": "postgres", "name": "PostgreSQL", "version": "1.0.0" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "barchart", "name": "Bar chart", "version": "" },
+    { "type": "panel", "id": "piechart", "name": "Pie chart", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" },
+    { "type": "panel", "id": "table", "name": "Table", "version": "" }
+  ],
+  "title": "Agent Controlling — LLM-Kosten & Qualität",
+  "uid": "agent-controlling-v1",
+  "version": 1,
+  "schemaVersion": 39,
+  "tags": ["llm", "controlling", "agent", "adr-115"],
+  "timezone": "Europe/Berlin",
+  "refresh": "5m",
+  "time": { "from": "now-7d", "to": "now" },
+  "timepicker": {},
+  "editable": false,
+  "fiscalYearStartMonth": 0,
+
+  "templating": {
+    "list": [
+      {
+        "name": "repo",
+        "type": "query",
+        "label": "Repository",
+        "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+        "query": "SELECT DISTINCT repo FROM llm_calls WHERE repo IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      },
+      {
+        "name": "model",
+        "type": "query",
+        "label": "Modell",
+        "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+        "query": "SELECT DISTINCT model FROM llm_calls ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": { "selected": true, "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+
+  "panels": [
+
+    {
+      "id": 1,
+      "title": "Gesamtkosten (Zeitraum)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 0, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT SUM(cost_usd)::NUMERIC(10,4) AS \"Kosten (USD)\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL AND ($repo = '$__all' OR repo = ANY(ARRAY[$repo]::TEXT[]))",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "decimals": 4,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 2,
+      "title": "Calls (Zeitraum)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 4, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS \"Anzahl Calls\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "background",
+        "graphMode": "none"
+      },
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+
+    {
+      "id": 3,
+      "title": "Error-Rate",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 8, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT ROUND(100.0 * SUM(CASE WHEN error THEN 1 ELSE 0 END) / NULLIF(COUNT(*),0), 2) AS \"Error-Rate (%)\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "colorMode": "value"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5 },
+              { "color": "red", "value": 15 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 4,
+      "title": "Ø Latenz",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 4, "x": 12, "y": 0 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT ROUND(AVG(duration_ms)) AS \"Ø Latenz (ms)\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL AND duration_ms IS NOT NULL",
+          "format": "table"
+        }
+      ],
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] } },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 5000 },
+              { "color": "red", "value": 15000 }
+            ]
+          }
+        }
+      }
+    },
+
+    {
+      "id": 5,
+      "title": "Kosten pro Tag",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 4 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('day', created_at) AS time, SUM(cost_usd) AS \"Kosten (USD)\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL GROUP BY 1 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyUSD",
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "single" }
+      }
+    },
+
+    {
+      "id": 6,
+      "title": "Token-Verbrauch pro Modell",
+      "type": "piechart",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 4 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT model, SUM(total_tokens) AS \"Token\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL GROUP BY model ORDER BY 2 DESC",
+          "format": "table"
+        }
+      ],
+      "options": {
+        "pieType": "pie",
+        "displayLabels": ["name", "percent"],
+        "legend": { "displayMode": "table", "placement": "right", "values": ["value", "percent"] }
+      },
+      "fieldConfig": { "defaults": { "unit": "short" } }
+    },
+
+    {
+      "id": 7,
+      "title": "Kosten pro Repository",
+      "type": "barchart",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT COALESCE(repo, 'unbekannt') AS repo, SUM(cost_usd) AS \"Kosten (USD)\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 20",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD" } },
+      "options": {
+        "barWidth": 0.7,
+        "xTickLabelRotation": -45,
+        "legend": { "displayMode": "hidden" }
+      }
+    },
+
+    {
+      "id": 8,
+      "title": "Model-Mix über Zeit (Stacked)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 12 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('day', created_at) AS time, model, COUNT(*) AS calls FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL GROUP BY 1, 2 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "custom": { "stacking": { "mode": "normal" }, "fillOpacity": 80, "lineWidth": 0 }
+        }
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      }
+    },
+
+    {
+      "id": 9,
+      "title": "Top 10 teuerste Tasks",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 20 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT task_id AS \"Task\", COALESCE(repo, '-') AS \"Repo\", COUNT(*) AS \"Calls\", SUM(total_tokens) AS \"Token\", SUM(cost_usd)::NUMERIC(10,6) AS \"Kosten (USD)\", MAX(created_at) AS \"Letzter Call\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL AND task_id IS NOT NULL GROUP BY task_id, repo ORDER BY 5 DESC LIMIT 10",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "unit": "short" },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Kosten (USD)" }, "properties": [{ "id": "unit", "value": "currencyUSD" }] },
+          { "matcher": { "id": "byName", "options": "Letzter Call" }, "properties": [{ "id": "unit", "value": "dateTimeAsLocal" }] }
+        ]
+      },
+      "options": { "sortBy": [{ "displayName": "Kosten (USD)", "desc": true }] }
+    },
+
+    {
+      "id": 10,
+      "title": "Latenz-Verteilung (p50 / p95 / p99)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 20 },
+      "datasource": { "type": "postgres", "uid": "orchestrator_pg" },
+      "targets": [
+        {
+          "rawSql": "SELECT date_trunc('hour', created_at) AS time, PERCENTILE_CONT(0.50) WITHIN GROUP (ORDER BY duration_ms) AS \"p50 (ms)\", PERCENTILE_CONT(0.95) WITHIN GROUP (ORDER BY duration_ms) AS \"p95 (ms)\", PERCENTILE_CONT(0.99) WITHIN GROUP (ORDER BY duration_ms) AS \"p99 (ms)\" FROM llm_calls WHERE $__timeFilter(created_at) AND deleted_at IS NULL AND duration_ms IS NOT NULL GROUP BY 1 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "custom": { "lineWidth": 2 }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "p99 (ms)" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "p95 (ms)" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] }
+        ]
+      },
+      "options": {
+        "legend": { "displayMode": "list", "placement": "bottom" },
+        "tooltip": { "mode": "multi" }
+      }
+    }
+
+  ],
+
+  "annotations": {
+    "list": [
+      {
+        "name": "Deployments",
+        "type": "dashboard",
+        "enable": true,
+        "hide": false,
+        "iconColor": "blue"
+      }
+    ]
+  }
+}
