@@ -9,15 +9,16 @@ informed: []
 tags: [package, outlinefw, creative-writing, pure-python]
 supersedes: []
 related: [ADR-096, ADR-097]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "Repo: https://github.com/achimdehnert/outlinefw — v0.1.0, 30+ Tests"
+  - "Repo: https://github.com/achimdehnert/outlinefw — v0.1.1, 57 Tests, CI green"
   - "5 Frameworks: three_act, save_the_cat, heros_journey, five_act, dan_harmon"
   - "Modules: schemas, frameworks, generator, parser, django_adapter"
   - "pyproject.toml: hatch build, py.typed (PEP 561), mypy strict, ruff"
-  - "publish.yml Workflow vorhanden, ci.yml fehlt noch"
-  - "writing-hub: src/outlinefw/ integriert via sys.path hack (commit 055cea8)"
-  - "Noch offen: Phase 3 — PyPI publish + writing-hub/travel-beat/bfagent Migration"
+  - "CI: ci.yml (ruff lint+format, pytest Python 3.11+3.12) + publish.yml (Trusted Publishers)"
+  - "PyPI: iil-outlinefw v0.1.0 published 2026-03-08, v0.1.1 tagged 2026-03-11"
+  - "writing-hub: pip install iil-outlinefw in requirements.txt, sys.path hack entfernt"
+  - "Noch offen (LOW): travel-beat + bfagent Migration (Phase 3 remaining consumers)"
 ---
 
 ## Kontext und Problemstellung
