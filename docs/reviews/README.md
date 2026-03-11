@@ -56,7 +56,7 @@ Gesamturteil:
 | [ADR-103-review-2026-03-11.md](ADR-103-review-2026-03-11.md) | ausschreibungs-hub Architektur v3 | ⚠️ 1B (pyproject.toml) | — |
 | [ADR-104-review-2026-03-11.md](ADR-104-review-2026-03-11.md) | Research Hub + iil-researchfw | ⚠️ 1B (Frontmatter) | — |
 | [ADR-105-review-2026-03-11.md](ADR-105-review-2026-03-11.md) | iil-researchfw Extraction Plan v2 | ⚠️ Approved w/ Comments | — |
-| [ADR-100-numbering-conflict-2026-03-11.md](ADR-100-numbering-conflict-2026-03-11.md) | ADR-100 Nummernkonflikt (3 Dateien) | ❌ Needs renumbering | — |
+| [ADR-100-numbering-conflict-2026-03-11.md](ADR-100-numbering-conflict-2026-03-11.md) | 7 Nummernkonflikte → ADR-130–136 | ✅ RESOLVED | — |
 
 ### Ältere Reviews (migriert aus docs/adr/reviews/)
 
@@ -77,3 +77,16 @@ Gesamturteil:
 | [REVIEW-ADR-088-notification-registry-v2.md](REVIEW-ADR-088-notification-registry-v2.md) | ADR-088 Notification Registry v2 |
 | [REVIEW-ADR-107-extended-agent-team.md](REVIEW-ADR-107-extended-agent-team.md) | ADR-107 Extended Agent Team |
 | [REVIEW-ADR-109-110.md](REVIEW-ADR-109-110.md) | ADR-109 + ADR-110 Review |
+| [ADR-062-review-billing-service.md](ADR-062-review-billing-service.md) | ADR-062 Billing Service Review |
+| [ADR-120-review-2026-03-11-v12.md](ADR-120-review-2026-03-11-v12.md) | ADR-120 Deployment Pipeline Review v1.2 |
+| [REVIEW-ADR-028-platform-context.md](REVIEW-ADR-028-platform-context.md) | ADR-028 Platform Context Review |
+| [REVIEW-ADR-2026-001-Shared-Backend-Services.md](REVIEW-ADR-2026-001-Shared-Backend-Services.md) | ADR-2026-001 → ADR-136 Shared Backend Services |
+| [REVIEW-odoo-management-app.md](REVIEW-odoo-management-app.md) | Odoo Management App Review |
+
+### MCP Scorecards
+
+| Datei | Gegenstand |
+|-------|-----------|
+| [bfagent_mcp-scorecard.md](bfagent_mcp-scorecard.md) | bfagent MCP Scorecard |
+| [deployment_mcp-scorecard.md](deployment_mcp-scorecard.md) | deployment-mcp Scorecard |
+| [llm_mcp-scorecard.md](llm_mcp-scorecard.md) | llm-mcp Scorecard |

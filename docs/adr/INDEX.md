@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-03-08
-> **Next free ADR number:** 112
+> **Last updated:** 2026-03-11
+> **Next free ADR number:** 137
 
 ## Legend
 
@@ -110,7 +110,7 @@
 | 059 | Automated ADR Drift Detection and Staleness Management | `Accepted` | [ADR-059](ADR-059-adr-drift-detector.md) |
 | 060 | Developer Workstation SSH Key Configuration Standard | `Accepted` | [ADR-060](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Adopt hardcode_scanner.py as Platform-wide Tooling | `Accepted` | [ADR-061](ADR-061-hardcoding-elimination-strategy.md) |
-| 062 | Shared PostgreSQL Schema `content_store` for AI-generated Content | `Accepted` | [ADR-062](ADR-062-content-store-shared-persistence.md) |
+| 062 | Central Billing Service (billing-hub) | `Accepted` | [ADR-062](ADR-062-central-billing-service.md) |
 | 063 | Staging Environment Strategy | `Accepted` | [ADR-063](ADR-063-staging-environment-strategy.md) |
 | 064 | coach-hub Architecture | `Archived` | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
 | 065 | Filesystem-first ADR Numbering -- max(existing) + 1 | `Accepted` | [ADR-065](ADR-065-adr-numbering-filesystem-first.md) |
@@ -139,7 +139,7 @@
 | 088 | Shared Notification Registry -- Multi-Channel Messaging | `Accepted` | [ADR-088](ADR-088-notification-registry.md) |
 | 089 | bfagent-llm -- LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline -- Python + PostgreSQL -> Docker Deploy | `Accepted` | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
-| 091 | Shared Backend Services Library fuer Django-Projekte | `Accepted` | [ADR-091](ADR-091-shared-backend-services.md) |
+| 091 | Platform Operations Hub Consolidation | `Proposed` | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Proposed` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
@@ -147,19 +147,41 @@
 | 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Proposed` | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
 | 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Proposed` | [ADR-099](ADR-099-devhub-release-management-ui.md) |
-| 100 | iil-outlinefw -- Zentrales Story-Outline-Framework als PyPI-Package | `Accepted` | [ADR-100](ADR-100-iil-outlinefw-story-outline-framework.md) |
+| 100 | iil-testkit -- Shared Test Factory Package | `Accepted` | [ADR-100](ADR-100-iil-testkit-shared-test-factory-package.md) |
 | 107 | Extended Agent Team -- Deployment Agent | `Accepted` | [ADR-107](ADR-107-extended-agent-team-deployment-agent.md) |
 | 108 | Agent QA Cycle -- Quality Evaluator, Completion, AuditStore | `Accepted` | [ADR-108](ADR-108-agent-qa-cycle.md) |
 | 109 | Multi-Tenancy Platform Standard (alle UI-Hubs) | `Accepted` | [ADR-109](ADR-109-multi-tenancy-platform-standard.md) |
 | 110 | i18n Platform Standard (alle UI-Hubs) | `Accepted` | [ADR-110](ADR-110-i18n-platform-standard.md) |
 | 111 | Private Package Distribution via GitHub Packages | `Accepted` | [ADR-111](ADR-111-private-package-distribution.md) |
+| 112 | Agent Skill Registry + Persistent Context | `Accepted` | [ADR-112](ADR-112-agent-skill-registry-persistent-context.md) |
+| 113 | Telegram Gateway + pgvector Memory | `Accepted` | [ADR-113](ADR-113-telegram-gateway-pgvector-memory.md) |
+| 114 | Discord IDE-like Communication Gateway | `Accepted` | [ADR-114](ADR-114-discord-ide-like-communication-gateway.md) |
+| 115 | Grafana Agent Controlling Dashboard | `Accepted` | [ADR-115](ADR-115-grafana-agent-controlling-dashboard.md) |
+| 116 | Dynamic Model Router | `Accepted` | [ADR-116](ADR-116-dynamic-model-router.md) |
+| 117 | Shared World Layer (worldfw) | `Accepted` | [ADR-117](ADR-117-shared-world-layer-worldfw.md) |
+| 118 | billing-hub als Platform Store | `Accepted` | [ADR-118](ADR-118-platform-store-billing-hub-user-registration.md) |
+| 119 | Authored Content Pipeline (Neutral Lore → Style) | `Accepted` | [ADR-119](ADR-119-authored-content-pipeline-neutral-lore-to-style.md) |
+| 120 | Unified Deployment Pipeline | `Accepted` | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
+| 121 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS | `Proposed` | [ADR-121](ADR-121-tenant-lifecycle-module-selfservice-rls.md) |
+| 130 | Shared PostgreSQL Schema `content_store` (ehem. ADR-062) | `Accepted` | [ADR-130](ADR-130-content-store-shared-persistence.md) |
+| 131 | Shared Backend Services Library (ehem. ADR-091) | `Accepted` | [ADR-131](ADR-131-shared-backend-services.md) |
+| 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
+| 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | [ADR-133](ADR-133-shared-ai-services-package.md) |
+| 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | [ADR-134](ADR-134-module-monetization-strategy.md) |
+| 135 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | [ADR-135](ADR-135-iil-outlinefw-story-outline-framework.md) |
+| 136 | Shared Backend Services Original (ehem. ADR-2026-001) | `Proposed` | [ADR-136](ADR-136-shared-backend-services-original.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
 > Luecken werden nie wiederverwendet (ADR-065). Folgende Nummern sind permanent frei:
 > ADR-001 bis ADR-006 (pre-filesystem era), ADR-011, ADR-025, ADR-026, ADR-092
 > Archivierte ADRs (016, 018, 019, 024, 029, 034, 038, 039, 052, 064, 076, 400, 401): siehe `_archive/superseded/`
-> ADR-060-aifw-quality-level-routing.md: Tombstone (falsche Nummer, ersetzt durch ADR-095)
+> ADR-060-aifw-quality-level-routing.md: gelöscht (Tombstone, ersetzt durch ADR-095)
+> ADR-100-extended-agent-team-deployment-agent.md: gelöscht (deprecated, ersetzt durch ADR-107)
+> ADR-103-ausschreibungs-hub-architektur.md: gelöscht (superseded by v3)
+> ADR-062-REVIEW.md: verschoben nach docs/reviews/
+> ADR-2026-001: umnummeriert zu ADR-136 (ungültige Nummerierung)
+> Nummernkonflikte aufgelöst (2026-03-11): ADR-062, ADR-091, ADR-094, ADR-099, ADR-100 → ADR-130–136
 
 ---
 
@@ -171,7 +193,8 @@
 - [x] ADR-097 (aifw 0.6.0 Contract): `Proposed` -- 2026-03-02
 - [x] ADR-098 (3-Layer Tuning Standard): `Accepted` -- 2026-03-04
 - [x] ADR-099 (dev-hub Release Management UI): `Proposed` -- 2026-03-04
-- [x] ADR-100 (iil-outlinefw): `Accepted` -- 2026-03-08
+- [x] ADR-100 (iil-testkit): `Accepted` -- 2026-03-05
+- [x] ADR-135 (iil-outlinefw, ehem. ADR-100): `Accepted` -- 2026-03-08
 - [x] ADR-107 (Extended Agent Team): `Accepted` -- 2026-03-08
 - [x] ADR-108 (Agent QA Cycle): `Accepted` -- 2026-03-08
 - [x] ADR-109 (Multi-Tenancy Platform Standard): `Accepted` -- 2026-03-08
@@ -183,5 +206,6 @@
 - [ ] ADR-097: Review + `Accepted` nach ADR-095 Acceptance → dann aifw 0.6.0 implementieren
 - [ ] ADR-099: Review + `Accepted` → dann dev-hub `releases` App implementieren
 - [ ] ADR-073: Repo Scope aktualisieren (war 10 Repos, jetzt 20) — neues ADR oder Amendment
-- [ ] ADR-060-aifw-quality-level-routing.md Tombstone → in `_archive/superseded/` verschieben (manuell)
+- [x] ADR-060-aifw-quality-level-routing.md: gelöscht (2026-03-11)
+- [x] Nummernkonflikte aufgelöst: 7 Duplikate → ADR-130–136 (2026-03-11)
 - [ ] catalog-info.yaml in allen 20 Repos pruefen/erstellen (ADR-077 compliance)

@@ -1,14 +1,16 @@
 ---
-status: accepted
+status: proposed
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
 
-# ADR-091: Shared Backend Services Library für Django-Projekte
+# ADR-136: Shared Backend Services Library für Django-Projekte (Original)
+
+> **Umnummeriert von ADR-2026-001** (ungültige Nummerierung)
 
 | | |
 |---|---|
-| **ADR-ID** | ADR-091 |
+| **ADR-ID** | ADR-136 (ehemals ADR-2026-001) |
 | **Titel** | Shared Backend Services Library für Django-Projekte |
 | **Status** | Proposed |
 | **Datum** | 2026-02-12 |
