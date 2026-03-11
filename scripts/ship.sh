@@ -125,7 +125,15 @@ ok "GitHub: up to date"
 # =============================================================================
 echo ""
 echo "🔨 [2/4] Docker build..."
-docker build -f "$REPO_DIR/$DOCKERFILE" -t "$IMAGE" "$REPO_DIR"
+# GIT_TOKEN for private deps (Dockerfile --mount=type=secret)
+export GIT_TOKEN="${GIT_TOKEN:-${PROJECT_PAT:-}}"
+if [ -n "$GIT_TOKEN" ]; then
+  DOCKER_BUILDKIT=1 docker build \
+    --secret id=GIT_TOKEN,env=GIT_TOKEN \
+    -f "$REPO_DIR/$DOCKERFILE" -t "$IMAGE" "$REPO_DIR"
+else
+  docker build -f "$REPO_DIR/$DOCKERFILE" -t "$IMAGE" "$REPO_DIR"
+fi
 ok "Image gebaut"
 
 # =============================================================================
