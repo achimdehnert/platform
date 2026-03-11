@@ -1,3 +1,10 @@
+---
+status: accepted
+date: 2026-02-27
+decision-makers: [Achim Dehnert]
+implementation_status: partial
+---
+
 # ADR-132: AI Context Defense-in-Depth
 
 > **Umnummeriert von ADR-094** (Nummernkonflikt mit ADR-094-django-migration-conflict-resolution)

@@ -1,3 +1,10 @@
+---
+status: accepted
+date: 2026-03-09
+decision-makers: [Achim Dehnert]
+implementation_status: implemented
+---
+
 # ADR-116: Dynamic Model Router — Budget-Aware Rule-Based Fallback Router
 
 ## Status

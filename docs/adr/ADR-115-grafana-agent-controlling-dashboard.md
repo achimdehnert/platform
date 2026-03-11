@@ -1,3 +1,10 @@
+---
+status: accepted
+date: 2026-03-08
+decision-makers: [Achim Dehnert]
+implementation_status: implemented
+---
+
 # ADR-115: Grafana Agent Controlling Dashboard
 
 ## Status
