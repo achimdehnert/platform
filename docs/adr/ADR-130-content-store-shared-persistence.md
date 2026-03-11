@@ -8,6 +8,7 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-022-platform-consistency-standard.md", "ADR-037-chat-conversation-logging.md"]
+implementation_status: none
 ---
 
 # Adopt a shared Django app `content_store` for AI-generated content persistence
@@ -348,7 +349,7 @@ class ContentStoreService:
 ### Rollback-Strategie
 
 | Szenario | Verhalten | Mitigation |
-|----------|-----------|-----------|
+|----------|-----------|-----------| 
 | `content_store` DB nicht erreichbar | `OperationalError` bei Query | Apps fangen Exception im Service-Layer, loggen Warning, fahren ohne Persistenz fort |
 | Django-Migration fehlgeschlagen | `python manage.py migrate --database=content_store` bricht ab | Standard Django Rollback: `migrate content_store <previous_migration>` |
 | Korruptes Schema | Queries schlagen fehl | `pg_dump -n content_store` vor jeder Migration als Backup |
@@ -378,7 +379,7 @@ Flag über `ContentStoreService.save_compliance()` (mit `tenant_id` aus Konfigur
 ### Risks
 
 | Risiko | Schwere | Mitigation |
-|--------|---------|-----------|
+|--------|---------|-----------| 
 | DB-Verbindung fehlt | LOW | Lazy-Init mit try/except im Service; Apps degradieren graceful |
 | Migration-Konflikt bei mehreren consuming Apps | MEDIUM | `content_store` Migrations nur in einem Repo (platform oder dev-hub) ausführen |
 | `tenant_id` Konsistenz über Apps | MEDIUM | `tenant_id` ist `BigIntegerField` — kompatibel mit BigAutoField PKs der Tenant-Models |
