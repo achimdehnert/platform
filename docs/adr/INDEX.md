@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
 > **Last updated:** 2026-03-11
-> **Next free ADR number:** 137
+> **Next free ADR number:** 138
 
 ## Legend
 
@@ -162,14 +162,14 @@
 | 118 | billing-hub als Platform Store | `Accepted` | [ADR-118](ADR-118-platform-store-billing-hub-user-registration.md) |
 | 119 | Authored Content Pipeline (Neutral Lore → Style) | `Accepted` | [ADR-119](ADR-119-authored-content-pipeline-neutral-lore-to-style.md) |
 | 120 | Unified Deployment Pipeline | `Accepted` | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
-| 121 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS | `Proposed` | [ADR-121](ADR-121-tenant-lifecycle-module-selfservice-rls.md) |
+| 121 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | [ADR-121](ADR-121-iil-outlinefw-story-outline-framework.md) |
 | 130 | Shared PostgreSQL Schema `content_store` (ehem. ADR-062) | `Accepted` | [ADR-130](ADR-130-content-store-shared-persistence.md) |
 | 131 | Shared Backend Services Library (ehem. ADR-091) | `Accepted` | [ADR-131](ADR-131-shared-backend-services.md) |
 | 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
 | 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | [ADR-133](ADR-133-shared-ai-services-package.md) |
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | [ADR-134](ADR-134-module-monetization-strategy.md) |
-| 135 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | [ADR-135](ADR-135-iil-outlinefw-story-outline-framework.md) |
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) | `Proposed` | [ADR-136](ADR-136-shared-backend-services-original.md) |
+| 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Proposed` | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -194,7 +194,7 @@
 - [x] ADR-098 (3-Layer Tuning Standard): `Accepted` -- 2026-03-04
 - [x] ADR-099 (dev-hub Release Management UI): `Proposed` -- 2026-03-04
 - [x] ADR-100 (iil-testkit): `Accepted` -- 2026-03-05
-- [x] ADR-135 (iil-outlinefw, ehem. ADR-100): `Accepted` -- 2026-03-08
+- [x] ADR-121 (iil-outlinefw, ehem. ADR-100/135): `Accepted` -- 2026-03-08
 - [x] ADR-107 (Extended Agent Team): `Accepted` -- 2026-03-08
 - [x] ADR-108 (Agent QA Cycle): `Accepted` -- 2026-03-08
 - [x] ADR-109 (Multi-Tenancy Platform Standard): `Accepted` -- 2026-03-08
