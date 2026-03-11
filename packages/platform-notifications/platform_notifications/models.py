@@ -4,8 +4,6 @@ Multi-Tenancy: Row-Level Isolation via tenant_id.
 Begründung: Siehe ADR-088 §ADR-072 Abweichung.
 """
 
-import uuid
-
 from django.db import models
 
 
@@ -17,12 +15,7 @@ class NotificationLog(models.Model):
         SENT = "sent", "Sent"
         FAILED = "failed", "Failed"
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False,
-    )
-    tenant_id = models.UUIDField(db_index=True)
+    tenant_id = models.CharField(max_length=64, db_index=True)
     channel = models.CharField(max_length=50)
     recipient = models.CharField(max_length=255)
     subject = models.CharField(max_length=255, blank=True, default="")

@@ -1,8 +1,5 @@
 """Create notification_log table (ADR-088)."""
 
-import uuid
-
-import django.db.models.deletion
 from django.db import migrations, models
 
 
@@ -17,16 +14,16 @@ class Migration(migrations.Migration):
             fields=[
                 (
                     "id",
-                    models.UUIDField(
-                        default=uuid.uuid4,
-                        editable=False,
+                    models.BigAutoField(
+                        auto_created=True,
                         primary_key=True,
                         serialize=False,
+                        verbose_name="ID",
                     ),
                 ),
                 (
                     "tenant_id",
-                    models.UUIDField(db_index=True),
+                    models.CharField(max_length=64, db_index=True),
                 ),
                 (
                     "channel",
