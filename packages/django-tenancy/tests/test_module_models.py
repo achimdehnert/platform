@@ -1,7 +1,10 @@
 """Tests for ModuleSubscription and ModuleMembership models."""
 
+from datetime import timedelta
+
 import pytest
 from django.contrib.auth import get_user_model
+from django.utils import timezone
 
 from django_tenancy.models import Organization
 from django_tenancy.module_models import ModuleMembership, ModuleSubscription
@@ -11,7 +14,7 @@ User = get_user_model()
 
 @pytest.fixture
 def org(db):
-    return Organization.objects.create(slug="acme", name="Acme GmbH")
+    return Organization.objects.create(slug="acme", name="Acme GmbH", status="active")
 
 
 @pytest.fixture
@@ -23,7 +26,7 @@ def user(db):
 def subscription(db, org):
     return ModuleSubscription.objects.create(
         organization=org,
-        tenant_id=org.pk,
+        tenant_id=org.tenant_id,
         module="risk",
         status=ModuleSubscription.Status.ACTIVE,
     )
@@ -32,7 +35,7 @@ def subscription(db, org):
 @pytest.fixture
 def membership(db, org, user):
     return ModuleMembership.objects.create(
-        tenant_id=org.pk,
+        tenant_id=org.tenant_id,
         user=user,
         module="risk",
         role=ModuleMembership.Role.MEMBER,
@@ -48,7 +51,7 @@ class TestModuleSubscription:
     def test_suspended_not_accessible(self, org, db):
         sub = ModuleSubscription.objects.create(
             organization=org,
-            tenant_id=org.pk,
+            tenant_id=org.tenant_id,
             module="dsb",
             status=ModuleSubscription.Status.SUSPENDED,
         )
@@ -57,7 +60,7 @@ class TestModuleSubscription:
     def test_trial_is_accessible(self, org, db):
         sub = ModuleSubscription.objects.create(
             organization=org,
-            tenant_id=org.pk,
+            tenant_id=org.tenant_id,
             module="ex",
             status=ModuleSubscription.Status.TRIAL,
         )
@@ -68,27 +71,68 @@ class TestModuleSubscription:
         with pytest.raises(IntegrityError):
             ModuleSubscription.objects.create(
                 organization=org,
-                tenant_id=org.pk,
+                tenant_id=org.tenant_id,
                 module="risk",
+                status="active",
             )
 
     def test_for_tenant_manager(self, subscription, org, db):
         other_org = Organization.objects.create(
-            slug="other", name="Other GmbH",
+            slug="other", name="Other GmbH", status="active",
         )
         ModuleSubscription.objects.create(
             organization=other_org,
-            tenant_id=other_org.pk,
+            tenant_id=other_org.tenant_id,
             module="risk",
             status="active",
         )
-        qs = ModuleSubscription.objects.for_tenant(org.pk)
+        qs = ModuleSubscription.objects.for_tenant(org.tenant_id)
         assert qs.count() == 1
         assert qs.first().organization == org
 
     def test_str(self, subscription):
         assert "risk" in str(subscription)
         assert "active" in str(subscription)
+
+    def test_should_not_be_accessible_when_trial_expired(self, org, db):
+        sub = ModuleSubscription.objects.create(
+            organization=org,
+            tenant_id=org.tenant_id,
+            module="gbu",
+            status=ModuleSubscription.Status.TRIAL,
+            trial_ends_at=timezone.now() - timedelta(days=1),
+        )
+        assert sub.is_accessible is False
+
+    def test_should_be_accessible_when_trial_valid(self, org, db):
+        sub = ModuleSubscription.objects.create(
+            organization=org,
+            tenant_id=org.tenant_id,
+            module="gbu",
+            status=ModuleSubscription.Status.TRIAL,
+            trial_ends_at=timezone.now() + timedelta(days=7),
+        )
+        assert sub.is_accessible is True
+
+    def test_should_not_be_accessible_when_expired(self, org, db):
+        sub = ModuleSubscription.objects.create(
+            organization=org,
+            tenant_id=org.tenant_id,
+            module="docs",
+            status=ModuleSubscription.Status.ACTIVE,
+            expires_at=timezone.now() - timedelta(hours=1),
+        )
+        assert sub.is_accessible is False
+
+    def test_should_be_accessible_when_not_expired(self, org, db):
+        sub = ModuleSubscription.objects.create(
+            organization=org,
+            tenant_id=org.tenant_id,
+            module="docs",
+            status=ModuleSubscription.Status.ACTIVE,
+            expires_at=timezone.now() + timedelta(days=30),
+        )
+        assert sub.is_accessible is True
 
 
 class TestModuleMembership:
@@ -100,7 +144,7 @@ class TestModuleMembership:
         from django.db import IntegrityError
         with pytest.raises(IntegrityError):
             ModuleMembership.objects.create(
-                tenant_id=org.pk,
+                tenant_id=org.tenant_id,
                 user=user,
                 module="risk",
                 role="viewer",
@@ -108,7 +152,7 @@ class TestModuleMembership:
 
     def test_different_modules_allowed(self, membership, org, user, db):
         m2 = ModuleMembership.objects.create(
-            tenant_id=org.pk,
+            tenant_id=org.tenant_id,
             user=user,
             module="dsb",
             role="admin",
@@ -118,15 +162,15 @@ class TestModuleMembership:
     def test_for_tenant_manager(self, membership, org, db):
         other_user = User.objects.create_user(username="bob", password="pw")
         other_org = Organization.objects.create(
-            slug="other2", name="Other2 GmbH",
+            slug="other2", name="Other2 GmbH", status="active",
         )
         ModuleMembership.objects.create(
-            tenant_id=other_org.pk,
+            tenant_id=other_org.tenant_id,
             user=other_user,
             module="risk",
             role="viewer",
         )
-        qs = ModuleMembership.objects.for_tenant(org.pk)
+        qs = ModuleMembership.objects.for_tenant(org.tenant_id)
         assert qs.count() == 1
 
     def test_str(self, membership):
