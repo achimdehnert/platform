@@ -3,6 +3,9 @@ status: accepted
 date: 2026-03-08
 decision-makers: [Achim Dehnert]
 implementation_status: partial
+implementation_evidence:
+  - "6/9 UI-Hubs mit tenant: travel-beat, weltenhub, coach-hub, cad-hub, billing-hub, dev-hub"
+  - "Fehlend: risk-hub, pptx-hub, trading-hub (kein django_tenants installiert)"
 ---
 
 # ADR-109: Multi-Tenancy als Plattform-Standard für alle UI-Hubs
