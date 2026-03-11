@@ -4,8 +4,9 @@ date: 2026-03-08
 decision-makers: [Achim Dehnert]
 implementation_status: partial
 implementation_evidence:
-  - "6/9 UI-Hubs mit i18n: travel-beat, weltenhub, coach-hub, cad-hub, billing-hub, dev-hub"
-  - "Fehlend: risk-hub, pptx-hub, trading-hub"
+  - "Done: coach-hub, risk-hub, research-hub, weltenhub, cad-hub, travel-beat, billing-hub, dev-hub"
+  - "pptx-hub: USE_I18N vermutlich aktiv (Django Default), aber kein Locale-Middleware verifiziert"
+  - "Fehlend: trading-hub (nicht verifiziert, Rate-Limit bei Prüfung)"
 ---
 
 # ADR-110: Internationalisierung (i18n) als Plattform-Standard für alle UI-Hubs
