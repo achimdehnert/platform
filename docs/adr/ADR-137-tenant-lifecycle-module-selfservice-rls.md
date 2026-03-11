@@ -24,7 +24,10 @@ implementation_evidence:
   - "3.x Tests: test_catalogue.py, test_views.py"
   - "3.x URLs: /billing/modules/ → django_module_shop.urls (INSTALLED_APPS + urls.py)"
   - "3.x Cancel: Stub (Log + Message), volle HMAC-Integration → Phase 4"
-  - "Phase 4 (Rollout): ausstehend — TenantManager in bestehende Models, RLS auf Prod, billing/ App entfernen"
+  - "Phase 4.1 TenantManager in alle Models: DONE — 11 Model-Dateien in src/ nutzen TenantManager"
+  - "Phase 4.2 RLS auf Prod aktivieren: ausstehend — manage.py setup_rls_roles + enable_rls"
+  - "Phase 4.3 billing/ App entfernen: ausstehend — nach billing-hub Migration"
+  - "Phase 4.4 Template für weitere Hubs: ausstehend"
 ---
 
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
