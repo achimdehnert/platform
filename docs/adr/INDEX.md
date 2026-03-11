@@ -235,3 +235,6 @@
 - [x] ADR-108: Datei ADR-108-agent-qa-cycle.md erstellt + implementation_status: implemented -- 2026-03-11
 - [x] ADR-138: /adr-review Workflow Check auf fehlende implementation_status -- 2026-03-11
 - [x] ADR-138: implementation_status partial→implemented (alle Schritte erledigt) -- 2026-03-11
+- [x] ADR-062+118: billing-hub deployed (https://billing.iil.pet), CI green, 7 Platforms + 31 Plans seeded -- 2026-03-11
+- [x] ADR-118: EmailVerification model + service + checkout flow implementiert + deployed -- 2026-03-11
+- [x] ADR-062: partial→implemented, ADR-118: partial→implemented -- 2026-03-11

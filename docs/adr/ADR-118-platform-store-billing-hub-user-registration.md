@@ -3,13 +3,14 @@ status: accepted
 date: 2026-03-10
 updated: 2026-03-11-v1.2
 decision-makers: Achim Dehnert
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
+  - "billing-hub live: https://billing.iil.pet (deployed, migration 0002 applied)"
   - "billing-hub/apps/catalog/: Product, CatalogSubscription, EmailVerification models"
   - "billing-hub/apps/store/: checkout flow with email verification (ADR-118 compliant)"
   - "billing-hub/apps/catalog/services/: HMAC activate/deactivate + verification_service"
   - "billing-hub/apps/catalog/tasks.py: trial management (expire, remind, check)"
-  - "remaining: product seed data + deployment to billing.iil.pet"
+  - "7 Platforms + 31 Plans seeded, CI green, email verification deployed"
 ---
 
 # ADR-118: billing-hub als Platform Store
