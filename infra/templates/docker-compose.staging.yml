@@ -1,0 +1,84 @@
+# docker-compose.staging.yml — Reference Template (ADR-106 FIX-B)
+#
+# RAM Budget for dev-server (30 GB total, ~16 GB allocated):
+#   odoo:        4000 MB    | risk-hub:    1500 MB
+#   trading-hub: 1500 MB    | cad-hub:     1200 MB
+#   travel-beat: 1200 MB    | weltenhub:   1000 MB
+#   bfagent:      800 MB    | wedding-hub:  600 MB
+#   pptx-hub:     600 MB    | coach-hub:    600 MB
+#   dev-hub:      500 MB
+#
+# Copy to <repo>/docker-compose.staging.yml and adjust:
+#   1. Replace __APP__ with repo name (snake_case)
+#   2. Replace __PORT__ with staging port from infra/ports.yaml
+#   3. Adjust mem_limit per RAM budget above
+
+services:
+  web:
+    image: ghcr.io/achimdehnert/__APP__:${IMAGE_TAG:-latest}
+    container_name: __APP___staging_web
+    restart: unless-stopped
+    mem_limit: 768m
+    memswap_limit: 768m
+    env_file:
+      - .env.staging
+    ports:
+      - "127.0.0.1:__PORT__:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  db:
+    image: postgres:16-alpine
+    container_name: __APP___staging_db
+    restart: unless-stopped
+    mem_limit: 256m
+    memswap_limit: 256m
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    env_file:
+      - .env.staging
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: __APP___staging_redis
+    restart: unless-stopped
+    mem_limit: 96m
+    memswap_limit: 96m
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Optional: uncomment if repo uses Celery
+  # celery:
+  #   image: ghcr.io/achimdehnert/__APP__:${IMAGE_TAG:-latest}
+  #   container_name: __APP___staging_celery
+  #   restart: unless-stopped
+  #   mem_limit: 384m
+  #   memswap_limit: 384m
+  #   command: celery -A config worker -l info
+  #   env_file:
+  #     - .env.staging
+  #   depends_on:
+  #     db:
+  #       condition: service_healthy
+  #     redis:
+  #       condition: service_healthy
+
+volumes:
+  db_data:
