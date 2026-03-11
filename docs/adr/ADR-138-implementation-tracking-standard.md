@@ -15,8 +15,11 @@ related: [ADR-015, ADR-046, ADR-051]
 supersedes: []
 amends: []
 last_verified: 2026-03-11
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
+  - "docs/adr/INDEX.md: Impl column with emoji legend (⬜🔶✅✅✅)"
+  - "85+ ADRs: implementation_status backfilled in YAML frontmatter"
+  - ".windsurf/workflows/adr-review.md: Step 2.9 + Step 3.5 ADR-138 compliance check"
   - "docs/adr/ADR-138-implementation-tracking-standard.md: this ADR"
 ---
 
@@ -161,9 +164,9 @@ The ADR INDEX table gets a new column `Impl` showing implementation status as em
 | Schritt | Status | Datum |
 |---------|--------|-------|
 | ADR-138 akzeptiert | ✅ done | 2026-03-11 |
-| INDEX.md: `Impl`-Spalte hinzufügen | 🔲 pending | — |
-| Backfill: `implementation_status` in alle Accepted ADRs | 🔲 pending | — |
-| `/adr-review` Workflow: Check auf fehlende `implementation_status` | 🔲 pending | — |
+| INDEX.md: `Impl`-Spalte hinzufügen | ✅ done | 2026-03-11 |
+| Backfill: `implementation_status` in alle Accepted ADRs | ✅ done | 2026-03-11 |
+| `/adr-review` Workflow: Check auf fehlende `implementation_status` | ✅ done | 2026-03-11 |
 
 ---
 
