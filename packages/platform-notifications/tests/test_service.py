@@ -68,7 +68,7 @@ class TestNotificationService:
         registry.register(MockChannel())
 
         with patch(
-            "platform_notifications.service"
+            "platform_notifications.tasks"
             ".dispatch_notification_task"
         ) as mock_task:
             mock_task.delay = MagicMock()

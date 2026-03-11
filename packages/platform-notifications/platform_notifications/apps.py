@@ -25,3 +25,9 @@ class PlatformNotificationsConfig(AppConfig):
             registry.register(SmsChannel())
         except ImportError:
             pass
+
+        from platform_notifications.channels.discord import DiscordChannel
+        from platform_notifications.channels.telegram import TelegramChannel
+
+        registry.register(DiscordChannel())
+        registry.register(TelegramChannel())
