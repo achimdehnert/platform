@@ -1,8 +1,27 @@
+---
+status: superseded
+date: 2026-03-08
+amended: 2026-03-11
+decision-makers: [Achim Dehnert]
+consulted: []
+informed: []
+supersedes: []
+related: [ADR-022-platform-consistency-standard.md]
+---
+
 # ADR-111 — Private Package Distribution via GitHub Packages
+
+> **⚠️ Status: Superseded (2026-03-11)**
+> Die Package-Repos (`aifw`, `authoringfw`, `promptfw`, `weltenfw`, `illustration-fw`,
+> `testkit`, `researchfw`) wurden als **eigenständige Repos** unter `achimdehnert/`
+> aufgesetzt und publizieren direkt auf **PyPI** (öffentlich).
+> `iil-testkit==0.1.0` ist seit 2026-03-06 auf PyPI.
+> GitHub Packages bleibt als Fallback relevant falls Repos privat werden.
+> Die `platform/packages/` Subdirectory-Strategie ist deprecated.
 
 | | |
 |---|---|
-| **Status** | Accepted |
+| **Status** | ~~Accepted~~ → **Superseded** |
 | **Datum** | 2026-03-08 |
 | **Autor** | Achim Dehnert / AI Engineering Squad |
 | **Organisation** | achimdehnert (github.com/achimdehnert) |

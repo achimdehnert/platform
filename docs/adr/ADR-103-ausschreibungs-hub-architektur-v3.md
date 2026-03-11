@@ -867,36 +867,42 @@ emit_outbox_event(
 ### 5.12 pyproject.toml (Auszug)
 
 ```toml
-[tool.poetry.dependencies]
-python                         = "^3.12"
-Django                         = ">=5.2,<6.0"
-gunicorn                       = ">=23.0"
-whitenoise                     = ">=6.8"
-psycopg                        = {version = ">=3.2", extras = ["binary"]}
-pgvector                       = ">=0.3.0"
-celery                         = {version = ">=5.4", extras = ["redis"]}
-redis                          = ">=5.2"
-django-redis                   = ">=5.4"
-djangorestt framework          = ">=3.15"
-drf-spectacular                = ">=0.27"
-djangorestt framework-simplejwt = ">=5.3"
-django-htmx                    = ">=1.17"
-django-tailwind-cli            = ">=2.0"
-httpx                          = ">=0.28"
-django-rosetta                 = ">=0.9.9"
-prometheus-client              = ">=0.19"
-platform-context = {git = "https://github.com/achimdehnert/platform.git", subdirectory = "packages/platform-context"}
-django-logging   = {git = "https://github.com/achimdehnert/platform.git", subdirectory = "packages/django-logging"}
-django-health    = {git = "https://github.com/achimdehnert/platform.git", subdirectory = "packages/django-health"}
-iil-aifw         = ">=1.0.0"
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.poetry.dev-dependencies]
-pytest         = ">=8.0"
-pytest-django  = ">=4.9"
-pytest-asyncio = ">=0.23"
-pytest-cov     = ">=5.0"
-ruff           = ">=0.4"
-pip-audit      = ">=2.7"
+[project]
+name = "ausschreibungs-hub"
+requires-python = ">=3.12"
+dependencies = [
+    "Django>=5.2,<6.0",
+    "gunicorn>=23.0",
+    "whitenoise>=6.8",
+    "psycopg[binary]>=3.2",
+    "pgvector>=0.3.0",
+    "celery[redis]>=5.4",
+    "redis>=5.2",
+    "django-redis>=5.4",
+    "djangorestframework>=3.15",
+    "drf-spectacular>=0.27",
+    "djangorestframework-simplejwt>=5.3",
+    "django-htmx>=1.17",
+    "django-tailwind-cli>=2.0",
+    "httpx>=0.28",
+    "django-rosetta>=0.9.9",
+    "prometheus-client>=0.19",
+    "iil-aifw>=1.0.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-django>=4.9",
+    "pytest-asyncio>=0.23",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "pip-audit>=2.7",
+]
 ```
 
 ### 5.13 Plan-Limits und Monetarisierung

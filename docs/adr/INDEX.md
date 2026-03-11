@@ -142,7 +142,7 @@
 | 091 | Platform Operations Hub Consolidation | `Proposed` | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
-| 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Proposed` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
+| 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Accepted` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
 | 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Proposed` | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
 | 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Proposed` | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
 | 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
@@ -168,7 +168,7 @@
 | 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
 | 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | [ADR-133](ADR-133-shared-ai-services-package.md) |
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | [ADR-134](ADR-134-module-monetization-strategy.md) |
-| 136 | Shared Backend Services Original (ehem. ADR-2026-001) | `Proposed` | [ADR-136](ADR-136-shared-backend-services-original.md) |
+| 136 | Shared Backend Services Original (ehem. ADR-2026-001) — **Deprecated**, siehe ADR-131 | `Deprecated` | [ADR-136](ADR-136-shared-backend-services-original.md) |
 | 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
@@ -199,13 +199,17 @@
 - [x] ADR-108 (Agent QA Cycle): `Accepted` -- 2026-03-08
 - [x] ADR-109 (Multi-Tenancy Platform Standard): `Accepted` -- 2026-03-08
 - [x] ADR-110 (i18n Platform Standard): `Accepted` -- 2026-03-08
-- [x] ADR-111 (Private Package Distribution): `Accepted` -- 2026-03-08
+- [x] ADR-111 (Private Package Distribution): `Accepted` → `Superseded` -- 2026-03-11
 - [x] Repo-Tabelle auf 20 Repos aktualisiert -- 2026-03-04
-- [ ] ADR-095: zweites Review abwarten → dann Status auf `Accepted` heben
-- [ ] ADR-096: Review + `Accepted` nach ADR-095 Acceptance
-- [ ] ADR-097: Review + `Accepted` nach ADR-095 Acceptance → dann aifw 0.6.0 implementieren
-- [ ] ADR-099: Review + `Accepted` → dann dev-hub `releases` App implementieren
-- [ ] ADR-073: Repo Scope aktualisieren (war 10 Repos, jetzt 20) — neues ADR oder Amendment
+- [x] ADR-095: zweites Review ✅ APPROVED → Status `Accepted` -- 2026-03-11
+- [x] ADR-073: Repo Scope aktualisiert (10 → 30 Repos) -- 2026-03-11
 - [x] ADR-060-aifw-quality-level-routing.md: gelöscht (2026-03-11)
 - [x] Nummernkonflikte aufgelöst: 7 Duplikate → ADR-130–136 (2026-03-11)
-- [ ] catalog-info.yaml in allen 20 Repos pruefen/erstellen (ADR-077 compliance)
+- [x] ADR-136: Deprecated (Duplikat von ADR-131) -- 2026-03-11
+- [x] Review-Verdicts aktualisiert: ADR-114 ✅ v2.2, ADR-117 ✅ v1.1, ADR-119 ✅ v1.1 -- 2026-03-11
+- [x] ADR-103 BLOCK gefixt (Poetry → hatchling, Tippfehler) -- 2026-03-11
+- [x] ADR-104 BLOCK gefixt (MADR Frontmatter) -- 2026-03-11
+- [ ] ADR-096: Review + `Accepted` → kann jetzt starten (ADR-095 ist Accepted)
+- [ ] ADR-097: Review + `Accepted` → dann aifw 0.6.0 implementieren
+- [ ] ADR-099: Review + `Accepted` → dann dev-hub `releases` App implementieren
+- [ ] catalog-info.yaml in allen 30 Repos pruefen/erstellen (ADR-077 compliance)
