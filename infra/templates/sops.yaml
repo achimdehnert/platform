@@ -28,11 +28,11 @@ creation_rules:
   # Staging environment files
   - path_regex: \.env\.staging(\..*)?$
     age: >-
-      age1REPLACE_WITH_ACTUAL_PUBLIC_KEY
+      age1l67usjf8tadzgata9nkxrxvuae5xdequ44mu79gg5s2ns9ra0a8spg8kkq
     encrypted_regex: "^(.*PASSWORD.*|.*SECRET.*|.*KEY.*|.*TOKEN.*|.*DSN.*|.*URL.*)$"
 
   # Production environment files (if ever encrypted)
   - path_regex: \.env\.prod(\..*)?$
     age: >-
-      age1REPLACE_WITH_ACTUAL_PUBLIC_KEY
+      age1l67usjf8tadzgata9nkxrxvuae5xdequ44mu79gg5s2ns9ra0a8spg8kkq
     encrypted_regex: "^(.*PASSWORD.*|.*SECRET.*|.*KEY.*|.*TOKEN.*|.*DSN.*|.*URL.*)$"
