@@ -3,6 +3,12 @@ status: accepted
 date: 2026-03-11
 decision-makers: [Achim Dehnert]
 implementation_status: partial
+implementation_evidence:
+  - "Phase 1 (TenantManager + Lifecycle): nicht begonnen"
+  - "Phase 2 (RLS-Policies): nicht begonnen"
+  - "Phase 3 (Self-Service Module-Shop): nicht begonnen"
+  - "Phase 4 (Rollout weitere Repos): nicht begonnen"
+  - "Pilot: risk-hub (packages/django-tenancy/ existiert, aber ohne auto-filter/RLS)"
 ---
 
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
