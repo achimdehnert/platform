@@ -33,8 +33,17 @@ on:
         type: boolean
         default: true
     secrets:
-      GHCR_TOKEN:
+      DEPLOY_SSH_KEY:
+        description: "SSH Key für Production (vorhandener Secret-Name)"
         required: true
+      DEPLOY_HOST:
+        description: "Production Host (vorhandener Secret-Name)"
+        required: true
+      DEPLOY_USER:
+        description: "SSH User für Production (vorhandener Secret-Name)"
+        required: true
+      DEPLOY_SSH_FINGERPRINT:
+        required: false
       STAGING_SSH_KEY:
         required: false
       STAGING_HOST:
@@ -43,16 +52,12 @@ on:
         required: false
       STAGING_SSH_FINGERPRINT:
         required: false
-      PROD_SSH_KEY:
-        required: true
-      PROD_HOST:
-        required: true
-      PROD_USER:
-        required: true
-      PROD_SSH_FINGERPRINT:
-        required: false
       DISCORD_WEBHOOK:
         required: false
+
+permissions:
+  contents: read
+  packages: write
 
 env:
   REGISTRY: ghcr.io
@@ -121,7 +126,7 @@ jobs:
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push
         uses: docker/build-push-action@v5
@@ -189,10 +194,10 @@ jobs:
         uses: appleboy/ssh-action@v1.0.3
         timeout-minutes: 15
         with:
-          host: ${{ secrets.PROD_HOST }}
-          username: ${{ secrets.PROD_USER }}
-          key: ${{ secrets.PROD_SSH_KEY }}
-          fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
           script: |
             set -euo pipefail
             /opt/scripts/deploy.sh \
