@@ -150,7 +150,7 @@
 | 088 | Shared Notification Registry -- Multi-Channel Messaging | `Accepted` | 🔶 | [ADR-088](ADR-088-notification-registry.md) |
 | 089 | bfagent-llm -- LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | ✅ | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline -- Python + PostgreSQL -> Docker Deploy | `Accepted` | ✅ | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
-| 091 | Platform Operations Hub Consolidation | `Proposed` | ⬜ | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
+| 091 | Platform Operations Hub Consolidation | `Accepted` | 🔶 | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | 🔶 | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | ✅ | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Accepted` | ✅ | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
