@@ -1,12 +1,18 @@
 ---
-status: proposed
+status: deprecated
 date: 2026-02-21
-decision-makers: Achim Dehnert
+amended: 2026-03-11
+decision-makers: [Achim Dehnert]
+superseded-by: ADR-131
 ---
 
 # ADR-136: Shared Backend Services Library für Django-Projekte (Original)
 
 > **Umnummeriert von ADR-2026-001** (ungültige Nummerierung)
+>
+> **⚠️ DEPRECATED (2026-03-11):** Inhaltlich identisch mit [ADR-131](ADR-131-shared-backend-services.md)
+> (ehemals ADR-091). ADR-131 ist die kanonische Version (`Accepted`). Dieses Dokument bleibt
+> als historische Referenz erhalten.
 
 | | |
 |---|---|

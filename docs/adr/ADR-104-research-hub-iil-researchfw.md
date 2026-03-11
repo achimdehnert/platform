@@ -1,9 +1,14 @@
-# ADR-104: Research Hub und iil-researchfw — Zentralisierung der Research-Infrastruktur
+---
+status: proposed
+date: 2026-03-07
+decision-makers: [Achim Dehnert]
+consulted: []
+informed: []
+supersedes: []
+related: [ADR-105-iil-researchfw-extraction-plan.md]
+---
 
-**Status:** Proposed  
-**Datum:** 2026-03-07  
-**Autoren:** Achim Dehnert  
-**Kontext:** Platform Research Strategy
+# ADR-104: Research Hub und iil-researchfw — Zentralisierung der Research-Infrastruktur
 
 ---
 
