@@ -1,8 +1,16 @@
+---
+status: accepted
+date: 2026-03-10
+updated: 2026-03-11
+decision-makers: Achim Dehnert
+consulted: Cascade
+---
+
 # ADR-117: Shared World Layer — Weltenhub-DB als SSoT, weltenfw als Schreibkanal
 
 ## Status
 
-Accepted — v1.0 (2026-03-10)
+Accepted — v1.1 (2026-03-11, Review-Fixes: Auth-Konzept, Error-Contract)
 
 ## Context
 
@@ -87,6 +95,44 @@ Später: User verknüpft Weltenhub-Account ("Sind Sie bereits Nutzer bei
 **Kernprinzip:** Die UUID existiert ab dem ersten Anlegen — immer.
 Der Unterschied ist nur, ob der User die Weltenhub-UI-Features nutzen kann.
 
+### Auth-Konzept (S2S + User)
+
+Zwei Auth-Modi für WeltenhubBackend:
+
+| Modus | Wann | Token-Typ | Audit |
+|-------|------|-----------|-------|
+| **User-Token** | Szenario A (Account verknüpft) | OAuth2 / Session-Token | User-ID im Request |
+| **Service-Token** | Szenario B (kein Account) | HMAC-signiert (ADR-118) | `source_app` Header |
+
+Service-Token wird pro Consumer-App erstellt und in `WELTENHUB_SERVICE_TOKEN` konfiguriert.
+Weltenhub validiert HMAC-Signatur und loggt `source_app` für Audit-Trail.
+
+### Error-Contract
+
+```python
+# weltenfw/backends/base.py
+from pydantic import BaseModel
+
+class WorldResult(BaseModel):
+    ok: bool
+    id: str | None = None
+    error_code: str | None = None   # "auth_failed", "conflict", "unavailable", "timeout"
+    error_message: str | None = None
+    backend: str = "weltenhub"
+
+class CharacterResult(BaseModel):
+    ok: bool
+    id: str | None = None
+    error_code: str | None = None
+    error_message: str | None = None
+    world_id: str | None = None
+    backend: str = "weltenhub"
+```
+
+Bei Netzwerk-Fehlern: Retry mit exponential Backoff (max 3 Versuche).
+Bei 503/Timeout nach allen Retries: `WorldResult(ok=False, error_code="unavailable")`
+→ Caller fällt auf Szenario B zurück (lokale Erstellung, späterer Upload).
+
 ### Gleicher Code für alle Konsumenten
 
 ```python
@@ -95,12 +141,17 @@ from weltenfw import WeltenhubBackend
 
 backend = WeltenhubBackend(
     base_url=settings.WELTENHUB_API_URL,
+    # Szenario A: User-Token
     token=user.weltenhub_token,
+    # Szenario B: Service-Token (HMAC per ADR-118)
+    service_token=settings.WELTENHUB_SERVICE_TOKEN,
+    source_app="bfagent",  # Audit-Trail
 )
 result = backend.create_world(name=project.title, description=project.description)
-# result.id     → UUID aus Weltenhub
-# result.ok     → True wenn erfolgreich
-# result.backend → "weltenhub"
+# result.id         → UUID aus Weltenhub
+# result.ok         → True wenn erfolgreich
+# result.error_code → None oder Fehler-Code
+# result.backend    → "weltenhub"
 ```
 
 ### Package-Erweiterung in weltenfw (v0.2.0)
@@ -181,10 +232,18 @@ Ab sofort: neue Welten direkt via WeltenhubBackend
 | `weltenfw` | v0.2.0: `backends/` Package hinzufügen |
 | `bfagent` | `iil-weltenfw` dependency + `WeltenhubBackend` nutzen |
 | `travel-beat` | bestehende weltenfw-Nutzung auf `WeltenhubBackend` umstellen |
-| `weltenhub` | Keine Änderung — ist der Backend-Server |
+| `weltenhub` | S2S-Auth-Endpoint für Service-Token (HMAC, ADR-118) |
 
 ## Related ADRs
 
 - ADR-082: WorldCharacter SSoT in bfagent
 - ADR-032 (weltenfw): bestehender Weltenhub-Client für travel-beat
 - ADR-109: Multi-Tenancy Platform Standard
+- ADR-118: Platform Store / HMAC Auth (S2S-Token-Konzept)
+
+## Review-History
+
+| Datum | Version | Reviewer | Urteil | Link |
+|-------|---------|----------|--------|------|
+| 2026-03-11 | v1.0 | Cascade | ❌ 3 BLOCKs (Frontmatter, Auth, Error-Contract) | [Review](../reviews/ADR-117-review-2026-03-11.md) |
+| 2026-03-11 | v1.0 → v1.1 | Cascade | Fixes applied | — |
