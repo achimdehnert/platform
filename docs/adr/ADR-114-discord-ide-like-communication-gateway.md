@@ -10,7 +10,7 @@ consulted: Cascade
 
 ## Status
 
-Accepted — v2.1 (2026-03-11, Review-Fixes: Encoding, Repo-Liste, Status-Korrekturen)
+Accepted — v2.2 (2026-03-11, Phasen 4-7 implementiert)
 
 **Repos:** mcp-hub, platform
 **Related:** ADR-113 (Discord Bot), ADR-101 (MCP Platform), ADR-107 (Agent Team), ADR-112 (Skill Registry), ADR-118 (HMAC Auth)
@@ -146,20 +146,26 @@ Slash Commands (`windsurf-bot` auf hetzner-prod, Guild-only Sync):
 **Security:** Role Guards (`guards.py`), Token-Bucket Rate Limiter (`rate_limit.py`),
 Audit-Log in `#log` Channel.
 
-### Layer 2 — LLM Chat ⚠️ (Handler existiert, Service pending)
+### Layer 2 — LLM Chat + Function Calling ✅ (Code), ⚠️ (Deploy)
 
-`/chat` Handler in `handlers.py` ist vollständig implementiert:
+`/chat` Handler in `handlers.py` vollständig implementiert:
 - `interaction.defer()` für 3s-Timeout-Bypass ✅
 - `build_system_prompt()` mit ADR-Context + pgvector ✅
 - Thread-Unterstützung (`thread: bool = False`) ✅
 - Chunked Embeds für lange Antworten ✅
 - Error-Handling (Timeout, ConnectError, HTTPError) ✅
+- **Function Calling** (`enable_tools=True`) ✅
+- **Conversation History** via Thread-ID (In-Memory, TTL 1h) ✅
+- `context_builder.py` Stack-Info aktualisiert (Django 5.x, Python 3.12) ✅
 
-**Fehlend für v2.0:**
-- `llm_mcp` FastAPI-Service deployen auf hetzner-prod
-- **Function Calling** für MCP-Tools (→ Layer 4 Integration)
-- Conversation History via Thread-ID in pgvector
-- `context_builder.py` Stack-Info aktualisieren (Django 5.x, Python 3.12)
+**5 Tools für LLM Function Calling** (`llm_mcp_service/tools.py`):
+- `check_app_health` — /healthz/ + /livez/ für 12 Platform-Apps
+- `list_open_issues` — GitHub Issues mit Label-Filter
+- `get_file_content` — Code aus GitHub-Repos anzeigen
+- `list_repo_structure` — Verzeichnisstruktur
+- `search_memory` — pgvector Semantic Search
+
+**Fehlend:** `llm_mcp` Container auf hetzner-prod deployen (docker compose up)
 
 ### Layer 3 — Cascade Bridge ✅
 
@@ -182,9 +188,9 @@ research-hub, ausschreibungs-hub
 - Task braucht mehrere Schritte über verschiedene Repos
 - Task braucht IDE-spezifische Features (Debugging, Tests laufen lassen)
 
-### Layer 4 — MCP-Proxy 🔜
+### Layer 4 — MCP-Proxy ✅ (Code)
 
-Neuer `/run` Meta-Command mit Autocomplete:
+`/run` Meta-Command implementiert:
 
 ```
 /run deploy-check health risk-hub     → deploy_check(action="health", repo="risk-hub")
@@ -283,14 +289,14 @@ iilgmbh-agent Server
 | 0 | Layer 0 + 1: Bot, Commands, Guards, Rate Limiter | 3d | ✅ Done |
 | 1 | Layer 3: `/ask` → GitHub Issue → Cascade → Discord | 1d | ✅ Done |
 | 2 | `discord_notify` MCP Tool (Cascade → Discord) | 0.5d | ✅ Done |
-| 3 | `llm_mcp` FastAPI deployen + `/chat` aktivieren | 2d | 🔴 Next |
-| 4 | Function Calling: LLM ruft MCP-Tools auf | 3d | 🔜 |
-| 5 | Conversation History (Thread-ID → pgvector) | 1d | 🔜 |
-| 6 | Layer 4: `/run` Meta-Command + Approval-Flow | 2d | 🔜 |
-| 7 | `/code` Command (Code-Snippets via GitHub API) | 0.5d | 🔜 |
+| 3 | `llm_mcp` FastAPI Service (Code) | 2d | ✅ Code done |
+| 4 | Function Calling: 5 Tools + LLM-Loop (max 3 Runden) | 3d | ✅ Code done |
+| 5 | Conversation History (Thread-ID, In-Memory, TTL 1h) | 1d | ✅ Code done |
+| 6 | Layer 4: `/run` Meta-Command (health, issues, structure) | 2d | ✅ Code done |
+| 7 | `/code` Command (GitHub API + Syntax-Highlighting) | 0.5d | ✅ Code done |
 
-**Gesamt verbleibend:** ~8.5d (Phasen 3-7)
-**Kritischer Pfad:** Phase 3 (llm_mcp Deploy) → Phase 4 (Function Calling)
+**Verbleibend:** Deploy auf hetzner-prod (`docker compose up`)
+**Commit:** mcp-hub `491e90b` (2026-03-11)
 
 ## Betroffene Repos
 
@@ -314,3 +320,4 @@ iilgmbh-agent Server
 | 2026-03-08 | v1.0 | Cascade | ✅ initial accepted | [Review](../reviews/ADR-114-discord-ide-like-communication-gateway.md) |
 | 2026-03-11 | v1.0 → v2.0 | Cascade | ❌ → Rewrite (4 BLOCKs: MADR-Frontmatter, Layer-3-Latenz, MCP-Tool-Zugriff, Stack-Info) | [Review](../reviews/ADR-114-review-2026-03-11.md) |
 | 2026-03-11 | v2.0 → v2.1 | Cascade | ⚠️ → Fixes (Encoding, Repo-Liste 18 statt 11, Code-Snippets Status, Layer-Abgrenzung) | — |
+| 2026-03-11 | v2.1 → v2.2 | Cascade | ✅ Phasen 4-7 implementiert (mcp-hub `491e90b`) | — |
