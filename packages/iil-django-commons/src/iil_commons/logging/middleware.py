@@ -27,6 +27,9 @@ class CorrelationIDMiddleware:
         return response
 
 
+_SKIP_LOG_PATHS = frozenset({"/livez/", "/healthz/", "/readyz/", "/health/"})
+
+
 class RequestLogMiddleware:
     def __init__(self, get_response: Callable) -> None:
         self.get_response = get_response
@@ -34,6 +37,10 @@ class RequestLogMiddleware:
     def __call__(self, request: HttpRequest) -> HttpResponse:
         start = time.monotonic()
         response = self.get_response(request)
+
+        if request.path in _SKIP_LOG_PATHS:
+            return response
+
         duration_ms = round((time.monotonic() - start) * 1000, 1)
 
         user = getattr(request, "user", None)
