@@ -45,4 +45,5 @@ Gesamturteil:
 |-------|-----------|--------|-------|
 | [ADR-118-review-2026-03-11.md](ADR-118-review-2026-03-11.md) | billing-hub als Platform Store | ❌ CHANGES REQUESTED | [platform#23](https://github.com/achimdehnert/platform/issues/23) |
 | [ADR-120-input-bewertung.md](../adr/reviews/ADR-120-input-bewertung.md) | Unified Deployment Pipeline (6 Input-Dateien) | ⚠️ Fixes eingearbeitet | — |
+| [ADR-120-review-2026-03-11.md](ADR-120-review-2026-03-11.md) | Unified Deployment Pipeline (inkl. Input-Report) | ❌ → ✅ v1.1 Fixes applied | — |
 | [ADR-119-review-2026-03-11.md](ADR-119-review-2026-03-11.md) | AuthoredContent Pipeline (Lore → Stil) | ❌ CHANGES REQUESTED | [platform#24](https://github.com/achimdehnert/platform/issues/24) |

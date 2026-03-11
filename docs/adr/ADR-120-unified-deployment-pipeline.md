@@ -1,6 +1,7 @@
 ---
 status: proposed
 date: 2026-03-11
+updated: 2026-03-11
 decision-makers: Achim Dehnert
 supersedes: ADR-009 (GitHub Actions Reusable Workflows) — wird erweitert
 related: ADR-009, ADR-022, ADR-102 (Cloudflare DNS), ADR-103 (bieterpilot)
@@ -10,7 +11,7 @@ related: ADR-009, ADR-022, ADR-102 (Cloudflare DNS), ADR-103 (bieterpilot)
 
 ## Status
 
-Proposed — v1.0 (2026-03-11)
+Proposed — v1.1 (2026-03-11, Review-Fixes aus Input-Report + Eigenreview)
 
 ## Context
 
@@ -39,6 +40,14 @@ Die IIL-Plattform läuft auf 3 Hetzner-Servern:
 4. Rollback in < 2 Minuten durch Image-Tag-Wechsel
 5. Minimale Zusatzkosten (0 € — dev-server als Staging)
 6. Cloudflare Access für Staging-Schutz ist bereits vorbereitet
+
+### TLS-Strategie für Staging (QUESTION aus Review)
+
+Für `staging.*.iil.pet` Domains auf dem dev-server:
+- **Cloudflare Proxy (empfohlen):** DNS-Records mit Proxy-Modus → Cloudflare stellt TLS bereit.
+  Kein Certbot nötig. Cloudflare Access Zero Trust schützt automatisch.
+- **Fallback:** Certbot mit `--dns-cloudflare` Plugin für Wildcard-Cert `*.iil.pet`.
+  Nur nötig falls Proxy-Modus nicht gewünscht.
 
 ## Betrachtete Optionen
 
@@ -159,7 +168,14 @@ on:
         default: ""
 
 jobs:
+  ci:
+    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@v1
+    # CI nur bei push auf main und workflow_dispatch — bei Tags ist CI bereits gelaufen
+    if: startsWith(github.ref, 'refs/heads/')
+
   deploy:
+    needs: [ci]
+    if: always() && (needs.ci.result == 'success' || needs.ci.result == 'skipped')
     uses: achimdehnert/platform/.github/workflows/_deploy-unified.yml@v1
     with:
       app_name: "risk-hub"                              # ← ANPASSEN
@@ -171,6 +187,8 @@ jobs:
 ```
 
 > **Wichtig:** `health_check_url` MUSS auf `/healthz/` enden (ADR-022), nicht `/health`.
+> **CI bei Tags:** Bei `git tag v*` wird CI übersprungen (`if: startsWith(github.ref, 'refs/heads/')`) —
+> der Code wurde bereits auf `main` getestet.
 
 ### Zentrales Reusable Workflow
 
@@ -203,11 +221,11 @@ on:
       GHCR_TOKEN:
         required: true
       STAGING_SSH_KEY:
-        required: true
+        required: false  # nicht alle Repos brauchen Staging
       STAGING_HOST:
-        required: true
+        required: false
       STAGING_USER:
-        required: true
+        required: false
       PROD_SSH_KEY:
         required: true
       PROD_HOST:
@@ -290,6 +308,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          platforms: linux/amd64
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}
           cache-from: type=gha
@@ -308,16 +327,21 @@ jobs:
       always() &&
       needs.resolve.outputs.deploy_staging == 'true' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
+    concurrency:
+      group: deploy-${{ inputs.app_name }}-staging
+      cancel-in-progress: false
     environment:
       name: staging
       url: https://staging.${{ inputs.app_name }}.iil.pet
     steps:
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 15
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ secrets.STAGING_SSH_FINGERPRINT }}
           script: |
             set -euo pipefail
             /opt/scripts/deploy.sh \
@@ -336,15 +360,20 @@ jobs:
       always() &&
       needs.resolve.outputs.deploy_prod == 'true' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
+    concurrency:
+      group: deploy-${{ inputs.app_name }}-production
+      cancel-in-progress: false
     environment:
       name: production
     steps:
       - name: Deploy
         uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 15
         with:
           host: ${{ secrets.PROD_HOST }}
           username: ${{ secrets.PROD_USER }}
           key: ${{ secrets.PROD_SSH_KEY }}
+          fingerprint: ${{ secrets.PROD_SSH_FINGERPRINT }}
           script: |
             set -euo pipefail
             /opt/scripts/deploy.sh \
@@ -382,7 +411,7 @@ jobs:
             COLOR=15158332; STATUS="❌ Deploy fehlgeschlagen"
           fi
 
-          curl -sf -X POST "$DISCORD_WEBHOOK" \
+          curl -sf --max-time 10 -X POST "$DISCORD_WEBHOOK" \
             -H "Content-Type: application/json" \
             -d "{\"embeds\":[{\"title\":\"$STATUS\",\"color\":$COLOR,\"fields\":[{\"name\":\"App\",\"value\":\"$APP\",\"inline\":true},{\"name\":\"Version\",\"value\":\"$TAG\",\"inline\":true},{\"name\":\"Env\",\"value\":\"$ENV\",\"inline\":true}]}]}"
 ```
@@ -402,7 +431,7 @@ HEALTH_CHECK_URL="${5:-}"
 
 LOG_DIR="/var/log/iil-deploys"
 mkdir -p "$LOG_DIR"
-LOG_FILE="$LOG_DIR/${APP_NAME}_$(date +%Y%m%d_%H%M%S).log"
+LOG_FILE="$LOG_DIR/${APP_NAME}_$(date +%Y%m%d_%H%M%S)_$$.log"
 exec > >(tee -a "$LOG_FILE") 2>&1
 
 # Validierung
@@ -423,7 +452,7 @@ rollback() {
     echo "❌ Deploy fehlgeschlagen — Rollback auf $PREVIOUS_TAG"
     cd "$APP_PATH"
     export IMAGE_TAG="$PREVIOUS_TAG"
-    docker compose up -d --force-recreate 2>&1 || {
+    docker compose -f "$COMPOSE_FILE" up -d --force-recreate 2>&1 || {
       echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG" >&2
       exit 10
     }
@@ -446,13 +475,24 @@ fi
 
 # GHCR Login
 if [[ -f "/opt/scripts/.ghcr_token" ]]; then
-  docker login ghcr.io -u deploy --password-stdin < /opt/scripts/.ghcr_token
+  docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
+fi
+
+# Compose-File nach Umgebung wählen (ADR-022: docker-compose.prod.yml für Production)
+COMPOSE_FILE="docker-compose.yml"
+if [[ "$ENVIRONMENT" == "production" && -f "$APP_PATH/docker-compose.prod.yml" ]]; then
+  COMPOSE_FILE="docker-compose.prod.yml"
+fi
+
+# Staging: eigenes Compose-Projekt um DEV-Container nicht zu überschreiben
+if [[ "$ENVIRONMENT" == "staging" ]]; then
+  export COMPOSE_PROJECT_NAME="staging-${APP_NAME}"
 fi
 
 # Deploy
 cd "$APP_PATH"
-docker compose pull
-docker compose up -d --force-recreate --remove-orphans
+docker compose -f "$COMPOSE_FILE" pull
+docker compose -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans
 
 # Health-Check (nur HTTP 200 akzeptieren — ADR-022)
 if [[ -n "$HEALTH_CHECK_URL" ]]; then
@@ -468,12 +508,12 @@ if [[ -n "$HEALTH_CHECK_URL" ]]; then
   done
 else
   sleep 5
-  docker compose ps --format "{{.Status}}" | head -1 | grep -qi "unhealthy\|exit\|error" && exit 5
+  docker compose -f "$COMPOSE_FILE" ps | grep -qi "unhealthy\|exit\|error" && exit 5
   echo "✅ Container läuft"
 fi
 
 # Cleanup
-docker image prune -f --filter "until=24h" 2>/dev/null || true
+docker image prune -f 2>/dev/null || true  # nur dangling (ungetaggte) Images
 
 trap - ERR
 echo "═══ Deploy erfolgreich: $APP_NAME:$IMAGE_TAG ($ENVIRONMENT) ═══"
@@ -576,4 +616,5 @@ ssh hetzner-prod
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
-| 2026-03-11 | Input-Bewertung | Cascade | 6 Dateien analysiert, Fixes eingearbeitet | [Bewertung](../adr/reviews/ADR-120-input-bewertung.md) |
+| 2026-03-11 | Input-Bewertung | Cascade | 6 Dateien analysiert, Fixes eingearbeitet | [Bewertung](reviews/ADR-120-input-bewertung.md) |
+| 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied (7 BLOCKs, 6 SUGGESTs, 3 QUESTIONs) | [Input-Report](inputs/ADR-120-review-report.md) |
