@@ -56,6 +56,8 @@ Gesamturteil:
 | [ADR-103-review-2026-03-11.md](ADR-103-review-2026-03-11.md) | ausschreibungs-hub Architektur v3 | ⚠️ 1B gefixt (hatchling) | — |
 | [ADR-104-review-2026-03-11.md](ADR-104-review-2026-03-11.md) | Research Hub + iil-researchfw | ⚠️ 1B gefixt (MADR FM) | — |
 | [ADR-095-review-2-2026-03-11.md](ADR-095-review-2-2026-03-11.md) | aifw Quality-Level Routing (Review 2) | ✅ Accepted | — |
+| [ADR-096-review-2026-03-11.md](ADR-096-review-2026-03-11.md) | authoringfw Scope & Architecture | ✅ Accepted | — |
+| [ADR-097-review-2026-03-11.md](ADR-097-review-2026-03-11.md) | aifw 0.6.0 Implementation Contract | ✅ Accepted | — |
 | [ADR-105-review-2026-03-11.md](ADR-105-review-2026-03-11.md) | iil-researchfw Extraction Plan v2 | ⚠️ Approved w/ Comments | — |
 | [ADR-100-numbering-conflict-2026-03-11.md](ADR-100-numbering-conflict-2026-03-11.md) | 7 Nummernkonflikte → ADR-130–136 | ✅ RESOLVED | — |
 
