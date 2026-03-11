@@ -176,7 +176,7 @@
 | 121 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | ✅ | [ADR-121](ADR-121-iil-outlinefw-story-outline-framework.md) |
 | 130 | Shared Django App `content_store` (ehem. ADR-062) | `Accepted` | ⬜ | [ADR-130](ADR-130-content-store-shared-persistence.md) |
 | 131 | Shared Backend Services Library (ehem. ADR-091) | `Accepted` | 🔶 | [ADR-131](ADR-131-shared-backend-services.md) |
-| 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | 🔶 | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
+| 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | ✅ | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
 | 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | ⬜ | [ADR-133](ADR-133-shared-ai-services-package.md) |
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | ⬜ | [ADR-134](ADR-134-module-monetization-strategy.md) |
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) — **Deprecated**, siehe ADR-131 | `Deprecated` | — | [ADR-136](ADR-136-shared-backend-services-original.md) |
@@ -238,3 +238,5 @@
 - [x] ADR-062+118: billing-hub deployed (https://billing.iil.pet), CI green, 7 Platforms + 31 Plans seeded -- 2026-03-11
 - [x] ADR-118: EmailVerification model + service + checkout flow implementiert + deployed -- 2026-03-11
 - [x] ADR-062: partial→implemented, ADR-118: partial→implemented -- 2026-03-11
+- [x] ADR-132: partial→implemented (Phase 0+1+2 alle ✅, platform_context_mcp live) -- 2026-03-11
+- [x] billing-hub: deploy.yml entfernt (ci-cd.yml deckt alles ab, startup_failure behoben) -- 2026-03-11
