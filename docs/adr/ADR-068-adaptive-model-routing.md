@@ -8,6 +8,13 @@ supersedes: []
 amends: ["ADR-066-ai-engineering-team.md"]
 related: ["ADR-066-ai-engineering-team.md", "ADR-067-work-management-strategy.md", "ADR-057-platform-test-strategy.md"]
 implementation_status: partial
+implementation_evidence:
+  - "TaskRouter + TaskRouterBudgetGuardMixin (orchestrator_mcp/agent_team/router.py)"
+  - "RuleBasedBudgetRouter (rule_based_router.py) — ADR-116 Budget-Guard"
+  - "QualityEvaluator + QualityScore (evaluator.py) — ADR-108"
+  - "AuditStore + QALog + CostLog (audit_store.py, models/) — ADR-108"
+  - "Noch Stub: _llm_route() nutzt statische Default-Tabelle statt LLM-Call"
+  - "Noch fehlend: Feedback-Loop historische Metriken → Routing-Matrix"
 ---
 
 # Adopt Adaptive Model Routing and Quality Feedback Loop for AI Agent Tasks
