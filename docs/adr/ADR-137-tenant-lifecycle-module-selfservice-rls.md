@@ -4,11 +4,19 @@ date: 2026-03-11
 decision-makers: [Achim Dehnert]
 implementation_status: partial
 implementation_evidence:
-  - "Phase 1 (TenantManager + Lifecycle): nicht begonnen"
-  - "Phase 2 (RLS-Policies): nicht begonnen"
-  - "Phase 3 (Self-Service Module-Shop): nicht begonnen"
-  - "Phase 4 (Rollout weitere Repos): nicht begonnen"
-  - "Pilot: risk-hub (packages/django-tenancy/ existiert, aber ohne auto-filter/RLS)"
+  - "Phase 1 (TenantManager + Lifecycle): DONE — risk-hub packages/django-tenancy/ v0.2.0"
+  - "1.1 TenantManager Dual-Mode: managers.py (auto-filter, for_tenant, unscoped, TenantQuerySet)"
+  - "1.2 TenantModelAdmin: admin.py (get_queryset → unscoped)"
+  - "1.3 TenantLifecycleMiddleware: lifecycle.py (suspended/trial-expired → 403, EXEMPT_PATHS)"
+  - "1.4 ModuleSubscription.is_accessible: module_models.py (status + trial_ends_at + expires_at)"
+  - "1.5 Session-Persistenz: middleware.py (_resolve_from_session + Membership-Check)"
+  - "1.6 Tests: 13 Testdateien (managers, lifecycle, middleware, models, module_access, module_models, enable_rls, etc.)"
+  - "Phase 2 (RLS-Policies): DONE — enable_rls + setup_rls_roles Management Commands"
+  - "2.1 enable_rls: Cast-Introspection (UUID→uuid, BigInt→bigint), --dry-run, --disable, --table"
+  - "2.3 setup_rls_roles: App-User vs Migrations-User (Table Owner = RLS-exempt)"
+  - "Bonus: module_access.py — ModuleAccessMiddleware + require_module() Decorator + Role-Hierarchy"
+  - "Phase 3 (Self-Service Module-Shop): ausstehend — Views + Templates + billing-hub Integration"
+  - "Phase 4 (Rollout weitere Repos): ausstehend"
 ---
 
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
