@@ -4,15 +4,15 @@ version = "0.3.0"
 description = "Shared backend services library for Django projects (Logging, Health, Cache, Rate Limiting, Security)"
 readme = "README.md"
 requires-python = ">=3.10"
-license = {text = "MIT"}
+license = {text = "Proprietary"}
 authors = [
-    {name = "Achim Dehnert", email = "achim@dehnert.com"}
+    {name = "Achim Dehnert", email = "achim.dehnert@iil.gmbh"},
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: Django :: 5.0",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+    "License :: Other/Proprietary License",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -77,4 +77,4 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py312"

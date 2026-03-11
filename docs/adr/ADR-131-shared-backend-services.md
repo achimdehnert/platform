@@ -1,34 +1,33 @@
 ---
-status: accepted
+status: "accepted"
 date: 2026-02-21
-decision-makers: Achim Dehnert
-implementation_status: implemented
+amended: 2026-03-11
+decision-makers: [Achim Dehnert]
+consulted: []
+informed: []
+supersedes: []
+amends: []
+related: ["ADR-022-platform-consistency-standard.md", "ADR-041-service-layer-pattern.md"]
+implementation_status: partial
 implementation_evidence:
-  - "Own repo: https://github.com/achimdehnert/iil-django-commons (2026-03-11)"
-  - "8 modules: logging, health, cache, ratelimit, security, email, tasks, monitoring"
-  - "31 tests (30 passed, 1 skipped), CI pipeline on Python 3.11+3.12"
-  - "Version 0.3.0 — Phase 1+2+3 complete"
-  - "Review findings resolved: celery.Task inheritance, ADR-045 settings, health decorators"
+  - "platform/packages/iil-django-commons/: 8 Module (logging, health, cache, ratelimit, security, email, tasks, monitoring)"
+  - "31 Tests (30 passed, 1 skipped), pyproject.toml mit optional extras"
+  - "Version 0.3.0 — Phase 1+2+3 complete (alle 2026-02-27)"
+  - "Kein Consumer integriert — Phase 4 (Hub-Integration) ausstehend"
 ---
 
 # ADR-131: Shared Backend Services Library für Django-Projekte
 
-> **Umnummeriert von ADR-091** (Nummernkonflikt mit ADR-091-platform-operations-hub)
-
-| | |
-|---|---|
-| **ADR-ID** | ADR-091 |
-| **Titel** | Shared Backend Services Library für Django-Projekte |
-| **Status** | Proposed |
-| **Datum** | 2026-02-12 |
-| **Autor** | Achim Dehnert / Claude AI |
-| **Betrifft** | wedding-hub, iil.pet, zukünftige Django-Projekte |
+> **Amended 2026-03-11**: Review-Bereinigung — Metadaten korrigiert, Projektstruktur an
+> Implementierung angepasst, Rollout-Plan aktualisiert, offene Fragen entschieden.
+>
+> *Umnummeriert von ADR-091 (Nummernkonflikt mit ADR-091-platform-operations-hub).*
 
 ---
 
 ## 1. Kontext & Problemstellung
 
-Die iil.pet-Plattform umfasst mehrere Django-basierte Projekte (wedding-hub, zukünftige SaaS-Apps), die jeweils eigenständig Backend-Infrastruktur implementieren: Logging, Caching, Rate Limiting, Health Checks, E-Mail-Versand und Celery-Tasks.
+Die IIL-Plattform umfasst 18+ Django-basierte Hub-Projekte, die jeweils eigenständig Backend-Infrastruktur implementieren: Logging, Caching, Rate Limiting, Health Checks, E-Mail-Versand und Celery-Tasks.
 
 Dies führt zu mehreren Problemen:
 
@@ -67,7 +66,8 @@ Ziel ist eine wiederverwendbare Library, die diese Cross-Cutting Concerns zentra
 
 Ein eigenständiges Python-Package, gehostet als privates GitHub-Repository mit pip-Install via Git-URL. Semantic Versioning, eigene CI/CD-Pipeline, klare API.
 
-Projekte installieren via: `pip install git+https://github.com/achimdehnert/iil-django-commons.git@v0.3.0`
+Projekte installieren via: `pip install -e platform/packages/iil-django-commons` (Monorepo)
+oder `pip install git+https://github.com/achimdehnert/platform.git@main#subdirectory=packages/iil-django-commons` (pinned)
 
 ### 3.2 Option B: Git Submodule
 
@@ -95,59 +95,47 @@ Begründung: Maximale Isolation bei minimalem Wartungsaufwand. Semantic Versioni
 
 | Modul | Verantwortung | Abhängigkeiten |
 |---|---|---|
-| **iil_commons.logging** | Structured JSON logging, Correlation-ID Middleware, Request/Response logging | structlog, python-json-logger |
-| **iil_commons.cache** | Redis cache patterns, Cache decorators, Invalidation helpers, Warm-up commands | django-redis |
-| **iil_commons.ratelimit** | Rate limiting Middleware, Per-user/IP/endpoint throttling, Retry-After headers | Redis |
-| **iil_commons.health** | Standardized /livez/, /readyz/ endpoints, DB/Redis/Celery checks | keine |
-| **iil_commons.email** | Transactional email abstraction, Provider-agnostic (SMTP, Resend, Postmark), Template rendering | keine |
-| **iil_commons.tasks** | Celery task base class, Auto-retry, Dead-letter queue, Monitoring hooks | celery |
-| **iil_commons.monitoring** | Prometheus metrics, Custom counters, Django middleware für request metrics | prometheus-client |
-| **iil_commons.security** | CORS, CSP, Security headers middleware, Input sanitization | keine |
+| **iil_commons.logging** | Structured JSON logging, Correlation-ID Middleware, Request/Response logging | python-json-logger |
+| **iil_commons.cache** | Redis cache patterns, `@cached_view`, `@cached_method`, `invalidate_pattern()` | django-redis |
+| **iil_commons.ratelimit** | Rate limiting Middleware + Decorator, Per-user/IP/endpoint throttling, Retry-After headers | redis |
+| **iil_commons.health** | Standardized `/livez/`, `/healthz/`, `/readyz/` endpoints, DB/Redis/Celery checks | keine |
+| **iil_commons.email** | Transactional email abstraction, Provider-agnostic (SMTP, Resend) | resend (optional) |
+| **iil_commons.tasks** | Celery base task, Auto-retry mit exponential Backoff, Correlation-ID Propagation | celery |
+| **iil_commons.monitoring** | Prometheus metrics, Request counter/latency/in-progress, `/metrics/` endpoint | prometheus-client |
+| **iil_commons.security** | CSP, Security headers middleware (`X-Content-Type-Options`, `X-Frame-Options`, etc.) | keine |
 
 ### 5.1 Projektstruktur
 
 ```
-iil-django-commons/
+platform/packages/iil-django-commons/
 ├── src/iil_commons/
-│   ├── __init__.py          # version, auto-discovery
-│   ├── apps.py              # Django AppConfig
-│   ├── settings.py          # Default settings (IIL_COMMONS_*)
+│   ├── __init__.py          # __version__ = "0.3.0"
+│   ├── apps.py              # IilCommonsConfig (auto-setup logging on ready())
+│   ├── settings.py          # IIL_COMMONS dict mit typed defaults
 │   ├── logging/
-│   │   ├── __init__.py
-│   │   ├── config.py        # setup_logging(), LOGGING dict
-│   │   ├── middleware.py     # CorrelationIDMiddleware, RequestLogMiddleware
-│   │   └── formatters.py    # JSONFormatter, HumanFormatter
+│   │   ├── config.py        # setup_logging() — JSON + Human Formatter
+│   │   └── middleware.py     # CorrelationIDMiddleware, RequestLogMiddleware
 │   ├── cache/
-│   │   ├── __init__.py
 │   │   ├── decorators.py    # @cached_view, @cached_method
-│   │   ├── invalidation.py  # pattern-based cache invalidation
-│   │   └── warmup.py        # Management command: cache_warmup
+│   │   └── invalidation.py  # invalidate_pattern() (django-redis)
 │   ├── ratelimit/
-│   │   ├── __init__.py
-│   │   ├── middleware.py     # RateLimitMiddleware
-│   │   └── decorators.py    # @rate_limit(requests=100, window=3600)
+│   │   ├── middleware.py     # RateLimitMiddleware (fixed-window)
+│   │   └── decorators.py    # @rate_limit(requests, window, key)
 │   ├── health/
-│   │   ├── __init__.py
-│   │   ├── views.py         # /livez/, /readyz/
-│   │   └── checks.py        # DatabaseCheck, RedisCheck, CeleryCheck
+│   │   ├── views.py         # /livez/, /healthz/, /readyz/
+│   │   ├── checks.py        # DatabaseCheck, RedisCheck, CeleryCheck
+│   │   └── urls.py          # Drop-in URL patterns
 │   ├── email/
-│   │   ├── __init__.py
-│   │   ├── service.py       # EmailService (provider-agnostic)
-│   │   └── providers/       # SMTP, Resend, Postmark adapters
+│   │   └── service.py       # EmailService (SMTP + Resend), EmailMessage dataclass
 │   ├── tasks/
-│   │   ├── __init__.py
-│   │   ├── base.py          # BaseTask (retry, DLQ, logging)
-│   │   └── monitoring.py    # Task success/failure hooks
+│   │   └── base.py          # BaseTask (auto-retry, exponential backoff, correlation-id)
 │   ├── monitoring/
-│   │   ├── __init__.py
-│   │   ├── middleware.py     # PrometheusMiddleware
-│   │   └── metrics.py       # request_count, latency, error_rate
+│   │   ├── middleware.py     # PrometheusMiddleware (no-op ohne prometheus_client)
+│   │   └── views.py         # metrics_view für /metrics/ endpoint
 │   └── security/
-│       ├── __init__.py
-│       ├── middleware.py     # SecurityHeadersMiddleware, CSP
-│       └── sanitize.py      # Input sanitization helpers
-├── tests/
-├── pyproject.toml               # PEP 621, optional extras
+│       └── middleware.py     # SecurityHeadersMiddleware, CSP (konfigurierbar)
+├── tests/                       # 10 Test-Dateien, 31 Tests
+├── pyproject.toml               # PEP 621, optional extras: cache, ratelimit, monitoring, email, logging, all
 ├── README.md
 └── CHANGELOG.md
 ```
@@ -158,10 +146,13 @@ Consumer-Projekte installieren das Package mit optionalen Extras:
 
 ```bash
 # Minimal (logging + health)
-pip install git+https://github.com/achimdehnert/iil-django-commons.git@v0.3.0
+pip install -e platform/packages/iil-django-commons
+
+# Mit Cache-Support
+pip install -e "platform/packages/iil-django-commons[cache]"
 
 # Vollausstattung
-pip install "iil-django-commons[cache,ratelimit,monitoring,email]@git+..."
+pip install -e "platform/packages/iil-django-commons[all]"
 ```
 
 In `settings.py` des Consumer-Projekts:
@@ -260,54 +251,55 @@ Out-of-the-box Prometheus-Metriken über PrometheusMiddleware:
 
 ---
 
-## 6. Integration in wedding-hub
+## 6. Consumer-Integration (Beispiel)
 
 Die Migration erfolgt schrittweise. Bestehende Eigenimplementierungen werden durch Library-Aufrufe ersetzt:
 
-**Phase 1** – Logging ersetzen: LOGGING-Dict in settings.py durch `iil_commons.logging.setup_logging()` ersetzen. CorrelationIDMiddleware einfügen.
+**Phase 1** – Logging ersetzen: LOGGING-Dict in settings.py durch `iil_commons` AppConfig Auto-Setup ersetzen. `CorrelationIDMiddleware` + `RequestLogMiddleware` einfügen.
 
-**Phase 2** – Health Checks: Eigenen `/livez/` Lambda durch `iil_commons.health.urls` ersetzen. Redis + Celery Checks aktivieren.
+**Phase 2** – Health Checks: Eigene Health-Endpoints durch `include("iil_commons.health.urls")` ersetzen. Redis + Celery Checks aktivieren.
 
-**Phase 3** – Caching: Redis-Cache für GuestListView, Timeline, Analytics. Cache-Invalidierung bei Model-Saves via Django Signals.
+**Phase 3** – Caching: Redis-Cache für häufig aufgerufene Views. Cache-Invalidierung bei Model-Saves via `invalidate_pattern()`.
 
-**Phase 4** – Rate Limiting + Monitoring: Guest-Login und API-Endpoints schützen. Prometheus-Metriken für Dashboard.
+**Phase 4** – Rate Limiting + Monitoring: API-Endpoints schützen. Prometheus-Metriken für Dashboard.
 
 ---
 
 ## 7. Rollout-Plan
 
-| Phase | Scope | Timeline | Deliverables |
-|---|---|---|---|
-| **Phase 1** | Logging + Health + Cache | Woche 1–2 | iil-django-commons v0.1.0, wedding-hub Integration, CI Pipeline |
-| **Phase 2** | Rate Limiting + Security | Woche 3–4 | v0.2.0, Middleware Stack, Security-Hardening |
-| **Phase 3** | Email + Tasks + Monitoring | Woche 5–6 | v0.3.0, Celery Patterns, Prometheus Endpoint |
-| **Phase 4** | Second Project Integration | Woche 7–8 | Validation, Docs, Cookiecutter Starter |
+| Phase | Scope | Status | Datum | Deliverables |
+|---|---|---|---|---|
+| **Phase 1** | Logging + Health + Cache | ✅ done | 2026-02-27 | v0.1.0, 12 Tests |
+| **Phase 2** | Rate Limiting + Security | ✅ done | 2026-02-27 | v0.2.0, +9 Tests (22 total) |
+| **Phase 3** | Email + Tasks + Monitoring | ✅ done | 2026-02-27 | v0.3.0, +9 Tests (31 total) |
+| **Phase 4** | Consumer-Integration (erster Hub) | 🔲 pending | — | Hub-Integration, Validation, PyPI/Wheel |
 
 ---
 
 ## 8. Risiken & Mitigationen
 
-- **Over-Engineering:** Start mit nur 3 Modulen (Logging, Health, Cache). Weitere Module nur bei konkretem Bedarf in einem zweiten Projekt. YAGNI-Prinzip.
-- **Breaking Changes:** Semantic Versioning + CHANGELOG. Major-Upgrades nur mit Migration Guide. Consumer pinnen auf Minor-Version (`>=0.2.0,<0.3.0`).
-- **Vendor Lock-in:** Abstraktion über Interfaces. Provider sind austauschbar (SMTP ↔ Resend, structlog ↔ stdlib logging).
-- **Testbarkeit:** Library hat eigene Test-Suite (pytest). Consumer-Tests mocken Library-Interfaces. Integration-Tests in CI.
-- **Debugging:** HumanFormatter für lokale Entwicklung. Source-Installation möglich: `pip install -e ../iil-django-commons`.
+- **Over-Engineering:** YAGNI — Module nur bei konkretem Bedarf in einem Consumer aktivieren. Optional Extras halten Dependencies schlank.
+- **Breaking Changes:** Semantic Versioning + CHANGELOG. Major-Upgrades nur mit Migration Guide. Consumer pinnen auf Minor-Version.
+- **Vendor Lock-in:** Abstraktion über Interfaces. Provider austauschbar (SMTP ↔ Resend). Graceful Degradation bei fehlenden optionalen Dependencies.
+- **Testbarkeit:** Eigene Test-Suite (31 Tests). Consumer-Tests mocken Library-Interfaces. Integration-Tests in CI.
+- **Debugging:** HumanFormatter für lokale Entwicklung. Source-Installation: `pip install -e platform/packages/iil-django-commons`.
 
 ---
 
-## 9. Offene Fragen zur Entscheidung
+## 9. Entschiedene Fragen
 
-- PyPI-Hosting: Privates GitHub-Package oder separater PyPI-Index (z.B. Gemfury, Hetzner)? → Empfehlung: GitHub als Git-Dependency (kein extra Service).
-- Scope Phase 1: Logging + Health + Cache als Minimal-Start oder direkt alle Module? → Empfehlung: Minimal-Start.
-- Monitoring-Stack: Prometheus + Grafana on Hetzner oder externer Service? → Empfehlung: Hetzner Docker Compose (Prometheus + Grafana als Sidecars).
-- Naming: `iil-django-commons` vs. `iil-backend-commons` vs. project-spezifischer Name?
+- **Hosting:** Monorepo-Package in `platform/packages/iil-django-commons/`. Distribution als Wheel oder Git-Subdirectory-Install. Kein separater PyPI-Index nötig.
+- **Scope:** Alle 8 Module in 3 Phasen implementiert (v0.1.0→v0.3.0). Consumer-Integration steht aus.
+- **Monitoring-Stack:** Prometheus-Integration via optionalem `prometheus_client`. Grafana-Setup ist Consumer-Verantwortung.
+- **Naming:** `iil-django-commons` (Package-Name), `iil_commons` (Python-Import).
 
 ---
 
 ## 10. Nächste Schritte
 
-1. ADR reviewen und Entscheidung treffen (Optionen, offene Fragen)
-2. Repository `iil-django-commons` erstellen mit `pyproject.toml` + CI
-3. Phase 1 Module implementieren (Logging, Health, Cache)
-4. wedding-hub migrieren (settings.py, middleware, health check)
-5. Validierung an zweitem Projekt
+1. ~~ADR reviewen und Entscheidung treffen~~ ✅ accepted
+2. ~~Phase 1–3 Module implementieren~~ ✅ v0.3.0 (2026-02-27)
+3. **Phase 4: Ersten Consumer-Hub integrieren** (z.B. billing-hub oder research-hub)
+4. Wheel bauen und in Hub-Repos als Dependency einbinden
+5. `BaseTask.__call__` auf Celery-Lifecycle-Hooks umstellen (Review-Finding)
+6. `HEALTH_PATHS`-Filter in `RequestLogMiddleware` einbauen (Health-Request-Spam vermeiden)
