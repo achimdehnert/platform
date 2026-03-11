@@ -2,12 +2,14 @@
 status: accepted
 date: 2026-03-05
 decision-makers: Achim Dehnert
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "billing-hub: 6 models, 4 services, Stripe webhook, HMAC auth, access API"
+  - "billing-hub live: https://billing.iil.pet (/healthz/ = 200, Port 8092)"
   - "apps/billing/: Platform, Customer, Subscription, ModulePurchase, Invoice, BillingEvent"
-  - "apps/api/: access_check, customer_detail, stripe_webhook with signature"
-  - "remaining: deployment to billing.iil.pet"
+  - "apps/api/: access_check, customer_detail, stripe_webhook with HMAC + Stripe signature"
+  - "apps/billing/services/: access, activation, subscription, billing_event"
+  - "7 Platforms + 31 Plans seeded (seed_platforms + seed_plans)"
+  - "CI/CD: ci-cd.yml green (lint + test + build + deploy-verify)"
 ---
 
 # ADR-062: Zentraler Billing-Service für die Plattform
