@@ -175,7 +175,7 @@
 | 120 | Unified Deployment Pipeline | `Accepted` | ✅ | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
 | 121 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | ✅ | [ADR-121](ADR-121-iil-outlinefw-story-outline-framework.md) |
 | 130 | Shared Django App `content_store` (ehem. ADR-062) | `Accepted` | ✅ | [ADR-130](ADR-130-content-store-shared-persistence.md) |
-| 131 | Shared Backend Services Library (ehem. ADR-091) | `Accepted` | ✅ | [ADR-131](ADR-131-shared-backend-services.md) |
+| 131 | Shared Backend Services Library (ehem. ADR-091) | `Accepted` | 🔶 | [ADR-131](ADR-131-shared-backend-services.md) |
 | 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | ✅ | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
 | 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | ⬜ | [ADR-133](ADR-133-shared-ai-services-package.md) |
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | ⬜ | [ADR-134](ADR-134-module-monetization-strategy.md) |
@@ -240,7 +240,7 @@
 - [x] ADR-062: partial→implemented, ADR-118: partial→implemented -- 2026-03-11
 - [x] ADR-132: partial→implemented (Phase 0+1+2 alle ✅, platform_context_mcp live) -- 2026-03-11
 - [x] billing-hub: deploy.yml entfernt (ci-cd.yml deckt alles ab, startup_failure behoben) -- 2026-03-11
-- [x] ADR-131: partial→implemented — eigenes Repo achimdehnert/iil-django-commons, 8 Module, 31 Tests, CI green -- 2026-03-11
+- [x] ADR-131: implemented→partial — 8 Module in platform/packages/, 31 Tests, kein Consumer integriert (Phase 4 pending) -- 2026-03-11
 - [x] ADR-098: partial→implemented — Redis maxmemory 15/15, PG random_page_cost 17/17, 6 Repos compose-hardened, shm_size+logging -- 2026-03-11
 - [x] ADR-088: partial→implemented — 5 Channels (Email, SMS, Webhook, Discord, Telegram), 21 Tests, BigAutoField-Fix, Celery-First -- 2026-03-11
 - [x] ADR-121: Frontmatter repariert (war komplett kaputt), implemented→partial (Phase 3 pending), INDEX ✅→🔶 -- 2026-03-11
