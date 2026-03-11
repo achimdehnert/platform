@@ -3,6 +3,7 @@ id: ADR-138
 title: "ADR Implementation Tracking Standard — Lifecycle, Frontmatter Fields, and Verification"
 status: accepted
 date: 2026-03-11
+amended: 2026-03-11
 author: Achim Dehnert
 owner: Achim Dehnert
 decision-makers: [Achim Dehnert]
@@ -10,14 +11,13 @@ consulted: []
 informed: [all platform teams]
 scope: all ADRs in platform/docs/adr/
 tags: [governance, adr, implementation, tracking, lifecycle]
-related: [ADR-015, ADR-046, ADR-051, ADR-077]
+related: [ADR-015, ADR-046, ADR-051]
 supersedes: []
 amends: []
 last_verified: 2026-03-11
-implementation_status: implemented
+implementation_status: partial
 implementation_evidence:
   - "docs/adr/ADR-138-implementation-tracking-standard.md: this ADR"
-  - "docs/adr/INDEX.md: implementation_status column added"
 ---
 
 # ADR-138: ADR Implementation Tracking Standard
@@ -111,7 +111,12 @@ implementation_evidence:
 | `status: deprecated` | No longer active |
 | `status: superseded` | Replaced by another ADR |
 | `status: proposed` | Not yet accepted |
-| Governance/process ADRs | Self-implementing (the ADR IS the implementation) |
+| Governance/process ADRs (without concrete artefacts) | Self-implementing (the ADR IS the implementation) |
+
+> **Ausnahme:** Governance-ADRs die konkrete Artefakte erzeugen (z.B. INDEX-Spalten,
+> Backfill bestehender ADRs, Tooling-Scripts) MÜSSEN trotzdem `implementation_status`
+> führen. ADR-138 selbst ist ein Beispiel: Es definiert eine INDEX.md-Spalte und
+> erfordert einen Backfill aller bestehenden Accepted ADRs.
 
 ### 2.6 INDEX.md Column
 
@@ -151,7 +156,18 @@ The ADR INDEX table gets a new column `Impl` showing implementation status as em
 
 ---
 
-## 4. References
+## 4. Implementation Tracking (self-referential)
+
+| Schritt | Status | Datum |
+|---------|--------|-------|
+| ADR-138 akzeptiert | ✅ done | 2026-03-11 |
+| INDEX.md: `Impl`-Spalte hinzufügen | 🔲 pending | — |
+| Backfill: `implementation_status` in alle Accepted ADRs | 🔲 pending | — |
+| `/adr-review` Workflow: Check auf fehlende `implementation_status` | 🔲 pending | — |
+
+---
+
+## 5. References
 
 - [ADR-015: Platform Governance System](ADR-015-platform-governance-system.md) — governance framework
 - [ADR-046: Documentation Governance](ADR-046-docs-hygiene.md) — documentation standards
