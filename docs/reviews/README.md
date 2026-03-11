@@ -54,6 +54,8 @@ Gesamturteil:
 | [ADR-111-review-2026-03-11.md](ADR-111-review-2026-03-11.md) | Private Package Distribution | ⚠️ Approved w/ Comments | — |
 | [ADR-102-review-2026-03-11.md](ADR-102-review-2026-03-11.md) | Cloudflare DNS/CDN/DDoS | ⚠️ Approved w/ Comments | — |
 | [ADR-103-review-2026-03-11.md](ADR-103-review-2026-03-11.md) | ausschreibungs-hub Architektur v3 | ⚠️ 1B (pyproject.toml) | — |
+| [ADR-104-review-2026-03-11.md](ADR-104-review-2026-03-11.md) | Research Hub + iil-researchfw | ⚠️ 1B (Frontmatter) | — |
+| [ADR-105-review-2026-03-11.md](ADR-105-review-2026-03-11.md) | iil-researchfw Extraction Plan v2 | ⚠️ Approved w/ Comments | — |
 
 ### Ältere Reviews (migriert aus docs/adr/reviews/)
 
