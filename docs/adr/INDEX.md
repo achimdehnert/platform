@@ -118,9 +118,9 @@
 | 056 | Deployment Pre-Flight Validation & Pipeline Hardening | `Accepted` | ✅ | [ADR-056](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
 | 057 | Four-Level Test Strategy with Contract Testing | `Accepted` | 🔶 | [ADR-057](ADR-057-platform-test-strategy.md) |
 | 058 | 28-Type Test Taxonomy as Platform Binding Standard | `Accepted` | 🔶 | [ADR-058](ADR-058-platform-test-taxonomy.md) |
-| 059 | Automated ADR Drift Detection and Staleness Management | `Accepted` | 🔶 | [ADR-059](ADR-059-adr-drift-detector.md) |
+| 059 | Automated ADR Drift Detection and Staleness Management | `Accepted` | ✅ | [ADR-059](ADR-059-adr-drift-detector.md) |
 | 060 | Developer Workstation SSH Key Configuration Standard | `Accepted` | ✅ | [ADR-060](ADR-060-developer-workstation-ssh-configuration.md) |
-| 061 | Adopt hardcode_scanner.py as Platform-wide Tooling | `Accepted` | 🔶 | [ADR-061](ADR-061-hardcoding-elimination-strategy.md) |
+| 061 | Adopt hardcode_scanner.py as Platform-wide Tooling | `Accepted` | ✅ | [ADR-061](ADR-061-hardcoding-elimination-strategy.md) |
 | 062 | Central Billing Service (billing-hub) | `Accepted` | ✅ | [ADR-062](ADR-062-central-billing-service.md) |
 | 063 | Staging Environment Strategy | `Accepted` | 🔶 | [ADR-063](ADR-063-staging-environment-strategy.md) |
 | 064 | coach-hub Architecture | `Archived` | — | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
@@ -150,13 +150,13 @@
 | 088 | Shared Notification Registry -- Multi-Channel Messaging | `Accepted` | 🔶 | [ADR-088](ADR-088-notification-registry.md) |
 | 089 | bfagent-llm -- LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | ✅ | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline -- Python + PostgreSQL -> Docker Deploy | `Accepted` | ✅ | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
-| 091 | Platform Operations Hub Consolidation | `Accepted` | 🔶 | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
+| 091 | Platform Operations Hub Consolidation | `Accepted` | ✅ | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | ✅ | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | ✅ | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Accepted` | ✅ | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
 | 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Accepted` | ✅ | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
 | 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Accepted` | ✅ | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
-| 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | 🔶 | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
+| 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | ✅ | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Accepted` | ✅✅ | [ADR-099](ADR-099-devhub-release-management-ui.md) |
 | 100 | iil-testkit -- Shared Test Factory Package | `Accepted` | ✅ | [ADR-100](ADR-100-iil-testkit-shared-test-factory-package.md) |
 | 107 | Extended Agent Team -- Deployment Agent | `Accepted` | ✅ | [ADR-107](ADR-107-extended-agent-team-deployment-agent.md) |
@@ -241,3 +241,4 @@
 - [x] ADR-132: partial→implemented (Phase 0+1+2 alle ✅, platform_context_mcp live) -- 2026-03-11
 - [x] billing-hub: deploy.yml entfernt (ci-cd.yml deckt alles ab, startup_failure behoben) -- 2026-03-11
 - [x] ADR-131: partial→implemented — eigenes Repo achimdehnert/iil-django-commons, 8 Module, 31 Tests, CI green -- 2026-03-11
+- [x] ADR-098: partial→implemented — Redis maxmemory 15/15, PG random_page_cost 17/17, 6 Repos compose-hardened, shm_size+logging -- 2026-03-11
