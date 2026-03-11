@@ -1,6 +1,6 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: Unified Multi-Repo Deployment Pipeline (ADR-120)      ║
-# ║  Staging (main) → Production (v* tag) mit Health-Check + Rollback         ║
+# ║  Staging (main) → Production (promote/tag) mit Health-Check + Rollback    ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-unified.yml@v1
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
@@ -24,6 +24,11 @@ on:
         default: ""
       image_tag_override:
         description: "Rollback auf expliziten Image-Tag (z.B. v1.2.1) — leer = auto"
+        required: false
+        type: string
+        default: ""
+      target_environment:
+        description: "Ziel-Environment erzwingen (leer=auto, staging, production) — für Promotion"
         required: false
         type: string
         default: ""
@@ -73,7 +78,20 @@ jobs:
       - name: Resolve environment
         id: env
         run: |
-          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+          TARGET="${{ inputs.target_environment }}"
+
+          # Explizites target_environment überschreibt alles (Promotion-Flow)
+          if [[ -n "$TARGET" ]]; then
+            echo "environment=$TARGET" >> "$GITHUB_OUTPUT"
+            if [[ "$TARGET" == "production" ]]; then
+              echo "deploy_staging=false" >> "$GITHUB_OUTPUT"
+              echo "deploy_prod=true"     >> "$GITHUB_OUTPUT"
+            else
+              echo "deploy_staging=true"  >> "$GITHUB_OUTPUT"
+              echo "deploy_prod=false"    >> "$GITHUB_OUTPUT"
+            fi
+          # Auto-Detect: Tag → Production, main → Staging
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
             echo "environment=production" >> "$GITHUB_OUTPUT"
             echo "deploy_staging=false"   >> "$GITHUB_OUTPUT"
             echo "deploy_prod=true"       >> "$GITHUB_OUTPUT"
@@ -82,15 +100,9 @@ jobs:
             echo "deploy_staging=true"    >> "$GITHUB_OUTPUT"
             echo "deploy_prod=false"      >> "$GITHUB_OUTPUT"
           else
-            if [[ "${{ inputs.image_tag_override }}" == v* ]]; then
-              echo "environment=production" >> "$GITHUB_OUTPUT"
-              echo "deploy_staging=false"   >> "$GITHUB_OUTPUT"
-              echo "deploy_prod=true"       >> "$GITHUB_OUTPUT"
-            else
-              echo "environment=staging"    >> "$GITHUB_OUTPUT"
-              echo "deploy_staging=true"    >> "$GITHUB_OUTPUT"
-              echo "deploy_prod=false"      >> "$GITHUB_OUTPUT"
-            fi
+            echo "environment=staging"    >> "$GITHUB_OUTPUT"
+            echo "deploy_staging=true"    >> "$GITHUB_OUTPUT"
+            echo "deploy_prod=false"      >> "$GITHUB_OUTPUT"
           fi
 
       - name: Resolve image tag
