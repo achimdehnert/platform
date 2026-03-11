@@ -1,0 +1,88 @@
+name: Agent Task
+description: Standardisiertes Task-Format für AI-Agent-Ausführung (ADR-086)
+title: "[Task] "
+labels: ["agent-task"]
+body:
+  - type: dropdown
+    id: task_type
+    attributes:
+      label: Task-Typ
+      options:
+        - feature
+        - bugfix
+        - refactor
+        - test
+        - infra
+        - adr
+    validations:
+      required: true
+
+  - type: dropdown
+    id: complexity
+    attributes:
+      label: Komplexität
+      options:
+        - trivial
+        - simple
+        - moderate
+        - complex
+    validations:
+      required: true
+
+  - type: input
+    id: parent_issue
+    attributes:
+      label: Parent Issue
+      placeholder: "#NNN (leer lassen wenn kein Parent)"
+
+  - type: input
+    id: affected_app
+    attributes:
+      label: Betroffene Django-App
+      placeholder: "z.B. apps/MODULE, src/apps/feature"
+    validations:
+      required: true
+
+  - type: textarea
+    id: affected_paths
+    attributes:
+      label: Affected Paths (ScopeLock)
+      description: Welche Pfade darf der Agent ändern? (ADR-081 Scope-Lock)
+      placeholder: |
+        - src/apps/MODULE/
+        - tests/MODULE/
+    validations:
+      required: true
+
+  - type: textarea
+    id: forbidden_paths
+    attributes:
+      label: Forbidden Paths
+      value: |
+        - (keine zusätzlichen — Platform-Defaults gelten immer:
+          migrations/, .env*, config/settings/prod*, *.pem, *.key)
+
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance Criteria
+      placeholder: |
+        - [ ] Criterion 1
+        - [ ] Criterion 2
+    validations:
+      required: true
+
+  - type: textarea
+    id: test_requirements
+    attributes:
+      label: Test Requirements
+      placeholder: |
+        - [ ] test_should_... in tests/test_....py
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      value: "keine"
