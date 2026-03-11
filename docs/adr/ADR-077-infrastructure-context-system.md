@@ -7,6 +7,7 @@ informed: []
 supersedes: []
 amends: ["ADR-020-documentation-strategy.md", "ADR-021-unified-deployment-pattern.md"]
 related: ["ADR-050-platform-decomposition.md", "ADR-067-work-management-strategy.md", "ADR-075-deployment-execution-strategy.md"]
+implementation_status: implemented
 ---
 
 # Infrastructure Context System: catalog-info.yaml → dev-hub API → context.md

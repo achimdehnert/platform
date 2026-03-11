@@ -5,6 +5,7 @@ amended: 2026-02-20
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
+implementation_status: implemented
 ---
 
 # Adopt deployment pre-flight validation and pipeline hardening to eliminate systematic onboarding failures

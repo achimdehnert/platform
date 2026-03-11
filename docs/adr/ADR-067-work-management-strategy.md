@@ -6,6 +6,7 @@ consulted: []
 informed: []
 supersedes: []
 related: ["ADR-046-docs-hygiene.md", "ADR-057-platform-test-strategy.md", "ADR-066-ai-engineering-team.md"]
+implementation_status: implemented
 ---
 
 # Adopt GitHub Issues + Projects as the single source of truth for work management across human and AI team members

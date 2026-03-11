@@ -8,6 +8,7 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-057-platform-test-strategy.md"]
+implementation_status: partial
 ---
 
 # Adopt a 28-type test taxonomy as the binding standard for all platform repos

@@ -7,6 +7,7 @@ informed: []
 amends: ["ADR-021-unified-deployment-pattern.md"]
 supersedes: []
 related: ["ADR-021-unified-deployment-pattern.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md"]
+implementation_status: implemented
 ---
 
 # Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml (amends ADR-021)

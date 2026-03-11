@@ -7,6 +7,7 @@ informed: []
 supersedes: []
 amends: ["ADR-065-adr-numbering-filesystem-first.md"]
 related: ["ADR-020-documentation-strategy.md", "ADR-015-platform-governance-system.md"]
+implementation_status: implemented
 ---
 
 # ADR-083: Hybrid ADR Governance — Platform + Repo-lokale ADRs
