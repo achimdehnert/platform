@@ -4,8 +4,10 @@ date: 2026-03-08
 decision-makers: [Achim Dehnert]
 implementation_status: partial
 implementation_evidence:
-  - "6/9 UI-Hubs mit tenant: travel-beat, weltenhub, coach-hub, cad-hub, billing-hub, dev-hub"
-  - "Fehlend: risk-hub, pptx-hub, trading-hub (kein django_tenants installiert)"
+  - "Referenz-Implementierungen: coach-hub, risk-hub (packages/django-tenancy/), research-hub"
+  - "Rollout done: weltenhub, cad-hub, travel-beat, billing-hub (TENANCY_MODE=disabled), dev-hub (disabled)"
+  - "pptx-hub: tenant_id in Models vorhanden, aber kein django_tenancy Package"
+  - "Fehlend: trading-hub (kein tenant_id, kein django_tenancy)"
 ---
 
 # ADR-109: Multi-Tenancy als Plattform-Standard für alle UI-Hubs
