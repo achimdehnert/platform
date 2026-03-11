@@ -2,9 +2,13 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "platform-context: shared services exist, not all extracted yet"
+  - "Own repo: https://github.com/achimdehnert/iil-django-commons (2026-03-11)"
+  - "8 modules: logging, health, cache, ratelimit, security, email, tasks, monitoring"
+  - "31 tests (30 passed, 1 skipped), CI pipeline on Python 3.11+3.12"
+  - "Version 0.3.0 — Phase 1+2+3 complete"
+  - "Review findings resolved: celery.Task inheritance, ADR-045 settings, health decorators"
 ---
 
 # ADR-131: Shared Backend Services Library für Django-Projekte
