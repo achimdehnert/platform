@@ -4,7 +4,10 @@ date: 2026-02-26
 decision-makers: [Platform Team]
 implementation_status: partial
 implementation_evidence:
-  - "weltenhub: pgvector active, FTS not platform-wide yet"
+  - "mcp-hub/query_agent_mcp/db.py: pgvector embeddings for memory/query"
+  - "bfagent/apps/research/handlers/knowledge_base_handler.py: pgvector KB search"
+  - "weltenhub: NO pgvector code yet (corrected 2026-03-11)"
+  - "shared platform-search package: not yet extracted"
 ---
 
 <!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-search/**, supersedes_check: none -->
