@@ -19,11 +19,11 @@ Also load the review checklist:
 
 ---
 
-## Step 2: Run through all 8 checklist categories
+## Step 2: Run through all 9 checklist categories
 
 Work through each category systematically:
 
-1. **MADR 4.0 Compliance** — frontmatter, title, sections, Confirmation
+1. **MADR 4.0 Compliance** — frontmatter (incl. `implementation_status` per ADR-138), title, sections, Confirmation
 2. **Platform Infrastructure Specifics** — server IP, SSH, registry, ports, Nginx
 3. **CI/CD & Docker Conventions** — Dockerfile location, compose, health checks (NOT in Dockerfile!), pipeline
 4. **Database & Migration Safety** — Expand-Contract, tenant_id, shared DB risk
@@ -31,6 +31,7 @@ Work through each category systematically:
 6. **Architectural Consistency** — service layer, no ADR contradictions, Guardian compatibility
 7. **Open Questions & Deferred Decisions** — all open questions addressed
 8. **Modern Platform Patterns** — infra-deploy, Multi-Tenancy, Content Store, catalog-info.yaml, Drift-Detector, Runner labels, Temporal (nur wenn relevant)
+9. **ADR-138 Implementation Tracking** — `implementation_status` in frontmatter (required for Accepted ADRs), `implementation_evidence` if status is partial/implemented/verified, INDEX.md Impl column matches frontmatter
 
 For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note.
 
@@ -52,7 +53,7 @@ For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note
 ❌ 2.3 StrictHostKeyChecking=no found in deploy-service.yml line 42 — replace with ssh-keyscan
 ...
 
-[Continue for all 8 categories]
+[Continue for all 9 categories]
 
 ---
 
@@ -68,6 +69,7 @@ For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note
 | Architectural Consistency | 5/5 | |
 | Open Questions | 4/5 | |
 | Modern Platform Patterns | 5/5 | n/a for this ADR |
+| ADR-138 Implementation Tracking | 5/5 | |
 | **Overall** | **4.5/5** | |
 
 ---
@@ -91,6 +93,19 @@ Soll ich die Änderungen direkt anwenden? [Ja/Nein]
 
 ---
 
+## Step 3.5: ADR-138 Compliance Quick-Check
+
+Automatically verify:
+1. **Frontmatter field**: Does the ADR have `implementation_status` in its YAML frontmatter?
+   - If missing and status is `Accepted`: ❌ BLOCK — add `implementation_status: none` (or appropriate value)
+   - If missing and status is `Proposed`: ⚠️ SUGGEST — add `implementation_status: none`
+   - If missing and status is `Deprecated`/`Superseded`/`Archived`: skip (not applicable)
+2. **Evidence field**: If `implementation_status` is `partial`, `implemented`, or `verified`, does `implementation_evidence` exist with at least one entry?
+3. **INDEX.md sync**: Does the Impl column in INDEX.md match the frontmatter value?
+   - `none` → ⬜, `partial` → 🔶, `implemented` → ✅, `verified` → ✅✅
+
+---
+
 ## Step 4: Apply fixes (if user confirms)
 
 If user says "Ja" or "apply" or "fix it":
@@ -99,7 +114,8 @@ If user says "Ja" or "apply" or "fix it":
 2. Apply ⚠️ minor improvements if user confirms
 3. Update ADR frontmatter: `amended: [today's date]`
 4. If review outcome is **Accept**: update `platform/docs/adr/INDEX.md` — Status `Proposed` → `Accepted`
-5. Push to GitHub with commit message:
+5. If `implementation_status` was missing: add it to frontmatter and update INDEX.md Impl column
+6. Push to GitHub with commit message:
    `fix(ADR-[NNN]): address review findings — [summary of changes]`
 
 ---
@@ -118,3 +134,4 @@ If the ADR has a migration tracking table (§4 or §5 pattern from ADR-021):
 - ADR Index: `platform/docs/adr/INDEX.md`
 - MADR 4.0: https://adr.github.io/madr/
 - Modern Platform Patterns: ADR-059, ADR-062, ADR-072, ADR-075, ADR-077
+- Implementation Tracking: ADR-138 (lifecycle: none → partial → implemented → verified)
