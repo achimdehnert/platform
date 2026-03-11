@@ -1,0 +1,38 @@
+# ============================================================================
+# .sops.yaml — SOPS Configuration Template (ADR-045, Issue #18 FIX-F)
+# ============================================================================
+#
+# Copy this file to the root of any repo that uses SOPS-encrypted secrets.
+# Rename to `.sops.yaml` in the target repo.
+#
+# Usage:
+#   # Encrypt:
+#   sops --encrypt .env.staging > .env.staging.enc
+#
+#   # Decrypt (local):
+#   sops --decrypt .env.staging.enc > .env.staging
+#
+#   # Decrypt (CI — uses SOPS_AGE_KEY secret):
+#   echo "$SOPS_AGE_KEY" > /tmp/age.key
+#   SOPS_AGE_KEY_FILE=/tmp/age.key sops --decrypt .env.staging.enc > .env.staging
+#
+# Prerequisites:
+#   - age: https://github.com/FiloSottile/age
+#   - sops: https://github.com/getsops/sops
+#   - SOPS_AGE_KEY in GitHub repo secrets (age private key)
+#   - age public key below (from /etc/secrets/staging.key on dev-server)
+#
+# ============================================================================
+
+creation_rules:
+  # Staging environment files
+  - path_regex: \.env\.staging(\..*)?$
+    age: >-
+      age1REPLACE_WITH_ACTUAL_PUBLIC_KEY
+    encrypted_regex: "^(.*PASSWORD.*|.*SECRET.*|.*KEY.*|.*TOKEN.*|.*DSN.*|.*URL.*)$"
+
+  # Production environment files (if ever encrypted)
+  - path_regex: \.env\.prod(\..*)?$
+    age: >-
+      age1REPLACE_WITH_ACTUAL_PUBLIC_KEY
+    encrypted_regex: "^(.*PASSWORD.*|.*SECRET.*|.*KEY.*|.*TOKEN.*|.*DSN.*|.*URL.*)$"

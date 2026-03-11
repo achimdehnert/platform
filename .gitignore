@@ -38,8 +38,9 @@ docs/_build/
 *:Zone.Identifier
 # Local Windsurf/MCP config — machine-specific, never commit
 .windsurf/mcp_config.json
-# Local infra drafts (not yet committed intentionally)
-infra/
+# Local infra plaintext secrets — NEVER commit
+infra/*.env
+infra/*.key
 # Validate-ports CI draft (not yet integrated)
 .github/workflows/validate-ports.yml
 # Markdownlint local config override
