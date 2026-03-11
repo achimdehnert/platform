@@ -108,7 +108,7 @@
 | 046 | Documentation Governance -- Hygiene, DIATAXIS & Docs Agent | `Accepted` | ✅ | [ADR-046](ADR-046-docs-hygiene.md) |
 | 047 | Sphinx Documentation Hub (sphinx.iil.pet) | `Superseded` | — | [ADR-047](ADR-047-sphinx-documentation-hub.md) |
 | 048 | HTMX Playbook -- Canonical Patterns for Django-HTMX | `Accepted` | ✅ | [ADR-048](ADR-048-htmx-playbook.md) |
-| 049 | Design Token System -- CSS Custom Properties + Tailwind Bridge | `Accepted` | 🔶 | [ADR-049](ADR-049-design-token-system.md) |
+| 049 | Design Token System -- CSS Custom Properties + Tailwind Bridge | `Accepted` | ✅ | [ADR-049](ADR-049-design-token-system.md) |
 | 050 | Platform Decomposition -- Hub Landscape & Developer Portal | `Accepted` | ✅ | [ADR-050](ADR-050-platform-decomposition-hub-landscape.md) |
 | 051 | Concept-to-ADR Pipeline -- Idea Capture & AI-Assisted Promotion | `Accepted` | ✅ | [ADR-051](ADR-051-concept-to-adr-pipeline.md) |
 | 052 | Trading Hub -- Broker-Adapter-Architektur | `Archived` | — | [ADR-052](_archive/superseded/ADR-052-trading-hub-broker-adapter-architecture.md) |
@@ -133,18 +133,18 @@
 | 071 | Amendment: Code Quality Tooling (amends ADR-022) | `Accepted` | ✅ | [ADR-071](ADR-071-amendment-code-quality-tooling.md) |
 | 072 | PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Accepted` | 🔶 | [ADR-072](ADR-072-multi-tenancy-schema-isolation.md) |
 | 073 | Repo Scope & Migration Status (all 10 repos) | `Accepted` | ✅ | [ADR-073](ADR-073-repo-scope.md) |
-| 074 | Multi-Tenancy Testing Strategy -- Isolation, Propagation & CI | `Accepted` | 🔶 | [ADR-074](ADR-074-multi-tenancy-testing-strategy.md) |
+| 074 | Multi-Tenancy Testing Strategy -- Isolation, Propagation & CI | `Accepted` | ✅ | [ADR-074](ADR-074-multi-tenancy-testing-strategy.md) |
 | 075 | Split Deployment Execution: Read-only MCP + Server-side Writes | `Accepted` | ✅ | [ADR-075](ADR-075-deployment-execution-strategy.md) |
 | 076 | bfagent CI Test Strategy | `Archived` | — | [ADR-076](_archive/superseded/ADR-076-bfagent-ci-test-strategy.md) |
 | 077 | Infrastructure Context System: catalog-info.yaml -> dev-hub API | `Accepted` | ✅ | [ADR-077](ADR-077-infrastructure-context-system.md) |
 | 078 | Amendment: Docker HEALTHCHECK ausschliesslich in docker-compose | `Accepted` | ✅ | [ADR-078](ADR-078-amendment-docker-healthcheck-convention.md) |
-| 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | `Accepted` | 🔶 | [ADR-079](ADR-079-temporal-workflow-engine.md) |
+| 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | `Accepted` | ⬜ | [ADR-079](ADR-079-temporal-workflow-engine.md) |
 | 080 | Multi-Agent Coding Team Pattern | `Accepted` | ✅ | [ADR-080](ADR-080-multi-agent-coding-team-pattern.md) |
 | 081 | Agent Guardrails & Code Safety -- Scope-Lock, Pre/Post-Gates | `Accepted` | ✅ | [ADR-081](ADR-081-agent-guardrails-code-safety.md) |
 | 082 | LLM Tool Integration -- Autonomous Coding Agent | `Accepted` | ✅ | [ADR-082](ADR-082-llm-tool-integration-autonomous-coding.md) |
 | 083 | Hybrid ADR Governance -- Platform + Repo-lokale ADRs | `Accepted` | ✅ | [ADR-083](ADR-083-hybrid-adr-governance.md) |
 | 084 | Model Registry -- Dynamisches LLM-Modell-Routing | `Accepted` | ✅ | [ADR-084](ADR-084-model-registry-dynamic-llm-routing.md) |
-| 085 | Use Case Pipeline -- Natural Language -> Structured TaskGraph | `Accepted` | 🔶 | [ADR-085](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
+| 085 | Use Case Pipeline -- Natural Language -> Structured TaskGraph | `Accepted` | ✅ | [ADR-085](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
 | 086 | Agent Team Workflow -- Cross-Repo Sprint Execution Pattern | `Accepted` | ✅ | [ADR-086](ADR-086-agent-team-workflow.md) |
 | 087 | Hybrid Search: pgvector + FTS Platform-wide | `Accepted` | 🔶 | [ADR-087](ADR-087-hybrid-search-architecture.md) |
 | 088 | Shared Notification Registry -- Multi-Channel Messaging | `Accepted` | 🔶 | [ADR-088](ADR-088-notification-registry.md) |
