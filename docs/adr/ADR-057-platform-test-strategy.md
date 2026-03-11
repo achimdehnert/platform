@@ -5,6 +5,7 @@ amended: 2026-02-20
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
+implementation_status: partial
 ---
 
 # Adopt a four-level test strategy with contract testing to systematically cover multi-repo Django/HTMX services

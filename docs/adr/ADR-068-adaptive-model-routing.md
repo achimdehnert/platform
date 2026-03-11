@@ -7,6 +7,7 @@ informed: []
 supersedes: []
 amends: ["ADR-066-ai-engineering-team.md"]
 related: ["ADR-066-ai-engineering-team.md", "ADR-067-work-management-strategy.md", "ADR-057-platform-test-strategy.md"]
+implementation_status: partial
 ---
 
 # Adopt Adaptive Model Routing and Quality Feedback Loop for AI Agent Tasks

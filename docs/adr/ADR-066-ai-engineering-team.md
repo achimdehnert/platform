@@ -7,6 +7,7 @@ informed: []
 supersedes: ["ADR-014-ai-native-development-teams.md"]
 amends: []
 related: ["ADR-057-platform-test-strategy.md", "ADR-058-platform-test-taxonomy.md", "ADR-067-work-management-strategy.md", "ADR-068-adaptive-model-routing.md"]
+implementation_status: implemented
 ---
 
 # Adopt a structured AI Engineering Squad with role-based agents and gate-controlled workflows
