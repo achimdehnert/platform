@@ -230,5 +230,7 @@
 - [x] ADR-138: INDEX.md Impl-Spalte hinzugefügt -- 2026-03-11
 - [x] ADR-130: Review-Amend (UUID→BigAutoField, Alembic→Django ORM, creative-services→content_store) -- 2026-03-11
 - [x] ADR-138: Review-Amend (status partial, Ausnahme für Governance-ADRs mit Artefakten) -- 2026-03-11
-- [ ] ADR-138: Backfill fehlende ~24 Accepted ADRs ohne implementation_status im Frontmatter
+- [x] ADR-138: Backfill fehlende ~24 Accepted ADRs ohne implementation_status im Frontmatter
 - [ ] ADR-138: /adr-review Workflow Check auf fehlende implementation_status
+- [x] Partial-ADR-Audit: 14 partial ADRs reviewed, 3 Quick Wins (049,074,085→implemented), 1 Deferred (079→none) -- 2026-03-11
+- [x] ADR-087: Evidence korrigiert (weltenhub hat KEINEN pgvector Code, nur mcp-hub + bfagent) -- 2026-03-11
