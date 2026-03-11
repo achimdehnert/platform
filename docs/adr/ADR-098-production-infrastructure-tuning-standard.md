@@ -9,14 +9,19 @@ informed: –
 tags: [infrastructure, docker, performance, hetzner, gunicorn, postgresql, redis, sysctl]
 supersedes: []
 related: [ADR-021, ADR-022, ADR-042, ADR-056, ADR-063, ADR-078]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "daemon.json auf PROD+DEV: live-restore, log-limits, BuildKit GC"
-  - "sysctl auf PROD+DEV: vm.overcommit_memory=1, net.core.somaxconn=4096"
-  - "Memory-Limits in docker-compose.prod.yml: travel-beat, weltenhub, coach-hub"
+  - "§1 daemon.json auf PROD+DEV: live-restore, log-limits, BuildKit GC"
+  - "§2 sysctl auf PROD+DEV: vm.overcommit_memory=1, net.core.somaxconn=65535"
+  - "§3 Compose Hardening: 6 Repos full-hardened 2026-03-11 (billing, illustration, mcp, ausschreibungs, writing, weltenhub)"
+  - "§3 Memory-Limits + healthchecks + logging in travel-beat, coach-hub, cad-hub, risk-hub, trading-hub, pptx-hub, wedding-hub"
+  - "§4 PG random_page_cost=1.1 auf allen 17 DB-Containern (runtime + compose)"
+  - "§4 PG max_connections=50 + work_mem=4MB + log_min_duration_statement=200 in compose"
+  - "§5 Gunicorn gthread + max-requests=1000 in ausschreibungs-hub compose"
+  - "§6 Redis maxmemory 96mb + allkeys-lru auf allen 15 Redis-Containern (runtime + compose)"
   - "DEV Server Upgrade CPX32→CCX33 (8 vCPU, 32GB RAM) 2026-03-04"
   - "Celery OOM-Fix: weltenhub_celery 256M→512M"
-  - "Noch fehlend: billing-hub compose hardening, Redis maxmemory auf allen Stacks"
+  - "shm_size: 128m in billing, illustration, mcp, ausschreibungs, writing, travel-beat compose"
 ---
 
 # ADR-098: Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure
