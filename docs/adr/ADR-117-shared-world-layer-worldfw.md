@@ -4,9 +4,15 @@ date: 2026-03-10
 updated: 2026-03-11
 decision-makers: Achim Dehnert
 consulted: Cascade
-implementation_status: none
+implementation_status: partial
 implementation_evidence:
-  - "weltenfw: package exists but shared world layer not extracted yet"
+  - "weltenfw v0.2.0: WeltenClient, AbstractWorldBackend, WeltenhubBackend, LocalWorldBackend"
+  - "schema/: World, Character, Location, Scene, Story (Pydantic v2 frozen)"
+  - "resources/: REST clients für worlds, characters, locations, scenes, stories, tenants"
+  - "django/: app_config, cache integration"
+  - "auth.py: Token-basierte Authentifizierung"
+  - "50 unit tests (all green)"
+  - "Noch fehlend: bfagent + travel-beat Integration (consuming Apps)"
 ---
 
 # ADR-117: Shared World Layer — Weltenhub-DB als SSoT, weltenfw als Schreibkanal
