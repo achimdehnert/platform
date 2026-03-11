@@ -1,12 +1,6 @@
 import json
 
 import pytest
-from django.test import RequestFactory
-
-
-@pytest.fixture
-def rf():
-    return RequestFactory()
 
 
 @pytest.mark.django_db
@@ -16,18 +10,20 @@ def test_liveness(rf):
     response = liveness(rf.get("/livez/"))
     assert response.status_code == 200
     data = json.loads(response.content)
-    assert data["status"] == "ok"
+    assert data["status"] == "alive"
 
 
 @pytest.mark.django_db
 def test_readiness_db_ok(rf):
     from iil_commons.health.views import readiness
 
-    response = readiness(rf.get("/readyz/"))
+    response = readiness(rf.get("/healthz/"))
     assert response.status_code == 200
     data = json.loads(response.content)
     assert data["status"] == "ok"
     assert "db" in data["checks"]
+    assert data["checks"]["db"]["status"] == "ok"
+    assert "latency_ms" in data["checks"]["db"]
 
 
 @pytest.mark.django_db

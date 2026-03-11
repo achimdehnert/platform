@@ -3,8 +3,13 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+try:
+    from celery import Task as _CeleryTask
+except ImportError:
+    _CeleryTask = object  # type: ignore[assignment,misc]
 
-class BaseTask:
+
+class BaseTask(_CeleryTask):
     """Celery base task with auto-retry, structured logging and correlation ID propagation.
 
     Usage:

@@ -2,7 +2,7 @@
 
 Shared backend services library for Django projects on the iil.pet platform.
 
-Implements [ADR-091](../../docs/adr/ADR-091-shared-backend-services.md) — Phase 1: Logging, Health, Cache.
+Implements [ADR-131](../../docs/adr/ADR-131-shared-backend-services.md) — Shared Backend Services for all Django Hub projects.
 
 ## Installation
 
@@ -71,7 +71,8 @@ Middlewares add `X-Correlation-ID` header to every request/response and log
 | Endpoint | Purpose |
 |----------|---------|
 | `/livez/` | Liveness — always 200 if process is running |
-| `/readyz/` | Readiness — checks DB, Redis, Celery (configurable) |
+| `/healthz/` | Readiness — checks DB, Redis, Celery (configurable) |
+| `/readyz/` | Alias for `/healthz/` |
 
 ```python
 IIL_COMMONS = {"HEALTH_CHECKS": ["db", "redis"]}
@@ -108,6 +109,6 @@ pytest
 | Phase | Modules | Version |
 |-------|---------|---------|
 | ✅ Phase 1 | Logging, Health, Cache | v0.1.0 |
-| Phase 2 | Rate Limiting, Security Headers | v0.2.0 |
-| Phase 3 | Email abstraction, Celery BaseTask, Prometheus | v0.3.0 |
-| Phase 4 | Second project integration, Cookiecutter starter | v0.4.0 |
+| ✅ Phase 2 | Rate Limiting, Security Headers | v0.2.0 |
+| ✅ Phase 3 | Email abstraction, Celery BaseTask, Prometheus | v0.3.0 |
+| Phase 4 | Consumer integration, own repo + CI, PyPI publish | v0.4.0 |

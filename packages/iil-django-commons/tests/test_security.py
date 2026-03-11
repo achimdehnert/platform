@@ -1,12 +1,3 @@
-import pytest
-from django.test import RequestFactory
-
-
-@pytest.fixture
-def rf():
-    return RequestFactory()
-
-
 def test_security_headers_added(rf):
     from django.http import HttpResponse
 
