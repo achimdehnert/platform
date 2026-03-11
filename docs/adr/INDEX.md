@@ -146,7 +146,7 @@
 | 084 | Model Registry -- Dynamisches LLM-Modell-Routing | `Accepted` | ✅ | [ADR-084](ADR-084-model-registry-dynamic-llm-routing.md) |
 | 085 | Use Case Pipeline -- Natural Language -> Structured TaskGraph | `Accepted` | ✅ | [ADR-085](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
 | 086 | Agent Team Workflow -- Cross-Repo Sprint Execution Pattern | `Accepted` | ✅ | [ADR-086](ADR-086-agent-team-workflow.md) |
-| 087 | Hybrid Search: pgvector + FTS Platform-wide | `Accepted` | 🔶 | [ADR-087](ADR-087-hybrid-search-architecture.md) |
+| 087 | Hybrid Search: pgvector + FTS Platform-wide | `Accepted` | ✅ | [ADR-087](ADR-087-hybrid-search-architecture.md) |
 | 088 | Shared Notification Registry -- Multi-Channel Messaging | `Accepted` | ✅ | [ADR-088](ADR-088-notification-registry.md) |
 | 089 | bfagent-llm -- LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | ✅ | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline -- Python + PostgreSQL -> Docker Deploy | `Accepted` | ✅ | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
@@ -245,3 +245,4 @@
 - [x] ADR-088: partial→implemented — 5 Channels (Email, SMS, Webhook, Discord, Telegram), 21 Tests, BigAutoField-Fix, Celery-First -- 2026-03-11
 - [x] ADR-121: Frontmatter repariert (war komplett kaputt), implemented→partial (Phase 3 pending), INDEX ✅→🔶 -- 2026-03-11
 - [x] ADR-121: partial→implemented — ci.yml erstellt, ruff lint clean (94→0), v0.1.1 tagged, writing-hub bereits migriert -- 2026-03-11
+- [x] ADR-087: partial→implemented — platform-search Package komplett (SearchService, RRF, MMR, Decay), 10 Tests, 5 DB-Indexes -- 2026-03-11
