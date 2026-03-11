@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
 > **Last updated:** 2026-03-11
-> **Next free ADR number:** 138
+> **Next free ADR number:** 139
 
 ## Legend
 
@@ -170,6 +170,7 @@
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | [ADR-134](ADR-134-module-monetization-strategy.md) |
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) — **Deprecated**, siehe ADR-131 | `Deprecated` | [ADR-136](ADR-136-shared-backend-services-original.md) |
 | 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
+| 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | [ADR-138](ADR-138-implementation-tracking-standard.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -214,3 +215,4 @@
 - [x] ADR-099: INDEX-Status korrigiert (`Proposed` → `Accepted`, war bereits im ADR) -- 2026-03-11
 - [x] aifw 0.6.0: bereits vollständig implementiert (Models, Migration, Service, Tests) — __version__ sync gefixt -- 2026-03-11
 - [x] catalog-info.yaml: 29/29 Repos haben jetzt catalog-info.yaml (8 fehlende erstellt) -- 2026-03-11
+- [x] ADR-138: Implementation Tracking Standard geschrieben + 61 ADRs mit implementation_status backfilled -- 2026-03-11
