@@ -154,7 +154,7 @@
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | 🔶 | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | ✅ | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Accepted` | ✅ | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
-| 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Accepted` | ⬜ | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
+| 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Accepted` | ✅ | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
 | 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Accepted` | ✅ | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
 | 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | 🔶 | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Accepted` | ✅✅ | [ADR-099](ADR-099-devhub-release-management-ui.md) |
