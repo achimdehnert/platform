@@ -46,8 +46,8 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import Callable
 from functools import wraps
+from typing import Callable
 
 from django.conf import settings
 from django.http import HttpRequest, HttpResponse
@@ -68,7 +68,7 @@ def _role_sufficient(user_role: str, min_role: str) -> bool:
         return False
 
 
-def _resolve_tenant_from_membership(user) -> uuid.UUID | None:
+def _resolve_tenant_from_membership(user) -> "uuid.UUID | None":
     """Resolve tenant_id from user's first active membership (dev fallback)."""
     try:
         from .models import Membership
@@ -81,8 +81,8 @@ def _resolve_tenant_from_membership(user) -> uuid.UUID | None:
         )
         if m and m.organization.is_active:
             return m.organization.tenant_id
-    except Exception as exc:  # noqa: BLE001
-        logger.debug("Could not resolve tenant from membership: %s", exc)
+    except Exception:
+        pass
     return None
 
 
@@ -129,27 +129,6 @@ def _check_module_access(
     return None
 
 
-def _render_error(
-    request: HttpRequest,
-    module: str,
-    error: str,
-) -> HttpResponse:
-    """Render module_access.html error page. Falls back to plain text on failure."""
-    try:
-        body = render_to_string(
-            "errors/module_access.html",
-            {"module": module, "error_message": error},
-            request=request,
-        )
-        return HttpResponse(body, status=403, content_type="text/html")
-    except Exception:
-        return HttpResponse(
-            f"Access denied: {error}",
-            status=403,
-            content_type="text/plain",
-        )
-
-
 class ModuleAccessMiddleware(MiddlewareMixin):
     """Coarse URL-prefix based module access guard.
 
@@ -187,7 +166,9 @@ class ModuleAccessMiddleware(MiddlewareMixin):
     )
 
     def process_request(self, request: HttpRequest) -> HttpResponse | None:
-        module_url_map: dict[str, str] = getattr(settings, "MODULE_URL_MAP", {})
+        module_url_map: dict[str, str] = getattr(
+            settings, "MODULE_URL_MAP", {}
+        )
         if not module_url_map:
             return None
 
@@ -207,17 +188,30 @@ class ModuleAccessMiddleware(MiddlewareMixin):
         user = getattr(request, "user", None)
 
         # Dev fallback: no subdomain tenant → resolve from user membership
-        if tenant_id is None and user and getattr(user, "is_authenticated", False):
+        if (
+            tenant_id is None
+            and user
+            and getattr(user, "is_authenticated", False)
+        ):
             tenant_id = _resolve_tenant_from_membership(user)
 
         error = _check_module_access(tenant_id, user, matched_module)
         if error:
             logger.warning(
-                "Module access denied: path=%s module=%s tenant=%s user=%s reason=%s",
+                "Module access denied: path=%s module=%s "
+                "tenant=%s user=%s reason=%s",
                 path, matched_module, tenant_id,
                 getattr(user, "username", "?"), error,
             )
-            return _render_error(request, matched_module, error)
+            body = render_to_string(
+                "errors/module_access.html",
+                {
+                    "module": matched_module,
+                    "error_message": error,
+                },
+                request=request,
+            )
+            return HttpResponse(body, status=403, content_type="text/html")
 
         return None
 
@@ -246,18 +240,33 @@ def require_module(module: str, min_role: str = "viewer") -> Callable:
             tenant_id = getattr(request, "tenant_id", None)
             user = getattr(request, "user", None)
 
-            if tenant_id is None and user and getattr(user, "is_authenticated", False):
+            if (
+                tenant_id is None
+                and user
+                and getattr(user, "is_authenticated", False)
+            ):
                 tenant_id = _resolve_tenant_from_membership(user)
 
-            error = _check_module_access(tenant_id, user, module, min_role)
+            error = _check_module_access(
+                tenant_id, user, module, min_role
+            )
             if error:
                 logger.warning(
-                    "require_module denied: view=%s module=%s min_role=%s "
-                    "tenant=%s user=%s reason=%s",
-                    view_func.__name__, module, min_role, tenant_id,
+                    "require_module denied: view=%s module=%s "
+                    "min_role=%s tenant=%s user=%s reason=%s",
+                    view_func.__name__, module, min_role,
+                    tenant_id,
                     getattr(user, "username", "?"), error,
                 )
-                return _render_error(request, module, error)
+                body = render_to_string(
+                    "errors/module_access.html",
+                    {
+                        "module": module,
+                        "error_message": error,
+                    },
+                    request=request,
+                )
+                return HttpResponse(body, status=403, content_type="text/html")
 
             return view_func(request, *args, **kwargs)
 

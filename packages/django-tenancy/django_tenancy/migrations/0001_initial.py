@@ -1,47 +1,200 @@
-"""
-django_tenancy/migrations/0001_initial.py
-
-Initial migration: Organization model.
-"""
-from __future__ import annotations
+"""Initial migration: Organization and Membership tables."""
 
 import uuid
 
+import django.db.models.deletion
+from django.conf import settings
 from django.db import migrations, models
 
 
 class Migration(migrations.Migration):
 
     initial = True
-    dependencies = []
+
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
 
     operations = [
         migrations.CreateModel(
             name="Organization",
             fields=[
-                ("id", models.BigAutoField(primary_key=True, serialize=False)),
-                ("public_id", models.UUIDField(default=uuid.uuid4, editable=False, unique=True, verbose_name="Public ID")),
-                ("name", models.CharField(max_length=200, verbose_name="Name")),
-                ("slug", models.SlugField(max_length=100, unique=True, verbose_name="Slug")),
-                ("subdomain", models.CharField(blank=True, max_length=100, verbose_name="Subdomain override")),
-                ("language", models.CharField(default="de", max_length=8, verbose_name="Language")),
-                ("is_active", models.BooleanField(default=True, verbose_name="Active")),
-                ("deleted_at", models.DateTimeField(blank=True, db_index=True, null=True, verbose_name="Deleted At")),
-                ("created_at", models.DateTimeField(auto_now_add=True, verbose_name="Created At")),
-                ("updated_at", models.DateTimeField(auto_now=True, verbose_name="Updated At")),
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "tenant_id",
+                    models.UUIDField(
+                        db_index=True,
+                        default=uuid.uuid4,
+                        editable=False,
+                        unique=True,
+                    ),
+                ),
+                ("slug", models.SlugField(max_length=63, unique=True)),
+                ("name", models.CharField(max_length=200)),
+                (
+                    "status",
+                    models.CharField(
+                        choices=[
+                            ("trial", "Trial"),
+                            ("active", "Active"),
+                            ("suspended", "Suspended"),
+                            ("deleted", "Deleted"),
+                        ],
+                        default="trial",
+                        max_length=20,
+                    ),
+                ),
+                (
+                    "plan_code",
+                    models.CharField(default="free", max_length=50),
+                ),
+                (
+                    "trial_ends_at",
+                    models.DateTimeField(blank=True, null=True),
+                ),
+                (
+                    "suspended_at",
+                    models.DateTimeField(blank=True, null=True),
+                ),
+                (
+                    "suspended_reason",
+                    models.TextField(blank=True, default=""),
+                ),
+                (
+                    "deleted_at",
+                    models.DateTimeField(blank=True, null=True),
+                ),
+                (
+                    "settings",
+                    models.JSONField(blank=True, default=dict),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
             ],
             options={
-                "verbose_name": "Organization",
-                "verbose_name_plural": "Organizations",
-                "ordering": ["name"],
+                "db_table": "tenancy_organization",
             },
         ),
         migrations.AddConstraint(
             model_name="organization",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    status__in=[
+                        "trial", "active", "suspended", "deleted",
+                    ]
+                ),
+                name="org_status_chk",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="organization",
+            index=models.Index(
+                fields=["status"], name="idx_org_status",
+            ),
+        ),
+        migrations.CreateModel(
+            name="Membership",
+            fields=[
+                (
+                    "id",
+                    models.UUIDField(
+                        default=uuid.uuid4,
+                        editable=False,
+                        primary_key=True,
+                        serialize=False,
+                    ),
+                ),
+                (
+                    "tenant_id",
+                    models.UUIDField(db_index=True),
+                ),
+                (
+                    "role",
+                    models.CharField(
+                        choices=[
+                            ("owner", "Owner"),
+                            ("admin", "Admin"),
+                            ("member", "Member"),
+                            ("viewer", "Viewer"),
+                            ("external", "External"),
+                        ],
+                        default="member",
+                        max_length=20,
+                    ),
+                ),
+                (
+                    "invited_at",
+                    models.DateTimeField(blank=True, null=True),
+                ),
+                (
+                    "accepted_at",
+                    models.DateTimeField(blank=True, null=True),
+                ),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("updated_at", models.DateTimeField(auto_now=True)),
+                (
+                    "organization",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="memberships",
+                        to="django_tenancy.organization",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="memberships",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+                (
+                    "invited_by",
+                    models.ForeignKey(
+                        blank=True,
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        related_name="+",
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+            ],
+            options={
+                "db_table": "tenancy_membership",
+            },
+        ),
+        migrations.AddConstraint(
+            model_name="membership",
             constraint=models.UniqueConstraint(
-                condition=models.Q(deleted_at__isnull=True),
-                fields=["slug"],
-                name="unique_active_org_slug",
+                fields=("tenant_id", "user"),
+                name="membership_unique",
+            ),
+        ),
+        migrations.AddConstraint(
+            model_name="membership",
+            constraint=models.CheckConstraint(
+                condition=models.Q(
+                    role__in=[
+                        "owner", "admin", "member",
+                        "viewer", "external",
+                    ]
+                ),
+                name="membership_role_chk",
+            ),
+        ),
+        migrations.AddIndex(
+            model_name="membership",
+            index=models.Index(
+                fields=["tenant_id", "role"],
+                name="idx_membership_tenant_role",
             ),
         ),
     ]

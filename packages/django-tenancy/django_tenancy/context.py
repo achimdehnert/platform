@@ -1,39 +1,51 @@
+"""Contextvars-based tenant context propagation.
+
+Async-safe. Works with Django 5.x async views and Celery tasks.
+
+Usage::
+
+    from django_tenancy.context import get_context, set_tenant, set_db_tenant
+
+    # In middleware (automatic):
+    set_tenant(org.tenant_id, subdomain)
+    set_db_tenant(org.tenant_id)
+
+    # In application code:
+    ctx = get_context()
+    queryset.filter(tenant_id=ctx.tenant_id)
+
+    # In Celery tasks (use @with_tenant decorator or manual):
+    set_tenant(tenant_id, None)
+    set_db_tenant(tenant_id)
 """
-django_tenancy/context.py
 
-Thread/async-safe tenant context propagation via contextvars.
-Used by Celery tasks and async views (ADR-035 §2.3).
-
-Public API:
-    get_context()           -> RequestContext (frozen snapshot)
-    set_tenant(id, slug)    -> None
-    set_user(id)            -> None
-    set_request_id(id?)     -> str
-    clear_context()         -> None
-    tenant_context(id, slug?) -> context manager
-
-Legacy aliases (for backwards compat):
-    get_current_tenant_id() -> Optional[int]
-    set_current_tenant_id() -> None
-"""
 from __future__ import annotations
 
-import uuid
-from contextvars import ContextVar
+import contextvars
+import logging
+import uuid as _uuid
 from uuid import UUID
 
 from .types import RequestContext
 
-_tenant_id: ContextVar[UUID | None] = ContextVar("tenant_id", default=None)
-_tenant_slug: ContextVar[str | None] = ContextVar(
+logger = logging.getLogger(__name__)
+
+_tenant_id: contextvars.ContextVar[UUID | None] = contextvars.ContextVar(
+    "tenant_id", default=None
+)
+_tenant_slug: contextvars.ContextVar[str | None] = contextvars.ContextVar(
     "tenant_slug", default=None
 )
-_user_id: ContextVar[UUID | None] = ContextVar("user_id", default=None)
-_request_id: ContextVar[str | None] = ContextVar("request_id", default=None)
+_user_id: contextvars.ContextVar[UUID | None] = contextvars.ContextVar(
+    "user_id", default=None
+)
+_request_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "request_id", default=None
+)
 
 
 def get_context() -> RequestContext:
-    """Return immutable snapshot of current request context."""
+    """Get current request context (immutable snapshot)."""
     return RequestContext(
         tenant_id=_tenant_id.get(),
         tenant_slug=_tenant_slug.get(),
@@ -42,66 +54,52 @@ def get_context() -> RequestContext:
     )
 
 
-def set_tenant(tenant_id: UUID, slug: str | None = None) -> None:
-    """Set the current tenant context."""
+def set_tenant(tenant_id: UUID | None, slug: str | None) -> None:
+    """Set current tenant context."""
     _tenant_id.set(tenant_id)
     _tenant_slug.set(slug)
 
 
-def set_user(user_id: UUID) -> None:
-    """Set the current user context."""
+def set_user(user_id: UUID | None) -> None:
+    """Set current user context."""
     _user_id.set(user_id)
 
 
 def set_request_id(request_id: str | None = None) -> str:
-    """Set (or generate) a request ID. Returns the ID used."""
-    rid = request_id or str(uuid.uuid4())
-    _request_id.set(rid)
-    return rid
+    """Set request ID. Generates a new UUID if not provided."""
+    if request_id is None:
+        request_id = str(_uuid.uuid4())
+    _request_id.set(request_id)
+    return request_id
+
+
+def set_db_tenant(tenant_id: UUID | None) -> None:
+    """Set PostgreSQL session variable for RLS policies.
+
+    Uses session-scoped ``SET`` (not ``SET LOCAL``) so the variable
+    persists for the entire connection lifetime within this request.
+
+    Silently skips on non-PostgreSQL backends (e.g. SQLite in tests).
+
+    Args:
+        tenant_id: Tenant UUID to set, or None to reset.
+    """
+    from django.db import connection
+
+    if connection.vendor != "postgresql":
+        return
+
+    if tenant_id is not None:
+        with connection.cursor() as cursor:
+            cursor.execute("SET app.tenant_id = %s", [str(tenant_id)])
+    else:
+        with connection.cursor() as cursor:
+            cursor.execute("RESET app.tenant_id")
 
 
 def clear_context() -> None:
-    """Reset all context vars to None."""
+    """Clear all context variables. Call at end of request."""
     _tenant_id.set(None)
     _tenant_slug.set(None)
     _user_id.set(None)
     _request_id.set(None)
-
-
-# ---------------------------------------------------------------------------
-# Legacy aliases
-# ---------------------------------------------------------------------------
-
-def get_current_tenant_id() -> int | None:
-    """Legacy: return tenant_id as int (or None)."""
-    tid = _tenant_id.get()
-    return int(tid) if tid is not None else None
-
-
-def set_current_tenant_id(tenant_id: int | None) -> None:
-    """Legacy: set tenant_id from int."""
-    _tenant_id.set(UUID(int=tenant_id) if tenant_id is not None else None)
-
-
-class TenantContext:
-    """Context manager for scoping a block to a specific tenant."""
-
-    def __init__(self, tenant_id: UUID, slug: str | None = None) -> None:
-        self._tenant_id = tenant_id
-        self._slug = slug
-        self._prev: RequestContext | None = None
-
-    def __enter__(self) -> TenantContext:
-        self._prev = get_context()
-        set_tenant(self._tenant_id, self._slug)
-        return self
-
-    def __exit__(self, *args) -> None:
-        clear_context()
-        if self._prev is not None:
-            if self._prev.tenant_id is not None:
-                set_tenant(self._prev.tenant_id, self._prev.tenant_slug)
-            if self._prev.user_id is not None:
-                set_user(self._prev.user_id)
-            if self._prev.request_id is not None:
-                set_request_id(self._prev.request_id)

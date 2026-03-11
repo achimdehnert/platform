@@ -1,18 +1,24 @@
-# iil-django-tenancy
+# django-tenancy
 
-Platform-standard multi-tenancy package for all IIL Django UI Hubs.
+Shared multi-tenancy infrastructure for the BF Agent platform — per ADR-035.
 
-**ADR references:** ADR-035 (shared-django-tenancy), ADR-109 (multi-tenancy platform standard)
+## Core Components
+
+- **Organization**: Tenant model with lifecycle management (trial → active → suspended → deleted)
+- **Membership**: User-to-organization mapping with roles (owner, admin, member, viewer, external)
+- **SubdomainTenantMiddleware**: Resolves tenant from subdomain or `X-Tenant-ID` header
+- **TenantAwareManager**: Explicit `.for_tenant(uuid)` queryset filtering
+- **Context propagation**: Async-safe contextvars + PostgreSQL RLS session variable
+- **Health endpoints**: `/livez/` (liveness) + `/healthz/` (readiness with DB + Redis checks)
+- **Decorators**: `tenant_context()` context manager, `@with_tenant_from_arg()` for Celery tasks
 
 ## Installation
 
 ```bash
-pip install iil-django-tenancy
-# or for local development:
-pip install -e packages/django-tenancy
+pip install -e ".[dev]"
 ```
 
-## Quick Start
+## Usage
 
 ```python
 # settings.py
@@ -21,45 +27,138 @@ INSTALLED_APPS = [
     "django_tenancy",
 ]
 
-TENANCY_MODE = "subdomain"   # subdomain | session | header | disabled
-TENANCY_FALLBACK_URL = "/onboarding/"
-
 MIDDLEWARE = [
-    "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.locale.LocaleMiddleware",
-    "django_tenancy.middleware.SubdomainTenantMiddleware",  # after Locale
-    "django.middleware.common.CommonMiddleware",
     ...
+    "django_tenancy.middleware.SubdomainTenantMiddleware",
 ]
 
-TEMPLATES[0]["OPTIONS"]["context_processors"].append(
-    "django_tenancy.context_processors.tenant",
-)
+# urls.py
+from django_tenancy.healthz import liveness, readiness
+
+urlpatterns = [
+    path("livez/", liveness),
+    path("healthz/", readiness),
+]
+
+# In views / services:
+from django_tenancy.managers import TenantAwareManager
+
+class MyModel(models.Model):
+    tenant_id = models.UUIDField(db_index=True)
+    objects = TenantAwareManager()
+
+# Query with tenant isolation:
+MyModel.objects.for_tenant(request.tenant_id)
 ```
+
+## ADR-137: TenantManager (auto-filter)
 
 ```python
-# models.py — inherit from TenantModel
-from django_tenancy.models import TenantModel
+from django_tenancy.managers import TenantManager
 
-class MyContent(TenantModel):
-    title = models.CharField(max_length=200)
-    # tenant_id (BigIntegerField), public_id (UUID), deleted_at inherited
+class MyModel(models.Model):
+    tenant_id = models.UUIDField(db_index=True)
+    objects = TenantManager()
+
+# In request context → auto-filtered by middleware tenant:
+MyModel.objects.all()
+
+# Explicit (Celery, management commands):
+MyModel.objects.for_tenant(tenant_uuid)
+
+# Admin / cross-tenant reports:
+MyModel.objects.unscoped()
 ```
 
-## TenancyMode
+## ADR-137: Row-Level Security (Phase 2)
 
-| Mode | Use case |
-|------|----------|
-| `subdomain` | Production — `tenant.hub.domain.tld` |
-| `session` | Local dev — no subdomain setup needed |
-| `header` | API / CI — `X-Tenant-ID` header |
-| `disabled` | billing-hub, dev-hub — single tenant |
+### Setup (once per database)
 
-## Components
+```bash
+# 1. Create separate DB roles
+python manage.py setup_rls_roles --dry-run   # preview
+python manage.py setup_rls_roles \
+    --app-user=risk_hub \
+    --app-password=<secret>
 
-- `django_tenancy.models.Organization` — Tenant entity
-- `django_tenancy.models.TenantModel` — Abstract base for all tenant-scoped models
-- `django_tenancy.middleware.SubdomainTenantMiddleware` — Resolves tenant per request
-- `django_tenancy.managers.TenantManager` — `for_tenant()`, `active()` QuerySet
-- `django_tenancy.context_processors.tenant` — `request.tenant` in templates
-- `django_tenancy.decorators.with_tenant` — Celery task decorator
+# 2. Enable RLS on all tenant tables
+python manage.py enable_rls --dry-run        # preview
+python manage.py enable_rls                  # execute
+
+# Single table:
+python manage.py enable_rls --table=risk_assessment
+
+# Remove RLS:
+python manage.py enable_rls --disable
+```
+
+### DB Role Separation
+
+| Role | Used by | RLS |
+|------|---------|-----|
+| `<db>_admin` (table owner) | migrate, createsuperuser | exempt |
+| `<db>_app` (non-owner) | gunicorn, celery | **active** |
+
+After `setup_rls_roles`, update `DATABASE_URL` for
+gunicorn/celery to use the app-user. Keep the admin-user
+for migrations.
+
+## ADR-137: Phase 4 — RLS Rollout Checklist
+
+### Pre-requisites
+
+1. All tenant-scoped models use `TenantManager` (Phase 4.1 ✅)
+2. `SubdomainTenantMiddleware` sets `app.tenant_id` session var
+3. DB roles created via `setup_rls_roles`
+
+### Rollout Steps (per environment)
+
+```bash
+# 1. Dry-run — verify SQL, no changes
+python manage.py enable_rls --dry-run
+
+# 2. Apply RLS policies
+python manage.py enable_rls
+
+# 3. Verify no query breakage (run test suite)
+python -m pytest tests/ -x
+
+# 4. Switch app to non-owner DB user
+#    Update DATABASE_URL in .env.prod:
+#    OLD: postgresql://risk_hub_admin:xxx@db/risk_hub
+#    NEW: postgresql://risk_hub_app:xxx@db/risk_hub
+#    Keep admin user for migrate service only.
+
+# 5. Restart app containers
+docker compose restart web celery
+
+# 6. Smoke test — verify tenant isolation
+curl -H "X-Tenant-ID: <uuid>" https://app/api/v1/...
+```
+
+### Covered Tables (28 models)
+
+| App | Models |
+|-----|--------|
+| risk | Assessment, Hazard |
+| actions | ActionItem |
+| documents | Document, DocumentVersion |
+| approvals | ApprovalWorkflow, ApprovalRequest |
+| notifications | Notification, NotificationPreference |
+| permissions | Role, Scope, Assignment |
+| identity | ApiKey |
+| tenancy | Membership, Site |
+| explosionsschutz | Area, ExplosionConcept, ZoneDefinition, ProtectionMeasure, Equipment, Inspection, ZoneIgnitionSourceAssessment, VerificationDocument, ZoneCalculationResult, EquipmentATEXCheck |
+| substances | Party + all TenantScopedModel subclasses |
+| gbu | HazardAssessmentActivity, ActivityMeasure |
+
+### Excluded (by design)
+
+- `Organization` — tenant entity itself, not tenant-scoped
+- `User` — nullable tenant_id, uses Django's UserManager
+- `Permission`, `RolePermission`, `ApprovalStep`, `ApprovalDecision` — no tenant_id
+- `TenantScopedMasterData` subclasses (explosionsschutz) — nullable tenant_id, hybrid isolation
+
+## Critical Rule
+
+`Organization.id != Organization.tenant_id` — **always** use `org.tenant_id` for data isolation.
