@@ -1,29 +1,35 @@
 ---
-status: accepted
+status: "accepted"
 date: 2026-02-27
+amended: 2026-03-11
 decision-makers: [Achim Dehnert]
+consulted: []
+informed: []
+supersedes: []
+amends: []
+related: ["ADR-043-ai-assisted-development.md", "ADR-048-htmx-playbook.md", "ADR-072-multi-tenancy-schema-isolation.md", "ADR-090-cicd-pipeline-python-postgres.md"]
 implementation_status: implemented
 implementation_evidence:
   - "Phase 0 ✅: generate_project_facts.py committed + --all flag"
-  - "Phase 1 ✅: windsurf-rules/ deployed to all 7 repos via CI"
-  - "Phase 2 ✅: platform_context_mcp live (4 tools, graph validated 4/4)"
+  - "Phase 1 ✅: windsurf-rules/ (9 Dateien) deployed to 18 repos via CI"
+  - "Phase 2 ✅: platform_context_mcp live (4 tools, 10 rules, 8 repos, graph validated 4/4)"
   - "Windsurf mcp_config.json registered, active in every session"
 ---
 
 # ADR-132: AI Context Defense-in-Depth
 
-> **Umnummeriert von ADR-094** (Nummernkonflikt mit ADR-094-django-migration-conflict-resolution)
-
-**Status:** Accepted  
-**Date:** 2026-02-27  
-**Scope:** platform, all 7 app repos  
-**Supersedes:** ADR-043 (partial — extends AI-Assisted Development context strategy)
+> **Amended 2026-03-11**: Review-Bereinigung — Zahlen korrigiert (8→Repos Graph, 18→Deploy,
+> 9→Rule-Dateien, 10→Rules), MADR 4.0 Frontmatter, Layer 2 Tabelle vervollständigt.
+>
+> *Umnummeriert von ADR-094 (Nummernkonflikt mit ADR-094-django-migration-conflict-resolution).*
+> *Erweitert ADR-043 (AI-Assisted Development) um 4-Layer Context-Strategie.*
 
 ---
 
 ## Context
 
-AI coding agents (Cascade/Windsurf) lose architectural context between sessions, leading to:
+Die IIL-Plattform umfasst 18+ Django-basierte Hub-Projekte. AI coding agents (Cascade/Windsurf)
+lose architectural context between sessions, leading to:
 
 | Problem | Frequency | Impact |
 |---|---|---|
@@ -60,13 +66,13 @@ Auto-generated per repo via `platform/scripts/generate_project_facts.py`:
 
 `platform/windsurf-rules/platform-principles.md` — loaded for every Windsurf session:
 - Mandatory architecture rules (service layer, naming, HTMX)
-- Settings module standard (`config.settings.base`)
+- Settings module per repo (meist `config.settings.base`, Ausnahmen via project-facts.md)
 - Multi-tenancy rules (tenant_id = UUIDField)
 - Infrastructure principles (Docker, CI/CD)
 
 ### Layer 2 — Glob-Activated Rules
 
-Loaded only when matching files are opened:
+Loaded only when matching files are opened (9 Dateien):
 
 | File | Glob Pattern |
 |---|---|
@@ -74,6 +80,11 @@ Loaded only when matching files are opened:
 | `htmx-templates.md` | `**/templates/**`, `**/*.html` |
 | `testing.md` | `**/tests/**`, `**/test_*.py` |
 | `docker-deployment.md` | `Dockerfile`, `docker-compose*.yml`, `.github/**` |
+| `aifw-integration.md` | `**/services/**`, `**/llm*` |
+| `authoringfw-integration.md` | `**/authoring*`, `**/planning*` |
+| `promptfw-integration.md` | `**/prompt*` |
+| `iil-packages.md` | `**/requirements*.txt`, `**/pyproject.toml` |
+| `platform-principles.md` | Always-On (kein Glob) |
 
 ### Layer 3 — platform_context_mcp (Knowledge Graph)
 
@@ -86,15 +97,15 @@ MCP server at `mcp-hub/platform_context_mcp/` with 4 tools:
 | `get_project_facts(repo)` | Returns repo metadata (HTMX, settings, container) |
 | `get_banned_patterns(context)` | Returns all banned patterns for a file type |
 
-Graph: 9 rules, 7 repos, validated 4/4 (syntactic, referential, orphan, coverage).
+Graph: 10 rules, 8 repos, validated 4/4 (syntactic, referential, orphan, coverage).
 
 ## CI/CD Automation
 
 | Workflow | Repo | Trigger | Action |
 |---|---|---|---|
-| `update-project-facts.yml` | all 7 app repos | push (settings/config) + self | Regenerate `project-facts.md` |
-| `receive-windsurf-rules.yml` | all 7 app repos | `repository_dispatch` + self | Sync rules from platform |
-| `deploy-windsurf-rules.yml` | platform | push to `windsurf-rules/` | Dispatch to all 7 repos |
+| `update-project-facts.yml` | 8 app repos (Graph) | push (settings/config) + self | Regenerate `project-facts.md` |
+| `receive-windsurf-rules.yml` | 18 repos (all Hubs) | `repository_dispatch` + self | Sync rules from platform |
+| `deploy-windsurf-rules.yml` | platform | push to `windsurf-rules/` | Dispatch to 18 repos |
 
 **Secret:** `PLATFORM_DEPLOY_TOKEN` (Fine-grained PAT, Contents+Actions Write) in platform repo.
 
@@ -105,8 +116,8 @@ Graph: 9 rules, 7 repos, validated 4/4 (syntactic, referential, orphan, coverage
 - Supports: `--all` flag, `--settings` override, `src/` prefix detection (risk-hub), `.env.prod` parsing
 
 ### Phase 1 ✅ — Windsurf Rules
-- Committed: `platform/windsurf-rules/` (5 files)
-- Deployed to all 7 repos via CI
+- Committed: `platform/windsurf-rules/` (9 files)
+- Deployed to 18 repos via `deploy-windsurf-rules.yml`
 
 ### Phase 2 ✅ — platform_context_mcp
 - Committed: `mcp-hub/platform_context_mcp/`
@@ -120,7 +131,7 @@ Graph: 9 rules, 7 repos, validated 4/4 (syntactic, referential, orphan, coverage
 - Repo-specific context always available from session start
 - Rule violations caught before code is written (not after)
 - Zero manual context re-explanation overhead
-- Rules update automatically across all 7 repos when platform changes
+- Rules update automatically across 18 repos when platform changes
 
 **Negative:**
 - One-time setup: `PLATFORM_DEPLOY_TOKEN` PAT required
@@ -149,9 +160,9 @@ check_violations("books = Book.objects.filter(active=True)", "views.py")
 
 ## References
 
-- ADR-043: AI-Assisted Development — Context & Workflow Optimization
+- ADR-043: AI-Assisted Development — Context & Workflow Optimization (erweitert durch dieses ADR)
 - ADR-048: HTMX Playbook
 - ADR-072: Multi-Tenancy Schema Isolation
-- ADR-090: Abstract CI/CD Pipeline
-- `platform/windsurf-rules/` — rule source files
-- `mcp-hub/platform_context_mcp/` — MCP server implementation
+- ADR-090: CI/CD Pipeline Python + PostgreSQL
+- `platform/windsurf-rules/` — 9 rule source files
+- `mcp-hub/platform_context_mcp/` — MCP server implementation (4 tools, 10 rules, 8 repos)
