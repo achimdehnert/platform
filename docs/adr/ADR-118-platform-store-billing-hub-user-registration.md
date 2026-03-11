@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-03-10
-updated: 2026-03-11
+updated: 2026-03-11-v1.2
 decision-makers: Achim Dehnert
 ---
 
@@ -9,7 +9,7 @@ decision-makers: Achim Dehnert
 
 ## Status
 
-Accepted — v1.1 (2026-03-11, Review-Fixes aus [platform#23](https://github.com/achimdehnert/platform/issues/23))
+Accepted — v1.2 (2026-03-11, Follow-Up-Review Fixes)
 
 ## Context
 
@@ -68,6 +68,8 @@ Sie bekommt lediglich einen internen Aktivierungs-Endpoint.
 User auf risk-hub / pptx-hub / weltenhub etc.
     → "Jetzt testen" / "Modul kaufen" Button
     → Redirect: billing.iil.pet/checkout?product=<repo>&plan=<plan>
+    → billing-hub validiert product+plan gegen ProductCatalog
+      (ungültig → Fehlerseite mit Link zur Produktübersicht)
     → Formular: E-Mail, Firmenname (bei B2B: USt-IdNr)
     → E-Mail-Verifikation (Bestätigungslink, billing-hub sendet via Celery)
     → Stripe Checkout Session (oder Trial ohne Zahlung)
@@ -89,7 +91,7 @@ So bleibt jede App eigenständig in ihrer Auth-DB.
 ```python
 # apps/catalog/models.py
 class Product(models.Model):
-    repo = models.CharField(max_length=50, unique=True)        # z.B. "risk-hub"
+    repo = models.CharField(max_length=50)                      # z.B. "risk-hub"
     name = models.CharField(max_length=200)                     # z.B. "Schutztat Professional"
     plan_key = models.CharField(max_length=50)                  # z.B. "professional"
     price_monthly_eur = models.DecimalField(max_digits=8, decimal_places=2)
@@ -144,6 +146,10 @@ class Subscription(models.Model):
 **Idempotenz:** Bei erneutem Aufruf mit gleicher `tenant_id` wird kein zweiter
 Tenant angelegt. Response: `200 OK` mit bestehenden Daten. Kein `409 Conflict`.
 
+**Reaktivierung:** Ein zuvor deaktivierter Tenant wird durch erneuten activate-Call
+reaktiviert (Status: Read-Only → Active). Ein separater `/reactivate/`-Endpoint ist
+nicht nötig — activate ist idempotent und deckt Neuanlage + Reaktivierung ab.
+
 ### Ziel-App: Deaktivierungs-Endpoint (Standard)
 
 ```python
@@ -185,9 +191,21 @@ def sign_request(payload: dict, secret: str) -> dict:
     return {"X-Billing-Timestamp": timestamp, "X-Billing-Signature": signature}
 
 # Ziel-App (Empfänger) — prüft Signatur + Timestamp (max 5 min alt)
+def verify_request(request, secret: str) -> bool:
+    timestamp = request.headers.get("X-Billing-Timestamp", "")
+    signature = request.headers.get("X-Billing-Signature", "")
+    if abs(time.time() - int(timestamp)) > 300:  # max 5 min
+        return False
+    body = request.body.decode()
+    expected = hmac.new(
+        secret.encode(), f"{timestamp}.{body}".encode(), hashlib.sha256
+    ).hexdigest()
+    return hmac.compare_digest(signature, expected)
 ```
 
-Env-Variable: `BILLING_HMAC_SECRET` (pro App, via `decouple.config()`).
+Env-Variable: `BILLING_HMAC_SECRET` — ein shared Secret zwischen billing-hub
+und der jeweiligen Ziel-App. Konfiguriert via `decouple.config('BILLING_HMAC_SECRET')`
+in beiden Apps. Jede Ziel-App hat denselben Secret-Wert wie billing-hub.
 
 **Secret-Rotation:** Dual-Secret-Support während Übergang. Ziel-App akzeptiert
 für 24h sowohl altes als auch neues Secret. Reihenfolge: (1) neues Secret in
@@ -271,3 +289,4 @@ mit Plan-Tier-Logik (Starter/Professional/Enterprise). Diese Implementierung gil
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
 | 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied | [Review](../reviews/ADR-118-review-2026-03-11.md) · [Issue #23](https://github.com/achimdehnert/platform/issues/23) |
+| 2026-03-11 | v1.1 → v1.2 | Cascade | ✅ APPROVED WITH COMMENTS → Fixes applied | Follow-Up: unique-Bug, verify_request(), Reaktivierung, URL-Validierung |
