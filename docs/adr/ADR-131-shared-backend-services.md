@@ -10,12 +10,12 @@ amends: []
 related: ["ADR-022-platform-consistency-standard.md", "ADR-041-service-layer-pattern.md"]
 implementation_status: implemented
 implementation_evidence:
-  - "platform/packages/iil-django-commons/: 8 Module (logging, health, cache, ratelimit, security, email, tasks, monitoring)"
-  - "31 Tests (30 passed, 1 skipped), pyproject.toml mit optional extras"
-  - "Version 0.3.0 — Phase 1+2+3 complete (alle 2026-02-27)"
-  - "Phase 4 Consumer: billing-hub integriert (INSTALLED_APPS, MIDDLEWARE, health URLs, IIL_COMMONS config)"
-  - "billing-hub: CorrelationIDMiddleware + RequestLogMiddleware + iil_commons.health.urls aktiv"
-  - "billing-hub: IIL_COMMONS config mit json logging, db+redis health checks, cache TTL"
+  - "Own repo: https://github.com/achimdehnert/iil-django-commons (v0.3.0)"
+  - "Mirror: platform/packages/iil-django-commons/ (Monorepo)"
+  - "8 Module: logging, health, cache, ratelimit, security, email, tasks, monitoring"
+  - "31 Tests (30 passed, 1 skipped), CI Pipeline Python 3.11+3.12"
+  - "Consumer 1: billing-hub (LIVE billing.iil.pet) — INSTALLED_APPS, Middleware, Health, IIL_COMMONS"
+  - "HEALTH_PATHS-Filter in RequestLogMiddleware (Review-Finding behoben 2026-03-11)"
 ---
 
 # ADR-131: Shared Backend Services Library für Django-Projekte
