@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-03-11
 updated: 2026-03-11
 decision-makers: Achim Dehnert
@@ -11,7 +11,7 @@ related: ADR-009, ADR-022, ADR-102 (Cloudflare DNS), ADR-103 (bieterpilot)
 
 ## Status
 
-Proposed — v1.1 (2026-03-11, Review-Fixes aus Input-Report + Eigenreview)
+Accepted — v1.1 (2026-03-11, Review-Fixes aus Input-Report + Eigenreview, implementiert)
 
 ## Context
 
@@ -618,3 +618,4 @@ ssh hetzner-prod
 |-------|---------|----------|--------|------|
 | 2026-03-11 | Input-Bewertung | Cascade | 6 Dateien analysiert, Fixes eingearbeitet | [Bewertung](reviews/ADR-120-input-bewertung.md) |
 | 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied (7 BLOCKs, 6 SUGGESTs, 3 QUESTIONs) | [Input-Report](inputs/ADR-120-review-report.md) |
+| 2026-03-11 | v1.1 | Cascade | ✅ APPROVED + Implementiert | `platform/scripts/deploy.sh`, `platform/.github/workflows/_deploy-unified.yml`, `risk-hub/.github/workflows/deploy.yml` |
