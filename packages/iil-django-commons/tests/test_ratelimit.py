@@ -1,12 +1,3 @@
-import pytest
-from django.test import RequestFactory
-
-
-@pytest.fixture
-def rf():
-    return RequestFactory()
-
-
 def test_rate_limit_decorator_allows_first_request(rf):
     from django.http import HttpResponse
 
