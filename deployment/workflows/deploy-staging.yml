@@ -1,10 +1,22 @@
 # ═══════════════════════════════════════════════════════════════════════════════
-# (B) Deploy Staging — Copy to <app>/.github/workflows/deploy-staging.yml
+# Deploy Staging — Template for per-repo staging deployments
 # ═══════════════════════════════════════════════════════════════════════════════
-# Trigger: push to main (after CI build succeeds)
-# Environment: staging — auto-deploy, no manual approval
 #
-# Replace [ORG], [APP], [DEPLOY_PATH], [HEALTH_URL] with your values.
+# Copy to <repo>/.github/workflows/deploy-staging.yml and replace:
+#   __APP__          → app name (e.g. travel-beat)
+#   __DEPLOY_PATH__  → deploy path on staging server (e.g. /opt/travel-beat)
+#   __HEALTH_URL__   → external health URL (e.g. https://staging.drifttales.com/healthz/)
+#   __COMPOSE_FILE__ → compose file (default: docker-compose.prod.yml)
+#
+# Prerequisites:
+#   - Repo secrets: HETZNER_DEV_HOST, HETZNER_DEV_USER, HETZNER_DEV_SSH_KEY
+#   - deploy-remote.sh on staging server at __DEPLOY_PATH__/scripts/
+#   - Docker + compose on staging server
+#   - ghcr.io login on staging server
+#
+# Rollback: SSH into server, run:
+#   /opt/__APP__/scripts/rollback-staging.sh --app __APP__
+#
 # ═══════════════════════════════════════════════════════════════════════════════
 name: Deploy Staging
 
@@ -14,44 +26,36 @@ on:
     types: [completed]
     branches: [main]
 
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (empty = latest commit SHA)"
+        required: false
+        default: ""
+
 concurrency:
-  group: deploy-staging
+  group: deploy-staging-__APP__
   cancel-in-progress: false
 
 jobs:
-  deploy-staging:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
-    environment: staging
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Determine image tag
-        id: tag
-        run: echo "tag=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          port: ${{ secrets.DEPLOY_SSH_PORT || 22 }}
-          command_timeout: 10m
-          script: |
-            set -euo pipefail
-            /srv/[APP]/scripts/deploy-remote.sh \
-              --app [APP] \
-              --tag "${{ steps.tag.outputs.tag }}" \
-              --deploy-dir /srv/[APP] \
-              --compose-file docker-compose.prod.yml \
-              --env-file .env.prod \
-              --health-retries 12 \
-              --health-interval 5
-
-      - name: Post status
-        if: always()
-        run: |
-          echo "## Staging Deploy" >> $GITHUB_STEP_SUMMARY
-          echo "- **Tag:** \`${{ steps.tag.outputs.tag }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- **Status:** ${{ job.status }}" >> $GITHUB_STEP_SUMMARY
+  deploy:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.conclusion == 'success'
+    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+    with:
+      app_name: __APP__
+      deploy_path: __DEPLOY_PATH__
+      health_url: __HEALTH_URL__
+      compose_file: __COMPOSE_FILE__
+      environment: staging
+      image_tag: ${{ inputs.image_tag || '' }}
+      enable_rollback: true
+      run_migrations: true
+      health_check_retries: 12
+      health_check_interval: 5
+    secrets:
+      HETZNER_HOST: ${{ secrets.HETZNER_DEV_HOST }}
+      HETZNER_USER: ${{ secrets.HETZNER_DEV_USER }}
+      HETZNER_SSH_KEY: ${{ secrets.HETZNER_DEV_SSH_KEY }}
+      PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
