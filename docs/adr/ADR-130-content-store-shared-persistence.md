@@ -12,8 +12,9 @@ implementation_status: implemented
 implementation_evidence:
   - "packages/content-store/: Django App mit Models, Router, Services, Admin, 15 Tests"
   - "Prod DB: content_store auf devhub_db (88.198.191.108), 3 Tabellen + 9 Indizes"
-  - "dev-hub: erster Consumer (INSTALLED_APPS, DATABASES, DATABASE_ROUTERS)"
-  - "devhub_web Container: content_store DB-Verbindung verifiziert"
+  - "dev-hub: 1. Consumer (INSTALLED_APPS, DATABASES, DATABASE_ROUTERS)"
+  - "research-hub: 2. Consumer via extra_hosts→172.17.0.1:15432 (devhub_db bridge port)"
+  - "Cross-Hub DB-Zugriff: devhub_db:15432 exposed auf Docker bridge, research-hub verifiziert"
 ---
 
 # Adopt a shared Django app `content_store` for AI-generated content persistence
