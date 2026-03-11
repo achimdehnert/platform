@@ -5,7 +5,11 @@ updated: 2026-03-11-v1.2
 decision-makers: Achim Dehnert
 implementation_status: partial
 implementation_evidence:
-  - "billing-hub: store concept exists, full user registration flow pending"
+  - "billing-hub/apps/catalog/: Product, CatalogSubscription, EmailVerification models"
+  - "billing-hub/apps/store/: checkout flow with email verification (ADR-118 compliant)"
+  - "billing-hub/apps/catalog/services/: HMAC activate/deactivate + verification_service"
+  - "billing-hub/apps/catalog/tasks.py: trial management (expire, remind, check)"
+  - "remaining: product seed data + deployment to billing.iil.pet"
 ---
 
 # ADR-118: billing-hub als Platform Store
