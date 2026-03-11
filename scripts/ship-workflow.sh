@@ -65,7 +65,7 @@ get_latest_staging_tag() {
   local sha
   sha=$(gh run list -R "$OWNER/$repo" --limit 20 \
     --json workflowName,conclusion,headSha \
-    -q '[.[] | select(.workflowName == "Deploy" and .conclusion == "success")] | .[0].headSha' 2>/dev/null || echo "")
+    -q '[.[] | select((.workflowName == "Deploy" or (.workflowName | test("deploy\\.yml$"))) and .conclusion == "success")] | .[0].headSha' 2>/dev/null || echo "")
   if [[ -n "$sha" && "$sha" != "null" ]]; then
     echo "main-${sha:0:7}"
   fi
@@ -82,7 +82,7 @@ show_status() {
     local line
     line=$(gh run list -R "$OWNER/$repo" --limit 10 \
       --json workflowName,conclusion,status,updatedAt \
-      -q '[.[] | select(.workflowName == "Deploy")] | .[0] | "\(.conclusion // .status)\t\(.updatedAt // "")"' 2>/dev/null || echo "")
+      -q '[.[] | select(.workflowName == "Deploy" or (.workflowName | test("deploy\\.yml$")))] | .[0] | "\(.conclusion // .status)\t\(.updatedAt // "")"' 2>/dev/null || echo "")
 
     local conclusion updated
     if [[ -z "$line" || "$line" == "null" ]]; then
