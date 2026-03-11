@@ -1,12 +1,17 @@
 ---
 status: accepted
 date: 2026-03-08
+updated: 2026-03-11
 decision-makers: Achim Dehnert
 consulted: Claude Sonnet (Cascade)
 informed: Agent Team
 ---
 
 # ADR-112: Agent Skill Registry + Persistent Context Store
+
+## Status
+
+Accepted — v1.1 (2026-03-11, Phase 1 implementiert: SkillRegistry + 3 Skills)
 
 ## Context and Problem Statement
 
@@ -191,6 +196,18 @@ Ergebnis wird in `AGENT_MEMORY.md` als Repo-Kontext-Eintrag gespeichert.
 
 Gesamt: ~4h, vollständig rückwärtskompatibel (bestehende MCP Tools bleiben erhalten).
 
+### Implementierungsstatus (2026-03-11)
+
+| Schritt | Status |
+|---------|--------|
+| 1. `skills/` + `base.py` | ✅ Done (mcp-hub `5951acc`) |
+| 2. `infra_context.py` als Skill | ✅ Done |
+| 3. `AGENT_MEMORY.md` anlegen | ✅ Done (in platform/) |
+| 4. `session_memory.py` Skill | ✅ Done |
+| 5. `memory_schema.py` (Pydantic v2) | ✅ Done |
+| 6. `__init__.py` (SkillRegistry + discover_skills) | ✅ Done |
+| 7. GitHub Actions Workflow | 🔜 Pending |
+
 ---
 
 ## OpenClaw-Konzepte — Adoption-Entscheidungen
@@ -213,3 +230,10 @@ Gesamt: ~4h, vollständig rückwärtskompatibel (bestehende MCP Tools bleiben er
 - **ADR-107**: Extended Agent Team + Deployment Agent — Basis-Architektur
 - **ADR-108**: Agent QA Loop — evaluate_task, verify_task
 - **iPad-Workflow**: `.github/workflows/agent-task-dispatch.yml` in mcp-hub (2026-03-08)
+
+## Review-History
+
+| Datum | Version | Reviewer | Urteil | Link |
+|-------|---------|----------|--------|------|
+| 2026-03-08 | v1.0 | Cascade | ❌ 3B/4C/5H → Impl-Plan | [Review](../reviews/ADR-112-review-implementation.md) |
+| 2026-03-11 | v1.0 → v1.1 | Cascade | ✅ Phase 1 implementiert (mcp-hub `5951acc`) | — |
