@@ -56,6 +56,7 @@ Gesamturteil:
 | [ADR-103-review-2026-03-11.md](ADR-103-review-2026-03-11.md) | ausschreibungs-hub Architektur v3 | ⚠️ 1B (pyproject.toml) | — |
 | [ADR-104-review-2026-03-11.md](ADR-104-review-2026-03-11.md) | Research Hub + iil-researchfw | ⚠️ 1B (Frontmatter) | — |
 | [ADR-105-review-2026-03-11.md](ADR-105-review-2026-03-11.md) | iil-researchfw Extraction Plan v2 | ⚠️ Approved w/ Comments | — |
+| [ADR-100-numbering-conflict-2026-03-11.md](ADR-100-numbering-conflict-2026-03-11.md) | ADR-100 Nummernkonflikt (3 Dateien) | ❌ Needs renumbering | — |
 
 ### Ältere Reviews (migriert aus docs/adr/reviews/)
 
