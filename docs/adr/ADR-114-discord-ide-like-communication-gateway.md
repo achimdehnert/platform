@@ -1,96 +1,106 @@
-# ADR-114: Discord als IDE-ähnliches Kommunikations-Gateway zu Cascade
-
-**Status:** Accepted  
-**Datum:** 2026-03-08  
-**Autoren:** achim_73814 + Cascade  
-**Kontext:** ADR-113 (Discord Bot Gateway), ADR-101 (MCP Platform), ADR-107 (Agent Team)
-
+---
+status: accepted
+date: 2026-03-08
+updated: 2026-03-11
+decision-makers: Achim Dehnert
+consulted: Cascade
 ---
 
-## Problemstellung
+# ADR-114: Discord als verlängertes Cascade IDE
+
+## Status
+
+Accepted — v2.0 (2026-03-11, Review-Rewrite: 5-Layer-Architektur + MCP-Proxy)
+
+**Repos:** mcp-hub, platform
+**Related:** ADR-113 (Discord Bot), ADR-101 (MCP Platform), ADR-107 (Agent Team), ADR-112 (Skill Registry), ADR-118 (HMAC Auth)
+
+## Context
 
 Die Cascade IDE (Windsurf) ist die leistungsfähigste Schnittstelle zur KI-Assistenz —
-sie hat vollen Codebase-Zugriff, Tool-Ausführung, langen Kontext und Memory.
-Aber sie läuft nur am Desktop.
+voller Codebase-Zugriff, MCP-Tool-Ausführung (SSH, Docker, GitHub, DB, DNS), langer
+Kontext und Memory. **Aber sie läuft nur am Desktop.**
 
-**Ziel:** Eine mobile, asynchrone Kommunikationsschicht, die möglichst nah an die
-IDE-Qualität herankommt — ohne Desktop-Bindung.
+**Vision:** Discord wird das **verlängerte IDE** — von überall, jederzeit, mobil.
+Nicht nur Notifications empfangen, sondern **mit Cascade chatten und Aktionen ausführen**.
 
----
+### Capability-Vergleich: Ist vs. Soll
 
-## Kontext: Capability-Vergleich
+| Fähigkeit | Cascade IDE | Discord v1.0 (Ist) | Discord v2.0 (Soll) |
+|---|---|---|---|
+| Codebase lesen | ✅ vollständig | ❌ | ⚠️ via `/code` (Snippet-View) |
+| Codebase schreiben | ✅ | ❌ | ❌ (nur über Layer 3 Escalation) |
+| MCP-Tools ausführen | ✅ 13 Tools, 133 Actions | ❌ | ✅ via LLM Function Calling |
+| LLM-Chat mit Kontext | ✅ | ❌ | ✅ `/chat` mit ADRs + Memory |
+| Echtzeit-Antwort | ✅ | ❌ (Minuten via GitHub) | ✅ (< 10s via Layer 2) |
+| Conversation History | ✅ Session-basiert | ❌ stateless | ✅ Thread-basiert + pgvector |
+| Memory (pgvector) | ✅ | ✅ `/memory` | ✅ |
+| Mobil / Asynchron | ❌ Desktop-only | ✅ | ✅ |
+| Proaktive Kommunikation | ❌ | ✅ `discord_notify` | ✅ |
+| Deploy / Infra-Steuerung | ✅ | ⚠️ nur `/deploy` | ✅ `/run` + LLM-Tools |
 
-| Fähigkeit | Cascade IDE | Discord Bot |
-|---|---|---|
-| Codebase lesen/schreiben | ✅ vollständig | ❌ |
-| Tools ausführen (SSH, Docker, GitHub) | ✅ | ❌ direkt |
-| Langer Kontext (ganze Session) | ✅ | ❌ stateless |
-| Memory (pgvector) | ✅ | ✅ via `/memory` |
-| ADR-Kontext | ✅ automatisch | ⚠️ nur System-Prompt |
-| Code ausführen + Ergebnis sehen | ✅ | ❌ |
-| Asynchron / mobil | ❌ Desktop-only | ✅ |
-| Cascade kann aktiv schreiben | ❌ | ✅ via `discord_notify` |
+### Entscheidungstreiber
 
----
+1. **Mobile IDE-Erfahrung** — Architektur-Fragen, Deployments, Infra-Status von unterwegs
+2. **Echtzeit-Chat** — Antworten in Sekunden, nicht Minuten/Stunden
+3. **Tool-Zugriff** — MCP-Tools direkt von Discord aus (der IDE-Kern!)
+4. **Bidirektional** — Cascade meldet sich proaktiv, User antwortet in Discord
+5. **Kein proprietärer Client** — Discord App (iOS/Android/Desktop) reicht
 
-## Entscheidung: 3-Layer Bidirektionale Architektur
+## Decision: 5-Layer Bidirektionale Architektur
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│  LAYER 3 — Cascade Bridge (höchste Qualität)          ✅    │
-│  Discord /ask → GitHub Issue → Cascade → Discord Notify     │
-│  Latenz: Minuten. Qualität: IDE-nah (voller Kontext)        │
-└─────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────┐
-│  LAYER 2 — LLM Gateway (mittlere Qualität)            🔜    │
-│  Discord /chat → llm_mcp (GPT-4o + Platform-Kontext)        │
-│  Latenz: Sekunden. Qualität: gut für Fragen/Planung         │
-└─────────────────────────────────────────────────────────────┘
-┌─────────────────────────────────────────────────────────────┐
-│  LAYER 1 — Sofort-Steuerung                           ✅    │
-│  Discord /task /approve /reject /deploy /health /status     │
-│  Latenz: <1s. Kein LLM — direkte Aktion                     │
-└─────────────────────────────────────────────────────────────┘
-
-IDE → Discord: discord_notify MCP Tool (direkt aus Windsurf) ✅
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 4 — MCP-Proxy (Tool-Ausführung)                    🔜    │
+│  Discord /run → orchestrator_mcp → MCP-Tools                    │
+│  deploy_check, docker_manage, git_manage, ssh_manage            │
+│  Latenz: 1-10s. Guards: Role-basiert + Approval für destruktiv  │
+└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 3 — Cascade Bridge (Escalation für komplexe Tasks) ✅    │
+│  Discord /ask → GitHub Issue → Cascade in Windsurf → Discord    │
+│  Latenz: Minuten. Für Tasks die vollen Codebase-Zugriff brauchen│
+└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 2 — LLM Chat + Function Calling (PRIMARY PATH)    �    │
+│  Discord /chat → GPT-4o + Platform-Kontext + MCP-Tool-Calls    │
+│  Latenz: 3-15s. Chat mit Kontext, kann Tools aufrufen           │
+└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 1 — Quick Actions (sofort, kein LLM)               ✅    │
+│  /task /approve /reject /deploy /health /status /memory         │
+│  Latenz: <1s. Direkte Aktion                                    │
+└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  LAYER 0 — Cascade → Discord (proaktiv)                   ✅    │
+│  discord_notify MCP Tool — Cascade schreibt aktiv in Discord    │
+│  Task-Abschluss, Gate-Fragen, Deploy-Ergebnisse                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
-Der Kanal ist **bidirektional**: Discord kann Tasks an Cascade schicken,
-Cascade kann aktiv Discord benachrichtigen — ohne auf den nächsten User-Input zu warten.
+**Primärpfad für "IDE-Chat": Layer 2** — GPT-4o mit Platform-Kontext und Function Calling.
+Das LLM entscheidet selbst ob es ein MCP-Tool braucht — **genau wie Cascade in der IDE**.
 
----
+### Warum Layer 2 der Schlüssel ist
+
+```
+User in Discord:  "Wie ist der Health-Status von risk-hub?"
+
+Layer 2 LLM denkt: "Ich brauche deploy_check health risk-hub"
+                  → Ruft MCP-Tool auf via Function Calling
+                  → Bekommt Ergebnis: "risk-hub: healthy, 3 Container, uptime 14d"
+                  → Formatiert Antwort mit Kontext
+
+Discord zeigt:    "✅ risk-hub ist healthy (3 Container, uptime 14 Tage).
+                   Letztes Deploy: v1.4.2 vor 3 Tagen."
+```
+
+Ohne Layer 2 müsste der User `/health risk-hub` tippen und rohes JSON lesen.
+**Mit Layer 2 chattet der User natürlich** — das LLM wählt die Tools.
 
 ## Implementierungsstand
 
-### Layer 1 — Sofort-Steuerung ✅
-
-Slash Commands (`windsurf-bot#3564` auf hetzner-prod):
-
-| Command | Funktion |
-|---|---|
-| `/task` | GitHub Actions Workflow starten |
-| `/approve` / `/reject` | Gate-Entscheidungen (ADR-107) |
-| `/deploy` | Deployment triggern |
-| `/health` | Server-Status |
-| `/status` | Offene Issues |
-| `/memory` | pgvector Semantic Search |
-| `/ask` | GitHub Issue Bridge (→ Layer 3) |
-
-### Layer 3 — Cascade Bridge ✅
-
-```
-Discord /ask "Frage"
-    → GitHub Issue mit Label cascade-task
-    → Cascade sieht Issue in Windsurf
-    → Cascade antwortet als Issue-Kommentar
-    → cascade-answer-notify.yml Workflow
-    → Discord Notification (Webhook)
-```
-
-**Label `cascade-task` in 11 Repos:** mcp-hub, bfagent, risk-hub, coach-hub,
-billing-hub, pptx-hub, trading-hub, travel-beat, weltenhub, cad-hub, wedding-hub
-
-### IDE → Discord (Cascade spricht aktiv) ✅
+### Layer 0 — Cascade → Discord ✅
 
 `discord_notify` MCP Tool in `orchestrator_mcp/server.py`:
 
@@ -103,79 +113,179 @@ discord_notify(
 )
 ```
 
-Cascade nutzt dieses Tool eigenständig um:
-- Task-Abschluss zu melden
-- Gate-Entscheidungen anzufragen
-- Fragen zu stellen ohne den User zu blockieren
-- Deploy-Ergebnisse zu kommunizieren
+Cascade nutzt dieses Tool eigenständig für:
+- Task-Abschluss melden
+- Gate-Entscheidungen anfragen
+- Deploy-Ergebnisse kommunizieren
+- Fragen stellen ohne Desktop-Bindung
 
-Workflow-Dokumentation: `.windsurf/workflows/discord-notify.md`
+### Layer 1 — Quick Actions ✅
 
-### Layer 2 — LLM Gateway 🔜
+Slash Commands (`windsurf-bot` auf hetzner-prod, Guild-only Sync):
 
-Geplant für nächste Session:
+| Command | Funktion | Role Guard |
+|---|---|---|
+| `/health` | Platform Health-Check (alle Layer) | alle |
+| `/status` | Offene cascade-task Issues | alle |
+| `/memory` | pgvector Semantic Search | alle |
+| `/task` | GitHub Actions Workflow starten | developer+ |
+| `/deploy` | Service deployen | devops+ |
+| `/approve` / `/reject` | Gate-Entscheidungen (ADR-107) | devops+ |
+| `/ask` | GitHub Issue Bridge → Cascade | developer+ |
+| `/chat` | LLM Gateway (Layer 2) | developer+ |
+
+**Security:** Role Guards (`guards.py`), Token-Bucket Rate Limiter (`rate_limit.py`),
+Audit-Log in `#log` Channel.
+
+### Layer 2 — LLM Chat ⚠️ (Handler existiert, Service pending)
+
+`/chat` Handler in `handlers.py` ist vollständig implementiert:
+- `interaction.defer()` für 3s-Timeout-Bypass ✅
+- `build_system_prompt()` mit ADR-Context + pgvector ✅
+- Thread-Unterstützung (`thread: bool = False`) ✅
+- Chunked Embeds für lange Antworten ✅
+- Error-Handling (Timeout, ConnectError, HTTPError) ✅
+
+**Fehlend für v2.0:**
+- `llm_mcp` FastAPI-Service deployen auf hetzner-prod
+- **Function Calling** für MCP-Tools (→ Layer 4 Integration)
+- Conversation History via Thread-ID in pgvector
+- `context_builder.py` Stack-Info aktualisieren (Django 5.x, Python 3.12)
+
+### Layer 3 — Cascade Bridge ✅
 
 ```
-Discord /chat "Frage"
-    → orchestrator_mcp/discord/handlers.py cmd_chat()
-    → llm_mcp REST-Endpoint /v1/chat
-    → GPT-4o + dynamischer System-Prompt
-      (ADRs + pgvector Memory + offene Issues)
-    → Antwort in Discord (< 5s)
+Discord /ask "Review ADR-120 und fixe die BLOCKs"
+    → GitHub Issue #42 mit Label cascade-task
+    → Cascade sieht Issue in Windsurf (manuell oder automatisiert)
+    → Cascade führt Task aus (voller Codebase-Zugriff!)
+    → Issue-Kommentar mit Ergebnis
+    → cascade-answer-notify.yml → Discord Notification
 ```
 
-Erforderlich: `llm_mcp` FastAPI-Endpoint auf hetzner-prod (~50 LOC)
+**Label `cascade-task` in 11 Repos:** mcp-hub, bfagent, risk-hub, coach-hub,
+billing-hub, pptx-hub, trading-hub, travel-beat, weltenhub, cad-hub, wedding-hub
 
----
+**Wann Layer 3 statt Layer 2:**
+- Task braucht Code-Änderungen (Dateien erstellen/editieren)
+- Task braucht mehrere Schritte über verschiedene Repos
+- Task braucht IDE-spezifische Features (Debugging, Tests laufen lassen)
+
+### Layer 4 — MCP-Proxy 🔜
+
+Neuer `/run` Meta-Command mit Autocomplete:
+
+```
+/run deploy-check health risk-hub     → deploy_check(action="health", repo="risk-hub")
+/run docker ps risk-hub               → docker_manage(action="compose_ps", app="risk-hub")
+/run git status bfagent               → git_manage(action="status", repo="bfagent")
+/run health-dashboard                 → system_manage(action="health_dashboard")
+```
+
+**Security-Konzept:**
+
+| Tool-Kategorie | Erlaubte Rollen | Approval nötig? |
+|---|---|---|
+| Lesend (status, ps, health, log) | developer+ | Nein |
+| Deploy (compose_up, restart) | devops+ | Nein |
+| Destruktiv (compose_down, drop, delete) | platform-admin | ✅ Discord Button |
+| SSH exec | platform-admin | ✅ Discord Button |
+
+Destruktive Aktionen zeigen einen Embed mit Buttons:
+```
+⚠️ Destruktive Aktion: docker compose down risk-hub
+[✅ Bestätigen] [❌ Abbrechen]  (30s Timeout)
+```
 
 ## Discord Server Struktur
 
 ```
 iilgmbh-agent Server
+├── #cascade-chat   ← /chat (Layer 2 — Primärkanal für IDE-Chat)
 ├── #agent-tasks    ← /ask Antworten + cascade-task Notifications
-├── #deployments    ← /deploy, /approve, /reject, GitHub Actions
-├── #health         ← /health, automatische Alerts
-├── #chat           ← /chat (Layer 2, noch nicht aktiv)
-└── #log            ← alle Events (Audit Trail)
+├── #deployments    ← /deploy, /approve, /reject, /run deploy-*
+├── #health         ← /health, automatische Alerts, /run health-*
+├── #infra          ← /run docker/git/ssh (Layer 4)
+└── #log            ← Audit Trail aller Commands + Tool-Calls
 ```
-
----
 
 ## Ehrliche Qualitätsbewertung
 
-**Was nie IDE-Qualität erreicht:**
-- Kein direkter Dateizugriff ohne expliziten Tool-Call
-- Kein Live-Codebase-Kontext (nur was in Memory/ADRs steht)
+**Was nie Discord-IDE erreicht (und auch nicht muss):**
 - Kein interaktives Debugging
+- Kein Live-Codebase-Editing (dafür Layer 3 Escalation)
+- Kein Diff-Viewer (zu komplex für Discord Embeds)
+- Kein paralleles Tool-Calling wie in Windsurf
 
-**Was annähernd IDE-Qualität erreicht (Layer 2+3):**
-- Architektur-Fragen, nächste Schritte, ADR-Entscheidungen → **gut**
-- Task-Erstellung und Gate-Entscheidungen → **vollwertig**
-- Deployment-Steuerung → **vollwertig**
-- Cascade-initiated Kommunikation → **neu: vollwertig**
+**Was Discord-IDE vollwertig kann (v2.0):**
+- ✅ Architektur-Fragen, Planung, ADR-Entscheidungen (Layer 2 Chat)
+- ✅ MCP-Tool-Ausführung: Health, Status, Logs, Deployments (Layer 2 + 4)
+- ✅ Code-Snippets anzeigen via GitHub API
+- ✅ Task-Erstellung und Gate-Entscheidungen (Layer 1)
+- ✅ Proaktive Cascade-Kommunikation (Layer 0)
+- ✅ Komplexe Tasks an Windsurf delegieren (Layer 3)
+- ✅ Conversation History mit Thread-Kontext
 
----
+**Qualitäts-Matrix:**
 
-## Konsequenzen
+| Use Case | Cascade IDE | Discord v2.0 | Gap |
+|---|---|---|---|
+| "Wie deploye ich risk-hub?" | ✅ | ✅ Layer 2 | keins |
+| "Zeig mir den Health-Status" | ✅ | ✅ Layer 2+4 | keins |
+| "Fixe den Bug in services.py" | ✅ | ⚠️ Layer 3 (Minuten) | Latenz |
+| "Erstelle ein neues ADR" | ✅ | ⚠️ Layer 3 (Minuten) | Latenz |
+| "Starte risk-hub Container neu" | ✅ | ✅ Layer 4 | keins |
+| "Reviewe den PR" | ✅ | ⚠️ Layer 3 | Latenz |
 
-**Positiv:**
-- Vollständige mobile Steuerung der Plattform von überall
-- Bidirektionale asynchrone Zusammenarbeit Mensch ↔ Cascade
-- Audit Trail aller Entscheidungen via GitHub Issues
-- Cascade kann proaktiv handeln ohne Desktop-Bindung
-- Kein proprietärer Client — Discord App reicht
+## Consequences
 
-**Risiken:**
-- Layer 2 erfordert `llm_mcp` REST-Endpoint (noch nicht gebaut)
-- Layer 3: Cascade muss Windsurf aktiv haben um Issues zu sehen
-- GitHub Issues als Kommunikationskanal → Lärm im Issue-Tracker
+### Positiv
 
-**Mitigation:**
-- Separates Repo `cascade-inbox` nur für Discord-Tasks (Phase 2)
-- `llm_mcp` als leichtgewichtiger FastAPI-Service
-- `discord_notify` überbrückt Latenz: Cascade meldet sich sobald fertig
+- **Echtes mobiles IDE** — Chatten + Aktionen von überall
+- **Bidirektional** — Cascade meldet sich proaktiv, User antwortet
+- **MCP-Tool-Zugriff** — 13 Tools, 133 Actions von Discord aus
+- **Echtzeit** — Layer 2 antwortet in 3-15 Sekunden
+- **Audit Trail** — Alle Commands + Tool-Calls im `#log` Channel
+- **Kein proprietärer Client** — Discord App (iOS/Android/Desktop/Web)
+- **Escalation-Path** — Komplexe Tasks automatisch an Windsurf delegieren
 
----
+### Negativ / Risiken
+
+- Layer 2 erfordert `llm_mcp` Deployment (FastAPI + GPU/API-Kosten)
+- Function Calling erhöht LLM-Token-Verbrauch (~2x pro Tool-Call)
+- Layer 3 Latenz bleibt (Cascade muss Windsurf aktiv haben)
+- MCP-Proxy: destruktive Aktionen brauchen robustes Approval-System
+- Discord API Rate Limits (50 Requests/Sekunde pro Bot)
+
+### Mitigation
+
+- **Token-Budget:** OpenRouter mit monatlichem Cap (Start: $25/Monat)
+- **Rate Limiting:** Token-Bucket pro User + Command (`rate_limit.py`)
+- **Approval-Flow:** Discord Buttons für destruktive Aktionen (30s Timeout)
+- **Escalation:** Layer 2 erkennt "das braucht Code-Änderungen" → empfiehlt `/ask`
+- **Stale-Bot:** cascade-task Issues ohne Antwort nach 24h → Discord Alert
+
+## Implementierungsplan
+
+| Phase | Inhalt | Aufwand | Status |
+|-------|--------|---------|--------|
+| 0 | Layer 0 + 1: Bot, Commands, Guards, Rate Limiter | 3d | ✅ Done |
+| 1 | Layer 3: `/ask` → GitHub Issue → Cascade → Discord | 1d | ✅ Done |
+| 2 | `discord_notify` MCP Tool (Cascade → Discord) | 0.5d | ✅ Done |
+| 3 | `llm_mcp` FastAPI deployen + `/chat` aktivieren | 2d | 🔴 Next |
+| 4 | Function Calling: LLM ruft MCP-Tools auf | 3d | 🔜 |
+| 5 | Conversation History (Thread-ID → pgvector) | 1d | 🔜 |
+| 6 | Layer 4: `/run` Meta-Command + Approval-Flow | 2d | 🔜 |
+| 7 | `/code` Command (Code-Snippets via GitHub API) | 0.5d | 🔜 |
+
+**Gesamt verbleibend:** ~8.5d (Phasen 3-7)
+**Kritischer Pfad:** Phase 3 (llm_mcp Deploy) → Phase 4 (Function Calling)
+
+## Betroffene Repos
+
+- `mcp-hub` — Discord Bot, Handler, Guards, Rate Limiter, Context Builder, MCP-Proxy
+- `platform` — ADR, Workflows (`cascade-answer-notify.yml`, `stale-cascade-inbox.yml`)
+- `llm_mcp` (in mcp-hub) — FastAPI-Service für Layer 2
 
 ## Verwandte ADRs
 
@@ -183,3 +293,12 @@ iilgmbh-agent Server
 - ADR-101: MCP Platform Konzept
 - ADR-107: Extended Agent Team
 - ADR-112: Agent Skill Registry + Persistent Context
+- ADR-118: HMAC Auth (Vorbild für Inter-App Security)
+- ADR-120: Unified Deployment Pipeline (Deploy-Steuerung via Discord)
+
+## Review-History
+
+| Datum | Version | Reviewer | Urteil | Link |
+|-------|---------|----------|--------|------|
+| 2026-03-08 | v1.0 | Cascade | ✅ initial accepted | [Review](../reviews/ADR-114-discord-ide-like-communication-gateway.md) |
+| 2026-03-11 | v1.0 → v2.0 | Cascade | ❌ → Rewrite (4 BLOCKs: MADR-Frontmatter, Layer-3-Latenz, MCP-Tool-Zugriff, Stack-Info) | [Review](../reviews/ADR-114-review-2026-03-11.md) |
