@@ -9,6 +9,7 @@ informed: –
 tags: [infrastructure, docker, performance, hetzner, gunicorn, postgresql, redis, sysctl]
 supersedes: []
 related: [ADR-021, ADR-022, ADR-042, ADR-056, ADR-063, ADR-078]
+implementation_status: partial
 ---
 
 # ADR-098: Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure

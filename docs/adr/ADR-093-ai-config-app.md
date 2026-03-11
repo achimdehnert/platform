@@ -2,6 +2,7 @@
 status: proposed
 date: 2026-02-27
 decision-makers: Achim Dehnert
+implementation_status: partial
 ---
 
 # ADR-093: AI & LLM Configuration App in dev-hub

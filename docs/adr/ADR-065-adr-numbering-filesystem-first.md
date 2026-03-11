@@ -7,6 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-051-concept-to-adr-pipeline.md"]
+implementation_status: implemented
 ---
 
 # Adopt filesystem-first ADR numbering — max(existing) + 1

@@ -7,6 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-021-unified-deployment-pattern.md", "ADR-022-repository-consistency.md"]
+implementation_status: implemented
 ---
 
 # ADR-060: Developer Workstation SSH Key Configuration Standard

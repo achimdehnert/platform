@@ -5,6 +5,7 @@ amended: 2026-02-22
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
+implementation_status: implemented
 ---
 
 # Adopt unified single-service deployment pipeline for all platform projects

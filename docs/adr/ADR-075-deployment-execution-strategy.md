@@ -7,6 +7,7 @@ informed: []
 supersedes: ["ADR-053-deployment-mcp-robustness.md"]
 amends: ["ADR-021-unified-deployment-pattern.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md"]
 related: ["ADR-021-unified-deployment-pattern.md", "ADR-045-secrets-management.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md", "ADR-066-ai-engineering-team.md"]
+implementation_status: implemented
 ---
 
 # Split deployment execution: read-only local MCP tools and server-side GitHub Actions workflows
