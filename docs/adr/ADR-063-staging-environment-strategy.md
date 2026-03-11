@@ -3,6 +3,11 @@ status: accepted
 date: 2026-02-22
 decision-makers: [Achim Dehnert]
 implementation_status: partial
+implementation_evidence:
+  - "7 Hubs mit docker-compose.staging.yml: travel-beat, risk-hub, cad-hub, coach-hub, weltenhub, odoo-hub"
+  - "cd-staging.yml Workflow in coach-hub"
+  - "Noch fehlend: billing-hub, pptx-hub, trading-hub, dev-hub Staging-Compose"
+  - "Noch fehlend: dedizierte Staging-DB-Instanzen auf hetzner-dev"
 ---
 
 # ADR-063: Staging Environment Strategy
