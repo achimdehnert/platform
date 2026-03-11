@@ -1,3 +1,10 @@
+---
+status: accepted
+date: 2026-02-22
+decision-makers: [Achim Dehnert]
+implementation_status: partial
+---
+
 # ADR-063: Staging Environment Strategy
 
 ## Status
