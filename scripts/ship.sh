@@ -4,17 +4,17 @@
 # =============================================================================
 # Wird von jedem Repo-Wrapper (scripts/ship.sh) aufgerufen, oder direkt:
 #
-#   Usage (aus einem Repo heraus):
-#     ./scripts/ship.sh "feat: meine Änderung"
-#
-#   Usage (direkt mit Repo-Pfad):
-#     /path/to/platform/scripts/ship.sh --repo /path/to/repo "feat: ..."
+#   Usage:
+#     ./scripts/ship.sh "feat: commit msg"       # Build + Deploy Production
+#     ./scripts/ship.sh staging                   # Build + Deploy Staging
+#     ./scripts/ship.sh promote                   # Staging-Image → Production
+#     ./scripts/ship.sh staging "feat: commit"    # Staging mit Commit-Msg
 #
 # Config: .ship.conf im Repo-Root (wird automatisch geladen)
 #
 # Pflichtfelder in .ship.conf:
 #   APP_NAME    — Anzeigename
-#   IMAGE       — ghcr.io/... Docker image
+#   IMAGE       — ghcr.io/... Docker image (ohne :tag)
 #   DOCKERFILE  — Pfad zum Dockerfile (relativ zum Repo-Root)
 #   WEB_SERVICE — Docker Compose service name
 #   COMPOSE_PATH — Absoluter Pfad auf dem Server
@@ -23,20 +23,26 @@
 #   MIGRATE_CMD — z.B. "python manage.py migrate --no-input"
 #
 # Optional:
-#   SERVER      — Default: root@88.198.191.108
+#   SERVER       — Default: root@88.198.191.108
+#   STAGING_PORT — Host-Port für Staging (Default: Prod-Port + 100)
 # =============================================================================
 set -euo pipefail
 
 # -----------------------------------------------------------------------------
-# Repo-Root ermitteln (--repo Argument oder Caller-Verzeichnis)
+# Argumente parsen: [--repo DIR] [staging|promote] ["commit msg"]
 # -----------------------------------------------------------------------------
 REPO_DIR=""
 COMMIT_MSG=""
+MODE="production"   # production | staging | promote
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --repo)
       REPO_DIR="$2"; shift 2 ;;
+    staging)
+      MODE="staging"; shift ;;
+    promote)
+      MODE="promote"; shift ;;
     *)
       COMMIT_MSG="$1"; shift ;;
   esac
@@ -100,9 +106,70 @@ if [ -z "${COMMIT_MSG:-}" ]; then
   COMMIT_MSG="chore:$PARTS"
 fi
 
+# Derive image base (strip :latest/:staging if present)
+IMAGE_BASE="${IMAGE%%:*}"
+
 echo ""
-echo "🚀 $APP_NAME ship — $(date '+%H:%M:%S')"
+echo "🚀 $APP_NAME ship [$MODE] — $(date '+%H:%M:%S')"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+# =============================================================================
+# PROMOTE mode — retag staging → latest, push, deploy production
+# =============================================================================
+if [ "$MODE" = "promote" ]; then
+  echo ""
+  echo "🏷️  [1/3] Retag staging → latest..."
+  docker pull "$IMAGE_BASE:staging" 2>/dev/null \
+    || fail "Image $IMAGE_BASE:staging nicht gefunden. Erst 'ship staging' ausführen."
+  docker tag "$IMAGE_BASE:staging" "$IMAGE_BASE:latest"
+  ok "$IMAGE_BASE:staging → :latest"
+
+  echo ""
+  echo "📤 [2/3] Docker push :latest → GHCR..."
+  docker push "$IMAGE_BASE:latest"
+  ok "Image gepusht"
+
+  echo ""
+  echo "🖥️  [3/3] Production deploy..."
+  ssh "$SERVER" "
+    cd $COMPOSE_PATH &&
+    IMAGE_TAG=latest docker compose -f $COMPOSE_FILE pull $WEB_SERVICE &&
+    IMAGE_TAG=latest docker compose -f $COMPOSE_FILE up -d --force-recreate $WEB_SERVICE
+  "
+  ok "Production Container neugestartet"
+
+  sleep 6
+  ssh "$SERVER" "
+    docker compose -f $COMPOSE_PATH/$COMPOSE_FILE exec -T $WEB_SERVICE $MIGRATE_CMD 2>&1 | tail -5
+  " && ok "Migrationen ausgeführt" || warn "Migration check: bitte logs prüfen"
+
+  echo ""
+  echo "🏥 Health Check..."
+  MAX_RETRIES=12; RETRY=0
+  while [ $RETRY -lt $MAX_RETRIES ]; do
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+    [ "$STATUS" = "200" ] && { ok "$HEALTH_URL → 200 OK"; break; }
+    RETRY=$((RETRY + 1))
+    [ $RETRY -eq $MAX_RETRIES ] && fail "Health check fehlgeschlagen ($STATUS)"
+    sleep 5
+  done
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "✅ ${GREEN}Promote erfolgreich — $(date '+%H:%M:%S')${NC}"
+  echo ""
+  exit 0
+fi
+
+# =============================================================================
+# STAGING + PRODUCTION: shared steps 1–3
+# =============================================================================
+if [ "$MODE" = "staging" ]; then
+  TAG="staging"
+else
+  TAG="latest"
+fi
+FULL_IMAGE="$IMAGE_BASE:$TAG"
 
 # =============================================================================
 # 1. Git
@@ -124,62 +191,75 @@ ok "GitHub: up to date"
 # 2. Docker build
 # =============================================================================
 echo ""
-echo "🔨 [2/4] Docker build..."
-# GIT_TOKEN for private deps (Dockerfile --mount=type=secret)
-export GIT_TOKEN="${GIT_TOKEN:-${PROJECT_PAT:-}}"
+echo "🔨 [2/4] Docker build → $FULL_IMAGE ..."
+export GIT_TOKEN="${GIT_TOKEN:-${PROJECT_PAT:-${GITHUB_TOKEN:-}}}"
 if [ -n "$GIT_TOKEN" ]; then
   DOCKER_BUILDKIT=1 docker build \
     --secret id=GIT_TOKEN,env=GIT_TOKEN \
-    -f "$REPO_DIR/$DOCKERFILE" -t "$IMAGE" "$REPO_DIR"
+    -f "$REPO_DIR/$DOCKERFILE" -t "$FULL_IMAGE" "$REPO_DIR"
 else
-  docker build -f "$REPO_DIR/$DOCKERFILE" -t "$IMAGE" "$REPO_DIR"
+  docker build -f "$REPO_DIR/$DOCKERFILE" -t "$FULL_IMAGE" "$REPO_DIR"
 fi
-ok "Image gebaut"
+ok "Image gebaut: $FULL_IMAGE"
 
 # =============================================================================
 # 3. Docker push
 # =============================================================================
 echo ""
 echo "📤 [3/4] Docker push → GHCR..."
-docker push "$IMAGE"
-ok "Image gepusht"
+docker push "$FULL_IMAGE"
+ok "Image gepusht: $FULL_IMAGE"
 
 # =============================================================================
 # 4. Server deploy
 # =============================================================================
 echo ""
-echo "🖥️  [4/4] Server deploy..."
-ssh "$SERVER" "
-  cd $COMPOSE_PATH &&
-  docker compose -f $COMPOSE_FILE pull $WEB_SERVICE &&
-  docker compose -f $COMPOSE_FILE up -d --force-recreate $WEB_SERVICE
-"
-ok "Container neugestartet"
+if [ "$MODE" = "staging" ]; then
+  echo "🖥️  [4/4] Staging deploy..."
+  ssh "$SERVER" "
+    cd $COMPOSE_PATH &&
+    IMAGE_TAG=staging docker compose -f $COMPOSE_FILE -p ${APP_NAME}-staging pull $WEB_SERVICE &&
+    IMAGE_TAG=staging docker compose -f $COMPOSE_FILE -p ${APP_NAME}-staging up -d --force-recreate $WEB_SERVICE
+  "
+  ok "Staging Container gestartet"
 
-sleep 6
-ssh "$SERVER" "
-  docker compose -f $COMPOSE_PATH/$COMPOSE_FILE exec -T $WEB_SERVICE $MIGRATE_CMD 2>&1 | tail -5
-" && ok "Migrationen ausgeführt" || warn "Migration check: bitte logs prüfen"
+  sleep 6
+  ssh "$SERVER" "
+    IMAGE_TAG=staging docker compose -f $COMPOSE_PATH/$COMPOSE_FILE -p ${APP_NAME}-staging exec -T $WEB_SERVICE $MIGRATE_CMD 2>&1 | tail -5
+  " && ok "Migrationen ausgeführt" || warn "Migration check: bitte logs prüfen"
 
-# =============================================================================
-# 5. Health check (retry)
-# =============================================================================
-echo ""
-echo "🏥 Health Check..."
-MAX_RETRIES=12
-RETRY=0
-while [ $RETRY -lt $MAX_RETRIES ]; do
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
-  if [ "$STATUS" = "200" ]; then
-    ok "$HEALTH_URL → 200 OK"
-    break
-  fi
-  RETRY=$((RETRY + 1))
-  [ $RETRY -eq $MAX_RETRIES ] && fail "Health check fehlgeschlagen nach $MAX_RETRIES Versuchen (letzter Status: $STATUS)"
-  sleep 5
-done
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "✅ ${GREEN}Staging Ship erfolgreich — $(date '+%H:%M:%S')${NC}"
+  echo -e "   Promote mit: ${YELLOW}./scripts/ship.sh promote${NC}"
+  echo ""
+else
+  echo "🖥️  [4/4] Production deploy..."
+  ssh "$SERVER" "
+    cd $COMPOSE_PATH &&
+    docker compose -f $COMPOSE_FILE pull $WEB_SERVICE &&
+    docker compose -f $COMPOSE_FILE up -d --force-recreate $WEB_SERVICE
+  "
+  ok "Container neugestartet"
 
-echo ""
-echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
-echo -e "✅ ${GREEN}Ship erfolgreich — $(date '+%H:%M:%S')${NC}"
-echo ""
+  sleep 6
+  ssh "$SERVER" "
+    docker compose -f $COMPOSE_PATH/$COMPOSE_FILE exec -T $WEB_SERVICE $MIGRATE_CMD 2>&1 | tail -5
+  " && ok "Migrationen ausgeführt" || warn "Migration check: bitte logs prüfen"
+
+  echo ""
+  echo "🏥 Health Check..."
+  MAX_RETRIES=12; RETRY=0
+  while [ $RETRY -lt $MAX_RETRIES ]; do
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+    [ "$STATUS" = "200" ] && { ok "$HEALTH_URL → 200 OK"; break; }
+    RETRY=$((RETRY + 1))
+    [ $RETRY -eq $MAX_RETRIES ] && fail "Health check fehlgeschlagen ($STATUS)"
+    sleep 5
+  done
+
+  echo ""
+  echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+  echo -e "✅ ${GREEN}Ship erfolgreich — $(date '+%H:%M:%S')${NC}"
+  echo ""
+fi
