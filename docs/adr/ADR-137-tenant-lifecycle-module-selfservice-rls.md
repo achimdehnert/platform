@@ -4,14 +4,14 @@
 
 | Attribut       | Wert                                    |
 |----------------|-----------------------------------------|
-| **Status**     | Proposed                                |
+| **Status**     | Accepted                                |
 | **Scope**      | platform, risk-hub, alle Django-Hub-Repos |
 | **Repo**       | platform                                |
 | **Erstellt**   | 2026-03-11                              |
 | **Autor**      | Achim Dehnert                           |
 | **Reviewer**   | –                                       |
 | **Supersedes** | –                                       |
-| **Relates to** | ADR-035 (Shared Django Tenancy), ADR-099 (Module-Monetarisierung), ADR-109 (Multi-Tenancy Standard), ADR-118 (billing-hub Platform Store) |
+| **Relates to** | ADR-003 (risk-hub Tenancy), ADR-035 (Shared Django Tenancy), ADR-099 (Module-Monetarisierung), ADR-109 (Multi-Tenancy Standard), ADR-118 (billing-hub Platform Store) |
 
 ---
 
@@ -38,6 +38,10 @@ Eine Analyse der risk-hub Codebase (Referenz-Implementierung) hat folgende **ope
 | L-4 | **Kein Self-Service Module-Shop innerhalb der App** — Kunden können Module nicht à la carte buchen, nur Plan-Bundles | **Hoch (Revenue)** | ADR-099 definiert Package-Struktur, aber keine UI/UX für Endkunden |
 | L-5 | **Tenant-Picker nicht Session-persistent** — nach Login mit Multi-Org wird Tenant-Wahl nicht gespeichert | **Mittel (UX)** | Nicht adressiert |
 | L-6 | **Drift: risk-hub verwendet UUIDField(primary_key=True)** statt BigAutoField + public_id wie ADR-109 vorschreibt | **Mittel (Konsistenz)** | ADR-109 Fix H-1 |
+
+> **Priorisierung L-1 vs L-2**: TenantManager (L-1, Phase 1) ist schneller wirksam und
+> deckt ~95% der Fälle ab. RLS (L-2, Phase 2) ist Defense-in-Depth für die restlichen 5%
+> (raw SQL, Third-Party-Packages, Admin Custom Actions).
 
 ### 1.3 Constraints
 
@@ -96,11 +100,36 @@ class TenantManager(models.Manager):
 
 **Begründung**: ADR-035 entschied sich gegen auto-filter wegen Celery/Management-Command-Problemen. Dieser Entwurf löst das durch Fallback: ohne Context-Variable kein Filter. Admin-Queries nutzen `.unscoped()` explizit.
 
+**Django Admin**: Der auto-filter Manager betrifft auch den Django Admin. Damit Staff-User alle Tenants sehen können, stellt das Package eine `TenantModelAdmin` Base-Class bereit:
+
+```python
+# django_tenancy/admin.py
+class TenantModelAdmin(admin.ModelAdmin):
+    """Admin Base-Class die den auto-filter bypassed."""
+    def get_queryset(self, request):
+        return self.model.objects.unscoped()
+```
+
+Alle Admin-Registrierungen für TenantModel-Subklassen sollten von `TenantModelAdmin` erben.
+
 **Migration**: Bestehende `.filter(tenant_id=...)` Aufrufe in Views werden redundant aber nicht schädlich. Schrittweise Entfernung nach Rollout.
 
 ### 2.2 PostgreSQL Row-Level Security (Defense-in-Depth)
 
 RLS als **zweite Schutzschicht** neben dem Application-Level-Filter:
+
+#### Voraussetzung: Separater DB-User für Migrations
+
+RLS erfordert **zwei PostgreSQL Rollen**:
+
+| Rolle | Zweck | RLS-Verhalten |
+|-------|-------|---------------|
+| `risk_hub` (App-User) | Gunicorn, Celery | RLS aktiv — sieht nur eigenen Tenant |
+| `risk_hub_admin` (Migrations-User) | `migrate`, `createsuperuser`, `loaddata` | RLS-exempt (Table Owner, kein `FORCE`) |
+
+Der App-User darf **nicht** Table Owner sein. Tables gehören `risk_hub_admin`, der App-User bekommt `GRANT ALL ON ALL TABLES` ohne Ownership.
+
+#### RLS-Policy (parametrischer Cast)
 
 ```sql
 -- Migration: 0003_enable_rls.py (django_tenancy)
@@ -109,30 +138,48 @@ RLS als **zweite Schutzschicht** neben dem Application-Level-Filter:
 ALTER TABLE {table} ENABLE ROW LEVEL SECURITY;
 
 -- Policy: App-User sieht nur eigenen Tenant
+-- Cast-Typ wird vom Management Command introspektiert:
+--   BigIntegerField → ::bigint
+--   UUIDField       → ::uuid
 CREATE POLICY tenant_isolation_{table} ON {table}
     FOR ALL
-    TO current_user
     USING (
-        tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::bigint
+        tenant_id = NULLIF(current_setting('app.tenant_id', true), '')::{cast_type}
         OR current_setting('app.tenant_id', true) IS NULL
         OR current_setting('app.tenant_id', true) = ''
     );
 
--- FORCE RLS auch für Table Owner (wichtig!)
-ALTER TABLE {table} FORCE ROW LEVEL SECURITY;
+-- KEIN FORCE ROW LEVEL SECURITY — der Migrations-User (Table Owner)
+-- bleibt RLS-exempt. Nur der App-User (non-owner) wird durch RLS eingeschränkt.
 ```
 
 **Wichtig**: Die `OR current_setting IS NULL` Klausel stellt sicher, dass:
-- Migrations und Management Commands (ohne Session-Variable) weiterhin funktionieren
 - Celery Tasks, die `set_db_tenant()` nicht aufrufen, nicht geblockt werden
 - Nur wenn `app.tenant_id` **explizit gesetzt** ist, wird gefiltert
+- Der Migrations-User (Table Owner) ist automatisch RLS-exempt (kein `FORCE`)
+
+**Cast-Typ-Erkennung**: Das `enable_rls` Management Command introspektiert den `tenant_id`-Feld-Typ jedes Models:
+- `models.BigIntegerField` → `::bigint` (ADR-109-konforme Models)
+- `models.UUIDField` → `::uuid` (risk-hub Legacy-Models)
 
 **Management Command** für Rollout:
 
 ```bash
-python manage.py enable_rls --dry-run     # zeigt SQL
+python manage.py enable_rls --dry-run     # zeigt SQL mit korrektem Cast pro Tabelle
 python manage.py enable_rls               # führt aus
 python manage.py enable_rls --table=risk_assessment  # einzelne Tabelle
+```
+
+**DB-Setup** (einmalig pro Repo):
+
+```sql
+-- Separaten App-User anlegen (falls noch nicht vorhanden)
+CREATE ROLE risk_hub LOGIN PASSWORD '...';
+GRANT CONNECT ON DATABASE risk_hub TO risk_hub;
+GRANT USAGE ON SCHEMA public TO risk_hub;
+GRANT ALL ON ALL TABLES IN SCHEMA public TO risk_hub;
+ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO risk_hub;
+-- Tables bleiben im Besitz von risk_hub_admin (Migrations-User)
 ```
 
 ### 2.3 Tenant-Lifecycle Enforcement
@@ -149,6 +196,8 @@ Zwei komplementäre Mechanismen:
 
 ```python
 # django_tenancy/lifecycle.py
+
+from django.conf import settings
 
 class TenantLifecycleMiddleware(MiddlewareMixin):
     """Prüft ob der aktuelle Tenant aktiv ist.
@@ -178,11 +227,15 @@ class TenantLifecycleMiddleware(MiddlewareMixin):
             if org.trial_ends_at < timezone.now():
                 return render(request, "tenancy/trial_expired.html", {
                     "org": org,
-                    "upgrade_url": settings.get("BILLING_UPGRADE_URL", "/billing/"),
-                }, status=402)
+                    "upgrade_url": getattr(settings, "BILLING_UPGRADE_URL", "/billing/"),
+                }, status=403)
 
         return None
 ```
+
+> **Hinweis**: HTTP 403 statt 402 — HTTP 402 ("Payment Required") ist offiziell
+> "reserved for future use" und wird von manchen Proxies/CDNs unerwartet behandelt.
+> Die Template-Seite enthält den Upgrade-CTA, der Status-Code signalisiert "Zugriff verweigert".
 
 #### 2.3.2 ModuleSubscription.is_accessible mit Zeitprüfung
 
@@ -209,32 +262,51 @@ def is_accessible(self) -> bool:
 
 ### 2.4 Self-Service Module-Buchung (In-App)
 
-Ergänzt ADR-118 (billing-hub für Neuregistrierung) um **In-App Module-Verwaltung** für bestehende Tenants:
+Ergänzt ADR-118 (billing-hub für Neuregistrierung) um **In-App Module-Verwaltung** für bestehende Tenants.
 
-#### 2.4.1 Module-Shop View (django-module-shop oder in-app)
+> **Abgrenzung zu ADR-118**: billing-hub bleibt die **einzige Stripe-Integration**.
+> Der In-App Module-Shop zeigt den Katalog und leitet für Checkout/Bezahlung
+> an billing-hub weiter. Keine eigene Stripe-Integration in der Ziel-App.
+> risk-hub's bestehende `billing/`-App wird nach billing-hub-Migration entfernt.
+
+#### 2.4.1 Module-Shop View (In-App, kein eigenes Stripe)
 
 ```
-/billing/modules/                  → Modul-Katalog (alle verfügbaren Module mit Preisen)
-/billing/modules/<code>/           → Modul-Detail + "Jetzt aktivieren" Button
-/billing/modules/<code>/activate/  → POST: Stripe Checkout für Einzelmodul
-/billing/modules/<code>/cancel/    → POST: Modul-Kündigung (Soft-Deactivate)
+/modules/                          → Modul-Katalog (aktive, verfügbare, gesperrte Module)
+/modules/<code>/                   → Modul-Detail + "Jetzt aktivieren" Button
+/modules/<code>/activate/          → POST: Redirect zu billing-hub Checkout
+/modules/<code>/cancel/            → POST: Deactivation-Request an billing-hub
 ```
+
+Der Activate-Flow delegiert an billing-hub:
+
+```
+POST /modules/ex/activate/
+  → App generiert Redirect-URL:
+    billing.iil.pet/checkout?product=risk-hub&module=ex&tenant_id=<uuid>
+  → billing-hub: Stripe Checkout Session
+  → Stripe Webhook → billing-hub
+  → billing-hub → POST /api/internal/activate/ an risk-hub (HMAC-signiert, ADR-118)
+  → risk-hub: ModuleSubscription + ModuleMembership erstellt
+  → User wird zurückgeleitet: /modules/?activated=ex
+```
+
+**Stripe Price-Objekte** werden in billing-hub's `ProductCatalog` verwaltet (nicht in der Ziel-App).
+**Webhooks** gehen an billing-hub, der die Ziel-App via `/api/internal/activate/` benachrichtigt.
 
 #### 2.4.2 Preismodell: Bundle + À-la-carte
 
 ```python
-# settings.py — Erweiterte MODULE_SHOP_CATALOGUE
+# settings.py — MODULE_SHOP_CATALOGUE (nur Katalog-Metadaten, keine Stripe-IDs)
 
 MODULE_SHOP_CATALOGUE = {
     "risk": {
         "name": "Risikobewertung",
-        "price_month": 29.0,
-        "price_year": 290.0,
-        "stripe_price_monthly": "price_...",
-        "stripe_price_yearly": "price_...",
+        "description": "Gefährdungsbeurteilungen erstellen und verwalten",
         "included_in_plans": ["professional", "business", "enterprise"],
-        "standalone_bookable": True,  # NEU: à la carte buchbar
+        "standalone_bookable": True,  # à la carte buchbar via billing-hub
         "trial_days": 14,
+        "icon": "shield-alert",
     },
     ...
 }
@@ -247,16 +319,19 @@ PLAN_MODULES = {
 }
 ```
 
+Preise und Stripe-IDs liegen ausschließlich in billing-hub's `Product`-Model (ADR-118 §Neue Komponenten).
+
 #### 2.4.3 Flow
 
 ```
-Bestehender Tenant (eingeloggt) → /billing/modules/
+Bestehender Tenant (eingeloggt) → /modules/
     → Sieht: aktive Module (grün), verfügbare Module (blau), gesperrte (grau)
     → Klickt "Explosionsschutz aktivieren"
-    → Stripe Checkout (Einzelmodul-Preis oder Upgrade auf höheren Plan)
-    → Webhook: ModuleSubscription.status = active
-    → ModuleMembership für Admin-User automatisch erstellt
-    → Redirect: /billing/modules/ mit Erfolgsmeldung
+    → Redirect zu billing.iil.pet/checkout?product=risk-hub&module=ex&tenant_id=<uuid>
+    → billing-hub: Stripe Checkout
+    → Webhook → billing-hub → POST /api/internal/activate/ (HMAC)
+    → risk-hub: ModuleSubscription.status = active + ModuleMembership für Admin
+    → Redirect zurück: /modules/?activated=ex mit Erfolgsmeldung
 ```
 
 ### 2.5 Tenant-Picker Session-Persistenz
@@ -269,12 +344,22 @@ request.session["_tenant_id"] = str(org.tenant_id)
 
 # Vor Subdomain-Lookup (Fallback wenn kein Subdomain):
 session_tid = request.session.get("_tenant_id")
-if session_tid:
-    org = Organization.objects.filter(tenant_id=session_tid).first()
-    if org and org.is_active:
-        # Session-basierte Resolution
-        ...
+if session_tid and request.user.is_authenticated:
+    # Security: Membership-Check verhindert Session-Manipulation
+    from django_tenancy.models import Membership
+    has_access = Membership.objects.filter(
+        user=request.user,
+        organization__tenant_id=session_tid,
+    ).exists()
+    if has_access:
+        org = Organization.objects.filter(tenant_id=session_tid).first()
+        if org and org.is_active:
+            # Session-basierte Resolution
+            ...
 ```
+
+> **Security**: Der Membership-Check ist zwingend — ohne ihn könnte ein User
+> seine Session manipulieren und sich Zugang zu einem fremden Tenant verschaffen.
 
 ### 2.6 risk-hub Drift-Konsolidierung (UUID → BigAutoField)
 
@@ -287,7 +372,7 @@ if session_tid:
 3. Bestehende Models erhalten `TenantManager` als Default-Manager
 4. RLS-Policies verwenden `::uuid` Cast statt `::bigint`
 
-**Phase 2** (separates ADR, nach Produktionsstart): Schrittweise Migration bestehender UUID-PKs auf BigAutoField + public_id. Nicht in Scope dieses ADR.
+**Phase 2** (separates ADR, nach Produktionsstart): Schrittweise Migration bestehender UUID-PKs auf BigAutoField + public_id. Nicht in Scope dieses ADR → Hygiene Backlog.
 
 ---
 
@@ -303,7 +388,7 @@ if session_tid:
 
 ### 3.3 Module-Buchung nur über billing-hub (kein In-App-Shop)
 
-- **Abgelehnt**: billing-hub (ADR-118) ist für Neuregistrierung optimiert. Bestehende Tenants, die ein zusätzliches Modul buchen wollen, müssen das innerhalb ihrer App tun können — UX-Bruch bei Redirect zu billing-hub für Einzelmodul-Upgrade.
+- **Abgelehnt**: billing-hub (ADR-118) ist für Neuregistrierung optimiert. Bestehende Tenants, die ein zusätzliches Modul buchen wollen, müssen das innerhalb ihrer App tun können — UX-Bruch bei Redirect zu billing-hub für Einzelmodul-Upgrade. Der In-App Module-Shop zeigt den Katalog, die Bezahlung delegiert an billing-hub.
 
 ### 3.4 Sofortige UUID → BigAutoField Migration in risk-hub
 
@@ -319,7 +404,7 @@ Die Entscheidung in ADR-035 gegen auto-filter war korrekt für den damaligen Sta
 
 - **40+ Views** in risk-hub mit manuellen Filtern — hohe Fehleranfälligkeit
 - **Celery Tasks** können `for_tenant()` explizit aufrufen
-- **Django Admin** nutzt `.unscoped()` automatisch (Admin-ModelAdmin-Konfiguration)
+- **Django Admin** nutzt `TenantModelAdmin` mit `.unscoped()` (explizite Base-Class)
 - **Management Commands** laufen ohne Context → kein Filter (sicherer Fallback)
 
 ### 4.2 Warum RLS zusätzlich zum Application-Filter?
@@ -332,12 +417,14 @@ Defense-in-Depth-Prinzip: Selbst wenn ein Bug im Python-Code den tenant_id-Filte
 
 ### 4.3 Warum In-App Module-Shop UND billing-hub?
 
-| Szenario | Zuständig |
-|----------|-----------|
-| Neuer Kunde registriert sich | billing-hub (ADR-118) |
-| Bestehender Kunde bucht Modul dazu | **In-App Module-Shop** (dieses ADR) |
-| Trial läuft ab → Upgrade | billing-hub Reminder + In-App Upgrade-Wall |
-| Plan-Wechsel (Starter → Professional) | billing-hub Customer Portal |
+| Szenario | Zuständig | Stripe |
+|----------|-----------|--------|
+| Neuer Kunde registriert sich | billing-hub (ADR-118) | billing-hub |
+| Bestehender Kunde bucht Modul dazu | **In-App Module-Shop** → billing-hub Checkout | billing-hub |
+| Trial läuft ab → Upgrade | billing-hub Reminder + In-App Upgrade-Wall | billing-hub |
+| Plan-Wechsel (Starter → Professional) | billing-hub Customer Portal | billing-hub |
+
+**Stripe bleibt ausschließlich in billing-hub** — die Ziel-App zeigt nur den Katalog und leitet für Checkout weiter. Kein Widerspruch zu ADR-118.
 
 ---
 
@@ -348,37 +435,41 @@ Defense-in-Depth-Prinzip: Selbst wenn ein Bug im Python-Code den tenant_id-Filte
 | # | Task | Repo | Aufwand |
 |---|------|------|---------|
 | 1.1 | `TenantManager` Dual-Mode in `django_tenancy/managers.py` | platform | 2h |
-| 1.2 | `TenantLifecycleMiddleware` in `django_tenancy/lifecycle.py` | platform | 2h |
-| 1.3 | `ModuleSubscription.is_accessible` Zeitprüfung | platform | 1h |
-| 1.4 | Tenant-Picker Session-Persistenz in Middleware | platform | 1h |
-| 1.5 | Tests für alle neuen Komponenten | platform | 4h |
+| 1.2 | `TenantModelAdmin` in `django_tenancy/admin.py` | platform | 1h |
+| 1.3 | `TenantLifecycleMiddleware` in `django_tenancy/lifecycle.py` | platform | 2h |
+| 1.4 | `ModuleSubscription.is_accessible` Zeitprüfung | platform | 1h |
+| 1.5 | Tenant-Picker Session-Persistenz in Middleware (mit Membership-Check) | platform | 1h |
+| 1.6 | Tests für alle neuen Komponenten | platform | 4h |
 
 ### Phase 2: RLS-Policies (Woche 2-3)
 
 | # | Task | Repo | Aufwand |
 |---|------|------|---------|
-| 2.1 | Management Command `enable_rls` | platform | 3h |
+| 2.1 | Management Command `enable_rls` (mit Cast-Typ-Introspection) | platform | 3h |
 | 2.2 | RLS-Migration Template (generisch für alle TenantModel-Tabellen) | platform | 2h |
-| 2.3 | Rollout auf risk-hub Staging | risk-hub | 2h |
-| 2.4 | Validierung: kein Query-Bruch in bestehenden Views | risk-hub | 4h |
+| 2.3 | DB-User-Separation (App-User vs Migrations-User) dokumentieren | platform | 1h |
+| 2.4 | Rollout auf risk-hub Staging | risk-hub | 2h |
+| 2.5 | Validierung: kein Query-Bruch in bestehenden Views | risk-hub | 4h |
 
 ### Phase 3: Self-Service Module-Shop (Woche 3-4)
 
 | # | Task | Repo | Aufwand |
 |---|------|------|---------|
-| 3.1 | Module-Shop Views + Templates | risk-hub | 6h |
-| 3.2 | Stripe Checkout für Einzelmodule | risk-hub | 4h |
-| 3.3 | Auto-Provision ModuleMembership nach Checkout | risk-hub | 2h |
-| 3.4 | Self-Service Registration auf Production | risk-hub | 2h |
-| 3.5 | End-to-End Test (Stripe Testmodus) | risk-hub | 4h |
+| 3.1 | Module-Shop Views + Templates (Katalog, Detail) | risk-hub | 6h |
+| 3.2 | Activate-Redirect zu billing-hub Checkout | risk-hub | 2h |
+| 3.3 | billing-hub: `Product` für risk-hub Module anlegen | billing-hub | 2h |
+| 3.4 | Auto-Provision ModuleMembership im activate-Endpoint | risk-hub | 2h |
+| 3.5 | Self-Service Registration auf Production freischalten | risk-hub | 2h |
+| 3.6 | End-to-End Test (Stripe Testmodus) | risk-hub | 4h |
 
 ### Phase 4: Rollout auf weitere Repos (Woche 5+)
 
 | # | Task | Repo | Aufwand |
 |---|------|------|---------|
 | 4.1 | TenantManager in bestehende Models integrieren | risk-hub | 4h |
-| 4.2 | RLS auf alle risk-hub Tabellen | risk-hub | 2h |
-| 4.3 | Template für weitere Hubs dokumentieren | platform | 2h |
+| 4.2 | RLS auf alle risk-hub Tabellen (inkl. DB-User-Separation) | risk-hub | 3h |
+| 4.3 | risk-hub `billing/` App entfernen → billing-hub Migration | risk-hub | 4h |
+| 4.4 | Template für weitere Hubs dokumentieren | platform | 2h |
 
 ---
 
@@ -386,9 +477,9 @@ Defense-in-Depth-Prinzip: Selbst wenn ein Bug im Python-Code den tenant_id-Filte
 
 | Risiko | Wahrscheinlichkeit | Impact | Mitigation |
 |--------|-------------------|--------|------------|
-| auto-filter bricht bestehende Admin-Queries | Mittel | Mittel | `.unscoped()` für Admin, Feature-Flag `TENANT_MANAGER_AUTO_FILTER=True/False` |
-| RLS-Policies blockieren Migrations | Niedrig | Hoch | `OR current_setting IS NULL` Klausel, `enable_rls --dry-run` |
-| Stripe Checkout für Einzelmodule komplex | Niedrig | Mittel | Bereits in risk-hub/billing vorhanden, nur Erweiterung |
+| auto-filter bricht bestehende Admin-Queries | Mittel | Mittel | `TenantModelAdmin` Base-Class mit `.unscoped()`, Feature-Flag `TENANT_MANAGER_AUTO_FILTER=True/False` |
+| RLS-Policies blockieren Migrations | Niedrig | Hoch | Kein `FORCE RLS`, separater Migrations-User (Table Owner), `enable_rls --dry-run` |
+| billing-hub Ausfall blockiert Modul-Buchungen | Niedrig | Mittel | Bestehende Module funktionieren weiter, nur neue Buchungen betroffen. Health-Monitoring |
 | UUID→BigAutoField Migration in Phase 2 scheitert | Mittel | Hoch | Nicht in Scope dieses ADR, separates ADR |
 
 ---
@@ -407,14 +498,15 @@ Defense-in-Depth-Prinzip: Selbst wenn ein Bug im Python-Code den tenant_id-Filte
 
 - **Komplexität**: TenantManager auto-filter erfordert Verständnis des Dual-Mode-Patterns
 - **Migration**: RLS-Rollout muss pro Tabelle validiert werden
-- **Dual-Billing**: In-App Stripe + billing-hub müssen konsistent bleiben (Module-Status-Sync)
+- **billing-hub Dependency**: In-App Module-Shop hängt von billing-hub Checkout ab — billing-hub Ausfall blockiert neue Modul-Buchungen (nicht bestehende)
 
 ### 7.3 Nicht in Scope
 
-- UUID → BigAutoField PK-Migration in risk-hub (separates ADR)
+- UUID → BigAutoField PK-Migration in risk-hub (separates ADR → Hygiene Backlog)
 - SSO / Cross-App Identity (ADR-118 explizit ausgeschlossen)
 - Metered Billing / Usage-Quotas (Zukunft, wenn Bedarf)
 - billing-hub Implementierung (ADR-118)
+- Stripe-Integration in der Ziel-App (liegt bei billing-hub, ADR-118)
 
 ---
 
@@ -425,30 +517,35 @@ Defense-in-Depth-Prinzip: Selbst wenn ein Bug im Python-Code den tenant_id-Filte
 - [ ] `TenantManager.get_queryset()` filtert automatisch wenn Context gesetzt
 - [ ] `TenantManager.get_queryset()` filtert NICHT wenn kein Context (Celery, Shell)
 - [ ] `TenantManager.unscoped()` liefert immer alle Records
+- [ ] `TenantModelAdmin.get_queryset()` liefert alle Records (Admin)
 - [ ] `TenantLifecycleMiddleware` blockt suspended Tenants mit Info-Seite
-- [ ] `TenantLifecycleMiddleware` zeigt Upgrade-Wall bei abgelaufenem Trial
+- [ ] `TenantLifecycleMiddleware` zeigt Upgrade-Wall bei abgelaufenem Trial (HTTP 403)
 - [ ] `ModuleSubscription.is_accessible` gibt False bei abgelaufenem Trial
 - [ ] Tenant-Picker Wahl überlebt Page-Refresh (Session)
+- [ ] Session-Tenant wird nur akzeptiert wenn User Membership hat (Security)
 
 ### Phase 2 (RLS)
 
-- [ ] `enable_rls --dry-run` zeigt korrekte SQL für alle TenantModel-Tabellen
-- [ ] Mit gesetztem `app.tenant_id`: nur eigene Tenant-Daten sichtbar
-- [ ] Ohne `app.tenant_id` (Celery, Migrations): alle Daten sichtbar
+- [ ] `enable_rls --dry-run` zeigt korrekte SQL mit passendem Cast-Typ pro Tabelle
+- [ ] Mit gesetztem `app.tenant_id`: nur eigene Tenant-Daten sichtbar (App-User)
+- [ ] Ohne `app.tenant_id` (Celery, Shell): alle Daten sichtbar (App-User, Fallback)
+- [ ] Migrations-User (Table Owner): alle Daten sichtbar (RLS-exempt, kein FORCE)
 - [ ] Django Admin funktioniert uneingeschränkt
 - [ ] Bestehende risk-hub Views + API liefern identische Ergebnisse
 
 ### Phase 3 (Module-Shop)
 
-- [ ] Module-Katalog zeigt alle verfügbaren Module mit Preisen
-- [ ] Einzelmodul-Checkout erzeugt Stripe Session
-- [ ] Nach Checkout: ModuleSubscription + ModuleMembership automatisch erstellt
-- [ ] Modul-Kündigung setzt Status auf suspended (nicht gelöscht)
+- [ ] Module-Katalog zeigt alle verfügbaren Module mit Status (aktiv/verfügbar/gesperrt)
+- [ ] "Aktivieren"-Button leitet korrekt an billing-hub Checkout weiter
+- [ ] billing-hub activate-Webhook erstellt ModuleSubscription + ModuleMembership
+- [ ] Modul-Kündigung sendet Deactivation-Request an billing-hub
+- [ ] Redirect zurück zur App nach erfolgreichem Checkout
 
 ---
 
 ## 9. Referenzen
 
+- **ADR-003**: risk-hub Tenancy (Ursprungs-Design für tenant_id-Pattern)
 - **ADR-035**: Shared Django Tenancy Package (Package-Struktur)
 - **ADR-099**: Modul-Konfiguration und Monetarisierungsstrategie (Proposed)
 - **ADR-109**: Multi-Tenancy als Platform-Standard (TenantModel, TenancyMode)
@@ -462,3 +559,4 @@ Defense-in-Depth-Prinzip: Selbst wenn ein Bug im Python-Code den tenant_id-Filte
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-03-11 | Achim Dehnert | Initial draft — basierend auf risk-hub Codebase-Analyse |
+| 2026-03-11 | Achim Dehnert | Review-Fixes v1.1: B-1 RLS Policy (kein FORCE, separater DB-User), B-2 parametrischer Cast (bigint/uuid), B-3 settings.get→getattr, B-4 Stripe nur in billing-hub (ADR-118-konform), S-1 TenantModelAdmin, S-2 Session-Membership-Check, S-5 HTTP 403 statt 402, N-2 ADR-003 Referenz, N-3 Priorisierung L-1 vs L-2 |
