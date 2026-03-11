@@ -8,6 +8,9 @@ informed: –
 supersedes: –
 relates-to: ADR-022, ADR-042, ADR-054, ADR-056, ADR-057, ADR-061, ADR-071, ADR-089
 repo: platform
+implementation_status: implemented
+implementation_evidence:
+  - "platform/.github/workflows/: reusable CI/CD pipelines"
 ---
 
 # ADR-090: Use Hybrid Matrix CI/CD Pipeline for Python + PostgreSQL → Docker Deploy

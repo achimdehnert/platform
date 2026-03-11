@@ -14,6 +14,9 @@ related: [ADR-057, ADR-089, ADR-093, ADR-094, ADR-095, ADR-096]
 supersedes: []
 amends: [ADR-089, ADR-093, ADR-095]
 last_verified: 2026-03-11
+implementation_status: implemented
+implementation_evidence:
+  - "aifw/src/aifw/: models, migration 0005, service, constants, types, tests"
 ---
 
 # ADR-097: aifw 0.6.0 Implementation Contract — Models, Migration, Service Layer, and Public API

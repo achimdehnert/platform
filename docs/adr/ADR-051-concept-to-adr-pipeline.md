@@ -9,6 +9,9 @@ scope: dev-hub, platform
 tags: [dev-hub, adr-lifecycle, workflow, concept, governance, cascade]
 related: [ADR-050, ADR-015, ADR-054]
 last_verified: 2026-02-19
+implementation_status: implemented
+implementation_evidence:
+  - ".windsurf/workflows/adr.md: concept-to-ADR pipeline"
 ---
 
 # ADR-051: Concept-to-ADR Pipeline — Idea Capture & AI-Assisted Promotion

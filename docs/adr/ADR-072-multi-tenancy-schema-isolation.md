@@ -4,6 +4,9 @@ date: 2026-02-21
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
+implementation_status: partial
+implementation_evidence:
+  - "weltenhub, risk-hub: schema isolation, other hubs pending"
 ---
 
 # ADR-072: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy

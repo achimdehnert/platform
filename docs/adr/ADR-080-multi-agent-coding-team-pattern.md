@@ -7,6 +7,9 @@ informed: –
 supersedes: –
 amends: ADR-066-ai-engineering-team.md
 related: ADR-066, ADR-068, ADR-070, ADR-075
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/agent_team/: multi-agent team"
 ---
 
 # ADR-080: Wir implementieren ein Multi-Agent Coding Team Pattern mit strukturiertem Handoff, paralleler Branch-Ausführung und definierter Rollback-Strategie

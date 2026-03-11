@@ -4,6 +4,9 @@ date: 2026-03-07
 decision-makers: Achim Dehnert
 consulted: Cascade (Senior Architect), Claude (Principal IT Architect — Review v1+v2)
 informed: billing-hub, mcp-hub, platform-team
+implementation_status: partial
+implementation_evidence:
+  - "ausschreibungs-hub: Django app exists, full v3 architecture in progress"
 ---
 
 <!-- Drift-Detector: staleness_months=6, drift_check_paths=["apps/", "pyproject.toml"] -->

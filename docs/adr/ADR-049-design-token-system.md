@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: partial
+implementation_evidence:
+  - "some hubs: design tokens adopted, not all"
 ---
 
 # ADR-049: Design Token System -- CSS Custom Properties + Tailwind Bridge

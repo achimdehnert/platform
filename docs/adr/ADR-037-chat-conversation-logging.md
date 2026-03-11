@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "bfagent: chat conversation logging in AIUsageLog"
 ---
 
 # ADR-037: Chat Conversation Logging & Quality Management

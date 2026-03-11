@@ -5,6 +5,9 @@ amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
+implementation_status: partial
+implementation_evidence:
+  - "platform-context MCP: basic drift detection, no automated alerts yet"
 ---
 
 # ADR-059: Adopt Automated ADR Drift Detection and Staleness Management

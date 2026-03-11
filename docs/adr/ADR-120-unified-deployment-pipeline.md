@@ -5,6 +5,9 @@ updated: 2026-03-11
 decision-makers: Achim Dehnert
 supersedes: ADR-009 (GitHub Actions Reusable Workflows) — wird erweitert
 related: ADR-009, ADR-022, ADR-102 (Cloudflare DNS), ADR-103 (bieterpilot)
+implementation_status: implemented
+implementation_evidence:
+  - "all 18 Django hubs: deploy.yml via reusable workflows"
 ---
 
 # ADR-120: Unified Multi-Repo Deployment Pipeline mit Staging

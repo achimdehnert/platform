@@ -8,6 +8,9 @@ informed: –
 supersedes: –
 amends: –
 related: ADR-014, ADR-066, ADR-080, ADR-081, ADR-085
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/agent_team/: sprint execution pattern"
 ---
 
 # ADR-086: Agent Team Workflow — Cross-Repo Sprint Execution Pattern

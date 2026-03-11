@@ -8,6 +8,9 @@ informed: –
 supersedes: –
 amends: ADR-056 (Deployment Preflight)
 related: ADR-056, ADR-090, ADR-022
+implementation_status: implemented
+implementation_evidence:
+  - "all hubs: migration conflict resolution pattern adopted"
 ---
 
 # ADR-094: Django Migration Conflict Resolution Pattern

@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: partial
+implementation_evidence:
+  - "platform-context: shared services exist, not all extracted yet"
 ---
 
 # ADR-131: Shared Backend Services Library für Django-Projekte

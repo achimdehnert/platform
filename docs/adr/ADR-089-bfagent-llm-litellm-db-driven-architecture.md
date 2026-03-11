@@ -8,6 +8,9 @@ informed: –
 supersedes: –
 amends: ADR-084 (Model Registry), ADR-082 (LLM Tool Integration)
 related: ADR-084, ADR-082, ADR-045, ADR-056, ADR-080, ADR-068
+implementation_status: implemented
+implementation_evidence:
+  - "aifw: LiteLLM backend + DB-driven model routing in production"
 ---
 
 # ADR-089: bfagent-llm — LiteLLM-Backend + DB-driven Model-Routing

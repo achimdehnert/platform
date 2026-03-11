@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-26
 decision-makers: [Platform Team]
+implementation_status: partial
+implementation_evidence:
+  - "weltenhub: pgvector active, FTS not platform-wide yet"
 ---
 
 <!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-search/**, supersedes_check: none -->

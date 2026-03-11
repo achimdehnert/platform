@@ -8,6 +8,9 @@ informed: –
 supersedes: –
 amends: –
 related: ADR-080, ADR-082, ADR-084, ADR-066
+implementation_status: partial
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/: basic task pipeline, NL-to-TaskGraph pending"
 ---
 
 # ADR-085: Use Case Pipeline — Natural Language → Structured TaskGraph

@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/agent_team/: AI-native team active"
 ---
 
 # ADR-014: AI-Native Development Teams

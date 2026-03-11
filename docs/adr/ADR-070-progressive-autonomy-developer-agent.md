@@ -4,6 +4,9 @@ date: 2026-02-23
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/: progressive autonomy gate levels"
 ---
 
 # ADR-070: Progressive Autonomy Pattern für den Developer-Agenten

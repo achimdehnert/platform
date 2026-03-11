@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "all hubs: static asset versioning active"
 ---
 
 # ADR-031: Static Asset Versioning & Landing Page Registry
