@@ -64,3 +64,53 @@ class TestSmsChannel:
         assert ch.validate_recipient("+1234") is True
         assert ch.validate_recipient("017612345678") is False
         assert ch.validate_recipient("") is False
+
+
+class TestDiscordChannel:
+    """Tests for DiscordChannel."""
+
+    def test_should_validate_discord_webhook_url(self) -> None:
+        from platform_notifications.channels.discord import DiscordChannel
+
+        ch = DiscordChannel()
+        assert ch.validate_recipient(
+            "https://discord.com/api/webhooks/123/abc"
+        ) is True
+        assert ch.validate_recipient(
+            "https://discordapp.com/api/webhooks/123/abc"
+        ) is True
+        assert ch.validate_recipient(
+            "https://example.com/hook"
+        ) is False
+        assert ch.validate_recipient(
+            "http://discord.com/api/webhooks/x"
+        ) is False
+
+    def test_should_health_check(self) -> None:
+        from platform_notifications.channels.discord import DiscordChannel
+
+        ch = DiscordChannel()
+        check = ch.health_check()
+        assert check["channel"] == "discord"
+        assert "healthy" in check
+
+
+class TestTelegramChannel:
+    """Tests for TelegramChannel."""
+
+    def test_should_validate_chat_id(self) -> None:
+        from platform_notifications.channels.telegram import TelegramChannel
+
+        ch = TelegramChannel()
+        assert ch.validate_recipient("123456789") is True
+        assert ch.validate_recipient("-100123456789") is True
+        assert ch.validate_recipient("abc") is False
+        assert ch.validate_recipient("") is False
+
+    def test_should_health_check_without_token(self) -> None:
+        from platform_notifications.channels.telegram import TelegramChannel
+
+        ch = TelegramChannel()
+        check = ch.health_check()
+        assert check["channel"] == "telegram"
+        assert check["healthy"] is False

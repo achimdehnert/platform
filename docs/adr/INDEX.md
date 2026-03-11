@@ -147,7 +147,7 @@
 | 085 | Use Case Pipeline -- Natural Language -> Structured TaskGraph | `Accepted` | ✅ | [ADR-085](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
 | 086 | Agent Team Workflow -- Cross-Repo Sprint Execution Pattern | `Accepted` | ✅ | [ADR-086](ADR-086-agent-team-workflow.md) |
 | 087 | Hybrid Search: pgvector + FTS Platform-wide | `Accepted` | 🔶 | [ADR-087](ADR-087-hybrid-search-architecture.md) |
-| 088 | Shared Notification Registry -- Multi-Channel Messaging | `Accepted` | 🔶 | [ADR-088](ADR-088-notification-registry.md) |
+| 088 | Shared Notification Registry -- Multi-Channel Messaging | `Accepted` | ✅ | [ADR-088](ADR-088-notification-registry.md) |
 | 089 | bfagent-llm -- LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | ✅ | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline -- Python + PostgreSQL -> Docker Deploy | `Accepted` | ✅ | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
 | 091 | Platform Operations Hub Consolidation | `Accepted` | ✅ | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
@@ -242,3 +242,4 @@
 - [x] billing-hub: deploy.yml entfernt (ci-cd.yml deckt alles ab, startup_failure behoben) -- 2026-03-11
 - [x] ADR-131: partial→implemented — eigenes Repo achimdehnert/iil-django-commons, 8 Module, 31 Tests, CI green -- 2026-03-11
 - [x] ADR-098: partial→implemented — Redis maxmemory 15/15, PG random_page_cost 17/17, 6 Repos compose-hardened, shm_size+logging -- 2026-03-11
+- [x] ADR-088: partial→implemented — 5 Channels (Email, SMS, Webhook, Discord, Telegram), 21 Tests, BigAutoField-Fix, Celery-First -- 2026-03-11

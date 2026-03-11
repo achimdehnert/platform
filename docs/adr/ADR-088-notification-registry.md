@@ -2,9 +2,16 @@
 status: accepted
 date: 2026-02-26
 decision-makers: [Platform Team]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "some hubs: notification basics, registry not centralized yet"
+  - "Phase 1 Package: platform/packages/platform-notifications/ — 21 Tests passed"
+  - "5 Channels: EmailChannel, SmsChannel, WebhookChannel, DiscordChannel, TelegramChannel"
+  - "ChannelRegistry: thread-safe Singleton, auto-registration via AppConfig.ready()"
+  - "NotificationService: send() (Celery-async) + send_sync() + health_check()"
+  - "Celery dispatch task: autoretry (3×, exponential backoff, jitter)"
+  - "NotificationLog: BigAutoField PK, Row-Level Tenant Isolation, 4 DB-Indexes"
+  - "FIX: UUIDField(primary_key=True) → BigAutoField (Platform-Regel)"
+  - "Noch offen: Phase 2-4 Consumer-Migrations (wedding-hub, bfagent, risk-hub, weltenhub)"
 ---
 
 <!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-notifications/**, supersedes_check: none -->
