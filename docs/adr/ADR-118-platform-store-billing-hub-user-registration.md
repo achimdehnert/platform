@@ -298,3 +298,4 @@ mit Plan-Tier-Logik (Starter/Professional/Enterprise). Diese Implementierung gil
 |-------|---------|----------|--------|------|
 | 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied | [Review](../reviews/ADR-118-review-2026-03-11.md) · [Issue #23](https://github.com/achimdehnert/platform/issues/23) |
 | 2026-03-11 | v1.1 → v1.2 | Cascade | ✅ APPROVED WITH COMMENTS → Fixes applied | Follow-Up: unique-Bug, verify_request(), Reaktivierung, URL-Validierung |
+| 2026-03-11 | v1.3 | Cascade | ✅ Implementation Verified | Production + Staging live, Delta-Check OK, Pilot-Readiness documented |
