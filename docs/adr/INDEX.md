@@ -169,7 +169,7 @@
 | 114 | Discord IDE-like Communication Gateway | `Accepted` | ✅ | [ADR-114](ADR-114-discord-ide-like-communication-gateway.md) |
 | 115 | Grafana Agent Controlling Dashboard | `Accepted` | ✅ | [ADR-115](ADR-115-grafana-agent-controlling-dashboard.md) |
 | 116 | Dynamic Model Router | `Accepted` | ✅ | [ADR-116](ADR-116-dynamic-model-router.md) |
-| 117 | Shared World Layer (worldfw) | `Accepted` | ⬜ | [ADR-117](ADR-117-shared-world-layer-worldfw.md) |
+| 117 | Shared World Layer (worldfw) | `Accepted` | 🔶 | [ADR-117](ADR-117-shared-world-layer-worldfw.md) |
 | 118 | billing-hub als Platform Store | `Accepted` | ✅ | [ADR-118](ADR-118-platform-store-billing-hub-user-registration.md) |
 | 119 | Authored Content Pipeline (Neutral Lore → Style) | `Accepted` | ⬜ | [ADR-119](ADR-119-authored-content-pipeline-neutral-lore-to-style.md) |
 | 120 | Unified Deployment Pipeline | `Accepted` | ✅ | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
