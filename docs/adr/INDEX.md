@@ -143,10 +143,10 @@
 | 093 | AI Config App -- aifw als shared Django-App | `Accepted` | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Accepted` | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
-| 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Proposed` | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
-| 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Proposed` | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
+| 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Accepted` | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
+| 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Accepted` | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
 | 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
-| 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Proposed` | [ADR-099](ADR-099-devhub-release-management-ui.md) |
+| 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Accepted` | [ADR-099](ADR-099-devhub-release-management-ui.md) |
 | 100 | iil-testkit -- Shared Test Factory Package | `Accepted` | [ADR-100](ADR-100-iil-testkit-shared-test-factory-package.md) |
 | 107 | Extended Agent Team -- Deployment Agent | `Accepted` | [ADR-107](ADR-107-extended-agent-team-deployment-agent.md) |
 | 108 | Agent QA Cycle -- Quality Evaluator, Completion, AuditStore | `Accepted` | [ADR-108](ADR-108-agent-qa-cycle.md) |
@@ -209,7 +209,8 @@
 - [x] Review-Verdicts aktualisiert: ADR-114 ✅ v2.2, ADR-117 ✅ v1.1, ADR-119 ✅ v1.1 -- 2026-03-11
 - [x] ADR-103 BLOCK gefixt (Poetry → hatchling, Tippfehler) -- 2026-03-11
 - [x] ADR-104 BLOCK gefixt (MADR Frontmatter) -- 2026-03-11
-- [ ] ADR-096: Review + `Accepted` → kann jetzt starten (ADR-095 ist Accepted)
-- [ ] ADR-097: Review + `Accepted` → dann aifw 0.6.0 implementieren
-- [ ] ADR-099: Review + `Accepted` → dann dev-hub `releases` App implementieren
+- [x] ADR-096: ✅ APPROVED → `Accepted` -- 2026-03-11
+- [x] ADR-097: ✅ APPROVED → `Accepted` → aifw 0.6.0 kann implementiert werden -- 2026-03-11
+- [x] ADR-099: INDEX-Status korrigiert (`Proposed` → `Accepted`, war bereits im ADR) -- 2026-03-11
+- [ ] aifw 0.6.0 implementieren (ADR-097 Release-Checklist Steps 1-12)
 - [ ] catalog-info.yaml in allen 30 Repos pruefen/erstellen (ADR-077 compliance)

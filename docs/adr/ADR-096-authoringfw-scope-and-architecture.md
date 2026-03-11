@@ -1,7 +1,7 @@
 ---
 id: ADR-096
 title: "authoringfw — Content Orchestration Scope, Architecture, and Domain Boundaries"
-status: proposed
+status: accepted
 date: 2026-03-02
 author: Achim Dehnert
 owner: Achim Dehnert
@@ -13,14 +13,14 @@ tags: [authoringfw, orchestration, writing, research, analysis, architecture, pa
 related: [ADR-050, ADR-057, ADR-068, ADR-089, ADR-093, ADR-095]
 supersedes: []
 amends: [ADR-050]
-last_verified: 2026-03-02
+last_verified: 2026-03-11
 ---
 
 # ADR-096: authoringfw — Content Orchestration Scope, Architecture, and Domain Boundaries
 
 | Field | Value |
 |-------|-------|
-| Status | **Proposed** |
+| Status | **Accepted** (reviewed 2026-03-11) |
 | Date | 2026-03-02 |
 | Author | Achim Dehnert |
 | Scope | `authoringfw` package + `bfagent`, `travel-beat`, `weltenhub`, `pptx-hub` |
