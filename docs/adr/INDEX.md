@@ -230,5 +230,9 @@
 - [x] ADR-138: INDEX.md Impl-Spalte hinzugefügt -- 2026-03-11
 - [x] ADR-130: Review-Amend (UUID→BigAutoField, Alembic→Django ORM, creative-services→content_store) -- 2026-03-11
 - [x] ADR-138: Review-Amend (status partial, Ausnahme für Governance-ADRs mit Artefakten) -- 2026-03-11
-- [ ] ADR-138: Backfill fehlende ~24 Accepted ADRs ohne implementation_status im Frontmatter
+- [x] ADR-138: Backfill fehlende ~24 Accepted ADRs ohne implementation_status im Frontmatter
 - [ ] ADR-138: /adr-review Workflow Check auf fehlende implementation_status
+- [x] ADR-062+118: billing-hub Code-Audit — 20+ Dateien bereits implementiert (überraschend vollständig) -- 2026-03-11
+- [x] ADR-118: E-Mail-Verifikation implementiert (EmailVerification Model + Service + Views) -- 2026-03-11
+- [x] ADR-062+118: Evidence aktualisiert mit konkreten Pfaden und Dateien -- 2026-03-11
+- [ ] ADR-062+118: Product Seed Data + Deployment billing.iil.pet
