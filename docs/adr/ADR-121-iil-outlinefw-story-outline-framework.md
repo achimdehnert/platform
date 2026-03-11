@@ -1,16 +1,3 @@
-# ADR-121: iil-outlinefw — Zentrales Story-Outline-Framework
-
-> **Umnummeriert von ADR-100** (Nummernkonflikt mit ADR-100-iil-testkit)
-
-```yaml
-status: accepted
-date: 2026-03-08
-decision-makers: [achim.dehnert]
-tags: [writing-hub, travel-beat, bfagent, coach-hub, outline, pypi, iil-packages, creative-writing]
-drift-detector: paths=[outlinefw/src/outlinefw/], adr=ADR-121
-related: [ADR-083-writing-hub, iil-authoringfw, iil-aifw, iil-promptfw]
-```
-
 ---
 
 ## Kontext und Problemstellung
@@ -19,7 +6,11 @@ Drei Applikationen (writing-hub, travel-beat, bfagent) implementieren Story-Outl
 unabhängig voneinander:
 
 | Repo | Duplication |
-|------|-------------|
+|
+implementation_status: implemented
+implementation_evidence:
+  - "writing-hub: iil-outlinefw integrated"
+------|-------------|
 | `bfagent` | `OutlineGenerationHandler`, `EnhancedSaveTheCatOutlineHandler`, `OutlineGeneratorService` |
 | `travel-beat` | `StoryOutline` Model, `OutlineEngine`, `OutlineValidator`, `SAVE_THE_CAT_BEATS` |
 | `writing-hub` | `OutlineGeneratorService`, `FRAMEWORKS` dict, `_parse_nodes()` |

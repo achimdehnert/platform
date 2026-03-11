@@ -15,6 +15,9 @@ related: [ADR-057, ADR-084, ADR-096]
 supersedes: []
 amends: [ADR-057]
 last_verified: 2026-03-05
+implementation_status: implemented
+implementation_evidence:
+  - "testkit: iil-testkit v0.1.0 on PyPI"
 ---
 
 # ADR-100: iil-testkit — Shared Test Factory Package für alle Platform-Repos

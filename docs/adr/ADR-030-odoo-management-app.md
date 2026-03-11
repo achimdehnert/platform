@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "odoo-hub: Odoo management app deployed on 46.225.127.211"
 ---
 
 # ADR-030: Erste Odoo Management-App — Dual-Framework-Governance

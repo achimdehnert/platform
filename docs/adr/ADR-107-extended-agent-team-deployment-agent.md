@@ -7,6 +7,9 @@ informed: –
 supersedes: –
 amends: ADR-066-ai-engineering-team.md, ADR-080-multi-agent-coding-team-pattern.md
 related: ADR-066, ADR-068, ADR-075, ADR-080, ADR-081, ADR-086
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/: deployment agent active"
 ---
 
 # ADR-107: Erweitertes Agent-Team — Cascade als Tech Lead, Deployment Agent, Review Agent und explizite Rollenentlastung

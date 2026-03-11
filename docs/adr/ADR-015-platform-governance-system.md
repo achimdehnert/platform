@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "platform/docs/adr/: governance system active"
 ---
 
 # ADR-015: Platform Governance System

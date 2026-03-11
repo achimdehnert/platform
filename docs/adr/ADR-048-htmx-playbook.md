@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "all hubs: HTMX patterns adopted"
 ---
 
 # ADR-048: HTMX Playbook -- Canonical Patterns for Django-HTMX

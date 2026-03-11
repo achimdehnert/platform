@@ -4,6 +4,9 @@ date: 2026-03-06
 decision-makers: Achim Dehnert
 consulted: Cascade
 informed: –
+implementation_status: implemented
+implementation_evidence:
+  - "Cloudflare DNS active for all *.iil.pet domains"
 ---
 
 # ADR-102: Adopt Cloudflare for DNS, CDN, and DDoS Protection

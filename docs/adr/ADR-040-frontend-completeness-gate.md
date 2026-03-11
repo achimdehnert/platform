@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "platform/.windsurf/rules/reviewer.md: completeness gate"
 ---
 
 # ADR-040: Frontend Completeness Gate

@@ -9,6 +9,9 @@ scope: dev-hub, platform, nl2cad, all Python package repos
 tags: [dev-hub, release-management, pypi, github-actions, ui, management-console]
 related: [ADR-050, ADR-077, ADR-086, ADR-090, ADR-100]
 last_verified: 2026-03-08
+implementation_status: verified
+implementation_evidence:
+  - "https://devhub.iil.pet/releases/: Release Management UI live"
 ---
 
 # ADR-099: dev-hub Release Management UI

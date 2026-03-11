@@ -14,6 +14,9 @@ related: [ADR-050, ADR-057, ADR-068, ADR-089, ADR-093, ADR-095]
 supersedes: []
 amends: [ADR-050]
 last_verified: 2026-03-11
+implementation_status: none
+implementation_evidence:
+  - "authoringfw: package exists but domain sub-modules not yet extracted"
 ---
 
 # ADR-096: authoringfw — Content Orchestration Scope, Architecture, and Domain Boundaries

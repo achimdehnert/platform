@@ -4,6 +4,9 @@ date: 2026-03-08
 updated: 2026-03-11
 decision-makers: Achim Dehnert
 consulted: Cascade
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/discord/: Discord bot with 9 slash commands live"
 ---
 
 # ADR-114: Discord als verlängertes Cascade IDE

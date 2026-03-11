@@ -8,6 +8,9 @@ informed: –
 supersedes: –
 amends: ADR-068-adaptive-model-routing.md
 related: ADR-068, ADR-082, ADR-045, ADR-080
+implementation_status: implemented
+implementation_evidence:
+  - "aifw: LLMModel + LLMProvider models, DB-driven routing"
 ---
 
 # ADR-084: Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung

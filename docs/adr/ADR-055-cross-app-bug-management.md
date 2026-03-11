@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "GitHub Issues: cross-app bug management active"
 ---
 
 # ADR-055: Cross-App Bug & Feature Management

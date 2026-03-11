@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "bfagent: chat agent ecosystem with DomainToolkits"
 ---
 
 # ADR-036: Chat-Agent Ecosystem — DomainToolkits, Research Integration & Shared Chat-Widget

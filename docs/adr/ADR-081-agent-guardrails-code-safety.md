@@ -7,6 +7,9 @@ informed: –
 supersedes: –
 amends: ADR-066-ai-engineering-team.md, ADR-080-multi-agent-coding-team-pattern.md
 related: ADR-066, ADR-068, ADR-070, ADR-080
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/: guardrails + gate levels"
 ---
 
 # ADR-081: Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback

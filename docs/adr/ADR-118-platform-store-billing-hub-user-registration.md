@@ -3,6 +3,9 @@ status: accepted
 date: 2026-03-10
 updated: 2026-03-11-v1.2
 decision-makers: Achim Dehnert
+implementation_status: partial
+implementation_evidence:
+  - "billing-hub: store concept exists, full user registration flow pending"
 ---
 
 # ADR-118: billing-hub als Platform Store

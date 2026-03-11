@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "all repos: dev environment + deploy workflow"
 ---
 
 # ADR-042: Development Environment & Deployment Workflow

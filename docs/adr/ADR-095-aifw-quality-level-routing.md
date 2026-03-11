@@ -16,6 +16,9 @@ related: [ADR-027, ADR-043, ADR-050, ADR-057, ADR-068, ADR-084, ADR-089, ADR-093
 supersedes: []
 amends: [ADR-089, ADR-093]
 last_verified: 2026-03-02
+implementation_status: implemented
+implementation_evidence:
+  - "aifw/src/aifw/service.py: _lookup_cascade(), get_action_config()"
 ---
 
 # ADR-095: aifw Quality-Level Routing — Multi-Dimensional LLM Dispatch with Prompt-Template Coordination

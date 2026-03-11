@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "platform-context package: shared backend services"
 ---
 
 # ADR-027: Shared Backend Services für Django-Projekte

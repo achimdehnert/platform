@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "all hubs: Django component pattern adopted"
 ---
 
 # ADR-041: Django Component Pattern — Reusable UI Blocks

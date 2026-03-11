@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "platform-context MCP: platform context API"
 ---
 
 # ADR-028: Platform Context – Konsolidierung der Platform Foundation

@@ -5,6 +5,9 @@ amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
+implementation_status: partial
+implementation_evidence:
+  - "bfagent: Temporal planned, Celery still primary"
 ---
 
 # ADR-079: Adopt Temporal Self-Hosted as Primary Durable Workflow Engine

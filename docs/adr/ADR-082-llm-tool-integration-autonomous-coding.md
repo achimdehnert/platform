@@ -7,6 +7,9 @@ informed: –
 supersedes: –
 amends: ADR-066-ai-engineering-team.md, ADR-080-multi-agent-coding-team-pattern.md
 related: ADR-066, ADR-068, ADR-070, ADR-080, ADR-081
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/: LLM tool integration"
 ---
 
 # ADR-082: Wir ersetzen Stub-Steps durch echte LLM-Tool-Calls um das Agent Team autonom Coding-Tasks ausführen zu lassen
