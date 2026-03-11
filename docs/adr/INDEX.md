@@ -212,5 +212,5 @@
 - [x] ADR-096: ✅ APPROVED → `Accepted` -- 2026-03-11
 - [x] ADR-097: ✅ APPROVED → `Accepted` → aifw 0.6.0 kann implementiert werden -- 2026-03-11
 - [x] ADR-099: INDEX-Status korrigiert (`Proposed` → `Accepted`, war bereits im ADR) -- 2026-03-11
-- [ ] aifw 0.6.0 implementieren (ADR-097 Release-Checklist Steps 1-12)
-- [ ] catalog-info.yaml in allen 30 Repos pruefen/erstellen (ADR-077 compliance)
+- [x] aifw 0.6.0: bereits vollständig implementiert (Models, Migration, Service, Tests) — __version__ sync gefixt -- 2026-03-11
+- [x] catalog-info.yaml: 29/29 Repos haben jetzt catalog-info.yaml (8 fehlende erstellt) -- 2026-03-11
