@@ -49,12 +49,13 @@ Gesamturteil:
 | [ADR-119-review-2026-03-11.md](ADR-119-review-2026-03-11.md) | AuthoredContent Pipeline (Lore → Stil) | ❌ → ✅ v1.1 | [platform#24](https://github.com/achimdehnert/platform/issues/24) |
 | [ADR-120-input-bewertung.md](ADR-120-input-bewertung.md) | Unified Deployment Pipeline (6 Input-Dateien) | ⚠️ Fixes eingearbeitet | — |
 | [ADR-120-review-2026-03-11.md](ADR-120-review-2026-03-11.md) | Unified Deployment Pipeline (inkl. Input-Report) | ❌ → ✅ v1.1 Fixes applied | — |
-| [ADR-114-review-2026-03-11.md](ADR-114-review-2026-03-11.md) | Discord als verlängertes Cascade IDE | ❌ → v2.0 Rewrite | — |
-| [ADR-117-review-2026-03-11.md](ADR-117-review-2026-03-11.md) | Shared World Layer (weltenfw) | ❌ → v1.1 Fixes | — |
-| [ADR-111-review-2026-03-11.md](ADR-111-review-2026-03-11.md) | Private Package Distribution | ⚠️ Approved w/ Comments | — |
+| [ADR-114-review-2026-03-11.md](ADR-114-review-2026-03-11.md) | Discord als verlängertes Cascade IDE | ❌ → ✅ v2.2 | — |
+| [ADR-117-review-2026-03-11.md](ADR-117-review-2026-03-11.md) | Shared World Layer (weltenfw) | ❌ → ✅ v1.1 | — |
+| [ADR-111-review-2026-03-11.md](ADR-111-review-2026-03-11.md) | Private Package Distribution | ⚠️ → Superseded (PyPI) | — |
 | [ADR-102-review-2026-03-11.md](ADR-102-review-2026-03-11.md) | Cloudflare DNS/CDN/DDoS | ⚠️ Approved w/ Comments | — |
-| [ADR-103-review-2026-03-11.md](ADR-103-review-2026-03-11.md) | ausschreibungs-hub Architektur v3 | ⚠️ 1B (pyproject.toml) | — |
-| [ADR-104-review-2026-03-11.md](ADR-104-review-2026-03-11.md) | Research Hub + iil-researchfw | ⚠️ 1B (Frontmatter) | — |
+| [ADR-103-review-2026-03-11.md](ADR-103-review-2026-03-11.md) | ausschreibungs-hub Architektur v3 | ⚠️ 1B gefixt (hatchling) | — |
+| [ADR-104-review-2026-03-11.md](ADR-104-review-2026-03-11.md) | Research Hub + iil-researchfw | ⚠️ 1B gefixt (MADR FM) | — |
+| [ADR-095-review-2-2026-03-11.md](ADR-095-review-2-2026-03-11.md) | aifw Quality-Level Routing (Review 2) | ✅ Accepted | — |
 | [ADR-105-review-2026-03-11.md](ADR-105-review-2026-03-11.md) | iil-researchfw Extraction Plan v2 | ⚠️ Approved w/ Comments | — |
 | [ADR-100-numbering-conflict-2026-03-11.md](ADR-100-numbering-conflict-2026-03-11.md) | 7 Nummernkonflikte → ADR-130–136 | ✅ RESOLVED | — |
 

@@ -1,10 +1,10 @@
 ---
 id: ADR-095
 title: "aifw Quality-Level Routing — Multi-Dimensional LLM Dispatch with Prompt-Template Coordination"
-status: proposed
+status: accepted
 date: 2026-03-02
-revised: 2026-03-02
-revision: "1 — post external review"
+revised: 2026-03-11
+revision: "2 — accepted after second review"
 author: Achim Dehnert
 owner: Achim Dehnert
 decision-makers: [Achim Dehnert]
@@ -22,7 +22,7 @@ last_verified: 2026-03-02
 
 | Field | Value |
 |-------|-------|
-| Status | **Proposed** (rev1 — awaiting second review after blocker resolution) |
+| Status | **Accepted** (rev2 — second review passed, 2026-03-11) |
 | Date | 2026-03-02 |
 | Revised | 2026-03-02 (rev1 — resolved B-01, B-02, B-03, H-01..H-05, M-01..M-05, L-01..L-04) |
 | Author | Achim Dehnert |
@@ -39,6 +39,7 @@ last_verified: 2026-03-02
 |-----|------|--------|---------|
 | 0 | 2026-03-02 | Achim Dehnert | Initial draft |
 | 1 | 2026-03-02 | Achim Dehnert | B-01: partial unique indexes; B-02: deterministic lookup; B-03: ADR-068 abgrenzung; H-01: TierQualityMapping model; H-02: Redis caching; H-03: priority explicit-only; H-04: row count corrected (180); H-05: OQ-1 resolved inline; M-01: status→proposed; M-02: CHECK constraint; M-03: QualityLevel constants; M-04: ConfigurationError kept (graceful degradation rejected); M-05: links cleaned; L-01..L-04: MADR compliance, ADR-057 ref, OQ-2 decided, semver confirmed |
+| 2 | 2026-03-11 | Cascade (Review 2) | Status → Accepted. 0 BLOCKs, 2 SUGGESTs (CHECK as Meta.constraints, cascade logging), 1 QUESTION (check_aifw_config format). See [Review 2](../reviews/ADR-095-review-2-2026-03-11.md) |
 
 ---
 
