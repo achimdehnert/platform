@@ -12,7 +12,10 @@ logger = logging.getLogger(__name__)
 
 
 def _default_key_func(request: HttpRequest) -> str:
-    return hashlib.md5(f"{request.path}:{request.GET.urlencode()}".encode()).hexdigest()
+    return hashlib.md5(  # noqa: S324
+        f"{request.path}:{request.GET.urlencode()}".encode(),
+        usedforsecurity=False,
+    ).hexdigest()
 
 
 def cached_view(
@@ -59,7 +62,10 @@ def cached_method(
             key_parts = [
                 "iil:method",
                 key_prefix or f"{self.__class__.__name__}.{method.__name__}",
-                hashlib.md5(str(args).encode() + str(sorted(kwargs.items())).encode()).hexdigest(),
+                hashlib.md5(  # noqa: S324
+                    str(args).encode() + str(sorted(kwargs.items())).encode(),
+                    usedforsecurity=False,
+                ).hexdigest(),
             ]
             cache_key = ":".join(key_parts)
 

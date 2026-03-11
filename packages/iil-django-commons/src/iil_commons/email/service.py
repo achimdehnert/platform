@@ -74,10 +74,9 @@ class EmailService:
                 "Install with: pip install 'iil-django-commons[email]'"
             ) from exc
 
-        import os
-
-        resend.api_key = os.environ.get("RESEND_API_KEY", "")
         from django.conf import settings
+
+        resend.api_key = getattr(settings, "RESEND_API_KEY", "")
 
         from_email = message.from_email or getattr(
             settings, "DEFAULT_FROM_EMAIL", "noreply@example.com"
