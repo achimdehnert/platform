@@ -2,7 +2,12 @@
 status: accepted
 date: 2026-02-27
 decision-makers: [Achim Dehnert]
-implementation_status: partial
+implementation_status: implemented
+implementation_evidence:
+  - "Phase 0 ✅: generate_project_facts.py committed + --all flag"
+  - "Phase 1 ✅: windsurf-rules/ deployed to all 7 repos via CI"
+  - "Phase 2 ✅: platform_context_mcp live (4 tools, graph validated 4/4)"
+  - "Windsurf mcp_config.json registered, active in every session"
 ---
 
 # ADR-132: AI Context Defense-in-Depth
