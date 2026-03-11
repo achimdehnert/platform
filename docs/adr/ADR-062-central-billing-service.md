@@ -4,7 +4,10 @@ date: 2026-03-05
 decision-makers: Achim Dehnert
 implementation_status: partial
 implementation_evidence:
-  - "billing-hub: exists but Stripe integration incomplete"
+  - "billing-hub: 6 models, 4 services, Stripe webhook, HMAC auth, access API"
+  - "apps/billing/: Platform, Customer, Subscription, ModulePurchase, Invoice, BillingEvent"
+  - "apps/api/: access_check, customer_detail, stripe_webhook with signature"
+  - "remaining: deployment to billing.iil.pet"
 ---
 
 # ADR-062: Zentraler Billing-Service für die Plattform
