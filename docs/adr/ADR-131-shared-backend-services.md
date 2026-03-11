@@ -15,13 +15,13 @@ implementation_evidence:
   - "8 Module: logging, health, cache, ratelimit, security, email, tasks, monitoring"
   - "31 Tests (30 passed, 1 skipped), CI Pipeline Python 3.11+3.12"
   - "Consumer 1: billing-hub (LIVE billing.iil.pet) — INSTALLED_APPS, Middleware, Health, IIL_COMMONS"
-  - "HEALTH_PATHS-Filter in RequestLogMiddleware (Review-Finding behoben 2026-03-11)"
 ---
 
 # ADR-131: Shared Backend Services Library für Django-Projekte
 
 > **Amended 2026-03-11**: Review-Bereinigung — Metadaten korrigiert, Projektstruktur an
 > Implementierung angepasst, Rollout-Plan aktualisiert, offene Fragen entschieden.
+> Phase 4 (billing-hub Consumer) als done markiert. HEALTH_PATHS-Evidence korrigiert (noch offen).
 >
 > *Umnummeriert von ADR-091 (Nummernkonflikt mit ADR-091-platform-operations-hub).*
 
@@ -274,7 +274,7 @@ Die Migration erfolgt schrittweise. Bestehende Eigenimplementierungen werden dur
 | **Phase 1** | Logging + Health + Cache | ✅ done | 2026-02-27 | v0.1.0, 12 Tests |
 | **Phase 2** | Rate Limiting + Security | ✅ done | 2026-02-27 | v0.2.0, +9 Tests (22 total) |
 | **Phase 3** | Email + Tasks + Monitoring | ✅ done | 2026-02-27 | v0.3.0, +9 Tests (31 total) |
-| **Phase 4** | Consumer-Integration (erster Hub) | 🔲 pending | — | Hub-Integration, Validation, PyPI/Wheel |
+| **Phase 4** | Consumer-Integration (erster Hub) | ✅ done | 2026-03-11 | billing-hub LIVE (billing.iil.pet), iil_commons in INSTALLED_APPS+Middleware |
 
 ---
 
@@ -301,7 +301,7 @@ Die Migration erfolgt schrittweise. Bestehende Eigenimplementierungen werden dur
 
 1. ~~ADR reviewen und Entscheidung treffen~~ ✅ accepted
 2. ~~Phase 1–3 Module implementieren~~ ✅ v0.3.0 (2026-02-27)
-3. **Phase 4: Ersten Consumer-Hub integrieren** (z.B. billing-hub oder research-hub)
-4. Wheel bauen und in Hub-Repos als Dependency einbinden
-5. `BaseTask.__call__` auf Celery-Lifecycle-Hooks umstellen (Review-Finding)
+3. ~~Phase 4: Ersten Consumer-Hub integrieren~~ ✅ billing-hub (LIVE billing.iil.pet)
+4. Wheel bauen und in weitere Hub-Repos als Dependency einbinden
+5. `BaseTask.__call__` auf Celery-Lifecycle-Hooks umstellen (Technical Debt)
 6. `HEALTH_PATHS`-Filter in `RequestLogMiddleware` einbauen (Health-Request-Spam vermeiden)
