@@ -1,8 +1,14 @@
 ---
-status: proposed
+status: accepted
 date: 2026-02-27
 decision-makers: Achim Dehnert
-implementation_status: partial
+implementation_status: implemented
+implementation_evidence:
+  - "dev-hub/apps/ai_config/: LLMProvider, AgentConfig, PromptTemplate, PromptExecution"
+  - "devhub.iil.pet/ai/ → 302 (live, login-required)"
+  - "Services: LLMService (provider test, prompt rendering)"
+  - "Views: ProviderList/Detail/Test, AgentList/Detail, PromptList/Detail/Test"
+  - "TenantAwareModel on all models"
 ---
 
 # ADR-093: AI & LLM Configuration App in dev-hub
