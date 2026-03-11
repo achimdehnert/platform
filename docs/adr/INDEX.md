@@ -121,7 +121,7 @@
 | 059 | Automated ADR Drift Detection and Staleness Management | `Accepted` | 🔶 | [ADR-059](ADR-059-adr-drift-detector.md) |
 | 060 | Developer Workstation SSH Key Configuration Standard | `Accepted` | ✅ | [ADR-060](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Adopt hardcode_scanner.py as Platform-wide Tooling | `Accepted` | 🔶 | [ADR-061](ADR-061-hardcoding-elimination-strategy.md) |
-| 062 | Central Billing Service (billing-hub) | `Accepted` | 🔶 | [ADR-062](ADR-062-central-billing-service.md) |
+| 062 | Central Billing Service (billing-hub) | `Accepted` | ✅ | [ADR-062](ADR-062-central-billing-service.md) |
 | 063 | Staging Environment Strategy | `Accepted` | 🔶 | [ADR-063](ADR-063-staging-environment-strategy.md) |
 | 064 | coach-hub Architecture | `Archived` | — | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
 | 065 | Filesystem-first ADR Numbering -- max(existing) + 1 | `Accepted` | ✅ | [ADR-065](ADR-065-adr-numbering-filesystem-first.md) |
@@ -170,7 +170,7 @@
 | 115 | Grafana Agent Controlling Dashboard | `Accepted` | ✅ | [ADR-115](ADR-115-grafana-agent-controlling-dashboard.md) |
 | 116 | Dynamic Model Router | `Accepted` | ✅ | [ADR-116](ADR-116-dynamic-model-router.md) |
 | 117 | Shared World Layer (worldfw) | `Accepted` | ⬜ | [ADR-117](ADR-117-shared-world-layer-worldfw.md) |
-| 118 | billing-hub als Platform Store | `Accepted` | 🔶 | [ADR-118](ADR-118-platform-store-billing-hub-user-registration.md) |
+| 118 | billing-hub als Platform Store | `Accepted` | ✅ | [ADR-118](ADR-118-platform-store-billing-hub-user-registration.md) |
 | 119 | Authored Content Pipeline (Neutral Lore → Style) | `Accepted` | ⬜ | [ADR-119](ADR-119-authored-content-pipeline-neutral-lore-to-style.md) |
 | 120 | Unified Deployment Pipeline | `Accepted` | ✅ | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
 | 121 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | ✅ | [ADR-121](ADR-121-iil-outlinefw-story-outline-framework.md) |
