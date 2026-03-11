@@ -4,15 +4,17 @@ date: 2026-03-10
 updated: 2026-03-11
 decision-makers: Achim Dehnert
 consulted: Cascade
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
   - "weltenfw v0.2.0: WeltenClient, AbstractWorldBackend, WeltenhubBackend, LocalWorldBackend"
   - "schema/: World, Character, Location, Scene, Story (Pydantic v2 frozen)"
   - "resources/: REST clients für worlds, characters, locations, scenes, stories, tenants"
   - "django/: app_config, cache integration"
-  - "auth.py: Token-basierte Authentifizierung"
+  - "auth.py: Token-basierte Authentifizierung (User-Token + Service-Token)"
+  - "Error-Contract: WorldResult, CharacterResult mit ok/error_code/backend"
+  - "CI: ci.yml + test.yml + publish.yml (Trusted Publishers)"
   - "50 unit tests (all green)"
-  - "Noch fehlend: bfagent + travel-beat Integration (consuming Apps)"
+  - "Noch offen (LOW): bfagent + travel-beat Consumer-Integration"
 ---
 
 # ADR-117: Shared World Layer — Weltenhub-DB als SSoT, weltenfw als Schreibkanal
