@@ -160,7 +160,7 @@
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Accepted` | ✅✅ | [ADR-099](ADR-099-devhub-release-management-ui.md) |
 | 100 | iil-testkit -- Shared Test Factory Package | `Accepted` | ✅ | [ADR-100](ADR-100-iil-testkit-shared-test-factory-package.md) |
 | 107 | Extended Agent Team -- Deployment Agent | `Accepted` | ✅ | [ADR-107](ADR-107-extended-agent-team-deployment-agent.md) |
-| 108 | Agent QA Cycle -- Quality Evaluator, Completion, AuditStore | `Accepted` | ⬜ | [ADR-108](ADR-108-agent-qa-cycle.md) |
+| 108 | Agent QA Cycle -- Quality Evaluator, Completion, AuditStore | `Accepted` | ✅ | [ADR-108](ADR-108-agent-qa-cycle.md) |
 | 109 | Multi-Tenancy Platform Standard (alle UI-Hubs) | `Accepted` | 🔶 | [ADR-109](ADR-109-multi-tenancy-platform-standard.md) |
 | 110 | i18n Platform Standard (alle UI-Hubs) | `Accepted` | 🔶 | [ADR-110](ADR-110-i18n-platform-standard.md) |
 | 111 | Private Package Distribution via GitHub Packages | `Superseded` | — | [ADR-111](ADR-111-private-package-distribution.md) |
@@ -194,7 +194,6 @@
 > ADR-062-REVIEW.md: verschoben nach docs/reviews/
 > ADR-2026-001: umnummeriert zu ADR-136 (ungültige Nummerierung)
 > Nummernkonflikte aufgelöst (2026-03-11): ADR-062, ADR-091, ADR-094, ADR-099, ADR-100 → ADR-130–136
-> ADR-108: Datei fehlt auf GitHub (INDEX-Eintrag bleibt, Datei muss erstellt werden)
 
 ---
 
@@ -233,5 +232,5 @@
 - [x] ADR-138: Review-Amend (status partial, Ausnahme für Governance-ADRs mit Artefakten) -- 2026-03-11
 - [x] ADR-138 Backfill: 24 Accepted ADRs mit implementation_status versehen (15 YAML + 8 neues Frontmatter + 1 API) -- 2026-03-11
 - [x] INDEX.md Impl-Spalte aktualisiert auf Backfill-Werte -- 2026-03-11
-- [ ] ADR-108: Datei ADR-108-agent-qa-cycle.md erstellen (INDEX-Eintrag vorhanden, Datei fehlt)
+- [x] ADR-108: Datei ADR-108-agent-qa-cycle.md erstellt + implementation_status: implemented -- 2026-03-11
 - [ ] ADR-138: /adr-review Workflow Check auf fehlende implementation_status
