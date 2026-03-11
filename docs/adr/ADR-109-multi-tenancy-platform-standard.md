@@ -1,3 +1,10 @@
+---
+status: accepted
+date: 2026-03-08
+decision-makers: [Achim Dehnert]
+implementation_status: partial
+---
+
 # ADR-109: Multi-Tenancy als Plattform-Standard für alle UI-Hubs
 
 - **Status:** Accepted (updated 2026-03-08 — REVIEW-ADR-109-110 BLOCKER fixes)

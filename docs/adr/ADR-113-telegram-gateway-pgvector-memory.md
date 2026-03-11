@@ -1,3 +1,10 @@
+---
+status: accepted
+date: 2026-03-08
+decision-makers: [Achim Dehnert]
+implementation_status: implemented
+---
+
 # ADR-113 — Telegram Gateway + pgvector Memory Store
 
 **Status:** Accepted (v2 — Review-Korrekturen eingearbeitet)

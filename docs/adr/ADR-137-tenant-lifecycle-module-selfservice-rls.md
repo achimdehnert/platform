@@ -1,3 +1,10 @@
+---
+status: accepted
+date: 2026-03-11
+decision-makers: [Achim Dehnert]
+implementation_status: partial
+---
+
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
 
 > **Umnummeriert von ADR-121** (ADR-121 jetzt für iil-outlinefw reserviert)
