@@ -50,6 +50,8 @@ Gesamturteil:
 | [ADR-120-input-bewertung.md](ADR-120-input-bewertung.md) | Unified Deployment Pipeline (6 Input-Dateien) | ⚠️ Fixes eingearbeitet | — |
 | [ADR-120-review-2026-03-11.md](ADR-120-review-2026-03-11.md) | Unified Deployment Pipeline (inkl. Input-Report) | ❌ → ✅ v1.1 Fixes applied | — |
 | [ADR-114-review-2026-03-11.md](ADR-114-review-2026-03-11.md) | Discord als verlängertes Cascade IDE | ❌ → v2.0 Rewrite | — |
+| [ADR-117-review-2026-03-11.md](ADR-117-review-2026-03-11.md) | Shared World Layer (weltenfw) | ❌ → v1.1 Fixes | — |
+| [ADR-111-review-2026-03-11.md](ADR-111-review-2026-03-11.md) | Private Package Distribution | ⚠️ Approved w/ Comments | — |
 
 ### Ältere Reviews (migriert aus docs/adr/reviews/)
 
