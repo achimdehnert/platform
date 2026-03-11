@@ -152,7 +152,7 @@
 | 108 | Agent QA Cycle -- Quality Evaluator, Completion, AuditStore | `Accepted` | [ADR-108](ADR-108-agent-qa-cycle.md) |
 | 109 | Multi-Tenancy Platform Standard (alle UI-Hubs) | `Accepted` | [ADR-109](ADR-109-multi-tenancy-platform-standard.md) |
 | 110 | i18n Platform Standard (alle UI-Hubs) | `Accepted` | [ADR-110](ADR-110-i18n-platform-standard.md) |
-| 111 | Private Package Distribution via GitHub Packages | `Accepted` | [ADR-111](ADR-111-private-package-distribution.md) |
+| 111 | Private Package Distribution via GitHub Packages | `Superseded` | [ADR-111](ADR-111-private-package-distribution.md) |
 | 112 | Agent Skill Registry + Persistent Context | `Accepted` | [ADR-112](ADR-112-agent-skill-registry-persistent-context.md) |
 | 113 | Telegram Gateway + pgvector Memory | `Accepted` | [ADR-113](ADR-113-telegram-gateway-pgvector-memory.md) |
 | 114 | Discord IDE-like Communication Gateway | `Accepted` | [ADR-114](ADR-114-discord-ide-like-communication-gateway.md) |
@@ -169,7 +169,7 @@
 | 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | [ADR-133](ADR-133-shared-ai-services-package.md) |
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | [ADR-134](ADR-134-module-monetization-strategy.md) |
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) | `Proposed` | [ADR-136](ADR-136-shared-backend-services-original.md) |
-| 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Proposed` | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
+| 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
