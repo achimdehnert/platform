@@ -7,7 +7,7 @@ status: accepted
 date: 2026-03-08
 decision-makers: [achim.dehnert]
 tags: [writing-hub, travel-beat, bfagent, coach-hub, outline, pypi, iil-packages, creative-writing]
-drift-detector: paths=[outlinefw/src/outlinefw/], adr=ADR-100
+drift-detector: paths=[outlinefw/src/outlinefw/], adr=ADR-121
 related: [ADR-083-writing-hub, iil-authoringfw, iil-aifw, iil-promptfw]
 ```
 
@@ -178,8 +178,6 @@ class OutlineServiceBase(ABC):
 - Erster Beat ≤ 0.1, letzter Beat ≥ 0.9
 - Kein Gap zwischen adjacent Beats > 0.30
 
-Kompatibel mit `iil-aifw` und jedem Custom-Router.
-
 ---
 
 ## Implementation
@@ -193,7 +191,7 @@ Kompatibel mit `iil-aifw` und jedem Custom-Router.
 
 ### Phase 2 — Eigenständiges Repo + Production Quality (abgeschlossen 2026-03-08)
 
-- Repo: `github.com/achimdehnert/outlinefw`
+- Repo: `https://github.com/achimdehnert/outlinefw`
 - PyPI-Name: `iil-outlinefw`
 - `pyproject.toml`: hatchling build, `py.typed` (PEP 561), `django` optional dep, mypy strict
 - Test-Suite: `tests/test_outlinefw.py` mit 30+ Tests (Schemas, Frameworks, Parser, Generator, Adapter)
@@ -218,7 +216,7 @@ Kompatibel mit `iil-aifw` und jedem Custom-Router.
 
 | Repo | Aufgabe | Priorität |
 |------|---------|-----------|
-| `writing-hub` | `pip install iil-outlinefw`, `src/outlinefw/` entfernen | MEDIUM |
+| `writing-hub` | `pip install iil-outlinefw`, `src/outlinefw/` + `sys.path` Hack entfernen | HIGH |
 | `travel-beat` | `SAVE_THE_CAT_BEATS` ersetzen durch `outlinefw.frameworks` | LOW |
 | `bfagent` | `OutlineGenerationHandler` auf `OutlineGenerator` umstellen | LOW |
 | `coach-hub` | Direkt `iil-outlinefw` nutzen, kein Copy-Paste | FUTURE |
