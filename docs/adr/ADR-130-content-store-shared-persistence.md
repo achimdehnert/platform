@@ -8,6 +8,12 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-022-platform-consistency-standard.md", "ADR-037-chat-conversation-logging.md"]
+implementation_status: implemented
+implementation_evidence:
+  - "packages/content-store/: Django App mit Models, Router, Services, Admin, 15 Tests"
+  - "Prod DB: content_store auf devhub_db (88.198.191.108), 3 Tabellen + 9 Indizes"
+  - "dev-hub: erster Consumer (INSTALLED_APPS, DATABASES, DATABASE_ROUTERS)"
+  - "devhub_web Container: content_store DB-Verbindung verifiziert"
 ---
 
 # Adopt a shared Django app `content_store` for AI-generated content persistence
@@ -367,7 +373,7 @@ Flag über `ContentStoreService.save_compliance()` (mit `tenant_id` aus Konfigur
 | ~~Alembic-Setup in `creative-services`~~ | ❌ revidiert | 2026-03-11 |
 | Django App `content_store` erstellt | ✅ done | 2026-03-11 |
 | Django-Migration 0001 (ContentItem + ContentRelation + AdrCompliance) | ✅ done | 2026-03-11 |
-| `DATABASES["content_store"]` in consuming Apps konfiguriert | 🔲 pending | — |
+| `DATABASES["content_store"]` in consuming Apps konfiguriert (dev-hub) | ✅ done | 2026-03-11 |
 | Schema auf Prod deployed (88.198.191.108, devhub_db Container) | ✅ done | 2026-03-11 |
 | Drift Detector auf `ContentStoreService` umgestellt | 🔲 pending | — |
 
