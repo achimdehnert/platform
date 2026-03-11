@@ -1,4 +1,6 @@
-# ADR-099: Modul-Konfiguration und Monetarisierungsstrategie als shared Package
+# ADR-134: Modul-Konfiguration und Monetarisierungsstrategie als shared Package
+
+> **Umnummeriert von ADR-099** (Nummernkonflikt mit ADR-099-devhub-release-management-ui)
 
 | Metadata | Value |
 |----------|-------|

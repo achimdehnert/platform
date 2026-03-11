@@ -4,7 +4,9 @@ date: 2026-02-28
 decision-makers: Achim Dehnert
 ---
 
-# ADR-094: Shared AI Services als wiederverwendbare Python-Pakete
+# ADR-133: Shared AI Services als wiederverwendbare Python-Pakete
+
+> **Umnummeriert von ADR-094** (Nummernkonflikt mit ADR-094-django-migration-conflict-resolution)
 
 | Metadata | Value |
 |----------|-------|

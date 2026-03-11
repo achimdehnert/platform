@@ -1,4 +1,6 @@
-# ADR-094: AI Context Defense-in-Depth
+# ADR-132: AI Context Defense-in-Depth
+
+> **Umnummeriert von ADR-094** (Nummernkonflikt mit ADR-094-django-migration-conflict-resolution)
 
 **Status:** Accepted  
 **Date:** 2026-02-27  

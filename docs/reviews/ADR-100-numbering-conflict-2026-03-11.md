@@ -35,4 +35,13 @@ kein Problem (superseded by ADR-107), aber die beiden `Accepted` ADRs
 
 ## Gesamturteil
 
-❌ **CHANGES REQUESTED** — Nummernkonflikt muss aufgelöst werden.
+~~❌ **CHANGES REQUESTED** — Nummernkonflikt muss aufgelöst werden.~~
+
+✅ **RESOLVED** (2026-03-11) — Alle 7 Nummernkonflikte aufgelöst:
+- ADR-062 content-store → ADR-130
+- ADR-091 shared-backend → ADR-131
+- ADR-094 ai-context → ADR-132, shared-ai → ADR-133
+- ADR-099 monetization → ADR-134
+- ADR-100 outlinefw → ADR-135
+- ADR-2026-001 → ADR-136
+- 3 obsolete Dateien gelöscht (ADR-060-aifw, ADR-100-agent-team, ADR-103-v1)
