@@ -218,15 +218,28 @@ if [ "$MODE" = "staging" ]; then
   echo "🖥️  [4/4] Staging deploy..."
   ssh "$SERVER" "
     cd $COMPOSE_PATH &&
-    IMAGE_TAG=staging docker compose -f $COMPOSE_FILE -p ${APP_NAME}-staging pull $WEB_SERVICE &&
-    IMAGE_TAG=staging docker compose -f $COMPOSE_FILE -p ${APP_NAME}-staging up -d --force-recreate $WEB_SERVICE
+    export IMAGE_TAG=staging &&
+    docker compose -f $COMPOSE_FILE pull $WEB_SERVICE &&
+    docker compose -f $COMPOSE_FILE up -d --force-recreate $WEB_SERVICE
   "
-  ok "Staging Container gestartet"
+  ok "Container auf :staging Image aktualisiert"
 
   sleep 6
   ssh "$SERVER" "
-    IMAGE_TAG=staging docker compose -f $COMPOSE_PATH/$COMPOSE_FILE -p ${APP_NAME}-staging exec -T $WEB_SERVICE $MIGRATE_CMD 2>&1 | tail -5
+    cd $COMPOSE_PATH && export IMAGE_TAG=staging &&
+    docker compose -f $COMPOSE_FILE exec -T $WEB_SERVICE $MIGRATE_CMD 2>&1 | tail -5
   " && ok "Migrationen ausgeführt" || warn "Migration check: bitte logs prüfen"
+
+  echo ""
+  echo "🏥 Health Check..."
+  MAX_RETRIES=12; RETRY=0
+  while [ $RETRY -lt $MAX_RETRIES ]; do
+    STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$HEALTH_URL" 2>/dev/null || echo "000")
+    [ "$STATUS" = "200" ] && { ok "$HEALTH_URL → 200 OK"; break; }
+    RETRY=$((RETRY + 1))
+    [ $RETRY -eq $MAX_RETRIES ] && fail "Health check fehlgeschlagen ($STATUS)"
+    sleep 5
+  done
 
   echo ""
   echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
