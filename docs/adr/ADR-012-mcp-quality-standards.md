@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub: quality standards enforced"
 ---
 
 # ADR-012: MCP Server Quality Standards

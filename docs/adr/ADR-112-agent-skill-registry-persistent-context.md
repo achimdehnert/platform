@@ -5,6 +5,9 @@ updated: 2026-03-11
 decision-makers: Achim Dehnert
 consulted: Claude Sonnet (Cascade)
 informed: Agent Team
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub/orchestrator_mcp/skills/: skill registry + session memory"
 ---
 
 # ADR-112: Agent Skill Registry + Persistent Context Store

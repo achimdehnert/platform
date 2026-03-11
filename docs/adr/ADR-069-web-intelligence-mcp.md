@@ -1,14 +1,3 @@
-# ADR-069: Web Intelligence MCP — Plattformweiter Web-Zugriff
-
-```yaml
-status: accepted
-date: 2026-02-23
-amended: 2026-02-24
-decision-makers: [achim.dehnert]
-tags: [mcp-hub, web-scraping, web-intelligence, httpx, trafilatura, crawl4ai, playwright, redis, coach-hub, weltenhub, travel-beat, bfagent]
-drift-detector: paths=[mcp-hub/web_intelligence_mcp/], adr=ADR-069
-```
-
 ---
 
 ## Kontext und Problemstellung
@@ -26,7 +15,9 @@ IP-Sperren durch inkonsistentes Rate-Limiting, und mit klarer DSGVO-Hoheit?
 **Nicht-Ziel (dieses ADR):** Authentifiziertes Scraping (Login-Sessions) → ADR-070.
 URL-Discovery / Spider-Logik → separates ADR. Dieses MCP empfängt immer
 **konkrete URLs** von aufrufenden Agenten.
-
+implementation_status: partial
+implementation_evidence:
+  - "mcp-hub: web intelligence basic, advanced features pending"
 ---
 
 ## Decision Drivers

@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "platform/docs/: documentation governance active"
 ---
 
 # ADR-046: Documentation Governance — Hygiene, DIATAXIS & Docs Agent

@@ -17,6 +17,9 @@ repos:
 related: ADR-021 (Deployment Standard), ADR-045 (Secrets Management/SOPS), ADR-046 (Docs Hygiene), ADR-059 (ADR Drift Detector), ADR-060 (Developer Workstation SSH)
 amended: 2026-02-22
 tags: [security, governance, hardcoding, secrets, configuration]
+implementation_status: partial
+implementation_evidence:
+  - "most hubs: hardcoding reduced, some legacy remains"
 ---
 
 # ADR-061: Adopt hardcode_scanner.py as Platform-wide Hardcoding Prevention Tool

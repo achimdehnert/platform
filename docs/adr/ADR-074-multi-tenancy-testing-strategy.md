@@ -5,6 +5,9 @@ amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
+implementation_status: partial
+implementation_evidence:
+  - "iil-testkit: tenant fixtures, not all hubs adopted"
 ---
 
 # ADR-074: Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates

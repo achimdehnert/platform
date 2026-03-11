@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "all repos: ruff + bandit in CI"
 ---
 
 # ADR-071 Amendment: Code Quality Tooling (amends ADR-022)

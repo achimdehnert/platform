@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-26
 decision-makers: [Platform Team]
+implementation_status: partial
+implementation_evidence:
+  - "some hubs: notification basics, registry not centralized yet"
 ---
 
 <!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-notifications/**, supersedes_check: none -->

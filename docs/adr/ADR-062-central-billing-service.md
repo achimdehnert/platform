@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-03-05
 decision-makers: Achim Dehnert
+implementation_status: partial
+implementation_evidence:
+  - "billing-hub: exists but Stripe integration incomplete"
 ---
 
 # ADR-062: Zentraler Billing-Service für die Plattform
