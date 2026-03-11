@@ -1,4 +1,24 @@
 ---
+id: ADR-121
+title: "iil-outlinefw — Story-Outline-Framework"
+status: Accepted
+date: 2026-03-08
+decision-makers: [Achim Dehnert]
+consulted: []
+informed: []
+tags: [package, outlinefw, creative-writing, pure-python]
+supersedes: []
+related: [ADR-096, ADR-097]
+implementation_status: partial
+implementation_evidence:
+  - "Repo: https://github.com/achimdehnert/outlinefw — v0.1.0, 30+ Tests"
+  - "5 Frameworks: three_act, save_the_cat, heros_journey, five_act, dan_harmon"
+  - "Modules: schemas, frameworks, generator, parser, django_adapter"
+  - "pyproject.toml: hatch build, py.typed (PEP 561), mypy strict, ruff"
+  - "publish.yml Workflow vorhanden, ci.yml fehlt noch"
+  - "writing-hub: src/outlinefw/ integriert via sys.path hack (commit 055cea8)"
+  - "Noch offen: Phase 3 — PyPI publish + writing-hub/travel-beat/bfagent Migration"
+---
 
 ## Kontext und Problemstellung
 
@@ -6,11 +26,7 @@ Drei Applikationen (writing-hub, travel-beat, bfagent) implementieren Story-Outl
 unabhängig voneinander:
 
 | Repo | Duplication |
-|
-implementation_status: implemented
-implementation_evidence:
-  - "writing-hub: iil-outlinefw integrated"
-------|-------------|
+|------|-------------|
 | `bfagent` | `OutlineGenerationHandler`, `EnhancedSaveTheCatOutlineHandler`, `OutlineGeneratorService` |
 | `travel-beat` | `StoryOutline` Model, `OutlineEngine`, `OutlineValidator`, `SAVE_THE_CAT_BEATS` |
 | `writing-hub` | `OutlineGeneratorService`, `FRAMEWORKS` dict, `_parse_nodes()` |
