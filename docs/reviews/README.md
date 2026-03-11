@@ -48,7 +48,8 @@ Gesamturteil:
 | [ADR-118-review-2026-03-11.md](ADR-118-review-2026-03-11.md) | billing-hub als Platform Store | ❌ → ✅ v1.2 | [platform#23](https://github.com/achimdehnert/platform/issues/23) |
 | [ADR-119-review-2026-03-11.md](ADR-119-review-2026-03-11.md) | AuthoredContent Pipeline (Lore → Stil) | ❌ → ✅ v1.1 | [platform#24](https://github.com/achimdehnert/platform/issues/24) |
 | [ADR-120-input-bewertung.md](ADR-120-input-bewertung.md) | Unified Deployment Pipeline (6 Input-Dateien) | ⚠️ Fixes eingearbeitet | — |
-| [ADR-120-review-2026-03-11.md](ADR-120-review-2026-03-11.md) | Unified Deployment Pipeline (inkl. Input-Report) | ❌ → ✅ v1.1 | — |
+| [ADR-120-review-2026-03-11.md](ADR-120-review-2026-03-11.md) | Unified Deployment Pipeline (inkl. Input-Report) | ❌ → ✅ v1.1 Fixes applied | — |
+| [ADR-114-review-2026-03-11.md](ADR-114-review-2026-03-11.md) | Discord als verlängertes Cascade IDE | ❌ → v2.0 Rewrite | — |
 
 ### Ältere Reviews (migriert aus docs/adr/reviews/)
 
