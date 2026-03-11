@@ -368,7 +368,7 @@ Flag über `ContentStoreService.save_compliance()` (mit `tenant_id` aus Konfigur
 | Django App `content_store` erstellt | ✅ done | 2026-03-11 |
 | Django-Migration 0001 (ContentItem + ContentRelation + AdrCompliance) | ✅ done | 2026-03-11 |
 | `DATABASES["content_store"]` in consuming Apps konfiguriert | 🔲 pending | — |
-| Schema auf Prod deployed (88.198.191.108) via `manage.py migrate` | 🔲 pending | — |
+| Schema auf Prod deployed (88.198.191.108, devhub_db Container) | ✅ done | 2026-03-11 |
 | Drift Detector auf `ContentStoreService` umgestellt | 🔲 pending | — |
 
 ---
