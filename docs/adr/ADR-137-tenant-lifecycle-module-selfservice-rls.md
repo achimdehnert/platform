@@ -15,8 +15,16 @@ implementation_evidence:
   - "2.1 enable_rls: Cast-Introspection (UUID→uuid, BigInt→bigint), --dry-run, --disable, --table"
   - "2.3 setup_rls_roles: App-User vs Migrations-User (Table Owner = RLS-exempt)"
   - "Bonus: module_access.py — ModuleAccessMiddleware + require_module() Decorator + Role-Hierarchy"
-  - "Phase 3 (Self-Service Module-Shop): ausstehend — Views + Templates + billing-hub Integration"
-  - "Phase 4 (Rollout weitere Repos): ausstehend"
+  - "Phase 3 (Self-Service Module-Shop): DONE — packages/django-module-shop/ in risk-hub"
+  - "3.1 Views: catalogue_view, detail_view, activate_view, cancel_view (login_required)"
+  - "3.1 Templates: catalogue.html, detail.html"
+  - "3.1 Catalogue-Service: catalogue.py (enrich mit ModuleSubscription-Status pro Tenant)"
+  - "3.2 Activate-Redirect: billing-hub Checkout URL mit product/module/tenant_id/return_url"
+  - "3.2 Settings: BILLING_HUB_CHECKOUT_URL, MODULE_SHOP_PRODUCT_NAME, MODULE_SHOP_CATALOGUE (8 Module)"
+  - "3.x Tests: test_catalogue.py, test_views.py"
+  - "3.x URLs: /billing/modules/ → django_module_shop.urls (INSTALLED_APPS + urls.py)"
+  - "3.x Cancel: Stub (Log + Message), volle HMAC-Integration → Phase 4"
+  - "Phase 4 (Rollout): ausstehend — TenantManager in bestehende Models, RLS auf Prod, billing/ App entfernen"
 ---
 
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
