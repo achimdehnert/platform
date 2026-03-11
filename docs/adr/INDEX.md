@@ -82,7 +82,7 @@
 | 018 | Weltenhub -- Zentrale Story-Universe Plattform | `Archived` | — | [ADR-018](_archive/superseded/ADR-018-weltenhub-architecture.md) |
 | 019 | Weltenhub UI, Templates, Views & APIs | `Archived` | — | [ADR-019](_archive/superseded/ADR-019-weltenhub-ui-templates-apis.md) |
 | 020 | Dokumentationsstrategie -- Sphinx, DB-driven, ADR-basiert | `Superseded` | — | [ADR-020](ADR-020-documentation-strategy.md) |
-| 021 | Unified Single-Service Deployment Pipeline | `Accepted` | ⬜ | [ADR-021](ADR-021-unified-deployment-pattern.md) |
+| 021 | Unified Single-Service Deployment Pipeline | `Accepted` | ✅ | [ADR-021](ADR-021-unified-deployment-pattern.md) |
 | 022 | Platform Consistency Standard (v3) | `Accepted` | ✅ | [ADR-022](ADR-022-platform-consistency-standard.md) |
 | 023 | Shared Scoring and Routing Engine | `Deprecated` | — | [ADR-023](ADR-023-shared-scoring-routing-engine.md) |
 | 024 | Location-Recherche als Weltenhub-Modul | `Archived` | — | [ADR-024](_archive/superseded/ADR-024-recherche-hub-weltenhub-integration.md) |
@@ -115,34 +115,34 @@
 | 053 | deployment-mcp Robustness -- Circuit Breaker & Timeout-Fixes | `Superseded` | — | [ADR-053](ADR-053-deployment-mcp-robustness.md) |
 | 054 | Deployment Pre-Flight Validation & platform-context | `Superseded` | — | [ADR-054](ADR-054-deployment-preflight-validation.md) |
 | 055 | Cross-App Bug & Feature Management | `Accepted` | ✅ | [ADR-055](ADR-055-cross-app-bug-management.md) |
-| 056 | Deployment Pre-Flight Validation & Pipeline Hardening | `Accepted` | ⬜ | [ADR-056](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
-| 057 | Four-Level Test Strategy with Contract Testing | `Accepted` | ⬜ | [ADR-057](ADR-057-platform-test-strategy.md) |
-| 058 | 28-Type Test Taxonomy as Platform Binding Standard | `Accepted` | ⬜ | [ADR-058](ADR-058-platform-test-taxonomy.md) |
+| 056 | Deployment Pre-Flight Validation & Pipeline Hardening | `Accepted` | ✅ | [ADR-056](ADR-056-deployment-preflight-and-pipeline-hardening.md) |
+| 057 | Four-Level Test Strategy with Contract Testing | `Accepted` | 🔶 | [ADR-057](ADR-057-platform-test-strategy.md) |
+| 058 | 28-Type Test Taxonomy as Platform Binding Standard | `Accepted` | 🔶 | [ADR-058](ADR-058-platform-test-taxonomy.md) |
 | 059 | Automated ADR Drift Detection and Staleness Management | `Accepted` | 🔶 | [ADR-059](ADR-059-adr-drift-detector.md) |
-| 060 | Developer Workstation SSH Key Configuration Standard | `Accepted` | ⬜ | [ADR-060](ADR-060-developer-workstation-ssh-configuration.md) |
+| 060 | Developer Workstation SSH Key Configuration Standard | `Accepted` | ✅ | [ADR-060](ADR-060-developer-workstation-ssh-configuration.md) |
 | 061 | Adopt hardcode_scanner.py as Platform-wide Tooling | `Accepted` | 🔶 | [ADR-061](ADR-061-hardcoding-elimination-strategy.md) |
 | 062 | Central Billing Service (billing-hub) | `Accepted` | 🔶 | [ADR-062](ADR-062-central-billing-service.md) |
-| 063 | Staging Environment Strategy | `Accepted` | ⬜ | [ADR-063](ADR-063-staging-environment-strategy.md) |
+| 063 | Staging Environment Strategy | `Accepted` | 🔶 | [ADR-063](ADR-063-staging-environment-strategy.md) |
 | 064 | coach-hub Architecture | `Archived` | — | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
-| 065 | Filesystem-first ADR Numbering -- max(existing) + 1 | `Accepted` | ⬜ | [ADR-065](ADR-065-adr-numbering-filesystem-first.md) |
-| 066 | AI Engineering Squad with Role-based Agents | `Accepted` | ⬜ | [ADR-066](ADR-066-ai-engineering-team.md) |
-| 067 | GitHub Issues + Projects as Single Source of Truth | `Accepted` | ⬜ | [ADR-067](ADR-067-work-management-strategy.md) |
-| 068 | Adaptive Model Routing and Quality Feedback Loop | `Accepted` | ⬜ | [ADR-068](ADR-068-adaptive-model-routing.md) |
+| 065 | Filesystem-first ADR Numbering -- max(existing) + 1 | `Accepted` | ✅ | [ADR-065](ADR-065-adr-numbering-filesystem-first.md) |
+| 066 | AI Engineering Squad with Role-based Agents | `Accepted` | ✅ | [ADR-066](ADR-066-ai-engineering-team.md) |
+| 067 | GitHub Issues + Projects as Single Source of Truth | `Accepted` | ✅ | [ADR-067](ADR-067-work-management-strategy.md) |
+| 068 | Adaptive Model Routing and Quality Feedback Loop | `Accepted` | 🔶 | [ADR-068](ADR-068-adaptive-model-routing.md) |
 | 069 | Web Intelligence MCP -- Plattformweiter Web-Zugriff | `Accepted` | 🔶 | [ADR-069](ADR-069-web-intelligence-mcp.md) |
 | 070 | Progressive Autonomy Pattern fuer den Developer-Agenten | `Accepted` | ✅ | [ADR-070](ADR-070-progressive-autonomy-developer-agent.md) |
 | 071 | Amendment: Code Quality Tooling (amends ADR-022) | `Accepted` | ✅ | [ADR-071](ADR-071-amendment-code-quality-tooling.md) |
 | 072 | PostgreSQL Schema Isolation for SaaS Multi-Tenancy | `Accepted` | 🔶 | [ADR-072](ADR-072-multi-tenancy-schema-isolation.md) |
 | 073 | Repo Scope & Migration Status (all 10 repos) | `Accepted` | ✅ | [ADR-073](ADR-073-repo-scope.md) |
 | 074 | Multi-Tenancy Testing Strategy -- Isolation, Propagation & CI | `Accepted` | 🔶 | [ADR-074](ADR-074-multi-tenancy-testing-strategy.md) |
-| 075 | Split Deployment Execution: Read-only MCP + Server-side Writes | `Accepted` | ⬜ | [ADR-075](ADR-075-deployment-execution-strategy.md) |
+| 075 | Split Deployment Execution: Read-only MCP + Server-side Writes | `Accepted` | ✅ | [ADR-075](ADR-075-deployment-execution-strategy.md) |
 | 076 | bfagent CI Test Strategy | `Archived` | — | [ADR-076](_archive/superseded/ADR-076-bfagent-ci-test-strategy.md) |
-| 077 | Infrastructure Context System: catalog-info.yaml -> dev-hub API | `Accepted` | ⬜ | [ADR-077](ADR-077-infrastructure-context-system.md) |
-| 078 | Amendment: Docker HEALTHCHECK ausschliesslich in docker-compose | `Accepted` | ⬜ | [ADR-078](ADR-078-amendment-docker-healthcheck-convention.md) |
+| 077 | Infrastructure Context System: catalog-info.yaml -> dev-hub API | `Accepted` | ✅ | [ADR-077](ADR-077-infrastructure-context-system.md) |
+| 078 | Amendment: Docker HEALTHCHECK ausschliesslich in docker-compose | `Accepted` | ✅ | [ADR-078](ADR-078-amendment-docker-healthcheck-convention.md) |
 | 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | `Accepted` | 🔶 | [ADR-079](ADR-079-temporal-workflow-engine.md) |
 | 080 | Multi-Agent Coding Team Pattern | `Accepted` | ✅ | [ADR-080](ADR-080-multi-agent-coding-team-pattern.md) |
 | 081 | Agent Guardrails & Code Safety -- Scope-Lock, Pre/Post-Gates | `Accepted` | ✅ | [ADR-081](ADR-081-agent-guardrails-code-safety.md) |
 | 082 | LLM Tool Integration -- Autonomous Coding Agent | `Accepted` | ✅ | [ADR-082](ADR-082-llm-tool-integration-autonomous-coding.md) |
-| 083 | Hybrid ADR Governance -- Platform + Repo-lokale ADRs | `Accepted` | ⬜ | [ADR-083](ADR-083-hybrid-adr-governance.md) |
+| 083 | Hybrid ADR Governance -- Platform + Repo-lokale ADRs | `Accepted` | ✅ | [ADR-083](ADR-083-hybrid-adr-governance.md) |
 | 084 | Model Registry -- Dynamisches LLM-Modell-Routing | `Accepted` | ✅ | [ADR-084](ADR-084-model-registry-dynamic-llm-routing.md) |
 | 085 | Use Case Pipeline -- Natural Language -> Structured TaskGraph | `Accepted` | 🔶 | [ADR-085](ADR-085-use-case-pipeline-nl-to-taskgraph.md) |
 | 086 | Agent Team Workflow -- Cross-Repo Sprint Execution Pattern | `Accepted` | ✅ | [ADR-086](ADR-086-agent-team-workflow.md) |
@@ -151,24 +151,24 @@
 | 089 | bfagent-llm -- LiteLLM-Backend + DB-driven Model-Routing | `Accepted` | ✅ | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Abstract CI/CD Pipeline -- Python + PostgreSQL -> Docker Deploy | `Accepted` | ✅ | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
 | 091 | Platform Operations Hub Consolidation | `Proposed` | ⬜ | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
-| 093 | AI Config App -- aifw als shared Django-App | `Accepted` | ⬜ | [ADR-093](ADR-093-ai-config-app.md) |
+| 093 | AI Config App -- aifw als shared Django-App | `Accepted` | 🔶 | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | `Accepted` | ✅ | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing -- Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | `Accepted` | ✅ | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
 | 096 | authoringfw -- Content Orchestration Scope, Architecture, and Domain Boundaries | `Accepted` | ⬜ | [ADR-096](ADR-096-authoringfw-scope-and-architecture.md) |
 | 097 | aifw 0.6.0 Implementation Contract -- Models, Migration, Service Layer, and Public API | `Accepted` | ✅ | [ADR-097](ADR-097-aifw-060-implementation-contract.md) |
-| 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | ⬜ | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
+| 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | `Accepted` | 🔶 | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI -- PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | `Accepted` | ✅✅ | [ADR-099](ADR-099-devhub-release-management-ui.md) |
 | 100 | iil-testkit -- Shared Test Factory Package | `Accepted` | ✅ | [ADR-100](ADR-100-iil-testkit-shared-test-factory-package.md) |
 | 107 | Extended Agent Team -- Deployment Agent | `Accepted` | ✅ | [ADR-107](ADR-107-extended-agent-team-deployment-agent.md) |
 | 108 | Agent QA Cycle -- Quality Evaluator, Completion, AuditStore | `Accepted` | ⬜ | [ADR-108](ADR-108-agent-qa-cycle.md) |
-| 109 | Multi-Tenancy Platform Standard (alle UI-Hubs) | `Accepted` | ⬜ | [ADR-109](ADR-109-multi-tenancy-platform-standard.md) |
-| 110 | i18n Platform Standard (alle UI-Hubs) | `Accepted` | ⬜ | [ADR-110](ADR-110-i18n-platform-standard.md) |
+| 109 | Multi-Tenancy Platform Standard (alle UI-Hubs) | `Accepted` | 🔶 | [ADR-109](ADR-109-multi-tenancy-platform-standard.md) |
+| 110 | i18n Platform Standard (alle UI-Hubs) | `Accepted` | 🔶 | [ADR-110](ADR-110-i18n-platform-standard.md) |
 | 111 | Private Package Distribution via GitHub Packages | `Superseded` | — | [ADR-111](ADR-111-private-package-distribution.md) |
 | 112 | Agent Skill Registry + Persistent Context | `Accepted` | ✅ | [ADR-112](ADR-112-agent-skill-registry-persistent-context.md) |
-| 113 | Telegram Gateway + pgvector Memory | `Accepted` | ⬜ | [ADR-113](ADR-113-telegram-gateway-pgvector-memory.md) |
+| 113 | Telegram Gateway + pgvector Memory | `Accepted` | ✅ | [ADR-113](ADR-113-telegram-gateway-pgvector-memory.md) |
 | 114 | Discord IDE-like Communication Gateway | `Accepted` | ✅ | [ADR-114](ADR-114-discord-ide-like-communication-gateway.md) |
-| 115 | Grafana Agent Controlling Dashboard | `Accepted` | ⬜ | [ADR-115](ADR-115-grafana-agent-controlling-dashboard.md) |
-| 116 | Dynamic Model Router | `Accepted` | ⬜ | [ADR-116](ADR-116-dynamic-model-router.md) |
+| 115 | Grafana Agent Controlling Dashboard | `Accepted` | ✅ | [ADR-115](ADR-115-grafana-agent-controlling-dashboard.md) |
+| 116 | Dynamic Model Router | `Accepted` | ✅ | [ADR-116](ADR-116-dynamic-model-router.md) |
 | 117 | Shared World Layer (worldfw) | `Accepted` | ⬜ | [ADR-117](ADR-117-shared-world-layer-worldfw.md) |
 | 118 | billing-hub als Platform Store | `Accepted` | 🔶 | [ADR-118](ADR-118-platform-store-billing-hub-user-registration.md) |
 | 119 | Authored Content Pipeline (Neutral Lore → Style) | `Accepted` | ⬜ | [ADR-119](ADR-119-authored-content-pipeline-neutral-lore-to-style.md) |
@@ -176,11 +176,11 @@
 | 121 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | ✅ | [ADR-121](ADR-121-iil-outlinefw-story-outline-framework.md) |
 | 130 | Shared Django App `content_store` (ehem. ADR-062) | `Accepted` | ⬜ | [ADR-130](ADR-130-content-store-shared-persistence.md) |
 | 131 | Shared Backend Services Library (ehem. ADR-091) | `Accepted` | 🔶 | [ADR-131](ADR-131-shared-backend-services.md) |
-| 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | ⬜ | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
+| 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | 🔶 | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
 | 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | ⬜ | [ADR-133](ADR-133-shared-ai-services-package.md) |
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | ⬜ | [ADR-134](ADR-134-module-monetization-strategy.md) |
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) — **Deprecated**, siehe ADR-131 | `Deprecated` | — | [ADR-136](ADR-136-shared-backend-services-original.md) |
-| 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | ⬜ | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
+| 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | 🔶 | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
 | 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | 🔶 | [ADR-138](ADR-138-implementation-tracking-standard.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
@@ -194,6 +194,7 @@
 > ADR-062-REVIEW.md: verschoben nach docs/reviews/
 > ADR-2026-001: umnummeriert zu ADR-136 (ungültige Nummerierung)
 > Nummernkonflikte aufgelöst (2026-03-11): ADR-062, ADR-091, ADR-094, ADR-099, ADR-100 → ADR-130–136
+> ADR-108: Datei fehlt auf GitHub (INDEX-Eintrag bleibt, Datei muss erstellt werden)
 
 ---
 
@@ -230,9 +231,7 @@
 - [x] ADR-138: INDEX.md Impl-Spalte hinzugefügt -- 2026-03-11
 - [x] ADR-130: Review-Amend (UUID→BigAutoField, Alembic→Django ORM, creative-services→content_store) -- 2026-03-11
 - [x] ADR-138: Review-Amend (status partial, Ausnahme für Governance-ADRs mit Artefakten) -- 2026-03-11
-- [x] ADR-138: Backfill fehlende ~24 Accepted ADRs ohne implementation_status im Frontmatter
+- [x] ADR-138 Backfill: 24 Accepted ADRs mit implementation_status versehen (15 YAML + 8 neues Frontmatter + 1 API) -- 2026-03-11
+- [x] INDEX.md Impl-Spalte aktualisiert auf Backfill-Werte -- 2026-03-11
+- [ ] ADR-108: Datei ADR-108-agent-qa-cycle.md erstellen (INDEX-Eintrag vorhanden, Datei fehlt)
 - [ ] ADR-138: /adr-review Workflow Check auf fehlende implementation_status
-- [x] ADR-062+118: billing-hub Code-Audit — 20+ Dateien bereits implementiert (überraschend vollständig) -- 2026-03-11
-- [x] ADR-118: E-Mail-Verifikation implementiert (EmailVerification Model + Service + Views) -- 2026-03-11
-- [x] ADR-062+118: Evidence aktualisiert mit konkreten Pfaden und Dateien -- 2026-03-11
-- [ ] ADR-062+118: Product Seed Data + Deployment billing.iil.pet
