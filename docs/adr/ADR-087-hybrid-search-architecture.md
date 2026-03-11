@@ -2,12 +2,19 @@
 status: accepted
 date: 2026-02-26
 decision-makers: [Platform Team]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "mcp-hub/query_agent_mcp/db.py: pgvector embeddings for memory/query"
-  - "bfagent/apps/research/handlers/knowledge_base_handler.py: pgvector KB search"
-  - "weltenhub: NO pgvector code yet (corrected 2026-03-11)"
-  - "shared platform-search package: not yet extracted"
+  - "Phase 1 Package: platform/packages/platform-search/ — 10 Tests passed"
+  - "SearchService: hybrid search (pgvector + FTS), index_chunks, delete_chunks, health_check"
+  - "EmbeddingService: OpenAI text-embedding-3-small, batched, sync-safe"
+  - "RRF: reciprocal_rank_fusion() mit konfigurierbaren Gewichten"
+  - "MMR: maximal_marginal_relevance() Diversity-Filter (Carbonell & Goldstein 1998)"
+  - "Temporal Decay: apply_temporal_decay() mit exponential half-life"
+  - "Migration: 0001_initial.py — search_chunks Tabelle + 5 Indexes (HNSW, GIN, B-Tree)"
+  - "Graceful Degradation: Embedding-API down → FTS-only Fallback"
+  - "mcp-hub: pgvector aktiv in query_agent_mcp + orchestrator memory"
+  - "bfagent: pgvector KB search in knowledge_base_handler.py"
+  - "Noch offen: Phase 4 Consumer-Integration (dev-hub, risk-hub, weltenhub)"
 ---
 
 <!-- Drift-Detector-Felder: staleness_months: 12, drift_check_paths: platform/packages/platform-search/**, supersedes_check: none -->
