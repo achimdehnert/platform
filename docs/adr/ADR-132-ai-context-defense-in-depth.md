@@ -12,14 +12,15 @@ implementation_status: implemented
 implementation_evidence:
   - "Phase 0 ✅: generate_project_facts.py committed + --all flag"
   - "Phase 1 ✅: windsurf-rules/ (9 Dateien) deployed to 18 repos via CI"
-  - "Phase 2 ✅: platform_context_mcp live (4 tools, 10 rules, 8 repos, graph validated 4/4)"
+  - "Phase 2 ✅: platform_context_mcp live (4 tools, 10 rules, 14 repos, graph expanded 2026-03-11)"
   - "Windsurf mcp_config.json registered, active in every session"
 ---
 
 # ADR-132: AI Context Defense-in-Depth
 
-> **Amended 2026-03-11**: Review-Bereinigung — Zahlen korrigiert (8→Repos Graph, 18→Deploy,
-> 9→Rule-Dateien, 10→Rules), MADR 4.0 Frontmatter, Layer 2 Tabelle vervollständigt.
+> **Amended 2026-03-11**: Review-Bereinigung — Zahlen korrigiert (14→Repos Graph, 18→Deploy,
+> 9→Rule-Dateien, 10→Rules), MADR 4.0 Frontmatter, Layer 2 Tabelle vervollständigt,
+> Knowledge Graph um 6 Repos erweitert (billing-hub, dev-hub, 137-hub, wedding-hub, writing-hub, research-hub).
 >
 > *Umnummeriert von ADR-094 (Nummernkonflikt mit ADR-094-django-migration-conflict-resolution).*
 > *Erweitert ADR-043 (AI-Assisted Development) um 4-Layer Context-Strategie.*
@@ -97,13 +98,13 @@ MCP server at `mcp-hub/platform_context_mcp/` with 4 tools:
 | `get_project_facts(repo)` | Returns repo metadata (HTMX, settings, container) |
 | `get_banned_patterns(context)` | Returns all banned patterns for a file type |
 
-Graph: 10 rules, 8 repos, validated 4/4 (syntactic, referential, orphan, coverage).
+Graph: 10 rules, 14 repos, validated 4/4 (syntactic, referential, orphan, coverage).
 
 ## CI/CD Automation
 
 | Workflow | Repo | Trigger | Action |
 |---|---|---|---|
-| `update-project-facts.yml` | 8 app repos (Graph) | push (settings/config) + self | Regenerate `project-facts.md` |
+| `update-project-facts.yml` | 14 app repos (Graph) | push (settings/config) + self | Regenerate `project-facts.md` |
 | `receive-windsurf-rules.yml` | 18 repos (all Hubs) | `repository_dispatch` + self | Sync rules from platform |
 | `deploy-windsurf-rules.yml` | platform | push to `windsurf-rules/` | Dispatch to 18 repos |
 
@@ -165,4 +166,4 @@ check_violations("books = Book.objects.filter(active=True)", "views.py")
 - ADR-072: Multi-Tenancy Schema Isolation
 - ADR-090: CI/CD Pipeline Python + PostgreSQL
 - `platform/windsurf-rules/` — 9 rule source files
-- `mcp-hub/platform_context_mcp/` — MCP server implementation (4 tools, 10 rules, 8 repos)
+- `mcp-hub/platform_context_mcp/` — MCP server implementation (4 tools, 10 rules, 14 repos)
