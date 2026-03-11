@@ -10,6 +10,13 @@ tags: [infrastructure, docker, performance, hetzner, gunicorn, postgresql, redis
 supersedes: []
 related: [ADR-021, ADR-022, ADR-042, ADR-056, ADR-063, ADR-078]
 implementation_status: partial
+implementation_evidence:
+  - "daemon.json auf PROD+DEV: live-restore, log-limits, BuildKit GC"
+  - "sysctl auf PROD+DEV: vm.overcommit_memory=1, net.core.somaxconn=4096"
+  - "Memory-Limits in docker-compose.prod.yml: travel-beat, weltenhub, coach-hub"
+  - "DEV Server Upgrade CPX32→CCX33 (8 vCPU, 32GB RAM) 2026-03-04"
+  - "Celery OOM-Fix: weltenhub_celery 256M→512M"
+  - "Noch fehlend: billing-hub compose hardening, Redis maxmemory auf allen Stacks"
 ---
 
 # ADR-098: Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure
