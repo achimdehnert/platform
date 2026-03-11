@@ -10,7 +10,7 @@ consulted: Cascade
 
 ## Status
 
-Accepted — v2.0 (2026-03-11, Review-Rewrite: 5-Layer-Architektur + MCP-Proxy)
+Accepted — v2.1 (2026-03-11, Review-Fixes: Encoding, Repo-Liste, Status-Korrekturen)
 
 **Repos:** mcp-hub, platform
 **Related:** ADR-113 (Discord Bot), ADR-101 (MCP Platform), ADR-107 (Agent Team), ADR-112 (Skill Registry), ADR-118 (HMAC Auth)
@@ -62,7 +62,7 @@ Nicht nur Notifications empfangen, sondern **mit Cascade chatten und Aktionen au
 │  Latenz: Minuten. Für Tasks die vollen Codebase-Zugriff brauchen│
 └─────────────────────────────────────────────────────────────────┘
 ┌─────────────────────────────────────────────────────────────────┐
-│  LAYER 2 — LLM Chat + Function Calling (PRIMARY PATH)    �    │
+│  LAYER 2 — LLM Chat + Function Calling (PRIMARY PATH)   🔴    │
 │  Discord /chat → GPT-4o + Platform-Kontext + MCP-Tool-Calls    │
 │  Latenz: 3-15s. Chat mit Kontext, kann Tools aufrufen           │
 └─────────────────────────────────────────────────────────────────┘
@@ -80,6 +80,15 @@ Nicht nur Notifications empfangen, sondern **mit Cascade chatten und Aktionen au
 
 **Primärpfad für "IDE-Chat": Layer 2** — GPT-4o mit Platform-Kontext und Function Calling.
 Das LLM entscheidet selbst ob es ein MCP-Tool braucht — **genau wie Cascade in der IDE**.
+
+### Layer 2 vs. Layer 4: Abgrenzung
+
+| Aspekt | Layer 2 (LLM Chat) | Layer 4 (MCP-Proxy `/run`) |
+|---|---|---|
+| Wer wählt das Tool? | **LLM** entscheidet autonom | **User** spezifiziert explizit |
+| Use Case | Natürlicher Chat: "Wie geht's risk-hub?" | Power-User: `/run docker ps risk-hub` |
+| Latenz | 3-15s (LLM-Roundtrip) | 1-5s (direkt) |
+| Kosten | Token-Verbrauch | Kein LLM nötig |
 
 ### Warum Layer 2 der Schlüssel ist
 
@@ -163,8 +172,10 @@ Discord /ask "Review ADR-120 und fixe die BLOCKs"
     → cascade-answer-notify.yml → Discord Notification
 ```
 
-**Label `cascade-task` in 11 Repos:** mcp-hub, bfagent, risk-hub, coach-hub,
-billing-hub, pptx-hub, trading-hub, travel-beat, weltenhub, cad-hub, wedding-hub
+**Label `cascade-task` in 18 Django-Hub-Repos (ADR-120):** mcp-hub, bfagent,
+risk-hub, coach-hub, billing-hub, pptx-hub, trading-hub, travel-beat, weltenhub,
+cad-hub, wedding-hub, dev-hub, nl2cad, illustration-hub, 137-hub, writing-hub,
+research-hub, ausschreibungs-hub
 
 **Wann Layer 3 statt Layer 2:**
 - Task braucht Code-Änderungen (Dateien erstellen/editieren)
@@ -220,7 +231,7 @@ iilgmbh-agent Server
 **Was Discord-IDE vollwertig kann (v2.0):**
 - ✅ Architektur-Fragen, Planung, ADR-Entscheidungen (Layer 2 Chat)
 - ✅ MCP-Tool-Ausführung: Health, Status, Logs, Deployments (Layer 2 + 4)
-- ✅ Code-Snippets anzeigen via GitHub API
+- 🔜 Code-Snippets anzeigen via GitHub API (Phase 7)
 - ✅ Task-Erstellung und Gate-Entscheidungen (Layer 1)
 - ✅ Proaktive Cascade-Kommunikation (Layer 0)
 - ✅ Komplexe Tasks an Windsurf delegieren (Layer 3)
@@ -302,3 +313,4 @@ iilgmbh-agent Server
 |-------|---------|----------|--------|------|
 | 2026-03-08 | v1.0 | Cascade | ✅ initial accepted | [Review](../reviews/ADR-114-discord-ide-like-communication-gateway.md) |
 | 2026-03-11 | v1.0 → v2.0 | Cascade | ❌ → Rewrite (4 BLOCKs: MADR-Frontmatter, Layer-3-Latenz, MCP-Tool-Zugriff, Stack-Info) | [Review](../reviews/ADR-114-review-2026-03-11.md) |
+| 2026-03-11 | v2.0 → v2.1 | Cascade | ⚠️ → Fixes (Encoding, Repo-Liste 18 statt 11, Code-Snippets Status, Layer-Abgrenzung) | — |
