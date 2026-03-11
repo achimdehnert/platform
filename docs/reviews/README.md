@@ -52,6 +52,8 @@ Gesamturteil:
 | [ADR-114-review-2026-03-11.md](ADR-114-review-2026-03-11.md) | Discord als verlängertes Cascade IDE | ❌ → v2.0 Rewrite | — |
 | [ADR-117-review-2026-03-11.md](ADR-117-review-2026-03-11.md) | Shared World Layer (weltenfw) | ❌ → v1.1 Fixes | — |
 | [ADR-111-review-2026-03-11.md](ADR-111-review-2026-03-11.md) | Private Package Distribution | ⚠️ Approved w/ Comments | — |
+| [ADR-102-review-2026-03-11.md](ADR-102-review-2026-03-11.md) | Cloudflare DNS/CDN/DDoS | ⚠️ Approved w/ Comments | — |
+| [ADR-103-review-2026-03-11.md](ADR-103-review-2026-03-11.md) | ausschreibungs-hub Architektur v3 | ⚠️ 1B (pyproject.toml) | — |
 
 ### Ältere Reviews (migriert aus docs/adr/reviews/)
 
