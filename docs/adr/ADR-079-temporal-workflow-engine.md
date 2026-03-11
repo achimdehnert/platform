@@ -5,9 +5,10 @@ amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
-implementation_status: partial
+implementation_status: none
 implementation_evidence:
-  - "bfagent: Temporal planned, Celery still primary"
+  - "intentionally deferred: Celery + orchestrator_mcp sufficient for current scale"
+  - "no Temporal code exists — decision valid but implementation not justified yet"
 ---
 
 # ADR-079: Adopt Temporal Self-Hosted as Primary Durable Workflow Engine
