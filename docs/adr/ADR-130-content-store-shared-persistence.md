@@ -1,16 +1,19 @@
 ---
 status: "accepted"
 date: 2026-02-15
-amended: 2026-02-24
+amended: 2026-03-11
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []
 amends: []
-related: ["ADR-037-chat-conversation-logging.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md"]
+related: ["ADR-022-platform-consistency-standard.md", "ADR-037-chat-conversation-logging.md"]
 ---
 
-# Adopt a shared PostgreSQL schema `content_store` for AI-generated content persistence
+# Adopt a shared Django app `content_store` for AI-generated content persistence
+
+> **Amended 2026-03-11**: Review-Fixes — UUID→BigAutoField, Alembic→Django ORM,
+> creative-services→content_store Django App, ContentRelation definiert, CHECK-Constraints.
 
 ---
 
@@ -35,26 +38,27 @@ Schnittstelle, ohne Versionierung und ohne Tenant-Isolation auf Plattformebene.
 - **Tenant-Isolation**: Alle Inhalte und Compliance-Daten müssen per `tenant_id` isoliert sein
 - **ADR-Compliance**: Drift-Detector soll Compliance-Ergebnisse persistieren können
 - **Minimale Invasion**: Bestehende App-Schemas bleiben unverändert
+- **ADR-022 Konformität**: Ausschließlich Django ORM, BigAutoField, kein hardcoded SQL
 
 ---
 
 ## Considered Options
 
-### Option 1 — Shared PostgreSQL Schema `content_store` (gewählt)
+### Option 1 — Shared Django App `content_store` mit DATABASE_ROUTER (gewählt)
 
-Ein dediziertes PostgreSQL-Schema `content_store` außerhalb aller Django-App-Schemas,
-verwaltet via Alembic. Django-Apps konsumieren es über eine typisierte Python-API.
+Eine Django-App `content_store` mit eigenen Models, verwaltet über Django-Migrations.
+Alle consumer-Apps binden die App via `INSTALLED_APPS` ein. Ein `ContentStoreRouter`
+routet Queries an eine dedizierte DB-Verbindung (`content_store` in `DATABASES`).
 
 **Pro:**
 - Einheitliche Schnittstelle für alle Apps
 - Plattformweites Reporting ohne Cross-Schema-Joins im App-Code
-- Schema-Isolation: App-Migrations berühren `content_store` nicht
-- Alembic ermöglicht schema-level Migrations unabhängig von Django
+- Django ORM: BigAutoField, Migrations, Admin — alles Platform-konform (ADR-022)
+- Ein Migrationssystem (Django) — kein Ops-Overhead durch Alembic
 
 **Contra:**
-- Zwei parallele Migrations-Systeme (Django + Alembic) erhöhen Ops-Komplexität
-- `CONTENT_STORE_DSN` muss in allen Repos als Secret gepflegt werden
-- Async/Sync-Brücke in Django-Kontext erfordert sorgfältige Implementierung
+- `DATABASES["content_store"]` muss in allen consuming Apps konfiguriert werden
+- Django-App muss in jeder consuming App in `INSTALLED_APPS` stehen
 
 ---
 
@@ -62,7 +66,7 @@ verwaltet via Alembic. Django-Apps konsumieren es über eine typisierte Python-A
 
 Jede App bekommt eigene `content_items`-Tabellen in ihrem Django-Schema.
 
-**Pro:** Kein zusätzliches Infrastruktur-Setup, keine externe DSN
+**Pro:** Kein zusätzliches Infrastruktur-Setup
 
 **Contra:**
 - Cross-App-Queries erfordern Joins über Schema-Grenzen (nicht portabel)
@@ -80,29 +84,23 @@ Jede App bekommt eigene `content_items`-Tabellen in ihrem Django-Schema.
 **Contra:**
 - Neuer Infrastruktur-Stack neben PostgreSQL (Betriebsaufwand, Kosten)
 - Kein nativer Tenant-Isolation-Mechanismus
-- Inkonsistenz mit Platform-Entscheidung für PostgreSQL (ADR-056)
+- Widerspricht Platform-Prinzip "PostgreSQL als einzige DB-Technologie"
 
-**Verworfen**: Widerspricht Platform-Prinzip "PostgreSQL als einzige DB-Technologie".
+**Verworfen**.
 
 ---
 
-### Option 4 — Nur In-Memory / kein Persistence-Layer
+### ~~Option 4 — Alembic-verwaltetes Schema~~ (ursprünglich gewählt, revidiert)
 
-**Pro:** Kein Aufwand
-
-**Contra:** Kein Audit-Trail, keine Versionierung, kein Compliance-Tracking möglich
-
-**Verworfen**: Erfüllt keinen der Decision Drivers.
+**Verworfen bei Review 2026-03-11**: Zwei parallele Migrationssysteme (Django + Alembic)
+widersprechen ADR-022 (Platform Consistency Standard). UUID PRIMARY KEY widerspricht
+BigAutoField-Pflicht. Ersetzt durch Option 1.
 
 ---
 
 ## Decision Outcome
 
-**Gewählt: Option 1** — Shared PostgreSQL Schema `content_store` mit Alembic-Migrations.
-
-Das Schema liegt außerhalb aller Django-App-Schemas und wird ausschließlich via Alembic
-verwaltet. Django-Apps konsumieren es über `SyncContentStore` (synchroner Wrapper via
-`asgiref.sync.async_to_sync`) oder `ContentStore` (async).
+**Gewählt: Option 1** — Shared Django App `content_store` mit DATABASE_ROUTER.
 
 ### Positive Consequences
 
@@ -110,108 +108,255 @@ verwaltet. Django-Apps konsumieren es über `SyncContentStore` (synchroner Wrapp
 - Plattformweites Reporting ohne Cross-Schema-Joins im App-Code
 - ADR-Compliance-Daten zentral und tenant-isoliert verfügbar
 - Versionierung und SHA-256-Hashing out-of-the-box
+- **ADR-022 konform**: BigAutoField, Django ORM, ein Migrationssystem
 
 ### Negative Consequences
 
-- Zusätzliche Infrastruktur (Alembic neben Django-Migrations)
-- `CONTENT_STORE_DSN` muss in allen Repos als Secret gesetzt werden
-- Ops-Overhead: `alembic upgrade head` muss im Deploy-Workflow explizit aufgerufen werden
+- `DATABASES["content_store"]` DSN muss in allen consuming Apps konfiguriert werden
+- Django-App muss als Package installiert oder per `INSTALLED_APPS` eingebunden werden
 
 ---
 
 ## Implementation Details
 
-### Schema (PostgreSQL)
-
-```sql
-CREATE SCHEMA IF NOT EXISTS content_store;
-
-CREATE TABLE content_store.items (
-    id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id   UUID NOT NULL,
-    source      TEXT NOT NULL,   -- 'travel-beat' | 'weltenhub' | 'bfagent'
-    type        TEXT NOT NULL,   -- 'story' | 'chapter' | 'world' | 'adr'
-    ref_id      TEXT NOT NULL,
-    content     TEXT NOT NULL,
-    sha256      TEXT NOT NULL,
-    version     INT  NOT NULL DEFAULT 1,
-    meta        JSONB,
-    created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
-    updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
-);
-
--- Performance: alle Queries filtern nach tenant_id
-CREATE INDEX idx_items_tenant_id ON content_store.items (tenant_id);
-CREATE INDEX idx_items_tenant_source ON content_store.items (tenant_id, source);
-
-CREATE TABLE content_store.adr_compliance (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    tenant_id       UUID NOT NULL,
-    adr_id          TEXT NOT NULL,
-    checked_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
-    drift_score     FLOAT NOT NULL,
-    status          TEXT NOT NULL,  -- 'compliant' | 'warning' | 'violation'
-    details         JSONB
-);
-
-CREATE INDEX idx_adr_compliance_tenant_id ON content_store.adr_compliance (tenant_id);
-```
-
-### Pydantic Models (`creative_services/storage/models.py`)
+### Django Models (`content_store/models.py`)
 
 ```python
-class ContentItem(BaseModel):
-    model_config = ConfigDict(frozen=True)
+from django.db import models
 
-    tenant_id: UUID
-    source: Literal["travel-beat", "weltenhub", "bfagent"]
-    type: Literal["story", "chapter", "world", "adr"]
-    ref_id: str = Field(description="App-seitige ID des Quellobjekts")
-    content: str
-    sha256: str = Field(default="")  # auto-computed on save
-    version: int = Field(default=1, ge=1)
-    meta: dict[str, Any] = Field(default_factory=dict)
+
+class ContentSource(models.TextChoices):
+    TRAVEL_BEAT = "travel-beat"
+    WELTENHUB = "weltenhub"
+    BFAGENT = "bfagent"
+
+
+class ContentType(models.TextChoices):
+    STORY = "story"
+    CHAPTER = "chapter"
+    WORLD = "world"
+    ADR = "adr"
+
+
+class ContentItem(models.Model):
+    """KI-generierter Inhalt — plattformweit, tenant-isoliert."""
+
+    tenant_id = models.BigIntegerField(db_index=True)
+    source = models.CharField(max_length=30, choices=ContentSource.choices)
+    type = models.CharField(max_length=30, choices=ContentType.choices)
+    ref_id = models.CharField(
+        max_length=255, help_text="App-seitige ID des Quellobjekts"
+    )
+    content = models.TextField()
+    sha256 = models.CharField(max_length=64)
+    version = models.PositiveIntegerField(default=1)
+    meta = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        app_label = "content_store"
+        indexes = [
+            models.Index(fields=["tenant_id", "source"]),
+            models.Index(fields=["tenant_id", "type"]),
+            models.Index(fields=["ref_id"]),
+        ]
+
+    def save(self, *args, **kwargs):
+        import hashlib
+        self.sha256 = hashlib.sha256(self.content.encode()).hexdigest()
+        super().save(*args, **kwargs)
+
+
+class ContentRelation(models.Model):
+    """Beziehung zwischen zwei ContentItems (z.B. Outline → Chapter)."""
+
+    source_item = models.ForeignKey(
+        ContentItem, on_delete=models.CASCADE, related_name="outgoing_relations"
+    )
+    target_item = models.ForeignKey(
+        ContentItem, on_delete=models.CASCADE, related_name="incoming_relations"
+    )
+    relation_type = models.CharField(
+        max_length=50, help_text="z.B. 'derived_from', 'chapter_of', 'revision_of'"
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        app_label = "content_store"
+        unique_together = [("source_item", "target_item", "relation_type")]
+
+
+class ComplianceStatus(models.TextChoices):
+    COMPLIANT = "compliant"
+    WARNING = "warning"
+    VIOLATION = "violation"
+
+
+class AdrCompliance(models.Model):
+    """ADR Drift-Detector Compliance-Ergebnis — tenant-isoliert."""
+
+    tenant_id = models.BigIntegerField(db_index=True)
+    adr_id = models.CharField(max_length=20)
+    checked_at = models.DateTimeField(auto_now_add=True)
+    drift_score = models.FloatField()
+    status = models.CharField(max_length=20, choices=ComplianceStatus.choices)
+    details = models.JSONField(default=dict, blank=True)
+
+    class Meta:
+        app_label = "content_store"
+        indexes = [
+            models.Index(fields=["tenant_id", "adr_id"]),
+        ]
 ```
 
-### API (`creative_services/storage/store.py`)
+### DATABASE_ROUTER (`content_store/router.py`)
 
 ```python
-class ContentStore:
-    """Async-first API. Für Django-Kontext: SyncContentStore verwenden."""
-    async def save(self, item: ContentItem) -> UUID: ...
-    async def get(self, item_id: UUID) -> ContentItem | None: ...
-    async def add_relation(self, relation: ContentRelation) -> None: ...
+class ContentStoreRouter:
+    """Routet content_store Models an die dedizierte DB-Verbindung."""
 
-class SyncContentStore:
-    """Synchroner Wrapper via asgiref.sync.async_to_sync (ASGI-sicher)."""
-    def save(self, item: ContentItem) -> UUID:
-        return async_to_sync(self._store.save)(item)
-    def get(self, item_id: UUID) -> ContentItem | None:
-        return async_to_sync(self._store.get)(item_id)
+    APP_LABEL = "content_store"
+
+    def db_for_read(self, model, **hints):
+        if model._meta.app_label == self.APP_LABEL:
+            return "content_store"
+        return None
+
+    def db_for_write(self, model, **hints):
+        if model._meta.app_label == self.APP_LABEL:
+            return "content_store"
+        return None
+
+    def allow_relation(self, obj1, obj2, **hints):
+        if (
+            obj1._meta.app_label == self.APP_LABEL
+            or obj2._meta.app_label == self.APP_LABEL
+        ):
+            return obj1._meta.app_label == obj2._meta.app_label
+        return None
+
+    def allow_migrate(self, db, app_label, **hints):
+        if app_label == self.APP_LABEL:
+            return db == "content_store"
+        return None
 ```
 
-> **Wichtig**: `asgiref.sync.async_to_sync` statt `asyncio.run()` — verhindert
-> Deadlocks in ASGI-Kontexten (Daphne/Uvicorn).
+### Settings-Integration (consuming App)
+
+```python
+# settings/base.py
+INSTALLED_APPS = [
+    ...
+    "content_store",
+]
+
+DATABASES = {
+    "default": { ... },  # App-eigene DB
+    "content_store": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": config("CONTENT_STORE_DB_NAME", default="content_store"),
+        "USER": config("CONTENT_STORE_DB_USER", default="content_store"),
+        "PASSWORD": config("CONTENT_STORE_DB_PASSWORD"),
+        "HOST": config("CONTENT_STORE_DB_HOST", default="localhost"),
+        "PORT": config("CONTENT_STORE_DB_PORT", default="5432"),
+    },
+}
+
+DATABASE_ROUTERS = ["content_store.router.ContentStoreRouter"]
+```
+
+### Service Layer (`content_store/services.py`)
+
+```python
+import hashlib
+import logging
+
+from .models import AdrCompliance, ContentItem, ContentRelation
+
+logger = logging.getLogger(__name__)
+
+
+class ContentStoreService:
+    """Service-Layer für Content Store Operationen (ADR-041)."""
+
+    @staticmethod
+    def save_content(
+        tenant_id: int,
+        source: str,
+        content_type: str,
+        ref_id: str,
+        content: str,
+        meta: dict | None = None,
+    ) -> ContentItem:
+        sha256 = hashlib.sha256(content.encode()).hexdigest()
+        existing = ContentItem.objects.using("content_store").filter(
+            tenant_id=tenant_id, ref_id=ref_id, sha256=sha256
+        ).first()
+        if existing:
+            return existing
+
+        latest = (
+            ContentItem.objects.using("content_store")
+            .filter(tenant_id=tenant_id, ref_id=ref_id)
+            .order_by("-version")
+            .first()
+        )
+        version = (latest.version + 1) if latest else 1
+
+        return ContentItem.objects.using("content_store").create(
+            tenant_id=tenant_id,
+            source=source,
+            type=content_type,
+            ref_id=ref_id,
+            content=content,
+            sha256=sha256,
+            version=version,
+            meta=meta or {},
+        )
+
+    @staticmethod
+    def add_relation(
+        source_item: ContentItem,
+        target_item: ContentItem,
+        relation_type: str,
+    ) -> ContentRelation:
+        rel, _ = ContentRelation.objects.using("content_store").get_or_create(
+            source_item=source_item,
+            target_item=target_item,
+            relation_type=relation_type,
+        )
+        return rel
+
+    @staticmethod
+    def save_compliance(
+        tenant_id: int,
+        adr_id: str,
+        drift_score: float,
+        status: str,
+        details: dict | None = None,
+    ) -> AdrCompliance:
+        return AdrCompliance.objects.using("content_store").create(
+            tenant_id=tenant_id,
+            adr_id=adr_id,
+            drift_score=drift_score,
+            status=status,
+            details=details or {},
+        )
+```
 
 ### Rollback-Strategie
 
 | Szenario | Verhalten | Mitigation |
 |----------|-----------|-----------|
-| `CONTENT_STORE_DSN` fehlt | `ContentStoreUnavailableError` bei Init | Apps fangen Exception, loggen Warning, fahren ohne Persistenz fort |
-| Schema-Migration fehlgeschlagen | `alembic upgrade head` bricht Deploy ab | `alembic downgrade -1` im Deploy-Workflow als Rollback-Schritt |
-| Korruptes Schema | Queries schlagen fehl | `pg_dump content_store` vor jeder Migration als Backup |
-
-### Alembic Migrations
-
-| Migration | Inhalt |
-|-----------|--------|
-| `0001_create_content_store` | Schema + `items` + `relations` Tabellen + Indizes |
-| `0002_add_adr_compliance` | `adr_compliance` Tabelle + `tenant_id` + Index |
+| `content_store` DB nicht erreichbar | `OperationalError` bei Query | Apps fangen Exception im Service-Layer, loggen Warning, fahren ohne Persistenz fort |
+| Django-Migration fehlgeschlagen | `python manage.py migrate --database=content_store` bricht ab | Standard Django Rollback: `migrate content_store <previous_migration>` |
+| Korruptes Schema | Queries schlagen fehl | `pg_dump -n content_store` vor jeder Migration als Backup |
 
 ### Drift Detector Integration
 
 `orchestrator_mcp/drift_detector.py` persistiert Compliance-Ergebnisse via `--persist`
-Flag direkt in `content_store.adr_compliance` (mit `tenant_id` aus Konfiguration).
+Flag über `ContentStoreService.save_compliance()` (mit `tenant_id` aus Konfiguration).
 
 ---
 
@@ -219,13 +364,12 @@ Flag direkt in `content_store.adr_compliance` (mit `tenant_id` aus Konfiguration
 
 | Schritt | Status | Datum |
 |---------|--------|-------|
-| Alembic-Setup in `creative-services` | ✅ done | 2026-02-15 |
-| Migration 0001 (items + relations + Indizes) | ✅ done | 2026-02-15 |
-| Migration 0002 (adr_compliance + tenant_id + Index) | ✅ done | 2026-02-15 |
-| Schema auf Prod deployed (88.198.191.108) | ✅ done | 2026-02-22 |
-| `CONTENT_STORE_DSN` in allen Repos gesetzt | ✅ done | 2026-02-22 |
-| Drift Detector implementiert | ✅ done | 2026-02-15 |
-| `SyncContentStore` auf `asgiref.async_to_sync` umgestellt | ✅ done | 2026-02-24 |
+| ~~Alembic-Setup in `creative-services`~~ | ❌ revidiert | 2026-03-11 |
+| Django App `content_store` erstellt | 🔲 pending | — |
+| Django-Migration 0001 (ContentItem + ContentRelation + AdrCompliance) | 🔲 pending | — |
+| `DATABASES["content_store"]` in consuming Apps konfiguriert | 🔲 pending | — |
+| Schema auf Prod deployed (88.198.191.108) via `manage.py migrate` | 🔲 pending | — |
+| Drift Detector auf `ContentStoreService` umgestellt | 🔲 pending | — |
 
 ---
 
@@ -235,26 +379,28 @@ Flag direkt in `content_store.adr_compliance` (mit `tenant_id` aus Konfiguration
 
 | Risiko | Schwere | Mitigation |
 |--------|---------|-----------|
-| Schema-Drift (Alembic + Django parallel) | MEDIUM | `alembic upgrade head` im Deploy-Workflow als Pflichtschritt |
-| DSN-Abhängigkeit | LOW | Lazy-Init mit `ContentStoreUnavailableError`; Apps degradieren graceful |
-| Async/Sync-Mismatch in ASGI | HIGH | `asgiref.sync.async_to_sync` statt `asyncio.run()` |
-| Fehlende Tenant-Isolation in `adr_compliance` | HIGH | Behoben: `tenant_id` + Index in Migration 0002 |
+| DB-Verbindung fehlt | LOW | Lazy-Init mit try/except im Service; Apps degradieren graceful |
+| Migration-Konflikt bei mehreren consuming Apps | MEDIUM | `content_store` Migrations nur in einem Repo (platform oder dev-hub) ausführen |
+| `tenant_id` Konsistenz über Apps | MEDIUM | `tenant_id` ist `BigIntegerField` — kompatibel mit BigAutoField PKs der Tenant-Models |
 
 ### Confirmation
 
-- `alembic upgrade head` im CI/CD-Workflow verifiziert Schema-Stand
+- `python manage.py migrate --database=content_store` im Deploy-Workflow
 - `compliance-check.yml` läuft bei jedem Push auf `platform/main`
 - Drift-Score-Schwellwert: `> 0.5` = Warning, `> 0.8` = Violation (blockiert Merge)
-- Alle `adr_compliance`-Queries filtern auf `tenant_id`
-- `SyncContentStore` nutzt `async_to_sync` — kein `asyncio.run()`
+- Alle Queries im Service-Layer filtern auf `tenant_id`
+- Kein direkter `Model.objects.` Zugriff in Views — nur via `ContentStoreService` (ADR-041)
 
 ---
 
 ## Drift-Detector Governance Note
 
 ```yaml
+adr: ADR-130
 paths:
-  - packages/creative-services/creative_services/storage/
+  - content_store/models.py
+  - content_store/services.py
+  - content_store/router.py
   - orchestrator_mcp/drift_detector.py
   - .github/workflows/compliance-check.yml
 gate: NOTIFY
