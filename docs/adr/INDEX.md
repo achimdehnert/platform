@@ -181,7 +181,7 @@
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | ⬜ | [ADR-134](ADR-134-module-monetization-strategy.md) |
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) — **Deprecated**, siehe ADR-131 | `Deprecated` | — | [ADR-136](ADR-136-shared-backend-services-original.md) |
 | 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | 🔶 | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
-| 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | 🔶 | [ADR-138](ADR-138-implementation-tracking-standard.md) |
+| 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | ✅ | [ADR-138](ADR-138-implementation-tracking-standard.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -233,4 +233,5 @@
 - [x] ADR-138 Backfill: 24 Accepted ADRs mit implementation_status versehen (15 YAML + 8 neues Frontmatter + 1 API) -- 2026-03-11
 - [x] INDEX.md Impl-Spalte aktualisiert auf Backfill-Werte -- 2026-03-11
 - [x] ADR-108: Datei ADR-108-agent-qa-cycle.md erstellt + implementation_status: implemented -- 2026-03-11
-- [ ] ADR-138: /adr-review Workflow Check auf fehlende implementation_status
+- [x] ADR-138: /adr-review Workflow Check auf fehlende implementation_status -- 2026-03-11
+- [x] ADR-138: implementation_status partial→implemented (alle Schritte erledigt) -- 2026-03-11
