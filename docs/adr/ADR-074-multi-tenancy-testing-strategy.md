@@ -5,9 +5,10 @@ amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "iil-testkit: tenant fixtures, not all hubs adopted"
+  - "testkit: iil-testkit v0.1.0 on PyPI with tenant fixtures"
+  - "platform/docs/adr/ADR-074: testing strategy defined and usable"
 ---
 
 # ADR-074: Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates
