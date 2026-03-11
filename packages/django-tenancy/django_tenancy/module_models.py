@@ -23,7 +23,7 @@ import uuid
 from django.conf import settings
 from django.db import models
 
-from .managers import TenantAwareManager
+from .managers import TenantManager
 
 
 class ModuleSubscription(models.Model):
@@ -71,7 +71,7 @@ class ModuleSubscription(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
-    objects = TenantAwareManager()
+    objects = TenantManager()
 
     class Meta:
         db_table = "tenancy_module_subscription"
@@ -101,7 +101,28 @@ class ModuleSubscription(models.Model):
 
     @property
     def is_accessible(self) -> bool:
-        """Whether this subscription currently grants access."""
+        """Whether this subscription currently grants access (ADR-137).
+
+        Checks status AND time-based constraints:
+        - Suspended → always False
+        - Trial with expired trial_ends_at → False
+        - Expired (expires_at in past) → False
+        - Active or valid Trial → True
+        """
+        from django.utils import timezone
+
+        now = timezone.now()
+
+        if self.status == self.Status.SUSPENDED:
+            return False
+
+        if self.status == self.Status.TRIAL:
+            if self.trial_ends_at and self.trial_ends_at < now:
+                return False
+
+        if self.expires_at and self.expires_at < now:
+            return False
+
         return self.status in (self.Status.TRIAL, self.Status.ACTIVE)
 
 
@@ -156,7 +177,7 @@ class ModuleMembership(models.Model):
     granted_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField(null=True, blank=True)
 
-    objects = TenantAwareManager()
+    objects = TenantManager()
 
     class Meta:
         db_table = "tenancy_module_membership"

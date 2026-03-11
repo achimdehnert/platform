@@ -1,0 +1,9 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="utf-8"><title>Testzeitraum abgelaufen</title></head>
+<body>
+<h1>Testzeitraum abgelaufen</h1>
+<p>Ihr Testzeitraum ist abgelaufen. Bitte upgraden Sie Ihren Plan.</p>
+{% if upgrade_url %}<p><a href="{{ upgrade_url }}">Jetzt upgraden</a></p>{% endif %}
+</body>
+</html>

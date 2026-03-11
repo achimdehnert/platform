@@ -1,25 +1,48 @@
+"""Minimal Django settings for testing django-tenancy."""
+
+import os
+
 SECRET_KEY = "test-secret-key-not-for-production"
-DEBUG = True
-INSTALLED_APPS = [
-    "django.contrib.contenttypes",
-    "django.contrib.auth",
-    "django.contrib.sessions",
-    "django_tenancy",
-]
+
+ALLOWED_HOSTS = ["*"]
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
         "NAME": ":memory:",
     }
 }
-DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
-TENANCY_MODE = "session"
-TENANCY_FALLBACK_URL = "/onboarding/"
-LANGUAGE_COOKIE_NAME = "iil_lang"
+
+INSTALLED_APPS = [
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django_tenancy",
+]
+
 MIDDLEWARE = [
     "django.contrib.sessions.middleware.SessionMiddleware",
-    "django.middleware.locale.LocaleMiddleware",
-    "django_tenancy.middleware.SubdomainTenantMiddleware",
 ]
+
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.locmem.LocMemCache",
+    }
+}
+
 SESSION_ENGINE = "django.contrib.sessions.backends.db"
+
 ROOT_URLCONF = "tests.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [os.path.join(os.path.dirname(__file__), "templates")],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [],
+        },
+    },
+]

@@ -2,7 +2,7 @@
 
 import pytest
 from django.contrib.auth import get_user_model
-from django.http import HttpResponse
+from django.http import HttpRequest, HttpResponse
 from django.test import RequestFactory
 
 from django_tenancy.models import Organization
@@ -14,7 +14,7 @@ User = get_user_model()
 
 @pytest.fixture
 def org(db):
-    return Organization.objects.create(slug="testco", name="TestCo")
+    return Organization.objects.create(slug="testco", name="TestCo", status="active")
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def user(db):
 def active_subscription(db, org):
     return ModuleSubscription.objects.create(
         organization=org,
-        tenant_id=org.pk,
+        tenant_id=org.tenant_id,
         module="risk",
         status="active",
     )
@@ -35,7 +35,7 @@ def active_subscription(db, org):
 @pytest.fixture
 def member_membership(db, org, user):
     return ModuleMembership.objects.create(
-        tenant_id=org.pk,
+        tenant_id=org.tenant_id,
         user=user,
         module="risk",
         role="member",
@@ -62,7 +62,7 @@ class TestRequireModuleDecorator:
         def my_view(request):
             return HttpResponse("ok")
 
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = my_view(request)
         assert response.status_code == 200
 
@@ -71,7 +71,7 @@ class TestRequireModuleDecorator:
         def my_view(request):
             return HttpResponse("ok")
 
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = my_view(request)
         assert response.status_code == 403
 
@@ -80,7 +80,7 @@ class TestRequireModuleDecorator:
         def my_view(request):
             return HttpResponse("ok")
 
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = my_view(request)
         assert response.status_code == 403
 
@@ -100,7 +100,7 @@ class TestRequireModuleDecorator:
         def my_view(request):
             return HttpResponse("ok")
 
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = my_view(request)
         assert response.status_code == 403
 
@@ -111,13 +111,13 @@ class TestRequireModuleDecorator:
         def my_view(request):
             return HttpResponse("ok")
 
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = my_view(request)
         assert response.status_code == 200
 
     def test_allows_higher_role(self, db, org, user, active_subscription):
         ModuleMembership.objects.create(
-            tenant_id=org.pk,
+            tenant_id=org.tenant_id,
             user=user,
             module="risk",
             role="admin",
@@ -127,14 +127,14 @@ class TestRequireModuleDecorator:
         def my_view(request):
             return HttpResponse("ok")
 
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = my_view(request)
         assert response.status_code == 200
 
     def test_suspended_subscription_denied(self, db, org, user, member_membership):
         ModuleSubscription.objects.create(
             organization=org,
-            tenant_id=org.pk,
+            tenant_id=org.tenant_id,
             module="risk",
             status="suspended",
         )
@@ -143,7 +143,7 @@ class TestRequireModuleDecorator:
         def my_view(request):
             return HttpResponse("ok")
 
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = my_view(request)
         assert response.status_code == 403
 
@@ -157,14 +157,14 @@ class TestModuleAccessMiddleware:
     ):
         settings.MODULE_URL_MAP = {"/risk/": "risk", "/dsb/": "dsb"}
         mw = self._get_middleware()
-        request = _make_request("/risk/assessments/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/assessments/", tenant_id=org.tenant_id, user=user)
         response = mw.process_request(request)
         assert response is None  # Middleware passes through
 
     def test_denies_no_subscription(self, db, settings, org, user, member_membership):
         settings.MODULE_URL_MAP = {"/risk/": "risk", "/dsb/": "dsb"}
         mw = self._get_middleware()
-        request = _make_request("/risk/assessments/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/assessments/", tenant_id=org.tenant_id, user=user)
         response = mw.process_request(request)
         assert response is not None
         assert response.status_code == 403
@@ -172,14 +172,14 @@ class TestModuleAccessMiddleware:
     def test_passes_through_unmatched_path(self, db, settings, org, user):
         settings.MODULE_URL_MAP = {"/risk/": "risk", "/dsb/": "dsb"}
         mw = self._get_middleware()
-        request = _make_request("/dashboard/", tenant_id=org.pk, user=user)
+        request = _make_request("/dashboard/", tenant_id=org.tenant_id, user=user)
         response = mw.process_request(request)
         assert response is None
 
     def test_passes_through_no_map(self, db, settings, org, user):
         settings.MODULE_URL_MAP = {}
         mw = self._get_middleware()
-        request = _make_request("/risk/", tenant_id=org.pk, user=user)
+        request = _make_request("/risk/", tenant_id=org.tenant_id, user=user)
         response = mw.process_request(request)
         assert response is None
 
@@ -189,7 +189,7 @@ class TestModuleAccessMiddleware:
         settings.MODULE_URL_MAP = {"/risk/": "risk", "/dsb/": "dsb"}
         # risk subscription/membership exists but NOT dsb
         mw = self._get_middleware()
-        request = _make_request("/dsb/dashboard/", tenant_id=org.pk, user=user)
+        request = _make_request("/dsb/dashboard/", tenant_id=org.tenant_id, user=user)
         response = mw.process_request(request)
         assert response is not None
         assert response.status_code == 403
