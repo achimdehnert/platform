@@ -14,9 +14,16 @@ related: [ADR-050, ADR-057, ADR-068, ADR-089, ADR-093, ADR-095]
 supersedes: []
 amends: [ADR-050]
 last_verified: 2026-03-11
-implementation_status: none
+implementation_status: implemented
 implementation_evidence:
-  - "authoringfw: package exists but domain sub-modules not yet extracted"
+  - "authoringfw v0.7.0: PyPI published, 124 tests green"
+  - "src/authoringfw/schema/: 5 Pydantic schemas (character, scene, story, style, world)"
+  - "src/authoringfw/adapters/: 6 CRUD adapter interfaces"
+  - "src/authoringfw/writing/: ChapterOrchestrator, SummaryOrchestrator"
+  - "src/authoringfw/research/: ResearchOrchestrator"
+  - "src/authoringfw/analysis/: StyleAnalysis, PlotAnalysis"
+  - "src/authoringfw/text/: TextReformatter"
+  - "src/authoringfw/formats/: FormatProfile, WorkflowPhase"
 ---
 
 # ADR-096: authoringfw — Content Orchestration Scope, Architecture, and Domain Boundaries
