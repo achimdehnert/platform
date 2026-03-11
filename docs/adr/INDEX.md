@@ -174,7 +174,7 @@
 | 119 | Authored Content Pipeline (Neutral Lore → Style) | `Accepted` | ⬜ | [ADR-119](ADR-119-authored-content-pipeline-neutral-lore-to-style.md) |
 | 120 | Unified Deployment Pipeline | `Accepted` | ✅ | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
 | 121 | iil-outlinefw Story-Outline-Framework (ehem. ADR-100) | `Accepted` | ✅ | [ADR-121](ADR-121-iil-outlinefw-story-outline-framework.md) |
-| 130 | Shared Django App `content_store` (ehem. ADR-062) | `Accepted` | 🔶 | [ADR-130](ADR-130-content-store-shared-persistence.md) |
+| 130 | Shared Django App `content_store` (ehem. ADR-062) | `Accepted` | ✅ | [ADR-130](ADR-130-content-store-shared-persistence.md) |
 | 131 | Shared Backend Services Library (ehem. ADR-091) | `Accepted` | ✅ | [ADR-131](ADR-131-shared-backend-services.md) |
 | 132 | AI Context Defense-in-Depth (ehem. ADR-094) | `Accepted` | ✅ | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
 | 133 | Shared AI Services Package (ehem. ADR-094) | `Proposed` | ⬜ | [ADR-133](ADR-133-shared-ai-services-package.md) |
