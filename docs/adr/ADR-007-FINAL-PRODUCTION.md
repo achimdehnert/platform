@@ -2,6 +2,9 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
+implementation_status: implemented
+implementation_evidence:
+  - "bfagent, weltenhub, risk-hub: tenant + RBAC models in production"
 ---
 
 # ADR-007 FINAL: Tenant- & RBAC-Architektur (Production Ready)

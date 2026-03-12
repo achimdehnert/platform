@@ -17,9 +17,12 @@ repos:
 related: ADR-021 (Deployment Standard), ADR-045 (Secrets Management/SOPS), ADR-046 (Docs Hygiene), ADR-059 (ADR Drift Detector), ADR-060 (Developer Workstation SSH)
 amended: 2026-02-22
 tags: [security, governance, hardcoding, secrets, configuration]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "most hubs: hardcoding reduced, some legacy remains"
+  - "platform/scripts/hardcode_scanner.py: 7 Kategorien (IP, PORT, SECRET, URL, PATH, DOMAIN, ENUM)"
+  - "dev-hub CI: hardcode-scan Job (Critical Gate) prüft auf Prod-IP in Python-Source"
+  - "decouple.config() als Standard in allen aktiven Hubs (ADR-045)"
+  - "# noqa: hardcode Marker für bewusste Ausnahmen"
 ---
 
 # ADR-061: Adopt hardcode_scanner.py as Platform-wide Hardcoding Prevention Tool
