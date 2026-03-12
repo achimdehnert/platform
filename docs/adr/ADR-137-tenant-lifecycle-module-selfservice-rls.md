@@ -2,7 +2,7 @@
 status: accepted
 date: 2026-03-11
 decision-makers: [Achim Dehnert]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
   - "Phase 1 (TenantManager + Lifecycle): DONE — risk-hub packages/django-tenancy/ v0.2.0"
   - "1.1 TenantManager Dual-Mode: managers.py (auto-filter, for_tenant, unscoped, TenantQuerySet)"
@@ -34,8 +34,15 @@ implementation_evidence:
   - "4.2f Bugfixes: enable_rls.py ;-Split+Comment-Filter Bug, setup_rls_roles.py DO$$-Block Bug, settings.py doppeltes MODULE_SHOP_CATALOGUE, staging .env.staging fehlend"
   - "4.2g Health: Prod schutztat.de/healthz OK (DB 0.6ms), Staging livez OK"
   - "4.2h RLS-Isolation verifiziert: SET app.tenant_id → nur eigene Rows sichtbar"
-  - "Phase 4.3 billing/ App entfernen: ausstehend — nach billing-hub Migration"
-  - "Phase 4.4 Template für weitere Hubs: ausstehend"
+  - "Phase 4.3 billing/ App entfernt: DONE (2026-03-12)"
+  - "4.3a PR #5 merged: billing aus INSTALLED_APPS, urls.py, api.py, STRIPE_* Settings entfernt"
+  - "4.3b src/billing/ gelöscht: 25 Dateien, -1821 Zeilen toter Code"
+  - "4.3c DB cleanup: 3 leere Tabellen gedroppt, django_migrations bereinigt"
+  - "4.3d UUIDField(primary_key=True) auf StripeSubscription entfernt (banned pattern)"
+  - "Phase 4.4 RLS-Rollout Template: DONE (2026-03-11)"
+  - "4.4a platform/docs/guides/rls-rollout-template.md — Schritt-für-Schritt mit Checkliste"
+  - "4.4b Bekannte Fallstricke dokumentiert (pgrep, psycopg, SQL-Split Bugs)"
+  - "Bonus: Worker-Healthcheck Fix — pgrep nicht in slim-Image, grep /proc/*/cmdline"
 ---
 
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
@@ -600,3 +607,4 @@ Defense-in-Depth-Prinzip: Selbst wenn ein Bug im Python-Code den tenant_id-Filte
 |-------|-------|----------|
 | 2026-03-11 | Achim Dehnert | Initial draft — basierend auf risk-hub Codebase-Analyse |
 | 2026-03-11 | Achim Dehnert | Review-Fixes v1.1: B-1 RLS Policy (kein FORCE, separater DB-User), B-2 parametrischer Cast (bigint/uuid), B-3 settings.get→getattr, B-4 Stripe nur in billing-hub (ADR-118-konform), S-1 TenantModelAdmin, S-2 Session-Membership-Check, S-5 HTTP 403 statt 402, N-2 ADR-003 Referenz, N-3 Priorisierung L-1 vs L-2 |
+| 2026-03-12 | Achim Dehnert | Phase 4.2-4.4 abgeschlossen: RLS auf Prod+Staging (65 Tabellen), billing/ App entfernt, RLS-Rollout Template erstellt. Status: partial → implemented |
