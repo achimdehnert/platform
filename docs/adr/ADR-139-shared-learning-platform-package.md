@@ -23,6 +23,10 @@ implementation_evidence: []
 > gestrichen (ADR-111 deprecated), Strukturinkonsistenz bereinigt, DRF als optional Extra,
 > video content_type als reserved markiert. Content-Produktionsprozess ergänzt (Section 7):
 > Authoring-Workflow, PPTX-Pipeline, Bulk-Import, Content-Versionierung.
+>
+> **Update 2026-03-12**: Authoring-Frontend (Section 8) und detaillierte Consumer-Integration
+> (Section 9) ergänzt. Eigenes Authoring-UI mit HTMX (kein reines Django-Admin). Template-Override,
+> Dashboard-Widgets, Auth-/Enrollment-Integration, vollständiges risk-hub Beispiel.
 
 ---
 
@@ -153,24 +157,47 @@ learnfw/
 │   │   ├── filters.py           # Filterset (status, category, tenant)
 │   │   └── urls.py              # DRF Router
 │   ├── views/
-│   │   ├── course_views.py      # Kurs-Liste, Detail, Lektion-Ansicht
+│   │   ├── course_views.py      # Kurs-Liste, Detail, Lektion-Ansicht (Lernende)
 │   │   ├── assessment_views.py  # Quiz starten, beantworten, Ergebnis
 │   │   ├── certificate_views.py # Download, Verify-Endpoint
 │   │   ├── onboarding_views.py  # Onboarding-Wizard, Fortschritt
-│   │   └── gamification_views.py # Leaderboard, Badge-Übersicht, Profil
+│   │   ├── gamification_views.py # Leaderboard, Badge-Übersicht, Profil
+│   │   └── authoring/           # Authoring-Frontend (Content-Erstellung)
+│   │       ├── dashboard.py     # Autoren-Dashboard: Meine Kurse, Statistiken
+│   │       ├── course_editor.py # Kursstruktur: Chapters/Lessons Drag&Drop
+│   │       ├── lesson_editor.py # Lektion bearbeiten: MD-Editor, PDF/PPTX-Upload
+│   │       ├── quiz_editor.py   # Quiz-Builder: Fragen, Antworten, Scoring
+│   │       ├── review_views.py  # Review-Workflow: Approve/Reject mit Kommentar
+│   │       ├── bulk_import.py   # Bulk-Upload UI mit Fortschrittsanzeige
+│   │       └── analytics.py     # Kurs-Statistiken: Completion-Rate, Quiz-Ergebnisse
 │   ├── templates/iil_learnfw/   # Default-Templates (überschreibbar)
-│   │   ├── course_list.html
-│   │   ├── course_detail.html
-│   │   ├── lesson.html
-│   │   ├── quiz.html
-│   │   ├── quiz_result.html
-│   │   ├── certificate.html
+│   │   ├── learn/               # Lernende-Templates
+│   │   │   ├── course_list.html
+│   │   │   ├── course_detail.html
+│   │   │   ├── lesson.html
+│   │   │   ├── quiz.html
+│   │   │   ├── quiz_result.html
+│   │   │   ├── certificate.html
+│   │   │   ├── leaderboard.html
+│   │   │   ├── badges.html
+│   │   │   └── onboarding/
+│   │   │       ├── wizard.html
+│   │   │       └── checklist.html
+│   │   ├── authoring/           # Autoren-Templates
+│   │   │   ├── dashboard.html
+│   │   │   ├── course_editor.html
+│   │   │   ├── lesson_editor.html   # MD-WYSIWYG, PDF/PPTX-Upload
+│   │   │   ├── quiz_editor.html
+│   │   │   ├── review_detail.html
+│   │   │   ├── review_list.html
+│   │   │   ├── bulk_import.html
+│   │   │   └── analytics.html
 │   │   ├── certificate_pdf.html # WeasyPrint HTML→PDF Template
-│   │   ├── leaderboard.html
-│   │   ├── badges.html
-│   │   └── onboarding/
-│   │       ├── wizard.html
-│   │       └── checklist.html
+│   │   ├── widgets/             # Einbettbare Widgets für Consumer-Dashboards
+│   │   │   ├── progress_card.html   # Fortschritts-Widget
+│   │   │   ├── next_lesson.html     # Nächste Lektion Widget
+│   │   │   └── badge_showcase.html  # Letzte Badges Widget
+│   │   └── _base.html           # Basis-Template (Consumer überschreibt dieses)
 │   ├── urls.py                  # Drop-in URL patterns (Views + API)
 │   ├── migrations/              # Django Migrations
 │   └── templatetags/
@@ -600,12 +627,174 @@ BulkImportJob (Async-Import)
 
 ---
 
-## 8. Consumer-Integration
+## 8. Authoring-Frontend (Content-Management-UI)
 
-### Installation
+Das Package liefert ein eigenes Authoring-Frontend mit — kein reines Django-Admin, sondern
+eine dedizierte UI für Content-Autoren, Reviewer und Kurs-Admins.
+
+### 8.1 URL-Struktur (Authoring)
+
+```
+/learn/authoring/                          # Autoren-Dashboard
+/learn/authoring/kurse/                    # Meine Kurse (Autor-gefiltert)
+/learn/authoring/kurse/neu/                # Neuen Kurs anlegen
+/learn/authoring/kurse/<slug>/edit/        # Kursstruktur-Editor (Chapters, Lessons)
+/learn/authoring/kurse/<slug>/analytics/   # Kurs-Statistiken
+/learn/authoring/lektion/<id>/edit/        # Lektion bearbeiten (MD-Editor / Upload)
+/learn/authoring/quiz/<id>/edit/           # Quiz-Builder
+/learn/authoring/review/                   # Review-Queue (offene Reviews)
+/learn/authoring/review/<id>/              # Review-Detail mit Approve/Reject
+/learn/authoring/import/                   # Bulk-Import UI
+```
+
+### 8.2 Autoren-Dashboard
+
+Das Dashboard zeigt dem eingeloggten Autor:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  📚 Meine Kurse                              [+ Neuer Kurs] │
+├─────────────────────────────────────────────────────────────┤
+│  Versicherungsrecht       │ 12 Lektionen │ published  │ ✏️  │
+│  Risikomanagement Basics  │  8 Lektionen │ draft      │ ✏️  │
+│  Compliance 2026          │  0 Lektionen │ draft      │ ✏️  │
+├─────────────────────────────────────────────────────────────┤
+│  📋 Offene Reviews (3)                                      │
+│  → "Schadensregulierung" von M. Müller — wartet auf Review  │
+│  → "Datenschutz-Update" von S. Schmidt — wartet auf Review  │
+├─────────────────────────────────────────────────────────────┤
+│  📊 Statistiken                                             │
+│  Aktive Lernende: 142  │  Ø Completion: 67%  │  Ø Score: 78%│
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 8.3 Kursstruktur-Editor
+
+Drag&Drop-Editor für die Kursstruktur mit HTMX-Interaktion:
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Kurs: Versicherungsrecht                    [Vorschau] [⚙] │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│  📁 Kapitel 1: Grundlagen                          [↕] [+] │
+│    ├── 📄 1.1 Einführung (Markdown)        draft    [✏] [↕] │
+│    ├── 📄 1.2 Vertragstypen (PDF)          published[✏] [↕] │
+│    └── 📄 1.3 Pflichtversicherung (PPTX)   in_review[✏] [↕] │
+│                                                             │
+│  📁 Kapitel 2: Schadenregulierung                  [↕] [+] │
+│    ├── 📄 2.1 Schadenmeldung (Markdown)    draft    [✏] [↕] │
+│    └── 📝 Quiz: Grundlagen-Check (5 Fragen) draft  [✏] [↕] │
+│                                                             │
+│  [+ Kapitel hinzufügen]                                     │
+│                                                             │
+├─────────────────────────────────────────────────────────────┤
+│  Status: draft  │  [Zur Review einreichen]  │  [Publizieren]│
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 8.4 Lektions-Editor
+
+Je nach `content_type` unterschiedliche Editoren:
+
+| Content-Type | Editor | Funktionen |
+|---|---|---|
+| **markdown** | WYSIWYG + Raw-MD Toggle | Formatierung, Bilder, Tabellen, Code-Blöcke, Live-Preview |
+| **pdf** | Datei-Upload + Metadaten | PDF hochladen, Titel/Beschreibung, Seitenzahl-Anzeige |
+| **pptx** | Datei-Upload + Auto-Processing | PPTX hochladen, Slide-Preview, Auto-Split-Option, Notes-Extraktion |
+| **external_url** | URL-Input + Preview | URL eingeben, Embed-Preview, Beschreibung |
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Lektion bearbeiten: 1.1 Einführung          [Markdown ▼]  │
+├─────────────────────────────────────────────────────────────┤
+│  Titel: [Einführung in das Versicherungsrecht            ]  │
+│  Geschätzte Dauer: [15 Min ▼]    Downloadbar: [✓]          │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─── Editor ──────────────┐  ┌─── Preview ──────────────┐ │
+│  │ # Einführung             │  │ Einführung               │ │
+│  │                          │  │                          │ │
+│  │ Das Versicherungsrecht   │  │ Das Versicherungsrecht   │ │
+│  │ regelt die **Rechte**    │  │ regelt die Rechte und    │ │
+│  │ und **Pflichten** ...    │  │ Pflichten ...            │ │
+│  │                          │  │                          │ │
+│  │ [B] [I] [H] [📷] [📎]   │  │                          │ │
+│  └──────────────────────────┘  └──────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│  [Speichern (Draft)]  [Zur Review einreichen]  [Abbrechen] │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 8.5 Quiz-Builder
+
+Visueller Quiz-Editor mit Fragen-Typen:
+
+- **Multiple Choice**: Mehrere Antworten, korrekte markieren, Erklärung pro Antwort
+- **Single Choice**: Eine korrekte Antwort
+- **Freitext**: Musterantwort + Schlüsselwörter für Auto-Scoring
+- **Zuordnung**: Drag&Drop Paare bilden
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Quiz: Grundlagen-Check                  Bestehensgrenze: 80%│
+├─────────────────────────────────────────────────────────────┤
+│  Frage 1/5 [Multiple Choice ▼]                 [2 Punkte]  │
+│  ┌──────────────────────────────────────────────────────┐   │
+│  │ Welche Versicherungen sind Pflichtversicherungen?    │   │
+│  └──────────────────────────────────────────────────────┘   │
+│  [✓] Kfz-Haftpflicht                                       │
+│  [ ] Hausratversicherung                                    │
+│  [✓] Krankenversicherung                                    │
+│  [ ] Reiseversicherung                         [+ Antwort]  │
+│                                                             │
+│  Erklärung: [Kfz-Haftpflicht und Krankenversicherung ...]  │
+├─────────────────────────────────────────────────────────────┤
+│  [+ Frage hinzufügen]   │   [Vorschau]   │   [Speichern]  │
+└─────────────────────────────────────────────────────────────┘
+```
+
+### 8.6 Technische Umsetzung
+
+- **HTMX**: Alle Interaktionen (Drag&Drop, Save, Status-Wechsel) per HTMX — kein SPA, kein React
+- **Markdown-Editor**: [EasyMDE](https://github.com/Ionaru/easy-markdown-editor) oder django-markdownx
+- **Drag&Drop**: [SortableJS](https://sortablejs.github.io/Sortable/) für Kapitel/Lektions-Reihenfolge
+- **Datei-Upload**: Dropzone.js oder nativer HTMX File-Upload mit Fortschrittsanzeige
+- **Permissions**: Eigene Permission-Klassen (`IsAuthor`, `IsReviewer`, `IsCourseAdmin`)
+- **Basis-Template**: `_base.html` — Consumer überschreibt dieses für eigenes Branding/Layout
+
+```python
+# Permissions in views/authoring/
+class IsAuthorOrAdmin(permissions.BasePermission):
+    """Nur Autoren (eigene Kurse) oder Kurs-Admins."""
+    def has_object_permission(self, request, view, obj):
+        return obj.created_by == request.user or request.user.has_perm("iil_learnfw.manage_courses")
+```
+
+### 8.7 Authoring-Settings
+
+```python
+IIL_LEARNFW = {
+    "AUTHORING_ENABLED": True,              # Authoring-Frontend aktivieren
+    "AUTHORING_URL_PREFIX": "authoring/",   # URL-Prefix innerhalb des learn-Pfads
+    "AUTHORING_ROLES": {
+        "author": "iil_learnfw.author",     # Django Permission
+        "reviewer": "iil_learnfw.reviewer",
+        "course_admin": "iil_learnfw.manage_courses",
+    },
+    "MARKDOWN_EDITOR": "easymde",           # "easymde" | "markdownx" | "textarea"
+    "ENABLE_REVIEW_WORKFLOW": True,         # False = direkt Draft→Published (kein Review)
+    "AUTO_SAVE_INTERVAL": 30,              # Auto-Save alle 30 Sekunden (HTMX)
+}
+```
+
+---
+
+## 9. Consumer-Integration
+
+### 9.1 Installation
 
 ```bash
-# Minimal (Kurse + Fortschritt + Onboarding — nur Template-Views)
+# Minimal (Kurse + Fortschritt — nur Template-Views)
 pip install iil-learnfw
 
 # Mit REST-API (DRF + OpenAPI)
@@ -621,7 +810,7 @@ pip install "iil-learnfw[pptx]"
 pip install "iil-learnfw[all]"
 ```
 
-### Django-Settings (Consumer)
+### 9.2 Django-Settings (Consumer)
 
 ```python
 INSTALLED_APPS = [
@@ -631,15 +820,15 @@ INSTALLED_APPS = [
 
 # urls.py
 urlpatterns = [
-    path("learn/", include("iil_learnfw.urls")),
+    path("schulungen/", include("iil_learnfw.urls")),
     ...
 ]
 
 # Konfiguration (alle optional — sinnvolle Defaults)
 IIL_LEARNFW = {
     "COURSE_MODEL": None,           # Custom Course-Model (optional Proxy)
-    "CERTIFICATE_TEMPLATE_DIR": "certificates/",  # Consumer-eigene Templates
-    "PASSING_SCORE_DEFAULT": 80,    # Prozent
+    "CERTIFICATE_TEMPLATE_DIR": "certificates/",
+    "PASSING_SCORE_DEFAULT": 80,
     "MAX_ATTEMPTS_DEFAULT": 3,
     "CONTENT_BACKENDS": {
         "markdown": "iil_learnfw.content_backends.markdown_backend.MarkdownContentBackend",
@@ -648,46 +837,178 @@ IIL_LEARNFW = {
     },
     "PPTX_MODE": "direct",
     "ONBOARDING_ENABLED": True,
-    "CERTIFICATE_VERIFY_URL": "/learn/verify/{token}/",
-    "TENANT_AWARE": True,           # Multi-Tenancy aktivieren (ADR-137)
+    "AUTHORING_ENABLED": True,
+    "CERTIFICATE_VERIFY_URL": "/schulungen/verify/{token}/",
+    "TENANT_AWARE": True,
 }
 ```
 
-### Beispiel: risk-hub Integration
+### 9.3 URL-Struktur im Consumer (Beispiel: kiohnerisiko.de)
+
+```
+kiohnerisiko.de (risk-hub)
+│
+├── /                                    # risk-hub Startseite
+│   └── [Fortschritts-Widget]            # {% learnfw_progress_card %}
+│   └── [Nächste Lektion Widget]         # {% learnfw_next_lesson %}
+│
+├── /schulungen/                         # ← iil_learnfw.urls
+│   ├── /schulungen/kurse/               # Kursübersicht (Tenant-gefiltert)
+│   ├── /schulungen/kurse/versicherungsrecht/  # Kursdetail + Kapitelstruktur
+│   ├── /schulungen/lektion/3/           # Lektion lesen (MD/PDF/PPTX gerendert)
+│   ├── /schulungen/quiz/5/              # Quiz bearbeiten
+│   ├── /schulungen/quiz/5/ergebnis/     # Quiz-Ergebnis
+│   ├── /schulungen/fortschritt/         # Persönlicher Fortschritt
+│   ├── /schulungen/zertifikate/         # Meine Zertifikate
+│   ├── /schulungen/verify/<token>/      # Öffentliche Zertifikat-Verifizierung
+│   ├── /schulungen/rangliste/           # Leaderboard (Gamification)
+│   ├── /schulungen/badges/              # Badge-Übersicht
+│   │
+│   ├── /schulungen/authoring/           # Autoren-Frontend (nur mit Berechtigung)
+│   │   ├── .../kurse/                   # Kurs-Management
+│   │   ├── .../lektion/<id>/edit/       # Lektions-Editor
+│   │   ├── .../review/                  # Review-Queue
+│   │   └── .../import/                  # Bulk-Import
+│   │
+│   └── /schulungen/api/v1/             # REST-API (optional, mit [api] Extra)
+│       ├── /courses/
+│       ├── /lessons/
+│       ├── /progress/
+│       └── /certificates/
+│
+└── /admin/                              # Django Admin (Superuser)
+```
+
+### 9.4 Template-Override & Branding
+
+learnfw liefert ein `_base.html`, das der Consumer **überschreibt** um eigenes Layout/Branding einzubinden:
+
+```html
+{# risk-hub/templates/iil_learnfw/_base.html #}
+{# Überschreibt das Default-Template aus dem Package #}
+{% extends "base.html" %}
+{# base.html ist das risk-hub Haupt-Layout mit Navigation, Footer, CSS #}
+
+{% block content %}
+  <div class="container mx-auto px-4 py-8">
+    {% block learnfw_content %}{% endblock %}
+  </div>
+{% endblock %}
+```
+
+Damit erbt jede learnfw-Seite automatisch das **risk-hub Design** (Navbar, Footer, CSS, Branding).
+
+### 9.5 Dashboard-Widgets (Template-Tags)
+
+learnfw stellt Template-Tags bereit, die der Consumer auf seiner Startseite einbetten kann:
+
+```html
+{# risk-hub/templates/dashboard.html #}
+{% load learnfw_tags %}
+
+<div class="grid grid-cols-3 gap-4">
+  {# Fortschritts-Karte: "3 von 12 Kursen abgeschlossen" #}
+  {% learnfw_progress_card user=request.user %}
+
+  {# Nächste Lektion: "Weiter mit: Schadensregulierung, Kapitel 3" #}
+  {% learnfw_next_lesson user=request.user %}
+
+  {# Badge-Showcase: Letzte 3 verdiente Badges #}
+  {% learnfw_badge_showcase user=request.user limit=3 %}
+</div>
+```
+
+### 9.6 Navigation-Integration
+
+Der Consumer bindet "Schulungen" in seine Hauptnavigation ein:
+
+```html
+{# risk-hub/templates/includes/navbar.html #}
+{% load learnfw_tags %}
+<nav>
+  <a href="{% url 'iil_learnfw:course_list' %}">
+    Schulungen
+    {% learnfw_unread_count user=request.user as unread %}
+    {% if unread %}<span class="badge">{{ unread }}</span>{% endif %}
+  </a>
+</nav>
+```
+
+### 9.7 Auth-Integration
+
+- **Kein separater Login**: learnfw nutzt `request.user` des Consumer-Projekts
+- **Permissions**: Über Django-Permissions (`iil_learnfw.author`, `iil_learnfw.reviewer`, `iil_learnfw.manage_courses`)
+- **Tenant-Scoping**: Automatisch via TenantManager (ADR-137) — Lernende sehen nur Kurse ihres Mandanten
+- **Enrollment**: Offene Kurse vs. Zuweisung durch Admin vs. Selbst-Einschreibung (konfigurierbar)
 
 ```python
-# risk-hub/config/urls.py
-urlpatterns = [
-    path("schulungen/", include("iil_learnfw.urls")),
+IIL_LEARNFW = {
+    "ENROLLMENT_MODE": "open",  # "open" | "admin_only" | "self_enroll"
+    # open: Alle veröffentlichten Kurse sichtbar, kein Enrollment nötig
+    # admin_only: Nur Admin kann Benutzer zu Kursen zuweisen
+    # self_enroll: Benutzer können sich selbst einschreiben (Button auf Kursseite)
+}
+```
+
+### 9.8 Vollständiges Beispiel: risk-hub (kiohnerisiko.de)
+
+```python
+# risk-hub/config/settings/base.py
+INSTALLED_APPS = [
     ...
+    "iil_learnfw",
 ]
 
-# risk-hub settings
 IIL_LEARNFW = {
     "TENANT_AWARE": True,
     "ONBOARDING_ENABLED": True,
+    "AUTHORING_ENABLED": True,
+    "ENROLLMENT_MODE": "admin_only",        # Versicherungskurse werden zugewiesen
     "CERTIFICATE_TEMPLATE_DIR": "risk_hub/certificates/",
     "CONTENT_BACKENDS": {
         "markdown": "iil_learnfw.content_backends.markdown_backend.MarkdownContentBackend",
         "pdf": "iil_learnfw.content_backends.pdf_backend.PDFContentBackend",
     },
+    "PPTX_AUTO_SPLIT": True,
+    "ENABLE_REVIEW_WORKFLOW": True,         # 4-Augen-Prinzip für Versicherungsinhalte
 }
+
+# risk-hub/config/urls.py
+urlpatterns = [
+    path("schulungen/", include("iil_learnfw.urls")),
+    ...
+]
+```
+
+```html
+{# risk-hub/templates/iil_learnfw/_base.html #}
+{% extends "base.html" %}
+{% block content %}
+  <div class="container mx-auto px-4 py-8">
+    <nav class="text-sm text-gray-500 mb-4">
+      <a href="/">Start</a> › <a href="{% url 'iil_learnfw:course_list' %}">Schulungen</a>
+      {% block learnfw_breadcrumb %}{% endblock %}
+    </nav>
+    {% block learnfw_content %}{% endblock %}
+  </div>
+{% endblock %}
 ```
 
 ---
 
-## 9. Rollout-Plan
+## 10. Rollout-Plan
 
 | Phase | Scope | Deliverables |
 |---|---|---|
-| **Phase 1** | Courses + Content + Progress + API | v0.1.0 — Kursstruktur, MD/PDF-Backend, Fortschrittstracking, DRF-API, PyPI-Publish |
-| **Phase 2** | Assessments + Scoring | v0.2.0 — Quizzes, MC/Freitext, Scoring, Attempt-Tracking, API-Endpoints |
-| **Phase 3** | Certificates (WeasyPrint) | v0.3.0 — HTML→PDF-Zertifikate, Verifizierungs-URL, QR-Code |
-| **Phase 4** | Onboarding | v0.4.0 — Onboarding-Flows, Pflicht-Kurse, Checklisten |
-| **Phase 5** | Gamification | v0.5.0 — Punkte, Badges, Streaks, Leaderboards |
-| **Phase 6** | PPTX-Integration | v0.6.0 — PPTX-Backend, pptx-hub API-Anbindung |
-| **Phase 7** | SCORM | v0.7.0 — SCORM 1.2/2004 Import/Export (Enterprise) |
-| **Phase 8** | Consumer-Integration | v1.0.0 — Erster Hub (risk-hub) LIVE, Templates, Admin, Doku komplett |
+| **Phase 1** | Courses + Content + Progress + API | v0.1.0 — Kursstruktur, MD/PDF-Backend, Fortschrittstracking, API, PyPI-Publish |
+| **Phase 2** | Assessments + Scoring | v0.2.0 — Quizzes, MC/Freitext, Scoring, Attempt-Tracking |
+| **Phase 3** | Authoring-Frontend | v0.3.0 — Kurs-Editor, Lektions-Editor, Quiz-Builder, Review-Workflow, Bulk-Import |
+| **Phase 4** | Certificates (WeasyPrint) | v0.4.0 — HTML→PDF-Zertifikate, Verifizierungs-URL, QR-Code |
+| **Phase 5** | Onboarding | v0.5.0 — Onboarding-Flows, Pflicht-Kurse, Checklisten |
+| **Phase 6** | Gamification | v0.6.0 — Punkte, Badges, Streaks, Leaderboards |
+| **Phase 7** | PPTX-Integration | v0.7.0 — PPTX-Backend, pptx-hub API-Anbindung, Auto-Processing |
+| **Phase 8** | SCORM | v0.8.0 — SCORM 1.2/2004 Import/Export (Enterprise) |
+| **Phase 9** | Consumer-Integration | v1.0.0 — Erster Hub (risk-hub) LIVE, Templates, Widgets, Doku komplett |
 
 **Querschnitt (ab Phase 1):**
 - PyPI-Publish bei jedem Minor-Release
@@ -697,7 +1018,7 @@ IIL_LEARNFW = {
 
 ---
 
-## 10. Risiken & Mitigationen
+## 11. Risiken & Mitigationen
 
 - **Over-Engineering**: YAGNI — Phase 1 startet minimal (Kurse + MD/PDF). Weitere Module nur bei konkretem Bedarf.
 - **Multi-Tenancy-Komplexität**: Nutzung des bewährten TenantManager-Patterns (ADR-137). Tenant-Filter in allen QuerySets.
@@ -707,7 +1028,7 @@ IIL_LEARNFW = {
 
 ---
 
-## 11. Entschiedene Fragen
+## 12. Entschiedene Fragen
 
 | # | Frage | Entscheidung | Begründung |
 |---|---|---|---|
@@ -718,10 +1039,11 @@ IIL_LEARNFW = {
 | 5 | **API-First** | Ja, DRF von Phase 1 an | Tenant-fähige API ermöglicht Headless-Consumer, Mobile-Apps, externe Integrationen. OpenAPI-Doku via drf-spectacular. |
 | 6 | **Distribution** | PyPI von Anfang an | Jeder Minor-Release wird auf PyPI publiziert. CI/CD mit GitHub Actions. |
 | 7 | **Dokumentation** | MkDocs, ab Phase 1 mitgeführt | Aktive Entwicklung erfordert optimale Doku: Quickstart, Config-Referenz, API-Doku, Content-Backend-Guide. |
+| 8 | **Authoring-UI** | Eigenes Frontend (HTMX-basiert) | Dedizierte Autoren-UI mit Kurs-Editor, Lektions-Editor, Quiz-Builder, Review-Workflow. Kein reines Django-Admin. |
 
 ---
 
-## 12. Distribution & Dokumentation
+## 13. Distribution & Dokumentation
 
 ### PyPI
 
@@ -757,7 +1079,7 @@ all = ["iil-learnfw[api,certificates,pptx,scorm,markdown]"]
 
 ---
 
-## 13. Nächste Schritte
+## 14. Nächste Schritte
 
 1. ~~ADR reviewen und Entscheidung treffen~~ ✅ accepted
 2. Repo `achimdehnert/learnfw` anlegen (pyproject.toml, CI, MkDocs)
