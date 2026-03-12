@@ -6,7 +6,9 @@ consulted: –
 informed: –
 implementation_status: partial
 implementation_evidence:
-  - "weltenhub, risk-hub: schema isolation, other hubs pending"
+  - "6/9 UI-Hubs mit django_tenants Schema Isolation: travel-beat, weltenhub, coach-hub, cad-hub, billing-hub, dev-hub"
+  - "Fehlend: risk-hub, pptx-hub, trading-hub"
+  - "TenantAwareModel als Basis in platform_context"
 ---
 
 # ADR-072: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy

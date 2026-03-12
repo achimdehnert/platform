@@ -5,9 +5,13 @@ amended: 2026-02-24
 decision-makers: Achim Dehnert
 consulted: –
 informed: –
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "platform-context MCP: basic drift detection, no automated alerts yet"
+  - "dev-hub/apps/adr_lifecycle/: ADR Model, Sync-Service, Drift-Checker"
+  - "tasks.py: sync_adrs_from_github (hourly), run_drift_detector (weekly Mon 06:00)"
+  - "services.py: run_drift_check() mit Staleness + Status-Drift Erkennung"
+  - "AgentRun-Tracking in agents_dashboard (flagged/cleared/total)"
+  - "5 GitHub-Repos konfiguriert (platform, travel-beat, bfagent, risk-hub, weltenhub)"
 ---
 
 # ADR-059: Adopt Automated ADR Drift Detection and Staleness Management

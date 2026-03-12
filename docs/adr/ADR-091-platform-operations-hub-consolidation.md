@@ -7,12 +7,13 @@ informed: []
 supersedes: []
 amends: ["ADR-050-platform-decomposition-hub-landscape.md"]
 related: ["ADR-050-platform-decomposition-hub-landscape.md", "ADR-075-deployment-execution-strategy.md", "ADR-042-dev-environment-deploy-workflow.md", "ADR-048-htmx-playbook.md"]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
   - "dev-hub/apps/operations/: Models, Services, Views, Admin, URLs deployed"
   - "devhub.iil.pet/operations/ → 200 (live)"
   - "Windsurf Cleanup, Container Logs, Operation History, Server Status"
-  - "Noch offen: control-center Migration, platform/admin Löschung"
+  - "control-center: Container offline (nicht mehr aktiv)"
+  - "platform/admin: Prototyp gelöscht (2026-03-11)"
 ---
 
 # ADR-091: Platform Operations Hub Consolidation
