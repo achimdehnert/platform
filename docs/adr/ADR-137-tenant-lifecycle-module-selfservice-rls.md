@@ -47,7 +47,9 @@ implementation_evidence:
   - "5.1 coach-hub Prod: 12 Tabellen mit RLS-Policies, App-User coach_hub_app, Dual-DATABASE_URL"
   - "5.2 coach-hub Staging: 18 Tabellen (inkl. django_lms_*), App-User coach_hub_staging_app"
   - "5.3 travel-beat Prod: 3 Tabellen (uuid+bigint Cast), App-User travel_beat_app, Dual-DATABASE_URL"
+  - "5.4 pptx-hub Prod: 1 Tabelle (pptx_hub_organization, uuid), App-User pptx_hub_app, POSTGRES_MIGRATE_USER Pattern"
   - "5.x Entrypoint-RLS-Pattern: Volume-Mount /opt/<hub>/entrypoint-rls.sh:/entrypoint.sh:ro"
+  - "5.x RLS Platform-Summe: 81 Policies auf 4 Hubs (risk-hub 65, coach-hub 12, travel-beat 3, pptx-hub 1)"
 ---
 
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
