@@ -1,103 +1,152 @@
 # platform/infra/ports.yaml
 # Single Source of Truth für alle Service-Ports (ADR-106 FIX-C)
 #
-# Ranges:
-#   8100–8199  Staging
-#   8200–8299  lokale Dev-Umgebungen (reserviert)
+# WICHTIG: Diese Datei MUSS den realen Server-Zustand abbilden!
+#   Validierung: python infra/scripts/port_audit.py
+#   Nur offline:  python infra/scripts/port_audit.py --offline
 #
-# Vergabe: aufsteigend, keine Lücken ohne Kommentar
-# Validierung: python infra/scripts/validate_ports.py
+# Belegte Ranges (88.198.191.108):
+#   8001–8020   Infra + erste Hubs
+#   8081–8100   App-Hubs (prod + staging gemischt)
+#
+# Nächster freier Port: 8101
+# Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 
 services:
 
-  wedding-hub:
-    staging: 8196
-    prod: null
-    domain_staging: staging.wedding-hub.iil.pet
-    domain_prod: wedding-hub.iil.pet
-    repo: achimdehnert/wedding-hub
+  # --- Infra-Services ---
 
-  risk-hub:
-    staging: 8190
-    prod: null
-    domain_staging: staging.kiohnerisiko.de
-    domain_prod: kiohnerisiko.de
-    repo: achimdehnert/risk-hub
+  llm-mcp:
+    prod: 8001
+    staging: null
+    domain_prod: null
+    domain_staging: null
+    repo: null
 
-  trading-hub:
-    staging: 8188
+  uptime-kuma:
     prod: null
-    domain_staging: staging.ai-trades.de
-    domain_prod: ai-trades.de
-    repo: achimdehnert/trading-hub
+    staging: 3001
+    domain_prod: null
+    domain_staging: uptime.iil.pet
+    repo: null
 
-  cad-hub:
-    staging: 8194
-    prod: null
-    domain_staging: staging.nl2cad.de
-    domain_prod: nl2cad.de
-    repo: achimdehnert/cad-hub
-
-  pptx-hub:
-    staging: 8120
-    prod: null
-    domain_staging: staging.prezimo.de
-    domain_prod: prezimo.de
-    repo: achimdehnert/pptx-hub
-
-  bfagent:
-    staging: 8191
-    prod: null
-    domain_staging: staging.iil.pet
-    domain_prod: iil.pet
-    repo: achimdehnert/bfagent
-
-  weltenhub:
-    staging: 8181
-    prod: null
-    domain_staging: staging.weltenforger.com
-    domain_prod: weltenforger.com
-    repo: achimdehnert/weltenhub
+  # --- App-Hubs (sortiert nach Port) ---
 
   coach-hub:
-    staging: 8107
-    prod: null
-    domain_staging: staging.coach-hub.iil.pet
+    prod: 8007
+    staging: 8017
     domain_prod: coach-hub.iil.pet
+    domain_staging: staging.coach-hub.iil.pet
     repo: achimdehnert/coach-hub
 
-  travel-beat:
-    staging: 8189
-    prod: null
-    domain_staging: staging.drifttales.com
-    domain_prod: drifttales.com
-    repo: achimdehnert/travel-beat
+  pptx-hub:
+    prod: 8020
+    staging: null
+    domain_prod: prezimo.de
+    domain_staging: staging.prezimo.de
+    repo: achimdehnert/pptx-hub
+
+  weltenhub:
+    prod: 8081
+    staging: null
+    domain_prod: weltenforger.com
+    domain_staging: staging.weltenforger.com
+    repo: achimdehnert/weltenhub
 
   dev-hub:
-    staging: 8185
-    prod: null
-    domain_staging: staging.dev-hub.iil.pet
+    prod: 8085
+    staging: null
     domain_prod: dev-hub.iil.pet
+    domain_staging: staging.dev-hub.iil.pet
     repo: achimdehnert/dev-hub
 
-  odoo:
-    staging: 8169
-    prod: 8069
-    domain_staging: staging.odoo.iil.pet
-    domain_prod: odoo.iil.pet
-    repo: achimdehnert/odoo-hub
+  trading-hub:
+    prod: 8088
+    staging: null
+    domain_prod: ai-trades.de
+    domain_staging: staging.ai-trades.de
+    repo: achimdehnert/trading-hub
+
+  travel-beat:
+    prod: 8089
+    staging: null
+    domain_prod: drifttales.com
+    domain_staging: staging.drifttales.com
+    repo: achimdehnert/travel-beat
+
+  risk-hub:
+    prod: 8090
+    staging: 8099
+    domain_prod: schutztat.de
+    domain_staging: staging.kiohnerisiko.de
+    repo: achimdehnert/risk-hub
+
+  bfagent:
+    prod: 8091
+    staging: null
+    domain_prod: iil.pet
+    domain_staging: staging.iil.pet
+    repo: achimdehnert/bfagent
+
+  billing-hub:
+    prod: 8092
+    staging: null
+    domain_prod: null
+    domain_staging: null
+    repo: achimdehnert/billing-hub
+
+  wedding-hub:
+    prod: 8093
+    staging: null
+    domain_prod: wedding-hub.iil.pet
+    domain_staging: staging.wedding-hub.iil.pet
+    repo: achimdehnert/wedding-hub
+
+  cad-hub:
+    prod: 8094
+    staging: null
+    domain_prod: nl2cad.de
+    domain_staging: staging.nl2cad.de
+    repo: achimdehnert/cad-hub
+
+  ausschreibungs-hub:
+    prod: 8095
+    staging: null
+    domain_prod: null
+    domain_staging: null
+    repo: achimdehnert/ausschreibungs-hub
+
+  illustration-hub:
+    prod: 8096
+    staging: null
+    domain_prod: null
+    domain_staging: null
+    repo: null
+
+  writing-hub:
+    prod: 8097
+    staging: null
+    domain_prod: null
+    domain_staging: null
+    repo: null
+
+  research-hub:
+    prod: 8098
+    staging: null
+    domain_prod: null
+    domain_staging: null
+    repo: null
 
   learn-hub:
+    prod: 8100
     staging: null
-    prod: 8099
-    domain_staging: null
     domain_prod: learn.iil.pet
+    domain_staging: null
     repo: achimdehnert/learn-hub
 
-  # Infrastruktur
-  uptime-kuma:
-    staging: 3001
-    prod: null
-    domain_staging: uptime.iil.pet
-    domain_prod: null
-    repo: null
+  odoo:
+    prod: 8069
+    staging: 8169
+    domain_prod: odoo.iil.pet
+    domain_staging: staging.odoo.iil.pet
+    repo: achimdehnert/odoo-hub
