@@ -17,6 +17,11 @@ implementation_evidence: []
 > **Amended 2026-03-12**: Offene Fragen entschieden — weasyprint, Gamification in-scope,
 > SCORM-Support geplant, API-First (DRF), Video als Canvas-Erweiterung (post-v1),
 > PyPI-Publish von Anfang an, optimale Dokumentation als Pflicht.
+>
+> **Review 2026-03-12**: DB-001 JSONField-Verstöße behoben (Attempt.answers → AttemptAnswer Model,
+> Course.metadata entfernt), Enrollment-Model + Category-Model ergänzt, Monorepo-Mirror
+> gestrichen (ADR-111 deprecated), Strukturinkonsistenz bereinigt, DRF als optional Extra,
+> video content_type als reserved markiert.
 
 ---
 
@@ -80,7 +85,6 @@ Begründung: Bewährtes Pattern (vgl. ADR-131 iil-django-commons, iil-aifw, iil-
 - **Package-Name**: `iil-learnfw`
 - **Python-Import**: `iil_learnfw`
 - **Repo**: `achimdehnert/learnfw` (eigenständig, PyPI-Publish)
-- **Monorepo-Mirror**: `platform/packages/iil-learnfw/` (optional, für lokale Entwicklung)
 
 ---
 
@@ -90,7 +94,7 @@ Begründung: Bewährtes Pattern (vgl. ADR-131 iil-django-commons, iil-aifw, iil-
 
 | Modul | Verantwortung | Dependencies |
 |---|---|---|
-| **iil_learnfw.courses** | Kursstruktur: Course → Chapter → Lesson, Ordering, Publishing-Status | keine |
+| **iil_learnfw.courses** | Kursstruktur: Course → Chapter → Lesson, Category, Enrollment, Ordering | keine |
 | **iil_learnfw.content** | Content-Backend-Abstraktion: MD-Renderer, PDF-Viewer-Meta, PPTX-Integration | `markdown` (optional) |
 | **iil_learnfw.progress** | Fortschrittstracking: UserProgress, LessonCompletion, CourseCompletion | keine |
 | **iil_learnfw.assessments** | Testmodule: Quiz, Question (MC/Freitext/Zuordnung), Attempt, Scoring | keine |
@@ -99,7 +103,10 @@ Begründung: Bewährtes Pattern (vgl. ADR-131 iil-django-commons, iil-aifw, iil-
 | **iil_learnfw.gamification** | Punkte, Badges, Streaks, Leaderboards, Achievement-System | keine |
 | **iil_learnfw.scorm** | SCORM 1.2/2004 Import/Export, LMS-Interoperabilität (Enterprise) | `lxml` (optional) |
 | **iil_learnfw.admin** | Django-Admin Integration: Kurs-Editor, Inhalts-Upload, Statistiken | keine |
-| **iil_learnfw.api** | REST-API (Pflicht): DRF-Serializer + ViewSets, Tenant-scoped, OpenAPI-Doku | `djangorestframework`, `drf-spectacular` |
+| **iil_learnfw.api** | REST-API: DRF-Serializer + ViewSets, Tenant-scoped, OpenAPI-Doku | `djangorestframework`, `drf-spectacular` (optional Extra `api`) |
+
+> **Hinweis**: Alle Module laufen unter einer einzigen Django-AppConfig (`IilLearnfwConfig`).
+> Die Modul-Bezeichnungen sind logische Gruppierungen innerhalb der App, keine separaten Django-Apps.
 
 ### 5.2 Projektstruktur
 
@@ -111,28 +118,29 @@ learnfw/
 │   ├── settings.py              # IIL_LEARNFW dict mit typed defaults
 │   ├── models/
 │   │   ├── __init__.py
-│   │   ├── course.py            # Course, Chapter, Lesson
+│   │   ├── course.py            # Category, Course, Chapter, Lesson, Enrollment
 │   │   ├── content.py           # ContentBlock, ContentAttachment (PDF/MD/PPTX)
 │   │   ├── progress.py          # UserProgress, LessonCompletion
-│   │   ├── assessment.py        # Quiz, Question, Answer, Attempt, Score
+│   │   ├── assessment.py        # Quiz, Question, Answer, Attempt, AttemptAnswer
 │   │   ├── certificate.py       # CertificateTemplate, IssuedCertificate
-│   │   └── onboarding.py        # OnboardingFlow, OnboardingStep, UserOnboardingState
+│   │   ├── onboarding.py        # OnboardingFlow, OnboardingStep, UserOnboardingState
+│   │   ├── gamification.py      # Badge, UserBadge, UserPoints, PointsTransaction
+│   │   └── scorm.py             # SCORMPackage
 │   ├── services/
 │   │   ├── course_service.py    # Kurs-CRUD, Publishing, Ordering
+│   │   ├── enrollment_service.py # enroll(), withdraw(), is_enrolled()
 │   │   ├── progress_service.py  # Fortschritt tracken, Completion berechnen
 │   │   ├── scoring_service.py   # Quiz-Auswertung, Bestanden/Nicht-Bestanden
 │   │   ├── certificate_service.py # PDF-Generierung, Verifizierungs-Token
 │   │   ├── content_service.py   # Content-Rendering (MD→HTML, PPTX-Meta)
-│   │   └── onboarding_service.py # Flow-Steuerung, Pflicht-Prüfung
+│   │   ├── onboarding_service.py # Flow-Steuerung, Pflicht-Prüfung
+│   │   └── gamification_service.py # award_points(), check_badges(), update_streak()
 │   ├── content_backends/
 │   │   ├── base.py              # AbstractContentBackend
 │   │   ├── markdown_backend.py  # MD → HTML Rendering
 │   │   ├── pdf_backend.py       # PDF-Metadaten, Viewer-URL
 │   │   └── pptx_backend.py      # PPTX-Integration (iil-pptxfw / pptx-hub API)
-│   ├── gamification/
-│   │   ├── models.py            # Points, Badge, UserBadge, Streak, Leaderboard
-│   │   ├── services.py          # award_points(), check_badges(), update_streak()
-│   │   └── signals.py           # Auto-Award on lesson_complete, quiz_passed
+│   ├── signals.py               # Auto-Award on lesson_complete, quiz_passed
 │   ├── scorm/
 │   │   ├── importer.py          # SCORM 1.2/2004 ZIP → Course+Lessons
 │   │   ├── exporter.py          # Course → SCORM Package
@@ -172,12 +180,13 @@ learnfw/
 │   ├── test_scoring_service.py
 │   ├── test_certificate_service.py
 │   ├── test_onboarding_service.py
+│   ├── test_enrollment_service.py
 │   ├── test_gamification_service.py
 │   ├── test_scorm_importer.py
 │   ├── test_content_backends.py
 │   ├── test_api.py
 │   └── test_views.py
-├── docs/                        # Sphinx/MkDocs Dokumentation
+├── docs/                        # MkDocs Dokumentation
 │   ├── index.md
 │   ├── quickstart.md
 │   ├── configuration.md
@@ -195,24 +204,35 @@ learnfw/
 ### 5.3 Datenmodell (Kern)
 
 ```
+Category
+├── name, slug, icon
+├── parent (FK self, optional — Baumstruktur)
+└── tenant_id
+
 Course
 ├── title, slug, description, thumbnail
+├── category (FK Category, optional)
 ├── status: draft | published | archived
 ├── is_mandatory: bool (für Onboarding)
 ├── required_for_certificate: bool
 ├── tenant_id (Multi-Tenancy via TenantManager, ADR-137)
-├── ordering: int
-└── metadata: JSONField (custom Consumer-Daten)
+└── ordering: int
 
 Chapter
 ├── course (FK)
 ├── title, ordering
 └── description
 
+Enrollment
+├── user (FK), course (FK)
+├── enrolled_at, enrolled_by (FK User, optional — Admin-Zuweisung)
+├── status: active | completed | withdrawn
+└── tenant_id
+
 Lesson
 ├── chapter (FK)
 ├── title, ordering
-├── content_type: markdown | pdf | pptx | video | external_url
+├── content_type: markdown | pdf | pptx | external_url (video: reserved, post-v1)
 ├── content_text: TextField (für MD)
 ├── content_file: FileField (für PDF/PPTX)
 ├── content_url: URLField (für externe Inhalte)
@@ -243,7 +263,14 @@ Attempt
 ├── quiz (FK), user (FK)
 ├── started_at, completed_at
 ├── score, passed: bool
-└── answers: JSONField
+└── tenant_id
+
+AttemptAnswer
+├── attempt (FK), question (FK)
+├── selected_answer (FK Answer, nullable — für MC/SC)
+├── free_text: TextField (für Freitext-Antworten)
+├── is_correct: bool
+└── points_awarded: int
 
 UserProgress
 ├── user (FK), lesson (FK)
@@ -258,9 +285,10 @@ CertificateTemplate
 └── tenant_id
 
 IssuedCertificate
+├── PK: BigAutoField (DB-001)
 ├── user (FK), course (FK), template (FK)
 ├── issued_at, expires_at
-├── verification_token: UUID (öffentlich prüfbar)
+├── verification_token: UUIDField (indexed, unique — Non-PK, für öffentliche Verifizierung)
 ├── pdf_file: FileField (generiertes PDF)
 └── tenant_id
 
@@ -307,7 +335,7 @@ SCORMPackage
 ├── course (FK), tenant_id
 ├── scorm_version: 1.2 | 2004
 ├── package_file: FileField (ZIP)
-├── manifest: JSONField (imsmanifest.xml parsed)
+├── manifest: JSONField (DB-001 Ausnahme: genuinely unstructured external XML payload)
 └── imported_at
 ```
 
@@ -373,8 +401,11 @@ IIL_LEARNFW = {
 ### Installation
 
 ```bash
-# Minimal (Kurse + Fortschritt + Onboarding)
+# Minimal (Kurse + Fortschritt + Onboarding — nur Template-Views)
 pip install iil-learnfw
+
+# Mit REST-API (DRF + OpenAPI)
+pip install "iil-learnfw[api]"
 
 # Mit Zertifikat-PDF-Generierung
 pip install "iil-learnfw[certificates]"
@@ -498,16 +529,15 @@ version = "0.1.0"
 requires-python = ">=3.11"
 dependencies = [
     "Django>=5.0",
-    "djangorestframework>=3.15",
-    "drf-spectacular>=0.27",
 ]
 
 [project.optional-dependencies]
+api = ["djangorestframework>=3.15", "drf-spectacular>=0.27"]
 certificates = ["weasyprint>=62", "qrcode>=7"]
 pptx = ["python-pptx>=1.0"]
 scorm = ["lxml>=5.0"]
 markdown = ["markdown>=3.6", "pymdown-extensions>=10"]
-all = ["iil-learnfw[certificates,pptx,scorm,markdown]"]
+all = ["iil-learnfw[api,certificates,pptx,scorm,markdown]"]
 ```
 
 ### Dokumentation (MkDocs)
