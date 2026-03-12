@@ -1,6 +1,7 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-03-12
+amended: 2026-03-12
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
@@ -12,6 +13,10 @@ implementation_evidence: []
 ---
 
 # ADR-139: Shared Learning Platform Package (iil-learnfw)
+
+> **Amended 2026-03-12**: Offene Fragen entschieden — weasyprint, Gamification in-scope,
+> SCORM-Support geplant, API-First (DRF), Video als Canvas-Erweiterung (post-v1),
+> PyPI-Publish von Anfang an, optimale Dokumentation als Pflicht.
 
 ---
 
@@ -89,10 +94,12 @@ Begründung: Bewährtes Pattern (vgl. ADR-131 iil-django-commons, iil-aifw, iil-
 | **iil_learnfw.content** | Content-Backend-Abstraktion: MD-Renderer, PDF-Viewer-Meta, PPTX-Integration | `markdown` (optional) |
 | **iil_learnfw.progress** | Fortschrittstracking: UserProgress, LessonCompletion, CourseCompletion | keine |
 | **iil_learnfw.assessments** | Testmodule: Quiz, Question (MC/Freitext/Zuordnung), Attempt, Scoring | keine |
-| **iil_learnfw.certificates** | Zertifikat-Generierung: Template-Engine, PDF-Export, Verifizierungs-URL | `reportlab` oder `weasyprint` (optional) |
+| **iil_learnfw.certificates** | Zertifikat-Generierung: WeasyPrint HTML→PDF, Verifizierungs-URL, QR-Code | `weasyprint` |
 | **iil_learnfw.onboarding** | Onboarding-Flows: Pflicht-Kurse, Checklisten, First-Login-Detection | keine |
+| **iil_learnfw.gamification** | Punkte, Badges, Streaks, Leaderboards, Achievement-System | keine |
+| **iil_learnfw.scorm** | SCORM 1.2/2004 Import/Export, LMS-Interoperabilität (Enterprise) | `lxml` (optional) |
 | **iil_learnfw.admin** | Django-Admin Integration: Kurs-Editor, Inhalts-Upload, Statistiken | keine |
-| **iil_learnfw.api** | REST-API (optional): DRF-Serializer + ViewSets für Headless-Consumer | `djangorestframework` (optional) |
+| **iil_learnfw.api** | REST-API (Pflicht): DRF-Serializer + ViewSets, Tenant-scoped, OpenAPI-Doku | `djangorestframework`, `drf-spectacular` |
 
 ### 5.2 Projektstruktur
 
@@ -122,11 +129,26 @@ learnfw/
 │   │   ├── markdown_backend.py  # MD → HTML Rendering
 │   │   ├── pdf_backend.py       # PDF-Metadaten, Viewer-URL
 │   │   └── pptx_backend.py      # PPTX-Integration (iil-pptxfw / pptx-hub API)
+│   ├── gamification/
+│   │   ├── models.py            # Points, Badge, UserBadge, Streak, Leaderboard
+│   │   ├── services.py          # award_points(), check_badges(), update_streak()
+│   │   └── signals.py           # Auto-Award on lesson_complete, quiz_passed
+│   ├── scorm/
+│   │   ├── importer.py          # SCORM 1.2/2004 ZIP → Course+Lessons
+│   │   ├── exporter.py          # Course → SCORM Package
+│   │   └── runtime.py           # SCORM API Adapter (cmi.core.*)
+│   ├── api/
+│   │   ├── serializers.py       # Course, Lesson, Progress, Quiz, Certificate
+│   │   ├── viewsets.py          # ModelViewSets, Tenant-scoped
+│   │   ├── permissions.py       # IsEnrolled, IsTenantMember
+│   │   ├── filters.py           # Filterset (status, category, tenant)
+│   │   └── urls.py              # DRF Router
 │   ├── views/
 │   │   ├── course_views.py      # Kurs-Liste, Detail, Lektion-Ansicht
 │   │   ├── assessment_views.py  # Quiz starten, beantworten, Ergebnis
 │   │   ├── certificate_views.py # Download, Verify-Endpoint
-│   │   └── onboarding_views.py  # Onboarding-Wizard, Fortschritt
+│   │   ├── onboarding_views.py  # Onboarding-Wizard, Fortschritt
+│   │   └── gamification_views.py # Leaderboard, Badge-Übersicht, Profil
 │   ├── templates/iil_learnfw/   # Default-Templates (überschreibbar)
 │   │   ├── course_list.html
 │   │   ├── course_detail.html
@@ -134,23 +156,38 @@ learnfw/
 │   │   ├── quiz.html
 │   │   ├── quiz_result.html
 │   │   ├── certificate.html
-│   │   ├── certificate_pdf.html # PDF-Template (WeasyPrint/ReportLab)
+│   │   ├── certificate_pdf.html # WeasyPrint HTML→PDF Template
+│   │   ├── leaderboard.html
+│   │   ├── badges.html
 │   │   └── onboarding/
 │   │       ├── wizard.html
 │   │       └── checklist.html
-│   ├── urls.py                  # Drop-in URL patterns
+│   ├── urls.py                  # Drop-in URL patterns (Views + API)
 │   ├── migrations/              # Django Migrations
 │   └── templatetags/
-│       └── learnfw_tags.py      # {% course_progress %}, {% certificate_badge %}
+│       └── learnfw_tags.py      # {% course_progress %}, {% certificate_badge %}, {% user_points %}
 ├── tests/
 │   ├── test_course_service.py
 │   ├── test_progress_service.py
 │   ├── test_scoring_service.py
 │   ├── test_certificate_service.py
 │   ├── test_onboarding_service.py
+│   ├── test_gamification_service.py
+│   ├── test_scorm_importer.py
 │   ├── test_content_backends.py
+│   ├── test_api.py
 │   └── test_views.py
-├── pyproject.toml               # PEP 621, optional extras
+├── docs/                        # Sphinx/MkDocs Dokumentation
+│   ├── index.md
+│   ├── quickstart.md
+│   ├── configuration.md
+│   ├── models.md
+│   ├── api-reference.md
+│   ├── content-backends.md
+│   ├── scorm.md
+│   ├── gamification.md
+│   └── changelog.md
+├── pyproject.toml               # PEP 621, optional extras, PyPI publish
 ├── README.md
 └── CHANGELOG.md
 ```
@@ -242,6 +279,36 @@ UserOnboardingState
 ├── user (FK), flow (FK), step (FK)
 ├── status: pending | in_progress | completed | skipped
 └── completed_at
+
+Badge (Gamification)
+├── name, slug, icon, description
+├── trigger: course_completed | quiz_passed | streak_reached | points_reached | custom
+├── threshold: int (z.B. 5 Kurse, 100 Punkte, 7 Tage Streak)
+└── tenant_id
+
+UserBadge
+├── user (FK), badge (FK)
+├── awarded_at
+└── tenant_id
+
+UserPoints
+├── user (FK), tenant_id
+├── total_points: int
+├── current_streak: int (Tage)
+└── longest_streak: int
+
+PointsTransaction
+├── user (FK), tenant_id
+├── points: int, reason: str
+├── source_type: lesson | quiz | badge | manual
+└── created_at
+
+SCORMPackage
+├── course (FK), tenant_id
+├── scorm_version: 1.2 | 2004
+├── package_file: FileField (ZIP)
+├── manifest: JSONField (imsmanifest.xml parsed)
+└── imported_at
 ```
 
 ---
@@ -378,12 +445,20 @@ IIL_LEARNFW = {
 
 | Phase | Scope | Deliverables |
 |---|---|---|
-| **Phase 1** | Courses + Content + Progress | v0.1.0 — Kursstruktur, MD/PDF-Backend, Fortschrittstracking |
-| **Phase 2** | Assessments | v0.2.0 — Quizzes, Scoring, Attempt-Tracking |
-| **Phase 3** | Certificates | v0.3.0 — PDF-Zertifikate, Verifizierungs-URL |
+| **Phase 1** | Courses + Content + Progress + API | v0.1.0 — Kursstruktur, MD/PDF-Backend, Fortschrittstracking, DRF-API, PyPI-Publish |
+| **Phase 2** | Assessments + Scoring | v0.2.0 — Quizzes, MC/Freitext, Scoring, Attempt-Tracking, API-Endpoints |
+| **Phase 3** | Certificates (WeasyPrint) | v0.3.0 — HTML→PDF-Zertifikate, Verifizierungs-URL, QR-Code |
 | **Phase 4** | Onboarding | v0.4.0 — Onboarding-Flows, Pflicht-Kurse, Checklisten |
-| **Phase 5** | PPTX-Integration | v0.5.0 — PPTX-Backend, pptx-hub API-Anbindung |
-| **Phase 6** | Consumer-Integration | v1.0.0 — Erster Hub (risk-hub) LIVE, Templates, Admin |
+| **Phase 5** | Gamification | v0.5.0 — Punkte, Badges, Streaks, Leaderboards |
+| **Phase 6** | PPTX-Integration | v0.6.0 — PPTX-Backend, pptx-hub API-Anbindung |
+| **Phase 7** | SCORM | v0.7.0 — SCORM 1.2/2004 Import/Export (Enterprise) |
+| **Phase 8** | Consumer-Integration | v1.0.0 — Erster Hub (risk-hub) LIVE, Templates, Admin, Doku komplett |
+
+**Querschnitt (ab Phase 1):**
+- PyPI-Publish bei jedem Minor-Release
+- MkDocs-Dokumentation mitgeführt (docs/)
+- OpenAPI-Schema via drf-spectacular
+- CI: ruff + pytest + bandit (Python 3.11+3.12)
 
 ---
 
@@ -397,21 +472,64 @@ IIL_LEARNFW = {
 
 ---
 
-## 10. Offene Fragen
+## 10. Entschiedene Fragen
 
-1. **Zertifikat-PDF-Engine**: `weasyprint` (HTML→PDF, flexibel, heavy dependency) vs. `reportlab` (programmatisch, leichter) vs. Consumer-eigene Lösung?
-2. **Video-Content**: Soll ein Video-Backend (YouTube/Vimeo Embed) Teil von v1.0 sein oder Erweiterung?
-3. **Gamification**: Punkte, Badges, Leaderboards — in-scope für v1.0 oder separates Package?
-4. **SCORM-Kompatibilität**: Soll SCORM-Import/-Export unterstützt werden (Enterprise-Anforderung)?
-5. **API-First**: Soll die REST-API (DRF) von Anfang an dabei sein oder erst bei Headless-Bedarf?
+| # | Frage | Entscheidung | Begründung |
+|---|---|---|---|
+| 1 | **Zertifikat-PDF-Engine** | `weasyprint` | HTML→PDF, flexibel, Template-basiert, CSS-Support. Heavy Dependency akzeptabel als optional Extra. |
+| 2 | **Video-Content** | Post-v1 — Canvas oder eigene Lösung | Video ist komplexes Thema (Hosting, Streaming, DRM). Später als Canvas-LTI-Integration oder eigenes Video-Backend. |
+| 3 | **Gamification** | In-scope (Phase 5, v0.5.0) | Motivation + Engagement sind Kern-Feature einer Lernplattform. Punkte/Badges/Streaks als eigenes Submodul. |
+| 4 | **SCORM** | Ja (Phase 7, v0.7.0) | Enterprise-Kunden (Firmen) erwarten SCORM-Kompatibilität. Import/Export für LMS-Interoperabilität. |
+| 5 | **API-First** | Ja, DRF von Phase 1 an | Tenant-fähige API ermöglicht Headless-Consumer, Mobile-Apps, externe Integrationen. OpenAPI-Doku via drf-spectacular. |
+| 6 | **Distribution** | PyPI von Anfang an | Jeder Minor-Release wird auf PyPI publiziert. CI/CD mit GitHub Actions. |
+| 7 | **Dokumentation** | MkDocs, ab Phase 1 mitgeführt | Aktive Entwicklung erfordert optimale Doku: Quickstart, Config-Referenz, API-Doku, Content-Backend-Guide. |
 
 ---
 
-## 11. Nächste Schritte
+## 11. Distribution & Dokumentation
 
-1. **ADR reviewen und Entscheidung treffen** → status: proposed → accepted
-2. Repo `achimdehnert/learnfw` anlegen (pyproject.toml, CI)
-3. Phase 1 implementieren: Course/Chapter/Lesson Models, MD/PDF-Backend, Progress-Tracking
-4. Admin-Integration: Kurs-Editor mit Drag&Drop Ordering
-5. Templates: Default-Templates mit HTMX-Interaktion (wo Consumer HTMX nutzt)
-6. Ersten Consumer integrieren (risk-hub: Schulungsmodul)
+### PyPI
+
+```toml
+# pyproject.toml
+[project]
+name = "iil-learnfw"
+version = "0.1.0"
+requires-python = ">=3.11"
+dependencies = [
+    "Django>=5.0",
+    "djangorestframework>=3.15",
+    "drf-spectacular>=0.27",
+]
+
+[project.optional-dependencies]
+certificates = ["weasyprint>=62", "qrcode>=7"]
+pptx = ["python-pptx>=1.0"]
+scorm = ["lxml>=5.0"]
+markdown = ["markdown>=3.6", "pymdown-extensions>=10"]
+all = ["iil-learnfw[certificates,pptx,scorm,markdown]"]
+```
+
+### Dokumentation (MkDocs)
+
+- **Quickstart**: Installation, INSTALLED_APPS, URLs, erste Kurse anlegen
+- **Configuration**: Alle IIL_LEARNFW Settings mit Defaults und Beispielen
+- **Models**: ER-Diagramm, Feld-Referenz, Multi-Tenancy-Hinweise
+- **API Reference**: OpenAPI-Schema, Auth, Pagination, Filtering
+- **Content Backends**: Eigene Backends schreiben, PPTX-Integration
+- **SCORM**: Import-Workflow, Export-Format, Einschränkungen
+- **Gamification**: Badge-System konfigurieren, Custom-Trigger
+- **Changelog**: Semantic Versioning, Migration Guides
+
+---
+
+## 12. Nächste Schritte
+
+1. ~~ADR reviewen und Entscheidung treffen~~ ✅ accepted
+2. Repo `achimdehnert/learnfw` anlegen (pyproject.toml, CI, MkDocs)
+3. Phase 1 implementieren: Course/Chapter/Lesson Models, MD/PDF-Backend, Progress-Tracking, DRF-API
+4. PyPI-Publish v0.1.0
+5. Admin-Integration: Kurs-Editor mit Drag&Drop Ordering
+6. Templates: Default-Templates mit HTMX-Interaktion (wo Consumer HTMX nutzt)
+7. Ersten Consumer integrieren (risk-hub: Schulungsmodul)
+8. Gamification + SCORM in späteren Phasen
