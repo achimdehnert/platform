@@ -7,7 +7,7 @@ consulted: []
 informed: []
 supersedes: []
 amends: []
-related: ["ADR-131-shared-backend-services.md", "ADR-111-private-package-distribution.md", "ADR-109-multi-tenancy-platform-standard.md", "ADR-134-module-monetization-strategy.md"]
+related: ["ADR-131-shared-backend-services.md", "ADR-111-private-package-distribution.md", "ADR-109-multi-tenancy-platform-standard.md", "ADR-134-module-monetization-strategy.md", "ADR-137-tenant-manager-rls.md"]
 implementation_status: not_started
 implementation_evidence: []
 ---
@@ -27,6 +27,11 @@ implementation_evidence: []
 > **Update 2026-03-12**: Authoring-Frontend (Section 8) und detaillierte Consumer-Integration
 > (Section 9) ergänzt. Eigenes Authoring-UI mit HTMX (kein reines Django-Admin). Template-Override,
 > Dashboard-Widgets, Auth-/Enrollment-Integration, vollständiges risk-hub Beispiel.
+>
+> **Tenant-Review 2026-03-12**: tenant_id (UUIDField, nullable, indexed) auf ALLE 22 Models
+> durchgezogen (RLS-Pflicht, ADR-137). FileField upload_to mit Tenant-Prefix. is_global für
+> plattformweite Kurse. Celery-Propagation via @with_tenant. django-tenancy als optionale Dep.
+> Permission-Klassen mit Tenant-Check. Template-Tags tenant-aware. AUTH_USER_MODEL überall.
 
 ---
 
@@ -231,6 +236,21 @@ learnfw/
 
 ### 5.3 Datenmodell (Kern)
 
+> **Tenant-Konvention (ADR-137)**:
+> - **Alle** Models haben `tenant_id: UUIDField(null=True, blank=True, db_index=True)`
+> - Nullable für Single-Tenant-Consumer (`TENANT_AWARE=False` → tenant_id bleibt NULL)
+> - Multi-Tenant-Consumer: Middleware setzt tenant_id automatisch via TenantManager
+> - PostgreSQL RLS erfordert `tenant_id` auf **jeder Tabelle** — keine FK-Traversals
+> - `user`-FKs referenzieren immer `settings.AUTH_USER_MODEL`
+> - FileFields nutzen `upload_to=tenant_upload_path` für Storage-Isolation
+
+```python
+# Tenant-isolierter Upload-Pfad (alle FileFields)
+def tenant_upload_path(instance, filename):
+    tid = instance.tenant_id or "shared"
+    return f"tenants/{tid}/learnfw/{instance.__class__.__name__.lower()}/{filename}"
+```
+
 ```
 Category
 ├── name, slug, icon
@@ -243,13 +263,15 @@ Course
 ├── status: draft | published | archived
 ├── is_mandatory: bool (für Onboarding)
 ├── required_for_certificate: bool
-├── tenant_id (Multi-Tenancy via TenantManager, ADR-137)
-└── ordering: int
+├── is_global: bool (default=False — True = sichtbar für ALLE Tenants)
+├── created_by (FK User)
+├── ordering: int
+└── tenant_id
 
 Chapter
 ├── course (FK)
-├── title, ordering
-└── description
+├── title, ordering, description
+└── tenant_id
 
 Enrollment
 ├── user (FK), course (FK)
@@ -262,10 +284,11 @@ Lesson
 ├── title, ordering
 ├── content_type: markdown | pdf | pptx | external_url (video: reserved, post-v1)
 ├── content_text: TextField (für MD)
-├── content_file: FileField (für PDF/PPTX)
+├── content_file: FileField (upload_to=tenant_upload_path)
 ├── content_url: URLField (für externe Inhalte)
 ├── estimated_duration: DurationField
-└── is_downloadable: bool
+├── is_downloadable: bool
+└── tenant_id
 
 Quiz (Assessment)
 ├── course (FK, optional — kann kursübergreifend sein)
@@ -273,19 +296,20 @@ Quiz (Assessment)
 ├── title, passing_score (z.B. 80%)
 ├── max_attempts: int (0 = unbegrenzt)
 ├── time_limit: DurationField (optional)
-└── shuffle_questions: bool
+├── shuffle_questions: bool
+└── tenant_id
 
 Question
 ├── quiz (FK)
 ├── question_type: multiple_choice | single_choice | free_text | matching
 ├── text, explanation (nach Beantwortung sichtbar)
-├── points: int
-└── ordering
+├── points: int, ordering
+└── tenant_id
 
 Answer (für MC/SC)
 ├── question (FK)
-├── text, is_correct: bool
-└── ordering
+├── text, is_correct: bool, ordering
+└── tenant_id
 
 Attempt
 ├── quiz (FK), user (FK)
@@ -297,8 +321,8 @@ AttemptAnswer
 ├── attempt (FK), question (FK)
 ├── selected_answer (FK Answer, nullable — für MC/SC)
 ├── free_text: TextField (für Freitext-Antworten)
-├── is_correct: bool
-└── points_awarded: int
+├── is_correct: bool, points_awarded: int
+└── tenant_id
 
 UserProgress
 ├── user (FK), lesson (FK)
@@ -308,7 +332,8 @@ UserProgress
 
 CertificateTemplate
 ├── name, html_template (für PDF-Rendering)
-├── logo, signature_image
+├── logo: FileField (upload_to=tenant_upload_path)
+├── signature_image: FileField (upload_to=tenant_upload_path)
 ├── valid_for: DurationField (optional, Ablaufdatum)
 └── tenant_id
 
@@ -317,24 +342,25 @@ IssuedCertificate
 ├── user (FK), course (FK), template (FK)
 ├── issued_at, expires_at
 ├── verification_token: UUIDField (indexed, unique — Non-PK, für öffentliche Verifizierung)
-├── pdf_file: FileField (generiertes PDF)
+├── pdf_file: FileField (upload_to=tenant_upload_path)
 └── tenant_id
 
 OnboardingFlow
-├── name, tenant_id
-├── is_active: bool
-└── trigger: first_login | role_change | manual
+├── name, is_active: bool
+├── trigger: first_login | role_change | manual
+└── tenant_id
 
 OnboardingStep
 ├── flow (FK), course (FK, optional), quiz (FK, optional)
 ├── title, description
-├── is_required: bool
-└── ordering
+├── is_required: bool, ordering
+└── tenant_id
 
 UserOnboardingState
 ├── user (FK), flow (FK), step (FK)
 ├── status: pending | in_progress | completed | skipped
-└── completed_at
+├── completed_at
+└── tenant_id
 
 Badge (Gamification)
 ├── name, slug, icon, description
@@ -348,24 +374,33 @@ UserBadge
 └── tenant_id
 
 UserPoints
-├── user (FK), tenant_id
+├── user (FK)
 ├── total_points: int
-├── current_streak: int (Tage)
-└── longest_streak: int
+├── current_streak: int (Tage), longest_streak: int
+└── tenant_id
 
 PointsTransaction
-├── user (FK), tenant_id
+├── user (FK)
 ├── points: int, reason: str
 ├── source_type: lesson | quiz | badge | manual
-└── created_at
+├── created_at
+└── tenant_id
 
 SCORMPackage
-├── course (FK), tenant_id
+├── course (FK)
 ├── scorm_version: 1.2 | 2004
-├── package_file: FileField (ZIP)
+├── package_file: FileField (upload_to=tenant_upload_path, ZIP)
 ├── manifest: JSONField (DB-001 Ausnahme: genuinely unstructured external XML payload)
-└── imported_at
+├── imported_at
+└── tenant_id
 ```
+
+> **is_global-Logik**: Kurse mit `is_global=True` sind für alle Tenants sichtbar.
+> QuerySet: `Course.objects.filter(Q(tenant_id=ctx.tenant_id) | Q(is_global=True))`
+> Globale Kurse werden zentral gepflegt (tenant_id=NULL oder Plattform-Tenant).
+
+> **Verify-Endpoint**: `/learn/verify/{token}/` ist öffentlich (kein Tenant-Middleware).
+> Response enthält nur: Zertifikat gültig/ungültig, Ausstellungsdatum, Name. Keine internen Tenant-Daten.
 
 ---
 
@@ -540,8 +575,9 @@ IIL_LEARNFW = {
 Für große Content-Mengen (z.B. bestehende Schulungsunterlagen migrieren):
 
 ```python
-# Management Command
+# Management Command (--tenant ist Pflicht bei TENANT_AWARE=True)
 python manage.py import_lessons \
+    --tenant "org-uuid-or-slug" \  # Pflicht: Ziel-Tenant (UUID oder Slug)
     --course "Versicherungsgrundlagen" \
     --source /path/to/content/ \
     --format auto \               # auto-detect: .md, .pdf, .pptx
@@ -549,6 +585,7 @@ python manage.py import_lessons \
     --status draft                 # Alle als Draft importieren
 
 # API-Endpoint (POST /api/v1/courses/{id}/bulk-import/)
+# tenant_id wird automatisch aus Request-Context (Middleware) gesetzt
 {
     "files": [...],                # Multipart Upload
     "chapter_strategy": "per_folder",
@@ -556,6 +593,10 @@ python manage.py import_lessons \
     "initial_status": "draft"
 }
 ```
+
+> **Celery-Tasks**: Async-Processing (PPTX Auto-Split, Bulk-Import, PDF-Generierung) propagiert
+> den Tenant-Context via `@with_tenant`-Decorator (django-tenancy, ADR-137). Der Decorator
+> setzt `set_tenant()` + `set_db_tenant()` vor Task-Ausführung und `clear_context()` danach.
 
 **Unterstützte Formate:**
 
@@ -602,10 +643,11 @@ IIL_LEARNFW = {
 ContentVersion (Versionierung)
 ├── lesson (FK)
 ├── version: int
-├── content_text, content_file (Snapshot)
+├── content_text, content_file (Snapshot, upload_to=tenant_upload_path)
 ├── created_at, created_by (FK User)
 ├── change_summary: CharField
-└── is_current: bool
+├── is_current: bool
+└── tenant_id
 
 ContentReview (Authoring-Workflow)
 ├── lesson (FK) oder course (FK)
@@ -764,9 +806,15 @@ Visueller Quiz-Editor mit Fragen-Typen:
 
 ```python
 # Permissions in views/authoring/
+from django_tenancy.context import get_context
+
 class IsAuthorOrAdmin(permissions.BasePermission):
-    """Nur Autoren (eigene Kurse) oder Kurs-Admins."""
+    """Nur Autoren (eigene Kurse) oder Kurs-Admins — mit Tenant-Check."""
     def has_object_permission(self, request, view, obj):
+        # Tenant-Isolation: Objekt muss zum aktuellen Tenant gehören
+        ctx = get_context()
+        if ctx.tenant_id and hasattr(obj, 'tenant_id') and obj.tenant_id != ctx.tenant_id:
+            return False
         return obj.created_by == request.user or request.user.has_perm("iil_learnfw.manage_courses")
 ```
 
@@ -900,23 +948,29 @@ Damit erbt jede learnfw-Seite automatisch das **risk-hub Design** (Navbar, Foote
 
 ### 9.5 Dashboard-Widgets (Template-Tags)
 
-learnfw stellt Template-Tags bereit, die der Consumer auf seiner Startseite einbetten kann:
+learnfw stellt Template-Tags bereit, die der Consumer auf seiner Startseite einbetten kann.
+Alle Tags sind **tenant-aware**: Sie lesen den Tenant-Context aus der Middleware und filtern
+automatisch — auch wenn ein User Mitglied mehrerer Tenants ist.
 
 ```html
 {# risk-hub/templates/dashboard.html #}
 {% load learnfw_tags %}
 
 <div class="grid grid-cols-3 gap-4">
-  {# Fortschritts-Karte: "3 von 12 Kursen abgeschlossen" #}
+  {# Fortschritts-Karte: "3 von 12 Kursen abgeschlossen" (aktueller Tenant) #}
   {% learnfw_progress_card user=request.user %}
 
-  {# Nächste Lektion: "Weiter mit: Schadensregulierung, Kapitel 3" #}
+  {# Nächste Lektion: "Weiter mit: Schadensregulierung, Kapitel 3" (aktueller Tenant) #}
   {% learnfw_next_lesson user=request.user %}
 
-  {# Badge-Showcase: Letzte 3 verdiente Badges #}
+  {# Badge-Showcase: Letzte 3 verdiente Badges (aktueller Tenant) #}
   {% learnfw_badge_showcase user=request.user limit=3 %}
 </div>
 ```
+
+> **Tenant-Scoping in Tags**: Intern nutzen alle Tags `TenantManager.get_queryset()` —
+> der auto-filter greift über den Request-Context der Middleware. Kein explizites
+> `tenant_id`-Argument nötig.
 
 ### 9.6 Navigation-Integration
 
@@ -936,9 +990,10 @@ Der Consumer bindet "Schulungen" in seine Hauptnavigation ein:
 
 ### 9.7 Auth-Integration
 
-- **Kein separater Login**: learnfw nutzt `request.user` des Consumer-Projekts
+- **Kein separater Login**: learnfw nutzt `request.user` (`settings.AUTH_USER_MODEL`) des Consumer-Projekts
 - **Permissions**: Über Django-Permissions (`iil_learnfw.author`, `iil_learnfw.reviewer`, `iil_learnfw.manage_courses`)
 - **Tenant-Scoping**: Automatisch via TenantManager (ADR-137) — Lernende sehen nur Kurse ihres Mandanten
+- **Leaderboard-Isolation**: Rangliste zeigt nur Ranking **innerhalb des eigenen Mandanten** (UserPoints.tenant_id)
 - **Enrollment**: Offene Kurse vs. Zuweisung durch Admin vs. Selbst-Einschreibung (konfigurierbar)
 
 ```python
@@ -1021,9 +1076,10 @@ urlpatterns = [
 ## 11. Risiken & Mitigationen
 
 - **Over-Engineering**: YAGNI — Phase 1 startet minimal (Kurse + MD/PDF). Weitere Module nur bei konkretem Bedarf.
-- **Multi-Tenancy-Komplexität**: Nutzung des bewährten TenantManager-Patterns (ADR-137). Tenant-Filter in allen QuerySets.
-- **Content-Storage**: FileField für PDF/PPTX. Bei Bedarf S3-Backend via Django Storages. Kein eigener Object-Store.
-- **Zertifikat-Fälschung**: Signierter Verification-Token (HMAC). Öffentliche Verify-URL. Optional QR-Code auf Zertifikat.
+- **Multi-Tenancy-Komplexität**: Nutzung des bewährten TenantManager-Patterns (ADR-137). `tenant_id` auf **allen** 22 Models (RLS-Pflicht). Nullable für Single-Tenant-Consumer.
+- **Celery-Tenant-Propagation**: Async-Tasks (PPTX-Processing, Bulk-Import, PDF-Generierung) nutzen `@with_tenant`-Decorator aus django-tenancy. Der Decorator propagiert `tenant_id` + `set_db_tenant()` in den Worker-Context und ruft `clear_context()` nach Abschluss auf. Ohne diesen Decorator wäre der Tenant-Context im Worker nicht gesetzt → unscoped QuerySets.
+- **Content-Storage**: FileField mit `upload_to=tenant_upload_path` für Tenant-isolierte Pfade (`tenants/{tid}/learnfw/...`). Bei Bedarf S3-Backend via Django Storages. URL-Guessing-Schutz durch Tenant-Prefix.
+- **Zertifikat-Fälschung**: Signierter Verification-Token (HMAC). Öffentliche Verify-URL exponiert nur: gültig/ungültig, Datum, Name — keine internen Tenant-Daten.
 - **Performance**: Fortschrittstracking mit Bulk-Updates. Content-Rendering gecacht. Quiz-Scoring synchron (einfach genug).
 
 ---
@@ -1040,6 +1096,9 @@ urlpatterns = [
 | 6 | **Distribution** | PyPI von Anfang an | Jeder Minor-Release wird auf PyPI publiziert. CI/CD mit GitHub Actions. |
 | 7 | **Dokumentation** | MkDocs, ab Phase 1 mitgeführt | Aktive Entwicklung erfordert optimale Doku: Quickstart, Config-Referenz, API-Doku, Content-Backend-Guide. |
 | 8 | **Authoring-UI** | Eigenes Frontend (HTMX-basiert) | Dedizierte Autoren-UI mit Kurs-Editor, Lektions-Editor, Quiz-Builder, Review-Workflow. Kein reines Django-Admin. |
+| 9 | **tenant_id Feldtyp** | `UUIDField(null=True, blank=True, db_index=True)` | UUID wie in django-tenancy (ADR-137). Nullable für Single-Tenant-Consumer (TENANT_AWARE=False). Indexed für RLS-Performance. |
+| 10 | **Celery-Propagation** | `@with_tenant`-Decorator (django-tenancy) | Alle async Tasks (PPTX-Processing, Bulk-Import, PDF-Gen) propagieren Tenant-Context. `set_tenant()` + `set_db_tenant()` → Task → `clear_context()`. |
+| 11 | **Single-Tenant-Modus** | `TENANT_AWARE=False` → tenant_id bleibt NULL | Consumer ohne Multi-Tenancy braucht kein django-tenancy. Models haben tenant_id=NULL, TenantManager wird nicht aktiviert, normaler Django-Manager greift. |
 
 ---
 
@@ -1059,11 +1118,12 @@ dependencies = [
 
 [project.optional-dependencies]
 api = ["djangorestframework>=3.15", "drf-spectacular>=0.27"]
+tenancy = ["django-tenancy>=0.2"]          # Multi-Tenancy (ADR-137, TenantManager + RLS)
 certificates = ["weasyprint>=62", "qrcode>=7"]
 pptx = ["python-pptx>=1.0"]
 scorm = ["lxml>=5.0"]
 markdown = ["markdown>=3.6", "pymdown-extensions>=10"]
-all = ["iil-learnfw[api,certificates,pptx,scorm,markdown]"]
+all = ["iil-learnfw[api,tenancy,certificates,pptx,scorm,markdown]"]
 ```
 
 ### Dokumentation (MkDocs)
