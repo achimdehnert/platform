@@ -43,6 +43,11 @@ implementation_evidence:
   - "4.4a platform/docs/guides/rls-rollout-template.md — Schritt-für-Schritt mit Checkliste"
   - "4.4b Bekannte Fallstricke dokumentiert (pgrep, psycopg, SQL-Split Bugs)"
   - "Bonus: Worker-Healthcheck Fix — pgrep nicht in slim-Image, grep /proc/*/cmdline"
+  - "Phase 5: RLS-Rollout auf weitere Hubs (2026-03-12)"
+  - "5.1 coach-hub Prod: 12 Tabellen mit RLS-Policies, App-User coach_hub_app, Dual-DATABASE_URL"
+  - "5.2 coach-hub Staging: 18 Tabellen (inkl. django_lms_*), App-User coach_hub_staging_app"
+  - "5.3 travel-beat Prod: 3 Tabellen (uuid+bigint Cast), App-User travel_beat_app, Dual-DATABASE_URL"
+  - "5.x Entrypoint-RLS-Pattern: Volume-Mount /opt/<hub>/entrypoint-rls.sh:/entrypoint.sh:ro"
 ---
 
 # ADR-137: Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security
