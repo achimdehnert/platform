@@ -21,7 +21,8 @@ implementation_evidence: []
 > **Review 2026-03-12**: DB-001 JSONField-Verstöße behoben (Attempt.answers → AttemptAnswer Model,
 > Course.metadata entfernt), Enrollment-Model + Category-Model ergänzt, Monorepo-Mirror
 > gestrichen (ADR-111 deprecated), Strukturinkonsistenz bereinigt, DRF als optional Extra,
-> video content_type als reserved markiert.
+> video content_type als reserved markiert. Content-Produktionsprozess ergänzt (Section 7):
+> Authoring-Workflow, PPTX-Pipeline, Bulk-Import, Content-Versionierung.
 
 ---
 
@@ -396,7 +397,210 @@ IIL_LEARNFW = {
 
 ---
 
-## 7. Consumer-Integration
+## 7. Content-Produktionsprozess
+
+Der Produktionsprozess beschreibt, wie Lerninhalte erstellt, geprüft, versioniert und veröffentlicht werden.
+
+### 7.1 Authoring-Workflow (Content Lifecycle)
+
+Jede Lesson und jeder Kurs durchläuft einen definierten Lifecycle:
+
+```
+┌─────────┐     ┌──────────┐     ┌──────────┐     ┌───────────┐
+│  DRAFT  │────▶│ IN_REVIEW│────▶│ APPROVED │────▶│ PUBLISHED │
+└─────────┘     └──────────┘     └──────────┘     └───────────┘
+     ▲               │                                   │
+     │               ▼                                   ▼
+     │          ┌──────────┐                      ┌───────────┐
+     └──────────│ REJECTED │                      │ ARCHIVED  │
+                └──────────┘                      └───────────┘
+```
+
+| Status | Beschreibung | Sichtbarkeit |
+|---|---|---|
+| **draft** | Autor erstellt/bearbeitet Content | Nur Autor + Admin |
+| **in_review** | Zur Prüfung eingereicht | Autor + Reviewer + Admin |
+| **rejected** | Reviewer hat Änderungen angefordert → zurück an Autor | Nur Autor + Admin |
+| **approved** | Inhaltlich freigegeben, bereit zur Veröffentlichung | Admin |
+| **published** | Live für Lernende sichtbar | Alle (Enrollment-abhängig) |
+| **archived** | Nicht mehr aktiv, historisch erhalten | Admin |
+
+#### Rollen im Authoring
+
+| Rolle | Rechte |
+|---|---|
+| **Content-Autor** | Erstellen, bearbeiten (draft/rejected), zur Review einreichen |
+| **Content-Reviewer** | Approve/Reject mit Kommentar, Vorschau |
+| **Kurs-Admin** | Alle Rechte + Publish/Archive, Kursstruktur, Enrollment |
+| **Tenant-Admin** | Alle Rechte + Benutzerverwaltung, Reporting |
+
+### 7.2 Content-Quellen & Produktionspipelines
+
+```
+                    ┌──────────────────────────────┐
+                    │     Content-Quellen           │
+                    └──────────────────────────────┘
+                         │         │         │
+                ┌────────┘         │         └────────┐
+                ▼                  ▼                   ▼
+        ┌──────────────┐  ┌──────────────┐   ┌──────────────┐
+        │   Markdown    │  │  PDF-Upload   │   │  PPTX-Hub    │
+        │   (Editor)    │  │  (Datei)      │   │  (Pipeline)  │
+        └──────┬───────┘  └──────┬───────┘   └──────┬───────┘
+               │                  │                   │
+               ▼                  ▼                   ▼
+        ┌──────────────────────────────────────────────────┐
+        │              Lesson (content_type)                │
+        │   markdown | pdf | pptx | external_url           │
+        └──────────────────────────────────────────────────┘
+               │                  │                   │
+               ▼                  ▼                   ▼
+        ┌──────────────────────────────────────────────────┐
+        │           Content-Backend (Rendering)            │
+        └──────────────────────────────────────────────────┘
+```
+
+#### a) Markdown-Produktion
+
+- **Inline-Editor**: Rich-Text-Editor im Admin/Frontend (z.B. django-markdownx oder SimpleMDE)
+- **Import**: MD-Dateien hochladen → `content_text` befüllen
+- **Rendering**: `MarkdownContentBackend` → HTML mit Tables, Code-Blöcken, Bildern
+
+#### b) PDF-Produktion
+
+- **Direkter Upload**: PDF-Dateien per Admin oder API hochladen → `content_file`
+- **Generierung aus MD**: `weasyprint` rendert Markdown/HTML → PDF (für Offline-Download)
+- **Externe Quellen**: URL zu bestehenden PDFs (Handbücher, Normen, Richtlinien)
+
+#### c) PPTX-Produktionspipeline (pptx-hub Integration)
+
+Die zentrale Pipeline für PPTX-basierte Lerninhalte:
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│ PPTX-Vorlage│────▶│  pptx-hub   │────▶│  learnfw    │────▶│  Lesson     │
+│ (Template)  │     │  Rendering  │     │  Import     │     │ (published) │
+└─────────────┘     └─────────────┘     └─────────────┘     └─────────────┘
+                          │
+                    ┌─────┴─────┐
+                    ▼           ▼
+              HTML-Slides   PDF-Export
+              (pro Slide)   (Handout)
+```
+
+1. **PPTX erstellen**: Autor erstellt Präsentation (PowerPoint, Google Slides, iil-pptxfw)
+2. **Upload**: PPTX-Datei wird in learnfw hochgeladen (Admin oder API)
+3. **Auto-Processing** (Celery-Task):
+   - Slide-Count ermitteln, Thumbnail generieren
+   - Optional: Jeder Slide → eigene Lektion (Auto-Split)
+   - Optional: Speaker Notes → Markdown-Begleittext
+   - PDF-Handout generieren (via pptx-hub oder weasyprint)
+4. **Review**: Content-Reviewer prüft generierte Lektionen
+5. **Publish**: Freigabe → Lernende sehen Slides als interaktive Präsentation
+
+```python
+# settings.py
+IIL_LEARNFW = {
+    "PPTX_AUTO_SPLIT": True,       # Jeder Slide → eigene Lektion
+    "PPTX_EXTRACT_NOTES": True,    # Speaker Notes → lesson.content_text
+    "PPTX_GENERATE_PDF": True,     # Auto-PDF-Handout
+    "PPTX_THUMBNAIL_SLIDE": 1,     # Slide-Nr. für Kurs-Thumbnail
+}
+```
+
+### 7.3 Bulk-Import
+
+Für große Content-Mengen (z.B. bestehende Schulungsunterlagen migrieren):
+
+```python
+# Management Command
+python manage.py import_lessons \
+    --course "Versicherungsgrundlagen" \
+    --source /path/to/content/ \
+    --format auto \               # auto-detect: .md, .pdf, .pptx
+    --chapter-per-folder \         # Unterordner → Chapters
+    --status draft                 # Alle als Draft importieren
+
+# API-Endpoint (POST /api/v1/courses/{id}/bulk-import/)
+{
+    "files": [...],                # Multipart Upload
+    "chapter_strategy": "per_folder",
+    "auto_detect_format": true,
+    "initial_status": "draft"
+}
+```
+
+**Unterstützte Formate:**
+
+| Format | Erkennung | Verarbeitung |
+|---|---|---|
+| `.md` | Extension | → `content_text`, content_type=markdown |
+| `.pdf` | Extension + Magic Bytes | → `content_file`, content_type=pdf |
+| `.pptx` | Extension + Magic Bytes | → `content_file`, content_type=pptx, Auto-Processing |
+| Ordner | Directory | → Chapter (mit Dateien als Lektionen, sortiert nach Dateiname) |
+
+### 7.4 Content-Versionierung
+
+Wenn Content aktualisiert wird, muss der Lernfortschritt konsistent bleiben:
+
+```
+ContentVersion
+├── lesson (FK)
+├── version: int (auto-increment)
+├── content_text: TextField (Snapshot)
+├── content_file: FileField (Snapshot)
+├── created_at, created_by (FK User)
+├── change_summary: CharField
+└── is_current: bool
+```
+
+**Regeln:**
+
+- **Minor-Update** (Tippfehler, Formulierung): Bestehender Fortschritt bleibt erhalten
+- **Major-Update** (inhaltliche Änderung): Admin entscheidet ob Fortschritt zurückgesetzt wird
+- **Quiz-Änderung**: Wenn Fragen geändert werden, werden bestehende Attempts **nicht** invalidiert — nur neue Attempts nutzen die neue Version
+- **Rollback**: Admin kann auf vorherige Version zurücksetzen
+
+```python
+IIL_LEARNFW = {
+    "CONTENT_VERSIONING": True,           # Versionierung aktivieren
+    "KEEP_VERSIONS": 10,                  # Max. Anzahl Versionen pro Lesson
+    "MAJOR_UPDATE_RESETS_PROGRESS": False, # Default: Fortschritt beibehalten
+}
+```
+
+### 7.5 Ergänzende Datenmodell-Erweiterungen
+
+```
+ContentVersion (Versionierung)
+├── lesson (FK)
+├── version: int
+├── content_text, content_file (Snapshot)
+├── created_at, created_by (FK User)
+├── change_summary: CharField
+└── is_current: bool
+
+ContentReview (Authoring-Workflow)
+├── lesson (FK) oder course (FK)
+├── reviewer (FK User)
+├── status: pending | approved | rejected
+├── comment: TextField
+├── reviewed_at
+└── tenant_id
+
+BulkImportJob (Async-Import)
+├── course (FK), tenant_id
+├── status: pending | processing | completed | failed
+├── source_description: CharField
+├── total_files, processed_files, failed_files: int
+├── error_log: TextField
+├── created_at, created_by (FK User)
+└── completed_at
+```
+
+---
+
+## 8. Consumer-Integration
 
 ### Installation
 
@@ -472,7 +676,7 @@ IIL_LEARNFW = {
 
 ---
 
-## 8. Rollout-Plan
+## 9. Rollout-Plan
 
 | Phase | Scope | Deliverables |
 |---|---|---|
@@ -493,7 +697,7 @@ IIL_LEARNFW = {
 
 ---
 
-## 9. Risiken & Mitigationen
+## 10. Risiken & Mitigationen
 
 - **Over-Engineering**: YAGNI — Phase 1 startet minimal (Kurse + MD/PDF). Weitere Module nur bei konkretem Bedarf.
 - **Multi-Tenancy-Komplexität**: Nutzung des bewährten TenantManager-Patterns (ADR-137). Tenant-Filter in allen QuerySets.
@@ -503,7 +707,7 @@ IIL_LEARNFW = {
 
 ---
 
-## 10. Entschiedene Fragen
+## 11. Entschiedene Fragen
 
 | # | Frage | Entscheidung | Begründung |
 |---|---|---|---|
@@ -517,7 +721,7 @@ IIL_LEARNFW = {
 
 ---
 
-## 11. Distribution & Dokumentation
+## 12. Distribution & Dokumentation
 
 ### PyPI
 
@@ -553,7 +757,7 @@ all = ["iil-learnfw[api,certificates,pptx,scorm,markdown]"]
 
 ---
 
-## 12. Nächste Schritte
+## 13. Nächste Schritte
 
 1. ~~ADR reviewen und Entscheidung treffen~~ ✅ accepted
 2. Repo `achimdehnert/learnfw` anlegen (pyproject.toml, CI, MkDocs)
