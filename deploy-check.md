@@ -63,6 +63,23 @@ cd src && python manage.py migrate --check 2>&1
 
 ---
 
+## Step 5.5: Port-Audit (bei neuem Service oder Port-Änderung)
+
+// turbo
+```bash
+cd /home/dehnert/github/platform && python infra/scripts/port_audit.py
+```
+
+- [ ] Keine Duplikate in `ports.yaml`
+- [ ] Keine Konflikte mit laufenden Containern auf dem Server
+- [ ] Neuer Port in `ports.yaml` eingetragen und committed
+
+> **Hintergrund:** `ports.yaml` ist Single Source of Truth für alle Ports.
+> Das Audit-Script vergleicht sie mit dem realen Server-Zustand via SSH.
+> Nur `--offline` prüft ohne Server-Zugriff auf Duplikate.
+
+---
+
 ## Step 6: Deploy ausführen
 
 Via `/deploy`:
