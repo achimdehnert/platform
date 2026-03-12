@@ -13,6 +13,11 @@ implementation_evidence: []
 
 # ADR-140: Learn-Hub — Zentrales Learning Management Hub
 
+> **Amended 2026-03-12**: Review-Fixes — Shared Auth in learnfw-DB (Entscheidung 2E löst
+> User-FK-Kollision), CourseManager mit is_global-Support, docker-compose mit migrate-Service
+> und Shared-DB Port-Exposure, DATABASE_ROUTERS für auth + learnfw, Package-Map korrigiert
+> (python-pptx statt fiktivem iil-pptxfw), alle Extensions als [PROPOSED] markiert.
+
 ---
 
 ## 1. Kontext & Problemstellung
@@ -93,11 +98,11 @@ Integration aller IIL-Platform-Packages.
 │  └─────────────┘  └─────────────┘  └─────────────┘  └───────────┘  │
 │                                                                      │
 │  ┌─────────────┐  ┌─────────────┐                                   │
-│  │ iil-pptxfw  │  │ iil-testkit │                                   │
-│  │             │  │             │                                   │
-│  │ PPTX-Render │  │ Test-       │                                   │
-│  │ Slide-Split │  │ Fixtures    │                                   │
-│  │ PDF-Export  │  │ Factories   │                                   │
+│  │ python-pptx │  │ iil-testkit │                                   │
+│  │ (via       │  │ (dev only)  │                                   │
+│  │ learnfw    │  │             │                                   │
+│  │  [pptx])   │  │ Test-       │                                   │
+│  │            │  │ Fixtures    │                                   │
 │  └─────────────┘  └─────────────┘                                   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -114,12 +119,13 @@ Integration aller IIL-Platform-Packages.
 | **iil-researchfw** | latest | Faktencheck für Lerninhalte, Auto-Quellenangaben | `fact_check` + `enrich_sources` (siehe 4.7) |
 | **iil-django-commons** | 0.3+ | Health-Endpoints, Logging, Caching, Rate-Limiting, Security | — |
 | **django-tenancy** | 0.2+ | TenantManager, RLS, Middleware, Celery-Propagation | — |
-| **iil-pptxfw** | latest | PPTX→HTML Slide-Rendering, Auto-Split, PDF-Handout | — |
-| **iil-testkit** | 0.1+ | pytest-Fixtures, Factories für learnfw-Models | `LearnfwFactories` (siehe 4.8) |
+| **python-pptx** | 1.0+ | PPTX lesen/schreiben (via `iil-learnfw[pptx]` Extra). Slide-Split, Notes-Extract, PPTX→HTML in learnfw-Backends. Roadmap: `iil-pptxfw` bei Bedarf (wenn pptx-hub gleiche Logik braucht). | — |
+| **iil-testkit** | 0.1+ | pytest-Fixtures, Factories für learnfw-Models (**dev only** — gehört in requirements/test.txt) | `LearnfwFactories` [PROPOSED] (siehe 4.8) |
 
-### 4.3 iil-aifw — Erweiterung: `learning`-Modul
+### 4.3 iil-aifw — Erweiterung: `learning`-Modul [PROPOSED]
 
-Vorgeschlagene Erweiterung von iil-aifw für learn-hub-spezifische AI-Features:
+Vorgeschlagene Erweiterung von iil-aifw für learn-hub-spezifische AI-Features.
+Diese APIs existieren **noch nicht** und werden in Phase 2 implementiert:
 
 ```python
 # iil_aifw.learning (neues Submodul)
@@ -127,7 +133,7 @@ Vorgeschlagene Erweiterung von iil-aifw für learn-hub-spezifische AI-Features:
 class QuizGenerator:
     """Generiert Quiz-Fragen aus Lesson-Content via LLM."""
     async def generate(self, lesson_content: str, num_questions: int = 5,
-                       question_types: list = ["mc", "sc", "freetext"],
+                       question_types: tuple = ("mc", "sc", "freetext"),
                        difficulty: str = "medium") -> list[GeneratedQuestion]:
         ...
 
@@ -180,9 +186,10 @@ class LearningAIService:
         ...
 ```
 
-### 4.4 iil-authoringfw — Erweiterung: Learning-Configs
+### 4.4 iil-authoringfw — Erweiterung: Learning-Configs [PROPOSED]
 
-Vorgeschlagene neue `FieldConfig`-Typen für strukturiertes Authoring von Lerninhalten:
+Vorgeschlagene neue `FieldConfig`-Typen für strukturiertes Authoring von Lerninhalten.
+Diese Configs existieren **noch nicht** und werden in Phase 1–2 implementiert:
 
 ```python
 # iil_authoringfw.configs.learning (neues Submodul)
@@ -241,7 +248,7 @@ Autor → CourseOutlineConfig (AI-generiert) → Review → Approve
      → ContentSummarizer → Abstract für Kursübersicht
 ```
 
-### 4.5 iil-promptfw — Learning-Prompt-Collection
+### 4.5 iil-promptfw — Learning-Prompt-Collection [PROPOSED]
 
 ```python
 # Neue Prompt-Templates für learn-hub (in promptfw oder learn-hub lokal)
@@ -256,7 +263,7 @@ LEARNING_PROMPTS = {
 }
 ```
 
-### 4.6 iil-illustration-fw — Lesson-Illustration
+### 4.6 iil-illustration-fw — Lesson-Illustration [PROPOSED]
 
 ```python
 # Integration in learn-hub
@@ -279,7 +286,7 @@ class LessonIllustrationService:
         ...
 ```
 
-### 4.7 iil-researchfw — Content-Enrichment
+### 4.7 iil-researchfw — Content-Enrichment [PROPOSED]
 
 ```python
 # Integration in learn-hub
@@ -301,7 +308,7 @@ class ContentEnrichmentService:
         ...
 ```
 
-### 4.8 iil-testkit — LearnfwFactories
+### 4.8 iil-testkit — LearnfwFactories [PROPOSED]
 
 ```python
 # Vorgeschlagene Erweiterung von iil-testkit
@@ -487,18 +494,35 @@ Publish → Tenant-Zuweisung
 ### 6.2 Modul-Sichtbarkeit im Consumer-Hub
 
 ```python
-# iil_learnfw QuerySet-Logik (in learnfw, genutzt von learn-hub + Consumer)
+# iil_learnfw/managers.py — CourseManager überschreibt TenantManager auto-filter
+# BLOCK-2 Fix: TenantManager filtert tenant_id=NULL (is_global) raus!
+class CourseManager(TenantManager):
+    """Erweitert TenantManager um is_global-Support."""
+    def get_queryset(self):
+        qs = CourseQuerySet(self.model, using=self._db)
+        from django_tenancy.context import get_context
+        ctx = get_context()
+        if ctx.tenant_id is not None:
+            return qs.filter(
+                Q(tenant_id=ctx.tenant_id) | Q(is_global=True)
+            )
+        return qs
+
 class CourseQuerySet(TenantQuerySet):
     def visible_for_tenant(self, tenant_id):
-        """Kurse die für einen Tenant sichtbar sind."""
+        """Kurse die für einen Tenant sichtbar sind (inkl. Marketplace)."""
         return self.filter(
             Q(tenant_id=tenant_id) |          # Tenant-eigene Kurse
             Q(is_global=True) |               # Plattform-Kurse
-            Q(marketplace_enabled=True,        # Marketplace-Kurse
-              course__module_subscriptions__tenant_id=tenant_id,
-              course__module_subscriptions__status="active")
+            Q(marketplace_enabled=True,        # Marketplace-Kurse (SUGGEST-2 Fix)
+              module_code__in=ModuleSubscription.objects
+                  .filter(tenant_id=tenant_id, status="active")
+                  .values_list("module", flat=True))
         ).filter(status="published")
 ```
+
+> **Hinweis**: `CourseManager` muss in `iil-learnfw` implementiert werden (ADR-139 Amendment).
+> Course erhält ein `module_code: CharField` für die Verknüpfung mit billing-hub `ModuleSubscription`.
 
 ### 6.3 billing-hub Integration (ADR-134)
 
@@ -545,6 +569,7 @@ learn-hub/
 │   │   ├── views/
 │   │   │   ├── platform_admin.py    # Cross-Tenant Admin Dashboard
 │   │   │   ├── analytics.py        # Plattformweites Reporting
+│   │   │   ├── ai_tools.py         # AI-Tools UI (Quiz-Gen, Summary, Grading)
 │   │   │   └── marketplace.py      # Modul-Marketplace
 │   │   ├── tasks.py             # Celery: AI-Processing, Bulk-Import
 │   │   └── urls.py
@@ -582,7 +607,7 @@ iil-promptfw                    # Prompt-Templates
 iil-illustration-fw             # Auto-Illustrierung
 iil-researchfw                  # Faktencheck, Quellen
 iil-django-commons>=0.3         # Health, Logging, Cache, Security
-iil-testkit>=0.1                # Testing (dev only)
+# python-pptx kommt via iil-learnfw[pptx] Extra
 
 # Multi-Tenancy
 django-tenancy>=0.2             # TenantManager, RLS, Middleware
@@ -639,6 +664,28 @@ IIL_COMMONS = {
     "HEALTH_PATHS": frozenset({"/livez/", "/healthz/"}),
     "LOGGING_LEVEL": "INFO",
 }
+
+# Datenbank (learn-hub = Migrations-Owner der Shared DB)
+# learn-hub hat nur EINE DB — diese IS die Shared learnfw-DB.
+# Auth-Tabellen (auth_user, auth_group) leben ebenfalls hier (Entscheidung 2E).
+DATABASES = {
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": config("DATABASE_NAME", default="learn_hub"),
+        "USER": config("DATABASE_USER", default="learn_hub_app"),
+        "PASSWORD": config("DATABASE_PASSWORD"),
+        "HOST": config("DATABASE_HOST", default="db"),
+        "PORT": config("DATABASE_PORT", default="5432"),
+    },
+}
+# Kein DATABASE_ROUTERS nötig — alles in default DB.
+# Consumer-Hubs brauchen DATABASE_ROUTERS (siehe 9.2).
+
+# Plattform-Admin: Bypass TenantManager für Cross-Tenant-Zugriff
+# SUGGEST-4: Plattform-Admins haben is_platform_admin=True im User-Model.
+# TenantMiddleware setzt keinen tenant_id → TenantManager liefert unscoped.
+# Für tenant-spezifische Aktionen: Admin wählt Tenant im Dashboard → set_context(tenant_id).
+PLATFORM_ADMIN_PERMISSION = "core.is_platform_admin"
 ```
 
 ### 7.4 URL-Struktur (learn.iil.pet)
@@ -699,6 +746,13 @@ learn.iil.pet
 
 ```yaml
 services:
+  migrate:
+    image: ghcr.io/achimdehnert/learn-hub:latest
+    command: python manage.py migrate --noinput
+    env_file: .env.prod
+    depends_on:
+      db: { condition: service_healthy }
+
   web:
     image: ghcr.io/achimdehnert/learn-hub:latest
     env_file: .env.prod
@@ -707,11 +761,15 @@ services:
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
     deploy:
       resources:
         limits: { memory: 512M }
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
 
   worker:
     image: ghcr.io/achimdehnert/learn-hub:latest
@@ -720,15 +778,45 @@ services:
     depends_on:
       db: { condition: service_healthy }
       redis: { condition: service_healthy }
+      migrate: { condition: service_completed_successfully }
+    deploy:
+      resources:
+        limits: { memory: 384M }
 
   db:
     image: postgres:16-alpine
+    env_file: .env.db
+    ports:
+      - "5499:5432"           # Exposed für Consumer-Hubs (Shared DB)
     volumes:
       - learn_hub_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    deploy:
+      resources:
+        limits: { memory: 512M }
 
   redis:
     image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    deploy:
+      resources:
+        limits: { memory: 128M }
+
+volumes:
+  learn_hub_data:
 ```
+
+> **Shared DB**: Port 5499 ist für Consumer-Hubs exponiert. Consumer-Hubs setzen
+> `LEARNFW_DATABASE_HOST=88.198.191.108` und `LEARNFW_DATABASE_PORT=5499` in ihrer `.env.prod`.
+> Zugriff wird per `pg_hba.conf` und Firewall auf bekannte Container-Netzwerke beschränkt.
 
 ---
 
@@ -742,8 +830,8 @@ services:
 | **AI-Features** | Quiz-Gen, Grading, Empfehlungen, Illustration | Nur Grading + Empfehlungen (embedded) |
 | **Marketplace** | Modul-Management + Pricing | Modul-Katalog + Kauf |
 | **Analytics** | Plattformweit (alle Tenants) | Nur eigener Tenant |
-| **User-Auth** | **Eigene User-DB** (Standard Django auth) | Eigene User-DB (unabhängig) |
-| **Datenbank** | **Shared learnfw-DB** (Migrations-Owner) | Shared learnfw-DB (Reader/Writer) + eigene Hub-DB |
+| **User-Auth** | **Shared Auth** (auth_user in Shared DB, Entscheidung 2E) | Shared Auth (auth_user in Shared DB, Sessions lokal) |
+| **Datenbank** | **Eine DB** = Shared DB (auth + learnfw, Migrations-Owner) | Shared DB (R/W, auth + learnfw) + eigene Hub-DB |
 | **Deployment** | learn.iil.pet (eigener Hub) | Embedded via `iil-learnfw` |
 | **Dependencies** | `iil-learnfw[all]` + aifw + authoringfw + alle | `iil-learnfw` (minimal) |
 
@@ -751,96 +839,117 @@ services:
 > (`is_global=True`) und hat alle AI-Tools. Consumer-Hubs erstellen nur eigene Tenant-Kurse
 > mit dem Basis-Authoring-Frontend aus `iil-learnfw`. Beide schreiben in die **selbe learnfw-DB**.
 
-### 9.1 Shared learnfw-DB Architektur (Entscheidung 3C)
+### 9.1 Shared-DB Architektur (Entscheidung 2E + 3C)
 
-learn-hub und Consumer-Hubs teilen sich eine gemeinsame PostgreSQL-Datenbank für alle
-`iil_learnfw_*`-Tabellen. Jeder Hub hat zusätzlich seine eigene DB für hub-spezifische Daten.
+learn-hub hat **eine einzige DB** — diese ist gleichzeitig die Shared DB. Sie enthält:
+- `auth_user`, `auth_group`, `auth_permission` (Shared Auth — Entscheidung 2E)
+- `iil_learnfw_*` (alle 22 learnfw-Models mit tenant_id + RLS)
+- `django_session`, `django_admin_log` (learn-hub-spezifisch)
+
+Consumer-Hubs verbinden sich zur Shared DB für `auth.*` + `iil_learnfw.*` und haben
+zusätzlich eine eigene DB für hub-spezifische Models (risk-models, coaching-models etc.).
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    DATENBANK-TOPOLOGIE                        │
-├─────────────────────────────────────────────────────────────────┤
-│                                                               │
-│  ┌─────────────────────────────────────────────────┐           │
-│  │         learnfw-DB (Shared)                          │           │
-│  │  PostgreSQL: learn_hub_content                       │           │
-│  │                                                      │           │
-│  │  iil_learnfw_course, iil_learnfw_lesson,             │           │
-│  │  iil_learnfw_quiz, iil_learnfw_progress, ...         │           │
-│  │  (alle 22 learnfw-Models mit tenant_id + RLS)        │           │
-│  │                                                      │           │
-│  └────────┬────────────────┬─────────────────┬────────┘           │
-│           │                │                 │                      │
-│           ▼                ▼                 ▼                      │
-│  ┌────────────┐  ┌────────────┐  ┌─────────────┐              │
-│  │ learn-hub  │  │  risk-hub   │  │  coach-hub   │              │
-│  │ R/W + Migr.│  │  R/W        │  │  R/W         │  ...         │
-│  └─────┬──────┘  └────┬───────┘  └─────┬───────┘              │
-│        │               │                │                       │
-│        ▼               ▼                ▼                       │
-│  ┌────────────┐  ┌────────────┐  ┌─────────────┐              │
-│  │ learn-hub  │  │  risk-hub   │  │  coach-hub   │              │
-│  │ eigene DB  │  │  eigene DB  │  │  eigene DB   │              │
-│  │ (auth,     │  │ (auth,      │  │ (auth,       │              │
-│  │  sessions, │  │  risk-      │  │  coaching-   │              │
-│  │  admin)    │  │  models)    │  │  models)     │              │
-│  └────────────┘  └────────────┘  └─────────────┘              │
-│                                                               │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                     DATENBANK-TOPOLOGIE                          │
+│                    (Entscheidung 2E + 3C)                        │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐    │
+│  │      learn-hub DB = Shared DB (PostgreSQL: learn_hub)     │    │
+│  │      Port 5499 (exposed für Consumer-Hubs)                │    │
+│  │                                                           │    │
+│  │  auth_user, auth_group, auth_permission  ← Shared Auth    │    │
+│  │  iil_learnfw_course, iil_learnfw_lesson, ...              │    │
+│  │  iil_learnfw_quiz, iil_learnfw_progress, ...              │    │
+│  │  (22 learnfw-Models + RLS)                                │    │
+│  │  django_session, django_admin_log (learn-hub)             │    │
+│  │                                                           │    │
+│  └──────┬─────────────────┬─────────────────┬────────────────┘    │
+│         │                 │                 │                     │
+│         ▼                 ▼                 ▼                     │
+│  ┌────────────┐    ┌────────────┐    ┌────────────┐              │
+│  │ learn-hub  │    │  risk-hub  │    │ coach-hub  │  ...         │
+│  │ default DB │    │ "learnfw"  │    │ "learnfw"  │              │
+│  │ (= Shared) │    │ DB-Alias   │    │ DB-Alias   │              │
+│  │ R/W + Migr │    │ R/W        │    │ R/W        │              │
+│  └────────────┘    └─────┬──────┘    └─────┬──────┘              │
+│                          │                 │                     │
+│                          ▼                 ▼                     │
+│                   ┌────────────┐    ┌────────────┐               │
+│                   │  risk-hub  │    │ coach-hub  │               │
+│                   │ default DB │    │ default DB │               │
+│                   │ (sessions, │    │ (sessions, │               │
+│                   │  risk-     │    │  coaching- │               │
+│                   │  models)   │    │  models)   │               │
+│                   └────────────┘    └────────────┘               │
+│                                                                  │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
 **Regeln:**
 
-- **Migrations-Owner**: Nur learn-hub führt `makemigrations` + `migrate` für learnfw-Tabellen aus
-- **Consumer-Hubs**: Verbinden sich read/write zur learnfw-DB, führen aber **keine** learnfw-Migrations aus
+- **learn-hub = Migrations-Owner**: Einziger Hub der `makemigrations` + `migrate` für auth + learnfw ausführt
+- **Consumer-Hubs**: Verbinden sich R/W zur Shared DB, führen **keine** auth/learnfw-Migrations aus
+- **Shared Auth**: Alle Hubs teilen `auth_user` — ein User registriert sich einmal, kann in allen Hubs arbeiten
+- **Sessions bleiben lokal**: Jeder Hub hat eigene `django_session`-Tabelle in seiner `default`-DB
 - **RLS**: Jeder Hub setzt `SET app.tenant_id` via django-tenancy Middleware — Consumer sehen nur eigene Daten
 - **learn-hub Plattform-Admin**: Nutzt `unscoped()` für Cross-Tenant-Zugriff
+- **User-Registration**: Primär in learn-hub (Content-Autoren) oder Consumer-Hub (Lernende)
 
 ### 9.2 Django DATABASE_ROUTERS (Consumer-Hub)
 
 ```python
 # risk-hub/config/db_routers.py
-class LearnfwRouter:
-    """Routes iil_learnfw models to shared learnfw-DB."""
-    learnfw_labels = {"iil_learnfw"}
+class SharedDBRouter:
+    """Routes auth + iil_learnfw to shared learn-hub DB (Entscheidung 2E + 3C)."""
+    shared_labels = {"auth", "iil_learnfw"}
 
     def db_for_read(self, model, **hints):
-        if model._meta.app_label in self.learnfw_labels:
+        if model._meta.app_label in self.shared_labels:
             return "learnfw"
         return None
 
     def db_for_write(self, model, **hints):
-        if model._meta.app_label in self.learnfw_labels:
+        if model._meta.app_label in self.shared_labels:
             return "learnfw"
         return None
 
     def allow_relation(self, obj1, obj2, **hints):
         labels = {obj1._meta.app_label, obj2._meta.app_label}
-        if labels & self.learnfw_labels:
+        if labels & self.shared_labels:
             return True
         return None
 
     def allow_migrate(self, db, app_label, **hints):
-        if app_label in self.learnfw_labels:
-            return db == "learnfw"  # Nur in learnfw-DB migrieren
-        return db == "default"      # Alles andere in default
+        if app_label in self.shared_labels:
+            return False  # Migrations NUR in learn-hub, nie in Consumer-Hubs
+        if app_label in {"sessions", "admin"}:
+            return db == "default"  # Sessions + Admin bleiben lokal
+        return db == "default"
 
 # risk-hub/config/settings/base.py
 DATABASES = {
-    "default": {  # Hub-eigene DB (auth, sessions, risk-models)
+    "default": {  # Hub-eigene DB (sessions, admin, risk-models)
         "ENGINE": "django.db.backends.postgresql",
         "NAME": config("DATABASE_NAME"),
         ...
     },
-    "learnfw": {  # Shared learnfw-DB (Content, Progress, Quizzes)
+    "learnfw": {  # Shared DB = learn-hub DB (auth + learnfw)
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": config("LEARNFW_DATABASE_NAME"),  # = learn_hub_content
+        "NAME": config("LEARNFW_DATABASE_NAME", default="learn_hub"),
         "HOST": config("LEARNFW_DATABASE_HOST"),
-        ...
+        "PORT": config("LEARNFW_DATABASE_PORT", default="5499"),
+        "USER": config("LEARNFW_DATABASE_USER"),
+        "PASSWORD": config("LEARNFW_DATABASE_PASSWORD"),
     },
 }
-DATABASE_ROUTERS = ["config.db_routers.LearnfwRouter"]
+DATABASE_ROUTERS = ["config.db_routers.SharedDBRouter"]
 ```
+
+> **Wichtig**: Consumer-Hubs führen **keine** Migrations für `auth` oder `iil_learnfw` aus.
+> Nur learn-hub managed diese Tabellen. Consumer-Hubs müssen `LEARNFW_DATABASE_*` Secrets
+> in ihrer `.env.prod` konfigurieren (Zugang zur learn-hub DB via Port 5499).
 
 ---
 
@@ -877,6 +986,8 @@ DATABASE_ROUTERS = ["config.db_routers.LearnfwRouter"]
 - **Scope Creep**: Strenge Phasentrennung. Phase 1 = Basis-Hub ohne AI. AI erst ab Phase 2.
 - **Cross-Tenant Security**: Plattform-Admin erfordert spezielle Permissions (`is_platform_admin`). TenantManager + RLS als Sicherheitsnetz.
 - **Performance**: Celery für alle AI-Tasks (async). Content-Rendering gecacht. pgvector für Embedding-basierte Empfehlungen.
+- **Shared-DB Ausfall**: learn-hub DB ist Single Point of Failure für alle Consumer-Hubs. Mitigation: PostgreSQL Streaming Replication (Read-Replica), regelmäßige Backups, Monitoring via iil-django-commons Health-Check. Consumer-Hubs sollten graceful degradation implementieren (Learning-Features deaktiviert, Hub läuft weiter).
+- **Shared Auth Migration**: Bestehende Consumer-Hubs (risk-hub) haben eigene auth_user-Tabellen. Migration zur Shared DB erfordert User-Merge-Strategie (Phase 6). Neue Hubs starten direkt mit SharedDBRouter.
 
 ---
 
@@ -885,7 +996,7 @@ DATABASE_ROUTERS = ["config.db_routers.LearnfwRouter"]
 | # | Frage | Entscheidung | Begründung |
 |---|---|---|---|
 | 1 | **Authoring-Split** | **C: Aufgeteilt** — learn-hub für globale Kurse + AI-Tools, Consumer-Hubs für eigene Tenant-Kurse | Klare Zuständigkeit. Plattform-Content zentral, Tenant-Content dezentral. learn-hub hat AI-Tools, Consumer-Hubs haben Basis-Authoring (AUTHORING_ENABLED). |
-| 2 | **User-Auth** | **A: Eigene User-DB** — Standard Django auth_user | Schnellster Start, unabhängig von Consumer-Hubs. SSO als separates ADR bei Bedarf nachrüstbar. Autoren brauchen separaten learn-hub Account. |
+| 2 | **User-Auth** | **E: Shared Auth in learnfw-DB** — auth_user + auth_group in der Shared DB | Löst User-FK-Kollision (BigAutoField-PKs wären sonst mehrdeutig über Hub-Grenzen). Consumer-Hubs routen auth.* + iil_learnfw.* zur Shared DB. Sessions + Admin bleiben hub-lokal. |
 | 3 | **Content-Sync** | **C: Shared learnfw-DB** — learn-hub + Consumer-Hubs verbinden sich zur selben DB für iil_learnfw_*-Tabellen | Kein Sync nötig, Content instant verfügbar. Django DATABASE_ROUTERS trennen learnfw-DB von hub-eigener DB. Migrations nur in learn-hub, Consumer-Hubs lesen/schreiben. |
 
 ---
