@@ -1,0 +1,116 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# authentik — Platform Identity Provider (ADR-142)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deploy: /opt/authentik/ on hetzner-prod
+# Secrets: .env (never committed) — see .env.template
+# Port: 127.0.0.1:9000 → Nginx → id.iil.pet
+# ═══════════════════════════════════════════════════════════════════════════════
+name: authentik-stack
+
+networks:
+  authentik_net:
+    name: iil_authentik_net
+    driver: bridge
+
+services:
+  authentik_server:
+    image: ghcr.io/goauthentik/server:2025.10.4
+    container_name: iil_authentik_server
+    command: server
+    networks: [authentik_net]
+    ports:
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9443:9443"
+    environment:
+      AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
+      AUTHENTIK_REDIS__HOST: iil_authentik_redis
+      AUTHENTIK_REDIS__PASSWORD: "${AUTHENTIK_REDIS_PASSWORD}"
+      AUTHENTIK_POSTGRESQL__HOST: iil_authentik_db
+      AUTHENTIK_POSTGRESQL__USER: "${AUTHENTIK_DB_USER}"
+      AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASS}"
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
+    env_file: [.env]
+    volumes:
+      - authentik_media:/media
+      - authentik_templates:/templates
+    depends_on:
+      authentik_db:
+        condition: service_healthy
+      authentik_redis:
+        condition: service_healthy
+    mem_limit: 1g
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9000/-/health/live/')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  authentik_worker:
+    image: ghcr.io/goauthentik/server:2025.10.4
+    container_name: iil_authentik_worker
+    command: worker
+    networks: [authentik_net]
+    environment:
+      AUTHENTIK_SECRET_KEY: "${AUTHENTIK_SECRET_KEY}"
+      AUTHENTIK_REDIS__HOST: iil_authentik_redis
+      AUTHENTIK_REDIS__PASSWORD: "${AUTHENTIK_REDIS_PASSWORD}"
+      AUTHENTIK_POSTGRESQL__HOST: iil_authentik_db
+      AUTHENTIK_POSTGRESQL__USER: "${AUTHENTIK_DB_USER}"
+      AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASS}"
+      AUTHENTIK_POSTGRESQL__NAME: authentik
+    env_file: [.env]
+    volumes:
+      - authentik_media:/media
+      - authentik_templates:/templates
+    depends_on:
+      authentik_db:
+        condition: service_healthy
+      authentik_redis:
+        condition: service_healthy
+    mem_limit: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:9000/-/health/live/')\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  authentik_db:
+    image: postgres:16
+    container_name: iil_authentik_db
+    networks: [authentik_net]
+    environment:
+      POSTGRES_USER: "${AUTHENTIK_DB_USER}"
+      POSTGRES_PASSWORD: "${AUTHENTIK_DB_PASS}"
+      POSTGRES_DB: authentik
+    volumes:
+      - authentik_db_data:/var/lib/postgresql/data
+    mem_limit: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${AUTHENTIK_DB_USER} -d authentik"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  authentik_redis:
+    image: redis:7-alpine
+    container_name: iil_authentik_redis
+    networks: [authentik_net]
+    command: redis-server --requirepass "${AUTHENTIK_REDIS_PASSWORD}"
+    mem_limit: 128m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${AUTHENTIK_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  authentik_media:
+  authentik_templates:
+  authentik_db_data:

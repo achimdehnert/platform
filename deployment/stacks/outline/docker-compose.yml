@@ -1,0 +1,90 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# outline — Knowledge-Hub Wiki (ADR-143)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deploy: /opt/outline/ on hetzner-prod
+# Secrets: .env (never committed) — see .env.template
+# Port: 127.0.0.1:3000 → Nginx → knowledge.iil.pet
+# ═══════════════════════════════════════════════════════════════════════════════
+name: outline-stack
+
+networks:
+  outline_net:
+    name: iil_outline_net
+    driver: bridge
+
+services:
+  outline:
+    image: outlinewiki/outline:0.82.0
+    container_name: iil_knowledge_outline
+    networks: [outline_net]
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      DATABASE_URL: "postgres://${OUTLINE_DB_USER}:${OUTLINE_DB_PASS}@iil_knowledge_outline_db:5432/outline?sslmode=disable"
+      REDIS_URL: "redis://:${OUTLINE_REDIS_PASSWORD}@iil_knowledge_outline_redis:6379"
+      SECRET_KEY: "${OUTLINE_SECRET_KEY}"
+      UTILS_SECRET: "${OUTLINE_UTILS_SECRET}"
+      URL: "https://knowledge.iil.pet"
+      PORT: "3000"
+      FORCE_HTTPS: "false"
+      FILE_STORAGE: local
+      FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
+      FILE_STORAGE_UPLOAD_MAX_SIZE: "26214400"
+      # OIDC via authentik (ADR-142) — app-slug: outline
+      OIDC_CLIENT_ID: "${OUTLINE_OIDC_CLIENT_ID}"
+      OIDC_CLIENT_SECRET: "${OUTLINE_OIDC_CLIENT_SECRET}"
+      OIDC_AUTH_URI: "https://id.iil.pet/application/o/outline/authorize/"
+      OIDC_TOKEN_URI: "https://id.iil.pet/application/o/outline/token/"
+      OIDC_USERINFO_URI: "https://id.iil.pet/application/o/outline/userinfo/"
+      OIDC_DISPLAY_NAME: "IIL Platform Login"
+    env_file: [.env]
+    volumes:
+      - outline_data:/var/lib/outline/data
+    depends_on:
+      outline_db:
+        condition: service_healthy
+      outline_redis:
+        condition: service_healthy
+    mem_limit: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://localhost:3000/_health', r => process.exit(r.statusCode === 200 ? 0 : 1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  outline_db:
+    image: postgres:16
+    container_name: iil_knowledge_outline_db
+    networks: [outline_net]
+    environment:
+      POSTGRES_USER: "${OUTLINE_DB_USER}"
+      POSTGRES_PASSWORD: "${OUTLINE_DB_PASS}"
+      POSTGRES_DB: outline
+    volumes:
+      - outline_db_data:/var/lib/postgresql/data
+    mem_limit: 256m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OUTLINE_DB_USER} -d outline"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  outline_redis:
+    image: redis:7-alpine
+    container_name: iil_knowledge_outline_redis
+    networks: [outline_net]
+    command: redis-server --requirepass "${OUTLINE_REDIS_PASSWORD}"
+    mem_limit: 64m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${OUTLINE_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  outline_data:
+  outline_db_data:
