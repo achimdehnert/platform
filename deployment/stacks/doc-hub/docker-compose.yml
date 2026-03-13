@@ -1,0 +1,126 @@
+# ═══════════════════════════════════════════════════════════════════════════════
+# doc-hub — Paperless-ngx DMS (ADR-144)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Deploy: /opt/doc-hub/ on hetzner-prod
+# Secrets: .env (never committed) — see .env.template
+# Port: 127.0.0.1:8102 → Nginx → docs.iil.pet
+# ═══════════════════════════════════════════════════════════════════════════════
+name: doc-hub-stack
+
+networks:
+  dochub_internal:
+    name: iil_dochub_internal
+    driver: bridge
+
+services:
+  paperless-web:
+    image: ghcr.io/paperless-ngx/paperless-ngx:2.14
+    container_name: iil_dochub_web
+    networks: [dochub_internal]
+    ports:
+      - "127.0.0.1:8102:8000"
+    environment:
+      PAPERLESS_DBHOST: iil_dochub_db
+      PAPERLESS_DBNAME: paperless
+      PAPERLESS_DBUSER: "${DOCHUB_DB_USER}"
+      PAPERLESS_DBPASS: "${DOCHUB_DB_PASS}"
+      PAPERLESS_REDIS: "redis://:${DOCHUB_REDIS_PASSWORD}@iil_dochub_redis:6379"
+      PAPERLESS_SECRET_KEY: "${DOCHUB_SECRET_KEY}"
+      PAPERLESS_URL: "https://docs.iil.pet"
+      PAPERLESS_ALLOWED_HOSTS: "docs.iil.pet,localhost"
+      PAPERLESS_CSRF_TRUSTED_ORIGINS: "https://docs.iil.pet"
+      PAPERLESS_OCR_LANGUAGE: "deu+eng"
+      PAPERLESS_TIME_ZONE: "Europe/Berlin"
+      PAPERLESS_FILENAME_FORMAT: "{created.year}/{correspondent}/{title}"
+      PAPERLESS_CONSUMER_RECURSIVE: "true"
+      PAPERLESS_CONSUMER_SUBDIRS_AS_TAGS: "true"
+      PAPERLESS_TIKA_ENABLED: "1"
+      PAPERLESS_TIKA_GOTENBERG_ENDPOINT: "http://iil_dochub_gotenberg:3000"
+      PAPERLESS_TIKA_ENDPOINT: "http://iil_dochub_tika:9998"
+      PAPERLESS_ADMIN_USER: "${DOCHUB_ADMIN_USER}"
+      PAPERLESS_ADMIN_PASSWORD: "${DOCHUB_ADMIN_PASS}"
+    env_file: [.env]
+    volumes:
+      - dochub_data:/usr/src/paperless/data
+      - dochub_media:/usr/src/paperless/media
+      - dochub_consume:/usr/src/paperless/consume
+      - dochub_export:/usr/src/paperless/export
+    depends_on:
+      dochub_db:
+        condition: service_healthy
+      dochub_redis:
+        condition: service_healthy
+      dochub_tika:
+        condition: service_started
+      dochub_gotenberg:
+        condition: service_healthy
+    mem_limit: 1024m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8000/api/ | grep -q documents || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 90s
+
+  dochub_db:
+    image: postgres:16-alpine
+    container_name: iil_dochub_db
+    networks: [dochub_internal]
+    environment:
+      POSTGRES_USER: "${DOCHUB_DB_USER}"
+      POSTGRES_PASSWORD: "${DOCHUB_DB_PASS}"
+      POSTGRES_DB: paperless
+    volumes:
+      - dochub_db_data:/var/lib/postgresql/data
+    mem_limit: 256m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DOCHUB_DB_USER} -d paperless"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  dochub_redis:
+    image: redis:7-alpine
+    container_name: iil_dochub_redis
+    networks: [dochub_internal]
+    command: ["redis-server", "--requirepass", "${DOCHUB_REDIS_PASSWORD}"]
+    mem_limit: 64m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${DOCHUB_REDIS_PASSWORD}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+
+  dochub_tika:
+    image: apache/tika:3.2.3.0
+    container_name: iil_dochub_tika
+    networks: [dochub_internal]
+    mem_limit: 512m
+    restart: unless-stopped
+
+  dochub_gotenberg:
+    image: docker.io/gotenberg/gotenberg:8.14
+    container_name: iil_dochub_gotenberg
+    networks: [dochub_internal]
+    command:
+      - "gotenberg"
+      - "--chromium-disable-javascript=true"
+      - "--chromium-allow-list=file:///tmp/.*"
+      - "--api-timeout=30s"
+    mem_limit: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  dochub_data:
+  dochub_media:
+  dochub_db_data:
+  dochub_consume:
+  dochub_export:
