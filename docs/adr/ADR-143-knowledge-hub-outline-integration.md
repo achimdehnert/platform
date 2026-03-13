@@ -1,5 +1,5 @@
 ---
-status: "draft"
+status: "accepted"
 date: 2026-03-13
 decision-makers: [Achim Dehnert]
 consulted: []
@@ -10,11 +10,13 @@ related: ["ADR-142-unified-identity-authentik-platform-idp.md", "ADR-132-ai-cont
 implementation_status: partial
 implementation_evidence:
   - "Phase 1 Infrastructure deployed 2026-03-13: Docker Compose, DNS, Nginx"
-  - "URL: https://knowledge.iil.pet"
+  - "URL: https://knowledge.iil.pet (HTTP 200)"
   - "Containers: iil_knowledge_outline, iil_knowledge_outline_db, iil_knowledge_outline_redis — all healthy"
-  - "Port: 3100, DNS: CNAME knowledge.iil.pet → Cloudflare Tunnel"
+  - "Port: 3100 (intern 3000, extern 3100 wegen Port-Konflikt), DNS: CNAME knowledge.iil.pet → Cloudflare Tunnel"
   - "Backup: /etc/cron.daily/outline-backup"
-  - "OIDC: Placeholder — authentik Application 'outline' muss noch konfiguriert werden"
+  - "Nginx: WebSocket /realtime, default.crt (Tunnel TLS)"
+  - "Fix: DATABASE_URL mit ?sslmode=disable für interne PG"
+  - "Pending: OIDC via authentik (Application 'outline' erstellen), research-hub Integration"
 ---
 
 # ADR-143: Knowledge-Hub — Outline Wiki + research-hub Integration
