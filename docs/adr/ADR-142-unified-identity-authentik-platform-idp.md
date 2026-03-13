@@ -1,5 +1,5 @@
 ---
-status: "draft"
+status: "accepted"
 date: 2026-03-13
 decision-makers: [Achim Dehnert]
 consulted: []
@@ -10,10 +10,13 @@ related: ["ADR-118-platform-store-billing-hub-user-registration.md", "ADR-109-mu
 implementation_status: partial
 implementation_evidence:
   - "Phase 1 Infrastructure deployed 2026-03-13: Docker Compose, DNS, Nginx"
-  - "URL: https://id.iil.pet (HTTP 200)"
+  - "URL: https://id.iil.pet (HTTP 200, Initial Setup Wizard)"
   - "Containers: iil_authentik_server, iil_authentik_worker, iil_authentik_db, iil_authentik_redis — all healthy"
   - "Port: 9000, DNS: CNAME id.iil.pet → Cloudflare Tunnel"
   - "Backup: /etc/cron.daily/authentik-backup"
+  - "Nginx: Rate-Limiting auth+api, WebSocket /ws/, default.crt (Tunnel TLS)"
+  - "OIDC Templates: core_auth.py + settings_oidc.py in deployment/stacks/authentik/templates/"
+  - "Pending: Initial Setup, OIDC Applications für Outline/doc-hub/Hubs erstellen"
 ---
 
 # ADR-142: Unified Identity — authentik als Platform Identity Provider
