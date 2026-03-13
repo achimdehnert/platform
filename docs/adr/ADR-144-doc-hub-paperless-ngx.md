@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-03-13
 decision-makers: [Achim Dehnert]
 consulted: []
@@ -7,12 +7,17 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-142-unified-identity-authentik-platform-idp.md", "ADR-143-knowledge-hub-outline-integration.md", "ADR-130-content-store-shared-persistence.md", "ADR-116-dynamic-model-router.md", "ADR-045-secrets-management.md"]
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
   - "Phase 1-3 deployed 2026-03-13: Docker Compose, DNS, Nginx"
   - "URL: https://docs.iil.pet (HTTP 200)"
-  - "Containers: dochub_web, dochub_db, dochub_redis, dochub_tika, dochub_gotenberg"
-  - "Port: 8102, DNS: CNAME docs.iil.pet → tunnel"
+  - "Containers: iil_dochub_web, iil_dochub_db, iil_dochub_redis, iil_dochub_tika, iil_dochub_gotenberg"
+  - "Port: 8102, DNS: CNAME docs.iil.pet → Cloudflare Tunnel"
+  - "OIDC: authentik SSO (ADR-142), client_id=doc-hub, allauth openid_connect"
+  - "MCP: paperless_mcp (5 Tools, 13 Tests) in mcp-hub, Windsurf registered"
+  - "Sync: apps.documents.DocumentMetadata in research-hub, Celery task + management command"
+  - "Nginx: 200M upload, 120s timeout"
+  - "Review fixes: B1/B2/B3/K1/K2/K3/K4/H2/H3/M3 all applied"
 ---
 
 # ADR-144: doc-hub — Paperless-ngx als Dokumentenmanagement-System
