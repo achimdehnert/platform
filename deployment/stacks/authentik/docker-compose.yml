@@ -29,6 +29,7 @@ services:
       AUTHENTIK_POSTGRESQL__USER: "${AUTHENTIK_DB_USER}"
       AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASS}"
       AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_HOST: "https://id.iil.pet"
       AUTHENTIK_ERROR_REPORTING__ENABLED: "false"
     env_file: [.env]
     volumes:
@@ -61,6 +62,7 @@ services:
       AUTHENTIK_POSTGRESQL__USER: "${AUTHENTIK_DB_USER}"
       AUTHENTIK_POSTGRESQL__PASSWORD: "${AUTHENTIK_DB_PASS}"
       AUTHENTIK_POSTGRESQL__NAME: authentik
+      AUTHENTIK_HOST: "https://id.iil.pet"
     env_file: [.env]
     volumes:
       - authentik_media:/media
