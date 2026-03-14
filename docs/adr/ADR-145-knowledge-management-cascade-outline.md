@@ -17,7 +17,8 @@ implementation_evidence:
   - "Phase 6 (outline_mcp) completed: packages/outline-mcp/, 6 tools, 7 tests green — 2026-03-14"
   - "Phase 7 (Windsurf) completed: mcp_config.json, live-tested search+get+list — 2026-03-14"
   - "Phase 8 (Workflows) completed: /knowledge-capture + /agent-session-start Step 6 — 2026-03-14"
-  - "Phase 9-11 pending: research-hub KnowledgeDocument, Celery Enrichment, Git-Sync"
+  - "Phase 9 (KnowledgeDocument) completed: apps/knowledge/ in research-hub, HMAC webhook, Celery tasks, 19 tests — 2026-03-14"
+  - "Phase 10-11 pending: Celery AI-Enrichment, ADR-Git-Sync"
 review_status: "reviewed — 12 findings (3B/3K/3H/3M), all addressed in v2"
 ---
 
