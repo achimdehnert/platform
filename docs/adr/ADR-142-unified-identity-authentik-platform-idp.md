@@ -10,13 +10,16 @@ related: ["ADR-118-platform-store-billing-hub-user-registration.md", "ADR-109-mu
 implementation_status: partial
 implementation_evidence:
   - "Phase 1 Infrastructure deployed 2026-03-13: Docker Compose, DNS, Nginx"
-  - "URL: https://id.iil.pet (HTTP 200, Initial Setup Wizard)"
+  - "URL: https://id.iil.pet (HTTP 200)"
   - "Containers: iil_authentik_server, iil_authentik_worker, iil_authentik_db, iil_authentik_redis — all healthy"
   - "Port: 9000, DNS: CNAME id.iil.pet → Cloudflare Tunnel"
   - "Backup: /etc/cron.daily/authentik-backup"
-  - "Nginx: Rate-Limiting auth+api, WebSocket /ws/, default.crt (Tunnel TLS)"
-  - "OIDC Templates: core_auth.py + settings_oidc.py in deployment/stacks/authentik/templates/"
-  - "Pending: Initial Setup, OIDC Applications für Outline/doc-hub/Hubs erstellen"
+  - "Phase 1 OIDC Applications (2026-03-14):"
+  - "  - doc-hub (Paperless-ngx): client_id=doc-hub, allauth openid_connect — SSO Login tested ✓"
+  - "  - Outline (Knowledge-Hub): client_id=outline, native OIDC — pre-configured ✓"
+  - "  - Grafana: client_id=grafana, GF_AUTH_GENERIC_OAUTH — SSO button active ✓"
+  - "  - dev-hub: client_id=dev-hub, mozilla-django-oidc — SSO button active ✓"
+  - "Pending: Portainer Proxy-Auth (Outpost), MFA-Policy, Phase 2 Customer-Hubs"
 ---
 
 # ADR-142: Unified Identity — authentik als Platform Identity Provider
