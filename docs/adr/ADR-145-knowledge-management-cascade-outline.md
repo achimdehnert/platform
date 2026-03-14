@@ -11,7 +11,10 @@ implementation_status: partial
 implementation_evidence:
   - "Phase 1 (Infra) completed via ADR-143: Docker, DNS, Nginx — 2026-03-13"
   - "Phase 2 (OIDC) completed: authentik SSO login working — 2026-03-14"
-  - "Phase 3-7 pending: Collections, outline_mcp, Workflows, research-hub, Enrichment"
+  - "Phase 3 (Collections) completed: 6 Collections in Outline angelegt — 2026-03-14"
+  - "Phase 4 (Runbooks) completed: 2 Runbooks + 1 Lesson Learned erstellt — 2026-03-14"
+  - "Phase 5 (API-Token) completed: platform-mcp Token (scope /api/*.*) — 2026-03-14"
+  - "Phase 6-11 pending: outline_mcp, Workflows, research-hub, Enrichment, Git-Sync"
 review_status: "reviewed — 12 findings (3B/3K/3H/3M), all addressed in v2"
 ---
 
