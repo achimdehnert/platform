@@ -99,7 +99,25 @@ Falls Tests rot: **Erst fixen, dann neue Arbeit starten.** Nie auf roter Basis a
 
 ---
 
-## Step 6: Arbeitsplan aufstellen
+## Step 6: Knowledge-Lookup (ADR-145)
+
+Bevor der Plan erstellt wird — prüfe ob relevantes Wissen in Outline existiert:
+
+```
+outline-knowledge: search_knowledge("<Thema der aktuellen Aufgabe>")
+```
+
+- **Treffer gefunden?** → `get_document()` und als Kontext nutzen (Runbook, Lesson Learned)
+- **Kein Treffer?** → Neues Wissensgebiet — am Session-Ende `/knowledge-capture` ausführen
+
+Beispiele für gute Suchanfragen:
+- `"OIDC authentik troubleshooting"` — vor OIDC-Integration
+- `"RLS rollout"` — vor Row-Level-Security Deployment
+- `"Cloudflare tunnel neue domain"` — vor neuem Service-Setup
+
+---
+
+## Step 7: Arbeitsplan aufstellen
 
 Agent erstellt IMMER einen expliziten Plan vor der Ausführung:
 
@@ -118,7 +136,7 @@ Bei complexity >= moderate → `/agentic-coding` verwenden.
 
 ---
 
-## Step 7: Session-Ende Checkliste
+## Step 8: Session-Ende Checkliste
 
 Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 
@@ -127,6 +145,7 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 - [ ] Kein uncommitted work (oder bewusster WIP-Commit mit `wip:` Präfix)
 - [ ] Offene Issues / PRs verlinkt
 - [ ] Neues ADR angelegt falls Architektur-Entscheidung getroffen
+- [ ] `/knowledge-capture` ausgeführt falls neues Wissen entstanden (ADR-145)
 - [ ] Repo syncen: `bash ~/github/platform/scripts/sync-repo.sh`
 
 ---
@@ -146,4 +165,5 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 | Deployen | `/deploy` |
 | DB-Backup | `/backup` |
 | Windsurf-Verbindung tot | `/windsurf-clean` |
+| Wissen sichern nach Session | `/knowledge-capture` |
 | Repo-Sync nach Cascade-Session | `/sync-repo` |
