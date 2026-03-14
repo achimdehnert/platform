@@ -1,0 +1,115 @@
+---
+description: Session-Ende Knowledge Capture — Wissen in Outline sichern (ADR-145)
+---
+
+# Knowledge Capture Workflow
+
+**Trigger:** Am Ende jeder produktiven Session, in der neues Wissen entstanden ist.
+
+> Verhindert Knowledge Drain — das implizite Wissen aus der Session wird
+> strukturiert in Outline gesichert, bevor es verloren geht.
+
+---
+
+## Step 1: Prüfe — Was wurde in dieser Session gelernt?
+
+Gehe diese Checkliste durch:
+
+- [ ] **Troubleshooting-Wissen?** (Fehler debuggt, Root Cause gefunden)
+- [ ] **Architektur-Entscheidung?** (Design gewählt, Alternative verworfen)
+- [ ] **Lessons Learned?** (Anti-Pattern entdeckt, Stolperfalle dokumentiert)
+- [ ] **Deployment-Wissen?** (Neuer Service, Config-Änderung, Infrastruktur)
+
+Wenn **nichts davon** zutrifft → Session war reine Implementierung → Skip.
+
+---
+
+## Step 2: Runbook erstellen (bei Troubleshooting)
+
+Wenn ein Problem debuggt und gelöst wurde:
+
+```
+outline-knowledge: create_runbook(
+    title="<Problem-Beschreibung>",
+    content="## Wann nutzen\n\n<Kontext>\n\n## Schritt-für-Schritt\n\n<Steps>\n\n## Bekannte Fehler\n\n| Symptom | Ursache | Fix |\n",
+    related_adrs="<ADR-Nummern>"
+)
+```
+
+**Runbook-Template:**
+```markdown
+## Wann nutzen
+
+[Beschreibung wann dieses Runbook relevant ist]
+
+## Voraussetzungen
+
+- [Was muss vorhanden sein]
+
+## Schritt-für-Schritt
+
+1. [Konkreter Schritt mit Command/Code]
+2. [Nächster Schritt]
+
+## Bekannte Fehler
+
+| Symptom | Ursache | Fix |
+|---------|---------|-----|
+
+## Referenzen
+
+- ADR-XXX, ADR-YYY
+```
+
+---
+
+## Step 3: Konzept erstellen (bei Architektur-Entscheidung)
+
+Wenn eine Design-Entscheidung getroffen wurde:
+
+```
+outline-knowledge: create_concept(
+    title="<Konzept-Name>",
+    content="## Problem\n\n<Was gelöst werden musste>\n\n## Entscheidung\n\n<Was gewählt wurde und warum>\n\n## Alternativen\n\n<Was verworfen wurde>",
+    related_adrs="<ADR-Nummern>"
+)
+```
+
+---
+
+## Step 4: Lesson Learned erstellen (bei Anti-Pattern / Stolperfalle)
+
+Wenn etwas Unerwartetes passiert ist:
+
+```
+outline-knowledge: create_runbook(
+    title="<Datum>: <Kurzbeschreibung>",
+    content="## Kontext\n\n<Was passiert ist>\n\n## Root Cause\n\n<Warum>\n\n## Merksatz\n\n> <Ein-Satz-Zusammenfassung>\n\n## Vermeidung\n\n<Was in Zukunft anders machen>",
+    related_adrs="<ADR-Nummern>"
+)
+```
+
+Hinweis: Lessons Learned werden in die Collection "Lessons Learned" verschoben
+(manuell in Outline UI oder via Collection-ID in create_runbook).
+
+---
+
+## Step 5: Cascade Memory wie bisher updaten
+
+Ergänzend zum Outline-Eintrag: Cascade Memory mit kurzem Verweis aktualisieren.
+
+```
+Memory: "<Thema> — Runbook in Outline: <Titel>"
+```
+
+---
+
+## Schnell-Entscheidung
+
+| Situation | Aktion |
+|-----------|--------|
+| Bug gefixt, Root Cause gefunden | → Step 2 (Runbook) |
+| Neues Architektur-Pattern gewählt | → Step 3 (Konzept) |
+| Unerwarteter Fehler / Anti-Pattern | → Step 4 (Lesson) |
+| Nur Code geschrieben, nichts Neues | → Skip |
+| Deployment durchgeführt | → Step 2 (Deployment-Runbook) |
