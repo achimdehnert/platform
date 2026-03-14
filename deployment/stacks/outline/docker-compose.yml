@@ -33,9 +33,9 @@ services:
       # OIDC via authentik (ADR-142) — app-slug: outline
       OIDC_CLIENT_ID: "${OUTLINE_OIDC_CLIENT_ID}"
       OIDC_CLIENT_SECRET: "${OUTLINE_OIDC_CLIENT_SECRET}"
-      OIDC_AUTH_URI: "https://id.iil.pet/application/o/outline/authorize/"
-      OIDC_TOKEN_URI: "https://id.iil.pet/application/o/outline/token/"
-      OIDC_USERINFO_URI: "https://id.iil.pet/application/o/outline/userinfo/"
+      OIDC_AUTH_URI: "https://id.iil.pet/application/o/authorize/"
+      OIDC_TOKEN_URI: "https://id.iil.pet/application/o/token/"
+      OIDC_USERINFO_URI: "https://id.iil.pet/application/o/userinfo/"
       OIDC_DISPLAY_NAME: "IIL Platform Login"
     env_file: [.env]
     volumes:
