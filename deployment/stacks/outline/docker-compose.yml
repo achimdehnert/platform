@@ -3,7 +3,12 @@
 # ═══════════════════════════════════════════════════════════════════════════════
 # Deploy: /opt/outline/ on hetzner-prod
 # Secrets: .env (never committed) — see .env.template
-# Port: 127.0.0.1:3000 → Nginx → knowledge.iil.pet
+# Port: 127.0.0.1:3100 → Nginx → knowledge.iil.pet
+# OIDC: authentik (ADR-142) via extra_hosts + NODE_TLS_REJECT_UNAUTHORIZED
+#   - AUTH_URI: browser redirect → https://id.iil.pet (external)
+#   - TOKEN/USERINFO: server-to-server → https://id.iil.pet via host-gateway
+#   - Cloudflare Tunnel terminates TLS, origin uses self-signed cert
+#   - NODE_TLS_REJECT_UNAUTHORIZED=0 required for internal HTTPS calls
 # ═══════════════════════════════════════════════════════════════════════════════
 name: outline-stack
 
@@ -30,13 +35,21 @@ services:
       FILE_STORAGE: local
       FILE_STORAGE_LOCAL_ROOT_DIR: /var/lib/outline/data
       FILE_STORAGE_UPLOAD_MAX_SIZE: "26214400"
-      # OIDC via authentik (ADR-142) — app-slug: outline
+      # OIDC via authentik (ADR-142)
+      # authorize = browser redirect (external URL)
+      # token + userinfo = server-to-server (via extra_hosts → host Nginx)
       OIDC_CLIENT_ID: "${OUTLINE_OIDC_CLIENT_ID}"
       OIDC_CLIENT_SECRET: "${OUTLINE_OIDC_CLIENT_SECRET}"
       OIDC_AUTH_URI: "https://id.iil.pet/application/o/authorize/"
       OIDC_TOKEN_URI: "https://id.iil.pet/application/o/token/"
       OIDC_USERINFO_URI: "https://id.iil.pet/application/o/userinfo/"
       OIDC_DISPLAY_NAME: "IIL Platform Login"
+      OIDC_SCOPES: "openid profile email"
+      OIDC_USERNAME_CLAIM: "preferred_username"
+      # Required: origin uses self-signed cert behind Cloudflare Tunnel
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"
+    extra_hosts:
+      - "id.iil.pet:host-gateway"
     env_file: [.env]
     volumes:
       - outline_data:/var/lib/outline/data
