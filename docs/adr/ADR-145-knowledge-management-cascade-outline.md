@@ -14,7 +14,10 @@ implementation_evidence:
   - "Phase 3 (Collections) completed: 6 Collections in Outline angelegt — 2026-03-14"
   - "Phase 4 (Runbooks) completed: 2 Runbooks + 1 Lesson Learned erstellt — 2026-03-14"
   - "Phase 5 (API-Token) completed: platform-mcp Token (scope /api/*.*) — 2026-03-14"
-  - "Phase 6-11 pending: outline_mcp, Workflows, research-hub, Enrichment, Git-Sync"
+  - "Phase 6 (outline_mcp) completed: packages/outline-mcp/, 6 tools, 7 tests green — 2026-03-14"
+  - "Phase 7 (Windsurf) completed: mcp_config.json, live-tested search+get+list — 2026-03-14"
+  - "Phase 8 (Workflows) completed: /knowledge-capture + /agent-session-start Step 6 — 2026-03-14"
+  - "Phase 9-11 pending: research-hub KnowledgeDocument, Celery Enrichment, Git-Sync"
 review_status: "reviewed — 12 findings (3B/3K/3H/3M), all addressed in v2"
 ---
 
