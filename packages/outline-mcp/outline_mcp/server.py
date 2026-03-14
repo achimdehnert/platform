@@ -19,21 +19,25 @@ from outline_mcp.settings import Settings
 logger = logging.getLogger(__name__)
 
 
+_client: OutlineClient | None = None
+_settings: Settings | None = None
+
+
 @asynccontextmanager
 async def lifespan(server: FastMCP):
     """Create and teardown OutlineClient (ADR-044 §3.3)."""
-    settings = Settings()
-    client = OutlineClient(
-        base_url=settings.outline_url,
-        api_token=settings.outline_api_token,
+    global _client, _settings  # noqa: PLW0603
+    _settings = Settings()
+    _client = OutlineClient(
+        base_url=_settings.outline_url,
+        api_token=_settings.outline_api_token,
     )
     try:
-        server.state["client"] = client
-        server.state["settings"] = settings
-        logger.info("outline_mcp connected to %s", settings.outline_url)
+        logger.info("outline_mcp connected to %s", _settings.outline_url)
         yield
     finally:
-        await client.close()
+        await _client.close()
+        _client = None
         logger.info("outline_mcp client closed")
 
 
@@ -41,11 +45,13 @@ mcp = FastMCP("outline-knowledge", lifespan=lifespan)
 
 
 def _get_client() -> OutlineClient:
-    return mcp.state["client"]
+    assert _client is not None, "OutlineClient not initialized — lifespan not started"
+    return _client
 
 
 def _get_settings() -> Settings:
-    return mcp.state["settings"]
+    assert _settings is not None, "Settings not initialized — lifespan not started"
+    return _settings
 
 
 def _error(msg: str) -> list[dict[str, Any]]:
