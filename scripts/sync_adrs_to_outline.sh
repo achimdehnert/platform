@@ -187,14 +187,14 @@ if [[ -n "${SINGLE_ADR}" ]]; then
         echo "ERROR: No file found for ${SINGLE_ADR} in ${ADR_DIR}" >&2
         exit 4
     fi
-    sync_adr_file "${adr_file}" && ((SYNCED++)) || ((ERRORS++))
+    sync_adr_file "${adr_file}" && SYNCED=$((SYNCED + 1)) || ERRORS=$((ERRORS + 1))
 else
     # All ADRs
     while IFS= read -r -d '' adr_file; do
         if sync_adr_file "${adr_file}"; then
-            ((SYNCED++))
+            SYNCED=$((SYNCED + 1))
         else
-            ((ERRORS++))
+            ERRORS=$((ERRORS + 1))
         fi
     done < <(find "${ADR_DIR}" -name 'ADR-*.md' -print0 | sort -z)
 fi
