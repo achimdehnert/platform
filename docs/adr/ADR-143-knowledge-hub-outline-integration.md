@@ -10,13 +10,15 @@ related: ["ADR-142-unified-identity-authentik-platform-idp.md", "ADR-132-ai-cont
 implementation_status: partial
 implementation_evidence:
   - "Phase 1 Infrastructure deployed 2026-03-13: Docker Compose, DNS, Nginx"
-  - "URL: https://knowledge.iil.pet (HTTP 200)"
+  - "Phase 3 OIDC completed 2026-03-14: authentik SSO login working"
+  - "URL: https://knowledge.iil.pet (HTTP 200, OIDC Login via id.iil.pet)"
   - "Containers: iil_knowledge_outline, iil_knowledge_outline_db, iil_knowledge_outline_redis — all healthy"
   - "Port: 3100 (intern 3000, extern 3100 wegen Port-Konflikt), DNS: CNAME knowledge.iil.pet → Cloudflare Tunnel"
   - "Backup: /etc/cron.daily/outline-backup"
   - "Nginx: WebSocket /realtime, default.crt (Tunnel TLS)"
   - "Fix: DATABASE_URL mit ?sslmode=disable für interne PG"
-  - "Pending: OIDC via authentik (Application 'outline' erstellen), research-hub Integration"
+  - "OIDC Fix: Signing Key + Scope Mappings + extra_hosts + NODE_TLS_REJECT_UNAUTHORIZED (see docs/guides/oidc-authentik-integration.md)"
+  - "Pending: Phase 4-11 (Collections, research-hub Integration, outline_mcp)"
 ---
 
 # ADR-143: Knowledge-Hub — Outline Wiki + research-hub Integration
@@ -215,10 +217,15 @@ services:
       # OIDC via authentik (ADR-142) — app-slug: outline
       OIDC_CLIENT_ID: "${OUTLINE_OIDC_CLIENT_ID}"
       OIDC_CLIENT_SECRET: "${OUTLINE_OIDC_CLIENT_SECRET}"
-      OIDC_AUTH_URI: "https://id.iil.pet/application/o/outline/authorize/"
-      OIDC_TOKEN_URI: "https://id.iil.pet/application/o/outline/token/"
-      OIDC_USERINFO_URI: "https://id.iil.pet/application/o/outline/userinfo/"
+      OIDC_AUTH_URI: "https://id.iil.pet/application/o/authorize/"
+      OIDC_TOKEN_URI: "https://id.iil.pet/application/o/token/"
+      OIDC_USERINFO_URI: "https://id.iil.pet/application/o/userinfo/"
       OIDC_DISPLAY_NAME: "IIL Platform Login"
+      OIDC_SCOPES: "openid profile email"
+      OIDC_USERNAME_CLAIM: "preferred_username"
+      NODE_TLS_REJECT_UNAUTHORIZED: "0"  # self-signed cert behind Cloudflare Tunnel
+    extra_hosts:
+      - "id.iil.pet:host-gateway"  # resolve to Docker host for server-to-server OIDC calls
     env_file: [.env.outline]
     volumes:
       - outline_data:/var/lib/outline/data
