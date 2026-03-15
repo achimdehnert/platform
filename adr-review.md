@@ -19,7 +19,7 @@ Also load the review checklist:
 
 ---
 
-## Step 2: Run through all 9 checklist categories
+## Step 2: Run through all 8 checklist categories
 
 Work through each category systematically:
 
@@ -53,7 +53,7 @@ For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note
 ❌ 2.3 StrictHostKeyChecking=no found in deploy-service.yml line 42 — replace with ssh-keyscan
 ...
 
-[Continue for all 9 categories]
+[Continue for all 8 categories]
 
 ---
 
@@ -69,7 +69,6 @@ For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note
 | Architectural Consistency | 5/5 | |
 | Open Questions | 4/5 | |
 | Modern Platform Patterns | 5/5 | n/a for this ADR |
-| ADR-138 Implementation Tracking | 5/5 | |
 | **Overall** | **4.5/5** | |
 
 ---
