@@ -19,7 +19,7 @@ networks:
 
 services:
   outline:
-    image: outlinewiki/outline:0.82.0
+    image: outlinewiki/outline:1.5.0
     container_name: iil_knowledge_outline
     networks: [outline_net]
     ports:
