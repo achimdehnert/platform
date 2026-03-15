@@ -1,13 +1,14 @@
 ---
-status: accepted
+status: superseded
 date: 2026-03-08
 decision-makers: [Achim Dehnert]
 implementation_status: implemented
+superseded-by: ADR-114-discord-ide-like-communication-gateway.md
 ---
 
 # ADR-113 — Telegram Gateway + pgvector Memory Store
 
-**Status:** Accepted (v2 — Review-Korrekturen eingearbeitet)
+**Status:** ~~Accepted~~ → **Superseded** by ADR-114 (Discord ersetzt Telegram als Gateway, pgvector Memory bleibt gültig)
 **Datum:** 2026-03-08 | **Revision:** 2026-03-08
 **Autoren:** Cascade Agent Team
 **Review:** Principal IT-Architekt (ADR-113-review-implementation.md)
