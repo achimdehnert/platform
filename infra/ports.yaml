@@ -63,7 +63,7 @@ services:
   trading-hub:
     prod: 8088
     staging: null
-    domain_prod: ai-trades.de
+    domain_prod: trading-hub.iil.pet
     domain_staging: staging.ai-trades.de
     repo: achimdehnert/trading-hub
 
@@ -109,12 +109,12 @@ services:
     domain_staging: staging.nl2cad.de
     repo: achimdehnert/cad-hub
 
-  ausschreibungs-hub:
+  137-hub:
     prod: 8095
     staging: null
-    domain_prod: null
+    domain_prod: 137herz.de
     domain_staging: null
-    repo: achimdehnert/ausschreibungs-hub
+    repo: achimdehnert/137-hub
 
   illustration-hub:
     prod: 8096
@@ -126,9 +126,9 @@ services:
   writing-hub:
     prod: 8097
     staging: null
-    domain_prod: null
+    domain_prod: writing.iil.pet
     domain_staging: null
-    repo: null
+    repo: achimdehnert/writing-hub
 
   research-hub:
     prod: 8098

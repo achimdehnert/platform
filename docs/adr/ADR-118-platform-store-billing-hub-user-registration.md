@@ -271,8 +271,8 @@ mit Plan-Tier-Logik (Starter/Professional/Enterprise). Diese Implementierung gil
 - HMAC-Secret-Rotation erfordert koordinierten Deploy (Dual-Secret löst das)
 
 ### Nicht in Scope dieses ADR
-- SSO / geteilte Sessions zwischen Apps
-- Wiederverwendung von User-Accounts über Apps hinweg
+- ~~SSO / geteilte Sessions zwischen Apps~~ → **Revidiert durch ADR-142** (authentik als Platform IdP)
+- ~~Wiederverwendung von User-Accounts über Apps hinweg~~ → **Revidiert durch ADR-142** (OIDC Cross-Hub-Login)
 - App-übergreifende Rollen/Permissions
 - research-hub Integration (eigenes ADR nach Preismodell-Festlegung)
 
