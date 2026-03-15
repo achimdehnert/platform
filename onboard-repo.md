@@ -27,20 +27,32 @@ Ich brauche folgende Infos:
 5. Lokaler Port auf dem Server (nächster freier: siehe Port-Map unten)
 ```
 
-### Port-Map (88.198.191.108)
+### Port-Map (88.198.191.108) — Quelle: `platform/infra/ports.yaml`
 
-| Port | App |
-|------|-----|
-| 8080 | governance |
-| 8081 | weltenhub |
-| 8082 | dev-hub |
-| 8088 | trading-hub |
-| 8089 | travel-beat |
-| 8090 | risk-hub |
-| 8091 | bfagent |
-| 8092 | pptx-hub |
-| 8093 | wedding-hub |
-| 8094 | *nächster freier* |
+| Port | App | Domain |
+|------|-----|--------|
+| 8001 | llm-mcp | — |
+| 8007 | coach-hub | coach-hub.iil.pet |
+| 8020 | pptx-hub | prezimo.de |
+| 8069 | odoo | odoo.iil.pet (eigener Server!) |
+| 8081 | weltenhub | weltenforger.com |
+| 8085 | dev-hub | dev-hub.iil.pet |
+| 8088 | trading-hub | trading-hub.iil.pet |
+| 8089 | travel-beat | drifttales.com |
+| 8090 | risk-hub | schutztat.de |
+| 8091 | bfagent | iil.pet |
+| 8092 | billing-hub | billing.iil.pet |
+| 8093 | wedding-hub | wedding-hub.iil.pet |
+| 8094 | cad-hub | nl2cad.de |
+| 8095 | 137-hub | 137herz.de |
+| 8096 | illustration-hub | — |
+| 8097 | writing-hub | writing.iil.pet |
+| 8098 | research-hub | research.iil.pet |
+| 8099 | risk-hub-staging | staging.kiohnerisiko.de |
+| 8100 | learn-hub | learn.iil.pet |
+| **8101** | **nächster freier** | |
+
+⚠️ **Vor Port-Vergabe**: `python infra/scripts/port_audit.py` laufen lassen!
 
 ## Step 1: Repository-Struktur erstellen
 
@@ -682,7 +694,26 @@ Füge die neue App zur Tabelle in `.windsurf/workflows/deploy.md` hinzu.
 
 Füge die neue DB zur Tabelle in `.windsurf/workflows/backup.md` hinzu.
 
-### 6.5 Workstation SSH-Setup prüfen (ADR-060)
+### 6.5 Outline Repo-Steckbrief erstellen (PFLICHT — ADR-145)
+
+Erstelle einen Repo-Steckbrief in Outline (Runbooks Collection) damit Cascade bei jeder Session sofort den Kontext hat:
+
+```
+outline-knowledge: create_runbook(
+    title="Repo-Steckbrief: <REPO_NAME>",
+    content="# <REPO_NAME> — Repo-Steckbrief\n\n> **Zweck:** <DESCRIPTION>\n> Suche hier wenn du am <REPO_NAME> arbeitest.\n\n## Quick Facts\n\n| Key | Value |\n|-----|-------|\n| **Repo** | achimdehnert/<REPO_NAME> |\n| **Domain** | <DOMAIN> |\n| **Port** | <PORT> |\n| **Stack** | Django 5.x, ... |\n| **Server** | 88.198.191.108, /opt/<REPO_NAME> |\n\n## Features\n\n- ...\n\n## Frameworks\n\n- ...\n\n## Bekannte Einschränkungen\n\n- ...\n\n## Nächste Schritte\n\n- ...",
+    related_adrs="120"
+)
+```
+
+**Pflichtfelder im Steckbrief:**
+- Quick Facts Tabelle (Repo, Domain, Port, Stack, Server)
+- Features (Kurzliste)
+- Verwendete Frameworks
+- Bekannte Einschränkungen
+- Nächste Schritte
+
+### 6.6 Workstation SSH-Setup prüfen (ADR-060)
 
 Sicherstellen dass kein `core.sshCommand` im neuen Repo gesetzt wird:
 
@@ -723,9 +754,11 @@ Testing (ADR-058):
 
 Platform-Integration:
   [ ] platform/registry/repos.yaml Eintrag hinzugefügt
+  [ ] platform/infra/ports.yaml Port registriert + port_audit.py grün
   [ ] devhub.iil.pet/repos zeigt neues Repo (nach GitHub Action)
   [ ] deploy.md Tabelle aktualisiert
   [ ] backup.md Tabelle aktualisiert
+  [ ] Outline Repo-Steckbrief erstellt (Step 6.5, ADR-145)
 
 Docker (KRITISCH):
   [ ] Kein HEALTHCHECK im Dockerfile (gehört pro-Service in Compose!)
