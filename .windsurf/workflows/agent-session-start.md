@@ -99,21 +99,50 @@ Falls Tests rot: **Erst fixen, dann neue Arbeit starten.** Nie auf roter Basis a
 
 ---
 
-## Step 6: Knowledge-Lookup (ADR-145)
+## Step 6: Knowledge-Lookup (ADR-145) — 3-Layer Search
 
-Bevor der Plan erstellt wird — prüfe ob relevantes Wissen in Outline existiert:
+Bevor der Plan erstellt wird — 3 gezielte Outline-Suchen durchführen:
+
+### 6a: Repo-Steckbrief laden (immer)
 
 ```
-outline-knowledge: search_knowledge("<Thema der aktuellen Aufgabe>")
+outline-knowledge: search_knowledge("Repo-Steckbrief: <repo-name>")
+→ get_document() → Quick Facts, Ports, Container, bekannte Issues
 ```
 
-- **Treffer gefunden?** → `get_document()` und als Kontext nutzen (Runbook, Lesson Learned)
+### 6b: Task-spezifisches Wissen (immer)
+
+```
+outline-knowledge: search_knowledge("<Thema der Aufgabe>")
+→ Runbooks, Konzepte, ADR-Reviews
+```
+
+Beispiele:
+- `"deployment Django-Hub"` — vor Deploy
+- `"RLS row level security"` — vor Datenbank-Arbeit
+- `"Cloudflare DNS nginx"` — vor neuem Service
+- `"Outline webhook HMAC"` — vor Webhook-Integration
+
+### 6c: Lessons Learned prüfen (bei Debugging/Infra)
+
+```
+outline-knowledge: search_knowledge("Lesson <Fehlerbild>")
+→ Bekannte Stolperfallen, Root Causes, Vermeidungs-Strategien
+```
+
+### Auswertung
+
+- **Treffer gefunden?** → `get_document()` und als Kontext nutzen
 - **Kein Treffer?** → Neues Wissensgebiet — am Session-Ende `/knowledge-capture` ausführen
 
-Beispiele für gute Suchanfragen:
-- `"OIDC authentik troubleshooting"` — vor OIDC-Integration
-- `"RLS rollout"` — vor Row-Level-Security Deployment
-- `"Cloudflare tunnel neue domain"` — vor neuem Service-Setup
+### Outline Collection IDs (Quick-Reference)
+
+| Collection | ID | Inhalt |
+|---|---|---|
+| Runbooks | `a67c9777-3bc3-401a-9de3-91f0cc6c56d9` | How-To Guides, Repo-Steckbriefe |
+| Konzepte | `04064c28-a847-4bec-9bc3-a74d5e1012a2` | Architektur, Cross-Repo |
+| Lessons Learned | `db8291c2-f135-4834-878e-224db5673ab6` | Fehler, Root Causes |
+| ADR Mirror | `cf12fd43-4b14-4e1f-9603-dd7cb124071f` | Alle ADRs (read-only) |
 
 ---
 
