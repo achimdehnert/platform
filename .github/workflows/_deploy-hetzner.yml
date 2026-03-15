@@ -92,8 +92,6 @@ on:
         required: false
       SOPS_AGE_KEY:
         required: false
-      PROJECT_PAT:
-        required: false
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────

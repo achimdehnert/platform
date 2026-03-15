@@ -2,10 +2,10 @@
 """ADR Number Guard — single source of truth for ADR numbering.
 
 Usage:
-    python3 scripts/adr_next_number.py         # next free number
-    python3 scripts/adr_next_number.py --audit # all conflicts + gaps
-    python3 scripts/adr_next_number.py --check # exit 1 if conflicts
-    python3 scripts/adr_next_number.py --next  # next free (explicit)
+    python3 scripts/adr_next_number.py            # print next free number
+    python3 scripts/adr_next_number.py --audit    # show all conflicts + gaps
+    python3 scripts/adr_next_number.py --check    # exit 1 if conflicts exist (CI)
+    python3 scripts/adr_next_number.py --next     # print next free number (explicit)
 """
 
 from __future__ import annotations
@@ -18,10 +18,9 @@ from pathlib import Path
 ADR_DIR = Path(__file__).parent.parent / "docs" / "adr"
 ADR_PATTERN = re.compile(r"^ADR-(\d{3,4})-(.+)\.md$", re.IGNORECASE)
 
-# Range concept ABANDONED after ADR-059 (confirmed by ADR-107).
-# Kept for gap-detection only. get_next_free() uses GLOBAL maximum.
+# Numbers reserved for specific repos (ADR-065 workflow definition)
 REPO_RANGES: dict[str, tuple[int, int]] = {
-    "platform":    (1,    99),
+    "platform":    (1,   99),
     "bfagent":     (100, 149),
     "travel-beat": (150, 199),
     "mcp-hub":     (200, 249),
@@ -32,12 +31,9 @@ REPO_RANGES: dict[str, tuple[int, int]] = {
     "shared":      (450, 499),
 }
 
-# Safety ceiling — prevents infinite loops on malformed filenames
-_GLOBAL_MAX = 9999
-
 
 def scan_adr_dir(adr_dir: Path = ADR_DIR) -> dict[int, list[Path]]:
-    """Scan ADR directory; return mapping of number to file list."""
+    """Scan ADR directory and return mapping of number → list of files."""
     mapping: dict[int, list[Path]] = defaultdict(list)
     for f in sorted(adr_dir.glob("ADR-*.md")):
         m = ADR_PATTERN.match(f.name)
@@ -47,31 +43,23 @@ def scan_adr_dir(adr_dir: Path = ADR_DIR) -> dict[int, list[Path]]:
     return dict(mapping)
 
 
-def get_conflicts(
-    mapping: dict[int, list[Path]],
-) -> dict[int, list[Path]]:
-    """Return numbers with more than one file (duplicates)."""
-    return {
-        num: files
-        for num, files in mapping.items()
-        if len(files) > 1
-    }
+def get_conflicts(mapping: dict[int, list[Path]]) -> dict[int, list[Path]]:
+    """Return only numbers with more than one file (duplicates)."""
+    return {num: files for num, files in mapping.items() if len(files) > 1}
+
+
+_GLOBAL_MAX = 9999
 
 
 def get_next_free(
     mapping: dict[int, list[Path]],
     repo: str = "platform",  # noqa: ARG001
 ) -> int:
-    """Next free ADR number — global max strategy.
+    """Return next free ADR number using global max strategy.
 
-    The repo-range concept was abandoned after ADR-059 and confirmed
-    by ADR-107. All new ADRs receive the next free GLOBAL number.
-
-    The repo parameter is kept only for API compatibility — it no
-    longer restricts which numbers are considered.
-
-    Strategy: global max(used) + 1, then skip any already-used
-    numbers. Gaps are intentional and must never be reused.
+    Range concept abandoned (ADR-059 / ADR-107). repo param kept
+    for API compatibility only — no longer restricts the range.
+    Strategy: global max(used) + 1, then skip any duplicates.
     """
     all_used = set(mapping.keys())
     if not all_used:
@@ -84,11 +72,8 @@ def get_next_free(
     return candidate
 
 
-def get_gaps(
-    mapping: dict[int, list[Path]],
-    repo: str = "platform",
-) -> list[int]:
-    """Return gap numbers in the repo range (for audit only)."""
+def get_gaps(mapping: dict[int, list[Path]], repo: str = "platform") -> list[int]:
+    """Return gap numbers in the repo range (skipped numbers)."""
     lo, hi = REPO_RANGES.get(repo, (1, 99))
     used = {n for n in mapping if lo <= n <= hi}
     if not used:
@@ -110,34 +95,28 @@ def format_audit(
     lines.append("ADR Number Guard — Audit Report")
     lines.append("=" * 60)
     lines.append(f"ADR directory : {ADR_DIR}")
-    lines.append(
-        f"Total ADRs    : {sum(len(v) for v in mapping.values())}"
-    )
+    lines.append(f"Total ADRs    : {sum(len(v) for v in mapping.values())}")
     lines.append(f"Unique numbers: {len(mapping)}")
-    lines.append(f"Next free (global): ADR-{next_num:03d}")
+    lines.append(f"Next free ({repo}): ADR-{next_num:03d}")
     lines.append("")
 
     if conflicts:
-        lines.append(
-            f"CONFLICTS ({len(conflicts)} duplicate numbers):"
-        )
+        lines.append(f"🚫 CONFLICTS ({len(conflicts)} duplicate numbers):")
         for num, files in sorted(conflicts.items()):
             lines.append(f"  ADR-{num:03d}:")
             for f in files:
-                lines.append(f"    -> {f.name}")
+                lines.append(f"    → {f.name}")
         lines.append("")
     else:
-        lines.append("No duplicate numbers found.")
+        lines.append("✅ No duplicate numbers found.")
         lines.append("")
 
     if gaps:
-        gap_str = ", ".join(f"ADR-{n:03d}" for n in gaps)
-        lines.append(
-            f"GAPS in {repo} range ({len(gaps)} missing): {gap_str}"
-        )
+        lines.append(f"⚠️  GAPS in {repo} range ({len(gaps)} missing numbers):")
+        lines.append(f"  {', '.join(f'ADR-{n:03d}' for n in gaps)}")
         lines.append("")
     else:
-        lines.append(f"No gaps in {repo} range.")
+        lines.append(f"✅ No gaps in {repo} range.")
         lines.append("")
 
     lines.append("=" * 60)
@@ -161,16 +140,15 @@ def main() -> int:
 
     if "--check" in args:
         if conflicts:
-            print("ADR number conflicts detected:")
+            print("🚫 ADR number conflicts detected:")
             for num, files in sorted(conflicts.items()):
-                names = ", ".join(f.name for f in files)
-                print(f"  ADR-{num:03d}: {names}")
+                print(f"  ADR-{num:03d}: {', '.join(f.name for f in files)}")
             print(
-                "\nRun: python3 scripts/adr_next_number.py --audit"
-                " for full report."
+                f"\nRun: python3 scripts/adr_next_number.py --audit  "
+                f"for full report."
             )
             return 1
-        print("No ADR number conflicts.")
+        print("✅ No ADR number conflicts.")
         return 0
 
     # Default / --next: print next free number
