@@ -104,6 +104,49 @@ async def test_search_returns_error_on_401(client):
 
 @respx.mock
 @pytest.mark.asyncio
+async def test_delete_document(client):
+    respx.post("https://knowledge.iil.pet/api/documents.delete").mock(
+        return_value=httpx.Response(200, json={"success": True})
+    )
+
+    result = await client.delete_document("doc-001")
+    assert result["success"] is True
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_search_with_collection_filter(client, sample_search_response):
+    route = respx.post("https://knowledge.iil.pet/api/documents.search").mock(
+        return_value=httpx.Response(200, json=sample_search_response)
+    )
+
+    await client.search_documents("test", collection_id="col-123")
+    assert route.called
+    body = route.calls.last.request.content
+    import json
+    payload = json.loads(body)
+    assert payload["collectionId"] == "col-123"
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_list_with_collection_filter(client):
+    mock_response = {"data": []}
+    route = respx.post("https://knowledge.iil.pet/api/documents.list").mock(
+        return_value=httpx.Response(200, json=mock_response)
+    )
+
+    await client.list_documents(collection_id="col-456", limit=5, offset=10)
+    assert route.called
+    import json
+    payload = json.loads(route.calls.last.request.content)
+    assert payload["collectionId"] == "col-456"
+    assert payload["limit"] == 5
+    assert payload["offset"] == 10
+
+
+@respx.mock
+@pytest.mark.asyncio
 async def test_list_collections(client):
     mock_response = {
         "data": [

@@ -111,6 +111,12 @@ class OutlineClient:
         resp.raise_for_status()
         return resp.json()
 
+    @RETRY_POLICY
+    async def delete_document(self, document_id: str) -> dict[str, Any]:
+        resp = await self._client.post("documents.delete", json={"id": document_id})
+        resp.raise_for_status()
+        return resp.json()
+
     # --- Collections ---
 
     @RETRY_POLICY

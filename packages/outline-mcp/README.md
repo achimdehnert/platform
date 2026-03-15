@@ -4,7 +4,7 @@ MCP Server for Outline Wiki — Knowledge Base access for Cascade.
 
 ## Overview
 
-Provides 6 tools for the Windsurf/Cascade AI assistant to interact with Outline Wiki (knowledge.iil.pet):
+Provides 9 tools for the Windsurf/Cascade AI assistant to interact with Outline Wiki (knowledge.iil.pet):
 
 | Tool | Description |
 |------|-------------|
@@ -12,8 +12,11 @@ Provides 6 tools for the Windsurf/Cascade AI assistant to interact with Outline 
 | `get_document` | Get full Markdown content of a document |
 | `create_runbook` | Create a new Runbook (Troubleshooting, Step-by-Step) |
 | `create_concept` | Create a new Architecture Concept |
+| `create_lesson` | Create a new Lesson Learned |
 | `update_document` | Update an existing document |
+| `delete_document` | Delete a document (moves to trash) |
 | `list_recent` | List recently updated documents |
+| `list_collections` | List all collections with IDs |
 
 ## Architecture (ADR-145)
 

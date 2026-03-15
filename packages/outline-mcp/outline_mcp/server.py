@@ -325,3 +325,51 @@ async def list_recent(
     except Exception:
         logger.exception("list_recent failed")
         return _error("Internal error listing documents")
+
+
+@mcp.tool()
+async def list_collections() -> list[dict[str, Any]]:
+    """List all collections in the knowledge base.
+
+    Use to discover available collections and their IDs.
+    """
+    try:
+        result = await _get_client().list_collections()
+        return [
+            {
+                "name": col.get("name", ""),
+                "id": col.get("id", ""),
+                "description": col.get("description", ""),
+                "documents": col.get("documents", []),
+            }
+            for col in result.get("data", [])
+        ]
+    except httpx.HTTPStatusError as e:
+        return _error(f"Outline API returned {e.response.status_code}")
+    except httpx.ConnectError:
+        return _error("Outline not reachable")
+    except Exception:
+        logger.exception("list_collections failed")
+        return _error("Internal error listing collections")
+
+
+@mcp.tool()
+async def delete_document(document_id: str) -> dict[str, Any]:
+    """Delete a document from the knowledge base.
+
+    Use for cleanup of test documents or outdated content.
+    This is a destructive operation — the document will be moved to trash.
+
+    Args:
+        document_id: Outline document UUID to delete
+    """
+    try:
+        await _get_client().delete_document(document_id)
+        return {"status": "deleted", "id": document_id}
+    except httpx.HTTPStatusError as e:
+        return {"error": f"Outline API returned {e.response.status_code}"}
+    except httpx.ConnectError:
+        return {"error": "Outline not reachable"}
+    except Exception:
+        logger.exception("delete_document failed")
+        return {"error": "Internal error deleting document"}
