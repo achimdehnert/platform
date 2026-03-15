@@ -82,15 +82,14 @@ outline-knowledge: create_concept(
 Wenn etwas Unerwartetes passiert ist:
 
 ```
-outline-knowledge: create_runbook(
+outline-knowledge: create_lesson(
     title="<Datum>: <Kurzbeschreibung>",
     content="## Kontext\n\n<Was passiert ist>\n\n## Root Cause\n\n<Warum>\n\n## Merksatz\n\n> <Ein-Satz-Zusammenfassung>\n\n## Vermeidung\n\n<Was in Zukunft anders machen>",
     related_adrs="<ADR-Nummern>"
 )
 ```
 
-Hinweis: Lessons Learned werden in die Collection "Lessons Learned" verschoben
-(manuell in Outline UI oder via Collection-ID in create_runbook).
+> `create_lesson` schreibt direkt in die Collection "Lessons Learned" — kein manuelles Verschieben nötig.
 
 ---
 

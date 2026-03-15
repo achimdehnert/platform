@@ -59,6 +59,48 @@ def _error(msg: str) -> list[dict[str, Any]]:
     return [{"error": msg}]
 
 
+# --- Helpers ---
+
+
+def _append_adr_refs(text: str, related_adrs: str | None) -> str:
+    """Append ADR references to document text."""
+    if related_adrs:
+        refs = ", ".join(f"ADR-{n.strip()}" for n in related_adrs.split(","))
+        text += f"\n\n---\n\n**Referenzen:** {refs}\n"
+    return text
+
+
+async def _create_in_collection(
+    collection_id: str,
+    title: str,
+    content: str,
+    related_adrs: str | None,
+    tool_name: str,
+) -> dict[str, Any]:
+    """Create a document in a specific Outline collection."""
+    text = _append_adr_refs(content, related_adrs)
+    try:
+        result = await _get_client().create_document(
+            title=title,
+            text=text,
+            collection_id=collection_id,
+        )
+        doc = result.get("data", {})
+        return {
+            "status": "created",
+            "id": doc.get("id", ""),
+            "url": doc.get("url", ""),
+            "title": doc.get("title", ""),
+        }
+    except httpx.HTTPStatusError as e:
+        return {"error": f"Outline API returned {e.response.status_code}"}
+    except httpx.ConnectError:
+        return {"error": "Outline not reachable"}
+    except Exception:
+        logger.exception("%s failed", tool_name)
+        return {"error": f"Internal error in {tool_name}"}
+
+
 # --- Tools ---
 
 
@@ -150,32 +192,13 @@ async def create_runbook(
         content: Full Markdown content
         related_adrs: Optional comma-separated ADR numbers (e.g. "142,143")
     """
-    settings = _get_settings()
-    text = content
-    if related_adrs:
-        refs = ", ".join(f"ADR-{n.strip()}" for n in related_adrs.split(","))
-        text += f"\n\n---\n\n**Referenzen:** {refs}\n"
-
-    try:
-        result = await _get_client().create_document(
-            title=title,
-            text=text,
-            collection_id=settings.collection_runbooks,
-        )
-        doc = result.get("data", {})
-        return {
-            "status": "created",
-            "id": doc.get("id", ""),
-            "url": doc.get("url", ""),
-            "title": doc.get("title", ""),
-        }
-    except httpx.HTTPStatusError as e:
-        return {"error": f"Outline API returned {e.response.status_code}"}
-    except httpx.ConnectError:
-        return {"error": "Outline not reachable"}
-    except Exception:
-        logger.exception("create_runbook failed")
-        return {"error": "Internal error creating runbook"}
+    return await _create_in_collection(
+        collection_id=_get_settings().collection_runbooks,
+        title=title,
+        content=content,
+        related_adrs=related_adrs,
+        tool_name="create_runbook",
+    )
 
 
 @mcp.tool()
@@ -193,32 +216,38 @@ async def create_concept(
         content: Full Markdown content
         related_adrs: Optional comma-separated ADR numbers
     """
-    settings = _get_settings()
-    text = content
-    if related_adrs:
-        refs = ", ".join(f"ADR-{n.strip()}" for n in related_adrs.split(","))
-        text += f"\n\n---\n\n**Referenzen:** {refs}\n"
+    return await _create_in_collection(
+        collection_id=_get_settings().collection_concepts,
+        title=title,
+        content=content,
+        related_adrs=related_adrs,
+        tool_name="create_concept",
+    )
 
-    try:
-        result = await _get_client().create_document(
-            title=title,
-            text=text,
-            collection_id=settings.collection_concepts,
-        )
-        doc = result.get("data", {})
-        return {
-            "status": "created",
-            "id": doc.get("id", ""),
-            "url": doc.get("url", ""),
-            "title": doc.get("title", ""),
-        }
-    except httpx.HTTPStatusError as e:
-        return {"error": f"Outline API returned {e.response.status_code}"}
-    except httpx.ConnectError:
-        return {"error": "Outline not reachable"}
-    except Exception:
-        logger.exception("create_concept failed")
-        return {"error": "Internal error creating concept"}
+
+@mcp.tool()
+async def create_lesson(
+    title: str,
+    content: str,
+    related_adrs: str | None = None,
+) -> dict[str, Any]:
+    """Create a new Lesson Learned in the Lessons Learned collection.
+
+    Use when documenting anti-patterns, unexpected errors, or root causes
+    discovered during debugging.
+
+    Args:
+        title: Lesson title (e.g. "2026-03-15: pytester INTERNALERROR")
+        content: Full Markdown content (Kontext, Root Cause, Merksatz, Vermeidung)
+        related_adrs: Optional comma-separated ADR numbers
+    """
+    return await _create_in_collection(
+        collection_id=_get_settings().collection_lessons,
+        title=title,
+        content=content,
+        related_adrs=related_adrs,
+        tool_name="create_lesson",
+    )
 
 
 @mcp.tool()
