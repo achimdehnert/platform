@@ -4,10 +4,15 @@ description: Session-Ende Knowledge Capture — Wissen in Outline sichern (ADR-1
 
 # Knowledge Capture Workflow
 
-**Trigger:** Am Ende jeder produktiven Session, in der neues Wissen entstanden ist.
+**Trigger:** Am Ende jeder produktiven Session ODER mid-session bei wichtigen Erkenntnissen.
 
 > Verhindert Knowledge Drain — das implizite Wissen aus der Session wird
 > strukturiert in Outline gesichert, bevor es verloren geht.
+>
+> **Mid-Session-Trigger** (sofort erfassen, nicht bis zum Ende warten):
+> - Root Cause eines schwierigen Bugs gefunden
+> - Breaking Change oder Inkompatibilität entdeckt
+> - Neues Pattern etabliert (z.B. Test-Pattern für FastMCP)
 
 ---
 
@@ -93,6 +98,21 @@ outline-knowledge: create_lesson(
 
 ---
 
+## Step 4b: Bestehendes Dokument aktualisieren (bei Ergänzung)
+
+Wenn das Wissen zu einem existierenden Dokument gehört:
+
+```
+outline-knowledge: search_knowledge("<Thema>")
+→ Treffer gefunden?
+→ get_document(document_id) — aktuellen Inhalt lesen
+→ update_document(document_id, content="<ergänzter Inhalt>")
+```
+
+**Beispiel:** Stack-Upgrade-Erfahrungen zu bestehendem Runbook hinzufügen.
+
+---
+
 ## Step 5: Cascade Memory wie bisher updaten
 
 Ergänzend zum Outline-Eintrag: Cascade Memory mit kurzem Verweis aktualisieren.
@@ -112,3 +132,5 @@ Memory: "<Thema> — Runbook in Outline: <Titel>"
 | Unerwarteter Fehler / Anti-Pattern | → Step 4 (Lesson) |
 | Nur Code geschrieben, nichts Neues | → Skip |
 | Deployment durchgeführt | → Step 2 (Deployment-Runbook) |
+| Bestehendes Runbook ergänzen | → Step 4b (Update) |
+| Stack-Upgrade durchgeführt | → Step 2 (Upgrade-Runbook) |
