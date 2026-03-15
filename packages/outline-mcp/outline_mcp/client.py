@@ -90,7 +90,7 @@ class OutlineClient:
         text: str,
         title: str | None = None,
     ) -> dict[str, Any]:
-        payload: dict[str, Any] = {"id": document_id, "text": text, "done": True}
+        payload: dict[str, Any] = {"id": document_id, "text": text}
         if title:
             payload["title"] = title
         resp = await self._client.post("documents.update", json=payload)
