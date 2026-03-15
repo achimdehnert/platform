@@ -198,7 +198,7 @@ networks:
 
 services:
   outline:
-    image: outlinewiki/outline:1.5.0
+    image: outlinewiki/outline:1.6.0
     container_name: iil_knowledge_outline
     networks: [outline_net]
     ports:
@@ -348,7 +348,7 @@ server {
 | **Netzwerk-Isolation** | Eigenes Docker-Netzwerk `iil_outline_net` |
 | **Backup** | Täglicher `pg_dump` Cron auf `outline_db` → `/opt/backups/outline/`. Rotation: 7 Tage. |
 | **Secrets** | Alle Credentials via `read_secret()` (ADR-045) |
-| **Version-Pinning** | `outlinewiki/outline:1.5.0` — Update nur gezielt nach Test |
+| **Version-Pinning** | `outlinewiki/outline:1.6.0` — Update nur gezielt nach Test |
 
 ### 3.11 outline_mcp — async/sync Hinweis (K3)
 
@@ -428,7 +428,7 @@ Cascade → search_knowledge("ship-workflow staging production promote")
 |-------|-----------|--------|
 | ADR-Git-Sync automatisieren? | Phase 2+ — initial manuell (Copy-Paste von Git nach Outline). Automatisierung via GitHub Webhook → Outline API ist möglich. | Offen |
 | Full-Sync als Fallback? | Täglicher Celery-Beat-Task: alle Outline-Docs re-syncen (Schutz gegen verpasste Webhooks). | Entschieden |
-| Outline-Version pinnen? | Ja — `outlinewiki/outline:1.5.0` statt `:latest`. Update nur gezielt. | Entschieden |
+| Outline-Version pinnen? | Ja — `outlinewiki/outline:1.6.0` statt `:latest`. Update nur gezielt. | Entschieden |
 | Wer darf Dokumente erstellen? | Alle authentik-User mit Gruppe `developer` oder `platform-admin`. | Entschieden |
 | Kommt `outline-wiki-api` nach research-hub requirements? | Ja — `pip install outline-wiki-api` in research-hub + mcp-hub. | Entschieden |
 
