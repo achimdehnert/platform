@@ -26,20 +26,33 @@ Falls diese Dateien nicht existieren → `/new-github-project` aufrufen.
 Danach MCP-Kontext aktiv abrufen:
 
 ```
-MCP: mcp11_get_infra_context()
-  → Liefert: Hetzner-Hosts, Cloudflare-Domains, Deploy-Targets (9 Repos),
-    MCP-Server-Registry, Quick-Reference-Tool-Calls
-  → Einmalig pro Session aufrufen — danach ist der Infra-Kontext bekannt
+MCP: mcp14_get_context_for_task(repo="<aktuelles-repo>", file_type="<hauptdatei>")
+  → Liefert: Architektur-Regeln, ADR-Referenzen, Banned Patterns, Repo-Facts
+  → Einmalig pro Session aufrufen — danach ist der Kontext bekannt
 ```
 
 **Bestätigung (Agent spricht laut aus):**
 ```
 Ich habe gelesen:
-- AGENT_HANDOVER: Hetzner-Prod=88.198.191.108, 9 Deploy-Targets bekannt
+- AGENT_HANDOVER: Hetzner-Prod=88.198.191.108, Deploy-Targets bekannt
 - CORE_CONTEXT: [3 Sätze Zusammenfassung — Tech Stack + kritische Constraints]
 - ADRs: [Anzahl + relevanteste für diese Session]
-- Infra-Kontext: mcp11_get_infra_context() aufgerufen ✓
+- Platform-Context: mcp14_get_context_for_task() aufgerufen ✓
 ```
+
+---
+
+## Step 1.5: Health Dashboard (bei Infra/Deploy-Sessions)
+
+Wenn die Session Infrastruktur, Deployment oder Stack-Upgrades betrifft:
+
+```
+MCP: mcp6_system_manage(action: health_dashboard, host: 88.198.191.108)
+→ Zeigt Status aller 14+ Platform-Apps auf einen Blick
+→ Identifiziert Probleme BEVOR sie die Session blockieren
+```
+
+Bei Problemen: erst fixen oder bewusst ignorieren, dann weiterarbeiten.
 
 ---
 
@@ -175,6 +188,7 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 - [ ] Offene Issues / PRs verlinkt
 - [ ] Neues ADR angelegt falls Architektur-Entscheidung getroffen
 - [ ] `/knowledge-capture` ausgeführt falls neues Wissen entstanden (ADR-145)
+- [ ] Auch **mid-session** Lessons Learned erfassen wenn Root Cause gefunden wird
 - [ ] Repo syncen: `bash ~/github/platform/scripts/sync-repo.sh`
 
 ---
@@ -195,4 +209,5 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 | DB-Backup | `/backup` |
 | Windsurf-Verbindung tot | `/windsurf-clean` |
 | Wissen sichern nach Session | `/knowledge-capture` |
+| Third-Party Stack upgraden | `/stack-upgrade` |
 | Repo-Sync nach Cascade-Session | `/sync-repo` |
