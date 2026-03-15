@@ -30,6 +30,7 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | DB-Backup | Backup | `/backup` |
 | Windsurf-Verbindung tot | Windsurf Clean | `/windsurf-clean` |
 | Tests einrichten (neues Repo) | Testing Setup | `/testing-setup` |
+| Third-Party Stack upgraden (Outline, Authentik, Paperless) | Stack Upgrade | `/stack-upgrade` |
 | WSL ↔ GitHub ↔ Server synchronisieren | Sync Repo | `/sync-repo` |
 
 ---
@@ -69,6 +70,9 @@ Neue Session startet
         │
         ├─ Vor Package-Release / nach Test-Failures?
         │       └─ /testing-conventions
+        │
+        ├─ Third-Party Stack upgraden?
+        │       └─ /stack-upgrade  (Outline, Authentik, Paperless)
         │
         ├─ Repos synchronisieren (WSL / GitHub / Server)?
         │       └─ /sync-repo
@@ -132,6 +136,9 @@ Stale Windsurf-Server-Prozesse killen wenn SSH-Reconnect fehlschlägt.
 ### `/testing-setup`
 Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories, pyproject.toml.
 
+### `/stack-upgrade`
+Standardisiertes Upgrade für Third-Party Docker-Stacks: Backup → Pull → Compose Update → Verify → Cleanup. Getestet mit Outline 0.82→1.6, anwendbar auf Authentik, Paperless.
+
 ### `/sync-repo`
 3-Node-Sync: WSL ↔ GitHub ↔ Server konsistent halten. Vor und nach jeder Session ausführen wenn Code auf mehreren Nodes bearbeitet wurde.
 
@@ -161,6 +168,10 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 /new-github-project
     └─ ergänzt: /onboard-repo (nicht ersetzt)
     └─ braucht: /adr für ersten echten ADR
+
+/stack-upgrade
+    └─ ruft auf: /backup (Step 2)
+    └─ danach: /knowledge-capture (Upgrade-Runbook)
 
 /sync-repo
     └─ empfohlen: vor /agent-session-start wenn multi-node
@@ -205,5 +216,5 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 
 ---
 
-*Workflow Index v1.3 — Platform Coding Agent System | 2026-03-05*
+*Workflow Index v1.4 — Platform Coding Agent System | 2026-03-15*
 *Alle Workflows: `~/github/platform/.windsurf/workflows/`*
