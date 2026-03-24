@@ -3,7 +3,7 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "task-scorer"
+name = "iil-task-scorer"
 version = "0.1.0"
 description = "Shared scoring and routing engine for task complexity estimation"
 readme = "README.md"

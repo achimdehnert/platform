@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "chat-logging"
+name = "iil-chat-logging"
 version = "0.2.0"
 description = "Persistent chat conversation logging & QM for Django apps"
 readme = "README.md"

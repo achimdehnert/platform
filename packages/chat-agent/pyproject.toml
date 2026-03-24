@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "chat-agent"
+name = "iil-chat-agent"
 version = "0.1.0"
 description = "Domain-agnostic chat agent with Tool-Use loop"
 readme = "README.md"

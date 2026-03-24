@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "creative-services"
+name = "iil-creative-services"
 version = "0.3.0"
 description = "Shared AI-powered creative writing and tool-use services for BF Agent ecosystem"
 readme = "README.md"

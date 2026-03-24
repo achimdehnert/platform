@@ -1,5 +1,5 @@
 [project]
-name = "platform-search"
+name = "iil-platform-search"
 version = "0.1.0"
 description = "Platform-wide hybrid search: pgvector + FTS with Reciprocal Rank Fusion (ADR-087)"
 readme = "README.md"

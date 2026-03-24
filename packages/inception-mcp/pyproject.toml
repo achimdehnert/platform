@@ -1,5 +1,5 @@
 [project]
-name = "inception-mcp"
+name = "iil-inception-mcp"
 version = "0.1.0"
 description = "MCP Server for DDL Inception - AI-driven Business Case creation"
 readme = "README.md"
