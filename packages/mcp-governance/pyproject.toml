@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mcp-governance"
+name = "iil-mcp-governance"
 version = "0.1.0"
 description = "MCP Tool Governance — Specification Standard, Service Discovery & Error Contract"
 readme = "README.md"

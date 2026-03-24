@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "cad-services"
+name = "iil-cad-services"
 version = "0.1.0"
 description = "Domain-agnostic CAD parsing services (IFC/DXF), normalization and quantities"
 readme = "README.md"

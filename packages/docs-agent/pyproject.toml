@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "docs-agent"
+name = "iil-docs-agent"
 version = "0.2.0"
 description = "AI-assisted documentation quality agent — AST scanner, DIATAXIS classifier, CLI"
 readme = "README.md"

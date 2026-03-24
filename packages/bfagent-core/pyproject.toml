@@ -1,5 +1,5 @@
 [project]
-name = "bfagent-core"
+name = "iil-bfagent-core"
 version = "0.2.0"
 description = "Shared core components for BFAgent Hub ecosystem (Tenancy, Auth, Audit, Outbox)"
 readme = "README.md"

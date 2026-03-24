@@ -1,5 +1,5 @@
 [project]
-name = "django-tenancy"
+name = "iil-django-tenancy"
 version = "0.1.0"
 description = "Shared multi-tenancy infrastructure for the BF Agent platform"
 readme = "README.md"

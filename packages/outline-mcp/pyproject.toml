@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "outline-mcp"
+name = "iil-outline-mcp"
 version = "0.2.0"
 description = "MCP Server for Outline Wiki — Knowledge Base access for Cascade (ADR-145)"
 readme = "README.md"

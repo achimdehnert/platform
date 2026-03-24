@@ -1,5 +1,5 @@
 [project]
-name = "platform-notifications"
+name = "iil-platform-notifications"
 version = "0.1.0"
 description = "Platform-wide multi-channel notification registry (ADR-088)"
 readme = "README.md"
