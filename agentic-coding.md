@@ -12,7 +12,7 @@ Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108.
 ## Übersicht: Der vollständige Loop
 
 ```
-Step 0: Governance Check       → mcp12_get_context_for_task
+Step 0: Governance Check       → mcp14_get_context_for_task
 Step 1: Task definieren        → analyze_task + agent_plan_task
 Step 2: Kostenschätzung        → get_cost_estimate
 Step 3: Implementieren         → Developer (Gate 1)
@@ -30,9 +30,9 @@ Bei Fail in Step 5/6 → Rollback-Pfad, zurück zu Step 3.
 ## Step 0: Governance Check (immer bei complexity >= moderate)
 
 ```
-MCP: mcp12_get_context_for_task(repo, file_type)
-MCP: mcp12_check_violations(code_snippet)
-MCP: mcp12_get_banned_patterns(context)
+MCP: mcp14_get_context_for_task(repo, file_type)
+MCP: mcp14_check_violations(code_snippet)
+MCP: mcp14_get_banned_patterns(context)
 ```
 
 **Blockiert bei ADR-Verletzung.** Kein Weiter ohne grünen Check.
@@ -61,7 +61,7 @@ Rollen-Zuweisung nach Gate:
 | `deployment` | Deployment Agent | Gate 2 |
 | `pr_review` | Review Agent | Gate 1 |
 
-Gate 2+ → `mcp11_request_approval` aufrufen, bevor weitergemacht wird.
+Gate 2+ → User um Approval bitten (Chat), bevor weitergemacht wird.
 
 ---
 
@@ -130,7 +130,7 @@ MCP: verify_task(
 **Ergebnis:**
 - `is_complete = True` → weiter zu Step 6
 - `is_complete = False` → `next_action` lesen → zurück zu Step 3 (max. 3 Retries)
-- 3× Fail → `mcp11_request_approval` (Gate 2 Escalation)
+- 3× Fail → User um Approval bitten (Gate 2 Escalation)
 
 ---
 
@@ -155,7 +155,7 @@ MCP: evaluate_task(
 | ≥ 0.85 | `none` | Ship it → Step 7 |
 | 0.70–0.84 | `soft` | Retry mit Feedback → Step 3 |
 | 0.50–0.69 | `hard` | Revert, neu planen → Step 1 |
-| < 0.50 | `escalate` | `mcp11_request_approval` Gate 2 |
+| < 0.50 | `escalate` | User Approval (Gate 2) |
 
 ---
 
@@ -182,7 +182,7 @@ PR-Body enthält:
 ## Step 8: AuditStore + GitHub Issue Update (ADR-068)
 
 ```
-MCP: mcp11_log_action(task_id, action, status, details)
+# AuditStore: Log action to Outline or GitHub Issue comment
 MCP: mcp8_add_issue_comment(owner, repo, issue_number, body)
 ```
 
@@ -204,7 +204,7 @@ evaluate_task → rollback_level
     │
     ├─ soft     → Feedback an Developer → retry Step 3 (max. 1×)
     ├─ hard     → git revert → neu planen ab Step 1
-    └─ escalate → mcp11_request_approval → Human-in-the-Loop
+    └─ escalate → User Approval → Human-in-the-Loop
 ```
 
 ---
@@ -212,7 +212,7 @@ evaluate_task → rollback_level
 ## Workflow auf einen Blick (v3)
 
 ```
-Step 0: Governance Check    → mcp12_get_context_for_task   (complexity >= moderate)
+Step 0: Governance Check    → mcp14_get_context_for_task   (complexity >= moderate)
 Step 1: analyze + plan      → analyze_task, agent_plan_task (immer)
 Step 2: Kostenschätzung     → get_cost_estimate             (complex+)
 Step 3: Implementieren      → Developer Gate 1              (immer)
