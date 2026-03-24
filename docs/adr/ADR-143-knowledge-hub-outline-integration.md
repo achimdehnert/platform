@@ -18,7 +18,11 @@ implementation_evidence:
   - "Nginx: WebSocket /realtime, default.crt (Tunnel TLS)"
   - "Fix: DATABASE_URL mit ?sslmode=disable für interne PG"
   - "OIDC Fix: Signing Key + Scope Mappings + extra_hosts + NODE_TLS_REJECT_UNAUTHORIZED (see docs/guides/oidc-authentik-integration.md)"
-  - "Pending: Phase 4-11 (Collections, research-hub Integration, outline_mcp)"
+  - "Phase Cascade Action (2026-03-24): /_action Page, /_upload Helper, /_cascade.js FAB auto-injected via Nginx sub_filter"
+  - "CSP Override: Outline nonce-based CSP replaced with 'self'+'unsafe-inline' in Nginx (nonce blocks sub_filter-injected scripts)"
+  - "Collections: ADRs-Mirror, ADR-Drafts, Inbox, Cascade-Aufträge, Hub-Doku, Konzepte, Lessons, Runbooks — all sorted title/asc"
+  - "ADR Sync Dedup: 148 duplicate documents cleaned (5-6x import runs)"
+  - "Pending: Phase 4-11 (research-hub Integration, outline_mcp, Webhook-Automation)"
 ---
 
 # ADR-143: Knowledge-Hub — Outline Wiki + research-hub Integration
