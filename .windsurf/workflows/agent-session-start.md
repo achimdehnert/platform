@@ -143,6 +143,29 @@ outline-knowledge: search_knowledge("Lesson <Fehlerbild>")
 → Bekannte Stolperfallen, Root Causes, Vermeidungs-Strategien
 ```
 
+### 6d: Cascade-Aufträge + Comments prüfen (PFLICHT)
+
+Offene Aufträge und **unbeantwortete User-Comments** laden:
+
+```
+MCP: mcp12_list_recent(collection="97a74c51-6c4e-4871-a2b0-a85255b8c916", limit=10)
+→ Für jeden Auftrag: Comments via Outline API lesen
+→ Unbeantwortete User-Comments → Lesebestätigung posten ("Gelesen. ...")
+→ Titel-Prefixe prüfen (📋 Offen / 🔄 In Arbeit / ✅ Erledigt)
+```
+
+Dem User eine Übersicht zeigen:
+
+```
+Offene Cascade-Aufträge: 3
+- 📋 Offen — ADR B.E.N.S. (kein Comment)
+- 🔄 In Arbeit — ADR-145 Umsetzung (💬 User: "hast du die bearbeitung abgeschlossen?")
+- 📋 Offen — ADR-009 Review (kein Comment)
+→ Lesebestätigungen gepostet ✓
+```
+
+Falls User-Comments eine Aktion erfordern → `/cascade-auftraege` aufrufen.
+
 ### Auswertung
 
 - **Treffer gefunden?** → `get_document()` und als Kontext nutzen
@@ -156,6 +179,7 @@ outline-knowledge: search_knowledge("Lesson <Fehlerbild>")
 | Konzepte | `04064c28-a847-4bec-9bc3-a74d5e1012a2` | Architektur, Cross-Repo |
 | Lessons Learned | `db8291c2-f135-4834-878e-224db5673ab6` | Fehler, Root Causes |
 | ADR Mirror | `cf12fd43-4b14-4e1f-9603-dd7cb124071f` | Alle ADRs (read-only) |
+| Cascade-Aufträge | `97a74c51-6c4e-4871-a2b0-a85255b8c916` | Offene Aufträge + Comments |
 
 ---
 
