@@ -1,6 +1,6 @@
 [project]
-name = "platform-context"
-version = "0.5.0"
+name = "iil-platform-context"
+version = "0.5.1"
 description = "Shared platform foundation for all Django projects (Context, Tenancy, Audit, Outbox)"
 readme = "README.md"
 requires-python = ">=3.11"
