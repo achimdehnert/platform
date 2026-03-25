@@ -11,10 +11,10 @@ amends: []
 related: ["ADR-022-platform-consistency-standard.md", "ADR-028-platform-context.md", "ADR-035-shared-django-tenancy.md", "ADR-044-mcp-hub-architecture-consolidation.md", "ADR-050-platform-decomposition-hub-landscape.md"]
 implementation_status: not_started
 implementation_evidence: []
-review_status: "reviewed — v2 addresses 14 findings from ADR-146-review.md"
+review_status: "reviewed — v2 re-reviewed, v3 addresses remaining 7 findings from ADR-146-v2-review.md"
 ---
 
-# ADR-146: Package Consolidation Strategy — 34 → 22 Packages (v2)
+# ADR-146: Package Consolidation Strategy — 34 → 20 Packages (v3)
 
 ## Änderungshistorie
 
@@ -22,6 +22,7 @@ review_status: "reviewed — v2 addresses 14 findings from ADR-146-review.md"
 |---------|-------|----------|
 | v1 | 2026-03-25 | Initialer Entwurf (36→18) |
 | v2 | 2026-03-25 | Review-Findings eingearbeitet: korrigiertes Inventar (34→22), ADR-027 supersede, Umbrella statt Merge (Tier 3), Import-Pfad-Stabilität, realistische Timeline, Akzeptanz-Kriterien |
+| v3 | 2026-03-25 | Re-Review v2: content-store ist KEIN Orphan (ADR-130, 2 Consumer), iil-django-commons als Optional, Titel-Korrektur (34→20), Consumer-Matrix ergänzt |
 
 ## Context and Problem Statement
 
@@ -69,7 +70,7 @@ Sie werden direkt per `git+https://...#subdirectory=` oder lokal eingebunden.
 | iil-chat-agent | bfagent (1 Import), cad-hub (vendored) | Aktiv, nicht pip-distributed |
 | iil-chat-logging | Prüfen | Evtl. Orphan |
 | iil-creative-services | cad-hub (vendored in `vendor/`) | Aktiv, nicht pip-distributed |
-| iil-content-store | — | 0 Consumer (Orphan) |
+| iil-content-store | dev-hub, research-hub (ADR-130) | Aktiv, Prod DB auf devhub_db |
 | iil-platform-search | — | 0 Consumer (Orphan) |
 | iil-cad-services | — | 0 Consumer (Orphan) |
 | iil-task-scorer | orchestrator_mcp (intern) | Aktiv, intern |
@@ -124,13 +125,13 @@ Sie werden direkt per `git+https://...#subdirectory=` oder lokal eingebunden.
 - Pro: Geringes Risiko
 - Contra: Strukturprobleme (nl2cad-Zersplitterung, Platform-Fragmentierung) bleiben
 
-### Option C: Konsolidierung mit Umbrella-Packages (34 → 22) ✅
+### Option C: Konsolidierung mit Umbrella-Packages (34 → 20) ✅
 - nl2cad: 7 → 1 (Mono-Distribution, Extras für Drittanbieter-Deps)
 - Platform: 5 pip-Packages → 1 Umbrella-Package (Sub-Packages bleiben intern)
 - Domain: riskfw inline in risk-hub (1-Consumer-Regel)
-- Orphans: alle entfernen
+- Orphans: alle entfernen (content-store NICHT — hat 2 Consumer per ADR-130)
 - Import-Pfade bleiben stabil
-- Pro: −35% Reduktion, keine Breaking Imports
+- Pro: −41% Reduktion, keine Breaking Imports
 - Contra: Migrationsaufwand, Umbrella ist Meta-Package (Sub-Packages existieren weiter)
 
 ### Option D: Aggressiver Merge (v1-Ansatz, verworfen)
@@ -140,7 +141,7 @@ Sie werden direkt per `git+https://...#subdirectory=` oder lokal eingebunden.
 
 ## Decision Outcome
 
-**Option C: Konsolidierung mit Umbrella-Packages (34 → 22)**
+**Option C: Konsolidierung mit Umbrella-Packages (34 → 20)**
 
 ### Kernprinzipien
 
@@ -160,12 +161,11 @@ Sie werden direkt per `git+https://...#subdirectory=` oder lokal eingebunden.
 | `nl2cad-brandschutz` | Deprecation-Release | Lebt jetzt in risk-hub (b59155d) |
 | `iil-cad-services` | `git rm -r` (platform/packages/) | 0 Consumer |
 | `iil-platform-search` | `git rm -r` (platform/packages/) | 0 Consumer |
-| `iil-content-store` | `git rm -r` (platform/packages/) | 0 Consumer, supersedes ADR-130 |
 | `iil-illustrationfw` | Repo archivieren (GitHub) | 0 Consumer |
 | `iil-chat-logging` | Prüfen → ggf. `git rm -r` | Consumer-Check pending |
 | `riskfw` | Inline in risk-hub/src/ | 1 Consumer (analog brandschutz-Migration) |
 
-**Ergebnis: −8 bis −9 pip-distributed Packages**
+**Ergebnis: −7 bis −8 pip-distributed Packages**
 
 #### Tier 2: nl2cad Mono-Distribution (Phase 2)
 
@@ -236,14 +236,14 @@ requires-python = ">=3.11"
 
 dependencies = [
     "iil-platform-context>=0.5.1",
-    "iil-django-commons>=0.3.0",
     "iil-django-tenancy>=0.1.0",
 ]
 
 [project.optional-dependencies]
+commons = ["iil-django-commons>=0.3.0"]   # Nur billing-hub (aktuell 1 Consumer)
 shop = ["iil-django-module-shop>=0.2.0"]
-notifications = ["iil-platform-notifications>=0.1.0"]
-full = ["iil-platform[shop,notifications]"]
+notifications = ["iil-platform-notifications>=0.1.0"]  # wedding-hub (perspektivisch weitere)
+full = ["iil-platform[commons,shop,notifications]"]
 ```
 
 Import-Pfade bleiben stabil:
@@ -257,9 +257,12 @@ from iil_commons.health import liveness_check
 from django_module_shop.catalogue import ModuleCatalogue
 ```
 
-| VORHER (requirements.txt) | NACHHER |
-|---------------------------|---------|
-| 3–5 separate `git+https://` Einträge | `iil-platform[shop]>=1.0.0` |
+| Hub | VORHER (requirements.txt) | NACHHER |
+|-----|---------------------------|---------|
+| risk-hub | 3× separate Einträge (context, tenancy, shop) | `iil-platform[shop]>=1.0.0` |
+| billing-hub | `iil-django-commons[cache] @ git+https://...` | `iil-platform[commons]>=1.0.0` |
+| wedding-hub | context + tenancy + notifications | `iil-platform[notifications]>=1.0.0` |
+| coach-hub | context + tenancy + shop | `iil-platform[shop]>=1.0.0` |
 
 Django-Apps mit Migrations (django_tenancy, django_module_shop) behalten ihren
 `app_label`. Keine `MIGRATION_MODULES`-Anpassung nötig.
@@ -295,8 +298,8 @@ verteilt und erzeugen keine Consumer-Wartungslast:
 | Domain | 6 | 5 | learnfw, weltenfw, outlinefw, researchfw, brandschutzfw* |
 | Shared Tools | 1 | 1 | iil-testkit |
 | **pip-distributed** | **22** | **11** | **−50%** |
-| Interne (platform/) | 12 | 8 | Orphans entfernt, Rest bleibt |
-| **Gesamt** | **34** | **19** | **−44%** |
+| Interne (platform/) | 12 | 9 | Orphans entfernt, content-store bleibt (ADR-130) |
+| **Gesamt** | **34** | **20** | **−41%** |
 
 *riskfw wird in risk-hub/src/ integriert (1-Consumer-Regel, analog brandschutz).
 *brandschutzfw wird erst bei cad-hub-Productionisierung als `iil-brandschutzfw` extrahiert.
@@ -319,7 +322,8 @@ Bevor `iil-platform` als Umbrella funktioniert, MÜSSEN alle Sub-Packages auf Py
 
 1. PyPI: Deprecation-Releases für `nl2cad`, `iil-nl2cadfw`, `nl2cad-brandschutz`
    (Classifier `Development Status :: 7 - Inactive`, leere Dependencies)
-2. `platform/packages/`: `cad-services/`, `platform-search/`, `content-store/` entfernen
+2. `platform/packages/`: `cad-services/`, `platform-search/` entfernen
+   (NICHT content-store — hat 2 aktive Consumer: dev-hub, research-hub per ADR-130)
 3. `iil-chat-logging`: Consumer-Check → falls 0 Consumer: entfernen
 4. `illustration-fw/`: GitHub-Repo archivieren
 5. `riskfw`: Code in risk-hub/src/riskfw/ integrieren (analog brandschutz-Migration b59155d)
