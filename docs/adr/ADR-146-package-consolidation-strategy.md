@@ -1,16 +1,20 @@
 ---
-status: "proposed"
+status: "accepted"
 date: 2026-03-25
 updated: 2026-03-25
-version: 2
+version: 3
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: ["ADR-027-shared-backend-services.md"]
 amends: []
 related: ["ADR-022-platform-consistency-standard.md", "ADR-028-platform-context.md", "ADR-035-shared-django-tenancy.md", "ADR-044-mcp-hub-architecture-consolidation.md", "ADR-050-platform-decomposition-hub-landscape.md"]
-implementation_status: not_started
-implementation_evidence: []
+implementation_status: done
+implementation_evidence:
+  - "Phase 1: platform 332a8db — 3 orphans removed, 3 PyPI deprecations, riskfw inlined (risk-hub cae9c79)"
+  - "Phase 2: nl2cad-core 0.2.0 on PyPI (nl2cad b38dfe0), risk-hub 3734376 migrated"
+  - "Phase 3: iil-platform 1.0.0 on PyPI (platform 823e2ca), risk-hub 8ec0001 migrated"
+  - "Phase 4: billing-hub 50cd8a7, coach-hub d5d7910, wedding-hub fb0adb9 — all git+https eliminated"
 review_status: "reviewed — v2 re-reviewed, v3 addresses remaining 7 findings from ADR-146-v2-review.md"
 ---
 
@@ -23,6 +27,7 @@ review_status: "reviewed — v2 re-reviewed, v3 addresses remaining 7 findings f
 | v1 | 2026-03-25 | Initialer Entwurf (36→18) |
 | v2 | 2026-03-25 | Review-Findings eingearbeitet: korrigiertes Inventar (34→22), ADR-027 supersede, Umbrella statt Merge (Tier 3), Import-Pfad-Stabilität, realistische Timeline, Akzeptanz-Kriterien |
 | v3 | 2026-03-25 | Re-Review v2: content-store ist KEIN Orphan (ADR-130, 2 Consumer), iil-django-commons als Optional, Titel-Korrektur (34→20), Consumer-Matrix ergänzt |
+| v4 | 2026-03-25 | **IMPLEMENTED**: Phase 1–4 komplett. 10 PyPI-Releases, 4 Hubs migriert, 0 git+https für Platform-Packages. Status: accepted/done. |
 
 ## Context and Problem Statement
 
