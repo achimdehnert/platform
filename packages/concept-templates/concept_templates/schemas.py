@@ -46,6 +46,8 @@ class TemplateField(BaseModel):
     default: str | None = None
     choices: list[str] | None = None
     help_text: str = ""
+    llm_hint: str = ""
+    llm_prefill: bool = False
 
 
 class TemplateSection(BaseModel):

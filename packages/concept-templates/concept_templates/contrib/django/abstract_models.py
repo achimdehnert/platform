@@ -187,3 +187,61 @@ class AbstractConceptTemplate(models.Model):
     @property
     def is_deleted(self) -> bool:
         return self.deleted_at is not None
+
+
+class AbstractFilledTemplate(models.Model):
+    """Abstract base for filled-out concept templates (ADR-147 Phase E).
+
+    Stores the values entered by users for a specific ConceptTemplate.
+    Consumer apps MUST add:
+    - ForeignKey to the app-specific ConceptTemplate model
+    - ForeignKey to the app-specific concept model (optional)
+    - Override tenant_id type if needed
+    """
+
+    tenant_id = models.BigIntegerField(
+        db_index=True,
+        verbose_name=_("Tenant ID"),
+    )
+    name = models.CharField(
+        max_length=240,
+        verbose_name=_("Dokumentname"),
+        help_text=_("Name des ausgefüllten Dokuments"),
+    )
+    values_json = models.TextField(
+        verbose_name=_("Ausgefüllte Werte"),
+        help_text=_("JSON: {section_name: {field_name: value}}"),
+    )
+    status = models.CharField(
+        max_length=20,
+        choices=[
+            ("draft", _("Entwurf")),
+            ("review", _("In Prüfung")),
+            ("approved", _("Freigegeben")),
+            ("exported", _("Exportiert")),
+        ],
+        default="draft",
+        verbose_name=_("Status"),
+    )
+    generated_pdf_key = models.CharField(
+        max_length=500,
+        blank=True,
+        default="",
+        verbose_name=_("PDF S3-Key"),
+        help_text=_("S3-Pfad des generierten PDFs"),
+    )
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name=_("Erstellt am"),
+    )
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name=_("Aktualisiert am"),
+    )
+
+    class Meta:
+        abstract = True
+        ordering = ["-updated_at"]
+
+    def __str__(self) -> str:
+        return f"{self.name} ({self.get_status_display()})"
