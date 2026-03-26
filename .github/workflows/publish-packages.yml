@@ -15,17 +15,23 @@ on:
           - pypi
           - testpypi
       package:
-        description: "Package to publish (django-tenancy or all)"
+        description: "Package to publish"
         required: false
         default: "all"
         type: choice
         options:
           - all
           - django-tenancy
+          - concept-templates
 
 jobs:
+  # ── django-tenancy ─────────────────────────────────────────────
   test-django-tenancy:
     name: Test iil-django-tenancy
+    if: |
+      github.event.inputs.package == 'all' ||
+      github.event.inputs.package == 'django-tenancy' ||
+      github.event_name == 'push'
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -91,8 +97,8 @@ jobs:
           path: packages/django-tenancy/dist/
           retention-days: 7
 
-  publish-pypi:
-    name: Publish to PyPI
+  publish-django-tenancy:
+    name: Publish django-tenancy to PyPI
     needs: build-django-tenancy
     runs-on: ubuntu-latest
     if: |
@@ -115,25 +121,125 @@ jobs:
         with:
           print-hash: true
 
-  publish-testpypi:
-    name: Publish to TestPyPI
-    needs: build-django-tenancy
+  # ── concept-templates ──────────────────────────────────────────
+  test-concept-templates:
+    name: Test iil-concept-templates
+    if: |
+      github.event.inputs.package == 'all' ||
+      github.event.inputs.package == 'concept-templates' ||
+      github.event_name == 'push'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    defaults:
+      run:
+        working-directory: packages/concept-templates
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          set -euo pipefail
+          pip install -e ".[dev,llm]"
+
+      - name: Lint
+        run: ruff check .
+
+      - name: Test
+        run: pytest tests/ -v --tb=short --no-cov
+
+  build-concept-templates:
+    name: Build iil-concept-templates
+    runs-on: ubuntu-latest
+    needs: test-concept-templates
+    outputs:
+      version: ${{ steps.meta.outputs.version }}
+    defaults:
+      run:
+        working-directory: packages/concept-templates
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install hatch
+        run: pip install hatch
+
+      - name: Read version
+        id: meta
+        run: |
+          set -euo pipefail
+          VERSION=$(python3 -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Building iil-concept-templates==$VERSION"
+
+      - name: Build wheel + sdist
+        run: hatch build
+
+      - name: Verify dist
+        run: ls -la dist/
+
+      - name: Upload dist artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-concept-templates-${{ steps.meta.outputs.version }}
+          path: packages/concept-templates/dist/
+          retention-days: 7
+
+  publish-concept-templates:
+    name: Publish concept-templates to PyPI
+    needs: build-concept-templates
     runs-on: ubuntu-latest
     if: |
-      github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'testpypi'
+      (github.event_name == 'push' && startsWith(github.ref, 'refs/tags/packages/v')) ||
+      (github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'pypi' || github.event.inputs.target == ''))
     environment:
-      name: testpypi
-      url: https://test.pypi.org/project/iil-django-tenancy/
+      name: pypi
+      url: https://pypi.org/project/iil-concept-templates/
     permissions:
       id-token: write
     steps:
       - name: Download dist artifacts
         uses: actions/download-artifact@v4
         with:
-          name: dist-django-tenancy-${{ needs.build-django-tenancy.outputs.version }}
+          name: dist-concept-templates-${{ needs.build-concept-templates.outputs.version }}
           path: dist/
 
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+          skip-existing: true
+
+  # ── TestPyPI (all packages) ────────────────────────────────────
+  publish-testpypi:
+    name: Publish to TestPyPI
+    needs: [build-django-tenancy, build-concept-templates]
+    if: always()
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+    permissions:
+      id-token: write
+    steps:
+      - name: Download all dist artifacts
+        if: |
+          github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'testpypi'
+        uses: actions/download-artifact@v4
+        with:
+          path: dist/
+          merge-multiple: true
+
       - name: Publish to TestPyPI
+        if: |
+          github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'testpypi'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           repository-url: https://test.pypi.org/legacy/
