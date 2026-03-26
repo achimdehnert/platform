@@ -25,7 +25,7 @@
 Ein Kunde aus der Personalberatung benötigt eine strukturierte Sourcing-Plattform,
 die den gesamten Recruiting-Workflow abbildet: Von der Stellenbeschreibung über
 LinkedIn-Sourcing und Kandidatenbewertung bis zum CRM-Export. Aktuell läuft der
-Prozess manuell über LinkedIn Recruiter und Hunter.io — ohne Dublettenprüfung,
+Prozess manuell über LinkedIn Recruiter und Hunter CRM (hunter-software.de) — ohne Dublettenprüfung,
 ohne Pipeline-Übersicht, ohne Conversion-Metriken.
 
 Das System soll **mandantenfähig** sein, um es als SaaS für mehrere
@@ -175,15 +175,15 @@ Schwellwerte konfigurierbar per Tenant.
 ```
 Sourced → Reviewed → Approved → Contacted → Replied → Interview → Placed
                 ↑           ↑          ↑
-         Human Review  Duplettencheck  Email Verification
-         (Pflicht)     (automatisch)   (Hunter.io /v2/email-verifier)
+         Human Review  Duplettencheck  Hunter CRM Sync
+         (Pflicht)     (automatisch)   (Export nach Hunter)
 ```
 
 - **Kein Übergang Reviewed → Approved** ohne manuelles Approval
 - **Kein Übergang Approved → Contacted** ohne bestandenen Dublettencheck
-- **Kein Übergang Approved → Contacted** ohne E-Mail-Verification (`valid` Status)
-- Nach Approval: automatisch Lead in Hunter anlegen (`/v2/leads`)
+- Nach Approval: Kandidat automatisch nach Hunter CRM exportieren (Dublettencheck inkl.)
 - Status-Änderungen werden als Events geloggt (Audit-Trail)
+- Rückmeldungen aus LinkedIn werden in Hunter CRM übertragen (Datenpflege)
 
 ### 4.6 LinkedIn Integration (3-Tier-Strategie)
 
@@ -260,119 +260,99 @@ LinkedIn Talent Solutions API (RSC) erfordert LinkedIn-Partner-Status:
 implementiert. Die Architektur (Adapter-Pattern in `integrations/`) erlaubt spätere
 Ergänzung ohne Refactoring. Bei Erreichen des LinkedIn-Partner-Status → **eigener ADR** für RSC-Integration.
 
-### 4.7 Hunter.io Integration
+### 4.7 Hunter CRM Integration (hunter-software.de)
 
-Hunter.io wird als primärer Outreach-Kanal genutzt. Die V2 REST API bietet
-drei Kernfunktionen, die direkt in den Recruiting-Workflow integriert werden.
+> **Achtung**: Hunter CRM (hunter-software.de) ist NICHT Hunter.io (Email-Finder-Dienst).
+> Hunter CRM ist eine deutsche Recruiting-Software für Personalberater & Executive Search,
+> die als zentrales CRM für Kandidatenmanagement, Projekt-Tracking und Kommunikation dient.
 
-#### API-Endpoints (V2)
+Hunter CRM ist das bestehende CRM-System des Kunden. Der Recruiting Hub ergänzt Hunter CRM
+um Sourcing-Automation, Pipeline-Management und LLM-gestützte Funktionen — ersetzt es aber nicht.
 
-| # | Endpoint | Methode | Zweck im Workflow |
-|---|----------|---------|-------------------|
-| A | `/v2/email-finder` | `GET` | Geschäftliche E-Mail aus Name + Domain ermitteln |
-| B | `/v2/email-verifier` | `GET` | Gefundene E-Mail validieren (deliverable?) |
-| C | `/v2/leads` | `POST` | Kandidat als Lead in Hunter speichern |
+#### Rollenverteilung: Recruiting Hub vs. Hunter CRM
 
-**A. Email Finder** — nach CSV-Import aus LinkedIn (Kandidat hat Name + Firma, braucht E-Mail):
-```
-GET https://api.hunter.io/v2/email-finder
-    ?domain=example.com
-    &first_name=Max
-    &last_name=Muster
-    &api_key={HUNTER_API_KEY}
-```
-Falls die Domain nicht direkt aus LinkedIn kommt: Mapping-Logik `company_name → domain`
-über Domain-Search (`/v2/domain-search`) oder manuelles Firmen-Directory.
+| Funktion | Recruiting Hub | Hunter CRM |
+|----------|---------------|------------|
+| LinkedIn-Suchen anlegen | ✅ Suchprojekte mit Anforderungsprofil | — |
+| Kandidaten identifizieren | ✅ CSV-Import, Pipeline-Board | — |
+| Human-in-the-Loop (Freigabe) | ✅ Approval-Queue im Pipeline-Board | — |
+| Kandidaten-Stammdaten pflegen | Export nach Freigabe → | ✅ Master-System für Kandidaten |
+| Dublettencheck | ✅ Vor Export (E-Mail, LinkedIn-URL, Fuzzy) | ✅ Beim Import |
+| Anschreiben / Outreach | Vorlagen generieren (LLM) → | ✅ E-Mail-Versand, Kampagnen |
+| Rückmeldungen tracken | Status-Sync ← | ✅ Kommunikationshistorie |
+| Langfrist-Kandidatenpflege | — | ✅ CRM-Funktion |
+| Reporting / Funnel-Metriken | ✅ Pipeline-Analytics | Eigenes Reporting |
 
-**B. Email Verification** — vor Pipeline-Übergang `Approved → Contacted`:
-```
-GET https://api.hunter.io/v2/email-verifier
-    ?email=max.muster@example.com
-    &api_key={HUNTER_API_KEY}
-```
-Ergebnis: `valid` / `invalid` / `accept_all` / `unknown` — nur `valid` darf in Outreach.
+#### Integrationsstrategie (3 Stufen)
 
-**C. Lead anlegen** — nach Approval, Kandidat wird für Outreach-Kampagne vorbereitet:
-```
-POST https://api.hunter.io/v2/leads?api_key={HUNTER_API_KEY}
-Content-Type: application/json
+**Stufe 1: CSV/Excel-Export (Phase 1 — sofort umsetzbar)**
 
-{
-    "first_name": "Max",
-    "last_name": "Muster",
-    "email": "max.muster@example.com",
-    "company": "Example AG"
-}
-```
-
-#### Integration in den Recruiting-Workflow
+Kein API-Zugang erforderlich. Recruiting Hub exportiert freigegebene Kandidaten als
+CSV/Excel-Datei im Hunter-CRM-Importformat.
 
 ```
-CSV-Import (LinkedIn)
-  → Kandidat in recruiting-hub (Name, Firma, LinkedIn-URL)
-  → [A] Email Finder: Name + Domain → E-Mail
-  → [B] Email Verifier: E-Mail validieren
-  → Human Review (Approval-Queue)
-  → [C] Lead anlegen in Hunter (nach Freigabe)
-  → Hunter-Kampagne: Outreach via E-Mail-Sequenz
-  → Status-Sync: Hunter → recruiting-hub (Replied/Bounced/Opened)
+Recruiting Hub Pipeline:
+  Sourced → Reviewed → Approved → [Export-Button]
+                                      ↓
+                               CSV/Excel-Download
+                               (Hunter-CRM-Importformat)
+                                      ↓
+                               Manueller Import in Hunter CRM
 ```
 
-#### Service-Architektur
+- Export enthält: Name, E-Mail, Telefon, LinkedIn-URL, Firma, Position, Projekt-Referenz
+- Importformat wird auf Hunter CRM abgestimmt (Mapping konfigurierbar per Tenant)
+- Dublettencheck im Recruiting Hub VOR Export (E-Mail + LinkedIn-URL)
+
+**Stufe 2: API-Integration (Phase 2 — nach API-Klärung)**
+
+> **OP-10**: Hunter CRM API-Verfügbarkeit klären (REST/SOAP? Dokumentation? API-Key-Modell?)
+> Kontakt: https://www.hunter-software.de/kontakt/
+
+Falls Hunter CRM eine REST-API anbietet:
 
 ```python
-# integrations/services/hunter.py
+# integrations/services/hunter_crm.py
 
-class HunterService:
-    """Stateless service — API-Key pro Tenant via decouple.config()."""
+class HunterCRMService:
+    """Sync-Service für Hunter CRM (hunter-software.de)."""
 
-    BASE_URL = "https://api.hunter.io/v2"
-
-    def find_email(self, first_name: str, last_name: str, domain: str) -> EmailFinderResult
-    def verify_email(self, email: str) -> EmailVerifyResult
-    def create_lead(self, lead: LeadData) -> LeadResult
-    def get_lead(self, lead_id: int) -> LeadResult
-    def list_leads(self, offset: int = 0, limit: int = 20) -> list[LeadResult]
+    def export_candidate(self, candidate: CandidateData) -> ExportResult
+    def check_duplicate(self, email: str, linkedin_url: str) -> DuplicateResult
+    def sync_status(self, candidate_id: str) -> StatusResult
+    def get_communication_history(self, candidate_id: str) -> list[CommEntry]
 ```
 
 **Config (ADR-045):**
 ```python
 # settings.py
-HUNTER_API_KEY = config("HUNTER_API_KEY")          # pro Tenant in .env
-HUNTER_RATE_LIMIT_PER_SECOND = config("HUNTER_RATE_LIMIT", default=10, cast=int)
+HUNTER_CRM_BASE_URL = config("HUNTER_CRM_BASE_URL")     # Instanz-URL
+HUNTER_CRM_API_KEY = config("HUNTER_CRM_API_KEY")        # pro Tenant in .env
 ```
 
-#### Rate-Limits & Quotas
+**Stufe 3: Bidirektionaler Sync (Phase 3)**
 
-| Plan | Requests/Sek | Email-Finds/Monat | Verifications/Monat |
-|------|-------------|-------------------|---------------------|
-| Free | 10 | 25 | 50 |
-| Starter | 10 | 500 | 1.000 |
-| Growth | 15 | 5.000 | 10.000 |
-| Business | 20 | 50.000 | 100.000 |
+- Webhook-basierter Sync: Hunter CRM → Recruiting Hub (Status-Updates)
+- Celery-Beat: Periodischer Abgleich offener Kandidaten
+- Konfliktlösung: Hunter CRM = Master für Stammdaten, Recruiting Hub = Master für Pipeline-Status
 
-**Implementierung:**
-- `tenacity` retry mit exponential backoff bei 429 (Rate Limit)
-- Quota-Tracking pro Tenant in DB (`integrations.HunterQuota`)
-- Warnung an Recruiter wenn 80% des Monatskontingents erreicht
-
-#### Adapter-Pattern für Erweiterbarkeit
+#### Adapter-Pattern für CRM-Erweiterbarkeit
 
 ```python
 # integrations/adapters/base.py
-class OutreachAdapter(Protocol):
-    def find_email(self, first_name, last_name, domain) -> EmailResult: ...
-    def verify_email(self, email) -> VerifyResult: ...
-    def create_lead(self, lead) -> LeadResult: ...
+class CRMAdapter(Protocol):
+    def export_candidate(self, candidate: CandidateData) -> ExportResult: ...
+    def check_duplicate(self, email: str, linkedin_url: str) -> DuplicateResult: ...
+    def sync_status(self, candidate_id: str) -> StatusResult: ...
 
-# integrations/adapters/hunter.py
-class HunterAdapter(OutreachAdapter): ...
+# integrations/adapters/hunter_crm.py
+class HunterCRMAdapter(CRMAdapter): ...
 
-# integrations/adapters/apollo.py  (Zukunft)
-class ApolloAdapter(OutreachAdapter): ...
+# integrations/adapters/csv_export.py  (Stufe 1 Fallback)
+class CSVExportAdapter(CRMAdapter): ...
 ```
 
-Erlaubt späteren Wechsel zu Apollo.io, Lemlist, etc. ohne Refactoring der Pipeline-Logik.
+Erlaubt späteren Wechsel zu anderem CRM ohne Refactoring der Pipeline-Logik.
 
 ### 4.8 Health-Endpoints (Platform-Standard)
 
@@ -475,9 +455,9 @@ services:
 | 1.3 | `candidates/` App: Profil-Model, Import (CSV, manuell) | 1.1 |
 | 1.4 | `pipeline/` App: Pipeline-Stufen, Status-Transitions, Approval-Queue | 1.3 |
 | 1.5 | `dedup/` App: Dublettencheck (E-Mail, LinkedIn-URL, Fuzzy-Name) | 1.3 |
-| 1.6a | `integrations/` App: HunterService (Email-Finder, Verifier, Leads) | 1.3 |
-| 1.6b | `integrations/` App: OutreachAdapter Protocol + HunterAdapter | 1.6a |
-| 1.6c | `integrations/` App: Quota-Tracking pro Tenant (HunterQuota Model) | 1.6a |
+| 1.6a | `integrations/` App: Hunter CRM CSV/Excel-Export (Stufe 1) | 1.3 |
+| 1.6b | `integrations/` App: CRMAdapter Protocol + HunterCRMAdapter | 1.6a |
+| 1.6c | `integrations/` App: Hunter CRM API-Integration klären (OP-10) | 1.6a |
 | 1.7 | `compliance/` App: Audit-Log, Löschfristen, Consent-Tracking | 1.3 |
 | 1.8 | Templates + HTMX: Projekt-Dashboard, Kandidaten-Liste, Pipeline-Board | 1.4 |
 
@@ -561,10 +541,9 @@ Nach erfolgreicher Confirmation: Status → `Accepted`, `implementation_status` 
 - [ ] Pipeline-Board zeigt Kandidaten in korrekten Stufen
 - [ ] Approval-Queue: Kein Versand ohne manuelles Review
 - [ ] Dublettencheck: Doppelte E-Mail/LinkedIn-URL wird erkannt
-- [ ] Hunter Email-Finder: Name + Domain → E-Mail wird korrekt ermittelt
-- [ ] Hunter Email-Verifier: Nur `valid` E-Mails passieren das Gate vor Contacted
-- [ ] Hunter Lead-Export: Freigegebene Kandidaten erscheinen als Leads in Hunter
-- [ ] Hunter Quota-Tracking: Verbrauch pro Tenant sichtbar, Warnung bei 80%
+- [ ] Hunter CRM Export: Freigegebene Kandidaten als CSV/Excel im Hunter-Importformat exportierbar
+- [ ] Dublettencheck vor Export: E-Mail + LinkedIn-URL Prüfung
+- [ ] Export-Format auf Hunter CRM abgestimmt (Mapping konfigurierbar)
 - [ ] RLS: Tenant A sieht keine Kandidaten von Tenant B
 - [ ] Audit-Log: Jede Profil-Ansicht und Status-Änderung geloggt
 
@@ -606,10 +585,11 @@ Nach erfolgreicher Confirmation: Status → `Accepted`, `implementation_status` 
 | OP-3 | Blacklist-Prüfung: Regeln und Datenmodell → Phase 1.5 | Team | ⬜ Phase 1 |
 | OP-4 | Kriterienlogik Profilbewertung (Score-Dimensionen, Gewichtung) → Phase 2.2 | Team | ⬜ Phase 2 |
 | OP-5 | Statuspflege-Regeln im CRM → Phase 1.6a | Team | ⬜ Phase 1 |
+| OP-10 | Hunter CRM API-Verfügbarkeit klären (REST? SOAP? Doku?) — https://www.hunter-software.de/kontakt/ | Achim | ⬜ Pre-Phase 2 |
 | OP-6 | Eskalationslogik bei uneindeutigen Reaktionen → Phase 2.3 | Team | ⬜ Phase 2 |
 | OP-7 | Projekt-Beendigungskriterien → Phase 1.4 | Team | ⬜ Phase 1 |
 | OP-8 | Domain-Wahl (recruiting.iil.pet? kundenspezifisch?) → vor Phase 1 Deploy | Achim | ⬜ Pre-Deploy |
-| OP-9 | Nachrichtenvorlagen: In recruiting-hub oder in Hunter? → Phase 1.6a | Achim | ⬜ Phase 1 |
+| OP-9 | Nachrichtenvorlagen: In recruiting-hub oder in Hunter CRM? → Phase 1.6a | Achim | ⬜ Phase 1 |
 
 ---
 
@@ -619,5 +599,6 @@ Nach erfolgreicher Confirmation: Status → `Accepted`, `implementation_status` 
 |-------|-------|----------|
 | 2026-03-26 | Achim Dehnert | Initial draft — Proposed |
 | 2026-03-26 | Achim Dehnert | LinkedIn-Integration: 3-Tier-Strategie aus Referenz-Code (OP-1 → Entschieden) |
-| 2026-03-26 | Achim Dehnert | Hunter.io V2 API: Email-Finder, Verification, Leads + Adapter-Pattern (Section 4.7) |
+| 2026-03-26 | Achim Dehnert | Hunter CRM (hunter-software.de) Integration: 3-Stufen-Strategie, CSV-Export Phase 1 (Section 4.7) |
 | 2026-03-26 | Cascade (Review) | Review-Fixes: B1 implementation_status, B2 Health-Endpoints, B3 Port 8103, B4 catalog-info, B5 Confirmation + S1-S7 |
+| 2026-03-26 | Achim Dehnert | KORREKTUR: Hunter.io → Hunter CRM (hunter-software.de). Komplett anderes Produkt! Section 4.5 + 4.7 überarbeitet |
