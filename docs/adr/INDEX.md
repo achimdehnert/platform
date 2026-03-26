@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-03-11
-> **Next free ADR number:** 139
+> **Last updated:** 2026-03-26
+> **Next free ADR number:** 149
 
 ## Legend
 
@@ -182,6 +182,7 @@
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) — **Deprecated**, siehe ADR-131 | `Deprecated` | — | [ADR-136](ADR-136-shared-backend-services-original.md) |
 | 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | 🔶 | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
 | 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | ✅ | [ADR-138](ADR-138-implementation-tracking-standard.md) |
+| 148 | Recruiting-Hub -- Multi-Tenant SaaS für Personalberatung | `Proposed` | ⬜ | [ADR-148](ADR-148-recruiting-hub-architecture.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
