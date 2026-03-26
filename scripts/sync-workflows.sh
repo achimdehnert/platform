@@ -34,6 +34,7 @@ UNIVERSAL=(
     pr-review
     governance-check
     repo-health-check
+    hotfix
     windsurf-clean
     workflow-index
     sync-repo
@@ -44,7 +45,6 @@ UNIVERSAL=(
 DJANGO_HUB=(
     deploy
     deploy-check
-    hotfix
     backup
     testing-setup
     testing-conventions
