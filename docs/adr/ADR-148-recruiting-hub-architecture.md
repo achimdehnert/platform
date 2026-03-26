@@ -165,13 +165,15 @@ Schwellwerte konfigurierbar per Tenant.
 
 ```
 Sourced → Reviewed → Approved → Contacted → Replied → Interview → Placed
-                ↑                    ↑
-         Human Review          Duplettencheck
-         (Pflicht)             (automatisch)
+                ↑           ↑          ↑
+         Human Review  Duplettencheck  Email Verification
+         (Pflicht)     (automatisch)   (Hunter.io /v2/email-verifier)
 ```
 
-- **Kein Übergang Reviewed → Contacted** ohne manuelles Approval
+- **Kein Übergang Reviewed → Approved** ohne manuelles Approval
 - **Kein Übergang Approved → Contacted** ohne bestandenen Dublettencheck
+- **Kein Übergang Approved → Contacted** ohne E-Mail-Verification (`valid` Status)
+- Nach Approval: automatisch Lead in Hunter anlegen (`/v2/leads`)
 - Status-Änderungen werden als Events geloggt (Audit-Trail)
 
 ### 4.6 LinkedIn Integration (3-Tier-Strategie)
@@ -251,10 +253,117 @@ Ergänzung ohne Refactoring.
 
 ### 4.7 Hunter.io Integration
 
-- Import: Kandidaten aus Hunter-Kampagnen → recruiting-hub Pipeline
-- Export: Freigegebene Kandidaten → Hunter-Kampagne
-- Sync: Status-Updates bidirektional (Webhook oder Polling)
-- API-Key pro Tenant in `decouple.config()` (ADR-045)
+Hunter.io wird als primärer Outreach-Kanal genutzt. Die V2 REST API bietet
+drei Kernfunktionen, die direkt in den Recruiting-Workflow integriert werden.
+
+#### API-Endpoints (V2)
+
+| # | Endpoint | Methode | Zweck im Workflow |
+|---|----------|---------|-------------------|
+| A | `/v2/email-finder` | `GET` | Geschäftliche E-Mail aus Name + Domain ermitteln |
+| B | `/v2/email-verifier` | `GET` | Gefundene E-Mail validieren (deliverable?) |
+| C | `/v2/leads` | `POST` | Kandidat als Lead in Hunter speichern |
+
+**A. Email Finder** — nach CSV-Import aus LinkedIn (Kandidat hat Name + Firma, braucht E-Mail):
+```
+GET https://api.hunter.io/v2/email-finder
+    ?domain=example.com
+    &first_name=Max
+    &last_name=Muster
+    &api_key={HUNTER_API_KEY}
+```
+Falls die Domain nicht direkt aus LinkedIn kommt: Mapping-Logik `company_name → domain`
+über Domain-Search (`/v2/domain-search`) oder manuelles Firmen-Directory.
+
+**B. Email Verification** — vor Pipeline-Übergang `Approved → Contacted`:
+```
+GET https://api.hunter.io/v2/email-verifier
+    ?email=max.muster@example.com
+    &api_key={HUNTER_API_KEY}
+```
+Ergebnis: `valid` / `invalid` / `accept_all` / `unknown` — nur `valid` darf in Outreach.
+
+**C. Lead anlegen** — nach Approval, Kandidat wird für Outreach-Kampagne vorbereitet:
+```
+POST https://api.hunter.io/v2/leads?api_key={HUNTER_API_KEY}
+Content-Type: application/json
+
+{
+    "first_name": "Max",
+    "last_name": "Muster",
+    "email": "max.muster@example.com",
+    "company": "Example AG"
+}
+```
+
+#### Integration in den Recruiting-Workflow
+
+```
+CSV-Import (LinkedIn)
+  → Kandidat in recruiting-hub (Name, Firma, LinkedIn-URL)
+  → [A] Email Finder: Name + Domain → E-Mail
+  → [B] Email Verifier: E-Mail validieren
+  → Human Review (Approval-Queue)
+  → [C] Lead anlegen in Hunter (nach Freigabe)
+  → Hunter-Kampagne: Outreach via E-Mail-Sequenz
+  → Status-Sync: Hunter → recruiting-hub (Replied/Bounced/Opened)
+```
+
+#### Service-Architektur
+
+```python
+# integrations/services/hunter.py
+
+class HunterService:
+    """Stateless service — API-Key pro Tenant via decouple.config()."""
+
+    BASE_URL = "https://api.hunter.io/v2"
+
+    def find_email(self, first_name: str, last_name: str, domain: str) -> EmailFinderResult
+    def verify_email(self, email: str) -> EmailVerifyResult
+    def create_lead(self, lead: LeadData) -> LeadResult
+    def get_lead(self, lead_id: int) -> LeadResult
+    def list_leads(self, offset: int = 0, limit: int = 20) -> list[LeadResult]
+```
+
+**Config (ADR-045):**
+```python
+# settings.py
+HUNTER_API_KEY = config("HUNTER_API_KEY")          # pro Tenant in .env
+HUNTER_RATE_LIMIT_PER_SECOND = config("HUNTER_RATE_LIMIT", default=10, cast=int)
+```
+
+#### Rate-Limits & Quotas
+
+| Plan | Requests/Sek | Email-Finds/Monat | Verifications/Monat |
+|------|-------------|-------------------|---------------------|
+| Free | 10 | 25 | 50 |
+| Starter | 10 | 500 | 1.000 |
+| Growth | 15 | 5.000 | 10.000 |
+| Business | 20 | 50.000 | 100.000 |
+
+**Implementierung:**
+- `tenacity` retry mit exponential backoff bei 429 (Rate Limit)
+- Quota-Tracking pro Tenant in DB (`integrations.HunterQuota`)
+- Warnung an Recruiter wenn 80% des Monatskontingents erreicht
+
+#### Adapter-Pattern für Erweiterbarkeit
+
+```python
+# integrations/adapters/base.py
+class OutreachAdapter(Protocol):
+    def find_email(self, first_name, last_name, domain) -> EmailResult: ...
+    def verify_email(self, email) -> VerifyResult: ...
+    def create_lead(self, lead) -> LeadResult: ...
+
+# integrations/adapters/hunter.py
+class HunterAdapter(OutreachAdapter): ...
+
+# integrations/adapters/apollo.py  (Zukunft)
+class ApolloAdapter(OutreachAdapter): ...
+```
+
+Erlaubt späteren Wechsel zu Apollo.io, Lemlist, etc. ohne Refactoring der Pipeline-Logik.
 
 ### 4.8 DSGVO-Architektur (Phase 1 Pflicht!)
 
@@ -280,7 +389,9 @@ Ergänzung ohne Refactoring.
 | 1.3 | `candidates/` App: Profil-Model, Import (CSV, manuell) | 1.1 |
 | 1.4 | `pipeline/` App: Pipeline-Stufen, Status-Transitions, Approval-Queue | 1.3 |
 | 1.5 | `dedup/` App: Dublettencheck (E-Mail, LinkedIn-URL, Fuzzy-Name) | 1.3 |
-| 1.6 | `integrations/` App: Hunter.io Export/Import (API) | 1.4 |
+| 1.6a | `integrations/` App: HunterService (Email-Finder, Verifier, Leads) | 1.3 |
+| 1.6b | `integrations/` App: OutreachAdapter Protocol + HunterAdapter | 1.6a |
+| 1.6c | `integrations/` App: Quota-Tracking pro Tenant (HunterQuota Model) | 1.6a |
 | 1.7 | `compliance/` App: Audit-Log, Löschfristen, Consent-Tracking | 1.3 |
 | 1.8 | Templates + HTMX: Projekt-Dashboard, Kandidaten-Liste, Pipeline-Board | 1.4 |
 
@@ -352,7 +463,10 @@ Ergänzung ohne Refactoring.
 - [ ] Pipeline-Board zeigt Kandidaten in korrekten Stufen
 - [ ] Approval-Queue: Kein Versand ohne manuelles Review
 - [ ] Dublettencheck: Doppelte E-Mail/LinkedIn-URL wird erkannt
-- [ ] Hunter-Export: Freigegebene Kandidaten erscheinen in Hunter-Kampagne
+- [ ] Hunter Email-Finder: Name + Domain → E-Mail wird korrekt ermittelt
+- [ ] Hunter Email-Verifier: Nur `valid` E-Mails passieren das Gate vor Contacted
+- [ ] Hunter Lead-Export: Freigegebene Kandidaten erscheinen als Leads in Hunter
+- [ ] Hunter Quota-Tracking: Verbrauch pro Tenant sichtbar, Warnung bei 80%
 - [ ] RLS: Tenant A sieht keine Kandidaten von Tenant B
 - [ ] Audit-Log: Jede Profil-Ansicht und Status-Änderung geloggt
 
@@ -407,3 +521,4 @@ Ergänzung ohne Refactoring.
 |-------|-------|----------|
 | 2026-03-26 | Achim Dehnert | Initial draft — Proposed |
 | 2026-03-26 | Achim Dehnert | LinkedIn-Integration: 3-Tier-Strategie aus Referenz-Code (OP-1 → Entschieden) |
+| 2026-03-26 | Achim Dehnert | Hunter.io V2 API: Email-Finder, Verification, Leads + Adapter-Pattern (Section 4.7) |
