@@ -68,7 +68,9 @@ Erstelle eine Strukturanalyse im folgenden JSON-Format:
           "label": "Feldbezeichnung",
           "field_type": "text|textarea|number|date|choice|boolean",
           "required": true,
-          "help_text": "Hinweis zum Feld"
+          "help_text": "Hinweis zum Feld",
+          "llm_hint": "Prompt-Hinweis für KI-Vorausfüllung (leer wenn nicht sinnvoll)",
+          "llm_prefill": true
         }
       ],
       "subsections": []
