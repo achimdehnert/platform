@@ -4,33 +4,67 @@ description: Session-Ende Knowledge Capture — Wissen in Outline sichern (ADR-1
 
 # Knowledge Capture Workflow
 
-**Trigger:** Am Ende jeder produktiven Session ODER mid-session bei wichtigen Erkenntnissen.
+**Trigger:** `/knowledge-capture` — am Ende jeder produktiven Session ODER mid-session.
 
-> Verhindert Knowledge Drain — das implizite Wissen aus der Session wird
-> strukturiert in Outline gesichert, bevor es verloren geht.
->
-> **Mid-Session-Trigger** (sofort erfassen, nicht bis zum Ende warten):
-> - Root Cause eines schwierigen Bugs gefunden
-> - Breaking Change oder Inkompatibilität entdeckt
-> - Neues Pattern etabliert (z.B. Test-Pattern für FastMCP)
->
-> **Mid-Session-Suche** (VOR dem Debuggen):
-> - Bei jedem 500/Error: `search_knowledge("<Fehlerbild>")` — erst prüfen ob bekannt
-> - Bei Architektur-Frage: `search_knowledge("<Thema>")` — Konzept vorhanden?
-> - Spart Stunden wenn das Problem schon gelöst wurde
+> **Der User muss NICHTS auflisten.** Der Agent scannt die Session autonom
+> und identifiziert, was in Outline gesichert werden muss.
 
 ---
 
-## Step 1: Prüfe — Was wurde in dieser Session gelernt?
+## Step 0: Session-Scan (AUTONOM — Agent führt aus)
 
-Gehe diese Checkliste durch:
+Der Agent analysiert die aktuelle Session und beantwortet folgende Fragen:
 
-- [ ] **Troubleshooting-Wissen?** (Fehler debuggt, Root Cause gefunden)
-- [ ] **Architektur-Entscheidung?** (Design gewählt, Alternative verworfen)
-- [ ] **Lessons Learned?** (Anti-Pattern entdeckt, Stolperfalle dokumentiert)
-- [ ] **Deployment-Wissen?** (Neuer Service, Config-Änderung, Infrastruktur)
+1. **Welche Repos wurden verändert?** (git status/log der Workspaces prüfen)
+2. **Welche Features wurden gebaut?** (Commits seit Session-Start)
+3. **Welche ADRs wurden erstellt/geändert?** (platform/docs/adr/)
+4. **Welche Bugs wurden gefixt?** (Commit-Messages mit "fix:")
+5. **Was wurde deployed?** (Welcher Service, welche URL, Health-Status)
+6. **Welche Architektur-Entscheidungen wurden getroffen?**
+7. **Welche Probleme traten auf und wie wurden sie gelöst?**
 
-Wenn **nichts davon** zutrifft → Session war reine Implementierung → Skip.
+// turbo
+Führe aus: `git -C <workspace> log --oneline --since="6 hours ago"` für jeden aktiven Workspace.
+
+Dann erstelle eine **Session-Zusammenfassung** mit diesen Feldern:
+
+```
+REPOS: [Liste der veränderten Repos]
+FEATURES: [Neue Features mit 1-Satz-Beschreibung]
+FIXES: [Bugs die gefixt wurden]
+ADRS: [Erstellt/geändert mit Nummer + Titel]
+DEPLOYMENTS: [Service → URL → Health-Status]
+LESSONS: [Probleme + Root Cause, falls vorhanden]
+DECISIONS: [Architektur-Entscheidungen]
+```
+
+---
+
+## Step 1: Outline durchsuchen — existiert schon ein Dokument?
+
+// turbo
+Suche in Outline nach jedem betroffenen Repo/Feature:
+
+```
+search_knowledge("<repo-name>")
+search_knowledge("<feature-name>")
+```
+
+→ **Treffer?** → Step 4b (bestehendes Dokument aktualisieren)
+→ **Kein Treffer?** → Weiter zu Step 1b
+
+### Step 1b: Klassifiziere — Was wird in Outline gesichert?
+
+| Situation | Aktion |
+|-----------|--------|
+| Bug gefixt, Root Cause gefunden | → Step 2 (Runbook) |
+| Neues Architektur-Pattern / ADR | → Step 3 (Konzept) |
+| Unerwarteter Fehler / Anti-Pattern | → Step 4 (Lesson) |
+| Neuer Service deployed | → Step 2 (Deployment-Runbook) |
+| Nur Code geschrieben, nichts Neues gelernt | → Skip |
+| Feature gebaut + deployed | → Step 4b (bestehendes Hub-Dok updaten) |
+| Bestehendes Runbook ergänzen | → Step 4b (Update) |
+| **Mid-Session: 500/Error** | → **Erst `search_knowledge()` vor Debugging** |
 
 ---
 
@@ -155,17 +189,8 @@ So kann der Agent in der nächsten Session die Memory lesen und gezielt das Outl
 
 ---
 
-## Schnell-Entscheidung
+## Schnell-Referenz
 
-| Situation | Aktion |
-|-----------|--------|
-| Bug gefixt, Root Cause gefunden | → Step 2 (Runbook) |
-| Neues Architektur-Pattern gewählt | → Step 3 (Konzept) |
-| Unerwarteter Fehler / Anti-Pattern | → Step 4 (Lesson) |
-| Nur Code geschrieben, nichts Neues | → Skip |
-| Deployment durchgeführt | → Step 2 (Deployment-Runbook) |
-| Bestehendes Runbook ergänzen | → Step 4b (Update) |
-| Stack-Upgrade durchgeführt | → Step 2 (Upgrade-Runbook) |
-| Wissen gilt für mehrere Repos | → Step 5 (Cross-Repo Tag) |
-| Outline-Eintrag erstellt | → Step 6 (Memory-Verweis) |
-| **Mid-Session: 500/Error auftritt** | → **Erst `search_knowledge()` vor Debugging** |
+**User-Prompt (immer gleich):** `/knowledge-capture`
+
+Der Agent erledigt alles autonom — kein Auflisten nötig.
