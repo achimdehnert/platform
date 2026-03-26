@@ -2,7 +2,7 @@
 
 | Attribut       | Wert                                    |
 |----------------|-----------------------------------------|
-| **Status**     | Proposed                                |
+| **Status**     | Accepted                                |
 | **Scope**      | New Hub                                 |
 | **Repo**       | recruiting-hub                          |
 | **Erstellt**   | 2026-03-26                              |
@@ -10,7 +10,7 @@
 | **Reviewer**   | Cascade (AI Review 2026-03-26)          |
 | **Supersedes** | –                                       |
 | **Relates to** | ADR-137 (Tenant-Lifecycle), ADR-120 (CI/CD), ADR-045 (Secrets), ADR-062 (billing-hub), ADR-093 (aifw), ADR-098 (Compose Hardening) |
-| **implementation_status** | none                          |
+| **implementation_status** | partial                       |
 | **Port**       | 8103 (prod), TBD (staging)              |
 | **Deploy-Path**| `/opt/recruiting-hub`                   |
 | **Registry**   | `ghcr.io/achimdehnert/recruiting-hub`   |
