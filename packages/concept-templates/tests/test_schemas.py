@@ -59,6 +59,24 @@ class TestTemplateField:
         assert field.choices == ["GK1", "GK2", "GK3"]
         assert field.required is True
 
+    def test_should_have_llm_hint_defaults(self):
+        field = TemplateField(
+            name="t", label="T", field_type=FieldType.TEXT,
+        )
+        assert field.llm_hint == ""
+        assert field.llm_prefill is False
+
+    def test_should_accept_llm_hint_and_prefill(self):
+        field = TemplateField(
+            name="desc",
+            label="Beschreibung",
+            field_type=FieldType.TEXTAREA,
+            llm_hint="Beschreibe die Nutzung des Gebäudes",
+            llm_prefill=True,
+        )
+        assert field.llm_hint == "Beschreibe die Nutzung des Gebäudes"
+        assert field.llm_prefill is True
+
     def test_should_reject_invalid_field_type(self):
         with pytest.raises(ValidationError):
             TemplateField(
