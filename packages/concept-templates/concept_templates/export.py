@@ -30,7 +30,7 @@ def to_markdown(template: ConceptTemplate) -> str:
             f"**Framework**: {template.framework} "
             f"v{template.framework_version}"
         )
-    lines.append(f"**Fachbereich**: {template.scope.value}")
+    lines.append(f"**Fachbereich**: {template.scope}")
     if template.is_master:
         lines.append("**Typ**: Master-Template")
     lines.append(f"**Version**: {template.version}")

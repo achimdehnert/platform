@@ -1,8 +1,8 @@
 """LLM-based document structure analysis (ADR-147 Phase C).
 
 Accepts a callable ``llm_fn(system, user) -> str`` so the package stays
-free of direct aifw dependency. risk-hub wires this with
-``aifw.service.sync_completion`` via Celery tasks.
+free of direct aifw dependency. Consumer apps wire this with their
+own LLM integration (e.g. aifw, openai, httpx).
 """
 
 from __future__ import annotations
@@ -11,28 +11,29 @@ import json
 import logging
 from collections.abc import Callable
 
-from concept_templates.schemas import AnalysisResult, ConceptScope, ConceptTemplate
+from concept_templates.schemas import AnalysisResult, ConceptTemplate
 
 logger = logging.getLogger(__name__)
 
 # Type alias for the LLM callable: (system_prompt, user_prompt) -> raw_response
 LLMCallable = Callable[[str, str], str]
 
-MAX_TEXT_CHARS = 8000
+DEFAULT_MAX_TEXT_CHARS = 8000
 
 
 def analyze_document_structure(
     text: str,
-    scope: str | ConceptScope,
+    scope: str,
     title: str = "",
     page_count: int = 0,
     llm_fn: LLMCallable | None = None,
+    max_text_chars: int = DEFAULT_MAX_TEXT_CHARS,
 ) -> AnalysisResult:
     """Analyze extracted document text and produce a ConceptTemplate.
 
     Args:
         text: Extracted text from PDF (may be truncated to MAX_TEXT_CHARS).
-        scope: Fachbereich (brandschutz, explosionsschutz, ausschreibung).
+        scope: Fachbereich (e.g. brandschutz, explosionsschutz, ausschreibung — any string).
         title: Document title for context.
         page_count: Number of pages extracted.
         llm_fn: Callable that takes (system_prompt, user_prompt) and returns
@@ -47,8 +48,8 @@ def analyze_document_structure(
     if llm_fn is None:
         raise ValueError("llm_fn is required for structure analysis.")
 
-    scope_str = scope.value if isinstance(scope, ConceptScope) else str(scope)
-    truncated_text = text[:MAX_TEXT_CHARS]
+    scope_str = str(scope)
+    truncated_text = text[:max_text_chars]
 
     # Build prompts
     from concept_templates.prompts import get_structure_analysis_prompts
@@ -69,7 +70,7 @@ def analyze_document_structure(
 
 def merge_templates(
     templates: list[ConceptTemplate],
-    scope: str | ConceptScope,
+    scope: str,
     llm_fn: LLMCallable | None = None,
 ) -> AnalysisResult:
     """Merge multiple analyzed templates into a master template.
@@ -101,7 +102,7 @@ def merge_templates(
         # Fallback: rule-based merge without LLM
         return _merge_templates_rule_based(templates, scope)
 
-    scope_str = scope.value if isinstance(scope, ConceptScope) else str(scope)
+    scope_str = str(scope)
 
     # Serialize templates for the LLM
     from concept_templates.export import to_dict
@@ -110,8 +111,8 @@ def merge_templates(
     templates_json = json.dumps(templates_data, ensure_ascii=False, indent=2)
 
     # Truncate if too long
-    if len(templates_json) > MAX_TEXT_CHARS:
-        templates_json = templates_json[:MAX_TEXT_CHARS] + "\n... (gekürzt)"
+    if len(templates_json) > DEFAULT_MAX_TEXT_CHARS:
+        templates_json = templates_json[:DEFAULT_MAX_TEXT_CHARS] + "\n... (gekürzt)"
 
     from concept_templates.prompts import get_merge_prompts
 
@@ -160,7 +161,7 @@ def _parse_analysis_response(raw: str, scope: str) -> AnalysisResult:
         # Attempt minimal template
         template = ConceptTemplate(
             name=parsed.get("name", f"Template ({scope})"),
-            scope=ConceptScope(scope),
+            scope=scope,
         )
         gaps.append(f"Template-Validierung fehlgeschlagen: {exc}")
         confidence = max(0.1, confidence - 0.3)
@@ -213,10 +214,10 @@ def _extract_json_fallback(text: str) -> dict | None:
 
 def _merge_templates_rule_based(
     templates: list[ConceptTemplate],
-    scope: str | ConceptScope,
+    scope: str,
 ) -> AnalysisResult:
     """Simple rule-based merge: union of all sections, deduplicate by name."""
-    scope_str = scope.value if isinstance(scope, ConceptScope) else str(scope)
+    scope_str = str(scope)
 
     seen_sections: dict[str, dict] = {}
     for tmpl in templates:
@@ -241,7 +242,7 @@ def _merge_templates_rule_based(
     framework = templates[0].framework if templates else ""
     merged = ConceptTemplate(
         name=f"Master-Template {scope_str} (regelbasiert)",
-        scope=ConceptScope(scope_str),
+        scope=scope_str,
         is_master=True,
         framework=framework,
         sections=merged_sections,
