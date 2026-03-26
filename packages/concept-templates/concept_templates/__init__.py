@@ -3,7 +3,7 @@
 See ADR-147 for architecture decisions.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 from concept_templates.schemas import (
     AnalysisResult,
@@ -23,4 +23,7 @@ __all__ = [
     "FieldType",
     "TemplateField",
     "TemplateSection",
+    # Phase C — lazy imports via analyzer/prompts modules
+    # from concept_templates.analyzer import analyze_document_structure, merge_templates
+    # from concept_templates.prompts import get_structure_analysis_prompts
 ]
