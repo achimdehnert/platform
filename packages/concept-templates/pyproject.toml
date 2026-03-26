@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iil-concept-templates"
-version = "0.2.0"
+version = "0.3.0"
 description = "Shared schemas, frameworks and extraction for structured concept templates (ADR-147)"
 readme = "README.md"
 license = {text = "Proprietary"}
@@ -18,6 +18,7 @@ dependencies = [
 
 [project.optional-dependencies]
 pdf = ["pdfplumber>=0.10"]
+render = ["weasyprint>=60.0"]
 llm = [
     "iil-promptfw>=0.5.1",
     "iil-aifw>=0.5.0",
@@ -28,6 +29,7 @@ knowledge = [
 ]
 full = [
     "pdfplumber>=0.10",
+    "weasyprint>=60.0",
     "iil-promptfw>=0.5.1",
     "iil-aifw>=0.5.0",
     "Django>=4.2",
