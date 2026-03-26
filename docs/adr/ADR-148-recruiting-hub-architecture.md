@@ -1,4 +1,4 @@
-# ADR-148: Recruiting-Hub — Multi-Tenant SaaS für Personalberatung
+# ADR-148: Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub
 
 | Attribut       | Wert                                    |
 |----------------|-----------------------------------------|
@@ -7,9 +7,14 @@
 | **Repo**       | recruiting-hub                          |
 | **Erstellt**   | 2026-03-26                              |
 | **Autor**      | Achim Dehnert                           |
-| **Reviewer**   | –                                       |
+| **Reviewer**   | Cascade (AI Review 2026-03-26)          |
 | **Supersedes** | –                                       |
-| **Relates to** | ADR-137 (Tenant-Lifecycle), ADR-120 (CI/CD), ADR-045 (Secrets), ADR-062 (billing-hub), ADR-093 (aifw) |
+| **Relates to** | ADR-137 (Tenant-Lifecycle), ADR-120 (CI/CD), ADR-045 (Secrets), ADR-062 (billing-hub), ADR-093 (aifw), ADR-098 (Compose Hardening) |
+| **implementation_status** | none                          |
+| **Port**       | 8103 (prod), TBD (staging)              |
+| **Deploy-Path**| `/opt/recruiting-hub`                   |
+| **Registry**   | `ghcr.io/achimdehnert/recruiting-hub`   |
+| **Domain**     | TBD (OP-8)                              |
 
 ---
 
@@ -55,6 +60,9 @@ Multi-Tenant SaaS-Anwendung, die dem bewährten Hub-Pattern folgt:
 - **iil-aifw** (ADR-093) für LLM-basierte Funktionen (Scoring, Suchstrings, Klassifikation)
 - **infra-deploy** (ADR-120) für CI/CD Reusable Workflows
 - Docker + Hetzner + Nginx + Cloudflare (Platform-Standard)
+- **Port**: 8103 (prod), Deploy-Path: `/opt/recruiting-hub`
+- **Registry**: `ghcr.io/achimdehnert/recruiting-hub`
+- **Health-Endpoints**: `/livez/` (liveness) + `/healthz/` (readiness) — `HEALTH_PATHS = frozenset`, `@csrf_exempt` + `@require_GET`
 
 ### App-Struktur
 
@@ -79,6 +87,7 @@ recruiting-hub/
 │   ├── app/Dockerfile       → Multi-Stage, python:3.12-slim, Non-Root
 │   └── ...
 ├── docker-compose.prod.yml
+├── catalog-info.yaml            → ADR-077 Backstage-Format
 ├── requirements/
 │   ├── base.txt
 │   ├── prod.txt
@@ -249,7 +258,7 @@ LinkedIn Talent Solutions API (RSC) erfordert LinkedIn-Partner-Status:
 
 **Entscheidung**: Tier 3 wird als Langfrist-Option dokumentiert, aber NICHT in Phase 1-3
 implementiert. Die Architektur (Adapter-Pattern in `integrations/`) erlaubt spätere
-Ergänzung ohne Refactoring.
+Ergänzung ohne Refactoring. Bei Erreichen des LinkedIn-Partner-Status → **eigener ADR** für RSC-Integration.
 
 ### 4.7 Hunter.io Integration
 
@@ -365,7 +374,53 @@ class ApolloAdapter(OutreachAdapter): ...
 
 Erlaubt späteren Wechsel zu Apollo.io, Lemlist, etc. ohne Refactoring der Pipeline-Logik.
 
-### 4.8 DSGVO-Architektur (Phase 1 Pflicht!)
+### 4.8 Health-Endpoints (Platform-Standard)
+
+```python
+# common/views.py
+HEALTH_PATHS = frozenset({"/livez/", "/healthz/"})
+
+@csrf_exempt
+@require_GET
+def livez(request):
+    return JsonResponse({"status": "ok"})
+
+@csrf_exempt
+@require_GET
+def healthz(request):
+    # Prüft DB-Verbindung + Redis + Hunter-API-Erreichbarkeit
+    return JsonResponse({"status": "ok", "db": "connected", "redis": "connected"})
+```
+
+**Compose-HEALTHCHECK** (nur in `docker-compose.prod.yml`, NICHT im Dockerfile):
+```yaml
+healthcheck:
+  test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')"]
+  interval: 30s
+  timeout: 5s
+  retries: 3
+```
+
+**Worker/Beat Healthcheck**: `pidof python3.12` (nicht `celery inspect ping`).
+
+### 4.9 catalog-info.yaml (ADR-077)
+
+```yaml
+apiVersion: backstage.io/v1alpha1
+kind: Component
+metadata:
+  name: recruiting-hub
+  description: Multi-Tenant SaaS für Personalberatung
+  annotations:
+    github.com/project-slug: achimdehnert/recruiting-hub
+spec:
+  type: service
+  lifecycle: development
+  owner: achimdehnert
+  system: iil-platform
+```
+
+### 4.10 DSGVO-Architektur (Phase 1 Pflicht!)
 
 | Anforderung | Lösung |
 |-------------|--------|
@@ -374,6 +429,37 @@ Erlaubt späteren Wechsel zu Apollo.io, Lemlist, etc. ohne Refactoring der Pipel
 | Einwilligung | `candidates.ConsentRecord` — Opt-In/Opt-Out mit Timestamp |
 | Audit-Log | `compliance.AuditEntry` — Wer hat wann welches Profil gesehen/bearbeitet |
 | Datenisolation | RLS (ADR-137) — Kandidaten zwischen Tenants nicht sichtbar |
+
+### 4.11 Compose-Hardening (ADR-098)
+
+```yaml
+# docker-compose.prod.yml — Platform-Standard
+services:
+  web:
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    restart: unless-stopped
+    env_file: .env.prod
+  worker:
+    deploy:
+      resources:
+        limits:
+          memory: 384M
+    restart: unless-stopped
+  db:
+    shm_size: 128m
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+```
 
 ---
 
@@ -430,6 +516,18 @@ Erlaubt späteren Wechsel zu Apollo.io, Lemlist, etc. ohne Refactoring der Pipel
 ---
 
 ## 7. Konsequenzen
+
+### 7.0 Confirmation
+
+Die Entscheidung gilt als bestätigt wenn:
+
+1. **Phase 1 Validation Criteria** (Section 8) alle erfüllt sind
+2. **Erster Tenant** erfolgreich ongeboardet (Suchprojekt + Pipeline + Hunter-Export)
+3. **RLS-Isolation** per SQL-Test verifiziert (Tenant A sieht keine Daten von Tenant B)
+4. **DSGVO-Audit**: Audit-Log, Löschfristen und Auskunftsrecht funktional getestet
+5. **Health-Endpoints** `/livez/` + `/healthz/` auf Port 8103 erreichbar
+
+Nach erfolgreicher Confirmation: Status → `Accepted`, `implementation_status` → `partial`.
 
 ### 7.1 Positiv
 
@@ -504,14 +602,14 @@ Erlaubt späteren Wechsel zu Apollo.io, Lemlist, etc. ohne Refactoring der Pipel
 | # | Punkt | Owner | Status |
 |---|-------|-------|--------|
 | OP-1 | LinkedIn-Integrationsstrategie → **Entschieden**: 3-Tier (OAuth Self-Service + CSV-Import + RSC langfristig), siehe Section 4.6 | Achim | ✅ Entschieden |
-| OP-2 | Detaillierter Teilprozess Dublettencheck in Hunter | Team | ⬜ Offen |
-| OP-3 | Blacklist-Prüfung: Regeln und Datenmodell | Team | ⬜ Offen |
-| OP-4 | Kriterienlogik Profilbewertung (Score-Dimensionen, Gewichtung) | Team | ⬜ Offen |
-| OP-5 | Statuspflege-Regeln im CRM | Team | ⬜ Offen |
-| OP-6 | Eskalationslogik bei uneindeutigen Reaktionen | Team | ⬜ Offen |
-| OP-7 | Projekt-Beendigungskriterien | Team | ⬜ Offen |
-| OP-8 | Domain-Wahl (recruiting.iil.pet? kundenspezifisch?) | Achim | ⬜ Offen |
-| OP-9 | Nachrichtenvorlagen: In recruiting-hub oder in Hunter? | Achim | ⬜ Offen |
+| OP-2 | Detaillierter Teilprozess Dublettencheck in Hunter → Phase 1.5 | Team | ⬜ Phase 1 |
+| OP-3 | Blacklist-Prüfung: Regeln und Datenmodell → Phase 1.5 | Team | ⬜ Phase 1 |
+| OP-4 | Kriterienlogik Profilbewertung (Score-Dimensionen, Gewichtung) → Phase 2.2 | Team | ⬜ Phase 2 |
+| OP-5 | Statuspflege-Regeln im CRM → Phase 1.6a | Team | ⬜ Phase 1 |
+| OP-6 | Eskalationslogik bei uneindeutigen Reaktionen → Phase 2.3 | Team | ⬜ Phase 2 |
+| OP-7 | Projekt-Beendigungskriterien → Phase 1.4 | Team | ⬜ Phase 1 |
+| OP-8 | Domain-Wahl (recruiting.iil.pet? kundenspezifisch?) → vor Phase 1 Deploy | Achim | ⬜ Pre-Deploy |
+| OP-9 | Nachrichtenvorlagen: In recruiting-hub oder in Hunter? → Phase 1.6a | Achim | ⬜ Phase 1 |
 
 ---
 
@@ -522,3 +620,4 @@ Erlaubt späteren Wechsel zu Apollo.io, Lemlist, etc. ohne Refactoring der Pipel
 | 2026-03-26 | Achim Dehnert | Initial draft — Proposed |
 | 2026-03-26 | Achim Dehnert | LinkedIn-Integration: 3-Tier-Strategie aus Referenz-Code (OP-1 → Entschieden) |
 | 2026-03-26 | Achim Dehnert | Hunter.io V2 API: Email-Finder, Verification, Leads + Adapter-Pattern (Section 4.7) |
+| 2026-03-26 | Cascade (Review) | Review-Fixes: B1 implementation_status, B2 Health-Endpoints, B3 Port 8103, B4 catalog-info, B5 Confirmation + S1-S7 |

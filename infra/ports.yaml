@@ -9,7 +9,7 @@
 #   8001–8020   Infra + erste Hubs
 #   8081–8100   App-Hubs (prod + staging gemischt)
 #
-# Nächster freier Port: 8101
+# Nächster freier Port: 8104
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 
 services:
@@ -143,6 +143,13 @@ services:
     domain_prod: learn.iil.pet
     domain_staging: null
     repo: achimdehnert/learn-hub
+
+  recruiting-hub:
+    prod: 8103
+    staging: null
+    domain_prod: null  # TBD (ADR-148 OP-8)
+    domain_staging: null
+    repo: achimdehnert/recruiting-hub
 
   odoo:
     prod: 8069
