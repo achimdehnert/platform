@@ -17,11 +17,16 @@ from pydantic import BaseModel, Field
 
 
 class ConceptScope(StrEnum):
-    """Fachbereich eines Konzepts."""
+    """Built-in Fachbereiche. Custom scopes are supported via plain strings."""
 
     BRANDSCHUTZ = "brandschutz"
     EXPLOSIONSSCHUTZ = "explosionsschutz"
     AUSSCHREIBUNG = "ausschreibung"
+
+
+def known_scopes() -> frozenset[str]:
+    """Return all built-in scope values. Custom scopes are NOT listed here."""
+    return frozenset(s.value for s in ConceptScope)
 
 
 class FieldType(StrEnum):
@@ -66,7 +71,7 @@ class ConceptTemplate(BaseModel):
     """Vollständiges Konzept-Template (Master oder Kunden-Variante)."""
 
     name: str
-    scope: ConceptScope
+    scope: str
     version: str = "1.0"
     is_master: bool = False
     framework: str = ""

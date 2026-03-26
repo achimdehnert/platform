@@ -3,6 +3,9 @@
 Provides a reusable service function that any consumer app can call
 to get an AI-suggested value for a single template field.
 
+When ``iil-promptfw`` is installed, uses ``promptfw.concept_analysis``
+templates for prompt rendering. Falls back to inline prompts otherwise.
+
 Usage:
     from concept_templates.prefill import prefill_field
 
@@ -11,7 +14,7 @@ Usage:
         llm_hint="Beschreibe die Adresse des Gebäudes",
         context_values={"standort": {"name": "Rathaus"}},
         extracted_texts=["Rathaus, Marktplatz 1, 12345 Musterstadt..."],
-        scope="brandschutz",
+        scope="explosionsschutz",
         llm_fn=my_llm_wrapper,
     )
 """
@@ -25,13 +28,20 @@ logger = logging.getLogger(__name__)
 
 LLMCallable = Callable[[str, str], str]
 
-SYSTEM_PROMPT_DE = (
+try:
+    from promptfw.concept_analysis import get_concept_analysis_stack
+    _HAS_PROMPTFW = True
+except ImportError:
+    _HAS_PROMPTFW = False
+
+# Fallback system prompts (used when promptfw is not installed)
+_SYSTEM_PROMPT_DE = (
     "Du bist ein Experte für {scope}-Konzepte. "
     "Fülle das angeforderte Feld basierend auf dem Kontext aus. "
     "Antworte NUR mit dem Feldwert, keine Erklärung, kein Markdown."
 )
 
-SYSTEM_PROMPT_EN = (
+_SYSTEM_PROMPT_EN = (
     "You are an expert for {scope} concepts. "
     "Fill the requested field based on the context. "
     "Reply ONLY with the field value, no explanation, no markdown."
@@ -47,7 +57,7 @@ def prefill_field(
     llm_fn: LLMCallable,
     context_values: dict[str, dict[str, str]] | None = None,
     extracted_texts: list[str] | None = None,
-    scope: str = "brandschutz",
+    scope: str = "",
     language: str = "de",
 ) -> str:
     """Generate an AI-suggested value for a single template field.
@@ -85,16 +95,31 @@ def prefill_field(
                 context_text += f"\n\n--- Dokument {i + 1} ---\n"
                 context_text += text[:MAX_EXTRACTED_CHARS]
 
-    # Select system prompt
-    template = SYSTEM_PROMPT_DE if language == "de" else SYSTEM_PROMPT_EN
-    system_prompt = template.format(scope=scope)
-
-    user_prompt = (
-        f"Kontext:\n{context_text}\n\n"
-        f"Aufgabe: {llm_hint}\n\n"
-        f"Feld: {field_key}\n"
-        f"Wert:"
-    )
+    # Build prompts via promptfw or fallback
+    if _HAS_PROMPTFW:
+        stack = get_concept_analysis_stack()
+        rendered = stack.render_stack(
+            ["concept.system.prefill", "concept.task.prefill_field"],
+            context={
+                "scope": scope or "technische Konzepte",
+                "language": language,
+                "field_key": field_key,
+                "llm_hint": llm_hint,
+                "context_values": context_text,
+                "extracted_text": "",
+            },
+        )
+        system_prompt = rendered.system
+        user_prompt = rendered.user
+    else:
+        template = _SYSTEM_PROMPT_DE if language == "de" else _SYSTEM_PROMPT_EN
+        system_prompt = template.format(scope=scope or "technische Konzepte")
+        user_prompt = (
+            f"Kontext:\n{context_text}\n\n"
+            f"Aufgabe: {llm_hint}\n\n"
+            f"Feld: {field_key}\n"
+            f"Wert:"
+        )
 
     try:
         result = llm_fn(system_prompt, user_prompt)

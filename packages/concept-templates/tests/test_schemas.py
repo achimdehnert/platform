@@ -126,12 +126,13 @@ class TestConceptTemplate:
         assert sample_template.framework == "brandschutz_mbo"
         assert len(sample_template.sections) == 1
 
-    def test_should_reject_invalid_scope(self):
-        with pytest.raises(ValidationError):
-            ConceptTemplate(
-                name="Bad",
-                scope="nonexistent",
-            )
+    def test_should_accept_custom_scope(self):
+        """scope is now open (str) — any string is valid."""
+        tmpl = ConceptTemplate(
+            name="Custom",
+            scope="custom_domain",
+        )
+        assert tmpl.scope == "custom_domain"
 
     def test_should_serialize_to_json(self, sample_template):
         json_str = sample_template.model_dump_json()
