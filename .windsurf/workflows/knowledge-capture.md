@@ -13,6 +13,11 @@ description: Session-Ende Knowledge Capture — Wissen in Outline sichern (ADR-1
 > - Root Cause eines schwierigen Bugs gefunden
 > - Breaking Change oder Inkompatibilität entdeckt
 > - Neues Pattern etabliert (z.B. Test-Pattern für FastMCP)
+>
+> **Mid-Session-Suche** (VOR dem Debuggen):
+> - Bei jedem 500/Error: `search_knowledge("<Fehlerbild>")` — erst prüfen ob bekannt
+> - Bei Architektur-Frage: `search_knowledge("<Thema>")` — Konzept vorhanden?
+> - Spart Stunden wenn das Problem schon gelöst wurde
 
 ---
 
@@ -113,13 +118,40 @@ outline-knowledge: search_knowledge("<Thema>")
 
 ---
 
-## Step 5: Cascade Memory wie bisher updaten
+## Step 5: Cross-Repo Tagging (bei Hub-übergreifendem Wissen)
 
-Ergänzend zum Outline-Eintrag: Cascade Memory mit kurzem Verweis aktualisieren.
+Wenn eine Lesson oder ein Runbook für **mehrere Repos** gilt:
+
+Am Ende des Dokuments einen "Gilt für"-Abschnitt hinzufügen:
+
+```markdown
+## Gilt für
+
+Alle Django-Hubs (risk-hub, billing-hub, weltenhub, bfagent, etc.)
+```
+
+Beispiele für Cross-Repo-Wissen:
+- Template-Fehler → 500 (gilt für alle Django-Hubs)
+- Docker HEALTHCHECK-Pattern (gilt für alle Hubs)
+- decouple.config() statt os.environ (gilt für alle Python-Projekte)
+
+---
+
+## Step 6: Cascade Memory mit Outline-Verweis updaten
+
+Ergänzend zum Outline-Eintrag: Cascade Memory mit kurzem **Verweis auf das Outline-Dokument** aktualisieren.
 
 ```
 Memory: "<Thema> — Runbook in Outline: <Titel>"
+Memory: "<Thema> — Lesson in Outline: <Datum>: <Titel>"
 ```
+
+Beispiel:
+```
+Memory: "risk-hub Deployment → Runbook in Outline: risk-hub Deployment (manuell via SSH)"
+```
+
+So kann der Agent in der nächsten Session die Memory lesen und gezielt das Outline-Dokument laden.
 
 ---
 
@@ -134,3 +166,6 @@ Memory: "<Thema> — Runbook in Outline: <Titel>"
 | Deployment durchgeführt | → Step 2 (Deployment-Runbook) |
 | Bestehendes Runbook ergänzen | → Step 4b (Update) |
 | Stack-Upgrade durchgeführt | → Step 2 (Upgrade-Runbook) |
+| Wissen gilt für mehrere Repos | → Step 5 (Cross-Repo Tag) |
+| Outline-Eintrag erstellt | → Step 6 (Memory-Verweis) |
+| **Mid-Session: 500/Error auftritt** | → **Erst `search_knowledge()` vor Debugging** |
