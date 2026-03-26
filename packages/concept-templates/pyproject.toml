@@ -18,7 +18,10 @@ dependencies = [
 
 [project.optional-dependencies]
 pdf = ["pdfplumber>=0.10"]
-llm = ["iil-outlinefw>=0.2.0"]
+llm = [
+    "iil-promptfw>=0.5.1",
+    "iil-aifw>=0.5.0",
+]
 django = ["Django>=4.2"]
 knowledge = [
     "iil-outlinefw[knowledge]>=0.2.0",
