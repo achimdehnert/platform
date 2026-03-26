@@ -39,6 +39,8 @@ UNIVERSAL=(
     workflow-index
     sync-repo
     use-case
+    session-start
+    session-ende
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
