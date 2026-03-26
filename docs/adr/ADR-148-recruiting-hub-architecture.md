@@ -40,7 +40,7 @@ Personalberatungen anzubieten.
 - **Dublettencheck vor Versand**: Kein Kandidatenkontakt ohne CRM-Prüfung
 - **LLM via iil-aifw**: Keine direkten API-Calls zu LLM-Providern (Platform-Standard)
 - **DSGVO**: Kandidatendaten sind personenbezogen — Löschfristen, Auskunftsrecht, Audit-Log
-- **LinkedIn API**: Stark eingeschränkt — Integrationsstrategie wird separat geklärt
+- **LinkedIn API**: Nur Self-Service-Scopes verfügbar (openid, profile, email, w_member_social). Kein People Search, kein Recruiter System Connect ohne Partner-Status. Referenz-Implementierung: `docs/adr/inputs/linkedin_oauth/`
 - **Multi-Tenant-Isolation**: Kandidatendaten zwischen Tenants NICHT sichtbar (RLS)
 
 ---
@@ -67,7 +67,8 @@ recruiting-hub/
 │   ├── projects/            → Suchprojekte, Stellenbeschreibungen
 │   ├── candidates/          → Kandidatenprofile, Statushistorie
 │   ├── pipeline/            → Pipeline-Stufen, Approval-Queue
-│   ├── integrations/        → LinkedIn-Import, Hunter-Sync, Export
+│   ├── linkedin_oauth/       → LinkedIn OAuth 2.0 (Ref: docs/adr/inputs/linkedin_oauth/)
+│   ├── integrations/        → LinkedIn-CSV-Import, Hunter-Sync, Export
 │   ├── dedup/               → Dublettencheck (E-Mail, LinkedIn-URL, Fuzzy)
 │   ├── intelligence/        → LLM via iil-aifw: Scoring, Suchstrings
 │   ├── reporting/           → Funnel, Conversion, Cockpit
@@ -173,14 +174,89 @@ Sourced → Reviewed → Approved → Contacted → Replied → Interview → Pl
 - **Kein Übergang Approved → Contacted** ohne bestandenen Dublettencheck
 - Status-Änderungen werden als Events geloggt (Audit-Trail)
 
-### 4.6 Hunter.io Integration
+### 4.6 LinkedIn Integration (3-Tier-Strategie)
+
+Referenz-Implementierung: `docs/adr/inputs/linkedin_oauth/` — produktionsreife Django-App
+mit OAuth 2.0 Flow, Token-Refresh (Celery Beat), CSRF-Schutz und Service-Layer.
+
+#### Tier 1: OAuth Self-Service (Phase 1 — sofort umsetzbar)
+
+Die bestehende `linkedin_oauth` App wird als eigenständige Django-App in den
+recruiting-hub integriert. Verfügbare Funktionen ohne LinkedIn-Partner-Genehmigung:
+
+| Feature | Scope | Nutzen im Recruiting |
+|---------|-------|---------------------|
+| Recruiter-Login via LinkedIn | `openid`, `profile`, `email` | SSO, Identitätsverifikation |
+| Job-Posts veröffentlichen | `w_member_social` | Employer Branding, Stellenanzeigen |
+| Token auto-refresh | — (Celery Beat, 7d Fenster) | Unterbrechungsfreier Betrieb |
+| Token-Status / Introspection | — | Settings-Page, Health-Monitoring |
+
+**Architektur-Anpassungen an Referenz-Code:**
+
+| Bereich | Ist (Referenz) | Soll (recruiting-hub) |
+|---------|---------------|----------------------|
+| Config | `getattr(settings, "LINKEDIN_OAUTH")` | `decouple.config("LINKEDIN_CLIENT_ID")` (ADR-045) |
+| Token-Felder | `TextField` (Klartext) | `EncryptedTextField` (django-fernet-fields) |
+| Rate-Limiting | Nicht implementiert | `tenacity` retry mit exponential backoff |
+| Multi-Tenant | `tenant_id` vorhanden | + RLS-Policy auf `linkedin_oauth_token` Tabelle |
+
+**OAuth-Flow (aus Referenz-Code):**
+
+```
+Recruiter → GET /linkedin/login/
+         → Redirect → LinkedIn Consent Page
+         → LinkedIn → GET /linkedin/callback/?code=X&state=Y
+         → Token in DB (LinkedInToken) → Redirect /dashboard/?li_connected=1
+```
+
+**Celery Beat Schedule:**
+```python
+CELERY_BEAT_SCHEDULE = {
+    "refresh-linkedin-tokens": {
+        "task": "linkedin_oauth.tasks.refresh_expiring_tokens",
+        "schedule": crontab(hour=2, minute=0),  # daily at 02:00
+    },
+}
+```
+
+#### Tier 2: Manueller Import (Phase 1 — Hauptweg für Kandidaten)
+
+LinkedIn bietet **keine öffentliche API** für Kandidatensuche oder Profilzugriff
+Dritter. Der operative Hauptweg für Kandidatendaten:
+
+| Methode | Beschreibung | Aufwand |
+|---------|-------------|--------|
+| CSV-Export aus LinkedIn Recruiter | Recruiter exportiert Kandidatenlisten → Upload in recruiting-hub | Gering |
+| Manuelles Profil-Erfassen | Recruiter kopiert Profildaten in Formular | Gering |
+| Browser-Extension (Zukunft) | One-Click-Import von LinkedIn-Profilseiten | Mittel |
+
+**CSV-Import-Format (zu definieren):**
+- Pflichtfelder: Name, LinkedIn-URL
+- Optional: E-Mail, Firma, Titel, Standort, Skills
+- Duplettencheck automatisch beim Import (E-Mail + LinkedIn-URL)
+
+#### Tier 3: Recruiter System Connect (Langfrist — requires Partnership)
+
+LinkedIn Talent Solutions API (RSC) erfordert LinkedIn-Partner-Status:
+
+| Feature | API | Voraussetzung |
+|---------|-----|---------------|
+| Programmatische Kandidatensuche | People Search API | Partner-Vertrag |
+| InMail senden | Messaging API | Recruiter-Lizenz + Partner |
+| ATS-Sync | Recruiter System Connect | Zertifizierung |
+
+**Entscheidung**: Tier 3 wird als Langfrist-Option dokumentiert, aber NICHT in Phase 1-3
+implementiert. Die Architektur (Adapter-Pattern in `integrations/`) erlaubt spätere
+Ergänzung ohne Refactoring.
+
+### 4.7 Hunter.io Integration
 
 - Import: Kandidaten aus Hunter-Kampagnen → recruiting-hub Pipeline
 - Export: Freigegebene Kandidaten → Hunter-Kampagne
 - Sync: Status-Updates bidirektional (Webhook oder Polling)
 - API-Key pro Tenant in `decouple.config()` (ADR-045)
 
-### 4.7 DSGVO-Architektur (Phase 1 Pflicht!)
+### 4.8 DSGVO-Architektur (Phase 1 Pflicht!)
 
 | Anforderung | Lösung |
 |-------------|--------|
@@ -199,6 +275,7 @@ Sourced → Reviewed → Approved → Contacted → Replied → Interview → Pl
 | # | Deliverable | Abhängigkeit |
 |---|-------------|--------------|
 | 1.1 | Repo-Setup: `/onboard-repo`, Dockerfile, CI/CD, django-tenancy | — |
+| 1.1b | `linkedin_oauth/` App integrieren (aus Referenz, ADR-045 angepasst) | 1.1 |
 | 1.2 | `projects/` App: Suchprojekt CRUD, Stellenbeschreibung | 1.1 |
 | 1.3 | `candidates/` App: Profil-Model, Import (CSV, manuell) | 1.1 |
 | 1.4 | `pipeline/` App: Pipeline-Stufen, Status-Transitions, Approval-Queue | 1.3 |
@@ -253,7 +330,7 @@ Sourced → Reviewed → Approved → Contacted → Replied → Interview → Pl
 ### 7.2 Trade-offs
 
 - **Zusätzliches Repo**: Mehr Repos = mehr Maintenance (CI/CD, Updates, Monitoring)
-- **LinkedIn-Unsicherheit**: Ohne API-Zugang ist manueller Import nötig
+- **LinkedIn-Limitation**: Self-Service OAuth nur für Login + Posts — Kandidatendaten via CSV-Import (Tier 2)
 - **LLM-Kosten**: Scoring und Klassifikation verursachen Token-Kosten pro Candidate
 
 ### 7.3 Nicht in Scope
@@ -269,6 +346,8 @@ Sourced → Reviewed → Approved → Contacted → Replied → Interview → Pl
 
 ### Phase 1
 
+- [ ] LinkedIn OAuth: Recruiter kann sich via LinkedIn verbinden (/linkedin/login/ → callback)
+- [ ] LinkedIn Token-Status auf Settings-Seite sichtbar
 - [ ] Suchprojekt anlegen und Kandidaten importieren (CSV)
 - [ ] Pipeline-Board zeigt Kandidaten in korrekten Stufen
 - [ ] Approval-Queue: Kein Versand ohne manuelles Review
@@ -302,6 +381,7 @@ Sourced → Reviewed → Approved → Contacted → Replied → Interview → Pl
 - **ADR-041**: Django Component Pattern
 - **ADR-048**: HTMX Playbook
 - Outline Idee: [Recruiting-Hub — Multi-Tenant SaaS für Personalberatung](https://knowledge.iil.pet/doc/recruiting-hub-multi-tenant-saas-fur-personalberatung-iRmTBvTO9f)
+- Referenz-Code: `docs/adr/inputs/linkedin_oauth/` (LinkedIn OAuth Django-App)
 
 ---
 
@@ -309,7 +389,7 @@ Sourced → Reviewed → Approved → Contacted → Replied → Interview → Pl
 
 | # | Punkt | Owner | Status |
 |---|-------|-------|--------|
-| OP-1 | LinkedIn-Integrationsstrategie (API vs. Extension vs. CSV) | Achim | 🔍 In Klärung |
+| OP-1 | LinkedIn-Integrationsstrategie → **Entschieden**: 3-Tier (OAuth Self-Service + CSV-Import + RSC langfristig), siehe Section 4.6 | Achim | ✅ Entschieden |
 | OP-2 | Detaillierter Teilprozess Dublettencheck in Hunter | Team | ⬜ Offen |
 | OP-3 | Blacklist-Prüfung: Regeln und Datenmodell | Team | ⬜ Offen |
 | OP-4 | Kriterienlogik Profilbewertung (Score-Dimensionen, Gewichtung) | Team | ⬜ Offen |
@@ -326,3 +406,4 @@ Sourced → Reviewed → Approved → Contacted → Replied → Interview → Pl
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-03-26 | Achim Dehnert | Initial draft — Proposed |
+| 2026-03-26 | Achim Dehnert | LinkedIn-Integration: 3-Tier-Strategie aus Referenz-Code (OP-1 → Entschieden) |
