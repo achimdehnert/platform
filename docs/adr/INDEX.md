@@ -183,6 +183,7 @@
 | 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | 🔶 | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
 | 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | ✅ | [ADR-138](ADR-138-implementation-tracking-standard.md) |
 | 148 | Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub | `Proposed` | ⬜ | [ADR-148](ADR-148-recruiting-hub-architecture.md) |
+| 149 | Adopt d.velop Cloud DMS as Platform Document Archive Service (dms-hub) | `Accepted` | 🔶 | [ADR-149](ADR-149-dms-hub-dvelop-platform-service.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

@@ -253,6 +253,9 @@ Each deploy acquires a file lock at `/tmp/deploy-<app>.lock` to prevent concurre
 | 8085 | dev-hub | devhub.iil.pet |
 | 8088 | bfagent | bfagent.iil.pet |
 | 8090 | risk-hub | demo.schutztat.de |
+| 8092 | billing-hub | billing.iil.pet |
+| 8103 | recruiting-hub | TBD |
+| 8107 | dms-hub | dms.iil.pet |
 
 **Rule**: New projects pick the next available port in the 80xx range. Update this table.
 
