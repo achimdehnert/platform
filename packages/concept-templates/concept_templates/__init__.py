@@ -3,7 +3,7 @@
 See ADR-147 for architecture decisions.
 """
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 from concept_templates.schemas import (
     AnalysisResult,
