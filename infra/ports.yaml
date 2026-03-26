@@ -147,7 +147,7 @@ services:
   recruiting-hub:
     prod: 8103
     staging: null
-    domain_prod: null  # TBD (ADR-148 OP-8)
+    domain_prod: hr.iil.pet
     domain_staging: null
     repo: achimdehnert/recruiting-hub
 
