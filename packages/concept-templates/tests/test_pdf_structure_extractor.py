@@ -1,6 +1,7 @@
 """Tests for pdf_structure_extractor module."""
 
 from concept_templates.pdf_structure_extractor import (
+    _filter_sequential_headings,
     _is_valid_heading,
     analyze_section_content,
     clean_toc_title,
@@ -373,3 +374,159 @@ class TestRegressionPostalCodeAsHeading:
         # No PLZ sections
         assert not any("89077" in t for t in titles)
         assert not any("89079" in t for t in titles)
+
+
+class TestLetterHeadings:
+    """Letter headings (A. B. C. D. E.) from PDF TOC."""
+
+    def test_should_detect_letter_headings(self):
+        text = (
+            "A. Angaben des Betriebsbereichs\n"
+            "Betreiber: Firma Mustermann GmbH\n"
+            "B. Betrachtete Anlage\n"
+            "Wasserstoff-Elektrolyse im Gebäude 3.\n"
+            "C. Rechtliche Grundlagen\n"
+            "GefStoffV, BetrSichV, TRGS 720.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+        assert len(template.sections) == 3
+        assert "A. Angaben des Betriebsbereichs" in titles
+        assert "B. Betrachtete Anlage" in titles
+        assert "C. Rechtliche Grundlagen" in titles
+
+    def test_should_mix_letter_and_number_headings(self):
+        text = (
+            "A. Betreiber\n"
+            "Viktor Rempel, Master of Engineering\n"
+            "B. Betrachtete Anlage\n"
+            "Wasserstoff-Elektrolyse.\n"
+            "1 Anlagenbeschreibung\n"
+            "Die Anlage befindet sich...\n"
+            "2 Gefährdungsbeurteilung\n"
+            "Entsprechend § 6 GefStoffV.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+        assert len(template.sections) == 4
+        assert "A. Betreiber" in titles
+        assert "B. Betrachtete Anlage" in titles
+        assert any("Anlagenbeschreibung" in t for t in titles)
+
+    def test_should_use_letter_as_section_name(self):
+        text = (
+            "A. Betreiber\n"
+            "Content.\n"
+        )
+        template = extract_structure_from_text(text)
+        assert template.sections[0].name == "section_a"
+
+
+class TestSequentialFilter:
+    """Sequential monotonicity filter for table row numbers."""
+
+    def test_should_reject_backward_number_after_section_4(self):
+        """After section 4, numbers 1/2/3 are table rows, not headings.
+
+        This is the key regression from Fig 6: pdfplumber extracts
+        table rows without column separators, so they look like
+        '1 Im Raum Keine Notmaßnahmen...' which passes
+        _is_valid_heading but fails the sequential check.
+        """
+        text = (
+            "4 Zoneneinteilung\n"
+            "Für die geplanten Bereiche wurde eine "
+            "Zoneneinteilung vorgenommen.\n"
+            "1 Im Raum Keine Notmaßnahmen "
+            "siehe Punkt 3.2 Ausfall von Stickstoff\n"
+            "2 Keine Fackel verbrennt somit kann "
+            "auch im Störfall keine Ex Zone au-\n"
+            "3 Seitlich an den Keine Durch "
+            "kontrollierte Zugabe von Stickstoff\n"
+            "5 Arbeitsmittel\n"
+            "Alle Arbeitsmittel kommen zum Einsatz.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+        # Should be 2 sections: 4 + 5, NOT 4 + 1 + 2 + 3 + 5
+        assert len(template.sections) == 2
+        assert any("Zoneneinteilung" in t for t in titles)
+        assert any("Arbeitsmittel" in t for t in titles)
+        # Table rows must NOT appear as sections
+        assert not any(
+            "Im Raum" in t for t in titles
+        )
+
+    def test_should_allow_subsections_after_parent(self):
+        """3.1 and 3.2 after section 3 are valid subsections."""
+        text = (
+            "3 Explosionsschutzkonzept\n"
+            "Überblick über Schutzmaßnahmen.\n"
+            "3.1 Zoneneinteilung\n"
+            "Zone 1 und Zone 2.\n"
+            "3.2 Schutzmaßnahmen\n"
+            "Primärer und sekundärer Schutz.\n"
+            "4 Zoneneinteilung\n"
+            "Detaillierte Beschreibung.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+        assert len(template.sections) == 4
+        assert any("3.1" in t for t in titles)
+        assert any("3.2" in t for t in titles)
+
+
+class TestFullDocumentExtraction:
+    """Integration test mimicking the real PDF structure."""
+
+    def test_should_parse_full_ex_document(self):
+        text = (
+            "Inhaltsverzeichnis\n"
+            "A. Angaben des Betriebsbereichs ............. 4\n"
+            "B. Betrachtete Anlage ............. 4\n"
+            "C. Rechtliche Grundlagen ............. 4\n"
+            "D. Mitgeltende Dokumente ............. 6\n"
+            "E. Begriffe ............. 6\n"
+            "1 Anlagenbeschreibung ............. 7\n"
+            "2 Gefährdungsbeurteilung ............. 8\n"
+            "3 Explosionsschutzkonzept ............. 9\n"
+            "4 Zoneneinteilung ............. 14\n"
+            "5 Arbeitsmittel ............. 18\n"
+            "\n"
+            "A. Angaben des Betriebsbereichs\n"
+            "Erstellt durch: Viktor Rempel\n"
+            "Nr.\tName\tAdresse\n"
+            "1\tFirma Mustermann\tMusterstr. 12\n"
+            "B. Betrachtete Anlage\n"
+            "Wasserstoff-Elektrolyse im Gebäude 3.\n"
+            "1 Anlagenbeschreibung\n"
+            "Die Anlage befindet sich...\n"
+            "2 Gefährdungsbeurteilung\n"
+            "Entsprechend § 6 GefStoffV.\n"
+            "3 Explosionsschutzkonzept\n"
+            "Überblick über Schutzmaßnahmen.\n"
+            "3.1 Zonenvermeidung\n"
+            "Primärer Schutz.\n"
+            "4 Zoneneinteilung\n"
+            "Für die geplanten Bereiche.\n"
+            "1 Im Raum Keine Notmaßnahmen\n"
+            "2 Oberhalb Keine Fackel verbrennt\n"
+            "3 Seitlich Keine Kontrollierte Zugabe\n"
+            "5 Arbeitsmittel\n"
+            "Alle Arbeitsmittel.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+
+        # Letter headings detected
+        assert any("A." in t for t in titles)
+        assert any("B." in t for t in titles)
+
+        # Number headings detected
+        assert any("Anlagenbeschreibung" in t for t in titles)
+        assert any("Zoneneinteilung" in t for t in titles)
+        assert any("Arbeitsmittel" in t for t in titles)
+
+        # Table rows NOT detected as headings
+        assert not any("Im Raum" in t for t in titles)
+        assert not any("Oberhalb" in t for t in titles)

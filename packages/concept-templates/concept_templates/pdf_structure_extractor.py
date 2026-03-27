@@ -232,6 +232,39 @@ def analyze_section_content(content: str) -> list[TemplateField]:
     return fields
 
 
+def _filter_sequential_headings(
+    candidates: list[tuple[re.Match, str, str]],
+) -> list[tuple[re.Match, str, str]]:
+    """Filter heading candidates by sequential monotonicity.
+
+    Real document headings increase monotonically (1, 2, 3, 4, 5).
+    Table row numbers restart from 1 inside a section.
+    If we see a top-level number that goes backward (e.g. 4 → 1),
+    reject it as a table row — unless it's a subsection (e.g. 4.1).
+    """
+    result = []
+    max_top = 0
+
+    for m, num, title in candidates:
+        parts = num.split(".")
+        top = int(parts[0])
+
+        # Top-level heading: must not go backward
+        if len(parts) == 1 and top < max_top:
+            logger.debug(
+                "Rejected heading '%s %s' — number %d < max %d",
+                num, title, top, max_top,
+            )
+            continue
+
+        if len(parts) == 1:
+            max_top = max(max_top, top)
+
+        result.append((m, num, title))
+
+    return result
+
+
 def extract_structure_from_text(
     text: str,
     *,
@@ -241,11 +274,11 @@ def extract_structure_from_text(
 ) -> ConceptTemplate:
     """Convert extracted PDF text into a ConceptTemplate.
 
-    Two-pass approach:
-    1. Find all candidate headings via regex
+    Three-pass approach:
+    1. Find all candidate headings via regex (numbered + lettered)
     2. Validate each candidate (filter false positives)
-    3. Parse content blocks between validated headings
-    4. Analyze content for field types (text, table, mixed)
+    3. Filter by sequential monotonicity (reject table row resets)
+    4. Parse content blocks and analyze field types
 
     Args:
         text: The extracted PDF text.
@@ -257,17 +290,21 @@ def extract_structure_from_text(
         A ConceptTemplate with sections and typed fields.
     """
     sections: list[TemplateSection] = []
-    heading_pattern = re.compile(
+
+    # Pattern 1: Numeric headings (1, 2, 3.1, etc.)
+    num_pattern = re.compile(
         r"^(\d+(?:\.\d+)*\.?)\s+(.+)$",
         re.MULTILINE,
     )
+    # Pattern 2: Letter headings (A., B., C., etc.)
+    letter_pattern = re.compile(
+        r"^([A-Z])\.\s+(.+)$",
+        re.MULTILINE,
+    )
 
-    # Pass 1: Collect all candidates
-    all_matches = list(heading_pattern.finditer(text))
-
-    # Pass 2: Filter to valid headings only
-    valid_matches = []
-    for m in all_matches:
+    # Pass 1a: Collect numeric candidates
+    num_candidates = []
+    for m in num_pattern.finditer(text):
         num = m.group(1).rstrip(".")
         raw_title = m.group(2).strip()
         title = clean_toc_title(raw_title)
@@ -278,16 +315,42 @@ def extract_structure_from_text(
         if not _is_valid_heading(num, title, full_line):
             continue
 
-        valid_matches.append((m, num, title))
+        num_candidates.append((m, num, title))
 
-    if valid_matches:
-        for i, (m, num, title) in enumerate(valid_matches):
-            section_name = f"section_{num.replace('.', '_')}"
+    # Pass 2: Sequential monotonicity filter
+    num_candidates = _filter_sequential_headings(num_candidates)
+
+    # Pass 1b: Collect letter candidates
+    letter_candidates = []
+    for m in letter_pattern.finditer(text):
+        letter = m.group(1)
+        raw_title = m.group(2).strip()
+        title = clean_toc_title(raw_title)
+        if not title:
+            continue
+        # Letter headings use letter as section identifier
+        letter_candidates.append((m, letter, title))
+
+    # Merge candidates sorted by position in text
+    all_valid = sorted(
+        num_candidates + letter_candidates,
+        key=lambda x: x[0].start(),
+    )
+
+    if all_valid:
+        for i, (m, num, title) in enumerate(all_valid):
+            # Build section name
+            if num.isalpha():
+                section_name = f"section_{num.lower()}"
+                display_title = f"{num}. {title}"
+            else:
+                section_name = f"section_{num.replace('.', '_')}"
+                display_title = f"{num}. {title}"
 
             # Content between this heading and the next
             start = m.end()
-            if i + 1 < len(valid_matches):
-                end = valid_matches[i + 1][0].start()
+            if i + 1 < len(all_valid):
+                end = all_valid[i + 1][0].start()
             else:
                 end = len(text)
             content = text[start:end].strip()
@@ -297,7 +360,7 @@ def extract_structure_from_text(
             sections.append(
                 TemplateSection(
                     name=section_name,
-                    title=f"{num}. {title}",
+                    title=display_title,
                     order=i + 1,
                     fields=fields,
                 ),
