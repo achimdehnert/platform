@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Vorlage aus PDF erstellen{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <div class="flex items-center space-x-4 mb-6">
+    <a href="{% url 'doc_templates:template-list' %}" class="text-gray-400 hover:text-gray-600">&larr;</a>
+    <h1 class="text-2xl font-bold text-gray-900">Vorlage aus PDF erstellen</h1>
+  </div>
+
+  <div class="bg-white rounded-xl border border-gray-200 p-6">
+    <p class="text-sm text-gray-500 mb-4">
+      Laden Sie ein bestehendes Dokument (PDF) hoch.
+      Die Struktur wird automatisch erkannt und als editierbare Vorlage erstellt.
+    </p>
+
+    <form method="post" enctype="multipart/form-data" class="space-y-4">
+      {% csrf_token %}
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">PDF-Datei</label>
+        <input type="file" name="pdf_file" accept=".pdf" required
+               class="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Name der Vorlage</label>
+        <input type="text" name="name" placeholder="Leer lassen = Dateiname wird verwendet"
+               class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Fachbereich</label>
+        <input type="text" name="scope" list="scope-options" placeholder="z.B. explosionsschutz, brandschutz"
+               class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+        <datalist id="scope-options">
+          <option value="explosionsschutz">
+          <option value="brandschutz">
+          <option value="gbu">
+          <option value="risk">
+        </datalist>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung (optional)</label>
+        <textarea name="description" rows="2"
+                  class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                  placeholder="Kurze Beschreibung der Vorlage..."></textarea>
+      </div>
+      <div class="flex justify-end gap-3 pt-2">
+        <a href="{% url 'doc_templates:template-list' %}" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700">Abbrechen</a>
+        <button type="submit" class="px-5 py-2.5 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium">
+          Hochladen &amp; Vorlage erstellen
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}

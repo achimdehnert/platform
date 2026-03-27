@@ -1,0 +1,37 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iil-doc-templates"
+version = "0.1.0"
+description = "Reusable Django document template system — create, edit, fill templates with PDF extraction and LLM prefill"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "LicenseRef-Proprietary"
+authors = [{ name = "Achim Dehnert", email = "achim.dehnert@iil.gmbh" }]
+dependencies = [
+    "django>=4.2",
+    "iil-concept-templates>=0.4.0",
+]
+
+[project.optional-dependencies]
+tenancy = ["iil-django-tenancy>=0.3.0"]
+llm = ["iil-aifw>=0.5.0"]
+pdf = ["pdfplumber>=0.10"]
+all = ["iil-doc-templates[tenancy,llm,pdf]"]
+dev = ["pytest", "pytest-django", "ruff"]
+
+[tool.hatch.build.targets.wheel]
+packages = ["doc_templates"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+pythonpath = ["."]

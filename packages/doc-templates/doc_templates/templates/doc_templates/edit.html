@@ -1,0 +1,379 @@
+{% extends "base.html" %}
+{% block title %}Vorlage bearbeiten: {{ tmpl.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <div class="flex items-center space-x-4 mb-6">
+    <a href="{% url 'doc_templates:template-list' %}" class="text-gray-400 hover:text-gray-600">&larr;</a>
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Vorlage bearbeiten</h1>
+      <p class="text-sm text-gray-500">
+        {{ tmpl.section_count }} Abschnitte, {{ tmpl.field_count }} Felder
+        {% if tmpl.source_filename %} — Quelle: {{ tmpl.source_filename }}{% endif %}
+      </p>
+    </div>
+    <div class="ml-auto">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+        {% if tmpl.status == 'accepted' %}bg-green-100 text-green-800
+        {% elif tmpl.status == 'draft' %}bg-yellow-100 text-yellow-800
+        {% else %}bg-gray-100 text-gray-800{% endif %}">
+        {{ tmpl.get_status_display }}
+      </span>
+    </div>
+  </div>
+
+  <form method="post" id="template-form" class="space-y-6">
+    {% csrf_token %}
+    <input type="hidden" name="structure_json" id="structure-json" value="">
+
+    {# ─ Metadaten ─────────────────────────────────────────── #}
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">Metadaten</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Name *</label>
+          <input type="text" name="name" value="{{ tmpl.name }}" required
+                 class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select name="status" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+            <option value="draft" {% if tmpl.status == 'draft' %}selected{% endif %}>Entwurf</option>
+            <option value="accepted" {% if tmpl.status == 'accepted' %}selected{% endif %}>Akzeptiert</option>
+            <option value="archived" {% if tmpl.status == 'archived' %}selected{% endif %}>Archiviert</option>
+          </select>
+        </div>
+      </div>
+      <div class="mt-4">
+        <label class="block text-sm font-medium text-gray-700 mb-1">Beschreibung</label>
+        <textarea name="description" rows="2"
+                  class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">{{ tmpl.description }}</textarea>
+      </div>
+    </div>
+
+    {# ─ Interaktiver Template-Editor ──────────────────────── #}
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Template-Struktur</h2>
+        <button type="button" onclick="addSection()"
+                class="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium">
+          + Abschnitt
+        </button>
+      </div>
+
+      <div id="sections-container" class="space-y-4">
+        {# Rendered by JavaScript #}
+      </div>
+
+      <div id="empty-state" class="hidden text-center py-8 text-gray-400 text-sm">
+        Keine Abschnitte vorhanden. Klicken Sie auf "+ Abschnitt" um zu beginnen.
+      </div>
+    </div>
+
+    {# ─ JSON Debug (collapsed) ────────────────────────────── #}
+    <details class="bg-white rounded-xl border border-gray-200">
+      <summary class="p-4 cursor-pointer text-xs font-medium text-gray-400 uppercase tracking-wide hover:text-gray-600">
+        JSON-Ansicht (Debug)
+      </summary>
+      <div class="px-4 pb-4">
+        <pre id="json-debug" class="text-xs font-mono text-gray-500 bg-gray-50 rounded-lg p-3 max-h-64 overflow-auto whitespace-pre-wrap"></pre>
+      </div>
+    </details>
+
+    {# ─ Aktionen ──────────────────────────────────────────── #}
+    <div class="flex items-center justify-between">
+      <div class="flex gap-2">
+        <a href="{% url 'doc_templates:template-list' %}"
+           class="text-sm text-gray-500 hover:text-gray-700">Zurück zur Liste</a>
+        <span class="text-gray-300">|</span>
+        <a href="{% url 'doc_templates:instance-create' template_pk=tmpl.pk %}"
+           class="text-sm text-green-600 hover:text-green-800">Dokument aus dieser Vorlage erstellen</a>
+      </div>
+      <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Speichern
+      </button>
+    </div>
+  </form>
+
+</div>
+
+{{ structure|json_script:"structure-data" }}
+<script>
+// ── Field type definitions ──────────────────────────────────
+const FIELD_TYPES = [
+  { value: 'textarea', label: 'Freitext', icon: '📝' },
+  { value: 'table', label: 'Tabelle', icon: '📊' },
+  { value: 'text', label: 'Kurztext', icon: '✏️' },
+  { value: 'number', label: 'Zahl', icon: '#' },
+  { value: 'date', label: 'Datum', icon: '📅' },
+  { value: 'boolean', label: 'Ja/Nein', icon: '☑' },
+];
+
+// ── State ───────────────────────────────────────────────────
+let structure = JSON.parse(document.getElementById('structure-data').textContent);
+if (!structure || !structure.sections) structure = { sections: [] };
+
+// ── Render ──────────────────────────────────────────────────
+function render() {
+  const container = document.getElementById('sections-container');
+  const emptyState = document.getElementById('empty-state');
+
+  if (structure.sections.length === 0) {
+    container.innerHTML = '';
+    emptyState.classList.remove('hidden');
+    syncJson();
+    return;
+  }
+  emptyState.classList.add('hidden');
+
+  container.innerHTML = structure.sections.map((section, si) => `
+    <div class="border border-gray-200 rounded-lg" data-section="${si}"
+         draggable="true" ondragstart="onDragStart(event, ${si})" ondragover="onDragOver(event)" ondragenter="onDragEnter(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, ${si})" ondragend="onDragEnd(event)">
+      <!-- Section Header -->
+      <div class="bg-gray-50 px-4 py-3 flex items-center gap-2 rounded-t-lg">
+        <span class="text-gray-400 cursor-grab active:cursor-grabbing select-none" title="Verschieben">☰</span>
+        <input type="text" value="${esc(section.label)}"
+               onchange="updateSectionLabel(${si}, this.value)"
+               class="flex-1 bg-transparent border-0 text-sm font-semibold text-gray-800 focus:ring-0 p-0"
+               placeholder="Abschnittstitel">
+        <span class="text-xs text-gray-400">${section.fields ? section.fields.length : 0} Felder</span>
+        <button type="button" onclick="moveSection(${si}, -1)" class="text-gray-400 hover:text-gray-600 text-xs p-1" title="Nach oben"${si === 0 ? ' disabled' : ''}>▲</button>
+        <button type="button" onclick="moveSection(${si}, 1)" class="text-gray-400 hover:text-gray-600 text-xs p-1" title="Nach unten"${si === structure.sections.length - 1 ? ' disabled' : ''}>▼</button>
+        <button type="button" onclick="deleteSection(${si})" class="text-red-400 hover:text-red-600 text-xs p-1" title="Löschen">✕</button>
+      </div>
+
+      <!-- Fields -->
+      <div class="px-4 py-3 space-y-2">
+        ${(section.fields || []).map((field, fi) => renderField(si, fi, field)).join('')}
+
+        <button type="button" onclick="addField(${si})"
+                class="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-xs text-gray-400 hover:text-gray-600 hover:border-gray-300">
+          + Feld hinzufügen
+        </button>
+      </div>
+    </div>
+  `).join('');
+
+  syncJson();
+}
+
+function renderField(si, fi, field) {
+  const typeInfo = FIELD_TYPES.find(t => t.value === field.type) || FIELD_TYPES[0];
+  const isTable = field.type === 'table';
+  const cols = field.columns || [];
+
+  return `
+    <div class="flex items-start gap-2 p-2 rounded-lg bg-white border border-gray-100 hover:border-gray-200 group">
+      <div class="flex-1 space-y-2">
+        <div class="flex items-center gap-2">
+          <input type="text" value="${esc(field.label)}"
+                 onchange="updateFieldLabel(${si}, ${fi}, this.value)"
+                 class="flex-1 bg-transparent border-0 text-sm text-gray-700 focus:ring-0 p-0"
+                 placeholder="Feldbezeichnung">
+          <select onchange="updateFieldType(${si}, ${fi}, this.value)"
+                  class="border-0 bg-gray-50 text-xs rounded-md text-gray-600 focus:ring-1 focus:ring-blue-300 py-1 pr-6">
+            ${FIELD_TYPES.map(t => `<option value="${t.value}" ${t.value === field.type ? 'selected' : ''}>${t.icon} ${t.label}</option>`).join('')}
+          </select>
+          <button type="button" onclick="deleteField(${si}, ${fi})"
+                  class="text-red-300 hover:text-red-500 text-xs p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+                  title="Feld löschen">✕</button>
+        </div>
+        ${isTable ? renderTableColumnsEditor(si, fi, cols) : ''}
+        ${field.type === 'textarea' && field.default ? `<div class="text-xs text-gray-400 truncate max-w-md" title="Vorausgefüllter Inhalt">📄 ${esc(field.default.substring(0, 80))}…</div>` : ''}
+        ${field.type === 'date' ? '<div class="text-xs text-gray-400">📅 Datumsfeld</div>' : ''}
+        ${field.type === 'boolean' ? '<div class="text-xs text-gray-400">☑ Ja/Nein-Schalter</div>' : ''}
+      </div>
+      <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button type="button" onclick="moveField(${si}, ${fi}, -1)" class="text-gray-300 hover:text-gray-500 text-xs"${fi === 0 ? ' disabled' : ''}>▲</button>
+        <button type="button" onclick="moveField(${si}, ${fi}, 1)" class="text-gray-300 hover:text-gray-500 text-xs"${fi === (structure.sections[si].fields || []).length - 1 ? ' disabled' : ''}>▼</button>
+      </div>
+    </div>`;
+}
+
+function renderTableColumnsEditor(si, fi, cols) {
+  return `
+    <div class="mt-1 flex flex-wrap gap-1 items-center">
+      <span class="text-xs text-gray-400">Spalten:</span>
+      ${cols.map((col, ci) => `
+        <span class="inline-flex items-center gap-0.5 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs group/col">
+          <input type="text" value="${esc(col)}"
+                 onchange="updateColumn(${si}, ${fi}, ${ci}, this.value)"
+                 class="bg-transparent border-0 text-xs text-blue-700 focus:ring-0 p-0 w-auto min-w-[3rem]"
+                 style="width: ${Math.max(3, col.length * 0.6)}rem"
+                 placeholder="Spalte">
+          <button type="button" onclick="deleteColumn(${si}, ${fi}, ${ci})"
+                  class="text-blue-300 hover:text-red-500 text-xs opacity-0 group-hover/col:opacity-100">✕</button>
+        </span>
+      `).join('')}
+      <button type="button" onclick="addColumn(${si}, ${fi})"
+              class="px-1.5 py-0.5 text-xs text-blue-400 hover:text-blue-600 border border-dashed border-blue-200 rounded">+</button>
+    </div>`;
+}
+
+// ── Section CRUD ────────────────────────────────────────────
+function addSection() {
+  const idx = structure.sections.length + 1;
+  structure.sections.push({
+    key: 'section_' + idx,
+    label: idx + '. Neuer Abschnitt',
+    fields: [{
+      key: 'inhalt', label: 'Inhalt', type: 'textarea', required: false,
+    }],
+  });
+  render();
+}
+
+function deleteSection(si) {
+  if (!confirm('Abschnitt "' + structure.sections[si].label + '" wirklich löschen?')) return;
+  structure.sections.splice(si, 1);
+  render();
+}
+
+function moveSection(si, direction) {
+  const target = si + direction;
+  if (target < 0 || target >= structure.sections.length) return;
+  const tmp = structure.sections[si];
+  structure.sections[si] = structure.sections[target];
+  structure.sections[target] = tmp;
+  render();
+}
+
+function updateSectionLabel(si, value) {
+  structure.sections[si].label = value;
+  syncJson();
+}
+
+// ── Field CRUD ──────────────────────────────────────────────
+function addField(si) {
+  if (!structure.sections[si].fields) structure.sections[si].fields = [];
+  const idx = structure.sections[si].fields.length + 1;
+  structure.sections[si].fields.push({
+    key: 'feld_' + idx, label: 'Neues Feld', type: 'textarea', required: false,
+  });
+  render();
+}
+
+function deleteField(si, fi) {
+  structure.sections[si].fields.splice(fi, 1);
+  render();
+}
+
+function moveField(si, fi, direction) {
+  const fields = structure.sections[si].fields;
+  const target = fi + direction;
+  if (target < 0 || target >= fields.length) return;
+  const tmp = fields[fi];
+  fields[fi] = fields[target];
+  fields[target] = tmp;
+  render();
+}
+
+function updateFieldLabel(si, fi, value) {
+  structure.sections[si].fields[fi].label = value;
+  structure.sections[si].fields[fi].key = value.toLowerCase()
+    .replace(/[äÄ]/g, 'ae').replace(/[öÖ]/g, 'oe').replace(/[üÜ]/g, 'ue').replace(/ß/g, 'ss')
+    .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+  syncJson();
+}
+
+function updateFieldType(si, fi, newType) {
+  const field = structure.sections[si].fields[fi];
+  const oldType = field.type;
+  field.type = newType;
+  if (newType === 'table' && !field.columns) {
+    field.columns = ['Spalte 1', 'Spalte 2', 'Spalte 3'];
+  }
+  if (oldType === 'table' && newType !== 'table') {
+    delete field.columns;
+    delete field.default_rows;
+  }
+  render();
+}
+
+// ── Table column CRUD ───────────────────────────────────────
+function addColumn(si, fi) {
+  const field = structure.sections[si].fields[fi];
+  if (!field.columns) field.columns = [];
+  field.columns.push('Spalte ' + (field.columns.length + 1));
+  render();
+}
+
+function deleteColumn(si, fi, ci) {
+  structure.sections[si].fields[fi].columns.splice(ci, 1);
+  render();
+}
+
+function updateColumn(si, fi, ci, value) {
+  structure.sections[si].fields[fi].columns[ci] = value;
+  syncJson();
+}
+
+// ── Sync & Helpers ──────────────────────────────────────────
+function syncJson() {
+  const jsonStr = JSON.stringify(structure, null, 2);
+  document.getElementById('structure-json').value = JSON.stringify(structure);
+  document.getElementById('json-debug').textContent = jsonStr;
+}
+
+function esc(str) {
+  if (!str) return '';
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML.replace(/"/g, '&quot;');
+}
+
+// ── Drag & Drop (native HTML5) ──────────────────────────────
+let dragSrcIdx = null;
+
+function onDragStart(e, si) {
+  dragSrcIdx = si;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', si);
+  requestAnimationFrame(() => e.target.classList.add('opacity-40'));
+}
+
+function onDragOver(e) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+}
+
+function onDragEnter(e) {
+  const sec = e.target.closest('[data-section]');
+  if (sec) sec.classList.add('ring-2', 'ring-blue-400');
+}
+
+function onDragLeave(e) {
+  const sec = e.target.closest('[data-section]');
+  if (sec && !sec.contains(e.relatedTarget)) {
+    sec.classList.remove('ring-2', 'ring-blue-400');
+  }
+}
+
+function onDrop(e, targetIdx) {
+  e.preventDefault();
+  const sec = e.target.closest('[data-section]');
+  if (sec) sec.classList.remove('ring-2', 'ring-blue-400');
+  if (dragSrcIdx === null || dragSrcIdx === targetIdx) return;
+  const moved = structure.sections.splice(dragSrcIdx, 1)[0];
+  structure.sections.splice(targetIdx, 0, moved);
+  dragSrcIdx = null;
+  render();
+}
+
+function onDragEnd(e) {
+  e.target.classList.remove('opacity-40');
+  document.querySelectorAll('[data-section]').forEach(el => {
+    el.classList.remove('ring-2', 'ring-blue-400');
+  });
+  dragSrcIdx = null;
+}
+
+// ── Init ────────────────────────────────────────────────────
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', render);
+} else {
+  render();
+}
+</script>
+{% endblock %}

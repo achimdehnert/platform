@@ -1,0 +1,145 @@
+{% extends "base.html" %}
+{% block title %}Dokumentvorlagen{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Dokumentvorlagen</h1>
+      <p class="text-sm text-gray-500 mt-1">Vorlagen und Dokumente verwalten</p>
+    </div>
+    <div class="flex gap-2">
+      <a href="{% url 'doc_templates:template-upload' %}"
+         class="inline-flex items-center px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 text-sm font-medium">
+        PDF hochladen
+      </a>
+      <a href="{% url 'doc_templates:template-create' %}"
+         class="inline-flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Leere Vorlage
+      </a>
+    </div>
+  </div>
+
+  {# ─ Vorlagen ──────────────────────────────────────────────── #}
+  <div class="mb-8">
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+      Vorlagen ({{ templates|length }})
+    </h2>
+    {% if templates %}
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Name</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Abschnitte</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Felder</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Status</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Quelle</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Aktualisiert</th>
+            <th class="px-4 py-2"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for tmpl in templates %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-4 py-3 font-medium">
+              <a href="{% url 'doc_templates:template-edit' pk=tmpl.pk %}" class="text-blue-600 hover:underline">
+                {{ tmpl.name|truncatechars:50 }}
+              </a>
+              {% if tmpl.scope %}
+              <span class="ml-1 text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">{{ tmpl.scope }}</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-600">{{ tmpl.section_count }}</td>
+            <td class="px-4 py-3 text-gray-600">{{ tmpl.field_count }}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                {% if tmpl.status == 'accepted' %}bg-green-100 text-green-800
+                {% elif tmpl.status == 'draft' %}bg-yellow-100 text-yellow-800
+                {% else %}bg-gray-100 text-gray-800{% endif %}">
+                {{ tmpl.get_status_display }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-gray-400 text-xs">
+              {% if tmpl.source_filename %}{{ tmpl.source_filename|truncatechars:20 }}{% else %}Manuell{% endif %}
+            </td>
+            <td class="px-4 py-3 text-gray-400 text-xs">{{ tmpl.updated_at|date:"d.m.Y H:i" }}</td>
+            <td class="px-4 py-3 text-right space-x-2">
+              <a href="{% url 'doc_templates:instance-create' template_pk=tmpl.pk %}"
+                 class="text-xs text-green-600 hover:underline">Dokument erstellen</a>
+              <a href="{% url 'doc_templates:template-edit' pk=tmpl.pk %}"
+                 class="text-xs text-blue-600 hover:underline">Bearbeiten</a>
+              <form method="post" action="{% url 'doc_templates:template-delete' pk=tmpl.pk %}"
+                    onsubmit="return confirm('Vorlage löschen?');" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-xs text-red-600 hover:underline">Löschen</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center">
+      <p class="text-gray-500">Noch keine Vorlagen vorhanden.</p>
+      <p class="text-sm text-gray-400 mt-1">Laden Sie ein PDF hoch oder erstellen Sie eine leere Vorlage.</p>
+    </div>
+    {% endif %}
+  </div>
+
+  {# ─ Dokumente ─────────────────────────────────────────────── #}
+  {% if instances %}
+  <div class="mb-8">
+    <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+      Dokumente ({{ instances|length }})
+    </h2>
+    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <table class="w-full text-sm">
+        <thead class="bg-gray-50">
+          <tr>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Dokument</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Vorlage</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Status</th>
+            <th class="text-left px-4 py-2 text-gray-600 font-medium">Aktualisiert</th>
+            <th class="px-4 py-2"></th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for inst in instances %}
+          <tr class="hover:bg-gray-50 transition-colors">
+            <td class="px-4 py-3 font-medium">
+              <a href="{% url 'doc_templates:instance-edit' pk=inst.pk %}" class="text-blue-600 hover:underline">
+                {{ inst.name|truncatechars:50 }}
+              </a>
+            </td>
+            <td class="px-4 py-3 text-gray-600">{{ inst.template.name|truncatechars:30 }}</td>
+            <td class="px-4 py-3">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium
+                {% if inst.status == 'approved' %}bg-green-100 text-green-800
+                {% elif inst.status == 'review' %}bg-blue-100 text-blue-800
+                {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+                {{ inst.get_status_display }}
+              </span>
+            </td>
+            <td class="px-4 py-3 text-gray-400 text-xs">{{ inst.updated_at|date:"d.m.Y H:i" }}</td>
+            <td class="px-4 py-3 text-right space-x-2">
+              <a href="{% url 'doc_templates:instance-edit' pk=inst.pk %}"
+                 class="text-xs text-blue-600 hover:underline">Bearbeiten</a>
+              <form method="post" action="{% url 'doc_templates:instance-delete' pk=inst.pk %}"
+                    onsubmit="return confirm('Dokument löschen?');" class="inline">
+                {% csrf_token %}
+                <button type="submit" class="text-xs text-red-600 hover:underline">Löschen</button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
