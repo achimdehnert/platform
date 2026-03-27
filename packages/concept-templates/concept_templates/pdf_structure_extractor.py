@@ -265,44 +265,250 @@ def _filter_sequential_headings(
     return result
 
 
-def extract_structure_from_text(
+# ─── TOC Detection ─────────────────────────────────────────────
+
+
+_TOC_HEADER_PATTERN = re.compile(
+    r"^(Inhaltsverzeichnis|Inhalt|Table of Contents)\s*$",
+    re.MULTILINE | re.IGNORECASE,
+)
+
+# TOC entry: "A. Title ......... 4" or "3.1 Title ... 12"
+_TOC_ENTRY_NUM = re.compile(
+    r"^(\d+(?:\.\d+)*\.?)\s+(.+)$",
+    re.MULTILINE,
+)
+_TOC_ENTRY_LETTER = re.compile(
+    r"^([A-Z])\.\s+(.+)$",
+    re.MULTILINE,
+)
+
+
+def _detect_toc(
     text: str,
-    *,
-    name: str = "Aus PDF extrahiert",
-    scope: str = "explosionsschutz",
-    version: str = "1.0",
-) -> ConceptTemplate:
-    """Convert extracted PDF text into a ConceptTemplate.
+) -> list[tuple[str, str]] | None:
+    """Detect Table of Contents and return ordered list of (id, title).
 
-    Three-pass approach:
-    1. Find all candidate headings via regex (numbered + lettered)
-    2. Validate each candidate (filter false positives)
-    3. Filter by sequential monotonicity (reject table row resets)
-    4. Parse content blocks and analyze field types
+    Returns list of (identifier, clean_title) tuples in TOC order,
+    or None if no TOC detected.
 
-    Args:
-        text: The extracted PDF text.
-        name: Template name.
-        scope: Concept scope (e.g. 'explosionsschutz').
-        version: Template version string.
+    Identifier is either a number string ("3.1") or a letter ("A").
+    """
+    toc_match = _TOC_HEADER_PATTERN.search(text)
+    if not toc_match:
+        return None
 
-    Returns:
-        A ConceptTemplate with sections and typed fields.
+    # TOC usually ends at the first real content heading or blank block
+    toc_start = toc_match.end()
+
+    # Find where TOC ends: look for a large gap or a repeated heading
+    # Heuristic: TOC entries have dot leaders or page numbers
+    # TOC ends when we hit content without dot leaders for 3+ lines
+    lines = text[toc_start:].split("\n")
+    toc_lines = []
+    non_toc_streak = 0
+    for line in lines:
+        stripped = line.strip()
+        if not stripped:
+            non_toc_streak += 1
+            if non_toc_streak >= 3:
+                break
+            continue
+
+        # Is this a TOC-style line? (has dots/numbers or matches heading)
+        is_toc_line = bool(
+            re.search(r"[.·…]{2,}", stripped)
+            or re.match(r"^[A-Z]\.\s+\S", stripped)
+            or re.match(r"^\d+(?:\.\d+)*\.?\s+\S", stripped)
+        )
+        if is_toc_line:
+            toc_lines.append(stripped)
+            non_toc_streak = 0
+        else:
+            non_toc_streak += 1
+            if non_toc_streak >= 3:
+                break
+
+    if len(toc_lines) < 2:
+        return None
+
+    toc_text = "\n".join(toc_lines)
+    entries: list[tuple[str, str, int]] = []  # (id, title, pos)
+
+    # Parse numeric entries
+    for m in _TOC_ENTRY_NUM.finditer(toc_text):
+        num = m.group(1).rstrip(".")
+        title = clean_toc_title(m.group(2).strip())
+        if title:
+            entries.append((num, title, m.start()))
+
+    # Parse letter entries
+    for m in _TOC_ENTRY_LETTER.finditer(toc_text):
+        letter = m.group(1)
+        title = clean_toc_title(m.group(2).strip())
+        if title:
+            entries.append((letter, title, m.start()))
+
+    # Sort by position in TOC text (preserves original order)
+    entries.sort(key=lambda x: x[2])
+
+    if len(entries) < 2:
+        return None
+
+    logger.debug("Detected TOC with %d entries", len(entries))
+    return [(eid, etitle) for eid, etitle, _ in entries]
+
+
+def _find_body_heading(
+    text: str,
+    entry_id: str,
+    entry_title: str,
+    search_start: int = 0,
+) -> re.Match | None:
+    """Find a TOC entry's heading in the body text.
+
+    Searches for the heading pattern matching the TOC entry after
+    the TOC section. Matches by ID + title start (fuzzy: first 20 chars).
+    """
+    title_prefix = re.escape(entry_title[:20])
+
+    if entry_id.isalpha():
+        # Letter heading: "A. Title..."
+        pattern = re.compile(
+            rf"^{re.escape(entry_id)}\.\s+{title_prefix}",
+            re.MULTILINE,
+        )
+    else:
+        # Numeric heading: "3.1 Title..." or "3.1. Title..."
+        pattern = re.compile(
+            rf"^{re.escape(entry_id)}\.?\s+{title_prefix}",
+            re.MULTILINE,
+        )
+
+    return pattern.search(text, search_start)
+
+
+def _extract_with_toc(
+    text: str,
+    toc_entries: list[tuple[str, str]],
+) -> list[TemplateSection]:
+    """Extract sections using TOC as the definitive structure.
+
+    For each TOC entry, find the corresponding heading in the body
+    text and extract content between it and the next heading.
     """
     sections: list[TemplateSection] = []
 
-    # Pattern 1: Numeric headings (1, 2, 3.1, etc.)
+    # Find all body heading positions
+    body_positions: list[tuple[int, int, str, str]] = []
+    # (start, end_of_heading_line, id, title)
+
+    # Start searching after TOC (skip first ~30% of text as TOC area)
+    toc_end_estimate = len(text) // 5
+    search_from = toc_end_estimate
+
+    for entry_id, entry_title in toc_entries:
+        m = _find_body_heading(
+            text, entry_id, entry_title, search_from,
+        )
+        if m:
+            # Find end of this heading line
+            line_end = text.find("\n", m.start())
+            if line_end == -1:
+                line_end = len(text)
+            body_positions.append(
+                (m.start(), line_end, entry_id, entry_title),
+            )
+
+    if not body_positions:
+        logger.debug("No body headings found for TOC entries")
+        return []
+
+    # Sort by position in text
+    body_positions.sort(key=lambda x: x[0])
+
+    # Build sections in TOC order (not body order)
+    # Map: id -> body position
+    pos_map = {}
+    for start, end, eid, etitle in body_positions:
+        if eid not in pos_map:
+            pos_map[eid] = (start, end, etitle)
+
+    for order, (entry_id, entry_title) in enumerate(
+        toc_entries, start=1,
+    ):
+        if entry_id not in pos_map:
+            # TOC entry not found in body — create empty section
+            if entry_id.isalpha():
+                sname = f"section_{entry_id.lower()}"
+            else:
+                sname = f"section_{entry_id.replace('.', '_')}"
+
+            sections.append(
+                TemplateSection(
+                    name=sname,
+                    title=f"{entry_id}. {entry_title}",
+                    order=order,
+                    fields=[
+                        TemplateField(
+                            name="inhalt",
+                            label="Inhalt",
+                            field_type=FieldType.TEXTAREA,
+                        ),
+                    ],
+                ),
+            )
+            continue
+
+        hstart, hend, _ = pos_map[entry_id]
+
+        # Find next heading after this one (by body position)
+        next_start = len(text)
+        for other_start, _, _, _ in body_positions:
+            if other_start > hstart:
+                next_start = other_start
+                break
+
+        content = text[hend:next_start].strip()
+
+        if entry_id.isalpha():
+            sname = f"section_{entry_id.lower()}"
+        else:
+            sname = f"section_{entry_id.replace('.', '_')}"
+
+        fields = analyze_section_content(content)
+
+        sections.append(
+            TemplateSection(
+                name=sname,
+                title=f"{entry_id}. {entry_title}",
+                order=order,
+                fields=fields,
+            ),
+        )
+
+    return sections
+
+
+# ─── Fallback Extraction (no TOC) ──────────────────────────────
+
+
+def _extract_without_toc(
+    text: str,
+) -> list[TemplateSection]:
+    """Extract sections without TOC — heading detection + filtering."""
+    # Pattern 1: Numeric headings
     num_pattern = re.compile(
         r"^(\d+(?:\.\d+)*\.?)\s+(.+)$",
         re.MULTILINE,
     )
-    # Pattern 2: Letter headings (A., B., C., etc.)
+    # Pattern 2: Letter headings
     letter_pattern = re.compile(
         r"^([A-Z])\.\s+(.+)$",
         re.MULTILINE,
     )
 
-    # Pass 1a: Collect numeric candidates
+    # Collect numeric candidates with validation
     num_candidates = []
     for m in num_pattern.finditer(text):
         num = m.group(1).rstrip(".")
@@ -314,13 +520,12 @@ def extract_structure_from_text(
             continue
         if not _is_valid_heading(num, title, full_line):
             continue
-
         num_candidates.append((m, num, title))
 
-    # Pass 2: Sequential monotonicity filter
+    # Sequential monotonicity filter
     num_candidates = _filter_sequential_headings(num_candidates)
 
-    # Pass 1b: Collect letter candidates
+    # Collect letter candidates
     letter_candidates = []
     for m in letter_pattern.finditer(text):
         letter = m.group(1)
@@ -328,46 +533,102 @@ def extract_structure_from_text(
         title = clean_toc_title(raw_title)
         if not title:
             continue
-        # Letter headings use letter as section identifier
         letter_candidates.append((m, letter, title))
 
-    # Merge candidates sorted by position in text
+    # Merge sorted by position
     all_valid = sorted(
         num_candidates + letter_candidates,
         key=lambda x: x[0].start(),
     )
 
+    sections: list[TemplateSection] = []
     if all_valid:
         for i, (m, num, title) in enumerate(all_valid):
-            # Build section name
             if num.isalpha():
-                section_name = f"section_{num.lower()}"
-                display_title = f"{num}. {title}"
+                sname = f"section_{num.lower()}"
             else:
-                section_name = f"section_{num.replace('.', '_')}"
-                display_title = f"{num}. {title}"
+                sname = f"section_{num.replace('.', '_')}"
 
-            # Content between this heading and the next
             start = m.end()
-            if i + 1 < len(all_valid):
-                end = all_valid[i + 1][0].start()
-            else:
-                end = len(text)
+            end = (
+                all_valid[i + 1][0].start()
+                if i + 1 < len(all_valid)
+                else len(text)
+            )
             content = text[start:end].strip()
-
             fields = analyze_section_content(content)
 
             sections.append(
                 TemplateSection(
-                    name=section_name,
-                    title=display_title,
+                    name=sname,
+                    title=f"{num}. {title}",
                     order=i + 1,
                     fields=fields,
                 ),
             )
-    else:
-        # Fallback: entire text as one section
-        sections.append(
+
+    return sections
+
+
+# ─── Main Entry Point ──────────────────────────────────────────
+
+
+def extract_structure_from_text(
+    text: str,
+    *,
+    name: str = "Aus PDF extrahiert",
+    scope: str = "explosionsschutz",
+    version: str = "1.0",
+) -> ConceptTemplate:
+    """Convert extracted PDF text into a ConceptTemplate.
+
+    Strategy:
+    1. Detect TOC (Inhaltsverzeichnis) — if present, use it as
+       the definitive structure and map body content to TOC entries.
+    2. If no TOC, fall back to heading detection with validation
+       and sequential monotonicity filter.
+
+    Args:
+        text: The extracted PDF text.
+        name: Template name.
+        scope: Concept scope (e.g. 'explosionsschutz').
+        version: Template version string.
+
+    Returns:
+        A ConceptTemplate with sections and typed fields.
+    """
+    # Strategy 1: TOC-first
+    toc_entries = _detect_toc(text)
+    if toc_entries:
+        logger.info(
+            "TOC detected with %d entries — using TOC-first",
+            len(toc_entries),
+        )
+        sections = _extract_with_toc(text, toc_entries)
+        if sections:
+            return ConceptTemplate(
+                name=name,
+                scope=scope,
+                version=version,
+                sections=sections,
+            )
+
+    # Strategy 2: No TOC — heading detection with filters
+    sections = _extract_without_toc(text)
+    if sections:
+        return ConceptTemplate(
+            name=name,
+            scope=scope,
+            version=version,
+            sections=sections,
+        )
+
+    # Fallback: entire text as one section
+    return ConceptTemplate(
+        name=name,
+        scope=scope,
+        version=version,
+        sections=[
             TemplateSection(
                 name="section_1",
                 title="1. Dokumentinhalt",
@@ -381,11 +642,5 @@ def extract_structure_from_text(
                     ),
                 ],
             ),
-        )
-
-    return ConceptTemplate(
-        name=name,
-        scope=scope,
-        version=version,
-        sections=sections,
+        ],
     )
