@@ -1,6 +1,7 @@
 """Tests for pdf_structure_extractor module."""
 
 from concept_templates.pdf_structure_extractor import (
+    _detect_toc,
     _filter_sequential_headings,
     _is_valid_heading,
     analyze_section_content,
@@ -476,57 +477,165 @@ class TestSequentialFilter:
         assert any("3.2" in t for t in titles)
 
 
-class TestFullDocumentExtraction:
-    """Integration test mimicking the real PDF structure."""
+class TestDetectToc:
+    """Tests for TOC detection."""
 
-    def test_should_parse_full_ex_document(self):
+    def test_should_detect_toc_with_inhaltsverzeichnis(self):
+        text = (
+            "Inhaltsverzeichnis\n"
+            "A. Angaben ............. 4\n"
+            "B. Betrachtete Anlage ............. 5\n"
+            "1 Anlagenbeschreibung ............. 7\n"
+            "2 Gefährdungsbeurteilung ............. 8\n"
+            "\n\n\n"
+            "A. Angaben\nContent.\n"
+        )
+        entries = _detect_toc(text)
+        assert entries is not None
+        assert len(entries) == 4
+        # Order must match TOC
+        assert entries[0] == ("A", "Angaben")
+        assert entries[1] == ("B", "Betrachtete Anlage")
+        assert entries[2] == ("1", "Anlagenbeschreibung")
+        assert entries[3] == ("2", "Gefährdungsbeurteilung")
+
+    def test_should_return_none_without_toc(self):
+        text = (
+            "1 Anlagenbeschreibung\n"
+            "Die Anlage befindet sich...\n"
+        )
+        assert _detect_toc(text) is None
+
+
+class TestTocFirstExtraction:
+    """TOC-first extraction: TOC defines order, body provides content."""
+
+    def test_should_use_toc_order_not_body_order(self):
+        text = (
+            "Inhaltsverzeichnis\n"
+            "A. Angaben des Betriebsbereichs ............. 4\n"
+            "B. Betrachtete Anlage ............. 5\n"
+            "1 Anlagenbeschreibung ............. 7\n"
+            "2 Gefährdungsbeurteilung ............. 8\n"
+            "\n\n\n"
+            "A. Angaben des Betriebsbereichs\n"
+            "Dieses Dokument gilt für Firma X.\n"
+            "B. Betrachtete Anlage\n"
+            "Wasserstoff-Elektrolyse.\n"
+            "1 Anlagenbeschreibung\n"
+            "Die Anlage befindet sich...\n"
+            "2 Gefährdungsbeurteilung\n"
+            "Entsprechend § 6 GefStoffV.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+
+        # Order MUST be: A, B, 1, 2 (from TOC, not body)
+        assert len(template.sections) == 4
+        assert titles[0] == "A. Angaben des Betriebsbereichs"
+        assert titles[1] == "B. Betrachtete Anlage"
+        assert "Anlagenbeschreibung" in titles[2]
+        assert "Gefährdungsbeurteilung" in titles[3]
+
+    def test_should_not_create_false_sections_from_body(self):
+        """Body content like '15. BetrSichV' must not become sections."""
+        text = (
+            "Inhaltsverzeichnis\n"
+            "A. Angaben ............. 4\n"
+            "1 Anlagenbeschreibung ............. 7\n"
+            "2 Gefährdungsbeurteilung ............. 8\n"
+            "\n\n\n"
+            "A. Angaben\n"
+            "Betreiber: Firma X\n"
+            "1 Anlagenbeschreibung\n"
+            "Die Anlage befindet sich.\n"
+            "Prüfung gem. § 14 und 15 BetrSichV und An-\n"
+            "hang 2 BetrSichV Ab- nahme schnitt 3\n"
+            "16 BetrSichV und An-\n"
+            "hang 2 BetrSichV Ab- schnitt 3\n"
+            "2 Gefährdungsbeurteilung\n"
+            "Entsprechend § 6 GefStoffV.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+
+        # Only TOC entries, not "15. BetrSichV" or "16. BetrSichV"
+        assert len(template.sections) == 3
+        assert not any("BetrSichV" in t for t in titles)
+
+    def test_should_preserve_full_toc_structure(self):
+        """Full document with TOC: A-H + 1-6 with subsections."""
         text = (
             "Inhaltsverzeichnis\n"
             "A. Angaben des Betriebsbereichs ............. 4\n"
             "B. Betrachtete Anlage ............. 4\n"
-            "C. Rechtliche Grundlagen ............. 4\n"
+            "C. Rechtliche Grundlagen ............. 5\n"
             "D. Mitgeltende Dokumente ............. 6\n"
             "E. Begriffe ............. 6\n"
             "1 Anlagenbeschreibung ............. 7\n"
             "2 Gefährdungsbeurteilung ............. 8\n"
             "3 Explosionsschutzkonzept ............. 9\n"
+            "3.1 Zoneneinteilung ............. 10\n"
+            "3.2 Primäre Explosionsschutzmaßnahmen ............. 11\n"
             "4 Zoneneinteilung ............. 14\n"
             "5 Arbeitsmittel ............. 18\n"
-            "\n"
+            "6 Organigramm ............. 20\n"
+            "F. Einhaltung der Mindestanforderungen ............. 21\n"
+            "G. Kennzeichen und Gefahrenhinweise ............. 22\n"
+            "H. Maßnahmenplan ............. 23\n"
+            "\n\n\n"
             "A. Angaben des Betriebsbereichs\n"
-            "Erstellt durch: Viktor Rempel\n"
-            "Nr.\tName\tAdresse\n"
-            "1\tFirma Mustermann\tMusterstr. 12\n"
+            "Dieses Dokument gilt für Firma X.\n"
             "B. Betrachtete Anlage\n"
-            "Wasserstoff-Elektrolyse im Gebäude 3.\n"
+            "Wasserstoff-Elektrolyse.\n"
+            "C. Rechtliche Grundlagen\n"
+            "GefStoffV, BetrSichV.\n"
+            "D. Mitgeltende Dokumente\n"
+            "Betriebsanweisungen.\n"
+            "E. Begriffe\n"
+            "Explosionsfähige Atmosphäre.\n"
             "1 Anlagenbeschreibung\n"
-            "Die Anlage befindet sich...\n"
+            "Die Anlage befindet sich in Ulm.\n"
             "2 Gefährdungsbeurteilung\n"
             "Entsprechend § 6 GefStoffV.\n"
             "3 Explosionsschutzkonzept\n"
-            "Überblick über Schutzmaßnahmen.\n"
-            "3.1 Zonenvermeidung\n"
-            "Primärer Schutz.\n"
+            "Überblick.\n"
+            "3.1 Zoneneinteilung\n"
+            "Zone 1 und Zone 2.\n"
+            "3.2 Primäre Explosionsschutzmaßnahmen\n"
+            "Vermeidung explosionsfähiger Atmosphäre.\n"
             "4 Zoneneinteilung\n"
             "Für die geplanten Bereiche.\n"
             "1 Im Raum Keine Notmaßnahmen\n"
             "2 Oberhalb Keine Fackel verbrennt\n"
-            "3 Seitlich Keine Kontrollierte Zugabe\n"
             "5 Arbeitsmittel\n"
             "Alle Arbeitsmittel.\n"
+            "6 Organigramm\n"
+            "Getroffene Maßnahme.\n"
+            "F. Einhaltung der Mindestanforderungen\n"
+            "Brand- und Explosionsgefährdungen.\n"
+            "G. Kennzeichen und Gefahrenhinweise\n"
+            "ASR A1.3.\n"
+            "H. Maßnahmenplan\n"
+            "Stand 22.03.2021.\n"
         )
         template = extract_structure_from_text(text)
         titles = [s.title for s in template.sections]
 
-        # Letter headings detected
-        assert any("A." in t for t in titles)
-        assert any("B." in t for t in titles)
+        # All 16 TOC entries present
+        assert len(template.sections) == 16
 
-        # Number headings detected
-        assert any("Anlagenbeschreibung" in t for t in titles)
-        assert any("Zoneneinteilung" in t for t in titles)
-        assert any("Arbeitsmittel" in t for t in titles)
+        # Correct order: A, B, C, D, E, 1, 2, 3, 3.1, 3.2, 4, 5, 6, F, G, H
+        assert titles[0] == "A. Angaben des Betriebsbereichs"
+        assert titles[4] == "E. Begriffe"
+        assert "Anlagenbeschreibung" in titles[5]
+        assert "3.1" in titles[8]
+        assert "3.2" in titles[9]
+        assert "Organigramm" in titles[12]
+        assert "F." in titles[13]
+        assert "H." in titles[15]
 
-        # Table rows NOT detected as headings
+        # Table rows NOT in titles
         assert not any("Im Raum" in t for t in titles)
         assert not any("Oberhalb" in t for t in titles)
+        assert not any("BetrSichV" in t for t in titles)
