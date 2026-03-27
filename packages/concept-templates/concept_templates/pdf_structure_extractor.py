@@ -5,6 +5,12 @@ Analyses extracted PDF text to detect:
 - Content type per section (free text vs. table)
 - Table column headers
 
+Two-pass approach:
+1. Identify candidate headings via regex
+2. Validate each candidate (filter table rows, PLZ, measurements)
+3. Parse content blocks between validated headings
+4. Analyze each block for field types (text, table, mixed)
+
 Usage:
     from concept_templates.pdf_structure_extractor import (
         extract_structure_from_text,
@@ -31,6 +37,9 @@ from concept_templates.schemas import (
 
 logger = logging.getLogger(__name__)
 
+# Max top-level section number for a real document heading
+_MAX_SECTION_NUM = 30
+
 
 def clean_toc_title(title: str) -> str:
     """Remove TOC dots and page numbers from a section title.
@@ -44,6 +53,54 @@ def clean_toc_title(title: str) -> str:
     # Remove trailing standalone page number
     title = re.sub(r"\s+\d{1,4}\s*$", "", title)
     return title.strip()
+
+
+def _is_valid_heading(
+    num: str,
+    title: str,
+    full_line: str,
+) -> bool:
+    """Validate whether a regex match is a real section heading.
+
+    Filters out false positives:
+    - Table row numbers (e.g. "1  Im Raum  Keine  ...")
+    - Measurements (e.g. "1000. m3/h über Öffnungen")
+    - Postal codes (e.g. "89077. Ulm")
+    - Very short or non-alpha titles
+    """
+    # Check top-level number is reasonable (≤30)
+    top_num_str = num.split(".")[0]
+    try:
+        top_num = int(top_num_str)
+    except ValueError:
+        return False
+    if top_num > _MAX_SECTION_NUM:
+        return False
+
+    # Title must have at least 2 alpha characters
+    alpha_chars = sum(1 for c in title if c.isalpha())
+    if alpha_chars < 2:
+        return False
+
+    # Reject if the full line looks like a table row
+    # (3+ columns separated by tabs or double-spaces)
+    cols = _split_columns(full_line)
+    if len(cols) >= 3:
+        return False
+
+    # Reject if title starts with units/measurements
+    if re.match(
+        r"^(m[²³]?/[hs]|kg|cm|mm|l/|bar|°C|kW)\b",
+        title,
+        re.IGNORECASE,
+    ):
+        return False
+
+    # Reject if title looks like a PLZ (5-digit number)
+    if re.match(r"^\d{5}\b", num + title):
+        return False
+
+    return True
 
 
 def detect_table_columns(content: str) -> list[str] | None:
@@ -184,9 +241,11 @@ def extract_structure_from_text(
 ) -> ConceptTemplate:
     """Convert extracted PDF text into a ConceptTemplate.
 
-    Detects numbered section headings, cleans TOC artifacts,
-    and analyzes each section's content to determine field types
-    (textarea, table, or mixed).
+    Two-pass approach:
+    1. Find all candidate headings via regex
+    2. Validate each candidate (filter false positives)
+    3. Parse content blocks between validated headings
+    4. Analyze content for field types (text, table, mixed)
 
     Args:
         text: The extracted PDF text.
@@ -202,26 +261,35 @@ def extract_structure_from_text(
         r"^(\d+(?:\.\d+)*\.?)\s+(.+)$",
         re.MULTILINE,
     )
-    matches = list(heading_pattern.finditer(text))
 
-    if matches:
-        for i, m in enumerate(matches):
-            num = m.group(1).rstrip(".")
-            raw_title = m.group(2).strip()
-            title = clean_toc_title(raw_title)
+    # Pass 1: Collect all candidates
+    all_matches = list(heading_pattern.finditer(text))
 
-            if not title:
-                continue
+    # Pass 2: Filter to valid headings only
+    valid_matches = []
+    for m in all_matches:
+        num = m.group(1).rstrip(".")
+        raw_title = m.group(2).strip()
+        title = clean_toc_title(raw_title)
+        full_line = m.group(0)
 
+        if not title:
+            continue
+        if not _is_valid_heading(num, title, full_line):
+            continue
+
+        valid_matches.append((m, num, title))
+
+    if valid_matches:
+        for i, (m, num, title) in enumerate(valid_matches):
             section_name = f"section_{num.replace('.', '_')}"
 
-            # Extract content between this heading and the next
+            # Content between this heading and the next
             start = m.end()
-            end = (
-                matches[i + 1].start()
-                if i + 1 < len(matches)
-                else len(text)
-            )
+            if i + 1 < len(valid_matches):
+                end = valid_matches[i + 1][0].start()
+            else:
+                end = len(text)
             content = text[start:end].strip()
 
             fields = analyze_section_content(content)

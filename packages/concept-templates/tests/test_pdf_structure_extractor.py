@@ -1,6 +1,7 @@
 """Tests for pdf_structure_extractor module."""
 
 from concept_templates.pdf_structure_extractor import (
+    _is_valid_heading,
     analyze_section_content,
     clean_toc_title,
     detect_table_columns,
@@ -234,3 +235,141 @@ class TestExtractStructureFromText:
             f.field_type == FieldType.TABLE
             for f in s2_fields
         )
+
+
+class TestIsValidHeading:
+    """Tests for heading validation filter."""
+
+    def test_should_accept_normal_heading(self):
+        assert _is_valid_heading(
+            "1", "Anlagenbeschreibung",
+            "1. Anlagenbeschreibung",
+        )
+
+    def test_should_accept_subsection(self):
+        assert _is_valid_heading(
+            "3.1", "Primärer Explosionsschutz",
+            "3.1 Primärer Explosionsschutz",
+        )
+
+    def test_should_reject_large_section_number(self):
+        assert not _is_valid_heading(
+            "1000", "m3/h über Öffnungen zum Absaugen",
+            "1000. m3/h über Öffnungen zum Absaugen",
+        )
+
+    def test_should_reject_plz(self):
+        assert not _is_valid_heading(
+            "89077", "Ulm",
+            "89077. Ulm",
+        )
+
+    def test_should_reject_table_row_with_columns(self):
+        assert not _is_valid_heading(
+            "1",
+            "Im Raum  Keine  Notmaßnahmen siehe Punkt",
+            "1  Im Raum  Keine  Notmaßnahmen siehe Punkt",
+        )
+
+    def test_should_reject_measurement_unit(self):
+        assert not _is_valid_heading(
+            "1000", "m3/h über Öffnungen",
+            "1000. m3/h über Öffnungen",
+        )
+
+    def test_should_reject_very_short_title(self):
+        assert not _is_valid_heading("1", "x", "1 x")
+
+
+class TestRegressionTableRowsAsHeadings:
+    """Regression: table rows must not be parsed as headings.
+
+    Fig 1+2: "4. Zoneneinteilung" contains a table with
+    numbered rows (1, 2, 3) that were incorrectly parsed
+    as section headings.
+    """
+
+    def test_should_not_split_table_rows_as_sections(self):
+        text = (
+            "4 Zoneneinteilung\n"
+            "Für die geplanten Bereiche wurde eine "
+            "Zoneneinteilung vorgenommen.\n"
+            "Nr.  Anlagenteil  Zone  "
+            "Bemerkungen/Schutzmaßnahmen\n"
+            "1  Im Raum  Keine  "
+            "Notmaßnahmen siehe Punkt 3.2\n"
+            "2  Oberhalb der Anlage  Keine  "
+            "Fackel verbrennt somit kann auch im "
+            "Störfall keine Ex Zone\n"
+            "3  Seitlich an den Einführöffnungen  "
+            "Keine  Durch kontrollierte Zugabe\n"
+        )
+        template = extract_structure_from_text(text)
+        # Should be 1 section (Zoneneinteilung), not 4
+        assert len(template.sections) == 1
+        assert "Zoneneinteilung" in template.sections[0].title
+
+    def test_should_keep_table_content_in_section(self):
+        text = (
+            "4 Zoneneinteilung\n"
+            "Beschreibung der Zonen.\n"
+            "Nr.\tAnlagenteil\tZone\tBemerkungen\n"
+            "1\tIm Raum\tKeine\tNotmaßnahmen\n"
+            "2\tOberhalb\tKeine\tFackel verbrennt\n"
+            "5 Arbeitsmittel\n"
+            "Alle Arbeitsmittel kommen zum Einsatz.\n"
+        )
+        template = extract_structure_from_text(text)
+        assert len(template.sections) == 2
+        assert "Zoneneinteilung" in template.sections[0].title
+        assert "Arbeitsmittel" in template.sections[1].title
+
+
+class TestRegressionMeasurementsAsHeadings:
+    """Regression: measurements must not be parsed as headings.
+
+    Fig 3+4: "5. Arbeitsmittel" has table content with
+    "1000. m3/h über Öffnungen" that was incorrectly
+    parsed as section "1000".
+    """
+
+    def test_should_not_split_measurement_as_section(self):
+        text = (
+            "5 Arbeitsmittel\n"
+            "Alle Arbeitsmittel die in den Zonenbereichen\n"
+            "zum Einsatz kommen.\n"
+            "Arbeitsmittel  Hersteller  Kommentar\n"
+            "Technische Abluft  Helios RRK 250  "
+            "1000 m3/h über Öffnungen\n"
+            "Not-Aus-Relais  Pilz  Typ PNOZ X1\n"
+        )
+        template = extract_structure_from_text(text)
+        # Should be 1 section only
+        assert len(template.sections) == 1
+        assert "Arbeitsmittel" in template.sections[0].title
+
+
+class TestRegressionPostalCodeAsHeading:
+    """Regression: PLZ codes must not be parsed as headings.
+
+    "89077. Ulm" was incorrectly parsed as section "89077".
+    """
+
+    def test_should_not_create_section_for_plz(self):
+        text = (
+            "1 Anlagenbeschreibung\n"
+            "Standort: Musterstr. 12\n"
+            "89077 Ulm\n"
+            "89079 Ulm\n"
+            "Die Anlage befindet sich in Ulm.\n"
+            "2 Gefährdungsbeurteilung\n"
+            "Entsprechend § 6 GefStoffV.\n"
+        )
+        template = extract_structure_from_text(text)
+        titles = [s.title for s in template.sections]
+        assert len(template.sections) == 2
+        assert any("Anlagenbeschreibung" in t for t in titles)
+        assert any("Gefährdungsbeurteilung" in t for t in titles)
+        # No PLZ sections
+        assert not any("89077" in t for t in titles)
+        assert not any("89079" in t for t in titles)
