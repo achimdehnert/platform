@@ -1,0 +1,237 @@
+{% extends "base.html" %}
+{% block title %}Dokument bearbeiten: {{ instance.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-8">
+
+  <div class="flex items-center space-x-4 mb-6">
+    <a href="{% url 'doc_templates:template-list' %}" class="text-gray-400 hover:text-gray-600">&larr;</a>
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">{{ instance.name }}</h1>
+      <p class="text-sm text-gray-500">
+        Vorlage: {{ instance.template.name }}
+        {% if instance.source_filename %} — Import: {{ instance.source_filename }}{% endif %}
+      </p>
+    </div>
+    <div class="ml-auto flex items-center gap-3">
+      <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-medium
+        {% if instance.status == 'approved' %}bg-green-100 text-green-800
+        {% elif instance.status == 'review' %}bg-blue-100 text-blue-800
+        {% else %}bg-yellow-100 text-yellow-800{% endif %}">
+        {{ instance.get_status_display }}
+      </span>
+      <a href="{% url 'doc_templates:instance-pdf' pk=instance.pk %}"
+         class="px-3 py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 text-xs font-medium inline-flex items-center">
+        <i data-lucide="download" class="w-3.5 h-3.5 mr-1"></i>
+        PDF
+      </a>
+      <form method="post" action="{% url 'doc_templates:instance-delete' pk=instance.pk %}"
+            onsubmit="return confirm('Dokument wirklich löschen?');" class="inline">
+        {% csrf_token %}
+        <button type="submit" class="px-3 py-1.5 bg-red-600 text-white rounded-lg hover:bg-red-700 text-xs font-medium">
+          Löschen
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <form method="post" class="space-y-6">
+    {% csrf_token %}
+
+    {# ─ Dokumentname + Status ─────────────────────────────── #}
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Dokumentname</label>
+          <input type="text" name="name" value="{{ instance.name }}"
+                 class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Status</label>
+          <select name="status" class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500">
+            <option value="draft" {% if instance.status == 'draft' %}selected{% endif %}>Entwurf</option>
+            <option value="review" {% if instance.status == 'review' %}selected{% endif %}>In Prüfung</option>
+            <option value="approved" {% if instance.status == 'approved' %}selected{% endif %}>Freigegeben</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    {# ─ Abschnitte mit Feldern ────────────────────────────── #}
+    {% for section in structure.sections %}
+    <div class="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-4">
+        {{ section.label }}
+      </h2>
+      <div class="space-y-4">
+        {% for field in section.fields %}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            {{ field.label }}
+            {% if field.required %}<span class="text-red-500">*</span>{% endif %}
+            {% if field.type == "table" %}
+              <span class="text-xs text-blue-500 ml-1">(Tabelle)</span>
+            {% endif %}
+          </label>
+
+          {% with form_key=section.key|add:"__"|add:field.key %}
+
+            {% if field.type == "table" %}
+              {# ─ Tabellen-Eingabe ──────────────────────── #}
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm border border-gray-200 rounded-lg" data-table-field="{{ form_key }}">
+                  <thead class="bg-gray-50">
+                    <tr>
+                      {% for col in field.columns %}
+                      <th class="text-left px-3 py-2 text-gray-600 font-medium border-b border-gray-200">{{ col }}</th>
+                      {% endfor %}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {% for row in field.table_rows %}
+                    <tr class="border-b border-gray-100 hover:bg-gray-50">
+                      {% for cell in row %}
+                      <td class="px-1 py-1">
+                        <input type="text"
+                               name="{{ form_key }}__row_{{ forloop.parentloop.counter0 }}__col_{{ forloop.counter0 }}"
+                               value="{{ cell }}"
+                               class="w-full px-2 py-1.5 text-sm border-0 bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500 rounded"
+                               placeholder="...">
+                      </td>
+                      {% endfor %}
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+              </div>
+              <button type="button"
+                      onclick="addTableRow(this.previousElementSibling.querySelector('table'))"
+                      class="mt-2 text-xs text-blue-600 hover:text-blue-800">
+                + Zeile hinzufügen
+              </button>
+
+            {% elif field.type == "textarea" %}
+              <div id="prefill-target-{{ form_key }}">
+                <textarea name="{{ form_key }}" rows="6"
+                          {% if field.required %}required{% endif %}
+                          class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                          placeholder="{{ field.label }}...">{{ field.field_value }}</textarea>
+              </div>
+              <button type="button"
+                      onclick="llmPrefill('{{ form_key }}', '{{ field.label|escapejs }}', this)"
+                      class="mt-1 text-xs text-violet-600 hover:text-violet-800 inline-flex items-center">
+                <i data-lucide="sparkles" class="w-3 h-3 mr-1"></i>
+                KI ausfüllen
+              </button>
+
+            {% elif field.type == "number" %}
+              <input type="number" name="{{ form_key }}" step="any"
+                     {% if field.required %}required{% endif %}
+                     class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                     value="{{ field.field_value }}">
+
+            {% elif field.type == "date" %}
+              <div class="flex items-center gap-3">
+                <input type="date" name="{{ form_key }}"
+                       {% if field.required %}required{% endif %}
+                       class="rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                       value="{{ field.field_value }}">
+              </div>
+
+            {% elif field.type == "boolean" %}
+              <div class="flex items-center gap-3">
+                <label class="relative inline-flex items-center cursor-pointer">
+                  <input type="hidden" name="{{ form_key }}" value="false">
+                  <input type="checkbox" name="{{ form_key }}" value="true"
+                         {% if field.field_value == "true" or field.field_value == True %}checked{% endif %}
+                         class="sr-only peer">
+                  <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                  <span class="ml-2 text-sm text-gray-700">{{ field.label }}</span>
+                </label>
+              </div>
+
+            {% else %}
+              <input type="text" name="{{ form_key }}"
+                     {% if field.required %}required{% endif %}
+                     class="w-full rounded-lg border-gray-300 text-sm focus:border-blue-500 focus:ring-blue-500"
+                     value="{{ field.field_value }}"
+                     placeholder="{{ field.label }}">
+            {% endif %}
+
+          {% endwith %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% empty %}
+    <div class="bg-gray-50 rounded-xl border border-gray-200 p-8 text-center">
+      <p class="text-gray-500">Die Vorlage enthält keine Abschnitte.</p>
+    </div>
+    {% endfor %}
+
+    {# ─ Aktionen ──────────────────────────────────────────── #}
+    <div class="flex items-center justify-between">
+      <a href="{% url 'doc_templates:template-list' %}" class="text-sm text-gray-500 hover:text-gray-700">
+        Zurück zur Liste
+      </a>
+      <button type="submit" class="px-5 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm font-medium">
+        Speichern
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+function llmPrefill(fieldKey, label, btn) {
+  btn.disabled = true;
+  btn.innerHTML = '<i data-lucide="loader" class="w-3 h-3 mr-1 animate-spin"></i> Wird generiert...';
+  var target = document.getElementById('prefill-target-' + fieldKey);
+  var fd = new FormData();
+  fd.append('field_key', fieldKey);
+  fd.append('llm_hint', 'Beschreibe: ' + label);
+  fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+  fetch('{% url "doc_templates:instance-prefill" pk=instance.pk %}', {
+    method: 'POST',
+    body: fd,
+  }).then(function(r) { return r.text(); })
+    .then(function(html) {
+      target.innerHTML = html;
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="sparkles" class="w-3 h-3 mr-1"></i> KI ausfüllen';
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }).catch(function(err) {
+      btn.disabled = false;
+      btn.innerHTML = '<i data-lucide="sparkles" class="w-3 h-3 mr-1"></i> KI ausfüllen';
+      alert('Fehler: ' + err);
+    });
+}
+
+function addTableRow(table) {
+  var tbody = table.querySelector('tbody');
+  var rows = tbody.querySelectorAll('tr');
+  var rowIdx = rows.length;
+  var fieldKey = table.dataset.tableField;
+  var headerCells = table.querySelectorAll('thead th');
+  var colCount = headerCells.length;
+
+  var tr = document.createElement('tr');
+  tr.className = 'border-b border-gray-100 hover:bg-gray-50';
+
+  for (var ci = 0; ci < colCount; ci++) {
+    var td = document.createElement('td');
+    td.className = 'px-1 py-1';
+    var input = document.createElement('input');
+    input.type = 'text';
+    input.name = fieldKey + '__row_' + rowIdx + '__col_' + ci;
+    input.className = 'w-full px-2 py-1.5 text-sm border-0 bg-transparent focus:bg-white focus:ring-1 focus:ring-blue-500 rounded';
+    input.placeholder = '...';
+    td.appendChild(input);
+    tr.appendChild(td);
+  }
+  tbody.appendChild(tr);
+}
+</script>
+{% endblock %}
