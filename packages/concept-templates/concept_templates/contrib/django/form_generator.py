@@ -30,6 +30,7 @@ FIELD_TYPE_MAP = {
     "choice": forms.ChoiceField,
     "boolean": forms.BooleanField,
     "file": forms.FileField,
+    "table": forms.CharField,  # table rendering handled by template
 }
 
 WIDGET_MAP = {
@@ -118,6 +119,8 @@ def _add_section_fields(
             "section_order": section.order,
             "field_name": field.name,
             "field_type": field.field_type,
+            "columns": field.columns,
+            "default_rows": field.default_rows,
             "llm_hint": field.llm_hint,
             "llm_prefill": field.llm_prefill,
         }
