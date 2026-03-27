@@ -39,6 +39,7 @@ class FieldType(StrEnum):
     CHOICE = "choice"
     FILE = "file"
     BOOLEAN = "boolean"
+    TABLE = "table"
 
 
 class TemplateField(BaseModel):
@@ -50,6 +51,8 @@ class TemplateField(BaseModel):
     required: bool = False
     default: str | None = None
     choices: list[str] | None = None
+    columns: list[str] | None = None
+    default_rows: list[list[str]] | None = None
     help_text: str = ""
     llm_hint: str = ""
     llm_prefill: bool = False
