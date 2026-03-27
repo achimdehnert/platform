@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iil-concept-templates"
-version = "0.4.0"
+version = "0.5.0"
 description = "Shared schemas, frameworks and extraction for structured concept templates (ADR-147)"
 readme = "README.md"
 license = {text = "Proprietary"}
