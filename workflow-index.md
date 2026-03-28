@@ -25,6 +25,7 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | Governance vor Implementierung prüfen | Governance Check | `/governance-check` |
 | **Repo/Package Vollständigkeit prüfen** | **Repo Health Check** | **`/repo-health-check`** |
 | **Tests vor Package-Release prüfen** | **Testing Conventions** | **`/testing-conventions`** |
+| **Cross-Repo Audit (Schwachstellen, Inkonsistenzen)** | **Platform Audit** | **`/platform-audit`** |
 | Vor Production-Deploy | Deploy Check | `/deploy-check` |
 | Deployen | Deploy | `/deploy` |
 | DB-Backup | Backup | `/backup` |
@@ -76,6 +77,9 @@ Neue Session startet
         │
         ├─ Repos synchronisieren (WSL / GitHub / Server)?
         │       └─ /sync-repo
+        │
+        ├─ Gesamtüberblick / Schwachstellen-Analyse?
+        │       └─ /platform-audit
         │
         ├─ Deployen?
         │       ├─ Pre-check → /deploy-check
@@ -139,6 +143,9 @@ Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories,
 ### `/stack-upgrade`
 Standardisiertes Upgrade für Third-Party Docker-Stacks: Backup → Pull → Compose Update → Verify → Cleanup. Getestet mit Outline 0.82→1.6, anwendbar auf Authentik, Paperless.
 
+### `/platform-audit`
+Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen: Repo-Scan → Architektur-Konsistenz → Infra-Health → Analyse → Report. Generiert priorisierten Audit-Report (CRITICAL/HIGH/MEDIUM/LOW), sichert in Outline, erstellt optional GitHub Issues. Empfohlen: 1× pro Woche.
+
 ### `/sync-repo`
 3-Node-Sync: WSL ↔ GitHub ↔ Server konsistent halten. Vor und nach jeder Session ausführen wenn Code auf mehreren Nodes bearbeitet wurde.
 
@@ -176,6 +183,13 @@ Standardisiertes Upgrade für Third-Party Docker-Stacks: Backup → Pull → Com
 /sync-repo
     └─ empfohlen: vor /agent-session-start wenn multi-node
     └─ empfohlen: nach /deploy wenn Server-Stand unklar
+
+/platform-audit
+    └─ nutzt: /repo-health-check (Checks pro Repo)
+    └─ nutzt: deployment-mcp (Infra Health)
+    └─ erzeugt: GitHub Issues (bei CRITICAL/HIGH)
+    └─ speichert: Outline Konzept + platform/audits/
+    └─ empfohlen: 1× pro Woche
 ```
 
 ---
