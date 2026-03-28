@@ -1,0 +1,120 @@
+# _base.yaml — Platform defaults (all hubs inherit from this)
+# Override only what differs per hub.
+
+hub: _base
+display_name: iil-Platform
+personality: professional, reliable
+
+visual:
+  palette:
+    primary: "#0f172a"
+    primary_foreground: "#ffffff"
+    secondary: "#f1f5f9"
+    secondary_foreground: "#1e293b"
+    accent: "#3b82f6"
+    accent_foreground: "#ffffff"
+    background: "#fafaf9"
+    foreground: "#1c1917"
+    muted: "#f5f5f4"
+    muted_foreground: "#78716c"
+    destructive: "#ef4444"
+    border: "#e7e5e4"
+    ring: "#3b82f6"
+
+  typography:
+    display: Figtree
+    body: Figtree
+    mono: JetBrains Mono
+    font_source: https://fonts.bunny.net
+    base_size: "16px"
+    scale_ratio: 1.25
+
+  layout:
+    border_radius: 10
+    spacing_unit: 4
+    grid_variant: standard
+    container_max_width: "1280px"
+
+  motion:
+    duration_fast: "120ms"
+    duration_normal: "250ms"
+    duration_slow: "500ms"
+    easing: "cubic-bezier(0.22, 1, 0.36, 1)"
+
+  shadow:
+    sm: "0 1px 2px rgba(0,0,0,0.06)"
+    md: "0 4px 6px rgba(0,0,0,0.07)"
+    lg: "0 10px 15px rgba(0,0,0,0.1)"
+
+voice:
+  tone:
+    - professional
+    - direct
+  sentence_length: medium
+  use_formal_address: true
+  use_active_voice: true
+  use_imperatives: false
+  banned_words_de:
+    - nahtlos
+    - leistungsstark
+    - innovativ
+    - umfassend
+    - jetzt loslegen
+    - mehr erfahren
+    - erleben Sie
+    - ein Fehler ist aufgetreten
+  banned_words_en:
+    - seamlessly
+    - leverage
+    - cutting-edge
+    - get started
+    - learn more
+    - something went wrong
+    - please try again
+  preferred_words_de:
+    nahtlos: direkt
+    leistungsstark: belastbar
+    innovativ: neu
+    umfassend: vollständig
+  preferred_words_en:
+    seamlessly: directly
+    leverage: use
+    cutting-edge: current
+
+  micro_copy:
+    de:
+      cta_primary: Speichern
+      cta_secondary: Abbrechen
+      cta_danger: Löschen
+      nav_back: Zurück
+      nav_next: Weiter
+      status_loading: Wird geladen…
+      status_success: Erledigt.
+      status_error: Fehlgeschlagen.
+      status_empty: Keine Einträge.
+      error_generic: Aktion fehlgeschlagen.
+      error_validation: Eingabe ungültig.
+      error_not_found: Nicht gefunden.
+      error_permission: Zugriff verweigert.
+      toast_saved: Gespeichert.
+      toast_deleted: Gelöscht.
+      toast_error: Fehler aufgetreten.
+    en:
+      cta_primary: Save
+      cta_secondary: Cancel
+      cta_danger: Delete
+      nav_back: Back
+      nav_next: Next
+      status_loading: Loading…
+      status_success: Done.
+      status_error: Failed.
+      status_empty: No entries.
+      error_generic: Action failed.
+      error_validation: Invalid input.
+      error_not_found: Not found.
+      error_permission: Access denied.
+      toast_saved: Saved.
+      toast_deleted: Deleted.
+      toast_error: Error occurred.
+
+schema_org_type: WebApplication

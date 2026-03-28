@@ -1,0 +1,44 @@
+hub: bfagent
+display_name: "bfagent"
+personality: "AI orchestration, agent intelligence, dynamic routing, machine precision with human intent"
+aesthetic: "ai-native-precision"
+
+palette:
+  primary:        "#00214D"
+  primary_hover:  "#002E6A"
+  accent:         "#0099CC"
+  surface:        "#F7FAFD"
+  surface_alt:    "#EAF1F8"
+  foreground:     "#07111E"
+  muted:          "#4D6175"
+  border:         "#C0CFD9"
+  danger:         "#C0392B"
+  success:        "#0D6E50"
+  warning:        "#C87900"
+
+typography:
+  display_font:   "Lexend"
+  body_font:      "Figtree"
+  mono_font:      "JetBrains Mono"
+  display_weight: "700"
+  body_weight:    "400,500,600"
+  font_source:    "https://fonts.bunny.net/css?family=lexend:700|figtree:400,500,600|jetbrains-mono:400"
+
+layout:
+  radius_sm:         "3px"
+  radius_md:         "6px"
+  radius_lg:         "11px"
+  radius_xl:         "18px"
+  asymmetry_level:   "medium"
+  grid_variant:      "bento"
+
+motion:
+  duration_fast:    "90ms"
+  duration_normal:  "185ms"
+  easing_standard:  "cubic-bezier(0.4, 0, 0.2, 1)"
+  easing_spring:    "cubic-bezier(0.34, 1.35, 0.64, 1)"
+  hover_lift:       "-2px"
+
+fingerprint_score: null
+last_mutated: null
+mutation_history: []

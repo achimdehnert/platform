@@ -1,0 +1,64 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iil-hub-identity"
+version = "0.1.0"
+description = "Hub Visual & Language Identity System — AI-detection-resistant branding for IIL Platform hubs"
+readme = "README.md"
+license = {text = "Proprietary"}
+requires-python = ">=3.10"
+authors = [{name = "IIL GmbH"}]
+classifiers = [
+    "Framework :: Django",
+    "Programming Language :: Python :: 3.12",
+    "Development Status :: 3 - Alpha",
+]
+dependencies = [
+    "pydantic>=2.0",
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+mutation = ["iil-aifw>=0.3.0"]
+django = ["django>=5.0"]
+cli = ["typer>=0.12"]
+dev = ["pytest>=8.0", "ruff>=0.4"]
+all = ["iil-hub-identity[mutation,django,cli,dev]"]
+
+[project.entry-points."hub_identity.auditors"]
+typography = "hub_identity.auditors.typography:TypographyAuditor"
+color = "hub_identity.auditors.color:ColorAuditor"
+layout = "hub_identity.auditors.layout:LayoutAuditor"
+vocabulary = "hub_identity.auditors.vocabulary:VocabularyAuditor"
+structure = "hub_identity.auditors.structure:StructureAuditor"
+microcopy = "hub_identity.auditors.microcopy:MicroCopyAuditor"
+
+[project.entry-points."hub_identity.outputs"]
+css = "hub_identity.outputs.css:CSSOutput"
+po = "hub_identity.outputs.po:POOutput"
+
+[project.entry-points."hub_identity.mutations"]
+font_swap = "hub_identity.mutations.deterministic:FontSwapStrategy"
+radius_jitter = "hub_identity.mutations.deterministic:RadiusJitterStrategy"
+color_entropy = "hub_identity.mutations.deterministic:ColorEntropyStrategy"
+banned_words = "hub_identity.mutations.deterministic:BannedWordReplacer"
+llm_rewrite = "hub_identity.mutations.llm:LLMCopyRewriteStrategy"
+
+[project.scripts]
+hub-identity = "hub_identity.cli:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["hub_identity"]
+
+[tool.ruff]
+line-length = 99
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = "test_*.py"

@@ -1,0 +1,123 @@
+hub: bieterpilot
+display_name: "bieterpilot"
+voice_description: "Präzise Amtssprache trifft operative Schärfe. Kein Marketingsprech. Klare Anweisungen, direkte Handlungsaufforderungen. Wie ein erfahrener Ausschreibungsprofi spricht — sachkundig, verbindlich, ohne Schnörkel."
+tone: [precise, authoritative, direct, formal]
+sentence_length: short
+use_formal_address: true
+use_active_voice: true
+use_imperatives: true
+
+banned_words_de: [nahtlos, leistungsstark, innovativ, umfassend, erleben, entdecken, loslegen, optimal, robust, intuitiv]
+banned_words_en: [seamlessly, leverage, cutting-edge, innovative, discover, explore, get started, intuitive, robust, unlock]
+
+preferred_words_de:
+  nahtlos: direkt
+  leistungsstark: zuverlässig
+  innovativ: erprobt
+  loslegen: starten
+  erleben: nutzen
+
+preferred_words_en:
+  seamlessly: directly
+  leverage: use
+  cutting-edge: proven
+  get started: start
+  discover: find
+
+micro_copy:
+  de:
+    cta_primary: "Ausschreibung starten"
+    cta_secondary: "Abbrechen"
+    cta_save: "Speichern"
+    cta_delete: "Löschen"
+    cta_edit: "Bearbeiten"
+    cta_cancel: "Abbrechen"
+    cta_confirm: "Bestätigen"
+    cta_back: "Zurück"
+    cta_next: "Weiter"
+    cta_search: "Suchen"
+    cta_filter: "Filtern"
+    cta_export: "Exportieren"
+    cta_import: "Importieren"
+    cta_create: "Anlegen"
+    cta_submit: "Absenden"
+    status_loading: "Wird geladen …"
+    status_saving: "Wird gespeichert …"
+    status_success: "Abgeschlossen"
+    status_error: "Fehlgeschlagen"
+    status_empty: "Keine Einträge vorhanden"
+    status_no_results: "Keine Treffer für diese Suche"
+    toast_saved: "Gespeichert."
+    toast_deleted: "Gelöscht."
+    toast_error: "Aktion fehlgeschlagen — Details im Protokoll."
+    toast_updated: "Aktualisiert."
+    toast_created: "Eintrag angelegt."
+    error_generic: "Verbindung fehlgeschlagen. Seite neu laden."
+    error_not_found: "Dieser Eintrag wurde nicht gefunden oder wurde gelöscht."
+    error_unauthorized: "Keine Berechtigung für diese Aktion."
+    error_server: "Serverfehler — bitte den Administrator informieren."
+    error_network: "Netzwerkverbindung unterbrochen."
+    error_validation: "Pflichtfelder prüfen."
+    error_timeout: "Zeitüberschreitung. Aktion wiederholen."
+    label_required: "Pflichtfeld"
+    label_optional: "Optional"
+    hint_search: "Ausschreibung, Vergabenummer …"
+    hint_select: "Auswählen"
+    nav_home: "Übersicht"
+    nav_back: "Zurück"
+    nav_settings: "Einstellungen"
+    nav_logout: "Abmelden"
+    nav_profile: "Konto"
+    dialog_confirm_delete: "Dieser Eintrag wird unwiderruflich gelöscht. Fortfahren?"
+    dialog_confirm_action: "Aktion wirklich ausführen?"
+    dialog_unsaved_changes: "Ungespeicherte Änderungen gehen verloren. Trotzdem verlassen?"
+  en:
+    cta_primary: "Start tender"
+    cta_secondary: "Cancel"
+    cta_save: "Save"
+    cta_delete: "Delete"
+    cta_edit: "Edit"
+    cta_cancel: "Cancel"
+    cta_confirm: "Confirm"
+    cta_back: "Back"
+    cta_next: "Next"
+    cta_search: "Search"
+    cta_filter: "Filter"
+    cta_export: "Export"
+    cta_import: "Import"
+    cta_create: "Create"
+    cta_submit: "Submit"
+    status_loading: "Loading …"
+    status_saving: "Saving …"
+    status_success: "Done"
+    status_error: "Failed"
+    status_empty: "No entries yet"
+    status_no_results: "No matches found"
+    toast_saved: "Saved."
+    toast_deleted: "Deleted."
+    toast_error: "Action failed — check the log."
+    toast_updated: "Updated."
+    toast_created: "Entry created."
+    error_generic: "Connection failed. Reload the page."
+    error_not_found: "This entry no longer exists."
+    error_unauthorized: "You don't have permission for this action."
+    error_server: "Server error — please contact your administrator."
+    error_network: "Network connection lost."
+    error_validation: "Check required fields."
+    error_timeout: "Request timed out. Try the action again."
+    label_required: "Required"
+    label_optional: "Optional"
+    hint_search: "Tender number, title …"
+    hint_select: "Select"
+    nav_home: "Overview"
+    nav_back: "Back"
+    nav_settings: "Settings"
+    nav_logout: "Sign out"
+    nav_profile: "Account"
+    dialog_confirm_delete: "This entry will be permanently deleted. Continue?"
+    dialog_confirm_action: "Run this action?"
+    dialog_unsaved_changes: "Unsaved changes will be lost. Leave anyway?"
+
+text_fingerprint_score: null
+last_mutated: null
+mutation_history: []
