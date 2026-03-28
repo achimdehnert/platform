@@ -1,0 +1,217 @@
+{% load static i18n %}
+<!DOCTYPE html>
+<html
+  lang="{{ LANGUAGE_CODE|default:'de' }}"
+  data-app="{{ APP_NAME }}"
+  data-theme="{{ user_theme|default:'light' }}"
+  class="scroll-smooth"
+>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  {# ── SEO & Social ─────────────────────────────────────────────────────── #}
+  <title>{% block page_title %}{% block title %}{% endblock %} — {{ HUB_DISPLAY_NAME }}{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}{{ HUB_DESCRIPTION }}{% endblock %}">
+  <meta name="robots" content="{% block robots %}index, follow{% endblock %}">
+  <link rel="canonical" href="{% block canonical %}{{ request.build_absolute_uri }}{% endblock %}">
+
+  {# ── Open Graph ───────────────────────────────────────────────────────── #}
+  <meta property="og:type"        content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title"       content="{% block og_title %}{% block title2 %}{% endblock %} — {{ HUB_DISPLAY_NAME }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ HUB_DESCRIPTION }}{% endblock %}">
+  <meta property="og:url"         content="{{ request.build_absolute_uri }}">
+  <meta property="og:image"       content="{% block og_image %}{% static 'img/og-' %}{{ APP_NAME }}.png{% endblock %}">
+  <meta property="og:site_name"   content="{{ HUB_DISPLAY_NAME }}">
+
+  {# ── Schema.org Structured Data ───────────────────────────────────────── #}
+  {% block schema_org %}
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "{{ SCHEMA_ORG_TYPE|default:'WebApplication' }}",
+    "name": "{{ HUB_DISPLAY_NAME }}",
+    "description": "{{ HUB_DESCRIPTION }}",
+    "url": "{{ request.scheme }}://{{ request.get_host }}",
+    "applicationCategory": "BusinessApplication",
+    "operatingSystem": "Web",
+    "inLanguage": "de",
+    "provider": {
+      "@type": "Organization",
+      "name": "IIL GmbH",
+      "url": "https://iil.pet"
+    }
+  }
+  </script>
+  {% endblock %}
+
+  {# ── Preconnect (Bunny Fonts — DSGVO-konform, kein Google Fonts) ─────── #}
+  <link rel="preconnect" href="https://fonts.bunny.net" crossorigin>
+
+  {# ── Hub Visual Identity (ADR-051) ────────────────────────────────────── #}
+  {# pui-tokens-{app}.css enthält: Fonts, CSS-Vars, Grid, Dark Mode         #}
+  <link rel="stylesheet"
+        href="{% static 'css/pui-tokens-'%}{{ APP_NAME }}.css"
+        media="all">
+
+  {# ── Tailwind (via django-tailwind-cli — kein Node.js) ────────────────── #}
+  {% if debug %}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary:        "var(--pui-primary)",
+              "primary-hover":"var(--pui-primary-hover)",
+              accent:         "var(--pui-accent)",
+              surface:        "var(--pui-surface)",
+              "surface-alt":  "var(--pui-surface-alt)",
+              foreground:     "var(--pui-foreground)",
+              muted:          "var(--pui-muted)",
+              border:         "var(--pui-border)",
+              danger:         "var(--pui-danger)",
+              success:        "var(--pui-success)",
+              warning:        "var(--pui-warning)",
+            },
+            fontFamily: {
+              display: ["var(--pui-font-display)"],
+              body:    ["var(--pui-font-body)"],
+              mono:    ["var(--pui-font-mono)"],
+            },
+            borderRadius: {
+              sm: "var(--pui-radius-sm)",
+              DEFAULT: "var(--pui-radius-md)",
+              lg: "var(--pui-radius-lg)",
+              xl: "var(--pui-radius-xl)",
+            },
+            boxShadow: {
+              sm:     "var(--pui-shadow-sm)",
+              md:     "var(--pui-shadow-md)",
+              lg:     "var(--pui-shadow-lg)",
+              accent: "var(--pui-shadow-accent)",
+            },
+          }
+        }
+      }
+    </script>
+  {% else %}
+    <link rel="stylesheet" href="{% static 'css/tailwind.css' %}" media="all">
+  {% endif %}
+
+  {# ── HTMX (self-hosted — no CDN fingerprint, no ad-blocker risk) ──────── #}
+  <script src="{% static 'js/htmx.min.js' %}" defer></script>
+
+  {# ── Alpine.js (self-hosted — Micro-Interaktionen ohne HTMX-Konflikte) ─ #}
+  <script src="{% static 'js/alpine.min.js' %}" defer></script>
+
+  {# ── HTMX Anti-Patterns (ADR-048): CSRF + Response Handler ───────────── #}
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // CSRF für alle HTMX-Requests
+      document.body.addEventListener('htmx:configRequest', function (event) {
+        event.detail.headers['X-CSRFToken'] =
+          document.querySelector('[name=csrfmiddlewaretoken]')?.value ||
+          document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+      });
+    });
+  </script>
+
+  {# ── Page-specific head content ───────────────────────────────────────── #}
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body
+  class="bg-surface text-foreground min-h-screen antialiased"
+  hx-headers='{"X-CSRFToken": "{{ csrf_token }}"}'
+>
+
+  {# ── Skip to main content (Accessibility) ────────────────────────────── #}
+  <a href="#main-content"
+     class="sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4
+            focus:z-50 focus:px-4 focus:py-2 focus:bg-primary focus:text-surface
+            focus:rounded focus:shadow-lg">
+    {% trans "Zum Hauptinhalt springen" %}
+  </a>
+
+  {# ── Global Toast Container (ADR-048 HP-005) ─────────────────────────── #}
+  <div id="toast-container"
+       class="fixed top-4 right-4 z-50 space-y-2 pointer-events-none"
+       aria-live="polite"
+       aria-atomic="true">
+  </div>
+
+  {# ── Navigation ───────────────────────────────────────────────────────── #}
+  {% block navigation %}
+    {% include "partials/_nav.html" %}
+  {% endblock %}
+
+  {# ── Main Content ─────────────────────────────────────────────────────── #}
+  <main id="main-content" role="main" tabindex="-1">
+    {# ── Django Messages → HTMX Toast ─────────────────────────────────── #}
+    {% if messages %}
+      {% for message in messages %}
+        <div
+          hx-swap-oob="beforeend:#toast-container"
+          class="pointer-events-auto max-w-sm w-full bg-surface border border-border
+                 rounded shadow-md px-4 py-3 flex items-start gap-3
+                 {% if message.tags == 'error' %}border-danger{% elif message.tags == 'success' %}border-success{% endif %}"
+          x-data="{ show: true }"
+          x-show="show"
+          x-init="setTimeout(() => show = false, 5000)"
+          x-transition:leave="transition ease-in duration-200"
+          x-transition:leave-start="opacity-100 translate-y-0"
+          x-transition:leave-end="opacity-0 translate-y-1"
+        >
+          <p class="text-sm text-foreground">{{ message }}</p>
+          <button @click="show = false" class="ml-auto text-muted hover:text-foreground">✕</button>
+        </div>
+      {% endfor %}
+    {% endif %}
+
+    {% block content %}{% endblock %}
+  </main>
+
+  {# ── Footer ───────────────────────────────────────────────────────────── #}
+  {% block footer %}
+    {% include "partials/_footer.html" %}
+  {% endblock %}
+
+  {# ── Toast Event Listener (ADR-048 HP-005) ───────────────────────────── #}
+  <script>
+    document.addEventListener('showToast', function (event) {
+      const { level, message } = event.detail || {};
+      if (!message) return;
+      const levelColors = {
+        info:    'border-border',
+        success: 'border-success',
+        warning: 'border-warning',
+        error:   'border-danger',
+      };
+      const toast = document.createElement('div');
+      toast.className = [
+        'pointer-events-auto max-w-sm w-full bg-surface border rounded shadow-md',
+        'px-4 py-3 text-sm text-foreground pui-interactive',
+        levelColors[level] || 'border-border',
+      ].join(' ');
+      toast.textContent = message;
+      document.getElementById('toast-container').appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    });
+  </script>
+
+  {# ── Dark Mode Toggle (optional, reads data-theme on <html>) ─────────── #}
+  <script>
+    (function () {
+      const saved = localStorage.getItem('pui-theme');
+      if (saved) document.documentElement.setAttribute('data-theme', saved);
+    })();
+  </script>
+
+  {# ── Page-specific scripts ────────────────────────────────────────────── #}
+  {% block extra_js %}{% endblock %}
+
+  {# Inline styles banned (AP-004) — no style="" attributes in templates #}
+  {# onclick banned (AP-003) — use hx-* or @click (Alpine) #}
+</body>
+</html>

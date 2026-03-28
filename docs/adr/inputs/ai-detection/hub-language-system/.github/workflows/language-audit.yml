@@ -1,0 +1,196 @@
+---
+# =============================================================================
+# Language Fingerprint Audit — Hub Language Identity System (ADR-052)
+# =============================================================================
+
+name: Language Fingerprint Audit
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - "hub_voice_dnas/**"
+      - "detection_patterns/text/**"
+      - "tools/voice_dna/**"
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - "hub_voice_dnas/**"
+      - "detection_patterns/text/**"
+      - "tools/voice_dna/**"
+  schedule:
+    - cron: "0 7 * * *"   # daily 07:00 UTC
+  workflow_dispatch:
+    inputs:
+      regenerate_po:
+        description: "Regenerate .po files before audit"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  language-audit:
+    name: "Text Fingerprint Audit"
+    runs-on: [self-hosted, hetzner, dev]
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install pydantic pyyaml anthropic --break-system-packages
+
+      - name: Validate Voice DNA schemas
+        run: python -m tools.voice_dna validate
+
+      - name: Generate .po files
+        if: ${{ github.event.inputs.regenerate_po == 'true' || github.event_name == 'schedule' }}
+        run: python -m tools.voice_dna generate
+
+      - name: Run Text Fingerprint Audit
+        id: audit
+        run: |
+          set -euo pipefail
+          python -m tools.voice_dna audit \
+            --ci \
+            --output reports/text-audit-report.json
+
+      - name: Upload Audit Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: text-fingerprint-audit-report
+          path: reports/text-audit-report.json
+          retention-days: 30
+
+      - name: Post PR Comment
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = JSON.parse(fs.readFileSync('reports/text-audit-report.json', 'utf8'));
+            const rows = report.reports.map(r => {
+              const emoji = r.passed ? '✅' : '❌';
+              const bar = '█'.repeat(Math.floor(r.score / 5)) + '░'.repeat(20 - Math.floor(r.score / 5));
+              return `| ${emoji} | ${r.hub} | ${r.score.toFixed(1)} | ${r.grade} | \`${bar}\` |`;
+            });
+            const failed = report.reports.filter(r => !r.passed);
+            const body = [
+              '## 📝 AI Text Fingerprint Audit Report',
+              '',
+              '| | Hub | Score | Grade | Visual |',
+              '|---|---|---|---|---|',
+              ...rows,
+              '',
+              failed.length > 0
+                ? `> ❌ **${failed.length} hub(s) failed** (score ≥ 35). Run \`python -m tools.voice_dna mutate\`.`
+                : '> ✅ All hubs passed the text fingerprint audit.',
+            ].join('\n');
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body,
+            });
+
+---
+# =============================================================================
+# Language Mutation Engine — Hub Language Identity System (ADR-052)
+# =============================================================================
+
+# .github/workflows/language-mutate.yml
+
+name: Language Mutation Engine
+
+on:
+  workflow_dispatch:
+    inputs:
+      hub:
+        description: "Specific hub (empty = all failing)"
+        required: false
+      strength:
+        type: choice
+        options: [low, medium, high]
+        default: medium
+      dry_run:
+        type: boolean
+        default: false
+  schedule:
+    - cron: "0 9 1-7 1,4,7,10 1"   # Quarterly
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  mutate:
+    name: "Copy Mutation Engine"
+    runs-on: [self-hosted, hetzner, dev]
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: pip install pydantic pyyaml anthropic --break-system-packages
+
+      - name: Run audit (get current scores)
+        run: python -m tools.voice_dna audit --output reports/text-audit-report.json || true
+
+      - name: Run Copy Mutation Engine
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          python -m tools.voice_dna mutate \
+            ${{ github.event.inputs.hub != '' && format('--hub {0}', github.event.inputs.hub) || '' }} \
+            --strength ${{ github.event.inputs.strength || 'medium' }} \
+            ${{ github.event.inputs.dry_run == 'true' && '--dry-run' || '' }}
+
+      - name: Regenerate .po files with mutated DNA
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        run: |
+          if [ -d "hub_voice_dnas/_mutated" ]; then
+            cp hub_voice_dnas/_mutated/*.yaml hub_voice_dnas/ 2>/dev/null || true
+            rm -rf hub_voice_dnas/_mutated
+          fi
+          python -m tools.voice_dna generate
+
+      - uses: peter-evans/create-pull-request@v6
+        if: ${{ github.event.inputs.dry_run != 'true' }}
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: "copy(voice-dna): mutate hub copy to reduce AI text fingerprint"
+          branch: "language/mutation-${{ github.run_number }}"
+          title: "📝 Voice DNA Mutation — AI Text Fingerprint Reduction"
+          body: |
+            ## 📝 Automated Copy Mutation
+
+            Generated by **Copy Mutation Engine** (ADR-052).
+
+            - Updated `hub_voice_dnas/*.yaml` for hubs with text fingerprint score ≥ 35
+            - Re-generated `generated_po/{hub}/locale/{de,en}/LC_MESSAGES/django.po`
+            - Strength: `${{ github.event.inputs.strength || 'medium' }}`
+
+            **Review checklist:**
+            - [ ] Voice/tone preserved per hub personality
+            - [ ] No banned AI phrases in new copy
+            - [ ] DE: Formal/informal address consistent
+            - [ ] Post-mutation audit scores all < 35
+            - [ ] msgids unchanged (only msgstr changed)
+          labels: "copy,automated,voice-mutation"

@@ -1,0 +1,44 @@
+hub: doc-hub
+display_name: "doc-hub"
+personality: "archival permanence, organized knowledge, document heritage, structured memory"
+aesthetic: "archival-warmth"
+
+palette:
+  primary:        "#3D2B1F"
+  primary_hover:  "#4F3828"
+  accent:         "#B5651D"
+  surface:        "#FEFCF5"
+  surface_alt:    "#F5EFE0"
+  foreground:     "#1A1108"
+  muted:          "#7A6A52"
+  border:         "#D8CDB8"
+  danger:         "#A0300A"
+  success:        "#2E5C35"
+  warning:        "#A0610A"
+
+typography:
+  display_font:   "Newsreader"
+  body_font:      "DM Sans"
+  mono_font:      "Source Code Pro"
+  display_weight: "700"
+  body_weight:    "400,500"
+  font_source:    "https://fonts.bunny.net/css?family=newsreader:700|dm-sans:400,500|source-code-pro:400"
+
+layout:
+  radius_sm:         "2px"
+  radius_md:         "5px"
+  radius_lg:         "9px"
+  radius_xl:         "14px"
+  asymmetry_level:   "medium"
+  grid_variant:      "standard"
+
+motion:
+  duration_fast:    "110ms"
+  duration_normal:  "220ms"
+  easing_standard:  "cubic-bezier(0.25, 0.46, 0.45, 0.94)"
+  easing_spring:    "cubic-bezier(0.34, 1.4, 0.64, 1)"
+  hover_lift:       "-2px"
+
+fingerprint_score: null
+last_mutated: null
+mutation_history: []

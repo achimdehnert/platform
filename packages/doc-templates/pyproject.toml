@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "iil-doc-templates"
-version = "0.1.1"
+version = "0.2.0"
 description = "Reusable Django document template system — create, edit, fill templates with PDF extraction and LLM prefill"
 readme = "README.md"
 requires-python = ">=3.10"

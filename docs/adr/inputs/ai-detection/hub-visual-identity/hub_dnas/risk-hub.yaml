@@ -1,0 +1,44 @@
+hub: risk-hub
+display_name: "risk-hub"
+personality: "analytical precision, risk intelligence, technical authority, no-nonsense clarity"
+aesthetic: "terminal-precision"
+
+palette:
+  primary:        "#1A1A2E"
+  primary_hover:  "#24243E"
+  accent:         "#E94560"
+  surface:        "#F7F7F5"
+  surface_alt:    "#EDEDEA"
+  foreground:     "#0D0D0D"
+  muted:          "#585858"
+  border:         "#C8C8C5"
+  danger:         "#CC2B2B"
+  success:        "#1C7A3D"
+  warning:        "#CA6500"
+
+typography:
+  display_font:   "Syne"
+  body_font:      "Manrope"
+  mono_font:      "IBM Plex Mono"
+  display_weight: "700"
+  body_weight:    "400,500,600"
+  font_source:    "https://fonts.bunny.net/css?family=syne:700|manrope:400,500,600|ibm-plex-mono:400"
+
+layout:
+  radius_sm:         "0px"
+  radius_md:         "2px"
+  radius_lg:         "4px"
+  radius_xl:         "6px"
+  asymmetry_level:   "low"
+  grid_variant:      "dashboard"
+
+motion:
+  duration_fast:    "80ms"
+  duration_normal:  "160ms"
+  easing_standard:  "cubic-bezier(0.25, 0, 0.5, 1)"
+  easing_spring:    "cubic-bezier(0.34, 1.2, 0.64, 1)"
+  hover_lift:       "-1px"
+
+fingerprint_score: null
+last_mutated: null
+mutation_history: []

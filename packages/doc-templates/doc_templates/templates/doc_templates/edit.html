@@ -110,6 +110,22 @@ const FIELD_TYPES = [
   { value: 'boolean', label: 'Ja/Nein', icon: '☑' },
 ];
 
+// ── AI context source document types ────────────────────────
+const AI_SOURCE_TYPES = [
+  { value: 'sds', label: 'Sicherheitsdatenblätter (SDS)' },
+  { value: 'bedienungsanleitung', label: 'Bedienungsanleitungen' },
+  { value: 'standortdaten', label: 'Standort- und Gebäudedaten' },
+  { value: 'cad', label: 'CAD-Zeichnungen / Anlagenpläne' },
+  { value: 'zonenplan', label: 'Zonenpläne / Ex-Zonen' },
+  { value: 'gefaehrdungsbeurteilung', label: 'Gefährdungsbeurteilungen' },
+  { value: 'betriebsanweisung', label: 'Betriebsanweisungen' },
+  { value: 'pruefbericht', label: 'Prüfberichte / Protokolle' },
+  { value: 'rechtliche_grundlagen', label: 'Rechtliche Grundlagen / Normen' },
+  { value: 'wartungsplan', label: 'Wartungs- und Instandhaltungspläne' },
+  { value: 'risikobewertung', label: 'Risikobewertungen' },
+  { value: 'brandschutz', label: 'Brandschutzkonzepte' },
+];
+
 // ── State ───────────────────────────────────────────────────
 let structure = JSON.parse(document.getElementById('structure-data').textContent);
 if (!structure || !structure.sections) structure = { sections: [] };
@@ -162,9 +178,12 @@ function renderField(si, fi, field) {
   const typeInfo = FIELD_TYPES.find(t => t.value === field.type) || FIELD_TYPES[0];
   const isTable = field.type === 'table';
   const cols = field.columns || [];
+  const aiEnabled = !!field.ai_enabled;
+  const aiPrompt = field.ai_prompt || '';
+  const aiSources = field.ai_sources || [];
 
   return `
-    <div class="flex items-start gap-2 p-2 rounded-lg bg-white border border-gray-100 hover:border-gray-200 group">
+    <div class="flex items-start gap-2 p-2 rounded-lg bg-white border ${aiEnabled ? 'border-purple-200 bg-purple-50/30' : 'border-gray-100'} hover:border-gray-200 group">
       <div class="flex-1 space-y-2">
         <div class="flex items-center gap-2">
           <input type="text" value="${esc(field.label)}"
@@ -175,6 +194,11 @@ function renderField(si, fi, field) {
                   class="border-0 bg-gray-50 text-xs rounded-md text-gray-600 focus:ring-1 focus:ring-blue-300 py-1 pr-6">
             ${FIELD_TYPES.map(t => `<option value="${t.value}" ${t.value === field.type ? 'selected' : ''}>${t.icon} ${t.label}</option>`).join('')}
           </select>
+          <button type="button" onclick="toggleAi(${si}, ${fi})"
+                  class="text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${aiEnabled ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'}"
+                  title="${aiEnabled ? 'KI-Unterstützung deaktivieren' : 'KI-Unterstützung aktivieren'}">
+            🤖 KI ${aiEnabled ? 'AN' : 'AUS'}
+          </button>
           <button type="button" onclick="deleteField(${si}, ${fi})"
                   class="text-red-300 hover:text-red-500 text-xs p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Feld löschen">✕</button>
@@ -183,10 +207,40 @@ function renderField(si, fi, field) {
         ${field.type === 'textarea' && field.default ? `<div class="text-xs text-gray-400 truncate max-w-md" title="Vorausgefüllter Inhalt">📄 ${esc(field.default.substring(0, 80))}…</div>` : ''}
         ${field.type === 'date' ? '<div class="text-xs text-gray-400">📅 Datumsfeld</div>' : ''}
         ${field.type === 'boolean' ? '<div class="text-xs text-gray-400">☑ Ja/Nein-Schalter</div>' : ''}
+        ${aiEnabled ? renderAiConfig(si, fi, aiPrompt, aiSources) : ''}
       </div>
       <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         <button type="button" onclick="moveField(${si}, ${fi}, -1)" class="text-gray-300 hover:text-gray-500 text-xs"${fi === 0 ? ' disabled' : ''}>▲</button>
         <button type="button" onclick="moveField(${si}, ${fi}, 1)" class="text-gray-300 hover:text-gray-500 text-xs"${fi === (structure.sections[si].fields || []).length - 1 ? ' disabled' : ''}>▼</button>
+      </div>
+    </div>`;
+}
+
+function renderAiConfig(si, fi, prompt, sources) {
+  return `
+    <div class="mt-2 p-3 bg-purple-50 rounded-lg border border-purple-100 space-y-3">
+      <div class="flex items-center gap-2 text-xs font-medium text-purple-700">
+        🤖 KI-Konfiguration
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-purple-600 mb-1">Prompt (Anweisung an die KI)</label>
+        <textarea onchange="updateAiPrompt(${si}, ${fi}, this.value)"
+                  rows="2"
+                  class="w-full rounded-md border-purple-200 text-xs focus:border-purple-400 focus:ring-purple-300 bg-white"
+                  placeholder="z.B. Beschreibe die Zoneneinteilung basierend auf den Standortdaten und dem Zonenplan...">${esc(prompt)}</textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-purple-600 mb-1">Kontext-Quellen (Dokumente als Grundlage)</label>
+        <div class="grid grid-cols-2 gap-1.5">
+          ${AI_SOURCE_TYPES.map(src => `
+            <label class="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer hover:text-purple-700 p-1 rounded hover:bg-purple-100/50">
+              <input type="checkbox" ${sources.includes(src.value) ? 'checked' : ''}
+                     onchange="toggleAiSource(${si}, ${fi}, '${src.value}', this.checked)"
+                     class="rounded border-purple-300 text-purple-600 focus:ring-purple-300 w-3.5 h-3.5">
+              ${esc(src.label)}
+            </label>
+          `).join('')}
+        </div>
       </div>
     </div>`;
 }
@@ -289,6 +343,37 @@ function updateFieldType(si, fi, newType) {
     delete field.default_rows;
   }
   render();
+}
+
+// ── AI Configuration ────────────────────────────────────────
+function toggleAi(si, fi) {
+  const field = structure.sections[si].fields[fi];
+  field.ai_enabled = !field.ai_enabled;
+  if (field.ai_enabled) {
+    if (!field.ai_prompt) field.ai_prompt = '';
+    if (!field.ai_sources) field.ai_sources = [];
+  } else {
+    delete field.ai_prompt;
+    delete field.ai_sources;
+    delete field.ai_enabled;
+  }
+  render();
+}
+
+function updateAiPrompt(si, fi, value) {
+  structure.sections[si].fields[fi].ai_prompt = value;
+  syncJson();
+}
+
+function toggleAiSource(si, fi, sourceValue, checked) {
+  const field = structure.sections[si].fields[fi];
+  if (!field.ai_sources) field.ai_sources = [];
+  if (checked && !field.ai_sources.includes(sourceValue)) {
+    field.ai_sources.push(sourceValue);
+  } else if (!checked) {
+    field.ai_sources = field.ai_sources.filter(s => s !== sourceValue);
+  }
+  syncJson();
 }
 
 // ── Table column CRUD ───────────────────────────────────────

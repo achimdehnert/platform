@@ -1,0 +1,88 @@
+# risk-hub.yaml — Schutztat identity (overrides _base only)
+extends: _base
+
+hub: risk-hub
+display_name: Schutztat
+personality: precise, technical, minimal
+
+visual:
+  palette:
+    primary: "#0f172a"
+    accent: "#dc2626"
+    accent_foreground: "#ffffff"
+    background: "#fafaf8"
+    muted: "#f4f4f3"
+    border: "#d6d3d1"
+
+  typography:
+    display: JetBrains Mono
+    body: Barlow
+    mono: Fira Code
+
+  layout:
+    border_radius: 3
+    grid_variant: dashboard
+
+  motion:
+    easing: "cubic-bezier(0.16, 1, 0.3, 1)"
+
+  shadow:
+    accent: "0 0 0 2px rgba(220,38,38,0.15)"
+
+voice:
+  tone:
+    - precise
+    - technical
+    - direct
+    - minimal
+  voice_description: >-
+    Terminal-Präzision. Keine Metaphern, keine Empathiefloskeln.
+    Jeder Satz ist eine Anweisung oder eine Feststellung.
+  sentence_length: short
+  use_imperatives: true
+  preferred_words_de:
+    nahtlos: direkt
+    leistungsstark: belastbar
+    innovativ: aktuell
+    umfassend: vollständig
+    optimieren: korrigieren
+    sicherstellen: prüfen
+  preferred_words_en:
+    seamlessly: directly
+    leverage: use
+    cutting-edge: current
+    streamline: simplify
+    empower: enable
+
+  micro_copy:
+    de:
+      cta_primary: Sichern
+      cta_danger: Entfernen
+      status_loading: Lade Daten…
+      status_success: Abgeschlossen.
+      status_error: Vorgang fehlgeschlagen.
+      status_empty: Keine Datensätze vorhanden.
+      error_generic: "Vorgang fehlgeschlagen: Daten prüfen."
+      error_validation: "Pflichtfeld fehlt oder Format ungültig."
+      error_not_found: "Datensatz existiert nicht."
+      error_permission: "Berechtigung fehlt."
+      toast_saved: Änderungen gesichert.
+      toast_deleted: Datensatz entfernt.
+      toast_error: Speichern fehlgeschlagen.
+    en:
+      cta_primary: Commit
+      cta_danger: Remove
+      status_loading: Loading data…
+      status_success: Complete.
+      status_error: Operation failed.
+      status_empty: No records found.
+      error_generic: "Operation failed: check input data."
+      error_validation: "Required field missing or format invalid."
+      error_not_found: "Record does not exist."
+      error_permission: "Permission denied."
+      toast_saved: Changes committed.
+      toast_deleted: Record removed.
+      toast_error: Save failed.
+
+schema_org_type: SoftwareApplication
+og_image: og-risk-hub.png

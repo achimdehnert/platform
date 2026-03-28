@@ -441,6 +441,20 @@ def instance_edit(request: HttpRequest, pk: int) -> HttpResponse:
         except (json.JSONDecodeError, TypeError):
             values = {}
 
+        # AI source label mapping
+        _ai_src_labels = {
+            "sds": "SDS", "bedienungsanleitung": "Bedienungsanl.",
+            "standortdaten": "Standortdaten", "cad": "CAD",
+            "zonenplan": "Zonenpl\u00e4ne",
+            "gefaehrdungsbeurteilung": "GBU",
+            "betriebsanweisung": "Betriebsanw.",
+            "pruefbericht": "Pr\u00fcfberichte",
+            "rechtliche_grundlagen": "Normen",
+            "wartungsplan": "Wartungsplan",
+            "risikobewertung": "Risikobew.",
+            "brandschutz": "Brandschutz",
+        }
+
         # Merge values into structure for easy rendering
         for section in structure.get("sections", []):
             skey = section["key"]
@@ -455,9 +469,17 @@ def instance_edit(request: HttpRequest, pk: int) -> HttpResponse:
                     )
                     cols = field.get("columns", [])
                     while len(field["table_rows"]) < 3:
-                        field["table_rows"].append([""] * len(cols))
+                        field["table_rows"].append(["" ] * len(cols))
                 else:
                     field["field_value"] = val or field.get("default", "")
+
+                # AI config for template rendering
+                ai_src = field.get("ai_sources", [])
+                if ai_src:
+                    field["ai_sources_csv"] = ",".join(ai_src)
+                    field["ai_sources_labels"] = ", ".join(
+                        _ai_src_labels.get(s, s) for s in ai_src
+                    )
 
         return render(request, f"{TPL_DIR}/instance_edit.html", {
             "instance": instance,
@@ -539,9 +561,15 @@ def instance_llm_prefill(request: HttpRequest, pk: int) -> HttpResponse:
 
     field_key = request.POST.get("field_key", "")
     llm_hint = request.POST.get("llm_hint", "")
+    ai_sources_raw = request.POST.get("ai_sources", "")
 
     if not field_key or not llm_hint:
         return HttpResponse("field_key und llm_hint erforderlich", status=400)
+
+    # Parse requested AI source types
+    ai_sources = [
+        s.strip() for s in ai_sources_raw.split(",") if s.strip()
+    ]
 
     # Build context from existing values
     context_parts = []
@@ -560,13 +588,41 @@ def instance_llm_prefill(request: HttpRequest, pk: int) -> HttpResponse:
     if instance.template.source_text:
         extracted_texts = [instance.template.source_text[:5000]]
 
+    # AI source type labels for prompt context
+    _src_labels = {
+        "sds": "Sicherheitsdatenblätter",
+        "bedienungsanleitung": "Bedienungsanleitungen",
+        "standortdaten": "Standort- und Gebäudedaten",
+        "cad": "CAD-Zeichnungen und Anlagenpläne",
+        "zonenplan": "Zonenpläne und Ex-Zonen-Einteilung",
+        "gefaehrdungsbeurteilung": "Gefährdungsbeurteilungen",
+        "betriebsanweisung": "Betriebsanweisungen",
+        "pruefbericht": "Prüfberichte und Protokolle",
+        "rechtliche_grundlagen": "Rechtliche Grundlagen",
+        "wartungsplan": "Wartungs-/Instandhaltungspläne",
+        "risikobewertung": "Risikobewertungen",
+        "brandschutz": "Brandschutzkonzepte",
+    }
+
     scope = instance.template.scope or "Fachbereich"
     system_prompt = (
         f"Du bist ein Experte für {scope} und technische Dokumentation. "
         "Schreibe fachlich korrekte, präzise Texte auf Deutsch. "
         "Antworte NUR mit dem Feldinhalt, keine Erklärungen."
     )
-    user_prompt = f"Feld: {llm_hint}\n"
+
+    # Use template-defined prompt as primary instruction
+    user_prompt = f"Aufgabe: {llm_hint}\n"
+
+    # Add source type instructions
+    if ai_sources:
+        src_names = [_src_labels.get(s, s) for s in ai_sources]
+        user_prompt += (
+            "\nBerücksichtige folgende Dokumenttypen "
+            "als fachliche Grundlage:\n- "
+            + "\n- ".join(src_names) + "\n"
+        )
+
     if context_parts:
         user_prompt += "\nBereits ausgefüllte Felder:\n" + "\n".join(context_parts[:10]) + "\n"
     if extracted_texts:
