@@ -22,5 +22,6 @@ urlpatterns = [
     path("instance/<int:pk>/edit/", views.instance_edit, name="instance-edit"),
     path("instance/<int:pk>/delete/", views.instance_delete, name="instance-delete"),
     path("instance/<int:pk>/prefill/", views.instance_llm_prefill, name="instance-prefill"),
+    path("instance/<int:pk>/bulk-prefill/", views.instance_bulk_prefill, name="instance-bulk-prefill"),
     path("instance/<int:pk>/pdf/", views.instance_pdf_export, name="instance-pdf"),
 ]
