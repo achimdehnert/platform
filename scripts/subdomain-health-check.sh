@@ -40,7 +40,7 @@ DOMAINS=(
   "https://docs.iil.pet|Docs"
   # "https://governance.iil.pet|Governance"  # NOT DEPLOYED — no container running
   "https://id.iil.pet|Authentik SSO"
-  "https://illustration.iil.pet|Illustration Hub"  # intermittent 502 on Gunicorn worker timeout (~15s restart)
+  "https://illustration.iil.pet/livez/|Illustration Hub"
   "https://trading-hub.iil.pet|Trading Hub"
   # "https://travel.schutztat.de|Travel Beat"  # No public iil.pet domain, runs via Caddy on 8089 directly
   "https://wedding-hub.iil.pet/accounts/login/|Wedding Hub"
