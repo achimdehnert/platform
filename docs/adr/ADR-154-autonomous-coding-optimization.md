@@ -393,17 +393,21 @@ Anmerkungen zum Diagramm (R-16):
 | **Phase 2** | orchestrator erweitern: agent_sessions DDL (R-11), get_full_context Tool (R-04/R-08), fix_template (R-15), Unique-Index (R-06) | ✅ Done | mcp-hub `187f000` |
 | **Phase 3** | Self-Learning: log_error_pattern (R-09), find_similar_errors, get_session_delta, session_stats, FTS simple | ✅ Done | mcp-hub `9bd2a96` |
 | **Review** | Auto-bootstrap, rowcount scope, validated params, FTS german→simple | ✅ Done | mcp-hub `9bd2a96`, platform `cd9724c` |
+| **Optimierung** | Semantic Search: OPENAI_API_KEY secrets fallback, CAST vector fix, Embedding-Backfill, error_pattern embeddings | ✅ Done | mcp-hub `4ed423b` |
 
 ### Verifiziert (MCP-Tools)
 - `agent_memory_upsert` → ✅ ok:true
-- `agent_memory_search` → ✅ Fulltext-Fallback (simple dictionary)
+- `agent_memory_search` → ✅ **Semantic Search aktiv** (cosine similarity + temporal decay)
 - `agent_memory_context` → ✅ Top-K relevante Entries
 - `session_start/end` → ✅ Python-verifiziert (3 Sessions)
 - `get_full_context` → ⏳ nach nächstem Windsurf-Neustart
-- `log_error_pattern` → ✅ SHA-Hash-Dedup funktioniert
-- `find_similar_errors` → ✅ Fulltext mit repo-Filter
+- `log_error_pattern` → ✅ SHA-Hash-Dedup + Embedding
+- `find_similar_errors` → ✅ Semantic + Fulltext + repo-Filter
 - `get_session_delta` → ✅ Entries seit letzter Session
-- `session_stats` → ✅ Quality Metrics (sessions=3, entries=6)
+- `session_stats` → ✅ Quality Metrics (sessions=3, entries=7)
+
+### Outline Knowledge Capture
+- Lesson Learned: `76fcd0cd` — psycopg3 + SQLAlchemy Core Inkompatibilitäten
 
 ---
 
@@ -415,6 +419,7 @@ Anmerkungen zum Diagramm (R-16):
 | 2026-03-31 | Cascade (Code-verifiziert) | `reviews/01-cascade-response-adr-154.md` | 14/17 akzeptiert, 2 abgelehnt (R-03 Django-Irrtum, R-14 i18n), 1 abgestuft |
 | 2026-03-31 | Cascade (Impl.) | Phase 0+1+2 implementiert | 5 Bugs gefixt, 6 Smoke-Tests bestanden, 4 Commits gepusht |
 | 2026-03-31 | Cascade (Impl.) | Phase 3 + Review | 4 neue MCP-Tools, FTS simple, auto-bootstrap, 7 Smoke-Tests bestanden |
+| 2026-03-31 | Cascade (Opt.) | Semantic Search aktiviert | OPENAI_API_KEY, CAST vector, Backfill, 10 Entries mit Embeddings |
 
 **Architektur-Entscheidung aus Review:** orchestrator_mcp bleibt **SQLAlchemy Core** — kein Django ORM. MCP-Server ≠ Django-Hub. Details in `01-cascade-response-adr-154.md`.
 
