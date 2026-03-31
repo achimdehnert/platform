@@ -33,20 +33,22 @@ agent_memory_upsert(
 
 8. **Error-Patterns erfassen** (nur bei Bug-Fixes in dieser Session):
 ```
-agent_memory_upsert(
-  entry_key: "error:<repo>:<symptom-hash>",
-  entry_type: "error_pattern",
-  title: "Error: <Symptom-Kurzform>",
-  content: "Symptom: ...\nRoot Cause: ...\nFix: ...\nPrevention: ...",
-  tags: ["error", "<repo>", "<error-type>"]
+log_error_pattern(
+  repo: "<repo>",
+  symptom: "<Was ging schief?>",
+  root_cause: "<Warum?>",
+  fix: "<Was wurde gefixt?>",
+  prevention: "<Wie vermeiden?>",
+  error_type: "<sql|auth|config|deployment|...>"
 )
 ```
+→ SHA-Hash-Dedup: gleicher Symptom+Repo erzeugt keinen Duplikat-Eintrag.
 
-9. **Decay Cleanup** — alte irrelevante Entries abwerten (optional, 1x pro Tag reicht):
+9. **Session-Stats prüfen** (optional, 1x pro Woche reicht):
 ```
-Falls heute noch kein gc() lief:
-agent_memory_search(query: "gc-marker", entry_type: "context")
-→ Wenn kein heutiger Marker: im Python-Smoke-Test gc() triggern
+session_stats(days: 7)
+→ Zeigt: Sessions, Entries, Error-Patterns der letzten 7 Tage
+→ Bei auffällig vielen Errors: Patterns reviewen via find_similar_errors()
 ```
 
 > **Der User muss NICHTS auflisten.** Der Agent scannt die Session autonom.

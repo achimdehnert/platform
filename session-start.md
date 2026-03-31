@@ -30,6 +30,22 @@ agent_memory_context(
 → Falls Ergebnisse: kurz zusammenfassen und in Arbeitsplan einbeziehen.
 → Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
 
-9. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse)
+9. **Delta-Check** — Was hat sich seit der letzten Session geändert?
+```
+get_session_delta()
+```
+→ Zeigt Entries die seit dem letzten Session-Ende geschrieben/aktualisiert wurden.
+→ Relevant bei Multi-Agent oder wenn zwischen Sessions manuell gearbeitet wurde.
+
+10. **Bekannte Fehler prüfen** (bei Bug-Fix-Sessions):
+```
+find_similar_errors(
+  query: "<Fehlerbeschreibung aus User-Nachricht>",
+  repo: "<aktuelles Repo>"
+)
+```
+→ Falls bekannter Error-Pattern: Fix direkt anwenden statt neu debuggen.
+
+11. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse)
 
 Vollständige Details: siehe `agent-session-start.md`
