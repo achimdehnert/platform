@@ -46,6 +46,15 @@ find_similar_errors(
 ```
 → Falls bekannter Error-Pattern: Fix direkt anwenden statt neu debuggen.
 
-11. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse)
+11. **Wiederkehrende Fehler prüfen** (automatisch, jede Session):
+```
+check_recurring_errors()
+```
+→ Findet Error-Patterns die ≥3x aufgetreten sind (Eskalations-Schwelle).
+→ Bei Treffern: **Deep Root-Cause Analysis** starten statt Quick-Fix.
+→ 🟡 ESCALATED (3-5x): nachhaltige Lösung untersuchen.
+→ 🔴 CRITICAL (≥6x): sofortige Analyse, Blocker für andere Tasks.
+
+12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)
 
 Vollständige Details: siehe `agent-session-start.md`
