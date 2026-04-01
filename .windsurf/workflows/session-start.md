@@ -4,68 +4,99 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 
 # /session-start
 
-> **Alias für `/agent-session-start`** — gleicher Workflow, kürzerer Name.
 > Gegenstück: `/session-ende`
+> Zwei Umgebungen: **WSL** (`/home/dehnert/github/`) und **Dev Desktop** (`/home/devuser/github/`)
 
-Führe **exakt** den Workflow aus `/agent-session-start` aus:
+---
 
-1. **Git Sync (Multi-Env)** — Alle Repos auf aktuellem Stand bringen:
+## Phase 0: Umgebung synchronisieren (IMMER zuerst)
+
+### 0.1 Platform-Repo pullen (enthält Workflows + ADRs)
+
+// turbo
 ```bash
-# Im aktuellen Workspace-Repo:
-git stash && git pull --rebase && git stash pop 2>/dev/null
-# Falls Multi-Repo-Session (mcp-hub, platform, risk-hub):
+cd ~/github/platform && git pull --rebase --quiet
+```
+
+### 0.2 Workflow-Symlinks aktualisieren
+
+// turbo
+```bash
+GITHUB_DIR=~/github bash ~/github/platform/scripts/sync-workflows.sh 2>&1 | grep -E "LINK|REPLACE|WARN" | head -20
+```
+→ Stellt sicher, dass alle Repos die aktuellen Workflows haben.
+→ Neue Workflows in platform werden automatisch verteilt.
+
+### 0.3 Aktuelles Workspace-Repo + Kern-Repos synchronisieren
+
+// turbo
+```bash
+# Aktuelles Repo
+git stash --quiet 2>/dev/null
+git pull --rebase --quiet
+git stash pop --quiet 2>/dev/null
+
+# Kern-Repos (MCP-Infrastruktur)
 for repo in mcp-hub platform risk-hub; do
-  cd ~/github/$repo && git pull --rebase --quiet 2>/dev/null
+  (cd ~/github/$repo && git pull --rebase --quiet 2>/dev/null) &
 done
+wait
+echo "Git Sync done"
 ```
 → Stellt sicher, dass WSL ↔ Dev Desktop synchron sind.
-→ Bei Konflikten: `git stash pop` manuell lösen, NICHT automatisch force-pushen.
+→ Bei Konflikten: `git stash pop` manuell lösen, NICHT force-pushen.
 
-2. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index, `mcp14_get_context_for_task()`
-3. **Health Dashboard** (bei Infra/Deploy-Sessions) — `mcp6_system_manage(action: health_dashboard)`
-4. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
-5. **Branch-Status prüfen** — `git status && git log --oneline -5`
-6. **Tests baseline** — `pytest tests/ -q --tb=no`
-7. **Knowledge-Lookup** — Outline durchsuchen (Repo-Steckbrief, Task-Wissen, Lessons, Cascade-Aufträge)
+### 0.4 SSH Tunnel prüfen (nur Dev Desktop, für pgvector Memory)
 
-## pgvector Warm-Start (ADR-154)
+```bash
+# Nur auf Dev Desktop (88.99.38.75):
+ss -tlnp | grep 15435 || sudo systemctl start ssh-tunnel-postgres
+```
 
-8. **Memory Warm-Start** — Relevante Memories aus früheren Sessions laden:
+---
+
+## Phase 1: Kontext laden
+
+1. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index, `get_context_for_task()`
+2. **Health Dashboard** (bei Infra/Deploy-Sessions) — `system_manage(action: health_dashboard)`
+3. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
+4. **Branch-Status prüfen** — `git status && git log --oneline -5`
+5. **Tests baseline** — `pytest tests/ -q --tb=no` (falls vorhanden)
+6. **Knowledge-Lookup** — Outline durchsuchen (Repo-Steckbrief, Task-Wissen, Lessons, Cascade-Aufträge)
+
+---
+
+## Phase 2: pgvector Warm-Start (ADR-154)
+
+7. **Memory Warm-Start** — Relevante Memories aus früheren Sessions laden:
 ```
 agent_memory_context(
   task_description: "<User-Aufgabe aus erster Nachricht>",
   top_k: 5
 )
 ```
-→ Zeigt relevante Session-Summaries, Error-Patterns und Lessons aus früheren Sessions.
-→ Falls Ergebnisse: kurz zusammenfassen und in Arbeitsplan einbeziehen.
+→ Zeigt relevante Session-Summaries, Error-Patterns und Lessons.
 → Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
 
-9. **Delta-Check** — Was hat sich seit der letzten Session geändert?
+8. **Delta-Check** — Was hat sich seit der letzten Session geändert?
 ```
 get_session_delta()
 ```
-→ Zeigt Entries die seit dem letzten Session-Ende geschrieben/aktualisiert wurden.
-→ Relevant bei Multi-Agent oder wenn zwischen Sessions manuell gearbeitet wurde.
 
-10. **Bekannte Fehler prüfen** (bei Bug-Fix-Sessions):
+9. **Bekannte Fehler prüfen** (bei Bug-Fix-Sessions):
 ```
-find_similar_errors(
-  query: "<Fehlerbeschreibung aus User-Nachricht>",
-  repo: "<aktuelles Repo>"
-)
+find_similar_errors(query: "<Fehlerbeschreibung>", repo: "<aktuelles Repo>")
 ```
-→ Falls bekannter Error-Pattern: Fix direkt anwenden statt neu debuggen.
 
-11. **Wiederkehrende Fehler prüfen** (automatisch, jede Session):
+10. **Wiederkehrende Fehler prüfen** (automatisch, jede Session):
 ```
 check_recurring_errors()
 ```
-→ Findet Error-Patterns die ≥3x aufgetreten sind (Eskalations-Schwelle).
-→ Bei Treffern: **Deep Root-Cause Analysis** starten statt Quick-Fix.
 → 🟡 ESCALATED (3-5x): nachhaltige Lösung untersuchen.
 → 🔴 CRITICAL (≥6x): sofortige Analyse, Blocker für andere Tasks.
 
-12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)
+---
 
-Vollständige Details: siehe `agent-session-start.md`
+## Phase 3: Arbeitsplan
+
+11. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)
