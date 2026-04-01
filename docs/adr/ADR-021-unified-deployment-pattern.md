@@ -246,18 +246,33 @@ Each deploy acquires a file lock at `/tmp/deploy-<app>.lock` to prevent concurre
 
 | Port | App | Domain |
 | --- | --- | --- |
-| 8002 | travel-beat | drifttales.com |
-| 8007 | coach-hub | kiohnerisiko.de |
-| 8020 | pptx-hub | — |
+| 8007 | coach-hub | coach-hub.iil.pet |
+| 8017 | coach-hub (staging) | staging.coach-hub.iil.pet |
+| 8020 | pptx-hub | prezimo.de |
 | 8081 | weltenhub | weltenforger.com |
 | 8085 | dev-hub | devhub.iil.pet |
-| 8088 | bfagent | bfagent.iil.pet |
-| 8090 | risk-hub | demo.schutztat.de |
+| 8088 | trading-hub | trading-hub.iil.pet |
+| 8089 | travel-beat | drifttales.com |
+| 8090 | risk-hub | schutztat.de |
+| 8091 | bfagent | bfagent.iil.pet |
 | 8092 | billing-hub | billing.iil.pet |
-| 8103 | recruiting-hub | TBD |
+| 8093 | wedding-hub | wedding-hub.iil.pet |
+| 8094 | cad-hub | nl2cad.de |
+| 8095 | 137-hub | 137herz.de |
+| 8096 | illustration-hub | illustration.iil.pet |
+| 8097 | writing-hub | writing.iil.pet |
+| 8098 | writing-hub (staging) | staging.writing.iil.pet |
+| 8099 | tax-hub | tax.iil.pet |
+| 8100 | learn-hub | learn.iil.pet |
+| 8101 | ausschreibungs-hub | bieterpilot.de |
+| 8102 | doc-hub (paperless) | docs.iil.pet |
+| 8103 | recruiting-hub | hr.iil.pet |
+| 8104 | research-hub | research.iil.pet |
 | 8107 | dms-hub | dms.iil.pet |
 
-**Rule**: New projects pick the next available port in the 80xx range. Update this table.
+**Canonical source**: `platform/infra/ports.yaml`. Next free port: **8108**.
+
+**Rule**: New projects pick the next available port in the 80xx range. Update `ports.yaml` first, then this table.
 
 ### 2.10 Reverse Proxy: Nginx (Conscious Decision)
 

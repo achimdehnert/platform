@@ -7,9 +7,9 @@
 #
 # Belegte Ranges (88.198.191.108):
 #   8001–8020   Infra + erste Hubs
-#   8081–8100   App-Hubs (prod + staging gemischt)
+#   8081–8107   App-Hubs (prod + staging gemischt)
 #
-# Nächster freier Port: 8104
+# Nächster freier Port: 8108
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 
 services:
@@ -91,7 +91,7 @@ services:
   billing-hub:
     prod: 8092
     staging: null
-    domain_prod: null
+    domain_prod: billing.iil.pet
     domain_staging: null
     repo: achimdehnert/billing-hub
 
@@ -119,23 +119,23 @@ services:
   illustration-hub:
     prod: 8096
     staging: null
-    domain_prod: null
+    domain_prod: illustration.iil.pet
     domain_staging: null
-    repo: null
+    repo: achimdehnert/illustration-hub
 
   writing-hub:
     prod: 8097
-    staging: null
+    staging: 8098
     domain_prod: writing.iil.pet
-    domain_staging: null
+    domain_staging: staging.writing.iil.pet
     repo: achimdehnert/writing-hub
 
-  research-hub:
-    prod: 8098
+  tax-hub:
+    prod: 8099
     staging: null
-    domain_prod: null
+    domain_prod: tax.iil.pet
     domain_staging: null
-    repo: null
+    repo: achimdehnert/tax-hub
 
   learn-hub:
     prod: 8100
@@ -144,12 +144,40 @@ services:
     domain_staging: null
     repo: achimdehnert/learn-hub
 
+  ausschreibungs-hub:
+    prod: 8101
+    staging: null
+    domain_prod: bieterpilot.de
+    domain_staging: null
+    repo: achimdehnert/ausschreibungs-hub
+
+  doc-hub:
+    prod: 8102
+    staging: null
+    domain_prod: docs.iil.pet
+    domain_staging: null
+    repo: null
+
+  research-hub:
+    prod: 8104
+    staging: null
+    domain_prod: research.iil.pet
+    domain_staging: null
+    repo: achimdehnert/research-hub
+
   recruiting-hub:
     prod: 8103
     staging: null
     domain_prod: hr.iil.pet
     domain_staging: null
     repo: achimdehnert/recruiting-hub
+
+  dms-hub:
+    prod: 8107
+    staging: null
+    domain_prod: dms.iil.pet
+    domain_staging: null
+    repo: achimdehnert/dms-hub
 
   odoo:
     prod: 8069

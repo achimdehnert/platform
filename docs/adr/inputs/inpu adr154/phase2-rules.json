@@ -1,0 +1,155 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$comment": "platform/data/rules.json — Platform Coding Rules mit Fix-Templates (O-7)",
+  "version": "2.1.0",
+  "last_updated": "2026-03-31",
+  "rules": [
+    {
+      "id": "CFG-001",
+      "category": "configuration",
+      "severity": "BLOCKER",
+      "description": "Credentials niemals über os.environ oder decouple.config() — immer read_secret()",
+      "banned_patterns": [
+        "os.environ[",
+        "os.environ.get(",
+        "config('",
+        "config(\""
+      ],
+      "fix_template": {
+        "code": "from platform_context.secrets import read_secret\nvalue = read_secret(\"SECRET_NAME\")",
+        "since": "iil-platform-1.0",
+        "docs_url": "https://knowledge.iil.pet/doc/platform-standards-CFG",
+        "note": "read_secret() liest aus .secrets/<name> oder Umgebungsvariable mit Fallback-Chain"
+      },
+      "applies_to": ["*.py"],
+      "contexts_excluded": ["tests/", "conftest.py"]
+    },
+    {
+      "id": "DB-001",
+      "category": "database",
+      "severity": "BLOCKER",
+      "description": "unique_together ist deprecated — UniqueConstraint nutzen",
+      "banned_patterns": [
+        "unique_together"
+      ],
+      "fix_template": {
+        "code": "class Meta:\n    constraints = [\n        models.UniqueConstraint(\n            fields=[\"field_a\", \"field_b\"],\n            condition=models.Q(deleted_at__isnull=True),\n            name=\"unique_active_field_a_field_b\",\n        ),\n    ]",
+        "since": "django-4.2",
+        "docs_url": "https://docs.djangoproject.com/en/stable/ref/models/constraints/",
+        "note": "Immer condition für Soft-Delete-Kompatibilität angeben"
+      },
+      "applies_to": ["models.py", "*/models/*.py"]
+    },
+    {
+      "id": "DB-002",
+      "category": "database",
+      "severity": "BLOCKER",
+      "description": "Kein BigAutoField PK oder fehlendes public_id UUIDField auf User-Data-Model",
+      "banned_patterns": [
+        "AutoField(primary_key=True",
+        "IntegerField(primary_key=True"
+      ],
+      "fix_template": {
+        "code": "import uuid\nfrom django.db import models\n\nclass MyModel(models.Model):\n    id = models.BigAutoField(primary_key=True)\n    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)\n    tenant_id = models.BigIntegerField(db_index=True)\n    deleted_at = models.DateTimeField(null=True, blank=True, db_index=True)",
+        "since": "iil-platform-1.0",
+        "docs_url": "https://knowledge.iil.pet/doc/platform-standards-DB"
+      },
+      "applies_to": ["models.py", "*/models/*.py"]
+    },
+    {
+      "id": "ASYNC-001",
+      "category": "async",
+      "severity": "BLOCKER",
+      "description": "asyncio.run() ist im ASGI-Kontext verboten — asgiref.async_to_sync verwenden",
+      "banned_patterns": [
+        "asyncio.run("
+      ],
+      "fix_template": {
+        "code": "from asgiref.sync import async_to_sync\nresult = async_to_sync(my_async_function)(arg1, arg2)",
+        "since": "django-3.1",
+        "docs_url": "https://docs.djangoproject.com/en/stable/topics/async/",
+        "note": "Ausnahme: standalone Scripts außerhalb Django (z.B. FastMCP stdio) dürfen asyncio.run() nutzen"
+      },
+      "applies_to": ["*.py"],
+      "contexts_excluded": ["scripts/", "manage.py", "*_mcp/server.py"]
+    },
+    {
+      "id": "TASK-001",
+      "category": "celery",
+      "severity": "KRITISCH",
+      "description": "Celery-Tasks müssen acks_late=True haben und über transaction.on_commit dispatcht werden",
+      "banned_patterns": [
+        ".delay(",
+        ".apply_async("
+      ],
+      "fix_template": {
+        "code": "# Task-Definition:\n@shared_task(bind=True, acks_late=True, max_retries=3)\ndef my_task(self, arg):\n    ...\n\n# Dispatch in Service-Layer:\nfrom django.db import transaction\ntransaction.on_commit(lambda: my_task.delay(arg))",
+        "since": "iil-platform-1.0",
+        "docs_url": "https://knowledge.iil.pet/doc/platform-standards-TASK",
+        "note": "Direktes .delay() ohne on_commit führt zu Race Conditions bei DB-Rollbacks"
+      },
+      "applies_to": ["services/*.py", "models.py"],
+      "contexts_excluded": ["tasks.py", "tests/"]
+    },
+    {
+      "id": "SHELL-001",
+      "category": "shell",
+      "severity": "BLOCKER",
+      "description": "Shell-Scripts müssen mit set -euo pipefail beginnen",
+      "banned_patterns": [
+        "#!/bin/bash\n\n",
+        "#!/usr/bin/env bash\n\n"
+      ],
+      "fix_template": {
+        "code": "#!/usr/bin/env bash\nset -euo pipefail\ntrap 'echo \"ERROR at line $LINENO — exit code $?\" >&2; exit 1' ERR",
+        "since": "iil-platform-1.0",
+        "docs_url": "https://knowledge.iil.pet/doc/platform-standards-SHELL"
+      },
+      "applies_to": ["*.sh"]
+    },
+    {
+      "id": "I18N-001",
+      "category": "i18n",
+      "severity": "HOCH",
+      "description": "User-facing Strings müssen ab Tag 1 mit _() markiert sein",
+      "banned_patterns": [
+        "verbose_name=\"",
+        "verbose_name='",
+        "help_text=\"",
+        "help_text='"
+      ],
+      "fix_template": {
+        "code": "from django.utils.translation import gettext_lazy as _\n\nclass MyModel(models.Model):\n    name = models.CharField(\n        verbose_name=_(\"Name\"),\n        help_text=_(\"Beschreibung\"),\n    )",
+        "since": "iil-platform-1.0",
+        "docs_url": "https://docs.djangoproject.com/en/stable/topics/i18n/translation/"
+      },
+      "applies_to": ["models.py", "forms.py", "*/models/*.py"]
+    },
+    {
+      "id": "SVC-001",
+      "category": "architecture",
+      "severity": "KRITISCH",
+      "description": "Business-Logik niemals direkt in Views oder Tasks — immer Service-Layer",
+      "banned_patterns": [
+        "def get(self, request",
+        "def post(self, request",
+        "def put(self, request"
+      ],
+      "fix_template": {
+        "code": "# views.py — nur HTTP-Handling:\nclass MyView(LoginRequiredMixin, View):\n    def post(self, request, *args, **kwargs):\n        result = MyService.do_business_logic(request.user, request.POST)\n        return JsonResponse(result)\n\n# services/my_service.py — Business-Logik:\nclass MyService:\n    @staticmethod\n    def do_business_logic(user, data):\n        ...",
+        "since": "iil-platform-1.0",
+        "docs_url": "https://knowledge.iil.pet/doc/platform-standards-SVC",
+        "note": "Check: Hat die View mehr als 10 Zeilen Logik? → Service-Layer auslagern"
+      },
+      "applies_to": ["views.py", "*/views/*.py"],
+      "contexts_excluded": ["tests/"]
+    }
+  ],
+  "meta": {
+    "schema_version": "2.1.0",
+    "changelog": [
+      {"version": "2.1.0", "date": "2026-03-31", "change": "fix_template als strukturiertes Object (ADR-154 O-7)"},
+      {"version": "2.0.0", "date": "2026-01-15", "change": "Initial strukturiertes Format"}
+    ]
+  }
+}

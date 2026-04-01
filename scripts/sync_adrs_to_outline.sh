@@ -104,15 +104,19 @@ outline_post() {
 
 find_document_by_title() {
     # find_document_by_title <title> → prints document ID or empty string
+    # FIX: Outline search is fulltext, not exact. We search with a broader limit
+    # and then filter for exact title match in jq to prevent duplicate creation.
     local title="$1"
     local escaped_title
     escaped_title=$(echo "${title}" | jq -Rr @json)
 
     local response
     response=$(outline_post "documents.search" \
-        "{\"query\": ${escaped_title}, \"collectionId\": \"${OUTLINE_COLLECTION_ADR_MIRROR}\", \"limit\": 1}")
+        "{\"query\": ${escaped_title}, \"collectionId\": \"${OUTLINE_COLLECTION_ADR_MIRROR}\", \"limit\": 10}")
 
-    echo "${response}" | jq -r '.data[0].document.id // empty'
+    # Exact title match — jq filters for documents whose title matches exactly
+    echo "${response}" | jq -r --arg t "${title}" \
+        '[.data[] | select(.document.title == $t) | .document.id] | first // empty'
 }
 
 sync_adr_file() {
