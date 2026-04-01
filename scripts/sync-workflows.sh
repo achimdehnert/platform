@@ -48,12 +48,16 @@ DJANGO_HUB=(
     deploy
     deploy-check
     backup
+    ship
+    frontend-ui-test
+    pre-release-test
     testing-setup
     testing-conventions
     onboard-repo
     onboard-repo-testing-addendum
     new-github-project
     stack-upgrade
+    refresh-github-token
 )
 
 # Nur Python-Packages (PyPI)
@@ -70,7 +74,7 @@ DJANGO_HUBS=(
     risk-hub billing-hub cad-hub coach-hub trading-hub pptx-hub
     travel-beat weltenhub wedding-hub recruiting-hub dms-hub
     ausschreibungs-hub illustration-hub research-hub writing-hub
-    learn-hub dev-hub odoo-hub mcp-hub 137-hub bfagent
+    learn-hub dev-hub odoo-hub mcp-hub 137-hub bfagent tax-hub
 )
 
 PACKAGES=(
