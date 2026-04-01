@@ -16,6 +16,26 @@ Führe **exakt** den Workflow aus `/knowledge-capture` aus:
 5. **Cross-Repo Tagging** — "Gilt für" Abschnitt bei Hub-übergreifendem Wissen
 6. **Cascade Memory updaten** — Verweis auf Outline-Dokument
 
+## Git Sync (Multi-Env) — WSL ↔ Dev Desktop
+
+6b. **Alle geänderten Repos committen + pushen:**
+```bash
+# Alle Repos mit uncommitted changes finden und pushen:
+for repo in ~/github/*/; do
+  cd "$repo"
+  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    repo_name=$(basename "$repo")
+    echo "PUSH $repo_name..."
+    git add -A
+    git commit -m "session-ende: auto-sync $(date +%Y-%m-%d)"
+    git push
+  fi
+done
+```
+→ Stellt sicher, dass die andere Umgebung (WSL / Dev Desktop) beim nächsten `/session-start` den aktuellen Stand hat.
+→ Bei WIP-Branches: Commit-Message enthält `session-ende: auto-sync` zur Erkennung.
+→ **NICHT ausführen** wenn der User explizit sagt "nicht pushen" oder ein PR-Review läuft.
+
 ## pgvector Memory schreiben (ADR-154)
 
 Nach Schritt 6, **automatisch** folgende Memory-Operationen ausführen:

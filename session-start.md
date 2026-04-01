@@ -9,10 +9,21 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 
 Führe **exakt** den Workflow aus `/agent-session-start` aus:
 
-1. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index, `mcp14_get_context_for_task()`
-2. **Health Dashboard** (bei Infra/Deploy-Sessions) — `mcp6_system_manage(action: health_dashboard)`
-3. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
-4. **Repo syncen** — `bash ~/github/platform/scripts/sync-repo.sh`
+1. **Git Sync (Multi-Env)** — Alle Repos auf aktuellem Stand bringen:
+```bash
+# Im aktuellen Workspace-Repo:
+git stash && git pull --rebase && git stash pop 2>/dev/null
+# Falls Multi-Repo-Session (mcp-hub, platform, risk-hub):
+for repo in mcp-hub platform risk-hub; do
+  cd ~/github/$repo && git pull --rebase --quiet 2>/dev/null
+done
+```
+→ Stellt sicher, dass WSL ↔ Dev Desktop synchron sind.
+→ Bei Konflikten: `git stash pop` manuell lösen, NICHT automatisch force-pushen.
+
+2. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index, `mcp14_get_context_for_task()`
+3. **Health Dashboard** (bei Infra/Deploy-Sessions) — `mcp6_system_manage(action: health_dashboard)`
+4. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
 5. **Branch-Status prüfen** — `git status && git log --oneline -5`
 6. **Tests baseline** — `pytest tests/ -q --tb=no`
 7. **Knowledge-Lookup** — Outline durchsuchen (Repo-Steckbrief, Task-Wissen, Lessons, Cascade-Aufträge)
