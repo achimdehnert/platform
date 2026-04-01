@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: "proposed"
 date: 2026-03-25
 decision-makers: [Achim Dehnert]
 consulted: []
@@ -16,13 +16,11 @@ related:
   - ADR-078   # Docker HEALTHCHECK
   - ADR-146   # DvelopDmsClient
   - ADR-152   # Pilot-ADR (superseded)
-  - ADR-079   # Temporal Workflow-Engine (bfagent)
 staleness_months: 6
 drift_check_paths:
   - tax-hub/apps/modules/
   - tax-hub/apps/billing/
   - tax-hub/apps/tenant/
-  - tax-hub/apps/workflows/
 ---
 
 # ADR-153: Adopt Module-basierte SaaS-Architektur für tax-hub (Multi-Mandant, buchbare Module)
@@ -31,12 +29,12 @@ drift_check_paths:
 
 | Attribut       | Wert                                                                        |
 |----------------|-----------------------------------------------------------------------------|
-| **Status**     | Accepted                                                                    |
+| **Status**     | Proposed                                                                    |
 | **Scope**      | platform + service                                                          |
 | **Erstellt**   | 2026-03-25                                                                  |
 | **Autor**      | Achim Dehnert                                                               |
 | **Supersedes** | ADR-152 (tax-hub Pilot — Scope zu eng für SaaS)                             |
-| **Relates to** | ADR-007, ADR-050, ADR-072, ADR-035, ADR-021, ADR-079, ADR-146               |
+| **Relates to** | ADR-007, ADR-050, ADR-072, ADR-035, ADR-021, ADR-146                        |
 
 ## Repo-Zugehörigkeit
 
@@ -162,7 +160,6 @@ usage-based Billing. Unvorhersehbare Kosten sind ein Kaufhindernis im KMU-Markt.
 | `ERECHNUNG` | **E-Rechnung** | ZUGFeRD/XRechnung empfangen & senden (§ 14 UStG ab 2025) | Business |
 | `PORTAL` | **Mandantenportal** | Self-Service: Mandant lädt Belege hoch, Nachrichten, Freigaben | Enterprise |
 | `API` | **REST-API** | Externe Anbindung (DATEV-Export, ERP-Schnittstelle) | Enterprise |
-| `WORKFLOW` | **Workflow-Engine** | Automatisierte Prozesse: Freigaben, E-Mail, Konnektoren, DSB-Workflows | Enterprise |
 
 ### 4.2 Pläne
 
@@ -195,74 +192,11 @@ PLANS = {
         "label": "Enterprise",
         "price_monthly": None,    # individuell
         "modules": ["CORE", "FRISTEN", "DMS", "KI", "BELEGE",
-                    "ERECHNUNG", "PORTAL", "API", "WORKFLOW"],
+                    "ERECHNUNG", "PORTAL", "API"],
         "mandanten_limit": None,  # unbegrenzt
         "berater_limit": None,
     },
 }
-```
-
-### 4.3 Modul-Abhängigkeiten
-
-Module können voneinander abhängen. Ein Modul darf nur aktiviert werden,
-wenn alle seine Abhängigkeiten ebenfalls aktiv sind.
-
-```python
-# apps/billing/plans.py
-MODULE_DEPS: dict[str, list[str]] = {
-    # Modul → benötigt diese Module
-    "KI":       ["DMS"],        # KI-Assistent braucht DMS für Dokumentzugriff
-    "PORTAL":   ["FRISTEN"],    # Mandantenportal zeigt Fristenkalender
-    "WORKFLOW": ["API"],        # Workflow-Engine nutzt API-Gateway für Webhooks
-    "BELEGE":   [],             # standalone
-    "ERECHNUNG": [],            # standalone
-    "API":      [],             # standalone
-}
-
-
-def resolve_dependencies(module_codes: set[str]) -> set[str]:
-    """Erweitert Module um ihre transitiven Abhängigkeiten."""
-    resolved = set(module_codes)
-    changed = True
-    while changed:
-        changed = False
-        for code in list(resolved):
-            for dep in MODULE_DEPS.get(code, []):
-                if dep not in resolved:
-                    resolved.add(dep)
-                    changed = True
-    return resolved
-```
-
-**Validierung in `activate_plan()`**: Vor der Modul-Synchronisierung wird
-`resolve_dependencies()` aufgerufen — fehlende Dependencies werden automatisch
-mitaktiviert. Bei Downgrade werden Module nur deaktiviert, wenn kein anderes
-aktives Modul sie als Dependency referenziert.
-
-### 4.4 Downgrade-Strategie
-
-Wenn ein Tenant von einem höheren Plan (z.B. Business) auf einen niedrigeren
-(z.B. Starter) wechselt:
-
-| Aspekt | Verhalten |
-|--------|-----------|
-| **Modul-Daten** | Bleiben in der DB erhalten (Soft-Deactivation) |
-| **UI-Zugang** | Wird via `ModuleGuard` gesperrt — 403 mit Upgrade-Hinweis |
-| **API-Zugang** | `@require_module()` blockiert Requests |
-| **Laufende Workflows** | Werden abgeschlossen, neue blockiert |
-| **Celery-Tasks** | Tasks für deaktivierte Module werden übersprungen |
-| **Re-Upgrade** | Alle Daten sofort wieder verfügbar (kein Datenverlust) |
-| **Daten-Retention** | 90 Tage nach Deaktivierung, dann Archivierung (konfigurierbar) |
-
-```python
-# apps/billing/services.py — Ergänzung in activate_plan()
-# Vor der Modul-Deaktivierung:
-for code in to_deactivate:
-    # Laufende Workflows für dieses Modul beenden
-    WorkflowExecution.objects.filter(
-        template__category=MODULE_TO_CATEGORY.get(code, ""),
-        status="running",
-    ).update(status="cancelled", finished_at=timezone.now())
 ```
 
 ---
@@ -290,21 +224,19 @@ tax-hub/
 │   ├── belege/             # Beleg, BelegKategorie, OCR-Import
 │   ├── erechnung/          # EInvoice, ZUGFeRD-Parser, XRechnung-Generator
 │   ├── mandantenportal/    # PortalUser, UploadRequest, Freigabe
-│   ├── api_gateway/        # DRF ViewSets, OpenAPI, API-Key-Auth
-│   └── workflows/          # Workflow-Engine, Handler, Konnektoren
+│   └── api_gateway/        # DRF ViewSets, OpenAPI, API-Key-Auth
 │
 ├── config/
 │   ├── settings/
 │   │   ├── base.py
 │   │   ├── development.py
-│   │   ├── production.py
-│   │   └── test.py
+│   │   └── production.py
 │   ├── urls.py
 │   ├── celery.py
 │   └── wsgi.py
 │
 ├── templates/tax_hub/
-├── docker-compose.prod.yml
+├── docker-compose.yml
 ├── docker/app/Dockerfile
 ├── requirements.txt
 └── catalog-info.yaml
@@ -334,7 +266,6 @@ TENANT_APPS = [
     "apps.erechnung",
     "apps.mandantenportal",
     "apps.api_gateway",
-    "apps.workflows",
 ]
 
 TENANT_MODEL = "tenant.Organization"
@@ -347,7 +278,7 @@ TENANT_DOMAIN_MODEL = "tenant.Domain"
 # apps/modules/guard.py
 from functools import wraps
 from django.core.exceptions import PermissionDenied
-from apps.modules.registry import ModuleRegistry
+from .registry import ModuleRegistry
 
 
 def require_module(module_code: str):
@@ -375,10 +306,7 @@ def require_module(module_code: str):
         return wrapper
     return decorator
 
-```
 
-```python
-# apps/modules/registry.py
 class ModuleRegistry:
     """Prüft ob ein Modul für einen Tenant aktiv ist."""
 
@@ -420,67 +348,16 @@ class ModuleRegistry:
         cache.delete(f"module:{tenant_id}:{module_code}")
 ```
 
-### 5.4 Quota-Enforcement
-
-Neben Modul-Gates werden auch **Limits** (Mandanten, Berater) durchgesetzt:
-
-```python
-# apps/modules/quota.py
-from functools import wraps
-from django.core.exceptions import PermissionDenied
-
-
-def check_quota(resource: str):
-    """
-    Decorator für Create-Views: prüft ob Tenant sein Limit erreicht hat.
-
-    Verwendung:
-        @check_quota("mandanten")
-        def create_mandant(request): ...
-    """
-    def decorator(func):
-        @wraps(func)
-        def wrapper(request, *args, **kwargs):
-            from apps.billing.models import Subscription
-            sub = Subscription.objects.get(tenant_id=request.tenant.id)
-            current = _count_resource(request.tenant.id, resource)
-            limit = getattr(sub, f"{resource}_limit", 0)
-
-            if limit and current >= limit:
-                raise PermissionDenied(
-                    f"Limit erreicht: {current}/{limit} {resource}. "
-                    f"Upgrade unter /billing/upgrade/"
-                )
-            return func(request, *args, **kwargs)
-        return wrapper
-    return decorator
-
-
-def _count_resource(tenant_id, resource: str) -> int:
-    """Zählt aktive Ressourcen für einen Tenant."""
-    if resource == "mandanten":
-        from apps.mandanten.models import Mandant
-        return Mandant.objects.filter(is_active=True).count()
-    elif resource == "berater":
-        from django.contrib.auth import get_user_model
-        return get_user_model().objects.filter(is_active=True).count()
-    return 0
-```
-
-**Hinweis**: Die Zählung läuft automatisch im richtigen Tenant-Schema
-(`django-tenants` setzt das Schema via Middleware), daher kein expliziter
-`tenant_id`-Filter in den Queries nötig.
-
-### 5.5 Billing-Modelle
+### 5.4 Billing-Modelle
 
 ```python
 # apps/billing/models.py
+import uuid
 from django.db import models
 
 
 class Subscription(models.Model):
     """SaaS-Subscription eines Steuerberatungsbüros."""
-    # PK: BigAutoField (DEFAULT_AUTO_FIELD — Platform-Standard)
 
     class Status(models.TextChoices):
         TRIAL    = "trial",    "Testphase"
@@ -488,8 +365,9 @@ class Subscription(models.Model):
         PAST_DUE = "past_due", "Zahlung überfällig"
         CANCELED = "canceled", "Gekündigt"
 
-    # tenant_id kommt vom öffentlichen Schema — FK als Integer
-    tenant_id          = models.PositiveBigIntegerField(unique=True, db_index=True)
+    id                 = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # tenant_id kommt vom öffentlichen Schema — kein FK, UUID-Referenz
+    tenant_id          = models.UUIDField(unique=True, db_index=True)
     plan_code          = models.CharField(max_length=20)
     status             = models.CharField(max_length=10, choices=Status.choices,
                            default=Status.TRIAL)
@@ -509,8 +387,8 @@ class Subscription(models.Model):
 class TenantModule(models.Model):
     """Welche Module sind für einen Tenant aktiv."""
 
-    # PK: BigAutoField (DEFAULT_AUTO_FIELD)
-    tenant_id   = models.PositiveBigIntegerField(db_index=True)
+    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant_id   = models.UUIDField(db_index=True)
     module_code = models.CharField(max_length=20)  # "FRISTEN", "DMS", "KI", ...
     is_active   = models.BooleanField(default=True)
     activated_at = models.DateTimeField(auto_now_add=True)
@@ -530,8 +408,8 @@ class TenantModule(models.Model):
 class AddOn(models.Model):
     """Optional einzeln buchbare Zusatzmodule (über Plan hinaus)."""
 
-    # PK: BigAutoField (DEFAULT_AUTO_FIELD)
-    tenant_id   = models.PositiveBigIntegerField(db_index=True)
+    id          = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    tenant_id   = models.UUIDField(db_index=True)
     module_code = models.CharField(max_length=20)
     price_monthly = models.DecimalField(max_digits=8, decimal_places=2)
     stripe_price_id = models.CharField(max_length=50, blank=True)
@@ -549,7 +427,6 @@ class AddOn(models.Model):
 from __future__ import annotations
 import logging
 from django.db import transaction
-from django.utils import timezone
 
 logger = logging.getLogger(__name__)
 
@@ -600,6 +477,7 @@ class SubscriptionService:
 
         # Entfernte Module deaktivieren (außer CORE — immer aktiv)
         for code in existing - new_modules - {"CORE"}:
+            from django.utils import timezone
             TenantModule.objects.filter(
                 tenant_id=tenant_id, module_code=code
             ).update(is_active=False, deactivated_at=timezone.now())
@@ -612,32 +490,13 @@ class SubscriptionService:
     def provision_trial(tenant_id, kanzlei_name: str) -> "Subscription":
         """30-Tage-Trial mit Core + Fristen."""
         from datetime import timedelta
+        from django.utils import timezone
         sub = SubscriptionService.activate_plan(tenant_id, "trial")
         sub.trial_ends_at = timezone.now() + timedelta(days=30)
         sub.status = "trial"
         sub.save(update_fields=["trial_ends_at", "status", "updated_at"])
         logger.info("billing.trial_started tenant=%s kanzlei=%s", tenant_id, kanzlei_name)
         return sub
-
-    @staticmethod
-    def mark_past_due(stripe_customer_id: str) -> None:
-        """Markiert Subscription als überfällig nach fehlgeschlagener Zahlung."""
-        from .models import Subscription
-        updated = Subscription.objects.filter(
-            stripe_customer_id=stripe_customer_id
-        ).update(status=Subscription.Status.PAST_DUE, updated_at=timezone.now())
-        if updated:
-            logger.warning("billing.payment_failed customer=%s", stripe_customer_id)
-
-    @staticmethod
-    def cancel_by_stripe_id(stripe_sub_id: str) -> None:
-        """Kündigt Subscription nach Stripe-Webhook."""
-        from .models import Subscription
-        updated = Subscription.objects.filter(
-            stripe_sub_id=stripe_sub_id
-        ).update(status=Subscription.Status.CANCELED, updated_at=timezone.now())
-        if updated:
-            logger.info("billing.subscription_canceled stripe_sub=%s", stripe_sub_id)
 ```
 
 ### 5.6 HTMX Modul-Guard in Templates
@@ -737,16 +596,10 @@ def stripe_webhook(request):
         "invoice.payment_failed":          _handle_payment_failed,
         "customer.subscription.deleted":   _handle_canceled,
     }
-    # NOTE: _handle_payment_ok intentionally no-op — Subscription already active after checkout
     handler = handlers.get(event["type"])
     if handler:
         handler(event["data"]["object"])
     return HttpResponse(status=200)
-
-
-def _handle_payment_ok(invoice):
-    """No-op: Subscription ist bereits nach checkout aktiv."""
-    pass
 
 
 def _handle_checkout(session):
@@ -756,11 +609,17 @@ def _handle_checkout(session):
 
 
 def _handle_payment_failed(invoice):
-    SubscriptionService.mark_past_due(invoice["customer"])
+    from .models import Subscription
+    Subscription.objects.filter(
+        stripe_customer_id=invoice["customer"]
+    ).update(status="past_due")
 
 
 def _handle_canceled(subscription):
-    SubscriptionService.cancel_by_stripe_id(subscription["id"])
+    from .models import Subscription
+    Subscription.objects.filter(
+        stripe_sub_id=subscription["id"]
+    ).update(status="canceled")
 ```
 
 ---
@@ -846,100 +705,20 @@ apps/api_gateway/
   Verwendung:  DATEV-Export, ERP-Schnittstelle, Eigenentwicklung
 ```
 
-### MOD-09: WORKFLOW (Enterprise)
-
-```
-apps/workflows/
-  models.py       WorkflowTemplate, Phase, Action, ExecutionLog, ConnectorConfig
-  handlers/       BaseHandler + alle Konnektoren (E-Mail, Paperless, DATEV, ...)
-  services.py     WorkflowExecutor (ACID-sicher), ConnectorRegistry
-  views.py        Workflow-Dashboard, Template-Editor (HTMX)
-  tasks.py        execute_workflow_async (Celery Queue "workflow")
-```
-
 ---
 
-## 7. Deployment-Parameter (ADR-021 konform)
-
-### 7.1 Service-Inventar
-
-| Parameter | Wert | ADR-021 Referenz |
-|-----------|------|------------------|
-| **Repository** | `achimdehnert/tax-hub` | — |
-| **Image** | `ghcr.io/achimdehnert/tax-hub:latest` + SHA-Tag | §2.2 |
-| **Host-Port** | **8099** | §2.9 — **MUSS dort eingetragen werden** (8096 belegt durch illustration-hub) |
-| **Deploy-Pfad** | `/opt/tax-hub` | §2.2 (`/opt/<repo>`) |
-| **Compose-File** | `docker-compose.prod.yml` (Projekt-Root) | §2.2 |
-| **Dockerfile** | `docker/app/Dockerfile` | §2.2 |
-| **Settings-Modul** | `config.settings.production` | §2.3 |
-
-### 7.2 Container & Services (ADR-021 §2.2 Naming)
-
-| Service | Container-Name | Image | Funktion |
-|---------|---------------|-------|----------|
-| `tax-hub-web` | `tax_hub_web` | `ghcr.io/achimdehnert/tax-hub` | Gunicorn :8000 |
-| `tax-hub-worker` | `tax_hub_worker` | (gleich) | Celery Worker |
-| `tax-hub-beat` | `tax_hub_beat` | (gleich) | Celery Beat (Fristen-Reminder) |
-| `tax-hub-db` | `tax_hub_db` | `postgres:16-alpine` | PostgreSQL (Schema per Tenant) |
-| `tax-hub-redis` | `tax_hub_redis` | `redis:7-alpine` | Cache (ModuleRegistry) + Celery Broker |
-
-### 7.3 Netzwerk & DNS
+## 7. Deployment-Parameter
 
 | Parameter | Wert |
 |-----------|------|
-| **Domain (Prod)** | `*.tax.iil.pet` (Wildcard — eine Subdomain pro Kanzlei) |
+| **Repository** | `achimdehnert/tax-hub` |
+| **Image** | `ghcr.io/achimdehnert/tax-hub:latest` |
+| **Port** | **8096** |
+| **Domain (Prod)** | `*.tax.iil.pet` (Wildcard — eine Domain pro Kanzlei) |
 | **Domain (Public)** | `tax.iil.pet` (Landing + Registrierung) |
-| **Cloudflare DNS** | CNAME `*.tax` → Tunnel (proxied) + CNAME `tax` → Tunnel (proxied) |
-| **Wildcard-SSL** | Cloudflare Universal SSL (automatisch bei Proxy-Modus) |
-| **Nginx** | `server_name *.tax.iil.pet;` → `proxy_pass http://127.0.0.1:8096;` |
-
-### 7.4 Health & Monitoring (ADR-021 §2.2, ADR-078)
-
-| Endpoint | Zweck | Implementierung |
-|----------|-------|-----------------|
-| `/livez/` | Docker HEALTHCHECK (Liveness) | `@csrf_exempt @require_GET` → `{"status": "ok"}` |
-| `/healthz/` | Deploy-Verifikation + Monitoring | DB-Check + Redis-Check + Tenant-Count |
-
-```dockerfile
-# docker/app/Dockerfile — HEALTHCHECK (ADR-021 §2.2)
-HEALTHCHECK --interval=30s --timeout=5s --retries=3 \
-  CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')"
-```
-
-### 7.5 Compose-Hardening (ADR-021 §2.11)
-
-| Maßnahme | Wert |
-|----------|------|
-| **Logging** | `json-file`, `max-size: "20m"`, `max-file: "5"` |
-| **Memory-Limits** | Web: `512M`, Worker: `384M`, Beat: `256M` |
-| **Restart-Policy** | `unless-stopped` |
-| **PostgreSQL shm_size** | `128m` |
-| **env_file** | `.env.prod` (nie im Git, nie `environment: ${VAR}`) |
-
-### 7.6 Celery & Async
-
-| Queue | Verwendung | Worker-Concurrency |
-|-------|-----------|-------------------|
-| `default` | Standard-Tasks, Trial-Expiry | 4 |
-| `dms` | DvelopClient-Calls, Archivierung | 2 |
-| `ai` | LLM-Calls via aifw, OCR | 2 |
-| `workflow` | Workflow-Execution (Actions, Handler) | 2 |
-
-### 7.7 CI/CD (ADR-021 §2.1)
-
-```
-_ci-python.yml@v1 → _build-docker.yml@v1 → _deploy-hetzner.yml@v1
-```
-
-Trigger: Push auf `main` → Auto-Deploy auf Prod-Server (`88.198.191.108`).
-
-### 7.8 Sonstiges
-
-| Parameter | Wert |
-|-----------|------|
-| **Stripe-Webhook** | `/billing/stripe/webhook/` (öffentlich via Cloudflare Tunnel) |
-| **Backup** | Per-Tenant: `pg_dump --schema=tenant_<id>` (ADR-072 §4) |
-| **Backup Full** | Nightly `pg_dumpall` → `/opt/tax-hub/backups/` |
+| **DB** | `tax_hub_db` (PostgreSQL 16, Schema per Tenant) |
+| **Celery-Queues** | `default`, `dms`, `ai` |
+| **Stripe** | Webhook unter `/billing/stripe/webhook/` |
 
 ---
 
@@ -996,8 +775,6 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 |-------|---------|--------|-------|
 | 1 | ADR-153 erstellt | ✅ Done | 2026-03-25 |
 | 1 | ADR-152 als superseded markieren | ⬜ Pending | – |
-| 1 | Port 8096 in ADR-021 §2.9 Port-Registry eintragen | ⬜ Pending | – |
-| 1 | Health-Endpoints `/livez/` + `/healthz/` implementieren | ⬜ Pending | – |
 | 1 | Django-Skeleton + Split Settings | ⬜ Pending | – |
 | 1 | apps/tenant/ + apps/billing/ Grundgerüst | ⬜ Pending | – |
 | 1 | apps/mandanten/ + apps/bescheide/ + apps/core/ | ⬜ Pending | – |
@@ -1011,11 +788,7 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 | 2 | Trial-Provisionierung | ⬜ Pending | – |
 | 3 | BELEGE + ERECHNUNG Module | ⬜ Pending | – |
 | 3 | PORTAL + API Module | ⬜ Pending | – |
-| 3 | apps/workflows/ Grundgerüst + BaseHandler | ⬜ Pending | – |
-| 3 | E-Mail + Paperless + DATEV Konnektoren | ⬜ Pending | – |
-| 3 | Rechnungsfreigabe-Workflow (Pilot) | ⬜ Pending | – |
 | 4 | Landing Page + Self-Service-Registration | ⬜ Pending | – |
-| 4 | n8n Bridge-Handler | ⬜ Pending | – |
 
 ---
 
@@ -1033,8 +806,8 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 
 - `django-tenants` erfordert alle Migrations-Komplexitäten aus ADR-072
 - Wildcard-SSL für `*.tax.iil.pet` — Cloudflare kann das, aber DNS-Setup nötig
-- Stripe-Webhook über Cloudflare Tunnel: WAF-Regel für Stripe-IPs nötig (Bot-Protection kann Webhooks blockieren)
-- 9 Module × Tests = signifikanter Test-Aufwand
+- Stripe-Webhook muss öffentlich erreichbar sein (kein Cloudflare-Tunnel)
+- 8 Module × Tests = signifikanter Test-Aufwand
 
 ### 10.3 Nicht in Scope
 
@@ -1052,9 +825,6 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 | Stripe-Preismodell zu komplex für KMU | Mittel | Mittel | Einfache Monatspauschalen, kein usage-based |
 | `django-tenants` Migration bei >50 Kanzleien langsam | Niedrig | Mittel | ADR-072 Parallelisierungs-Strategie anwenden |
 | ERECHNUNG-Pflicht unklar (gesetzliche Übergangsfrist) | Mittel | Niedrig | Modul als "ab 2025 relevant" kennzeichnen |
-| Handler-Ausführung: beliebiger Python-Pfad in `handler_class` | Niedrig | Hoch | Allowlist in `HandlerRegistry` — nur registrierte Handler ausführbar |
-| n8n-Ausfall blockiert Workflows mit `TriggerN8nHandler` | Mittel | Mittel | `continue_on_error=True` + Fallback-E-Mail-Notification |
-| Workflow-Execution bei Tenant-Downgrade läuft weiter | Niedrig | Niedrig | Laufende Executions beenden, neue blockieren via `ModuleGuard` |
 
 ---
 
@@ -1066,355 +836,12 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 4. Schema-Isolation: Kanzlei A kann keine Mandanten von Kanzlei B sehen
 5. Stripe-Webhook: `checkout.session.completed` → Module aktiviert
 6. Trial: 30 Tage → automatisch `status="trial"`, dann Downgrade-Warning
-7. Port 8096 in ADR-021 §2.9 eintragen (**noch offen** — Migration Tracking Phase 1)
+7. Port 8096 in ADR-021 §2.9 eingetragen
 8. `catalog-info.yaml` vorhanden, `lifecycle: production` nach Phase 4
-9. `HandlerRegistry.get_handler_class("apps.workflows.handlers.email.SendEmailHandler")` liefert registrierten Handler
-10. `ExecutionLog.objects.filter(execution_id=X)` zeigt vollständiges Audit-Log mit Input/Output pro Action
-11. `WorkflowExecution` mit Status `waiting` pausiert bis Callback (`WaitForApprovalHandler`)
 
 ---
 
-## 13. Workflow-Engine & Konnektoren-Architektur
-
-### 13.0 Considered Options (Workflow-Ansatz)
-
-| Option | Beschreibung | Bewertung |
-|--------|-------------|-----------|
-| **A — GenAgent-basierte Handler-Pipeline (gewählt) ✅** | Eigene Python-Handler mit `BaseHandler`-ABC, DB-backed Templates, ACID-Executor aus bfagent | Volle Kontrolle, kein externer Dienst nötig, wiederverwendbar als `iil-workflowfw` |
-| **B — Temporal.io (ADR-079)** | Durable Workflow Engine mit Replay, Saga-Pattern | Overkill für tax-hub: eigener Temporal-Server, Go/Java SDKs, hohe Ops-Komplexität |
-| **C — n8n als primäre Engine** | Alle Workflows in n8n modellieren, Django nur als API-Backend | Vendor-Lock-in, keine DSGVO-Audit-Logs in eigener DB, schwer testbar |
-| **D — Celery-Tasks ohne Abstraktion** | Jeder Workflow als verkettete Celery-Tasks | Kein Template-System, kein UI, kein Audit-Trail, schwer wartbar ab 5+ Workflows |
-
-**Begründung Option A**: GenAgent ist bereits produktiv in bfagent, bietet
-Handler-Registry + Executor + Pydantic-Validierung + ExecutionLog. Die
-Übernahme in tax-hub erfordert nur Model-Anpassungen (→ `WorkflowTemplate`),
-keine neuen Infrastruktur-Abhängigkeiten. n8n ergänzt als optionale Bridge
-für 400+ externe Konnektoren (§13.8).
-
-### 13.1 Herkunft und Grundlage
-
-Die Workflow-Engine basiert auf dem **GenAgent-Framework** aus `bfagent/apps/genagent/`,
-das als generische, Hub-unabhängige Handler-Pipeline konzipiert wurde.
-Die Kernkomponenten werden als wiederverwendbare Basis übernommen:
-
-| GenAgent-Komponente | tax-hub Übernahme | Zweck |
-|---------------------|-------------------|-------|
-| `BaseHandler` (ABC) | 1:1 | Abstrakte Basis für alle Konnektoren |
-| `Phase` / `Action` Models | adaptiert → `WorkflowTemplate` | DB-backed Workflow-Definition |
-| `ExecutionLog` | 1:1 | Vollständiges Audit-Log (DSGVO Art. 30) |
-| `ActionExecutor` (ACID) | 1:1 | Transaktionssichere Ausführung mit Rollback |
-| `HandlerRegistry` | 1:1 | Dynamische Konnektor-Registrierung |
-| `ContextManager` | 1:1 | Isolierte Ausführungskontexte |
-| Pydantic Schemas | 1:1 | Input/Output-Validierung pro Handler |
-
-### 13.2 Architektur-Überblick
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                  Workflow-Engine                         │
-│                                                         │
-│  WorkflowTemplate ──→ Phase 1 ──→ Phase 2 ──→ Phase N  │
-│                        │            │            │      │
-│                      Action 1    Action 1    Action 1   │
-│                      Action 2    Action 2      ...      │
-│                        │            │                   │
-│                    ┌───┴───┐    ┌───┴───┐               │
-│                    │Handler│    │Handler│               │
-│                    └───┬───┘    └───┬───┘               │
-└────────────────────────┼────────────┼───────────────────┘
-                         │            │
-            ┌────────────┼────────────┼────────────┐
-            ▼            ▼            ▼            ▼
-     ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-     │  E-Mail  │ │Paperless │ │  DATEV   │ │   LLM    │
-     │  (SMTP)  │ │  (REST)  │ │ (Export) │ │  (aifw)  │
-     └──────────┘ └──────────┘ └──────────┘ └──────────┘
-     ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
-     │  d.velop │ │  Stripe  │ │ Webhook  │ │   n8n    │
-     │  (DMS)   │ │ (Billing)│ │ (Custom) │ │ (Bridge) │
-     └──────────┘ └──────────┘ └──────────┘ └──────────┘
-```
-
-### 13.3 Handler-Kontrakt
-
-Jeder Konnektor implementiert `BaseHandler` — dieselbe Schnittstelle wie in GenAgent:
-
-```python
-# apps/workflows/handlers/__init__.py
-from abc import ABC, abstractmethod
-from typing import Any
-
-class BaseHandler(ABC):
-    """Basis für alle Workflow-Konnektoren."""
-
-    def __init__(self, config: dict[str, Any] | None = None):
-        self.config = config or {}
-
-    @abstractmethod
-    def execute(self, context: dict[str, Any], test_mode: bool = False) -> dict[str, Any]:
-        """Ausführen — muss {success: bool, output: Any} zurückgeben."""
-        ...
-
-    @classmethod
-    def get_config_schema(cls) -> dict[str, Any]:
-        """JSON-Schema für Handler-Konfiguration (UI-Validierung)."""
-        return {"type": "object", "properties": {}}
-```
-
-### 13.4 Konnektor-Katalog
-
-| Konnektor | Handler-Klasse | Extern | Aufwand | Prio |
-|-----------|---------------|--------|---------|------|
-| **E-Mail (SMTP)** | `SendEmailHandler` | `django.core.mail` | 1h | P1 |
-| **E-Mail (IMAP)** | `FetchEmailHandler` | `imaplib` | 2h | P2 |
-| **Paperless API** | `PaperlessDocHandler` | REST → docs.iil.pet | 1h | P1 |
-| **d.velop DMS** | `DvelopArchiveHandler` | REST → ADR-146 Client | 1h | P1 |
-| **PDF-Erzeugung** | `GeneratePDFHandler` | `weasyprint` | 2h | P2 |
-| **DATEV-Export** | `DATEVExportHandler` | CSV/ASCII Datei | 4h | P2 |
-| **LLM/KI** | `LLMAnalyzeHandler` | `aifw.service.sync_completion` | vorhanden | P1 |
-| **Webhook** | `WebhookHandler` | `requests.post()` | 30min | P1 |
-| **Stripe** | `StripeActionHandler` | Stripe API | 2h | P3 |
-| **Slack/Teams** | `ChatNotifyHandler` | Webhook | 30min | P3 |
-| **ELSTER** | `ElsterSubmitHandler` | ERiC-API | komplex | P4 |
-| **eSign** | `ESignHandler` | DocuSign/Adobe Sign | 4h | P4 |
-| **n8n Bridge** | `TriggerN8nHandler` | Webhook → n8n | 1h | P2 |
-| **Freigabe (HitL)** | `WaitForApprovalHandler` | Interner Callback | 2h | P1 |
-
-### 13.5 Human-in-the-Loop (Freigabe-Pattern)
-
-Viele Workflows erfordern menschliche Entscheidungen (z.B. Rechnungsfreigabe).
-Der `WaitForApprovalHandler` pausiert die Execution und wartet auf einen Callback:
-
-```python
-# apps/workflows/handlers/approval.py
-from apps.workflows.handlers import BaseHandler
-
-
-class WaitForApprovalHandler(BaseHandler):
-    """Pausiert Workflow bis ein Mensch freigibt oder ablehnt."""
-
-    def execute(self, context: dict, test_mode: bool = False) -> dict:
-        if test_mode:
-            return {"success": True, "output": "auto-approved (test)"}
-
-        # Execution in Wartestatus setzen
-        execution_id = context["execution_id"]
-        from apps.workflows.models import WorkflowExecution
-        WorkflowExecution.objects.filter(id=execution_id).update(status="waiting")
-
-        # E-Mail an Freigeber senden
-        from apps.workflows.services import WorkflowNotificationService
-        WorkflowNotificationService.send_approval_request(
-            execution_id=execution_id,
-            approver_email=self.config.get("approver_email"),
-            subject=self.config.get("subject", "Freigabe erforderlich"),
-            context=context,
-        )
-
-        return {
-            "success": True,
-            "output": "waiting_for_approval",
-            "waiting": True,  # Signal an Executor: nicht zur nächsten Action
-        }
-```
-
-```python
-# apps/workflows/views.py — Callback-Endpoint
-@csrf_exempt
-@require_POST
-def approval_callback(request, execution_id):
-    """Wird aufgerufen wenn Berater die Freigabe erteilt/ablehnt."""
-    token = request.POST.get("token", "")
-    decision = request.POST.get("decision", "")  # "approved" | "rejected"
-
-    from apps.workflows.services import WorkflowExecutionService
-    result = WorkflowExecutionService.resume_execution(
-        execution_id=execution_id,
-        token=token,
-        decision=decision,
-    )
-    if not result["valid"]:
-        return HttpResponseForbidden("Ungültiger oder abgelaufener Token")
-
-    return redirect("workflows:execution_detail", pk=execution_id)
-```
-
-**Flow**: Action setzt Status `waiting` → E-Mail mit Freigabe-Link → Berater
-klickt → Callback resumed Execution → nächste Phase wird ausgeführt.
-
-### 13.6 Workflow-Modelle
-
-```python
-# apps/workflows/models.py
-from django.db import models
-from django.utils import timezone
-
-
-class WorkflowTemplate(models.Model):
-    """Wiederverwendbare Workflow-Vorlage (z.B. Rechnungsfreigabe)."""
-    name         = models.CharField(max_length=200)
-    description  = models.TextField(blank=True)
-    category     = models.CharField(max_length=50,
-                     choices=[("tax", "Steuer"), ("dms", "Dokumente"),
-                              ("dsb", "Datenschutz"), ("billing", "Abrechnung"),
-                              ("custom", "Benutzerdefiniert")])
-    is_active    = models.BooleanField(default=True)
-    created_by   = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True)
-    created_at   = models.DateTimeField(auto_now_add=True)
-    updated_at   = models.DateTimeField(auto_now=True)
-
-    class Meta:
-        db_table = "workflow_templates"
-        ordering = ["category", "name"]
-
-
-class WorkflowPhase(models.Model):
-    """Phase innerhalb eines Workflows (sequentiell)."""
-    template     = models.ForeignKey(WorkflowTemplate, on_delete=models.CASCADE,
-                     related_name="phases")
-    name         = models.CharField(max_length=100)
-    order        = models.IntegerField(default=0)
-    is_active    = models.BooleanField(default=True)
-
-    class Meta:
-        db_table = "workflow_phases"
-        ordering = ["template", "order"]
-        unique_together = [["template", "order"]]
-
-
-class WorkflowAction(models.Model):
-    """Einzelne Aktion in einer Phase — verweist auf einen Handler."""
-    phase           = models.ForeignKey(WorkflowPhase, on_delete=models.CASCADE,
-                       related_name="actions")
-    name            = models.CharField(max_length=100)
-    handler_class   = models.CharField(max_length=200,
-                       help_text="Python-Pfad, z.B. apps.workflows.handlers.email.SendEmailHandler")
-    config          = models.JSONField(default=dict, blank=True,
-                       help_text="Handler-Konfiguration (Empfänger, Template, etc.)")
-    order           = models.IntegerField(default=0)
-    is_required     = models.BooleanField(default=True)
-    continue_on_error = models.BooleanField(default=False)
-    timeout_seconds = models.IntegerField(null=True, blank=True)
-    retry_count     = models.IntegerField(default=0)
-
-    class Meta:
-        db_table = "workflow_actions"
-        ordering = ["phase", "order"]
-
-
-class WorkflowExecution(models.Model):
-    """Laufende oder abgeschlossene Workflow-Instanz."""
-    template     = models.ForeignKey(WorkflowTemplate, on_delete=models.CASCADE)
-    status       = models.CharField(max_length=20,
-                     choices=[("running", "Läuft"), ("waiting", "Wartet auf Freigabe"),
-                              ("completed", "Abgeschlossen"),
-                              ("failed", "Fehlgeschlagen"), ("cancelled", "Abgebrochen")])
-    context_data = models.JSONField(default=dict,
-                     help_text="Workflow-Kontext (Input-Daten, Zwischenergebnisse)")
-    started_at   = models.DateTimeField(auto_now_add=True)
-    finished_at  = models.DateTimeField(null=True, blank=True)
-    triggered_by = models.ForeignKey("auth.User", on_delete=models.SET_NULL, null=True)
-
-    class Meta:
-        db_table = "workflow_executions"
-        ordering = ["-started_at"]
-
-
-class ExecutionLog(models.Model):
-    """Audit-Log für jede einzelne Action-Ausführung (DSGVO Art. 30)."""
-    execution    = models.ForeignKey(WorkflowExecution, on_delete=models.CASCADE,
-                     related_name="logs")
-    action       = models.ForeignKey(WorkflowAction, on_delete=models.CASCADE)
-    status       = models.CharField(max_length=20)
-    input_data   = models.JSONField(default=dict)
-    output_data  = models.JSONField(default=dict)
-    error_message = models.TextField(blank=True, default="")
-    duration_seconds = models.FloatField(null=True, blank=True)
-    created_at   = models.DateTimeField(auto_now_add=True)
-
-    class Meta:
-        db_table = "workflow_execution_logs"
-        ordering = ["created_at"]
-```
-
-### 13.7 Beispiel-Workflows
-
-#### Rechnungsfreigabe (tax-hub)
-
-```
-WorkflowTemplate: "Rechnungsfreigabe"
-├── Phase 1: Eingang
-│   └── Action: PaperlessDocHandler      # Dokument aus Paperless holen
-│   └── Action: DvelopArchiveHandler     # In d.velop archivieren
-├── Phase 2: Prüfung
-│   └── Action: LLMAnalyzeHandler        # KI: Betrag, Lieferant, Frist extrahieren
-│   └── Action: DataValidationHandler    # Pflichtfelder prüfen
-├── Phase 3: Freigabe
-│   └── Action: WaitForApprovalHandler   # Pausiert — E-Mail an Berater, wartet auf Callback
-│   └── Action: SendEmailHandler         # Bestätigung: "Rechnung freigegeben"
-└── Phase 4: Buchung
-    └── Action: DATEVExportHandler       # DATEV-Buchungssatz erzeugen
-    └── Action: SendEmailHandler         # Bestätigung an Mandant
-```
-
-#### DSGVO-Löschanfrage (risk-hub, Cross-Hub)
-
-```
-WorkflowTemplate: "DSB Löschanfrage Art. 17"
-├── Phase 1: Antrag validieren
-│   └── Action: DataValidationHandler    # Name, E-Mail, Rechtsgrund prüfen
-│   └── Action: SendEmailHandler         # Eingangsbestätigung an Betroffenen
-├── Phase 2: Systeme durchsuchen
-│   └── Action: PaperlessDocHandler      # Paperless nach Name durchsuchen
-│   └── Action: WebhookHandler           # tax-hub API: Mandantendaten suchen
-│   └── Action: WebhookHandler           # risk-hub API: Verarbeitungsverzeichnis
-├── Phase 3: Löschung durchführen
-│   └── Action: WebhookHandler           # DELETE-Calls an betroffene Systeme
-│   └── Action: DvelopArchiveHandler     # Löschprotokoll in DMS archivieren
-└── Phase 4: Abschluss
-    └── Action: SendEmailHandler         # Löschbestätigung an Betroffenen
-    └── Action: SendEmailHandler         # Protokoll an DSB (intern)
-```
-
-### 13.8 n8n-Integration (optional)
-
-n8n läuft bereits auf dem Server (`/opt/bfagent/docker-compose.n8n.yml`) und bietet
-**400+ vorgefertigte Konnektoren** als Ergänzung zu den eigenen Python-Handlern.
-
-```
-┌───────────────────────┐          ┌──────────────────────┐
-│  tax-hub Workflow      │          │  n8n (self-hosted)   │
-│                        │  HTTP    │                      │
-│  TriggerN8nHandler ────┼──POST──→│  Webhook-Trigger     │
-│                        │          │  ├── Gmail senden    │
-│  N8nCallbackView  ←────┼──POST───│  ├── Slack Notify    │
-│                        │          │  ├── Google Drive    │
-│                        │          │  └── 400+ weitere    │
-└───────────────────────┘          └──────────────────────┘
-```
-
-**Abgrenzung**: Eigene Handler für Business-Logik (E-Mail, Paperless, DATEV, LLM).
-n8n nur für **externe Systeme**, die keine eigene API-Integration rechtfertigen
-(z.B. Slack, Google Drive, Trello, Jira).
-
-### 13.9 Cross-Hub-Fähigkeit
-
-Die Workflow-Engine ist nicht auf tax-hub beschränkt. Dasselbe Handler-Pattern
-kann in andere Hubs übernommen werden:
-
-| Hub | Workflow-Beispiele |
-|-----|-------------------|
-| **tax-hub** | Rechnungsfreigabe, Frist-Eskalation, Mandanten-Onboarding |
-| **risk-hub** | DSGVO-Löschanfrage, Auskunftsanfrage, DSFA-Durchführung |
-| **pptx-hub** | Präsentations-Review, Übersetzungs-Pipeline |
-| **travel-beat** | Reise-Genehmigung, Buchungs-Bestätigung |
-
-**Langfrist-Option**: Extraktion als `iil-workflowfw` PyPI-Package
-(analog `iil-aifw`, `iil-promptfw`) wenn mindestens 2 Hubs die Engine produktiv nutzen.
-
----
-
-## 14. More Information
+## 13. More Information
 
 | Referenz | Inhalt |
 |----------|--------|
@@ -1424,11 +851,9 @@ kann in andere Hubs übernommen werden:
 | ADR-146 | DvelopDmsClient — DMS-App Implementierungsvorlage |
 | ADR-148 | KI-Klassifikation — BELEGE-Modul nutzt aifw MEDIUM |
 | ADR-152 | Pilot-ADR — durch dieses ADR superseded |
-| ADR-079 | Temporal Workflow-Engine — Alternative (abgelehnt für tax-hub, §13.0 Option B) |
-| GenAgent (bfagent) | Basis-Framework für Workflow-Engine (Handler, Registry, Executor) |
 | Stripe Docs | https://stripe.com/docs/billing/subscriptions |
 | django-tenants | https://django-tenants.readthedocs.io/ |
 
 ---
 
-*Erstellt: 2026-03-25 · Autor: Achim Dehnert · Review: 2026-03-30 (Cascade)*
+*Erstellt: 2026-03-25 · Autor: Achim Dehnert · Review: ausstehend*
