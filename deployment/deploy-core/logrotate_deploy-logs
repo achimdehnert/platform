@@ -1,0 +1,17 @@
+# /etc/logrotate.d/deploy-logs
+#
+# Logrotation für Platform Deploy-Logs (ADR-156 §Phase 1)
+# 7 Tage Retention, tägliche Rotation
+#
+/var/log/deploy/*.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    dateext
+    dateformat -%Y%m%d
+    su root root
+}
