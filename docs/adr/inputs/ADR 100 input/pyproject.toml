@@ -1,0 +1,137 @@
+# outlinefw/pyproject.toml
+#
+# Fixes HOCH H-3: pyproject.toml was missing from ADR entirely.
+# Platform standard: hatchling build (per iil-authoringfw pattern).
+# KRITISCH K-1: py.typed included in package data (PEP 561).
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "iil-outlinefw"
+version = "0.1.0"
+description = "Zentrales Story-Outline-Framework für alle iil-Platform-Applikationen"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.11"
+authors = [
+    { name = "Achim Dehnert", email = "achim@dehnert.dev" },
+]
+keywords = ["story", "outline", "framework", "creative-writing", "iil-platform"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Typing :: Typed",
+]
+
+# Core: Pure Python, minimal deps
+dependencies = [
+    "pydantic>=2.5,<3",
+]
+
+[project.optional-dependencies]
+# Django adapter support
+django = [
+    "django>=4.2,<6.0",
+]
+# Development / test
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.9",
+    "pydantic>=2.5,<3",
+]
+# Full (all optional)
+full = [
+    "iil-outlinefw[django,dev]",
+]
+
+[project.urls]
+Homepage = "https://github.com/achimdehnert/outlinefw"
+Repository = "https://github.com/achimdehnert/outlinefw"
+Issues = "https://github.com/achimdehnert/outlinefw/issues"
+Changelog = "https://github.com/achimdehnert/outlinefw/blob/main/CHANGELOG.md"
+
+# ---------------------------------------------------------------------------
+# Hatch build config
+# ---------------------------------------------------------------------------
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/outlinefw"]
+
+[tool.hatch.build.targets.wheel.shared-data]
+# Fixes KRITISCH K-1: py.typed included for PEP 561 compliance
+"src/outlinefw/py.typed" = "outlinefw/py.typed"
+
+# ---------------------------------------------------------------------------
+# Ruff (iil-platform standard)
+# ---------------------------------------------------------------------------
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+src = ["src"]
+
+[tool.ruff.lint]
+select = [
+    "E", "W",    # pycodestyle
+    "F",         # pyflakes
+    "I",         # isort
+    "N",         # pep8-naming
+    "UP",        # pyupgrade
+    "B",         # flake8-bugbear
+    "C4",        # flake8-comprehensions
+    "SIM",       # flake8-simplify
+    "TCH",       # flake8-type-checking
+    "ANN",       # flake8-annotations (enforce type hints)
+    "RUF",       # ruff-specific
+]
+ignore = [
+    "ANN101",    # self type annotation not required
+    "ANN102",    # cls type annotation not required
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["outlinefw"]
+
+# ---------------------------------------------------------------------------
+# MyPy
+# ---------------------------------------------------------------------------
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_return_any = true
+warn_unused_configs = true
+mypy_path = "src"
+packages = ["outlinefw"]
+
+# ---------------------------------------------------------------------------
+# Pytest
+# ---------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--cov=src/outlinefw",
+    "--cov-report=term-missing",
+    "--cov-report=html:htmlcov",
+    "--cov-fail-under=90",
+]
+
+[tool.coverage.run]
+source = ["src/outlinefw"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if TYPE_CHECKING:",
+    "@abstractmethod",
+    "raise NotImplementedError",
+]
