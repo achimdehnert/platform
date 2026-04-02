@@ -63,12 +63,20 @@ ss -tlnp | grep 15435 || sudo systemctl start ssh-tunnel-postgres
 4. **Branch-Status prüfen** — `git status && git log --oneline -5`
 5. **Tests baseline** — `pytest tests/ -q --tb=no` (falls vorhanden)
 6. **Knowledge-Lookup** — Outline durchsuchen (Repo-Steckbrief, Task-Wissen, Lessons, Cascade-Aufträge)
+7. **ADR-Inputs prüfen** — Neue Input-Dokumente aus Outline abholen:
+```
+search_knowledge(query: "Input ADR", collection: null, limit: 10)
+```
+→ Sucht nach Dokumenten mit Titel "Input ADR-XXX: ..." in allen Collections.
+→ Unbearbeitete Inputs (ohne ✅ im Titel) dem User melden.
+→ Workflow: User erstellt `Input ADR-156: Deploy-Script Referenz` in Outline → Cascade findet es hier.
+→ Nach Verarbeitung: Titel auf `✅ Input ADR-156: ...` setzen via `update_document()`.
 
 ---
 
 ## Phase 2: pgvector Warm-Start (ADR-154)
 
-7. **Memory Warm-Start** — Relevante Memories aus früheren Sessions laden:
+8. **Memory Warm-Start** — Relevante Memories aus früheren Sessions laden:
 ```
 agent_memory_context(
   task_description: "<User-Aufgabe aus erster Nachricht>",
@@ -78,17 +86,17 @@ agent_memory_context(
 → Zeigt relevante Session-Summaries, Error-Patterns und Lessons.
 → Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
 
-8. **Delta-Check** — Was hat sich seit der letzten Session geändert?
+9. **Delta-Check** — Was hat sich seit der letzten Session geändert?
 ```
 get_session_delta()
 ```
 
-9. **Bekannte Fehler prüfen** (bei Bug-Fix-Sessions):
+10. **Bekannte Fehler prüfen** (bei Bug-Fix-Sessions):
 ```
 find_similar_errors(query: "<Fehlerbeschreibung>", repo: "<aktuelles Repo>")
 ```
 
-10. **Wiederkehrende Fehler prüfen** (automatisch, jede Session):
+11. **Wiederkehrende Fehler prüfen** (automatisch, jede Session):
 ```
 check_recurring_errors()
 ```
@@ -99,4 +107,4 @@ check_recurring_errors()
 
 ## Phase 3: Arbeitsplan
 
-11. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)
+12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)
