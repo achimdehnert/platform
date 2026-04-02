@@ -1,0 +1,22 @@
+# /etc/logrotate.d/deploy-logs
+#
+# Logrotation für Platform Deploy-Logs (ADR-156 §Phase 1)
+# 7 Tage Retention, tägliche Rotation, kein Komprimieren (schnelle Diagnose)
+#
+/var/log/deploy/*.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate          # Symlink-kompatibel (kein Signal nötig — deploy.sh schreibt direkt)
+    dateext               # Dateiname: deploy.log-20260402
+    dateformat -%Y%m%d
+    su root root
+    # Warnung: copytruncate kann bei sehr aktiven Logs kleine Datenverluste haben
+    # Da deploy.sh pro Deploy eine neue Datei öffnet, ist dies unkritisch
+}
+
+# State-Files (PID, Status) werden vom Script selbst verwaltet
+# Log-Rotation entfernt KEINE .status oder .pid Files
