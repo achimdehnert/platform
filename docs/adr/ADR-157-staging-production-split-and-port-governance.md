@@ -1,22 +1,44 @@
 ---
 parent: Decisions
 nav_order: 157
-title: "ADR-157: Staging/Production Split, Port-Governance und Onboarding-Automatisierung"
+title: "ADR-157: Adopt same-port staging on Dev Desktop with automated port governance and onboarding"
 status: proposed
 date: 2026-04-02
 deciders: Achim Dehnert
 consulted: Cascade AI
 informed: []
-amends: ["ADR-021-unified-deployment-pattern.md", "ADR-075-deployment-execution-strategy.md"]
-related: ["ADR-106-port-audit.md", "ADR-156-reliable-deployment-pipeline.md"]
-implementation_status: proposed
+amends: ["ADR-063-staging-environment-strategy.md"]
+related: ["ADR-021-unified-deployment-pattern.md", "ADR-075-deployment-execution-strategy.md", "ADR-106-port-audit.md", "ADR-156-reliable-deployment-pipeline.md"]
+implementation_status: none
 ---
 
-# Staging/Production Split, Port-Governance und Onboarding-Automatisierung
+# Adopt same-port staging on Dev Desktop with automated port governance and onboarding
+
+<!-- Drift-Detector-Felder
+staleness_months: 6
+drift_check_paths:
+  - infra/ports.yaml
+  - .windsurf/workflows/onboard-repo.md
+  - .windsurf/workflows/ship.md
+supersedes_check: ADR-063
+-->
 
 ---
 
 ## 1. Context and Problem Statement
+
+### 1.0 Beziehung zu ADR-063
+
+ADR-063 ("Staging Environment Strategy", Accepted 2026-02-22) wählte **Option 3:
+Branch-basiertes Staging auf dem damaligen dev-server (46.225.113.1) mit Port-Offset +100**.
+
+Diese Entscheidung ist **überholt**, weil:
+- Der alte dev-server (46.225.113.1) nicht mehr existiert
+- Port-Offset +100 zu Konflikten führt (risk-hub staging 8099 = tax-hub prod 8099)
+- Ein dedizierter Dev Desktop (88.99.38.75) seit 2026-04-01 existiert
+- Branch-basiertes Staging sich als unpraktisch erwiesen hat (staging-Branch-Pflege)
+
+**ADR-157 amends ADR-063** und ersetzt die Staging-Strategie vollständig.
 
 ### 1.1 Ist-Zustand
 
@@ -204,6 +226,21 @@ Beim Onboarding eines neuen Hubs MÜSSEN folgende Schritte automatisch passieren
     ❌ Port-Konflikt oder unregistriert → ABBRUCH
 ```
 
+### 4.7 Staging-Secrets-Strategie
+
+| Aspekt | Staging | Production |
+|--------|---------|------------|
+| **Datei** | `.env.staging` | `.env.prod` |
+| **SECRET_KEY** | Eigener Wert (nicht identisch mit Prod!) | Eigener Wert |
+| **DATABASE_URL** | Eigene DB auf Staging-Server | Eigene DB auf Prod-Server |
+| **DJANGO_ALLOWED_HOSTS** | `staging.<domain>` | `<domain>` |
+| **CSRF_TRUSTED_ORIGINS** | `https://staging.<domain>` | `https://<domain>` |
+| **DEBUG** | `false` (Staging = Prod-like!) | `false` |
+| **Speicherort** | `/opt/<repo>/.env.staging` auf 88.99.38.75 | `/opt/<repo>/.env.prod` auf 88.198.191.108 |
+
+**Regel:** Staging-Secrets sind **immer separate Werte** — niemals Prod-Secrets kopieren.
+Ausnahme: GHCR-Token und API-Keys für externe Services können geteilt werden.
+
 ---
 
 ## 5. Consequences
@@ -228,9 +265,50 @@ Beim Onboarding eines neuen Hubs MÜSSEN folgende Schritte automatisch passieren
 - **R-01**: Dev Desktop Reboot → Staging down (Mitigierung: systemd auto-start)
 - **R-02**: DNS-Propagation bei Zone-Wechsel (Mitigierung: Low TTL während Migration)
 
+### 5.4 Confirmation
+
+Compliance wird durch folgende automatische Checks verifiziert:
+
+1. **`port_audit.py --check-all`** — Prüft alle Ports in `ports.yaml` auf Konflikte
+2. **`/drift-check`** — Erkennt Abweichungen zwischen ports.yaml und Server-Zustand
+3. **DNS-Audit** — Alle `staging.*` DNS-Records müssen auf 88.99.38.75 zeigen
+4. **`/session-start` Step 0.6** — Deploy-Status-Scan aller Apps inkl. Staging
+5. **`/ship` Step 0** — Port-Audit als Pre-Deploy-Gate
+
 ---
 
-## 6. Implementation Plan
+## 6. Open Questions
+
+| # | Frage | Status | Entscheidung |
+|---|-------|--------|--------------|
+| Q-01 | Wie werden Staging-Datenbanken initial befüllt? | Offen | Optionen: leere DB mit Fixtures, Anonymisierter Prod-Dump, Manuell |
+| Q-02 | Let's Encrypt Rate-Limits bei vielen `staging.*` Domains? | Geklärt | Max 50 Certs/Woche pro registrierte Domain — bei 22 Hubs kein Problem |
+| Q-03 | Staging-Deploy-Trigger: manuell, CI, oder Workflow? | Offen | Phase 4: eigener `/ship-staging` Workflow |
+| Q-04 | Resource-Limits auf Dev Desktop (32GB RAM) für 22 Hubs + IDE? | Offen | Monitoring nötig; ggf. nur aktive Hubs auf Staging deployen |
+| Q-05 | Soll ADR-063 als `Superseded` markiert werden? | Ja | ADR-157 ersetzt die Staging-Strategie vollständig |
+
+---
+
+## 7. Implementation Plan
+
+### Migration Tracking
+
+| Phase | Task | Status | Target |
+|-------|------|--------|--------|
+| 1 | DNS-Leichen löschen (alte IPs) | ☐ | Sofort |
+| 1 | Alle staging.* DNS → 88.99.38.75 | ☐ | Sofort |
+| 1 | Port-Konflikt risk-hub/tax-hub fixen | ☐ | Sofort |
+| 2 | ports.yaml Schema erweitern (domain_aliases, server_*) | ☐ | Q2 2026 |
+| 2 | Alle 22 Hubs in ports.yaml vervollständigen | ☐ | Q2 2026 |
+| 2 | port_audit.py: Multi-Server + --next-free | ☐ | Q2 2026 |
+| 3 | /onboard-repo: automatische Port-Vergabe | ☐ | Q3 2026 |
+| 3 | DNS-Erstellung via Cloudflare MCP automatisieren | ☐ | Q3 2026 |
+| 3 | Nginx-Template-Generator (Prod + Staging) | ☐ | Q3 2026 |
+| 3 | Port-Audit als Gate in /ship | ☐ | Q3 2026 |
+| 4 | docker-compose + .env.staging für jeden Hub | ☐ | Q3 2026 |
+| 4 | /ship-staging Workflow erstellen | ☐ | Q3 2026 |
+| 4 | Staging-Health-Checks in /session-start | ☐ | Q3 2026 |
+| 4 | ADR-063 als Superseded markieren | ☐ | Nach Phase 1 |
 
 ### Phase 1: DNS-Aufräumung (sofort)
 
@@ -259,7 +337,7 @@ Beim Onboarding eines neuen Hubs MÜSSEN folgende Schritte automatisch passieren
 
 ---
 
-## 7. Validation
+## 8. Validation
 
 - [ ] Alle `staging.*` DNS → 88.99.38.75
 - [ ] Keine DNS-Records mit unbekannten IPs
@@ -270,4 +348,13 @@ Beim Onboarding eines neuen Hubs MÜSSEN folgende Schritte automatisch passieren
 
 ---
 
-**Referenzen:** ADR-021, ADR-075, ADR-106, ADR-156
+## 9. More Information
+
+- **ADR-063**: Staging Environment Strategy — **wird durch dieses ADR amended/superseded**
+- **ADR-021**: Unified Deployment Pipeline — Port-Konventionen, Deploy-Pfade
+- **ADR-075**: Split Deployment Execution — MCP read-only, Server-side writes
+- **ADR-106**: Port-Audit — `ports.yaml` als Single Source of Truth
+- **ADR-156**: Reliable Deployment Pipeline — Job-Estimation, Error-Logging
+- **ADR-045**: Secrets Management — `.env.prod` / `.env.staging` Konvention
+- **ADR-061**: Hardcoding Elimination — Staging als Voraussetzung
+- **12-Factor App**: https://12factor.net/config
