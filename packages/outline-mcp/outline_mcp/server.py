@@ -366,40 +366,84 @@ async def get_document_by_url(url: str) -> dict[str, Any]:
              (e.g. https://knowledge.iil.pet/doc/slug-AbCdEf)
     """
     try:
-        # Extract urlId: last segment after the final hyphen in the path
+        # Extract slug from URL
         path = url.rstrip("/")
         if "/doc/" in path:
             slug = path.split("/doc/")[-1]
         else:
             slug = path.split("/")[-1]
 
-        # urlId is the last hyphen-separated segment (alphanumeric, 8-12 chars)
+        if not slug:
+            return {"error": f"No slug found in: {url}"}
+
+        # Strategy 1: search by keywords from slug
         parts = slug.split("-")
-        url_id = parts[-1] if parts else slug
+        # Remove urlId suffix (last alphanumeric part)
+        keywords = " ".join(
+            p for p in parts[:-1]
+            if len(p) > 1 and not p.isdigit()
+        )
+        if not keywords:
+            keywords = " ".join(parts)
 
-        if not url_id:
-            return {"error": f"Could not extract urlId from URL: {url}"}
+        client = _get_client()
+        result = await client.search_documents(
+            query=keywords, limit=10,
+        )
+        # Match by URL suffix
+        for r in result.get("data", []):
+            doc = r.get("document", {})
+            doc_url = doc.get("url", "")
+            if doc_url.endswith(slug):
+                full = await client.get_document(
+                    doc["id"],
+                )
+                d = full.get("data", {})
+                return {
+                    "title": d.get("title", ""),
+                    "id": d.get("id", ""),
+                    "text": d.get("text", ""),
+                    "url": d.get("url", ""),
+                    "updatedAt": d.get("updatedAt", ""),
+                    "collectionId": d.get("collectionId", ""),
+                }
 
-        # Outline API: documents.info with urlId parameter
-        result = await _get_client().get_document_by_url_id(url_id)
-        doc = result.get("data", {})
+        # Strategy 2: list recent + match URL
+        recent = await client.list_documents(limit=50)
+        for doc in recent.get("data", []):
+            doc_url = doc.get("url", "")
+            if doc_url.endswith(slug):
+                full = await client.get_document(
+                    doc["id"],
+                )
+                d = full.get("data", {})
+                return {
+                    "title": d.get("title", ""),
+                    "id": d.get("id", ""),
+                    "text": d.get("text", ""),
+                    "url": d.get("url", ""),
+                    "updatedAt": d.get("updatedAt", ""),
+                    "collectionId": d.get("collectionId", ""),
+                }
+
         return {
-            "title": doc.get("title", ""),
-            "id": doc.get("id", ""),
-            "text": doc.get("text", ""),
-            "url": doc.get("url", ""),
-            "updatedAt": doc.get("updatedAt", ""),
-            "collectionId": doc.get("collectionId", ""),
+            "error": (
+                f"Document not found for {url}. "
+                "It may be a draft or in a private "
+                "collection not accessible via API."
+            ),
         }
     except httpx.HTTPStatusError as e:
         return {
-            "error": f"Outline API {e.response.status_code} for {url}",
+            "error": f"Outline API {e.response.status_code}",
         }
     except httpx.ConnectError:
         return {"error": "Outline not reachable"}
     except Exception:
-        logger.exception("get_document_by_url failed for %s", url)
-        return {"error": f"Internal error resolving URL: {url}"}
+        logger.exception(
+            "get_document_by_url failed for %s", url,
+        )
+        return {"error": f"Error resolving: {url}"}
 
 
 @mcp.tool()
