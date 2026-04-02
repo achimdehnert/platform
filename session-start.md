@@ -53,6 +53,15 @@ echo "Git Sync done"
 ss -tlnp | grep 15435 || sudo systemctl start ssh-tunnel-postgres
 ```
 
+### 0.5 Deploy-Infrastruktur prüfen (ADR-156)
+
+// turbo
+```bash
+bash ~/github/mcp-hub/scripts/verify-adr156.sh
+```
+→ Muss `ALL 21 CHECKS PASSED` zeigen.
+→ Bei Fehlern: MCP-Server neustarten, dann erneut prüfen.
+
 ---
 
 ## Phase 1: Kontext laden
