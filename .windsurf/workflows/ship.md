@@ -45,6 +45,25 @@ Bekannte Repos (Schnellreferenz):
 
 ---
 
+## Schritt 0.5 — Job-Schätzung ausgeben (ADR-156)
+
+**Vor jedem Deploy** dem User die geschätzte Dauer kommunizieren:
+
+```
+mcp2_estimate_job:
+  job_type: deploy
+  repo: {scope}
+```
+
+Ausgabe an den User im Format:
+> Deploy {scope}: ~{estimated_seconds}s ({estimated_seconds_min}–{estimated_seconds_max}s)
+> Schritte: pull → migrate → recreate → health-check
+> Modus: Background (Agent bleibt verfügbar)
+
+Falls `estimated_seconds > 60`: User darauf hinweisen dass der Deploy im Hintergrund läuft.
+
+---
+
 ## Schritt 1 — Branch + Status verifizieren
 
 **KEIN auto-run. User-Bestätigung vor Push erforderlich.**
@@ -85,6 +104,15 @@ mcp0_ssh_manage:
 ```
 
 Erwartete Antwort: `{"status":"started","background_pid":...,"log_file":...}`
+
+**Discord-Notification (ADR-156):** Nach erfolgreichem Start:
+
+```
+mcp2_discord_notify:
+  title: "🚀 Deploy gestartet: {scope}"
+  message: "Deploy läuft im Hintergrund (~{estimated_seconds}s). Polle Status via deploy-status.sh."
+  level: info
+```
 
 **Fallback (ADR-075):** Falls SSH nicht verfügbar → GitHub Actions:
 
@@ -140,6 +168,23 @@ mcp0_ssh_manage:
 ```
 
 Bei HTTP 200 → Deploy erfolgreich. Bei Failure → Schritt 6.
+
+**Nach erfolgreichem Health Check:**
+
+1. Dauer messen und Feedback-Loop füttern:
+```
+mcp2_record_job_measurement:
+  job_type: deploy
+  elapsed_seconds: <gemessene Dauer seit Schritt 3>
+```
+
+2. Discord-Erfolgs-Notification:
+```
+mcp2_discord_notify:
+  title: "✅ Deploy erfolgreich: {scope}"
+  message: "Health-Check bestanden. Dauer: {elapsed}s. Port {health_port}."
+  level: success
+```
 
 ---
 
