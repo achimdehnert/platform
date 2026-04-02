@@ -186,6 +186,7 @@
 | 149 | Adopt d.velop Cloud DMS as Platform Document Archive Service (dms-hub) | `Accepted` | 🔶 | [ADR-149](ADR-149-dms-hub-dvelop-platform-service.md) |
 | 153 | Tax-Hub SaaS Architecture | `Accepted` | 🔶 | [ADR-153](ADR-153-tax-hub-saas-architecture.md) |
 | 155 | Three-Layer Contract Testing Strategy (all function/method calls) | `Accepted` | 🔶 | [ADR-155](ADR-155-contract-testing-strategy.md) |
+| 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Pipeline | `Proposed` | ⬜ | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
