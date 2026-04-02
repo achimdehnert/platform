@@ -80,9 +80,19 @@ cd /home/dehnert/github/platform && python infra/scripts/port_audit.py
 
 ---
 
+## Step 5.8: Job-Schätzung (ADR-156)
+
+Vor dem Deploy dem User die geschätzte Dauer kommunizieren:
+
+```
+mcp2_estimate_job:
+  job_type: deploy
+  repo: {app-name}
+```
+
 ## Step 6: Deploy ausführen
 
-Via `/deploy`:
+Via `/ship`:
 ```
 service: [app-name]
 image_tag: latest
