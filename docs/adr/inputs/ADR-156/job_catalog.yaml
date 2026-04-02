@@ -1,0 +1,295 @@
+# orchestrator-mcp/tools/job_catalog.yaml
+#
+# Job-Dauer-Katalog (ADR-156 §5) — maschinenlesbar
+#
+# Schema pro Eintrag:
+#   estimated_seconds_min: int     — Untergrenze (Optimum-Fall)
+#   estimated_seconds_max: int     — Obergrenze (Worst-Case)
+#   background_capable: bool       — Agent bleibt verfügbar?
+#   executor: server-script|ci|local|llm|mcp
+#   steps: list[str]               — Beschreibung der Sub-Schritte (für Agent-Ausgabe)
+#   parallel_safe: bool            — Parallelausführung mit anderen Jobs gleichen Typs?
+#   recommended_model: str|null    — LLM-Modell wenn executor=llm
+#   notification_channel: str|null — Benachrichtigungskanal bei Background-Abschluss
+#
+# Repo-spezifische Überschreibungen:
+#   jobs.<job_type>.repos.<repo_name>:
+#     estimated_seconds_min: ...   — Überschreibt nur geänderte Felder
+#
+# Zeitangaben basieren auf Erfahrungswerten (Hetzner CPX52 Prod-Server)
+# Aktualisierung: nach jedem Deploy mit record_measurement() oder manuell
+
+---
+jobs:
+
+  # ── Docker Operations ──────────────────────────────────────────────────────
+
+  deploy:
+    estimated_seconds_min: 60
+    estimated_seconds_max: 180
+    background_capable: true
+    executor: server-script
+    steps:
+      - "pull (20–60s)"
+      - "migrate (5–30s)"
+      - "recreate (5–15s)"
+      - "health-check (bis 60s)"
+    parallel_safe: false           # Nicht parallel: gleicher Server, gleiche DB
+    recommended_model: null
+    notification_channel: discord
+    repos:
+      risk-hub:
+        estimated_seconds_min: 70   # Hat mehr Migrations
+        estimated_seconds_max: 200
+      bfagent:
+        estimated_seconds_min: 90
+        estimated_seconds_max: 240  # Größeres Image
+
+  docker_pull:
+    estimated_seconds_min: 20
+    estimated_seconds_max: 120
+    background_capable: true
+    executor: server-script
+    steps: ["pull image layers"]
+    parallel_safe: true            # Verschiedene Images parallel OK
+    recommended_model: null
+    notification_channel: null
+
+  docker_build_cached:
+    estimated_seconds_min: 30
+    estimated_seconds_max: 120
+    background_capable: true
+    executor: ci
+    steps: ["build (cache hit)", "push to GHCR"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: discord
+
+  docker_build_clean:
+    estimated_seconds_min: 180
+    estimated_seconds_max: 600
+    background_capable: true
+    executor: ci
+    steps: ["build (no cache)", "push to GHCR"]
+    parallel_safe: false           # Resource-intensiv
+    recommended_model: null
+    notification_channel: discord
+
+  docker_compose_up:
+    estimated_seconds_min: 5
+    estimated_seconds_max: 30
+    background_capable: true
+    executor: server-script
+    steps: ["recreate containers"]
+    parallel_safe: false
+    recommended_model: null
+    notification_channel: null
+
+  # ── Database Operations ────────────────────────────────────────────────────
+
+  migrate:
+    estimated_seconds_min: 5
+    estimated_seconds_max: 60
+    background_capable: true       # Vorsicht: UI während Migration konsistent?
+    executor: server-script
+    steps: ["makemigrations (lokal)", "migrate (Prod)"]
+    parallel_safe: false           # Nie parallel auf gleicher DB
+    recommended_model: null
+    notification_channel: discord
+
+  db_backup:
+    estimated_seconds_min: 10
+    estimated_seconds_max: 120
+    background_capable: true
+    executor: server-script
+    steps: ["pg_dump", "compress", "store"]
+    parallel_safe: false
+    recommended_model: null
+    notification_channel: null
+
+  # ── Testing ────────────────────────────────────────────────────────────────
+
+  pytest_unit:
+    estimated_seconds_min: 10
+    estimated_seconds_max: 60
+    background_capable: true
+    executor: ci
+    steps: ["unit tests (SQLite)"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: null
+
+  pytest_integration:
+    estimated_seconds_min: 30
+    estimated_seconds_max: 120
+    background_capable: true
+    executor: ci
+    steps: ["integration tests (Postgres)"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: discord
+
+  pytest_contract:
+    estimated_seconds_min: 5
+    estimated_seconds_max: 30
+    background_capable: true
+    executor: ci
+    steps: ["contract tests (ADR-155)"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: null
+
+  # ── Code Quality ───────────────────────────────────────────────────────────
+
+  ruff_check:
+    estimated_seconds_min: 1
+    estimated_seconds_max: 5
+    background_capable: false      # Zu kurz für Background — sofort
+    executor: local
+    steps: ["lint", "format check"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: null
+
+  collectstatic:
+    estimated_seconds_min: 5
+    estimated_seconds_max: 30
+    background_capable: true
+    executor: server-script
+    steps: ["collectstatic --noinput"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: null
+
+  # ── Git & Package Operations ───────────────────────────────────────────────
+
+  git_push:
+    estimated_seconds_min: 2
+    estimated_seconds_max: 10
+    background_capable: false      # Zu kurz, braucht Ergebnis für nächsten Step
+    executor: local
+    steps: ["git push"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: null
+
+  pip_install:
+    estimated_seconds_min: 10
+    estimated_seconds_max: 60
+    background_capable: true
+    executor: ci
+    steps: ["pip install requirements"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: null
+
+  pypi_publish:
+    estimated_seconds_min: 15
+    estimated_seconds_max: 60
+    background_capable: true
+    executor: ci
+    steps: ["build wheel", "upload to PyPI"]
+    parallel_safe: true
+    recommended_model: null
+    notification_channel: discord
+
+  # ── LLM/Agent Tasks ───────────────────────────────────────────────────────
+
+  code_review:
+    estimated_seconds_min: 30
+    estimated_seconds_max: 180
+    background_capable: true
+    executor: llm
+    steps: ["analyze code", "generate review"]
+    parallel_safe: true
+    recommended_model: opus        # Tiefes Architektur-Verständnis
+    notification_channel: discord
+
+  refactoring_simple:
+    estimated_seconds_min: 20
+    estimated_seconds_max: 90
+    background_capable: true
+    executor: llm
+    steps: ["analyze", "refactor", "validate"]
+    parallel_safe: true
+    recommended_model: swe
+    notification_channel: null
+
+  docstring_generation:
+    estimated_seconds_min: 10
+    estimated_seconds_max: 45
+    background_capable: true
+    executor: llm
+    steps: ["generate docstrings"]
+    parallel_safe: true
+    recommended_model: gpt_low     # Einfache, repetitive Aufgabe
+    notification_channel: null
+
+  test_generation:
+    estimated_seconds_min: 20
+    estimated_seconds_max: 120
+    background_capable: true
+    executor: llm
+    steps: ["analyze code", "generate tests", "validate"]
+    parallel_safe: true
+    recommended_model: swe
+    notification_channel: null
+
+  adr_review:
+    estimated_seconds_min: 60
+    estimated_seconds_max: 300
+    background_capable: true
+    executor: llm
+    steps: ["load context", "review ADR", "generate findings"]
+    parallel_safe: true
+    recommended_model: opus        # Architektur-Expertise
+    notification_channel: discord
+
+  contract_test_writing:
+    estimated_seconds_min: 15
+    estimated_seconds_max: 60
+    background_capable: true
+    executor: llm
+    steps: ["analyze API", "generate contract tests"]
+    parallel_safe: true
+    recommended_model: swe
+    notification_channel: null
+
+  deployment_decision:
+    estimated_seconds_min: 5
+    estimated_seconds_max: 30
+    background_capable: false      # Braucht User-Bestätigung
+    executor: llm
+    steps: ["check deployment checklist"]
+    parallel_safe: true
+    recommended_model: gpt_low
+    notification_channel: null
+
+  ci_fix_lint:
+    estimated_seconds_min: 10
+    estimated_seconds_max: 45
+    background_capable: true
+    executor: llm
+    steps: ["fix lint/format errors"]
+    parallel_safe: true
+    recommended_model: gpt_low
+    notification_channel: null
+
+# ── Fallback für unbekannte Job-Typen ────────────────────────────────────────
+fallback:
+  estimated_seconds_min: 10
+  estimated_seconds_max: 300
+  background_capable: true
+  executor: server-script
+  steps: ["(unbekannter Job-Typ — Schätzung unzuverlässig)"]
+  parallel_safe: false
+  recommended_model: null
+  notification_channel: discord
+
+# ── Metadaten ─────────────────────────────────────────────────────────────────
+metadata:
+  version: "1.0"
+  created: "2026-04-02"
+  source: "Erfahrungswerte Hetzner CPX52 Prod-Server"
+  review_cycle: "monatlich oder nach 10+ Deployments"
+  adr: "ADR-156"
