@@ -677,13 +677,15 @@ ssh_manage(action="file_read",
 - [x] `job_catalog.yaml` als maschinenlesbarer Katalog (296 Einträge, 18 Job-Typen)
 - [x] `record_job_measurement()` Feedback-Loop (70/30 Gewichtung)
 - [x] `list_job_types()` MCP-Tool für Katalog-Discovery
-- [ ] Agent gibt Schätzung vor jedem Job >15s aus (Workflow-Integration pending)
-- [ ] Discord-Notification bei Background-Job Start/Ende (discord_notify Tool existiert)
+- [x] `/ship` Workflow gibt Schätzung via `estimate_job` vor Deploy aus (2026-04-02)
+- [x] Discord-Notification bei Background-Job Start/Ende in `/ship` Workflow (2026-04-02)
+- [x] `record_job_measurement` nach Deploy für Feedback-Loop (2026-04-02)
 
 ### Phase 3 — Job-Router
 - [x] `analyze_task()` um Executor/Schätzung/Background erweitert (2026-04-02)
 - [x] `_detect_job_type()` Keyword-Mapping für 20 Job-Typen
-- [ ] LLM-Modell-Routing-Matrix in orchestrator-MCP
+- [x] LLM-Modell-Routing von `job_catalog.yaml` → `analyze_task()` (recommended_model Override) (2026-04-02)
+- [x] ROUTING_MATRIX + FALLBACK_CHAIN in config.py (ADR-068, bereits vorhanden)
 
 ---
 
@@ -708,3 +710,4 @@ ssh_manage(action="file_read",
 | v3.1 | 2026-04-02 | Review-Fixes: Health-Check-Port parametrisiert (T1), Rollback-Code implementiert (T2), Q5 Auth-Entscheidung (SSH-Key reicht) |
 | v3.2 | 2026-04-02 | Phase 1 implementiert: Scripts auf Server deployed, Service-Auto-Detection (web vs repo-web), /ship Workflow umgestellt, deploy-status.sh Python-Bool-Fix |
 | v3.3 | 2026-04-02 | Phase 2+3 implementiert: estimate_job(), job_catalog.yaml, record_measurement(), analyze_task() erweitert um Executor/Schätzung/Background — 15 Tests, alle passed |
+| v3.4 | 2026-04-02 | Phase 2+3 komplett: /ship Workflow mit estimate_job + Discord-Notification, LLM-Routing aus Katalog, alle Checklisten-Punkte erledigt |
