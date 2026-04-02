@@ -380,8 +380,8 @@ async def get_document_by_url(url: str) -> dict[str, Any]:
         if not url_id:
             return {"error": f"Could not extract urlId from URL: {url}"}
 
-        # Outline API accepts urlId in documents.info
-        result = await _get_client().get_document(url_id)
+        # Outline API: documents.info with urlId parameter
+        result = await _get_client().get_document_by_url_id(url_id)
         doc = result.get("data", {})
         return {
             "title": doc.get("title", ""),
