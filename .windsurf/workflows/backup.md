@@ -41,6 +41,16 @@ Target: [backup_path]
 Proceed? [Ja/Nein]
 ```
 
+## Step 2.5: Job-Schätzung (ADR-156)
+
+```
+mcp2_estimate_job:
+  job_type: db_backup
+  repo: {app}
+```
+
+Ausgabe: geschätzte Dauer + Modus an den User kommunizieren.
+
 ## Step 3: Create Backup
 
 // turbo
