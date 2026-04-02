@@ -62,6 +62,28 @@ bash ~/github/mcp-hub/scripts/verify-adr156.sh
 → Muss `ALL 21 CHECKS PASSED` zeigen.
 → Bei Fehlern: MCP-Server neustarten, dann erneut prüfen.
 
+### 0.6 Deploy-Status aller Apps scannen (ADR-156)
+
+Prüfe ob kürzlich fehlgeschlagene Deploys vorliegen:
+
+```
+mcp0_ssh_manage:
+  action: exec
+  host: 88.198.191.108
+  command: "for repo in risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub; do bash /opt/deploy-core/deploy-status.sh $repo 2>/dev/null; done"
+```
+
+→ Für jedes Repo mit `"status":"FAILED"`: Deploy-Log lesen und Error Pattern loggen:
+```
+mcp2_log_error_pattern:
+  repo: <repo>
+  symptom: "Deploy FAILED: <aus Log>"
+  root_cause: "<Analyse>"
+  fix: "<empfohlener Fix>"
+  error_type: deploy
+```
+→ User über fehlgeschlagene Deploys informieren, bevor an anderen Tasks gearbeitet wird.
+
 ---
 
 ## Phase 1: Kontext laden
