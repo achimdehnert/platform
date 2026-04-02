@@ -117,6 +117,17 @@ class OutlineClient:
         resp.raise_for_status()
         return resp.json()
 
+    @RETRY_POLICY
+    async def get_document_by_url_id(
+        self, url_id: str,
+    ) -> dict[str, Any]:
+        """Fetch document by Outline urlId (slug suffix)."""
+        resp = await self._client.post(
+            "documents.info", json={"urlId": url_id},
+        )
+        resp.raise_for_status()
+        return resp.json()
+
     # --- Collections ---
 
     @RETRY_POLICY
