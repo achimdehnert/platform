@@ -2,7 +2,8 @@
 parent: Decisions
 nav_order: 157
 title: "ADR-157: Adopt same-port staging on Dev Desktop with automated port governance and onboarding"
-status: proposed
+status: accepted
+amended: 2026-04-02
 date: 2026-04-02
 deciders: Achim Dehnert
 consulted: Cascade AI

@@ -187,7 +187,7 @@
 | 153 | Tax-Hub SaaS Architecture | `Accepted` | 🔶 | [ADR-153](ADR-153-tax-hub-saas-architecture.md) |
 | 155 | Three-Layer Contract Testing Strategy (all function/method calls) | `Accepted` | 🔶 | [ADR-155](ADR-155-contract-testing-strategy.md) |
 | 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Pipeline | `Accepted` | ✅ | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
-| 157 | Adopt same-port staging on Dev Desktop with automated port governance and onboarding | `Proposed` | ⬜ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
+| 157 | Adopt same-port staging on Dev Desktop with automated port governance and onboarding | `Accepted` | ⬜ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
