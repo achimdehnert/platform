@@ -452,8 +452,9 @@ Zentrale Scripts in `/opt/deploy-core/` auf dem Prod-Server — **nicht** pro Re
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${1:?Usage: deploy.sh <repo> [compose-file]}"
+REPO="${1:?Usage: deploy.sh <repo> [compose-file] [health-port]}"
 COMPOSE_FILE="${2:-docker-compose.prod.yml}"
+HEALTH_PORT="${3:-8000}"
 
 # ADR-022: COMPOSE_PROJECT_NAME ist Pflicht (Fix B6)
 export COMPOSE_PROJECT_NAME="${REPO}"
@@ -512,7 +513,7 @@ docker compose -f "${COMPOSE_FILE}" up -d --no-deps --force-recreate web
 sleep 2
 for attempt in $(seq 1 12); do
     HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 \
-        "http://localhost:8000/livez/" 2>/dev/null || echo "000")
+        "http://localhost:${HEALTH_PORT}/livez/" 2>/dev/null || echo "000")
     if [[ "${HTTP_CODE}" == "200" ]]; then
         echo "Health-Check bestanden (Versuch ${attempt})."
         echo "SUCCESS" > "${STATUS_FILE}"
@@ -523,8 +524,18 @@ for attempt in $(seq 1 12); do
 done
 
 # Fix B3: Rollback bei Health-Check-Failure
-echo "FATAL: Health-Check fehlgeschlagen — Rollback" >&2
+echo "FATAL: Health-Check fehlgeschlagen — Rollback auf ${ROLLBACK_TAG:-unknown}" >&2
 docker compose -f "${COMPOSE_FILE}" logs --tail=50 web >&2 || true
+if [[ -n "${ROLLBACK_TAG}" ]]; then
+    echo "Rollback: Image auf ${ROLLBACK_TAG} zurücksetzen..."
+    docker compose -f "${COMPOSE_FILE}" pull web 2>/dev/null || true
+    ROLLBACK_IMAGE=$(docker compose -f "${COMPOSE_FILE}" config --images 2>/dev/null | grep web | head -1)
+    ROLLBACK_IMAGE="${ROLLBACK_IMAGE%:*}:${ROLLBACK_TAG}"
+    docker compose -f "${COMPOSE_FILE}" up -d --no-deps --force-recreate web 2>/dev/null || true
+    echo "Rollback ausgeführt. Manuellen Health-Check empfohlen."
+else
+    echo "WARNUNG: Kein Rollback-Tag verfügbar — manueller Eingriff nötig."
+fi
 echo "FAILED" > "${STATUS_FILE}"
 exit 3
 ```
@@ -642,6 +653,7 @@ ssh_manage(action="file_read",
 | Q2 | Wie wird die `job_catalog.yaml` aktuell gehalten? | Offen | Manuell vs. automatisches `record_measurement()` nach jedem Deploy |
 | Q3 | Soll der Feedback-Loop (gemessene Zeiten) persistent gespeichert werden? | Offen | In-Memory (aktuell) vs. JSON-File vs. pgvector Memory |
 | Q4 | Wie handhabt `deploy-start.sh` Repos ohne `docker-compose.prod.yml`? | Offen | Validierung in deploy.sh (aktuell) vs. Whitelist in deploy-start.sh |
+| Q5 | Wer darf `deploy-start.sh` aufrufen? Brauchen wir Token-Validierung? | **Entschieden** | SSH-Key ist ausreichende Auth — nur wer SSH-Zugang hat, kann deployen. Zusätzliche Token-Validierung wäre Over-Engineering. Risiko akzeptiert (analog ADR-075 §Security). |
 
 ---
 
@@ -685,3 +697,4 @@ ssh_manage(action="file_read",
 | v1 | 2026-04-02 | Initial — Problemanalyse + 3 Optionen + Phasenplan |
 | v2 | 2026-04-02 | Erweitert: §5 Job-Transparenz, §6 Background-Jobs, §7 Job-Routing + LLM-Zuweisung |
 | v3 | 2026-04-02 | Review-Rework: 7 Blocker behoben (B1-B7), MADR 4.0 Sektionen ergänzt, ADR-075 Reconciliation, deploy.sh durch korrigierte Version ersetzt, Short-Trigger-Pattern statt nohup, Drift-Detector-Felder, Open Questions |
+| v3.1 | 2026-04-02 | Review-Fixes: Health-Check-Port parametrisiert (T1), Rollback-Code implementiert (T2), Q5 Auth-Entscheidung (SSH-Key reicht) |
