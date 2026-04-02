@@ -19,7 +19,7 @@ implementation_evidence:
   - "deployment/deploy-core/ — Scripts im Platform-Repo (2026-04-02)"
   - "/opt/deploy-core/ auf Prod-Server — deploy.sh, deploy-start.sh, deploy-status.sh"
   - "/ship Workflow auf Short-Trigger-Pattern umgestellt"
-  - "Erster Test: deploy-start.sh + deploy-status.sh funktional (GHCR-Token-Blocker für E2E)"
+  - "E2E-Test: risk-hub deployed in 49s via deploy-start.sh + deploy-status.sh (2026-04-02)"
 ---
 
 # Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Deployment Pipeline
@@ -27,8 +27,8 @@ implementation_evidence:
 <!-- Drift-Detector-Felder (ADR-059)
 staleness_months: 6
 drift_check_paths:
-  - deployment/templates/deploy.sh
-  - deployment/templates/deploy-start.sh
+  - deployment/deploy-core/deploy.sh
+  - deployment/deploy-core/deploy-start.sh
   - .windsurf/workflows/ship.md
 supersedes_check: ADR-075 (amends, not supersedes)
 -->
@@ -669,7 +669,7 @@ ssh_manage(action="file_read",
 - [x] `deploy.sh`, `deploy-start.sh`, `deploy-status.sh` in `/opt/deploy-core/` (2026-04-02)
 - [x] Logrotate `/etc/logrotate.d/deploy-logs` konfiguriert (2026-04-02)
 - [x] `/ship` Workflow auf Short-Trigger-Pattern umgestellt (2026-04-02)
-- [ ] Erster erfolgreicher E2E-Deploy über `deploy-start.sh` + Polling (GHCR-Token erneuern)
+- [x] Erster erfolgreicher E2E-Deploy über `deploy-start.sh` + Polling (risk-hub, 49s, 2026-04-02)
 - [x] ADR-075 Amendment (Write-Op-Klassifikation) eingetragen (2026-04-02)
 
 ### Phase 2 — Job-Transparenz
