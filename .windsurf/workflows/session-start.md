@@ -46,12 +46,25 @@ echo "Git Sync done"
 → Stellt sicher, dass WSL ↔ Dev Desktop synchron sind.
 → Bei Konflikten: `git stash pop` manuell lösen, NICHT force-pushen.
 
-### 0.4 SSH Tunnel prüfen (nur Dev Desktop, für pgvector Memory)
+### 0.4 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
 
+// turbo
 ```bash
-# Nur auf Dev Desktop (88.99.38.75):
-ss -tlnp | grep 15435 || sudo systemctl start ssh-tunnel-postgres
+if ! ss -tlnp | grep -q 15435; then
+  echo "⚠️ SSH-Tunnel nicht aktiv — starte..."
+  sudo systemctl start ssh-tunnel-postgres
+  sleep 2
+fi
+if ss -tlnp | grep -q 15435; then
+  echo "✅ pgvector Tunnel aktiv (localhost:15435)"
+else
+  echo "❌ FEHLER: pgvector Tunnel nicht erreichbar! Memory funktioniert NICHT."
+  echo "   Fix: sudo systemctl start ssh-tunnel-postgres"
+  echo "   ABBRUCH — pgvector ist Pflicht, kein Fallback erlaubt."
+fi
 ```
+→ **KEIN Fallback auf Cascade Memory erlaubt.** pgvector MUSS laufen.
+→ Bei Fehler: Session NICHT fortsetzen bis Tunnel steht.
 
 ### 0.5 Deploy-Infrastruktur prüfen (ADR-156)
 
