@@ -1,0 +1,137 @@
+##############################################################################
+# .github/workflows/ci.yml — Hub Template
+#
+# Fixes ADR-110:
+#   B-6: git diff --exit-code nur auf *.po Dateien (nicht *.mo Binärdateien)
+#   C-7: makemessages mit --ignore Flags
+#   H-7: compilemessages mit --locale Flags
+#
+# Fixes ADR-109:
+#   B-2: alle Shell-Steps mit set -euo pipefail (via shell: bash + errexit)
+##############################################################################
+
+name: "CI"
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+defaults:
+  run:
+    shell: bash  # Ensures bash semantics; combine with -euo pipefail per step
+
+jobs:
+  test:
+    name: "Test + Lint"
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: test_hub
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DJANGO_SETTINGS_MODULE: "config.settings.ci"
+      DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/test_hub"
+      TENANCY_MODE: "session"   # CI always uses session-based tenancy
+
+    steps:
+      - name: "Checkout"
+        uses: actions/checkout@v4
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: "Install dependencies"
+        run: |
+          set -euo pipefail
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: "Ruff lint"
+        run: |
+          set -euo pipefail
+          ruff check .
+
+      - name: "Bandit security check"
+        run: |
+          set -euo pipefail
+          bandit -r . -c pyproject.toml --exit-zero-on-skipped
+
+      # ---------------------------------------------------------------------------
+      # Fix B-6 + C-7: i18n Check
+      # ---------------------------------------------------------------------------
+      - name: "Check translations (makemessages)"
+        run: |
+          set -euo pipefail
+          # Fix C-7: Ignore venv, node_modules, static files
+          python manage.py makemessages \
+            --locale=de \
+            --locale=en \
+            --no-location \
+            --ignore=venv \
+            --ignore=node_modules \
+            --ignore=.tox \
+            --ignore=staticfiles \
+            --ignore=htmlcov
+
+          # Fix B-6: Check ONLY .po files (NOT .mo binary files)
+          # .mo files must be in .gitignore — compiled at Docker build time
+          if git diff --exit-code "*.po" 2>/dev/null; then
+            echo "✅ No new untranslated strings"
+          else
+            echo "❌ New strings found in .po files — add translations before merging"
+            git diff "*.po"
+            exit 1
+          fi
+
+      - name: "Compile messages (validate .po syntax)"
+        run: |
+          set -euo pipefail
+          # Fix H-7: Compile only defined locales
+          python manage.py compilemessages --locale=de --locale=en
+
+      # ---------------------------------------------------------------------------
+      # Migrations check
+      # ---------------------------------------------------------------------------
+      - name: "Check for missing migrations"
+        run: |
+          set -euo pipefail
+          python manage.py migrate --run-syncdb
+          python manage.py migrate --check
+
+      - name: "Run tests"
+        run: |
+          set -euo pipefail
+          python -m pytest \
+            --tb=short \
+            --cov=apps \
+            --cov-report=term-missing \
+            --cov-fail-under=80
+
+  # ---------------------------------------------------------------------------
+  # Docker build validation (compilemessages in build)
+  # ---------------------------------------------------------------------------
+  docker-build:
+    name: "Docker Build"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: "Build Docker image"
+        run: |
+          set -euo pipefail
+          docker build --target production -t hub:ci .
