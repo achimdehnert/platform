@@ -354,6 +354,55 @@ async def list_collections() -> list[dict[str, Any]]:
 
 
 @mcp.tool()
+async def get_document_by_url(url: str) -> dict[str, Any]:
+    """Get an Outline document by its URL (no web request needed).
+
+    Extracts the urlId from the URL and fetches via Outline API.
+    Accepts full URLs like https://knowledge.iil.pet/doc/adr-156-0dRaORoWff
+    or just the path like /doc/adr-156-0dRaORoWff.
+
+    Args:
+        url: Outline document URL or path
+             (e.g. https://knowledge.iil.pet/doc/slug-AbCdEf)
+    """
+    try:
+        # Extract urlId: last segment after the final hyphen in the path
+        path = url.rstrip("/")
+        if "/doc/" in path:
+            slug = path.split("/doc/")[-1]
+        else:
+            slug = path.split("/")[-1]
+
+        # urlId is the last hyphen-separated segment (alphanumeric, 8-12 chars)
+        parts = slug.split("-")
+        url_id = parts[-1] if parts else slug
+
+        if not url_id:
+            return {"error": f"Could not extract urlId from URL: {url}"}
+
+        # Outline API accepts urlId in documents.info
+        result = await _get_client().get_document(url_id)
+        doc = result.get("data", {})
+        return {
+            "title": doc.get("title", ""),
+            "id": doc.get("id", ""),
+            "text": doc.get("text", ""),
+            "url": doc.get("url", ""),
+            "updatedAt": doc.get("updatedAt", ""),
+            "collectionId": doc.get("collectionId", ""),
+        }
+    except httpx.HTTPStatusError as e:
+        return {
+            "error": f"Outline API {e.response.status_code} for {url}",
+        }
+    except httpx.ConnectError:
+        return {"error": "Outline not reachable"}
+    except Exception:
+        logger.exception("get_document_by_url failed for %s", url)
+        return {"error": f"Internal error resolving URL: {url}"}
+
+
+@mcp.tool()
 async def delete_document(document_id: str) -> dict[str, Any]:
     """Delete a document from the knowledge base.
 
