@@ -6,8 +6,9 @@ consulted: []
 informed: []
 supersedes: ["ADR-053-deployment-mcp-robustness.md"]
 amends: ["ADR-021-unified-deployment-pattern.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md"]
-related: ["ADR-021-unified-deployment-pattern.md", "ADR-045-secrets-management.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md", "ADR-066-ai-engineering-team.md"]
+related: ["ADR-021-unified-deployment-pattern.md", "ADR-045-secrets-management.md", "ADR-056-deployment-preflight-and-pipeline-hardening.md", "ADR-066-ai-engineering-team.md", "ADR-156-reliable-deployment-pipeline.md"]
 implementation_status: implemented
+amended: 2026-04-02
 ---
 
 # Split deployment execution: read-only local MCP tools and server-side GitHub Actions workflows
@@ -267,6 +268,25 @@ oder eigener FastAPI-Service).
 | `ssl_status` | Read | Bleibt in deployment-mcp | — |
 | `dns_record_list` | Read | Bleibt in deployment-mcp | — |
 | `server_status` | Read | Bleibt in deployment-mcp | — |
+
+### Write-Op-Klassifikation (Amendment 2026-04-02, ADR-156)
+
+Die ursprüngliche Regel "alle Write-Ops via GitHub Actions" wird differenziert.
+Das Kern-Problem (SSH-Operationen >30s blockieren MCP-Event-Loop) bleibt bestanden.
+Kurze Trigger-Commands (<5s) die nur einen Server-seitigen Prozess starten,
+sind strukturell verschieden von lang laufenden synchronen SSH-Operationen.
+
+| Tier | Dauer | Kanal | Bedingungen | Beispiele |
+|------|-------|-------|-------------|-----------|
+| **Long-Running Write** | >15s | GitHub Actions (`infra-deploy`) | Regel unverändert — MUSS über CI laufen | `docker compose up`, `migrate`, `build` |
+| **Short Trigger** | <5s | SSH (`deploy-start.sh`) | Startet nur Background-Prozess, returniert sofort mit Job-ID (JSON), idempotent, atomares Locking (flock) | `deploy-start.sh <repo>`, `deploy-status.sh <repo>` |
+| **Read-Op** | <5s | deployment-mcp SSH | Regel unverändert — bleibt in deployment-mcp | `container_logs`, `compose_ps`, `file_read` |
+
+**Koexistenz-Modell**: Beide Trigger-Methoden (GitHub Actions + SSH Short-Trigger)
+nutzen dasselbe server-seitige `deploy.sh` — die Deploy-Logik ist einmal implementiert
+in `/opt/deploy-core/`. GitHub Actions bleibt Fallback wenn SSH nicht verfügbar.
+
+**Referenz**: ADR-156 §Phase 1 (deploy-start.sh), ADR-107 §4.3 (Deployment Agent shell_exec).
 
 ### Security-Anforderungen
 

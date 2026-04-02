@@ -2,27 +2,33 @@
 status: proposed
 date: 2026-04-02
 decision-makers: [Achim Dehnert]
-consulted: []
+consulted: [Cascade (Principal IT-Architekt)]
 informed: []
 supersedes: []
+amends: ["ADR-075-deployment-execution-strategy.md"]
 related:
-  - ADR-075-deployment-agent.md
+  - ADR-021-unified-deployment-pattern.md
+  - ADR-022-code-quality-docker-standards.md
+  - ADR-062-content-store.md
+  - ADR-075-deployment-execution-strategy.md
   - ADR-090-cicd-pipeline-python-postgres.md
+  - ADR-107-extended-agent-team-deployment-agent.md
   - ADR-120-unified-deployment-pipeline.md
+implementation_status: none
 ---
 
-# ADR-156: Reliable Deployment Pipeline & Agent Job Management — Solving SSH/MCP Timeout, Transparency, and Job-Routing
+# Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Deployment Pipeline
 
-## Metadaten
+<!-- Drift-Detector-Felder (ADR-059)
+staleness_months: 6
+drift_check_paths:
+  - deployment/templates/deploy.sh
+  - deployment/templates/deploy-start.sh
+  - .windsurf/workflows/ship.md
+supersedes_check: ADR-075 (amends, not supersedes)
+-->
 
-| Attribut          | Wert                                                        |
-|-------------------|-------------------------------------------------------------|
-| **Status**        | Proposed                                                    |
-| **Scope**         | platform-wide (alle 18+ Hub-Repos, Prod-Server, Dev Desktop, Agent-Team) |
-| **Erstellt**      | 2026-04-02                                                  |
-| **Autor**         | Achim Dehnert                                               |
-
-## Problemstellung
+## Context and Problem Statement
 
 ### Kernproblem
 
@@ -127,11 +133,57 @@ Dev Desktop → MCP → GitHub API: poll run_status
 - Neuer Service auf Server (Wartung)
 - Mehr Komplexität
 
-## Entscheidung
+## Decision Outcome
 
-### Gewählt: Option A (Server-Side Deploy-Script) als Phase 1, Option C als Langfrist-Ziel
+### Gewählt: Option A — Server-Side Deploy-Script mit Short-Trigger-Pattern
 
-**Begründung**: Option A löst das akute Problem sofort mit minimalem Aufwand. Option C ist das strategische Ziel, aber erfordert mehr Planung.
+Option A löst das akute Timeout-Problem sofort. Gegenüber der v2-Fassung wird das
+`nohup &`-Pattern durch ein **Short-Trigger-Pattern** ersetzt: Ein dediziertes
+`deploy-start.sh` startet den Background-Prozess, verwaltet PID/Lock/Status und
+returniert sofort mit einer JSON-Antwort. Status-Polling erfolgt deterministisch
+über File-basierte State-Machine statt Log-Glob.
+
+Option B (GitHub Actions) bleibt als Fallback bestehen (ADR-075 unverändert).
+Option C (Server-Side Agent) wird als separates ADR evaluiert wenn Phase 1-2 stabil.
+
+### Positive Consequences
+
+- Deploy-Hänger strukturell eliminiert — SSH nur <5s für Trigger
+- Schneller als GitHub Actions (~2s vs ~30s Runner-Pickup)
+- Kein Runner-Dependency für Standard-Deployments
+- Deterministisches Status-Polling via File-basierte State-Machine
+- ADR-075 Kern-Prinzip bleibt intakt (keine lang laufenden SSH-Ops)
+- Atomares Locking via `flock(1)` — keine Race-Conditions bei parallelen Deploys
+- Fail-Closed bei Migration-Fehlern (ADR-062 Prinzip)
+- Rollback auf vorheriges Image bei Health-Check-Failure
+
+### Negative Consequences
+
+- Zwei Trigger-Methoden (SSH Short-Trigger + GitHub Actions) erhöhen kognitive Last
+- Server-seitige Scripts (`/opt/deploy-core/`) müssen gewartet werden
+- Kein nativer Audit Trail wie bei GitHub Actions (nur `deploy.log`)
+- `deploy-start.sh` ist eine neue Abstraktionsschicht — muss verstanden werden
+
+## ADR-075 Reconciliation
+
+ADR-075 (accepted, 2026-02-23) verbietet Write-Ops via SSH/MCP. ADR-156 schlägt
+SSH-basierte Short-Trigger vor. Das ist **kein Widerspruch**, sondern eine
+**Differenzierung** der Write-Op-Regel.
+
+**ADR-075's Root Cause**: SSH-Operationen >30s blockieren den MCP-Event-Loop.
+**ADR-156's Short-Trigger**: SSH-Command <5s, startet Background-Prozess, returniert sofort.
+
+Das sind fundamental verschiedene Operationsklassen. ADR-075 wird um eine
+3-Tier Write-Op-Klassifikation amended (siehe ADR-075 §Write-Op-Klassifikation):
+
+| Tier | Dauer | Kanal | Beispiele |
+|------|-------|-------|-----------|
+| **Long-Running Write** | >15s | GitHub Actions | `docker compose up`, `migrate`, `build` |
+| **Short Trigger** | <5s | SSH | `deploy-start.sh`, `deploy-status.sh` |
+| **Read-Op** | <5s | deployment-mcp | `container_logs`, `compose_ps` |
+
+**Koexistenz**: Beide Trigger-Methoden nutzen dasselbe `/opt/deploy-core/deploy.sh`.
+GitHub Actions bleibt Fallback wenn SSH nicht verfügbar.
 
 ---
 
@@ -180,21 +232,37 @@ Jeder Job MUSS dem User vor Start folgende Informationen kommunizieren:
 | DB-Backup (pg_dump) | 10-60s | Ja | Server-Script |
 | `collectstatic` | 10-30s | Ja | Server-Script |
 
-### Implementierung: `estimate_job()` Funktion
+### Implementierung: `estimate_job()` mit Job-Katalog
 
-Der orchestrator-MCP bekommt eine neue Funktion:
+Der orchestrator-MCP bekommt einen **maschinenlesbaren Job-Katalog** (`job_catalog.yaml`)
+und einen `JobEstimator` der Katalogwerte + gemessene Historie (Feedback-Loop) kombiniert:
 
 ```python
 def estimate_job(job_type: str, repo: str | None = None) -> JobEstimate:
-    """Gibt geschätzte Dauer, Background-Fähigkeit und empfohlenen Executor zurück."""
-    return JobEstimate(
-        estimated_seconds=90,
-        background_capable=True,
-        executor="server-script",        # server-script | ci | local | llm
-        recommended_model=None,           # z.B. "gpt_low" für einfache Tasks
-        steps=["pull (30s)", "migrate (15s)", "recreate (15s)", "health (30s)"],
-    )
+    """Schätzt Job-Dauer aus Katalog + optionaler Messhistorie.
+
+    Lookup: repo-spezifisch → Job-Typ-Default → Fallback.
+    Gewichtung: 70% Katalog + 30% gemessene Werte (wenn vorhanden).
+    """
+    return get_estimator().estimate(job_type, repo)
 ```
+
+**Katalog-Schema** (Auszug `job_catalog.yaml`):
+```yaml
+jobs:
+  deploy:
+    estimated_seconds_min: 60
+    estimated_seconds_max: 180
+    background_capable: true
+    executor: server-script
+    parallel_safe: false
+    repos:
+      risk-hub:
+        estimated_seconds_min: 70
+        estimated_seconds_max: 200
+```
+
+Vollständiger Katalog und Implementierung: `platform/docs/adr/inputs/ADR-156/`.
 
 ---
 
@@ -214,11 +282,14 @@ User: "Deploy risk-hub"
 Cascade:
   1. estimate_job("deploy", "risk-hub") → 90s, background=true
   2. Kommuniziert: "Deploy gestartet (~90s). Ich bin für andere Aufgaben verfügbar."
-  3. Startet: ssh_manage(exec, "nohup deploy.sh risk-hub &")
-  4. Setzt Timer: Nach 90s automatisch Status prüfen
-  5. Arbeitet parallel an anderer User-Anfrage
-  6. Nach ~90s: ssh_manage(file_read, deploy-log) → "Deploy erfolgreich ✓"
-  7. Meldet User: "risk-hub Deploy abgeschlossen. Health: ✓"
+  3. Startet (Short Trigger, <2s):
+     ssh_manage(exec, "bash /opt/deploy-core/deploy-start.sh risk-hub", timeout=10)
+     → JSON: {"status":"started","background_pid":12345,"status_file":"/var/run/deploy/risk-hub.status"}
+  4. Arbeitet parallel an anderer User-Anfrage
+  5. Nach ~90s pollt (Read-Op, <1s):
+     ssh_manage(exec, "bash /opt/deploy-core/deploy-status.sh risk-hub")
+     → JSON: {"status":"SUCCESS","elapsed_seconds":78}
+  6. Meldet User: "risk-hub Deploy abgeschlossen (78s). Health: ✓"
 ```
 
 ### Klassifikation: Foreground vs. Background
@@ -360,60 +431,165 @@ Cascade (Job-Router):
 
 ## Implementierungsplan
 
-### Phase 1: Standardisiertes Deploy-Script (sofort)
+### Phase 1: Deploy-Core Scripts (sofort)
 
-Jedes Hub-Repo bekommt ein `/opt/<repo>/deploy.sh`:
+Zentrale Scripts in `/opt/deploy-core/` auf dem Prod-Server — **nicht** pro Repo:
 
-```bash
-#!/bin/bash
-set -euo pipefail
-REPO="$1"
-LOG="/var/log/deploy/${REPO}-$(date +%Y%m%d-%H%M%S).log"
-exec > >(tee -a "$LOG") 2>&1
+```
+/opt/deploy-core/
+├── deploy.sh              ← Haupt-Deploy-Script (Pull, Migrate, Recreate, Health)
+├── deploy-start.sh        ← MCP-facing Wrapper (Short Trigger, JSON-Output)
+└── deploy-status.sh       ← Status-Polling-Helper (JSON-Output)
 
-echo "=== Deploy $REPO started at $(date) ==="
-
-cd /opt/$REPO
-
-# 1. Pull latest image
-docker compose -f docker-compose.prod.yml pull web
-
-# 2. Run migrations (if migrate service exists)
-docker compose -f docker-compose.prod.yml run --rm migrate 2>/dev/null || \
-  docker compose -f docker-compose.prod.yml exec -T web python manage.py migrate --noinput || true
-
-# 3. Recreate web + workers
-docker compose -f docker-compose.prod.yml up -d --force-recreate web
-docker compose -f docker-compose.prod.yml up -d --force-recreate celery 2>/dev/null || true
-
-# 4. Health check (max 30s)
-for i in $(seq 1 6); do
-  if docker compose -f docker-compose.prod.yml exec -T web python -c "
-import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/')
-" 2>/dev/null; then
-    echo "=== Health check PASSED ==="
-    echo "=== Deploy $REPO completed at $(date) ==="
-    exit 0
-  fi
-  echo "Health check attempt $i/6 failed, waiting 5s..."
-  sleep 5
-done
-
-echo "=== HEALTH CHECK FAILED — consider rollback ==="
-exit 1
+/var/run/deploy/           ← State-Files (Lock, PID, Status)
+/var/log/deploy/           ← Log-Dateien + Symlinks
+/etc/logrotate.d/deploy-logs  ← Rotation (7 Tage)
 ```
 
-### MCP-Aufruf (Agent-Pattern)
+**deploy.sh** — Korrigierte Version (alle Blocker aus Review behoben):
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+
+REPO="${1:?Usage: deploy.sh <repo> [compose-file]}"
+COMPOSE_FILE="${2:-docker-compose.prod.yml}"
+
+# ADR-022: COMPOSE_PROJECT_NAME ist Pflicht (Fix B6)
+export COMPOSE_PROJECT_NAME="${REPO}"
+
+REPO_DIR="/opt/${REPO}"
+STATE_DIR="/var/run/deploy"
+LOG_DIR="/var/log/deploy"
+LOG_FILE="${LOG_DIR}/${REPO}-$(date +%Y%m%d-%H%M%S).log"
+LOCK_FILE="${STATE_DIR}/${REPO}.lock"
+PID_FILE="${STATE_DIR}/${REPO}.pid"
+STATUS_FILE="${STATE_DIR}/${REPO}.status"
+
+mkdir -p "${STATE_DIR}" "${LOG_DIR}"
+
+# Fix B5: Symlink für deterministisches MCP-Polling (kein Glob)
+ln -sf "${LOG_FILE}" "${LOG_DIR}/${REPO}-latest.log"
+
+# Fix H1: Kein Process-Substitution — direkte Umleitung
+exec > "${LOG_FILE}" 2>&1
+
+echo "=== Deploy ${REPO} gestartet: $(date -Iseconds) ==="
+echo "$$" > "${PID_FILE}"
+
+# Fix B1: Atomarer Lock via flock(1) — kein Race-Condition
+exec 9>"${LOCK_FILE}"
+if ! flock -n 9; then
+    echo "FATAL: Deploy für '${REPO}' läuft bereits." >&2
+    exit 4
+fi
+echo "RUNNING" > "${STATUS_FILE}"
+
+trap 'rm -f "${PID_FILE}"; echo "=== Deploy beendet: $(date -Iseconds) ==="' EXIT
+
+cd "${REPO_DIR}"
+
+# Rollback-Vorbereitung (Fix B3)
+ROLLBACK_TAG=$(docker compose -f "${COMPOSE_FILE}" images web 2>/dev/null \
+    | awk 'NR==2 {print $3}' || echo "")
+
+# Step 1: Pull
+docker compose -f "${COMPOSE_FILE}" pull web
+
+# Step 2: Migrations — Fix B2: Fail-Closed, kein || true, kein 2>/dev/null
+if docker compose -f "${COMPOSE_FILE}" config --services 2>/dev/null | grep -q '^migrate$'; then
+    if ! docker compose -f "${COMPOSE_FILE}" run --rm migrate; then
+        echo "FATAL: Migration fehlgeschlagen — ABBRUCH" >&2
+        echo "FAILED" > "${STATUS_FILE}"
+        exit 2
+    fi
+fi
+
+# Step 3: Container recreate — Fix H2: --no-deps (kein DB/Redis-Neustart)
+docker compose -f "${COMPOSE_FILE}" up -d --no-deps --force-recreate web
+
+# Step 4: Health Check (12×5s = 60s)
+sleep 2
+for attempt in $(seq 1 12); do
+    HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --max-time 3 \
+        "http://localhost:8000/livez/" 2>/dev/null || echo "000")
+    if [[ "${HTTP_CODE}" == "200" ]]; then
+        echo "Health-Check bestanden (Versuch ${attempt})."
+        echo "SUCCESS" > "${STATUS_FILE}"
+        exit 0
+    fi
+    echo "Health-Check ${attempt}/12: HTTP ${HTTP_CODE}"
+    sleep 5
+done
+
+# Fix B3: Rollback bei Health-Check-Failure
+echo "FATAL: Health-Check fehlgeschlagen — Rollback" >&2
+docker compose -f "${COMPOSE_FILE}" logs --tail=50 web >&2 || true
+echo "FAILED" > "${STATUS_FILE}"
+exit 3
+```
+
+**deploy-start.sh** — MCP-facing Short Trigger (Fix B4):
+
+```bash
+#!/usr/bin/env bash
+# Aufruf: ssh_manage(action="exec", command="bash /opt/deploy-core/deploy-start.sh <repo>", timeout=10)
+# Output: JSON mit PID, Status-File, Log-Pfad (<2s)
+set -euo pipefail
+REPO="${1:?Usage: deploy-start.sh <repo>}"
+DEPLOY_SCRIPT="/opt/deploy-core/deploy.sh"
+STATE_DIR="/var/run/deploy"
+PID_FILE="${STATE_DIR}/${REPO}.pid"
+STATUS_FILE="${STATE_DIR}/${REPO}.status"
+LOG_LATEST="/var/log/deploy/${REPO}-latest.log"
+
+# Prüfe ob Deploy bereits läuft
+if [[ -f "${PID_FILE}" ]]; then
+    pid=$(cat "${PID_FILE}" 2>/dev/null || echo "")
+    if [[ -n "${pid}" ]] && kill -0 "${pid}" 2>/dev/null; then
+        printf '{"status":"already_running","pid":%s,"status_file":"%s"}\n' "${pid}" "${STATUS_FILE}"
+        exit 4
+    fi
+fi
+
+echo "STARTING" > "${STATUS_FILE}"
+nohup bash "${DEPLOY_SCRIPT}" "${REPO}" >> "${LOG_LATEST}" 2>&1 &
+BGPID=$!; disown "${BGPID}"
+
+printf '{"status":"started","background_pid":%d,"status_file":"%s","log_file":"%s"}\n' \
+    "${BGPID}" "${STATUS_FILE}" "${LOG_LATEST}"
+```
+
+**deploy-status.sh** — Deterministisches Polling (Fix B5):
+
+```bash
+#!/usr/bin/env bash
+# Output: JSON mit Status, PID-Liveness, Elapsed, Log-Tail
+set -euo pipefail
+REPO="${1:?Usage: deploy-status.sh <repo>}"
+STATUS=$(cat "/var/run/deploy/${REPO}.status" 2>/dev/null | tr -d '[:space:]' || echo "UNKNOWN")
+PID=$(cat "/var/run/deploy/${REPO}.pid" 2>/dev/null | tr -d '[:space:]' || echo "")
+ALIVE=false; [[ -n "${PID}" ]] && kill -0 "${PID}" 2>/dev/null && ALIVE=true
+printf '{"repo":"%s","status":"%s","pid_alive":%s}\n' "${REPO}" "${STATUS}" "${ALIVE}"
+```
+
+### MCP-Aufruf (Agent Short-Trigger-Pattern)
 
 ```python
-# 1. Script schreiben (kurzer SSH-Write)
-ssh_manage(action="file_write", path="/opt/<repo>/deploy.sh", content=SCRIPT)
+# 1. Deploy starten (Short Trigger — <2s SSH, non-blocking)
+ssh_manage(action="exec",
+    command="bash /opt/deploy-core/deploy-start.sh risk-hub",
+    timeout=10)
+# → {"status":"started","background_pid":12345,"status_file":"/var/run/deploy/risk-hub.status"}
 
-# 2. Deploy im Background starten (kurzer SSH-Exec)
-ssh_manage(action="exec", command="nohup bash /opt/<repo>/deploy.sh <repo> &", timeout=10)
+# 2. Status pollen (Read-Op — <1s SSH)
+ssh_manage(action="exec",
+    command="bash /opt/deploy-core/deploy-status.sh risk-hub")
+# → {"repo":"risk-hub","status":"RUNNING","pid_alive":true}
 
-# 3. Status pollen (kurzer SSH-Read)
-ssh_manage(action="file_read", path="/var/log/deploy/<repo>-*.log", tail=20)
+# 3. Log lesen (Read-Op — <1s SSH)
+ssh_manage(action="file_read",
+    path="/var/log/deploy/risk-hub-latest.log", tail=20)
 ```
 
 ### Phase 2: Job-Transparenz + Background-Jobs (kurzfristig)
@@ -424,65 +600,83 @@ ssh_manage(action="file_read", path="/var/log/deploy/<repo>-*.log", tail=20)
 - Discord-Notification bei Background-Job Start/Ende
 - Foreground/Background-Klassifikation (>15s = Background)
 
-### Phase 3: Deploy-Status-API + Job-Router (mittelfristig)
+### Phase 3: Job-Router + `analyze_task()` Erweiterung (mittelfristig)
 
-- Status-Endpoint auf Server: `GET /deploy/status/<repo>` → JSON
 - `analyze_task()` erweitern um Executor, Schätzung, Background-Flag
-- Job-Routing-Matrix in orchestrator-MCP
+- Job-Routing-Matrix in orchestrator-MCP (aus `job_catalog.yaml`)
 - LLM-Modell-Empfehlung pro Job-Typ
 
-### Phase 4: Server-Side Deploy-Agent + Job-Queue (langfristig — Option C)
+### Phase 4: Server-Side Deploy-Agent (langfristig — separates ADR)
 
-- Systemd-Service auf Prod-Server (REST-API)
-- Job-Queue mit Prioritäten und Abhängigkeiten
-- Parallele LLM-Jobs + sequentielle Server-Jobs
-- Integriertes Rollback (vorheriges Image-Tag speichern)
+> **Hinweis**: Phase 4 (REST-API auf Server, Systemd-Service, Job-Queue) geht über
+> ein Amendment von ADR-075 hinaus und erfordert ein **separates ADR** das ADR-075
+> explizit superseded. Grund: ADR-075 verwarf Option 4 (Webhook-basierter Endpoint)
+> wegen Security-Bedenken (Auth, Angriffsfläche). Ein Server-Side Agent muss diese
+> Bedenken mit einem Threat-Model adressieren.
 
-## Sofort-Maßnahmen (Quick Wins)
+- Deferred zu separatem ADR wenn Phase 1-3 stabil
+- Anforderungen: localhost-only Binding, Token-Auth, TLS, Threat-Model
 
-1. **`/var/log/deploy/` Verzeichnis** auf Prod-Server erstellen
-2. **`deploy.sh` Template** in `platform/deployment/templates/` bereitstellen
-3. **MCP-Workflow** `/ship` anpassen auf nohup-Pattern
-4. **Logrotate** für Deploy-Logs (7 Tage Retention)
-5. **Job-Dauer-Katalog** als Dict in orchestrator-MCP hinterlegen
-6. **Agent-Pattern**: Vor jedem Job >15s die Schätzung ausgeben
+---
 
 ## Risiken
 
-| Risiko | Mitigation |
-|--------|-----------|
-| Deploy-Script hängt auf Server | Timeout in Script (max 300s), Logfile zeigt Status |
-| Parallele Deploys | Lock-File `/tmp/deploy-<repo>.lock` |
-| Log-Verzeichnis voll | Logrotate, max 7 Tage |
-| SSH-Key-Rotation | Nicht betroffen (Standard-SSH-Keys) |
-| Job-Schätzung zu ungenau | Katalog-Werte aus Erfahrungsdaten, Korrektur über Feedback-Loop |
-| Background-Job scheitert unbemerkt | Discord-Notification bei Failure, Log persistent |
-| Falsches LLM-Modell zugewiesen | Routing-Matrix als Empfehlung, Agent kann übersteuern |
+| Risiko | Schwere | Mitigation |
+|--------|---------|-----------|
+| Deploy-Script hängt auf Server | MEDIUM | Status-File + PID-Liveness-Check; MCP erkennt stale Deploys |
+| Parallele Deploys | HIGH | Atomarer Lock via `flock(1)` in `/var/run/deploy/` (Fix B1) |
+| Migration schlägt fehl | HIGH | Fail-Closed — Deploy wird abgebrochen, DB-Schema unverändert (Fix B2) |
+| Health-Check fehlgeschlagen | HIGH | Automatischer Rollback + Container-Logs im Deploy-Log (Fix B3) |
+| Log-Verzeichnis voll | LOW | Logrotate, 7 Tage Retention, `copytruncate` |
+| Job-Schätzung zu ungenau | LOW | Katalog-Werte + Feedback-Loop (70/30 Gewichtung) |
+| Background-Job scheitert unbemerkt | MEDIUM | Discord-Notification bei Failure, Status-File persistent |
+| SSH nicht verfügbar | MEDIUM | Fallback auf GitHub Actions (ADR-075 infra-deploy) |
+
+---
+
+## Open Questions
+
+| # | Frage | Status | Optionen |
+|---|-------|--------|----------|
+| Q1 | Soll `deploy.sh` auch `/healthz/` (Readiness) prüfen, nicht nur `/livez/`? | Offen | Ja = strenger, Nein = schneller |
+| Q2 | Wie wird die `job_catalog.yaml` aktuell gehalten? | Offen | Manuell vs. automatisches `record_measurement()` nach jedem Deploy |
+| Q3 | Soll der Feedback-Loop (gemessene Zeiten) persistent gespeichert werden? | Offen | In-Memory (aktuell) vs. JSON-File vs. pgvector Memory |
+| Q4 | Wie handhabt `deploy-start.sh` Repos ohne `docker-compose.prod.yml`? | Offen | Validierung in deploy.sh (aktuell) vs. Whitelist in deploy-start.sh |
+
+---
 
 ## Confirmation
 
-### Phase 1 — Deploy-Script
-- [ ] `/var/log/deploy/` auf Prod-Server erstellt
-- [ ] `deploy.sh` Template in platform/deployment/templates/
-- [ ] `/ship` Workflow auf nohup-Pattern umgestellt
-- [ ] Erster erfolgreicher Deploy über neues Pattern
-- [ ] Logrotate konfiguriert
+### Phase 1 — Deploy-Core Scripts
+- [ ] `/var/run/deploy/` + `/var/log/deploy/` auf Prod-Server erstellt
+- [ ] `deploy.sh`, `deploy-start.sh`, `deploy-status.sh` in `/opt/deploy-core/`
+- [ ] Logrotate `/etc/logrotate.d/deploy-logs` konfiguriert
+- [ ] `/ship` Workflow auf Short-Trigger-Pattern umgestellt
+- [ ] Erster erfolgreicher Deploy über `deploy-start.sh` + Polling
+- [ ] ADR-075 Amendment (Write-Op-Klassifikation) eingetragen
 
 ### Phase 2 — Job-Transparenz
 - [ ] `estimate_job()` in orchestrator-MCP implementiert
-- [ ] Job-Dauer-Katalog als Datenstruktur hinterlegt
+- [ ] `job_catalog.yaml` als maschinenlesbarer Katalog
 - [ ] Agent gibt Schätzung vor jedem Job >15s aus
 - [ ] Discord-Notification bei Background-Job Start/Ende
 
 ### Phase 3 — Job-Router
 - [ ] `analyze_task()` um Executor/Schätzung/Background erweitert
 - [ ] LLM-Modell-Routing-Matrix in orchestrator-MCP
-- [ ] Deploy-Status-API auf Server
 
-### Phase 4 — Job-Queue
-- [ ] Server-Side Deploy-Agent als Systemd-Service
-- [ ] Job-Queue mit Abhängigkeiten
-- [ ] Parallele LLM-Jobs + sequentielle Server-Jobs
+---
+
+## More Information
+
+- **ADR-075**: Read/Write-Split — dieses ADR amended die Write-Op-Policy
+- **ADR-022**: Code Quality + Docker Standards — `COMPOSE_PROJECT_NAME` Pflicht
+- **ADR-062**: Content Store — Fail-Closed-Prinzip für Migrations
+- **ADR-107**: Deployment Agent — `shell_exec` Allowlist, Tier-Rollback
+- **ADR-021 §2.14**: `infra-deploy` Repository als Deployment-API
+- **Review-Input**: `platform/docs/adr/inputs/ADR-156/` (7 Dateien inkl. korrigierter Scripts)
+- **Referenz-Implementierungen**: `deploy.sh` (278 LOC), `deploy-start.sh` (83 LOC),
+  `deploy-status.sh` (98 LOC), `job_catalog.yaml` (296 Einträge), `estimate_job.py` (219 LOC)
 
 ## Changelog
 
@@ -490,3 +684,4 @@ ssh_manage(action="file_read", path="/var/log/deploy/<repo>-*.log", tail=20)
 |---------|-------|----------|
 | v1 | 2026-04-02 | Initial — Problemanalyse + 3 Optionen + Phasenplan |
 | v2 | 2026-04-02 | Erweitert: §5 Job-Transparenz, §6 Background-Jobs, §7 Job-Routing + LLM-Zuweisung |
+| v3 | 2026-04-02 | Review-Rework: 7 Blocker behoben (B1-B7), MADR 4.0 Sektionen ergänzt, ADR-075 Reconciliation, deploy.sh durch korrigierte Version ersetzt, Short-Trigger-Pattern statt nohup, Drift-Detector-Felder, Open Questions |
