@@ -14,7 +14,12 @@ related:
   - ADR-090-cicd-pipeline-python-postgres.md
   - ADR-107-extended-agent-team-deployment-agent.md
   - ADR-120-unified-deployment-pipeline.md
-implementation_status: none
+implementation_status: partial
+implementation_evidence:
+  - "deployment/deploy-core/ — Scripts im Platform-Repo (2026-04-02)"
+  - "/opt/deploy-core/ auf Prod-Server — deploy.sh, deploy-start.sh, deploy-status.sh"
+  - "/ship Workflow auf Short-Trigger-Pattern umgestellt"
+  - "Erster Test: deploy-start.sh + deploy-status.sh funktional (GHCR-Token-Blocker für E2E)"
 ---
 
 # Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Deployment Pipeline
@@ -660,12 +665,12 @@ ssh_manage(action="file_read",
 ## Confirmation
 
 ### Phase 1 — Deploy-Core Scripts
-- [ ] `/var/run/deploy/` + `/var/log/deploy/` auf Prod-Server erstellt
-- [ ] `deploy.sh`, `deploy-start.sh`, `deploy-status.sh` in `/opt/deploy-core/`
-- [ ] Logrotate `/etc/logrotate.d/deploy-logs` konfiguriert
-- [ ] `/ship` Workflow auf Short-Trigger-Pattern umgestellt
-- [ ] Erster erfolgreicher Deploy über `deploy-start.sh` + Polling
-- [ ] ADR-075 Amendment (Write-Op-Klassifikation) eingetragen
+- [x] `/var/run/deploy/` + `/var/log/deploy/` auf Prod-Server erstellt (2026-04-02)
+- [x] `deploy.sh`, `deploy-start.sh`, `deploy-status.sh` in `/opt/deploy-core/` (2026-04-02)
+- [x] Logrotate `/etc/logrotate.d/deploy-logs` konfiguriert (2026-04-02)
+- [x] `/ship` Workflow auf Short-Trigger-Pattern umgestellt (2026-04-02)
+- [ ] Erster erfolgreicher E2E-Deploy über `deploy-start.sh` + Polling (GHCR-Token erneuern)
+- [x] ADR-075 Amendment (Write-Op-Klassifikation) eingetragen (2026-04-02)
 
 ### Phase 2 — Job-Transparenz
 - [ ] `estimate_job()` in orchestrator-MCP implementiert
@@ -698,3 +703,4 @@ ssh_manage(action="file_read",
 | v2 | 2026-04-02 | Erweitert: §5 Job-Transparenz, §6 Background-Jobs, §7 Job-Routing + LLM-Zuweisung |
 | v3 | 2026-04-02 | Review-Rework: 7 Blocker behoben (B1-B7), MADR 4.0 Sektionen ergänzt, ADR-075 Reconciliation, deploy.sh durch korrigierte Version ersetzt, Short-Trigger-Pattern statt nohup, Drift-Detector-Felder, Open Questions |
 | v3.1 | 2026-04-02 | Review-Fixes: Health-Check-Port parametrisiert (T1), Rollback-Code implementiert (T2), Q5 Auth-Entscheidung (SSH-Key reicht) |
+| v3.2 | 2026-04-02 | Phase 1 implementiert: Scripts auf Server deployed, Service-Auto-Detection (web vs repo-web), /ship Workflow umgestellt, deploy-status.sh Python-Bool-Fix |
