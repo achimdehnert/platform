@@ -375,9 +375,44 @@ jobs:
           else
             pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
           fi
+      - name: Install iil-testkit contract module (ADR-155)
+        run: pip install "iil-testkit>=0.3.0"
       - name: Run contract tests
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
         run: pytest -m "contract" -v || ([ $? -eq 5 ] && echo "No contract tests found, skipping." && exit 0)
+
+  architecture-guardian:
+    name: "Architecture Guardian (ADR-155)"
+    runs-on: self-hosted
+    needs: [lint]
+    if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install platform-context
+        run: pip install "iil-platform-context>=0.5.0" || pip install "platform-context>=0.3.1" || true
+      - name: "Check: No blind **kwargs forwarding (ADR-155 §4.3)"
+        run: |
+          python -c "
+import sys
+from pathlib import Path
+try:
+    from platform_context.checks.no_kwargs_forwarding import check
+    violations = check(Path('.'))
+    if violations:
+        print(f'❌ ADR-155: {len(violations)} **kwargs violation(s):')
+        for v in violations:
+            print(f'  {v[\"message\"]}')
+        sys.exit(1)
+    else:
+        print('✓ ADR-155: No **kwargs forwarding in adapters.')
+except ImportError:
+    print('⚠ platform_context.checks not available — skipping guardian check')
+    sys.exit(0)
+"

@@ -1,5 +1,6 @@
 ---
-status: proposed
+status: accepted
+implementation_status: partial
 date: 2026-04-02
 amended: 2026-04-02
 decision-makers: [Achim Dehnert]
@@ -20,7 +21,7 @@ related:
 
 | Attribut          | Wert                                                                                      |
 |-------------------|-------------------------------------------------------------------------------------------|
-| **Status**        | Proposed                                                                                  |
+| **Status**        | Accepted                                                                                  |
 | **Scope**         | platform-wide (alle Hubs, alle iil-Packages, alle Service-Layer, Celery Tasks, REST APIs) |
 | **Erstellt**      | 2026-04-02                                                                                |
 | **Autor**         | Achim Dehnert                                                                             |

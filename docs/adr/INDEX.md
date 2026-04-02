@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-03-26
-> **Next free ADR number:** 149
+> **Last updated:** 2026-04-02
+> **Next free ADR number:** 156
 
 ## Legend
 
@@ -184,6 +184,8 @@
 | 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | ✅ | [ADR-138](ADR-138-implementation-tracking-standard.md) |
 | 148 | Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub | `Proposed` | ⬜ | [ADR-148](ADR-148-recruiting-hub-architecture.md) |
 | 149 | Adopt d.velop Cloud DMS as Platform Document Archive Service (dms-hub) | `Accepted` | 🔶 | [ADR-149](ADR-149-dms-hub-dvelop-platform-service.md) |
+| 153 | Tax-Hub SaaS Architecture | `Accepted` | 🔶 | [ADR-153](ADR-153-tax-hub-saas-architecture.md) |
+| 155 | Three-Layer Contract Testing Strategy (all function/method calls) | `Accepted` | 🔶 | [ADR-155](ADR-155-contract-testing-strategy.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
