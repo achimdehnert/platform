@@ -71,10 +71,25 @@ git -C /home/dehnert/github/{scope} push origin main
 
 ---
 
-## Schritt 3 — GitHub Actions Deploy triggern
+## Schritt 3 — Deploy triggern (ADR-156 Short-Trigger)
+
+**Primary (ADR-156):** Server-seitiges Deploy via Short-Trigger (~2s SSH, non-blocking).
+Deploy.sh führt Pull, Migrate, Recreate, Health-Check und ggf. Rollback automatisch aus.
 
 ```
-mcp6_cicd_manage:
+mcp0_ssh_manage:
+  action: exec
+  host: 88.198.191.108
+  command: "bash /opt/deploy-core/deploy-start.sh {scope} docker-compose.prod.yml {health_port}"
+  timeout: 10
+```
+
+Erwartete Antwort: `{"status":"started","background_pid":...,"log_file":...}`
+
+**Fallback (ADR-075):** Falls SSH nicht verfügbar → GitHub Actions:
+
+```
+mcp0_cicd_manage:
   action: dispatch
   owner: achimdehnert
   repo: {scope}
@@ -86,8 +101,21 @@ mcp6_cicd_manage:
 
 ## Schritt 4 — Deploy-Status verfolgen
 
+**Bei Short-Trigger (Schritt 3 Primary):** Polle alle 15s via deploy-status.sh:
+
 ```
-mcp6_cicd_manage:
+mcp0_ssh_manage:
+  action: exec
+  host: 88.198.191.108
+  command: "bash /opt/deploy-core/deploy-status.sh {scope}"
+```
+
+Warte auf `"status":"SUCCESS"`. Bei `"status":"FAILED"` → Rollback wurde automatisch durchgeführt.
+
+**Bei GitHub Actions Fallback:**
+
+```
+mcp0_cicd_manage:
   action: workflow_runs
   owner: achimdehnert
   repo: {scope}
@@ -95,21 +123,16 @@ mcp6_cicd_manage:
   per_page: 1
 ```
 
-Warte auf `conclusion: success`. Bei `failure` → Schritt 6 (Rollback).
+Warte auf `conclusion: success`. Bei `failure` → Schritt 6.
 
 ---
 
-## Schritt 5 — Health Check
+## Schritt 5 — Health Check (Verifikation)
+
+Nach erfolgreichem Deploy nochmal explizit prüfen:
 
 ```
-mcp6_docker_manage:
-  action: container_status
-  host: 88.198.191.108
-  container_id: {web_container}
-```
-
-```
-mcp6_ssh_manage:
+mcp0_ssh_manage:
   action: http_check
   host: 88.198.191.108
   url: http://127.0.0.1:{health_port}/livez/
@@ -122,9 +145,11 @@ Bei HTTP 200 → Deploy erfolgreich. Bei Failure → Schritt 6.
 
 ## Schritt 6 — Rollback (nur bei Health-Check-Failure)
 
+**Short-Trigger-Deploys** führen Rollback automatisch durch (deploy.sh _rollback).
+Falls manueller Rollback nötig:
+
 ```bash
-docker compose -f docker-compose.prod.yml pull web
-docker compose -f docker-compose.prod.yml up -d --force-recreate web
+ssh root@88.198.191.108 "cd /opt/{scope} && docker compose -f docker-compose.prod.yml up -d --no-deps --force-recreate web"
 ```
 
 Dann Health Check wiederholen. User über Rollback informieren.
