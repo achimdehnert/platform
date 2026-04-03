@@ -58,7 +58,7 @@ django_apps:
     domain_prod: coach-hub.iil.pet
     domain_staging: staging.coach-hub.iil.pet
     port_prod: 8007
-    port_staging: 8017
+    port_staging: 8007
 
   dev-hub:
     github: achimdehnert/dev-hub
@@ -148,7 +148,7 @@ django_apps:
     domain_prod: schutztat.de
     domain_staging: staging.schutztat.de
     port_prod: 8090
-    port_staging: 8108
+    port_staging: 8090
 
   tax-hub:
     github: achimdehnert/tax-hub
@@ -208,7 +208,7 @@ django_apps:
     domain_prod: writing.iil.pet
     domain_staging: staging.writing.iil.pet
     port_prod: 8097
-    port_staging: 8098
+    port_staging: 8097
 
   ausschreibungs-hub:
     github: achimdehnert/ausschreibungs-hub
@@ -238,7 +238,7 @@ django_apps:
     domain_prod: odoo.iil.pet
     domain_staging: staging.odoo.iil.pet
     port_prod: 8069
-    port_staging: 8169
+    port_staging: 8069
 
 # =============================================================================
 # FRAMEWORKS & LIBRARIES — PyPI Packages, reusable across platform
