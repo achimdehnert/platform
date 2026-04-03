@@ -1,0 +1,66 @@
+# audience.yaml — Audience-Routing Configuration (ADR-158)
+# Defines which documentation sources are relevant for each audience.
+# Parsed by dev-hub Audience Navigator and /session-docu workflow.
+
+repo: platform
+description: "Shared packages, ADRs, governance, CI/CD workflows"
+
+audiences:
+  user:
+    title: "Für Anwender & Stakeholder"
+    icon: "users"
+    description: "Produktbeschreibungen, Feature-Übersichten, Business Cases"
+    sources:
+      - type: github
+        paths:
+          - "README.md"
+          - "docs/tutorials/"
+      - type: outline
+        query: "Business Case"
+        collections: ["Konzepte"]
+
+  developer:
+    title: "Für Entwickler"
+    icon: "code"
+    description: "Code-Kontext, API-Reference, Getting Started, Guides"
+    sources:
+      - type: github
+        paths:
+          - "CORE_CONTEXT.md"
+          - "AGENT_HANDOVER.md"
+          - "docs/guides/"
+          - "docs/reference/"
+      - type: techdocs
+        site_slug: "platform"
+      - type: outline
+        collections: ["Konzepte"]
+        query: "Developer Guide"
+
+  architect:
+    title: "Für Architekten"
+    icon: "building"
+    description: "ADRs, Architektur-Konzepte, Entscheidungshistorie"
+    sources:
+      - type: github
+        paths:
+          - "docs/adr/"
+          - "docs/explanation/"
+      - type: outline
+        collections: ["ADR", "Konzepte"]
+      - type: devhub
+        apps: ["adr_lifecycle"]
+
+  operator:
+    title: "Für Betreiber & DevOps"
+    icon: "server"
+    description: "Runbooks, Deploy-Guides, Health Monitoring, Troubleshooting"
+    sources:
+      - type: outline
+        collections: ["Runbooks", "Lessons Learned"]
+      - type: github
+        paths:
+          - "docs/guides/deployment.md"
+          - "AGENT_HANDOVER.md"
+          - "deployment/"
+      - type: devhub
+        apps: ["health", "operations"]

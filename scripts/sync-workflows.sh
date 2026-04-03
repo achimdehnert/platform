@@ -41,6 +41,7 @@ UNIVERSAL=(
     use-case
     session-start
     session-ende
+    session-docu
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
