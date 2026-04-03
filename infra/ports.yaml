@@ -1,16 +1,28 @@
 # platform/infra/ports.yaml
-# Single Source of Truth für alle Service-Ports (ADR-106 FIX-C)
+# Single Source of Truth für alle Service-Ports (ADR-106, ADR-157)
 #
 # WICHTIG: Diese Datei MUSS den realen Server-Zustand abbilden!
 #   Validierung: python infra/scripts/port_audit.py
 #   Nur offline:  python infra/scripts/port_audit.py --offline
+#   Nächster Port: python infra/scripts/port_audit.py --next-free
 #
-# Belegte Ranges (88.198.191.108):
+# Belegte Ranges:
 #   8001–8020   Infra + erste Hubs
-#   8081–8107   App-Hubs (prod + staging gemischt)
+#   8081–8108   App-Hubs
 #
-# Nächster freier Port: 8109
+# Nächster freier Port: 8170  (berechnet: port_audit.py --next-free)
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
+
+# --- Server-Definitionen (ADR-157 §4.2) ---
+servers:
+  prod:
+    ip: 88.198.191.108
+    name: Hetzner Dedicated (Production)
+    ssh: root@88.198.191.108
+  staging:
+    ip: 88.99.38.75
+    name: Dev Desktop (Staging)
+    ssh: root@88.99.38.75
 
 services:
 
@@ -37,6 +49,8 @@ services:
     staging: 8017
     domain_prod: coach-hub.iil.pet
     domain_staging: staging.coach-hub.iil.pet
+    domain_aliases:
+      - kiohnerisiko.de
     repo: achimdehnert/coach-hub
 
   pptx-hub:
@@ -44,6 +58,8 @@ services:
     staging: 8020
     domain_prod: prezimo.de
     domain_staging: staging.prezimo.de
+    domain_aliases:
+      - prezimo.com
     repo: achimdehnert/pptx-hub
 
   weltenhub:
@@ -65,6 +81,8 @@ services:
     staging: 8088
     domain_prod: trading-hub.iil.pet
     domain_staging: staging.ai-trades.de
+    domain_aliases:
+      - ai-trades.de
     repo: achimdehnert/trading-hub
 
   travel-beat:
@@ -72,6 +90,9 @@ services:
     staging: 8089
     domain_prod: drifttales.com
     domain_staging: staging.drifttales.com
+    domain_aliases:
+      - drifttales.de
+      - drifttales.app
     repo: achimdehnert/travel-beat
 
   risk-hub:
@@ -79,6 +100,9 @@ services:
     staging: 8108
     domain_prod: schutztat.de
     domain_staging: staging.schutztat.de
+    domain_aliases:
+      - schutztat.com
+      - kiohnerisiko.de
     repo: achimdehnert/risk-hub
 
   bfagent:
@@ -114,6 +138,8 @@ services:
     staging: 8095
     domain_prod: 137herz.de
     domain_staging: staging.137herz.de
+    domain_aliases:
+      - 137herz.ai
     repo: achimdehnert/137-hub
 
   illustration-hub:
