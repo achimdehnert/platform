@@ -33,7 +33,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
 import urllib.request
 import urllib.error
@@ -86,34 +85,18 @@ KNOWN_ORPHANS = [
 
 
 def get_token() -> str:
-    """Token aus Env oder ~/.secrets/ laden."""
-    token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
-    if not token:
-        secrets = Path.home() / ".secrets"
-        for name in (
-            "cloudflare_api_token",
-            "deployment_mcp_cloudflare_api_token",
-        ):
-            p = secrets / name
-            if p.exists():
-                token = p.read_text().strip()
-                if token:
-                    break
-    if not token:
-        print(
-            "ERROR: Kein Cloudflare-Token gefunden",
-            file=sys.stderr,
-        )
-        print(
-            "  export CLOUDFLARE_API_TOKEN='<token>'",
-            file=sys.stderr,
-        )
-        print(
-            "  oder ~/.secrets/cloudflare_api_token",
-            file=sys.stderr,
-        )
+    """Token via zentralen Secret-Resolver laden."""
+    # infra/lib/secrets.py ist der Single Source of Truth
+    sys.path.insert(
+        0,
+        str(Path(__file__).resolve().parent.parent.parent),
+    )
+    try:
+        from infra.lib.secrets import require_secret
+        return require_secret("cloudflare")
+    except (ImportError, RuntimeError) as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
         sys.exit(2)
-    return token
 
 
 def cf_request(
@@ -322,7 +305,8 @@ def main() -> None:
             print(f"    Grund: {reason}")
             if args.apply:
                 ok = delete_record(zone_id, record_id, token)
-                print(f"    {'✅ Deleted' if ok else '❌ FAILED (evtl. schon gelöscht)'}")
+                msg = "✅ Deleted" if ok else "❌ FAILED"
+                print(f"    {msg}")
                 if not ok:
                     errors += 1
 
