@@ -46,7 +46,7 @@ services:
 
   coach-hub:
     prod: 8007
-    staging: 8017
+    staging: 8007
     domain_prod: coach-hub.iil.pet
     domain_staging: staging.coach-hub.iil.pet
     domain_aliases:
@@ -97,7 +97,7 @@ services:
 
   risk-hub:
     prod: 8090
-    staging: 8108
+    staging: 8090
     domain_prod: schutztat.de
     domain_staging: staging.schutztat.de
     domain_aliases:
@@ -136,10 +136,10 @@ services:
   137-hub:
     prod: 8095
     staging: 8095
-    domain_prod: 137herz.de
-    domain_staging: staging.137herz.de
+    domain_prod: 137herz.ai
+    domain_staging: staging.137herz.ai
     domain_aliases:
-      - 137herz.ai
+      - 137herz.de
     repo: achimdehnert/137-hub
 
   illustration-hub:
@@ -151,7 +151,7 @@ services:
 
   writing-hub:
     prod: 8097
-    staging: 8098
+    staging: 8097
     domain_prod: writing.iil.pet
     domain_staging: staging.writing.iil.pet
     repo: achimdehnert/writing-hub
@@ -207,7 +207,7 @@ services:
 
   odoo:
     prod: 8069
-    staging: 8169
+    staging: 8069
     domain_prod: odoo.iil.pet
     domain_staging: staging.odoo.iil.pet
     repo: achimdehnert/odoo-hub
