@@ -1,28 +1,34 @@
-# audience.yaml — Audience-Routing Configuration (ADR-158)
-# Defines which documentation sources are relevant for each audience.
-# Parsed by dev-hub Audience Navigator and /session-docu workflow.
+# platform/docs/audience.yaml
+#
+# Audience Navigator Konfiguration für das platform-Repo.
+# Schema-Version: 1 (audience_validator.py, ADR-158)
+#
+# WICHTIG:
+# - type: outline → collections: [] (Array mit exakten Outline-Collection-Namen)
+#   KEIN freier query-String (Review-Fix H-02)
+# - AGENT_HANDOVER.md NICHT in operator.sources (Review-Fix M-04, ADR-154)
+# - Änderungen werden via `manage.py load_audience_config` in DB importiert
 
-repo: platform
-description: "Shared packages, ADRs, governance, CI/CD workflows"
+schema_version: 1
 
 audiences:
+
   user:
-    title: "Für Anwender & Stakeholder"
+    title: "Für Anwender"
     icon: "users"
-    description: "Produktbeschreibungen, Feature-Übersichten, Business Cases"
     sources:
       - type: github
         paths:
-          - "README.md"
           - "docs/tutorials/"
+          - "README.md"
       - type: outline
-        query: "Business Case"
-        collections: ["Konzepte"]
+        collections:
+          - "User Guides"
+          - "FAQ"
 
   developer:
     title: "Für Entwickler"
     icon: "code"
-    description: "Code-Kontext, API-Reference, Getting Started, Guides"
     sources:
       - type: github
         paths:
@@ -33,34 +39,41 @@ audiences:
       - type: techdocs
         site_slug: "platform"
       - type: outline
-        collections: ["Konzepte"]
-        query: "Developer Guide"
+        collections:
+          - "Getting Started"
+          - "Development Guides"
 
   architect:
     title: "Für Architekten"
     icon: "building"
-    description: "ADRs, Architektur-Konzepte, Entscheidungshistorie"
     sources:
       - type: github
         paths:
           - "docs/adr/"
           - "docs/explanation/"
       - type: outline
-        collections: ["ADR", "Konzepte"]
-      - type: devhub
-        apps: ["adr_lifecycle"]
+        collections:
+          - "Konzepte"
+          - "Lessons Learned"
+          - "Architektur-Entscheidungen"
+      - type: techdocs
+        site_slug: "platform"
+        filter: "explanation/"
 
   operator:
-    title: "Für Betreiber & DevOps"
+    title: "Für Betreiber"
     icon: "server"
-    description: "Runbooks, Deploy-Guides, Health Monitoring, Troubleshooting"
     sources:
       - type: outline
-        collections: ["Runbooks", "Lessons Learned"]
+        collections:
+          - "Runbooks"
+          - "Operations"
+          - "Incident Reports"
+      - type: devhub
+        apps:
+          - "health"
+          - "operations"
       - type: github
         paths:
           - "docs/guides/deployment.md"
-          - "AGENT_HANDOVER.md"
-          - "deployment/"
-      - type: devhub
-        apps: ["health", "operations"]
+          # AGENT_HANDOVER.md intentionally excluded — agent-context only (ADR-154)
