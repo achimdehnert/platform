@@ -1,20 +1,24 @@
 ---
-status: accepted
+status: superseded
 date: 2026-02-22
 decision-makers: [Achim Dehnert]
-implementation_status: partial
+superseded-by: ADR-157-staging-production-split-and-port-governance.md
+implementation_status: superseded
 implementation_evidence:
-  - "7 Hubs mit docker-compose.staging.yml: travel-beat, risk-hub, cad-hub, coach-hub, weltenhub, odoo-hub"
-  - "cd-staging.yml Workflow in coach-hub"
-  - "Noch fehlend: billing-hub, pptx-hub, trading-hub, dev-hub Staging-Compose"
-  - "Noch fehlend: dedizierte Staging-DB-Instanzen auf hetzner-dev"
+  - "Superseded by ADR-157 (2026-04-03): Same-port staging on Dev Desktop"
+  - "ADR-063 Port-Offset +100 Konvention aufgegeben zugunsten gleicher Ports"
+  - "Alt: dev-server 46.225.113.1 → Neu: Dev Desktop 88.99.38.75"
 ---
 
 # ADR-063: Staging Environment Strategy
 
 ## Status
 
-Accepted
+**Superseded** by [ADR-157](ADR-157-staging-production-split-and-port-governance.md) (2026-04-03).
+
+> **Hinweis**: Die Port-Offset +100 Konvention und branch-basierte Staging-Strategie
+> aus diesem ADR wurden durch ADR-157 ersetzt. Neue Konvention: Gleiche Ports auf
+> Prod (88.198.191.108) und Staging (88.99.38.75), `main`-Branch für beide Umgebungen.
 
 ## Context and Problem Statement
 
