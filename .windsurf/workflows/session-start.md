@@ -97,6 +97,31 @@ mcp2_log_error_pattern:
 ```
 → User über fehlgeschlagene Deploys informieren, bevor an anderen Tasks gearbeitet wird.
 
+### 0.7 Staging-Health-Check (ADR-157)
+
+Prüfe ob Staging-Services auf Dev Desktop (88.99.38.75) erreichbar sind:
+
+// turbo
+```bash
+python -c "
+import yaml, urllib.request, socket
+from pathlib import Path
+d = yaml.safe_load(Path('$HOME/github/platform/infra/ports.yaml').read_text())
+ok = fail = skip = 0
+for name, cfg in sorted(d.get('services',{}).items()):
+    if not cfg or not cfg.get('staging'): continue
+    port = cfg['staging']
+    try:
+        s = socket.create_connection(('88.99.38.75', port), timeout=2)
+        s.close()
+        ok += 1
+    except (socket.timeout, ConnectionRefusedError, OSError):
+        skip += 1
+print(f'Staging: {ok} up, {skip} nicht erreichbar (normal wenn nicht deployed)')
+"
+```
+→ Informativ, kein Blocker. Zeigt welche Hubs auf Staging laufen.
+
 ---
 
 ## Phase 1: Kontext laden
