@@ -45,7 +45,24 @@ Bekannte Repos (Schnellreferenz):
 
 ---
 
-## Schritt 0.5 — Job-Schätzung ausgeben (ADR-156)
+## Schritt 0.5 — Connectivity-Gate (PFLICHT)
+
+⚠️ **NIEMALS `ping` verwenden** — Hetzner blockiert ICMP (100% loss ist NORMAL).
+TCP-Probe auf SSH/HTTP/HTTPS stattdessen:
+
+// turbo
+```bash
+python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
+```
+
+→ **Server erreichbar**: Weiter mit Schritt 0.6
+→ **Server NICHT erreichbar**: **STOPP** — MCP-SSH-Calls in Schritt 3–5 werden hängen!
+  Fallback: Deploy via GitHub Actions (Schritt 3 Fallback-Pfad)
+→ Lesson Learned 2026-04-03: Fehlende Connectivity-Prüfung führte zu hängenden Deploys
+
+---
+
+## Schritt 0.6 — Job-Schätzung ausgeben (ADR-156)
 
 **Vor jedem Deploy** dem User die geschätzte Dauer kommunizieren:
 

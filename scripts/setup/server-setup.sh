@@ -163,23 +163,36 @@ setup_server_repos() {
         local slug="${entry%%|*}"
         local rest="${entry#*|}"
         local server_path="${rest%%|*}"
-        local branch="${rest#*|}"
+        rest="${rest#*|}"
+        local branch="${rest%%|*}"
+        local deploy_model="${rest#*|}"
         if [[ "$server_path" == "NONE" ]]; then continue; fi
+        if [[ "$deploy_model" == "none" ]]; then continue; fi
 
-        local exists
-        exists=$(remote "test -d '$server_path/.git' && echo yes || echo no")
-        if [[ "$exists" == "yes" ]]; then
-            ok "$slug → $server_path (exists)"
-            local current_url
-            current_url=$(remote "cd '$server_path' && git remote get-url origin 2>/dev/null || echo ''")
-            local expected_url="git@github.com:${GITHUB_USER}/${slug}.git"
-            if [[ "$current_url" == *"https://"* ]]; then
-                change "$slug: Switching remote from HTTPS to SSH"
-                remote "cd '$server_path' && git remote set-url origin '$expected_url'"
+        if [[ "$deploy_model" == "git-clone" ]]; then
+            local exists
+            exists=$(remote "test -d '$server_path/.git' && echo yes || echo no")
+            if [[ "$exists" == "yes" ]]; then
+                ok "$slug → $server_path (git-clone)"
+                local current_url
+                current_url=$(remote "cd '$server_path' && git remote get-url origin 2>/dev/null || echo ''")
+                local expected_url="git@github.com:${GITHUB_USER}/${slug}.git"
+                if [[ "$current_url" == *"https://"* ]]; then
+                    change "$slug: Switching remote from HTTPS to SSH"
+                    remote "cd '$server_path' && git remote set-url origin '$expected_url'"
+                fi
+            else
+                warn "$slug → $server_path (not cloned)"
+                info "  To clone: ssh ${SERVER_ALIAS} 'git clone git@github.com:${GITHUB_USER}/${slug}.git $server_path'"
             fi
         else
-            warn "$slug → $server_path (not cloned)"
-            info "  To clone: ssh ${SERVER_ALIAS} 'git clone git@github.com:${GITHUB_USER}/${slug}.git $server_path'"
+            local exists
+            exists=$(remote "test -d '$server_path' && echo yes || echo no")
+            if [[ "$exists" == "yes" ]]; then
+                ok "$slug → $server_path ($deploy_model)"
+            else
+                warn "$slug → $server_path missing ($deploy_model)"
+            fi
         fi
     done
 }

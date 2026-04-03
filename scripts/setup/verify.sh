@@ -169,12 +169,23 @@ check_server() {
     else check_warn "Server Docker not available"; fi
 
     for entry in "${PLATFORM_REPOS[@]}"; do
-        local slug="${entry%%|*}" rest="${entry#*|}" server_path="${entry#*|}"
-        server_path="${rest%%|*}"
+        local slug="${entry%%|*}"
+        local rest="${entry#*|}"
+        local server_path="${rest%%|*}"
+        rest="${rest#*|}"
+        local branch="${rest%%|*}"
+        local deploy_model="${rest#*|}"
         if [[ "$server_path" == "NONE" ]]; then continue; fi
-        local ex; ex=$(ssh "${SERVER_ALIAS}" "test -d '$server_path/.git' && echo yes || echo no" 2>/dev/null)
-        if [[ "$ex" == "yes" ]]; then check_pass "Repo $slug -> $server_path"
-        else check_warn "Repo $slug not found at $server_path"; fi
+        if [[ "$deploy_model" == "none" ]]; then continue; fi
+        if [[ "$deploy_model" == "git-clone" ]]; then
+            local ex; ex=$(ssh "${SERVER_ALIAS}" "test -d '$server_path/.git' && echo yes || echo no" 2>/dev/null)
+            if [[ "$ex" == "yes" ]]; then check_pass "Repo $slug -> $server_path (git-clone)"
+            else check_warn "Repo $slug not found at $server_path"; fi
+        else
+            local ex; ex=$(ssh "${SERVER_ALIAS}" "test -d '$server_path' && echo yes || echo no" 2>/dev/null)
+            if [[ "$ex" == "yes" ]]; then check_pass "Repo $slug -> $server_path ($deploy_model)"
+            else check_warn "Repo $slug: $server_path missing ($deploy_model)"; fi
+        fi
     done
 }
 
