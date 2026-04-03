@@ -1,0 +1,577 @@
+# registry/github_repos.yaml — Vollständiges Inventar aller GitHub-Repos
+# Single Source of Truth für Cascade, port_audit, onboard-repo, deploy-check
+#
+# Validierung: python infra/scripts/validate_repos.py
+# Generiert aus: GitHub API (86 Repos, 2026-04-03)
+#
+# Schema:
+#   type: django-app | framework | library | infra | stack | archive
+#   status: production | active | experimental | maintenance | archive
+#   deployed: true/false (hat Container auf Prod/Staging-Server?)
+#   port: Referenz auf ports.yaml (wenn deployed)
+#
+# Referenzen:
+#   ADR-157: Staging/Production Split, Port-Governance
+#   ADR-106: Port-Audit
+#   ADR-022: Repository Consistency Standards
+
+# =============================================================================
+# DJANGO APPS — Deployed oder deployable Platform Services
+# =============================================================================
+django_apps:
+
+  bfagent:
+    github: achimdehnert/bfagent
+    description: Book Factory Agent — AI-assisted book creation
+    status: production
+    deployed: true
+    domain_prod: iil.pet
+    domain_staging: staging.iil.pet
+    port_prod: 8091
+    port_staging: 8091
+
+  billing-hub:
+    github: achimdehnert/billing-hub
+    description: Central Billing Service
+    status: production
+    deployed: true
+    domain_prod: billing.iil.pet
+    domain_staging: staging.billing.iil.pet
+    port_prod: 8092
+    port_staging: 8092
+
+  cad-hub:
+    github: achimdehnert/cad-hub
+    description: NL2CAD — Natural Language to CAD
+    status: active
+    deployed: true
+    domain_prod: nl2cad.de
+    domain_staging: staging.nl2cad.de
+    port_prod: 8094
+    port_staging: 8094
+
+  coach-hub:
+    github: achimdehnert/coach-hub
+    description: KI ohne Risiko — Safety Coaching Platform
+    status: active
+    deployed: true
+    domain_prod: coach-hub.iil.pet
+    domain_staging: staging.coach-hub.iil.pet
+    port_prod: 8007
+    port_staging: 8017
+
+  dev-hub:
+    github: achimdehnert/dev-hub
+    description: Central Developer Portal & Platform Management
+    status: production
+    deployed: true
+    domain_prod: dev-hub.iil.pet
+    domain_staging: staging.dev-hub.iil.pet
+    port_prod: 8085
+    port_staging: 8085
+
+  dms-hub:
+    github: achimdehnert/dms-hub
+    description: Document Management System
+    status: active
+    deployed: true
+    domain_prod: dms.iil.pet
+    domain_staging: staging.dms.iil.pet
+    port_prod: 8107
+    port_staging: 8107
+
+  doc-hub:
+    github: null
+    description: Documentation Hub
+    status: active
+    deployed: true
+    domain_prod: docs.iil.pet
+    domain_staging: staging.docs.iil.pet
+    port_prod: 8102
+    port_staging: 8102
+
+  illustration-hub:
+    github: achimdehnert/illustration-hub
+    description: Illustration Asset Management
+    status: active
+    deployed: true
+    domain_prod: illustration.iil.pet
+    domain_staging: staging.illustration.iil.pet
+    port_prod: 8096
+    port_staging: 8096
+
+  learn-hub:
+    github: achimdehnert/learn-hub
+    description: Learning Platform (ADR-139)
+    status: active
+    deployed: true
+    domain_prod: learn.iil.pet
+    domain_staging: staging.learn.iil.pet
+    port_prod: 8100
+    port_staging: 8100
+
+  pptx-hub:
+    github: achimdehnert/pptx-hub
+    description: Presentation Studio — PowerPoint generation (Prezimo)
+    status: active
+    deployed: true
+    domain_prod: prezimo.de
+    domain_staging: staging.prezimo.de
+    port_prod: 8020
+    port_staging: 8020
+
+  recruiting-hub:
+    github: achimdehnert/recruiting-hub
+    description: HR & Recruiting Platform
+    status: active
+    deployed: true
+    domain_prod: hr.iil.pet
+    domain_staging: staging.hr.iil.pet
+    port_prod: 8103
+    port_staging: 8103
+
+  research-hub:
+    github: achimdehnert/research-hub
+    description: Research & Analysis Platform
+    status: active
+    deployed: true
+    domain_prod: research.iil.pet
+    domain_staging: staging.research.iil.pet
+    port_prod: 8104
+    port_staging: 8104
+
+  risk-hub:
+    github: achimdehnert/risk-hub
+    description: Multi-tenant occupational safety SaaS (Schutztat)
+    status: production
+    deployed: true
+    domain_prod: schutztat.de
+    domain_staging: staging.schutztat.de
+    port_prod: 8090
+    port_staging: 8108
+
+  tax-hub:
+    github: achimdehnert/tax-hub
+    description: Tax Management Platform
+    status: active
+    deployed: true
+    domain_prod: tax.iil.pet
+    domain_staging: staging.tax.iil.pet
+    port_prod: 8099
+    port_staging: 8099
+
+  trading-hub:
+    github: achimdehnert/trading-hub
+    description: Trading analysis and market scanning
+    status: experimental
+    deployed: true
+    domain_prod: trading-hub.iil.pet
+    domain_staging: staging.ai-trades.de
+    port_prod: 8088
+    port_staging: 8088
+
+  travel-beat:
+    github: achimdehnert/travel-beat
+    description: Travel story platform (DriftTales)
+    status: production
+    deployed: true
+    domain_prod: drifttales.com
+    domain_staging: staging.drifttales.com
+    port_prod: 8089
+    port_staging: 8089
+
+  wedding-hub:
+    github: achimdehnert/wedding-hub
+    description: Wedding planning platform
+    status: experimental
+    deployed: true
+    domain_prod: wedding-hub.iil.pet
+    domain_staging: staging.wedding-hub.iil.pet
+    port_prod: 8093
+    port_staging: 8093
+
+  weltenhub:
+    github: achimdehnert/weltenhub
+    description: Story universe platform (Weltenforger)
+    status: production
+    deployed: true
+    domain_prod: weltenforger.com
+    domain_staging: staging.weltenforger.com
+    port_prod: 8081
+    port_staging: 8081
+
+  writing-hub:
+    github: achimdehnert/writing-hub
+    description: Creative Writing Platform
+    status: active
+    deployed: true
+    domain_prod: writing.iil.pet
+    domain_staging: staging.writing.iil.pet
+    port_prod: 8097
+    port_staging: 8098
+
+  ausschreibungs-hub:
+    github: achimdehnert/ausschreibungs-hub
+    description: Bieterpilot — Tender Management
+    status: active
+    deployed: true
+    domain_prod: bieterpilot.de
+    domain_staging: staging.bieterpilot.de
+    port_prod: 8101
+    port_staging: 8101
+
+  137-hub:
+    github: achimdehnert/137-hub
+    description: 137herz.de — Community & Supersystem Platform
+    status: production
+    deployed: true
+    domain_prod: 137herz.de
+    domain_staging: staging.137herz.de
+    port_prod: 8095
+    port_staging: 8095
+
+  odoo-hub:
+    github: achimdehnert/odoo-hub
+    description: Odoo management and integration
+    status: experimental
+    deployed: true
+    domain_prod: odoo.iil.pet
+    domain_staging: staging.odoo.iil.pet
+    port_prod: 8069
+    port_staging: 8169
+
+# =============================================================================
+# FRAMEWORKS & LIBRARIES — PyPI Packages, reusable across platform
+# =============================================================================
+frameworks:
+
+  aifw:
+    github: achimdehnert/aifw
+    description: AI Framework — LLM integration patterns
+    status: active
+    package: iil-aifw
+
+  authoringfw:
+    github: achimdehnert/authoringfw
+    description: Authoring Framework — domain schemas for AI writing
+    status: active
+    package: authoringfw
+
+  django-lms-lite:
+    github: achimdehnert/django-lms-lite
+    description: Lightweight Django LMS package
+    status: active
+    package: django-lms-lite
+
+  iil-django-commons:
+    github: achimdehnert/iil-django-commons
+    description: Shared backend services (Logging, Health, Cache, Security)
+    status: active
+    package: iil-django-commons
+
+  illustration-fw:
+    github: achimdehnert/illustration-fw
+    description: Illustration generation framework
+    status: active
+    package: illustration-fw
+
+  learnfw:
+    github: achimdehnert/learnfw
+    description: Django Learning Platform Framework (ADR-139)
+    status: active
+    package: iil-learnfw
+
+  nl2cad:
+    github: achimdehnert/nl2cad
+    description: Natural Language to CAD framework
+    status: active
+    package: nl2cad
+
+  outlinefw:
+    github: achimdehnert/outlinefw
+    description: Outline Wiki integration framework
+    status: active
+    package: outlinefw
+
+  promptfw:
+    github: achimdehnert/promptfw
+    description: Prompt Template Framework — 4-layer Jinja2 engine
+    status: active
+    package: promptfw
+
+  researchfw:
+    github: achimdehnert/researchfw
+    description: Research automation framework
+    status: active
+    package: researchfw
+
+  riskfw:
+    github: achimdehnert/riskfw
+    description: Risk Framework — TRGS 721/722, ATEX calculations
+    status: active
+    package: riskfw
+
+  testkit:
+    github: achimdehnert/testkit
+    description: Shared Test Factory Package (ADR-100)
+    status: active
+    package: iil-testkit
+
+  weltenfw:
+    github: achimdehnert/weltenfw
+    description: World-building framework for story universes
+    status: active
+    package: weltenfw
+
+# =============================================================================
+# PLATFORM & INFRASTRUCTURE
+# =============================================================================
+infrastructure:
+
+  platform:
+    github: achimdehnert/platform
+    description: Shared packages, ADRs, governance, platform agents
+    status: production
+
+  mcp-hub:
+    github: achimdehnert/mcp-hub
+    description: MCP server collection (deployment, orchestrator, LLM)
+    status: production
+
+  infra-deploy:
+    github: achimdehnert/infra-deploy
+    description: GitHub Actions infra deploy runner
+    status: production
+
+  llm-mcp:
+    github: null
+    description: LLM MCP Server (Teil von mcp-hub)
+    status: production
+    deployed: true
+    port_prod: 8001
+    port_staging: null
+
+# =============================================================================
+# THIRD-PARTY STACKS (self-hosted)
+# =============================================================================
+stacks:
+
+  uptime-kuma:
+    description: Uptime monitoring
+    deployed: true
+    domain_staging: uptime.iil.pet
+    port_prod: null
+    port_staging: 3001
+
+# =============================================================================
+# ARCHIVE — Inactive, experimental, or legacy repos (still on GitHub)
+# Last verified: 2026-04-03
+# =============================================================================
+archive:
+
+  HoM:
+    github: achimdehnert/HoM
+    description: Legacy project
+  HoM2:
+    github: achimdehnert/HoM2
+    description: Legacy project
+  HoM3:
+    github: achimdehnert/HoM3
+    description: Legacy project
+  Lukas_Fasttrack:
+    github: achimdehnert/Lukas_Fasttrack
+    description: Legacy training project
+  Lukas__FT_actual:
+    github: achimdehnert/Lukas__FT_actual
+    description: Legacy training project
+  P_GastroBot:
+    github: achimdehnert/P_GastroBot
+    description: Legacy chatbot project
+  Prompts:
+    github: achimdehnert/Prompts
+    description: Prompt collection (superseded by promptfw)
+  Sraper:
+    github: achimdehnert/Sraper
+    description: Legacy scraper
+  achimdehnert.github.io:
+    github: achimdehnert/achimdehnert.github.io
+    description: GitHub Pages (personal)
+  adpa:
+    github: achimdehnert/adpa
+    description: Legacy project
+  adpa-framework:
+    github: achimdehnert/adpa-framework
+    description: Legacy framework
+  c_researchpaper:
+    github: achimdehnert/c_researchpaper
+    description: CrewAI research paper experiment
+  crew_rag:
+    github: achimdehnert/crew_rag
+    description: CrewAI RAG experiment
+  dbpa:
+    github: achimdehnert/dbpa
+    description: Legacy project
+  dhrw_manager:
+    github: achimdehnert/dhrw_manager
+    description: Legacy manager tool
+  emailRAG:
+    github: achimdehnert/emailRAG
+    description: Email RAG experiment
+  graphrag_sciphi:
+    github: achimdehnert/graphrag_sciphi
+    description: GraphRAG experiment
+  groupcases:
+    github: achimdehnert/groupcases
+    description: Group case study tool
+  homelizard:
+    github: achimdehnert/homelizard
+    description: Legacy project
+  ifc-mcp:
+    github: achimdehnert/ifc-mcp
+    description: IFC/BIM MCP server experiment
+  iil-relaunch:
+    github: achimdehnert/iil-relaunch
+    description: Website relaunch (completed)
+  iil_products:
+    github: achimdehnert/iil_products
+    description: Product catalog (legacy)
+  lastwar-bot:
+    github: achimdehnert/lastwar-bot
+    description: Game bot experiment
+  me2ai_waf:
+    github: achimdehnert/me2ai_waf
+    description: Legacy WAF project
+  medai_ppt:
+    github: achimdehnert/medai_ppt
+    description: PPT translator (superseded by pptx-hub)
+  medai_pptx:
+    github: achimdehnert/medai_pptx
+    description: PPTX tools (superseded by pptx-hub)
+  medai_translator:
+    github: achimdehnert/medai_translator
+    description: PPT translator (superseded by pptx-hub)
+  mediamanager:
+    github: achimdehnert/mediamanager
+    description: Legacy media manager
+  mediabuttler:
+    github: achimdehnert/mediabuttler
+    description: Legacy media butler
+  my-blog:
+    github: achimdehnert/my-blog
+    description: Personal blog (legacy)
+  my-gptr:
+    github: achimdehnert/my-gptr
+    description: GPT-Researcher experiment
+  my-media:
+    github: achimdehnert/my-media
+    description: Media tools (legacy)
+  my_agent_ml:
+    github: achimdehnert/my_agent_ml
+    description: ML agent experiment
+  my_learning:
+    github: achimdehnert/my_learning
+    description: Learning experiments
+  my_writings:
+    github: achimdehnert/my_writings
+    description: Writing experiments (superseded by writing-hub)
+  nl-manager:
+    github: achimdehnert/nl-manager
+    description: NL manager (superseded by nl2cad)
+  p_pptx:
+    github: achimdehnert/p_pptx
+    description: PPTX tools (superseded by pptx-hub)
+  p_praisonai:
+    github: achimdehnert/p_praisonai
+    description: PraisonAI experiment
+  php-apocenna:
+    github: achimdehnert/php-apocenna
+    description: PHP project (legacy)
+  phprunner:
+    github: achimdehnert/phprunner
+    description: PHPRunner project (legacy)
+  podcast:
+    github: achimdehnert/podcast
+    description: Podcast tools (legacy)
+  repomgr:
+    github: achimdehnert/repomgr
+    description: GitHub repo manager (legacy)
+  schutztat-reporting:
+    github: achimdehnert/schutztat-reporting
+    description: Schutztat reports (merged into risk-hub)
+  sistrix:
+    github: achimdehnert/sistrix
+    description: Sistrix SEO tools (legacy)
+  sug-teaching:
+    github: achimdehnert/sug-teaching
+    description: Teaching materials (legacy)
+  ttz-leipheim:
+    github: achimdehnert/ttz-leipheim
+    description: TTZ Leipheim project
+  ttzbot1:
+    github: achimdehnert/ttzbot1
+    description: TTZ bot experiment
+  voice_agents:
+    github: achimdehnert/voice_agents
+    description: Voice agent experiments
+  work-session-manager:
+    github: achimdehnert/work-session-manager
+    description: Work session tool (legacy)
+  xenaia:
+    github: achimdehnert/xenaia
+    description: Xenaia project (legacy)
+
+  # --- Forks / Clones (nicht-eigene Projekte) ---
+  Advanced-QA-and-RAG-Series:
+    github: achimdehnert/Advanced-QA-and-RAG-Series
+    description: Fork — QA/RAG tutorial series
+  Agentic-Workflow-Patterns:
+    github: achimdehnert/Agentic-Workflow-Patterns
+    description: Fork — Agentic workflow patterns
+  CrewAI-Studio:
+    github: achimdehnert/CrewAI-Studio
+    description: Fork — CrewAI Studio UI
+  How-About-Real-World-Travel-Agency-Using-AI-Agents:
+    github: achimdehnert/How-About-Real-World-Travel-Agency-Using-AI-Agents
+    description: Fork — AI travel agency example
+  PraisonAI:
+    github: achimdehnert/PraisonAI
+    description: Fork — PraisonAI framework
+  TinyTroupe:
+    github: achimdehnert/TinyTroupe
+    description: Fork — Microsoft TinyTroupe
+  Youtube-Tutorials:
+    github: achimdehnert/Youtube-Tutorials
+    description: Fork — Tutorial collection
+  agent-zero:
+    github: achimdehnert/agent-zero
+    description: Fork — Agent Zero framework
+  awesome-ai-agents:
+    github: achimdehnert/awesome-ai-agents
+    description: Fork — Awesome AI agents list
+  awesome-openclaw-skills:
+    github: achimdehnert/awesome-openclaw-skills
+    description: Fork — OpenClaw skills
+  bolt.diy:
+    github: achimdehnert/bolt.diy
+    description: Fork — Bolt.diy
+  crewai_dailynews:
+    github: achimdehnert/crewai_dailynews
+    description: Fork — CrewAI daily news
+  dify:
+    github: achimdehnert/dify
+    description: Fork — Dify LLM platform
+  langflow:
+    github: achimdehnert/langflow
+    description: Fork — Langflow visual LLM
+  multilingual_healthcare_bot:
+    github: achimdehnert/multilingual_healthcare_bot
+    description: Fork — Healthcare bot
+  my_PraisonAi-Streamlit:
+    github: achimdehnert/my_PraisonAi-Streamlit
+    description: PraisonAI Streamlit experiment
+  python-getting-started:
+    github: achimdehnert/python-getting-started
+    description: Fork — Python starter
+  vanna:
+    github: achimdehnert/vanna
+    description: Fork — Vanna AI SQL
