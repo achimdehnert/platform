@@ -14,8 +14,16 @@ related:
   - ADR-144-doc-hub-paperless-ngx.md
   - ADR-154-autonomous-coding-optimization.md
   - ADR-156-reliable-deployment-pipeline.md
-implementation_status: none
-implementation_evidence: []
+implementation_status: partial
+implementation_evidence:
+  - "dev-hub/apps/portal/models.py: AudienceConfig, AudienceSource, DocHealthMetric, DocHealthProfile"
+  - "dev-hub/apps/portal/services.py: AudienceService, CrossLinkService, DocHealthService"
+  - "dev-hub/apps/portal/views.py: AudienceNavigatorView, AudienceRoleDetailView, DocHealthDashboardView"
+  - "dev-hub/apps/portal/tasks.py: scan_repo_doc_health, scan_all_doc_health"
+  - "dev-hub/apps/portal/migrations/0002_audience_dochealth.py"
+  - "platform/packages/docs-agent/src/docs_agent/extractors/"
+  - "platform/packages/docs-agent/src/docs_agent/git_utils.py"
+  - "platform/packages/docs-agent/src/docs_agent/cli.py: reference()"
 ---
 
 # ADR-158: Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs
@@ -426,15 +434,15 @@ Die Einhaltung dieser Architektur-Entscheidung wird verifiziert durch:
 | Phase 0: Services | ✅ Done | `AudienceService`, `CrossLinkService`, `DocHealthService` | `dev-hub/apps/portal/services.py` |
 | Phase 0: Management Command | ✅ Done | `load_audience_config` | `dev-hub/apps/portal/management/commands/` |
 | Phase 0: Admin Registration | ✅ Done | 4 ModelAdmins | `dev-hub/apps/portal/admin.py` |
-| Phase 0: Migrationen | ⬜ Pending | `makemigrations` + `migrate` | — |
-| Phase 0: i18n Setup | ⬜ Pending | `locale/de/LC_MESSAGES/portal.po` | — |
+| Phase 0: Migrationen | ✅ Done | `0002_audience_dochealth.py` | `dev-hub/apps/portal/migrations/` |
+| Phase 0: i18n Setup | ✅ Done | `locale/de/LC_MESSAGES/django.po` | `dev-hub/apps/portal/locale/de/` |
 | Phase 1: `/session-docu` Workflow | ✅ Done | Workflow mit Flags | `.windsurf/workflows/session-docu.md` |
 | Phase 1: `audience.yaml` + Validator | ✅ Done | Pydantic v2 Schema | `packages/docs-agent/audience_validator.py` |
 | Phase 1: `docu-audit.sh` | ✅ Done | `--json` + `--fail-under` | `platform/scripts/docu-audit.sh` |
-| Phase 2: Reference-Doc Generation | ⬜ Pending | CLI + Extractors + Pilot | — |
-| Phase 3: Audience Navigator UI | ⬜ Pending | Views + Templates | — |
-| Phase 4: Health Score Dashboard | ⬜ Pending | Dashboard + Celery | — |
-| Phase 5: Outline Link-Sync | ⬜ Pending | Deep-Links | — |
+| Phase 2: Reference-Doc Generation | ✅ Done | `reference` CLI + 3 Extractors + `git_utils` | `packages/docs-agent/src/docs_agent/extractors/`, `cli.py` |
+| Phase 3: Audience Navigator UI | ✅ Done | Views + Templates + URLs + Nav-Link | `dev-hub/apps/portal/views.py`, `templates/portal/` |
+| Phase 4: Health Score Dashboard | ✅ Done | Dashboard + Celery + `seed_doc_metrics` | `dev-hub/apps/portal/tasks.py`, `management/commands/` |
+| Phase 5: Outline Link-Sync | ✅ Done | Deep-Links via `CrossLinkService` | `dev-hub/apps/portal/services.py`, `views.py` |
 
 ---
 
