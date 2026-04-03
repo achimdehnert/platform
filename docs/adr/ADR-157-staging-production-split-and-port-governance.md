@@ -296,9 +296,9 @@ Compliance wird durch folgende automatische Checks verifiziert:
 
 | Phase | Task | Status | Target |
 |-------|------|--------|--------|
-| 1 | DNS-Leichen löschen (alte IPs) | ☐ | Sofort |
-| 1 | Alle staging.* DNS → 88.99.38.75 | ☐ | Sofort |
-| 1 | Port-Konflikt risk-hub/tax-hub fixen | ☐ | Sofort |
+| 1 | DNS-Leichen löschen (5 Records gelöscht) | ✅ 2026-04-03 | Sofort |
+| 1 | Alle staging.* DNS → 88.99.38.75 (12 Updates) | ✅ 2026-04-03 | Sofort |
+| 1 | Port-Konflikt risk-hub 8099→8108 in ports.yaml | ✅ 2026-04-03 | Sofort |
 | 2 | ports.yaml Schema erweitern (domain_aliases, server_*) | ☐ | Q2 2026 |
 | 2 | Alle 22 Hubs in ports.yaml vervollständigen | ☐ | Q2 2026 |
 | 2 | port_audit.py: Multi-Server + --next-free | ☐ | Q2 2026 |
