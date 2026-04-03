@@ -1,12 +1,51 @@
 #!/usr/bin/env bash
 # docu-audit.sh — Documentation Health Score Calculator (ADR-158)
-# Usage: bash docu-audit.sh [repo-path]
-# Example: bash docu-audit.sh /home/devuser/github/risk-hub
-#          bash docu-audit.sh .  (current directory)
+#
+# Usage: bash docu-audit.sh [repo-path] [--json] [--fail-under SCORE]
+#
+# Options:
+#   repo-path      Path to repo (default: current directory)
+#   --json         Output as JSON (for CI/dev-hub Health Score API)
+#   --fail-under   Exit 1 if Health Score below SCORE (0-100)
+#
+# Exit-Codes:
+#   0  Audit passed
+#   1  Health Score below --fail-under threshold
+#   2  Critical error (repo path not found)
 
 set -euo pipefail
 
-REPO_PATH="${1:-.}"
+# --- Argument Parsing ---
+REPO_PATH="."
+OUTPUT_JSON=false
+FAIL_UNDER=0
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --json)
+      OUTPUT_JSON=true
+      shift
+      ;;
+    --fail-under)
+      FAIL_UNDER="${2:?'--fail-under expects a value'}"
+      shift 2
+      ;;
+    -*)
+      echo "Unknown option: $1" >&2
+      exit 2
+      ;;
+    *)
+      REPO_PATH="$1"
+      shift
+      ;;
+  esac
+done
+
+if [[ ! -d "${REPO_PATH}" ]]; then
+  echo "ERROR: Repo path not found: ${REPO_PATH}" >&2
+  exit 2
+fi
+
 REPO_PATH="$(cd "$REPO_PATH" && pwd)"
 REPO_NAME="$(basename "$REPO_PATH")"
 
@@ -214,19 +253,49 @@ else
 fi
 
 # --- Final Score ---
-echo ""
-echo "═══════════════════════════════════════════════"
 pct=$((score * 100 / max_score))
-if [[ "$pct" -ge 70 ]]; then
-    color="$GREEN"
-    grade="GOOD"
-elif [[ "$pct" -ge 50 ]]; then
-    color="$YELLOW"
-    grade="NEEDS IMPROVEMENT"
+
+if [[ "$OUTPUT_JSON" == "true" ]]; then
+    # JSON output for CI/dev-hub API
+    cat <<EOF
+{
+  "repo_path": "${REPO_PATH}",
+  "repo_name": "${REPO_NAME}",
+  "total_score": ${pct},
+  "score_raw": ${score},
+  "score_max": ${max_score},
+  "metrics": {
+    "readme_present": $(( readme_chars > 500 ? 1 : 0 )),
+    "core_context_present": $([[ -f "$REPO_PATH/CORE_CONTEXT.md" || -f "$REPO_PATH/docs/CORE_CONTEXT.md" ]] && echo 1 || echo 0),
+    "adr_present": $(( adr_count > 0 ? 1 : 0 )),
+    "diataxis_quadrants": ${diataxis_score},
+    "docstring_coverage_pct": ${coverage:-0},
+    "reference_docs_present": $([[ -d "$REPO_PATH/docs/reference" ]] && echo 1 || echo 0),
+    "audience_yaml_configured": $([[ -f "$REPO_PATH/docs/audience.yaml" ]] && echo 1 || echo 0),
+    "banned_file_violations": ${violations}
+  }
+}
+EOF
 else
-    color="$RED"
-    grade="POOR"
+    echo ""
+    echo "═══════════════════════════════════════════════"
+    if [[ "$pct" -ge 70 ]]; then
+        color="$GREEN"
+        grade="GOOD"
+    elif [[ "$pct" -ge 50 ]]; then
+        color="$YELLOW"
+        grade="NEEDS IMPROVEMENT"
+    else
+        color="$RED"
+        grade="POOR"
+    fi
+    printf " ${BOLD}Documentation Health Score:${NC} ${color}${BOLD}%d/%d (%d%%) — %s${NC}\n" "$score" "$max_score" "$pct" "$grade"
+    echo "═══════════════════════════════════════════════"
+    echo ""
 fi
-printf " ${BOLD}Documentation Health Score:${NC} ${color}${BOLD}%d/%d (%d%%) — %s${NC}\n" "$score" "$max_score" "$pct" "$grade"
-echo "═══════════════════════════════════════════════"
-echo ""
+
+# --- Exit-Code based on --fail-under ---
+if [[ "$FAIL_UNDER" -gt 0 ]] && [[ "$pct" -lt "$FAIL_UNDER" ]]; then
+    [[ "$OUTPUT_JSON" != "true" ]] && echo "FAIL: Health Score ${pct}% < --fail-under ${FAIL_UNDER}%" >&2
+    exit 1
+fi
