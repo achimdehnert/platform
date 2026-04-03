@@ -299,13 +299,13 @@ Compliance wird durch folgende automatische Checks verifiziert:
 | 1 | DNS-Leichen löschen (5 Records gelöscht) | ✅ 2026-04-03 | Sofort |
 | 1 | Alle staging.* DNS → 88.99.38.75 (12 Updates) | ✅ 2026-04-03 | Sofort |
 | 1 | Port-Konflikt risk-hub 8099→8108 in ports.yaml | ✅ 2026-04-03 | Sofort |
-| 2 | ports.yaml Schema erweitern (domain_aliases, server_*) | ☐ | Q2 2026 |
+| 2 | ports.yaml Schema erweitern (domain_aliases, server_*) | ✅ 2026-04-03 | Q2 2026 |
 | 2 | Alle 22 Hubs in ports.yaml vervollständigen | ✅ 2026-04-03 | Q2 2026 |
-| 2 | port_audit.py: Multi-Server + --next-free | ☐ | Q2 2026 |
-| 3 | /onboard-repo: automatische Port-Vergabe | ☐ | Q3 2026 |
-| 3 | DNS-Erstellung via Cloudflare MCP automatisieren | ☐ | Q3 2026 |
-| 3 | Nginx-Template-Generator (Prod + Staging) | ☐ | Q3 2026 |
-| 3 | Port-Audit als Gate in /ship | ☐ | Q3 2026 |
+| 2 | port_audit.py: Multi-Server + --next-free | ✅ 2026-04-03 | Q2 2026 |
+| 3 | /onboard-repo: automatische Port-Vergabe | ✅ 2026-04-03 | Q3 2026 |
+| 3 | DNS-Erstellung via Local Script (ADR-156 §8) | ✅ 2026-04-03 | Q3 2026 |
+| 3 | Nginx-Template-Generator (nginx_gen.py) | ✅ 2026-04-03 | Q3 2026 |
+| 3 | Port-Audit als Gate in /ship (Schritt 1.5) | ✅ 2026-04-03 | Q3 2026 |
 | 4 | docker-compose + .env.staging für jeden Hub | ☐ | Q3 2026 |
 | 4 | /ship-staging Workflow erstellen | ☐ | Q3 2026 |
 | 4 | Staging-Health-Checks in /session-start | ☐ | Q3 2026 |

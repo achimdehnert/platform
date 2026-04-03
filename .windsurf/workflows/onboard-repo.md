@@ -24,35 +24,43 @@ Ich brauche folgende Infos:
 2. Production-Domain (z.B. myapp.iil.pet oder custom-domain.com)
 3. Braucht die App Celery/Worker? [Ja/Nein]
 4. Braucht die App eine eigene Datenbank? [Ja/Nein] (Standard: Ja)
-5. Lokaler Port auf dem Server (nächster freier: siehe Port-Map unten)
 ```
 
-### Port-Map (88.198.191.108) — Quelle: `platform/infra/ports.yaml`
+### Automatische Port-Vergabe (ADR-157)
 
-| Port | App | Domain |
-|------|-----|--------|
-| 8001 | llm-mcp | — |
-| 8007 | coach-hub | coach-hub.iil.pet |
-| 8020 | pptx-hub | prezimo.de |
-| 8069 | odoo | odoo.iil.pet (eigener Server!) |
-| 8081 | weltenhub | weltenforger.com |
-| 8085 | dev-hub | dev-hub.iil.pet |
-| 8088 | trading-hub | trading-hub.iil.pet |
-| 8089 | travel-beat | drifttales.com |
-| 8090 | risk-hub | schutztat.de |
-| 8091 | bfagent | iil.pet |
-| 8092 | billing-hub | billing.iil.pet |
-| 8093 | wedding-hub | wedding-hub.iil.pet |
-| 8094 | cad-hub | nl2cad.de |
-| 8095 | 137-hub | 137herz.de |
-| 8096 | illustration-hub | — |
-| 8097 | writing-hub | writing.iil.pet |
-| 8098 | research-hub | research.iil.pet |
-| 8099 | risk-hub-staging | staging.kiohnerisiko.de |
-| 8100 | learn-hub | learn.iil.pet |
-| **8101** | **nächster freier** | |
+Port wird **automatisch** ermittelt — KEINE manuelle Port-Map mehr nötig:
 
-⚠️ **Vor Port-Vergabe**: `python infra/scripts/port_audit.py` laufen lassen!
+// turbo
+```bash
+python /home/dehnert/github/platform/infra/scripts/port_audit.py --next-free
+```
+
+Den ausgegebenen Port als `prod` UND `staging` in `ports.yaml` eintragen.
+Staging-Port = Prod-Port (gleicher Port auf verschiedenen Servern, ADR-157).
+
+**Dann Duplikat-Check:**
+
+// turbo
+```bash
+python /home/dehnert/github/platform/infra/scripts/port_audit.py --offline
+```
+
+**Dann Nginx-Configs generieren:**
+
+```bash
+python /home/dehnert/github/platform/infra/scripts/nginx_gen.py --service <REPO_NAME>
+```
+
+**Dann DNS anlegen** (Cloudflare, via Local Script — ADR-156 §8):
+
+```bash
+CLOUDFLARE_API_TOKEN=<token> python /home/dehnert/github/platform/infra/scripts/dns_staging_sync.py --apply
+```
+
+**Dann Registry eintragen:**
+- `platform/infra/ports.yaml` — Service-Eintrag
+- `platform/registry/github_repos.yaml` — Repo-Eintrag
+- `python infra/scripts/validate_repos.py` — Konsistenz prüfen
 
 ## Step 1: Repository-Struktur erstellen
 
