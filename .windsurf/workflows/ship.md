@@ -79,6 +79,20 @@ Erwartung: Branch = `main`, keine uncommitted WIP-Änderungen.
 
 ---
 
+## Schritt 1.5 — Port-Audit Gate (ADR-157)
+
+**Automatisch, kein User-Input nötig.**
+
+// turbo
+```bash
+python /home/dehnert/github/platform/infra/scripts/port_audit.py --offline
+```
+
+Erwartung: Exit-Code 0 (keine Duplikate in ports.yaml).
+**Abbruch wenn:** Exit-Code != 0 — Port-Konflikte müssen vor Deploy gelöst werden.
+
+---
+
 ## Schritt 2 — Änderungen pushen
 
 Erst nach User-Bestätigung aus Schritt 1:
