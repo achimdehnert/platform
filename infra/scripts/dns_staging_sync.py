@@ -86,10 +86,32 @@ KNOWN_ORPHANS = [
 
 
 def get_token() -> str:
+    """Token aus Env oder ~/.secrets/ laden."""
     token = os.environ.get("CLOUDFLARE_API_TOKEN", "")
     if not token:
-        print("ERROR: CLOUDFLARE_API_TOKEN nicht gesetzt", file=sys.stderr)
-        print("  export CLOUDFLARE_API_TOKEN='<token>'", file=sys.stderr)
+        secrets = Path.home() / ".secrets"
+        for name in (
+            "cloudflare_api_token",
+            "deployment_mcp_cloudflare_api_token",
+        ):
+            p = secrets / name
+            if p.exists():
+                token = p.read_text().strip()
+                if token:
+                    break
+    if not token:
+        print(
+            "ERROR: Kein Cloudflare-Token gefunden",
+            file=sys.stderr,
+        )
+        print(
+            "  export CLOUDFLARE_API_TOKEN='<token>'",
+            file=sys.stderr,
+        )
+        print(
+            "  oder ~/.secrets/cloudflare_api_token",
+            file=sys.stderr,
+        )
         sys.exit(2)
     return token
 
