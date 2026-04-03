@@ -635,6 +635,58 @@ ssh_manage(action="file_read",
 
 ---
 
+## §8 MCP Reliability Pattern — Write-Ops via Local Scripts
+
+### Problem
+
+MCP-Tool-Calls (insbesondere `deployment-mcp`) hängen wiederholt bei:
+- **Write-Ops**: `cf_dns_update`, `cf_dns_create`, `cf_dns_delete`
+- **Env-Reads nach Write-Sequenzen**: `env_manage.get`
+- **Runtime-Info nach Last**: `mcp_runtime_info`
+
+Beobachtung aus 8+ Versuchen (2026-04-03):
+
+| Tool | Action-Typ | Ergebnis |
+|------|-----------|----------|
+| `mcp0_cloudflare_manage` | READ (`cf_dns_list`) | ✅ 8x stabil |
+| `mcp0_cloudflare_manage` | WRITE (`cf_dns_update`) | ❌ 6x gehangen |
+| `mcp0_env_manage` | READ nach Writes | ❌ gehangen |
+| `mcp2_*` (orchestrator) | READ + WRITE | ✅ immer stabil |
+| `mcp1_*` (github) | READ + WRITE | ✅ immer stabil |
+| `run_command` | nach vielen MCP-Calls | ❌ WaitDelay expired |
+
+**Root Cause**: Windsurf Cascade Runtime produziert `WaitDelay expired`
+bei I/O-intensiven MCP-Sequenzen. Der `deployment-mcp` Prozess-State
+wird nach mehreren Calls "vergiftet" — auch nachfolgende READ-Ops hängen.
+
+### Lösung: 3-Tier Tool-Klassifikation
+
+| Tier | Kanal | Timeout-Risiko | Beispiele |
+|------|-------|---------------|-----------|
+| **MCP Read-Op** | MCP-Tool direkt | Niedrig | `cf_dns_list`, `container_logs`, `compose_ps` |
+| **Local Script** | `run_command` + Script in `infra/scripts/` | Keins | `dns_staging_sync.py`, `port_audit.py` |
+| **Server Script** | SSH Short-Trigger (§Phase 1) | Niedrig | `deploy-start.sh`, `deploy-status.sh` |
+
+### Regeln (verbindlich)
+
+1. **MCP nur für READ-Ops** — nie für Cloudflare-Writes, DNS-Updates, Env-Writes
+2. **Infra-Write-Ops als standalone Scripts** in `platform/infra/scripts/`
+3. **Scripts nutzen APIs direkt** (urllib/requests) — kein MCP-Dependency
+4. **CF-Token aus Prozess-Env**: `cat /proc/<pid>/environ | tr '\0' '\n' | grep TOKEN`
+5. **Immer Dry-Run zuerst** — `--apply` Flag für destructive Ops
+6. **Idempotent**: Script kann mehrfach ausgeführt werden ohne Schaden
+
+### Bestehende Scripts (ADR-157 Phase 1)
+
+| Script | Zweck | API |
+|--------|-------|-----|
+| `infra/scripts/dns_staging_sync.py` | Staging-DNS → Dev Desktop | Cloudflare REST |
+| `infra/scripts/port_audit.py` | Port-Konflikte prüfen | SSH + ports.yaml |
+| `infra/scripts/validate_ports.py` | ports.yaml Schema-Validierung | Lokal |
+| `infra/scripts/get_port.py` | Nächsten freien Port ermitteln | ports.yaml |
+
+---
+
 ## Risiken
 
 | Risiko | Schwere | Mitigation |
@@ -711,3 +763,4 @@ ssh_manage(action="file_read",
 | v3.2 | 2026-04-02 | Phase 1 implementiert: Scripts auf Server deployed, Service-Auto-Detection (web vs repo-web), /ship Workflow umgestellt, deploy-status.sh Python-Bool-Fix |
 | v3.3 | 2026-04-02 | Phase 2+3 implementiert: estimate_job(), job_catalog.yaml, record_measurement(), analyze_task() erweitert um Executor/Schätzung/Background — 15 Tests, alle passed |
 | v3.4 | 2026-04-02 | Phase 2+3 komplett: /ship Workflow mit estimate_job + Discord-Notification, LLM-Routing aus Katalog, alle Checklisten-Punkte erledigt |
+| v3.5 | 2026-04-03 | §8 MCP Reliability Pattern: 3-Tier Tool-Klassifikation, Write-Ops via Local Scripts statt MCP, Regeln für CF-API-Calls |

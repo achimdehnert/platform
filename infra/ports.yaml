@@ -9,7 +9,7 @@
 #   8001–8020   Infra + erste Hubs
 #   8081–8107   App-Hubs (prod + staging gemischt)
 #
-# Nächster freier Port: 8108
+# Nächster freier Port: 8109
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 
 services:
@@ -76,9 +76,9 @@ services:
 
   risk-hub:
     prod: 8090
-    staging: 8099
+    staging: 8108
     domain_prod: schutztat.de
-    domain_staging: staging.kiohnerisiko.de
+    domain_staging: staging.schutztat.de
     repo: achimdehnert/risk-hub
 
   bfagent:
