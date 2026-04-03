@@ -8,6 +8,20 @@ Vollständiger Infrastruktur-Health-Check über alle Platform-Services.
 
 ## Schritte
 
+0. **Connectivity-Gate (PFLICHT vor allen MCP-Calls)**
+
+⚠️ **NIEMALS `ping` verwenden** — Hetzner-Server blockieren ICMP.
+Stattdessen TCP-Probe auf SSH (22), HTTP (80), HTTPS (443):
+
+// turbo
+```bash
+python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
+```
+
+→ Wenn Server **NICHT erreichbar**: STOPP. Kein MCP-Call wird funktionieren.
+→ Fallback: `ssh -o ConnectTimeout=10 -o BatchMode=yes root@88.198.191.108 "uptime"`
+→ Wenn auch SSH scheitert: Hetzner Cloud Console prüfen (https://console.hetzner.cloud)
+
 1. **System-Überblick**
 // turbo
 ```

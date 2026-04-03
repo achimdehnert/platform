@@ -11,6 +11,22 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 
 ## Phase 0: Umgebung synchronisieren (IMMER zuerst)
 
+### 0.0 Server-Erreichbarkeit prüfen (PFLICHT — vor allen MCP/SSH-Calls)
+
+⚠️ **NIEMALS `ping` verwenden** — Hetzner-Server blockieren ICMP (100% packet loss ist NORMAL).
+TCP-Probe auf SSH (22), HTTP (80), HTTPS (443) stattdessen:
+
+// turbo
+```bash
+python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
+```
+
+→ **Server erreichbar**: Normal weiter mit Phase 0.1
+→ **Server NICHT erreichbar**: Alle MCP-Calls und SSH-Befehle werden hängen!
+  Fallback: `ssh -o ConnectTimeout=10 -o BatchMode=yes root@88.198.191.108 "uptime"`
+  Wenn auch SSH scheitert: Hetzner Cloud Console → Server Status prüfen
+→ Lesson Learned 2026-04-03: Ping-basierte Diagnose führte zu Fehldiagnose "Server down"
+
 ### 0.1 Platform-Repo pullen (enthält Workflows + ADRs)
 
 // turbo
