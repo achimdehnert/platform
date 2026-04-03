@@ -424,6 +424,114 @@ def generate(
         )
 
 
+# ---------------------------------------------------------------------------
+# Reference-doc generation: single repo + batch
+# ---------------------------------------------------------------------------
+
+
+def _generate_reference_for_repo(
+    repo_path: Path,
+    *,
+    doc_type: str = "all",
+    dry_run: bool = True,
+    output_dir: str = "docs/reference",
+    apps_only: bool = True,
+    verbose: bool = True,
+) -> dict:
+    """Core logic: generate reference docs for one repo. Returns summary dict."""
+    from docs_agent.extractors.models_extractor import (
+        extract_models_from_repo,
+        render_models_markdown,
+    )
+    from docs_agent.extractors.settings_extractor import (
+        extract_config_from_repo,
+        render_config_markdown,
+    )
+    from docs_agent.extractors.urls_extractor import (
+        extract_urls_from_repo,
+        render_urls_markdown,
+    )
+    from docs_agent.git_utils import write_if_changed
+
+    repo_name = repo_path.name
+    out = repo_path / output_dir
+    results = []
+    stats = {"models": 0, "endpoints": 0, "settings": 0, "env_vars": 0}
+
+    if doc_type in ("models", "all"):
+        if verbose:
+            console.print("[bold]Extracting models...[/]")
+        models = extract_models_from_repo(repo_path, apps_only=apps_only)
+        stats["models"] = len(models)
+        if verbose:
+            console.print(f"  Found {len(models)} models.")
+        md = render_models_markdown(models, repo_name=repo_name)
+        result = write_if_changed(out / "models.md", md, dry_run=dry_run)
+        results.append(("models.md", result))
+
+    if doc_type in ("api", "all"):
+        if verbose:
+            console.print("[bold]Extracting URL patterns...[/]")
+        modules = extract_urls_from_repo(repo_path, apps_only=apps_only)
+        total_urls = sum(len(m.patterns) for m in modules)
+        stats["endpoints"] = total_urls
+        if verbose:
+            console.print(f"  Found {total_urls} endpoints in {len(modules)} modules.")
+        md = render_urls_markdown(modules, repo_name=repo_name)
+        result = write_if_changed(out / "api.md", md, dry_run=dry_run)
+        results.append(("api.md", result))
+
+    if doc_type in ("config", "all"):
+        if verbose:
+            console.print("[bold]Extracting configuration...[/]")
+        profile = extract_config_from_repo(repo_path)
+        stats["settings"] = len(profile.settings)
+        stats["env_vars"] = len(profile.env_vars)
+        if verbose:
+            console.print(
+                f"  Found {len(profile.settings)} settings, "
+                f"{len(profile.env_vars)} env vars."
+            )
+        md = render_config_markdown(profile, repo_name=repo_name)
+        result = write_if_changed(out / "config.md", md, dry_run=dry_run)
+        results.append(("config.md", result))
+
+    changed = sum(1 for _, r in results if r.changed)
+    return {
+        "repo": repo_name,
+        "results": results,
+        "changed": changed,
+        "stats": stats,
+    }
+
+
+def _print_repo_results(
+    summary: dict, *, dry_run: bool, output_dir: str, verbose: bool = True
+) -> None:
+    """Print results for a single repo."""
+    if not verbose:
+        return
+    console.print(f"\n[bold]Results for {summary['repo']}:[/]")
+    for name, result in summary["results"]:
+        if result.changed:
+            action = "would write" if dry_run else "written"
+            console.print(
+                f"  [green]✓[/] {name}: {action} "
+                f"({len(result.diff_lines)} diff lines)"
+            )
+            for line in result.diff_lines[:10]:
+                if line.startswith("+") and not line.startswith("+++"):
+                    console.print(f"    [green]{line}[/]")
+                elif line.startswith("-") and not line.startswith("---"):
+                    console.print(f"    [red]{line}[/]")
+            if len(result.diff_lines) > 10:
+                console.print(
+                    f"    ... ({len(result.diff_lines) - 10} more)"
+                )
+        else:
+            console.print(f"  [dim]—[/] {name}: no changes")
+
+
 @app.command()
 def reference(
     repo_path: Path = typer.Argument(
@@ -454,78 +562,23 @@ def reference(
         help="Only scan apps/ directory (default).",
     ),
 ) -> None:
-    """Generate reference documentation (models, API, config) from code introspection."""
-    from docs_agent.extractors.models_extractor import (
-        extract_models_from_repo,
-        render_models_markdown,
-    )
-    from docs_agent.extractors.settings_extractor import (
-        extract_config_from_repo,
-        render_config_markdown,
-    )
-    from docs_agent.extractors.urls_extractor import (
-        extract_urls_from_repo,
-        render_urls_markdown,
-    )
-    from docs_agent.git_utils import write_if_changed
-
+    """Generate reference documentation for a SINGLE repo."""
     repo_path = repo_path.resolve()
-    repo_name = repo_path.name
-    out = repo_path / output_dir
     mode = "[yellow]DRY RUN[/]" if dry_run else "[red]COMMIT[/]"
     console.print(
-        f"\n[bold blue]docs-agent reference[/] — {repo_name} ({mode})\n"
+        f"\n[bold blue]docs-agent reference[/] — {repo_path.name} ({mode})\n"
     )
 
-    results = []
+    summary = _generate_reference_for_repo(
+        repo_path,
+        doc_type=doc_type,
+        dry_run=dry_run,
+        output_dir=output_dir,
+        apps_only=apps_only,
+    )
+    _print_repo_results(summary, dry_run=dry_run, output_dir=output_dir)
 
-    if doc_type in ("models", "all"):
-        console.print("[bold]Extracting models...[/]")
-        models = extract_models_from_repo(repo_path, apps_only=apps_only)
-        console.print(f"  Found {len(models)} models.")
-        md = render_models_markdown(models, repo_name=repo_name)
-        result = write_if_changed(out / "models.md", md, dry_run=dry_run)
-        results.append(("models.md", result))
-
-    if doc_type in ("api", "all"):
-        console.print("[bold]Extracting URL patterns...[/]")
-        modules = extract_urls_from_repo(repo_path, apps_only=apps_only)
-        total_urls = sum(len(m.patterns) for m in modules)
-        console.print(f"  Found {total_urls} endpoints in {len(modules)} modules.")
-        md = render_urls_markdown(modules, repo_name=repo_name)
-        result = write_if_changed(out / "api.md", md, dry_run=dry_run)
-        results.append(("api.md", result))
-
-    if doc_type in ("config", "all"):
-        console.print("[bold]Extracting configuration...[/]")
-        profile = extract_config_from_repo(repo_path)
-        console.print(
-            f"  Found {len(profile.settings)} settings, "
-            f"{len(profile.env_vars)} env vars."
-        )
-        md = render_config_markdown(profile, repo_name=repo_name)
-        result = write_if_changed(out / "config.md", md, dry_run=dry_run)
-        results.append(("config.md", result))
-
-    # Summary
-    console.print("\n[bold]Results:[/]")
-    changed = 0
-    for name, result in results:
-        if result.changed:
-            changed += 1
-            action = "would write" if dry_run else "written"
-            console.print(f"  [green]✓[/] {name}: {action} ({len(result.diff_lines)} diff lines)")
-            # Show first few diff lines
-            for line in result.diff_lines[:10]:
-                if line.startswith("+") and not line.startswith("+++"):
-                    console.print(f"    [green]{line}[/]")
-                elif line.startswith("-") and not line.startswith("---"):
-                    console.print(f"    [red]{line}[/]")
-            if len(result.diff_lines) > 10:
-                console.print(f"    ... ({len(result.diff_lines) - 10} more)")
-        else:
-            console.print(f"  [dim]—[/] {name}: no changes")
-
+    changed = summary["changed"]
     if dry_run and changed:
         console.print(
             f"\n[yellow]{changed} file(s) would change. "
@@ -537,6 +590,304 @@ def reference(
         )
     else:
         console.print("\n[dim]Everything up to date.[/]")
+
+
+@app.command("reference-all")
+def reference_all(
+    base_dir: Path = typer.Argument(
+        ...,
+        help="Parent directory containing all repos (e.g. ~/github).",
+        exists=True,
+        dir_okay=True,
+        file_okay=False,
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--commit",
+        help="Preview changes (default) or write files.",
+    ),
+    output_dir: str = typer.Option(
+        "docs/reference",
+        "--output-dir",
+        help="Output directory relative to each repo root.",
+    ),
+    registry: Optional[Path] = typer.Option(
+        None,
+        "--registry",
+        help="Path to repos.yaml (auto-detected from platform/registry/).",
+    ),
+    skip: Optional[str] = typer.Option(
+        None,
+        "--skip",
+        help="Comma-separated repo names to skip.",
+    ),
+    only_django: bool = typer.Option(
+        False,
+        "--only-django",
+        help="Only process repos with apps/ or manage.py (Django projects).",
+    ),
+    output: str = typer.Option(
+        "table",
+        help="Output format: table or json.",
+    ),
+) -> None:
+    """Generate reference docs for ALL repos under a base directory.
+
+    Discovers repos via registry/repos.yaml (if found) or by scanning
+    subdirectories. Skips non-Python and non-existent repos automatically.
+
+    Examples:
+        docs-agent reference-all ~/github --dry-run
+        docs-agent reference-all ~/github --commit
+        docs-agent reference-all ~/github --only-django --commit
+        docs-agent reference-all ~/github --skip odoo-hub,testkit
+    """
+    base_dir = base_dir.resolve()
+    mode = "[yellow]DRY RUN[/]" if dry_run else "[red]COMMIT[/]"
+    console.print(
+        f"\n[bold blue]docs-agent reference-all[/] — {base_dir} ({mode})\n"
+    )
+
+    skip_set = set()
+    if skip:
+        skip_set = {s.strip() for s in skip.split(",")}
+
+    # --- Discover repos ---
+    repo_dirs = _discover_repos(
+        base_dir,
+        registry=registry,
+        skip=skip_set,
+        only_django=only_django,
+    )
+
+    if not repo_dirs:
+        console.print("[red]No repos found.[/]")
+        raise typer.Exit(code=1)
+
+    console.print(f"Found [bold]{len(repo_dirs)}[/] repos to process.\n")
+
+    # --- Process each repo ---
+    summaries = []
+    for repo_path in repo_dirs:
+        console.print(
+            f"[bold cyan]━━━ {repo_path.name} ━━━[/]"
+        )
+        try:
+            summary = _generate_reference_for_repo(
+                repo_path,
+                dry_run=dry_run,
+                output_dir=output_dir,
+                verbose=False,
+            )
+            summaries.append(summary)
+            s = summary["stats"]
+            tag = (
+                f"[green]✓ {summary['changed']} changed[/]"
+                if summary["changed"]
+                else "[dim]— up to date[/]"
+            )
+            console.print(
+                f"  {s['models']} models, {s['endpoints']} endpoints, "
+                f"{s['settings']} settings, {s['env_vars']} env vars → {tag}"
+            )
+        except Exception as exc:
+            console.print(f"  [red]ERROR: {exc}[/]")
+            summaries.append(
+                {"repo": repo_path.name, "changed": 0, "error": str(exc),
+                 "stats": {}, "results": []}
+            )
+
+    # --- Final summary ---
+    console.print("\n" + "═" * 60)
+    total_repos = len(summaries)
+    total_changed = sum(s["changed"] for s in summaries)
+    total_errors = sum(1 for s in summaries if "error" in s)
+    total_models = sum(s["stats"].get("models", 0) for s in summaries)
+    total_endpoints = sum(s["stats"].get("endpoints", 0) for s in summaries)
+    repos_with_changes = sum(
+        1 for s in summaries if s["changed"] > 0
+    )
+
+    if output == "json":
+        import json
+
+        data = {
+            "base_dir": str(base_dir),
+            "dry_run": dry_run,
+            "repos_scanned": total_repos,
+            "repos_changed": repos_with_changes,
+            "files_changed": total_changed,
+            "total_models": total_models,
+            "total_endpoints": total_endpoints,
+            "errors": total_errors,
+            "details": [
+                {
+                    "repo": s["repo"],
+                    "changed": s["changed"],
+                    "error": s.get("error"),
+                    **s.get("stats", {}),
+                }
+                for s in summaries
+            ],
+        }
+        console.print_json(json.dumps(data, default=str))
+        return
+
+    # Table summary
+    table = Table(
+        title=f"Reference Docs — {'DRY RUN' if dry_run else 'COMMITTED'}"
+    )
+    table.add_column("Repo", style="cyan", no_wrap=True)
+    table.add_column("Models", justify="right")
+    table.add_column("Endpoints", justify="right")
+    table.add_column("Settings", justify="right")
+    table.add_column("Files Changed", justify="right")
+    table.add_column("Status")
+
+    for s in summaries:
+        if "error" in s:
+            table.add_row(
+                s["repo"], "—", "—", "—", "—",
+                "[red]ERROR[/]"
+            )
+        else:
+            st = s["stats"]
+            status = (
+                f"[green]{s['changed']} updated[/]"
+                if s["changed"]
+                else "[dim]up to date[/]"
+            )
+            table.add_row(
+                s["repo"],
+                str(st.get("models", 0)),
+                str(st.get("endpoints", 0)),
+                str(st.get("settings", 0)),
+                str(s["changed"]),
+                status,
+            )
+
+    console.print(table)
+    console.print(
+        f"\n[bold]{total_repos}[/] repos scanned, "
+        f"[bold]{total_models}[/] models, "
+        f"[bold]{total_endpoints}[/] endpoints"
+    )
+    if total_errors:
+        console.print(f"[red]{total_errors} repo(s) with errors.[/]")
+
+    if dry_run and total_changed:
+        console.print(
+            f"\n[yellow]{repos_with_changes} repo(s) with {total_changed} "
+            f"file(s) would change. Run with --commit to write.[/]"
+        )
+    elif not dry_run and total_changed:
+        console.print(
+            f"\n[green]{total_changed} file(s) written across "
+            f"{repos_with_changes} repo(s).[/]"
+        )
+    else:
+        console.print("\n[dim]All repos up to date.[/]")
+
+
+def _discover_repos(
+    base_dir: Path,
+    *,
+    registry: Optional[Path] = None,
+    skip: set[str] | None = None,
+    only_django: bool = False,
+) -> list[Path]:
+    """Discover repos from registry/repos.yaml or filesystem scan."""
+    skip = skip or set()
+    repo_names: list[str] = []
+
+    # Try repos.yaml first
+    if registry and registry.exists():
+        repo_names = _read_repos_yaml(registry)
+    else:
+        # Auto-detect: look for platform/registry/repos.yaml
+        candidates = [
+            base_dir / "platform" / "registry" / "repos.yaml",
+            base_dir.parent / "platform" / "registry" / "repos.yaml",
+        ]
+        for candidate in candidates:
+            if candidate.exists():
+                console.print(
+                    f"[dim]Using registry: {candidate}[/]"
+                )
+                repo_names = _read_repos_yaml(candidate)
+                break
+
+    if not repo_names:
+        # Fallback: scan subdirectories
+        console.print(
+            "[dim]No repos.yaml found — scanning directories...[/]"
+        )
+        repo_names = sorted(
+            d.name
+            for d in base_dir.iterdir()
+            if d.is_dir()
+            and not d.name.startswith(".")
+            and not d.name.endswith(".code-workspace")
+        )
+
+    # Resolve to paths and filter
+    result = []
+    for name in repo_names:
+        if name in skip:
+            console.print(f"  [dim]Skip: {name}[/]")
+            continue
+        repo_path = base_dir / name
+        if not repo_path.is_dir():
+            console.print(f"  [dim]Not found: {name}[/]")
+            continue
+        # Check for Python content
+        has_python = (
+            list(repo_path.glob("*.py"))
+            or (repo_path / "apps").is_dir()
+            or (repo_path / "src").is_dir()
+            or (repo_path / "setup.py").exists()
+            or (repo_path / "pyproject.toml").exists()
+        )
+        if not has_python:
+            console.print(f"  [dim]No Python: {name}[/]")
+            continue
+        if only_django:
+            is_django = (
+                (repo_path / "apps").is_dir()
+                or (repo_path / "manage.py").exists()
+            )
+            if not is_django:
+                console.print(f"  [dim]Not Django: {name}[/]")
+                continue
+        result.append(repo_path)
+
+    return sorted(result, key=lambda p: p.name)
+
+
+def _read_repos_yaml(path: Path) -> list[str]:
+    """Extract repo names from registry/repos.yaml."""
+    try:
+        import yaml
+    except ImportError:
+        console.print(
+            "[yellow]PyYAML not installed — "
+            "falling back to directory scan.[/]"
+        )
+        return []
+
+    try:
+        data = yaml.safe_load(path.read_text(encoding="utf-8"))
+    except Exception as exc:
+        console.print(f"[yellow]Cannot read {path}: {exc}[/]")
+        return []
+
+    names = []
+    for domain in data.get("domains", []):
+        for system in domain.get("systems", []):
+            repo = system.get("repo")
+            if repo:
+                names.append(repo)
+    return names
 
 
 def _show_diff_preview(
