@@ -300,7 +300,7 @@ Compliance wird durch folgende automatische Checks verifiziert:
 | 1 | Alle staging.* DNS → 88.99.38.75 (12 Updates) | ✅ 2026-04-03 | Sofort |
 | 1 | Port-Konflikt risk-hub 8099→8108 in ports.yaml | ✅ 2026-04-03 | Sofort |
 | 2 | ports.yaml Schema erweitern (domain_aliases, server_*) | ☐ | Q2 2026 |
-| 2 | Alle 22 Hubs in ports.yaml vervollständigen | ☐ | Q2 2026 |
+| 2 | Alle 22 Hubs in ports.yaml vervollständigen | ✅ 2026-04-03 | Q2 2026 |
 | 2 | port_audit.py: Multi-Server + --next-free | ☐ | Q2 2026 |
 | 3 | /onboard-repo: automatische Port-Vergabe | ☐ | Q3 2026 |
 | 3 | DNS-Erstellung via Cloudflare MCP automatisieren | ☐ | Q3 2026 |
@@ -309,7 +309,7 @@ Compliance wird durch folgende automatische Checks verifiziert:
 | 4 | docker-compose + .env.staging für jeden Hub | ☐ | Q3 2026 |
 | 4 | /ship-staging Workflow erstellen | ☐ | Q3 2026 |
 | 4 | Staging-Health-Checks in /session-start | ☐ | Q3 2026 |
-| 4 | ADR-063 als Superseded markieren | ☐ | Nach Phase 1 |
+| 4 | ADR-063 als Superseded markieren | ✅ 2026-04-03 | Nach Phase 1 |
 
 ### Phase 1: DNS-Aufräumung (sofort)
 
