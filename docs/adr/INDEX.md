@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-04-02
-> **Next free ADR number:** 158
+> **Last updated:** 2026-04-03
+> **Next free ADR number:** 159
 
 ## Legend
 
@@ -188,6 +188,7 @@
 | 155 | Three-Layer Contract Testing Strategy (all function/method calls) | `Accepted` | 🔶 | [ADR-155](ADR-155-contract-testing-strategy.md) |
 | 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Pipeline | `Accepted` | ✅ | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
 | 157 | Adopt same-port staging on Dev Desktop with automated port governance and onboarding | `Accepted` | ⬜ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
+| 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | `Proposed` | ⬜ | [ADR-158](ADR-158-unified-documentation-architecture.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

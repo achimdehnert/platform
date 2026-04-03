@@ -4,7 +4,7 @@ date: 2026-04-03
 decision-makers: [Achim Dehnert]
 consulted: [Cascade (Principal IT-Architekt)]
 informed: []
-supersedes: []
+supersedes: ["ADR-020-documentation-strategy.md"]
 amends: ["ADR-046-docs-hygiene.md"]
 related:
   - ADR-020-documentation-strategy.md
@@ -14,11 +14,11 @@ related:
   - ADR-144-doc-hub-paperless-ngx.md
   - ADR-154-autonomous-coding-optimization.md
   - ADR-156-reliable-deployment-pipeline.md
-implementation_status: proposed
+implementation_status: none
 implementation_evidence: []
 ---
 
-# ADR-158: Unified Documentation Architecture — Single Source, Multi-Audience, AI-Generated
+# ADR-158: Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs
 
 <!-- Drift-Detector-Felder (ADR-059)
 staleness_months: 3
@@ -26,7 +26,7 @@ drift_check_paths:
   - .windsurf/workflows/session-docu.md
   - platform/scripts/docu-audit.sh
   - packages/docs-agent/
-supersedes_check: ADR-020 (deferred), ADR-046 (amends)
+supersedes_check: ADR-020 (superseded), ADR-046 (amends)
 -->
 
 ## Context and Problem Statement
@@ -84,7 +84,9 @@ Die Platform-Dokumentation ist über **6 unverbundene Systeme** verstreut. Keine
 
 ---
 
-## Decision
+## Decision Outcome
+
+**Chosen option: C — dev-hub als Portal erweitern**, because dev-hub bereits TechDocs Sync (389 Seiten), ADR Lifecycle, Software Catalog und Health Dashboard hat. Es fehlen nur Audience Navigator und Reference-Doc Generator. Kein neues System nötig, maximale Wiederverwendung bestehender Infrastruktur.
 
 ### Architektur-Übersicht: Hub-and-Spoke Documentation
 
@@ -204,7 +206,9 @@ audiences:
 
 **Hybridansatz:** `audience.yaml` als Seed-Datei → via `manage.py load_audience_config` in DB importiert → Änderungen danach über Admin-UI. Gibt Tenant-Isolation + Git-Nachvollziehbarkeit.
 
-**Validierung:** Pydantic v2 Schema (`audience_validator.py`) mit typisierten Sources, Discriminated Union und M-04-Prüfung.
+**Validierung:** Pydantic v2 Schema (`audience_validator.py`) mit typisierten Sources, Discriminated Union und M-04-Prüfung. Schema-Validierung als Architecture-Guardian-Rule integrierbar (`check_violations` für audience.yaml).
+
+**Schema-Isolation (ADR-072):** Neue portal-Models sind `django_tenants`-kompatibel (dev-hub nutzt Schema-Isolation). `tenant_id` dient als Fallback-Filter für shared-Schema-Queries.
 
 ### D-2: Reference-Doc Generator (docs-agent Integration)
 
@@ -215,7 +219,7 @@ AI-generierte Reference-Docs für jedes Repo, basierend auf Code-Introspection:
 | `models.md` | Django Models (AST + DB Schema) | docs-agent + MCP | `docs/reference/models.md` |
 | `api.md` | URL-Patterns (urlpatterns) | docs-agent | `docs/reference/api.md` |
 | `config.md` | settings.py + .env.example | docs-agent | `docs/reference/config.md` |
-| `lookups.md` | Lookup-Tabellen (DB) | database_manage MCP | `docs/reference/lookups.md` (⚠️ nur intern, nicht public — M-02) |
+| `lookups.md` | Lookup-Tabellen (DB) | database_manage MCP | `docs/reference/lookups.md` (⚠️ nur intern: in `.gitignore`, nur in dev-hub sichtbar hinter Cloudflare Access — M-02) |
 | `architecture.md` | platform-context Rules | platform-context MCP | `docs/reference/architecture.md` |
 
 **Generierung erfolgt via `/session-docu --generate` Workflow** (Dry-Run Default, K-02). Commit nur mit explizitem `--commit` Flag nach manuellem Review. Generator-Output enthält Timestamp + Version-Header. Diff gegen bestehende Datei vor Commit (Idempotenz, A-2).
@@ -363,7 +367,7 @@ Analog zu `/ship` (Deploy) und `/session-start` (Kontext), aber für Dokumentati
 
 ## Consequences
 
-### Positiv
+### Good
 
 - **Ein Einstiegspunkt** (devhub.iil.pet) für alle Dokumentation
 - **Audience-Routing**: Jede Rolle findet sofort relevante Inhalte
@@ -372,7 +376,7 @@ Analog zu `/ship` (Deploy) und `/session-start` (Kontext), aber für Dokumentati
 - **Kein neues System**: Erweitert dev-hub, nutzt Outline + docs-agent
 - **Workflow-gesteuert**: `/session-docu` macht Doku-Arbeit reproduzierbar
 
-### Negativ
+### Bad
 
 - **dev-hub wird zum SPOF**: Wenn dev-hub down ist, fehlt der Portal-Zugang (Mitigation: GitHub-Docs direkt erreichbar + `docs/portal-fallback.md` mit direkten URLs zu GitHub/Outline, A-3)
 - **Audience Navigator braucht Pflege**: `audience.yaml` pro Repo muss aktuell sein (Mitigation: `/session-docu` prüft)
@@ -389,6 +393,49 @@ Analog zu `/ship` (Deploy) und `/session-start` (Kontext), aber für Dokumentati
 | Sync-Konflikte | Unidirektionale Syncs, kanonische Quelle definiert |
 | Zu viele Systems of Record | Source-of-Truth Matrix (Section D) = verbindlich |
 
+### Confirmation
+
+Die Einhaltung dieser Architektur-Entscheidung wird verifiziert durch:
+
+1. **`/session-docu --audit`**: Prüft audience.yaml-Präsenz, DIATAXIS-Struktur, Docstring-Coverage pro Repo
+2. **Documentation Health Score ≥ 50%**: Quality Gate im dev-hub Health Dashboard (Phase 4)
+3. **`docu-audit.sh --json --fail-under 50`**: CI-integrierbarer Check
+4. **ADR-059 Drift-Detector**: `staleness_months: 3` + `drift_check_paths` überwachen die Aktualität
+5. **Architecture Guardian**: `audience.yaml` Pydantic-Validierung via `audience_validator.py`
+
+---
+
+## Open Questions
+
+| # | Frage | Status | Entscheidung |
+|---|-------|--------|-------------|
+| Q-1 | **Schema-Versionierung**: Wie wird `audience.yaml` bei `schema_version: 2` migriert? | Deferred | Migrationsskript in docs-agent; Abwärtskompatibilität über Pydantic Union-Types. Entscheidung wenn v2 nötig. |
+| Q-2 | **docs-agent Availability**: Was passiert wenn docs-agent nicht installiert ist? | Decided | `docu-audit.sh` prüft Verfügbarkeit und degradiert graceful (AST-Checks werden übersprungen, Score-Metrik = 0). |
+| Q-3 | **Celery Performance**: Beeinflussen die Sync-Jobs (hourly ADR, daily TechDocs) die dev-hub Performance? | Decided | Jobs laufen in separater Worker-Queue (`docs`). Beat-Schedule + `max_retries=2` + `soft_time_limit=300s`. |
+| Q-4 | **DocHealthMetric Seed**: Wie werden die Default-Gewichtungen initial befüllt? | Decided | `manage.py seed_hubs` erweitern oder neues `seed_doc_metrics` Command. Defaults aus ADR-158 D-3 Tabelle. |
+| Q-5 | **Full-Text Search**: Cross-System-Suche über alle Doc-Systeme? | Deferred | Out of scope. Ggf. eigenes ADR wenn Outline + TechDocs + GitHub durchsucht werden soll. |
+| Q-6 | **OUTLINE_BASE_URL**: Woher kommt die Umgebungsvariable? | Decided | Via `decouple.config()` aus `.env.prod` (ADR-045). Default: `https://knowledge.iil.pet`. Benötigt für CrossLinkService. |
+
+---
+
+## Implementation Tracking
+
+| Phase | Status | Deliverable | Evidenz |
+|-------|--------|-------------|--------|
+| Phase 0: Model Foundation | ✅ Done | `AudienceConfig`, `AudienceSource`, `DocHealthMetric`, `DocHealthProfile` | `dev-hub/apps/portal/models.py` |
+| Phase 0: Services | ✅ Done | `AudienceService`, `CrossLinkService`, `DocHealthService` | `dev-hub/apps/portal/services.py` |
+| Phase 0: Management Command | ✅ Done | `load_audience_config` | `dev-hub/apps/portal/management/commands/` |
+| Phase 0: Admin Registration | ✅ Done | 4 ModelAdmins | `dev-hub/apps/portal/admin.py` |
+| Phase 0: Migrationen | ⬜ Pending | `makemigrations` + `migrate` | — |
+| Phase 0: i18n Setup | ⬜ Pending | `locale/de/LC_MESSAGES/portal.po` | — |
+| Phase 1: `/session-docu` Workflow | ✅ Done | Workflow mit Flags | `.windsurf/workflows/session-docu.md` |
+| Phase 1: `audience.yaml` + Validator | ✅ Done | Pydantic v2 Schema | `packages/docs-agent/audience_validator.py` |
+| Phase 1: `docu-audit.sh` | ✅ Done | `--json` + `--fail-under` | `platform/scripts/docu-audit.sh` |
+| Phase 2: Reference-Doc Generation | ⬜ Pending | CLI + Extractors + Pilot | — |
+| Phase 3: Audience Navigator UI | ⬜ Pending | Views + Templates | — |
+| Phase 4: Health Score Dashboard | ⬜ Pending | Dashboard + Celery | — |
+| Phase 5: Outline Link-Sync | ⬜ Pending | Deep-Links | — |
+
 ---
 
 ## Success Criteria
@@ -404,9 +451,9 @@ Analog zu `/ship` (Deploy) und `/session-start` (Kontext), aber für Dokumentati
 
 ---
 
-## References
+## More Information
 
-- [ADR-020: Documentation Strategy](./ADR-020-documentation-strategy.md) — Status: Deferred
+- [ADR-020: Documentation Strategy](./ADR-020-documentation-strategy.md) — Status: Superseded by this ADR
 - [ADR-046: Documentation Governance — Hygiene & Docs Agent](./ADR-046-docs-hygiene.md)
 - [ADR-143: Knowledge Hub — Outline Integration](./ADR-143-knowledge-hub-outline-integration.md)
 - [ADR-144: doc-hub — Paperless-ngx](./ADR-144-doc-hub-paperless-ngx.md)
@@ -415,3 +462,10 @@ Analog zu `/ship` (Deploy) und `/session-start` (Kontext), aber für Dokumentati
 - [Backstage TechDocs](https://backstage.io/docs/features/techdocs/)
 - dev-hub TechDocs: `apps/techdocs/services.py` (GitHub → DB sync)
 - docs-agent: `platform/packages/docs-agent/` (AST Scanner, DIATAXIS Classifier)
+
+### Required Environment Variables
+
+| Variable | Source | Default | Used by |
+|----------|--------|---------|---------|
+| `OUTLINE_BASE_URL` | `.env.prod` via `decouple.config()` | `https://knowledge.iil.pet` | `CrossLinkService` |
+| `REPO_BASE_DIR` | Django settings | `/workspace` | `load_audience_config` Command |
