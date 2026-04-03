@@ -1,19 +1,27 @@
 #!/usr/bin/env python3
-"""Port Audit — vergleicht ports.yaml mit dem realen Server-Zustand.
+"""Port Audit — vergleicht ports.yaml mit Servern.
 
 Nutzung:
-    # Remote-Audit (Standard):
+    # Prod-Server-Audit (Standard):
     python infra/scripts/port_audit.py
 
-    # Mit explizitem Server:
-    python infra/scripts/port_audit.py --server root@88.198.191.108
+    # Staging-Server-Audit:
+    python infra/scripts/port_audit.py --staging
+
+    # Beide Server:
+    python infra/scripts/port_audit.py --all-servers
 
     # Nur ports.yaml auf Duplikate prüfen (offline):
     python infra/scripts/port_audit.py --offline
 
+    # Nächsten freien Port ermitteln:
+    python infra/scripts/port_audit.py --next-free
+
 Exit-Codes:
     0 = keine Konflikte
     1 = Konflikte gefunden
+
+Referenz: ADR-106, ADR-157
 """
 
 from __future__ import annotations
@@ -26,37 +34,75 @@ from pathlib import Path
 import yaml
 
 
-PORTS_YAML = Path(__file__).resolve().parent.parent / "ports.yaml"
-DEFAULT_SERVER = "root@88.198.191.108"
+PORTS_YAML = (
+    Path(__file__).resolve().parent.parent / "ports.yaml"
+)
 
 
-def load_ports_yaml(path: Path) -> dict:
-    """Lade ports.yaml und gib das services-dict zurück."""
+def load_ports_yaml(path: Path) -> tuple[dict, dict]:
+    """Lade ports.yaml, gib (services, servers) zurück."""
     with open(path) as f:
         data = yaml.safe_load(f)
-    return data.get("services", {})
+    return (
+        data.get("services", {}),
+        data.get("servers", {}),
+    )
 
 
 def check_yaml_duplicates(services: dict) -> list[str]:
-    """Prüfe ports.yaml auf doppelt vergebene Ports."""
-    port_owners: dict[int, list[str]] = {}
+    """Prüfe ports.yaml auf doppelt vergebene Ports.
+
+    Prod-Ports und Staging-Ports werden GETRENNT geprüft,
+    da sie auf verschiedenen Servern laufen (ADR-157).
+    """
+    prod_owners: dict[int, list[str]] = {}
+    staging_owners: dict[int, list[str]] = {}
     for name, cfg in services.items():
         if cfg is None:
             continue
-        for env in ("staging", "prod"):
-            port = cfg.get(env)
-            if port and isinstance(port, int):
-                key = port
-                owner = f"{name}/{env}"
-                port_owners.setdefault(key, []).append(owner)
+        prod_port = cfg.get("prod")
+        if prod_port and isinstance(prod_port, int):
+            prod_owners.setdefault(
+                prod_port, [],
+            ).append(name)
+        staging_port = cfg.get("staging")
+        if staging_port and isinstance(staging_port, int):
+            staging_owners.setdefault(
+                staging_port, [],
+            ).append(name)
 
     errors = []
-    for port, owners in sorted(port_owners.items()):
+    for port, owners in sorted(prod_owners.items()):
         if len(owners) > 1:
             errors.append(
-                f"  DUPLIKAT Port {port}: {', '.join(owners)}"
+                f"  DUPLIKAT prod:{port}:"
+                f" {', '.join(owners)}"
+            )
+    for port, owners in sorted(staging_owners.items()):
+        if len(owners) > 1:
+            errors.append(
+                f"  DUPLIKAT staging:{port}:"
+                f" {', '.join(owners)}"
             )
     return errors
+
+
+def find_next_free_port(services: dict) -> int:
+    """Berechne den nächsten freien Port."""
+    used: set[int] = set()
+    for cfg in services.values():
+        if cfg is None:
+            continue
+        for env in ("prod", "staging"):
+            port = cfg.get(env)
+            if port and isinstance(port, int):
+                used.add(port)
+    if not used:
+        return 8001
+    candidate = max(used) + 1
+    while candidate in used:
+        candidate += 1
+    return candidate
 
 
 def get_server_ports(server: str) -> dict[int, str]:
@@ -179,24 +225,59 @@ def audit(services: dict, server_ports: dict[int, str]) -> list[str]:
     return errors
 
 
+def audit_server(
+    services: dict,
+    server_ssh: str,
+    env: str,
+) -> list[str]:
+    """Audit eines Servers gegen ports.yaml."""
+    print(f"  Verbinde zu {server_ssh}...")
+    server_ports = get_server_ports(server_ssh)
+    print(
+        f"  {len(server_ports)} Port-Mappings"
+        " gefunden\n",
+    )
+    return audit(services, server_ports)
+
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Port Audit")
+    parser = argparse.ArgumentParser(
+        description="Port Audit (ADR-106, ADR-157)",
+    )
     parser.add_argument(
-        "--server", default=DEFAULT_SERVER,
-        help=f"SSH target (default: {DEFAULT_SERVER})",
+        "--server",
+        help="SSH target (überschreibt ports.yaml)",
+    )
+    parser.add_argument(
+        "--staging", action="store_true",
+        help="Staging-Server prüfen",
+    )
+    parser.add_argument(
+        "--all-servers", action="store_true",
+        help="Beide Server prüfen",
     )
     parser.add_argument(
         "--offline", action="store_true",
         help="Nur ports.yaml auf Duplikate prüfen",
     )
+    parser.add_argument(
+        "--next-free", action="store_true",
+        help="Nächsten freien Port ausgeben",
+    )
     args = parser.parse_args()
 
-    print(f"📋 Lade {PORTS_YAML}")
-    services = load_ports_yaml(PORTS_YAML)
-    print(f"   {len(services)} Services geladen\n")
+    services, servers = load_ports_yaml(PORTS_YAML)
+    print(f"Lade {PORTS_YAML.name}")
+    print(f"  {len(services)} Services geladen")
+
+    # --next-free: nur Port ausgeben und exit
+    if args.next_free:
+        nfp = find_next_free_port(services)
+        print(f"\nNächster freier Port: {nfp}")
+        sys.exit(0)
 
     # Check 1: YAML-Duplikate
-    print("Check 1: Duplikate in ports.yaml")
+    print("\nCheck 1: Duplikate in ports.yaml")
     dupes = check_yaml_duplicates(services)
     if dupes:
         print("\n".join(dupes))
@@ -206,22 +287,53 @@ def main() -> None:
     if args.offline:
         sys.exit(1 if dupes else 0)
 
-    # Check 2: Server-Vergleich
-    print(f"Check 2: Server-Abgleich ({args.server})")
-    server_ports = get_server_ports(args.server)
-    print(f"  {len(server_ports)} Port-Mappings auf Server gefunden\n")
-
-    print("Check 3: Konflikte & fehlende Einträge")
-    conflicts = audit(services, server_ports)
-    if conflicts:
-        print("\n".join(conflicts))
+    # Determine which servers to audit
+    targets: list[tuple[str, str]] = []
+    if args.server:
+        targets.append((args.server, "custom"))
+    elif args.all_servers:
+        for env, cfg in servers.items():
+            if cfg and cfg.get("ssh"):
+                targets.append((cfg["ssh"], env))
+    elif args.staging:
+        stg = servers.get("staging", {})
+        ssh = stg.get("ssh") if stg else None
+        if ssh:
+            targets.append((ssh, "staging"))
+        else:
+            print("ERROR: Kein staging-Server")
+            sys.exit(2)
     else:
-        print("  OK — keine Konflikte\n")
+        prod = servers.get("prod", {})
+        ssh = prod.get("ssh") if prod else None
+        if ssh:
+            targets.append((ssh, "prod"))
+        else:
+            targets.append(
+                ("root@88.198.191.108", "prod"),
+            )
 
-    all_errors = dupes + conflicts
+    all_errors = list(dupes)
+    for ssh_target, env in targets:
+        print(
+            f"Check: Server-Abgleich"
+            f" [{env}] ({ssh_target})"
+        )
+        conflicts = audit_server(
+            services, ssh_target, env,
+        )
+        if conflicts:
+            print("\n".join(conflicts))
+        else:
+            print("  OK — keine Konflikte\n")
+        all_errors.extend(conflicts)
+
     if all_errors:
         print(f"\n{'='*50}")
-        print(f"ERGEBNIS: {len(all_errors)} Problem(e) gefunden")
+        print(
+            f"ERGEBNIS:"
+            f" {len(all_errors)} Problem(e)"
+        )
         sys.exit(1)
     else:
         print(f"\n{'='*50}")
