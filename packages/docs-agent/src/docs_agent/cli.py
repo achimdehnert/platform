@@ -424,6 +424,121 @@ def generate(
         )
 
 
+@app.command()
+def reference(
+    repo_path: Path = typer.Argument(
+        ...,
+        help="Path to the repository root.",
+        exists=True,
+        dir_okay=True,
+        file_okay=False,
+    ),
+    doc_type: str = typer.Option(
+        "all",
+        "--type",
+        help="Which reference doc: models, api, config, or all.",
+    ),
+    dry_run: bool = typer.Option(
+        True,
+        "--dry-run/--commit",
+        help="Preview changes (default) or write files.",
+    ),
+    output_dir: str = typer.Option(
+        "docs/reference",
+        "--output-dir",
+        help="Output directory relative to repo root.",
+    ),
+    apps_only: bool = typer.Option(
+        True,
+        "--apps-only/--all-dirs",
+        help="Only scan apps/ directory (default).",
+    ),
+) -> None:
+    """Generate reference documentation (models, API, config) from code introspection."""
+    from docs_agent.extractors.models_extractor import (
+        extract_models_from_repo,
+        render_models_markdown,
+    )
+    from docs_agent.extractors.settings_extractor import (
+        extract_config_from_repo,
+        render_config_markdown,
+    )
+    from docs_agent.extractors.urls_extractor import (
+        extract_urls_from_repo,
+        render_urls_markdown,
+    )
+    from docs_agent.git_utils import write_if_changed
+
+    repo_path = repo_path.resolve()
+    repo_name = repo_path.name
+    out = repo_path / output_dir
+    mode = "[yellow]DRY RUN[/]" if dry_run else "[red]COMMIT[/]"
+    console.print(
+        f"\n[bold blue]docs-agent reference[/] — {repo_name} ({mode})\n"
+    )
+
+    results = []
+
+    if doc_type in ("models", "all"):
+        console.print("[bold]Extracting models...[/]")
+        models = extract_models_from_repo(repo_path, apps_only=apps_only)
+        console.print(f"  Found {len(models)} models.")
+        md = render_models_markdown(models, repo_name=repo_name)
+        result = write_if_changed(out / "models.md", md, dry_run=dry_run)
+        results.append(("models.md", result))
+
+    if doc_type in ("api", "all"):
+        console.print("[bold]Extracting URL patterns...[/]")
+        modules = extract_urls_from_repo(repo_path, apps_only=apps_only)
+        total_urls = sum(len(m.patterns) for m in modules)
+        console.print(f"  Found {total_urls} endpoints in {len(modules)} modules.")
+        md = render_urls_markdown(modules, repo_name=repo_name)
+        result = write_if_changed(out / "api.md", md, dry_run=dry_run)
+        results.append(("api.md", result))
+
+    if doc_type in ("config", "all"):
+        console.print("[bold]Extracting configuration...[/]")
+        profile = extract_config_from_repo(repo_path)
+        console.print(
+            f"  Found {len(profile.settings)} settings, "
+            f"{len(profile.env_vars)} env vars."
+        )
+        md = render_config_markdown(profile, repo_name=repo_name)
+        result = write_if_changed(out / "config.md", md, dry_run=dry_run)
+        results.append(("config.md", result))
+
+    # Summary
+    console.print("\n[bold]Results:[/]")
+    changed = 0
+    for name, result in results:
+        if result.changed:
+            changed += 1
+            action = "would write" if dry_run else "written"
+            console.print(f"  [green]✓[/] {name}: {action} ({len(result.diff_lines)} diff lines)")
+            # Show first few diff lines
+            for line in result.diff_lines[:10]:
+                if line.startswith("+") and not line.startswith("+++"):
+                    console.print(f"    [green]{line}[/]")
+                elif line.startswith("-") and not line.startswith("---"):
+                    console.print(f"    [red]{line}[/]")
+            if len(result.diff_lines) > 10:
+                console.print(f"    ... ({len(result.diff_lines) - 10} more)")
+        else:
+            console.print(f"  [dim]—[/] {name}: no changes")
+
+    if dry_run and changed:
+        console.print(
+            f"\n[yellow]{changed} file(s) would change. "
+            f"Run with --commit to write.[/]"
+        )
+    elif not dry_run and changed:
+        console.print(
+            f"\n[green]{changed} file(s) written to {output_dir}/[/]"
+        )
+    else:
+        console.print("\n[dim]Everything up to date.[/]")
+
+
 def _show_diff_preview(
     original: str,
     modified: str,
