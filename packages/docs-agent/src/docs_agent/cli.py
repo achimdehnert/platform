@@ -19,7 +19,7 @@ app = typer.Typer(
     help="AI-assisted documentation quality agent.",
     no_args_is_help=True,
 )
-console = Console()
+console = Console(force_terminal=True)
 
 
 @app.command()
