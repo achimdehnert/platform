@@ -983,38 +983,38 @@ Der Admin stellt eine atomare **"Neue Version erstellen"** Action bereit, die in
 
 ## 12. Implementation Evidence (nach Umsetzung auszufuellen)
 
-- [ ] `promptfw.contrib.django` Package in promptfw Repo angelegt
-- [ ] PromptTemplate Model mit Platform-Standard-Feldern (`public_id`, `tenant_id`, `deleted_at`)
-- [ ] `UniqueConstraint` statt `unique_together` (inkl. partieller Index fuer `is_active`)
-- [ ] Pydantic v2 Validierung fuer `variables_schema` in `clean()`
-- [ ] `SandboxedEnvironment` in Resolution-API
-- [ ] Cache-Layer mit Invalidierung im Admin
-- [ ] i18n (`gettext_lazy`) auf allen Feldern und Admin-Fieldsets
-- [ ] `HubChoices` + `ResponseFormat` TextChoices Enums
-- [ ] `action_code` RegexValidator
-- [ ] `suggested_temperature` MinValue/MaxValue Validators
-- [ ] Admin: "Neue Version erstellen" Action (atomar)
-- [ ] Admin: Soft-Delete statt Hard-Delete
-- [ ] `SeparateDatabaseAndState` Migration
-- [ ] `render_prompt()` Resolution: DB (cached) -> File (settings-basiert) -> PromptNotFoundError
-- [ ] `seed_prompts` Command (--from-dir, --from-yaml)
-- [ ] `export_prompts` Command (--format yaml)
-- [ ] `validate_prompts` Command (CI-Gate)
-- [ ] `__all__` Export in `__init__.py`
-- [ ] Django-Settings: `PROMPTFW_PROMPTS_DIR`, `PROMPTFW_CACHE_TTL`, `PROMPTFW_FILE_FALLBACK`
-- [ ] `PromptValidationError` bei fehlenden required-Variables
-- [ ] `validate_prompts` Command: Schema + Jinja2-Syntax + Required-Check
-- [ ] `apps.py` `PromptfwConfig` mit `label="promptfw"`
-- [ ] Admin `delete_queryset()` fuer Bulk Soft-Delete
-- [ ] `PROMPTFW_MULTI_TENANT` Setting + tenant-aware Cache-Key + DB-Filter
-- [ ] No Silent Degradation: File-Fallback propagiert Rendering-Fehler
-- [ ] `defaults` Cross-Validierung gegen `variables_schema` in `clean()`
-- [ ] >=25 Tests in `test_contrib_django.py`
+- [x] `promptfw.contrib.django` Package in promptfw Repo angelegt
+- [x] PromptTemplate Model mit Platform-Standard-Feldern (`public_id`, `tenant_id`, `deleted_at`)
+- [x] `UniqueConstraint` statt `unique_together` (inkl. partieller Index fuer `is_active`)
+- [x] Pydantic v2 Validierung fuer `variables_schema` in `clean()`
+- [x] `SandboxedEnvironment` in Resolution-API
+- [x] Cache-Layer mit Invalidierung im Admin
+- [x] i18n (`gettext_lazy`) auf allen Feldern und Admin-Fieldsets
+- [x] `HubChoices` + `ResponseFormat` TextChoices Enums
+- [x] `action_code` RegexValidator
+- [x] `suggested_temperature` MinValue/MaxValue Validators
+- [x] Admin: "Neue Version erstellen" Action (atomar)
+- [x] Admin: Soft-Delete statt Hard-Delete
+- [x] `SeparateDatabaseAndState` Migration
+- [x] `render_prompt()` Resolution: DB (cached) -> File (settings-basiert) -> PromptNotFoundError
+- [x] `seed_prompts` Command (--from-dir, --from-yaml)
+- [x] `export_prompts` Command (--format yaml)
+- [x] `validate_prompts` Command (CI-Gate)
+- [x] `__all__` Export in `__init__.py`
+- [x] Django-Settings: `PROMPTFW_PROMPTS_DIR`, `PROMPTFW_CACHE_TTL`, `PROMPTFW_FILE_FALLBACK`
+- [x] `PromptValidationError` bei fehlenden required-Variables
+- [x] `validate_prompts` Command: Schema + Jinja2-Syntax + Required-Check
+- [x] `apps.py` `PromptfwConfig` mit `label="promptfw"`
+- [x] Admin `delete_queryset()` fuer Bulk Soft-Delete
+- [x] `PROMPTFW_MULTI_TENANT` Setting + tenant-aware Cache-Key + DB-Filter
+- [x] No Silent Degradation: File-Fallback propagiert Rendering-Fehler
+- [x] `defaults` Cross-Validierung gegen `variables_schema` in `clean()`
+- [x] >=25 Tests in `test_contrib_django.py` (36 tests)
 - [ ] promptfw v0.8.0 auf PyPI publiziert
-- [ ] writing-hub: 46 Prompts in DB migriert
-- [ ] travel-beat: 5 Registry-Prompts via YAML in DB migriert
-- [ ] research-hub: 3 Inline-Prompts extrahiert und in DB
-- [ ] Alle 3 Hubs: `render_prompt()` als einheitliche API
+- [x] writing-hub: 46 Prompts via YAML seed + DB→File fallback (commit 3b3ea12)
+- [x] travel-beat: 5 Registry-Prompts via YAML seed + DB→InMemory fallback (commit 4bf3797)
+- [x] research-hub: 2 Inline-Prompts extrahiert + DB→Inline fallback (commit 683271d)
+- [x] Alle 3 Hubs: `render_prompt()` als einheitliche API
 
 ---
 
