@@ -399,20 +399,20 @@ jobs:
         run: pip install "iil-platform-context>=0.5.0" || pip install "platform-context>=0.3.1" || true
       - name: "Check: No blind **kwargs forwarding (ADR-155 §4.3)"
         run: |
-          python -c "
-import sys
-from pathlib import Path
-try:
-    from platform_context.checks.no_kwargs_forwarding import check
-    violations = check(Path('.'))
-    if violations:
-        print(f'❌ ADR-155: {len(violations)} **kwargs violation(s):')
-        for v in violations:
-            print(f'  {v[\"message\"]}')
-        sys.exit(1)
-    else:
-        print('✓ ADR-155: No **kwargs forwarding in adapters.')
-except ImportError:
-    print('⚠ platform_context.checks not available — skipping guardian check')
-    sys.exit(0)
-"
+          python3 << 'GUARDIAN_EOF'
+          import sys
+          from pathlib import Path
+          try:
+              from platform_context.checks.no_kwargs_forwarding import check
+              violations = check(Path('.'))
+              if violations:
+                  print(f'ADR-155: {len(violations)} **kwargs violation(s):')
+                  for v in violations:
+                      print(f'  {v["message"]}')
+                  sys.exit(1)
+              else:
+                  print('ADR-155: No **kwargs forwarding in adapters.')
+          except ImportError:
+              print('platform_context.checks not available -- skipping guardian check')
+              sys.exit(0)
+          GUARDIAN_EOF
