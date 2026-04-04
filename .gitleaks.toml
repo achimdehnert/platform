@@ -1,0 +1,35 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  Gitleaks Configuration — Secret Detection (ADR-045)                      ║
+# ║  Used by: pre-commit hook + CI (_ci-python.yml)                           ║
+# ║  Docs: https://github.com/gitleaks/gitleaks#configuration                ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+title = "Platform Gitleaks Config"
+
+# Use the built-in rules (150+ patterns for API keys, tokens, passwords)
+# https://github.com/gitleaks/gitleaks/blob/master/config/gitleaks.toml
+
+[extend]
+useDefault = true
+
+# Allowlist: patterns that are NOT secrets (test fixtures, documentation)
+[allowlist]
+  description = "Known false positives"
+
+  # Test fixture mock keys (not real)
+  regexTarget = "match"
+  regexes = [
+    '''sk-proj-abc''',
+    '''test-secret-key-for-ci''',
+    '''changeme''',
+    '''testpass\d*''',
+    '''password123''',
+  ]
+
+  # Paths that are expected to contain example/mock secrets
+  paths = [
+    '''\.env\.example$''',
+    '''\.env\.prod\.example$''',
+    '''docs/templates/.*''',
+    '''tests/.*fixtures.*''',
+  ]
