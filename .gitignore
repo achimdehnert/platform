@@ -20,6 +20,9 @@ staticfiles/
 # Secrets (ADR-045) — NEVER commit plaintext
 secrets.env
 !secrets.enc.env
+.Kopie*
+*.env.bak*
+.db_backups/
 # IDE
 .idea/
 .vscode/
