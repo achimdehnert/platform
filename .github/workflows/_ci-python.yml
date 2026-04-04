@@ -65,11 +65,16 @@ on:
         required: false
         default: '==0.15.4'
         type: string
+      runs_on:
+        description: 'Runner label (default: ubuntu-latest). Use self-hosted if runners are registered.'
+        required: false
+        default: 'ubuntu-latest'
+        type: string
 
 jobs:
   lint:
     name: "Lint & Format"
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs_on }}
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -85,7 +90,7 @@ jobs:
 
   security:
     name: "Security Scan (pip-audit)"
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs_on }}
     if: ${{ inputs.enable_security_scan }}
     continue-on-error: true
     steps:
@@ -103,7 +108,7 @@ jobs:
 
   test-unit:
     name: "Unit Tests"
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
     steps:
       - uses: actions/checkout@v4
@@ -182,7 +187,7 @@ jobs:
 
   test-integration:
     name: "Integration Tests"
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
     continue-on-error: true
     steps:
@@ -304,7 +309,7 @@ jobs:
 
   coverage-report:
     name: "Coverage Gate (≥${{ inputs.coverage_threshold }}%)"
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs_on }}
     needs: [test-unit, test-integration]
     if: ${{ !inputs.skip_tests }}
     steps:
@@ -323,7 +328,7 @@ jobs:
 
   test-contract:
     name: "Contract Tests"
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs_on }}
     needs: [test-unit, test-integration]
     if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
     services:
@@ -386,7 +391,7 @@ jobs:
 
   architecture-guardian:
     name: "Architecture Guardian (ADR-155)"
-    runs-on: self-hosted
+    runs-on: ${{ inputs.runs_on }}
     needs: [lint]
     if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
     steps:
