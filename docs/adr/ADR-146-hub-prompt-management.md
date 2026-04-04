@@ -6,6 +6,8 @@ implementation_status: not_started
 implementation_evidence: []
 tags: [promptfw, prompt-management, cross-hub, database, django, CRUD]
 related: [ADR-083, ADR-089, ADR-093, ADR-121, ADR-133]
+review: reviews/review-adr-146.md
+review_status: revision_1
 ---
 
 # ADR-146: Hub-übergreifendes DB-Prompt-Management — promptfw als SSoT für editierbare Prompts
@@ -109,7 +111,7 @@ class StoryFocusConfig(models.Model):
 5. **Versionierung + Rollback**: Prompt v1 → bearbeiten → v2. Rollback = alte Version aktivieren
 6. **promptfw bleibt Django-frei**: Core-Library hat keine Django-Dependency. DB-Integration ist ein optionaler `contrib`-Layer
 7. **Bestehende Infrastruktur nutzen**: `DjangoTemplateRegistry` und `DBPromptResolver` existieren — nicht neu erfinden
-8. **SSoT**: Ein Prompt, eine Quelle der Wahrheit. Nicht gleichzeitig in DB und File.
+8. **SSoT im Betrieb**: DB ist die primaere Quelle der Wahrheit. File-basierte Templates dienen als Read-Only-Fallback waehrend der Migration und koennen nach Phase 4 via `PROMPTFW_FILE_FALLBACK=False` deaktiviert werden.
 
 ---
 
@@ -225,8 +227,55 @@ Jeder Hub bringt sein eigenes `PromptTemplate`-Model mit und nutzt `DjangoTempla
 ```python
 # promptfw/src/promptfw/contrib/django/models.py
 
-from django.conf import settings
+import uuid
+
+from django.core.validators import MinValueValidator, MaxValueValidator, RegexValidator
 from django.db import models
+from django.utils.translation import gettext_lazy as _
+
+
+# --- Pydantic v2 Schemas fuer JSONField-Validierung (KRITISCH-1) ---
+from pydantic import BaseModel, Field
+from typing import Any
+
+
+class PromptVariableSchema(BaseModel):
+    type: str
+    required: bool = False
+    default: Any = None
+    description: str = ""
+    enum: list[str] | None = None
+    min: int | None = None
+    max: int | None = None
+
+
+class PromptVariablesSchema(BaseModel):
+    variables: dict[str, PromptVariableSchema] = Field(default_factory=dict)
+
+
+# --- Enums (HOCH-3, MEDIUM-1) ---
+
+class HubChoices(models.TextChoices):
+    WRITING = "writing-hub", _("Writing Hub")
+    TRAVEL_BEAT = "travel-beat", _("Travel Beat / DriftTales")
+    RESEARCH = "research-hub", _("Research Hub")
+    CAD = "cad-hub", _("CAD Hub")
+    RISK = "risk-hub", _("Risk Hub")
+    COACH = "coach-hub", _("Coach Hub")
+    OTHER = "other", _("Other / Platform-wide")
+
+
+class ResponseFormat(models.TextChoices):
+    TEXT = "text", _("Text")
+    JSON_OBJECT = "json_object", _("JSON Object")
+    JSON_SCHEMA = "json_schema", _("JSON Schema")
+
+
+# --- action_code Convention Validator (HOCH-2) ---
+action_code_validator = RegexValidator(
+    regex=r'^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*){1,3}$',
+    message=_('Format: "{hub}.{domain}.{action}" — nur Kleinbuchstaben, Ziffern, Bindestriche'),
+)
 
 
 class PromptTemplate(models.Model):
@@ -234,81 +283,131 @@ class PromptTemplate(models.Model):
 
     Resolution order (via PromptResolver):
       1. DB: PromptTemplate.objects.filter(action_code=X, is_active=True)
-      2. File: PROMPTS_DIR / f"{action_code}.jinja2" (writing-hub pattern)
-      3. Built-in: promptfw.writing / promptfw.planning stacks
-      4. Error: PromptNotFoundError
+      2. File: settings.PROMPTFW_PROMPTS_DIR / f"{action_code}.jinja2"
+      3. Error: PromptNotFoundError
     """
+
+    # === Platform-Standard-Felder (BLOCKER-2) ===
+    id = models.BigAutoField(primary_key=True)
+    public_id = models.UUIDField(
+        default=uuid.uuid4, editable=False, unique=True,
+        verbose_name=_("public ID"),
+    )
+    tenant_id = models.BigIntegerField(
+        null=True, blank=True, db_index=True,
+        verbose_name=_("tenant ID"),
+        help_text=_("Multi-Tenancy Isolation (null = platform-wide)"),
+    )
 
     # === Identity ===
     action_code = models.CharField(
-        max_length=200, db_index=True,
-        help_text='Unique prompt identifier. Convention: "{hub}.{domain}.{action}" '
-                  'e.g. "travel-beat.story.chapter", "writing-hub.authoring.chapter_write"'
+        max_length=100, db_index=True,
+        validators=[action_code_validator],
+        verbose_name=_("action code"),
+        help_text=_('Unique prompt identifier. Convention: "{hub}.{domain}.{action}" '
+                    'e.g. "travel-beat.story.chapter", "writing-hub.authoring.chapter-write"'),
     )
-    version = models.PositiveIntegerField(default=1)
+    version = models.PositiveIntegerField(
+        default=1,
+        verbose_name=_("version"),
+    )
 
     # === Content (Jinja2 Templates) ===
     system_template = models.TextField(
         blank=True,
-        help_text="System-Prompt (Jinja2). Variablen: {{ var_name }}. "
-                  "Leer = kein System-Prompt."
+        verbose_name=_("system template"),
+        help_text=_("System-Prompt (Jinja2). Variablen: {{ var_name }}. "
+                    "Leer = kein System-Prompt."),
     )
     user_template = models.TextField(
-        help_text="User-Prompt (Jinja2). Variablen: {{ var_name }}. Pflichtfeld."
+        verbose_name=_("user template"),
+        help_text=_("User-Prompt (Jinja2). Variablen: {{ var_name }}. Pflichtfeld."),
     )
 
     # === Parametrisierung ===
     defaults = models.JSONField(
         default=dict, blank=True,
-        help_text='Default-Werte wenn Caller keine uebergibt. '
-                  'z.B. {"language": "de", "genre": "Romantic Suspense", "target_words": 2500}'
+        verbose_name=_("defaults"),
+        help_text=_("Default-Werte wenn Caller keine uebergibt."),
     )
     variables_schema = models.JSONField(
         default=dict, blank=True,
-        help_text='Variablen-Schema fuer Validierung + Admin-UI. '
-                  'z.B. {"genre": {"type": "string", "required": true}, '
-                  '"target_words": {"type": "integer", "required": false, "default": 2500}}'
+        verbose_name=_("variables schema"),
+        help_text=_("Variablen-Schema (Pydantic-validiert). "
+                    'z.B. {"genre": {"type": "string", "required": true}}'),
     )
 
     # === LLM Hints (optional — aifw bleibt Routing-SSoT) ===
     suggested_max_tokens = models.PositiveIntegerField(
         null=True, blank=True,
-        help_text="Empfohlene max_tokens. Wird als llm_overrides an aifw uebergeben."
+        verbose_name=_("suggested max tokens"),
+        help_text=_("Empfohlene max_tokens. Wird als llm_overrides an aifw uebergeben."),
     )
     suggested_temperature = models.FloatField(
         null=True, blank=True,
-        help_text="Empfohlene Temperature (0.0-2.0)."
+        validators=[MinValueValidator(0.0), MaxValueValidator(2.0)],
+        verbose_name=_("suggested temperature"),
+        help_text=_("Empfohlene Temperature (0.0-2.0)."),
     )
     response_format = models.CharField(
         max_length=20, blank=True,
-        choices=[("text", "Text"), ("json_object", "JSON Object"), ("json_schema", "JSON Schema")],
-        help_text="Erwartetes Antwortformat."
+        choices=ResponseFormat.choices,
+        verbose_name=_("response format"),
+        help_text=_("Erwartetes Antwortformat."),
     )
     output_schema = models.JSONField(
         default=dict, blank=True,
-        help_text="JSON Schema wenn response_format=json_schema."
+        verbose_name=_("output schema"),
+        help_text=_("JSON Schema wenn response_format=json_schema."),
     )
 
     # === Metadata ===
-    name = models.CharField(max_length=200, blank=True, help_text="Menschenlesbarer Name")
-    description = models.TextField(blank=True, help_text="Was tut dieser Prompt?")
+    name = models.CharField(
+        max_length=200, blank=True,
+        verbose_name=_("name"),
+        help_text=_("Menschenlesbarer Name"),
+    )
+    description = models.TextField(
+        blank=True,
+        verbose_name=_("description"),
+        help_text=_("Was tut dieser Prompt?"),
+    )
     hub = models.CharField(
         max_length=50, blank=True, db_index=True,
-        help_text="Quell-Hub: travel-beat, writing-hub, research-hub"
+        choices=HubChoices.choices,
+        verbose_name=_("hub"),
     )
     domain = models.CharField(
         max_length=50, blank=True, db_index=True,
-        help_text="Domain: story, authoring, research, worlds"
+        verbose_name=_("domain"),
+        help_text=_("Domain: story, authoring, research, worlds"),
     )
-    tags = models.JSONField(default=list, blank=True)
+    tags = models.JSONField(
+        default=list, blank=True,
+        verbose_name=_("tags"),
+    )
 
     # === Lifecycle ===
-    is_active = models.BooleanField(default=True, db_index=True)
-    notes = models.TextField(blank=True, help_text="Interne Notizen / Aenderungsgrund")
+    is_active = models.BooleanField(
+        default=True, db_index=True,
+        verbose_name=_("is active"),
+    )
+    deleted_at = models.DateTimeField(
+        null=True, blank=True, db_index=True,
+        verbose_name=_("deleted at"),
+        help_text=_("Soft-Delete Timestamp (null = nicht geloescht)"),
+    )
+    notes = models.TextField(
+        blank=True,
+        verbose_name=_("notes"),
+        help_text=_("Interne Notizen / Aenderungsgrund"),
+    )
 
-    created_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL, null=True, blank=True,
-        on_delete=models.SET_NULL, related_name="+"
+    # MEDIUM-3: CharField statt ForeignKey — vermeidet Migrations-Abhaengigkeit auf AUTH_USER_MODEL
+    created_by = models.CharField(
+        max_length=150, blank=True,
+        verbose_name=_("created by"),
+        help_text=_("Username des Erstellers"),
     )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -316,16 +415,41 @@ class PromptTemplate(models.Model):
     class Meta:
         app_label = "promptfw"
         db_table = "promptfw_template"
-        unique_together = [("action_code", "version")]
         ordering = ["action_code", "-version"]
+        verbose_name = _("prompt template")
+        verbose_name_plural = _("prompt templates")
+        # BLOCKER-1: UniqueConstraint statt unique_together
+        constraints = [
+            models.UniqueConstraint(
+                fields=["action_code", "version"],
+                name="promptfw_template_action_version_uniq",
+            ),
+            # BLOCKER-3: Erzwingt max. 1 is_active=True pro action_code auf DB-Ebene
+            models.UniqueConstraint(
+                fields=["action_code"],
+                condition=models.Q(is_active=True),
+                name="promptfw_template_action_active_uniq",
+            ),
+        ]
         indexes = [
             models.Index(fields=["hub", "is_active"]),
             models.Index(fields=["domain", "is_active"]),
             models.Index(fields=["action_code", "is_active", "-version"]),
+            models.Index(fields=["tenant_id", "is_active"]),
         ]
 
     def __str__(self):
         return f"{self.action_code} v{self.version} ({'active' if self.is_active else 'inactive'})"
+
+    def clean(self):
+        """Pydantic v2 Validierung fuer JSONFields (KRITISCH-1)."""
+        from pydantic import ValidationError as PydanticValidationError
+        from django.core.exceptions import ValidationError
+        if self.variables_schema:
+            try:
+                PromptVariablesSchema(variables=self.variables_schema)
+            except PydanticValidationError as e:
+                raise ValidationError({"variables_schema": str(e)})
 ```
 
 ### 5.2 Resolution API: `render_prompt()`
@@ -336,18 +460,37 @@ class PromptTemplate(models.Model):
 from __future__ import annotations
 import logging
 from typing import Any
-from jinja2 import Template as Jinja2Template, StrictUndefined
-from promptfw.exceptions import TemplateNotFoundError
+
+from django.conf import settings
+from django.core.cache import cache
+from jinja2 import StrictUndefined
+from jinja2.sandbox import SandboxedEnvironment
 
 logger = logging.getLogger(__name__)
 
-_PROMPTS_DIR = None  # Set via configure()
+# BLOCKER-4: SandboxedEnvironment verhindert Jinja2-Introspection-Angriffe
+_JINJA_ENV = SandboxedEnvironment(undefined=StrictUndefined)
+
+# BLOCKER-5: Cache-TTL (ueberschreibbar via settings.PROMPTFW_CACHE_TTL)
+_CACHE_TTL = 300  # 5 Minuten
 
 
-def configure(prompts_dir=None):
-    """Configure file-based fallback directory."""
-    global _PROMPTS_DIR
-    _PROMPTS_DIR = prompts_dir
+class PromptNotFoundError(Exception):
+    """Raised when no prompt template found for action_code (MEDIUM-5)."""
+
+
+def _get_prompts_dir():
+    """KRITISCH-6: Django-Setting statt globaler mutabler State."""
+    return getattr(settings, "PROMPTFW_PROMPTS_DIR", None)
+
+
+def _get_cache_ttl():
+    return getattr(settings, "PROMPTFW_CACHE_TTL", _CACHE_TTL)
+
+
+def _get_file_fallback_enabled():
+    """HOCH-1: Deaktivierbar nach Abschluss aller Migrationen."""
+    return getattr(settings, "PROMPTFW_FILE_FALLBACK", True)
 
 
 def render_prompt(action_code: str, **context: Any) -> list[dict[str, str]]:
@@ -356,65 +499,70 @@ def render_prompt(action_code: str, **context: Any) -> list[dict[str, str]]:
 
     Resolution order:
       1. DB: PromptTemplate(action_code=X, is_active=True, latest version)
-      2. File: PROMPTS_DIR / f"{action_code}.jinja2" (Frontmatter)
-      3. Error: TemplateNotFoundError
+      2. File: settings.PROMPTFW_PROMPTS_DIR / f"{action_code}.jinja2" (if enabled)
+      3. Error: PromptNotFoundError
 
     Variable merging: defaults (from DB) | context (from caller) — caller wins.
 
     Returns:
         [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}]
     """
-    # 1. DB lookup
+    # 1. DB lookup (cached)
     tpl = _load_from_db(action_code)
     if tpl:
         merged = {**tpl.defaults, **context}
         return _render_db_template(tpl, merged)
 
-    # 2. File fallback
-    if _PROMPTS_DIR:
-        messages = _render_from_file(action_code, context)
+    # 2. File fallback (deaktivierbar via settings.PROMPTFW_FILE_FALLBACK=False)
+    prompts_dir = _get_prompts_dir()
+    if prompts_dir and _get_file_fallback_enabled():
+        messages = _render_from_file(action_code, context, prompts_dir)
         if messages:
             return messages
 
     # 3. Error
-    raise TemplateNotFoundError(
+    raise PromptNotFoundError(
         f"No prompt template found for action_code='{action_code}'. "
-        f"Neither in DB (promptfw_template) nor in files ({_PROMPTS_DIR})."
+        f"Neither in DB (promptfw_template) nor in files ({prompts_dir})."
     )
 
 
 def _load_from_db(action_code: str):
-    """Load active template from DB (latest version)."""
+    """Load active template from DB (latest version) with cache (BLOCKER-5)."""
+    cache_key = f"promptfw:template:{action_code}"
+    cached = cache.get(cache_key)
+    if cached is not None:
+        return cached if cached != "__NONE__" else None
+
     from promptfw.contrib.django.models import PromptTemplate
-    return PromptTemplate.objects.filter(
-        action_code=action_code, is_active=True
+    tpl = PromptTemplate.objects.filter(
+        action_code=action_code, is_active=True, deleted_at__isnull=True,
     ).order_by("-version").first()
+
+    # Cache auch None-Ergebnisse um DB-Lookups zu vermeiden
+    cache.set(cache_key, tpl if tpl else "__NONE__", timeout=_get_cache_ttl())
+    return tpl
 
 
 def _render_db_template(tpl, context: dict) -> list[dict[str, str]]:
-    """Render DB template with Jinja2."""
+    """Render DB template with SandboxedEnvironment (BLOCKER-4)."""
     messages = []
     if tpl.system_template:
-        sys_rendered = Jinja2Template(
-            tpl.system_template, undefined=StrictUndefined
-        ).render(**context).strip()
+        sys_rendered = _JINJA_ENV.from_string(tpl.system_template).render(**context).strip()
         if sys_rendered:
             messages.append({"role": "system", "content": sys_rendered})
 
-    user_rendered = Jinja2Template(
-        tpl.user_template, undefined=StrictUndefined
-    ).render(**context).strip()
+    user_rendered = _JINJA_ENV.from_string(tpl.user_template).render(**context).strip()
     messages.append({"role": "user", "content": user_rendered})
     return messages
 
 
-def _render_from_file(action_code: str, context: dict):
+def _render_from_file(action_code: str, context: dict, prompts_dir: str):
     """Fallback: render from .jinja2 frontmatter file."""
     from pathlib import Path
-    path = Path(_PROMPTS_DIR) / f"{action_code.replace('.', '/')}.jinja2"
+    path = Path(prompts_dir) / f"{action_code.replace('.', '/')}.jinja2"
     if not path.exists():
-        # Try flat layout (writing-hub pattern)
-        path = Path(_PROMPTS_DIR) / f"{action_code}.jinja2"
+        path = Path(prompts_dir) / f"{action_code}.jinja2"
     if not path.exists():
         return None
     try:
@@ -425,12 +573,27 @@ def _render_from_file(action_code: str, context: dict):
         return None
 ```
 
+**Django-Settings fuer promptfw.contrib.django:**
+
+```python
+# config/settings/base.py (pro Hub)
+PROMPTFW_PROMPTS_DIR = BASE_DIR / "templates" / "prompts"  # File-Fallback-Verzeichnis
+PROMPTFW_CACHE_TTL = 300       # Cache-TTL in Sekunden (default: 5 min)
+PROMPTFW_FILE_FALLBACK = True  # False nach Abschluss aller Migrationen
+```
+
 ### 5.3 Admin UI
 
 ```python
 # promptfw/src/promptfw/contrib/django/admin.py
 
+import uuid
+
 from django.contrib import admin
+from django.core.cache import cache
+from django.db import transaction
+from django.utils.translation import gettext_lazy as _
+
 from .models import PromptTemplate
 
 
@@ -439,37 +602,71 @@ class PromptTemplateAdmin(admin.ModelAdmin):
     list_display = ["action_code", "version", "name", "hub", "domain", "is_active", "updated_at"]
     list_filter = ["hub", "domain", "is_active", "response_format"]
     search_fields = ["action_code", "name", "description", "system_template", "user_template"]
-    readonly_fields = ["created_at", "updated_at", "created_by"]
+    readonly_fields = ["public_id", "created_at", "updated_at", "created_by"]
 
     fieldsets = [
-        ("Identity", {
-            "fields": ["action_code", "version", "name", "description"]
+        (_("Identity"), {
+            "fields": ["action_code", "version", "name", "description", "public_id"]
         }),
-        ("Content", {
+        (_("Content"), {
             "fields": ["system_template", "user_template"],
-            "description": "Jinja2-Templates. Variablen: {{ var_name }}"
+            "description": _("Jinja2-Templates (SandboxedEnvironment). Variablen: {{ var_name }}")
         }),
-        ("Parametrisierung", {
+        (_("Parametrisierung"), {
             "fields": ["defaults", "variables_schema"],
             "classes": ["collapse"]
         }),
-        ("LLM Hints", {
+        (_("LLM Hints"), {
             "fields": ["suggested_max_tokens", "suggested_temperature",
                        "response_format", "output_schema"],
             "classes": ["collapse"]
         }),
-        ("Metadata", {
-            "fields": ["hub", "domain", "tags", "notes", "is_active"]
+        (_("Metadata"), {
+            "fields": ["hub", "domain", "tags", "notes", "is_active", "tenant_id"]
         }),
-        ("Audit", {
-            "fields": ["created_by", "created_at", "updated_at"]
+        (_("Audit"), {
+            "fields": ["created_by", "created_at", "updated_at", "deleted_at"]
         }),
     ]
 
     def save_model(self, request, obj, form, change):
         if not change:
-            obj.created_by = request.user
+            obj.created_by = request.user.username
         super().save_model(request, obj, form, change)
+        # BLOCKER-5: Cache-Invalidierung bei Save
+        cache.delete(f"promptfw:template:{obj.action_code}")
+
+    def delete_model(self, request, obj):
+        # Soft-Delete statt Hard-Delete
+        from django.utils import timezone
+        obj.deleted_at = timezone.now()
+        obj.is_active = False
+        obj.save(update_fields=["deleted_at", "is_active"])
+        cache.delete(f"promptfw:template:{obj.action_code}")
+
+    # KRITISCH-4: Atomare "Neue Version erstellen" Admin-Action
+    @admin.action(description=_("Neue Version erstellen (Kopie mit inkrementierter Version)"))
+    def create_new_version(self, request, queryset):
+        count = 0
+        for tpl in queryset.filter(is_active=True):
+            with transaction.atomic():
+                new_version = tpl.version + 1
+                # Altes deaktivieren
+                tpl.is_active = False
+                tpl.save(update_fields=["is_active"])
+                # Neue Version als Kopie
+                tpl.pk = None
+                tpl.public_id = uuid.uuid4()
+                tpl.version = new_version
+                tpl.is_active = True
+                tpl.created_by = request.user.username
+                tpl.deleted_at = None
+                tpl.save()
+                cache.delete(f"promptfw:template:{tpl.action_code}")
+                count += 1
+        self.message_user(request, _(f"{count} neue Version(en) erstellt."))
+
+    actions = [create_new_version]
 ```
 
 ### 5.4 Migration CLI
@@ -478,17 +675,28 @@ class PromptTemplateAdmin(admin.ModelAdmin):
 # Import: .jinja2 Files -> DB
 python manage.py seed_prompts --from-dir templates/prompts/ --hub writing-hub
 
-# Import: travel-beat PromptTemplateSpec -> DB
-python manage.py seed_prompts --from-registry travel-beat
+# Import: travel-beat — Einmaliger YAML-Export der InMemoryRegistry, dann YAML -> DB
+# (HOCH-4: Statisches YAML statt Laufzeit-Registry-Import — explizit + versionierbar)
+python manage.py seed_prompts --from-yaml prompts/travel-beat-export.yaml --hub travel-beat
 
-# Export: DB -> .jinja2 Files (Git-Backup)
-python manage.py export_prompts --hub writing-hub --output-dir templates/prompts/
+# Export: DB -> YAML (Git-Backup + Seed-Quelle fuer andere Hubs)
+python manage.py export_prompts --hub writing-hub --output-dir prompts/ --format yaml
 
-# Validate: Pruefe ob alle action_codes in DB oder Files vorhanden
+# Validate: Pruefe ob alle action_codes in DB oder Files vorhanden (CI-Gate)
 python manage.py validate_prompts
 ```
 
-### 5.5 Abgrenzung: promptfw vs. aifw
+### 5.5 Package-Export (`__init__.py`)
+
+```python
+# promptfw/src/promptfw/contrib/django/__init__.py (MEDIUM-2)
+__all__ = ["PromptTemplate", "render_prompt", "PromptNotFoundError"]
+
+from .models import PromptTemplate
+from .resolution import PromptNotFoundError, render_prompt
+```
+
+### 5.6 Abgrenzung: promptfw vs. aifw
 
 | Concern | Zustaendig | Beispiel |
 |---------|-----------|---------|
@@ -556,7 +764,9 @@ Rollback:          -> version=2 wird is_active=False
                    -> version=1 wird is_active=True
 ```
 
-**Invariante:** Fuer ein `action_code` ist maximal ein `PromptTemplate` mit `is_active=True` zulaessig. Erzwungen via `save()` Override oder DB Trigger.
+**Invariante:** Fuer ein `action_code` ist maximal ein `PromptTemplate` mit `is_active=True` zulaessig. **Erzwungen via partiellem `UniqueConstraint` auf DB-Ebene** (`promptfw_template_action_active_uniq`) — nicht ueber `save()` Override (der bei `QuerySet.update()` und `bulk_update()` umgangen wird).
+
+Der Admin stellt eine atomare **"Neue Version erstellen"** Action bereit, die in einer `transaction.atomic()` die alte Version deaktiviert und die neue anlegt.
 
 ---
 
@@ -567,14 +777,15 @@ Rollback:          -> version=2 wird is_active=False
 | # | Task | Dateien |
 |---|------|---------|
 | 1.1 | `promptfw/contrib/django/` Package anlegen | `__init__.py`, `apps.py`, `models.py`, `admin.py`, `resolution.py` |
-| 1.2 | Model `PromptTemplate` mit Migrations | `models.py`, `migrations/0001_initial.py` |
+| 1.2 | Model `PromptTemplate` mit Migrations (`SeparateDatabaseAndState` fuer bfagent-Legacy-Kompatibilitaet) | `models.py`, `migrations/0001_initial.py` |
 | 1.3 | `render_prompt()` Resolution-API | `resolution.py` |
 | 1.4 | Admin CRUD | `admin.py` |
 | 1.5 | `seed_prompts` Management Command | `management/commands/seed_prompts.py` |
 | 1.6 | `export_prompts` Management Command | `management/commands/export_prompts.py` |
-| 1.7 | Tests (>=20) | `tests/test_contrib_django.py` |
-| 1.8 | `pyproject.toml`: `promptfw[django]` Extra | `pyproject.toml` |
-| 1.9 | promptfw v0.8.0 Release | Tag + PyPI |
+| 1.7 | `validate_prompts` Management Command (CI-Gate) | `management/commands/validate_prompts.py` |
+| 1.8 | Tests (>=20) | `tests/test_contrib_django.py` |
+| 1.9 | `pyproject.toml`: `promptfw[django]` Extra | `pyproject.toml` |
+| 1.10 | promptfw v0.8.0 Release | Tag + PyPI |
 
 ### Phase 2 — writing-hub Migration (Aufwand: 0.5-1 Tag)
 
@@ -593,7 +804,7 @@ Rollback:          -> version=2 wird is_active=False
 | # | Task | Details |
 |---|------|---------|
 | 3.1 | `INSTALLED_APPS += ["promptfw.contrib.django"]` | `config/settings/base.py` |
-| 3.2 | 5 registrierte `PromptTemplateSpec` -> DB via Seed-Script | `seed_prompts --from-registry travel-beat` |
+| 3.2 | 5 registrierte `PromptTemplateSpec` -> YAML-Export -> DB | Einmaliger Export der `InMemoryRegistry` nach `prompts/travel-beat-export.yaml`, dann `seed_prompts --from-yaml` |
 | 3.3 | `InMemoryRegistry` -> DB-backed Resolution | `render_template()` nutzt `render_prompt()` |
 | 3.4 | ~30 Inline-Prompts schrittweise extrahieren (Strangler Fig) | Pro Service: f-string -> `render_prompt(action_code, **vars)` |
 | 3.5 | `StoryFocusConfig.chapter_prompt_addition` -> `PromptTemplate.defaults` oder Composition | Prompt-Additions als Variablen injizieren |
@@ -604,7 +815,7 @@ Rollback:          -> version=2 wird is_active=False
 |---|------|
 | 4.1 | research-hub: 3 Inline-Prompts -> DB (`research.summarize`, `research.deep_analysis`, `research.fact_check`) |
 | 4.2 | cad-hub, risk-hub, coach-hub: bei naechster Feature-Arbeit migrieren |
-| 4.3 | `validate_prompts` in CI integrieren |
+| 4.3 | `validate_prompts` in CI integrieren (ADR-057 CI-Pipeline, pre-deploy Step) |
 
 ---
 
@@ -633,10 +844,10 @@ Rollback:          -> version=2 wird is_active=False
 | Risiko | Schwere | Mitigation |
 |--------|---------|------------|
 | DB nicht erreichbar | MEDIUM | File-Fallback bleibt aktiv; `.jinja2`-Files werden nicht geloescht |
-| Prompt-Injection via Admin | HIGH | Jinja2 `SandboxedEnvironment` + Admin-Zugriff nur fuer Admins |
+| Prompt-Injection via Admin | HIGH | Jinja2 `SandboxedEnvironment` (implementiert in `_render_db_template()`) + Admin-Zugriff nur fuer Staff-User |
 | Migration bricht bestehende Prompts | HIGH | `seed_prompts` ist idempotent (skip existing); `export_prompts` als Backup |
 | Django-Migration-Konflikt zwischen Hubs | MEDIUM | Shared Migrations in promptfw-Package; Hubs fuehren nur `migrate promptfw` aus |
-| Performance (DB-Lookup pro LLM-Call) | LOW | Cache mit 5min TTL (Django Cache Framework); ~84 Prompts passen in Memory |
+| Performance (DB-Lookup pro LLM-Call) | LOW | Cache mit 5min TTL (implementiert in `_load_from_db()` + Invalidierung in `save_model()`); ~84 Prompts passen in Memory. TTL via `settings.PROMPTFW_CACHE_TTL` konfigurierbar. |
 
 ---
 
@@ -669,14 +880,55 @@ Rollback:          -> version=2 wird is_active=False
 ## 12. Implementation Evidence (nach Umsetzung auszufuellen)
 
 - [ ] `promptfw.contrib.django` Package in promptfw Repo angelegt
-- [ ] PromptTemplate Model mit Migrations
-- [ ] Admin CRUD funktional
-- [ ] `render_prompt()` Resolution: DB -> File -> Error
-- [ ] `seed_prompts` Command
-- [ ] `export_prompts` Command
-- [ ] >=20 Tests in `test_contrib_django.py`
+- [ ] PromptTemplate Model mit Platform-Standard-Feldern (`public_id`, `tenant_id`, `deleted_at`)
+- [ ] `UniqueConstraint` statt `unique_together` (inkl. partieller Index fuer `is_active`)
+- [ ] Pydantic v2 Validierung fuer `variables_schema` in `clean()`
+- [ ] `SandboxedEnvironment` in Resolution-API
+- [ ] Cache-Layer mit Invalidierung im Admin
+- [ ] i18n (`gettext_lazy`) auf allen Feldern und Admin-Fieldsets
+- [ ] `HubChoices` + `ResponseFormat` TextChoices Enums
+- [ ] `action_code` RegexValidator
+- [ ] `suggested_temperature` MinValue/MaxValue Validators
+- [ ] Admin: "Neue Version erstellen" Action (atomar)
+- [ ] Admin: Soft-Delete statt Hard-Delete
+- [ ] `SeparateDatabaseAndState` Migration
+- [ ] `render_prompt()` Resolution: DB (cached) -> File (settings-basiert) -> PromptNotFoundError
+- [ ] `seed_prompts` Command (--from-dir, --from-yaml)
+- [ ] `export_prompts` Command (--format yaml)
+- [ ] `validate_prompts` Command (CI-Gate)
+- [ ] `__all__` Export in `__init__.py`
+- [ ] Django-Settings: `PROMPTFW_PROMPTS_DIR`, `PROMPTFW_CACHE_TTL`, `PROMPTFW_FILE_FALLBACK`
+- [ ] >=25 Tests in `test_contrib_django.py`
 - [ ] promptfw v0.8.0 auf PyPI publiziert
 - [ ] writing-hub: 46 Prompts in DB migriert
-- [ ] travel-beat: 5 Registry-Prompts in DB migriert
+- [ ] travel-beat: 5 Registry-Prompts via YAML in DB migriert
 - [ ] research-hub: 3 Inline-Prompts extrahiert und in DB
 - [ ] Alle 3 Hubs: `render_prompt()` als einheitliche API
+
+---
+
+## 13. Review-Tracker
+
+| Finding | Severity | Status | Revision |
+|---------|----------|--------|----------|
+| BLOCKER-1: `UniqueConstraint` statt `unique_together` | BLOCKER | Fixed | v1 |
+| BLOCKER-2: Platform-Standard-Felder (`public_id`, `tenant_id`, `deleted_at`) | BLOCKER | Fixed | v1 |
+| BLOCKER-3: Versioning-Invariante via partiellen Index | BLOCKER | Fixed | v1 |
+| BLOCKER-4: `SandboxedEnvironment` | BLOCKER | Fixed | v1 |
+| BLOCKER-5: Cache-Layer implementiert | BLOCKER | Fixed | v1 |
+| KRITISCH-1: Pydantic v2 fuer JSONFields | KRITISCH | Fixed | v1 |
+| KRITISCH-2: `suggested_temperature` Validator | KRITISCH | Fixed | v1 |
+| KRITISCH-3: i18n (`gettext_lazy`) | KRITISCH | Fixed | v1 |
+| KRITISCH-4: Admin "Neue Version" Action | KRITISCH | Fixed | v1 |
+| KRITISCH-5: `SeparateDatabaseAndState` erwaehnt | KRITISCH | Fixed | v1 |
+| KRITISCH-6: Django-Settings statt `_PROMPTS_DIR` global | KRITISCH | Fixed | v1 |
+| HOCH-1: SSoT Decision Driver umformuliert | HOCH | Fixed | v1 |
+| HOCH-2: `action_code` RegexValidator | HOCH | Fixed | v1 |
+| HOCH-3: `HubChoices` TextChoices Enum | HOCH | Fixed | v1 |
+| HOCH-4: `seed_prompts --from-yaml` statt `--from-registry` | HOCH | Fixed | v1 |
+| HOCH-5: `validate_prompts` in Phase 1 Tasks | HOCH | Fixed | v1 |
+| MEDIUM-1: `ResponseFormat` TextChoices | MEDIUM | Fixed | v1 |
+| MEDIUM-2: `__all__` Export | MEDIUM | Fixed | v1 |
+| MEDIUM-3: `created_by` als CharField statt FK | MEDIUM | Fixed | v1 |
+| MEDIUM-4: CI-Referenz (ADR-057) | MEDIUM | Fixed | v1 |
+| MEDIUM-5: `PromptNotFoundError` konsistent | MEDIUM | Fixed | v1 |
