@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-04-04
 decision-makers: Achim Dehnert
 implementation_status: not_started
@@ -7,14 +7,14 @@ implementation_evidence: []
 tags: [promptfw, prompt-management, cross-hub, database, django, CRUD]
 related: [ADR-083, ADR-089, ADR-093, ADR-121, ADR-133]
 review: reviews/review-adr-146.md
-review_status: revision_2
+review_status: accepted
 ---
 
 # ADR-146: Hub-übergreifendes DB-Prompt-Management — promptfw als SSoT für editierbare Prompts
 
 | Metadata | Value |
 |----------|-------|
-| **Status** | Proposed |
+| **Status** | **Accepted** (2026-04-04) |
 | **Date** | 2026-04-04 |
 | **Author** | Achim Dehnert |
 | **Decision-Makers** | Achim Dehnert |
