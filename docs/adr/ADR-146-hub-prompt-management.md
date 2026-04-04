@@ -7,7 +7,7 @@ implementation_evidence: []
 tags: [promptfw, prompt-management, cross-hub, database, django, CRUD]
 related: [ADR-083, ADR-089, ADR-093, ADR-121, ADR-133]
 review: reviews/review-adr-146.md
-review_status: revision_1
+review_status: revision_2
 ---
 
 # ADR-146: Hub-übergreifendes DB-Prompt-Management — promptfw als SSoT für editierbare Prompts
@@ -293,10 +293,14 @@ class PromptTemplate(models.Model):
         default=uuid.uuid4, editable=False, unique=True,
         verbose_name=_("public ID"),
     )
+    # tenant_id ist ab Phase 1 als Feld vorhanden, wird aber erst bei Bedarf
+    # (tax-hub SaaS) aktiv genutzt. Resolution + Cache ignorieren tenant_id
+    # solange PROMPTFW_MULTI_TENANT=False (default). Siehe Abschnitt 5.7.
     tenant_id = models.BigIntegerField(
         null=True, blank=True, db_index=True,
         verbose_name=_("tenant ID"),
-        help_text=_("Multi-Tenancy Isolation (null = platform-wide)"),
+        help_text=_("Multi-Tenancy Isolation (null = platform-wide). "
+                    "Erst aktiv wenn settings.PROMPTFW_MULTI_TENANT=True."),
     )
 
     # === Identity ===
@@ -425,6 +429,8 @@ class PromptTemplate(models.Model):
                 name="promptfw_template_action_version_uniq",
             ),
             # BLOCKER-3: Erzwingt max. 1 is_active=True pro action_code auf DB-Ebene
+            # Bei Multi-Tenancy (PROMPTFW_MULTI_TENANT=True) muss dieser Constraint
+            # via Migration auf (action_code, tenant_id) erweitert werden.
             models.UniqueConstraint(
                 fields=["action_code"],
                 condition=models.Q(is_active=True),
@@ -450,6 +456,13 @@ class PromptTemplate(models.Model):
                 PromptVariablesSchema(variables=self.variables_schema)
             except PydanticValidationError as e:
                 raise ValidationError({"variables_schema": str(e)})
+        # Cross-Validierung: defaults-Keys muessen im Schema existieren
+        if self.variables_schema and self.defaults:
+            unknown = set(self.defaults.keys()) - set(self.variables_schema.keys())
+            if unknown:
+                raise ValidationError(
+                    {"defaults": f"Keys nicht im variables_schema: {unknown}"}
+                )
 ```
 
 ### 5.2 Resolution API: `render_prompt()`
@@ -476,7 +489,11 @@ _CACHE_TTL = 300  # 5 Minuten
 
 
 class PromptNotFoundError(Exception):
-    """Raised when no prompt template found for action_code (MEDIUM-5)."""
+    """Raised when no prompt template found for action_code."""
+
+
+class PromptValidationError(Exception):
+    """Raised when required variables are missing or invalid."""
 
 
 def _get_prompts_dir():
@@ -493,7 +510,11 @@ def _get_file_fallback_enabled():
     return getattr(settings, "PROMPTFW_FILE_FALLBACK", True)
 
 
-def render_prompt(action_code: str, **context: Any) -> list[dict[str, str]]:
+def _is_multi_tenant():
+    return getattr(settings, "PROMPTFW_MULTI_TENANT", False)
+
+
+def render_prompt(action_code: str, *, tenant_id: int | None = None, **context: Any) -> list[dict[str, str]]:
     """
     Unified prompt resolution — single API for all hubs.
 
@@ -503,14 +524,21 @@ def render_prompt(action_code: str, **context: Any) -> list[dict[str, str]]:
       3. Error: PromptNotFoundError
 
     Variable merging: defaults (from DB) | context (from caller) — caller wins.
+    Schema validation: required variables checked if variables_schema is defined.
+
+    Args:
+        action_code: Prompt identifier (e.g. "writing-hub.authoring.chapter-write")
+        tenant_id: Optional tenant isolation (only when PROMPTFW_MULTI_TENANT=True)
+        **context: Variables to render into the template
 
     Returns:
         [{"role": "system", "content": "..."}, {"role": "user", "content": "..."}]
     """
-    # 1. DB lookup (cached)
-    tpl = _load_from_db(action_code)
+    # 1. DB lookup (cached, tenant-aware wenn aktiviert)
+    tpl = _load_from_db(action_code, tenant_id=tenant_id)
     if tpl:
         merged = {**tpl.defaults, **context}
+        _validate_context(tpl, merged)
         return _render_db_template(tpl, merged)
 
     # 2. File fallback (deaktivierbar via settings.PROMPTFW_FILE_FALLBACK=False)
@@ -527,19 +555,38 @@ def render_prompt(action_code: str, **context: Any) -> list[dict[str, str]]:
     )
 
 
-def _load_from_db(action_code: str):
-    """Load active template from DB (latest version) with cache (BLOCKER-5)."""
-    cache_key = f"promptfw:template:{action_code}"
+def _validate_context(tpl, merged: dict) -> None:
+    """Validate merged context against variables_schema (if defined)."""
+    if not tpl.variables_schema:
+        return
+    for var_name, spec in tpl.variables_schema.items():
+        if spec.get("required") and var_name not in merged:
+            raise PromptValidationError(
+                f"Required variable '{var_name}' missing for "
+                f"action_code='{tpl.action_code}'. "
+                f"Expected variables: {list(tpl.variables_schema.keys())}"
+            )
+
+
+def _load_from_db(action_code: str, *, tenant_id: int | None = None):
+    """Load active template from DB (latest version) with cache.
+
+    Cache-Key ist tenant-aware wenn PROMPTFW_MULTI_TENANT=True.
+    """
+    suffix = f":{tenant_id}" if _is_multi_tenant() and tenant_id else ""
+    cache_key = f"promptfw:template:{action_code}{suffix}"
     cached = cache.get(cache_key)
     if cached is not None:
         return cached if cached != "__NONE__" else None
 
     from promptfw.contrib.django.models import PromptTemplate
-    tpl = PromptTemplate.objects.filter(
+    qs = PromptTemplate.objects.filter(
         action_code=action_code, is_active=True, deleted_at__isnull=True,
-    ).order_by("-version").first()
+    )
+    if _is_multi_tenant() and tenant_id is not None:
+        qs = qs.filter(models.Q(tenant_id=tenant_id) | models.Q(tenant_id__isnull=True))
+    tpl = qs.order_by("-version").first()
 
-    # Cache auch None-Ergebnisse um DB-Lookups zu vermeiden
     cache.set(cache_key, tpl if tpl else "__NONE__", timeout=_get_cache_ttl())
     return tpl
 
@@ -558,19 +605,20 @@ def _render_db_template(tpl, context: dict) -> list[dict[str, str]]:
 
 
 def _render_from_file(action_code: str, context: dict, prompts_dir: str):
-    """Fallback: render from .jinja2 frontmatter file."""
+    """Fallback: render from .jinja2 frontmatter file.
+
+    No Silent Degradation: Rendering-Fehler werden NICHT geschluckt.
+    Nur 'Datei nicht gefunden' gibt None zurueck (= weiter zu Error).
+    """
     from pathlib import Path
     path = Path(prompts_dir) / f"{action_code.replace('.', '/')}.jinja2"
     if not path.exists():
         path = Path(prompts_dir) / f"{action_code}.jinja2"
     if not path.exists():
         return None
-    try:
-        from promptfw.frontmatter import render_frontmatter_file
-        return render_frontmatter_file(str(path), context)
-    except Exception as exc:
-        logger.warning("File fallback failed for %s: %s", action_code, exc)
-        return None
+    # Datei existiert -> Rendering MUSS funktionieren, sonst Error propagieren
+    from promptfw.frontmatter import render_frontmatter_file
+    return render_frontmatter_file(str(path), context)
 ```
 
 **Django-Settings fuer promptfw.contrib.django:**
@@ -578,8 +626,9 @@ def _render_from_file(action_code: str, context: dict, prompts_dir: str):
 ```python
 # config/settings/base.py (pro Hub)
 PROMPTFW_PROMPTS_DIR = BASE_DIR / "templates" / "prompts"  # File-Fallback-Verzeichnis
-PROMPTFW_CACHE_TTL = 300       # Cache-TTL in Sekunden (default: 5 min)
-PROMPTFW_FILE_FALLBACK = True  # False nach Abschluss aller Migrationen
+PROMPTFW_CACHE_TTL = 300         # Cache-TTL in Sekunden (default: 5 min)
+PROMPTFW_FILE_FALLBACK = True    # False nach Abschluss aller Migrationen
+PROMPTFW_MULTI_TENANT = False    # True wenn tenant-isolierte Prompts benoetigt
 ```
 
 ### 5.3 Admin UI
@@ -644,6 +693,14 @@ class PromptTemplateAdmin(admin.ModelAdmin):
         obj.save(update_fields=["deleted_at", "is_active"])
         cache.delete(f"promptfw:template:{obj.action_code}")
 
+    def delete_queryset(self, request, queryset):
+        # Bulk Soft-Delete (Admin "Delete selected" Action)
+        from django.utils import timezone
+        action_codes = set(queryset.values_list("action_code", flat=True))
+        queryset.update(deleted_at=timezone.now(), is_active=False)
+        for ac in action_codes:
+            cache.delete(f"promptfw:template:{ac}")
+
     # KRITISCH-4: Atomare "Neue Version erstellen" Admin-Action
     @admin.action(description=_("Neue Version erstellen (Kopie mit inkrementierter Version)"))
     def create_new_version(self, request, queryset):
@@ -686,17 +743,64 @@ python manage.py export_prompts --hub writing-hub --output-dir prompts/ --format
 python manage.py validate_prompts
 ```
 
+**`validate_prompts` Command-Design:**
+
+| Check | Was | Fehler-Level |
+|-------|-----|-------------|
+| **Schema-Syntax** | Pydantic-Validierung aller `variables_schema` JSONFields | ERROR |
+| **Required-Variables** | Fuer jede aktive PromptTemplate: `defaults` deckt alle `required=true` ab | WARNING |
+| **Jinja2-Syntax** | System- und User-Templates durch `SandboxedEnvironment.parse()` | ERROR |
+| **Orphaned References** | action_codes in Code referenziert aber nicht in DB/File | WARNING |
+| **Duplicate Active** | Mehr als 1 `is_active=True` pro `action_code` (sollte durch Constraint verhindert sein) | ERROR |
+| **Hub-Konsistenz** | `hub`-Feld gesetzt und valider `HubChoices`-Wert | WARNING |
+
+Exit-Code: `0` wenn keine ERRORs, `1` bei mindestens einem ERROR. WARNINGs werden ausgegeben aber blockieren CI nicht.
+
 ### 5.5 Package-Export (`__init__.py`)
 
 ```python
-# promptfw/src/promptfw/contrib/django/__init__.py (MEDIUM-2)
-__all__ = ["PromptTemplate", "render_prompt", "PromptNotFoundError"]
+# promptfw/src/promptfw/contrib/django/__init__.py
+__all__ = [
+    "PromptTemplate",
+    "render_prompt",
+    "PromptNotFoundError",
+    "PromptValidationError",
+]
 
 from .models import PromptTemplate
-from .resolution import PromptNotFoundError, render_prompt
+from .resolution import PromptNotFoundError, PromptValidationError, render_prompt
 ```
 
-### 5.6 Abgrenzung: promptfw vs. aifw
+### 5.6 AppConfig
+
+```python
+# promptfw/src/promptfw/contrib/django/apps.py
+from django.apps import AppConfig
+from django.utils.translation import gettext_lazy as _
+
+
+class PromptfwConfig(AppConfig):
+    name = "promptfw.contrib.django"
+    label = "promptfw"
+    verbose_name = _("Prompt Framework")
+    default_auto_field = "django.db.models.BigAutoField"
+```
+
+### 5.7 Multi-Tenancy Strategie
+
+`tenant_id` ist ab Phase 1 als Feld auf dem Model vorhanden, wird aber **nicht aktiv genutzt** bis ein Hub Multi-Tenancy benoetigt (z.B. tax-hub SaaS).
+
+| Aspekt | Phase 1 (default) | Multi-Tenant (spaeter) |
+|--------|-------------------|------------------------|
+| `settings.PROMPTFW_MULTI_TENANT` | `False` | `True` |
+| `tenant_id` Feld | Vorhanden, immer `null` | Gesetzt pro Tenant |
+| `render_prompt()` Signatur | `tenant_id` Parameter ignoriert | Filtert nach tenant_id + null (Fallback auf platform-wide) |
+| Cache-Key | `promptfw:template:{action_code}` | `promptfw:template:{action_code}:{tenant_id}` |
+| UniqueConstraint | `(action_code)` bei `is_active=True` | Muss via Migration auf `(action_code, tenant_id)` erweitert werden |
+
+**Entscheidung:** Feld jetzt anlegen, Logik spaeter aktivieren. Vermeidet Schema-Migration wenn Multi-Tenancy benoetigt wird.
+
+### 5.8 Abgrenzung: promptfw vs. aifw
 
 | Concern | Zustaendig | Beispiel |
 |---------|-----------|---------|
@@ -898,6 +1002,13 @@ Der Admin stellt eine atomare **"Neue Version erstellen"** Action bereit, die in
 - [ ] `validate_prompts` Command (CI-Gate)
 - [ ] `__all__` Export in `__init__.py`
 - [ ] Django-Settings: `PROMPTFW_PROMPTS_DIR`, `PROMPTFW_CACHE_TTL`, `PROMPTFW_FILE_FALLBACK`
+- [ ] `PromptValidationError` bei fehlenden required-Variables
+- [ ] `validate_prompts` Command: Schema + Jinja2-Syntax + Required-Check
+- [ ] `apps.py` `PromptfwConfig` mit `label="promptfw"`
+- [ ] Admin `delete_queryset()` fuer Bulk Soft-Delete
+- [ ] `PROMPTFW_MULTI_TENANT` Setting + tenant-aware Cache-Key + DB-Filter
+- [ ] No Silent Degradation: File-Fallback propagiert Rendering-Fehler
+- [ ] `defaults` Cross-Validierung gegen `variables_schema` in `clean()`
 - [ ] >=25 Tests in `test_contrib_django.py`
 - [ ] promptfw v0.8.0 auf PyPI publiziert
 - [ ] writing-hub: 46 Prompts in DB migriert
@@ -932,3 +1043,9 @@ Der Admin stellt eine atomare **"Neue Version erstellen"** Action bereit, die in
 | MEDIUM-3: `created_by` als CharField statt FK | MEDIUM | Fixed | v1 |
 | MEDIUM-4: CI-Referenz (ADR-057) | MEDIUM | Fixed | v1 |
 | MEDIUM-5: `PromptNotFoundError` konsistent | MEDIUM | Fixed | v1 |
+| OPT-1: `tenant_id` durchgaengig (Constraint, Cache, Resolution) | HOCH | Fixed | v2 |
+| OPT-2: `variables_schema` Render-Validierung + `PromptValidationError` | HOCH | Fixed | v2 |
+| OPT-3: Silent Degradation in `_render_from_file()` | MEDIUM | Fixed | v2 |
+| OPT-4: Admin `delete_queryset()` Bulk Soft-Delete | MEDIUM | Fixed | v2 |
+| OPT-5: `apps.py` `PromptfwConfig` definiert | MEDIUM | Fixed | v2 |
+| OPT-6: `validate_prompts` Command-Design dokumentiert | MEDIUM | Fixed | v2 |
