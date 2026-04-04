@@ -32,6 +32,11 @@ on:
         required: false
         type: string
         default: ""
+      dockerfile_path:
+        description: "Pfad zum Dockerfile relativ zum Repo-Root (default: Dockerfile)"
+        required: false
+        type: string
+        default: "Dockerfile"
       notify_discord:
         description: "Discord Deploy-Notification senden"
         required: false
@@ -143,9 +148,12 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: .
+          file: ${{ inputs.dockerfile_path }}
           platforms: linux/amd64
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |
