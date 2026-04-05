@@ -9,9 +9,25 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 
 ---
 
-## Phase 0: Umgebung synchronisieren (IMMER zuerst)
+## Phase 0: Tool-Health + Umgebung synchronisieren (IMMER zuerst)
 
-### 0.0 Server-Erreichbarkeit prüfen (PFLICHT — vor allen MCP/SSH-Calls)
+### 0.0 Shell + MCP Health-Check (PFLICHT — vor allen anderen Steps)
+
+**Zuerst prüfen ob die Grundlagen funktionieren:**
+
+// turbo
+```bash
+echo "shell-alive-$(date +%s)"
+```
+
+> **Wenn dieser Befehl hängt (>5s):** Shell ist blockiert!
+> → `/windsurf-clean` ausführen oder Windsurf neustarten
+> → Bis dahin: NUR `read_file`, `write_to_file`, `mcp1_*` (GitHub) und `mcp3_*` (Outline) nutzen
+> → **Lesson Learned 2026-04-05:** Shell-Hang kann ganze Sessions blockieren.
+>   Edit-Tools (`edit`, `multi_edit`) können ebenfalls betroffen sein (zeigen "empty file").
+>   GitHub MCP `mcp1_get_file_contents` + `mcp1_push_files` als Workaround für Git-Operationen.
+
+### 0.1 Server-Erreichbarkeit prüfen (PFLICHT — vor allen MCP/SSH-Calls)
 
 ⚠️ **NIEMALS `ping` verwenden** — Hetzner-Server blockieren ICMP (100% packet loss ist NORMAL).
 TCP-Probe auf SSH (22), HTTP (80), HTTPS (443) stattdessen:
@@ -21,20 +37,20 @@ TCP-Probe auf SSH (22), HTTP (80), HTTPS (443) stattdessen:
 python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
 ```
 
-→ **Server erreichbar**: Normal weiter mit Phase 0.1
+→ **Server erreichbar**: Normal weiter mit Phase 0.2
 → **Server NICHT erreichbar**: Alle MCP-Calls und SSH-Befehle werden hängen!
   Fallback: `ssh -o ConnectTimeout=10 -o BatchMode=yes root@88.198.191.108 "uptime"`
   Wenn auch SSH scheitert: Hetzner Cloud Console → Server Status prüfen
 → Lesson Learned 2026-04-03: Ping-basierte Diagnose führte zu Fehldiagnose "Server down"
 
-### 0.1 Platform-Repo pullen (enthält Workflows + ADRs)
+### 0.2 Platform-Repo pullen (enthält Workflows + ADRs)
 
 // turbo
 ```bash
 cd ~/github/platform && git pull --rebase --quiet
 ```
 
-### 0.2 Workflow-Symlinks aktualisieren
+### 0.3 Workflow-Symlinks aktualisieren
 
 // turbo
 ```bash
@@ -43,7 +59,7 @@ GITHUB_DIR=~/github bash ~/github/platform/scripts/sync-workflows.sh 2>&1 | grep
 → Stellt sicher, dass alle Repos die aktuellen Workflows haben.
 → Neue Workflows in platform werden automatisch verteilt.
 
-### 0.3 Aktuelles Workspace-Repo + Kern-Repos synchronisieren
+### 0.4 Aktuelles Workspace-Repo + Kern-Repos synchronisieren
 
 // turbo
 ```bash
@@ -62,7 +78,7 @@ echo "Git Sync done"
 → Stellt sicher, dass WSL ↔ Dev Desktop synchron sind.
 → Bei Konflikten: `git stash pop` manuell lösen, NICHT force-pushen.
 
-### 0.4 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
+### 0.5 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
 
 // turbo
 ```bash
@@ -82,7 +98,7 @@ fi
 → **KEIN Fallback auf Cascade Memory erlaubt.** pgvector MUSS laufen.
 → Bei Fehler: Session NICHT fortsetzen bis Tunnel steht.
 
-### 0.5 Deploy-Infrastruktur prüfen (ADR-156)
+### 0.6 Deploy-Infrastruktur prüfen (ADR-156)
 
 // turbo
 ```bash
@@ -91,7 +107,7 @@ bash ~/github/mcp-hub/scripts/verify-adr156.sh
 → Muss `ALL 21 CHECKS PASSED` zeigen.
 → Bei Fehlern: MCP-Server neustarten, dann erneut prüfen.
 
-### 0.6 Deploy-Status aller Apps scannen (ADR-156)
+### 0.7 Deploy-Status aller Apps scannen (ADR-156)
 
 Prüfe ob kürzlich fehlgeschlagene Deploys vorliegen:
 
@@ -113,7 +129,7 @@ mcp2_log_error_pattern:
 ```
 → User über fehlgeschlagene Deploys informieren, bevor an anderen Tasks gearbeitet wird.
 
-### 0.7 Staging-Health-Check (ADR-157)
+### 0.8 Staging-Health-Check (ADR-157)
 
 Prüfe ob Staging-Services auf Dev Desktop (88.99.38.75) erreichbar sind:
 
@@ -142,20 +158,20 @@ print(f'Staging: {ok} up, {skip} nicht erreichbar (normal wenn nicht deployed)')
 
 ## Phase 1: Kontext laden
 
-1. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index, `get_context_for_task()`
-2. **Health Dashboard** (bei Infra/Deploy-Sessions) — `system_manage(action: health_dashboard)`
+1. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index, `mcp5_get_context_for_task()`
+2. **Health Dashboard** (bei Infra/Deploy-Sessions) — `mcp0_system_manage(action: health_dashboard)`
 3. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
 4. **Branch-Status prüfen** — `git status && git log --oneline -5`
 5. **Tests baseline** — `pytest tests/ -q --tb=no` (falls vorhanden)
 6. **Knowledge-Lookup** — Outline durchsuchen (Repo-Steckbrief, Task-Wissen, Lessons, Cascade-Aufträge)
 7. **ADR-Inputs prüfen** — Neue Input-Dokumente aus Outline abholen:
 ```
-search_knowledge(query: "Input ADR", collection: null, limit: 10)
+mcp3_search_knowledge(query: "Input ADR", collection: null, limit: 10)
 ```
 → Sucht nach Dokumenten mit Titel "Input ADR-XXX: ..." in allen Collections.
 → Unbearbeitete Inputs (ohne ✅ im Titel) dem User melden.
 → Workflow: User erstellt `Input ADR-156: Deploy-Script Referenz` in Outline → Cascade findet es hier.
-→ Nach Verarbeitung: Titel auf `✅ Input ADR-156: ...` setzen via `update_document()`.
+→ Nach Verarbeitung: Titel auf `✅ Input ADR-156: ...` setzen via `mcp3_update_document()`.
 
 ---
 
@@ -163,7 +179,7 @@ search_knowledge(query: "Input ADR", collection: null, limit: 10)
 
 8. **Memory Warm-Start** — Relevante Memories aus früheren Sessions laden:
 ```
-agent_memory_context(
+mcp2_agent_memory_context(
   task_description: "<User-Aufgabe aus erster Nachricht>",
   top_k: 5
 )
@@ -173,17 +189,17 @@ agent_memory_context(
 
 9. **Delta-Check** — Was hat sich seit der letzten Session geändert?
 ```
-get_session_delta()
+mcp2_get_session_delta()
 ```
 
 10. **Bekannte Fehler prüfen** (bei Bug-Fix-Sessions):
 ```
-find_similar_errors(query: "<Fehlerbeschreibung>", repo: "<aktuelles Repo>")
+mcp2_find_similar_errors(query: "<Fehlerbeschreibung>", repo: "<aktuelles Repo>")
 ```
 
 11. **Wiederkehrende Fehler prüfen** (automatisch, jede Session):
 ```
-check_recurring_errors()
+mcp2_check_recurring_errors()
 ```
 → 🟡 ESCALATED (3-5x): nachhaltige Lösung untersuchen.
 → 🔴 CRITICAL (≥6x): sofortige Analyse, Blocker für andere Tasks.
@@ -193,3 +209,16 @@ check_recurring_errors()
 ## Phase 3: Arbeitsplan
 
 12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)
+
+---
+
+## MCP-Server Quick-Reference (aktuell)
+
+| Prefix | Server | Zweck |
+|--------|--------|-------|
+| `mcp0_` | deployment-mcp | SSH, Docker, Git, DB, DNS, SSL, System |
+| `mcp1_` | github | Issues, PRs, Repos, Files, Reviews |
+| `mcp2_` | orchestrator | Task-Analyse, Agent-Team, Tests, Lint, Memory |
+| `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
+| `mcp4_` | paperless-docs | Dokumente, Rechnungen |
+| `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
