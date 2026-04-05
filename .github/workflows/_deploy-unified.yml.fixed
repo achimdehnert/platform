@@ -1,0 +1,257 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  REUSABLE WORKFLOW: Unified Multi-Repo Deployment Pipeline (ADR-120)      ║
+# ║  Staging (main) → Production (promote/tag) mit Health-Check + Rollback    ║
+# ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-unified.yml@v1
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: "🚀 Deploy Unified (ADR-120)"
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        description: "App-Name (z.B. risk-hub) — wird als GHCR Image-Name verwendet"
+        required: true
+        type: string
+      app_path:
+        description: "Absoluter Pfad auf dem Server (z.B. /opt/risk-hub)"
+        required: true
+        type: string
+      health_check_url:
+        description: "Health-Check URL — MUSS auf /healthz/ enden (ADR-022)"
+        required: false
+        type: string
+        default: ""
+      image_tag_override:
+        description: "Rollback auf expliziten Image-Tag (z.B. v1.2.1) — leer = auto"
+        required: false
+        type: string
+        default: ""
+      target_environment:
+        description: "Ziel-Environment erzwingen (leer=auto, staging, production) — für Promotion"
+        required: false
+        type: string
+        default: ""
+      dockerfile_path:
+        description: "Pfad zum Dockerfile relativ zum Repo-Root (default: Dockerfile)"
+        required: false
+        type: string
+        default: "Dockerfile"
+      notify_discord:
+        description: "Discord Deploy-Notification senden"
+        required: false
+        type: boolean
+        default: true
+    secrets:
+      DEPLOY_SSH_KEY:
+        description: "SSH Key für Production (vorhandener Secret-Name)"
+        required: false
+      DEPLOY_HOST:
+        description: "Production Host (vorhandener Secret-Name)"
+        required: false
+      DEPLOY_USER:
+        description: "SSH User für Production (vorhandener Secret-Name)"
+        required: false
+      DEPLOY_SSH_FINGERPRINT:
+        required: false
+      STAGING_SSH_KEY:
+        required: false
+      STAGING_HOST:
+        required: false
+      STAGING_USER:
+        required: false
+      STAGING_SSH_FINGERPRINT:
+        required: false
+      DISCORD_WEBHOOK:
+        required: false
+
+jobs:
+  # ── JOB 1: Environment + Image-Tag bestimmen ──────────────────────────────
+  resolve:
+    name: "🔍 Resolve"
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.env.outputs.environment }}
+      image_tag: ${{ steps.tag.outputs.image_tag }}
+      deploy_staging: ${{ steps.env.outputs.deploy_staging }}
+      deploy_prod: ${{ steps.env.outputs.deploy_prod }}
+    steps:
+      - name: Resolve environment
+        id: env
+        run: |
+          TARGET="${{ inputs.target_environment }}"
+
+          # Explizites target_environment überschreibt alles (Promotion-Flow)
+          if [[ -n "$TARGET" ]]; then
+            echo "environment=$TARGET" >> "$GITHUB_OUTPUT"
+            if [[ "$TARGET" == "production" ]]; then
+              echo "deploy_staging=false" >> "$GITHUB_OUTPUT"
+              echo "deploy_prod=true"     >> "$GITHUB_OUTPUT"
+            else
+              echo "deploy_staging=true"  >> "$GITHUB_OUTPUT"
+              echo "deploy_prod=false"    >> "$GITHUB_OUTPUT"
+            fi
+          # Auto-Detect: Tag → Production, main → Staging
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "environment=production" >> "$GITHUB_OUTPUT"
+            echo "deploy_staging=false"   >> "$GITHUB_OUTPUT"
+            echo "deploy_prod=true"       >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
+            echo "environment=staging"    >> "$GITHUB_OUTPUT"
+            echo "deploy_staging=true"    >> "$GITHUB_OUTPUT"
+            echo "deploy_prod=false"      >> "$GITHUB_OUTPUT"
+          else
+            echo "environment=staging"    >> "$GITHUB_OUTPUT"
+            echo "deploy_staging=true"    >> "$GITHUB_OUTPUT"
+            echo "deploy_prod=false"      >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [[ -n "${{ inputs.image_tag_override }}" ]]; then
+            echo "image_tag=${{ inputs.image_tag_override }}" >> "$GITHUB_OUTPUT"
+          elif [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            echo "image_tag=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            SHA="${{ github.sha }}"
+            echo "image_tag=main-${SHA:0:7}" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ── JOB 2: Build & Push Docker Image ──────────────────────────────────────
+  build:
+    name: "🐳 Build"
+    runs-on: ubuntu-latest
+    needs: resolve
+    permissions:
+      contents: read
+      packages: write
+    if: inputs.image_tag_override == ''
+    env:
+      IMAGE_NAME: ${{ github.repository_owner }}/${{ inputs.app_name }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ${{ inputs.dockerfile_path }}
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}
+            ghcr.io/${{ env.IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            BUILD_DATE=${{ github.event.head_commit.timestamp }}
+            GIT_SHA=${{ github.sha }}
+            APP_VERSION=${{ needs.resolve.outputs.image_tag }}
+
+  # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
+  deploy-staging:
+    name: "🧪 Staging"
+    runs-on: ubuntu-latest
+    needs: [resolve, build]
+    if: |
+      always() &&
+      needs.resolve.outputs.deploy_staging == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    concurrency:
+      group: deploy-${{ inputs.app_name }}-staging
+      cancel-in-progress: false
+    environment:
+      name: staging
+      url: https://staging.${{ inputs.app_name }}.iil.pet
+    steps:
+      - name: Deploy to staging
+        uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 15
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ secrets.STAGING_SSH_FINGERPRINT }}
+          script: |
+            set -euo pipefail
+            /opt/scripts/deploy.sh \
+              "${{ inputs.app_name }}" \
+              "${{ inputs.app_path }}" \
+              "${{ needs.resolve.outputs.image_tag }}" \
+              "staging" \
+              "${{ inputs.health_check_url }}"
+
+  # ── JOB 3b: Deploy to Production ──────────────────────────────────────────
+  deploy-production:
+    name: "🚀 Production"
+    runs-on: ubuntu-latest
+    needs: [resolve, build]
+    if: |
+      always() &&
+      needs.resolve.outputs.deploy_prod == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    concurrency:
+      group: deploy-${{ inputs.app_name }}-production
+      cancel-in-progress: false
+    environment:
+      name: production
+    steps:
+      - name: Deploy to production
+        uses: appleboy/ssh-action@v1.0.3
+        timeout-minutes: 15
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
+          script: |
+            set -euo pipefail
+            /opt/scripts/deploy.sh \
+              "${{ inputs.app_name }}" \
+              "${{ inputs.app_path }}" \
+              "${{ needs.resolve.outputs.image_tag }}" \
+              "production" \
+              "${{ inputs.health_check_url }}"
+
+  # ── JOB 4: Discord Notification ───────────────────────────────────────────
+  notify:
+    name: "📣 Notify"
+    runs-on: ubuntu-latest
+    needs: [resolve, deploy-staging, deploy-production]
+    if: always() && inputs.notify_discord
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.DISCORD_WEBHOOK }}
+        run: |
+          if [[ -z "$DISCORD_WEBHOOK" ]]; then exit 0; fi
+
+          ENV="${{ needs.resolve.outputs.environment }}"
+          TAG="${{ needs.resolve.outputs.image_tag }}"
+          APP="${{ inputs.app_name }}"
+
+          STAGING_RESULT="${{ needs.deploy-staging.result }}"
+          PROD_RESULT="${{ needs.deploy-production.result }}"
+
+          if [[ "$ENV" == "staging" && "$STAGING_RESULT" == "success" ]]; then
+            COLOR=3066993; STATUS="✅ Staging deploy erfolgreich"
+          elif [[ "$ENV" == "production" && "$PROD_RESULT" == "success" ]]; then
+            COLOR=3066993; STATUS="✅ Production deploy erfolgreich"
+          else
+            COLOR=15158332; STATUS="❌ Deploy fehlgeschlagen"
+          fi
+
+          curl -sf --max-time 10 -X POST "$DISCORD_WEBHOOK" \
+            -H "Content-Type: application/json" \
+            -d "{\"embeds\":[{\"title\":\"$STATUS\",\"color\":$COLOR,\"fields\":[{\"name\":\"App\",\"value\":\"$APP\",\"inline\":true},{\"name\":\"Version\",\"value\":\"$TAG\",\"inline\":true},{\"name\":\"Env\",\"value\":\"$ENV\",\"inline\":true}]}]}"
