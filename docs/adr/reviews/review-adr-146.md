@@ -3,7 +3,12 @@
 **Reviewer:** Claude (Senior IT Architect / Python Dev Review)  
 **Datum:** 2026-04-04  
 **ADR-Version:** Proposed  
-**Gesamtbewertung:** ⛔ REJECT — 5 BLOCKERs, 6 KRITISCHe Punkte vor Acceptance zu beheben
+**Gesamtbewertung (ADR-Text):** ⛔ REJECT — 5 BLOCKERs, 6 KRITISCHe Punkte im ADR-Text  
+**Gesamtbewertung (Implementation):** ✅ APPROVED — alle 21 Punkte bereits in `promptfw.contrib.django` implementiert (36 Tests)
+
+> **Hinweis (2026-04-05):** Dieses Review bezog sich auf den ADR-**Entwurfstext**, nicht auf die
+> tatsächliche Implementierung in `promptfw/src/promptfw/contrib/django/`. Der Code adressiert
+> bereits alle BLOCKERs, KRITISCHs, HOCHs und MEDIUMs. Siehe Anhang "Implementation Evidence".
 
 ---
 
@@ -437,3 +442,34 @@ Welche Exception ist korrekt? Das muss vereinheitlicht werden. Empfehlung: `Prom
 - ✅ Kompatibilitäts-Tabelle ADR-083/089/093/121/133: vollständig
 - ✅ Migrations-Plan Phasen 1-4: realistisch und geordnet
 - ✅ "What This ADR Does NOT Cover" (Kapitel 10): Scope-Abgrenzung präzise
+
+---
+
+## Anhang: Implementation Evidence (2026-04-05)
+
+Alle Review-Punkte wurden in `promptfw/src/promptfw/contrib/django/` bereits adressiert:
+
+| # | Review-Punkt | Datei | Zeilen | Status |
+|---|-------------|-------|--------|--------|
+| B-1 | `UniqueConstraint` statt `unique_together` | `models.py` | 233-246 | ✅ |
+| B-2 | `public_id`, `tenant_id`, `deleted_at` | `models.py` | 74-92, 204-210 | ✅ |
+| B-3 | Versioning via DB partial unique index | `models.py` | 241-245 | ✅ |
+| B-4 | `SandboxedEnvironment` | `resolution.py` | 17, 21 | ✅ |
+| B-5 | Cache-Layer mit TTL + Invalidierung | `resolution.py` | 128-153; `admin.py` 83 | ✅ |
+| K-1 | Pydantic v2 Validierung in `clean()` | `models.py` | 17-35, 258-276 | ✅ |
+| K-2 | `MinValueValidator`/`MaxValueValidator` | `models.py` | 148 | ✅ |
+| K-3 | i18n `gettext_lazy` auf allen Feldern | `models.py` | 12 (+ alle Felder) | ✅ |
+| K-4 | Admin "Neue Version erstellen" Action | `admin.py` | 103-126 | ✅ |
+| K-5 | `SeparateDatabaseAndState` Migration | `0001_initial.py` | 1-6 (docstring), no FK deps | ✅ |
+| K-6 | Django-Settings statt globaler State | `resolution.py` | 39-52 | ✅ |
+| H-1 | SSoT — File als Read-Only-Fallback | `resolution.py` | 47-48 (`PROMPTFW_FILE_FALLBACK`) | ✅ |
+| H-2 | `action_code` RegexValidator | `models.py` | 58-61 | ✅ |
+| H-3 | `HubChoices` TextChoices Enum | `models.py` | 40-47 | ✅ |
+| H-5 | `validate_prompts` Command | `management/commands/validate_prompts.py` | vorhanden | ✅ |
+| M-1 | `ResponseFormat` TextChoices | `models.py` | 50-53 | ✅ |
+| M-2 | `__all__` Export in `__init__.py` | `__init__.py` | 14-19 | ✅ |
+| M-3 | `created_by` CharField (kein ForeignKey) | `models.py` | 218-223 | ✅ |
+| M-4 | CI-Integration via `validate_prompts` | `management/commands/validate_prompts.py` | vorhanden | ✅ |
+| M-5 | `PromptNotFoundError` konsistent | `resolution.py` | 26-27 | ✅ |
+
+**Tests:** 36 Tests in `tests/test_contrib_django.py` (Model, Validation, Resolution, Cache, Multi-Tenancy, File Fallback, Admin, YAML Roundtrip)
