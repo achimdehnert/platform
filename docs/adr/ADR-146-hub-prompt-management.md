@@ -2,8 +2,12 @@
 status: accepted
 date: 2026-04-04
 decision-makers: Achim Dehnert
-implementation_status: not_started
-implementation_evidence: []
+implementation_status: phase_1_3_complete
+implementation_evidence:
+  - promptfw/src/promptfw/contrib/django/ (models, admin, resolution, CLI, 36 tests)
+  - writing-hub commit 3b3ea12 (Phase 2 — 46 prompts seeded)
+  - travel-beat commit 4bf3797 (Phase 3 — 5 registry prompts seeded)
+  - research-hub commit 683271d (Phase 4 partial — 2 inline prompts extracted)
 tags: [promptfw, prompt-management, cross-hub, database, django, CRUD]
 related: [ADR-083, ADR-089, ADR-093, ADR-121, ADR-133]
 review: reviews/review-adr-146.md
