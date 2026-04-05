@@ -87,6 +87,33 @@ def check_yaml_duplicates(services: dict) -> list[str]:
     return errors
 
 
+
+
+def check_domain_depth(services: dict) -> list[str]:
+    """Reject two-level subdomains under iil.pet.
+
+    CF Universal SSL covers *.iil.pet but NOT *.*.iil.pet.
+    Staging domains must use staging-{name}.iil.pet,
+    not staging.{name}.iil.pet.
+    """
+    errors = []
+    for name, cfg in services.items():
+        if cfg is None:
+            continue
+        for key in ("domain_prod", "domain_staging"):
+            domain = cfg.get(key)
+            if not domain or not domain.endswith(".iil.pet"):
+                continue
+            prefix = domain.removesuffix(".iil.pet")
+            if "." in prefix:
+                fix = prefix.replace(".", "-")
+                errors.append(
+                    f"  BLOCKED {name}.{key}: "
+                    f"'{domain}' is two-level. "
+                    f"Use '{fix}.iil.pet'"
+                )
+    return errors
+
 def find_next_free_port(services: dict) -> int:
     """Berechne den nächsten freien Port."""
     used: set[int] = set()
@@ -284,8 +311,17 @@ def main() -> None:
     else:
         print("  OK — keine Duplikate\n")
 
+    # Check 2: Subdomain-Tiefe (CF Universal SSL)
+    print("Check 2: Subdomain-Tiefe (iil.pet)")
+    depth_errors = check_domain_depth(services)
+    if depth_errors:
+        print("\n".join(depth_errors))
+    else:
+        print("  OK — alle iil.pet single-level\n")
+
     if args.offline:
-        sys.exit(1 if dupes else 0)
+        all_offline = dupes + depth_errors
+        sys.exit(1 if all_offline else 0)
 
     # Determine which servers to audit
     targets: list[tuple[str, str]] = []
@@ -313,7 +349,7 @@ def main() -> None:
                 ("root@88.198.191.108", "prod"),
             )
 
-    all_errors = list(dupes)
+    all_errors = list(dupes) + depth_errors
     for ssh_target, env in targets:
         print(
             f"Check: Server-Abgleich"

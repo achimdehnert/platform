@@ -6,6 +6,11 @@
 #   Nur offline:  python infra/scripts/port_audit.py --offline
 #   Nächster Port: python infra/scripts/port_audit.py --next-free
 #
+# REGEL: Staging-Domains unter iil.pet MUESSEN single-level sein!
+#   OK: staging-writing.iil.pet   (1 Level = CF Universal SSL deckt ab)
+#   VERBOTEN: staging.writing.iil.pet   (2 Level = CF Universal SSL deckt NICHT ab)
+#   Eigene Domains (LE Wildcard) duerfen staging.X.Y bleiben.
+#
 # Belegte Ranges:
 #   8001–8020   Infra + erste Hubs
 #   8081–8108   App-Hubs
@@ -48,7 +53,7 @@ services:
     prod: 8007
     staging: 8007
     domain_prod: coach-hub.iil.pet
-    domain_staging: staging.coach-hub.iil.pet
+    domain_staging: staging-coaching.iil.pet
     domain_aliases:
       - kiohnerisiko.de
     repo: achimdehnert/coach-hub
@@ -73,7 +78,7 @@ services:
     prod: 8085
     staging: 8085
     domain_prod: dev-hub.iil.pet
-    domain_staging: staging.dev-hub.iil.pet
+    domain_staging: staging-devhub.iil.pet
     repo: achimdehnert/dev-hub
 
   trading-hub:
@@ -116,14 +121,14 @@ services:
     prod: 8092
     staging: 8092
     domain_prod: billing.iil.pet
-    domain_staging: staging.billing.iil.pet
+    domain_staging: staging-billing.iil.pet
     repo: achimdehnert/billing-hub
 
   wedding-hub:
     prod: 8093
     staging: 8093
     domain_prod: wedding-hub.iil.pet
-    domain_staging: staging.wedding-hub.iil.pet
+    domain_staging: staging-wedding.iil.pet
     repo: achimdehnert/wedding-hub
 
   cad-hub:
@@ -146,28 +151,28 @@ services:
     prod: 8096
     staging: 8096
     domain_prod: illustration.iil.pet
-    domain_staging: staging.illustration.iil.pet
+    domain_staging: staging-illustration.iil.pet
     repo: achimdehnert/illustration-hub
 
   writing-hub:
     prod: 8097
     staging: 8097
     domain_prod: writing.iil.pet
-    domain_staging: staging.writing.iil.pet
+    domain_staging: staging-writing.iil.pet
     repo: achimdehnert/writing-hub
 
   tax-hub:
     prod: 8099
     staging: 8099
     domain_prod: tax.iil.pet
-    domain_staging: staging.tax.iil.pet
+    domain_staging: staging-tax.iil.pet
     repo: achimdehnert/tax-hub
 
   learn-hub:
     prod: 8100
     staging: 8100
     domain_prod: learn.iil.pet
-    domain_staging: staging.learn.iil.pet
+    domain_staging: staging-learn.iil.pet
     repo: achimdehnert/learn-hub
 
   ausschreibungs-hub:
@@ -181,33 +186,33 @@ services:
     prod: 8102
     staging: 8102
     domain_prod: docs.iil.pet
-    domain_staging: staging.docs.iil.pet
+    domain_staging: staging-docs.iil.pet
     repo: null
 
   research-hub:
     prod: 8104
     staging: 8104
     domain_prod: research.iil.pet
-    domain_staging: staging.research.iil.pet
+    domain_staging: staging-research.iil.pet
     repo: achimdehnert/research-hub
 
   recruiting-hub:
     prod: 8103
     staging: 8103
     domain_prod: hr.iil.pet
-    domain_staging: staging.hr.iil.pet
+    domain_staging: staging-hr.iil.pet
     repo: achimdehnert/recruiting-hub
 
   dms-hub:
     prod: 8107
     staging: 8107
     domain_prod: dms.iil.pet
-    domain_staging: staging.dms.iil.pet
+    domain_staging: staging-dms.iil.pet
     repo: achimdehnert/dms-hub
 
   odoo:
     prod: 8069
     staging: 8069
     domain_prod: odoo.iil.pet
-    domain_staging: staging.odoo.iil.pet
+    domain_staging: staging-odoo.iil.pet
     repo: achimdehnert/odoo-hub
