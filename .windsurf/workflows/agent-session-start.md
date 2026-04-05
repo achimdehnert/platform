@@ -11,6 +11,22 @@ description: Pflicht-Ritual vor jeder Coding-Agent-Session — Kontext laden, St
 
 ---
 
+## Step 0: Tool-Health prüfen (NEU — Lesson 2026-04-05)
+
+Bevor irgendein Shell-Befehl läuft — prüfe ob die Grundlagen funktionieren:
+
+```
+1. Shell-Test: echo "alive" — wenn das hängt → Windsurf neustarten oder /windsurf-clean
+2. MCP-Test: mcp3_list_collections() — wenn das hängt → MCP-Server prüfen
+3. Falls Shell blockiert: NUR File-Read/Write + GitHub MCP nutzen (kein run_command)
+```
+
+> **Lesson Learned 2026-04-04/05:** Shell-Befehle können dauerhaft hängen.
+> In diesem Fall: Edit-Tools, read_file und MCP-APIs funktionieren oft noch.
+> NIEMALS endlos auf hängende Shell-Befehle warten — nach 2 Fehlversuchen Strategie wechseln.
+
+---
+
 ## Step 1: Repo-Kontext laden (immer)
 
 Lese in dieser Reihenfolge — alle drei, kein Überspringen:
@@ -26,7 +42,7 @@ Falls diese Dateien nicht existieren → `/new-github-project` aufrufen.
 Danach MCP-Kontext aktiv abrufen:
 
 ```
-MCP: mcp14_get_context_for_task(repo="<aktuelles-repo>", file_type="<hauptdatei>")
+MCP: mcp5_get_context_for_task(repo="<aktuelles-repo>", file_type="<hauptdatei>")
   → Liefert: Architektur-Regeln, ADR-Referenzen, Banned Patterns, Repo-Facts
   → Einmalig pro Session aufrufen — danach ist der Kontext bekannt
 ```
@@ -37,7 +53,7 @@ Ich habe gelesen:
 - AGENT_HANDOVER: Hetzner-Prod=88.198.191.108, Deploy-Targets bekannt
 - CORE_CONTEXT: [3 Sätze Zusammenfassung — Tech Stack + kritische Constraints]
 - ADRs: [Anzahl + relevanteste für diese Session]
-- Platform-Context: mcp14_get_context_for_task() aufgerufen ✓
+- Platform-Context: mcp5_get_context_for_task() aufgerufen ✓
 ```
 
 ---
@@ -47,7 +63,7 @@ Ich habe gelesen:
 Wenn die Session Infrastruktur, Deployment oder Stack-Upgrades betrifft:
 
 ```
-MCP: mcp6_system_manage(action: health_dashboard, host: 88.198.191.108)
+MCP: mcp0_system_manage(action: health_dashboard, host: 88.198.191.108)
 → Zeigt Status aller 14+ Platform-Apps auf einen Blick
 → Identifiziert Probleme BEVOR sie die Session blockieren
 ```
@@ -83,6 +99,8 @@ ohne Sync divergieren Repos und jeder `git pull` schlägt fehl.
 Varianten:
 - Alle Repos: `bash ~/github/platform/scripts/sync-repo.sh --all`
 - Inkl. Server: `bash ~/github/platform/scripts/sync-repo.sh --full`
+
+**Fallback bei Shell-Hang:** `mcp0_git_manage(action: pull, repo_path: <path>, host: 88.99.38.75)`
 
 ---
 
@@ -148,7 +166,7 @@ outline-knowledge: search_knowledge("Lesson <Fehlerbild>")
 Offene Aufträge und **unbeantwortete User-Comments** laden:
 
 ```
-MCP: mcp12_list_recent(collection="97a74c51-6c4e-4871-a2b0-a85255b8c916", limit=10)
+MCP: mcp3_list_recent(collection="97a74c51-6c4e-4871-a2b0-a85255b8c916", limit=10)
 → Für jeden Auftrag: Comments via Outline API lesen
 → Unbeantwortete User-Comments → Lesebestätigung posten ("Gelesen. ...")
 → Titel-Prefixe prüfen (📋 Offen / 🔄 In Arbeit / ✅ Erledigt)
@@ -235,3 +253,15 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 | Wissen sichern nach Session | `/knowledge-capture` |
 | Third-Party Stack upgraden | `/stack-upgrade` |
 | Repo-Sync nach Cascade-Session | `/sync-repo` |
+| Shell hängt komplett | `/windsurf-clean` dann Neustart |
+
+## MCP-Server Quick-Reference (aktuell)
+
+| Prefix | Server | Zweck |
+|--------|--------|-------|
+| `mcp0_` | deployment-mcp | SSH, Docker, Git, DB, DNS, SSL, System |
+| `mcp1_` | github | Issues, PRs, Repos, Files, Reviews |
+| `mcp2_` | orchestrator | Task-Analyse, Agent-Team, Tests, Lint |
+| `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
+| `mcp4_` | paperless-docs | Dokumente, Rechnungen |
+| `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
