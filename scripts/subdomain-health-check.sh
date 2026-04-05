@@ -46,7 +46,7 @@ DOMAINS=(
   "https://wedding-hub.iil.pet/accounts/login/|Wedding Hub"
   "https://writing-hub.iil.pet|Writing Hub"
   "https://writing.iil.pet|Writing Hub (Alias)"
-  # "https://staging.writing.iil.pet|Writing Hub Staging"  # 400: ALLOWED_HOSTS or missing web container
+  Writing Hub Staging".*|Writing Hub Staging"  # 400: ALLOWED_HOSTS or missing web container
   "https://dms.iil.pet|DMS Hub"
   # "https://eng.iil.pet|Eng Hub"  # NOT DEPLOYED — no container/nginx config
   "https://hr.iil.pet|HR Hub"

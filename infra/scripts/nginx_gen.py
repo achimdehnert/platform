@@ -81,6 +81,23 @@ def get_ssl_paths(domain: str) -> tuple[str, str]:
     )
 
 
+def validate_domain_depth(domain: str) -> None:
+    """Reject two-level subdomains under iil.pet (CF Universal SSL limit).
+
+    CF Universal SSL covers *.iil.pet but NOT *.*.iil.pet.
+    Staging domains must use staging-{name}.iil.pet, not staging.{name}.iil.pet.
+    """
+    if not domain.endswith(".iil.pet"):
+        return
+    prefix = domain.removesuffix(".iil.pet")
+    if "." in prefix:
+        raise ValueError(
+            f"BLOCKED: '{domain}' is a two-level subdomain under iil.pet. "
+            f"CF Universal SSL only covers *.iil.pet, not *.*.iil.pet. "
+            f"Use '{prefix.replace('.', '-')}.iil.pet' instead."
+        )
+
+
 def generate_prod_config(
     name: str,
     cfg: dict,
@@ -93,6 +110,7 @@ def generate_prod_config(
     if not domain or not port:
         return ""
 
+    validate_domain_depth(domain)
     cert, key = get_ssl_paths(domain)
 
     # All server_names for the main block
@@ -186,6 +204,7 @@ def generate_staging_config(
     if not domain or not port:
         return ""
 
+    validate_domain_depth(domain)
     cert, key = get_ssl_paths(domain)
 
     lines = []
