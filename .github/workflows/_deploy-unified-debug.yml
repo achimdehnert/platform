@@ -56,15 +56,10 @@ jobs:
     outputs:
       environment: ${{ steps.env.outputs.environment }}
       image_tag: ${{ steps.tag.outputs.image_tag }}
-      deploy_staging: ${{ steps.env.outputs.deploy_staging }}
-      deploy_prod: ${{ steps.env.outputs.deploy_prod }}
     steps:
       - name: Resolve environment
         id: env
-        run: |
-          echo "environment=staging" >> "$GITHUB_OUTPUT"
-          echo "deploy_staging=true" >> "$GITHUB_OUTPUT"
-          echo "deploy_prod=false" >> "$GITHUB_OUTPUT"
+        run: echo "environment=staging" >> "$GITHUB_OUTPUT"
       - name: Resolve image tag
         id: tag
         run: echo "image_tag=debug-test" >> "$GITHUB_OUTPUT"
@@ -73,24 +68,17 @@ jobs:
     name: "Build"
     runs-on: ubuntu-latest
     needs: resolve
-    permissions:
-      contents: read
-      packages: write
     if: inputs.image_tag_override == ''
     env:
       IMAGE_NAME: ${{ github.repository_owner }}/${{ inputs.app_name }}
     steps:
-      - uses: actions/checkout@v4
       - run: echo "Would build ${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}"
 
   deploy-staging:
     name: "Staging"
     runs-on: ubuntu-latest
     needs: [resolve, build]
-    if: |
-      always() &&
-      needs.resolve.outputs.deploy_staging == 'true' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    if: always()
     steps:
       - run: echo "Would deploy to staging"
 
@@ -98,10 +86,7 @@ jobs:
     name: "Production"
     runs-on: ubuntu-latest
     needs: [resolve, build]
-    if: |
-      always() &&
-      needs.resolve.outputs.deploy_prod == 'true' &&
-      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    if: always()
     steps:
       - run: echo "Would deploy to production"
 
