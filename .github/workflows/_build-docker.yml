@@ -2,8 +2,15 @@
 # ║  REUSABLE WORKFLOW: Docker Build & Push                                    ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_build-docker.yml@v1 ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
+# ⚠️ CONSTRAINT: Reusable workflows (workflow_call) support permissions ONLY
+#    at workflow-level, NOT at job-level. Job-level permissions cause
+#    startup_failure (0 jobs, no logs). Callers should also set permissions.
 
 name: Docker Build
+
+permissions:
+  contents: read
+  packages: write
 
 on:
   workflow_call:
@@ -50,9 +57,6 @@ jobs:
   build:
     name: "Build & Push"
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
     outputs:
       image_tag: ${{ steps.meta.outputs.version }}
       digest: ${{ steps.push.outputs.digest }}

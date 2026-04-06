@@ -3,8 +3,15 @@
 # ║  Staging (main) → Production (promote/tag) mit Health-Check + Rollback    ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-unified.yml@v1
 # ╚═══════════════════════════════════════════════════════════════════════════╝
+# ⚠️ CONSTRAINT: Reusable workflows (workflow_call) support permissions ONLY
+#    at workflow-level, NOT at job-level. Job-level permissions cause
+#    startup_failure (0 jobs, no logs). Callers should also set permissions.
 
 name: "🚀 Deploy Unified (ADR-120)"
+
+permissions:
+  contents: read
+  packages: write
 
 on:
   workflow_call:
