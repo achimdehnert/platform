@@ -91,12 +91,6 @@ jobs:
       always() &&
       needs.resolve.outputs.deploy_staging == 'true' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
-    concurrency:
-      group: deploy-${{ inputs.app_name }}-staging
-      cancel-in-progress: false
-    environment:
-      name: staging
-      url: https://staging.${{ inputs.app_name }}.iil.pet
     steps:
       - run: echo "Would deploy to staging"
 
@@ -108,11 +102,6 @@ jobs:
       always() &&
       needs.resolve.outputs.deploy_prod == 'true' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
-    concurrency:
-      group: deploy-${{ inputs.app_name }}-production
-      cancel-in-progress: false
-    environment:
-      name: production
     steps:
       - run: echo "Would deploy to production"
 
