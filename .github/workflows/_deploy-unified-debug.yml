@@ -56,10 +56,15 @@ jobs:
     outputs:
       environment: ${{ steps.env.outputs.environment }}
       image_tag: ${{ steps.tag.outputs.image_tag }}
+      deploy_staging: ${{ steps.env.outputs.deploy_staging }}
+      deploy_prod: ${{ steps.env.outputs.deploy_prod }}
     steps:
       - name: Resolve environment
         id: env
-        run: echo "environment=staging" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "environment=staging" >> "$GITHUB_OUTPUT"
+          echo "deploy_staging=true" >> "$GITHUB_OUTPUT"
+          echo "deploy_prod=false" >> "$GITHUB_OUTPUT"
       - name: Resolve image tag
         id: tag
         run: echo "image_tag=debug-test" >> "$GITHUB_OUTPUT"
@@ -68,16 +73,53 @@ jobs:
     name: "Build"
     runs-on: ubuntu-latest
     needs: resolve
+    permissions:
+      contents: read
+      packages: write
     if: inputs.image_tag_override == ''
     env:
       IMAGE_NAME: ${{ github.repository_owner }}/${{ inputs.app_name }}
     steps:
+      - uses: actions/checkout@v4
       - run: echo "Would build ${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}"
+
+  deploy-staging:
+    name: "Staging"
+    runs-on: ubuntu-latest
+    needs: [resolve, build]
+    if: |
+      always() &&
+      needs.resolve.outputs.deploy_staging == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    concurrency:
+      group: deploy-${{ inputs.app_name }}-staging
+      cancel-in-progress: false
+    environment:
+      name: staging
+      url: https://staging.${{ inputs.app_name }}.iil.pet
+    steps:
+      - run: echo "Would deploy to staging"
+
+  deploy-production:
+    name: "Production"
+    runs-on: ubuntu-latest
+    needs: [resolve, build]
+    if: |
+      always() &&
+      needs.resolve.outputs.deploy_prod == 'true' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    concurrency:
+      group: deploy-${{ inputs.app_name }}-production
+      cancel-in-progress: false
+    environment:
+      name: production
+    steps:
+      - run: echo "Would deploy to production"
 
   notify:
     name: "Notify"
     runs-on: ubuntu-latest
-    needs: [resolve, build]
+    needs: [resolve, deploy-staging, deploy-production]
     if: always() && inputs.notify_discord
     steps:
       - run: echo "Done - app=${{ inputs.app_name }} env=${{ needs.resolve.outputs.environment }}"
