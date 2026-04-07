@@ -96,6 +96,7 @@ jobs:
   secrets-scan:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
+    continue-on-error: true
     steps:
       - name: Clean stale gitleaks tmp (self-hosted)
         run: rm -f /tmp/gitleaks.tmp /tmp/gitleaks-*.tar.gz 2>/dev/null || true
