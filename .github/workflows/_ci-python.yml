@@ -70,6 +70,11 @@ on:
         required: false
         default: 'self-hosted'
         type: string
+      src_dir:
+        description: 'Directory containing manage.py (default: . for repo root, use src for risk-hub)'
+        required: false
+        default: '.'
+        type: string
 
 jobs:
   lint:
@@ -92,6 +97,8 @@ jobs:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
     steps:
+      - name: Clean stale gitleaks tmp (self-hosted)
+        run: rm -f /tmp/gitleaks.tmp /tmp/gitleaks-*.tar.gz 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -179,6 +186,7 @@ jobs:
             done
           fi
       - name: Run unit tests
+        working-directory: ${{ inputs.src_dir }}
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
@@ -203,7 +211,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: coverage-unit
-          path: coverage-unit.xml
+          path: ${{ inputs.src_dir }}/coverage-unit.xml
 
   test-integration:
     name: "Integration Tests"
@@ -265,6 +273,7 @@ jobs:
             done
           fi
       - name: Migration Graph Check
+        working-directory: ${{ inputs.src_dir }}
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
@@ -284,6 +293,7 @@ jobs:
           fi
 
       - name: AppConfig Label Check
+        working-directory: ${{ inputs.src_dir }}
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
@@ -297,6 +307,7 @@ jobs:
           echo "OK: Django system check passed"
 
       - name: Run integration tests
+        working-directory: ${{ inputs.src_dir }}
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
@@ -326,14 +337,14 @@ jobs:
       - name: Create empty coverage if missing
         if: always()
         run: |
-          if [ ! -f coverage-integration.xml ]; then
-            echo '<?xml version="1.0" ?><coverage version="7.0" timestamp="0" lines-valid="1" lines-covered="1" line-rate="1.0" branches-covered="0" branches-valid="0" branch-rate="0" complexity="0"><packages></packages></coverage>' > coverage-integration.xml
+          if [ ! -f ${{ inputs.src_dir }}/coverage-integration.xml ]; then
+            echo '<?xml version="1.0" ?><coverage version="7.0" timestamp="0" lines-valid="1" lines-covered="1" line-rate="1.0" branches-covered="0" branches-valid="0" branch-rate="0" complexity="0"><packages></packages></coverage>' > ${{ inputs.src_dir }}/coverage-integration.xml
           fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: coverage-integration
-          path: coverage-integration.xml
+          path: ${{ inputs.src_dir }}/coverage-integration.xml
 
   coverage-report:
     name: "Coverage Gate (≥${{ inputs.coverage_threshold }}%)"
@@ -419,6 +430,7 @@ jobs:
       - name: Install iil-testkit contract module (ADR-155)
         run: pip install "iil-testkit>=0.3.0"
       - name: Run contract tests
+        working-directory: ${{ inputs.src_dir }}
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
