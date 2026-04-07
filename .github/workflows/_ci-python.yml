@@ -98,8 +98,12 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     continue-on-error: true
     steps:
-      - name: Clean stale gitleaks tmp (self-hosted)
-        run: rm -f /tmp/gitleaks.tmp /tmp/gitleaks-*.tar.gz 2>/dev/null || true
+      - name: Isolate TMPDIR per run (self-hosted race fix)
+        run: |
+          RUN_TMP="/tmp/gitleaks-${{ github.run_id }}"
+          mkdir -p "$RUN_TMP"
+          echo "TMPDIR=$RUN_TMP" >> "$GITHUB_ENV"
+          rm -f /tmp/gitleaks.tmp /tmp/gitleaks-*.tar.gz 2>/dev/null || true
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -108,6 +112,9 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
           GITLEAKS_LICENSE: ${{ github.token }}
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+      - name: Cleanup run TMPDIR
+        if: always()
+        run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
 
   security:
     name: "Security Scan (pip-audit)"
