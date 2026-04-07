@@ -170,6 +170,7 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_SHA=${{ github.sha }}
             APP_VERSION=${{ needs.resolve.outputs.image_tag }}
+          secrets: |
             PROJECT_PAT=${{ secrets.PROJECT_PAT }}
 
   # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
