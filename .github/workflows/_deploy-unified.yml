@@ -49,6 +49,11 @@ on:
         required: false
         type: boolean
         default: true
+      runs_on:
+        description: "Runner label (default: self-hosted). Override with ubuntu-latest if no runner registered."
+        required: false
+        type: string
+        default: "self-hosted"
     secrets:
       DEPLOY_SSH_KEY:
         description: "SSH Key für Production (vorhandener Secret-Name)"
@@ -79,7 +84,7 @@ jobs:
   # ── JOB 1: Environment + Image-Tag bestimmen ──────────────────────────────
   resolve:
     name: "🔍 Resolve"
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     outputs:
       environment: ${{ steps.env.outputs.environment }}
       image_tag: ${{ steps.tag.outputs.image_tag }}
@@ -131,7 +136,7 @@ jobs:
   # ── JOB 2: Build & Push Docker Image ──────────────────────────────────────
   build:
     name: "🐳 Build"
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: resolve
     if: inputs.image_tag_override == ''
     env:
@@ -170,7 +175,7 @@ jobs:
   # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
   deploy-staging:
     name: "🧪 Staging"
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: [resolve, build]
     if: |
       always() &&
@@ -203,7 +208,7 @@ jobs:
   # ── JOB 3b: Deploy to Production ──────────────────────────────────────────
   deploy-production:
     name: "🚀 Production"
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: [resolve, build]
     if: |
       always() &&
@@ -235,7 +240,7 @@ jobs:
   # ── JOB 4: Discord Notification ───────────────────────────────────────────
   notify:
     name: "📣 Notify"
-    runs-on: ubuntu-latest
+    runs-on: ${{ inputs.runs_on }}
     needs: [resolve, deploy-staging, deploy-production]
     if: always() && inputs.notify_discord
     steps:

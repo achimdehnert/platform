@@ -66,9 +66,9 @@ on:
         default: '==0.15.4'
         type: string
       runs_on:
-        description: 'Runner label (default: ubuntu-latest). Use self-hosted if runners are registered.'
+        description: 'Runner label (default: self-hosted). Override with ubuntu-latest if no runner registered.'
         required: false
-        default: 'ubuntu-latest'
+        default: 'self-hosted'
         type: string
 
 jobs:
