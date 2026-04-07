@@ -207,6 +207,8 @@ jobs:
               "${{ inputs.health_check_url }}"
 
   # ── JOB 3b: Deploy to Production ──────────────────────────────────────────
+  # Self-hosted runners run ON prod-server → direct execution, no SSH needed.
+  # Falls back to SSH if runs_on != self-hosted (e.g. ubuntu-latest).
   deploy-production:
     name: "🚀 Production"
     runs-on: ${{ inputs.runs_on }}
@@ -221,7 +223,20 @@ jobs:
     environment:
       name: production
     steps:
-      - name: Deploy to production
+      - name: Deploy to production (direct — self-hosted runner)
+        if: inputs.runs_on == 'self-hosted'
+        timeout-minutes: 15
+        run: |
+          set -euo pipefail
+          /opt/scripts/deploy.sh \
+            "${{ inputs.app_name }}" \
+            "${{ inputs.app_path }}" \
+            "${{ needs.resolve.outputs.image_tag }}" \
+            "production" \
+            "${{ inputs.health_check_url }}"
+
+      - name: Deploy to production (SSH — remote runner)
+        if: inputs.runs_on != 'self-hosted'
         uses: appleboy/ssh-action@v1.0.3
         timeout-minutes: 15
         with:
