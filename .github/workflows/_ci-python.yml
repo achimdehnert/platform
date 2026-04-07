@@ -144,56 +144,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-      - name: Install dependencies
-        run: |
-          pip install -r ${{ inputs.requirements_file }}
-          if [ -f "${{ inputs.test_requirements_file }}" ]; then
-            pip install -r ${{ inputs.test_requirements_file }}
-          fi
-      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad, fieldprefill)
-        env:
-          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
-        run: |
-          pip install \
-            "iil-aifw>=0.5.0,<1" \
-            "iil-promptfw>=0.5.1,<1" \
-            "iil-authoringfw>=0.3.0,<1" \
-            "iil-weltenfw>=0.1.0,<1" \
-            "iil-nl2cad>=0.1.0,<1" \
-            2>/dev/null || \
-          pip install \
-            "aifw>=0.5.0,<1" \
-            "promptfw>=0.2.0,<1" \
-            "authoringfw>=0.3.0,<1" \
-            "weltenfw>=0.1.0,<1" \
-            2>/dev/null || true
-          # iil-fieldprefill: private repo, not on PyPI (ADR-107)
-          if [ -n "$PROJECT_PAT" ]; then
-            pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
-          else
-            pip install "git+https://github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
-          fi
-      - name: Install platform-context[testing] (ADR-058)
-        if: ${{ inputs.platform_context_version != '' }}
-        run: |
-          echo "PWD: $(pwd)"
-          echo "vendor dir exists: $([ -d vendor/platform_context ] && echo YES || echo NO)"
-          if [ -d "vendor/platform_context" ]; then
-            pip install -e "vendor/platform_context[testing]"
-          else
-            pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
-          fi
-      - name: Install additional vendor packages
-        run: |
-          if [ -d "vendor" ]; then
-            for pkg in vendor/*/; do
-              pkg_name=$(basename "$pkg")
-              if [ "$pkg_name" != "platform_context" ] && [ -f "$pkg/pyproject.toml" -o -f "$pkg/setup.py" -o -f "$pkg/setup.cfg" ]; then
-                echo "Installing vendor/$pkg_name..."
-                pip install -e "$pkg" || true
-              fi
-            done
-          fi
+      - name: Install iil-packages + deps
+        uses: achimdehnert/platform/.github/actions/install-iil-packages@main
+        with:
+          project_pat: ${{ secrets.PROJECT_PAT }}
+          requirements_file: ${{ inputs.requirements_file }}
+          test_requirements_file: ${{ inputs.test_requirements_file }}
+          platform_context_version: ${{ inputs.platform_context_version }}
       - name: Run unit tests
         working-directory: ${{ inputs.src_dir }}
         env:
@@ -233,54 +190,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-      - name: Install dependencies
-        run: |
-          pip install -r ${{ inputs.requirements_file }}
-          if [ -f "${{ inputs.test_requirements_file }}" ]; then
-            pip install -r ${{ inputs.test_requirements_file }}
-          fi
-      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad, fieldprefill)
-        env:
-          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
-        run: |
-          pip install \
-            "iil-aifw>=0.5.0,<1" \
-            "iil-promptfw>=0.5.1,<1" \
-            "iil-authoringfw>=0.3.0,<1" \
-            "iil-weltenfw>=0.1.0,<1" \
-            "iil-nl2cad>=0.1.0,<1" \
-            2>/dev/null || \
-          pip install \
-            "aifw>=0.5.0,<1" \
-            "promptfw>=0.2.0,<1" \
-            "authoringfw>=0.3.0,<1" \
-            "weltenfw>=0.1.0,<1" \
-            2>/dev/null || true
-          # iil-fieldprefill: private repo, not on PyPI (ADR-107)
-          if [ -n "$PROJECT_PAT" ]; then
-            pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
-          else
-            pip install "git+https://github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
-          fi
-      - name: Install platform-context[testing] (ADR-058)
-        if: ${{ inputs.platform_context_version != '' }}
-        run: |
-          if [ -d "vendor/platform_context" ]; then
-            pip install -e "vendor/platform_context[testing]"
-          else
-            pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
-          fi
-      - name: Install additional vendor packages
-        run: |
-          if [ -d "vendor" ]; then
-            for pkg in vendor/*/; do
-              pkg_name=$(basename "$pkg")
-              if [ "$pkg_name" != "platform_context" ] && [ -f "$pkg/pyproject.toml" -o -f "$pkg/setup.py" -o -f "$pkg/setup.cfg" ]; then
-                echo "Installing vendor/$pkg_name..."
-                pip install -e "$pkg" || true
-              fi
-            done
-          fi
+      - name: Install iil-packages + deps
+        uses: achimdehnert/platform/.github/actions/install-iil-packages@main
+        with:
+          project_pat: ${{ secrets.PROJECT_PAT }}
+          requirements_file: ${{ inputs.requirements_file }}
+          test_requirements_file: ${{ inputs.test_requirements_file }}
+          platform_context_version: ${{ inputs.platform_context_version }}
       - name: Migration Graph Check
         working-directory: ${{ inputs.src_dir }}
         env:
@@ -399,43 +315,13 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-      - name: Install dependencies
-        run: |
-          pip install -r ${{ inputs.requirements_file }}
-          if [ -f "${{ inputs.test_requirements_file }}" ]; then
-            pip install -r ${{ inputs.test_requirements_file }}
-          fi
-      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad, fieldprefill)
-        env:
-          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
-        run: |
-          pip install \
-            "iil-aifw>=0.5.0,<1" \
-            "iil-promptfw>=0.5.1,<1" \
-            "iil-authoringfw>=0.3.0,<1" \
-            "iil-weltenfw>=0.1.0,<1" \
-            "iil-nl2cad>=0.1.0,<1" \
-            2>/dev/null || \
-          pip install \
-            "aifw>=0.5.0,<1" \
-            "promptfw>=0.2.0,<1" \
-            "authoringfw>=0.3.0,<1" \
-            "weltenfw>=0.1.0,<1" \
-            2>/dev/null || true
-          # iil-fieldprefill: private repo, not on PyPI (ADR-107)
-          if [ -n "$PROJECT_PAT" ]; then
-            pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
-          else
-            pip install "git+https://github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
-          fi
-      - name: Install platform-context[testing] (ADR-058)
-        if: ${{ inputs.platform_context_version != '' }}
-        run: |
-          if [ -d "vendor/platform_context" ]; then
-            pip install -e "vendor/platform_context[testing]"
-          else
-            pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
-          fi
+      - name: Install iil-packages + deps
+        uses: achimdehnert/platform/.github/actions/install-iil-packages@main
+        with:
+          project_pat: ${{ secrets.PROJECT_PAT }}
+          requirements_file: ${{ inputs.requirements_file }}
+          test_requirements_file: ${{ inputs.test_requirements_file }}
+          platform_context_version: ${{ inputs.platform_context_version }}
       - name: Install iil-testkit contract module (ADR-155)
         run: pip install "iil-testkit>=0.3.0"
       - name: Run contract tests
