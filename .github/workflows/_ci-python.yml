@@ -134,7 +134,9 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
-      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad)
+      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad, fieldprefill)
+        env:
+          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
         run: |
           pip install \
             "iil-aifw>=0.5.0,<1" \
@@ -149,6 +151,12 @@ jobs:
             "authoringfw>=0.3.0,<1" \
             "weltenfw>=0.1.0,<1" \
             2>/dev/null || true
+          # iil-fieldprefill: private repo, not on PyPI (ADR-107)
+          if [ -n "$PROJECT_PAT" ]; then
+            pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
+          else
+            pip install "git+https://github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
+          fi
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
         run: |
@@ -214,7 +222,9 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
-      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad)
+      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad, fieldprefill)
+        env:
+          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
         run: |
           pip install \
             "iil-aifw>=0.5.0,<1" \
@@ -229,6 +239,12 @@ jobs:
             "authoringfw>=0.3.0,<1" \
             "weltenfw>=0.1.0,<1" \
             2>/dev/null || true
+          # iil-fieldprefill: private repo, not on PyPI (ADR-107)
+          if [ -n "$PROJECT_PAT" ]; then
+            pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
+          else
+            pip install "git+https://github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
+          fi
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
         run: |
@@ -369,7 +385,9 @@ jobs:
           if [ -f "${{ inputs.test_requirements_file }}" ]; then
             pip install -r ${{ inputs.test_requirements_file }}
           fi
-      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad)
+      - name: Install iil-packages (aifw, promptfw, authoringfw, weltenfw, nl2cad, fieldprefill)
+        env:
+          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
         run: |
           pip install \
             "iil-aifw>=0.5.0,<1" \
@@ -384,6 +402,12 @@ jobs:
             "authoringfw>=0.3.0,<1" \
             "weltenfw>=0.1.0,<1" \
             2>/dev/null || true
+          # iil-fieldprefill: private repo, not on PyPI (ADR-107)
+          if [ -n "$PROJECT_PAT" ]; then
+            pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
+          else
+            pip install "git+https://github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
+          fi
       - name: Install platform-context[testing] (ADR-058)
         if: ${{ inputs.platform_context_version != '' }}
         run: |
