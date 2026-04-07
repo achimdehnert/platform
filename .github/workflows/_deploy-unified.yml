@@ -71,6 +71,9 @@ on:
         required: false
       DISCORD_WEBHOOK:
         required: false
+      PROJECT_PAT:
+        description: "GitHub PAT for cloning private repos during Docker build"
+        required: false
 
 jobs:
   # ── JOB 1: Environment + Image-Tag bestimmen ──────────────────────────────
@@ -162,6 +165,7 @@ jobs:
             BUILD_DATE=${{ github.event.head_commit.timestamp }}
             GIT_SHA=${{ github.sha }}
             APP_VERSION=${{ needs.resolve.outputs.image_tag }}
+            PROJECT_PAT=${{ secrets.PROJECT_PAT }}
 
   # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
   deploy-staging:
