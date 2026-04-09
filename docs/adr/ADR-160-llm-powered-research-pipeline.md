@@ -304,12 +304,12 @@ Die Umsetzung wird wie folgt verifiziert:
 | Phase 2 | LLM-Relevanz-Scoring (Batch à 10 Papers) | 30 min | ✅ researchfw@2caabcc |
 | Phase 3 | Integration in writing-hub `citation_service.py` | 15 min | ✅ writing-hub@1678461 |
 | Phase 4 | Tests (74 passed, 13 new SmartSearch tests) | 15 min | ✅ |
-| Phase 5 | Citation Graph Expansion (optional, opt-in) | 30 min | ⬜ deferred |
-| Phase 6 | Iterative Search mit Gap-Analyse (v2) | 45 min | ⬜ deferred |
+| Phase 5 | Citation Graph Expansion (opt-in via `expand_citations=True`) | 30 min | ✅ researchfw@4472b1d |
+| Phase 6 | Iterative Search mit Gap-Analyse (`search_rounds=2`) | 45 min | ✅ researchfw@4472b1d |
 
 ## More Information
 
-- researchfw v0.4.1 — aktuelle Version mit Fuzzy Dedup + LRU Cache
+- researchfw v0.6.0 — aktuelle Version mit SmartSearch + Citation Graph + Gap Analysis
 - writing-hub `apps/projects/services/citation_service.py` — Haupt-Consumer
 - `LLMCallable` Protocol in `iil_researchfw/core/protocols.py`
 - ADR-155 — API Contract Testing (relevant für Consumer-Integration)
