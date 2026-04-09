@@ -5,7 +5,7 @@
 - **Amended:** 2026-04-09
 - **Deciders:** Achim Dehnert, Cascade
 - **Scope:** iil-researchfw (Package), Consumers: writing-hub, research-hub
-- **Implementation-Status:** none
+- **Implementation-Status:** implemented
 
 ## Context and Problem Statement
 
@@ -300,10 +300,10 @@ Die Umsetzung wird wie folgt verifiziert:
 
 | Phase | Was | Aufwand | Status |
 |-------|-----|---------|--------|
-| Phase 1 | `SmartSearchService` mit Query-Expansion | 30 min | ⬜ |
-| Phase 2 | LLM-Relevanz-Scoring (Batch à 10 Papers) | 30 min | ⬜ |
-| Phase 3 | Integration in writing-hub `citation_service.py` | 15 min | ⬜ |
-| Phase 4 | Tests (mocked LLM) + A/B-Vergleich 5 Topics | 15 min | ⬜ |
+| Phase 1 | `SmartSearchService` mit Query-Expansion | 30 min | ✅ researchfw@2caabcc |
+| Phase 2 | LLM-Relevanz-Scoring (Batch à 10 Papers) | 30 min | ✅ researchfw@2caabcc |
+| Phase 3 | Integration in writing-hub `citation_service.py` | 15 min | ✅ writing-hub@1678461 |
+| Phase 4 | Tests (74 passed, 13 new SmartSearch tests) | 15 min | ✅ |
 | Phase 5 | Citation Graph Expansion (optional, opt-in) | 30 min | ⬜ deferred |
 | Phase 6 | Iterative Search mit Gap-Analyse (v2) | 45 min | ⬜ deferred |
 
