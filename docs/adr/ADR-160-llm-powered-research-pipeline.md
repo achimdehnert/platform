@@ -1,9 +1,11 @@
-# ADR-160: LLM-Powered Research Pipeline — Von Keyword-Suche zu intelligenter Literaturrecherche
+# ADR-160: Adopt LLM-Powered Query-Expansion and Relevance Scoring for researchfw
 
-- **Status:** proposed
+- **Status:** accepted
 - **Date:** 2026-04-09
+- **Amended:** 2026-04-09
 - **Deciders:** Achim Dehnert, Cascade
 - **Scope:** iil-researchfw (Package), Consumers: writing-hub, research-hub
+- **Implementation-Status:** none
 
 ## Context and Problem Statement
 
@@ -120,9 +122,9 @@ async def _expand_via_citations(self, top_papers: list[AcademicPaper]) -> list[A
 - **Con:** Zusätzliche API-Calls, erhöht Latenz um 5-10s
 - **Con:** Nur für Semantic Scholar verfügbar
 
-## Decision
+## Decision Outcome
 
-**Option B (Query-Expansion + LLM-Relevanz-Scoring)** als Basis, mit **Option D (Citation Graph)** als optionalem Add-on.
+**Chosen option: Option B (Query-Expansion + LLM-Relevanz-Scoring)** als Basis, mit **Option D (Citation Graph)** als optionalem Add-on.
 
 ### Begründung
 
@@ -219,6 +221,36 @@ Rate each paper's relevance (0-10) and explain briefly:
 Return as JSON: [{"index": 0, "score": 8, "reason": "Directly addresses..."}, ...]
 ```
 
+## Pros and Cons of the Options
+
+### Option A: Query-Expansion Only
+
+- **Good:** Minimaler Aufwand (+1 LLM-Call, ~500 Token, ~0.001$ pro Suche)
+- **Good:** Größter einzelner Hebel — bessere Queries → bessere Ergebnisse
+- **Bad:** Keine intelligente Filterung — False Positives bleiben
+- **Bad:** Kein iteratives Nachsuchen
+
+### Option B: Query-Expansion + LLM-Relevanz-Scoring (Chosen)
+
+- **Good:** Eliminiert False Positives — nur wirklich relevante Papers
+- **Good:** Moderater Aufwand (2-3 LLM-Calls, ~2000 Token, ~0.005$ pro Suche)
+- **Good:** Abwärtskompatibel — AcademicSearchService bleibt unverändert
+- **Bad:** Kein iteratives Nachsuchen (kann in v2 nachgerüstet werden)
+
+### Option C: Full Pipeline (Query + Relevanz + Iterative Search)
+
+- **Good:** Beste Ergebnisqualität — findet Lücken und Schlüsselwerke
+- **Good:** Findet Aspekte die dem Nutzer nicht einfallen
+- **Bad:** Hoher Aufwand (5-7 LLM-Calls, ~5000 Token, ~0.015$ pro Suche)
+- **Bad:** 30-60s Latenz, höhere Komplexität
+
+### Option D: Citation Graph Expansion (Add-on)
+
+- **Good:** Findet Schlüsselwerke die Keyword-Suche nie findet
+- **Neutral:** Kombinierbar mit B oder C
+- **Bad:** Zusätzliche API-Calls, +5-10s Latenz
+- **Bad:** Nur für Semantic Scholar verfügbar
+
 ## Consequences
 
 ### Positive
@@ -236,19 +268,49 @@ Return as JSON: [{"index": 0, "score": 8, "reason": "Directly addresses..."}, ..
 - **Token-Kosten** — ~2000 Token pro Suche bei Option B, ~5000 bei späterer Option C
 - **Testbarkeit** — LLM-Calls können in Tests gemockt werden (LLMCallable Protocol)
 
+### Confirmation
+
+Die Umsetzung wird wie folgt verifiziert:
+
+1. **A/B-Vergleich**: 5 Test-Topics mit altem `AcademicSearchService` und neuem `SmartSearchService` durchsuchen — Ergebnisse manuell bewerten (Precision/Recall)
+2. **Automated Tests**: Mocked LLM-Calls in pytest — Query-Expansion liefert JSON, Relevance-Scoring filtert korrekt
+3. **Cost Tracking**: Token-Verbrauch pro Suche loggen — muss unter 3000 Token/Suche bleiben
+4. **Latenz**: End-to-End-Zeit messen — muss unter 15s bleiben (exkl. Citation Graph)
+5. **Abwärtskompatibilität**: Bestehende writing-hub Tests müssen ohne Änderung weiter grün sein
+
+## Open Questions
+
+| Frage | Optionen | Entscheidung |
+|-------|----------|-------------|
+| **Welches LLM-Modell für Query-Expansion?** | Together AI (Llama 3.1 8B) günstig+schnell vs. OpenAI GPT-4o-mini besser | Together AI als Default (über bestehendes `LLMCallable`), Consumer kann eigenes Modell injizieren |
+| **Fallback wenn LLM unavailable?** | a) Error werfen, b) auf Keyword-Search zurückfallen | b) Graceful Degradation — `SmartSearchService` fällt auf `AcademicSearchService.search(topic)` zurück mit Logging-Warning |
+| **Max Token-Budget pro Suche?** | 2000 / 3000 / 5000 | 3000 Token als Default, konfigurierbar via `max_tokens_per_search` Parameter |
+| **Relevance-Threshold konfigurierbar?** | Fix 7.0 vs. konfigurierbar | Konfigurierbar, Default 7.0, Constructor-Parameter `relevance_threshold` |
+| **Batch-Size für Relevance-Scoring?** | Alle Papers auf einmal vs. Chunks | Chunks à 10 Papers (Prompt-Länge begrenzen, Qualität pro Paper erhalten) |
+
+## Deferred Decisions
+
+| Thema | Ziel-Version | Referenz |
+|-------|-------------|----------|
+| Iterative Search mit Gap-Analyse (Option C) | researchfw v0.6+ | Phase 6 in Implementation Plan |
+| Citation Graph Expansion (Option D) | researchfw v0.5+ | Phase 5 in Implementation Plan |
+| Prompt-Optimierung basierend auf A/B-Ergebnissen | nach Phase 4 | Keine separate ADR nötig |
+
 ## Implementation Plan
 
-| Phase | Was | Aufwand |
-|-------|-----|---------|
-| Phase 1 | `SmartSearchService` mit Query-Expansion | 30 min |
-| Phase 2 | LLM-Relevanz-Scoring (Batch) | 30 min |
-| Phase 3 | Integration in writing-hub `citation_service.py` | 15 min |
-| Phase 4 | Tests + Docs | 15 min |
-| Phase 5 (optional) | Citation Graph Expansion | 30 min |
-| Phase 6 (v2) | Iterative Search mit Gap-Analyse | 45 min |
+| Phase | Was | Aufwand | Status |
+|-------|-----|---------|--------|
+| Phase 1 | `SmartSearchService` mit Query-Expansion | 30 min | ⬜ |
+| Phase 2 | LLM-Relevanz-Scoring (Batch à 10 Papers) | 30 min | ⬜ |
+| Phase 3 | Integration in writing-hub `citation_service.py` | 15 min | ⬜ |
+| Phase 4 | Tests (mocked LLM) + A/B-Vergleich 5 Topics | 15 min | ⬜ |
+| Phase 5 | Citation Graph Expansion (optional, opt-in) | 30 min | ⬜ deferred |
+| Phase 6 | Iterative Search mit Gap-Analyse (v2) | 45 min | ⬜ deferred |
 
-## Related
+## More Information
 
 - researchfw v0.4.1 — aktuelle Version mit Fuzzy Dedup + LRU Cache
 - writing-hub `apps/projects/services/citation_service.py` — Haupt-Consumer
 - `LLMCallable` Protocol in `iil_researchfw/core/protocols.py`
+- ADR-155 — API Contract Testing (relevant für Consumer-Integration)
+- ADR-159 — Shared Secrets Management (API Keys für LLM-Calls)
