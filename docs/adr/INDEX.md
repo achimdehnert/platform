@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-04-08
-> **Next free ADR number:** 161
+> **Last updated:** 2026-04-14
+> **Next free ADR number:** 162
 
 ## Legend
 
@@ -190,6 +190,7 @@
 | 157 | Adopt same-port staging on Dev Desktop with automated port governance and onboarding | `Accepted` | ✅ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
 | 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | `Proposed` | 🔶 | [ADR-158](ADR-158-unified-documentation-architecture.md) |
 | 160 | Adopt Standardized Two-File CI/CD Pipeline for All Hub Repositories | `Accepted` | 🔶 | [ADR-160](../../mcp-hub/docs/ADR-160-standardized-hub-deployment.md) |
+| 161 | Adopt Two-Layer-Schema with Hybrid-RLS for Tenant-Spanning SDS Data | `Proposed` | ⬜ | [ADR-161](ADR-161-shared-sds-library.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

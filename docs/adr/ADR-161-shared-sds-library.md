@@ -1,14 +1,36 @@
-# ADR-161: Shared SDS Library — Tenant-übergreifende Gefahrstoffdatenbank
+---
+status: proposed
+date: 2026-03-26
+amended: 2026-04-14
+decision-makers:
+  - Achim Dehnert
+depends-on:
+  - ADR-022 (Platform Consistency Standard — BigAutoField)
+  - ADR-035 (Shared Django Tenancy)
+repo: risk-hub
+implementation_status: none
+# Drift-Detector
+staleness_months: 6
+drift_check_paths:
+  - risk-hub/src/apps/substances/models/
+  - risk-hub/src/apps/substances/services/
+  - risk-hub/src/apps/gbu/services/progress.py
+supersedes_check: null
+---
+
+<!-- Drift-Detector-Felder: staleness_months=6, drift_check_paths=[risk-hub/src/apps/substances/], supersedes_check=null -->
+
+# ADR-161: Adopt Two-Layer-Schema with Hybrid-RLS for Tenant-Spanning SDS Data
 
 | Metadaten | |
 |-----------|---|
-| **Status** | 🔄 PROPOSED |
-| **Version** | 2.1 |
+| **Status** | Proposed |
+| **Version** | 3.1 |
 | **Datum** | 2026-03-26 |
+| **Amended** | 2026-04-14 |
 | **Autor** | Achim Dehnert (AI-unterstützt) |
-| **Reviewer** | _ausstehend_ |
-| **Entscheidungsdatum** | _ausstehend_ |
-| **Depends On** | ADR-002 (Substances/SDS-Modul), ADR-003 (Multi-Tenant & RBAC) |
+| **Reviewer** | Cascade (Platform-Review 2026-04-14) |
+| **Depends On** | ADR-022 (BigAutoField), ADR-035 (Shared Django Tenancy) |
 | **Repo** | `risk-hub` |
 | **GitHub Issues** | risk-hub #9 (Epic), #10 (Phase 0), #11 (Phase 1), #12 (Phase 2), #13 (Phase 3) |
 | **Betrifft** | `substances`, `tenancy`, `platform` |
@@ -21,6 +43,7 @@
 | 2.0 | 2026-03-26 | Erweitert um Upload-Pipeline (3 Stufen), Supersession-Lifecycle, Impact-Klassifizierung, Compliance-Dashboard |
 | 2.1 | 2026-03-26 | Review-Findings eingearbeitet: RLS-Strategie (B-1), Schema-Ownership (B-2), Diff-Persistenz (M-1), Outbox-Schema (M-2), approved_by-Constraint (M-3), konfigurierbare Settings (N-1), Zyklus-Constraint (N-2), Test-Konzept (N-3) |
 | 3.0 | 2026-04-14 | Platform-Review: Renummiert als ADR-161. Compliance-Fixes identifiziert: BigAutoField statt UUID-PK, BaseProgressService-Konsolidierung, Fuzzy-Matching-Performance. 4-Phasen-Implementierungsplan als GitHub Issues (#9–#13). |
+| 3.1 | 2026-04-14 | ADR-Review: MADR 4.0 Frontmatter, BigAutoField in Code-Snippets, Confirmation-Sektion, Drift-Detector, ADR-072-Abweichung begründet, Alternativen erweitert, Migration-Tracking. |
 
 ---
 
@@ -183,6 +206,16 @@ CREATE POLICY global_sds_no_delete ON substances_substance
 > Hier schreiben **ausschließlich** Service-Accounts — da globale SDS-Daten
 > nie tenant-spezifisch sind, gibt es keine Tenant-Write-Berechtigung.
 
+> **Bewusste Abweichung von ADR-072 (Schema-Isolation):** ADR-072 empfiehlt
+> Schema-pro-Tenant für neue Multi-Tenant-Apps. Globale SDS-Tabellen haben
+> *kein* `tenant_id` und existieren bewusst außerhalb des Tenant-Schemas —
+> sie sind Shared Infrastructure (analog `auth_user` oder `django_content_type`).
+> Nur `SdsUsage` ist tenant-scoped und folgt dem ADR-072-Pattern.
+> Hybrid-RLS auf globalen Tabellen ist die korrekte Strategie weil:
+> 1. Schema-Isolation keinen Sinn ergibt für Daten die alle Tenants lesen sollen
+> 2. `FORCE ROW LEVEL SECURITY` verhindert versehentliche Writes durch Application-Code
+> 3. Service-Account-Pattern ist bereits in ADR-001 v5 etabliert
+
 ### 3.3 Schema-Ownership (B-2)
 
 Globale Tabellen leben im `substances`-App des risk-hub mit explizitem `app_label`:
@@ -219,8 +252,12 @@ Bis dahin bleibt alles im risk-hub ohne Mehraufwand.
 ```python
 class Substance(models.Model):
     """Globale Gefahrstoff-Stammdaten. CAS ist natürlicher Schlüssel."""
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # BigAutoField (Django default) — ADR-022 Platform Consistency
     cas_number = models.CharField(max_length=20, unique=True, null=True, blank=True)
+    cas_number_normalized = models.CharField(
+        max_length=20, blank=True, db_index=True,
+        help_text="CAS ohne Bindestriche/Leerzeichen — auto-generiert via save()",
+    )
     ec_number = models.CharField(max_length=20, blank=True)
     name = models.CharField(max_length=512)
     synonyms = models.JSONField(default=list, blank=True)
@@ -239,7 +276,7 @@ class SdsRevision(models.Model):
         REJECTED   = "REJECTED",   "Abgelehnt"
         SUPERSEDED = "SUPERSEDED", "Abgelöst"
 
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    # BigAutoField (Django default) — ADR-022 Platform Consistency
     substance = models.ForeignKey(Substance, on_delete=models.PROTECT, related_name="revisions")
     source_hash = models.CharField(max_length=64, unique=True)
     superseded_by = models.OneToOneField(
@@ -799,9 +836,9 @@ CREATE TABLE global_sds_sdscomponent (...);
 CREATE TABLE global_sds_sdsexposurelimit (...);
 CREATE TABLE global_sds_revisiondiff (...);
 
--- Bridge-Spalte auf alten Tenant-Tabellen
+-- Bridge-Spalte auf alten Tenant-Tabellen (BigAutoField → BIGINT FK)
 ALTER TABLE substances_sdsrevision
-    ADD COLUMN global_revision_id UUID REFERENCES global_sds_sdsrevision(id);
+    ADD COLUMN global_revision_id BIGINT REFERENCES global_sds_sdsrevision(id);
 ```
 
 ### Schritt 2 — Idempotenter Migrations-Command
@@ -825,8 +862,8 @@ Erst nach vollständiger Verifikation in Produktion, eigenem ADR-Amendment.
 | # | Frage | Empfehlung | Status |
 |---|-------|------------|--------|
 | OQ-1 | Wer darf neue `Substance`-Einträge anlegen? | Upload-Pipeline: Tenant-Upload → PENDING → Auto-Promotion bei Konfidenz ≥ SDS_PARSER_GLOBAL_PROMOTION_THRESHOLD | **Gelöst durch §5 + §7.3** |
-| OQ-2 | Wie wird ein fehlerhafter globaler Parse korrigiert? | Platform-Admin-Interface mit manuellem Diff-Edit + `SdsRevisionDiffRecord`-Korrektur | Offen |
-| OQ-3 | `pdf_file` global oder per-Tenant in S3? | Global — SDS sind öffentliche Herstellerdokumente (REACH Art. 31) | Offen |
+| OQ-2 | Wie wird ein fehlerhafter globaler Parse korrigiert? | Platform-Admin-Interface mit manuellem Diff-Edit + `SdsRevisionDiffRecord`-Korrektur | Offen — Follow-Up: risk-hub Issue TBD (Phase 4) |
+| OQ-3 | `pdf_file` global oder per-Tenant in S3? | Global — SDS sind öffentliche Herstellerdokumente (REACH Art. 31) | Offen — Follow-Up: risk-hub Issue TBD (Phase 4) |
 | OQ-4 | DSGVO: Enthält SDS personenbezogene Daten? | Nein | **Geklärt** |
 | OQ-5 | Sieht Tenant A welche Stoffe Tenant B nutzt? | Nein — `SdsUsage` + `SiteInventoryItem` strikt tenant-isoliert | **Geklärt** |
 | OQ-6 | 4-Wochen-Frist gesetzlich normiert? | Nicht explizit; `SDS_REVIEW_DEADLINE_DAYS=28` als konfigurierbarer Default | **Gelöst durch §7.3** |
@@ -860,27 +897,59 @@ Erst nach vollständiger Verifikation in Produktion, eigenem ADR-Amendment.
 | - | Kuration-Queue kann Bottleneck werden | Auto-Promotion reduziert manuelle Arbeit erheblich |
 | - | `SdsRevisionDiffRecord` wächst mit der Zeit | Kein Problem — immutable, kompakt (JSON), seltene Writes |
 
----
+### 12.3 Confirmation
 
-## 13. Alternativen
+Compliance mit diesem ADR wird wie folgt verifiziert:
 
-### A) Status quo (abgelehnt)
-Tenant-spezifisch wie ADR-002. Kein Netzwerkeffekt, keine Update-Erkennung.
-
-### B) Vollständig global ohne SdsUsage (abgelehnt)
-Keine tenant-spezifische Freigabe dokumentierbar — GefStoffV §6(4) verletzt.
-
-### C) Externes SDS-Provider-API (abgelehnt)
-Vendor Lock-in, API-Kosten, kein Offline-Betrieb.
-
-### D) **Gewählt: Two-Layer + Upload-Pipeline + Supersession-Lifecycle**
-Global für objektive Fakten. Tenant-isoliert für Compliance-Aspekte.
-Upload-Pipeline löst Identität und Version vollautomatisch auf.
-Impact-Klassifizierung steuert Downstream-Notifications differenziert.
+1. **BigAutoField**: `ruff` Custom-Rule + `python manage.py makemigrations --check` — kein `UUIDField(primary_key=True)` in neuen Models
+2. **RLS-Policies**: DB-Integrationstest: normaler User darf nicht INSERT auf `global_sds_*` Tabellen
+3. **Service-Layer**: Architecture Guardian prüft: keine `Model.objects.` Aufrufe in `views.py`
+4. **Audit-Trail**: Jede Status-Transition erzeugt Outbox-Event (verifiziert durch Integration-Tests)
+5. **GefStoffV §6(4)**: CheckConstraint `chk_sds_usage_active_requires_approver` — DB-Ebene erzwungen
+6. **GefStoffV §7**: `defer_update()` wirft `ValueError` bei leerem `reason` — Unit-Test
+7. **Drift-Detector**: `staleness_months=6`, `drift_check_paths` im Frontmatter — automatische Stale-Warnung
 
 ---
 
-## 15. Service-Übersicht
+## 13. Betrachtete Optionen
+
+### Option A: Status quo — Tenant-spezifische SDS (abgelehnt)
+
+- **Pro:** Keine Migration, kein RLS-Aufwand, bewährtes Muster
+- **Pro:** Tenant-Isolation trivial (jeder Tenant hat eigene Tabellen)
+- **Contra:** Kein Netzwerkeffekt — 100 Tenants = 100× derselbe Parse-Aufwand
+- **Contra:** Keine automatische Update-Erkennung bei Hersteller-Revisionen
+- **Contra:** Inkonsistente Datenqualität zwischen Tenants (Parser-Bugs)
+
+### Option B: Vollständig global ohne SdsUsage (abgelehnt)
+
+- **Pro:** Einfachstes Datenmodell, keine Bridge-Tabelle
+- **Pro:** Maximaler Netzwerkeffekt
+- **Contra:** Keine tenant-spezifische Freigabe dokumentierbar — **GefStoffV §6(4) verletzt**
+- **Contra:** Kein Zurückstell-Nachweis möglich — **GefStoffV §7 verletzt**
+- **Contra:** Kein Audit-Trail wer wann welche Revision für welchen Betrieb freigegeben hat
+
+### Option C: Externes SDS-Provider-API (abgelehnt)
+
+- **Pro:** Sofort verfügbar, professionell kuratiert
+- **Pro:** Kein Parser-Entwicklungsaufwand
+- **Contra:** Vendor Lock-in, API-Kosten pro Abfrage
+- **Contra:** Kein Offline-Betrieb möglich (z.B. Baustelle ohne Internet)
+- **Contra:** Kein Einfluss auf Datenqualität und Aktualität
+
+### Option D: **Gewählt — Two-Layer + Upload-Pipeline + Supersession-Lifecycle**
+
+- **Pro:** Single Source of Truth mit Netzwerkeffekt
+- **Pro:** GefStoffV-konforme Freigabe und Zurückstellung pro Tenant
+- **Pro:** Automatische Versionserkennung und Impact-Klassifizierung
+- **Pro:** Audit-Trail über `SdsRevisionDiffRecord` und Outbox-Events
+- **Contra:** Datenmigration komplex (3-Schritt, Expand-Contract)
+- **Contra:** Schlechter Parse schadet global (Mitigation: PENDING bis Konfidenz-Schwelle)
+- **Contra:** Fuzzy-Matching-Risiko (Mitigation: konservative Schwellenwerte + Human-Review)
+
+---
+
+## 14. Service-Übersicht
 
 | Service | Verantwortung |
 |---------|---------------|
@@ -894,37 +963,53 @@ Impact-Klassifizierung steuert Downstream-Notifications differenziert.
 
 ---
 
-## 16. Implementierungsplan
+## 15. Implementierungsplan
 
-| Sprint | Deliverable | Aufwand |
-|--------|-------------|---------|
-| N | Globale Models + Migrations mit `app_label="global_sds"` + Hybrid-RLS-Policies | 8 SP |
-| N | `SdsRevisionQuerySet.visible_for_tenant()` + RLS-Tests | 4 SP |
-| N+1 | `SdsUsage` inkl. `pending_update_*`, `review_deadline`, `update_deferred_*` + `approved_by`-Constraint | 6 SP |
-| N+1 | `SdsUploadPipeline`: Stufe 1 SHA-256 + Stufe 2 `SdsIdentityResolver` | 8 SP |
-| N+1 | `SdsVersionDetector` + Konflikt-Queue + Confirmation-View (HTMX) | 5 SP |
-| N+2 | `SdsRevisionDiffService` + `ImpactLevel` + `SdsRevisionDiffRecord` (persistiert) | 10 SP |
-| N+2 | `SdsSupersessionService` inkl. GBU/Ex-Flagging via Outbox (Event-Schema gemäß §6.5) | 8 SP |
-| N+2 | `SdsParserService` LLM-Qualitätsgate + `llm_corrections` Audit-Trail | 8 SP |
-| N+3 | `SdsComponent` + `SdsExposureLimit` Parser (Abschnitt 3, 8) | 8 SP |
-| N+3 | Compliance-Dashboard View + HTMX-Partials (Diff, Adopt, Defer) | 5 SP |
-| N+4 | `migrate_to_global_sds` Management-Command (`--dry-run`, `--force`) | 5 SP |
-| N+4 | Kuration-Queue UI (Platform-Admin) | 5 SP |
-| N+4 | Datenmigration Produktion + Verifikation | 5 SP |
+> **Tracking:** Siehe GitHub Issues risk-hub #9 (Epic), #10–#13 (Phasen).
+> Geschätzt: ~67 SP (bereinigt nach Platform-Review).
 
-**Gesamt: ~85 SP** (+7 SP gegenüber v2.0 durch RLS, DiffRecord, Constraint)
+| Phase | Issue | Deliverable | SP | Status |
+|-------|-------|-------------|---:|--------|
+| 0 | #10 | BigAutoField-Migration, BaseProgressService-Konsolidierung, Tenant-Middleware-Doku | 7 | ⬜ Open |
+| 1.1 | #11 | `HazardStatementRef` + Seed-Command | 2 | ⬜ Open |
+| 1.2 | #11 | `Substance` + `SdsRevision` + QuerySets | 3 | ⬜ Open |
+| 1.3 | #11 | `SdsComponent` + `SdsExposureLimit` + `SdsRevisionDiffRecord` | 4 | ⬜ Open |
+| 1.4 | #11 | `SdsPropertyDefinition` + `SdsRevisionProperty` + Seed | 3 | ⬜ Open |
+| 1.5 | #11 | `SdsUsage` + RLS-Policies | 4 | ⬜ Open |
+| 1.6 | #11 | `GbuHazardCategoryMapping` + Seed | 2 | ⬜ Open |
+| 2.1 | #12 | `SdsIdentityResolver` mit pg_trgm | 5 | ⬜ Open |
+| 2.2 | #12 | `SdsVersionDetector` | 2 | ⬜ Open |
+| 2.3 | #12 | `SdsUploadPipeline` Orchestrator | 5 | ⬜ Open |
+| 2.4 | #12 | `SdsRevisionDiffService` + Impact-Klassifizierung | 6 | ⬜ Open |
+| 2.5 | #12 | `SdsSupersessionService` + Event-System | 5 | ⬜ Open |
+| 3.1 | #13 | Progress Rail HTMX-Partial | 4 | ⬜ Open |
+| 3.2 | #13 | GBU-Editor mit Progress-Service | 5 | ⬜ Open |
+| 3.3 | #13 | Ex-Konzept-Editor mit Progress-Service | 5 | ⬜ Open |
+| 3.4 | #13 | Compliance-Dashboard | 5 | ⬜ Open |
 
 ---
 
-## 17. Referenzen
+## 16. Referenzen
 
-- [ADR-002: Substances/SDS-Modul](./ADR-002-substances-sds-modul.md)
-- [ADR-003: Multi-Tenant & RBAC](./ADR-003-tenant-rbac-architektur.md)
-- [ADR-006: Audit & Compliance](./ADR-006-audit-compliance.md)
+### Platform-ADRs
+- [ADR-022: Platform Consistency Standard](./ADR-022-platform-consistency-standard.md) — BigAutoField-Pflicht
+- [ADR-035: Shared Django Tenancy](./ADR-035-shared-django-tenancy.md) — Multi-Tenant-Pattern
+- [ADR-041: Django Component Pattern](./ADR-041-django-component-pattern.md) — Service-Layer
+- [ADR-045: Secrets Management](./ADR-045-secrets-management.md) — `decouple.config()`
+
+### risk-hub-interne ADRs (im risk-hub Repo)
+- ADR-002: Substances/SDS-Modul (wird partiell revidiert)
+- ADR-003: Multi-Tenant & RBAC
+- ADR-006: Audit & Compliance
+
+### Regulierung
 - REACH-Verordnung (EG) Nr. 1907/2006, Art. 31 (SDS-Pflicht)
 - GefStoffV §6 (Gefahrstoffverzeichnis, Freigabe-Pflicht)
 - GefStoffV §7 Abs. 7 (Überprüfungspflicht bei geänderten Arbeitsbedingungen)
 - GefStoffV §14 (40-Jahre-Aufbewahrung CMR-Stoffe)
 - TRGS 400 (Informationsermittlung aus SDS)
 - TRGS 510 (Lagerung von Gefahrstoffen)
+- CLP-Verordnung (EG) Nr. 1272/2008
+
+### Sonstige
 - Sicherheitsdatenblatt CELEROL-Decklack 362-26, Mankiewicz, Version 4, 03.01.2024
