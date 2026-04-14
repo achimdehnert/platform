@@ -75,7 +75,7 @@ fi
 
 # GHCR Login (Token aus /opt/scripts/.ghcr_token falls vorhanden)
 if [[ -f "/opt/scripts/.ghcr_token" ]]; then
-  docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
+  docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token 2>/dev/null || echo "WARN: GHCR login skipped"
 fi
 
 # Deploy
