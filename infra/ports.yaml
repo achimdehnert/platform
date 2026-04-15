@@ -24,10 +24,14 @@ servers:
     ip: 88.198.191.108
     name: Hetzner Dedicated (Production)
     ssh: root@88.198.191.108
-  staging:
+  dev:
     ip: 88.99.38.75
-    name: Dev Desktop (Staging)
+    name: Dev Desktop (Development)
     ssh: root@88.99.38.75
+  staging:
+    ip: 178.104.184.168
+    name: Hetzner Staging (Dedicated)
+    ssh: root@178.104.184.168
 
 services:
 
