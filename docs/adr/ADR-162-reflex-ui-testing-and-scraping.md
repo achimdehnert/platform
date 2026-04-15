@@ -344,6 +344,138 @@ Diese Entscheidung gilt als bestätigt wenn:
 Staleness-Review in 12 Monaten: Ist `apps/ui_tdd/` (v1.0) implementiert?
 Ist der Drift-Detector aktiv für `tests/ui/`? Ist Scraper-MCP produktiv?
 
+## REFLEX v2.0 Erweiterungen
+
+### Domain Agent (D-6) — LLM-gestütztes Expertise-Onboarding
+
+Zirkel 0 wird durch einen variablen Domain Agent erweitert. Der Agent
+ist **nicht hub-spezifisch** — ein `vertical` Parameter bestimmt die
+Domäne (z.B. `chemical_safety`, `creative_writing`, `real_estate`).
+
+**Ablauf:**
+1. Auto-Recherche: Outline + Paperless + pgvector Memory → `domain_context`
+2. LLM Domain Research via promptfw Template → strukturiertes KB-Draft
+3. LLM generiert Interview-Fragen (nur Lücken, nicht alles)
+4. Expert füllt Lücken (minimaler Aufwand)
+5. LLM destilliert → `domain/[hub]-kb.md` (Glossar, Pflichtfelder, Invarianten)
+6. LLM Cross-Check gegen ADRs + Platform-Regeln → Violations flagged
+
+**Architektur-Prinzipien:**
+- Pure Python — keine Django-Abhängigkeit im Core
+- Provider-Pattern für Wissensquellen (`KnowledgeProvider` Protocol)
+- promptfw-native Templates (`.jinja2` Frontmatter)
+- Konfiguration via `reflex.yaml` pro Hub (deklarativ)
+
+### Package: iil-reflex (PyPI)
+
+Der Domain Agent und die REFLEX-Methodik-Logik leben in einem eigenen
+Python Package `iil-reflex`. Dependency: nur `iil-promptfw>=0.7.0`.
+Django-Integration (Models, Views, Tasks) bleibt hub-spezifisch.
+
+```
+iil-reflex/
+├── reflex/
+│   ├── agent.py           # DomainAgent (pure Python)
+│   ├── quality.py          # UC Quality Checker
+│   ├── classify.py         # Failure Classifier
+│   ├── config.py           # ReflexConfig from reflex.yaml
+│   ├── providers.py        # KnowledgeProvider, DocumentProvider (Protocol)
+│   ├── types.py            # Dataclasses (Results, Questions, Entries)
+│   └── templates/          # package_data (.jinja2)
+│       ├── domain_research.jinja2
+│       ├── domain_interview.jinja2
+│       ├── domain_kb_distill.jinja2
+│       ├── uc_quality_check.jinja2
+│       ├── failure_classify.jinja2
+│       └── wireframe_review.jinja2
+└── tests/
+```
+
+### Erweiterte UI-Qualität (Zirkel 2)
+
+Neben ARIA-Snapshot und pytest-playwright werden folgende Dimensionen
+in Zirkel 2 geprüft:
+
+**U-1 HTMX-Validation (ADR-048):** hx-swap Modus, hx-target Existenz,
+hx-indicator Pflicht, Error-Response-Handling, kein hx-boost (AP-001).
+
+**U-2 Component Pattern (ADR-041):** Inclusion Tag, HTMX-Fragment,
+Template-Include — alle 3 Zugriffspfade pro Component.
+
+**U-3 data-testid (ADR-040):** Coverage-Metrik für interactive Elemente.
+`testid_coverage = elements_with_testid / total_interactive`.
+
+**U-4 Responsive:** 3 Viewports (375px, 768px, 1280px), kein
+horizontaler Scroll, Touch-Targets ≥ 44px.
+
+**U-5 WCAG/axe-core:** Farbkontrast, Focus-Indikatoren, Skip-Links,
+Label-Zuordnung via `@axe-core/playwright`.
+
+**U-6 Permission-Matrix:** Systematische Matrix View × Rolle →
+erwarteter HTTP-Status. Konfigurierbar via `reflex.yaml`.
+
+### Domain-Integration
+
+**D-1 Knowledge-Quellen:** Outline + Paperless + pgvector Memory
+automatisch vor Zirkel 0 durchsucht.
+
+**D-2 ADR Cross-Reference:** UC wird via `check_violations()` gegen
+alle ADRs geprüft.
+
+**D-3 Post-Deploy Audit:** Nach `/ship` optional Zirkel 2 Audit-Lauf
+gegen frisch deployten UI.
+
+**D-4 Error → UC Loop:** Production-Error-Patterns werden als
+UC-Revision-Vorschlag in Zirkel 1 eingespeist.
+
+**D-5 Semantic KB:** DomainKB parallel im pgvector Store für
+hub-übergreifende semantische Suche.
+
+### Provider-Pattern (Dependency Inversion)
+
+```python
+class KnowledgeProvider(Protocol):
+    def search(self, query: str, limit: int = 5) -> list[KnowledgeEntry]: ...
+
+class DocumentProvider(Protocol):
+    def search(self, query: str, limit: int = 5) -> list[DocumentEntry]: ...
+```
+
+Implementierungen: `OutlineProvider`, `PaperlessProvider`,
+`MemoryProvider`, `MockProvider` (für Tests).
+
+### Hub-Konfiguration via reflex.yaml
+
+```yaml
+hub_name: risk-hub
+vertical: chemical_safety
+domain_keywords: ["SDS", "CAS", "GHS", "REACH"]
+quality:
+  min_acceptance_criteria: 2
+  max_uc_steps: 7
+viewports:
+  - {name: mobile, width: 375, height: 812}
+  - {name: desktop, width: 1280, height: 800}
+htmx_patterns:
+  banned: ["hx-boost"]
+  required_on_forms: ["hx-indicator"]
+permissions_matrix:
+  /substances/: {anonymous: 302, viewer: 200, admin: 200}
+  /substances/create/: {anonymous: 302, viewer: 403, admin: 200}
+```
+
+### Implementierungs-Reihenfolge (v2.0)
+
+| Phase | Was | Timing |
+|-------|-----|--------|
+| Phase 1 | REFLEX v0.1 in dev-hub (inline, manuell) | 5 Tage |
+| Phase 2a | iil-reflex Package (Core + Templates) | Nach Phase 1 |
+| Phase 2b | apps/ui_tdd/ in dev-hub (nutzt iil-reflex) | Parallel |
+| Phase 2c | Enhanced conftest.py (U-1..U-6) | Parallel |
+| Phase 3 | Provider-Implementierungen (Outline, Paperless) | Nach Phase 2 |
+| Phase 4 | Post-Deploy Audit in /ship Workflow | Nach Phase 3 |
+| Phase 5 | Scraper-MCP | Parallel zu Phase 3-4 |
+
 ## Implementation Evidence
 
 - writing-hub: `/dev-login/` + `dev_login_url` Command (Commit 5f5e8bd)
@@ -351,3 +483,4 @@ Ist der Drift-Detector aktiv für `tests/ui/`? Ist Scraper-MCP produktiv?
 - writing-hub: `feedback/writing-hub-audit.v1.feedback.json` — 27/27 PASS
 - Referenz-Implementierung: `ADR-XXX-final.zip` (models, services, views, tasks,
   migration, conftest, tests, shell-script) — platform-reviewed
+- iil-reflex Package-Scaffold: types, providers, agent, templates — platform-reviewed
