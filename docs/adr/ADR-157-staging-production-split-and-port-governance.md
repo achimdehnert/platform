@@ -1,9 +1,9 @@
 ---
 parent: Decisions
 nav_order: 157
-title: "ADR-157: Adopt same-port staging on Dev Desktop with automated port governance and onboarding"
+title: "ADR-157: 3-Server Architecture — Dev, Staging, Production with automated port governance"
 status: accepted
-amended: 2026-04-02
+amended: 2026-04-16
 date: 2026-04-02
 deciders: Achim Dehnert
 consulted: Cascade AI
@@ -13,7 +13,7 @@ related: ["ADR-021-unified-deployment-pattern.md", "ADR-075-deployment-execution
 implementation_status: complete
 ---
 
-# Adopt same-port staging on Dev Desktop with automated port governance and onboarding
+# 3-Server Architecture — Dev, Staging, Production with automated port governance
 
 <!-- Drift-Detector-Felder
 staleness_months: 6
@@ -60,10 +60,15 @@ und die DNS-Records zeigen auf mindestens 3 verschiedene, teils unbekannte IPs.
 
 ### 1.2 Infrastruktur
 
-| Server | IP | Rolle | Zweck |
-|--------|------|-------|-------|
-| **Production** | 88.198.191.108 | Hetzner Dedicated | Alle Hubs live |
-| **Dev Desktop** | 88.99.38.75 | Hetzner CPX62 | Entwicklung + **Staging** |
+| Server | IP | Typ | Rolle | Zweck |
+|--------|------|-----|-------|-------|
+| **Production** | 88.198.191.108 | Hetzner CPX52 | Live | Alle Hubs live |
+| **Staging** | 178.104.184.168 | Hetzner CPX42 | Pre-Prod | Docker-Container, Nginx, SSL, prod-like |
+| **Dev Desktop** | 88.99.38.75 | Hetzner CPX62 | Entwicklung | IDE, Code, runserver, pytest |
+
+> **Amendment 2026-04-16:** Staging wurde von Dev Desktop (88.99.38.75) auf einen
+> dedizierten Server (178.104.184.168, cpx42, 8 vCPU, 16 GB RAM, fsn1) migriert.
+> Grund: Ressourcenkonflikte zwischen IDE/Entwicklung und Staging-Containern.
 
 ### 1.3 Multi-Domain-Repos (18 Cloudflare Zones)
 
@@ -130,17 +135,17 @@ Port 8090 (Prod) → 8190 (Staging) auf 88.99.38.75.
 **Option A: Gleiche Ports, verschiedene Server.**
 
 ```
-Production (88.198.191.108)          Staging (88.99.38.75)
-┌──────────────────────────┐        ┌──────────────────────────┐
-│  risk-hub        :8090   │        │  risk-hub        :8090   │
-│  travel-beat     :8089   │        │  travel-beat     :8089   │
-│  billing-hub     :8092   │        │  billing-hub     :8092   │
-│  ...                     │        │  ...                     │
-│                          │        │                          │
-│  schutztat.de            │        │  staging.schutztat.de    │
-│  drifttales.com          │        │  staging.drifttales.com  │
-│  billing.iil.pet         │        │  staging.billing.iil.pet │
-└──────────────────────────┘        └──────────────────────────┘
+Dev Desktop (88.99.38.75)   Staging (178.104.184.168)    Production (88.198.191.108)
+┌────────────────────┐     ┌──────────────────────────┐  ┌──────────────────────────┐
+│  IDE + runserver   │     │  risk-hub        :8090   │  │  risk-hub        :8090   │
+│  pytest            │     │  travel-beat     :8089   │  │  travel-beat     :8089   │
+│  Code + Git        │     │  billing-hub     :8092   │  │  billing-hub     :8092   │
+│                    │     │  ...                     │  │  ...                     │
+│  (keine Container) │     │                          │  │                          │
+│                    │     │  staging.schutztat.de    │  │  schutztat.de            │
+│                    │     │  staging.drifttales.com  │  │  drifttales.com          │
+│                    │     │  staging-billing.iil.pet │  │  billing.iil.pet         │
+└────────────────────┘     └──────────────────────────┘  └──────────────────────────┘
 ```
 
 ### 4.1 Staging-Domain-Konvention
@@ -237,7 +242,7 @@ Beim Onboarding eines neuen Hubs MÜSSEN folgende Schritte automatisch passieren
 | **DJANGO_ALLOWED_HOSTS** | `staging.<domain>` | `<domain>` |
 | **CSRF_TRUSTED_ORIGINS** | `https://staging.<domain>` | `https://<domain>` |
 | **DEBUG** | `false` (Staging = Prod-like!) | `false` |
-| **Speicherort** | `/opt/<repo>/.env.staging` auf 88.99.38.75 | `/opt/<repo>/.env.prod` auf 88.198.191.108 |
+| **Speicherort** | `/opt/<repo>/.env.prod` auf 178.104.184.168 | `/opt/<repo>/.env.prod` auf 88.198.191.108 |
 
 **Regel:** Staging-Secrets sind **immer separate Werte** — niemals Prod-Secrets kopieren.
 Ausnahme: GHCR-Token und API-Keys für externe Services können geteilt werden.
@@ -257,13 +262,13 @@ Ausnahme: GHCR-Token und API-Keys für externe Services können geteilt werden.
 
 ### 5.2 Negative
 
-- **Kosten**: Staging-Server läuft permanent (CPX62 = ~€35/Monat, bereits vorhanden)
+- **Kosten**: Staging-Server läuft permanent (CPX42 = ~€22/Monat)
 - **Daten**: Staging braucht eigene Test-Daten (kein Prod-DB-Sync vorerst)
 - **SSL**: Jeder Hub braucht 2 Zertifikate (Prod + Staging)
 
 ### 5.3 Risiken
 
-- **R-01**: Dev Desktop Reboot → Staging down (Mitigierung: systemd auto-start)
+- **R-01**: Staging-Server Reboot → Staging down (Mitigierung: systemd auto-start, Docker restart: unless-stopped)
 - **R-02**: DNS-Propagation bei Zone-Wechsel (Mitigierung: Low TTL während Migration)
 
 ### 5.4 Confirmation
@@ -272,7 +277,7 @@ Compliance wird durch folgende automatische Checks verifiziert:
 
 1. **`port_audit.py --check-all`** — Prüft alle Ports in `ports.yaml` auf Konflikte
 2. **`/drift-check`** — Erkennt Abweichungen zwischen ports.yaml und Server-Zustand
-3. **DNS-Audit** — Alle `staging.*` DNS-Records müssen auf 88.99.38.75 zeigen
+3. **DNS-Audit** — Alle `staging.*` DNS-Records müssen auf 178.104.184.168 zeigen
 4. **`/session-start` Step 0.6** — Deploy-Status-Scan aller Apps inkl. Staging
 5. **`/ship` Step 0** — Port-Audit als Pre-Deploy-Gate
 
@@ -340,11 +345,11 @@ Compliance wird durch folgende automatische Checks verifiziert:
 
 ## 8. Validation
 
-- [ ] Alle `staging.*` DNS → 88.99.38.75
-- [ ] Keine DNS-Records mit unbekannten IPs
-- [ ] Kein Port-Konflikt in ports.yaml
+- [x] Alle `staging.*` DNS → 178.104.184.168 (23 Domains, 2026-04-16)
+- [x] Keine DNS-Records mit unbekannten IPs
+- [x] Kein Port-Konflikt in ports.yaml
 - [ ] port_audit.py grün für alle Hubs
-- [ ] Mindestens 1 Hub (Pilot) auf Staging deployed + erreichbar
+- [x] Mindestens 1 Hub (Pilot) auf Staging deployed + erreichbar → risk-hub (staging.schutztat.de)
 - [ ] Onboarding-Workflow getestet mit neuem Hub
 
 ---
