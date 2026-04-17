@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-04-14
-> **Next free ADR number:** 162
+> **Last updated:** 2026-04-17
+> **Next free ADR number:** 164
 
 ## Legend
 
@@ -191,6 +191,8 @@
 | 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | `Proposed` | 🔶 | [ADR-158](ADR-158-unified-documentation-architecture.md) |
 | 160 | Adopt Standardized Two-File CI/CD Pipeline for All Hub Repositories | `Accepted` | 🔶 | [ADR-160](../../mcp-hub/docs/ADR-160-standardized-hub-deployment.md) |
 | 161 | Adopt Two-Layer-Schema with Hybrid-RLS for Tenant-Spanning SDS Data | `Proposed` | ⬜ | [ADR-161](ADR-161-shared-sds-library.md) |
+| 162 | Adopt REFLEX as Standard Methodology for Evidence-based UI Development | `Accepted` | 🔶 | [ADR-162](ADR-162-reflex-ui-testing-and-scraping.md) |
+| 163 | Adopt Three-Tier REFLEX Quality Standard for All Platform Repositories | `Accepted` | ⬜ | [ADR-163](ADR-163-reflex-tiering-platform-quality-standard.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

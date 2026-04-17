@@ -1,0 +1,111 @@
+# REFLEX Platform Configuration — All 21 Django Apps
+# ADR-163: Three-Tier REFLEX Quality Standard
+# Generated: 2026-04-17
+
+hubs:
+  # ── Tier 1 — Full Reflex (8 hubs) ──────────────────────────────────
+  - name: risk-hub
+    tier: 1
+    config: /home/devuser/github/risk-hub/reflex.yaml
+    base_url: http://localhost:8003
+
+  - name: coach-hub
+    tier: 1
+    config: /home/devuser/github/coach-hub/reflex.yaml
+    base_url: http://localhost:8001
+
+  - name: travel-beat
+    tier: 1
+    config: /home/devuser/github/travel-beat/reflex.yaml
+    base_url: http://localhost:8002
+
+  - name: wedding-hub
+    tier: 1
+    config: /home/devuser/github/wedding-hub/reflex.yaml
+    base_url: http://localhost:8004
+
+  - name: trading-hub
+    tier: 1
+    config: /home/devuser/github/trading-hub/reflex.yaml
+    base_url: http://localhost:8005
+
+  - name: writing-hub
+    tier: 1
+    config: /home/devuser/github/writing-hub/reflex.yaml
+    base_url: http://localhost:8007
+
+  - name: weltenhub
+    tier: 1
+    config: /home/devuser/github/weltenhub/reflex.yaml
+    base_url: http://localhost:8008
+
+  - name: cad-hub
+    tier: 1
+    config: /home/devuser/github/cad-hub/reflex.yaml
+    base_url: http://localhost:8194
+
+  # ── Tier 2 — Reflex Light (13 hubs) ────────────────────────────────
+  - name: billing-hub
+    tier: 2
+    config: /home/devuser/github/billing-hub/reflex.yaml
+    base_url: http://localhost:8006
+
+  - name: pptx-hub
+    tier: 2
+    config: /home/devuser/github/pptx-hub/reflex.yaml
+    base_url: http://localhost:8009
+
+  - name: learn-hub
+    tier: 2
+    config: /home/devuser/github/learn-hub/reflex.yaml
+    base_url: http://localhost:8010
+
+  - name: research-hub
+    tier: 2
+    config: /home/devuser/github/research-hub/reflex.yaml
+    base_url: http://localhost:8011
+
+  - name: illustration-hub
+    tier: 2
+    config: /home/devuser/github/illustration-hub/reflex.yaml
+    base_url: http://localhost:8012
+
+  - name: recruiting-hub
+    tier: 2
+    config: /home/devuser/github/recruiting-hub/reflex.yaml
+    base_url: http://localhost:8013
+
+  - name: ausschreibungs-hub
+    tier: 2
+    config: /home/devuser/github/ausschreibungs-hub/reflex.yaml
+    base_url: http://localhost:8014
+
+  - name: dev-hub
+    tier: 2
+    config: /home/devuser/github/dev-hub/reflex.yaml
+    base_url: http://localhost:8015
+
+  - name: bfagent
+    tier: 2
+    config: /home/devuser/github/bfagent/reflex.yaml
+    base_url: http://localhost:8090
+
+  - name: 137-hub
+    tier: 2
+    config: /home/devuser/github/137-hub/reflex.yaml
+    base_url: http://localhost:8137
+
+  - name: tax-hub
+    tier: 2
+    config: /home/devuser/github/tax-hub/reflex.yaml
+    base_url: http://localhost:8016
+
+  - name: dms-hub
+    tier: 2
+    config: /home/devuser/github/dms-hub/reflex.yaml
+    base_url: http://localhost:8017
+
+  - name: nl2cad
+    tier: 2
+    config: /home/devuser/github/nl2cad/reflex.yaml
+    base_url: http://localhost:8018
