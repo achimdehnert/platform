@@ -193,6 +193,7 @@
 | 161 | Adopt Two-Layer-Schema with Hybrid-RLS for Tenant-Spanning SDS Data | `Proposed` | ⬜ | [ADR-161](ADR-161-shared-sds-library.md) |
 | 162 | Adopt REFLEX as Standard Methodology for Evidence-based UI Development | `Accepted` | 🔶 | [ADR-162](ADR-162-reflex-ui-testing-and-scraping.md) |
 | 163 | Adopt Three-Tier REFLEX Quality Standard for All Platform Repositories | `Accepted` | ⬜ | [ADR-163](ADR-163-reflex-tiering-platform-quality-standard.md) |
+| 164 | Unified Port Strategy — Conflict-free dev, staging, and production port assignments | `Accepted` | 🔶 | [ADR-164](ADR-164-port-strategy-conflict-free-dev-staging-prod.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

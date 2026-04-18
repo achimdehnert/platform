@@ -1,22 +1,49 @@
 # platform/infra/ports.yaml
-# Single Source of Truth für alle Service-Ports (ADR-106, ADR-157)
+# ═══════════════════════════════════════════════════════════════════════════════
+# Single Source of Truth für alle Service-Ports (ADR-106, ADR-157, ADR-164)
 #
 # WICHTIG: Diese Datei MUSS den realen Server-Zustand abbilden!
 #   Validierung: python infra/scripts/port_audit.py
 #   Nur offline:  python infra/scripts/port_audit.py --offline
 #   Nächster Port: python infra/scripts/port_audit.py --next-free
 #
+# ═══════════════════════════════════════════════════════════════════════════════
+#
+# PORT-STRATEGIE (ADR-164)
+#
+#   Prinzip: dev = staging = prod Port (gleicher Port, verschiedene Server)
+#   Staging + Prod laufen auf getrennten Servern → identische Ports möglich.
+#   Dev (lokal) bekommt denselben Port wo möglich; eigenen wo Compose kollidiert.
+#
+#   Ranges:
+#     3000-3199   Infrastructure UIs (Grafana, Outline, Uptime-Kuma)
+#     4000-4099   IB Gateway / Finance-Infra
+#     5432-5499   PostgreSQL (interne DB-Ports, nur compose-intern)
+#     6379-6399   Redis (interne Ports, nur compose-intern)
+#     8000-8019   Reserviert: BF Agent (8000 dev only), Infra-APIs
+#     8020-8069   Standalone Tools (pptx-hub 8020, odoo 8069)
+#     8080-8109   App-Hubs Block A (Hauptprodukte)
+#     8110-8199   App-Hubs Block B (Erweiterung)
+#     9000-9099   Auth + Object Storage (Authentik 9000, MinIO 9001/9010)
+#
+#   Regeln:
+#     1. Jeder Hub hat genau EINEN Web-Port pro Umgebung (kein Bereich!)
+#     2. Staging-Port = Prod-Port (immer, ADR-157 §4)
+#     3. Dev-Port = Prod-Port (default), weicht nur ab wenn Docker-Compose
+#        eine andere Zuordnung erzwingt (z.B. historisch 8000:8000)
+#     4. Neue Hubs: nächsten freien Port via port_audit.py --next-free
+#     5. Interne Ports (DB, Redis, Celery) werden NICHT hier verwaltet —
+#        nur host-gemappte Web-Ports
+#     6. Compose-Files MÜSSEN diesen Port verwenden (drift = deploy-blocker)
+#
 # REGEL: Staging-Domains unter iil.pet MUESSEN single-level sein!
 #   OK: staging-writing.iil.pet   (1 Level = CF Universal SSL deckt ab)
 #   VERBOTEN: staging.writing.iil.pet   (2 Level = CF Universal SSL deckt NICHT ab)
 #   Eigene Domains (LE Wildcard) duerfen staging.X.Y bleiben.
 #
-# Belegte Ranges:
-#   8001–8020   Infra + erste Hubs
-#   8081–8108   App-Hubs
-#
-# Nächster freier Port: 8170  (berechnet: port_audit.py --next-free)
+# Nächster freier Port: 8110  (berechnet: port_audit.py --next-free)
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
+# ═══════════════════════════════════════════════════════════════════════════════
 
 # --- Server-Definitionen (ADR-157 §4.2) ---
 servers:
@@ -33,29 +60,62 @@ servers:
     name: Hetzner Staging (Dedicated)
     ssh: root@178.104.184.168
 
-services:
+# --- Infrastructure Services (nicht App-Hubs) ---
+infra:
 
-  # --- Infra-Services ---
+  authentik:
+    port: 9000
+    server: prod
+    domain_prod: auth.iil.pet
+    note: "SSO/Identity Provider — 9443 for HTTPS"
 
-  llm-mcp:
-    prod: 8001
-    staging: null
-    domain_prod: null
-    domain_staging: null
-    repo: null
+  outline:
+    port: 3100
+    server: prod
+    domain_prod: knowledge.iil.pet
+    note: "Wiki/Knowledge Base — maps 3100→3000 internal"
+
+  grafana:
+    port: 3000
+    server: prod
+    domain_prod: grafana.iil.pet
 
   uptime-kuma:
-    prod: null
-    staging: 3001
-    domain_prod: null
+    port: 3001
+    server: staging
     domain_staging: uptime.iil.pet
-    repo: null
 
-  # --- App-Hubs (sortiert nach Port) ---
+  minio:
+    port: 9010
+    server: prod
+    note: "Object Storage for risk-hub — API 9010, Console 9001"
+
+  llm-mcp:
+    port: 8001
+    server: prod
+    note: "LLM Gateway — internal only"
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# App-Hub Ports — sortiert nach Port
+#
+# Felder:
+#   prod:            Host-Port auf Production-Server (127.0.0.1:PORT→8000)
+#   staging:         Host-Port auf Staging-Server (= prod)
+#   dev:             Host-Port auf Dev Desktop / localhost
+#   container_name:  Docker container name (für health checks)
+#   domain_prod:     Primary production domain
+#   domain_staging:  Staging domain
+#   domain_aliases:  Additional production domains (redirects)
+#   repo:            GitHub repo (achimdehnert/*)
+#   compose_drift:   Compose-File hat falschen Port (zu fixen!)
+# ═══════════════════════════════════════════════════════════════════════════════
+services:
 
   coach-hub:
     prod: 8007
     staging: 8007
+    dev: 8007
+    container_name: coach_hub_web
     domain_prod: coach-hub.iil.pet
     domain_staging: staging-coaching.iil.pet
     domain_aliases:
@@ -65,15 +125,28 @@ services:
   pptx-hub:
     prod: 8020
     staging: 8020
+    dev: 8020
+    container_name: pptx_hub_web
     domain_prod: prezimo.de
     domain_staging: staging.prezimo.de
     domain_aliases:
       - prezimo.com
     repo: achimdehnert/pptx-hub
 
+  odoo:
+    prod: 8069
+    staging: 8069
+    dev: 8069
+    container_name: odoo_web
+    domain_prod: odoo.iil.pet
+    domain_staging: staging-odoo.iil.pet
+    repo: achimdehnert/odoo-hub
+
   weltenhub:
     prod: 8081
     staging: 8081
+    dev: 8081
+    container_name: weltenhub_web
     domain_prod: weltenforger.com
     domain_staging: staging.weltenforger.com
     repo: achimdehnert/weltenhub
@@ -81,6 +154,8 @@ services:
   dev-hub:
     prod: 8085
     staging: 8085
+    dev: 8085
+    container_name: devhub_web
     domain_prod: dev-hub.iil.pet
     domain_staging: staging-devhub.iil.pet
     repo: achimdehnert/dev-hub
@@ -88,15 +163,20 @@ services:
   trading-hub:
     prod: 8088
     staging: 8088
+    dev: 8088
+    container_name: trading_hub_web
     domain_prod: trading-hub.iil.pet
     domain_staging: staging.ai-trades.de
     domain_aliases:
       - ai-trades.de
     repo: achimdehnert/trading-hub
+    compose_drift: "docker-compose.yml uses 8000:8000 — must change to 8088:8000"
 
   travel-beat:
     prod: 8089
     staging: 8089
+    dev: 8089
+    container_name: travel_beat_web
     domain_prod: drifttales.com
     domain_staging: staging.drifttales.com
     domain_aliases:
@@ -107,16 +187,21 @@ services:
   risk-hub:
     prod: 8090
     staging: 8090
+    dev: 8090
+    container_name: risk_hub_web
     domain_prod: schutztat.de
     domain_staging: staging.schutztat.de
     domain_aliases:
       - schutztat.com
       - kiohnerisiko.de
     repo: achimdehnert/risk-hub
+    compose_drift: "docker-compose.yml uses 8001:8000 — must change to 8090:8000"
 
   bfagent:
     prod: 8091
     staging: 8091
+    dev: 8091
+    container_name: bfagent_web
     domain_prod: iil.pet
     domain_staging: staging.iil.pet
     repo: achimdehnert/bfagent
@@ -124,6 +209,8 @@ services:
   billing-hub:
     prod: 8092
     staging: 8092
+    dev: 8092
+    container_name: billing-hub-web
     domain_prod: billing.iil.pet
     domain_staging: staging-billing.iil.pet
     repo: achimdehnert/billing-hub
@@ -131,13 +218,18 @@ services:
   wedding-hub:
     prod: 8093
     staging: 8093
+    dev: 8093
+    container_name: wedding_hub_web
     domain_prod: wedding-hub.iil.pet
     domain_staging: staging-wedding.iil.pet
     repo: achimdehnert/wedding-hub
+    compose_drift: "docker-compose.yml uses 8000:8000 — must change to 8093:8000"
 
   cad-hub:
     prod: 8094
     staging: 8094
+    dev: 8094
+    container_name: cad_hub_web
     domain_prod: nl2cad.de
     domain_staging: staging.nl2cad.de
     repo: achimdehnert/cad-hub
@@ -145,6 +237,8 @@ services:
   137-hub:
     prod: 8095
     staging: 8095
+    dev: 8095
+    container_name: hub137_web
     domain_prod: 137herz.ai
     domain_staging: staging.137herz.ai
     domain_aliases:
@@ -154,6 +248,8 @@ services:
   illustration-hub:
     prod: 8096
     staging: 8096
+    dev: 8096
+    container_name: illustration_web
     domain_prod: illustration.iil.pet
     domain_staging: staging-illustration.iil.pet
     repo: achimdehnert/illustration-hub
@@ -161,20 +257,38 @@ services:
   writing-hub:
     prod: 8097
     staging: 8097
+    dev: 8097
+    container_name: writing_hub_web
     domain_prod: writing.iil.pet
     domain_staging: staging-writing.iil.pet
     repo: achimdehnert/writing-hub
+    compose_drift: "docker-compose.yml uses 8095:8000 — must change to 8097:8000"
+
+  research-hub:
+    prod: 8098
+    staging: 8098
+    dev: 8098
+    container_name: research_hub_web
+    domain_prod: research.iil.pet
+    domain_staging: staging-research.iil.pet
+    repo: achimdehnert/research-hub
+    compose_drift: "docker-compose.prod.yml uses 8098 but server runs on 8104 — redeploy needed"
 
   tax-hub:
     prod: 8099
     staging: 8099
+    dev: 8099
+    container_name: tax_hub_web
     domain_prod: tax.iil.pet
     domain_staging: staging-tax.iil.pet
     repo: achimdehnert/tax-hub
+    compose_drift: "docker-compose.prod.yml uses 8104:8000 — must change to 8099:8000"
 
   learn-hub:
     prod: 8100
     staging: 8100
+    dev: 8100
+    container_name: learn-hub-web-1
     domain_prod: learn.iil.pet
     domain_staging: staging-learn.iil.pet
     repo: achimdehnert/learn-hub
@@ -182,27 +296,27 @@ services:
   ausschreibungs-hub:
     prod: 8101
     staging: 8101
+    dev: 8101
+    container_name: ausschreibungs_hub_web
     domain_prod: bieterpilot.de
     domain_staging: staging.bieterpilot.de
     repo: achimdehnert/ausschreibungs-hub
+    compose_drift: "docker-compose.prod.yml uses 8095 — must change to 8101 (conflicts with 137-hub)"
 
   doc-hub:
     prod: 8102
     staging: 8102
+    dev: 8102
+    container_name: iil_dochub_web
     domain_prod: docs.iil.pet
     domain_staging: staging-docs.iil.pet
     repo: null
 
-  research-hub:
-    prod: 8104
-    staging: 8104
-    domain_prod: research.iil.pet
-    domain_staging: staging-research.iil.pet
-    repo: achimdehnert/research-hub
-
   recruiting-hub:
     prod: 8103
     staging: 8103
+    dev: 8103
+    container_name: recruiting_hub_web
     domain_prod: hr.iil.pet
     domain_staging: staging-hr.iil.pet
     repo: achimdehnert/recruiting-hub
@@ -210,13 +324,8 @@ services:
   dms-hub:
     prod: 8107
     staging: 8107
+    dev: 8107
+    container_name: dms_hub_web
     domain_prod: dms.iil.pet
     domain_staging: staging-dms.iil.pet
     repo: achimdehnert/dms-hub
-
-  odoo:
-    prod: 8069
-    staging: 8069
-    domain_prod: odoo.iil.pet
-    domain_staging: staging-odoo.iil.pet
-    repo: achimdehnert/odoo-hub
