@@ -90,7 +90,7 @@ echo "REFLEX v${REFLEX_VER}"
 # Aktuelles Workspace-Repo prüfen (nur wenn reflex.yaml vorhanden)
 REPO_NAME=$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null)
 if [ -f ~/github/${REPO_NAME}/reflex.yaml ]; then
-  cd ~/github/iil-reflex && .venv/bin/python -m reflex review all ${REPO_NAME} --fail-on block 2>&1 | tail -5
+  cd ~/github/iil-reflex && .venv/bin/python -m reflex review all ${REPO_NAME} --fail-on block --emit-metrics 2>&1 | tail -8
 else
   echo "ℹ️  ${REPO_NAME}: kein reflex.yaml — übersprungen"
 fi
