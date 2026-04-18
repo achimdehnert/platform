@@ -103,20 +103,63 @@ outline_post() {
 }
 
 find_document_by_title() {
-    # find_document_by_title <title> → prints document ID or empty string
-    # FIX: Outline search is fulltext, not exact. We search with a broader limit
-    # and then filter for exact title match in jq to prevent duplicate creation.
+    # find_document_by_title <title> <adr_id> → prints document ID or empty string
+    #
+    # Strategy (FIX for duplicate creation bug):
+    #   1. Search by short ADR-ID prefix (e.g. "ADR-130") — avoids Outline
+    #      fulltext issues with backticks, quotes, and special characters.
+    #   2. Filter results for exact title match in jq.
+    #   3. Fallback: paginated documents.list scan if search returns nothing
+    #      (covers edge cases where Outline search index is stale).
     local title="$1"
-    local escaped_title
-    escaped_title=$(echo "${title}" | jq -Rr @json)
+    local adr_id="${2:-}"
+
+    # Primary: search by ADR-ID prefix (short, no special chars)
+    local search_term="${adr_id}"
+    if [[ -z "${search_term}" ]]; then
+        search_term="${title}"
+    fi
+    local escaped_search
+    escaped_search=$(echo "${search_term}" | jq -Rr @json)
 
     local response
     response=$(outline_post "documents.search" \
-        "{\"query\": ${escaped_title}, \"collectionId\": \"${OUTLINE_COLLECTION_ADR_MIRROR}\", \"limit\": 10}")
+        "{\"query\": ${escaped_search}, \"collectionId\": \"${OUTLINE_COLLECTION_ADR_MIRROR}\", \"limit\": 25}") || true
 
-    # Exact title match — jq filters for documents whose title matches exactly
-    echo "${response}" | jq -r --arg t "${title}" \
-        '[.data[] | select(.document.title == $t) | .document.id] | first // empty'
+    local found_id
+    found_id=$(echo "${response}" | jq -r --arg t "${title}" \
+        '[.data[] | select(.document.title == $t) | .document.id] | first // empty' 2>/dev/null || true)
+
+    if [[ -n "${found_id}" ]]; then
+        echo "${found_id}"
+        return 0
+    fi
+
+    # Fallback: paginated list scan (handles search index lag)
+    local offset=0
+    while true; do
+        response=$(outline_post "documents.list" \
+            "{\"collectionId\": \"${OUTLINE_COLLECTION_ADR_MIRROR}\", \"limit\": 100, \"offset\": ${offset}}") || true
+
+        found_id=$(echo "${response}" | jq -r --arg t "${title}" \
+            '[.data[] | select(.title == $t) | .id] | first // empty' 2>/dev/null || true)
+
+        if [[ -n "${found_id}" ]]; then
+            echo "${found_id}"
+            return 0
+        fi
+
+        # Check if there are more pages
+        local count
+        count=$(echo "${response}" | jq -r '.data | length' 2>/dev/null || echo "0")
+        if [[ "${count}" -lt 100 ]]; then
+            break
+        fi
+        offset=$((offset + 100))
+    done
+
+    # Not found — will trigger CREATE
+    echo ""
 }
 
 sync_adr_file() {
@@ -154,7 +197,7 @@ $(cat "${filepath}")"
 
     # Check if document already exists (idempotent)
     local existing_id
-    existing_id=$(find_document_by_title "${title}")
+    existing_id=$(find_document_by_title "${title}" "${adr_id}")
 
     if [[ -n "${existing_id}" ]]; then
         echo "  UPDATE: ${title} (id=${existing_id})"
