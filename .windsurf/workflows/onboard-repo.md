@@ -1,18 +1,81 @@
 ---
-description: Onboard a new repository into the platform ecosystem with consistent CI/CD, Docker, database, Nginx, and naming conventions
+description: Onboard a new or existing repository into the platform ecosystem with consistent CI/CD, Docker, database, Nginx, and naming conventions
 ---
 
-# New Repository Onboarding Workflow
+# Repository Onboarding & Compliance Workflow
 
 ## Trigger
 
 User says one of:
 
+**New repo:**
 - "Neues Repo onboarden: [name]"
 - "Onboard [name] into the platform"
 - "Setup [name] wie die anderen Repos"
 
-## Step 0: Gather Information
+**Existing repo (platform-konform machen):**
+- "[name] platform-konform machen"
+- "Reflex review fixen für [name]"
+- "Compliance-Onboarding für [name]"
+
+## Mode Detection
+
+Determine the mode based on whether the repo already exists:
+
+```python
+# Automatic detection:
+repo_path = Path.home() / "github" / repo_name
+if (repo_path / ".git").exists():
+    mode = "compliance"   # Existing repo → diagnose + fix
+else:
+    mode = "new"          # New repo → full scaffold
+```
+
+| Mode | Behavior |
+|------|----------|
+| `new` | Full scaffold: create structure, Docker, CI/CD, DNS, deploy |
+| `compliance` | Diagnose with `reflex review` → fix only what's missing |
+
+## Step 0: REFLEX Review Diagnostic (compliance mode)
+
+**Skip this step for `new` mode** — jump to Step 0.1.
+
+For existing repos, run `reflex review` first to diagnose what's missing:
+
+// turbo
+```bash
+cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME>
+```
+
+This gives a structured list of findings (BLOCK/WARN/INFO). Focus on:
+- **BLOCK findings** → must fix before deploy
+- **WARN findings** → should fix for compliance
+- **INFO findings** → nice-to-have
+
+Present findings summary to user:
+
+```text
+📋 REFLEX Review für [name]:
+
+  BLOCK: X findings (müssen gefixt werden)
+  WARN:  Y findings (sollten gefixt werden)
+  INFO:  Z findings (optional)
+
+Soll ich alle BLOCKs automatisch fixen? [Ja/Nein]
+Soll ich auch WARNs fixen? [Ja/Nein]
+```
+
+Then execute only the relevant steps below — skip steps where the repo already passes.
+
+For baseline management on first compliance run:
+
+```bash
+cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
+```
+
+---
+
+## Step 0.1: Gather Information
 
 Ask the user:
 
@@ -733,6 +796,93 @@ Sicherstellen dass kein `core.sshCommand` im neuen Repo gesetzt wird:
 ssh -T git@github.com  # → Hi achimdehnert!
 ```
 
+### 6.7 REFLEX Review Setup (PFLICHT — ADR-165)
+
+REFLEX muss im Repo verfügbar sein für lokale und CI-Checks.
+
+**6.7.1 Dev-Dependency hinzufügen:**
+
+```bash
+# In requirements-dev.txt (oder requirements-test.txt):
+echo "iil-reflex>=0.5.0" >> <REPO>/requirements-dev.txt
+```
+
+Wenn kein `requirements-dev.txt` existiert, in `requirements-test.txt` hinzufügen.
+Falls `pyproject.toml` mit `[project.optional-dependencies]`:
+
+```toml
+[project.optional-dependencies]
+dev = [
+    "iil-reflex>=0.5.0",
+    # ... other dev deps
+]
+```
+
+**6.7.2 reflex.yaml generieren:**
+
+// turbo
+```bash
+cd ~/github/iil-reflex && .venv/bin/python -m reflex init \
+    --hub <REPO_NAME> \
+    --tier <TIER> \
+    --port <PORT> \
+    --output ~/github/<REPO_NAME>/reflex.yaml
+```
+
+**6.7.3 .reflex/ Verzeichnis anlegen:**
+
+```bash
+mkdir -p ~/github/<REPO_NAME>/.reflex
+```
+
+**6.7.4 Initial Baseline setzen:**
+
+// turbo
+```bash
+cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
+```
+
+**6.7.5 .gitignore prüfen — .reflex/ NICHT ignorieren:**
+
+`.reflex/baseline.json` und `.reflex/suppressions.yaml` sollen committed werden
+(pro Repo, reviewbar, versioniert).
+
+```bash
+# Sicherstellen dass .reflex/ NICHT in .gitignore steht:
+grep -q "^\.reflex" ~/github/<REPO_NAME>/.gitignore && \
+    echo "WARNUNG: .reflex/ ist in .gitignore — entfernen!" || \
+    echo "OK: .reflex/ wird committed"
+```
+
+**6.7.6 CI-Integration (optional, empfohlen für Tier 1):**
+
+In `.github/workflows/ci-cd.yml` einen Review-Step hinzufügen:
+
+```yaml
+  review:
+    name: "REFLEX Review"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install iil-reflex>=0.5.0
+      - run: python -m reflex review all . --fail-on block --json
+```
+
+**Ergebnis nach Step 6.7:**
+
+```text
+<REPO>/
+├── reflex.yaml              # REFLEX-Konfiguration (Tier, Routes, Dev-Cycle)
+├── .reflex/
+│   ├── baseline.json        # Aktuelle Findings als Basis (committed)
+│   └── suppressions.yaml    # Unterdrückte Findings (committed, reviewbar)
+├── requirements-dev.txt     # enthält iil-reflex>=0.5.0
+└── ...
+```
+
 ## Step 7: Verifikation
 
 ### Checkliste (ALLE Punkte müssen grün sein)
@@ -774,6 +924,14 @@ Docker (KRITISCH):
   [ ] Worker/Beat Healthcheck: pidof python3.12 (NICHT curl, NICHT celery inspect ping)
   [ ] Beat-Volume in docker-compose.prod.yml definiert (<REPO_UNDERSCORE>_beatdata)
 
+REFLEX (ADR-165):
+  [ ] reflex.yaml existiert im Repo-Root
+  [ ] .reflex/baseline.json existiert (Initial-Baseline)
+  [ ] iil-reflex>=0.5.0 in requirements-dev.txt oder requirements-test.txt
+  [ ] .reflex/ NICHT in .gitignore
+  [ ] `reflex review all <repo> --fail-on block` → Exit 0
+  [ ] CI: REFLEX Review Job vorhanden (Tier 1) ODER geplant (Tier 2)
+
 Platform-Packages (falls verwendet):
   [ ] vendor/<PACKAGE>/ existiert mit pyproject.toml
   [ ] requirements.txt: `vendor/<PACKAGE>` (KEIN git+https!)
@@ -802,6 +960,40 @@ CI/CD:
   [ ] Kein core.sshCommand in .git/config (ADR-060)
 ```
 
+### REFLEX Review Gate (PFLICHT — ADR-165)
+
+After manual checklist, run automated verification:
+
+// turbo
+```bash
+cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --fail-on block
+```
+
+**Acceptance criteria:**
+- Exit code 0 (no BLOCK findings)
+- All WARN findings documented or suppressed in `.reflex/suppressions.yaml`
+
+If BLOCK findings remain, fix them before considering onboarding complete.
+
+For compliance mode — compare against initial diagnostic:
+
+```bash
+cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME>
+# Should show 0 new findings vs baseline
+```
+
+### Baseline setzen (end of onboarding)
+
+Once all BLOCKs are resolved, save baseline for future delta tracking:
+
+```bash
+cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
+```
+
+This ensures future `reflex review` runs only report NEW regressions.
+
+---
+
 ## Referenz: Bestehende Repos als Vorlage
 
 | Vorlage für | Bestes Beispiel |
@@ -812,3 +1004,28 @@ CI/CD:
 | Test-Infrastruktur (conftest, factories) | `travel-beat/tests/` |
 | registry/repos.yaml | `platform/registry/repos.yaml` |
 | SSH-Setup | ADR-060 |
+| REFLEX Review (Compliance-Check) | `iil-reflex/reflex/review/` |
+
+## Referenz: Compliance-Workflow für bestehende Repos
+
+Kurzfassung des optimierten Flows für existierende Repos:
+
+```text
+1. reflex review all <repo>              → Diagnose (was fehlt?)
+2. User entscheidet: BLOCKs fixen        → Ja/Nein
+3. Relevante Steps aus diesem Workflow    → nur was nötig ist
+4. reflex review all <repo> --fail-on block → Verifikation
+5. reflex review all <repo> --init-baseline → Baseline setzen
+6. Commit + Push                          → CI/CD prüft automatisch
+```
+
+**Typische Compliance-Findings bei bestehenden Repos:**
+
+| Finding | Fix-Aufwand | Typischer Fix |
+|---------|-------------|---------------|
+| `repo.missing_dockerignore` | trivial | Step 1.5 kopieren |
+| `compose.healthcheck_in_dockerfile` | simple | HC aus Dockerfile → Compose |
+| `compose.no_restart_policy` | trivial | `restart: unless-stopped` |
+| `compose.port_all_interfaces` | trivial | `0.0.0.0:PORT` → `127.0.0.1:PORT` |
+| `adr.missing_frontmatter_*` | moderate | MADR 4.0 Frontmatter nachrüsten |
+| `port.drift_*` | simple | ports.yaml oder Compose anpassen |
