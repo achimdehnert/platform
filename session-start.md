@@ -78,6 +78,27 @@ echo "Git Sync done"
 → Stellt sicher, dass WSL ↔ Dev Desktop synchron sind.
 → Bei Konflikten: `git stash pop` manuell lösen, NICHT force-pushen.
 
+### 0.4.1 REFLEX aktualisieren + Workspace-Repo prüfen (ADR-165)
+
+// turbo
+```bash
+# REFLEX auf aktuelle Version bringen
+cd ~/github/iil-reflex && git pull --rebase --quiet 2>/dev/null
+REFLEX_VER=$(cd ~/github/iil-reflex && .venv/bin/python -c "import reflex; print(reflex.__version__)" 2>/dev/null || echo "?")
+echo "REFLEX v${REFLEX_VER}"
+
+# Aktuelles Workspace-Repo prüfen (nur wenn reflex.yaml vorhanden)
+REPO_NAME=$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null)
+if [ -f ~/github/${REPO_NAME}/reflex.yaml ]; then
+  cd ~/github/iil-reflex && .venv/bin/python -m reflex review all ${REPO_NAME} --fail-on block 2>&1 | tail -5
+else
+  echo "ℹ️  ${REPO_NAME}: kein reflex.yaml — übersprungen"
+fi
+```
+→ Stellt sicher, dass immer die aktuelle REFLEX-Version läuft.
+→ Zeigt neue BLOCKs sofort am Session-Start an.
+→ Wenn `--fail-on block` fehlschlägt: Findings zuerst fixen bevor weitergearbeitet wird.
+
 ### 0.5 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
 
 // turbo
