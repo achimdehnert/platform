@@ -476,6 +476,102 @@ permissions_matrix:
 | Phase 4 | Post-Deploy Audit in /ship Workflow | Nach Phase 3 |
 | Phase 5 | Scraper-MCP | Parallel zu Phase 3-4 |
 
+## REFLEX v3.0 Erweiterungen (iil-reflex 0.3.0)
+
+### UCDialogEngine (V-01) — Interaktiver UC-Dialog
+
+Zirkel 1 erhält einen interaktiven Feedback-Loop. Der `UCDialogEngine`
+generiert UC-Skelette aus einem Topic (via LLM oder Template-Fallback),
+prüft gegen alle 11 Qualitätskriterien und erzeugt gezielte Rückfragen
+nur für fehlende Kriterien. Der Dialog iteriert bis 11/11 bestanden oder
+`max_iterations` erreicht.
+
+```python
+from reflex.uc_dialog import UCDialogEngine
+engine = UCDialogEngine(config=config, llm=llm, max_iterations=5)
+state = engine.start("SDS hochladen und validieren")
+questions = engine.get_questions(state)  # Nur fehlende Kriterien
+state = engine.refine(state, answers={"C-01": "Der Laborleiter"})
+```
+
+CLI: `python -m reflex uc-create "SDS hochladen" -c reflex.yaml`
+
+### CycleRunner (V-02) — Voller Dev-Zyklus
+
+Orchestriert den kompletten Entwicklungszyklus in 7 Phasen:
+
+| Phase | Beschreibung |
+|-------|-------------|
+| Z0 | Domain Research |
+| Z1 | UC Dialog (UCDialogEngine) |
+| Z2 | Backend Tests (subprocess pytest) |
+| Z3 | Frontend Route Verification (httpx) |
+| Z4 | Permission Matrix (PermissionRunner) |
+| Z5 | Failure Classification (FailureClassifier) |
+| Z6 | Complete |
+
+Bei Fehlern klassifiziert der FailureClassifier und der Zyklus
+wiederholt sich bis `max_fix_iterations`. Phasen können via
+`--skip Z0,Z1` übersprungen werden.
+
+CLI: `python -m reflex cycle UC-001 -c reflex.yaml`
+
+### PermissionRunner (V-03) — Automatisierte Berechtigungstests
+
+Liest `test_users` + `permissions_matrix` aus `reflex.yaml` und testet
+jede Route × Rolle Kombination per HTTP. Unterstützt:
+- Anonymous-Tests (kein Login)
+- Authenticated-Tests (CSRF-Token + Session-Login)
+- JSON-Export der Ergebnisse
+- Pass/Fail Report mit `pass_rate` Metrik
+
+CLI: `python -m reflex test-permissions -c reflex.yaml`
+
+### reflex.yaml Erweiterung (V-04) — dev_cycle Sektion
+
+```yaml
+dev_cycle:
+  base_url: http://localhost:8003
+  login_url: /accounts/login/
+  backend_test_cmd: "pytest src/ -q --tb=short"
+  lint_cmd: "ruff check src/"
+  max_fix_iterations: 3
+  public_routes:
+    - /accounts/login/
+    - /livez/
+    - /healthz/
+```
+
+### CLI-Erweiterung (V-05) — 4 neue Kommandos
+
+| Kommando | Beschreibung |
+|----------|-------------|
+| `uc-create` | Interaktiver UC-Dialog mit Qualitätsprüfung |
+| `test-permissions` | Permission-Matrix testen |
+| `cycle` | Voller Dev-Zyklus mit Retry-Loop |
+| `verify` | Schnell-Check aller Routes (anonym) |
+
+### Package-Architektur (v0.3.0)
+
+```
+iil-reflex/
+├── reflex/
+│   ├── agent.py             # DomainAgent (pure Python)
+│   ├── quality.py           # UC Quality Checker (11 Kriterien)
+│   ├── classify.py          # Failure Classifier
+│   ├── uc_dialog.py         # UCDialogEngine (NEU v0.3)
+│   ├── permission_runner.py # PermissionRunner (NEU v0.3)
+│   ├── cycle.py             # CycleRunner (NEU v0.3)
+│   ├── config.py            # ReflexConfig from reflex.yaml
+│   ├── providers.py         # Protocol-basierte Dependency Inversion
+│   ├── llm_providers.py     # AifwProvider, LiteLLMProvider
+│   ├── web.py               # HttpxWebProvider, PubChem, GESTIS, PDF
+│   ├── types.py             # 15+ Dataclasses
+│   ├── templates/           # 8 promptfw .jinja2 Templates
+│   └── __main__.py          # CLI (10 Kommandos)
+└── tests/                   # 126 Tests (0.3s)
+```
+
 ## Implementation Evidence
 
 - writing-hub: `/dev-login/` + `dev_login_url` Command (Commit 5f5e8bd)
@@ -484,3 +580,4 @@ permissions_matrix:
 - Referenz-Implementierung: `ADR-XXX-final.zip` (models, services, views, tasks,
   migration, conftest, tests, shell-script) — platform-reviewed
 - iil-reflex Package-Scaffold: types, providers, agent, templates — platform-reviewed
+- iil-reflex v0.3.0: UCDialogEngine, PermissionRunner, CycleRunner — 126/126 Tests grün
