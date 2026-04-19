@@ -1,6 +1,6 @@
 [project]
 name = "iil-platform-context"
-version = "0.5.1"
+version = "0.5.2"
 description = "Shared platform foundation for all Django projects (Context, Tenancy, Audit, Outbox)"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -11,6 +11,7 @@ authors = [
 classifiers = [
     "Development Status :: 4 - Beta",
     "Framework :: Django :: 5.0",
+    "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3.11",
@@ -18,7 +19,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "Django>=5.0,<6.0",
+    "Django>=5.0",
 ]
 
 [project.optional-dependencies]
