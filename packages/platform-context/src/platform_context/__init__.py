@@ -53,7 +53,7 @@ from platform_context.htmx import (
     is_htmx_request,
 )
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = [
     # Context
@@ -70,6 +70,8 @@ __all__ = [
     "HtmxErrorMiddleware",
     "HtmxResponseMixin",
     "is_htmx_request",
+    # Health Probes (ADR-021)
+    # Import via: from platform_context.middleware import HealthBypassMiddleware
     # Testing helpers (platform-context[testing])
     # Import via: from platform_context.testing.assertions import ...
     # Import via: from platform_context.testing.fixtures import ...

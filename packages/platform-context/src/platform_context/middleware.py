@@ -1,22 +1,70 @@
 """
-Django middleware for multi-tenancy and request context.
+Django middleware for multi-tenancy, health probes, and request context.
 
 Provides:
+- HealthBypassMiddleware: Short-circuits health probe paths (ADR-021)
 - RequestContextMiddleware: Sets request_id and user_id
-- SubdomainTenantMiddleware: Resolves tenant from subdomain
+- SubdomainTenantMiddleware: Resolves tenant from subdomain (health-aware)
 
 Note: TenantPermissionMiddleware remains in bfagent-core as it
 depends on bfagent-specific models (CoreUser, TenantMembership).
 """
 
+from __future__ import annotations
+
 import uuid
+from typing import Callable
 
 from django.conf import settings
-from django.http import HttpRequest, HttpResponse, HttpResponseForbidden
+from django.http import HttpRequest, HttpResponse, HttpResponseForbidden, JsonResponse
 from django.utils.deprecation import MiddlewareMixin
 
 from platform_context.context import set_request_id, set_tenant, set_user_id
 from platform_context.db import set_db_tenant
+
+# Default health probe paths (ADR-021).  Override via settings.HEALTH_PROBE_PATHS.
+DEFAULT_HEALTH_PATHS: frozenset[str] = frozenset({
+    "/livez/",
+    "/healthz/",
+    "/readyz/",
+    "/health/",
+})
+
+
+def _is_health_path(request: HttpRequest) -> bool:
+    """Return True if the request targets a health probe endpoint."""
+    paths = getattr(settings, "HEALTH_PROBE_PATHS", DEFAULT_HEALTH_PATHS)
+    return request.path in paths
+
+
+class HealthBypassMiddleware:
+    """Tier 1 middleware — short-circuits health probe paths (ADR-021).
+
+    Place this FIRST in MIDDLEWARE so that health probes bypass all
+    downstream middleware (tenant resolution, auth, CSRF, etc.).
+
+    Returns a minimal JSON response for /livez/, /healthz/, /readyz/, /health/
+    without touching the database.
+
+    Configure paths via ``settings.HEALTH_PROBE_PATHS`` (frozenset of str).
+    Defaults to ``{"/livez/", "/healthz/", "/readyz/", "/health/"}``.
+
+    Usage::
+
+        MIDDLEWARE = [
+            "platform_context.middleware.HealthBypassMiddleware",  # FIRST
+            "django.middleware.security.SecurityMiddleware",
+            ...
+        ]
+    """
+
+    def __init__(self, get_response: Callable[[HttpRequest], HttpResponse]) -> None:
+        self.get_response = get_response
+
+    def __call__(self, request: HttpRequest) -> HttpResponse:
+        if _is_health_path(request):
+            return JsonResponse({"status": "ok"})
+        return self.get_response(request)
 
 
 def _parse_subdomain(host: str, base_domain: str) -> str | None:
@@ -74,6 +122,12 @@ class SubdomainTenantMiddleware(MiddlewareMixin):
     """
 
     def process_request(self, request: HttpRequest) -> HttpResponse | None:
+        # ADR-021: Skip tenant resolution for health probes
+        if _is_health_path(request):
+            set_tenant(None, None)
+            set_db_tenant(None)
+            return None
+
         base_domain = getattr(settings, "TENANT_BASE_DOMAIN", "localhost")
         allow_localhost = getattr(settings, "TENANT_ALLOW_LOCALHOST", False)
 
