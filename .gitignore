@@ -51,3 +51,4 @@ infra/*.key
 # Concept review drafts (local working copies, not for VCS)
 docs/concepts/REVIEW-*
 env_loader.py
+.pat

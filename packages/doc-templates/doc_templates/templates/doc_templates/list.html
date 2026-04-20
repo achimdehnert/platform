@@ -71,7 +71,7 @@
               <a href="{% url 'doc_templates:template-edit' pk=tmpl.pk %}"
                  class="text-xs text-blue-600 hover:underline">Bearbeiten</a>
               <form method="post" action="{% url 'doc_templates:template-delete' pk=tmpl.pk %}"
-                    onsubmit="return confirm('Vorlage löschen?');" class="inline">
+                    data-confirm-submit="Vorlage löschen?" class="inline">
                 {% csrf_token %}
                 <button type="submit" class="text-xs text-red-600 hover:underline">Löschen</button>
               </form>
@@ -128,7 +128,7 @@
               <a href="{% url 'doc_templates:instance-edit' pk=inst.pk %}"
                  class="text-xs text-blue-600 hover:underline">Bearbeiten</a>
               <form method="post" action="{% url 'doc_templates:instance-delete' pk=inst.pk %}"
-                    onsubmit="return confirm('Dokument löschen?');" class="inline">
+                    data-confirm-submit="Dokument löschen?" class="inline">
                 {% csrf_token %}
                 <button type="submit" class="text-xs text-red-600 hover:underline">Löschen</button>
               </form>
@@ -142,4 +142,10 @@
   {% endif %}
 
 </div>
+<script>
+document.addEventListener('submit', function(e) {
+    var f = e.target.closest('[data-confirm-submit]');
+    if (f && !confirm(f.dataset.confirmSubmit)) e.preventDefault();
+});
+</script>
 {% endblock %}

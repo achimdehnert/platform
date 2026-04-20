@@ -56,7 +56,7 @@
     <div class="bg-white rounded-xl border border-gray-200 p-6">
       <div class="flex items-center justify-between mb-4">
         <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wide">Template-Struktur</h2>
-        <button type="button" onclick="addSection()"
+        <button type="button" data-action="add-section"
                 class="inline-flex items-center gap-1 px-3 py-1.5 bg-green-600 text-white rounded-lg hover:bg-green-700 text-xs font-medium">
           + Abschnitt
         </button>
@@ -150,20 +150,20 @@ function render() {
       <div class="bg-gray-50 px-4 py-3 flex items-center gap-2 rounded-t-lg">
         <span class="text-gray-400 cursor-grab active:cursor-grabbing select-none" title="Verschieben">☰</span>
         <input type="text" value="${esc(section.label)}"
-               onchange="updateSectionLabel(${si}, this.value)"
+               data-action="update-section-label" data-si="${si}"
                class="flex-1 bg-transparent border-0 text-sm font-semibold text-gray-800 focus:ring-0 p-0"
                placeholder="Abschnittstitel">
         <span class="text-xs text-gray-400">${section.fields ? section.fields.length : 0} Felder</span>
-        <button type="button" onclick="moveSection(${si}, -1)" class="text-gray-400 hover:text-gray-600 text-xs p-1" title="Nach oben"${si === 0 ? ' disabled' : ''}>▲</button>
-        <button type="button" onclick="moveSection(${si}, 1)" class="text-gray-400 hover:text-gray-600 text-xs p-1" title="Nach unten"${si === structure.sections.length - 1 ? ' disabled' : ''}>▼</button>
-        <button type="button" onclick="deleteSection(${si})" class="text-red-400 hover:text-red-600 text-xs p-1" title="Löschen">✕</button>
+        <button type="button" data-action="move-section" data-si="${si}" data-dir="-1" class="text-gray-400 hover:text-gray-600 text-xs p-1" title="Nach oben"${si === 0 ? ' disabled' : ''}>▲</button>
+        <button type="button" data-action="move-section" data-si="${si}" data-dir="1" class="text-gray-400 hover:text-gray-600 text-xs p-1" title="Nach unten"${si === structure.sections.length - 1 ? ' disabled' : ''}>▼</button>
+        <button type="button" data-action="delete-section" data-si="${si}" class="text-red-400 hover:text-red-600 text-xs p-1" title="Löschen">✕</button>
       </div>
 
       <!-- Fields -->
       <div class="px-4 py-3 space-y-2">
         ${(section.fields || []).map((field, fi) => renderField(si, fi, field)).join('')}
 
-        <button type="button" onclick="addField(${si})"
+        <button type="button" data-action="add-field" data-si="${si}"
                 class="w-full py-2 border-2 border-dashed border-gray-200 rounded-lg text-xs text-gray-400 hover:text-gray-600 hover:border-gray-300">
           + Feld hinzufügen
         </button>
@@ -187,19 +187,19 @@ function renderField(si, fi, field) {
       <div class="flex-1 space-y-2">
         <div class="flex items-center gap-2">
           <input type="text" value="${esc(field.label)}"
-                 onchange="updateFieldLabel(${si}, ${fi}, this.value)"
+                 data-action="update-field-label" data-si="${si}" data-fi="${fi}"
                  class="flex-1 bg-transparent border-0 text-sm text-gray-700 focus:ring-0 p-0"
                  placeholder="Feldbezeichnung">
-          <select onchange="updateFieldType(${si}, ${fi}, this.value)"
+          <select data-action="update-field-type" data-si="${si}" data-fi="${fi}"
                   class="border-0 bg-gray-50 text-xs rounded-md text-gray-600 focus:ring-1 focus:ring-blue-300 py-1 pr-6">
             ${FIELD_TYPES.map(t => `<option value="${t.value}" ${t.value === field.type ? 'selected' : ''}>${t.icon} ${t.label}</option>`).join('')}
           </select>
-          <button type="button" onclick="toggleAi(${si}, ${fi})"
+          <button type="button" data-action="toggle-ai" data-si="${si}" data-fi="${fi}"
                   class="text-xs px-2 py-0.5 rounded-full font-medium transition-colors ${aiEnabled ? 'bg-purple-100 text-purple-700 hover:bg-purple-200' : 'bg-gray-100 text-gray-400 hover:bg-gray-200 hover:text-gray-600'}"
                   title="${aiEnabled ? 'KI-Unterstützung deaktivieren' : 'KI-Unterstützung aktivieren'}">
             🤖 KI ${aiEnabled ? 'AN' : 'AUS'}
           </button>
-          <button type="button" onclick="deleteField(${si}, ${fi})"
+          <button type="button" data-action="delete-field" data-si="${si}" data-fi="${fi}"
                   class="text-red-300 hover:text-red-500 text-xs p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
                   title="Feld löschen">✕</button>
         </div>
@@ -210,8 +210,8 @@ function renderField(si, fi, field) {
         ${aiEnabled ? renderAiConfig(si, fi, aiPrompt, aiSources) : ''}
       </div>
       <div class="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button type="button" onclick="moveField(${si}, ${fi}, -1)" class="text-gray-300 hover:text-gray-500 text-xs"${fi === 0 ? ' disabled' : ''}>▲</button>
-        <button type="button" onclick="moveField(${si}, ${fi}, 1)" class="text-gray-300 hover:text-gray-500 text-xs"${fi === (structure.sections[si].fields || []).length - 1 ? ' disabled' : ''}>▼</button>
+        <button type="button" data-action="move-field" data-si="${si}" data-fi="${fi}" data-dir="-1" class="text-gray-300 hover:text-gray-500 text-xs"${fi === 0 ? ' disabled' : ''}>▲</button>
+        <button type="button" data-action="move-field" data-si="${si}" data-fi="${fi}" data-dir="1" class="text-gray-300 hover:text-gray-500 text-xs"${fi === (structure.sections[si].fields || []).length - 1 ? ' disabled' : ''}>▼</button>
       </div>
     </div>`;
 }
@@ -225,7 +225,7 @@ function renderAiConfig(si, fi, prompt, sources) {
         <span class="text-xs font-medium text-purple-700">🤖 KI-Konfiguration</span>
         <label class="flex items-center gap-1.5 text-xs cursor-pointer ${promptVisible ? 'text-purple-600' : 'text-gray-400'}">
           <input type="checkbox" ${promptVisible ? 'checked' : ''}
-                 onchange="toggleAiPromptVisible(${si}, ${fi}, this.checked)"
+                 data-action="toggle-ai-prompt-visible" data-si="${si}" data-fi="${fi}"
                  class="rounded border-purple-300 text-purple-600 focus:ring-purple-300 w-3.5 h-3.5">
           Prompt im Dokument sichtbar
         </label>
@@ -233,7 +233,7 @@ function renderAiConfig(si, fi, prompt, sources) {
 
       <div>
         <label class="block text-xs font-medium text-purple-600 mb-1">Prompt (Anweisung an die KI)</label>
-        <textarea onchange="updateAiPrompt(${si}, ${fi}, this.value)"
+        <textarea data-action="update-ai-prompt" data-si="${si}" data-fi="${fi}"
                   rows="3"
                   class="w-full rounded-md border-purple-200 text-xs focus:border-purple-400 focus:ring-purple-300 bg-white"
                   placeholder="Wird automatisch aus Quellen generiert — oder manuell anpassen...">${esc(prompt)}</textarea>
@@ -246,7 +246,7 @@ function renderAiConfig(si, fi, prompt, sources) {
           ${AI_SOURCE_TYPES.map(src => `
             <label class="flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer hover:text-purple-700 p-1 rounded hover:bg-purple-100/50">
               <input type="checkbox" ${sources.includes(src.value) ? 'checked' : ''}
-                     onchange="toggleAiSource(${si}, ${fi}, '${src.value}', this.checked)"
+                     data-action="toggle-ai-source" data-si="${si}" data-fi="${fi}" data-src="${src.value}"
                      class="rounded border-purple-300 text-purple-600 focus:ring-purple-300 w-3.5 h-3.5">
               ${esc(src.label)}
             </label>
@@ -263,15 +263,15 @@ function renderTableColumnsEditor(si, fi, cols) {
       ${cols.map((col, ci) => `
         <span class="inline-flex items-center gap-0.5 px-2 py-0.5 bg-blue-50 text-blue-700 rounded text-xs group/col">
           <input type="text" value="${esc(col)}"
-                 onchange="updateColumn(${si}, ${fi}, ${ci}, this.value)"
+                 data-action="update-column" data-si="${si}" data-fi="${fi}" data-ci="${ci}"
                  class="bg-transparent border-0 text-xs text-blue-700 focus:ring-0 p-0 w-auto min-w-[3rem]"
                  style="width: ${Math.max(3, col.length * 0.6)}rem"
                  placeholder="Spalte">
-          <button type="button" onclick="deleteColumn(${si}, ${fi}, ${ci})"
+          <button type="button" data-action="delete-column" data-si="${si}" data-fi="${fi}" data-ci="${ci}"
                   class="text-blue-300 hover:text-red-500 text-xs opacity-0 group-hover/col:opacity-100">✕</button>
         </span>
       `).join('')}
-      <button type="button" onclick="addColumn(${si}, ${fi})"
+      <button type="button" data-action="add-column" data-si="${si}" data-fi="${fi}"
               class="px-1.5 py-0.5 text-xs text-blue-400 hover:text-blue-600 border border-dashed border-blue-200 rounded">+</button>
     </div>`;
 }
@@ -477,6 +477,38 @@ function onDragEnd(e) {
   });
   dragSrcIdx = null;
 }
+
+// ── Event Delegation ─────────────────────────────────────────
+document.addEventListener('click', function(e) {
+  var el = e.target.closest('[data-action]');
+  if (!el) return;
+  var si = parseInt(el.dataset.si), fi = parseInt(el.dataset.fi);
+  switch (el.dataset.action) {
+    case 'add-section': addSection(); break;
+    case 'move-section': moveSection(si, parseInt(el.dataset.dir)); break;
+    case 'delete-section': deleteSection(si); break;
+    case 'add-field': addField(si); break;
+    case 'toggle-ai': toggleAi(si, fi); break;
+    case 'delete-field': deleteField(si, fi); break;
+    case 'move-field': moveField(si, fi, parseInt(el.dataset.dir)); break;
+    case 'delete-column': deleteColumn(si, fi, parseInt(el.dataset.ci)); break;
+    case 'add-column': addColumn(si, fi); break;
+  }
+});
+document.addEventListener('change', function(e) {
+  var el = e.target.closest('[data-action]');
+  if (!el) return;
+  var si = parseInt(el.dataset.si), fi = parseInt(el.dataset.fi);
+  switch (el.dataset.action) {
+    case 'update-section-label': updateSectionLabel(si, el.value); break;
+    case 'update-field-label': updateFieldLabel(si, fi, el.value); break;
+    case 'update-field-type': updateFieldType(si, fi, el.value); break;
+    case 'toggle-ai-prompt-visible': toggleAiPromptVisible(si, fi, el.checked); break;
+    case 'update-ai-prompt': updateAiPrompt(si, fi, el.value); break;
+    case 'toggle-ai-source': toggleAiSource(si, fi, el.dataset.src, el.checked); break;
+    case 'update-column': updateColumn(si, fi, parseInt(el.dataset.ci), el.value); break;
+  }
+});
 
 // ── Init ────────────────────────────────────────────────────
 if (document.readyState === 'loading') {

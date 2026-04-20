@@ -41,11 +41,11 @@
 
 <div id="br-fab">
   <span id="br-dev-badge">DEV</span>
-  <button class="br-fab-btn feat" onclick="brOpen('feat')" title="📋 Feature / Requirement">📋</button>
-  <button class="br-fab-btn bug"  onclick="brOpen('bug')"  title="🐛 Bug melden">🐛</button>
+  <button class="br-fab-btn feat" data-action="br-open" data-type="feat" title="📋 Feature / Requirement">📋</button>
+  <button class="br-fab-btn bug"  data-action="br-open" data-type="bug"  title="🐛 Bug melden">🐛</button>
 </div>
 
-<div id="br-overlay" onclick="if(event.target===this)brClose()">
+<div id="br-overlay" data-action="br-close-overlay">
   <div class="br-modal">
     <h4 id="br-title">🐛 Bug melden</h4>
 
@@ -87,9 +87,9 @@
     </div>
 
     <div class="br-row">
-      <button class="br-btn br-btn-sec" onclick="brClose()">Abbrechen</button>
-      <button class="br-btn br-btn-clip" onclick="brCopy()">📋 Nur kopieren</button>
-      <button class="br-btn br-btn-sub" id="br-submit-btn" onclick="brSubmit()">Absenden + kopieren</button>
+      <button class="br-btn br-btn-sec" data-action="br-close">Abbrechen</button>
+      <button class="br-btn br-btn-clip" data-action="br-copy">📋 Nur kopieren</button>
+      <button class="br-btn br-btn-sub" id="br-submit-btn" data-action="br-submit">Absenden + kopieren</button>
     </div>
     <div id="br-result"></div>
   </div>
@@ -245,6 +245,18 @@ document.getElementById('br-screenshot').addEventListener('change', function(e) 
 // Live preview
 ['br-inp-title', 'br-desc', 'br-expected'].forEach(id => {
   document.getElementById(id).addEventListener('input', updatePreview);
+});
+
+document.addEventListener('click', function(e) {
+    var el = e.target.closest('[data-action]');
+    if (!el) return;
+    switch (el.dataset.action) {
+        case 'br-open': brOpen(el.dataset.type); break;
+        case 'br-close': brClose(); break;
+        case 'br-close-overlay': if (e.target === el) brClose(); break;
+        case 'br-copy': brCopy(); break;
+        case 'br-submit': brSubmit(); break;
+    }
 });
 })();
 </script>
