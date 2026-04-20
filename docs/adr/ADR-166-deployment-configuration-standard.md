@@ -1,30 +1,68 @@
 ---
 id: ADR-166
-title: "Deployment Configuration Standard — .ship.conf, Health Checks, Image Naming"
+title: "Standardize deployment config via .ship.conf SSOT with /livez/ health checks"
 status: accepted
 date: 2026-04-20
+amended: 2026-04-20
 amends: ADR-120
 decision-makers: [achimdehnert]
 consulted: []
 informed: []
 scope: platform
+implementation_status: implemented
+implementation_evidence:
+  - "18/18 repos: .ship.conf IMAGE corrected (2026-04-20)"
+  - "18/18 repos: health URL standardized to /livez/ (2026-04-20)"
+  - "18/18 repos: deploy.yml, catalog-info.yaml, .ship.conf consistent (2026-04-20)"
 ---
 
-# ADR-166: Deployment Configuration Standard
+<!-- Drift-Detector-Felder
+staleness_months: 6
+drift_check_paths:
+  - "*/.ship.conf"
+  - "*/.github/workflows/deploy.yml"
+  - "*/catalog-info.yaml"
+supersedes_check: null
+-->
 
-## Context
+# ADR-166: Standardize deployment config via .ship.conf SSOT with /livez/ health checks
+
+## Context and Problem Statement
 
 ADR-120 established the Unified Multi-Repo Deployment Pipeline with `.ship.conf` as SSOT
 and `_deploy-unified.yml` as shared workflow. An audit across all 18 production repos
 (April 2026) revealed significant inconsistencies:
 
-- **IMAGE in .ship.conf** did not match the actual GHCR image in any repo
+- **IMAGE in .ship.conf** did not match the actual GHCR image in any repo (18/18 wrong)
 - **Health check paths** were mixed between `/healthz/` (readiness) and `/livez/` (liveness)
 - **Dockerfile paths** in deploy.yml were missing or incorrect for 4 repos
 - **3 different GHCR naming patterns** in use across repos
 - **Health URLs** differed between `.ship.conf`, `deploy.yml`, and `catalog-info.yaml`
 
-All inconsistencies were fixed as part of this ADR's acceptance.
+How do we ensure deployment configuration stays consistent and verifiable across all repos?
+
+## Decision Drivers
+
+- `ship.sh` must work reliably without manual overrides
+- Deploy health checks must not false-negative during DB startup
+- New repo onboarding must be deterministic (copy template, fill values)
+- Configuration drift must be detectable by automated audit scripts
+- Port allocation per ADR-021 §2.9 must be respected
+
+## Considered Options
+
+1. **Strict .ship.conf SSOT with /livez/** — single source of truth, all files derived
+2. **Derive config from docker-compose.prod.yml** — compose as SSOT, generate .ship.conf
+3. **Central registry in platform repo** — one YAML file with all 18 app configs
+
+## Decision Outcome
+
+Chosen option: **1. Strict .ship.conf SSOT with /livez/**
+
+- `.ship.conf` is the simplest, most portable format (bash-sourceable)
+- Every repo is self-contained — no cross-repo dependency for deployment
+- Compliance is verifiable with a single bash loop
+- `/livez/` as deploy health check is safer than `/healthz/` (no DB dependency)
 
 ## Decision
 
@@ -98,17 +136,26 @@ These files MUST contain identical values for IMAGE, HEALTH_URL, and DOCKERFILE:
 
 ## Consequences
 
-### Positive
+- Good, because a single grep/script can validate configuration across all 18 repos
+- Good, because `ship.sh` works reliably across all repos without manual overrides
+- Good, because deploy health checks never false-negative on DB startup delays
+- Good, because new repo onboarding has a clear, verifiable checklist
+- Bad, because 4 legacy repos have nested GHCR image names (migration requires compose + server changes)
+- Bad, because existing CI runs may trigger due to deploy.yml changes
 
-- Single grep/script can validate configuration across all 18 repos
-- `ship.sh` works reliably across all repos without manual overrides
-- Deploy health checks never false-negative on DB startup delays
-- New repo onboarding has clear, verifiable checklist
+### Confirmation
 
-### Negative
+Compliance is verified by running the audit script below. All 18 repos must show `OK`.
+The MCP health dashboard (`deployment_mcp/tools/system_tools.py`) uses `/livez/` for all apps.
 
-- 4 legacy repos have nested GHCR image names (migration requires compose + server changes)
-- Existing CI runs may trigger due to deploy.yml changes
+### Legacy Image Migration Tracking
+
+| Repo | Current Image | Target Image | Status |
+|------|--------------|--------------|--------|
+| 137-hub | `137-hub/hub137-web` | `137-hub` | ⬜ Pending |
+| pptx-hub | `pptx-hub/pptx-hub-web` | `pptx-hub` | ⬜ Pending |
+| risk-hub | `risk-hub/risk-hub-web` | `risk-hub` | ⬜ Pending |
+| bfagent | `bfagent-web` | `bfagent` | ⬜ Pending |
 
 ### Compliance Verification
 
@@ -124,8 +171,29 @@ for repo in /home/devuser/github/*/; do
 done
 ```
 
-## Related
+## Pros and Cons of the Options
+
+### Option 1: Strict .ship.conf SSOT with /livez/
+
+- Good, because bash-sourceable — works in CI, local scripts, and MCP tools
+- Good, because self-contained per repo — no central registry dependency
+- Good, because `/livez/` never fails on slow DB startup
+- Bad, because values must be kept in sync across 4 files manually
+
+### Option 2: Derive config from docker-compose.prod.yml
+
+- Good, because compose is already the runtime truth
+- Bad, because compose YAML parsing in bash is fragile
+- Bad, because compose files vary significantly across repos (build vs image, env vars)
+
+### Option 3: Central registry in platform repo
+
+- Good, because single file to audit
+- Bad, because cross-repo dependency — platform repo must be cloned/accessible
+- Bad, because merge conflicts when multiple repos update simultaneously
+
+## More Information
 
 - ADR-120: Unified Multi-Repo Deployment Pipeline
-- ADR-021: Health Check Endpoints
+- ADR-021: Health Check Endpoints (port allocation table §2.9)
 - ADR-160: Platform Health Dashboard
