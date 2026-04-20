@@ -22,7 +22,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "iil-platform-context>=0.5.1",
+    "iil-platform-context>=0.6.0",
     "iil-django-tenancy>=0.1.0",
 ]
 
