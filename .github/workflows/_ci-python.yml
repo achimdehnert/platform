@@ -53,7 +53,7 @@ on:
       platform_context_version:
         description: 'platform-context[testing] version to install (empty = skip)'
         required: false
-        default: '>=0.3.1'
+        default: '>=0.7.0'
         type: string
       pytest_workers:
         description: 'Number of parallel pytest workers (default: auto)'
