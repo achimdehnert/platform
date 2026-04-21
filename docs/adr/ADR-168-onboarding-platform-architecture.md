@@ -231,9 +231,9 @@ Vor erstem CI-Lauf: Self-Hosted Runner für `onboarding-hub` auf `88.198.191.108
 
 ### Offene Fragen
 
-1. **Custom Domain (schulungspass.de):** Phase 1 nutzt Nginx (ADR-021 §2.10) mit Let's Encrypt.
+1. **Custom Domain (schulungspass.de):** ✅ DNS A-Record gesetzt (2026-04-21). Phase 1 nutzt Nginx (ADR-021 §2.10) mit Let's Encrypt.
    Traefik/Caddy für White-Label-Subdomains wird in Phase 4 als eigenes ADR entschieden.
-2. **Stripe-Account:** IIL GmbH oder neue Gesellschaft — separate Entscheidung vor Phase 1.
+2. **Stripe-Account:** ✅ Entschieden: **IIL GmbH** (2026-04-21).
 
 ## Confirmation
 
