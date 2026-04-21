@@ -37,12 +37,11 @@ jobs:
         run: pytest --tb=short -q
 
   publish:
-    name: Publish to GitHub Packages
+    name: Build & Release
     needs: [test]
     runs-on: ubuntu-latest
     permissions:
-      packages: write
-      contents: read
+      contents: write
     defaults:
       run:
         working-directory: packages/platform-context
@@ -54,7 +53,7 @@ jobs:
           python-version: "3.12"
 
       - name: Install build tools
-        run: pip install hatchling build twine
+        run: pip install hatchling build
 
       - name: Extract version
         id: version
@@ -63,29 +62,27 @@ jobs:
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "📦 platform-context version: ${VERSION}"
 
-      - name: Check if version already published
-        id: check
-        run: |
-          # Always build — twine upload --skip-existing handles duplicates
-          echo "should_publish=true" >> "$GITHUB_OUTPUT"
-
       - name: Build wheel + sdist
         run: python -m build
 
-      - name: Publish to GitHub Packages (PyPI-compatible)
+      - name: Create GitHub Release
         env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
-          TWINE_REPOSITORY_URL: https://upload.pkg.github.com/achimdehnert/
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          twine upload dist/* --skip-existing
-          echo "✅ platform-context ${{ steps.version.outputs.version }} published"
+          TAG="platform-context-v${{ steps.version.outputs.version }}"
+          # Delete existing release if re-running
+          gh release delete "$TAG" --yes 2>/dev/null || true
+          gh release create "$TAG" \
+            --title "platform-context v${{ steps.version.outputs.version }}" \
+            --notes "Install: \`pip install iil-platform-context @ git+https://github.com/achimdehnert/platform.git#subdirectory=packages/platform-context\`" \
+            --target "${{ github.sha }}" \
+            dist/*
 
       - name: Summary
         run: |
-          echo "## platform-context Published" >> "$GITHUB_STEP_SUMMARY"
+          echo "## platform-context Released" >> "$GITHUB_STEP_SUMMARY"
           echo "| Field | Value |" >> "$GITHUB_STEP_SUMMARY"
           echo "|-------|-------|" >> "$GITHUB_STEP_SUMMARY"
           echo "| Version | \`${{ steps.version.outputs.version }}\` |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Install | \`pip install platform-context==${{ steps.version.outputs.version }} --extra-index-url https://\$GITHUB_TOKEN@python.pkg.github.com/achimdehnert/\` |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Install | \`pip install iil-platform-context @ git+https://github.com/achimdehnert/platform.git#subdirectory=packages/platform-context\` |" >> "$GITHUB_STEP_SUMMARY"
           echo "| SHA | \`${{ github.sha }}\` |" >> "$GITHUB_STEP_SUMMARY"
