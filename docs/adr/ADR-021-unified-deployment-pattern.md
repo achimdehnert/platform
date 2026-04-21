@@ -269,7 +269,7 @@ Each deploy acquires a file lock at `/tmp/deploy-<app>.lock` to prevent concurre
 | 8103 | recruiting-hub | hr.iil.pet |
 | 8104 | research-hub | research.iil.pet |
 | 8107 | dms-hub | dms.iil.pet |
-| 8108 | onboarding-hub | *(Produktname TBD)* |
+| 8108 | onboarding-hub (Schulungspass) | schulungspass.de |
 
 **Canonical source**: `platform/infra/ports.yaml`. Next free port: **8109**.
 

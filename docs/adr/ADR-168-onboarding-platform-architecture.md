@@ -8,6 +8,8 @@ decision-makers: [achimdehnert]
 consulted: []
 informed: []
 scope: onboarding-platform
+product_name: Schulungspass
+domains: [schulungspass.de, schulungspass.com]
 implementation_status: none
 ---
 
@@ -111,7 +113,8 @@ Rationale:
 
 ### Neutral
 
-- Produkt-Branding-Name noch offen (§14 Konzept) — Repo-Name `onboarding-hub` ist technisch
+- Produkt-Name: **Schulungspass** — Domains `schulungspass.de` + `schulungspass.com` gesichert (2026-04-21)
+- Repo-Name `onboarding-hub` bleibt technischer Name; Produktname `Schulungspass` für Branding
 - Stripe-Account-Frage (IIL GmbH vs. neue Gesellschaft) ist separate Entscheidung
 
 ## Architecture
@@ -228,9 +231,8 @@ Vor erstem CI-Lauf: Self-Hosted Runner für `onboarding-hub` auf `88.198.191.108
 
 ### Offene Fragen
 
-1. **Phase-4 Custom Domain (Traefik vs. Nginx):** Konzept §10.1 erwähnt Caddy/Traefik für
-   Let's-Encrypt-Automation. ADR-021 §2.10 definiert Nginx als Reverse Proxy.
-   Entscheidung: Phase 4 wird als eigenes ADR (ADR-16x) separat entschieden — bis dahin Nginx.
+1. **Custom Domain (schulungspass.de):** Phase 1 nutzt Nginx (ADR-021 §2.10) mit Let's Encrypt.
+   Traefik/Caddy für White-Label-Subdomains wird in Phase 4 als eigenes ADR entschieden.
 2. **Stripe-Account:** IIL GmbH oder neue Gesellschaft — separate Entscheidung vor Phase 1.
 
 ## Confirmation
