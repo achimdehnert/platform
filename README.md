@@ -6,12 +6,12 @@ Shared packages, reusable CI/CD workflows, governance tooling, and architecture 
 
 ```
 platform/
-├── packages/              # 15 shared Python packages
+├── packages/              # 22 shared Python packages
 ├── agents/                # Autonomous governance agents (guardian, drift_detector, adr_scribe, ...)
 ├── docs/adr/              # 90+ Architecture Decision Records (MADR 4.0)
-├── .github/workflows/     # 20 reusable CI/CD workflows (_ci-python, _build-docker, _deploy-hetzner, ...)
+├── .github/workflows/     # 25 reusable CI/CD workflows (_ci-python, _build-docker, _deploy-unified, ...)
 ├── tools/                 # repo_checker, check_htmx_patterns, check_design_tokens
-├── scripts/               # Ops/infra scripts (adr_next_number, hardcode_scanner, ...)
+├── scripts/               # Ops/infra scripts (ship.sh, sync-repo.sh, adr_next_number, ...)
 ├── governance-deploy/     # Standalone governance Django app
 ├── deployment/            # Docker Compose templates, systemd units
 └── concepts/              # Architecture concept docs
@@ -21,21 +21,28 @@ platform/
 
 | Package | Version | Beschreibung |
 |---------|---------|--------------|
-| `platform-context` | 0.5.0 | Core Django foundation (Context, Audit, Outbox, Tenancy, HTMX) |
+| `platform-context` | 0.7.0 | Core Django foundation (Context, Health, Audit, Outbox, Tenancy, HTMX) |
+| `iil-platform` | 1.0.0 | Umbrella for Context, Commons, Tenancy |
+| `iil-django-commons` | 0.3.0 | Shared backend services (Logging, Caching, Pagination) |
 | `bfagent-core` | 0.2.0 | BFAgent-spezifische Core-Komponenten (Auth, Permissions, Models) |
-| `bfagent-llm` | — | LiteLLM-Backend + DB-driven Model-Routing (ADR-089) |
+| `bfagent-llm` | 1.0.1 | LiteLLM-Backend + DB-driven Model-Routing (ADR-089) |
 | `creative-services` | 0.3.0 | LLM Client, Adapters, Story/Character/World-Generierung |
-| `django-tenancy` | — | Subdomain-basierte Multi-Tenancy |
-| `chat-agent` | — | Chat-Konversations-Handling |
-| `chat-logging` | — | Persistentes Konversations-Logging (ADR-037) |
-| `docs-agent` | — | Dokumentations-Agent mit Pre-commit-Hooks |
-| `platform-notifications` | — | Multi-Channel Notification Registry (ADR-088) |
-| `platform-search` | — | Hybrid pgvector + FTS Search (ADR-087) |
-| `task_scorer` | — | Task-Scoring und Routing-Engine (ADR-023) |
-| `mcp-governance` | — | MCP Tool Governance |
-| `inception-mcp` | — | Meta-MCP Tooling |
-| `cad-services` | — | IFC/DXF CAD-Verarbeitung |
+| `django-tenancy` | 0.1.0 | Subdomain-basierte Multi-Tenancy |
+| `django-module-shop` | 0.2.0 | Reusable Django module catalogue & subscription management |
+| `chat-agent` | 0.1.0 | Domain-agnostic Chat-Agent mit Tool-Use Loop |
+| `docs-agent` | 0.2.0 | AI-assisted Documentation Quality Agent (AST scanner, DIATA) |
+| `doc-templates` | 0.3.0 | Reusable Django document template system |
+| `concept-templates` | 0.5.0 | Structured concept extraction, PDF, schemas |
+| `content-store` | 0.1.0 | AI-generated content persistence (ADR-050) |
+| `hub-identity` | 0.1.0 | Hub Visual & Language Identity System |
+| `platform-notifications` | 0.1.0 | Multi-Channel Notification Registry (ADR-088) |
+| `dvelop-client` | 0.1.0 | Python client for d.velop DMS REST API |
+| `task_scorer` | 0.1.0 | Task-Scoring und Routing-Engine (ADR-023) |
+| `mcp-governance` | 0.1.0 | MCP Tool Governance & Service Discovery |
+| `inception-mcp` | 0.1.0 | MCP Server for DDL Inception — AI-driven Business Cases |
+| `outline-mcp` | 0.2.0 | MCP Server for Outline Wiki |
 | `sphinx-export` | — | Sphinx → Markdown Export |
+| `cad-services` | — | IFC/DXF CAD-Verarbeitung (stub) |
 
 ## Installation
 
@@ -55,7 +62,7 @@ pip install -e "packages/creative-services[openai,anthropic]"
 | Service | Brand | URL | Status |
 |---------|-------|-----|--------|
 | bfagent | BF Agent | https://bfagent.iil.pet | ✅ Production |
-| risk-hub | Schutztat | https://demo.schutztat.de | ✅ Production |
+| risk-hub | Schutztat | https://schutztat.de | ✅ Production |
 | travel-beat | DriftTales | https://drifttales.com | ✅ Production |
 | weltenhub | Weltenforger | https://weltenforger.com | ✅ Production |
 | dev-hub | DevHub | https://devhub.iil.pet | ✅ Production |
@@ -63,6 +70,8 @@ pip install -e "packages/creative-services[openai,anthropic]"
 | coach-hub | KI ohne Risiko | https://kiohnerisiko.de | ✅ Production |
 | trading-hub | — | https://trading-hub.iil.pet | ✅ Production |
 | wedding-hub | — | https://wedding-hub.iil.pet | ✅ Production |
+| ausschreibungs-hub | — | https://ausschreibungs-hub.iil.pet | ✅ Production |
+| billing-hub | — | https://billing-hub.iil.pet | ✅ Production |
 | cad-hub | nl2cad | https://nl2cad.de | ⏸ Gestoppt |
 
 ## Tech Stack
@@ -72,7 +81,7 @@ pip install -e "packages/creative-services[openai,anthropic]"
 | Framework | Django 5.x |
 | APIs | DRF (dev-hub) / Django Ninja (risk-hub) |
 | Frontend | HTMX + TailwindCSS |
-| Datenbank | PostgreSQL |
+| Datenbank | PostgreSQL 16 + pgvector |
 | Async | Celery + Redis |
 | Build | Hatchling (pyproject.toml) |
 | Lint/Format | Ruff |
