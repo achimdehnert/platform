@@ -7,7 +7,7 @@ name = "iil-outline-mcp"
 version = "0.2.0"
 description = "MCP Server for Outline Wiki — Knowledge Base access for Cascade (ADR-145)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Achim Dehnert"},

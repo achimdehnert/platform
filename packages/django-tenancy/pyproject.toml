@@ -3,12 +3,12 @@ name = "iil-django-tenancy"
 version = "0.1.0"
 description = "Shared multi-tenancy infrastructure for the BF Agent platform"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [{name = "Achim Dehnert"}]
 
 dependencies = [
-    "django>=4.2",
+    "Django>=5.0,<6.0",
 ]
 
 [project.optional-dependencies]

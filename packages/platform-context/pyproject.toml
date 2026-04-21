@@ -3,7 +3,7 @@ name = "iil-platform-context"
 version = "0.7.0"
 description = "Shared platform foundation for all Django projects (Context, Tenancy, Audit, Outbox)"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Achim Dehnert", email = "achim@dehnert.com"}
@@ -14,12 +14,12 @@ classifiers = [
     "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
 
 dependencies = [
-    "Django>=5.0",
+    "Django>=5.0,<6.0",
     "asgiref>=3.7",
 ]
 

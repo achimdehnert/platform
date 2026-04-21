@@ -7,11 +7,11 @@ name = "iil-doc-templates"
 version = "0.3.0"
 description = "Reusable Django document template system — create, edit, fill templates with PDF extraction and LLM prefill"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "LicenseRef-Proprietary"
 authors = [{ name = "Achim Dehnert", email = "achim.dehnert@iil.gmbh" }]
 dependencies = [
-    "django>=4.2",
+    "Django>=5.0,<6.0",
     "iil-concept-templates>=0.4.0",
 ]
 

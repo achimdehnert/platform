@@ -8,7 +8,7 @@ version = "0.5.0"
 description = "Shared schemas, frameworks and extraction for structured concept templates (ADR-147)"
 readme = "README.md"
 license = {text = "Proprietary"}
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [
     { name = "Achim Dehnert", email = "achim.dehnert@iil.gmbh" },
 ]
@@ -23,7 +23,7 @@ llm = [
     "iil-promptfw>=0.6.0",
     "iil-aifw>=0.5.0",
 ]
-django = ["Django>=4.2"]
+django = ["Django>=5.0,<6.0"]
 knowledge = [
     "iil-outlinefw[knowledge]>=0.2.0",
 ]
@@ -32,7 +32,7 @@ full = [
     "weasyprint>=60.0",
     "iil-promptfw>=0.6.0",
     "iil-aifw>=0.5.0",
-    "Django>=4.2",
+    "Django>=5.0,<6.0",
 ]
 dev = [
     "pytest>=8.0",

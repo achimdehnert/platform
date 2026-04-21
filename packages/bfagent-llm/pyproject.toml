@@ -3,7 +3,7 @@ name = "iil-bfagent-llm"
 version = "1.0.1"
 description = "LLM integration for BFAgent Hub ecosystem — DB-driven routing, LiteLLM backend, resilient adapters (ADR-089)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Achim Dehnert", email = "achim@dehnert.com"}

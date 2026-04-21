@@ -7,7 +7,7 @@ name = "iil-creative-services"
 version = "0.3.0"
 description = "Shared AI-powered creative writing and tool-use services for BF Agent ecosystem"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "MIT"
 authors = [
     { name = "BF Agent Team" }

@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Shared scoring and routing engine for task complexity estimation"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 # Zero runtime dependencies — stdlib only
 dependencies = []
 

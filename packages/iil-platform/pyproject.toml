@@ -7,7 +7,7 @@ name = "iil-platform"
 version = "1.0.0"
 description = "IIL Platform Foundation — Umbrella for Context, Commons, Tenancy, Shop, Notifications"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [{name = "Achim Dehnert", email = "achim@dehnert.com"}]
 keywords = ["django", "platform", "multi-tenant", "iil"]

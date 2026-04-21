@@ -7,7 +7,7 @@ name = "iil-docs-agent"
 version = "0.2.0"
 description = "AI-assisted documentation quality agent — AST scanner, DIATAXIS classifier, CLI"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [
     {name = "Achim Dehnert"},

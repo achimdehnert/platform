@@ -3,12 +3,12 @@ name = "iil-platform-notifications"
 version = "0.1.0"
 description = "Platform-wide multi-channel notification registry (ADR-088)"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = {text = "MIT"}
 authors = [{name = "Achim Dehnert"}]
 
 dependencies = [
-    "django>=4.2",
+    "Django>=5.0,<6.0",
     "celery>=5.3",
     "pydantic>=2.0",
     "httpx>=0.25",

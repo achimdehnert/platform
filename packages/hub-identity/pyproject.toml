@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Hub Visual & Language Identity System — AI-detection-resistant branding for IIL Platform hubs"
 readme = "README.md"
 license = {text = "Proprietary"}
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 authors = [{name = "IIL GmbH"}]
 classifiers = [
     "Framework :: Django",
