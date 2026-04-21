@@ -1,0 +1,41 @@
+# Hardcoding-Guard Violation Budgets (VERMEIDBAR)
+# Ratchet-Pattern: Jeder Repo hat ein Maximum.
+# Tests schlagen fehl wenn Violations > Budget (Regression).
+# Budget auf 0 setzen = "clean" — jede neue Violation bricht CI.
+# Budget reduzieren wenn Violations gefixt werden.
+#
+# Ziel: alle Repos auf 0 bringen.
+# Generiert: 2026-04-21
+# Tool: platform/scripts/check_hardcoded_urls.py --all --category VERMEIDBAR
+
+[budgets]
+"137-hub"            = 0
+"ausschreibungs-hub" = 41
+"bfagent"            = 72
+"billing-hub"        = 4
+"cad-hub"            = 7
+"coach-hub"          = 82
+"dev-hub"            = 10
+"dms-hub"            = 6
+"iil-relaunch"       = 5
+"illustration-hub"   = 1
+"learn-hub"          = 3
+"onboarding-hub"     = 0
+"pptx-hub"           = 21
+"recruiting-hub"     = 1
+"research-hub"       = 4
+"risk-hub"           = 83
+"tax-hub"            = 12
+"trading-hub"        = 14
+"travel-beat"        = 14
+"wedding-hub"        = 9
+"weltenhub"          = 13
+"writing-hub"        = 3
+
+# Per-Regel-Budgets (optional, für granulare Gates)
+# Format: "repo.RULE_ID" = max_count
+# Setzt man diese, gilt das engere Budget.
+[rule_budgets]
+"onboarding-hub.V-TMPL-01" = 0
+"onboarding-hub.V-CFG-01"  = 0
+"onboarding-hub.V-CFG-02"  = 0

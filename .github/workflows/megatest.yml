@@ -1,0 +1,120 @@
+name: Megatest — Hardcoding Guard
+
+on:
+  schedule:
+    - cron: '0 6 * * 2'   # Dienstags 06:00 UTC (nightly)
+  push:
+    paths:
+      - 'tests/megatest/**'
+      - 'scripts/check_hardcoded_urls.py'
+  workflow_dispatch:
+    inputs:
+      update_budgets:
+        description: 'Budgets auf aktuellen Stand setzen (kein Fail)'
+        type: boolean
+        default: false
+
+jobs:
+  megatest:
+    name: Platform Hardcoding Megatest
+    runs-on: self-hosted
+    permissions:
+      contents: write     # für --update-budgets commit
+      issues: write       # für Failure-Report als Issue
+
+    steps:
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Checkout alle Repos unter ~/github
+        run: |
+          cd ~/github
+          # Repos die noch nicht vorhanden sind klonen (shallow)
+          for repo in \
+            137-hub ausschreibungs-hub bfagent billing-hub cad-hub \
+            coach-hub dev-hub dms-hub iil-relaunch illustration-hub \
+            learn-hub onboarding-hub pptx-hub recruiting-hub research-hub \
+            risk-hub tax-hub trading-hub travel-beat wedding-hub \
+            weltenhub writing-hub; do
+            if [ ! -d "$HOME/github/$repo" ]; then
+              echo "Klone $repo..."
+              git clone --depth=1 \
+                "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/achimdehnert/$repo.git" \
+                "$HOME/github/$repo" 2>/dev/null || echo "WARN: $repo nicht gefunden"
+            else
+              echo "✓ $repo vorhanden"
+            fi
+          done
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install pytest
+        run: pip install pytest --quiet
+
+      - name: Run Megatest (normal)
+        if: ${{ !inputs.update_budgets }}
+        run: |
+          cd ~/github/platform
+          python -m pytest tests/megatest/ \
+            -v \
+            --tb=short \
+            --junitxml=megatest-results.xml \
+            -q \
+            2>&1 | tee megatest-output.txt
+        continue-on-error: true
+
+      - name: Run Megatest (Budget-Update)
+        if: ${{ inputs.update_budgets }}
+        run: |
+          cd ~/github/platform
+          python -m pytest tests/megatest/ \
+            --update-budgets \
+            -v -q \
+            2>&1 | tee megatest-output.txt
+
+      - name: Upload JUnit Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: megatest-results
+          path: ~/github/platform/megatest-results.xml
+
+      - name: Failure-Summary als GitHub Issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.existsSync('/root/github/platform/megatest-output.txt')
+              ? fs.readFileSync('/root/github/platform/megatest-output.txt', 'utf8')
+              : 'Output nicht gefunden';
+
+            const summary = output
+              .split('\n')
+              .filter(l => l.includes('FAILED') || l.includes('passed') || l.includes('failed'))
+              .join('\n');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🔴 Megatest Regression — ${new Date().toISOString().split('T')[0]}`,
+              body: [
+                '## Megatest hat Regressions gefunden',
+                '',
+                '**Neue Violations überschreiten das Budget in `tests/megatest/budgets.toml`.**',
+                '',
+                '```',
+                summary.slice(0, 3000),
+                '```',
+                '',
+                '**Aktion:** Violation fixen oder Budget-Update beantragen.',
+                '',
+                `Workflow: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+              ].join('\n'),
+              labels: ['megatest', 'hardcoding', 'regression'],
+            });
