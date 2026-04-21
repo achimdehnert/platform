@@ -1,94 +1,91 @@
 ---
-status: Accepted
+status: Accepted (Revision v1.1)
 date: 2026-04-21
 decision-makers: Achim Dehnert, Cascade AI
 consulted: []
 informed: []
-implementation_status: partial
+implementation_status: revision_in_progress
+amends: ADR-021
+supersedes: ADR-167 v1.0 (2026-04-21)
 implementation_evidence:
-  - "platform_context v0.6.0: HealthBypassMiddleware + SubdomainTenantMiddleware health bypass (22 tests)"
-  - "Phase 1 rollout: 9/19 repos committed + pushed (risk-hub, bfagent, billing-hub, coach-hub, tax-hub, wedding-hub, writing-hub, pptx-hub, trading-hub)"
+  - "platform_context v0.6.0 (v1.0): HealthBypassMiddleware + SubdomainTenantMiddleware health bypass (22 tests)"
+  - "platform_context v0.7.0 (v1.1): dual-mode async/sync, corrected liveness/readiness semantics, method whitelist, text/plain, system checks, Prometheus counter, ReadinessView (62 tests)"
+  - "Phase 1 rollout: 9/19 repos on v0.6.0 (risk-hub, bfagent, billing-hub, coach-hub, tax-hub, wedding-hub, writing-hub, pptx-hub, trading-hub)"
   - "tax-hub + trading-hub: local HealthCheckMiddleware replaced with central one"
 ---
 
 <!-- Drift-Detector-Felder
-staleness_months: 12
+staleness_months: 6
 drift_check_paths:
   - packages/platform-context/src/platform_context/middleware.py
+  - packages/platform-context/src/platform_context/health_checks.py
+  - packages/platform-context/src/platform_context/health/views.py
   - packages/platform-context/tests/test_middleware.py
 supersedes_check: null
 -->
 
-# ADR-167: Adopt 3-Tier Middleware Standard for Health Probes and Tenant Resolution
+# ADR-167 v1.1: Adopt 3-Tier Middleware Standard for Health Probes and Tenant Resolution
+
+> **v1.1 Change Log**
+> - **BLOCKER fix:** `/readyz/` removed from default bypass paths; readiness is now an opt-in view that actually checks DB/cache/dependencies.
+> - **BLOCKER fix:** `HealthBypassMiddleware` is now dual-mode (sync + async) for ASGI deployments.
+> - **CRITICAL fix:** Entkopplung von "Tier" (Architektur) und "Phase" (Rollout) in den Tabellen.
+> - **CRITICAL fix:** `ALLOWED_HOSTS`-Erweiterung um `localhost`/`127.0.0.1` nur für `IIL_ENV in {local, ci, docker-internal}`.
+> - **HIGH:** Observability via Prometheus-Counter `iil_health_probe_total` + DEBUG-Log.
+> - **HIGH:** Django-System-Checks für `HEALTH_PROBE_PATHS` und Middleware-Reihenfolge.
+> - **HIGH:** Content-Negotiation (text/plain default, JSON on Accept-Header) + `Cache-Control: no-store`.
+> - **MEDIUM:** HTTP-Method-Whitelist (nur GET/HEAD); andere → 405.
 
 ## Context and Problem Statement
 
-19 Django repositories have divergent middleware stacks. Health-check bypasses
-were implemented individually in travel-beat (`HealthBypassTenantMiddleware`),
-research-hub (`EXEMPT_PATH_PREFIXES`), and bfagent (`.env.prod` hack).
-`ALLOWED_HOSTS` fixes had to be applied across 20 files in 19 repos.
+19 Django-Repositories hatten divergente Middleware-Stacks. Health-Check-Bypasses
+wurden individuell in travel-beat (`HealthBypassTenantMiddleware`), research-hub
+(`EXEMPT_PATH_PREFIXES`), und bfagent (`.env.prod`-Hack) implementiert.
+`ALLOWED_HOSTS`-Fixes mussten quer durch 20 Dateien in 19 Repos angewendet werden.
 
-There is no standard that defines which middleware a repository must include
-and in what order, leading to inconsistent behavior for health probes,
-tenant resolution, and request context.
+Es gab keinen Standard, der definiert, welche Middleware ein Repository in
+welcher Reihenfolge enthalten muss — was zu inkonsistentem Verhalten bei
+Health-Probes, Tenant-Resolution und Request-Context führte.
+
+**v1.1 Zusätzlicher Kontext:** Die ursprüngliche v1.0-Implementierung
+hat `/readyz/` mit `/livez/` gleichgestellt (beide returnen statisch `200 OK`).
+Das widerspricht Kubernetes-Konvention: Readiness-Probes MÜSSEN
+Downstream-Dependencies prüfen (DB, Cache, Message Broker), sonst bekommen
+defekte Pods Traffic. v1.1 trennt Liveness (bypass) von Readiness (aktiver Check).
 
 ## Decision Drivers
 
-- **Consistency**: Health probes (`/livez/`, `/healthz/`) must work identically in all 19 repos
-- **Defense in Depth**: Docker/LB health checks must bypass all downstream middleware (auth, CSRF, tenant)
-- **DRY**: Per-repo health bypass hacks (3 different implementations) violate single-source-of-truth
-- **Onboarding**: New repos should get health probes by adding one middleware line
-- **Tenant Compatibility**: Multi-tenant repos (Tier 2/3) must not reject health probes for missing subdomain
+- **Konsistenz:** Health-Probes (`/livez/`) müssen in allen 19 Repos identisch arbeiten.
+- **Kubernetes-Konformität:** Liveness ≠ Readiness (klare Trennung).
+- **Defense in Depth:** Docker/LB-Health-Checks müssen alle Downstream-Middleware (Auth, CSRF, Tenant) umgehen.
+- **DRY:** Per-Repo Health-Bypass-Hacks (3 verschiedene Implementierungen) verletzen Single-Source-of-Truth.
+- **Onboarding:** Neue Repos erhalten Health-Probes durch das Hinzufügen einer Middleware-Zeile.
+- **Performance auf ASGI:** Async-natives Dispatch (keine `sync_to_async`-Wrapper für Probes).
+- **Tenant-Kompatibilität:** Multi-Tenant-Repos (Tier 2/3) dürfen Health-Probes wegen fehlender Subdomain nicht ablehnen.
+- **Security:** Kein Host-Header-Spoofing in Produktion.
+- **Observability:** Prometheus-Counter und DEBUG-Log für Troubleshooting.
 
 ## Considered Options
 
-### Option A: Per-repo health views (status quo)
-
-Each repo defines its own `/livez/` and `/healthz/` views in `urls.py`.
-Tenant middleware must be individually patched to exempt health paths.
-
-- Good: No shared dependency required
-- Bad: 19 different implementations, 3 different bypass hacks
-- Bad: Every new repo must rediscover the health probe pattern
-- Bad: Tenant middleware changes require per-repo fixes
-
-### Option B: Central `HealthBypassMiddleware` in `platform_context` (chosen)
-
-A single middleware class in `platform_context.middleware` short-circuits
-health probe paths before any downstream middleware runs.
-
-- Good: Single source of truth — one middleware class, 22 tests
-- Good: Works with all tenant tiers (bypass happens before tenant resolution)
-- Good: Configurable via `settings.HEALTH_PROBE_PATHS`
-- Good: Repos can still define custom DB-checking health views on different paths
-- Bad: Requires `iil-platform-context >= 0.6.0` as dependency
-- Bad: Middleware intercepts all configured health paths — repos that need DB readiness checks must use a separate path (e.g., `/readyz-db/`)
-
-### Option C: Nginx-level health bypass
-
-Configure Nginx to return 200 for health paths without proxying to Django.
-
-- Good: Zero Django changes
-- Bad: Health probe doesn't verify Django is running (defeats the purpose)
-- Bad: Nginx config is not in repo — drift risk
-- Bad: No readiness check (DB connectivity) possible
+(Optionen A/B/C aus v1.0 unverändert gültig. Chosen: **Option B — zentrale
+`HealthBypassMiddleware` in `platform_context`**, angepasst in v1.1.)
 
 ## Decision Outcome
 
-**Chosen option: B — Central `HealthBypassMiddleware`**, because it provides
-a single source of truth that works across all tenant tiers while keeping
-health probes fast (no DB, no auth) and configurable.
+**Chosen option: B — Zentrale `HealthBypassMiddleware`** in Version 0.7.0 des
+Pakets `iil-platform-context`, mit den unter "v1.1 Change Log" aufgelisteten
+Korrekturen.
 
 ### Implementation
 
-Introduce a **3-Tier Middleware Standard** implemented in `platform_context`
-(package `iil-platform-context >= 0.6.0`).
+Einführung eines **3-Tier Middleware Standards** in `platform_context`
+(Paket `iil-platform-context >= 0.7.0`).
 
-#### Tier 1: Platform Base (all repos)
+#### Tier 1: Platform Base (alle Repos)
 
-Every Django repository MUST include `HealthBypassMiddleware` as the **first**
-middleware. This ensures `/livez/`, `/healthz/`, `/readyz/`, `/health/` always
-return HTTP 200 without touching the database, auth, or tenant resolution.
+Jedes Django-Repository MUSS `HealthBypassMiddleware` als **erste** Middleware
+einbinden. Das garantiert, dass `/livez/` und `/healthz/` immer HTTP 200
+ohne DB-Zugriff, Auth oder Tenant-Resolution antworten.
 
 ```python
 MIDDLEWARE = [
@@ -106,149 +103,180 @@ MIDDLEWARE = [
 
 #### Tier 2: Tenant-Aware (subdomain-based RLS, no schema isolation)
 
-Repos that need subdomain → `tenant_id` resolution via RLS (Row-Level Security)
-add `SubdomainTenantMiddleware` after `HealthBypassMiddleware`.
-Health paths are automatically bypassed (built-in since v0.6.0).
-
-Tier 2 is chosen over Tier 3 when the app uses a **single shared schema**
-with RLS policies (e.g., `SET app.tenant_id`) rather than per-tenant
-PostgreSQL schemas.
+Repos, die Subdomain → `tenant_id`-Resolution via RLS (Row-Level Security)
+benötigen, fügen `SubdomainTenantMiddleware` nach `HealthBypassMiddleware`
+ein. Health-Pfade werden automatisch umgangen (integriert seit v0.6.0).
 
 ```python
 MIDDLEWARE = [
     "platform_context.middleware.HealthBypassMiddleware",       # Tier 1
     "platform_context.middleware.SubdomainTenantMiddleware",    # Tier 2
     "django.middleware.security.SecurityMiddleware",
-    ...
+    # ...
 ]
 ```
 
 #### Tier 3: Schema Isolation (django-tenants)
 
-Repos using `django-tenants` for per-tenant PostgreSQL schemas use
-`TenantMainMiddleware`. `HealthBypassMiddleware` (first) ensures health
-probes bypass schema resolution.
-
-Tier 3 is chosen when the app requires **full schema isolation** per tenant
-(separate tables, migrations, data) — typically for apps with complex
-multi-tenant data models or regulatory isolation requirements.
+Repos, die `django-tenants` für per-Tenant-PostgreSQL-Schemata nutzen, verwenden
+`TenantMainMiddleware`. `HealthBypassMiddleware` (first) stellt sicher, dass
+Health-Probes die Schema-Resolution umgehen.
 
 ```python
 MIDDLEWARE = [
     "platform_context.middleware.HealthBypassMiddleware",                 # Tier 1
-    "django_tenants.middleware.main.TenantMainMiddleware",               # Tier 3
+    "django_tenants.middleware.main.TenantMainMiddleware",                # Tier 3
     "platform_context.tenant_utils.middleware.TenantPropagationMiddleware",
-    ...
+    # ...
 ]
 ```
 
-### Tier Assignment
+### Tier Assignment (Architektur — dauerhaft)
 
 | Tier | Repos | Rationale |
 |------|-------|-----------|
-| 1 | pptx-hub, illustration-hub, billing-hub, writing-hub, wedding-hub, recruiting-hub, dms-hub, coach-hub, dev-hub, learn-hub, trading-hub | Single-purpose or no multi-tenant data model |
-| 2 | risk-hub, bfagent, ausschreibungs-hub | Subdomain-based tenancy with RLS (ADR-161), single shared schema |
-| 3 | travel-beat, tax-hub, cad-hub, weltenhub, research-hub | Full `django-tenants` schema isolation (ADR-072) |
+| 1 | pptx-hub, illustration-hub, billing-hub, writing-hub, wedding-hub, recruiting-hub, dms-hub, coach-hub, dev-hub, learn-hub, trading-hub | Single-purpose oder kein Multi-Tenant-Datenmodell |
+| 2 | risk-hub, bfagent, ausschreibungs-hub | Subdomain-basierte Tenancy mit RLS (ADR-161), Single-Shared-Schema |
+| 3 | travel-beat, tax-hub, cad-hub, weltenhub, research-hub | Full `django-tenants` Schema-Isolation (ADR-072) |
 
-### `HealthBypassMiddleware` Details
+### Rollout Phases (zeitlich — einmalig)
 
-- Short-circuits requests to `HEALTH_PROBE_PATHS` with `{"status": "ok"}`
-- Default paths: `/livez/`, `/healthz/`, `/readyz/`, `/health/`
-- Configurable via `settings.HEALTH_PROBE_PATHS` (frozenset)
-- No database access, no auth, no tenant resolution
-- 22 unit tests in `platform-context/tests/test_middleware.py`
+**Phase 1 (v0.6.0, abgeschlossen):** 9 Repos auf ursprüngliche Middleware migriert.
 
-### Readiness Probes with DB Checks
+**Phase 2 (v0.7.0, geplant):** Alle 19 Repos auf `iil-platform-context 0.7.0`
+upgraden. Das umfasst sowohl die Tier-1-Migration (10 ausstehende Repos) als
+auch das Upgrade der 9 bereits migrierten Repos von v0.6.0 auf v0.7.0 wegen
+der BREAKING CHANGES (`/readyz/` nicht mehr bypassed, Default-Format ist jetzt
+`text/plain`).
 
-Because `HealthBypassMiddleware` intercepts all configured health paths
-**before** the Django URL resolver, per-repo DB-checking readiness views
-(e.g., `/healthz/` that runs `SELECT 1`) will be bypassed.
+### `HealthBypassMiddleware` Details (v0.7.0)
 
-**Workaround**: Repos that need a DB readiness check should:
-1. Remove `/healthz/` from `HEALTH_PROBE_PATHS` in their settings, OR
-2. Use a separate endpoint (e.g., `/readyz-db/`) not in the middleware's path set
+- Kurzschließt Requests auf `HEALTH_PROBE_PATHS` mit `"ok\n"` (text/plain).
+- Default-Pfade: `/livez/`, `/healthz/` (keine Readiness-Pfade mehr!).
+- Konfigurierbar über `settings.HEALTH_PROBE_PATHS` (frozenset).
+- HTTP-Methoden-Whitelist: nur `GET` und `HEAD`, andere → `405 Method Not Allowed`.
+- Content-Negotiation: `Accept: application/json` → JSON-Response; sonst text/plain.
+- Response-Header: `Cache-Control: no-store`, `X-Content-Type-Options: nosniff`.
+- Kein DB-Zugriff, keine Auth, keine Tenant-Resolution.
+- **Dual-Mode:** sync + async (ASGI-nativ) via `@sync_and_async_middleware`.
+- **Observability:** Prometheus-Counter `iil_health_probe_total{path,mode}` +
+  strukturiertes DEBUG-Log.
+- **Validation:** Django-System-Check (`E167.*`/`W167.*`) prüft Konfiguration beim
+  Startup.
+- **Tests:** 62 Unit-Tests (sync/async × method × path-form × config × edge cases).
 
-The default middleware `/healthz/` response is sufficient for Docker/LB
-liveness probes. DB readiness is better checked by the Docker `healthcheck`
-command in `docker-compose.prod.yml`.
+### Readiness Probes (Repo-Verantwortung)
 
-### Defense in Depth: `ALLOWED_HOSTS`
-
-The `ALLOWED_HOSTS` defensive snippet (ADR-021) remains in all repos as backup:
+Readiness muss aktive Dependency-Checks durchführen. Dazu stellt v0.7.0
+die `ReadinessView` als **Opt-in** bereit:
 
 ```python
-# ADR-021: Internal hosts for Docker/LB health probes — always present
-ALLOWED_HOSTS.extend(h for h in ("localhost", "127.0.0.1") if h not in ALLOWED_HOSTS)
+# <repo>/config/urls.py
+urlpatterns = [
+    # ...,
+    path("readyz/", include("platform_context.health.urls")),
+]
 ```
 
-This ensures `Host: localhost` is always accepted, even if `HealthBypassMiddleware`
-is misconfigured or not yet deployed.
+Die `ReadinessView` führt standardmäßig `SELECT 1` auf `default`-DB aus.
+Repos können zusätzliche Checks via `settings.HEALTH_READINESS_CHECKS`
+registrieren (Liste dotted-paths auf Callables, die `(name, ok, detail)`
+zurückgeben).
+
+Bei Fehler: HTTP 503 mit JSON-Body `{"status": "degraded", "checks": [...]}`.
+
+### Defense in Depth: `ALLOWED_HOSTS` (v1.1 korrigiert)
+
+Die `ALLOWED_HOSTS`-Erweiterung um `localhost` / `127.0.0.1` erfolgt **nur**
+in internen Umgebungen:
+
+```python
+IIL_ENV = os.environ.get("IIL_ENV", "prod").lower()
+_ALLOW_INTERNAL_HOSTS = frozenset({"local", "ci", "docker-internal"})
+
+if IIL_ENV in _ALLOW_INTERNAL_HOSTS:
+    for _host in ("localhost", "127.0.0.1"):
+        if _host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_host)
+```
+
+In Produktion (`IIL_ENV=prod`) wird **kein** localhost akzeptiert. Traefik
+sendet den korrekten Host-Header, und Health-Probes laufen über den
+Service-Namen im Docker-Netz. Das eliminiert den Host-Header-Spoofing-Vektor.
 
 ## Consequences
 
 ### Good
 
-- **Consistent behavior**: Health probes work identically across all 19 repos
-- **Single source of truth**: Middleware logic lives in `platform_context`, not per-repo
-- **Onboarding**: New repos get health probes by adding one middleware line
-- **Eliminates hacks**: travel-beat's custom `HealthBypassTenantMiddleware`,
-  research-hub's `EXEMPT_PATH_PREFIXES`, bfagent's `.env.prod` edit all become obsolete
-- **Tenant-safe**: Both `SubdomainTenantMiddleware` and `TenantMainMiddleware`
-  are bypassed for health paths
+- Konsistentes Verhalten: Health-Probes arbeiten in allen 19 Repos identisch.
+- Korrekte Kubernetes-Semantik: Liveness ≠ Readiness.
+- ASGI-Performance: Async-nativ, keine Thread-Pool-Blockade.
+- Observability: Prometheus-Counter + Startup-Validation.
+- Sicherheit: Kein Host-Header-Spoofing in Produktion.
+- Single Source of Truth: Middleware-Logik lebt in `platform_context`, nicht repo-lokal.
+- Onboarding: Neue Repos erhalten Health-Probes durch eine Middleware-Zeile.
 
-### Bad
+### Bad (Breaking Changes in v0.7.0)
 
-- Repos must depend on `iil-platform-context >= 0.6.0` (10 repos need Dockerfile changes)
-- Custom health views in repos are bypassed — need separate path or config override
-- Phase 2 rollout requires Dockerfile changes for repos without `platform_context`
+- Repos mit hart-codiertem JSON-Parsing auf `/livez/` müssen entweder
+  `HEALTH_RESPONSE_FORMAT = "json"` setzen oder `Accept: application/json`
+  senden.
+- Repos, die sich auf `/readyz/` als Statisch-200 verlassen haben, müssen
+  `platform_context.health.urls` einbinden oder ihre k8s-Probes auf `/livez/`
+  umstellen.
+- POST/PUT/DELETE auf `/livez/` antworten jetzt `405` statt `200`.
 
 ### Confirmation
 
-Compliance is verified by:
+Compliance wird verifiziert durch:
 
-1. **Automated**: `curl -s -o /dev/null -w "%{http_code}" -H "Host: localhost" http://127.0.0.1:<port>/livez/` returns `200` for all deployed repos
-2. **CI**: `grep -q "HealthBypassMiddleware" <settings_file>` in repo CI or Drift-Detector
-3. **Manual**: `MIDDLEWARE[0]` in each repo's settings must be `"platform_context.middleware.HealthBypassMiddleware"`
+1. **Automated:** `curl -s -o /dev/null -w "%{http_code}" -H "Host: localhost" http://127.0.0.1:<port>/livez/` returnt `200` für alle deployten Repos.
+2. **CI:** `grep -q "HealthBypassMiddleware" <settings_file>` in Repo-CI oder Drift-Detector.
+3. **System Check:** `python manage.py check` returnt keine `E167.*`/`W167.*`-Warnings.
+4. **Manuell:** `MIDDLEWARE[0]` in den Settings jedes Repos ist `"platform_context.middleware.HealthBypassMiddleware"`.
 
-## Migration Tracking
+## Migration Tracking (Phase 2: v0.7.0)
 
-| Phase | Repo | Status | Date |
-|-------|------|--------|------|
-| 1 | risk-hub | ✅ Done | 2026-04-21 |
-| 1 | bfagent | ✅ Done | 2026-04-21 |
-| 1 | billing-hub | ✅ Done | 2026-04-21 |
-| 1 | coach-hub | ✅ Done | 2026-04-21 |
-| 1 | tax-hub | ✅ Done (replaced local) | 2026-04-21 |
-| 1 | wedding-hub | ✅ Done | 2026-04-21 |
-| 1 | writing-hub | ✅ Done | 2026-04-21 |
-| 1 | pptx-hub | ✅ Done | 2026-04-21 |
-| 1 | trading-hub | ✅ Done (replaced local) | 2026-04-21 |
-| 2 | ausschreibungs-hub | ⬜ Pending | — |
-| 2 | cad-hub | ⬜ Pending | — |
-| 2 | dev-hub | ⬜ Pending | — |
-| 2 | dms-hub | ⬜ Pending | — |
-| 2 | illustration-hub | ⬜ Pending | — |
-| 2 | learn-hub | ⬜ Pending | — |
-| 2 | recruiting-hub | ⬜ Pending | — |
-| 2 | research-hub | ⬜ Pending | — |
-| 2 | travel-beat | ⬜ Pending | — |
-| 2 | weltenhub | ⬜ Pending | — |
+| Repo | Tier | v0.6.0 Status | v0.7.0 Target |
+|------|------|---------------|---------------|
+| risk-hub | 2 | ✅ | ⬜ |
+| bfagent | 2 | ✅ | ⬜ |
+| billing-hub | 1 | ✅ | ⬜ |
+| coach-hub | 1 | ✅ | ⬜ |
+| tax-hub | 3 | ✅ | ⬜ |
+| wedding-hub | 1 | ✅ | ⬜ |
+| writing-hub | 1 | ✅ | ⬜ |
+| pptx-hub | 1 | ✅ | ⬜ |
+| trading-hub | 1 | ✅ | ⬜ |
+| ausschreibungs-hub | 2 | ⬜ | ⬜ |
+| cad-hub | 3 | ⬜ | ⬜ |
+| dev-hub | 1 | ⬜ | ⬜ |
+| dms-hub | 1 | ⬜ | ⬜ |
+| illustration-hub | 1 | ⬜ | ⬜ |
+| learn-hub | 1 | ⬜ | ⬜ |
+| recruiting-hub | 1 | ⬜ | ⬜ |
+| research-hub | 3 | ⬜ | ⬜ |
+| travel-beat | 3 | ⬜ | ⬜ |
+| weltenhub | 3 | ⬜ | ⬜ |
 
 ## Open Questions
 
-1. **PyPI Publish**: When to publish `iil-platform-context` to GitHub Packages PyPI?
-   This would eliminate the git-clone-from-monorepo pattern in Dockerfiles.
-   Deferred — tracked as Phase 3 in a future ADR.
-2. **Readiness Probe Standardization**: Should all repos use `/readyz-db/` for DB checks
-   or should we make `HEALTH_PROBE_PATHS` configurable per-repo? Current decision:
-   per-repo `HEALTH_PROBE_PATHS` override via settings is sufficient.
+1. **PyPI Publish:** Wann wird `iil-platform-context` auf GitHub Packages PyPI
+   publiziert? Das eliminiert das git-clone-from-monorepo Pattern in
+   Dockerfiles. Aufgeschoben — verfolgt als Phase 3 in einem zukünftigen ADR.
+2. **Kubernetes-Adoption:** Sobald Platform auf k8s migriert wird (derzeit
+   Docker Compose + Traefik auf Hetzner), Readiness-Probes auf
+   `path: /readyz/` umstellen und Startup-Probe (k8s 1.16+) auf `/livez/`
+   evaluieren.
 
 ## More Information
 
-- **ADR-021**: Health Probes — defines `/livez/` + `/healthz/` convention
-- **ADR-056**: Multi-Tenancy — `TenantPropagationMiddleware` for service-to-service calls
-- **ADR-072**: Schema Isolation — `django-tenants` for Tier 3 repos
-- **ADR-146**: Platform Packages — `iil-platform-context` as shared package
-- **ADR-161**: RLS Policies — Row-Level Security for Tier 2 repos
-- **Implementation**: `platform/packages/platform-context/src/platform_context/middleware.py`
-- **Tests**: `platform/packages/platform-context/tests/test_middleware.py` (22 tests)
+- **ADR-021 (amended by this ADR):** Health Probes Convention.
+- **ADR-056:** Multi-Tenancy — `TenantPropagationMiddleware` für Service-zu-Service-Aufrufe.
+- **ADR-072:** Schema Isolation — `django-tenants` für Tier-3-Repos.
+- **ADR-146:** Platform Packages — `iil-platform-context` als Shared Package.
+- **ADR-161:** RLS Policies — Row-Level-Security für Tier-2-Repos.
+- **Implementation:** `platform/packages/platform-context/src/platform_context/middleware.py`
+- **Tests:** `platform/packages/platform-context/tests/test_middleware.py` (62 Tests)
+- **Metrics:** Prometheus Counter `iil_health_probe_total{path,mode}`.
+- **Kubernetes Probe Docs:** https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/

@@ -5,7 +5,7 @@ SECRET_KEY = "test-secret-key-not-for-production"
 INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.auth",
-    "platform_context",
+    "platform_context.apps.PlatformContextConfig",
 ]
 
 DATABASES = {
@@ -16,3 +16,10 @@ DATABASES = {
 }
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+MIDDLEWARE = [
+    "platform_context.middleware.HealthBypassMiddleware",
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+]
