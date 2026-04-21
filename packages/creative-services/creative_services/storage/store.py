@@ -118,7 +118,9 @@ class ContentStore:
     """
 
     def __init__(self, dsn: str | None = None) -> None:
-        self._dsn = dsn or os.environ["CONTENT_STORE_DSN"]
+        self._dsn = dsn or os.environ.get("CONTENT_STORE_DSN")
+        if not self._dsn:
+            raise RuntimeError("CONTENT_STORE_DSN not set — pass dsn= or export env var")
         self._pool: asyncpg.Pool | None = None
 
     async def _get_pool(self) -> asyncpg.Pool:
