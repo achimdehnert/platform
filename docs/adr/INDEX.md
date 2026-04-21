@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-04-20
-> **Next free ADR number:** 167
+> **Last updated:** 2026-04-21
+> **Next free ADR number:** 168
 
 ## Legend
 
@@ -196,6 +196,7 @@
 | 164 | Unified Port Strategy — Conflict-free dev, staging, and production port assignments | `Accepted` | 🔶 | [ADR-164](ADR-164-port-strategy-conflict-free-dev-staging-prod.md) |
 | 165 | Adopt Plugin-based REFLEX Review Engine with Grafana Controlling | `Proposed` | ⬜ | [ADR-165](ADR-165-reflex-review-engine-with-grafana-controlling.md) |
 | 166 | Standardize deployment config via .ship.conf SSOT with /livez/ health checks | `Accepted` | ✅ | [ADR-166](ADR-166-deployment-configuration-standard.md) |
+| 167 | Adopt 3-Tier Middleware Standard for Health Probes and Tenant Resolution | `Accepted` | 🔶 | [ADR-167](ADR-167-three-tier-middleware-architecture.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
