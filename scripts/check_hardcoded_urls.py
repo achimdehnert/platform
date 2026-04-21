@@ -1,35 +1,40 @@
 #!/usr/bin/env python3
-"""check_hardcoded_urls.py — Platform-weiter Hardcoding-Guard.
+"""check_hardcoded_urls.py — Platform-weiter Hardcoding-Guard (v2).
 
-Prüft ALLE Repos auf hardcodierte URL-Pfade in Templates und Views.
+Prüft die GESAMTE Codebase auf hardcodierte Werte.
+Unterscheidet: VERMEIDBAR (Alternative vorhanden) vs. INFO (Kontext-abhängig).
+
+Abgedeckte Kategorien:
+  ── VERMEIDBAR ────────────────────────────────────────────────────────────────
+  V-TMPL-01   href="/..." in Templates           → {% url 'app:name' %}
+  V-TMPL-02   action="/..." in Templates         → {% url 'app:name' %}
+  V-TMPL-03   src="/..." in Templates            → {% static 'path' %}
+  V-VIEW-01   redirect("/...") in Views          → redirect(reverse('name'))
+  V-VIEW-02   HttpResponseRedirect("/...")        → HttpResponseRedirect(reverse('name'))
+  V-CFG-01    os.environ["KEY"] (außerh. Django-Boilerplate)   → decouple.config()
+  V-CFG-02    os.environ.get("KEY") (außerh. Boilerplate)      → decouple.config()
+  V-SEC-01    SECRET_KEY = "literal"             → decouple.config('SECRET_KEY')
+  V-SEC-02    PASSWORD = "literal"               → decouple.config('...')
+  V-SEC-03    print() in Django-Code             → logging.getLogger(__name__)
+
+  ── INFO (Alternativen möglich, Kontext prüfen) ───────────────────────────────
+  I-CFG-01    ALLOWED_HOSTS mit Literal-Domains  → decouple.config() / env var
+  I-CFG-02    Hardcodierte IP-Adressen           → decouple.config() oder CIDR-Variable
+  I-CFG-03    Hardcodierte E-Mail-Adressen       → settings.DEFAULT_FROM_EMAIL
+  I-CFG-04    Hardcodierte Domains/URLs          → settings-Variable
+  I-CFG-05    Hardcodierte Port-Nummern          → decouple.config()
+
+  ── NOTWENDIG (nicht flaggen) ─────────────────────────────────────────────────
+  urls.py path()/re_path() Definitionen          → korrekt, kein Fix nötig
+  manage.py / wsgi.py / asgi.py / celery.py os.environ.setdefault()
+  migrations/**                                  → Schema-Definitionen
+  test_* / conftest.py                           → Test-Fixtures sind OK
 
 Verwendung:
-    # Einzelnes Repo:
-    python scripts/check_hardcoded_urls.py /path/to/repo
-
-    # Alle Repos unter ~/github (inkl. non-Django):
-    python scripts/check_hardcoded_urls.py --all
-
-    # Kompakte Zusammenfassung (kein Datei-Detail):
-    python scripts/check_hardcoded_urls.py --all --summary
-
-    # Nur Bericht, kein Exit-Code 1 bei Violations (für Audits):
-    python scripts/check_hardcoded_urls.py --all --report-only
-
-    # Als pytest-Fixture: conftest.py in jedem Repo:
-    #   from platform_scripts import hardcoded_url_tests  # (siehe --pytest-snippet)
-
-Exit-Codes:
-    0  Keine Violations
-    1  Violations gefunden (für CI)
-    2  Fehler (Pfad nicht gefunden etc.)
-
-Abgedeckte Violation-Klassen:
-    TEMPLATE-01  href="/..."        ohne {% url %}
-    TEMPLATE-02  action="/..."      ohne {% url %}  (Formulare)
-    TEMPLATE-03  src="/..."         ohne {% static %}  (eigene Assets)
-    PYTHON-01    redirect("/...")   statt reverse()
-    PYTHON-02    HttpResponseRedirect("/...") mit literal Pfad
+  python scripts/check_hardcoded_urls.py --all --summary
+  python scripts/check_hardcoded_urls.py /path/to/repo --verbose
+  python scripts/check_hardcoded_urls.py --all --category VERMEIDBAR
+  python scripts/check_hardcoded_urls.py --all --report-only   # Exit 0 immer
 """
 from __future__ import annotations
 
@@ -43,58 +48,185 @@ from pathlib import Path
 
 GITHUB_ROOT = Path.home() / "github"
 
-# Pfad-Fragmente, die grundsätzlich übersprungen werden
 _SKIP_DIRS = {
     ".venv", "node_modules", "__pycache__", "site-packages",
-    ".git", "dist", "build", "htmlcov", ".mypy_cache",
+    ".git", "dist", "build", "htmlcov", ".mypy_cache", ".tox",
+    ".claude", ".windsurf",
 }
 
-# Zeilen-Inhalte, die als korrekt gelten (Whitelist)
-_ALLOWED_TOKENS = [
-    "/admin/",       # Django-Admin hat keine namespaced URL
-    "https://",      # externe Links
-    "http://",       # z.B. org.website
-    "{{ ",           # Template-Variable als URL-Wert
-    "{% url",        # korrekte Verwendung
-    "{% static",     # korrekte Verwendung für Assets
+_SKIP_REPOS = {
+    "platform", "infra-deploy", "iil-reflex", "promptfw", "authoringfw",
+    "aifw", "testkit", "outlinefw", "weltenfw", "illustration-fw",
+    "researchfw", "learnfw", "lastwar-bot", "odoo-hub", "mcp-hub", "nl2cad",
+}
+
+# Django-Boilerplate-Dateien: os.environ hier ist NOTWENDIG
+_DJANGO_BOILERPLATE = {"manage.py", "wsgi.py", "asgi.py", "celery.py"}
+
+# Zeilen-Whitelist für Template-Prüfungen
+_TMPL_ALLOWED = [
+    "/admin/",   # Django-Admin: keine namespaced URL
+    "https://",  # externe Links
+    "http://",   # externe Links
+    "{{ ",       # Template-Variable
+    "{% url",    # korrekte Verwendung
+    "{% static", # korrekte Verwendung
 ]
 
-# Repos ohne Django-Templates / reine Python-Libraries (kein HTML zu prüfen)
-_SKIP_REPOS = {
-    "platform",         # Infrastruktur-Repo, keine App-Templates
-    "infra-deploy",     # nur Shell/Ansible
-    "iil-reflex",       # Python-Library
-    "promptfw",         # Python-Library
-    "authoringfw",      # Python-Library
-    "aifw",             # Python-Library
-    "testkit",          # Test-Utilities
-    "outlinefw",        # Python-Library
-    "weltenfw",         # Python-Library
-    "illustration-fw",  # Python-Library
-    "researchfw",       # Python-Library
-    "learnfw",          # Python-Library
-    "lastwar-bot",      # Discord-Bot, kein Django
-    "odoo-hub",         # Odoo — anderes Template-System
-    "mcp-hub",          # MCP-Server, keine Django-Templates
-    "nl2cad",           # CLI-Tool
+# Pfad-Fragmente, bei denen INFO-Regeln nicht greifen (Drittcode, Seed-Daten, CI)
+_INFO_SKIP_PATH_PARTS = {
+    "vendor",                   # Third-Party-Code
+    ".github",                  # CI-Scripts
+    "node_modules",
+}
+
+# Dateinamen-Muster, bei denen I-CFG-03/04 übersprungen werden
+_SEED_OR_FIXTURE_NAMES = {
+    "factories.py", "fixtures.py", "conftest.py",
+}
+_SEED_PREFIXES = ("seed_", "bootstrap_", "load_")
+
+# IP-Whitelist (lokal, Docker-intern — NOTWENDIG)
+_IP_WHITELIST = re.compile(
+    r"(127\.0\.0\.1|localhost|0\.0\.0\.0|172\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+)"
+)
+
+CATEGORY_LABELS = {
+    "VERMEIDBAR": "\033[31mVERMEIDB.\033[0m",
+    "INFO":       "\033[33mINFO\033[0m",
 }
 
 # ── Regel-Definitionen ────────────────────────────────────────────────────────
 
-@dataclass
+@dataclass(frozen=True)
 class Rule:
     rule_id: str
-    pattern: re.Pattern
+    category: str        # VERMEIDBAR | INFO
     description: str
-    file_types: tuple[str, ...]  # z.B. (".html",) oder (".py",)
+    pattern: re.Pattern
+    suffixes: tuple[str, ...]   # welche Dateitypen
+    alternative: str            # was stattdessen verwenden
+    skip_filenames: frozenset[str] = field(default_factory=frozenset)
+    only_filenames: frozenset[str] = field(default_factory=frozenset)
+    skip_in_tests: bool = True  # test_* und conftest.py überspringen
 
 
 RULES: list[Rule] = [
-    Rule("TEMPLATE-01", re.compile(r'href="(/[a-zA-Z0-9_-])'),    "href mit hartkodiertem Pfad → {% url 'app:name' %}",   (".html",)),
-    Rule("TEMPLATE-02", re.compile(r'action="(/[a-zA-Z0-9_-])'),  "action mit hartkodiertem Pfad → {% url 'app:name' %}",  (".html",)),
-    Rule("TEMPLATE-03", re.compile(r'src="(/[a-zA-Z0-9_-])'),     "src mit hartkodiertem Pfad → {% static 'path' %}",      (".html",)),
-    Rule("PYTHON-01",   re.compile(r'redirect\(\s*["\']\/[a-zA-Z]'),    "redirect() mit hartkodiertem Pfad → reverse()",   (".py",)),
-    Rule("PYTHON-02",   re.compile(r'HttpResponseRedirect\(\s*["\']\/'), "HttpResponseRedirect() mit hartkodiertem Pfad",    (".py",)),
+    # ── VERMEIDBAR: Templates ─────────────────────────────────────────────────
+    Rule(
+        "V-TMPL-01", "VERMEIDBAR",
+        "href mit hartkodiertem Pfad",
+        re.compile(r'href="(/[a-zA-Z0-9_-])'),
+        (".html", ".htm"),
+        "{% url 'app:view_name' %}",
+    ),
+    Rule(
+        "V-TMPL-02", "VERMEIDBAR",
+        "action mit hartkodiertem Pfad (Formular)",
+        re.compile(r'action="(/[a-zA-Z0-9_-])'),
+        (".html", ".htm"),
+        "{% url 'app:view_name' %}",
+    ),
+    Rule(
+        "V-TMPL-03", "VERMEIDBAR",
+        "src mit hartkodiertem Pfad (eigenes Asset)",
+        re.compile(r'src="(/[a-zA-Z0-9_-])'),
+        (".html", ".htm"),
+        "{% static 'path/to/asset' %}",
+    ),
+    # ── VERMEIDBAR: Python Views ──────────────────────────────────────────────
+    Rule(
+        "V-VIEW-01", "VERMEIDBAR",
+        "redirect() mit hartkodiertem URL-String",
+        re.compile(r'\bredirect\(\s*["\']\/[a-zA-Z]'),
+        (".py",),
+        "redirect(reverse('app:name'))",
+        skip_filenames=frozenset(_DJANGO_BOILERPLATE | {"urls.py"}),
+    ),
+    Rule(
+        "V-VIEW-02", "VERMEIDBAR",
+        "HttpResponseRedirect() mit hartkodiertem Pfad",
+        re.compile(r'HttpResponseRedirect\(\s*["\']\/'),
+        (".py",),
+        "HttpResponseRedirect(reverse('app:name'))",
+        skip_filenames=frozenset(_DJANGO_BOILERPLATE),
+    ),
+    # ── VERMEIDBAR: Konfiguration ─────────────────────────────────────────────
+    Rule(
+        "V-CFG-01", "VERMEIDBAR",
+        "os.environ[\"KEY\"] — direkter Env-Zugriff",
+        re.compile(r'\bos\.environ\['),
+        (".py",),
+        "decouple.config('KEY')",
+        skip_filenames=frozenset(_DJANGO_BOILERPLATE),
+        skip_in_tests=False,  # auch in Tests flaggen
+    ),
+    Rule(
+        "V-CFG-02", "VERMEIDBAR",
+        "os.environ.get(\"KEY\") ohne Fallback-Logik",
+        re.compile(r'\bos\.environ\.get\('),
+        (".py",),
+        "decouple.config('KEY', default=...)",
+        skip_filenames=frozenset(_DJANGO_BOILERPLATE),
+    ),
+    # ── VERMEIDBAR: Secrets ───────────────────────────────────────────────────
+    Rule(
+        "V-SEC-01", "VERMEIDBAR",
+        "SECRET_KEY als Literal (nicht aus Env)",
+        re.compile(r'SECRET_KEY\s*=\s*["\'][^$({]'),
+        (".py",),
+        "SECRET_KEY = config('SECRET_KEY')",
+        skip_in_tests=False,
+    ),
+    Rule(
+        "V-SEC-02", "VERMEIDBAR",
+        "PASSWORD/DB-Passwort als Literal",
+        re.compile(r'(?:PASSWORD|DB_PASS|REDIS_PASS)\s*=\s*["\'][^$({\'\"]{3,}'),
+        (".py",),
+        "config('DB_PASSWORD')",
+        skip_in_tests=False,
+    ),
+    Rule(
+        "V-SEC-03", "VERMEIDBAR",
+        "Hardcodierter API-Token / Secret als Literal-String",
+        re.compile(
+            r'(?:api_key|apikey|api_secret|token|auth_token|access_token|private_key)'
+            r'\s*=\s*["\'][a-zA-Z0-9_\-\.]{16,}["\']',
+            re.IGNORECASE,
+        ),
+        (".py",),
+        "decouple.config('API_KEY') oder Secret-Manager",
+        skip_in_tests=False,
+    ),
+    # ── INFO: Konfiguration ───────────────────────────────────────────────────
+    Rule(
+        "I-CFG-01", "INFO",
+        "ALLOWED_HOSTS mit Literal-Domain (nicht localhost)",
+        re.compile(r'ALLOWED_HOSTS\s*=\s*\[.*["\'][^\'\"]*\.[^\'\"]+["\']'),
+        (".py",),
+        "ALLOWED_HOSTS = config('ALLOWED_HOSTS', cast=Csv())",
+    ),
+    Rule(
+        "I-CFG-02", "INFO",
+        "Hardcodierte öffentliche IP-Adresse",
+        re.compile(r'["\'](\d{1,3}\.){3}\d{1,3}["\']'),
+        (".py",),
+        "decouple.config('SERVER_IP')",
+    ),
+    Rule(
+        "I-CFG-03", "INFO",
+        "Hardcodierte E-Mail-Adresse (nicht in Seed/Fixture)",
+        re.compile(r'["\'][a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}["\']'),
+        (".py",),
+        "settings.DEFAULT_FROM_EMAIL oder decouple.config()",
+    ),
+    Rule(
+        "I-CFG-04", "INFO",
+        "Hardcodierte externe Domain/URL (nicht in API-Clients/Vendor)",
+        re.compile(r'["\']https?://[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}[^"\']*["\']'),
+        (".py",),
+        "settings-Variable oder decouple.config()",
+    ),
 ]
 
 
@@ -102,8 +234,7 @@ RULES: list[Rule] = [
 
 @dataclass
 class Violation:
-    rule_id: str
-    description: str
+    rule: Rule
     file_path: Path
     lineno: int
     line: str
@@ -116,7 +247,6 @@ class RepoResult:
 
     @property
     def name(self) -> str:
-        # Wenn Repo-Root "src" heißt, Eltern-Verzeichnis als Name verwenden
         if self.repo_path.name == "src":
             return self.repo_path.parent.name
         return self.repo_path.name
@@ -125,81 +255,116 @@ class RepoResult:
     def ok(self) -> bool:
         return len(self.violations) == 0
 
+    def by_category(self, cat: str) -> list[Violation]:
+        return [v for v in self.violations if v.rule.category == cat]
+
 
 # ── Scanner ───────────────────────────────────────────────────────────────────
 
-def _should_skip(path: Path) -> bool:
+def _should_skip_path(path: Path) -> bool:
     return any(part in _SKIP_DIRS for part in path.parts)
 
 
-def _is_allowed(line: str) -> bool:
-    return any(tok in line for tok in _ALLOWED_TOKENS)
+def _is_test_file(path: Path) -> bool:
+    return path.name.startswith("test_") or path.name == "conftest.py"
 
 
-def _find_repo_root(path: Path) -> Path | None:
-    """Findet Repo-Root anhand von manage.py oder pyproject.toml."""
-    for candidate in [path, path.parent, path.parent.parent]:
-        if (candidate / "manage.py").exists() or (candidate / "pyproject.toml").exists():
-            return candidate
-    return None
+def _is_migration(path: Path) -> bool:
+    return "migrations" in path.parts
+
+
+def _tmpl_allowed(line: str) -> bool:
+    return any(tok in line for tok in _TMPL_ALLOWED)
+
+
+def _in_skip_path(path: Path) -> bool:
+    """True wenn Datei in vendor/, .github/ etc. liegt."""
+    return any(part in _INFO_SKIP_PATH_PARTS for part in path.parts)
+
+
+def _is_seed_or_fixture(path: Path) -> bool:
+    """True für Seed/Fixture-Dateien (Management Commands, Factories)."""
+    if path.name in _SEED_OR_FIXTURE_NAMES:
+        return True
+    if path.name.startswith(_SEED_PREFIXES):
+        return True
+    return False
+
+
+def _check_line(rule: Rule, line: str, path: Path) -> bool:
+    """True wenn Regel auf diese Zeile/Datei zutrifft."""
+    # Dateiname-Ausschlüsse
+    if path.name in rule.skip_filenames:
+        return False
+    if rule.only_filenames and path.name not in rule.only_filenames:
+        return False
+    # Test-Ausschluss
+    if rule.skip_in_tests and _is_test_file(path):
+        return False
+    # INFO-Regeln: vendor / .github / seed-Dateien überspringen
+    if rule.category == "INFO":
+        if _in_skip_path(path):
+            return False
+        if rule.rule_id in ("I-CFG-03", "I-CFG-04") and _is_seed_or_fixture(path):
+            return False
+    # Template-Whitelist
+    if path.suffix in (".html", ".htm") and _tmpl_allowed(line):
+        return False
+    # IP-Whitelist für I-CFG-02
+    if rule.rule_id == "I-CFG-02" and _IP_WHITELIST.search(line):
+        return False
+    # os.environ in Django-Boilerplate (setdefault ist NOTWENDIG)
+    if rule.rule_id in ("V-CFG-01", "V-CFG-02") and "setdefault" in line:
+        return False
+    # V-CFG-01/02 in standalone scripts (nicht apps/) sind oft OK → INFO statt VERMEIDBAR
+    # aber weiter flaggen — Nutzer entscheidet
+    # Kommentare überspringen
+    stripped = line.strip()
+    if stripped.startswith(("#", "{#", "//", "<!--")):
+        return False
+    # Explicit opt-out
+    if "# noqa" in line or "# nosec" in line or "# hardcoded-ok" in line:
+        return False
+    return bool(rule.pattern.search(line))
 
 
 def scan_repo(repo_path: Path) -> RepoResult:
     result = RepoResult(repo_path=repo_path)
 
-    # Alle zu prüfenden Dateien sammeln
-    files: list[Path] = []
-    for pattern in ["**/*.html", "**/*.py"]:
-        for f in repo_path.rglob(pattern.split("/")[-1]):
-            if _should_skip(f):
-                continue
-            if "migrations" in f.parts:
-                continue
-            if f.name.startswith("test_") or f.name == "conftest.py":
-                continue
-            files.append(f)
+    applicable: dict[str, list[Rule]] = {}
+    for r in RULES:
+        for s in r.suffixes:
+            applicable.setdefault(s, []).append(r)
 
-    applicable_rules = {
-        suffix: [r for r in RULES if suffix in r.file_types]
-        for suffix in (".html", ".py")
-    }
-
-    for fpath in files:
-        rules = applicable_rules.get(fpath.suffix, [])
+    for fpath in repo_path.rglob("*"):
+        if not fpath.is_file():
+            continue
+        if _should_skip_path(fpath):
+            continue
+        if _is_migration(fpath):
+            continue
+        rules = applicable.get(fpath.suffix, [])
         if not rules:
             continue
+
         try:
             lines = fpath.read_text(encoding="utf-8", errors="ignore").splitlines()
         except OSError:
             continue
 
         for lineno, line in enumerate(lines, start=1):
-            stripped = line.strip()
-            if stripped.startswith("#") or stripped.startswith("{#"):
-                continue
-            if _is_allowed(line):
-                continue
             for rule in rules:
-                if rule.pattern.search(line):
+                if _check_line(rule, line, fpath):
                     result.violations.append(Violation(
-                        rule_id=rule.rule_id,
-                        description=rule.description,
+                        rule=rule,
                         file_path=fpath,
                         lineno=lineno,
-                        line=stripped,
+                        line=line.strip(),
                     ))
-
     return result
 
 
 def find_all_repos(root: Path) -> list[Path]:
-    """Findet alle Repos mit HTML-Dateien — unabhängig vom Framework.
-
-    Strategie (Priorität):
-      1. manage.py im Root          → Django-Standard
-      2. manage.py in src/          → Django mit src-Layout
-      3. ≥1 .html-Datei im Repo     → beliebiges Framework
-    """
     repos: list[Path] = []
     for candidate in sorted(root.iterdir()):
         if not candidate.is_dir():
@@ -208,166 +373,152 @@ def find_all_repos(root: Path) -> list[Path]:
             continue
         if candidate.name in _SKIP_REPOS:
             continue
-
-        # Django mit Standard-Layout
         if (candidate / "manage.py").exists():
             repos.append(candidate)
             continue
-
-        # Django mit src/-Layout
         if (candidate / "src" / "manage.py").exists():
-            repos.append(candidate)   # Repo-Root, nicht src/ — für korrekten Namen
+            repos.append(candidate)
             continue
-
-        # Nicht-Django: prüfe ob .html-Dateien vorhanden
-        html_count = sum(
-            1 for _ in candidate.rglob("*.html")
-            if not _should_skip(_)
-        )
+        html_count = sum(1 for p in candidate.rglob("*.html") if not _should_skip_path(p))
         if html_count > 0:
             repos.append(candidate)
-
     return repos
-
-
-def _resolve_scan_root(repo_path: Path) -> Path:
-    """Gibt den tatsächlichen Scan-Einstiegspunkt zurück (ggf. src/)."""
-    if (repo_path / "src" / "manage.py").exists():
-        return repo_path   # scan gesamtes Repo inkl. src/
-    return repo_path
 
 
 # ── Ausgabe ───────────────────────────────────────────────────────────────────
 
-RESET = "\033[0m"
-RED   = "\033[31m"
-GREEN = "\033[32m"
+RESET  = "\033[0m"
+RED    = "\033[31m"
+GREEN  = "\033[32m"
 YELLOW = "\033[33m"
-BOLD  = "\033[1m"
-DIM   = "\033[2m"
+CYAN   = "\033[36m"
+BOLD   = "\033[1m"
+DIM    = "\033[2m"
 
 
-def _color(text: str, code: str) -> str:
-    return f"{code}{text}{RESET}" if sys.stdout.isatty() else text
+def _c(text: str, *codes: str) -> str:
+    if not sys.stdout.isatty():
+        return text
+    return "".join(codes) + text + RESET
 
 
-def print_report(results: list[RepoResult], verbose: bool = False, summary_only: bool = False) -> int:
-    total_violations = sum(len(r.violations) for r in results)
-    total_repos = len(results)
-    repos_with_violations = [r for r in results if not r.ok]
-    repos_clean = [r for r in results if r.ok]
+def print_report(
+    results: list[RepoResult],
+    verbose: bool = False,
+    summary_only: bool = False,
+    category_filter: str | None = None,
+) -> int:
+    categories = ["VERMEIDBAR", "INFO"] if not category_filter else [category_filter.upper()]
 
-    print(f"\n{_color('HARDCODING-GUARD — Platform Scan', BOLD)}")
-    print(f"Repos geprüft: {total_repos}  |  "
-          f"Violations: {_color(str(total_violations), RED if total_violations else GREEN)}  |  "
-          f"Sauber: {_color(str(len(repos_clean)), GREEN)}/{total_repos}")
-    print("─" * 70)
+    def filtered(r: RepoResult) -> list[Violation]:
+        return [v for v in r.violations if v.rule.category in categories]
 
-    # Sortiert nach Anzahl Violations (absteigend)
-    for repo_result in sorted(repos_with_violations, key=lambda r: -len(r.violations)):
-        print(f"\n{_color('✗ ' + repo_result.name, RED + BOLD)}  "
-              f"{_color(f'({len(repo_result.violations)} Violations)', RED)}")
+    total = sum(len(filtered(r)) for r in results)
+    n_vermeidbar = sum(len(r.by_category("VERMEIDBAR")) for r in results)
+    n_info       = sum(len(r.by_category("INFO"))       for r in results)
+    repos_dirty  = [r for r in results if filtered(r)]
+    repos_clean  = [r for r in results if not filtered(r)]
 
-        if summary_only:
-            # Nur Dateinamen + Anzahl, keine Zeilen-Details
-            by_file: dict[Path, list[Violation]] = {}
-            for v in repo_result.violations:
-                by_file.setdefault(v.file_path, []).append(v)
-            for fpath, viols in sorted(by_file.items()):
-                try:
-                    rel = fpath.relative_to(repo_result.repo_path)
-                except ValueError:
-                    rel = fpath
-                rule_ids = ", ".join(sorted({v.rule_id for v in viols}))
-                print(f"  {_color(str(rel), YELLOW)}  {_color(f'[{rule_ids}] ×{len(viols)}', DIM)}")
-            continue
+    print(f"\n{_c('HARDCODING-GUARD — Platform Scan v2', BOLD)}")
+    print(f"Repos: {len(results)}  │  "
+          f"Gesamt: {_c(str(total), RED if total else GREEN)}  │  "
+          f"Vermeidbar: {_c(str(n_vermeidbar), RED)}  │  "
+          f"Info: {_c(str(n_info), YELLOW)}  │  "
+          f"Sauber: {_c(str(len(repos_clean)), GREEN)}/{len(results)}")
+    print(_c("─" * 72, DIM))
 
-        # Gruppiere nach Datei (Detail-Ausgabe)
-        by_file = {}
-        for v in repo_result.violations:
+    for repo in sorted(repos_dirty, key=lambda r: -len(filtered(r))):
+        viols = filtered(repo)
+        v_count = len(repo.by_category("VERMEIDBAR"))
+        i_count = len(repo.by_category("INFO"))
+        tag = (f"{_c(f'V:{v_count}', RED)} {_c(f'I:{i_count}', YELLOW)}"
+               if not category_filter else f"{len(viols)}")
+        print(f"\n{_c('✗ ' + repo.name, RED + BOLD)}  [{tag}]")
+
+        by_file: dict[Path, list[Violation]] = {}
+        for v in viols:
             by_file.setdefault(v.file_path, []).append(v)
 
-        for fpath, viols in sorted(by_file.items()):
+        for fpath, fviols in sorted(by_file.items()):
             try:
-                rel = fpath.relative_to(repo_result.repo_path)
+                rel = fpath.relative_to(repo.repo_path)
             except ValueError:
                 rel = fpath
-            print(f"  {_color(str(rel), YELLOW)}")
-            shown = viols if verbose else viols[:5]
+
+            if summary_only:
+                by_rule: dict[str, int] = {}
+                for v in fviols:
+                    by_rule[v.rule.rule_id] = by_rule.get(v.rule.rule_id, 0) + 1
+                tags = "  ".join(
+                    f"{_c(rid, RED if 'V-' in rid else YELLOW)}×{cnt}"
+                    for rid, cnt in sorted(by_rule.items())
+                )
+                print(f"  {_c(str(rel), CYAN)}  {tags}")
+                continue
+
+            print(f"  {_c(str(rel), CYAN)}")
+            shown = fviols if verbose else fviols[:6]
             for v in shown:
-                print(f"    {_color(f'[{v.rule_id}]', BOLD)} Zeile {v.lineno}: {v.line[:100]}")
-            if not verbose and len(viols) > 5:
-                print(f"    {_color(f'... +{len(viols)-5} weitere', DIM)}")
+                cat_label = _c("●", RED if v.rule.category == "VERMEIDBAR" else YELLOW)
+                print(f"    {cat_label} {_c(f'[{v.rule.rule_id}]', BOLD)} "
+                      f"Zeile {v.lineno}: {v.line[:90]}")
+                if verbose:
+                    print(f"       {_c('→ ' + v.rule.alternative, DIM)}")
+            if not verbose and len(fviols) > 6:
+                print(f"    {_c(f'... +{len(fviols)-6} weitere', DIM)}")
 
-    # Saubere Repos auflisten
+    # Sauber-Liste
     if repos_clean:
-        print(f"\n{_color('✓ Sauber:', GREEN + BOLD)} " +
-              ", ".join(_color(r.name, GREEN) for r in sorted(repos_clean, key=lambda r: r.name)))
+        names = ", ".join(_c(r.name, GREEN) for r in sorted(repos_clean, key=lambda r: r.name))
+        print(f"\n{_c('✓ Sauber:', GREEN + BOLD)} {names}")
 
-    print("\n" + "─" * 70)
-    if total_violations == 0:
-        print(_color("✓ Keine Violations gefunden.", GREEN + BOLD))
-    else:
-        rule_counts: dict[str, int] = {}
-        for r in results:
-            for v in r.violations:
-                rule_counts[v.rule_id] = rule_counts.get(v.rule_id, 0) + 1
-        print(_color("Violations nach Typ:", BOLD))
-        for rule_id, count in sorted(rule_counts.items()):
-            rule_desc = next((r.description for r in RULES if r.rule_id == rule_id), "")
-            print(f"  {_color(rule_id, YELLOW)}: {count:4d}  — {rule_desc}")
+    # Statistik
+    print(f"\n{_c('─' * 72, DIM)}")
+    print(_c("Violations nach Regel:", BOLD))
 
-        # Top-Offenders
-        print(f"\n{_color('Top-Offenders:', BOLD)}")
-        for r in sorted(repos_with_violations, key=lambda x: -len(x.violations))[:10]:
-            bar = "█" * min(len(r.violations) // 5, 30)
-            print(f"  {r.name:<25} {len(r.violations):4d}  {_color(bar, RED)}")
+    rule_stats: dict[str, tuple[str, str, int]] = {}  # id → (cat, alt, count)
+    for r in results:
+        for v in r.violations:
+            if v.rule.category not in categories:
+                continue
+            rule_stats.setdefault(v.rule.rule_id, (v.rule.category, v.rule.description, 0))
+            t = rule_stats[v.rule.rule_id]
+            rule_stats[v.rule.rule_id] = (t[0], t[1], t[2] + 1)
 
-    return 1 if total_violations > 0 else 0
+    for rid, (cat, desc, cnt) in sorted(rule_stats.items(), key=lambda x: (-x[1][2], x[0])):
+        marker = _c("●", RED if cat == "VERMEIDBAR" else YELLOW)
+        print(f"  {marker} {_c(rid, BOLD)}: {cnt:4d}  {desc}")
 
+    # Top-Offenders-Balken
+    if total > 0:
+        print(f"\n{_c('Top-Offenders (Vermeidbar):', BOLD)}")
+        top = sorted(repos_dirty, key=lambda r: -len(r.by_category("VERMEIDBAR")))[:12]
+        max_v = max(len(r.by_category("VERMEIDBAR")) for r in top) or 1
+        for r in top:
+            v = len(r.by_category("VERMEIDBAR"))
+            i = len(r.by_category("INFO"))
+            if v == 0:
+                continue
+            bar = _c("█" * int(v / max_v * 25), RED)
+            print(f"  {r.name:<22} V:{v:3d} I:{i:3d}  {bar}")
 
-def print_pytest_snippet() -> None:
-    snippet = '''
-# ── In tests/conftest.py einfügen ─────────────────────────────────────────────
-# Einbinden des platform-weiten Hardcoding-Guards als pytest-Tests
-import sys
-from pathlib import Path
-
-sys.path.insert(0, str(Path(__file__).parent.parent.parent / "platform" / "scripts"))
-
-from check_hardcoded_urls import RULES, _ALLOWED_TOKENS, _should_skip
-
-
-def pytest_collect_file(parent, file_path):
-    """Registriert alle *.html und apps/**/*.py als Hardcoding-Guard-Tests."""
-    import pytest
-
-    if file_path.suffix == ".html":
-        return HardcodeFile.from_parent(parent, path=file_path)
-    return None
-# ──────────────────────────────────────────────────────────────────────────────
-'''
-    print(snippet)
+    return 1 if n_vermeidbar > 0 else 0
 
 
 # ── Entry-Point ───────────────────────────────────────────────────────────────
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Platform-weiter Hardcoding-Guard für Django-Repos",
+        description="Platform-weiter Hardcoding-Guard — VERMEIDBAR vs. INFO",
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("path", nargs="?", help="Pfad zu einem einzelnen Repo")
-    parser.add_argument("--all", action="store_true", help=f"Alle Repos unter {GITHUB_ROOT} scannen")
-    parser.add_argument("--summary", action="store_true", help="Nur Zusammenfassung, keine Datei-Details")
-    parser.add_argument("--report-only", action="store_true", help="Immer Exit-Code 0 (für Audits)")
-    parser.add_argument("--verbose", "-v", action="store_true", help="Alle Violations ausgeben (kein Truncate)")
-    parser.add_argument("--pytest-snippet", action="store_true", help="conftest.py-Snippet ausgeben")
+    parser.add_argument("--all",         action="store_true", help="Alle Repos scannen")
+    parser.add_argument("--summary",     action="store_true", help="Dateiliste ohne Zeilen-Detail")
+    parser.add_argument("--verbose","-v",action="store_true", help="Alle Violations + Alternativen")
+    parser.add_argument("--report-only", action="store_true", help="Immer Exit 0 (für Audits)")
+    parser.add_argument("--category",    help="Nur VERMEIDBAR oder INFO anzeigen")
     args = parser.parse_args()
-
-    if args.pytest_snippet:
-        print_pytest_snippet()
-        return 0
 
     if args.all:
         repos = find_all_repos(GITHUB_ROOT)
@@ -379,11 +530,15 @@ def main() -> int:
             return 2
         repos = [target]
     else:
-        # Kein Argument: aktuelles Verzeichnis
         repos = [Path.cwd()]
 
     results = [scan_repo(r) for r in repos]
-    exit_code = print_report(results, verbose=args.verbose, summary_only=getattr(args, 'summary', False))
+    exit_code = print_report(
+        results,
+        verbose=args.verbose,
+        summary_only=args.summary,
+        category_filter=args.category,
+    )
     return 0 if args.report_only else exit_code
 
 
