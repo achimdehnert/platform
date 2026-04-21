@@ -22,7 +22,7 @@ _SAFE_SCHEMA_CHARS = frozenset(
 
 def _is_safe_schema_name(name: str) -> bool:
     """Validate schema name to prevent SQL injection."""
-    return bool(name) and all(c in _SAFE_SCHEMA_CHARS for c in name.lower())
+    return bool(name) and all(c in _SAFE_SCHEMA_CHARS for c in name)
 
 
 class TenantPropagationMiddleware:

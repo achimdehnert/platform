@@ -58,27 +58,27 @@ class TestTenantAwareHttpClient:
         return TenantAwareHttpClient(base_url)
 
     def test_should_include_tenant_header_in_get(self):
+        httpx = pytest.importorskip("httpx")
         client = self._make_client()
-        with patch("platform_context.tenant_utils.http_client.httpx") as mock_httpx:
-            mock_httpx.get.return_value = MagicMock(status_code=200)
+        with patch("httpx.get", return_value=MagicMock(status_code=200)) as mock_get:
             with patch(
                 "platform_context.tenant_utils.http_client._get_current_schema",
                 return_value="acme_corp",
             ):
                 client.get("/api/v1/items/")
-            call_headers = mock_httpx.get.call_args[1]["headers"]
+            call_headers = mock_get.call_args[1]["headers"]
             assert call_headers["X-Tenant-Schema"] == "acme_corp"
 
     def test_should_include_tenant_header_in_post(self):
+        httpx = pytest.importorskip("httpx")
         client = self._make_client()
-        with patch("platform_context.tenant_utils.http_client.httpx") as mock_httpx:
-            mock_httpx.post.return_value = MagicMock(status_code=201)
+        with patch("httpx.post", return_value=MagicMock(status_code=201)) as mock_post:
             with patch(
                 "platform_context.tenant_utils.http_client._get_current_schema",
                 return_value="contoso",
             ):
                 client.post("/api/v1/items/", json={"name": "test"})
-            call_headers = mock_httpx.post.call_args[1]["headers"]
+            call_headers = mock_post.call_args[1]["headers"]
             assert call_headers["X-Tenant-Schema"] == "contoso"
 
     def test_should_strip_trailing_slash_from_base_url(self):
@@ -88,7 +88,7 @@ class TestTenantAwareHttpClient:
 
     def test_should_fallback_to_public_schema_when_no_connection(self):
         from platform_context.tenant_utils.http_client import _get_current_schema
-        with patch("platform_context.tenant_utils.http_client.connection") as mock_conn:
+        with patch("django.db.connection") as mock_conn:
             mock_conn.schema_name = None
             result = _get_current_schema()
         assert result == "public"
@@ -114,8 +114,9 @@ class TestTenantAwareHttpClient:
 
 class TestCeleryUtils:
     def test_should_inject_tenant_schema_into_task_kwargs(self):
+        pytest.importorskip("celery")
         from platform_context.tenant_utils.celery import send_cross_service_task
-        with patch("platform_context.tenant_utils.celery.current_app") as mock_app:
+        with patch("celery.current_app") as mock_app:
             with patch(
                 "platform_context.tenant_utils.celery._get_current_schema",
                 return_value="acme_corp",
@@ -129,8 +130,9 @@ class TestCeleryUtils:
             assert call_kwargs["assessment_id"] == 42
 
     def test_should_use_empty_args_by_default(self):
+        pytest.importorskip("celery")
         from platform_context.tenant_utils.celery import send_cross_service_task
-        with patch("platform_context.tenant_utils.celery.current_app") as mock_app:
+        with patch("celery.current_app") as mock_app:
             with patch(
                 "platform_context.tenant_utils.celery._get_current_schema",
                 return_value="public",
@@ -142,21 +144,21 @@ class TestCeleryUtils:
     def test_tenant_aware_task_should_pop_schema_from_kwargs(self):
         from platform_context.tenant_utils.celery import TenantAwareTask
 
-        class ConcreteTask(TenantAwareTask):
-            received_kwargs: dict = {}
+        captured: dict = {}
 
+        class _CaptureBase:
             def __call__(self, *args, **kwargs):
-                ConcreteTask.received_kwargs = kwargs
+                captured.update(kwargs)
+
+        class ConcreteTask(TenantAwareTask, _CaptureBase):
+            pass
 
         task = ConcreteTask()
-        with patch(
-            "platform_context.tenant_utils.celery.schema_context",
-            side_effect=ImportError,
-        ):
-            task(_tenant_schema="acme", data="value")
+        # schema_context import will fail → fallback path in TenantAwareTask
+        task(_tenant_schema="acme", data="value")
 
-        assert "_tenant_schema" not in ConcreteTask.received_kwargs
-        assert ConcreteTask.received_kwargs.get("data") == "value"
+        assert "_tenant_schema" not in captured
+        assert captured.get("data") == "value"
 
 
 # ---------------------------------------------------------------------------
@@ -182,6 +184,7 @@ class TestProvisioning:
         _validate_schema_name("tenant_42")
 
     def test_should_dispatch_to_services(self):
+        pytest.importorskip("celery")
         from platform_context.tenant_utils.provisioning import (
             TenantProvisioningRequest,
             _dispatch_to_services,
@@ -192,7 +195,7 @@ class TestProvisioning:
             company_name="ACME GmbH",
             contact_email="admin@acme.de",
         )
-        with patch("platform_context.tenant_utils.provisioning.current_app") as mock_app:
+        with patch("celery.current_app") as mock_app:
             mock_app.send_task.return_value = MagicMock(id="task-123")
             result = _dispatch_to_services(req, ["risk_hub", "travel_beat"])
         assert len(result) == 2

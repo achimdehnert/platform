@@ -159,8 +159,10 @@ def assert_json_error(
         f"Expected status {expected_status}, got {response.status_code}."
     )
     try:
-        data = response.json()
-    except Exception:
+        import json as _json
+        body = response.content if isinstance(response.content, bytes) else response.content.encode()
+        data = _json.loads(body)
+    except (ValueError, TypeError):
         content_preview = response.content[:200].decode("utf-8", errors="replace")
         raise AssertionError(
             f"Expected JSON error body for status {expected_status}, "

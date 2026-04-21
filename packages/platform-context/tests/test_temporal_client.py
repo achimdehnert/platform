@@ -58,11 +58,12 @@ class TestTemporalClientModule:
     @pytest.mark.asyncio
     async def test_get_temporal_client_singleton(self):
         """Zweiter Aufruf gibt gecachten Client zurück."""
+        pytest.importorskip("temporalio")
         import platform_context.temporal_client as mod
         mod._client = None
 
         mock_client = MagicMock()
-        with patch("platform_context.temporal_client.Client") as MockClient:
+        with patch("temporalio.client.Client") as MockClient:
             MockClient.connect = AsyncMock(return_value=mock_client)
 
             from platform_context.temporal_client import get_temporal_client
@@ -75,13 +76,14 @@ class TestTemporalClientModule:
 
     @pytest.mark.asyncio
     async def test_get_temporal_client_connects_with_correct_params(self):
+        pytest.importorskip("temporalio")
         import platform_context.temporal_client as mod
         mod._client = None
         mod.TEMPORAL_ADDRESS = "test-host:7233"
         mod.TEMPORAL_NAMESPACE = "test-ns"
 
         mock_client = MagicMock()
-        with patch("platform_context.temporal_client.Client") as MockClient:
+        with patch("temporalio.client.Client") as MockClient:
             MockClient.connect = AsyncMock(return_value=mock_client)
 
             from platform_context.temporal_client import get_temporal_client
