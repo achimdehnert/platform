@@ -269,8 +269,9 @@ Each deploy acquires a file lock at `/tmp/deploy-<app>.lock` to prevent concurre
 | 8103 | recruiting-hub | hr.iil.pet |
 | 8104 | research-hub | research.iil.pet |
 | 8107 | dms-hub | dms.iil.pet |
+| 8108 | onboarding-hub | *(Produktname TBD)* |
 
-**Canonical source**: `platform/infra/ports.yaml`. Next free port: **8108**.
+**Canonical source**: `platform/infra/ports.yaml`. Next free port: **8109**.
 
 **Rule**: New projects pick the next available port in the 80xx range. Update `ports.yaml` first, then this table.
 
