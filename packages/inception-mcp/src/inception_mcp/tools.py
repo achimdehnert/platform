@@ -221,7 +221,7 @@ async def answer_question(
     if field in ["expected_benefits", "out_of_scope", "success_criteria"]:
         try:
             processed_value = json.loads(answer)
-        except:
+        except (json.JSONDecodeError, ValueError):
             # Split by newlines or commas
             lines = [l.strip() for l in answer.replace(",", "\n").split("\n") if l.strip()]
             processed_value = json.dumps(lines)
@@ -229,7 +229,7 @@ async def answer_question(
         # Parse risks into structured format
         try:
             processed_value = json.loads(answer)
-        except:
+        except (json.JSONDecodeError, ValueError):
             risks = []
             for line in answer.split("\n"):
                 if line.strip():

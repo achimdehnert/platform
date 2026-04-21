@@ -5,8 +5,11 @@ Supports YAML and JSON files for template storage.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from ..schemas import PromptTemplateSpec
 from ..exceptions import TemplateNotFoundError, TemplateValidationError
@@ -208,7 +211,7 @@ class FileRegistry:
                     self._load_from_file(file_path)
                 except Exception as e:
                     # Log warning but continue loading other files
-                    print(f"Warning: Failed to load {file_path}: {e}")
+                    logger.warning("Failed to load %s: %s", file_path, e)
 
     def _parse_template_data(self, data: dict[str, Any]) -> None:
         """Parse template data and add to registry."""
