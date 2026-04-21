@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """check_hardcoded_urls.py — Platform-weiter Hardcoding-Guard.
 
-Prüft Django-Repos auf hardcodierte URL-Pfade in Templates und Views.
+Prüft ALLE Repos auf hardcodierte URL-Pfade in Templates und Views.
 
 Verwendung:
     # Einzelnes Repo:
     python scripts/check_hardcoded_urls.py /path/to/repo
 
-    # Alle Repos unter ~/github:
+    # Alle Repos unter ~/github (inkl. non-Django):
     python scripts/check_hardcoded_urls.py --all
+
+    # Kompakte Zusammenfassung (kein Datei-Detail):
+    python scripts/check_hardcoded_urls.py --all --summary
 
     # Nur Bericht, kein Exit-Code 1 bei Violations (für Audits):
     python scripts/check_hardcoded_urls.py --all --report-only
@@ -56,11 +59,24 @@ _ALLOWED_TOKENS = [
     "{% static",     # korrekte Verwendung für Assets
 ]
 
-# Ignorierte Repos (keine Django-Apps oder archiviert)
+# Repos ohne Django-Templates / reine Python-Libraries (kein HTML zu prüfen)
 _SKIP_REPOS = {
-    "platform", "infra-deploy", "iil-reflex", "promptfw", "authoringfw",
-    "aifw", "testkit", "outlinefw", "weltenfw", "illustration-fw",
-    "researchfw", "learnfw", "nl2cad", "lastwar-bot",
+    "platform",         # Infrastruktur-Repo, keine App-Templates
+    "infra-deploy",     # nur Shell/Ansible
+    "iil-reflex",       # Python-Library
+    "promptfw",         # Python-Library
+    "authoringfw",      # Python-Library
+    "aifw",             # Python-Library
+    "testkit",          # Test-Utilities
+    "outlinefw",        # Python-Library
+    "weltenfw",         # Python-Library
+    "illustration-fw",  # Python-Library
+    "researchfw",       # Python-Library
+    "learnfw",          # Python-Library
+    "lastwar-bot",      # Discord-Bot, kein Django
+    "odoo-hub",         # Odoo — anderes Template-System
+    "mcp-hub",          # MCP-Server, keine Django-Templates
+    "nl2cad",           # CLI-Tool
 }
 
 # ── Regel-Definitionen ────────────────────────────────────────────────────────
@@ -176,20 +192,49 @@ def scan_repo(repo_path: Path) -> RepoResult:
     return result
 
 
-def find_django_repos(root: Path) -> list[Path]:
-    repos = []
+def find_all_repos(root: Path) -> list[Path]:
+    """Findet alle Repos mit HTML-Dateien — unabhängig vom Framework.
+
+    Strategie (Priorität):
+      1. manage.py im Root          → Django-Standard
+      2. manage.py in src/          → Django mit src-Layout
+      3. ≥1 .html-Datei im Repo     → beliebiges Framework
+    """
+    repos: list[Path] = []
     for candidate in sorted(root.iterdir()):
         if not candidate.is_dir():
             continue
-        if candidate.name.startswith("."):
+        if candidate.name.startswith(".") or candidate.name.endswith(".code-workspace"):
             continue
         if candidate.name in _SKIP_REPOS:
             continue
+
+        # Django mit Standard-Layout
         if (candidate / "manage.py").exists():
             repos.append(candidate)
-        elif (candidate / "src" / "manage.py").exists():
-            repos.append(candidate / "src")
+            continue
+
+        # Django mit src/-Layout
+        if (candidate / "src" / "manage.py").exists():
+            repos.append(candidate)   # Repo-Root, nicht src/ — für korrekten Namen
+            continue
+
+        # Nicht-Django: prüfe ob .html-Dateien vorhanden
+        html_count = sum(
+            1 for _ in candidate.rglob("*.html")
+            if not _should_skip(_)
+        )
+        if html_count > 0:
+            repos.append(candidate)
+
     return repos
+
+
+def _resolve_scan_root(repo_path: Path) -> Path:
+    """Gibt den tatsächlichen Scan-Einstiegspunkt zurück (ggf. src/)."""
+    if (repo_path / "src" / "manage.py").exists():
+        return repo_path   # scan gesamtes Repo inkl. src/
+    return repo_path
 
 
 # ── Ausgabe ───────────────────────────────────────────────────────────────────
@@ -206,7 +251,7 @@ def _color(text: str, code: str) -> str:
     return f"{code}{text}{RESET}" if sys.stdout.isatty() else text
 
 
-def print_report(results: list[RepoResult], verbose: bool = False) -> int:
+def print_report(results: list[RepoResult], verbose: bool = False, summary_only: bool = False) -> int:
     total_violations = sum(len(r.violations) for r in results)
     total_repos = len(results)
     repos_with_violations = [r for r in results if not r.ok]
@@ -218,12 +263,27 @@ def print_report(results: list[RepoResult], verbose: bool = False) -> int:
           f"Sauber: {_color(str(len(repos_clean)), GREEN)}/{total_repos}")
     print("─" * 70)
 
-    for repo_result in repos_with_violations:
+    # Sortiert nach Anzahl Violations (absteigend)
+    for repo_result in sorted(repos_with_violations, key=lambda r: -len(r.violations)):
         print(f"\n{_color('✗ ' + repo_result.name, RED + BOLD)}  "
               f"{_color(f'({len(repo_result.violations)} Violations)', RED)}")
 
-        # Gruppiere nach Datei
-        by_file: dict[Path, list[Violation]] = {}
+        if summary_only:
+            # Nur Dateinamen + Anzahl, keine Zeilen-Details
+            by_file: dict[Path, list[Violation]] = {}
+            for v in repo_result.violations:
+                by_file.setdefault(v.file_path, []).append(v)
+            for fpath, viols in sorted(by_file.items()):
+                try:
+                    rel = fpath.relative_to(repo_result.repo_path)
+                except ValueError:
+                    rel = fpath
+                rule_ids = ", ".join(sorted({v.rule_id for v in viols}))
+                print(f"  {_color(str(rel), YELLOW)}  {_color(f'[{rule_ids}] ×{len(viols)}', DIM)}")
+            continue
+
+        # Gruppiere nach Datei (Detail-Ausgabe)
+        by_file = {}
         for v in repo_result.violations:
             by_file.setdefault(v.file_path, []).append(v)
 
@@ -239,6 +299,11 @@ def print_report(results: list[RepoResult], verbose: bool = False) -> int:
             if not verbose and len(viols) > 5:
                 print(f"    {_color(f'... +{len(viols)-5} weitere', DIM)}")
 
+    # Saubere Repos auflisten
+    if repos_clean:
+        print(f"\n{_color('✓ Sauber:', GREEN + BOLD)} " +
+              ", ".join(_color(r.name, GREEN) for r in sorted(repos_clean, key=lambda r: r.name)))
+
     print("\n" + "─" * 70)
     if total_violations == 0:
         print(_color("✓ Keine Violations gefunden.", GREEN + BOLD))
@@ -250,7 +315,13 @@ def print_report(results: list[RepoResult], verbose: bool = False) -> int:
         print(_color("Violations nach Typ:", BOLD))
         for rule_id, count in sorted(rule_counts.items()):
             rule_desc = next((r.description for r in RULES if r.rule_id == rule_id), "")
-            print(f"  {_color(rule_id, YELLOW)}: {count:3d}  — {rule_desc}")
+            print(f"  {_color(rule_id, YELLOW)}: {count:4d}  — {rule_desc}")
+
+        # Top-Offenders
+        print(f"\n{_color('Top-Offenders:', BOLD)}")
+        for r in sorted(repos_with_violations, key=lambda x: -len(x.violations))[:10]:
+            bar = "█" * min(len(r.violations) // 5, 30)
+            print(f"  {r.name:<25} {len(r.violations):4d}  {_color(bar, RED)}")
 
     return 1 if total_violations > 0 else 0
 
@@ -287,7 +358,8 @@ def main() -> int:
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     parser.add_argument("path", nargs="?", help="Pfad zu einem einzelnen Repo")
-    parser.add_argument("--all", action="store_true", help=f"Alle Django-Repos unter {GITHUB_ROOT} scannen")
+    parser.add_argument("--all", action="store_true", help=f"Alle Repos unter {GITHUB_ROOT} scannen")
+    parser.add_argument("--summary", action="store_true", help="Nur Zusammenfassung, keine Datei-Details")
     parser.add_argument("--report-only", action="store_true", help="Immer Exit-Code 0 (für Audits)")
     parser.add_argument("--verbose", "-v", action="store_true", help="Alle Violations ausgeben (kein Truncate)")
     parser.add_argument("--pytest-snippet", action="store_true", help="conftest.py-Snippet ausgeben")
@@ -298,8 +370,8 @@ def main() -> int:
         return 0
 
     if args.all:
-        repos = find_django_repos(GITHUB_ROOT)
-        print(f"Scanne {len(repos)} Django-Repos...")
+        repos = find_all_repos(GITHUB_ROOT)
+        print(f"Scanne {len(repos)} Repos...")
     elif args.path:
         target = Path(args.path).resolve()
         if not target.exists():
@@ -311,7 +383,7 @@ def main() -> int:
         repos = [Path.cwd()]
 
     results = [scan_repo(r) for r in repos]
-    exit_code = print_report(results, verbose=args.verbose)
+    exit_code = print_report(results, verbose=args.verbose, summary_only=getattr(args, 'summary', False))
     return 0 if args.report_only else exit_code
 
 
