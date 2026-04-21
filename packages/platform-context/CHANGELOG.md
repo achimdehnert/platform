@@ -5,7 +5,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
-## [0.7.0] — current (ADR-167 v1.1)
+## [0.7.0] — 2026-04-21 (ADR-167 v1.1)
 
 ### BREAKING CHANGES
 - Default `HEALTH_PROBE_PATHS` reduced to `{"/livez/", "/healthz/"}`.
