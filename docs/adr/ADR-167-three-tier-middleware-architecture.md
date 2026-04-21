@@ -237,33 +237,33 @@ Compliance wird verifiziert durch:
 
 ## Migration Tracking (Phase 2: v0.7.0)
 
-| Repo | Tier | v0.6.0 Status | v0.7.0 Target |
+| Repo | Tier | v0.6.0 Status | v0.7.0 Status |
 |------|------|---------------|---------------|
-| risk-hub | 2 | ✅ | ⬜ |
-| bfagent | 2 | ✅ | ⬜ |
-| billing-hub | 1 | ✅ | ⬜ |
-| coach-hub | 1 | ✅ | ⬜ |
-| tax-hub | 3 | ✅ | ⬜ |
-| wedding-hub | 1 | ✅ | ⬜ |
-| writing-hub | 1 | ✅ | ⬜ |
-| pptx-hub | 1 | ✅ | ⬜ |
-| trading-hub | 1 | ✅ | ⬜ |
-| ausschreibungs-hub | 2 | ⬜ | ⬜ |
-| cad-hub | 3 | ⬜ | ⬜ |
-| dev-hub | 1 | ⬜ | ⬜ |
-| dms-hub | 1 | ⬜ | ⬜ |
-| illustration-hub | 1 | ⬜ | ⬜ |
-| learn-hub | 1 | ⬜ | ⬜ |
-| recruiting-hub | 1 | ⬜ | ⬜ |
-| research-hub | 3 | ⬜ | ⬜ |
-| travel-beat | 3 | ⬜ | ⬜ |
-| weltenhub | 3 | ⬜ | ⬜ |
+| risk-hub | 2 | ✅ | ✅ |
+| bfagent | 2 | ✅ | ✅ |
+| billing-hub | 1 | ✅ | ✅ |
+| coach-hub | 1 | ✅ | ✅ |
+| tax-hub | 3 | ✅ | ✅ |
+| wedding-hub | 1 | ✅ | ✅ |
+| writing-hub | 1 | ✅ | ✅ |
+| pptx-hub | 1 | ✅ | ✅ |
+| trading-hub | 1 | ✅ | ✅ |
+| ausschreibungs-hub | 2 | — | ✅ (2026-04-21) |
+| cad-hub | 3 | — | ✅ (2026-04-21) |
+| dev-hub | 1 | — | ✅ (2026-04-21) |
+| dms-hub | 1 | — | ✅ (2026-04-21) |
+| illustration-hub | 1 | — | ✅ (2026-04-21) |
+| learn-hub | 1 | — | ✅ (2026-04-21) |
+| recruiting-hub | 1 | — | ✅ (2026-04-21) |
+| research-hub | 3 | — | ✅ (2026-04-21) |
+| travel-beat | 3 | — | ✅ (2026-04-21) |
+| weltenhub | 3 | — | ✅ (2026-04-21) |
 
 ## Open Questions
 
-1. **PyPI Publish:** Wann wird `iil-platform-context` auf GitHub Packages PyPI
-   publiziert? Das eliminiert das git-clone-from-monorepo Pattern in
-   Dockerfiles. Aufgeschoben — verfolgt als Phase 3 in einem zukünftigen ADR.
+1. **PyPI Publish:** `iil-platform-context` v0.7.0 wird via `publish-platform-context.yml`
+   auf GitHub Packages PyPI publiziert. Repos nutzen derzeit noch `git+https://` für
+   die Installation. Migration auf `--extra-index-url` steht aus.
 2. **Kubernetes-Adoption:** Sobald Platform auf k8s migriert wird (derzeit
    Docker Compose + Traefik auf Hetzner), Readiness-Probes auf
    `path: /readyz/` umstellen und Startup-Probe (k8s 1.16+) auf `/livez/`
