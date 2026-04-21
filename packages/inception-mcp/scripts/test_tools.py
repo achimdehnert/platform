@@ -4,7 +4,8 @@ import asyncio
 import sys
 sys.path.insert(0, '/home/dehnert/github/platform/packages/inception-mcp/src')
 import os
-os.environ['DATABASE_URL'] = 'postgresql://bfagent:bfagent_dev_2024@localhost:5432/platform'
+if 'DATABASE_URL' not in os.environ:
+    raise RuntimeError("Set DATABASE_URL env var before running this script")
 
 from inception_mcp.tools import get_categories, list_business_cases, start_business_case
 
