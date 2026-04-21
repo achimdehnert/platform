@@ -28,6 +28,7 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
+          cache-dependency-path: packages/platform-context/pyproject.toml
 
       - name: Install dev dependencies
         run: pip install -e ".[dev]"
@@ -65,14 +66,7 @@ jobs:
       - name: Check if version already published
         id: check
         run: |
-          HTTP=$(curl -sf -o /dev/null -w '%{http_code}' \
-            -H "Authorization: Bearer ${{ secrets.GITHUB_TOKEN }}" \
-            "https://api.github.com/user/packages/pypi/platform-context/versions" \
-            | python3 -c "
-import sys, json
-data = json.load(sys.stdin) if sys.stdin.read(1) == '[' else []
-" 2>/dev/null || echo "000")
-          # Simplified: always build, twine upload will fail gracefully if exists
+          # Always build — twine upload --skip-existing handles duplicates
           echo "should_publish=true" >> "$GITHUB_OUTPUT"
 
       - name: Build wheel + sdist
