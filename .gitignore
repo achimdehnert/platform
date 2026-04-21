@@ -4,6 +4,7 @@ __pycache__/
 *\.class
 .venv/
 venv/
+packages/**/.venv/
 *.egg-info/
 dist/
 build/
@@ -36,8 +37,11 @@ Thumbs.db
 output_batch/
 app_backup/
 docs_legacy/
-# Sphinx build output
-docs/_build/
+# Sphinx / docs build output (any depth)
+**/_build/
+
+# WSL Zone.Identifier metadata (all variants)
+*Zone.Identifier
 *:Zone.Identifier
 # Local Windsurf/MCP config — machine-specific, never commit
 .windsurf/mcp_config.json
