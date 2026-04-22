@@ -10,7 +10,7 @@
 
 [budgets]
 "137-hub"            = 0
-"ausschreibungs-hub" = 41
+"ausschreibungs-hub" = 0
 "bfagent"            = 72
 "billing-hub"        = 4
 "cad-hub"            = 7
