@@ -10,26 +10,43 @@
 
 [budgets]
 "137-hub"            = 0
+"aifw"               = 7
 "ausschreibungs-hub" = 0
+"authoringfw"        = 0
 "bfagent"            = 72
 "billing-hub"        = 0
 "cad-hub"            = 0
 "coach-hub"          = 0
 "dev-hub"            = 0
 "dms-hub"            = 0
+"iil-enrichment"     = 0
+"iil-fieldprefill"   = 0
+"iil-reflex"         = 0
 "iil-relaunch"       = 0
+"illustration-fw"    = 0
 "illustration-hub"   = 0
+"infra-deploy"       = 1
+"lastwar-bot"        = 0
 "learn-hub"          = 0
+"learnfw"            = 1
+"mcp-hub"            = 79
+"nl2cad"             = 0
+"odoo-hub"           = 21
 "onboarding-hub"     = 0
+"outlinefw"          = 0
 "pptx-hub"           = 0
+"promptfw"           = 0
 "recruiting-hub"     = 0
 "research-hub"       = 0
+"researchfw"         = 3
 "risk-hub"           = 0
 "tax-hub"            = 0
+"testkit"            = 1
 "trading-hub"        = 0
 "travel-beat"        = 0
 "wedding-hub"        = 0
 "weltenhub"          = 0
+"weltenfw"           = 0
 "writing-hub"        = 0
 
 # Per-Regel-Budgets (optional, für granulare Gates)
