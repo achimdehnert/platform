@@ -21,15 +21,15 @@
 "illustration-hub"   = 1
 "learn-hub"          = 3
 "onboarding-hub"     = 0
-"pptx-hub"           = 21
+"pptx-hub"           = 0
 "recruiting-hub"     = 1
 "research-hub"       = 4
 "risk-hub"           = 0
 "tax-hub"            = 12
-"trading-hub"        = 14
-"travel-beat"        = 14
+"trading-hub"        = 0
+"travel-beat"        = 0
 "wedding-hub"        = 9
-"weltenhub"          = 13
+"weltenhub"          = 0
 "writing-hub"        = 3
 
 # Per-Regel-Budgets (optional, für granulare Gates)
