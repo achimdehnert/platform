@@ -322,8 +322,8 @@ def _check_line(rule: Rule, line: str, path: Path) -> bool:
     stripped = line.strip()
     if stripped.startswith(("#", "{#", "//", "<!--")):
         return False
-    # Explicit opt-out
-    if "# noqa" in line or "# nosec" in line or "# hardcoded-ok" in line:
+    # Explicit opt-out — supports Python (# hardcoded-ok), HTML (<!-- hardcoded-ok -->), Django ({# hardcoded-ok #})
+    if "# noqa" in line or "# nosec" in line or "hardcoded-ok" in line:
         return False
     return bool(rule.pattern.search(line))
 

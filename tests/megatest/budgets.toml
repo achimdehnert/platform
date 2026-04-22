@@ -12,25 +12,25 @@
 "137-hub"            = 0
 "ausschreibungs-hub" = 0
 "bfagent"            = 72
-"billing-hub"        = 4
-"cad-hub"            = 7
+"billing-hub"        = 0
+"cad-hub"            = 0
 "coach-hub"          = 0
-"dev-hub"            = 10
-"dms-hub"            = 6
-"iil-relaunch"       = 5
-"illustration-hub"   = 1
-"learn-hub"          = 3
+"dev-hub"            = 0
+"dms-hub"            = 0
+"iil-relaunch"       = 0
+"illustration-hub"   = 0
+"learn-hub"          = 0
 "onboarding-hub"     = 0
 "pptx-hub"           = 0
-"recruiting-hub"     = 1
-"research-hub"       = 4
+"recruiting-hub"     = 0
+"research-hub"       = 0
 "risk-hub"           = 0
-"tax-hub"            = 12
+"tax-hub"            = 0
 "trading-hub"        = 0
 "travel-beat"        = 0
-"wedding-hub"        = 9
+"wedding-hub"        = 0
 "weltenhub"          = 0
-"writing-hub"        = 3
+"writing-hub"        = 0
 
 # Per-Regel-Budgets (optional, für granulare Gates)
 # Format: "repo.RULE_ID" = max_count
