@@ -2,6 +2,7 @@
 status: Accepted
 date: 2026-04-23
 amended: 2026-04-23
+amendment_1: 2026-04-23 — OCR-Nicht-Entscheidung revidiert: iil-ingest[ocr] als optionales Extra (Tesseract Fallback)
 decision-makers: Achim Dehnert
 implementation_status: full
 implementation_evidence: []
@@ -12,6 +13,7 @@ staleness_months: 6
 drift_check_paths:
   - iil-ingest/ingest/classifier.py
   - iil-ingest/ingest/extractors/pdf.py
+  - iil-ingest/ingest/extractors/ocr.py
   - dms-hub/src/apps/benefits/classifier.py
   - dms-hub/src/apps/accounting/extractor.py
 supersedes_check: null
@@ -302,14 +304,18 @@ pdf   = ["pdfplumber>=0.11"]
 excel = ["openpyxl>=3.1"]
 docx  = ["python-docx>=1.1"]
 csv   = []                        # stdlib, kein extra
-all   = ["iil-ingest[pdf,excel,docx]"]
+ocr    = ["pytesseract>=0.3", "pdf2image>=1.17"]
+all    = ["iil-ingest[pdf,excel,docx,ocr]"]
 django = ["django>=5.0"]
 ```
 
 ## Bewusste Nicht-Entscheidungen
 
-- **OCR**: Nicht in iil-ingest — Paperless übernimmt OCR-Layer (Tesseract).
-  iil-ingest verarbeitet bereits lesbaren Text/Bytes.
+- **OCR**: ~~Nicht in iil-ingest~~ → **Revidiert (2026-04-23):** `iil-ingest[ocr]` bietet
+  optionalen Tesseract-Fallback via `PDFExtractor(ocr_fallback=True)`. Wird nur
+  aktiviert wenn pdfplumber leeren Text liefert (gescannte PDFs). Consumer
+  entscheidet explizit. Paperless bleibt ARCHIVE-Layer für bereits-OCR'd Dokumente.
+  System-Abhängigkeiten: `tesseract-ocr` + `poppler-utils` (apt).
 - **Async**: Nicht in iil-ingest — Hub-Verantwortung (Celery-Task wrapping).
 - **Storage**: Nicht in iil-ingest — `ContentStore` ist Protocol, Hub implementiert.
 - **LLM-Klassifikation**: Nicht in v0.1 — Profile-Scoring reicht für bekannte
