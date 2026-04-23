@@ -199,7 +199,7 @@
 | 167 | Adopt 3-Tier Middleware Standard for Health Probes and Tenant Resolution | `Accepted` | 🔶 | [ADR-167](ADR-167-three-tier-middleware-architecture.md) |
 | 168 | Build Onboarding-Platform as separate repo on coach-hub primitives with billing-hub Stripe pattern | `Proposed` | ⬜ | [ADR-168](ADR-168-onboarding-platform-architecture.md) |
 | 169 | Adopt iil-enrichment as generic pattern for bridging managed records with external knowledge sources | `Proposed` | 🔶 | [ADR-169](ADR-169-enrichment-agent-pattern.md) |
-| 170 | Adopt iil-ingest as Reusable Document Ingestion Package (Tier 3) | `Proposed` | ⬜ | [ADR-170](ADR-170-iil-ingest-document-ingestion-package.md) |
+| 170 | Adopt iil-ingest as Reusable Document Ingestion Package (Tier 3) | `Accepted` | 🔶 | [ADR-170](ADR-170-iil-ingest-document-ingestion-package.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

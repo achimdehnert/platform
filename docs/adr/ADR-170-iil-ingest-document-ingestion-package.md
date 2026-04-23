@@ -1,9 +1,9 @@
 ---
-status: Proposed
+status: Accepted
 date: 2026-04-23
 amended: 2026-04-23
 decision-makers: Achim Dehnert
-implementation_status: planned
+implementation_status: partial
 implementation_evidence: []
 consulted: []
 informed: []
