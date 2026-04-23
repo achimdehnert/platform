@@ -39,6 +39,53 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 
 ---
 
+## Phase 1b: Docu-Drift-Check (automatisch — NEU 2026-04-23)
+
+Für jedes **in dieser Session geänderte Repo** automatisch prüfen:
+
+```bash
+REPO=$(git rev-parse --show-toplevel 2>/dev/null)
+REPO_NAME=$(basename "$REPO")
+
+# Trigger-Bedingungen prüfen
+VER_CODE=$(grep -r '__version__\|^version' "$REPO/pyproject.toml" 2>/dev/null | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+VER_README=$(head -10 "$REPO/README.md" 2>/dev/null | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+CL_ENTRIES=$(head -15 "$REPO/CHANGELOG.md" 2>/dev/null | grep -c '\[.*\]' || echo 0)
+NEW_PY=$(git -C "$REPO" diff --name-only HEAD~1 2>/dev/null | grep -c '\.py$' || echo 0)
+
+echo "Repo: $REPO_NAME | v_code=$VER_CODE | v_readme=$VER_README | cl=$CL_ENTRIES | new_py=$NEW_PY"
+```
+
+**Issue automatisch erstellen wenn EINES der folgenden zutrifft:**
+
+| Bedingung | Bedeutung |
+|-----------|-----------|
+| `v_code != v_readme` | README-Version veraltet |
+| `cl_entries == 0` | CHANGELOG noch leer |
+| `new_py > 0` AND kein Outline-Eintrag | neues Modul, undokumentiert |
+
+```
+Falls Trigger zutrifft:
+mcp1_create_issue(
+  owner: "achimdehnert",
+  repo: "platform",
+  title: "[docu-update] <REPO_NAME> — <Grund>",
+  body: "Automatisch erkannt in session-ende.\n\nTrigger: <was ausgelöst hat>\n\nAcceptance Criteria:\n- [ ] README.md Version = <VER_CODE>\n- [ ] CHANGELOG.md hat Eintrag\n- [ ] Outline-Eintrag aktuell\n- [ ] Platform-Übersicht aktualisiert",
+  labels: ["documentation", "docu-update", "automated"]
+)
+```
+
+→ **Kein Issue erstellen** wenn: nur Tests geändert, nur Bug-Fix ohne API-Änderung, Issue für dieses Repo bereits offen.
+
+→ Vorher prüfen ob bereits ein offenes Issue existiert:
+```
+mcp1_list_issues(owner: "achimdehnert", repo: "platform",
+  labels: ["docu-update"], state: "open")
+→ Nur erstellen wenn kein Issue mit "[docu-update] <REPO_NAME>" bereits offen.
+```
+
+---
+
 ## Phase 2: pgvector Memory schreiben (ADR-154)
 
 7. **Session-Summary in pgvector speichern:**
@@ -146,8 +193,9 @@ mcp1_push_files(owner: "achimdehnert", repo: "<repo>", branch: "main",
 | 4 | Alle Repos committed + pushed | ☐ |
 | 5 | Workflow-Symlinks aktuell | ☐ |
 | 6 | Kein Repo dirty | ☐ |
-| 7 | Keine .fixed/.updated Dateien übrig (NEU) | ☐ |
-| 8 | Blockierte Arbeit dokumentiert (NEU) | ☐ |
+| 7 | Keine .fixed/.updated Dateien übrig | ☐ |
+| 8 | Blockierte Arbeit dokumentiert | ☐ |
+| 9 | Docu-Drift-Check: Issue erstellt falls nötig (NEU) | ☐ |
 
 ---
 
