@@ -1,0 +1,66 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  Docu-Update Agent — Stufe 1 (deterministisch, kein LLM)                  ║
+# ║  Trigger: Issue mit Label "docu-update" oder manuell via workflow_dispatch ║
+# ║  Aktion: README.md Version-Sync + CHANGELOG.md aus git log                ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: Docu-Update Agent
+
+on:
+  issues:
+    types: [labeled]
+
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: 'Issue-Nummer manuell starten (z.B. 46)'
+        required: true
+        type: number
+      dry_run:
+        description: 'Dry-run (kein Push, kein Issue-Close)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  issues: write
+  contents: read
+
+jobs:
+  docu-update:
+    name: "Docu-Update: Issue #${{ github.event.issue.number || inputs.issue_number }}"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    # Nur bei docu-update Label (oder manuellem Trigger)
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'issues' &&
+       github.event.action == 'labeled' &&
+       github.event.label.name == 'docu-update')
+
+    steps:
+      - name: Checkout platform repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Run Docu-Update Agent
+        env:
+          # PLATFORM_DEPLOY_TOKEN braucht: repo (read+write) auf alle Ziel-Repos
+          # Falls Token nur platform-Repo hat → PROJECT_PAT anlegen mit repo-Scope
+          PROJECT_PAT: ${{ secrets.PLATFORM_DEPLOY_TOKEN || secrets.PROJECT_PAT }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          ISSUE_NUM="${{ github.event.issue.number || inputs.issue_number }}"
+          DRY_RUN="${{ inputs.dry_run == true && '--dry-run' || '' }}"
+
+          python .github/scripts/docu_update_agent.py \
+            --issue-number "$ISSUE_NUM" \
+            $DRY_RUN
