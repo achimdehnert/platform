@@ -288,6 +288,12 @@ def main() -> int:
     title = issue.get("title", "")
     body = issue.get("body", "") or ""
 
+    # Safety gate: only process issues with docu-update label
+    labels = [lbl["name"] for lbl in issue.get("labels", [])]
+    if "docu-update" not in labels:
+        print(f"SKIP: Issue #{args.issue_number} hat kein 'docu-update' Label (Labels: {labels})")
+        return 0
+
     repo_name, issue_version = parse_issue(title, body)
     if not repo_name:
         print(f"ERROR: Cannot parse repo_name from issue title: {title!r}", file=sys.stderr)
