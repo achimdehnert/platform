@@ -17,7 +17,7 @@
 
 set -euo pipefail
 
-GITHUB_DIR="${GITHUB_DIR:-/home/dehnert/github}"
+GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 PLATFORM_WF="${GITHUB_DIR}/platform/.windsurf/workflows"
 DRY_RUN=false
 SINGLE_REPO=""

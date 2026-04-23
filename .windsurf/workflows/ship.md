@@ -52,7 +52,7 @@ TCP-Probe auf SSH/HTTP/HTTPS stattdessen:
 
 // turbo
 ```bash
-python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
+python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --host 88.198.191.108
 ```
 
 → **Server erreichbar**: Weiter mit Schritt 0.6

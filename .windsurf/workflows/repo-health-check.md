@@ -212,13 +212,13 @@ Das Script `platform/tools/repo_health_check.py` prüft alle BLOCK-Items:
 
 ```bash
 # Python Package
-python3 ~/github/platform/tools/repo_health_check.py --profile python-package --path .
+python3 ${GITHUB_DIR:-$HOME/github}/platform/tools/repo_health_check.py --profile python-package --path .
 
 # Django App
-python3 ~/github/platform/tools/repo_health_check.py --profile django-app --path .
+python3 ${GITHUB_DIR:-$HOME/github}/platform/tools/repo_health_check.py --profile django-app --path .
 
 # Mit GitHub-Check (braucht GITHUB_TOKEN)
-python3 ~/github/platform/tools/repo_health_check.py --profile python-package --path . --owner achimdehnert --repo <name>
+python3 ${GITHUB_DIR:-$HOME/github}/platform/tools/repo_health_check.py --profile python-package --path . --owner achimdehnert --repo <name>
 ```
 
 Exit-Code:

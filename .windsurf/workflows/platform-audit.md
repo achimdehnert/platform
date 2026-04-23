@@ -86,11 +86,11 @@ Für **jedes** Repo aus der Liste oben:
 ```bash
 ALL_REPOS="137-hub ausschreibungs-hub bfagent billing-hub cad-hub coach-hub dev-hub dms-hub illustration-hub learn-hub odoo-hub pptx-hub recruiting-hub research-hub risk-hub risk-hub-tmp trading-hub travel-beat wedding-hub weltenhub writing-hub aifw authoringfw illustration-fw lastwar-bot learnfw nl2cad openclaw outlinefw promptfw researchfw testkit weltenfw platform mcp-hub infra-deploy iil-relaunch awesome-openclaw-skills awesome-openclaw-usecases"
 for repo in $ALL_REPOS; do
-  [ -d ~/github/$repo/.git ] || continue
+  [ -d ${GITHUB_DIR:-$HOME/github}/$repo/.git ] || continue
   echo "=== $repo ==="
-  git -C ~/github/$repo branch --show-current
-  git -C ~/github/$repo status --porcelain | head -5
-  git -C ~/github/$repo log --oneline -3
+  git -C ${GITHUB_DIR:-$HOME/github}/$repo branch --show-current
+  git -C ${GITHUB_DIR:-$HOME/github}/$repo status --porcelain | head -5
+  git -C ${GITHUB_DIR:-$HOME/github}/$repo log --oneline -3
   echo ""
 done
 ```
@@ -106,15 +106,15 @@ Erfasse pro Repo:
 ```bash
 ALL_REPOS="137-hub ausschreibungs-hub bfagent billing-hub cad-hub coach-hub dev-hub dms-hub illustration-hub learn-hub odoo-hub pptx-hub recruiting-hub research-hub risk-hub risk-hub-tmp trading-hub travel-beat wedding-hub weltenhub writing-hub aifw authoringfw illustration-fw lastwar-bot learnfw nl2cad openclaw outlinefw promptfw researchfw testkit weltenfw platform mcp-hub infra-deploy iil-relaunch awesome-openclaw-skills awesome-openclaw-usecases"
 for repo in $ALL_REPOS; do
-  [ -d ~/github/$repo/.git ] || continue
+  [ -d ${GITHUB_DIR:-$HOME/github}/$repo/.git ] || continue
   echo "=== $repo ==="
   for f in README.md .gitignore Makefile pyproject.toml CHANGELOG.md; do
-    [ -e ~/github/$repo/$f ] && echo "  OK: $f" || echo "  MISSING: $f"
+    [ -e ${GITHUB_DIR:-$HOME/github}/$repo/$f ] && echo "  OK: $f" || echo "  MISSING: $f"
   done
   # Django-spezifisch (nur wenn docker-compose vorhanden)
-  if [ -f ~/github/$repo/docker-compose.prod.yml ] || [ -d ~/github/$repo/docker ]; then
+  if [ -f ${GITHUB_DIR:-$HOME/github}/$repo/docker-compose.prod.yml ] || [ -d ${GITHUB_DIR:-$HOME/github}/$repo/docker ]; then
     for f in docker-compose.prod.yml Dockerfile .env.example; do
-      [ -e ~/github/$repo/$f ] || [ -e ~/github/$repo/docker/$f ] || [ -e ~/github/$repo/docker/app/$f ] && echo "  OK: $f" || echo "  MISSING: $f"
+      [ -e ${GITHUB_DIR:-$HOME/github}/$repo/$f ] || [ -e ${GITHUB_DIR:-$HOME/github}/$repo/docker/$f ] || [ -e ${GITHUB_DIR:-$HOME/github}/$repo/docker/app/$f ] && echo "  OK: $f" || echo "  MISSING: $f"
     done
   fi
   echo ""
@@ -127,9 +127,9 @@ done
 ```bash
 ALL_REPOS="137-hub ausschreibungs-hub bfagent billing-hub cad-hub coach-hub dev-hub dms-hub illustration-hub learn-hub odoo-hub pptx-hub recruiting-hub research-hub risk-hub risk-hub-tmp trading-hub travel-beat wedding-hub weltenhub writing-hub aifw authoringfw illustration-fw lastwar-bot learnfw nl2cad openclaw outlinefw promptfw researchfw testkit weltenfw platform mcp-hub infra-deploy iil-relaunch awesome-openclaw-skills awesome-openclaw-usecases"
 for repo in $ALL_REPOS; do
-  [ -d ~/github/$repo/.git ] || continue
+  [ -d ${GITHUB_DIR:-$HOME/github}/$repo/.git ] || continue
   echo "=== $repo ==="
-  ls ~/github/$repo/.github/workflows/ 2>/dev/null || echo "  MISSING: .github/workflows/"
+  ls ${GITHUB_DIR:-$HOME/github}/$repo/.github/workflows/ 2>/dev/null || echo "  MISSING: .github/workflows/"
   echo ""
 done
 ```
@@ -140,10 +140,10 @@ done
 ```bash
 ALL_REPOS="137-hub ausschreibungs-hub bfagent billing-hub cad-hub coach-hub dev-hub dms-hub illustration-hub learn-hub odoo-hub pptx-hub recruiting-hub research-hub risk-hub risk-hub-tmp trading-hub travel-beat wedding-hub weltenhub writing-hub aifw authoringfw illustration-fw lastwar-bot learnfw nl2cad openclaw outlinefw promptfw researchfw testkit weltenfw platform mcp-hub infra-deploy"
 for repo in $ALL_REPOS; do
-  [ -d ~/github/$repo/.git ] || continue
+  [ -d ${GITHUB_DIR:-$HOME/github}/$repo/.git ] || continue
   echo "=== $repo ==="
-  find ~/github/$repo -path '*/tests/*.py' -o -path '*/test_*.py' | grep -v '.venv' | grep -v node_modules | wc -l | xargs echo "  Test files:"
-  find ~/github/$repo -name 'conftest.py' | grep -v '.venv' | wc -l | xargs echo "  conftest.py:"
+  find ${GITHUB_DIR:-$HOME/github}/$repo -path '*/tests/*.py' -o -path '*/test_*.py' | grep -v '.venv' | grep -v node_modules | wc -l | xargs echo "  Test files:"
+  find ${GITHUB_DIR:-$HOME/github}/$repo -name 'conftest.py' | grep -v '.venv' | wc -l | xargs echo "  conftest.py:"
   echo ""
 done
 ```
@@ -168,12 +168,12 @@ Prüfe insbesondere:
 DJANGO_REPOS="137-hub ausschreibungs-hub bfagent billing-hub cad-hub coach-hub dev-hub dms-hub illustration-hub learn-hub odoo-hub pptx-hub recruiting-hub research-hub risk-hub trading-hub travel-beat wedding-hub weltenhub writing-hub"
 PKG_REPOS="aifw authoringfw illustration-fw learnfw nl2cad openclaw outlinefw promptfw researchfw testkit weltenfw mcp-hub"
 for repo in $DJANGO_REPOS $PKG_REPOS; do
-  [ -d ~/github/$repo/.git ] || continue
+  [ -d ${GITHUB_DIR:-$HOME/github}/$repo/.git ] || continue
   echo "=== $repo ==="
-  echo "  UUIDField PKs: $(grep -r 'UUIDField(primary_key=True)' ~/github/$repo --include='*.py' -l 2>/dev/null | grep -v '.venv' | wc -l)"
-  echo "  os.environ: $(grep -r 'os\.environ' ~/github/$repo --include='*.py' -l 2>/dev/null | grep -v test | grep -v '.venv' | grep -v node_modules | wc -l)"
-  echo "  print(): $(grep -rn 'print(' ~/github/$repo --include='*.py' 2>/dev/null | grep -v test | grep -v '.venv' | grep -v node_modules | grep -v '#' | wc -l)"
-  echo "  Direct LLM: $(grep -r 'import anthropic\|import openai\|from groq' ~/github/$repo --include='*.py' -l 2>/dev/null | grep -v '.venv' | wc -l)"
+  echo "  UUIDField PKs: $(grep -r 'UUIDField(primary_key=True)' ${GITHUB_DIR:-$HOME/github}/$repo --include='*.py' -l 2>/dev/null | grep -v '.venv' | wc -l)"
+  echo "  os.environ: $(grep -r 'os\.environ' ${GITHUB_DIR:-$HOME/github}/$repo --include='*.py' -l 2>/dev/null | grep -v test | grep -v '.venv' | grep -v node_modules | wc -l)"
+  echo "  print(): $(grep -rn 'print(' ${GITHUB_DIR:-$HOME/github}/$repo --include='*.py' 2>/dev/null | grep -v test | grep -v '.venv' | grep -v node_modules | grep -v '#' | wc -l)"
+  echo "  Direct LLM: $(grep -r 'import anthropic\|import openai\|from groq' ${GITHUB_DIR:-$HOME/github}/$repo --include='*.py' -l 2>/dev/null | grep -v '.venv' | wc -l)"
   echo ""
 done
 ```
@@ -184,12 +184,12 @@ done
 ```bash
 DJANGO_REPOS="137-hub ausschreibungs-hub bfagent billing-hub cad-hub coach-hub dev-hub dms-hub illustration-hub learn-hub odoo-hub pptx-hub recruiting-hub research-hub risk-hub trading-hub travel-beat wedding-hub weltenhub writing-hub"
 for repo in $DJANGO_REPOS; do
-  [ -d ~/github/$repo/.git ] || continue
+  [ -d ${GITHUB_DIR:-$HOME/github}/$repo/.git ] || continue
   echo "=== $repo ==="
   echo "  DEFAULT_AUTO_FIELD:"
-  grep -r 'DEFAULT_AUTO_FIELD' ~/github/$repo --include='*.py' 2>/dev/null | grep -v '.venv' | head -1
+  grep -r 'DEFAULT_AUTO_FIELD' ${GITHUB_DIR:-$HOME/github}/$repo --include='*.py' 2>/dev/null | grep -v '.venv' | head -1
   echo "  Settings file:"
-  find ~/github/$repo -path '*/config/settings*' -name '*.py' 2>/dev/null | grep -v '.venv' | head -3
+  find ${GITHUB_DIR:-$HOME/github}/$repo -path '*/config/settings*' -name '*.py' 2>/dev/null | grep -v '.venv' | head -3
   echo ""
 done
 ```
@@ -200,9 +200,9 @@ done
 ```bash
 DJANGO_REPOS="137-hub ausschreibungs-hub bfagent billing-hub cad-hub coach-hub dev-hub dms-hub illustration-hub learn-hub odoo-hub pptx-hub recruiting-hub research-hub risk-hub trading-hub travel-beat wedding-hub weltenhub writing-hub"
 for repo in $DJANGO_REPOS; do
-  [ -d ~/github/$repo/.git ] || continue
+  [ -d ${GITHUB_DIR:-$HOME/github}/$repo/.git ] || continue
   echo "=== $repo ==="
-  grep -rn 'livez\|healthz\|health/' ~/github/$repo --include='*.py' 2>/dev/null | grep -v test | grep -v '.venv' | head -3
+  grep -rn 'livez\|healthz\|health/' ${GITHUB_DIR:-$HOME/github}/$repo --include='*.py' 2>/dev/null | grep -v test | grep -v '.venv' | head -3
   echo ""
 done
 ```
@@ -351,7 +351,7 @@ Generiere den Report als Markdown mit folgendem Template:
 
 Speichere den Report als:
 ```
-~/github/platform/audits/platform-audit-{YYYY-MM-DD}.md
+${GITHUB_DIR:-$HOME/github}/platform/audits/platform-audit-{YYYY-MM-DD}.md
 ```
 
 ### 5.2 In Outline sichern

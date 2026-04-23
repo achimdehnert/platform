@@ -36,25 +36,25 @@ PyPI API Tokens: https://pypi.org/manage/account/token/
 
 // turbo
 ```bash
-cd ~/github/aifw && git log --oneline -3 && git status
+cd ${GITHUB_DIR:-$HOME/github}/aifw && git log --oneline -3 && git status
 ```
 
 ## Step 2: Build + publish to PyPI
 
 ```bash
-bash ~/github/platform/scripts/publish-package.sh ~/github/aifw
+bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/publish-package.sh ${GITHUB_DIR:-$HOME/github}/aifw
 ```
 
 For other packages:
 ```bash
-bash ~/github/platform/scripts/publish-package.sh ~/github/promptfw
-bash ~/github/platform/scripts/publish-package.sh ~/github/authoringfw
+bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/publish-package.sh ${GITHUB_DIR:-$HOME/github}/promptfw
+bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/publish-package.sh ${GITHUB_DIR:-$HOME/github}/authoringfw
 ```
 
 ## Step 3: Test upload first (optional)
 
 ```bash
-bash ~/github/platform/scripts/publish-package.sh ~/github/aifw --test
+bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/publish-package.sh ${GITHUB_DIR:-$HOME/github}/aifw --test
 ```
 
 ## Step 4: Verify on PyPI

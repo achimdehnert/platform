@@ -4,7 +4,11 @@ trigger: always_on
 
 # MCP Tools — Verfügbare Server & Fähigkeiten
 
-## Aktive MCP-Server + Prefixes
+> ⚠️ **MCP-Prefixes sind environment-spezifisch** — die Reihenfolge in `mcp_config.json`
+> bestimmt den Prefix (`mcp0_`, `mcp1_`, ...). Immer zuerst prüfen welche Server aktiv sind.
+> Konfig: `~/.codeium/windsurf/mcp_config.json`
+
+## Referenz-Tabelle (WSL / Prod-Server)
 
 | Prefix | Server | Zweck |
 |--------|--------|-------|
@@ -15,6 +19,13 @@ trigger: always_on
 | `mcp4_` | **paperless-docs** | Dokumente, Rechnungen, Archive |
 | `mcp5_` | **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
 | `mcp6_` | **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
+
+## Dev Desktop (adehnert@dev-desktop) — aktuelle Konfiguration
+
+| Prefix | Server | Status |
+|--------|--------|--------|
+| `mcp0_` | **github** | ✅ aktiv |
+| `mcp1_` | **orchestrator** | ✅ aktiv |
 
 ## deployment-mcp (mcp0_) — Wichtigste Tools
 

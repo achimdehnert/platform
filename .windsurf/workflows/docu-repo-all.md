@@ -85,7 +85,7 @@ cd /home/devuser/github && for d in */docs/reference; do repo=$(dirname $(dirnam
 ## Repo-Erkennung
 
 1. **Primär**: `platform/registry/repos.yaml` (Single Source of Truth)
-2. **Fallback**: Alle Unterordner von `~/github/` mit Python-Inhalten
+2. **Fallback**: Alle Unterordner von `${GITHUB_DIR:-$HOME/github}/` mit Python-Inhalten
 3. **Filter**: Repos ohne `*.py`, `pyproject.toml`, `apps/` oder `src/` werden übersprungen
 4. **`--only-django`**: Nur Repos mit `apps/` oder `manage.py`
 

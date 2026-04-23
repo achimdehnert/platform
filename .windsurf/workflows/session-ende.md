@@ -47,7 +47,7 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 
 ```bash
 # Alle Repos mit Commits in den letzten 8h (= diese Session)
-for repo in ~/github/*/; do
+for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
   [[ "$(basename $repo)" == *.* ]] && continue
   last=$(git -C "$repo" log --since="8 hours ago" --oneline 2>/dev/null | wc -l)
   [ "$last" -gt 0 ] && echo "$(basename $repo)"
@@ -67,7 +67,7 @@ Für **jeden** Repo aus der Liste:
 
 ```bash
 for REPO_NAME in <liste-aus-schritt-1>; do
-  REPO=~/github/$REPO_NAME
+  REPO=${GITHUB_DIR:-$HOME/github}/$REPO_NAME
 
   VER_CODE=$(grep -r '__version__\|^version' "$REPO/pyproject.toml" 2>/dev/null \
              | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
@@ -155,7 +155,7 @@ mcp2_session_stats(days: 7)
 ### 3.1 Alle geänderten Repos committen + pushen
 
 ```bash
-for repo in ~/github/*/; do
+for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
   cd "$repo"
   if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
     repo_name=$(basename "$repo")
@@ -175,7 +175,7 @@ done
 
 ```bash
 # .fixed / .updated / .new Dateien die erfolgreich übernommen wurden
-find ~/github/ -maxdepth 4 -name "*.fixed" -o -name "*.updated" -o -name "*.new" 2>/dev/null | head -10
+find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 -name "*.fixed" -o -name "*.updated" -o -name "*.new" 2>/dev/null | head -10
 ```
 → Falls vorhanden: Prüfen ob übernommen, dann löschen. Falls NICHT übernommen → User warnen.
 
@@ -183,14 +183,14 @@ find ~/github/ -maxdepth 4 -name "*.fixed" -o -name "*.updated" -o -name "*.new"
 
 ```bash
 # Nur wenn platform/.windsurf/workflows/ geändert wurde:
-cd ~/github/platform && git diff --name-only HEAD~1 | grep -q ".windsurf/workflows/" && \
+cd ${GITHUB_DIR:-$HOME/github}/platform && git diff --name-only HEAD~1 | grep -q ".windsurf/workflows/" && \
   GITHUB_DIR=~/github bash scripts/sync-workflows.sh 2>&1 | grep -cE "LINK|REPLACE"
 ```
 → Stellt sicher, dass Workflow-Änderungen sofort in alle Repos propagiert werden.
 
 ```bash
 # project-facts.md für alle Repos aktualisieren (fehlende ergänzen)
-python3 ~/github/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️" | head -10
+python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️" | head -10
 ```
 → Stellt sicher, dass neue Repos während der Session automatisch erkannt werden.
 → Unregistrierte Repos (⚠️) → in `platform/scripts/repo-registry.yaml` eintragen.
@@ -199,7 +199,7 @@ python3 ~/github/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠�
 
 ```bash
 dirty=0
-for repo in ~/github/*/; do
+for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
   if [ -n "$(cd "$repo" && git status --porcelain 2>/dev/null)" ]; then
     echo "DIRTY: $(basename $repo)"
     dirty=$((dirty + 1))
