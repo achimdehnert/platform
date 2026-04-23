@@ -253,10 +253,11 @@ def check_gate(action: str, component: str) -> dict[str, Any]:
 
 # Cost per 1k tokens (input+output blended estimate)
 _COST_PER_1K: dict[str, float] = {
-    "opus":    0.015,   # Claude Opus / Cascade Pro
-    "swe":     0.003,   # SWE-1 / claude-3-5-sonnet
-    "gpt_low": 0.001,   # GPT-4o-mini
-    "cascade": 0.015,   # Windsurf Cascade (Opus-tier, for comparison)
+    "opus":      0.015,   # Claude Opus / Cascade Pro
+    "swe":       0.003,   # SWE-1 / claude-3-5-sonnet
+    "gpt_low":   0.001,   # GPT-4o-mini
+    "grok_fast": 0.0002,  # xAI Grok-3-fast — docu/test tasks, lowest cost
+    "cascade":   0.015,   # Windsurf Cascade (Opus-tier, for comparison)
 }
 
 # Cascade baseline: typical tokens per session type (empirical estimates)
@@ -283,7 +284,7 @@ def get_cost_estimate(
 
     Args:
         task_id:          Identifier for the task.
-        model:            Agent model: 'opus' | 'swe' | 'gpt_low'.
+        model:            Agent model: 'opus' | 'swe' | 'gpt_low' | 'grok_fast'.
         estimated_tokens: Agent token count. If omitted, uses complexity budget.
         complexity:       trivial | simple | moderate | complex | architectural.
         cascade_tokens:   Actual Cascade token count (if known). Falls back to baseline.

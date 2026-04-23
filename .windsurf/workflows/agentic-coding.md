@@ -29,10 +29,12 @@ Bei Fail in Step 5/6 → Rollback-Pfad, zurück zu Step 3.
 
 ## Step 0: Governance Check (immer bei complexity >= moderate)
 
+> ⚠️ MCP-Prefixes sind environment-spezifisch — aktuellen Prefix aus `.windsurf/rules/mcp-tools.md` lesen.
+
 ```
-MCP: mcp14_get_context_for_task(repo, file_type)
-MCP: mcp14_check_violations(code_snippet)
-MCP: mcp14_get_banned_patterns(context)
+MCP: <platform-context-mcp>_get_context_for_task(repo, file_type)
+MCP: <platform-context-mcp>_check_violations(code_snippet)
+MCP: <platform-context-mcp>_get_banned_patterns(context)
 ```
 
 **Blockiert bei ADR-Verletzung.** Kein Weiter ohne grünen Check.
@@ -73,9 +75,15 @@ MCP: get_cost_estimate(task_id, model, estimated_tokens)
 ```
 
 Modell-Wahl:
-- `trivial/simple` → `gpt_low`
-- `moderate` → `swe`
-- `complex/architectural` → `opus`
+
+| Complexity | Modell | Kosten/1k | Anwendung |
+|------------|--------|-----------|-----------|
+| `trivial` | `grok_fast` | $0.0002 | docu-update, CHANGELOG, README-Sync |
+| `simple` | `gpt_low` | $0.001 | Tests schreiben, kleine Bugfixes |
+| `moderate` | `swe` | $0.003 | Features, Refactoring |
+| `complex/architectural` | `opus` | $0.015 | ADRs, Architektur, komplexe Bugs |
+
+> **docu-update Issues** → immer `grok_fast` (Label: `tier-3`, `docu-update`)
 
 Bei `budget_status = over` → complexity herunterstufen oder Task splitten.
 
@@ -182,8 +190,9 @@ PR-Body enthält:
 ## Step 8: AuditStore + GitHub Issue Update (ADR-068)
 
 ```
-# AuditStore: Log action to Outline or GitHub Issue comment
-MCP: mcp8_add_issue_comment(owner, repo, issue_number, body)
+# AuditStore: Log action to GitHub Issue comment
+# Prefix aus mcp-tools.md (github-mcp)
+MCP: <github-mcp>_add_issue_comment(owner, repo, issue_number, body)
 ```
 
 Issue-Kommentar enthält: QA Score, verify_task Ergebnis, Cost-Estimate, Rollback-Level.

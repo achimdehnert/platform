@@ -12,6 +12,53 @@ description: Cascade-Aufträge aus Outline abarbeiten — Triage via Comments, B
 
 ---
 
+## Phase 0: GitHub Issues Queue (docu-update / automated) — ZUERST
+
+> Leichtgewichtige Jobs aus GitHub Issues abarbeiten — bevor Outline-Aufträge.
+> Modell: `grok_fast` ($0.0002/1k) — geeignet für README/CHANGELOG/Outline-Sync.
+
+// turbo
+```
+<github-mcp>_list_issues(
+  owner: "achimdehnert",
+  repo: "platform",
+  labels: ["docu-update", "automated"],
+  state: "open"
+)
+```
+
+Für jeden Issue:
+
+| Label | Modell | Workflow | Aktion |
+|-------|--------|----------|--------|
+| `docu-update` | `grok_fast` | `/docu-update` | README + CHANGELOG + Outline |
+| `automated` + kein `docu-update` | `gpt_low` | Issue-Body lesen | Acceptance Criteria ausführen |
+
+**Ausführen:**
+1. Issue-Body lesen (enthält Acceptance Criteria + Befehl)
+2. Repo lokal: `${GITHUB_DIR:-$HOME/github}/<REPO_NAME>`
+3. `/docu-update` Workflow starten mit Repo-Kontext aus Issue
+4. Nach Abschluss Issue schließen:
+```
+<github-mcp>_update_issue(
+  owner: "achimdehnert", repo: "platform",
+  issue_number: <N>,
+  state: "closed"
+)
+```
+5. Kommentar mit Ergebnis:
+```
+<github-mcp>_add_issue_comment(
+  owner: "achimdehnert", repo: "platform",
+  issue_number: <N>,
+  body: "✅ Erledigt via /docu-update\n\nModel: grok_fast | Commits: <hash> | Zeit: <t>s"
+)
+```
+
+> Kein offener docu-update Issue → direkt zu Step 1 (Outline-Aufträge).
+
+---
+
 ## Step 1: Offene Aufträge + Comments laden
 
 ```
@@ -112,7 +159,7 @@ MCP: <outline-mcp>_get_document(document_id="<quell-dokument-id>")
 |--------|--------|-------------|
 | `summarize` | Outline-Dokument (Konzepte) | — |
 | `adr` | ADR erstellt | `/adr` |
-| `github-issue` | GitHub Issue | `mcp8_create_issue` |
+| `github-issue` | GitHub Issue | `<github-mcp>_create_issue` |
 | `analyze` | Outline-Dokument | — |
 | `review` | Architektur-Review | `/adr-review` |
 | `implement` | Branch + PR | `/agentic-coding` |
