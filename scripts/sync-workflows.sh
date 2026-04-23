@@ -42,6 +42,7 @@ UNIVERSAL=(
     session-start
     session-ende
     session-docu
+    docu-update
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
