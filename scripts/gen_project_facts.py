@@ -24,6 +24,10 @@ SCRIPT_DIR = Path(__file__).parent
 REGISTRY_FILE = SCRIPT_DIR / "repo-registry.yaml"
 GITHUB = Path("/home/devuser/github")
 WORKFLOWS_SRC = GITHUB / "platform" / ".windsurf" / "workflows"
+RULES_SRC = GITHUB / "platform" / ".windsurf" / "rules"
+
+# Global rules distributed to ALL repos as symlinks
+GLOBAL_RULES = ["mcp-tools.md", "reviewer.md"]
 
 
 # ── Registry ─────────────────────────────────────────────────────────────────
@@ -119,6 +123,20 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
             src = WORKFLOWS_SRC / wf
             if src.exists():
                 shutil.copy2(src, wf_dest / wf)
+
+    # Symlink global rules to every repo (except platform itself)
+    rules_dest = repo_path / ".windsurf" / "rules"
+    rules_dest.mkdir(parents=True, exist_ok=True)
+    if repo != "platform" and RULES_SRC.is_dir():
+        for rule in GLOBAL_RULES:
+            src = RULES_SRC / rule
+            link = rules_dest / rule
+            if src.exists():
+                if link.is_symlink():
+                    link.unlink()
+                elif link.exists():
+                    link.unlink()  # replace stale copy with symlink
+                link.symlink_to(src)
 
     if facts_file.exists() and not force:
         return f"SKIP (exists): {repo}"
