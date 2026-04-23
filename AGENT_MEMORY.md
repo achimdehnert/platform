@@ -6,7 +6,7 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-23T16:53:47.293373+00:00",
+  "last_updated": "2026-04-23T18:56:02.278855+00:00",
   "last_updated_by": "cascade",
   "entry_count": 2
 }
@@ -14,25 +14,27 @@
 
 ## Solved Problem
 
-### SESSION-2026-04-23-PLATFORM — Session 2026-04-23 — platform: .windsurf Optimierung + devhub_web Fix
+### SESSION-2026-04-23-PLATFORM — Session 2026-04-23 — platform: Hardcoding-Bereinigung + docu-update-agent CI/CD
 
 ```json
 {
   "_type": "entry",
   "entry_id": "SESSION-2026-04-23-PLATFORM",
   "entry_type": "solved_problem",
-  "title": "Session 2026-04-23 — platform: .windsurf Optimierung + devhub_web Fix",
-  "content": "Fixes: (1) devhub_web HealthBypassMiddleware + platform_context komplett via docker cp gepatcht -> healthy. (2) .windsurf: 12 Workflows von ~/github/ auf ${GITHUB_DIR} umgestellt. (3) Platform Sync Loop: session-start pull+sync + session-ende push+sync als GitHub-SSoT-Kreislauf. (4) Versions-Banner + VERSION Datei 2026.04.23.1 angelegt. (5) mcp-tools.md + project-facts.md fuer Dev-Desktop aktualisiert. GITHUB_DIR=$HOME/CascadeProjects in ~/.bashrc gesetzt. Offen: billing-hub decouple-Fehler (Image-Rebuild noetig), travel-beat celery restarting.",
+  "title": "Session 2026-04-23 — platform: Hardcoding-Bereinigung + docu-update-agent CI/CD",
+  "content": "Vollständige Bereinigung aller .windsurf/ Dateien (11x /home/dehnert/, 2x /home/devuser/, 7x falsche mcp-Prefixes mcp7_/mcp12_/mcp14_/mcp8_). secrets.md befüllt. onboard-repo Step 6.8 (Windsurf Platform-Integration: registry, symlinks, project-facts). Grok Fast ($0.0002/1k) in orchestrator_mcp/tools.py. cascade-auftraege.md Phase 0 GitHub Issues Queue mit grok_fast. docu_update_agent.py + docu-update-agent.yml: deterministischer CI/CD Agent auf docu-update Label ohne LLM. PROJECT_PAT Secret via API gesetzt. 9 offene docu-update Issues verarbeitet und geschlossen. Platform v2026.04.23.2 Commit 4130332.",
   "agent": "cascade",
-  "created_at": "2026-04-23T16:53:47.293004Z",
-  "updated_at": "2026-04-23T16:53:47.293011Z",
-  "expires_at": "2026-05-23T16:53:47.293012Z",
+  "created_at": "2026-04-23T18:56:02.278486Z",
+  "updated_at": "2026-04-23T18:56:02.278823Z",
+  "expires_at": "2026-05-23T18:56:02.278493Z",
   "tags": [
     "session",
     "platform",
-    "windsurf",
-    "devhub",
-    "sync-loop"
+    "hardcoding",
+    "ci-cd",
+    "docu-update",
+    "grok-fast",
+    "windsurf"
   ],
   "related_entries": [],
   "metadata": {}
