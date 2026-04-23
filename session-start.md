@@ -15,6 +15,19 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 
 ---
 
+## Platform Sync Loop (Prinzip)
+
+```
+Session Start:  GitHub ──pull──▶ platform ──sync──▶ alle Repos  (aktuell starten)
+Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sync──▶ alle Repos  (sofort deployen)
+```
+
+> **GitHub ist die einzige Source of Truth.**
+> Phase 0.2 + 0.3 sind kein Optional — sie sind das Herzstück des Loops.
+> Nur so profitieren ALLE Repos von Verbesserungen der letzten Session.
+
+---
+
 ## Phase 0: Tool-Health + Umgebung synchronisieren (IMMER zuerst)
 
 ### 0.0 Shell + MCP Health-Check (PFLICHT — vor allen anderen Steps)
@@ -49,28 +62,25 @@ python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --hos
   Wenn auch SSH scheitert: Hetzner Cloud Console → Server Status prüfen
 → Lesson Learned 2026-04-03: Ping-basierte Diagnose führte zu Fehldiagnose "Server down"
 
-### 0.2 Platform-Repo pullen (enthält Workflows + ADRs)
+### 0.2 Platform-Repo pullen + Workflows deployen (PFLICHT — GitHub → lokal → alle Repos)
+
+> ⚠️ **Nicht überspringen.** Dieser 3-Schritt-Block ist der Platform Sync Loop.
 
 // turbo
 ```bash
-cd ${GITHUB_DIR:-$HOME/github}/platform && git pull --rebase --quiet
+# Schritt 1: GitHub → lokal (neueste Rules, Workflows, Scripts)
+git -C "${GITHUB_DIR:-$HOME/github}/platform" pull --rebase --quiet && echo "✅ platform aktuell"
+
+# Schritt 2: lokal → alle Repos (Symlinks aktualisieren)
+GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
+  bash "${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh" \
+  2>&1 | grep -cE "LINK|REPLACE" | xargs -I{} echo "{} Workflow-Symlinks deployed"
+
+# Schritt 3: project-facts.md für alle Repos regenerieren
+python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
+  2>&1 | grep -E "✅|⚠️|SKIP" | wc -l | xargs -I{} echo "{} Repos verarbeitet"
 ```
-
-### 0.3 Workflow-Symlinks aktualisieren
-
-// turbo
-```bash
-GITHUB_DIR=~/github bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh 2>&1 | grep -E "LINK|REPLACE|WARN" | head -20
-```
-→ Stellt sicher, dass alle Repos die aktuellen Workflows haben.
-→ Neue Workflows in platform werden automatisch verteilt.
-
-### 0.3b project-facts.md aktualisieren (Master Repo Identifier)
-
-// turbo
-```bash
-python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️|SKIP" | wc -l | xargs -I{} echo "{} Repos verarbeitet"
-```
+→ Ab jetzt gelten die neuesten ADRs, Rules und Workflows plattformweit.
 → Generiert/aktualisiert `.windsurf/rules/project-facts.md` für alle Repos (nur fehlende).
 → Mit `--force` für Neu-Generierung aller: `python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py --force`
 → Neues Repo erkannt? → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
