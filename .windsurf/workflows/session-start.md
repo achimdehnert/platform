@@ -30,12 +30,19 @@ Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sy
 
 ## Phase 0: Tool-Health + Umgebung synchronisieren (IMMER zuerst)
 
-### 0.0 Shell + MCP Health-Check (PFLICHT — vor allen anderen Steps)
-
-**Zuerst prüfen ob die Grundlagen funktionieren:**
+### 0.0 Version-Banner + Shell Health-Check (PFLICHT — allererster Schritt)
 
 // turbo
 ```bash
+PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+VERSION_BEFORE=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
+COMMIT_BEFORE=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
+echo ""
+echo "┌─────────────────────────────────────────┐"
+echo "│  🚀 SESSION START                       │"
+echo "│  Platform v${VERSION_BEFORE} (${COMMIT_BEFORE})        │"
+echo "│  $(date '+%Y-%m-%d %H:%M')                       │"
+echo "└─────────────────────────────────────────┘"
 echo "shell-alive-$(date +%s)"
 ```
 
@@ -81,8 +88,27 @@ python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
   2>&1 | grep -E "✅|⚠️|SKIP" | wc -l | xargs -I{} echo "{} Repos verarbeitet"
 ```
 → Ab jetzt gelten die neuesten ADRs, Rules und Workflows plattformweit.
-→ Generiert/aktualisiert `.windsurf/rules/project-facts.md` für alle Repos (nur fehlende).
-→ Mit `--force` für Neu-Generierung aller: `python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py --force`
+
+// turbo
+```bash
+PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+VERSION_AFTER=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
+COMMIT_AFTER=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
+if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] || [ "$COMMIT_BEFORE" != "$COMMIT_AFTER" ]; then
+  echo ""
+  echo "┌─────────────────────────────────────────┐"
+  echo "│  ✅ SYNC ERFOLGREICH                    │"
+  echo "│  v${VERSION_BEFORE} → v${VERSION_AFTER}                │"
+  echo "│  Commit: ${COMMIT_BEFORE} → ${COMMIT_AFTER}             │"
+  echo "└─────────────────────────────────────────┘"
+else
+  echo ""
+  echo "┌─────────────────────────────────────────┐"
+  echo "│  ✅ BEREITS AKTUELL                     │"
+  echo "│  Platform v${VERSION_AFTER} (${COMMIT_AFTER})       │"
+  echo "└─────────────────────────────────────────┘"
+fi
+```
 → Neues Repo erkannt? → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
 
 ### 0.4 Aktuelles Workspace-Repo + Kern-Repos synchronisieren

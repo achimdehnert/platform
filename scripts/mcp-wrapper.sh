@@ -35,7 +35,8 @@ case "$SERVER" in
     outline|outline-mcp)
         export OUTLINE_MCP_OUTLINE_API_TOKEN="$(load_secret outline_api_token)"
         export OUTLINE_MCP_OUTLINE_URL="${OUTLINE_API_URL:-https://outline.iil.pet}"
-        cd "$HOME/CascadeProjects/platform/packages/outline-mcp"
+        export PYTHONPATH="$HOME/CascadeProjects/platform/_ARCHIVED/packages/outline-mcp:$PYTHONPATH"
+        cd "$HOME/CascadeProjects/platform/_ARCHIVED/packages/outline-mcp"
         exec "$HOME/CascadeProjects/platform/.venv/bin/python" -m outline_mcp
         ;;
     orchestrator)

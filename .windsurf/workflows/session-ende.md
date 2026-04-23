@@ -22,6 +22,23 @@ Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sy
 
 ---
 
+## Phase −0.1: Version-Banner (allererster Schritt)
+
+// turbo
+```bash
+PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+VERSION_BEFORE=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
+COMMIT_BEFORE=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
+echo ""
+echo "┌─────────────────────────────────────────┐"
+echo "│  � uDEA6 SESSION ENDE                      │"
+echo "│  Platform v${VERSION_BEFORE} (${COMMIT_BEFORE})        │"
+echo "│  $(date '+%Y-%m-%d %H:%M')                       │"
+echo "└─────────────────────────────────────────┘"
+```
+
+---
+
 ## Phase 0: Blockierte Arbeit dokumentieren (NEU — Lesson 2026-04-05)
 
 Falls während der Session Arbeit blockiert wurde (Shell-Hang, MCP-Fehler, Token-Probleme):
@@ -221,6 +238,27 @@ python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
 
 → **Ergebnis**: Nächster `session-start` auf JEDER Maschine hat automatisch die aktuellen Rules + Workflows.
 → Unregistrierte Repos (⚠️) → in `platform/scripts/repo-registry.yaml` eintragen.
+
+// turbo
+```bash
+PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+VERSION_AFTER=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
+COMMIT_AFTER=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
+echo ""
+if [ "$VERSION_BEFORE" != "$VERSION_AFTER" ] || [ "$COMMIT_BEFORE" != "$COMMIT_AFTER" ]; then
+  echo "┌─────────────────────────────────────────┐"
+  echo "│  ✅ DEPLOYED TO GITHUB                  │"
+  echo "│  v${VERSION_BEFORE} → v${VERSION_AFTER}                │"
+  echo "│  Commit: ${COMMIT_BEFORE} → ${COMMIT_AFTER}             │"
+  echo "│  Plattformweit aktiv ab nächstem Start  │"
+  echo "└─────────────────────────────────────────┘"
+else
+  echo "┌─────────────────────────────────────────┐"
+  echo "│  ℹ️  KEINE PLATFORM-ÄNDERUNGEN         │"
+  echo "│  Platform v${VERSION_AFTER} (${COMMIT_AFTER})       │"
+  echo "└─────────────────────────────────────────┘"
+fi
+```
 
 ### 3.3 Finale Prüfung — Kein Repo darf dirty sein
 
