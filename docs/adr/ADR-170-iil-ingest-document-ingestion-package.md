@@ -5,7 +5,13 @@ amended: 2026-04-23
 amendment_1: 2026-04-23 — OCR-Nicht-Entscheidung revidiert: iil-ingest[ocr] als optionales Extra (Tesseract Fallback)
 decision-makers: Achim Dehnert
 implementation_status: full
-implementation_evidence: []
+implementation_evidence:
+  - "iil-ingest v0.1.0 auf PyPI publiziert (pip install iil-ingest[pdf])"
+  - "58 Tests, 91% Coverage — CI grün (GitHub Actions)"
+  - "dms-hub/apps/benefits/classifier.py importiert ProfileClassifier + PDFExtractor aus ingest.*"
+  - "dms-hub/apps/accounting/extractor.py importiert PDFExtractor aus ingest.extractors.pdf"
+  - "dms-hub/pyproject.toml: iil-ingest[pdf] als Dependency eingetragen"
+  - "iil-ingest[ocr] implementiert: PDFExtractor(ocr_fallback=True) via Tesseract + pdf2image"
 consulted: []
 informed: []
 <!-- Drift-Detector-Felder
