@@ -6,13 +6,38 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-23T18:56:02.278855+00:00",
+  "last_updated": "2026-04-23T19:05:27.227014+00:00",
   "last_updated_by": "cascade",
-  "entry_count": 2
+  "entry_count": 3
 }
 ```
 
 ## Solved Problem
+
+### SESSION-2026-04-23-PLATFORM-B — Session 2026-04-23b — gen_project_facts.py fix + desktop-setup Platform-Integration
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "SESSION-2026-04-23-PLATFORM-B",
+  "entry_type": "solved_problem",
+  "title": "Session 2026-04-23b — gen_project_facts.py fix + desktop-setup Platform-Integration",
+  "content": "Letzter hardcoded /home/devuser/github Pfad in scripts/gen_project_facts.py gefunden und auf os.environ.get(GITHUB_DIR) umgestellt (Commit 39dd28f). desktop-setup Repo hat jetzt vollstaendige .windsurf/ Symlinks (9 Rules + 3 Workflows) via sync-workflows.sh. Beide Repos sauber gepusht. Session-Start Workflow komplett durchgefuehrt — alle Checks gruen.",
+  "agent": "cascade",
+  "created_at": "2026-04-23T19:05:27.226695Z",
+  "updated_at": "2026-04-23T19:05:27.226699Z",
+  "expires_at": "2026-05-23T19:05:27.226701Z",
+  "tags": [
+    "session",
+    "platform",
+    "desktop-setup",
+    "hardcoding",
+    "sync"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
 
 ### SESSION-2026-04-23-PLATFORM — Session 2026-04-23 — platform: Hardcoding-Bereinigung + docu-update-agent CI/CD
 
