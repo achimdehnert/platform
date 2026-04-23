@@ -179,7 +179,7 @@ find ~/github/ -maxdepth 4 -name "*.fixed" -o -name "*.updated" -o -name "*.new"
 ```
 → Falls vorhanden: Prüfen ob übernommen, dann löschen. Falls NICHT übernommen → User warnen.
 
-### 3.2 Platform-Workflows verteilen (falls platform geändert wurde)
+### 3.2 Platform-Workflows + project-facts verteilen (falls platform geändert wurde)
 
 ```bash
 # Nur wenn platform/.windsurf/workflows/ geändert wurde:
@@ -187,6 +187,13 @@ cd ~/github/platform && git diff --name-only HEAD~1 | grep -q ".windsurf/workflo
   GITHUB_DIR=~/github bash scripts/sync-workflows.sh 2>&1 | grep -cE "LINK|REPLACE"
 ```
 → Stellt sicher, dass Workflow-Änderungen sofort in alle Repos propagiert werden.
+
+```bash
+# project-facts.md für alle Repos aktualisieren (fehlende ergänzen)
+python3 ~/github/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️" | head -10
+```
+→ Stellt sicher, dass neue Repos während der Session automatisch erkannt werden.
+→ Unregistrierte Repos (⚠️) → in `platform/scripts/repo-registry.yaml` eintragen.
 
 ### 3.3 Finale Prüfung — Kein Repo darf dirty sein
 

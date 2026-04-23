@@ -59,6 +59,16 @@ GITHUB_DIR=~/github bash ~/github/platform/scripts/sync-workflows.sh 2>&1 | grep
 → Stellt sicher, dass alle Repos die aktuellen Workflows haben.
 → Neue Workflows in platform werden automatisch verteilt.
 
+### 0.3b project-facts.md aktualisieren (Master Repo Identifier)
+
+// turbo
+```bash
+python3 ~/github/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️|SKIP" | wc -l | xargs -I{} echo "{} Repos verarbeitet"
+```
+→ Generiert/aktualisiert `.windsurf/rules/project-facts.md` für alle Repos (nur fehlende).
+→ Mit `--force` für Neu-Generierung aller: `python3 ~/github/platform/scripts/gen_project_facts.py --force`
+→ Neues Repo erkannt? → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
+
 ### 0.4 Aktuelles Workspace-Repo + Kern-Repos synchronisieren
 
 // turbo
