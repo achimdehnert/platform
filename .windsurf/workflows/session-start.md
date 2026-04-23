@@ -5,12 +5,13 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 # /session-start
 
 > Gegenstück: `/session-ende`
-> **Pfade:** Alle Scripts nutzen `$GITHUB_DIR` — einmal pro Maschine setzen:
+> **Neuer Computer?** Einmalig Bootstrap ausführen — danach funktioniert alles automatisch:
 > ```bash
-> # In ~/.bashrc oder ~/.zshrc:
-> export GITHUB_DIR="$HOME/github"          # WSL / Linux Standard
-> export GITHUB_DIR="$HOME/CascadeProjects" # Dev Desktop (adehnert)
+> git clone https://github.com/achimdehnert/platform
+> bash platform/bootstrap.sh
+> source ~/.bashrc
 > ```
+> `bootstrap.sh` setzt `GITHUB_DIR`, deployt Workflows + Rules, generiert project-facts.
 > Ohne `$GITHUB_DIR` gilt Fallback: `$HOME/github`
 
 ---

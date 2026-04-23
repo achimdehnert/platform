@@ -4,6 +4,22 @@ Zentrales Meta-Repo für alle 41+ Repos des IIL Platform-Ökosystems:
 Architektur-Entscheidungen (ADRs), geteilte CI/CD-Workflows, Governance-Tooling,
 Repo-Registry und Windsurf-Rules.
 
+## Quick Start — Neuer Computer / neue Session
+
+**Einmalig nach dem Klonen:**
+```bash
+git clone https://github.com/achimdehnert/platform
+bash platform/bootstrap.sh
+source ~/.bashrc
+```
+
+`bootstrap.sh` richtet automatisch ein:
+- `GITHUB_DIR` in `~/.bashrc`
+- Windsurf-Workflows + Rules als Symlinks in alle lokalen Repos
+- `project-facts.md` für alle Repos
+
+Danach in Windsurf: `/session-start` zum Synchronisieren.
+
 ## Struktur
 
 ```
