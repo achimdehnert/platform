@@ -44,7 +44,7 @@ For existing repos, run `reflex review` first to diagnose what's missing:
 
 // turbo
 ```bash
-cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME>
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME>
 ```
 
 This gives a structured list of findings (BLOCK/WARN/INFO). Focus on:
@@ -70,7 +70,7 @@ Then execute only the relevant steps below — skip steps where the repo already
 For baseline management on first compliance run:
 
 ```bash
-cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
 ```
 
 ---
@@ -822,24 +822,24 @@ dev = [
 
 // turbo
 ```bash
-cd ~/github/iil-reflex && .venv/bin/python -m reflex init \
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex init \
     --hub <REPO_NAME> \
     --tier <TIER> \
     --port <PORT> \
-    --output ~/github/<REPO_NAME>/reflex.yaml
+    --output ${GITHUB_DIR:-$HOME/github}/<REPO_NAME>/reflex.yaml
 ```
 
 **6.7.3 .reflex/ Verzeichnis anlegen:**
 
 ```bash
-mkdir -p ~/github/<REPO_NAME>/.reflex
+mkdir -p ${GITHUB_DIR:-$HOME/github}/<REPO_NAME>/.reflex
 ```
 
 **6.7.4 Initial Baseline setzen:**
 
 // turbo
 ```bash
-cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
 ```
 
 **6.7.5 .gitignore prüfen — .reflex/ NICHT ignorieren:**
@@ -849,7 +849,7 @@ cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --in
 
 ```bash
 # Sicherstellen dass .reflex/ NICHT in .gitignore steht:
-grep -q "^\.reflex" ~/github/<REPO_NAME>/.gitignore && \
+grep -q "^\.reflex" ${GITHUB_DIR:-$HOME/github}/<REPO_NAME>/.gitignore && \
     echo "WARNUNG: .reflex/ ist in .gitignore — entfernen!" || \
     echo "OK: .reflex/ wird committed"
 ```
@@ -966,7 +966,7 @@ After manual checklist, run automated verification:
 
 // turbo
 ```bash
-cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --fail-on block
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --fail-on block
 ```
 
 **Acceptance criteria:**
@@ -978,7 +978,7 @@ If BLOCK findings remain, fix them before considering onboarding complete.
 For compliance mode — compare against initial diagnostic:
 
 ```bash
-cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME>
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME>
 # Should show 0 new findings vs baseline
 ```
 
@@ -987,7 +987,7 @@ cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME>
 Once all BLOCKs are resolved, save baseline for future delta tracking:
 
 ```bash
-cd ~/github/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
 ```
 
 This ensures future `reflex review` runs only report NEW regressions.

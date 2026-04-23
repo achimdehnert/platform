@@ -89,7 +89,7 @@ Bevor irgendetwas implementiert wird:
 
 // turbo
 ```bash
-bash ~/github/platform/scripts/sync-repo.sh
+bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-repo.sh
 ```
 
 Synct WSL-Checkout mit GitHub (Single Source of Truth).
@@ -97,8 +97,8 @@ Cascade schreibt gleichzeitig lokal (filesystem MCP) und remote (GitHub MCP) —
 ohne Sync divergieren Repos und jeder `git pull` schlägt fehl.
 
 Varianten:
-- Alle Repos: `bash ~/github/platform/scripts/sync-repo.sh --all`
-- Inkl. Server: `bash ~/github/platform/scripts/sync-repo.sh --full`
+- Alle Repos: `bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-repo.sh --all`
+- Inkl. Server: `bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-repo.sh --full`
 
 **Fallback bei Shell-Hang:** `mcp0_git_manage(action: pull, repo_path: <path>, host: 88.99.38.75)`
 
@@ -231,7 +231,7 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 - [ ] Neues ADR angelegt falls Architektur-Entscheidung getroffen
 - [ ] `/knowledge-capture` ausgeführt falls neues Wissen entstanden (ADR-145)
 - [ ] Auch **mid-session** Lessons Learned erfassen wenn Root Cause gefunden wird
-- [ ] Repo syncen: `bash ~/github/platform/scripts/sync-repo.sh`
+- [ ] Repo syncen: `bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-repo.sh`
 
 ---
 

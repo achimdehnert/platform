@@ -15,7 +15,7 @@ Stattdessen TCP-Probe auf SSH (22), HTTP (80), HTTPS (443):
 
 // turbo
 ```bash
-python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
+python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --host 88.198.191.108
 ```
 
 → Wenn Server **NICHT erreichbar**: STOPP. Kein MCP-Call wird funktionieren.

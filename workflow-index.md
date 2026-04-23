@@ -231,4 +231,4 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 ---
 
 *Workflow Index v1.4 — Platform Coding Agent System | 2026-03-15*
-*Alle Workflows: `~/github/platform/.windsurf/workflows/`*
+*Alle Workflows: `${GITHUB_DIR:-$HOME/github}/platform/.windsurf/workflows/`*

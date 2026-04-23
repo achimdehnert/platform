@@ -5,7 +5,13 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 # /session-start
 
 > Gegenstück: `/session-ende`
-> Zwei Umgebungen: **WSL** (`/home/dehnert/github/`) und **Dev Desktop** (`/home/devuser/github/`)
+> **Pfade:** Alle Scripts nutzen `$GITHUB_DIR` — einmal pro Maschine setzen:
+> ```bash
+> # In ~/.bashrc oder ~/.zshrc:
+> export GITHUB_DIR="$HOME/github"          # WSL / Linux Standard
+> export GITHUB_DIR="$HOME/CascadeProjects" # Dev Desktop (adehnert)
+> ```
+> Ohne `$GITHUB_DIR` gilt Fallback: `$HOME/github`
 
 ---
 
@@ -34,7 +40,7 @@ TCP-Probe auf SSH (22), HTTP (80), HTTPS (443) stattdessen:
 
 // turbo
 ```bash
-python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
+python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --host 88.198.191.108
 ```
 
 → **Server erreichbar**: Normal weiter mit Phase 0.2
@@ -47,14 +53,14 @@ python3 ~/github/platform/infra/scripts/server_probe.py --host 88.198.191.108
 
 // turbo
 ```bash
-cd ~/github/platform && git pull --rebase --quiet
+cd ${GITHUB_DIR:-$HOME/github}/platform && git pull --rebase --quiet
 ```
 
 ### 0.3 Workflow-Symlinks aktualisieren
 
 // turbo
 ```bash
-GITHUB_DIR=~/github bash ~/github/platform/scripts/sync-workflows.sh 2>&1 | grep -E "LINK|REPLACE|WARN" | head -20
+GITHUB_DIR=~/github bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh 2>&1 | grep -E "LINK|REPLACE|WARN" | head -20
 ```
 → Stellt sicher, dass alle Repos die aktuellen Workflows haben.
 → Neue Workflows in platform werden automatisch verteilt.
@@ -63,10 +69,10 @@ GITHUB_DIR=~/github bash ~/github/platform/scripts/sync-workflows.sh 2>&1 | grep
 
 // turbo
 ```bash
-python3 ~/github/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️|SKIP" | wc -l | xargs -I{} echo "{} Repos verarbeitet"
+python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️|SKIP" | wc -l | xargs -I{} echo "{} Repos verarbeitet"
 ```
 → Generiert/aktualisiert `.windsurf/rules/project-facts.md` für alle Repos (nur fehlende).
-→ Mit `--force` für Neu-Generierung aller: `python3 ~/github/platform/scripts/gen_project_facts.py --force`
+→ Mit `--force` für Neu-Generierung aller: `python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py --force`
 → Neues Repo erkannt? → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
 
 ### 0.4 Aktuelles Workspace-Repo + Kern-Repos synchronisieren
@@ -80,7 +86,7 @@ git stash pop --quiet 2>/dev/null
 
 # Kern-Repos (MCP-Infrastruktur)
 for repo in mcp-hub platform risk-hub; do
-  (cd ~/github/$repo && git pull --rebase --quiet 2>/dev/null) &
+  (cd ${GITHUB_DIR:-$HOME/github}/$repo && git pull --rebase --quiet 2>/dev/null) &
 done
 wait
 echo "Git Sync done"
@@ -93,14 +99,14 @@ echo "Git Sync done"
 // turbo
 ```bash
 # REFLEX auf aktuelle Version bringen
-cd ~/github/iil-reflex && git pull --rebase --quiet 2>/dev/null
-REFLEX_VER=$(cd ~/github/iil-reflex && .venv/bin/python -c "import reflex; print(reflex.__version__)" 2>/dev/null || echo "?")
+cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && git pull --rebase --quiet 2>/dev/null
+REFLEX_VER=$(cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -c "import reflex; print(reflex.__version__)" 2>/dev/null || echo "?")
 echo "REFLEX v${REFLEX_VER}"
 
 # Aktuelles Workspace-Repo prüfen (nur wenn reflex.yaml vorhanden)
 REPO_NAME=$(basename $(git rev-parse --show-toplevel 2>/dev/null) 2>/dev/null)
-if [ -f ~/github/${REPO_NAME}/reflex.yaml ]; then
-  cd ~/github/iil-reflex && .venv/bin/python -m reflex review all ${REPO_NAME} --fail-on block --emit-metrics 2>&1 | tail -8
+if [ -f ${GITHUB_DIR:-$HOME/github}/${REPO_NAME}/reflex.yaml ]; then
+  cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all ${REPO_NAME} --fail-on block --emit-metrics 2>&1 | tail -8
 else
   echo "ℹ️  ${REPO_NAME}: kein reflex.yaml — übersprungen"
 fi
@@ -133,7 +139,7 @@ fi
 
 // turbo
 ```bash
-bash ~/github/mcp-hub/scripts/verify-adr156.sh
+bash ${GITHUB_DIR:-$HOME/github}/mcp-hub/scripts/verify-adr156.sh
 ```
 → Muss `ALL 21 CHECKS PASSED` zeigen.
 → Bei Fehlern: MCP-Server neustarten, dann erneut prüfen.
