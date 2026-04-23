@@ -22,7 +22,7 @@ import yaml
 
 SCRIPT_DIR = Path(__file__).parent
 REGISTRY_FILE = SCRIPT_DIR / "repo-registry.yaml"
-GITHUB = Path("/home/devuser/github")
+GITHUB = Path(os.environ.get("GITHUB_DIR", Path.home() / "github"))
 WORKFLOWS_SRC = GITHUB / "platform" / ".windsurf" / "workflows"
 RULES_SRC = GITHUB / "platform" / ".windsurf" / "rules"
 
