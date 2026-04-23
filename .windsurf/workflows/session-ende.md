@@ -5,8 +5,20 @@ description: Session beenden — Wissen in Outline sichern, Memory updaten
 # /session-ende
 
 > Gegenstück: `/session-start`
-> Zwei Umgebungen: **WSL** (`/home/dehnert/github/`) und **Dev Desktop** (`/home/devuser/github/`)
 > **Der User muss NICHTS auflisten.** Der Agent scannt die Session autonom.
+
+---
+
+## Platform Sync Loop (Prinzip)
+
+```
+Session Start:  GitHub ──pull──▶ platform ──sync──▶ alle Repos  (aktuell starten)
+Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sync──▶ alle Repos  (sofort deployen)
+```
+
+> **Jede Verbesserung an Workflows, Rules oder Scripts landet nach der Session
+> automatisch platform-weit in ALLEN Repos — beim nächsten Session-Start.**
+> GitHub ist die einzige Source of Truth. Lokale Pfade sind irrelevant.
 
 ---
 
@@ -179,20 +191,35 @@ find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 -name "*.fixed" -o -name "*.update
 ```
 → Falls vorhanden: Prüfen ob übernommen, dann löschen. Falls NICHT übernommen → User warnen.
 
-### 3.2 Platform-Workflows + project-facts verteilen (falls platform geändert wurde)
+### 3.2 Platform-Workflows + project-facts verteilen (IMMER — kein Conditional)
 
-```bash
-# Nur wenn platform/.windsurf/workflows/ geändert wurde:
-cd ${GITHUB_DIR:-$HOME/github}/platform && git diff --name-only HEAD~1 | grep -q ".windsurf/workflows/" && \
-  GITHUB_DIR=~/github bash scripts/sync-workflows.sh 2>&1 | grep -cE "LINK|REPLACE"
-```
-→ Stellt sicher, dass Workflow-Änderungen sofort in alle Repos propagiert werden.
+> ⚠️ **PFLICHT — nicht überspringen.** Dieser Schritt stellt sicher, dass Verbesserungen
+> sofort platform-weit aktiv sind. Egal ob etwas geändert wurde oder nicht.
 
+// turbo
 ```bash
-# project-facts.md für alle Repos aktualisieren (fehlende ergänzen)
-python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py 2>&1 | grep -E "✅|⚠️" | head -10
+# 1. Platform-Repo committen + pushen (falls geändert)
+cd ${GITHUB_DIR:-$HOME/github}/platform
+if [ -n "$(git status --porcelain)" ]; then
+  git add -A
+  git commit -m "chore(platform): session-ende $(date +%Y-%m-%d) — rules/workflows sync"
+  git push
+  echo "✅ platform gepusht"
+else
+  echo "ℹ️  platform: kein Commit nötig"
+fi
+
+# 2. Workflows an ALLE Repos verteilen (Symlinks aktualisieren)
+GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
+  bash "${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh" \
+  2>&1 | grep -cE "LINK|REPLACE" | xargs -I{} echo "{} Workflow-Symlinks aktualisiert"
+
+# 3. project-facts.md für alle Repos aktualisieren
+python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
+  2>&1 | grep -E "✅|⚠️" | head -10
 ```
-→ Stellt sicher, dass neue Repos während der Session automatisch erkannt werden.
+
+→ **Ergebnis**: Nächster `session-start` auf JEDER Maschine hat automatisch die aktuellen Rules + Workflows.
 → Unregistrierte Repos (⚠️) → in `platform/scripts/repo-registry.yaml` eintragen.
 
 ### 3.3 Finale Prüfung — Kein Repo darf dirty sein
@@ -231,7 +258,7 @@ mcp1_push_files(owner: "achimdehnert", repo: "<repo>", branch: "main",
 | 2 | pgvector Session-Summary gespeichert | ☐ |
 | 3 | Error-Patterns erfasst (falls Bug-Fix) | ☐ |
 | 4 | Alle Repos committed + pushed | ☐ |
-| 5 | Workflow-Symlinks aktuell | ☐ |
+| 5 | Platform gepusht → Workflows sync → project-facts aktuell | ☐ |
 | 6 | Kein Repo dirty | ☐ |
 | 7 | Keine .fixed/.updated Dateien übrig | ☐ |
 | 8 | Blockierte Arbeit dokumentiert | ☐ |
