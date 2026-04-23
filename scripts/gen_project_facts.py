@@ -27,7 +27,16 @@ WORKFLOWS_SRC = GITHUB / "platform" / ".windsurf" / "workflows"
 RULES_SRC = GITHUB / "platform" / ".windsurf" / "rules"
 
 # Global rules distributed to ALL repos as symlinks
-GLOBAL_RULES = ["mcp-tools.md", "reviewer.md"]
+GLOBAL_RULES = [
+    "mcp-tools.md",
+    "reviewer.md",
+    "platform-principles.md",
+    "iil-packages.md",
+    "testing.md",
+    "django-models-views.md",
+    "docker-deployment.md",
+    "htmx-templates.md",
+]
 
 
 # ── Registry ─────────────────────────────────────────────────────────────────
@@ -287,3 +296,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+# NOTE: GLOBAL_RULES is defined at module level above — update it there
