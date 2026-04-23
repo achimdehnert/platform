@@ -30,11 +30,21 @@ Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sy
 
 ## Phase 0: Tool-Health + Umgebung synchronisieren (IMMER zuerst)
 
-### 0.0 Version-Banner + Shell Health-Check (PFLICHT — allererster Schritt)
+### 0.0 GITHUB_DIR sicherstellen + Version-Banner (PFLICHT — allererster Schritt)
 
 // turbo
 ```bash
-PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+# GITHUB_DIR in ~/.bashrc eintragen falls noch nicht vorhanden
+if ! grep -q "GITHUB_DIR" ~/.bashrc 2>/dev/null; then
+  echo "" >> ~/.bashrc
+  echo "# Platform: Repo-Basisverzeichnis (Single Source of Truth)" >> ~/.bashrc
+  echo "export GITHUB_DIR=\"\$HOME/github\"" >> ~/.bashrc
+  echo "⚙️  GITHUB_DIR in ~/.bashrc eingetragen (Wert: \$HOME/github)"
+  echo "   → Anpassen falls Repos woanders liegen, z.B.: GITHUB_DIR=\$HOME/CascadeProjects"
+fi
+export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
+
+PLATFORM_DIR="${GITHUB_DIR}/platform"
 VERSION_BEFORE=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
 COMMIT_BEFORE=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
 echo ""

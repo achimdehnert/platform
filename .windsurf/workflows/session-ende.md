@@ -26,12 +26,20 @@ Session Ende:   Änderungen ──commit──▶ push ──▶ GitHub ──sy
 
 // turbo
 ```bash
-PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+# GITHUB_DIR sicherstellen (analog session-start)
+if ! grep -q "GITHUB_DIR" ~/.bashrc 2>/dev/null; then
+  echo "" >> ~/.bashrc
+  echo "export GITHUB_DIR=\"\$HOME/github\"" >> ~/.bashrc
+  echo "⚙️  GITHUB_DIR in ~/.bashrc eingetragen"
+fi
+export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
+
+PLATFORM_DIR="${GITHUB_DIR}/platform"
 VERSION_BEFORE=$(cat "$PLATFORM_DIR/VERSION" 2>/dev/null || echo "unknown")
 COMMIT_BEFORE=$(git -C "$PLATFORM_DIR" log -1 --format="%h" 2>/dev/null || echo "?")
 echo ""
 echo "┌─────────────────────────────────────────┐"
-echo "│  � uDEA6 SESSION ENDE                      │"
+echo "│  🏁 SESSION ENDE                        │"
 echo "│  Platform v${VERSION_BEFORE} (${COMMIT_BEFORE})        │"
 echo "│  $(date '+%Y-%m-%d %H:%M')                       │"
 echo "└─────────────────────────────────────────┘"

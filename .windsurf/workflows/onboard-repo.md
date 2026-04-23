@@ -24,7 +24,7 @@ Determine the mode based on whether the repo already exists:
 
 ```python
 # Automatic detection:
-repo_path = Path.home() / "github" / repo_name
+repo_path = Path(os.environ.get("GITHUB_DIR", Path.home() / "github")) / repo_name
 if (repo_path / ".git").exists():
     mode = "compliance"   # Existing repo → diagnose + fix
 else:
@@ -75,6 +75,32 @@ cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review a
 
 ---
 
+## Step 0.0: GITHUB_DIR + Platform-Umgebung sicherstellen (PFLICHT — allererster Schritt)
+
+> Läuft auf der **Entwickler-Maschine**, NICHT auf dem Server.
+> Stellt sicher, dass alle Tools und Pfade stimmen, bevor das Repo angelegt wird.
+
+// turbo
+```bash
+# 1. GITHUB_DIR sicherstellen
+if ! grep -q "GITHUB_DIR" ~/.bashrc 2>/dev/null; then
+  echo "" >> ~/.bashrc
+  echo "export GITHUB_DIR=\"\$HOME/github\"" >> ~/.bashrc
+  echo "⚙️  GITHUB_DIR in ~/.bashrc eingetragen — ggf. auf tatsächlichen Pfad anpassen"
+fi
+export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
+echo "✅ GITHUB_DIR=${GITHUB_DIR}"
+
+# 2. Platform-Repo aktuell?
+git -C "${GITHUB_DIR}/platform" pull --rebase --quiet && echo "✅ platform aktuell"
+
+# 3. Repo-Verzeichnis vorhanden?
+REPO_NAME="<REPO_NAME>"  # ← hier einsetzen
+ls "${GITHUB_DIR}/${REPO_NAME}" 2>/dev/null && echo "ℹ️  Repo existiert lokal (compliance mode)" || echo "ℹ️  Repo noch nicht lokal (new mode)"
+```
+
+---
+
 ## Step 0.1: Gather Information
 
 Ask the user:
@@ -95,7 +121,7 @@ Port wird **automatisch** ermittelt — KEINE manuelle Port-Map mehr nötig:
 
 // turbo
 ```bash
-python /home/dehnert/github/platform/infra/scripts/port_audit.py --next-free
+python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/port_audit.py --next-free
 ```
 
 Den ausgegebenen Port als `prod` UND `staging` in `ports.yaml` eintragen.
@@ -105,19 +131,19 @@ Staging-Port = Prod-Port (gleicher Port auf verschiedenen Servern, ADR-157).
 
 // turbo
 ```bash
-python /home/dehnert/github/platform/infra/scripts/port_audit.py --offline
+python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/port_audit.py --offline
 ```
 
 **Dann Nginx-Configs generieren:**
 
 ```bash
-python /home/dehnert/github/platform/infra/scripts/nginx_gen.py --service <REPO_NAME>
+python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/nginx_gen.py --service <REPO_NAME>
 ```
 
 **Dann DNS anlegen** (Cloudflare, via Local Script — ADR-156 §8):
 
 ```bash
-CLOUDFLARE_API_TOKEN=<token> python /home/dehnert/github/platform/infra/scripts/dns_staging_sync.py --apply
+CLOUDFLARE_API_TOKEN=<token> python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/dns_staging_sync.py --apply
 ```
 
 **Dann Registry eintragen:**
@@ -754,7 +780,7 @@ Füge das neue Repo in `platform/registry/repos.yaml` ein:
 Füge das Repo in `mcp-hub/orchestrator_mcp/local_tools.py` hinzu:
 
 ```python
-"<REPO>": "/home/dehnert/github/<REPO>",
+"<REPO>": "${GITHUB_DIR:-$HOME/github}/<REPO>",
 ```
 
 ### 6.3 Deploy-Workflow aktualisieren
@@ -883,6 +909,59 @@ In `.github/workflows/ci-cd.yml` einen Review-Step hinzufügen:
 └── ...
 ```
 
+### 6.8 Windsurf Platform-Integration (PFLICHT — neues Repo weiß sofort alles)
+
+> Dieser Schritt stellt sicher, dass das neue Repo automatisch alle Platform-Workflows,
+> Rules und Context erhält — ohne manuelle Kopien. Einmalig ausführen, danach läuft
+> alles über den Session-Start/Ende-Loop.
+
+// turbo
+```bash
+REPO_NAME="<REPO_NAME>"  # ← hier einsetzen
+REPO_PATH="${GITHUB_DIR:-$HOME/github}/${REPO_NAME}"
+
+# 1. Repo in repo-registry.yaml eintragen (falls noch nicht drin)
+grep -q "name: ${REPO_NAME}" "${GITHUB_DIR:-$HOME/github}/platform/scripts/repo-registry.yaml" \
+  && echo "ℹ️  ${REPO_NAME} bereits in registry" \
+  || echo "⚠️  Bitte ${REPO_NAME} manuell in platform/scripts/repo-registry.yaml eintragen"
+
+# 2. .windsurf/ Verzeichnis anlegen
+mkdir -p "${REPO_PATH}/.windsurf/workflows"
+echo "✅ .windsurf/workflows/ angelegt"
+
+# 3. Workflow-Symlinks verteilen (dieses Repo bekommt alle UNIVERSAL-Workflows)
+GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
+  bash "${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh" "${REPO_NAME}" \
+  2>&1 | grep -E "LINK|REPLACE|WARN" | head -20
+echo "✅ Workflow-Symlinks deployed"
+
+# 4. project-facts.md generieren (Cascade weiß ab sofort Repo-Kontext)
+python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
+  --repo "${REPO_NAME}" 2>/dev/null \
+  || python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
+  2>&1 | grep -E "${REPO_NAME}|✅|⚠️"
+echo "✅ project-facts.md generiert"
+
+# 5. Ergebnis prüfen
+ls "${REPO_PATH}/.windsurf/workflows/" | wc -l | xargs -I{} echo "{} Workflows verfügbar"
+ls "${REPO_PATH}/.windsurf/rules/project-facts.md" 2>/dev/null && echo "✅ project-facts.md vorhanden" || echo "⚠️  project-facts.md fehlt — manuell anlegen"
+```
+
+**Was das Repo danach hat:**
+- `.windsurf/workflows/` mit Symlinks → immer aktuelle Platform-Workflows
+- `.windsurf/rules/project-facts.md` → Cascade kennt Repo-spezifischen Kontext
+- Automatische Updates bei jedem `session-ende` via sync-loop
+
+**Manuell in `repo-registry.yaml` eintragen** (falls `grep` oben ⚠️ zeigte):
+```yaml
+# platform/scripts/repo-registry.yaml
+- name: <REPO_NAME>
+  type: django_hub   # oder: package, platform, infra
+  description: "<1-Satz-Beschreibung>"
+```
+
+---
+
 ## Step 7: Verifikation
 
 ### Checkliste (ALLE Punkte müssen grün sein)
@@ -958,6 +1037,12 @@ CI/CD:
   [ ] Push auf main triggert CI (grün)
   [ ] CD deployt auf Server
   [ ] Kein core.sshCommand in .git/config (ADR-060)
+
+Platform-Integration (Step 6.8):
+  [ ] Repo in repo-registry.yaml eingetragen
+  [ ] .windsurf/workflows/ mit Symlinks vorhanden (≥10 Workflows)
+  [ ] .windsurf/rules/project-facts.md vorhanden
+  [ ] Nächster session-start synct Workflows automatisch
 ```
 
 ### REFLEX Review Gate (PFLICHT — ADR-165)
