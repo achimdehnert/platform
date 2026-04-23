@@ -15,7 +15,7 @@ Fallback auf Directory-Scan.
 Zeige welche Repos betroffen wären und was sich ändern würde:
 
 ```bash
-PYTHONPATH=/home/devuser/github/platform/packages/docs-agent/src python -m docs_agent.cli reference-all /home/devuser/github --dry-run
+PYTHONPATH=${GITHUB_DIR:-$HOME/github}/platform/packages/docs-agent/src python -m docs_agent.cli reference-all $HOME/github --dry-run
 ```
 
 ### 2. Ergebnis-Tabelle auswerten
@@ -39,7 +39,7 @@ Frage den User:
 ### 4. Schreiben (wenn bestätigt)
 
 ```bash
-PYTHONPATH=/home/devuser/github/platform/packages/docs-agent/src python -m docs_agent.cli reference-all /home/devuser/github --commit
+PYTHONPATH=${GITHUB_DIR:-$HOME/github}/platform/packages/docs-agent/src python -m docs_agent.cli reference-all $HOME/github --commit
 ```
 
 ### 5. Varianten anbieten
@@ -48,24 +48,24 @@ Falls der User nicht alles will, Optionen zeigen:
 
 **Nur Django-Projekte (mit apps/ oder manage.py):**
 ```bash
-PYTHONPATH=/home/devuser/github/platform/packages/docs-agent/src python -m docs_agent.cli reference-all /home/devuser/github --only-django --commit
+PYTHONPATH=${GITHUB_DIR:-$HOME/github}/platform/packages/docs-agent/src python -m docs_agent.cli reference-all $HOME/github --only-django --commit
 ```
 
 **Bestimmte Repos überspringen:**
 ```bash
-PYTHONPATH=/home/devuser/github/platform/packages/docs-agent/src python -m docs_agent.cli reference-all /home/devuser/github --skip odoo-hub,testkit --commit
+PYTHONPATH=${GITHUB_DIR:-$HOME/github}/platform/packages/docs-agent/src python -m docs_agent.cli reference-all $HOME/github --skip odoo-hub,testkit --commit
 ```
 
 **JSON-Output (für CI/Scripting):**
 ```bash
-PYTHONPATH=/home/devuser/github/platform/packages/docs-agent/src python -m docs_agent.cli reference-all /home/devuser/github --output json
+PYTHONPATH=${GITHUB_DIR:-$HOME/github}/platform/packages/docs-agent/src python -m docs_agent.cli reference-all $HOME/github --output json
 ```
 
 ### 6. Git Status prüfen
 
 // turbo
 ```bash
-cd /home/devuser/github && for d in */docs/reference; do repo=$(dirname $(dirname "$d")); changes=$(git -C "$repo" status --short docs/reference/ 2>/dev/null); [ -n "$changes" ] && echo "=== $repo ===" && echo "$changes"; done
+cd $HOME/github && for d in */docs/reference; do repo=$(dirname $(dirname "$d")); changes=$(git -C "$repo" status --short docs/reference/ 2>/dev/null); [ -n "$changes" ] && echo "=== $repo ===" && echo "$changes"; done
 ```
 
 ### 7. Optional: Batch-Commit
@@ -73,13 +73,13 @@ cd /home/devuser/github && for d in */docs/reference; do repo=$(dirname $(dirnam
 Falls gewünscht, alle Repos mit Änderungen committen:
 
 ```bash
-cd /home/devuser/github && for d in */docs/reference; do repo=$(dirname $(dirname "$d")); changes=$(git -C "$repo" status --short docs/reference/ 2>/dev/null); if [ -n "$changes" ]; then git -C "$repo" add docs/reference/ && git -C "$repo" commit -m "docs: update reference docs (models, api, config)"; echo "Committed: $repo"; fi; done
+cd $HOME/github && for d in */docs/reference; do repo=$(dirname $(dirname "$d")); changes=$(git -C "$repo" status --short docs/reference/ 2>/dev/null); if [ -n "$changes" ]; then git -C "$repo" add docs/reference/ && git -C "$repo" commit -m "docs: update reference docs (models, api, config)"; echo "Committed: $repo"; fi; done
 ```
 
 ### 8. Optional: Batch-Push
 
 ```bash
-cd /home/devuser/github && for d in */docs/reference; do repo=$(dirname $(dirname "$d")); if git -C "$repo" log origin/main..HEAD --oneline 2>/dev/null | grep -q "reference docs"; then git -C "$repo" push origin main && echo "Pushed: $repo"; fi; done
+cd $HOME/github && for d in */docs/reference; do repo=$(dirname $(dirname "$d")); if git -C "$repo" log origin/main..HEAD --oneline 2>/dev/null | grep -q "reference docs"; then git -C "$repo" push origin main && echo "Pushed: $repo"; fi; done
 ```
 
 ## Repo-Erkennung

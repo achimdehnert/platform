@@ -12,7 +12,7 @@ Dieser Workflow liest die Inbox, erkennt rohe/unvollständige Ideen und füllt s
 - **Inbox Collection ID**: `b9c34816-3068-460f-8647-d4b4b58ca608`
 - **Template ID**: `7be08775-4ca5-4baf-a9e8-5926012a7f64`
 - **Outline URL**: https://knowledge.iil.pet
-- **MCP**: outline-knowledge (mcp12_search_knowledge, mcp12_get_document, mcp12_update_document)
+- **MCP**: outline-knowledge (<outline-mcp>_search_knowledge, <outline-mcp>_get_document, <outline-mcp>_update_document)
 
 ## Workflow-Schritte
 
@@ -21,10 +21,10 @@ Dieser Workflow liest die Inbox, erkennt rohe/unvollständige Ideen und füllt s
 Suche alle Dokumente in der Inbox Collection:
 
 ```
-mcp12_search_knowledge(query="*", collection="b9c34816-3068-460f-8647-d4b4b58ca608")
+<outline-mcp>_search_knowledge(query="*", collection="b9c34816-3068-460f-8647-d4b4b58ca608")
 ```
 
-Alternativ `mcp12_list_recent(collection="b9c34816-3068-460f-8647-d4b4b58ca608")`.
+Alternativ `<outline-mcp>_list_recent(collection="b9c34816-3068-460f-8647-d4b4b58ca608")`.
 
 ### 2. Rohe Ideen identifizieren
 
@@ -34,7 +34,7 @@ Für jedes Dokument prüfen:
 - **Vollständig** = Alle Template-Felder ausgefüllt → überspringen
 - **Template selbst** = Titel enthält "Template" → überspringen
 
-Dokument mit `mcp12_get_document(document_id=...)` vollständig laden.
+Dokument mit `<outline-mcp>_get_document(document_id=...)` vollständig laden.
 
 ### 3. Kontext recherchieren
 
@@ -42,7 +42,7 @@ Für jede rohe Idee:
 
 a) **Hub erkennen**: Aus dem Satz Keywords extrahieren (risk, trading, travel, cad, pptx, wedding, billing, coach, illustration, weltenhub)
 b) **Bestehenden Code prüfen**: `mcp14_get_project_facts(repo_name=...)` für erkannten Hub
-c) **Verwandte ADRs suchen**: `mcp12_search_knowledge(query="[Idee-Keywords]")` in ADRs/Konzepten
+c) **Verwandte ADRs suchen**: `<outline-mcp>_search_knowledge(query="[Idee-Keywords]")` in ADRs/Konzepten
 d) **Priorität einschätzen**: Basierend auf Komplexität und Abhängigkeiten
 
 ### 4. Template ausfüllen
@@ -84,7 +84,7 @@ Für jede rohe Idee ein vollständiges Dokument generieren:
 ### 5. Outline-Dokument aktualisieren
 
 ```
-mcp12_update_document(document_id=..., content=..., title=...)
+<outline-mcp>_update_document(document_id=..., content=..., title=...)
 ```
 
 - Titel verbessern (aussagekräftig)

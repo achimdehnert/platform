@@ -35,7 +35,7 @@ Bei Fehlern → **sofort stoppen**, Developer benachrichtigen. Kein Weiter.
 
 ```python
 # Via platform-context MCP
-mcp12_check_violations(code_snippet=<diff>, file_type=<file_type>)
+<platform-context-mcp>_check_violations(code_snippet=<diff>, file_type=<file_type>)
 ```
 
 Prüft gegen alle aktiven ADR-Regeln:
@@ -51,7 +51,7 @@ Bei Verletzung → Kommentar auf PR + Block.
 ## Step 3: Platform-Patterns (Gate 1 — blockierend)
 
 ```python
-mcp12_get_banned_patterns(context="all")
+<platform-context-mcp>_get_banned_patterns(context="all")
 ```
 
 Prüft auf bekannte Anti-Patterns:

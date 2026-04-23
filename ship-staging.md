@@ -21,7 +21,7 @@ Ermittle die Deploy-Parameter:
 python -c "
 import yaml
 from pathlib import Path
-p = Path('/home/dehnert/github/platform/infra/ports.yaml')
+p = Path('${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml')
 d = yaml.safe_load(p.read_text())
 for name, cfg in sorted(d.get('services',{}).items()):
     if cfg and cfg.get('staging'):
@@ -34,7 +34,7 @@ for name, cfg in sorted(d.get('services',{}).items()):
 
 // turbo
 ```bash
-python /home/dehnert/github/platform/infra/scripts/port_audit.py --offline
+python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/port_audit.py --offline
 ```
 
 **Abbruch wenn:** Exit-Code != 0.
@@ -44,8 +44,8 @@ python /home/dehnert/github/platform/infra/scripts/port_audit.py --offline
 ## Step 1 — Branch + Status verifizieren
 
 ```bash
-git -C /home/dehnert/github/{scope} branch --show-current
-git -C /home/dehnert/github/{scope} status --short
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} branch --show-current
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} status --short
 ```
 
 Erwartung: Branch = `main`, keine uncommitted Änderungen.
@@ -56,7 +56,7 @@ Erwartung: Branch = `main`, keine uncommitted Änderungen.
 
 // turbo
 ```bash
-git -C /home/dehnert/github/{scope} push origin main
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 ```
 
 ---

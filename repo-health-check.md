@@ -118,7 +118,7 @@ grep -A5 '^on:' .github/workflows/test.yml
 
 Mit GitHub MCP prüfen:
 ```
-mcp7_get_file_contents(owner, repo, path="/") → prüfe response auf description != null
+<github-mcp>_get_file_contents *(Prefix aus mcp-tools.md)*(owner, repo, path="/") → prüfe response auf description != null
 ```
 
 **BLOCK:**

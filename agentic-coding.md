@@ -141,7 +141,7 @@ MCP: evaluate_task(
     task_id,
     completion_score,     # aus verify_task.score
     guardian_passed,      # aus Step 4
-    adr_violations,       # aus mcp12_check_violations
+    adr_violations,       # aus <platform-context-mcp>_check_violations
     iterations_used,      # Anzahl Implementierungs-Iterationen
     tokens_used,          # geschätzt aus Kontext
     complexity,

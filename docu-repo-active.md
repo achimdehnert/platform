@@ -25,13 +25,13 @@ Merke dir den Pfad als `REPO_PATH` und den Ordnernamen als `REPO_NAME`.
 Zeige welche Dateien sich ändern würden:
 
 ```bash
-cd /home/devuser/github/platform && python -m docs_agent.cli reference "$REPO_PATH" --dry-run
+cd ${GITHUB_DIR:-$HOME/github}/platform && python -m docs_agent.cli reference "$REPO_PATH" --dry-run
 ```
 
 Falls `docs_agent` nicht direkt aufrufbar ist, nutze den Pfad:
 
 ```bash
-PYTHONPATH=/home/devuser/github/platform/packages/docs-agent/src python -m docs_agent.cli reference "$REPO_PATH" --dry-run
+PYTHONPATH=${GITHUB_DIR:-$HOME/github}/platform/packages/docs-agent/src python -m docs_agent.cli reference "$REPO_PATH" --dry-run
 ```
 
 ### 3. User-Bestätigung
@@ -43,7 +43,7 @@ Frage den User:
 ### 4. Schreiben (wenn bestätigt)
 
 ```bash
-PYTHONPATH=/home/devuser/github/platform/packages/docs-agent/src python -m docs_agent.cli reference "$REPO_PATH" --commit
+PYTHONPATH=${GITHUB_DIR:-$HOME/github}/platform/packages/docs-agent/src python -m docs_agent.cli reference "$REPO_PATH" --commit
 ```
 
 ### 5. Git Status prüfen
