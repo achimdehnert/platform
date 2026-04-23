@@ -15,13 +15,13 @@ Erkennt Abweichungen zwischen den 4 Wahrheitsquellen der Platform:
 1. **repos.json laden**
 // turbo
 ```
-Lies /home/dehnert/github/mcp-hub/platform_context_mcp/graph/repos.json
+Lies ${GITHUB_DIR:-$HOME/github}/mcp-hub/platform_context_mcp/graph/repos.json
 ```
 
 2. **ports.yaml laden**
 // turbo
 ```
-Lies /home/dehnert/github/platform/infra/ports.yaml
+Lies ${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml
 ```
 
 3. **Port-Drift prüfen**

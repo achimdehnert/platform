@@ -15,7 +15,7 @@ Prüft Views, Templates, URLs, DNS, Health — repo-agnostisch für alle Django-
 
 ## Voraussetzungen
 
-- Repo-Pfad bekannt (z.B. `/home/dehnert/github/trading-hub`)
+- Repo-Pfad bekannt (z.B. `${GITHUB_DIR:-$HOME/github}/trading-hub`)
 - Production-URL bekannt (z.B. `https://trading-hub.iil.pet`)
 - `mcp5_get_project_facts` für repo-spezifische Infos aufrufen
 

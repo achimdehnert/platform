@@ -86,9 +86,9 @@ Falls `estimated_seconds > 60`: User darauf hinweisen dass der Deploy im Hinterg
 **KEIN auto-run. User-Bestätigung vor Push erforderlich.**
 
 ```bash
-git -C /home/dehnert/github/{scope} branch --show-current
-git -C /home/dehnert/github/{scope} status
-git -C /home/dehnert/github/{scope} diff --stat HEAD
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} branch --show-current
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} status
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} diff --stat HEAD
 ```
 
 Erwartung: Branch = `main`, keine uncommitted WIP-Änderungen.
@@ -102,7 +102,7 @@ Erwartung: Branch = `main`, keine uncommitted WIP-Änderungen.
 
 // turbo
 ```bash
-python /home/dehnert/github/platform/infra/scripts/port_audit.py --offline
+python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/port_audit.py --offline
 ```
 
 Erwartung: Exit-Code 0 (keine Duplikate in ports.yaml).
@@ -116,7 +116,7 @@ Erst nach User-Bestätigung aus Schritt 1:
 
 // turbo
 ```bash
-git -C /home/dehnert/github/{scope} push origin main
+git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 ```
 
 ---

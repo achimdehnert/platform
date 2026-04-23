@@ -67,7 +67,7 @@ cd src && python manage.py migrate --check 2>&1
 
 // turbo
 ```bash
-cd /home/dehnert/github/platform && python infra/scripts/port_audit.py
+cd ${GITHUB_DIR:-$HOME/github}/platform && python infra/scripts/port_audit.py
 ```
 
 - [ ] Keine Duplikate in `ports.yaml`

@@ -39,7 +39,7 @@ description: Deploy any app to production (bfagent, cad-hub, travel-beat, etc.)
    - `has_migrations`: `true` oder `false`
 
 ### 2. Service deployen (Agent / Cascade)
-Verwende `mcp7_cicd_manage` mit `action: dispatch`:
+Verwende `<deployment-mcp>_cicd_manage` *(Prefix aus mcp-tools.md)* mit `action: dispatch`:
 ```
 owner: achimdehnert
 repo: infra-deploy
@@ -47,7 +47,7 @@ workflow_id: deploy-service.yml
 ref: main
 inputs: {service: "travel-beat", image_tag: "latest", has_migrations: "false"}
 ```
-Dann Status pollen mit `mcp7_cicd_manage` → `action: run_status`.
+Dann Status pollen mit `<deployment-mcp>_cicd_manage` *(Prefix aus mcp-tools.md)* → `action: run_status`.
 
 ---
 

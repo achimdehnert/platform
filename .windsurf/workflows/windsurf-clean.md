@@ -68,7 +68,7 @@ Nach erfolgreichem Reconnect sollten 3-5 Prozesse laufen (normal).
 Wenn das Problem wiederholt auftritt, einmalig den vollen Fix ausführen:
 
 ```bash
-scp /home/dehnert/github/platform/docs/adr/inputs/fix-windsurf-remote.sh hetzner-dev:~/
+scp ${GITHUB_DIR:-$HOME/github}/platform/docs/adr/inputs/fix-windsurf-remote.sh hetzner-dev:~/
 ssh hetzner-dev 'bash ~/fix-windsurf-remote.sh'
 ```
 

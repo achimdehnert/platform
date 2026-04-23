@@ -10,7 +10,7 @@ Erstellt temporären Test-User + Test-Projekt (idempotent), testet alle URLs + C
 ## Voraussetzungen
 
 - Dev-Server muss NICHT laufen (Django Test Client läuft direkt)
-- Arbeitsverzeichnis: `/home/dehnert/github/writing-hub`
+- Arbeitsverzeichnis: `${GITHUB_DIR:-$HOME/github}/writing-hub`
 
 ---
 
@@ -18,7 +18,7 @@ Erstellt temporären Test-User + Test-Projekt (idempotent), testet alle URLs + C
 
 // turbo
 ```bash
-cd /home/dehnert/github/writing-hub && python manage.py shell -c "
+cd ${GITHUB_DIR:-$HOME/github}/writing-hub && python manage.py shell -c "
 from django.contrib.auth import get_user_model
 from apps.projects.models import BookProject, ContentTypeLookup, GenreLookup
 
@@ -47,7 +47,7 @@ print(f'CREATED={created}')
 
 // turbo
 ```bash
-cd /home/dehnert/github/writing-hub && python manage.py shell -c "
+cd ${GITHUB_DIR:-$HOME/github}/writing-hub && python manage.py shell -c "
 from django.urls import reverse
 from apps.projects.models import BookProject
 
@@ -87,7 +87,7 @@ print(f'=== {len(routes) - len(errors)}/{len(routes)} URL-Reverses OK ===')
 
 // turbo
 ```bash
-cd /home/dehnert/github/writing-hub && python manage.py shell -c "
+cd ${GITHUB_DIR:-$HOME/github}/writing-hub && python manage.py shell -c "
 from django.test import Client
 from apps.projects.models import BookProject
 
@@ -147,7 +147,7 @@ else:
 
 // turbo
 ```bash
-cd /home/dehnert/github/writing-hub && python manage.py shell -c "
+cd ${GITHUB_DIR:-$HOME/github}/writing-hub && python manage.py shell -c "
 from django.test import Client
 from apps.projects.models import BookProject, ResearchNote
 
@@ -192,7 +192,7 @@ print('=== CSRF-Test abgeschlossen ===')
 ## Schritt 4: Aufräumen (optional)
 
 ```bash
-cd /home/dehnert/github/writing-hub && python manage.py shell -c "
+cd ${GITHUB_DIR:-$HOME/github}/writing-hub && python manage.py shell -c "
 from django.contrib.auth import get_user_model
 from apps.projects.models import BookProject
 

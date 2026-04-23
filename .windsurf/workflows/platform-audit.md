@@ -357,11 +357,11 @@ ${GITHUB_DIR:-$HOME/github}/platform/audits/platform-audit-{YYYY-MM-DD}.md
 ### 5.2 In Outline sichern
 
 ```
-mcp12_search_knowledge(query="Platform Audit Report")
+<outline-mcp>_search_knowledge(query="Platform Audit Report")
 ```
 
-- **Erster Audit**: `mcp12_create_concept(title="Platform Audit Report — {DATUM}", content=report)`
-- **Folge-Audits**: `mcp12_update_document(document_id=..., content=report)` — Trend-Abschnitt aktualisieren
+- **Erster Audit**: `<outline-mcp>_create_concept(title="Platform Audit Report — {DATUM}", content=report)`
+- **Folge-Audits**: `<outline-mcp>_update_document(document_id=..., content=report)` — Trend-Abschnitt aktualisieren
 
 ### 5.3 GitHub Issues erstellen (optional)
 

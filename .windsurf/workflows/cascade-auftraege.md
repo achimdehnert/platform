@@ -15,7 +15,7 @@ description: Cascade-Aufträge aus Outline abarbeiten — Triage via Comments, B
 ## Step 1: Offene Aufträge + Comments laden
 
 ```
-MCP: mcp12_list_recent(collection="97a74c51-6c4e-4871-a2b0-a85255b8c916", limit=20)
+MCP: <outline-mcp>_list_recent(collection="97a74c51-6c4e-4871-a2b0-a85255b8c916", limit=20)
 ```
 
 Für jeden Auftrag Comments lesen (Outline API):
@@ -102,8 +102,8 @@ einen Status-Comment posten:
 ### 3d: Quell-Dokument + Anweisung lesen
 
 ```
-MCP: mcp12_get_document(document_id="<auftrag-id>")
-MCP: mcp12_get_document(document_id="<quell-dokument-id>")
+MCP: <outline-mcp>_get_document(document_id="<auftrag-id>")
+MCP: <outline-mcp>_get_document(document_id="<quell-dokument-id>")
 ```
 
 ### 3e: Action ausführen
@@ -162,7 +162,7 @@ curl -s -X POST .../api/documents.update \
 ### 5b: Dokument-Text mit Ergebnis aktualisieren
 
 ```
-MCP: mcp12_update_document(document_id, content="<Text + Ergebnis>")
+MCP: <outline-mcp>_update_document(document_id, content="<Text + Ergebnis>")
 ```
 
 ### 5c: Auftrag archivieren

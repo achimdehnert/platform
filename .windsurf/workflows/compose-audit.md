@@ -24,7 +24,7 @@ mcp0_ssh_manage(action="exec", host="88.198.191.108", command="find /opt -maxdep
    - [ ] DB-Image kompatibel (postgres:15 oder postgres:16, NICHT mischen)
 
 3. **Port-Abgleich mit ports.yaml**
-   - Vergleiche Host-Ports mit `/home/dehnert/github/platform/infra/ports.yaml`
+   - Vergleiche Host-Ports mit `${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml`
    - Melde Abweichungen
 
 4. **Report erstellen**

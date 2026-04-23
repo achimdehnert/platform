@@ -52,4 +52,4 @@ mcp0_system_manage(action="nginx_reload", host="88.198.191.108")
 
 ## Referenzen
 - Lesson Learned (Nginx IPv6): `88e79861-a37f-43a7-9086-25335281176f`
-- ports.yaml: `/home/dehnert/github/platform/infra/ports.yaml`
+- ports.yaml: `${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml`
