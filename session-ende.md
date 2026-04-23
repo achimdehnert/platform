@@ -41,48 +41,81 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 
 ## Phase 1b: Docu-Drift-Check (automatisch — NEU 2026-04-23)
 
-Für jedes **in dieser Session geänderte Repo** automatisch prüfen:
+**Einmal am Session-Ende — scannt ALLE in dieser Session geänderten Repos.**
+
+### Schritt 1: Alle angefassten Repos der Session ermitteln
 
 ```bash
-REPO=$(git rev-parse --show-toplevel 2>/dev/null)
-REPO_NAME=$(basename "$REPO")
-
-# Trigger-Bedingungen prüfen
-VER_CODE=$(grep -r '__version__\|^version' "$REPO/pyproject.toml" 2>/dev/null | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-VER_README=$(head -10 "$REPO/README.md" 2>/dev/null | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-CL_ENTRIES=$(head -15 "$REPO/CHANGELOG.md" 2>/dev/null | grep -c '\[.*\]' || echo 0)
-NEW_PY=$(git -C "$REPO" diff --name-only HEAD~1 2>/dev/null | grep -c '\.py$' || echo 0)
-
-echo "Repo: $REPO_NAME | v_code=$VER_CODE | v_readme=$VER_README | cl=$CL_ENTRIES | new_py=$NEW_PY"
+# Alle Repos mit Commits in den letzten 8h (= diese Session)
+for repo in ~/github/*/; do
+  [[ "$(basename $repo)" == *.* ]] && continue
+  last=$(git -C "$repo" log --since="8 hours ago" --oneline 2>/dev/null | wc -l)
+  [ "$last" -gt 0 ] && echo "$(basename $repo)"
+done
 ```
 
-**Issue automatisch erstellen wenn EINES der folgenden zutrifft:**
-
-| Bedingung | Bedeutung |
-|-----------|-----------|
-| `v_code != v_readme` | README-Version veraltet |
-| `cl_entries == 0` | CHANGELOG noch leer |
-| `new_py > 0` AND kein Outline-Eintrag | neues Modul, undokumentiert |
-
+→ Ergibt Liste aller aktiven Repos dieser Session, z.B.:
 ```
-Falls Trigger zutrifft:
+iil-reflex
+platform
+risk-hub
+```
+
+### Schritt 2: Docu-Drift pro Repo prüfen
+
+Für **jeden** Repo aus der Liste:
+
+```bash
+for REPO_NAME in <liste-aus-schritt-1>; do
+  REPO=~/github/$REPO_NAME
+
+  VER_CODE=$(grep -r '__version__\|^version' "$REPO/pyproject.toml" 2>/dev/null \
+             | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  VER_README=$(head -10 "$REPO/README.md" 2>/dev/null \
+               | grep -oP '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+  CL_ENTRIES=$(head -15 "$REPO/CHANGELOG.md" 2>/dev/null | grep -c '\[.*\]' 2>/dev/null || echo 0)
+  NEW_PY=$(git -C "$REPO" log --since="8 hours ago" --name-only --pretty="" 2>/dev/null \
+           | grep -c '\.py$' || echo 0)
+
+  echo "$REPO_NAME | v_code=$VER_CODE | v_readme=$VER_README | cl=$CL_ENTRIES | new_py=$NEW_PY"
+done
+```
+
+### Schritt 3: Issues erstellen (nur bei Trigger)
+
+**Trigger-Regeln** — Issue erstellen wenn EINES zutrifft:
+
+| Bedingung | Trigger | Kein Issue wenn |
+|-----------|---------|-----------------|
+| `v_code != v_readme` | README-Version veraltet | `v_code` leer (kein Python-Package) |
+| `cl_entries == 0` | CHANGELOG leer | nur Infra/Skript-Repo ohne pyproject.toml |
+| `new_py >= 1` | neue .py Datei in Session | nur Tests (`test_*.py`) |
+
+**Duplikat-Schutz** — immer zuerst prüfen:
+```
+mcp1_list_issues(owner: "achimdehnert", repo: "platform",
+  labels: ["docu-update"], state: "open")
+→ Nur erstellen wenn KEIN Issue "[docu-update] <REPO_NAME>" bereits offen.
+```
+
+**Issue erstellen:**
+```
 mcp1_create_issue(
-  owner: "achimdehnert",
-  repo: "platform",
-  title: "[docu-update] <REPO_NAME> — <Grund>",
-  body: "Automatisch erkannt in session-ende.\n\nTrigger: <was ausgelöst hat>\n\nAcceptance Criteria:\n- [ ] README.md Version = <VER_CODE>\n- [ ] CHANGELOG.md hat Eintrag\n- [ ] Outline-Eintrag aktuell\n- [ ] Platform-Übersicht aktualisiert",
+  owner: "achimdehnert", repo: "platform",
+  title: "[docu-update] <REPO_NAME> — <Trigger-Grund>",
+  body: "Automatisch erkannt via session-ende Phase 1b.\n\n
+Trigger: <v_code != v_readme | cl leer | neue .py>\n\n
+Acceptance Criteria:\n
+- [ ] README.md Version = <VER_CODE>\n
+- [ ] CHANGELOG.md hat Eintrag für v<VER_CODE>\n
+- [ ] Outline-Eintrag vorhanden + aktuell\n
+- [ ] Platform-Übersicht aktualisiert (❌→✅)\n
+- [ ] git commit + push",
   labels: ["documentation", "docu-update", "automated"]
 )
 ```
 
-→ **Kein Issue erstellen** wenn: nur Tests geändert, nur Bug-Fix ohne API-Änderung, Issue für dieses Repo bereits offen.
-
-→ Vorher prüfen ob bereits ein offenes Issue existiert:
-```
-mcp1_list_issues(owner: "achimdehnert", repo: "platform",
-  labels: ["docu-update"], state: "open")
-→ Nur erstellen wenn kein Issue mit "[docu-update] <REPO_NAME>" bereits offen.
-```
+→ **`platform`-Repo selbst**: kein docu-update Issue — platform ist Meta-Repo.
 
 ---
 
