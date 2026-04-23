@@ -1,164 +1,133 @@
 # Agent Handover — Platform Infra Context
 
 **Pflicht-Lektüre beim Session-Start jedes Coding-Agents.**
-Enthält alle Infra-Zugänge, MCP-Tool-Mappings und Deploy-Targets.
+Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referenz.
+
+> **Stand: April 2026** — Symlink-basiertes Rules-System, 41 Repos, 7 MCP-Server
 
 ---
 
-## 1. MCP-Server & ihre Fähigkeiten
+## 1. MCP-Server & Prefixes (aktuell)
 
-| MCP-Server | Windsurf-Prefix | Zweck |
-|---|---|---|
-| `deployment-mcp` | `mcp5_` | SSH, Docker, Git, DB, DNS, SSL auf Hetzner |
-| `orchestrator` | `mcp11_` | Agent-Team, Task-Planung, QA-Loop, Kosten |
-| `platform-context` | `mcp12_` | ADR-Compliance, Banned-Patterns, Architektur |
-| `github` | `mcp8_` | Issues, PRs, Repos, Branches, Reviews |
-| `cloudflare-api` | `mcp_cloudflare_` | DNS, Zones, Tunnels, Security |
+| Prefix | MCP-Server | Zweck |
+|--------|-----------|-------|
+| `mcp0_` | **deployment-mcp** | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx, CI/CD |
+| `mcp1_` | **github** | Issues, PRs, Repos, Branches, Files, Reviews, Search |
+| `mcp2_` | **orchestrator** | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint |
+| `mcp3_` | **outline-knowledge** | Wiki: Runbooks, Konzepte, Lessons, ADR-Suche |
+| `mcp4_` | **paperless-docs** | Dokumente, Rechnungen, Archive |
+| `mcp5_` | **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
+| `mcp6_` | **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
+
+**Wichtigste Tool-Calls:**
+- SSH/Server: `mcp0_ssh_manage(host, command)`
+- Docker: `mcp0_docker_manage(action, repo)`
+- GitHub: `mcp1_create_issue`, `mcp1_get_pull_request`
+- Memory: `mcp2_agent_memory_context(task_description, top_k=5)`
+- Wiki: `mcp3_search_knowledge(query, limit=10)`
+- Architektur: `mcp5_get_context_for_task(repo, file_type)`
+- Deploy-Status: `mcp2_deploy_check(action="health", repo=...)`
 
 ---
 
 ## 2. Hetzner Infrastructure
 
-| Rolle | Host | IP | User |
-|---|---|---|---|
-| **Prod-Server** | `hetzner-prod` | `88.198.191.108` | `deploy` |
-| **Dev-Server** | `hetzner-dev` | via ProxyJump hetzner-prod | `deploy` |
+| Rolle | IP | User |
+|-------|-----|------|
+| **Prod-Server** | `88.198.191.108` | `root` (via SSH-Key) |
+| **Dev-Server (WSL)** | `localhost` | `devuser` |
 
-**SSH-Zugang:** via `deployment-mcp` → `mcp5_ssh_manage`
-- Read-only auf Prod direkt; Deploys via `scripts/ship.sh` oder CI/CD
-- `mcp5_ssh_manage(host="hetzner-prod", command="...")`
+**Kritische Regeln:**
+- `devuser` hat **KEIN sudo-Passwort** → System-Pakete: `ssh root@localhost "apt-get install -y <pkg>"`
+- PROD: nur read-only via MCP — Deploys über `scripts/ship.sh` oder CI/CD
+- **NIEMALS** `ping` für Server-Check — Hetzner blockiert ICMP. TCP-Check stattdessen.
 
-**Docker:** via `mcp5_docker_manage`
-- `action="compose_ps"`, `action="compose_up"`, `action="compose_logs"`
-
----
-
-## 3. Deploy Targets (alle auf 88.198.191.108)
-
-| Repo | Pfad | Health-URL | Domain |
-|---|---|---|---|
-| `coach-hub` | `/opt/coach-hub` | `https://kiohnerisiko.de/healthz/` | kiohnerisiko.de |
-| `billing-hub` | `/opt/billing-hub` | `https://billing.iil.pet/healthz/` | billing.iil.pet |
-| `travel-beat` | `/opt/travel-beat` | `https://drifttales.de/healthz/` | drifttales.de |
-| `weltenhub` | `/opt/weltenhub` | `https://weltenforger.com/healthz/` | weltenforger.com |
-| `trading-hub` | `/opt/trading-hub` | `https://ai-trades.de/healthz/` | ai-trades.de |
-| `cad-hub` | `/opt/cad-hub` | `https://nl2cad.de/healthz/` | nl2cad.de |
-| `pptx-hub` | `/opt/pptx-hub` | `https://prezimo.de/healthz/` | prezimo.de |
-| `risk-hub` | `/opt/risk-hub` | `https://risk-hub.iil.pet/healthz/` | risk-hub.iil.pet |
-| `ausschreibungs-hub` | `/opt/ausschreibungs-hub` | `https://bieterpilot.de/healthz/` | bieterpilot.de |
-
-**Deploy-Workflow:** immer via `mcp11_deploy_check` prüfen, nie direkt docker auf Prod.
+**Secrets:**
+- Lokal: `/home/devuser/shared/secrets/` (31 Dateien: openai_api_key, groq_api_key, ...)
+- Server: `/opt/shared-secrets/api-keys.env` (chmod 600, root-only)
+- Repo-spezifisch: `.env.prod` (nie in Git)
 
 ---
 
-## 4. Cloudflare
+## 3. Deploy Targets (Prod — 88.198.191.108)
 
-**Zugang:** via `cloudflare-api` MCP-Server (API-Keys hinterlegt in Windsurf-Secrets)
+| Repo | Domain | Health |
+|------|--------|--------|
+| `risk-hub` | schutztat.de | https://schutztat.de/healthz/ |
+| `coach-hub` | kiohnerisiko.de | https://kiohnerisiko.de/healthz/ |
+| `billing-hub` | billing.iil.pet | https://billing.iil.pet/healthz/ |
+| `travel-beat` | travel-beat.iil.pet | https://travel-beat.iil.pet/healthz/ |
+| `weltenhub` | weltenforger.com | https://weltenforger.com/healthz/ |
+| `trading-hub` | trading-hub.iil.pet | https://trading-hub.iil.pet/healthz/ |
+| `cad-hub` | nl2cad.de | https://nl2cad.de/healthz/ |
+| `pptx-hub` | prezimo.com | https://prezimo.com/healthz/ |
+| `ausschreibungs-hub` | bieterpilot.de | https://bieterpilot.de/healthz/ |
+| `dms-hub` | dms.iil.pet | https://dms.iil.pet/healthz/ |
+| `wedding-hub` | wedding-hub.iil.pet | https://wedding-hub.iil.pet/healthz/ |
 
-Verwaltete Domains:
-- `iil.pet` — Platform-Domains (billing, risk-hub, mcp-hub)
-- `kiohnerisiko.de` — coach-hub
-- `drifttales.de` — travel-beat
-- `weltenforger.com` — weltenhub
-- `ai-trades.de` — trading-hub
-- `nl2cad.de` — cad-hub
-- `prezimo.de` — pptx-hub
-- `bieterpilot.de` — ausschreibungs-hub
-
-**Tunnel:** Cloudflare Tunnels für alle Prod-Domains aktiv.
-DNS-Änderungen via `mcp_cloudflare_` Tools — kein manueller Zugang nötig.
-
----
-
-## 5. GitHub
-
-**Org/User:** `achimdehnert`
-**Zugang:** via `github` MCP-Server (`mcp8_`)
-
-Alle Repos: `bfagent`, `billing-hub`, `cad-hub`, `coach-hub`, `dev-hub`,
-`illustration-hub`, `mcp-hub`, `nl2cad`, `odoo-hub`, `platform`, `pptx-hub`,
-`risk-hub`, `trading-hub`, `travel-beat`, `wedding-hub`, `weltenhub`, `137-hub`,
-`ausschreibungs-hub`
-
-Package-Repos (PyPI): `aifw`, `authoringfw`, `promptfw`, `weltenfw`,
-`illustration-fw`, `testkit`, `platform` (django-tenancy)
+**Deploy-Befehl:** `bash ~/github/platform/scripts/ship.sh <repo>`
+**Health-Check:** `mcp2_deploy_check(action="health", repo="<repo>")`
 
 ---
 
-## 6. Stripe / Payment Agent
+## 4. Master Repo Identifier
 
-**Zugang:** Stripe API-Keys in Windsurf-Secrets + `/opt/billing-hub/.env` auf Prod
+**Alle 41 Repos in einer Registry:**
 
-| Was | Wert |
-|---|---|
-| billing-hub Prod | `/opt/billing-hub` auf 88.198.191.108 |
-| Health-URL | `https://billing.iil.pet/healthz/` |
-| Stripe Webhook | `POST https://billing.iil.pet/api/webhook/stripe/` |
-| Keys Prod | `/opt/billing-hub/.env` (STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET) |
-| Keys lokal | `billing-hub/.env` (nie committen — in Windsurf-Secrets) |
-
-**Price IDs: noch ausstehend** — müssen im Stripe Dashboard angelegt werden.
-Danach sofort ausführen:
 ```bash
-# via mcp5_ssh_manage:
-cd /opt/billing-hub
-docker compose -f docker-compose.prod.yml exec web \
-  python manage.py setup_plans --stripe-monthly=price_xxx --stripe-yearly=price_xxx
+# project-facts.md für alle Repos generieren (nur fehlende)
+python3 ~/github/platform/scripts/gen_project_facts.py
+
+# Alle neu generieren
+python3 ~/github/platform/scripts/gen_project_facts.py --force
+
+# Einzelnes Repo
+python3 ~/github/platform/scripts/gen_project_facts.py risk-hub
 ```
 
-**Payment Agent aktivieren:** `mcp11_get_payment_context()` — liefert vollständigen Stripe-Kontext.
-
-**Regeln:**
-- STRIPE_SECRET_KEY NIEMALS im Code oder in Logs
-- Gate-2 vor jeder Stripe-Konfigurationsänderung
-- Webhook-Signatur muss verifiziert werden (STRIPE_WEBHOOK_SECRET)
-- Nach jeder Änderung: `mcp11_deploy_check(action='health', repo='billing-hub')`
+- Registry: `platform/scripts/repo-registry.yaml`
+- Output: `<repo>/.windsurf/rules/project-facts.md` (trigger: always_on)
+- Läuft automatisch bei `/session-start` (Step 0.3b) und `/session-ende` (Phase 3.2)
 
 ---
 
-## 7. MCP-Tool Quick-Reference für Deployment
+## 5. Windsurf Rules — Global (9 Dateien)
 
-```python
-# Health-Check eines Repos
-mcp11_deploy_check(action="health", repo="weltenhub")
+Alle in `platform/.windsurf/rules/` → via Symlinks in alle 40 Repos:
 
-# Container-Status auf Prod
-mcp11_deploy_check(action="status", repo="weltenhub")
-
-# SSH-Command auf Prod (read-only)
-mcp5_ssh_manage(host="hetzner-prod", action="execute",
-                command="docker compose -f /opt/weltenhub/docker-compose.prod.yml ps")
-
-# Docker Compose Logs
-mcp5_docker_manage(host="hetzner-prod", action="compose_logs",
-                   path="/opt/weltenhub", service="web", tail=50)
-
-# DNS-Eintrag prüfen (Cloudflare)
-mcp_cloudflare_dns_list(zone="weltenforger.com")
-
-# GitHub PR kommentieren
-mcp8_add_issue_comment(owner="achimdehnert", repo="weltenhub",
-                       issue_number=42, body="Deploy status: ...")
 ```
+mcp-tools.md          # MCP-Server mcp0_–mcp6_ Referenz
+reviewer.md           # Code-Review Standards, verbotene Patterns
+platform-principles.md # Architektur-Vertrag (Service Layer, DB-First, HTMX)
+iil-packages.md       # aifw, promptfw, authoringfw, weltenfw, nl2cadfw
+testing.md            # test_should_*, pytest, Factory Boy
+django-models-views.md # Service Layer, ORM-Regeln
+docker-deployment.md  # Docker, Compose, Deploy, env_file
+htmx-templates.md     # hx-target, hx-indicator, data-testid
+project-facts.md      # Repo-spezifisch (generiert)
+```
+
+Rules verteilen: `GITHUB_DIR=~/github bash ~/github/platform/scripts/sync-workflows.sh`
+Rules neu generieren: `python3 ~/github/platform/scripts/gen_project_facts.py --force`
 
 ---
 
-## 7. Wichtige Regeln
+## 6. GitHub
 
-- **Prod-Server WRITE:** Nur via `scripts/ship.sh` oder GitHub Actions CI/CD
-- **Direkte DB-Änderungen auf Prod:** NIEMALS — nur via Migrations
-- **API-Keys:** Alle in Windsurf-Secrets hinterlegt — nie im Code hardcoden
-- **Gate-2 Deployments:** Immer `mcp11_request_approval` vor Prod-Deploy
-- **Nach jedem Deploy:** `mcp11_deploy_check(action="health", repo=...)` ausführen
+**Account:** `achimdehnert`
+**MCP:** `mcp1_*` für alle GitHub-Operationen
+**Reusable Workflows:** `achimdehnert/platform/.github/workflows/_ci-python.yml` etc.
+
+**Repo-Kategorien:**
+- **Django Hubs** (22): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, mcp-hub, 137-hub, bfagent, tax-hub
+- **Python Libraries** (14): aifw, authoringfw, promptfw, illustration-fw, learnfw, weltenfw, outlinefw, researchfw, testkit, iil-reflex, iil-ingest, iil-enrichment, iil-fieldprefill, nl2cad
+- **Infra** (5): platform, mcp-hub, infra-deploy, iil-relaunch, lastwar-bot
 
 ---
 
-## 8. Session-Start Checklist (Agent)
+## 7. pgvector Memory (Orchestrator)
 
-```
-1. Diese Datei lesen ✓
-2. mcp11_agent_team_status() → aktueller Team-Stand
-3. mcp11_deploy_check(action="targets") → Deploy-Konfiguration
-4. mcp11_get_infra_context() → vollständiger Infra-Kontext (MCP-Tool)
-5. Offene Issues prüfen: mcp8_list_issues(owner="achimdehnert", repo=<repo>)
-```
+- Tunnel: `localhost:15435` → Prod pgvector
+- Prüfen: `ss -tlnp | grep 15435`
+- Starten (no sudo): `ssh -N -L 15435:127.0.0.1:15435 -i ~/.ssh/id_ed25519 root@88.198.191.108 &`
+- **Kein Fallback auf Cascade Memory** — pgvector MUSS laufen

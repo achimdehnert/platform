@@ -1,120 +1,116 @@
 # BF Agent Platform
 
-Shared packages, reusable CI/CD workflows, governance tooling, and architecture documentation for the BF Agent ecosystem.
+Zentrales Meta-Repo für alle 41+ Repos des IIL Platform-Ökosystems:
+Architektur-Entscheidungen (ADRs), geteilte CI/CD-Workflows, Governance-Tooling,
+Repo-Registry und Windsurf-Rules.
 
 ## Struktur
 
 ```
 platform/
-├── packages/              # 22 shared Python packages
-├── agents/                # Autonomous governance agents (guardian, drift_detector, adr_scribe, ...)
-├── docs/adr/              # 90+ Architecture Decision Records (MADR 4.0)
-├── .github/workflows/     # 25 reusable CI/CD workflows (_ci-python, _build-docker, _deploy-unified, ...)
-├── tools/                 # repo_checker, check_htmx_patterns, check_design_tokens
-├── scripts/               # Ops/infra scripts (ship.sh, sync-repo.sh, adr_next_number, ...)
-├── governance-deploy/     # Standalone governance Django app
-├── deployment/            # Docker Compose templates, systemd units
-└── concepts/              # Architecture concept docs
+├── docs/adr/              # 149 Architecture Decision Records (MADR 4.0)
+├── docs/concepts/         # Architektur-Konzepte, Guides, Referenz
+├── .github/workflows/     # Reusable CI/CD Workflows (_ci-python, _build-docker, _deploy-*)
+├── .windsurf/
+│   ├── rules/             # 9 globale Rules (always_on) → Symlinks in alle Repos
+│   └── workflows/         # 50+ Windsurf-Workflows (/session-start, /deploy, /adr, ...)
+├── scripts/               # Ops-Scripts (gen_project_facts.py, sync-workflows.sh, ship.sh, ...)
+├── agents/                # Governance-Agents (guardian, adr_scribe, context_reviewer)
+├── concepts/              # Konzept-Dokumente
+├── deployment/            # Docker Compose Templates, systemd Units
+├── governance-deploy/     # Governance Django App
+├── infra/                 # Infrastruktur-Konfiguration
+├── orchestrator_mcp/      # MCP Orchestrator Module
+├── registry/              # Repo-Registry (Metadaten)
+├── scripts/               # Ops + Infra Scripts
+├── shared/                # Geteilte Ressourcen
+├── shared_contracts/      # Cross-Repo Python Contracts (Events, Schemas)
+├── static-sites/          # iil.pet Landing Page
+├── tools/                 # Dev-Tools (repo_checker, htmx-checker, bf-deploy CLI)
+└── _ARCHIVED/             # Archivierte Monorepo-Artefakte (packages/, docs-infrastructure/)
 ```
 
-## Packages
+## Repo-Registry (Master Identifier)
 
-| Package | Version | Beschreibung |
-|---------|---------|--------------|
-| `platform-context` | 0.7.0 | Core Django foundation (Context, Health, Audit, Outbox, Tenancy, HTMX) |
-| `iil-platform` | 1.0.0 | Umbrella for Context, Commons, Tenancy |
-| `iil-django-commons` | 0.3.0 | Shared backend services (Logging, Caching, Pagination) |
-| `bfagent-core` | 0.2.0 | BFAgent-spezifische Core-Komponenten (Auth, Permissions, Models) |
-| `bfagent-llm` | 1.0.1 | LiteLLM-Backend + DB-driven Model-Routing (ADR-089) |
-| `creative-services` | 0.3.0 | LLM Client, Adapters, Story/Character/World-Generierung |
-| `django-tenancy` | 0.1.0 | Subdomain-basierte Multi-Tenancy |
-| `django-module-shop` | 0.2.0 | Reusable Django module catalogue & subscription management |
-| `chat-agent` | 0.1.0 | Domain-agnostic Chat-Agent mit Tool-Use Loop |
-| `docs-agent` | 0.2.0 | AI-assisted Documentation Quality Agent (AST scanner, DIATA) |
-| `doc-templates` | 0.3.0 | Reusable Django document template system |
-| `concept-templates` | 0.5.0 | Structured concept extraction, PDF, schemas |
-| `content-store` | 0.1.0 | AI-generated content persistence (ADR-050) |
-| `hub-identity` | 0.1.0 | Hub Visual & Language Identity System |
-| `platform-notifications` | 0.1.0 | Multi-Channel Notification Registry (ADR-088) |
-| `dvelop-client` | 0.1.0 | Python client for d.velop DMS REST API |
-| `task_scorer` | 0.1.0 | Task-Scoring und Routing-Engine (ADR-023) |
-| `mcp-governance` | 0.1.0 | MCP Tool Governance & Service Discovery |
-| `inception-mcp` | 0.1.0 | MCP Server for DDL Inception — AI-driven Business Cases |
-| `outline-mcp` | 0.2.0 | MCP Server for Outline Wiki |
-| `sphinx-export` | — | Sphinx → Markdown Export |
-| `cad-services` | — | IFC/DXF CAD-Verarbeitung (stub) |
-
-## Installation
+**Single Source of Truth für alle 41 Repos:**
 
 ```bash
-# Core foundation
-pip install -e packages/platform-context
+# project-facts.md für alle Repos generieren/aktualisieren
+python3 scripts/gen_project_facts.py
 
-# BFAgent-spezifische Komponenten
-pip install -e packages/bfagent-core
+# Force-Regenerate alle
+python3 scripts/gen_project_facts.py --force
 
-# LLM-Services (mit optionalen Providern)
-pip install -e "packages/creative-services[openai,anthropic]"
+# Einzelnes Repo
+python3 scripts/gen_project_facts.py risk-hub
 ```
 
-## Deployed Services
+Registry-Datei: `scripts/repo-registry.yaml`
 
-| Service | Brand | URL | Status |
-|---------|-------|-----|--------|
-| bfagent | BF Agent | https://bfagent.iil.pet | ✅ Production |
-| risk-hub | Schutztat | https://schutztat.de | ✅ Production |
-| travel-beat | DriftTales | https://drifttales.com | ✅ Production |
-| weltenhub | Weltenforger | https://weltenforger.com | ✅ Production |
-| dev-hub | DevHub | https://devhub.iil.pet | ✅ Production |
-| pptx-hub | Prezimo | https://prezimo.com | ✅ Production |
-| coach-hub | KI ohne Risiko | https://kiohnerisiko.de | ✅ Production |
-| trading-hub | — | https://trading-hub.iil.pet | ✅ Production |
-| wedding-hub | — | https://wedding-hub.iil.pet | ✅ Production |
-| ausschreibungs-hub | — | https://ausschreibungs-hub.iil.pet | ✅ Production |
-| billing-hub | — | https://billing-hub.iil.pet | ✅ Production |
-| cad-hub | nl2cad | https://nl2cad.de | ⏸ Gestoppt |
+## Windsurf Rules (Global)
 
-## Tech Stack
+Alle Repos erhalten diese Rules automatisch als Symlinks:
 
-| Bereich | Technologie |
-|---------|-------------|
-| Framework | Django 5.x |
-| APIs | DRF (dev-hub) / Django Ninja (risk-hub) |
-| Frontend | HTMX + TailwindCSS |
-| Datenbank | PostgreSQL 16 + pgvector |
-| Async | Celery + Redis |
-| Build | Hatchling (pyproject.toml) |
-| Lint/Format | Ruff |
-| Tests | pytest + pytest-django + factory-boy |
-| Container | Docker (non-root, healthchecks in Compose) |
-| Secrets | SOPS |
-| CI/CD | GitHub Actions + Self-hosted Runner (Hetzner) |
-| Proxy | Nginx |
+| Rule | Trigger | Inhalt |
+|------|---------|--------|
+| `project-facts.md` | always_on | Repo-spezifische Fakten (Port, DB, URL) |
+| `mcp-tools.md` | always_on | MCP-Server mcp0_–mcp6_ Referenz |
+| `reviewer.md` | always_on | Code-Review Standards + verbotene Patterns |
+| `platform-principles.md` | always_on | Architektur-Vertrag (Service Layer, DB-First) |
+| `iil-packages.md` | always_on | iil-Package Ökosystem (aifw, promptfw, ...) |
+| `testing.md` | always_on | Test-Naming, pytest, Factory Boy |
+| `django-models-views.md` | always_on | Django Service Layer Regeln |
+| `docker-deployment.md` | always_on | Docker/Compose/Deploy Regeln |
+| `htmx-templates.md` | always_on | HTMX Playbook (hx-target, hx-indicator, ...) |
 
-## Architecture Decision Records
+Rules verteilen: `GITHUB_DIR=~/github bash scripts/sync-workflows.sh`
 
-90+ ADRs im MADR 4.0 Format — alle Architekturentscheidungen sind dokumentiert.
+## Reusable CI/CD Workflows
 
-```bash
-# Nächste freie ADR-Nummer ermitteln
-python3 scripts/adr_next_number.py
+Alle Repos rufen diese auf via `uses: achimdehnert/platform/.github/workflows/...`:
 
-# Konflikte und Lücken prüfen (CI)
-python3 scripts/adr_next_number.py --audit
-python3 scripts/adr_next_number.py --check
-```
+| Workflow | Zweck |
+|----------|-------|
+| `_ci-python.yml` | Python CI (ruff, pytest, coverage) |
+| `_build-docker.yml` | Docker Build + Push zu GHCR |
+| `_deploy-hetzner.yml` | Deploy auf Hetzner via SSH |
+| `_deploy-unified.yml` | Unified Deploy (CI + Build + Deploy) |
+| `_ci-odoo.yml` | Odoo-spezifisches CI |
 
-→ [ADR Index](docs/adr/INDEX.md)
+## MCP-Server (Windsurf)
 
-## Related Repositories
+| Prefix | Server | Zweck |
+|--------|--------|-------|
+| `mcp0_` | deployment-mcp | SSH, Docker, Git, DB, DNS, SSL, Nginx |
+| `mcp1_` | github | Issues, PRs, Repos, Files, Reviews |
+| `mcp2_` | orchestrator | Memory, Task-Analyse, Agent-Team, Tests |
+| `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
+| `mcp4_` | paperless-docs | Dokumente, Rechnungen |
+| `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
+| `mcp6_` | playwright | Browser-Automation, UI-Tests |
 
-- **[bfagent](https://github.com/achimdehnert/bfagent)** — AI Book Writing Platform
-- **[risk-hub](https://github.com/achimdehnert/risk-hub)** — Schutztat (Brandschutz/Risikobewertung)
-- **[travel-beat](https://github.com/achimdehnert/travel-beat)** — DriftTales (Reisegeschichten)
-- **[mcp-hub](https://github.com/achimdehnert/mcp-hub)** — MCP Server Collection
-- **[dev-hub](https://github.com/achimdehnert/dev-hub)** — Developer Portal
-- **[infra-deploy](https://github.com/achimdehnert/infra-deploy)** — Zentrales Deployment-API
+## Wichtigste Scripts
 
-## License
+| Script | Zweck |
+|--------|-------|
+| `scripts/gen_project_facts.py` | Master Repo Identifier — generiert project-facts.md |
+| `scripts/repo-registry.yaml` | Registry aller 41 Repos (Port, URL, DB, Typ) |
+| `scripts/sync-workflows.sh` | Windsurf-Workflows als Symlinks in alle Repos |
+| `scripts/ship.sh` | Standard-Deploy (Build → Push → SSH Deploy) |
+| `scripts/deploy.sh` | Hetzner Deploy Script |
+| `scripts/adr_next_number.py` | Nächste ADR-Nummer ermitteln |
+| `scripts/sync_adrs_to_outline.sh` | ADRs nach Outline Wiki synchronisieren |
 
-MIT License
+## ADRs
+
+149 Architecture Decision Records in `docs/adr/` (MADR 4.0 Format).
+Neue ADR: `/adr` Workflow in Windsurf.
+Nächste Nummer: `python3 scripts/adr_next_number.py`
+
+## Infrastruktur
+
+- **Prod-Server**: `88.198.191.108` (Hetzner) — Deploy via `scripts/ship.sh` oder CI/CD
+- **Registry**: `ghcr.io/achimdehnert/{repo}`
+- **Secrets lokal**: `/home/devuser/shared/secrets/` (31 Dateien)
+- **Secrets Server**: `/opt/shared-secrets/api-keys.env`
+- **devuser**: KEIN sudo → `ssh root@localhost "apt-get install -y <package>"`
