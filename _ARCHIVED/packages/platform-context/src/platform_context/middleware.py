@@ -250,3 +250,18 @@ class SubdomainTenantMiddleware(MiddlewareMixin):
             return model.objects.filter(**{slug_field: slug}).first()
         except Exception:
             return None
+
+
+class HealthBypassMiddleware(MiddlewareMixin):
+    """Bypass all middleware for health check endpoints (ADR-167).
+
+    Must be FIRST in MIDDLEWARE stack. Returns 200 immediately for
+    /livez/ and /healthz/ without tenant resolution or auth checks.
+    """
+
+    HEALTH_PATHS: frozenset[str] = frozenset(["/livez/", "/healthz/"])
+
+    def process_request(self, request: HttpRequest) -> HttpResponse | None:
+        if request.path in self.HEALTH_PATHS:
+            return HttpResponse("ok", content_type="text/plain")
+        return None
