@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """
-docu_update_agent.py — Mechanisches Docu-Update für docu-update GitHub Issues.
+docu_update_agent.py — Docu-Update für docu-update GitHub Issues.
 
-Stufe 1 (kein LLM, deterministisch):
+Stufe 1 (deterministisch, kein LLM):
 - README.md Version aus pyproject.toml synchronisieren
 - CHANGELOG.md Eintrag aus git log generieren
-- Issue schließen + kommentieren
+
+Stufe 2 (--llm, gpt-4o-mini):
+- LLM-generierte CHANGELOG-Zusammenfassungen statt roher Commit-Messages
+- README.md Version-Injection wenn keine Version im Header
+- Bessere Commit-Messages
 
 Verwendung:
     python .github/scripts/docu_update_agent.py \\
         --issue-number 46 \\
+        --llm              # optional: LLM-enhanced (Stufe 2)
         --dry-run          # optional: kein push/close
 """
 
@@ -144,29 +149,76 @@ def update_readme_version(repo_path: Path, new_version: str) -> bool:
     return False
 
 
-def update_changelog(repo_path: Path, version: str) -> bool:
-    changelog = repo_path / "CHANGELOG.md"
-
-    # Get recent commits (exclude merges + auto-commits)
+def _get_commit_lines(repo_path: Path, count: int = 20) -> list[str]:
+    """Get recent commit messages, excluding auto-commits."""
     result = subprocess.run(
-        ["git", "log", "--oneline", "-20", "--no-merges",
-         "--invert-grep", "--grep=session-ende", "--grep=auto-sync"],
+        ["git", "log", "--oneline", f"-{count}", "--no-merges",
+         "--invert-grep", "--grep=session-ende", "--grep=auto-sync",
+         "--grep=docu-update-agent"],
         cwd=repo_path, capture_output=True, text=True,
     )
-    log_lines = [
+    return [
         re.sub(r"^[a-f0-9]{7,}\s+", "", line.strip())
         for line in result.stdout.strip().splitlines()
         if line.strip()
-    ][:10]
+    ][:15]
+
+
+def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -> str | None:
+    """Use gpt-4o-mini to generate a structured CHANGELOG entry."""
+    api_key = os.environ.get("OPENAI_API_KEY", "")
+    if not api_key:
+        return None
+
+    commit_text = "\n".join(f"- {c}" for c in commits)
+    prompt = (
+        f"Generate a CHANGELOG entry for version {version} of the project '{repo_name}'.\n"
+        f"Use Keep a Changelog format with sections: Added, Changed, Fixed (only include non-empty sections).\n"
+        f"Be concise. Group related commits. Write in English.\n"
+        f"Do NOT include the version header — only the bullet points grouped by section.\n\n"
+        f"Raw commits:\n{commit_text}"
+    )
+
+    try:
+        resp = httpx.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json={
+                "model": "gpt-4o-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "max_tokens": 500,
+                "temperature": 0.3,
+            },
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return resp.json()["choices"][0]["message"]["content"].strip()
+    except Exception as exc:
+        print(f"  LLM call failed: {exc} — falling back to raw commits")
+        return None
+
+
+def update_changelog(repo_path: Path, version: str, *, use_llm: bool = False, repo_name: str = "") -> bool:
+    changelog = repo_path / "CHANGELOG.md"
+    log_lines = _get_commit_lines(repo_path)
 
     if not log_lines:
         return False
 
     today = date.today().isoformat()
-    new_entry = f"## [{version}] — {today}\n\n"
-    for line in log_lines:
-        new_entry += f"- {line}\n"
-    new_entry += "\n"
+
+    # Stufe 2: LLM-enhanced changelog
+    llm_content = None
+    if use_llm:
+        llm_content = _llm_summarize_changelog(repo_name or repo_path.name, version, log_lines)
+
+    if llm_content:
+        new_entry = f"## [{version}] — {today}\n\n{llm_content}\n\n"
+    else:
+        new_entry = f"## [{version}] — {today}\n\n"
+        for line in log_lines[:10]:
+            new_entry += f"- {line}\n"
+        new_entry += "\n"
 
     if changelog.exists():
         existing = changelog.read_text()
@@ -196,6 +248,7 @@ def run_update(
     dry_run: bool,
     issue_number: int,
     platform_repo: str,
+    use_llm: bool = False,
 ) -> dict:
     with tempfile.TemporaryDirectory() as tmpdir:
         repo_url = f"https://x-access-token:{token}@github.com/{ORG}/{repo_name}.git"
@@ -218,7 +271,7 @@ def run_update(
         subprocess.run(["git", "config", "user.name", "Cascade Agent [docu-update]"], cwd=repo_path)
 
         readme_changed = update_readme_version(repo_path, version)
-        changelog_changed = update_changelog(repo_path, version)
+        changelog_changed = update_changelog(repo_path, version, use_llm=use_llm, repo_name=repo_name)
 
         changes = []
         if readme_changed:
@@ -236,9 +289,10 @@ def run_update(
             ["git", "add", "README.md", "CHANGELOG.md"],
             cwd=repo_path, capture_output=True,
         )
+        stufe = "Stufe 2, gpt-4o-mini" if use_llm else "Stufe 1, no-LLM"
         commit_msg = (
             f"docs({repo_name}): sync README + CHANGELOG to v{version}\n\n"
-            f"Automated via docu-update-agent (Stufe 1, no-LLM)\n"
+            f"Automated via docu-update-agent ({stufe})\n"
             f"Triggered by: {ORG}/platform#{issue_number}"
         )
         commit = subprocess.run(
@@ -270,9 +324,11 @@ def run_update(
 # ---------------------------------------------------------------------------
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Docu-Update Agent — Stufe 1")
+    parser = argparse.ArgumentParser(description="Docu-Update Agent — Stufe 1+2")
     parser.add_argument("--issue-number", type=int, required=True)
     parser.add_argument("--dry-run", action="store_true", default=False)
+    parser.add_argument("--llm", action="store_true", default=False,
+                        help="Stufe 2: Use gpt-4o-mini for CHANGELOG generation")
     args = parser.parse_args()
 
     token = os.environ.get("PROJECT_PAT") or os.environ.get("GITHUB_TOKEN", "")
@@ -299,8 +355,10 @@ def main() -> int:
         print(f"ERROR: Cannot parse repo_name from issue title: {title!r}", file=sys.stderr)
         return 1
 
+    use_llm = args.llm and bool(os.environ.get("OPENAI_API_KEY"))
     print(f"  Repo    : {repo_name}")
     print(f"  Version : {issue_version or '(from pyproject.toml)'}")
+    print(f"  Stufe   : {'2 (LLM)' if use_llm else '1 (deterministisch)'}")
     print(f"  Dry-run : {args.dry_run}")
 
     result = run_update(
@@ -310,6 +368,7 @@ def main() -> int:
         dry_run=args.dry_run,
         issue_number=args.issue_number,
         platform_repo=platform_repo,
+        use_llm=use_llm,
     )
 
     if not result["success"]:
@@ -345,7 +404,7 @@ def main() -> int:
             f"✅ docu-update-agent erledigt{dry_note}\n\n"
             f"**Repo:** `{repo_name}` | **Version:** `{result['version']}`\n\n"
             f"**Änderungen:**\n{changes_str}\n\n"
-            f"Modell: `stufe-1` (deterministisch, kein LLM)",
+            f"Modell: `{'stufe-2 (gpt-4o-mini)' if use_llm else 'stufe-1 (deterministisch)'}`",
             token,
         )
         gh_close_issue(platform_repo, args.issue_number, token)

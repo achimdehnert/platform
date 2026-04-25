@@ -1,7 +1,8 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║  Docu-Update Agent — Stufe 1 (deterministisch, kein LLM)                  ║
+# ║  Docu-Update Agent — Stufe 1+2                                            ║
 # ║  Trigger: Issue mit Label "docu-update" oder manuell via workflow_dispatch ║
-# ║  Aktion: README.md Version-Sync + CHANGELOG.md aus git log                ║
+# ║  Stufe 1: deterministisch (README version + CHANGELOG aus git log)        ║
+# ║  Stufe 2: --llm (gpt-4o-mini für CHANGELOG-Zusammenfassungen)            ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Docu-Update Agent
@@ -21,6 +22,11 @@ on:
         required: false
         type: boolean
         default: false
+      use_llm:
+        description: 'Stufe 2: LLM-enhanced (gpt-4o-mini)'
+        required: false
+        type: boolean
+        default: true
 
 permissions:
   issues: write
@@ -53,14 +59,20 @@ jobs:
 
       - name: Run Docu-Update Agent
         env:
-          # PLATFORM_DEPLOY_TOKEN braucht: repo (read+write) auf alle Ziel-Repos
-          # Falls Token nur platform-Repo hat → PROJECT_PAT anlegen mit repo-Scope
           PROJECT_PAT: ${{ secrets.PLATFORM_DEPLOY_TOKEN || secrets.PROJECT_PAT }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           ISSUE_NUM="${{ github.event.issue.number || inputs.issue_number }}"
           DRY_RUN="${{ inputs.dry_run == true && '--dry-run' || '' }}"
 
+          # Stufe 2 default bei workflow_dispatch, Stufe 1 bei auto-trigger
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            LLM_FLAG="${{ inputs.use_llm == true && '--llm' || '' }}"
+          else
+            LLM_FLAG="--llm"
+          fi
+
           python .github/scripts/docu_update_agent.py \
             --issue-number "$ISSUE_NUM" \
-            $DRY_RUN
+            $DRY_RUN $LLM_FLAG
