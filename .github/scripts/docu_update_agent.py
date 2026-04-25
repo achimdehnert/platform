@@ -185,6 +185,7 @@ def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -
             action_code="docu_update",
             messages=[{"role": "user", "content": prompt}],
             max_tokens=500,
+            model="gpt-4o-mini",
         )
         if result.success:
             return result.content.strip()
