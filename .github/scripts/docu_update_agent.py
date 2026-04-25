@@ -21,7 +21,6 @@ Verwendung:
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import re
 import subprocess
@@ -165,9 +164,11 @@ def _get_commit_lines(repo_path: Path, count: int = 20) -> list[str]:
 
 
 def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -> str | None:
-    """Use gpt-4o-mini to generate a structured CHANGELOG entry."""
-    api_key = os.environ.get("OPENAI_API_KEY", "")
-    if not api_key:
+    """Use aifw to generate a structured CHANGELOG entry via LLM."""
+    try:
+        from aifw.service import sync_completion
+    except ImportError:
+        print("  aifw not installed — skipping LLM (Stufe 1 fallback)")
         return None
 
     commit_text = "\n".join(f"- {c}" for c in commits)
@@ -180,21 +181,17 @@ def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -
     )
 
     try:
-        resp = httpx.post(
-            "https://api.openai.com/v1/chat/completions",
-            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-            json={
-                "model": "gpt-4o-mini",
-                "messages": [{"role": "user", "content": prompt}],
-                "max_tokens": 500,
-                "temperature": 0.3,
-            },
-            timeout=30,
+        result = sync_completion(
+            action_code="docu_update",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=500,
         )
-        resp.raise_for_status()
-        return resp.json()["choices"][0]["message"]["content"].strip()
+        if result.success:
+            return result.content.strip()
+        print(f"  aifw call unsuccessful: {result.error} — falling back to raw commits")
+        return None
     except Exception as exc:
-        print(f"  LLM call failed: {exc} — falling back to raw commits")
+        print(f"  aifw call failed: {exc} — falling back to raw commits")
         return None
 
 
@@ -355,7 +352,7 @@ def main() -> int:
         print(f"ERROR: Cannot parse repo_name from issue title: {title!r}", file=sys.stderr)
         return 1
 
-    use_llm = args.llm and bool(os.environ.get("OPENAI_API_KEY"))
+    use_llm = args.llm
     print(f"  Repo    : {repo_name}")
     print(f"  Version : {issue_version or '(from pyproject.toml)'}")
     print(f"  Stufe   : {'2 (LLM)' if use_llm else '1 (deterministisch)'}")

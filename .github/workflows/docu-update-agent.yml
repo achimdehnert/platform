@@ -2,7 +2,7 @@
 # ║  Docu-Update Agent — Stufe 1+2                                            ║
 # ║  Trigger: Issue mit Label "docu-update" oder manuell via workflow_dispatch ║
 # ║  Stufe 1: deterministisch (README version + CHANGELOG aus git log)        ║
-# ║  Stufe 2: --llm (gpt-4o-mini für CHANGELOG-Zusammenfassungen)            ║
+# ║  Stufe 2: --llm (aifw → gpt-4o-mini für CHANGELOG-Zusammenfassungen)     ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Docu-Update Agent
@@ -55,12 +55,12 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install httpx
+        run: pip install httpx aifw
 
       - name: Run Docu-Update Agent
         env:
           PROJECT_PAT: ${{ secrets.PLATFORM_DEPLOY_TOKEN || secrets.PROJECT_PAT }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}  # aifw reads this
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           ISSUE_NUM="${{ github.event.issue.number || inputs.issue_number }}"
