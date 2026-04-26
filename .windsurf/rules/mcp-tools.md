@@ -74,3 +74,20 @@ trigger: always_on
 - `mcp2_deploy_check health` nach jedem Deploy
 - Bei Gate 2+ Tasks: `mcp2_agent_plan_task` zur Planung nutzen
 - Memory IMMER via pgvector (`mcp2_agent_memory_*`) — kein Cascade-Memory-Fallback
+
+## pgvector — Wo läuft es?
+
+| Parameter | Wert |
+|-----------|------|
+| **Container** | `mcp_hub_db` (`pgvector/pgvector:pg16`) |
+| **Server** | Prod `88.198.191.108` |
+| **Port auf Server** | `127.0.0.1:15435` |
+| **Lokaler Zugriff** | `localhost:15435` via SSH-Tunnel |
+| **systemd Service** | `ssh-tunnel-postgres` (dev desktop) |
+
+```bash
+# Tunnel-Status prüfen
+ss -tlnp | grep 15435 && echo "✅ aktiv" || echo "❌ inaktiv"
+# Starten: sudo systemctl start ssh-tunnel-postgres
+# Tunnel-Befehl (manuell): ssh -N -L 15435:localhost:15435 root@88.198.191.108
+```

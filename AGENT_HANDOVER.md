@@ -127,7 +127,25 @@ Rules neu generieren: `python3 ~/github/platform/scripts/gen_project_facts.py --
 
 ## 7. pgvector Memory (Orchestrator)
 
-- Tunnel: `localhost:15435` → Prod pgvector
-- Prüfen: `ss -tlnp | grep 15435`
-- Starten (no sudo): `ssh -N -L 15435:127.0.0.1:15435 -i ~/.ssh/id_ed25519 root@88.198.191.108 &`
+| Parameter | Wert |
+|-----------|------|
+| **Container** | `mcp_hub_db` (Image: `pgvector/pgvector:pg16`) |
+| **Läuft auf** | Prod-Server `88.198.191.108` |
+| **Port auf Prod** | `127.0.0.1:15435` (Host-Binding des Containers) |
+| **Lokaler Zugriff** | `localhost:15435` via SSH-Tunnel |
+| **systemd Service** | `ssh-tunnel-postgres` (dev desktop, User `adehnert`) |
+
+```bash
+# Status prüfen
+ss -tlnp | grep 15435
+systemctl is-active ssh-tunnel-postgres
+
+# Manuell starten (ohne sudo)
+ssh -N -L 15435:localhost:15435 -i ~/.ssh/id_ed25519 root@88.198.191.108 &
+
+# Via systemd (empfohlen — Autostart bei Neustart)
+sudo systemctl start ssh-tunnel-postgres
+```
+
 - **Kein Fallback auf Cascade Memory** — pgvector MUSS laufen
+- Tunnel-Ziel: `remote:localhost:15435` (nicht `:5432` — der Container bindet auf 15435)

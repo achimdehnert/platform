@@ -193,19 +193,34 @@ Host hetzner-dev
 
 ### Option A: SSH-Tunnel (empfohlen)
 
+**pgvector läuft als `mcp_hub_db` Container auf Prod `88.198.191.108`, gebunden auf `127.0.0.1:15435`.**
+Der Tunnel muss daher auf Port `15435` zeigen (nicht `5432`).
+
 ```bash
 # Einmalig: systemd Service erstellen
-sudo tee /etc/systemd/system/ssh-tunnel-postgres.service <<EOF
+sudo tee /etc/systemd/system/ssh-tunnel-postgres.service <<'EOF'
 [Unit]
-Description=SSH Tunnel to Production PostgreSQL
-After=network.target
+Description=SSH Tunnel to Production PostgreSQL (pgvector — localhost:15435)
+After=network-online.target
+Wants=network-online.target
+StartLimitBurst=5
+StartLimitIntervalSec=60
 
 [Service]
 Type=simple
-User=$USER
-ExecStart=/usr/bin/ssh -N -L 15435:localhost:5432 root@88.198.191.108
+User=adehnert
+ExecStart=/usr/bin/ssh \
+  -N \
+  -o ServerAliveInterval=60 \
+  -o ServerAliveCountMax=3 \
+  -o ExitOnForwardFailure=yes \
+  -o StrictHostKeyChecking=yes \
+  -o BatchMode=yes \
+  -i /home/adehnert/.ssh/id_ed25519 \
+  -L 15435:localhost:15435 \
+  root@88.198.191.108
 Restart=always
-RestartSec=10
+RestartSec=15
 
 [Install]
 WantedBy=multi-user.target
@@ -215,8 +230,11 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now ssh-tunnel-postgres
 
 # Verbindung testen
-psql -h localhost -p 15435 -U postgres -l
+ss -tlnp | grep 15435
+systemctl is-active ssh-tunnel-postgres
 ```
+
+> **Wichtig:** Tunnel-Ziel ist `localhost:15435` (Container-Port) — **nicht** `localhost:5432`.
 
 ### Option B: Lokales PostgreSQL
 
