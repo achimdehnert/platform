@@ -1,5 +1,5 @@
 ---
-description: Create new ADR with automatic scope detection and proper structure
+description: Create new ADR with automatic scope detection, proper structure, and pgvector memory storage
 ---
 
 # ADR Creation Workflow
@@ -28,23 +28,21 @@ Before creating an ADR, check if the topic is truly an **Architecture Decision**
 | "Setup instructions", "Installation" | Documentation | README or docs/ |
 | "Bug fix for...", "Fix issue with" | Code change | GitHub Issue or PR |
 
-### Response if NOT an ADR
+## Step 0.5: Repo-Kontext aus project-facts.md lesen (PFLICHT — kein Hardcoding!)
 
-```text
-Das klingt nicht nach einem ADR
+Vor jedem weiteren Schritt aus project-facts.md (always_on) lesen:
 
-Thema: "[User's topic]"
-
-Warum kein ADR?
-   → [Reason]
-
-Bessere Alternativen:
-   1. Workflow erstellen
-   2. Dokumentation
-   3. Oder meinst du eine Architektur-Entscheidung?
-
-Soll ich stattdessen einen Workflow erstellen? [Ja/ADR trotzdem]
 ```
+Aus project-facts.md entnehmen:
+- REPO_OWNER   (z.B. "achimdehnert" oder "meiki-lra")
+- REPO_NAME    (z.B. "platform" oder "meiki-docs")
+- ADR_PATH     (z.B. "docs/adr" oder "docs/03-technisches-handbuch/architektur")
+- GH_PREFIX    (GitHub MCP prefix, z.B. "mcp1_" oder "mcp0_")
+- ORC_PREFIX   (Orchestrator MCP prefix, z.B. "mcp2_" oder "mcp1_")
+```
+
+> **NIEMALS** owner, repo, Pfade oder Prefixe hardcoden.
+> project-facts.md ist die einzige Source of Truth für repo-spezifische Werte.
 
 ## Step 1: Analyze Topic and Detect Scope
 
@@ -72,75 +70,67 @@ Thema: "[User's topic]"
 Scope-Erkennung:
    → [scope] ([range])
 
-   Begründung: [Why this scope was chosen]
-
-Nächste Nummer: ADR-[NNN]
-Datei: docs/adr/ADR-[NNN]-[title-slug].md
+Nächste Nummer: ADR-[NNN] (wird in Step 3 live geprüft)
+Datei: {ADR_PATH}/ADR-[NNN]-[title-slug].md
 
 Scope korrekt? [Ja/Nein]
 ```
 
 ## Step 3: Nächste ADR-Nummer ermitteln (PFLICHT — nie aus Gedächtnis!)
 
-> **ACHTUNG**: Dieser Schritt ist der häufigste Fehlerort. ADR-107 entstand durch
-> falschen Algorithmus. Die einzige korrekte Quelle ist das Script.
-
-### 3.1 Pflicht-Aufruf: adr_next_number.py (EINZIGE erlaubte Methode)
+### 3.1 Primär: adr_next_number.py (falls im Repo vorhanden)
 
 ```bash
 python3 scripts/adr_next_number.py
 ```
 
-Ausgabe: `ADR-NNN` — diese Nummer direkt verwenden. Keine weitere Prüfung nötig.
+Ausgabe: `ADR-NNN` — diese Nummer direkt verwenden.
 
-**Vor dem Erstellen zusätzlich Konflikt-Check:**
+**Konflikt-Check:**
 ```bash
 python3 scripts/adr_next_number.py --check
 ```
-→ Gibt es Konflikte: erst Konflikte beheben, dann erst neue ADR erstellen.
 
-### 3.2 Fallback: VERBOTEN
+### 3.2 Fallback: GitHub API (wenn Script nicht vorhanden — ERLAUBT)
 
-> **NIEMALS** `find_by_name` oder manuelle Zählung als Fallback verwenden.
->
-> Root Cause von ADR-107 (Nummerierungsfehler 2026-03-08):
-> `find_by_name` mit unvollständigem Pattern lieferte nur einen Teil der Dateien.
-> Manuelles Auswerten des "Maximum" übersah bereits belegte Nummern.
->
-> Wenn `python3 scripts/adr_next_number.py` nicht ausführbar ist:
-> **STOPPEN** und den Fehler beheben, bevor eine ADR-Nummer vergeben wird.
-> Fehlerursachen: falsches CWD, Python nicht verfügbar, Script fehlt.
+Wenn `scripts/adr_next_number.py` nicht existiert (z.B. Docs-Repos, externe Repos):
 
-Wenn das Script fehlt — prüfen:
-```bash
-# Script vorhanden?
-ls scripts/adr_next_number.py
-
-# Script ausführbar machen falls nötig
-chmod +x scripts/adr_next_number.py
-
-# Direkte Python-Ausführung
-python3 scripts/adr_next_number.py
+```
+{GH_PREFIX}_get_file_contents(
+  owner: "{REPO_OWNER}",   ← aus project-facts.md
+  repo:  "{REPO_NAME}",    ← aus project-facts.md
+  path:  "{ADR_PATH}"      ← aus project-facts.md
+)
+→ Alle Einträge mit Pattern ADR-NNN-*.md auflisten
+→ Höchste Zahl bestimmen
+→ Nächste Nummer = max + 1 (dreistellig: 009, 010, ...)
 ```
 
-### 3.3 Nummernbereich-Konzept (AUFGEGEBEN ab ADR-059)
+> **NIEMALS** manuelle Zählung oder Schätzung aus Gedächtnis.
+> Script-Fallback auf GitHub API ist explizit erlaubt wenn Script fehlt.
 
-Das ursprüngliche Bereichskonzept (platform: 001-049, bfagent: 050-099 etc.) wird
-**nicht mehr durchgesetzt**. Alle neuen ADRs erhalten die nächste freie Globalnummer.
-Historische Nummern bleiben unverändert. Das Script implementiert dies korrekt.
+### 3.3 INDEX.md sofort aktualisieren
 
-### 3.4 INDEX.md sofort aktualisieren
-
-Nach dem Erstellen der ADR-Datei **sofort** INDEX.md ergänzen (neue Zeile in Core Platform Sektion).
-Datum "Letzte Aktualisierung" aktualisieren.
+Nach dem Erstellen der ADR-Datei **sofort** INDEX.md ergänzen (falls vorhanden).
 
 ## Step 4: Create ADR File
 
-After number is confirmed via Script:
+Nach Nummern-Bestimmung:
 
-1. Create file `docs/adr/ADR-NNN-[title-slug].md`
-2. Use TEMPLATE structure below
-3. Fill in metadata and content from user's concept (if provided)
+**Option A — lokal (wenn Git-Checkout vorhanden):**
+Datei `{ADR_PATH}/ADR-NNN-[title-slug].md` erstellen.
+
+**Option B — via GitHub MCP (wenn kein lokaler Checkout):**
+```
+{GH_PREFIX}_create_or_update_file(
+  owner:   "{REPO_OWNER}",
+  repo:    "{REPO_NAME}",
+  path:    "{ADR_PATH}/ADR-[NNN]-[slug].md",
+  content: "<Template unten>",
+  message: "docs(ADR-[NNN]): create [Titel]",
+  branch:  "main"
+)
+```
 
 ### Pflicht-Metadaten-Template (IMMER verwenden)
 
@@ -157,59 +147,68 @@ After number is confirmed via Script:
 | **Relates to** | [ADR-NNN (Titel), ...]      |
 ```
 
-**Pflichtfelder**: `Status`, `Scope`, `Repo`, `Erstellt` — niemals weglassen.
-
-**Gültige Status-Werte**: `Proposed` | `Accepted` | `Deprecated` | `Superseded` | `Draft`
-
-**Gültige Repo-Werte**: `platform` | `bfagent` | `travel-beat` | `mcp-hub` | `risk-hub` | `cad-hub` | `pptx-hub` | `shared` | `trading-hub`
-
-### Pflicht-Abschnitte (Reihenfolge einhalten)
+**Pflicht-Abschnitte (Reihenfolge einhalten):**
 
 ```
 1. Kontext (1.1 Ausgangslage, 1.2 Problem/Lücken, 1.3 Constraints)
 2. Entscheidung
 3. Betrachtete Alternativen
 4. Begründung im Detail
-5. Implementation Plan (phasenweise wenn sinnvoll)
+5. Implementation Plan
 6. Risiken
 7. Konsequenzen (7.1 Positiv, 7.2 Trade-offs, 7.3 Nicht in Scope)
-8. Validation Criteria (pro Phase wenn mehrphasig)
+8. Validation Criteria
 9. Referenzen
 10. Changelog
 ```
 
-## Step 4: INDEX.md aktualisieren (Pflicht nach jedem ADR)
+## Step 5: pgvector Memory sichern (PFLICHT — jede neue ADR, alle Repos)
 
-Nach dem Erstellen der ADR-Datei **immer** `docs/adr/INDEX.md` aktualisieren:
+Nach dem Erstellen der ADR-Datei **sofort** in pgvector speichern:
 
-1. Neue Zeile in der passenden Sektion eintragen:
-   ```
-   | [NNN] | [Titel] | `Proposed` | `[repo]` | [ADR-NNN-slug.md](ADR-NNN-slug.md) |
-   ```
-2. "Letzte Aktualisierung"-Datum oben in INDEX.md aktualisieren
+```
+{ORC_PREFIX}_agent_memory_upsert(
+  entry_key:  "adr:{REPO_NAME}:ADR-[NNN]",
+  entry_type: "decision",
+  title:      "ADR-[NNN]: [Titel] — {REPO_NAME} (Status: Proposed)",
+  content:    """
+    Repo: {REPO_NAME}
+    Pfad: {ADR_PATH}/ADR-[NNN]-[slug].md
+    Thema: [Thema]
+    Scope: [scope]
+    Status: Proposed
+    Erstellt: [YYYY-MM-DD]
+    Kern-Entscheidung: [1-2 Sätze]
+    Alternativen verworfen: [kurz]
+  """,
+  tags: ["adr", "{REPO_NAME}", "proposed", "[scope]"]
+)
+```
 
-## Step 5: Post-ADR Workflow
+> **Warum Pflicht?** pgvector ist der zentrale Memory-Store für ALLE Repos.
+> Jede ADR die hier gespeichert ist, kann jede künftige Session überall finden
+> via `{ORC_PREFIX}_agent_memory_search(query: "ADR [Thema]")` — repobergreifend.
 
-After ADR is created and INDEX.md updated, show:
+## Step 6: Post-ADR Workflow
 
 ```text
 ADR-[NNN] erstellt: [Title]
 INDEX.md aktualisiert
+pgvector Memory: gespeichert unter adr:{REPO_NAME}:ADR-[NNN]
 
 Status: Proposed → Review erforderlich
-Repo: [repo]
 
 Nächste Schritte:
-1. Review: "Review ADR-[NNN]" (AI + Team)
-2. Approval: Status → Accepted  (dann INDEX.md + ADR-Datei + Changelog aktualisieren)
+1. Review: "/adr-review ADR-[NNN]"
+2. Approval: Status → Accepted
 3. Implementation: Gemäß Implementation Plan
 
 Soll ich das ADR jetzt reviewen? [Ja/Nein]
 ```
 
-## Step 6: ADR Review (if requested)
+## Step 7: ADR Review (if requested)
 
-Review the ADR against these criteria:
+Review gegen diese Kriterien:
 
 | Kategorie | Prüfpunkte |
 |-----------|------------|
@@ -219,62 +218,39 @@ Review the ADR against these criteria:
 | **Umsetzbarkeit** | Implementation Plan realistisch? Risiken adressiert? |
 | **Konsistenz** | Passt zu anderen ADRs? Keine Widersprüche? |
 
-Output format:
+## Step 8: Status-Wechsel-Prozedur
 
-```text
-ADR Review: ADR-[NNN]
+Wenn ein ADR seinen Status ändert (z.B. `Proposed` → `Accepted`):
 
-Stärken
-- [Positive points]
-
-Verbesserungsvorschläge
-- [Suggestions]
-
-Kritische Punkte (falls vorhanden)
-- [Critical issues that must be addressed]
-
-Bewertung
-| Kriterium | Score |
-|-----------|-------|
-| Vollständigkeit | 4/5 |
-| Klarheit | 5/5 |
-| Begründung | 4/5 |
-| Umsetzbarkeit | 3/5 |
-| Konsistenz | 5/5 |
-
-Empfehlung
-[Accept / Accept with changes / Reject]
-```
-
-## Step 7: Status-Wechsel-Prozedur
-
-Wenn ein ADR seinen Status ändert (z.B. `Proposed` → `Accepted`), immer **drei Stellen** aktualisieren:
-
-### 7.1 ADR-Datei selbst
+### 8.1 ADR-Datei + INDEX.md aktualisieren
 
 ```markdown
-| **Status**     | Accepted    |   ← ändern
+| **Status**     | Accepted    |
 ```
 
-Changelog-Eintrag ergänzen:
-```markdown
-| [YYYY-MM-DD] | Achim Dehnert | Status: Proposed → Accepted |
+Changelog-Eintrag ergänzen.
+
+### 8.2 pgvector Memory aktualisieren (gleicher entry_key = Update)
+
+```
+{ORC_PREFIX}_agent_memory_upsert(
+  entry_key:  "adr:{REPO_NAME}:ADR-[NNN]",   ← gleicher Key = Überschreiben
+  entry_type: "decision",
+  title:      "ADR-[NNN]: [Titel] — {REPO_NAME} (Status: Accepted)",
+  content:    "[Aktualisierter Inhalt mit Accepted-Status]",
+  tags:       ["adr", "{REPO_NAME}", "accepted", "[scope]"]
+)
 ```
 
-### 7.2 INDEX.md aktualisieren
-
-In `docs/adr/INDEX.md`:
-- Status-Spalte der entsprechenden Zeile ändern
-- "Letzte Aktualisierung"-Datum oben aktualisieren
-
-### 7.3 Ausgabe nach Status-Wechsel
+### 8.3 Ausgabe nach Status-Wechsel
 
 ```text
 ADR-[NNN] Status aktualisiert: [Alt] → [Neu]
 
 Geändert in:
-- docs/adr/ADR-[NNN]-[slug].md  (Status-Feld + Changelog)
-- docs/adr/INDEX.md             (Status-Spalte + Datum)
+- {ADR_PATH}/ADR-[NNN]-[slug].md  (Status-Feld + Changelog)
+- INDEX.md                        (Status-Spalte + Datum)
+- pgvector Memory                 (adr:{REPO_NAME}:ADR-[NNN])
 ```
 
 ### Gültige Status-Übergänge
