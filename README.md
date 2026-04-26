@@ -38,7 +38,6 @@ platform/
 ├── infra/                 # Infrastruktur-Konfiguration
 ├── orchestrator_mcp/      # MCP Orchestrator Module
 ├── registry/              # Repo-Registry (Metadaten)
-├── scripts/               # Ops + Infra Scripts
 ├── shared/                # Geteilte Ressourcen
 ├── shared_contracts/      # Cross-Repo Python Contracts (Events, Schemas)
 ├── static-sites/          # iil.pet Landing Page
@@ -127,6 +126,7 @@ Nächste Nummer: `python3 scripts/adr_next_number.py`
 
 - **Prod-Server**: `88.198.191.108` (Hetzner) — Deploy via `scripts/ship.sh` oder CI/CD
 - **Registry**: `ghcr.io/achimdehnert/{repo}`
-- **Secrets lokal**: `/home/devuser/shared/secrets/` (31 Dateien)
+- **Secrets lokal**: `~/.secrets/` (github_token, outline_api_token, cloudflare_*)
 - **Secrets Server**: `/opt/shared-secrets/api-keys.env`
+- **pgvector**: Container `mcp_hub_db` auf Prod `88.198.191.108:15435` — Tunnel via `ssh-tunnel-postgres` systemd-Service
 - **devuser**: KEIN sudo → `ssh root@localhost "apt-get install -y <package>"`
