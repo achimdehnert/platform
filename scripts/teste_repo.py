@@ -208,14 +208,23 @@ def step_install_test_deps(repo_dir: Path, python: str, report: Report) -> None:
 def step_pytest(repo_dir: Path, python: str, settings: str, report: Report) -> None:
     tests_dir = repo_dir / "tests"
     if not tests_dir.exists():
-        report.add(StepResult(
-            "Tests (pytest)", "WARN",
-            "Kein tests/-Verzeichnis",
-            f"Fix: gh workflow run scaffold-tests.yml -f repo_name={repo_dir.name}",
-        ))
-        print(f"\n⚠️  Kein tests/-Verzeichnis in {repo_dir.name}")
-        print(f"   Fix: gh workflow run scaffold-tests.yml -f repo_name={repo_dir.name}\n")
-        return
+        scaffold_script = PLATFORM_ROOT / "scripts" / "gen_test_scaffold.py"
+        if scaffold_script.exists():
+            print(f"\n⚠️  Kein tests/-Verzeichnis — starte Scaffold-Generator...\n")
+            rc_s, out_s = run([python, str(scaffold_script), str(repo_dir)], cwd=PLATFORM_ROOT)
+            print(out_s)
+            if rc_s == 0 and tests_dir.exists():
+                print("✅  Scaffold erstellt — führe Tests jetzt aus\n")
+            else:
+                report.add(StepResult("Tests (pytest)", "WARN", "Scaffold fehlgeschlagen",
+                    f"Manuell: python3 scripts/gen_test_scaffold.py {repo_dir.name}"))
+                return
+        else:
+            report.add(StepResult("Tests (pytest)", "WARN", "Kein tests/-Verzeichnis",
+                f"Fix: python3 platform/scripts/gen_test_scaffold.py {repo_dir.name}"))
+            print(f"\n⚠️  Kein tests/-Verzeichnis in {repo_dir.name}")
+            print(f"   Fix: python3 platform/scripts/gen_test_scaffold.py {repo_dir.name}\n")
+            return
 
     # Prüfen ob Tests vorhanden
     test_files = list(tests_dir.rglob("test_*.py"))

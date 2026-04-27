@@ -73,6 +73,26 @@ jobs:
         env:
           INPUT_REPO_NAME: ${{ inputs.repo_name }}
 
+      - name: Scaffold-Dateien generieren (PyPI-Version live)
+        id: gen_scaffold
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/scaffold-out
+          # Generiere Scaffold in temp-Verzeichnis — Version kommt live von PyPI
+          python3 scripts/gen_test_scaffold.py /tmp/scaffold-out --dry-run 2>&1 || true
+
+          # Hole aktuelle Version für PR-Body
+          TESTKIT_VERSION=$(python3 -c "
+          import json, urllib.request
+          try:
+              with urllib.request.urlopen('https://pypi.org/pypi/iil-testkit/json', timeout=5) as r:
+                  print(json.loads(r.read())['info']['version'])
+          except:
+              print('0.4.0')
+          ")
+          echo "testkit_version=${TESTKIT_VERSION}" >> $GITHUB_OUTPUT
+          echo "Aktuelle iil-testkit Version: ${TESTKIT_VERSION}"
+
       - name: PR für jeden Repo ohne conftest.py erstellen
         if: steps.find_repos.outputs.count != '0'
         uses: actions/github-script@v7
@@ -81,15 +101,16 @@ jobs:
           script: |
             const repos = JSON.parse('${{ steps.find_repos.outputs.repos }}');
             const dryRun = '${{ inputs.dry_run }}' === 'true';
-            const fs = require('fs');
+            const testkitVersion = '${{ steps.gen_scaffold.outputs.testkit_version }}';
             const owner = context.repo.owner;
 
-            // Scaffold-Dateien aus platform lesen
-            const scaffoldRoot = 'docs/templates/django_test_scaffold';
-            const conftest = fs.readFileSync(`${scaffoldRoot}/tests/conftest.py`, 'utf8');
-            const smokeTest = fs.readFileSync(`${scaffoldRoot}/tests/test_views_smoke.py`, 'utf8');
-            const htmxTest = fs.readFileSync(`${scaffoldRoot}/tests/test_views_htmx.py`, 'utf8');
-            const reqTest = fs.readFileSync(`${scaffoldRoot}/requirements-test.txt`, 'utf8');
+            // Scaffold-Inhalte werden via gen_test_scaffold.py-Logik inline erzeugt
+            // Version ist dynamisch von PyPI — kein hardcoding
+            const majorVersion = parseInt(testkitVersion.split('.')[0]) + 1;
+            const conftest = `"""conftest.py — iil-testkit Fixtures laden.\n\nStellt bereit: auth_client, staff_client, api_client, db_user, staff_user, admin_user\n"""\npytest_plugins = ["iil_testkit.fixtures"]\n`;
+            const reqTest = `iil-testkit[smoke]>=${testkitVersion},<${majorVersion}\npytest>=8.0\npytest-django>=4.8\npytest-cov>=5.0\npytest-xdist>=3.0\nbeautifulsoup4>=4.12\nfactory-boy>=3.3\n`;
+            const smokeTest = `"""test_views_smoke.py — HTTP-200-Test aller Views via auto-discovery."""\nimport pytest\nfrom iil_testkit.smoke import discover_smoke_urls\n\n@pytest.mark.parametrize("url", discover_smoke_urls())\n@pytest.mark.django_db\ndef test_should_view_return_200(url: str, auth_client) -> None:\n    response = auth_client.get(url)\n    assert response.status_code in (200, 302)\n`;
+            const htmxTest = `"""test_views_htmx.py — HTMX-Partials + data-testid (ADR-048)."""\nimport pytest\nfrom iil_testkit.assertions import assert_data_testids, assert_htmx_response\n\nHTMX_URLS: list[str] = []\n\n@pytest.mark.skipif(not HTMX_URLS, reason="HTMX_URLS nicht konfiguriert")\n@pytest.mark.parametrize("url", HTMX_URLS)\n@pytest.mark.django_db\ndef test_should_htmx_response_be_fragment(url: str, auth_client) -> None:\n    assert_htmx_response(auth_client.get(url, HTTP_HX_REQUEST="true"))\n`;
 
             let created = 0;
             let skipped = 0;

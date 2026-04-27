@@ -33,38 +33,21 @@ Lese (MUSS vor jedem anderen Schritt):
 - <REPO_NAME>/pyproject.toml — Settings-Modul ermitteln (DJANGO_SETTINGS_MODULE)
 - Prüfe: Gibt es bereits tests/? Falls ja: was fehlt?
 
-**Schritt 2: Pflicht-Dateien erstellen/ergänzen**
+**Schritt 2: Scaffold generieren (NICHT manuell — Script nutzen)**
 
-`requirements-test.txt` (erstellen falls fehlt):
-```
-iil-testkit[smoke]>=0.4.0,<1
-pytest>=8.0
-pytest-django>=4.8
-pytest-cov>=5.0
-pytest-xdist>=3.0
-beautifulsoup4>=4.12
-factory-boy>=3.3
+```bash
+# Generiert alle Dateien mit der aktuellen PyPI-Version von iil-testkit:
+python3 ${GITHUB_DIR:-~/CascadeProjects}/platform/scripts/gen_test_scaffold.py <REPO_NAME>
 ```
 
-`tests/__init__.py` (leer)
+Das Script erstellt automatisch (Version kommt live von PyPI, kein Hardcoding):
+- `tests/__init__.py`, `tests/conftest.py`, `tests/factories.py`
+- `tests/test_views_smoke.py`, `tests/test_views_htmx.py`
+- `requirements-test.txt` mit `iil-testkit[smoke]>=<AKTUELLE_VERSION>,<NAECHSTE_MAJOR>`
+- `pyproject.toml` pytest-Sektion (nur wenn noch nicht vorhanden)
 
-`tests/conftest.py`:
-```python
-pytest_plugins = ["iil_testkit.fixtures"]
-```
-
-`pyproject.toml` — [tool.pytest.ini_options] ergänzen:
-```toml
-[tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "<ermittelt aus Schritt 1>"
-python_files = ["test_*.py"]
-python_functions = ["test_should_*"]
-addopts = ["--strict-markers", "--tb=short", "-ra", "--no-header",
-           "--cov", "--cov-report=term-missing", "--cov-fail-under=80"]
-markers = ["unit: Unit-Tests", "integration: Integration-Tests (DB)",
-           "contract: Contract-Tests", "slow: Tests > 5s"]
-testpaths = ["tests"]
-```
+Für Updates bestehender Dateien: `--update` Flag.
+Für Vorschau ohne Schreiben: `--dry-run` Flag.
 
 **Schritt 3: tests/factories.py** (repo-spezifisch)
 - UserFactory aus iil_testkit.factories importieren und re-exportieren
