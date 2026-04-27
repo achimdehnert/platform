@@ -117,22 +117,65 @@ jobs:
         run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
 
   security:
-    name: "Security Scan (pip-audit)"
+    name: "Security Scan (pip-audit + pip check)"
     runs-on: ${{ inputs.runs_on }}
     if: ${{ inputs.enable_security_scan }}
-    continue-on-error: true
+    continue-on-error: true        # Job blockiert Deploy nicht — aber Output ist sichtbar
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
-      - name: pip-audit
+      - name: Install dependencies
         run: |
           pip install pip-audit
           if [ -f "${{ inputs.requirements_file }}" ]; then
-            pip-audit -r ${{ inputs.requirements_file }} || true
+            pip install -r ${{ inputs.requirements_file }} -q
           fi
+      - name: pip check — Dependency-Konflikte
+        run: |
+          pip check && echo "✅ Keine Dependency-Konflikte" || {
+            echo "❌ Dependency-Konflikte gefunden — bitte requirements.txt prüfen"
+            exit 1
+          }
+      - name: pip-audit — CVE-Scan
+        run: |
+          if [ -f "${{ inputs.requirements_file }}" ]; then
+            pip-audit -r ${{ inputs.requirements_file }} --format=columns \
+              && echo "✅ Keine bekannten CVEs" \
+              || echo "⚠️  CVEs gefunden — siehe Output oben (kein Hard-Fail)"
+          else
+            echo "Kein ${{ inputs.requirements_file }} — pip-audit übersprungen"
+          fi
+      - name: Pinning-Check — iil-packages Upper-Bound
+        run: |
+          python3 - <<'PYEOF'
+          import re, sys
+          from pathlib import Path
+          req_file = Path("${{ inputs.requirements_file }}")
+          if not req_file.exists():
+              print("Kein requirements.txt — Pinning-Check übersprungen")
+              sys.exit(0)
+          IIL_RE = re.compile(r"^(iil-\w+|aifw|promptfw|authoringfw|weltenfw|nl2cadfw)")
+          UPPER_RE = re.compile(r"<\s*\d")
+          UNPINNED_RE = re.compile(r"^([a-zA-Z0-9_\-]+)\s*$")
+          warns = []
+          for line in req_file.read_text().splitlines():
+              line = line.strip()
+              if not line or line.startswith("#") or line.startswith("-"):
+                  continue
+              pkg = re.split(r"[=><!\[]", line)[0].strip()
+              if UNPINNED_RE.match(line):
+                  warns.append(f"  ⚠️  '{pkg}' — keine Versionsangabe")
+              if IIL_RE.match(pkg) and not UPPER_RE.search(line):
+                  warns.append(f"  ⚠️  '{pkg}' — fehlt Upper-Bound (<1) laut iil-packages Regel")
+          if warns:
+              print(f"Pinning-Warnungen in {req_file}:")
+              print("\n".join(warns))
+          else:
+              print(f"✅ Alle Packages in {req_file} korrekt gepinnt")
+          PYEOF
 
   test-unit:
     name: "Unit Tests"

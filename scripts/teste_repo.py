@@ -267,6 +267,80 @@ def step_pytest(repo_dir: Path, python: str, settings: str, report: Report) -> N
         report.add(StepResult("Tests (pytest)", "FAIL", summary_line or "Tests fehlgeschlagen"))
 
 
+def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
+    """Prüft requirements.txt auf Konflikte, Pinning und CVEs."""
+    import re
+
+    req_files = {
+        "requirements.txt": repo_dir / "requirements.txt",
+        "requirements-test.txt": repo_dir / "requirements-test.txt",
+    }
+    found_reqs = {k: v for k, v in req_files.items() if v.exists()}
+
+    if not found_reqs:
+        # pyproject.toml als Alternative akzeptieren
+        if (repo_dir / "pyproject.toml").exists():
+            report.add(StepResult("Dependencies", "OK", "pyproject.toml vorhanden (kein requirements.txt)"))
+        else:
+            report.add(StepResult("Dependencies", "WARN", "Weder requirements.txt noch pyproject.toml"))
+        return
+
+    issues: list[str] = []
+    warns: list[str] = []
+
+    # 1. Pinning-Check: Pakete ohne jegliche Versionsangabe
+    _UNPINNED_RE = re.compile(r"^([a-zA-Z0-9_\-]+)\s*$")
+    _IIL_PACKAGE_RE = re.compile(r"^(iil-\w+|aifw|promptfw|authoringfw|weltenfw|nl2cadfw)")
+    _IIL_UPPER_BOUND_RE = re.compile(r"<\s*\d")
+
+    for req_file, req_path in found_reqs.items():
+        for raw_line in req_path.read_text().splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#") or line.startswith("-"):
+                continue
+            pkg = line.split("[")[0].split("=")[0].split(">")[0].split("<")[0].strip()
+            if _UNPINNED_RE.match(line):
+                warns.append(f"{req_file}: '{pkg}' hat keine Versionsangabe")
+            if _IIL_PACKAGE_RE.match(pkg) and not _IIL_UPPER_BOUND_RE.search(line):
+                warns.append(f"{req_file}: '{pkg}' fehlt Upper-Bound (<1) — ADR iil-packages")
+
+    # 2. pip check — Dependency-Konflikte im installierten Environment
+    rc, out = run([python, "-m", "pip", "check"], cwd=repo_dir)
+    if rc != 0 and rc != 127:
+        for line in out.splitlines():
+            if line.strip() and "No broken" not in line:
+                issues.append(f"pip check: {line.strip()}")
+
+    # 3. pip-audit — CVE-Scan (optional, nur wenn installiert)
+    audit_rc, audit_out = run([python, "-m", "pip_audit", "--format=columns", "-q"], cwd=repo_dir)
+    if audit_rc == 127:
+        pass  # pip-audit nicht installiert — kein Problem
+    elif audit_rc != 0:
+        vuln_lines = [l for l in audit_out.splitlines() if l.strip() and "No known" not in l and "Name" not in l]
+        if vuln_lines:
+            issues.extend([f"CVE: {l.strip()}" for l in vuln_lines[:5]])
+
+    if issues:
+        detail = f"{len(issues)} Problem(e), {len(warns)} Warnung(en)"
+        report.add(StepResult("Dependencies", "FAIL", detail))
+        print(f"\n--- Dependency Probleme ---")
+        for i in issues:
+            print(f"  ❌ {i}")
+        for w in warns:
+            print(f"  ⚠️  {w}")
+        print()
+    elif warns:
+        detail = f"{len(warns)} Pinning-Warnung(en)"
+        report.add(StepResult("Dependencies", "WARN", detail))
+        print(f"\n--- Pinning Warnungen ---")
+        for w in warns:
+            print(f"  ⚠️  {w}")
+        print()
+    else:
+        detail = f"{', '.join(found_reqs.keys())} — OK"
+        report.add(StepResult("Dependencies", "OK", detail))
+
+
 def step_hardcoding(repo_dir: Path, report: Report) -> None:
     checker = PLATFORM_ROOT / "scripts" / "check_hardcoded_urls.py"
     if not checker.exists():
@@ -320,6 +394,7 @@ def main() -> int:
     print(f"    Settings: {settings}\n")
 
     step_lint(repo_dir, python, report)
+    step_dependency_check(repo_dir, python, report)
     step_django_check(repo_dir, python, settings, report)
     step_migration_check(repo_dir, python, settings, report)
     step_install_test_deps(repo_dir, python, report)
