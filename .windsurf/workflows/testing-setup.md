@@ -1,63 +1,43 @@
 ---
-description: Test-Infrastruktur für neue Repos einrichten (platform_context.testing, ADR-058)
+description: Test-Infrastruktur für neue Repos einrichten (iil-testkit, ADR-058)
 ---
 
 # Testing Setup für neue Repos (ADR-058)
 
-Jedes neue Repo MUSS `platform_context.testing` integrieren.
+Jedes neue Repo MUSS `iil-testkit` integrieren.
 Dieses Dokument wird von `/onboard-repo` in Step 1.6 referenziert.
+
+> **Automatisierung:** Der `scaffold-tests` Workflow erstellt automatisch einen PR
+> wenn ein neues Repo in `repo-registry.yaml` eingetragen wird.
+> Manuell: `gh workflow run scaffold-tests.yml -f repo_name=<name>`
 
 ## Pflicht-Dateien
 
 ### `requirements-test.txt`
 
 ```text
+iil-testkit[smoke]>=0.4.0,<1
 pytest>=8.0
 pytest-django>=4.8
-pytest-mock>=3.12
+pytest-cov>=5.0
+pytest-xdist>=3.0
+beautifulsoup4>=4.12
 factory-boy>=3.3
-platform-context[testing]>=0.3.0
 ```
 
 ### `tests/conftest.py` (Django-App)
 
 ```python
 # tests/conftest.py — ADR-058 §Confirmation
-import pytest
-
-# Shared platform fixtures (platform-context[testing])
-from platform_context.testing.fixtures import (  # noqa: F401
-    admin_client,
-    admin_user,
-    auth_client,
-    htmx_client,
-)
-
-# Repo-specific: user via UserFactory
-# Bei Custom User Model (allauth etc.) diese Fixture lokal überschreiben:
-@pytest.fixture
-def user(db):
-    """Standard authenticated user."""
-    from tests.factories import UserFactory
-    return UserFactory()
+# Stellt alle Fixtures bereit: auth_client, staff_client, db_user, admin_user
+pytest_plugins = ["iil_testkit.fixtures"]
 ```
 
 ### `tests/conftest.py` (Nicht-Django, z.B. MCP-Server)
 
 ```python
-# tests/conftest.py — ADR-058 §Confirmation
-# Kein Django → keine Django-Fixtures, nur Assertion-Helpers
+# tests/conftest.py — ADR-058 §Confirmation (ohne Django)
 import pytest
-
-@pytest.fixture
-def assert_json_error():
-    from platform_context.testing.assertions import assert_json_error
-    return assert_json_error
-
-@pytest.fixture
-def assert_celery_dispatched():
-    from platform_context.testing.assertions import assert_celery_dispatched
-    return assert_celery_dispatched
 ```
 
 ### `tests/factories.py` (Django-App)
@@ -114,27 +94,26 @@ python_functions = ["test_*", "test_should_*"]
 addopts = "-v --tb=short"
 ```
 
-## Verfügbare Assertions
+## Verfügbare Assertions (`from iil_testkit.assertions import ...`)
 
-| Assertion | Zweck | ADR-058 |
-|-----------|-------|--------|
-| `assert_login_required(client, url)` | URL erfordert Login | A2 |
-| `assert_no_data_leak(client, url, user)` | Cross-User-Isolation | A2 |
-| `assert_htmx_fragment(response)` | HTMX-Partial zurückgegeben | U3/U4 |
-| `assert_htmx_trigger(response, event)` | HX-Trigger Header gesetzt | U3/U4 |
-| `assert_json_error(response, status)` | JSON-Fehlerantwort valide | A6 |
-| `assert_celery_dispatched(mock, count)` | Celery-Task dispatched | A10 |
-| `assert_graceful_degradation(response)` | Kein 500 bei Fehler | F3 |
+| Assertion | Zweck | ADR |
+|-----------|-------|-----|
+| `assert_redirects_to_login(response)` | URL erfordert Login | ADR-058 A2 |
+| `assert_htmx_response(response)` | HTMX-Partial — kein `<html>` | ADR-048 |
+| `assert_data_testids(response)` | Alle `hx-*` Elemente haben `data-testid` | ADR-048 |
+| `assert_no_n_plus_one(queries, threshold)` | N+1 Query-Detektion | ADR-058 |
+| `assert_form_error(response, field, msg)` | Formularfehler-Check | ADR-058 |
 
-## Verfügbare Fixtures
+## Verfügbare Fixtures (`pytest_plugins = ["iil_testkit.fixtures"]`)
 
 | Fixture | Zweck |
 |---------|-------|
-| `user` | Standard-User (Django auth) |
-| `admin_user` | Superuser |
-| `auth_client` | Eingeloggter Django-Client |
-| `admin_client` | Eingeloggter Admin-Client |
-| `htmx_client` | Client mit `HX-Request: true` Header |
+| `db_user` | Standard-User (Django auth) |
+| `staff_user` | User mit `is_staff=True` |
+| `admin_user` | User mit `is_superuser=True` |
+| `api_client` | Nicht-eingeloggter Django-Client |
+| `auth_client` | Eingeloggter Django-Client (als `db_user`) |
+| `staff_client` | Eingeloggter Django-Client (als `staff_user`) |
 
 **Hinweis:** Bei Custom User Models die `user`-Fixture lokal überschreiben.
 `auth_client`, `admin_client`, `htmx_client` bleiben unverändert nutzbar.
@@ -149,7 +128,7 @@ push to main
     ▼
 [Stage 1: CI]  ← pytest läuft hier
     ├── ruff lint
-    ├── pytest tests/ (mit platform_context.testing)
+    ├── pytest tests/ (mit iil-testkit)
     └── security scan
     │
     ▼ (nur wenn CI grün)
@@ -183,14 +162,18 @@ mcp5_docker_manage(action="container_exec",
 
 ```text
 Testing (ADR-058):
-  [ ] requirements-test.txt mit platform-context[testing]>=0.3.0
+  [ ] requirements-test.txt mit iil-testkit[smoke]>=0.4.0
   [ ] tests/__init__.py existiert
-  [ ] tests/conftest.py importiert platform_context.testing.fixtures
+  [ ] tests/conftest.py: pytest_plugins = ["iil_testkit.fixtures"]
   [ ] tests/factories.py mit UserFactory (+ domain-spezifische Factories)
-  [ ] tests/test_auth.py mit assert_login_required für alle geschützten URLs
-  [ ] pyproject.toml mit [tool.pytest.ini_options]
+  [ ] tests/test_views_smoke.py mit discover_smoke_urls()
+  [ ] tests/test_views_htmx.py mit HTMX_URLS befüllt
+  [ ] pyproject.toml mit [tool.pytest.ini_options] + DJANGO_SETTINGS_MODULE
   [ ] CI/CD: pytest läuft in Stage 1 (vor Build + Deploy)
 ```
+
+> **Scaffold-Vorlage:** `platform/docs/templates/django_test_scaffold/`
+> **Auto-PR:** `gh workflow run scaffold-tests.yml -f repo_name=<name>`
 
 ## Repos als Referenz
 
