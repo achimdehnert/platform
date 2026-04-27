@@ -16,7 +16,7 @@ from __future__ import annotations
 
 import pytest
 
-from .conftest import ALL_REPO_NAMES, Budget, load_budgets, scan_results  # noqa: F401
+from .conftest import ALL_REPO_NAMES, Budget, load_budgets, record_budget_update, scan_results  # noqa: F401
 
 # ── Hilfsfunktionen ──────────────────────────────────────────────────────────
 
@@ -62,9 +62,9 @@ def test_vermeidbar_total(
     count = _vermeidbar_count(scan_results, repo_name)
     summary = _violation_summary(scan_results, repo_name)
 
-    # Update-Modus: kein Fail, nur Ausgabe
+    # Update-Modus: Wert sammeln → wird in pytest_sessionfinish in budgets.toml geschrieben
     if request.config.getoption("--update-budgets", default=False):
-        print(f"\n{repo_name}: count={count} (budget={budget.total})")
+        record_budget_update(repo_name, count)
         return
 
     if count > budget.total:

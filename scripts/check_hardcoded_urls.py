@@ -365,14 +365,27 @@ def scan_repo(repo_path: Path) -> RepoResult:
     return result
 
 
-def find_all_repos(root: Path) -> list[Path]:
+def find_all_repos(
+    root: Path,
+    include_only: set[str] | None = None,
+) -> list[Path]:
+    """Findet alle Repos unter root.
+
+    Args:
+        root: Wurzelverzeichnis (z.B. ~/github)
+        include_only: Wenn gesetzt, nur diese Repo-Namen einschließen (SSoT-Modus).
+            Wenn None, wird _SKIP_REPOS zur Filterung verwendet (CLI-Modus).
+    """
     repos: list[Path] = []
     for candidate in sorted(root.iterdir()):
         if not candidate.is_dir():
             continue
         if candidate.name.startswith(".") or candidate.name.endswith(".code-workspace"):
             continue
-        if candidate.name in _SKIP_REPOS:
+        if include_only is not None:
+            if candidate.name not in include_only:
+                continue
+        elif candidate.name in _SKIP_REPOS:
             continue
         if (candidate / "manage.py").exists():
             repos.append(candidate)
@@ -382,6 +395,8 @@ def find_all_repos(root: Path) -> list[Path]:
             continue
         html_count = sum(1 for p in candidate.rglob("*.html") if not _should_skip_path(p))
         if html_count > 0:
+            repos.append(candidate)
+        elif include_only is not None:
             repos.append(candidate)
     return repos
 

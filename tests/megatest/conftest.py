@@ -17,6 +17,7 @@ Ausführung:
 from __future__ import annotations
 
 import os
+import re
 import sys
 import tomllib
 from pathlib import Path
@@ -64,7 +65,8 @@ def load_budgets() -> dict[str, Budget]:
 
 @pytest.fixture(scope="session")
 def all_repos() -> list[Path]:
-    return find_all_repos(GITHUB_ROOT)
+    budget_repos = set(load_budgets().keys())
+    return find_all_repos(GITHUB_ROOT, include_only=budget_repos)
 
 
 @pytest.fixture(scope="session")
@@ -83,9 +85,10 @@ def scan_results(all_repos: list[Path]) -> dict[str, RepoResult]:
 
 def get_repo_names() -> list[str]:
     """Alle Repos lesen ohne session-fixture (für pytest.mark.parametrize)."""
+    budget_repos = set(load_budgets().keys())
     return [
         r.name if r.name != "src" else r.parent.name
-        for r in find_all_repos(GITHUB_ROOT)
+        for r in find_all_repos(GITHUB_ROOT, include_only=budget_repos)
     ]
 
 
@@ -113,3 +116,39 @@ def pytest_configure(config: pytest.Config) -> None:
         "markers",
         "megatest: Platform-weiter Hardcoding-Megatest",
     )
+
+
+# ── Budget-Update-Writer ───────────────────────────────────────────────────────
+
+_budget_updates: dict[str, int] = {}
+
+
+def record_budget_update(repo_name: str, count: int) -> None:
+    """Aus test_hardcoding.py aufgerufen wenn --update-budgets aktiv."""
+    _budget_updates[repo_name] = count
+
+
+def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:  # noqa: ARG001
+    """Nach Test-Session: budgets.toml mit aktuellen Counts überschreiben."""
+    if not session.config.getoption("--update-budgets", default=False):
+        return
+    if not _budget_updates:
+        return
+
+    raw = BUDGETS_FILE.read_text(encoding="utf-8")
+
+    def _replace(m: re.Match) -> str:
+        repo = m.group(1)
+        new_val = _budget_updates.get(repo)
+        if new_val is None:
+            return m.group(0)
+        padding = m.group(2)
+        return f'"{repo}"{padding}= {new_val}'
+
+    updated = re.sub(
+        r'"([^"]+)"(\s*)= \d+',
+        _replace,
+        raw,
+    )
+    BUDGETS_FILE.write_text(updated, encoding="utf-8")
+    print(f"\n✅ budgets.toml aktualisiert ({len(_budget_updates)} Repos)")
