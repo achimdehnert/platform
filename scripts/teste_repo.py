@@ -110,7 +110,9 @@ def find_manage(repo_dir: Path) -> Path | None:
 def detect_settings_module(repo_dir: Path) -> str:
     """Ermittle DJANGO_SETTINGS_MODULE — delegiert an gen_test_scaffold.detect_settings."""
     try:
-        sys.path.insert(0, str(PLATFORM_ROOT / "scripts"))
+        scripts_dir = str(PLATFORM_ROOT / "scripts")
+        if scripts_dir not in sys.path:
+            sys.path.insert(0, scripts_dir)
         from gen_test_scaffold import detect_settings  # type: ignore[import]
         return detect_settings(repo_dir)
     except ImportError:
@@ -208,7 +210,11 @@ def step_pytest(repo_dir: Path, python: str, settings: str, report: Report) -> N
             rc_s, out_s = run([python, str(scaffold_script), str(repo_dir)], cwd=PLATFORM_ROOT)
             print(out_s)
             if rc_s == 0 and tests_dir.exists():
-                print("✅  Scaffold erstellt — führe Tests jetzt aus\n")
+                print("✅  Scaffold erstellt — installiere Test-Deps...\n")
+                # Bug-Fix: Deps jetzt installieren, step_install_test_deps lief bereits vorher
+                req = repo_dir / "requirements-test.txt"
+                if req.exists():
+                    run([python, "-m", "pip", "install", "-r", str(req), "-q"], cwd=repo_dir)
             else:
                 report.add(StepResult("Tests (pytest)", "WARN", "Scaffold fehlgeschlagen",
                     f"Manuell: python3 scripts/gen_test_scaffold.py {repo_dir.name}"))
@@ -235,14 +241,24 @@ def step_pytest(repo_dir: Path, python: str, settings: str, report: Report) -> N
     cmd = [
         python, "-m", "pytest", "tests/",
         "--tb=short", "--no-header", "-q",
+        "-n", "auto",
         "--cov", "--cov-report=term-missing:skip-covered",
     ]
     rc, out = run(cmd, cwd=repo_dir, env=env, capture=True)
-    if rc != 0 and "unrecognized arguments" in out and "--cov" in out:
-        # pytest-cov nicht installiert — ohne Coverage wiederholen
-        cmd_no_cov = [python, "-m", "pytest", "tests/", "--tb=short", "--no-header", "-q"]
-        rc, out = run(cmd_no_cov, cwd=repo_dir, env=env, capture=True)
-        out = "(Coverage übersprungen — pytest-cov nicht installiert)\n" + out
+    # Graceful fallbacks für optionale Plugins
+    if rc != 0 and "unrecognized arguments" in out:
+        strip_args: list[str] = []
+        if "-n" in out or "xdist" in out.lower():
+            strip_args += ["-n", "auto"]
+        if "--cov" in out:
+            strip_args += ["--cov", "--cov-report=term-missing:skip-covered"]
+        cmd_fallback = [a for a in cmd if a not in strip_args]
+        note = "(" + ", ".join(
+            (["pytest-xdist fehlt"] if "-n" in strip_args else []) +
+            (["pytest-cov fehlt"] if "--cov" in strip_args else [])
+        ) + " — vereinfachter Run)\n"
+        rc, out = run(cmd_fallback, cwd=repo_dir, env=env, capture=True)
+        out = note + out
 
     # Parse: passed/failed/skipped
     summary_line = ""

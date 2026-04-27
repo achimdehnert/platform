@@ -22,7 +22,6 @@ import os
 import sys
 import urllib.request
 from pathlib import Path
-from string import Template
 
 PLATFORM_ROOT = Path(__file__).parent.parent
 
@@ -228,7 +227,7 @@ addopts = [
     "--tb=short",
     "-ra",
     "--no-header",
-    "-n", "auto",
+    # "-n", "auto",  # pytest-xdist Parallelisierung -- aktivieren wenn xdist installiert
     "--cov",
     "--cov-report=term-missing:skip-covered",
     "--cov-fail-under=80",
@@ -315,9 +314,10 @@ def generate_scaffold(
             print(content[:200] + ("..." if len(content) > 200 else ""))
             continue
 
+        is_new = not target.exists()
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(content, encoding="utf-8")
-        results[rel_path] = "CREATED" if not target.exists() else "UPDATED"
+        results[rel_path] = "CREATED" if is_new else "UPDATED"
 
     # pyproject.toml: pytest-Sektion prüfen / hinzufügen
     pyproject = repo_dir / "pyproject.toml"
