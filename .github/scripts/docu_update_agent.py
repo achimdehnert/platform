@@ -3,19 +3,28 @@
 docu_update_agent.py — Docu-Update für docu-update GitHub Issues.
 
 Stufe 1 (deterministisch, kein LLM):
-- README.md Version aus pyproject.toml synchronisieren
-- CHANGELOG.md Eintrag aus git log generieren
+- README.md Version aus pyproject.toml / VERSION / __version__ synchronisieren
+- CHANGELOG.md Eintrag aus git log (seit letztem CHANGELOG-Eintrag) generieren
 
 Stufe 2 (--llm, gpt-4o-mini):
 - LLM-generierte CHANGELOG-Zusammenfassungen statt roher Commit-Messages
 - README.md Version-Injection wenn keine Version im Header
 - Bessere Commit-Messages
 
+Tier-Detection:
+- Tier 1/2 (Django): hat manage.py — kein pyproject.toml erwartet
+- Tier 3 (Package/Infra): hat pyproject.toml oder VERSION-Datei
+
 Verwendung:
     python .github/scripts/docu_update_agent.py \\
         --issue-number 46 \\
         --llm              # optional: LLM-enhanced (Stufe 2)
         --dry-run          # optional: kein push/close
+
+    # Batch-Modus (mehrere Repos)
+    python .github/scripts/docu_update_agent.py \\
+        --repos risk-hub,coach-hub,billing-hub \\
+        --dry-run
 """
 
 from __future__ import annotations
@@ -108,13 +117,65 @@ def parse_issue(title: str, body: str) -> tuple[str | None, str | None]:
 # File operations
 # ---------------------------------------------------------------------------
 
-def get_version_from_pyproject(repo_path: Path) -> str | None:
+def detect_tier(repo_path: Path) -> str:
+    """Detect repo tier: 'django' (Tier 1/2) or 'package' (Tier 3)."""
+    if (repo_path / "manage.py").exists():
+        return "django"
+    if (repo_path / "pyproject.toml").exists() or (repo_path / "VERSION").exists():
+        return "package"
+    return "package"  # fallback
+
+
+def get_version(repo_path: Path) -> str | None:
+    """Authoritative version: pyproject.toml > VERSION file > __version__ in src."""
+    # 1. pyproject.toml
     pyproject = repo_path / "pyproject.toml"
-    if not pyproject.exists():
-        return None
-    content = pyproject.read_text()
-    m = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', content, re.MULTILINE)
-    return m.group(1) if m else None
+    if pyproject.exists():
+        m = re.search(r'^version\s*=\s*["\']([^"\']+)["\']', pyproject.read_text(), re.MULTILINE)
+        if m:
+            return m.group(1)
+
+    # 2. VERSION file
+    version_file = repo_path / "VERSION"
+    if version_file.exists():
+        v = version_file.read_text().strip()
+        if v:
+            return v
+
+    # 3. __version__ in src/**/__init__.py or top-level
+    for pattern in ["src/**/__init__.py", "*/__init__.py", "__init__.py"]:
+        for init_file in sorted(repo_path.glob(pattern)):
+            m = re.search(r'^__version__\s*=\s*["\']([^"\']+)["\']', init_file.read_text(), re.MULTILINE)
+            if m:
+                return m.group(1)
+
+    return None
+
+
+def get_version_from_pyproject(repo_path: Path) -> str | None:
+    """Kept for backward compat — delegates to get_version()."""
+    return get_version(repo_path)
+
+
+def _strip_code_blocks(content: str) -> tuple[str, list[tuple[int, int, str]]]:
+    """Replace fenced code blocks with placeholders. Returns (masked_content, replacements)."""
+    replacements: list[tuple[int, int, str]] = []
+    result = []
+    pos = 0
+    for m in re.finditer(r"```[\s\S]*?```|`[^`]+`", content):
+        result.append(content[pos:m.start()])
+        placeholder = f"\x00CODE{len(replacements)}\x00"
+        replacements.append((m.start(), m.end(), m.group()))
+        result.append(placeholder)
+        pos = m.end()
+    result.append(content[pos:])
+    return "".join(result), replacements
+
+
+def _restore_code_blocks(content: str, replacements: list[tuple[int, int, str]]) -> str:
+    for i, (_, _, original) in enumerate(replacements):
+        content = content.replace(f"\x00CODE{i}\x00", original)
+    return content
 
 
 def update_readme_version(repo_path: Path, new_version: str) -> bool:
@@ -125,22 +186,26 @@ def update_readme_version(repo_path: Path, new_version: str) -> bool:
     content = readme.read_text()
     original = content
 
-    # Replace version badge / inline: v1.2.3 or 1.2.3 (first occurrence)
-    # Pattern 1: v1.2.3
-    content, n1 = re.subn(
+    # Mask code blocks so we don't accidentally replace versions inside them
+    masked, replacements = _strip_code_blocks(content)
+
+    # Pattern 1: v1.2.3 (badge or inline)
+    masked, n1 = re.subn(
         r"\bv([0-9]+\.[0-9]+\.[0-9]+)\b",
         f"v{new_version}",
-        content,
+        masked,
         count=1,
     )
-    # Pattern 2: standalone "1.2.3" in Version: or **Version** lines
+    # Pattern 2: Version: 1.2.3 or **Version** 1.2.3
     if n1 == 0:
-        content, _ = re.subn(
-            r"((?:Version|version)\s*[:\|]\s*)([0-9]+\.[0-9]+\.[0-9]+)",
+        masked, _ = re.subn(
+            r"((?:Version|version)\s*[:|\s]\s*)([0-9]+\.[0-9]+\.[0-9]+)",
             lambda m: m.group(1) + new_version,
-            content,
+            masked,
             count=1,
         )
+
+    content = _restore_code_blocks(masked, replacements)
 
     if content != original:
         readme.write_text(content)
@@ -148,19 +213,34 @@ def update_readme_version(repo_path: Path, new_version: str) -> bool:
     return False
 
 
-def _get_commit_lines(repo_path: Path, count: int = 20) -> list[str]:
-    """Get recent commit messages, excluding auto-commits."""
-    result = subprocess.run(
-        ["git", "log", "--oneline", f"-{count}", "--no-merges",
-         "--invert-grep", "--grep=session-ende", "--grep=auto-sync",
-         "--grep=docu-update-agent"],
-        cwd=repo_path, capture_output=True, text=True,
-    )
-    return [
+def _get_last_changelog_date(repo_path: Path) -> str | None:
+    """Return ISO date of the most recent CHANGELOG entry, or None."""
+    changelog = repo_path / "CHANGELOG.md"
+    if not changelog.exists():
+        return None
+    m = re.search(r"##\s*\[.*?\]\s*[—-]\s*([0-9]{4}-[0-9]{2}-[0-9]{2})", changelog.read_text())
+    return m.group(1) if m else None
+
+
+def _get_commit_lines(repo_path: Path, count: int = 30) -> list[str]:
+    """Get commits since last CHANGELOG entry date, excluding auto-commits."""
+    since_date = _get_last_changelog_date(repo_path)
+    cmd = ["git", "log", "--oneline", "--no-merges",
+           "--invert-grep", "--grep=session-ende",
+           "--invert-grep", "--grep=auto-sync",
+           "--invert-grep", "--grep=docu-update-agent",
+           "--invert-grep", "--grep=agent-memory"]
+    if since_date:
+        cmd += [f"--after={since_date}"]
+    else:
+        cmd += [f"-{count}"]
+    result = subprocess.run(cmd, cwd=repo_path, capture_output=True, text=True)
+    lines = [
         re.sub(r"^[a-f0-9]{7,}\s+", "", line.strip())
         for line in result.stdout.strip().splitlines()
         if line.strip()
-    ][:15]
+    ]
+    return lines[:15] if lines else []
 
 
 def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -> str | None:
@@ -252,18 +332,20 @@ def run_update(
         repo_url = f"https://x-access-token:{token}@github.com/{ORG}/{repo_name}.git"
 
         clone = subprocess.run(
-            ["git", "clone", "--depth=50", repo_url, repo_name],
+            ["git", "clone", "--depth=100", repo_url, repo_name],
             cwd=tmpdir, capture_output=True, text=True,
         )
         if clone.returncode != 0:
             return {"success": False, "error": f"Clone failed: {clone.stderr[:300]}"}
 
         repo_path = Path(tmpdir) / repo_name
+        tier = detect_tier(repo_path)
+        print(f"  Tier    : {tier}")
 
-        # Authoritative version: pyproject.toml > issue_version
-        version = get_version_from_pyproject(repo_path) or issue_version
+        # Authoritative version: pyproject.toml > VERSION file > __version__ > issue_version
+        version = get_version(repo_path) or issue_version
         if not version:
-            return {"success": False, "error": "Cannot determine version — no pyproject.toml and no version in issue"}
+            return {"success": False, "error": f"Cannot determine version — no pyproject.toml, VERSION file or __version__ found in {repo_name}"}
 
         subprocess.run(["git", "config", "user.email", "cascade-agent@iil.pet"], cwd=repo_path)
         subprocess.run(["git", "config", "user.name", "Cascade Agent [docu-update]"], cwd=repo_path)
@@ -321,9 +403,42 @@ def run_update(
 # Entry point
 # ---------------------------------------------------------------------------
 
+def run_batch(
+    repos: list[str],
+    token: str,
+    dry_run: bool,
+    platform_repo: str,
+    use_llm: bool = False,
+) -> int:
+    """Process multiple repos without a linked issue."""
+    failures = 0
+    for repo_name in repos:
+        print(f"\n{'='*60}\nBatch: {repo_name}\n{'='*60}")
+        result = run_update(
+            repo_name=repo_name,
+            issue_version=None,
+            token=token,
+            dry_run=dry_run,
+            issue_number=0,
+            platform_repo=platform_repo,
+            use_llm=use_llm,
+        )
+        if not result["success"]:
+            print(f"  FAILED: {result.get('error')}", file=sys.stderr)
+            failures += 1
+        elif result.get("skipped"):
+            print(f"  SKIP: already up to date (v{result['version']})")
+        else:
+            for c in result.get("changes", []):
+                print(f"  ✅ {c}")
+    return failures
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Docu-Update Agent — Stufe 1+2")
-    parser.add_argument("--issue-number", type=int, required=True)
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--issue-number", type=int, help="Single issue mode")
+    group.add_argument("--repos", help="Batch mode: comma-separated repo names (e.g. risk-hub,coach-hub)")
     parser.add_argument("--dry-run", action="store_true", default=False)
     parser.add_argument("--llm", action="store_true", default=False,
                         help="Stufe 2: Use gpt-4o-mini for CHANGELOG generation")
@@ -336,7 +451,14 @@ def main() -> int:
 
     platform_repo = os.environ.get("GITHUB_REPOSITORY", f"{ORG}/platform").split("/")[-1]
 
-    # Fetch issue from GitHub API (avoids multiline env-var quoting issues)
+    # --- Batch mode ---
+    if args.repos:
+        repos = [r.strip() for r in args.repos.split(",") if r.strip()]
+        print(f"Batch mode: {len(repos)} repos — dry_run={args.dry_run} llm={args.llm}")
+        failures = run_batch(repos, token, args.dry_run, platform_repo, args.llm)
+        return 0 if failures == 0 else 1
+
+    # --- Single issue mode ---
     print(f"Fetching issue #{args.issue_number} from {ORG}/{platform_repo}...")
     issue = gh_get_issue(platform_repo, args.issue_number, token)
     title = issue.get("title", "")
@@ -355,7 +477,7 @@ def main() -> int:
 
     use_llm = args.llm
     print(f"  Repo    : {repo_name}")
-    print(f"  Version : {issue_version or '(from pyproject.toml)'}")
+    print(f"  Version : {issue_version or '(auto-detect)'}")
     print(f"  Stufe   : {'2 (LLM)' if use_llm else '1 (deterministisch)'}")
     print(f"  Dry-run : {args.dry_run}")
 
