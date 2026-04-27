@@ -39,6 +39,7 @@ Verwendung:
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 from dataclasses import dataclass, field
@@ -46,7 +47,7 @@ from pathlib import Path
 
 # ── Konfiguration ─────────────────────────────────────────────────────────────
 
-GITHUB_ROOT = Path.home() / "github"
+GITHUB_ROOT = Path(os.environ.get("GITHUB_DIR", Path.home() / "github"))
 
 _SKIP_DIRS = {
     ".venv", "node_modules", "__pycache__", "site-packages",

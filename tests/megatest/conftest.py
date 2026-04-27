@@ -16,6 +16,7 @@ Ausführung:
 """
 from __future__ import annotations
 
+import os
 import sys
 import tomllib
 from pathlib import Path
@@ -29,7 +30,7 @@ sys.path.insert(0, str(_SCRIPTS))
 
 from check_hardcoded_urls import RepoResult, find_all_repos, scan_repo  # noqa: E402
 
-GITHUB_ROOT = Path.home() / "github"
+GITHUB_ROOT = Path(os.environ.get("GITHUB_DIR", Path.home() / "github"))
 BUDGETS_FILE = Path(__file__).parent / "budgets.toml"
 
 

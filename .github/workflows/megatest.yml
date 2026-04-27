@@ -28,37 +28,27 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Install pytest + pyyaml
+        run: pip install pytest pyyaml --quiet
+
       - name: Checkout alle Repos unter ~/github
         run: |
-          cd ~/github
-          # Repos die noch nicht vorhanden sind klonen (shallow)
-          for repo in \
-            137-hub ausschreibungs-hub bfagent billing-hub cad-hub \
-            coach-hub dev-hub dms-hub iil-relaunch illustration-hub \
-            learn-hub onboarding-hub pptx-hub recruiting-hub research-hub \
-            risk-hub tax-hub trading-hub travel-beat wedding-hub \
-            weltenhub writing-hub; do
+          set -euo pipefail
+          REPOS=$(python3 scripts/list_megatest_repos.py)
+          mkdir -p ~/github
+          for repo in $REPOS; do
             if [ ! -d "$HOME/github/$repo" ]; then
-              echo "Klone $repo..."
               git clone --depth=1 \
                 "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/achimdehnert/$repo.git" \
-                "$HOME/github/$repo" 2>/dev/null || echo "WARN: $repo nicht gefunden"
-            else
-              echo "✓ $repo vorhanden"
+                "$HOME/github/$repo" 2>/dev/null || echo "WARN: $repo not found"
             fi
           done
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install pytest
-        run: pip install pytest --quiet
 
       - name: Run Megatest (normal)
         if: ${{ !inputs.update_budgets }}
         id: megatest_run
+        env:
+          GITHUB_DIR: /root/github
         run: |
           cd ~/github/platform
           python -m pytest tests/megatest/ \
@@ -71,6 +61,8 @@ jobs:
 
       - name: Run Megatest (Budget-Update)
         if: ${{ inputs.update_budgets }}
+        env:
+          GITHUB_DIR: /root/github
         run: |
           cd ~/github/platform
           python -m pytest tests/megatest/ \
