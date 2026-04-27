@@ -45,6 +45,19 @@ GITHUB_API = "https://api.github.com"
 ORG = "achimdehnert"
 
 
+def get_secret(name: str, env_var: str | None = None) -> str | None:
+    """Read secret from env var, fallback to ~/.secrets/{name}.
+
+    Standard discovery pattern for all platform scripts.
+    See project-facts.md — Secrets section.
+    """
+    val = os.environ.get(env_var or name.upper())
+    if val:
+        return val
+    path = Path.home() / ".secrets" / name.lower()
+    return path.read_text().strip() if path.exists() else None
+
+
 # ---------------------------------------------------------------------------
 # GitHub API helpers
 # ---------------------------------------------------------------------------
@@ -262,9 +275,9 @@ def _call_llm(prompt: str, max_tokens: int = 600) -> str | None:
     In CI there is no Django setup, so aifw.sync_completion() cannot be used.
     Rule: use aifw in Django apps; use litellm directly in standalone scripts.
     """
-    api_key = os.environ.get("OPENAI_API_KEY")
+    api_key = get_secret("openai_api_key", "OPENAI_API_KEY")
     if not api_key:
-        print("  OPENAI_API_KEY not set — skipping LLM call")
+        print("  OPENAI_API_KEY not set and ~/.secrets/openai_api_key missing — skipping LLM call")
         return None
     try:
         response = litellm.completion(
@@ -595,9 +608,9 @@ def main() -> int:
                         help="Stufe 2: Use gpt-4o-mini for CHANGELOG generation")
     args = parser.parse_args()
 
-    token = os.environ.get("PROJECT_PAT") or os.environ.get("GITHUB_TOKEN", "")
+    token = get_secret("github_token", "PROJECT_PAT") or get_secret("github_token", "GITHUB_TOKEN") or ""
     if not token:
-        print("ERROR: PROJECT_PAT or GITHUB_TOKEN not set", file=sys.stderr)
+        print("ERROR: No GitHub token found — set PROJECT_PAT env var or create ~/.secrets/github_token", file=sys.stderr)
         return 1
 
     platform_repo = os.environ.get("GITHUB_REPOSITORY", f"{ORG}/platform").split("/")[-1]
