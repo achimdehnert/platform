@@ -68,6 +68,17 @@ def gh_close_issue(repo: str, issue_number: int, token: str) -> None:
     httpx.patch(url, headers=_gh_headers(token), json={"state": "closed"}, timeout=15).raise_for_status()
 
 
+def gh_create_issue(repo: str, title: str, body: str, labels: list[str], token: str) -> int:
+    """Create issue in ORG/repo. Returns issue number."""
+    url = f"{GITHUB_API}/repos/{ORG}/{repo}/issues"
+    payload: dict = {"title": title, "body": body}
+    if labels:
+        payload["labels"] = labels
+    resp = httpx.post(url, headers=_gh_headers(token), json=payload, timeout=15)
+    resp.raise_for_status()
+    return resp.json()["number"]
+
+
 def gh_comment(repo: str, issue_number: int, body: str, token: str) -> None:
     url = f"{GITHUB_API}/repos/{ORG}/{repo}/issues/{issue_number}/comments"
     httpx.post(url, headers=_gh_headers(token), json={"body": body}, timeout=15).raise_for_status()
@@ -243,6 +254,145 @@ def _get_commit_lines(repo_path: Path, count: int = 30) -> list[str]:
     return lines[:15] if lines else []
 
 
+def check_readme_quality_with_llm(
+    repo_path: Path,
+    repo_name: str,
+    tier: str,
+    version: str,
+    token: str,
+    platform_repo: str,
+    dry_run: bool = False,
+) -> bool:
+    """Ask LLM to review README quality. Creates a GitHub issue if problems found.
+    Returns True if an issue was created.
+    """
+    try:
+        from aifw.service import sync_completion
+    except ImportError:
+        print("  aifw not installed — skipping README quality check")
+        return False
+
+    readme = repo_path / "README.md"
+    if not readme.exists():
+        return False
+
+    # Collect context for the LLM
+    readme_content = readme.read_text()[:4000]  # cap at 4k chars
+    file_tree = _get_file_tree(repo_path)
+    pyproject_extras = _get_pyproject_extras(repo_path)
+
+    prompt = f"""You are a documentation quality reviewer for the Python/Django platform project '{repo_name}'.
+
+Repo tier: {tier} ({'Django app' if tier == 'django' else 'Python package / Infra repo'})
+Current version: {version}
+
+File structure (top-level):
+{file_tree}
+
+{pyproject_extras}
+
+README.md content:
+---
+{readme_content}
+---
+
+Review the README and report ONLY real problems. Be strict but fair.
+Check for:
+1. Hardcoded absolute paths (e.g. /home/username/..., /home/devuser/...)
+2. Phantom commands — CLI commands or scripts mentioned in README that likely don't exist (cross-check with file structure)
+3. Missing required sections for this tier:
+   - All repos: Installation, Quick Start or Usage
+   - Django apps: Deployment, Configuration/Environment
+   - Packages: API examples, Dependencies/Extras table
+4. Version inconsistency (README mentions a different version than {version})
+5. Outdated module or directory references (directories in README not present in file tree)
+
+Respond in this EXACT format:
+PROBLEMS_FOUND: yes|no
+ISSUES:
+- [TYPE] Description of problem (line hint if possible)
+- ...
+
+If no problems found, respond:
+PROBLEMS_FOUND: no
+ISSUES: none
+
+Do NOT suggest style improvements or minor wording changes. Only structural and accuracy problems."""
+
+    try:
+        result = sync_completion(
+            action_code="docu_update",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=800,
+            model="gpt-4o-mini",
+        )
+        if not result.success:
+            print(f"  README quality check failed: {result.error}")
+            return False
+        response = result.content.strip()
+    except Exception as exc:
+        print(f"  README quality check error: {exc}")
+        return False
+
+    # Parse response
+    problems_found = re.search(r"PROBLEMS_FOUND:\s*(yes|no)", response, re.IGNORECASE)
+    if not problems_found or problems_found.group(1).lower() == "no":
+        print("  ✅ README quality check: no problems found")
+        return False
+
+    # Extract issues block
+    issues_match = re.search(r"ISSUES:\n(.*)", response, re.DOTALL)
+    issues_text = issues_match.group(1).strip() if issues_match else response
+
+    print(f"  ⚠️  README quality issues found — creating GitHub issue")
+    print(issues_text)
+
+    if dry_run:
+        print("  (dry-run — issue not created)")
+        return False
+
+    body = (
+        f"## README Quality Issues — `{repo_name}` v{version}\n\n"
+        f"Automatisch erkannt durch `docu-update-agent` (gpt-4o-mini).\n"
+        f"Bitte manuell prüfen und beheben.\n\n"
+        f"### Gefundene Probleme\n\n"
+        f"{issues_text}\n\n"
+        f"---\n"
+        f"*Generiert von `docu-update-agent` für Repo `{repo_name}`*"
+    )
+    issue_num = gh_create_issue(
+        platform_repo,
+        title=f"[docu-quality] {repo_name} — README Qualitätsprobleme",
+        body=body,
+        labels=["docu-quality", "documentation"],
+        token=token,
+    )
+    print(f"  Issue #{issue_num} angelegt: [docu-quality] {repo_name}")
+    return True
+
+
+def _get_file_tree(repo_path: Path) -> str:
+    """Top-level file/dir listing for LLM context."""
+    entries = sorted(repo_path.iterdir(), key=lambda p: (p.is_file(), p.name))
+    lines = [
+        ("📁 " if e.is_dir() else "📄 ") + e.name
+        for e in entries
+        if not e.name.startswith(".")
+    ]
+    return "\n".join(lines[:40])
+
+
+def _get_pyproject_extras(repo_path: Path) -> str:
+    """Return extras/dependencies context from pyproject.toml if present."""
+    pyproject = repo_path / "pyproject.toml"
+    if not pyproject.exists():
+        return ""
+    content = pyproject.read_text()
+    # Only send dependencies section (cap at 1000 chars)
+    m = re.search(r"(\[project(?:\.optional-dependencies)?\][\s\S]{0,1000})", content)
+    return f"pyproject.toml excerpt:\n{m.group(1)[:1000]}" if m else ""
+
+
 def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -> str | None:
     """Use aifw to generate a structured CHANGELOG entry via LLM."""
     try:
@@ -352,6 +502,18 @@ def run_update(
 
         readme_changed = update_readme_version(repo_path, version)
         changelog_changed = update_changelog(repo_path, version, use_llm=use_llm, repo_name=repo_name)
+
+        # README quality check via LLM (creates issue if problems found)
+        if use_llm:
+            check_readme_quality_with_llm(
+                repo_path=repo_path,
+                repo_name=repo_name,
+                tier=tier,
+                version=version,
+                token=token,
+                platform_repo=platform_repo,
+                dry_run=dry_run,
+            )
 
         changes = []
         if readme_changed:
