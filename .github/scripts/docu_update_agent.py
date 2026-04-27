@@ -39,6 +39,7 @@ from datetime import date
 from pathlib import Path
 
 import httpx
+import litellm
 
 GITHUB_API = "https://api.github.com"
 ORG = "achimdehnert"
@@ -254,6 +255,30 @@ def _get_commit_lines(repo_path: Path, count: int = 30) -> list[str]:
     return lines[:15] if lines else []
 
 
+def _call_llm(prompt: str, max_tokens: int = 600) -> str | None:
+    """Direct litellm call for CI scripts (no Django DB available).
+
+    litellm is a transitive dependency of aifw (aifw/pyproject.toml: litellm>=1.30).
+    In CI there is no Django setup, so aifw.sync_completion() cannot be used.
+    Rule: use aifw in Django apps; use litellm directly in standalone scripts.
+    """
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        print("  OPENAI_API_KEY not set — skipping LLM call")
+        return None
+    try:
+        response = litellm.completion(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            api_key=api_key,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception as exc:
+        print(f"  LLM call failed: {exc}")
+        return None
+
+
 def check_readme_quality_with_llm(
     repo_path: Path,
     repo_name: str,
@@ -266,11 +291,6 @@ def check_readme_quality_with_llm(
     """Ask LLM to review README quality. Creates a GitHub issue if problems found.
     Returns True if an issue was created.
     """
-    try:
-        from aifw.service import sync_completion
-    except ImportError:
-        print("  aifw not installed — skipping README quality check")
-        return False
 
     readme = repo_path / "README.md"
     if not readme.exists():
@@ -319,19 +339,8 @@ ISSUES: none
 
 Do NOT suggest style improvements or minor wording changes. Only structural and accuracy problems."""
 
-    try:
-        result = sync_completion(
-            action_code="docu_update",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=800,
-            model="gpt-4o-mini",
-        )
-        if not result.success:
-            print(f"  README quality check failed: {result.error}")
-            return False
-        response = result.content.strip()
-    except Exception as exc:
-        print(f"  README quality check error: {exc}")
+    response = _call_llm(prompt, max_tokens=800)
+    if response is None:
         return False
 
     # Parse response
@@ -394,13 +403,7 @@ def _get_pyproject_extras(repo_path: Path) -> str:
 
 
 def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -> str | None:
-    """Use aifw to generate a structured CHANGELOG entry via LLM."""
-    try:
-        from aifw.service import sync_completion
-    except ImportError:
-        print("  aifw not installed — skipping LLM (Stufe 1 fallback)")
-        return None
-
+    """Generate a structured CHANGELOG entry via LLM."""
     commit_text = "\n".join(f"- {c}" for c in commits)
     prompt = (
         f"Generate a CHANGELOG entry for version {version} of the project '{repo_name}'.\n"
@@ -409,21 +412,7 @@ def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -
         f"Do NOT include the version header — only the bullet points grouped by section.\n\n"
         f"Raw commits:\n{commit_text}"
     )
-
-    try:
-        result = sync_completion(
-            action_code="docu_update",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=500,
-            model="gpt-4o-mini",
-        )
-        if result.success:
-            return result.content.strip()
-        print(f"  aifw call unsuccessful: {result.error} — falling back to raw commits")
-        return None
-    except Exception as exc:
-        print(f"  aifw call failed: {exc} — falling back to raw commits")
-        return None
+    return _call_llm(prompt, max_tokens=500)
 
 
 def update_changelog(repo_path: Path, version: str, *, use_llm: bool = False, repo_name: str = "") -> bool:

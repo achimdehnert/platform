@@ -25,22 +25,57 @@ trigger: always_on
 ### LLM Calls → aifw
 
 ```python
-# CORRECT
+# CORRECT — Django apps (views, services, tasks, management commands)
 from aifw import sync_completion, completion_with_fallback
 
 result = sync_completion(
     action_code="story_writing",
     messages=[{"role": "user", "content": prompt}],
-    max_tokens=2000,
+    # NO model= override — DB-driven routing decides
 )
 text = result.content if result.success else ""
 
-# BANNED — reinventing what aifw already provides
-import litellm
-import openai
-import anthropic
-import urllib.request  # raw HTTP to LLM APIs
+# BANNED in Django apps — reinventing what aifw already provides
+import litellm          # use aifw instead
+import openai           # use aifw instead
+import anthropic        # use aifw instead
+import urllib.request   # raw HTTP to LLM APIs
 ```
+
+### Ausnahme: Standalone CI-Scripts (kein Django)
+
+`aifw` benötigt Django + DB (`AIActionType`-Lookup). In CI-Scripts ohne Django-Setup
+ist `aifw.sync_completion()` **nicht verwendbar** — der Aufruf schlägt lautlos fehl.
+
+`litellm` ist eine **direkte Abhängigkeit von aifw** (`aifw/pyproject.toml: litellm>=1.30`)
+und darf in Standalone-Scripts direkt verwendet werden:
+
+```python
+# CORRECT — Standalone CI-Script (.github/scripts/*.py, keine Django-DB)
+import litellm
+
+def _call_llm(prompt: str, max_tokens: int = 600) -> str | None:
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
+        return None
+    try:
+        response = litellm.completion(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=max_tokens,
+            api_key=api_key,
+        )
+        return response.choices[0].message.content.strip()
+    except Exception:
+        return None
+
+# BANNED in CI-Scripts:
+# from aifw import sync_completion  ← schlägt fehl ohne Django-DB
+# from aifw.service import ...      ← internes Submodul, nie direkt importieren
+```
+
+**Erkennungsmerkmal**: Script hat kein `DJANGO_SETTINGS_MODULE`, kein `manage.py`, läuft in
+GitHub Actions ohne Django-Setup → litellm direkt erlaubt.
 
 ### Prompt Templates → promptfw
 
