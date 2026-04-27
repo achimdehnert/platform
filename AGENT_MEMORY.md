@@ -6,13 +6,39 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-23T19:05:27.227014+00:00",
-  "last_updated_by": "cascade",
-  "entry_count": 3
+  "last_updated": "2026-04-27T14:15:06.247653+00:00",
+  "last_updated_by": "unknown-agent",
+  "entry_count": 4
 }
 ```
 
 ## Solved Problem
+
+### SESSION-2026-04-27-PLATFORM — Session 2026-04-27 - platform: LLM-Zugriff + docu-agent + Secret-Discovery
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "SESSION-2026-04-27-PLATFORM",
+  "entry_type": "solved_problem",
+  "title": "Session 2026-04-27 - platform: LLM-Zugriff + docu-agent + Secret-Discovery",
+  "content": "LLM-Zugriffs-Analyse: aifw public API ist 'from aifw import sync_completion'. aifw braucht Django+DB -> nicht nutzbar in CI-Scripts. litellm>=1.30 (direkte Dep von aifw) darf in Standalone-Scripts direkt genutzt werden. docu_update_agent.py gefixt: from aifw.service Import entfernt, _call_llm() mit litellm, get_secret() Standard-Discovery. Secret-Registry in project-facts.md dokumentiert. iil-packages.md litellm-Ausnahme-Regel hinzugefuegt (Symlinks -> alle Repos aktiv). Offen: openai_api_key lokal fehlt.",
+  "agent": "cascade",
+  "created_at": "2026-04-27T14:15:06.246861Z",
+  "updated_at": "2026-04-27T14:15:06.246873Z",
+  "expires_at": "2026-05-27T14:15:06.246875Z",
+  "tags": [
+    "session",
+    "platform",
+    "aifw",
+    "litellm",
+    "secrets",
+    "docu-agent"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
 
 ### SESSION-2026-04-23-PLATFORM-B — Session 2026-04-23b — gen_project_facts.py fix + desktop-setup Platform-Integration
 
