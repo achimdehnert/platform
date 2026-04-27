@@ -201,29 +201,34 @@ def step_install_test_deps(repo_dir: Path, python: str, report: Report) -> None:
         print(f"\n--- pip install Fehler ---\n{last_n_lines(out, 5)}\n")
 
 
-def step_pytest(repo_dir: Path, python: str, settings: str, report: Report) -> None:
+def step_pytest(
+    repo_dir: Path, python: str, settings: str, report: Report,
+    auto_scaffold: bool = False,
+) -> None:
     tests_dir = repo_dir / "tests"
     if not tests_dir.exists():
-        scaffold_script = PLATFORM_ROOT / "scripts" / "gen_test_scaffold.py"
-        if scaffold_script.exists():
-            print(f"\n⚠️  Kein tests/-Verzeichnis — starte Scaffold-Generator...\n")
-            rc_s, out_s = run([python, str(scaffold_script), str(repo_dir)], cwd=PLATFORM_ROOT)
-            print(out_s)
-            if rc_s == 0 and tests_dir.exists():
-                print("✅  Scaffold erstellt — installiere Test-Deps...\n")
-                # Bug-Fix: Deps jetzt installieren, step_install_test_deps lief bereits vorher
-                req = repo_dir / "requirements-test.txt"
-                if req.exists():
-                    run([python, "-m", "pip", "install", "-r", str(req), "-q"], cwd=repo_dir)
-            else:
-                report.add(StepResult("Tests (pytest)", "WARN", "Scaffold fehlgeschlagen",
-                    f"Manuell: python3 scripts/gen_test_scaffold.py {repo_dir.name}"))
-                return
+        fix_cmd = f"python3 platform/scripts/gen_test_scaffold.py {repo_dir.name}"
+        if auto_scaffold:
+            scaffold_script = PLATFORM_ROOT / "scripts" / "gen_test_scaffold.py"
+            if scaffold_script.exists():
+                print(f"\n⚠️  Kein tests/-Verzeichnis — starte Scaffold-Generator...\n")
+                rc_s, out_s = run([python, str(scaffold_script), str(repo_dir)], cwd=PLATFORM_ROOT)
+                print(out_s)
+                if rc_s == 0 and tests_dir.exists():
+                    print("✅  Scaffold erstellt — installiere Test-Deps...\n")
+                    req = repo_dir / "requirements-test.txt"
+                    if req.exists():
+                        run([python, "-m", "pip", "install", "-r", str(req), "-q"], cwd=repo_dir)
+                else:
+                    report.add(StepResult("Tests (pytest)", "WARN", "Scaffold fehlgeschlagen",
+                        f"Manuell: {fix_cmd}"))
+                    return
         else:
-            report.add(StepResult("Tests (pytest)", "WARN", "Kein tests/-Verzeichnis",
-                f"Fix: python3 platform/scripts/gen_test_scaffold.py {repo_dir.name}"))
+            report.add(StepResult("Tests (pytest)", "WARN",
+                "Kein tests/-Verzeichnis", f"Fix: {fix_cmd}"))
             print(f"\n⚠️  Kein tests/-Verzeichnis in {repo_dir.name}")
-            print(f"   Fix: python3 platform/scripts/gen_test_scaffold.py {repo_dir.name}\n")
+            print(f"   Fix: {fix_cmd}")
+            print(f"   Oder: python3 scripts/teste_repo.py {repo_dir.name} --auto-scaffold\n")
             return
 
     # Prüfen ob Tests vorhanden
@@ -386,12 +391,16 @@ def step_hardcoding(repo_dir: Path, report: Report) -> None:
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 def main() -> int:
-    if len(sys.argv) < 2:
-        print("Usage: python3 scripts/teste_repo.py <repo_dir>")
-        print("       python3 scripts/teste_repo.py coach-hub  (relativ zu GITHUB_DIR)")
+    auto_scaffold = "--auto-scaffold" in sys.argv
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+
+    if not args:
+        print("Usage: python3 scripts/teste_repo.py <repo_dir> [--auto-scaffold]")
+        print("       python3 scripts/teste_repo.py coach-hub")
+        print("       python3 scripts/teste_repo.py coach-hub --auto-scaffold  # erstellt tests/ wenn fehlend")
         return 1
 
-    arg = sys.argv[1]
+    arg = args[0]
     repo_dir = Path(arg)
     if not repo_dir.is_absolute():
         github_dir = Path(os.environ.get("GITHUB_DIR", Path.home() / "github"))
@@ -417,7 +426,7 @@ def main() -> int:
     step_django_check(repo_dir, python, settings, report)
     step_migration_check(repo_dir, python, settings, report)
     step_install_test_deps(repo_dir, python, report)
-    step_pytest(repo_dir, python, settings, report)
+    step_pytest(repo_dir, python, settings, report, auto_scaffold=auto_scaffold)
     step_hardcoding(repo_dir, report)
 
     report.print()

@@ -91,10 +91,17 @@ def _test_views_smoke(repo_name: str) -> str:
 
 Nutzt discover_smoke_urls() — kein manuelles URL-Pflegen nötig.
 Neue Views werden automatisch aufgenommen.
-"""
-import pytest
 
-from iil_testkit.smoke import discover_smoke_urls
+Voraussetzung: pip install iil-testkit[smoke]>=0.4.0
+"""
+try:
+    import pytest
+    from iil_testkit.smoke import discover_smoke_urls
+except ImportError as _e:
+    raise ImportError(
+        "iil-testkit[smoke]>=0.4.0 fehlt. Installieren: "
+        "pip install iil-testkit[smoke]>=0.4.0,<1"
+    ) from _e
 
 # Einmal zur Collection-Zeit aufrufen — nicht 2× pro Test-Funktion
 _SMOKE_URLS: list[str] = discover_smoke_urls()
