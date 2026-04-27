@@ -25,12 +25,27 @@ from pathlib import Path
 from string import Template
 
 PLATFORM_ROOT = Path(__file__).parent.parent
-FALLBACK_VERSION = "0.4.0"
+
+
+def _get_fallback_version() -> str:
+    """Ermittle Fallback-Version aus installiertem iil-testkit oder pyproject.toml."""
+    try:
+        from importlib.metadata import version
+        return version("iil-testkit")
+    except Exception:
+        pass
+    pyproject = PLATFORM_ROOT / "pyproject.toml"
+    if pyproject.exists():
+        import re
+        m = re.search(r'iil-testkit.*?>=(\d+\.\d+\.\d+)', pyproject.read_text())
+        if m:
+            return m.group(1)
+    return "0.1.0"
 
 
 # ── PyPI Version Lookup ───────────────────────────────────────────────────────
 
-def get_latest_version(package: str, fallback: str = FALLBACK_VERSION) -> str:
+def get_latest_version(package: str, fallback: str | None = None) -> str:
     """Hole aktuelle Stable-Version von PyPI. Fallback bei Netzwerkfehler."""
     url = f"https://pypi.org/pypi/{package}/json"
     try:
@@ -41,8 +56,9 @@ def get_latest_version(package: str, fallback: str = FALLBACK_VERSION) -> str:
         print(f"  PyPI {package}: {version}")
         return version
     except Exception as e:
-        print(f"  ⚠️  PyPI-Lookup fehlgeschlagen ({e}) — Fallback: {fallback}")
-        return fallback
+        actual_fallback = fallback or _get_fallback_version()
+        print(f"  ⚠️  PyPI-Lookup fehlgeschlagen ({e}) — Fallback: {actual_fallback}")
+        return actual_fallback
 
 
 # ── Scaffold-Templates ────────────────────────────────────────────────────────
@@ -81,8 +97,11 @@ import pytest
 
 from iil_testkit.smoke import discover_smoke_urls
 
+# Einmal zur Collection-Zeit aufrufen — nicht 2× pro Test-Funktion
+_SMOKE_URLS: list[str] = discover_smoke_urls()
 
-@pytest.mark.parametrize("url", discover_smoke_urls())
+
+@pytest.mark.parametrize("url", _SMOKE_URLS)
 @pytest.mark.django_db
 def test_should_view_return_200(url: str, auth_client) -> None:
     """Alle parameterfreien Views müssen HTTP 200 oder 302 liefern."""
@@ -92,42 +111,65 @@ def test_should_view_return_200(url: str, auth_client) -> None:
     )
 
 
-@pytest.mark.parametrize("url", discover_smoke_urls())
+@pytest.mark.parametrize("url", _SMOKE_URLS)
 @pytest.mark.django_db
-def test_should_unauthenticated_access_redirect(url: str, api_client) -> None:
+def test_should_unauthenticated_redirect_to_login(url: str, api_client) -> None:
     """Geschützte Views müssen unauthentifiziert auf Login weiterleiten."""
-    from iil_testkit.assertions import assert_redirects_to_login
     response = api_client.get(url)
-    if response.status_code == 302:
-        location = response.get("Location", "")
-        if "/login" in location or "/accounts/login" in location:
-            assert_redirects_to_login(response)
+    assert response.status_code in (200, 302), f"{{url}} → {{response.status_code}}"
+    if response.status_code == 200:
+        return  # Public view — OK
+    location = response.get("Location", "")
+    assert "/login" in location or "/accounts/login" in location, (
+        f"{{url}} leitet auf {{location!r}} weiter statt auf Login"
+    )
 '''
 
 
-def _test_views_htmx(repo_name: str) -> str:
-    return '''\
+def _discover_htmx_urls(repo_dir: Path) -> list[str]:
+    """Durchsucht Templates nach hx-post/hx-get Attributen und leitet URLs ab."""
+    import re
+    HX_ATTR_RE = re.compile(r'hx-(?:post|get|delete|put|patch)=["\']([^"\']+)["\']')
+    found: set[str] = set()
+    templates_dirs = list(repo_dir.rglob("templates"))
+    for tdir in templates_dirs:
+        for html_file in tdir.rglob("*.html"):
+            try:
+                content = html_file.read_text(errors="replace")
+                for url in HX_ATTR_RE.findall(content):
+                    if url.startswith("/") and "{" not in url and "%" not in url:
+                        found.add(url)
+            except Exception:
+                pass
+    return sorted(found)
+
+
+def _test_views_htmx(repo_dir: Path) -> str:
+    htmx_urls = _discover_htmx_urls(repo_dir)
+    urls_repr = "\n".join(f'    "{u}",' for u in htmx_urls) if htmx_urls else ""
+    auto_note = (
+        f"# Auto-entdeckt aus Templates ({len(htmx_urls)} URLs):"
+        if htmx_urls else
+        "# Keine hx-* Attribute in Templates gefunden — manuell bef\xfcllen:"
+    )
+    return f'''\
 """test_views_htmx.py — HTMX-Partials und data-testid Enforcement (ADR-048).
 
-Prüft:
-  1. HTMX-Responses liefern Fragmente, keine vollen HTML-Seiten
-  2. Alle hx-* Elemente haben data-testid
-
-HTMX_URLS befüllen: URLs die auf HX-Request mit Partial antworten.
+HTMX_URLS werden automatisch aus Templates extrahiert (hx-post/hx-get Attribute).
+Nur parameterfreie URLs (kein {{{{pk}}}}, kein {{% url %}}) werden geprüft.
 """
 import pytest
 
 from iil_testkit.assertions import assert_data_testids, assert_htmx_response
 
 
+{auto_note}
 HTMX_URLS: list[str] = [
-    # Hier HTMX-Endpoints eintragen, z.B.:
-    # "/dashboard/items/",
-    # "/projects/list/",
+{urls_repr}
 ]
 
 
-@pytest.mark.skipif(not HTMX_URLS, reason="HTMX_URLS nicht konfiguriert")
+@pytest.mark.skipif(not HTMX_URLS, reason="HTMX_URLS leer — keine HTMX-Endpoints gefunden")
 @pytest.mark.parametrize("url", HTMX_URLS)
 @pytest.mark.django_db
 def test_should_htmx_response_be_fragment(url: str, auth_client) -> None:
@@ -136,7 +178,7 @@ def test_should_htmx_response_be_fragment(url: str, auth_client) -> None:
     assert_htmx_response(response)
 
 
-@pytest.mark.skipif(not HTMX_URLS, reason="HTMX_URLS nicht konfiguriert")
+@pytest.mark.skipif(not HTMX_URLS, reason="HTMX_URLS leer — keine HTMX-Endpoints gefunden")
 @pytest.mark.parametrize("url", HTMX_URLS)
 @pytest.mark.django_db
 def test_should_htmx_elements_have_data_testid(url: str, auth_client) -> None:
@@ -186,6 +228,7 @@ addopts = [
     "--tb=short",
     "-ra",
     "--no-header",
+    "-n", "auto",
     "--cov",
     "--cov-report=term-missing:skip-covered",
     "--cov-fail-under=80",
@@ -236,7 +279,7 @@ SCAFFOLD_FILES = {
     "tests/conftest.py": lambda ctx: _conftest(),
     "tests/factories.py": lambda ctx: _factories(ctx["repo_name"]),
     "tests/test_views_smoke.py": lambda ctx: _test_views_smoke(ctx["repo_name"]),
-    "tests/test_views_htmx.py": lambda ctx: _test_views_htmx(ctx["repo_name"]),
+    "tests/test_views_htmx.py": lambda ctx: _test_views_htmx(ctx["repo_dir"]),
     "requirements-test.txt": lambda ctx: _requirements_test(ctx["testkit_version"]),
 }
 
@@ -251,6 +294,7 @@ def generate_scaffold(
     settings = detect_settings(repo_dir)
     ctx = {
         "repo_name": repo_dir.name,
+        "repo_dir": repo_dir,
         "testkit_version": testkit_version,
         "settings_module": settings,
     }
@@ -314,8 +358,8 @@ def main() -> int:
     print(f"    Pfad:    {repo_dir}")
     print(f"    Modus:   {'DRY-RUN' if args.dry_run else 'UPDATE' if args.update else 'ERSTELLEN (neu)'}\n")
 
-    # Version von PyPI holen
-    testkit_version = args.version or get_latest_version("iil-testkit", FALLBACK_VERSION)
+    # Version von PyPI holen (kein hardcodierter Fallback — wird aus installiertem Paket ermittelt)
+    testkit_version = args.version or get_latest_version("iil-testkit")
 
     # Scaffold generieren
     results = generate_scaffold(repo_dir, testkit_version, dry_run=args.dry_run, update=args.update)

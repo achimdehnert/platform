@@ -108,22 +108,16 @@ def find_manage(repo_dir: Path) -> Path | None:
 
 
 def detect_settings_module(repo_dir: Path) -> str:
-    """Ermittle DJANGO_SETTINGS_MODULE aus pyproject.toml, sonst Standard."""
-    pyproject = repo_dir / "pyproject.toml"
-    if pyproject.exists():
-        import tomllib
-        cfg = tomllib.loads(pyproject.read_text())
-        settings = (
-            cfg.get("tool", {})
-               .get("pytest", {})
-               .get("ini_options", {})
-               .get("DJANGO_SETTINGS_MODULE", "")
-        )
-        if settings:
-            return settings
-    for candidate in ["config.settings.test", "config.settings.base"]:
-        module_path = repo_dir / candidate.replace(".", "/")
-        if (Path(str(module_path) + ".py")).exists():
+    """Ermittle DJANGO_SETTINGS_MODULE — delegiert an gen_test_scaffold.detect_settings."""
+    try:
+        sys.path.insert(0, str(PLATFORM_ROOT / "scripts"))
+        from gen_test_scaffold import detect_settings  # type: ignore[import]
+        return detect_settings(repo_dir)
+    except ImportError:
+        pass
+    # Inline-Fallback falls gen_test_scaffold nicht verfügbar
+    for candidate in ["config.settings.test", "config.settings.base", "config.settings"]:
+        if (repo_dir / candidate.replace(".", "/")).with_suffix(".py").exists():
             return candidate
     return "config.settings.test"
 
