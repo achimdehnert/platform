@@ -1,0 +1,24 @@
+# pytest-Konfiguration für pyproject.toml — nach [tool.pytest.ini_options] kopieren
+#
+# DJANGO_SETTINGS_MODULE auf {repo}.settings.test oder config.settings.test anpassen.
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "config.settings.test"
+python_files = ["test_*.py"]
+python_functions = ["test_should_*"]
+addopts = [
+    "--strict-markers",
+    "--tb=short",
+    "-ra",
+    "--no-header",
+    "--cov",
+    "--cov-report=term-missing",
+    "--cov-fail-under=80",
+]
+markers = [
+    "unit: Unit-Tests (kein DB-Zugriff)",
+    "integration: Integration-Tests (Django Test Client, DB)",
+    "contract: Contract-Tests (Schemathesis, API)",
+    "slow: Tests die länger als 5s dauern",
+]
+testpaths = ["tests"]
