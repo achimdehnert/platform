@@ -386,6 +386,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: ${{ inputs.python_version }}
+      - name: "Architecture Fitness Functions (import-linter, ADR-009/041)"
+        run: |
+          pip install import-linter --quiet
+          if [ -f ".importlinter" ]; then
+            lint-imports --debug 2>&1 || {
+              echo "❌ Architecture Fitness Function verletzt — ADR-009 Service Layer Check"
+              echo "Details: import-linter prüft Views→Models-Imports (ADR-009)"
+              echo "Fix: ORM-Zugriff aus views.py in services.py verlagern"
+              exit 1
+            }
+            echo "✅ Architecture Fitness Functions OK"
+          else
+            echo "ℹ️  Kein .importlinter gefunden — Fitness Functions übersprungen"
+            echo "    Template: platform/docs/templates/.importlinter"
+          fi
       - name: Install platform-context
         run: pip install "iil-platform-context>=0.5.0" || pip install "platform-context>=0.3.1" || true
       - name: "Check: No blind **kwargs forwarding (ADR-155 §4.3)"

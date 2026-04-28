@@ -1,0 +1,56 @@
+[importlinter]
+root_packages =
+    apps
+    config
+
+# ── Architecture Fitness Functions (ADR-009, ADR-041) ────────────────────────
+# Maschinenprüfbare Architektur-Constraints — CI-Hard-Gate
+# Kopiere in Repo-Root als .importlinter und passe app-Namen an.
+# CI: pip install import-linter && lint-imports
+
+[importlinter:contract:service-layer-views]
+name = Views dürfen NICHT direkt auf Models zugreifen (ADR-009 Service Layer)
+type = forbidden
+source_modules =
+    apps.*.views
+    apps.*.views.*
+forbidden_modules =
+    apps.*.models
+    django.db.models
+ignore_imports =
+    apps.*.views -> apps.*.models.TYPE_CHECKING
+    apps.*.views -> apps.*.models.Manager
+
+[importlinter:contract:service-layer-no-http-in-services]
+name = Services dürfen KEIN HTTP/Rendering verwenden (ADR-041)
+type = forbidden
+source_modules =
+    apps.*.services
+    apps.*.services.*
+forbidden_modules =
+    django.http
+    django.shortcuts
+    django.template
+
+[importlinter:contract:apps-independence]
+name = Apps dürfen NICHT auf config zugreifen (nur settings via decouple)
+type = forbidden
+source_modules =
+    apps.*
+forbidden_modules =
+    config.urls
+    config.wsgi
+    config.asgi
+
+[importlinter:contract:no-circular-app-deps]
+name = Keine zirkulären App-Abhängigkeiten
+type = layers
+layers =
+    config
+    apps
+    (third-party)
+
+# ── Hinweise ────────────────────────────────────────────────────────────────
+# Für Multi-App-Repos: Jede App als eigenes Layer eintragen
+# Exceptions mit ignore_imports statt Regeln aufweichen
+# Bei False Positives: --debug für Details

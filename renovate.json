@@ -1,0 +1,107 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "IIL Platform — zentrale Renovate-Konfiguration (SSoT für alle Repos)",
+  "extends": [
+    "config:base",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":separatePatchReleases",
+    "group:allNonMajor"
+  ],
+
+  "commitMessagePrefix": "chore(deps):",
+  "commitMessageAction": "update",
+  "labels": ["dependencies", "renovate"],
+  "reviewers": [],
+  "assignees": [],
+  "timezone": "Europe/Berlin",
+  "schedule": ["before 7am on Monday"],
+  "prHourlyLimit": 3,
+  "prConcurrentLimit": 8,
+  "rebaseWhen": "behind-base-branch",
+  "automerge": false,
+
+  "packageRules": [
+    {
+      "description": "iil-Packages: IMMER als eigener PR — niemals grouped (breaking change risk)",
+      "matchPackagePatterns": ["^iil-", "^aifw$", "^promptfw$", "^authoringfw$", "^weltenfw$", "^nl2cadfw$"],
+      "groupName": null,
+      "automerge": false,
+      "labels": ["dependencies", "renovate", "iil-package"],
+      "prPriority": 10,
+      "commitMessageSuffix": "(iil-ecosystem)"
+    },
+    {
+      "description": "Django + Django-Pakete: eigene Gruppe (breaking changes mit Major)",
+      "matchPackagePatterns": ["^[Dd]jango", "^django-"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "Django packages (non-major)",
+      "automerge": false,
+      "labels": ["dependencies", "renovate", "django"]
+    },
+    {
+      "description": "Django MAJOR — niemals auto, eigener PR mit Warnung",
+      "matchPackagePatterns": ["^[Dd]jango$"],
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "renovate", "django", "breaking-change"],
+      "prBodyNotes": "⚠️ **Django Major Update** — Migrations + deprecated APIs prüfen!"
+    },
+    {
+      "description": "pytest-Ecosystem: zusammen gruppieren",
+      "matchPackagePatterns": ["^pytest", "^coverage", "^factory.boy$"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "pytest ecosystem",
+      "automerge": false
+    },
+    {
+      "description": "Sicherheits-Patches: sofort als PR — kein Warten auf Montag",
+      "matchDepTypes": ["dependencies"],
+      "matchUpdateTypes": ["patch"],
+      "schedule": ["at any time"],
+      "prPriority": 20,
+      "labels": ["dependencies", "renovate", "security"],
+      "automerge": false
+    },
+    {
+      "description": "GitHub Actions: alle zusammen",
+      "matchManagers": ["github-actions"],
+      "groupName": "GitHub Actions",
+      "automerge": false,
+      "labels": ["dependencies", "renovate", "github-actions"]
+    },
+    {
+      "description": "Docker Base Images: eigener PR",
+      "matchManagers": ["dockerfile"],
+      "automerge": false,
+      "labels": ["dependencies", "renovate", "docker"]
+    },
+    {
+      "description": "Python Version in CI: niemals auto-update",
+      "matchPackageNames": ["python"],
+      "matchManagers": ["github-actions"],
+      "enabled": false
+    }
+  ],
+
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "schedule": ["at any time"],
+    "labels": ["security", "renovate", "CVE"],
+    "automerge": false
+  },
+
+  "pip_requirements": {
+    "fileMatch": ["(^|/)requirements.*\\.txt$"]
+  },
+
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/dist/**",
+    "**/__pycache__/**"
+  ],
+
+  "ignoreDeps": []
+}
