@@ -19,6 +19,35 @@ trigger: always_on
 | `iil-authoringfw>=0.3.0` | `from authoringfw import ...` | Creative writing domain schemas | Story/character/world models |
 | `iil-weltenfw>=0.1.0` | `from weltenfw import ...` | WeltenHub REST client + Pydantic schemas | WeltenHub API calls |
 | `iil-nl2cadfw>=0.1.0` | `from nl2cadfw import ...` | IFC/DXF parsing, DIN 277, GAEB, NLP-to-CAD | CAD/BIM processing |
+| `iil-testkit>=0.4.0` | `from iil_testkit import ...` | Test fixtures, assertions, smoke testing | Testing in ALL Django repos |
+
+## Publishing New Versions — PYPI_API_TOKEN Location
+
+`PYPI_API_TOKEN` ist **NUR in GitHub Actions Secrets** hinterlegt — NICHT lokal.
+
+**Korrekte Publish-Methode (autonom, kein lokaler Token nötig):**
+
+```bash
+# 1. Workflow im platform-Repo triggern — nutzt platform's PYPI_API_TOKEN Secret
+TOKEN=$(cat ~/.secrets/github_PAT)
+curl -s -X POST \
+  -H "Authorization: token ${TOKEN}" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/achimdehnert/platform/actions/workflows/publish-iil-testkit.yml/dispatches" \
+  -d '{"ref":"main","inputs":{"dry_run":"false"}}'
+
+# 2. Status prüfen
+sleep 30
+curl -s -H "Authorization: token ${TOKEN}" \
+  "https://api.github.com/repos/achimdehnert/platform/actions/runs?per_page=3" \
+  | python3 -c "import json,sys; [print(r['name'],'|',r['conclusion'] or 'running') for r in json.load(sys.stdin)['workflow_runs'][:3]]"
+
+# 3. PyPI verifizieren
+curl -s "https://pypi.org/pypi/iil-testkit/json" | python3 -c "import json,sys; print(json.load(sys.stdin)['info']['version'])"
+```
+
+**Für andere Packages** (aifw, promptfw etc.) — deren Repos haben PYPI_API_TOKEN direkt als eigenes Secret.
+Publish via `workflow_dispatch` auf `publish.yml` im jeweiligen Repo.
 
 ## MANDATORY: Use iil-packages Instead of Reinventing
 
