@@ -148,7 +148,7 @@ Der Workflow:
 
 ## ADRs
 
-149 Architecture Decision Records in `docs/adr/` (MADR 4.0 Format).
+147 Architecture Decision Records in `docs/adr/` (MADR 4.0 Format).
 Neue ADR: `/adr` Workflow in Windsurf.
 Nächste Nummer: `python3 scripts/adr_next_number.py`
 
