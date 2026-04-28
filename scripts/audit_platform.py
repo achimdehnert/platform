@@ -225,20 +225,38 @@ def check_health(audit: RepoAudit, local_port: int | None = None) -> None:
     # Self-Hosted Runner läuft auf dem Server: localhost:PORT direkt prüfen
     # → umgeht Cloudflare-Blocks (403) auf öffentlichen URLs
     if local_port:
-        url = f"http://localhost:{local_port}/livez/"
+        url = f"http://127.0.0.1:{local_port}/livez/"
     else:
         url = f"https://{audit.prod_url}/livez/"
+    t0 = time.monotonic()
+    # Erst urllib versuchen, dann curl als Fallback (Proxy/ALLOWED_HOSTS-Workaround)
     try:
-        t0 = time.monotonic()
-        with urllib.request.urlopen(url, timeout=HEALTH_TIMEOUT) as resp:
+        opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+        with opener.open(url, timeout=HEALTH_TIMEOUT) as resp:
             audit.health_status = resp.status
             audit.health_ms = int((time.monotonic() - t0) * 1000)
+        return
     except urllib.error.HTTPError as e:
         audit.health_status = e.code
         audit.health_ms = -1
+        return
+    except Exception as e:
+        urllib_err = str(e)
+
+    # Fallback: curl (funktioniert zuverlässig auf Self-Hosted Runner)
+    try:
+        result = subprocess.run(
+            ["curl", "-sf", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5", url],
+            capture_output=True, text=True, timeout=10,
+        )
+        code = int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
+        audit.health_status = code
+        audit.health_ms = int((time.monotonic() - t0) * 1000)
     except Exception:
         audit.health_status = 0
         audit.health_ms = -1
+        if urllib_err:
+            print(f"  HEALTH-WARN {audit.repo}: {urllib_err}", file=sys.stderr)
 
 
 # ── Test-Run ──────────────────────────────────────────────────────────────────
