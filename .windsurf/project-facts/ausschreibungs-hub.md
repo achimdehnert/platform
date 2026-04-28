@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: bieterpilot.de
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/ausschreibungs-hub` → https://github.com/achimdehnert/ausschreibungs-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://bieterpilot.de
+- **URL**: –
 - **Staging**: `staging.bieterpilot.de`
 
 ---

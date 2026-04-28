@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: tax.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/tax-hub` → https://github.com/achimdehnert/tax-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://tax.iil.pet
+- **URL**: –
 - **Staging**: `staging-tax.iil.pet`
 
 ---

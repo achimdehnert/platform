@@ -1,15 +1,24 @@
 #!/usr/bin/env python3
 """
-Generate .windsurf/project-facts/{repo}.md for ALL repos from repos.yaml + ports.yaml.
+Generate .windsurf/project-facts/{repo}.md for ALL repos.
+
+SSoT-Hierarchie (Priorität absteigend):
+  1. GitHub API  — vollständige, aktuelle Repo-Liste (nie veraltet)
+  2. ports.yaml  — Port, Container, Domain, Staging-URL
+  3. repos.yaml  — Beschreibung, Lifecycle, Deploy-Details
 
 Usage:
-    python3 scripts/generate_project_facts.py            # generate all
-    python3 scripts/generate_project_facts.py travel-beat  # single repo
+    python3 scripts/generate_project_facts.py            # alle Repos
+    python3 scripts/generate_project_facts.py travel-beat  # einzelnes Repo
+    python3 scripts/generate_project_facts.py --list       # nur auflisten
 
 Output: platform/.windsurf/project-facts/{repo}.md
 """
 
 import sys
+import json
+import urllib.request
+import urllib.error
 from pathlib import Path
 
 import yaml
@@ -44,13 +53,130 @@ MCP_BLOCK = """## MCP-Konfiguration (devuser)
 | `mcp1_` | **orchestrator** | `agent_memory_context`, `agent_memory_upsert`, `discord_notify` |"""
 
 
+GITHUB_ORGS = ["achimdehnert", "meiki-lra", "ttz-lif"]
+SECRETS_DIRS = [Path("/home/devuser/shared/secrets"), Path.home() / ".secrets"]
+
+MANUALLY_MAINTAINED = {"meiki-hub", "ttz-hub"}  # eigene Orgs — nicht überschreiben
+
+
+def get_token() -> str | None:
+    for base in SECRETS_DIRS:
+        p = base / "github_token"
+        if p.exists():
+            return p.read_text().strip()
+    return None
+
+
+def github_api(path: str, token: str) -> list | dict:
+    url = f"https://api.github.com{path}"
+    req = urllib.request.Request(url, headers={
+        "Authorization": f"token {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    })
+    with urllib.request.urlopen(req, timeout=15) as resp:
+        return json.loads(resp.read())
+
+
+def get_all_repos_api(token: str) -> list[dict]:
+    """Alle Repos aus allen Orgs via GitHub API."""
+    all_repos = []
+    for org in GITHUB_ORGS:
+        page = 1
+        while True:
+            try:
+                repos = github_api(
+                    f"/orgs/{org}/repos?per_page=100&page={page}&sort=name", token
+                )
+                if not repos:
+                    break
+                all_repos.extend(repos)
+                if len(repos) < 100:
+                    break
+                page += 1
+            except urllib.error.HTTPError as e:
+                if e.code in (401, 403):
+                    raise RuntimeError(f"Token ungültig/abgelaufen (HTTP {e.code})")
+                if e.code == 404:
+                    try:
+                        repos = github_api(
+                            f"/users/{org}/repos?per_page=100&page={page}", token
+                        )
+                        all_repos.extend(repos)
+                    except Exception:
+                        pass
+                break
+    return all_repos
+
+
+def get_all_repos_local(github_dir: Path = Path("/home/devuser/github")) -> list[dict]:
+    """Fallback: lokale git-Clones scannen und Owner aus remote-URL lesen."""
+    import subprocess
+    repos = []
+    for entry in sorted(github_dir.iterdir()):
+        if not entry.is_dir():
+            continue
+        git_dir = entry / ".git"
+        if not git_dir.exists():
+            continue
+        try:
+            result = subprocess.run(
+                ["git", "remote", "get-url", "origin"],
+                cwd=entry, capture_output=True, text=True, timeout=3
+            )
+            remote = result.stdout.strip()
+            # Parst git@github.com:owner/repo.git  oder  https://...@github.com/owner/repo.git
+            if "github.com" in remote:
+                # Normalisieren: entfernt https://token@ prefix
+                if "@github.com:" in remote:
+                    path = remote.split("@github.com:")[-1]
+                elif "github.com/" in remote:
+                    path = remote.split("github.com/")[-1]
+                else:
+                    path = ""
+                path = path.removesuffix(".git")
+                parts = path.split("/")
+                if len(parts) == 2:
+                    owner, name = parts
+                    repos.append({
+                        "name": name,
+                        "owner": owner,
+                        "description": "",
+                        "language": "",
+                        "url": "",
+                        "private": False,
+                        "archived": False,
+                    })
+        except Exception:
+            continue
+    return repos
+
+
+def get_all_repos(token: str | None) -> tuple[list[dict], str]:
+    """Repos laden — API zuerst, bei Fehler lokaler Fallback.
+    Returns: (repos_list, source_description)
+    """
+    if token:
+        try:
+            repos = get_all_repos_api(token)
+            if repos:
+                return repos, "GitHub API"
+        except RuntimeError as e:
+            print(f"⚠️  {e} — verwende lokalen Fallback")
+        except Exception as e:
+            print(f"⚠️  GitHub API nicht erreichbar: {e} — verwende lokalen Fallback")
+
+    repos = get_all_repos_local()
+    return repos, "lokale git-Clones (Fallback)"
+
+
 def load_yaml(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
 
 
 def build_repo_index(repos_data: dict) -> dict:
-    """repo_name → repo_dict"""
+    """repo_name → repo_dict aus repos.yaml"""
     index = {}
     for domain in repos_data.get("domains", []):
         for system in domain.get("systems", []):
@@ -59,7 +185,7 @@ def build_repo_index(repos_data: dict) -> dict:
 
 
 def build_ports_index(ports_data: dict) -> dict:
-    """repo_name → port_dict"""
+    """repo_name → port_dict aus ports.yaml"""
     index = {}
     for name, info in ports_data.get("services", {}).items():
         index[name] = info
@@ -234,56 +360,96 @@ def generate_facts(repo: str, info: dict, port_info: dict) -> str:
 
 
 def main():
+    args = sys.argv[1:]
+    list_only = "--list" in args
+    target = next((a for a in args if not a.startswith("--")), None)
+
+    # --- Token ---
+    token = get_token()
+    if not token:
+        print("⚠️  Kein GitHub-Token — nutze lokale git-Clones als Quelle")
+
+    # --- Lokale Metadaten ---
     repos_data = load_yaml(REPOS_YAML)
     ports_data = load_yaml(PORTS_YAML)
-
     repo_index = build_repo_index(repos_data)
     ports_index = build_ports_index(ports_data)
 
+    # --- SSoT: GitHub API (Fallback: lokale Clones) ---
+    print("🔍 Lade Repo-Liste …")
+    gh_repos, source = get_all_repos(token)
+    print(f"   Quelle: {source} — {len(gh_repos)} Repos gefunden")
+
+    # Repos deduplicieren (Name → {name, owner, description, language, archived})
+    repo_map: dict[str, dict] = {}
+    for r in gh_repos:
+        name = r["name"]
+        if r.get("archived"):
+            continue
+        owner_raw = r.get("owner", "achimdehnert")
+        owner = owner_raw["login"] if isinstance(owner_raw, dict) else owner_raw
+        repo_map[name] = {
+            "name": name,
+            "owner": owner,
+            "description": r.get("description") or "",
+            "language": r.get("language") or "",
+            "url": r.get("homepage") or "",
+            "private": r.get("private", False),
+        }
+
+    repos_to_process = sorted(repo_map.keys()) if not target else [target]
+
+    if list_only:
+        print(f"\n📋 Alle Repos ({len(repo_map)}) via GitHub API:\n")
+        for name, r in sorted(repo_map.items()):
+            org = r["owner"]
+            print(f"  {org}/{name:<35} {r['language']:<12} {r['description'][:60]}")
+        return
+
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    # Alle Repos aus beiden Quellen zusammenführen
-    all_repos = set(repo_index.keys()) | {
-        info["repo"].split("/")[-1]
-        for info in ports_data.get("services", {}).values()
-        if info.get("repo") and info["repo"] != "null"
-    }
-
-    target = sys.argv[1] if len(sys.argv) > 1 else None
-    repos_to_process = [target] if target else sorted(all_repos)
-
-    generated = []
-    skipped = []
+    generated, skipped = [], []
 
     for repo in repos_to_process:
-        if repo == "meiki-hub":
-            skipped.append(f"  ⏭  {repo} (eigene org — manuell pflegen)")
+        if repo not in repo_map:
+            skipped.append(f"  ⚠️  {repo} (nicht auf GitHub)")
             continue
 
-        info = repo_index.get(repo)
-        if not info:
-            # Repo nur in ports.yaml — Minimal-Info erzeugen
-            port_info = ports_index.get(repo, {})
-            info = {
-                "repo": repo,
-                "description": port_info.get("domain_prod", "–"),
-                "github": f"achimdehnert/{repo}",
-                "type": "django",
-                "lifecycle": "experimental",
-                "url": f"https://{port_info.get('domain_prod', '')}" if port_info.get("domain_prod") else "",
-            }
-
+        gh = repo_map[repo]
+        reg = repo_index.get(repo, {})
         port_info = ports_index.get(repo, {})
-        content = generate_facts(repo, info, port_info)
 
-        out_path = OUTPUT_DIR / f"{repo}.md"
-        # meiki-hub already manually maintained — don't overwrite
-        if out_path.exists() and repo == "meiki-hub":
-            skipped.append(f"  ⏭  {repo} (manuell gepflegt — übersprungen)")
+        # Beschreibung: GitHub API > repos.yaml
+        description = gh["description"] or reg.get("description", "–")
+        # URL: homepage > repos.yaml url
+        url = gh["url"] or reg.get("url", "")
+        # Typ bestimmen
+        if gh["language"] in ("", None) and not port_info:
+            repo_type = reg.get("type", "library")
+        elif port_info:
+            repo_type = "django"
+        else:
+            repo_type = reg.get("type", "python")
+
+        info = {
+            **reg,
+            "repo": repo,
+            "description": description,
+            "url": url,
+            "type": repo_type,
+            "lifecycle": reg.get("lifecycle", "experimental"),
+            "owner": gh["owner"],
+        }
+
+        # Manuell gepflegte Repos: nur generieren wenn explizit angefragt
+        if repo in MANUALLY_MAINTAINED and not target:
+            skipped.append(f"  ⏭  {repo} (manuell gepflegt — skip, explizit mit arg aufrufen)")
             continue
 
+        content = generate_facts(repo, info, port_info)
+        out_path = OUTPUT_DIR / f"{repo}.md"
         out_path.write_text(content, encoding="utf-8")
-        generated.append(f"  ✅ {repo}")
+        generated.append(f"  ✅ {gh['owner']}/{repo}")
 
     print(f"\n📁 Output: {OUTPUT_DIR}")
     print(f"\nGeneriert ({len(generated)}):")
@@ -293,6 +459,7 @@ def main():
         print(f"\nÜbersprungen ({len(skipped)}):")
         for s in skipped:
             print(s)
+    print(f"\n✅ Gesamt: {len(generated)} generiert, {len(skipped)} übersprungen")
 
 
 if __name__ == "__main__":

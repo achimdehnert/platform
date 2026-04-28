@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: hr.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/recruiting-hub` → https://github.com/achimdehnert/recruiting-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://hr.iil.pet
+- **URL**: –
 - **Staging**: `staging-hr.iil.pet`
 
 ---

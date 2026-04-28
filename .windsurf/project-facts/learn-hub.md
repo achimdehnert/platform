@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: learn.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/learn-hub` → https://github.com/achimdehnert/learn-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://learn.iil.pet
+- **URL**: –
 - **Staging**: `staging-learn.iil.pet`
 
 ---

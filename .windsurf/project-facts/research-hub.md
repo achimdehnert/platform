@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: research.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/research-hub` → https://github.com/achimdehnert/research-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://research.iil.pet
+- **URL**: –
 - **Staging**: `staging-research.iil.pet`
 
 ---

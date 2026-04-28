@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: writing.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/writing-hub` → https://github.com/achimdehnert/writing-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://writing.iil.pet
+- **URL**: –
 - **Staging**: `staging-writing.iil.pet`
 
 ---

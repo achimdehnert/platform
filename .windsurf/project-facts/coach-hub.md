@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: coach-hub.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/coach-hub` → https://github.com/achimdehnert/coach-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://coach-hub.iil.pet
+- **URL**: –
 - **Staging**: `staging-coaching.iil.pet`
 - **Aliases**: kiohnerisiko.de
 

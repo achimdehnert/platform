@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: illustration.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/illustration-hub` → https://github.com/achimdehnert/illustration-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://illustration.iil.pet
+- **URL**: –
 - **Staging**: `staging-illustration.iil.pet`
 
 ---

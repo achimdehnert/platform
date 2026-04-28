@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: billing.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/billing-hub` → https://github.com/achimdehnert/billing-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://billing.iil.pet
+- **URL**: –
 - **Staging**: `staging-billing.iil.pet`
 
 ---

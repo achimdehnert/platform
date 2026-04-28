@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: nl2cad.de
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/cad-hub` → https://github.com/achimdehnert/cad-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://nl2cad.de
+- **URL**: –
 - **Staging**: `staging.nl2cad.de`
 
 ---

@@ -7,10 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: dms.iil.pet
+- **Beschreibung**: –
 - **GitHub**: `achimdehnert/dms-hub` → https://github.com/achimdehnert/dms-hub
 - **Typ**: Django · Lifecycle: experimental
-- **URL**: https://dms.iil.pet
+- **URL**: –
 - **Staging**: `staging-dms.iil.pet`
 
 ---
