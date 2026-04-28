@@ -156,6 +156,36 @@ Acceptance Criteria:\n
 
 ---
 
+## Phase 1c: Template-Drift-Check (automatisch — NEU 2026-04-28)
+
+**Nur für Repos mit Änderungen in dieser Session — nur Error-Level (kein Lärm).**
+
+```bash
+PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+
+# Repos mit Commits in den letzten 8h (aus Phase 1b)
+CHANGED_REPOS=$(for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
+  [[ "$(basename $repo)" == *.* ]] && continue
+  last=$(git -C "$repo" log --since="8 hours ago" --oneline 2>/dev/null | wc -l)
+  [ "$last" -gt 0 ] && echo "$(basename $repo)"
+done | grep -v '^platform$')
+
+if [ -n "$CHANGED_REPOS" ]; then
+  echo "Drift-Check für: $CHANGED_REPOS"
+  python3 "$PLATFORM_DIR/scripts/drift_check.py" $CHANGED_REPOS \
+    --severity=error \
+    --fail-on-error 2>&1 | grep -E '🔴|✅|Errors|Gesamt' || true
+else
+  echo "ℹ️  Keine geänderten Repos — Drift-Check übersprungen"
+fi
+```
+
+→ **Nur `--severity=error`** — Warnings werden täglich per GitHub Action erfasst, nicht im Session-Ende-Lärm.
+→ Bei 🔴 Errors: Sofort fixen oder als Issue dokumentieren (analog Phase 1b).
+→ Keine Issues wenn `--fail-on-error` sauber durchläuft (Exit 0).
+
+---
+
 ## Phase 2: pgvector Memory schreiben (ADR-154)
 
 7. **Session-Summary in pgvector speichern:**
@@ -308,7 +338,8 @@ mcp1_push_files(owner: "achimdehnert", repo: "<repo>", branch: "main",
 | 6 | Kein Repo dirty | ☐ |
 | 7 | Keine .fixed/.updated Dateien übrig | ☐ |
 | 8 | Blockierte Arbeit dokumentiert | ☐ |
-| 9 | Docu-Drift-Check: Issue erstellt falls nötig (NEU) | ☐ |
+| 9 | Docu-Drift-Check: Issue erstellt falls nötig (Phase 1b) | ☐ |
+| 10 | Template-Drift-Check: Error-Drifts gefixt (Phase 1c) | ☐ |
 
 ---
 
