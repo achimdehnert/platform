@@ -1,0 +1,46 @@
+name: Gen project-facts.md
+
+on:
+  schedule:
+    - cron: '0 4 * * 1'   # Mo 04:00 UTC — wöchentlich
+  workflow_dispatch:
+    inputs:
+      target_repo:
+        description: 'Einzelnes Repo (leer = alle Django-Repos)'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Nur Vorschau, kein Push'
+        type: boolean
+        default: false
+
+jobs:
+  gen:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pyyaml
+        run: pip install pyyaml
+
+      - name: Generate + Push project-facts.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.PROJECT_PAT }}
+          GITHUB_ORG: achimdehnert
+        run: |
+          ARGS="${{ inputs.target_repo }}"
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            ARGS="$ARGS --dry-run"
+          fi
+          python3 .github/scripts/push_project_facts.py $ARGS
+
+      - name: Summary
+        if: always()
+        run: echo "✅ project-facts.md Generierung abgeschlossen"

@@ -34,7 +34,10 @@ MCP: mcp0_get_file_contents(owner="achimdehnert", repo=REPO, path="config/settin
 MCP: mcp0_get_file_contents(owner="achimdehnert", repo=REPO, path="apps")
 ```
 
-Falls `project-facts.md` 404 → Fallback: `docs/project-facts.md` versuchen.
+Falls `project-facts.md` 404 → Fallbacks in dieser Reihenfolge:
+1. `.windsurf/rules/project-facts.md`
+2. `docs/project-facts.md`
+3. Kein Fallback mehr → alle Felder mit `[TODO: project-facts.md fehlt — /gen-project-facts triggern]` markieren
 
 **Extrakte aus dem Kontext:**
 - `SETTINGS_MODULE` — z.B. `config.settings.production`
