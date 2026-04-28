@@ -51,30 +51,32 @@ cp "$SOURCE/templates/project-facts-template.md" "$TARGET/templates/"
 
 ---
 
-## Step 3: project-facts.md anpassen (PFLICHT — einzige Individuälanpassung)
+## Step 3: project-facts.md AUTO-GENERIEREN (SSoT: platform)
 
+// turbo
 ```bash
-cp "$SOURCE/templates/project-facts-template.md" "$TARGET/rules/project-facts.md"
-# Dann editieren:
+cd /home/devuser/github/platform
+python3 scripts/generate_project_facts.py <repo-name>
 ```
 
-**Pflichtfelder für alle Typen:**
-- Repo-Name + GitHub-URL
-- Typ (Django App | Python Package | Docs Repo | Infra)
-- Branch + Push-Methode
+Das Script liest:
+- **GitHub API** (wenn Token gültig) → Beschreibung, Sprache, Homepage
+- **ports.yaml** → Port, Container, Domain, Staging-URL  
+- **repos.yaml** → Lifecycle, Deploy-Details, Multi-Tenant-Flag
+- **Fallback**: lokale git-Clones (wenn kein Token)
 
-**Zusätzlich für Django Apps:**
-- Umgebungen (local/staging/prod Ports + Health URLs)
-- Docker-Container-Namen
-- DB-Name + DB-User
-- Settings-Module
-- HTMX-Detection-Methode
+Ausgabe: `platform/.windsurf/project-facts/<repo-name>.md`
 
-**Für Docs-Repos (meiki-docs Pattern):**
-- Kein Docker, kein Django, kein `.env`
-- ADR-Pfad explizit benennen
-- Nächste ADR-Nummer dokumentieren
-- Nicht-anwendbare Rules als inaktiv kennzeichnen
+Danach `/sync-project-facts <repo-name>` aufrufen → pusht in Ziel-Repo.
+
+> ⚠️ **Manuell ergänzen** falls bekannt: HTMX-Detection-Methode, DB-Name,
+> Settings-Module-Abweichungen, Multi-Tenant-Details.
+> Diese Infos stehen nicht in repos.yaml/ports.yaml.
+
+**Für Docs-Repos / Nicht-Django** (meiki-hub, ttz-hub Pattern):
+- Script überspringt diese (MANUALLY_MAINTAINED-Liste)
+- Stattdessen: `platform/.windsurf/project-facts/<repo>.md` manuell anlegen
+- Vorlage: `platform/.windsurf/project-facts/meiki-hub.md`
 
 ---
 
@@ -127,21 +129,34 @@ git push
 
 ---
 
-## Step 6: repo-registry.yaml aktualisieren
+## Step 6: platform SSoT aktualisieren
 
-Damit `session-start` + `sync-workflows.sh` das neue Repo erkennen:
-
+**a) repos.yaml** — Eintrag hinzufügen (Beschreibung, Lifecycle, Deploy-Details):
 ```bash
-# platform/scripts/repo-registry.yaml:
-# Neuen Eintrag hinzufügen:
-# - name: <repo-name>
-#   type: <docs|django|package|infra>
-#   owner: <github-owner>
+# platform/registry/repos.yaml → neuen Block unter passendem Domain-Abschnitt
 ```
 
+**b) ports.yaml** — Port registrieren (nächsten freien Port ermitteln):
+```bash
+cd /home/devuser/github/platform
+python3 infra/scripts/port_audit.py --next-free
+# Dann eintragen: prod/staging/dev Port, container_name, domain_prod
 ```
-mcp1_get_file_contents(owner: "achimdehnert", repo: "platform", path: "scripts/repo-registry.yaml")
-# Inhalt anpassen + zurückschreiben
+
+**c) project-facts regenerieren** (übernimmt automatisch alle neuen Infos):
+// turbo
+```bash
+cd /home/devuser/github/platform
+python3 scripts/generate_project_facts.py <repo-name>
+```
+
+**d) Alles committen + pushen:**
+// turbo
+```bash
+cd /home/devuser/github/platform
+git add registry/repos.yaml infra/ports.yaml .windsurf/project-facts/<repo-name>.md
+git commit -m "feat: onboard <repo-name> — repos.yaml + ports.yaml + project-facts"
+git push
 ```
 
 ---
@@ -157,7 +172,7 @@ mcp1_get_file_contents(owner: "achimdehnert", repo: "platform", path: "scripts/r
 | 5 | `.windsurf/workflows/workflow-index.md` vorhanden |
 | 6 | `.windsurf/workflows/adr.md` vorhanden (falls ADRs geplant) |
 | 7 | `.windsurf/templates/ai-task.yaml` vorhanden |
-| 8 | `scripts/repo-registry.yaml` aktualisiert |
+| 8 | `registry/repos.yaml` + `infra/ports.yaml` in platform aktualisiert |
 | 9 | Erster `session-start` in neuem Repo erfolgreich |
 
 ---
