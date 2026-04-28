@@ -203,13 +203,23 @@ _NON_APP_DIRS = {
 }
 
 
+def _norm_api_path(p: str) -> str:
+    """Normalize GitHub API path: strip leading ./ and trailing /."""
+    return p.lstrip("./").strip("/") or "."
+
+
 def detect_apps(repo: str, src_root: str) -> list[str]:
     """List Django app directories (checks src/apps/ AND src/ level)."""
     found: list[str] = []
 
-    # 1. Conventional src/apps/ directory
+    # 1. Conventional src/apps/ directory — deduplicate ./apps vs apps
+    seen_paths: set[str] = set()
     for apps_path in [f"{src_root}/apps", "apps"]:
-        entries = gh_get_dir(repo, apps_path)
+        norm = _norm_api_path(apps_path)
+        if norm in seen_paths:
+            continue
+        seen_paths.add(norm)
+        entries = gh_get_dir(repo, norm)
         apps = [
             e for e in entries
             if not e.startswith(".") and "." not in e and e not in _NON_APP_DIRS
