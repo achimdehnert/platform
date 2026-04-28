@@ -219,10 +219,15 @@ def scan_local(repo_dir: Path, repo: str, repo_type: str, prod_url: str) -> Repo
 
 # ── Health Check ──────────────────────────────────────────────────────────────
 
-def check_health(audit: RepoAudit) -> None:
-    if not audit.prod_url:
+def check_health(audit: RepoAudit, local_port: int | None = None) -> None:
+    if not audit.prod_url and not local_port:
         return
-    url = f"https://{audit.prod_url}/livez/"
+    # Self-Hosted Runner läuft auf dem Server: localhost:PORT direkt prüfen
+    # → umgeht Cloudflare-Blocks (403) auf öffentlichen URLs
+    if local_port:
+        url = f"http://localhost:{local_port}/livez/"
+    else:
+        url = f"https://{audit.prod_url}/livez/"
     try:
         t0 = time.monotonic()
         with urllib.request.urlopen(url, timeout=HEALTH_TIMEOUT) as resp:
@@ -445,6 +450,7 @@ def main() -> int:
     for repo, props in targets.items():
         repo_type = props.get("type", "?") if isinstance(props, dict) else "?"
         prod_url = props.get("prod_url", "") if isinstance(props, dict) else ""
+        local_port = props.get("port") if isinstance(props, dict) else None
         repo_dir = GITHUB_DIR / repo
 
         print(f"  {'[local]' if args.local and repo_dir.exists() else '[api]  '} {repo}...", end="", flush=True)
@@ -455,7 +461,7 @@ def main() -> int:
             audit = scan_via_api(repo, repo_type, prod_url, token)
 
         if args.health:
-            check_health(audit)
+            check_health(audit, local_port=local_port)
 
         if args.run_tests:
             run_tests(audit, repo_dir)

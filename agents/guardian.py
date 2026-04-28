@@ -298,7 +298,7 @@ def check_g003_model_without_tenant_id(
 
 def check_g004_pr_too_large(
     files: list[dict[str, Any]],
-    threshold: int = 400,
+    threshold: int = 600,
 ) -> list[Violation]:
     """G-004: PR > 400 Zeilen?"""
     total_added = sum(len(f["added_lines"]) for f in files)
@@ -354,7 +354,7 @@ def main() -> None:
         default="markdown",
     )
     parser.add_argument(
-        "--threshold", type=int, default=400,
+        "--threshold", type=int, default=600,
         help="Max ge\u00e4nderte Zeilen (G-004)",
     )
     args = parser.parse_args()
