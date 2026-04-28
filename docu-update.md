@@ -45,6 +45,25 @@ python -m pytest tests/ --collect-only -q 2>/dev/null | tail -3
 
 ---
 
+## Phase 0.5: Template-Drift-Check (NEU 2026-04-28)
+
+**Vor der Dokumentation prüfen — gibt Kontext was fehlt / abgewichen ist.**
+
+```bash
+PLATFORM_DIR="${GITHUB_DIR:-${HOME}/github/platform}"
+python3 "$PLATFORM_DIR/scripts/drift_check.py" "$REPO_NAME" \
+  --severity=warn \
+  --fix-hints 2>&1
+```
+
+→ **Errors (🔴)**: Sofort fixen — Dockerfile fehlt, banned-pattern etc.
+→ **Warnings (🟡)**: In README/CHANGELOG dokumentieren (z.B. veraltete iil-Version → Upgrade-Hinweis in CHANGELOG)
+→ **Kein Drift**: direkt weiter zu Phase 1.
+
+> Warum hier: Wenn `Dockerfile` fehlt oder `sqlite` referenziert wird, muss das in der Doku reflektiert sein — nicht erst beim nächsten Review auffallen.
+
+---
+
 ## Phase 1: README.md — Qualitäts-Checkliste
 
 Prüfe diese Punkte für das jeweilige Tier:
