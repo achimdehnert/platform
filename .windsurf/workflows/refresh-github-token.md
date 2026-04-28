@@ -27,6 +27,27 @@ als invalid anzeigt, muss der PAT erneuert werden.
 | 3 | `~/.codeium/windsurf/mcp_config.json` | Windsurf direkt | GitHub MCP Server (`@modelcontextprotocol/server-github`) |
 | 4 | `~/.config/gh/hosts.yml` | `gh auth login` | gh CLI (nur wenn `$GITHUB_TOKEN` nicht gesetzt) |
 
+## Schritt 0 — Token aus laufendem MCP-Prozess holen (schnellster Weg)
+
+Wenn Windsurf noch läuft, hat der `server-github` Prozess den Token im Environment:
+
+```bash
+TOKEN=$(tr '\0' '\n' < /proc/$(pgrep -f "server-github" | head -1)/environ 2>/dev/null \
+        | grep "^GITHUB_PERSONAL_ACCESS_TOKEN=" | cut -d= -f2-)
+
+# Verify
+curl -s -H "Authorization: token $TOKEN" https://api.github.com/user \
+  | python3 -c "import json,sys; print(json.load(sys.stdin).get('login'))"
+
+# Sync in alle Stellen
+echo -n "$TOKEN" > ~/.secrets/github_PAT   && chmod 600 ~/.secrets/github_PAT
+echo -n "$TOKEN" > ~/.secrets/github_token && chmod 600 ~/.secrets/github_token
+```
+
+Wenn Login = `achimdehnert` → fertig. Schritt 1-4 nicht nötig.
+
+---
+
 ## Schritt 1 — Neuen PAT erstellen
 
 1. Öffne https://github.com/settings/tokens?type=beta (Fine-grained) oder
