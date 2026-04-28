@@ -6,9 +6,9 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-27T14:15:06.247653+00:00",
-  "last_updated_by": "unknown-agent",
-  "entry_count": 4
+  "last_updated": "2026-04-28T14:02:48.779216+00:00",
+  "last_updated_by": "cascade",
+  "entry_count": 5
 }
 ```
 
@@ -86,6 +86,33 @@
     "docu-update",
     "grok-fast",
     "windsurf"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
+
+## Repo Context
+
+### SESSION-2026-04-28-PLATFORM — Session 2026-04-28 — platform: /prompt Groq + gen-project-facts
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "SESSION-2026-04-28-PLATFORM",
+  "entry_type": "repo_context",
+  "title": "Session 2026-04-28 — platform: /prompt Groq + gen-project-facts",
+  "content": "## Erledigt\n1. gen-project-facts.yml — pusht project-facts.md in alle Django-Repos wöchentlich via GH API\n2. push_project_facts.py — erkennt HTMX, Settings-Modul, Apps, pythonpath\n3. /prompt Workflow — 2 MCP-Calls statt 5, Groq Llama-3.3-70B via litellm/aifw-Venv\n4. run_prompt.py — ~60% weniger Cascade-Tokens, Key: ~/.secrets/groq_api_key\n5. risk-hub/project-facts.md live gepusht\n6. docu-update: README+CHANGELOG+Outline aktualisiert, ADR-Zahl 149->147\n## Key Files\n.github/scripts/push_project_facts.py, .github/workflows/gen-project-facts.yml, scripts/run_prompt.py, .windsurf/workflows/prompt.md\n## Secrets NEU\n~/.secrets/groq_api_key (gsk_, Free Tier, 14400 req/day)",
+  "agent": "cascade",
+  "created_at": "2026-04-28T14:02:48.777539Z",
+  "updated_at": "2026-04-28T14:02:48.777544Z",
+  "expires_at": "2026-05-28T14:02:48.777546Z",
+  "tags": [
+    "session",
+    "platform",
+    "prompt",
+    "groq",
+    "project-facts"
   ],
   "related_entries": [],
   "metadata": {}
