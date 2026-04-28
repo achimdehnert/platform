@@ -223,6 +223,15 @@ class UserFactory(DjangoModelFactory):
 '''
 
 
+def _renovate_json() -> str:
+    return """\
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["github>achimdehnert/platform//renovate.json"]
+}
+"""
+
+
 def _pytest_ini_options(settings_module: str) -> str:
     return f"""\
 [tool.pytest.ini_options]
@@ -287,6 +296,7 @@ SCAFFOLD_FILES = {
     "tests/test_views_smoke.py": lambda ctx: _test_views_smoke(ctx["repo_name"]),
     "tests/test_views_htmx.py": lambda ctx: _test_views_htmx(ctx["repo_dir"]),
     "requirements-test.txt": lambda ctx: _requirements_test(ctx["testkit_version"]),
+    "renovate.json": lambda ctx: _renovate_json(),
 }
 
 

@@ -103,5 +103,13 @@
     "**/__pycache__/**"
   ],
 
-  "ignoreDeps": []
+  "ignoreDeps": [],
+
+  "onboarding": true,
+  "onboardingConfig": {
+    "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+    "extends": ["github>achimdehnert/platform//renovate.json"]
+  },
+  "onboardingCommitMessage": "chore(deps): renovate.json hinzufügen (IIL Platform Preset)",
+  "onboardingPrTitle": "chore(deps): Renovate Bot aktivieren — IIL Platform Preset"
 }

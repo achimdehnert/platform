@@ -195,12 +195,18 @@ jobs:
               }
 
               // Dateien committen
+              const renovateJson = JSON.stringify({
+                "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+                "extends": ["github>achimdehnert/platform//renovate.json"]
+              }, null, 2) + '\n';
+
               const files = [
                 { path: 'tests/__init__.py', content: '' },
                 { path: 'tests/conftest.py', content: conftest },
                 { path: 'tests/test_views_smoke.py', content: smokeTest },
                 { path: 'tests/test_views_htmx.py', content: htmxTest },
                 { path: 'requirements-test.txt', content: reqTest },
+                { path: 'renovate.json', content: renovateJson },
               ];
 
               for (const file of files) {
@@ -243,6 +249,7 @@ jobs:
                   '| `tests/test_views_smoke.py` | Auto-Discovery HTTP-200-Test aller Views |',
                   '| `tests/test_views_htmx.py` | HTMX-Partial + data-testid Enforcement (ADR-048) |',
                   '| `requirements-test.txt` | Pinned test dependencies |',
+                  '| `renovate.json` | Renovate Bot — auto. Dependency Updates (IIL Preset) |',
                   '',
                   '### Nächste Schritte nach Merge',
                   '',
