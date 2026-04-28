@@ -222,7 +222,7 @@ repos:
   bfagent:
     type: agent
     prod_url: bfagent.iil.pet
-    port: 7233
+    port: 8091
     health: /livez/
 
   lastwar-bot:
