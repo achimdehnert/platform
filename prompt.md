@@ -22,31 +22,31 @@ Extrahiere aus der User-Eingabe:
 
 ---
 
-## Schritt 2 — Repo-Kontext laden (via MCP)
+## Schritt 2 — Repo-Kontext laden (via MCP — nur 2 Calls)
 
-Lade parallel:
+> **Token-sparend:** `project-facts.md` enthält alle Repo-Fakten — kein separater Settings/Apps/HTMX-Call nötig.
 
 ```
 MCP: mcp0_get_file_contents(owner="achimdehnert", repo=REPO, path="project-facts.md")
-MCP: mcp0_get_file_contents(owner="achimdehnert", repo=REPO, path="CORE_CONTEXT.md")
-MCP: mcp0_get_file_contents(owner="achimdehnert", repo=REPO, path="AGENT_HANDOVER.md")
-MCP: mcp0_get_file_contents(owner="achimdehnert", repo=REPO, path="config/settings")
-MCP: mcp0_get_file_contents(owner="achimdehnert", repo=REPO, path="apps")
 ```
 
-Falls `project-facts.md` 404 → Fallbacks in dieser Reihenfolge:
+Falls 404 → Fallbacks:
 1. `.windsurf/rules/project-facts.md`
-2. `docs/project-facts.md`
-3. Kein Fallback mehr → alle Felder mit `[TODO: project-facts.md fehlt — /gen-project-facts triggern]` markieren
+2. Direkt `gen-project-facts` Workflow triggern:
+   ```
+   TOKEN=$(cat ~/.secrets/github_PAT)
+   curl -s -X POST -H "Authorization: token $TOKEN" \
+     "https://api.github.com/repos/achimdehnert/platform/actions/workflows/gen-project-facts.yml/dispatches" \
+     -d "{\"ref\":\"main\",\"inputs\":{\"target_repo\":\"REPO\"}}"
+   ```
+   Dann 30s warten und erneut laden.
 
-**Extrakte aus dem Kontext:**
-- `SETTINGS_MODULE` — z.B. `config.settings.production`
-- `DB_NAME` — PostgreSQL DB-Name
-- `HTMX_DETECTION` — `request.htmx` oder `request.headers.get("HX-Request")`
-- `AUTH_USER_MODEL` — Custom User oder `auth.User`
-- `LOCAL_APPS` — Liste der App-Namen
-- `PROD_URL` — Production URL
-- `PORT` — Prod-Port
+**Aus project-facts.md extrahieren:**
+- `SETTINGS_MODULE` (Prod-Modul)
+- `TEST_SETTINGS_MODULE` (Test-Modul)
+- `HTMX_DETECTION` (exakt — nicht raten!)
+- `LOCAL_APPS` (Apps-Liste)
+- `PROD_URL`, `PORT`, `DB_NAME`, `PYTHONPATH`
 
 ---
 
@@ -63,7 +63,41 @@ Falls `project-facts.md` 404 → Fallbacks in dieser Reihenfolge:
 
 ---
 
-## Schritt 4 — Optimalen Prompt generieren
+## Schritt 3.5 — Affected Files suchen (1 MCP-Call)
+
+Suche nach dem Kernbegriff der Anweisung im Repo-Code:
+
+```
+MCP: mcp0_search_code(q="[SCHLÜSSELBEGRIFF] repo:achimdehnert/[REPO]")
+```
+
+Extrahiere die Top-3 relevantesten Dateipfade (z.B. `src/identity/views.py`, `src/identity/services.py`).
+Falls keine Treffer: leere Liste übergeben.
+
+---
+
+## Schritt 4 — Prompt via Script generieren (Groq oder Template)
+
+Speichere `project-facts.md` Inhalt in `/tmp/pf_[REPO].md` und rufe auf:
+
+```bash
+${GITHUB_DIR:-~/CascadeProjects}/platform/.venv/bin/python \
+  ${GITHUB_DIR:-~/CascadeProjects}/platform/scripts/run_prompt.py \
+  --repo [REPO] \
+  --instruction "[INSTRUCTION]" \
+  --context-file /tmp/pf_[REPO].md \
+  --affected-files "[FILE1],[FILE2],[FILE3]" \
+  --task-type [TASK_TYPE]
+```
+
+**Mit Groq-Key** (`~/.secrets/groq_api_key` vorhanden): Llama-3.3-70B generiert den Prompt (~0.5s, kostenlos).
+**Ohne Key**: Template-Fallback — gleiche Qualität, kein LLM nötig.
+
+Den Script-Output direkt dem User ausgeben (nicht nochmal durch mich re-generieren lassen).
+
+---
+
+## Schritt 4b — Nur wenn Script nicht ausführbar (IDE-Einschränkung)
 
 Generiere jetzt einen vollständigen, selbstenthaltenden Prompt der **alle** folgenden Blöcke enthält.
 Der Prompt muss ohne zusätzlichen Session-Kontext funktionieren.
