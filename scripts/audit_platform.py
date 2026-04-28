@@ -250,17 +250,21 @@ def check_health(audit: RepoAudit, local_port: int | None = None,
     # Fallback: curl (funktioniert zuverlässig auf Self-Hosted Runner)
     try:
         result = subprocess.run(
-            ["curl", "-sf", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5", url],
+            ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}", "--max-time", "5", url],
             capture_output=True, text=True, timeout=10,
         )
-        code = int(result.stdout.strip()) if result.stdout.strip().isdigit() else 0
+        code_str = result.stdout.strip()
+        code = int(code_str) if code_str.isdigit() else 0
         audit.health_status = code
         audit.health_ms = int((time.monotonic() - t0) * 1000)
-    except Exception:
+        if code == 0:
+            print(f"  HEALTH-WARN {audit.repo} ({url}): urllib={urllib_err!r} curl_exit={result.returncode}",
+                  file=sys.stderr)
+    except Exception as e:
         audit.health_status = 0
         audit.health_ms = -1
-        if urllib_err:
-            print(f"  HEALTH-WARN {audit.repo}: {urllib_err}", file=sys.stderr)
+        print(f"  HEALTH-WARN {audit.repo} ({url}): urllib={urllib_err!r} curl_exc={e}",
+              file=sys.stderr)
 
 
 # ── Test-Run ──────────────────────────────────────────────────────────────────
