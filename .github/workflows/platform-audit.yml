@@ -2,7 +2,7 @@ name: Platform Audit — Cross-Repo Inventory
 
 on:
   schedule:
-    - cron: '0 5 * * 1'   # Montags 05:00 UTC
+    - cron: '0 5 * * 1-5'  # Mo–Fr 05:00 UTC (täglich an Werktagen)
   workflow_dispatch:
     inputs:
       run_tests:

@@ -2,7 +2,7 @@ name: Megatest — Hardcoding Guard
 
 on:
   schedule:
-    - cron: '0 6 * * 2'   # Dienstags 06:00 UTC (nightly)
+    - cron: '0 6 * * 1-5'  # Mo–Fr 06:00 UTC (täglich an Werktagen)
   push:
     paths:
       - 'tests/megatest/**'

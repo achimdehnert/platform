@@ -15,18 +15,20 @@
   "reviewers": [],
   "assignees": [],
   "timezone": "Europe/Berlin",
-  "schedule": ["before 7am on Monday"],
-  "prHourlyLimit": 3,
-  "prConcurrentLimit": 8,
+  "schedule": ["before 8am on weekdays"],
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 12,
   "rebaseWhen": "behind-base-branch",
   "automerge": false,
 
   "packageRules": [
     {
-      "description": "iil-Packages: IMMER als eigener PR — niemals grouped (breaking change risk)",
+      "description": "iil-Packages: SOFORT (internes Ökosystem — kein Wochentag-Gate)",
       "matchPackagePatterns": ["^iil-", "^aifw$", "^promptfw$", "^authoringfw$", "^weltenfw$", "^nl2cadfw$"],
       "groupName": null,
       "automerge": false,
+      "schedule": ["at any time"],
+      "minimumReleaseAge": "0 days",
       "labels": ["dependencies", "renovate", "iil-package"],
       "prPriority": 10,
       "commitMessageSuffix": "(iil-ecosystem)"
@@ -64,9 +66,18 @@
       "automerge": false
     },
     {
-      "description": "GitHub Actions: alle zusammen",
+      "description": "pytest/test-Packages Patch: automerge (kein Risiko, hoher Nutzen)",
+      "matchPackagePatterns": ["^pytest", "^coverage", "^factory.boy$", "^beautifulsoup4$"],
+      "matchUpdateTypes": ["patch"],
+      "automerge": true,
+      "automergeType": "pr",
+      "labels": ["dependencies", "renovate", "automerge"]
+    },
+    {
+      "description": "GitHub Actions: alle zusammen, wöchentlich (stabil, kein Risiko)",
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions",
+      "schedule": ["before 8am on Monday"],
       "automerge": false,
       "labels": ["dependencies", "renovate", "github-actions"]
     },
