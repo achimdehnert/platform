@@ -88,7 +88,6 @@ repos:
     staging_url: staging.schulungspass.de
     port: 8108
     health: /livez/
-    note: "runner vorhanden, Container noch nicht deployed"
 
   pptx-hub:
     type: django
@@ -108,7 +107,7 @@ repos:
     type: django
     prod_url: research.iil.pet
     port: 8104
-    health: /healthz/  # livez/ im Code vorhanden, deployed image 7d alt — nach Redeploy auf /livez/ wechseln
+    health: /livez/
 
   risk-hub:
     type: django
