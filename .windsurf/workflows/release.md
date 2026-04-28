@@ -4,6 +4,28 @@ description: Publish a Python package (iil-aifw, promptfw, authoringfw, ...) to 
 
 # Release Workflow — PyPI Publish
 
+## iil-testkit — Autonomer Publish (kein lokaler Token nötig)
+
+`iil-testkit` nutzt `PYPI_API_TOKEN` aus dem **platform-Repo** GitHub Secrets.
+
+```bash
+# Direkt auslösen — kein ~/.pypirc, kein lokaler Token:
+TOKEN=$(cat ~/.secrets/github_PAT)
+curl -s -X POST \
+  -H "Authorization: token ${TOKEN}" \
+  -H "Accept: application/vnd.github+json" \
+  "https://api.github.com/repos/achimdehnert/platform/actions/workflows/publish-iil-testkit.yml/dispatches" \
+  -d '{"ref":"main","inputs":{"dry_run":"false"}}'
+
+# Status + Verify:
+sleep 30
+curl -s "https://pypi.org/pypi/iil-testkit/json" | python3 -c "import json,sys; print(json.load(sys.stdin)['info']['version'])"
+```
+
+---
+
+## Andere Packages (aifw, promptfw, authoringfw, ...) — via ~/.pypirc
+
 For any Python package in the ecosystem (`aifw`, `promptfw`, `authoringfw`, ...).
 
 ## Prerequisites (one-time setup)

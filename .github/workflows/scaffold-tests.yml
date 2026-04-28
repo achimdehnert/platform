@@ -73,25 +73,33 @@ jobs:
         env:
           INPUT_REPO_NAME: ${{ inputs.repo_name }}
 
-      - name: Scaffold-Dateien generieren (PyPI-Version live)
+      - name: Scaffold generieren (SSoT via gen_test_scaffold.py)
         id: gen_scaffold
         run: |
           set -euo pipefail
-          mkdir -p /tmp/scaffold-out
-          # Generiere Scaffold in temp-Verzeichnis — Version kommt live von PyPI
-          python3 scripts/gen_test_scaffold.py /tmp/scaffold-out --dry-run 2>&1 || true
+          TMPDIR=/tmp/scaffold-generic
+          mkdir -p ${TMPDIR}/tests
 
-          # Hole aktuelle Version für PR-Body
+          # gen_test_scaffold.py ist die einzige Quelle der Wahrheit für Scaffold-Inhalt
+          python3 scripts/gen_test_scaffold.py ${TMPDIR} 2>&1
+
+          # Version direkt von PyPI (kein Fallback auf Konstante)
           TESTKIT_VERSION=$(python3 -c "
           import json, urllib.request
           try:
               with urllib.request.urlopen('https://pypi.org/pypi/iil-testkit/json', timeout=5) as r:
                   print(json.loads(r.read())['info']['version'])
-          except:
-              print('0.4.0')
+          except Exception as e:
+              print('0.4.0', flush=True)
           ")
           echo "testkit_version=${TESTKIT_VERSION}" >> $GITHUB_OUTPUT
           echo "Aktuelle iil-testkit Version: ${TESTKIT_VERSION}"
+
+          # Datei-Inhalte als Base64 — verhindert Newline/Quote-Probleme in GITHUB_OUTPUT
+          echo "conftest_b64=$(base64 -w0 ${TMPDIR}/tests/conftest.py 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          echo "smoke_b64=$(base64 -w0 ${TMPDIR}/tests/test_views_smoke.py 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          echo "htmx_b64=$(base64 -w0 ${TMPDIR}/tests/test_views_htmx.py 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+          echo "reqtest_b64=$(base64 -w0 ${TMPDIR}/requirements-test.txt 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
 
       - name: PR für jeden Repo ohne conftest.py erstellen
         if: steps.find_repos.outputs.count != '0'
@@ -104,13 +112,13 @@ jobs:
             const testkitVersion = '${{ steps.gen_scaffold.outputs.testkit_version }}';
             const owner = context.repo.owner;
 
-            // Scaffold-Inhalte werden via gen_test_scaffold.py-Logik inline erzeugt
-            // Version ist dynamisch von PyPI — kein hardcoding
-            const majorVersion = parseInt(testkitVersion.split('.')[0]) + 1;
-            const conftest = `"""conftest.py — iil-testkit Fixtures laden.\n\nStellt bereit: auth_client, staff_client, api_client, db_user, staff_user, admin_user\n"""\npytest_plugins = ["iil_testkit.fixtures"]\n`;
-            const reqTest = `iil-testkit[smoke]>=${testkitVersion},<${majorVersion}\npytest>=8.0\npytest-django>=4.8\npytest-cov>=5.0\npytest-xdist>=3.0\nbeautifulsoup4>=4.12\nfactory-boy>=3.3\n`;
-            const smokeTest = `"""test_views_smoke.py — HTTP-200-Test aller Views via auto-discovery."""\nimport pytest\nfrom iil_testkit.smoke import discover_smoke_urls\n\n@pytest.mark.parametrize("url", discover_smoke_urls())\n@pytest.mark.django_db\ndef test_should_view_return_200(url: str, auth_client) -> None:\n    response = auth_client.get(url)\n    assert response.status_code in (200, 302)\n`;
-            const htmxTest = `"""test_views_htmx.py — HTMX-Partials + data-testid (ADR-048)."""\nimport pytest\nfrom iil_testkit.assertions import assert_data_testids, assert_htmx_response\n\nHTMX_URLS: list[str] = []\n\n@pytest.mark.skipif(not HTMX_URLS, reason="HTMX_URLS nicht konfiguriert")\n@pytest.mark.parametrize("url", HTMX_URLS)\n@pytest.mark.django_db\ndef test_should_htmx_response_be_fragment(url: str, auth_client) -> None:\n    assert_htmx_response(auth_client.get(url, HTTP_HX_REQUEST="true"))\n`;
+            // Scaffold-Inhalt kommt AUSSCHLIESSLICH von gen_test_scaffold.py (SSoT)
+            // Kein hardcoding — Änderungen an gen_test_scaffold.py wirken automatisch hier
+            const fromB64 = (b64) => b64 ? Buffer.from(b64, 'base64').toString('utf-8') : '';
+            const conftest  = fromB64('${{ steps.gen_scaffold.outputs.conftest_b64 }}');
+            const reqTest   = fromB64('${{ steps.gen_scaffold.outputs.reqtest_b64 }}');
+            const smokeTest = fromB64('${{ steps.gen_scaffold.outputs.smoke_b64 }}');
+            const htmxTest  = fromB64('${{ steps.gen_scaffold.outputs.htmx_b64 }}');
 
             let created = 0;
             let skipped = 0;
@@ -221,7 +229,7 @@ jobs:
               // PR erstellen
               await github.rest.pulls.create({
                 owner, repo,
-                title: `chore: Test-Infrastruktur einrichten (iil-testkit v0.4.0)`,
+                title: `chore: Test-Infrastruktur einrichten (iil-testkit v${testkitVersion})`,
                 body: [
                   '## Test-Scaffold hinzufügen',
                   '',
@@ -242,7 +250,7 @@ jobs:
                   '2. `HTMX_URLS` in `test_views_htmx.py` mit eigenen HTMX-Endpoints füllen',
                   '3. `python -m pytest tests/ -v` lokal ausführen',
                   '',
-                  'Docs: [`iil-testkit` v0.4.0](https://github.com/achimdehnert/testkit)',
+                  `Docs: [\`iil-testkit\` v${testkitVersion}](https://github.com/achimdehnert/iil-testkit)`,
                 ].join('\n'),
                 head: branch,
                 base: 'main',

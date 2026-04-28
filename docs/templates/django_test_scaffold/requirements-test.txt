@@ -1,3 +1,6 @@
+# DEPRECATED — nicht manuell bearbeiten
+# SSoT: python3 platform/scripts/gen_test_scaffold.py <repo>
+# Diese Datei wird bei naechstem Scaffold-Run automatisch ueberschrieben
 iil-testkit[smoke]>=0.4.0,<1
 pytest>=8.0
 pytest-django>=4.8

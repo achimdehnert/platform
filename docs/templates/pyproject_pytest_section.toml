@@ -1,29 +1,27 @@
 # pyproject.toml pytest section — ADR-057 §2.2 standard configuration
-# Merge into existing pyproject.toml in each service repo
-# Adjust DJANGO_SETTINGS_MODULE if settings path differs
+# GENERATED via: python3 platform/scripts/gen_test_scaffold.py <repo>
+# DO NOT edit manually — run gen_test_scaffold.py --update to refresh
 
 [tool.pytest.ini_options]
-DJANGO_SETTINGS_MODULE = "config.settings.test"
+DJANGO_SETTINGS_MODULE = "config.settings.test"  # adjust per repo
 python_files = ["test_*.py"]
-python_classes = ["Test*"]
-python_functions = ["test_*"]
+python_functions = ["test_should_*"]  # ADR-057: test_should_* naming mandatory
+iil_naming_mode = "error"              # iil-testkit plugin: enforce naming (warn | error)
 addopts = [
     "--strict-markers",
     "--tb=short",
     "-ra",
     "--no-header",
-    "-n auto",               # pytest-xdist: parallel execution
-    "--dist=loadscope",      # Tests in same class on same worker — prevents DB race conditions
-    "--randomly-seed=last",  # Reproduce last failing order: pytest --randomly-seed=last
+    # "-n", "auto",          # pytest-xdist: aktivieren wenn pytest-xdist installiert
+    "--cov",
+    "--cov-report=term-missing:skip-covered",
+    "--cov-fail-under=80",
 ]
 markers = [
-    "slow: Tests die > 1s dauern",
-    "contract: Contract Tests gegen andere Services",
-    "integration: Tests die DB oder externe Services brauchen",
-]
-filterwarnings = [
-    "error",
-    "ignore::DeprecationWarning:django.*:",
+    "unit: Unit-Tests (kein DB-Zugriff)",
+    "integration: Integration-Tests (Django Test Client, DB)",
+    "contract: Contract-Tests (Schemathesis, API)",
+    "slow: Tests die laenger als 5s dauern",
 ]
 
 [tool.coverage.run]
@@ -38,5 +36,5 @@ omit = [
 ]
 
 [tool.coverage.report]
-fail_under = 0    # Phase 1: kein Gate, nur Report — auf 70 anheben in Phase 3
+fail_under = 80
 show_missing = true

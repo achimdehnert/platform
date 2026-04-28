@@ -1,6 +1,9 @@
 # requirements-test.txt — ADR-057 §2.1 standardised test dependencies
-# Copy to each service repo as requirements-test.txt
-# Usage in CI: pip install -r requirements.txt -r requirements-test.txt
+# GENERATED via: python3 platform/scripts/gen_test_scaffold.py <repo>
+# DO NOT edit version pins manually — version comes from PyPI (iil-testkit SSoT)
+
+# IIL Platform shared test factory (fixtures, assertions, smoke, ADR-048)
+iil-testkit[smoke]>=0.4.0,<1
 
 # Test runner
 pytest>=8.0
@@ -20,5 +23,5 @@ respx>=0.21              # for httpx-based async clients
 schemathesis>=3.30        # REST/JSON API contract tests via WSGI
 jsonschema>=4.21          # Celery task payload + DB view schema validation
 
-# HTML parsing (HTMX fragment tests)
+# HTML parsing (HTMX fragment tests — included via iil-testkit[smoke])
 beautifulsoup4>=4.12
