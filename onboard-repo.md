@@ -199,6 +199,39 @@ Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:
 └── README.md
 ```
 
+### 1.1a Golden-Path-Templates einrichten (NEU 2026-04-28)
+
+**Automatisiert mit `setup_repo.py` — kein manuelles Kopieren:**
+
+```bash
+REPO_NAME="<REPO_NAME>"
+PORT="<PORT>"   # aus port_audit.py --next-free
+PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
+REPO_PATH="${GITHUB_DIR:-$HOME/github}/${REPO_NAME}"
+
+python3 "$PLATFORM_DIR/scripts/setup_repo.py" "$REPO_NAME" \
+  --port="$PORT" \
+  --settings="config.settings.test"
+```
+
+Erstellt: `Dockerfile`, `docker-compose.prod.yml`, `.github/workflows/ci.yml`,
+`.env.example`, `cliff.toml`, `.importlinter`, `renovate.json`
+
+→ Danach Platzhalter in generierten Dateien prüfen (`REPO_NAME`, `PORT` wurden bereits ersetzt).
+→ Dann `gen_django_app.py` für die erste App:
+
+```bash
+python3 "$PLATFORM_DIR/scripts/gen_django_app.py" "$REPO_NAME" "<app_name>"
+```
+
+→ Danach `gen_test_scaffold.py`:
+
+```bash
+python3 "$PLATFORM_DIR/scripts/gen_test_scaffold.py" "$REPO_NAME"
+```
+
+---
+
 ### 1.2 Naming Conventions (MANDATORY)
 
 | Element | Konvention | Beispiel |
