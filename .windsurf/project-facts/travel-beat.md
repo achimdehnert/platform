@@ -13,6 +13,7 @@
 - **URL**: https://drifttales.app
 - **Staging**: `staging.drifttales.com`
 - **Aliases**: drifttales.de, drifttales.app
+- **Services**: Celery · Redis · Docker
 
 > ⚠️ **Multi-Tenant (django-tenants)** — NIEMALS `migrate --noinput` allein!
 > Immer: `migrate_schemas --shared` + `migrate_schemas --tenant`
@@ -33,7 +34,7 @@
 
 ---
 
-## Settings
+## Django Settings
 
 | Variable | Wert |
 |----------|------|
@@ -41,6 +42,13 @@
 | `ROOT_URLCONF` | `config.urls` |
 | `WSGI` | `config.wsgi.application` |
 | `DEFAULT_AUTO_FIELD` | `BigAutoField` |
+| **DB-Name** | `travel_beat` |
+
+## HTMX Detection
+
+```python
+request.headers.get("HX-Request") == "true"  # django-htmx NICHT installiert
+```
 
 ---
 
@@ -78,5 +86,5 @@ def get_secret(name):
 |----------|------|
 | Lokaler Pfad | `/home/devuser/github/travel-beat` |
 | Venv | `/home/devuser/github/travel-beat/.venv/bin/python` |
-| DB (lokal) | `localhost:5432` |
+| DB (lokal) | `localhost:5432/travel_beat` |
 | Health | `/livez/` (liveness) · `/healthz/` (readiness) |

@@ -12,6 +12,7 @@
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –
 - **Staging**: `staging.bieterpilot.de`
+- **Services**: Docker
 
 ---
 
@@ -29,7 +30,7 @@
 
 ---
 
-## Settings
+## Django Settings
 
 | Variable | Wert |
 |----------|------|
@@ -37,6 +38,13 @@
 | `ROOT_URLCONF` | `config.urls` |
 | `WSGI` | `config.wsgi.application` |
 | `DEFAULT_AUTO_FIELD` | `BigAutoField` |
+| **DB-Name** | `ausschreibungs_hub` |
+
+## HTMX Detection
+
+```python
+request.htmx  # django-htmx installed
+```
 
 ---
 
@@ -74,5 +82,5 @@ def get_secret(name):
 |----------|------|
 | Lokaler Pfad | `/home/devuser/github/ausschreibungs-hub` |
 | Venv | `/home/devuser/github/ausschreibungs-hub/.venv/bin/python` |
-| DB (lokal) | `localhost:5432` |
+| DB (lokal) | `localhost:5432/ausschreibungs_hub` |
 | Health | `/livez/` (liveness) · `/healthz/` (readiness) |

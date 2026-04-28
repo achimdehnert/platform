@@ -13,6 +13,7 @@
 - **URL**: https://pptx-hub.iil.pet
 - **Staging**: `staging.prezimo.de`
 - **Aliases**: prezimo.com
+- **Services**: Docker
 
 ---
 
@@ -30,7 +31,7 @@
 
 ---
 
-## Settings
+## Django Settings
 
 | Variable | Wert |
 |----------|------|
@@ -38,6 +39,13 @@
 | `ROOT_URLCONF` | `config.urls` |
 | `WSGI` | `config.wsgi.application` |
 | `DEFAULT_AUTO_FIELD` | `BigAutoField` |
+| **DB-Name** | `pptx_hub` |
+
+## HTMX Detection
+
+```python
+request.headers.get("HX-Request") == "true"  # django-htmx NICHT installiert
+```
 
 ---
 
@@ -75,5 +83,5 @@ def get_secret(name):
 |----------|------|
 | Lokaler Pfad | `/home/devuser/github/pptx-hub` |
 | Venv | `/home/devuser/github/pptx-hub/.venv/bin/python` |
-| DB (lokal) | `localhost:5432` |
+| DB (lokal) | `localhost:5432/pptx_hub` |
 | Health | `/livez/` (liveness) · `/healthz/` (readiness) |

@@ -13,6 +13,7 @@
 - **URL**: https://demo.schutztat.de
 - **Staging**: `staging.schutztat.de`
 - **Aliases**: schutztat.com, kiohnerisiko.de
+- **Services**: Celery · Redis · Docker
 
 ---
 
@@ -30,7 +31,7 @@
 
 ---
 
-## Settings
+## Django Settings
 
 | Variable | Wert |
 |----------|------|
@@ -38,6 +39,13 @@
 | `ROOT_URLCONF` | `config.urls` |
 | `WSGI` | `config.wsgi.application` |
 | `DEFAULT_AUTO_FIELD` | `BigAutoField` |
+| **DB-Name** | `risk_hub` |
+
+## HTMX Detection
+
+```python
+request.htmx  # django-htmx installed
+```
 
 ---
 
@@ -75,5 +83,5 @@ def get_secret(name):
 |----------|------|
 | Lokaler Pfad | `/home/devuser/github/risk-hub` |
 | Venv | `/home/devuser/github/risk-hub/.venv/bin/python` |
-| DB (lokal) | `localhost:5432` |
+| DB (lokal) | `localhost:5432/risk_hub` |
 | Health | `/livez/` (liveness) · `/healthz/` (readiness) |

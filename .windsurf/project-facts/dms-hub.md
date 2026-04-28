@@ -12,6 +12,7 @@
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –
 - **Staging**: `staging-dms.iil.pet`
+- **Services**: Docker
 
 ---
 
@@ -29,7 +30,7 @@
 
 ---
 
-## Settings
+## Django Settings
 
 | Variable | Wert |
 |----------|------|
@@ -37,6 +38,13 @@
 | `ROOT_URLCONF` | `config.urls` |
 | `WSGI` | `config.wsgi.application` |
 | `DEFAULT_AUTO_FIELD` | `BigAutoField` |
+| **DB-Name** | `dms_hub` |
+
+## HTMX Detection
+
+```python
+request.headers.get("HX-Request") == "true"  # django-htmx NICHT installiert
+```
 
 ---
 
@@ -74,5 +82,5 @@ def get_secret(name):
 |----------|------|
 | Lokaler Pfad | `/home/devuser/github/dms-hub` |
 | Venv | `/home/devuser/github/dms-hub/.venv/bin/python` |
-| DB (lokal) | `localhost:5432` |
+| DB (lokal) | `localhost:5432/dms_hub` |
 | Health | `/livez/` (liveness) · `/healthz/` (readiness) |

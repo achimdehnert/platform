@@ -170,6 +170,62 @@ def get_all_repos(token: str | None) -> tuple[list[dict], str]:
     return repos, "lokale git-Clones (Fallback)"
 
 
+GITHUB_DIR = Path("/home/devuser/github")
+
+
+def detect_repo_details(repo: str) -> dict:
+    """Auto-detect repo details from local clone."""
+    repo_dir = GITHUB_DIR / repo
+    details = {
+        "db_name": repo.replace("-", "_"),          # travel-beat → travel_beat
+        "settings_module": "config.settings",        # ADR-Konvention, immer gleich
+        "htmx_method": None,
+        "has_celery": False,
+        "has_redis": False,
+        "has_docker": False,
+    }
+
+    if not repo_dir.exists():
+        return details
+
+    # HTMX-Detection aus requirements.txt / pyproject.toml
+    for req_file in ["requirements.txt", "requirements/base.txt",
+                     "requirements/production.txt", "pyproject.toml"]:
+        req_path = repo_dir / req_file
+        if req_path.exists():
+            content = req_path.read_text(encoding="utf-8", errors="ignore").lower()
+            if "django-htmx" in content:
+                details["htmx_method"] = "request.htmx  # django-htmx installed"
+                break
+            elif "htmx" in content:
+                details["htmx_method"] = 'request.headers.get("HX-Request") == "true"'
+                break
+    if not details["htmx_method"]:
+        # Fallback: settings.py auf django_htmx prüfen
+        for settings_path in [repo_dir / "config" / "settings.py",
+                               repo_dir / "config" / "settings" / "base.py"]:
+            if settings_path.exists():
+                content = settings_path.read_text(encoding="utf-8", errors="ignore")
+                if "django_htmx" in content:
+                    details["htmx_method"] = "request.htmx  # django-htmx installed"
+                    break
+
+    # Celery / Redis aus requirements
+    for req_file in ["requirements.txt", "requirements/base.txt"]:
+        req_path = repo_dir / req_file
+        if req_path.exists():
+            content = req_path.read_text(encoding="utf-8", errors="ignore").lower()
+            details["has_celery"] = "celery" in content
+            details["has_redis"] = "redis" in content
+            break
+
+    # Docker
+    details["has_docker"] = (repo_dir / "Dockerfile").exists() or \
+                             (repo_dir / "docker").is_dir()
+
+    return details
+
+
 def load_yaml(path: Path) -> dict:
     with open(path, encoding="utf-8") as f:
         return yaml.safe_load(f)
@@ -204,10 +260,22 @@ def generate_django_facts(repo: str, info: dict, port_info: dict) -> str:
     domain_aliases = port_info.get("domain_aliases", [])
     lifecycle = info.get("lifecycle", "production")
     description = info.get("description", "")
+    owner = info.get("owner", "achimdehnert")
+
+    # Auto-detect aus lokalem Clone
+    detected = detect_repo_details(repo)
+    db_name = detected["db_name"]
+    settings_module = detected["settings_module"]
+    htmx_method = detected["htmx_method"] or 'request.headers.get("HX-Request") == "true"  # django-htmx NICHT installiert'
+    services_line = " · ".join(filter(None, [
+        "Celery" if detected["has_celery"] else "",
+        "Redis" if detected["has_redis"] else "",
+        "Docker" if detected["has_docker"] else "",
+    ])) or "–"
 
     tenant_warning = ""
     if multi_tenant:
-        tenant_warning = f"""
+        tenant_warning = """
 > ⚠️ **Multi-Tenant (django-tenants)** — NIEMALS `migrate --noinput` allein!
 > Immer: `migrate_schemas --shared` + `migrate_schemas --tenant`
 """
@@ -228,9 +296,10 @@ def generate_django_facts(repo: str, info: dict, port_info: dict) -> str:
 ## Projekt
 
 - **Beschreibung**: {description}
-- **GitHub**: `achimdehnert/{repo}` → https://github.com/achimdehnert/{repo}
+- **GitHub**: `{owner}/{repo}` → https://github.com/{owner}/{repo}
 - **Typ**: Django · Lifecycle: {lifecycle}
 - **URL**: {url or "–"}{staging_str}{aliases_str}
+- **Services**: {services_line}
 {tenant_warning}
 ---
 
@@ -244,18 +313,25 @@ def generate_django_facts(repo: str, info: dict, port_info: dict) -> str:
 | **Container** | `{container}` |
 | **Migrate** | `{migrate_cmd}` |
 | **Compose** | `docker-compose.prod.yml` |
-| **Image** | `ghcr.io/achimdehnert/{repo}-web:${{IMAGE_TAG:-latest}}` |
+| **Image** | `ghcr.io/{owner}/{repo}-web:${{IMAGE_TAG:-latest}}` |
 
 ---
 
-## Settings
+## Django Settings
 
 | Variable | Wert |
 |----------|------|
-| `DJANGO_SETTINGS_MODULE` | `config.settings` |
+| `DJANGO_SETTINGS_MODULE` | `{settings_module}` |
 | `ROOT_URLCONF` | `config.urls` |
 | `WSGI` | `config.wsgi.application` |
 | `DEFAULT_AUTO_FIELD` | `BigAutoField` |
+| **DB-Name** | `{db_name}` |
+
+## HTMX Detection
+
+```python
+{htmx_method}
+```
 
 ---
 
@@ -273,7 +349,7 @@ def generate_django_facts(repo: str, info: dict, port_info: dict) -> str:
 |----------|------|
 | Lokaler Pfad | `/home/devuser/github/{repo}` |
 | Venv | `/home/devuser/github/{repo}/.venv/bin/python` |
-| DB (lokal) | `localhost:5432` |
+| DB (lokal) | `localhost:5432/{db_name}` |
 | Health | `/livez/` (liveness) · `/healthz/` (readiness) |
 """
 
