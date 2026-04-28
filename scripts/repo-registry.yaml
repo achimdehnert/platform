@@ -249,7 +249,7 @@ repos:
     type: infra
     note: "Website relaunch assets"
 
-  testkit:
+  iil-testkit:
     type: library
-    pypi: testkit
-    note: "Shared pytest utilities"
+    pypi: iil-testkit
+    note: "Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057"

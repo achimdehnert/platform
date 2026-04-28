@@ -1,0 +1,149 @@
+name: Platform Audit — Cross-Repo Inventory
+
+on:
+  schedule:
+    - cron: '0 5 * * 1'   # Montags 05:00 UTC
+  workflow_dispatch:
+    inputs:
+      run_tests:
+        description: 'pytest via teste_repo.py pro Repo ausführen (langsam)'
+        type: boolean
+        default: false
+      health_check:
+        description: '/livez/ Prod-Check pro Repo'
+        type: boolean
+        default: true
+      fail_on_missing_scaffold:
+        description: 'Exit 1 bei Repos ohne Test-Scaffold'
+        type: boolean
+        default: false
+      target_repo:
+        description: 'Einzelnes Repo (leer = alle Django-Repos)'
+        required: false
+        default: ''
+
+jobs:
+  audit:
+    name: Cross-Repo Platform Audit
+    runs-on: self-hosted
+    permissions:
+      contents: read
+      issues: write
+
+    steps:
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.PROJECT_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install pyyaml --quiet
+
+      - name: Repos clonen (für --run-tests)
+        if: ${{ inputs.run_tests }}
+        run: |
+          set -euo pipefail
+          REPOS=$(python3 scripts/list_megatest_repos.py 2>/dev/null || \
+            python3 -c "
+          import yaml
+          from pathlib import Path
+          reg = yaml.safe_load(Path('scripts/repo-registry.yaml').read_text())
+          types = {'django','agent','bot'}
+          repos = [n for n,p in reg['repos'].items()
+                   if isinstance(p,dict) and p.get('type') in types and n != 'platform']
+          print(' '.join(repos))
+          ")
+          mkdir -p ~/github
+          for repo in $REPOS; do
+            if [ ! -d "$HOME/github/$repo" ]; then
+              git clone --depth=1 \
+                "https://x-access-token:${{ secrets.PROJECT_PAT }}@github.com/achimdehnert/${repo}.git" \
+                "$HOME/github/$repo" 2>/dev/null || echo "WARN: $repo skip"
+            fi
+          done
+
+      - name: Audit ausführen
+        id: audit
+        env:
+          GITHUB_TOKEN: ${{ secrets.PROJECT_PAT }}
+          GITHUB_DIR: /root/github
+          DATABASE_URL: ${{ secrets.PLATFORM_AUDIT_DSN }}
+        run: |
+          set -euo pipefail
+          ARGS=""
+          [ "${{ inputs.health_check }}" = "true" ] && ARGS="$ARGS --health"
+          [ "${{ inputs.run_tests }}" = "true" ] && ARGS="$ARGS --run-tests --local"
+          [ "${{ inputs.fail_on_missing_scaffold }}" = "true" ] && ARGS="$ARGS --fail-on-missing-scaffold"
+          [ -n "${{ inputs.target_repo }}" ] && ARGS="$ARGS ${{ inputs.target_repo }}"
+          [ -n "${DATABASE_URL:-}" ] && ARGS="$ARGS --store-db"
+
+          python3 scripts/audit_platform.py $ARGS 2>&1 | tee audit-output.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> "$GITHUB_OUTPUT"
+        continue-on-error: true
+
+      - name: Audit-Report als Artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: platform-audit-${{ github.run_id }}
+          path: audit-output.txt
+          retention-days: 90
+
+      - name: GitHub Job Summary
+        if: always()
+        run: |
+          python3 scripts/audit_platform.py \
+            ${{ inputs.health_check == true && '--health' || '' }} \
+            --format=json 2>/dev/null | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          total = len(data)
+          scaffolded = sum(1 for r in data if r['has_scaffold'])
+          print(f'### Platform Audit Summary')
+          print(f'- **Repos:** {total}')
+          print(f'- **Mit Test-Scaffold:** {scaffolded}/{total}')
+          print(f'- **Ohne Scaffold:** {total - scaffolded}')
+          " >> $GITHUB_STEP_SUMMARY 2>/dev/null || true
+
+      - name: Issue bei Regressions erstellen
+        if: steps.audit.outputs.exit_code != '0'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const output = fs.existsSync('audit-output.txt')
+              ? fs.readFileSync('audit-output.txt', 'utf8').slice(-3000)
+              : 'Output nicht gefunden';
+            const today = new Date().toISOString().split('T')[0];
+            const title = `🔴 Platform Audit Regression — ${today}`;
+
+            const existing = await github.rest.issues.listForRepo({
+              owner: context.repo.owner, repo: context.repo.repo,
+              state: 'open', labels: 'platform-audit', per_page: 5,
+            });
+            if (existing.data.some(i => i.title === title)) {
+              console.log('Issue bereits offen — skip');
+              return;
+            }
+
+            await github.rest.issues.create({
+              owner: context.repo.owner, repo: context.repo.repo,
+              title,
+              body: [
+                '## Platform Audit hat Probleme gefunden',
+                '',
+                '```',
+                output,
+                '```',
+                '',
+                `Workflow: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
+                '',
+                '**Fix:** `python3 scripts/audit_platform.py --fail-on-missing-scaffold` lokal ausführen.',
+              ].join('\n'),
+              labels: ['platform-audit', 'needs-attention'],
+            });
