@@ -279,7 +279,7 @@ def check_g003_model_without_tenant_id(
             if "tenant_id" not in added:
                 violations.append(Violation(
                     rule="G-003",
-                    gate=Gate.HUMAN_APPROVAL,
+                    gate=Gate.AUTO_WARN,  # Nur Warning: tenant_id nur für weltenhub/risk-hub Pflicht
                     file=f["path"],
                     line=f["hunks"][0] if f["hunks"] else None,
                     message=(
@@ -287,9 +287,9 @@ def check_g003_model_without_tenant_id(
                         "`tenant_id` Feld"
                     ),
                     suggestion=(
-                        "Jedes User-Data-Model MUSS "
-                        "`tenant_id = UUIDField(db_index=True)` "
-                        "haben (Platform-Regel \u00a73.3)"
+                        "Für Multi-Tenant-Repos (weltenhub, risk-hub): "
+                        "`tenant_id = UUIDField(db_index=True)` ergänzen. "
+                        "Für Single-Tenant-Repos: kein tenant_id nötig."
                     ),
                 ))
 

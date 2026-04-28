@@ -7,6 +7,12 @@ on:
 jobs:
   guardian:
     runs-on: ubuntu-latest
+    # Dependabot/Renovate PRs: nur Dependency-Bumps, keine App-Logik
+    if: >
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'renovate[bot]' &&
+      !startsWith(github.head_ref, 'dependabot/') &&
+      !startsWith(github.head_ref, 'renovate/')
     permissions:
       pull-requests: write
       contents: read

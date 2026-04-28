@@ -1,0 +1,41 @@
+# IIL Platform — .dockerignore (Golden Path)
+# Kopiere in Repo-Root
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+.ruff_cache/
+
+# Entwicklung
+.env
+.env.*
+!.env.example
+.venv/
+venv/
+*.egg-info/
+
+# Tests
+tests/
+requirements-test.txt
+
+# Docs / Tooling
+docs/
+*.md
+.git/
+.github/
+.windsurf/
+
+# Build-Artefakte
+dist/
+build/
+*.tar.gz
+
+# Daten
+*.sqlite3
+*.db
+media/

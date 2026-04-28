@@ -33,6 +33,7 @@ TEMPLATE_FILES = [
     ("cliff.toml",               "cliff.toml"),
     (".importlinter",            ".importlinter"),
     ("renovate.json",            "renovate.json"),  # aus platform root
+    (".dockerignore",            ".dockerignore"),
 ]
 
 
