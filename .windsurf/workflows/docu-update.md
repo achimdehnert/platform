@@ -45,6 +45,34 @@ python -m pytest tests/ --collect-only -q 2>/dev/null | tail -3
 
 ---
 
+## Phase 0.3: Code Quality Gate — Lint + Tests + Migrations
+
+**Pflicht vor der Dokumentation. Docs über fehlerhaften Code sind irreführend.**
+
+```bash
+PLATFORM_DIR="${GITHUB_DIR:-${HOME}/github/platform}"
+REPO_PATH="${GITHUB_DIR:-${HOME}/github}/$REPO_NAME"
+
+python3 "$PLATFORM_DIR/scripts/teste_repo.py" "$REPO_PATH" 2>&1 \
+  | grep -E '(PASS|FAIL|ERROR|Coverage|✅|❌|⚠️|ruff|pytest|migrate)'
+```
+
+| Ergebnis | Aktion |
+|----------|--------|
+| Alles ✅ | Weiter zu Phase 0.5 |
+| ruff ❌ | **STOPP** — Lint-Fehler fixen, dann neu starten |
+| pytest ❌ | **STOPP** — Tests fixen, dann neu starten |
+| Coverage < 80% | Als bekannte Lücke in CHANGELOG dokumentieren |
+| migration ❌ | **STOPP** — `python manage.py makemigrations --check` ausführen |
+
+> Kurzform für schnellen Check ohne volle Test-Suite:
+> ```bash
+> ruff check "$REPO_PATH" --output-format=concise 2>&1 | head -20
+> python3 "$PLATFORM_DIR/scripts/drift_check.py" "$REPO_NAME" --severity=error
+> ```
+
+---
+
 ## Phase 0.5: Template-Drift-Check (NEU 2026-04-28)
 
 **Vor der Dokumentation prüfen — gibt Kontext was fehlt / abgewichen ist.**
@@ -177,6 +205,11 @@ git push
 
 | # | Check | Tier |
 |---|-------|------|
+| **0.3a** | **ruff lint: keine Errors** | alle |
+| **0.3b** | **pytest: alle Tests grün** | alle |
+| **0.3c** | **Coverage ≥ 80% (oder Ausnahme dokumentiert)** | alle |
+| **0.3d** | **Migrations konsistent** | Django |
+| **0.5** | **Template-Drift: keine Errors (🔴)** | alle |
 | 1 | README.md Version = Code-Version | alle |
 | 2 | README.md keine Phantom-Commands/Features | alle |
 | 3 | README.md Architektur vollständig | alle |
