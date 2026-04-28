@@ -43,6 +43,14 @@ UNIVERSAL=(
     session-ende
     session-docu
     docu-update
+    complete
+    prompt
+    drift-check
+    docu-repo-active
+    teste-repo
+    sync-project-facts
+    secrets
+    onboarding-new-repo
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
@@ -51,6 +59,11 @@ DJANGO_HUB=(
     deploy-check
     backup
     ship
+    ship-staging
+    run-local
+    run-prod
+    run-staging
+    rollback
     frontend-ui-test
     pre-release-test
     testing-setup
@@ -60,6 +73,9 @@ DJANGO_HUB=(
     new-github-project
     stack-upgrade
     refresh-github-token
+    compose-audit
+    nginx-check
+    uptime-monitoring
 )
 
 # Nur Python-Packages (PyPI)
@@ -77,6 +93,7 @@ DJANGO_HUBS=(
     travel-beat weltenhub wedding-hub recruiting-hub dms-hub
     ausschreibungs-hub illustration-hub research-hub writing-hub
     learn-hub dev-hub odoo-hub mcp-hub 137-hub bfagent tax-hub
+    onboarding-hub
 )
 
 PACKAGES=(
