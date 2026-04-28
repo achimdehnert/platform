@@ -77,10 +77,10 @@ repos:
     health: /livez/
 
   odoo-hub:
-    type: django
+    type: infra
     prod_url: odoo-hub.iil.pet
-    port: 8000
-    health: /livez/
+    port: 8069
+    health: /web/health  # Odoo-native health endpoint (kein Django /livez/)
 
   onboarding-hub:
     type: django
@@ -88,6 +88,7 @@ repos:
     staging_url: staging.schulungspass.de
     port: 8108
     health: /livez/
+    note: "runner vorhanden, Container noch nicht deployed"
 
   pptx-hub:
     type: django
@@ -107,7 +108,7 @@ repos:
     type: django
     prod_url: research.iil.pet
     port: 8104
-    health: /livez/
+    health: /healthz/  # livez/ im Code vorhanden, deployed image 7d alt — nach Redeploy auf /livez/ wechseln
 
   risk-hub:
     type: django
