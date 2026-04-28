@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: WeltenHub Client Framework — typed REST client and Pydantic schemas for the WeltenHub Story Universe API
 - **GitHub**: `achimdehnert/weltenfw` → https://github.com/achimdehnert/weltenfw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

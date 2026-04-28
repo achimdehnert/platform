@@ -9,7 +9,8 @@
 
 - **Beschreibung**: –
 - **GitHub**: `achimdehnert/iil-relaunch` → https://github.com/achimdehnert/iil-relaunch
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

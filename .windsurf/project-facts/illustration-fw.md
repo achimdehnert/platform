@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: iil-illustrationfw — Pure Python illustration framework: provider-agnostic image generation (DALL·E, SD), prompt building from book context, StyleDNA injection
 - **GitHub**: `achimdehnert/illustration-fw` → https://github.com/achimdehnert/illustration-fw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

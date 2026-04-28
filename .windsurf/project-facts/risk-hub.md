@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Multi-tenant occupational safety SaaS (Schutztat)
+- **Beschreibung**: Enterprise SaaS Risikomanagement Platform - Brandschutz, Explosionsschutz, Arbeitssicherheit
 - **GitHub**: `achimdehnert/risk-hub` → https://github.com/achimdehnert/risk-hub
 - **Typ**: Django · Lifecycle: production
 - **URL**: https://demo.schutztat.de

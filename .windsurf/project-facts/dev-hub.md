@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Central Developer Portal & Platform Management Hub
+- **Beschreibung**: Developer Portal & Platform Management Hub — Central management for all platform hubs (Django, HTMX, Tailwind)
 - **GitHub**: `achimdehnert/dev-hub` → https://github.com/achimdehnert/dev-hub
 - **Typ**: Django · Lifecycle: production
 - **URL**: https://devhub.iil.pet

@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Reusable Document Ingestion Package for IIL Platform (ADR-170) — extract, classify, structure
 - **GitHub**: `achimdehnert/iil-ingest` → https://github.com/achimdehnert/iil-ingest
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

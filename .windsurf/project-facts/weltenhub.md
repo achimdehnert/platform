@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Story universe platform (Weltenforger)
+- **Beschreibung**: Central multi-tenant story universe platform - Manages Worlds, Locations, Characters, Scenes, Stories for travel-beat and bfagent
 - **GitHub**: `achimdehnert/weltenhub` → https://github.com/achimdehnert/weltenhub
 - **Typ**: Django · Lifecycle: production
 - **URL**: https://weltenforger.com

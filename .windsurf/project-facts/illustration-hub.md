@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Illustration Hub — Tenant-fähiger Django Service für Bild-Asset-Verwaltung, analog weltenhub. REST API, async Jobs, SSoT für alle Bild-Assets in der IIL Pipeline.
 - **GitHub**: `achimdehnert/illustration-hub` → https://github.com/achimdehnert/illustration-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

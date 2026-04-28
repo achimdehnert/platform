@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Django Learning Platform Framework — Courses, Quizzes, Certificates, Gamification, SCORM (ADR-139)
 - **GitHub**: `achimdehnert/learnfw` → https://github.com/achimdehnert/learnfw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

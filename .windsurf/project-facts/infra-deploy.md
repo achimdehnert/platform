@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Centralized deployment API for achimdehnert platform services — agent-triggered and manual deploys (ADR-021 §2.14)
 - **GitHub**: `achimdehnert/infra-deploy` → https://github.com/achimdehnert/infra-deploy
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

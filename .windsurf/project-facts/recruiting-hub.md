@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Multi-Tenant SaaS Recruiting Hub (ADR-148) — Django 5.x, HTMX, PostgreSQL
 - **GitHub**: `achimdehnert/recruiting-hub` → https://github.com/achimdehnert/recruiting-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: KI ohne Risiko™ — Multi-tenant SaaS platform for AI risk assessment, governance and learning
 - **GitHub**: `achimdehnert/coach-hub` → https://github.com/achimdehnert/coach-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

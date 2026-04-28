@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: REFLEX — Reflexive Evidence-based Loop for UI Development. LLM-powered Domain Agent, UC Quality Checker, Failure Classifier.
 - **GitHub**: `achimdehnert/iil-reflex` → https://github.com/achimdehnert/iil-reflex
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

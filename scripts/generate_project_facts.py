@@ -78,34 +78,44 @@ def github_api(path: str, token: str) -> list | dict:
         return json.loads(resp.read())
 
 
+def _fetch_pages(path: str, token: str) -> list[dict]:
+    """Alle Seiten einer paginierten GitHub API Route laden."""
+    results = []
+    page = 1
+    while True:
+        sep = "&" if "?" in path else "?"
+        data = github_api(f"{path}{sep}per_page=100&page={page}", token)
+        if not data:
+            break
+        results.extend(data)
+        if len(data) < 100:
+            break
+        page += 1
+    return results
+
+
 def get_all_repos_api(token: str) -> list[dict]:
-    """Alle Repos aus allen Orgs via GitHub API."""
+    """Alle Repos via GitHub API — authenticated user + orgs."""
     all_repos = []
-    for org in GITHUB_ORGS:
-        page = 1
-        while True:
-            try:
-                repos = github_api(
-                    f"/orgs/{org}/repos?per_page=100&page={page}&sort=name", token
-                )
-                if not repos:
-                    break
-                all_repos.extend(repos)
-                if len(repos) < 100:
-                    break
-                page += 1
-            except urllib.error.HTTPError as e:
-                if e.code in (401, 403):
-                    raise RuntimeError(f"Token ungültig/abgelaufen (HTTP {e.code})")
-                if e.code == 404:
-                    try:
-                        repos = github_api(
-                            f"/users/{org}/repos?per_page=100&page={page}", token
-                        )
-                        all_repos.extend(repos)
-                    except Exception:
-                        pass
-                break
+
+    # 1. Alle Repos des authentifizierten Users (inkl. private)
+    try:
+        repos = _fetch_pages("/user/repos?affiliation=owner,collaborator&sort=full_name", token)
+        all_repos.extend(repos)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise RuntimeError(f"Token ungültig/abgelaufen (HTTP {e.code})")
+
+    # 2. Zusätzlich Orgs (meiki-lra, ttz-lif — nicht owner des Tokens)
+    extra_orgs = [o for o in GITHUB_ORGS if o != "achimdehnert"]
+    for org in extra_orgs:
+        try:
+            repos = _fetch_pages(f"/orgs/{org}/repos?sort=name", token)
+            all_repos.extend(repos)
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 403):
+                raise RuntimeError(f"Token ungültig/abgelaufen (HTTP {e.code})")
+            # 404 = org nicht gefunden, überspringen
     return all_repos
 
 

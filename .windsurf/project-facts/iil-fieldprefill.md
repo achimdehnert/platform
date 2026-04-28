@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: AI field enrichment — shared prefill orchestration for Django platform apps (ADR-107)
 - **GitHub**: `achimdehnert/iil-fieldprefill` → https://github.com/achimdehnert/iil-fieldprefill
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: iil-outlinefw — Story Outline Framework: Pydantic schemas, beat frameworks, LLM generator. Pure Python, no Django.
 - **GitHub**: `achimdehnert/outlinefw` → https://github.com/achimdehnert/outlinefw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

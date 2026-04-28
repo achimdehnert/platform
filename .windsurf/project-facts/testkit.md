@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: iil-testkit — Shared Test Factory Package for all Platform Django repos (ADR-100)
 - **GitHub**: `achimdehnert/testkit` → https://github.com/achimdehnert/testkit
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

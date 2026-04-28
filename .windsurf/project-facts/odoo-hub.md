@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Odoo management and integration (Odoo 17)
+- **Beschreibung**: Odoo 18 custom addons hub — Management & Reporting apps (Dual-Framework Governance, ADR-030)
 - **GitHub**: `achimdehnert/odoo-hub` → https://github.com/achimdehnert/odoo-hub
 - **Typ**: Python (kein Django)
 - **Port**: – · **Container**: `–`

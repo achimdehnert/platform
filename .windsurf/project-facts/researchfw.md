@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: iil-researchfw — Platform research framework: async search, citations, analysis, export
 - **GitHub**: `achimdehnert/researchfw` → https://github.com/achimdehnert/researchfw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

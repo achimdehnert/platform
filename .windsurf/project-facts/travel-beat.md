@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Travel story platform (DriftTales)
+- **Beschreibung**: Personalisierte Reise-Geschichten, synchronisiert mit deiner Reise. Django 5.x SaaS MVP mit Claude API Integration.
 - **GitHub**: `achimdehnert/travel-beat` → https://github.com/achimdehnert/travel-beat
 - **Typ**: Django · Lifecycle: production
 - **URL**: https://drifttales.app

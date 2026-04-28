@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Central Learning Management Hub — learn.iil.pet (ADR-140)
 - **GitHub**: `achimdehnert/learn-hub` → https://github.com/achimdehnert/learn-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Authoring Framework — domain schemas for AI-assisted creative writing applications
 - **GitHub**: `achimdehnert/authoringfw` → https://github.com/achimdehnert/authoringfw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

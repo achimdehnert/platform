@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Writing Hub — Eigenständige Autorenplattform (extrahiert aus bfagent, ADR-083)
 - **GitHub**: `achimdehnert/writing-hub` → https://github.com/achimdehnert/writing-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

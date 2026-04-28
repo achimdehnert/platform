@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Compliance Onboarding Platform — white-label SaaS for SME onboarding and mandatory trainings (Pflichtunterweisungen)
 - **GitHub**: `achimdehnert/onboarding-hub` → https://github.com/achimdehnert/onboarding-hub
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

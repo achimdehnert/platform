@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: CAD Hub - Construction/CAD platform for IFC parsing, DXF/DWG analysis, DIN 277, fire safety (Brandschutz), tendering (AVB), and NL2CAD. Extracted from bfagent per ADR-029.
 - **GitHub**: `achimdehnert/cad-hub` → https://github.com/achimdehnert/cad-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

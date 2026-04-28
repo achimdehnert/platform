@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Last War: Survival Bot Platform — 3 parallel Android emulators with Python automation (ADB + OpenCV + Celery)
 - **GitHub**: `achimdehnert/lastwar-bot` → https://github.com/achimdehnert/lastwar-bot
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

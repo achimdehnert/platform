@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Document Management System — Multi-Tenant DMS SaaS Platform
 - **GitHub**: `achimdehnert/dms-hub` → https://github.com/achimdehnert/dms-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

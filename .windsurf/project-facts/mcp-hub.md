@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: MCP server collection (deployment, orchestrator, LLM)
+- **Beschreibung**: meine mcps 
 - **GitHub**: `achimdehnert/mcp-hub` → https://github.com/achimdehnert/mcp-hub
 - **Typ**: Python (kein Django)
 - **Port**: – · **Container**: `–`

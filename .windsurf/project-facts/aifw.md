@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Django AI Services Framework — DB-driven LLM provider, model & usage management
 - **GitHub**: `achimdehnert/aifw` → https://github.com/achimdehnert/aifw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: KI-gestützte Ausschreibungs- und Angebotsplattform — Django 6.0, Multi-Tenant, aifw, billing-hub
 - **GitHub**: `achimdehnert/ausschreibungs-hub` → https://github.com/achimdehnert/ausschreibungs-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

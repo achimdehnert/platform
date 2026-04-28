@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: SaaS für Steuerberatungskanzleien — Multi-Tenant, buchbare Module (Fristen, DMS, KI, Belege, E-Rechnung, Mandantenportal)
 - **GitHub**: `achimdehnert/tax-hub` → https://github.com/achimdehnert/tax-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

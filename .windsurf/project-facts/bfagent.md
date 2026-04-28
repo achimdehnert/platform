@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Book Factory Agent — AI-assisted book creation
+- **Beschreibung**: book-factory-agent
 - **GitHub**: `achimdehnert/bfagent` → https://github.com/achimdehnert/bfagent
 - **Typ**: Django · Lifecycle: production
 - **URL**: https://bfagent.iil.pet

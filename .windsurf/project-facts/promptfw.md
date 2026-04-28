@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Prompt Template Framework — 4-layer Jinja2 template engine for LLM applications
 - **GitHub**: `achimdehnert/promptfw` → https://github.com/achimdehnert/promptfw
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

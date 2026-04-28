@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Trading analysis and market scanning
+- **Beschreibung**: trading hub 
 - **GitHub**: `achimdehnert/trading-hub` → https://github.com/achimdehnert/trading-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

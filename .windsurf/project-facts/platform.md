@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Shared packages, ADRs, governance, platform agents
+- **Beschreibung**: BF Agent Platform - Monorepo for BFAgent, Travel Beat, and shared packages
 - **GitHub**: `achimdehnert/platform` → https://github.com/achimdehnert/platform
 - **Typ**: Library / Infra (kein Deployment)
 

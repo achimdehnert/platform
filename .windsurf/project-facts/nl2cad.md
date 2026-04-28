@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: NL2CAD Monorepo — IFC/DXF parsing, DIN 277, Brandschutz, GAEB and NLP-to-CAD intent classification
 - **GitHub**: `achimdehnert/nl2cad` → https://github.com/achimdehnert/nl2cad
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 

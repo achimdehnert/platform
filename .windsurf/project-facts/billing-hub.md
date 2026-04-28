@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Zentraler Billing-Service für die iil.pet Plattform — Kundenverwaltung, Abonnements und Modulkäufe über alle Hubs hinweg
 - **GitHub**: `achimdehnert/billing-hub` → https://github.com/achimdehnert/billing-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: research-hub — Django research platform (research.iil.pet)
 - **GitHub**: `achimdehnert/research-hub` → https://github.com/achimdehnert/research-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: –

@@ -7,7 +7,7 @@
 
 ## Projekt
 
-- **Beschreibung**: Presentation Studio — PowerPoint generation (Prezimo)
+- **Beschreibung**: Production-ready PowerPoint processing platform with multi-tenancy support
 - **GitHub**: `achimdehnert/pptx-hub` → https://github.com/achimdehnert/pptx-hub
 - **Typ**: Django · Lifecycle: experimental
 - **URL**: https://pptx-hub.iil.pet

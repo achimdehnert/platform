@@ -7,9 +7,10 @@
 
 ## Projekt
 
-- **Beschreibung**: –
+- **Beschreibung**: Enrichment Agent Pattern — bridge managed records with external knowledge sources (ADR-169)
 - **GitHub**: `achimdehnert/iil-enrichment` → https://github.com/achimdehnert/iil-enrichment
-- **Typ**: Library / Infra (kein Deployment)
+- **Typ**: Python (kein Django)
+- **Port**: – · **Container**: `–`
 
 ---
 
