@@ -233,13 +233,10 @@ def check_health(audit: RepoAudit, local_port: int | None = None,
     else:
         url = f"https://{audit.prod_url}{path}"
     t0 = time.monotonic()
-    # Host-Header: damit Django ALLOWED_HOSTS akzeptiert (wie Nginx bei Proxy)
-    host_header = audit.prod_url or f"127.0.0.1:{local_port}"
     # Erst urllib versuchen, dann curl als Fallback (Proxy/ALLOWED_HOSTS-Workaround)
     try:
-        req = urllib.request.Request(url, headers={"Host": host_header})
         opener = urllib.request.build_opener(urllib.request.ProxyHandler({}))
-        with opener.open(req, timeout=HEALTH_TIMEOUT) as resp:
+        with opener.open(url, timeout=HEALTH_TIMEOUT) as resp:
             audit.health_status = resp.status
             audit.health_ms = int((time.monotonic() - t0) * 1000)
         return
@@ -254,7 +251,7 @@ def check_health(audit: RepoAudit, local_port: int | None = None,
     try:
         result = subprocess.run(
             ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
-             "-H", f"Host: {host_header}", "--max-time", "5", url],
+             "--max-time", "5", url],
             capture_output=True, text=True, timeout=10,
         )
         code_str = result.stdout.strip()
