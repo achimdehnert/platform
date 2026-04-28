@@ -28,7 +28,7 @@ repos:
     type: django
     prod_url: bieterpilot.de
     staging_url: staging.bieterpilot.de
-    port: 8095
+    port: 8101
     health: /livez/
 
   billing-hub:
@@ -100,13 +100,13 @@ repos:
   recruiting-hub:
     type: django
     prod_url: recruiting.iil.pet
-    port: 8099
+    port: 8103
     health: /livez/
 
   research-hub:
     type: django
     prod_url: research.iil.pet
-    port: 8098
+    port: 8104
     health: /livez/
 
   risk-hub:
@@ -121,7 +121,7 @@ repos:
   tax-hub:
     type: django
     prod_url: tax.iil.pet
-    port: 8101
+    port: 8099
     health: /livez/
 
   trading-hub:
