@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026.04.28] — 2026-04-28
+
+### Added
+- `push_project_facts.py` (`.github/scripts/`) — generiert `project-facts.md` via GitHub API und
+  pusht sie automatisch in alle Django-Repos (kein lokaler Checkout nötig)
+- `gen-project-facts.yml` GitHub Actions Workflow — läuft wöchentlich Mo 04:00 UTC + `workflow_dispatch`
+  mit optionalem `target_repo` Input; erkennt Django-Version, HTMX-Detection, Settings-Modul, Apps
+- `run_prompt.py` (`scripts/`) — generiert optimierte, selbstenthaltende Prompts via
+  Groq Llama-3.3-70B (kostenlos, Free Tier); Fallback auf Template-Generierung ohne LLM-Key
+- `/prompt` Workflow (`prompt.md`) — 2-Call-Optimierung (statt 5 MCP-Calls), Affected-Files-Suche
+  via `mcp0_search_code`, Komplexitäts-Routing, ~60% weniger Cascade-Tokens pro Aufruf
+- `~/.secrets/groq_api_key` als neues lokales Secret für `run_prompt.py`
+- `project-facts.md` in `risk-hub` live gepusht (Pilot)
+
+### Changed
+- README: Repo-Zahl 41 → 45, Scripts-Tabelle aktualisiert, `/prompt` Sektion ergänzt,
+  `groq_api_key` in Secrets-Liste
+
+---
+
 ## [2026.04.26] — 2026-04-26
 
 ### Added

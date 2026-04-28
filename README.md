@@ -1,6 +1,6 @@
 # BF Agent Platform
 
-Zentrales Meta-Repo für alle 41+ Repos des IIL Platform-Ökosystems:
+Zentrales Meta-Repo für alle 45+ Repos des IIL Platform-Ökosystems:
 Architektur-Entscheidungen (ADRs), geteilte CI/CD-Workflows, Governance-Tooling,
 Repo-Registry und Windsurf-Rules.
 
@@ -47,20 +47,28 @@ platform/
 
 ## Repo-Registry (Master Identifier)
 
-**Single Source of Truth für alle 41 Repos:**
-
-```bash
-# project-facts.md für alle Repos generieren/aktualisieren
-python3 scripts/gen_project_facts.py
-
-# Force-Regenerate alle
-python3 scripts/gen_project_facts.py --force
-
-# Einzelnes Repo
-python3 scripts/gen_project_facts.py risk-hub
-```
+**Single Source of Truth für alle 45 Repos:**
 
 Registry-Datei: `scripts/repo-registry.yaml`
+
+### project-facts.md — automatisch in jedem Repo
+
+`project-facts.md` wird automatisch an die Repo-Root jedes Django-Repos gepusht und enthält alle
+relevanten Fakten (Settings-Modul, HTMX-Detection, Apps, Port, DB, Prod-URL).
+
+```bash
+# Via GitHub Actions (empfohlen — kein lokaler Checkout nötig)
+TOKEN=$(cat ~/.secrets/github_PAT)
+curl -s -X POST -H "Authorization: token $TOKEN" \
+  "https://api.github.com/repos/achimdehnert/platform/actions/workflows/gen-project-facts.yml/dispatches" \
+  -d '{"ref":"main","inputs":{"target_repo":"risk-hub"}}'
+
+# Lokal (Server mit Repo-Checkouts)
+python3 scripts/gen_project_facts.py [--force] [repo-name]
+
+# Via GitHub API (lokal, kein Checkout nötig)
+GITHUB_TOKEN=$(cat ~/.secrets/github_PAT) python3 .github/scripts/push_project_facts.py [repo-name]
+```
 
 ## Windsurf Rules (Global)
 
@@ -108,13 +116,35 @@ Alle Repos rufen diese auf via `uses: achimdehnert/platform/.github/workflows/..
 
 | Script | Zweck |
 |--------|-------|
-| `scripts/gen_project_facts.py` | Master Repo Identifier — generiert project-facts.md |
-| `scripts/repo-registry.yaml` | Registry aller 41 Repos (Port, URL, DB, Typ) |
+| `scripts/gen_project_facts.py` | Master Repo Identifier — generiert project-facts.md (lokal) |
+| `.github/scripts/push_project_facts.py` | project-facts.md via GitHub API generieren + pushen |
+| `scripts/run_prompt.py` | Optimierten Prompt via Groq Llama-3.3-70B generieren |
+| `scripts/repo-registry.yaml` | Registry aller 45 Repos (Port, URL, DB, Typ) |
+| `scripts/audit_platform.py` | Cross-Repo Platform Audit (Health, Tests, Inventory) |
+| `scripts/drift_check.py` | Config-Drift zwischen Repos erkennen |
+| `scripts/gen_test_scaffold.py` | Test-Scaffold (conftest, factories, smoke tests) generieren |
+| `scripts/teste_repo.py` | Lokaler Repo-Healthcheck (ruff, pytest, migrations) |
 | `scripts/sync-workflows.sh` | Windsurf-Workflows als Symlinks in alle Repos |
 | `scripts/ship.sh` | Standard-Deploy (Build → Push → SSH Deploy) |
-| `scripts/deploy.sh` | Hetzner Deploy Script |
 | `scripts/adr_next_number.py` | Nächste ADR-Nummer ermitteln |
-| `scripts/sync_adrs_to_outline.sh` | ADRs nach Outline Wiki synchronisieren |
+
+## /prompt Workflow — Optimaler Prompt Generator
+
+Generiert selbstenthaltende Prompts mit Groq Llama-3.3-70B (kostenlos, Free Tier):
+
+```bash
+# In Windsurf:
+/prompt risk-hub "fix Login-Bug: Redirect nach /dashboard"
+/prompt tax-hub "neues Model: Steuerrate mit Prozentsatz"
+```
+
+Der Workflow:
+1. Lädt `project-facts.md` via MCP (1 Call statt vorher 5)
+2. Sucht relevante Dateien via `mcp0_search_code`
+3. Ruft `scripts/run_prompt.py` mit platform-Venv auf → Groq generiert
+4. **~60% weniger Cascade-Tokens** gegenüber manueller Generierung
+
+**Voraussetzung:** `~/.secrets/groq_api_key` (kostenlos: https://console.groq.com/keys)
 
 ## ADRs
 
@@ -126,7 +156,7 @@ Nächste Nummer: `python3 scripts/adr_next_number.py`
 
 - **Prod-Server**: `88.198.191.108` (Hetzner) — Deploy via `scripts/ship.sh` oder CI/CD
 - **Registry**: `ghcr.io/achimdehnert/{repo}`
-- **Secrets lokal**: `~/.secrets/` (github_token, outline_api_token, cloudflare_*)
+- **Secrets lokal**: `~/.secrets/` (github_PAT, github_token, groq_api_key, outline_api_token, cloudflare_*)
 - **Secrets Server**: `/opt/shared-secrets/api-keys.env`
 - **pgvector**: Container `mcp_hub_db` auf Prod `88.198.191.108:15435` — Tunnel via `ssh-tunnel-postgres` systemd-Service
 - **devuser**: KEIN sudo → `ssh root@localhost "apt-get install -y <package>"`
