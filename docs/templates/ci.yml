@@ -1,0 +1,42 @@
+# IIL Platform — ci.yml (Golden Path)
+# Kopiere nach .github/workflows/ci.yml im Ziel-Repo
+# Ersetze REPO_NAME + PORT + SETTINGS_MODULE
+
+name: CI — REPO_NAME
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  ci:
+    uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main
+    with:
+      python_version: "3.12"
+      django_settings_module: "config.settings.test"   # ← anpassen
+      run_integration_tests: true
+      run_contract_tests: true
+      coverage_threshold: 80
+    secrets: inherit
+
+  build:
+    needs: ci
+    if: github.ref == 'refs/heads/main'
+    uses: achimdehnert/platform/.github/workflows/_build-docker.yml@main
+    with:
+      repo_name: REPO_NAME                             # ← anpassen
+      image_tag: ${{ github.sha }}
+    secrets: inherit
+
+  deploy:
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+    with:
+      repo_name: REPO_NAME                             # ← anpassen
+      port: PORT                                       # ← anpassen (z.B. 8010)
+      image_tag: ${{ github.sha }}
+    secrets: inherit
