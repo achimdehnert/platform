@@ -57,3 +57,7 @@ docs/concepts/REVIEW-*
 env_loader.py
 .pat
 .env.backup
+
+# PDF-Dateien (generiert via print_agent)
+*.pdf
+!docs/pdf/*.pdf

@@ -1,8 +1,28 @@
 # BF Agent Platform
 
-Zentrales Meta-Repo für alle 45+ Repos des IIL Platform-Ökosystems:
-Architektur-Entscheidungen (ADRs), geteilte CI/CD-Workflows, Governance-Tooling,
-Repo-Registry und Windsurf-Rules.
+[![ADRs](https://img.shields.io/badge/ADRs-149-blue)]()  [![Repos](https://img.shields.io/badge/repos-45%2B-informational)]()  [![License](https://img.shields.io/badge/license-MIT-green)]()
+
+> Zentrales Meta-Repo für alle 45+ Repos des IIL Platform-Ökosystems:
+> Architektur-Entscheidungen (ADRs), geteilte CI/CD-Workflows, Governance-Tooling,
+> Repo-Registry, Windsurf-Rules und Print-Agent (MD→PDF).
+
+---
+
+## 🧭 Schnellnavigation
+
+| Ich möchte... | Dann lies... |
+|---|---|
+| ...neu einrichten (neuer Rechner) | [Quick Start](#quick-start--neuer-computer--neue-session) |
+| ...einen ADR erstellen | `/adr` Workflow in Windsurf |
+| ...ein PDF erzeugen | `/create-pdf` Workflow in Windsurf |
+| ...eine neue Repo onboarden | `/onboard-repo` Workflow |
+| ...Architekturentscheidungen lesen | [docs/adr/](docs/adr/) (149 ADRs) |
+| ...Konzepte verstehen | [docs/concepts/](docs/concepts/) |
+| ...Templates nutzen | [docs/templates/](docs/templates/) |
+| ...Deployment-Tools | [scripts/](scripts/) · [tools/](tools/) |
+| ...Print-Agent (MD→PDF) | [tools/print_agent/](tools/print_agent/) |
+
+---
 
 ## Quick Start — Neuer Computer / neue Session
 
@@ -146,9 +166,22 @@ Der Workflow:
 
 **Voraussetzung:** `~/.secrets/groq_api_key` (kostenlos: https://console.groq.com/keys)
 
+## 📚 Dokumentation
+
+| Dokument | Inhalt |
+|---|---|
+| [docs/adr/](docs/adr/) | 149 Architecture Decision Records (MADR 4.0) |
+| [docs/concepts/](docs/concepts/) | Architektur-Konzepte, Entscheidungshintergründe |
+| [docs/guides/](docs/guides/) | How-To Anleitungen (Deployment, Setup, Workflows) |
+| [docs/reference/](docs/reference/) | API, Config, Scripts Referenz |
+| [docs/templates/](docs/templates/) | Canonical Templates (README, CHANGELOG, CONTRIBUTING, ADR) |
+| [tools/print_agent/](tools/print_agent/) | MD→PDF Generator (SSoT für alle Repos) |
+| [docs/pdf/](docs/pdf/) | Generierte PDFs |
+| [CHANGELOG.md](CHANGELOG.md) | Versionshistorie |
+
 ## ADRs
 
-147 Architecture Decision Records in `docs/adr/` (MADR 4.0 Format).
+149 Architecture Decision Records in `docs/adr/` (MADR 4.0 Format).
 Neue ADR: `/adr` Workflow in Windsurf.
 Nächste Nummer: `python3 scripts/adr_next_number.py`
 
