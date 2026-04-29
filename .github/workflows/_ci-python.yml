@@ -65,6 +65,11 @@ on:
         required: false
         default: '==0.15.4'
         type: string
+      enable_qm_gate:
+        description: 'QM Gate: Block ASSUMPTION[unverified] in .py files (ADR-174). Skipped on draft PRs.'
+        required: false
+        default: false
+        type: boolean
       runs_on:
         description: 'Runner label (default: self-hosted). Override with ubuntu-latest if no runner registered.'
         required: false
@@ -77,6 +82,26 @@ on:
         type: string
 
 jobs:
+  qm-gate:
+    name: "QM Gate — ASSUMPTION Check (ADR-174)"
+    runs-on: ${{ inputs.runs_on }}
+    if: ${{ inputs.enable_qm_gate && github.event.pull_request.draft == false }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Block unverified assumptions
+        run: |
+          set -euo pipefail
+          COUNT=$(grep -rnF "ASSUMPTION[unverified]" --include="*.py" . 2>/dev/null | wc -l)
+          if [ "$COUNT" -gt 0 ]; then
+            echo "::error title=QM Gate::$COUNT offene ASSUMPTION[unverified] — vor Merge auflösen"
+            grep -rnF "ASSUMPTION[unverified]" --include="*.py" . | \
+              while IFS=: read file line content; do
+                echo "::error file=$file,line=$line::ASSUMPTION[unverified]: $content"
+              done
+            exit 1
+          fi
+          echo "✅ QM Gate: Keine offenen Assumptions ($COUNT)"
+
   lint:
     name: "Lint & Format"
     runs-on: ${{ inputs.runs_on }}

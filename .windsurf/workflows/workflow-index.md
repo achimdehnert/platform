@@ -246,5 +246,37 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 
 ---
 
+## Symlink-Policy (ADR-174)
+
+**Regel: Symlink DEFAULT — Lokal NUR bei repo-spezifischem Inhalt.**
+
+| Typ | Strategie | Beispiele |
+|-----|-----------|-----------|
+| **Platform-global** | Symlink → Änderung in `platform/` wirkt sofort überall | `agentic-coding.md`, `governance-check.md`, `pre-code.md`, `workflow-index.md`, `platform-audit.md`, `adr.md`, `hotfix.md`, `deploy.md` |
+| **Repo-spezifisch** | Lokal → repo-eigene Befehle/Pfade/ADRs | `complete.md`, `agent-task.md`, `run-tests.md` |
+
+**Neue Workflow-Datei anlegen:**
+```bash
+# 1. In platform/ erstellen
+# 2. Symlink in Ziel-Repo:
+ln -s ../../../platform/.windsurf/workflows/<name>.md .windsurf/workflows/<name>.md
+
+# Verify: alle Symlinks im Repo prüfen
+find .windsurf/workflows/ -type l -exec ls -la {} \;
+```
+
+**Aktueller Stand risk-hub:**
+```
+SYMLINK: agentic-coding.md, governance-check.md, pre-code.md,
+         platform-audit.md, workflow-index.md
+LOKAL:   complete.md, agent-task.md, run-tests.md,
+         agent-session-start.md, session-start.md, session-ende.md
+```
+
+> Neue Workflows bei `/onboard-repo` immer als Symlink anlegen.
+> Lokal-Entscheidung in `AGENT_HANDOVER.md` des Repos dokumentieren.
+
+---
+
 *Workflow Index v1.5 — Platform Coding Agent System | 2026-04-29*
 *Alle Workflows: `${GITHUB_DIR:-$HOME/github}/platform/.windsurf/workflows/`*
