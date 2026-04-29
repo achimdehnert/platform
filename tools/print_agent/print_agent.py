@@ -45,20 +45,37 @@ _JINJA_ENV = Environment(
 _DESIGNS_FILE = Path(__file__).parent / "print_designs.yaml"
 
 
-def _load_designs() -> dict:
+def _load_designs(override_file: Path | None = None) -> dict:
+    """Lädt Platform-Designs, merged optional ein repo-spezifisches Override-YAML.
+
+    Override-Regeln:
+    - Repo-YAML kann neue Designs definieren (werden ergänzt)
+    - Repo-YAML kann bestehende Designs überschreiben (repo-Werte gewinnen)
+    - Repo-YAML Format identisch zu print_designs.yaml: {designs: {key: {...}}}
+    """
+    base: dict = {}
     if _DESIGNS_FILE.exists():
         with _DESIGNS_FILE.open(encoding="utf-8") as f:
-            data = yaml.safe_load(f)
-        return data.get("designs", {})
-    print(f"⚠️  {_DESIGNS_FILE} nicht gefunden — keine Designs verfügbar")
-    return {}
+            base = yaml.safe_load(f).get("designs", {})
+    else:
+        print(f"⚠️  {_DESIGNS_FILE} nicht gefunden — keine Designs verfügbar")
+    if override_file and Path(override_file).exists():
+        with Path(override_file).open(encoding="utf-8") as f:
+            overrides = yaml.safe_load(f).get("designs", {})
+        for key, vals in overrides.items():
+            if key in base:
+                base[key] = {**base[key], **vals}
+            else:
+                base[key] = vals
+        print(f"🎨 Repo-Design-Override geladen: {override_file}")
+    return base
 
 
 DESIGNS = _load_designs()
 
 
-def build_css(d: dict) -> str:
-    """Injiziert nur :root-Variablen + @page @top-left; Rest kommt aus base.css."""
+def build_css(d: dict, extra_css: str = "") -> str:
+    """Injiziert :root-Variablen + @page; Rest aus base.css + optionalem extra_css."""
     p, hl = d["primary"], d["header_left"]
     root_and_page = f"""
 :root {{
@@ -82,7 +99,8 @@ def build_css(d: dict) -> str:
     }}
 }}
 """
-    return root_and_page + _BASE_CSS_STATIC
+    repo_css = f"\n/* --- repo-spezifisches CSS ---*/\n{extra_css}" if extra_css.strip() else ""
+    return root_and_page + _BASE_CSS_STATIC + repo_css
 
 
 def get_secret(name: str) -> str | None:
@@ -495,7 +513,7 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
     return tpl.render(**ctx)
 
 
-def convert(input_path: Path, output_dir: Path, design_name: str = "meiki") -> Path:
+def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extra_css: str = "") -> Path:
     design = DESIGNS.get(design_name, DESIGNS["meiki"])
     print(f"🎨 Design: {design_name}")
 
@@ -518,7 +536,7 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki") -> P
         print(f"   🏷️  Keywords: {', '.join(enrichment.get('keywords', []))}")
 
     html = build_html(title, body_html, meta, input_path.stem, enrichment, design)
-    css = build_css(design)
+    css = build_css(design, extra_css=extra_css)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{input_path.stem}.pdf"
@@ -530,9 +548,16 @@ def main():
     parser = argparse.ArgumentParser(description="IIL Print Agent — Markdown → PDF")
     parser.add_argument("input", help="Markdown-Quelldatei")
     parser.add_argument("output_dir", nargs="?", help="Ausgabeverzeichnis (optional)")
-    parser.add_argument("--design", choices=list(DESIGNS.keys()), default="meiki",
-                        help="Design-Profil: meiki (Standard) oder iil")
+    parser.add_argument("--design", default="meiki",
+                        help="Design-Profil: meiki (Standard), iil, ttz oder repo-eigener Key")
+    parser.add_argument("--designs", default=None,
+                        help="Pfad zu repo-spezifischem designs.yaml (Override/Ergänzung)")
+    parser.add_argument("--extra-css", default=None,
+                        help="Pfad zu repo-spezifischem extra.css (wird nach base.css geladen)")
     args = parser.parse_args()
+    if args.designs:
+        global DESIGNS
+        DESIGNS = _load_designs(override_file=Path(args.designs))
 
     input_path = Path(args.input).expanduser().resolve()
     if not input_path.exists():
@@ -540,7 +565,8 @@ def main():
         sys.exit(1)
 
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else OUTPUT_DIR
-    out = convert(input_path, output_dir, design_name=args.design)
+    extra_css = Path(args.extra_css).read_text(encoding="utf-8") if args.extra_css and Path(args.extra_css).exists() else ""
+    out = convert(input_path, output_dir, design_name=args.design, extra_css=extra_css)
     print(f"✅ PDF erstellt: {out}  ({out.stat().st_size // 1024} KB)")
 
 
