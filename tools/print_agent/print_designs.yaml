@@ -1,0 +1,64 @@
+# IIL Print Agent — Design Profiles (SSoT)
+# Neue Designs: einfach Block hinzufügen, kein Code-Change nötig.
+# Pflichtfelder: primary, bg_light, border, border_dark, row_even, row_odd,
+#                gantt_bg, header_left, cover_label, subtitle,
+#                footer_suffix, llm_context, es_label_text
+
+designs:
+
+  meiki:
+    primary:       "#1A4A7A"
+    bg_light:      "#EFF4FA"
+    border:        "#D0D8E4"
+    border_dark:   "#0F3060"
+    row_even:      "#F5F8FC"
+    row_odd:       "#FFFFFF"
+    gantt_bg:      "#FAFCFF"
+    flow_s1:       "#1565C0"
+    flow_s2:       "#2E7D32"
+    flow_s3:       "#6A1B9A"
+    header_left:   "PROJEKT MEiKI  |  LENKUNGSKREIS"
+    cover_label:   "PROJEKT MEiKI &nbsp;|&nbsp; LENKUNGSKREIS"
+    subtitle:      "Projekt MEiKI — Mehrwert durch KI in Bayerischen Landkreisen"
+    footer_suffix: "Projekt MEiKI, gefördert durch den Freistaat Bayern"
+    llm_context:   "bayerische Kommunalverwaltung (Projekt MEiKI)"
+    es_label_text: "Executive Summary"
+    meta_template: meiki
+
+  iil:
+    primary:       "#1A3A5C"
+    bg_light:      "#EDF3FA"
+    border:        "#C8D8EC"
+    border_dark:   "#0D2840"
+    row_even:      "#F3F7FC"
+    row_odd:       "#FFFFFF"
+    gantt_bg:      "#F8FAFE"
+    flow_s1:       "#1A3A5C"
+    flow_s2:       "#2C5F8A"
+    flow_s3:       "#3D7AB5"
+    header_left:   "IIL GmbH  |  iil.gmbh"
+    cover_label:   "IIL GmbH &nbsp;|&nbsp; iil.gmbh"
+    subtitle:      "IIL GmbH · Intelligente industrielle Lösungen"
+    footer_suffix: "IIL GmbH · kontakt@iil.gmbh · iil.gmbh"
+    llm_context:   "IT-Dienstleistungen und KI-Lösungen (IIL GmbH)"
+    es_label_text: "Zusammenfassung"
+    meta_template: iil
+
+  ttz:
+    primary:       "#1B5E20"
+    bg_light:      "#EDF7ED"
+    border:        "#C5DFC6"
+    border_dark:   "#0A3D0A"
+    row_even:      "#F2FAF2"
+    row_odd:       "#FFFFFF"
+    gantt_bg:      "#F7FBF7"
+    flow_s1:       "#1B5E20"
+    flow_s2:       "#2E7D32"
+    flow_s3:       "#388E3C"
+    header_left:   "TTZ Leipheim  |  Lern- und Innovationsfabrik"
+    cover_label:   "TTZ Leipheim &nbsp;|&nbsp; Lern- und Innovationsfabrik"
+    subtitle:      "TTZ — Technologietransferzentrum Lernfabrik Leipheim"
+    footer_suffix: "TTZ Lernfabrik Leipheim · Prof. Grinninger"
+    llm_context:   "industrielle Lernfabrik und Technologietransfer (TTZ Leipheim)"
+    es_label_text: "Zusammenfassung"
+    meta_template: iil

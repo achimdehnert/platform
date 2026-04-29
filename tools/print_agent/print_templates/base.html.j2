@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="de">
+<head><meta charset="utf-8"><title>{{ title }}</title></head>
+<body>
+{% if stand %}<span class="stand-anchor">{{ stand }}</span>{% endif %}
+<div class="cover-header">{{ cover_label }}</div>
+<h1>{{ title }}</h1>
+<p class="doc-subtitle">{{ subtitle }}</p>
+<p class="doc-meta-line">{{ date_line }}</p>
+
+{% if enrichment.summary %}
+<div class="executive-summary">
+  <div class="es-label">{{ es_label }}</div>
+  {{ enrichment.summary }}
+  {% if enrichment.keywords %}
+  <div class="keywords">
+    <strong>Schlüsselthemen:</strong>
+    {{ enrichment.keywords | join(" &nbsp;·&nbsp; ") }}
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{% if meta_rows %}
+<table class="meta-table">
+  {% for key, value in meta_rows %}
+  <tr><td>{{ key }}</td><td>{{ value }}</td></tr>
+  {% endfor %}
+</table>
+{% endif %}
+
+<hr>
+{{ body_html }}
+<p class="footer-note">{{ footer_text }}</p>
+</body>
+</html>

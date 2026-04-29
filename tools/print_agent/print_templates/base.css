@@ -1,0 +1,255 @@
+/* IIL Print Agent — Base CSS (static, design-agnostic)
+   Colors/header text come from :root variables injected by build_css().
+   ------------------------------------------------------------------ */
+
+@page {
+    size: A4;
+    margin: 18mm 20mm 22mm 20mm;
+    @top-right {
+        content: string(doc-stand);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 8pt; color: #888; padding-top: 8mm;
+    }
+    @bottom-center {
+        content: "Seite " counter(page) " von " counter(pages);
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 8pt; color: #888;
+    }
+}
+@page :first {
+    @top-left  { content: none; }
+    @top-right { content: none; }
+    @bottom-center { content: none; }
+    margin-top: 28mm;
+}
+
+* { box-sizing: border-box; }
+
+body {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 10pt; line-height: 1.55; color: #1C1C1C; margin: 0; padding: 0;
+}
+
+.cover-header {
+    border-top: 3px solid var(--primary);
+    padding-top: 6pt; margin-bottom: 24pt;
+    font-size: 8pt; font-weight: 700; letter-spacing: 0.14em;
+    color: var(--primary); text-transform: uppercase;
+}
+
+h1 {
+    font-size: 26pt; font-weight: 700; color: #1C1C1C;
+    margin: 0 0 4pt 0; line-height: 1.2;
+}
+.doc-subtitle { font-size: 13pt; color: var(--primary); margin: 0 0 6pt 0; }
+.doc-meta-line { font-size: 9pt; color: #555; font-style: italic; margin-bottom: 14pt; }
+
+.executive-summary {
+    background: var(--bg-light); border-left: 4px solid var(--primary);
+    padding: 10pt 14pt; margin: 14pt 0 20pt 0;
+    font-size: 9.5pt; color: #1C1C1C; line-height: 1.6;
+}
+.executive-summary .es-label {
+    font-size: 8pt; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--primary); text-transform: uppercase; margin-bottom: 5pt;
+}
+.keywords { margin-top: 8pt; font-size: 8.5pt; color: #555; }
+.keywords strong { color: var(--primary); }
+
+.meta-table { width: 100%; border-collapse: collapse; margin: 12pt 0 24pt 0; font-size: 9.5pt; }
+.meta-table td { padding: 7pt 10pt; border: 1px solid var(--border); vertical-align: top; }
+.meta-table td:first-child {
+    font-weight: 700; width: 38%;
+    background: var(--bg-light); color: var(--primary);
+}
+
+hr { border: none; border-top: 1.5px solid var(--border); margin: 16pt 0; }
+
+h2 {
+    font-size: 13pt; font-weight: 700; color: var(--primary);
+    margin: 22pt 0 8pt 0; padding-bottom: 4pt;
+    border-bottom: 1.5px solid var(--border); page-break-after: avoid;
+}
+h3 { font-size: 10.5pt; font-weight: 700; color: #1C1C1C; margin: 14pt 0 5pt 0; }
+
+table {
+    width: 100%; border-collapse: collapse; font-size: 9pt;
+    margin: 8pt 0 14pt 0; page-break-inside: avoid;
+    table-layout: auto;
+}
+thead tr { background: var(--primary); color: white; }
+thead th { padding: 7pt 9pt; text-align: left; font-weight: 600; font-size: 8.5pt; }
+tbody tr:nth-child(even) { background: var(--row-even); }
+tbody tr:nth-child(odd)  { background: var(--row-odd); }
+tbody td {
+    padding: 6pt 9pt; border-bottom: 1px solid #E0E8F0; vertical-align: top;
+    word-wrap: break-word; overflow-wrap: break-word;
+}
+tbody tr:last-child td { border-bottom: 2px solid var(--border); }
+
+/* Preis-/Betrags-Spalte: nur für Tabellen mit class="price-table" */
+table.price-table td:last-child, table.price-table th:last-child {
+    white-space: nowrap;
+    text-align: right;
+    width: 1%;
+}
+/* Nummer-/ID-Spalte: nur für Tabellen mit class="num-table" */
+table.num-table td:first-child, table.num-table th:first-child {
+    width: 1%;
+    white-space: nowrap;
+}
+
+.footer-note {
+    font-size: 8pt; color: #888; font-style: italic;
+    margin-top: 28pt; border-top: 1px solid #E0E8F0; padding-top: 8pt;
+}
+.stand-anchor { string-set: doc-stand content(); }
+a { color: var(--primary); text-decoration: none; }
+p { margin: 4pt 0 8pt 0; }
+code {
+    font-family: "Courier New", monospace; font-size: 8.5pt;
+    background: #F0F4F8; padding: 1pt 3pt; border-radius: 2pt;
+}
+pre {
+    font-family: "Courier New", monospace; font-size: 8pt;
+    background: #F0F4F8; border: 1px solid var(--border);
+    padding: 8pt 10pt; border-radius: 3pt;
+    white-space: pre-wrap; word-break: break-word;
+}
+
+/* ---- FILE TREE ---- */
+.file-tree {
+    font-family: "Courier New", monospace; font-size: 8.5pt;
+    background: #F0F4F8; border: 1px solid var(--border);
+    border-left: 3px solid var(--primary);
+    padding: 8pt 10pt; border-radius: 3pt;
+    line-height: 1.7; margin: 8pt 0 14pt 0;
+}
+.file-tree ul { list-style: none; padding-left: 16pt; margin: 0; }
+.file-tree li { padding: 0; }
+.ft-root { font-weight: 700; color: var(--primary); }
+.ft-dir  { font-weight: 700; color: var(--primary); }
+.ft-note { color: #777; font-style: italic; font-size: 7.5pt; }
+
+/* ---- WORKFLOW FLOW DIAGRAM ---- */
+.flow-diagram { margin: 12pt 0 18pt 0; font-size: 9pt; }
+
+.flow-entry {
+    background: var(--primary); color: white;
+    padding: 8pt 14pt; border-radius: 4pt;
+    font-weight: 700; font-size: 9.5pt; text-align: center;
+    margin-bottom: 0;
+}
+
+.flow-connector {
+    text-align: center; color: #888; font-size: 10pt;
+    line-height: 1.2; padding: 2pt 0;
+}
+
+.flow-stage {
+    display: flex; border: 1.5px solid var(--border);
+    border-radius: 4pt; margin: 0; page-break-inside: avoid;
+}
+.flow-stage + .flow-stage { border-top: none; border-radius: 0; }
+.flow-stage:first-of-type { border-radius: 4pt 4pt 0 0; }
+.flow-stage:last-of-type  { border-radius: 0 0 4pt 4pt; }
+
+.flow-badge {
+    width: 64pt; min-width: 64pt; padding: 10pt 6pt;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    text-align: center; font-weight: 700;
+    font-size: 7.5pt; letter-spacing: 0.05em;
+    color: white; border-radius: 2pt 0 0 2pt;
+}
+.s1 .flow-badge { background: var(--flow-s1); }
+.s2 .flow-badge { background: var(--flow-s2); }
+.s3 .flow-badge { background: var(--flow-s3); }
+.flow-badge .badge-num { font-size: 11pt; font-weight: 900; line-height: 1; }
+
+.flow-body {
+    flex: 1; padding: 8pt 12pt; border-left: 3px solid var(--border);
+}
+.flow-body strong { font-size: 9.5pt; }
+.flow-yes { color: #2E7D32; margin-top: 5pt; font-size: 8.5pt; }
+.flow-no  { color: #B71C1C; font-size: 8.5pt; }
+.flow-rate { color: #555; font-size: 8pt; font-style: italic; }
+
+.flow-target {
+    background: var(--bg-light); border: 2px solid var(--primary);
+    border-radius: 4pt; padding: 8pt 14pt;
+    text-align: center; font-weight: 700; font-size: 9.5pt;
+    color: var(--primary); margin-top: 0;
+}
+
+/* ---- GANTT ---- */
+.gantt-wrapper { margin: 10pt 0 16pt 0; page-break-inside: avoid; }
+.gantt { width: 100%; border-collapse: collapse; font-size: 8pt; table-layout: fixed; }
+.gantt thead tr { background: var(--primary); color: white; }
+.gantt thead th {
+    padding: 5pt 2pt; text-align: center;
+    font-weight: 600; font-size: 7.5pt; border: 1px solid var(--border-dark);
+}
+.gantt th.gantt-label { text-align: left; padding-left: 6pt; width: 28%; }
+.gantt tbody td { border: 1px solid var(--border); padding: 5pt 2pt; text-align: center; height: 14pt; }
+.gantt tbody td.gantt-label {
+    text-align: left; padding-left: 6pt; font-weight: 600;
+    color: var(--primary); background: var(--row-even); border-right: 2px solid var(--border);
+}
+.gantt tbody tr:nth-child(even) td:not(.gantt-label) { background: var(--gantt-bg); }
+.g1 { background: #2E7D32 !important; }
+.g2 { background: #1565C0 !important; }
+.g3 { background: #6A1B9A !important; }
+.g4 { background: #E65100 !important; }
+.g5 { background: #00695C !important; }
+.g6 { background: #283593 !important; }
+.g7 { background: #4527A0 !important; }
+.g8 { background: #558B2F !important; }
+
+/* ---- ARCH DIAGRAM (```arch) ---- */
+.arch-diagram {
+    border: 1.5px solid var(--border); border-radius: 5pt;
+    padding: 12pt 14pt; margin: 10pt 0 14pt 0;
+    background: #f8f9ff; page-break-inside: avoid;
+}
+.arch-title {
+    text-align: center; font-weight: 700; font-size: 9.5pt;
+    color: var(--primary); border-bottom: 1px solid var(--border);
+    padding-bottom: 6pt; margin-bottom: 10pt;
+}
+.arch-row {
+    display: flex; align-items: stretch; justify-content: center;
+    gap: 6pt; margin-bottom: 6pt; flex-wrap: wrap;
+}
+.arch-box {
+    border: 1.5px solid var(--primary); border-radius: 4pt;
+    padding: 7pt 10pt; background: white;
+    min-width: 90pt; text-align: center; flex: 1; max-width: 180pt;
+}
+.arch-box-title { font-weight: 700; font-size: 9pt; color: var(--primary); }
+.arch-box-sub   { font-size: 7.5pt; color: #555; margin-top: 2pt; }
+.arch-arrow     { font-size: 14pt; color: var(--primary); align-self: center; flex-shrink: 0; padding: 0 2pt; }
+.arch-split     { display: flex; gap: 14pt; justify-content: center; margin-top: 4pt; }
+.arch-branch    { display: flex; flex-direction: column; align-items: center; gap: 3pt; flex: 1; max-width: 200pt; }
+.arch-arrow-down { font-size: 13pt; color: var(--primary); }
+.arch-ext       { font-size: 7.5pt; color: #555; text-align: center; font-style: italic; }
+
+/* ---- LAYER DIAGRAM (```layer) ---- */
+.layer-diagram  { margin: 10pt 0 14pt 0; page-break-inside: avoid; }
+.layer-top {
+    background: var(--primary); color: white; border-radius: 4pt 4pt 0 0;
+    padding: 9pt 12pt; margin-bottom: 0;
+}
+.layer-top-title { font-weight: 700; font-size: 9.5pt; margin-bottom: 5pt; }
+.layer-top ul   { margin: 0; padding-left: 14pt; font-size: 8pt; }
+.layer-bridge   {
+    text-align: center; font-size: 8.5pt; color: #555; padding: 4pt 0;
+    border-left: 1px dashed var(--border); border-right: 1px dashed var(--border);
+}
+.layer-columns  { display: flex; gap: 10pt; }
+.layer-box {
+    flex: 1; border: 1.5px solid var(--primary); border-radius: 0 0 4pt 4pt;
+    padding: 9pt 12pt; background: white;
+}
+.layer-box-title { font-weight: 700; font-size: 9pt; color: var(--primary); margin-bottom: 5pt; }
+.layer-box ul   { margin: 0; padding-left: 14pt; font-size: 8pt; }
