@@ -26,6 +26,7 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | **Repo/Package Vollständigkeit prüfen** | **Repo Health Check** | **`/repo-health-check`** |
 | **Tests vor Package-Release prüfen** | **Testing Conventions** | **`/testing-conventions`** |
 | **Cross-Repo Audit (Schwachstellen, Inkonsistenzen)** | **Platform Audit** | **`/platform-audit`** |
+| **Workflows reviewen + optimieren (Agent-Stabilität)** | **Workflow Review** | **`/workflow-review`** |
 | Vor Production-Deploy | Deploy Check | `/deploy-check` |
 | Deployen | Deploy | `/deploy` |
 | DB-Backup | Backup | `/backup` |
