@@ -162,17 +162,31 @@ jobs:
                 }
 
                 try {
-                  let sha, existingContent;
+                  let sha, existingContent, isSymlink = false;
                   try {
                     const { data: existing } = await github.rest.repos.getContent({ owner, repo, path: filePath });
                     sha = existing.sha;
-                    existingContent = Buffer.from(existing.content, 'base64').toString('utf8');
+                    isSymlink = existing.type === 'symlink';
+                    if (!isSymlink) {
+                      existingContent = Buffer.from(existing.content || '', 'base64').toString('utf8');
+                    }
                   } catch (e) { /* Datei neu */ }
 
-                  if (existingContent === content) {
+                  if (!isSymlink && existingContent === content) {
                     core.info(`  SKIP (unchanged): ${repo}/${wf}.md`);
                     skipCount++;
                     continue;
+                  }
+
+                  // Symlink erst löschen — createOrUpdateFileContents ändert sonst nicht den git-Mode
+                  if (isSymlink && sha) {
+                    await github.rest.repos.deleteFile({
+                      owner, repo, path: filePath,
+                      message: `chore(workflows): remove symlink ${wf}.md (→ regular file)`,
+                      sha,
+                    });
+                    sha = undefined;
+                    core.info(`  DEL symlink: ${repo}/${wf}.md`);
                   }
 
                   await github.rest.repos.createOrUpdateFileContents({
