@@ -6,7 +6,7 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-29T16:21:12.077752+00:00",
+  "last_updated": "2026-04-29T16:32:36.516537+00:00",
   "last_updated_by": "cascade",
   "entry_count": 7
 }
@@ -14,19 +14,19 @@
 
 ## Solved Problem
 
-### SESSION-20260429-PLATFORM — Session 2026-04-29 — platform: SSoT Sync, PyPI, iil-testkit, /workflow-review, ADR-175
+### SESSION-20260429-PLATFORM — Session 2026-04-29 platform: SSoT, PyPI, /workflow-review, ADR-175 Accepted
 
 ```json
 {
   "_type": "entry",
   "entry_id": "SESSION-20260429-PLATFORM",
   "entry_type": "solved_problem",
-  "title": "Session 2026-04-29 — platform: SSoT Sync, PyPI, iil-testkit, /workflow-review, ADR-175",
-  "content": "Tag 1 (vormittags): SSoT-Umbau sync-workflows liest aus registry/github_repos.yaml. Symlink-Bug gefixt (deleteFile+createFile). PyPI publiziert: iil-aifw 0.10.2, iil-learnfw 0.5.4, iil-testkit 0.4.1. testkit->iil-testkit kanonisch (testkit archiviert). learnfw CI: ruff line-length=160, Python 3.11 raus.\n\nTag 1 (nachmittags): /workflow-review erstellt + ausgefuehrt auf 57 Workflows. Issue #80 (P0): 24 deprecated mcp2_ Calls in 10 Workflows migriert auf mcp1_agent_memory(operation=upsert/query). discord_notify, log_error_pattern, check_recurring_errors, find_similar_errors, get_session_delta, estimate_job, deploy_check entfernt (Tools weg). MCP-Prefix-Tabellen Dev Desktop (mcp0=github, mcp1=orchestrator) vs Prod dokumentiert.\n\nModularisierung Pilot-Refactors: onboard-repo 1175->1041 LOC, new-github-project 701->664 LOC. ADR-175 (Proposed) dokumentiert das Pattern: Inline-Steps + Code bleiben, Verifikations-Checklisten + Refs nach docs/onboarding/<workflow>-checklist.md. Schwellen: <300 LOC keine, >1000 Pflicht.\n\nIssues offen: #74,#75,#76 (docu-update README), #77,#78,#79 (docu-quality auto). Alle Drift-Items.",
+  "title": "Session 2026-04-29 platform: SSoT, PyPI, /workflow-review, ADR-175 Accepted",
+  "content": "VORMITTAG: SSoT-Umbau sync-workflows aus registry/github_repos.yaml. Symlink-Bug gefixt. PyPI: aifw 0.10.2, learnfw 0.5.4, iil-testkit 0.4.1. testkit->iil-testkit kanonisch.\n\nNACHMITTAG: /workflow-review erstellt + 57 Workflows analysiert. Issue #80 (P0) closed: 24 deprecated mcp2_ Calls migriert auf mcp1_agent_memory(operation=...). MCP-Prefix-Tabellen erweitert.\n\nADR-175 (Workflow Modularization) Lifecycle: Proposed -> review (3.0/5) -> amended (5/5 nach /adr-review) -> Accepted nach 5/5 Pilot-Refactors.\n\n5 Pilot-Refactors (3033->2769 LOC, -9%):\n- onboard-repo 1175->1041\n- new-github-project 701->664\n- platform-audit 420->367\n- agentic-coding 372->351\n- session-ende 365->346\n\n7 ausgelagerte Lookup-Files in docs/onboarding/ + docs/governance/.\n\nADR-175 Open Question 1 geschlossen: Sync-CI verteilt jetzt docs/<topic>/ Files mit (Lookup-Extraction-Regex, Push auch bei Workflow-SKIP). Live-Test: 23 hubs erhalten Lookup-Files.\n\nAktuelle Issues: #74-79 docu-update/quality (offen, Backlog). #80 #81 closed.",
   "agent": "cascade",
-  "created_at": "2026-04-29T16:07:06.321695Z",
-  "updated_at": "2026-04-29T16:07:06.322444Z",
-  "expires_at": "2026-05-29T16:07:06.321705Z",
+  "created_at": "2026-04-29T16:32:36.513508Z",
+  "updated_at": "2026-04-29T16:32:36.516524Z",
+  "expires_at": "2026-05-29T16:32:36.513519Z",
   "tags": [
     "session",
     "platform",
@@ -34,7 +34,8 @@
     "pypi",
     "workflows",
     "modularization",
-    "adr-175"
+    "adr-175",
+    "accepted"
   ],
   "related_entries": [],
   "metadata": {}
