@@ -171,6 +171,9 @@ zielgruppe: IT-Fachkräfte, Lenkungskreis
 
 - [ ] `.windsurf/workflows/create-pdf.md` zeigt auf `platform/tools/print_agent/`
 - [ ] `project-facts.md` enthält `PDF_DESIGN` + `PDF_OUTPUT`
+- [ ] `docs/pdf/STATUS.md` vorhanden (Template: `platform/docs/templates/pdf-STATUS.md`)
+- [ ] `docs/pdf/README.md` vorhanden (Template: `platform/docs/templates/pdf-README.md`)
+- [ ] Dateinamen folgen `<titel>_vX.Y.pdf` (kein `_FINAL`, kein Datum)
 - [ ] `.gitignore`: `!docs/pdf/*.pdf` (wenn versioniert)
 - [ ] Kein ASCII-Art in MD-Quellen
 - [ ] Kein HTML-Block (`<div>`) direkt in MD
