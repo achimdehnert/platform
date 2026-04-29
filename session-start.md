@@ -202,16 +202,8 @@ mcp0_ssh_manage:
   command: "for repo in risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub; do bash /opt/deploy-core/deploy-status.sh $repo 2>/dev/null; done"
 ```
 
-→ Für jedes Repo mit `"status":"FAILED"`: Deploy-Log lesen und Error Pattern loggen:
-```
-mcp2_log_error_pattern:
-  repo: <repo>
-  symptom: "Deploy FAILED: <aus Log>"
-  root_cause: "<Analyse>"
-  fix: "<empfohlener Fix>"
-  error_type: deploy
-```
-→ User über fehlgeschlagene Deploys informieren, bevor an anderen Tasks gearbeitet wird.
+→ Für jedes Repo mit `"status":"FAILED"`: Deploy-Log lesen und User informieren.
+→ Optional als Memory-Entry sichern (siehe `/session-ende` Phase 2 — `error_pattern`).
 
 ### 0.8 Staging-Health-Check (ADR-157)
 
@@ -263,32 +255,22 @@ mcp3_search_knowledge(query: "Input ADR", collection: null, limit: 10)
 
 ## Phase 2: pgvector Warm-Start (ADR-154)
 
-8. **Memory Warm-Start** — Relevante Memories aus früheren Sessions laden:
+> **MCP-Prefix beachten** — auf Dev Desktop ist `mcp1_` = orchestrator (siehe `project-facts.md`).
+
+8. **Memory Warm-Start / Bekannte Fehler / Recurring Errors** — alles über `mcp1_agent_memory`:
 ```
-mcp2_agent_memory_context(
-  task_description: "<User-Aufgabe aus erster Nachricht>",
-  top_k: 5
+mcp1_agent_memory(
+  operation: "query",
+  filter_type: "solved_problem",   // oder "error_pattern" für Bug-Fix-Sessions
+  filter_tag: "<repo>"             // optional
 )
 ```
-→ Zeigt relevante Session-Summaries, Error-Patterns und Lessons.
+→ Liefert relevante Session-Summaries, Error-Patterns und Lessons aus pgvector.
 → Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
 
-9. **Delta-Check** — Was hat sich seit der letzten Session geändert?
-```
-mcp2_get_session_delta()
-```
-
-10. **Bekannte Fehler prüfen** (bei Bug-Fix-Sessions):
-```
-mcp2_find_similar_errors(query: "<Fehlerbeschreibung>", repo: "<aktuelles Repo>")
-```
-
-11. **Wiederkehrende Fehler prüfen** (automatisch, jede Session):
-```
-mcp2_check_recurring_errors()
-```
-→ 🟡 ESCALATED (3-5x): nachhaltige Lösung untersuchen.
-→ 🔴 CRITICAL (≥6x): sofortige Analyse, Blocker für andere Tasks.
+> ℹ️ Die früheren Tools `mcp2_get_session_delta` / `mcp2_find_similar_errors` /
+> `mcp2_check_recurring_errors` existieren nicht mehr (Issue #80) — alles läuft jetzt
+> über das einheitliche `mcp1_agent_memory(operation: "query")` Tool.
 
 ---
 
@@ -298,13 +280,24 @@ mcp2_check_recurring_errors()
 
 ---
 
-## MCP-Server Quick-Reference (aktuell)
+## MCP-Server Quick-Reference
+
+> ⚠️ **Prefix ist environment-spezifisch** — immer `project-facts.md` als Quelle nehmen!
+
+### Dev Desktop (adehnert@dev-desktop)
+
+| Prefix | Server | Zweck |
+|--------|--------|-------|
+| `mcp0_` | github | Issues, PRs, Repos, Files, Reviews |
+| `mcp1_` | orchestrator | Memory, Task-Analyse, Plans, Evaluate, Verify |
+
+### WSL / Prod-Server (Standard-Konfiguration)
 
 | Prefix | Server | Zweck |
 |--------|--------|-------|
 | `mcp0_` | deployment-mcp | SSH, Docker, Git, DB, DNS, SSL, System |
 | `mcp1_` | github | Issues, PRs, Repos, Files, Reviews |
-| `mcp2_` | orchestrator | Task-Analyse, Agent-Team, Tests, Lint, Memory |
+| `mcp2_` | orchestrator | Memory, Task-Analyse, Agent-Team |
 | `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
 | `mcp4_` | paperless-docs | Dokumente, Rechnungen |
 | `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |

@@ -184,12 +184,18 @@ mcp0_ssh_manage:
 ### 5.1 Health Score speichern
 
 ```
-mcp2_agent_memory_upsert:
-  entry_key: "docu-health:<repo>"
-  entry_type: context
-  title: "Documentation Health: <repo> — Score: XX/100"
-  content: "<vollständiger Report>"
-  tags: ["documentation", "health-score", "<repo>"]
+mcp1_agent_memory(
+  operation: "upsert",
+  agent: "cascade",
+  entry: {
+    entry_id: "DOCU-HEALTH-<REPO-UPPERCASE>",
+    entry_type: "repo_context",
+    agent: "cascade",
+    title: "Documentation Health: <repo> — Score: XX/100",
+    content: "<vollständiger Report>",
+    tags: ["documentation", "health-score", "<repo>"]
+  }
+)
 ```
 
 ### 5.2 Report anzeigen

@@ -64,13 +64,9 @@ python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --hos
 
 ## Schritt 0.6 — Job-Schätzung ausgeben (ADR-156)
 
-**Vor jedem Deploy** dem User die geschätzte Dauer kommunizieren:
+**Vor jedem Deploy** dem User die geschätzte Dauer kommunizieren (Erfahrungswerte: 60-180s).
 
-```
-mcp2_estimate_job:
-  job_type: deploy
-  repo: {scope}
-```
+> ℹ️ `mcp2_estimate_job` existiert nicht mehr (Issue #80) — Schätzung aus Erfahrung.
 
 Ausgabe an den User im Format:
 > Deploy {scope}: ~{estimated_seconds}s ({estimated_seconds_min}–{estimated_seconds_max}s)
@@ -136,14 +132,7 @@ mcp0_ssh_manage:
 
 Erwartete Antwort: `{"status":"started","background_pid":...,"log_file":...}`
 
-**Discord-Notification (ADR-156):** Nach erfolgreichem Start:
-
-```
-mcp2_discord_notify:
-  title: "🚀 Deploy gestartet: {scope}"
-  message: "Deploy läuft im Hintergrund (~{estimated_seconds}s). Polle Status via deploy-status.sh."
-  level: info
-```
+> ℹ️ `mcp2_discord_notify` existiert nicht mehr (Issue #80) — Notifications jetzt im Cascade-Output, nicht mehr in Discord.
 
 **Fallback (ADR-075):** Falls SSH nicht verfügbar → GitHub Actions:
 
@@ -182,24 +171,23 @@ mcp0_ssh_manage:
   command: "tail -20 /var/log/deploy/{scope}-latest.log"
 ```
 
-Dann:
+Dann Error-Pattern in pgvector sichern:
 ```
-mcp2_log_error_pattern:
-  repo: {scope}
-  symptom: "Deploy FAILED: <Fehlerbeschreibung aus Log>"
-  root_cause: "<Root Cause aus Log-Analyse>"
-  fix: "<angewandter oder empfohlener Fix>"
-  error_type: deploy
+mcp1_agent_memory(
+  operation: "upsert",
+  agent: "cascade",
+  entry: {
+    entry_id: "ERROR-DEPLOY-<SCOPE-UPPERCASE>-<YYYYMMDD>",
+    entry_type: "error_pattern",
+    agent: "cascade",
+    title: "Deploy FAILED: {scope}",
+    content: "Repo: {scope}\nSymptom: <Fehler aus Log>\nRoot Cause: <Analyse>\nFix: <angewandter oder empfohlener Fix>",
+    tags: ["error", "deploy", "{scope}"]
+  }
+)
 ```
 
-```
-mcp2_discord_notify:
-  title: "❌ Deploy fehlgeschlagen: {scope}"
-  message: "Automatischer Rollback ausgeführt. Fehler: <symptom>. Error Pattern geloggt."
-  level: error
-```
-
-→ Beim nächsten `/session-start` wird `check_recurring_errors()` dieses Pattern finden und eskalieren.
+→ Beim nächsten `/session-start` findet die Memory-Query (`filter_type: error_pattern`) wiederkehrende Probleme.
 
 **Bei GitHub Actions Fallback:**
 
@@ -232,20 +220,9 @@ Bei HTTP 200 → Deploy erfolgreich. Bei Failure → Schritt 6.
 
 **Nach erfolgreichem Health Check:**
 
-1. Dauer messen und Feedback-Loop füttern:
-```
-mcp2_record_job_measurement:
-  job_type: deploy
-  elapsed_seconds: <gemessene Dauer seit Schritt 3>
-```
+→ Im Cascade-Output melden: `✅ Deploy erfolgreich: {scope} | Dauer: {elapsed}s | Port {health_port}`
 
-2. Discord-Erfolgs-Notification:
-```
-mcp2_discord_notify:
-  title: "✅ Deploy erfolgreich: {scope}"
-  message: "Health-Check bestanden. Dauer: {elapsed}s. Port {health_port}."
-  level: success
-```
+> ℹ️ `mcp2_discord_notify` und `mcp2_record_job_measurement` existieren nicht mehr (Issue #80).
 
 ---
 
@@ -271,5 +248,5 @@ Dann Health Check wiederholen. User über Rollback informieren.
 | Image nicht aktuell | CI-Log prüfen: `run_logs owner=achimdehnert repo={scope} run_id=<id>` |
 | Branch falsch | `git checkout main && git pull origin main` |
 
-**Wichtig:** Bei JEDEM Fehler in diesem Workflow `log_error_pattern()` aufrufen.
-Das ermöglicht `check_recurring_errors()` beim nächsten Session-Start, wiederkehrende Probleme zu erkennen und zu eskalieren.
+**Wichtig:** Bei JEDEM Fehler in diesem Workflow ein `error_pattern` Memory-Entry via `mcp1_agent_memory` schreiben (siehe Schritt 6).
+Beim nächsten `/session-start` findet `mcp1_agent_memory(operation: "query", filter_type: "error_pattern")` wiederkehrende Probleme.

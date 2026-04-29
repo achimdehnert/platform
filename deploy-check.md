@@ -82,13 +82,10 @@ cd ${GITHUB_DIR:-$HOME/github}/platform && python infra/scripts/port_audit.py
 
 ## Step 5.8: Job-Schätzung (ADR-156)
 
-Vor dem Deploy dem User die geschätzte Dauer kommunizieren:
+Vor dem Deploy die typische Dauer aus Erfahrung kommunizieren (ca. 60-180s je nach Repo).
 
-```
-mcp2_estimate_job:
-  job_type: deploy
-  repo: {app-name}
-```
+> ℹ️ Das frühere Tool `mcp2_estimate_job` existiert nicht mehr (Issue #80) —
+> Schätzung basiert jetzt auf Repo-Erfahrungswerten oder Memory-Query.
 
 ## Step 6: Deploy ausführen
 

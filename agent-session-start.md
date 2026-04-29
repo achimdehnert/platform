@@ -255,13 +255,24 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 | Repo-Sync nach Cascade-Session | `/sync-repo` |
 | Shell hängt komplett | `/windsurf-clean` dann Neustart |
 
-## MCP-Server Quick-Reference (aktuell)
+## MCP-Server Quick-Reference
+
+> ⚠️ **Prefix ist environment-spezifisch** — IMMER aus `project-facts.md` lesen!
+
+### Dev Desktop (adehnert@dev-desktop)
+
+| Prefix | Server | Zweck |
+|--------|--------|-------|
+| `mcp0_` | github | Issues, PRs, Repos, Files, Reviews |
+| `mcp1_` | orchestrator | Memory, Task-Analyse, Plans, Evaluate, Verify |
+
+### WSL / Prod-Server (Standard-Konfiguration)
 
 | Prefix | Server | Zweck |
 |--------|--------|-------|
 | `mcp0_` | deployment-mcp | SSH, Docker, Git, DB, DNS, SSL, System |
 | `mcp1_` | github | Issues, PRs, Repos, Files, Reviews |
-| `mcp2_` | orchestrator | Task-Analyse, Agent-Team, Tests, Lint |
+| `mcp2_` | orchestrator | Memory, Task-Analyse, Agent-Team |
 | `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
 | `mcp4_` | paperless-docs | Dokumente, Rechnungen |
 | `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
