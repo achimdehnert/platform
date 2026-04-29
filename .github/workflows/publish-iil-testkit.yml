@@ -17,7 +17,7 @@ jobs:
       - name: Checkout iil-testkit
         uses: actions/checkout@v4
         with:
-          repository: achimdehnert/testkit
+          repository: achimdehnert/iil-testkit
           token: ${{ secrets.PROJECT_PAT }}
 
       - uses: actions/setup-python@v6
