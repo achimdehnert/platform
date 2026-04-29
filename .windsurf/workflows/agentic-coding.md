@@ -19,7 +19,7 @@ Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108 + ADR-173.
 ## Übersicht: Der vollständige Loop
 
 ```
-Phase 0: Contract Verification    → PCV-Checkliste          (immer — vor allem anderen)
+Phase 0: Contract Verification    → PCV-Checkliste          (moderate+ | trivial: nur D)
 Step 0:  Governance Check         → <ctx>_get_context_for_task
 Step 1:  Task analysieren + plan  → <orc>_analyze_task + agent_plan_task
 Step 2:  Kostenschätzung          → <orc>_get_cost_estimate  (complex+)
@@ -32,7 +32,7 @@ Step 7:  Commit + PR
 Step 8:  AuditStore + Issue
 ```
 
-Bei Fail in Step 5/6 → Rollback-Pfad, zurück zu Step 3.
+Bei Fail in Step 5/6 → Rollback-Pfad beachten (Ende dieses Dokuments).
 
 ---
 
@@ -62,7 +62,7 @@ grep -n "^def " <package>/services.py
 # Oder: read_file(<package_path>)
 ```
 
-Besonders: `aifw.service.sync_completion`, `audit.services.*`, alle iil-* Packages.
+Besonders: `aifw.sync_completion` (public API), `audit.services.*`, alle iil-* Packages.
 
 ### C) Infra-Scan — Constraints prüfen
 
@@ -240,9 +240,14 @@ Kriterien-Check:
 □ Tests grün (Step 4)?            → [✅/❌]
 □ Ruff clean (Step 4)?            → [✅/❌]
 □ Acceptance Criteria erfüllt?    → [✅/❌]
-□ ADR-Violations = 0 (Step 0)?    → [✅/❌]
+□ ADR-Violations = 0?              → [✅/❌]  (check_violations auf NEUEN Code)
 □ Alle ASSUMPTION[unverified] aufgelöst? → [✅/❌]
 □ Constraint Manifest eingehalten → [✅/❌]
+```
+
+```
+MCP: <ctx>_check_violations(code_snippet="<neuer Code aus Step 3>")
+→ Hier den tatsächlich geschriebenen Code prüfen (nicht vorhandener Code wie in Step 0)
 ```
 
 ```
@@ -341,7 +346,7 @@ Step 6 QA Gate → blocked
 ## Workflow auf einen Blick (v4)
 
 ```
-Phase 0: Contract Verification → PCV A/B/C/D/E               (immer — zuerst)
+Phase 0: Contract Verification → PCV A/B/C/D/E               (moderate+ | trivial: nur D)
 Step 0:  Governance Check      → <ctx>_get_context_for_task   (complexity >= moderate)
 Step 1:  analyze + plan        → analyze_task, plan_task       (immer)
 Step 2:  Kostenschätzung       → get_cost_estimate             (complex+)
