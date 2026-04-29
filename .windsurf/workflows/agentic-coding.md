@@ -279,7 +279,9 @@ MCP: <orc>_log_action(
 > Viele Repos committen direkt auf `main`. Falls Feature-Branch: `ai/{role}/{task-id}`.
 
 ```bash
-git add <affected_paths aus Phase 0 — nie git add .>
+# Scope verifizieren — nur editierte Dateien aus Step 3 stagen
+git diff --name-only        # zeigt was geändert wurde
+git add <tatsächlich editierte Dateien aus Step 3 — nie git add .>
 git commit -m "type(scope): description
 
 Closes #{issue-number}
