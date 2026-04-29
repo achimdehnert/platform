@@ -230,6 +230,16 @@ django_apps:
     port_prod: 8095
     port_staging: 8095
 
+  onboarding-hub:
+    github: achimdehnert/onboarding-hub
+    description: Employee Onboarding & Training Platform (schulungspass.de)
+    status: active
+    deployed: true
+    domain_prod: schulungspass.de
+    domain_staging: staging.schulungspass.de
+    port_prod: 8108
+    port_staging: 8108
+
   odoo-hub:
     github: achimdehnert/odoo-hub
     description: Odoo management and integration

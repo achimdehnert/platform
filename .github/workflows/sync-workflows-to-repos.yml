@@ -5,10 +5,11 @@ on:
     branches: [main]
     paths:
       - '.windsurf/workflows/**'
+      - 'registry/github_repos.yaml'
   workflow_dispatch:
     inputs:
       workflow_name:
-        description: 'Workflow to sync (leer = alle UNIVERSAL)'
+        description: 'Workflow to sync (leer = alle UNIVERSAL+DJANGO_HUB+PACKAGE)'
         required: false
         default: ''
       dry_run:
@@ -25,15 +26,36 @@ jobs:
         with:
           fetch-depth: 2
 
+      - name: Parse registry/github_repos.yaml → Repo-Listen
+        id: registry
+        run: |
+          python3 - <<'EOF'
+          import yaml, json, os
+
+          with open('registry/github_repos.yaml') as f:
+              data = yaml.safe_load(f)
+
+          django_hubs = list(data.get('django_apps', {}).keys())
+          packages    = list(data.get('frameworks', {}).keys())
+
+          env_file = os.environ['GITHUB_ENV']
+          with open(env_file, 'a') as f:
+              f.write(f"DJANGO_HUBS_JSON={json.dumps(django_hubs)}\n")
+              f.write(f"PACKAGES_JSON={json.dumps(packages)}\n")
+
+          print(f"django_apps ({len(django_hubs)}): {django_hubs}")
+          print(f"frameworks  ({len(packages)}): {packages}")
+          EOF
+
       - name: Sync workflows via GitHub API
         uses: actions/github-script@v7
         with:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
-            const fs = require('fs');
+            const fs   = require('fs');
             const path = require('path');
 
-            // ── Workflow-Kategorien (spiegelt sync-workflows.sh) ──────────────
+            // ── Workflow-Kategorien (SSoT: sync-workflows.sh) ─────────────────
             const UNIVERSAL = [
               'knowledge-capture', 'agent-session-start', 'agentic-coding',
               'adr', 'adr-review', 'pr-review', 'governance-check',
@@ -53,58 +75,57 @@ jobs:
             ];
             const PACKAGE_WF = ['release'];
 
-            // ── Repo-Listen ───────────────────────────────────────────────────
-            const DJANGO_HUBS = [
-              'risk-hub', 'billing-hub', 'cad-hub', 'coach-hub', 'trading-hub',
-              'pptx-hub', 'travel-beat', 'weltenhub', 'wedding-hub',
-              'recruiting-hub', 'dms-hub', 'ausschreibungs-hub', 'illustration-hub',
-              'research-hub', 'writing-hub', 'learn-hub', 'dev-hub', 'odoo-hub',
-              'mcp-hub', '137-hub', 'bfagent', 'tax-hub', 'onboarding-hub',
-            ];
-            const PACKAGES = [
-              'aifw', 'authoringfw', 'promptfw', 'illustration-fw', 'learnfw',
-              'weltenfw', 'outlinefw', 'researchfw', 'testkit',
-              'iil-dvelop-client', 'openclaw',
-            ];
+            // ── Repo-Listen aus registry/github_repos.yaml (SSoT) ────────────
+            const DJANGO_HUBS = JSON.parse(process.env.DJANGO_HUBS_JSON || '[]');
+            const PACKAGES    = JSON.parse(process.env.PACKAGES_JSON    || '[]');
+            core.info(`Registry: ${DJANGO_HUBS.length} django_apps · ${PACKAGES.length} frameworks`);
 
-            const owner  = 'achimdehnert';
-            const wfDir  = '.windsurf/workflows';
-            const dryRun = context.eventName === 'workflow_dispatch'
-                           ? (context.payload.inputs?.dry_run === 'true')
-                           : false;
+            const owner    = 'achimdehnert';
+            const wfDir    = '.windsurf/workflows';
+            const dryRun   = context.eventName === 'workflow_dispatch'
+                             ? (context.payload.inputs?.dry_run === 'true')
+                             : false;
             const specificWf = context.eventName === 'workflow_dispatch'
                                ? (context.payload.inputs?.workflow_name || '')
                                : '';
 
             // ── Welche Workflows sollen synced werden? ────────────────────────
             let changedWorkflows = [];
+            let registryChanged  = false;
 
             if (context.eventName === 'push') {
-              const before = context.payload.before;
-              const after  = context.payload.after;
-              try {
-                const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
-                  owner, repo: 'platform',
-                  basehead: `${before}...${after}`,
-                });
-                for (const file of compare.files) {
-                  if (file.filename.startsWith('.windsurf/workflows/') && file.filename.endsWith('.md')) {
-                    changedWorkflows.push(path.basename(file.filename, '.md'));
-                  }
+              const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo: 'platform',
+                basehead: `${context.payload.before}...${context.payload.after}`,
+              }).catch(e => {
+                core.warning(`Diff failed: ${e.message} — syncing all`);
+                return { data: { files: [] } };
+              });
+
+              for (const file of compare.files) {
+                if (file.filename === 'registry/github_repos.yaml') {
+                  registryChanged = true;
+                } else if (file.filename.startsWith('.windsurf/workflows/') && file.filename.endsWith('.md')) {
+                  changedWorkflows.push(path.basename(file.filename, '.md'));
                 }
-              } catch (e) {
-                core.warning(`Could not get diff: ${e.message} — syncing all UNIVERSAL`);
-                changedWorkflows = [...UNIVERSAL];
+              }
+
+              // Registry geändert → alle Workflows in alle Repos pushen (neues Repo braucht alles)
+              if (registryChanged) {
+                core.info('registry/github_repos.yaml geändert — alle Workflows werden synced');
+                changedWorkflows = [...UNIVERSAL, ...DJANGO_HUB_WF, ...PACKAGE_WF];
               }
             } else {
-              changedWorkflows = specificWf ? [specificWf] : [...UNIVERSAL, ...DJANGO_HUB_WF, ...PACKAGE_WF];
+              changedWorkflows = specificWf
+                ? [specificWf]
+                : [...UNIVERSAL, ...DJANGO_HUB_WF, ...PACKAGE_WF];
             }
 
             if (changedWorkflows.length === 0) {
-              core.info('No workflow files changed — nothing to sync.');
+              core.info('Keine Workflow-Dateien geändert — nichts zu tun.');
               return;
             }
-            core.info(`Syncing: ${changedWorkflows.join(', ')}`);
+            core.info(`Syncing ${changedWorkflows.length} workflow(s): ${changedWorkflows.join(', ')}`);
 
             // ── Für jeden Workflow: Ziel-Repos bestimmen + pushen ─────────────
             let successCount = 0, skipCount = 0, errorCount = 0;
@@ -115,18 +136,17 @@ jobs:
               try {
                 content = fs.readFileSync(localPath, 'utf8');
               } catch (e) {
-                core.warning(`SKIP: ${wf}.md nicht in platform — übersprungen`);
+                core.warning(`SKIP: ${wf}.md nicht in platform`);
                 skipCount++;
                 continue;
               }
 
-              // Ziel-Repos
               let repos = [];
-              if (UNIVERSAL.includes(wf))       repos = [...DJANGO_HUBS, ...PACKAGES];
+              if (UNIVERSAL.includes(wf))          repos = [...DJANGO_HUBS, ...PACKAGES];
               else if (DJANGO_HUB_WF.includes(wf)) repos = DJANGO_HUBS;
               else if (PACKAGE_WF.includes(wf))    repos = PACKAGES;
               else {
-                core.info(`INFO: ${wf}.md ist PLATFORM-only — wird nicht verteilt`);
+                core.info(`INFO: ${wf}.md ist PLATFORM-only — nicht verteilt`);
                 skipCount++;
                 continue;
               }
@@ -142,20 +162,13 @@ jobs:
                 }
 
                 try {
-                  // Prüfe ob Datei schon existiert (SHA für Update nötig)
-                  let sha;
-                  let existingContent;
+                  let sha, existingContent;
                   try {
-                    const { data: existing } = await github.rest.repos.getContent({
-                      owner, repo, path: filePath,
-                    });
+                    const { data: existing } = await github.rest.repos.getContent({ owner, repo, path: filePath });
                     sha = existing.sha;
                     existingContent = Buffer.from(existing.content, 'base64').toString('utf8');
-                  } catch (e) {
-                    // Datei existiert noch nicht — wird neu angelegt
-                  }
+                  } catch (e) { /* Datei neu */ }
 
-                  // Nicht ändern wenn Inhalt identisch
                   if (existingContent === content) {
                     core.info(`  SKIP (unchanged): ${repo}/${wf}.md`);
                     skipCount++;
@@ -163,18 +176,16 @@ jobs:
                   }
 
                   await github.rest.repos.createOrUpdateFileContents({
-                    owner, repo,
-                    path: filePath,
+                    owner, repo, path: filePath,
                     message: `chore(workflows): sync ${wf}.md from platform`,
-                    content: contentB64,
-                    sha,
+                    content: contentB64, sha,
                   });
 
                   core.info(`  ✅ ${repo}: ${wf}.md`);
                   successCount++;
                 } catch (e) {
                   if (e.status === 404 || e.message?.includes('Not Found')) {
-                    core.info(`  SKIP (repo not found): ${repo}/${wf}.md`);
+                    core.info(`  SKIP (repo not found): ${repo}`);
                     skipCount++;
                   } else {
                     core.warning(`  ❌ ${repo}: ${wf}.md — ${e.message}`);
@@ -185,4 +196,4 @@ jobs:
             }
 
             core.info(`\nSummary: ${successCount} updated · ${skipCount} skipped · ${errorCount} errors`);
-            if (errorCount > 0) core.setFailed(`${errorCount} repos failed — check warnings above`);
+            if (errorCount > 0) core.setFailed(`${errorCount} errors — check warnings above`);

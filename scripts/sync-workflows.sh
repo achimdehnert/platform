@@ -86,20 +86,29 @@ PACKAGE=(
 # Nur platform (werden NICHT verteilt)
 # cascade-auftraege, idea-intake, agent-review
 
-# --- Repo-Typen ---
+# --- Repo-Typen (SSoT: registry/github_repos.yaml) ---
 
-DJANGO_HUBS=(
-    risk-hub billing-hub cad-hub coach-hub trading-hub pptx-hub
-    travel-beat weltenhub wedding-hub recruiting-hub dms-hub
-    ausschreibungs-hub illustration-hub research-hub writing-hub
-    learn-hub dev-hub odoo-hub mcp-hub 137-hub bfagent tax-hub
-    onboarding-hub
-)
+REGISTRY="${GITHUB_DIR}/platform/registry/github_repos.yaml"
 
-PACKAGES=(
-    aifw authoringfw promptfw illustration-fw learnfw weltenfw
-    outlinefw researchfw testkit iil-dvelop-client openclaw
-)
+if [[ ! -f "$REGISTRY" ]]; then
+    echo "ERROR: Registry nicht gefunden: $REGISTRY" >&2
+    exit 1
+fi
+
+# Aus github_repos.yaml lesen: django_apps → DJANGO_HUBS, frameworks → PACKAGES
+read -r -a DJANGO_HUBS <<< "$(python3 -c "
+import yaml, sys
+with open('${REGISTRY}') as f:
+    data = yaml.safe_load(f)
+print(' '.join(data.get('django_apps', {}).keys()))
+")"
+
+read -r -a PACKAGES <<< "$(python3 -c "
+import yaml, sys
+with open('${REGISTRY}') as f:
+    data = yaml.safe_load(f)
+print(' '.join(data.get('frameworks', {}).keys()))
+")"
 
 # --- Parse Args ---
 
