@@ -8,7 +8,11 @@ Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108 + ADR-173.
 **v4**: Phase 0 Contract Verification (PCV) + Step 3.5 Proactive Tasks. Fiktive MCP-Calls entfernt.
 
 > ⚠️ MCP-Prefixes sind environment-spezifisch — Prefix aus `project-facts.md` oder
-> `.windsurf/rules/mcp-tools.md` lesen. `<orc>` = Orchestrator-Prefix, `<ctx>` = Platform-Context-Prefix.
+> `.windsurf/rules/mcp-tools.md` lesen. `<orc>` = Orchestrator-Prefix, `<ctx>` = Platform-Context-Prefix,
+> `<gh>` = GitHub-MCP-Prefix.
+>
+> **task_id** = GitHub Issue-Nummer des aktuellen Tasks (aus dem Issue-Link). Dieser Wert wird
+> in Steps 2, 5, 6, 8 als Audit-Referenz verwendet.
 
 ---
 
@@ -32,8 +36,9 @@ Bei Fail in Step 5/6 → Rollback-Pfad, zurück zu Step 3.
 
 ---
 
-## Phase 0: Contract Verification — PCV (immer, vor dem ersten Keystroke)
+## Phase 0: Contract Verification — PCV
 
+> **Wann:** Immer bei `moderate`+. Bei `trivial` (docu, README, CHANGELOG): nur Schritt D (Dependency-Scan).
 > **Zweck:** Verhindert Review-Iterationen durch proaktive Verifikation aller Annahmen.
 > ~10 Tool-Calls, spart 2–3 Review-Zyklen à 8k Token. ROI: 10:1.
 
@@ -96,8 +101,14 @@ Jede nicht-verifiable Annahme inline markieren:
 
 ```
 MCP: <ctx>_get_context_for_task(repo, file_type)
-MCP: <ctx>_check_violations(code_snippet)
+→ liefert Architektur-Regeln + ADR-Referenzen + Repo-Facts
+
 MCP: <ctx>_get_banned_patterns(context)
+→ liefert verbotene Patterns für diesen Datei-Typ
+
+MCP: <ctx>_check_violations(code_snippet="<vorhandener ähnlicher Code — nicht neuer Code>")
+→ Optional: bestehenden verwandten Code auf Violations scannen (BEVOR du ihn erweiterst)
+→ Neuen Code prüfen: → Step 5 (Self-Review)
 ```
 
 **Blockiert bei ADR-Verletzung.** Kein Weiter ohne grünen Check.
@@ -299,7 +310,7 @@ PR-Body enthält:
 ## Step 8: AuditStore + GitHub Issue Update (ADR-068)
 
 ```
-MCP: <github-mcp>_add_issue_comment(owner, repo, issue_number, body)
+MCP: <gh>_add_issue_comment(owner, repo, issue_number, body)
 ```
 
 Issue-Kommentar enthält: Self-Review Ergebnis, Gate-Level, CHANGELOG-Eintrag, Refactoring-Flags.
