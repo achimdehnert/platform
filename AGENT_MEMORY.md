@@ -6,13 +6,38 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-28T14:02:48.779216+00:00",
+  "last_updated": "2026-04-29T15:20:40.142849+00:00",
   "last_updated_by": "cascade",
-  "entry_count": 5
+  "entry_count": 6
 }
 ```
 
 ## Solved Problem
+
+### SESSION-20260429-PLATFORM — Session 2026-04-29 — platform: SSoT Sync, PyPI, iil-testkit
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "SESSION-20260429-PLATFORM",
+  "entry_type": "solved_problem",
+  "title": "Session 2026-04-29 — platform: SSoT Sync, PyPI, iil-testkit",
+  "content": "SSoT: sync-workflows liest DJANGO_HUBS/PACKAGES aus registry/github_repos.yaml. CI triggert bei Registry-Aenderung. Symlink-Bug: deleteFile+createFile statt updateFile (git-Mode 120000). onboarding-hub in Registry. PyPI: iil-aifw 0.10.2, iil-learnfw 0.5.4, iil-testkit 0.4.1. testkit->iil-testkit kanonisch (testkit archiviert). learnfw: ruff line-length=160, Python 3.11 raus. Issues #74 #75 #76.",
+  "agent": "cascade",
+  "created_at": "2026-04-29T15:20:40.141779Z",
+  "updated_at": "2026-04-29T15:20:40.141787Z",
+  "expires_at": "2026-05-29T15:20:40.141789Z",
+  "tags": [
+    "session",
+    "platform",
+    "ssot",
+    "pypi",
+    "testkit"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
 
 ### SESSION-2026-04-27-PLATFORM — Session 2026-04-27 - platform: LLM-Zugriff + docu-agent + Secret-Discovery
 
