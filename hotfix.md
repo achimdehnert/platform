@@ -64,7 +64,9 @@ Zeigt die letzten Commits — verdächtigen Commit identifizieren.
 
 // turbo
 ```bash
-git checkout main && git pull origin main
+set -euo pipefail
+git checkout main
+git pull --rebase origin main
 git checkout -b hotfix/$(date +%Y%m%d)-BESCHREIBUNG
 ```
 
