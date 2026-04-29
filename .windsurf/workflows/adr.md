@@ -38,7 +38,7 @@ Aus project-facts.md entnehmen:
 - REPO_NAME    (z.B. "platform" oder "meiki-docs")
 - ADR_PATH     (z.B. "docs/adr" oder "docs/03-technisches-handbuch/architektur")
 - GH_PREFIX    (GitHub MCP prefix, z.B. "mcp1_" oder "mcp0_")
-- ORC_PREFIX   (Orchestrator MCP prefix, z.B. "mcp2_" oder "mcp1_")
+- ORC_PREFIX   (Orchestrator MCP prefix; auf Dev Desktop "mcp1_", auf WSL/Prod "mcp2_" — IMMER aus project-facts.md lesen)
 ```
 
 > **NIEMALS** owner, repo, Pfade oder Prefixe hardcoden.
@@ -167,27 +167,23 @@ Datei `{ADR_PATH}/ADR-NNN-[title-slug].md` erstellen.
 Nach dem Erstellen der ADR-Datei **sofort** in pgvector speichern:
 
 ```
-{ORC_PREFIX}_agent_memory_upsert(
-  entry_key:  "adr:{REPO_NAME}:ADR-[NNN]",
-  entry_type: "decision",
-  title:      "ADR-[NNN]: [Titel] — {REPO_NAME} (Status: Proposed)",
-  content:    """
-    Repo: {REPO_NAME}
-    Pfad: {ADR_PATH}/ADR-[NNN]-[slug].md
-    Thema: [Thema]
-    Scope: [scope]
-    Status: Proposed
-    Erstellt: [YYYY-MM-DD]
-    Kern-Entscheidung: [1-2 Sätze]
-    Alternativen verworfen: [kurz]
-  """,
-  tags: ["adr", "{REPO_NAME}", "proposed", "[scope]"]
+{ORC_PREFIX}agent_memory(
+  operation: "upsert",
+  agent: "cascade",
+  entry: {
+    entry_id:   "ADR-{REPO-UPPERCASE}-[NNN]",       // muss [A-Z][A-Z0-9\-]+ matchen
+    entry_type: "agent_decision",                   // enum: solved_problem|repo_context|open_task|agent_decision|error_pattern
+    agent:      "cascade",
+    title:      "ADR-[NNN]: [Titel] — {REPO_NAME} (Status: Proposed)",
+    content:    "Repo: {REPO_NAME}\nPfad: {ADR_PATH}/ADR-[NNN]-[slug].md\nThema: [Thema]\nScope: [scope]\nStatus: Proposed\nErstellt: [YYYY-MM-DD]\nKern-Entscheidung: [1-2 Sätze]\nAlternativen verworfen: [kurz]",
+    tags:       ["adr", "{REPO_NAME}", "proposed", "[scope]"]
+  }
 )
 ```
 
 > **Warum Pflicht?** pgvector ist der zentrale Memory-Store für ALLE Repos.
 > Jede ADR die hier gespeichert ist, kann jede künftige Session überall finden
-> via `{ORC_PREFIX}_agent_memory_search(query: "ADR [Thema]")` — repobergreifend.
+> via `{ORC_PREFIX}agent_memory(operation: "query", filter_type: "agent_decision", filter_tag: "adr")` — repobergreifend.
 
 ## Step 6: Post-ADR Workflow
 
@@ -230,15 +226,20 @@ Wenn ein ADR seinen Status ändert (z.B. `Proposed` → `Accepted`):
 
 Changelog-Eintrag ergänzen.
 
-### 8.2 pgvector Memory aktualisieren (gleicher entry_key = Update)
+### 8.2 pgvector Memory aktualisieren (gleicher entry_id = Update)
 
 ```
-{ORC_PREFIX}_agent_memory_upsert(
-  entry_key:  "adr:{REPO_NAME}:ADR-[NNN]",   ← gleicher Key = Überschreiben
-  entry_type: "decision",
-  title:      "ADR-[NNN]: [Titel] — {REPO_NAME} (Status: Accepted)",
-  content:    "[Aktualisierter Inhalt mit Accepted-Status]",
-  tags:       ["adr", "{REPO_NAME}", "accepted", "[scope]"]
+{ORC_PREFIX}agent_memory(
+  operation: "upsert",
+  agent: "cascade",
+  entry: {
+    entry_id:   "ADR-{REPO-UPPERCASE}-[NNN]",       ← gleicher entry_id = Überschreiben
+    entry_type: "agent_decision",
+    agent:      "cascade",
+    title:      "ADR-[NNN]: [Titel] — {REPO_NAME} (Status: Accepted)",
+    content:    "[Aktualisierter Inhalt mit Accepted-Status]",
+    tags:       ["adr", "{REPO_NAME}", "accepted", "[scope]"]
+  }
 )
 ```
 
@@ -250,7 +251,7 @@ ADR-[NNN] Status aktualisiert: [Alt] → [Neu]
 Geändert in:
 - {ADR_PATH}/ADR-[NNN]-[slug].md  (Status-Feld + Changelog)
 - INDEX.md                        (Status-Spalte + Datum)
-- pgvector Memory                 (adr:{REPO_NAME}:ADR-[NNN])
+- pgvector Memory                 (entry_id: ADR-{REPO-UPPERCASE}-[NNN])
 ```
 
 ### Gültige Status-Übergänge

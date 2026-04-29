@@ -137,14 +137,9 @@ mcp0_ssh_manage:
 
 Bei HTTP 200 → Staging-Deploy erfolgreich.
 
-**Discord-Notification:**
+→ Im Cascade-Output melden: `🧪 Staging Deploy: {scope} | 88.99.38.75:{staging_port} | Domain: {domain_staging}`
 
-```
-mcp2_discord_notify:
-  title: "🧪 Staging Deploy: {scope}"
-  message: "Staging-Deploy auf 88.99.38.75:{staging_port} erfolgreich. Domain: {domain_staging}"
-  level: success
-```
+> ℹ️ `mcp2_discord_notify` existiert nicht mehr (Issue #80).
 
 ---
 
