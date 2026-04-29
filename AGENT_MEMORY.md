@@ -6,9 +6,9 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-29T15:20:40.142849+00:00",
+  "last_updated": "2026-04-29T16:02:40.266744+00:00",
   "last_updated_by": "cascade",
-  "entry_count": 6
+  "entry_count": 7
 }
 ```
 
@@ -177,5 +177,32 @@
     ],
     "script": "docs/adr/inputs/stripe_setup_coach_hub.py"
   }
+}
+```
+
+## Agent Decision
+
+### ADR-PLATFORM-175 — ADR-175: Workflow Modularization Pattern — Inline vs External References (Proposed)
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "ADR-PLATFORM-175",
+  "entry_type": "agent_decision",
+  "title": "ADR-175: Workflow Modularization Pattern — Inline vs External References (Proposed)",
+  "content": "Repo: platform\nPfad: docs/adr/ADR-175-workflow-modularization-pattern.md\nThema: Workflow-Modularisierung\nScope: workflows\nStatus: Proposed\nErstellt: 2026-04-29\nKern-Entscheidung: Selektive Auslagerung nach Inhalt-Typ. Aktive Steps + Code-Snippets bleiben INLINE; Verifikations-Checklisten + Beispiel-Referenzen + Glossare werden ausgelagert nach docs/<topic>/<workflow>-<aspect>.md. Schwellen: <300 LOC keine Aktion, 300-500 optional, 500-1000 empfohlen, >1000 Pflicht.\nAlternativen verworfen: Alles aufteilen (zerstoert linearen Step-Flow); Status quo (Token-Verschwendung).\nPilot-Refactors: onboard-repo 1175->1041 LOC, new-github-project 701->664 LOC.",
+  "agent": "cascade",
+  "created_at": "2026-04-29T16:02:40.265898Z",
+  "updated_at": "2026-04-29T16:02:40.265905Z",
+  "expires_at": "2026-05-29T16:02:40.265908Z",
+  "tags": [
+    "adr",
+    "platform",
+    "proposed",
+    "workflows",
+    "modularization"
+  ],
+  "related_entries": [],
+  "metadata": {}
 }
 ```
