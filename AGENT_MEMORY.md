@@ -6,7 +6,7 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-29T16:14:24.466927+00:00",
+  "last_updated": "2026-04-29T16:21:12.077752+00:00",
   "last_updated_by": "cascade",
   "entry_count": 7
 }
@@ -184,26 +184,26 @@
 
 ## Agent Decision
 
-### ADR-PLATFORM-175 — ADR-175: Adopt selective modularization for .windsurf/workflows/ files (Proposed, amended 2026-04-29)
+### ADR-PLATFORM-175 — ADR-175: Adopt selective modularization for .windsurf/workflows/ (ACCEPTED, implemented)
 
 ```json
 {
   "_type": "entry",
   "entry_id": "ADR-PLATFORM-175",
   "entry_type": "agent_decision",
-  "title": "ADR-175: Adopt selective modularization for .windsurf/workflows/ files (Proposed, amended 2026-04-29)",
-  "content": "Repo: platform\nPfad: docs/adr/ADR-175-workflow-modularization-pattern.md\nThema: Workflow-Modularisierung\nScope: workflows\nStatus: Proposed (amended via /adr-review)\nErstellt: 2026-04-29\nKern-Entscheidung: Selektive Auslagerung nach Inhalt-Typ. Aktive Steps + Code-Snippets bleiben INLINE; Verifikations-Checklisten + Beispiel-Referenzen + Glossare werden ausgelagert nach docs/<topic>/<workflow>-<aspect>.md. Keine Subdirs in .windsurf/workflows/.\nGroessen-Schwellen: <300 LOC keine, 300-500 optional, 500-1000 empfohlen, >1000 Pflicht.\nReview-Findings adressiert: MADR 4.0 Title (Decision-Statement), Decision Outcome mit Reasoning, Confirmation Subsection, Open Questions (Sync-CI, Subdirs, Drift), implementation_status partial (ADR-138 enum).\nPilot-Refactors: onboard-repo 1175->1041 LOC, new-github-project 701->664 LOC. Implementation_status: partial.",
+  "title": "ADR-175: Adopt selective modularization for .windsurf/workflows/ (ACCEPTED, implemented)",
+  "content": "Repo: platform\nPfad: docs/adr/ADR-175-workflow-modularization-pattern.md\nStatus: ACCEPTED (2026-04-29)\nimplementation_status: implemented\n\nKern-Entscheidung: Selektive Auslagerung nach Inhalt-Typ. Aktive Steps + Code-Snippets bleiben INLINE; passive Inhalte (Verifikations-Checklisten, Beispiel-Refs, Glossare) werden ausgelagert nach docs/<topic>/<workflow>-<aspect>.md.\n\n5/5 Pilot-Refactors abgeschlossen (3033->2769 LOC, -9%):\n- onboard-repo 1175->1041 (-11%)\n- new-github-project 701->664 (-5%)\n- platform-audit 420->367 (-13%)\n- agentic-coding 372->351 (-6%)\n- session-ende 365->346 (-5%)\n\nAusgelagerte Files in docs/onboarding/ und docs/governance/.\n\nOpen Questions: Sync-CI muss docs/<topic>/ mit-verteilen, sonst broken Links in non-platform Repos.",
   "agent": "cascade",
-  "created_at": "2026-04-29T16:14:24.462429Z",
-  "updated_at": "2026-04-29T16:14:24.466916Z",
-  "expires_at": "2026-05-29T16:14:24.462437Z",
+  "created_at": "2026-04-29T16:21:12.076866Z",
+  "updated_at": "2026-04-29T16:21:12.077745Z",
+  "expires_at": "2026-05-29T16:21:12.076875Z",
   "tags": [
     "adr",
     "platform",
-    "proposed",
+    "accepted",
     "workflows",
     "modularization",
-    "amended"
+    "implemented"
   ],
   "related_entries": [],
   "metadata": {}
