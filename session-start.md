@@ -222,7 +222,9 @@ Prüfe ob Staging-Services auf Dev Desktop (88.99.38.75) erreichbar sind:
 python -c "
 import yaml, urllib.request, socket
 from pathlib import Path
-d = yaml.safe_load(Path('$HOME/github/platform/infra/ports.yaml').read_text())
+import os
+gh = os.environ.get('GITHUB_DIR') or f\"{os.environ['HOME']}/CascadeProjects\"
+d = yaml.safe_load(Path(f'{gh}/platform/infra/ports.yaml').read_text())
 ok = fail = skip = 0
 for name, cfg in sorted(d.get('services',{}).items()):
     if not cfg or not cfg.get('staging'): continue
