@@ -201,6 +201,7 @@
 | 169 | Adopt iil-enrichment as generic pattern for bridging managed records with external knowledge sources | `Proposed` | 🔶 | [ADR-169](ADR-169-enrichment-agent-pattern.md) |
 | 170 | Adopt iil-ingest as Reusable Document Ingestion Package (Tier 3) | `Accepted` | 🔶 | [ADR-170](ADR-170-iil-ingest-document-ingestion-package.md) |
 | 174 | Workflow Enforcement: CI Gate + PR Checklist + Symlink Policy | `Accepted` | 🔶 | [ADR-174](ADR-174-workflow-enforcement-ci-gate.md) |
+| 175 | Workflow Modularization Pattern: Inline vs External References | `Proposed` | 🔶 | [ADR-175](ADR-175-workflow-modularization-pattern.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
