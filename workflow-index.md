@@ -132,7 +132,7 @@ ADR anlegen (MADR 4.0, Scope-Detection, Multi-Repo) oder reviewen (Checkliste: K
 Use Case nach RUP/UML-Standard: Steckbrief → Dok-Datei → GitHub Issue → Index. Für alle user-facing Features.
 
 ### `/governance-check`
-Prüft vor Implementierung: Existiert Komponente bereits? LLM/DB/Lookup-Zugriff korrekt? Neue Komponente registrieren.
+Prüft vor Implementierung: Existiert Komponente bereits? LLM/DB/Zugriff korrekt (aifw, ORM, TextChoices)? HTMX-Detection-Typ (repo-spezifisch). ADR-Verletzungen scannen.
 
 ### `/repo-health-check`
 Verbindlicher Vollständigkeits-Check für Repos/Packages. Profile: `python-package` + `django-app`. BLOCK-Items müssen alle grün sein. Maschinenausführbar: `tools/repo_health_check.py`. **Pflicht bei jedem neuen Package/Repo und wenn unvollständige Angaben gemeldet werden.**
@@ -175,8 +175,9 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
     └─ ergänzt durch: /new-github-project (Docs/Templates)
 
 /agentic-coding
-    └─ ruft auf: /governance-check (Step 0)
-    └─ braucht: GitHub Issue (ADR-067)
+    └─ Phase 0: /pre-code (Contract Verification)
+    └─ Step 0: /governance-check
+    └─ braucht: GitHub Issue-Nummer (= task_id für Audit-Calls)
     └─ bei Architektur-Entscheidung: /adr
 
 /hotfix
