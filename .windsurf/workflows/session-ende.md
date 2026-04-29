@@ -336,30 +336,11 @@ mcp1_push_files(owner: "achimdehnert", repo: "<repo>", branch: "main",
 
 ---
 
-## Checkliste (muss alles grün sein)
 
-| # | Check | Status |
-|---|-------|--------|
-| 1 | Outline-Dokument geschrieben/aktualisiert | ☐ |
-| 2 | pgvector Session-Summary gespeichert | ☐ |
-| 3 | Error-Patterns erfasst (falls Bug-Fix) | ☐ |
-| 4 | Alle Repos committed + pushed | ☐ |
-| 5 | Platform gepusht → Workflows sync → project-facts aktuell | ☐ |
-| 6 | Kein Repo dirty | ☐ |
-| 7 | Keine .fixed/.updated Dateien übrig | ☐ |
-| 8 | Blockierte Arbeit dokumentiert | ☐ |
-| 9 | Docu-Drift-Check: Issue erstellt falls nötig (Phase 1b) | ☐ |
-| 10 | Template-Drift-Check: Error-Drifts gefixt (Phase 1c) | ☐ |
+## Abschluss-Checkliste + MCP-Reference
 
----
+→ **[`docs/governance/session-ende-checklist.md`](../../docs/governance/session-ende-checklist.md)**
 
-## MCP-Server Quick-Reference (aktuell)
-
-| Prefix | Server | Zweck |
-|--------|--------|-------|
-| `mcp0_` | deployment-mcp | SSH, Docker, Git, DB, DNS, SSL, System |
-| `mcp1_` | github | Issues, PRs, Repos, Files, Reviews |
-| `mcp2_` | orchestrator | Task-Analyse, Agent-Team, Tests, Lint, Memory |
-| `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
-| `mcp4_` | paperless-docs | Dokumente, Rechnungen |
-| `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
+Inhalte:
+- 10-Punkte-Checkliste (Outline, Memory, Repos, Sync, Cleanup)
+- MCP-Server Quick-Reference (Dev Desktop + WSL/Prod, korrekt nach 2026-04-29 Update)
