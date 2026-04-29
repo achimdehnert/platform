@@ -67,9 +67,18 @@ MCP: <ctx>_get_banned_patterns(context="<views|models|htmx|deployment>")
 
 → Blockiert bei CRITICAL Violations. Kein Weiter ohne grünen Check.
 
-## Step 5: Neue Komponente dokumentieren
+## Step 5: HTMX-Detection prüfen (wenn Templates betroffen)
 
-Nach der Implementierung:
-- [ ] `CHANGELOG.md` unter `[Unreleased]` ergänzen
-- [ ] ADR anlegen falls neue Architektur-Entscheidung getroffen (`/adr`)
-- [ ] Service in `docs/` dokumentieren falls öffentliche API
+> Detection ist **repo-spezifisch** — `project-facts.md` prüfen!
+
+```bash
+# django-htmx installiert?
+grep "django-htmx\|django_htmx" requirements.txt
+```
+
+| Ergebnis | Korrekte Detection |
+|----------|--------------------|
+| `django-htmx` vorhanden | `if request.htmx:` |
+| Nicht installiert | `if request.headers.get("HX-Request"):` |
+
+❌ Nie mischen — `request.htmx` ohne Package crashärt lautlos.
