@@ -173,8 +173,13 @@ jobs:
                   core.info(`  ✅ ${repo}: ${wf}.md`);
                   successCount++;
                 } catch (e) {
-                  core.warning(`  ❌ ${repo}: ${wf}.md — ${e.message}`);
-                  errorCount++;
+                  if (e.status === 404 || e.message?.includes('Not Found')) {
+                    core.info(`  SKIP (repo not found): ${repo}/${wf}.md`);
+                    skipCount++;
+                  } else {
+                    core.warning(`  ❌ ${repo}: ${wf}.md — ${e.message}`);
+                    errorCount++;
+                  }
                 }
               }
             }
