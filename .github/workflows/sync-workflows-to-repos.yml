@@ -48,7 +48,7 @@ jobs:
           EOF
 
       - name: Sync workflows via GitHub API
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
