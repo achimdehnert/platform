@@ -63,7 +63,7 @@ Neue Session startet
         │       └─ Docs/Templates (Issue Forms, ADR, UC) → /new-github-project
         │
         ├─ Feature / Refactoring / Task?
-        │       ├─ complexity >= moderate → /governance-check, dann /agentic-coding
+        │       ├─ complexity >= moderate → /pre-code, /governance-check, /agentic-coding
         │       └─ complexity trivial/simple → direkt implementieren (Service Layer!)
         │
         ├─ Architektur-Entscheidung nötig?
@@ -228,7 +228,7 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 ```
 1.  CORE_CONTEXT.md lesen BEVOR Code geändert wird
 2.  Service Layer: views → services → models (nie überspringen)
-3.  BigAutoField — niemals UUID als Primary Key
+3.  BigAutoField — niemals UUID als Primary Key (public_id = UUIDField für externe Refs erlaubt)
 4.  Templates: src/templates/<app>/ (nicht per-app)
 5.  Secrets: nur via decouple.config() / env_file
 6.  Tests: test_should_* Naming, min. 1 per Feature

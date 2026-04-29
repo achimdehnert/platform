@@ -41,8 +41,8 @@ Bei Fail in Step 5/6 → Rollback-Pfad, zurück zu Step 3.
 
 ```bash
 # Wie definiert DIESES Repo tenant_id, public_id, FK-Typen?
-grep -r "tenant_id" src/<ähnliche_app>/models.py | head -3
-grep -r "public_id" src/<ähnliche_app>/models.py | head -3
+grep -r "tenant_id" src/ --include="models.py" | head -5
+grep -r "public_id" src/ --include="models.py" | head -5
 ```
 
 → Ergebnis als **Constraint Manifest** notieren: `tenant_id = UUIDField` o.ä.
@@ -207,6 +207,7 @@ Refactoring-Opportunities (nicht auto-angewendet):
 # Ruff (Linter + Formatter)
 ruff check . --fix
 ruff format .
+ruff check .   # nochmals prüfen — --fix hebt nicht alle Fehler
 
 # Bandit (Security)
 bandit -r . -ll
@@ -278,7 +279,7 @@ MCP: <orc>_log_action(
 > Viele Repos committen direkt auf `main`. Falls Feature-Branch: `ai/{role}/{task-id}`.
 
 ```bash
-git add .
+git add <affected_paths aus Phase 0 — nie git add .>
 git commit -m "type(scope): description
 
 Closes #{issue-number}
@@ -300,6 +301,8 @@ MCP: <github-mcp>_add_issue_comment(owner, repo, issue_number, body)
 ```
 
 Issue-Kommentar enthält: Self-Review Ergebnis, Gate-Level, CHANGELOG-Eintrag, Refactoring-Flags.
+
+Danach: **`/complete`** ausführen (Task Completion Gate).
 
 ---
 

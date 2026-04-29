@@ -79,7 +79,7 @@ pip list | grep iil
 Jede nicht-verifiable Annahme **inline im Code markieren**:
 
 ```python
-# ASSUMPTION[verified]: tenant_id = BigAutoField (grep: 5/5 models)
+# ASSUMPTION[verified]: tenant_id = BigIntegerField (grep: 5/5 models)
 # ASSUMPTION[unverified]: audit.services.log(actor_id, event_type) — vor Merge prüfen
 # ASSUMPTION[infra]: nginx client_max_body_size >= 50M — Config prüfen!
 ```
@@ -94,7 +94,7 @@ Nach Phase 0 kurz zusammenfassen:
 
 ```
 Constraint Manifest — <App-Name>:
-- tenant_id: BigIntegerField (verifiziert: 4 Models gecheckt)
+- tenant_id: BigIntegerField (FK zu Organization.id, verifiziert: 4 Models gecheckt)
 - public_id: UUIDField (verifiziert)
 - aifw.sync_completion: action_code + messages (verifiziert)
 - audit.services.log: NICHT EXISTENT — ASSUMPTION[unverified]
