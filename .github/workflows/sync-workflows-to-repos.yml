@@ -6,6 +6,8 @@ on:
     paths:
       - '.windsurf/workflows/**'
       - 'registry/github_repos.yaml'
+      - 'docs/onboarding/**'
+      - 'docs/governance/**'
   workflow_dispatch:
     inputs:
       workflow_name:
@@ -92,6 +94,7 @@ jobs:
             // ── Welche Workflows sollen synced werden? ────────────────────────
             let changedWorkflows = [];
             let registryChanged  = false;
+            let lookupChanged    = false;  // ADR-175: docs/<topic>/ geändert
 
             if (context.eventName === 'push') {
               const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
@@ -107,12 +110,17 @@ jobs:
                   registryChanged = true;
                 } else if (file.filename.startsWith('.windsurf/workflows/') && file.filename.endsWith('.md')) {
                   changedWorkflows.push(path.basename(file.filename, '.md'));
+                } else if (file.filename.startsWith('docs/onboarding/') || file.filename.startsWith('docs/governance/')) {
+                  lookupChanged = true;  // ADR-175: ausgelagerter Lookup-File geändert
                 }
               }
 
-              // Registry geändert → alle Workflows in alle Repos pushen (neues Repo braucht alles)
+              // Registry oder Lookup-File geändert → alle Workflows in alle Repos pushen
               if (registryChanged) {
                 core.info('registry/github_repos.yaml geändert — alle Workflows werden synced');
+                changedWorkflows = [...UNIVERSAL, ...DJANGO_HUB_WF, ...PACKAGE_WF];
+              } else if (lookupChanged && changedWorkflows.length === 0) {
+                core.info('docs/<topic>/ Lookup geändert — alle Workflows werden synced (referenzen)');
                 changedWorkflows = [...UNIVERSAL, ...DJANGO_HUB_WF, ...PACKAGE_WF];
               }
             } else {
@@ -127,8 +135,53 @@ jobs:
             }
             core.info(`Syncing ${changedWorkflows.length} workflow(s): ${changedWorkflows.join(', ')}`);
 
+            // ── Helper: Lookup-References aus Workflow extrahieren (ADR-175) ──
+            // Erkennt Markdown-Links wie [`docs/onboarding/foo.md`](../../docs/onboarding/foo.md)
+            const extractLookups = (wfContent) => {
+              const re = /\((?:\.\.\/)*?(docs\/(onboarding|governance)\/[a-z0-9_-]+\.md)\)/gi;
+              const found = new Set();
+              let m;
+              while ((m = re.exec(wfContent)) !== null) {
+                found.add(m[1]);  // z.B. "docs/onboarding/onboard-repo-checklist.md"
+              }
+              return [...found];
+            };
+
+            // Helper: Lookup-File zu einem Repo pushen (mit unchanged-skip)
+            const pushLookupToRepo = async (repo, lookupPath, lookupContent, lookupB64) => {
+              try {
+                let sha;
+                try {
+                  const { data: existing } = await github.rest.repos.getContent({ owner, repo, path: lookupPath });
+                  sha = existing.sha;
+                  const existingContent = Buffer.from(existing.content || '', 'base64').toString('utf8');
+                  if (existing.type !== 'symlink' && existingContent === lookupContent) {
+                    return 'skip';  // unchanged
+                  }
+                  if (existing.type === 'symlink') {
+                    await github.rest.repos.deleteFile({
+                      owner, repo, path: lookupPath,
+                      message: `chore(docs): remove symlink ${lookupPath} (→ regular file)`,
+                      sha,
+                    });
+                    sha = undefined;
+                  }
+                } catch (e) { /* Datei neu */ }
+                await github.rest.repos.createOrUpdateFileContents({
+                  owner, repo, path: lookupPath,
+                  message: `chore(docs): sync ${lookupPath} from platform (ADR-175)`,
+                  content: lookupB64, sha,
+                });
+                return 'updated';
+              } catch (e) {
+                if (e.status === 404 || e.message?.includes('Not Found')) return 'skip';
+                throw e;
+              }
+            };
+
             // ── Für jeden Workflow: Ziel-Repos bestimmen + pushen ─────────────
             let successCount = 0, skipCount = 0, errorCount = 0;
+            let lookupSuccess = 0, lookupSkip = 0, lookupError = 0;
 
             for (const wf of changedWorkflows) {
               const localPath = `${wfDir}/${wf}.md`;
@@ -197,6 +250,32 @@ jobs:
 
                   core.info(`  ✅ ${repo}: ${wf}.md`);
                   successCount++;
+
+                  // ADR-175: Referenzierte Lookup-Files mitpushen
+                  const lookups = extractLookups(content);
+                  for (const lookupPath of lookups) {
+                    let lookupContent;
+                    try {
+                      lookupContent = fs.readFileSync(lookupPath, 'utf8');
+                    } catch (e) {
+                      core.warning(`    ⚠️ Lookup nicht in platform: ${lookupPath}`);
+                      lookupError++;
+                      continue;
+                    }
+                    const lookupB64 = Buffer.from(lookupContent).toString('base64');
+                    try {
+                      const result = await pushLookupToRepo(repo, lookupPath, lookupContent, lookupB64);
+                      if (result === 'updated') {
+                        core.info(`    📎 ${repo}: ${lookupPath}`);
+                        lookupSuccess++;
+                      } else {
+                        lookupSkip++;
+                      }
+                    } catch (e) {
+                      core.warning(`    ❌ ${repo}: ${lookupPath} — ${e.message}`);
+                      lookupError++;
+                    }
+                  }
                 } catch (e) {
                   if (e.status === 404 || e.message?.includes('Not Found')) {
                     core.info(`  SKIP (repo not found): ${repo}`);
@@ -209,5 +288,7 @@ jobs:
               }
             }
 
-            core.info(`\nSummary: ${successCount} updated · ${skipCount} skipped · ${errorCount} errors`);
-            if (errorCount > 0) core.setFailed(`${errorCount} errors — check warnings above`);
+            core.info(`\nWorkflows: ${successCount} updated · ${skipCount} skipped · ${errorCount} errors`);
+            core.info(`Lookups:   ${lookupSuccess} updated · ${lookupSkip} skipped · ${lookupError} errors`);
+            const totalErrors = errorCount + lookupError;
+            if (totalErrors > 0) core.setFailed(`${totalErrors} errors — check warnings above`);
