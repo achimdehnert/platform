@@ -33,6 +33,15 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | Tests einrichten (neues Repo) | Testing Setup | `/testing-setup` |
 | Third-Party Stack upgraden (Outline, Authentik, Paperless) | Stack Upgrade | `/stack-upgrade` |
 | WSL ↔ GitHub ↔ Server synchronisieren | Sync Repo | `/sync-repo` |
+| **Vor Implementierung: Annahmen verifizieren** | **Pre-Code Contract Verification** | **`/pre-code`** |
+| **Neues Django-App Scaffold** | **New Django App** | **`/new-django-app`** |
+| **Pre-Release Frontend Test** | **Pre-Release Test** | **`/pre-release-test`** |
+| **Automatisierter Frontend UI Test** | **Frontend UI Test** | **`/frontend-ui-test`** |
+| **App auf Production deployen (full flow)** | **Ship** | **`/ship`** |
+| **Lokale Docker-Umgebung starten** | **Run Local** | **`/run-local`** |
+| **Production deployen (safety gates)** | **Run Prod** | **`/run-prod`** |
+| **Staging deployen + Health Check** | **Run Staging** | **`/run-staging`** |
+| **Dokumentation aktualisieren** | **Docu Update** | **`/docu-update`** |
 
 ---
 
@@ -77,6 +86,12 @@ Neue Session startet
         │
         ├─ Repos synchronisieren (WSL / GitHub / Server)?
         │       └─ /sync-repo
+        ├─ Vor Feature-Implementierung: Annahmen absichern?
+        │       └─ /pre-code  (Contract Verification)
+        ├─ Neues Django-App anlegen?
+        │       └─ /new-django-app
+        ├─ Frontend vor Release testen?
+        │       └─ /pre-release-test
         │
         ├─ Gesamtüberblick / Schwachstellen-Analyse?
         │       └─ /platform-audit
@@ -220,7 +235,7 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 7.  Zero Breaking Changes: erst deprecaten
 8.  AGENT_HANDOVER.md am Session-Ende aktualisieren
 9.  Destructive Actions: IMMER zuerst fragen
-10. Kein HEALTHCHECK im Dockerfile
+10. MANDATORY: HEALTHCHECK in jedem Dockerfile (--interval=30s --timeout=10s --retries=3)
 11. /repo-health-check IMMER vor erstem Publish oder Deploy eines neuen Repos
 12. /testing-conventions IMMER vor git tag vX.Y.Z (Package-Release)
     → T-01: pytest.importorskip() für opt. Deps
@@ -230,5 +245,5 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 
 ---
 
-*Workflow Index v1.4 — Platform Coding Agent System | 2026-03-15*
+*Workflow Index v1.5 — Platform Coding Agent System | 2026-04-29*
 *Alle Workflows: `${GITHUB_DIR:-$HOME/github}/platform/.windsurf/workflows/`*
