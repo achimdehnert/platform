@@ -225,33 +225,31 @@ jobs:
                     }
                   } catch (e) { /* Datei neu */ }
 
+                  // Workflow updaten (nur wenn geändert)
                   if (!isSymlink && existingContent === content) {
                     core.info(`  SKIP (unchanged): ${repo}/${wf}.md`);
                     skipCount++;
-                    continue;
-                  }
-
-                  // Symlink erst löschen — createOrUpdateFileContents ändert sonst nicht den git-Mode
-                  if (isSymlink && sha) {
-                    await github.rest.repos.deleteFile({
+                  } else {
+                    // Symlink erst löschen — createOrUpdateFileContents ändert sonst nicht den git-Mode
+                    if (isSymlink && sha) {
+                      await github.rest.repos.deleteFile({
+                        owner, repo, path: filePath,
+                        message: `chore(workflows): remove symlink ${wf}.md (→ regular file)`,
+                        sha,
+                      });
+                      sha = undefined;
+                      core.info(`  DEL symlink: ${repo}/${wf}.md`);
+                    }
+                    await github.rest.repos.createOrUpdateFileContents({
                       owner, repo, path: filePath,
-                      message: `chore(workflows): remove symlink ${wf}.md (→ regular file)`,
-                      sha,
+                      message: `chore(workflows): sync ${wf}.md from platform`,
+                      content: contentB64, sha,
                     });
-                    sha = undefined;
-                    core.info(`  DEL symlink: ${repo}/${wf}.md`);
+                    core.info(`  ✅ ${repo}: ${wf}.md`);
+                    successCount++;
                   }
 
-                  await github.rest.repos.createOrUpdateFileContents({
-                    owner, repo, path: filePath,
-                    message: `chore(workflows): sync ${wf}.md from platform`,
-                    content: contentB64, sha,
-                  });
-
-                  core.info(`  ✅ ${repo}: ${wf}.md`);
-                  successCount++;
-
-                  // ADR-175: Referenzierte Lookup-Files mitpushen
+                  // ADR-175: Referenzierte Lookup-Files IMMER mitpushen (auch wenn Workflow unchanged)
                   const lookups = extractLookups(content);
                   for (const lookupPath of lookups) {
                     let lookupContent;
