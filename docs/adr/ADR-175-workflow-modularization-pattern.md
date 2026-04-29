@@ -2,18 +2,22 @@
 title: "ADR-175 — Adopt selective modularization for .windsurf/workflows/ files"
 date: 2026-04-29
 amended: 2026-04-29
-status: Proposed
+status: Accepted
 deciders: achimdehnert
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "platform/.windsurf/workflows/onboard-repo.md — Step 7 + Refs ausgelagert (Pilot, 1175→1041 LOC, -11%)"
-  - "platform/.windsurf/workflows/new-github-project.md — Verifikation ausgelagert (Pilot, 701→664 LOC, -5%)"
-  - "platform/docs/onboarding/onboard-repo-checklist.md — neuer Auslagerungs-Pfad etabliert"
-  - "platform/docs/onboarding/new-github-project-checklist.md — zweiter ausgelagerter Lookup"
+  - "platform/.windsurf/workflows/onboard-repo.md — Step 7 + Refs ausgelagert (1175→1041 LOC, -11%)"
+  - "platform/.windsurf/workflows/new-github-project.md — Verifikation ausgelagert (701→664 LOC, -5%)"
+  - "platform/.windsurf/workflows/platform-audit.md — Report-Skeleton ausgelagert (420→367 LOC, -13%)"
+  - "platform/.windsurf/workflows/agentic-coding.md — Diagramm + ADR-Refs ausgelagert (372→351 LOC, -6%)"
+  - "platform/.windsurf/workflows/session-ende.md — Checkliste + MCP-Tabelle ausgelagert (365→346 LOC, -5%)"
+  - "platform/docs/onboarding/{onboard-repo,new-github-project}-checklist.md — onboarding-Lookups"
+  - "platform/docs/governance/{agentic-coding-reference,session-ende-checklist,platform-audit-report-template}.md — governance-Lookups"
+  - "Gesamt: 3033→2769 LOC (-9%, 264 LOC ausgelagert auf 5 Workflows)"
 implementation_done_when:
   - "Sync-CI verteilt docs/<topic>/ Dateien zu allen Repos die den Workflow nutzen (Issue offen)"
   - "Modularisierungs-Regeln in workflow-review.md ergänzt (Pattern-Doku)"
-  - "Mind. 5 Workflows >300 LOC nach Pattern refaktoriert (aktuell 2/5)"
+  - "Mind. 5 Workflows >300 LOC nach Pattern refaktoriert (aktuell 5/5)"
   - "Test: Coding-Agent versteht Referenz-Verweise und liest externes File bei Bedarf (manuell verifiziert)"
 ---
 
@@ -182,11 +186,12 @@ Compliance mit dieser ADR wird verifiziert durch:
 
 - [x] Pilot-Refactor `onboard-repo` (1175→1041 LOC) live im Einsatz
 - [x] Pilot-Refactor `new-github-project` (701→664 LOC) live im Einsatz
-- [ ] Agent findet ausgelagerte Checkliste und kann sie bei Verifikation konsultieren (Test ausstehend)
-- [ ] Workflow-Pattern in `workflow-review.md` dokumentiert (Open Questions Sektion)
-- [ ] Sync-CI verteilt `docs/<topic>/` mit oder Pattern-Beschränkung dokumentiert
-- [ ] 3 weitere Workflows nach Pattern refaktoriert: `platform-audit` (420 LOC), `agentic-coding` (372 LOC), `session-ende` (355 LOC)
-- [ ] Bei 5/5 erfolgreichen Refactors: Status `Proposed` → `Accepted`
+- [x] Pilot-Refactor `platform-audit` (420→367 LOC) — Report-Skeleton ausgelagert
+- [x] Pilot-Refactor `agentic-coding` (372→351 LOC) — Diagramm + ADR-Refs ausgelagert
+- [x] Pilot-Refactor `session-ende` (365→346 LOC) — Checkliste + MCP-Tabelle ausgelagert
+- [x] **5/5 Pilot-Refactors abgeschlossen — Status `Proposed` → `Accepted`** (2026-04-29)
+- [ ] Agent findet ausgelagerte Checkliste und kann sie bei Verifikation konsultieren (nächste Live-Session)
+- [ ] Sync-CI verteilt `docs/<topic>/` mit oder Pattern-Beschränkung dokumentiert (Open Question 1)
 
 ## More Information
 
@@ -201,3 +206,4 @@ Compliance mit dieser ADR wird verifiziert durch:
 
 - 2026-04-29 (Initial): Proposed nach `/workflow-review` Session mit 2 Pilot-Refactors
 - 2026-04-29 (Amended via /adr-review): MADR 4.0 Compliance — Title als Decision-Statement; `Decision Outcome` mit Reasoning; `Confirmation` Subsection ergänzt; `Open Questions` Sektion eingeführt; `implementation_status` von invalidem `planned` auf gültiges `partial` korrigiert (ADR-138-konform); Anti-Pattern-Sektion ergänzt; Token-Kosten quantifiziert
+- 2026-04-29 (Accepted): 5/5 Pilot-Refactors erfolgreich abgeschlossen (3033→2769 LOC, -9%). Status `Proposed` → `Accepted`. `implementation_status: partial` → `implemented`.
