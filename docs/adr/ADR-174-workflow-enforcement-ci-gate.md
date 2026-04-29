@@ -5,11 +5,16 @@ status: Accepted
 deciders: achimdehnert
 implementation_status: partial
 implementation_evidence:
-  - "risk-hub/.github/workflows/ci.yml — qm-gate Job implementiert"
-  - "platform/.github/workflows/_ci-python.yml — enable_qm_gate Input"
+  - "risk-hub/.github/workflows/ci.yml — qm-gate Job implementiert (pilot)"
+  - "platform/.github/workflows/_ci-python.yml — enable_qm_gate Input (alle Repos)"
   - "risk-hub/.github/PULL_REQUEST_TEMPLATE/agent-pr.md — Self-Review Gate"
-  - "platform/.windsurf/workflows/workflow-index.md — Symlink-Policy"
-  - "Rollout auf weitere Repos: ausstehend"
+  - "platform/.windsurf/workflows/workflow-index.md — Symlink-Policy + Rule #13"
+  - "platform/.windsurf/workflows/onboard-repo.md — Step 6.9 Branch Protection"
+  - "Rollout auf weitere ~18 Repos: ausstehend"
+implementation_done_when:
+  - "qm-gate als required status check in Branch Protection aller aktiven Repos aktiviert"
+  - "enable_qm_gate: true in CI-Caller aller Repos die _ci-python.yml nutzen"
+  - "onboard-repo.md Step 6.9 bei ≥3 neuen Repos durchlaufen"
 ---
 
 # ADR-174 — Workflow Enforcement: CI Gate + PR Checklist + Symlink Policy
@@ -37,18 +42,23 @@ vs. platform-global (Symlink) sein dürfen, was zu unkontrolliertem Drift führt
 1. **Nur Dokumentation** — Checklisten in CONTRIBUTING.md
 2. **Pre-commit Hooks lokal** — clientseitige Prüfung
 3. **CI Gate + PR Template + Symlink Policy** — zentrales serverseitiges Enforcement
+4. **Branch Protection Rules (GitHub Settings)** — Merge blockieren bis required status checks grün
 
 ## Decision Outcome
 
 **Gewählt: Option 3 — CI Gate + PR Template + Symlink Policy**
 
-Einzige Option die Enforcement ohne Agent-Discipline garantiert. Option 1 bleibt advisory.
-Option 2 greift nur lokal — kein Schutz bei direktem Push oder Remote-Agents.
+Option 3 + 4 kombiniert — CI Gate (Option 3) erzeugt den Status-Check, Branch Protection (Option 4)
+erzwingt dessen Erfolg vor dem Merge. Ohne Option 4 kann ein Admin Option 3 mit `--admin` bypass.
+Option 1 bleibt advisory. Option 2 greift nur lokal — kein Schutz bei Remote-Agents.
 
-### Maßnahme 1 — CI Gate: `ASSUMPTION[unverified]` blockiert Merge
+**Scope: Plattformweit (alle Repos)** — gilt nicht nur für risk-hub.
+
+### Maßnahme 1 — CI Gate: `ASSUMPTION[unverified]` blockiert Merge (alle Repos)
 
 Reusable Workflow in `platform/.github/workflows/_ci-python.yml` (Input: `enable_qm_gate`).
 Direkte Integration in Repo-spezifische `ci.yml` als `qm-gate` Job.
+**Rollout:** via `/onboard-repo` Step 6.9 bei jedem Repo-Onboarding.
 
 ```yaml
 - name: Block unverified assumptions
@@ -87,13 +97,23 @@ Direkte Integration in Repo-spezifische `ci.yml` als `qm-gate` Job.
 
 Dokumentiert in `workflow-index.md` + `AGENT_HANDOVER.md` pro Repo.
 
+### Maßnahme 4 — Branch Protection: `qm-gate` als Required Status Check (alle Repos)
+
+Für jedes Repo: GitHub → Settings → Branches → `main` → Branch Protection Rule:
+- **Required status checks:** `QM Gate — ASSUMPTION Check (ADR-174)`
+- **Require branches to be up to date before merging:** ✅
+
+Ohne diese Einstellung kann ein Admin den CI Gate mit `--admin` bypassen.
+Diese Maßnahme ist Teil von `/onboard-repo` Step 6.9 (PFLICHT für alle Repos).
+
 ### Confirmation
 
 - CI Gate aktiv in risk-hub (PR auf `main` triggert `qm-gate` Job)
 - Draft-PRs werden korrekt geskippt
 - `grep -rnF` (fixed string) verhindert Regex-Fehlinterpretation
 - PR Template enthält vollständigen Self-Review-Block
-- Symlink-Policy in `workflow-index.md` dokumentiert
+- Symlink-Policy in `workflow-index.md` als Non-Negotiable Rule #13 dokumentiert
+- Branch Protection via `/onboard-repo` Step 6.9 für alle Repos ausrollbar
 
 ## Pros and Cons of the Options
 
@@ -109,14 +129,21 @@ Dokumentiert in `workflow-index.md` + `AGENT_HANDOVER.md` pro Repo.
 - ❌ Bypassbar (--no-verify Flag)
 - ❌ Kein Schutz bei Remote-Agent-Ausführung ohne lokales Setup
 
-### Option 3 — CI Gate + PR Template + Symlink Policy (gewählt)
+### Option 3 — CI Gate + PR Template + Symlink Policy
 
-- ✅ Zentrales, bypasresistentes Enforcement
 - ✅ GitHub-native Annotations zeigen Fehler direkt im PR-Diff
 - ✅ Reusable Workflow: 1× pflegen, alle Repos erben via `enable_qm_gate: true`
 - ✅ Model-agnostisch — funktioniert unabhängig vom LLM
-- ⚠️ Scan-Scope begrenzt auf `*.py` (by design, erweiterbar)
+- ⚠️ Allein nicht ausreichend — Admin kann mit `--admin` bypassen (→ Option 4 nötig)
 - ⚠️ Rollout auf ~18 weitere Repos erfordert pro-Repo CI-Update
+
+### Option 4 — Branch Protection Rules (ergänzend, kombiniert mit Option 3)
+
+- ✅ Verhindert Admin-Bypass ohne explizite Rule-Deaktivierung
+- ✅ GitHub-native — kein zusätzlicher Code
+- ✅ Plattformweit einheitlich via `/onboard-repo` Step 6.9
+- ⚠️ Nur GitHub-seitige Einstellung — kann von Repo-Admin geändert werden
+- ⚠️ Erfordert initialen Setup-Aufwand pro Repo
 
 ## Open Questions
 
