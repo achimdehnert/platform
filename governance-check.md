@@ -5,56 +5,71 @@ description: Check platform governance before implementing new functionality
 # Platform Governance Check Workflow
 
 **IMPORTANT**: Run this workflow BEFORE implementing any new functionality.
+Für neue Features: zuerst `/pre-code` (Contract Verification), dann dieser Check.
 
-## Step 1: Check Registry for Existing Components
+> ⚠️ MCP-Prefix ist environment-spezifisch — `<ctx>` = Platform-Context-Prefix aus `project-facts.md`.
 
-Before implementing anything new, check if it already exists:
+## Step 1: Existing Component Check
+
+Existiert die Funktionalität bereits? Erst suchen, dann implementieren:
+
+```bash
+# Codebase-Suche nach ähnlichen Implementierungen
+grep -r "<funktionsbeschreibung>" src/ --include="*.py" -l | head -10
+```
 
 ```
-Use registry_mcp.check_existing with the functionality description
+MCP: <ctx>_get_context_for_task(repo="<repo>", file_type="<datei>")
+→ Liefert: Architektur-Regeln, ADR-Referenzen, Banned Patterns, Repo-Facts
 ```
 
-This searches across:
-- MCP Servers
-- Internal Services  
-- Handlers
-- Design Patterns
-- AI Agents
-
-## Step 2: Review Governance Rules
-
-Key rules to follow:
+## Step 2: Governance Rules prüfen
 
 ### LLM Access (BLOCK)
-- ❌ Never `import anthropic` or `import openai` directly
-- ✅ Use `llm_mcp` tools: `llm_complete`, `llm_stream`, `llm_chat`
+- ❌ Niemals `import anthropic`, `import openai`, `import litellm` direkt in Django-Apps
+- ✅ `from aifw import sync_completion` — action_code-basiert, DB-driven routing
+- ✅ Ausnahme: Standalone CI-Scripts ohne Django-DB → `litellm` direkt erlaubt
 
-### Database Access (WARN)
-- ❌ Avoid raw `psycopg2` in application code
-- ✅ Use Django ORM or `LookupService`
+### Database Access
+- ❌ Kein raw `psycopg2` in Application-Code
+- ✅ Django ORM ausschließlich
 
-### Lookups (WARN)
-- ❌ No hardcoded `STATUS_CHOICES = [('active', 'Active'), ...]`
-- ✅ Use `LookupService.get_for_django_choices("status")`
+### Status Choices (Platform Standard)
+- ❌ `STATUS_CHOICES = [('active', 'Active'), ...]` — veraltet
+- ✅ `class Status(models.TextChoices): ACTIVE = 'active', _('Aktiv')`
 
-### Prompts (LOG)
-- ❌ Avoid inline prompt strings
-- ✅ Use `PromptFrameworkService.render("template_name", context)`
+### Prompts
+- ❌ Inline f-Strings für komplexe Multi-Layer-Prompts
+- ✅ `from promptfw import PromptTemplate` (wenn iil-promptfw verfügbar)
 
-## Step 3: Use Correct Services
-
-| Need | Use This | NOT This |
-|------|----------|----------|
-| LLM calls | `llm_mcp` | `anthropic`, `openai` |
-| Status/choices | `LookupService` | Python enums |
-| Prompts | `PromptFrameworkService` | Inline strings |
-| Component discovery | `registry_mcp` | Manual search |
-
-## Step 4: Register New Components
-
-After implementing, register in the platform registry:
-
-```sql
-INSERT INTO platform.reg_service (name, code, fqn, description, ...)
-VALUES ('YourService', 'your_service', 'apps.yourapp.services.YourService', ...);
+### iil-* Packages (PyPI-First Principle)
+Vor eigener Implementierung prüfen:
+```bash
+pip list | grep iil
 ```
+→ Bekannte Packages: `aifw`, `iil-promptfw`, `iil-authoringfw`, `iil-weltenfw`, `iil-nl2cadfw`, `iil-testkit`
+
+## Step 3: Korrekte Services verwenden
+
+| Bedarf | Verwende | NICHT |
+|--------|----------|-------|
+| LLM-Calls | `aifw.sync_completion(action_code, messages)` | `openai`, `anthropic` direkt |
+| Status/Choices | `models.TextChoices` | Hardcoded Tupel-Listen |
+| Prompts | `promptfw.PromptTemplate` | Inline f-Strings |
+| ADR-Check | `<ctx>_check_violations(code_snippet)` | Manuell |
+
+## Step 4: Architektur-Verletzungen prüfen
+
+```
+MCP: <ctx>_check_violations(code_snippet="<generierter Code>")
+MCP: <ctx>_get_banned_patterns(context="<views|models|htmx|deployment>")
+```
+
+→ Blockiert bei CRITICAL Violations. Kein Weiter ohne grünen Check.
+
+## Step 5: Neue Komponente dokumentieren
+
+Nach der Implementierung:
+- [ ] `CHANGELOG.md` unter `[Unreleased]` ergänzen
+- [ ] ADR anlegen falls neue Architektur-Entscheidung getroffen (`/adr`)
+- [ ] Service in `docs/` dokumentieren falls öffentliche API
