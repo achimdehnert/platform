@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-04-22
-> **Next free ADR number:** 171
+> **Last updated:** 2026-04-29
+> **Next free ADR number:** 175
 
 ## Legend
 
@@ -200,6 +200,7 @@
 | 168 | Build Onboarding-Platform as separate repo on coach-hub primitives with billing-hub Stripe pattern | `Proposed` | ⬜ | [ADR-168](ADR-168-onboarding-platform-architecture.md) |
 | 169 | Adopt iil-enrichment as generic pattern for bridging managed records with external knowledge sources | `Proposed` | 🔶 | [ADR-169](ADR-169-enrichment-agent-pattern.md) |
 | 170 | Adopt iil-ingest as Reusable Document Ingestion Package (Tier 3) | `Accepted` | 🔶 | [ADR-170](ADR-170-iil-ingest-document-ingestion-package.md) |
+| 174 | Workflow Enforcement: CI Gate + PR Checklist + Symlink Policy | `Accepted` | 🔶 | [ADR-174](ADR-174-workflow-enforcement-ci-gate.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -216,6 +217,9 @@
 ---
 
 ## Open Points / Hygiene Backlog
+
+- [ ] ADR-174: Rollout qm-gate auf weitere Repos (bulk via /onboard-repo)
+- [ ] ADR-174: Track 3 Workflow-Metriken (Issue erstellen nach risk-hub Praxiserfahrung)
 
 - [x] ADR-094 (Migration Conflict Resolution): `Accepted` -- 2026-03-02
 - [x] ADR-095 rev1: alle Blocker + Highs aus externem Review resolved -- 2026-03-02
