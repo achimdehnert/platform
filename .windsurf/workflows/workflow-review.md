@@ -124,6 +124,37 @@ grep -l "write_to_file\|create.*file\|touch\|mkdir" \
 
 Für jede gefundene Datei: Ist ein "bereits vorhanden"-Check eingebaut?
 
+### 3.3 Referenzierte Scripts existieren?
+
+Workflows rufen oft Helper-Scripts auf — alle müssen existieren.
+
+```bash
+# WICHTIG: Scripts können in mehreren Pfaden liegen
+SCRIPT_DIRS=(
+  "${PLATFORM}/scripts"
+  "${PLATFORM}/infra/scripts"
+  "${PLATFORM}/.github/scripts"
+)
+
+# Alle Script-Referenzen extrahieren und prüfen
+grep -rhoE "[a-z_/-]+\.(py|sh)" ${PLATFORM}/.windsurf/workflows/*.md \
+  | grep -E "scripts?/" | sort -u | while read script; do
+  basename=$(basename "$script")
+  found=""
+  for dir in "${SCRIPT_DIRS[@]}"; do
+    [ -f "$dir/$basename" ] && found="$dir/$basename" && break
+  done
+  if [ -n "$found" ]; then
+    echo "✅ $basename → $found"
+  else
+    echo "🔴 $basename — nirgends gefunden!"
+  fi
+done
+```
+
+> ⚠️ **Lesson Learned 2026-04-29:** Scripts liegen in `scripts/`, `infra/scripts/` oder `.github/scripts/`.
+> Nur `scripts/` zu durchsuchen produziert False Positives.
+
 ### 3.3 Git-State-Annahmen
 
 Gefährliche Muster:
