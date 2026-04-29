@@ -993,6 +993,26 @@ ls "${REPO_PATH}/.windsurf/rules/project-facts.md" 2>/dev/null && echo "✅ proj
   description: "<1-Satz-Beschreibung>"
 ```
 
+### 6.9 Branch Protection einrichten (PFLICHT — ADR-174, alle Repos)
+
+> Ohne Branch Protection kann `qm-gate` mit `--admin` bypassed werden.
+> Diese Einstellung ist plattformweit verbindlich für alle Repos.
+
+**GitHub → [Repo] → Settings → Branches → Add rule:**
+
+```
+Branch name pattern:  main
+
+☑ Require a pull request before merging
+☑ Require status checks to pass before merging
+  Required checks:
+    → "QM Gate — ASSUMPTION Check (ADR-174)"
+  ☑ Require branches to be up to date before merging
+☑ Do not allow bypassing the above settings
+```
+
+> **Verify:** GitHub → [Repo] → Settings → Branches → protection rules aktiv für `main`
+
 ---
 
 ## Step 7: Verifikation
@@ -1076,6 +1096,12 @@ Platform-Integration (Step 6.8):
   [ ] .windsurf/workflows/ mit Symlinks vorhanden (≥10 Workflows)
   [ ] .windsurf/rules/project-facts.md vorhanden
   [ ] Nächster session-start synct Workflows automatisch
+
+Branch Protection (Step 6.9 — ADR-174):
+  [ ] qm-gate als required status check in main Branch Protection eingetragen
+  [ ] "Do not allow bypassing" aktiviert
+  [ ] Test: Draft-PR erstellen → qm-gate wird geskippt
+  [ ] Test: Echter PR mit ASSUMPTION[unverified] → Merge blockiert
 ```
 
 ### REFLEX Review Gate (PFLICHT — ADR-165)

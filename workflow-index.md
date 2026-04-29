@@ -242,6 +242,9 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
     → T-01: pytest.importorskip() für opt. Deps
     → T-02: AsyncMock(side_effect=) statt wraps=
     → T-03: pytest.raises() für Exception-Contracts
+13. Branch Protection: qm-gate als required status check in main (ADR-174, alle Repos)
+    → "Do not allow bypassing" aktivieren
+    → Setup via /onboard-repo Step 6.9
 ```
 
 ---
