@@ -1,11 +1,17 @@
 ---
 status: proposed
 date: 2026-04-30
-version: 1.2
+version: 1.3
 deciders: [achimdehnert, cascade]
-related: [ADR-068, ADR-173, ADR-174]
+related: [ADR-068, ADR-077, ADR-138, ADR-173, ADR-174]
 amends: [ADR-066]
+implementation_status: none
 staleness_months: 6
+drift_check_paths:
+  - orchestrator_mcp/agents/
+  - orchestrator_mcp/config.py
+  - orchestrator_mcp/agent_team/
+supersedes_check: []
 tags: [agent-team, llm-routing, cost-optimization, autonomy, multi-agent]
 ---
 
@@ -20,7 +26,8 @@ routing, observability, prompt-caching, and a documented misclassification fallb
 |---------|-------|------------|
 | 1.0 | 2026-04-30 | Erstentwurf — 4 Bots, qualitatives Cost-Modell |
 | 1.1 | 2026-04-30 | Self-Review-Fixes: 5 Bots + Re-Engineer, Stage-Routing, Observability, Caching |
-| **1.2** | **2026-04-30** | **Cost-Math korrigiert (B-5), Modell-Namen verifiziert (B-6), config.py-Migration explizit (M-7), Demotion-Konflikt geklärt (M-8), Wave-1–3-Integration, Truth-Table-Klassen, Rollback-Pfad** |
+| 1.2 | 2026-04-30 | Cost-Math korrigiert (B-5), Modell-Namen verifiziert (B-6), config.py-Migration (M-7), Demotion-Konflikt (M-8), Wave-1–3-Integration |
+| **1.3** | **2026-04-30** | **ADR-Review-Fixes: ADR-138 `implementation_status`, Decision Drivers + Confirmation + Open Questions Sektionen, Temporal-Bezug (ADR-077), Anthropic-Beta-Header-Config, Drift-Detector-Felder** |
 
 ## Context
 
@@ -48,6 +55,14 @@ Bereits live im Workflow-Layer:
 - **`/process-agent-queue`** (Wave 3) — Queue-Prozessor für `auto`-labeled Issues
 
 ADR-177 (Wave 5) ergänzt diese Workflow-Schicht durch **Code-seitige Spezialisierung im `orchestrator_mcp`**.
+
+## Decision Drivers
+
+- **Quality-Gain bei Architektur-Tasks** (primär) — `swe`-Modell scheitert bei ADR-Drafts, `opus` liefert brauchbare Outputs ohne Mensch-Eskalation
+- **Cost-Optimierung** (sekundär) — primär durch Caching (30–50 % nach Mavik 2026), Routing trägt sekundär bei
+- **Konsistenz mit ADR-066** — Re-Engineer und Tech Lead waren Stubs, werden zu produktiven Agents (ReEngineerBot bzw. ArchitectBot)
+- **Vorbereitung Wave 4** (Parallel Branches) — heterogene Agent-Klassen sind Grundlage für `merger`-basierte Parallelisierung
+- **Reversibilität** — Backward-Compat-Shim erlaubt Rollback ohne Caller-Änderungen
 
 ## Decision
 
@@ -86,7 +101,7 @@ class AgentType(str, Enum):
     TECH_LEAD = "tech_lead"  # Human escalation only
 
 class ModelTier(str, Enum):
-    NONE = "none"          # Tech Lead / human
+    NONE = "none"
     GPT_LOW = "gpt_low"
     SWE = "swe"
     OPUS = "opus"
@@ -109,13 +124,8 @@ class TaskType(str, Enum):
 
 ### Modell-Tier-Auflösung (B-6 Fix — verifizierte Modelle)
 
-Tier-Labels werden in `config.py` auf konkrete Modelle aufgelöst. Zwei
-**getrennte** Dicts (M-7 Fix — kein Breaking Change im bestehenden `MODEL_SELECTION`):
-
 ```python
 # orchestrator_mcp/config.py
-
-# NEU: Tier-Label → konkretes Modell (verified gegen agent_team/config.py)
 MODEL_TIER_TO_MODEL: dict[ModelTier, str] = {
     ModelTier.GPT_LOW: "anthropic/claude-haiku-4-5-20251001",
     ModelTier.SWE:     "anthropic/claude-sonnet-4-6-20260217",
@@ -123,7 +133,6 @@ MODEL_TIER_TO_MODEL: dict[ModelTier, str] = {
     ModelTier.NONE:    "",  # human only
 }
 
-# UMBENANNT von MODEL_SELECTION (Migration-Shim siehe unten)
 TASK_TYPE_TO_TIER: dict[TaskType, ModelTier] = {
     TaskType.DOCS: ModelTier.GPT_LOW,
     TaskType.TYPO: ModelTier.GPT_LOW,
@@ -142,9 +151,6 @@ TASK_TYPE_TO_TIER: dict[TaskType, ModelTier] = {
 # Backward-Compat-Shim — 1 Release lang behalten
 MODEL_SELECTION = {tt.value: tier.value for tt, tier in TASK_TYPE_TO_TIER.items()}
 ```
-
-**Fallback-Strategie:** Bei API-Outage des Primary-Tiers → Promotion auf
-nächst-höheren Tier (HierRouter-Pattern).
 
 **Demotion-Verbot — präzisiert (M-8 Fix):**
 
@@ -170,7 +176,7 @@ class RoutingDecision:
 
 DOC_TYPES = {TaskType.DOCS, TaskType.TYPO, TaskType.LINT}
 
-# Initial confidence — wird in Phase 5 anhand AuditStore-Daten kalibriert (m-8 Fix)
+# Initial confidence — wird in Phase 5 anhand AuditStore-Daten kalibriert
 INITIAL_CONFIDENCE: dict[AgentType, float] = {
     AgentType.ARCHITECT_BOT: 0.95,
     AgentType.DOC_BOT: 0.90,
@@ -180,41 +186,29 @@ INITIAL_CONFIDENCE: dict[AgentType, float] = {
     AgentType.TECH_LEAD: 1.00,
 }
 
-def select_agent(
-    task_type: TaskType,
-    complexity: Complexity,
-    gate: GateLevel,
-) -> RoutingDecision:
+def select_agent(task_type, complexity, gate) -> RoutingDecision:
     """Deterministic four-stage routing.
-
     Property-tested (hypothesis): same inputs → same RoutingDecision.
-    Truth-Table-tested: 27 Äquivalenzklassen-Cases (siehe Test-Sektion).
     """
     # Stage 1: Architectural / high-stakes override
     if complexity is Complexity.ARCHITECTURAL or task_type in ARCH_TYPES:
-        return RoutingDecision(
-            AgentType.ARCHITECT_BOT, ModelTier.OPUS,
+        return RoutingDecision(AgentType.ARCHITECT_BOT, ModelTier.OPUS,
             "architectural complexity or arch-class task",
-            INITIAL_CONFIDENCE[AgentType.ARCHITECT_BOT],
-        )
+            INITIAL_CONFIDENCE[AgentType.ARCHITECT_BOT])
 
     # Stage 2: Gate-based veto
     if gate >= GateLevel.THREE:
-        return RoutingDecision(
-            AgentType.TECH_LEAD, ModelTier.NONE,
+        return RoutingDecision(AgentType.TECH_LEAD, ModelTier.NONE,
             "Gate >= 3 requires human approval (ADR-066)",
-            INITIAL_CONFIDENCE[AgentType.TECH_LEAD],
-        )
+            INITIAL_CONFIDENCE[AgentType.TECH_LEAD])
 
     # Stage 3: Task-type matching
     if task_type in DOC_TYPES:
         return RoutingDecision(AgentType.DOC_BOT, ModelTier.GPT_LOW,
-                               "docs/lint/typo",
-                               INITIAL_CONFIDENCE[AgentType.DOC_BOT])
+                               "docs/lint/typo", INITIAL_CONFIDENCE[AgentType.DOC_BOT])
     if task_type is TaskType.TEST:
         return RoutingDecision(AgentType.TEST_BOT, ModelTier.GPT_LOW,
-                               "tests",
-                               INITIAL_CONFIDENCE[AgentType.TEST_BOT])
+                               "tests", INITIAL_CONFIDENCE[AgentType.TEST_BOT])
     if task_type in {TaskType.REFACTOR, TaskType.TECH_DEBT}:
         if complexity in {Complexity.COMPLEX, Complexity.EXPERT}:
             return RoutingDecision(AgentType.ARCHITECT_BOT, ModelTier.OPUS,
@@ -229,63 +223,64 @@ def select_agent(
                                INITIAL_CONFIDENCE[AgentType.FEATURE_BOT])
 
     # Stage 4: Unknown → escalate (no silent default)
-    return RoutingDecision(
-        AgentType.TECH_LEAD, ModelTier.NONE,
-        f"unknown: task_type={task_type!r}, complexity={complexity!r}",
-        0.0,
-    )
+    return RoutingDecision(AgentType.TECH_LEAD, ModelTier.NONE,
+        f"unknown: task_type={task_type!r}, complexity={complexity!r}", 0.0)
 ```
 
 ### Misclassification & Escalation
 
-Drei komplementäre Mechanismen (Industry-Best-Practice 2026):
+Drei komplementäre Mechanismen:
 
-1. **Confidence-Gate.** `confidence < 0.7` → Auto-Eskalation an Tech-Lead-Queue (1-Klick-Bestätigung, kein inhaltlicher Eingriff).
-2. **Self-Revision.** Jeder Bot darf via `request_reroute(reason: str)` zurückmelden, dass er falsch zugeordnet ist. Planner verlangt dann Re-Routing mit explizitem `complexity`-Override.
-3. **Guardian-Veto-Eskalation.** Bei 2× Folge-Fail wird Task an nächst-höheren Bot promoted (DocBot-Fail → FeatureBot, FeatureBot-Fail → ArchitectBot).
+1. **Confidence-Gate.** `confidence < 0.7` → Auto-Eskalation an Tech-Lead-Queue (1-Klick-Bestätigung).
+2. **Self-Revision.** Jeder Bot darf via `request_reroute(reason: str)` zurückmelden, dass er falsch zugeordnet ist.
+3. **Guardian-Veto-Eskalation.** Bei 2× Folge-Fail wird Task an nächst-höheren Bot promoted.
 
-### Caching-Layer (primärer Cost-Lever — B-5 Fix)
+### Caching-Layer (primärer Cost-Lever)
 
-Alle Bots nutzen `iil-aifw.PromptCache` mit Anthropic prompt-caching beta
-header. System-Prompts pro Bot werden als statische
-`cache_control: {"type": "ephemeral"}` markiert.
+Alle Bots nutzen `iil-aifw.PromptCache` mit Anthropic prompt-caching beta header.
+System-Prompts pro Bot werden als statische `cache_control: {"type": "ephemeral"}` markiert.
 
-**Nach Mavik 2026:** Caching-Saving 30–50 % — **dominanter Cost-Lever**, nicht
-Routing allein. Routing primär für **Quality-Gain bei Architektur** (opus
-liefert brauchbare ADR-Drafts statt Mensch-Eskalation), sekundär für Cost.
+**Konfiguration des Beta-Headers** (Security-Review-Fix):
+
+```python
+# aifw/config.py oder iil_aifw/client.py
+ANTHROPIC_BETA_HEADERS = [
+    "prompt-caching-2024-07-31",  # Stand 2026-04: weiterhin beta
+]
+# Aktivierung pro Bot via:
+# client = AnthropicClient(extra_headers={"anthropic-beta": ",".join(ANTHROPIC_BETA_HEADERS)})
+```
+
+Die Beta-Header-Konstante lebt in `aifw` (PyPI-Package), nicht in jedem Bot.
+Damit ist Bot-Code unabhängig von Anthropic-API-Versions-Drift.
+
+**Nach Mavik 2026:** Caching-Saving 30–50 % — **dominanter Cost-Lever**, nicht Routing allein.
 
 ## Considered Alternatives
 
 ### A) Status quo (ein Developer für alles)
-
-- ❌ **Cost:** typo_fix = $0.003 statt $0.0004 (Faktor 7 zu teuer für triviale Tasks)
+- ❌ **Cost:** typo_fix = $0.003 statt $0.0004 (Faktor 7 zu teuer)
 - ❌ **Quality:** Architecture-Tasks scheitern — `swe`-Modell genügt nicht
 - ✅ **Simplicity:** eine Code-Basis
 
-### B) Per-Task-Type Model-Dispatch ohne Agent-Split (nur Model-Routing)
-
+### B) Per-Task-Type Model-Dispatch ohne Agent-Split
 - ✅ Löst Cost-Problem teilweise
 - ❌ Kein spezialisiertes Prompt-Engineering, kein effektives Caching
 - ❌ Tech Lead bleibt Stub
-- ❌ Empirisch in MALBO als unterlegen gegen heterogene Teams
 
-### C) Volle Spezialisierung (gewählt — v1.2 mit 5 Bots + Caching-Priorität)
-
+### C) Volle Spezialisierung (gewählt — v1.3 mit 5 Bots + Caching-Priorität)
 - ✅ Quality-Gain bei Architektur (opus statt Eskalation)
 - ✅ Prompt-Engineering pro Rolle isoliert optimierbar
-- ✅ **Caching pro Bot maximal effektiv** (statische System-Prompts)
+- ✅ Caching pro Bot maximal effektiv
 - ✅ Re-Engineer bleibt eigene Rolle (Konsistenz mit ADR-066)
-- ✅ Net-Saving 30–45 % erwartet (Caching-dominiert, siehe Cost-Modeling)
 - ⚠️ 3–5 Tage Implementation-Aufwand
 
 ### D) Hybrid: Routing nur für Modell, Single Agent für Code
-
 - ✅ Geringer Code-Aufwand
-- ❌ Verliert Prompt-Spezialisierung (gleicher Prompt, anderes Modell ≠ Skill-Trennung)
-- ❌ Caching weniger effektiv (weniger Cache-Hits bei generischem Prompt)
+- ❌ Verliert Prompt-Spezialisierung
+- ❌ Caching weniger effektiv
 
 ### E) RL-basiertes Routing (HierRouter)
-
 - ✅ Theoretisch optimal
 - ❌ Braucht große Training-Datenmenge (bei uns nicht vorhanden)
 - ⏸ Future Work — wenn AuditStore 6+ Monate Daten hat, evaluieren
@@ -293,9 +288,6 @@ liefert brauchbare ADR-Drafts statt Mensch-Eskalation), sekundär für Cost.
 ## Cost Modeling (B-5 Fix — korrigierte Math)
 
 ### Annahmen (Phase-0 kalibrierbar)
-
-Token-Annahmen basieren auf Stichproben aus aktuellem `MODEL_SELECTION`-Logging.
-Anteilsverteilung ist **Hypothese** und wird in Phase 0 verifiziert.
 
 | Task-Type | Anteil | Tokens (in/out) | Cost old (`swe`) | Cost new (Routing) | Diff/Task |
 |-----------|--------|-----------------|------------------|---------------------|-----------|
@@ -316,12 +308,9 @@ Anteilsverteilung ist **Hypothese** und wird in Phase 0 verifiziert.
 | architecture (5×) | $0.465 | $2.325 |
 | **Σ pro 100 Tasks** | **$3.803** | **$4.543** |
 
-→ **Routing allein: +19 % MEHRkosten** (nicht Saving!), weil Architecture-Promotion
-auf opus die Doc/Test-Savings überkompensiert.
+→ **Routing allein: +19 % MEHRkosten** (nicht Saving!), weil Architecture-Promotion auf opus die Doc/Test-Savings überkompensiert.
 
 ### Saving entsteht durch Caching, nicht Routing
-
-Mit Prompt-Caching (Mavik 2026 Median 40 %, Range 30–50 %) auf alle Bot-Calls:
 
 | Szenario | Cost pro 100 Tasks | Saving vs Status quo |
 |----------|---------------------|----------------------|
@@ -331,112 +320,91 @@ Mit Prompt-Caching (Mavik 2026 Median 40 %, Range 30–50 %) auf alle Bot-Calls:
 | **Routing + Caching (40 %)** | **$2.726** | **+28 % netto** |
 | Routing + Caching (50 %, optimistic) | $2.272 | +40 % netto |
 
-### Ehrliche Saving-Quelle
+**Saving = Caching-dominiert.** Erwartet **25–40 % netto** — verifizierbar in Phase 5.
 
-**Saving = Caching-dominiert.** Routing liefert Quality-Gain (Architektur
-durch opus), nicht Cost-Saving. Beide kombiniert ergeben **erwartet 25–40 %
-netto** — verifizierbar in Phase 5.
-
-**Validierungsplan:**
-- Phase 0 Baseline: Cost-Verteilung über 14 Tage → falsifiziert oder bestätigt 35/20/30/10/5 Annahme
-- Phase 5: Diff vs Baseline. Bei < 20 % Saving → Routing-Tuning oder Rollback (siehe Phase 6)
-
-### Zusatzkosten Shadow-Mode (m-7 Fix)
-
-Während Phase 2 Shadow-Week laufen alte + neue Bots parallel.
-Bei aktueller Tagesrate ($3.80/100 Tasks × ~10 Tasks/Tag) zusätzlich
-**~$26 für die Shadow-Woche** — vernachlässigbar gegen erwartetes Monats-Saving.
+**Zusatzkosten Shadow-Mode:** ~$26 für die Shadow-Woche (vernachlässigbar).
 
 ## Implementation
 
 ### Phase 0 — Baseline-Messung (PFLICHT vor Phase 1)
 
-**Vor** Phase 1: 14 Tage `session_stats`-Aufzeichnung unter Status quo. Metriken:
-
-- Cost pro Task-Type (mean, p50, p95)
-- Erfolgsrate pro Task-Type (Gate-passed / total)
-- Token-Verteilung pro Task-Type
-- Häufigkeitsverteilung der Task-Types (verifiziert die 35/20/30/10/5-Annahme)
-
-→ Diese Baseline ist die **Referenz** für Cost-Reduction-Validierung in Phase 5.
+14 Tage `session_stats` unter Status quo. Metriken: Cost/Erfolgsrate/Token-Verteilung pro Task-Type.
 
 ### Phase 1 — Code-Struktur
 
 ```
 orchestrator_mcp/agents/
 ├── __init__.py             # exposiert FeatureBot als DeveloperAgent (Shim)
-├── base.py                 # BaseAgent — gemeinsame Interfaces
+├── base.py
 ├── planner.py              # select_agent() Stage-Pipeline
 ├── doc_bot.py              # NEU
 ├── test_bot.py             # NEU
 ├── feature_bot.py          # = bisheriger developer.py (git mv)
-├── re_engineer_bot.py      # NEU (5. Bot, ehemaliger Stub aus ADR-066)
-├── architect_bot.py        # NEU (ersetzt Tech-Lead-Stub für ≤ Gate-2 Arch-Tasks)
+├── re_engineer_bot.py      # NEU
+├── architect_bot.py        # NEU
 ├── guardian.py             # unverändert
 ├── tester.py               # unverändert
 └── merger.py               # unverändert
 ```
 
-Backward-Compat-Shim 1 Release lang in `__init__.py`:
-
-```python
-from .feature_bot import FeatureBot as DeveloperAgent  # noqa: F401
-```
-
 ### Phase 2 — Migration (Strangler-Pattern)
 
-1. `git mv developer.py feature_bot.py`, Klasse umbenennen
-2. `DocBot`, `TestBot`, `ReEngineerBot`, `ArchitectBot` implementieren (~100 LoC + Tests pro Bot)
-3. `Planner.select_agent()` Routing-Funktion + Truth-Table-Test
-4. `delegate_subtask` API-Erweiterung — **Option C** aus Self-Review: optionales `task_type`, Default `feature` (= aktuelles Verhalten, **kein** Breaking Change)
-5. **Shadow-Mode** für 1 Woche: neue Bots werden parallel zu FeatureBot aufgerufen, Outputs geloggt aber nicht verwendet → Vergleichsdaten
-6. Cutover nach Shadow-Mode-Audit (Misclassification-Rate < 10 %)
-7. `agent_team_status` Response erweitert auf 5 Agents
+1. `git mv developer.py feature_bot.py`
+2. 4 neue Bots implementieren (~100 LoC + Tests pro Bot)
+3. `Planner.select_agent()` + Truth-Table-Test
+4. `delegate_subtask` API: optionales `task_type`, Default `feature` (kein Breaking Change)
+5. Shadow-Mode 1 Woche (parallel zu FeatureBot)
+6. Cutover nach Audit (Misclassification < 10 %)
+7. `agent_team_status` auf 5 Agents erweitern
 
 ### Phase 3 — Tests (Test-Pyramide)
 
 | Stufe | Was | Akzeptanz | CI-Job |
 |-------|-----|-----------|--------|
-| Unit | **Truth-Table 27 Äquivalenzklassen** (3 task-Klassen × 3 complexity-Klassen × 3 gate-Klassen — m-6 Fix) | 100 % deterministisch | `pytest test_planner_routing.py` |
-| Property | `select_agent` ist total + deterministisch (alle 12×6×5=360 Inputs) | hypothesis 1000 cases | `pytest test_planner_properties.py` |
-| Bot-Unit | Pro Bot ≥ 80 % line + branch coverage | coverage.py | `pytest test_*_bot.py` |
-| Integration | Bot → Guardian → Tester End-to-End | je 3 Goldset-Tasks pro Bot grün | `pytest tests/integration/` |
+| Unit | Truth-Table 27 Äquivalenzklassen (3×3×3) | 100 % deterministisch | `pytest test_planner_routing.py` |
+| Property | `select_agent` ist total + deterministisch (360 Inputs) | hypothesis 1000 cases | `pytest test_planner_properties.py` |
+| Bot-Unit | Pro Bot ≥ 80 % branch coverage | coverage.py | `pytest test_*_bot.py` |
+| Integration | Bot → Guardian → Tester E2E | je 3 Goldset-Tasks pro Bot grün | `pytest tests/integration/` |
 | Eval | Quality-Score ≥ Status-quo-Baseline | 95 % der Goldset-Tasks bestehen | `python tools/run_eval_suite.py` |
 | Regression | Routing-Distribution-Drift | < 20 % Verschiebung pro Task-Type | nightly cron |
-
-**Truth-Table-Klassen (m-6):**
-- `task_class ∈ {doc-class, feature-class, arch-class}`
-- `complexity_class ∈ {trivial+simple, moderate, complex+expert+architectural}`
-- `gate_class ∈ {0-1, 2, 3+}`
-- → 3 × 3 × 3 = 27 Äquivalenzklassen
-- Property-Test deckt vollständige 360 Kombinationen ab
 
 ### Phase 4 — Dokumentation
 
 - `platform/docs/governance/agent-team.md` aktualisieren
-- `/agentic-coding` Workflow v6 → v7 (5 Bots in Step-1-Tabelle, `recommended_agent` aus `analyze_task` konsumieren)
-- `/process-agent-queue` aktualisieren — nutzt `RoutingDecision` aus Phase 1
+- `/agentic-coding` Workflow v6 → v7
+- `/process-agent-queue` aktualisieren
 - Migration-Guide für `delegate_subtask`-Caller
 - Pro Bot: System-Prompt-Skeleton in `system_prompts/{bot}.md`
 
 ### Phase 5 — Validierung
 
-Nach 2 Wochen Live: `session_stats` vs Phase-0-Baseline. Re-Review mit Achim.
-Confidence-Werte (`INITIAL_CONFIDENCE`) anhand AuditStore-Daten kalibrieren.
-Ggf. `TASK_TYPE_TO_TIER` nachjustieren oder Routing-Pipeline tunen.
+Nach 2 Wochen Live: `session_stats` vs Phase-0-Baseline. `INITIAL_CONFIDENCE` kalibrieren.
 
-### Phase 6 — Rollback-Pfad (m-9 Fix)
+### Phase 6 — Rollback-Pfad
 
 **Wenn Phase 5 Saving < 20 % netto trotz Tuning:**
 
-1. Backward-Compat-Shim aktivieren — `from .feature_bot import FeatureBot as DeveloperAgent`
-2. Planner hartkodiert auf `AgentType.FEATURE_BOT` für alle Task-Types
+1. Backward-Compat-Shim aktivieren
+2. Planner hartkodiert auf `AgentType.FEATURE_BOT`
 3. AuditStore-Daten in ADR-178 (Lessons Learned) auswerten
 4. Issue-Stub `[adr-candidate] ADR-177 reverted — was geht stattdessen?` öffnen
 
-**Reversibilität:** durch Shim ist Rollback ohne Caller-Änderungen möglich.
+## Temporal Workflow Integration (ADR-077)
 
-## Wave 1–3 Integration (m-11 Fix)
+**Frage:** Sollen Multi-Step-Routings in `Temporal`-Workflow gehören (Durability) oder im aktuellen In-Memory-Modell bleiben?
+
+**Entscheidung für v1.3:** **In-Memory bleibt für v1**, Temporal-Migration ist Future Work.
+
+**Rationale:**
+- ArchitectBot-Calls (`opus`) können >60s dauern → Durability wäre wünschenswert
+- ABER: aktuelle Workflows laufen synchron via MCP-Call-Response — Temporal-Switch wäre größerer Umbau
+- Pragmatisch: erst Bot-Architektur stabilisieren (Phasen 0–5), dann Temporal in eigenem ADR
+
+**Trigger für Temporal-Migration:**
+- ArchitectBot-Calls scheitern wiederholt durch Timeout → dann Temporal als Fix
+- Oder: Wave 4 (parallele Branches) braucht durable Saga-Pattern → dann gemeinsam migrieren
+
+## Wave 1–3 Integration
 
 **Wave 1 — `/agentic-coding` v6:**
 - Auto-Dispatch Router muss `analyze_task` Response um `recommended_agent` erweitern
@@ -444,11 +412,26 @@ Ggf. `TASK_TYPE_TO_TIER` nachjustieren oder Routing-Pipeline tunen.
 
 **Wave 2 — `/session-start` Phase 2.5:**
 - Error-Patterns werden pro Agent gelernt (Tag `agent:doc_bot`, `agent:feature_bot` etc.)
-- `check_recurring_errors` aggregiert pro Agent → Misclassification-Erkennung
 
 **Wave 3 — `/process-agent-queue`:**
 - Queue-Sortierung nutzt `RoutingDecision.confidence` als Tie-Breaker
 - Skip-Logik: `confidence < 0.7` → wartet auf nächste interaktive Session
+
+### catalog-info.yaml (ADR-077)
+
+`mcp-hub/catalog-info.yaml` muss um die 5 Agents als `components` erweitert werden:
+
+```yaml
+spec:
+  components:
+    - name: doc_bot
+      type: agent
+      lifecycle: experimental
+      owner: alpha-team
+    # für alle 5 Bots
+```
+
+Erfolgt im selben PR wie Phase 1 Code-Struktur.
 
 ## Observability (ADR-068-konform)
 
@@ -479,19 +462,48 @@ Jede Routing-Entscheidung → AuditStore-Event:
 agent_routing_decisions_total{agent, model, confidence_bucket}
 agent_routing_misclassifications_total{from_agent, to_agent, reason}
 agent_cost_per_task_usd{agent, task_type}        (histogram)
-agent_quality_score{agent}                       (gauge, 0.0–1.0, post-Guardian)
+agent_quality_score{agent}                       (gauge, 0.0–1.0)
 agent_cache_hit_rate{agent}                      (gauge, 0.0–1.0)
 ```
 
 ### Dashboard (Grafana)
 
 Neues Dashboard `Agent-Team-Specialization`:
-
 - Cost-pro-Task-Type vs Baseline (Phase 0)
 - Routing-Distribution (Donut)
 - Misclassification-Rate (line, target ≤ 10 %)
 - Confidence-Histogram (target: ≥ 80 % der Decisions confidence ≥ 0.85)
-- **Cache-Hit-Rate pro Bot** (target: DocBot/TestBot ≥ 60 %, andere ≥ 40 %)
+- Cache-Hit-Rate pro Bot (target: DocBot/TestBot ≥ 60 %, andere ≥ 40 %)
+
+## Open Questions (Deferred Decisions)
+
+| Frage | Status | Resolved by |
+|-------|--------|-------------|
+| Konkrete `INITIAL_CONFIDENCE`-Werte | Initial geraten (0.85–0.95) | Phase 5 Kalibrierung anhand AuditStore |
+| Eval-Suite-Tooling: `iil-evals` neu oder LangSmith? | Offen | Spike in Phase 3, Entscheidung in eigenem ADR |
+| Migration auf Temporal-Workflow | Deferred | Future ADR (Trigger: Timeout-Häufung oder Wave 4) |
+| Verteilung der Task-Types (35/20/30/10/5) | Hypothese | Phase 0 Baseline (14 Tage `session_stats`) |
+| Anthropic prompt-caching beta → GA-Datum | Offen | Anthropic-Roadmap, nicht in unserer Hand |
+| RL-basiertes Routing (Option E) | Future Work | wenn AuditStore 6+ Monate Daten hat |
+
+## Confirmation
+
+**Wie wird ADR-Compliance verifiziert?**
+
+1. **Test-Suite** (CI-Pflicht):
+   - `pytest tests/orchestrator_mcp/agents/test_planner_routing.py` — Truth-Table 27/27 grün
+   - `pytest tests/orchestrator_mcp/agents/test_planner_properties.py` — 1000 Hypothesis-Cases
+   - `coverage report --fail-under=80` pro Bot
+2. **Audit-Log-Auswertung** (Phase 5):
+   - Misclassification-Rate < 10 % über AuditStore-Query
+   - Cache-Hit-Rate-Targets erreicht (DocBot/TestBot ≥ 60 %)
+   - Cost-Saving ≥ 20 % netto vs Phase-0-Baseline
+3. **Architecture Guardian** (ADR-054):
+   - `mcp5_check_violations` gegen neuen Bot-Code — 0 Verstöße
+   - Banned Patterns (`hx-boost`, hardcoded Secrets) bleiben weg
+4. **Drift-Detector** (ADR-059):
+   - `staleness_months: 6` triggert Re-Review nach 6 Monaten
+   - `drift_check_paths` löst Alert aus wenn Code ohne ADR-Update divergiert
 
 ## Implementation Done When
 
@@ -516,7 +528,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 
 ### Positive
 
-- **Quality Up:** Architecture-Tasks bekommen `opus` → ADR-Drafts werden brauchbar (vorher: Eskalation an Mensch)
+- **Quality Up:** Architecture-Tasks bekommen `opus` → ADR-Drafts werden brauchbar
 - **Fully Autonomous bis Gate 2:** ArchitectBot bearbeitet bisher gestubbte Arch-Tasks
 - **Cost-Saving 25–40 % netto** durch Caching-Layer (primärer Lever) + Routing-Mix
 - **Pareto-aligned:** Architektur entspricht state-of-the-art (MALBO heterogene Teams)
@@ -528,13 +540,13 @@ Neues Dashboard `Agent-Team-Specialization`:
 - **Code-Komplexität:** 5 Agent-Klassen + Planner-Pipeline statt 1 Agent
 - **Test-Aufwand:** ~16 h für Test-Pyramide inkl. Eval-Suite
 - **Migration-Risiko:** mitigiert via Option-C-Default + Shadow-Mode
-- **Misclassification-Risiko:** gemanagt via 3 Mechanismen (Confidence / Self-Revision / Guardian-Veto)
+- **Misclassification-Risiko:** gemanagt via 3 Mechanismen
 - **Cost-Saving primär durch Caching, nicht Routing** — Routing-Wert liegt im Quality-Gain
 
 ### Neutral
 
-- `MODEL_SELECTION` bleibt als Backward-Compat-Alias (Migration-Shim)
-- Anthropic-API-Beta-Header für Caching müssen aktiviert sein (`anthropic-beta: prompt-caching-2024-07-31`)
+- `MODEL_SELECTION` bleibt als Backward-Compat-Alias
+- Anthropic-API-Beta-Header für Caching müssen aktiviert sein
 
 ## Rollout-Plan
 
@@ -559,6 +571,8 @@ Neues Dashboard `Agent-Team-Specialization`:
 
 - ADR-066 — Agent Team Architecture (amended)
 - ADR-068 — AuditStore (Logging-Pflicht)
+- ADR-077 — Catalog & Temporal
+- ADR-138 — Implementation Tracking
 - ADR-173 — Orchestrator MCP Server
 - ADR-174 — QM Gate (ASSUMPTION[unverified] = 0)
 - `/agentic-coding` Workflow v6 → v7 (Wave 1)
@@ -566,7 +580,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 - `/process-agent-queue` Workflow (Wave 3)
 - Sabbatella, A. — *MALBO* (arxiv 2511.11788, 2025)
 - Gupta et al. — *HierRouter* (arxiv 2511.09873, 2025)
-- Mavik Labs — *LLM Cost Optimization 2026* (Jan 2026) — Caching als dominanter Lever
+- Mavik Labs — *LLM Cost Optimization 2026* (Jan 2026)
 - Moltbook-AI — *AI Agent Cost Optimization Guide 2026* (März 2026)
 
 ## Appendix — System-Prompt-Skeletons (referenziert in Phase 4)
