@@ -52,6 +52,7 @@ UNIVERSAL=(
     secrets
     onboarding-new-repo
     pre-code
+    process-agent-queue
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
