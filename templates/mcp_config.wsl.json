@@ -1,0 +1,49 @@
+{
+  "_comment": "MCP-Config Template für WSL/Prod-Server. SSoT: platform/docs/mcp/SERVERS.md (ADR-176)",
+  "_generator": "Generate via: bash platform/scripts/sync-mcp-config.sh",
+  "_warning": "NIEMALS direkt bearbeiten — immer Template ändern + sync-Script laufen lassen",
+  "mcpServers": {
+    "deployment-mcp": {
+      "command": "bash",
+      "args": ["${GITHUB_DIR}/mcp-hub/scripts/start-deployment-mcp.sh"],
+      "disabled": false
+    },
+    "github": {
+      "command": "bash",
+      "args": ["${GITHUB_DIR}/mcp-hub/scripts/start-github-mcp.sh"],
+      "disabled": false
+    },
+    "orchestrator": {
+      "command": "bash",
+      "args": ["${GITHUB_DIR}/mcp-hub/scripts/start-orchestrator-mcp.sh"],
+      "disabled": false
+    },
+    "outline-knowledge": {
+      "command": "bash",
+      "args": ["${GITHUB_DIR}/mcp-hub/scripts/start-outline-mcp.sh"],
+      "disabled": false
+    },
+    "paperless-docs": {
+      "command": "bash",
+      "args": ["${GITHUB_DIR}/mcp-hub/scripts/start-paperless-mcp.sh"],
+      "disabled": false
+    },
+    "platform-context": {
+      "command": "bash",
+      "args": ["${GITHUB_DIR}/mcp-hub/scripts/start-platform-context-mcp.sh"],
+      "disabled": false
+    },
+    "playwright": {
+      "command": "npx",
+      "args": [
+        "@playwright/mcp",
+        "--headless",
+        "--ignore-https-errors",
+        "--caps", "vision",
+        "--viewport-size", "1280x720",
+        "--no-sandbox"
+      ],
+      "disabled": false
+    }
+  }
+}
