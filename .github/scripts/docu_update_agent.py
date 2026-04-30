@@ -332,13 +332,21 @@ README.md content:
 Review the README and report ONLY real problems. Be strict but fair.
 Check for:
 1. Hardcoded absolute paths (e.g. /home/username/..., /home/devuser/...)
-2. Phantom commands — CLI commands or scripts mentioned in README that likely don't exist (cross-check with file structure)
+2. Phantom commands — CLI commands or scripts mentioned in README that do NOT exist.
 3. Missing required sections for this tier:
    - All repos: Installation, Quick Start or Usage
    - Django apps: Deployment, Configuration/Environment
    - Packages: API examples, Dependencies/Extras table
 4. Version inconsistency (README mentions a different version than {version})
-5. Outdated module or directory references (directories in README not present in file tree)
+5. Outdated module or directory references that cannot possibly exist
+
+CRITICAL RULES — Do NOT flag these as problems:
+- `python manage.py <any-command>` is ALWAYS valid for Django apps and Django packages (they register management commands via Django's app registry). Never flag these as phantom commands.
+- Python PyPI package names use hyphens (e.g. `iil-foo`) but Python import names use underscores (e.g. `iil_foo` or `foo`). A README using `iil_foo` as the import for package `iil-foo` is CORRECT Python convention — never flag this as inconsistent.
+- Files like `requirements.txt`, `requirements-test.txt`, `requirements-dev.txt` mentioned in README are USER PROJECT conventions, not files that need to exist in the package itself. Never flag these as phantom.
+- Example directory references like `tests/factories.py` shown as usage patterns are USER-SIDE conventions, not package files.
+- Extras defined in `[project.optional-dependencies]` in pyproject.toml above are all valid. Never flag them as phantom. The `all` extra is a standard aggregator.
+- `from <module>.submodule import ...` import paths are valid as long as the top-level module name matches the package.
 
 Respond in this EXACT format:
 PROBLEMS_FOUND: yes|no
@@ -405,14 +413,34 @@ def _get_file_tree(repo_path: Path) -> str:
 
 
 def _get_pyproject_extras(repo_path: Path) -> str:
-    """Return extras/dependencies context from pyproject.toml if present."""
+    """Return extras/dependencies context from pyproject.toml if present.
+
+    Sends [project.optional-dependencies] section explicitly so the LLM
+    has accurate knowledge of which extras are defined — preventing false
+    PHANTOM_COMMAND findings for valid extras like `[all]`.
+    """
     pyproject = repo_path / "pyproject.toml"
     if not pyproject.exists():
         return ""
     content = pyproject.read_text()
-    # Only send dependencies section (cap at 1000 chars)
-    m = re.search(r"(\[project(?:\.optional-dependencies)?\][\s\S]{0,1000})", content)
-    return f"pyproject.toml excerpt:\n{m.group(1)[:1000]}" if m else ""
+
+    parts: list[str] = []
+
+    # 1. [project] metadata (name, version, description — first 600 chars)
+    m = re.search(r"(\[project\][\s\S]{0,600})", content)
+    if m:
+        parts.append(m.group(1).split("\n\n")[0])  # stop before first blank line section
+
+    # 2. [project.optional-dependencies] — full section (critical for extras validation)
+    m = re.search(r"(\[project\.optional-dependencies\][\s\S]{0,1500})", content)
+    if m:
+        # Trim at next top-level section header
+        section = re.split(r"\n\[", m.group(1), maxsplit=1)[0]
+        parts.append(section)
+
+    if not parts:
+        return ""
+    return f"pyproject.toml (relevant sections):\n{'---'.join(parts)}"
 
 
 def _llm_summarize_changelog(repo_name: str, version: str, commits: list[str]) -> str | None:
