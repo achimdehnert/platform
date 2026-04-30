@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-04-30
-version: 1.3
+version: 1.4
 deciders: [achimdehnert, cascade]
 related: [ADR-068, ADR-077, ADR-138, ADR-173, ADR-174]
 amends: [ADR-066]
@@ -27,7 +27,8 @@ routing, observability, prompt-caching, and a documented misclassification fallb
 | 1.0 | 2026-04-30 | Erstentwurf — 4 Bots, qualitatives Cost-Modell |
 | 1.1 | 2026-04-30 | Self-Review-Fixes: 5 Bots + Re-Engineer, Stage-Routing, Observability, Caching |
 | 1.2 | 2026-04-30 | Cost-Math korrigiert (B-5), Modell-Namen verifiziert (B-6), config.py-Migration (M-7), Demotion-Konflikt (M-8), Wave-1–3-Integration |
-| **1.3** | **2026-04-30** | **ADR-Review-Fixes: ADR-138 `implementation_status`, Decision Drivers + Confirmation + Open Questions Sektionen, Temporal-Bezug (ADR-077), Anthropic-Beta-Header-Config, Drift-Detector-Felder** |
+| 1.3 | 2026-04-30 | ADR-Review-Fixes: ADR-138 `implementation_status`, Decision Drivers + Confirmation + Open Questions Sektionen, Temporal-Bezug (ADR-077), Anthropic-Beta-Header-Config, Drift-Detector-Felder |
+| **1.4** | **2026-04-30** | **Pre-Phase-0-Sprint-Befunde: Datenquelle korrigiert auf `llm_calls` (statt `session_stats`), Goldset+Real-Kombination als Phase-0-Methode, mcp-hub#13 als Pre-Requisite verlinkt** |
 
 ## Context
 
@@ -328,7 +329,68 @@ Damit ist Bot-Code unabhängig von Anthropic-API-Versions-Drift.
 
 ### Phase 0 — Baseline-Messung (PFLICHT vor Phase 1)
 
-14 Tage `session_stats` unter Status quo. Metriken: Cost/Erfolgsrate/Token-Verteilung pro Task-Type.
+**Datenquelle:** `llm_calls` Tabelle in `orchestrator_mcp` DB (NICHT `session_stats` — siehe v1.4-Korrektur).
+
+Das Schema ist bereits ADR-177-ready:
+```sql
+llm_calls (
+  model, prompt_tokens, completion_tokens, cost_usd, duration_ms,
+  agent_role,        -- ADR-177-Spalte (aktuell NULL, wird durch Bots befüllt)
+  complexity,        -- ADR-177-Spalte
+  routing_reason,    -- ADR-177-Spalte
+  task_id, repo, created_at
+)
+```
+
+**Pre-Requisite (mcp-hub#13):** `ORCHESTRATOR_DATABASE_URL` muss in MCP-Server-Config gesetzt sein, damit `aifw.sync_completion()` Calls in `llm_calls` landen. ✅ Erledigt mit `mcp-hub@e58908a` (2026-04-30).
+
+**Methode (Kombination — gewählt nach γ-Option):**
+
+#### Phase 0a — Goldset-Baseline (1 Tag, jetzt)
+
+50 typische Tasks aus letzten 6 Monaten GitHub-Issues, mit angestrebter Task-Type-Verteilung gemäß Hypothese: 35 % docs/typo/lint, 20 % test, 30 % feature/bug, 10 % refactor, 5 % architecture.
+
+```yaml
+# platform/baselines/goldset-2026-04.yaml (neue Datei)
+goldset_version: "2026-04"
+total_tasks: 50
+tasks:
+  - id: gs-001
+    task_type: docs
+    complexity: trivial
+    repo: travel-beat
+    description: "Update README installation section"
+    source_issue: "https://github.com/.../issues/123"
+  # ... 49 weitere
+```
+
+**Runner:** `platform/scripts/run_goldset_baseline.py`
+- Iteriert Goldset, ruft jeden Task durch **aktuelle FeatureBot/swe-Pipeline** (Status quo)
+- Schreibt jeden LLM-Call in `llm_calls` mit `routing_reason='goldset_baseline_2026-04'`
+- Aggregiert am Ende: Cost/Tokens/Duration pro task_type
+- Output: `platform/baselines/goldset-2026-04-results.json`
+
+#### Phase 0b — Real-Modus parallel (14 Tage)
+
+`/process-agent-queue` läuft täglich via Cron, real Auto-Issues werden abgearbeitet. Daten landen automatisch in `llm_calls` mit `routing_reason='auto_dispatch'` (Wave 1 Auto-Dispatch Router setzt das bereits).
+
+```bash
+# crontab -e (devuser)
+0 9 * * * cd $HOME/github/platform && ./scripts/run_agent_queue.sh >> /tmp/agent-queue.log 2>&1
+```
+
+#### Phase 0c — Vergleich in Phase 5
+
+In Phase 5 werden **beide Datenquellen** gegeneinander geprüft:
+- Goldset: deterministisch reproduzierbar, klare Task-Type-Verteilung
+- Real-Daten: authentische Workload-Verteilung
+- Wenn beide ähnliche Cost/Tier-Verteilungen zeigen → robuste Baseline
+- Bei Divergenz → Goldset-Komposition anpassen
+
+**Akzeptanz für Phase-0-Abschluss:**
+- ≥ 50 Tasks im Goldset durchlaufen, alle Daten in `llm_calls`
+- ≥ 14 Tage Real-Daten in `llm_calls` mit ≥ 50 echten Tasks
+- Aggregat-Report in `platform/baselines/phase-0-report.md`
 
 ### Phase 1 — Code-Struktur
 
@@ -378,7 +440,7 @@ orchestrator_mcp/agents/
 
 ### Phase 5 — Validierung
 
-Nach 2 Wochen Live: `session_stats` vs Phase-0-Baseline. `INITIAL_CONFIDENCE` kalibrieren.
+Nach 2 Wochen Live: aggregierte `llm_calls`-Daten der neuen Bot-Architektur vs Phase-0-Baseline (Goldset + Real). `INITIAL_CONFIDENCE` kalibrieren basierend auf realer agent_role-Verteilung.
 
 ### Phase 6 — Rollback-Pfad
 
@@ -482,7 +544,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 | Konkrete `INITIAL_CONFIDENCE`-Werte | Initial geraten (0.85–0.95) | Phase 5 Kalibrierung anhand AuditStore |
 | Eval-Suite-Tooling: `iil-evals` neu oder LangSmith? | Offen | Spike in Phase 3, Entscheidung in eigenem ADR |
 | Migration auf Temporal-Workflow | Deferred | Future ADR (Trigger: Timeout-Häufung oder Wave 4) |
-| Verteilung der Task-Types (35/20/30/10/5) | Hypothese | Phase 0 Baseline (14 Tage `session_stats`) |
+| Verteilung der Task-Types (35/20/30/10/5) | Hypothese | Phase 0 Goldset + Real-Daten via `llm_calls` |
 | Anthropic prompt-caching beta → GA-Datum | Offen | Anthropic-Roadmap, nicht in unserer Hand |
 | RL-basiertes Routing (Option E) | Future Work | wenn AuditStore 6+ Monate Daten hat |
 
@@ -509,7 +571,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 
 | Akzeptanz | CI-Job / Messung |
 |-----------|------------------|
-| Phase-0-Baseline aufgezeichnet (14 Tage) | `session_stats` Daten in Postgres |
+| Phase-0-Baseline aufgezeichnet (Goldset 50 + Real 14d) | `llm_calls` Aggregat in Postgres |
 | 5 Agent-Klassen, je ≥ 80 % Branch-Coverage | `coverage report --fail-under=80` |
 | `select_agent` Truth-Table 27/27 grün | `pytest test_planner_routing.py` |
 | Property-Tests 1000 Cases ohne Failure | `pytest test_planner_properties.py` |
@@ -521,7 +583,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 | Cache-Hit-Rate DocBot/TestBot ≥ 60 % | Grafana-Panel |
 | CHANGELOG in `mcp-hub` mit Migration-Hinweis | git diff |
 | `/agentic-coding` v7 + `/process-agent-queue` v2 mergen | PR Approval |
-| Phase-5-Saving ≥ 20 % netto (oder Rollback via Phase 6) | `session_stats` Diff |
+| Phase-5-Saving ≥ 20 % netto (oder Rollback via Phase 6) | `llm_calls` pre/post Diff |
 | ADR-177 Status `accepted` | Front-Matter |
 
 ## Consequences
@@ -552,7 +614,8 @@ Neues Dashboard `Agent-Team-Specialization`:
 
 | Woche | Phase | Aktivität | Gate |
 |-------|-------|-----------|------|
-| 1–2 | 0 | Baseline-Messung Status quo | 14 Tage `session_stats` aufgezeichnet |
+| 1 | 0a | Goldset-Baseline (50 Tasks) | `llm_calls` enthält ≥ 50 Goldset-Einträge |
+| 1–2 | 0b | Real-Daten parallel (14 Tage `/process-agent-queue` Cron) | `llm_calls` enthält ≥ 50 Real-Tasks |
 | 2–3 | 1 + 2 | Code-Struktur + Migration auf Branch `feat/agent-specialization` | CI grün, Coverage ≥ 80 % |
 | 3 | 2 | Shadow-Mode (1 Woche parallel zu FeatureBot) | Misclassification < 10 % |
 | 4 | 2 | Cutover, alte `developer.py`-Klasse weg (Shim bleibt) | Smoke-Tests grün |
