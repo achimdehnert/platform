@@ -1,10 +1,11 @@
 ---
-description: Fully Agentic Coding — Task definieren, planen, routen, ausführen, bewerten (v5)
+description: Fully Agentic Coding — Task definieren, planen, routen, ausführen, bewerten (v6)
 ---
 
-# Agentic Coding Workflow v5
+# Agentic Coding Workflow v6
 
 Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108 + ADR-154 + ADR-173 + ADR-174.
+**v6**: Auto-Dispatch Router + Cost-Aware Auto-Downgrade Ladder.
 **v5**: Task-Type-granulares LLM-Routing + Auto-Issue-Creation + `get_full_context` + `run_workflow` Alternative. Repo-aware Guardian.
 
 > ⚠️ MCP-Prefixes sind environment-spezifisch — Prefix aus `project-facts.md` oder
@@ -13,6 +14,28 @@ Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108 + ADR-154 + AD
 >
 > **task_id** = GitHub Issue-Nummer des aktuellen Tasks (aus dem Issue-Link). Dieser Wert wird
 > in Steps 2, 5, 6, 8 als Audit-Referenz verwendet.
+
+---
+
+## Auto-Dispatch Router (Entry Point)
+
+**Immer zuerst aufrufen** — wählt automatisch den richtigen Pfad:
+
+```
+MCP: <orc>_analyze_task(description)
+→ liefert: {task_type, complexity, gate_level, recommended_model}
+```
+
+**Routing-Entscheidung:**
+
+| Bedingung | Pfad | Begründung |
+|-----------|------|------------|
+| `gate_level <= 1` AND `complexity in {trivial, simple}` | **Pfad A** (Fully-Autonomous) | Agent-Team reicht |
+| `gate_level == 2` OR `complexity == moderate` | **Pfad B** (Semi-Agentic) | Cascade als Tech Lead nötig |
+| `gate_level >= 3` | **Pfad C** (Human-First) | `<orc>_request_approval(gate=gate_level)` — warten |
+| `complexity == architectural` | **Pfad B** + `model=opus` erzwingen | ADRs brauchen Design-Review |
+
+Bei Unsicherheit → **Pfad B** (konservativer). Nie Pfad A für `infra`/`deployment`/`breaking_change`.
 
 ---
 
@@ -197,7 +220,35 @@ MCP: <orc>_get_cost_estimate(task_id, model=<empfohlen aus analyze_task>, estima
 → liefert: cost_usd, budget_status (ok/over), token_budget
 ```
 
-Bei `budget_status = over` → Model herunterstufen (`opus→swe→gpt_low`) oder Task splitten.
+### Cost-Aware Auto-Downgrade Ladder
+
+Statt bei `budget_status == over` abzubrechen — **automatische Fallback-Leiter**:
+
+```python
+ladder = ["opus", "swe", "gpt_low"]
+start_idx = ladder.index(recommended_model)
+
+for model in ladder[start_idx:]:
+    estimate = <orc>_get_cost_estimate(task_id, model=model, estimated_tokens=N)
+    if estimate.budget_status == "ok":
+        selected_model = model
+        break
+else:
+    # Alle Modelle über Budget → Task splitten
+    sub_plan = <orc>_agent_plan_task(description, complexity="simple")
+    # Jede Sub-Task einzeln durch den Router schicken
+```
+
+**Downgrade-Guards (nie automatisch herunterstufen):**
+- `complexity == architectural` → immer `opus`, nie downgraden
+- `task_type == security` → immer `opus`, nie downgraden
+- `complexity == architectural` + Budget over → User fragen, nicht automatisch splitten
+
+**Log nach Downgrade:**
+```
+<orc>_log_action(task_id, action="model_downgrade",
+    details="opus→swe (budget=$0.47/$0.50)")
+```
 
 ---
 
