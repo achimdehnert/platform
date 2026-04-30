@@ -1,11 +1,10 @@
-#!/home/adehnert/CascadeProjects/platform/.venv/bin/python
+#!/usr/bin/env python3
 """run_prompt.py — Generiert optimierten Prompt via Groq (kostenlos) oder Template-Fallback.
 
-Abhängigkeit: litellm kommt via aifw (bereits im platform-Venv) — kein pip install nötig.
-Alternativ: python3 -c direkt mit venv: .venv/bin/python run_prompt.py
+Abhängigkeit: litellm (optional — Script fällt bei ImportError auf Template-Modus zurück).
 
 Usage (vom /prompt Workflow aufgerufen):
-    .venv/bin/python run_prompt.py \\
+    python3 run_prompt.py \\
         --repo risk-hub \\
         --instruction "fix Login-Bug: redirect nach /dashboard" \\
         --context-file /tmp/project-facts.md \\
@@ -16,8 +15,8 @@ Env:
     GROQ_API_KEY  — optional, aus ~/.secrets/groq_api_key
                     Ohne Key: Template-basierter Fallback (keine LLM-Kosten)
 
-Venv-Aufruf (empfohlen):
-    ${GITHUB_DIR:-~/CascadeProjects}/platform/.venv/bin/python run_prompt.py ...
+Aufruf (empfohlen):
+    python3 ${GITHUB_DIR:-$HOME/github}/platform/scripts/run_prompt.py ...
 
 Cost:
     Mit Groq Llama-3.3-70B: ~0.000 USD (Free Tier: 14.400 req/day)
