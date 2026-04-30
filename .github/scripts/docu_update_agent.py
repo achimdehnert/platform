@@ -482,10 +482,18 @@ def update_changelog(repo_path: Path, version: str, *, use_llm: bool = False, re
         existing = changelog.read_text()
         if f"[{version}]" in existing:
             return False  # entry already present
-        # Prepend after top-level header
+        # Prepend before first version entry, preserving any intro text after header
         if re.match(r"^#\s", existing):
             first_newline = existing.index("\n")
-            content = existing[: first_newline + 1] + "\n" + new_entry + existing[first_newline + 1 :]
+            header = existing[: first_newline + 1]
+            rest = existing[first_newline + 1 :]
+            first_entry = re.search(r"^## \[", rest, re.MULTILINE)
+            if first_entry:
+                intro = rest[: first_entry.start()]
+                versions = rest[first_entry.start() :]
+                content = header + intro + new_entry + versions
+            else:
+                content = header + "\n" + new_entry + rest
         else:
             content = new_entry + existing
     else:
