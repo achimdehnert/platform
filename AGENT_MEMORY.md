@@ -6,9 +6,9 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-30T06:28:16.275622+00:00",
+  "last_updated": "2026-04-30T06:28:24.901648+00:00",
   "last_updated_by": "cascade",
-  "entry_count": 8
+  "entry_count": 9
 }
 ```
 
@@ -231,6 +231,32 @@
     "workflows",
     "modularization",
     "implemented"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
+
+## Error Pattern
+
+### ERROR-20260430-PLATFORM-DRIFTCHECK — drift_check.py: False Positives für Library-Repos (Dockerfile required-file)
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "ERROR-20260430-PLATFORM-DRIFTCHECK",
+  "entry_type": "error_pattern",
+  "title": "drift_check.py: False Positives für Library-Repos (Dockerfile required-file)",
+  "content": "Repo: platform (scripts/drift_check.py)\nSymptom: drift_check.py flaggt Dockerfile, docker-compose.prod.yml, requirements.txt als Errors für library-Repos (z.B. learnfw), obwohl der Repo-Typ korrekt als 'library' erkannt wird.\nRoot Cause: required-file Regeln werden ohne Typ-Filter angewendet — auch Library-Repos sehen Docker-Anforderungen.\nFix: drift_check.py muss für type='library' die Docker-required-file Checks überspringen.\nPrevention: Bei nächstem drift_check.py Edit: type-basierte required-file Maps implementieren.",
+  "agent": "cascade",
+  "created_at": "2026-04-30T06:28:24.900967Z",
+  "updated_at": "2026-04-30T06:28:24.900972Z",
+  "expires_at": "2026-05-30T06:28:24.900974Z",
+  "tags": [
+    "error",
+    "platform",
+    "drift_check",
+    "false_positive"
   ],
   "related_entries": [],
   "metadata": {}
