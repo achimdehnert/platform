@@ -1,0 +1,323 @@
+# Goldset Baseline 2026-04 — ADR-177 Phase 0a
+#
+# 50 synthetische Tasks repräsentativ für Platform-Workload, Verteilung:
+#   docs/typo/lint:     17 (34%)
+#   test:               10 (20%)
+#   feature/bug:        15 (30%)
+#   refactor:            5 (10%)
+#   architecture:        3 (6%)
+#
+# Verwendung: platform/scripts/run_goldset_baseline.py
+# Output:    platform/baselines/goldset-2026-04-results.json
+# Schreibt jeden LLM-Call in `llm_calls` mit routing_reason='goldset_baseline_2026-04'
+
+goldset_version: "2026-04"
+total_tasks: 50
+created_at: "2026-04-30"
+description: "Phase 0a Baseline für ADR-177 Agent Role Specialization"
+
+# Task-Type-Verteilung (Hypothese aus ADR-177)
+distribution:
+  docs:         { count: 17, share: 0.34 }
+  test:         { count: 10, share: 0.20 }
+  feature:      { count: 15, share: 0.30 }
+  refactor:     { count: 5,  share: 0.10 }
+  architecture: { count: 3,  share: 0.06 }
+
+# Konfiguration für Runner
+runner_config:
+  current_pipeline: "feature_bot_swe"  # Status quo — alle Tasks laufen durch FeatureBot/swe
+  routing_reason: "goldset_baseline_2026-04"
+  log_target: "llm_calls"
+  fail_fast: false
+  max_parallel: 1  # sequenziell für deterministische Cost-Messung
+
+tasks:
+  # ============================================================
+  # docs/typo/lint (17 Tasks — 34%)
+  # ============================================================
+  - id: gs-001
+    task_type: docs
+    complexity: trivial
+    repo: travel-beat
+    description: "Update README installation section with new pip install command"
+  - id: gs-002
+    task_type: docs
+    complexity: trivial
+    repo: risk-hub
+    description: "Add CHANGELOG entry for v0.5.2 lint fixes"
+  - id: gs-003
+    task_type: typo
+    complexity: trivial
+    repo: weltenhub
+    description: "Fix typo 'recieve' → 'receive' in docstrings"
+  - id: gs-004
+    task_type: docs
+    complexity: simple
+    repo: bfagent
+    description: "Document new /healthz/ endpoint in README"
+  - id: gs-005
+    task_type: lint
+    complexity: trivial
+    repo: pptx-hub
+    description: "Apply ruff --fix on apps/converter/"
+  - id: gs-006
+    task_type: docs
+    complexity: simple
+    repo: trading-hub
+    description: "Add architecture diagram description to README"
+  - id: gs-007
+    task_type: typo
+    complexity: trivial
+    repo: cad-hub
+    description: "Fix German umlaut encoding in templates/dashboard.html"
+  - id: gs-008
+    task_type: docs
+    complexity: simple
+    repo: coach-hub
+    description: "Document multi-tenancy header X-Tenant-ID in API.md"
+  - id: gs-009
+    task_type: lint
+    complexity: trivial
+    repo: 137-hub
+    description: "Fix E402 import-not-at-top in apps/incidents/views.py"
+  - id: gs-010
+    task_type: docs
+    complexity: simple
+    repo: dev-hub
+    description: "Update CONTRIBUTING.md with new pre-commit hooks"
+  - id: gs-011
+    task_type: typo
+    complexity: trivial
+    repo: outline-knowledge
+    description: "Fix typo 'auf' → 'aus' in 5 ADR documents"
+  - id: gs-012
+    task_type: lint
+    complexity: trivial
+    repo: travel-beat
+    description: "Remove F401 unused imports in apps/trips/views.py"
+  - id: gs-013
+    task_type: docs
+    complexity: simple
+    repo: weltenhub
+    description: "Add example payloads to API endpoint docs"
+  - id: gs-014
+    task_type: docs
+    complexity: trivial
+    repo: ausschreibungs-hub
+    description: "Update README badges for CI status"
+  - id: gs-015
+    task_type: lint
+    complexity: simple
+    repo: bfagent
+    description: "Apply black --check fixes to apps/agent/"
+  - id: gs-016
+    task_type: typo
+    complexity: trivial
+    repo: risk-hub
+    description: "Fix typo 'Beriech' → 'Bereich' in templates"
+  - id: gs-017
+    task_type: docs
+    complexity: simple
+    repo: wedding-hub
+    description: "Document Stripe webhook setup in DEPLOY.md"
+
+  # ============================================================
+  # test (10 Tasks — 20%)
+  # ============================================================
+  - id: gs-018
+    task_type: test
+    complexity: simple
+    repo: travel-beat
+    description: "Add factory for TripFactory with date overrides"
+  - id: gs-019
+    task_type: test
+    complexity: simple
+    repo: risk-hub
+    description: "Add test_should_calculate_explosion_zone for ExplosionConcept"
+  - id: gs-020
+    task_type: test
+    complexity: moderate
+    repo: weltenhub
+    description: "Add fixture for multi-tenant World with 3 chapters"
+  - id: gs-021
+    task_type: test
+    complexity: simple
+    repo: bfagent
+    description: "Add coverage for /livez/ endpoint failure cases"
+  - id: gs-022
+    task_type: test
+    complexity: simple
+    repo: pptx-hub
+    description: "Add test for invalid PPTX file handling"
+  - id: gs-023
+    task_type: test
+    complexity: moderate
+    repo: trading-hub
+    description: "Add integration test for order placement flow"
+  - id: gs-024
+    task_type: test
+    complexity: simple
+    repo: cad-hub
+    description: "Add unit test for IFC parser edge cases"
+  - id: gs-025
+    task_type: test
+    complexity: simple
+    repo: coach-hub
+    description: "Increase coverage of CoachingSession service to 85%"
+  - id: gs-026
+    task_type: test
+    complexity: moderate
+    repo: 137-hub
+    description: "Add E2E test for incident escalation workflow"
+  - id: gs-027
+    task_type: test
+    complexity: simple
+    repo: dev-hub
+    description: "Add property-test for slug generation idempotency"
+
+  # ============================================================
+  # feature/bug (15 Tasks — 30%)
+  # ============================================================
+  - id: gs-028
+    task_type: feature
+    complexity: moderate
+    repo: travel-beat
+    description: "Add HTMX-based trip filter by date range"
+  - id: gs-029
+    task_type: bugfix
+    complexity: simple
+    repo: risk-hub
+    description: "Fix 500 error on empty hazard_class in /substances/create/"
+  - id: gs-030
+    task_type: feature
+    complexity: moderate
+    repo: weltenhub
+    description: "Add character relationship graph view"
+  - id: gs-031
+    task_type: bugfix
+    complexity: simple
+    repo: bfagent
+    description: "Fix race condition in agent task queue dedup"
+  - id: gs-032
+    task_type: feature
+    complexity: moderate
+    repo: pptx-hub
+    description: "Add slide template gallery with preview"
+  - id: gs-033
+    task_type: bugfix
+    complexity: moderate
+    repo: trading-hub
+    description: "Fix order timezone bug in summary report"
+  - id: gs-034
+    task_type: feature
+    complexity: moderate
+    repo: cad-hub
+    description: "Add DXF export with layer mapping"
+  - id: gs-035
+    task_type: bugfix
+    complexity: simple
+    repo: coach-hub
+    description: "Fix Stripe webhook signature verification"
+  - id: gs-036
+    task_type: feature
+    complexity: moderate
+    repo: 137-hub
+    description: "Add SLA timer to incident dashboard"
+  - id: gs-037
+    task_type: bugfix
+    complexity: simple
+    repo: dev-hub
+    description: "Fix N+1 in user roles permission check"
+  - id: gs-038
+    task_type: feature
+    complexity: moderate
+    repo: ausschreibungs-hub
+    description: "Add filter by Vergabeart in tender list"
+  - id: gs-039
+    task_type: bugfix
+    complexity: simple
+    repo: wedding-hub
+    description: "Fix guest count calculation when plus-ones exist"
+  - id: gs-040
+    task_type: feature
+    complexity: simple
+    repo: travel-beat
+    description: "Add CSV export for trip costs"
+  - id: gs-041
+    task_type: bugfix
+    complexity: moderate
+    repo: risk-hub
+    description: "Fix migration conflict in 0034_add_atex_zones"
+  - id: gs-042
+    task_type: feature
+    complexity: moderate
+    repo: weltenhub
+    description: "Add scene reordering via drag-and-drop"
+
+  # ============================================================
+  # refactor (5 Tasks — 10%)
+  # ============================================================
+  - id: gs-043
+    task_type: refactor
+    complexity: moderate
+    repo: bfagent
+    description: "Extract LLM call logic from views.py into services.py"
+  - id: gs-044
+    task_type: refactor
+    complexity: moderate
+    repo: travel-beat
+    description: "Replace ad-hoc dict with TypedDict for trip context"
+  - id: gs-045
+    task_type: refactor
+    complexity: complex
+    repo: weltenhub
+    description: "Refactor Story → ChapterCollection ownership model"
+  - id: gs-046
+    task_type: tech_debt
+    complexity: moderate
+    repo: cad-hub
+    description: "Migrate IFC parser from ifcopenshell-cython to native Python"
+  - id: gs-047
+    task_type: refactor
+    complexity: simple
+    repo: coach-hub
+    description: "Consolidate 3 duplicate notification helpers into one"
+
+  # ============================================================
+  # architecture (3 Tasks — 6%)
+  # ============================================================
+  - id: gs-048
+    task_type: architecture
+    complexity: architectural
+    repo: platform
+    description: "Draft ADR for unified rate-limiting strategy across hubs"
+  - id: gs-049
+    task_type: breaking_change
+    complexity: complex
+    repo: bfagent
+    description: "Migrate /api/v1 to /api/v2 with deprecation period"
+  - id: gs-050
+    task_type: security
+    complexity: complex
+    repo: weltenhub
+    description: "Audit and harden tenant isolation in content_store.*"
+
+# ============================================================
+# Sampling Notes
+# ============================================================
+# - Tasks sind synthetisch aber realitätsnah (typische Patterns aus echten Issues
+#   der letzten 6 Monate über alle 14+ Repos)
+# - Verteilung 34/20/30/10/6 ≈ ADR-177 Hypothese 35/20/30/10/5
+# - Komplexitäts-Mix: trivial (8), simple (24), moderate (14), complex (3),
+#                    architectural (1)
+# - Live-Issue-Mapping (TODO später): jeder gs-NNN könnte mit konkretem GitHub-Issue
+#   verlinkt werden, derzeit synthetisch
+#
+# ============================================================
+# Akzeptanz für Goldset-Baseline-Run
+# ============================================================
+# 1. Alle 50 Tasks durch FeatureBot/swe-Pipeline abgearbeitet
+# 2. 50 entries in llm_calls mit routing_reason='goldset_baseline_2026-04'
+# 3. Aggregate: cost_usd, prompt_tokens, completion_tokens, duration_ms pro task_type
+# 4. Output: platform/baselines/goldset-2026-04-results.json
