@@ -51,6 +51,7 @@ UNIVERSAL=(
     sync-project-facts
     secrets
     onboarding-new-repo
+    pre-code
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
@@ -76,6 +77,7 @@ DJANGO_HUB=(
     compose-audit
     nginx-check
     uptime-monitoring
+    infra-health
 )
 
 # Nur Python-Packages (PyPI)
@@ -83,8 +85,9 @@ PACKAGE=(
     release
 )
 
-# Nur platform (werden NICHT verteilt)
-# cascade-auftraege, idea-intake, agent-review
+# Nur platform (werden NICHT verteilt — Meta-Repo-spezifisch):
+# cascade-auftraege, idea-intake, agent-review, workflow-review,
+# docu-repo-all, platform-audit, create-pdf, onboard-stack
 
 # --- Repo-Typen (SSoT: registry/github_repos.yaml) ---
 
