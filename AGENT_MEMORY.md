@@ -6,13 +6,39 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-29T16:32:36.516537+00:00",
+  "last_updated": "2026-04-30T06:28:16.275622+00:00",
   "last_updated_by": "cascade",
-  "entry_count": 7
+  "entry_count": 8
 }
 ```
 
 ## Solved Problem
+
+### SESSION-20260430-PLATFORM — Session 2026-04-30 — platform: Docs-Audit 7 Frameworks + docu-agent Bugfixes
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "SESSION-20260430-PLATFORM",
+  "entry_type": "solved_problem",
+  "title": "Session 2026-04-30 — platform: Docs-Audit 7 Frameworks + docu-agent Bugfixes",
+  "content": "## Was wurde erledigt\n\n### 1. Docs-Audit 7 Framework-Packages (via GitHub MCP)\n- **django-lms-lite**: README + CHANGELOG from scratch erstellt (beide fehlten)\n- **illustration-fw**: README expanded (Install-Befehl, Badges, Extras-Tabelle), CHANGELOG mit v0.2.0/v0.1.0 Einträgen\n- **outlinefw**: Kritischer Bug: `pip install iil-outlinefw[aifw]` → Extra `aifw` existiert nicht → gefixt zu `[knowledge]`. Badges ergänzt. CHANGELOG v0.3.x Einträge hinzugefügt.\n- **nl2cad**: CHANGELOG Struktur gefixt (Intro-Header war in der Mitte)\n- **researchfw**: CHANGELOG leerer [Unreleased] Top entfernt\n- **riskfw**: README PyPI + Python Badges ergänzt\n- **iil-django-commons**: Skip (git-only, kein PyPI, intentional)\n\n### 2. registry/github_repos.yaml — 7 falsche Package-Namen korrigiert\n- authoringfw → iil-authoringfw\n- illustration-fw → iil-illustrationfw\n- nl2cad → iil-nl2cadfw\n- outlinefw → iil-outlinefw\n- promptfw → iil-promptfw\n- researchfw → iil-researchfw\n- weltenfw → iil-weltenfw\n\n### 3. docu_update_agent.py — 2 Root-Cause Fixes\n- **update_changelog() Bug**: Agent prependete nach `# Changelog\\n` → Intro-Text landete in Mitte zwischen Versionen. Fix: Insert vor erstem `## [` via Regex, Intro-Text bleibt oben.\n- **check_readme_install_command() NEU**: Deterministischer Check — vergleicht `pip install X` in README mit `pyproject.toml name =`. Erkennt iil- Prefix-Varianten (authoringfw → iil-authoringfw).\n\n### 4. iil-packages.md Rule — 5 neue Packages\n- iil-outlinefw, iil-researchfw, iil-illustrationfw, iil-learnfw, riskfw\n- Refactoring-Trigger-Patterns ergänzt\n- Requirements-Versionen pinned\n\n## Offene Punkte\n- drift_check.py: False Positives für Library-Repos (Dockerfile/requirements.txt als required-file)\n- iil-django-commons: Phase 4 (PyPI publish v0.4.0) noch ausstehend\n- outlinefw v0.3.0/v0.3.1 CHANGELOG: Stub-Einträge, Inhalt unklar",
+  "agent": "cascade",
+  "created_at": "2026-04-30T06:28:16.274733Z",
+  "updated_at": "2026-04-30T06:28:16.274740Z",
+  "expires_at": "2026-05-30T06:28:16.274742Z",
+  "tags": [
+    "session",
+    "platform",
+    "docs-audit",
+    "docu-agent",
+    "frameworks",
+    "bugfix"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
 
 ### SESSION-20260429-PLATFORM — Session 2026-04-29 platform: SSoT, PyPI, /workflow-review, ADR-175 Accepted
 
