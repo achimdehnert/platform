@@ -109,33 +109,48 @@ def _run_one_task(task: dict[str, Any], dry_run: bool = False) -> dict[str, Any]
             "dry_run": True,
         }
 
+    # Standalone CI-Script (kein Django) — litellm direkt nutzen,
+    # aifw wäre ohne DJANGO_SETTINGS_MODULE nicht funktional (siehe iil-packages rule).
     try:
-        from aifw import sync_completion
+        import litellm
     except ImportError:
-        logger.error("aifw not installed. Run: pip install aifw>=0.5.0")
+        logger.error("litellm not installed. Run: pip install litellm")
+        return {"task_id": task_id, "success": False, "error": "litellm not installed"}
+
+    api_key = os.environ.get("OPENAI_API_KEY")
+    if not api_key:
         return {
             "task_id": task_id,
+            "task_type": task.get("task_type"),
             "success": False,
-            "error": "aifw not installed",
+            "error": "OPENAI_API_KEY not set",
+            "duration_ms": int((time.monotonic() - started) * 1000),
         }
 
+    model = "gpt-4o-mini"  # Status quo: FeatureBot/swe tier = gpt_low
     try:
-        result = sync_completion(
-            action_code="goldset_baseline",
+        response = litellm.completion(
+            model=model,
             messages=[{"role": "user", "content": prompt}],
+            max_tokens=400,
+            api_key=api_key,
         )
+        choice = response.choices[0].message
+        usage = response.usage
+        cost = float(getattr(response, "_hidden_params", {}).get("response_cost", 0.0) or 0.0)
         return {
             "task_id": task_id,
             "task_type": task.get("task_type"),
             "complexity": task.get("complexity"),
             "repo": task.get("repo"),
-            "model": getattr(result, "model", "unknown"),
-            "prompt_tokens": getattr(result, "prompt_tokens", 0),
-            "completion_tokens": getattr(result, "completion_tokens", 0),
-            "cost_usd": float(getattr(result, "cost_usd", 0.0)),
+            "model": model,
+            "prompt_tokens": int(getattr(usage, "prompt_tokens", 0) or 0),
+            "completion_tokens": int(getattr(usage, "completion_tokens", 0) or 0),
+            "total_tokens": int(getattr(usage, "total_tokens", 0) or 0),
+            "cost_usd": cost,
             "duration_ms": int((time.monotonic() - started) * 1000),
-            "success": getattr(result, "success", False),
-            "content_chars": len(getattr(result, "content", "") or ""),
+            "success": True,
+            "content_chars": len(choice.content or ""),
         }
     except Exception as exc:  # noqa: BLE001 — capture all for analysis
         logger.exception("Task %s failed", task_id)
@@ -146,6 +161,54 @@ def _run_one_task(task: dict[str, Any], dry_run: bool = False) -> dict[str, Any]
             "error": str(exc)[:300],
             "duration_ms": int((time.monotonic() - started) * 1000),
         }
+
+
+def _insert_llm_calls(db_url: str, results: list[dict]) -> int:
+    """INSERT each successful result into llm_calls table directly.
+
+    Standalone-Script umgeht aifw → muss selbst schreiben.
+    """
+    try:
+        from sqlalchemy import create_engine, text
+    except ImportError:
+        logger.warning("SQLAlchemy not installed — skipping DB insert")
+        return 0
+
+    eng = create_engine(db_url)
+    inserted = 0
+    with eng.begin() as conn:
+        for r in results:
+            if not r.get("success"):
+                continue
+            conn.execute(
+                text(
+                    """
+                    INSERT INTO llm_calls
+                      (model, prompt_tokens, completion_tokens, total_tokens,
+                       cost_usd, duration_ms, routing_reason, task_id, repo,
+                       source, call_type, created_at)
+                    VALUES
+                      (:model, :pt, :ct, :tt, :cost, :dur, :rr, :tid, :repo,
+                       :src, :ctype, now())
+                    """
+                ),
+                {
+                    "model": r.get("model") or "unknown",
+                    "pt": r.get("prompt_tokens", 0),
+                    "ct": r.get("completion_tokens", 0),
+                    "tt": r.get("total_tokens", r.get("prompt_tokens", 0) + r.get("completion_tokens", 0)),
+                    "cost": r.get("cost_usd", 0.0),
+                    "dur": r.get("duration_ms", 0),
+                    "rr": ROUTING_REASON,
+                    "tid": r.get("task_id"),
+                    "repo": r.get("repo"),
+                    "src": "goldset_runner",
+                    "ctype": "completion",
+                },
+            )
+            inserted += 1
+    logger.info("Inserted %d rows into llm_calls with routing_reason=%s", inserted, ROUTING_REASON)
+    return inserted
 
 
 def _ensure_routing_tag_in_db(db_url: str, run_id: str, task_results: list[dict]) -> None:
@@ -261,7 +324,7 @@ def main() -> int:
             logger.debug("  → %s", json.dumps(r, default=str))
 
     if not args.dry_run and db_url:
-        _ensure_routing_tag_in_db(db_url, run_id, results)
+        _insert_llm_calls(db_url, results)
 
     aggregated = _aggregate(results)
 
