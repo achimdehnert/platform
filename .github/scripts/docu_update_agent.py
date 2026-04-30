@@ -238,6 +238,55 @@ def update_readme_version(repo_path: Path, new_version: str) -> bool:
     return False
 
 
+def check_readme_install_command(repo_path: Path) -> bool:
+    """Ensure `pip install <name>` in README matches pyproject.toml `name =`.
+
+    Fixes cases where the base install command uses a wrong package name variant
+    (e.g., `authoringfw` instead of `iil-authoringfw`). Preserves extras like
+    `pip install "pkg[extra]"` unchanged.
+    """
+    readme = repo_path / "README.md"
+    pyproject = repo_path / "pyproject.toml"
+    if not readme.exists() or not pyproject.exists():
+        return False
+
+    m = re.search(r'^\s*name\s*=\s*["\']([^"\']+)["\']', pyproject.read_text(), re.MULTILINE)
+    if not m:
+        return False
+    canonical = m.group(1)
+
+    def is_wrong_variant(name: str) -> bool:
+        """Return True if name is a known wrong variant of canonical."""
+        if name == canonical:
+            return False
+        n = name.lower().replace("_", "-")
+        c = canonical.lower().replace("_", "-")
+        return c == f"iil-{n}" or c.endswith(f"-{n}")
+
+    content = readme.read_text()
+    original = content
+
+    # Match bare `pip install <name>` only — skip names immediately followed by [
+    pattern = re.compile(
+        r'(pip\s+install\s+)(["\']?)([A-Za-z0-9][A-Za-z0-9_.\-]*)(["\']?)(?!\[)',
+        re.MULTILINE,
+    )
+
+    def replacer(match: re.Match) -> str:
+        prefix, q_open, name, q_close = match.groups()
+        if is_wrong_variant(name):
+            print(f"  [install-fix] {name!r} → {canonical!r}")
+            return f"{prefix}{q_open}{canonical}{q_close}"
+        return match.group(0)
+
+    content = pattern.sub(replacer, content)
+
+    if content != original:
+        readme.write_text(content)
+        return True
+    return False
+
+
 def _get_last_changelog_date(repo_path: Path) -> str | None:
     """Return ISO date of the most recent CHANGELOG entry, or None."""
     changelog = repo_path / "CHANGELOG.md"
@@ -367,14 +416,14 @@ Do NOT suggest style improvements or minor wording changes. Only structural and 
     # Parse response
     problems_found = re.search(r"PROBLEMS_FOUND:\s*(yes|no)", response, re.IGNORECASE)
     if not problems_found or problems_found.group(1).lower() == "no":
-        print("  ✅ README quality check: no problems found")
+        print("  README quality check: no problems found")
         return False
 
     # Extract issues block
     issues_match = re.search(r"ISSUES:\n(.*)", response, re.DOTALL)
     issues_text = issues_match.group(1).strip() if issues_match else response
 
-    print(f"  ⚠️  README quality issues found — creating GitHub issue")
+    print(f"  README quality issues found — creating GitHub issue")
     print(issues_text)
 
     if dry_run:
@@ -405,7 +454,7 @@ def _get_file_tree(repo_path: Path) -> str:
     """Top-level file/dir listing for LLM context."""
     entries = sorted(repo_path.iterdir(), key=lambda p: (p.is_file(), p.name))
     lines = [
-        ("📁 " if e.is_dir() else "📄 ") + e.name
+        (" " if e.is_dir() else " ") + e.name
         for e in entries
         if not e.name.startswith(".")
     ]
@@ -539,6 +588,7 @@ def run_update(
         subprocess.run(["git", "config", "user.name", "Cascade Agent [docu-update]"], cwd=repo_path)
 
         readme_changed = update_readme_version(repo_path, version)
+        install_fixed = check_readme_install_command(repo_path)
         changelog_changed = update_changelog(repo_path, version, use_llm=use_llm, repo_name=repo_name)
 
         # README quality check via LLM (creates issue if problems found)
@@ -556,6 +606,8 @@ def run_update(
         changes = []
         if readme_changed:
             changes.append(f"README.md → v{version}")
+        if install_fixed:
+            changes.append("README.md → install command corrected")
         if changelog_changed:
             changes.append(f"CHANGELOG.md → [{version}]")
 

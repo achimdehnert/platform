@@ -7,7 +7,8 @@ trigger: always_on
 > Always-On Rule — loaded in every Cascade session.
 > Applies to: ALL repos (bfagent, travel-beat, weltenhub, pptx-hub, risk-hub,
 >   cad-hub, trading-hub, mcp-hub, coach-hub, dev-hub, 137-hub, odoo-hub,
->   wedding-hub, aifw, authoringfw, promptfw, weltenfw, nl2cad, infra-deploy)
+>   wedding-hub, aifw, authoringfw, promptfw, weltenfw, nl2cad, outlinefw,
+>   researchfw, illustration-fw, learnfw, riskfw, infra-deploy)
 > Source: PyPI account `iildehnert`
 
 ## Package Registry
@@ -19,6 +20,11 @@ trigger: always_on
 | `iil-authoringfw>=0.3.0` | `from authoringfw import ...` | Creative writing domain schemas | Story/character/world models |
 | `iil-weltenfw>=0.1.0` | `from weltenfw import ...` | WeltenHub REST client + Pydantic schemas | WeltenHub API calls |
 | `iil-nl2cadfw>=0.1.0` | `from nl2cadfw import ...` | IFC/DXF parsing, DIN 277, GAEB, NLP-to-CAD | CAD/BIM processing |
+| `iil-outlinefw>=0.3.2` | `from outlinefw import ...` | Story outline generation (5 frameworks) | Scene/outline planning in writing/story apps |
+| `iil-researchfw>=0.6.0` | `from iil_researchfw import ...` | Academic search, citations, AI analysis | Research features in any Django app |
+| `iil-illustrationfw>=0.2.0` | `from illustrationfw import ...` | Provider-agnostic image generation (DALL·E, SD) | Illustration pipelines |
+| `iil-learnfw>=0.5.4` | `from iil_learnfw import ...` | Django LMS — quizzes, grading, certificates | Learning/training platforms |
+| `riskfw>=0.1.0` | `from riskfw import ...` | Safety calculations (TRGS 721/722, ATEX, EN 1127-1) | Explosion protection, risk-hub |
 | `iil-testkit>=0.4.0` | `from iil_testkit import ...` | Test fixtures, assertions, smoke testing | Testing in ALL Django repos |
 
 ## Publishing New Versions — PYPI_API_TOKEN Location
@@ -152,6 +158,11 @@ When you see any of these patterns in existing code → **refactor to iil-packag
 | Inline Jinja2 multi-layer prompt logic | `from promptfw import PromptTemplate` |
 | Raw `httpx` calls to WeltenHub URLs | `from weltenfw import WeltenClient` |
 | Local `Character`, `Story`, `World` dataclasses | `from authoringfw.schemas import ...` |
+| Local outline/beat/story-structure code | `from outlinefw import OutlineGenerator, FRAMEWORKS` |
+| Raw `httpx` calls to arXiv/Semantic Scholar | `from iil_researchfw import ...` |
+| Local `openai.images.generate()` / `requests` to image API | `from illustrationfw import IllustrationPipeline` |
+| Local quiz/grading/certificate logic | `from iil_learnfw import ...` |
+| Local TRGS/ATEX/explosion-protection calculations | `from riskfw import ...` |
 
 ## Requirements.txt / pyproject.toml
 
@@ -163,6 +174,11 @@ iil-promptfw>=0.5.1,<1
 iil-authoringfw>=0.3.0,<1
 iil-weltenfw>=0.1.0,<1
 iil-nl2cadfw>=0.1.0,<1
+iil-outlinefw>=0.3.2,<1
+iil-researchfw>=0.6.0,<1
+iil-illustrationfw>=0.2.0,<1
+iil-learnfw>=0.5.4,<1
+riskfw>=0.1.0,<1
 ```
 
 ## Publishing New Versions
