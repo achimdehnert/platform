@@ -265,7 +265,7 @@ frameworks:
     github: achimdehnert/authoringfw
     description: Authoring Framework — domain schemas for AI writing
     status: active
-    package: authoringfw
+    package: iil-authoringfw
 
   django-lms-lite:
     github: achimdehnert/django-lms-lite
@@ -283,7 +283,7 @@ frameworks:
     github: achimdehnert/illustration-fw
     description: Illustration generation framework
     status: active
-    package: illustration-fw
+    package: iil-illustrationfw
 
   learnfw:
     github: achimdehnert/learnfw
@@ -295,25 +295,25 @@ frameworks:
     github: achimdehnert/nl2cad
     description: Natural Language to CAD framework
     status: active
-    package: nl2cad
+    package: iil-nl2cadfw
 
   outlinefw:
     github: achimdehnert/outlinefw
     description: Outline Wiki integration framework
     status: active
-    package: outlinefw
+    package: iil-outlinefw
 
   promptfw:
     github: achimdehnert/promptfw
     description: Prompt Template Framework — 4-layer Jinja2 engine
     status: active
-    package: promptfw
+    package: iil-promptfw
 
   researchfw:
     github: achimdehnert/researchfw
     description: Research automation framework
     status: active
-    package: researchfw
+    package: iil-researchfw
 
   riskfw:
     github: achimdehnert/riskfw
@@ -331,7 +331,7 @@ frameworks:
     github: achimdehnert/weltenfw
     description: World-building framework for story universes
     status: active
-    package: weltenfw
+    package: iil-weltenfw
 
 # =============================================================================
 # PLATFORM & INFRASTRUCTURE
