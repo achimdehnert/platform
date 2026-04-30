@@ -10,7 +10,7 @@
 | `deployment-mcp` | `mcp0_` | — | `mcp-hub/deployment_mcp/` | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx | ✅ Production |
 | `github` | `mcp1_` | `mcp0_` | externes Paket (`@modelcontextprotocol/server-github`) | Issues, PRs, Repos, Files, Reviews | ✅ Production |
 | `orchestrator` | `mcp2_` | `mcp1_` | `mcp-hub/orchestrator_mcp/` | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint | ✅ Production |
-| `outline-knowledge` | `mcp3_` | — | `mcp-hub/outline_mcp/` | Outline Wiki: Runbooks, Konzepte, Lessons, ADR-Suche | 🚧 Migration läuft (war `_ARCHIVED`) |
+| `outline-knowledge` | `mcp3_` | `mcp2_` | `mcp-hub/outline_mcp/` | Outline Wiki: Runbooks, Konzepte, Lessons, ADR-Suche | ✅ Production (migriert 2026-04-30 aus `_ARCHIVED`) |
 | `paperless-docs` | `mcp4_` | — | `mcp-hub/paperless_mcp/` | Dokumente, Rechnungen, Archive | ✅ Production |
 | `platform-context` | `mcp5_` | — | `mcp-hub/platform_context_mcp/` | Architektur-Regeln, ADR-Compliance, Banned Patterns | ✅ Production |
 | `playwright` | `mcp6_` | — | externes Paket (`@playwright/mcp`) | Browser-Automation, UI-Tests, Screenshots | ✅ Production |
@@ -38,6 +38,23 @@
 | Name | Begründung |
 |---|---|
 | *(keine zurzeit)* | — |
+
+## Offene Refactorings (ADR-176 Follow-ups)
+
+- [ ] **`llm_mcp_service/` → `llm_gateway/` umbenennen**
+  Betroffene Dateien: `docker-compose.llm-mcp.yml`, Imports in 12 Python-Files, Dockerfile, pyproject.toml.
+  Aufwand: ~1h (Imports + Tests).
+
+- [ ] **`packages/iil-testkit` extrahieren**
+  Aktuell vendored in mcp-hub + separat in `github/testkit/` (PyPI).
+  Ziel: nur PyPI-Dependency `iil-testkit>=X.Y` in `mcp-hub/pyproject.toml`.
+  Aufwand: ~30min (imports prüfen).
+
+- [ ] **`packages/creative-services` Status klären**
+  Vendored in mcp-hub — eigenständiges Paket oder mcp-hub-exklusiv? ADR nötig.
+
+- [ ] **Start-Scripts `/home/devuser/.local/bin/start-*-mcp.sh` zu `mcp-hub/scripts/` migrieren**
+  Alte Scripts in `~/.local/bin/` deprecaten und nach Migration löschen.
 
 ## Prefix-Regel
 
