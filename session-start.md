@@ -268,9 +268,48 @@ mcp1_agent_memory(
 → Liefert relevante Session-Summaries, Error-Patterns und Lessons aus pgvector.
 → Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
 
-> ℹ️ Die früheren Tools `mcp2_get_session_delta` / `mcp2_find_similar_errors` /
-> `mcp2_check_recurring_errors` existieren nicht mehr (Issue #80) — alles läuft jetzt
-> über das einheitliche `mcp1_agent_memory(operation: "query")` Tool.
+> ℹ️ `mcp2_get_session_delta` + `mcp2_find_similar_errors` + `mcp2_check_recurring_errors`
+> sind wieder verfügbar (seit Issue #80 Reopened). Siehe Phase 2.5.
+
+---
+
+## Phase 2.5: Error-Learning (Recurring Errors → ADR-Kandidaten)
+
+**Proaktives Root-Cause-Scanning** — Fehler die sich 3×+ wiederholen sind strukturell, nicht zufällig.
+
+```
+MCP: <orc>_check_recurring_errors(threshold=3)
+→ liefert: Liste mit {symptom, root_cause, fix, occurrence_count, last_occurred_at, action}
+```
+
+**Auswertungs-Regeln:**
+
+| Occurrences | Action | Automatik |
+|------------|--------|-----------|
+| 3-4× | 🟡 ESCALATED | User am Session-Start informieren, Fix-Hypothese vorschlagen |
+| 5-9× | 🔴 CRITICAL | **Auto-Issue** mit Label `adr-candidate` erstellen (wenn noch nicht offen) |
+| 10×+ | 🚨 BLOCKER | Session stoppen, User-Approval holen bevor weitergemacht wird |
+
+**Auto-Issue-Template** (für 5×+ Occurrences):
+
+```
+<gh>_list_issues(labels=["adr-candidate", "auto-detected"], state="open")
+# Nur erstellen wenn gleiche entry_key nicht schon offen
+
+<gh>_create_issue(
+    owner="achimdehnert", repo="platform",
+    title=f"[adr-candidate] Recurring: {symptom[:60]}",
+    body=f"**Occurrences:** {count}× (seit {first_seen})\n"
+         f"**Last:** {last_occurred_at}\n\n"
+         f"**Symptom:** {symptom}\n"
+         f"**Root Cause:** {root_cause}\n"
+         f"**Bisheriger Fix:** {fix}\n\n"
+         f"→ Fix löst Symptom, nicht Root Cause. ADR für strukturelle Lösung nötig.",
+    labels=["adr-candidate", "auto-detected", "agent-learning"]
+)
+```
+
+**Status-RESOLVED Filter:** Tags mit `resolved` aus Output filtern (bereits behobene Patterns).
 
 ---
 
