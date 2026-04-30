@@ -1,11 +1,11 @@
 ---
-description: Fully Agentic Coding — Task definieren, planen, routen, ausführen, bewerten (v4)
+description: Fully Agentic Coding — Task definieren, planen, routen, ausführen, bewerten (v5)
 ---
 
-# Agentic Coding Workflow v4
+# Agentic Coding Workflow v5
 
-Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108 + ADR-173.
-**v4**: Phase 0 Contract Verification (PCV) + Step 3.5 Proactive Tasks. Fiktive MCP-Calls entfernt.
+Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108 + ADR-154 + ADR-173 + ADR-174.
+**v5**: Task-Type-granulares LLM-Routing + Auto-Issue-Creation + `get_full_context` + `run_workflow` Alternative. Repo-aware Guardian.
 
 > ⚠️ MCP-Prefixes sind environment-spezifisch — Prefix aus `project-facts.md` oder
 > `.windsurf/rules/mcp-tools.md` lesen. `<orc>` = Orchestrator-Prefix, `<ctx>` = Platform-Context-Prefix,
@@ -16,20 +16,39 @@ Operationalisiert ADR-066 + ADR-068 + ADR-080 + ADR-107 + ADR-108 + ADR-173.
 
 ---
 
-## Übersicht: Der vollständige Loop
+## Übersicht: Zwei Pfade
+
+### Pfad A — Fully-Autonomous (Gate 0-1 Tasks, einfach/simpel)
+
+Für `trivial`/`simple` Tasks — der Orchestrator führt selbstständig aus:
+
+```
+<orc>_run_workflow(
+    task_description, task_type, complexity,
+    affected_paths, acceptance_criteria
+)
+→ Developer+Guardian+Tester Team läuft autonom mit bis zu 3 Retry-Iterationen
+→ Keine Cascade-Beteiligung nötig, Audit im AuditStore
+```
+
+Alternativ für einzelne Sub-Tasks: `<orc>_delegate_subtask(...)`.
+
+### Pfad B — Semi-Agentic (moderate+, Cascade als Tech Lead)
+
+Für `moderate`+ Tasks — Cascade koordiniert, Agent-Team unterstützt:
 
 ```
 Phase 0: Contract Verification    → PCV-Checkliste          (moderate+ | trivial: nur D)
-Step 0:  Governance Check         → <ctx>_get_context_for_task
+Step 0:  Context + Governance     → <orc>_get_full_context + <ctx>_get_banned_patterns
 Step 1:  Task analysieren + plan  → <orc>_analyze_task + agent_plan_task
-Step 2:  Kostenschätzung          → <orc>_get_cost_estimate  (complex+)
+Step 2:  Model-Routing + Budget   → <orc>_get_cost_estimate  (complex+)
 Step 3:  Implementieren           → Developer (Gate 1)
-Step 3.5 Proactive Tasks          → CHANGELOG, ADR-Impact, Konsistenz-Scan
-Step 4:  Guardian-Check           → ruff + bandit + pytest   (Gate 0)
+Step 3.5 Proactive Tasks          → CHANGELOG, ADR-Impact, Auto-Issues
+Step 4:  Guardian-Check           → repo-aware Lint + Security + Tests (Gate 0)
 Step 5:  Self-Review              → Kriterien-Checkliste + log_action
-Step 6:  QA Gate                  → check_gate / request_approval
+Step 6:  QA Gate                  → check_gate / request_approval (Gate 0-4)
 Step 7:  Commit + PR
-Step 8:  AuditStore + Issue
+Step 8:  AuditStore + Issue-Update
 ```
 
 Bei Fail in Step 5/6 → Rollback-Pfad beachten (Ende dieses Dokuments).
@@ -97,18 +116,31 @@ Jede nicht-verifiable Annahme inline markieren:
 
 ---
 
-## Step 0: Governance Check (immer bei complexity >= moderate)
+## Step 0: Context + Governance Check (complexity >= moderate)
+
+**1 Call ersetzt 4 greps aus Phase 0 A-D** (R-04, ADR-154):
 
 ```
-MCP: <ctx>_get_context_for_task(repo, file_type)
-→ liefert Architektur-Regeln + ADR-Referenzen + Repo-Facts
+MCP: <orc>_get_full_context(task_description, repo, top_k=5)
+→ kombiniert: pgvector-Memories + Repo-Facts + Session-Deltas + Architektur-Regeln + ADR-Referenzen
+```
 
-MCP: <ctx>_get_banned_patterns(context)
-→ liefert verbotene Patterns für diesen Datei-Typ
+Zusätzlich für repo-spezifische Regeln:
 
-MCP: <ctx>_check_violations(code_snippet="<vorhandener ähnlicher Code — nicht neuer Code>")
+```
+MCP: <ctx>_get_banned_patterns(context=<file_type>)
+→ verbotene Patterns für diesen Datei-Typ
+
+MCP: <ctx>_check_violations(code_snippet="<vorhandener ähnlicher Code>")
 → Optional: bestehenden verwandten Code auf Violations scannen (BEVOR du ihn erweiterst)
 → Neuen Code prüfen: → Step 5 (Self-Review)
+```
+
+Optional bei Session-Übernahme:
+
+```
+MCP: <orc>_get_session_delta()
+→ Was hat sich seit letzter Session geändert? (offene Tasks, neue Entscheidungen)
 ```
 
 **Blockiert bei ADR-Verletzung.** Kein Weiter ohne grünen Check.
@@ -125,39 +157,47 @@ MCP: <orc>_agent_plan_task(description, task_type, complexity)
 → liefert: branches[], estimated_steps, assigned_role, gate_level
 ```
 
-Rollen-Zuweisung nach Gate:
+Rollen-Zuweisung nach Gate (kompatibel mit `agent_plan_task` Enum):
 
 | Task-Typ | Rolle | Gate |
 |----------|-------|------|
-| `feature` | Developer | Gate 1 |
-| `bugfix` | Developer | Gate 1 |
-| `test` | Tester | Gate 0 |
-| `refactor` | Re-Engineer | Gate 2 |
-| `adr` / `architecture` | Tech Lead | Gate 2 |
-| `deployment` | Deployment Agent | Gate 2 |
-| `pr_review` | Review Agent | Gate 1 |
+| `test` | Tester | Gate 0 (autonom) |
+| `docs` | Developer | Gate 1 (notify) |
+| `feature` | Developer | Gate 1-2 |
+| `bugfix` | Developer | Gate 1-2 |
+| `refactor` | Re-Engineer | Gate 2 (approve) |
+| `infra` / `deployment` | Deployment Agent | Gate 3 (synchronous) |
+| `architecture` (intern — per ADR-066 → Tech Lead) | Tech Lead | Gate 2 |
+| `breaking_change` / `production_data` / `delete` | Human Only | Gate 4 |
+
+> **Hinweis:** `agent_plan_task` akzeptiert nur `feature|bugfix|refactor|test|docs|infra`.
+> Architektur-Tasks → als `refactor` planen mit `complexity=architectural` (triggert opus-Modell).
 
 Gate 2+ → User um Approval bitten (Chat), bevor weitergemacht wird.
+Gate 3+ → `<orc>_request_approval(gate=3)` mit Begründung.
 
 ---
 
-## Step 2: Kostenschätzung (optional, empfohlen bei complex+)
+## Step 2: Model-Routing + Budget (empfohlen bei complex+)
+
+**Task-Type-granulares Routing** (SSoT: `orchestrator_mcp/config.py:MODEL_SELECTION`):
+
+| Task-Typ | Default-Modell | Kosten/1k | Beispiele |
+|----------|---------------|-----------|-----------|
+| `typo` / `lint` / `docs` / `test` | `gpt_low` | ~$0.001 | Typo-Fix, docu-update, Tests schreiben |
+| `feature` / `bug` / `refactor` | `swe` | ~$0.003 | Features, Bugfixes, Refactoring |
+| `architecture` / `security` / `breaking_change` | `opus` | ~$0.015 | ADRs, Security-Review, API-Breaking |
+
+**Complexity überschreibt Default:**
+- `complexity=architectural` → immer `opus` (egal welcher task_type)
+- `complexity=trivial` + `task_type=feature` → kann auf `gpt_low` heruntergestuft werden
 
 ```
-MCP: <orc>_get_cost_estimate(task_id, model, estimated_tokens)
+MCP: <orc>_get_cost_estimate(task_id, model=<empfohlen aus analyze_task>, estimated_tokens)
 → liefert: cost_usd, budget_status (ok/over), token_budget
 ```
 
-Modell-Wahl:
-
-| Complexity | Modell | Kosten/1k | Anwendung |
-|------------|--------|-----------|-----------|
-| `trivial` | `gpt_low` | $0.001 | docu-update, CHANGELOG, README-Sync |
-| `simple` | `gpt_low` | $0.001 | Tests schreiben, kleine Bugfixes |
-| `moderate` | `swe` | $0.003 | Features, Refactoring |
-| `complex/architectural` | `opus` | $0.015 | ADRs, Architektur, komplexe Bugs |
-
-Bei `budget_status = over` → complexity herunterstufen oder Task splitten.
+Bei `budget_status = over` → Model herunterstufen (`opus→swe→gpt_low`) oder Task splitten.
 
 ---
 
@@ -202,29 +242,70 @@ grep -n "tenant_id\|public_id" <editierte_files>
 grep -n "hx-post\|hx-put\|button" <editierte_templates> | grep -v "data-testid"
 ```
 
-### D) Refactoring-Flags (nur Listen, nie auto-anwenden)
+### D) Refactoring-Flags → Auto-Issues (ADR-068)
+
+Refactoring-Opportunities werden als GitHub Issues erstellt (nicht auto-angewendet — Out-of-Scope Schutz):
 
 ```
-Refactoring-Opportunities (nicht auto-angewendet):
-- services.py:42 → Funktion >50 Zeilen (ADR-071)
-- models.py:88 → JSONField für strukturierte Daten (BANNED)
+MCP: <gh>_create_issue(
+    owner="achimdehnert", repo=<repo>,
+    title="[refactor] <Datei>:<Zeile> — <Kurzbeschreibung>",
+    body="Auto-erkannt in Task #<task_id>.\n\n"
+         "**Problem:** <Funktion >50 Zeilen | JSONField | etc>\n"
+         "**ADR:** <ADR-071 | ADR-022>\n"
+         "**Aufwand:** <S|M|L>\n"
+         "**Begründung Out-of-Scope:** bounded scope (ADR-081 ScopeLock)",
+    labels=["refactor", "auto", "agentic-coding"]
+)
 ```
+
+**Trigger-Regeln** (nur bei Hit, kein Lärm):
+- Funktion >50 Zeilen in **editierten** Files (ADR-071)
+- `JSONField()` für strukturierte Daten in **editierten** Models (ADR-022)
+- Fehlende `data-testid` in **editierten** Templates mit `hx-*` (ADR-048)
+- Funktion mit Typ-Annotation `Any` in **editierten** Services
+
+**Duplikat-Schutz:** vorher `<gh>_list_issues(labels=["refactor","auto"], state="open")` —
+Issue nur erstellen wenn gleicher `<Datei>:<Zeile>` noch nicht offen.
 
 ---
 
 ## Step 4: Guardian-Check (Gate 0 — immer nach Implementierung)
 
+**Befehle sind repo-spezifisch** — aus `project-facts.md` (`REPO_TYPE`, `TEST_CMD`, `LINT_CMD`) ableiten.
+
+### Python / Django (risk-hub, bfagent, weltenhub, tax-hub, ...)
+
 ```bash
-# Ruff (Linter + Formatter)
-ruff check . --fix
-ruff format .
-ruff check .   # nochmals prüfen — --fix hebt nicht alle Fehler
-
-# Bandit (Security)
+ruff check . --fix && ruff format . && ruff check .
 bandit -r . -ll
-
-# Tests — Befehl ist repo-spezifisch (project-facts.md):
 python -m pytest tests/ -q --tb=short
+```
+
+### Python Package (iil-platform, aifw, promptfw, iil-testkit, ...)
+
+```bash
+ruff check . --fix && ruff format .
+python -m pytest tests/ -q --cov=<package>
+```
+
+### Node / Playwright (iil-reflex, pptx-hub Frontend-Teile)
+
+```bash
+npm run lint
+npm test
+```
+
+### Infra / Bash-only (infra-deploy, platform Scripts)
+
+```bash
+shellcheck scripts/*.sh
+bash -n scripts/*.sh   # Syntax-Check
+```
+
+**ADR-174 QM Gate simulieren (alle Repos):**
+```bash
+grep -rnF "ASSUMPTION[unverified]" --include="*.py" . && exit 1 || true
 ```
 
 **Bei Fail**: sofort fixen — nicht weitermachen.
