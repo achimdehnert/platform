@@ -1,0 +1,45 @@
+name: Publish iil-ingest to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (build only, no upload)'
+        required: false
+        default: false
+        type: boolean
+
+jobs:
+  publish:
+    name: Build and publish iil-ingest
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout iil-ingest
+        uses: actions/checkout@v4
+        with:
+          repository: achimdehnert/iil-ingest
+          token: ${{ secrets.PROJECT_PAT }}
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tools
+        run: pip install hatchling twine
+
+      - name: Build
+        run: |
+          rm -rf dist
+          python -m hatchling build
+          echo "Built packages:"
+          ls -la dist/
+
+      - name: Check
+        run: twine check dist/*
+
+      - name: Upload to PyPI
+        if: ${{ !inputs.dry_run }}
+        env:
+          TWINE_USERNAME: __token__
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        run: twine upload dist/*
