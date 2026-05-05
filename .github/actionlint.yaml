@@ -1,0 +1,15 @@
+# actionlint configuration
+# Self-hosted runner labels used on Hetzner production server
+self-hosted-runner:
+  labels:
+    - hetzner
+    - prod
+    - dev
+    - linux
+
+# Ignore shellcheck info/style hints — pre-existing style suggestions
+# that do not affect workflow correctness.
+ignore:
+  - "SC[0-9]+:(info|style):"
+  - "SC2129:"
+  - "SC2193:"

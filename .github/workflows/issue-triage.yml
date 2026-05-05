@@ -31,8 +31,9 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           ORCHESTRATOR_MCP_URL: ${{ vars.ORCHESTRATOR_MCP_URL || 'http://127.0.0.1:8101' }}
           ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
         run: |
           python .github/scripts/triage_issue.py \
             --issue-number "${{ github.event.issue.number }}" \
-            --title "${{ github.event.issue.title }}" \
+            --title "${ISSUE_TITLE:-}" \
             --body "${ISSUE_BODY:-}"
