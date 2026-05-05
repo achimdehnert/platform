@@ -1,7 +1,7 @@
 # MCP-Server Inventar
 
 > **SSoT** für alle MCP-Server der Plattform (ADR-176)
-> Stand: 2026-04-30
+> Stand: 2026-05-05
 
 ## Produktive Server
 
@@ -41,9 +41,8 @@
 
 ## Offene Refactorings (ADR-176 Follow-ups)
 
-- [ ] **`llm_mcp_service/` → `llm_gateway/` umbenennen**
-  Betroffene Dateien: `docker-compose.llm-mcp.yml`, Imports in 12 Python-Files, Dockerfile, pyproject.toml.
-  Aufwand: ~1h (Imports + Tests).
+- [x] **`llm_mcp_service/` → `llm_gateway/` umbenennen** — done (ADR-178, 2026-05-05)
+  V0 Container gestoppt, V1 dead code gelöscht, V2 umbenannt. Deploy pending.
 
 - [ ] **`packages/iil-testkit` extrahieren**
   Aktuell vendored in mcp-hub + separat in `github/testkit/` (PyPI).
