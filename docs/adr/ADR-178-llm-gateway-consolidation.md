@@ -79,14 +79,13 @@ Keep both running, document clearly, address later.
 
 ## Migration Plan
 
-### Phase 1: Cleanup (no downtime) — ✅ partially done
+### Phase 1: Cleanup (no downtime) — ✅ done
 
 1. ~~Delete `llm_mcp/main.py` (dead V1 code)~~ — done (commit `43fa59e`, 2026-05-05)
 2. ~~Migrate `tests/test_llm_mcp.py` to import from `llm_mcp_service.main`~~ — done (same commit)
-3. Confirm `llm_mcp/` retains only MCP-stdio files: `server.py`, `service.py`, `db.py`, `__main__.py`, `__init__.py`, `providers/`, and V0 `http_gateway.py`
-4. Monitor V0 container logs for 1 week confirming zero usage
-5. Stop and remove V0 container (`0aa21798612b_llm_gateway`)
-6. Delete `llm_mcp/http_gateway.py` after V0 container is stopped
+3. ~~Confirm `llm_mcp/` retains only MCP-stdio files~~ — done: `server.py`, `service.py`, `db.py`, `__main__.py`, `__init__.py`, `providers/`
+4. ~~Stop and remove V0 container (`0aa21798612b_llm_gateway`)~~ — done (2026-05-05, confirmed unused)
+5. ~~Delete `llm_mcp/http_gateway.py`~~ — done (commit `ddb17af`, 2026-05-05)
 
 ### Phase 2: Rename (requires image rebuild + deploy)
 
