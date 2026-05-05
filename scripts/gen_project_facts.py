@@ -130,8 +130,9 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
     if repo != "platform" and WORKFLOWS_SRC.is_dir():
         for wf in ["run-local.md", "run-staging.md", "run-prod.md"]:
             src = WORKFLOWS_SRC / wf
-            if src.exists():
-                shutil.copy2(src, wf_dest / wf)
+            dst = wf_dest / wf
+            if src.exists() and not dst.is_symlink():
+                shutil.copy2(src, dst)
 
     # Symlink global rules to every repo (except platform itself)
     rules_dest = repo_path / ".windsurf" / "rules"
