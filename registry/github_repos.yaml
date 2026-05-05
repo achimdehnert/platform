@@ -321,7 +321,7 @@ frameworks:
     status: active
     package: riskfw
 
-  testkit:
+  iil-testkit:
     github: achimdehnert/iil-testkit
     description: Shared Test Factory Package (ADR-100)
     status: active

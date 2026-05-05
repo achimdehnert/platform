@@ -29,7 +29,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install pytest + pyyaml
-        run: pip install pytest pyyaml --quiet
+        run: pip install pytest pyyaml --quiet --break-system-packages
 
       - name: Checkout alle Repos unter ~/github
         run: |

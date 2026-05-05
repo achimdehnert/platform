@@ -278,6 +278,9 @@ jobs:
                   if (e.status === 404 || e.message?.includes('Not Found')) {
                     core.info(`  SKIP (repo not found): ${repo}`);
                     skipCount++;
+                  } else if (e.message?.includes('archived') || e.message?.includes('read-only')) {
+                    core.info(`  SKIP (repo archived): ${repo}`);
+                    skipCount++;
                   } else {
                     core.warning(`  ❌ ${repo}: ${wf}.md — ${e.message}`);
                     errorCount++;
