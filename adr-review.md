@@ -32,6 +32,7 @@ Work through each category systematically:
 7. **Open Questions & Deferred Decisions** — all open questions addressed
 8. **Modern Platform Patterns** — infra-deploy, Multi-Tenancy, Content Store, catalog-info.yaml, Drift-Detector, Runner labels, Temporal (nur wenn relevant)
 9. **ADR-138 Implementation Tracking** — `implementation_status` in frontmatter (required for Accepted ADRs), `implementation_evidence` if status is partial/implemented/verified, INDEX.md Impl column matches frontmatter
+10. **Glossar & Lesbarkeit** — Glossar-Abschnitt vorhanden? Alle Abkürzungen/Fachbegriffe erklärt? Alphabetisch sortiert? Erläuterungen kontextbezogen (nicht nur Übersetzung)? Zielgruppe: Fachpersonal ohne IT-Hintergrund.
 
 For each check: mark ✅ Pass, ⚠️ Minor issue, or ❌ Fail with a brief note.
 
