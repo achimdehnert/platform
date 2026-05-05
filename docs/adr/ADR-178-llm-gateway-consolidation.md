@@ -1,7 +1,7 @@
 # ADR-178: LLM Gateway Consolidation
 
-- **Status:** Proposed
-- **Date:** 2026-05-11
+- **Status:** Accepted
+- **Date:** 2026-05-05
 - **Deciders:** achimdehnert
 - **Related:** ADR-115 (LLM Usage Logging), ADR-116 (Agent Team Tracking), ADR-176 (MCP-Server SSoT)
 
@@ -9,11 +9,11 @@
 
 The `mcp-hub` repository contains **three separate LLM Gateway implementations** that have accumulated over time. This creates confusion about which module is authoritative, complicates maintenance, and blocks the rename requested in Issue #12.
 
-### Current State (Production, 2026-05-11)
+### Current State (Production, 2026-05-05)
 
 | Container | Image | Entrypoint | Port | Status |
 |-----------|-------|-----------|------|--------|
-| `0aa21798612b_llm_gateway` | `ghcr.io/.../llm-gateway:latest` | `python -m llm_mcp.http_gateway` | 8100 | Running (5 weeks), **likely unused** |
+| `0aa21798612b_llm_gateway` | `ghcr.io/achimdehnert/mcp-hub/llm-gateway:latest` | `python -m llm_mcp.http_gateway` | 8100 | Running (5 weeks), **likely unused** |
 | `llm_mcp` | `iilgmbh/llm_mcp_service:latest` | `uvicorn llm_mcp_service.main:app` | 8001 | Running, **active** (119 calls logged) |
 
 ### Code Modules in Repository
@@ -21,7 +21,7 @@ The `mcp-hub` repository contains **three separate LLM Gateway implementations**
 | Module | Role | API Surface | DB Integration |
 |--------|------|-------------|----------------|
 | `llm_mcp/http_gateway.py` | **V0** — Legacy gateway | `/generate`, `/models`, `/health` | None (uses `LLMService` class) |
-| `llm_mcp/main.py` | **V1** — Dead code | `/v1/chat`, `/v1/agent`, `/health` | Inline asyncpg (hardcoded pricing) |
+| ~~`llm_mcp/main.py`~~ | **V1** — Dead code (**deleted** `43fa59e`) | `/v1/chat`, `/v1/agent`, `/health` | Inline asyncpg (hardcoded pricing) |
 | `llm_mcp/server.py` | MCP-stdio server | MCP tools for Cascade | Via `LLMService` |
 | `llm_mcp_service/main.py` | **V2** — Active gateway | `/v1/chat`, `/v1/agent`, `/health` | SQLAlchemy + BackgroundTasks |
 | `llm_mcp_service/tools.py` | Function Calling | 5 read-only tools | GitHub API, pgvector |
@@ -29,7 +29,7 @@ The `mcp-hub` repository contains **three separate LLM Gateway implementations**
 
 ### Problems
 
-1. **Naming confusion**: `llm_mcp` contains both a MCP-stdio server AND a dead HTTP gateway copy
+1. **Naming confusion**: `llm_mcp` contains both a MCP-stdio server AND a legacy HTTP gateway (`http_gateway.py`), plus V1 dead code (`main.py`, now deleted)
 2. **V1 is dead code**: `llm_mcp/main.py` duplicates V2 but lacks tools, BackgroundTasks, and proper pricing — never deployed
 3. **V0 consumes resources**: The `0aa21798612b_llm_gateway` container runs but appears unused (no calls from it in `llm_calls`)
 4. **Issue #12 blocked**: Renaming `llm_mcp_service` → `llm_gateway` requires understanding which code is live
@@ -47,13 +47,24 @@ The `mcp-hub` repository contains **three separate LLM Gateway implementations**
 
 Rename `llm_mcp_service/` → `llm_gateway/`, delete dead V1 code from `llm_mcp/main.py`, stop V0 container.
 
+- **Pro**: Minimal risk, fast, no feature changes to active service
+- **Pro**: V2 is strict superset of V1 — nothing lost
+- **Con**: V0's `/models` + `/generate` surface disappears (unknown consumers possible)
+
 ### Option B: Merge V0+V2 into unified `llm_gateway`
 
 Combine V0's model-registry features (`/models`, `/generate`) with V2's modern implementation, then rename.
 
+- **Pro**: Preserves all API surfaces
+- **Con**: Significant dev effort, V0 uses completely different API contract (prompt-based vs message-based)
+- **Con**: V0's `LLMService` class (DB model registry) has no current consumers
+
 ### Option C: Status quo + documentation
 
 Keep both running, document clearly, address later.
+
+- **Pro**: Zero risk
+- **Con**: Perpetuates confusion, Issue #12 stays blocked, resources wasted on V0
 
 ## Decision Outcome
 
@@ -68,27 +79,29 @@ Keep both running, document clearly, address later.
 
 ## Migration Plan
 
-### Phase 1: Cleanup (no downtime)
+### Phase 1: Cleanup (no downtime) — ✅ partially done
 
-1. Delete `llm_mcp/main.py` (dead V1 code)
-2. Confirm `llm_mcp/` retains only: `server.py`, `service.py`, `db.py`, `__main__.py`, `__init__.py`
-3. Stop and remove V0 container (`0aa21798612b_llm_gateway`) after 1 week monitoring confirming zero usage
+1. ~~Delete `llm_mcp/main.py` (dead V1 code)~~ — done (commit `43fa59e`, 2026-05-05)
+2. ~~Migrate `tests/test_llm_mcp.py` to import from `llm_mcp_service.main`~~ — done (same commit)
+3. Confirm `llm_mcp/` retains only MCP-stdio files: `server.py`, `service.py`, `db.py`, `__main__.py`, `__init__.py`, `providers/`, and V0 `http_gateway.py`
+4. Monitor V0 container logs for 1 week confirming zero usage
+5. Stop and remove V0 container (`0aa21798612b_llm_gateway`)
+6. Delete `llm_mcp/http_gateway.py` after V0 container is stopped
 
 ### Phase 2: Rename (requires image rebuild + deploy)
 
 1. Rename directory: `llm_mcp_service/` → `llm_gateway/`
 2. Update all internal imports
-3. Update `docker-compose.prod.yml`: service name, container name, image tag
+3. Update `docker-compose.prod.yml` and `docker-compose.llm-mcp.yml`: service name, container name, image tag
 4. Update Dockerfile CMD: `uvicorn llm_gateway.main:app`
 5. Rebuild image: `ghcr.io/achimdehnert/mcp-hub/llm-gateway:latest`
 6. Deploy with health check verification
 
 ### Phase 3: Naming alignment
 
-1. Rename Docker container: `llm_mcp` → `llm_gateway`
-2. Update CORS origins in orchestrator referencing old name
-3. Update `platform/docs/mcp/SERVERS.md`
-4. Close Issue #12 Task 1
+1. Update CORS origins in orchestrator referencing old container name
+2. Update `platform/docs/mcp/SERVERS.md`
+3. Close Issue #12 Task 1
 
 ## Consequences
 
@@ -110,6 +123,12 @@ Keep both running, document clearly, address later.
   - **Mitigation**: Monitor V0 container logs for 1 week before stopping; check nginx access logs for port 8100
 
 ## Technical Notes
+
+### Registry Consolidation
+
+- V0 uses `ghcr.io/achimdehnert/mcp-hub/llm-gateway:latest` (GitHub Container Registry)
+- V2 uses `iilgmbh/llm_mcp_service:latest` (Docker Hub, legacy org)
+- Phase 2 should consolidate to `ghcr.io/achimdehnert/mcp-hub/llm-gateway:latest` (platform standard)
 
 ### Database (unchanged)
 
