@@ -102,7 +102,7 @@ jobs:
     name: "Decrypt & push secrets"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Check SOPS_AGE_KEY available
         id: sops_check
@@ -196,7 +196,7 @@ jobs:
       deployed_tag: ${{ steps.tag.outputs.tag }}
       exit_code: ${{ steps.run.outputs.exit_code }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Pre-flight lint (ADR-054 M1)
         run: |
