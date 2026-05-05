@@ -35,7 +35,7 @@ jobs:
 
       - name: Action Lint
         run: |
-          ./actionlint .github/workflows/*.yml
+          ./actionlint -config-file .github/actionlint.yaml .github/workflows/*.yml
 
       - name: Validate reusable workflow structure
         run: |
