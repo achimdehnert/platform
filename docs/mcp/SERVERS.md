@@ -49,11 +49,11 @@
   Ziel: nur PyPI-Dependency `iil-testkit>=X.Y` in `mcp-hub/pyproject.toml`.
   Aufwand: ~30min (imports prüfen).
 
-- [ ] **`packages/creative-services` Status klären**
-  Vendored in mcp-hub — eigenständiges Paket oder mcp-hub-exklusiv? ADR nötig.
+- [x] **`packages/creative-services` Status geklärt** — dead skeleton gelöscht (Issue #12 Task 3, 2026-05-05)
+  Enthielt nur 1 Alembic-Migration, kein Package-Code. CI-Step entfernt.
 
-- [ ] **Start-Scripts `/home/devuser/.local/bin/start-*-mcp.sh` zu `mcp-hub/scripts/` migrieren**
-  Alte Scripts in `~/.local/bin/` deprecaten und nach Migration löschen.
+- [x] **Start-Scripts migriert** — alte Scripts in `~/.local/bin/` deprecated (Issue #12 Task 4, 2026-05-05)
+  `mcp_config.json` zeigt auf `mcp-hub/scripts/`. Alte `.sh` zu `.sh.deprecated` umbenannt.
 
 ## Prefix-Regel
 
