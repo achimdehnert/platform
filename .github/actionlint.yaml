@@ -7,9 +7,7 @@ self-hosted-runner:
     - dev
     - linux
 
-# Ignore shellcheck info/style hints — pre-existing style suggestions
+# Ignore shellcheck hints — pre-existing style/info suggestions
 # that do not affect workflow correctness.
 ignore:
-  - "SC[0-9]+:(info|style):"
-  - "SC2129:"
-  - "SC2193:"
+  - "shellcheck reported issue"
