@@ -6,13 +6,38 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-04-30T06:28:24.901648+00:00",
+  "last_updated": "2026-05-05T11:37:28.067818+00:00",
   "last_updated_by": "cascade",
-  "entry_count": 9
+  "entry_count": 10
 }
 ```
 
 ## Solved Problem
+
+### SESSION-20260505-PLATFORM — Session 2026-05-05 — platform: Carry-over Fixes + Lücken geschlossen
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "SESSION-20260505-PLATFORM",
+  "entry_type": "solved_problem",
+  "title": "Session 2026-05-05 — platform: Carry-over Fixes + Lücken geschlossen",
+  "content": "## Was erledigt wurde\n\n### Carry-over aus 2026-04-30\n1. drift_check.py: Library-Repos (type=library/framework) überspringen für REQUIRED_FILES_DJANGO Checks → fix in check_repo() mit SCAFFOLD_TYPES Guard\n2. iil-django-commons PyPI v0.4.0: Stale/falsch — bereits auf PyPI 0.3.0, keine neuen Commits → kein Action\n3. outlinefw CHANGELOG 0.3.1/0.3.2: Stubs mit Datum (2026-04-10/28) und konkretem Inhalt gefüllt, via GitHub API gepusht\n\n### Lücken geschlossen\n4. PR #85 (psycopg >=3.3.4): gemergt — Bugfix-Release\n5. PR #84 (docker/build-push-action 5→7): gemergt — Node 24 runtime, keine API-Breaking-Changes\n6. gen_project_facts.py: SameFileError Fix — shutil.copy2() crasht wenn dst Symlink zur selben Datei (von sync-workflows.sh). Fix: not dst.is_symlink() Guard. Ergebnis: 2 generated, 11 skipped ✅\n7. drift_check.py ACTIONS_VERSION_MAP: docker/build-push-action v6→v7\n\n## Dateien geändert\n- platform/scripts/drift_check.py (2 commits: library-fix + v7 update)\n- platform/scripts/gen_project_facts.py (SameFileError fix)\n- outlinefw/CHANGELOG.md (via GitHub API)\n\n## Nächste Session\n- iil-ingest Issue #42 (ADR-170) — ~10h, 2-3 Sessions, neue Session starten",
+  "agent": "cascade",
+  "created_at": "2026-05-05T11:37:28.067026Z",
+  "updated_at": "2026-05-05T11:37:28.067036Z",
+  "expires_at": "2026-06-04T11:37:28.067038Z",
+  "tags": [
+    "session",
+    "platform",
+    "bugfix",
+    "drift-check",
+    "gen-project-facts"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
 
 ### SESSION-20260430-PLATFORM — Session 2026-04-30 — platform: Docs-Audit 7 Frameworks + docu-agent Bugfixes
 
