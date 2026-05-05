@@ -73,12 +73,12 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
-          
+
           create_label() {
             local name="$1"
             local color="$2"
             local description="$3"
-            
+
             echo "[INFO] Creating/updating label: $name"
             if ! gh label create "$name" \
               --repo "${{ github.repository }}" \
@@ -94,9 +94,9 @@ jobs:
               fi
             fi
           }
-          
+
           create_label "adr-review-passed" "0E8A16" "ADR Review passed (Score ≥7)"
           create_label "adr-review-concerns" "FBCA04" "ADR Review with concerns (Score 5-6)"
           create_label "adr-review-failed" "D93F0B" "ADR Review failed (Score <5)"
-          
+
           echo "[OK] All labels created/verified"
