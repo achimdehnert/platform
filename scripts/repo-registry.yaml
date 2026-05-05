@@ -249,6 +249,11 @@ repos:
     type: infra
     note: "Website relaunch assets"
 
+  iil-ingest:
+    type: library
+    pypi: iil-ingest
+    note: "Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)"
+
   iil-testkit:
     type: library
     pypi: iil-testkit
