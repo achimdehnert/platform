@@ -20,7 +20,7 @@ jobs:
     name: "Validate Syntax"
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Install validation tools
         run: |
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.changed_files, '_ci-python.yml')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Dry-run CI workflow logic
         run: |
@@ -81,7 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.changed_files, '_build-docker.yml')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate Dockerfile reference
         run: |
@@ -93,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     if: contains(github.event.pull_request.changed_files, '_deploy-hetzner.yml')
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Validate deploy workflow
         run: |

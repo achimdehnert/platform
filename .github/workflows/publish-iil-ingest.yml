@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout iil-ingest
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: achimdehnert/iil-ingest
           token: ${{ secrets.PROJECT_PAT }}

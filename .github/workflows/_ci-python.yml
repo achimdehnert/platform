@@ -87,7 +87,7 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     if: ${{ inputs.enable_qm_gate && github.event.pull_request.draft == false }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Block unverified assumptions
         run: |
           set -euo pipefail
@@ -106,7 +106,7 @@ jobs:
     name: "Lint & Format"
     runs-on: ${{ inputs.runs_on }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -129,7 +129,7 @@ jobs:
           mkdir -p "$RUN_TMP"
           echo "TMPDIR=$RUN_TMP" >> "$GITHUB_ENV"
           rm -f /tmp/gitleaks.tmp /tmp/gitleaks-*.tar.gz 2>/dev/null || true
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
       - uses: gitleaks/gitleaks-action@v2
@@ -147,7 +147,7 @@ jobs:
     if: ${{ inputs.enable_security_scan }}
     continue-on-error: true        # Job blockiert Deploy nicht — aber Output ist sichtbar
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -207,7 +207,7 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -253,7 +253,7 @@ jobs:
     if: ${{ !inputs.skip_tests }}
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -345,7 +345,7 @@ jobs:
     needs: [test-unit, test-integration]
     if: ${{ !inputs.skip_tests }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v4
         with:
           name: coverage-unit
@@ -378,7 +378,7 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -406,7 +406,7 @@ jobs:
     needs: [lint]
     if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
