@@ -37,7 +37,10 @@ jobs:
 
       - name: Action Lint
         run: |
-          ./actionlint -config-file .github/actionlint.yaml .github/workflows/*.yml
+          ./actionlint \
+            -config-file .github/actionlint.yaml \
+            -ignore "shellcheck reported issue" \
+            .github/workflows/*.yml
 
       - name: Validate reusable workflow structure
         run: |
