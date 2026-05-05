@@ -6,9 +6,9 @@
 {
   "_type": "meta",
   "version": "1.0",
-  "last_updated": "2026-05-05T11:37:28.067818+00:00",
+  "last_updated": "2026-05-05T11:37:32.452705+00:00",
   "last_updated_by": "cascade",
-  "entry_count": 10
+  "entry_count": 11
 }
 ```
 
@@ -263,6 +263,31 @@
 ```
 
 ## Error Pattern
+
+### ERROR-20260505-PLATFORM-SAMEFILE — shutil.copy2 SameFileError wenn dst ein Symlink zur selben Datei ist
+
+```json
+{
+  "_type": "entry",
+  "entry_id": "ERROR-20260505-PLATFORM-SAMEFILE",
+  "entry_type": "error_pattern",
+  "title": "shutil.copy2 SameFileError wenn dst ein Symlink zur selben Datei ist",
+  "content": "Repo: platform\nScript: scripts/gen_project_facts.py\nSymptom: Script crasht mit 'SameFileError: src and dst are the same file' — Output endet bei 0 Repos verarbeitet\nRoot Cause: sync-workflows.sh erstellt Symlinks in Repo/.windsurf/workflows/ auf platform/.windsurf/workflows/. gen_project_facts.py versucht dann shutil.copy2(src, dst) wo dst ein Symlink auf src ist → gleiche Datei\nFix: not dst.is_symlink() Guard vor shutil.copy2() hinzufügen\nPrevention: Bei copy-Operationen immer is_symlink() prüfen wenn Ziel-Verzeichnis von sync-workflows.sh verwaltet wird",
+  "agent": "cascade",
+  "created_at": "2026-05-05T11:37:32.450858Z",
+  "updated_at": "2026-05-05T11:37:32.450869Z",
+  "expires_at": "2026-06-04T11:37:32.450872Z",
+  "tags": [
+    "error",
+    "platform",
+    "gen-project-facts",
+    "shutil",
+    "symlink"
+  ],
+  "related_entries": [],
+  "metadata": {}
+}
+```
 
 ### ERROR-20260430-PLATFORM-DRIFTCHECK — drift_check.py: False Positives für Library-Repos (Dockerfile required-file)
 
