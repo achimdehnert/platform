@@ -87,14 +87,15 @@ Keep both running, document clearly, address later.
 4. ~~Stop and remove V0 container (`0aa21798612b_llm_gateway`)~~ — done (2026-05-05, confirmed unused)
 5. ~~Delete `llm_mcp/http_gateway.py`~~ — done (commit `ddb17af`, 2026-05-05)
 
-### Phase 2: Rename (requires image rebuild + deploy)
+### Phase 2: Rename — ✅ done
 
-1. Rename directory: `llm_mcp_service/` → `llm_gateway/`
-2. Update all internal imports
-3. Update `docker-compose.prod.yml` and `docker-compose.llm-mcp.yml`: service name, container name, image tag
-4. Update Dockerfile CMD: `uvicorn llm_gateway.main:app`
-5. Rebuild image: `ghcr.io/achimdehnert/mcp-hub/llm-gateway:latest`
-6. Deploy with health check verification
+1. ~~Rename directory: `llm_mcp_service/` → `llm_gateway/`~~ — done (commit `5929e60`, 2026-05-05)
+2. ~~Update all internal imports~~ — done (same commit)
+3. ~~Update `docker-compose.llm-mcp.yml`: service name, container name, image tag~~ — done
+4. ~~Update `docker-compose.yml`: orchestrator LLM URL default~~ — done
+5. ~~Update Dockerfile CMD: `uvicorn llm_gateway.main:app`~~ — done
+6. ~~Consolidate image to `ghcr.io/achimdehnert/mcp-hub/llm-gateway`~~ — done
+7. Rebuild image + deploy — **pending** (next deploy)
 
 ### Phase 3: Naming alignment
 
