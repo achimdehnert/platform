@@ -158,9 +158,25 @@ Datei `{ADR_PATH}/ADR-NNN-[title-slug].md` erstellen.
 6. Risiken
 7. Konsequenzen (7.1 Positiv, 7.2 Trade-offs, 7.3 Nicht in Scope)
 8. Validation Criteria
-9. Referenzen
-10. Changelog
+9. Glossar
+10. Referenzen
+11. Changelog
 ```
+
+**Glossar-Abschnitt (Pflicht — LRA-Lesbarkeit):**
+
+Jede Abkürzung und jeder Fachbegriff, der für LRA-Mitarbeiter ohne IT-Hintergrund
+nicht selbsterklärend ist, MUSS im Glossar erläutert werden.
+
+```markdown
+## Glossar
+
+| Abkürzung | Bedeutung |
+|-----------|-----------|
+| **XYZ** | Ausgeschriebener Name — kurze Erklärung in einem Satz |
+```
+
+Typische Kandidaten: ADR, KI, ML, LLM, HITL, OCR, API, DSGVO, DMS, QR, HMAC, CI/CD, etc.
 
 ## Step 5: pgvector Memory sichern (PFLICHT — jede neue ADR, alle Repos)
 
