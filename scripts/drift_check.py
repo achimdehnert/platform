@@ -89,7 +89,7 @@ ACTIONS_VERSION_MAP = {
     "actions/upload-artifact": "v4",
     "actions/download-artifact": "v4",
     "actions/cache":          "v4",
-    "docker/build-push-action": "v6",
+    "docker/build-push-action": "v7",
     "docker/login-action":    "v3",
 }
 
