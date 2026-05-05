@@ -339,6 +339,9 @@ def check_python_version(repo: str, token: str) -> list[DriftItem]:
 
 # ── Haupt-Scan ────────────────────────────────────────────────────────────────
 
+SCAFFOLD_TYPES: frozenset[str] = frozenset({"django", "agent", "bot"})
+
+
 def check_repo(repo: str, repo_type: str, token: str,
                iil_latest: dict[str, str]) -> RepoDrift:
     drift = RepoDrift(repo=repo, repo_type=repo_type)
@@ -348,8 +351,11 @@ def check_repo(repo: str, repo_type: str, token: str,
         drift.error = "Repo nicht gefunden oder privat"
         return drift
 
-    drift.drifts.extend(check_required_files(repo, token))
-    drift.drifts.extend(check_file_contents(repo, token))
+    # Docker/requirements checks only apply to deployable scaffold repos
+    if repo_type in SCAFFOLD_TYPES:
+        drift.drifts.extend(check_required_files(repo, token))
+        drift.drifts.extend(check_file_contents(repo, token))
+
     drift.drifts.extend(check_banned_patterns(repo, token))
     drift.drifts.extend(check_actions_versions(repo, token))
     drift.drifts.extend(check_iil_package_versions(repo, token, iil_latest))
