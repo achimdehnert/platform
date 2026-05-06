@@ -7,10 +7,8 @@ consulted: []
 informed: []
 supersedes: []
 amends: [ADR-120]
-related: [ADR-021, ADR-022, ADR-056, ADR-066, ADR-094, ADR-120, ADR-174]
-implementation_status: partial
-implementation_evidence:
-  - "Pilot: risk-hub/.github/workflows/complete-check.yml (Phase A — lokal, noch nicht gepusht)"
+related: [ADR-021, ADR-022, ADR-056, ADR-066, ADR-094, ADR-120, ADR-167, ADR-174]
+implementation_status: none
 tags: [deployment, agent, automation, ci-cd]
 ---
 
@@ -87,6 +85,15 @@ Alles in GitHub Actions, kein Agent-Eingriff.
 > Die Agent-Rolle ist: **Deploy-Guardian** (Tier: Regelbasiert, Gate: 0–4), ergänzt die
 > bestehende Guardian-Rolle aus ADR-066 um Deployment-spezifische Checks.
 
+### Amendment zu ADR-120
+
+ADR-120 §Trigger-Strategy wird wie folgt ergänzt:
+
+- **Bisheriger Stand (ADR-120)**: `v*`-Tags → `deploy_staging=false` → direkt Production
+- **Neuer Stand (ADR-185)**: `v*`-Tags → `verify-staging-history` Job → Production NUR wenn SHA vorher staged (GHCR manifest check)
+
+ADR-120 §Image-Tagging bleibt unverändert: `main-{sha-7}` für Staging, `v{semver}` für Production.
+
 ### Gate-Modell (konsistent mit ADR-066 §Gate-System)
 
 | Phase | Gate | Automatisierung | Approval |
@@ -102,18 +109,37 @@ Alles in GitHub Actions, kein Agent-Eingriff.
 > **Gate 4 für Prod-Deploy** ist verbindlich per ADR-066 §Gate-System.
 > Prod-Deploy darf NIEMALS automatisch erfolgen — immer Human-Only.
 
+### Pipeline-Topologie
+
+```mermaid
+graph LR
+    T[Trigger: push/tag/dispatch] --> CC[_complete-check.yml]
+    T --> CI[_ci-python.yml]
+    CC --> B[Build & Push GHCR]
+    CI --> B
+    B --> S[Deploy Staging]
+    S --> V[Verify Staging]
+    V --> G4{Gate 4: Human Approval}
+    G4 --> P[Deploy Production]
+    P --> AU[Audit pgvector]
+    P -->|Failure| RB[Rollback + Post-Health]
+```
+
+> `_complete-check.yml` und `_ci-python.yml` laufen **parallel** (keine gegenseitige Abhängigkeit).
+> Build startet erst wenn **beide** erfolgreich sind.
+
 ### Ablauf im Detail
 
 ```
 ┌─── TRIGGER: push main / v-tag / workflow_dispatch / /ship ───┐
 │                                                                │
-│  Phase 1: Pre-flight (Gate 0 — autonom)                        │
-│  ├─ CI Job: _ci-python.yml (Ruff + Tests)                      │
-│  ├─ _complete-check.yml (Banned Patterns + Template Validation) │
-│  ├─ python manage.py migrate --check (Migration-Konflikte)      │
+│  Phase 1: Pre-flight (Gate 0 — autonom, PARALLEL)              │
+│  ├─ _ci-python.yml (Ruff + Tests)           ─┐                │
+│  ├─ _complete-check.yml (Banned Patterns)    ─┤── parallel     │
+│  ├─ python manage.py migrate --check         ─┘                │
 │  └─ Bei Failure → STOP + GH Actions Annotation ❌               │
 │                                                                │
-│  Phase 2: Build & Push (Gate 0 — autonom)                      │
+│  Phase 2: Build & Push (Gate 0 — needs: pre-flight ✅)         │
 │  ├─ docker/build-push-action → ghcr.io/{owner}/{app}:{tag}     │
 │  ├─ Tags: main-{sha-7} (Staging) oder v{semver} (Prod)        │
 │  └─ Cache: GitHub Actions Cache (type=gha)                     │
@@ -160,7 +186,7 @@ Tags bereits auf Staging deployed und verifiziert wurde:
 # In _deploy-unified.yml (erweitert):
 verify-staging-history:
   name: "🔍 Verify Staging History"
-  runs-on: self-hosted
+  runs-on: [self-hosted, hetzner]
   needs: [resolve, build]
   if: needs.resolve.outputs.deploy_prod == 'true'
   steps:
@@ -198,6 +224,7 @@ Zwei Dateien mit verschiedenen Zwecken, konsistent über Staging und Prod:
 |-------|-------|-------------|--------|
 | `.env` | Compose-Interpolation | `docker compose` CLI | `IMAGE_TAG`, `GHCR_OWNER`, `GHCR_REPO`, `COMPOSE_PROJECT_NAME` |
 | `.env.prod` / `.env.staging` | App-Secrets | Container (via `env_file:`) | `SECRET_KEY`, `DATABASE_URL`, `REDIS_URL`, etc. |
+| `/opt/scripts/.secrets/pgvector.env` | Audit-Credentials | deploy.sh `--audit` | `PGVECTOR_DSN=postgresql://mcp_hub:***@127.0.0.1:15435/mcp_hub` |
 
 **CRITICAL**: `deploy.sh` liest/schreibt `IMAGE_TAG` in `.env` (nicht `.env.prod`!):
 
@@ -211,6 +238,13 @@ sed -i "s|^IMAGE_TAG=.*|IMAGE_TAG=${IMAGE_TAG}|" "$APP_PATH/.env"
 
 `deploy.sh` hat bereits Rollback-Logik (seit ADR-120/166: `trap rollback ERR`).
 Was **fehlt** ist Observability — gelöst über **Summary-Datei + pgvector-Audit**:
+
+**CONSTRAINT**: Code-Rollback = Image-Rollback. DB-Schema wird NICHT zurückgerollt.
+Daher MUSS jede Migration Expand-Contract-konform sein (ADR-021 §2.16). Nicht-konforme
+Migrationen (DROP, RENAME) sind unter "Was NICHT automatisiert wird" gelistet.
+
+**Rollback-Tiefe = 1** (nur auf `PREVIOUS_TAG`). Tiefere Rollbacks: manuell via
+`workflow_dispatch` mit `image_tag_override` auf ein bekanntes funktionierendes Image.
 
 #### Summary-Datei-Pattern (deploy.sh → GH Actions)
 
@@ -255,36 +289,41 @@ GH Actions Step liest die Datei:
     fi
 ```
 
-> **Für SSH-basierte Deploys** (Staging via appleboy/ssh-action): Summary-Datei
-> muss via `scp` zurückgeholt werden, oder der SSH-Step parsed stdout.
+> **Für SSH-basierte Deploys** (Staging via appleboy/ssh-action): deploy.sh
+> Output wird im SSH-Step als stdout erfasst. Summary-Datei bleibt auf dem
+> Remote-Server und wird beim nächsten Deploy überschrieben.
 
 #### pgvector-Audit via psql (deploy.sh --audit)
 
-deploy.sh läuft auf dem Server, wo pgvector unter `127.0.0.1:15435` erreichbar ist:
+deploy.sh läuft auf dem Server, wo pgvector unter `127.0.0.1:15435` erreichbar ist.
+Credentials werden aus `/opt/scripts/.secrets/pgvector.env` geladen:
 
 ```bash
 # In deploy.sh (erweitert) — optionaler --audit Flag:
-if [[ "${AUDIT:-false}" == "true" ]] && command -v psql >/dev/null 2>&1; then
-  AUDIT_JSON=$(cat <<EOJSON
+if [[ "${AUDIT:-false}" == "true" ]]; then
+  if [[ -f /opt/scripts/.secrets/pgvector.env ]]; then
+    source /opt/scripts/.secrets/pgvector.env  # setzt PGVECTOR_DSN
+    AUDIT_JSON=$(cat <<EOJSON
 {"app":"${APP_NAME}","environment":"${ENVIRONMENT}","image_tag":"${IMAGE_TAG}",
  "previous_tag":"${PREVIOUS_TAG}","git_sha":"${GIT_SHA:-unknown}",
  "status":"${DEPLOY_STATUS}","duration_seconds":${SECONDS},
  "rollback_executed":${ROLLBACK_EXECUTED:-false},
  "trigger":"${DEPLOY_TRIGGER:-manual}"}
 EOJSON
-  )
-  psql "postgresql://mcp_hub:${PGVECTOR_PASSWORD}@127.0.0.1:15435/mcp_hub" -c "
-    INSERT INTO memory_entries (entry_key, entry_type, title, content, agent, tags, created_at)
-    VALUES (
-      'deploy:$(date +%Y-%m-%d):${APP_NAME}',
-      'context',
-      'Deploy ${APP_NAME}:${IMAGE_TAG} (${ENVIRONMENT})',
-      '${AUDIT_JSON}',
-      'deploy-guardian',
-      ARRAY['deploy','${APP_NAME}','${ENVIRONMENT}','${DEPLOY_STATUS}'],
-      NOW()
-    ) ON CONFLICT (entry_key) DO UPDATE SET content=EXCLUDED.content, updated_at=NOW()
-  " 2>/dev/null || echo "WARN: pgvector audit skipped"
+    )
+    psql "$PGVECTOR_DSN" -c "
+      INSERT INTO memory_entries (entry_key, entry_type, title, content, agent, tags, created_at)
+      VALUES (
+        'deploy:$(date +%Y-%m-%d):${APP_NAME}',
+        'context',
+        'Deploy ${APP_NAME}:${IMAGE_TAG} (${ENVIRONMENT})',
+        '${AUDIT_JSON}',
+        'deploy-guardian',
+        ARRAY['deploy','${APP_NAME}','${ENVIRONMENT}','${DEPLOY_STATUS}'],
+        NOW()
+      ) ON CONFLICT (entry_key) DO UPDATE SET content=EXCLUDED.content, updated_at=NOW()
+    " 2>/dev/null || echo "WARN: pgvector audit skipped (connection failed)"
+  fi
 fi
 ```
 
@@ -292,14 +331,13 @@ fi
 
 ```bash
 # In deploy.sh rollback() Funktion (erweitert):
-# Nach Rollback: Health-Check auf alte Version
 sleep 10
 if [[ -n "$HEALTH_CHECK_URL" ]]; then
   HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_CHECK_URL" 2>/dev/null) || HTTP_CODE="000"
   if [[ "$HTTP_CODE" == "200" ]]; then
     echo "✅ Post-Rollback Health-Check OK (HTTP $HTTP_CODE)"
   else
-    echo "::error::KRITISCH: Post-Rollback Health-Check fehlgeschlagen (HTTP $HTTP_CODE)!"
+    echo "KRITISCH: Post-Rollback Health-Check fehlgeschlagen (HTTP $HTTP_CODE)!"
   fi
 fi
 ```
@@ -350,10 +388,14 @@ fi
 
 ### Migration-Safety
 
+**CONSTRAINT**: Code-Rollback ≠ DB-Rollback. Bei Rollback bleibt die Datenbank auf dem neuen
+Schema-Stand, der Code geht auf die alte Version zurück. Dies funktioniert NUR wenn Migrationen
+dem Expand-Contract-Pattern folgen (ADR-021 §2.16): nur additive Änderungen pro Release.
+
 | Szenario | Risiko | Mitigation |
 |----------|--------|------------|
 | Migration schlägt in entrypoint fehl | Container crasht → Rollback-Trigger | deploy.sh `trap ERR` → Rollback auf PREVIOUS_TAG |
-| Migration halb ausgeführt + Rollback | Alte Code-Version + teilweise neues DB-Schema | Expand-Contract-Pattern (ADR-021 §2.16) |
+| Migration erfolgreich, App crasht danach | DB ein Schema-Level voraus | Expand-Contract: ALTER TABLE ADD nur, kein DROP/RENAME |
 | `RunPython` mit DELETE/DROP | Datenverlust bei Rollback | "Was NICHT automatisiert wird" → manuell |
 
 ### Was NICHT automatisiert wird
@@ -403,7 +445,29 @@ jobs:
 | weltenhub | `templates` | `.` | `config.settings` | celery |
 | billing-hub | `src/templates` | `src` | `config.settings_test` | — |
 
-### Implementierung
+## Transition Strategy
+
+### Phase 1: Opt-in (2 Wochen nach Phase D live)
+
+- SHA-Match-Check als **WARNING** (nicht blocking)
+- GH Actions Annotation: "⚠️ Dieses Tag wurde nie auf Staging verifiziert"
+- Repos können GitHub Environment Protection Rule "production" aktivieren
+- Repos ohne Staging-Server (Label: `no-staging`) sind ausgenommen
+
+### Phase 2: Enforce (nach 2 Wochen Opt-in)
+
+- SHA-Match-Check wird **blocking** (`exit 1`)
+- Ausnahme: `workflow_dispatch` mit `image_tag_override` (Rollback/Notfall)
+- Repos mit Label `no-staging` bleiben ausgenommen bis Staging eingerichtet
+
+### Hotfix-Pfad
+
+```
+Hotfix auf main cherry-picken → push main → Staging (auto) → Tag → Prod
+ODER: workflow_dispatch mit image_tag_override (bypasses SHA-Check)
+```
+
+## Implementierung
 
 | Phase | Inhalt | Wo | Abhängig von | Aufwand | Status |
 |-------|--------|-----|-------------|---------|--------|
@@ -423,7 +487,7 @@ jobs:
 ### Positive
 
 - Platform-weit einheitlich: ein Reusable Workflow für alle 20+ Repos
-- Staging wird nie mehr übersprungen (SHA-Match-Check)
+- Staging wird nie mehr übersprungen (SHA-Match-Check, nach Transition Phase 2)
 - Rollback-Observability: Summary-Datei + pgvector-Audit + Post-Rollback-Health
 - Audit-Trail in pgvector + GitHub Actions Log
 - Gate 4 für Prod ist platform-weit konsistent (ADR-066)
@@ -436,7 +500,8 @@ jobs:
 - GitHub Environment Protection Rules müssen pro Repo eingerichtet werden
 - Rollback funktioniert nur wenn GHCR das vorherige Image noch hat
 - SHA-Match-Check fügt ~10s Latenz zu Tag-basierten Deploys hinzu
-- pgvector-Audit braucht `psql` + Credentials auf dem Server
+- pgvector-Audit braucht Credentials auf dem Server (`/opt/scripts/.secrets/pgvector.env`)
+- Transition-Periode (2 Wochen Opt-in) verzögert Full Enforcement
 
 ### Risiken
 
@@ -444,41 +509,52 @@ jobs:
 |--------|---------|------------|
 | Health-Check false positive | HIGH | `/healthz/` prüft DB + Redis (nicht nur HTTP) |
 | Approval-Request wird übersehen | MEDIUM | GH Actions "Waiting for review" + 72h Timeout |
-| GHCR Image-Retention löscht altes Image | LOW | GHCR retention policy: ≥10 Tags behalten |
+| GHCR Image-Retention löscht altes Image | LOW | GHCR retention policy: ≥10 Tags behalten; SHA-Match-Check prüft nur aktuelle Tags |
 | Staging-Env driftet von Prod | MEDIUM | Gleiche Compose-Struktur, gleiche `.env`-Keys |
 | Gleichzeitige Deploys (Race Condition) | MEDIUM | `concurrency` group (`deploy-{app}-{env}`) |
-| Migration halb ausgeführt + Rollback | HIGH | Expand-Contract-Pattern (ADR-021 §2.16) |
+| Migration nicht Expand-Contract-konform | HIGH | Pre-flight: `migrate --check`; Code-Review-Gate; ADR-021 §2.16 |
 | Worker-Tasks abgebrochen bei Restart | MEDIUM | Web zuerst, Worker danach; Tasks idempotent |
-| Summary-Datei bei SSH-Deploy nicht verfügbar | MEDIUM | Stdout-Parsing als Fallback |
+| Summary-Datei bei SSH-Deploy nicht im Runner | MEDIUM | Stdout-Parsing als Fallback |
+
+## Open Questions
+
+| # | Frage | Status | Kontext |
+|---|-------|--------|---------|
+| Q1 | Sollen Repos ohne Staging permanent ausgenommen bleiben oder ist Staging-Setup Pflicht? | Offen | Betrifft Repos die nur Production haben |
+| Q2 | Braucht pgvector-Audit einen Retention/Cleanup-Mechanismus? | Offen | Deploy-Entries wachsen unbegrenzt |
+| Q3 | Wie wird GHCR Image Retention konfiguriert (min. Tags pro Repo)? | Offen | GitHub Org-Setting oder per-Repo |
 
 ## Deferred Decisions
 
-| Entscheidung | Begründung | Zieldatum |
-|--------------|------------|-----------|
-| KI-basierte Failure-Analyse | Deploy-Agent ist aktuell regelbasiert. LLM-Analyse bei Rollback als Erweiterung | 2026-Q3 |
-| Canary-Deploy | `deployment-mcp` hat `canary_deploy` — evaluieren bei >100 Users | 2026-Q3 |
-| Playwright Smoke-Test in CI | Browser-Test in CI erfordert Playwright Docker-Setup | 2026-Q3 |
-| Multi-Server-Deploy | Aktuell Single-Server — bei Skalierung erweitern | 2026-Q4 |
-| Celery SIGTERM Grace Period | `--pool=prefork` mit konfigurierbarer Grace Period | 2026-Q3 |
+| Entscheidung | Begründung | Zieldatum | Geplantes ADR |
+|--------------|------------|-----------|---------------|
+| KI-basierte Failure-Analyse | Deploy-Agent ist aktuell regelbasiert. LLM-Analyse bei Rollback | 2026-Q3 | Kein eigenes ADR — Erweiterung von ADR-185 |
+| Canary-Deploy | `deployment-mcp` hat `canary_deploy` — evaluieren bei >100 Users | 2026-Q3 | ADR-19x (bei Bedarf) |
+| Playwright Smoke-Test in CI | Browser-Test in CI erfordert Playwright Docker-Setup | 2026-Q3 | Kein eigenes ADR — Feature in `_complete-check.yml` |
+| Multi-Server-Deploy | Aktuell Single-Server — bei Skalierung erweitern | 2026-Q4 | ADR-19x (bei Bedarf) |
+| Celery SIGTERM Grace Period | `--pool=prefork` mit konfigurierbarer Grace Period | 2026-Q3 | Kein eigenes ADR — deploy.sh Feature |
 
 ## Glossar
 
 | Begriff | Erklärung |
 |---------|-----------|
-| **Gate** | Kontrollstufe im Agent-Workflow (Gate 0=autonom, Gate 4=nur Mensch). ADR-066 §Gate-System |
-| **Deploy-Guardian** | Regelbasierte Erweiterung der Guardian-Rolle (ADR-066) für Deployment-Checks. Kein LLM |
-| **Pre-flight** | Automatische Prüfungen VOR dem Deploy (Tests, Lint, Migration-Check) |
+| **.env** | Compose-Interpolationsdatei (`IMAGE_TAG`, `GHCR_OWNER`). Nicht mit `.env.prod` (App-Secrets) verwechseln |
+| **Compose-Interpolation** | Docker Compose ersetzt `${VAR}` in YAML durch Werte aus `.env`. Unterschied zu `env_file:` (Container-interne Variablen) |
+| **Deploy-Guardian** | Regelbasierte Erweiterung der Guardian-Rolle (ADR-066) für Deployment-Checks. Kein LLM, statische Regeln |
+| **Expand-Contract** | Migrationsmuster: Phase 1 (Expand) fügt neue Spalten/Tabellen hinzu, Phase 2 (Contract) entfernt alte. Nie beides im selben Release. ADR-021 §2.16 |
+| **Gate** | Kontrollstufe im Agent-Workflow (Gate 0=autonom, Gate 4=nur Mensch). Definiert in ADR-066 §Gate-System |
+| **GHCR** | GitHub Container Registry — Docker-Image-Speicher unter `ghcr.io/achimdehnert/{app}` |
 | **Health-Check** | HTTP-Abfrage an `/livez/` (Liveness) und `/healthz/` (Readiness inkl. DB+Redis) |
-| **Rollback** | Zurücksetzen auf vorherige Version. Implementiert in `deploy.sh` via `trap rollback ERR` |
-| **GHCR** | GitHub Container Registry — `ghcr.io/achimdehnert/{app}` |
-| **SHA-Match-Check** | Verifikation dass ein Git-SHA vorher auf Staging deployed wurde (GHCR manifest inspect) |
+| **Pre-flight** | Automatische Prüfungen VOR dem Deploy (Tests, Lint, Migration-Check, Banned Patterns) |
+| **Reusable Workflow** | Zentraler GitHub Actions Workflow in `platform` — Repos binden ihn als Thin Caller ein |
+| **Rollback** | Zurücksetzen auf vorherige Version. Implementiert in `deploy.sh` via `trap rollback ERR`. Tiefe = 1 |
+| **SHA-Match-Check** | Verifikation dass ein Git-SHA vorher auf Staging deployed wurde (GHCR `docker manifest inspect`) |
 | **Summary-Datei** | `/tmp/deploy-summary-{app}-{pid}.md` — deploy.sh Output für GH Actions Job Summary |
-| **.env** | Compose-Interpolationsdatei (`IMAGE_TAG`, `GHCR_OWNER`). Nicht `.env.prod` (App-Secrets) |
-| **Reusable Workflow** | Zentraler Workflow in `platform` — Repos binden ihn als Thin Caller ein |
+| **Thin Caller** | Minimaler Workflow in einem Repo (≤15 Zeilen) der einen Reusable Workflow aus `platform` aufruft |
 
 ## Confirmation
 
-- **Staging-Skip-Rate = 0%** — kein Prod-Deploy ohne SHA-Match-Check
+- **Staging-Skip-Rate = 0%** — kein Prod-Deploy ohne SHA-Match-Check (nach Transition Phase 2)
 - **Rollback-Observability = 100%** — jeder Rollback hat Summary-Datei + pgvector Entry
 - **Audit-Coverage = 100%** — jeder Deploy hat pgvector Memory-Entry (deploy.sh --audit)
 - **Gate 4 Enforcement** — kein Prod-Deploy ohne GitHub Environment Approval
@@ -492,7 +568,7 @@ jobs:
 - **ADR-056**: Deployment Preflight — Pre-flight Checks in Phase 1
 - **ADR-066**: AI Engineering Squad — Gate-System, Deploy-Guardian Rolle
 - **ADR-094**: Migration Conflict Resolution — `migrate --check` + GHCR-Pull (§2.4a)
-- **ADR-120**: Unified Deploy Pipeline — Reusable Workflow als Grundlage (amended)
+- **ADR-120**: Unified Deploy Pipeline — Reusable Workflow als Grundlage (amended: §Trigger-Strategy)
 - **ADR-167**: Three-Tier Middleware — `/healthz/` in allen 19 Repos vorhanden
 - **ADR-174**: QM Gate — Assumption Check als Teil von Pre-flight
 
@@ -512,4 +588,5 @@ gate: APPROVE
 |-------|---------|----------|
 | 2026-05-06 | v1 | Initial — Status: Proposed |
 | 2026-05-06 | v2 | K1 SHA-Match-Check, K2 Rollback-Observability, K3 .env-Konvention, K4 Deploy-Varianten |
-| 2026-05-06 | v3 | Platform-weite Standardisierung: Reusable Workflow `_complete-check.yml`, Summary-Datei-Pattern (GITHUB_STEP_SUMMARY Workaround), pgvector-Audit via psql, Worker-Discovery, Per-Repo Config-Tabelle, SSH-Deploy Summary-Transfer, Phase A korrigiert (noch nicht gepusht), Aufwandsschätzung |
+| 2026-05-06 | v3 | Platform-weite Standardisierung, Summary-Datei-Pattern, pgvector-Audit via psql, Worker-Discovery |
+| 2026-05-06 | v4 | Review-Fixes: impl_status→none, Transition Strategy, explizites ADR-120 Amendment, PGVECTOR_DSN via secrets-file, Mermaid Pipeline-Diagramm, DB-Rollback-Constraint, Rollback-Tiefe=1, Glossar alphabetisch+erweitert, Open Questions Sektion, Runner-Labels, Deferred Decisions mit ADR-Referenz |
