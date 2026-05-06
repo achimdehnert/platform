@@ -160,6 +160,28 @@ domains:
         lifecycle: experimental
         coverage_threshold: 0
 
+  - name: Analytics & Data
+    systems:
+      - name: bahn-hub
+        repo: bahn-hub
+        description: Bahn SQF Analytics — FastAPI + DuckDB
+        github: achimdehnert/bahn-hub
+        deployed: true
+        url: https://bahn.iil.pet
+        type: fastapi
+        lifecycle: active
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 60
+        deploy:
+          server_path: /opt/bahn-hub
+          image: ghcr.io/achimdehnert/bahn-hub-web:${IMAGE_TAG:-latest}
+          web_container: bahn_hub_web
+          web_service: web
+          migrate_cmd: null
+          multi_tenant: true
+          port: 8110
+
   - name: Events & Lifestyle
     systems:
       - name: wedding-hub

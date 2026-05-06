@@ -41,7 +41,7 @@
 #   VERBOTEN: staging.writing.iil.pet   (2 Level = CF Universal SSL deckt NICHT ab)
 #   Eigene Domains (LE Wildcard) duerfen staging.X.Y bleiben.
 #
-# Nächster freier Port: 8110  (berechnet: port_audit.py --next-free)
+# Nächster freier Port: 8111  (berechnet: port_audit.py --next-free)
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -329,3 +329,22 @@ services:
     domain_prod: dms.iil.pet
     domain_staging: staging-dms.iil.pet
     repo: achimdehnert/dms-hub
+
+  onboarding-hub:
+    prod: 8108
+    staging: 8108
+    dev: 8108
+    container_name: onboarding_hub_web
+    domain_prod: schulungspass.de
+    domain_staging: staging-schulungspass.iil.pet
+    repo: achimdehnert/onboarding-hub
+
+  bahn-hub:
+    prod: 8110
+    staging: 8110
+    dev: 8110
+    container_name: bahn_hub_web
+    domain_prod: bahn.iil.pet
+    domain_staging: staging-bahn.iil.pet
+    repo: achimdehnert/bahn-hub
+    note: "FastAPI + DuckDB — kein Django"

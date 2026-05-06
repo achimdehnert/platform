@@ -240,6 +240,16 @@ django_apps:
     port_prod: 8108
     port_staging: 8108
 
+  bahn-hub:
+    github: achimdehnert/bahn-hub
+    description: Bahn SQF Analytics — FastAPI + DuckDB
+    status: active
+    deployed: true
+    domain_prod: bahn.iil.pet
+    domain_staging: staging-bahn.iil.pet
+    port_prod: 8110
+    port_staging: 8110
+
   odoo-hub:
     github: achimdehnert/odoo-hub
     description: Odoo management and integration
