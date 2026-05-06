@@ -343,6 +343,12 @@ frameworks:
     status: active
     package: iil-weltenfw
 
+  gaeb-toolkit:
+    github: achimdehnert/gaeb-toolkit
+    description: GAEB DA XML 3.3 toolkit — parser, validator, Preisspiegel writer
+    status: active
+    package: gaeb-toolkit
+
 # =============================================================================
 # PLATFORM & INFRASTRUCTURE
 # =============================================================================
