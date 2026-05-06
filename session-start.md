@@ -14,6 +14,23 @@ description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
 > `bootstrap.sh` setzt `GITHUB_DIR`, deployt Workflows + Rules, generiert project-facts.
 > Ohne `$GITHUB_DIR` gilt Fallback: `$HOME/github`
 
+## Verwendung
+
+```
+/session-start [REPO]
+```
+
+| Argument | Beschreibung | Default |
+|----------|-------------|---------|
+| `REPO` | Repo-Slug (z.B. `risk-hub`, `mcp-hub`, `trading-hub`) | Auto-Detect via Git-Root |
+
+**Beispiele:**
+- `/session-start risk-hub` — Session explizit für risk-hub starten
+- `/session-start` — erkennt Repo aus aktiver Datei im IDE
+
+> Bei **mehreren offenen Repos im Workspace**: immer explizit angeben!
+> Der Agent setzt `TARGET_REPO` und nutzt es in allen folgenden Phasen.
+
 ---
 
 ## Platform Sync Loop (Prinzip)
@@ -122,11 +139,25 @@ fi
 ```
 → Neues Repo erkannt? → Eintrag in `platform/scripts/repo-registry.yaml` ergänzen.
 
-### 0.4 Aktuelles Workspace-Repo + Kern-Repos synchronisieren
+### 0.4 Target-Repo bestimmen + synchronisieren
 
 // turbo
 ```bash
-# Aktuelles Repo
+# TARGET_REPO: explizit angegeben oder aus Git-Root
+if [ -n "${TARGET_REPO:-}" ]; then
+  echo "Target Repo (explizit): $TARGET_REPO"
+  cd ${GITHUB_DIR:-$HOME/github}/$TARGET_REPO
+elif git rev-parse --show-toplevel &>/dev/null; then
+  TARGET_REPO=$(basename $(git rev-parse --show-toplevel))
+  echo "Target Repo (auto-detect): $TARGET_REPO"
+else
+  TARGET_REPO="platform"
+  echo "Target Repo (fallback): $TARGET_REPO"
+  cd ${GITHUB_DIR:-$HOME/github}/$TARGET_REPO
+fi
+export TARGET_REPO
+
+# Aktuelles Repo synchronisieren
 git stash --quiet 2>/dev/null
 git pull --rebase --quiet
 git stash pop --quiet 2>/dev/null
