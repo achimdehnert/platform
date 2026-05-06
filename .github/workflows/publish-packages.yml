@@ -41,7 +41,7 @@ jobs:
       run:
         working-directory: packages/django-tenancy
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -68,7 +68,7 @@ jobs:
       run:
         working-directory: packages/django-tenancy
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -137,7 +137,7 @@ jobs:
       run:
         working-directory: packages/concept-templates
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -164,7 +164,7 @@ jobs:
       run:
         working-directory: packages/concept-templates
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -234,7 +234,7 @@ jobs:
       run:
         working-directory: packages/dvelop-client
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:
@@ -261,7 +261,7 @@ jobs:
       run:
         working-directory: packages/dvelop-client
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: actions/setup-python@v6
         with:

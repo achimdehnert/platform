@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout iil-testkit
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           repository: achimdehnert/iil-testkit
           token: ${{ secrets.PROJECT_PAT }}

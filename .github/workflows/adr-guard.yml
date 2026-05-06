@@ -13,7 +13,7 @@ jobs:
     name: Check ADR number uniqueness
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Run ADR Number Guard
         run: python3 scripts/adr_next_number.py --check
