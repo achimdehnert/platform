@@ -160,6 +160,37 @@ domains:
         lifecycle: experimental
         coverage_threshold: 0
 
+  - name: Engineering & Construction
+    systems:
+      - name: cad-hub
+        repo: cad-hub
+        description: BIM/IFC platform — nl2cad, DIN 277, GAEB export
+        github: achimdehnert/cad-hub
+        deployed: true
+        url: https://nl2cad.de
+        type: django
+        lifecycle: production
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+        deploy:
+          server_path: /opt/cad-hub
+          image: ghcr.io/achimdehnert/cad-hub:${IMAGE_TAG:-latest}
+          web_container: cad_hub_web
+          web_service: cad-hub-web
+          migrate_cmd: python manage.py migrate --noinput
+          multi_tenant: false
+          port: 8094
+
+      - name: gaeb-toolkit
+        repo: gaeb-toolkit
+        description: GAEB DA XML 3.3 toolkit — parser, validator, Preisspiegel writer
+        github: achimdehnert/gaeb-toolkit
+        deployed: false
+        type: library
+        lifecycle: active
+        coverage_threshold: 80
+
   - name: Analytics & Data
     systems:
       - name: bahn-hub
