@@ -217,6 +217,10 @@ repos:
     type: library
     pypi: weltenfw
 
+  gaeb-toolkit:
+    type: library
+    pypi: gaeb-toolkit
+
   # ── Agents / Bots ───────────────────────────────────────────────────────────
 
   bfagent:

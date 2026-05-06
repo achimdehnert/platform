@@ -453,7 +453,7 @@ def main() -> int:
     SCAFFOLD_TYPES = {"django", "agent", "bot"}
 
     targets = (
-        {r: registry.get(r, {"type": "django"}) for r in args.repos}
+        {r: registry.get(r, {"type": "unknown"}) for r in args.repos}
         if args.repos else
         {n: p for n, p in registry.items()
          if isinstance(p, dict) and p.get("type") in SCAFFOLD_TYPES and n != "platform"}
