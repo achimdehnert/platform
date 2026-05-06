@@ -103,7 +103,7 @@ jobs:
 
       - name: PR für jeden Repo ohne conftest.py erstellen
         if: steps.find_repos.outputs.count != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ secrets.PROJECT_PAT }}
           script: |
