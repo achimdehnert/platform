@@ -13,6 +13,8 @@ import re
 import json
 import os
 import argparse
+import subprocess
+import tempfile
 from pathlib import Path
 
 import yaml
@@ -419,18 +421,75 @@ def parse_layer_block(block: str) -> str:
     return html
 
 
+_PUPPETEER_CFG = Path(__file__).parent / ".puppeteer.json"
+
+
+def _ensure_puppeteer_config() -> str:
+    """Erstellt einmalig eine Puppeteer-Config mit --no-sandbox (für Container/WSL)."""
+    if not _PUPPETEER_CFG.exists():
+        _PUPPETEER_CFG.write_text(json.dumps({
+            "args": ["--no-sandbox", "--disable-setuid-sandbox"]
+        }), encoding="utf-8")
+    return str(_PUPPETEER_CFG)
+
+
+def render_mermaid_to_png(mermaid_code: str) -> str:
+    """Rendert Mermaid-Code zu PNG via mmdc und bettet es als base64 data-URI ein.
+
+    PNG statt SVG, weil WeasyPrint <foreignObject> in SVGs nicht korrekt rendert
+    (Text in Mermaid-Boxen verschwindet).
+    """
+    import base64
+    pp_cfg = _ensure_puppeteer_config()
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".mmd", delete=False) as f_in:
+        f_in.write(mermaid_code)
+        in_path = f_in.name
+    out_path = in_path.replace(".mmd", ".png")
+    try:
+        result = subprocess.run(
+            ["npx", "--yes", "@mermaid-js/mermaid-cli", "-i", in_path, "-o", out_path,
+             "-p", pp_cfg, "--backgroundColor", "white", "--scale", "3", "--quiet"],
+            capture_output=True, text=True, timeout=45,
+        )
+        if result.returncode == 0 and os.path.exists(out_path):
+            png_data = Path(out_path).read_bytes()
+            b64 = base64.b64encode(png_data).decode("ascii")
+            return (f'<div class="mermaid-diagram">'
+                    f'<img src="data:image/png;base64,{b64}" '
+                    f'style="max-width:100%;height:auto;" />'
+                    f'</div>')
+        else:
+            err = result.stderr[:200] if result.stderr else "unknown error"
+            print(f"\u26a0\ufe0f  Mermaid-Rendering fehlgeschlagen: {err}")
+            return f'<pre class="mermaid-fallback"><code>{mermaid_code}</code></pre>'
+    except subprocess.TimeoutExpired:
+        print("\u26a0\ufe0f  Mermaid-Rendering: Timeout")
+        return f'<pre class="mermaid-fallback"><code>{mermaid_code}</code></pre>'
+    finally:
+        for p in (in_path, out_path):
+            try:
+                os.unlink(p)
+            except OSError:
+                pass
+
+
 def preprocess_md(md_text: str) -> str:
-    """Ersetzt ```gantt / ```tree / ```flow / ```arch / ```layer durch HTML."""
+    """Ersetzt ```gantt / ```tree / ```flow / ```arch / ```layer / ```mermaid durch HTML."""
     def replace_gantt(m):  return parse_gantt_block(m.group(1))
     def replace_tree(m):   return parse_tree_block(m.group(1))
     def replace_flow(m):   return parse_flow_block(m.group(1))
     def replace_arch(m):   return parse_arch_block(m.group(1))
     def replace_layer(m):  return parse_layer_block(m.group(1))
+    def replace_mermaid(m):
+        code = m.group(1).strip()
+        print(f"   \U0001f4ca Mermaid-Diagramm rendern ({code.split(chr(10))[0][:40]}\u2026)")
+        return render_mermaid_to_png(code)
     text = re.sub(r"```gantt\n(.*?)```", replace_gantt, md_text, flags=re.DOTALL)
     text = re.sub(r"```tree\n(.*?)```",  replace_tree,  text,    flags=re.DOTALL)
     text = re.sub(r"```flow\n(.*?)```",  replace_flow,  text,    flags=re.DOTALL)
     text = re.sub(r"```arch\n(.*?)```",  replace_arch,  text,    flags=re.DOTALL)
     text = re.sub(r"```layer\n(.*?)```", replace_layer, text,    flags=re.DOTALL)
+    text = re.sub(r"```mermaid\n(.*?)```", replace_mermaid, text, flags=re.DOTALL)
     return text
 
 
