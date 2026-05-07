@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-04-29
-> **Next free ADR number:** 175
+> **Last updated:** 2026-05-07
+> **Next free ADR number:** 188
 
 ## Legend
 
@@ -203,6 +203,7 @@
 | 174 | Workflow Enforcement: CI Gate + PR Checklist + Symlink Policy | `Accepted` | 🔶 | [ADR-174](ADR-174-workflow-enforcement-ci-gate.md) |
 | 175 | Adopt selective modularization for .windsurf/workflows/ files | `Accepted` | ✅ | [ADR-175](ADR-175-workflow-modularization-pattern.md) |
 | 177 | Agent Role Specialization — Split Developer into 5 specialized agents (DocBot, TestBot, FeatureBot, ReEngineerBot, ArchitectBot) | `Proposed` | ⬜ | [ADR-177](ADR-177-agent-role-specialization.md) |
+| 187 | Document Intelligence Pipeline — iil-ingest erweitern um VectorStore, Multi-Tool Ensemble & RAG | `Accepted` | 🔶 | [ADR-187](ADR-187-document-intelligence-pipeline.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
