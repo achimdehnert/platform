@@ -1,13 +1,13 @@
 ---
 status: draft
 date: 2026-05-07
-version: 1.0
+version: 1.1
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []
 amends: [ADR-141]
-related: [ADR-066, ADR-068, ADR-077, ADR-080, ADR-081, ADR-082, ADR-116, ADR-141, ADR-156, ADR-177, ADR-185]
+related: [ADR-066, ADR-068, ADR-075, ADR-077, ADR-080, ADR-081, ADR-082, ADR-116, ADR-141, ADR-156, ADR-177, ADR-185]
 implementation_status: none
 staleness_months: 6
 drift_check_paths:
@@ -17,7 +17,7 @@ drift_check_paths:
 tags: [agent-coding, headless, devin, orchestrator, refactoring, quality-assurance, testing, polyrepo]
 ---
 
-# ADR-186: Headless Agent-Coding Pipeline — Orchestrator-gesteuerte Polyrepo-Automatisierung
+# ADR-186: Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation
 
 **Devin CLI als Headless-Frontend, Orchestrator als Steuerungsschicht, Platform-Guardrails als Safety-Net.**
 
@@ -26,6 +26,7 @@ tags: [agent-coding, headless, devin, orchestrator, refactoring, quality-assuran
 | Version | Datum | Änderungen |
 |---------|-------|------------|
 | 1.0 | 2026-05-07 | Erstentwurf — Architektur, Use Cases, Gate-Modell, Implementierungsplan |
+| 1.1 | 2026-05-07 | Review-Fixes: Titel als Decision Statement, Consequences-Sektion, Glossar, Secret-Management, catalog-info.yaml, ADR-075-Klassifikation |
 
 ---
 
@@ -42,7 +43,7 @@ Cascade/Windsurf ist die primäre IDE für agentic coding auf der IIL-Plattform.
 - **REFLEX** v0.5.0: Deterministische ADR-Compliance über 19 Repos
 - **pgvector Memory**: Persistente Sessions, Error-Patterns, Repo-Context
 
-**Problem**: Diese gesamte Infrastruktur ist **IDE-gebunden**. Es gibt keinen Weg, sie programmtisch von außen zu triggern — kein CLI, kein API, kein Headless-Modus. Konsequenzen:
+**Problem**: Diese gesamte Infrastruktur ist **IDE-gebunden**. Es gibt keinen Weg, sie programmatisch von außen zu triggern — kein CLI, kein API, kein Headless-Modus. Konsequenzen:
 
 | Szenario | Heute | Gewünscht |
 |----------|-------|-----------|
@@ -145,6 +146,32 @@ Open-Source-CLI-Agent (aider) statt Devin.
 4. **Austauschbarkeit**: Die Bridge-Schicht abstrahiert das CLI-Tool — Devin kann durch Aider, Claude Code CLI oder jedes andere Tool ersetzt werden
 5. **Amends ADR-141**: Die Headless-Pipeline ersetzt den Custom-StepExecutor aus ADR-141 durch ein Vendor-CLI + Orchestrator-Bridge-Pattern
 
+### Konsequenzen
+
+#### Positiv
+
+- **Quality Up**: Semantische Analyse findet Verstöße die REFLEX (Regex/AST) nicht erkennen kann (z.B. indirekte ORM-Calls, SRP-Verstöße)
+- **Batch-Fähigkeit**: Nightly Quality-Sweeps über 19 Repos erstmals möglich — bisher nur interaktiv in IDE
+- **Automatisierte Tests**: Coverage-Lücken werden systematisch geschlossen statt manuell pro Modul
+- **Kostentransparenz**: Alle LLM-Kosten über Orchestrator Budget-Guards trackbar (~$85/Monat bei vollem Betrieb)
+- **Vendor-Unabhängigkeit**: CLIAdapter-Abstraktion erlaubt Backend-Wechsel (Devin → Aider → Claude Code) ohne Orchestrator-Änderung
+- **ADR-141 beschleunigt**: ~19h Custom-StepExecutor-Build entfällt, Vendor-CLI übernimmt Execution
+- **Guardrails greifen identisch**: ScopeLock, Budget-Guards und Gate-System gelten im Headless-Modus wie in Cascade
+
+#### Negativ
+
+- **Vendor-Abhängigkeit (Devin)**: Mitigiert durch CLIAdapter-Abstraktion und Aider-Fallback, aber Primär-Backend ist kommerziell
+- **LLM-Kosten**: ~$85/Monat laufende Kosten bei vollem Betrieb (Quality-Sweep + Tests + Refactoring + Security)
+- **Nicht-Determinismus**: LLM-basierte Analyse hat False Positives/Negatives — ergänzt REFLEX, ersetzt es nicht
+- **Secret-Management**: Neue API-Keys (DEVIN_API_KEY, ANTHROPIC_API_KEY) müssen sicher verwaltet werden
+- **Complexity Budget**: Neue Komponente (HeadlessBridge) erhöht die Systemkomplexität des Orchestrators
+
+#### Neutral
+
+- REFLEX bleibt unverändert als deterministische Baseline
+- Cascade IDE-Workflows bleiben unverändert
+- pgvector Memory-Store wird mitgenutzt (kein neuer Store)
+
 ---
 
 ## 5. Architektur
@@ -205,7 +232,26 @@ Open-Source-CLI-Agent (aider) statt Devin.
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### 5.2 HeadlessBridge — Kern-Abstraktion
+### 5.2 catalog-info.yaml (ADR-077)
+
+`mcp-hub/catalog-info.yaml` muss um die HeadlessBridge als Component erweitert werden:
+
+```yaml
+spec:
+  components:
+    - name: headless-bridge
+      type: agent-bridge
+      lifecycle: experimental
+      owner: alpha-team
+      description: "Orchestrator-gesteuerte Headless Agent-Coding Pipeline"
+      dependsOn:
+        - component:orchestrator-mcp
+        - resource:pgvector-memory
+```
+
+Erfolgt im selben PR wie Phase 1 (CLIAdapter-Implementierung).
+
+### 5.3 HeadlessBridge — Kern-Abstraktion
 
 ```python
 from __future__ import annotations
@@ -317,7 +363,7 @@ class AiderAdapter(CLIAdapter):
             return "", f"Timeout after {timeout}s"
 ```
 
-### 5.3 ModelTier → CLI-Model Mapping
+### 5.4 ModelTier → CLI-Model Mapping
 
 Der Orchestrator routet nach ADR-177. Die Bridge übersetzt:
 
@@ -337,7 +383,7 @@ TIER_TO_AIDER_MODEL: dict[str, str] = {
 }
 ```
 
-### 5.4 Gate-Modell (konsistent mit ADR-066)
+### 5.5 Gate-Modell (konsistent mit ADR-066)
 
 | Use Case | Gate | Automatisierung | Approval |
 |----------|------|----------------|----------|
@@ -490,6 +536,14 @@ HEADLESS_ALLOWED: dict[str, RepoClassification] = {
 }
 ```
 
+### Secret-Management
+
+`DEVIN_API_KEY` und `ANTHROPIC_API_KEY` (für Aider-Fallback) werden wie folgt verwaltet:
+
+- **CI (GitHub Actions)**: Als GitHub Org-Secret unter `Settings → Secrets → Actions` (ADR-021 §2.6)
+- **Server (Cron-Jobs)**: Via SOPS-verschlüsselte `.env`-Datei unter `/opt/mcp-hub/.env.headless` (ADR-045)
+- **Lokal (Entwicklung)**: Via `~/.config/devin/config.json` (Devin-eigene Config, nicht im Repo)
+
 ---
 
 ## 8. Kosten-Modell
@@ -524,18 +578,18 @@ Hard-Stop bei Budget-Überschreitung → `BudgetExceededError` → Discord-Alert
 
 ## 9. Implementierungsplan
 
-| Phase | Inhalt | Aufwand | Abhängig von |
-|-------|--------|---------|-------------|
-| **0** | ADR-186 finalisieren | 1h | — |
-| **1** | `CLIAdapter`-Abstraktion + `DevinAdapter` + `AiderAdapter` | 3h | Devin CLI installiert |
-| **2** | `HeadlessBridge` mit Orchestrator-Integration (Routing, Budget, Context) | 4h | Phase 1 |
-| **3** | Quality-Sweep-Script (`headless_sweep.py`) — Gate 0, read-only | 2h | Phase 2 |
-| **4** | Cron-Setup + Discord-Notification für Sweep-Results | 1h | Phase 3 |
-| **5** | Test-Generator (`headless_test_gen.py`) — Gate 1, ScopeLock tests-only | 3h | Phase 2 |
-| **6** | PR-Review-Integration (`pr_review.py`) + GitHub Actions Workflow | 3h | Phase 2 |
-| **7** | Batch-Refactoring-Engine (`headless_refactor.py`) — Gate 2 | 4h | Phase 2 |
-| **8** | pgvector-Audit + Trend-Dashboard-Daten | 2h | Phase 3 |
-| **9** | Validierung: 2 Wochen Pilotbetrieb auf 3 Repos | — | Phase 4-6 |
+| Phase | Inhalt | Aufwand | Abhängig von | Status |
+|-------|--------|---------|-------------|--------|
+| **0** | ADR-186 finalisieren | 1h | — | ⬜ |
+| **1** | `CLIAdapter`-Abstraktion + `DevinAdapter` + `AiderAdapter` | 3h | Devin CLI installiert | ⬜ |
+| **2** | `HeadlessBridge` mit Orchestrator-Integration (Routing, Budget, Context) | 4h | Phase 1 | ⬜ |
+| **3** | Quality-Sweep-Script (`headless_sweep.py`) — Gate 0, read-only | 2h | Phase 2 | ⬜ |
+| **4** | Cron-Setup + Discord-Notification für Sweep-Results | 1h | Phase 3 | ⬜ |
+| **5** | Test-Generator (`headless_test_gen.py`) — Gate 1, ScopeLock tests-only | 3h | Phase 2 | ⬜ |
+| **6** | PR-Review-Integration (`pr_review.py`) + GitHub Actions Workflow | 3h | Phase 2 | ⬜ |
+| **7** | Batch-Refactoring-Engine (`headless_refactor.py`) — Gate 2 | 4h | Phase 2 | ⬜ |
+| **8** | pgvector-Audit + Trend-Dashboard-Daten | 2h | Phase 3 | ⬜ |
+| **9** | Validierung: 2 Wochen Pilotbetrieb auf 3 Repos | — | Phase 4-6 | ⬜ |
 
 **Gesamt: ~23h über 4-5 Sessions.**
 
@@ -579,6 +633,7 @@ Hard-Stop bei Budget-Überschreitung → `BudgetExceededError` → Discord-Alert
 - **Kein Prod-Zugriff** — Agent arbeitet nur mit Git, nie mit laufenden Containern
 - **Kein Ersatz für REFLEX** — REFLEX bleibt für deterministische Pattern-Checks, Headless-Pipeline für semantische Analyse
 - **Kein eigener LLM-Stack** — LLM-Routing über Orchestrator (ADR-116/177), nicht über Devin-eigenes Routing
+- **Agent-Op, kein Infra-Op** — HeadlessBridge ist eine Agent-Operation (ADR-066 Agent-Team), keine Infrastruktur-Operation (ADR-075). Write-Ops betreffen Git-Branches und PRs, nicht Server-Deployments. ADR-075 Infra-Deploy-Regeln greifen daher nicht.
 - **Scope Phase 1**: Quality-Sweep + Test-Generierung — kein Multi-File-Refactoring
 - **Devin CLI ist austauschbar** — CLIAdapter-Abstraktion erlaubt Backend-Wechsel
 
@@ -627,19 +682,49 @@ Hard-Stop bei Budget-Überschreitung → `BudgetExceededError` → Discord-Alert
 
 ## 15. Deferred Decisions
 
-| Entscheidung | Begründung | Zieldatum |
-|--------------|------------|-----------|
-| RL-basiertes Routing für Headless-Tasks | Erst nach 3+ Monaten AuditStore-Daten | 2026-Q4 |
-| Cloud-Delegation (Devin Cloud) | DSGVO-Klärung für Mandanten-Code pending | 2026-Q3 |
-| Parallel-Execution über Repos | Requires Temporal (ADR-077) | 2026-Q4 |
-| Custom Devin Skills für Platform-Standards | Evaluieren nach Phase 9 Erfahrung | 2026-Q3 |
+| Entscheidung | Begründung | Zieldatum | Tracking |
+|--------------|------------|-----------|----------|
+| RL-basiertes Routing für Headless-Tasks | Erst nach 3+ Monaten AuditStore-Daten | 2026-Q4 | Kein eigenes ADR — Erweiterung von ADR-177 |
+| Cloud-Delegation (Devin Cloud) | DSGVO-Klärung für Mandanten-Code pending | 2026-Q3 | Kein eigenes ADR — Erweiterung von ADR-186 §7 |
+| Parallel-Execution über Repos | Requires Temporal (ADR-077) | 2026-Q4 | Kein eigenes ADR — Trigger: Sweep-Duration > 60 Min |
+| Custom Devin Skills für Platform-Standards | Evaluieren nach Phase 9 Erfahrung | 2026-Q3 | Kein eigenes ADR — Feature in HeadlessBridge |
 
 ---
 
-## 16. References
+## 16. Glossar
+
+| Begriff | Erklärung |
+|---------|-----------|
+| **ADR** | Architecture Decision Record — dokumentierte Architekturentscheidung im MADR-4.0-Format |
+| **AST** | Abstract Syntax Tree — Baumdarstellung von Quellcode für statische Analyse |
+| **Budget-Guard** | Orchestrator-Komponente die LLM-Kosten pro Task-Kategorie limitiert (Hard-Stop bei Überschreitung) |
+| **Cascade** | IDE-basierter AI-Coding-Agent (Windsurf IDE), primäres interaktives Entwicklungswerkzeug |
+| **CLI** | Command Line Interface — Kommandozeilen-Schnittstelle |
+| **CLIAdapter** | Abstrakte Schnittstelle die verschiedene CLI-Backends (Devin, Aider, Claude Code) austauschbar macht |
+| **Devin CLI** | Kommerzielles CLI-Tool von Cognition AI für headless Code-Analyse und -Generierung |
+| **DSGVO** | Datenschutz-Grundverordnung — EU-Verordnung zum Schutz personenbezogener Daten |
+| **Gate** | Kontrollstufe im Agent-Workflow: Gate 0 = autonom, Gate 1 = Notify, Gate 2 = Human-Review, Gate 3 = Explizite Freigabe, Gate 4 = Human-Only (ADR-066) |
+| **Guardian** | Agent-Rolle die jeden Output auf Lint-Fehler, Security-Verstöße und Test-Failures prüft (ruff + bandit + pytest) |
+| **HeadlessBridge** | Neue Orchestrator-Komponente die CLI-Backends mit Routing, Budget und Guardrails verbindet |
+| **Headless-Modus** | Betrieb ohne grafische Oberfläche — Prompt rein, Ergebnis raus, kein menschliches Eingreifen nötig |
+| **LLM** | Large Language Model — KI-Sprachmodell (z.B. Claude, GPT) das Code analysieren und generieren kann |
+| **MCP** | Model Context Protocol — Standard-Schnittstelle zwischen AI-Systemen und externen Tools/Datenquellen |
+| **Orchestrator** | Zentrale Steuerungskomponente (mcp-hub) die Agent-Routing, Budget-Tracking und Guardrails verwaltet |
+| **pgvector** | PostgreSQL-Erweiterung für Vektor-Ähnlichkeitssuche — wird als persistenter Memory-Store genutzt |
+| **Polyrepo** | Architekturmuster bei dem jedes Projekt ein eigenes Git-Repository hat (Gegenteil: Monorepo) |
+| **PR** | Pull Request — Änderungsvorschlag auf GitHub der vor dem Merge reviewed wird |
+| **REFLEX** | Deterministic ADR-Compliance-Tool (Regex/AST-basiert) — prüft Code gegen Platform-Regeln ohne LLM |
+| **ScopeLock** | Guardrail (ADR-081) das festlegt welche Dateipfade ein Agent lesen/schreiben darf |
+| **SOPS** | Secrets OPerationS — Mozilla-Tool zur verschlüsselten Speicherung von Secrets in Git |
+| **SRP** | Single Responsibility Principle — jede Klasse/Funktion hat genau eine Verantwortlichkeit |
+
+---
+
+## 17. References
 
 - **ADR-066** — AI Engineering Squad (Gate-System, Agent-Rollen)
 - **ADR-068** — AuditStore (Logging-Pflicht)
+- **ADR-075** — Infra-Deploy (Write-Ops via GitHub Actions)
 - **ADR-077** — Catalog & Temporal
 - **ADR-080** — Multi-Agent Coding Team Pattern
 - **ADR-081** — Agent Guardrails & Code Safety (ScopeLock)
