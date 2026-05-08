@@ -1,0 +1,23 @@
+services:
+  embedder:
+    build: .
+    image: embedder-e5-spike:latest
+    container_name: embedder_e5_spike
+    ports:
+      - "8100:8100"
+    environment:
+      - EMBED_MODEL=intfloat/multilingual-e5-large
+      - EMBED_BATCH_SIZE=32
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+        reservations:
+          memory: 3G
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8100/livez/')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
