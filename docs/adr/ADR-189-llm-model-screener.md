@@ -23,6 +23,7 @@ drift_check_paths:
   - packages/aifw/aifw/models.py
   - packages/aifw/aifw/service.py
   - packages/aifw/aifw/exceptions.py
+  - packages/aifw/aifw/management/commands/sync_aifw_providers.py
 supersedes_check: []
 ---
 
@@ -32,7 +33,7 @@ supersedes_check: []
 |-----------|---|
 | **Status** | Proposed |
 | **Datum** | 2026-05-08 |
-| **Amended** | 2026-05-08 (v3 — External Review Fixes) |
+| **Amended** | 2026-05-08 (v3.1 — Round-2 Minor Refinements) |
 | **Autor** | Achim Dehnert |
 | **Reviewer** | Cascade Senior Architecture Reviewer |
 | **Depends On** | ADR-178, ADR-115, ADR-009, ADR-022, ADR-072 |
@@ -46,6 +47,7 @@ supersedes_check: []
 | 2.0 | 2026-05-08 | Strukturelle Überarbeitung: MADR-Frontmatter, Glossar, Open Questions, M2M statt JSONField, ADR-178-Abgrenzung |
 | 2.1 | 2026-05-08 | Minor-Fixes: Key-Management, tenant-Scope, Q3-Auflösung, Expand-Contract im Glossar |
 | 3.0 | 2026-05-08 | External Review Fixes: DB-Sync-Strategie, Multi-Tenancy-Schema, Drift-Detector-Felder, Open-Questions mit Pro/Con, RateLimitError-Backoff, LLM-as-Judge, PyPI-Rollout, ADR-115-Cross-DB |
+| 3.1 | 2026-05-08 | Round-2 Minor Refinements: FIXTURE_URL via decouple.config, Advisory Lock für Sync, Benchmark-Versionierung mit Default-Active |
 
 ---
 
@@ -166,23 +168,50 @@ Da jedes Repo eine eigene Postgres-DB hat, würde naive Verwendung zu 19 separat
 3. **Trigger:** Wöchentlicher Celery Beat Task pro Repo, oder manuell nach Provider-Update
 4. **Konfliktauflösung:** Fixture-Inhalt überschreibt lokale Daten (`LLMProvider.objects.update_or_create(name=...)`), lokale `LLMModel`-Zuordnungen (Action Code → Model) bleiben repo-spezifisch
 
+**Konfigurierbarkeit (für Forks/Mirrors/Air-Gapped-Setups):**
+
+Die Fixture-URL ist über `decouple.config()` überschreibbar — Default zeigt auf den Hauptbranch des platform-Repos, kann aber per `.env` auf einen Fork, Mirror oder gepinnten Commit-Hash umgelenkt werden.
+
+**Race-Condition-Schutz:**
+
+Da der Sync-Command parallel zu Admin-Edits läuft (`LLMProvider.objects.update()` aus Admin-UI), nutzt der Command einen **Postgres Advisory Lock** (`pg_advisory_lock(189001)` mit eindeutigem Key pro `aifw`-Sync). Damit ist ausgeschlossen dass zwei Sync-Runs parallel laufen oder ein Sync mitten in einer Admin-Transaktion overwritet.
+
 ```python
 # aifw/management/commands/sync_aifw_providers.py
-class Command(BaseCommand):
-    """Synchronisiert Provider-Katalog aus platform-Repo."""
+import httpx
+import yaml
+from decouple import config
+from django.core.management.base import BaseCommand
+from django.db import connection, transaction
 
-    PLATFORM_FIXTURE_URL = (
+class Command(BaseCommand):
+    """Synchronisiert Provider-Katalog aus platform-Repo (oder Mirror)."""
+
+    DEFAULT_FIXTURE_URL = (
         "https://raw.githubusercontent.com/achimdehnert/platform/"
         "main/fixtures/aifw/llm_providers.yaml"
     )
+    SYNC_LOCK_KEY = 189001  # Eindeutiger Advisory-Lock-Key für aifw-Sync
 
     def handle(self, *args, **options):
-        data = yaml.safe_load(httpx.get(self.PLATFORM_FIXTURE_URL).text)
-        for entry in data["providers"]:
-            LLMProvider.objects.update_or_create(
-                name=entry["name"],
-                defaults={k: v for k, v in entry.items() if k != "name"},
-            )
+        fixture_url = config(
+            "AIFW_PROVIDER_FIXTURE_URL",
+            default=self.DEFAULT_FIXTURE_URL,
+        )
+
+        with transaction.atomic(), connection.cursor() as cursor:
+            # Advisory Lock — non-blocking, fail-fast
+            cursor.execute("SELECT pg_try_advisory_xact_lock(%s)", [self.SYNC_LOCK_KEY])
+            if not cursor.fetchone()[0]:
+                self.stderr.write("Sync already running, exiting.")
+                return
+
+            data = yaml.safe_load(httpx.get(fixture_url, timeout=30).text)
+            for entry in data["providers"]:
+                LLMProvider.objects.update_or_create(
+                    name=entry["name"],
+                    defaults={k: v for k, v in entry.items() if k != "name"},
+                )
 ```
 
 **Cost-Tracking (Cross-DB-Strategie für ADR-115):**
@@ -399,8 +428,6 @@ env:
 
 LiteLLM erkennt diese automatisch über Umgebungsvariablen. SOPS (ADR-045) ist nicht erforderlich, da GitHub Secrets bereits verschlüsselt sind.
 
-**Datenbank-Design:** (siehe v2 — keine Änderungen)
-
 ### Phase 4: Quality Benchmarking & Score-basiertes Routing (Q4 2026 – Q1 2027)
 
 **Voraussetzung:** Phase 2 + 3 stabil + ≥30 Action Codes (Wirtschaftlichkeits-Gate).
@@ -424,7 +451,29 @@ def llm_judge_score(reference: str, candidate: str, criteria: list[str]) -> floa
     return float(result.content.strip())
 ```
 
-**Benchmark-Versionierung:** Test-Sets in `platform/benchmarks/aifw/v{N}/` versioniert. Score-Vergleiche sind nur innerhalb derselben Version valide. Bei Breaking Change → neue Version, alte Scores werden archiviert.
+**Benchmark-Versionierung:**
+
+Test-Sets in `platform/benchmarks/aifw/v{N}/` versioniert. Score-Vergleiche sind nur innerhalb derselben Version valide. Bei Breaking Change → neue Version, alte Scores werden archiviert.
+
+**Default-Active-Version-Mechanismus:**
+
+Damit alle Repos konsistent gegen die gleiche Version benchmarken, gibt es eine `AIFW_BENCHMARK_VERSION` Setting (Default: `"v1"`). Alle Repos folgen dem Default, können aber bei Bedarf zurückbleiben (z.B. während Migrationsperiode auf `v2`):
+
+```python
+# aifw/benchmarks/runner.py
+from decouple import config
+
+BENCHMARK_VERSION = config("AIFW_BENCHMARK_VERSION", default="v1")
+
+def get_test_set(category: str) -> dict:
+    url = (
+        f"https://raw.githubusercontent.com/achimdehnert/platform/main/"
+        f"benchmarks/aifw/{BENCHMARK_VERSION}/{category}.yaml"
+    )
+    return yaml.safe_load(httpx.get(url, timeout=30).text)
+```
+
+Aktive Default-Version wird im platform-Repo als `benchmarks/aifw/CURRENT` Symlink gepflegt (zeigt auf `v1/`, `v2/`, ...). Repos die explizit auf älterer Version bleiben, setzen `AIFW_BENCHMARK_VERSION` in ihrer `.env`.
 
 **Scoring-Formel:**
 
@@ -452,6 +501,7 @@ Die erfolgreiche Umsetzung wird wie folgt verifiziert:
 | 1 | RateLimit triggert Backoff statt Fallback | Mock-Test mit `RateLimitError` × 2 → gleicher Call retry'd, kein Fallback |
 | 2 | Offline-Models werden innerhalb von 6h erkannt | Model manuell deaktivieren, Alert-Eingang in Discord prüfen |
 | 3 | Provider-Katalog identisch über alle Repos | `python manage.py sync_aifw_providers` in 3 Repos, dann SQL-Vergleich |
+| 3 | Sync ist gegen Race-Conditions geschützt | Zwei parallele Sync-Runs starten — zweiter exit'd mit "already running" |
 | 4 | Auto-Routing wählt nachweisbar günstigeres Model bei gleicher Qualität | A/B-Vergleich, Audit-Log auswerten |
 
 ## Pros and Cons of the Options
@@ -469,6 +519,7 @@ Die erfolgreiche Umsetzung wird wie folgt verifiziert:
 - Audit-Trail aller Model-Routing-Entscheidungen
 - Konsistenter Provider-Katalog über 19+ Repos (Sync-Mechanismus)
 - Org-Level-Secrets vereinfachen Key-Rotation (1 Stelle statt 19)
+- Konfigurierbare Fixture-URL ermöglicht Forks/Mirrors/Air-Gapped-Setups
 
 ### Bad
 
@@ -498,6 +549,7 @@ Die erfolgreiche Umsetzung wird wie folgt verifiziert:
 | Sync-Mechanismus fällt aus → veralteter Katalog | Niedrig | Niedrig | Lokale Daten bleiben funktional, kein harter Sync-Zwang |
 | `aifw 0.6.0` Bug crasht 19 Repos | Niedrig | Hoch | Pilot-Deploy in risk-hub für 7 Tage vor Bulk-Rollout |
 | LLM-as-Judge selbst hat Bias | Mittel | Mittel | Tier-2-Human-Stichprobe zur Kalibrierung, Judge-Model rotieren |
+| Race-Condition bei parallelem Sync + Admin-Edit | Niedrig | Mittel | Postgres Advisory Lock (`SYNC_LOCK_KEY=189001`) |
 
 ## Open Questions
 
@@ -553,7 +605,7 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 
 **Entscheidung bis:** Phase 4. **Verantwortlich:** Achim.
 
-### Q6 (NEU): Wie werden Benchmark-Referenzdaten versioniert?
+### Q6: Wie werden Benchmark-Referenzdaten versioniert?
 
 | Option | Pro | Con |
 |--------|-----|-----|
@@ -561,7 +613,7 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 | Q6.B: Git-Tags `benchmark-v1`, `benchmark-v2` | Implizit über Git-History | Schwerer auffindbar |
 | Q6.C: DVC (Data Version Control) | Standard-Tool | Zusätzliche Infrastruktur |
 
-### Q7 (NEU): Tie-Breaking bei gleichem Score zwischen Providern?
+### Q7: Tie-Breaking bei gleichem Score zwischen Providern?
 
 | Option | Pro | Con |
 |--------|-----|-----|
@@ -569,7 +621,7 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 | Q7.B: Random Selection | Statistisch fair | Unvorhersagbar |
 | Q7.C: Provider-Diversität (LIFO — letzter Wechsel zuerst) | Anti-Lock-In | Komplex |
 
-### Q8 (NEU): Wann wechselt `LLMModelCandidate` von "Evaluating" → "Approved"?
+### Q8: Wann wechselt `LLMModelCandidate` von "Evaluating" → "Approved"?
 
 | Option | Pro | Con |
 |--------|-----|-----|
@@ -577,11 +629,11 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 | Q8.B: Automatisch wenn Quality ≥ 0.8 in 3 Benchmark-Runs | Skalierbar | Risiko: schlechtes Model wird automatisch promoted |
 | Q8.C: Hybrid — Auto bei Quality ≥ 0.9, sonst manuell | Balance | Komplex |
 
-### Q9 (NEU): Was bei Provider-Deprecation (z.B. Groq entfernt Model)?
+### Q9: Was bei Provider-Deprecation (z.B. Groq entfernt Model)?
 
 | Option | Pro | Con |
 |--------|-----|-----|
-| Q9.A: Soft-Delete via `is_active=False` (gewählt impl.) | Audit-Trail bleibt | DB wächst |
+| Q9.A: Soft-Delete via `is_active=False` (gewählt — implizit aus Phase 2 `consecutive_failures`) | Audit-Trail bleibt | DB wächst |
 | Q9.B: Hard-Delete | DB schlank | Verlust historischer Daten |
 | Q9.C: Move zu `LLMModelArchive` Tabelle | Aufgeräumt | Mehr Code |
 
@@ -602,7 +654,7 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 - [ ] Phase 1.4: Pilot-Deploy risk-hub (7d)
 - [ ] Phase 1.5: Bulk-Rollout 19 Repos
 - [ ] Phase 2.1: Availability-Felder + Celery-Task
-- [ ] Phase 3.1: Provider-Katalog Models + Sync-Command
+- [ ] Phase 3.1: Provider-Katalog Models + Sync-Command (mit Advisory Lock)
 - [ ] Phase 4.1: Benchmark-Runner + LLM-as-Judge
 
 ## More Information
@@ -621,9 +673,11 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 | Begriff | Erklärung |
 |---------|-----------|
 | **Action Code** | Eindeutiger Bezeichner für einen LLM-Anwendungsfall (z.B. `begehung_photo_analysis`). Wird in DB-Tabelle `AIActionType` konfiguriert. |
+| **Advisory Lock** | Postgres-Mechanismus für anwendungsdefinierte Locks die nicht an Tabellen/Zeilen gebunden sind. Genutzt um konkurrierende Sync-Runs zu verhindern. |
 | **aifw** | IIL-eigenes Python-Package für LLM-Aufrufe. Abstrahiert Provider-Unterschiede und steuert Model-Routing über die Datenbank. |
 | **BLEU** | Bilingual Evaluation Understudy — automatische Metrik für Textgenerierungsqualität (Vergleich mit Referenztext). |
 | **Celery Beat** | Scheduler-Komponente von Celery, die periodische Tasks zu festgelegten Zeiten ausführt (ähnlich Cron, aber Python-nativ). |
+| **decouple.config()** | Python-Library `python-decouple` zum Lesen von Konfiguration aus Umgebungsvariablen oder `.env`-Dateien. Plattform-Standard für ENV-Zugriff. |
 | **DPA** | Data Processing Agreement — vertragliche DSGVO-Vereinbarung mit Datenverarbeiter. |
 | **DSGVO** | Datenschutz-Grundverordnung der EU (engl. GDPR) — Regelwerk zum Schutz personenbezogener Daten. |
 | **EU AI Act** | EU-Verordnung 2024/1689 zu Künstlicher Intelligenz. Klassifiziert KI-Systeme nach Risiko und definiert Pflichten für Hochrisiko-Anwendungen. |
