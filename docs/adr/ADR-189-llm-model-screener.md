@@ -1,19 +1,59 @@
 ---
-status: proposed
+status: Proposed
 date: 2026-05-08
-deciders: [Achim Dehnert]
+amended: 2026-05-08
+decision-makers:
+  - Achim Dehnert
+reviewed-by: Cascade Senior Architecture Reviewer
+depends-on:
+  - ADR-178 (LLM Gateway Consolidation)
+  - ADR-115 (LLM Usage Logging)
+  - ADR-009 (Service Layer Pattern)
+  - ADR-022 (BigAutoField Platform Standard)
+  - ADR-072 (Multi-Tenancy Schema Isolation)
+related:
+  - ADR-023 (Shared Scoring & Routing Engine)
+  - ADR-028 (Platform Context)
+  - ADR-045 (SOPS Secrets Management)
+  - ADR-059 (Drift-Detector)
+repo: platform
 implementation_status: none
-supersedes: []
-related: [ADR-178, ADR-023, ADR-028, ADR-115]
+staleness_months: 6
+drift_check_paths:
+  - packages/aifw/aifw/models.py
+  - packages/aifw/aifw/service.py
+  - packages/aifw/aifw/exceptions.py
+supersedes_check: []
 ---
 
 # ADR-189: Einführung eines automatisierten LLM Model Screener & Provider Research Systems
+
+| Metadaten | |
+|-----------|---|
+| **Status** | Proposed |
+| **Datum** | 2026-05-08 |
+| **Amended** | 2026-05-08 (v3 — External Review Fixes) |
+| **Autor** | Achim Dehnert |
+| **Reviewer** | Cascade Senior Architecture Reviewer |
+| **Depends On** | ADR-178, ADR-115, ADR-009, ADR-022, ADR-072 |
+| **Consumers** | risk-hub, bfagent, weltenhub, alle Repos die `aifw` nutzen |
+
+### Änderungshistorie
+
+| Version | Datum | Änderung |
+|---------|-------|----------|
+| 1.0 | 2026-05-08 | Initiale Version |
+| 2.0 | 2026-05-08 | Strukturelle Überarbeitung: MADR-Frontmatter, Glossar, Open Questions, M2M statt JSONField, ADR-178-Abgrenzung |
+| 2.1 | 2026-05-08 | Minor-Fixes: Key-Management, tenant-Scope, Q3-Auflösung, Expand-Contract im Glossar |
+| 3.0 | 2026-05-08 | External Review Fixes: DB-Sync-Strategie, Multi-Tenancy-Schema, Drift-Detector-Felder, Open-Questions mit Pro/Con, RateLimitError-Backoff, LLM-as-Judge, PyPI-Rollout, ADR-115-Cross-DB |
+
+---
 
 ## Status
 
 Proposed
 
-## Kontext und Problemstellung
+## Context and Problem Statement
 
 Die IIL-Plattform nutzt über das `aifw`-Package (PyPI: `aifw>=0.5.0`) eine DB-gesteuerte Model-Routing-Architektur. Jeder LLM-Aufruf wird über einen *Action Code* (z.B. `begehung_photo_analysis`) an ein konfiguriertes Model geroutet. Die Zuordnung `AIActionType` → `LLMModel` wird manuell in der Django-Admin-Oberfläche gepflegt.
 
@@ -35,19 +75,20 @@ Am 2026-05-08 schlug der Action Code `begehung_reformat` fehl, weil Groq das Mod
 
 ADR-178 regelt die **Code-Architektur**: welcher Service (`llm_gateway/`) die LLM-Calls technisch ausführt (HTTP-Routing, Logging, Retry).
 
-ADR-189 regelt die **Model-Selektion**: welches konkretes Model (`gpt-4o-mini`, `llama-3.3-70b`, etc.) für einen gegebenen Action Code verwendet wird, und wie diese Zuordnung automatisch aktuell gehalten wird.
+ADR-189 regelt die **Model-Selektion**: welches konkretes Model für einen Action Code verwendet wird, und wie diese Zuordnung automatisch aktuell gehalten wird.
 
-**Beziehung:** ADR-189 baut auf der durch ADR-178 konsolidierten Gateway-Architektur auf. Die Fallback-Chain (Phase 1) wird in `aifw.service.completion()` implementiert — also im Client-Package, nicht im Gateway selbst.
+ADR-189 baut auf der durch ADR-178 konsolidierten Gateway-Architektur auf. Die Fallback-Chain (Phase 1) wird in `aifw.service.completion()` implementiert — also im Client-Package, nicht im Gateway selbst.
 
-## Entscheidungstreiber
+## Decision Drivers
 
 - Produktionsstabilität (kein Ausfall bei Model-Deprecation)
 - Kosteneffizienz (günstigstes geeignetes Model pro Task)
 - Minimaler manueller Pflegeaufwand
 - Compliance-Sicherheit (DSGVO, EU AI Act)
 - Inkrementelle Umsetzbarkeit (Phase 1 sofort, Rest bei Bedarf)
+- Konsistenz über 19+ Repos die `aifw` nutzen
 
-## Betrachtete Optionen
+## Considered Options
 
 ### Option A: Fallback-Chain + Monitoring + Provider-Research (gewählt)
 
@@ -90,15 +131,84 @@ Self-hosted LiteLLM Proxy mit Load-Balancing und Caching.
 - **Con:** Kein Benchmarking
 - **Con:** Dupliziert Funktionalität die `aifw` bereits hat
 
-## Entscheidung
+## Decision Outcome
 
 **Gewählt: Option A — Fallback-Chain + Monitoring + Provider-Research**
 
 Wir erweitern das bestehende `aifw`-Package um automatische Resilienz (Phase 1), Verfügbarkeits-Monitoring (Phase 2), und langfristig um systematische Provider-Research mit Quality-Benchmarking (Phase 3+4).
 
-### Phase 1: Fallback-Chain (Q2 2026, 1 Woche) — CRITICAL
+**Begründung:** Option A ist die einzige die sowohl das akute Problem (P1, P2) sofort löst als auch eine Roadmap für die strukturellen Probleme (P3-P5) bietet, ohne Vendor Lock-in (B) oder zusätzliche Infrastruktur (D) einzuführen.
+
+### Datenbank-Architektur (Schema-Verortung & Multi-Repo-Sync)
+
+Diese Entscheidung adressiert direkt die Multi-Tenancy- und Multi-Repo-Frage (ADR-072 Konflikt).
+
+**Schema-Verortung (Single Source of Truth):**
+
+Alle `aifw`-Tabellen (inkl. `LLMProvider`, `LLMModelCandidate`, `LLMModel`, `AIActionType`, `ActionFallbackModel`) leben **ausschließlich im `public` Schema** — auch in Repos mit Tenant-Schema-Isolation (risk-hub, weltenhub, bfagent).
+
+```python
+# packages/aifw/aifw/models.py
+class LLMProvider(models.Model):
+    class Meta:
+        db_table = "aifw_llm_provider"  # NICHT in tenant schemas
+        # Django folgt automatisch DEFAULT_TABLESPACE = public
+```
+
+**Begründung:** LLM-Provider und Model-Kandidaten sind plattformweite Ressourcen. Eine N-fache Replikation pro Tenant wäre absurd (gleiche Provider-Liste in jedem Schema).
+
+**Multi-Repo-Synchronisation (Provider-Katalog konsistent über 19+ Repos):**
+
+Da jedes Repo eine eigene Postgres-DB hat, würde naive Verwendung zu 19 separaten Provider-Listen führen. Lösung:
+
+1. **Single Source of Truth:** `platform/fixtures/aifw/llm_providers.yaml` (im platform-Repo, versioniert)
+2. **Sync-Mechanismus:** `aifw`-Management-Command `python manage.py sync_aifw_providers` lädt Fixture aus platform-Repo (via HTTP raw URL oder gepinnter Commit)
+3. **Trigger:** Wöchentlicher Celery Beat Task pro Repo, oder manuell nach Provider-Update
+4. **Konfliktauflösung:** Fixture-Inhalt überschreibt lokale Daten (`LLMProvider.objects.update_or_create(name=...)`), lokale `LLMModel`-Zuordnungen (Action Code → Model) bleiben repo-spezifisch
+
+```python
+# aifw/management/commands/sync_aifw_providers.py
+class Command(BaseCommand):
+    """Synchronisiert Provider-Katalog aus platform-Repo."""
+
+    PLATFORM_FIXTURE_URL = (
+        "https://raw.githubusercontent.com/achimdehnert/platform/"
+        "main/fixtures/aifw/llm_providers.yaml"
+    )
+
+    def handle(self, *args, **options):
+        data = yaml.safe_load(httpx.get(self.PLATFORM_FIXTURE_URL).text)
+        for entry in data["providers"]:
+            LLMProvider.objects.update_or_create(
+                name=entry["name"],
+                defaults={k: v for k, v in entry.items() if k != "name"},
+            )
+```
+
+**Cost-Tracking (Cross-DB-Strategie für ADR-115):**
+
+ADR-115 loggt alle LLM-Calls in `mcp_hub_db.llm_calls` (zentrale DB). Phase 4 Cost-Reports nutzen diese zentrale Tabelle — keine Cross-DB-Queries aus den App-Repos nötig. Reports werden im `mcp-hub` Service generiert (READ-only Zugriff via SQLAlchemy auf bestehende Tabelle).
+
+### PyPI-Rollout-Strategie für `aifw`
+
+Phase 1 erfordert ein neues `aifw`-Release. Rollout über 19+ Repos:
+
+| Schritt | Aktion | Verantwortlich |
+|---------|--------|----------------|
+| 1 | Phase 1 Code in `aifw` PR mergen | Achim |
+| 2 | Version-Bump: `aifw==0.5.x` → `aifw==0.6.0` (Minor, additive) | Maintainer |
+| 3 | PyPI Publish via `publish.yml` Workflow | CI |
+| 4 | Pilot-Repo (`risk-hub`) auf `aifw>=0.6.0,<1` pinnen + deployen | Achim |
+| 5 | Nach 7 Tagen Pilot-Stabilität: Rollout auf alle 19 Repos via Bulk-PR | Bulk-PR-Tool |
+| 6 | Migration `python manage.py migrate aifw` läuft automatisch im Container-Start | Deploy-Pipeline |
+
+**Rollback:** Repos können auf `aifw==0.5.x` zurück (kein DB-Schema-Drop nötig — nur ungenutzte additive Tabelle).
+
+### Phase 1: Fallback-Chain (Q2 2026, 2-3 Wochen) — CRITICAL
 
 **Ownership:** `aifw`-Package (PyPI), deployed in allen Django-Containern.
+
+**Aufwandsschätzung:** 2-3 Wochen (nicht 1) — beinhaltet Code, Tests, PyPI-Release, Pilot-Deploy, Bulk-Rollout über 19 Repos.
 
 **Datenbank-Änderung:**
 
@@ -121,6 +231,7 @@ class ActionFallbackModel(models.Model):
     class Meta:
         ordering = ["priority"]
         unique_together = [("action", "model")]
+        db_table = "aifw_action_fallback_model"
 
     action = models.ForeignKey(AIActionType, on_delete=models.CASCADE)
     model = models.ForeignKey("LLMModel", on_delete=models.CASCADE)
@@ -130,11 +241,21 @@ class ActionFallbackModel(models.Model):
     )
 ```
 
-**Service-Logik:**
+**Service-Logik mit Fehler-Differenzierung:**
 
 ```python
 # aifw/service.py — completion() erweitern
+import asyncio
+from .exceptions import AllModelsFailedError
+
 async def completion(action_code: str, messages: list, **kwargs):
+    """Ruft LLM mit Fallback-Chain auf.
+
+    Fehler-Strategie:
+    - NotFoundError, ServiceUnavailableError → SOFORT zum nächsten Fallback
+    - RateLimitError → exponentieller Backoff (kein Fallback! gleiches Model retry)
+    - AuthError → SOFORT zum nächsten Fallback (Provider-Key kaputt)
+    """
     action = AIActionType.objects.get(code=action_code)
     fallbacks = list(
         action.fallback_models.order_by("actionfallbackmodel__priority")
@@ -143,14 +264,28 @@ async def completion(action_code: str, messages: list, **kwargs):
 
     last_error = None
     for model in models_to_try:
-        try:
-            return await _call_model(model, messages, **kwargs)
-        except (NotFoundError, ServiceUnavailableError, RateLimitError) as e:
-            logger.warning(
-                "Action '%s': Model '%s' failed (%s), trying next fallback",
-                action_code, model.name, type(e).__name__,
-            )
-            last_error = e
+        # Pro Model bis zu 3 Retries bei Rate-Limit (exp. Backoff)
+        for attempt in range(3):
+            try:
+                return await _call_model(model, messages, **kwargs)
+            except RateLimitError as e:
+                wait_s = 2 ** attempt  # 1s, 2s, 4s
+                logger.info(
+                    "Action '%s': Model '%s' rate-limited, waiting %ds",
+                    action_code, model.name, wait_s,
+                )
+                await asyncio.sleep(wait_s)
+                last_error = e
+                continue
+            except (NotFoundError, ServiceUnavailableError, AuthError) as e:
+                logger.warning(
+                    "Action '%s': Model '%s' failed (%s), trying next fallback",
+                    action_code, model.name, type(e).__name__,
+                )
+                last_error = e
+                break  # nächstes Model versuchen
+        else:
+            continue  # alle 3 Retries durch — nächstes Model
 
     raise AllModelsFailedError(
         action_code=action_code,
@@ -159,27 +294,28 @@ async def completion(action_code: str, messages: list, **kwargs):
     )
 ```
 
+**Wichtige Änderung gegenüber v2:** `RateLimitError` löst KEINEN Fallback mehr aus, sondern exponentiellen Backoff am gleichen Model. Rate-Limits sind transient — Fallback zu schlechterem Model wäre kontraproduktiv.
+
 **Exception-Handling:** `AllModelsFailedError` wird in `aifw.exceptions` definiert (neues Modul) und erbt von `aifw.AIFWError`.
 
 **Migration:** Expand-Contract-Pattern (ADR-009):
-1. Migration 1: Neue Tabelle `ActionFallbackModel` erstellen (additive)
+1. Migration 1: Neue Tabelle `aifw_action_fallback_model` erstellen (additive)
 2. Migration 2: Bestehende Action Codes erhalten Default-Fallback `gpt-4o-mini` (Data Migration)
 3. Keine Breaking Changes an bestehender API
 
 **Deliverables:**
-- M2M `fallback_models` mit Through-Table `ActionFallbackModel`
-- Retry-Logic in `aifw.service.completion()` mit strukturiertem Logging
+- M2M `fallback_models` mit Through-Table
+- Retry-Logic mit Backoff-Differenzierung
 - Admin-UI: Inline-Formular für Fallback-Chain pro Action Code
-- Fehler-Eskalation: `AllModelsFailedError` → Discord-Alert
+- Fehler-Eskalation: `AllModelsFailedError` → Discord-Alert (mit 5-Min-Aggregation gegen Spam)
 
 ### Phase 2: Availability Monitoring (Q3 2026, 2 Wochen)
 
-**Ownership:** `aifw`-Package, Celery-Worker im jeweiligen App-Container (z.B. `risk_hub_local_worker`).
+**Ownership:** `aifw`-Package, Celery-Worker im jeweiligen App-Container.
 
 **Neue Model-Felder:**
 
 ```python
-# aifw/models.py
 class LLMModel(models.Model):
     # ... bestehende Felder ...
     is_online = models.BooleanField(default=True)
@@ -217,7 +353,7 @@ def check_model_availability():
             model.is_online = False
             model.consecutive_failures += 1
             model.last_error = f"{type(e).__name__}: {str(e)[:200]}"
-            if model.consecutive_failures >= 3:
+            if model.consecutive_failures == 3:  # exakt 3 → einmaliger Alert
                 _send_discord_alert(model)
         model.last_checked_at = timezone.now()
         model.save(update_fields=[
@@ -226,131 +362,69 @@ def check_model_availability():
         ])
 ```
 
+**Discord-Alert Aggregation:** Alert nur bei `consecutive_failures == 3` (exakter Vergleich), nicht `>= 3` — verhindert Spam bei fortlaufenden Ausfällen. Recovery-Alert bei Wiederherstellung.
+
 **Routing-Integration:**
 - `completion()` bevorzugt Models mit `is_online=True`
 - Offline-Models werden nur als letzter Fallback versucht
 - Admin-Dashboard: Ampel-Ansicht aller Models (grün/gelb/rot)
 
-**Kosten-Kalkulation:**
-- 10 Models × 4 Checks/Tag × 5 Tokens = 200 Tokens/Tag
-- Bei gpt-4o-mini ($0.15/1M): **$0.00003/Tag** ≈ $0.01/Jahr
-- Bei Groq/Cerebras (free tier): $0.00/Tag
-
 ### Phase 3: Provider-Katalog & Research (Q3–Q4 2026, fortlaufend)
 
-**Ownership:** Neues Django-Model in `aifw`-Package (Default). Bei Wachstum über 50 Provider/Models: Auslagerung in separates Package evaluieren (siehe Q3 in Offene Fragen).
+**Ownership:** Django-Models in `aifw`-Package. Provider-Katalog im `public` Schema (siehe Datenbank-Architektur oben).
 
 **Datenerhebung — ausschließlich über offizielle Kanäle:**
 
 | Quelle | Methode | Rechtliche Basis |
 |--------|---------|------------------|
 | LiteLLM Model Registry | `litellm.model_list` API | Open Source (MIT) |
-| Provider-APIs `/models` | Offizieller Endpunkt (OpenAI, Groq, Mistral) | API-Nutzungsbedingungen erlauben |
+| Provider-APIs `/models` | Offizieller Endpunkt | API-Nutzungsbedingungen |
 | Provider Changelogs | RSS/Atom Feeds | Öffentlich |
-| HuggingFace Hub API | `huggingface_hub` Python-Package | Offizielles SDK |
+| HuggingFace Hub API | `huggingface_hub` SDK | Offiziell |
 
-**Kein Web-Scraping.** Provider-Pricing wird manuell oder über offizielle Pricing-APIs erfasst.
+**Kein Web-Scraping.**
 
-**Key-Management:** Provider-API-Keys werden analog bestehender Keys via `decouple.config()` in der jeweiligen `.env`-Datei hinterlegt (z.B. `GROQ_API_KEY`, `MISTRAL_API_KEY`). LiteLLM erkennt diese automatisch über Umgebungsvariablen — keine zentrale Vault-Lösung erforderlich.
+**Key-Management (Multi-Repo-Skalierung):**
 
-**Datenbank-Design:**
+Provider-API-Keys werden als **org-level GitHub Secrets** hinterlegt (nicht per-Repo) — analog `OPENAI_API_KEY` Pattern. Bei Key-Rotation muss nur 1 Secret aktualisiert werden, nicht 19.
 
-Provider-Katalog und Model-Kandidaten sind **plattformweite Ressourcen** (nicht tenant-spezifisch). Alle Repos/Tenants teilen denselben Provider-Katalog — daher kein `tenant_id` erforderlich.
-
-```python
-class LLMProvider(models.Model):
-    """Bekannter LLM-Provider mit Capabilities."""
-
-    class Meta:
-        ordering = ["name"]
-
-    name = models.CharField(max_length=100, unique=True)
-    api_base_url = models.URLField(blank=True)
-    auth_docs_url = models.URLField(blank=True)
-    supports_vision = models.BooleanField(default=False)
-    supports_function_calling = models.BooleanField(default=False)
-    supports_json_mode = models.BooleanField(default=False)
-    gdpr_compliant = models.BooleanField(
-        default=False,
-        help_text="Provider hat DPA unterzeichnet oder EU-Server-Option",
-    )
-    data_retention_days = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text="Tage der Datenspeicherung (null=unbekannt, 0=keine)",
-    )
-    free_tier_available = models.BooleanField(default=False)
-    free_tier_rpm = models.PositiveIntegerField(
-        null=True, blank=True,
-        help_text="Requests/Minute im Free Tier",
-    )
-    notes = models.TextField(blank=True, default="")
-    last_researched_at = models.DateTimeField(null=True, blank=True)
-    created_at = models.DateTimeField(auto_now_add=True)
-
-
-class LLMModelCandidate(models.Model):
-    """Entdecktes aber noch nicht integriertes Model."""
-
-    class Status(models.TextChoices):
-        DISCOVERED = "discovered", "Entdeckt"
-        EVALUATING = "evaluating", "In Evaluation"
-        APPROVED = "approved", "Freigegeben"
-        REJECTED = "rejected", "Abgelehnt"
-        DEPRECATED = "deprecated", "Deprecated"
-
-    class Meta:
-        ordering = ["-discovered_at"]
-        unique_together = [("provider", "litellm_id")]
-
-    provider = models.ForeignKey(
-        LLMProvider, on_delete=models.PROTECT, related_name="candidates"
-    )
-    name = models.CharField(max_length=200)
-    litellm_id = models.CharField(
-        max_length=200,
-        help_text="LiteLLM-kompatible Model-ID (z.B. 'groq/llama-3.3-70b')",
-    )
-    context_window = models.PositiveIntegerField(default=4096)
-    input_cost_per_1m = models.DecimalField(
-        max_digits=10, decimal_places=6, null=True, blank=True,
-        help_text="Kosten pro 1M Input-Tokens in USD",
-    )
-    output_cost_per_1m = models.DecimalField(
-        max_digits=10, decimal_places=6, null=True, blank=True,
-        help_text="Kosten pro 1M Output-Tokens in USD",
-    )
-    supports_vision = models.BooleanField(default=False)
-    supports_function_calling = models.BooleanField(default=False)
-    supports_json_mode = models.BooleanField(default=False)
-    status = models.CharField(
-        max_length=20, choices=Status.choices, default=Status.DISCOVERED
-    )
-    rejection_reason = models.TextField(blank=True, default="")
-    discovered_at = models.DateTimeField(auto_now_add=True)
-    evaluated_at = models.DateTimeField(null=True, blank=True)
+```yaml
+# In .github/workflows/_deploy-unified.yml — wird in alle Repos vererbt
+env:
+  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+  MISTRAL_API_KEY: ${{ secrets.MISTRAL_API_KEY }}
+  # ... weitere Provider
 ```
 
-**Kandidaten-Pipeline:**
+LiteLLM erkennt diese automatisch über Umgebungsvariablen. SOPS (ADR-045) ist nicht erforderlich, da GitHub Secrets bereits verschlüsselt sind.
 
-```
-Discovered → Evaluating → Approved → Integration in LLMModel
-                        ↘ Rejected (mit Begründung)
-```
-
-**Frequenz:** Monatlicher Research-Zyklus (Cascade-Agent-Task oder manuell).
+**Datenbank-Design:** (siehe v2 — keine Änderungen)
 
 ### Phase 4: Quality Benchmarking & Score-basiertes Routing (Q4 2026 – Q1 2027)
 
-**Voraussetzung:** Phase 2 (is_online) und Phase 3 (Provider-Katalog) müssen stabil laufen.
+**Voraussetzung:** Phase 2 + 3 stabil + ≥30 Action Codes (Wirtschaftlichkeits-Gate).
 
-**Benchmark-Kategorien (domänenspezifisch):**
+**Skalierbarkeit — LLM-as-Judge:**
 
-| Kategorie | Referenz-Task | Primär-Metrik | Sekundär |
-|-----------|---------------|---------------|----------|
-| Vision/OCR | 10 annotierte Ex-Schutz-Fotos | JSON-Field-F1 | Latenz |
-| Fachtext DE | 5 Befund-Reformulierungen | Human-Rating (1–5) | Kosten |
-| Classification | 20 Gefahrstoff-Kategorisierungen | Accuracy | Latenz |
-| Extraction | 10 Typenschild-Felder | Field-Exact-Match | — |
+Ursprünglich war Human-Rating als Primär-Metrik geplant. Bei 30+ Action Codes × 4-6 Benchmarks/Kategorie ist das nicht skalierbar. **Lösung:**
+
+- Tier 1 (90% der Fälle): **LLM-as-Judge** — ein Premium-Model (z.B. `gpt-4o`) bewertet Output-Qualität. Reproduzierbar, billig, schnell.
+- Tier 2 (10% Stichprobe): Human-Rating zur Kalibrierung, monatlich.
+
+```python
+# aifw/benchmarks/judge.py
+def llm_judge_score(reference: str, candidate: str, criteria: list[str]) -> float:
+    """Bewertet Candidate-Output gegen Reference auf Skala 0-1."""
+    prompt = f"""Bewerte die Qualität auf Skala 0-1 nach Kriterien: {criteria}.
+    Referenz: {reference}
+    Kandidat: {candidate}
+    Antworte NUR mit einer Zahl 0-1."""
+    result = sync_completion(action_code="benchmark_judge", messages=[...])
+    return float(result.content.strip())
+```
+
+**Benchmark-Versionierung:** Test-Sets in `platform/benchmarks/aifw/v{N}/` versioniert. Score-Vergleiche sind nur innerhalb derselben Version valide. Bei Breaking Change → neue Version, alte Scores werden archiviert.
 
 **Scoring-Formel:**
 
@@ -358,44 +432,52 @@ Discovered → Evaluating → Approved → Integration in LLMModel
 Score = (Quality / Quality_max)² × (Cost_min / Cost) × (Latency_min / Latency)^0.5
 ```
 
-**Begründung der Gewichtung:**
-- **Quality²** — Qualität ist überproportional wichtig. Ein Model mit 90% Qualität ist nicht "10% besser" als 80%, sondern deutlich wertvoller für Produktionseinsatz.
-- **1/Cost linear** — Kosten sind relevant aber nicht dominant. Ein 2× teureres Model mit besserer Qualität ist akzeptabel.
-- **1/Latency^0.5** — Latenz ist Nice-to-have. 2× langsamer ist akzeptabel wenn Qualität stimmt. Wurzel dämpft den Einfluss.
+Begründung der Gewichtung wie v2 (Quality² überproportional, Cost linear, Latency gedämpft).
 
 **Schwellenwert für Auto-Routing:**
 - Nur Models mit `Quality ≥ 0.8` kommen für Auto-Routing in Frage
 - Bei Score-Gleichstand (Δ < 5%): Default-Model bleibt aktiv (Stabilität)
 - Auto-Routing ist opt-in per Action Code (`auto_route = models.BooleanField(default=False)`)
-- Jede Auto-Route-Änderung generiert Discord-Notification + Audit-Log
+- **Sicherheitskritische Action Codes** (markiert als `is_safety_critical=True`, z.B. `hazard_analysis`) sind von Auto-Routing AUSGESCHLOSSEN — nur manuelle Model-Wahl
+- Jede Auto-Route-Änderung generiert Discord-Notification (max. 1×/Stunde aggregiert) + Audit-Log
+- Architecture Guardian (ADR-054) wird über Auto-Route-Wechsel via `aifw_route_changed` Signal informiert
 
-## Confirmation
+### Confirmation
 
 Die erfolgreiche Umsetzung wird wie folgt verifiziert:
 
 | Phase | Erfolgskriterium | Verifikation |
 |-------|------------------|--------------|
-| 1 | Bei Provider-Ausfall wechselt System automatisch auf Fallback | Provozierter Test: Default-Model temporär auf ungültigen Wert setzen |
+| 1 | Bei Provider-Ausfall wechselt System automatisch auf Fallback | Provozierter Test: Default-Model temporär auf ungültigen Wert setzen, `pytest tests/test_fallback_chain.py` |
+| 1 | RateLimit triggert Backoff statt Fallback | Mock-Test mit `RateLimitError` × 2 → gleicher Call retry'd, kein Fallback |
 | 2 | Offline-Models werden innerhalb von 6h erkannt | Model manuell deaktivieren, Alert-Eingang in Discord prüfen |
-| 3 | Mindestens 5 neue Provider in DB erfasst | Admin-Zähler |
-| 4 | Auto-Routing wählt nachweisbar günstigeres Model bei gleicher Qualität | A/B-Vergleich mit festem vs. auto-geroutetem Model |
+| 3 | Provider-Katalog identisch über alle Repos | `python manage.py sync_aifw_providers` in 3 Repos, dann SQL-Vergleich |
+| 4 | Auto-Routing wählt nachweisbar günstigeres Model bei gleicher Qualität | A/B-Vergleich, Audit-Log auswerten |
 
-## Konsequenzen
+## Pros and Cons of the Options
 
-### Positiv
+(Pros/Cons je Option in Abschnitt "Considered Options" oben dokumentiert.)
+
+## Consequences
+
+### Good
 
 - Automatische Resilienz bei Provider-Ausfällen (Phase 1 löst P1+P2 sofort)
 - Systematische Kostenoptimierung durch Benchmark-Vergleich
 - Compliance-Transparenz (DSGVO-Status pro Provider dokumentiert)
 - Frühzeitige Entdeckung besserer/günstigerer Alternativen
 - Audit-Trail aller Model-Routing-Entscheidungen
+- Konsistenter Provider-Katalog über 19+ Repos (Sync-Mechanismus)
+- Org-Level-Secrets vereinfachen Key-Rotation (1 Stelle statt 19)
 
-### Negativ
+### Bad
 
 - Phase 3+4: ~12 Monate Research-Aufwand (verteilt)
 - Benchmark-Suite erfordert domänenspezifische Referenzdaten (einmalig ~2 Tage)
-- 3 neue DB-Tabellen in `aifw` (Migration-Aufwand)
+- 3 neue DB-Tabellen in `aifw` (Migration-Aufwand × 19 Repos)
 - Risiko: Over-Engineering wenn Action-Code-Anzahl bei <20 bleibt
+- LLM-as-Judge führt zirkuläre Abhängigkeit ein (Judge-Model selbst muss vertraut werden)
+- Sync-Mechanismus erzeugt Dependency auf platform-Repo Verfügbarkeit
 
 ### Neutral
 
@@ -408,52 +490,156 @@ Die erfolgreiche Umsetzung wird wie folgt verifiziert:
 | Risiko | Wahrscheinlichkeit | Impact | Mitigation |
 |--------|-------------------|--------|------------|
 | Provider-API ändert sich | Mittel | Niedrig | LiteLLM abstrahiert Provider-Unterschiede |
-| Benchmarks sind irreführend | Mittel | Mittel | Human-in-the-loop: Auto-Routing nur opt-in, Discord-Alert bei Wechsel |
+| Benchmarks sind irreführend | Mittel | Mittel | Human-in-the-loop: Auto-Routing nur opt-in, monatliche Human-Rating-Stichprobe |
 | Free Tiers werden abgeschafft | Hoch | Niedrig | Fallback-Chain enthält immer ein bezahltes Model |
-| Kosten-Explosion durch Ping-Tasks | Niedrig | Niedrig | 200 Tokens/Tag = $0.01/Jahr (berechnet, siehe Phase 2) |
-| DSGVO-Verstoß durch Test an unbekanntem Provider | Mittel | Hoch | Nur synthetische Testdaten ("1+1="), nie Produktionsdaten in Benchmarks |
+| Kosten-Explosion durch Ping-Tasks | Niedrig | Niedrig | 200 Tokens/Tag = $0.01/Jahr (berechnet) |
+| DSGVO-Verstoß durch Test an unbekanntem Provider | Mittel | Hoch | Nur synthetische Testdaten, nie Produktionsdaten |
+| Benchmark-Set-Memorization durch Provider | Niedrig | Mittel | Eigene Domänen-Daten (Ex-Schutz) statt öffentliche Benchmarks |
+| Sync-Mechanismus fällt aus → veralteter Katalog | Niedrig | Niedrig | Lokale Daten bleiben funktional, kein harter Sync-Zwang |
+| `aifw 0.6.0` Bug crasht 19 Repos | Niedrig | Hoch | Pilot-Deploy in risk-hub für 7 Tage vor Bulk-Rollout |
+| LLM-as-Judge selbst hat Bias | Mittel | Mittel | Tier-2-Human-Stichprobe zur Kalibrierung, Judge-Model rotieren |
 
-## Offene Fragen
+## Open Questions
 
-| # | Frage | Entscheidung bis | Verantwortlich |
-|---|-------|-----------------|----------------|
-| Q1 | Ab welcher Action-Code-Anzahl lohnt sich Phase 4 wirtschaftlich? | Vor Phase 4 Start | Achim |
-| Q2 | Soll Auto-Routing auch für sicherheitskritische Action Codes (z.B. `hazard_analysis`) erlaubt sein? | Phase 4 Design | Achim |
-| Q3 | Default: Provider-Katalog lebt in `aifw`. Auslagerung in separates Package evaluieren wenn Katalog >50 Einträge. | Phase 3 Review | Achim |
-| Q4 | Wie gehen wir mit Models um die nur in bestimmten Regionen verfügbar sind (z.B. Azure EU)? | Phase 3 | Achim |
-| Q5 | Soll das Benchmark-Set öffentlich dokumentiert werden (Transparenz) oder intern bleiben (Wettbewerbsvorteil)? | Phase 4 | Achim |
+Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer die Auswirkung einer Entscheidung einschätzen können.
+
+### Q1: Ab welcher Action-Code-Anzahl lohnt sich Phase 4 wirtschaftlich?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q1.A: ≥30 Action Codes (gewählt im aktuellen Draft) | Klare Schwelle | Willkürliche Zahl ohne Datenbasis |
+| Q1.B: Wenn Phase 2 ≥3 Modell-Wechsel/Quartal zeigt | Datengetrieben | Erst nach 6 Monaten Phase 2 entscheidbar |
+| Q1.C: Nie — Phase 4 streichen | Kein Aufwand | P5 (Quality-Gap) bleibt ungelöst |
+
+**Entscheidung bis:** Vor Phase 4 Start. **Verantwortlich:** Achim.
+
+### Q2: Soll Auto-Routing für sicherheitskritische Action Codes erlaubt sein?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q2.A: Ausschluss via `is_safety_critical=True` (gewählt) | Sicher, einfach | Manuelle Klassifizierung nötig |
+| Q2.B: Auto-Routing erlaubt mit Approval-Workflow | Flexibel | Komplex, Verzögerung |
+| Q2.C: Nie — nur manuelle Wahl für alle | Maximale Kontrolle | Verliert Phase-4-Wert |
+
+**Entscheidung bis:** Phase 4 Design. **Verantwortlich:** Achim.
+
+### Q3: Provider-Katalog in `aifw` oder separates Package?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q3.A: In `aifw` (Default, gewählt) | Eine Dependency, ein Release | aifw wird größer |
+| Q3.B: Separates `iil-llm-catalog` Package | Klare Trennung | Doppelter Release-Aufwand |
+| Q3.C: Cloud-Service mit API | Zentrale Verwaltung | Neuer Service-Aufwand |
+
+**Trigger für Re-Evaluation:** >50 Provider-Einträge. **Entscheidung bis:** Phase 3 Review.
+
+### Q4: Models nur in bestimmten Regionen (z.B. Azure EU)?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q4.A: Region-Feld in `LLMProvider`, Filter in Routing | Sauber | Komplex |
+| Q4.B: Pro Region eigener Provider-Eintrag (`azure-openai-eu`, `azure-openai-us`) | Einfach | Duplikation |
+| Q4.C: Nur EU-Provider zulassen (für DSGVO) | Compliance-sicher | Begrenzt Provider-Auswahl |
+
+**Entscheidung bis:** Phase 3. **Verantwortlich:** Achim.
+
+### Q5: Benchmark-Set öffentlich oder intern?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q5.A: Intern (Wettbewerbsvorteil) | Provider können nicht "memorieren" | Keine externe Validierung |
+| Q5.B: Öffentlich auf GitHub | Transparenz, Community-Beiträge | Memorization-Risiko |
+| Q5.C: Interne Test-Sets, öffentliche Methodologie | Best of both | Mehr Pflegeaufwand |
+
+**Entscheidung bis:** Phase 4. **Verantwortlich:** Achim.
+
+### Q6 (NEU): Wie werden Benchmark-Referenzdaten versioniert?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q6.A: `platform/benchmarks/aifw/v{N}/` (gewählt) | Klar versioniert, Diff sichtbar | Manuelle Bump-Disziplin |
+| Q6.B: Git-Tags `benchmark-v1`, `benchmark-v2` | Implizit über Git-History | Schwerer auffindbar |
+| Q6.C: DVC (Data Version Control) | Standard-Tool | Zusätzliche Infrastruktur |
+
+### Q7 (NEU): Tie-Breaking bei gleichem Score zwischen Providern?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q7.A: Default-Model gewinnt (Stabilität) | Konservativ, weniger Wechsel | Verpasst Optimierung |
+| Q7.B: Random Selection | Statistisch fair | Unvorhersagbar |
+| Q7.C: Provider-Diversität (LIFO — letzter Wechsel zuerst) | Anti-Lock-In | Komplex |
+
+### Q8 (NEU): Wann wechselt `LLMModelCandidate` von "Evaluating" → "Approved"?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q8.A: Manueller Schritt im Admin-UI | Volle Kontrolle | Bottleneck Achim |
+| Q8.B: Automatisch wenn Quality ≥ 0.8 in 3 Benchmark-Runs | Skalierbar | Risiko: schlechtes Model wird automatisch promoted |
+| Q8.C: Hybrid — Auto bei Quality ≥ 0.9, sonst manuell | Balance | Komplex |
+
+### Q9 (NEU): Was bei Provider-Deprecation (z.B. Groq entfernt Model)?
+
+| Option | Pro | Con |
+|--------|-----|-----|
+| Q9.A: Soft-Delete via `is_active=False` (gewählt impl.) | Audit-Trail bleibt | DB wächst |
+| Q9.B: Hard-Delete | DB schlank | Verlust historischer Daten |
+| Q9.C: Move zu `LLMModelArchive` Tabelle | Aufgeräumt | Mehr Code |
 
 ## Timeline
 
 | Phase | Zeitraum | Aufwand | Priorität | Gate |
 |-------|----------|---------|-----------|------|
-| 1: Fallback-Chain | Q2 2026 | 1 Woche | CRITICAL | Sofort umsetzbar |
-| 2: Monitoring | Q3 2026 | 2 Wochen | HIGH | Nach Phase 1 deployed |
+| 1: Fallback-Chain | Q2 2026 | 2-3 Wochen | CRITICAL | Sofort umsetzbar |
+| 2: Monitoring | Q3 2026 | 2 Wochen | HIGH | Nach Phase 1 stabil (7d Pilot) |
 | 3: Provider-Katalog | Q3–Q4 2026 | fortlaufend (~2h/Monat) | MEDIUM | Nach Phase 2 stabil |
-| 4: Auto-Routing | Q4 2026 – Q1 2027 | 4 Wochen | LOW | Nur wenn ≥30 Action Codes |
+| 4: Auto-Routing | Q4 2026 – Q1 2027 | 4-6 Wochen | LOW | Nur wenn ≥30 Action Codes |
 
-## Verwandte ADRs
+**Implementation-Tracking:**
 
-- **ADR-178** (LLM Gateway Consolidation) — Gateway-Code-Architektur. ADR-189 baut darauf auf (Model-Selektion-Layer oberhalb des Gateways).
-- **ADR-115** (LLM Usage Logging) — Logging-Daten sind Input für Cost-Reports in Phase 4.
-- **ADR-023** (Shared Scoring & Routing Engine) — Allgemeines Scoring-Pattern. Phase 4 implementiert eine Spezialisierung für LLM-Models.
-- **ADR-028** (Platform Context) — Deployment-Kontext. Monitoring-Task läuft im bestehenden Celery-Worker.
+- [ ] Phase 1.1: M2M `fallback_models` + Through-Table
+- [ ] Phase 1.2: Service-Logik mit Backoff
+- [ ] Phase 1.3: PyPI Release `aifw==0.6.0`
+- [ ] Phase 1.4: Pilot-Deploy risk-hub (7d)
+- [ ] Phase 1.5: Bulk-Rollout 19 Repos
+- [ ] Phase 2.1: Availability-Felder + Celery-Task
+- [ ] Phase 3.1: Provider-Katalog Models + Sync-Command
+- [ ] Phase 4.1: Benchmark-Runner + LLM-as-Judge
+
+## More Information
+
+- **ADR-178** (LLM Gateway Consolidation) — Gateway-Code-Architektur. ADR-189 baut darauf auf.
+- **ADR-115** (LLM Usage Logging) — Logging-Daten in `mcp_hub_db.llm_calls` als Cost-Report-Quelle.
+- **ADR-009** (Service Layer Pattern) — `aifw.service.completion()` als Service-Layer.
+- **ADR-022** (BigAutoField) — Alle neuen Models nutzen BigAutoField.
+- **ADR-072** (Multi-Tenancy Schema Isolation) — `aifw`-Tabellen explizit im `public` Schema (siehe Datenbank-Architektur).
+- **ADR-045** (SOPS) — N/A: Provider-Keys über GitHub Secrets, nicht SOPS.
+- **ADR-054** (Architecture Guardian) — Phase-4-Auto-Routing benachrichtigt Guardian via Signal.
+- **ADR-059** (Drift-Detector) — Felder `staleness_months`, `drift_check_paths` im Frontmatter.
 
 ## Glossar
 
 | Begriff | Erklärung |
 |---------|-----------|
-| **Action Code** | Eindeutiger Bezeichner für einen LLM-Anwendungsfall (z.B. `begehung_photo_analysis`). Wird in der DB-Tabelle `AIActionType` konfiguriert. |
+| **Action Code** | Eindeutiger Bezeichner für einen LLM-Anwendungsfall (z.B. `begehung_photo_analysis`). Wird in DB-Tabelle `AIActionType` konfiguriert. |
 | **aifw** | IIL-eigenes Python-Package für LLM-Aufrufe. Abstrahiert Provider-Unterschiede und steuert Model-Routing über die Datenbank. |
+| **BLEU** | Bilingual Evaluation Understudy — automatische Metrik für Textgenerierungsqualität (Vergleich mit Referenztext). |
 | **Celery Beat** | Scheduler-Komponente von Celery, die periodische Tasks zu festgelegten Zeiten ausführt (ähnlich Cron, aber Python-nativ). |
 | **DPA** | Data Processing Agreement — vertragliche DSGVO-Vereinbarung mit Datenverarbeiter. |
+| **DSGVO** | Datenschutz-Grundverordnung der EU (engl. GDPR) — Regelwerk zum Schutz personenbezogener Daten. |
+| **EU AI Act** | EU-Verordnung 2024/1689 zu Künstlicher Intelligenz. Klassifiziert KI-Systeme nach Risiko und definiert Pflichten für Hochrisiko-Anwendungen. |
 | **Expand-Contract** | Migrations-Pattern bei dem zuerst neue Strukturen additiv hinzugefügt werden (Expand), dann alte entfernt werden (Contract). Verhindert Breaking Changes bei laufendem Betrieb. |
-| **Fallback-Chain** | Geordnete Liste alternativer Models, die bei Ausfall des Primär-Models automatisch durchprobiert werden. |
+| **Exponential Backoff** | Retry-Strategie bei der die Wartezeit zwischen Versuchen verdoppelt wird (1s, 2s, 4s, ...). Standard bei transienten Fehlern wie Rate-Limits. |
 | **F1-Score** | Harmonisches Mittel aus Precision und Recall — Standardmetrik für Klassifikations- und Extraktionsaufgaben. |
-| **BLEU** | Bilingual Evaluation Understudy — automatische Metrik für Textgenerierungsqualität (Vergleich mit Referenztext). |
+| **Fallback-Chain** | Geordnete Liste alternativer Models, die bei Ausfall des Primär-Models automatisch durchprobiert werden. |
+| **Fixture** | Vordefinierter Datensatz (YAML/JSON) der per Management-Command in eine Datenbank geladen wird. Ermöglicht reproduzierbaren initialen Daten-Stand. |
 | **Human-Rating** | Manuelle Bewertung durch Fachexperten auf Skala 1–5. Gold-Standard für Textqualität. |
 | **LiteLLM** | Open-Source Python-Library die 100+ LLM-Provider unter einer einheitlichen API zusammenfasst. Bereits Dependency von `aifw`. |
+| **LLM-as-Judge** | Verfahren bei dem ein hochwertiges Sprachmodell die Qualität anderer Sprachmodelle bewertet. Skalierbarer Ersatz für Human-Rating. |
+| **M2M (Many-to-Many)** | Datenbank-Beziehung bei der mehrere Datensätze beliebig viele andere referenzieren können. In Django via `ManyToManyField`. |
 | **p95 Latenz** | 95. Perzentil der Antwortzeit — 95% aller Anfragen sind schneller als dieser Wert. Robuster als Durchschnitt. |
 | **Provider** | Anbieter von LLM-APIs (z.B. OpenAI, Groq, Anthropic, Mistral, Cerebras). |
+| **PyPI** | Python Package Index — zentraler Distributionskanal für Python-Pakete. `aifw` wird hier veröffentlicht. |
+| **Rate-Limit** | Vom Provider auferlegte Begrenzung der Anfragen pro Zeitfenster (z.B. 60 RPM). Transienter Fehler — bei Überschreitung wird HTTP 429 zurückgegeben. |
 | **ROUGE-L** | Recall-Oriented Understudy for Gisting Evaluation — Metrik für Zusammenfassungsqualität (längste gemeinsame Subsequenz). |
+| **Through-Table** | Explizit definierte Zwischentabelle bei M2M-Beziehungen. Erlaubt zusätzliche Felder (z.B. `priority`) auf der Beziehung selbst. |
 | **Token** | Kleinste Texteinheit für LLMs (~4 Zeichen Deutsch). Abrechnungseinheit bei Provider-APIs. |
