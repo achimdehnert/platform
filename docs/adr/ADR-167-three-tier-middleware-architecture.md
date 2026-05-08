@@ -1,12 +1,13 @@
 ---
-status: Accepted (Revision v1.1)
+status: accepted
 date: 2026-04-21
-decision-makers: Achim Dehnert, Cascade AI
+decision-makers: [Achim Dehnert, Cascade AI]
 consulted: []
 informed: []
-implementation_status: revision_in_progress
-amends: ADR-021
-supersedes: ADR-167 v1.0 (2026-04-21)
+implementation_status: partial
+amends: [ADR-021]
+supersedes: []  # v1.0→v1.1 is an amendment, not a supersession
+last_reviewed: 2026-05-08
 implementation_evidence:
   - "platform_context v0.6.0 (v1.0): HealthBypassMiddleware + SubdomainTenantMiddleware health bypass (22 tests)"
   - "platform_context v0.7.0 (v1.1): dual-mode async/sync, corrected liveness/readiness semantics, method whitelist, text/plain, system checks, Prometheus counter, ReadinessView (62 tests)"
