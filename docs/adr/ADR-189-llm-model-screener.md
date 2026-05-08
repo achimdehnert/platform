@@ -159,6 +159,8 @@ async def completion(action_code: str, messages: list, **kwargs):
     )
 ```
 
+**Exception-Handling:** `AllModelsFailedError` wird in `aifw.exceptions` definiert (neues Modul) und erbt von `aifw.AIFWError`.
+
 **Migration:** Expand-Contract-Pattern (ADR-009):
 1. Migration 1: Neue Tabelle `ActionFallbackModel` erstellen (additive)
 2. Migration 2: Bestehende Action Codes erhalten Default-Fallback `gpt-4o-mini` (Data Migration)
@@ -236,7 +238,7 @@ def check_model_availability():
 
 ### Phase 3: Provider-Katalog & Research (Q3–Q4 2026, fortlaufend)
 
-**Ownership:** Neues Django-Model in `aifw`-Package. Research-Aufgaben werden als Cascade-Agent-Tasks ausgeführt (kein Scraping).
+**Ownership:** Neues Django-Model in `aifw`-Package (Default). Bei Wachstum über 50 Provider/Models: Auslagerung in separates Package evaluieren (siehe Q3 in Offene Fragen).
 
 **Datenerhebung — ausschließlich über offizielle Kanäle:**
 
@@ -249,7 +251,11 @@ def check_model_availability():
 
 **Kein Web-Scraping.** Provider-Pricing wird manuell oder über offizielle Pricing-APIs erfasst.
 
+**Key-Management:** Provider-API-Keys werden analog bestehender Keys via `decouple.config()` in der jeweiligen `.env`-Datei hinterlegt (z.B. `GROQ_API_KEY`, `MISTRAL_API_KEY`). LiteLLM erkennt diese automatisch über Umgebungsvariablen — keine zentrale Vault-Lösung erforderlich.
+
 **Datenbank-Design:**
+
+Provider-Katalog und Model-Kandidaten sind **plattformweite Ressourcen** (nicht tenant-spezifisch). Alle Repos/Tenants teilen denselben Provider-Katalog — daher kein `tenant_id` erforderlich.
 
 ```python
 class LLMProvider(models.Model):
@@ -413,7 +419,7 @@ Die erfolgreiche Umsetzung wird wie folgt verifiziert:
 |---|-------|-----------------|----------------|
 | Q1 | Ab welcher Action-Code-Anzahl lohnt sich Phase 4 wirtschaftlich? | Vor Phase 4 Start | Achim |
 | Q2 | Soll Auto-Routing auch für sicherheitskritische Action Codes (z.B. `hazard_analysis`) erlaubt sein? | Phase 4 Design | Achim |
-| Q3 | Brauchen wir eine separate DB für Provider-Research oder reicht `aifw`? | Phase 3 Start | Achim |
+| Q3 | Default: Provider-Katalog lebt in `aifw`. Auslagerung in separates Package evaluieren wenn Katalog >50 Einträge. | Phase 3 Review | Achim |
 | Q4 | Wie gehen wir mit Models um die nur in bestimmten Regionen verfügbar sind (z.B. Azure EU)? | Phase 3 | Achim |
 | Q5 | Soll das Benchmark-Set öffentlich dokumentiert werden (Transparenz) oder intern bleiben (Wettbewerbsvorteil)? | Phase 4 | Achim |
 
@@ -440,13 +446,14 @@ Die erfolgreiche Umsetzung wird wie folgt verifiziert:
 | **Action Code** | Eindeutiger Bezeichner für einen LLM-Anwendungsfall (z.B. `begehung_photo_analysis`). Wird in der DB-Tabelle `AIActionType` konfiguriert. |
 | **aifw** | IIL-eigenes Python-Package für LLM-Aufrufe. Abstrahiert Provider-Unterschiede und steuert Model-Routing über die Datenbank. |
 | **Celery Beat** | Scheduler-Komponente von Celery, die periodische Tasks zu festgelegten Zeiten ausführt (ähnlich Cron, aber Python-nativ). |
+| **DPA** | Data Processing Agreement — vertragliche DSGVO-Vereinbarung mit Datenverarbeiter. |
+| **Expand-Contract** | Migrations-Pattern bei dem zuerst neue Strukturen additiv hinzugefügt werden (Expand), dann alte entfernt werden (Contract). Verhindert Breaking Changes bei laufendem Betrieb. |
 | **Fallback-Chain** | Geordnete Liste alternativer Models, die bei Ausfall des Primär-Models automatisch durchprobiert werden. |
 | **F1-Score** | Harmonisches Mittel aus Precision und Recall — Standardmetrik für Klassifikations- und Extraktionsaufgaben. |
 | **BLEU** | Bilingual Evaluation Understudy — automatische Metrik für Textgenerierungsqualität (Vergleich mit Referenztext). |
-| **ROUGE-L** | Recall-Oriented Understudy for Gisting Evaluation — Metrik für Zusammenfassungsqualität (längste gemeinsame Subsequenz). |
 | **Human-Rating** | Manuelle Bewertung durch Fachexperten auf Skala 1–5. Gold-Standard für Textqualität. |
 | **LiteLLM** | Open-Source Python-Library die 100+ LLM-Provider unter einer einheitlichen API zusammenfasst. Bereits Dependency von `aifw`. |
 | **p95 Latenz** | 95. Perzentil der Antwortzeit — 95% aller Anfragen sind schneller als dieser Wert. Robuster als Durchschnitt. |
 | **Provider** | Anbieter von LLM-APIs (z.B. OpenAI, Groq, Anthropic, Mistral, Cerebras). |
-| **DPA** | Data Processing Agreement — vertragliche DSGVO-Vereinbarung mit Datenverarbeiter. |
+| **ROUGE-L** | Recall-Oriented Understudy for Gisting Evaluation — Metrik für Zusammenfassungsqualität (längste gemeinsame Subsequenz). |
 | **Token** | Kleinste Texteinheit für LLMs (~4 Zeichen Deutsch). Abrechnungseinheit bei Provider-APIs. |
