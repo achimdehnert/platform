@@ -3,7 +3,7 @@ status: superseded
 date: 2026-03-08
 decision-makers: [Achim Dehnert]
 implementation_status: implemented
-superseded-by: ADR-114-discord-ide-like-communication-gateway.md
+superseded_by: [ADR-114]
 ---
 
 # ADR-113 — Telegram Gateway + pgvector Memory Store

@@ -1,7 +1,8 @@
 ---
-status: accepted
+status: superseded
 date: 2026-02-21
 decision-makers: Achim Dehnert
+superseded_by: [ADR-180]
 implementation_status: implemented
 implementation_evidence:
   - "platform-context package: shared backend services"

@@ -1,7 +1,8 @@
 ---
-status: "deprecated"
+status: "superseded"
 date: 2026-02-21
 decision-makers: Achim Dehnert
+superseded_by: [ADR-120]
 ---
 
 > **Deprecated**: concept paper, never formally decided — superseded by concrete ADRs (021, 028, 035)

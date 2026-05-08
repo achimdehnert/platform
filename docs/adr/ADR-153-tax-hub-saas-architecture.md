@@ -4,8 +4,7 @@ date: 2026-03-25
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
-supersedes:
-  - ADR-152   # tax-hub als Pilot-Repo — durch SaaS-Architektur ersetzt
+supersedes: []  # ADR-152 (tax-hub Pilot) never published — see related
 amends: []
 related:
   - ADR-007   # Tenant, Plan, Feature-Tabellen (Vorbildmuster)

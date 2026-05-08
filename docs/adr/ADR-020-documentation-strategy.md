@@ -2,6 +2,7 @@
 status: superseded
 date: 2026-02-21
 decision-makers: Achim Dehnert
+superseded_by: [ADR-158]
 ---
 
 # ADR-020: Dokumentationsstrategie — Sphinx, DB-driven, ADR-basiert
