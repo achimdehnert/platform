@@ -350,6 +350,27 @@ frameworks:
     package: gaeb-toolkit
 
 # =============================================================================
+# ORGANIZATION REPOS — External GitHub orgs managed by achimdehnert
+# Active orgs: iilgmbh, ttz-lif, meiki-lra
+# Inactive (ignore): ad-old
+# =============================================================================
+org_django_apps:
+
+  ttz-hub:
+    github: ttz-lif/ttz-hub
+    org: ttz-lif
+    description: TTZ Leipheim — Odoo-integrated hub
+    status: active
+    deployed: false
+
+  meiki-hub:
+    github: meiki-lra/meiki-hub
+    org: meiki-lra
+    description: "MEiKI \u2014 KI in Bayerischen Landkreisen (Dokumentation & Prozesse)"
+    status: active
+    deployed: false
+
+# =============================================================================
 # PLATFORM & INFRASTRUCTURE
 # =============================================================================
 infrastructure:

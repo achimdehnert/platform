@@ -99,12 +99,13 @@ if [[ ! -f "$REGISTRY" ]]; then
     exit 1
 fi
 
-# Aus github_repos.yaml lesen: django_apps → DJANGO_HUBS, frameworks → PACKAGES
+# Aus github_repos.yaml lesen: django_apps + org_django_apps → DJANGO_HUBS, frameworks → PACKAGES
 read -r -a DJANGO_HUBS <<< "$(python3 -c "
 import yaml, sys
 with open('${REGISTRY}') as f:
     data = yaml.safe_load(f)
-print(' '.join(data.get('django_apps', {}).keys()))
+apps = list(data.get('django_apps', {}).keys()) + list(data.get('org_django_apps', {}).keys())
+print(' '.join(apps))
 ")"
 
 read -r -a PACKAGES <<< "$(python3 -c "
