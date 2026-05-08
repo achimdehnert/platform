@@ -1,7 +1,7 @@
 ---
 status: Proposed
 date: 2026-04-26
-amended: 2026-04-26
+amended: 2026-05-08
 decision-makers:
   - Achim Dehnert
 reviewed-by: Principal IT-Architect
@@ -36,6 +36,7 @@ drift_check_paths:
 |---------|-------|----------|
 | 1.0 | 2026-04-26 | Initiale Version |
 | 1.1 | 2026-04-26 | Review-Fixes: BigAutoField+public_id (B1), tenant_id durchgehend (B2), deleted_at (B3), HNSW statt ivfflat (B4), UNIQUE Partial Index is_current (B5), 2-Tabellen-Design rag_documents+rag_chunks (K1), embed_model_version auf Chunk-Level (H1), echtes RRF (K3), content_hash UNIQUE (K4), revision_no (K5), CHECK-Constraints (H2/H3), lang-Spalte (H4), DELETE-Trigger (H5) |
+| 1.2 | 2026-05-08 | tenant_id BIGINT→UUID (ADR-188 E6: tenant_id ist Referenzfeld, kein PK — ADR-022 betrifft nur PKs. Alle Consumer-Repos nutzen UUID.) |
 
 ---
 
@@ -106,7 +107,7 @@ CREATE TABLE rag_collections (
     id                  bigserial    PRIMARY KEY,
     public_id           uuid         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
 
-    tenant_id           bigint       NOT NULL,
+    tenant_id           uuid         NOT NULL,  -- UUID: kein PK, matcht Consumer-Repos (ADR-188 E6)
     repo                varchar(100) NOT NULL,
     collection          varchar(100) NOT NULL,
     description         jsonb        NOT NULL DEFAULT '{}'::jsonb,
@@ -137,7 +138,7 @@ CREATE TABLE rag_documents (
     id              bigserial    PRIMARY KEY,
     public_id       uuid         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
 
-    tenant_id       bigint       NOT NULL,
+    tenant_id       uuid         NOT NULL,  -- UUID: kein PK, matcht Consumer-Repos (ADR-188 E6)
     collection_id   bigint       NOT NULL REFERENCES rag_collections(id),
 
     document_key    varchar(500) NOT NULL,       -- stabile externe ID
@@ -199,7 +200,7 @@ CREATE TABLE rag_chunks (
     id              bigserial    PRIMARY KEY,
     public_id       uuid         NOT NULL UNIQUE DEFAULT gen_random_uuid(),
 
-    tenant_id       bigint       NOT NULL,
+    tenant_id       uuid         NOT NULL,  -- UUID: kein PK, matcht Consumer-Repos (ADR-188 E6)
     document_id     bigint       NOT NULL REFERENCES rag_documents(id) ON DELETE RESTRICT,
 
     parent_chunk_id bigint       NULL REFERENCES rag_chunks(id) ON DELETE RESTRICT,
