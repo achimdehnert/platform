@@ -16,3 +16,12 @@ repos:
         always_run: false
         files: ^docs/adr/ADR-.*\.md$
         stages: [pre-commit]
+
+      - id: adr-schema-validate
+        name: ADR Schema Validation (iil-adrfw)
+        language: system
+        entry: iil-adrfw validate docs/adr/
+        pass_filenames: false
+        always_run: false
+        files: ^docs/adr/ADR-.*\.md$
+        stages: [pre-commit]

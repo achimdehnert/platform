@@ -193,6 +193,20 @@ fi
 → Zeigt neue BLOCKs sofort am Session-Start an.
 → Wenn `--fail-on block` fehlschlägt: Findings zuerst fixen bevor weitergearbeitet wird.
 
+### 0.4.2 ADR Schema Validation (iil-adrfw)
+
+// turbo
+```bash
+# Schnell-Check: ADR-Frontmatter gegen Schema v3 validieren
+if command -v iil-adrfw &>/dev/null; then
+  iil-adrfw validate ${GITHUB_DIR:-$HOME/github}/platform/docs/adr/ 2>&1 | tail -3
+else
+  echo "⚠️  iil-adrfw nicht installiert — pip install iil-adrfw>=0.2.1"
+fi
+```
+→ Zeigt sofort wenn ein ADR kaputtes Frontmatter hat.
+→ Fängt Drift nach Schema-Updates oder manuellen Edits.
+
 ### 0.5 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
 
 // turbo
