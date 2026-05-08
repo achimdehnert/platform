@@ -8,14 +8,6 @@ implementation_evidence:
   - "iil-enrichment v0.1.0 package skeleton: github.com/achimdehnert/iil-enrichment (18/18 tests)"
 consulted: []
 informed: []
-<!-- Drift-Detector-Felder
-staleness_months: 6
-drift_check_paths:
-  - iil-enrichment/enrichment/provider.py
-  - iil-enrichment/enrichment/registry.py
-  - risk-hub/src/global_sds/services/upload_pipeline.py
-supersedes_check: null
--->
 ---
 
 # ADR-169: Adopt iil-enrichment as generic pattern for bridging managed records with external knowledge sources

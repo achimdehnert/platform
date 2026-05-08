@@ -1,4 +1,13 @@
 ---
+status: accepted
+date: 2026-02-22
+decision-makers: Achim Dehnert
+consulted: []
+informed: []
+implementation_status: partial
+implementation_evidence:
+  - "mcp-hub: web intelligence basic, advanced features pending"
+---
 
 ## Kontext und Problemstellung
 
@@ -15,9 +24,7 @@ IP-Sperren durch inkonsistentes Rate-Limiting, und mit klarer DSGVO-Hoheit?
 **Nicht-Ziel (dieses ADR):** Authentifiziertes Scraping (Login-Sessions) → ADR-070.
 URL-Discovery / Spider-Logik → separates ADR. Dieses MCP empfängt immer
 **konkrete URLs** von aufrufenden Agenten.
-implementation_status: partial
-implementation_evidence:
-  - "mcp-hub: web intelligence basic, advanced features pending"
+
 ---
 
 ## Decision Drivers

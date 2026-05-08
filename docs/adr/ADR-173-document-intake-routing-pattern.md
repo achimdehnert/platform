@@ -5,13 +5,6 @@ decision-makers: Achim Dehnert
 consulted: []
 informed: []
 implementation_status: planned
-<!-- Drift-Detector-Felder
-staleness_months: 6
-drift_check_paths:
-  - risk-hub/src/intake/
-  - risk-hub/src/intake/handlers/
-supersedes_check: null
--->
 ---
 
 # ADR-173: Document Intake Routing Pattern
