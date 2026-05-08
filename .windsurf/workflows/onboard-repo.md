@@ -843,7 +843,33 @@ outline-knowledge: create_runbook(
 - Bekannte Einschränkungen
 - Nächste Schritte
 
-### 6.6 Workstation SSH-Setup prüfen (ADR-060)
+### 6.6 ADR Architecture Narrative generieren (iil-adrfw)
+
+Generiere ein domänenspezifisches Architektur-Onboarding für das neue Repo:
+
+```
+MCP: mcp2_adr_narrate(
+    audience="new_dev",
+    domain="<domain>",           # z.B. "deployment", "django/models", "security"
+    scope_label="<REPO_NAME>"
+)
+→ Liefert: Markdown-Narrative mit Overview, Decisions, Supersession Chains, Open Questions
+```
+
+**Ergebnis speichern** als Teil des Outline-Steckbriefs (Step 6.5) oder separat:
+
+```
+MCP: mcp4_create_concept(
+    title="Architecture Guide: <REPO_NAME>",
+    content="<narrative_output>",
+    related_adrs="<relevante_adr_nummern>"
+)
+```
+
+→ Neue Devs/Agents haben sofort vollständigen Architektur-Kontext.
+→ Narrative wird bei `/session-start` automatisch via `adr_query` geladen.
+
+### 6.7 Workstation SSH-Setup prüfen (ADR-060)
 
 Sicherstellen dass kein `core.sshCommand` im neuen Repo gesetzt wird:
 

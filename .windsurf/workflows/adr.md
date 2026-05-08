@@ -60,6 +60,30 @@ Analyze the topic using these keywords:
 | API, Auth, Logging, "alle Apps", "shared", Cross-App | `shared` | 450–499 |
 | Trading, Market, Exchange, Bot, Signal, Order, Portfolio | `trading-hub` | 400–449 |
 
+## Step 1.5: ADR Pre-Validation via iil-adrfw (PFLICHT)
+
+> Nutzt `iil-adrfw` MCP Tools (Prefix aus project-facts.md, aktuell `mcp2_`).
+
+Vor Erstellung prüfen ob der ADR-Vorschlag konsistent ist:
+
+```
+MCP: mcp2_adr_propose(
+    title="<Decision Statement im Imperativ>",
+    domains=["<domain1>", "<domain2>"],
+    deciders=["Achim Dehnert"],
+    rationale_summary="<Warum diese Entscheidung? Min. 20 Zeichen.>"
+)
+→ Liefert:
+  - proposed_id: nächste freie Nummer
+  - conflicts: Duplikate, verpasste Supersessions
+  - closes_open_questions: welche bestehenden Open Questions dieser ADR beantwortet
+  - blocks_publish: True wenn HIGH-confidence Konflikte existieren
+```
+
+**Bei `blocks_publish: True`** → User informieren, Konflikte zuerst lösen.
+**Bei `conflicts`** → im ADR-Body unter "Considered Options" referenzieren.
+**Bei `closes_open_questions`** → im bestehenden ADR die Frage als "resolved" markieren.
+
 ## Step 2: Show Scope Suggestion
 
 ```text
@@ -70,8 +94,9 @@ Thema: "[User's topic]"
 Scope-Erkennung:
    → [scope] ([range])
 
-Nächste Nummer: ADR-[NNN] (wird in Step 3 live geprüft)
+Nächste Nummer: ADR-[NNN] (aus mcp2_adr_propose oder Step 3)
 Datei: {ADR_PATH}/ADR-[NNN]-[title-slug].md
+Pre-Validation: ✅ keine Konflikte / ⚠️ [N] Konflikte
 
 Scope korrekt? [Ja/Nein]
 ```

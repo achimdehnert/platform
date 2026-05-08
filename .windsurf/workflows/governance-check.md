@@ -60,12 +60,25 @@ pip list | grep iil
 
 ## Step 4: Architektur-Verletzungen prüfen
 
+### 4a) Platform-Context (statische Patterns)
 ```
 MCP: <ctx>_check_violations(code_snippet="<generierter Code>")
 MCP: <ctx>_get_banned_patterns(context="<views|models|htmx|deployment>")
 ```
 
-→ Blockiert bei CRITICAL Violations. Kein Weiter ohne grünen Check.
+### 4b) ADR Constitution (dynamische Rules via iil-adrfw)
+```
+MCP: mcp2_adr_impact(file_path="<betroffene_datei>", repo="<repo>")
+→ Welche ADRs gelten für diese Datei?
+
+MCP: mcp2_adr_check(paths=["<betroffene_dateien>"], severity_threshold="warning")
+→ Code gegen ADR-Rules prüfen (AST-basiert)
+
+MCP: mcp2_adr_query(question="<architektur-frage>", domain="<domain>")
+→ Bei Unklarheit: Constitution direkt befragen
+```
+
+→ Blockiert bei CRITICAL Violations aus beiden Checks. Kein Weiter ohne grünen Check.
 
 ## Step 5: HTMX-Detection prüfen (wenn Templates betroffen)
 

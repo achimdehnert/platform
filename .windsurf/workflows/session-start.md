@@ -193,7 +193,7 @@ fi
 → Zeigt neue BLOCKs sofort am Session-Start an.
 → Wenn `--fail-on block` fehlschlägt: Findings zuerst fixen bevor weitergearbeitet wird.
 
-### 0.4.2 ADR Schema Validation (iil-adrfw)
+### 0.4.2 ADR Schema Validation + Architecture Context (iil-adrfw)
 
 // turbo
 ```bash
@@ -201,11 +201,27 @@ fi
 if command -v iil-adrfw &>/dev/null; then
   iil-adrfw validate ${GITHUB_DIR:-$HOME/github}/platform/docs/adr/ 2>&1 | tail -3
 else
-  echo "⚠️  iil-adrfw nicht installiert — pip install iil-adrfw>=0.2.1"
+  echo "⚠️  iil-adrfw nicht installiert — pip install iil-adrfw>=0.3.1"
 fi
 ```
 → Zeigt sofort wenn ein ADR kaputtes Frontmatter hat.
 → Fängt Drift nach Schema-Updates oder manuellen Edits.
+
+**Architecture Context laden** (MCP — Prefix `mcp2_` für iil-adrfw, aus project-facts.md):
+
+```
+MCP: mcp2_adr_staleness(months=6)
+→ Zeigt: stale ADRs, broken refs, missing reviews — sofort User informieren bei Findings
+
+MCP: mcp2_adr_audit()
+→ Health Score prüfen — bei score < 0.95 warnen
+
+MCP: mcp2_adr_query(question="Which ADRs apply to <TARGET_REPO>?")
+→ Repo-spezifische Architektur-Constraints für die aktuelle Session laden
+```
+
+→ Ergebnis kurz zusammenfassen: "X ADRs gelten für dieses Repo, Health Score Y, Z stale."
+→ Bei kritischen Findings (score < 0.90 oder broken refs): User informieren vor Weiterarbeit.
 
 ### 0.5 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
 
