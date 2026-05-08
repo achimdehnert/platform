@@ -1,3 +1,8 @@
+---
+status: proposed
+date: 2026-03-15
+decision-makers: [Achim Dehnert]
+---
 # ADR-134: Modul-Konfiguration und Monetarisierungsstrategie als shared Package
 
 > **Umnummeriert von ADR-099** (Nummernkonflikt mit ADR-099-devhub-release-management-ui)

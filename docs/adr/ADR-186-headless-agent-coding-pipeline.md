@@ -9,6 +9,7 @@ supersedes: []
 amends: [ADR-141]
 related: [ADR-066, ADR-068, ADR-075, ADR-077, ADR-080, ADR-081, ADR-082, ADR-116, ADR-141, ADR-156, ADR-177, ADR-185]
 implementation_status: none
+last_reviewed: 2026-05-08
 staleness_months: 6
 drift_check_paths:
   - orchestrator_mcp/agents/

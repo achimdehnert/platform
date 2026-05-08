@@ -21,6 +21,7 @@ implementation_status: partial
 implementation_evidence:
   - "v2: Review-Findings B1-B3 + S1-S10 eingearbeitet (ADR-149-review.md)"
 review_status: "reviewed — v1 reviewed, v2 addresses all findings from ADR-149-review.md"
+last_reviewed: 2026-05-08
 staleness_months: 12
 drift_check_paths:
   - packages/dvelop-client/

@@ -6,6 +6,7 @@ date: 2026-04-15
 author: Achim Dehnert
 scope: platform
 tags: [methodology, ui-tdd, playwright, use-case, quality, scraping, testing]
+last_reviewed: 2026-05-08
 staleness_months: 12
 related_adrs: [ADR-040, ADR-041, ADR-050, ADR-051, ADR-058, ADR-059]
 ---

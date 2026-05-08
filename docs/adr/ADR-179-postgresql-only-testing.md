@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-12
+decision-makers: [Achim Dehnert]
+---
 # ADR-141: PostgreSQL-Only Testing
 
 **Status:** ACCEPTED  

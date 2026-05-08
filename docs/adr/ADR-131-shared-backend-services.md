@@ -1,3 +1,6 @@
+---
+status: accepted
+date: 2026-03-11
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []

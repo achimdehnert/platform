@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-22
+decision-makers: [Achim Dehnert]
+---
 # ADR-148: Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub
 
 | Attribut       | Wert                                    |

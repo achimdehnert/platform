@@ -16,6 +16,7 @@ related:
   - ADR-146   # DvelopDmsClient
   - ADR-152   # Pilot-ADR (superseded)
   - ADR-079   # Temporal Workflow-Engine (bfagent)
+last_reviewed: 2026-05-08
 staleness_months: 6
 drift_check_paths:
   - tax-hub/apps/modules/

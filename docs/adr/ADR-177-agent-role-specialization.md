@@ -6,6 +6,7 @@ deciders: [achimdehnert, cascade]
 related: [ADR-068, ADR-077, ADR-138, ADR-173, ADR-174]
 amends: [ADR-066]
 implementation_status: none
+last_reviewed: 2026-05-08
 staleness_months: 6
 drift_check_paths:
   - orchestrator_mcp/agents/

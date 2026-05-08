@@ -1,3 +1,8 @@
+---
+status: proposed
+date: 2026-03-25
+decision-makers: [Achim Dehnert]
+---
 # ADR-151: End-to-End Recruiting-Workflow — LinkedIn Recruiter × Hunter CRM × Recruiting Hub
 
 | Attribut       | Wert                                    |

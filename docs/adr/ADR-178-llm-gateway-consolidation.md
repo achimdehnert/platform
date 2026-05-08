@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-05-05
+decision-makers: [Achim Dehnert]
+---
 # ADR-178: LLM Gateway Consolidation
 
 - **Status:** Accepted

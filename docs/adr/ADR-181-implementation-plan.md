@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-26
+decision-makers: [Achim Dehnert]
+---
 # ADR-147 — Implementierungsplan (produktionsreif)
 
 **Datum**: 2026-03-26

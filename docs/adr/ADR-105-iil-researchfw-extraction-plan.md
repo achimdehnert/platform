@@ -1,3 +1,8 @@
+---
+status: accepted
+date: 2026-03-07
+decision-makers: [Achim Dehnert]
+---
 # ADR-105: iil-researchfw — Code-Extraktion und Implementierungsplan
 
 **Status:** Accepted (v2 — nach Review REVIEW-ADR-105)  
