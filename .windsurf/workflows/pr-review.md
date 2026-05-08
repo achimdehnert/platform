@@ -23,6 +23,28 @@ GitHub MCP: `mcp_github_get_pull_request` mit owner/repo/pull_number.
 
 ---
 
+## Step 1.5: ADR Impact + Compliance Check (automatisch)
+
+> Nutzt `iil-adrfw` MCP Tools (Prefix aus project-facts.md, aktuell `mcp2_`).
+
+Für **jede geänderte Datei** im PR:
+
+```
+MCP: mcp2_adr_impact(file_path="<datei>", repo="<repo>")
+→ Zeigt welche ADRs für diese Datei gelten
+```
+
+Bei Dateien mit ADR-Treffern → Code gegen Rules prüfen:
+
+```
+MCP: mcp2_adr_check(paths=["<datei1>", "<datei2>"], severity_threshold="warning")
+→ Liefert: Violations mit rule_id, severity, expected vs. actual
+```
+
+Jede Violation mit severity ≥ error → `[BLOCK]` im Review.
+
+---
+
 ## Step 2: Review-Kriterien (Checkliste)
 
 ### Architektur & Patterns
@@ -32,7 +54,7 @@ GitHub MCP: `mcp_github_get_pull_request` mit owner/repo/pull_number.
 - [ ] `DEFAULT_AUTO_FIELD = BigAutoField` — keine UUIDs als PK?
 - [ ] Templates in `templates/<app>/` (nicht per-app)?
 - [ ] HTMX: `request.htmx` (nicht raw header check)?
-- [ ] ADR-Compliance: Widerspricht der Code einer bestehenden ADR?
+- [ ] ADR-Compliance: `mcp2_adr_check` zeigt keine Violations?
 
 ### Code-Qualität
 
