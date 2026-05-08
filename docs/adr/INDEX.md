@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-07
-> **Next free ADR number:** 188
+> **Last updated:** 2026-05-08
+> **Next free ADR number:** 189
 
 ## Legend
 
@@ -206,6 +206,7 @@
 | 185 | Adopt Gate-controlled Deploy-Agent for automated Staging→Prod deployments | `Proposed` | ⬜ | [ADR-185](ADR-185-deploy-agent-pattern.md) |
 | 186 | Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation | `Proposed` | ⬜ | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
 | 187 | Document Intelligence Pipeline — iil-ingest erweitern um VectorStore, Multi-Tool Ensemble & RAG | `Accepted` | 🔶 | [ADR-187](ADR-187-document-intelligence-pipeline.md) |
+| 188 | Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store | `Proposed` | ⬜ | [ADR-188](ADR-188-unified-vector-store.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
