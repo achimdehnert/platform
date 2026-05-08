@@ -19,15 +19,15 @@ decision_drivers:
   - id: D-1
     driver: "TTZ Leipheim will SysML/Gaphor als Standardtool für Modellierung der Modellfabrik etablieren"
     weight: critical
-    category: customer-requirement
+    category: strategic
   - id: D-2
     driver: "Architektur-Dokumentation muss für Nicht-Softwareentwickler lesbar sein (Werksleiter, Maschinenbauer)"
     weight: high
-    category: usability
+    category: ergonomic
   - id: D-3
     driver: "IIL-Platform nutzt Mermaid + ADRs — kein Grund, plattformweit umzusteigen"
     weight: high
-    category: consistency
+    category: operational
 ---
 
 # ADR-189: SysML/Gaphor-Architekturmodell für ttz-hub
