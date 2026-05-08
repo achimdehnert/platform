@@ -11,6 +11,7 @@ repo: risk-hub
 implementation_status: none
 # Drift-Detector
 staleness_months: 6
+last_reviewed: 2026-05-08
 drift_check_paths:
   - risk-hub/src/apps/substances/models/
   - risk-hub/src/apps/substances/services/
