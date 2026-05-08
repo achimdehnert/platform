@@ -1,5 +1,5 @@
 ---
-status: Proposed
+status: Accepted
 date: 2026-05-07
 amended: 2026-05-08
 decision-makers:
@@ -22,7 +22,16 @@ consolidates:
   - ADR-171 (rag_collections / rag_documents / rag_chunks)
   - ADR-187 §E3 (document_chunks Tabelle)
 repo: platform
-implementation_status: none
+implementation_status: partial
+implementation_evidence:
+  - "Embedder Spike: multilingual-e5-large auf Hetzner CPX (12 vCPU, CPU-only)"
+  - "RAM: 2019 MB (Budget 3000) ✔️"
+  - "Recall@1 German legal: 5/5 = 100% ✔️"
+  - "Batch throughput: 57 chunks/sec at batch=50 ✔️"
+  - "Single-text p50: 114ms (Budget 100ms, akzeptabel für UX) ✔️"
+  - "Container: embedder_e5_spike auf 88.198.191.108:9200"
+  - "ADR-171 Schema: tenant_id UUID korrigiert (v1.2)"
+  - "ADR-087: superseded_by_planned eingetragen"
 staleness_months: 6
 drift_check_paths:
   - mcp-hub/rag_mcp/db/schema.sql
@@ -35,7 +44,7 @@ drift_check_paths:
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-05-07 |
 | **Geändert** | 2026-05-08 (v1.1 — Review-Fixes: UUID-Klarstellung, Decision Drivers, Open Questions, Glossar, Deprecation-Timeline, SPOF-Mitigation, DSGVO-Policy) |
 | **Autor** | Achim Dehnert |
