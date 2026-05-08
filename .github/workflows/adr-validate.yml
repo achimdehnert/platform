@@ -1,0 +1,43 @@
+name: ADR Schema Validation
+
+on:
+  push:
+    paths:
+      - "docs/adr/ADR-*.md"
+  pull_request:
+    paths:
+      - "docs/adr/ADR-*.md"
+  schedule:
+    - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
+
+jobs:
+  validate:
+    name: Validate ADR frontmatter (schema v3)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install iil-adrfw
+        run: pip install "iil-adrfw>=0.2.0"
+
+      - name: Clone schema files
+        run: |
+          git clone --depth 1 https://github.com/achimdehnert/iil-adrfw.git /tmp/iil-adrfw
+
+      - name: Validate all ADRs
+        run: |
+          iil-adrfw validate docs/adr/ --schema-dir /tmp/iil-adrfw/schemas/ --json | tee validation.json
+          # Fail if any ADR is invalid
+          python3 -c "
+          import json, sys
+          r = json.load(open('validation.json'))
+          print(f\"✓ {r['passed']}/{r['total']} ADRs valid ({r['percent']}%)\")
+          if r['failed'] > 0:
+              for f in r['failures']:
+                  print(f\"  ✗ {f['file']}: {f['error']}\")
+              sys.exit(1)
+          "
