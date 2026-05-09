@@ -14,6 +14,7 @@ depends-on:
 repo: platform
 implementation_status: none
 staleness_months: 6
+last_reviewed: 2026-05-09
 drift_check_paths:
   - mcp-hub/rag_mcp/
 ---
