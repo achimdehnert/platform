@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-05-08
 decision-makers:
   - Achim Dehnert
@@ -31,7 +31,7 @@ drift_check_paths:
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-05-08 |
 | **Entscheider** | Achim Dehnert |
 | **Abhängig von** | ADR-083, ADR-059 |
@@ -105,15 +105,15 @@ before merge.
 
 | Component | Location | Status |
 |-----------|----------|--------|
-| PyPI package | `iil-adrfw>=0.3.1` | ✅ published |
-| MCP server | `iil-adrfw-mcp` (stdio) | ✅ 11 tools |
+| PyPI package | `iil-adrfw>=0.4.0` | ✅ published |
+| MCP server | `iil-adrfw-mcp` (stdio) | ✅ 12 tools |
 | CI workflow | `platform/.github/workflows/adr-validate.yml` | ✅ required check |
 | Session-start | Step 0.4.2 (`mcp2_adr_staleness` + `mcp2_adr_audit`) | ✅ integrated |
 | Pre-code | Step A0 (`mcp2_adr_impact`) | ✅ integrated |
 | PR-review | Step 1.5 (`mcp2_adr_check`) | ✅ integrated |
 | ADR creation | Step 1.5 (`mcp2_adr_propose`) | ✅ integrated |
 
-## MCP Tools (11)
+## MCP Tools (12)
 
 | Tool | Purpose |
 |------|---------|
@@ -128,3 +128,4 @@ before merge.
 | `adr_diff` | Diff constitution between times or sets |
 | `adr_narrate` | Audience-tailored narrative summary |
 | `adr_validate_cross_repo` | Validate ADR claims against consumer repos |
+| `adr_freshness` | Check ADR content claims against repo state (versions, ports, images) |
