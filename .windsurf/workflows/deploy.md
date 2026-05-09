@@ -29,6 +29,28 @@ description: Deploy any app to production (bfagent, cad-hub, travel-beat, etc.)
 
 ---
 
+## Pre-Deploy: ADR Freshness Gate (iil-adrfw v0.4.0)
+
+Vor jedem Deploy prüfen ob die ADRs noch zum aktuellen Repo-Stand passen:
+
+```
+MCP: mcp2_adr_freshness(repo_path="${GITHUB_DIR}/<SERVICE>")
+→ Prüft Version/Port/Image Claims in ADRs gegen compose + requirements
+→ severity=warning: Version-Drift (z.B. ADR sagt PostgreSQL 15, Repo hat 16)
+→ severity=info: Port-Abweichung (oft irrelevant, nur bei eigenem Repo-Port warnen)
+```
+
+| Ergebnis | Aktion |
+|----------|--------|
+| 0 stale_claims | ✅ Deploy fortsetzen |
+| Nur `info` Findings | ✅ Deploy fortsetzen, optional ADR updaten |
+| `warning` Findings | ⚠️ User informieren — Deploy möglich, aber ADR-Update empfohlen |
+| Version-Mismatch bei Kern-Infra (DB, Python) | ❌ Erst ADR aktualisieren, dann deployen |
+
+→ Verhindert Drift zwischen ADR-Dokumentation und tatsächlichem System-Stand.
+
+---
+
 ## Deploy via GitHub Actions (Standard)
 
 ### 1. Service deployen (GitHub UI)
