@@ -53,6 +53,7 @@ UNIVERSAL=(
     onboarding-new-repo
     pre-code
     process-agent-queue
+    create-pdf
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
@@ -88,7 +89,7 @@ PACKAGE=(
 
 # Nur platform (werden NICHT verteilt — Meta-Repo-spezifisch):
 # cascade-auftraege, idea-intake, agent-review, workflow-review,
-# docu-repo-all, platform-audit, create-pdf, onboard-stack
+# docu-repo-all, platform-audit, onboard-stack
 
 # --- Repo-Typen (SSoT: registry/github_repos.yaml) ---
 
