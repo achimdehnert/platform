@@ -43,6 +43,30 @@ MCP: mcp2_adr_check(paths=["<datei1>", "<datei2>"], severity_threshold="warning"
 
 Jede Violation mit severity ≥ error → `[BLOCK]` im Review.
 
+### Step 1.6: Cross-Repo Validation (nur bei ADR-Änderungen)
+
+Wenn der PR **ADR-Dateien** (`docs/adr/ADR-*.md`) enthält:
+
+```
+MCP: mcp2_adr_validate_cross_repo(
+  adr_id="<geändertes_ADR>",
+  consumer_repos=[
+    {name: "<repo1>", root: "${GITHUB_DIR}/<repo1>"},
+    {name: "<repo2>", root: "${GITHUB_DIR}/<repo2>"}
+  ]
+)
+→ Prüft ob der ADR-Inhalt mit dem tatsächlichen Code in Consumer-Repos übereinstimmt
+→ blocks_publish=true bei HIGH-Confidence Konflikten → [BLOCK] im Review
+```
+
+Wenn der PR **docker-compose/requirements** ändert:
+```
+MCP: mcp2_adr_freshness(repo_path="${GITHUB_DIR}/<repo>")
+→ Prüft ob sich durch die Änderung neue ADR-Drifts ergeben
+→ z.B. PostgreSQL-Upgrade in compose → ADR-022 sagt noch "PostgreSQL 15"
+→ Findings als [SUGGEST] im Review: "ADR-022 aktualisieren"
+```
+
 ---
 
 ## Step 2: Review-Kriterien (Checkliste)

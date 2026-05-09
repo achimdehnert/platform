@@ -151,6 +151,32 @@ CLOUDFLARE_API_TOKEN=<token> python ${GITHUB_DIR:-$HOME/github}/platform/infra/s
 - `platform/registry/github_repos.yaml` — Repo-Eintrag
 - `python infra/scripts/validate_repos.py` — Konsistenz prüfen
 
+## Step 0.9: Architecture Context laden (iil-adrfw v0.4.0)
+
+Bevor das Repo strukturiert wird — welche ADRs gelten?
+
+**Narrative Zusammenfassung für Onboarding:**
+```
+MCP: mcp2_adr_narrate(audience="new_dev", domain=null, path_filter=null)
+→ Erzeugt eine verständliche Zusammenfassung aller Platform-ADRs
+→ Audience "new_dev": erklärt Warum + Was, ohne tiefe Implementierungsdetails
+→ Output als Markdown — kann direkt in CORE_CONTEXT.md des neuen Repos übernommen werden
+```
+
+**Repo-spezifische ADR-Constraints ermitteln:**
+```
+MCP: mcp2_adr_query(question="Which architecture rules apply to a new Django hub?", domain="django/models")
+→ Liefert die konkreten Rules die beim Scaffolding beachtet werden müssen
+
+MCP: mcp2_adr_query(question="What are the deployment requirements?", domain="deployment")
+→ Docker, Compose, Health-Endpoint Requirements für das neue Repo
+```
+
+→ Ergebnis zusammenfassen und dem User als "Architecture Briefing" präsentieren.
+→ Bei `open_questions` in der Antwort: User darauf hinweisen, dass hier noch keine ADR-Entscheidung existiert.
+
+---
+
 ## Step 1: Repository-Struktur erstellen
 
 Folgende Dateien MÜSSEN existieren — prüfe und erstelle fehlende:

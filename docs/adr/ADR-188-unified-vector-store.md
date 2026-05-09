@@ -33,6 +33,7 @@ implementation_evidence:
   - "ADR-171 Schema: tenant_id UUID korrigiert (v1.2)"
   - "ADR-087: superseded_by_planned eingetragen"
 staleness_months: 6
+last_reviewed: 2026-05-09
 drift_check_paths:
   - mcp-hub/rag_mcp/db/schema.sql
   - platform/packages/platform-search/
