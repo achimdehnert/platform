@@ -20,7 +20,7 @@ domains:
   - tooling/mcp
 implementation_status: implemented
 staleness_months: 6
-last_reviewed: 2026-05-08
+last_reviewed: 2026-05-09
 drift_check_paths:
   - platform/.github/workflows/adr-validate.yml
   - platform/.windsurf/workflows/adr.md
