@@ -50,15 +50,25 @@ jobs:
           cache: 'pip'
 
       - name: Install adr-review
-        run: pip install ./packages/adr-review
+        id: install
+        run: |
+          set -euo pipefail
+          if [ -d "./packages/adr-review" ]; then
+            pip install ./packages/adr-review
+            echo "installed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning title=ADR Review skipped::packages/adr-review/ not found in repo — review will be skipped. Create the package or remove this workflow."
+            echo "installed=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run ADR Review
+        if: steps.install.outputs.installed == 'true'
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number || inputs.pr_number }}"
-          adr-review --pr $PR_NUMBER --repo ${{ github.repository }}
+          adr-review --pr "$PR_NUMBER" --repo "${{ github.repository }}"
 
   ensure-labels:
     name: "🏷️ Ensure Labels"
