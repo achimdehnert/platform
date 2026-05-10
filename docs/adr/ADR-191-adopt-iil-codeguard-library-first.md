@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-05-09
 amended: 2026-05-10
 decision-makers:
@@ -28,13 +28,15 @@ domains:
   - htmx
   - deployment
   - mcp
-implementation_status: partial
+implementation_status: verified
 implementation_evidence:
-  - "achimdehnert/iil-codeguard v2026.05.0 tagged (2026-05-10)"
-  - "Phase 1a (ORM Detector SL-001..006), 1b (HTMX HX-001..009), 1c (SARIF/JSON/Text reporters), 2a (CLI) complete"
-  - "37/37 tests passing, ruff clean"
-  - "Empirical baseline: 1,038 files scanned across 5 platform repos in <1.5s, 1,062 errors detected"
-  - "Pending: Phase 2b (MCP server), 2c (compose/Dockerfile checkers DC-/DF-), 3 (consumer-repo integration)"
+  - "achimdehnert/iil-codeguard v2026.05.1 published to PyPI (2026-05-10)"
+  - "Phase 1a-c complete: ORM Detector (SL-001..006), HTMX scanner (HX-001..009), SARIF/JSON/Text reporters"
+  - "Phase 2a-c complete: CLI, MCP server (3 read-only tools), Compose (DC-001..009) + Dockerfile (DF-001..009) checkers"
+  - "Phase 3 underway: dev-hub integrated via PR #25 (pre-commit + GitHub Action + Code Scanning SARIF)"
+  - "69/69 tests passing, ruff clean, CI green on Python 3.12+3.13"
+  - "Empirical: 17 critical findings + 1,062 errors across 5 platform repos that REFLEX missed"
+  - "MCP registered in mcp_config.json as mcp3_iil-codeguard (3 tools: codeguard_audit, codeguard_check_file, codeguard_list_rules)"
 staleness_months: 6
 last_reviewed: 2026-05-10
 drift_check_paths:
@@ -47,7 +49,7 @@ drift_check_paths:
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed (v1.1, amended 2026-05-10) |
+| **Status** | Accepted (v1.1, amended 2026-05-10) — Implementation verified |
 | **Datum** | 2026-05-09 (v1.0), 2026-05-10 (v1.1) |
 | **Autor** | Achim Dehnert |
 | **Reviewer** | Claude (Sparring Review) |
