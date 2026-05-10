@@ -1,23 +1,23 @@
 ---
 id: ADR-182
-doc-type: adr
+doc_type: adr
 status: void
-decision_date: 2026-03-26
+decision_date: "2026-03-26"
 deciders: [achim-dehnert]
 domains: [governance]
 title: "ADR-147 Review Principal Architect (void — misclassified as ADR)"
 reviewed_by:
   - name: achim-dehnert
-    date: 2026-05-10
+    date: "2026-05-10"
     verdict: approved
     note: "Inhalt verschoben nach docs/reviews/REV-2026-03-26-ADR-147-principal.md"
 ai_sparring_by:
   - tool: claude-code
-    date: 2026-05-10
+    date: "2026-05-10"
     role: adversarial-review
     summary: "Reklassifikation als Review-Dokument statt ADR identifiziert"
   - tool: cascade
-    date: 2026-05-10
+    date: "2026-05-10"
     role: compliance-check
     summary: "Schema v4 Migration durchgeführt"
 related:

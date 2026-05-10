@@ -1,0 +1,176 @@
+# ADR Nightly Metrics + Controlling
+#
+# Runs daily at 02:00 UTC:
+#   1. Compute Schema v4 metrics (inbound_links, ttd_days, ttr_days, ai_interactions)
+#   2. Write metrics into ADR frontmatters + commit
+#   3. Run full audit — create GitHub Issues for new ERROR findings
+#   4. Post controlling report to GitHub Actions Job Summary
+#
+# This is the controlling loop for agentic coding:
+#   - ai_interactions_90d shows activity per ADR
+#   - ttr_days measures review quality lag
+#   - Audit Issues become the backlog for next agent session
+
+name: "📊 ADR Nightly Metrics"
+
+on:
+  schedule:
+    - cron: "0 2 * * *"
+
+  workflow_dispatch:
+    inputs:
+      write_metrics:
+        description: "Write metrics to ADR files"
+        required: false
+        default: "true"
+        type: choice
+        options: ["true", "false"]
+      create_issues:
+        description: "Create GitHub Issues for audit findings"
+        required: false
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+
+jobs:
+  metrics:
+    name: "📊 Compute & Write Metrics"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install iil-adrfw
+        run: pip install --quiet "iil-adrfw>=0.5.0"
+
+      - name: Compute metrics
+        id: metrics
+        env:
+          IIL_ADRFW_ADRS_DIR: docs/adr
+        run: |
+          set -euo pipefail
+          WRITE="${{ inputs.write_metrics || 'true' }}"
+          WRITE_FLAG=""
+          [[ "$WRITE" == "true" ]] && WRITE_FLAG="--write"
+
+          iil-adrfw metrics \
+            --adr-dir docs/adr \
+            --report \
+            $WRITE_FLAG | tee /tmp/metrics_report.txt
+
+          # Also emit JSON for downstream steps
+          iil-adrfw metrics --adr-dir docs/adr --json > /tmp/metrics.json || true
+
+      - name: Write Job Summary
+        run: |
+          echo "## 📊 ADR Controlling — $(date -u +%Y-%m-%d)" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/metrics_report.txt >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Commit metrics updates
+        if: inputs.write_metrics != 'false'
+        run: |
+          set -euo pipefail
+          git config user.name  "ADR Metrics Bot"
+          git config user.email "adr-bot@iil.gmbh"
+
+          if git diff --quiet docs/adr/; then
+            echo "[INFO] No metric changes to commit"
+          else
+            CHANGED=$(git diff --name-only docs/adr/ | wc -l)
+            git add docs/adr/
+            git commit -m "chore(adr): nightly metrics update (${CHANGED} files) [skip ci]"
+            git push
+            echo "[OK] Metrics committed for ${CHANGED} ADRs"
+          fi
+
+      - name: Run audit + create issues for errors
+        if: inputs.create_issues == 'true' || github.event_name == 'schedule'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          IIL_ADRFW_ADRS_DIR: docs/adr
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          python - <<'PYEOF'
+          import json, subprocess, sys, os, urllib.request
+
+          token = os.environ["GITHUB_TOKEN"]
+          repo  = os.environ["GH_REPO"]
+
+          # Run audit JSON
+          result = subprocess.run(
+              [sys.executable, "-m", "iil_adrfw.cli", "audit",
+               "--adr-dir", "docs/adr", "--json"],
+              capture_output=True, text=True,
+          )
+          if result.returncode != 0 or not result.stdout.strip():
+              print("[INFO] Audit produced no JSON output")
+              sys.exit(0)
+
+          data = json.loads(result.stdout)
+          findings = data.get("findings", [])
+          errors = [f for f in findings
+                    if str(f.get("severity","")).lower() in ("error","critical")]
+
+          if not errors:
+              print(f"[OK] No error-level audit findings")
+              sys.exit(0)
+
+          print(f"[INFO] {len(errors)} error findings — checking for existing issues...")
+
+          # Get existing open issues with label "adr-audit"
+          url = f"https://api.github.com/repos/{repo}/issues?labels=adr-audit&state=open&per_page=100"
+          req = urllib.request.Request(url, headers={
+              "Authorization": f"Bearer {token}",
+              "Accept": "application/vnd.github+json",
+          })
+          with urllib.request.urlopen(req) as resp:
+              existing = json.loads(resp.read())
+          existing_titles = {i["title"] for i in existing}
+
+          created = 0
+          for f in errors[:10]:  # max 10 issues per run
+              adrs = ", ".join(f.get("affected_adrs") or []) or "unknown"
+              title = f"[ADR Audit] {f.get('auditor','?')}: {adrs}"
+              if title in existing_titles:
+                  continue
+              body = (
+                  f"**Auditor**: `{f.get('auditor')}`\n"
+                  f"**Severity**: `{f.get('severity')}`\n"
+                  f"**Affected**: {adrs}\n\n"
+                  f"**Finding**:\n{f.get('description','')}\n\n"
+                  f"**Resolution**:\n{f.get('proposed_resolution','')}\n\n"
+                  f"---\n*Auto-created by ADR Nightly Metrics workflow*"
+              )
+              payload = json.dumps({
+                  "title": title, "body": body,
+                  "labels": ["adr-audit"],
+              }).encode()
+              req2 = urllib.request.Request(
+                  f"https://api.github.com/repos/{repo}/issues",
+                  data=payload,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json",
+                      "Accept": "application/vnd.github+json",
+                  }
+              )
+              with urllib.request.urlopen(req2) as resp2:
+                  issue = json.loads(resp2.read())
+                  print(f"[OK] Created issue #{issue['number']}: {title}")
+                  created += 1
+
+          print(f"[DONE] {created} new issues created")
+          PYEOF
