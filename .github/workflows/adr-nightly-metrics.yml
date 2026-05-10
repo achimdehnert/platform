@@ -52,8 +52,8 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Install iil-adrfw
-        run: pip install --quiet "iil-adrfw>=0.5.0"
+      - name: Install dependencies
+        run: pip install --quiet "iil-adrfw>=0.5.0" "psycopg[binary]>=3.1" "pyyaml>=6.0"
 
       - name: Compute metrics
         id: metrics
@@ -94,6 +94,15 @@ jobs:
             git push
             echo "[OK] Metrics committed for ${CHANGED} ADRs"
           fi
+
+      - name: Sync ADR graph → pgvector (Orchestrator Memory)
+        env:
+          IIL_ADRFW_ADRS_DIR: docs/adr
+          ORCHESTRATOR_MCP_MEMORY_DB_URL: ${{ secrets.ORCHESTRATOR_MCP_MEMORY_DB_URL }}
+        run: |
+          set -euo pipefail
+          python .github/scripts/adr_sync_to_memory.py || \
+            echo "[WARN] pgvector sync failed (DB unreachable?) — continuing"
 
       - name: Run audit + create issues for errors
         if: inputs.create_issues == 'true' || github.event_name == 'schedule'
