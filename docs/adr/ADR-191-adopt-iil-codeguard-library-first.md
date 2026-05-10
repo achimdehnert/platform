@@ -28,7 +28,13 @@ domains:
   - htmx
   - deployment
   - mcp
-implementation_status: none
+implementation_status: partial
+implementation_evidence:
+  - "achimdehnert/iil-codeguard v2026.05.0 tagged (2026-05-10)"
+  - "Phase 1a (ORM Detector SL-001..006), 1b (HTMX HX-001..009), 1c (SARIF/JSON/Text reporters), 2a (CLI) complete"
+  - "37/37 tests passing, ruff clean"
+  - "Empirical baseline: 1,038 files scanned across 5 platform repos in <1.5s, 1,062 errors detected"
+  - "Pending: Phase 2b (MCP server), 2c (compose/Dockerfile checkers DC-/DF-), 3 (consumer-repo integration)"
 staleness_months: 6
 last_reviewed: 2026-05-10
 drift_check_paths:
