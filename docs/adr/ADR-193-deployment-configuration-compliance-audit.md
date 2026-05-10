@@ -1,10 +1,14 @@
 ---
 status: proposed
 date: 2026-05-09
+amended: 2026-05-10
 decision-makers:
   - Achim Dehnert
+reviewed-by:
+  - Cascade (ADR-Review, 2026-05-10)
+  - Claude (Sparring Review on ADR-191, 2026-05-09)
 depends-on:
-  - ADR-191 (platform-context MCP Code Compliance)
+  - ADR-191 (iil-codeguard Library-First Tooling)
   - ADR-022 (BigAutoField Platform Standard)
   - ADR-021 (Unified Deployment Pipeline)
   - ADR-056 (Deployment Pre-Flight Validation)
@@ -37,13 +41,23 @@ drift_check_paths:
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed |
-| **Datum** | 2026-05-09 |
+| **Status** | Proposed (v1.1, amended 2026-05-10) |
+| **Datum** | 2026-05-09 (v1.0), 2026-05-10 (v1.1) |
 | **Autor** | Achim Dehnert |
+| **Reviewer** | Cascade (Self-Review), Claude (Sparring auf ADR-191) |
 | **Depends On** | ADR-191, ADR-022, ADR-021, ADR-056, ADR-094 |
 | **Consumers** | dev-hub, travel-beat, bfagent, risk-hub, weltenhub, wedding-hub, coach-hub, infra-deploy |
 
 ---
+
+## v1.0 → v1.1 — Änderungen
+
+| Aspekt | v1.0 | v1.1 |
+|--------|------|------|
+| **DF-001 HEALTHCHECK** | "error if missing in Dockerfile" | **Invertiert**: "error if HEALTHCHECK present in Dockerfile" — gehört in compose (Coach-hub Incident, ADR-021 §2.4) |
+| **Architektur** | Teil von platform-context MCP | **Modul in `iil-codeguard`** (ADR-191 v1.1 Library-First) |
+| **Worker/Beat HEALTHCHECK** | nicht erfasst | **DC-009**: `pidof python3.12` als Worker/Beat-Healthcheck (ADR-021 §3.10) |
+| **Glossar** | fehlte | ergänzt |
 
 ## Context
 
@@ -65,7 +79,7 @@ REFLEX catches 2 of 9 standards. The `/compose-audit` and `/nginx-check` workflo
 
 ## Decision
 
-We implement a `check_compose` MCP tool (ADR-191) and a `check_dockerfile` check within `audit_repo` that structurally parse deployment configs against platform standards. This complements REFLEX's regex approach with YAML/Dockerfile-aware parsing.
+We implement `compose_security` and `dockerfile_audit` checker modules in the `iil-codeguard` package (per ADR-191 v1.1) that structurally parse deployment configs against platform standards. This complements REFLEX's regex approach with YAML/Dockerfile-aware parsing.
 
 ### check_compose Rules
 
@@ -79,13 +93,14 @@ We implement a `check_compose` MCP tool (ADR-191) and a `check_dockerfile` check
 | `DC-006` | error | Missing `restart: unless-stopped` | ADR-021 |
 | `DC-007` | info | Port binding on `0.0.0.0` instead of `127.0.0.1` | Security |
 | `DC-008` | warning | Missing separate `migrate` service | ADR-094 |
+| `DC-009` | error | Worker/Beat service uses `celery inspect ping` instead of `pidof python3.12` (Slim-Image Issue) | ADR-021 §3.10 |
 
 ### check_dockerfile Rules
 
 | ID | Severity | Check | ADR |
 |----|----------|-------|-----|
-| `DF-001` | error | No `HEALTHCHECK` instruction | ADR-056 |
-| `DF-002` | warning | HEALTHCHECK uses `curl` instead of `python -c "import urllib..."` | ADR-056 |
+| `DF-001` | error | **HEALTHCHECK present in Dockerfile** — muss in compose pro Service (sonst: Restart-Loop bei Worker/Beat, Coach-hub Incident) | ADR-021 §2.4 |
+| `DF-002` | warning | (reserviert — ehemals "HEALTHCHECK uses curl"; verschoben zu DC-003 da HEALTHCHECK in compose lebt) | n/a |
 | `DF-003` | warning | No `USER` instruction (runs as root) | ADR-056 |
 | `DF-004` | info | Missing OCI labels (`LABEL org.opencontainers.*`) | ADR-056 |
 | `DF-005` | error | Single-stage build (no `FROM ... AS builder`) | ADR-056 |
@@ -128,14 +143,14 @@ We implement a `check_compose` MCP tool (ADR-191) and a `check_dockerfile` check
 
 ## Multi-Repo Audit Mode
 
-The `audit_repo` MCP tool accepts a `repo` parameter. For platform-wide audits:
+The `codeguard_audit` MCP tool (per ADR-191 v1.1) accepts a `repo` parameter. For platform-wide audits:
 
 ```
 # In /adr-health or /platform-audit workflow:
 for repo in [dev-hub, travel-beat, bfagent, risk-hub, weltenhub, wedding-hub, coach-hub]:
-    MCP: audit_repo(repo=repo)
+    MCP: codeguard_audit(repo=repo, summary_only=True)
     → Aggregates: SL-*, HX-*, DC-*, DF-* violations
-    → Generates: Platform Compliance Scorecard
+    → Generates: Platform Compliance Scorecard (SARIF)
 ```
 
 | Score | Rating |
@@ -148,4 +163,14 @@ for repo in [dev-hub, travel-beat, bfagent, risk-hub, weltenhub, wedding-hub, co
 
 - **OQ-1**: Should DC-007 (port binding 0.0.0.0) be error or warning? Some services (Redis for debugging) intentionally bind publicly on dev.
 - **OQ-2**: Should multi-stage build (DF-005) be enforced for all repos or only production images?
-- **OQ-3**: How to handle Nginx checks when configs are only on the server? SSH-based check or copy-to-repo pattern?
+- **OQ-3**: How to handle Nginx checks when configs are only on the server? SSH-based check or copy-to-repo pattern? → Vorschlag für ADR-194: "Nginx Compliance Strategy".
+
+## Glossar
+
+- **HEALTHCHECK** — Docker/Compose-Mechanismus zum Prüfen ob Container gesund ist; gehört **per Service in compose**, nicht ins Dockerfile (gilt sonst für alle Container)
+- **OCI** — Open Container Initiative, Standard für Container-Images und Labels
+- **OPA/Rego** — Open Policy Agent / Rego, deklarative Policy-Engine (verworfen als zu schwer)
+- **REFLEX** — Internes regex-basiertes Compliance-Tool der Platform, scannt 19 Repos
+- **SARIF** — Static Analysis Results Interchange Format (OASIS-Standard für Linter-Output)
+- **GHA** — GitHub Actions
+- **CSRF** — Cross-Site Request Forgery (Django-Schutz via `{% csrf_token %}`)

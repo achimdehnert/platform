@@ -1,10 +1,13 @@
 ---
 status: proposed
 date: 2026-05-09
+amended: 2026-05-10
 decision-makers:
   - Achim Dehnert
+reviewed-by:
+  - Claude (Sparring Review, 2026-05-09)
 depends-on:
-  - ADR-191 (platform-context MCP Code Compliance)
+  - ADR-191 (iil-codeguard Library-First Tooling)
   - ADR-009 (Service Layer Architecture)
   - ADR-048 (HTMX Playbook)
   - ADR-043 (Database-First Conventions)
@@ -36,13 +39,22 @@ drift_check_paths:
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed |
-| **Datum** | 2026-05-09 |
+| **Status** | Proposed (v1.1, amended 2026-05-10) |
+| **Datum** | 2026-05-09 (v1.0), 2026-05-10 (v1.1) |
 | **Autor** | Achim Dehnert |
+| **Reviewer** | Claude (Sparring Review) |
 | **Depends On** | ADR-191, ADR-009, ADR-048, ADR-043, ADR-057 |
 | **Consumers** | dev-hub, travel-beat, bfagent, risk-hub, weltenhub, wedding-hub, coach-hub |
 
 ---
+
+## v1.0 → v1.1 — Empirisch validierte Änderungen
+
+| Aspekt | v1.0 | v1.1 |
+|--------|------|------|
+| Service-Layer Check | View ruft `services.py`-Funktion auf? | **Inversion**: View enthält ORM-Zugriff? (beweisbar, CBV+async-kompatibel) |
+| CBV-Support | Open Question | **Phase 1** (dev-hub 93%, weltenhub 88% CBV) |
+| HTMX Pathological Case | nicht adressiert | **HX-009 Trip-Wire**: `{% %}` zwischen hx-Attributen detektieren |
 
 ## Context
 
@@ -52,62 +64,62 @@ ADR-009 mandates the three-tier pattern: `views.py` → `services.py` → `model
 
 | Rule | Enforcement | Gap |
 |------|------------|-----|
-| No ORM in views (ADR-009) | `platform-context` string-match on `.objects.`, `.filter(` | Misses: `queryset = Trip.objects` (no method call on same line), context manager patterns |
-| Service delegation (ADR-009) | Windsurf rules (agent instruction only) | **No automated check at all** — reviewer must verify manually |
-| HTMX triple (ADR-048) | Windsurf rules | **No automated check** — templates never scanned systematically |
-| `data-testid` (ADR-048) | None | **Not checked anywhere** |
+| No ORM in views (ADR-009) | `platform-context` string-match on `.objects.`, `.filter(` | Misses: CBV-Methoden, async views, queryset chains via Variable |
+| Service delegation (ADR-009) | Windsurf rules (agent instruction only) | Keine automatisierte Prüfung; in CBV strukturell nicht erfassbar |
+| HTMX triple (ADR-048) | Windsurf rules | Templates werden nie systematisch gescannt |
+| `data-testid` (ADR-048) | nicht geprüft | nirgends erfasst |
 
-A structural scanner using Python's `ast` module for views and `html.parser` for templates would close these gaps with zero false negatives for the common patterns.
+**Empirische Datenbasis (2026-05-10)**: Bei der Stakeholder-Validation wurden über 7 Consumer-Repos analysiert: 388 Views (davon 110 CBV, 6 async), 940 HTMX-Elemente (davon 399 mit Django-Tags im Attribut-Wert, 0 mit pathological case `{% %}` zwischen Attributen). Diese Zahlen begründen die konkreten Implementierungsentscheidungen unten.
 
 ## Decision
 
-We implement two scanner modules as part of ADR-191's `platform-context` MCP extension:
+We implement two scanner modules in the `iil-codeguard` package (per ADR-191 v1.1):
 
-### 1. Service-Layer Scanner (`check_service_layer`)
+### 1. Service-Layer Scanner (`SL-NNN` rules)
 
+**Inversion (v1.1)**: Statt zu prüfen ob die View einen Service aufruft, wird strukturell erkannt, ob die View ORM-Zugriff enthält. Die Inversion ist robuster, weil:
+
+- Abwesenheit von ORM ist beweisbar (AST-Suche findet Zugriffe deterministisch)
+- Anwesenheit von Service-Calls ist nicht beweisbar (Aliase, Mixins, dynamische Dispatch verhindern Match)
+- CBV-Methoden (`form_valid`, `dispatch`, `get_queryset`) und async views funktionieren nativ
+
+**Implementation**:
+
+```python
+class ORMDetector(ast.NodeVisitor):
+    def visit_Attribute(self, node):
+        # Detect: SomeModel.objects.* (manager access)
+        if isinstance(node.value, ast.Name) and node.attr == "objects":
+            self.violations.append(...)
+        self.generic_visit(node)
+    
+    def visit_AsyncFunctionDef(self, node):  # async views supported nativ
+        self.generic_visit(node)
 ```
-Input:  repo name + optional app name
-Output: list of violations with file, line, function, violation type
-```
 
-**Analysis approach (Python `ast`):**
+Empirisch validiert: erkennt korrekt `World.objects.create(...)` in `WorldCreateView.form_valid` (CBV) UND `await Trip.objects.aget(...)` in async FBV.
 
-1. Parse `views.py` → extract all function definitions (FBV) and class methods (CBV)
-2. For each view function, walk the AST to find:
-   - **Direct ORM calls**: `Name.Attribute` where Attribute ∈ {`objects`, `filter`, `exclude`, `get`, `create`, `update`, `delete`, `save`, `bulk_create`}
-   - **Missing service import**: Check if the view module imports from a `services` module
-   - **No service call**: View function body contains no call to a function from `services.py`
-3. Parse `services.py` → extract exported function names for cross-reference
-
-**Violation types:**
+**Violation types (Phase 1):**
 
 | ID | Severity | Description |
 |----|----------|-------------|
-| `SL-001` | critical | Direct ORM call in view function |
-| `SL-002` | error | View function does not call any service function |
-| `SL-003` | warning | View function imports model directly (potential bypass) |
-| `SL-004` | info | `services.py` missing for app with views |
+| `SL-001` | error | View enthält `Model.objects.*` (ORM access) |
+| `SL-002` | error | View enthält `transaction.atomic()` (transaction handling gehört in services) |
+| `SL-003` | warning | View enthält `select_related`/`prefetch_related` (queryset chains) |
+| `SL-004` | warning | View importiert Model direkt (Bypass-Risiko) |
+| `SL-005` | error | View enthält rohe SQL (`connection.cursor()`, `raw()`) |
+| `SL-006` | info | App hat Views aber keine `services.py` |
 
-### 2. HTMX Template Scanner (`check_templates`)
+### 2. HTMX Template Scanner (`HX-NNN` rules)
 
-```
-Input:  repo name + optional template path
-Output: list of violations with file, line, element, violation type
-```
+**Tooling-Wahl (v1.1)**: Empirischer Test mit 940 HTMX-Elementen aus 7 Repos zeigt: `html.parser` aus stdlib funktioniert korrekt mit Django-Tags innerhalb Attribut-Werten (`hx-get="{% url 'foo' %}"` — der häufige Fall, 399 Vorkommen). Der pathologische Fall (`{% if %}` zwischen Attributen) kommt **0 mal** vor. Wir bleiben bei `html.parser` für Phase 1, ergänzen aber **HX-009** als Trip-Wire um zu verhindern, dass das Pattern still einzieht.
 
-**Analysis approach (`html.parser`):**
+**Analysis approach** (`html.parser` + Pre-Scan-Regex):
 
-1. Recursively find all `.html` files in `templates/`
-2. Parse each file, find elements with any `hx-*` attribute
-3. For each HTMX element, verify:
-   - `hx-target` present
-   - `hx-swap` present
-   - `hx-indicator` present
-   - `data-testid` present
-4. Additionally check for banned patterns:
-   - `hx-boost` on any element
-   - `onclick=` on elements with `hx-*`
-   - `style=` inline on elements with `hx-*`
+1. Pre-Scan per Regex: erkennt `\{%[^%]+%\}\s+hx-` zwischen Attributen → HX-009
+2. Recursive find aller `.html` Files in `templates/`
+3. Parse mit `html.parser`, find elements mit `hx-*` attribute
+4. Per Element verify required attributes + banned patterns
 
 **Violation types:**
 
@@ -117,10 +129,13 @@ Output: list of violations with file, line, element, violation type
 | `HX-002` | error | HTMX element missing `hx-swap` |
 | `HX-003` | warning | HTMX element missing `hx-indicator` |
 | `HX-004` | warning | HTMX element missing `data-testid` |
-| `HX-005` | critical | `hx-boost` used (banned by ADR-048) |
+| `HX-005` | error | `hx-boost` used (banned by ADR-048) |
 | `HX-006` | error | `onclick=` mixed with `hx-*` |
-| `HX-007` | info | `hx-post` form without `{% csrf_token %}` in same parent |
+| `HX-007` | info | `hx-post` form without `{% csrf_token %}` in parent |
 | `HX-008` | error | Partial template contains `{% extends %}` (should be fragment) |
+| `HX-009` | error | Django template tag (`{% %}`) between HTMX attributes — html.parser kann nicht zuverlässig parsen, Pattern muss in `{% if %}`-Block um das gesamte Element verschoben werden |
+
+**HX-009 Rationale**: Bei 0 aktuellen Vorkommen ist die Rule eine reine Trip-Wire. Sollte das Pattern eingeführt werden, schlägt der Linter sofort an, bevor stille false-negatives entstehen können.
 
 ## Consequences
 
@@ -133,9 +148,9 @@ Output: list of violations with file, line, element, violation type
 
 ### Negative
 - AST analysis cannot follow dynamic dispatch (e.g., `getattr(model, 'objects')`)
-- `html.parser` cannot evaluate Django template tags ({% if %} blocks may hide HTMX elements)
-- CBV analysis is significantly more complex than FBV — Phase 1 may produce false positives for mixins
-- Template inheritance (`{% include %}`, `{% block %}`) makes partial analysis incomplete
+- `html.parser` parsed `{% if %}` zwischen Attributen falsch — durch HX-009 Trip-Wire abgesichert
+- Template inheritance (`{% include %}`, `{% block %}`) macht partial analysis incomplete — bewusst akzeptiert für Phase 1
+- Mixins über mehrere Files können nicht vollständig erfasst werden (cross-file analysis Phase 2)
 
 ## Alternatives Considered
 
@@ -146,11 +161,21 @@ Output: list of violations with file, line, element, violation type
 
 ## Implementation Priorities
 
-| Priority | Check | Expected findings across 19 repos |
-|----------|-------|-----------------------------------|
-| P0 | `SL-001` Direct ORM in views | ~50-100 violations |
-| P0 | `HX-001/002` Missing hx-target/hx-swap | ~20-40 violations |
-| P1 | `SL-002` Missing service delegation | ~30-60 violations |
-| P1 | `HX-003/004` Missing indicator/testid | ~100+ violations |
-| P2 | `HX-005` hx-boost usage | ~5-10 violations |
-| P2 | `SL-003` Direct model import in views | ~20-30 violations |
+| Priority | Check | Expected findings (7 Consumer-Repos) |
+|----------|-------|--------------------------------------|
+| P0 | `SL-001` ORM in views (CBV+FBV+async) | 50-150 violations |
+| P0 | `HX-001/002` Missing hx-target/hx-swap | 20-40 violations |
+| P0 | `HX-009` Pathological {% %} between attrs | 0 expected (trip-wire) |
+| P1 | `SL-002` `transaction.atomic` in views | 5-15 violations |
+| P1 | `HX-003/004` Missing indicator/testid | 200-400 violations |
+| P2 | `HX-005` hx-boost usage | 0-5 violations |
+| P2 | `SL-003/004` queryset chains / model imports | 20-50 violations |
+
+## Glossar
+
+- **AST** — Abstract Syntax Tree (strukturelle Code-Repräsentation in Python's `ast` Modul)
+- **CBV** — Class-Based View (Django, z.B. `CreateView`, `UpdateView`)
+- **FBV** — Function-Based View (Django, `def my_view(request)`)
+- **HTMX** — Frontend-Library für AJAX via HTML-Attribute
+- **Inversion (Check-Logik)** — "View enthält ORM" prüfen (beweisbar) statt "View ruft Service" prüfen (nicht beweisbar)
+- **Trip-Wire** — Linter-Rule mit erwarteter 0-Trefferzahl, die anschlägt wenn Pattern eingeführt wird
