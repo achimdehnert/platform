@@ -1,0 +1,20 @@
+name: ADR Sync to pgvector
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'docs/adr/**'
+
+jobs:
+  trigger-sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger ADR Sync
+        run: |
+          echo "ADR changes detected, triggering sync on production server"
+          # POST to mcp-hub internal endpoint to trigger sync
+          # This requires the server to expose an /internal/adr-sync endpoint
+          # For now, this is a placeholder - the systemd timer will handle hourly syncs
+          echo "TODO: Add curl call to production server /internal/adr-sync"
