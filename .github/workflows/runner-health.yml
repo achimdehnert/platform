@@ -23,31 +23,38 @@ permissions:
 
 jobs:
   runner-health:
-    name: "🏥 Runner Health Check"
+    name: "Runner Health Check"
     runs-on: ubuntu-latest
     steps:
+      - name: "Checkout platform (registry SSoT)"
+        uses: actions/checkout@v4
+
       - name: "Check + fix runner labels and stuck deploys"
         env:
           GH_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
           DRY_RUN: ${{ inputs.dry_run || 'false' }}
           STUCK_THRESHOLD: ${{ inputs.stuck_threshold_minutes || '30' }}
         run: |
+          pip install pyyaml -q
           python3 << 'PYEOF'
-          import os, json, urllib.request, urllib.error, datetime, time
+          import os, json, yaml, urllib.request, urllib.error, datetime, time
 
           TOKEN = os.environ["GH_TOKEN"]
           DRY_RUN = os.environ["DRY_RUN"] == "true"
           STUCK_MINUTES = int(os.environ.get("STUCK_THRESHOLD", "30"))
-          ORG = "achimdehnert"
           REQUIRED_LABEL = "prod-server"
 
-          DEPLOYED_REPOS = [
-              "bfagent", "billing-hub", "cad-hub", "coach-hub", "dev-hub",
-              "dms-hub", "illustration-hub", "learn-hub", "pptx-hub",
-              "recruiting-hub", "research-hub", "risk-hub", "trading-hub",
-              "travel-beat", "wedding-hub", "weltenhub", "writing-hub",
-              "ausschreibungs-hub", "137-hub", "onboarding-hub",
-          ]
+          # --- Load repo list from registry (SSoT) ---
+          with open("registry/github_repos.yaml") as f:
+              registry = yaml.safe_load(f)
+
+          REPOS = []
+          for name, meta in registry.get("django_apps", {}).items():
+              if meta.get("deployed") and meta.get("github"):
+                  org, repo = meta["github"].split("/")
+                  REPOS.append((org, repo))
+          REPOS.sort()
+          print(f"Repos from registry: {len(REPOS)}")
 
           def api(method, path, body=None):
               url = f"https://api.github.com{path}"
@@ -74,9 +81,9 @@ jobs:
           errors = []
           now = datetime.datetime.utcnow()
 
-          for repo in DEPLOYED_REPOS:
+          for org, repo in REPOS:
               # --- 1. Runner label check ---
-              runners_data = api("GET", f"/repos/{ORG}/{repo}/actions/runners")
+              runners_data = api("GET", f"/repos/{org}/{repo}/actions/runners")
               if "_error" in runners_data:
                   errors.append(f"{repo}: runner API error {runners_data['_error']}")
                   continue
@@ -92,10 +99,10 @@ jobs:
                       label_ok.append(f"{repo} (runner {runner_id}, {status})")
                   else:
                       if DRY_RUN:
-                          label_missing.append(f"{repo} (runner {runner_id}) — DRY RUN, not fixed")
+                          label_missing.append(f"{repo} (runner {runner_id}) — DRY RUN")
                       else:
                           result = api("POST",
-                              f"/repos/{ORG}/{repo}/actions/runners/{runner_id}/labels",
+                              f"/repos/{org}/{repo}/actions/runners/{runner_id}/labels",
                               {"labels": [REQUIRED_LABEL]}
                           )
                           if "_error" in result:
@@ -109,7 +116,7 @@ jobs:
 
               # --- 2. Stuck deploy runs check ---
               runs_data = api("GET",
-                  f"/repos/{ORG}/{repo}/actions/runs?workflow_id=deploy.yml&status=queued&per_page=10"
+                  f"/repos/{org}/{repo}/actions/runs?workflow_id=deploy.yml&status=queued&per_page=10"
               )
               if "_error" in runs_data:
                   continue
@@ -128,15 +135,14 @@ jobs:
                           f"{repo} run {run_id} (queued {age_minutes:.0f}min) — DRY RUN"
                       )
                   else:
-                      api("POST", f"/repos/{ORG}/{repo}/actions/runs/{run_id}/cancel")
+                      api("POST", f"/repos/{org}/{repo}/actions/runs/{run_id}/cancel")
                       stuck_cancelled.append(
                           f"{repo} run {run_id} (queued {age_minutes:.0f}min) cancelled"
                       )
-                      # Trigger fresh deploy only for recent main-branch runs
                       if run.get("head_branch") == "main" and age_minutes < 240:
                           time.sleep(3)
                           dispatch = api("POST",
-                              f"/repos/{ORG}/{repo}/actions/workflows/deploy.yml/dispatches",
+                              f"/repos/{org}/{repo}/actions/workflows/deploy.yml/dispatches",
                               {"ref": "main"}
                           )
                           if "_error" not in dispatch:
