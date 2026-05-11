@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-08
-> **Next free ADR number:** 189
+> **Last updated:** 2026-05-11
+> **Next free ADR number:** 194
 
 ## Legend
 
