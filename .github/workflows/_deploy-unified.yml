@@ -184,7 +184,7 @@ jobs:
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     concurrency:
       group: deploy-${{ inputs.app_name }}-staging
-      cancel-in-progress: false
+      cancel-in-progress: true
     environment:
       name: staging
       url: https://staging.${{ inputs.app_name }}.iil.pet
