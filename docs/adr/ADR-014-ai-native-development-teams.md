@@ -403,7 +403,7 @@ Um das Model zu wechseln: Dropdown unter dem Prompt-Eingabefeld → Model auswä
 │  │ Server              │ Status     │ Quality Target                   ││
 │  │ ────────────────────┼────────────┼────────────────────────────────  ││
 │  │ bfagent_mcp         │ Production │ Grade B (80+)                    ││
-│  │ bfagent_sqlite_mcp  │ Production │ Grade B (80+)                    ││
+│  │ bfagent_sqlite_mcp  │ Archived   │ Tier-3 Consolidated (ADR-044)    ││
 │  │ deployment_mcp      │ Production │ Grade A (90+)                    ││
 │  │ german_tax_mcp      │ Beta       │ Grade C→B                        ││
 │  │ ifc_mcp             │ Beta       │ Grade C→B                        ││
@@ -684,7 +684,7 @@ applications (Risk-Hub, CAD-Hub), and platform infrastructure.
 | Server | Role | Quality Target | Priority |
 |--------|------|----------------|----------|
 | bfagent_mcp | Primary | Grade B (80+) | High |
-| bfagent_sqlite_mcp | Primary | Grade B (80+) | High |
+| bfagent_sqlite_mcp | Archived (ADR-044) | — | — |
 | deployment_mcp | Primary | Grade A (90+) | Critical |
 | german_tax_mcp | Primary | Grade C→B | Medium |
 | ifc_mcp | Primary | Grade C→B | Medium |
@@ -1290,7 +1290,7 @@ COMPONENT_OWNERSHIP = {
     # Team Alpha
     "bfagent": "alpha",
     "bfagent_mcp": "alpha",
-    "bfagent_sqlite_mcp": "alpha",
+    "bfagent_sqlite_mcp": "archived",  # ADR-044
     "risk-hub": "alpha",
     "cad-hub": "alpha",
     "deployment_mcp": "alpha",

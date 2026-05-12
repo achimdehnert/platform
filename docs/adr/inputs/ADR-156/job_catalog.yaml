@@ -114,7 +114,7 @@ jobs:
     estimated_seconds_max: 60
     background_capable: true
     executor: ci
-    steps: ["unit tests (SQLite)"]
+    steps: ["unit tests (PostgreSQL)"]
     parallel_safe: true
     recommended_model: null
     notification_channel: null

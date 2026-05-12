@@ -118,6 +118,80 @@ Verwende `deployment-mcp` → `compose_ps` Tool.
 
 ---
 
+## Stuck Deploy — Diagnose & Fix
+
+### Symptom
+Deploy-Runs bleiben permanent in `queued` — `deploy / 🔍 Resolve` zeigt leere Runner-Spalte.
+CI-Jobs des gleichen Commits liefen durch. Mehrere Runs pilen sich auf.
+
+### Root Cause
+Zwei Ursachen kombinieren sich — **Root Cause ist #3**:
+1. **Kein `concurrency` auf Workflow-Ebene** → mehrere Deploy-Runs starten gleichzeitig
+2. **Job-Level `concurrency: cancel-in-progress: false`** in `_deploy-unified.yml` → steckengebliebene `deploy-staging` Jobs halten einen Concurrency-Lock
+3. ⭐ **`prod-server` Custom-Label fehlt auf dem Runner** → `runs-on: prod-server` findet keinen Runner! CI-Jobs laufen auf `self-hosted` (random dispatch), Deploy braucht explizit `prod-server`-Label.
+
+**Runner-Label prüfen** (sofort):
+```bash
+TOKEN=$(cat ~/.secrets/github_token)
+curl -s -H "Authorization: token ${TOKEN}" \
+  "https://api.github.com/repos/achimdehnert/{REPO}/actions/runners" \
+  | python3 -c "import json,sys; [print(r['id'], r['name'], [l['name'] for l in r.get('labels',[])]) for r in json.load(sys.stdin).get('runners',[])]"
+# prod-server runner muss 'prod-server' in labels haben!
+```
+**Label hinzufügen** (Fix):
+```bash
+curl -X POST -H "Authorization: token ${TOKEN}" \
+  "https://api.github.com/repos/achimdehnert/{REPO}/actions/runners/{RUNNER_ID}/labels" \
+  -d '{"labels":["prod-server"]}'
+```
+
+### Fix — permanent (schon integriert)
+`deploy.yml` (jedes Repo) bekommt Workflow-level concurrency:
+```yaml
+concurrency:
+  group: deploy-{app_name}-${{ github.ref_name }}
+  cancel-in-progress: true   # neuer Push cancelt hängenden alten Run sofort
+```
+`_deploy-unified.yml` (Platform): Staging-Job `cancel-in-progress: true`.
+
+### Notfall-Prozedur wenn Deploy feststeckt
+
+// turbo
+1. Hängende Runs canceln:
+```bash
+TOKEN=$(cat ~/.secrets/github_token)
+REPO="achimdehnert/dev-hub"   # Repo anpassen
+curl -s -H "Authorization: token ${TOKEN}" \
+  "https://api.github.com/repos/${REPO}/actions/runs?status=queued&per_page=10" \
+  | python3 -c "import json,sys; [print(r['id']) for r in json.load(sys.stdin)['workflow_runs']]"
+# Für jeden Run-ID:
+curl -X POST -H "Authorization: token ${TOKEN}" \
+  "https://api.github.com/repos/${REPO}/actions/runs/{RUN_ID}/cancel"
+```
+
+2. Runner neustarten (falls nötig):
+```bash
+ssh root@88.198.191.108 \
+  "systemctl restart actions.runner.achimdehnert-{repo}.prod-server.service"
+```
+
+3. Templates-Hotfix (template-only Änderungen, ohne GHA):
+```bash
+# Lokales Repo → direkt in Container kopieren
+scp templates/controlling/dashboard.html root@88.198.191.108:/tmp/
+ssh root@88.198.191.108 "docker cp /tmp/dashboard.html devhub_web:/app/templates/controlling/dashboard.html"
+```
+
+4. Frischen Deploy via workflow_dispatch triggern:
+```bash
+curl -X POST -H "Authorization: token ${TOKEN}" \
+  -H "Content-Type: application/json" \
+  "https://api.github.com/repos/${REPO}/actions/workflows/deploy.yml/dispatches" \
+  -d '{"ref":"main"}'
+```
+
+---
+
 ## Lessons Learned (Feb 2026)
 
 ### Private Repo Dependencies im Docker-Build

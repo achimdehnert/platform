@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-08
-> **Next free ADR number:** 189
+> **Last updated:** 2026-05-12
+> **Next free ADR number:** 197
 
 ## Legend
 
@@ -275,3 +275,4 @@
 - [x] ADR-121: partial→implemented — ci.yml erstellt, ruff lint clean (94→0), v0.1.1 tagged, writing-hub bereits migriert -- 2026-03-11
 - [x] ADR-087: partial→implemented — platform-search Package komplett (SearchService, RRF, MMR, Decay), 10 Tests, 5 DB-Indexes -- 2026-03-11
 - [x] ADR-117: partial→implemented — weltenfw v0.2.0 komplett (Backends, Schema, Resources, Auth, 50 Tests, CI+Publish) -- 2026-03-11
+- [x] ADR-196 erstellt: Adaptive Erweiterung zu ADR-116 (Outcome-Telemetrie, Drift-Report, Bandit), Stufe 1+2 live, Stufe 3 OFF -- 2026-05-11

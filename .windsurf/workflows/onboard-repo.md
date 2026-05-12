@@ -814,9 +814,13 @@ ssh root@88.198.191.108 "certbot certonly --webroot -w /var/www/html -d <DOMAIN>
 
 ## Step 6: Platform-Integration
 
-### 6.1 registry/repos.yaml aktualisieren (PFLICHT — Single Source of Truth)
+### 6.1 Registry aktualisieren (PFLICHT — beide Dateien, keine Ausnahme)
 
-Füge das neue Repo in `platform/registry/repos.yaml` ein:
+> **Warum beide?** `github_repos.yaml` ist SSoT für alle Plattform-Automationen:
+> runner-health (täglicher Label-Check), sync-workflows.sh, concurrency-batch-fixes.
+> Fehlt ein Repo hier → runner-health ignoriert es → stuck deploys nicht erkannt.
+
+#### 6.1a `platform/registry/repos.yaml` (Catalog-Sync)
 
 ```yaml
 - name: <REPO_NAME>
@@ -833,6 +837,29 @@ Füge das neue Repo in `platform/registry/repos.yaml` ein:
 ```
 
 **Danach:** GitHub Action `sync-registry-to-devhub.yml` triggert automatisch → devhub.iil.pet/repos zeigt das neue Repo.
+
+#### 6.1b `platform/registry/github_repos.yaml` (Automation SSoT — PFLICHT)
+
+```yaml
+# In django_apps: section eintragen:
+django_apps:
+  <REPO_NAME>:
+    github: achimdehnert/<REPO_NAME>
+    description: <DESCRIPTION>
+    deployed: true
+    domain: <DOMAIN>
+    port: <PORT>
+    lifecycle: experimental
+```
+
+```bash
+# Konsistenz prüfen nach dem Eintrag:
+python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/validate_repos.py
+```
+
+> **Ohne diesen Eintrag:** `runner-health.yml` ignoriert das Repo täglich.
+> Das nächste `runner-health`-Run meldet dann `⚠️ UNREGISTERED RUNNER` als Drift-Warning —
+> aber dann ist der Schaden schon eingetreten. **Besser: sofort beim Onboarding eintragen.**
 
 ### 6.2 MCP-Orchestrator registrieren
 
