@@ -48,7 +48,7 @@ Die BF Agent Platform besteht aus:
 |--------|--------|----------------|
 | llm_mcp | Production | Alle Produkte |
 | bfagent_mcp | Production | BFAgent |
-| bfagent_sqlite_mcp | Production | BFAgent |
+| bfagent_sqlite_mcp | Archived (ADR-044) | BFAgent |
 | deployment_mcp | Production | Alle Produkte |
 | research_mcp | Production | Alle Produkte |
 | travel_mcp | Production | Travel-Beat |
@@ -164,7 +164,7 @@ Wir führen ein **Hybrid-Modell** ein mit:
 │  │ Server              │ Status     │ Responsibility                   ││
 │  ├─────────────────────┼────────────┼──────────────────────────────────┤│
 │  │ bfagent_mcp         │ Production │ Full Ownership                   ││
-│  │ bfagent_sqlite_mcp  │ Production │ Full Ownership                   ││
+│  │ bfagent_sqlite_mcp  │ Archived   │ Tier-3 Consolidated (ADR-044)    ││
 │  │ german_tax_mcp      │ Beta       │ Full Ownership, Quality Upgrade  ││
 │  │ ifc_mcp             │ Beta       │ Full Ownership, Quality Upgrade  ││
 │  │ cad_mcp             │ Beta       │ Full Ownership, Quality Upgrade  ││
@@ -363,7 +363,7 @@ Wir führen ein **Hybrid-Modell** ein mit:
 | **research_mcp** | Guild (Bravo Lead) | Alpha | ✅ | Production | A (90+) |
 | **deployment_mcp** | Guild (Alpha Lead) | Bravo | ✅ | Production | A (90+) |
 | **bfagent_mcp** | Alpha | — | — | Production | B (80+) |
-| **bfagent_sqlite_mcp** | Alpha | — | — | Production | B (80+) |
+| **bfagent_sqlite_mcp** | Alpha | — | — | Archived (ADR-044) | — |
 | **travel_mcp** | Bravo | — | — | Production | B (80+) |
 | **illustration_mcp** | Bravo | Alpha | — | Production | B (80+) |
 | **book_writing_mcp** | Bravo | — | — | Production | B (80+) |

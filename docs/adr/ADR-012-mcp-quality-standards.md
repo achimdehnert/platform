@@ -44,7 +44,7 @@ Der MCP-Hub enthält 14+ MCP Server mit unterschiedlichen Reifegraden:
 | `travel_mcp` | ✅ Production | Team | Aktiv |
 | `illustration_mcp` | ✅ Production | Team | Aktiv |
 | `book_writing_mcp` | ✅ Production | Team | Aktiv |
-| `bfagent_sqlite_mcp` | ✅ Production | Team | Aktiv |
+| `bfagent_sqlite_mcp` | 📦 Archived (ADR-044) | — | — |
 | `german_tax_mcp` | 🔧 Beta | Team | Sporadisch |
 | `ifc_mcp` | 🔧 Beta | Team | Sporadisch |
 | `cad_mcp` | 🔧 Beta | Team | Sporadisch |
