@@ -70,7 +70,7 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 1. **Session-Scan** (autonom) — Git-Logs prüfen, Features/Fixes/Deployments/Lessons identifizieren
 2. **Outline durchsuchen** — Existiert schon ein Dokument?
 3. **Klassifizieren** — Runbook / Konzept / Lesson / Update?
-4. **Outline schreiben** — `mcp3_create_runbook`, `mcp3_create_concept`, `mcp3_create_lesson` oder `mcp3_update_document`
+4. **Outline schreiben** — `mcp5_create_runbook`, `mcp5_create_concept`, `mcp5_create_lesson` oder `mcp5_update_document`
 5. **Cross-Repo Tagging** — "Gilt für" Abschnitt bei Hub-übergreifendem Wissen
 6. **Cascade Memory updaten** — Verweis auf Outline-Dokument
 
@@ -188,17 +188,24 @@ fi
 
 ## Phase 2: pgvector Memory schreiben (ADR-154)
 
-> **MCP-Prefix beachten** — auf Dev Desktop ist `mcp1_` = orchestrator (siehe `project-facts.md`).
+> **MCP-Prefix-Mapping (WSL/Hetzner — primary env):**
+> `mcp1_` = github · `mcp4_` = orchestrator · `mcp5_` = outline-knowledge.
+> Auf Dev Desktop sind die Prefixes verschoben (`mcp0_`=github, `mcp1_`=orchestrator,
+> `mcp2_`=outline) — dort manuell adjustieren.
+
+> ⚠️ **Voraussetzung:** In `~/.codeium/windsurf/mcp_config.json` müssen
+> `agent_memory_search`, `agent_memory_upsert`, `agent_memory_context`
+> **NICHT** in `disabledTools` des orchestrator-Servers stehen. Sonst fällt
+> Cascade auf das eingebaute `create_memory` zurück — Phase 2 wird stumm
+> übersprungen und pgvector bleibt leer.
 
 7. **Session-Summary in pgvector speichern:**
 ```
-mcp1_agent_memory(
-  operation: "upsert",
+mcp4_agent_memory_upsert(
   agent: "cascade",
   entry: {
     entry_id: "SESSION-<YYYYMMDD>-<REPO-UPPERCASE>",  // muss [A-Z][A-Z0-9\-]+ matchen
-    entry_type: "solved_problem",                    // enum: solved_problem|repo_context|open_task|agent_decision|error_pattern
-    agent: "cascade",
+    entry_type: "context",                            // enum: open_task|decision|context|lesson_learned|error_pattern|repo_context|agent_handoff
     title: "Session <date> — <repo>: <1-Zeile Summary>",
     content: "<Was wurde erledigt, welche Entscheidungen, welche Dateien>",
     tags: ["session", "<repo>", "<task-type>"]
@@ -208,13 +215,11 @@ mcp1_agent_memory(
 
 8. **Error-Patterns erfassen** (nur bei Bug-Fixes — als `error_pattern` Memory-Entry):
 ```
-mcp1_agent_memory(
-  operation: "upsert",
+mcp4_agent_memory_upsert(
   agent: "cascade",
   entry: {
     entry_id: "ERROR-<YYYYMMDD>-<REPO>-<SHORTID>",
     entry_type: "error_pattern",
-    agent: "cascade",
     title: "<symptom 1-Zeile>",
     content: "Repo: <repo>\nSymptom: ...\nRoot Cause: ...\nFix: ...\nPrevention: ...",
     tags: ["error", "<repo>"]
@@ -222,8 +227,9 @@ mcp1_agent_memory(
 )
 ```
 
-> ℹ️ Die früheren Tools `mcp2_log_error_pattern` / `mcp2_session_stats` / `mcp2_check_recurring_errors`
-> existieren nicht mehr (Issue #80) — Pattern-Erkennung jetzt via `mcp1_agent_memory(operation: "query")`.
+> ℹ️ Die früheren Tools `log_error_pattern` / `session_stats` / `check_recurring_errors`
+> sind serverseitig weiter da, aber per `disabledTools` in der Cascade-Config deaktiviert
+> (Token-Budget). Pattern-Erkennung läuft jetzt via `mcp4_agent_memory_search(query: "...")`.
 
 ---
 
