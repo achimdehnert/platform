@@ -172,7 +172,7 @@ def llm_enrich(title: str, md_text: str, design: dict) -> dict:
     """Executive Summary + Keywords. Default Cerebras Llama-3.3-70b → Groq 8B-Fallback.
 
     ENV-Overrides:
-      PRINT_AGENT_LLM_PRIMARY   (Default: cerebras/llama-3.3-70b)
+      PRINT_AGENT_LLM_PRIMARY   (Default: cerebras/llama3.1-8b)
       PRINT_AGENT_LLM_FALLBACK  (Default: groq/llama-3.1-8b-instant, leer = aus)
     """
     primary = os.environ.get("PRINT_AGENT_LLM_PRIMARY", _DEFAULT_PRIMARY).strip()
