@@ -4,7 +4,10 @@ IIL Print Agent — LLM-gestützter PDF-Generator mit Design-Switcher
 Usage: python3 print_agent.py <input.md> [output_dir] [--design meiki|iil]
 
 Designs: meiki (Standard), iil (IIL GmbH Corporate)
-LLM: OpenAI gpt-4o-mini (~$0.00005/Dokument)
+LLM (Default): cerebras/llama3.1-8b (schnell+günstig), Fallback groq/llama-3.1-8b-instant.
+  Override via ENV PRINT_AGENT_LLM_PRIMARY und PRINT_AGENT_LLM_FALLBACK
+  (litellm-Modellstring; leerer Fallback = kein Fallback).
+  Für höhere Qualität auf Cerebras: PRINT_AGENT_LLM_PRIMARY=cerebras/qwen-3-235b-a22b-instruct-2507
 Fallback: Ohne LLM direkt PDF erzeugen
 """
 
@@ -26,6 +29,7 @@ from weasyprint import HTML, CSS
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [
     Path("/home/devuser/shared/secrets"),
+    Path("/home/devuser/shared/secrets-inbox"),
     Path.home() / ".secrets",
 ]
 _TEMPLATES_DIR = Path(__file__).parent / "print_templates"
@@ -116,12 +120,63 @@ def get_secret(name: str) -> str | None:
     return None
 
 
-def llm_enrich(title: str, md_text: str, design: dict) -> dict:
-    """gpt-4o-mini — Executive Summary + Keywords (~$0.00005/Dokument)."""
-    api_key = get_secret("openai_api_key")
+_DEFAULT_PRIMARY = "cerebras/llama3.1-8b"
+_DEFAULT_FALLBACK = "groq/llama-3.1-8b-instant"
+
+
+def _secret_name_for_model(model: str) -> str | None:
+    """Mappt litellm-Modellstring auf Secret-Name (cerebras_api_key etc.)."""
+    m = model.lower()
+    if m.startswith("cerebras/"):
+        return "cerebras_api_key"
+    if m.startswith("groq/"):
+        return "groq_api_key"
+    if m.startswith("anthropic/") or m.startswith("claude-"):
+        return "anthropic_api_key"
+    if m.startswith("mistral/"):
+        return "mistral_api_key"
+    if m.startswith("together/") or m.startswith("together_ai/"):
+        return "together_api_key"
+    if m.startswith("openai/") or m.startswith("gpt-"):
+        return "openai_api_key"
+    return None
+
+
+def _try_completion(model: str, prompt: str) -> dict | None:
+    """Ein LLM-Versuch — gibt {} bei No-Key zurück, None bei Fehler, dict bei Erfolg."""
+    secret_name = _secret_name_for_model(model)
+    api_key = get_secret(secret_name) if secret_name else None
     if not api_key:
-        print("⚠️  Kein OpenAI API-Key — LLM-Schritt übersprungen")
-        return {}
+        print(f"⚠️  Kein API-Key für {model} ({secret_name}) — übersprungen")
+        return None
+    try:
+        response = litellm.completion(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.3,
+            api_key=api_key,
+            timeout=15,
+        )
+        raw = response.choices[0].message.content.strip()
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if m:
+            return json.loads(m.group(0))
+        print(f"⚠️  {model}: kein JSON in Antwort")
+    except Exception as e:
+        print(f"⚠️  {model}: {e}")
+    return None
+
+
+def llm_enrich(title: str, md_text: str, design: dict) -> dict:
+    """Executive Summary + Keywords. Default Cerebras Llama-3.3-70b → Groq 8B-Fallback.
+
+    ENV-Overrides:
+      PRINT_AGENT_LLM_PRIMARY   (Default: cerebras/llama-3.3-70b)
+      PRINT_AGENT_LLM_FALLBACK  (Default: groq/llama-3.1-8b-instant, leer = aus)
+    """
+    primary = os.environ.get("PRINT_AGENT_LLM_PRIMARY", _DEFAULT_PRIMARY).strip()
+    fallback = os.environ.get("PRINT_AGENT_LLM_FALLBACK", _DEFAULT_FALLBACK).strip()
 
     context = design.get("llm_context", "Technologie und KI")
     preview = md_text[:1200].strip()
@@ -138,21 +193,15 @@ Antworte mit:
   "keywords": ["<Stichwort1>", "<Stichwort2>", "<Stichwort3>", "<Stichwort4>", "<Stichwort5>"]
 }}"""
 
-    try:
-        response = litellm.completion(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-            temperature=0.3,
-            api_key=api_key,
-            timeout=15,
-        )
-        raw = response.choices[0].message.content.strip()
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            return json.loads(m.group(0))
-    except Exception as e:
-        print(f"⚠️  LLM-Fehler: {e} — fahre ohne Summary fort")
+    for attempt, model in enumerate([primary, fallback], start=1):
+        if not model:
+            continue
+        label = "Primary" if attempt == 1 else "Fallback"
+        print(f"   🤖 {label}: {model}")
+        result = _try_completion(model, prompt)
+        if result is not None:
+            return result
+    print("⚠️  Alle LLM-Versuche fehlgeschlagen — fahre ohne Summary fort")
     return {}
 
 
