@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# /opt/scripts/deploy.sh — iil-Platform Unified Deploy Script (ADR-120)
+# /opt/scripts/deploy.sh — iil-Platform Unified Deploy Script (ADR-120, ADR-166)
 # Auf PROD (88.198.191.108) und DEV/Staging (88.99.38.75) installieren
 #
 # Usage: deploy.sh <APP_NAME> <APP_PATH> <IMAGE_TAG> <ENVIRONMENT> [HEALTH_CHECK_URL]
-# Example: deploy.sh risk-hub /opt/risk-hub v1.4.2 production https://schutztat.de/healthz/
+# Example: deploy.sh risk-hub /opt/risk-hub v1.4.2 production https://schutztat.de/livez/
 set -euo pipefail
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
@@ -12,10 +12,13 @@ IMAGE_TAG="${3:?'IMAGE_TAG fehlt'}"
 ENVIRONMENT="${4:?'ENVIRONMENT fehlt (staging|production)'}"
 HEALTH_CHECK_URL="${5:-}"
 
+# ADR-160: log to file only if writable — never break deploy for logging
 LOG_DIR="/var/log/iil-deploys"
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
 LOG_FILE="$LOG_DIR/${APP_NAME}_$(date +%Y%m%d_%H%M%S)_$$.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
+if touch "$LOG_FILE" 2>/dev/null; then
+  exec > >(tee -a "$LOG_FILE" 2>/dev/null || cat) 2>&1
+fi
 
 # Validierung
 [[ "$ENVIRONMENT" =~ ^(staging|production)$ ]] || { echo "FEHLER: ENVIRONMENT ungültig: $ENVIRONMENT" >&2; exit 1; }
