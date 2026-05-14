@@ -189,6 +189,25 @@ jobs:
       name: staging
       url: https://staging.${{ inputs.app_name }}.iil.pet
     steps:
+      - uses: actions/checkout@v6
+
+      # Sync staging compose file from the consuming repo to the host.
+      # Without this, deploy.sh runs `docker compose pull` against
+      # whatever stale compose file is on the server (may reference a
+      # removed service / wrong image path / outdated port mapping).
+      - name: Sync docker-compose.staging.yml to host
+        if: hashFiles('docker-compose.staging.yml') != ''
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.STAGING_HOST }}
+          username: ${{ secrets.STAGING_USER }}
+          key: ${{ secrets.STAGING_SSH_KEY }}
+          fingerprint: ${{ secrets.STAGING_SSH_FINGERPRINT }}
+          source: "docker-compose.staging.yml"
+          # deploy.sh on staging uses docker-compose.yml (no env-specific suffix)
+          target: "${{ inputs.app_path }}/docker-compose.yml"
+          overwrite: true
+
       - name: Deploy to staging
         uses: appleboy/ssh-action@v1.0.3
         timeout-minutes: 15
@@ -223,6 +242,31 @@ jobs:
     environment:
       name: production
     steps:
+      - uses: actions/checkout@v6
+
+      # Sync production compose file from the consuming repo to the host.
+      # Self-hosted runners run on the prod server itself — direct cp works.
+      # Without this step deploy.sh works against a stale compose file
+      # (e.g. wrong image path after a path-refactor in the repo).
+      - name: Sync docker-compose.prod.yml to app path (self-hosted)
+        if: inputs.runs_on == 'self-hosted' && hashFiles('docker-compose.prod.yml') != ''
+        run: |
+          set -euo pipefail
+          cp docker-compose.prod.yml "${{ inputs.app_path }}/docker-compose.prod.yml"
+          echo "✅ Compose file synced to ${{ inputs.app_path }}/docker-compose.prod.yml"
+
+      - name: Sync docker-compose.prod.yml to host (remote runner)
+        if: inputs.runs_on != 'self-hosted' && hashFiles('docker-compose.prod.yml') != ''
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: ${{ secrets.DEPLOY_USER }}
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
+          source: "docker-compose.prod.yml"
+          target: "${{ inputs.app_path }}/docker-compose.prod.yml"
+          overwrite: true
+
       - name: Deploy to production (direct — self-hosted runner)
         if: inputs.runs_on == 'self-hosted'
         timeout-minutes: 15
