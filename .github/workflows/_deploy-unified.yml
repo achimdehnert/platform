@@ -204,8 +204,10 @@ jobs:
           key: ${{ secrets.STAGING_SSH_KEY }}
           fingerprint: ${{ secrets.STAGING_SSH_FINGERPRINT }}
           source: "docker-compose.staging.yml"
-          # deploy.sh on staging uses docker-compose.yml (no env-specific suffix)
-          target: "${{ inputs.app_path }}/docker-compose.yml"
+          # scp-action treats `target` as a directory and creates the file
+          # inside it. deploy.sh detects `docker-compose.staging.yml` for the
+          # staging environment automatically (see ADR-022).
+          target: "${{ inputs.app_path }}"
           overwrite: true
 
       - name: Deploy to staging

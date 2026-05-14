@@ -33,10 +33,15 @@ if [[ -f "$APP_PATH/.env" ]]; then
   PREVIOUS_TAG=$(grep "^IMAGE_TAG=" "$APP_PATH/.env" | cut -d= -f2 || true)
 fi
 
-# Compose-File nach Umgebung wählen (ADR-022: docker-compose.prod.yml für Production)
+# Compose-File nach Umgebung wählen (ADR-022)
+# Production: docker-compose.prod.yml
+# Staging:    docker-compose.staging.yml
+# Fallback:   docker-compose.yml
 COMPOSE_FILE="docker-compose.yml"
 if [[ "$ENVIRONMENT" == "production" && -f "$APP_PATH/docker-compose.prod.yml" ]]; then
   COMPOSE_FILE="docker-compose.prod.yml"
+elif [[ "$ENVIRONMENT" == "staging" && -f "$APP_PATH/docker-compose.staging.yml" ]]; then
+  COMPOSE_FILE="docker-compose.staging.yml"
 fi
 
 # Staging: eigenes Compose-Projekt um DEV-Container nicht zu überschreiben
