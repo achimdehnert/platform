@@ -72,7 +72,7 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 3. **Klassifizieren** — Runbook / Konzept / Lesson / Update?
 4. **Outline schreiben** — `mcp5_create_runbook`, `mcp5_create_concept`, `mcp5_create_lesson` oder `mcp5_update_document`
 5. **Cross-Repo Tagging** — "Gilt für" Abschnitt bei Hub-übergreifendem Wissen
-6. **Cascade Memory updaten** — Verweis auf Outline-Dokument
+6. **agent memory updaten** — Verweis auf Outline-Dokument
 
 ---
 
