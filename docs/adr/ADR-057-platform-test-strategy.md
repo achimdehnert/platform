@@ -551,7 +551,7 @@ echo "=== All smoke tests passed ==="
 
 | Repo | Besonderheit |
 | --- | --- |
-| **risk-hub** | `src/`-Layout; Settings monolithisch (`config/settings.py` → `config/settings_test.py`); SQLite für Unit-Tests |
+| **risk-hub** | `src/`-Layout; Settings monolithisch (`config/settings.py` → `config/settings_test.py`); PostgreSQL für Unit-Tests (ADR-179) |
 | **cad-hub** | `apps/`-Layout; `config/settings/test.py` (split); `django_tenancy` Middleware |
 | **trading-hub** | `src/trading_hub/`-Layout; eigenes Settings-Modul `trading_hub.django.settings`; TimescaleDB (Integration-Tests brauchen timescaledb Image) |
 | **pptx-hub** | Python-Package (kein Django); eigene `ci.yml` mit `uv`/PyPI-Publish; kein `pytest-django` nötig |
