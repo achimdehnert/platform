@@ -25,18 +25,17 @@ tunnels:
       wegen noTLSVerify=true.
 
   bf-staging:
-    id: null               # Zu setzen nach `cloudflared tunnel create bf-staging`
-    hostname: null         # <id>.cfargotunnel.com
+    id: 2a517762-d011-4bf8-8405-9bd237b2c4f4
+    hostname: 2a517762-d011-4bf8-8405-9bd237b2c4f4.cfargotunnel.com
     server: staging        # 178.104.184.168 (Hetzner CPX42)
     origin: "http://localhost:80"
     no_tls_verify: null    # n/a — Loopback HTTP
-    created: null
+    created: "2026-05-14"
     monitoring: "Uptime-Kuma (Pilot-Host: staging-writing.iil.pet/livez/)"
     notes: |
-      Wird in ADR-198 §7 Phase 1 erzeugt. Bis dahin existiert kein
-      Edge-Pfad zum dedizierten Staging-Server — alle staging.*
-      CNAMEs zeigen heute (heterogen) auf bf-platform oder direkte
-      A-Records (siehe Drift-Inventar ADR-198 §1.4).
+      Erzeugt am 2026-05-14 (ADR-198 §7 Phase 1). systemd cloudflared.service
+      läuft auf 178.104.184.168. Pilot-CNAME staging-writing.iil.pet ist live.
+      DNS-Massen-Umbiegung über `python3 infra/scripts/dns_staging_sync.py --apply`.
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # Advanced Certificate Manager (ACM) — pro Zone aktivierbar
@@ -126,10 +125,16 @@ zones:
 # ═══════════════════════════════════════════════════════════════════════════════
 
 audit:
-  last_synced: null
+  last_synced: "2026-05-14"
   multi_tenant_hubs:
     - risk-hub          # *.staging.schutztat.de
+  completed_tasks:
+    - "2026-05-14: Tunnel bf-staging erzeugt (2a517762-…) — ADR-198 §7 Phase 1"
+    - "2026-05-14: systemd cloudflared.service auf 178.104.184.168 läuft"
+    - "2026-05-14: Pilot-CNAME staging-writing.iil.pet → bf-staging live"
+    - "2026-05-14: Container-Migration nicht nötig — keine colocated Staging-Container auf Prod gefunden"
   pending_tasks:
-    - "Tunnel bf-staging auf 178.104.184.168 erzeugen (ADR-198 §7 Phase 1)"
-    - "ACM für schutztat.de aktivieren (ADR-198 §4.1.1, ~$120/Jahr)"
-    - "Staging-Container von Prod auf Staging-Server migrieren (ADR-198 §7 Phase 0)"
+    - "DNS-Massen-Umbiegung: python3 infra/scripts/dns_staging_sync.py --apply (Phase 2)"
+    - "ACM für schutztat.de aktivieren (ADR-198 §4.1.1, ~$120/Jahr) — manuell im CF-Dashboard"
+    - "risk_hub_web auf Staging fixen (unhealthy seit ~3 Wochen — unabhängig von ADR-198, eigenes Issue)"
+    - "8 Compose-Drifts in anderen Hubs aufräumen (Phase-0-Fund aus port_audit.py --inventory)"
