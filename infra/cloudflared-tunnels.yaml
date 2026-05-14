@@ -1,0 +1,135 @@
+# platform/infra/cloudflared-tunnels.yaml
+# ═══════════════════════════════════════════════════════════════════════════════
+# Single Source of Truth für Cloudflare-Tunnel-IDs und -Hostnames (ADR-198).
+#
+# Edge-Routing-Mapping `server → tunnel`. `infra/ports.yaml` referenziert nur
+# Ports + Domains, NICHT Tunnel-Details (ADR-198 §4.4).
+#
+# Onboarding-Scripts (siehe ADR-198 §4.5) lesen diese Datei, um DNS-CNAMEs
+# konsistent zu setzen — niemals UI-Klicks im Cloudflare-Dashboard.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+tunnels:
+
+  bf-platform:
+    id: f758021c-a475-4ab7-9c02-1c14599a38e2
+    hostname: f758021c-a475-4ab7-9c02-1c14599a38e2.cfargotunnel.com
+    server: prod          # 88.198.191.108 (Hetzner CPX52)
+    origin: "https://localhost:443"
+    no_tls_verify: true
+    created: "2026-03-06"  # ADR-102 §5.2
+    monitoring: "Uptime-Kuma + CF Notifications"
+    notes: |
+      Catch-all Tunnel auf Prod-Nginx. Routet alle <app>.iil.pet,
+      iil.pet, Custom-TLDs via server_name. Origin-Cert irrelevant
+      wegen noTLSVerify=true.
+
+  bf-staging:
+    id: null               # Zu setzen nach `cloudflared tunnel create bf-staging`
+    hostname: null         # <id>.cfargotunnel.com
+    server: staging        # 178.104.184.168 (Hetzner CPX42)
+    origin: "http://localhost:80"
+    no_tls_verify: null    # n/a — Loopback HTTP
+    created: null
+    monitoring: "Uptime-Kuma (Pilot-Host: staging-writing.iil.pet/livez/)"
+    notes: |
+      Wird in ADR-198 §7 Phase 1 erzeugt. Bis dahin existiert kein
+      Edge-Pfad zum dedizierten Staging-Server — alle staging.*
+      CNAMEs zeigen heute (heterogen) auf bf-platform oder direkte
+      A-Records (siehe Drift-Inventar ADR-198 §1.4).
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Advanced Certificate Manager (ACM) — pro Zone aktivierbar
+#
+# Universal SSL deckt nur Zone + 1 Wildcard-Level ab (ADR-198 §1.1).
+# Für Multi-Tenant-Hubs mit 2-Label-Wildcards (z.B. *.staging.schutztat.de)
+# wird ACM benötigt — $10/Monat pro Zone.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+zones:
+
+  iil.pet:
+    universal_ssl: true
+    acm_required: false
+    rationale: "Single-Level-Konvention staging-<app>.iil.pet reicht."
+
+  schutztat.de:
+    universal_ssl: true
+    acm_required: true
+    rationale: "risk-hub Multi-Tenancy *.staging.schutztat.de braucht 2-Label-Wildcard."
+    monthly_cost_usd: 10
+
+  drifttales.com:
+    universal_ssl: true
+    acm_required: false
+
+  drifttales.de:
+    universal_ssl: true
+    acm_required: false
+
+  drifttales.app:
+    universal_ssl: true
+    acm_required: false
+
+  ai-trades.de:
+    universal_ssl: true
+    acm_required: false
+
+  nl2cad.de:
+    universal_ssl: true
+    acm_required: false
+
+  prezimo.de:
+    universal_ssl: true
+    acm_required: false
+
+  prezimo.com:
+    universal_ssl: true
+    acm_required: false
+
+  weltenforger.com:
+    universal_ssl: true
+    acm_required: false
+
+  weltenforger.de:
+    universal_ssl: true
+    acm_required: false
+
+  kiohnerisiko.de:
+    universal_ssl: true
+    acm_required: false
+    notes: "Alias-Domain risk-hub — Prod-Redirect, kein Staging."
+
+  137herz.de:
+    universal_ssl: true
+    acm_required: false
+
+  137herz.ai:
+    universal_ssl: true
+    acm_required: false
+
+  bieterpilot.de:
+    universal_ssl: true
+    acm_required: false
+
+  wishreads.com:
+    universal_ssl: true
+    acm_required: false
+
+  wishreads.app:
+    universal_ssl: true
+    acm_required: false
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# Audit-Status (für drift-detector / port_audit.py --inventory staging)
+# Aktualisieren bei jedem Tunnel-Onboarding / DNS-Sync-Lauf.
+# ═══════════════════════════════════════════════════════════════════════════════
+
+audit:
+  last_synced: null
+  multi_tenant_hubs:
+    - risk-hub          # *.staging.schutztat.de
+  pending_tasks:
+    - "Tunnel bf-staging auf 178.104.184.168 erzeugen (ADR-198 §7 Phase 1)"
+    - "ACM für schutztat.de aktivieren (ADR-198 §4.1.1, ~$120/Jahr)"
+    - "Staging-Container von Prod auf Staging-Server migrieren (ADR-198 §7 Phase 0)"

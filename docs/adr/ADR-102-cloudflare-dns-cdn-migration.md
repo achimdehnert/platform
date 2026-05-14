@@ -148,6 +148,12 @@ Server-IP 88.198.191.108 ist NICHT mehr oeffentlich erreichbar via DNS.
 DNS zeigt nur Cloudflare Anycast-IPs (104.21.x.x, 172.67.x.x, 188.114.x.x).
 ```
 
+> **Amendment 2026-05-13 (ADR-198)**: Diese Single-Tunnel-Architektur deckt
+> nur Production (88.198.191.108) ab. Für Staging-Edge wurde ein zweiter
+> Tunnel `bf-staging` auf 178.104.184.168 eingeführt. Tunnel-IDs und
+> Routing-Regeln sind in `infra/cloudflared-tunnels.yaml` als SSoT
+> hinterlegt. Siehe **ADR-198 §4.2 / §4.3** für die vollständige Soll-Architektur.
+
 ### 5.6 DNS-Konfiguration (9 Domains)
 
 ```
