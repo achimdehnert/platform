@@ -60,7 +60,7 @@ MCP: mcp2_adr_freshness(repo_path="${GITHUB_DIR}/<SERVICE>")
    - `image_tag`: `latest` oder SHA
    - `has_migrations`: `true` oder `false`
 
-### 2. Service deployen (Agent / Cascade)
+### 2. Service deployen (Agent)
 Verwende `<deployment-mcp>_cicd_manage` *(Prefix aus mcp-tools.md)* mit `action: dispatch`:
 ```
 owner: achimdehnert

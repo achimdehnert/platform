@@ -254,7 +254,7 @@ else
   echo "   ABBRUCH — pgvector ist Pflicht, kein Fallback erlaubt."
 fi
 ```
-→ **KEIN Fallback auf Cascade Memory erlaubt.** pgvector MUSS laufen.
+→ **KEIN Fallback auf agent memory erlaubt.** pgvector MUSS laufen.
 → Bei Fehler: Session NICHT fortsetzen bis Tunnel steht.
 
 ### 0.6 Deploy-Infrastruktur prüfen (ADR-156)
