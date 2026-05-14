@@ -1,16 +1,33 @@
 ---
-status: proposed
+status: rejected
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 implementation_status: none
 related: [ADR-199-rejected, ADR-201, mcp-hub#37, mcp-hub#41]
+rejected-after: 4th-round advocatus-diaboli (concurrent with ADR-202). Silent-drift trade against today's loud-drift makes this strictly worse than the status-quo + drift-workflow (mcp-hub#41). The Internal-Alias-Alternative (sketched in original proposal) is the better pattern but doesn't justify a separate ADR — kann ad-hoc als simple Python-Konstante eingeführt werden.
 ---
 
-# ADR-203: Anthropic Model-Alias Adoption — Drift-Wartung zu Anthropic verschieben
+# ADR-203: Anthropic Model-Alias Adoption (REJECTED)
 
 ## Status
 
-Proposed — optional Folge-ADR von ADR-199 (rejected). 1-Tag-Aufwand mit hohem Hebel, falls die Trade-offs akzeptabel sind.
+**Rejected** after 4th-round advocatus-diaboli review.
+
+## Rejection Rationale
+
+Three structural issues:
+
+1. **Silent-drift ist schlimmer als loud-drift.** Heute: dead model → 404 → mcp-hub#41 Drift-Workflow öffnet Issue innerhalb 24 h → wir fixen. Mit Aliases: Anthropic ändert silent das alias-target → Calls succeed weiter aber mit anderem Modell → wir merken's erst via Cost-Drift (kein systematisches Tracking dafür).
+
+2. **Pricing-Tracking wird inakkurat.** `PRICING_USD_PER_MTOK` (in `~/.claude/hooks/log_llm_call.py`) ist by-model-string. Alias → variable target → unsere geloggten cost_usd-Werte werden falsch. Real-Time-Cost-Tracking (ADR-201 hat das gerade gefixt) bricht.
+
+3. **Internal-Alias-Alternative ist klar besser** — das ADR enthält sie selbst aber empfiehlt das schlechtere Pattern. Internal aliases (`iil/sonnet-current`) behalten Provider-Independence + kontrollierte Drift-Geschwindigkeit + einheitliches Naming. Aber selbst die Internal-Alias-Variante rechtfertigt **kein eigenes ADR** — kann als simple Python-Konstante in `iil_routing/aliases.py` eingeführt werden wenn nötig.
+
+**Status-quo-Pattern (pinned versions + mcp-hub#41 Drift-Workflow)** ist die stabilste Variante. Keine Architektur-Änderung nötig.
+
+---
+
+# (Archive) Original v0-Proposal-Text
 
 ## Context
 
