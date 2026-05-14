@@ -59,6 +59,18 @@ Single TLS-Termination (am Edge), kein public:443 für docs.iil.pet, weniger Sur
 - `listen 443 ssl http2;` und `listen [::]:443 ssl http2;` **entfernen**
 - `ssl_certificate` / `ssl_certificate_key` **entfernen** (nicht mehr nötig)
 - Neuen `server { listen 127.0.0.1:8999; server_name <vhost>.iil.pet; ... }` Block mit gleichem Body (Rate-Limits, proxy_pass, etc.)
+- **PFLICHT: WebSocket-Upgrade-Headers** — Pilot v1 hing im Browser ohne diese (curl -I sagte 302 OK, aber JS-Asset/WS-Handshake hing). Bei TLS-Origin:443 schleift CF Edge WS transparent durch; bei plain-HTTP-Origin:8999 muss nginx den Upgrade explizit forwarden:
+  ```nginx
+  # auf Datei-Top-Level (außerhalb server{}):
+  map $http_upgrade $connection_upgrade {
+      default upgrade;
+      ''      close;
+  }
+  # innerhalb jeder location {}:
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade    $http_upgrade;
+  proxy_set_header Connection $connection_upgrade;
+  ```
 - `listen 80; ... return 301 https://...` (HTTP→HTTPS Redirect) **kann bleiben** als defensive Maßnahme
 
 ### 3. Reload + Verify
@@ -75,7 +87,16 @@ curl -sIk --resolve <vhost>.iil.pet:443:88.198.191.108 https://<vhost>.iil.pet/ 
 /etc/nginx/sites-enabled.bak-2026-05-14-tunnel-pilot/  ← bereits angelegt
 ```
 
-## Pilot-Ergebnis docs.iil.pet (2026-05-14, ~14 Uhr UTC)
+## Pilot-Ergebnis docs.iil.pet (2026-05-14)
+
+### Pilot v1 — gescheitert (~13:13 UTC)
+- ✅ Server-seitig grün: curl-Tests + nginx + cloudflared alle OK
+- ❌ **Browser**: Seite hängt beim Laden (User-Report ~30 min später)
+- Rollback aus `/etc/nginx/sites-enabled.bak-2026-05-14-tunnel-pilot/`: <1 min
+- **Lesson**: `curl -I` testet HTML-Hop, nicht WebSocket-Upgrade. Server-Tests sind notwendig aber nicht hinreichend.
+
+### Pilot v2 — erfolgreich (~13:50 UTC)
+Identisch zu v1 plus WebSocket-Upgrade-Headers (siehe oben, Mechanik §2).
 
 | Test | Erwartung | Ergebnis |
 |---|---|---|
@@ -84,9 +105,7 @@ curl -sIk --resolve <vhost>.iil.pet:443:88.198.191.108 https://<vhost>.iil.pet/ 
 | `curl --resolve docs.iil.pet:443:88.198.191.108` (direct origin) | nicht erreichbar | ✅ invalid.localhost cert + 444 close |
 | `systemctl is-active cloudflared` | active | ✅ 4 connections (fra03/06/19/+1) |
 | nginx -t | ok | ✅ |
-| Paperless-Funktionstest (Browser, Login + Upload) | funktional | ⬜ manuell zu prüfen |
-
-**Done in this PR**: erste 3 Tests verifiziert. **Open**: User-facing Paperless-Smoke-Test (Login + Doc-Upload via Browser).
+| **Browser-Load** (User-verifiziert) | funktional | ✅ docs.iil.pet "geladen und ist verfügbar" |
 
 ## Migrationsplan (Bestand)
 
