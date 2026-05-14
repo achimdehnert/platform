@@ -1,17 +1,64 @@
 ---
-status: proposed
+status: rejected
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 implementation_status: none
 related: [ADR-068, ADR-084, ADR-115, ADR-116, ADR-196, mcp-hub#37, mcp-hub#39, mcp-hub#47, dev-hub#39, dev-hub#40, platform#135]
-supersedes-draft: ADR-199 v2 (model-routing-library) — second internal advocatus-diaboli review surfaced library-version-drift, compliance-cache hole, and N×DB-credential auth-surface issues. Third architecture iteration; same number, status still proposed.
+rejected-after: 4 internal advocatus-diaboli review rounds across 3 architecture iterations (HTTP-Service → Python-Library → GitOps-YAML). Each round surfaced new structural issues. Convergence-failure is the actual signal — the problem isn't "better routing architecture", it's awareness/observability in the consumer UX. Phase 0 hygiene (mcp-hub#47 + dev-hub#40, already merged) addressed ~80 % of operational pain; the remaining 20 % is split into 3 smaller follow-up ADRs. See "Rejection Rationale".
 ---
 
-# ADR-199 v3: GitOps Routing — `routing.yaml` als einziger Wahrheitsträger
+# ADR-199 (rejected): Model-Routing-Authority — Three Iterations, No Convergence
 
 ## Status
 
-Proposed — v3 nach zweiter advocatus-diaboli Review (v2 → v3). Verwirft sowohl v1 (HTTP-Service) als auch v2 (Python-Library + Codegen-PR-Pipeline) zugunsten einer file-based GitOps-Architektur.
+**Rejected** after four review rounds. Each iteration (v1 HTTP-Service → v2 Python-Library + Codegen → v3 GitOps-YAML) fixed prior weaknesses but surfaced new structural issues. Below: the rejection rationale and the three smaller successor-ADRs that take its place.
+
+## Rejection Rationale
+
+Three architecture-family attempts. Four review rounds. **Convergence failed.** That is the signal — the problem framing is wrong, not the architecture.
+
+Real problem framing:
+
+| What v1/v2/v3 tried to solve | What's actually broken |
+|---|---|
+| „Orchestrator wählt automatisch optimal" | Optimization-Ziel ist subjektiv (Cost vs Quality vs Latency) — kein fixiertes „optimal" möglich |
+| „Alle Routing-Surfaces synchron" | Phase 0 Hygiene-PRs (mcp-hub#47 + dev-hub#40) hat das **bereits gelöst**; Drift-Workflow (mcp-hub#41) hält sie synchron mit <24h Latenz |
+| „$1577/48h Opus-Spend" | Backend-Tracking existiert (Grafana 105+211+152, llm_calls.cost_usd live). **Was fehlt: UX-Feedback im Claude-Code-Session-Layer.** Routing-Authority schließt diese Lücke nicht — Visibility schließt sie. |
+| „Compliance enforced server-side" | Tenant×Class-Mapping ist eine 4-Zeilen-DB-Tabelle, kein 274-Zeilen-ADR |
+| „Bandit-Learning aus Outcomes" | 7 action_codes × 5 Tiers = 35 Cells; bei 20-50 Samples/Cell/Woche statistisch nutzlos |
+
+Vier OOB-Alternativen aus dem 4. Review schlagen alle ADR-199-Familien:
+
+1. **Anthropic Model-Alias-Pattern** (`claude-sonnet-4-latest`) — verschiebt Drift in Provider-Verantwortung. ~1 Tag.
+2. **JIT-Tier-Reassignment** — start cheap, escalate on insufficient response. ~3 Tage.
+3. **Pricing-Visibility in der Claude-Code-UX** — Statusline + Session-End-Summary + cost-aware `/model`-Prompt. **Heute komplett fehlend** — nur Backend-Dashboards existieren. ~1-2 Tage.
+4. **Routing-as-Decorator-Pattern** — `@route(tier=3)` Python-Decorator, Routing-Wahl ist Code-Diff statt Config-File.
+
+## Successor-ADRs (statt monolithisches ADR-199)
+
+- **ADR-200 (planned)** — Claude-Code Pricing Visibility (Statusline + Session-End + /model-Prompt). Adressiert das teuerste Symptom direkt. ~1-2 Tage.
+- **ADR-201 (optional)** — JIT-Tier-Reassignment Library-Pattern. Nur wenn ADR-200 nicht reicht. ~3 Tage.
+- **ADR-202 (optional)** — Anthropic Model-Alias-Adoption. Verschiebt Drift-Wartung zu Anthropic. ~1 Tag.
+
+## Was bleibt aus Phase 0 (akzeptiert + deployed)
+
+- mcp-hub#47 — `model_route_configs` Refresh (8 dead Strings entfernt)
+- dev-hub#40 — AIFW LLMModels Cleanup + 7 action_codes Seed
+- `~/.claude/policies/llm-routing.md` — Tier-Liste, file-based source-of-truth
+- `~/.claude/policies/session-routing.md` — Session-Modell-Disziplin
+- mcp-hub#41 Drift-Workflow — täglich Probe, Auto-Issue bei dead model
+
+Diese fünf Bausteine zusammen lösen ~80 % des dokumentierten Schmerzes ohne den ADR-199-Service.
+
+---
+
+# Historische Architektur-Skizzen (Archiv)
+
+Unten: die v3-Architektur die geprüft + verworfen wurde. Wir lassen sie im Repo für zukünftige Reviewer die verstehen wollen warum diese Familie nicht funktioniert.
+
+## v3 (rejected): GitOps Routing — `routing.yaml` als einziger Wahrheitsträger
+
+(Original v3-Status: Proposed — nach zweiter advocatus-diaboli Review)
 
 ## Context
 
