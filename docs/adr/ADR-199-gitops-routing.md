@@ -36,9 +36,9 @@ Vier OOB-Alternativen aus dem 4. Review schlagen alle ADR-199-Familien:
 
 ## Successor-ADRs (statt monolithisches ADR-199)
 
-- **ADR-200 (planned)** — Claude-Code Pricing Visibility (Statusline + Session-End + /model-Prompt). Adressiert das teuerste Symptom direkt. ~1-2 Tage.
-- **ADR-201 (optional)** — JIT-Tier-Reassignment Library-Pattern. Nur wenn ADR-200 nicht reicht. ~3 Tage.
-- **ADR-202 (optional)** — Anthropic Model-Alias-Adoption. Verschiebt Drift-Wartung zu Anthropic. ~1 Tag.
+- **ADR-201 (planned)** — Claude-Code Pricing Visibility (Statusline + Session-End + /model-Prompt). Adressiert das teuerste Symptom direkt. ~1-2 Tage.
+- **ADR-202 (optional)** — JIT-Tier-Reassignment Library-Pattern. Nur wenn ADR-201 nicht reicht. ~3 Tage.
+- **ADR-203 (optional)** — Anthropic Model-Alias-Adoption. Verschiebt Drift-Wartung zu Anthropic. ~1 Tag.
 
 ## Was bleibt aus Phase 0 (akzeptiert + deployed)
 
