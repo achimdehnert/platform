@@ -126,6 +126,21 @@ Verwende **ADR-NNN** als Referenz. Bei "<conflict-claim>" prüfe ob ADR-XXX/YYY 
 
 ---
 
+## Action-Output (statt nur Report)
+
+Pro Finding **executable Artefakte** vorschlagen, nicht nur Text:
+
+| Finding | Action-Output |
+|---|---|
+| Body-Heading-Drift (z.B. ADR-179 file zeigt "ADR-141" im H1) | `sed -i 's\|^# ADR-141:\|# ADR-179:\|' <file>` (User reviewt + applied) |
+| Stale Orchestrator-Memory | Code-Block mit `agent_memory_upsert(entry_key="adr:platform:ADR-NNN", ...)` aufruf-fertig |
+| Cross-Repo-Reference-Audit | `grep -rln "ADR-NNN" ~/github/ --include="*.py"` + Pipe-Snippet für Repo-Aggregation |
+| Constitution-Load-Gap (adr_explain "Rule not found") | `gh issue create` Snippet im iil-adrfw-Repo mit Reproduce-Steps |
+
+Format: pro Finding 1 `bash`-Code-Block ODER 1 MCP-Call-Block, klar abgegrenzt. User entscheidet was angewandt wird — Skill bleibt read-only, aber Output ist copy-paste-ready.
+
+---
+
 ## Anti-Patterns (was dieser Workflow NICHT tut)
 
 - ❌ Neue ADRs schreiben — das macht `/adr`

@@ -186,6 +186,22 @@ N repos touched. Migration plan: present / **missing — challenge raised**.
 
 ---
 
+## Action-Output (statt nur Report)
+
+Pro Finding **executable Artefakte** vorschlagen, nicht nur Text:
+
+| Finding | Action-Output |
+|---|---|
+| Split-Vorschlag (z.B. 7 Concerns → 4 ADRs) | Frontmatter-Stubs für jeden Sub-ADR (status: draft, supersedes: <parent>, scope, decision_summary-Stub) — ready für `/adr` |
+| Hard-Conflict ohne `supersedes:` | Diff-Block: `--- supersedes: []` `+++ supersedes: [ADR-XXX]` für PR-Amendment |
+| Cross-Repo-Impact ohne Migrations-Plan | `gh issue create` Snippet mit Migration-Phasen-Template |
+| Open Questions > 7 Tage alt | TODO-Liste mit ADR-Section-Verweis + Decide-or-Close-Snippet |
+| Memory-Drift (File-Status ≠ Orchestrator-Memory) | `agent_memory_upsert`-Call ready zum Aufruf |
+
+Format: pro Finding 1 Code-Block (`bash` / `yaml` / `python`), copy-paste-ready. User entscheidet was angewandt wird — Skill bleibt read-only.
+
+---
+
 ## Anti-Patterns
 
 - ❌ Stroh-Mann-Argumente (immer Steel-Man)
