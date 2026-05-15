@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass, field
@@ -75,24 +74,90 @@ def _read_pyproject(path: Path) -> dict:
         return tomllib.load(fh)
 
 
+_TEST_EXCLUDE_PARTS = {
+    "_archive", "_ARCHIVED", ".venv", "venv", "env",
+    "node_modules", "__pycache__", ".tox", ".git",
+}
+
+
 def _check_test_count(path: Path, min_count: int = 1) -> tuple[bool, str]:
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "--tb=no"],
-        capture_output=True,
-        text=True,
-        cwd=str(path),
-    )
-    output = result.stdout + result.stderr
-    for line in output.splitlines():
-        if "selected" in line or "test" in line.lower():
-            try:
-                count = int(line.strip().split()[0])
-                if count >= min_count:
-                    return True, f"{count} tests collected"
-                return False, f"only {count} tests (need >= {min_count})"
-            except (ValueError, IndexError):
+    """Count test files (test_*.py) under pyproject testpaths or sensible defaults.
+
+    Filesystem-based to avoid false negatives when the checker's Python lacks
+    the repo's runtime deps (Django, etc.) needed for pytest collection.
+    """
+    data = _read_pyproject(path)
+    pytest_cfg = data.get("tool", {}).get("pytest", {}).get("ini_options", {})
+    testpaths = pytest_cfg.get("testpaths") or ["tests", "src"]
+    if isinstance(testpaths, str):
+        testpaths = [testpaths]
+
+    seen: set[Path] = set()
+    for tp in testpaths:
+        base = path / tp
+        if not base.exists():
+            continue
+        for test_file in base.rglob("test_*.py"):
+            if any(part in _TEST_EXCLUDE_PARTS for part in test_file.parts):
                 continue
-    return False, "could not collect tests (check pytest config)"
+            seen.add(test_file)
+
+    count = len(seen)
+    if count >= min_count:
+        return True, f"{count} test files found in {testpaths}"
+    return False, f"only {count} test files (need >= {min_count}) in {testpaths}"
+
+
+def _check_django_test_settings(path: Path) -> tuple[bool, str]:
+    """Find Django test settings via sub-package, flat, or pyproject declaration."""
+    subpkg_layouts = [
+        "config/settings/test.py",
+        "src/config/settings/test.py",
+        "settings/test.py",
+    ]
+    for rel in subpkg_layouts:
+        if (path / rel).exists():
+            return True, f"found {rel}"
+
+    flat_layouts = [
+        "config/settings_test.py",
+        "src/config/settings_test.py",
+        "settings_test.py",
+    ]
+    for rel in flat_layouts:
+        if (path / rel).exists():
+            return True, f"found {rel} (flat layout)"
+
+    data = _read_pyproject(path)
+    pytest_cfg = data.get("tool", {}).get("pytest", {}).get("ini_options", {})
+    settings_module = pytest_cfg.get("DJANGO_SETTINGS_MODULE")
+    if settings_module:
+        pythonpath = pytest_cfg.get("pythonpath") or [""]
+        if isinstance(pythonpath, str):
+            pythonpath = [pythonpath]
+        rel_path = settings_module.replace(".", "/") + ".py"
+        for prefix in [*pythonpath, ""]:
+            full = path / prefix / rel_path
+            if full.exists():
+                return True, f"found via DJANGO_SETTINGS_MODULE: {full.relative_to(path)}"
+
+    return False, "no test settings (tried sub-package, flat, pyproject DJANGO_SETTINGS_MODULE)"
+
+
+def _check_ci_build_dependency(workflows_dir: Path) -> tuple[bool, str]:
+    """Check if any workflow has a build/deploy job that depends on ci/test."""
+    if not workflows_dir.is_dir():
+        return False, "no .github/workflows directory"
+
+    patterns = ["needs: [ci]", "needs: ci", "needs: [test]", "needs: test"]
+    for yml in sorted(workflows_dir.glob("*.yml")):
+        try:
+            content = yml.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if any(p in content for p in patterns):
+            return True, f"found in {yml.name}"
+    return False, "no build/deploy job depends on ci/test (scanned all workflows)"
 
 
 # ─────────────────────────────────────────────
@@ -293,15 +358,13 @@ def check_django_app(path: Path) -> HealthReport:
     ))
 
     if has_ci and workflows_dir.is_dir():
-        ci_files = list(workflows_dir.glob("ci*.yml"))
-        if ci_files:
-            content = ci_files[0].read_text(encoding="utf-8")
-            add(CheckResult(
-                "ci:build needs:[ci]",
-                "BLOCK",
-                "needs: [ci]" in content or "needs: ci" in content or "needs: [test" in content,
-                "build job must depend on ci/test job",
-            ))
+        passed, detail = _check_ci_build_dependency(workflows_dir)
+        add(CheckResult(
+            "ci:build needs:[ci]",
+            "BLOCK",
+            passed,
+            detail,
+        ))
 
     # Health endpoint
     has_livez = False
@@ -324,17 +387,13 @@ def check_django_app(path: Path) -> HealthReport:
         "" if has_livez else "add /livez/ health endpoint",
     ))
 
-    # test settings
-    test_settings = (
-        _file_exists(path, "config/settings/test.py")
-        or _file_exists(path, "src/config/settings/test.py")
-        or _file_exists(path, "settings/test.py")
-    )
+    # test settings — accept sub-package layout, flat layout, or pyproject-declared
+    passed, detail = _check_django_test_settings(path)
     add(CheckResult(
         "django:test-settings",
         "BLOCK",
-        test_settings,
-        "" if test_settings else "config/settings/test.py missing",
+        passed,
+        detail,
     ))
 
     # Tests
