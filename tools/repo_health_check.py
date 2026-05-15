@@ -108,6 +108,63 @@ def _check_test_count(path: Path, min_count: int = 1) -> tuple[bool, str]:
     return False, f"only {count} test files (need >= {min_count}) in {testpaths}"
 
 
+def _yaml_get_2level(text: str, section: str, field: str) -> str | None:
+    """Get <section>.<field> from simple 2-level YAML (no PyYAML dep)."""
+    in_section = False
+    section_indent = 0
+    for raw in text.splitlines():
+        line = raw.rstrip("\n")
+        stripped = line.lstrip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("- "):
+            continue
+        indent = len(line) - len(stripped)
+        if indent == 0 and ":" in stripped:
+            key = stripped.split(":", 1)[0].strip()
+            in_section = (key == section)
+            section_indent = 0
+            continue
+        if in_section and indent > 0:
+            if section_indent == 0:
+                section_indent = indent
+            if indent == section_indent and ":" in stripped:
+                k, _, v = stripped.partition(":")
+                if k.strip() == field:
+                    return v.strip().strip('"').strip("'") or None
+    return None
+
+
+def _check_catalog_info(path: Path) -> tuple[bool, str]:
+    """Verify catalog-info.yaml exists and has metadata.name, spec.type, spec.owner."""
+    catalog = path / "catalog-info.yaml"
+    if not catalog.exists():
+        return False, "catalog-info.yaml missing"
+    text = catalog.read_text(encoding="utf-8", errors="ignore")
+    required = [("metadata", "name"), ("spec", "type"), ("spec", "owner")]
+    missing = [
+        f"{section}.{field}"
+        for section, field in required
+        if not _yaml_get_2level(text, section, field)
+    ]
+    if missing:
+        return False, f"catalog-info.yaml missing fields: {', '.join(missing)}"
+    return True, "catalog-info.yaml present with required fields"
+
+
+def _check_readme_content(path: Path) -> tuple[bool, str]:
+    """README.md exists, has H1, and is at least 100 chars of non-whitespace content."""
+    readme = path / "README.md"
+    if not readme.exists():
+        return False, "README.md missing"
+    text = readme.read_text(encoding="utf-8", errors="ignore")
+    has_h1 = any(line.startswith("# ") for line in text.splitlines())
+    content_len = len(text.strip())
+    if not has_h1:
+        return False, f"README.md lacks H1 heading (# Title)"
+    if content_len < 100:
+        return False, f"README.md too short ({content_len} chars, need >= 100)"
+    return True, f"README.md OK ({content_len} chars, H1 present)"
+
+
 def _check_django_test_settings(path: Path) -> tuple[bool, str]:
     """Find Django test settings via sub-package, flat, or pyproject declaration."""
     subpkg_layouts = [
@@ -244,6 +301,13 @@ def check_python_package(path: Path) -> HealthReport:
     add(CheckResult("file:Makefile", "SUGGEST", _file_exists(path, "Makefile")))
     add(CheckResult("file:CHANGELOG.md", "SUGGEST", _file_exists(path, "CHANGELOG.md")))
 
+    # ── Structural conventions (added 2026-05-15, SUGGEST during rollout) ──
+    add(CheckResult("file:LICENSE", "SUGGEST", _file_exists(path, "LICENSE")))
+    passed, detail = _check_catalog_info(path)
+    add(CheckResult("catalog-info.yaml", "SUGGEST", passed, detail))
+    passed, detail = _check_readme_content(path)
+    add(CheckResult("README.md content", "SUGGEST", passed, detail))
+
     # ── CI Workflows ──
     workflows_dir = path / ".github" / "workflows"
     add(CheckResult(
@@ -334,6 +398,13 @@ def check_django_app(path: Path) -> HealthReport:
     add(CheckResult("file:docker-compose.prod.yml", "BLOCK", compose_exists))
 
     add(CheckResult("file:CHANGELOG.md", "SUGGEST", _file_exists(path, "CHANGELOG.md")))
+
+    # ── Structural conventions (added 2026-05-15, SUGGEST during rollout) ──
+    add(CheckResult("file:LICENSE", "SUGGEST", _file_exists(path, "LICENSE")))
+    passed, detail = _check_catalog_info(path)
+    add(CheckResult("catalog-info.yaml", "SUGGEST", passed, detail))
+    passed, detail = _check_readme_content(path)
+    add(CheckResult("README.md content", "SUGGEST", passed, detail))
 
     # Makefile contains DJANGO_SETTINGS_MODULE
     if _file_exists(path, "Makefile"):
