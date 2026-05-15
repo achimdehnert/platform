@@ -1,5 +1,21 @@
 ---
 description: Review and address PR comments using GitHub MCP
+mode: write
+args:
+  - name: pr_number
+    type: integer
+    required: true
+    description: GitHub PR number to review (e.g. 51).
+  - name: repo
+    type: string
+    required: false
+    default: mcp-hub
+    description: Target repo slug under achimdehnert/. Defaults to mcp-hub.
+  - name: include_diff
+    type: boolean
+    required: false
+    default: true
+    description: Whether the reviewer should pull the full diff before commenting.
 ---
 
 # PR Review Workflow
