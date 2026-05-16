@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-05-16
 decision-makers: [Achim Dehnert]
 implementation_status: none
@@ -10,8 +10,9 @@ related: [ADR-199-rejected, ADR-201, ADR-203, mcp-hub#37, mcp-hub#41]
 
 ## Status
 
-Proposed — entstanden aus dem Advocatus-Diabolus-Review von ADR-201 + ADR-203
-(2026-05-16). Schließt die Lücke, die beide bisher separat umgehen.
+Accepted (2026-05-16) — ratifiziert aus dem Advocatus-Diabolus-Review von
+ADR-201 + ADR-203. Ersetzt die Richtung von ADR-203 (dort `superseded`).
+Implementierung gemäß Skizze offen (`implementation_status: none`).
 
 ## Context
 

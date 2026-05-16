@@ -1,5 +1,6 @@
 ---
-status: proposed
+status: superseded
+superseded-by: ADR-208
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 implementation_status: none
@@ -10,7 +11,8 @@ related: [ADR-199-rejected, ADR-201, ADR-208, mcp-hub#37, mcp-hub#41]
 
 ## Status
 
-Proposed — **Richtung revidiert, siehe Amendment 2026-05-16.**
+Superseded by ADR-208 (2026-05-16) — Provider-`-latest` verworfen, siehe
+Amendment unten. Original als Kontext erhalten.
 
 ## Amendment 2026-05-16 (Advocatus-Diabolus-Review)
 
