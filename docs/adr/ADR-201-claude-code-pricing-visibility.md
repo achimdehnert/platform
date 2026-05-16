@@ -3,14 +3,46 @@ status: accepted
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 implementation_status: in-progress
-related: [ADR-199-rejected, dev-hub#39]
+related: [ADR-199-rejected, ADR-203, ADR-208, dev-hub#39]
 ---
 
 # ADR-201: Claude Code Pricing Visibility — Statusline + Stop-Summary
 
 ## Status
 
-Accepted — direkter Folge-ADR der ADR-199-Rejection. Adressiert das konkrete Symptom ($1577/48h Opus-Spend in dev-hub#39) am User-Touchpoint statt über eine Routing-Authority.
+Accepted — **Umsetzung präzisiert, siehe Amendment 2026-05-16.**
+
+## Amendment 2026-05-16 (Advocatus-Diabolus-Review)
+
+Beschluss bleibt (Cost-Sichtbarkeit am Touchpoint), aber vier Korrekturen
+**bindend für die Umsetzung**:
+
+1. **Abnahmekriterium ist technisch, nicht behavioral.** Pass/Fail von
+   ADR-201 = *Zahl korrekt, p95 < 100 ms, Abweichung ≤ 1 % zu
+   `llm_calls.cost_usd`*. Das alte Kriterium „>30 % Reduktion
+   `opus_per_session_ratio` in 14 Tagen" ist unkontrolliert
+   (Hawthorne, $1577-Vorfall selbst, ADR-202 parallel) und wird in ein
+   **separates Experiment mit Baseline/Kontrolle** ausgelagert — kein
+   Pass/Fail-Gate eines Anzeige-Features. Metrik dort = $/Outcome, nicht der
+   gamebare Modell-Mix-Proxy.
+2. **Per-Turn-Quelle = lokales Session-Ledger, nicht Prod-DB.** Der Stop-Hook
+   schreibt `~/.claude/state/<session>.jsonl` (append, eine Zeile/Turn). Die
+   Statusline liest ausschließlich diese Datei (Sub-ms, kein SSH-Tunnel, kein
+   Prod-Hop im Editor-Innerloop). Prod-DB nur für „today across sessions" als
+   gecachter Refresh alle N Turns. Damit entfällt Open Question 2
+   (Tunnel vs. Replica) und der Latenz-Negativpunkt.
+3. **Pricing aus dem Resolver (ADR-208), nicht aus dem Dict.** Kein
+   eigenständiges Pricing-Wissen in der Statusline; `PRICING_USD_PER_MTOK`
+   wird durch die Resolver-SSoT abgelöst (sonst dieselbe Drift wie ADR-203
+   Risiko #2). Tier-Mismatch-Heuristik wird über die Rolle aus dem Resolver
+   trivial (Open Question 1 dort gelöst).
+4. **Hook-API-Spike vor Phase 1.** Phase 2 (`/model`-Pre-Prompt-Vergleich)
+   ist der einzige Touchpoint am *Entscheidungspunkt* — die ambienten
+   Phasen 1+2 wirken nur ergänzend. 30-min-Spike zur SlashCommand-Pre-Hook-
+   Verfügbarkeit **zuerst**; ist Phase 2 machbar, Hebelreihenfolge umkehren.
+
+Die folgenden Original-Abschnitte gelten unverändert, soweit nicht oben
+präzisiert.
 
 ## Context
 
