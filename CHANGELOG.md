@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026.05.16] — 2026-05-16
+
+### Added
+- `packages/adr-review/` — minimales CLI für KI-gestützte ADR-Reviews auf PRs
+  (konsumiert von `.github/workflows/adr-review.yml`; das Paket fehlte bisher,
+  der Workflow-Guard überspringt nur). Reviewt geänderte ADR-Dateien via Claude
+  (System-Prompt ge-cached), upsertet einen PR-Kommentar, setzt Score-Label.
+  Informativ/non-blocking by default; `--fail-under N` optional. Tests +
+  README dabei. Kein ADR nötig (internes CI-Tool, ein Repo, kein Public-Surface).
+
+---
+
 ## [2026.04.28] — 2026-04-28
 
 ### Added
