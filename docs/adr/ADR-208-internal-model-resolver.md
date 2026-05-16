@@ -93,6 +93,78 @@ ADR-199 wurde wegen *Schwere* verworfen — ADR-208 nimmt nur dessen
 unstrittigen Kern (eine versionierte Identitäts-/Preis-Quelle) und lässt die
 Routing-Authority bewusst weg.
 
+## Implementierungs-Skizze (konkret)
+
+### Ablage & Konsumweg (cross-repo)
+
+Kanonisch in **mcp-hub** (dort leben die Routing-Surfaces), von `~/.claude`
+mitbenutzt — Pointer/Vendor statt zweiter Wahrheit (gleiche Anti-Drift-Linie
+wie ADR-018 Doku-Strategie):
+
+```
+mcp-hub/orchestrator_mcp/iil_routing/
+  model_resolver.yaml          # SSoT (GitOps, reviewbar)
+  model_resolver.schema.json   # Schema
+  resolver.py                  # resolve(alias) -> {model, price_in, price_out, sha}
+~/.claude/hooks/log_llm_call.py  # importiert resolver.py, sonst vendored Fallback-Copy
+```
+
+### Schema (Auszug, `model_resolver.schema.json`)
+
+```json
+{ "type":"object","required":["aliases"],
+  "properties":{"aliases":{"type":"object","minProperties":1,
+    "additionalProperties":{"type":"object",
+      "required":["model","price_in","price_out"],
+      "properties":{
+        "model":{"type":"string","pattern":"^[a-z0-9_-]+/[A-Za-z0-9._-]+$"},
+        "price_in":{"type":"number","exclusiveMinimum":0},
+        "price_out":{"type":"number","exclusiveMinimum":0}}}}}}
+```
+
+### CI-Validator (deterministisch, analog meiki manifest-check)
+
+`scripts/check-model-resolver.py`, Workflow on PR-paths:
+
+1. Schema-Validierung.
+2. Jeder `model` ist ein real auflösbarer litellm-String
+   (`litellm.get_model_info(model)` ohne Exception) — **kein** `*-latest`
+   erlaubt (Regex-Block `-latest$`).
+3. Kein verwaister Alias: jeder in Surfaces referenzierte `iil/<rolle>-current`
+   existiert in `aliases` (grep über mcp-hub + policies).
+4. Exit≠0 bricht den PR — „Resolver konsistent == Routing konsistent".
+
+### Migration je Surface (idempotent, ein PR)
+
+| Surface | Heute | Nachher |
+|---|---|---|
+| `orchestrator_mcp/model_selector.py` `_ROUTE_TABLE` | Pins | `iil/<rolle>-current` via `resolver.resolve()` |
+| `orchestrator_mcp/model_registry.py` `_FALLBACK` | Pins | dito |
+| `orchestrator_mcp/skills/review_adr.py` `_DEFAULT_REVIEW_MODEL` | Pin | `iil/opus-current` |
+| `dev-hub aifw_llm_models` / `aifw_action_types.default_model_id` | Pin-Rows | Alias-Rows + UPDATE (SQL analog ADR-203 §Skizze, aber Alias→Pin) |
+| `~/.claude/policies/llm-routing.md` | Tier-Liste mit Pins | Alias-Namen |
+| `~/.claude/hooks/log_llm_call.py` | `PRICING_USD_PER_MTOK` | `resolver.resolve()`; loggt `resolved_model` + `resolver_sha` |
+
+### Phasen
+
+| Phase | Aufwand | Lieferung |
+|---|---|---|
+| 1 | 30 min | `model_resolver.yaml` + Schema + `resolver.py` + CI-Validator (grün) |
+| 2 | 1 h | `log_llm_call.py` auf Resolver; Regressionstest gegen 30 historische Calls (`cost_usd` ≤ 1 % Abweichung) |
+| 3 | 1 h | mcp-hub Surfaces + `review_adr` umstellen; `*-latest`-Grep = 0 |
+| 4 | 1 h | dev-hub SQL-Migration (`0047_aifw_alias_rows.sql`) + policies-Update |
+| 5 | 30 min | ADR-201-Statusline liest `resolver.resolve()`; Rollback-Test |
+
+### Rollback
+
+Eine Datei + Loader entfernen, Surfaces zurück auf Pin (git revert des
+Migrations-PR). Keine Laufzeit-Dependency, kein Datenverlust — der Resolver
+ist Daten, kein Service.
+
+### Mapping Phasen → Acceptance
+
+Phase 1→AC1, Phase 3→AC2, Phase 2→AC3, Phase 2/5→AC4, ADR-Amendments→AC5.
+
 ## Acceptance Criteria
 
 - [ ] `model_resolver.yaml` existiert, GitOps-versioniert, CI-validiert (Schema + jeder `model` ist ein real auflösbarer litellm-String)
