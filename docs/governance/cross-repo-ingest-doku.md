@@ -1,6 +1,6 @@
 # Cross-Repo Ingest- & Doku-Konvention
 
-**Status:** PROPOSED (Ratifizierung via ADR-207)
+**Status:** active (ratifiziert via ADR-207, 2026-05-17)
 **Datum:** 2026-05-16
 **Home:** `platform` (Governance-SSoT) — Repos verlinken hierauf, kopieren nicht.
 **Pilot/Herkunft:** meiki-hub `docs/_conventions/doku-strategie.md` (validiert 2026-05-16)

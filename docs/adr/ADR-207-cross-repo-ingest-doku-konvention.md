@@ -1,8 +1,9 @@
 ---
 id: ADR-207
 title: "Cross-Repo Ingest- & Doku-Konvention (tiered, opt-in)"
-status: Proposed
+status: Accepted
 date: 2026-05-16
+accepted: 2026-05-17
 deciders: Plattform-Governance
 ---
 
@@ -76,10 +77,11 @@ wiederverwendbarer CI-Baustein ist Folge-ADR.
 
 ## Status / nächste Schritte
 
-**Status: `Proposed`** — die folgenden Schritte sind **bedingt** und werden
-erst nach Ratifizierung ausgelöst (keine impliziten Fakten):
+**Status: `Accepted` (2026-05-17)** — ratifiziert durch Plattform-Governance
+(PR #175). Konvention `docs/governance/cross-repo-ingest-doku.md` ist damit
+verbindlich; Rollout bewusst konservativ (erst SUGGEST):
 
-- [ ] Ratifizierung dieser ADR (Plattform-Governance) — Voraussetzung für alles Weitere
-- [ ] *Danach:* Tier-A-Repos: je 1 Pointer-PR (`docs/_conventions/ingest.md` + `shared/<repo>/inbox/README.md`)
-- [ ] *Danach, ttz-lif/meiki-lra nur nach* DSFA-/Mount-Prüfung (siehe Daten-Souveränität)
+- [x] Ratifizierung dieser ADR (Plattform-Governance)
+- [ ] Tier-A-Repos: je 1 Pointer-PR (`docs/_conventions/ingest.md` + `shared/<repo>/inbox/README.md`)
+- [ ] ttz-lif/meiki-lra **nur nach** DSFA-/Mount-Prüfung (siehe Daten-Souveränität) — kein Default-Rollout
 - [ ] Folge-ADR: Drift-Check als CI-Baustein
