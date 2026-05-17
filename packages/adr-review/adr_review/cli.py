@@ -11,8 +11,17 @@ Env:
   GITHUB_TOKEN        (required) — PR read + comment/label write
   CEREBRAS_API_KEY    — for cerebras/* models   (one LLM key required)
   GROQ_API_KEY        — for groq/* models       (used for fallback)
-  ADR_REVIEW_MODEL    (optional) default 'cerebras/qwen-3-235b-a22b-instruct-2507'
-  ADR_REVIEW_FALLBACK (optional) default 'groq/llama-3.3-70b-versatile'
+  ADR_REVIEW_MODEL          (optional) default 'cerebras/qwen-3-235b-a22b-instruct-2507'
+  ADR_REVIEW_FALLBACK       (optional) default 'groq/llama-3.3-70b-versatile'
+  ADR_REVIEW_DEEP_MODEL     (optional) default 'cerebras/zai-glm-4.7' (Eskalation)
+  ADR_REVIEW_ESCALATE_BELOW (optional) default 6  (Score-Schwelle)
+  ADR_REVIEW_DEEP_LABEL     (optional) default 'adr-deep-review'
+
+Eskalation: erst günstiger Pass; bei Label / >1 ADR-Datei / Score<Schwelle
+ein zweiter Pass mit dem stärkeren Flatrate-Modell. Schließt die
+Frontier-Lücke NICHT — wirklich harte ADRs bleiben Mensch/in-session.
+Modellnamen mappen künftig auf ADR-208-Resolver-Aliase (noch nicht hart
+gekoppelt: Resolver-Implementierung offen).
 """
 from __future__ import annotations
 
@@ -32,6 +41,11 @@ PRIMARY = os.environ.get("ADR_REVIEW_MODEL",
                          "cerebras/qwen-3-235b-a22b-instruct-2507")
 FALLBACK = os.environ.get("ADR_REVIEW_FALLBACK",
                           "groq/llama-3.3-70b-versatile").strip()
+# Eskalations-Modell (stärker, weiter Flatrate, KEIN Anthropic).
+DEEP_MODEL = os.environ.get("ADR_REVIEW_DEEP_MODEL",
+                            "cerebras/zai-glm-4.7").strip()
+ESCALATE_BELOW = int(os.environ.get("ADR_REVIEW_ESCALATE_BELOW", "6"))
+DEEP_LABEL = os.environ.get("ADR_REVIEW_DEEP_LABEL", "adr-deep-review")
 _SECRET_DIRS = [Path.home() / "shared" / "secrets-inbox",
                 Path.home() / ".secrets"]
 
@@ -136,21 +150,42 @@ def _complete(model: str, system: str, user: str) -> str | None:
         return None
 
 
-def review(files: list[dict], token: str) -> tuple[int, str] | None:
+def build_prompt(files: list[dict], token: str) -> str:
     parts = [f"### {f['filename']}\n\n{fetch_text(f['raw_url'], token)}"
              for f in files]
-    user = "Geänderte ADR-Dateien:\n\n" + "\n\n---\n\n".join(parts)
+    return "Geänderte ADR-Dateien:\n\n" + "\n\n---\n\n".join(parts)
 
-    text = _complete(PRIMARY, CHECKLIST, user)
-    used = PRIMARY
-    if text is None and FALLBACK:
-        text = _complete(FALLBACK, CHECKLIST, user)
-        used = FALLBACK
+
+def run_model(model: str, fallback: str,
+              user: str) -> tuple[int, str, str] | None:
+    text, used = _complete(model, CHECKLIST, user), model
+    if text is None and fallback and fallback != model:
+        text, used = _complete(fallback, CHECKLIST, user), fallback
     if text is None:
         return None
     m = re.search(r"SCORE:\s*(\d{1,2})", text)
     score = max(1, min(10, int(m.group(1)))) if m else 5
-    return score, f"{text}\n\n<sub>via {used}</sub>"
+    return score, text, used
+
+
+def pr_labels(repo: str, pr: int, token: str) -> list[str]:
+    try:
+        data = _gh("GET", f"{GH}/repos/{repo}/issues/{pr}", token).json()
+        return [lab["name"] for lab in data.get("labels", [])]
+    except Exception:  # noqa: BLE001
+        return []
+
+
+def should_escalate(labels: list[str], n_files: int, first_score: int,
+                     threshold: int, deep_label: str) -> tuple[bool, str]:
+    """Pure: warum (oder ob nicht) ein zweiter, stärkerer Pass nötig ist."""
+    if deep_label in labels:
+        return True, f"Label '{deep_label}'"
+    if n_files > 1:
+        return True, f"{n_files} ADR-Dateien (cross-cutting)"
+    if first_score < threshold:
+        return True, f"Erstpass-Score {first_score} < {threshold}"
+    return False, ""
 
 
 def label_for(score: int) -> str:
@@ -210,15 +245,29 @@ def main(argv: list[str] | None = None) -> int:
         print("adr-review: keine ADR-Dateien im PR — nichts zu tun.")
         return 0
 
-    res = review(files, token)
-    if res is None:
+    user = build_prompt(files, token)
+    r = run_model(PRIMARY, FALLBACK, user)
+    if r is None:
         print("adr-review: Review nicht möglich (LLM) — übersprungen.")
         return 0
-    score, text = res
+    score, text, used = r
+
+    esc, why = should_escalate(pr_labels(a.repo, a.pr, token), len(files),
+                               score, ESCALATE_BELOW, DEEP_LABEL)
+    esc_note = ""
+    if esc and DEEP_MODEL and DEEP_MODEL != used and _secret(DEEP_MODEL):
+        print(f"adr-review: Eskalation ({why}) → {DEEP_MODEL}")
+        r2 = run_model(DEEP_MODEL, "", user)
+        if r2:
+            score, text, used = r2
+            esc_note = f" · eskaliert ({why})"
+        else:
+            esc_note = f" · Eskalation versucht ({why}), Deep-Modell n/a"
+
     label = label_for(score)
     body = (f"## 🤖 ADR Review — Score {score}/10 (`{label}`)\n\n"
-            f"{text}\n\n<sub>{len(files)} ADR-Datei(en) · Flatrate "
-            f"(Cerebras/Groq) · informativ, nicht blockierend</sub>")
+            f"{text}\n\n<sub>{len(files)} ADR-Datei(en) · via {used} · "
+            f"Flatrate{esc_note} · informativ, nicht blockierend</sub>")
 
     if a.dry_run:
         print(body)

@@ -26,6 +26,23 @@ optional rot unter Score N.
 | `GROQ_API_KEY` | (für Fallback) | — |
 | `ADR_REVIEW_MODEL` | nein | `cerebras/qwen-3-235b-a22b-instruct-2507` |
 | `ADR_REVIEW_FALLBACK` | nein | `groq/llama-3.3-70b-versatile` |
+| `ADR_REVIEW_DEEP_MODEL` | nein | `cerebras/zai-glm-4.7` |
+| `ADR_REVIEW_ESCALATE_BELOW` | nein | `6` |
+| `ADR_REVIEW_DEEP_LABEL` | nein | `adr-deep-review` |
+
+### Eskalation (zweiter Pass)
+
+Günstiger Erstpass für alle PRs. Ein zweiter Pass mit dem stärkeren
+Flatrate-Modell läuft, wenn **eines** zutrifft: PR trägt Label
+`adr-deep-review` · >1 ADR-Datei (cross-cutting) · Erstpass-Score < Schwelle.
+Der Kommentar nennt das genutzte Modell + Eskalationsgrund.
+
+> **Ehrliche Grenze:** Eskalation verengt die Qualitätslücke, schließt sie
+> **nicht**. Für tiefe, kontroverse Architektur-Synthese (versteckte
+> Selbstwidersprüche, repo-übergreifende Implikationen) bleibt ein
+> Mensch-/In-Session-Frontier-Review nötig — das Paket ist Sicherheitsnetz +
+> Checkliste, kein Ersatz. Modellnamen werden künftig auf ADR-208-Resolver-
+> Aliase gemappt (noch nicht hart gekoppelt).
 
 Keys werden wie bei `print_agent` aufgelöst: env-Var **oder**
 `~/shared/secrets-inbox/<provider>_api_key`. Fehlt `GITHUB_TOKEN`, jeder

@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026.05.17] — 2026-05-17
+
+### Changed
+- `adr-review`: zweistufige **Eskalation**. Günstiger Erstpass (qwen-3-235b);
+  zweiter Pass mit stärkerem Flatrate-Modell (`cerebras/zai-glm-4.7`, env-
+  übersteuerbar) bei Label `adr-deep-review`, >1 ADR-Datei oder Score <
+  Schwelle (`ADR_REVIEW_ESCALATE_BELOW`, default 6). Kommentar nennt Modell +
+  Grund. Schließt die Frontier-Lücke bewusst **nicht** (README-Disclaimer).
+  Reine Konfig-/Routing-Ergänzung — kein ADR (internes CI-Tool, Muster-Folge).
+
+---
+
 ## [2026.05.16] — 2026-05-16
 
 ### Added
