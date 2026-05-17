@@ -1,16 +1,32 @@
 ---
-status: proposed
+status: rejected
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 implementation_status: none
-related: [ADR-068, ADR-116, ADR-196, ADR-199-rejected, ADR-201]
+related: [ADR-068, ADR-116, ADR-196, ADR-199-rejected, ADR-201, ADR-204]
 ---
 
-# ADR-202: JIT-Tier-Reassignment — start cheap, escalate on insufficient response
+# ADR-202: JIT-Tier-Reassignment — start cheap, escalate (REJECTED)
 
 ## Status
 
-Proposed — optional Folge-ADR von ADR-199 (rejected). Wird nur empfohlen falls ADR-201 (Pricing Visibility) den Spend nicht ausreichend reduziert (Erwartung: 14-Tage-Beobachtung post-deploy).
+**Rejected** after 4th-round advocatus-diaboli review.
+
+## Rejection Rationale
+
+Five structural issues:
+
+1. **Tool-call-chains break the retry-pattern.** Agentic loops have state — first Tier-1a attempt may have modified a file; a Tier-3 retry can't undo that. JIT is only safe for stateless completions, which is the minority of LLM calls in this codebase.
+2. **Cost-Sketch ist Wunschdenken.** 5×-Ersparnis hängt an 80/20 Trefferquote — keine Daten dafür. Realistisch eher 40-60 % Eskalation.
+3. **Heuristic-Trigger sind regex-fragil.** „uncertainty" matched legitime ehrliche Antworten („I'm not sure but probably X").
+4. **Latency-Doublung bei interactive UX.** 20 % der Tasks dauern 2× — bei Claude Code merkbar.
+5. **Outcome-Log-Pollution.** 20 % der Tasks → 2 Rows in `llm_calls`. Schema-Change `parent_task_id` nötig, ADR ignoriert das.
+
+**Better alternative**: ADR-204 (Pre-Session Wizard) adressiert das Workflow-Problem direkt am User-Touchpoint statt reaktive Korrektur pro Call.
+
+---
+
+# (Archive) Original v0-Proposal-Text
 
 ## Context
 
