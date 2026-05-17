@@ -251,14 +251,14 @@ jobs:
       # Without this step deploy.sh works against a stale compose file
       # (e.g. wrong image path after a path-refactor in the repo).
       - name: Sync docker-compose.prod.yml to app path (self-hosted)
-        if: inputs.runs_on == 'self-hosted' && hashFiles('docker-compose.prod.yml') != ''
+        if: ${{ !startsWith(inputs.runs_on, 'ubuntu') && hashFiles('docker-compose.prod.yml') != '' }}
         run: |
           set -euo pipefail
           cp docker-compose.prod.yml "${{ inputs.app_path }}/docker-compose.prod.yml"
           echo "✅ Compose file synced to ${{ inputs.app_path }}/docker-compose.prod.yml"
 
       - name: Sync docker-compose.prod.yml to host (remote runner)
-        if: inputs.runs_on != 'self-hosted' && hashFiles('docker-compose.prod.yml') != ''
+        if: startsWith(inputs.runs_on, 'ubuntu') && hashFiles('docker-compose.prod.yml') != ''
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
@@ -270,7 +270,7 @@ jobs:
           overwrite: true
 
       - name: Deploy to production (direct — self-hosted runner)
-        if: inputs.runs_on == 'self-hosted'
+        if: ${{ !startsWith(inputs.runs_on, 'ubuntu') }}
         timeout-minutes: 15
         run: |
           set -euo pipefail
@@ -282,7 +282,7 @@ jobs:
             "${{ inputs.health_check_url }}"
 
       - name: Deploy to production (SSH — remote runner)
-        if: inputs.runs_on != 'self-hosted'
+        if: startsWith(inputs.runs_on, 'ubuntu')
         uses: appleboy/ssh-action@v1.0.3
         timeout-minutes: 15
         with:

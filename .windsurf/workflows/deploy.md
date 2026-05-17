@@ -1,5 +1,6 @@
 ---
 description: Deploy any app to production (bfagent, cad-hub, travel-beat, etc.)
+mode: write
 ---
 
 # Deploy Workflow

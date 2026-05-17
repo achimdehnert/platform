@@ -1,5 +1,6 @@
 ---
 description: Fully Agentic Coding — Task definieren, planen, routen, ausführen, bewerten (v6)
+mode: write
 ---
 
 # Agentic Coding Workflow v6
