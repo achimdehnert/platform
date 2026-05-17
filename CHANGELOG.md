@@ -14,6 +14,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Schwelle (`ADR_REVIEW_ESCALATE_BELOW`, default 6). Kommentar nennt Modell +
   Grund. Schließt die Frontier-Lücke bewusst **nicht** (README-Disclaimer).
   Reine Konfig-/Routing-Ergänzung — kein ADR (internes CI-Tool, Muster-Folge).
+- `adr-review`: Default-Modelle umgestellt — `ADR_REVIEW_MODEL`
+  `cerebras/qwen-3-235b…` → `groq/llama-3.3-70b-versatile` (Cerebras-EOL des
+  qwen-Modells 2026-05-27), `ADR_REVIEW_FALLBACK` → `cerebras/llama3.1-8b`
+  (Cross-Provider-Failover, Policy-Tier-1b). Deckt sich mit ADR-208-Resolver
+  (`iil/adr-review`). Kein ADR (Daten-/Default-Fix, Muster-Folge).
 
 ---
 
