@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""
+claude-policy — sync file-based policies in ~/.claude/policies/ with the
+orchestrator shared memory (ADR-113 pgvector store).
+
+Subcommands:
+    push   — write each ~/.claude/policies/<topic>.md to orchestrator memory
+             under entry_key  policy:<topic-without-suffix>
+    pull   — read every policy:<topic> back and update local files (diff +
+             confirm before overwrite)
+    diff   — show drift without changing anything
+    list   — show what policies exist locally and "remotely"
+
+DESIGN — this is intentionally a SKELETON, not a standalone CLI.
+The orchestrator memory is **MCP-only** (SSE at orchestrator.iil.pet); there
+is no shell-callable HTTP/KV endpoint. So the `_orch_*` functions below are
+stubs. Run this *from a Claude Code session that has `orchestrator__*`
+loaded* (dev-hub / mcp-hub / bfagent workspace): ask Claude to run
+`claude-policy <cmd>` and Claude substitutes the stubs with real tool calls:
+
+    _orch_upsert(key, md)   →  orchestrator__agent_memory_upsert(
+                                   entry_key=key, entry_type="decision",
+                                   title=<derived>, content=md,
+                                   tags=["policy", <slug>])
+    _orch_fetch(key)        →  orchestrator__agent_memory_search(query=key)
+                               then pick the hit whose entry_key == key
+    _orch_list(prefix)      →  orchestrator__agent_memory_search(
+                                   query=prefix, limit=50) → entry_keys
+
+CAVEAT (ADR-113): the memory API is **semantic search**, not exact KV.
+`pull`/`diff`/`list` therefore filter results by *exact* entry_key and may be
+approximate / miss entries. The **authoritative source is always the file**;
+`push` is the primary, safe direction. `pull` is advisory.
+
+RUNBOOK — close qwen-EOL item (3) (orchestrator-memory sync of llm-routing):
+    From a dev-hub/mcp-hub Claude session (orchestrator MCP healthy):
+        claude-policy push --only llm-routing
+    Claude translates to one orchestrator__agent_memory_upsert with
+    entry_key="policy:llm-routing". Verify:
+        orchestrator__agent_memory_search(query="policy:llm-routing")
+    must return the updated entry (Tier-1a Cerebras = gpt-oss-120b,
+    qwen-3-235b deprecated 2026-05-27) as top hit.
+
+Run from any cwd. Requires Python 3.10+.
+"""
+from __future__ import annotations
+
+import argparse
+import difflib
+import re
+import sys
+from pathlib import Path
+
+POLICIES_DIR = Path.home() / ".claude" / "policies"
+
+
+def slug(name: str) -> str:
+    """Filename → policy slug ('llm-routing.md' → 'llm-routing')."""
+    return re.sub(r"\.md$", "", name)
+
+
+def policy_key(slug_: str) -> str:
+    return f"policy:{slug_}"
+
+
+def list_local() -> list[Path]:
+    if not POLICIES_DIR.is_dir():
+        return []
+    return sorted(p for p in POLICIES_DIR.glob("*.md") if p.name != "README.md")
+
+
+def _title_for(slug_: str) -> str:
+    return f"policy:{slug_} (synced from ~/.claude/policies/{slug_}.md)"
+
+
+# --- Orchestrator stubs (ADR-113 agent_memory_* API) --------------------
+#
+# Replace these when running inside a Claude session with orchestrator__*
+# loaded. Mapping is documented in the module docstring.
+
+def _orch_upsert(key: str, md: str) -> None:
+    """STUB → orchestrator__agent_memory_upsert(entry_key=key,
+    entry_type='decision', title=_title_for(slug), content=md,
+    tags=['policy', slug])."""
+    sys.stderr.write(
+        f"[stub] would orchestrator__agent_memory_upsert("
+        f"entry_key={key!r}, entry_type='decision', content=<{len(md)} chars>)\n"
+    )
+
+
+def _orch_fetch(key: str) -> str | None:
+    """STUB → orchestrator__agent_memory_search(query=key); return the
+    content of the hit whose entry_key == key (else None)."""
+    sys.stderr.write(
+        f"[stub] would orchestrator__agent_memory_search(query={key!r}) "
+        f"→ filter entry_key=={key!r}\n"
+    )
+    return None
+
+
+def _orch_list(prefix: str = "policy:") -> list[str]:
+    """STUB → orchestrator__agent_memory_search(query=prefix, limit=50);
+    return entry_keys starting with prefix (semantic → approximate)."""
+    sys.stderr.write(
+        f"[stub] would orchestrator__agent_memory_search(query={prefix!r}, "
+        f"limit=50) → entry_keys startswith {prefix!r}\n"
+    )
+    return []
+
+
+# --- Commands ------------------------------------------------------------
+
+
+def cmd_list(_a: argparse.Namespace) -> int:
+    print(f"Local policies in {POLICIES_DIR}:")
+    loc = list_local()
+    for p in loc or []:
+        print(f"  - {slug(p.name)}  ({p.stat().st_size} B)")
+    if not loc:
+        print("  (none)")
+    print("\nRemote policies (orchestrator, semantic search):")
+    remote = _orch_list("policy:")
+    for k in remote:
+        print(f"  - {k}")
+    if not remote:
+        print("  (none / stub — run from orchestrator session)")
+    return 0
+
+
+def cmd_push(args: argparse.Namespace) -> int:
+    pushed = 0
+    for path in list_local():
+        s = slug(path.name)
+        if args.only and s != args.only:
+            continue
+        value = path.read_text(encoding="utf-8")
+        _orch_upsert(policy_key(s), value)
+        print(f"push  policy:{s}  ({len(value)} chars)")
+        pushed += 1
+    print(f"\n{pushed} policies pushed.")
+    return 0
+
+
+def _drift_pairs(only: str | None):
+    for key in _orch_list("policy:"):
+        s = key[len("policy:"):]
+        if only and s != only:
+            continue
+        remote = _orch_fetch(key) or ""
+        lp = POLICIES_DIR / f"{s}.md"
+        local = lp.read_text(encoding="utf-8") if lp.exists() else ""
+        yield s, lp, local, remote
+
+
+def cmd_pull(args: argparse.Namespace) -> int:
+    keys = _orch_list("policy:")
+    if not keys:
+        print("No remote policies (or stub mode — run from orchestrator session).")
+        return 0
+    changed = 0
+    for s, lp, local, remote in _drift_pairs(args.only):
+        if remote == local:
+            print(f"  ✓ {s} in sync")
+            continue
+        print(f"\n--- drift in {s} ---")
+        sys.stdout.writelines(difflib.unified_diff(
+            local.splitlines(keepends=True), remote.splitlines(keepends=True),
+            fromfile=f"local:{s}.md", tofile=f"remote:policy:{s}"))
+        if args.yes or input("\noverwrite local? [y/N] ").strip().lower() == "y":
+            lp.write_text(remote, encoding="utf-8")
+            print(f"  ↻ updated {lp}")
+            changed += 1
+    print(f"\n{changed} policies updated locally.")
+    return 0
+
+
+def cmd_diff(_a: argparse.Namespace) -> int:
+    keys = _orch_list("policy:")
+    if not keys:
+        print("No remote policies (or stub mode).")
+        return 0
+    drift = 0
+    for s, _lp, local, remote in _drift_pairs(None):
+        if remote == local:
+            continue
+        drift += 1
+        print(f"\n--- drift in {s} ---")
+        sys.stdout.writelines(difflib.unified_diff(
+            local.splitlines(keepends=True), remote.splitlines(keepends=True),
+            fromfile=f"local:{s}.md", tofile=f"remote:policy:{s}"))
+    print(f"\n{drift} policies differ.")
+    return drift and 1 or 0
+
+
+# --- Main ---------------------------------------------------------------
+
+
+def build_parser() -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(prog="claude-policy",
+                                description=__doc__.splitlines()[1])
+    sub = p.add_subparsers(dest="cmd", required=True)
+    sub.add_parser("list", help="show local + remote policies").set_defaults(fn=cmd_list)
+    sp_push = sub.add_parser("push", help="push local → orchestrator")
+    sp_push.add_argument("--only", help="slug to push (without .md)")
+    sp_push.set_defaults(fn=cmd_push)
+    sp_pull = sub.add_parser("pull", help="pull orchestrator → local")
+    sp_pull.add_argument("--only", help="slug to pull (without .md)")
+    sp_pull.add_argument("--yes", "-y", action="store_true", help="overwrite without prompt")
+    sp_pull.set_defaults(fn=cmd_pull)
+    sub.add_parser("diff", help="show drift, no writes").set_defaults(fn=cmd_diff)
+    return p
+
+
+def main() -> int:
+    args = build_parser().parse_args()
+    return args.fn(args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())
