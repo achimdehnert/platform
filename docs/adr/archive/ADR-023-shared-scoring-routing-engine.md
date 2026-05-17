@@ -1,6 +1,6 @@
 ---
 status: "deprecated"
-archived-reason: "Nie implementiert; kein Nachfolger geplant — Konzept verworfen"
+archived_reason: "Nie implementiert; kein Nachfolger geplant — Konzept verworfen"
 archived: 2026-05-17
 date: 2026-02-21
 decision-makers: Achim Dehnert

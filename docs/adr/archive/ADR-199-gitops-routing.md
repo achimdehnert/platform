@@ -1,6 +1,6 @@
 ---
 status: rejected
-archived-reason: "rejected — nicht adoptiert (siehe ADR-201)"
+archived_reason: "rejected — nicht adoptiert (siehe ADR-201)"
 archived: 2026-05-17
 date: 2026-05-14
 decision-makers: [Achim Dehnert]

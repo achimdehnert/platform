@@ -1,6 +1,6 @@
 ---
 status: superseded
-archived-reason: "DDL-Konzept nicht adoptiert; kein Nachfolger (Duplikat: ADR-032)"
+archived_reason: "DDL-Konzept nicht adoptiert; kein Nachfolger (Duplikat: ADR-032)"
 archived: 2026-05-17
 date: 2026-02-21
 decision-makers: Achim Dehnert

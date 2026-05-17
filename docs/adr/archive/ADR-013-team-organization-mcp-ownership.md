@@ -1,6 +1,6 @@
 ---
 status: "deprecated"
-superseded-by: [ADR-066]
+superseded_by: [ADR-066]
 archived: 2026-05-17
 date: 2026-02-21
 decision-makers: Achim Dehnert

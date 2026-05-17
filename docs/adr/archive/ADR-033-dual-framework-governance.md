@@ -1,6 +1,6 @@
 ---
 status: superseded
-archived-reason: "Dual-Framework (Django+Odoo) nicht weiterverfolgt; kein konsolidierender Nachfolger-ADR"
+archived_reason: "Dual-Framework (Django+Odoo) nicht weiterverfolgt; kein konsolidierender Nachfolger-ADR"
 archived: 2026-05-17
 date: 2026-02-21
 decision-makers: Achim Dehnert

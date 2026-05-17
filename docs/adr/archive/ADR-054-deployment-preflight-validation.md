@@ -2,7 +2,7 @@
 id: ADR-054
 title: "Deployment Pre-Flight Validation & platform-context als Managed Package"
 status: superseded
-superseded-by: [ADR-056]
+superseded_by: [ADR-056]
 archived: 2026-05-17
 date: 2026-02-20
 author: Achim Dehnert

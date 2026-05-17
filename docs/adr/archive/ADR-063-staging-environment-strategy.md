@@ -2,7 +2,7 @@
 status: superseded
 date: 2026-02-22
 decision-makers: [Achim Dehnert]
-superseded-by: ADR-157-staging-production-split-and-port-governance.md
+superseded_by: ADR-157-staging-production-split-and-port-governance.md
 implementation_status: superseded
 implementation_evidence:
   - "Superseded by ADR-157 (2026-04-03): Same-port staging on Dev Desktop"

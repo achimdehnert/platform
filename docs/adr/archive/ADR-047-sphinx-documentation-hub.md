@@ -1,6 +1,6 @@
 ---
 status: superseded
-superseded-by: [ADR-158]
+superseded_by: [ADR-158]
 archived: 2026-05-17
 date: 2026-02-21
 decision-makers: Achim Dehnert
