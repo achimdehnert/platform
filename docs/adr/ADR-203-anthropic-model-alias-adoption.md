@@ -1,16 +1,45 @@
 ---
-status: proposed
+status: superseded
+superseded-by: ADR-208
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 implementation_status: none
-related: [ADR-199-rejected, ADR-201, mcp-hub#37, mcp-hub#41]
+related: [ADR-199-rejected, ADR-201, ADR-208, mcp-hub#37, mcp-hub#41]
 ---
 
 # ADR-203: Anthropic Model-Alias Adoption — Drift-Wartung zu Anthropic verschieben
 
 ## Status
 
-Proposed — optional Folge-ADR von ADR-199 (rejected). 1-Tag-Aufwand mit hohem Hebel, falls die Trade-offs akzeptabel sind.
+Superseded by ADR-208 (2026-05-16) — Provider-`-latest` verworfen, siehe
+Amendment unten. Original als Kontext erhalten.
+
+## Amendment 2026-05-16 (Advocatus-Diabolus-Review)
+
+Der ursprüngliche Beschluss (Provider-Rolling-Aliase `claude-*-latest`) wird
+**nicht** umgesetzt. Begründung:
+
+1. **Selbstwiderspruch zum eigenen Risiko #4.** Reproduzierbarkeit für
+   ADR-Reviews/Audits/Evals geht verloren. Diese Org betreibt externes
+   ADR-Review — Provider-`-latest` auf audit-erzeugenden Surfaces ist damit
+   ausgeschlossen, nicht nur „riskant".
+2. **Die „Out-of-the-Box-Alternative" ist die Entscheidung.** Interne Aliase
+   liefern jeden genannten Vorteil (eine Update-Stelle, Provider-Unabhängig,
+   einheitliches Naming) und eliminieren **jedes** gelistete Vendor-Risiko.
+   Die einzige Last (Update bei Modell-Retirement = 1 PR) ist der mcp-hub#37-
+   Fall — vernachlässigbar gegenüber dem Verlust von Kontrolle/Observability.
+3. **Cost-Tracking-Konflikt mit ADR-201 aufgelöst:** ein aufgelöster Pin hält
+   `llm_calls.cost_usd` exakt; die Mitigation „Anthropics Usage-Reporting
+   außerhalb unseres Stacks" entfällt.
+
+**Revidierter Beschluss:** Modell-Identität wird über einen **internen,
+versionierten Resolver** geführt (→ **ADR-208**), nicht über Provider-Aliase.
+Provider-`-latest` ist auf Routing-/Review-/Eval-/Audit-Surfaces untersagt.
+Die Kopplung „conditional auf ADR-201-Messung" wird gestrichen (kausal
+unverbunden: 203 = Drift, 201 = Cost-Awareness).
+
+Die folgenden Original-Abschnitte bleiben als Kontext/Begründung erhalten,
+sind aber durch dieses Amendment + ADR-208 überschrieben.
 
 ## Context
 

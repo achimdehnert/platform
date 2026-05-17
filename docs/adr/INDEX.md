@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-08
-> **Next free ADR number:** 189
+> **Last updated:** 2026-05-14
+> **Next free ADR number:** 207
 
 ## Legend
 
@@ -209,6 +209,8 @@
 | 188 | Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store | `Proposed` | ⬜ | [ADR-188](ADR-188-unified-vector-store.md) |
 | 197 | Repo-aware MCP Tool Pruning for Cascade — pgvector-backed disabledTools generator | `Proposed` | ⬜ | [ADR-197](ADR-197-repo-aware-mcp-tool-pruning.md) |
 | 198 | Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention | `Accepted` | ⬜ | [ADR-198](ADR-198-staging-edge-second-cloudflare-tunnel-subdomain-convention.md) |
+| 199 | Model-Routing-Authority (rejected after 3 architecture iterations) | `Rejected` | — | [ADR-199](ADR-199-gitops-routing.md) |
+| 201 | Claude Code Pricing Visibility — Statusline + Stop-Summary | `Accepted` | 🔶 | [ADR-201](ADR-201-claude-code-pricing-visibility.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
