@@ -1,5 +1,7 @@
 ---
 status: superseded
+archived-reason: "platform/packages-Subdir deprecated; Repos zu standalone+PyPI migriert (2026-03-11); kein konsolidierender Nachfolger-ADR"
+archived: 2026-05-17
 date: 2026-03-08
 amended: 2026-03-11
 decision-makers: [Achim Dehnert]
