@@ -163,26 +163,43 @@ elif [[ "$diataxis_score" -ge 2 ]]; then
 fi
 partial 15 "DIATAXIS (${diataxis_score}/4 quadrants)" "$diataxis_earned"
 
-# --- 5. Docstring Coverage (20 points, estimated) ---
+# --- 5. Docstring Coverage (20 points, AST-based) ---
+# Counts class/def nodes that actually carry a docstring via Python's ast.
+# Replaces the old grep heuristic (triple-quote *lines* / 2), which scored
+# single-line docstrings as 0 and rewarded multi-line formatting over real
+# coverage.
 echo ""
-printf "${BOLD}📝 Docstring Coverage (estimate)${NC}\n"
-py_total=0
-py_with_doc=0
-for pydir in "$REPO_PATH/apps" "$REPO_PATH/src" "$REPO_PATH/packages"; do
-    if [[ -d "$pydir" ]]; then
-        while IFS= read -r pyfile; do
-            # Count classes and functions
-            total_in_file=$(grep -cE "^[[:space:]]*(class |def )" "$pyfile" 2>/dev/null || true)
-            total_in_file=${total_in_file:-0}
-            # Count those followed by a docstring (triple-quote on next meaningful line)
-            doc_in_file=$(grep -cE '"""' "$pyfile" 2>/dev/null || true)
-            doc_in_file=${doc_in_file:-0}
-            doc_in_file=$((doc_in_file / 2))  # pair of triple-quotes = 1 docstring
-            py_total=$((py_total + total_in_file))
-            py_with_doc=$((py_with_doc + doc_in_file))
-        done < <(find "$pydir" -name "*.py" -not -path "*/migrations/*" -not -name "__init__.py" 2>/dev/null)
-    fi
-done
+printf "${BOLD}📝 Docstring Coverage${NC}\n"
+read -r py_with_doc py_total < <(
+python3 - "$REPO_PATH" <<'PYEOF' 2>/dev/null || echo "0 0"
+import ast
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1])
+documented = total = 0
+for base in ("apps", "src", "packages"):
+    d = root / base
+    if not d.is_dir():
+        continue
+    for p in d.rglob("*.py"):
+        s = str(p)
+        if "/migrations/" in s or p.name == "__init__.py":
+            continue
+        try:
+            tree = ast.parse(p.read_text(encoding="utf-8"))
+        except (SyntaxError, UnicodeDecodeError, ValueError):
+            continue
+        for n in ast.walk(tree):
+            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                total += 1
+                if ast.get_docstring(n) is not None:
+                    documented += 1
+print(f"{documented} {total}")
+PYEOF
+)
+py_with_doc=${py_with_doc:-0}
+py_total=${py_total:-0}
 
 if [[ "$py_total" -gt 0 ]]; then
     coverage=$((py_with_doc * 100 / py_total))
