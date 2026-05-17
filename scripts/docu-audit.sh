@@ -164,10 +164,16 @@ fi
 partial 15 "DIATAXIS (${diataxis_score}/4 quadrants)" "$diataxis_earned"
 
 # --- 5. Docstring Coverage (20 points, AST-based) ---
-# Counts class/def nodes that actually carry a docstring via Python's ast.
-# Replaces the old grep heuristic (triple-quote *lines* / 2), which scored
-# single-line docstrings as 0 and rewarded multi-line formatting over real
-# coverage.
+# Measures the *documentable semantic surface*, not boilerplate, and does
+# not reward filler. Replaces the old grep heuristic (triple-quote lines/2,
+# which scored 1-line docstrings as 0 and rewarded multi-line formatting).
+#
+# Denominator excludes scaffolding that shouldn't need prose: Django Meta /
+# Migration classes, __dunder__ methods, test_* functions, @overload stubs,
+# and property setters/deleters. A docstring only *counts* if it is
+# non-trivial (>= 2 words and >= 8 non-space chars) so "Num."-style filler
+# cannot inflate the score. Layout-agnostic: falls back to the repo root
+# when apps/src/packages are absent, and prunes junk dirs.
 echo ""
 printf "${BOLD}📝 Docstring Coverage${NC}\n"
 read -r py_with_doc py_total < <(
@@ -177,24 +183,57 @@ import pathlib
 import sys
 
 root = pathlib.Path(sys.argv[1])
+PRUNE = {".git", ".venv", "venv", "node_modules", "build", "dist",
+         ".tox", ".mypy_cache", ".pytest_cache", "__pycache__", "migrations"}
+
+bases = [root / b for b in ("apps", "src", "packages") if (root / b).is_dir()]
+if not bases:
+    bases = [root]
+
+def is_overload(node):
+    for d in node.decorator_list:
+        t = d.func if isinstance(d, ast.Call) else d
+        name = getattr(t, "attr", None) or getattr(t, "id", None)
+        if name in ("overload", "setter", "deleter"):
+            return True
+    return False
+
+def nontrivial(doc):
+    if not doc:
+        return False
+    txt = doc.strip()
+    return len(txt.replace(" ", "")) >= 8 and len(txt.split()) >= 2
+
 documented = total = 0
-for base in ("apps", "src", "packages"):
-    d = root / base
-    if not d.is_dir():
-        continue
-    for p in d.rglob("*.py"):
-        s = str(p)
-        if "/migrations/" in s or p.name == "__init__.py":
+seen = set()
+for base in bases:
+    for p in base.rglob("*.py"):
+        if PRUNE & set(p.parts) or p.name == "__init__.py":
             continue
+        rp = p.resolve()
+        if rp in seen:                       # base overlap (root + nested)
+            continue
+        seen.add(rp)
         try:
             tree = ast.parse(p.read_text(encoding="utf-8"))
         except (SyntaxError, UnicodeDecodeError, ValueError):
             continue
         for n in ast.walk(tree):
-            if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                total += 1
-                if ast.get_docstring(n) is not None:
-                    documented += 1
+            if not isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef,
+                                  ast.ClassDef)):
+                continue
+            nm = n.name
+            if isinstance(n, ast.ClassDef):
+                if nm in ("Meta",) or nm.endswith("Migration"):
+                    continue
+            else:
+                if nm.startswith("test_") or (
+                    nm.startswith("__") and nm.endswith("__")
+                ) or is_overload(n):
+                    continue
+            total += 1
+            if nontrivial(ast.get_docstring(n)):
+                documented += 1
 print(f"{documented} {total}")
 PYEOF
 )
