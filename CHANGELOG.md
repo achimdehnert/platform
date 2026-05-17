@@ -10,10 +10,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added
 - `packages/adr-review/` — minimales CLI für KI-gestützte ADR-Reviews auf PRs
   (konsumiert von `.github/workflows/adr-review.yml`; das Paket fehlte bisher,
-  der Workflow-Guard überspringt nur). Reviewt geänderte ADR-Dateien via Claude
-  (System-Prompt ge-cached), upsertet einen PR-Kommentar, setzt Score-Label.
-  Informativ/non-blocking by default; `--fail-under N` optional. Tests +
-  README dabei. Kein ADR nötig (internes CI-Tool, ein Repo, kein Public-Surface).
+  der Workflow-Guard überspringt nur). Reviewt geänderte ADR-Dateien, upsertet
+  einen PR-Kommentar, setzt Score-Label. Informativ/non-blocking by default;
+  `--fail-under N` optional. Tests + README dabei. Kein ADR nötig (internes
+  CI-Tool, ein Repo, kein Public-Surface).
+
+### Changed
+- adr-review LLM-Pfad: **Flatrate via litellm → Cerebras/Groq** statt Anthropic
+  (Plattform-`llm-routing`-Policy). `ANTHROPIC_API_KEY` entfernt — aus
+  Paket-Deps, CLI, Workflow-Env *und* als GitHub-Secret gelöscht. Default
+  `cerebras/qwen-3-235b-a22b-instruct-2507` + Groq-Fallback, env-übersteuerbar.
 
 ---
 

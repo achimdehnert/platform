@@ -7,8 +7,9 @@ Konsumiert von `.github/workflows/adr-review.yml` (`pip install ./packages/adr-r
 ## Verhalten
 
 1. Lädt geänderte ADR-Dateien des PR (Trigger-Pfade wie im Workflow).
-2. Reviewt sie via Claude gegen eine MADR-/Advocatus-Diabolus-Checkliste
-   (System-Prompt ge-cached).
+2. Reviewt sie via **litellm → Flatrate Cerebras/Groq** gegen eine
+   MADR-/Advocatus-Diabolus-Checkliste. **Kein Anthropic, kein
+   ANTHROPIC_API_KEY** (Plattform-`llm-routing`-Policy: Cerebras/Groq first).
 3. Upsertet **einen** PR-Kommentar (Marker `<!-- adr-review -->`, kein Spam).
 4. Setzt Score-Label: `adr-review-passed` (≥7) · `-concerns` (5–6) · `-failed` (<5).
 
@@ -21,11 +22,19 @@ optional rot unter Score N.
 | Var | Pflicht | Default |
 |---|---|---|
 | `GITHUB_TOKEN` | ja | — |
-| `ANTHROPIC_API_KEY` | ja | — |
-| `ADR_REVIEW_MODEL` | nein | `claude-sonnet-4-6` |
+| `CEREBRAS_API_KEY` | eine LLM-Quelle nötig | — |
+| `GROQ_API_KEY` | (für Fallback) | — |
+| `ADR_REVIEW_MODEL` | nein | `cerebras/qwen-3-235b-a22b-instruct-2507` |
+| `ADR_REVIEW_FALLBACK` | nein | `groq/llama-3.3-70b-versatile` |
 
-Fehlt ein Pflicht-Secret oder enthält der PR keine ADR-Datei → sauberer
-Exit 0 mit Hinweis (kein false-rot, konsistent mit dem Workflow-Guard).
+Keys werden wie bei `print_agent` aufgelöst: env-Var **oder**
+`~/shared/secrets-inbox/<provider>_api_key`. Fehlt `GITHUB_TOKEN`, jeder
+LLM-Key oder enthält der PR keine ADR-Datei → sauberer Exit 0 mit Hinweis
+(kein false-rot, konsistent mit dem Workflow-Guard).
+
+Default-Modell = Policy-Tier-1a (user-visible Prosa), Flatrate, kein Frontier.
+Override jederzeit via Env. ADR-208-Resolver als künftige Auflösung vorgesehen,
+bewusst noch nicht hart gekoppelt (Paket bleibt minimal).
 
 ## Lokal
 
@@ -34,6 +43,3 @@ pip install ./packages/adr-review
 adr-review --pr 175 --repo achimdehnert/platform --dry-run
 pytest packages/adr-review/tests
 ```
-
-Künftig: Modellauflösung über den internen Resolver (ADR-208) statt
-hartem Default — bewusst noch nicht hart gekoppelt (Paket bleibt minimal).

@@ -1,13 +1,18 @@
 """adr-review — minimal AI architecture review for ADR pull requests.
 
+Flatrate-only: routes via litellm to Cerebras/Groq (platform llm-routing
+policy). NO Anthropic, no ANTHROPIC_API_KEY.
+
 Non-blocking by default: posts a review comment + sets a score label.
 Use --fail-under N to make CI red below a score (off by default — informing,
 not enforcing; the ADR-199 lesson).
 
 Env:
-  GITHUB_TOKEN       (required) — PR read + comment/label write
-  ANTHROPIC_API_KEY  (required) — the review model
-  ADR_REVIEW_MODEL   (optional) — default 'claude-sonnet-4-6'
+  GITHUB_TOKEN        (required) — PR read + comment/label write
+  CEREBRAS_API_KEY    — for cerebras/* models   (one LLM key required)
+  GROQ_API_KEY        — for groq/* models       (used for fallback)
+  ADR_REVIEW_MODEL    (optional) default 'cerebras/qwen-3-235b-a22b-instruct-2507'
+  ADR_REVIEW_FALLBACK (optional) default 'groq/llama-3.3-70b-versatile'
 """
 from __future__ import annotations
 
@@ -15,13 +20,20 @@ import argparse
 import os
 import re
 import sys
+from pathlib import Path
 
 import requests
 
 GH = "https://api.github.com"
 MARKER = "<!-- adr-review -->"
-# Default cost-conscious (ADR-201 spirit). Future: resolve via ADR-208 resolver.
-MODEL = os.environ.get("ADR_REVIEW_MODEL", "claude-sonnet-4-6")
+
+# Tier-1a (policy: user-visible prose), Flatrate Cerebras/Groq — kein Anthropic.
+PRIMARY = os.environ.get("ADR_REVIEW_MODEL",
+                         "cerebras/qwen-3-235b-a22b-instruct-2507")
+FALLBACK = os.environ.get("ADR_REVIEW_FALLBACK",
+                          "groq/llama-3.3-70b-versatile").strip()
+_SECRET_DIRS = [Path.home() / "shared" / "secrets-inbox",
+                Path.home() / ".secrets"]
 
 CHECKLIST = """Du bist ADR-Architektur-Reviewer für die iil/achimdehnert-Plattform.
 Bewerte den/die geänderten ADR(s) gegen:
@@ -48,6 +60,26 @@ def is_adr_file(path: str) -> bool:
         or bool(re.match(r"ADR-.*\.md$", base))
         or (path.startswith("concepts/") and path.endswith(".md"))
     )
+
+
+def _secret(model: str) -> str | None:
+    """litellm-Modellstring → API-Key (env ODER ~/shared/secrets-inbox/, wie print_agent)."""
+    m = model.lower()
+    name = ("cerebras_api_key" if m.startswith("cerebras/")
+            else "groq_api_key" if m.startswith("groq/")
+            else "mistral_api_key" if m.startswith("mistral/")
+            else "openai_api_key" if m.startswith(("openai/", "gpt-"))
+            else None)
+    if not name:
+        return None
+    val = os.environ.get(name.upper())
+    if val:
+        return val
+    for d in _SECRET_DIRS:
+        p = d / name
+        if p.exists():
+            return p.read_text().strip()
+    return None
 
 
 def _gh(method: str, url: str, token: str, **kw):
@@ -81,26 +113,44 @@ def fetch_text(raw_url: str, token: str) -> str:
         return f"(konnte Inhalt nicht laden: {e})"
 
 
-def review(files: list[dict], token: str) -> tuple[int, str]:
-    import anthropic
+def _complete(model: str, system: str, user: str) -> str | None:
+    """Ein litellm-Versuch; None bei fehlendem Key oder Fehler."""
+    key = _secret(model)
+    if not key:
+        print(f"adr-review: kein Key für {model} — übersprungen")
+        return None
+    try:
+        import litellm
+        resp = litellm.completion(
+            model=model,
+            messages=[{"role": "system", "content": system},
+                      {"role": "user", "content": user}],
+            max_tokens=1600,
+            temperature=0.2,
+            api_key=key,
+            timeout=60,
+        )
+        return (resp.choices[0].message.content or "").strip()
+    except Exception as e:  # noqa: BLE001
+        print(f"adr-review: {model} fehlgeschlagen: {e}")
+        return None
 
-    parts = []
-    for f in files:
-        parts.append(f"### {f['filename']}\n\n{fetch_text(f['raw_url'], token)}")
+
+def review(files: list[dict], token: str) -> tuple[int, str] | None:
+    parts = [f"### {f['filename']}\n\n{fetch_text(f['raw_url'], token)}"
+             for f in files]
     user = "Geänderte ADR-Dateien:\n\n" + "\n\n---\n\n".join(parts)
 
-    client = anthropic.Anthropic()
-    msg = client.messages.create(
-        model=MODEL,
-        max_tokens=1600,
-        system=[{"type": "text", "text": CHECKLIST,
-                 "cache_control": {"type": "ephemeral"}}],
-        messages=[{"role": "user", "content": user}],
-    )
-    text = "".join(b.text for b in msg.content if b.type == "text").strip()
+    text = _complete(PRIMARY, CHECKLIST, user)
+    used = PRIMARY
+    if text is None and FALLBACK:
+        text = _complete(FALLBACK, CHECKLIST, user)
+        used = FALLBACK
+    if text is None:
+        return None
     m = re.search(r"SCORE:\s*(\d{1,2})", text)
     score = max(1, min(10, int(m.group(1)))) if m else 5
-    return score, text
+    return score, f"{text}\n\n<sub>via {used}</sub>"
 
 
 def label_for(score: int) -> str:
@@ -150,8 +200,9 @@ def main(argv: list[str] | None = None) -> int:
     if not token:
         print("adr-review: GITHUB_TOKEN fehlt — übersprungen.")
         return 0
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("adr-review: ANTHROPIC_API_KEY fehlt — übersprungen.")
+    if not (_secret(PRIMARY) or (FALLBACK and _secret(FALLBACK))):
+        print("adr-review: kein LLM-Key (CEREBRAS_API_KEY/GROQ_API_KEY) "
+              "— übersprungen.")
         return 0
 
     files = changed_adrs(a.repo, a.pr, token)
@@ -159,11 +210,15 @@ def main(argv: list[str] | None = None) -> int:
         print("adr-review: keine ADR-Dateien im PR — nichts zu tun.")
         return 0
 
-    score, text = review(files, token)
+    res = review(files, token)
+    if res is None:
+        print("adr-review: Review nicht möglich (LLM) — übersprungen.")
+        return 0
+    score, text = res
     label = label_for(score)
     body = (f"## 🤖 ADR Review — Score {score}/10 (`{label}`)\n\n"
-            f"{text}\n\n<sub>Modell: {MODEL} · {len(files)} ADR-Datei(en) · "
-            f"informativ, nicht blockierend</sub>")
+            f"{text}\n\n<sub>{len(files)} ADR-Datei(en) · Flatrate "
+            f"(Cerebras/Groq) · informativ, nicht blockierend</sub>")
 
     if a.dry_run:
         print(body)
