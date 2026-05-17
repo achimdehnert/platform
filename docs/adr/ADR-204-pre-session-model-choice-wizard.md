@@ -12,6 +12,26 @@ related: [ADR-199-rejected, ADR-201, ADR-202-rejected, ADR-203-superseded, dev-h
 
 Proposed — conditional. Wird implementiert **nur falls ADR-201 (Pricing Visibility) den Spend nach 14 Tagen nicht ausreichend reduziert** (Schwellwert: avg `opus_per_session_ratio` ↓ < 30 % über Baseline).
 
+## Amendment 2026-05-17 (Konsistenz mit ADR-201-Amendment)
+
+Das Trigger-/Abnahmekriterium oben (und in „Context", „Acceptance Criteria",
+„Changelog") nutzt **dieselbe unkontrollierte Metrik**, die das
+ADR-201-Amendment (2026-05-16) als unsound verworfen hat. Verbindlich gilt
+stattdessen:
+
+- **Implementierungs-Trigger:** ADR-204 wird ausgelöst, wenn das **separate,
+  kontrollierte ADR-201-Spend-Experiment** (mit Baseline/Kontrollgruppe,
+  vorab registriertem Erfolgskriterium, Metrik **$/nützliches Outcome**) sein
+  Ziel **nicht** erreicht — nicht ein ad-hoc `opus_per_session_ratio`-
+  Schwellwert über 14 Tage.
+- **Warum:** `opus_per_session_ratio` ist ein **gamebarer Proxy** (weniger
+  Turns / Session-Splitting bewegt ihn ohne reale Ersparnis) und
+  konfundiert (Hawthorne; $1577-Vorfall selbst). ADR-201s *eigene* Abnahme
+  ist technisch (Korrektheit/Latenz), die Verhaltenswirkung gehört ins
+  kontrollierte Experiment — siehe ADR-201-Amendment.
+- Die `≥ 30 %` / `≥ 50 %` / „14 Tage"-Zahlen unten sind damit **ersetzt**;
+  Original bleibt als Kontext stehen.
+
 ## Context
 
 Nach Rejection von ADR-199 (3 Iterationen), ADR-202 (JIT — Tool-Call-Chains brechen es), ADR-203 (Alias — silent-drift) und Akzeptanz von ADR-201 (Visibility): bleibt **ein ungelöstes Workflow-Problem**.
