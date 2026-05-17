@@ -78,14 +78,17 @@ def _title_for(slug_: str) -> str:
 # Replace these when running inside a Claude session with orchestrator__*
 # loaded. Mapping is documented in the module docstring.
 
-def _orch_upsert(key: str, md: str) -> None:
+def _orch_upsert(key: str, md: str) -> bool:
     """STUB → orchestrator__agent_memory_upsert(entry_key=key,
     entry_type='decision', title=_title_for(slug), content=md,
-    tags=['policy', slug])."""
+    tags=['policy', slug]). Returns True ONLY when really executed —
+    Claude substitutes the real call and returns True; the stub returns
+    False so cmd_push reports an honest NO-OP (no false success)."""
     sys.stderr.write(
         f"[stub] would orchestrator__agent_memory_upsert("
         f"entry_key={key!r}, entry_type='decision', content=<{len(md)} chars>)\n"
     )
+    return False
 
 
 def _orch_fetch(key: str) -> str | None:
@@ -128,16 +131,22 @@ def cmd_list(_a: argparse.Namespace) -> int:
 
 
 def cmd_push(args: argparse.Namespace) -> int:
-    pushed = 0
+    attempted = written = 0
     for path in list_local():
         s = slug(path.name)
         if args.only and s != args.only:
             continue
         value = path.read_text(encoding="utf-8")
-        _orch_upsert(policy_key(s), value)
-        print(f"push  policy:{s}  ({len(value)} chars)")
-        pushed += 1
-    print(f"\n{pushed} policies pushed.")
+        attempted += 1
+        ok = _orch_upsert(policy_key(s), value)
+        print(f"push  policy:{s}  ({len(value)} chars){'' if ok else '  [stub: not written]'}")
+        written += 1 if ok else 0
+    if attempted and not written:
+        print(f"\nNO-OP: {attempted} Polic{'y' if attempted == 1 else 'ies'} "
+              f"NICHT geschrieben (stub). Aus Claude-Session mit "
+              f"orchestrator__* ausführen — kein realer Sync ohne MCP.")
+        return 2
+    print(f"\n{written} policies pushed.")
     return 0
 
 
@@ -155,8 +164,9 @@ def _drift_pairs(only: str | None):
 def cmd_pull(args: argparse.Namespace) -> int:
     keys = _orch_list("policy:")
     if not keys:
-        print("No remote policies (or stub mode — run from orchestrator session).")
-        return 0
+        print("Keine Remote-Policies (oder STUB — aus Claude/orchestrator-"
+              "Session ausführen). Nichts gezogen.")
+        return 2
     changed = 0
     for s, lp, local, remote in _drift_pairs(args.only):
         if remote == local:
@@ -177,8 +187,8 @@ def cmd_pull(args: argparse.Namespace) -> int:
 def cmd_diff(_a: argparse.Namespace) -> int:
     keys = _orch_list("policy:")
     if not keys:
-        print("No remote policies (or stub mode).")
-        return 0
+        print("Keine Remote-Policies (oder STUB). Kein Vergleich möglich.")
+        return 2
     drift = 0
     for s, _lp, local, remote in _drift_pairs(None):
         if remote == local:
