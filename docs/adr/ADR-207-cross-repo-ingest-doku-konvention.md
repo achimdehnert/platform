@@ -52,8 +52,34 @@ Public-Sector-Datensouveränität (ttz/meiki) erfordert je Org Prüfung, ob das
 Provenienz-Archiv auf geteilten Mounts liegen darf; Drift-Check als
 wiederverwendbarer CI-Baustein ist Folge-ADR.
 
+## Reversibilität & Risiken (Amendment 2026-05-17, aus adr-review)
+
+- **Reversibilität:** Rücknahme ist billig und lokal — Pointer-Datei
+  (`docs/_conventions/ingest.md`) + `shared/<repo>/inbox/` je Repo löschen,
+  diese ADR auf `superseded` setzen. Kein Code, kein Service, keine
+  Daten-Migration; Provenienz-Archiv bleibt unberührt. Kosten ≈ N kleine
+  Revert-PRs (N = Tier-A-Repos).
+- **Blast-Radius bei Tier-Fehlzuordnung:** Ein Code-Repo fälschlich in Tier A
+  → leerer, ungenutzter `inbox/`-Ordner (kosmetisch, kein Funktionsbruch).
+  Ein ingest-relevantes Repo fälschlich in Tier C → Rohmaterial landet
+  weiter ad hoc (Status quo ante, kein Regress). Fehlzuordnung ist also
+  **nicht schadhaft, nur suboptimal** und per 1-Zeilen-PR an dieser Datei
+  korrigierbar.
+- **Daten-Souveränität (kritisch, ttz-lif / meiki-lra):** Provenienz mit
+  Klarnamen/Sozialdaten darf **nicht** ungeprüft auf einen org-fremd
+  geteilten Mount. Verbindlich: für `ttz-lif`/`meiki-lra` liegt
+  `_archiv/` auf einem **org-lokalen, nicht quergeteilten** Pfad; die
+  Tier-A-Aufnahme dieser Repos steht unter dem Vorbehalt einer
+  DSFA-/Mount-Prüfung je Org (kein Default-Rollout dorthin).
+- **Lizenz/Compliance:** Drittinhalte im `_archiv/` werden nicht
+  weiterverteilt (außerhalb Git, kein Publish) — kein Lizenz-Transfer.
+
 ## Status / nächste Schritte
 
-- [ ] Ratifizierung dieser ADR (Plattform-Governance)
-- [ ] Tier-A-Repos: je 1 Pointer-PR (`docs/_conventions/ingest.md` + `shared/<repo>/inbox/README.md`)
+**Status: `Proposed`** — die folgenden Schritte sind **bedingt** und werden
+erst nach Ratifizierung ausgelöst (keine impliziten Fakten):
+
+- [ ] Ratifizierung dieser ADR (Plattform-Governance) — Voraussetzung für alles Weitere
+- [ ] *Danach:* Tier-A-Repos: je 1 Pointer-PR (`docs/_conventions/ingest.md` + `shared/<repo>/inbox/README.md`)
+- [ ] *Danach, ttz-lif/meiki-lra nur nach* DSFA-/Mount-Prüfung (siehe Daten-Souveränität)
 - [ ] Folge-ADR: Drift-Check als CI-Baustein
