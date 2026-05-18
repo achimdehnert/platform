@@ -1,86 +1,79 @@
 ---
-description: CI-Green-Programm — wiederholbarer Loop um ALLE Repos auf grüne CI zu bringen/halten (Survey→Triage→Gate→Issue→Queue→Merge→Lehren). Lehren aus Lauf 1 (2026-05-18) eingebrannt.
+description: CI-Health Konvergenz-Programm (v2) — Prävention vor Detektion. Portfolio-Triage → shared-CI-Konvergenz → event-driven Remediation mit Gates-als-Code → Selbstabschaltung. Governance ADR-209.
 ---
 
-# /ci-green-program — Repeatable Cross-Repo CI-Green Loop
+# /ci-green-program — CI-Health Konvergenz-Programm (v2)
 
-> **Zweck:** Nicht „einmal grün", sondern niedrige Mean-Time-to-Green über alle
-> ~/github-Repos, als *wiederkehrender* Prozess. Jeder Fix härtet zugleich einen
-> erzwungenen Contract (Contract-First).
-> **Baut auf:** `/process-agent-queue` (Queue-Ernte), `/agentic-coding` v6
-> (Router), `/issues-abarbeiten` (Handoff-Resumer).
-> **Governance:** ADR-209.
-
----
-
-## Eiserne Regeln (empirisch aus Lauf 1, 2026-05-18)
-
-1. **Survey-Korrektheit:** Repo-Status = letzter *push/PR*-getriggerter CI/Deploy-Lauf.
-   **Nie `gh run list --limit 1`** — grüner Dependabot/Sync-Lauf maskiert roten Deploy.
-2. **Triage verifiziert jede Survey-Claim**, bevor gehandelt wird. (Lauf 1: ttz-hub
-   als „ADR-Nightly-Bug" klassifiziert — hatte gar keinen ADR-Workflow.)
-3. **Versions-/API-Check vor jedem „mechanischen" Dep-Swap.** (Lauf 1: blinder
-   git→PyPI-Swap hätte 8 Repos still von 0.7.0 auf 0.5.1 downgraded.)
-4. **Cross-cutting zuerst.** Ein Fix der viele Repos entsperrt (shared dep,
-   shared workflow, repo-übergreifendes CI-Gate wie `gitleaks`) geht **vor**
-   jeder per-Repo-Arbeit. Opus-Triage, nicht Queue.
-5. **Hard-Gate Deploy/Infra:** Server-State (SSH-Key, Bind-Mount, apt, BuildKit,
-   cancelled-runner) ist **kein** Code → **nie** in die autonome Queue. Eigener
-   Workstream mit Prod-Zugriff.
-6. **Judgment-Gate:** „Test falsch oder Code falsch?", Coverage-Gate senken,
-   Star-Import-Auflösung → `ci-green` **ohne** `auto` (manuelle Sonnet-Session).
-   Rein mechanisch (ruff format, Matrix-Bump, 1-Zeilen-Dep) → `auto`.
-7. **Issue-Pflichtschema** (sonst reicht Sonnet nicht): Root-Cause · exakte
-   Datei+Zeile · `alt`→`neu` · **Contract** (welche erzwungene Regel das
-   wiederherstellt) · Done-Kriterium (inkl. `gh run ... --branch main` grün) ·
-   `Closes #N`.
-8. **Direct-PR für Trivallast.** `run_workflow`/headless läuft server-seitig
-   (`/root/github/X`, nicht lokal) und ist per Default Gate-2-gated ohne PR —
-   für 1-Zeilen-/format-Fixes ist der direkte PR-Pfad effizienter.
+> **Zweck:** NICHT „48 CIs ewig grün triagieren", sondern Failure-Klassen an
+> der *geteilten Quelle* eliminieren und das Programm sich selbst überflüssig
+> machen. Empirie: ein Fix in reusable `_ci-python.yml` (#191) entsperrte alle.
+> **Baut auf:** `/process-agent-queue`, `/agentic-coding` v6, `/issues-abarbeiten`.
+> **Governance:** ADR-209 v2. v1 (Wartungs-Loop) verworfen per Self-Red-Team.
 
 ---
 
-## Der Loop
+## Leitprinzip
 
-### Phase 1 — Survey (read-only, delegierbar an Sub-Agent)
-Pro Repo unter `~/github`: GitHub-Remote? CI vorhanden? letzter *push/PR*-Lauf
-(Regel 1). Bei `failure`: Hauptfehlerklasse in 1 Zeile (nicht tief debuggen).
-Output = Matrix `Repo | CI? | letzter Lauf | Fehlerklasse | Aufwand S/M/L`.
+Jede manuelle Per-Repo-Reparatur ist ein Eingeständnis, dass die geteilte
+Quelle eine Klasse nicht verhindert. Ziel ist, den Loop **abzuschaffen**, nicht
+ihn zu perfektionieren.
 
-### Phase 2 — Triage (Opus, Pflicht-Verify)
-- Jede Survey-Claim am Repo gegenprüfen (Regel 2).
-- Fehlerklassen clustern; **Cross-cutting** markieren (Regel 4).
-- Pro Item gaten: `auto` | `ci-green`(manuell) | Deploy/Infra | Cross-cutting/Opus
-  (Regeln 5+6).
+## Gates G1–G7 (Klassifizierer-Regeln, empirisch Lauf 1)
 
-### Phase 3 — Cross-cutting zuerst (Opus, Direct-PR)
-Shared dep / shared workflow / repo-übergreifendes Gate fixen. Ein PR entsperrt
-n Repos. (Lauf 1: `iil-platform-context 0.7.0`→PyPI; meiki ADR-Nightly;
-`gitleaks` ist der nächste.)
-
-### Phase 4 — Issue-Factory
-Pro Repo 1 Issue nach Pflichtschema (Regel 7). Label `ci-green` + ggf. `auto`.
-Cluster batchen (gleiches Rezept = ein gh-Loop).
-
-### Phase 5 — Abarbeitung
-- `auto`-Issues → `/process-agent-queue` (Sonnet, headless, Budget-Cap).
-- `ci-green`-only → manuelle Sonnet-Session (`/issues-abarbeiten`).
-- Deploy/Infra → separater manueller Prod-Workstream.
-
-### Phase 6 — Merge-Disziplin
-PR grün **und** CLEAN mergen. Wenn ein **unrelated** repo-übergreifendes Gate
-(z.B. `gitleaks`) rot ist obwohl der PR-Diff es nicht verursachen kann:
-**nicht** durchdrücken — Cross-cutting-Gate-Issue eröffnen (Regel 4), erst das
-fixen. Reihenfolge bei abhängigen PRs im selben Repo dokumentieren.
-
-### Phase 7 — Lehren zurückschreiben (Pflicht-Abschluss)
-Neue Erfahrungen → diese „Eiserne Regeln" ergänzen + orchestrator-memory
-`queue-run:<date>` + `project_ci_green_program.md`. **Ohne diesen Schritt
-wiederholt der nächste Lauf die Fehler.**
+G1 Status = letzter *push/PR*-Lauf, **nie `gh run list --limit 1`** (grüner
+Dependabot maskiert roten Deploy). G2 jede Klassifikation am Repo verifizieren.
+G3 Versions-/API-Check vor jedem Dep-Swap (Lauf 1: 8-Repo-Downgrade-Beinahe).
+G4 cross-cutting/shared zuerst. G5 Deploy/Infra nie autonom. G6 Judgment
+(Test-vs-Code, Gate-Senkung, Star-Import) → `ci-green` ohne `auto`. G7
+Contract-First: Issue benennt die wiederhergestellte erzwungene Regel.
 
 ---
 
-## Recurring-Setup
-Phase 1+2 monatlich (oder via Repo-Health-Agent-Trigger) als Cron/Routine;
-Phasen 3–7 on-demand wenn die Matrix rote Cluster zeigt. Siehe ADR-209 für
-Kadenz + Gate-Begründung.
+## Phasen
+
+### Phase 0 — Portfolio-Triage (einmalig, Opus/Human, G6)
+Jedes Repo: **live / maintenance / dead**. `dead` → archivieren (CI-Pflege
+einstellen, nicht grün-halten). Reduziert Scope *bevor* investiert wird —
+größter MTTR-Hebel ist weniger Fläche.
+
+### Phase 1 — Bootstrap-Survey (EINMALIG, nicht wiederkehrend)
+Über live-Repos: letzter push/PR-Lauf (G1) → Fehlerklassen-Matrix. Dient nur
+als Konvergenz-Backlog. Danach **kein Polling mehr** — siehe Phase 3.
+
+### Phase 2 — Konvergenz (der eigentliche Hebel, Opus-Design + Sonnet-Rollout)
+Eine gehärtete reusable Workflow-Familie (`_ci-*.yml`) als Single Source:
+- Python-Version aus `requires-python` abgeleitet (nicht hartkodiert)
+- org-weite ruff-Config zentral
+- `git+...#subdirectory`-Deps = Hard-Fail (Conformance-Check)
+- secret-scan/permissions/cache zentral korrekt (vgl. #191)
+Pro live-Repo: lokale CI durch `uses:` der shared Workflow ersetzen +
+Conformance-Check grün. Das **eliminiert** Lint/Python-Pin/Dead-Dep/
+Permission-Klassen permanent statt sie zu detektieren.
+
+### Phase 3 — Event-driven Remediation (Steady State, autonom)
+Org-Level: CI-rot-Event → Klassifizierer-Skript (G1–G7 als Code) →
+mechanische Klasse → auto-Fix-PR (Sonnet) / sonst → eskalieren (Opus, nur
+`UNKNOWN`/novel). Kein Survey, kein Opus-am-Eingang.
+
+### Phase 4 — Anti-Goodhart-Enforcement (Dauer-Invariante)
+Kein Fix senkt ein Gate (Coverage/Lint/Skip) ohne Eintrag in
+`docs/ci-waivers.md`: `repo · gate · grund · expires:<datum>`. Abgelaufener
+oder fehlender Waiver bei gesenktem Gate = CI-Fail. „Grün" bleibt verdient.
+
+### Phase 5 — Lehren-Rückschrieb (Pflicht-Abschluss jeder Aktion)
+Neue Erfahrung → Gates/Phasen ergänzen + orchestrator-memory
+`queue-run:<date>` + `project_ci_green_program.md`.
+
+---
+
+## Exit-Kriterium (das Programm schaltet sich selbst ab)
+Wenn **≥90 % der live-Repos** die shared-CI per `uses:` nutzen **und**
+Red-Rate **< 10 % über 30 Tage**: Standing-Programm zurückziehen, nur den
+Thin-Event-Handler (Phase 3) + Anti-Goodhart (Phase 4) behalten. Skill wird
+dann auf „retired — siehe ADR-209 Exit" gesetzt. Ohne Exit-Prüfung wird das
+Programm selbst zur verwaisten Infra.
+
+## Modell-Routing
+Sonnet = Default (klassifizierte mechanische Fixes, Phase 3). Opus =
+Konvergenz-Design (Phase 2) + Eskalation (`UNKNOWN`) + Portfolio-Triage.
+Cerebras verworfen (Tool-Use-Schwäche).

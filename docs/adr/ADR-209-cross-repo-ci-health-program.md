@@ -3,73 +3,93 @@ status: accepted
 date: 2026-05-18
 decision-makers: [Achim Dehnert]
 implementation_status: partial
-related: [ADR-111, ADR-196, mcp-hub#59, dev-hub#53, platform#187]
+related: [ADR-111, ADR-196, mcp-hub#59, platform#187, platform#191, platform#194]
 ---
 
-# ADR-209: Cross-Repo CI-Health als wiederkehrendes gegatetes Programm (Contract-First)
+# ADR-209: CI-Health als Konvergenz-Programm mit Verfallsdatum (Prävention vor Detektion)
 
 ## Status
 
-accepted — Skill `/ci-green-program` live; Lauf 1 (2026-05-18) durchgeführt.
+accepted — v2. Skill `/ci-green-program`. v1 (reiner Wartungs-Loop) durch
+Advocatus-Diaboli-Review (2026-05-18) verworfen, bevor #194 gemerged wurde.
 
 ## Kontext
 
-48 Repos unter `~/github`. CI-Grün ist kein erreichbarer *Zustand* (Dep-Bumps,
-Drift, neuer Code machen kontinuierlich rot), sondern eine zu minimierende
-**Mean-Time-to-Green**. Lauf 1 lieferte empirische Tradeoffs, die festgehalten
-werden müssen, damit der Prozess wiederholbar stabil ist statt jedes Mal
-dieselben Fehlgriffe zu machen. Der User-Zielzustand: Infra über
-develop→staging→prod stabil, Methoden so dokumentiert, dass künftige stärkere
-Modelle den Loop jederzeit fortführen/reviewen können.
+48 Repos, je eigene unabhängig rottende CI. Lauf 1 (2026-05-18) lieferte den
+entscheidenden Beweis selbst: **ein** Fix in der reusable `_ci-python.yml`
+(gitleaks #191) entsperrte alle Consumer. D.h. der Hebel ist *geteilte
+Quelle*, nicht ein ewiger Triage-Loop.
+
+**Verworfene v1-Prämissen (Self-Red-Team):**
+- v1 institutionalisierte die Sprawl-Krankheit (Maschinerie zum ewigen
+  Rasenmähen statt Pflastern).
+- v1 war reaktiv (detektieren→fixen) für an-der-Quelle-verhinderbare Klassen.
+- v1 machte Opus zum *Eingang* → skaliert nicht, nicht modell-fortführbar.
+- v1 pollte monatlich (= `--limit 1`-Fehler auf Makro-Ebene; CI ist ein
+  Event-Stream).
+- "durchgehend grün" ist Goodhart-anfällig — Lauf 1 senkte selbst Gates
+  (deployment_mcp 80→35, `# noqa`).
+- v1 hatte kein Verfallsdatum → würde selbst zu verwaister Infra.
 
 ## Entscheidung
 
-CI-Health wird als **wiederkehrender Loop mit Triage-Gating** betrieben
-(Skill `/ci-green-program`, Governance hier):
+CI-Health ist ein **zeitlich begrenztes Konvergenz-Programm**, kein stehender
+Wartungs-Loop. Fünf Prinzipien:
 
-**Survey → Triage(verify) → Gate → Issue(Schema) → Queue/Direct → Merge → Lehren.**
+1. **Prävention vor Detektion.** Primärziel: 48 per-Repo-CIs → *eine*
+   gehärtete reusable Workflow-Familie (`_ci-*.yml`) + ein Conformance-Check.
+   Python-Version aus `requires-python` abgeleitet, org-weite ruff-Config,
+   `git+...#subdirectory`-Deps als Hard-Fail. Konvergenz eliminiert ganze
+   Failure-Klassen *permanent* statt sie zu detektieren.
+2. **Event-driven statt Polling.** Org-Level: CI-rot → klassifizieren →
+   mechanische Klasse autonom fixen / sonst eskalieren. Survey nur als
+   einmaliger Bootstrap, nicht wiederkehrend.
+3. **Gates als Code, Opus als Eskalation.** G1–G7 (s.u.) werden ein
+   deterministischer Klassifizierer. Default-Pfad autonom (Sonnet); Opus
+   nur bei `UNKNOWN`/novel class. Damit modell-fortführbar.
+4. **Anti-Goodhart-Invariante.** Ein Fix darf **kein** Gate (Coverage,
+   Lint-Strenge, Test-Skip) senken ohne `@waiver(grund, expires=<datum>)`.
+   Waiver werden in `docs/ci-waivers.md` registriert und verfallen; ein
+   abgelaufener Waiver ist selbst ein CI-Fail. "Grün" muss verdient sein.
+5. **Portfolio-Triage zuerst + Exit-Kriterium.** Vor Konvergenz: jedes Repo
+   als *live / maintenance / dead* klassifizieren. Dead → archivieren (nicht
+   grün-pflegen). **Exit:** ≥90 % der live-Repos auf shared CI **und**
+   Red-Rate < 10 % über 30 Tage → Programm schrumpft auf einen
+   Thin-Event-Handler; das Standing-Programm wird zurückgezogen.
 
-Verbindliche Gates (empirisch begründet, Lauf 1):
+**Gates G1–G7** (empirisch Lauf 1, jetzt Klassifizierer-Regeln):
+G1 Status = letzter push/PR-Lauf (nie `--limit 1`). G2 Verify vor Handlung.
+G3 Versions-/API-Check vor Dep-Swap. G4 Cross-cutting/shared zuerst.
+G5 Deploy/Infra nie autonom. G6 Judgment (Test-vs-Code/Gate-Senkung) →
+manuell. G7 Contract-First (Fix benennt wiederhergestellte erzwungene Regel).
 
-- **G1 Survey-Korrektheit:** Status = letzter *push/PR*-getriggerter Lauf.
-  `gh run list --limit 1` ist verboten (maskiert rot via grünem Dependabot).
-- **G2 Verify vor Handlung:** jede Survey-Klassifikation am Repo prüfen.
-- **G3 Versions-/API-Check** vor jedem „mechanischen" Dependency-Swap.
-- **G4 Cross-cutting zuerst:** ein Fix der n Repos entsperrt (shared dep,
-  shared workflow, repo-übergreifendes Gate) vor per-Repo-Arbeit. Opus.
-- **G5 Hard-Gate Deploy/Infra:** Server-State nie in autonome Queue.
-- **G6 Judgment-Gate:** Test-vs-Code / Coverage-Senkung / Star-Import →
-  `ci-green` ohne `auto` (manuelle Sonnet-Session). Rein mechanisch → `auto`.
-- **G7 Contract-First:** jedes Issue benennt die erzwungene Regel, die der Fix
-  wiederherstellt. „Grün machen" = „Contract härten", nicht Symptom dämpfen.
-
-**Modell-Routing:** Opus = Triage + Cross-cutting + Judgment. Sonnet =
-spezifizierte mechanische Issues (Queue/manuell). Cerebras verworfen
-(Tool-Use-Schwäche). Vgl. ADR-196, Policy llm-routing.
+**Modell-Routing:** Sonnet = Default (mechanisch, klassifiziert). Opus =
+Eskalation + Konvergenz-Design. Cerebras verworfen (Tool-Use). Vgl. ADR-196.
 
 ## Konsequenzen
 
-**Positiv:** wiederholbar; teure Analyse (Opus) einmal → billige Ausführung
-(Sonnet) skaliert; Contract-First verwandelt Wartung in Härtung; Gates
-verhindern die teuren Lauf-1-Fehlklassen (Blind-Swap-Downgrade, Deploy-Flailing).
+**Positiv:** eliminiert Failure-Klassen an der Quelle (skaliert besser als
+n×fixen); event-driven = MTTR↓ ohne Polling-Blindheit; Opus kein Dauer-
+Flaschenhals; Anti-Goodhart hält "grün" bedeutungsvoll; Selbstabschaltung
+verhindert, dass das Programm eigene Rot-Fläche wird.
 
-**Negativ / Risiko:** Triage bleibt Opus-Nadelöhr; Gate-Disziplin ist
-menschen-/agenten-abhängig; ein falsch als `auto` gelabeltes Judgment-Issue
-erzeugt teure Nacharbeit (Mitigation: G6 + Phase-7-Lehren-Rückschrieb).
+**Negativ / Risiko:** Konvergenz ist Vorab-Invest (Repos auf shared CI ziehen
+ist Aufwand vor Ertrag); Klassifizierer-Skript ist neue zu wartende Komponente
+(Mitigation: klein, Regeln explizit, fällt sicher auf Eskalation zurück);
+Portfolio-Triage „dead" ist Judgment (G6, Opus/Human).
 
-**Reversibel:** Loop ist ein Skill + Labels; Abschalten = Skill nicht mehr
-triggern. Kein Infra-Lock-in.
+**Reversibel:** Skill + Labels + reusable Workflows; Abschalten = Skill nicht
+triggern. Konvergenz selbst ist der Rückbau von Sprawl, kein Lock-in.
 
 ## Alternativen
 
-- **Einmal-Aufräumen ohne Prozess** — verworfen: CI rottet nach, MTTR steigt
-  wieder; Vision (selbst-fortführbar) nicht erfüllt.
-- **Voll-autonom ohne Gates** — verworfen: Lauf 1 zeigte plausibel-falsche
-  Fixes (8-Repo-Downgrade) und Deploy-Flailing; Nacharbeit > Ersparnis.
-- **Pro-Repo manuell** — verworfen: skaliert nicht über 48 Repos.
+- **v1 Wartungs-Loop** — verworfen (s. Self-Red-Team oben).
+- **Voll-autonom ohne Gates** — verworfen (Lauf 1: 8-Repo-Downgrade-Beinahe).
+- **Monorepo** — nicht jetzt; Konvergenz auf shared CI holt 80 % des
+  Monorepo-Nutzens ohne dessen Migrationskosten.
 
-## Kadenz
+## Implementierungsstand
 
-Phase 1+2 (Survey+Triage) monatlich bzw. via Repo-Health-Agent-Trigger
-(dev-hub#38). Phasen 3–7 on-demand bei roten Clustern. Phase 7
-(Lehren-Rückschrieb) ist Pflicht-Abschluss jedes Laufs.
+Bootstrap-Loop + Lauf 1 **done** (platform#187/#191, iil-platform-context
+0.7.0, 18 Issues). Konvergenz / Event-Handler / Klassifizierer-Skript /
+Waiver-Registry / Portfolio-Triage = **geplant** (Phasenplan im Skill).
