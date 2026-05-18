@@ -121,10 +121,24 @@ jobs:
   secrets-scan:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
-    continue-on-error: true
-    permissions:
-      contents: read
-      pull-requests: read
+    # Blocking gate: a secrets scanner that silently goes green helps no one.
+    # NOTE: deliberately NO job-level `permissions:` block and NO GitHub API
+    # call. A called reusable workflow can only NARROW the caller's
+    # GITHUB_TOKEN, never grant — requesting a scope the caller's run-token
+    # lacks rejects the whole run at startup (startup_failure, no jobs, no
+    # annotation) for every consumer repo (see #191/#198). gitleaks-action@v2
+    # called the PR-commits API and thus needed `pull-requests: read`; this
+    # job runs the gitleaks CLI against full local history instead — zero
+    # GitHub API, zero token/permission coupling, immune to caller config.
+    #
+    # ESCAPE HATCH for false positives / pre-existing history leaks: add a
+    # repo-root `.gitleaksignore` (per-finding fingerprint, preferred) or
+    # `.gitleaks.toml` (rule allowlist). Both are auto-honored by the CLI.
+    # Template + guidance: platform docs/templates/.gitleaks.toml. The
+    # active escape-hatch is echoed below so an over-broad allowlist is
+    # visible in the job log and catchable in PR review.
+    env:
+      GITLEAKS_VERSION: "8.21.2"   # single pin point — bump deliberately
     steps:
       - name: Isolate TMPDIR per run (self-hosted race fix)
         run: |
@@ -135,11 +149,52 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITLEAKS_LICENSE: ${{ github.token }}
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+      - name: Install gitleaks CLI (pinned)
+        run: |
+          set -euo pipefail
+          VER="${GITLEAKS_VERSION}"
+          TARBALL="gitleaks_${VER}_linux_x64.tar.gz"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/v${VER}/${TARBALL}"
+          echo "Downloading gitleaks v${VER} …"
+          curl -fsSL --retry 3 -o "${TMPDIR}/${TARBALL}" "$URL"
+          tar -xzf "${TMPDIR}/${TARBALL}" -C "${TMPDIR}" gitleaks
+          install -m 0755 "${TMPDIR}/gitleaks" "${TMPDIR}/gitleaks-bin"
+          "${TMPDIR}/gitleaks-bin" version
+      - name: Report active escape-hatch config (transparency)
+        run: |
+          set -euo pipefail
+          found=0
+          if [ -f .gitleaks.toml ]; then
+            echo "::warning title=gitleaks escape-hatch::.gitleaks.toml present — rule allowlist active. Review scope:"
+            grep -nvE '^\s*(#|$)' .gitleaks.toml | sed 's/^/  .gitleaks.toml: /' || true
+            found=1
+          fi
+          if [ -f .gitleaksignore ]; then
+            echo "::warning title=gitleaks escape-hatch::.gitleaksignore present — $(grep -cvE '^\s*(#|$)' .gitleaksignore || echo 0) fingerprint suppression(s) active."
+            found=1
+          fi
+          if [ "$found" = 0 ]; then
+            echo "No repo-local gitleaks escape-hatch — scanning with platform defaults only."
+          fi
+      - name: gitleaks detect (full history, no GitHub API)
+        run: |
+          set -euo pipefail
+          REPORT="${TMPDIR}/gitleaks.json"
+          rc=0
+          "${TMPDIR}/gitleaks-bin" detect \
+            --source . \
+            --redact \
+            --no-banner \
+            --exit-code 1 \
+            --report-format json \
+            --report-path "$REPORT" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # Surface a copy-paste-ready .gitleaksignore so the documented
+            # escape-hatch is actually usable (fingerprints are otherwise
+            # trapped in the report file). --redact already masked secrets.
+            python3 -c 'import json,os,sys; f=json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else []; print("### gitleaks: "+str(len(f))+" finding(s) — blocking\n\nTriage: ROTATE if real. If false positive, add to .gitleaksignore at repo root (see platform docs/templates/.gitleaks.toml):\n\n```"); [print(x.get("Fingerprint","?")) for x in f]; print("```"); [print("- "+x.get("Commit","?")[:10]+":"+x.get("File","?")+" rule="+x.get("RuleID","?")+" line "+str(x.get("StartLine","?"))) for x in f]' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit "$rc"
+          fi
       - name: Cleanup run TMPDIR
         if: always()
         run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
