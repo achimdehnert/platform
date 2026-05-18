@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026.05.18] — 2026-05-18
+
+### Added
+- `policies/`: Org-weite Policy-Dateien (`llm-routing`, `session-routing`,
+  `adr-threshold`, `platform-agents`, `claude-skills`, `orchestrator` + README)
+  von der unversionierten `~/.claude/policies/` hierher vendored — **SSoT jetzt
+  versioniert**. Lokale Anbindung via Symlink in den pinned platform-Worktree
+  (Muster wie `~/.claude/commands`→`platform-workflows`); `inject_policies.py`
+  + `claude-policy` lesen den Pfad unverändert. Phase 2a von dev-hub#51 —
+  CI-Auto-Sync nach Orchestrator-Memory folgt als Phase 2b (eigenes ADR).
+  Kein ADR für 2a (Datei-Vendoring, folgt etabliertem Muster — `adr-threshold`).
+
+---
+
 ## [2026.05.17] — 2026-05-17
 
 ### Changed
