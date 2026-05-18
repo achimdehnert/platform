@@ -1,6 +1,6 @@
 ---
 status: superseded
-superseded-by: ADR-208
+superseded_by: ADR-208
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 implementation_status: none

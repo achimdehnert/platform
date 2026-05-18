@@ -3,7 +3,7 @@ status: deprecated
 date: 2026-02-21
 amended: 2026-03-11
 decision-makers: [Achim Dehnert]
-superseded-by: ADR-131
+superseded_by: ADR-131
 ---
 
 # ADR-136: Shared Backend Services Library für Django-Projekte (Original)

@@ -1,5 +1,7 @@
 ---
 status: "deprecated"
+archived_reason: "Duplikat von ADR-017; DDL-Konzept nicht adoptiert"
+archived: 2026-05-17
 date: 2026-02-21
 decision-makers: Achim Dehnert
 ---
