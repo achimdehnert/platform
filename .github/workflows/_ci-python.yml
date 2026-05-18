@@ -122,6 +122,9 @@ jobs:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
     continue-on-error: true
+    permissions:
+      contents: read
+      pull-requests: read
     steps:
       - name: Isolate TMPDIR per run (self-hosted race fix)
         run: |
