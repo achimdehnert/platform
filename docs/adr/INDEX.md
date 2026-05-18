@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-14
-> **Next free ADR number:** 207
+> **Last updated:** 2026-05-18
+> **Next free ADR number:** 211
 
 ## Legend
 
@@ -211,6 +211,7 @@
 | 198 | Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention | `Accepted` | ⬜ | [ADR-198](ADR-198-staging-edge-second-cloudflare-tunnel-subdomain-convention.md) |
 | 199 | Model-Routing-Authority (rejected after 3 architecture iterations) | `Rejected` | — | [ADR-199](archive/ADR-199-gitops-routing.md) |
 | 201 | Claude Code Pricing Visibility — Statusline + Stop-Summary | `Accepted` | 🔶 | [ADR-201](ADR-201-claude-code-pricing-visibility.md) |
+| 210 | Library CI reusable (`_ci-pypi.yml`) + mandatory blocking secret-scan for all PyPI-published packages | `Accepted` | 🔶 | [ADR-210](ADR-210-library-ci-reusable-mandatory-secret-scan.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
