@@ -209,6 +209,20 @@ jobs:
     name: "Unit Tests"
     runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -227,7 +241,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
         run: |
           WORKERS=${{ inputs.pytest_workers }}
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
@@ -255,6 +269,20 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
     continue-on-error: true
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -273,7 +301,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
         run: |
           set -euo pipefail
           DB_ENGINE=$(python -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE'])" 2>/dev/null || echo "unknown")
@@ -293,7 +321,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
         run: |
           set -euo pipefail
           python manage.py check --deploy --fail-level ERROR 2>&1 || {
@@ -307,7 +335,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
           REDIS_URL: redis://localhost:6379/0
         run: |
           WORKERS=${{ inputs.pytest_workers }}
