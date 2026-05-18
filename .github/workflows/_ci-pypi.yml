@@ -1,0 +1,230 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  REUSABLE WORKFLOW: PyPI Library CI (Lint, Secret-Scan, Test, Audit)       ║
+# ║  Usage: uses: achimdehnert/platform/.github/workflows/_ci-pypi.yml@main    ║
+# ║  ADR-210: binding CI for every PyPI-published platform package.            ║
+# ║  Library-shaped — NO Django settings, NO Postgres. Apps use _ci-python.yml ║
+# ║  Caller needs only `permissions: { contents: read }` (secret-scan is       ║
+# ║  GitHub-API-free, so the #191/#198 permission-narrowing trap cannot recur).║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: PyPI Library CI
+
+on:
+  workflow_call:
+    inputs:
+      python_version:
+        description: 'Python version'
+        required: false
+        default: '3.12'
+        type: string
+      coverage_threshold:
+        description: 'Minimum coverage % — CI fails below this (ADR-058)'
+        required: false
+        default: 80
+        type: number
+      install_extra:
+        description: 'Optional-dependencies extra to install: pip install -e ".[<extra>]"'
+        required: false
+        default: 'dev'
+        type: string
+      cov_package:
+        description: 'Import package for --cov=<pkg> (empty = rely on pyproject addopts)'
+        required: false
+        default: ''
+        type: string
+      test_path:
+        description: 'Path passed to pytest'
+        required: false
+        default: 'tests/'
+        type: string
+      pytest_args:
+        description: 'Extra pytest args'
+        required: false
+        default: ''
+        type: string
+      ruff_version:
+        description: 'Pinned ruff version (e.g. ==0.15.4). Empty = latest. Pin to pyproject required-version.'
+        required: false
+        default: '==0.15.4'
+        type: string
+      enable_mypy:
+        description: 'Run mypy (non-blocking)'
+        required: false
+        default: false
+        type: boolean
+      mypy_args:
+        description: 'mypy target/args'
+        required: false
+        default: '.'
+        type: string
+      enable_security_scan:
+        description: 'Run pip-audit + pip check'
+        required: false
+        default: true
+        type: boolean
+      runs_on:
+        description: 'Runner label (libraries register no self-hosted runner → ubuntu-latest)'
+        required: false
+        default: 'ubuntu-latest'
+        type: string
+
+jobs:
+  lint:
+    name: "Lint & Format"
+    runs-on: ${{ inputs.runs_on }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install ruff
+        run: pip install "ruff${{ inputs.ruff_version }}"
+      - name: Ruff check
+        run: ruff check . --output-format=github
+      - name: Ruff format check
+        run: ruff format --check .
+
+  # ── Secret Detection ──────────────────────────────────────────────────────
+  # Verbatim port of the #198-hardened job from _ci-python.yml. Single source
+  # of the pattern; DRY extraction into _secrets-scan.yml is a tracked
+  # follow-up (ADR-210). Do NOT diverge this block from _ci-python.yml.
+  secrets-scan:
+    name: "Secret Detection (gitleaks)"
+    runs-on: ${{ inputs.runs_on }}
+    # Blocking gate: a secrets scanner that silently goes green helps no one.
+    # NOTE: deliberately NO job-level `permissions:` block and NO GitHub API
+    # call. A called reusable workflow can only NARROW the caller's
+    # GITHUB_TOKEN, never grant (see #191/#198). This job runs the gitleaks
+    # CLI against full local history — zero GitHub API, zero token coupling.
+    #
+    # ESCAPE HATCH for false positives / pre-existing history leaks: add a
+    # repo-root `.gitleaksignore` (per-finding fingerprint, preferred) or
+    # `.gitleaks.toml` (rule allowlist). Both auto-honored by the CLI.
+    # Template: platform docs/templates/.gitleaks.toml. The active
+    # escape-hatch is echoed below so an over-broad allowlist is visible.
+    env:
+      GITLEAKS_VERSION: "8.21.2"   # single pin point — bump deliberately
+    steps:
+      - name: Isolate TMPDIR per run (self-hosted race fix)
+        run: |
+          RUN_TMP="/tmp/gitleaks-${{ github.run_id }}"
+          mkdir -p "$RUN_TMP"
+          echo "TMPDIR=$RUN_TMP" >> "$GITHUB_ENV"
+          rm -f /tmp/gitleaks.tmp /tmp/gitleaks-*.tar.gz 2>/dev/null || true
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install gitleaks CLI (pinned)
+        run: |
+          set -euo pipefail
+          VER="${GITLEAKS_VERSION}"
+          TARBALL="gitleaks_${VER}_linux_x64.tar.gz"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/v${VER}/${TARBALL}"
+          echo "Downloading gitleaks v${VER} …"
+          curl -fsSL --retry 3 -o "${TMPDIR}/${TARBALL}" "$URL"
+          tar -xzf "${TMPDIR}/${TARBALL}" -C "${TMPDIR}" gitleaks
+          install -m 0755 "${TMPDIR}/gitleaks" "${TMPDIR}/gitleaks-bin"
+          "${TMPDIR}/gitleaks-bin" version
+      - name: Report active escape-hatch config (transparency)
+        run: |
+          set -euo pipefail
+          found=0
+          if [ -f .gitleaks.toml ]; then
+            echo "::warning title=gitleaks escape-hatch::.gitleaks.toml present — rule allowlist active. Review scope:"
+            grep -nvE '^\s*(#|$)' .gitleaks.toml | sed 's/^/  .gitleaks.toml: /' || true
+            found=1
+          fi
+          if [ -f .gitleaksignore ]; then
+            echo "::warning title=gitleaks escape-hatch::.gitleaksignore present — $(grep -cvE '^\s*(#|$)' .gitleaksignore || echo 0) fingerprint suppression(s) active."
+            found=1
+          fi
+          if [ "$found" = 0 ]; then
+            echo "No repo-local gitleaks escape-hatch — scanning with platform defaults only."
+          fi
+      - name: gitleaks detect (full history, no GitHub API)
+        run: |
+          set -euo pipefail
+          REPORT="${TMPDIR}/gitleaks.json"
+          rc=0
+          "${TMPDIR}/gitleaks-bin" detect \
+            --source . \
+            --redact \
+            --no-banner \
+            --exit-code 1 \
+            --report-format json \
+            --report-path "$REPORT" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # Surface a copy-paste-ready .gitleaksignore so the documented
+            # escape-hatch is actually usable (fingerprints are otherwise
+            # trapped in the report file). --redact already masked secrets.
+            python3 -c 'import json,os,sys; f=json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else []; print("### gitleaks: "+str(len(f))+" finding(s) — blocking\n\nTriage: ROTATE if real. If false positive, add to .gitleaksignore at repo root (see platform docs/templates/.gitleaks.toml):\n\n```"); [print(x.get("Fingerprint","?")) for x in f]; print("```"); [print("- "+x.get("Commit","?")[:10]+":"+x.get("File","?")+" rule="+x.get("RuleID","?")+" line "+str(x.get("StartLine","?"))) for x in f]' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit "$rc"
+          fi
+      - name: Cleanup run TMPDIR
+        if: always()
+        run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
+
+  test:
+    name: "Test & Coverage (≥ ADR-058 gate)"
+    runs-on: ${{ inputs.runs_on }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install package + extras
+        run: |
+          python -m pip install -U pip
+          pip install -e ".[${{ inputs.install_extra }}]"
+      - name: pytest + coverage gate
+        run: |
+          set -euo pipefail
+          if [ -n "${{ inputs.cov_package }}" ]; then
+            # Explicit cov source given → enforce the ADR-058 gate on CLI.
+            pytest ${{ inputs.test_path }} -v --tb=short \
+              --cov=${{ inputs.cov_package }} --cov-report=term-missing \
+              --cov-fail-under=${{ inputs.coverage_threshold }} \
+              ${{ inputs.pytest_args }}
+          else
+            # No cov source → pyproject [tool.pytest.ini_options] addopts owns
+            # --cov / --cov-fail-under (adding --cov-fail-under without --cov
+            # would error). coverage_threshold input is intentionally ignored.
+            pytest ${{ inputs.test_path }} -v --tb=short ${{ inputs.pytest_args }}
+          fi
+
+  mypy:
+    name: "Type Check (mypy, non-blocking)"
+    if: ${{ inputs.enable_mypy }}
+    runs-on: ${{ inputs.runs_on }}
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install package + extras
+        run: pip install -e ".[${{ inputs.install_extra }}]" mypy
+      - name: mypy
+        run: mypy ${{ inputs.mypy_args }} --ignore-missing-imports
+
+  security:
+    name: "Security Scan (pip-audit + pip check)"
+    if: ${{ inputs.enable_security_scan }}
+    runs-on: ${{ inputs.runs_on }}
+    continue-on-error: true        # non-blocking — output visible
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install package
+        run: pip install -e ".[${{ inputs.install_extra }}]" pip-audit
+      - name: pip check — dependency conflicts
+        run: |
+          pip check && echo "✅ No dependency conflicts" || {
+            echo "❌ Dependency conflicts — check your deps"; exit 1; }
+      - name: pip-audit — CVE scan (installed env)
+        run: |
+          pip-audit --format=columns \
+            && echo "✅ No known CVEs" \
+            || echo "⚠️  CVEs found — see output above (no hard-fail)"
