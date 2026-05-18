@@ -11,6 +11,19 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Caller-side GITHUB_TOKEN scopes. A called reusable workflow can only
+# NARROW these, never grant — so the caller MUST declare every scope its
+# reusable workflows need, here, explicitly. Relying on the repo default
+# token is the trap that caused the #198 startup_failure: a job-level
+# `permissions:` in a called workflow requesting an absent scope rejects
+# the whole run at startup (no jobs, no annotation) for every consumer.
+#   contents: read   → checkout (all reusable jobs)
+#   packages: write  → _build-docker.yml ghcr.io push
+# (secrets-scan uses the gitleaks CLI on local history — needs no scope.)
+permissions:
+  contents: read
+  packages: write
+
 jobs:
   ci:
     uses: achimdehnert/platform/.github/workflows/_ci-python.yml@main

@@ -121,14 +121,17 @@ jobs:
   secrets-scan:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
-    continue-on-error: true
-    # NOTE: GITHUB_TOKEN permissions for a reusable workflow are set by the
-    # CALLER, not here. A job-level `permissions:` block in a called workflow
-    # can only narrow the caller's token — requesting `pull-requests: read`
-    # that the caller's run-token lacks rejects the whole run at startup
-    # (startup_failure, no jobs, no annotation) for every consumer repo.
-    # The gitleaks PR-scan 403 must be fixed at the caller via a top-level
-    # `permissions: { contents: read, pull-requests: read }` block. See #191.
+    # Blocking gate: a secrets scanner that silently goes green helps no one.
+    # NOTE: deliberately NO job-level `permissions:` block and NO GitHub API
+    # call. A called reusable workflow can only NARROW the caller's
+    # GITHUB_TOKEN, never grant — requesting a scope the caller's run-token
+    # lacks rejects the whole run at startup (startup_failure, no jobs, no
+    # annotation) for every consumer repo (see #191/#198). gitleaks-action@v2
+    # called the PR-commits API and thus needed `pull-requests: read`; this
+    # job runs the gitleaks CLI against full local history instead — zero
+    # GitHub API, zero token/permission coupling, immune to caller config.
+    env:
+      GITLEAKS_VERSION: "8.21.2"   # single pin point — bump deliberately
     steps:
       - name: Isolate TMPDIR per run (self-hosted race fix)
         run: |
@@ -139,11 +142,27 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITLEAKS_LICENSE: ${{ github.token }}
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+      - name: Install gitleaks CLI (pinned)
+        run: |
+          set -euo pipefail
+          VER="${GITLEAKS_VERSION}"
+          TARBALL="gitleaks_${VER}_linux_x64.tar.gz"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/v${VER}/${TARBALL}"
+          echo "Downloading gitleaks v${VER} …"
+          curl -fsSL --retry 3 -o "${TMPDIR}/${TARBALL}" "$URL"
+          tar -xzf "${TMPDIR}/${TARBALL}" -C "${TMPDIR}" gitleaks
+          install -m 0755 "${TMPDIR}/gitleaks" "${TMPDIR}/gitleaks-bin"
+          "${TMPDIR}/gitleaks-bin" version
+      - name: gitleaks detect (full history, no GitHub API)
+        run: |
+          set -euo pipefail
+          "${TMPDIR}/gitleaks-bin" detect \
+            --source . \
+            --redact \
+            --no-banner \
+            --exit-code 1 \
+            --report-format sarif \
+            --report-path "${TMPDIR}/gitleaks.sarif"
       - name: Cleanup run TMPDIR
         if: always()
         run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
