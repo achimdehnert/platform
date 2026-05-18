@@ -211,7 +211,7 @@ jobs:
           overwrite: true
 
       - name: Deploy to staging
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         timeout-minutes: 15
         with:
           host: ${{ secrets.STAGING_HOST }}
@@ -283,7 +283,7 @@ jobs:
 
       - name: Deploy to production (SSH — remote runner)
         if: startsWith(inputs.runs_on, 'ubuntu')
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         timeout-minutes: 15
         with:
           host: ${{ secrets.DEPLOY_HOST }}
