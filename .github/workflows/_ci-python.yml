@@ -173,7 +173,9 @@ jobs:
             echo "::warning title=gitleaks escape-hatch::.gitleaksignore present — $(grep -cvE '^\s*(#|$)' .gitleaksignore || echo 0) fingerprint suppression(s) active."
             found=1
           fi
-          [ "$found" = 0 ] && echo "No repo-local gitleaks escape-hatch — scanning with platform defaults only."
+          if [ "$found" = 0 ]; then
+            echo "No repo-local gitleaks escape-hatch — scanning with platform defaults only."
+          fi
       - name: gitleaks detect (full history, no GitHub API)
         run: |
           set -euo pipefail
