@@ -1,6 +1,10 @@
 # IIL Platform — ci.yml (Golden Path)
 # Kopiere nach .github/workflows/ci.yml im Ziel-Repo
 # Ersetze REPO_NAME + PORT + SETTINGS_MODULE
+#
+# secrets-scan (gitleaks) ist ein BLOCKIERENDER Gate. Bei False Positives
+# oder Pre-existing History-Leaks: docs/templates/.gitleaks.toml als
+# Vorlage nutzen (.gitleaksignore für Einzel-Fingerprints bevorzugt).
 
 name: CI — REPO_NAME
 
