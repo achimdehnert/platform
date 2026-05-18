@@ -122,9 +122,13 @@ jobs:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
     continue-on-error: true
-    permissions:
-      contents: read
-      pull-requests: read
+    # NOTE: GITHUB_TOKEN permissions for a reusable workflow are set by the
+    # CALLER, not here. A job-level `permissions:` block in a called workflow
+    # can only narrow the caller's token — requesting `pull-requests: read`
+    # that the caller's run-token lacks rejects the whole run at startup
+    # (startup_failure, no jobs, no annotation) for every consumer repo.
+    # The gitleaks PR-scan 403 must be fixed at the caller via a top-level
+    # `permissions: { contents: read, pull-requests: read }` block. See #191.
     steps:
       - name: Isolate TMPDIR per run (self-hosted race fix)
         run: |
