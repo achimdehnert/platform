@@ -23,6 +23,11 @@ Overridable via env:
     ORCH_PROD_HOST   (default 88.198.191.108)
     ORCH_CONTAINER   (default mcp_hub_orchestrator_http)
     ORCH_SSH_USER    (default root)
+    ORCH_LOCAL=1          — run the docker command on *this* host (no ssh).
+                            Set on the [self-hosted, prod] CI runner where
+                            the orchestrator container is local (ADR-209).
+    CLAUDE_POLICY_DIR     — policy source dir (default ~/.claude/policies).
+                            CI sets it to $GITHUB_WORKSPACE/policies.
     CLAUDE_POLICY_STUB=1  — restore the old stub behaviour, for running
                             *inside* a Claude session that substitutes the
                             stubs with native orchestrator__* MCP calls.
@@ -46,12 +51,20 @@ import subprocess
 import sys
 from pathlib import Path
 
-POLICIES_DIR = Path.home() / ".claude" / "policies"
+# Policy source dir. Default = local Claude config; CI overrides it to the
+# checked-out repo (`CLAUDE_POLICY_DIR=$GITHUB_WORKSPACE/policies`).
+POLICIES_DIR = Path(
+    os.environ.get("CLAUDE_POLICY_DIR")
+    or (Path.home() / ".claude" / "policies")
+)
 
 PROD_HOST = os.environ.get("ORCH_PROD_HOST", "88.198.191.108")
 CONTAINER = os.environ.get("ORCH_CONTAINER", "mcp_hub_orchestrator_http")
 SSH_USER = os.environ.get("ORCH_SSH_USER", "root")
 STUB_MODE = os.environ.get("CLAUDE_POLICY_STUB") == "1"
+# Run the docker command on *this* host (no ssh wrapper). Set on the
+# [self-hosted, prod] runner, where the orchestrator container is local.
+LOCAL_MODE = os.environ.get("ORCH_LOCAL") == "1"
 
 SSH_CONNECT_TIMEOUT = 20
 SSH_RUN_TIMEOUT = 90
@@ -84,25 +97,34 @@ class TransportError(RuntimeError):
 
 
 def _ssh(argv: list[str], *, input_bytes: bytes | None = None) -> bytes:
-    """Run `ssh <user>@<host> <argv...>`; return stdout. Raise
-    TransportError on SSH failure or non-zero exit."""
-    cmd = [
-        "ssh",
-        "-o", "BatchMode=yes",
-        "-o", f"ConnectTimeout={SSH_CONNECT_TIMEOUT}",
-        f"{SSH_USER}@{PROD_HOST}",
-        *argv,
-    ]
+    """Run `argv` against the orchestrator host; return stdout. Raise
+    TransportError on failure or non-zero exit.
+
+    Default: wrap in `ssh <user>@<host>`. With ORCH_LOCAL=1 (the
+    [self-hosted, prod] CI runner, where the container is local) run `argv`
+    directly — no ssh, no key needed."""
+    if LOCAL_MODE:
+        cmd = list(argv)
+        label = "local"
+    else:
+        cmd = [
+            "ssh",
+            "-o", "BatchMode=yes",
+            "-o", f"ConnectTimeout={SSH_CONNECT_TIMEOUT}",
+            f"{SSH_USER}@{PROD_HOST}",
+            *argv,
+        ]
+        label = "ssh"
     try:
         proc = subprocess.run(
             cmd, input=input_bytes, capture_output=True,
             timeout=SSH_RUN_TIMEOUT,
         )
     except (subprocess.TimeoutExpired, OSError) as exc:
-        raise TransportError(f"ssh failed: {exc}") from exc
+        raise TransportError(f"{label} failed: {exc}") from exc
     if proc.returncode != 0:
         err = proc.stderr.decode("utf-8", "replace").strip()
-        raise TransportError(f"ssh exit {proc.returncode}: {err or '(no stderr)'}")
+        raise TransportError(f"{label} exit {proc.returncode}: {err or '(no stderr)'}")
     return proc.stdout
 
 

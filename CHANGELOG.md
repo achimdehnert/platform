@@ -16,6 +16,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   + `claude-policy` lesen den Pfad unverändert. Phase 2a von dev-hub#51 —
   CI-Auto-Sync nach Orchestrator-Memory folgt als Phase 2b (eigenes ADR).
   Kein ADR für 2a (Datei-Vendoring, folgt etabliertem Muster — `adr-threshold`).
+- **ADR-209** + `.github/workflows/sync-policies-to-orchestrator.yml`: Phase 2b
+  von dev-hub#51 — bei Merge auf `main` mit `policies/**` synct ein Workflow
+  auf dem `[self-hosted, prod]`-Runner die Policies via `claude-policy push`
+  automatisch in den Orchestrator-Memory (ADR-113). Idempotent (content_hash).
+  `tools/claude-policy`: zwei rückwärtskompatible Env-Vars — `ORCH_LOCAL=1`
+  (docker exec lokal, kein SSH/Key auf dem prod-Runner) und `CLAUDE_POLICY_DIR`
+  (Policy-Quelle = Checkout statt `~/.claude/policies`). Behebt die manuelle
+  Push-Drift (gemergte Policy ≠ was Agenten sehen) — letztes Stück dev-hub#51.
 
 ---
 

@@ -1,0 +1,46 @@
+name: Sync Policies to Orchestrator
+
+# ADR-209: on merge to main touching policies/**, mirror the org policy
+# files into the orchestrator pgvector memory (ADR-113) so headless/CI
+# agents see the approved change immediately. Idempotent (content_hash).
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "policies/**"
+  workflow_dispatch:
+
+jobs:
+  sync:
+    name: claude-policy push (local, idempotent)
+    # Prod-Server: orchestrator container is local → no SSH, no key.
+    runs-on: [self-hosted, prod]
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout platform
+        uses: actions/checkout@v6
+        with:
+          token: ${{ secrets.PROJECT_PAT }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Push org policies → orchestrator memory
+        env:
+          ORCH_LOCAL: "1"
+          CLAUDE_POLICY_DIR: ${{ github.workspace }}/policies
+        run: |
+          python3 tools/claude-policy/claude-policy push
+
+      - name: Verify convergence
+        env:
+          ORCH_LOCAL: "1"
+          CLAUDE_POLICY_DIR: ${{ github.workspace }}/policies
+        run: |
+          python3 tools/claude-policy/claude-policy diff
