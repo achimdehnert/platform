@@ -33,7 +33,16 @@ Env-Overrides:
 | `ORCH_PROD_HOST` | `88.198.191.108` |
 | `ORCH_CONTAINER` | `mcp_hub_orchestrator_http` |
 | `ORCH_SSH_USER` | `root` |
+| `ORCH_LOCAL=1` | docker-Befehl auf *diesem* Host ausführen (kein ssh) — für den `[self-hosted, prod]`-CI-Runner, wo der Container lokal ist (ADR-209) |
+| `CLAUDE_POLICY_DIR` | Policy-Quellverzeichnis (default `~/.claude/policies`); CI setzt `$GITHUB_WORKSPACE/policies` |
 | `CLAUDE_POLICY_STUB=1` | altes Stub-Verhalten, für *In-Claude*-Sessions die die `_orch_*`-Stubs durch native `orchestrator__*`-Tool-Calls ersetzen |
+
+## CI-Auto-Sync (ADR-209)
+
+`.github/workflows/sync-policies-to-orchestrator.yml` ruft bei jedem Merge auf
+`main` der `policies/**` dieses Skript auf dem `[self-hosted, prod]`-Runner mit
+`ORCH_LOCAL=1 CLAUDE_POLICY_DIR=$GITHUB_WORKSPACE/policies` auf. Idempotent
+(content_hash), No-Op wenn unverändert.
 
 ## Verwendung
 
