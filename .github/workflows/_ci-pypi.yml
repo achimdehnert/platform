@@ -13,9 +13,19 @@ on:
   workflow_call:
     inputs:
       python_version:
-        description: 'Python version'
+        description: 'Python version for single-version jobs (lint, secret-scan, build, mypy, security)'
         required: false
         default: '3.12'
+        type: string
+      python_versions:
+        description: >-
+          JSON list of Python versions the *test* job runs as a matrix.
+          Libraries publish to PyPI and must support a range — apps pin one
+          Python, libraries do not (ADR-210). Default = single 3.12 so existing
+          single-version behaviour is preserved until a package opts into a
+          wider range, e.g. '["3.10","3.11","3.12","3.13"]'.
+        required: false
+        default: '["3.12"]'
         type: string
       coverage_threshold:
         description: 'Minimum coverage % — CI fails below this (ADR-058)'
@@ -57,8 +67,29 @@ on:
         required: false
         default: '.'
         type: string
+      enable_build:
+        description: >-
+          Build the distribution (python -m build), validate metadata
+          (twine check) and scan the *built sdist* for secrets. ADR-210
+          decision driver #1 is "secret leakage in a published wheel/sdist
+          is irreversible" — the history scan does NOT cover secrets that
+          enter the artifact via MANIFEST.in / package_data without a clean
+          history trail. Blocking by default; this is the publish-vector gate.
+        required: false
+        default: true
+        type: boolean
       enable_security_scan:
         description: 'Run pip-audit + pip check'
+        required: false
+        default: true
+        type: boolean
+      block_pip_audit:
+        description: >-
+          Make pip-audit (CVE scan) blocking. Default true for libraries:
+          ADR-210 premise is that published artifacts have the widest,
+          irreversible blast radius — shipping a known-CVE dependency in a
+          public wheel is worse than in an internal app, so the app-CI
+          "non-blocking for parity" stance is deliberately NOT inherited here.
         required: false
         default: true
         type: boolean
@@ -85,97 +116,54 @@ jobs:
         run: ruff format --check .
 
   # ── Secret Detection ──────────────────────────────────────────────────────
-  # Verbatim port of the #198-hardened job from _ci-python.yml. Single source
-  # of the pattern; DRY extraction into _secrets-scan.yml is a tracked
-  # follow-up (ADR-210). Do NOT diverge this block from _ci-python.yml.
+  # Single source of the #198-hardened logic: the shared `gitleaks-scan`
+  # composite action (ADR-210 DRY resolution — preferred over a
+  # _secrets-scan.yml reusable: steps-only, no nested-reusable limits, repo
+  # already uses composite actions). _ci-python.yml + this job + the build
+  # job below all consume the SAME action — no divergence possible.
   secrets-scan:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
     # Blocking gate: a secrets scanner that silently goes green helps no one.
     # NOTE: deliberately NO job-level `permissions:` block and NO GitHub API
     # call. A called reusable workflow can only NARROW the caller's
-    # GITHUB_TOKEN, never grant (see #191/#198). This job runs the gitleaks
-    # CLI against full local history — zero GitHub API, zero token coupling.
-    #
-    # ESCAPE HATCH for false positives / pre-existing history leaks: add a
-    # repo-root `.gitleaksignore` (per-finding fingerprint, preferred) or
-    # `.gitleaks.toml` (rule allowlist). Both auto-honored by the CLI.
-    # Template: platform docs/templates/.gitleaks.toml. The active
-    # escape-hatch is echoed below so an over-broad allowlist is visible.
-    env:
-      GITLEAKS_VERSION: "8.21.2"   # single pin point — bump deliberately
+    # GITHUB_TOKEN, never grant (see #191/#198). The composite action runs the
+    # gitleaks CLI against full local history — zero GitHub API, zero token
+    # coupling. ESCAPE HATCH: repo-root `.gitleaksignore` (fingerprint,
+    # preferred) or `.gitleaks.toml` (rule allowlist), both auto-honored and
+    # echoed by the action. Template: platform docs/templates/.gitleaks.toml.
     steps:
-      - name: Isolate TMPDIR per run (self-hosted race fix)
-        run: |
-          RUN_TMP="/tmp/gitleaks-${{ github.run_id }}"
-          mkdir -p "$RUN_TMP"
-          echo "TMPDIR=$RUN_TMP" >> "$GITHUB_ENV"
-          rm -f /tmp/gitleaks.tmp /tmp/gitleaks-*.tar.gz 2>/dev/null || true
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - name: Install gitleaks CLI (pinned)
-        run: |
-          set -euo pipefail
-          VER="${GITLEAKS_VERSION}"
-          TARBALL="gitleaks_${VER}_linux_x64.tar.gz"
-          URL="https://github.com/gitleaks/gitleaks/releases/download/v${VER}/${TARBALL}"
-          echo "Downloading gitleaks v${VER} …"
-          curl -fsSL --retry 3 -o "${TMPDIR}/${TARBALL}" "$URL"
-          tar -xzf "${TMPDIR}/${TARBALL}" -C "${TMPDIR}" gitleaks
-          install -m 0755 "${TMPDIR}/gitleaks" "${TMPDIR}/gitleaks-bin"
-          "${TMPDIR}/gitleaks-bin" version
-      - name: Report active escape-hatch config (transparency)
-        run: |
-          set -euo pipefail
-          found=0
-          if [ -f .gitleaks.toml ]; then
-            echo "::warning title=gitleaks escape-hatch::.gitleaks.toml present — rule allowlist active. Review scope:"
-            grep -nvE '^\s*(#|$)' .gitleaks.toml | sed 's/^/  .gitleaks.toml: /' || true
-            found=1
-          fi
-          if [ -f .gitleaksignore ]; then
-            echo "::warning title=gitleaks escape-hatch::.gitleaksignore present — $(grep -cvE '^\s*(#|$)' .gitleaksignore || echo 0) fingerprint suppression(s) active."
-            found=1
-          fi
-          if [ "$found" = 0 ]; then
-            echo "No repo-local gitleaks escape-hatch — scanning with platform defaults only."
-          fi
-      - name: gitleaks detect (full history, no GitHub API)
-        run: |
-          set -euo pipefail
-          REPORT="${TMPDIR}/gitleaks.json"
-          rc=0
-          "${TMPDIR}/gitleaks-bin" detect \
-            --source . \
-            --redact \
-            --no-banner \
-            --exit-code 1 \
-            --report-format json \
-            --report-path "$REPORT" || rc=$?
-          if [ "$rc" -ne 0 ]; then
-            # Surface a copy-paste-ready .gitleaksignore so the documented
-            # escape-hatch is actually usable (fingerprints are otherwise
-            # trapped in the report file). --redact already masked secrets.
-            python3 -c 'import json,os,sys; f=json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else []; print("### gitleaks: "+str(len(f))+" finding(s) — blocking\n\nTriage: ROTATE if real. If false positive, add to .gitleaksignore at repo root (see platform docs/templates/.gitleaks.toml):\n\n```"); [print(x.get("Fingerprint","?")) for x in f]; print("```"); [print("- "+x.get("Commit","?")[:10]+":"+x.get("File","?")+" rule="+x.get("RuleID","?")+" line "+str(x.get("StartLine","?"))) for x in f]' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
-            exit "$rc"
-          fi
-      - name: Cleanup run TMPDIR
-        if: always()
-        run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
+      - name: Secret scan (git history)
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: history
+          source: .
+          context_label: "git history"
 
   test:
-    name: "Test & Coverage (≥ ADR-058 gate)"
+    name: "Test & Coverage py${{ matrix.python }} (≥ ADR-058 gate)"
     runs-on: ${{ inputs.runs_on }}
+    strategy:
+      fail-fast: false   # one Python version failing must not hide the others
+      matrix:
+        python: ${{ fromJSON(inputs.python_versions) }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: ${{ inputs.python_version }}
+          python-version: ${{ matrix.python }}
+      - name: Resolve install extra (fail loud on wrong extra name)
+        id: extra
+        uses: achimdehnert/platform/.github/actions/resolve-install-extra@main
+        with:
+          install_extra: ${{ inputs.install_extra }}
       - name: Install package + extras
         run: |
           python -m pip install -U pip
-          pip install -e ".[${{ inputs.install_extra }}]"
+          pip install -e "${{ steps.extra.outputs.spec }}"
           # The reusable MANDATES the ADR-058 coverage gate, so it must
           # guarantee its own tooling regardless of whether the package
           # declares it in its extra (verified: promptfw [dev] lacked
@@ -197,6 +185,52 @@ jobs:
             pytest ${{ inputs.test_path }} -v --tb=short ${{ inputs.pytest_args }}
           fi
 
+  # ── Build + Publish-Vector Secret Scan ────────────────────────────────────
+  # The `secrets-scan` job scans git HISTORY. ADR-210's stated threat is
+  # "secret leakage in a published wheel/sdist" — a secret can enter the
+  # *artifact* via MANIFEST.in / package_data / setuptools data-files without
+  # ever being a clean history finding. This job builds the real distribution
+  # and scans the UNPACKED sdist (the bytes that actually reach PyPI), closing
+  # the gap between the cited threat model and the control. It also fails the
+  # build on broken packaging metadata (twine check) BEFORE it reaches the
+  # public index — a "library CI" that never builds the library is incomplete.
+  build:
+    name: "Build & Publish-Vector Scan"
+    if: ${{ inputs.enable_build }}
+    runs-on: ${{ inputs.runs_on }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Build sdist + wheel
+        run: |
+          set -euo pipefail
+          python -m pip install -U pip build twine
+          python -m build
+          ls -la dist/
+      - name: twine check (packaging metadata valid for PyPI)
+        run: twine check --strict dist/*
+      - name: Unpack sdist for artifact scan
+        id: unpack
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/sdist-extract
+          SDIST=$(ls dist/*.tar.gz | head -n1)
+          tar -xzf "$SDIST" -C /tmp/sdist-extract
+          echo "dir=/tmp/sdist-extract" >> "$GITHUB_OUTPUT"
+      - name: Scan UNPACKED sdist for secrets (the bytes that reach PyPI)
+        # Same pinned CLI/logic as the history job — shared composite action.
+        # mode=dir (--no-git): built output, not a repo. Blocking: a secret in
+        # the published artifact is irreversible (rotate + yank).
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: dir
+          source: ${{ steps.unpack.outputs.dir }}
+          report_escape_hatch: "false"
+          context_label: "built sdist"
+          triage_hint: "A secret is present in the artifact that would be PUBLISHED. ROTATE it and exclude it from the build (MANIFEST.in / package_data / [tool.setuptools] exclude). Do NOT suppress on intent — the artifact must not ship it."
+
   mypy:
     name: "Type Check (mypy, non-blocking)"
     if: ${{ inputs.enable_mypy }}
@@ -207,8 +241,13 @@ jobs:
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python_version }}
+      - name: Resolve install extra
+        id: extra
+        uses: achimdehnert/platform/.github/actions/resolve-install-extra@main
+        with:
+          install_extra: ${{ inputs.install_extra }}
       - name: Install package + extras
-        run: pip install -e ".[${{ inputs.install_extra }}]" mypy
+        run: pip install -e "${{ steps.extra.outputs.spec }}" mypy
       - name: mypy
         run: mypy ${{ inputs.mypy_args }} --ignore-missing-imports
 
@@ -216,20 +255,35 @@ jobs:
     name: "Security Scan (pip-audit + pip check)"
     if: ${{ inputs.enable_security_scan }}
     runs-on: ${{ inputs.runs_on }}
-    continue-on-error: true        # non-blocking — output visible
+    # NOT job-level continue-on-error: unlike app CI, a published library's
+    # deps ship to every consumer. block_pip_audit (default true) decides
+    # whether a CVE is a hard fail; pip check (dependency conflicts in a
+    # published package) is always blocking.
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python_version }}
+      - name: Resolve install extra
+        id: extra
+        uses: achimdehnert/platform/.github/actions/resolve-install-extra@main
+        with:
+          install_extra: ${{ inputs.install_extra }}
       - name: Install package
-        run: pip install -e ".[${{ inputs.install_extra }}]" pip-audit
-      - name: pip check — dependency conflicts
+        run: pip install -e "${{ steps.extra.outputs.spec }}" pip-audit
+      - name: pip check — dependency conflicts (blocking)
         run: |
           pip check && echo "✅ No dependency conflicts" || {
-            echo "❌ Dependency conflicts — check your deps"; exit 1; }
+            echo "❌ Dependency conflicts — a published wheel must resolve cleanly"; exit 1; }
       - name: pip-audit — CVE scan (installed env)
         run: |
-          pip-audit --format=columns \
-            && echo "✅ No known CVEs" \
-            || echo "⚠️  CVEs found — see output above (no hard-fail)"
+          set -euo pipefail
+          if [ "${{ inputs.block_pip_audit }}" = "true" ]; then
+            pip-audit --format=columns \
+              && echo "✅ No known CVEs" \
+              || { echo "❌ CVEs in a to-be-published artifact — blocking (set block_pip_audit:false to downgrade with justification)"; exit 1; }
+          else
+            pip-audit --format=columns \
+              && echo "✅ No known CVEs" \
+              || echo "⚠️  CVEs found — see output above (non-blocking per caller opt-out)"
+          fi

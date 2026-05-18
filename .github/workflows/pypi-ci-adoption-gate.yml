@@ -1,0 +1,168 @@
+# ╔═══════════════════════════════════════════════════════════════════════════╗
+# ║  ADR-210 Adoption Gate — PyPI packages NOT yet on _ci-pypi.yml             ║
+# ║                                                                           ║
+# ║  ADR-210 introduces a mandatory hardened secret-scan for published        ║
+# ║  packages, but a reusable workflow protects only the repos that CALL it.  ║
+# ║  Onboarding is intentionally rolling, so the inverted-risk window stays   ║
+# ║  open until each package adopts it. "Rolling onboarding" without a meter  ║
+# ║  is an unowned aspiration — this job is the meter: it enumerates every    ║
+# ║  registry `type: library` repo, checks whether its default-branch         ║
+# ║  workflows reference `_ci-pypi.yml`, and maintains ONE tracking issue     ║
+# ║  whose body is the shrinking backlog. Informational (never fails CI) so   ║
+# ║  it can't itself become noise that gets disabled.                         ║
+# ╚═══════════════════════════════════════════════════════════════════════════╝
+
+name: ADR-210 Adoption Gate
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'   # Mondays 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      fail_on_backlog:
+        description: 'Exit non-zero if any package has not adopted _ci-pypi.yml'
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  adoption:
+    name: Measure _ci-pypi.yml adoption
+    runs-on: ubuntu-latest
+    env:
+      # Cross-repo content + issue upsert. Public repos read fine unauthenticated
+      # but rate-limits bite at ~15 repos × N files; PROJECT_PAT also lets this
+      # see/track private package repos if any appear later.
+      GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
+      OWNER: achimdehnert
+      MARKER_LABEL: adr-210-adoption
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install yaml
+        run: pip install pyyaml --quiet
+
+      - name: Compute backlog + upsert tracking issue
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, os, sys, urllib.request, urllib.error
+          import yaml
+          from pathlib import Path
+
+          owner = os.environ["OWNER"]
+          token = os.environ["GH_TOKEN"]
+          marker = os.environ["MARKER_LABEL"]
+          summary = open(os.environ["GITHUB_STEP_SUMMARY"], "a")
+
+          reg = yaml.safe_load(Path("scripts/repo-registry.yaml").read_text())
+          libs = sorted(
+              n for n, p in reg["repos"].items()
+              if isinstance(p, dict) and p.get("type") == "library"
+          )
+
+          def api(path, raw=False, method="GET", data=None):
+              url = f"https://api.github.com{path}"
+              req = urllib.request.Request(url, method=method)
+              req.add_header("Authorization", f"Bearer {token}")
+              req.add_header("Accept",
+                  "application/vnd.github.raw" if raw
+                  else "application/vnd.github+json")
+              if data is not None:
+                  req.data = json.dumps(data).encode()
+                  req.add_header("Content-Type", "application/json")
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      body = r.read()
+                      return r.status, body
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read()
+
+          def adopted(repo):
+              """True if any default-branch workflow references _ci-pypi.yml."""
+              st, body = api(f"/repos/{owner}/{repo}/contents/.github/workflows")
+              if st == 404:
+                  return None  # no workflows dir at all
+              if st >= 400:
+                  return None
+              files = json.loads(body)
+              for f in files:
+                  if not f["name"].endswith((".yml", ".yaml")):
+                      continue
+                  s2, raw = api(
+                      f"/repos/{owner}/{repo}/contents/{f['path']}", raw=True)
+                  if s2 < 400 and b"_ci-pypi.yml" in raw:
+                      return True
+              return False
+
+          adopted_l, missing, no_ci = [], [], []
+          for r in libs:
+              a = adopted(r)
+              if a is True:
+                  adopted_l.append(r)
+              elif a is False:
+                  missing.append(r)
+              else:
+                  no_ci.append(r)
+
+          total = len(libs)
+          pct = round(100 * len(adopted_l) / total) if total else 0
+          lines = [
+              "# ADR-210 — `_ci-pypi.yml` adoption",
+              "",
+              f"**{len(adopted_l)}/{total} ({pct}%)** library repos consume the "
+              "hardened library CI. Until a package adopts it, the public-PyPI "
+              "secret-scan gate does **not** protect it.",
+              "",
+              f"## ❌ Not adopted — secret-scan gate INACTIVE ({len(missing)})",
+              *[f"- [ ] `{r}` → replace inline `ci.yml` with a `_ci-pypi.yml@main` caller" for r in missing],
+              "",
+              f"## ⚠️ No `.github/workflows` found ({len(no_ci)})",
+              *[f"- `{r}`" for r in no_ci],
+              "",
+              f"## ✅ Adopted ({len(adopted_l)})",
+              *[f"- `{r}`" for r in adopted_l],
+              "",
+              "_Maintained automatically by `.github/workflows/pypi-ci-adoption-gate.yml`._",
+          ]
+          report = "\n".join(lines)
+          summary.write(report + "\n")
+          print(report)
+
+          # Upsert exactly one tracking issue keyed by the marker label.
+          title = "🔭 ADR-210: PyPI packages not yet on `_ci-pypi.yml`"
+          st, body = api(
+              f"/repos/{owner}/platform/issues?state=open&labels={marker}&per_page=1")
+          existing = json.loads(body) if st < 400 else []
+          if missing or no_ci:
+              if existing:
+                  num = existing[0]["number"]
+                  api(f"/repos/{owner}/platform/issues/{num}",
+                      method="PATCH", data={"body": report, "title": title})
+                  print(f"Updated tracking issue #{num}")
+              else:
+                  # Label is best-effort; create issue regardless.
+                  api(f"/repos/{owner}/platform/labels", method="POST",
+                      data={"name": marker, "color": "FBCA04",
+                            "description": "ADR-210 _ci-pypi.yml adoption tracking"})
+                  api(f"/repos/{owner}/platform/issues", method="POST",
+                      data={"title": title, "body": report, "labels": [marker]})
+                  print("Created tracking issue")
+          elif existing:
+              num = existing[0]["number"]
+              api(f"/repos/{owner}/platform/issues/{num}", method="PATCH",
+                  data={"state": "closed",
+                        "body": report + "\n\n✅ Full adoption — closing."})
+              print(f"Full adoption — closed #{num}")
+
+          fail = os.environ.get("FAIL_ON_BACKLOG") == "true"
+          if fail and (missing or no_ci):
+              sys.exit(1)
+          PY
+        env:
+          FAIL_ON_BACKLOG: ${{ inputs.fail_on_backlog }}
