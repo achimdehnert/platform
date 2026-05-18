@@ -177,13 +177,22 @@ jobs:
       - name: gitleaks detect (full history, no GitHub API)
         run: |
           set -euo pipefail
+          REPORT="${TMPDIR}/gitleaks.json"
+          rc=0
           "${TMPDIR}/gitleaks-bin" detect \
             --source . \
             --redact \
             --no-banner \
             --exit-code 1 \
-            --report-format sarif \
-            --report-path "${TMPDIR}/gitleaks.sarif"
+            --report-format json \
+            --report-path "$REPORT" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # Surface a copy-paste-ready .gitleaksignore so the documented
+            # escape-hatch is actually usable (fingerprints are otherwise
+            # trapped in the report file). --redact already masked secrets.
+            python3 -c 'import json,os,sys; f=json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else []; print("### gitleaks: "+str(len(f))+" finding(s) — blocking\n\nTriage: ROTATE if real. If false positive, add to .gitleaksignore at repo root (see platform docs/templates/.gitleaks.toml):\n\n```"); [print(x.get("Fingerprint","?")) for x in f]; print("```"); [print("- "+x.get("Commit","?")[:10]+":"+x.get("File","?")+" rule="+x.get("RuleID","?")+" line "+str(x.get("StartLine","?"))) for x in f]' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit "$rc"
+          fi
       - name: Cleanup run TMPDIR
         if: always()
         run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
