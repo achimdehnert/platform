@@ -304,17 +304,11 @@ jobs:
           POSTGRES_HOST: localhost
         run: |
           set -euo pipefail
-          DB_ENGINE=$(python -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE'])" 2>/dev/null || echo "unknown")
-          if echo "$DB_ENGINE" | grep -q "sqlite"; then
-            echo "OK: SQLite detected — running migrate to create test DB schema"
-            python manage.py migrate --run-syncdb 2>&1 || echo "migrate completed (warnings above are non-fatal)"
-          else
-            python manage.py migrate --check 2>&1 && echo "OK: Migration graph consistent" || {
-              echo "FAIL: Migration graph inconsistent — pending or broken migrations detected!"
-              python manage.py showmigrations 2>&1 | grep -E '^\s+\[ \]' || true
-              exit 1
-            }
-          fi
+          python manage.py migrate 2>&1 && echo "OK: Migration graph consistent — all migrations applied" || {
+            echo "FAIL: Migration graph inconsistent — broken or conflicting migrations detected!"
+            python manage.py showmigrations 2>&1 | grep -E '^\s+\[ \]' || true
+            exit 1
+          }
 
       - name: AppConfig Label Check
         working-directory: ${{ inputs.src_dir }}
