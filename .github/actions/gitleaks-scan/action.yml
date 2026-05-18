@@ -22,7 +22,13 @@ inputs:
     required: false
     default: "."
   mode:
-    description: "history = scan git log | dir = scan filesystem (--no-git, for built artifacts)"
+    description: >-
+      history = scan git log |
+      dir = scan a filesystem path (--no-git) |
+      sdist = locate the *.tar.gz under `source` (a dist/ dir), extract it and
+      scan the extracted bytes (--no-git). `sdist` is the pre-publish gate:
+      it scans exactly what would be uploaded — artifact identity, stronger
+      than build-tool parity.
     required: false
     default: "history"
   report_escape_hatch:
@@ -89,10 +95,47 @@ runs:
         set -euo pipefail
         REPORT="${GL_TMP}/gitleaks.json"
         NOGIT=""
-        if [ "$GL_MODE" = "dir" ]; then NOGIT="--no-git"; fi
+        SCAN_SRC="$GL_SOURCE"
+        case "$GL_MODE" in
+          history) : ;;
+          dir) NOGIT="--no-git" ;;
+          sdist)
+            NOGIT="--no-git"
+            DIST_DIR="${GL_SOURCE:-dist}"
+            SCAN_SRC="${GL_TMP}/artifact"
+            mkdir -p "$SCAN_SRC"
+            # Unpack EVERY sdist + wheel under DIST_DIR (testpypi merges
+            # several packages into one dist/). Each into its own subdir so
+            # one finding pinpoints the offending artifact. python3 is
+            # always present; unzip/tar fallbacks avoided for portability.
+            python3 - "$DIST_DIR" "$SCAN_SRC" <<'PYART'
+        import glob, os, sys, tarfile, zipfile
+        dist_dir, scan_src = sys.argv[1], sys.argv[2]
+        sdists = sorted(glob.glob(os.path.join(dist_dir, "*.tar.gz")))
+        wheels = sorted(glob.glob(os.path.join(dist_dir, "*.whl")))
+        if not sdists and not wheels:
+            print(f"::error title=gitleaks pre-publish gate::no *.tar.gz / "
+                  f"*.whl found in '{dist_dir}' — cannot scan the artifact "
+                  f"that would be published")
+            sys.exit(1)
+        for s in sdists:
+            d = os.path.join(scan_src, "sdist", os.path.basename(s))
+            os.makedirs(d, exist_ok=True)
+            with tarfile.open(s) as t:
+                t.extractall(d)
+            print(f"Unpacked sdist: {s}")
+        for w in wheels:
+            d = os.path.join(scan_src, "wheel", os.path.basename(w))
+            os.makedirs(d, exist_ok=True)
+            zipfile.ZipFile(w).extractall(d)
+            print(f"Unpacked wheel: {w}")
+        PYART
+            ;;
+          *) echo "::error::unknown gitleaks-scan mode '$GL_MODE'"; exit 1 ;;
+        esac
         rc=0
         "${GL_TMP}/gitleaks-bin" detect \
-          --source "$GL_SOURCE" \
+          --source "$SCAN_SRC" \
           $NOGIT \
           --redact \
           --no-banner \

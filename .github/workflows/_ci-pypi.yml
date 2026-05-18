@@ -211,24 +211,17 @@ jobs:
           ls -la dist/
       - name: twine check (packaging metadata valid for PyPI)
         run: twine check --strict dist/*
-      - name: Unpack sdist for artifact scan
-        id: unpack
-        run: |
-          set -euo pipefail
-          mkdir -p /tmp/sdist-extract
-          SDIST=$(ls dist/*.tar.gz | head -n1)
-          tar -xzf "$SDIST" -C /tmp/sdist-extract
-          echo "dir=/tmp/sdist-extract" >> "$GITHUB_OUTPUT"
-      - name: Scan UNPACKED sdist for secrets (the bytes that reach PyPI)
-        # Same pinned CLI/logic as the history job — shared composite action.
-        # mode=dir (--no-git): built output, not a repo. Blocking: a secret in
-        # the published artifact is irreversible (rotate + yank).
+      - name: Scan built artifact for secrets (the bytes that reach PyPI)
+        # Shared composite action, mode=sdist: it locates+extracts the sdist
+        # AND the wheel from dist/ and scans them — the SAME control wired
+        # into every publish-*.yml (ADR-210 binding gate). Blocking: a secret
+        # in the published artifact is irreversible (rotate + yank).
         uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
         with:
-          mode: dir
-          source: ${{ steps.unpack.outputs.dir }}
+          mode: sdist
+          source: dist
           report_escape_hatch: "false"
-          context_label: "built sdist"
+          context_label: "built artifact"
           triage_hint: "A secret is present in the artifact that would be PUBLISHED. ROTATE it and exclude it from the build (MANIFEST.in / package_data / [tool.setuptools] exclude). Do NOT suppress on intent — the artifact must not ship it."
 
   mypy:
