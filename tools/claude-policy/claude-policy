@@ -9,49 +9,52 @@ Subcommands:
     pull   — read every policy:<topic> back and update local files (diff +
              confirm before overwrite)
     diff   — show drift without changing anything
-    list   — show what policies exist locally and "remotely"
+    list   — show what policies exist locally and remotely
 
-DESIGN — this is intentionally a SKELETON, not a standalone CLI.
-The orchestrator memory is **MCP-only** (SSE at orchestrator.iil.pet); there
-is no shell-callable HTTP/KV endpoint. So the `_orch_*` functions below are
-stubs. Run this *from a Claude Code session that has `orchestrator__*`
-loaded* (dev-hub / mcp-hub / bfagent workspace): ask Claude to run
-`claude-policy <cmd>` and Claude substitutes the stubs with real tool calls:
+TRANSPORT — the orchestrator memory has no shell-callable HTTP/KV endpoint
+and `orchestrator_mcp` is not importable on dev machines. The proven
+standalone path (see CC memory "Orchestrator MCP dead-session workaround",
+applied 2026-05-13) is SSH + `docker exec` against the prod container, which
+shares the same Postgres backend as the MCP tools. The whole python script
+is fed via **stdin** (no nested quoting); policy content is inlined as
+base64 inside that script (no file staging — ssh would mis-route `>`).
 
-    _orch_upsert(key, md)   →  orchestrator__agent_memory_upsert(
-                                   entry_key=key, entry_type="decision",
-                                   title=<derived>, content=md,
-                                   tags=["policy", <slug>])
-    _orch_fetch(key)        →  orchestrator__agent_memory_search(query=key)
-                               then pick the hit whose entry_key == key
-    _orch_list(prefix)      →  orchestrator__agent_memory_search(
-                                   query=prefix, limit=50) → entry_keys
+Overridable via env:
+    ORCH_PROD_HOST   (default 88.198.191.108)
+    ORCH_CONTAINER   (default mcp_hub_orchestrator_http)
+    ORCH_SSH_USER    (default root)
+    CLAUDE_POLICY_STUB=1  — restore the old stub behaviour, for running
+                            *inside* a Claude session that substitutes the
+                            stubs with native orchestrator__* MCP calls.
 
 CAVEAT (ADR-113): the memory API is **semantic search**, not exact KV.
-`pull`/`diff`/`list` therefore filter results by *exact* entry_key and may be
+`pull`/`diff`/`list` filter results by *exact* entry_key and may be
 approximate / miss entries. The **authoritative source is always the file**;
 `push` is the primary, safe direction. `pull` is advisory.
 
-RUNBOOK — close qwen-EOL item (3) (orchestrator-memory sync of llm-routing):
-    From a dev-hub/mcp-hub Claude session (orchestrator MCP healthy):
-        claude-policy push --only llm-routing
-    Claude translates to one orchestrator__agent_memory_upsert with
-    entry_key="policy:llm-routing". Verify:
-        orchestrator__agent_memory_search(query="policy:llm-routing")
-    must return the updated entry (Tier-1a Cerebras = gpt-oss-120b,
-    qwen-3-235b deprecated 2026-05-27) as top hit.
-
-Run from any cwd. Requires Python 3.10+.
+Run from any cwd. Requires Python 3.10+ and SSH access to the prod host.
 """
 from __future__ import annotations
 
 import argparse
+import base64
 import difflib
+import json
+import os
 import re
+import subprocess
 import sys
 from pathlib import Path
 
 POLICIES_DIR = Path.home() / ".claude" / "policies"
+
+PROD_HOST = os.environ.get("ORCH_PROD_HOST", "88.198.191.108")
+CONTAINER = os.environ.get("ORCH_CONTAINER", "mcp_hub_orchestrator_http")
+SSH_USER = os.environ.get("ORCH_SSH_USER", "root")
+STUB_MODE = os.environ.get("CLAUDE_POLICY_STUB") == "1"
+
+SSH_CONNECT_TIMEOUT = 20
+SSH_RUN_TIMEOUT = 90
 
 
 def slug(name: str) -> str:
@@ -73,42 +76,122 @@ def _title_for(slug_: str) -> str:
     return f"policy:{slug_} (synced from ~/.claude/policies/{slug_}.md)"
 
 
-# --- Orchestrator stubs (ADR-113 agent_memory_* API) --------------------
-#
-# Replace these when running inside a Claude session with orchestrator__*
-# loaded. Mapping is documented in the module docstring.
+# --- SSH transport -------------------------------------------------------
+
+
+class TransportError(RuntimeError):
+    pass
+
+
+def _ssh(argv: list[str], *, input_bytes: bytes | None = None) -> bytes:
+    """Run `ssh <user>@<host> <argv...>`; return stdout. Raise
+    TransportError on SSH failure or non-zero exit."""
+    cmd = [
+        "ssh",
+        "-o", "BatchMode=yes",
+        "-o", f"ConnectTimeout={SSH_CONNECT_TIMEOUT}",
+        f"{SSH_USER}@{PROD_HOST}",
+        *argv,
+    ]
+    try:
+        proc = subprocess.run(
+            cmd, input=input_bytes, capture_output=True,
+            timeout=SSH_RUN_TIMEOUT,
+        )
+    except (subprocess.TimeoutExpired, OSError) as exc:
+        raise TransportError(f"ssh failed: {exc}") from exc
+    if proc.returncode != 0:
+        err = proc.stderr.decode("utf-8", "replace").strip()
+        raise TransportError(f"ssh exit {proc.returncode}: {err or '(no stderr)'}")
+    return proc.stdout
+
+
+def _docker_py(code: str) -> str:
+    """Run `code` in the orchestrator container's python (fed via stdin).
+
+    NOTE: ssh does not preserve argv boundaries — the remote shell re-parses
+    the joined command, so any `>` redirection would apply on the prod host,
+    not inside the container. We therefore never stage files; the script is
+    fully self-contained and any payload is inlined base64 (see _orch_upsert).
+    """
+    out = _ssh(
+        ["docker", "exec", "-i", CONTAINER, "python", "-"],
+        input_bytes=code.encode("utf-8"),
+    )
+    return out.decode("utf-8", "replace")
+
+
+# --- Orchestrator ops (ADR-113 agent_memory_* API via store.py) ----------
+
 
 def _orch_upsert(key: str, md: str) -> bool:
-    """STUB → orchestrator__agent_memory_upsert(entry_key=key,
-    entry_type='decision', title=_title_for(slug), content=md,
-    tags=['policy', slug]). Returns True ONLY when really executed —
-    Claude substitutes the real call and returns True; the stub returns
-    False so cmd_push reports an honest NO-OP (no false success)."""
-    sys.stderr.write(
-        f"[stub] would orchestrator__agent_memory_upsert("
-        f"entry_key={key!r}, entry_type='decision', content=<{len(md)} chars>)\n"
+    """Upsert a policy. Returns True if a write happened, False if the
+    content was unchanged (or stub mode = no real write)."""
+    if STUB_MODE:
+        sys.stderr.write(
+            f"[stub] would orchestrator__agent_memory_upsert("
+            f"entry_key={key!r}, entry_type='decision', content=<{len(md)} chars>)\n"
+        )
+        return False
+    s = key[len("policy:"):]
+    b64 = base64.b64encode(md.encode("utf-8")).decode("ascii")
+    code = (
+        "import base64\n"
+        "from orchestrator_mcp.memory.store import upsert\n"
+        f"content = base64.b64decode({b64!r}).decode('utf-8')\n"
+        f"ok = upsert(entry_key={key!r}, entry_type='decision', "
+        f"title={_title_for(s)!r}, content=content, "
+        f"agent='cascade', tags=['policy', {s!r}, 'synced-from-file'])\n"
+        "print('WROTE' if ok else 'UNCHANGED')\n"
     )
-    return False
+    out = _docker_py(code).strip().splitlines()
+    return bool(out) and out[-1] == "WROTE"
 
 
 def _orch_fetch(key: str) -> str | None:
-    """STUB → orchestrator__agent_memory_search(query=key); return the
-    content of the hit whose entry_key == key (else None)."""
-    sys.stderr.write(
-        f"[stub] would orchestrator__agent_memory_search(query={key!r}) "
-        f"→ filter entry_key=={key!r}\n"
+    """Return remote content for the exact entry_key, else None."""
+    if STUB_MODE:
+        sys.stderr.write(
+            f"[stub] would orchestrator__agent_memory_search(query={key!r})\n"
+        )
+        return None
+    code = (
+        "import base64\n"
+        "from orchestrator_mcp.memory.store import search\n"
+        f"hits = search(query={key!r}, limit=50)\n"
+        f"m = [h for h in hits if h.get('id') == {key!r}]\n"
+        "print(base64.b64encode((m[0]['content'] if m else '').encode()).decode())\n"
     )
-    return None
+    lines = _docker_py(code).strip().splitlines()
+    if not lines or not lines[-1]:
+        return None
+    decoded = base64.b64decode(lines[-1]).decode("utf-8", "replace")
+    return decoded or None
 
 
 def _orch_list(prefix: str = "policy:") -> list[str]:
-    """STUB → orchestrator__agent_memory_search(query=prefix, limit=50);
-    return entry_keys starting with prefix (semantic → approximate)."""
-    sys.stderr.write(
-        f"[stub] would orchestrator__agent_memory_search(query={prefix!r}, "
-        f"limit=50) → entry_keys startswith {prefix!r}\n"
+    """Return entry_keys starting with prefix (semantic → approximate)."""
+    if STUB_MODE:
+        sys.stderr.write(
+            f"[stub] would orchestrator__agent_memory_search(query={prefix!r}, "
+            f"limit=50)\n"
+        )
+        return []
+    code = (
+        "import json\n"
+        "from orchestrator_mcp.memory.store import search\n"
+        f"hits = search(query={prefix!r}, limit=50)\n"
+        f"ks = sorted({{str(h.get('id', '')) for h in hits "
+        f"if str(h.get('id', '')).startswith({prefix!r})}})\n"
+        "print(json.dumps(ks))\n"
     )
-    return []
+    lines = _docker_py(code).strip().splitlines()
+    if not lines:
+        return []
+    try:
+        return json.loads(lines[-1])
+    except json.JSONDecodeError:
+        return []
 
 
 # --- Commands ------------------------------------------------------------
@@ -121,17 +204,18 @@ def cmd_list(_a: argparse.Namespace) -> int:
         print(f"  - {slug(p.name)}  ({p.stat().st_size} B)")
     if not loc:
         print("  (none)")
-    print("\nRemote policies (orchestrator, semantic search):")
+    where = "STUB" if STUB_MODE else f"orchestrator @ {PROD_HOST}"
+    print(f"\nRemote policies ({where}, semantic search):")
     remote = _orch_list("policy:")
     for k in remote:
         print(f"  - {k}")
     if not remote:
-        print("  (none / stub — run from orchestrator session)")
+        print("  (none / stub — set ORCH_* env or run from orchestrator session)")
     return 0
 
 
 def cmd_push(args: argparse.Namespace) -> int:
-    attempted = written = 0
+    attempted = written = unchanged = 0
     for path in list_local():
         s = slug(path.name)
         if args.only and s != args.only:
@@ -139,14 +223,19 @@ def cmd_push(args: argparse.Namespace) -> int:
         value = path.read_text(encoding="utf-8")
         attempted += 1
         ok = _orch_upsert(policy_key(s), value)
-        print(f"push  policy:{s}  ({len(value)} chars){'' if ok else '  [stub: not written]'}")
-        written += 1 if ok else 0
-    if attempted and not written:
-        print(f"\nNO-OP: {attempted} Polic{'y' if attempted == 1 else 'ies'} "
-              f"NICHT geschrieben (stub). Aus Claude-Session mit "
-              f"orchestrator__* ausführen — kein realer Sync ohne MCP.")
+        if STUB_MODE:
+            print(f"push  policy:{s}  ({len(value)} chars)  [stub: not written]")
+        elif ok:
+            written += 1
+            print(f"  ↑ policy:{s}  ({len(value)} chars)  [WROTE]")
+        else:
+            unchanged += 1
+            print(f"  = policy:{s}  (unchanged, no write)")
+    if STUB_MODE and attempted:
+        print(f"\nNO-OP: {attempted} polic{'y' if attempted == 1 else 'ies'} "
+              f"NICHT geschrieben (CLAUDE_POLICY_STUB=1).")
         return 2
-    print(f"\n{written} policies pushed.")
+    print(f"\n{written} pushed, {unchanged} unchanged.")
     return 0
 
 
@@ -164,8 +253,7 @@ def _drift_pairs(only: str | None):
 def cmd_pull(args: argparse.Namespace) -> int:
     keys = _orch_list("policy:")
     if not keys:
-        print("Keine Remote-Policies (oder STUB — aus Claude/orchestrator-"
-              "Session ausführen). Nichts gezogen.")
+        print("Keine Remote-Policies (oder STUB). Nichts gezogen.")
         return 2
     changed = 0
     for s, lp, local, remote in _drift_pairs(args.only):
@@ -223,7 +311,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main() -> int:
     args = build_parser().parse_args()
-    return args.fn(args)
+    try:
+        return args.fn(args)
+    except TransportError as exc:
+        sys.stderr.write(f"claude-policy: transport error: {exc}\n")
+        return 2
 
 
 if __name__ == "__main__":

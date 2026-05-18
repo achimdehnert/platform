@@ -20,6 +20,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   (Cross-Provider-Failover, Policy-Tier-1b). Deckt sich mit ADR-208-Resolver
   (`iil/adr-review`). Kein ADR (Daten-/Default-Fix, Muster-Folge).
 
+### Fixed
+- `tools/claude-policy`: Skript von No-Op-Stub → **funktionsfähig**. Transport:
+  SSH + `docker exec` gegen Prod-Container `mcp_hub_orchestrator_http` (gleiches
+  Postgres-Backend wie die MCP-Tools), Aufruf von
+  `orchestrator_mcp.memory.store.upsert/search`. Script via stdin, Policy-Inhalt
+  base64-inline (kein `cat >`-Staging — ssh re-parst argv, `>` würde sonst auf
+  dem Prod-Host statt im Container landen; Bug im Live-Test gefunden + behoben).
+  Idempotent via content_hash. `CLAUDE_POLICY_STUB=1` behält In-Claude-Pfad.
+  README an Realität angepasst (vorheriges „autonomes CLI nicht möglich" war
+  falsch). Verifiziert: list/push/diff Round-Trip, 6 Policies konvergieren.
+  Behebt den von #186 mitgelieferten Stub; ersetzt mcp-hub#60 (falsches Repo).
+  Refs dev-hub#51. Kein ADR (Tooling-Fix, Muster-Folge).
+
 ---
 
 ## [2026.05.16] — 2026-05-16
