@@ -5,26 +5,17 @@ status: proposed
 date: 2026-05-19
 deciders: [achim]
 informed: [all-repos]
-review_history:
-  - 2026-05-19: Rev 1 — initial proposal
-  - 2026-05-19: Rev 2 — adversarial review (commit bf7c4d6) — Spec-first, Prod-Guard, Parity-Off-Ramp
-  - 2026-05-19: Rev 3 — second adversarial pass (commit 47ff4f9) — enforcement in-repo, I1/Confirmation executable
-  - 2026-05-19: Rev 4 — third adversarial pass — R4 prod-Grenze, R3 repo-definierte Checks, R2 Baseline 0/N, R5 Drift belegt, R6 ADR-Acceptance-Trigger
-  - 2026-05-19: Rev 5 — Mechanik-Korrektur: ~/.claude/policies ist SYMLINK in gepinnten platform-Worktree (kein Kopier-Sync); Update nur via platform-PR + Changelog (Quelle: policies/README.md)
-  - 2026-05-19: Rev 6 — C1-Geltungsbereich präzisiert (nur registry-Repos; Fremd-Org-Repos via Repo-CI); conforms_to-Feld I4-qualifiziert (platform:ADR-211); SF1-Regex + SF5 (adr_cross_repo_refs.sh) gebaut
-  - 2026-05-19: Rev 7 — C6 auf Script klickdummy_policy_sync.sh umgestellt (Konsistenz mit C1/C5; SKIP-off-machine, --strict); SF6 gebaut
-acceptance_trigger: "status → accepted erst wenn C1–C6 grün (siehe Confirmation); bis dahin proposed"
 domains: [ux, requirements, process, security, drift-prevention]
 supersedes: []
 amends: []
 depends_on: [ADR-207]
 tags: [klickdummy, mockup, requirements-spec, parity-test, prod-guard, convention]
 scope:
-  governed_artifacts:
-    - "platform/policies/klickdummy.md (versionierte QUELLE der operativen Regel)"
-    - "~/.claude/policies/klickdummy.md (Symlink in gepinnten platform-Worktree; liest die Quelle, kein Kopier-Sync)"
-    - "meiki-hub:ADR-020 / risk-hub:ADR-046 / writing-hub:ADR-180 (Implementierungen)"
-    - "onboard-repo Skill — Adoptionspunkt"
+  include_paths:
+    - "policies/klickdummy.md"
+    - "scripts/checks/klickdummy_*.sh"
+    - "**/klickdummy/**"
+    - "**/docs/adr/ADR-*.md"
 ---
 
 # ADR-211: Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)
@@ -162,6 +153,26 @@ Enforcement nutzt den bestehenden, dokumentierten Pinned-Worktree-Symlink
 | **Demo-Render** | Env-gegateter Zustand der echten App (`?demo=`) — Prod-Sicherheitsfläche |
 | **Parity-Test** | Renderer↔Implementierung-Äquivalenztest — Gate **und** Off-Ramp |
 | **Off-Ramp** | Parity-grün ⇒ mechanische Entfernung der statischen Quelle (Grenze: prod-Release) |
+
+## Acceptance-Trigger
+
+`status` bleibt **proposed**, bis Confirmation **C1–C6 grün** sind (siehe
+Abschnitt Confirmation, aktuell Baseline). Erst dann → `accepted`. (Im
+Frontmatter bewusst kein Custom-Feld — das ADR-Schema lässt nur die
+Standard-Properties zu; Acceptance-Logik gehört in den Body.)
+
+## Revisionshistorie
+
+Drei Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
+
+- **Rev 1** — initial proposal
+- **Rev 2** (bf7c4d6) — Spec-first, Prod-Guard, Parity-Off-Ramp
+- **Rev 3** (47ff4f9) — Enforcement in-repo, I1/Confirmation executable
+- **Rev 4** — R4 prod-Grenze, R3 repo-definierte Checks, R2 Baseline 0/N, R5 Drift belegt, R6 Acceptance-Trigger
+- **Rev 5** — Mechanik-Korrektur: `~/.claude/policies` ist Symlink in gepinnten platform-Worktree (kein Kopier-Sync)
+- **Rev 6** — C1-Geltungsbereich präzisiert (nur registry-Repos); `conforms_to` I4-qualifiziert; SF1-Regex + SF5
+- **Rev 7** — C6 auf Script `klickdummy_policy_sync.sh` umgestellt; SF6
+- **Rev 8** — Frontmatter schema-konform: `review_history`/`acceptance_trigger` aus Frontmatter in den Body verschoben (iil-adrfw `validate` lehnt Additional Properties ab; vorher zudem YAML-ScannerError durch `date:`-Mapping-Fehlinterpretation)
 
 ## Bezug
 
