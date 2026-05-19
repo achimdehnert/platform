@@ -9,7 +9,8 @@ review_history:
   - 2026-05-19: Rev 1 — initial proposal
   - 2026-05-19: Rev 2 — adversarial review (commit bf7c4d6) — Spec-first, Prod-Guard, Parity-Off-Ramp
   - 2026-05-19: Rev 3 — second adversarial pass (commit 47ff4f9) — enforcement in-repo, I1/Confirmation executable
-  - 2026-05-19: Rev 4 — third adversarial pass — R1 sync statt deprecate, R4 prod-Grenze, R3 repo-definierte Checks, R2 Baseline 0/N, R5 Drift belegt, R6 ADR-Acceptance-Trigger
+  - 2026-05-19: Rev 4 — third adversarial pass — R4 prod-Grenze, R3 repo-definierte Checks, R2 Baseline 0/N, R5 Drift belegt, R6 ADR-Acceptance-Trigger
+  - 2026-05-19: Rev 5 — Mechanik-Korrektur: ~/.claude/policies ist SYMLINK in gepinnten platform-Worktree (kein Kopier-Sync); Update nur via platform-PR + Changelog (Quelle: policies/README.md)
 acceptance_trigger: "status → accepted erst wenn C1–C6 grün (siehe Confirmation); bis dahin proposed"
 domains: [ux, requirements, process, security, drift-prevention]
 supersedes: []
@@ -19,7 +20,7 @@ tags: [klickdummy, mockup, requirements-spec, parity-test, prod-guard, conventio
 scope:
   governed_artifacts:
     - "platform/policies/klickdummy.md (versionierte QUELLE der operativen Regel)"
-    - "~/.claude/policies/klickdummy.md (Injektions-Ziel; via claude-policy aus der Quelle gesynct — NICHT deprecated)"
+    - "~/.claude/policies/klickdummy.md (Symlink in gepinnten platform-Worktree; liest die Quelle, kein Kopier-Sync)"
     - "meiki-hub:ADR-020 / risk-hub:ADR-046 / writing-hub:ADR-180 (Implementierungen)"
     - "onboard-repo Skill — Adoptionspunkt"
 ---
@@ -85,17 +86,19 @@ Repo-Lokalität; dieses ADR ersetzt keine Implementierungs-ADR.
 
 ## Enforcement-Pfad
 
-Quelle und Injektion sind **zwei Schichten** (R1 — Home ist nicht deprecated,
-sondern das Injektionsziel):
+Mechanik exakt wie `policies/README.md` (Rev 5 — keine Erfindung eines
+Parallelpfads):
 
 1. **Rationale:** dieses ADR.
-2. **Quelle (versioniert):** `platform/policies/klickdummy.md` — im Plattform-Repo,
-   reviewbar, single source.
-3. **Injektion (operativ):** `~/.claude/policies/klickdummy.md` wird von der
-   Quelle via `~/.claude/bin/claude-policy` gesynct (derselbe Mechanismus wie
-   `adr-threshold.md`/`llm-routing.md`; UserPromptSubmit-Hook injiziert aus
-   `~/.claude/policies/`). Der Repo-Pfad **ersetzt** die Home-Injektion nicht,
-   er **speist** sie. Sync-Drift Quelle↔Injektion ist selbst ein Check (C6).
+2. **SSoT (versioniert):** `platform/policies/klickdummy.md` — im Plattform-Repo,
+   reviewbar; Änderung **nur per platform-PR + Changelog-Bump**.
+3. **Injektion (operativ):** `~/.claude/policies/klickdummy.md` ist ein
+   **Symlink** in einen gepinnten platform-Worktree (`~/github/platform-pinned/policies/`),
+   denselben Mechanismus wie `adr-threshold.md`/`llm-routing.md`;
+   `inject_policies.py`/`claude-policy` lesen den Symlink unverändert. **Kein
+   Kopier-Sync.** Der gepinnte Worktree zieht beim nächsten Refresh nach; C6
+   erkennt einen *stale gepinnten Worktree* (Policy in der Quelle, aber
+   Pinned-Stand veraltet).
 4. **Adoption:** `onboard-repo`-Skill prüft I1–I4 + ADR-Header + `make klickdummy-{i1,i2,i3,i4}`.
 5. **Verifikation:** `platform/scripts/checks/klickdummy_registry.sh` über `registry/repos.yaml`.
 
@@ -125,18 +128,19 @@ make -C <repo> klickdummy-i3
 # C5 I4 Cross-Repo-Ref-Format (SF5)
 platform/scripts/checks/adr_cross_repo_refs.sh   # regex ^[a-z][a-z0-9-]+:ADR-\d{3}$
 
-# C6 Policy-Quelle existiert UND ist injiziert (R1 — nicht nur Existenz, SF6)
+# C6 Policy-Quelle existiert UND gepinnter Worktree nicht stale (SF6)
 test -f platform/policies/klickdummy.md \
   && diff -q platform/policies/klickdummy.md ~/.claude/policies/klickdummy.md
-#   exit 0 nur wenn Quelle vorhanden UND deckungsgleich gesynct (Injektion belegt)
+#   exit 0 nur wenn Quelle vorhanden UND der gepinnte Worktree (Symlink-Ziel)
+#   den aktuellen Stand zeigt — erkennt 'Policy gemerged, Pinned-Refresh fehlt'
 ```
 
 ## Konsequenzen
 
 **Positiv:** Spec-first beendet Renderer-Wildwuchs; Off-Ramp verhindert
 Static-Leichen; Demo-Render-Prod-Guard schließt eine Sicherheitslücke;
-Enforcement nutzt den bestehenden, dokumentierten claude-policy-Sync statt
-einen Parallelpfad zu erfinden.
+Enforcement nutzt den bestehenden, dokumentierten Pinned-Worktree-Symlink
+(policies/README.md) statt einen Parallelpfad zu erfinden.
 **Negativ:** je Repo einmaliger Aufwand für `make klickdummy-{i1..i4}`;
 6 Followup-Artefakte (SF1–SF6) sind Voraussetzung für Acceptance.
 **Neutral:** bestehende Klickdummies funktional unverändert.
