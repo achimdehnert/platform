@@ -7,8 +7,10 @@ deciders: [achim]
 informed: [all-repos]
 review_history:
   - 2026-05-19: Rev 1 — initial proposal
-  - 2026-05-19: Rev 2 — adversarial review feedback integrated (commit bf7c4d6)
-  - 2026-05-19: Rev 3 — second adversarial pass: enforcement-path moved into repo, I1/Confirmation executable, Mock→Impl transition specified
+  - 2026-05-19: Rev 2 — adversarial review (commit bf7c4d6) — Spec-first, Prod-Guard, Parity-Off-Ramp
+  - 2026-05-19: Rev 3 — second adversarial pass (commit 47ff4f9) — enforcement in-repo, I1/Confirmation executable
+  - 2026-05-19: Rev 4 — third adversarial pass — R1 sync statt deprecate, R4 prod-Grenze, R3 repo-definierte Checks, R2 Baseline 0/N, R5 Drift belegt, R6 ADR-Acceptance-Trigger
+acceptance_trigger: "status → accepted erst wenn C1–C6 grün (siehe Confirmation); bis dahin proposed"
 domains: [ux, requirements, process, security, drift-prevention]
 supersedes: []
 amends: []
@@ -16,160 +18,144 @@ depends_on: [ADR-207]
 tags: [klickdummy, mockup, requirements-spec, parity-test, prod-guard, convention]
 scope:
   governed_artifacts:
-    - "platform/policies/klickdummy.md (operative Regel, im Repo versioniert, auto-injiziert)"
-    - "meiki-hub:ADR-020 (Implementierung)"
-    - "risk-hub:ADR-046 (Implementierung)"
-    - "writing-hub:ADR-180 (Implementierung)"
+    - "platform/policies/klickdummy.md (versionierte QUELLE der operativen Regel)"
+    - "~/.claude/policies/klickdummy.md (Injektions-Ziel; via claude-policy aus der Quelle gesynct — NICHT deprecated)"
+    - "meiki-hub:ADR-020 / risk-hub:ADR-046 / writing-hub:ADR-180 (Implementierungen)"
     - "onboard-repo Skill — Adoptionspunkt"
 ---
 
 # ADR-211: Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)
 
-- **Status:** proposed
+- **Status:** proposed *(→ accepted erst wenn Confirmation C1–C6 grün; aktuell 0/6, siehe Baseline)*
 - **Datum:** 2026-05-19
 - **Entscheider:** Achim Dehnert
-- **Verwandt:** ADR-207 (Cross-Repo-Ingest-/Doku-Konvention), risk-hub:ADR-046, writing-hub:ADR-180, meiki-hub:ADR-020
-- **Adversarial reviews:** zwei Cascade-Paßagen (2026-05-19), siehe Frontmatter `review_history` und Followup-Issues `adr-211-followup`
+- **Verwandt:** ADR-207, risk-hub:ADR-046, writing-hub:ADR-180, meiki-hub:ADR-020
+- **Adversarial reviews:** drei Cascade-Pässe (Rev 2/3/4), siehe Frontmatter `review_history`
 
 ## Zusammenfassung
 
 Mehrere Repos bauen „Klickdummies". Der naheliegende Rahmen — „jeder macht
-weiter sein Ding, wir teilen Vokabular" — wäre **keine Entscheidung** (per
-`adr-threshold.md` reichte dafür eine Konvention). Dieses ADR trifft stattdessen
-drei harte, erzwingbare Entscheidungen, weil jede einen realen Schaden verhindert:
+sein Ding, wir teilen Vokabular" — wäre **keine Entscheidung** (per
+`adr-threshold.md` reichte eine Konvention). Dieses ADR trifft drei harte,
+erzwingbare Entscheidungen, weil jede einen realen Schaden verhindert:
 
-1. **Spec-zentriert statt Renderer-zentriert.** Das dauerhafte Artefakt ist die
-   **Anforderungs-Spec**, nicht ihre Darstellung. Ein Klickdummy ist *ein
-   Renderer* dieser Spec; ein Parity-Test ist das **Spec-Konformitäts-Gate**.
-   Das löst die Scheindichotomie „Static vs. echte Templates" auf.
-2. **Mock-Prototyp ≠ Demo-Render — mit hartem Prod-Guard.** Ein Demo-Render der
-   *echten* App (`?demo=<state>`) ist eine **Prod-Sicherheitsfläche**, kein
-   Mockup. Er ist verpflichtend env-gegated und per CI als in Prod
-   nicht-erreichbar nachzuweisen.
-3. **Parity-grün ist die Off-Ramp.** Sobald der Parity-Test für einen Screen
-   grün ist, ist dessen statische Quelle **mechanisch zu entfernen**; Doppel­quelle
-   über eine Release-Grenze hinaus ist CI-Verstoß. Das beendet das reale
-   „Static-Reste bleiben ewig liegen"-Muster.
+1. **Spec-zentriert statt Renderer-zentriert.** Dauerhaftes Artefakt ist die
+   **maschinenlesbare Anforderungs-Spec**, nicht ihre Darstellung. Ein
+   Klickdummy *rendert* sie; ein Parity-Test ist das Konformitäts-Gate.
+2. **Mock-Prototyp ≠ Demo-Render — harter Prod-Guard.** Ein Demo-Render der
+   *echten* App (`?demo=<state>`) ist eine **Prod-Sicherheitsfläche**.
+3. **Parity-grün ist die Off-Ramp.** Parity-grün pro Screen ⇒ statische Quelle
+   mechanisch entfernt — beendet das „Static-Leichen"-Muster.
 
-Implementierungs-Stack bleibt repo-lokal; die **Invarianten** unten sind
-ansatz-offen (auch KI-generierte oder Design-Tool-Prototypen sind zulässig,
-solange sie die Invarianten erfüllen).
+Implementierungs-Stack bleibt repo-lokal; die Invarianten sind ansatz-offen.
 
 ## Kontext
 
-Belegte Ist-Lage (2026-05-19): meiki-hub (manifest-getriebener Single-File-Mock,
-CI-Invariante), writing-hub (`?demo=`-Render echter Django-Templates +
-Parity-Test, ADR-180), risk-hub (Spec-Driven UI Convention, bewusst repo-lokal,
-ADR-046 Rev 2). Drei Formen, kein gemeinsamer „fertig"-Begriff, kein
-Off-Ramp-Trigger. Die Mehrdeutigkeit von „klickdummy"/„ADR-180" über
+Ist-Lage (2026-05-19): meiki-hub (Manifest-Single-File-Mock, CI-Invariante),
+writing-hub (`?demo=`-Render echter Templates + Parity, ADR-180), risk-hub
+(Spec-Driven UI Convention, repo-lokal, ADR-046 Rev 2). Drei Formen, kein
+gemeinsamer „fertig"-Begriff. Die Mehrdeutigkeit „klickdummy"/„ADR-180" über
 Repo-Grenzen verursachte in dieser Session eine konkrete Fehlzuordnung —
-**dieses ADR ist die Drift-Lehre daraus** (Episode `2026-05-19-klickdummy-adr180-collision`;
-zusätzlich als Memory + Policy zu verankern, nicht nur hier erzählt).
+Drift-Episode `2026-05-19-klickdummy-adr180-collision`, **belegt** als
+Drift-Memory (meiki-hub-Auto-Memory, `drift: true`) **und** Followup-Issue
+`adr-211-followup/SF5`, nicht nur hier erzählt (R5).
 
-> **Warum überhaupt ein ADR (Selbsttest gegen `adr-threshold.md`):** Es kehrt
-> den Status quo *repo-autonomer Klickdummy-Proliferation* um, adressiert eine
-> **Sicherheitsfläche** (Demo-Render in Prod) und ist cross-cutting über ≥ 3
-> Repos. Damit erfüllt es drei der Pflicht-Kriterien — es ist eine Entscheidung,
-> keine Ergänzung.
+> **Selbsttest gegen `adr-threshold.md`:** kehrt den Status quo repo-autonomer
+> Klickdummy-Proliferation um, adressiert eine **Sicherheitsfläche**
+> (Demo-Render in Prod), cross-cutting über ≥ 3 Repos → Pflicht-Kriterien
+> erfüllt, echte Entscheidung.
 
 ## Entscheidung — vier Invarianten (ansatz-offen)
 
-Jeder Klickdummy in jedem Repo, unabhängig vom Stack:
-
 | # | Invariante | Erzwingung |
 |---|---|---|
-| **I1 Spec-first** | Es existiert ein **maschinenlesbares**, versioniertes Anforderungs-/Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter). Der Klickdummy *rendert* es, ist nicht selbst die Quelle. Bullet-Listen in Markdown zählen nicht. | Repo-Conformance-Test mit Exit-Code: `make klickdummy-i1` — parst Spec, rendert, diff/assert. Konformitäts-Erklärung wird via CI verifiziert, nicht als Frontmatter-Behauptung akzeptiert. |
-| **I2 Prod-Sicherheit** | **Mock-Prototyp**: keine Echtdaten/-Auth, Systemgrenzen als Target-Mock sichtbar. **Demo-Render**: env-gegated, CI weist Nicht-Erreichbarkeit in Prod nach. | CI-Assertion je Repo; Prod-Smoke „`?demo=` → 404/disabled" |
-| **I3 Lebenszyklus mit Off-Ramp** | Phase A — *ohne Zielsystem*: Klickdummy endet beim dokumentierten Fachabteilungs-Review. "Ende" = ADR-Status → `superseded` oder `accepted-frozen`, Spec versioniert eingefroren, Klickdummy-Pfad nach `klickdummy/archive/`. Phase B — *Transition zu Zielsystem*: Sobald **der erste Screen** der Spec eine Implementierungs-Route bekommt (Django-View / API-Endpoint), startet I3-Pflicht je Screen. Phase C — *mit Zielsystem*: Parity-grün pro Screen ⇒ statische Quelle dieses Screens entfernt; keine Doppelquelle über eine Release-Grenze. | `make klickdummy-i3` — listet Spec-Screens, listet implementierte Routes, listet statische Renders; assert: für jeden Screen mit Implementierungs-Route + grünem Parity-Test ist die statische Quelle abwesend. Release-Grenze = jedes deploy auf staging oder prod (Tag oder Container-Push). |
-| **I4 Namensraum** | Repo-lokales Klickdummy-ADR trägt reserviertes Titel-Präfix; Cross-Repo-Referenzen **nur** qualifiziert als `repo:ADR-NNN`. | Lint im onboard-repo-/ADR-Check |
+| **I1 Spec-first** | Maschinenlesbares, versioniertes Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter); Markdown-Bullets zählen nicht. Klickdummy rendert es, ist nicht die Quelle. | `make -C <repo> klickdummy-i1` (Exit-Code), CI-verifiziert — keine Frontmatter-Behauptung |
+| **I2 Prod-Sicherheit** | Genau eine Klasse je Klickdummy, **explizit deklariert**: **Mock-Prototyp** (kein Backend; Systemgrenzen als Target-Mock) ODER **Demo-Render** (env-gegated; in Prod nicht erreichbar). „Keine Klasse deklariert" ist I2-Verstoß (kein vacuous pass). | repo-definierter Check `make -C <repo> klickdummy-i2`; Plattform prüft nur, **dass** er existiert und Exit 0 liefert (R3 — kein plattformweiter String-Grep) |
+| **I3 Lebenszyklus** | **A ohne Zielsystem:** endet bei dok. Fachabteilungs-Review → ADR `accepted-frozen`/`superseded`, Spec eingefroren, Pfad `klickdummy/archive/`. **B Transition:** ab erstem Screen mit Impl-Route greift I3 je Screen. **C mit Zielsystem:** Parity-grün/Screen ⇒ statische Quelle weg. **Staging ist ausdrücklich erlaubter Doppelquell-Raum** (dort läuft der Parity-Vergleich); verbotene Grenze = **prod-Deploy** (Tag/Container-Push nach prod), nicht staging (R4). | `make -C <repo> klickdummy-i3`: assert für jeden Screen mit Impl-Route + grünem Parity + **prod-Release** ⇒ statische Quelle abwesend |
+| **I4 Namensraum** | Repo-Klickdummy-ADR mit reserviertem Titel-Präfix; Cross-Repo-Refs nur `repo:ADR-NNN`. | `platform/scripts/checks/adr_cross_repo_refs.sh` |
 
-**Auswahlhilfe (illustrativ, nicht abschließend):** Konzept-/Vergabephase ohne
-Backend → Mock-Prototyp (Bsp. meiki-hub ADR-020). App-Repo mit Zielsystem →
-Demo-Render echter Templates + Parity (Bsp. writing-hub ADR-180). UI-Spec als
-primäres Artefakt → Spec-Driven (Bsp. risk-hub ADR-046). Andere Ansätze
-(KI-generiert, Figma-as-Spec) sind zulässig, sofern I1–I4 erfüllt sind.
+**Auswahlhilfe (illustrativ):** Konzeptphase ohne Backend → Mock-Prototyp
+(meiki-hub ADR-020). App-Repo mit Zielsystem → Demo-Render + Parity
+(writing-hub ADR-180). UI-Spec primär → Spec-Driven (risk-hub ADR-046).
+KI-generiert/Figma-as-Spec zulässig, sofern I1–I4 erfüllt.
 
 ### Was repo-lokal bleibt
-
 Tech-Stack, Schema, UI-Bausteine, Teststack. risk-hub ADR-046 behält seine
-bewusste Repo-Lokalität; dieses ADR ersetzt **keine** Implementierungs-ADR,
-sondern fordert nur deren Konformitätserklärung zu I1–I4.
+Repo-Lokalität; dieses ADR ersetzt keine Implementierungs-ADR.
 
-## Enforcement-Pfad (sonst inert)
+## Enforcement-Pfad
 
-Ein ungelesenes ADR ändert nichts. Wirksamkeit ausschließlich über
-**im Repo versionierte** Artefakte (kein User-Home, kein Single-Laptop):
+Quelle und Injektion sind **zwei Schichten** (R1 — Home ist nicht deprecated,
+sondern das Injektionsziel):
 
 1. **Rationale:** dieses ADR.
-2. **Operative Regel:** `platform/policies/klickdummy.md` — im Plattform-Repo
-   versioniert, plattform-gemeinsam, von **jedem** Onboarding-Pfad lesbar.
-   Auto-Injektion via Cascade/Claude-Policy-Loader liest aus dieser Datei,
-   nicht aus `~/.claude/`. Die User-Home-Variante ist explizit deprecated
-   (siehe Followup-Issue `adr-211-followup` SF1).
-3. **Adoptionspunkt:** `onboard-repo`-Skill-Checkliste prüft I1–I4 +
-   ADR-Header + Existenz von `make klickdummy-{i1,i2,i3,i4}` Targets.
-4. **Verifikation:** plattformweiter CI-Check `platform/scripts/checks/klickdummy_registry.sh`:
-   - listet alle Repos mit `klickdummy/`-Pfad aus `registry/repos.yaml`
-   - assert: jedes hat ein ADR mit `conforms_to: ADR-211`
-   - assert: jedes hat `make klickdummy-i1`-Target, der mit Exit 0 endet
-   Exit-Code != 0 ⇒ Plattform-CI rot.
+2. **Quelle (versioniert):** `platform/policies/klickdummy.md` — im Plattform-Repo,
+   reviewbar, single source.
+3. **Injektion (operativ):** `~/.claude/policies/klickdummy.md` wird von der
+   Quelle via `~/.claude/bin/claude-policy` gesynct (derselbe Mechanismus wie
+   `adr-threshold.md`/`llm-routing.md`; UserPromptSubmit-Hook injiziert aus
+   `~/.claude/policies/`). Der Repo-Pfad **ersetzt** die Home-Injektion nicht,
+   er **speist** sie. Sync-Drift Quelle↔Injektion ist selbst ein Check (C6).
+4. **Adoption:** `onboard-repo`-Skill prüft I1–I4 + ADR-Header + `make klickdummy-{i1,i2,i3,i4}`.
+5. **Verifikation:** `platform/scripts/checks/klickdummy_registry.sh` über `registry/repos.yaml`.
+
+## Confirmation (executable Acceptance-Gate)
+
+> **Baseline 2026-05-19: 0/6 grün** — keiner der Checks/Targets/Policies
+> existiert noch (R2). Confirmation ist das **Acceptance-Gate**: `status`
+> bleibt `proposed`, bis C1–C6 grün sind (R6). Jeder offene Punkt ist ein
+> `adr-211-followup`-Issue (SF1–SF6).
+
+```bash
+# C1 Registry-Konformität (SF1)
+platform/scripts/checks/klickdummy_registry.sh
+#   alle Repos mit klickdummy/-Pfad in registry/repos.yaml haben ADR conforms_to: ADR-211
+
+# C2 I1 Spec==Render je Repo (SF2)
+make -C <repo> klickdummy-i1
+
+# C3 I2 Prod-Guard — REPO-definiert, nicht plattform-Grep (SF3)
+make -C <repo> klickdummy-i2
+#   Mock-Prototyp-Repo: assert kein ?demo=-Pfad existiert
+#   Demo-Render-Repo:   Prod-Smoke + Middleware-Unit-Test, ?demo in PROD → 404/disabled
+
+# C4 I3 Off-Ramp, Grenze = prod-Release (SF4)
+make -C <repo> klickdummy-i3
+
+# C5 I4 Cross-Repo-Ref-Format (SF5)
+platform/scripts/checks/adr_cross_repo_refs.sh   # regex ^[a-z][a-z0-9-]+:ADR-\d{3}$
+
+# C6 Policy-Quelle existiert UND ist injiziert (R1 — nicht nur Existenz, SF6)
+test -f platform/policies/klickdummy.md \
+  && diff -q platform/policies/klickdummy.md ~/.claude/policies/klickdummy.md
+#   exit 0 nur wenn Quelle vorhanden UND deckungsgleich gesynct (Injektion belegt)
+```
 
 ## Konsequenzen
 
 **Positiv:** Spec-first beendet Renderer-Wildwuchs; Off-Ramp verhindert
-Static-Leichen; Demo-Render-Prod-Guard schließt eine echte Sicherheitslücke;
-Enforcement nutzt vorhandene Policy-Auto-Injektion statt neuer Bürokratie.
-**Negativ:** Repos brauchen einen Spec==Render-CI-Check (Aufwand einmalig);
-Policy-Datei + Registry-Assertion sind Folgeaufwand.
-**Neutral:** Bestehende Klickdummies funktional unverändert; nur Einordnung +
-Off-Ramp-Pflicht neu.
-
-## Confirmation (executable, nicht Selbstauskunft)
-
-Jeder Punkt unten ist ein konkreter Befehl mit Exit-Code:
-
-```bash
-# C1 Registry-Konformität
-platform/scripts/checks/klickdummy_registry.sh
-# exit 0 ⇒ alle Repos mit `klickdummy/`-Pfad haben ADR mit `conforms_to: ADR-211`
-
-# C2 I1 Spec==Render je Repo
-make -C <repo> klickdummy-i1
-
-# C3 I2 Prod-Guard je Demo-Render-Repo
-curl -fsS "https://<repo>.iil.pet/?demo=foo" | grep -q 'demo mode' && exit 1 || exit 0
-# zusätzlich: Middleware-Unit-Test, der `?demo` in PROD strippt, exit 0
-
-# C4 I3 Dual-Source bei jedem Deploy-Tag
-make -C <repo> klickdummy-i3
-
-# C5 I4 Cross-Repo-Referenz-Format
-platform/scripts/checks/adr_cross_repo_refs.sh
-# parst alle ADRs, assert: cross-repo-refs matchen `^[a-z][a-z0-9-]+:ADR-\d{3}$`
-
-# C6 Policy existiert plattform-versioniert
-test -f platform/policies/klickdummy.md && exit 0 || exit 1
-```
-
-Adversarial-Review-Historie: siehe Frontmatter `review_history`. "Kein
-offener Konflikt" ist **nicht** Confirmation-Kriterium — zukünftige Reviews
-produzieren Followup-Issues, dieses ADR wird nur geändert, wenn ein
-Issue Rev-pflichtig ist.
+Static-Leichen; Demo-Render-Prod-Guard schließt eine Sicherheitslücke;
+Enforcement nutzt den bestehenden, dokumentierten claude-policy-Sync statt
+einen Parallelpfad zu erfinden.
+**Negativ:** je Repo einmaliger Aufwand für `make klickdummy-{i1..i4}`;
+6 Followup-Artefakte (SF1–SF6) sind Voraussetzung für Acceptance.
+**Neutral:** bestehende Klickdummies funktional unverändert.
 
 ## Glossar (lokal)
 
 | Begriff | Definition |
 |---|---|
-| **Anforderungs-Spec** | Versioniertes, **maschinenlesbares** Quell-Artefakt der Anforderung (Manifest/UI-Spec in YAML/JSON/strukturiertem Frontmatter) — das dauerhafte Gut. Markdown-Bullets zählen nicht. |
-| **Klickdummy** | Oberbegriff für einen *Renderer* der Spec zur frühen Validierung |
-| **Mock-Prototyp** | Separater Wegwerf-Renderer ohne Backend (Systemgrenzen als Target-Mock) |
-| **Demo-Render** | Env-gegateter Zustand der *echten* App (`?demo=<state>`) — Prod-Sicherheitsfläche |
-| **Parity-Test** | Test, der Renderer-Zustände gegen die echte Implementierung auf Äquivalenz prüft — das Konformitäts-Gate **und** die Off-Ramp |
-| **Off-Ramp** | Parity-grün ⇒ mechanische Entfernung der statischen Quelle dieses Screens |
+| **Anforderungs-Spec** | Versioniertes, maschinenlesbares Quell-Artefakt (YAML/JSON/Frontmatter); Markdown-Bullets zählen nicht |
+| **Klickdummy** | Oberbegriff: *Renderer* der Spec zur frühen Validierung |
+| **Mock-Prototyp** | Wegwerf-Renderer ohne Backend (Target-Mock-Systemgrenzen) |
+| **Demo-Render** | Env-gegateter Zustand der echten App (`?demo=`) — Prod-Sicherheitsfläche |
+| **Parity-Test** | Renderer↔Implementierung-Äquivalenztest — Gate **und** Off-Ramp |
+| **Off-Ramp** | Parity-grün ⇒ mechanische Entfernung der statischen Quelle (Grenze: prod-Release) |
 
 ## Bezug
 
-- ADR-207 — Cross-Repo-Ingest-/Doku-Konvention (Schwestermuster)
-- risk-hub:ADR-046 · writing-hub:ADR-180 · meiki-hub:ADR-020 (Implementierungen, I1–I4-konform zu erklären)
-- Folge: `platform/policies/klickdummy.md` anlegen (im Repo, nicht in `~/.claude/`); Policy-Loader auf Repo-Pfad umstellen; Drift-Memory `2026-05-19-klickdummy-adr180-collision` als Issue belegen
-- Policy `adr-threshold.md` (Selbsttest oben)
+- ADR-207 — Cross-Repo-Ingest-/Doku-Konvention
+- risk-hub:ADR-046 · writing-hub:ADR-180 · meiki-hub:ADR-020 (Implementierungen)
+- Followups `adr-211-followup` SF1–SF6 (Confirmation-Baseline 0/6)
+- Drift-Memory `2026-05-19-klickdummy-adr180-collision` (meiki-hub-Auto-Memory, `drift: true`)
+- Policy `adr-threshold.md` (Selbsttest)
