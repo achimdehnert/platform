@@ -55,7 +55,7 @@ detected after the fact.
 | Layer   | Host                                | Container Name        | Hostname                            | OIDC                       | Tunnel       |
 |---------|-------------------------------------|-----------------------|-------------------------------------|----------------------------|--------------|
 | LOCAL   | dev-desktop / WSL                   | `{repo}_local_*`      | `localhost:80xx`                    | disabled (Django auth)     | —            |
-| STAGING | `staging-platform` (178.104.184.168)| `{repo}_staging_*`    | `staging-{repo}.iil.pet`            | `{repo}-staging` provider  | bf-staging   |
+| STAGING | `staging-platform` (178.104.184.168)| `{repo}_staging_*`    | `registry.staging.hostnames` (default `staging-{repo}.iil.pet`) | provider == `registry…staging_app_slug` | bf-staging   |
 | PROD    | `ubuntu-8gb-nbg1-1` (88.198.191.108)| `{repo}_*`            | `{repo}.iil.pet` (+ public domains) | `{repo}` provider          | bf-platform  |
 
 ### Binding Rules + cheapest-checks
@@ -66,12 +66,12 @@ A rule without a passing check is a **strategy violation**.
 
 | # | Rule | Check (file in `scripts/checks/`) |
 |---|---|---|
-| R1 | Staging DNS schema is exactly `staging-{repo}.iil.pet` | `staging_dns_schema.sh` — queries CF API, asserts no `*-staging.iil.pet` records exist |
+| R1 | Staging hostname(s) = the repo's `registry.staging.hostnames` (SSoT); default `staging-{repo}.iil.pet` when unspecified, custom/collapsed domains allowed **iff registry-declared** (e.g. `risk-hub` → `staging.schutztat.de`) | `staging_dns_schema.sh` — asserts every CF staging record matches a `registry.staging.hostnames` entry; fails on orphans |
 | R2 | All staging containers run on `staging-platform` only | `staging_host_locality.sh` — SSH all known hosts, fails if `*_staging_*` containers found outside staging-platform |
 | R3 | Staging container naming is `{repo}_staging_{role}` | `staging_naming.sh` — parses `docker ps`, regex-asserts |
 | R4 | Staging port = `19000 + index(repo)` from `repos.yaml` (dedicated range, collision-free) | `staging_port_range.sh` — asserts every staging port ∈ `[19000..19999]` and unique |
 | R5 | bf-staging tunnel ingress is catch-all `https://localhost:443` | `staging_tunnel_ingress.sh` — SSH staging-platform, parses cloudflared config |
-| R6 | Each staging Authentik provider has redirect `https://staging-{repo}.iil.pet/oidc/callback/` | `staging_oidc_redirects.sh` — Authentik API, asserts all `*-staging` providers match |
+| R6 | Each staging Authentik provider redirect == the repo's `registry.staging.oidc.staging_redirect` (SSoT); provider `name` == `registry.staging.oidc.staging_app_slug` exactly | `staging_oidc_redirects.sh` — Authentik API, asserts each `*-staging` provider's redirect == its registry `staging_redirect` |
 | R7 | `docker-compose.staging.yml`, `nginx-staging-vhost.conf`, `.env.staging.example` are byte-identical to renderer output | `staging_generated_drift.sh` — re-renders, diffs, exits 1 on diff |
 | R8 | dev-desktop has no `staging-*.conf` in nginx and no `*_staging_*` containers | `staging_devdesktop_clean.sh` — SSH check |
 
