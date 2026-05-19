@@ -38,15 +38,20 @@ if _OIDC_ENABLED:
         "OIDC_IDP_BASE_URL", default="https://id.iil.pet",
     )
 
-    # App-spezifische OIDC-Endpoints — jeder Hub hat eigenen Application-Slug
-    # Staging uses "{hub}-staging" slug, Production uses "{hub}" slug
+    # authentik OIDC endpoints. Verified against authentik's own discovery
+    # doc (<idp>/application/o/<slug>/.well-known/openid-configuration):
+    # authorize/token/userinfo are GLOBAL (/application/o/...); only jwks
+    # (and end-session) are per-app. Building authorize/token/userinfo
+    # per-app (/application/o/<slug>/authorize/) returns 404 — this broke
+    # cad-hub/nl2cad.de SSO (achimdehnert/cad-hub#10).
+    # Staging vs prod is distinguished by the app slug, not the path.
     _OIDC_APP_SLUG = read_secret("OIDC_APP_SLUG", required=True)
 
-    _IDP = f"{_OIDC_IDP_BASE_URL}/application/o/{_OIDC_APP_SLUG}"
-    OIDC_OP_AUTHORIZATION_ENDPOINT = f"{_IDP}/authorize/"
-    OIDC_OP_TOKEN_ENDPOINT = f"{_IDP}/token/"
-    OIDC_OP_USER_ENDPOINT = f"{_IDP}/userinfo/"
-    OIDC_OP_JWKS_ENDPOINT = f"{_IDP}/jwks/"
+    _OIDC_BASE = f"{_OIDC_IDP_BASE_URL}/application/o"
+    OIDC_OP_AUTHORIZATION_ENDPOINT = f"{_OIDC_BASE}/authorize/"
+    OIDC_OP_TOKEN_ENDPOINT = f"{_OIDC_BASE}/token/"
+    OIDC_OP_USER_ENDPOINT = f"{_OIDC_BASE}/userinfo/"
+    OIDC_OP_JWKS_ENDPOINT = f"{_OIDC_BASE}/{_OIDC_APP_SLUG}/jwks/"
     OIDC_RP_SIGN_ALGO = "RS256"
     OIDC_RP_SCOPES = "openid email profile"
 
