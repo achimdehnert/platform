@@ -27,6 +27,30 @@ domains:
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
+        deploy:
+          server_path: /opt/dev-hub
+          image: ghcr.io/achimdehnert/dev-hub:${IMAGE_TAG:-latest}
+          web_container: devhub_web
+          web_service: devhub-web
+          migrate_cmd: python manage.py migrate --noinput
+          multi_tenant: false
+          port: 8085
+        # ADR-210 — STAGING block (PILOT)
+        staging:
+          server_path: /opt/dev-hub-staging
+          image: ghcr.io/achimdehnert/dev-hub:${IMAGE_TAG:-latest}
+          web_container: dev_hub_staging_web
+          web_service: dev-hub-staging-web
+          migrate_cmd: python manage.py migrate --noinput
+          port: 19002  # ADR-210 R4: dedicated [19000..19999], unique
+          hostnames:
+            - staging-devhub.iil.pet
+        # ADR-210 — OIDC block
+        oidc:
+          prod_app_slug: dev-hub
+          prod_redirect: https://devhub.iil.pet/oidc/callback/
+          staging_app_slug: dev-hub-staging
+          staging_redirect: https://staging-devhub.iil.pet/oidc/callback/
 
       - name: platform
         repo: platform
@@ -139,6 +163,23 @@ domains:
           migrate_cmd: python manage.py migrate --noinput
           multi_tenant: false
           port: 8090
+        # ADR-210 — STAGING block
+        staging:
+          server_path: /opt/risk-hub-staging
+          image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+          web_container: risk_hub_staging_web
+          web_service: risk-hub-staging-web
+          migrate_cmd: python manage.py migrate --noinput
+          port: 19001  # ADR-210 R4: dedicated [19000..19999], unique
+          hostnames:
+            - staging.schutztat.de
+            - staging-riskhub.iil.pet
+        # ADR-210 — OIDC block
+        oidc:
+          prod_app_slug: risk-hub
+          prod_redirect: https://schutztat.com/oidc/callback/
+          staging_app_slug: risk-hub-staging
+          staging_redirect: https://staging.schutztat.de/oidc/callback/
 
       - name: trading-hub
         repo: trading-hub
