@@ -12,6 +12,7 @@ review_history:
   - 2026-05-19: Rev 4 — third adversarial pass — R4 prod-Grenze, R3 repo-definierte Checks, R2 Baseline 0/N, R5 Drift belegt, R6 ADR-Acceptance-Trigger
   - 2026-05-19: Rev 5 — Mechanik-Korrektur: ~/.claude/policies ist SYMLINK in gepinnten platform-Worktree (kein Kopier-Sync); Update nur via platform-PR + Changelog (Quelle: policies/README.md)
   - 2026-05-19: Rev 6 — C1-Geltungsbereich präzisiert (nur registry-Repos; Fremd-Org-Repos via Repo-CI); conforms_to-Feld I4-qualifiziert (platform:ADR-211); SF1-Regex + SF5 (adr_cross_repo_refs.sh) gebaut
+  - 2026-05-19: Rev 7 — C6 auf Script klickdummy_policy_sync.sh umgestellt (Konsistenz mit C1/C5; SKIP-off-machine, --strict); SF6 gebaut
 acceptance_trigger: "status → accepted erst wenn C1–C6 grün (siehe Confirmation); bis dahin proposed"
 domains: [ux, requirements, process, security, drift-prevention]
 supersedes: []
@@ -134,11 +135,11 @@ make -C <repo> klickdummy-i3
 # C5 I4 Cross-Repo-Ref-Format (SF5)
 platform/scripts/checks/adr_cross_repo_refs.sh   # regex ^[a-z][a-z0-9-]+:ADR-\d{3}$
 
-# C6 Policy-Quelle existiert UND gepinnter Worktree nicht stale (SF6)
-test -f platform/policies/klickdummy.md \
-  && diff -q platform/policies/klickdummy.md ~/.claude/policies/klickdummy.md
-#   exit 0 nur wenn Quelle vorhanden UND der gepinnte Worktree (Symlink-Ziel)
-#   den aktuellen Stand zeigt — erkennt 'Policy gemerged, Pinned-Refresh fehlt'
+# C6 Policy-SSoT existiert UND gepinnter Worktree nicht stale (SF6)
+platform/scripts/checks/klickdummy_policy_sync.sh
+#   FAIL wenn SSoT fehlt ODER Injektions-Ziel fehlt/weicht ab (staler Pinned).
+#   SKIP (exit 0) ohne ~/.claude/policies (off-machine CI); --strict ⇒ FAIL.
+#   Erkennt 'Policy gemerged/geändert, Pinned-Refresh fehlt'.
 ```
 
 ## Konsequenzen
