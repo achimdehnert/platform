@@ -1,7 +1,7 @@
 ---
 id: ADR-211
 title: Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)
-status: proposed
+status: accepted
 date: 2026-05-19
 deciders: [achim]
 informed: [all-repos]
@@ -19,7 +19,7 @@ scope:
 
 # ADR-211: Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)
 
-- **Status:** proposed *(→ accepted bei Decider-Ratifizierung des Entscheids; C-Scoreboard gatet den Status NICHT — siehe Acceptance-Trigger)*
+- **Status:** accepted *(2026-05-19, Decider-Ratifizierung des Entscheids I1–I3 + Enforcement-Pfad; Adoption-Scoreboard SF1–SF6 läuft separat und gatet den Status NICHT — siehe Acceptance-Trigger)*
 - **Datum:** 2026-05-19
 - **Entscheider:** Achim Dehnert
 - **Verwandt:** ADR-207, risk-hub:ADR-046, writing-hub:ADR-180, meiki-hub:ADR-020
