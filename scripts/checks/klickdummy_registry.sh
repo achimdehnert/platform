@@ -54,8 +54,9 @@ for repo in "${REPOS[@]}"; do
     continue
   fi
   checked=$((checked+1))
-  # Konformes ADR: irgendein ADR im Repo mit Frontmatter/Body `conforms_to: ADR-211`
-  adr="$(grep -rIl -E '^[[:space:]]*conforms_to:[[:space:]]*ADR-211([^0-9]|$)' \
+  # Konformes ADR: Frontmatter `conforms_to: platform:ADR-211` (I4-qualifiziert;
+  # bare `ADR-211` übergangsweise akzeptiert, vgl. ADR-211 C1 Rev 6).
+  adr="$(grep -rIl -E '^[[:space:]]*conforms_to:[[:space:]]*(platform:)?ADR-211([^0-9]|$)' \
            "$dir" --include='ADR-*.md' 2>/dev/null | head -1 || true)"
   if [[ -n "$adr" ]]; then
     printf '%-22s %-7s %-40s %s\n' "$repo" "ja" "$(basename "$adr")" "OK"

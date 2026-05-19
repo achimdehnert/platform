@@ -11,6 +11,7 @@ review_history:
   - 2026-05-19: Rev 3 — second adversarial pass (commit 47ff4f9) — enforcement in-repo, I1/Confirmation executable
   - 2026-05-19: Rev 4 — third adversarial pass — R4 prod-Grenze, R3 repo-definierte Checks, R2 Baseline 0/N, R5 Drift belegt, R6 ADR-Acceptance-Trigger
   - 2026-05-19: Rev 5 — Mechanik-Korrektur: ~/.claude/policies ist SYMLINK in gepinnten platform-Worktree (kein Kopier-Sync); Update nur via platform-PR + Changelog (Quelle: policies/README.md)
+  - 2026-05-19: Rev 6 — C1-Geltungsbereich präzisiert (nur registry-Repos; Fremd-Org-Repos via Repo-CI); conforms_to-Feld I4-qualifiziert (platform:ADR-211); SF1-Regex + SF5 (adr_cross_repo_refs.sh) gebaut
 acceptance_trigger: "status → accepted erst wenn C1–C6 grün (siehe Confirmation); bis dahin proposed"
 domains: [ux, requirements, process, security, drift-prevention]
 supersedes: []
@@ -73,15 +74,15 @@ Drift-Memory (meiki-hub-Auto-Memory, `drift: true`) **und** Followup-Issue
 | **I1 Spec-first** | Maschinenlesbares, versioniertes Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter); Markdown-Bullets zählen nicht. Klickdummy rendert es, ist nicht die Quelle. | `make -C <repo> klickdummy-i1` (Exit-Code), CI-verifiziert — keine Frontmatter-Behauptung |
 | **I2 Prod-Sicherheit** | Genau eine Klasse je Klickdummy, **explizit deklariert**: **Mock-Prototyp** (kein Backend; Systemgrenzen als Target-Mock) ODER **Demo-Render** (env-gegated; in Prod nicht erreichbar). „Keine Klasse deklariert" ist I2-Verstoß (kein vacuous pass). | repo-definierter Check `make -C <repo> klickdummy-i2`; Plattform prüft nur, **dass** er existiert und Exit 0 liefert (R3 — kein plattformweiter String-Grep) |
 | **I3 Lebenszyklus** | **A ohne Zielsystem:** endet bei dok. Fachabteilungs-Review → ADR `accepted-frozen`/`superseded`, Spec eingefroren, Pfad `klickdummy/archive/`. **B Transition:** ab erstem Screen mit Impl-Route greift I3 je Screen. **C mit Zielsystem:** Parity-grün/Screen ⇒ statische Quelle weg. **Staging ist ausdrücklich erlaubter Doppelquell-Raum** (dort läuft der Parity-Vergleich); verbotene Grenze = **prod-Deploy** (Tag/Container-Push nach prod), nicht staging (R4). | `make -C <repo> klickdummy-i3`: assert für jeden Screen mit Impl-Route + grünem Parity + **prod-Release** ⇒ statische Quelle abwesend |
-| **I4 Namensraum** | Repo-Klickdummy-ADR mit reserviertem Titel-Präfix; Cross-Repo-Refs nur `repo:ADR-NNN`. | `platform/scripts/checks/adr_cross_repo_refs.sh` |
+| **I4 Namensraum** | Repo-Klickdummy-ADR mit reserviertem Titel-Präfix; Cross-Repo-Refs **nur** `repo:ADR-NNN` (inkl. des `conforms_to:`-Feldes → `conforms_to: platform:ADR-211`). | `platform/scripts/checks/adr_cross_repo_refs.sh` |
 
 **Auswahlhilfe (illustrativ):** Konzeptphase ohne Backend → Mock-Prototyp
-(meiki-hub ADR-020). App-Repo mit Zielsystem → Demo-Render + Parity
-(writing-hub ADR-180). UI-Spec primär → Spec-Driven (risk-hub ADR-046).
+(meiki-hub:ADR-020). App-Repo mit Zielsystem → Demo-Render + Parity
+(writing-hub:ADR-180). UI-Spec primär → Spec-Driven (risk-hub:ADR-046).
 KI-generiert/Figma-as-Spec zulässig, sofern I1–I4 erfüllt.
 
 ### Was repo-lokal bleibt
-Tech-Stack, Schema, UI-Bausteine, Teststack. risk-hub ADR-046 behält seine
+Tech-Stack, Schema, UI-Bausteine, Teststack. risk-hub:ADR-046 behält seine
 Repo-Lokalität; dieses ADR ersetzt keine Implementierungs-ADR.
 
 ## Enforcement-Pfad
@@ -112,7 +113,12 @@ Parallelpfads):
 ```bash
 # C1 Registry-Konformität (SF1)
 platform/scripts/checks/klickdummy_registry.sh
-#   alle Repos mit klickdummy/-Pfad in registry/repos.yaml haben ADR conforms_to: ADR-211
+#   GELTUNGSBEREICH: nur in registry/repos.yaml gelistete Repos (= achimdehnert-
+#   Plattform-Repos). Repos anderer Orgs (z. B. meiki-lra:meiki-hub) sind NICHT
+#   im Registry und werden von C1 bewusst NICHT abgedeckt — ihre Konformität
+#   verantwortet die jeweilige Repo-CI + die Implementierungsliste in diesem ADR.
+#   Konformität = Repo-ADR-Frontmatter `conforms_to: platform:ADR-211`
+#   (I4-qualifiziert; bare `ADR-211` wird übergangsweise akzeptiert).
 
 # C2 I1 Spec==Render je Repo (SF2)
 make -C <repo> klickdummy-i1
