@@ -118,6 +118,12 @@ domains:
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
+        # ADR-210 R6 SSoT — staging OIDC (only evidence-backed field; DNS
+        # staging-weltenhub.iil.pet verified resolving, Authentik provider
+        # aligned 2026-05-19). prod_* intentionally omitted (no evidence).
+        oidc:
+          staging_app_slug: weltenhub-staging
+          staging_redirect: https://staging-weltenhub.iil.pet/oidc/callback/
 
       - name: travel-beat
         repo: travel-beat
