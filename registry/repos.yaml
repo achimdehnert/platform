@@ -41,6 +41,7 @@ domains:
           image: ghcr.io/achimdehnert/dev-hub:${IMAGE_TAG:-latest}
           web_container: dev_hub_staging_web
           web_service: dev-hub-staging-web
+          django_settings_module: config.settings.production
           migrate_cmd: python manage.py migrate --noinput
           port: 19002  # ADR-210 R4: dedicated [19000..19999], unique
           hostnames:

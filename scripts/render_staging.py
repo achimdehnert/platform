@@ -142,17 +142,22 @@ def render_env_template(repo_name: str, repo: dict) -> str:
     underscore = repo_name.replace("-", "_")
     return f"""{HEADER.format(repo=repo_name)}
 # --- Django ---
-DJANGO_SETTINGS_MODULE=config.settings
+DJANGO_SETTINGS_MODULE={s.get('django_settings_module', 'config.settings')}
 DEBUG=False
 SECRET_KEY=__REPLACE_ME__
 ALLOWED_HOSTS={','.join(s['hostnames'])}
 CSRF_TRUSTED_ORIGINS={','.join(f'https://{h}' for h in s['hostnames'])}
 
-# --- Database ---
+# --- Database (covers both DATABASE_URL-style and DB_*-style consumers) ---
 POSTGRES_DB={underscore}_staging
 POSTGRES_USER={underscore}
 POSTGRES_PASSWORD=__REPLACE_ME__
 DATABASE_URL=postgres://{underscore}:__REPLACE_ME__@{repo_name}-staging-db:5432/{underscore}_staging
+DB_HOST={repo_name}-staging-db
+DB_PORT=5432
+DB_NAME={underscore}_staging
+DB_USER={underscore}
+DB_PASSWORD=__REPLACE_ME__
 
 # --- Redis / Celery ---
 REDIS_URL=redis://{repo_name}-staging-redis:6379/0
@@ -172,7 +177,7 @@ PUBLIC_URL=https://{primary_host}
 
 def render_nginx_vhost(repo_name: str, repo: dict) -> str:
     s = repo["staging"]
-    primary = f"staging-{repo_name}.iil.pet"
+    primary = s["hostnames"][0]   # cert path follows actual primary hostname (R1)
     server_names = " ".join(s["hostnames"])
     return f"""{HEADER.format(repo=repo_name)}
 # Hostnames: {', '.join(s['hostnames'])}
@@ -189,11 +194,12 @@ server {{
     listen [::]:443 ssl http2;
     server_name {server_names};
 
-    # TLS: certbot --nginx -d {' -d '.join(s['hostnames'])}
-    ssl_certificate     /etc/letsencrypt/live/{primary}/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/{primary}/privkey.pem;
-    include /etc/letsencrypt/options-ssl-nginx.conf;
-    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+    # TLS: single *.iil.pet wildcard cert (acme.sh + Cloudflare DNS-01)
+    # Renewal: ~/.acme.sh/acme.sh auto-cron on staging-platform
+    ssl_certificate     /etc/letsencrypt/wildcard.iil.pet/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/wildcard.iil.pet/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers off;
 
     client_max_body_size 50M;
 
