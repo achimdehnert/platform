@@ -68,13 +68,14 @@ for sc in ("openid", "email", "profile"):
     provider.property_mappings.add(m)
 provider.save()
 
-# Strict redirect URI (idempotent)
-if not any(r.url == redirect for r in provider.redirect_uris):
-    RedirectURI.objects.create(
-        provider=provider,
-        matching_mode=RedirectURIMatchingMode.STRICT,
-        url=redirect,
-    )
+# Strict redirect URI (idempotent).
+# Authentik >=2024.2: redirect_uris is a list[RedirectURI] dataclass field on
+# the provider (no ORM model), persisted via save().
+existing = list(provider.redirect_uris or [])
+if not any(r.url == redirect for r in existing):
+    existing.append(RedirectURI(RedirectURIMatchingMode.STRICT, redirect))
+    provider.redirect_uris = existing
+    provider.save()
 
 app, app_created = Application.objects.get_or_create(
     slug=slug,
@@ -100,7 +101,11 @@ print(
             "client_id": provider.client_id,
             "client_secret": provider.client_secret,
             "redirects": [r.url for r in provider.redirect_uris],
-            "scopes": sorted(m.scope_name for m in provider.property_mappings.all()),
+            "scopes": sorted(
+                ScopeMapping.objects.filter(
+                    pk__in=provider.property_mappings.values_list("pk", flat=True)
+                ).values_list("scope_name", flat=True)
+            ),
             "signing_key": bool(provider.signing_key),
         }
     )
