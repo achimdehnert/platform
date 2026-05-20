@@ -1,0 +1,127 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "meiki:klickdummy-spec-fristenmanagement.schema",
+  "title": "Klickdummy Screens-Spec (App-Deep-Dive)",
+  "description": "I1 Spec-Schema. Konformität wird via `make klickdummy-i1` geprüft (platform:ADR-211).",
+  "type": "object",
+  "required": ["spec_id", "spec_version", "spec_date", "adr", "class", "grounding", "off_ramp", "personas", "screens"],
+  "additionalProperties": true,
+  "properties": {
+    "$schema":       { "type": "string" },
+    "spec_id":       { "type": "string", "pattern": "^[a-z][a-z0-9_-]*:[a-z][a-z0-9_-]*$" },
+    "spec_version":  { "type": "string", "pattern": "^[0-9]+\\.[0-9]+(\\.[0-9]+)?$" },
+    "spec_date":     { "type": "string", "format": "date" },
+    "title":         { "type": "string" },
+
+    "adr": {
+      "type": "object",
+      "required": ["local", "conforms_to"],
+      "properties": {
+        "local":       { "type": "string", "pattern": "^[a-z][a-z0-9_-]*:ADR-[0-9]{3}$" },
+        "conforms_to": { "type": "string", "pattern": "^platform:ADR-[0-9]{3}$" },
+        "sister_of": {
+          "type": "array",
+          "items": { "type": "string", "pattern": "^[a-z][a-z0-9_-]*:ADR-[0-9]{3}$" }
+        }
+      }
+    },
+
+    "class": {
+      "type": "string",
+      "enum": ["mock", "stub-demo", "story", "spec-demo"],
+      "description": "I2 Prod-Sicherheit (platform:ADR-211 Rev 11, 4-Pattern). Genau eine Klasse — kein vacuous pass."
+    },
+    "class_evidence": { "type": "object" },
+
+    "grounding": {
+      "type": "object",
+      "required": ["konzept", "pilot"],
+      "properties": {
+        "konzept":  { "type": "string" },
+        "konzept_id":     { "type": "string" },
+        "konzept_version":{ "type": "string" },
+        "pilot":          { "type": "string" },
+        "rechtsrahmen_kernnormen": { "type": "object" }
+      }
+    },
+
+    "off_ramp": {
+      "type": "object",
+      "required": ["policy", "unit", "rule", "doppelquell_grenze", "parity_runner"],
+      "properties": {
+        "policy":              { "type": "string" },
+        "unit":                { "type": "string", "enum": ["per-screen", "per-feature"] },
+        "rule":                { "type": "string" },
+        "doppelquell_grenze":  { "type": "string", "enum": ["prod-release"] },
+        "staging_doppelquell": { "type": "string", "enum": ["allowed"] },
+        "parity_runner":       { "type": "string" },
+        "product_repo_planned":{ "type": "string" },
+        "status_overall":      { "type": "string" }
+      }
+    },
+
+    "personas": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["label", "rolle", "sieht"],
+        "properties": {
+          "label": { "type": "string" },
+          "rolle": { "type": "string" },
+          "sieht": { "type": "array", "items": { "type": "string" } },
+          "sieht_eingeschraenkt": { "type": "array", "items": { "type": "string" } },
+          "freigaben": { "type": "array", "items": { "type": "string" } }
+        }
+      }
+    },
+
+    "screens": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "title", "personas", "purpose", "parity_acceptance", "off_ramp_status"],
+        "additionalProperties": true,
+        "properties": {
+          "id":        { "type": "string", "pattern": "^[a-z][a-z0-9_-]*$" },
+          "title":     { "type": "string" },
+          "personas":  { "type": "array", "minItems": 1, "items": { "type": "string" } },
+          "purpose":   { "type": "string" },
+          "konzept_ref": { "type": "array", "items": { "type": "string" } },
+          "datafields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["name"],
+              "additionalProperties": true,
+              "properties": {
+                "name":     { "type": "string" },
+                "type":     { "type": "string" },
+                "source":   { "type": "string" },
+                "semantic": { "type": "string" }
+              }
+            }
+          },
+          "target_mocks": { "type": "array", "items": { "type": "string" } },
+          "parity_acceptance": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "object",
+              "required": ["id", "check"],
+              "properties": {
+                "id":    { "type": "string", "pattern": "^[a-z][a-z0-9_.-]*$" },
+                "check": { "type": "string", "minLength": 8 }
+              }
+            }
+          },
+          "off_ramp_status": {
+            "type": "string",
+            "enum": ["static", "parity-staging", "parity-green", "removed"]
+          }
+        }
+      }
+    }
+  }
+}
