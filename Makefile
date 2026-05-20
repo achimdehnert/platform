@@ -133,3 +133,16 @@ logs-dev: ## Letzte Logs vom Dev-Server
 backup-db: ## Datenbank-Backup erstellen
 	@echo "$(BOLD)Datenbank-Backup:$(RESET)"
 	@echo "  (noch nicht implementiert - siehe /backup Workflow)"
+
+# =============================================================================
+# REGISTRY LINTING (ADR-212 Issue #247)
+# =============================================================================
+
+lint-tenancy: ## tenancy_mode Pflicht-Feld in registry/repos.yaml prüfen
+	@python3 infra/scripts/validate_tenancy.py
+
+lint-registry: ## Vollständige Registry-Validierung (ports + tenancy)
+	@python3 infra/scripts/validate_repos.py
+	@python3 infra/scripts/validate_tenancy.py
+
+.PHONY: lint-tenancy lint-registry
