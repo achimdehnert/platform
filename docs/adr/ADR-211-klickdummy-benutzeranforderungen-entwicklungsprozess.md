@@ -575,21 +575,30 @@ Repos (oder zentral, falls Skript-Heimat plattformseitig migriert).
 **Spätestens am `DEADLINE` (2026-08-20) wird `LEGACY = {}` unabhängig vom
 Skript-Output erzwungen** — Inventur ist die freundliche Variante.
 
-**Migrations-Status — aktualisiert nach Cross-Repo-Nachzieh-Runde
-(2026-05-20, post-Merge platform#271). Live-Quelle: S11-Inventur-Skript-
-Output (siehe Code oben):**
+**Migrations-Status — final post-Rev-13 (2026-05-20). Live-Quelle:
+S11-Inventur-Skript-Output (siehe Code oben):**
 
-- meiki-hub:ADR-020 / ADR-021 / ADR-026 — ✅ migriert (meiki-hub#23, alle Frontmatter+Spec+Manifest+Schema+Widget)
-- writing-hub:ADR-180 — ✅ migriert (writing-hub#21, `demo-render` → `spec-demo`; Spec + Schema + 9 HTML-Meta + ADR-Frontmatter + check_i2.py)
-- risk-hub:ADR-046 — ✅ migriert (risk-hub#125, ADR-Frontmatter ergänzt; 0 mock-prototyp/demo-render-Treffer in Body)
-- **pptx-hub** — ✓ N/A (kein `klickdummy/`-Pfad, kein `?demo=`-Render, keine `conforms_to: platform:ADR-211`-Refs ⇒ §Wann-NICHT-Klausel greift)
-- **dev-hub** — ✓ N/A (selber Befund wie pptx-hub)
+| Repo | Class-Migration | Plattform-Heimat-Adoption (Rev 13) | PRs |
+|---|---|---|---|
+| meiki-hub | ✅ migriert | ✅ adoptiert | #21, #23, #24, #25 |
+| writing-hub | ✅ migriert (`demo-render` → `spec-demo`) | ✅ adoptiert | #21, #23, #24 |
+| risk-hub | ✅ migriert (HTML-Files `mock-prototyp` → `mock` in Rev-13-Adoption) | ✅ adoptiert | #125, #126 |
+| ttz-hub | — (Erst-Adoption, kein Legacy) | ✅ adoptiert (Erst-Repo) | #5, #6 |
+| pptx-hub | ✓ N/A (kein `klickdummy/`-Pfad, §Wann-NICHT) | — | — |
+| dev-hub | ✓ N/A (selber Befund) | — | — |
 
 **S11-Inventur (final, 2026-05-20):** 0 echte Drift-Treffer cross-repo;
-verbleibende Refs sind LEGACY-Map, History-Kommentare (`# vorher
-demo-render`) und Compat-Code in `extract_requirements.py` — alle
-beabsichtigt. Soft-Migrate bleibt aktiv bis Hard-Deadline 2026-08-20;
-Strict-Mode (LEGACY={}) als separater Folge-PR.
+verbleibende Refs sind LEGACY-Map, History-Kommentare und Compat-Code —
+alle beabsichtigt. **Strict-Mode (`LEGACY={}`) aktiviert** in meiki-hub
+(#24) und writing-hub (#23). Hard-Deadline 2026-08-20 wurde damit lange
+unterschritten — **F12 endgültig geschlossen** bereits zum 2026-05-20.
+
+**Empirie-Validierung Rev 13 (Acceptance-Trigger erfüllt):**
+
+1. ✅ Decider ratifiziert (PR #274 merged)
+2. ✅ Pilot-Migration meiki-hub erfolgreich (PR #25, ~10 Min) — Mechanik bewährt
+3. ✅ 3 weitere Adoptionen ohne Architektur-Anpassung (writing-hub#24, risk-hub#126, ttz-hub#5)
+4. ⏳ Produktive Stakeholder-Iteration durch A-User-Direct-API — wartet auf ersten realen Submit nach A-Agent-Workflow-Aktivierung
 
 Diese Tabelle kann veralten — bei Diskrepanz mit S11-Skript-Output gilt
 das Skript. Tabelle wird im **nächsten ADR-Rev** auf Live-Quelle umgestellt
