@@ -1,11 +1,18 @@
-# Staging-Ingress-Migration — Klausel 2 → Klausel 3
+# Staging-Ingress-Migration — nginx → Traefik
 
-**ADR-212** legt Traefik als zentralen Ingress (Klausel 3) für alle
-`staging-<slug>.iil.pet`-Hostnames fest. Diese Tabelle trackt den Cutover-Status
-pro Repo.
+**ADR-212** legt Traefik als Routing-**Zielarchitektur** für Klausel-3-Hostnames
+(`staging-<system-slug>.iil.pet`) fest. Diese Tabelle trackt den Cutover-Status
+pro Repo von Per-Repo-nginx auf zentralen Ingress.
 
-- **Klausel 2** = per-Repo-nginx-Config auf `staging-platform` (178.104.184.168)
-- **Klausel 3** = Traefik-Labels in `docker-compose.staging.yml`
+- **Routing aktuell (nginx)** = Per-Repo-nginx-Config auf `staging-platform` (178.104.184.168)
+- **Routing-Ziel (Traefik)** = Traefik-Labels in `docker-compose.staging.yml`
+
+**Hinweis zu Begriffen:** Die Klauseln 1/2/3 aus ADR-212 beschreiben die
+*Hostname-Form* (Domain mit/ohne Subdomain-Tenancy bzw. `*.iil.pet`), **nicht**
+die Routing-Mechanik. Dieser Tracker betrifft nur die Routing-Mechanik der
+Klausel-3-Hostnames. Klausel-1-Repos mit eigener Domain (z. B. risk-hub
+`staging-demo.schutztat.de`) bleiben außerhalb des Traefik-Wildcards und
+behalten Per-Repo-nginx.
 
 Infrastruktur-Voraussetzung: Traefik-Stack läuft auf `staging-platform` ✅
 (Issue #246)
@@ -16,10 +23,11 @@ Infrastruktur-Voraussetzung: Traefik-Stack läuft auf `staging-platform` ✅
 
 | Symbol | Bedeutung |
 |--------|-----------|
-| 🔴 todo | Noch keine Klausel-3-Migration begonnen |
+| 🔴 todo | Cutover auf Traefik nicht begonnen |
 | 🟡 in-progress | Labels vorbereitet / PR offen |
-| ✅ done | Klausel-3-aktiv, nginx-Config entfernt |
-| ⏭ skip | Kein Staging-Traffic, Migration nicht geplant |
+| ✅ done | Traefik-aktiv, nginx-Config entfernt |
+| ⏭ skip | Kein Staging-Traffic, Cutover nicht geplant |
+| n/a | Klausel 1 (eigene Domain) — bleibt nginx, kein Traefik |
 
 ---
 
@@ -33,7 +41,7 @@ Infrastruktur-Voraussetzung: Traefik-Stack läuft auf `staging-platform` ✅
 | billing-hub | `staging-billing.iil.pet` | 🔴 todo | — |
 | coach-hub | `staging-coachhub.iil.pet` | 🔴 todo | — |
 | cad-hub | `staging-cadhub.iil.pet` | 🔴 todo | — |
-| risk-hub | `staging.schutztat.de` | 🔴 todo | — |
+| risk-hub | `staging-demo.schutztat.de` | n/a (Klausel 1, eigene Domain) | — |
 | travel-beat | `staging-travelbeat.iil.pet` | 🔴 todo | — |
 | pptx-hub | `staging-pptxhub.iil.pet` | 🔴 todo | — |
 | research-hub | `staging-researchhub.iil.pet` | 🔴 todo | — |
