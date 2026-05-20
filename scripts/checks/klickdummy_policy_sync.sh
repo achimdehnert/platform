@@ -25,12 +25,10 @@ STRICT=0; [[ "${1:-}" == "--strict" ]] && STRICT=1
 # Working-Tree — sonst ist der Check blind, wenn lokales Repo UND pinned
 # Worktree am selben staleren Stand sind (Drift-Lehre 2026-05-20: S6 grün
 # obwohl origin/main durch #252 vorausgezogen war).
-REMOTE_SRC=""
 REMOTE_FETCH_OK=0
 if git -C "$REPO_ROOT" rev-parse --git-dir >/dev/null 2>&1; then
   if git -C "$REPO_ROOT" fetch --quiet origin main 2>/dev/null; then
     REMOTE_FETCH_OK=1
-    REMOTE_SRC="$(git -C "$REPO_ROOT" show origin/main:policies/klickdummy.md 2>/dev/null || true)"
   fi
 fi
 
@@ -70,8 +68,11 @@ if ! diff -q "$SRC" "$TGT" >/dev/null 2>&1; then
 fi
 
 # 4b) Kanonisch: TGT vs origin/main (sonst Doppel-Stale-Blind-Spot).
+# Direkter Subprocess-Substitution-Vergleich — `$(git show)` würde Trailing-
+# Newline strippen (bash command-substitution) und liefert false-FAIL gegen
+# eine Datei mit Trailing-Newline (Drift-Lehre 2026-05-20).
 if [[ $REMOTE_FETCH_OK -eq 1 ]]; then
-  if ! diff -q <(printf '%s' "$REMOTE_SRC") "$TGT" >/dev/null 2>&1; then
+  if ! diff -q <(git -C "$REPO_ROOT" show origin/main:policies/klickdummy.md) "$TGT" >/dev/null 2>&1; then
     echo "FAIL: Injektions-Ziel weicht von origin/main ab (lokales Repo UND pinned"
     echo "      Worktree sind beide stale — Doppel-Drift)."
     echo "  origin/main:policies/klickdummy.md"

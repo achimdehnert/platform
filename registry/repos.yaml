@@ -22,6 +22,29 @@
 #   demo_fixture  — REQUIRED wenn tenancy_mode == subdomain.
 #                   true: Demo-Org-Migration konfiguriert (iil-demo-fixture angebunden)
 #                   false: noch nicht konfiguriert (Klausel-1-Pflicht offen)
+#
+# KLICKDUMMY FIELDS (added 2026-05-20 — ADR-211 Rev 9 / SF3 Prereq, Issue #255):
+#   klickdummy.class  — REQUIRED wenn das Repo einen `klickdummy/`-Pfad
+#                       oder einen `?demo=`-Render hat. Sonst weglassen.
+#                       Enum: mock-prototype | demo-render
+#                         mock-prototype: kein Backend, Systemgrenzen als
+#                                         Target-Mock (kein `?demo=` in Prod).
+#                                         Beispiel-Kontext: ADR-211 §Kontext —
+#                                         meiki-hub-Stil (Manifest-Single-File).
+#                         demo-render:    env-gegateter Zustand der echten App
+#                                         (`?demo=<state>`). I2 erfordert, dass
+#                                         dieser Pfad in **Prod nicht erreichbar**
+#                                         ist (404/disabled). Wird per
+#                                         `klickdummy_prod_guard.sh` extern
+#                                         adversarial geprüft (SF3, AC: Issue #255).
+#                       „Keine Klasse deklariert" bei Repo mit `klickdummy/`-Pfad =
+#                       I2-Verstoß (kein vacuous pass; ADR-211 Rev 9 I2).
+#   klickdummy.demo_paths  — OPTIONAL, nur für `class: demo-render`. Liste der
+#                       Pfade/States, die der externe Prod-Guard probiert.
+#                       Beispiel: ["/login?demo=anonymous", "/dashboard?demo=trial"]
+#                       Default (wenn weggelassen): nur `/?demo=` an Root.
+#   Diese PR ergänzt **nur die Schema-Spezifikation** — per-Repo-Werte werden
+#   vom Owner pro Repo separat ratifiziert (kein Vorgriff durch den Agent).
 
 domains:
 

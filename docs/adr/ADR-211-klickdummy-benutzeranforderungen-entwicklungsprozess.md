@@ -8,7 +8,7 @@ informed: [all-repos]
 domains: [ux, requirements, process, security, drift-prevention]
 supersedes: []
 amends: []
-depends_on: [ADR-207]
+depends_on: []
 tags: [klickdummy, mockup, requirements-spec, parity-test, prod-guard, convention]
 scope:
   include_paths:
@@ -19,11 +19,11 @@ scope:
 
 # ADR-211: Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)
 
-- **Status:** accepted *(2026-05-19, Decider-Ratifizierung des Entscheids I1–I3 + Enforcement-Pfad; Adoption-Scoreboard SF1–SF6 läuft separat und gatet den Status NICHT — siehe Acceptance-Trigger)*
+- **Status:** accepted *(2026-05-19, Decider-Ratifizierung des Entscheids I1–I4 + Enforcement-Pfad; Adoption-Scoreboard SF1–SF6 läuft separat und gatet den Status NICHT — siehe Acceptance-Trigger)*
 - **Datum:** 2026-05-19
 - **Entscheider:** Achim Dehnert
-- **Verwandt:** ADR-207, risk-hub:ADR-046, writing-hub:ADR-180, meiki-hub:ADR-020
-- **Adversarial reviews:** vier Cascade-Pässe (Rev 2/3/4 + Rev 9 tief), siehe Revisionshistorie
+- **Verwandt:** risk-hub:ADR-046, writing-hub:ADR-180, meiki-hub:ADR-020
+- **Adversarial reviews:** fünf Cascade-Pässe (Rev 2/3/4/9 + Rev 10), siehe Revisionshistorie
 
 ## Zusammenfassung
 
@@ -42,10 +42,10 @@ erzwingbare Entscheidungen, weil jede einen realen Schaden verhindert:
    statische Quelle mechanisch entfernt — beendet das „Static-Leichen"-Muster
    auch im Dauer-Staging.
 
-Die drei Invarianten (I1–I3) entsprechen 1:1 diesen drei Punkten.
-Implementierungs-Stack bleibt repo-lokal; die Invarianten sind ansatz-offen.
-Die generische Cross-Repo-Ref-Konvention (vormals I4) gehört nicht hierher
-und wird nach **ADR-207** ausgelagert (siehe F5/Bezug).
+Die drei *Schaden-Entscheidungen* entsprechen den Invarianten I1–I3; **I4
+(Namensraum)** ergänzt sie als Drift-Schutz für Cross-Repo-Refs.
+Implementierungs-Stack bleibt repo-lokal; alle vier Invarianten sind
+ansatz-offen.
 
 ## Kontext
 
@@ -63,30 +63,29 @@ Drift-Memory (meiki-hub-Auto-Memory, `drift: true`) **und** Followup-Issue
 > (Demo-Render in Prod), cross-cutting über ≥ 3 Repos → Pflicht-Kriterien
 > erfüllt, echte Entscheidung.
 
-## Entscheidung — drei Invarianten (ansatz-offen)
+## Entscheidung — vier Invarianten (ansatz-offen)
 
 | # | Invariante | Erzwingung |
 |---|---|---|
 | **I1 Spec-first** | Maschinenlesbares, versioniertes Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter); Markdown-Bullets zählen nicht. Klickdummy rendert es, ist nicht die Quelle. **Bidirektionale Coverage:** jede Impl-Route hat einen Spec-Eintrag *und* jeder Spec-Eintrag eine Route/Screen — kein einseitiges „Datei existiert & rendert". | `make -C <repo> klickdummy-i1` (Exit-Code), CI-verifiziert — prüft Spec↔Route-Coverage, nicht nur Spec==Render |
 | **I2 Prod-Sicherheit** | Genau eine Klasse je Klickdummy, **explizit deklariert**: **Mock-Prototyp** (kein Backend; Systemgrenzen als Target-Mock) ODER **Demo-Render** (env-gegated; in Prod nicht erreichbar). „Keine Klasse deklariert" ist I2-Verstoß (kein vacuous pass). | **Zwei Schichten:** (a) repo-definierter `make -C <repo> klickdummy-i2` (Selbstaussage); (b) **plattform-externer, repo-unabhängiger Prod-Probe** `klickdummy_prod_guard.sh` gegen die Registry-Prod-URL: `?demo=<state>` live ⇒ 404/disabled. (b) ist das **bindende Cross-Repo-Signal** — die Behauptung wird adversarial extern getestet, nicht dem Repo-Selbstcheck geglaubt (F3) |
 | **I3 Lebenszyklus + TTL** | **A ohne Zielsystem:** endet bei dok. Fachabteilungs-Review → ADR `accepted-frozen`/`superseded`, Spec eingefroren, Pfad `klickdummy/archive/`. **B Transition:** ab erstem Screen mit Impl-Route greift I3 je Screen. **C mit Zielsystem:** Doppelquelle endet bei **`min(prod-Release, Parity-grün + N Tagen)`** (N Default **30 d**, repo-tunbar) — schließt das „ewig auf Staging"-Leck (F4). Staging ist erlaubter Doppelquell-Raum *innerhalb* der TTL. | `make -C <repo> klickdummy-i3`: assert je Screen mit Impl-Route + grünem Parity ⇒ statische Quelle abwesend, sobald prod-Release **oder** Parity-grün-Alter > N |
+| **I4 Namensraum** | Klickdummy-ADRs tragen reserviertes Titel-Präfix; Cross-Repo-Refs **nur** `repo:ADR-NNN` (inkl. `conforms_to: platform:ADR-211`). Drift-Schutz (vgl. Drift-Memory `klickdummy-adr180-collision`). | `platform/scripts/checks/adr_cross_repo_refs.sh` (plattformseitig, kein repo-Make-Target — generischer ADR-Lint) |
 
 **Auswahlhilfe (illustrativ):** Konzeptphase ohne Backend → Mock-Prototyp
 (meiki-hub:ADR-020). App-Repo mit Zielsystem → Demo-Render + Parity
 (writing-hub:ADR-180). UI-Spec primär → Spec-Driven (risk-hub:ADR-046).
-KI-generiert/Figma-as-Spec zulässig, sofern I1–I3 erfüllt.
+KI-generiert/Figma-as-Spec zulässig, sofern I1–I4 erfüllt.
 
 ### Was repo-lokal bleibt
 Tech-Stack, Schema, UI-Bausteine, Teststack. risk-hub:ADR-046 behält seine
 Repo-Lokalität; dieses ADR ersetzt keine Implementierungs-ADR.
 
-### Ausgelagert (nicht mehr Teil dieses ADR)
-**I4 (Cross-Repo-Ref-Format `repo:ADR-NNN`)** war ein Scope-Smell: eine
-generische Doku-Konvention, die alle ADRs aller Repos betrifft, gatete hier
-über `**/docs/adr/ADR-*.md`. Sie gehört in **ADR-207** (Cross-Repo-Ingest-/
-Doku-Konvention, ohnehin `depends_on`). Dorthin verschoben; `scope` dieses
-ADR auf klickdummy-Pfade reduziert. `conforms_to: platform:ADR-211` bleibt
-das Konformitäts-Feld (Format-Regel selbst → ADR-207).
+### Hinweis zu I4-Scope (Rev 10)
+I4 ist hier *klickdummy-skopiert* (Refs in den Klickdummy-ADRs und
+`conforms_to`-Felder). Eine plattformweite Verallgemeinerung des
+Cross-Repo-Ref-Formats wäre ein **eigener** ADR — sie gehört **nicht** in
+ADR-207 (Doku-Strategie/Ingest), wie Rev 9/F5 fälschlich annahm.
 
 ## Enforcement-Pfad
 
@@ -102,7 +101,7 @@ Parallelpfads):
    `inject_policies.py`/`claude-policy` lesen den Symlink unverändert. **Kein
    Kopier-Sync.** Der gepinnte Worktree zieht beim nächsten Refresh nach; das
    Scoreboard-Item S6 erkennt einen *stale gepinnten Worktree*.
-4. **Adoption:** `onboard-repo`-Skill prüft I1–I3 + ADR-Header + `make klickdummy-{i1,i2,i3}`.
+4. **Adoption:** `onboard-repo`-Skill prüft I1–I4 + ADR-Header + `make klickdummy-{i1,i2,i3}` (I4 plattformseitig via Lint, siehe S5).
 5. **Verifikation:** `platform/scripts/checks/klickdummy_registry.sh` über `registry/repos.yaml`.
 
 ## Acceptance-Trigger (F1/F2 — Entscheidung ≠ Rollout)
@@ -113,7 +112,7 @@ einen **Deadlock** (das Acceptance-Gate verlangte die gemergte Policy, deren
 Merge an der Acceptance hing) und einen **mit der Flotte oszillierenden
 Status**. Korrektur:
 
-- **`status: accepted`** ⇔ der *Entscheid* (I1–I3 + Enforcement-Pfad) ist von
+- **`status: accepted`** ⇔ der *Entscheid* (I1–I4 + Enforcement-Pfad) ist von
   den Decidern ratifiziert (Review dieses ADR). Das Mergen von
   `policies/klickdummy.md` ist **Teil des Acceptance-Akts**, keine
   Vorbedingung. Kein zirkulärer Fixpunkt.
@@ -146,7 +145,10 @@ platform/scripts/checks/klickdummy_prod_guard.sh <repo>  # (b) externer Prod-Pro
 # S4 I3 Off-Ramp mit TTL, Grenze = min(prod-Release, Parity-grün + N d) (SF4)
 make -C <repo> klickdummy-i3
 
-# S5 (verschoben) Cross-Repo-Ref-Format → jetzt ADR-207-Scoreboard, nicht hier (F5)
+# S5 I4 Cross-Repo-Ref-Format (Rev 10: zurück in ADR-211; F5 zurückgenommen)
+platform/scripts/checks/adr_cross_repo_refs.sh
+#   Validiert qualifizierte Cross-Repo-Refs (^[a-z][a-z0-9-]+:ADR-[0-9]{3}$).
+#   Klickdummy-skopiert; plattformweite Verallgemeinerung wäre eigener ADR.
 
 # S6 Policy-SSoT existiert UND gepinnter Worktree nicht stale (SF6)
 platform/scripts/checks/klickdummy_policy_sync.sh
@@ -170,8 +172,9 @@ Acceptance-blockierend).
 `deciders:[achim]`, `consulted:[]`. Eine per-Vertrauen nicht erzwingbare
 Sicherheitsregel (Grund für den externen S3b-Probe) mit Bus-Faktor 1 ist
 fragil — **mind. ein `consulted` empfohlen** vor `accepted`.
-**Abhängigkeit (F7):** `depends_on: ADR-207`. Vor `accepted` ADR-207-Status
-prüfen; I4-Auslagerung macht 207 zusätzlich relevant.
+**Abhängigkeit (F7, Rev 10 angepasst):** `depends_on: []` — die in Rev 9
+behauptete Abhängigkeit zu ADR-207 war Konsequenz der Fehl-Auslagerung F5
+(siehe Rev 10). ADR-207 ist Doku-Strategie/Ingest, kein Namensraum-Heim.
 
 ## Glossar (lokal)
 
@@ -187,7 +190,7 @@ prüfen; I4-Auslagerung macht 207 zusätzlich relevant.
 
 ## Acceptance-Trigger
 
-`status` → `accepted`, sobald die Decider den **Entscheid** (I1–I3 +
+`status` → `accepted`, sobald die Decider den **Entscheid** (I1–I4 +
 Enforcement-Pfad) im Review ratifizieren; das Mergen von
 `policies/klickdummy.md` ist Teil dieses Akts. Das Adoption-Scoreboard
 (SF1–SF6) ist **kein** Acceptance-Vorbehalt (Rev-9-Korrektur von F1/F2).
@@ -196,7 +199,7 @@ Properties zu; Acceptance-Logik im Body.)
 
 ## Revisionshistorie
 
-Vier Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
+Fünf Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 
 - **Rev 1** — initial proposal
 - **Rev 2** (bf7c4d6) — Spec-first, Prod-Guard, Parity-Off-Ramp
@@ -206,11 +209,11 @@ Vier Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 6** — C1-Geltungsbereich (nur registry-Repos); `conforms_to` I4-qualifiziert; SF1-Regex + SF5
 - **Rev 7** — C6 auf Script `klickdummy_policy_sync.sh`; SF6
 - **Rev 8** — Frontmatter schema-konform (`review_history`/`acceptance_trigger` in Body; YAML-`date:`-Fix)
-- **Rev 9 (tiefer Adversarial-Pass)** — **F1/F2:** Entscheid ↔ Rollout entkoppelt (löst Acceptance-Deadlock + oszillierenden Status; C1–C6 → status-neutrales Adoption-Scoreboard). **F3:** I2 um plattform-externen, repo-unabhängigen Prod-Probe erweitert (Sicherheitsinvariante cross-repo verifizierbar statt per-Vertrauen). **F4:** I3 Off-Ramp-TTL `min(prod-Release, Parity-grün+N d)` (Dauer-Staging-Leck). **F5:** I4 → ADR-207 ausgelagert, `scope` entschlackt, „vier"→„drei Invarianten" (Konsistenz mit der 3-Punkte-Zusammenfassung). **F6:** I1 bidirektionale Spec↔Route-Coverage statt Format-Existenz. **F7/F8** als offene Punkte dokumentiert (ADR-207-Dep, fehlende `consulted`).
+- **Rev 9 (tiefer Adversarial-Pass)** — **F1/F2:** Entscheid ↔ Rollout entkoppelt (löst Acceptance-Deadlock + oszillierenden Status; C1–C6 → status-neutrales Adoption-Scoreboard). **F3:** I2 um plattform-externen, repo-unabhängigen Prod-Probe erweitert (Sicherheitsinvariante cross-repo verifizierbar statt per-Vertrauen). **F4:** I3 Off-Ramp-TTL `min(prod-Release, Parity-grün+N d)` (Dauer-Staging-Leck). **F5:** I4 → ADR-207 ausgelagert, `scope` entschlackt, „vier"→„drei Invarianten". **F6:** I1 bidirektionale Spec↔Route-Coverage statt Format-Existenz. **F7/F8** als offene Punkte dokumentiert.
+- **Rev 10** — **F5 zurückgenommen:** ADR-207 ist Doku-Strategie/Ingest-Trichter (eine Doku-Wahrheit pro Repo, MD>PDF>docx, inbox-Trichter) — **nicht** Cross-Repo-ADR-Namensraum. Die I4-Auslagerung war thematische Fehl-Zuordnung. **I4 zurück in ADR-211** (klickdummy-skopiert; eine plattformweite Verallgemeinerung wäre ein eigener ADR, nicht ADR-207). `depends_on: []`, „drei"→„vier Invarianten" zurück, ADR-207 aus Verwandt/Bezug entfernt (war nur wegen F5 drin).
 
 ## Bezug
 
-- ADR-207 — Cross-Repo-Ingest-/Doku-Konvention (**neu: Heimat der ausgelagerten Ref-Format-Regel, vormals I4**)
 - risk-hub:ADR-046 · writing-hub:ADR-180 · meiki-hub:ADR-020 (Implementierungen)
 - Followups `adr-211-followup` SF1–SF6 (Adoption-Scoreboard-Baseline 0/6, **nicht status-gatend**)
 - Drift-Memory `2026-05-19-klickdummy-adr180-collision` (meiki-hub-Auto-Memory, `drift: true`)
