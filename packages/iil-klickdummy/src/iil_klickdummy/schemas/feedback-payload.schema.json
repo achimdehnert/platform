@@ -1,0 +1,104 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://raw.githubusercontent.com/achimdehnert/platform/main/packages/iil-klickdummy/src/iil_klickdummy/schemas/feedback-payload.schema.json",
+  "title": "Klickdummy Feedback-Payload (Co-Creation-Loop, platform:ADR-211 Rev 12)",
+  "description": "Was das Widget submittet. Empirie-basiert aus meiki-Iter. 1-6, formalisiert in platform:ADR-214 (Plattform-Heimat).",
+  "type": "object",
+  "required": ["screen", "category", "text", "spec_id", "spec_version", "klickdummy_class", "timestamp"],
+  "additionalProperties": false,
+  "properties": {
+    "screen": {
+      "type": ["string", "null"],
+      "description": "data-screen der aktiven Section zum Zeitpunkt des Submits"
+    },
+    "persona": {
+      "type": ["string", "null"],
+      "description": "Aktive Persona (repo-spezifisch — frei wählbar)"
+    },
+    "verfahren": {
+      "type": ["string", "null"],
+      "description": "Optionaler globaler Verfahrens-Kontext (repo-spezifisch)"
+    },
+    "feedback_scope": {
+      "type": "string",
+      "enum": ["app", "klickdummy-tool"],
+      "default": "app",
+      "description": "App-Feedback vs. Feedback über das Widget selbst (Reflexivität-Trennung per ADR-211 Rev 12 Pflicht 6)"
+    },
+    "category": {
+      "type": "string",
+      "enum": ["bug", "feature", "ux", "spec", "ki"],
+      "description": "Stakeholder-Klassifikation"
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Freitext-Feedback"
+    },
+    "related_screens": {
+      "type": "array",
+      "items": { "type": "string" },
+      "default": [],
+      "description": "Multi-Select-Repro-Anker zu anderen Screens (Widget v0.2)"
+    },
+    "related_actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["label"],
+        "properties": {
+          "label": { "type": "string" },
+          "target": { "type": ["string", "null"] }
+        }
+      },
+      "default": [],
+      "description": "Buttons/Aktionen im aktuellen Screen (Widget v0.3)"
+    },
+    "dom_snapshot": {
+      "type": ["string", "null"],
+      "description": "Section-HTML gekürzt auf 8 KB (Widget v0.3 opt-in)"
+    },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "type", "size"],
+        "properties": {
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "size": { "type": "integer" },
+          "data_url": { "type": ["string", "null"] },
+          "skipped": { "type": ["string", "null"] }
+        }
+      },
+      "default": [],
+      "description": "Datei-Anhänge (max 5x1MB als Base64-DataURL; Widget v0.3)"
+    },
+    "spec_id": {
+      "type": "string",
+      "description": "Pinning auf die Quell-Spec (repo:klickdummy-spec-<name>)"
+    },
+    "spec_version": {
+      "type": "string",
+      "description": "Spec-Version zum Zeitpunkt des Submits"
+    },
+    "klickdummy_class": {
+      "type": "string",
+      "enum": ["mock", "stub-demo", "story", "spec-demo"],
+      "description": "I2-Pattern per ADR-211 Rev 11"
+    },
+    "user_agent": { "type": ["string", "null"] },
+    "viewport": {
+      "type": "object",
+      "properties": {
+        "w": { "type": "integer" },
+        "h": { "type": "integer" }
+      }
+    },
+    "timestamp": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "url": { "type": "string" }
+  }
+}

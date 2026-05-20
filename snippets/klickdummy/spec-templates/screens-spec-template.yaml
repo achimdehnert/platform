@@ -1,0 +1,51 @@
+# =============================================================================
+# Klickdummy Screens-Spec — Template (platform:ADR-214 §E1)
+# Pro platform:ADR-211 Rev 12 4-Pattern.
+#
+# Anweisung: kopieren nach <repo>/<klickdummy-pfad>/screens-spec.yaml,
+# Felder mit ↳ ANPASSEN markieren.
+# =============================================================================
+$schema: https://raw.githubusercontent.com/achimdehnert/platform/main/packages/iil-klickdummy/src/iil_klickdummy/schemas/screens-spec.schema.json
+spec_id: REPO:klickdummy-spec-NAME        # ↳ ANPASSEN — repo:klickdummy-spec-<name>
+spec_version: "0.1"
+spec_date: "YYYY-MM-DD"                   # ↳ ANPASSEN
+title: NAME — App-Deep-Dive Klickdummy   # ↳ ANPASSEN
+
+# ---- I4 ADR-Verankerung ----------------------------------------------------
+adr:
+  local: repo:ADR-NNN                     # ↳ ANPASSEN — repo-lokales Klickdummy-ADR
+  conforms_to: platform:ADR-211
+  sister_of: []                           # optional: repo:ADR-NNN-Refs
+
+# ---- I2 Prod-Sicherheit ----------------------------------------------------
+class: mock                               # ↳ WÄHLEN — mock | stub-demo | story | spec-demo
+class_evidence:
+  # Belege für die Klasse (Strukturkonform mit platform:ADR-211 §Auswahlhilfe)
+  no_backend: true                        # für mock
+  no_demo_param: true                     # für mock
+  target_mocks_visible: true              # für mock
+  systemgrenzen: []                       # generische Adapter-Familien
+
+# ---- I3 Off-Ramp ----------------------------------------------------------
+off_ramp:
+  policy: platform:ADR-211 Static→Echt-Migrationspfad
+  unit: per-screen
+  rule: "Parity-grün pro Screen ⇒ Screen aus statischer Quelle entfernen"
+  doppelquell_grenze: prod-release
+  parity_runner: make klickdummy-i3
+
+# ---- Optional: Co-Creation-Loop (Pfad A — platform:ADR-211 Rev 12 §C) -----
+# feedback_loop:
+#   path: A
+#   enabled_by: "URL-Parameter ?feedback=on (opt-in)"
+#   ...
+
+# ---- Screens ---------------------------------------------------------------
+screens:
+  - id: example                           # ↳ ANPASSEN
+    title: Example Screen
+    purpose: Beispiel-Screen für Klickdummy-Template
+    parity_acceptance:
+      - id: example.first-check
+        check: "Erste Acceptance-Behauptung"
+    off_ramp_status: static

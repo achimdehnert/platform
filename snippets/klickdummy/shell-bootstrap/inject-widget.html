@@ -1,0 +1,20 @@
+<!--
+Klickdummy-Widget-Bootstrap (platform:ADR-214 §E1 Distribution Hybrid).
+Repos includen das in ihre shell.html (oder Build-Inline) — Snippet ist via
+Git-Submodul platform-snippets/ verfügbar.
+
+Voraussetzung im Host:
+  - body[data-screen] oder section.active[data-screen] (Widget findet aktiven Screen)
+  - optional window.toast(msg) (Widget hat Console-Fallback)
+-->
+<script>
+  // Klickdummy-Widget-Konfiguration (vor Widget-Script setzen!)
+  window.KLICKDUMMY_SPEC = {
+    id: "REPO:klickdummy-spec-NAME",        // ← anpassen
+    version: "0.1",                          // ← anpassen
+    klickdummy_class: "mock"                 // ← anpassen (mock|stub-demo|story|spec-demo)
+  };
+  // Endpoint: platform-default ODER repo-Override (für Gov-Workloads wie ttz-hub)
+  window.KLICKDUMMY_FEEDBACK_ENDPOINT = "https://feedback.iil.pet/v1/issues";
+</script>
+<script src="platform-snippets/klickdummy/feedback-widget/widget.js" defer></script>
