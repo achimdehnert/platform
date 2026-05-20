@@ -23,7 +23,7 @@ scope:
 - **Datum:** 2026-05-19
 - **Entscheider:** Achim Dehnert
 - **Verwandt:** risk-hub:ADR-046, writing-hub:ADR-180, meiki-hub:ADR-020, meiki-hub:ADR-026 (Rev 12)
-- **Adversarial reviews:** sechs Cascade-Pässe (Rev 2/3/4/9 + Rev 10 F5-Rollback + Rev 11 #228/#229) + Rev-12-Empiriebasis (meiki-hub PR #23, 7 Iterationen 2026-05-20), siehe Revisionshistorie
+- **Adversarial reviews:** sechs Cascade-Pässe (Rev 2/3/4/9 + Rev 10 F5-Rollback + Rev 11 #228/#229) + Rev-12-Empiriebasis (meiki-hub PR #23, 7 Iterationen 2026-05-20) + Rev-13-Decider-Pivot (ADR-214-Draft als advocatus diabolus zurückgezogen, 4 🔴-Findings), siehe Revisionshistorie
 
 ## Zusammenfassung
 
@@ -233,13 +233,31 @@ Widget bleibt unter `class: mock` ein Mock-Pfad ohne Backend; bei
 `spec-demo` o. ä. greift weiterhin der Prod-Guard). Kein Pflicht-Pattern —
 Repos, die ohne Co-Creation auskommen, müssen nichts implementieren.
 
-**Erlaubte Pfade entlang Vertrauens-Perimeter:**
+**Erlaubte Pfade entlang Vertrauens-Perimeter** (Rev 13 neu strukturiert
+nach Decider-Pivot 2026-05-20: zentraler Endpoint zurückgezogen, da
+0 produktive Iterationen in 7 meiki-Iter. + Coding-Agent existiert nicht):
 
-| Pfad | Was | Status in Rev 12 |
+| Pfad | Was | Status in Rev 13 |
 |---|---|---|
-| **A · Bridge** | Widget → Endpoint → Issue → Coding-Agent → Diff-PR | **Erlaubt + Default.** Auditierbar, kein LLM-Call aus Browser. |
-| **B · Direkt-LLM** | Widget → Endpoint → LLM → Diff-PR | **Erlaubt nach plattformweiter A-Adoption** (mindestens 2 Repos mit Pfad A produktiv) **und** Existenz eines plattformseitigen LLM-Audit-Frameworks (Logging, Rate-Limit, CSRF, Spam-Schutz, Cost-Cap). „Repo-lokale A-Erfahrung" reicht nicht — B ist plattformweite Reife-Stufe. |
-| **C · Browser-LLM** | Widget → LLM mit Code-Schreib-Rechten aus Browser | **Verboten.** Außerhalb des Rahmens dieses ADR. Aktivierung erfordert **neuen ADR** (mit Audit-/Threat-Model). „Nicht umgesetzt" ist ungenügend — der Pfad ist nicht prospektiv-erlaubt. |
+| **A-light** | Widget → Submit-Mode `download` oder `clipboard` → Issue manuell anlegen | **Default.** Offline-fähig, kein GitHub-Token nötig, kein Service-Abhängigkeit. Empirisch validiert durch meiki-Iter. 1-7. |
+| **A-User-Direct** | Widget → Submit-Mode `github` → `POST api.github.com/repos/.../issues` mit **User-PAT** (im `localStorage.klickdummy_github_token`) | **Erlaubt + Default für GitHub-User-Workflows.** Issue-Author = realer User; Rate-Limit/Audit/CSRF GitHub-native (5000 req/h pro Token); kein Service zu betreiben; kein PII-Filter-Risiko (User entscheidet selbst, was committet wird — analog zum normalen Issue-Anlegen). |
+| **A-Agent** *(noch nicht aktiviert)* | Issue mit Label `klickdummy-feedback` → automatischer Coding-Agent → Diff-PR | **Voraussetzung:** GitHub-Action wie `anthropics/claude-code-action` o. ä. **im Ziel-Repo eingerichtet.** Aktuell in **keinem** Repo aktiv. „A-Agent aktiviert" = nachzuweisen per Workflow-Existenz, nicht per Behauptung. |
+| **B · Direkt-LLM** | Widget → LLM direkt | **Verboten** in dieser Rev. Aktivierung erfordert neuen ADR (Audit-/Threat-Model, Cost-Cap). Wäre nicht „Browser → LLM mit Code-Rechten" (das war C in Rev 12), sondern „Browser → Backend → LLM" — also auch ein Service. Wenn Service-Bedarf empirisch belegt ist (S9 zeigt skaliertes Co-Creation), neu evaluieren. |
+| **C · Browser-LLM** | Widget → LLM mit Code-Schreib-Rechten aus Browser | **Verboten.** Wie Rev 12. |
+
+**Pivot-Begründung (Rev 13):** Rev 12 hatte „A · Bridge" als Pfad-A-Default
+mit zentralem Endpoint `feedback.iil.pet` vorgesehen. Decider-Review
+2026-05-20 (4 K-Findings 🔴) verwarf das:
+
+- **K1**: 0 produktive Endpoint-Iterationen — Hypothese, nicht Empirie
+- **K3**: Coding-Agent existiert nicht — Service ohne Konsument
+- **K6/K12**: Service-Wartung amortisiert sich nicht
+- **K10**: Datenschutz-Default falsch herum (4/6 Repos sind sensibel)
+
+**GitHub-Direkt-API ist 2026-Standard** für solche Mini-Tools — Audit/
+Rate-Limit/Auth-Modell sind native. Wenn Skalierung später Service
+erfordert, kann „A-Bridge" als neuer Pfad in Rev 14 mit Empirie ergänzt
+werden — bis dahin nicht gebaut.
 
 **Aktivierungs-Definition** (eindeutig, prüfbar):
 
@@ -251,8 +269,10 @@ Bedingungen erfüllt sind:**
 2. Widget ist in der Klickdummy-Render-Quelle vorhanden UND opt-in
    (Default: aus; z. B. `?feedback=on` oder Build-Flag).
 3. Provenance-Log `feedback-log.md` existiert neben der Spec.
-4. **Pfad-Deklaration**: `feedback_loop.path: A | B` (Pfad C ist verboten,
-   siehe Pfade-Tabelle). Verhindert Vacuous-Pass „aktiviert ohne Pfad".
+4. **Pfad-Deklaration**: `feedback_loop.path: A-light | A-User-Direct | A-Agent`
+   (Rev 13 — Pfade B/C bleiben verboten). Verhindert Vacuous-Pass „aktiviert
+   ohne Pfad". `A-Agent` setzt nachgewiesene Coding-Agent-Workflow-Existenz
+   im Repo voraus.
 5. Repo-lokales Klickdummy-ADR referenziert die Aktivierung — bevorzugt
    `tags: [klickdummy, co-creation]` (analog Requirements-Bridge); Fallback
    Body-Section `## Co-Creation-Loop aktiv (Pfad <A|B>)`.
@@ -410,6 +430,66 @@ behoben).
 CLI-Flags (`--out-dir`, `--no-cleanup`, `--strict-class`). Bis dahin gilt
 die meiki-hub-Implementierung als Referenz; copy-paste-Adoption erlaubt;
 Migration auf Plattform-Heimat innerhalb 30 Tagen nach Bereitstellung.
+
+## §Distribution — Plattform-Heimat (Rev 13)
+
+**Was Rev 12 als „Best-Effort, kein Termin" markierte, ist jetzt konkret.**
+Auslöser: ttz-hub als 6. Klickdummy-Repo + Anspruch *„permanente
+Weiterentwicklung wirkt cross-repo"*.
+
+### Drei Bausteine
+
+| Material | Wo | Wie |
+|---|---|---|
+| **Python-Code** (`check_i1..i4`, `extract_requirements`, `inventory`, `install_snippets`) | `platform/packages/iil-klickdummy/src/iil_klickdummy/` | **pip-Paket** via Git-URL: `pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.0.0#subdirectory=packages/iil-klickdummy"`. Privates PyPI (sobald `pypi.iil.pet` aufgesetzt) ⇒ `pip install "iil-klickdummy>=1.0,<2.0"`. |
+| **JSON-Schemas** + **HTML-Snippets** (Widget v0.5, Issue-Template, Spec-Template, Shell-Bootstrap) | `iil_klickdummy/{schemas,snippets}/` als `package_data` | Mitversendet im pip-Paket. Snippet-Installation pro Repo via Console-Script `klickdummy-install-snippets [--symlink]` nach `<repo>/platform-snippets/klickdummy/`. |
+| **Convention-Pfade** (z. B. `~/.claude/policies/klickdummy.md`) | platform-Worktree | **Symlink** (Bestand aus Rev 5, unverändert). |
+
+**Distributions-Wahl-Begründung (Decider-Pivot 2026-05-20):** Initial-Vorschlag
+„pip + Git-Submodul" wurde verworfen — Submodul auf platform/ würde das
+ganze Repo (hunderte MB) in jeden Klickdummy-Repo ziehen. Sparse-Checkout
+ist fragil. **Reine pip-Lösung mit `package_data` für HTML** ist
+idiomatisches Python (django/flask/pip-tools machen es so).
+
+### Versionierung
+
+semver. Git-Tag `v{X.Y.Z}` auf platform-main. Repos pinnen
+`@vX.Y.Z#subdirectory=...` für reproduzierbare Builds; Major-Bump = ADR-
+Update mit Migrations-Cookbook (analog F12-Soft-Migrate). v1.0.0 enthält
+den Strict-Mode-Stand (Rev 12 + Pfad-A-Pivot 2026-05-20).
+
+### Widget v0.5 — Plugin-Architektur (Rev 13)
+
+Widget verlangt Konfiguration über `window.KLICKDUMMY_*`-Globals:
+
+```js
+window.KLICKDUMMY_SPEC = { id, version, klickdummy_class };
+window.KLICKDUMMY_FEEDBACK_REPO = "owner/repo";
+// optional:
+window.KLICKDUMMY_CATEGORIES = [{value,label}, ...];     // override default 5
+window.KLICKDUMMY_PERSONA_HOOK = () => '<persona>';
+window.KLICKDUMMY_VERFAHREN_HOOK = () => '<verfahren>';
+```
+
+**Plugin-Hooks** machen Repo-Customization möglich ohne Fork — z. B.
+ttz-hub-Categories (`datenschutz-bedenken`), risk-hub-Categories
+(`compliance`), oder repo-spezifische Persona-Auflösung.
+
+### Coding-Agent (Pfad A-Agent, Vorausschau)
+
+Statt zentralem Service: **GitHub-Action pro Repo**, getriggert auf Label
+`klickdummy-feedback`. Workflow-Skelett unter `iil_klickdummy/snippets/`
+(als Rev-13-Folge-PR; v1.0 liefert nur das Issue-Template). Existenz der
+Action ist die Voraussetzung für Pfad-A-Agent-Aktivierung (siehe
+§Co-Creation Aktivierungs-Bedingung 4).
+
+### Eigenständiges ADR — bewusst NICHT
+
+Rev 12 hatte „Plattform-Heimat" als „Best-Effort". Rev 13 macht sie konkret,
+**bleibt aber in ADR-211**, weil Distribution-Mechanik ohne Service-Boundary
+keine neue Architektur-Entscheidung mehr ist (`adr-threshold.md`: „following
+an existing pattern" → kein eigener ADR). Decider-Review 2026-05-20 verwarf
+ADR-214-Draft mit dieser Begründung.
 
 ## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
@@ -575,6 +655,7 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 10** — **F5 zurückgenommen:** ADR-207 ist Doku-Strategie/Ingest-Trichter (eine Doku-Wahrheit pro Repo, MD>PDF>docx, inbox-Trichter) — **nicht** Cross-Repo-ADR-Namensraum. Die I4-Auslagerung war thematische Fehl-Zuordnung. **I4 zurück in ADR-211** (klickdummy-skopiert; eine plattformweite Verallgemeinerung wäre ein eigener ADR, nicht ADR-207). `depends_on: []`, „drei"→„vier Invarianten" zurück, ADR-207 aus Verwandt/Bezug entfernt (war nur wegen F5 drin).
 - **Rev 11 (Bundle #228/#229; orthogonal zu Rev 10)** — **F9 (#229):** I2 von 2 → **4 scharf abgegrenzte Patterns** (`mock`/`stub-demo`/`story`/`spec-demo`) entlang *Datenquelle × Code-Pfad-Identität*. Jedes Pattern erhält eine **distinkte** I2-Externprobe (mock = N/A; sonst je eigene Route/Query). Vermeidet das Theater-Risiko des 4-Pattern-Splits, weil die *Enforcement* je Pattern wirklich anders ist (siehe Glossar/Auswahlhilfe). **F10 (#228):** `sunset_after`-Pflicht-Frontmatter für repo-lokale Klickdummy-ADRs (nicht ADR-211 selbst); Phase-A bekommt damit einen *harten* Termin unabhängig von Parity. Auto-`deprecated` nach Frist, Extension via PR-Review. Enforcement-Script `adr_sunset.sh` als Scoreboard-Item S7; S8 = 4-Pattern-Konformität. I4 bleibt bestehen (Rev 10). **Offene Folge-Punkte:** (F11) `klickdummy_prod_guard.sh` muss pattern-spezifisch verzweigen (Issue #255 SF3-AC vor Bau anpassen); (F12) Migrations-Mapping bestehender Rev-≤10 `Demo-Render`-Repos auf eines der drei Nicht-`mock`-Patterns.
 - **Rev 12 (Empirie-getrieben aus meiki-hub PR #23, 7 Iterationen 2026-05-20)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, kein 5. Invariant, kein eigener ADR-21X. **F12 in Schließung** (§Migration Rev-≤10 → Rev-11) — Soft-Migrate-Pattern mit **Hard-Deadline 2026-08-20** (Rev-11-Datum + 3 Monate) etabliert; vor Deadline ⚠-Warning, ab Deadline FAIL; Strict-Mode-Trigger als Scoreboard-Item S11 (Inventur-Skript ODER Deadline schließt F12). **Zwei optionale Capabilities** als Erweiterung von I1: **§Co-Creation-Loop** (Stakeholder-Feedback aus Klickdummy → Spec, 3 Vertrauens-Pfade A/B/C — meiki-hub:ADR-026 als Referenz) und **§Requirements-Bridge** (Spec → UC/FR/NFR/Lasten/Pflicht, deterministisch + drift-aware, asymmetrisch — Forward auto, Reverse menschlich). Scoreboard erweitert um S9 (Co-Creation-Adoption), S10 (Requirements-Bridge-Adoption), S11 (Strict-Mode-Trigger). **Iteration-Typologie:** *stakeholder-getriggert* (klassisch) + *compliance-getriggert* (Policy-Hook erkennt Drift → dieselbe Pipe — meiki Iter. 7 als Erstanwendung). **Reflexivität dokumentiert** (Widget kann sich über sich selbst weiterentwickeln, meiki Iter. 6). **F11 weiterhin offen** (pattern-spezifischer Prod-Guard — gehört in Issue #255-Umsetzung, nicht ADR-Text).
+- **Rev 13 (Decider-Pivot 2026-05-20 — Plattform-Heimat konkret + Co-Creation-Pfade neu)** — Auslöser: ttz-hub als 6. Klickdummy-Repo + Anspruch *„permanente Weiterentwicklung wirkt cross-repo"*. **Initial ADR-214-Draft (Distribution + Service-Endpoint) wurde nach Decider-Review als advocatus diabolus zurückgezogen** (4 🔴-Findings: K1 0% Empirie für Endpoint, K3 Coding-Agent existiert nicht, K6/K12 Service-Wartung ohne ROI, K10 Datenschutz-Default falsch herum). **Konsequenzen in Rev 13:** (a) **§Distribution** als ADR-211-§ statt ADR-214 (`adr-threshold.md`: ohne Service-Boundary keine neue Architektur-Entscheidung). pip-Paket `iil-klickdummy` v1.0.0 mit Schemas + Skripten + Widget v0.5 als `package_data`; via Git-URL bis privates PyPI aufgesetzt ist. (b) **§Co-Creation Pfade A neu strukturiert:** `A-light` (download/clipboard, empirisch validiert) + `A-User-Direct` (Widget POSTet direkt an `api.github.com` mit User-PAT in localStorage — GitHub-native Audit/Rate-Limit/Auth) + `A-Agent` (GitHub-Action pro Repo, Voraussetzung nachweisbar). „A-Bridge" mit zentralem Endpoint **gestrichen** — wenn Skalierung Service erfordert, neu evaluieren in Rev 14. (c) **Plugin-Architektur im Widget** (`KLICKDUMMY_CATEGORIES`/`PERSONA_HOOK`/`VERFAHREN_HOOK`) — Repo-Customization ohne Fork. (d) **Widget v0.5 = voller meiki-v0.4-Stand** (Action-Liste, DOM-Snapshot, File-Upload, Scope-Selector, Verfahrens-Kontext) — Iterations-Rückschritt bei Adoption vermieden.
 
 ## Bezug
 
