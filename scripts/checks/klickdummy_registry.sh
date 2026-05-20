@@ -37,32 +37,39 @@ PY
 ) || { echo "FATAL: registry/repos.yaml nicht parsebar"; exit 2; }
 
 fail=0 warn=0 checked=0 conform=0
-printf '%-22s %-7s %-40s %s\n' "REPO" "KD?" "KONFORMES ADR (conforms_to: ADR-211)" "STATUS"
-printf '%s\n' "--------------------------------------------------------------------------------------------"
+printf '%-22s %-5s %-34s %-10s %s\n' "REPO" "KD?" "ADR (conforms_to: ADR-211)" "i2-TARGET" "STATUS"
+printf '%s\n' "----------------------------------------------------------------------------------------------"
 
 for repo in "${REPOS[@]}"; do
   dir="$GITHUB_DIR/$repo"
   if [[ ! -d "$dir" ]]; then
-    printf '%-22s %-7s %-40s %s\n' "$repo" "-" "-" "WARN (nicht ausgecheckt)"
+    printf '%-22s %-5s %-34s %-10s %s\n' "$repo" "-" "-" "-" "WARN (nicht ausgecheckt)"
     warn=$((warn+1)); [[ $STRICT -eq 1 ]] && fail=$((fail+1))
     continue
   fi
   # Klickdummy-Verzeichnis (exakt Basename 'klickdummy', .git ausgeschlossen)
   kd="$(find "$dir" -type d -name klickdummy -not -path '*/.git/*' 2>/dev/null | head -1 || true)"
   if [[ -z "$kd" ]]; then
-    printf '%-22s %-7s %-40s %s\n' "$repo" "nein" "n/a" "OK (kein Klickdummy)"
+    printf '%-22s %-5s %-34s %-10s %s\n' "$repo" "nein" "n/a" "n/a" "OK (kein Klickdummy)"
     continue
   fi
   checked=$((checked+1))
-  # Konformes ADR: Frontmatter `conforms_to: platform:ADR-211` (I4-qualifiziert;
+  # (a) Konformes ADR: Frontmatter `conforms_to: platform:ADR-211` (I4-qualifiziert;
   # bare `ADR-211` übergangsweise akzeptiert, vgl. ADR-211 C1 Rev 6).
   adr="$(grep -rIl -E '^[[:space:]]*conforms_to:[[:space:]]*(platform:)?ADR-211([^0-9]|$)' \
            "$dir" --include='ADR-*.md' 2>/dev/null | head -1 || true)"
-  if [[ -n "$adr" ]]; then
-    printf '%-22s %-7s %-40s %s\n' "$repo" "ja" "$(basename "$adr")" "OK"
+  adr_disp="$([[ -n "$adr" ]] && basename "$adr" || echo "— FEHLT —")"
+  # (b) i2-Target im Makefile vorhanden (anti-vacuous-pass plattform-seitig, ADR-211 Rev 9).
+  if [[ -f "$dir/Makefile" ]] && grep -qE '^klickdummy-i2:' "$dir/Makefile"; then
+    i2_disp="ja"
+  else
+    i2_disp="— FEHLT —"
+  fi
+  if [[ -n "$adr" && "$i2_disp" == "ja" ]]; then
+    printf '%-22s %-5s %-34s %-10s %s\n' "$repo" "ja" "$adr_disp" "$i2_disp" "OK"
     conform=$((conform+1))
   else
-    printf '%-22s %-7s %-40s %s\n' "$repo" "ja" "— FEHLT —" "FAIL"
+    printf '%-22s %-5s %-34s %-10s %s\n' "$repo" "ja" "$adr_disp" "$i2_disp" "FAIL"
     fail=$((fail+1))
   fi
 done
@@ -70,10 +77,10 @@ done
 echo
 echo "Klickdummy-Repos: $checked · konform: $conform · Verstöße: $fail · Warnungen: $warn"
 if [[ $fail -gt 0 ]]; then
-  echo "✗ ADR-211 C1 ROT — siehe FAIL-Zeilen. Konformität erklärt ein Repo, indem"
-  echo "  sein Klickdummy-ADR im Frontmatter 'conforms_to: ADR-211' führt"
-  echo "  (meiki-hub:ADR-020, risk-hub:ADR-046, writing-hub:ADR-180)."
+  echo "✗ ADR-211 C1+i2-Existenz ROT — siehe FAIL-Zeilen. Konformität verlangt"
+  echo "  (a) Klickdummy-ADR mit 'conforms_to: platform:ADR-211' und"
+  echo "  (b) 'klickdummy-i2:'-Target im Makefile (anti-vacuous-pass, Rev 9)."
   exit 1
 fi
-echo "✓ ADR-211 C1 GRÜN — alle Klickdummy-Repos konform."
+echo "✓ ADR-211 C1+i2-Existenz GRÜN — alle Klickdummy-Repos konform."
 exit 0

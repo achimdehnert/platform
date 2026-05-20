@@ -64,7 +64,7 @@ Drift-Memory (meiki-hub-Auto-Memory, `drift: true`) **und** Followup-Issue
 | # | Invariante | Erzwingung |
 |---|---|---|
 | **I1 Spec-first** | Maschinenlesbares, versioniertes Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter); Markdown-Bullets zählen nicht. Klickdummy rendert es, ist nicht die Quelle. | `make -C <repo> klickdummy-i1` (Exit-Code), CI-verifiziert — keine Frontmatter-Behauptung |
-| **I2 Prod-Sicherheit** | Genau eine Klasse je Klickdummy, **explizit deklariert**: **Mock-Prototyp** (kein Backend; Systemgrenzen als Target-Mock) ODER **Demo-Render** (env-gegated; in Prod nicht erreichbar). „Keine Klasse deklariert" ist I2-Verstoß (kein vacuous pass). | repo-definierter Check `make -C <repo> klickdummy-i2`; Plattform prüft nur, **dass** er existiert und Exit 0 liefert (R3 — kein plattformweiter String-Grep) |
+| **I2 Prod-Sicherheit** | Genau eine Klasse je Klickdummy, **explizit deklariert**: **Mock-Prototyp** (kein Backend; Systemgrenzen als Target-Mock) ODER **Demo-Render** (env-gegated; in Prod nicht erreichbar). „Keine Klasse deklariert" ist I2-Verstoß (kein vacuous pass). **Kanonische Token (Rev 9):** `klickdummy_class: mock-prototyp` oder `klickdummy_class: demo-render` im Klickdummy-Spec/Manifest-Root (alternativ `class:` für neue Specs). Token bewusst gemischtsprachig — `mock-prototyp` (de) und `demo-render` (en, wegen `?demo=`-Konsistenz). | repo-definierter Check `make -C <repo> klickdummy-i2`; Plattform prüft nur, **dass** das Target existiert und Exit 0 liefert (R3 — kein plattformweiter String-Grep) |
 | **I3 Lebenszyklus** | **A ohne Zielsystem:** endet bei dok. Fachabteilungs-Review → ADR `accepted-frozen`/`superseded`, Spec eingefroren, Pfad `klickdummy/archive/`. **B Transition:** ab erstem Screen mit Impl-Route greift I3 je Screen. **C mit Zielsystem:** Parity-grün/Screen ⇒ statische Quelle weg. **Staging ist ausdrücklich erlaubter Doppelquell-Raum** (dort läuft der Parity-Vergleich); verbotene Grenze = **prod-Deploy** (Tag/Container-Push nach prod), nicht staging (R4). | `make -C <repo> klickdummy-i3`: assert für jeden Screen mit Impl-Route + grünem Parity + **prod-Release** ⇒ statische Quelle abwesend |
 | **I4 Namensraum** | Repo-Klickdummy-ADR mit reserviertem Titel-Präfix; Cross-Repo-Refs **nur** `repo:ADR-NNN` (inkl. des `conforms_to:`-Feldes → `conforms_to: platform:ADR-211`). | `platform/scripts/checks/adr_cross_repo_refs.sh` |
 
@@ -173,6 +173,7 @@ Drei Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 6** — C1-Geltungsbereich präzisiert (nur registry-Repos); `conforms_to` I4-qualifiziert; SF1-Regex + SF5
 - **Rev 7** — C6 auf Script `klickdummy_policy_sync.sh` umgestellt; SF6
 - **Rev 8** — Frontmatter schema-konform: `review_history`/`acceptance_trigger` aus Frontmatter in den Body verschoben (iil-adrfw `validate` lehnt Additional Properties ab; vorher zudem YAML-ScannerError durch `date:`-Mapping-Fehlinterpretation)
+- **Rev 9** — Wahl-B kanonisiert: `klickdummy_class` lebt im Klickdummy-Spec/Manifest-Root (kanonische Token `mock-prototyp` / `demo-render`); SF1 prüft zusätzlich Existenz des `make klickdummy-i2`-Targets (anti-vacuous-pass plattformseitig verstärkt). Auslöser: meiki-hub-WIP hat klickdummy_class bereits in `module-manifest.json` umgesetzt + 4 generische `scripts/klickdummy/check_iN.py`-Skripte gebaut
 
 ## Bezug
 
