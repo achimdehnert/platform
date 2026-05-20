@@ -1,0 +1,30 @@
+name: Registry Lint
+
+on:
+  push:
+    paths:
+      - "registry/repos.yaml"
+      - "infra/scripts/validate_tenancy.py"
+      - "infra/scripts/validate_repos.py"
+  pull_request:
+    paths:
+      - "registry/repos.yaml"
+      - "infra/scripts/validate_tenancy.py"
+      - "infra/scripts/validate_repos.py"
+
+jobs:
+  tenancy-lint:
+    name: tenancy_mode Pflicht-Feld (ADR-212 Issue #247)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Validate tenancy_mode
+        run: python3 infra/scripts/validate_tenancy.py

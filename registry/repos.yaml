@@ -11,6 +11,17 @@
 #   deploy.migrate_cmd   — correct Django migrate command
 #   deploy.multi_tenant  — true if django-tenants is used
 #   deploy.port          — host port mapped to container
+#
+# TENANCY FIELDS (added 2026-05-20 — ADR-212 Offene Punkte #1, Issue #247):
+#   tenancy_mode  — REQUIRED. Enum: subdomain | path | header | jwt_claim | none
+#                   subdomain: Tenant via Subdomain (SubdomainTenantMiddleware / django-tenants)
+#                   path:      Tenant via URL-Pfad (/<tenant>/…)
+#                   header:    Tenant via HTTP-Header (z.B. X-API-Key → tenant_id)
+#                   jwt_claim: Tenant aus JWT-Claim
+#                   none:      kein Tenant-Konzept
+#   demo_fixture  — REQUIRED wenn tenancy_mode == subdomain.
+#                   true: Demo-Org-Migration konfiguriert (iil-demo-fixture angebunden)
+#                   false: noch nicht konfiguriert (Klausel-1-Pflicht offen)
 
 domains:
 
@@ -24,9 +35,35 @@ domains:
         url: https://devhub.iil.pet
         type: django
         lifecycle: production
+        tenancy_mode: none  # single-tenant portal, no subdomain/path tenancy
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
+        deploy:
+          server_path: /opt/dev-hub
+          image: ghcr.io/achimdehnert/dev-hub:${IMAGE_TAG:-latest}
+          web_container: devhub_web
+          web_service: devhub-web
+          migrate_cmd: python manage.py migrate --noinput
+          multi_tenant: false
+          port: 8085
+        # ADR-210 — STAGING block (PILOT)
+        staging:
+          server_path: /opt/dev-hub-staging
+          image: ghcr.io/achimdehnert/dev-hub:${IMAGE_TAG:-latest}
+          web_container: dev_hub_staging_web
+          web_service: dev-hub-staging-web
+          django_settings_module: config.settings.production
+          migrate_cmd: python manage.py migrate --noinput
+          port: 19002  # ADR-210 R4: dedicated [19000..19999], unique
+          hostnames:
+            - staging-devhub.iil.pet
+        # ADR-210 — OIDC block
+        oidc:
+          prod_app_slug: dev-hub
+          prod_redirect: https://devhub.iil.pet/oidc/callback/
+          staging_app_slug: dev-hub-staging
+          staging_redirect: https://staging-devhub.iil.pet/oidc/callback/
 
       - name: platform
         repo: platform
@@ -35,6 +72,7 @@ domains:
         deployed: false
         type: library
         lifecycle: production
+        tenancy_mode: none  # library/tooling, no runtime tenancy
         coverage_threshold: 80
 
       - name: mcp-hub
@@ -44,6 +82,7 @@ domains:
         deployed: true
         type: python
         lifecycle: production
+        tenancy_mode: none  # MCP servers, per-user auth via MCP protocol
         coverage_threshold: 80
 
   - name: Content & Publishing
@@ -56,6 +95,7 @@ domains:
         url: https://bfagent.iil.pet
         type: django
         lifecycle: production
+        tenancy_mode: none  # single-user per-login, no tenant isolation
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
@@ -76,6 +116,7 @@ domains:
         url: https://pptx-hub.iil.pet
         type: django
         lifecycle: experimental
+        tenancy_mode: none  # single-tenant per user, no org-level isolation
         dockerfile: docker/app/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
@@ -90,9 +131,16 @@ domains:
         url: https://weltenforger.com
         type: django
         lifecycle: production
+        tenancy_mode: none  # single-universe, user-level auth only
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
+        # ADR-210 R6 SSoT — staging OIDC (only evidence-backed field; DNS
+        # staging-weltenhub.iil.pet verified resolving, Authentik provider
+        # aligned 2026-05-19). prod_* intentionally omitted (no evidence).
+        oidc:
+          staging_app_slug: weltenhub-staging
+          staging_redirect: https://staging-weltenhub.iil.pet/oidc/callback/
 
       - name: travel-beat
         repo: travel-beat
@@ -102,6 +150,8 @@ domains:
         url: https://drifttales.app
         type: django
         lifecycle: production
+        tenancy_mode: subdomain  # django-tenants (migrate_schemas --tenant); verified via SubdomainTenantMiddleware
+        demo_fixture: false  # Klausel-1-Pflicht offen — iil-demo-fixture nicht angebunden (Issue #248)
         dockerfile: docker/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
@@ -128,6 +178,8 @@ domains:
         url: https://demo.schutztat.de
         type: django
         lifecycle: production
+        tenancy_mode: subdomain  # SubdomainTenantMiddleware; verified via *.staging.schutztat.de nginx-config (ADR-198 §1.4)
+        demo_fixture: false  # Klausel-1-Pflicht offen — iil-demo-fixture nicht angebunden (Issue #248)
         dockerfile: docker/app/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
@@ -139,6 +191,23 @@ domains:
           migrate_cmd: python manage.py migrate --noinput
           multi_tenant: false
           port: 8090
+        # ADR-210 — STAGING block
+        staging:
+          server_path: /opt/risk-hub-staging
+          image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+          web_container: risk_hub_staging_web
+          web_service: risk-hub-staging-web
+          migrate_cmd: python manage.py migrate --noinput
+          port: 19001  # ADR-210 R4: dedicated [19000..19999], unique
+          hostnames:
+            - staging.schutztat.de
+            - staging-riskhub.iil.pet
+        # ADR-210 — OIDC block
+        oidc:
+          prod_app_slug: risk-hub
+          prod_redirect: https://schutztat.com/oidc/callback/
+          staging_app_slug: risk-hub-staging
+          staging_redirect: https://staging.schutztat.de/oidc/callback/
 
       - name: trading-hub
         repo: trading-hub
@@ -147,6 +216,7 @@ domains:
         deployed: true
         type: django
         lifecycle: experimental
+        tenancy_mode: none  # single-user analysis tool
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
@@ -158,6 +228,7 @@ domains:
         deployed: true
         type: other
         lifecycle: experimental
+        tenancy_mode: none  # Odoo manages tenancy internally via its own DB-per-company model
         coverage_threshold: 0
 
   - name: Engineering & Construction
@@ -170,6 +241,7 @@ domains:
         url: https://nl2cad.de
         type: django
         lifecycle: production
+        tenancy_mode: none  # single-org deployment, multi_tenant: false
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
@@ -189,6 +261,7 @@ domains:
         deployed: false
         type: library
         lifecycle: active
+        tenancy_mode: none  # library, no runtime tenancy
         coverage_threshold: 80
 
   - name: Analytics & Data
@@ -201,6 +274,7 @@ domains:
         url: https://bahn.iil.pet
         type: fastapi
         lifecycle: active
+        tenancy_mode: header  # X-API-Key header → tenant_id mapping (verified: core/auth.py get_tenant_id)
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
@@ -222,6 +296,7 @@ domains:
         deployed: true
         type: django
         lifecycle: experimental
+        tenancy_mode: none  # single-event/single-user planning tool
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
@@ -234,6 +309,7 @@ domains:
         url: https://137herz.de
         type: django
         lifecycle: production
+        tenancy_mode: none  # community platform, multi_tenant: false
         dockerfile: docker/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 80
