@@ -211,10 +211,11 @@ platform/scripts/checks/adr_sunset.sh
 #     Pro Repo: ja/nein. Wenn ja, muss `make klickdummy-requirements-drift`
 #     in CI laufen (re-extract + git diff --exit-code).
 
-# S11 Soft-Migrate → Strict-Mode-Trigger (Rev 12, schließt F12)
+# S11 Soft-Migrate → Strict-Mode-Trigger (Rev 12)
 #     Plattform-Cross-Repo-Inventur (Skript siehe §Migration). Sobald 0 Repos
-#     'mock-prototyp'/'demo-render' verwenden: Strict-Mode in check_i2.py
-#     überall aktivieren (LEGACY={}).
+#     'mock-prototyp'/'demo-render' verwenden ODER Hard-Deadline 2026-08-20
+#     erreicht: Strict-Mode in check_i2.py überall aktivieren (LEGACY={}).
+#     S11-Erfüllung schließt F12.
 ```
 
 ## §Co-Creation-Loop (optional, Rev 12)
@@ -232,52 +233,116 @@ Widget bleibt unter `class: mock` ein Mock-Pfad ohne Backend; bei
 `spec-demo` o. ä. greift weiterhin der Prod-Guard). Kein Pflicht-Pattern —
 Repos, die ohne Co-Creation auskommen, müssen nichts implementieren.
 
-**Drei Pfade entlang Vertrauens-Perimeter** (in Reife-Reihenfolge):
+**Erlaubte Pfade entlang Vertrauens-Perimeter:**
 
-| Pfad | Was | Wann |
+| Pfad | Was | Status in Rev 12 |
 |---|---|---|
-| **A · Bridge** | Widget → Endpoint → Issue → Coding-Agent → Diff-PR | Default. Auditierbar, kein LLM-Call aus Browser. |
-| **B · Direkt-LLM** | Widget → Endpoint → LLM → Diff-PR | Erst nach Adoption von A; CSRF-/Spam-/Rate-Limit-Modell nötig. |
-| **C · Browser-LLM** | Widget → LLM mit Code-Schreib-Rechten | Hier explizit **nicht** umgesetzt. Kein belastbares Audit-Modell. |
+| **A · Bridge** | Widget → Endpoint → Issue → Coding-Agent → Diff-PR | **Erlaubt + Default.** Auditierbar, kein LLM-Call aus Browser. |
+| **B · Direkt-LLM** | Widget → Endpoint → LLM → Diff-PR | **Erlaubt nach plattformweiter A-Adoption** (mindestens 2 Repos mit Pfad A produktiv) **und** Existenz eines plattformseitigen LLM-Audit-Frameworks (Logging, Rate-Limit, CSRF, Spam-Schutz, Cost-Cap). „Repo-lokale A-Erfahrung" reicht nicht — B ist plattformweite Reife-Stufe. |
+| **C · Browser-LLM** | Widget → LLM mit Code-Schreib-Rechten aus Browser | **Verboten.** Außerhalb des Rahmens dieses ADR. Aktivierung erfordert **neuen ADR** (mit Audit-/Threat-Model). „Nicht umgesetzt" ist ungenügend — der Pfad ist nicht prospektiv-erlaubt. |
+
+**Aktivierungs-Definition** (eindeutig, prüfbar):
+
+Ein Repo gilt als „Co-Creation-Loop aktiviert" **genau dann, wenn alle drei
+Bedingungen erfüllt sind:**
+
+1. Spec enthält Block `feedback_loop:` mit deklariertem Payload-Schema und
+   mindestens einem aktivierten Submit-Mode.
+2. Widget ist in der Klickdummy-Render-Quelle vorhanden UND opt-in
+   (Default: aus; z. B. `?feedback=on` oder Build-Flag).
+3. Provenance-Log `feedback-log.md` existiert neben der Spec.
+4. **Pfad-Deklaration**: `feedback_loop.path: A | B` (Pfad C ist verboten,
+   siehe Pfade-Tabelle). Verhindert Vacuous-Pass „aktiviert ohne Pfad".
+5. Repo-lokales Klickdummy-ADR referenziert die Aktivierung — bevorzugt
+   `tags: [klickdummy, co-creation]` (analog Requirements-Bridge); Fallback
+   Body-Section `## Co-Creation-Loop aktiv (Pfad <A|B>)`.
+
+Bei Erfüllung ⇒ Scoreboard S9 = ja. Bei nur 1–4 erfüllt = „in Arbeit",
+nicht aktiviert.
 
 **Pflichten bei Aktivierung:**
 
 1. **Spec-Block `feedback_loop:`** dokumentiert Capability, Payload-Schema,
-   aktivierte Submit-Modi, Endpoint-Contract.
-2. **Provenance-Log** (`feedback-log.md` neben der Spec) — jeder
-   umgesetzte Vorschlag mit Quellverweis ins Archiv. Macht Auto-Iterationen
-   nachvollziehbar.
+   aktivierte Submit-Modi, Endpoint-Contract (per Aktivierungs-Bedingung 1).
+2. **Provenance-Log** (`feedback-log.md` neben der Spec, per Bedingung 3) —
+   jeder umgesetzte Vorschlag mit Quellverweis ins Archiv. Macht Auto-
+   Iterationen nachvollziehbar.
 3. **Issue-Template** mit Label `klickdummy-feedback` (Pfad A).
-4. **Inbox-Disziplin** falls Download-Submit verwendet wird: jeder Datei-
-   Drop verlässt eine Inbox vor Session-Ende (destillieren / archivieren).
+4. **Inbox-Konvention** falls Download-Submit verwendet wird: das Repo
+   **deklariert** in seinem lokalen Klickdummy-ADR oder im Provenance-Log,
+   wo die Inbox liegt UND wann sie geleert wird. Default: Session-Ende.
+   Generisch, repo-spezifisch konkretisierbar (kein Hard-Coding auf
+   meiki-Doku-Strategie).
 5. **Klassen-Erhalt** — die Aktivierung darf die `class`-Deklaration nicht
-   verändern. Beweis: bei `mock` bleibt `class_evidence.no_backend: true`
-   gültig; ein optionaler Endpoint ist nicht Teil des Render-Code-Pfads.
+   verändern. Konkret je Pattern:
+   - **`mock`:** Klickdummy-Codebasis (incl. Widget) ist nicht in
+     Prod-Deploy. Der Feedback-Endpoint ist ein **separater Dienst** (nicht
+     Teil des Klickdummy-Code-Pfads); seine Existenz in Prod ist erlaubt,
+     solange er keinen Code-Pfad zurück in den Klickdummy schafft.
+     `class_evidence.no_backend: true` bleibt gültig (gemeint ist das
+     Klickdummy-Backend, nicht der externe Endpoint).
+   - **`stub-demo`:** Widget liegt **hinter** der Demo-Route; I2-Externprobe
+     `Demo-Route 404` bleibt gültig (Widget ist nicht über andere Route
+     erreichbar).
+   - **`story`:** Widget liegt **innerhalb** der Catalog-Route (z. B.
+     Storybook-Addon); I2-Externprobe `Catalog-Route 404` bleibt gültig.
+   - **`spec-demo`:** Widget ist hinter `?feedback=on`-Sub-Flag, das
+     **selbst hinter** dem `?demo=`-Guard liegt; I2-Externprobe
+     `?demo= 404/disabled` impliziert `?feedback= 404/disabled`.
+6. **Feedback-Scope-Trennung** (aus Reflexivität abgeleitet, normativ):
+   wenn das Widget für Feedback **über sich selbst** genutzt werden soll,
+   MUSS das Payload-Schema ein Feld `feedback_scope: app | klickdummy-tool`
+   führen — sonst kreuzt sich Tool-Drift mit App-Drift im selben
+   Provenance-Log.
+7. **Self-Trigger-Review-Pflicht:** *compliance-getriggerte* Iterationen
+   (Spec-Update aus Policy-Hook oder Coding-Agent-Drift-Erkennung, ohne
+   menschlichen Stakeholder als Quelle) MÜSSEN einen PR mit **mindestens
+   einem menschlichen Approver** durchlaufen — kein Auto-Merge, auch nicht
+   wenn CI grün ist. Schutz vor Cascading-Failures bei fehlerhaften
+   Policies oder fehl-erkennenden Agents.
+   *Empirie-Hinweis:* meiki Iter. 7 (compliance-getriggerte Migration)
+   erfolgte ad-hoc auf explizite User-Autorisierung („autonom bis
+   fehlerfrei") — dies entspricht der Pflicht 7 (menschlicher Approver
+   per Autorisierung). Ab Rev 12 ist die Autorisierung pro PR explizit
+   einzuholen, nicht implizit-rollierend.
 
-**Lessons aus meiki-Empirie (PR #23, 7 Iterationen in 1 h 2026-05-20):**
+**Beobachtungen aus meiki-Empirie (PR #23, 7 Iterationen in 1 h 2026-05-20 —
+single-case, Generalisierung steht aus):**
 
-- **Velocity-Vorteil belegbar**: 6 stakeholder-getriggerte Iterationen in
-  46 Min — verkürzt die Erfassungsschleife dramatisch.
+- **Velocity-Indikator (single-case)**: 6 stakeholder-getriggerte
+  Iterationen in 46 Min — verkürzt die Erfassungsschleife dramatisch.
+  **Belegbarkeit erst nach 2–3 weiteren Cross-Repo-Aktivierungen** (S9-
+  Tracking macht das messbar).
 - **Single-Threading-Risiko**: ohne Endpoint+Agent (Pfad A vollständig) ist
   die Verarbeitungsschleife (Spec → Render → Commit) Flaschenhals. Pfad A
-  ist dann nur *light* (Download → Inbox → Mensch).
-- **Reflexivität**: das Widget kann sich über sich selbst weiterentwickeln
-  (meiki Iter. 6: „neuer Scope-Selector im Widget" wurde im Widget
-  gefordert + umgesetzt). Trennt App-Feedback von Tool-Feedback explizit
-  (Spec-Feld `feedback_scope: app | klickdummy-tool`).
-- **Iteration-Typologie erweitert**: neben *stakeholder-getriggert* gibt es
+  ist dann nur *light* (Download → Inbox → Mensch). **Konsequenz für die
+  Adoption**: Pfad A erst dann „aktiviert" laut S9, wenn Endpoint+Agent
+  laufen — nicht schon bei Widget+Download.
+- **Iteration-Typologie**: neben *stakeholder-getriggert* gibt es
   *compliance-getriggert* (Policy-Hook erkennt Drift → Spec-Update läuft
-  durch dieselbe Pipe). Damit wird der Klickdummy lebender Anker auch für
-  Regel-getriebene Anforderungen.
+  durch dieselbe Pipe). Beide MÜSSEN ein Provenance-Log-Eintrag erzeugen,
+  Letztere zusätzlich PR-Review (Pflicht 7).
+- **Reflexivität** (meiki Iter. 6: „Widget verbessert sich selbst über
+  Feedback aus sich selbst"): normative Konsequenz in Pflicht 6
+  (`feedback_scope`-Trennung), nicht nur Erzählung.
 
 **Referenz-Implementierung:** `meiki-hub:ADR-026` (proposed) +
 `docs/01-architektur/mockups/fristenmanagement-klickdummy/` (Widget-Code,
 Spec-Block, Issue-Template, Provenance-Log).
 
-**Plattform-Heimat** (geplant, nicht Voraussetzung dieses ADR-Rev):
+**Plattform-Heimat** (Best-Effort, kein Termin in diesem ADR — Repos dürfen
+*sofort* anfangen):
+
 - `platform/snippets/klickdummy-feedback-widget.html` (CSS+HTML+JS-Snippet)
 - `platform/schemas/feedback-payload.schema.json`
 - `platform/scripts/feedback-bridge.py` (Endpoint, Pfad A)
+
+**Bis diese Plattform-Heimat existiert** gilt die *erstbauende
+Implementierung* (meiki-hub) als Referenz; andere Repos dürfen
+copy-paste-adoptieren. Sobald Plattform-Heimat steht, wandern alle Kopien
+binnen 30 Tagen dorthin (Symlink/Submodule). **Verbindlich wird die
+Plattform-Heimat erst durch ein separates Adoption-ADR** — diese Rev 12
+schafft die *Konvention*, nicht das *Werkzeug*.
 
 ## §Requirements-Bridge (optional, Rev 12)
 
@@ -299,15 +364,37 @@ behauptet das nicht.
 als Make-Target `klickdummy-requirements-drift`. CI rot bei stiller
 Divergenz.
 
+**Aktivierungs-Definition** (eindeutig, prüfbar):
+
+Ein Repo gilt als „Requirements-Bridge aktiviert" **genau dann, wenn alle
+drei Bedingungen erfüllt sind:**
+
+1. Generierte Artefakte unter `requirements/` sind committed UND tragen
+   `source_spec`-Frontmatter (Rückverweis auf die Spec).
+2. `make klickdummy-requirements-drift` existiert UND ist Teil des
+   Repo-CI-Workflows (z. B. unter `klickdummy: …`-Aggregat-Target).
+3. Repo-lokales Klickdummy-ADR referenziert die Aktivierung. Bevorzugt:
+   `tags: [klickdummy, requirements-bridge]` in der Frontmatter (maschinen-
+   lesbar für Cross-Repo-Inventur). Fallback: Body-Section mit Header
+   `## Requirements-Bridge aktiv` (für ADR-Formate ohne Tags-Konvention).
+
+Bei Erfüllung ⇒ Scoreboard S10 = ja. Bei nur 1–2 erfüllt = „in Arbeit",
+nicht aktiviert.
+
 **Pflichten bei Aktivierung:**
 
-1. Skript-Aufruf in CI als Drift-Check.
+1. CI-Drift-Gate aktiv (per Aktivierungs-Bedingung 2): re-extract +
+   `git diff --exit-code` auf jedem PR. Verhindert stille Divergenz.
 2. Alle generierten Artefakte tragen `status: draft|skeleton` im
    Frontmatter — sie sind **Skelette, keine fertigen Dokumente**.
 3. Manuell zu ergänzende NFR-Klassen werden explizit als Block in `nfr.md`
    stehen gelassen (Performance / Verfügbarkeit / Datenschutz / Audit /
    Barrierefreiheit / I18n) — die Brücke generiert nur, was die Spec
    hergibt.
+
+*Hinweis:* Pflicht 1 deckt die „Re-Extract bei jedem Spec-PR"-Sorge
+implizit ab — bei Spec-Änderung ohne Re-Extract wird das Drift-Gate rot.
+Eine separate Pflicht wäre Doppel-Mandat.
 
 **Skript-Cleanup-Konvention (aus meiki-Erfahrung):** Vor dem Schreiben
 werden veraltete `UC-*.md` im Zielordner gelöscht. Sonst lässt eine
@@ -318,30 +405,54 @@ behoben).
 **Referenz-Implementierung:** `meiki-hub:scripts/klickdummy/extract_requirements.py`
 (~280 LOC, eine Quelle wahr, deterministisch, drift-aware).
 
-**Plattform-Heimat** (geplant): `platform/scripts/klickdummy/extract_requirements.py`
-als shared Tool mit CLI-Flags (`--out-dir`, `--no-cleanup`, `--strict-class`).
+**Plattform-Heimat** (Best-Effort, kein Termin):
+`platform/scripts/klickdummy/extract_requirements.py` als shared Tool mit
+CLI-Flags (`--out-dir`, `--no-cleanup`, `--strict-class`). Bis dahin gilt
+die meiki-hub-Implementierung als Referenz; copy-paste-Adoption erlaubt;
+Migration auf Plattform-Heimat innerhalb 30 Tagen nach Bereitstellung.
 
-## §Migration Rev-≤10 → Rev-11 (Rev 12, schließt F12)
+## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
 **Problem (F12 aus Rev 11):** Repos mit `class: mock-prototyp` (Rev ≤10)
 müssen auf Rev-11 4-Pattern (`mock`) umstellen. Ein Hard-Cutover bricht
 alle Schwester-Repos gleichzeitig.
 
-**Pattern (aus meiki-hub Iter. 7, 2026-05-20):** *Soft-Migrate* —
-plattformseitig und repo-seitig zweistufig:
+**Pattern (aus meiki-hub Iter. 7, 2026-05-20):** *Soft-Migrate mit
+Hard-Deadline* — plattformseitig und repo-seitig zweistufig, aber **mit
+verbindlicher Frist**:
 
 ```python
 # scripts/klickdummy/check_i2.py — übergangsweise:
-ALLOWED = {"mock", "stub-demo", "story", "spec-demo"}
-LEGACY  = {"mock-prototyp": "mock", "demo-render": "spec-demo"}
-# Bei Match in LEGACY: ⚠-Warning + Mapping-Hinweis; KEIN FAIL.
-# Strict-Mode (LEGACY = {}) wird aktiviert, sobald alle Repos migriert sind.
+ALLOWED  = {"mock", "stub-demo", "story", "spec-demo"}
+LEGACY   = {
+    "mock-prototyp": "mock",          # eindeutig, sicheres Auto-Mapping
+    "demo-render":   "spec-demo",     # Default-Hinweis im Warning, NICHT
+                                      # verbindliche Migration — Repo wählt
+                                      # per Rev-11-Auswahlhilfe zwischen
+                                      # stub-demo | story | spec-demo.
+}
+DEADLINE = "2026-08-20"   # = Rev-11-Datum + 3 Monate (Rev-12-Entscheid)
+# Vor DEADLINE: bei Match in LEGACY ⇒ ⚠-Warning + Mapping-Hinweis, KEIN FAIL.
+# Ab  DEADLINE: bei Match in LEGACY ⇒ FAIL (CI rot), unabhängig von S11.
+# Strict-Mode (LEGACY = {}) wird durch S11-Inventur-Skript früher aktiviert,
+# sobald Cross-Repo-Inventur 0 Treffer zeigt. Deadline ist die obere Grenze.
 ```
+
+**Warum Hard-Deadline:** Ohne sie ist Soft-Migrate eine F4-Klasse-Schwäche
+(„ewig auf Staging"-Äquivalent für Class-Migration). Ein einzelnes
+nicht-migriertes Repo könnte den Trigger ewig blockieren. Die Deadline
+zwingt zur Migration unabhängig von Cross-Repo-Adoption.
 
 **Migrations-Schritte je Repo** (~15 Min, mechanisch):
 
 1. `screens-spec.yaml` (oder Äquivalent): `class: mock-prototyp` → `class: mock`
-   (entsprechend `demo-render` → `spec-demo`).
+   (Rev-10-Begriff `Mock-Prototyp` mappt eindeutig auf `mock`).
+   `demo-render` ist **kein** Auto-Mapping — Repo entscheidet per
+   §Auswahlhilfe Rev 11 (Datenquelle × Code-Pfad-Identität), ob das
+   bisherige Demo-Render-Pattern `stub-demo`, `story` oder `spec-demo`
+   ist. Soft-Migrate-`LEGACY`-Map enthält `demo-render → spec-demo` nur
+   als Default-Hinweis im Warning-Output, **nicht** als verbindliche
+   Migration.
 2. `module-manifest.json` (falls vorhanden): `klickdummy_class:` analog.
 3. JSON-Schemata: `enum`-Listen auf 4-Pattern.
 4. Frontend-Payloads (z. B. Widget): `klickdummy_class: 'mock'`.
@@ -354,19 +465,47 @@ LEGACY  = {"mock-prototyp": "mock", "demo-render": "spec-demo"}
 7. Provenance-Eintrag (falls feedback-log.md geführt wird): „Compliance-
    getriggerte Iteration" dokumentieren.
 
-**Strict-Mode-Trigger (Scoreboard-Item S11):**
+**Strict-Mode-Trigger (Scoreboard-Item S11)** — Bootstrap-Implementation
+(als Teil dieses ADR-Rev mitgeliefert, nicht zirkulär referenziert):
 
 ```bash
+#!/usr/bin/env bash
 # platform/scripts/checks/klickdummy_legacy_class_inventory.sh
-# Cross-Repo-Scan auf 'mock-prototyp'/'demo-render'. Exit 0 wenn keine
-# Treffer ⇒ LEGACY={} in check_i2.py setzen (separate PR), Closes-F12.
+# Cross-Repo-Inventur: meldet 'mock-prototyp' / 'demo-render' in
+# screens-spec.yaml, module-manifest.json, ADR-Frontmatter, Widget-Code.
+# Exit 0 wenn 0 Treffer; Exit 1 sonst (+ Liste Repos+Pfade auf stdout).
+set -euo pipefail
+REPOS_BASE="${REPOS_BASE:-$HOME/github}"
+PATTERNS='mock-prototyp|demo-render'
+FOUND=0
+for repo in meiki-hub writing-hub risk-hub pptx-hub dev-hub; do
+  d="$REPOS_BASE/$repo"
+  [[ -d "$d" ]] || continue
+  matches=$(grep -rEn --include='*.yaml' --include='*.yml' --include='*.json' \
+            --include='*.md' --include='*.html' "$PATTERNS" "$d" 2>/dev/null || true)
+  if [[ -n "$matches" ]]; then
+    echo "=== $repo ==="; echo "$matches"; FOUND=1
+  fi
+done
+exit $FOUND
 ```
 
-**Status (Rev 12, 2026-05-20):**
-- meiki-hub:ADR-020 / ADR-021 / ADR-026 — ✅ migriert (PR #23 Commit `3a1468a`)
+Sobald Exit 0: separater PR setzt `LEGACY = {}` in `check_i2.py` jedes
+Repos (oder zentral, falls Skript-Heimat plattformseitig migriert).
+**Spätestens am `DEADLINE` (2026-08-20) wird `LEGACY = {}` unabhängig vom
+Skript-Output erzwungen** — Inventur ist die freundliche Variante.
+
+**Migrations-Status — Snapshot beim Schreiben dieses Rev (2026-05-20).
+Live-Quelle: S11-Inventur-Skript-Output (siehe Code oben):**
+
+- meiki-hub:ADR-020 / ADR-021 / ADR-026 — ✅ migriert (meiki-hub#23)
 - writing-hub:ADR-180 — ⏳ noch zu migrieren
 - risk-hub:ADR-046 — ⏳ noch zu migrieren
 - pptx-hub / dev-hub — ⏳ noch zu migrieren
+
+Diese Tabelle kann veralten — bei Diskrepanz mit S11-Skript-Output gilt
+das Skript. Tabelle wird im **nächsten ADR-Rev** auf Live-Quelle umgestellt
+(z. B. GitHub-Project oder generierter Block aus Skript).
 
 ## Konsequenzen
 
@@ -427,7 +566,7 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 9 (tiefer Adversarial-Pass)** — **F1/F2:** Entscheid ↔ Rollout entkoppelt (löst Acceptance-Deadlock + oszillierenden Status; C1–C6 → status-neutrales Adoption-Scoreboard). **F3:** I2 um plattform-externen, repo-unabhängigen Prod-Probe erweitert (Sicherheitsinvariante cross-repo verifizierbar statt per-Vertrauen). **F4:** I3 Off-Ramp-TTL `min(prod-Release, Parity-grün+N d)` (Dauer-Staging-Leck). **F5:** I4 → ADR-207 ausgelagert, `scope` entschlackt, „vier"→„drei Invarianten". **F6:** I1 bidirektionale Spec↔Route-Coverage statt Format-Existenz. **F7/F8** als offene Punkte dokumentiert.
 - **Rev 10** — **F5 zurückgenommen:** ADR-207 ist Doku-Strategie/Ingest-Trichter (eine Doku-Wahrheit pro Repo, MD>PDF>docx, inbox-Trichter) — **nicht** Cross-Repo-ADR-Namensraum. Die I4-Auslagerung war thematische Fehl-Zuordnung. **I4 zurück in ADR-211** (klickdummy-skopiert; eine plattformweite Verallgemeinerung wäre ein eigener ADR, nicht ADR-207). `depends_on: []`, „drei"→„vier Invarianten" zurück, ADR-207 aus Verwandt/Bezug entfernt (war nur wegen F5 drin).
 - **Rev 11 (Bundle #228/#229; orthogonal zu Rev 10)** — **F9 (#229):** I2 von 2 → **4 scharf abgegrenzte Patterns** (`mock`/`stub-demo`/`story`/`spec-demo`) entlang *Datenquelle × Code-Pfad-Identität*. Jedes Pattern erhält eine **distinkte** I2-Externprobe (mock = N/A; sonst je eigene Route/Query). Vermeidet das Theater-Risiko des 4-Pattern-Splits, weil die *Enforcement* je Pattern wirklich anders ist (siehe Glossar/Auswahlhilfe). **F10 (#228):** `sunset_after`-Pflicht-Frontmatter für repo-lokale Klickdummy-ADRs (nicht ADR-211 selbst); Phase-A bekommt damit einen *harten* Termin unabhängig von Parity. Auto-`deprecated` nach Frist, Extension via PR-Review. Enforcement-Script `adr_sunset.sh` als Scoreboard-Item S7; S8 = 4-Pattern-Konformität. I4 bleibt bestehen (Rev 10). **Offene Folge-Punkte:** (F11) `klickdummy_prod_guard.sh` muss pattern-spezifisch verzweigen (Issue #255 SF3-AC vor Bau anpassen); (F12) Migrations-Mapping bestehender Rev-≤10 `Demo-Render`-Repos auf eines der drei Nicht-`mock`-Patterns.
-- **Rev 12 (Empirie-getrieben aus meiki-hub PR #23, 7 Iterationen 2026-05-20)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, kein 5. Invariant, kein eigener ADR-21X. **F12 geschlossen** (§Migration Rev-≤10 → Rev-11) — Soft-Migrate-Pattern (Plattform-`check_i2.py` mit `LEGACY`-Map, ⚠-Warning statt FAIL) verhindert Schwester-Repo-Bruch beim Cutover; Strict-Mode-Trigger als Scoreboard-Item S11. **Zwei optionale Capabilities** als Erweiterung von I1: **§Co-Creation-Loop** (Stakeholder-Feedback aus Klickdummy → Spec, 3 Vertrauens-Pfade A/B/C — meiki-hub:ADR-026 als Referenz) und **§Requirements-Bridge** (Spec → UC/FR/NFR/Lasten/Pflicht, deterministisch + drift-aware, asymmetrisch — Forward auto, Reverse menschlich). Scoreboard erweitert um S9 (Co-Creation-Adoption), S10 (Requirements-Bridge-Adoption), S11 (Strict-Mode-Trigger). **Iteration-Typologie:** *stakeholder-getriggert* (klassisch) + *compliance-getriggert* (Policy-Hook erkennt Drift → dieselbe Pipe — meiki Iter. 7 als Erstanwendung). **Reflexivität dokumentiert** (Widget kann sich über sich selbst weiterentwickeln, meiki Iter. 6). **F11 weiterhin offen** (pattern-spezifischer Prod-Guard — gehört in Issue #255-Umsetzung, nicht ADR-Text).
+- **Rev 12 (Empirie-getrieben aus meiki-hub PR #23, 7 Iterationen 2026-05-20)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, kein 5. Invariant, kein eigener ADR-21X. **F12 in Schließung** (§Migration Rev-≤10 → Rev-11) — Soft-Migrate-Pattern mit **Hard-Deadline 2026-08-20** (Rev-11-Datum + 3 Monate) etabliert; vor Deadline ⚠-Warning, ab Deadline FAIL; Strict-Mode-Trigger als Scoreboard-Item S11 (Inventur-Skript ODER Deadline schließt F12). **Zwei optionale Capabilities** als Erweiterung von I1: **§Co-Creation-Loop** (Stakeholder-Feedback aus Klickdummy → Spec, 3 Vertrauens-Pfade A/B/C — meiki-hub:ADR-026 als Referenz) und **§Requirements-Bridge** (Spec → UC/FR/NFR/Lasten/Pflicht, deterministisch + drift-aware, asymmetrisch — Forward auto, Reverse menschlich). Scoreboard erweitert um S9 (Co-Creation-Adoption), S10 (Requirements-Bridge-Adoption), S11 (Strict-Mode-Trigger). **Iteration-Typologie:** *stakeholder-getriggert* (klassisch) + *compliance-getriggert* (Policy-Hook erkennt Drift → dieselbe Pipe — meiki Iter. 7 als Erstanwendung). **Reflexivität dokumentiert** (Widget kann sich über sich selbst weiterentwickeln, meiki Iter. 6). **F11 weiterhin offen** (pattern-spezifischer Prod-Guard — gehört in Issue #255-Umsetzung, nicht ADR-Text).
 
 ## Bezug
 
