@@ -6,37 +6,55 @@
 
 Ein Klickdummy ist ein **Renderer einer maschinenlesbaren Anforderungs-Spec**
 zur frühen Validierung — nicht selbst die Quelle und kein Produktionscode.
-Volle Begründung + Acceptance-Gate: `platform/docs/adr/ADR-211`.
+Volle Begründung: `platform/docs/adr/ADR-211` (Rev 9, `status: accepted`).
 
-## Vier Invarianten (jeder Klickdummy, jedes Repo, ansatz-offen)
+## Drei Invarianten (jeder Klickdummy, jedes Repo, ansatz-offen)
 
-- **I1 Spec-first** — versioniertes, maschinenlesbares Spec-Artefakt
-  (YAML/JSON/strukturiertes Frontmatter); Markdown-Bullets zählen nicht.
-  Konformität via `make -C <repo> klickdummy-i1` (Exit-Code), CI-verifiziert.
-- **I2 Prod-Sicherheit** — genau **eine** Klasse explizit deklarieren:
-  *Mock-Prototyp* (kein Backend, Systemgrenzen als Target-Mock) ODER
-  *Demo-Render* (env-gegated, in Prod nicht erreichbar). Keine Klasse
-  deklariert = Verstoß (kein vacuous pass). Check ist **repo-definiert**
-  (`make klickdummy-i2`), kein plattformweiter String-Grep.
-- **I3 Off-Ramp** — Parity-grün pro Screen ⇒ statische Quelle entfernt.
-  Verbotene Doppelquell-Grenze = **prod-Release**; Staging ist erlaubter
-  Doppelquell-Raum (dort läuft der Parity-Vergleich).
-- **I4 Namensraum** — Cross-Repo-Referenzen **nur** als `repo:ADR-NNN`.
-  Unqualifiziertes „ADR-NNN"/„klickdummy" ist repo-mehrdeutig → erst Repo
-  verifizieren (Drift-Lehre 2026-05-19).
+- **I1 Spec-first (bidirektionale Coverage)** — versioniertes,
+  maschinenlesbares Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter);
+  Markdown-Bullets zählen nicht. `klickdummy-i1` asserts **Spec ↔ Route
+  Coverage**: jede Impl-Route hat einen Spec-Eintrag *und* jeder Spec-Eintrag
+  eine Route/Screen — kein „Datei existiert & rendert".
+- **I2 Prod-Sicherheit (zwei Schichten, plattform-extern bindend)** — genau
+  **eine** Klasse explizit deklarieren: *Mock-Prototyp* (kein Backend,
+  Systemgrenzen als Target-Mock) ODER *Demo-Render* (env-gegated, in Prod
+  nicht erreichbar). „Keine Klasse deklariert" ist Verstoß (kein vacuous
+  pass). Verifikation:
+  (a) repo-definierter `make -C <repo> klickdummy-i2` (Selbstaussage);
+  (b) **plattform-externer Prod-Probe** `klickdummy_prod_guard.sh` gegen die
+  Registry-Prod-URL: `?demo=<state>` live ⇒ **404/disabled erwartet**.
+  **(b) ist das bindende Cross-Repo-Signal** — Behauptung wird adversarial
+  extern getestet, nicht dem Repo-Selbstcheck geglaubt.
+- **I3 Off-Ramp mit TTL** — Parity-grün pro Screen ⇒ statische Quelle
+  entfernt, sobald **`min(prod-Release, Parity-grün + N Tagen)`** eintritt
+  (N Default **30 d**, repo-tunbar). Staging ist erlaubter Doppelquell-Raum
+  *innerhalb* der TTL — verhindert das „Static-Leichen im Dauer-Staging"-Leck.
+
+> **Verschoben (nicht mehr hier):** das Cross-Repo-Ref-Format
+> `repo:ADR-NNN` (vormals „I4") gehört in **`ADR-207`**
+> (Cross-Repo-Ingest-/Doku-Konvention) — generische ADR-Hygiene, kein
+> klickdummy-spezifischer Belang.
 
 ## Wann gilt das
 
 Sobald ein Repo einen `klickdummy/`-Pfad oder einen `?demo=`-Render hat. Das
-Repo braucht ein lokales Klickdummy-ADR mit `conforms_to: ADR-211` und
-`make klickdummy-{i1,i2,i3,i4}`-Targets. Kein ADR/Target ⇒ Plattform-CI rot
+Repo braucht ein lokales Klickdummy-ADR mit `conforms_to: platform:ADR-211`
+und `make klickdummy-{i1,i2,i3}`-Targets. Kein ADR/Target ⇒ Plattform-CI rot
 (`platform/scripts/checks/klickdummy_registry.sh`).
 
 ## Wann NICHT
 
 - Wegwerf-Skizze ohne `klickdummy/`-Pfad, ohne Zielsystem, einmalig im Workshop
-  gezeigt und sofort verworfen → keine I1–I4-Pflicht.
+  gezeigt und sofort verworfen → keine I1–I3-Pflicht.
 - Echte App-UI ohne `?demo=`-Sonderzustand → normaler Code, kein Klickdummy.
+
+## Entscheidung ≠ Rollout (Rev-9-Korrektur)
+
+ADR-211 ist **`accepted`** (Decider-Ratifizierung des Entscheids I1–I3 +
+Enforcement-Pfad). Der Rollout-Fortschritt lebt als **Adoption-Scoreboard**
+in `adr-211-followup` (SF1–SF6) — er **gatet den ADR-Status nicht** und ist
+kein Aktivierungs-Vorbehalt dieser Policy. Eine akzeptierte Entscheidung ist
+stabil, nicht eine Funktion fortlaufender Flotten-Drift.
 
 ## Mechanik (SSoT)
 
@@ -49,5 +67,10 @@ nächsten Refresh nach.
 ## Changelog
 
 - 2026-05-19: Initial. Aus ADR-211 (Rev 4, drei Adversarial-Pässe) abgeleitet.
-  Folge-Artefakte SF1–SF6 (`adr-211-followup`) noch offen — bis dahin ist
-  ADR-211 `proposed`, Confirmation 0/6.
+- 2026-05-20: Rev-9-Angleichung. **Drei** (nicht vier) Invarianten — I4
+  (Cross-Repo-Ref-Format) nach ADR-207 ausgelagert. I1 bidirektionale
+  Spec↔Route-Coverage. I2 erweitert um plattform-externen `klickdummy_prod_guard.sh`
+  als bindendes Cross-Repo-Signal (Sicherheitsinvariante adversarial
+  verifizierbar). I3 Off-Ramp-TTL `min(prod-Release, Parity-grün+N d)`,
+  Default 30 d. „Entscheidung ≠ Rollout"-Klarstellung; ADR-211 ist accepted,
+  Scoreboard läuft separat.
