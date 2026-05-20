@@ -18,7 +18,15 @@ GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 REGISTRY="$REPO_ROOT/registry/repos.yaml"
 STRICT=0
-[[ "${1:-}" == "--strict" ]] && STRICT=1
+USE_REMOTE_MAIN=0
+for arg in "$@"; do
+  case "$arg" in
+    --strict) STRICT=1 ;;
+    --main)   USE_REMOTE_MAIN=1 ;;  # Lokales Repo-Working-Tree ignorieren,
+                                     # nutze origin/main als Quelle (CI-Sicht;
+                                     # vermeidet Feature-Branch-Drift in Dev).
+  esac
+done
 
 [[ -f "$REGISTRY" ]] || { echo "FATAL: $REGISTRY fehlt"; exit 2; }
 command -v python3 >/dev/null || { echo "FATAL: python3 nötig"; exit 2; }
@@ -47,8 +55,24 @@ for repo in "${REPOS[@]}"; do
     warn=$((warn+1)); [[ $STRICT -eq 1 ]] && fail=$((fail+1))
     continue
   fi
-  # Klickdummy-Verzeichnis (exakt Basename 'klickdummy', .git ausgeschlossen)
-  kd="$(find "$dir" -type d -name klickdummy -not -path '*/.git/*' 2>/dev/null | head -1 || true)"
+  # Klickdummy-Verzeichnis (exakt Basename 'klickdummy', .git ausgeschlossen).
+  # --main: scant origin/main statt Working-Tree (Dev-Branch-Drift egal).
+  if [[ $USE_REMOTE_MAIN -eq 1 ]]; then
+    git -C "$dir" fetch --quiet origin main 2>/dev/null || true
+    # pipefail + grep -q + SIGPIPE auf ls-tree → false-EMPTY. Output erst in
+    # Variable speichern, dann grep darauf (kein Pipe-Race).
+    tree_listing="$(git -C "$dir" ls-tree -r --name-only origin/main 2>/dev/null || true)"
+    # `grep -q` schließt STDIN beim ersten Treffer → echo bekommt SIGPIPE → mit
+    # pipefail wird Pipeline-Exit non-zero → if false-NEGATIVE. Mit `>/dev/null`
+    # liest grep alles, kein early-close, robust unter pipefail.
+    if echo "$tree_listing" | grep -E '(^|/)klickdummy(/|$)' >/dev/null; then
+      kd="origin/main:klickdummy"
+    else
+      kd=""
+    fi
+  else
+    kd="$(find "$dir" -type d -name klickdummy -not -path '*/.git/*' 2>/dev/null | head -1 || true)"
+  fi
   if [[ -z "$kd" ]]; then
     printf '%-22s %-7s %-40s %s\n' "$repo" "nein" "n/a" "OK (kein Klickdummy)"
     continue
@@ -56,8 +80,14 @@ for repo in "${REPOS[@]}"; do
   checked=$((checked+1))
   # Konformes ADR: Frontmatter `conforms_to: platform:ADR-211` (I4-qualifiziert;
   # bare `ADR-211` übergangsweise akzeptiert, vgl. ADR-211 C1 Rev 6).
-  adr="$(grep -rIl -E '^[[:space:]]*conforms_to:[[:space:]]*(platform:)?ADR-211([^0-9]|$)' \
-           "$dir" --include='ADR-*.md' 2>/dev/null | head -1 || true)"
+  if [[ $USE_REMOTE_MAIN -eq 1 ]]; then
+    adr="$(git -C "$dir" grep -lE '^[[:space:]]*conforms_to:[[:space:]]*(platform:)?ADR-211([^0-9]|$)' \
+             origin/main -- 'docs/adr/ADR-*.md' 2>/dev/null | head -1 || true)"
+    adr="${adr#origin/main:}"  # display only path
+  else
+    adr="$(grep -rIl -E '^[[:space:]]*conforms_to:[[:space:]]*(platform:)?ADR-211([^0-9]|$)' \
+             "$dir" --include='ADR-*.md' 2>/dev/null | head -1 || true)"
+  fi
   if [[ -n "$adr" ]]; then
     printf '%-22s %-7s %-40s %s\n' "$repo" "ja" "$(basename "$adr")" "OK"
     conform=$((conform+1))
