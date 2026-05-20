@@ -1,9 +1,8 @@
 ---
 id: ADR-200
 title: "iil-ui v1 (Draft, superseded by v2)"
-status: superseded-draft
+status: superseded
 date: 2026-05-14
-note: "v1 wurde von v2 abgelöst nach advocatus-diaboli Review — siehe ADR-200 v2 unten in derselben Datei."
 ---
 
 # ADR-200 v1 — superseded by v2 (siehe unten)

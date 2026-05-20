@@ -1,5 +1,5 @@
 ---
-status: accepted-with-caveats
+status: accepted
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
 review: "solo-decision — no independent review; same engineer who built the broken renewal pipeline (dns-hetzner-for-CF-zones, 14/14 failure on 2026-05-14) wrote this fix and this ADR"
