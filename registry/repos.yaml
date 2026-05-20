@@ -323,6 +323,21 @@ domains:
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
+        # ADR-210 R6 / Issue #221: staging block — R1-Default-Hostname
+        # (staging-{repo}.iil.pet, weltenhub-Präzedenz). Port 19003 nächstes
+        # frei [19000..19999] nach risk-hub:19001, dev-hub:19002.
+        staging:
+          server_path: /opt/wedding-hub-staging
+          image: ghcr.io/achimdehnert/wedding-hub:${IMAGE_TAG:-latest}
+          web_container: wedding_hub_staging_web
+          web_service: wedding-hub-staging-web
+          migrate_cmd: python manage.py migrate --noinput
+          port: 19003
+          hostnames:
+            - staging-wedding-hub.iil.pet
+        oidc:
+          staging_app_slug: wedding-hub-staging
+          staging_redirect: https://staging-wedding-hub.iil.pet/oidc/callback/
 
       - name: 137-hub
         repo: 137-hub
