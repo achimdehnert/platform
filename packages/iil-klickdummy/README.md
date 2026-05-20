@@ -6,11 +6,19 @@
 
 ## Install
 
+**v1.0 (jetzt):** via Git-URL (ADR-214 F1):
+
 ```bash
-pip install iil-klickdummy>=1.0,<2.0
+pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.0.0#subdirectory=packages/iil-klickdummy"
 ```
 
-Workspace-Pattern (vor PyPI-Release):
+**v1.1+ (sobald privates PyPI aufgesetzt):**
+
+```bash
+pip install "iil-klickdummy>=1.0,<2.0"
+```
+
+**Workspace-Pattern (Development):**
 
 ```bash
 pip install -e ../platform/packages/iil-klickdummy

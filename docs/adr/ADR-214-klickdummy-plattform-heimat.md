@@ -37,10 +37,13 @@ Verteilung verbindlich.
 
 Drei harte Entscheidungen:
 
-1. **Hybrid-Distribution (E1).** Python-Code + Schemas via **pip-Paket**
-   `iil-klickdummy`; HTML-Snippets + Templates via **Git-Submodul**
-   `platform-snippets`; lokale Workflows ergänzend via **Symlink-Mechanik**
-   (Bestand aus ADR-211 Rev 5).
+1. **pip-Paket als alleinige Distribution (E1, revidiert).** Python-Code +
+   Schemas + (in v1.1) HTML-Snippets als `package_data` im **pip-Paket**
+   `iil-klickdummy` (initial via `pip install git+...`, später privates PyPI).
+   Lokale Convention-Workflows ergänzend via **Symlink-Mechanik** (Bestand
+   aus ADR-211 Rev 5). *Initial-Vorschlag „pip + Submodul" wurde im
+   adversarial Pass (J2) verworfen — Submodul auf platform/ würde das
+   ganze Repo ziehen.*
 2. **Zentraler Feedback-Endpoint (E2).** `feedback.iil.pet` (FastAPI o. ä.)
    nimmt Co-Creation-Loop-Payloads entgegen und erzeugt Issues im jeweiligen
    Repo via GitHub-API. Erkennung per Origin-Header und Repo-Token; ein
@@ -78,20 +81,35 @@ Wenn weitergebaut wird ohne Heimat:
 
 ## Entscheidung — drei Bausteine
 
-### E1 · Distribution: Hybrid (pip + Submodul + Symlink)
+### E1 · Distribution: pip-Paket (Python + HTML als package_data) + Symlink
+
+**Initial-Vorschlag war Hybrid pip+Submodul. Im adversarial Pass (J2) wurde
+gezeigt:** ein Git-Submodul auf `platform/snippets/` würde das ganze
+platform-Repo (hunderte MB) in jeden Klickdummy-Repo ziehen — sparse-Checkout
+ist fragil. **Vereinfachte E1:**
 
 | Material | Wo | Wie distribuiert |
 |---|---|---|
-| **Python-Code** (`check_i1..i4.py`, `extract_requirements.py`, S11-Inventur) | `platform/packages/iil-klickdummy/` | **pip-Paket** mit semver; Repos installieren `pip install iil-klickdummy>=1.0,<2.0` |
-| **JSON-Schemas** (`screens-spec.schema.json`, `feedback-payload.schema.json`, `module-manifest.schema.json`) | `iil-klickdummy/schemas/` (Paket-Resource) | mitversendet im pip-Paket; Repos referenzieren via `importlib.resources` oder `$ref` zu Paket-URL |
-| **HTML-Snippets** (Widget CSS+HTML+JS, Spec-Template, Issue-Template) | `platform/snippets/klickdummy/` | **Git-Submodul** pro Repo `platform-snippets/`; via `<script src="platform-snippets/klickdummy/feedback-widget.js">` |
+| **Python-Code** (`check_i1..i4.py`, `extract_requirements.py`, S11-Inventur) | `platform/packages/iil-klickdummy/src/iil_klickdummy/` | **pip-Paket** mit semver; Repos installieren `pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.0.0#subdirectory=packages/iil-klickdummy"` (F1 geschlossen: Git-URL statt PyPI in v1) |
+| **JSON-Schemas** (`screens-spec.schema.json`, `feedback-payload.schema.json`, `module-manifest.schema.json`) | `iil_klickdummy/schemas/` | `package_data` im pip-Paket; Zugriff via `importlib.resources.files("iil_klickdummy.schemas")` ODER `$ref` zu Paket-URL in Spec-Files |
+| **HTML-Snippets** (Widget CSS+HTML+JS, Spec-Template, Issue-Template) | `iil_klickdummy/snippets/` (in v1.1) | `package_data` im pip-Paket; Repo-Makefile hat `make klickdummy-install-snippets` Target, das via Python aus dem Paket nach `<repo>/platform-snippets/` kopiert/symlinkt |
 | **Lokale Convention-Pfade** (z. B. `~/.claude/policies/klickdummy.md`) | platform-Worktree | **Symlink** (Bestand aus ADR-211 Rev 5, unverändert) |
 
-**Begründung Hybrid statt nur-pip oder nur-Submodul:**
+**Begründung pip-only statt pip+Submodul:**
 
-- **pip** ist Standardweg für Python-Code+Schemas (Versionierung, CI-Reproduzierbarkeit, semver-Pinning). HTML-Snippets in pip-Paket sind „gegen die Norm" (Browser läuft kein pip).
-- **Submodul** ist Standardweg für serverseitig-statische HTML-Assets (Build-Inline oder Direct-Reference). Für reinen Python-Code ist Submodul Overhead.
-- **Symlink-Mechanik** für lokale Workflows (Convention-Dateien, gepinnter Worktree) hat sich in ADR-211 Rev 5 bewährt und bleibt unverändert.
+- **Ein Mechanismus** statt zwei (Vereinfachung).
+- **Keine Submodul-Fatigue** in 6 Repos.
+- HTML in `package_data` ist **idiomatisches Python**, kein „gegen die Norm"
+  (Beispiele: `pip-tools`, `django`, `flask`-templates verteilen HTML so).
+- Repos können die Snippets nach `<repo>/platform-snippets/` **kopieren**
+  ODER **symlinken** (Wahl pro Repo) — Snippet-Updates via `pip install --upgrade`.
+
+**Konsequenz für Snippet-Standort:** In Rev 1 dieses ADR liegen
+Widget/Templates noch unter `platform/snippets/klickdummy/` (für historische
+Sichtbarkeit). In v1.1 von `iil-klickdummy` wandern sie in `iil_klickdummy/
+snippets/` als `package_data` — ein eigener PR auf platform, kein
+Cross-Repo-Bruch (alte Snippet-Pfade werden parallel gehalten, bis alle
+Repos auf v1.1 sind; Soft-Migrate-Pattern aus ADR-211 Rev 12).
 
 ### E2 · Feedback-Endpoint: zentral (`feedback.iil.pet`)
 
@@ -189,26 +207,31 @@ Major). Breaking Changes (z. B. Pattern-Set ändern) → Major-Bump → ADR-Upda
 **Distribution:** initial via `pip install -e ../platform/packages/iil-klickdummy`
 (Workspace-Pattern); später PyPI (öffentlich oder privat `pypi.iil.pet`).
 
-### Submodul `platform-snippets`
+### Snippets (HTML/CSS/JS) — initial in `platform/snippets/`, ab v1.1 in pip-Paket
+
+**v1.0 (jetzt):** in `platform/snippets/klickdummy/` (Repo-Sichtbarkeit).
+Repos kopieren manuell oder via `curl`-Skript.
+
+**v1.1 (geplant):** als `package_data` im pip-Paket unter
+`iil_klickdummy/snippets/`. Repos erhalten sie automatisch via `pip install`;
+ein `make klickdummy-install-snippets`-Target kopiert/symlinkt nach
+`<repo>/platform-snippets/`.
 
 ```
-platform/snippets/klickdummy/
+snippets/klickdummy/                       # v1.0 Pfad (auf platform-Repo)
+└── (v1.1: iil_klickdummy/snippets/)       # package_data im pip-Paket
 ├── feedback-widget/
-│   ├── widget.html                          # FAB + Panel-Markup
-│   ├── widget.css
-│   └── widget.js                            # fbToggle, fbSubmit, etc.
+│   └── widget.js                          # selbstständig (CSS+HTML injiziert)
 ├── issue-template/
 │   └── klickdummy-feedback.md
 ├── spec-templates/
-│   ├── screens-spec-template.yaml
-│   └── module-manifest-template.json
+│   └── screens-spec-template.yaml
 └── shell-bootstrap/
-    └── inject-widget.html                   # 3-Zeilen-Snippet zum Include
+    └── inject-widget.html                 # 3-Zeilen-Snippet zum Include
 ```
 
-**Verteilung:** jeder Repo macht `git submodule add … platform-snippets`.
-`KLICKDUMMY_FEEDBACK_ENDPOINT` ist Konfigurations-Variable, nicht im Snippet
-hardcoded.
+`KLICKDUMMY_FEEDBACK_ENDPOINT` und `KLICKDUMMY_SPEC` sind Konfigurations-
+Variablen vom Host gesetzt — nicht im Snippet hardcoded.
 
 ### Service `feedback-bridge`
 
@@ -245,33 +268,51 @@ Bash-Bootstrap aus ADR-211 Rev 12 §Migration bleibt als Fallback erhalten.
 
 Pro Repo, ~30 Min:
 
-1. **pip-Pin in `requirements-dev.txt`** (oder `pyproject.toml`):
-   `iil-klickdummy>=1.0,<2.0`
-2. **Submodul hinzufügen:**
-   `git submodule add git@github.com:achimdehnert/platform-snippets ... platform-snippets`
-3. **Makefile aktualisieren** — alte Targets aus `scripts/klickdummy/check_iN.py`
-   auf `python3 -m iil_klickdummy.check_iN ...` umstellen.
+1. **pip-Install** in `requirements-dev.txt`:
+   ```
+   iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.0.0#subdirectory=packages/iil-klickdummy
+   ```
+   (Sobald privates PyPI: `iil-klickdummy>=1.0,<2.0`.)
+2. **Makefile aktualisieren** — alte Targets aus `scripts/klickdummy/check_iN.py`
+   auf `klickdummy-i1` (Console-Script) oder `python3 -m iil_klickdummy.check_iN`
+   umstellen.
+3. **Snippets installieren** — `make klickdummy-install-snippets` (kopiert
+   aus pip-Paket nach `<repo>/platform-snippets/`). In v1.0 Übergangs-
+   Vorgehen: snippets aus `platform/snippets/klickdummy/` per `curl` o. ä.
+   ziehen; ab v1.1 via `iil_klickdummy.snippets`-Resource.
 4. **shell.html aktualisieren** — Widget-Inline-Code entfernen, durch
-   `<script src="platform-snippets/klickdummy/feedback-widget/widget.js">` ersetzen.
-   Konfiguration: `window.KLICKDUMMY_FEEDBACK_ENDPOINT = "https://feedback.iil.pet/v1/issues";`
-5. **Lokale Kopien deprecaten** — `scripts/klickdummy/` → `scripts/klickdummy.deprecated/`
+   3-Zeilen-Bootstrap ersetzen (`platform-snippets/klickdummy/shell-bootstrap/
+   inject-widget.html`). Konfiguration:
+   ```js
+   window.KLICKDUMMY_SPEC = { id: "repo:klickdummy-spec-<name>", version: "0.1", klickdummy_class: "mock" };
+   window.KLICKDUMMY_FEEDBACK_ENDPOINT = "https://feedback.iil.pet/v1/issues";
+   ```
+5. **Issue-Template kopieren** nach `.github/ISSUE_TEMPLATE/klickdummy-feedback.md`
+   (aus pip-Paket-Resource oder direkt aus `platform/snippets/.../issue-template/`).
+6. **Coding-Agent-Watcher** (per F4 in v1: GitHub Action) — falls
+   Co-Creation aktiviert: `.github/workflows/klickdummy-feedback-watcher.yml`
+   anlegen, triggert auf `labeled:klickdummy-feedback`.
+7. **Lokale Kopien deprecaten** — `scripts/klickdummy/` → `scripts/klickdummy.deprecated/`
    mit README, das auf `iil-klickdummy` verweist. Nach 30 Tagen löschen.
-6. **CI testen** — `make klickdummy` muss grün bleiben.
-7. **Provenance-Eintrag** (falls Co-Creation aktiviert): „Migration auf
-   Plattform-Heimat (ADR-214)".
+8. **CI testen** — `make klickdummy` muss grün bleiben.
+9. **Provenance-Eintrag** (falls Co-Creation aktiviert): „Migration auf
+   Plattform-Heimat (platform:ADR-214)".
 
-**ttz-hub (Erst-Adoption):** identisch Schritt 1+2+3+4, plus:
+**ttz-hub (Erst-Adoption):** identisch Schritt 1+2+3+4+5+8, plus:
 - Repo-lokales `ADR-XXX-klickdummy-ttz.md` mit `class:`, `sunset_after:`,
   `conforms_to: platform:ADR-211`, `tags:[klickdummy]`
-- Mindestens 1 `screens-spec.yaml` (auch leer mit nur `class:` + 1 Screen)
-- **Datenschutz-Override** (Gov-Workload): eigenen Endpoint setzen statt
-  Platform-Default. ADR-214 §E2-Datenschutz dokumentiert das.
+- Mindestens 1 `screens-spec.yaml` (auch minimal — Template unter
+  `platform/snippets/klickdummy/spec-templates/screens-spec-template.yaml`).
+- **Datenschutz-Override (Gov-Workload, Pflicht):** eigenen Endpoint setzen
+  statt Platform-Default. PII-Filter im zentralen Endpoint ist Best-Effort
+  (F6) — Gov-Repos müssen sich nicht darauf verlassen.
 
 ## Konsequenzen
 
 **Positiv:**
 - **1 Quelle für alle Klickdummy-Mechanik**: jede Iteration in `iil-klickdummy`
-  wirkt cross-repo nach `pip install --upgrade` (oder Submodul `git pull`).
+  wirkt cross-repo nach `pip install --upgrade` (v1.0 via Git-URL, v1.1+
+  via privates PyPI sobald aufgesetzt).
 - **Adoption-Friction für ttz-hub von ~2 Tage auf ~30 Min**: pip + Submodul
   + Mini-ADR statt copy-paste-clone.
 - **Co-Creation-Loop wird real aktivierbar**: Endpoint existiert → Pfad A
@@ -280,9 +321,9 @@ Pro Repo, ~30 Min:
   wenn sie noch nicht zu `1.3.0` migrieren wollen (semver-Verträglichkeit).
 
 **Negativ / Kosten:**
-- **Submodul-Komplexität**: 6 Repos müssen `git submodule update`
-  routinemäßig laufen lassen (Submodul-Fatigue). Mitigation: Makefile-Target
-  `make install` macht das transparent; CI macht das auf jedem Build.
+- **pip-via-Git-URL** in v1: `pip install` braucht Git-Zugang zur platform-
+  Repo-URL (öffentlich oder per SSH-Schlüssel in CI). Mitigation: dokumentiert
+  im Migrations-Cookbook; ab privates PyPI verschwindet das.
 - **Endpoint-Wartung**: 1 zusätzlicher Service (`feedback.iil.pet`). Klein,
   aber 24/7 verfügbar nötig (sonst Fallback auf Download-Mode).
 - **PII-Filter im Endpoint**: Heuristik ist nie perfekt. Mitigation:
@@ -290,15 +331,42 @@ Pro Repo, ~30 Min:
   Repo-Override.
 - **Migrations-Aufwand**: 5 Repos × 30 Min = ~2.5 h einmalig.
 
-**Offen / Folge-Punkte:**
-- **F1 (ADR-214)**: PyPI-Hosting — initial Workspace-pip, später public PyPI
-  oder privater Index? Entscheidung in `pyproject.toml`-PR.
-- **F2 (ADR-214)**: GitHub-App vs. PAT für Endpoint-Repo-Auth? GitHub-App
-  ist sauberer (Repo-Scope, fine-grained), aber Setup-Aufwand höher. Empfehlung:
-  Start mit PAT (1 Bot-Account), Migration auf App in Rev 2.
-- **F3 (ADR-214)**: Submodul-Branch — `main` oder eigener `release`-Branch?
-  Empfehlung: `main` (semver-disziplin im pip-Paket trägt; Snippets sind
-  rückwärts-kompatibel zu halten).
+**Distributions-Mechanik konkret (vor Acceptance entschieden):**
+
+- **F1 GESCHLOSSEN — Paket-Distribution via `pip install git+...`** statt
+  PyPI in v1. `pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@main#subdirectory=packages/iil-klickdummy"`
+  funktioniert ohne PyPI-Infra; semver via Git-Tags (`v1.0.0`, `v1.1.0`).
+  Migration auf privates PyPI (`pypi.iil.pet`) wenn aufgesetzt — eigenes
+  Adoption-ADR/Rev, nicht Voraussetzung für Rev 1.
+- **F2 (ADR-214)**: GitHub-App vs. PAT für Endpoint-Repo-Auth — Start mit
+  PAT (1 Bot-Account), Migration auf App in Rev 2. Empfehlung steht.
+- **F3 GESCHLOSSEN — HTML-Snippets via pip-Paket statt Submodul.**
+  Initiale E1-Hybrid-Wahl wurde im adversarial Pass revidiert (J2): Submodul
+  auf `platform/snippets/` zieht ganzes platform-Repo (hunderte MB ohne
+  sparse-Checkout). **Saubere Lösung:** HTML/JS/CSS-Snippets sind
+  `package_data` im pip-Paket; Repos installieren via `pip install` und
+  bekommen die Resources über `importlib.resources`. Ein `make
+  klickdummy-install-snippets`-Target kopiert/symlinkt sie in den
+  Repo-Pfad `platform-snippets/` (oder direkt in `shell.html`-Pfad).
+  → **E1 wird vereinfacht: nur pip-Paket** (Python + HTML+CSS+JS als
+  Resources). Symlink-Mechanik (ADR-211 Rev 5) bleibt unverändert für
+  Convention-Dateien.
+- **F4 (ADR-214)**: Coding-Agent-Watcher — der Endpoint legt Issues mit
+  Label `klickdummy-feedback`. **Wer reagiert?** Pro Rev 1: **GitHub Action
+  pro Repo** (`.github/workflows/klickdummy-feedback-watcher.yml`), die
+  bei Issue-Open mit dem Label einen Coding-Agent triggert (z. B. via
+  Claude-Code-Action). Ein zentraler Cross-Repo-Watcher wäre Rev 2.
+- **F5 (ADR-214)**: Rate-Limit-Skalierung — in-memory ist v1
+  (single-replica). Multi-Replica via Redis o. ä. → Rev 2 + Infra-PR.
+- **F6 (ADR-214)**: PII-Filter ist **Best-Effort-Heuristik**, KEIN
+  DSGVO-konformer Anonymisierer. Gov-Workloads (`ttz-hub`) MÜSSEN
+  Repo-Endpoint-Override nutzen (siehe §E2-Datenschutz). Doku-Pflicht im
+  ttz-hub-Klickdummy-ADR.
+- **F7 (ADR-214)**: Snippet-Templating — `REPO:klickdummy-spec-NAME`-
+  Placeholder im `inject-widget.html` ist kein echtes Build-System.
+  Migrations-Cookbook beschreibt: Repo führt `sed`/`envsubst`-Schritt im
+  `make install`-Target aus, oder kopiert den Snippet und ersetzt manuell.
+  Build-System (z. B. Jinja2-Render) als optionale Erweiterung in Rev 2.
 
 ## Adversarial-Self-Check (Pre-Review)
 
@@ -324,8 +392,25 @@ Adoption-Scoreboard `adr-214-followup` separat (analog ADR-211 SF1–SF11).
 
 - **Rev 1 (proposed, 2026-05-20)** — Initial. Empirie-getrieben aus
   meiki-Iter.-7-Migrationsrunde (5 PRs für 1 konzeptuelle Änderung) +
-  ttz-hub-Onboarding-Trigger. 3 Bausteine (pip-Paket, Submodul, Endpoint)
-  + 4 Adversarial-Self-Checks.
+  ttz-hub-Onboarding-Trigger. 3 Bausteine (pip-Paket, Snippets, Endpoint)
+  + 6 Adversarial-Self-Checks.
+- **Rev 1 adversarial Pass (2026-05-20)** — 6 Findings eingearbeitet vor
+  Decider-Review:
+  - **J1 (🔴):** F1 (Distributions-Mechanik) geschlossen — pip via
+    `git+https://...@v1.0.0#subdirectory=...` statt PyPI in v1.
+  - **J2 (🔴):** Submodul-Ansatz für HTML-Snippets verworfen (würde ganzes
+    platform-Repo ziehen). **E1 vereinfacht zu pip-only mit `package_data`**
+    für HTML/CSS/JS in v1.1.
+  - **J3 (🟡):** Coding-Agent-Watcher als F4 konkret: GitHub Action pro
+    Repo (`klickdummy-feedback-watcher.yml`); zentraler Cross-Repo-Watcher
+    in Rev 2.
+  - **J4 (🟡):** Rate-Limit als v1 single-replica markiert; Multi-Replica
+    via Redis als F5 in Rev 2.
+  - **J5 (🟡):** PII-Filter als „Best-Effort, KEIN DSGVO-konformer
+    Anonymisierer" deklariert (F6); Gov-Workloads (ttz-hub) MÜSSEN
+    Endpoint-Override nutzen.
+  - **J6 (🟡):** Snippet-Templating als F7 — Migrations-Cookbook
+    beschreibt `sed`/`envsubst`-Schritt; Build-System optional in Rev 2.
 
 ## Bezug
 
