@@ -495,13 +495,21 @@ Repos (oder zentral, falls Skript-Heimat plattformseitig migriert).
 **Spätestens am `DEADLINE` (2026-08-20) wird `LEGACY = {}` unabhängig vom
 Skript-Output erzwungen** — Inventur ist die freundliche Variante.
 
-**Migrations-Status — Snapshot beim Schreiben dieses Rev (2026-05-20).
-Live-Quelle: S11-Inventur-Skript-Output (siehe Code oben):**
+**Migrations-Status — aktualisiert nach Cross-Repo-Nachzieh-Runde
+(2026-05-20, post-Merge platform#271). Live-Quelle: S11-Inventur-Skript-
+Output (siehe Code oben):**
 
-- meiki-hub:ADR-020 / ADR-021 / ADR-026 — ✅ migriert (meiki-hub#23)
-- writing-hub:ADR-180 — ⏳ noch zu migrieren
-- risk-hub:ADR-046 — ⏳ noch zu migrieren
-- pptx-hub / dev-hub — ⏳ noch zu migrieren
+- meiki-hub:ADR-020 / ADR-021 / ADR-026 — ✅ migriert (meiki-hub#23, alle Frontmatter+Spec+Manifest+Schema+Widget)
+- writing-hub:ADR-180 — ✅ migriert (writing-hub#21, `demo-render` → `spec-demo`; Spec + Schema + 9 HTML-Meta + ADR-Frontmatter + check_i2.py)
+- risk-hub:ADR-046 — ✅ migriert (risk-hub#125, ADR-Frontmatter ergänzt; 0 mock-prototyp/demo-render-Treffer in Body)
+- **pptx-hub** — ✓ N/A (kein `klickdummy/`-Pfad, kein `?demo=`-Render, keine `conforms_to: platform:ADR-211`-Refs ⇒ §Wann-NICHT-Klausel greift)
+- **dev-hub** — ✓ N/A (selber Befund wie pptx-hub)
+
+**S11-Inventur (final, 2026-05-20):** 0 echte Drift-Treffer cross-repo;
+verbleibende Refs sind LEGACY-Map, History-Kommentare (`# vorher
+demo-render`) und Compat-Code in `extract_requirements.py` — alle
+beabsichtigt. Soft-Migrate bleibt aktiv bis Hard-Deadline 2026-08-20;
+Strict-Mode (LEGACY={}) als separater Folge-PR.
 
 Diese Tabelle kann veralten — bei Diskrepanz mit S11-Skript-Output gilt
 das Skript. Tabelle wird im **nächsten ADR-Rev** auf Live-Quelle umgestellt
