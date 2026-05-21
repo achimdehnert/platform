@@ -226,6 +226,21 @@ domains:
         compose: docker-compose.prod.yml
         coverage_threshold: 60
 
+      - name: fristenmanagement
+        repo: fristenmanagement
+        description: "MEiKI · Fristenmanagement — Querschnitts-App für Fristen-/Wiedervorlage-Steuerung in bayerischen LRAs (Skeleton v0.1, Sozialdaten-Pilot)"
+        github: meiki-lra/fristenmanagement
+        deployed: false  # Hosting-ADR Voraussetzung — siehe STACK.md
+        url: null
+        type: django
+        lifecycle: experimental
+        tenancy_mode: multi  # iil-django-tenancy + RLS (platform:ADR-109/137)
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 80
+        org: meiki-lra
+        notes: "Architektur-ADRs in meiki-hub: ADR-021 (Klickdummy-Spec), ADR-022 (Strategie), ADR-023 (DMS-Adapter), ADR-024 (FV-Adapter), ADR-025 (Mandantenfähigkeit)"
+
       - name: 137-hub
         repo: 137-hub
         description: 137herz.de — Community & Supersystem Platform

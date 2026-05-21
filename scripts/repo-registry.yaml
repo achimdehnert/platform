@@ -262,3 +262,11 @@ repos:
     type: library
     pypi: iil-testkit
     note: "Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057"
+
+  # ── meiki-lra org (Sozialdaten-Workloads, eigene DSFA-/AVV-Gates) ──────────
+
+  fristenmanagement:
+    type: django_hub
+    org: meiki-lra
+    port: 8111
+    note: "MEiKI · Fristenmanagement — Querschnitts-App für Fristen-/Wiedervorlage-Steuerung in LRAs. Multi-Tenant (iil-django-tenancy + RLS), Hexagonal mit DMS-/FV-/IdP-Adaptern. Skeleton v0.1. Architektur in meiki-hub: ADR-021..025."
