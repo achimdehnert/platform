@@ -1,0 +1,60 @@
+# Klickdummy-Hosting via nginx + Traefik (ADR-216)
+# Server: 178.104.184.168 (staging-platform)
+# Domain: klickdummy.iil.pet
+#
+# Deployment:
+#   scp infra/klickdummy-host/* staging-platform:/opt/klickdummy/
+#   ssh staging-platform "cd /opt/klickdummy && docker compose up -d"
+#
+# Content-Sync:
+#   ssh staging-platform "/opt/klickdummy/sync.sh"   (oder via cron)
+
+services:
+  klickdummy:
+    image: nginx:alpine
+    container_name: klickdummy
+    restart: always
+
+    volumes:
+      # Content kommt vom Sync-Job (sync.sh) — read-only für nginx
+      - /srv/klickdummy:/usr/share/nginx/html:ro
+      # nginx-Config
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
+    networks:
+      - traefik_public
+
+    labels:
+      - "traefik.enable=true"
+      # Hauptroute: klickdummy.iil.pet via HTTPS (Let's Encrypt via Cloudflare DNS-01)
+      - "traefik.http.routers.klickdummy.rule=Host(`klickdummy.iil.pet`)"
+      - "traefik.http.routers.klickdummy.entrypoints=websecure"
+      - "traefik.http.routers.klickdummy.tls.certresolver=letsencrypt"
+      # Service-Port (nginx default)
+      - "traefik.http.services.klickdummy.loadbalancer.server.port=80"
+      # Middleware-Chain: SSO (Authentik forwardAuth) → Security-Headers
+      - "traefik.http.routers.klickdummy.middlewares=klickdummy-sso,klickdummy-headers"
+      # SSO via Authentik forwardAuth (ADR-216 §Auth Phase 1, ADR-142 Authentik IdP)
+      # Outpost-Endpoint vom Authentik-Outpost-Container im traefik_public-Netz erreicht
+      - "traefik.http.middlewares.klickdummy-sso.forwardauth.address=http://authentik-outpost:9000/outpost.goauthentik.io/auth/traefik"
+      - "traefik.http.middlewares.klickdummy-sso.forwardauth.trustForwardHeader=true"
+      - "traefik.http.middlewares.klickdummy-sso.forwardauth.authResponseHeaders=X-authentik-username,X-authentik-groups,X-authentik-email"
+      # Security-Headers Middleware
+      - "traefik.http.middlewares.klickdummy-headers.headers.customResponseHeaders.X-Content-Type-Options=nosniff"
+      - "traefik.http.middlewares.klickdummy-headers.headers.customResponseHeaders.X-Klickdummy-Class=mock"
+      # Health-Endpoint von SSO ausnehmen (für Monitoring-Probes ohne Login)
+      - "traefik.http.routers.klickdummy-health.rule=Host(`klickdummy.iil.pet`) && Path(`/healthz`)"
+      - "traefik.http.routers.klickdummy-health.entrypoints=websecure"
+      - "traefik.http.routers.klickdummy-health.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.klickdummy-health.service=klickdummy"
+      - "traefik.http.routers.klickdummy-health.priority=100"
+      # OAuth-Callback-Endpoint (Authentik-Outpost) auch ohne SSO erreichbar
+      - "traefik.http.routers.klickdummy-outpost.rule=Host(`klickdummy.iil.pet`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      - "traefik.http.routers.klickdummy-outpost.entrypoints=websecure"
+      - "traefik.http.routers.klickdummy-outpost.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.klickdummy-outpost.service=authentik-outpost@docker"
+      - "traefik.http.routers.klickdummy-outpost.priority=100"
+
+networks:
+  traefik_public:
+    external: true

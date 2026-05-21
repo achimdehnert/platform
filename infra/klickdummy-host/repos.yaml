@@ -1,0 +1,30 @@
+# Klickdummy-Repo-Registry für Sync-Job (ADR-216)
+# Jedes Eintrag: SSH-Clone-URL + Sub-Pfad innerhalb des Repos, der nach
+# /srv/klickdummy/<owner>/<repo>/ gespiegelt wird.
+#
+# Authentifizierung: SSH-Deploy-Key am Server, read-only pro Repo.
+
+repos:
+  - owner: meiki-lra
+    name: meiki-hub
+    sync_subdir: docs/01-architektur/mockups
+    description: Fristenmanagement (Forms) + Klickdummy-Modul (Login+Nav)
+    adr: meiki:ADR-021
+
+  - owner: bahn-sqf
+    name: sqf-hub
+    sync_subdir: klickdummy
+    description: AF1 Tages-Zusammenfassung Lost Units (Conversation)
+    adr: sqf-hub:ADR-003
+
+  - owner: bahn-sqf
+    name: pg-hub
+    sync_subdir: klickdummy
+    description: Pocket Governance (Forms, Power Platform)
+    adr: pg-hub:ADR-002
+
+  - owner: ttz-lif
+    name: ttz-hub
+    sync_subdir: klickdummy
+    description: Werkleitung + Schichtleitung (Forms)
+    adr: ttz-hub:ADR-100
