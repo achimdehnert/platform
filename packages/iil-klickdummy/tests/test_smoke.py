@@ -7,7 +7,8 @@ from importlib.resources import files
 
 def test_package_version():
     import iil_klickdummy
-    assert iil_klickdummy.__version__ == "1.0.0"
+    # Major bleibt 1; Minor wandert v1.0 → v1.1 → v1.2 …
+    assert iil_klickdummy.__version__.startswith("1.")
 
 
 def test_all_modules_present():
@@ -81,3 +82,49 @@ def test_widget_js_v05_features():
 def test_inventory_runs_clean_on_nonexistent_base():
     from iil_klickdummy import inventory
     assert inventory.main(["--base", "/nonexistent/path"]) == 0
+
+
+# --- v1.1 ------------------------------------------------------------------
+
+def test_v11_registry_module_present():
+    from iil_klickdummy import registry
+    assert hasattr(registry, "discover_klickdummies")
+    assert hasattr(registry, "discover_versions")
+    assert hasattr(registry, "render_browser_html")
+    assert hasattr(registry, "main_cli")
+
+
+def test_v11_browser_template_present():
+    tmpl = files("iil_klickdummy.snippets.browser").joinpath("browser.html.tmpl").read_text()
+    assert "__KLICKDUMMIES_JSON__" in tmpl
+    assert "__REPO_LABEL__" in tmpl
+
+
+def test_v11_registry_discover_empty_repo(tmp_path):
+    from iil_klickdummy import registry
+    # leeres Verzeichnis → 0 Klickdummies
+    result = registry.discover_klickdummies(tmp_path)
+    assert result == []
+
+
+def test_v11_registry_render_browser_html(tmp_path):
+    from iil_klickdummy import registry
+    fake = [registry.KlickdummyMeta(
+        name="demo", path="klickdummy/demo/screens-spec.yaml",
+        shell_path="klickdummy/demo/shell.html",
+        spec_id="repo:klickdummy-spec-demo", spec_version="0.1",
+        klickdummy_class="mock", title="Demo",
+        adr_local="repo:ADR-100", sister_of=[],
+    )]
+    out = tmp_path / "browser.html"
+    registry.render_browser_html(fake, out, repo_label="test-repo")
+    html = out.read_text(encoding="utf-8")
+    assert "test-repo" in html
+    assert "Demo" in html
+    assert "repo:klickdummy-spec-demo" in html
+    assert "__KLICKDUMMIES_JSON__" not in html  # Template-Marker ersetzt
+
+
+def test_v11_version_bumped():
+    import iil_klickdummy
+    assert iil_klickdummy.__version__ == "1.1.0"

@@ -23,7 +23,7 @@ scope:
 - **Datum:** 2026-05-19
 - **Entscheider:** Achim Dehnert
 - **Verwandt:** risk-hub:ADR-046, writing-hub:ADR-180, meiki-hub:ADR-020, meiki-hub:ADR-026 (Rev 12)
-- **Adversarial reviews:** sechs Cascade-Pässe (Rev 2/3/4/9 + Rev 10 F5-Rollback + Rev 11 #228/#229) + Rev-12-Empiriebasis (meiki-hub PR #23, 7 Iterationen 2026-05-20) + Rev-13-Decider-Pivot (ADR-214-Draft als advocatus diabolus zurückgezogen, 4 🔴-Findings), siehe Revisionshistorie
+- **Adversarial reviews:** sechs Cascade-Pässe (Rev 2/3/4/9 + Rev 10 F5-Rollback + Rev 11 #228/#229) + Rev-12-Empiriebasis (meiki-hub PR #23, 7 Iterationen 2026-05-20) + Rev-13-Decider-Pivot (ADR-214-Draft als advocatus diabolus zurückgezogen, 4 🔴-Findings) + Rev-14-Browser (Stakeholder-Feedback 2026-05-21), siehe Revisionshistorie
 
 ## Zusammenfassung
 
@@ -441,7 +441,7 @@ Weiterentwicklung wirkt cross-repo"*.
 
 | Material | Wo | Wie |
 |---|---|---|
-| **Python-Code** (`check_i1..i4`, `extract_requirements`, `inventory`, `install_snippets`) | `platform/packages/iil-klickdummy/src/iil_klickdummy/` | **pip-Paket** via Git-URL: `pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.0.0#subdirectory=packages/iil-klickdummy"`. Privates PyPI (sobald `pypi.iil.pet` aufgesetzt) ⇒ `pip install "iil-klickdummy>=1.0,<2.0"`. |
+| **Python-Code** (`check_i1..i4`, `extract_requirements`, `inventory`, `install_snippets`, `registry`) | `platform/packages/iil-klickdummy/src/iil_klickdummy/` | **pip-Paket via public PyPI** (Rev 14, ab v1.1.0): `pip install "iil-klickdummy>=1.1,<2.0"`. Fallback Git-URL: `pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.1.0#subdirectory=packages/iil-klickdummy"`. |
 | **JSON-Schemas** + **HTML-Snippets** (Widget v0.5, Issue-Template, Spec-Template, Shell-Bootstrap) | `iil_klickdummy/{schemas,snippets}/` als `package_data` | Mitversendet im pip-Paket. Snippet-Installation pro Repo via Console-Script `klickdummy-install-snippets [--symlink]` nach `<repo>/platform-snippets/klickdummy/`. |
 | **Convention-Pfade** (z. B. `~/.claude/policies/klickdummy.md`) | platform-Worktree | **Symlink** (Bestand aus Rev 5, unverändert). |
 
@@ -490,6 +490,61 @@ Rev 12 hatte „Plattform-Heimat" als „Best-Effort". Rev 13 macht sie konkret,
 keine neue Architektur-Entscheidung mehr ist (`adr-threshold.md`: „following
 an existing pattern" → kein eigener ADR). Decider-Review 2026-05-20 verwarf
 ADR-214-Draft mit dieser Begründung.
+
+## §Multi-Klickdummy-Browser (Rev 14, optional)
+
+**Auslöser:** Stakeholder-Feedback 2026-05-21 (meiki:klickdummy-feedback,
+`feedback_scope: klickdummy-tool`, Pfad-A-light): *„erweitere den klickdummy
+so, dass er mehrere versionen und verschiedene klickdummies aufrufen kann.
+als listbox im linken menu möglich?"*
+
+Erste Empirie durch User-Direct-API-Bridge **außerhalb** der zentral-
+Service-Hypothese — bestätigt Rev-13-Pivot-B-Entscheidung.
+
+**Mechanik (in iil-klickdummy v1.1.0):**
+
+- **`iil_klickdummy.registry`** — Python-Modul:
+  - `discover_klickdummies(repo_root)` — sucht `klickdummy/<name>/screens-spec.yaml`
+    + `docs/01-architektur/mockups/<name>/screens-spec.yaml` (meiki-Fallback)
+  - `discover_versions(spec_path, repo_root)` — extrahiert `spec_version`-
+    Werte aus Git-History je Spec-File
+  - `render_browser_html(klickdummies, output)` — statische HTML mit
+    eingebetteten Metadaten (kein externer fetch zur Laufzeit)
+- **Console-Script `klickdummy-browser`** — `[--repo .] [--output X.html] [--json] [--cross-repo (v1.2)]`
+- **Snippet `browser/browser.html.tmpl`** — Sidebar mit Listbox „Klickdummy"
+  + „Version" + Detail-Card (Klasse-Badge, ADR-Ref, Schwester-Klickdummies)
+  + iframe lädt aktive `shell.html?feedback=on`
+
+**Stufen-Plan:**
+
+| Stufe | Was | Release |
+|---|---|---|
+| 1 — Versions-Switcher im selben Klickdummy | Listbox aus Git-Tags / `spec_version`-History | v1.1.0 |
+| 2 — Repo-Browser (mehrere Klickdummies im selben Repo) | Listbox aus `discover_klickdummies(repo_root)` | v1.1.0 |
+| 3 — Cross-Repo-Browser | `--cross-repo --base ~/github` aggregiert über alle Repos | v1.2.0 (Roadmap) |
+| 4 — Live-Web-Service | Hosted Index unter `klickdummies.iil.pet` | Best-Effort, Bedarf-getrieben |
+
+**Aktivierungs-Definition** (analog Co-Creation):
+
+Ein Repo gilt als „Klickdummy-Browser aktiviert" wenn:
+1. `klickdummy-browser`-Output (`klickdummy-browser.html`) im Repo committed ist
+   ODER in CI/GitHub-Pages generiert wird
+2. Repo-lokales Klickdummy-ADR referenziert den Browser-Pfad (optional)
+
+**Was der Browser NICHT macht** (Anti-Patterns):
+
+- ❌ kein Live-Daten-Sammeln (statisches HTML, keine API-Calls zur Laufzeit
+  außer optional zu GitHub für Issue-Bridge — separat per Widget)
+- ❌ kein Render-Eingriff in den Klickdummy selbst — Browser ist
+  *Container*, nicht Modifikator
+- ❌ keine Class-Erhaltung-Verletzung — bei `class: mock` ist `browser.html`
+  Teil des Wegwerf-Pfads (nicht in Prod-Deploy)
+
+**Empirie-Quelle:** Dieses §-Update entstand durch das **zweite** real
+beobachtbare Stakeholder-Feedback durch die A-User-Direct-Bridge
+(post Smoke-Test #27); die Idee landet im Provenance-Log und führt direkt
+zu v1.1-Code in derselben Session — Iterations-Reflexivität funktioniert
+wie in Rev 13 beschrieben.
 
 ## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
@@ -665,6 +720,7 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 11 (Bundle #228/#229; orthogonal zu Rev 10)** — **F9 (#229):** I2 von 2 → **4 scharf abgegrenzte Patterns** (`mock`/`stub-demo`/`story`/`spec-demo`) entlang *Datenquelle × Code-Pfad-Identität*. Jedes Pattern erhält eine **distinkte** I2-Externprobe (mock = N/A; sonst je eigene Route/Query). Vermeidet das Theater-Risiko des 4-Pattern-Splits, weil die *Enforcement* je Pattern wirklich anders ist (siehe Glossar/Auswahlhilfe). **F10 (#228):** `sunset_after`-Pflicht-Frontmatter für repo-lokale Klickdummy-ADRs (nicht ADR-211 selbst); Phase-A bekommt damit einen *harten* Termin unabhängig von Parity. Auto-`deprecated` nach Frist, Extension via PR-Review. Enforcement-Script `adr_sunset.sh` als Scoreboard-Item S7; S8 = 4-Pattern-Konformität. I4 bleibt bestehen (Rev 10). **Offene Folge-Punkte:** (F11) `klickdummy_prod_guard.sh` muss pattern-spezifisch verzweigen (Issue #255 SF3-AC vor Bau anpassen); (F12) Migrations-Mapping bestehender Rev-≤10 `Demo-Render`-Repos auf eines der drei Nicht-`mock`-Patterns.
 - **Rev 12 (Empirie-getrieben aus meiki-hub PR #23, 7 Iterationen 2026-05-20)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, kein 5. Invariant, kein eigener ADR-21X. **F12 in Schließung** (§Migration Rev-≤10 → Rev-11) — Soft-Migrate-Pattern mit **Hard-Deadline 2026-08-20** (Rev-11-Datum + 3 Monate) etabliert; vor Deadline ⚠-Warning, ab Deadline FAIL; Strict-Mode-Trigger als Scoreboard-Item S11 (Inventur-Skript ODER Deadline schließt F12). **Zwei optionale Capabilities** als Erweiterung von I1: **§Co-Creation-Loop** (Stakeholder-Feedback aus Klickdummy → Spec, 3 Vertrauens-Pfade A/B/C — meiki-hub:ADR-026 als Referenz) und **§Requirements-Bridge** (Spec → UC/FR/NFR/Lasten/Pflicht, deterministisch + drift-aware, asymmetrisch — Forward auto, Reverse menschlich). Scoreboard erweitert um S9 (Co-Creation-Adoption), S10 (Requirements-Bridge-Adoption), S11 (Strict-Mode-Trigger). **Iteration-Typologie:** *stakeholder-getriggert* (klassisch) + *compliance-getriggert* (Policy-Hook erkennt Drift → dieselbe Pipe — meiki Iter. 7 als Erstanwendung). **Reflexivität dokumentiert** (Widget kann sich über sich selbst weiterentwickeln, meiki Iter. 6). **F11 weiterhin offen** (pattern-spezifischer Prod-Guard — gehört in Issue #255-Umsetzung, nicht ADR-Text).
 - **Rev 13 (Decider-Pivot 2026-05-20 — Plattform-Heimat konkret + Co-Creation-Pfade neu)** — Auslöser: ttz-hub als 6. Klickdummy-Repo + Anspruch *„permanente Weiterentwicklung wirkt cross-repo"*. **Initial ADR-214-Draft (Distribution + Service-Endpoint) wurde nach Decider-Review als advocatus diabolus zurückgezogen** (4 🔴-Findings: K1 0% Empirie für Endpoint, K3 Coding-Agent existiert nicht, K6/K12 Service-Wartung ohne ROI, K10 Datenschutz-Default falsch herum). **Konsequenzen in Rev 13:** (a) **§Distribution** als ADR-211-§ statt ADR-214 (`adr-threshold.md`: ohne Service-Boundary keine neue Architektur-Entscheidung). pip-Paket `iil-klickdummy` v1.0.0 mit Schemas + Skripten + Widget v0.5 als `package_data`; via Git-URL bis privates PyPI aufgesetzt ist. (b) **§Co-Creation Pfade A neu strukturiert:** `A-light` (download/clipboard, empirisch validiert) + `A-User-Direct` (Widget POSTet direkt an `api.github.com` mit User-PAT in localStorage — GitHub-native Audit/Rate-Limit/Auth) + `A-Agent` (GitHub-Action pro Repo, Voraussetzung nachweisbar). „A-Bridge" mit zentralem Endpoint **gestrichen** — wenn Skalierung Service erfordert, neu evaluieren in Rev 14. (c) **Plugin-Architektur im Widget** (`KLICKDUMMY_CATEGORIES`/`PERSONA_HOOK`/`VERFAHREN_HOOK`) — Repo-Customization ohne Fork. (d) **Widget v0.5 = voller meiki-v0.4-Stand** (Action-Liste, DOM-Snapshot, File-Upload, Scope-Selector, Verfahrens-Kontext) — Iterations-Rückschritt bei Adoption vermieden.
+- **Rev 14 (2026-05-21 — Multi-Klickdummy-Browser + public PyPI)** — Empirie-getrieben durch erstes „echtes" Stakeholder-Feedback nach Smoke-Test #27 (Pfad A-light, `feedback_scope: klickdummy-tool`): *„erweitere den klickdummy so, dass er mehrere versionen und verschiedene klickdummies aufrufen kann. als listbox im linken menu möglich?"* **Konsequenzen:** (a) **`iil-klickdummy` v1.1.0** mit neuem Modul `registry.py` + Snippet `browser/browser.html.tmpl` + Console-Script `klickdummy-browser` — Stufe 1 (Versions-Switcher aus Git-History) + Stufe 2 (Repo-Browser mit Listbox + iframe). Stufe 3 (Cross-Repo) als v1.2-Roadmap, Stufe 4 (Live-Service) Best-Effort. (b) **Distribution-Update:** public PyPI (`pip install iil-klickdummy>=1.1,<2.0`) wird Default; Git-URL bleibt Fallback. Privates PyPI nicht weiterverfolgt — public ist niedrigste Reibung und gibt Open-Source-Signal ohne Wartungs-Service-Boundary (analog Rev-13-Pivot-Logik). PyPI-Publish via Trusted Publishing (OIDC), kein API-Token in Secrets. (c) **§Multi-Klickdummy-Browser** dokumentiert Aktivierungs-Definition + 3 Anti-Patterns + 4-Stufen-Roadmap. (d) **Reflexivität gestärkt:** Iter. 8 (Stakeholder-Feedback per A-light) führt direkt zu v1.1-Code in derselben Session — empirischer Beleg, dass Co-Creation-Loop wie in Rev 13 designed funktioniert.
 
 ## Bezug
 

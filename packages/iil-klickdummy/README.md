@@ -1,19 +1,28 @@
-# `iil-klickdummy` — Shared Infrastructure for `platform:ADR-211` (Rev 13)
+# `iil-klickdummy` — Shared Infrastructure for `platform:ADR-211` (Rev 14)
 
 > Versioniertes pip-Paket mit allem, was Klickdummy-Konformität braucht:
 > Schemas, Konformitäts-Checks (I1–I4), Requirements-Bridge, S11-Inventur,
-> **und** das Feedback-Widget v0.5 (Co-Creation-Loop, GitHub-Direkt-API).
+> Feedback-Widget v0.5 (Co-Creation-Loop, GitHub-Direkt-API) **und** ab v1.1
+> einen Multi-Klickdummy-Browser mit Versions-Switcher.
 
 ## Install
 
+**Default (v1.1+):** public PyPI
+
 ```bash
-pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.0.0#subdirectory=packages/iil-klickdummy"
+pip install "iil-klickdummy>=1.1,<2.0"
 ```
 
-Privates PyPI (sobald aufgesetzt):
+**Fallback / Pre-PyPI / Dev:** via Git-URL
 
 ```bash
-pip install "iil-klickdummy>=1.0,<2.0"
+pip install "iil-klickdummy @ git+https://github.com/achimdehnert/platform.git@v1.1.0#subdirectory=packages/iil-klickdummy"
+```
+
+**Workspace-Pattern (Development):**
+
+```bash
+pip install -e ../platform/packages/iil-klickdummy
 ```
 
 ## Console-Scripts
@@ -26,7 +35,26 @@ klickdummy-i4 docs/                        # Cross-Repo-Ref-Format
 klickdummy-extract-requirements <spec>     # Spec → UC/FR/NFR/Lasten/Pflicht
 klickdummy-inventory                       # S11 cross-repo legacy class scan
 klickdummy-install-snippets [--symlink]    # HTML+JS+templates in <repo>/platform-snippets/
+klickdummy-browser [--output X.html]       # v1.1: Multi-Klickdummy-Browser (Listbox + iframe)
 ```
+
+## v1.1 — Browser-Feature (Stufe 1+2)
+
+Erzeugt eine statische `klickdummy-browser.html` mit:
+
+- **Linke Sidebar:** Listbox „Klickdummy" (alle im Repo gefundenen) + Versions-Switcher (aus Git-History)
+- **Detail-Card:** Spec-ID, Klasse-Badge, ADR-Ref, Schwester-Klickdummies, Pfad
+- **Main:** iframe lädt aktive shell.html mit `?feedback=on`
+
+Erzeugung:
+
+```bash
+cd <repo>
+klickdummy-browser --output klickdummy-browser.html
+# Browser: open klickdummy-browser.html
+```
+
+**Cross-Repo-Modus** (`--cross-repo --base ~/github`) ist v1.2-Roadmap.
 
 ## Feedback-Widget (v0.5)
 
