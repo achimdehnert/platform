@@ -13,7 +13,7 @@ free-tier rate limits are not the binding constraint, but **cost-per-token
 on these providers is roughly 1-2 orders of magnitude lower** than frontier
 models for equivalent quality on mechanical tasks.
 
-## Available providers (keys in `~/shared/secrets-inbox/`)
+## Available providers (keys in `~/shared/inbox/secrets/`)
 
 | Provider | Key file | aifw prefix | Notes |
 |---|---|---|---|
@@ -91,8 +91,8 @@ ActionType.objects.update_or_create(
 ```
 
 `CEREBRAS_API_KEY` / `GROQ_API_KEY` need to be in the host project's `.env`.
-Source values from `~/shared/secrets-inbox/cerebras_api_key` and
-`~/shared/secrets-inbox/groq_api_key` (never echo to stdout).
+Source values from `~/shared/inbox/secrets/cerebras_api_key` and
+`~/shared/inbox/secrets/groq_api_key` (never echo to stdout).
 
 Cerebras quickstart reference: https://inference-docs.cerebras.ai/quickstart
 
@@ -108,7 +108,7 @@ Cerebras quickstart reference: https://inference-docs.cerebras.ai/quickstart
   ("wieso nicht Groq free of cost?") during repo_health agent design.
 - 2026-05-11: Added Cerebras as Tier 1a peer to Groq, noted paid Groq access,
   documented Cerebras→Groq failover pattern, listed all available provider
-  keys in `~/shared/secrets-inbox/`.
+  keys in `~/shared/inbox/secrets/`.
 - 2026-05-13: Reality-check via `/v1/models` — `cerebras/llama-3.3-70b` is
   not on this account; Tier 1a defaults switched to `groq/llama-3.3-70b-versatile`
   (or `cerebras/qwen-3-235b-a22b-instruct-2507`). Tier 1b Cerebras model ID

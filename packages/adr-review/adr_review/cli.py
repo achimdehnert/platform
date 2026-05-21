@@ -48,7 +48,7 @@ DEEP_MODEL = os.environ.get("ADR_REVIEW_DEEP_MODEL",
                             "cerebras/zai-glm-4.7").strip()
 ESCALATE_BELOW = int(os.environ.get("ADR_REVIEW_ESCALATE_BELOW", "6"))
 DEEP_LABEL = os.environ.get("ADR_REVIEW_DEEP_LABEL", "adr-deep-review")
-_SECRET_DIRS = [Path.home() / "shared" / "secrets-inbox",
+_SECRET_DIRS = [Path.home() / "shared" / "inbox" / "secrets",
                 Path.home() / ".secrets"]
 
 CHECKLIST = """Du bist ADR-Architektur-Reviewer für die iil/achimdehnert-Plattform.
@@ -79,7 +79,7 @@ def is_adr_file(path: str) -> bool:
 
 
 def _secret(model: str) -> str | None:
-    """litellm-Modellstring → API-Key (env ODER ~/shared/secrets-inbox/, wie print_agent)."""
+    """litellm-Modellstring → API-Key (env ODER ~/shared/inbox/secrets/, wie print_agent)."""
     m = model.lower()
     name = ("cerebras_api_key" if m.startswith("cerebras/")
             else "groq_api_key" if m.startswith("groq/")

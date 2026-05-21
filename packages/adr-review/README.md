@@ -45,7 +45,7 @@ Der Kommentar nennt das genutzte Modell + Eskalationsgrund.
 > Aliase gemappt (noch nicht hart gekoppelt).
 
 Keys werden wie bei `print_agent` aufgelöst: env-Var **oder**
-`~/shared/secrets-inbox/<provider>_api_key`. Fehlt `GITHUB_TOKEN`, jeder
+`~/shared/inbox/secrets/<provider>_api_key`. Fehlt `GITHUB_TOKEN`, jeder
 LLM-Key oder enthält der PR keine ADR-Datei → sauberer Exit 0 mit Hinweis
 (kein false-rot, konsistent mit dem Workflow-Guard).
 

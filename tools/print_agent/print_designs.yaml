@@ -39,7 +39,7 @@ designs:
     header_left:   "IIL GmbH  |  iil.gmbh"
     cover_label:   "IIL GmbH &nbsp;|&nbsp; iil.gmbh"
     subtitle:      "IIL GmbH · Intelligente industrielle Lösungen"
-    footer_suffix: "IIL GmbH · kontakt@iil.gmbh · iil.gmbh"
+    footer_suffix: "IIL GmbH · achim.dehnert@iil.gmbh · iil.gmbh"
     llm_context:   "IT-Dienstleistungen und KI-Lösungen (IIL GmbH)"
     es_label_text: "Zusammenfassung"
     meta_template: iil
@@ -62,3 +62,24 @@ designs:
     llm_context:   "industrielle Lernfabrik und Technologietransfer (TTZ Leipheim)"
     es_label_text: "Zusammenfassung"
     meta_template: iil
+
+  db:
+    # DB Corporate Identity — NUR für interne Drucke im bahn-hub-Repo.
+    # NICHT für externe Angebote/Kommunikation an die DB einsetzen (dort: iil).
+    primary:       "#EC0016"
+    bg_light:      "#FFF1F2"
+    border:        "#F5C5C9"
+    border_dark:   "#8C000E"
+    row_even:      "#FDF5F6"
+    row_odd:       "#FFFFFF"
+    gantt_bg:      "#FFF8F9"
+    flow_s1:       "#EC0016"
+    flow_s2:       "#3C414C"
+    flow_s3:       "#646973"
+    header_left:   "DB Konzern  |  Internes Dokument"
+    cover_label:   "DB &nbsp;·&nbsp; INTERNES DOKUMENT"
+    subtitle:      "Bahn-Hub · Analyse-Plattform für DB-Konzern-Daten"
+    footer_suffix: "Nur für den internen Gebrauch — vertraulich"
+    llm_context:   "interne Dokumentation im DB-Konzern-Kontext (Bahn-Hub)"
+    es_label_text: "Zusammenfassung"
+    meta_template: db

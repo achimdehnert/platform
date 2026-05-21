@@ -29,7 +29,7 @@ from weasyprint import HTML, CSS
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [
     Path("/home/devuser/shared/secrets"),
-    Path("/home/devuser/shared/secrets-inbox"),
+    Path("/home/devuser/shared/inbox/secrets"),
     Path.home() / ".secrets",
 ]
 _TEMPLATES_DIR = Path(__file__).parent / "print_templates"
@@ -80,8 +80,8 @@ def _load_designs(override_file: Path | None = None) -> dict:
 DESIGNS = _load_designs()
 
 
-def build_css(d: dict, extra_css: str = "") -> str:
-    """Injiziert :root-Variablen + @page; Rest aus base.css + optionalem extra_css."""
+def build_css(d: dict, extra_css: str = "", design_name: str = "") -> str:
+    """Injiziert :root-Variablen + @page; Rest aus base.css + optionalem design.css + extra_css."""
     p, hl = d["primary"], d["header_left"]
     root_and_page = f"""
 :root {{
@@ -105,8 +105,13 @@ def build_css(d: dict, extra_css: str = "") -> str:
     }}
 }}
 """
+    design_css = ""
+    if design_name:
+        design_css_path = _TEMPLATES_DIR / f"{design_name}.css"
+        if design_css_path.exists():
+            design_css = f"\n/* --- design-spezifisches CSS ({design_name}) ---*/\n" + design_css_path.read_text(encoding="utf-8")
     repo_css = f"\n/* --- repo-spezifisches CSS ---*/\n{extra_css}" if extra_css.strip() else ""
-    return root_and_page + _BASE_CSS_STATIC + repo_css
+    return root_and_page + _BASE_CSS_STATIC + design_css + repo_css
 
 
 def get_secret(name: str) -> str | None:
@@ -650,6 +655,12 @@ _INLINE_PATTERNS = {
     "zielentscheidung":r"\*\*Zielentscheidung:\*\*\s*([^\n]+)",
     "autor":           r"\*\*Autor(?:in)?:\*\*\s*([^\n]+)",
     "anlass":          r"\*\*Anlass:\*\*\s*([^\n]+)",
+    # DB internal-doc fields (used by db template)
+    "klassifizierung": r"\*\*Klassifizierung:\*\*\s*([^\n]+)",
+    "eigentuemer":     r"\*\*Eigent(?:ü|ue)mer:\*\*\s*([^\n]+)",
+    "version":         r"\*\*Version:\*\*\s*([^\n]+)",
+    "geltungsbereich": r"\*\*Geltungsbereich:\*\*\s*([^\n]+)",
+    "basisdokument":   r"\*\*Basisdokument:\*\*\s*([^\n]+)",
 }
 
 
@@ -673,7 +684,8 @@ def extract_meta(md_text: str, fm: dict | None = None) -> dict:
 _META_PREFIX_RE = re.compile(
     r"^\*\*(?:Stand|Status|Datum|Adressat|Zielentscheidung|Anlass|Autor(?:in)?|"
     r"Typ|Dokumenttyp|Doc[- ]?Type|Zielgruppe|Angebot Nr\.|Gültig bis|Auftraggeber|"
-    r"Begleitdokument):\*\*",
+    r"Begleitdokument|Klassifizierung|Eigent(?:ü|ue)mer|Version|Geltungsbereich|"
+    r"Basisdokument):\*\*",
     re.IGNORECASE,
 )
 
@@ -695,6 +707,17 @@ def strip_meta_prefix_lines(md_text: str) -> str:
 def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
     """Return list of (label, value) tuples for the meta table."""
     template = design.get("meta_template", "meiki")
+    if template == "db":
+        rows = []
+        doc_id = stem.upper().replace("_", "-")
+        rows.append(("Dokument-ID", doc_id))
+        rows.append(("Klassifizierung", meta.get("klassifizierung", "Vertraulich – Nur für den internen Gebrauch")))
+        if meta.get("stand"):           rows.append(("Stand", meta["stand"]))
+        if meta.get("eigentuemer"):     rows.append(("Eigentümer", meta["eigentuemer"]))
+        if meta.get("version"):         rows.append(("Version", meta["version"]))
+        if meta.get("geltungsbereich"): rows.append(("Geltungsbereich", meta["geltungsbereich"]))
+        if meta.get("basisdokument"):   rows.append(("Basisdokument", meta["basisdokument"]))
+        return rows
     if template == "iil":
         rows = []
         # Angebot-specific fields (only shown if filled)
@@ -707,7 +730,7 @@ def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
         if meta.get("anlass"):           rows.append(("Anlass", meta["anlass"]))
         if meta.get("zielentscheidung"): rows.append(("Zielentscheidung", meta["zielentscheidung"]))
         if meta.get("auftraggeber"):     rows.append(("Auftraggeber", meta["auftraggeber"]))
-        rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · kontakt@iil.gmbh"))
+        rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · achim.dehnert@iil.gmbh"))
         return rows
     # meiki default
     stand = meta.get("stand", "")
@@ -792,7 +815,7 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
         print(f"   🏷️  Keywords: {', '.join(enrichment.get('keywords', []))}")
 
     html = build_html(title, body_html, meta, input_path.stem, enrichment, design)
-    css = build_css(design, extra_css=extra_css)
+    css = build_css(design, extra_css=extra_css, design_name=design_name)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     out_path = output_dir / f"{input_path.stem}.pdf"

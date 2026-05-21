@@ -28,7 +28,11 @@
 body {
     font-family: Arial, Helvetica, sans-serif;
     font-size: 10pt; line-height: 1.55; color: #1C1C1C; margin: 0; padding: 0;
+    orphans: 3; widows: 3;
 }
+
+/* Paragraphs and list items must not be split across page breaks. */
+p, li { page-break-inside: avoid; break-inside: avoid; }
 
 .cover-header {
     border-top: 3px solid var(--primary);

@@ -1,5 +1,5 @@
 ---
-description: Markdown → PDF mit Design-Switcher (meiki | iil | ttz) — Datei oder Ordner
+description: Markdown → PDF mit Design-Switcher (meiki | iil | ttz | db) — Datei oder Ordner
 ---
 # /create-pdf — IIL Print Agent
 
@@ -10,8 +10,10 @@ Erzeugt ein PDF aus einer Markdown-Datei (oder allen `.md` eines Ordners) mit de
 - `/create-pdf <pfad_zum_folder>` — **alle** `.md`-Dateien im Ordner (rekursiv)
 - `/create-pdf <pfad> --design iil` — Design explizit angeben
 
-**Verfügbare Designs:** `meiki` (Standard) · `iil` · `ttz`
+**Verfügbare Designs:** `meiki` (Standard) · `iil` · `ttz` · `db`
 **SSoT:** `achimdehnert/platform` → `tools/print_agent/` (lokal: `${GITHUB_DIR:-~/github}/platform/tools/print_agent/`)
+
+> **DB-Design:** ausschließlich für **interne** Drucke im `bahn-hub`-Repo (DB-Konzern-CI, „Nur für den internen Gebrauch"). NIEMALS für externe Angebote/Kommunikation an die DB einsetzen — dort gilt `iil`.
 
 ---
 
@@ -23,9 +25,10 @@ Erzeugt ein PDF aus einer Markdown-Datei (oder allen `.md` eines Ordners) mit de
 - sonst: Fehler an User, mit Suche im aktiven Repo (typisch `docs/`, `docs/adr/`, `docs/04-entscheidungsunterlagen/`)
 
 **Design-Auto-Erkennung** (wenn nicht explizit angegeben):
+- Dateiname enthält `Angebot` oder `angebot` → `--design iil` (externe Angebote IMMER IIL-CD, auch wenn Adressat DB)
+- Pfad enthält `bahn-hub` (Repo-internes Dokument) → `--design db`
 - Pfad enthält `ttz-hub` oder `ttz` → `--design iil` (IIL liefert an TTZ)
 - Pfad enthält `meiki-hub` oder `meiki` → `--design meiki`
-- Dateiname enthält `Angebot` oder `angebot` → `--design iil`
 - Sonst → `--design iil`
 
 **Output-Verzeichnis (Spiegel-Logik):**

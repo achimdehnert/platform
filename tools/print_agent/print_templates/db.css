@@ -1,0 +1,254 @@
+/* IIL Print Agent — DB Design Overlay
+   Enterprise-Feeling für DB-Konzern interne Dokumente.
+   NIEMALS für externe Angebote/Kommunikation an die DB einsetzen.
+   ------------------------------------------------------------------ */
+
+/* ---- DB Cool-Grey Palette (öffentlich dokumentiert) ----
+   --db-grey-dark   #3C414C  Headlines, Body-Akzent
+   --db-grey-mid    #646973  Sekundär-Text, Sub-Header
+   --db-grey-light  #878C96  Metadaten, Inaktive
+   --db-grey-zebra  #F4F5F7  Zebra-Streifen, Hover-Hintergrund
+   --db-grey-line   #DDE0E5  Dezent-Trennlinien
+*/
+
+:root {
+    --db-grey-dark:  #3C414C;
+    --db-grey-mid:   #646973;
+    --db-grey-light: #878C96;
+    --db-grey-zebra: #F4F5F7;
+    --db-grey-line:  #DDE0E5;
+}
+
+/* ---- Typografie: Noto Sans als DB-Type-Substitut ----
+   DB Type ist lizenzpflichtig. Noto Sans ist freie OFL-Schrift mit
+   humanistisch-geometrischem Charakter — der nächste freie Verwandte.
+   Fallback-Kette nach Verfügbarkeit. */
+body {
+    font-family: "Noto Sans", "Inter", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    color: var(--db-grey-dark);
+}
+
+/* Größere Top-Marge für Klassifizierungs-Banner */
+@page {
+    margin: 26mm 20mm 26mm 20mm;
+
+    /* Klassifizierungs-Banner auf jeder Seite (außer Cover) */
+    @top-center {
+        content: "VERTRAULICH  ·  NUR FÜR DEN INTERNEN GEBRAUCH";
+        font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+        font-size: 7.5pt; font-weight: 700;
+        letter-spacing: 0.18em; color: #FFFFFF;
+        background: var(--primary);
+        padding: 3pt 14pt;
+        margin-top: 4mm;
+        border-radius: 2pt;
+    }
+
+    @bottom-left {
+        content: "VERTRAULICH";
+        font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+        font-size: 7pt; font-weight: 700;
+        letter-spacing: 0.16em; color: var(--primary);
+    }
+
+    @bottom-right {
+        content: "DB Konzern · " counter(page) " / " counter(pages);
+        font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+        font-size: 7.5pt; color: #3C414C;
+    }
+}
+
+@page :first {
+    @top-center { content: none; }
+    @bottom-left { content: none; }
+    @bottom-right { content: none; }
+}
+
+/* ---- Cover Header: DB-Rot-Stripe mit spec-konformem Logo-Block ----
+   DB-Logo-Spec (öffentlich dokumentiert):
+   - Aspect ratio Roter Block: 1.76 : 1 (Breite : Höhe)
+   - Schutzraum: 1× Höhe des Logo-Blocks rundherum frei
+   - „DB"-Lettermark in Weiß, optisch zentriert, Schriftstärke Black
+*/
+.cover-header {
+    position: relative;
+    background: var(--primary);
+    color: #FFFFFF;
+    border-top: none;
+    /* Schutzraum links groß genug für Logo-Block + 1× Höhe Margin */
+    padding: 16pt 20pt 16pt 78pt;
+    margin-bottom: 28pt;
+    font-size: 9.5pt; font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+}
+/* DB-Wordmark-Block: 28pt × 16pt = 1.75:1 (≈ Spec 1.76:1) */
+.cover-header::before {
+    content: "DB";
+    position: absolute;
+    /* Schutzraum 16pt links, vertikal zentriert */
+    left: 16pt; top: 50%;
+    transform: translateY(-50%);
+    width: 28pt;
+    height: 16pt;
+    background: #FFFFFF;
+    color: var(--primary);
+    font-family: "Noto Sans", Arial Black, Arial, sans-serif;
+    font-weight: 900;
+    font-size: 14pt;
+    line-height: 16pt;
+    text-align: center;
+    letter-spacing: -0.02em;
+    border-radius: 0;
+}
+
+/* ---- Cover-Page: Titel-Hierarchie mit DB-Cool-Grey ---- */
+.stand-anchor {
+    string-set: doc-stand content();
+}
+h1 {
+    margin-top: 8pt;
+    color: var(--db-grey-dark);
+    border-left: 6pt solid var(--primary);
+    padding-left: 14pt;
+    font-family: "Noto Sans", "Helvetica Neue", Arial, sans-serif;
+    font-weight: 700;
+}
+.doc-subtitle {
+    padding-left: 14pt;
+    border-left: 6pt solid var(--primary);
+    color: var(--db-grey-mid);
+    margin-bottom: 4pt;
+}
+.doc-meta-line {
+    padding-left: 14pt;
+    margin-bottom: 22pt;
+    color: var(--db-grey-light);
+}
+
+/* ---- Executive Summary: enterprise-styled ---- */
+.executive-summary {
+    background: #FFFFFF;
+    border: 1px solid var(--db-grey-line);
+    border-top: 4pt solid var(--primary);
+    border-left: none;
+    padding: 14pt 16pt;
+    box-shadow: none;
+    color: var(--db-grey-dark);
+}
+.executive-summary .es-label {
+    color: var(--primary);
+    font-size: 8.5pt;
+    border-bottom: 1px solid var(--db-grey-line);
+    padding-bottom: 4pt;
+    margin-bottom: 7pt;
+}
+.keywords { color: var(--db-grey-mid); }
+.keywords strong { color: var(--primary); }
+
+/* ---- Meta-Tabelle: kräftige DB-Linien, Cool-Grey für Label-Spalte ---- */
+.meta-table {
+    border-top: 2pt solid var(--primary);
+    border-bottom: 2pt solid var(--primary);
+}
+.meta-table td {
+    border: none;
+    border-bottom: 1px solid var(--db-grey-line);
+}
+.meta-table td:first-child {
+    background: var(--db-grey-zebra);
+    color: var(--db-grey-dark);
+    border-right: 1px solid var(--db-grey-line);
+    font-weight: 700;
+}
+
+/* ---- Section Headings: stärkere Abgrenzung mit DB-Bullet ---- */
+h2 {
+    border-bottom: 2pt solid var(--primary);
+    color: var(--db-grey-dark);
+    padding: 4pt 0 6pt 0;
+    text-transform: none;
+}
+h2::before {
+    content: "";
+    display: inline-block;
+    width: 8pt; height: 8pt;
+    background: var(--primary);
+    margin-right: 10pt;
+    vertical-align: middle;
+}
+h3 { color: var(--db-grey-dark); }
+h4 { color: var(--db-grey-mid); }
+
+/* ---- Tabellen: Cool-Grey-Zebra statt blass-roter Zebra ---- */
+thead tr { background: var(--primary); }
+thead th { font-weight: 700; color: #FFFFFF; }
+tbody tr:nth-child(even) { background: var(--db-grey-zebra); }
+tbody tr:nth-child(odd)  { background: #FFFFFF; }
+tbody td {
+    border-bottom: 1px solid var(--db-grey-line);
+    color: var(--db-grey-dark);
+}
+tbody tr:last-child td { border-bottom: 2px solid var(--primary); }
+
+/* ---- Body-Text in DB-Cool-Grey-Dark ---- */
+p { color: var(--db-grey-dark); }
+li { color: var(--db-grey-dark); }
+
+/* ---- Doc-Control-Footer-Note: prominenter Vertraulichkeits-Hinweis ---- */
+.footer-note {
+    margin-top: 24pt;
+    border-top: 2pt solid var(--primary);
+    padding: 10pt 14pt;
+    background: var(--bg-light);
+    color: var(--border-dark);
+    font-style: normal;
+    font-size: 8pt;
+    font-weight: 600;
+}
+.footer-note::before {
+    content: "⚠ ";
+    font-weight: 900;
+    color: var(--primary);
+}
+
+/* ---- Watermark „INTERN" diagonal, dezent im Hintergrund ---- */
+body::before {
+    content: "INTERN";
+    position: fixed;
+    top: 45%; left: 50%;
+    transform: translate(-50%, -50%) rotate(-32deg);
+    font-family: "Noto Sans", Arial Black, Arial, sans-serif;
+    font-size: 120pt;
+    font-weight: 900;
+    color: var(--primary);
+    opacity: 0.04;
+    z-index: -1;
+    pointer-events: none;
+    letter-spacing: 0.05em;
+}
+
+/* ---- Blockquote / Callouts: DB-CI ---- */
+blockquote {
+    background: var(--db-grey-zebra);
+    border-left: 4pt solid var(--primary);
+    border-top: 1px solid var(--db-grey-line);
+    border-right: 1px solid var(--db-grey-line);
+    border-bottom: 1px solid var(--db-grey-line);
+    color: var(--db-grey-dark);
+}
+
+/* ---- Code-Blöcke in Cool-Grey-Frame ---- */
+code {
+    background: var(--db-grey-zebra);
+    color: var(--db-grey-dark);
+}
+pre {
+    background: var(--db-grey-zebra);
+    border: 1px solid var(--db-grey-line);
+    color: var(--db-grey-dark);
+}
+
+/* ---- Links: dezent in DB-Rot ---- */
+a { color: var(--primary); font-weight: 600; }
