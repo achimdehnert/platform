@@ -22,8 +22,19 @@ SRV_DIR="${SRV_DIR:-/srv/klickdummy}"
 WORK_DIR="${WORK_DIR:-/var/lib/klickdummy-sync}"
 BUNDLE_DIR="${BUNDLE_DIR:-/tmp/klickdummy-host-bundle}"
 DEPLOY_KEY="$WORK_DIR/.ssh/klickdummy-deploy_ed25519"
-HTPASSWD_FILE="/etc/nginx/.htpasswd-klickdummy"
-HTPASSWD_USER="${HTPASSWD_USER:-klickdummy-viewer}"
+HTPASSWD_FILE="/etc/nginx/.htpasswd-klickdummy"     # deprecated, ADR-216-initial
+HTPASSWD_USER="${HTPASSWD_USER:-klickdummy-viewer}"  # Übergangs-User (Backward-Kompat)
+
+# ADR-217 Klausel-2 Per-Repo-Auth: pro Owner ein htpasswd-File
+# (Default = Landing/Discovery, owner-spezifische enthalten User + admin + viewer)
+HTPASSWD_DIR="/etc/nginx"
+declare -A OWNER_USERS=(
+  [sqf]="raphael"
+  [pg]="ilja grinninger"
+  [meiki]="lra-meiki"
+  [ttz]="ttz-pilot"
+  [risk]="risk-pilot"
+)
 
 CRON_INTERVAL="${CRON_INTERVAL:-*/15 * * * *}"
 
@@ -85,26 +96,69 @@ install_files() {
   ok "Files installiert"
 }
 
-# 5. htpasswd erzeugen
+# 5. Per-Repo BasicAuth (ADR-217 Klausel-2-Variante)
 setup_htpasswd() {
-  log "BasicAuth htpasswd…"
-  if [ ! -f "$HTPASSWD_FILE" ]; then
-    # Generiere Passwort (16 Zeichen alphanumerisch)
-    PASSWORD=$(LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 16)
-    htpasswd -bcB "$HTPASSWD_FILE" "$HTPASSWD_USER" "$PASSWORD"
-    chmod 640 "$HTPASSWD_FILE"
-    chown root:www-data "$HTPASSWD_FILE" 2>/dev/null || chown root:nginx "$HTPASSWD_FILE" 2>/dev/null || true
-    echo
-    echo "════════════════════════════════════════════════════════════════════"
-    echo " BASIC-AUTH CREDENTIALS — bitte sicher aufbewahren + verteilen"
-    echo "   URL:        https://staging-klickdummy.iil.pet/"
-    echo "   User:       $HTPASSWD_USER"
-    echo "   Password:   $PASSWORD"
-    echo "════════════════════════════════════════════════════════════════════"
-    echo
-  else
-    ok "htpasswd existiert bereits"
+  log "Per-Repo BasicAuth htpasswd-Files…"
+  local creds="/root/klickdummy-credentials.txt"
+  if [ -f "$creds" ]; then
+    ok "Credentials existieren bereits → htpasswd-Files belassen"
+    return
   fi
+  # Passwörter generieren (openssl, kein SIGPIPE-Issue mit set -o pipefail)
+  local PW_ADMIN=$(openssl rand -base64 18 | tr -d "=+/" | head -c 14)
+  local PW_VIEWER=$(openssl rand -base64 18 | tr -d "=+/" | head -c 14)
+  declare -A PWS
+  for u in raphael ilja grinninger lra-meiki ttz-pilot risk-pilot; do
+    PWS[$u]=$(openssl rand -base64 18 | tr -d "=+/" | head -c 14)
+  done
+
+  # htpasswd-default: alle User können Landing/Discovery sehen
+  > /tmp/hp-default
+  for u in raphael ilja grinninger lra-meiki ttz-pilot risk-pilot; do
+    htpasswd -bB /tmp/hp-default "$u" "${PWS[$u]}" 2>/dev/null
+  done
+  htpasswd -bB /tmp/hp-default admin "$PW_ADMIN" 2>/dev/null
+  htpasswd -bB /tmp/hp-default klickdummy-viewer "$PW_VIEWER" 2>/dev/null
+  mv /tmp/hp-default "$HTPASSWD_DIR/htpasswd-default"
+
+  # Per-Owner htpasswd: nur eigene User + admin + viewer (allow-all)
+  for owner in sqf pg meiki ttz risk; do
+    > /tmp/hp-$owner
+    for u in ${OWNER_USERS[$owner]}; do
+      htpasswd -bB /tmp/hp-$owner "$u" "${PWS[$u]}" 2>/dev/null
+    done
+    htpasswd -bB /tmp/hp-$owner admin "$PW_ADMIN" 2>/dev/null
+    htpasswd -bB /tmp/hp-$owner klickdummy-viewer "$PW_VIEWER" 2>/dev/null
+    mv /tmp/hp-$owner "$HTPASSWD_DIR/htpasswd-$owner"
+  done
+
+  chmod 640 "$HTPASSWD_DIR"/htpasswd-*
+  chown root:www-data "$HTPASSWD_DIR"/htpasswd-* 2>/dev/null || chown root:nginx "$HTPASSWD_DIR"/htpasswd-* 2>/dev/null || true
+
+  # Credentials-Datei
+  cat > "$creds" <<EOF
+═══ Klickdummy Credentials (ADR-216 + ADR-217 Klausel-2-Variante) ═══
+URL:   https://staging-klickdummy.iil.pet/
+Realm: Klickdummy Demo  (browserseitig 1× gecached)
+
+PER-REPO-USER (sehen NUR ihren Repo):
+  raphael      / ${PWS[raphael]}   → bahn-sqf/sqf-hub
+  ilja         / ${PWS[ilja]}   → bahn-sqf/pg-hub
+  grinninger   / ${PWS[grinninger]}   → bahn-sqf/pg-hub
+  lra-meiki    / ${PWS[lra-meiki]}   → meiki-lra/meiki-hub
+  ttz-pilot    / ${PWS[ttz-pilot]}   → ttz-lif/ttz-hub
+  risk-pilot   / ${PWS[risk-pilot]}   → achimdehnert/risk-hub
+
+ALL-ACCESS-USER (sehen ALLE Repos):
+  admin             / $PW_ADMIN
+  klickdummy-viewer / $PW_VIEWER   (Übergangs-User aus Init-Phase)
+EOF
+  chmod 600 "$creds"
+  echo
+  echo "════════════════════════════════════════════════════════════════════"
+  echo " CREDENTIALS gespeichert: $creds (root-only)"
+  cat "$creds"
+  echo "════════════════════════════════════════════════════════════════════"
 }
 
 # 6. nginx-vhost

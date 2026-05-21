@@ -67,8 +67,8 @@ done <<< "$ENTRIES"
 
 # Discovery + Landing generieren
 # o+rx für nginx-Container-Read (klickdummy-sync-Dir hat 750 default)
-find "$WORK" -type d -exec chmod o+rx {} + 2>/dev/null || true
-find "$WORK" -type f -exec chmod o+r {} + 2>/dev/null || true
+find "$WORK" -mindepth 1 -maxdepth 1 -type d ! -name .ssh -exec sh -c 'find "$1" -type d -exec chmod o+rx {} +' _ {} + 2>/dev/null || true
+find "$WORK" -mindepth 1 -maxdepth 1 -type d ! -name .ssh -exec sh -c 'find "$1" -type f -exec chmod o+r {} +' _ {} + 2>/dev/null || true
 
 python3 /opt/klickdummy/generate_landing.py "$TARGET" "$REPOS_FILE" \
   --emit-json "$TARGET/_index.json" \

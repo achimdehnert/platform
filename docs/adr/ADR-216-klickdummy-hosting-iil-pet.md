@@ -525,6 +525,56 @@ staging-platform:
    bleibt, Traefik wird Sidecar bei nginx)
 
 Geschätzte Migration: 15 Min.
+## Per-Repo-Auth ohne Authentik (Iter. 32 Patch)
+
+Folge zu User-Anforderung 2026-05-21 (Iter. 31/32):
+
+> „Rollenkonzept: user/password per repo notwendig — user sieht nur sein repo/dummies"
+
+Realisiert ADR-217 §Auth Phase 2 OHNE Authentik (das fehlt auf staging-platform) durch **BasicAuth-Variante mit per-Owner htpasswd-Files + nginx location-Blöcke**.
+
+### Architektur
+
+| File | Zweck | User |
+|---|---|---|
+| `/etc/nginx/htpasswd-default` | Landing + Discovery + Widget | alle 8 |
+| `/etc/nginx/htpasswd-sqf` | `/bahn-sqf/sqf-hub/*` | raphael + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-pg` | `/bahn-sqf/pg-hub/*` | ilja + grinninger + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-meiki` | `/meiki-lra/meiki-hub/*` | lra-meiki + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-ttz` | `/ttz-lif/ttz-hub/*` | ttz-pilot + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-risk` | `/achimdehnert/risk-hub/*` | risk-pilot + admin + klickdummy-viewer |
+
+**Realm überall `Klickdummy Demo`** → Browser cached die Credentials einmalig. Wenn Owner-User auf fremde Repos zugreift, kommt 401 (kein Re-Auth-Loop weil gleicher Realm).
+
+### Plus: Picker-Aktivierung via sub_filter
+
+Same-Origin-Hint via nginx-injected JS in jeder HTML-Response:
+
+```javascript
+if (location.hostname === "staging-klickdummy.iil.pet") {
+  CROSS_REPO_INDEX.forEach(e => { e.local = true; e.reachable = true;
+    if (!e.path_rel && e.url) e.path_rel = e.url; });
+  renderCrossRepoCard(crpSelect.value);
+}
+```
+
+Behebt: User-Bug-Report "klickdummy auswahl leitet nicht in den dummy (readonly)".
+
+### Plus: Home-Button via sub_filter
+
+`<a href="/" id="kd-home-btn" style="…">⌂ Übersicht</a>` vor `</body>` in jede HTML-Response — kein Repo-Eingriff.
+
+### Migration zu Authentik (ADR-217 Phase 2)
+
+Sobald Authentik deployed (ADR-142 + ADR-217):
+1. nginx-Per-Owner-Locations entfernen → eine `location /` mit forwardAuth
+2. htpasswd-Files weg → Authentik-Groups übernehmen
+3. Authentik-Application-Bindings: `klickdummy-<org>-viewers` → Path-Pattern
+4. Plus: `klickdummy-viewer` Übergangs-User auslaufen lassen
+
+Geschätzt: 30 Min nach Authentik-Setup.
+
+
 
 ## Provenance
 
