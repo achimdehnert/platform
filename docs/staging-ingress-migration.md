@@ -40,7 +40,7 @@ Infrastruktur-Voraussetzung: Traefik-Stack läuft auf `staging-platform` ✅
 | bfagent | `staging-bfagent.iil.pet` | 🔴 todo | — |
 | billing-hub | `staging-billing.iil.pet` | 🔴 todo | — |
 | coach-hub | `staging-coachhub.iil.pet` | 🔴 todo | — |
-| cad-hub | `staging-cadhub.iil.pet` | 🔴 todo | — |
+| cad-hub | `staging-cadhub.iil.pet` | 🟡 in-progress | [cad-hub#feat/adr-212-traefik-migration](https://github.com/achimdehnert/cad-hub/pull/new/feat/adr-212-traefik-migration) |
 | risk-hub | `staging-demo.schutztat.de` | n/a (Klausel 1, eigene Domain) | — |
 | travel-beat | `staging-travelbeat.iil.pet` | 🔴 todo | — |
 | pptx-hub | `staging-pptxhub.iil.pet` | 🔴 todo | — |
