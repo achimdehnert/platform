@@ -8,13 +8,13 @@ mode: write
 > **Wann:** Workshop / frühe UX-Validierung; Repo hat `iil-klickdummy` schon installiert (oder kann via Step 0.6 installieren).
 > **Wann NICHT:** Nur einmaliges Workshop-Bild gezeigt + weggeworfen → §Wann-NICHT-Klausel `platform:ADR-211` Rev 13. Echte App-UI ohne `?demo=`-Sonderzustand → normaler Code.
 
-## Verwendung
+## Verwendung — zwei Modi
+
+### Modus A: Direkt-Argumente
 
 ```
 /klickdummy <name> [klasse=mock] [persona=<rolle>] [fachliche_grundlage=<pfad/doc.md>]
 ```
-
-**Variablen** (in dieser Reihenfolge im Prompt einfügen):
 
 | Variable | Pflicht | Beispiel | Bedeutung |
 |---|---|---|---|
@@ -24,6 +24,18 @@ mode: write
 | `fachliche_grundlage` | nein | `docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md` | Konzept-Doc, aus dem Screens abgeleitet werden |
 
 Optional als Folge-Prompts: `screens=[a,b,c]` · `extension_review_required=true|false` · `sister_of=[repo:ADR-NNN,...]`.
+
+### Modus B: Geführter Dialog (Interview-Modus)
+
+```
+/klickdummy
+```
+
+(Ohne Argumente.) Skill startet einen strukturierten Interview-Loop in 5 Phasen
+(siehe **Step 0.7 Interview-Modus** unten), sammelt alle Pflicht-Variablen
+und ggf. Screen-Definitionen, zeigt eine YAML-Vorschau zur Konfirmation —
+dann erst beginnen Bau-Steps 1-11. Empfohlen für **Workshop-Vorbereitung**
+ohne fertige Spec-Vorstellung.
 
 ## Step 0: Repo-Kontext (PFLICHT — kein Hardcoding)
 
@@ -58,7 +70,177 @@ ls .venv-klickdummy/bin/klickdummy-i1 2>/dev/null && echo "✓ installed" || ech
 
 Wenn fehlt: `make klickdummy-install` ausführen, falls Makefile-Target existiert. Sonst zuerst `iil-klickdummy` adoptieren (siehe §Migrations-Cookbook in `platform:ADR-211` Rev 13). Bei Erst-Adoption: `/klickdummy` selbst nicht der richtige Workflow — Erst-Adoption ist Eingriff in Repo-Infrastruktur.
 
-## Step 1: Pfad anlegen
+## Step 0.7: Interview-Modus (nur wenn Modus B: keine Argumente)
+
+**Auslöser:** `/klickdummy` ohne Argumente. Wenn Modus A (mit `<name>` etc.) verwendet wird, wird **Step 0.7 übersprungen** und es geht direkt zu Step 1.
+
+**Mechanik:** Coding-Agent (CC / Windsurf) führt den Dialog mit dem User. **Eine Frage pro Turn**, mit Smart-Default-Vorschlag und Erklärung. User antwortet → nächste Frage. Antworten werden in einer lokalen `<spec_draft>`-Struktur gesammelt. Phase 5 ist Konfirmations-Stop bevor Bau-Steps anfangen.
+
+### Phase 1 — Pflicht-Variablen (4 Fragen, sequenziell)
+
+**Frage 1.1 — Name:**
+
+> „Wie soll der Klickdummy heißen? Kebab-case, wird Pfad-Name + Spec-ID-Suffix.
+> Beispiel: `schichtleitung-cockpit`, `werkleiter-tag-uebersicht`."
+
+Validierung: regex `^[a-z][a-z0-9-]*$`. Bei Drift: re-prompt mit Hinweis.
+
+**Frage 1.2 — Klasse (I2-Pattern):**
+
+> „Welches Pattern (platform:ADR-211 Rev 11 §I2)?
+>
+> 1. `mock` (Default) — Wegwerf-Pfad, keine echte Persistenz, keine Prod-Deploy-Pflicht. Für Workshop / frühe Validierung.
+> 2. `stub-demo` — realer Code-Pfad mit synth. Daten an dedizierter Demo-Route (Route muss in Prod 404 antworten).
+> 3. `story` — Component-Catalog (Storybook etc.); Catalog-Route in Prod 404.
+> 4. `spec-demo` — env-gegated via `?demo=<state>`; `?demo=` in Prod 404/disabled.
+>
+> Welches Pattern? [Default: mock]"
+
+Bei `stub-demo`/`story`/`spec-demo`: **adaptive Folgefragen** (siehe Phase 2).
+
+**Frage 1.3 — Personas:**
+
+> „Welche Personas / Rollen sehen den Klickdummy? Komma-Liste.
+> [Smart-Default aus `project-facts.md` Repo-Kontext, falls Personas-Hinweise]"
+
+Beispiele je Repo-Typ:
+- ttz-hub (Werkstatt): `werkleitung, schichtleitung`
+- meiki-hub (LRA): `sachbearbeiter, teamleitung`
+- writing-hub (Lecture): `autor`
+
+**Frage 1.4 — Fachliche Grundlage:**
+
+> „Aus welchem Dokument kommen die Screens? Drei Optionen:
+>
+> A. **Pfad zu Konzept-Doc** (z. B. `docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md`) — Agent liest + leitet ab
+> B. **Freie Beschreibung** in einem nachfolgenden Prompt
+> C. **Stub** — nur 1 Skelett-Screen mit „Inhalte folgen aus Workshop"-Hinweis
+>
+> Welche Option (A/B/C)?"
+
+Bei A: Datei lesen, in Phase 3 verarbeiten.
+Bei B: Free-Text-Eingabe abwarten.
+Bei C: Phase 3 wird sehr kurz (1 Screen).
+
+### Phase 2 — Adaptive Folgefragen (nur bei nicht-`mock`-Klasse)
+
+**Bei `stub-demo`:**
+> „Demo-Route-Pfad? (z. B. `/demo/<klickdummy-name>/`). Wird in `class_evidence.demo_route` festgehalten. **Pflicht:** Diese Route MUSS in Prod 404 antworten (I2-Externprobe)."
+
+**Bei `story`:**
+> „Catalog-Route? (z. B. `/storybook/`, `/styleguide/`). Wird in `class_evidence.catalog_route` festgehalten. **Pflicht:** Route in Prod 404."
+
+**Bei `spec-demo`:**
+> „Welcher Query-Parameter aktiviert den Demo-Render? Default: `?demo=on`. Welcher ENV-Flag schaltet das auf Server-Seite ab? (z. B. `KLICKDUMMY_TOUR_ENABLED + DEBUG + TESTING`). Wird in `class_evidence.prod_guard` festgehalten."
+
+### Phase 3 — Screens definieren (Loop)
+
+**Frage 3.0 — Anzahl:**
+
+> „Wie viele Screens? (2-5 typisch; mehr nur wenn Workshop-Plan es vorgibt.)"
+
+**Wenn fachliche_grundlage=A:** Agent **liest die Datei**, schlägt 2-5 Screens mit Vorschlag-Titel + Zweck vor. User bestätigt oder ändert pro Screen.
+
+**Wenn fachliche_grundlage=B/C:** Agent fragt **pro Screen** sequenziell:
+
+Für Screen #N:
+
+> „**Screen #N — id** (kebab-case)? Beispiel: `frist-uebersicht`."
+> „**title** (Klartext)? Beispiel: `Fristen-Übersicht`."
+> „**purpose** (1 Satz, was zeigt der Screen)?"
+> „**personas** für diesen Screen? [Default: alle aus Phase 1.3]"
+> „**datafields** (Komma-Liste oder leer)? Format: `name (typ, quelle)`. Beispiel: `fall_id (string, FV-Adapter), frist (date, BRMS)`."
+> „**target_mocks** (welche Systemgrenzen werden angeklickt aber nicht aufgelöst)? Komma-Liste generischer Adapter-Familien. Beispiel: `DMS-Adapter, BRMS Frist-Engine`. **Keine Vendor-Namen** (Anti-Pattern)."
+> „**parity_acceptance** — mindestens 1 prüfbare Behauptung pro Screen. Format: `id: kurzbezeichnung | check: konkrete Aussage`. Beispiel: `id: frist-uebersicht.ampel-vollstaendig | check: Ampel-Zähler summieren zu count(alle_fristen)`."
+
+Loop bis Anzahl erreicht.
+
+### Phase 4 — Optionale Felder (Smart-Defaults, 1-2 Fragen)
+
+**Frage 4.1 — Schwester-Implementierungen (Cross-Repo):**
+
+> „Gibt es Klickdummies in anderen Repos, mit denen dieser eine **Schwester-Beziehung** hat? Format: `repo:ADR-NNN`, Komma-Liste. [Default: leer]
+>
+> Bekannte Klickdummy-ADRs (zur Inspiration):
+> - meiki-hub:ADR-021 (Fristenmanagement, mock)
+> - writing-hub:ADR-180 (Lecture-Outline-Wizard, spec-demo)
+> - risk-hub:ADR-046 (Spec-Driven UI, mock)
+> - ttz-hub:ADR-100 (Werkleiter-Skizze-Stub, mock)"
+
+**Frage 4.2 — Co-Creation-Loop?**
+
+> „Soll der Klickdummy von Anfang an mit Feedback-Widget (Pfad A-User-Direct, platform:ADR-211 Rev 13 §Co-Creation) ausgeliefert werden? [Default: nein, kann jederzeit nachgerüstet werden]"
+
+Falls **ja**: Spec bekommt `feedback_loop.path: A-User-Direct` und `shell.html` enthält den Bootstrap-Block mit `KLICKDUMMY_FEEDBACK_REPO=<REPO_OWNER>/<REPO_NAME>`.
+
+**Smart-Defaults (NICHT gefragt, automatisch gesetzt):**
+
+| Feld | Default-Wert | Quelle |
+|---|---|---|
+| `sunset_after` | heute + 12 Monate | Rev-11-Default |
+| `extension_review_required` | `true` für `mock`, `false` sonst | Rev-11-Default |
+| `adr.conforms_to` | `platform:ADR-211` | Konstante |
+| `off_ramp.policy` | `platform:ADR-211 Static→Echt-Migrationspfad` | Konstante |
+| `off_ramp.doppelquell_grenze` | `prod-release` | Konstante |
+| `off_ramp_status` (je Screen) | `static` (bei Klasse `mock`) | Phase-A-Default |
+| ADR-Nummer | `letzte+1` aus `ls <ADR_PATH>/ADR-*.md` | auto-detect |
+| `KLICKDUMMY_FEEDBACK_REPO` | `<REPO_OWNER>/<REPO_NAME>` aus project-facts | Gov-Datenschutz-konform |
+
+### Phase 5 — YAML-Vorschau + Konfirmation
+
+Agent zeigt **gesamte gesammelte Spec als YAML-Block**:
+
+```yaml
+# Vorschau — schreibe ich gleich nach <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
+spec_id: <REPO_SHORT>:klickdummy-spec-<name>
+spec_version: "0.1"
+spec_date: "<heute>"
+title: <Klartext>
+adr:
+  local: <REPO_SHORT>:ADR-<NNN>
+  conforms_to: platform:ADR-211
+  sister_of: [...]
+class: <klasse>
+class_evidence: { ... }
+off_ramp: { ... }
+screens:
+  - id: <id>
+    title: <title>
+    ...
+```
+
+Dann Frage:
+
+> „Sieht das richtig aus?
+>
+> - **Ja, los** → starte Bau-Steps 1-11
+> - **Ändere X** → nimm Änderung am YAML auf, zeige neue Vorschau
+> - **Abbrechen** → schreibe nichts, beende Skill"
+
+**Erst nach `Ja, los` werden Files angelegt.** Bis dahin ist die Spec nur in der Konversation.
+
+### Phase-5-Output-Beispiel (Dogfood, ttz-hub Werkleiter-Skizze)
+
+Nachträglich rekonstruiert, was der Interview-Modus bei ttz-hub:ADR-100 erzeugt hätte (vor PR #5):
+
+```
+P1.1 name?                    → werkleiter-skizze
+P1.2 klasse?                  → mock
+P1.3 personas?                → werkleitung, schichtleitung
+P1.4 fachliche grundlage?     → A · docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md
+P2   (mock — übersprungen)
+P3.0 anzahl screens?          → 1 (Stub)
+P3.1 screen #1 id?            → werkleiter-uebersicht-stub
+     title?                   → Werkleiter-Übersicht (Stub)
+     purpose?                 → Skelett — fachliche Inhalte folgen aus Workshop Iter. 1
+     target_mocks?            → LLM-Gateway
+     parity_acceptance?       → id: werkleiter-uebersicht-stub.exists | check: rendert + zeigt Stub-Hinweis
+P4.1 sister_of?               → meiki-hub:ADR-021, writing-hub:ADR-180, risk-hub:ADR-046
+P4.2 co-creation?             → nein (Stub-Phase)
+P5   Vorschau + bestätigt     → Bau-Steps 1-11
+```
+
+Empirie: dieselbe Spec entstand am 2026-05-20 durch manuelle Eingabe (PR #5).
 
 ```bash
 mkdir -p <KLICKDUMMY_PATH>/<name>/
@@ -267,6 +449,8 @@ PR-Body sollte enthalten: Screen-Liste, Klassen-Begründung, Datenschutz-Hinweis
 - ❌ **`?feedback=on` als Default-aktiv** — muss opt-in bleiben (class-Erhalt bei `mock`)
 - ❌ **`screens: []`** — keine leere Spec; Stub-Screen muss vorhanden sein, mindestens
 - ❌ **CI ohne Klickdummy-Targets** — `make klickdummy` muss laufen, sonst `klickdummy_registry.sh` rot
+- ❌ **Interview-Modus überspringt Phase 5 (Konfirmation)** — schreibt nie ohne explizites „Ja, los". Sonst entstehen unintentionierte Klickdummies bei Interview-Tippfehlern.
+- ❌ **Phase-3-Screens ohne `parity_acceptance`** — leerer Screen ist I1-Verstoß bei späterem Drift-Check; mindestens 1 prüfbare Behauptung pro Screen erzwingen.
 
 ## Idempotenz-Note
 
@@ -295,3 +479,4 @@ Bewährt in:
 ## Changelog
 
 - 2026-05-21: Initial. Aus `platform:ADR-211` Rev 13 §Migrations-Cookbook + ttz-hub-Erst-Adoption-Empirie abgeleitet. 11 Steps + 9 Anti-Patterns + 2 Dogfood-Empirie-Punkte.
+- 2026-05-21: Rev 2 — Interview-Modus (Step 0.7) ergänzt. Bei `/klickdummy` ohne Args läuft strukturierter 5-Phasen-Dialog (Pflicht-Variablen / adaptive Klassen-Folgen / Screens-Loop / Optionals mit Smart-Defaults / YAML-Konfirmation), bevor Bau-Steps 1-11 starten. 2 neue Anti-Patterns (Phase-5-Bypass, leere parity_acceptance). Cross-Tool kompatibel (CC + Windsurf), kein separater Sub-Agent nötig.
