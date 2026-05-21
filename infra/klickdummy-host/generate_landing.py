@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate klickdummy.iil.pet Landing-Page (ADR-216).
+"""Generate staging-klickdummy.iil.pet Landing-Page (ADR-216).
 
 Usage:
     python3 generate_landing.py <target-dir> <repos.yaml> > index.html
@@ -79,7 +79,7 @@ def render(found: list[dict], repos_meta: dict) -> str:
 <html lang="de">
 <head>
 <meta charset="utf-8">
-<title>klickdummy.iil.pet — Stakeholder-Demo</title>
+<title>staging-klickdummy.iil.pet — Stakeholder-Demo</title>
 <style>
   body {{ font-family: system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a2230; }}
   h1 {{ color: #1a3a6c; }}
@@ -96,7 +96,7 @@ def render(found: list[dict], repos_meta: dict) -> str:
 </head>
 <body>
 <div class="user" id="user-chip">SSO · <span id="user-name">–</span></div>
-<h1>🛠 klickdummy.iil.pet</h1>
+<h1>🛠 staging-klickdummy.iil.pet</h1>
 <p>Pre-Pilot-Klickdummy-Demos · alle <code>class: mock</code> · synthetische Daten · SSO via Authentik (ADR-142)</p>
 {"".join(rows)}
 <div class="footer">
@@ -119,17 +119,62 @@ def render(found: list[dict], repos_meta: dict) -> str:
 """
 
 
+def render_json(found: list[dict], repos_meta: dict) -> str:
+    """Discovery-API-Endpoint /api/list — same-origin-Konsumenten (Picker)."""
+    import datetime
+    import json as _json
+
+    meta_by_repo = {
+        f"{r['owner']}/{r['name']}": r for r in repos_meta.get("repos", [])
+    }
+    entries = []
+    for f in found:
+        repo_key = f"{f['owner']}/{f['repo']}"
+        meta = meta_by_repo.get(repo_key, {})
+        entries.append({
+            "key": f"{f['owner']}/{f['klickdummy']}",
+            "org": f["owner"],
+            "repo": f["repo"],
+            "name": f["klickdummy"],
+            "url": f["url"],
+            "entry_file": f["entry"],
+            "description": meta.get("description"),
+            "adr": meta.get("adr"),
+            "source": "staging-klickdummy.iil.pet",
+        })
+    payload = {
+        "entries": entries,
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+        "source": "filesystem-scan",
+        "adr": "platform:ADR-216",
+    }
+    return _json.dumps(payload, ensure_ascii=False, indent=2)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("target_dir", help="z.B. /srv/klickdummy")
     ap.add_argument("repos_yaml", help="z.B. /opt/klickdummy/repos.yaml")
+    ap.add_argument("--emit-json", help="Pfad für _index.json (Discovery-API)")
+    ap.add_argument("--emit-html", help="Pfad für index.html (Landing)")
     args = ap.parse_args(argv)
 
     target = pathlib.Path(args.target_dir)
     repos_meta = yaml.safe_load(pathlib.Path(args.repos_yaml).read_text(encoding="utf-8"))
 
     found = discover(target)
-    print(render(found, repos_meta))
+
+    if args.emit_json:
+        pathlib.Path(args.emit_json).write_text(
+            render_json(found, repos_meta) + "\n", encoding="utf-8"
+        )
+    if args.emit_html:
+        pathlib.Path(args.emit_html).write_text(
+            render(found, repos_meta), encoding="utf-8"
+        )
+    if not args.emit_json and not args.emit_html:
+        # Backward-compat: stdout
+        print(render(found, repos_meta))
     return 0
 
 

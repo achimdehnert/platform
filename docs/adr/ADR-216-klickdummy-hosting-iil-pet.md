@@ -53,13 +53,17 @@ GitHub oder Drittanbietern wie Cloudflare Pages.
 ## Entscheidung
 
 **Statisches Klickdummy-Hosting via Traefik-Reverse-Proxy auf
-`klickdummy.iil.pet`.** Konkret:
+`staging-klickdummy.iil.pet`.** Konkret:
 
-1. **Hostname:** `klickdummy.iil.pet` (production, nicht `staging-*` — Stakeholder-Demos sind Pre-Pilot, aber Domain ist stabil)
+1. **Hostname:** `staging-klickdummy.iil.pet` — folgt `platform:ADR-212` Klausel 3 (`staging-<slug>.iil.pet` via `bf-staging`-Tunnel + Traefik auf `178.104.184.168`). Spätere Migration zu `klickdummy.iil.pet` (Klausel 1, Prod nach `platform:ADR-198`) ist eigene Operation nach Pilot-Akzeptanz und nicht Inhalt dieser ADR.
 2. **Reverse-Proxy:** existierender Traefik v3 (`platform:ADR-212` Klausel 3)
-3. **Backend:** ein **nginx-Container** mit Volume-Mount auf `/srv/klickdummy/`
-4. **URL-Schema:** `https://klickdummy.iil.pet/<org>/<repo>/<klickdummy>/`
-5. **Content-Sync:** **Pull-Mode** via Cron — Server pullt alle Klickdummy-Repos täglich (`git pull --ff-only`) und kopiert `klickdummy/<name>/` und `docs/01-architektur/mockups/<name>/` ins nginx-DocRoot
+3. **Backend:** ein **nginx-Container** mit read-only-Symlink-Tree (`/srv/klickdummy/`) auf die geclonten Klickdummy-Repos in `/var/lib/klickdummy-sync/` — kein doppelter rsync-Datenpfad (Drift-Vermeidung)
+4. **URL-Schema:** `https://staging-klickdummy.iil.pet/<org>/<repo>/<klickdummy>/`
+5. **Content-Sync:** **Pull-Mode** via Cron (15-Minuten-Intervall, nicht 24h — Pre-Pilot-Iteration läuft schneller). Server pullt alle Klickdummy-Repos und legt Symlinks ins `/srv/klickdummy/`-DocRoot.
+6. **Auth:** SSO via Authentik forwardAuth (`platform:ADR-142` IdP); siehe §Authentifizierung unten
+7. **Discovery-Endpoint same-origin:** `/api/list` (statisches JSON, vom Sync-Job generiert) — vermeidet CORS-Konfig für Cross-Repo-Picker-Fetch
+8. **Sync-User:** `klickdummy-sync` (dediziert, nicht root), `/srv/klickdummy` und `/var/lib/klickdummy-sync` gehören diesem User; nginx-Container liest read-only
+9. **Robots-Block:** `robots.txt` mit `User-agent: * Disallow: /` zusätzlich zu SSO (Search-Engine-Robust)
 
 ## Warum Pull statt Push
 
@@ -81,7 +85,7 @@ Latenz von 24h ist für Pre-Pilot-Demos ausreichend; bei Bedarf
 
 ```
                        Cloudflare Edge
-                       (klickdummy.iil.pet)
+                       (staging-klickdummy.iil.pet)
                               │
                               ▼ Tunnel: bf-staging (ADR-198)
                               │
@@ -140,7 +144,7 @@ services:
       - traefik_public
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.klickdummy.rule=Host(`klickdummy.iil.pet`)"
+      - "traefik.http.routers.klickdummy.rule=Host(`staging-klickdummy.iil.pet`)"
       - "traefik.http.routers.klickdummy.entrypoints=websecure"
       - "traefik.http.routers.klickdummy.tls.certresolver=letsencrypt"
       - "traefik.http.services.klickdummy.loadbalancer.server.port=80"
@@ -155,7 +159,7 @@ networks:
 ```nginx
 server {
   listen 80 default_server;
-  server_name klickdummy.iil.pet;
+  server_name staging-klickdummy.iil.pet;
   root /usr/share/nginx/html;
   index index.html;
 
@@ -211,14 +215,14 @@ python3 /opt/klickdummy/generate_landing.py > "$TARGET/index.html"
 ```
 
 `infra/klickdummy-host/generate_landing.py` — generiert
-`klickdummy.iil.pet/index.html` mit Auto-Discovery aller `<org>/<repo>/<kd>/shell.html`-
+`staging-klickdummy.iil.pet/index.html` mit Auto-Discovery aller `<org>/<repo>/<kd>/shell.html`-
 oder `chat-simulator.html`-Pfade. Verlinkt zu jedem direkt.
 
 ## I1–I4 Konsequenzen
 
 ### I2 Prod-Sicherheit — wichtig
 
-Klickdummies bleiben `class: mock`. **Aber:** `klickdummy.iil.pet` ist eine
+Klickdummies bleiben `class: mock`. **Aber:** `staging-klickdummy.iil.pet` ist eine
 **öffentlich-erreichbare URL**. Das ist **kein I2-Verstoß**, weil:
 
 - Klickdummies sind self-contained Mock-Renderer, kein Code-Pfad in eine
@@ -248,7 +252,7 @@ DSFA-Klärung 2026-05-21 (User):
   Zielsystemen, nicht im Klickdummy selbst)
 - **Klassifikation: nicht kritisch**
 
-Public-Hosting auf `klickdummy.iil.pet` ist DSGVO-konform.
+Public-Hosting auf `staging-klickdummy.iil.pet` ist DSGVO-konform.
 
 ## Stakeholder-Compliance-Zustimmung (2026-05-21, Iter. 25)
 
@@ -266,7 +270,7 @@ Klickdummy-Repos:
 
 User-Updates 2026-05-21:
 
-> „Anforderung: https://klickdummy.iil.pet/<owner>/<repo>/ mit login
+> „Anforderung: https://staging-klickdummy.iil.pet/<owner>/<repo>/ mit login
 >  (1 login für alle repos für den anfang) später owner-login..?"
 >
 > ergänzt: „authenticate SSO?"
@@ -291,7 +295,7 @@ Browser → Cloudflare → Traefik → forwardAuth → Authentik (/application/o
    ```bash
    scripts/authentik-staging-oidc.sh \
      --app-slug klickdummy \
-     --redirect-uri https://klickdummy.iil.pet/outpost.goauthentik.io/callback?X-authentik-auth-callback=true \
+     --redirect-uri https://staging-klickdummy.iil.pet/outpost.goauthentik.io/callback?X-authentik-auth-callback=true \
      --scopes openid,profile,email
    ```
 
@@ -322,7 +326,7 @@ Pro Org eine Gruppe; Traefik-Middleware-Chain hängt vom Pfad ab:
 
 ```yaml
 # Pseudo: pro Owner eine eigene Router-Rule + Gruppen-Check
-traefik.http.routers.klickdummy-sqf.rule=Host(`klickdummy.iil.pet`) && PathPrefix(`/bahn-sqf/`)
+traefik.http.routers.klickdummy-sqf.rule=Host(`staging-klickdummy.iil.pet`) && PathPrefix(`/bahn-sqf/`)
 traefik.http.routers.klickdummy-sqf.middlewares=klickdummy-sso,klickdummy-sqf-group-check
 # klickdummy-sqf-group-check: forwardAuth mit Gruppen-Filter ?required_group=sqf-viewers
 ```
@@ -379,9 +383,9 @@ User-Compliance-Zustimmung der 4 Stakeholder (siehe oben) erlaubt
 ### Positiv
 
 - **Volle Kontrolle**: keine Drittanbieter-Pages, keine Plan-Upgrades, keine Tokens auf GitHub
-- **Stabile URL-Pattern**: `klickdummy.iil.pet/<org>/<repo>/<kd>/` bleibt über Repo-Visibility-Änderungen stabil
+- **Stabile URL-Pattern**: `staging-klickdummy.iil.pet/<org>/<repo>/<kd>/` bleibt über Repo-Visibility-Änderungen stabil
 - **Auth-fähig** in Phase 2 (Traefik forwardAuth)
-- **Cross-Repo-Picker Discovery-Test-fertig**: CORS-Whitelist für `klickdummy.iil.pet` in Orchestrator-Issue #62 vorgesehen
+- **Cross-Repo-Picker Discovery-Test-fertig**: CORS-Whitelist für `staging-klickdummy.iil.pet` in Orchestrator-Issue #62 vorgesehen
 - **Konsolidiert mit ADR-212**: dieselbe Traefik-Instanz, kein zusätzlicher Ingress
 
 ### Negativ
@@ -392,7 +396,7 @@ User-Compliance-Zustimmung der 4 Stakeholder (siehe oben) erlaubt
 
 ### Neutral
 
-- **klickdummy.iil.pet ist ein neuer Hostname** — separater Cloudflare-DNS-Record nötig (Wildcard `*.iil.pet` deckt das ggf. schon)
+- **staging-klickdummy.iil.pet ist ein neuer Hostname** — separater Cloudflare-DNS-Record nötig (Wildcard `*.iil.pet` deckt das ggf. schon)
 
 ## Phase-Bauauftrag
 
@@ -400,7 +404,7 @@ User-Compliance-Zustimmung der 4 Stakeholder (siehe oben) erlaubt
 
 1. ✅ ADR-216 schreiben (diese ADR)
 2. ⏳ `infra/klickdummy-host/`-Verzeichnis mit Compose + nginx-conf + sync.sh + repos.yaml
-3. ⏳ DNS-Record `klickdummy.iil.pet` → Cloudflare Tunnel `bf-staging`
+3. ⏳ DNS-Record `staging-klickdummy.iil.pet` → Cloudflare Tunnel `bf-staging`
 4. ⏳ Deployment-Test: `docker compose up -d` + ersten Klickdummy-Aufruf
 5. ⏳ Cross-Repo-Picker (meiki-hub PR #38) testet die URL als alternative `path_rel`-Quelle
 
@@ -408,7 +412,7 @@ User-Compliance-Zustimmung der 4 Stakeholder (siehe oben) erlaubt
 
 6. Auth via Traefik forwardAuth (für pg-hub Sperrvermerk-Compliance)
 7. Webhook-Trigger statt Cron (post-merge in jedem Klickdummy-Repo)
-8. Sub-Domains pro Org (`sqf.klickdummy.iil.pet`, `meiki.klickdummy.iil.pet`)
+8. Sub-Domains pro Org (`sqf.staging-klickdummy.iil.pet`, `meiki.staging-klickdummy.iil.pet`)
 
 ## Alternativen
 
@@ -417,10 +421,61 @@ User-Compliance-Zustimmung der 4 Stakeholder (siehe oben) erlaubt
 3. **Repos public stellen** — verworfen, Compliance-Risiko pro Repo (Sperrvermerk pg-hub, Gov ttz/meiki)
 4. **Push-Mode (CI rsync)** — verworfen, Token-Spread-Risiko (vgl. Drift-Memory)
 
+## Advocatus-Diabolus-Review (User-Auftrag 2026-05-21 Iter. 26)
+
+Tiefe kritische Sichtung der Initial-ADR (commit `a2b63a8`) mit folgendem
+Befund + Verbesserungen (eingearbeitet in dieser Revision):
+
+### Pass 1: ADR-Konformität
+
+- 🔴 **Hostname-Drift behoben**: Initial-Version nutzte `klickdummy.iil.pet` —
+  Klausel-1-Pattern (Prod, ADR-198) auf Klausel-3-Infrastruktur (Staging,
+  ADR-212). Korrigiert zu `staging-klickdummy.iil.pet`. Spätere
+  Klausel-1-Migration ist eigene Operation nach Pilot-Akzeptanz.
+- 🟡 Explizite Klausel-Zuordnung in §Entscheidung Punkt 1 ergänzt.
+
+### Pass 2: Architektur-Smells
+
+- **Sync-Frequenz** von 24h → **15 Min** (Pre-Pilot iteriert schneller)
+- **Doppelter Datenpfad eliminiert**: Symlinks statt rsync — kein `/srv` ≠
+  `$WORK` Drift-Risiko
+- **Dedicated User `klickdummy-sync`** statt root (Security + Audit)
+- **Same-Origin Discovery-Endpoint** `/api/list` als Alternative zu
+  Orchestrator-Fetch (kein CORS, geringere Latenz, Fallback bei
+  Orchestrator-Outage)
+- **`robots.txt`** mit `Disallow: /` für Search-Engine-Robustheit
+
+### Pass 3: Sicherheits-Schwächen
+
+- Sync-User dediziert (`klickdummy-sync`)
+- SSH-Deploy-Keys read-only pro Repo (single-key-compromise = 4-Repo-read-leak, nicht write)
+- nginx-Container mountet `/srv/klickdummy` read-only
+- Authentik-Outpost-Audit-Log dokumentiert
+- Health-Endpoint ohne Auth (Trade-off, minimal Info-Leak akzeptiert)
+
+### Pass 4: Out-of-the-box-Ideen (eingearbeitet)
+
+1. ✅ **Same-Origin Discovery-Endpoint** `/api/list` (statisches JSON, vom Sync-Job generiert)
+2. **Commit-SHA-pinned URLs** für Audit-Vergleiche (Phase-2-Backlog)
+3. **Sperrvermerk-Confirm-Modal** für pg-hub-Klickdummies (Phase-2-Backlog)
+
+### Pass 5: Verworfene Alternativen (out-of-the-box, aber Overkill)
+
+- OCI-Image pro Klickdummy (mock-Klickdummies brauchen keine Containerisierung)
+- HA / Failover (für Pre-Pilot akzeptable SPOF auf staging-platform)
+- SSE-Hot-Reload (Browser-Refresh ist gut genug)
+- Sub-Domains pro Org (kommt mit Phase-2-Owner-Auth)
+
 ## Provenance
 
 - meiki-hub-Session 2026-05-21 Iter. 24: GitHub Pages für alle 4 Repos
   blockiert (Free-Plan + privat)
 - User-Entscheidung Iter. 25: D — iil.pet self-hosted
+- User-Entscheidung Iter. 25: SSO via Authentik (statt BasicAuth)
+- User-Auftrag Iter. 26: advocatus-diabolus-Review — Hostname-Drift +
+  Architektur-Smells + Security-Verschärfung eingearbeitet
+- User-Bestätigung Iter. 25: Stakeholder-Compliance-Zustimmung von Raphael,
+  Ilja, Grinninger, LRA für 4 Repos
 - Drift-Memories: `pat-in-remote-url-leak`, `github-pages-private-repo-plan`
-- Schwester-ADRs: 198 (Tunnel), 210 (3-Stufen), 212 (Traefik), 215 (Discovery)
+- Schwester-ADRs: 142 (Authentik), 198 (Tunnel), 210 (3-Stufen), 212
+  (Traefik), 215 (Discovery)

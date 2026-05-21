@@ -1,6 +1,6 @@
 # Klickdummy-Hosting via nginx + Traefik (ADR-216)
 # Server: 178.104.184.168 (staging-platform)
-# Domain: klickdummy.iil.pet
+# Domain: staging-klickdummy.iil.pet
 #
 # Deployment:
 #   scp infra/klickdummy-host/* staging-platform:/opt/klickdummy/
@@ -26,8 +26,8 @@ services:
 
     labels:
       - "traefik.enable=true"
-      # Hauptroute: klickdummy.iil.pet via HTTPS (Let's Encrypt via Cloudflare DNS-01)
-      - "traefik.http.routers.klickdummy.rule=Host(`klickdummy.iil.pet`)"
+      # Hauptroute: staging-klickdummy.iil.pet via HTTPS (Let's Encrypt via Cloudflare DNS-01)
+      - "traefik.http.routers.klickdummy.rule=Host(`staging-klickdummy.iil.pet`)"
       - "traefik.http.routers.klickdummy.entrypoints=websecure"
       - "traefik.http.routers.klickdummy.tls.certresolver=letsencrypt"
       # Service-Port (nginx default)
@@ -43,13 +43,13 @@ services:
       - "traefik.http.middlewares.klickdummy-headers.headers.customResponseHeaders.X-Content-Type-Options=nosniff"
       - "traefik.http.middlewares.klickdummy-headers.headers.customResponseHeaders.X-Klickdummy-Class=mock"
       # Health-Endpoint von SSO ausnehmen (für Monitoring-Probes ohne Login)
-      - "traefik.http.routers.klickdummy-health.rule=Host(`klickdummy.iil.pet`) && Path(`/healthz`)"
+      - "traefik.http.routers.klickdummy-health.rule=Host(`staging-klickdummy.iil.pet`) && Path(`/healthz`)"
       - "traefik.http.routers.klickdummy-health.entrypoints=websecure"
       - "traefik.http.routers.klickdummy-health.tls.certresolver=letsencrypt"
       - "traefik.http.routers.klickdummy-health.service=klickdummy"
       - "traefik.http.routers.klickdummy-health.priority=100"
       # OAuth-Callback-Endpoint (Authentik-Outpost) auch ohne SSO erreichbar
-      - "traefik.http.routers.klickdummy-outpost.rule=Host(`klickdummy.iil.pet`) && PathPrefix(`/outpost.goauthentik.io/`)"
+      - "traefik.http.routers.klickdummy-outpost.rule=Host(`staging-klickdummy.iil.pet`) && PathPrefix(`/outpost.goauthentik.io/`)"
       - "traefik.http.routers.klickdummy-outpost.entrypoints=websecure"
       - "traefik.http.routers.klickdummy-outpost.tls.certresolver=letsencrypt"
       - "traefik.http.routers.klickdummy-outpost.service=authentik-outpost@docker"
