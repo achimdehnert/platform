@@ -13,8 +13,11 @@ implementation_evidence:
   - "platform PR #290 — ADR + Schema + Check + Policy (dieser PR)"
   - "meiki-hub PR #41 — Pilot-Instanziierung lra-pilot + A0-Skeleton"
 scope:
-  repos: [platform, meiki-hub, sqf-hub, pg-hub, ttz-hub, risk-hub, iil-klickdummy]
-  inkraft_ab: "erste Repo-Instanziierung (meiki-hub PR #41)"
+  include_paths:
+    - "docs/conventions/doc-profile-schema.yaml"
+    - "scripts/checks/doc_profile_check.sh"
+    - "policies/doc-profile.md"
+    - "docs/adr/ADR-218-*"
 supersedes: []
 amends: []
 depends_on: [ADR-211, ADR-213]
