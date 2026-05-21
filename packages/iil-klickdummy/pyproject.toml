@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "iil-klickdummy"
-version = "1.0.0"
-description = "Shared infrastructure for platform:ADR-211 Rev 13 Klickdummy conformance + Co-Creation-Widget"
+version = "1.1.0"
+description = "Shared infrastructure for platform:ADR-211 Klickdummy conformance — invariants, requirements bridge, co-creation widget, multi-klickdummy browser"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
@@ -28,6 +28,7 @@ klickdummy-i4 = "iil_klickdummy.check_i4:main_cli"
 klickdummy-extract-requirements = "iil_klickdummy.extract_requirements:main_cli"
 klickdummy-inventory = "iil_klickdummy.inventory:main_cli"
 klickdummy-install-snippets = "iil_klickdummy.install_snippets:main_cli"
+klickdummy-browser = "iil_klickdummy.registry:main_cli"
 
 [tool.setuptools.package-data]
 iil_klickdummy = [
@@ -36,4 +37,5 @@ iil_klickdummy = [
     "snippets/issue-template/*",
     "snippets/spec-templates/*",
     "snippets/shell-bootstrap/*",
+    "snippets/browser/*",
 ]
