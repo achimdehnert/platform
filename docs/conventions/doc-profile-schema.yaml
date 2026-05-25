@@ -10,7 +10,7 @@ schema_version: 1
 changelog:
   - date: 2026-05-21
     rev: 1
-    note: "Initial. 4 Profile (lra-pilot, konzern-pilot, forschung, saas)."
+    note: "Initial. 4 Profile (public-admin (vorher lra-pilot), konzern-pilot, forschung, saas)."
 
 # ---------------------------------------------------------------------------
 # Tier-Inventar (was es überhaupt gibt; Profil weist Pflicht zu)
@@ -158,11 +158,15 @@ tiers:
 # ---------------------------------------------------------------------------
 profiles:
 
-  # --------------------------------------------------------------------- LRA
-  lra-pilot:
+  # --------------------------------------------------------------- public-admin
+  # Umbenannt von 'lra-pilot' (2026-05-25): Genesor-Tool ist domänen-agnostisch,
+  # 'lra' war LRA-spezifisch. Alias 'lra-pilot' bleibt für Bestand-Migration.
+  public-admin:
+    aliases: [lra-pilot]
     description: |
-      LRA-IT-Vorhaben (Landratsamt) mit Bürger- und Sachbearbeiter-UI.
-      DSGVO + BayDSG + OZG + BITV + BSI-Grundschutz Pflicht.
+      Öffentliche Verwaltung mit Bürger- und Sachbearbeiter-UI
+      (LRA, Stadt, Land, Bund, EU-Behörde).
+      DSGVO + (Landes-DSG) + OZG + BITV + BSI-Grundschutz Pflicht.
       Vergabe-Modus offen (intern | EVB-IT | freihändig).
     pflicht:
       A0/domain-glossar: required
