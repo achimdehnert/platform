@@ -546,6 +546,97 @@ beobachtbare Stakeholder-Feedback durch die A-User-Direct-Bridge
 zu v1.1-Code in derselben Session — Iterations-Reflexivität funktioniert
 wie in Rev 13 beschrieben.
 
+## §Acceptance-Marker (Rev 16, optional)
+
+**Problem (aus meiki-hub Iter 9, 2026-05-25):** Stakeholder fordern Sichtbarkeit
+des Reifegrads je Klickdummy/Screen — *„accepted, getestet, abgenommen"*. Naive
+Lösung (Status-Feld pro Screen) hat 7 dokumentierte Schwächen (Status-Drift,
+fehlende Evidence, 3-Domänen-im-1-Eimer, Granularitäts-Falle, kein Decay etc.;
+siehe Empirie-Quelle unten). **Erweiterung von I1, keine neue Invariante.**
+
+**Schema** (im Klickdummy-Spec, KD- oder Screen-Level, append-only):
+
+```yaml
+acceptance:
+  spec_signed:                              # PO/PM-Sign-Off (Anforderungs-Akzeptanz)
+    - { by: po.dehnert, date: 2026-05-25, ref: workshop-WS-042 }
+  ui_walked:                                # End-User-Workshop-Walk (Bedienbarkeit)
+    - { by: sb.jugendamt-3, date: 2026-05-23, ref: workshop-WS-044, n_screens: 6 }
+```
+
+**Pflichtfelder:** `by`, `date`, `ref`. **Status derivativ** (nie manuell):
+
+| Status | Bedingung |
+|---|---|
+| `signed` | jüngster Eintrag ≤ 60 Tage alt |
+| `stale`  | jüngster Eintrag > 60 Tage alt (Spec-Drift-Verdacht, Re-Walk empfohlen) |
+| `missing`| keine Einträge — Rendering unterdrückt (kein Rauschen) |
+
+**Warum genau 2 Achsen (nicht 4):** Smallest-viable. Spec-Sign-Off und User-Walk
+sind die zwei *meistgenutzten* Sign-Off-Events im Workshop-Workflow. Weitere
+Achsen (validated, impl_parity) sind nicht ausgeschlossen — werden aber erst
+mit Empirie aus zweitem Repo nachgezogen (Pre-Check `adr-threshold.md`).
+
+**Trennung gegenüber I3 (Sunset):** Acceptance-Marker sagen *„dieser Walk ist
+passiert"*. Sunset sagt *„dieser KD verfällt am Tag X"*. Beide unabhängig.
+Ein `stale` Acceptance-Marker ist *kein* automatischer Sunset-Auslöser.
+
+**Trennung gegenüber Impl-Abnahme:** Klickdummy-Acceptance ≠ Vertrags-Abnahme
+der späteren Implementierung. Vertragliche Abnahme bleibt I3 Phase-C-Parity.
+
+**Render-Konvention:** Status-Bar je Screen-Render zeigt Chip pro Achse
+(`✓ spec_signed` grün, `⚠ ui_walked` gelb bei `stale`, missing nicht
+gerendert). Genesor-Übersicht spiegelt Achsen-Status pro KD wieder.
+
+## §UC-Coverage (Rev 16, optional)
+
+**Problem:** Use-Case-Listen leben heute als Markdown-Files (4 Repos im Pilot,
+zwei verschiedene Frontmatter-Stile in ausschreibungs-hub + meiki-hub).
+Bidirektionale Coverage zwischen UC und Klickdummy-Screen war Ad-hoc-Lookup.
+
+**Konvention** (kompatibel mit bestehendem ausschreibungs-hub-Stil):
+
+```yaml
+---                                          # UC-Markdown-Frontmatter
+uc_id: UC-WG-001                             # Pflicht — intra-repo eindeutig
+name: "Wohngeld-Antrag stellen"              # Pflicht
+primaer_akteur: buerger                      # empfohlen
+sekundaer_akteure: [bevollmaechtigte]        # optional
+realisiert_von_klickdummy: meiki:ADR-032     # empfohlen — Aggregat-Backref
+related_screens:                             # bidirektional gelintet
+  - meiki:ADR-032#antragsdaten
+  - meiki:ADR-032#einkommens_plausi
+fv_bezug: FV-OKWOBIS-WOHNGELD                # optional (Konkurrenz-FV)
+prio: hoch | mittel | niedrig                # optional
+status: draft | reviewed | approved          # optional
+---
+```
+
+**Cross-Repo-Namespace** `<repo>:UC-NNN` analog I4 (Klickdummy-ADR-Namespace).
+Refs in `related_screens` nutzen das etablierte Format
+`<prefix>:ADR-NNN#screen-id` ODER `<prefix>:<spec-id>#screen-id`. Prefix-zu-
+Repo-Auflösung: `<prefix>` direkt, oder `<prefix>-hub` (für meiki/ttz/etc.).
+
+**Bidirektionaler Lint** (Erweiterung von I1):
+
+- Jede `related_screens`-Ref muss zu einem existierenden Screen auflösen
+  (sonst Coverage-Warning).
+- Optional: Screen kann `realizes_use_cases: [<repo>:UC-NNN]` als Rückrichtung
+  haben — `klickdummy_lineage.py` linted die Symmetrie.
+
+**Coverage-Output:** Cross-Repo-Heatmap `UCs × KDs` mit Cell-Zähler (Anzahl
+realized Screens pro Tupel). Footer listet UCs ohne Realisierung + UCs mit
+nicht-auflösbaren Refs. Generator: `klickdummy_lineage.py --genesor`
+schreibt `genesor/coverage.html` (no Service-Boundary, statisch).
+
+**SSoT bleibt YAML im git.** Externe UC-Quellen (JIRA, Linear, Excel) sind als
+*Read-Only-Import-Adapter* erlaubt — sie schreiben YAML im Repo, niemals
+umgekehrt. (Pre-Check `adr-threshold.md`: kein Service, keine Boundary.)
+
+**Markdown-only-UCs ohne Frontmatter** (siehe ausschreibungs-hub `UC-001..003`)
+werden im Discovery übersprungen — keine Coverage, kein FAIL. Konvertierung
+zu Frontmatter-Stil per repo-lokaler PR, nicht plattform-erzwungen.
+
 ## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
 **Problem (F12 aus Rev 11):** Repos mit `class: mock-prototyp` (Rev ≤10)
@@ -693,6 +784,11 @@ behauptete Abhängigkeit zu ADR-207 war Konsequenz der Fehl-Auslagerung F5
 | **Parity-Test** | Renderer↔Implementierung-Äquivalenztest — Gate **und** Off-Ramp |
 | **Off-Ramp** | Parity-grün ⇒ mechanische Entfernung der statischen Quelle (Grenze: `min(prod-Release, Parity-grün + N d)`) |
 | **Adoption-Scoreboard** | Lebende SF1–SF6-Rollout-Metrik; **gatet `status` nicht** (Rev 9) |
+| **`acceptance.spec_signed` (Rev 16)** | Append-only Sign-Off-Liste durch PO/PM; Status derivativ (≤60d=`signed`, >60d=`stale`, leer=`missing`) |
+| **`acceptance.ui_walked` (Rev 16)** | Append-only Workshop-Walk-Liste durch End-User; selbe Status-Logik wie `spec_signed` |
+| **`<repo>:UC-NNN` (Rev 16)** | Cross-Repo-Namespace für Use Cases analog I4-Klickdummy-Namespace |
+| **`related_screens` (Rev 16)** | UC-Frontmatter-Feld; Refs werden bidirektional gegen Klickdummy-Screens gelintet |
+| **UC-Coverage-Heatmap (Rev 16)** | `genesor/coverage.html` — Cross-Repo `UCs × KDs`-Matrix, Cell = realized Screen-Count |
 
 ## Acceptance-Trigger
 
@@ -721,6 +817,7 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 12 (Empirie-getrieben aus meiki-hub PR #23, 7 Iterationen 2026-05-20)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, kein 5. Invariant, kein eigener ADR-21X. **F12 in Schließung** (§Migration Rev-≤10 → Rev-11) — Soft-Migrate-Pattern mit **Hard-Deadline 2026-08-20** (Rev-11-Datum + 3 Monate) etabliert; vor Deadline ⚠-Warning, ab Deadline FAIL; Strict-Mode-Trigger als Scoreboard-Item S11 (Inventur-Skript ODER Deadline schließt F12). **Zwei optionale Capabilities** als Erweiterung von I1: **§Co-Creation-Loop** (Stakeholder-Feedback aus Klickdummy → Spec, 3 Vertrauens-Pfade A/B/C — meiki-hub:ADR-026 als Referenz) und **§Requirements-Bridge** (Spec → UC/FR/NFR/Lasten/Pflicht, deterministisch + drift-aware, asymmetrisch — Forward auto, Reverse menschlich). Scoreboard erweitert um S9 (Co-Creation-Adoption), S10 (Requirements-Bridge-Adoption), S11 (Strict-Mode-Trigger). **Iteration-Typologie:** *stakeholder-getriggert* (klassisch) + *compliance-getriggert* (Policy-Hook erkennt Drift → dieselbe Pipe — meiki Iter. 7 als Erstanwendung). **Reflexivität dokumentiert** (Widget kann sich über sich selbst weiterentwickeln, meiki Iter. 6). **F11 weiterhin offen** (pattern-spezifischer Prod-Guard — gehört in Issue #255-Umsetzung, nicht ADR-Text).
 - **Rev 13 (Decider-Pivot 2026-05-20 — Plattform-Heimat konkret + Co-Creation-Pfade neu)** — Auslöser: ttz-hub als 6. Klickdummy-Repo + Anspruch *„permanente Weiterentwicklung wirkt cross-repo"*. **Initial ADR-214-Draft (Distribution + Service-Endpoint) wurde nach Decider-Review als advocatus diabolus zurückgezogen** (4 🔴-Findings: K1 0% Empirie für Endpoint, K3 Coding-Agent existiert nicht, K6/K12 Service-Wartung ohne ROI, K10 Datenschutz-Default falsch herum). **Konsequenzen in Rev 13:** (a) **§Distribution** als ADR-211-§ statt ADR-214 (`adr-threshold.md`: ohne Service-Boundary keine neue Architektur-Entscheidung). pip-Paket `iil-klickdummy` v1.0.0 mit Schemas + Skripten + Widget v0.5 als `package_data`; via Git-URL bis privates PyPI aufgesetzt ist. (b) **§Co-Creation Pfade A neu strukturiert:** `A-light` (download/clipboard, empirisch validiert) + `A-User-Direct` (Widget POSTet direkt an `api.github.com` mit User-PAT in localStorage — GitHub-native Audit/Rate-Limit/Auth) + `A-Agent` (GitHub-Action pro Repo, Voraussetzung nachweisbar). „A-Bridge" mit zentralem Endpoint **gestrichen** — wenn Skalierung Service erfordert, neu evaluieren in Rev 14. (c) **Plugin-Architektur im Widget** (`KLICKDUMMY_CATEGORIES`/`PERSONA_HOOK`/`VERFAHREN_HOOK`) — Repo-Customization ohne Fork. (d) **Widget v0.5 = voller meiki-v0.4-Stand** (Action-Liste, DOM-Snapshot, File-Upload, Scope-Selector, Verfahrens-Kontext) — Iterations-Rückschritt bei Adoption vermieden.
 - **Rev 14 (2026-05-21 — Multi-Klickdummy-Browser + public PyPI)** — Empirie-getrieben durch erstes „echtes" Stakeholder-Feedback nach Smoke-Test #27 (Pfad A-light, `feedback_scope: klickdummy-tool`): *„erweitere den klickdummy so, dass er mehrere versionen und verschiedene klickdummies aufrufen kann. als listbox im linken menu möglich?"* **Konsequenzen:** (a) **`iil-klickdummy` v1.1.0** mit neuem Modul `registry.py` + Snippet `browser/browser.html.tmpl` + Console-Script `klickdummy-browser` — Stufe 1 (Versions-Switcher aus Git-History) + Stufe 2 (Repo-Browser mit Listbox + iframe). Stufe 3 (Cross-Repo) als v1.2-Roadmap, Stufe 4 (Live-Service) Best-Effort. (b) **Distribution-Update:** public PyPI (`pip install iil-klickdummy>=1.1,<2.0`) wird Default; Git-URL bleibt Fallback. Privates PyPI nicht weiterverfolgt — public ist niedrigste Reibung und gibt Open-Source-Signal ohne Wartungs-Service-Boundary (analog Rev-13-Pivot-Logik). PyPI-Publish via Trusted Publishing (OIDC), kein API-Token in Secrets. (c) **§Multi-Klickdummy-Browser** dokumentiert Aktivierungs-Definition + 3 Anti-Patterns + 4-Stufen-Roadmap. (d) **Reflexivität gestärkt:** Iter. 8 (Stakeholder-Feedback per A-light) führt direkt zu v1.1-Code in derselben Session — empirischer Beleg, dass Co-Creation-Loop wie in Rev 13 designed funktioniert.
+- **Rev 16 (2026-05-25 — Empirie aus meiki-hub Iter 9: Acceptance + UC-Coverage)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, keine 5. Invariante, kein eigener ADR-21X. **Zwei optionale §-Erweiterungen** von I1: (a) **§Acceptance-Marker** mit zwei orthogonalen Achsen (`spec_signed` für PO/PM-Sign-Off, `ui_walked` für End-User-Workshop-Walk), append-only Listen mit Evidence-Pflicht (`by`+`date`+`ref`), Status derivativ aus jüngstem Eintrag (`signed` ≤60d, `stale` >60d, `missing`); adressiert den 7-Findings-Adversarial-Review gegen naives Status-Feld-Design (Status-Drift, fehlende Evidence, 3-Domänen-im-1-Eimer, kein Decay etc.). (b) **§UC-Coverage** standardisiert UC-Markdown-Frontmatter kompatibel mit bestehendem ausschreibungs-hub-/meiki-hub-Stil; Cross-Repo-Namespace `<repo>:UC-NNN`; bidirektionaler Lint zwischen UC.related_screens und Klickdummy-Screen-IDs; Coverage-Heatmap als statisches `genesor/coverage.html` (no Service). YAML im git bleibt SSoT; JIRA/Linear/Excel als Read-Only-Import-Adapter erlaubt. **Pilot meiki-hub** (Iter 9, 2026-05-25): 18 UCs cross-repo discovered (4 ausschreibungs-hub + 14 meiki-hub), 16/18 mit auflösbaren Refs, 21 Coverage-Zellen. Beide §-Erweiterungen sind **opt-in pro Repo** — kein FAIL für Repos ohne Acceptance/UCs.
 - **Rev 15 (2026-05-21 — Repo-Extraktion zu iilgmbh/iil-klickdummy)** — Auslöser: 59 offene platform-Issues + PyPI-Publish macht platform-Repo public-sichtbar → Klickdummy-Konsumenten sehen verwirrenden Org-internen Issue-Mix. Plus: iilgmbh-Org als künftige Heimat für `iil-*`-Familie + `risk-hub` (Move-Roadmap). **Aktion:** `packages/iil-klickdummy/` per `git filter-repo --path` extrahiert nach `iilgmbh/iil-klickdummy` (Historie erhalten, 3 sichtbare Commits seit Trennung + Subtree-Detail). v1.1.1 als Patch-Release im neuen Repo (Repo-Move-only, kein Code-Change). PyPI-Trusted-Publisher umkonfiguriert: Owner `iilgmbh`, Repo `iil-klickdummy`, Workflow `publish-pypi.yml`. **Trennung Konvention ↔ Implementation festgeklopft:** ADR-211 (Konvention) bleibt achimdehnert/platform; `iilgmbh:iil-klickdummy:ADR-001` ist Implementations-ADR. Schwester-Implementations (`meiki-hub:ADR-021`, `writing-hub:ADR-180`, `risk-hub:ADR-046`, `ttz-hub:ADR-100`) per `sister_of` cross-verlinkt. **Nebeneffekt:** platform-Issues fokussieren wieder auf platform-weite Themen; iil-klickdummy-spezifische Issues entstehen im neuen Repo (Stale-Bot + Issue-Templates dort aktiv). **Keine Änderung für Konsumenten:** `pip install iil-klickdummy>=1.1,<2.0` funktioniert unverändert (PyPI-Project-Name stabil; nur das Backing-Repo wechselt).
 
 ## Bezug
