@@ -894,36 +894,51 @@ def _check_allowed_assets(profile: dict, asset_path: str) -> None:
 
 
 def _build_profile_extra_css(profile: dict, dh_dir: Path) -> str:
-    """Erzeugt CSS-Variablen-Block + optional @font-face aus Profile."""
+    """Erzeugt: erst _base.css (mit Defaults), DANN Profile-Override-:root + @font-face.
+
+    Reihenfolge ist wichtig: Profile-Variablen MÜSSEN nach _base.css kommen
+    sonst überschreiben die Defaults die Profile-Werte (Color-Routing-Bug
+    der ersten Iter — siehe Lessons-Learned).
+    """
     c = profile.get("colours", {})
     fonts = profile.get("fonts", {})
     h = profile.get("header", {})
     classification = profile.get("classification") or {}
 
-    # CSS-Variablen für _base.css
+    parts: list[str] = []
+
+    # 1) _base.css aus design-hub (mit Default-:root) — kommt ZUERST
+    base_css_path = dh_dir / "templates" / "_base.css"
+    if base_css_path.exists():
+        parts.append("/* ── design-hub _base.css ── */")
+        parts.append(base_css_path.read_text(encoding="utf-8"))
+
+    # 2) Profile-:root mit !important — überschreibt _base.css Defaults
     root_vars = [
-        f"--primary: {c.get('primary', '#1A3A5C')};",
-        f"--primary-dark: {c.get('primary_dark', '#0D2840')};",
-        f"--text: {c.get('text', '#1F2937')};",
-        f"--text-muted: {c.get('text_muted', '#6B7280')};",
-        f"--bg-light: {c.get('bg_light', '#EDF3FA')};",
-        f"--border: {c.get('border', '#C8D8EC')};",
-        f"--zebra: {c.get('zebra', '#F3F7FC')};",
-        f"--line: {c.get('line', '#E5E7EB')};",
-        f"--accent-1: {c.get('accent_1', '#2C5F8A')};",
-        f"--accent-2: {c.get('accent_2', '#3D7AB5')};",
+        f"--primary: {c.get('primary', '#1A3A5C')} !important;",
+        f"--primary-dark: {c.get('primary_dark', '#0D2840')} !important;",
+        f"--text: {c.get('text', '#1F2937')} !important;",
+        f"--text-muted: {c.get('text_muted', '#6B7280')} !important;",
+        f"--bg-light: {c.get('bg_light', '#EDF3FA')} !important;",
+        f"--border: {c.get('border', '#C8D8EC')} !important;",
+        f"--zebra: {c.get('zebra', '#F3F7FC')} !important;",
+        f"--line: {c.get('line', '#E5E7EB')} !important;",
+        f"--accent-1: {c.get('accent_1', '#2C5F8A')} !important;",
+        f"--accent-2: {c.get('accent_2', '#3D7AB5')} !important;",
+        # WeasyPrint Header/Footer-Variablen
         f'--header-text: "{h.get("text", "")}";',
         f'--footer-classification: "{(classification.get("footer_text") or "")}";',
         f'--classification-banner-text: "{(classification.get("banner_text") or "")}";',
     ]
-    css = ":root {\n  " + "\n  ".join(root_vars) + "\n}\n"
+    parts.append("/* ── profile override (wins over _base.css defaults) ── */")
+    parts.append(":root {\n  " + "\n  ".join(root_vars) + "\n}")
 
-    # @font-face wenn lokale Font-Pfade da
+    # 3) @font-face Embedding aus Profile
     primary = fonts.get("primary_path")
     bold = fonts.get("bold_path")
-    head = fonts.get("head_path")
     italic = fonts.get("italic_path")
     primary_name = fonts.get("primary", "Inter")
+    fontface_lines: list[str] = []
     for asset_path, weight, style in (
         (primary, "400", "normal"),
         (bold,    "700", "normal"),
@@ -936,15 +951,23 @@ def _build_profile_extra_css(profile: dict, dh_dir: Path) -> str:
         if not full.exists():
             print(f"⚠ Font-Datei fehlt: {full}")
             continue
-        css += (
+        fontface_lines.append(
             f'@font-face {{ font-family: "{primary_name}"; '
             f'src: url("file://{full}") format("woff2"); '
-            f'font-weight: {weight}; font-style: {style}; font-display: swap; }}\n'
+            f'font-weight: {weight}; font-style: {style}; font-display: swap; }}'
         )
-    css += f"body, h1, h2, h3 {{ font-family: \"{primary_name}\", "
+    if fontface_lines:
+        parts.append("/* ── profile fonts (@font-face) ── */")
+        parts.extend(fontface_lines)
+
+    # Body-Font-Stack als !important damit print_agent base.css nicht durchschlägt
     fallbacks = ', '.join(f'"{x}"' for x in fonts.get('fallbacks', ['sans-serif']))
-    css += fallbacks + "; }\n"
-    return css
+    parts.append(
+        f'body, p, li, td, th, h1, h2, h3, h4, h5 '
+        f'{{ font-family: "{primary_name}", {fallbacks} !important; }}'
+    )
+
+    return "\n\n".join(parts) + "\n"
 
 
 def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
@@ -971,14 +994,9 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
     # Inject als temporäres design (überschreibt nicht persistent)
     DESIGNS[f"_profile:{name}"] = design
 
-    # Profile-Extra-CSS (CSS-Variablen + @font-face)
+    # Profile-Extra-CSS — _base.css + Profile-Override + @font-face
+    # (Reihenfolge im _build_profile_extra_css garantiert Override-Win)
     profile_extra = _build_profile_extra_css(profile, dh_dir)
-    # Plus _base.css aus design-hub falls da
-    base_css_path = dh_dir / "templates" / "_base.css"
-    if base_css_path.exists():
-        profile_extra += "\n/* ── design-hub _base.css ── */\n"
-        profile_extra += base_css_path.read_text(encoding="utf-8")
-
     combined_extra = profile_extra + "\n" + extra_css_extra
 
     out = convert(input_path, output_dir, design_name=f"_profile:{name}",
