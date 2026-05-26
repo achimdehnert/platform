@@ -16,6 +16,7 @@ import re
 import json
 import os
 import argparse
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -1098,8 +1099,56 @@ def _build_profile_extra_css(profile: dict, dh_dir: Path) -> str:
     return "\n\n".join(parts) + "\n"
 
 
+def _convert_to_docx(md_path: Path, output_dir: Path, profile: dict, dh_dir: Path) -> Path:
+    """Phase-2: Markdown → DOCX via Pandoc.
+
+    Voraussetzung: pandoc im PATH (apt install pandoc).
+    Erzeugt DOCX im Output-Dir mit gleichem Stem wie input.
+
+    Profile-Mapping:
+      - colours.primary → Word-Theme-Color (approximation)
+      - Reference-DOCX für volle Styling-Kontrolle in Phase-3 (Backlog)
+    """
+    if not shutil.which("pandoc"):
+        raise RuntimeError(
+            "❌ pandoc nicht im PATH. Installation:\n"
+            "  sudo apt install pandoc\n"
+            "  (für vollständiges Theming auch: pandoc-citeproc, fonts-noto)"
+        )
+    out_path = output_dir / f"{md_path.stem}.docx"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Reference-DOCX falls in design-hub: profiles/<name>.docx
+    profile_name = profile.get("name", "")
+    ref_docx = dh_dir / "templates" / f"{profile_name}.reference.docx"
+    cmd = [
+        "pandoc", str(md_path),
+        "-o", str(out_path),
+        "--from", "markdown",
+        "--to", "docx",
+        "--standalone",
+    ]
+    if ref_docx.exists():
+        cmd.extend(["--reference-doc", str(ref_docx)])
+        print(f"  reference-doc: {ref_docx.name}")
+    else:
+        print(f"  (kein reference-doc — Standard-Pandoc-Style; "
+              f"erwartet wäre {ref_docx.relative_to(dh_dir) if dh_dir in ref_docx.parents else ref_docx})")
+
+    # Metadata aus Profile injizieren
+    cmd.extend([
+        "--metadata", f"title={md_path.stem}",
+        "--metadata", f"author={profile.get('authorship', {}).get('owner', '')}",
+    ])
+
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"pandoc fail: {result.stderr[:500]}")
+    return out_path
+
+
 def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
-                          extra_css_extra: str = "") -> Path:
+                          extra_css_extra: str = "", output_format: str = "pdf") -> Path:
     """Profile-basierter Render-Pfad — wrapper um convert().
 
     Lädt Profile aus design-hub, prüft allowed_assets, baut extra-CSS mit
@@ -1133,7 +1182,9 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
     if tag_count > 0:
         print(f"  pseudo-tags expanded: {tag_count}")
 
-    # Wenn Tags expandiert wurden: schreibe Temp-MD, ansonsten Original
+    # Bei Tag-Expansion: Temp-MD-File
+    md_for_render = input_path
+    tmp_path: Path | None = None
     if md_expanded != md_text:
         import tempfile
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False,
@@ -1141,21 +1192,32 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
                                           encoding="utf-8") as tf:
             tf.write(md_expanded)
             tmp_path = Path(tf.name)
-        try:
-            out = convert(tmp_path, output_dir, design_name=f"_profile:{name}",
-                          extra_css=combined_extra)
-            # Rename: tmp → original stem
-            final_out = output_dir / f"{input_path.stem}.pdf"
+        md_for_render = tmp_path
+
+    try:
+        # ── Output-Format-Routing ────────────────────────────────
+        if output_format == "docx":
+            print(f"📄 Output-Format: DOCX (pandoc)")
+            out = _convert_to_docx(md_for_render, output_dir, profile, dh_dir)
+            # Rename: tmp-name → original stem
+            final_out = output_dir / f"{input_path.stem}.docx"
             if out != final_out:
                 out.rename(final_out)
                 out = final_out
             return out
-        finally:
-            tmp_path.unlink(missing_ok=True)
 
-    out = convert(input_path, output_dir, design_name=f"_profile:{name}",
-                  extra_css=combined_extra)
-    return out
+        # Default: PDF via WeasyPrint
+        out = convert(md_for_render, output_dir, design_name=f"_profile:{name}",
+                      extra_css=combined_extra)
+        if tmp_path:
+            final_out = output_dir / f"{input_path.stem}.pdf"
+            if out != final_out:
+                out.rename(final_out)
+                out = final_out
+        return out
+    finally:
+        if tmp_path:
+            tmp_path.unlink(missing_ok=True)
 
 
 def main():
@@ -1170,6 +1232,9 @@ def main():
                         help="Pfad zu repo-spezifischem designs.yaml (LEGACY)")
     parser.add_argument("--extra-css", default=None,
                         help="Pfad zu repo-spezifischem extra.css (wird nach base.css geladen)")
+    parser.add_argument("--output-format", default="pdf",
+                        choices=["pdf", "docx"],
+                        help="Output-Format (default: pdf). docx erfordert pandoc + --profile.")
     args = parser.parse_args()
 
     if args.profile and args.design:
@@ -1189,8 +1254,15 @@ def main():
     extra_css = Path(args.extra_css).read_text(encoding="utf-8") if args.extra_css and Path(args.extra_css).exists() else ""
 
     if args.profile:
-        out = convert_with_profile(input_path, output_dir, args.profile, extra_css_extra=extra_css)
+        out = convert_with_profile(
+            input_path, output_dir, args.profile,
+            extra_css_extra=extra_css,
+            output_format=args.output_format,
+        )
     else:
+        if args.output_format != "pdf":
+            print(f"❌ --output-format {args.output_format} braucht --profile (LEGACY --design nur PDF)")
+            sys.exit(1)
         design_name = args.design or "meiki"
         out = convert(input_path, output_dir, design_name=design_name, extra_css=extra_css)
     print(f"✅ PDF erstellt: {out}  ({out.stat().st_size // 1024} KB)")
