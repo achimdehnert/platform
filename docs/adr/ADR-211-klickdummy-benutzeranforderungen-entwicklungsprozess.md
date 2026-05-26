@@ -637,6 +637,33 @@ umgekehrt. (Pre-Check `adr-threshold.md`: kein Service, keine Boundary.)
 werden im Discovery übersprungen — keine Coverage, kein FAIL. Konvertierung
 zu Frontmatter-Stil per repo-lokaler PR, nicht plattform-erzwungen.
 
+### `by`-Konvention (Audit-Trail)
+
+`acceptance.<axis>[*].by` MUSS mit dem PR-Author ODER einem PR-Approver-Login
+übereinstimmen — sonst ist die Behauptung im YAML unbeglaubigt. Audit-Trail
+lebt im git-PR-Log, nicht im Spec-Text. Validator-Layer-B (geplant) verifiziert
+dies CI-seitig per `git log --author`-Match.
+
+## §Threshold-Reality-Check (Rev 16, sichtbarer Self-Check)
+
+Per `~/.claude/policies/adr-threshold.md` vor Promotion auf `accepted`-Status —
+als auditierbarer Block, nicht nur Floskel im Changelog:
+
+| Kriterium | Trifft zu? | Beleg |
+|---|---|---|
+| Cross-Cutting-Impact >1 Repo | **Ja** | meiki-hub + ausschreibungs-hub Pilot (18 UCs cross-repo) |
+| Reversibel? | **Ja** (opt-in pro Repo) | ohne `acceptance:`-Block / UC-Files keine Wirkung |
+| Service-Boundary neu? | Nein | `klickdummy_lineage.py` bleibt SSoT (no daemon/API) |
+| Data-Sovereignty / Security? | Nein | YAML-im-git, kein remote-state |
+| Trade-Off worth recording? | **Ja** | 7-Findings-Adversarial gegen naive Status-Felder |
+
+**Verdict:** ADR-Erweiterung gerechtfertigt. Eigener ADR-21X wurde erwogen
+und verworfen (siehe Adversarial-Pass Rev 16 unten). **Risiko-Flag:**
+§UC-Coverage führt einen dritten first-class-Knoten (Use Case) ein —
+Steel-Man-Argument für eigene Invariante I5. Bewusst als §-Erweiterung
+gehalten, bis Cross-Repo-Adoption diese Promotion empirisch rechtfertigt
+(siehe F-Items F13/F14/F15 unten).
+
 ## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
 **Problem (F12 aus Rev 11):** Repos mit `class: mock-prototyp` (Rev ≤10)
@@ -817,7 +844,7 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 12 (Empirie-getrieben aus meiki-hub PR #23, 7 Iterationen 2026-05-20)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, kein 5. Invariant, kein eigener ADR-21X. **F12 in Schließung** (§Migration Rev-≤10 → Rev-11) — Soft-Migrate-Pattern mit **Hard-Deadline 2026-08-20** (Rev-11-Datum + 3 Monate) etabliert; vor Deadline ⚠-Warning, ab Deadline FAIL; Strict-Mode-Trigger als Scoreboard-Item S11 (Inventur-Skript ODER Deadline schließt F12). **Zwei optionale Capabilities** als Erweiterung von I1: **§Co-Creation-Loop** (Stakeholder-Feedback aus Klickdummy → Spec, 3 Vertrauens-Pfade A/B/C — meiki-hub:ADR-026 als Referenz) und **§Requirements-Bridge** (Spec → UC/FR/NFR/Lasten/Pflicht, deterministisch + drift-aware, asymmetrisch — Forward auto, Reverse menschlich). Scoreboard erweitert um S9 (Co-Creation-Adoption), S10 (Requirements-Bridge-Adoption), S11 (Strict-Mode-Trigger). **Iteration-Typologie:** *stakeholder-getriggert* (klassisch) + *compliance-getriggert* (Policy-Hook erkennt Drift → dieselbe Pipe — meiki Iter. 7 als Erstanwendung). **Reflexivität dokumentiert** (Widget kann sich über sich selbst weiterentwickeln, meiki Iter. 6). **F11 weiterhin offen** (pattern-spezifischer Prod-Guard — gehört in Issue #255-Umsetzung, nicht ADR-Text).
 - **Rev 13 (Decider-Pivot 2026-05-20 — Plattform-Heimat konkret + Co-Creation-Pfade neu)** — Auslöser: ttz-hub als 6. Klickdummy-Repo + Anspruch *„permanente Weiterentwicklung wirkt cross-repo"*. **Initial ADR-214-Draft (Distribution + Service-Endpoint) wurde nach Decider-Review als advocatus diabolus zurückgezogen** (4 🔴-Findings: K1 0% Empirie für Endpoint, K3 Coding-Agent existiert nicht, K6/K12 Service-Wartung ohne ROI, K10 Datenschutz-Default falsch herum). **Konsequenzen in Rev 13:** (a) **§Distribution** als ADR-211-§ statt ADR-214 (`adr-threshold.md`: ohne Service-Boundary keine neue Architektur-Entscheidung). pip-Paket `iil-klickdummy` v1.0.0 mit Schemas + Skripten + Widget v0.5 als `package_data`; via Git-URL bis privates PyPI aufgesetzt ist. (b) **§Co-Creation Pfade A neu strukturiert:** `A-light` (download/clipboard, empirisch validiert) + `A-User-Direct` (Widget POSTet direkt an `api.github.com` mit User-PAT in localStorage — GitHub-native Audit/Rate-Limit/Auth) + `A-Agent` (GitHub-Action pro Repo, Voraussetzung nachweisbar). „A-Bridge" mit zentralem Endpoint **gestrichen** — wenn Skalierung Service erfordert, neu evaluieren in Rev 14. (c) **Plugin-Architektur im Widget** (`KLICKDUMMY_CATEGORIES`/`PERSONA_HOOK`/`VERFAHREN_HOOK`) — Repo-Customization ohne Fork. (d) **Widget v0.5 = voller meiki-v0.4-Stand** (Action-Liste, DOM-Snapshot, File-Upload, Scope-Selector, Verfahrens-Kontext) — Iterations-Rückschritt bei Adoption vermieden.
 - **Rev 14 (2026-05-21 — Multi-Klickdummy-Browser + public PyPI)** — Empirie-getrieben durch erstes „echtes" Stakeholder-Feedback nach Smoke-Test #27 (Pfad A-light, `feedback_scope: klickdummy-tool`): *„erweitere den klickdummy so, dass er mehrere versionen und verschiedene klickdummies aufrufen kann. als listbox im linken menu möglich?"* **Konsequenzen:** (a) **`iil-klickdummy` v1.1.0** mit neuem Modul `registry.py` + Snippet `browser/browser.html.tmpl` + Console-Script `klickdummy-browser` — Stufe 1 (Versions-Switcher aus Git-History) + Stufe 2 (Repo-Browser mit Listbox + iframe). Stufe 3 (Cross-Repo) als v1.2-Roadmap, Stufe 4 (Live-Service) Best-Effort. (b) **Distribution-Update:** public PyPI (`pip install iil-klickdummy>=1.1,<2.0`) wird Default; Git-URL bleibt Fallback. Privates PyPI nicht weiterverfolgt — public ist niedrigste Reibung und gibt Open-Source-Signal ohne Wartungs-Service-Boundary (analog Rev-13-Pivot-Logik). PyPI-Publish via Trusted Publishing (OIDC), kein API-Token in Secrets. (c) **§Multi-Klickdummy-Browser** dokumentiert Aktivierungs-Definition + 3 Anti-Patterns + 4-Stufen-Roadmap. (d) **Reflexivität gestärkt:** Iter. 8 (Stakeholder-Feedback per A-light) führt direkt zu v1.1-Code in derselben Session — empirischer Beleg, dass Co-Creation-Loop wie in Rev 13 designed funktioniert.
-- **Rev 16 (2026-05-25 — Empirie aus meiki-hub Iter 9: Acceptance + UC-Coverage)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, keine 5. Invariante, kein eigener ADR-21X. **Zwei optionale §-Erweiterungen** von I1: (a) **§Acceptance-Marker** mit zwei orthogonalen Achsen (`spec_signed` für PO/PM-Sign-Off, `ui_walked` für End-User-Workshop-Walk), append-only Listen mit Evidence-Pflicht (`by`+`date`+`ref`), Status derivativ aus jüngstem Eintrag (`signed` ≤60d, `stale` >60d, `missing`); adressiert den 7-Findings-Adversarial-Review gegen naives Status-Feld-Design (Status-Drift, fehlende Evidence, 3-Domänen-im-1-Eimer, kein Decay etc.). (b) **§UC-Coverage** standardisiert UC-Markdown-Frontmatter kompatibel mit bestehendem ausschreibungs-hub-/meiki-hub-Stil; Cross-Repo-Namespace `<repo>:UC-NNN`; bidirektionaler Lint zwischen UC.related_screens und Klickdummy-Screen-IDs; Coverage-Heatmap als statisches `genesor/coverage.html` (no Service). YAML im git bleibt SSoT; JIRA/Linear/Excel als Read-Only-Import-Adapter erlaubt. **Pilot meiki-hub** (Iter 9, 2026-05-25): 18 UCs cross-repo discovered (4 ausschreibungs-hub + 14 meiki-hub), 16/18 mit auflösbaren Refs, 21 Coverage-Zellen. Beide §-Erweiterungen sind **opt-in pro Repo** — kein FAIL für Repos ohne Acceptance/UCs.
+- **Rev 16 (2026-05-25/26 — Empirie aus meiki-hub Iter 9-11: Acceptance + UC-Coverage + Adversarial-Pass)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md` **als sichtbarer §Threshold-Reality-Check im Body dokumentiert** (nicht nur Floskel). **Zwei optionale §-Erweiterungen** von I1: (a) **§Acceptance-Marker** mit zwei orthogonalen Achsen (`spec_signed` für PO/PM-Sign-Off, `ui_walked` für End-User-Workshop-Walk), append-only Listen mit Evidence-Pflicht (`by`+`date`+`ref`), Status derivativ aus jüngstem Eintrag (`signed` ≤60d, `stale` >60d, `missing`); adressiert den 7-Findings-Adversarial-Review gegen naives Status-Feld-Design. (b) **§UC-Coverage** standardisiert UC-Markdown-Frontmatter kompatibel mit Bestand (ausschreibungs-hub + meiki-hub); Cross-Repo-Namespace `<repo>:UC-NNN`; bidirektionaler Lint UC→Screen; Coverage-Heatmap als `genesor/coverage.html`. **`by`-Audit-Trail-Konvention** ergänzt: `acceptance.<axis>[*].by` muss PR-Author/Approver-Login matchen — sonst unbeglaubigte Behauptung. **Adversarial-Pass (2026-05-26)** identifizierte 5 Steel-Mans; 3 davon als F-Items F13/F14/F15 in §Bezug dokumentiert (Content-Hash, Reverse-Lint, Auto-Skelett-Verzerrung). Stärkster Counter (Steel-Man #1: „§UC-Coverage führt dritten first-class-Knoten ein, Invariante I5 unter Tarnnamen") wurde **bewusst nicht umgesetzt** — bleibt als §-Erweiterung bis Cross-Repo-Adoption I5-Promotion empirisch rechtfertigt. **Pilot meiki-hub** (Iter 9-11, 2026-05-25/26): 47 UCs cross-repo nach Generator-Run (4 ausschreibungs-hub + 43 meiki-hub), 45 realized · davon 28 `auto_generated: true` (Stub) und 17 manuell-validiert · 21 → 50 Coverage-Zellen · Validator-Layer-A 36/47 clean. Beide §-Erweiterungen sind **opt-in pro Repo**.
 - **Rev 15 (2026-05-21 — Repo-Extraktion zu iilgmbh/iil-klickdummy)** — Auslöser: 59 offene platform-Issues + PyPI-Publish macht platform-Repo public-sichtbar → Klickdummy-Konsumenten sehen verwirrenden Org-internen Issue-Mix. Plus: iilgmbh-Org als künftige Heimat für `iil-*`-Familie + `risk-hub` (Move-Roadmap). **Aktion:** `packages/iil-klickdummy/` per `git filter-repo --path` extrahiert nach `iilgmbh/iil-klickdummy` (Historie erhalten, 3 sichtbare Commits seit Trennung + Subtree-Detail). v1.1.1 als Patch-Release im neuen Repo (Repo-Move-only, kein Code-Change). PyPI-Trusted-Publisher umkonfiguriert: Owner `iilgmbh`, Repo `iil-klickdummy`, Workflow `publish-pypi.yml`. **Trennung Konvention ↔ Implementation festgeklopft:** ADR-211 (Konvention) bleibt achimdehnert/platform; `iilgmbh:iil-klickdummy:ADR-001` ist Implementations-ADR. Schwester-Implementations (`meiki-hub:ADR-021`, `writing-hub:ADR-180`, `risk-hub:ADR-046`, `ttz-hub:ADR-100`) per `sister_of` cross-verlinkt. **Nebeneffekt:** platform-Issues fokussieren wieder auf platform-weite Themen; iil-klickdummy-spezifische Issues entstehen im neuen Repo (Stale-Bot + Issue-Templates dort aktiv). **Keine Änderung für Konsumenten:** `pip install iil-klickdummy>=1.1,<2.0` funktioniert unverändert (PyPI-Project-Name stabil; nur das Backing-Repo wechselt).
 
 ## Bezug
@@ -827,4 +854,19 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - Closes-on-acceptance: **#228** (sunset_after-Frontmatter, F10) und **#229** (4-Pattern-Taxonomie, F9). #255 SF3-AC muss vor Bau an pattern-spezifischen Prod-Guard angepasst werden (F11, offen). **F12 geschlossen durch Rev 12** (§Migration).
 - meiki-hub PR #23 (`feat/klickdummy-feedback-loop-poc`, 7 Iterationen) — Empiriequelle für Rev 12; insbesondere `docs/01-architektur/mockups/fristenmanagement-klickdummy/feedback-log.md` (Provenance + Iteration-Typologie).
 - Drift-Memory `2026-05-19-klickdummy-adr180-collision` (meiki-hub-Auto-Memory, `drift: true`)
-- Policy `adr-threshold.md` (Selbsttest — Rev 12 begründet Erweiterung statt neuem ADR)
+- Policy `adr-threshold.md` (Selbsttest — Rev 12 begründet Erweiterung statt neuem ADR; Rev 16 dokumentiert den Self-Check sichtbar als §Threshold-Reality-Check)
+
+## Offene F-Items (durch Rev 16 dokumentiert, nicht geschlossen)
+
+- **F13 (Layer-C-Content-Hash)**: `acceptance.<axis>[*]` speichert kein Content-
+  Hash des UC/Spec-Standes bei Sign-Off. Stale-Decay greift erst nach 60d —
+  Spec-Drift bleibt bis dahin unsichtbar. Schließung-Pfad: bei erstem realem
+  „ich habe was anderes signiert"-Konflikt-Bericht (Rev 17).
+- **F14 (Reverse-Lint Screen→UC)**: §UC-Coverage linted UC→Screen, aber nicht
+  Screen→UC. Klickdummy-Spec mit Orphan-Screens (kein UC referenziert sie)
+  wird nicht gefunden. Schließung-Pfad: Validator-Erweiterung + `uc-coverage-
+  exempt: <reason>`-Opt-out im Spec.
+- **F15 (Coverage-Verzerrung durch Auto-Skelette)**: `auto_generated: true`-UCs
+  werden in Coverage-Metrik voll mitgezählt; Pilot meiki-hub zeigt 96%
+  „realized", davon 60% Auto-Skelette ohne Stakeholder-Walk. Schließung-Pfad:
+  Coverage-Split „echt vs. auto" in Heatmap + UC-Index.
