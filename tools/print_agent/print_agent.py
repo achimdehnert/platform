@@ -823,17 +823,187 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     return out_path
 
 
+def _design_hub_dir() -> Path:
+    """Resolve DESIGN_HUB_DIR (env var oder Default ~/github/design-hub)."""
+    return Path(os.environ.get("DESIGN_HUB_DIR", str(Path.home() / "github/design-hub"))).expanduser()
+
+
+def _load_profile(profile_name: str) -> tuple[dict, Path]:
+    """Lädt Profile aus design-hub/profiles/<name>.yaml.
+
+    Returns (profile_dict, design_hub_dir).
+    Wirft FileNotFoundError wenn Profile fehlt.
+    """
+    dh_dir = _design_hub_dir()
+    profile_path = dh_dir / "profiles" / f"{profile_name}.yaml"
+    if not profile_path.exists():
+        raise FileNotFoundError(
+            f"Profile '{profile_name}' nicht gefunden unter {profile_path}\n"
+            f"  Erwartet: {dh_dir}/profiles/<name>.yaml\n"
+            f"  Verfügbar: {', '.join(p.stem for p in (dh_dir / 'profiles').glob('*.yaml'))}"
+        )
+    profile = yaml.safe_load(profile_path.read_text(encoding="utf-8"))
+    if profile.get("schema_version") != 1:
+        print(f"⚠ Profile schema_version != 1 — kann fehlschlagen.")
+    return profile, dh_dir
+
+
+def _profile_to_design(profile: dict) -> dict:
+    """Konvertiert Profile-Schema → Design-Dict (kompatibel mit bestehender convert())."""
+    c = profile.get("colours", {})
+    h = profile.get("header", {})
+    f = profile.get("footer", {})
+    return {
+        "primary":       c.get("primary",      "#1A3A5C"),
+        "bg_light":      c.get("bg_light",     "#EDF3FA"),
+        "border":        c.get("border",       "#C8D8EC"),
+        "border_dark":   c.get("primary_dark", "#0D2840"),
+        "row_even":      c.get("zebra",        "#F3F7FC"),
+        "row_odd":       "#FFFFFF",
+        "gantt_bg":      c.get("bg_light",     "#F8FAFE"),
+        "flow_s1":       c.get("primary",      "#1A3A5C"),
+        "flow_s2":       c.get("accent_1",     "#2C5F8A"),
+        "flow_s3":       c.get("accent_2",     "#3D7AB5"),
+        "header_left":   h.get("text",          "IIL"),
+        "cover_label":   h.get("cover_label",   "IIL"),
+        "subtitle":      profile.get("description", ""),
+        "footer_suffix": f.get("suffix",        ""),
+        "llm_context":   profile.get("llm_context", ""),
+        "es_label_text": profile.get("es_label_text", "Zusammenfassung"),
+        "meta_template": "iil",   # bestehender Render-Pfad
+        "_profile":      profile,  # Original-Profile durchreichen
+    }
+
+
+def _check_allowed_assets(profile: dict, asset_path: str) -> None:
+    """Compliance-Check: wirft AssertionError wenn Asset-Pfad nicht erlaubt."""
+    allowed = profile.get("allowed_assets") or {}
+    if not asset_path:
+        return
+    # Erste Pfad-Komponente nach "assets/" ist der Bucket
+    parts = asset_path.split("/")
+    if len(parts) < 2 or parts[0] != "assets":
+        return
+    bucket = parts[1]
+    if bucket in ("db", "iil", "shared") and not allowed.get(bucket, False):
+        raise AssertionError(
+            f"❌ Lizenz-Verstoß: Profile '{profile.get('name')}' darf '{bucket}'-Assets "
+            f"nicht laden, aber Pfad zeigt darauf: {asset_path}\n"
+            f"  Siehe design-hub/LICENSE_NOTES.md"
+        )
+
+
+def _build_profile_extra_css(profile: dict, dh_dir: Path) -> str:
+    """Erzeugt CSS-Variablen-Block + optional @font-face aus Profile."""
+    c = profile.get("colours", {})
+    fonts = profile.get("fonts", {})
+    h = profile.get("header", {})
+    classification = profile.get("classification") or {}
+
+    # CSS-Variablen für _base.css
+    root_vars = [
+        f"--primary: {c.get('primary', '#1A3A5C')};",
+        f"--primary-dark: {c.get('primary_dark', '#0D2840')};",
+        f"--text: {c.get('text', '#1F2937')};",
+        f"--text-muted: {c.get('text_muted', '#6B7280')};",
+        f"--bg-light: {c.get('bg_light', '#EDF3FA')};",
+        f"--border: {c.get('border', '#C8D8EC')};",
+        f"--zebra: {c.get('zebra', '#F3F7FC')};",
+        f"--line: {c.get('line', '#E5E7EB')};",
+        f"--accent-1: {c.get('accent_1', '#2C5F8A')};",
+        f"--accent-2: {c.get('accent_2', '#3D7AB5')};",
+        f'--header-text: "{h.get("text", "")}";',
+        f'--footer-classification: "{(classification.get("footer_text") or "")}";',
+        f'--classification-banner-text: "{(classification.get("banner_text") or "")}";',
+    ]
+    css = ":root {\n  " + "\n  ".join(root_vars) + "\n}\n"
+
+    # @font-face wenn lokale Font-Pfade da
+    primary = fonts.get("primary_path")
+    bold = fonts.get("bold_path")
+    head = fonts.get("head_path")
+    italic = fonts.get("italic_path")
+    primary_name = fonts.get("primary", "Inter")
+    for asset_path, weight, style in (
+        (primary, "400", "normal"),
+        (bold,    "700", "normal"),
+        (italic,  "400", "italic"),
+    ):
+        if not asset_path:
+            continue
+        _check_allowed_assets(profile, asset_path)
+        full = (dh_dir / asset_path).resolve()
+        if not full.exists():
+            print(f"⚠ Font-Datei fehlt: {full}")
+            continue
+        css += (
+            f'@font-face {{ font-family: "{primary_name}"; '
+            f'src: url("file://{full}") format("woff2"); '
+            f'font-weight: {weight}; font-style: {style}; font-display: swap; }}\n'
+        )
+    css += f"body, h1, h2, h3 {{ font-family: \"{primary_name}\", "
+    fallbacks = ', '.join(f'"{x}"' for x in fonts.get('fallbacks', ['sans-serif']))
+    css += fallbacks + "; }\n"
+    return css
+
+
+def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
+                          extra_css_extra: str = "") -> Path:
+    """Profile-basierter Render-Pfad — wrapper um convert().
+
+    Lädt Profile aus design-hub, prüft allowed_assets, baut extra-CSS mit
+    CSS-Variablen + @font-face, ruft bestehende convert() auf.
+    """
+    profile, dh_dir = _load_profile(profile_name)
+    name = profile.get("name", profile_name)
+    print(f"🎯 Profile: {name} (design-hub: {dh_dir})")
+    print(f"  authorship: {profile.get('authorship', {}).get('owner')} → {profile.get('authorship', {}).get('recipient')}")
+    print(f"  allowed_assets: {profile.get('allowed_assets')}")
+
+    # Logo-Asset-Check (wenn Profile Logo definiert)
+    logo = profile.get("logo") or {}
+    if logo.get("url"):
+        _check_allowed_assets(profile, logo["url"])
+
+    # Profile → Design-Dict (für bestehende convert())
+    design = _profile_to_design(profile)
+    global DESIGNS
+    # Inject als temporäres design (überschreibt nicht persistent)
+    DESIGNS[f"_profile:{name}"] = design
+
+    # Profile-Extra-CSS (CSS-Variablen + @font-face)
+    profile_extra = _build_profile_extra_css(profile, dh_dir)
+    # Plus _base.css aus design-hub falls da
+    base_css_path = dh_dir / "templates" / "_base.css"
+    if base_css_path.exists():
+        profile_extra += "\n/* ── design-hub _base.css ── */\n"
+        profile_extra += base_css_path.read_text(encoding="utf-8")
+
+    combined_extra = profile_extra + "\n" + extra_css_extra
+
+    out = convert(input_path, output_dir, design_name=f"_profile:{name}",
+                  extra_css=combined_extra)
+    return out
+
+
 def main():
     parser = argparse.ArgumentParser(description="IIL Print Agent — Markdown → PDF")
     parser.add_argument("input", help="Markdown-Quelldatei")
     parser.add_argument("output_dir", nargs="?", help="Ausgabeverzeichnis (optional)")
-    parser.add_argument("--design", default="meiki",
-                        help="Design-Profil: meiki (Standard), iil, ttz oder repo-eigener Key")
+    parser.add_argument("--design", default=None,
+                        help="LEGACY: Design-Key aus print_designs.yaml (meiki/iil/ttz/db)")
+    parser.add_argument("--profile", default=None,
+                        help="design-hub Profile (iil-extern, db-hybrid, db-intern) — empfohlen")
     parser.add_argument("--designs", default=None,
-                        help="Pfad zu repo-spezifischem designs.yaml (Override/Ergänzung)")
+                        help="Pfad zu repo-spezifischem designs.yaml (LEGACY)")
     parser.add_argument("--extra-css", default=None,
                         help="Pfad zu repo-spezifischem extra.css (wird nach base.css geladen)")
     args = parser.parse_args()
+
+    if args.profile and args.design:
+        print("❌ --profile und --design sind exklusiv. Bitte nur eins setzen.")
+        sys.exit(1)
+
     if args.designs:
         global DESIGNS
         DESIGNS = _load_designs(override_file=Path(args.designs))
@@ -845,7 +1015,12 @@ def main():
 
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else OUTPUT_DIR
     extra_css = Path(args.extra_css).read_text(encoding="utf-8") if args.extra_css and Path(args.extra_css).exists() else ""
-    out = convert(input_path, output_dir, design_name=args.design, extra_css=extra_css)
+
+    if args.profile:
+        out = convert_with_profile(input_path, output_dir, args.profile, extra_css_extra=extra_css)
+    else:
+        design_name = args.design or "meiki"
+        out = convert(input_path, output_dir, design_name=design_name, extra_css=extra_css)
     print(f"✅ PDF erstellt: {out}  ({out.stat().st_size // 1024} KB)")
 
 
