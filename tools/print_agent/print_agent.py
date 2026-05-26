@@ -823,6 +823,134 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     return out_path
 
 
+_PSEUDO_TAG_RE = re.compile(r"\[\[([a-z\-]+):([^\]]+?)\]\]")
+
+
+def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path) -> str:
+    """Phase-2: Markdown-Pseudo-Tags → HTML/Markdown-Snippets.
+
+    Unterstützte Tags:
+      [[db-logo:VARIANT]]      → <img src="..."> (VARIANT: red|white|red_filled)
+      [[pulse-logo:VARIANT]]   → DB-Pulse Sub-Branding (VARIANT: red|white)
+      [[icon:ID]]              → SVG inline (ID = db_action_credit-card_32 etc.)
+      [[illustration:NAME]]    → DB-Pulse-Illustration (NAME = delayed, chat, …)
+      [[classification:TEXT]]  → Banner-Div (override profile.classification)
+      [[approval:Name, Date]]  → Approval-Box mit Underline-Bereich
+
+    Compliance: jeder Tag der db-Assets braucht prüft allowed_assets.db.
+    """
+
+    def replacer(m: re.Match) -> str:
+        tag = m.group(1)
+        value = m.group(2).strip()
+        try:
+            if tag == "db-logo":
+                return _render_db_logo(value, profile, dh_dir)
+            if tag == "pulse-logo":
+                return _render_pulse_logo(value, profile, dh_dir)
+            if tag == "icon":
+                return _render_icon(value, profile, dh_dir)
+            if tag == "illustration":
+                return _render_illustration(value, profile, dh_dir)
+            if tag == "classification":
+                return _render_classification(value)
+            if tag == "approval":
+                return _render_approval(value)
+        except AssertionError as e:
+            # Lizenz-Verstoß sichtbar im PDF + im Terminal
+            print(f"⚠ Pseudo-Tag-Block: {e}")
+            return f'<span class="dh-tag-error">[[{tag}:{value}]] — {str(e)[:80]}</span>'
+        return m.group(0)  # unbekannt — durchlassen
+
+    return _PSEUDO_TAG_RE.sub(replacer, md_text)
+
+
+def _render_db_logo(variant: str, profile: dict, dh_dir: Path) -> str:
+    """[[db-logo:VARIANT]] — variant: red|white|red_filled."""
+    valid = {"red", "white", "red_filled"}
+    if variant not in valid:
+        return f'<span class="dh-tag-error">unknown db-logo variant: {variant} (use {valid})</span>'
+    # Wähle PNG (sichere WeasyPrint-Kompatibilität)
+    filename = f"DB_logo_{variant}_1000px_rgb.png" if variant != "white" else "DB_logo_white_rgb_1000px.png"
+    asset_path = f"assets/db/logos/digital/{filename}"
+    _check_allowed_assets(profile, asset_path)
+    full = (dh_dir / asset_path).resolve()
+    if not full.exists():
+        return f'<span class="dh-tag-error">db-logo missing: {asset_path}</span>'
+    return f'<img class="db-logo db-logo-{variant}" src="file://{full}" alt="DB Logo {variant}" style="height: 24pt; vertical-align: middle;">'
+
+
+def _render_pulse_logo(variant: str, profile: dict, dh_dir: Path) -> str:
+    """[[pulse-logo:VARIANT]] — variant: red|white."""
+    if variant not in {"red", "white"}:
+        return f'<span class="dh-tag-error">unknown pulse-logo variant: {variant}</span>'
+    filename = f"Pulse_{variant}_1000px_rgb.png"
+    asset_path = f"assets/db/pulse-logo/{filename}"
+    _check_allowed_assets(profile, asset_path)
+    full = (dh_dir / asset_path).resolve()
+    if not full.exists():
+        return f'<span class="dh-tag-error">pulse-logo missing: {asset_path}</span>'
+    return f'<img class="pulse-logo pulse-logo-{variant}" src="file://{full}" alt="DB Pulse {variant}" style="height: 16pt; vertical-align: middle;">'
+
+
+def _render_icon(icon_id: str, profile: dict, dh_dir: Path) -> str:
+    """[[icon:db_action_credit-card_32]] — Inline-SVG."""
+    # Parse: db_<cat>_<name>_<size>
+    parts = icon_id.split("_")
+    if len(parts) < 4 or not parts[-1].isdigit():
+        return f'<span class="dh-tag-error">invalid icon-id: {icon_id} (expected db_<cat>_<name>_<size>)</span>'
+    size = parts[-1]
+    cat = parts[1]
+    name = "_".join(parts[2:-1])
+    filename = f"ic-db_{cat}_{name}_{size}.svg"
+    asset_path = f"assets/db/icons/{size}/{filename}"
+    _check_allowed_assets(profile, asset_path)
+    full = (dh_dir / asset_path).resolve()
+    if not full.exists():
+        return f'<span class="dh-tag-error">icon missing: {asset_path}</span>'
+    return f'<img class="dh-icon" src="file://{full}" alt="icon:{icon_id}" style="height: {size}px; vertical-align: -3px;">'
+
+
+def _render_illustration(name: str, profile: dict, dh_dir: Path) -> str:
+    """[[illustration:delayed]] oder [[illustration:pulse_bicycle]]."""
+    # Pattern: name beginnt mit puls oder pulse → direkt; sonst probe beide
+    candidates = []
+    if name.startswith(("puls_", "pulse_")):
+        candidates.append(f"ic-db-il_{name}.svg")
+    else:
+        candidates = [f"ic-db-il_puls_{name}.svg", f"ic-db-il_pulse_{name}.svg"]
+    for cand in candidates:
+        asset_path = f"assets/db/illustrations/{cand}"
+        _check_allowed_assets(profile, asset_path)
+        full = (dh_dir / asset_path).resolve()
+        if full.exists():
+            return f'<img class="dh-illustration" src="file://{full}" alt="illustration:{name}" style="max-height: 80pt; vertical-align: middle;">'
+    return f'<span class="dh-tag-error">illustration missing: {name} (tried {candidates})</span>'
+
+
+def _render_classification(text: str) -> str:
+    """[[classification:VERTRAULICH]]."""
+    safe = (text or "").replace("<", "&lt;").replace(">", "&gt;")
+    return f'<div class="dh-classification" style="background: var(--primary); color: #fff; padding: 4pt 12pt; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; font-size: 8.5pt; margin: 12pt 0 8pt 0; border-radius: 2pt;">{safe}</div>'
+
+
+def _render_approval(value: str) -> str:
+    """[[approval:Name, Date]] → 2-col Approval-Box."""
+    parts = [p.strip() for p in value.split(",", 1)]
+    name = parts[0] if parts else ""
+    date = parts[1] if len(parts) > 1 else ""
+    safe_name = name.replace("<", "&lt;").replace(">", "&gt;")
+    safe_date = date.replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        f'<div class="dh-approval" style="margin-top: 14pt; padding: 10pt 14pt; '
+        f'border: 1pt solid var(--border); border-radius: 3pt; background: var(--bg-light); '
+        f'display: flex; gap: 24pt; font-size: 9.5pt;">'
+        f'<div><strong>Genehmigt von:</strong><br>{safe_name}</div>'
+        f'<div><strong>Datum:</strong><br>{safe_date}</div>'
+        f'</div>'
+    )
+
+
 def _design_hub_dir() -> Path:
     """Resolve DESIGN_HUB_DIR (env var oder Default ~/github/design-hub)."""
     return Path(os.environ.get("DESIGN_HUB_DIR", str(Path.home() / "github/design-hub"))).expanduser()
@@ -975,7 +1103,8 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
     """Profile-basierter Render-Pfad — wrapper um convert().
 
     Lädt Profile aus design-hub, prüft allowed_assets, baut extra-CSS mit
-    CSS-Variablen + @font-face, ruft bestehende convert() auf.
+    CSS-Variablen + @font-face, expandiert Pseudo-Tags, ruft bestehende
+    convert() auf einer temporären Markdown-Datei auf.
     """
     profile, dh_dir = _load_profile(profile_name)
     name = profile.get("name", profile_name)
@@ -991,13 +1120,38 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
     # Profile → Design-Dict (für bestehende convert())
     design = _profile_to_design(profile)
     global DESIGNS
-    # Inject als temporäres design (überschreibt nicht persistent)
     DESIGNS[f"_profile:{name}"] = design
 
     # Profile-Extra-CSS — _base.css + Profile-Override + @font-face
-    # (Reihenfolge im _build_profile_extra_css garantiert Override-Win)
     profile_extra = _build_profile_extra_css(profile, dh_dir)
     combined_extra = profile_extra + "\n" + extra_css_extra
+
+    # Phase-2: Pseudo-Tag-Expansion (db-logo, icon, illustration, …)
+    md_text = input_path.read_text(encoding="utf-8")
+    md_expanded = _expand_pseudo_tags(md_text, profile, dh_dir)
+    tag_count = len(_PSEUDO_TAG_RE.findall(md_text)) - len(_PSEUDO_TAG_RE.findall(md_expanded))
+    if tag_count > 0:
+        print(f"  pseudo-tags expanded: {tag_count}")
+
+    # Wenn Tags expandiert wurden: schreibe Temp-MD, ansonsten Original
+    if md_expanded != md_text:
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False,
+                                          dir=output_dir if output_dir.exists() else None,
+                                          encoding="utf-8") as tf:
+            tf.write(md_expanded)
+            tmp_path = Path(tf.name)
+        try:
+            out = convert(tmp_path, output_dir, design_name=f"_profile:{name}",
+                          extra_css=combined_extra)
+            # Rename: tmp → original stem
+            final_out = output_dir / f"{input_path.stem}.pdf"
+            if out != final_out:
+                out.rename(final_out)
+                out = final_out
+            return out
+        finally:
+            tmp_path.unlink(missing_ok=True)
 
     out = convert(input_path, output_dir, design_name=f"_profile:{name}",
                   extra_css=combined_extra)
