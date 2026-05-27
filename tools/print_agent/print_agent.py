@@ -1215,18 +1215,21 @@ def _render_reisekosten(modus: str, profile: dict) -> str:
 
 
 def _render_iil_snippet(snippet_name: str, value: str, profile: dict, dh_dir: Path) -> str:
-    """[[iil-agb]] oder [[iil-dsgvo]] → expandiert Snippet aus assets/iil/snippets/.
+    """[[iil-agb]] / [[iil-dsgvo]] — DEPRECATED: bevorzugt [[clause:NAME]].
 
-    `value` ist nach `:` der Param-Teil (meist leer/'').
-    snippet_name = 'agb' oder 'dsgvo'.
+    Behält Backwards-Compat — leitet auf _render_clause weiter, fällt
+    zurück auf den alten snippet-Pfad assets/iil/snippets/<name>.md
+    wenn keine clause-YAML existiert.
     """
+    clauses_dir = (dh_dir / "assets" / "iil" / "clauses").resolve()
+    if clauses_dir.exists() and any(clauses_dir.glob(f"{snippet_name}-v*.yaml")):
+        print(f"⚠ [[iil-{snippet_name}]] is deprecated — use [[clause:{snippet_name}]]")
+        return _render_clause(snippet_name, profile, dh_dir)
     asset_path = f"assets/iil/snippets/{snippet_name}.md"
     _check_allowed_assets(profile, asset_path)
     full = (dh_dir / asset_path).resolve()
     if not full.exists():
         return f'<span class="dh-tag-error">iil-snippet missing: {asset_path}</span>'
-    # Snippet ist Markdown — wir geben es zurück und vertrauen darauf dass es
-    # später durch markdown.convert läuft (ist nach unserer Expansion)
     content = full.read_text(encoding="utf-8").strip()
     return f"\n\n{content}\n\n"
 
