@@ -820,7 +820,7 @@ def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
     ]
 
 
-def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: dict, design: dict) -> str:
+def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: dict, design: dict, skip_default_cover: bool = False) -> str:
     stand = meta.get("stand", "")
     template = design.get("meta_template", "meiki")
 
@@ -837,18 +837,36 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
 
     footer_text = (f"Stand: {stand} — " if stand else "") + design.get("footer_suffix", "")
 
-    ctx = {
-        "title":        title,
-        "cover_label":  design.get("cover_label", ""),
-        "subtitle":     design.get("subtitle", ""),
-        "date_line":    date_line,
-        "es_label":     design.get("es_label_text", "Executive Summary"),
-        "enrichment":   enrichment,
-        "meta_rows":    _build_meta_rows(meta, design, stem),
-        "body_html":    body_html,
-        "footer_text":  footer_text,
-        "stand":        stand,
-    }
+    if skip_default_cover:
+        # Eigenes Cover vom Markdown ([[angebot-cover]]) — base.html.j2 rendert
+        # nur den body_html ohne title/subtitle/meta-table/enrichment-Block.
+        ctx = {
+            "title":        title,
+            "cover_label":  "",
+            "subtitle":     "",
+            "date_line":    "",
+            "es_label":     "",
+            "enrichment":   {"summary": "", "keywords": []},
+            "meta_rows":    [],
+            "body_html":    body_html,
+            "footer_text":  footer_text,
+            "stand":        "",
+            "_skip_cover":  True,
+        }
+    else:
+        ctx = {
+            "title":        title,
+            "cover_label":  design.get("cover_label", ""),
+            "subtitle":     design.get("subtitle", ""),
+            "date_line":    date_line,
+            "es_label":     design.get("es_label_text", "Executive Summary"),
+            "enrichment":   enrichment,
+            "meta_rows":    _build_meta_rows(meta, design, stem),
+            "body_html":    body_html,
+            "footer_text":  footer_text,
+            "stand":        stand,
+            "_skip_cover":  False,
+        }
     tpl = _JINJA_ENV.get_template("base.html.j2")
     return tpl.render(**ctx)
 
@@ -878,9 +896,17 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     )
     body_html = md.convert(md_text_processed)
 
+    skip_cover_val = fm.get("skip_default_cover") if isinstance(fm, dict) else None
+    if isinstance(skip_cover_val, list):
+        skip_cover_val = " ".join(str(x) for x in skip_cover_val)
+    skip_cover = str(skip_cover_val or "").strip().lower() in ("true", "1", "yes", "ja")
+
     m = re.search(r"<h1[^>]*>(.*?)</h1>", body_html)
     title = m.group(1) if m else input_path.stem
-    body_html = re.sub(r"<h1[^>]*>.*?</h1>", "", body_html, count=1)
+    # H1 nur strippen wenn Default-Cover aktiv (der base.html.j2 rendert sonst doppelt).
+    # Bei skip_default_cover bleibt das H1 aus dem Pseudo-Tag-Cover erhalten.
+    if not skip_cover:
+        body_html = re.sub(r"<h1[^>]*>.*?</h1>", "", body_html, count=1)
 
     # Frontmatter skip_enrichment respektieren (Default-LLM Tier 1a: Cerebras gpt-oss-120b / Groq llama-3.3-70b)
     skip_val = fm.get("skip_enrichment") if isinstance(fm, dict) else None
@@ -897,7 +923,7 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
             print(f"   ✅ Summary: {enrichment['summary'][:80]}…")
             print(f"   🏷️  Keywords: {', '.join(enrichment.get('keywords', []))}")
 
-    html = build_html(title, body_html, meta, input_path.stem, enrichment, design)
+    html = build_html(title, body_html, meta, input_path.stem, enrichment, design, skip_default_cover=skip_cover)
     css = build_css(design, extra_css=extra_css, design_name=design_name)
 
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1125,26 +1151,31 @@ def _render_angebot_cover(value: str, profile: dict, fm: dict, dh_dir: Path) -> 
   </div>
 
   <div class="ac-pflicht">
-    <strong>{e(c.get("legal_name", ""))}</strong>
-    &nbsp;&middot;&nbsp; {e(c.get("address_line_1", ""))}
-    &nbsp;&middot;&nbsp; {e(c.get("address_line_2", ""))}
-    &nbsp;&middot;&nbsp; {e(c.get("website", ""))}
-    <br>
-    Geschäftsführer: {e(c.get("managing_director", ""))}
-    &nbsp;&middot;&nbsp; {e(c.get("registergericht", ""))}
-    &nbsp;&middot;&nbsp; HRB {e(c.get("hrb", ""))}
-    <br>
-    USt-IdNr. {e(c.get("ust_id", ""))}
-    &nbsp;&middot;&nbsp; Steuernummer {e(c.get("steuernummer", ""))}
-    &nbsp;&middot;&nbsp; {e(c.get("finanzamt", ""))}
-    <br>
-    {e(c.get("bank_name", ""))}
-    &nbsp;&middot;&nbsp; IBAN {e(c.get("bank_iban", ""))}
-    &nbsp;&middot;&nbsp; BIC {e(c.get("bank_bic", ""))}
+    <div class="ac-pflicht-col">
+      {e(c.get("legal_name", ""))}<br>
+      {e(c.get("address_line_1", ""))}<br>
+      {e(c.get("address_line_2", ""))}<br>
+      {e(c.get("website", ""))}
+    </div>
+    <div class="ac-pflicht-col">
+      {e(c.get("registergericht", ""))}<br>
+      {e(c.get("hrb", ""))}<br>
+      {e(c.get("finanzamt", ""))}{(", Steuer-Nr. " + e(c.get("steuernummer", ""))) if c.get("steuernummer") else ""}<br>
+      USt-IdNr.: {e(c.get("ust_id", ""))}
+    </div>
+    <div class="ac-pflicht-col">
+      Geschäftsführer:<br>
+      {e(c.get("legal_director", "") or c.get("managing_director", ""))}<br>
+      Tel.: {e(c.get("legal_director_phone", "") or c.get("phone_default", ""))}<br>
+      {e(c.get("legal_director_email", "") or c.get("email_default", ""))}
+    </div>
+    <div class="ac-pflicht-col">
+      {e(c.get("bank_name", ""))}<br>
+      <span class="ac-nowrap">IBAN: {e(c.get("bank_iban", ""))}</span><br>
+      <span class="ac-nowrap">BIC: {e(c.get("bank_bic", ""))}</span>
+    </div>
   </div>
 </div>
-
-<div class="ac-page-break"></div>
 '''
     return html
 

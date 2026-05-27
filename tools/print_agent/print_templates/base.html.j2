@@ -2,6 +2,7 @@
 <html lang="de">
 <head><meta charset="utf-8"><title>{{ title }}</title></head>
 <body>
+{% if not _skip_cover %}
 {% if stand %}<span class="stand-anchor">{{ stand }}</span>{% endif %}
 <div class="cover-header">{{ cover_label }}</div>
 <h1>{{ title }}</h1>
@@ -30,6 +31,7 @@
 {% endif %}
 
 <hr>
+{% endif %}
 {{ body_html }}
 <p class="footer-note">{{ footer_text }}</p>
 </body>
