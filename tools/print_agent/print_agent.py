@@ -650,26 +650,43 @@ def expand_frontmatter_vars(md_text: str, frontmatter: dict, profile: dict | Non
         "today": today,
         "now": now,
     }
-    if profile:
-        common["profile"] = profile.get("name", "")
-        authorship = profile.get("authorship") or {}
-        common["profile.owner"] = authorship.get("owner", "")
-        common["profile.recipient"] = authorship.get("recipient", "")
-        colours = profile.get("colours") or {}
-        common["profile.primary"] = colours.get("primary", "")
+
+    def resolve_dotted(d: dict | None, path: str) -> str | None:
+        """profile.contact.email → d['contact']['email']. None wenn Pfad fehlt."""
+        cur = d
+        for part in path.split("."):
+            if isinstance(cur, dict) and part in cur:
+                cur = cur[part]
+            else:
+                return None
+        return str(cur) if cur is not None else None
 
     def resolver(m: re.Match) -> str:
         raw = m.group(1).strip()
-        # {{ var | default }} Syntax
         default = ""
         if "|" in raw:
             raw, default = [p.strip() for p in raw.split("|", 1)]
+            # Default kann selbst mit "" oder '' gequotet sein
+            if (default.startswith('"') and default.endswith('"')) or \
+               (default.startswith("'") and default.endswith("'")):
+                default = default[1:-1]
+        # doc.X — Frontmatter (flach)
         if raw.startswith("doc."):
             key = raw[4:]
-            return fm.get(key, default or m.group(0))
+            return fm.get(key) or default or m.group(0)
+        # profile (nackt) → profile.name
+        if raw == "profile":
+            return (profile.get("name", "") if profile else "") or default or m.group(0)
+        # profile.X.Y.Z — nested resolve
+        if raw.startswith("profile.") and profile:
+            val = resolve_dotted(profile, raw[8:])
+            if val is not None:
+                return val
+            return default or m.group(0)
+        # Common (today, now)
         if raw in common:
             return common[raw]
-        return default or m.group(0)  # Unbekannte Vars unverändert lassen
+        return default or m.group(0)
 
     return re.sub(r"\{\{\s*([^}]+?)\s*\}\}", resolver, md_text)
 
