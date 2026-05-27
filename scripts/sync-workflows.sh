@@ -150,14 +150,21 @@ sync_workflow() {
     repo_name=$(basename "$repo_dir")
 
     local wf_dir="${repo_dir}/.windsurf/workflows"
-    local target="${PLATFORM_WF}/${workflow}.md"
+    local target_abs="${PLATFORM_WF}/${workflow}.md"
     local link="${wf_dir}/${workflow}.md"
+    # Symlinks portabel anlegen — relativ zum Link, nicht absolut.
+    # Wenn platform-Sibling auf einer anderen Maschine an gleicher Stelle
+    # ausgechecked ist, funktioniert der Symlink. Andernfalls (z.B. CI)
+    # bricht er — was OK ist, da .windsurf/workflows/ Editor-spezifisch sind.
+    local target
+    target=$(realpath --relative-to="$wf_dir" "$target_abs" 2>/dev/null || echo "$target_abs")
 
     # Source muss existieren
-    if [[ ! -f "$target" ]]; then
+    if [[ ! -f "$target_abs" ]]; then
         echo "  WARN: ${workflow}.md nicht in platform gefunden"
         return
     fi
+    # Ab hier nutzen alle Code-Pfade $target (= relativer Pfad)
 
     # Zielverzeichnis anlegen
     if [[ ! -d "$wf_dir" ]]; then
