@@ -882,11 +882,20 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     title = m.group(1) if m else input_path.stem
     body_html = re.sub(r"<h1[^>]*>.*?</h1>", "", body_html, count=1)
 
-    print("🤖 LLM-Anreicherung …")
-    enrichment = llm_enrich(title, md_text, design)
-    if enrichment.get("summary"):
-        print(f"   ✅ Summary: {enrichment['summary'][:80]}…")
-        print(f"   🏷️  Keywords: {', '.join(enrichment.get('keywords', []))}")
+    # Frontmatter skip_enrichment respektieren (Default-LLM Tier 1a: Cerebras gpt-oss-120b / Groq llama-3.3-70b)
+    skip_val = fm.get("skip_enrichment") if isinstance(fm, dict) else None
+    if isinstance(skip_val, list):
+        skip_val = " ".join(str(x) for x in skip_val)
+    skip = str(skip_val or "").strip().lower() in ("true", "1", "yes", "ja")
+    if skip:
+        print("⏭  LLM-Anreicherung übersprungen (skip_enrichment im Frontmatter)")
+        enrichment = {"summary": "", "keywords": []}
+    else:
+        print("🤖 LLM-Anreicherung …")
+        enrichment = llm_enrich(title, md_text, design)
+        if enrichment.get("summary"):
+            print(f"   ✅ Summary: {enrichment['summary'][:80]}…")
+            print(f"   🏷️  Keywords: {', '.join(enrichment.get('keywords', []))}")
 
     html = build_html(title, body_html, meta, input_path.stem, enrichment, design)
     css = build_css(design, extra_css=extra_css, design_name=design_name)
@@ -900,7 +909,7 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
 _PSEUDO_TAG_RE = re.compile(r"\[\[([a-z\-]+)(?::([^\]]+?))?\]\]")
 
 
-def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path) -> str:
+def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path, fm: dict | None = None) -> str:
     """Phase-2: Markdown-Pseudo-Tags → HTML/Markdown-Snippets.
 
     Unterstützte Tags:
@@ -936,6 +945,11 @@ def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path) -> str:
             if tag.startswith("snippet"):
                 # [[snippet:db/<name>]] oder [[snippet:iil/<name>]]
                 return _render_snippet(value, profile, dh_dir)
+            # Angebots-Layout-Tags
+            if tag == "angebot-cover":
+                return _render_angebot_cover(value, profile, fm or {}, dh_dir)
+            if tag == "reisekosten":
+                return _render_reisekosten(value, profile)
         except AssertionError as e:
             # Lizenz-Verstoß sichtbar im PDF + im Terminal
             print(f"⚠ Pseudo-Tag-Block: {e}")
@@ -1012,6 +1026,157 @@ def _render_classification(text: str) -> str:
     """[[classification:VERTRAULICH]]."""
     safe = (text or "").replace("<", "&lt;").replace(">", "&gt;")
     return f'<div class="dh-classification" style="background: var(--primary); color: #fff; padding: 4pt 12pt; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; font-size: 8.5pt; margin: 12pt 0 8pt 0; border-radius: 2pt;">{safe}</div>'
+
+
+def _render_angebot_cover(value: str, profile: dict, fm: dict, dh_dir: Path) -> str:
+    """[[angebot-cover]] — klassisches DIN-Konzern-Layout für Page 1.
+
+    Zieht alle Daten aus Frontmatter (doc.*) + Profile (profile.contact.*):
+    - Titel + Subtitle
+    - 2-Spalten-Anschriftenfeld (Auftragnehmer ↔ Auftraggeber)
+    - Cover-Footer mit Pflichtangaben (Geschäftsführer, HRB, USt-IdNr, Bank)
+
+    Erzeugt page-break am Ende → klassisches DIN-Layout: Cover steht
+    allein auf Seite 1, restlicher Body beginnt auf Seite 2.
+    """
+    c = profile.get("contact") or {}
+    colours = profile.get("colours") or {}
+    primary = colours.get("primary", "#52534D")
+    muted = colours.get("text_muted", "#646973")
+    line = colours.get("line", "#E0DFD9")
+
+    # Flatten frontmatter list-Werte
+    def f(key: str, default: str = "") -> str:
+        v = fm.get(key, default)
+        if isinstance(v, list):
+            return " ".join(str(x) for x in v)
+        return str(v) if v is not None else default
+
+    titel = f("angebot_titel", "Angebot")
+    subtitle = f("angebot_subtitle", "")
+    nr = f("angebot_nr", "")
+    gueltig = f("gueltig_bis", "")
+
+    auf_firma = f("auftraggeber_firma", "[Auftraggeber]")
+    auf_str = f("auftraggeber_strasse", "")
+    auf_plz = f("auftraggeber_plz_ort", "")
+    auf_land = f("auftraggeber_land", "")
+    auf_kontakte_raw = f("auftraggeber_kontakte_html", "") or f("auftraggeber_kontakte", "")
+
+    an_name = f("ansprechpartner_name", c.get("managing_director", ""))
+    an_email = f("ansprechpartner_email", c.get("email_default", ""))
+    an_tel = f("ansprechpartner_telefon", c.get("phone_default", ""))
+
+    # HTML-escape Hilfsfunktion
+    def e(s: str) -> str:
+        return (s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                 if s else "")
+
+    html = f'''
+<div class="angebot-cover">
+  <div class="ac-title-block">
+    <div class="ac-eyebrow">Angebot</div>
+    <h1 class="ac-title">{e(titel)}</h1>
+    {f'<div class="ac-subtitle">{e(subtitle)}</div>' if subtitle else ''}
+  </div>
+
+  <table class="ac-parties">
+    <thead><tr>
+      <th>Von (Auftragnehmer)</th>
+      <th>An (Auftraggeber)</th>
+    </tr></thead>
+    <tbody>
+      <tr>
+        <td>
+          <div class="ac-firma">{e(c.get("legal_name", ""))}</div>
+          <div>{e(c.get("address_line_1", ""))}</div>
+          <div>{e(c.get("address_line_2", ""))}</div>
+          <div>{e(c.get("country", ""))}</div>
+        </td>
+        <td>
+          <div class="ac-firma">{e(auf_firma)}</div>
+          <div>{e(auf_str)}</div>
+          <div>{e(auf_plz)}</div>
+          <div>{e(auf_land)}</div>
+        </td>
+      </tr>
+      <tr><td class="ac-spacer"></td><td class="ac-spacer"></td></tr>
+      <tr>
+        <td>
+          <div class="ac-label">Ansprechpartner:</div>
+          <div>{e(an_name)}</div>
+          <div>{e(an_email)}</div>
+          <div>{e(an_tel)}</div>
+        </td>
+        <td>
+          <div class="ac-label">Ansprechpartner:</div>
+          <div class="ac-kontakte">{auf_kontakte_raw}</div>
+        </td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="ac-meta">
+    <span><strong>Angebot-Nr.:</strong> {e(nr)}</span>
+    &nbsp;&middot;&nbsp;
+    <span><strong>Stand:</strong> {e(f("today", ""))}</span>
+    &nbsp;&middot;&nbsp;
+    <span><strong>Gültig bis:</strong> {e(gueltig)}</span>
+  </div>
+
+  <div class="ac-pflicht">
+    <strong>{e(c.get("legal_name", ""))}</strong>
+    &nbsp;&middot;&nbsp; {e(c.get("address_line_1", ""))}
+    &nbsp;&middot;&nbsp; {e(c.get("address_line_2", ""))}
+    &nbsp;&middot;&nbsp; {e(c.get("website", ""))}
+    <br>
+    Geschäftsführer: {e(c.get("managing_director", ""))}
+    &nbsp;&middot;&nbsp; {e(c.get("registergericht", ""))}
+    &nbsp;&middot;&nbsp; HRB {e(c.get("hrb", ""))}
+    <br>
+    USt-IdNr. {e(c.get("ust_id", ""))}
+    &nbsp;&middot;&nbsp; Steuernummer {e(c.get("steuernummer", ""))}
+    &nbsp;&middot;&nbsp; {e(c.get("finanzamt", ""))}
+    <br>
+    {e(c.get("bank_name", ""))}
+    &nbsp;&middot;&nbsp; IBAN {e(c.get("bank_iban", ""))}
+    &nbsp;&middot;&nbsp; BIC {e(c.get("bank_bic", ""))}
+  </div>
+</div>
+
+<div class="ac-page-break"></div>
+'''
+    return html
+
+
+def _render_reisekosten(modus: str, profile: dict) -> str:
+    """[[reisekosten:pauschal|nachweis|none]] — vorformulierte Klausel."""
+    c = profile.get("contact") or {}
+    standort = c.get("address_line_2", "Standort")
+    modus = (modus or "nachweis").strip().lower()
+    if modus == "pauschal":
+        return (
+            f"Reisekosten werden pauschal mit **120,00 € netto pro Reisetag** "
+            f"abgegolten und decken An- und Abreise sowie Spesen vollständig ab. "
+            f"Reisetage werden ab {standort} berechnet. "
+            f"Übernachtungen außerhalb des Standortes werden — sofern nicht vom "
+            f"Auftraggeber direkt gestellt — separat als Auslagenersatz auf "
+            f"Nachweis abgerechnet (max. 130,00 € netto pro Nacht)."
+        )
+    if modus == "none":
+        return (
+            "Reisekosten sind im vorgenannten Tagessatz **enthalten**. "
+            "Es entstehen dem Auftraggeber keine zusätzlichen Reise- oder "
+            "Übernachtungskosten."
+        )
+    # default: nachweis
+    return (
+        f"Reisekosten sind nicht im Preis enthalten und werden in nachgewiesener "
+        f"Höhe ab {standort} abgerechnet. Spesen und Übernachtungskosten werden, "
+        f"sofern sie nicht vom Auftraggeber direkt gestellt werden, "
+        f"ausschließlich als Auslagenersatz auf Nachweis abgerechnet — "
+        f"Pauschalen oder arbeitnehmertypische Spesensätze sind ausgeschlossen."
+    )
 
 
 def _render_iil_snippet(snippet_name: str, value: str, profile: dict, dh_dir: Path) -> str:
@@ -1352,7 +1517,7 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
     combined_extra = profile_extra + "\n" + watermark_css + "\n" + extra_css_extra
 
     # Phase-2: Pseudo-Tag-Expansion (db-logo, icon, illustration, …)
-    md_expanded = _expand_pseudo_tags(md_text, profile, dh_dir)
+    md_expanded = _expand_pseudo_tags(md_text, profile, dh_dir, fm=fm_dict)
     tag_count = len(_PSEUDO_TAG_RE.findall(md_text)) - len(_PSEUDO_TAG_RE.findall(md_expanded))
     if tag_count > 0:
         print(f"  pseudo-tags expanded: {tag_count}")
