@@ -618,6 +618,62 @@ def render_mermaid_to_png(mermaid_code: str) -> str:
                 pass
 
 
+def expand_frontmatter_vars(md_text: str, frontmatter: dict, profile: dict | None = None) -> str:
+    """Pilot-Memo: Variable-Substitution aus Frontmatter + Common-Vars.
+
+    Unterstützte Patterns:
+      {{ doc.X }}           → frontmatter['X'] (gesucht in fm, gestripped wenn list)
+      {{ doc.X | default }} → fallback wenn X fehlt
+      {{ today }}           → ISO-Datum (2026-05-27)
+      {{ now }}             → ISO-Timestamp
+      {{ profile }}         → profile.name (z.B. 'db-intern')
+      {{ profile.owner }}   → profile.authorship.owner
+      {{ profile.primary }} → profile.colours.primary
+
+    Markdown Meta-Extension liefert frontmatter als dict[str, list[str]] —
+    wir flatten zu str für Single-Values.
+    """
+    import re
+    from datetime import datetime
+    today = datetime.now().strftime("%Y-%m-%d")
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+
+    # Flatten Meta-Dict (Markdown-Meta-Extension liefert list[str])
+    fm = {}
+    for k, v in (frontmatter or {}).items():
+        if isinstance(v, list):
+            fm[k] = " ".join(v).strip()
+        else:
+            fm[k] = str(v).strip() if v is not None else ""
+
+    common = {
+        "today": today,
+        "now": now,
+    }
+    if profile:
+        common["profile"] = profile.get("name", "")
+        authorship = profile.get("authorship") or {}
+        common["profile.owner"] = authorship.get("owner", "")
+        common["profile.recipient"] = authorship.get("recipient", "")
+        colours = profile.get("colours") or {}
+        common["profile.primary"] = colours.get("primary", "")
+
+    def resolver(m: re.Match) -> str:
+        raw = m.group(1).strip()
+        # {{ var | default }} Syntax
+        default = ""
+        if "|" in raw:
+            raw, default = [p.strip() for p in raw.split("|", 1)]
+        if raw.startswith("doc."):
+            key = raw[4:]
+            return fm.get(key, default or m.group(0))
+        if raw in common:
+            return common[raw]
+        return default or m.group(0)  # Unbekannte Vars unverändert lassen
+
+    return re.sub(r"\{\{\s*([^}]+?)\s*\}\}", resolver, md_text)
+
+
 def preprocess_md(md_text: str) -> str:
     """Ersetzt ```gantt / ```tree / ```flow / ```arch / ```layer / ```tiers / ```compare / ```mermaid durch HTML."""
     def replace_gantt(m):   return parse_gantt_block(m.group(1))
@@ -1022,6 +1078,48 @@ def _check_allowed_assets(profile: dict, asset_path: str) -> None:
         )
 
 
+def _build_watermark_css(text: str, color_hex: str = "#EC0016") -> str:
+    """Erzeugt diagonalen Watermark als CSS @page background.
+
+    Wirkt auf jeder Seite ausser Cover. Verwendet @page-Margin-Boxes
+    nicht direkt — sondern :before-Pseudo auf body + transform rotate.
+    """
+    if not text:
+        return ""
+    rgb = color_hex.lstrip("#")
+    r, g, b = int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)
+    safe = text.replace('"', '\\"')
+    return f"""
+/* Watermark Overlay (Pilot — diagonale Markierung) */
+@page {{
+  background: linear-gradient(135deg, transparent 45%,
+              rgba({r},{g},{b},0.07) 45%,
+              rgba({r},{g},{b},0.07) 55%,
+              transparent 55%);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+}}
+
+body::before {{
+  content: "{safe}";
+  position: fixed;
+  top: 45%;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: var(--font-head, Arial, sans-serif);
+  font-size: 90pt;
+  font-weight: 900;
+  letter-spacing: 0.05em;
+  color: rgba({r},{g},{b},0.10);
+  transform: rotate(-30deg);
+  transform-origin: center;
+  z-index: -1;
+  pointer-events: none;
+}}
+"""
+
+
 def _build_profile_extra_css(profile: dict, dh_dir: Path) -> str:
     """Erzeugt: erst _base.css (mit Defaults), DANN Profile-Override-:root + @font-face.
 
@@ -1173,24 +1271,48 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
 
     # Profile-Extra-CSS — _base.css + Profile-Override + @font-face
     profile_extra = _build_profile_extra_css(profile, dh_dir)
-    combined_extra = profile_extra + "\n" + extra_css_extra
+
+    md_original = input_path.read_text(encoding="utf-8")
+    md_text = md_original
+
+    # Phase-2: Frontmatter-Variable-Substitution (vor Tags, vor Markdown)
+    md_pre_meta = markdown.Markdown(extensions=["meta"])
+    md_pre_meta.convert(md_text)
+    fm_dict = {k: v for k, v in md_pre_meta.Meta.items()} if hasattr(md_pre_meta, "Meta") else {}
+    md_text = expand_frontmatter_vars(md_text, fm_dict, profile)
+    vars_substituted = (md_text != md_original)
+    if vars_substituted:
+        print(f"  frontmatter vars substituted")
+
+    # Phase-2: Watermark — Profile-Default, Frontmatter kann überschreiben
+    wm_text = ""
+    fm_wm = fm_dict.get("watermark") if fm_dict else None
+    if fm_wm:
+        wm_text = " ".join(fm_wm).strip() if isinstance(fm_wm, list) else str(fm_wm).strip()
+    elif profile.get("watermark"):
+        wm_text = profile["watermark"]
+    watermark_css = _build_watermark_css(wm_text, profile.get("colours", {}).get("primary", "#EC0016"))
+    if watermark_css:
+        print(f"  watermark: {wm_text!r}")
+
+    combined_extra = profile_extra + "\n" + watermark_css + "\n" + extra_css_extra
 
     # Phase-2: Pseudo-Tag-Expansion (db-logo, icon, illustration, …)
-    md_text = input_path.read_text(encoding="utf-8")
     md_expanded = _expand_pseudo_tags(md_text, profile, dh_dir)
     tag_count = len(_PSEUDO_TAG_RE.findall(md_text)) - len(_PSEUDO_TAG_RE.findall(md_expanded))
     if tag_count > 0:
         print(f"  pseudo-tags expanded: {tag_count}")
 
-    # Bei Tag-Expansion: Temp-MD-File
+    # Bei Tag-Expansion ODER Var-Substitution: Temp-MD-File schreiben
     md_for_render = input_path
     tmp_path: Path | None = None
-    if md_expanded != md_text:
+    final_md = md_expanded
+    if final_md != md_original:
         import tempfile
         with tempfile.NamedTemporaryFile(mode="w", suffix=".md", delete=False,
                                           dir=output_dir if output_dir.exists() else None,
                                           encoding="utf-8") as tf:
-            tf.write(md_expanded)
+            tf.write(final_md)
             tmp_path = Path(tf.name)
         md_for_render = tmp_path
 
