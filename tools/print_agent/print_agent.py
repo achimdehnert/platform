@@ -1666,6 +1666,9 @@ def convert_with_profile(input_path: Path, output_dir: Path, profile_name: str,
     tag_count = len(_PSEUDO_TAG_RE.findall(md_text)) - len(_PSEUDO_TAG_RE.findall(md_expanded))
     if tag_count > 0:
         print(f"  pseudo-tags expanded: {tag_count}")
+        # Nochmal expand_frontmatter_vars — Klausel/Snippet-Bodies können {{ profile.X }}
+        # enthalten, die erst nach Tag-Expansion im md_expanded sichtbar sind.
+        md_expanded = expand_frontmatter_vars(md_expanded, fm_dict, profile)
 
     # Bei Tag-Expansion ODER Var-Substitution: Temp-MD-File schreiben
     md_for_render = input_path
