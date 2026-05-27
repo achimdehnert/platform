@@ -1284,25 +1284,40 @@ def _render_qr_akzeptanz(value: str, profile: dict, fm: dict) -> str:
 
 
 def _render_clause(value: str, profile: dict, dh_dir: Path) -> str:
-    """[[clause:NAME]] oder [[clause:NAME@VERSION]] — versionierte Klausel-Bibliothek.
+    """[[clause:[ORG/]NAME[@VERSION]]] — versionierte Klausel-Bibliothek.
 
-    Sucht in assets/iil/clauses/<name>-v<N>.yaml, wählt:
+    Cross-Org-Pfad: [[clause:db/eigenerklaerung]] → assets/db/clauses/eigenerklaerung-v*.yaml
+    Default-Org `iil` wenn nicht angegeben (Backwards-Compat zu vorheriger Konvention).
+
+    Auswahl:
       - explizite Version wenn @N angegeben
       - sonst neueste, deren valid_from <= today und valid_to (null oder >= today)
+
+    Profile-Check: allowed_assets[org] muss true sein (Hard-Block bei verbotenem Bucket).
     """
     import yaml as _yaml
     from datetime import date as _date
 
+    # Optional: @VERSION abtrennen
     if "@" in value:
-        name, ver_str = value.split("@", 1)
+        spec, ver_str = value.split("@", 1)
         try:
             requested_version = int(ver_str)
         except ValueError:
             return f'<span class="dh-tag-error">clause version must be int: {value}</span>'
     else:
-        name, requested_version = value, None
+        spec, requested_version = value, None
 
-    asset_dir = f"assets/iil/clauses"
+    # Optional: ORG/NAME abtrennen — Default org=iil
+    if "/" in spec:
+        org, name = spec.split("/", 1)
+    else:
+        org, name = "iil", spec
+
+    if not re.fullmatch(r"[a-z0-9_-]+", org or "") or not re.fullmatch(r"[a-z0-9_-]+", name or ""):
+        return f'<span class="dh-tag-error">clause spec invalid: {value}</span>'
+
+    asset_dir = f"assets/{org}/clauses"
     _check_allowed_assets(profile, f"{asset_dir}/{name}-v1.yaml")
     full_dir = (dh_dir / asset_dir).resolve()
     if not full_dir.exists():
