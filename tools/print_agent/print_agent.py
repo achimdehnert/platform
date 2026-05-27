@@ -976,6 +976,10 @@ def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path, fm: dict | No
                 return _render_angebot_cover(value, profile, fm or {}, dh_dir)
             if tag == "reisekosten":
                 return _render_reisekosten(value, profile)
+            if tag == "clause":
+                return _render_clause(value, profile, dh_dir)
+            if tag == "qr-akzeptanz":
+                return _render_qr_akzeptanz(value, profile, fm or {})
         except AssertionError as e:
             # Lizenz-Verstoß sichtbar im PDF + im Terminal
             print(f"⚠ Pseudo-Tag-Block: {e}")
@@ -1225,6 +1229,116 @@ def _render_iil_snippet(snippet_name: str, value: str, profile: dict, dh_dir: Pa
     # später durch markdown.convert läuft (ist nach unserer Expansion)
     content = full.read_text(encoding="utf-8").strip()
     return f"\n\n{content}\n\n"
+
+
+def _render_qr_akzeptanz(value: str, profile: dict, fm: dict) -> str:
+    """[[qr-akzeptanz]] oder [[qr-akzeptanz:BASE_URL]] — QR-Code für Online-Annahme.
+
+    Hash = sha256(angebot_nr + stand)[:12] · URL: <base>/angebot/<hash>/accept
+    Default-Base: https://iil.pet
+    Bild: inline data-URL PNG, 80pt Box.
+    """
+    import base64
+    import hashlib
+    import io
+
+    try:
+        import qrcode  # type: ignore
+    except ImportError:
+        return '<span class="dh-tag-error">[[qr-akzeptanz]] — qrcode lib fehlt (pip install qrcode)</span>'
+
+    def _flat(k: str, default: str = "") -> str:
+        v = fm.get(k, default) if isinstance(fm, dict) else default
+        if isinstance(v, list):
+            v = " ".join(str(x) for x in v).strip()
+        return str(v).strip() if v else default
+
+    base = (value or "").strip() or "https://iil.pet"
+    nr = _flat("angebot_nr", "ANG-000")
+    stand = _flat("gueltig_bis", "")
+    seed = f"{nr}|{stand}".encode("utf-8")
+    h = hashlib.sha256(seed).hexdigest()[:12]
+    url = f"{base.rstrip('/')}/angebot/{h}/accept"
+
+    qr = qrcode.QRCode(box_size=4, border=1)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    buf = io.BytesIO()
+    img.save(buf, "PNG")
+    b64 = base64.b64encode(buf.getvalue()).decode("ascii")
+
+    safe_url = url.replace("<", "&lt;").replace(">", "&gt;")
+    return (
+        f'<div class="dh-qr-akzeptanz" style="display:flex;gap:10pt;align-items:center;'
+        f'padding:8pt 12pt;background:#F8F9FB;border-left:3pt solid #1A3A5C;margin:8pt 0;">'
+        f'<img src="data:image/png;base64,{b64}" style="width:60pt;height:60pt;" alt="QR Annahme">'
+        f'<div style="font-size:9pt;color:#374151;">'
+        f'<strong>Online-Annahme:</strong><br>'
+        f'QR scannen oder<br><a href="{safe_url}" style="color:#1A3A5C;">{safe_url}</a>'
+        f'</div></div>'
+    )
+
+
+def _render_clause(value: str, profile: dict, dh_dir: Path) -> str:
+    """[[clause:NAME]] oder [[clause:NAME@VERSION]] — versionierte Klausel-Bibliothek.
+
+    Sucht in assets/iil/clauses/<name>-v<N>.yaml, wählt:
+      - explizite Version wenn @N angegeben
+      - sonst neueste, deren valid_from <= today und valid_to (null oder >= today)
+    """
+    import yaml as _yaml
+    from datetime import date as _date
+
+    if "@" in value:
+        name, ver_str = value.split("@", 1)
+        try:
+            requested_version = int(ver_str)
+        except ValueError:
+            return f'<span class="dh-tag-error">clause version must be int: {value}</span>'
+    else:
+        name, requested_version = value, None
+
+    asset_dir = f"assets/iil/clauses"
+    _check_allowed_assets(profile, f"{asset_dir}/{name}-v1.yaml")
+    full_dir = (dh_dir / asset_dir).resolve()
+    if not full_dir.exists():
+        return f'<span class="dh-tag-error">clauses dir missing: {asset_dir}</span>'
+
+    candidates = []
+    for p in full_dir.glob(f"{name}-v*.yaml"):
+        try:
+            doc = _yaml.safe_load(p.read_text(encoding="utf-8")) or {}
+        except _yaml.YAMLError:
+            continue
+        if doc.get("name") != name:
+            continue
+        candidates.append(doc)
+
+    if not candidates:
+        return f'<span class="dh-tag-error">clause not found: {name}</span>'
+
+    if requested_version is not None:
+        match = next((c for c in candidates if c.get("version") == requested_version), None)
+        if not match:
+            return f'<span class="dh-tag-error">clause {name}@{requested_version} not found</span>'
+        chosen = match
+    else:
+        today = _date.today()
+        valid = []
+        for c in candidates:
+            vfrom = c.get("valid_from")
+            vto = c.get("valid_to")
+            if vfrom and vfrom > today:
+                continue
+            if vto and vto < today:
+                continue
+            valid.append(c)
+        pool = valid or candidates
+        chosen = max(pool, key=lambda c: c.get("version", 0))
+
+    body = chosen.get("body", "").strip()
+    return f"\n\n{body}\n\n"
 
 
 def _render_snippet(value: str, profile: dict, dh_dir: Path) -> str:
