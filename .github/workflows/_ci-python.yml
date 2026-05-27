@@ -80,6 +80,11 @@ on:
         required: false
         default: '.'
         type: string
+      postgres_image:
+        description: 'Postgres service image. Override to "pgvector/pgvector:pg16" for repos that need the vector extension (aifw, ausschreibungs-hub, bfagent, iil-enrichment).'
+        required: false
+        default: 'postgres:16-alpine'
+        type: string
 
 jobs:
   qm-gate:
@@ -266,7 +271,7 @@ jobs:
     if: ${{ !inputs.skip_tests }}
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ${{ inputs.postgres_image }}
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_pass
@@ -326,7 +331,7 @@ jobs:
     continue-on-error: true
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ${{ inputs.postgres_image }}
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_pass
@@ -445,7 +450,7 @@ jobs:
     if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ${{ inputs.postgres_image }}
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_pass
