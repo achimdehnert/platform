@@ -897,7 +897,7 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     return out_path
 
 
-_PSEUDO_TAG_RE = re.compile(r"\[\[([a-z\-]+):([^\]]+?)\]\]")
+_PSEUDO_TAG_RE = re.compile(r"\[\[([a-z\-]+)(?::([^\]]+?))?\]\]")
 
 
 def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path) -> str:
@@ -916,7 +916,7 @@ def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path) -> str:
 
     def replacer(m: re.Match) -> str:
         tag = m.group(1)
-        value = m.group(2).strip()
+        value = (m.group(2) or "").strip()
         try:
             if tag == "db-logo":
                 return _render_db_logo(value, profile, dh_dir)
@@ -930,6 +930,12 @@ def _expand_pseudo_tags(md_text: str, profile: dict, dh_dir: Path) -> str:
                 return _render_classification(value)
             if tag == "approval":
                 return _render_approval(value)
+            # Snippet-Tags (IIL: agb, dsgvo · DB: könnte später)
+            if tag.startswith("iil-"):
+                return _render_iil_snippet(tag[4:], value, profile, dh_dir)
+            if tag.startswith("snippet"):
+                # [[snippet:db/<name>]] oder [[snippet:iil/<name>]]
+                return _render_snippet(value, profile, dh_dir)
         except AssertionError as e:
             # Lizenz-Verstoß sichtbar im PDF + im Terminal
             print(f"⚠ Pseudo-Tag-Block: {e}")
@@ -1006,6 +1012,37 @@ def _render_classification(text: str) -> str:
     """[[classification:VERTRAULICH]]."""
     safe = (text or "").replace("<", "&lt;").replace(">", "&gt;")
     return f'<div class="dh-classification" style="background: var(--primary); color: #fff; padding: 4pt 12pt; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; font-size: 8.5pt; margin: 12pt 0 8pt 0; border-radius: 2pt;">{safe}</div>'
+
+
+def _render_iil_snippet(snippet_name: str, value: str, profile: dict, dh_dir: Path) -> str:
+    """[[iil-agb]] oder [[iil-dsgvo]] → expandiert Snippet aus assets/iil/snippets/.
+
+    `value` ist nach `:` der Param-Teil (meist leer/'').
+    snippet_name = 'agb' oder 'dsgvo'.
+    """
+    asset_path = f"assets/iil/snippets/{snippet_name}.md"
+    _check_allowed_assets(profile, asset_path)
+    full = (dh_dir / asset_path).resolve()
+    if not full.exists():
+        return f'<span class="dh-tag-error">iil-snippet missing: {asset_path}</span>'
+    # Snippet ist Markdown — wir geben es zurück und vertrauen darauf dass es
+    # später durch markdown.convert läuft (ist nach unserer Expansion)
+    content = full.read_text(encoding="utf-8").strip()
+    return f"\n\n{content}\n\n"
+
+
+def _render_snippet(value: str, profile: dict, dh_dir: Path) -> str:
+    """[[snippet:bucket/name]] — generischer Snippet-Loader."""
+    if "/" not in value:
+        return f'<span class="dh-tag-error">snippet path must be bucket/name: {value}</span>'
+    bucket, name = value.split("/", 1)
+    asset_path = f"assets/{bucket}/snippets/{name}.md"
+    _check_allowed_assets(profile, asset_path)
+    full = (dh_dir / asset_path).resolve()
+    if not full.exists():
+        return f'<span class="dh-tag-error">snippet missing: {asset_path}</span>'
+    content = full.read_text(encoding="utf-8").strip()
+    return f"\n\n{content}\n\n"
 
 
 def _render_approval(value: str) -> str:
