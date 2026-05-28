@@ -164,11 +164,16 @@ fi
 
 cd "$MANAGE_DIR"
 
-# Multi-Tenant (django_tenants): die Dev-DB muss migriert UND ein Tenant geseedet
-# sein, sonst 500t die TenantMainMiddleware bei jedem Request
+# Schema-per-Tenant (django_tenants): die Dev-DB muss migriert UND ein Tenant
+# geseedet sein, sonst 500t die TenantMainMiddleware bei jedem Request
 # (relation "tenants_domain" does not exist). Vorgabe: platform:ADR-219.
-if grep -rqsE 'TENANT_MODEL|django_tenants' config/settings/ 2>/dev/null; then
-  echo "🏢 Multi-Tenant erkannt → migrate_schemas --shared + seed_public_tenant"
+#
+# WICHTIG: Erkennung am django_tenants-DB-Backend (ENGINE), NICHT an TENANT_MODEL.
+# TENANT_MODEL haben auch row-level/RLS-Repos (z. B. dev-hub core.Organization,
+# risk-hub tenancy.Organization) — die nutzen `django.db.backends.postgresql`,
+# haben KEIN migrate_schemas und dürfen hier NICHT getriggert werden.
+if grep -rqsE 'django_tenants\.postgresql_backend' config/ 2>/dev/null; then
+  echo "🏢 Schema-per-Tenant (django_tenants) → migrate_schemas --shared + seed_public_tenant"
   "$PYTHON" manage.py migrate_schemas --shared --noinput \
     || { echo "✗ migrate_schemas fehlgeschlagen — Bring-up abgebrochen"; exit 1; }
   if "$PYTHON" manage.py help seed_public_tenant >/dev/null 2>&1; then

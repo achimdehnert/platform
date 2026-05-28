@@ -61,8 +61,24 @@ vom Tooling übernommen — nicht von Hand.**
    Umgesetzt in `scripts/dev.sh` (Host-Run) und `.windsurf/workflows/run-local.md`
    (Docker-Run; bzw. Verweis auf `make dev`, wenn das Compose keinen App-Service
    hat — nur DB/Redis).
-3. **Multi-Tenant-Erkennung** = `TENANT_MODEL`/`django_tenants` in
-   `config/settings/`. Nicht-Tenant-Repos sind unberührt (kein migrate_schemas).
+3. **Erkennung am DB-Backend, NICHT an `TENANT_MODEL`.** Das Signal ist
+   `ENGINE = django_tenants.postgresql_backend` (grep in `config/`). **Begründung
+   (Empirie aus dem 2-Repo-Rollout):** `TENANT_MODEL` ist KEIN verlässlicher
+   Diskriminator — auch **row-level/RLS-Repos** setzen es (dev-hub
+   `core.Organization`, risk-hub `tenancy.Organization`, beide
+   `django.db.backends.postgresql`, plain `models.Model`, kein `TenantMixin`).
+   Selbst ein vorhandener `TenantMixin`-Import genügt nicht (dev-hub importiert
+   ihn, nutzt aber den Standard-Backend). Würde man auf `TENANT_MODEL` triggern,
+   liefe `migrate_schemas` (existiert nur unter django_tenants) auf diesen Repos
+   ins Leere → `make dev` bräche. **Klassifikation:**
+
+   | Muster | Signal | migrate_schemas + seed_public_tenant? |
+   |---|---|---|
+   | Schema-per-Tenant (django_tenants) | `ENGINE=django_tenants.postgresql_backend` + `SHARED_APPS` + `TenantMixin/DomainMixin` | **JA** |
+   | Row-level / RLS / shared-schema | `ENGINE=django.db.backends.postgresql`, plain `models.Model`-Tenant, ggf. `TENANT_MODEL` | **NEIN** (anderer Pfad) |
+
+   Bestätigte schema-per-tenant-Repos: ausschreibungs-hub, travel-beat, tax-hub.
+   Nicht-django_tenants (unberührt): dev-hub, risk-hub.
 4. **`gen_project_facts.py` Compose-Detection MUSS `docker-compose.dev.yml`
    in der Fallback-Kette führen** (`local` → `dev` → generisch).
 
@@ -84,11 +100,49 @@ vom Tooling übernommen — nicht von Hand.**
 - `project-facts.md` referenziert die real existierende Compose-Datei.
 
 ### Aufwand / Negativ
-- Repos ohne `seed_public_tenant` müssen ihn nachrüsten (dev.sh warnt explizit
-  mit Verweis auf diese ADR). Betroffen: alle `django_tenants`-Repos ohne den
-  Command (Audit-Kandidat: risk-hub, cad-hub, billing-hub, dev-hub, weltenhub,
-  coach-hub — gemäß apps/tenants/models.py-Kommentar).
+- Schema-per-Tenant-Repos ohne `seed_public_tenant` müssen ihn nachrüsten (dev.sh
+  warnt explizit). **Tatsächlicher Audit-Stand (2026-05-28, ENGINE-verifiziert):**
+  ausschreibungs-hub ✅ + travel-beat ✅ haben den Command, **tax-hub** fehlt ihn
+  (einziger offener Kandidat). Der frühere Verdacht (risk-hub/cad-hub/billing-hub/
+  dev-hub/weltenhub/coach-hub aus einem Modell-Kommentar) ist **falsch** — diese
+  sind kein django_tenants (s. Klassifikation).
 - `migrate_schemas` bei jedem `make dev` kostet wenige Sekunden (idempotent).
+
+## Methode: kanonischer `seed_public_tenant` (Template)
+
+Aus dem Rollout (ausschreibungs-hub + tax-hub, Modell-Namen variieren:
+`tenants.Client` vs `tenant.Organization`) abgeleitete **Methoden-Vorgabe** —
+ein **modell-agnostisches** Template, das jedes Repo unverändert übernimmt; nur
+der `DEFAULTS`-Block wird an die Pflichtfelder des Tenant-Modells angepasst:
+
+```python
+from django.apps import apps
+from django.conf import settings
+from django.core.management.base import BaseCommand
+
+DEFAULT_DOMAINS = ["localhost", "127.0.0.1"]
+# Pflichtfelder des Tenant-Modells (variiert pro Repo): z. B.
+#   ausschreibungs-hub Client: {"name": "Public"}
+#   tax-hub Organization: {"name": "Public", "slug": "public", "owner_email": "dev@localhost"}
+DEFAULTS = { ... }
+
+class Command(BaseCommand):
+    help = "Public-Tenant + Domain(s) anlegen (idempotent) — platform:ADR-219"
+    def add_arguments(self, p):
+        p.add_argument("--domain", action="append", dest="domains")
+    def handle(self, *a, **o):
+        Tenant = apps.get_model(settings.TENANT_MODEL)          # modell-agnostisch
+        Domain = apps.get_model(settings.TENANT_DOMAIN_MODEL)
+        pub, _ = Tenant.objects.get_or_create(schema_name="public", defaults=DEFAULTS)
+        for i, d in enumerate(o.get("domains") or DEFAULT_DOMAINS):
+            Domain.objects.get_or_create(domain=d, defaults={"tenant": pub, "is_primary": i == 0})
+```
+
+**Generisch:** Modell-Auflösung via `settings.TENANT_MODEL`/`TENANT_DOMAIN_MODEL`
+(kein hartkodierter Import — funktioniert für `Client` wie `Organization`).
+**Pro Repo:** nur `DEFAULTS` (die Nicht-Null-Pflichtfelder des Tenant-Modells).
+
+## Verifikation
 
 ## Verifikation
 - `cd <multi-tenant-repo> && make dev` → migrate_schemas + seed_public_tenant

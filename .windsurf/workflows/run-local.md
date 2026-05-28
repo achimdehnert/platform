@@ -50,7 +50,7 @@ docker compose -f "$COMPOSE" up -d --build 2>&1 | tail -20
 // turbo
 ```bash
 for c in docker-compose.local.yml docker-compose.dev.yml docker-compose.yml; do [ -f "$c" ] && COMPOSE="$c" && break; done
-if grep -rqsE 'TENANT_MODEL|django_tenants' config/settings/ 2>/dev/null; then
+if grep -rqsE 'django_tenants\.postgresql_backend' config/ 2>/dev/null; then  # NUR schema-per-tenant (nicht row-level/RLS — ADR-219)
   WEB=$(docker compose -f "$COMPOSE" ps --services 2>/dev/null | grep -E 'web|app|django' | head -1)
   if [ -n "$WEB" ]; then
     docker compose -f "$COMPOSE" exec -T "$WEB" python manage.py migrate_schemas --shared --noinput
