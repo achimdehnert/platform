@@ -90,6 +90,11 @@ on:
         required: false
         default: 'postgres:16-alpine'
         type: string
+      lint_soft_fail:
+        description: 'Make Lint & Format non-blocking (job runs + annotates but does not fail the workflow). For consumers that gate deploy on secrets/tests, not lint (mcp-hub #78). Default false = lint hard-fails.'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   qm-gate:
@@ -115,6 +120,10 @@ jobs:
   lint:
     name: "Lint & Format"
     runs-on: ${{ inputs.runs_on }}
+    # When lint_soft_fail=true the job still runs + annotates, but a failure
+    # does not fail the workflow (so consumers can gate deploy on secrets/tests
+    # without lint debt blocking them — mcp-hub #78). gitleaks stays hard.
+    continue-on-error: ${{ inputs.lint_soft_fail }}
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
