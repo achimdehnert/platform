@@ -60,6 +60,11 @@ on:
         required: false
         default: 'auto'
         type: string
+      run_migrations:
+        description: 'Run unit tests WITH migrations (drop --no-migrations). Required for django-tenants repos — Tenant-Schema-Tabellen entstehen nur per migrate_schemas.'
+        required: false
+        default: false
+        type: boolean
       ruff_version:
         description: 'Pinned ruff version to install (e.g. ==0.15.4). Empty = latest. Pin to match pyproject.toml required-version.'
         required: false
@@ -304,15 +309,19 @@ jobs:
           POSTGRES_HOST: localhost
         run: |
           WORKERS=${{ inputs.pytest_workers }}
+          # django-tenants-Repos brauchen echte Migrationen (Tenant-Schema-Tabellen
+          # entstehen nur per migrate_schemas) → --no-migrations nur, wenn run_migrations=false.
+          MIGRATIONS_FLAG="--no-migrations"
+          if [ "${{ inputs.run_migrations }}" = "true" ]; then MIGRATIONS_FLAG=""; fi
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
             pytest -m "not integration and not contract and not slow" \
-              --no-migrations \
+              $MIGRATIONS_FLAG \
               --cov \
               --cov-report=xml:coverage-unit.xml \
               --cov-report=term-missing
           else
             pytest -m "not integration and not contract and not slow" \
-              --no-migrations \
+              $MIGRATIONS_FLAG \
               --cov \
               --cov-report=xml:coverage-unit.xml \
               --cov-report=term-missing \
