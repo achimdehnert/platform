@@ -449,7 +449,7 @@ Anmerkungen zum Diagramm (R-16):
 
 ### Offen / Folgearbeit
 - pgvector-GC verdrahten + toten Markdown-`session_memory`-Skill (`AGENT_MEMORY.md`, nur vom kaputten alten `agent-memory-gc.yml` referenziert) dekommissionieren. → **erledigt:** PR mcp-hub#74.
-- `agent_sessions`: **Entscheidung = retire** (PR mcp-hub#75). Tot seit 2026-03-31 (kein Writer), Warm-Start läuft über `agent_memory_search`, Delta/Per-Session-Metrik hatten keinen Konsumenten. Entfernt: `session_start`/`session_end`/`get_session_delta` + Tool + DDL + "recent sessions" in `get_full_context`; `session_stats` liefert nur noch Memory-Health. Prod-Tabelle `agent_sessions` (3 Restzeilen) separat droppen. R-11 (agent_sessions DDL) damit zurückgenommen.
+- `agent_sessions`: **Entscheidung = retire** (PR mcp-hub#75). Tot seit 2026-03-31 (kein Writer), Warm-Start läuft über `agent_memory_search`, Delta/Per-Session-Metrik hatten keinen Konsumenten. Entfernt: `session_start`/`session_end`/`get_session_delta` + Tool + DDL + "recent sessions" in `get_full_context`; `session_stats` liefert nur noch Memory-Health. R-11 (agent_sessions DDL) damit zurückgenommen. **Reversibel:** Prod-Tabelle bleibt bewusst erhalten (kein DROP) als Re-Wire-Hedge — Re-Wire = `git revert` mcp-hub#75 + Write-Pfad/Caller + Konsument (z. B. Produktivitäts-Dashboard) verdrahten. Trigger für Re-Wire: konkreter Konsument, nicht „vielleicht irgendwann".
 
 ---
 
