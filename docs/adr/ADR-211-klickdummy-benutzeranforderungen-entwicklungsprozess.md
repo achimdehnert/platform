@@ -553,21 +553,19 @@ wie in Rev 13 beschrieben.
 
 ## §KD-first-Gate (optional, Rev 16)
 
-**Opt-in-Capability** (additiv, nicht status-gatend — wie §Co-Creation/§Requirements-Bridge). Ein Repo *kann* das KD-first-Gate aktivieren; dann gilt **für NEUE Features mit User-facing Surface** (Screen/Flow):
+**Opt-in-Capability** (additiv, nicht status-gatend — wie §Co-Creation/§Requirements-Bridge). Bewusst **zwei Ebenen**, getrennt nach *mechanisch erzwingbar* vs. *Prozess-Empfehlung* (adr-challenger 2026-05-28, gegen das Vacuous-Pass-Risiko C1/C2):
 
-> Spec-Artefakt (I1) + gerenderter Klickdummy (I2) existieren und haben **Stakeholder-Signoff** (KD `e2e_smoke` grün + Sichtprüfung), **bevor** die Implementierung dieser Surface beginnt.
+**(1) Coverage-Invariante (mechanisch erzwingbar) — die eigentliche Substanz:** Bei aktiviertem Gate MUSS jeder Spec-Eintrag mit `surface: ui` einen gerenderten Klickdummy-Screen haben (I1/I2). Das ist ein Exit-Code-Check (`klickdummy-i1`-Erweiterung), **kein Selbstauskunfts-S-Item** — die KD-*Existenz* je UI-Spec ist prüfbar, anders als ein zeitliches „vor Impl". Damit wird „KD-first" zur **Coverage-Invariante** (vacuous-pass-sicher), nicht zum unprüfbaren Versprechen.
 
-**Begründung:** Feedback an einem klickbaren Prototyp ist schneller und präziser als an laufendem Code/PRs — der Engpass ist die Stakeholder-Abstimmung über Layout/Flow/Scope, nicht das Tippen.
+**(2) Prozess-Empfehlung (SOLLTE, nicht erzwungen):** Das Stakeholder-Feedback am Klickdummy SOLLTE *vor* der Impl der Surface eingeholt werden — Feedback am klickbaren Prototyp ist schneller/präziser als an laufendem Code/PRs (der Engpass ist die Abstimmung über Layout/Flow/Scope, nicht das Tippen). Auditierbar nur, wenn die Spec einen `signoff:`-Block trägt (`approver` · `date` · `kd_version`); ohne diesen ist es Empfehlung, kein Gate. **Vorwärtsgerichtet:** bestehende Impl bleibt I3-Transition (nicht retroaktiv gegated — impl-first ist Transitions-Zustand bereits existierender Repos, keine Design-Präferenz).
 
-**Vorwärtsgerichtet, nicht retroaktiv (knüpft an I3-Phase-B/C an):** Bestehende Implementierungen werden NICHT nachträglich gegated. Impl-first ist hier ein **Transitions-Zustand bereits existierender Repos**, keine Design-Präferenz; für Screens mit existierender Impl-Route greift weiterhin I3 (Parity-Off-Ramp), nicht das Gate.
+**Ausnahmen:** Backend-only/ohne UI, `bugfix`/`refactor`/`infra`/`docs`/trivial. „UI-Surface" = **Spec-Feld `surface: ui`** (statt unscharfer Task-Typ-Selbstdeklaration) — macht die Abgrenzung mechanisch statt Ermessen.
 
-**Ausnahmen (Gate greift nie):** Backend-only/ohne UI-Surface, `bugfix`, `refactor`, `infra`, `docs`, triviale Gate-0/1-Tasks. Solange „UI-Surface-Feature" nicht mechanisch klassifizierbar ist (offener Punkt — kein `make`-Target wie bei I1), bleibt die Einordnung Repo-Ermessen; deshalb **opt-in + S12-Adoption** statt plattformweitem Erzwingen.
+**KI-/Daten-Qualität als eigenes Spec-Feld `backend_quality_check:` (A2), nicht als Fußnote:** Ein KD validiert per Definition nur Layout/Flow — Backend-/KI-Output-Qualität (z. B. LLM-Extraktion) ist mit synthetischen Demo-Daten **nicht** prüfbar. Specs mit Pattern `spec-demo` und KI-Wertschöpfung SOLLTEN ein Feld `backend_quality_check:` führen, das eine separate parity-artige Probe gegen das *echte* Backend referenziert (kein Mensch-Signoff, kein synthetischer Demo-Pfad). Empirie: ausschreibungs-hub `document-intelligence-vergabe-analyse` — 3-Tab-Layout per spec-demo-KD (`?demo=`) früh geklärt, die Extraktionsqualität nur per echtem LLM-Lauf (Groq) sichtbar.
 
-**KI-/Daten-Qualitäts-Zusatz (allgemeingültig, auch ohne Gate-Opt-in):** Bei Features, deren Wert im Backend-/KI-Output liegt (z. B. LLM-Extraktion), validiert ein Klickdummy **nur Layout/Flow** — die Output-Qualität ist mit synthetischen Demo-Daten **nicht** prüfbar. Ein **separater Daten-Qualitäts-Check am echten Backend** ist Pflicht und durch den KD nicht ersetzbar. Empirie: ausschreibungs-hub `document-intelligence-vergabe-analyse` — das 3-Tab-Layout war per spec-demo-KD (`?demo=`) früh klärbar, die Extraktionsqualität nur per echtem LLM-Lauf (Groq) sichtbar.
+**Operationalisierung:** agentic-coding-Workflow, optionaler **Step 2.7 (KD-Gate)** vor Step 3; bei KI-Features `backend_quality_check`-Kriterium in Step 5/6.
 
-**Operationalisierung:** agentic-coding-Workflow, optionaler **Step 2.7 (KD-Gate)** vor Step 3 (Implementieren); bei KI-Features zusätzliches Daten-Qualitäts-Kriterium in Step 5/6.
-
-**Empirie-Stand & adr-challenger (2026-05-28):** Ein *verbindliches* plattformweites Gate wurde **abgelehnt** — Basis sind erst **1 Feature**, und ein Mandat widerspräche der Methodik-Lehre Rev 14 („erst Empirie, dann Vertrag") sowie der `ansatz-offen`-Haltung (retroaktive Non-Konformanz = Kategorienfehler wie Rev 9). Re-Evaluation einer Verbindlichkeit erst nach **3+ Piloten** mit belegtem Velocity-Vorteil (S12).
+**Empirie-Stand:** 1 Feature (2026-05-28). Verbindlichkeit (Coverage-Invariante plattformweit erzwungen) erst nach **3+ Piloten** mit belegtem Velocity-Vorteil — bis dahin opt-in + Scoreboard S12. adr-challenger-Findings adressiert: C1 (Vacuous-Pass → Ebene 1 mechanisch), C2 („Pflicht" in opt-in = Kategorienfehler → SOLLTE), A1 (Coverage-Invariante statt zeitliches Gate), A2 (`backend_quality_check`-Feld).
 
 ## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
