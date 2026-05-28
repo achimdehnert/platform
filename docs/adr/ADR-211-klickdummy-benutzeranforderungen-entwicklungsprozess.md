@@ -216,6 +216,11 @@ platform/scripts/checks/adr_sunset.sh
 #     'mock-prototyp'/'demo-render' verwenden ODER Hard-Deadline 2026-08-20
 #     erreicht: Strict-Mode in check_i2.py überall aktivieren (LEGACY={}).
 #     S11-Erfüllung schließt F12.
+#
+# S12 KD-first-Gate-Adoption (Rev 16, optional, nicht status-gatend)
+#     Pro Repo: ja/nein. Wenn ja: NEUE Features mit User-facing Surface
+#     durchlaufen das KD-first-Gate (Spec + KD + Signoff VOR Impl, §KD-first-Gate).
+#     Misst Velocity-Vorteil; gatet plattformweit NICHT.
 ```
 
 ## §Co-Creation-Loop (optional, Rev 12)
@@ -546,6 +551,24 @@ beobachtbare Stakeholder-Feedback durch die A-User-Direct-Bridge
 zu v1.1-Code in derselben Session — Iterations-Reflexivität funktioniert
 wie in Rev 13 beschrieben.
 
+## §KD-first-Gate (optional, Rev 16)
+
+**Opt-in-Capability** (additiv, nicht status-gatend — wie §Co-Creation/§Requirements-Bridge). Ein Repo *kann* das KD-first-Gate aktivieren; dann gilt **für NEUE Features mit User-facing Surface** (Screen/Flow):
+
+> Spec-Artefakt (I1) + gerenderter Klickdummy (I2) existieren und haben **Stakeholder-Signoff** (KD `e2e_smoke` grün + Sichtprüfung), **bevor** die Implementierung dieser Surface beginnt.
+
+**Begründung:** Feedback an einem klickbaren Prototyp ist schneller und präziser als an laufendem Code/PRs — der Engpass ist die Stakeholder-Abstimmung über Layout/Flow/Scope, nicht das Tippen.
+
+**Vorwärtsgerichtet, nicht retroaktiv (knüpft an I3-Phase-B/C an):** Bestehende Implementierungen werden NICHT nachträglich gegated. Impl-first ist hier ein **Transitions-Zustand bereits existierender Repos**, keine Design-Präferenz; für Screens mit existierender Impl-Route greift weiterhin I3 (Parity-Off-Ramp), nicht das Gate.
+
+**Ausnahmen (Gate greift nie):** Backend-only/ohne UI-Surface, `bugfix`, `refactor`, `infra`, `docs`, triviale Gate-0/1-Tasks. Solange „UI-Surface-Feature" nicht mechanisch klassifizierbar ist (offener Punkt — kein `make`-Target wie bei I1), bleibt die Einordnung Repo-Ermessen; deshalb **opt-in + S12-Adoption** statt plattformweitem Erzwingen.
+
+**KI-/Daten-Qualitäts-Zusatz (allgemeingültig, auch ohne Gate-Opt-in):** Bei Features, deren Wert im Backend-/KI-Output liegt (z. B. LLM-Extraktion), validiert ein Klickdummy **nur Layout/Flow** — die Output-Qualität ist mit synthetischen Demo-Daten **nicht** prüfbar. Ein **separater Daten-Qualitäts-Check am echten Backend** ist Pflicht und durch den KD nicht ersetzbar. Empirie: ausschreibungs-hub `document-intelligence-vergabe-analyse` — das 3-Tab-Layout war per spec-demo-KD (`?demo=`) früh klärbar, die Extraktionsqualität nur per echtem LLM-Lauf (Groq) sichtbar.
+
+**Operationalisierung:** agentic-coding-Workflow, optionaler **Step 2.7 (KD-Gate)** vor Step 3 (Implementieren); bei KI-Features zusätzliches Daten-Qualitäts-Kriterium in Step 5/6.
+
+**Empirie-Stand & adr-challenger (2026-05-28):** Ein *verbindliches* plattformweites Gate wurde **abgelehnt** — Basis sind erst **1 Feature**, und ein Mandat widerspräche der Methodik-Lehre Rev 14 („erst Empirie, dann Vertrag") sowie der `ansatz-offen`-Haltung (retroaktive Non-Konformanz = Kategorienfehler wie Rev 9). Re-Evaluation einer Verbindlichkeit erst nach **3+ Piloten** mit belegtem Velocity-Vorteil (S12).
+
 ## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
 **Problem (F12 aus Rev 11):** Repos mit `class: mock-prototyp` (Rev ≤10)
@@ -722,6 +745,7 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 13 (Decider-Pivot 2026-05-20 — Plattform-Heimat konkret + Co-Creation-Pfade neu)** — Auslöser: ttz-hub als 6. Klickdummy-Repo + Anspruch *„permanente Weiterentwicklung wirkt cross-repo"*. **Initial ADR-214-Draft (Distribution + Service-Endpoint) wurde nach Decider-Review als advocatus diabolus zurückgezogen** (4 🔴-Findings: K1 0% Empirie für Endpoint, K3 Coding-Agent existiert nicht, K6/K12 Service-Wartung ohne ROI, K10 Datenschutz-Default falsch herum). **Konsequenzen in Rev 13:** (a) **§Distribution** als ADR-211-§ statt ADR-214 (`adr-threshold.md`: ohne Service-Boundary keine neue Architektur-Entscheidung). pip-Paket `iil-klickdummy` v1.0.0 mit Schemas + Skripten + Widget v0.5 als `package_data`; via Git-URL bis privates PyPI aufgesetzt ist. (b) **§Co-Creation Pfade A neu strukturiert:** `A-light` (download/clipboard, empirisch validiert) + `A-User-Direct` (Widget POSTet direkt an `api.github.com` mit User-PAT in localStorage — GitHub-native Audit/Rate-Limit/Auth) + `A-Agent` (GitHub-Action pro Repo, Voraussetzung nachweisbar). „A-Bridge" mit zentralem Endpoint **gestrichen** — wenn Skalierung Service erfordert, neu evaluieren in Rev 14. (c) **Plugin-Architektur im Widget** (`KLICKDUMMY_CATEGORIES`/`PERSONA_HOOK`/`VERFAHREN_HOOK`) — Repo-Customization ohne Fork. (d) **Widget v0.5 = voller meiki-v0.4-Stand** (Action-Liste, DOM-Snapshot, File-Upload, Scope-Selector, Verfahrens-Kontext) — Iterations-Rückschritt bei Adoption vermieden.
 - **Rev 14 (2026-05-21 — Multi-Klickdummy-Browser + public PyPI)** — Empirie-getrieben durch erstes „echtes" Stakeholder-Feedback nach Smoke-Test #27 (Pfad A-light, `feedback_scope: klickdummy-tool`): *„erweitere den klickdummy so, dass er mehrere versionen und verschiedene klickdummies aufrufen kann. als listbox im linken menu möglich?"* **Konsequenzen:** (a) **`iil-klickdummy` v1.1.0** mit neuem Modul `registry.py` + Snippet `browser/browser.html.tmpl` + Console-Script `klickdummy-browser` — Stufe 1 (Versions-Switcher aus Git-History) + Stufe 2 (Repo-Browser mit Listbox + iframe). Stufe 3 (Cross-Repo) als v1.2-Roadmap, Stufe 4 (Live-Service) Best-Effort. (b) **Distribution-Update:** public PyPI (`pip install iil-klickdummy>=1.1,<2.0`) wird Default; Git-URL bleibt Fallback. Privates PyPI nicht weiterverfolgt — public ist niedrigste Reibung und gibt Open-Source-Signal ohne Wartungs-Service-Boundary (analog Rev-13-Pivot-Logik). PyPI-Publish via Trusted Publishing (OIDC), kein API-Token in Secrets. (c) **§Multi-Klickdummy-Browser** dokumentiert Aktivierungs-Definition + 3 Anti-Patterns + 4-Stufen-Roadmap. (d) **Reflexivität gestärkt:** Iter. 8 (Stakeholder-Feedback per A-light) führt direkt zu v1.1-Code in derselben Session — empirischer Beleg, dass Co-Creation-Loop wie in Rev 13 designed funktioniert.
 - **Rev 15 (2026-05-21 — Repo-Extraktion zu iilgmbh/iil-klickdummy)** — Auslöser: 59 offene platform-Issues + PyPI-Publish macht platform-Repo public-sichtbar → Klickdummy-Konsumenten sehen verwirrenden Org-internen Issue-Mix. Plus: iilgmbh-Org als künftige Heimat für `iil-*`-Familie + `risk-hub` (Move-Roadmap). **Aktion:** `packages/iil-klickdummy/` per `git filter-repo --path` extrahiert nach `iilgmbh/iil-klickdummy` (Historie erhalten, 3 sichtbare Commits seit Trennung + Subtree-Detail). v1.1.1 als Patch-Release im neuen Repo (Repo-Move-only, kein Code-Change). PyPI-Trusted-Publisher umkonfiguriert: Owner `iilgmbh`, Repo `iil-klickdummy`, Workflow `publish-pypi.yml`. **Trennung Konvention ↔ Implementation festgeklopft:** ADR-211 (Konvention) bleibt achimdehnert/platform; `iilgmbh:iil-klickdummy:ADR-001` ist Implementations-ADR. Schwester-Implementations (`meiki-hub:ADR-021`, `writing-hub:ADR-180`, `risk-hub:ADR-046`, `ttz-hub:ADR-100`) per `sister_of` cross-verlinkt. **Nebeneffekt:** platform-Issues fokussieren wieder auf platform-weite Themen; iil-klickdummy-spezifische Issues entstehen im neuen Repo (Stale-Bot + Issue-Templates dort aktiv). **Keine Änderung für Konsumenten:** `pip install iil-klickdummy>=1.1,<2.0` funktioniert unverändert (PyPI-Project-Name stabil; nur das Backing-Repo wechselt).
+- **Rev 16 (2026-05-28 — KD-first-Gate als opt-in-Capability)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Invariante (lebt als opt-in I1/I2-Extension wie Rev-12-§Co-Creation), kein 5. I5, kein eigener ADR-21X. Auslöser: Decider-Wunsch „KD-first für schnelleres/präziseres Feedback; alles erst als KD, dann Implementierung". **adr-challenger-Pass** stellte fest: ein *verbindliches* plattformweites Gate aus **1 Feature** (ausschreibungs-hub `document-intelligence-vergabe-analyse`) widerspräche der Methodik-Lehre Rev 14 („erst Empirie, dann Vertrag") und der `ansatz-offen`-Haltung (retroaktive Non-Konformanz existierender impl-first-Repos = Kategorienfehler wie Rev 9; impl-first ist Transitions-Zustand, keine Präferenz). **Konsequenz:** right-sized auf **opt-in** (§KD-first-Gate) + **vorwärtsgerichtet** (bestehende Impl bleibt I3-Transition, nicht gegated). **KI-/Daten-Qualitäts-Zusatz** (KD validiert Layout/Flow, nicht Output-Qualität — separater Backend-Check Pflicht) als allgemeingültige Klarstellung. Scoreboard +S12 (KD-first-Gate-Adoption, optional, nicht status-gatend). Operationalisierung: agentic-coding **Step 2.7**.
 
 ## Bezug
 
