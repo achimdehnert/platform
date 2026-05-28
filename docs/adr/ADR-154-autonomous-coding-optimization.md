@@ -451,6 +451,10 @@ Anmerkungen zum Diagramm (R-16):
 - pgvector-GC verdrahten + toten Markdown-`session_memory`-Skill (`AGENT_MEMORY.md`, nur vom kaputten alten `agent-memory-gc.yml` referenziert) dekommissionieren. → **erledigt:** PR mcp-hub#74.
 - `agent_sessions`: **Entscheidung = retire** (PR mcp-hub#75). Tot seit 2026-03-31 (kein Writer), Warm-Start läuft über `agent_memory_search`, Delta/Per-Session-Metrik hatten keinen Konsumenten. Entfernt: `session_start`/`session_end`/`get_session_delta` + Tool + DDL + "recent sessions" in `get_full_context`; `session_stats` liefert nur noch Memory-Health. R-11 (agent_sessions DDL) damit zurückgenommen. **Reversibel:** Prod-Tabelle bleibt bewusst erhalten (kein DROP) als Re-Wire-Hedge — Re-Wire = `git revert` mcp-hub#75 + Write-Pfad/Caller + Konsument (z. B. Produktivitäts-Dashboard) verdrahten. Trigger für Re-Wire: konkreter Konsument, nicht „vielleicht irgendwann".
 
+### Risiko-Korrektur: HNSW beschleunigt die Decay-Suche NICHT
+
+Die Risk-Tabelle nennt gegen „pgvector zu groß → langsame Suche": *Temporal Decay + max 1000 Entries + (implizit) HNSW-Index*. `EXPLAIN` (2026-05-28) zeigt: `agent_memory_embedding_hnsw` hat **0 Scans** — die Semantic Search läuft als `Index Scan (tenant_idx) + Sort`, nicht über HNSW. Zwei Gründe: (1) bei ~250 Zeilen wählt der Planner korrekt einen Sort; (2) das `ORDER BY (1-cosine) * decay` (Decay-Multiplikation) ist für HNSW grundsätzlich nicht eligible — HNSW beschleunigt nur reines `ORDER BY embedding <=> vec LIMIT k`. **Heute null Impact** (Sub-ms bei 250 Zeilen). **Latent:** wächst der Store Richtung Tausende, degradiert die Suche zu Seq-Scan+Sort; HNSW würde dann eine **zweistufige** Retrieval-Umstellung erfordern (HNSW-Kandidaten holen → per Decay re-ranken). Bis dahin: HNSW-Index ist totes Schreibgewicht, aber harmlos. Kein Fix jetzt (premature bei aktueller Größe).
+
 ---
 
 ## Links
