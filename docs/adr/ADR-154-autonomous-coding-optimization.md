@@ -448,8 +448,8 @@ Anmerkungen zum Diagramm (R-16):
 3. **Verworfen:** ein read-time per-row Fulltext-Fallback für NULL-Zeilen (war `< limit`-gated → greift im Realbetrieb nie). Verlässliches Backfill + Metrik schlagen ein Fallback mit Scheinsicherheit.
 
 ### Offen / Folgearbeit
-- pgvector-GC verdrahten + toten Markdown-`session_memory`-Skill (`AGENT_MEMORY.md`, nur vom kaputten alten `agent-memory-gc.yml` referenziert) dekommissionieren.
-- `agent_sessions`: bewusst entscheiden — Write-Pfad nachrüsten oder Read-Tools (`session_stats`/`get_session_delta`) zurückbauen.
+- pgvector-GC verdrahten + toten Markdown-`session_memory`-Skill (`AGENT_MEMORY.md`, nur vom kaputten alten `agent-memory-gc.yml` referenziert) dekommissionieren. → **erledigt:** PR mcp-hub#74.
+- `agent_sessions`: **Entscheidung = retire** (PR mcp-hub#75). Tot seit 2026-03-31 (kein Writer), Warm-Start läuft über `agent_memory_search`, Delta/Per-Session-Metrik hatten keinen Konsumenten. Entfernt: `session_start`/`session_end`/`get_session_delta` + Tool + DDL + "recent sessions" in `get_full_context`; `session_stats` liefert nur noch Memory-Health. Prod-Tabelle `agent_sessions` (3 Restzeilen) separat droppen. R-11 (agent_sessions DDL) damit zurückgenommen.
 
 ---
 
