@@ -1,6 +1,9 @@
 ---
-trigger: always_on
+trigger: manual
 ---
+
+
+
 
 # Reviewer — IIL Platform Code Review
 
