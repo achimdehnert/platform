@@ -35,6 +35,9 @@ jobs:
         run: |
           python -m agents.guardian --diff /tmp/pr.diff --format json > /tmp/result.json || true
           python -m agents.guardian --diff /tmp/pr.diff --format markdown > /tmp/comment.md || true
+          # Note: nachgelagerte Steps lesen /tmp/result.json + /tmp/comment.md direkt.
+          # Multi-line JSON in $GITHUB_OUTPUT zu schreiben würde "Invalid format"
+          # produzieren — daher kein output-set hier.
 
       - name: Post PR Comment
         if: always()
