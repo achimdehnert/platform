@@ -256,7 +256,7 @@ jobs:
 
       - name: Execute deploy
         id: run
-        uses: appleboy/ssh-action@v1.0.3
+        uses: appleboy/ssh-action@v1.2.5
         env:
           GHCR_TOKEN: ${{ github.token }}
           PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
