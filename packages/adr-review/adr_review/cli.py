@@ -11,8 +11,8 @@ Env:
   GITHUB_TOKEN        (required) — PR read + comment/label write
   CEREBRAS_API_KEY    — for cerebras/* models   (one LLM key required)
   GROQ_API_KEY        — for groq/* models       (used for fallback)
-  ADR_REVIEW_MODEL          (optional) default 'cerebras/qwen-3-235b-a22b-instruct-2507'
-  ADR_REVIEW_FALLBACK       (optional) default 'groq/llama-3.3-70b-versatile'
+  ADR_REVIEW_MODEL          (optional) default 'groq/llama-3.3-70b-versatile'
+  ADR_REVIEW_FALLBACK       (optional) default 'cerebras/llama3.1-8b'
   ADR_REVIEW_DEEP_MODEL     (optional) default 'cerebras/zai-glm-4.7' (Eskalation)
   ADR_REVIEW_ESCALATE_BELOW (optional) default 6  (Score-Schwelle)
   ADR_REVIEW_DEEP_LABEL     (optional) default 'adr-deep-review'
@@ -38,9 +38,11 @@ MARKER = "<!-- adr-review -->"
 
 # Tier-1a (policy: user-visible prose), Flatrate Cerebras/Groq — kein Anthropic.
 PRIMARY = os.environ.get("ADR_REVIEW_MODEL",
-                         "cerebras/qwen-3-235b-a22b-instruct-2507")
+                         "groq/llama-3.3-70b-versatile")
+# Cross-Provider-Failover (Policy): Primary groq -> Fallback cerebras.
+# Beide nicht deprecating; löst qwen-3-235b ab (Cerebras-EOL 2026-05-27).
 FALLBACK = os.environ.get("ADR_REVIEW_FALLBACK",
-                          "groq/llama-3.3-70b-versatile").strip()
+                          "cerebras/llama3.1-8b").strip()
 # Eskalations-Modell (stärker, weiter Flatrate, KEIN Anthropic).
 DEEP_MODEL = os.environ.get("ADR_REVIEW_DEEP_MODEL",
                             "cerebras/zai-glm-4.7").strip()

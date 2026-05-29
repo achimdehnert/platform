@@ -1,0 +1,38 @@
+name: Stale Issues + PRs
+
+on:
+  schedule:
+    - cron: '0 4 * * *'   # täglich 04:00 UTC
+  workflow_dispatch:
+
+permissions:
+  issues: write
+  pull-requests: write
+
+jobs:
+  stale:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/stale@v9
+        with:
+          days-before-issue-stale: 90
+          days-before-issue-close: 30
+          stale-issue-message: |
+            Dieses Issue ist seit 90 Tagen ohne Aktivität.
+
+            Falls weiterhin relevant: kommentieren oder Label `keep` setzen.
+            Sonst wird es in 30 Tagen automatisch geschlossen.
+          close-issue-message: |
+            Automatisch geschlossen nach 120 Tagen Inaktivität.
+            Re-Open mit Kommentar möglich, wenn das Thema doch noch relevant ist.
+          stale-issue-label: stale
+          exempt-issue-labels: 'keep,tracking,roadmap,P1-high,security,adr-211-followup,adr-210-followup'
+
+          days-before-pr-stale: 30
+          days-before-pr-close: 14
+          stale-pr-message: |
+            PR ist seit 30 Tagen ohne Aktivität. Bitte rebase oder schließen.
+          close-pr-message: |
+            Automatisch geschlossen — bitte mit aktuellem main rebase neu öffnen.
+          stale-pr-label: stale
+          exempt-pr-labels: 'keep,WIP,blocked'

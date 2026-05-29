@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [2026.05.18] — 2026-05-18
+
+### Added
+- `policies/`: Org-weite Policy-Dateien (`llm-routing`, `session-routing`,
+  `adr-threshold`, `platform-agents`, `claude-skills`, `orchestrator` + README)
+  von der unversionierten `~/.claude/policies/` hierher vendored — **SSoT jetzt
+  versioniert**. Lokale Anbindung via Symlink in den pinned platform-Worktree
+  (Muster wie `~/.claude/commands`→`platform-workflows`); `inject_policies.py`
+  + `claude-policy` lesen den Pfad unverändert. Phase 2a von dev-hub#51 —
+  CI-Auto-Sync nach Orchestrator-Memory folgt als Phase 2b (eigenes ADR).
+  Kein ADR für 2a (Datei-Vendoring, folgt etabliertem Muster — `adr-threshold`).
+- **ADR-209** + `.github/workflows/sync-policies-to-orchestrator.yml`: Phase 2b
+  von dev-hub#51 — bei Merge auf `main` mit `policies/**` synct ein Workflow
+  auf dem `[self-hosted, prod]`-Runner die Policies via `claude-policy push`
+  automatisch in den Orchestrator-Memory (ADR-113). Idempotent (content_hash).
+  `tools/claude-policy`: zwei rückwärtskompatible Env-Vars — `ORCH_LOCAL=1`
+  (docker exec lokal, kein SSH/Key auf dem prod-Runner) und `CLAUDE_POLICY_DIR`
+  (Policy-Quelle = Checkout statt `~/.claude/policies`). Behebt die manuelle
+  Push-Drift (gemergte Policy ≠ was Agenten sehen) — letztes Stück dev-hub#51.
+
+---
+
 ## [2026.05.17] — 2026-05-17
 
 ### Changed
@@ -14,6 +36,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   Schwelle (`ADR_REVIEW_ESCALATE_BELOW`, default 6). Kommentar nennt Modell +
   Grund. Schließt die Frontier-Lücke bewusst **nicht** (README-Disclaimer).
   Reine Konfig-/Routing-Ergänzung — kein ADR (internes CI-Tool, Muster-Folge).
+- `adr-review`: Default-Modelle umgestellt — `ADR_REVIEW_MODEL`
+  `cerebras/qwen-3-235b…` → `groq/llama-3.3-70b-versatile` (Cerebras-EOL des
+  qwen-Modells 2026-05-27), `ADR_REVIEW_FALLBACK` → `cerebras/llama3.1-8b`
+  (Cross-Provider-Failover, Policy-Tier-1b). Deckt sich mit ADR-208-Resolver
+  (`iil/adr-review`). Kein ADR (Daten-/Default-Fix, Muster-Folge).
+
+### Fixed
+- `tools/claude-policy`: Skript von No-Op-Stub → **funktionsfähig**. Transport:
+  SSH + `docker exec` gegen Prod-Container `mcp_hub_orchestrator_http` (gleiches
+  Postgres-Backend wie die MCP-Tools), Aufruf von
+  `orchestrator_mcp.memory.store.upsert/search`. Script via stdin, Policy-Inhalt
+  base64-inline (kein `cat >`-Staging — ssh re-parst argv, `>` würde sonst auf
+  dem Prod-Host statt im Container landen; Bug im Live-Test gefunden + behoben).
+  Idempotent via content_hash. `CLAUDE_POLICY_STUB=1` behält In-Claude-Pfad.
+  README an Realität angepasst (vorheriges „autonomes CLI nicht möglich" war
+  falsch). Verifiziert: list/push/diff Round-Trip, 6 Policies konvergieren.
+  Behebt den von #186 mitgelieferten Stub; ersetzt mcp-hub#60 (falsches Repo).
+  Refs dev-hub#51. Kein ADR (Tooling-Fix, Muster-Folge).
 
 ---
 
