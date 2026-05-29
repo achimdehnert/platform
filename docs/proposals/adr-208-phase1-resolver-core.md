@@ -86,15 +86,53 @@ Diese opten **danach** und einzeln ein (Phasenplan unten).
 
 | Phase | Inhalt | Repo | Risiko |
 |---|---|---|---|
-| **1** | Resolver-Kern (dieses Doc) | mcp-hub | niedrig |
-| 2 | `log_llm_call.py` + adr-review-CLI: env→Alias (`ADR_REVIEW_MODEL=iil/adr-review`) | mcp-hub/platform | niedrig |
+| **1** | Resolver-Kern | mcp-hub | niedrig |
+| **1.5** | **Resolver-Distribution** (NEU, Voraussetzung für 2) | mcp-hub→platform/~~.claude | niedrig |
+| 2 | Konsumenten-Verdrahtung: `log_llm_call.py` + adr-review-CLI env→Alias | platform/~~.claude | niedrig |
 | 3 | mcp-hub Routing-Surfaces auf Aliase | mcp-hub | **mittel** (Live-Routing) |
 | 4 | dev-hub `aifw_*` SQL-Migration | dev-hub | **mittel** |
 | 5 | ADR-201-Statusline liest Resolver | ~/.claude | niedrig |
 
+### Phase 1.5 — Resolver-Distribution (war in #180 verharmlost)
+
+`mcp-hub/.../resolver.py` ist für die zwei Phase-2-Konsumenten **zur Laufzeit
+nicht importierbar**: adr-review läuft in **platform-CI** (`pip install
+./packages/adr-review`, kein mcp-hub-Checkout), `log_llm_call.py` lebt in
+**`~/.claude/hooks/`**. Die alte Zeile „2 | … | mcp-hub/platform | niedrig"
+setzte `resolve()`-Import stillschweigend voraus — falsch.
+
+**Beschluss:** Distribution = **Option 2 (vendored YAML + Drift-Check)**,
+analog ADR-207-Pointer-Modell: `model_resolver.yaml` ist SSoT in mcp-hub,
+wird nach platform & `~/.claude` **gespiegelt** (read-only Kopie + CI-/Cron-
+Drift-Check „Kopie == SSoT-sha"). Kein neues pip-Paket (keine neue
+Dependency-Grenze → kein ADR), kein Netz im Hot-Path (verwirft Runtime-Fetch
+— das wäre das ADR-201-Anti-Muster). `resolver.py` ist klein genug, um als
+Loader mitvendored zu werden; die SHA-Prüfung garantiert Konsistenz.
+
+### Kosten-Modell (Präzisierung 2026-05-17 — korrigiert #180)
+
+Zwei getrennte Semantiken:
+
+- **metered** — API-Calls via litellm (Cerebras/Groq **und** Anthropic).
+  Echte Token-Kosten. Cerebras/Groq sind **niedrig, aber ≠ 0** (bezahlte
+  Accounts, llm-routing-Policy). Resolver trägt **Listenpreis je MTok für
+  *jedes* Modell** + Feld **`billing: metered`**. `log_llm_call.py` schreibt
+  reales `cost_usd`.
+- **flatrate-covered** — die **Claude-Code-Session** (Opus 4.7, Subscription)
+  wird *nicht* per Token abgerechnet. Anzeige trotzdem als **`notional_usd`**
+  (aus Listenpreis gerechnet) + Label „flatrate, nicht abgerechnet" +
+  **Burn-Rate** (z. B. `turn $1.26 │ session $283 │ today $348 │ 7d $5917 🔥`).
+  Eintrag/Kontext via `billing: flatrate`.
+
+**Folge-Fix (Phase 1, klein):** `model_resolver.yaml` hat aktuell
+Cerebras/Groq `price_*: 0.0` — **sachlich falsch** (impliziert „gratis").
+Ersetzen durch **gesourcte Listenpreise** (Provider-Pricing, **nicht
+geraten**) + `billing`-Feld in Schema/Loader. Numerik-Quelle ist offen
+(siehe Frage am Ende) — bis dahin nicht committen (keine geratene SSoT).
+
 ## Risiko/Lehren (eingebaut)
 
 - **Pin-Disziplin:** CI verbietet `-latest` → ADR-203 Risiko #1–#4 strukturell aus.
-- **Preis-Drift:** Flatrate = 0.0 + Provider-Usage als Ground-Truth (kein falsches Cost-Estimate).
+- **Preis-Drift:** Resolver = Listenpreis-SSoT je Modell (Cerebras/Groq ≠ 0, metered) + `billing`-Feld; flatrate-Session zeigt `notional_usd`. (Korrigiert die frühere falsche „Flatrate = 0.0"-Annahme.)
 - **Reproduzierbarkeit:** Konsumenten loggen `resolver_sha()` → Audit nachvollziehbar.
 - **Kein Service:** reine Daten + Loader, Abgrenzung zum verworfenen ADR-199 (schwere Variante).

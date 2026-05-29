@@ -1,39 +1,69 @@
 # Policy: Klickdummy
 
-**Trigger words:** klickdummy, mockup, prototyp, parity-test, demo-render, `?demo=`
+**Trigger words:** klickdummy, mockup, prototyp, mock-prototyp, stub-demo, story, spec-demo, parity-test, demo-render, `?demo=`, sunset_after
 
 ## Rule
 
 Ein Klickdummy ist ein **Renderer einer maschinenlesbaren Anforderungs-Spec**
 zur frühen Validierung — nicht selbst die Quelle und kein Produktionscode.
-Volle Begründung: `platform/docs/adr/ADR-211` (Rev 9, `status: accepted`).
+Volle Begründung: `platform/docs/adr/ADR-211` (Rev 11, `status: accepted`).
 
-## Drei Invarianten (jeder Klickdummy, jedes Repo, ansatz-offen)
+## Vier Invarianten (jeder Klickdummy, jedes Repo, ansatz-offen)
 
 - **I1 Spec-first (bidirektionale Coverage)** — versioniertes,
   maschinenlesbares Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter);
   Markdown-Bullets zählen nicht. `klickdummy-i1` asserts **Spec ↔ Route
   Coverage**: jede Impl-Route hat einen Spec-Eintrag *und* jeder Spec-Eintrag
   eine Route/Screen — kein „Datei existiert & rendert".
-- **I2 Prod-Sicherheit (zwei Schichten, plattform-extern bindend)** — genau
-  **eine** Klasse explizit deklarieren: *Mock-Prototyp* (kein Backend,
-  Systemgrenzen als Target-Mock) ODER *Demo-Render* (env-gegated, in Prod
-  nicht erreichbar). „Keine Klasse deklariert" ist Verstoß (kein vacuous
-  pass). Verifikation:
+
+- **I2 Prod-Sicherheit (4-Pattern, plattform-extern bindend)** — genau
+  **ein** Pattern explizit deklarieren entlang *Datenquelle × Code-Pfad-
+  Identität*:
+  - **`mock`** — separater Wegwerf-Code-Pfad, leere/feste Stubs. Nicht in
+    Prod-Deploy. I2-Externprobe **N/A**.
+  - **`stub-demo`** — realer Code-Pfad, synthetische Daten an dedizierter
+    Demo-Route. I2-Externprobe: deklarierte Demo-Route ⇒ **404**.
+  - **`story`** — realer Code-Pfad, isolierter Component-Catalog
+    (z. B. Storybook). I2-Externprobe: Catalog-Route ⇒ **404**.
+  - **`spec-demo`** — realer Code-Pfad, env-gegateter Zustand via Flag
+    (`?demo=<state>`). I2-Externprobe: `?demo=` ⇒ **404/disabled**.
+
+  „Kein Pattern deklariert" ist Verstoß (kein vacuous pass). Verifikation:
   (a) repo-definierter `make -C <repo> klickdummy-i2` (Selbstaussage);
-  (b) **plattform-externer Prod-Probe** `klickdummy_prod_guard.sh` gegen die
-  Registry-Prod-URL: `?demo=<state>` live ⇒ **404/disabled erwartet**.
+  (b) **plattform-externer Prod-Probe** `klickdummy_prod_guard.sh` mit
+  *pattern-spezifischem* Verhalten (siehe obige Probe-Definitionen).
   **(b) ist das bindende Cross-Repo-Signal** — Behauptung wird adversarial
   extern getestet, nicht dem Repo-Selbstcheck geglaubt.
-- **I3 Off-Ramp mit TTL** — Parity-grün pro Screen ⇒ statische Quelle
-  entfernt, sobald **`min(prod-Release, Parity-grün + N Tagen)`** eintritt
-  (N Default **30 d**, repo-tunbar). Staging ist erlaubter Doppelquell-Raum
-  *innerhalb* der TTL — verhindert das „Static-Leichen im Dauer-Staging"-Leck.
 
-> **Verschoben (nicht mehr hier):** das Cross-Repo-Ref-Format
-> `repo:ADR-NNN` (vormals „I4") gehört in **`ADR-207`**
-> (Cross-Repo-Ingest-/Doku-Konvention) — generische ADR-Hygiene, kein
-> klickdummy-spezifischer Belang.
+- **I3 Off-Ramp mit TTL + Sunset (Rev 11)** —
+  - **Phase A (ohne Zielsystem):** Pflicht-Frontmatter `sunset_after`-Datum
+    in der Repo-Klickdummy-ADR (siehe §Frontmatter-Konvention unten).
+    Auto-`deprecated` nach Frist ohne PR-Extension.
+  - **Phase B (Transition):** ab erstem Screen mit Impl-Route greift I3 je
+    Screen.
+  - **Phase C (mit Zielsystem):** Doppelquelle endet bei
+    **`min(prod-Release, Parity-grün + N Tagen)`** (N Default **30 d**,
+    repo-tunbar). Staging ist erlaubter Doppelquell-Raum *innerhalb* der TTL.
+
+- **I4 Namensraum** — Klickdummy-ADRs tragen reserviertes Titel-Präfix;
+  Cross-Repo-Refs **nur** `repo:ADR-NNN` (inkl. `conforms_to: platform:ADR-211`).
+  Drift-Schutz (Drift-Memory `klickdummy-adr180-collision`). Plattformseitiger
+  Lint via `adr_cross_repo_refs.sh`, kein repo-Make-Target.
+
+## Frontmatter-Konvention (Rev 11)
+
+Repo-lokale ADRs mit `tags: [klickdummy]` MÜSSEN folgende Frontmatter:
+
+```yaml
+class: mock | stub-demo | story | spec-demo
+sunset_after: 2026-12-31                       # ISO-Datum; Default ADR-Datum + 12 Monate
+extension_review_required: true                # Optional (Default: true für mock, false sonst)
+```
+
+**Ausgenommen:** ADR-211 selbst (Platform-Policy-ADR, kein Sunset; Geltung
+via `supersedes`/`amends`). Nach `sunset_after` ohne Extension: ADR-Status
+auto-`deprecated`, Klickdummy-Pfad → `klickdummy/archive/`. Enforcement:
+`adr_sunset.sh` (nightly).
 
 ## Wann gilt das
 
@@ -45,16 +75,15 @@ und `make klickdummy-{i1,i2,i3}`-Targets. Kein ADR/Target ⇒ Plattform-CI rot
 ## Wann NICHT
 
 - Wegwerf-Skizze ohne `klickdummy/`-Pfad, ohne Zielsystem, einmalig im Workshop
-  gezeigt und sofort verworfen → keine I1–I3-Pflicht.
+  gezeigt und sofort verworfen → keine I1–I4-Pflicht.
 - Echte App-UI ohne `?demo=`-Sonderzustand → normaler Code, kein Klickdummy.
 
-## Entscheidung ≠ Rollout (Rev-9-Korrektur)
+## Entscheidung ≠ Rollout (Rev 9, unverändert)
 
-ADR-211 ist **`accepted`** (Decider-Ratifizierung des Entscheids I1–I3 +
-Enforcement-Pfad). Der Rollout-Fortschritt lebt als **Adoption-Scoreboard**
-in `adr-211-followup` (SF1–SF6) — er **gatet den ADR-Status nicht** und ist
-kein Aktivierungs-Vorbehalt dieser Policy. Eine akzeptierte Entscheidung ist
-stabil, nicht eine Funktion fortlaufender Flotten-Drift.
+ADR-211 ist **`accepted`**. Der Rollout-Fortschritt lebt als
+**Adoption-Scoreboard** in `adr-211-followup` (SF1–SF8 seit Rev 11) — er
+**gatet den ADR-Status nicht** und ist kein Aktivierungs-Vorbehalt dieser
+Policy.
 
 ## Mechanik (SSoT)
 
@@ -62,15 +91,27 @@ Diese Datei ist die versionierte SSoT. `~/.claude/policies/klickdummy.md` ist
 ein **Symlink** in einen gepinnten platform-Worktree (kein Kopier-Sync) —
 `inject_policies.py`/`claude-policy` lesen den Symlink unverändert. Änderung
 nur per **platform-PR + Changelog-Bump**; der gepinnte Worktree zieht beim
-nächsten Refresh nach.
+nächsten Refresh nach. Doppel-Stale-Check (Rev 11/#254): das Sync-Script
+prüft zusätzlich gegen `origin/main`.
 
 ## Changelog
 
 - 2026-05-19: Initial. Aus ADR-211 (Rev 4, drei Adversarial-Pässe) abgeleitet.
-- 2026-05-20: Rev-9-Angleichung. **Drei** (nicht vier) Invarianten — I4
-  (Cross-Repo-Ref-Format) nach ADR-207 ausgelagert. I1 bidirektionale
-  Spec↔Route-Coverage. I2 erweitert um plattform-externen `klickdummy_prod_guard.sh`
-  als bindendes Cross-Repo-Signal (Sicherheitsinvariante adversarial
-  verifizierbar). I3 Off-Ramp-TTL `min(prod-Release, Parity-grün+N d)`,
-  Default 30 d. „Entscheidung ≠ Rollout"-Klarstellung; ADR-211 ist accepted,
-  Scoreboard läuft separat.
+- 2026-05-20: Rev-9-Angleichung. „Drei Invarianten" — I4 nach ADR-207
+  ausgelagert. I1 bidirektional. I2 + plattform-externer Prod-Probe.
+  I3 Off-Ramp-TTL. „Entscheidung ≠ Rollout".
+- 2026-05-20: Rev-10-Angleichung (F5-Rollback). I4 zurück in ADR-211
+  (klickdummy-skopiert; ADR-207 ist Doku-Strategie, nicht Cross-Repo-ADR-
+  Namensraum). „Vier Invarianten" zurück.
+- 2026-05-20: Rev-11-Angleichung. I2 von 2 → **4 Patterns**
+  (`mock`/`stub-demo`/`story`/`spec-demo`) entlang Datenquelle × Code-Pfad-
+  Identität, distinkte Externprobe je Pattern. I3 Phase-A mit Pflicht-
+  `sunset_after`-Frontmatter und Auto-`deprecated`. Neue Frontmatter-Konvention.
+- 2026-05-20: Rev-12-Angleichung (Empirie meiki-hub PR #23). **Erweiterung, kein
+  neuer Entscheid.** I1 erhält zwei *optionale* Erweiterungen (siehe ADR-211
+  §Co-Creation-Loop, §Requirements-Bridge). **F12 geschlossen** via
+  **Soft-Migrate**: `check_i2.py` akzeptiert Rev-≤10-Werte
+  (`mock-prototyp`/`demo-render`) übergangsweise mit ⚠-Warning + Mapping
+  (`{mock-prototyp→mock, demo-render→spec-demo}`); Strict-Mode wird via
+  Scoreboard-Item S11 nach Cross-Repo-Migration aktiviert. Iteration-
+  Typologie erweitert (stakeholder- + compliance-getriggert).

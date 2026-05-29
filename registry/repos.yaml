@@ -22,6 +22,29 @@
 #   demo_fixture  — REQUIRED wenn tenancy_mode == subdomain.
 #                   true: Demo-Org-Migration konfiguriert (iil-demo-fixture angebunden)
 #                   false: noch nicht konfiguriert (Klausel-1-Pflicht offen)
+#
+# KLICKDUMMY FIELDS (added 2026-05-20 — ADR-211 Rev 9 / SF3 Prereq, Issue #255):
+#   klickdummy.class  — REQUIRED wenn das Repo einen `klickdummy/`-Pfad
+#                       oder einen `?demo=`-Render hat. Sonst weglassen.
+#                       Enum: mock-prototype | demo-render
+#                         mock-prototype: kein Backend, Systemgrenzen als
+#                                         Target-Mock (kein `?demo=` in Prod).
+#                                         Beispiel-Kontext: ADR-211 §Kontext —
+#                                         meiki-hub-Stil (Manifest-Single-File).
+#                         demo-render:    env-gegateter Zustand der echten App
+#                                         (`?demo=<state>`). I2 erfordert, dass
+#                                         dieser Pfad in **Prod nicht erreichbar**
+#                                         ist (404/disabled). Wird per
+#                                         `klickdummy_prod_guard.sh` extern
+#                                         adversarial geprüft (SF3, AC: Issue #255).
+#                       „Keine Klasse deklariert" bei Repo mit `klickdummy/`-Pfad =
+#                       I2-Verstoß (kein vacuous pass; ADR-211 Rev 9 I2).
+#   klickdummy.demo_paths  — OPTIONAL, nur für `class: demo-render`. Liste der
+#                       Pfade/States, die der externe Prod-Guard probiert.
+#                       Beispiel: ["/login?demo=anonymous", "/dashboard?demo=trial"]
+#                       Default (wenn weggelassen): nur `/?demo=` an Root.
+#   Diese PR ergänzt **nur die Schema-Spezifikation** — per-Repo-Werte werden
+#   vom Owner pro Repo separat ratifiziert (kein Vorgriff durch den Agent).
 
 domains:
 
@@ -85,6 +108,17 @@ domains:
         tenancy_mode: none  # MCP servers, per-user auth via MCP protocol
         coverage_threshold: 80
 
+      - name: nl2iot-hub
+        repo: nl2iot-hub
+        description: Natural-language-to-IoT — Developer Cockpit
+        github: achimdehnert/nl2iot-hub
+        deployed: false
+        type: python
+        lifecycle: experimental
+        tenancy_mode: none
+        coverage_threshold: 60
+        notes: "Klickdummy-konform (platform:ADR-211): docs/adr/ADR-002 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert offen (Rev-9/11-Migration)."
+
   - name: Content & Publishing
     systems:
       - name: bfagent
@@ -120,6 +154,19 @@ domains:
         dockerfile: docker/app/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
+
+      - name: writing-hub
+        repo: writing-hub
+        description: Eigenständige Autorenplattform (Django 5.2, PostgreSQL 15)
+        github: achimdehnert/writing-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        tenancy_mode: none
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 60
+        notes: "Klickdummy-konform (platform:ADR-211): docs/adr/ADR-180 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert offen (Rev-9/11-Migration)."
 
   - name: Story & Travel
     systems:
@@ -264,6 +311,19 @@ domains:
         tenancy_mode: none  # library, no runtime tenancy
         coverage_threshold: 80
 
+      - name: ausschreibungs-hub
+        repo: ausschreibungs-hub
+        description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
+        github: achimdehnert/ausschreibungs-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        tenancy_mode: none  # django-tenants-Pivot WIP (siehe Repo)
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 60
+        notes: "Klickdummy-konform (platform:ADR-211): ADR-001 (mock) + ADR-002 (spec-demo). klickdummy.class-Registry-Wert offen (Rev-9/11-Migration)."
+
   - name: Analytics & Data
     systems:
       - name: bahn-hub
@@ -300,6 +360,21 @@ domains:
         dockerfile: Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
+        # ADR-210 R6 / Issue #221: staging block — R1-Default-Hostname
+        # (staging-{repo}.iil.pet, weltenhub-Präzedenz). Port 19003 nächstes
+        # frei [19000..19999] nach risk-hub:19001, dev-hub:19002.
+        staging:
+          server_path: /opt/wedding-hub-staging
+          image: ghcr.io/achimdehnert/wedding-hub:${IMAGE_TAG:-latest}
+          web_container: wedding_hub_staging_web
+          web_service: wedding-hub-staging-web
+          migrate_cmd: python manage.py migrate --noinput
+          port: 19003
+          hostnames:
+            - staging-wedding-hub.iil.pet
+        oidc:
+          staging_app_slug: wedding-hub-staging
+          staging_redirect: https://staging-wedding-hub.iil.pet/oidc/callback/
 
       - name: 137-hub
         repo: 137-hub
