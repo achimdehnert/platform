@@ -31,7 +31,7 @@ Pflicht-Tier-Katalog** (Plattform-Schema). Volle Begründung:
 
 | Profil | Wann | Pflicht-Cores (Auszug) |
 |---|---|---|
-| `lra-pilot` | LRA / öffentliche Verwaltung mit Bürger-UI | DSFA + OZG + BSI + BITV |
+| `public-admin` (vorher `lra-pilot`, alias bleibt) | Öffentliche Verwaltung mit Bürger-UI (LRA, Stadt, Land, Bund, EU) | DSFA + OZG + BSI + BITV |
 | `konzern-pilot` | DB / KRITIS-Konzern | BSI-KRITIS + WiBe + DSFA-Mitarbeiter |
 | `forschung` | TTZ / Förder-Projekte | Anonymisierung + Projekt-Antrag |
 | `saas` | kommerzielles SaaS | ROI + ISO 27001 + DSFA |
@@ -41,7 +41,7 @@ Schema: `platform/docs/conventions/doc-profile-schema.yaml`.
 ## Repo-Instanz (Beispiel meiki-hub)
 
 ```yaml
-profile: lra-pilot
+profile: public-admin
 projektphase: discovery       # discovery | spec | build | rollout | maintain
 auftraggeber: lra
 stakeholder_extern: [guenzburg, traunstein]
@@ -77,3 +77,7 @@ nächsten Refresh nach (ADR-209-Pattern).
 
 - 2026-05-21: Initial. Aus ADR-218 abgeleitet (Trigger: User-Frage zur
   projekt-typ-abhängigen Doku-Variation).
+- 2026-05-25: Profile-Rename `lra-pilot` → `public-admin` (Domain-Agnostik).
+  `lra-pilot` bleibt als Alias in `doc-profile-schema.yaml` (Soft-Migrate).
+  Migration: meiki-hub `docs/doc-profile.yaml` → `profile: public-admin`.
+  ADR-218 Rev 3 amended. Auslöser: Genesor-Tool ist nicht LRA-spezifisch.

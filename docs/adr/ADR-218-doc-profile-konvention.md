@@ -3,7 +3,7 @@ id: ADR-218
 title: "Adopt projekttyp-spezifisches Doc-Profile mit plattform-globalem Pflicht-Katalog-Schema"
 status: proposed
 date: 2026-05-21
-amended: 2026-05-21
+amended: 2026-05-25
 deciders: [Achim Dehnert]
 consulted: [self-advocatus-diabolus, /adr-challenger, /adr-review]
 informed: [meiki-lra, bahn-sqf, ttz-lif, iilgmbh, achimdehnert]
@@ -148,8 +148,8 @@ Begründung: Nur Option D liefert *kontinuierliche* Konformitäts-Prüfung
 ### Drei Bestandteile
 
 1. **`platform/docs/conventions/doc-profile-schema.yaml`** — Plattform-Schema:
-   - Definition von 4 Initial-Profilen (`lra-pilot`, `konzern-pilot`,
-     `forschung`, `saas`)
+   - Definition von 4 Initial-Profilen (`public-admin` (vorher `lra-pilot`),
+     `konzern-pilot`, `forschung`, `saas`)
    - Pro Profil: Pflicht-Tiers (A0, A, A-api, B, C, D, 08-Betrieb) ×
      Pflicht-Status (`required` / `optional` / `conditional` / `na`)
    - Pflicht-Frontmatter-Felder je Tier (z.B. `dsfa.kategorie`,
@@ -159,7 +159,7 @@ Begründung: Nur Option D liefert *kontinuierliche* Konformitäts-Prüfung
 
 2. **Repo-lokales `<repo>/docs/doc-profile.yaml`** — Instanz:
    ```yaml
-   profile: lra-pilot
+   profile: public-admin
    projektphase: discovery       # discovery | spec | build | rollout | maintain
    auftraggeber: lra
    stakeholder_extern: [guenzburg, traunstein]
@@ -179,7 +179,7 @@ Begründung: Nur Option D liefert *kontinuierliche* Konformitäts-Prüfung
 
 ### Vier Initial-Profile (Schema-Auszug)
 
-| Tier / Pflicht | `lra-pilot` | `konzern-pilot` | `forschung` | `saas` |
+| Tier / Pflicht | `public-admin` | `konzern-pilot` | `forschung` | `saas` |
 |---|---|---|---|---|
 | A0 Spec-Basis | ✅ | ✅ | ✅ | ✅ |
 | A Use-Cases | ✅ | ✅ | ✅ | ✅ |
@@ -283,7 +283,7 @@ angelegt; OQ-3, OQ-5, OQ-6, OQ-7 sind ADR-218-Rev-2-Material.
 | Phase | Repo | Profil | Status | PR | Datum |
 |---|---|---|---|---|---|
 | 1 — Plattform | platform | (kein Profil — definiert Schema) | 🔄 in Review | #290 | 2026-05-21 |
-| 2 — Pilot | meiki-hub | `lra-pilot` | 🔄 in Review | #41 | 2026-05-21 |
+| 2 — Pilot | meiki-hub | `public-admin` (vorher `lra-pilot`) | 🔄 in Review | #41 | 2026-05-21 |
 | 3 — Konzern | sqf-hub | `konzern-pilot` | ⬜ offen | – | – |
 | 3 — Konzern | pg-hub | `konzern-pilot` | ⬜ offen | – | – |
 | 4 — Forschung | ttz-hub | `forschung` | ⬜ offen | – | – |
@@ -299,7 +299,7 @@ Status-Lemmas: ⬜ offen · 🔄 in Review · ✅ gemerged · 🟢 nightly-konfo
    - `scripts/checks/doc_profile_check.sh`
    - `policies/doc-profile.md` (für `~/.claude/policies/`-Sync via ADR-209)
 2. **meiki-hub-PR (Pilot-Instanziierung)** parallel zu #1:
-   - `docs/doc-profile.yaml` (profile: `lra-pilot`, vergabe.modus: `offen`)
+   - `docs/doc-profile.yaml` (profile: `public-admin`, vergabe.modus: `offen`)
    - `docs/05-spezifikation/A0/`-Skeleton (7 Dateien aus Klickdummy abgeleitet)
 3. **Pilot-Reifezeit**: 30 Tage Beobachtung; bei Bedarf Schema-Patches per Folge-PR; sonst Übergang `proposed → accepted`.
 4. **Rollout** nach Pilot-Stabilität: bahn-sqf/sqf-hub + pg-hub (`konzern-pilot`), ttz-hub (`forschung`), risk-hub (`saas`) — pro Repo eigener PR mit Profil-Instanz + Skeleton.
@@ -352,3 +352,12 @@ Status-Lemmas: ⬜ offen · 🔄 in Review · ✅ gemerged · 🟢 nightly-konfo
   - `implementation_status: partial` + `implementation_evidence`
   - `scope:`-Block ergänzt
   - `related:` um ADR-077 + ADR-138 erweitert
+- 2026-05-25 Rev 3 (`amended`): **Profile-Rename `lra-pilot` → `public-admin`**
+  (Domain-Agnostik). Auslöser: Genesor-Tool ist nicht LRA-spezifisch, gilt
+  für alle öffentlich-Verwaltung-Kontexte (Stadt/Land/Bund/EU). `lra-pilot`
+  bleibt als `aliases:`-Eintrag im Schema für Bestand-Migration (Soft-
+  Migrate). Migrations-Auswirkung: meiki-hub `docs/doc-profile.yaml` ändert
+  `profile: lra-pilot → public-admin`. Andere Repos: bei Profil-Wahl bevorzugt
+  `public-admin` (alias `lra-pilot` weiterhin gültig bis Rev 4 / Hard-
+  Migration-Deadline). Schema-Erweiterung um Konzept `aliases:` für künftige
+  Rename-Operationen.
