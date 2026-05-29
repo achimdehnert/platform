@@ -24,6 +24,14 @@ designs:
     llm_context:   "bayerische Kommunalverwaltung (Projekt MEiKI)"
     es_label_text: "Executive Summary"
     meta_template: meiki
+    # Mermaid theme injection — 4-tier semantic palette.
+    # Authors use :::primary / :::accent / :::support / :::muted in diagrams;
+    # classDef lines are prepended automatically at render time.
+    mermaid_classes:
+      primary: { fill: "#1A4A7A", stroke: "#0F3060", color: "#FFFFFF" }
+      accent:  { fill: "#1565C0", stroke: "#1A4A7A", color: "#FFFFFF" }
+      support: { fill: "#B8D1E8", stroke: "#1A4A7A", color: "#0F3060" }
+      muted:   { fill: "#EFF4FA", stroke: "#1A4A7A", color: "#0F3060" }
 
   iil:
     primary:       "#1A3A5C"
@@ -43,6 +51,11 @@ designs:
     llm_context:   "IT-Dienstleistungen und KI-Lösungen (IIL GmbH)"
     es_label_text: "Zusammenfassung"
     meta_template: iil
+    mermaid_classes:
+      primary: { fill: "#1A3A5C", stroke: "#0D2840", color: "#FFFFFF" }
+      accent:  { fill: "#2C5F8A", stroke: "#1A3A5C", color: "#FFFFFF" }
+      support: { fill: "#9DC3E6", stroke: "#1A3A5C", color: "#0D2840" }
+      muted:   { fill: "#DEEAF6", stroke: "#1A3A5C", color: "#0D2840" }
 
   ttz:
     primary:       "#1B5E20"
@@ -62,3 +75,8 @@ designs:
     llm_context:   "industrielle Lernfabrik und Technologietransfer (TTZ Leipheim)"
     es_label_text: "Zusammenfassung"
     meta_template: iil
+    mermaid_classes:
+      primary: { fill: "#1B5E20", stroke: "#0A3D0A", color: "#FFFFFF" }
+      accent:  { fill: "#2E7D32", stroke: "#1B5E20", color: "#FFFFFF" }
+      support: { fill: "#A5D6A7", stroke: "#1B5E20", color: "#0A3D0A" }
+      muted:   { fill: "#EDF7ED", stroke: "#1B5E20", color: "#0A3D0A" }

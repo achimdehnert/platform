@@ -410,6 +410,23 @@ Session-Gedächtnis — wird nach jeder Session aktualisiert:
 | Branch | main |
 | Phase | [z.B. MVP / Infrastruktur-Setup] |
 
+## Verifizierbare Anker
+> **Empfänger-Ritual:** Diese Anker ZUERST prüfen, bevor du dem Prosa-Stand glaubst.
+> Stimmt einer nicht (SHA nicht da, CI rot, Migration pending) → Handover als veraltet behandeln.
+| Anker | Wert | Prüfbefehl |
+|---|---|---|
+| Letzter stabiler SHA | `<sha>` | `git log --oneline -1 <sha>` |
+| CI-Status | grün@`<run-id>` / rot / n/a | `gh run list -L1` |
+| Migrationen | applied / pending | `python manage.py showmigrations \| grep '\[ \]'` |
+| Offene Edits / Branch sauber | ja / nein | `git status --porcelain` |
+
+## SSoT-Zeiger (referenzieren, NICHT nacherzählen)
+> Was hier steht, lebt anderswo — hier nur der Zeiger, damit kein zweiter Wahrheitsstand entsteht.
+- Orchestrator-Memory: `agent_memory_search "<query>"`
+- Projekt-Fakten: `project-facts.md`
+- Relevante ADRs: ADR-NNN, ADR-NNN
+- Outline (Knowledge-Capture): `<doc-url falls vorhanden>`
+
 ## Was wurde zuletzt getan?
 - YYYY-MM-DD — [Was wurde gemacht]
 

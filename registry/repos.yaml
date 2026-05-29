@@ -108,6 +108,17 @@ domains:
         tenancy_mode: none  # MCP servers, per-user auth via MCP protocol
         coverage_threshold: 80
 
+      - name: nl2iot-hub
+        repo: nl2iot-hub
+        description: Natural-language-to-IoT — Developer Cockpit
+        github: achimdehnert/nl2iot-hub
+        deployed: false
+        type: python
+        lifecycle: experimental
+        tenancy_mode: none
+        coverage_threshold: 60
+        notes: "Klickdummy-konform (platform:ADR-211): docs/adr/ADR-002 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert offen (Rev-9/11-Migration)."
+
   - name: Content & Publishing
     systems:
       - name: bfagent
@@ -143,6 +154,19 @@ domains:
         dockerfile: docker/app/Dockerfile
         compose: docker-compose.prod.yml
         coverage_threshold: 60
+
+      - name: writing-hub
+        repo: writing-hub
+        description: Eigenständige Autorenplattform (Django 5.2, PostgreSQL 15)
+        github: achimdehnert/writing-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        tenancy_mode: none
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 60
+        notes: "Klickdummy-konform (platform:ADR-211): docs/adr/ADR-180 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert offen (Rev-9/11-Migration)."
 
   - name: Story & Travel
     systems:
@@ -286,6 +310,19 @@ domains:
         lifecycle: active
         tenancy_mode: none  # library, no runtime tenancy
         coverage_threshold: 80
+
+      - name: ausschreibungs-hub
+        repo: ausschreibungs-hub
+        description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
+        github: achimdehnert/ausschreibungs-hub
+        deployed: false
+        type: django
+        lifecycle: experimental
+        tenancy_mode: none  # django-tenants-Pivot WIP (siehe Repo)
+        dockerfile: Dockerfile
+        compose: docker-compose.prod.yml
+        coverage_threshold: 60
+        notes: "Klickdummy-konform (platform:ADR-211): ADR-001 (mock) + ADR-002 (spec-demo). klickdummy.class-Registry-Wert offen (Rev-9/11-Migration)."
 
   - name: Analytics & Data
     systems:
