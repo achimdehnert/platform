@@ -1,6 +1,10 @@
 ---
-trigger: always_on
+trigger: glob
+globs: **/models.py,**/views.py,**/services.py,**/forms.py
 ---
+
+
+
 
 # Django Models & Views — Rules
 

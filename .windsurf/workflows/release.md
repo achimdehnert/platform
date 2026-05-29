@@ -1,5 +1,6 @@
 ---
 description: Publish a Python package (iil-aifw, promptfw, authoringfw, ...) to PyPI
+mode: write
 ---
 
 # Release Workflow — PyPI Publish
