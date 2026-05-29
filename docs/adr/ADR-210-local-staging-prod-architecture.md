@@ -142,6 +142,31 @@ Open issues at time of writing:
 - `infra: staging-platform vhost rollout per repo` (1 issue per repo with `staging:` block)
 - `infra: dev-desktop cleanup (S8)`
 - `infra: provision *.iil.pet wildcard cert via DNS-01` (replaces 22-cert plan)
+- `infra: Traefik-Ingress-Stack` (Issue #246, see ADR-212 amendment below)
+
+### Routing-Variante — Traefik (ADR-212 Amendment, 2026-05-20)
+
+ADR-212 etabliert **Traefik** als Routing-Zielarchitektur für
+Klausel-3-Hostnames (`staging-<system-slug>.iil.pet`) auf demselben
+`staging-platform` (178.104.184.168). Cutover läuft inkrementell
+repo-für-repo; Per-Repo-nginx (R7) bleibt SSoT, bis ein Repo auf
+Traefik migriert ist. Status- und Reihenfolge-Tracking:
+`docs/staging-ingress-migration.md`.
+
+**Auswirkung auf R7:** Sobald `registry/repos.yaml` für ein Repo den
+Schalter `staging.routing: traefik` setzt, generiert
+`scripts/render_staging.py` **keinen** nginx-vhost mehr für dieses Repo,
+sondern Traefik-Labels in `docker-compose.staging.yml`. Bis dahin
+bleibt R7 für das Repo unverändert.
+
+**Out-of-scope #3 (Staging seed-data strategy)** ist durch ADR-212
+abgedeckt: Demo-Org-Fixture via `iil-demo-fixture` für Klausel-1-Repos
+mit Subdomain-Tenancy, Stammdaten-Separation in repo-lokaler
+Daten-Migration.
+
+**Klausel-1-Repos** (eigene Domain + Subdomain-Tenancy, z. B. risk-hub
+`staging-demo.schutztat.de`) bleiben außerhalb des Traefik-Wildcards
+und behalten Per-Repo-nginx-vhost. R1 ist davon nicht betroffen.
 
 ## Consequences
 
