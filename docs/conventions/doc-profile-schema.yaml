@@ -1,0 +1,344 @@
+# Doc-Profile-Schema (platform:ADR-218)
+# SSoT — gepinnter Worktree, Symlink in ~/.claude/policies/doc-profile.md
+# Änderung nur per platform-PR + Changelog-Bump (vgl. klickdummy.md-Policy).
+#
+# Repos deklarieren ihr Profil in <repo>/docs/doc-profile.yaml.
+# Externer Check: platform/scripts/checks/doc_profile_check.sh
+# Konformitäts-Verifikation: nightly + PR-Hook im Repo.
+
+schema_version: 1
+changelog:
+  - date: 2026-05-21
+    rev: 1
+    note: "Initial. 4 Profile (public-admin (vorher lra-pilot), konzern-pilot, forschung, saas)."
+
+# ---------------------------------------------------------------------------
+# Tier-Inventar (was es überhaupt gibt; Profil weist Pflicht zu)
+# ---------------------------------------------------------------------------
+tiers:
+  # Tier A0 — Spec-Basis (vor Use-Cases)
+  A0/domain-glossar:
+    pflicht_pfad: "docs/05-spezifikation/A0/domain-glossar.md"
+    auto_generatable: false
+    min_inhalt: "mind. 10 Begriffe mit Definition"
+  A0/personas:
+    pflicht_pfad: "docs/05-spezifikation/A0/personas-rollen-permissions.md"
+    auto_generatable: false
+    min_inhalt: "mind. 2 Personas mit Rollen + Permissions"
+  A0/datenmodell:
+    pflicht_pfad: "docs/05-spezifikation/A0/datenmodell.md"
+    auto_generatable: partial
+    min_inhalt: "mind. 1 ERD + Aggregate-Beschreibung"
+  A0/status-maschinen:
+    pflicht_pfad: "docs/05-spezifikation/A0/status-maschinen.md"
+    auto_generatable: partial
+    min_inhalt: "FSM je Aggregate mit Transitionen"
+  A0/validierungsregeln:
+    pflicht_pfad: "docs/05-spezifikation/A0/validierungsregeln.md"
+    auto_generatable: false
+  A0/fehler-taxonomie:
+    pflicht_pfad: "docs/05-spezifikation/A0/fehler-taxonomie.md"
+    auto_generatable: false
+  A0/konfigurations-modell:
+    pflicht_pfad: "docs/05-spezifikation/A0/konfigurations-modell.md"
+    auto_generatable: false
+
+  # Tier A — Fachliche Schicht (auto-generiert aus Klickdummy)
+  A/use-cases:
+    pflicht_pfad: "docs/05-spezifikation/A/use-cases.md"
+    auto_generatable: true
+    quelle: "klickdummy/cases.json + module-manifest.json + screens/*.html"
+  A/anforderungs-katalog:
+    pflicht_pfad: "docs/05-spezifikation/A/anforderungs-katalog.md"
+    auto_generatable: partial
+  A/coverage-matrix:
+    pflicht_pfad: "docs/05-spezifikation/A/coverage-matrix.md"
+    auto_generatable: true
+    invariant: "klickdummy-i1 (ADR-211) — bidirektional Spec ↔ Screen"
+
+  # Tier A-api — Kontrakt-Schicht
+  A-api/openapi:
+    pflicht_pfad: "docs/05-spezifikation/A-api/openapi/"
+    auto_generatable: false
+    min_inhalt: "mind. 1 OpenAPI-3.0-Datei pro Adapter (DMS/FV/Identität)"
+  A-api/asyncapi:
+    pflicht_pfad: "docs/05-spezifikation/A-api/asyncapi/"
+    auto_generatable: false
+    optional_wenn: "kein Event-Bus im Architektur-Stack"
+  A-api/uebersicht:
+    pflicht_pfad: "docs/05-spezifikation/A-api/schnittstellen-uebersicht.md"
+    auto_generatable: false
+
+  # Tier B — Vergabe-Hülle
+  B/lastenheft:
+    pflicht_pfad: "docs/06-lastenheft/lastenheft.md"
+    auto_generatable: partial
+    quelle: "Tier A0 + A + A-api + 01-architektur"
+  B/pflichtenheft:
+    pflicht_pfad: "docs/06-lastenheft/pflichtenheft-template.md"
+    auto_generatable: false
+
+  # Tier 01 — Architektur (existiert bereits historisch in den Repos)
+  "01/c4-systemkontext":
+    pflicht_pfad: "docs/01-architektur/c4-systemkontext.md"
+    auto_generatable: false
+  "01/c4-container":
+    pflicht_pfad: "docs/01-architektur/c4-container.md"
+    auto_generatable: false
+  "01/slos":
+    pflicht_pfad: "docs/01-architektur/slos.md"
+    auto_generatable: false
+    min_inhalt: "RPO + RTO + p95-Antwortzeit + Skalierungs-Annahmen"
+  "01/bitv":
+    pflicht_pfad: "docs/01-architektur/bitv-konzept.md"
+    auto_generatable: false
+    min_inhalt: "BITV-2.0-WCAG-Level-AA-Coverage je Screen"
+
+  # Tier 07 — Compliance
+  "07/dsfa":
+    pflicht_pfad: "docs/07-compliance/dsfa/"
+    auto_generatable: false
+    min_inhalt: "1 DSFA pro Fachverfahren mit personenbezogenen Daten"
+  "07/ozg":
+    pflicht_pfad: "docs/07-compliance/ozg-konformitaet.md"
+    auto_generatable: false
+    min_inhalt: "OZG-Mapping + FIM-Datenfeld-Abgleich"
+  "07/bsi":
+    pflicht_pfad: "docs/07-compliance/bsi-schutzbedarf.md"
+    auto_generatable: false
+    min_inhalt: "Schutzbedarf je Datenkategorie + Maßnahmen-Katalog"
+  "07/iso27001":
+    pflicht_pfad: "docs/07-compliance/iso27001-statement.md"
+    auto_generatable: false
+    optional_wenn: "kein BSI-Grundschutz angewandt"
+  "07/wibe":
+    pflicht_pfad: "docs/07-compliance/wibe.md"
+    auto_generatable: false
+  "07/roi":
+    pflicht_pfad: "docs/07-compliance/roi-case.md"
+    auto_generatable: false
+    optional_wenn: "kein kommerzielles Modell"
+
+  # Tier 08 — Operativ
+  "08/testkonzept":
+    pflicht_pfad: "docs/08-betrieb/testkonzept.md"
+    auto_generatable: partial
+  "08/migration":
+    pflicht_pfad: "docs/08-betrieb/migration.md"
+    auto_generatable: false
+    optional_wenn: "kein Bestandsdaten-Übergang nötig"
+  "08/schulungskonzept":
+    pflicht_pfad: "docs/08-betrieb/schulungskonzept.md"
+    auto_generatable: false
+  "08/rollout-plan":
+    pflicht_pfad: "docs/08-betrieb/rollout-plan.md"
+    auto_generatable: false
+  "08/betriebshandbuch":
+    pflicht_pfad: "docs/08-betrieb/betriebshandbuch.md"
+    auto_generatable: false
+  "08/feedback-triage":
+    pflicht_pfad: "docs/08-betrieb/feedback-triage.md"
+    auto_generatable: false
+
+  # Tier 09 — Change-Management
+  "09/roundtrip":
+    pflicht_pfad: "docs/09-change/roundtrip.md"
+    auto_generatable: false
+  "09/drift-detection":
+    pflicht_pfad: "docs/09-change/drift-detection.md"
+    auto_generatable: partial
+  "09/release-notes":
+    pflicht_pfad: "docs/09-change/release-notes/"
+    auto_generatable: true
+
+# ---------------------------------------------------------------------------
+# Profile (Pflicht-Status je Tier × Projekttyp)
+# Status-Werte: required | optional | conditional | na
+# 'conditional' hat 'condition'-Feld (yaml-Pfad in doc-profile.yaml)
+# ---------------------------------------------------------------------------
+profiles:
+
+  # --------------------------------------------------------------- public-admin
+  # Umbenannt von 'lra-pilot' (2026-05-25): Genesor-Tool ist domänen-agnostisch,
+  # 'lra' war LRA-spezifisch. Alias 'lra-pilot' bleibt für Bestand-Migration.
+  public-admin:
+    aliases: [lra-pilot]
+    description: |
+      Öffentliche Verwaltung mit Bürger- und Sachbearbeiter-UI
+      (LRA, Stadt, Land, Bund, EU-Behörde).
+      DSGVO + (Landes-DSG) + OZG + BITV + BSI-Grundschutz Pflicht.
+      Vergabe-Modus offen (intern | EVB-IT | freihändig).
+    pflicht:
+      A0/domain-glossar: required
+      A0/personas: required
+      A0/datenmodell: required
+      A0/status-maschinen: required
+      A0/validierungsregeln: required
+      A0/fehler-taxonomie: required
+      A0/konfigurations-modell: required
+      A/use-cases: required
+      A/anforderungs-katalog: required
+      A/coverage-matrix: required
+      A-api/openapi: required
+      A-api/asyncapi: optional
+      A-api/uebersicht: required
+      B/lastenheft: required
+      B/pflichtenheft:
+        status: conditional
+        condition: "vergabe.modus == 'evb-it'"
+      "01/c4-systemkontext": required
+      "01/c4-container": required
+      "01/slos": required
+      "01/bitv": required
+      "07/dsfa": required
+      "07/ozg": required
+      "07/bsi": required
+      "07/iso27001": na
+      "07/wibe":
+        status: conditional
+        condition: "vergabe.wibe_pflicht == true"
+      "07/roi": na
+      "08/testkonzept": required
+      "08/migration": required
+      "08/schulungskonzept": required
+      "08/rollout-plan": required
+      "08/betriebshandbuch": required
+      "08/feedback-triage": required
+      "09/roundtrip": required
+      "09/drift-detection": required
+      "09/release-notes": required
+
+  # ----------------------------------------------------------------- Konzern
+  konzern-pilot:
+    description: |
+      Konzern-Pilot (z.B. DB-Bahn-SQF) — KRITIS-Schutzbedarf,
+      Investitionsrechnung Pflicht. Vergabe meist intern oder konzern-extern.
+    pflicht:
+      A0/domain-glossar: required
+      A0/personas: required
+      A0/datenmodell: required
+      A0/status-maschinen: required
+      A0/validierungsregeln: required
+      A0/fehler-taxonomie: required
+      A0/konfigurations-modell: required
+      A/use-cases: required
+      A/anforderungs-katalog: required
+      A/coverage-matrix: required
+      A-api/openapi: required
+      A-api/asyncapi: optional
+      A-api/uebersicht: required
+      B/lastenheft: required
+      B/pflichtenheft:
+        status: conditional
+        condition: "vergabe.modus == 'extern'"
+      "01/c4-systemkontext": required
+      "01/c4-container": required
+      "01/slos": required
+      "01/bitv":
+        status: conditional
+        condition: "ui_endkunden == true"
+      "07/dsfa": required
+      "07/ozg": na
+      "07/bsi": required
+      "07/iso27001":
+        status: conditional
+        condition: "compliance_regime contains 'iso27001'"
+      "07/wibe": required
+      "07/roi": na
+      "08/testkonzept": required
+      "08/migration":
+        status: conditional
+        condition: "bestandsdaten_uebergang == true"
+      "08/schulungskonzept": required
+      "08/rollout-plan": required
+      "08/betriebshandbuch": required
+      "08/feedback-triage": required
+      "09/roundtrip": required
+      "09/drift-detection": required
+      "09/release-notes": required
+
+  # --------------------------------------------------------------- Forschung
+  forschung:
+    description: |
+      Forschungs-/Public-Sector-Projekt (z.B. TTZ) mit Förderauflagen.
+      Daten-Anonymisierung statt Personenbezug-DSFA; keine Vergabe-Pflicht.
+    pflicht:
+      A0/domain-glossar: required
+      A0/personas: required
+      A0/datenmodell: required
+      A0/status-maschinen: optional
+      A0/validierungsregeln: optional
+      A0/fehler-taxonomie: optional
+      A0/konfigurations-modell: optional
+      A/use-cases: required
+      A/anforderungs-katalog: required
+      A/coverage-matrix: required
+      A-api/openapi: optional
+      A-api/asyncapi: optional
+      A-api/uebersicht: optional
+      B/lastenheft: na  # statt: Projekt-Antrag/Förder-Antrag (extern)
+      B/pflichtenheft: na
+      "01/c4-systemkontext": required
+      "01/c4-container": required
+      "01/slos": optional
+      "01/bitv": optional
+      "07/dsfa":
+        status: conditional
+        condition: "datenklasse contains 'personenbezogen'"
+      "07/ozg": na
+      "07/bsi": optional
+      "07/iso27001": optional
+      "07/wibe": na
+      "07/roi": na
+      "08/testkonzept": required
+      "08/migration": na
+      "08/schulungskonzept": optional
+      "08/rollout-plan": optional
+      "08/betriebshandbuch": optional
+      "08/feedback-triage": optional
+      "09/roundtrip": required
+      "09/drift-detection": optional
+      "09/release-notes": required
+
+  # -------------------------------------------------------------------- SaaS
+  saas:
+    description: |
+      Kommerzielles SaaS (z.B. risk-hub). ROI-Case statt WiBe;
+      ISO 27001 statt BSI-Grundschutz; BITV wenn EU-Kunden.
+    pflicht:
+      A0/domain-glossar: required
+      A0/personas: required
+      A0/datenmodell: required
+      A0/status-maschinen: required
+      A0/validierungsregeln: required
+      A0/fehler-taxonomie: required
+      A0/konfigurations-modell: required
+      A/use-cases: required
+      A/anforderungs-katalog: required
+      A/coverage-matrix: required
+      A-api/openapi: required
+      A-api/asyncapi: optional
+      A-api/uebersicht: required
+      B/lastenheft: na  # statt: Product-Spec (extern in PM-Tool)
+      B/pflichtenheft: na
+      "01/c4-systemkontext": required
+      "01/c4-container": required
+      "01/slos": required
+      "01/bitv":
+        status: conditional
+        condition: "stakeholder_extern.region contains 'eu'"
+      "07/dsfa": required
+      "07/ozg": na
+      "07/bsi": na
+      "07/iso27001": required
+      "07/wibe": na
+      "07/roi": required
+      "08/testkonzept": required
+      "08/migration": optional
+      "08/schulungskonzept": required
+      "08/rollout-plan": required
+      "08/betriebshandbuch": required
+      "08/feedback-triage": required
+      "09/roundtrip": required
+      "09/drift-detection": required
+      "09/release-notes": required

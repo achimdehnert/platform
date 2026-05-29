@@ -58,13 +58,19 @@ runs:
         fi
 
     - name: Install platform-context[testing] (ADR-058)
+      # PyPI-Naming: das echte Paket heißt `iil-platform-context`.
+      # `platform-context` (ohne iil-Präfix) ist auf PyPI ein fremder Squatter
+      # in 0.5.0 und führt zu "Could not find version" + ImportError in CI.
+      # Fallback-Chain matches Architecture-Guardian Step in _ci-python.yml.
       if: ${{ inputs.platform_context_version != '' }}
       shell: bash
       run: |
         if [ -d "vendor/platform_context" ]; then
           pip install -e "vendor/platform_context[testing]"
         else
-          pip install "platform-context[testing]${{ inputs.platform_context_version }}" || true
+          pip install "iil-platform-context[testing]${{ inputs.platform_context_version }}" \
+            || pip install "platform-context[testing]${{ inputs.platform_context_version }}" \
+            || true
         fi
 
     - name: Install additional vendor packages
