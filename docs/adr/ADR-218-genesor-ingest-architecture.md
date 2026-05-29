@@ -1,12 +1,20 @@
 ---
-adr_id: ADR-218
+id: ADR-218
+title: "genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan"
 status: proposed
 date: 2026-05-29
-deciders: Achim Dehnert
-scope: platform
-conforms_to: platform:ADR-211
+deciders: [Achim Dehnert]
+consulted: []
+informed: [iilgmbh, meiki-lra, bahn-sqf, ttz-lif]
+domains: [klickdummy, genesor, ingest, ci]
+supersedes: []
+amends: []
+depends_on: []
+related: [ADR-211, ADR-213, ADR-216]
 tags: [klickdummy, genesor, ingest, cross-repo, ci]
-relates_to: [platform:ADR-211, platform:ADR-213, platform:ADR-216]
+scope:
+  include_paths:
+    - "docs/adr/ADR-218-*"
 ---
 
 # ADR-218 — genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan
