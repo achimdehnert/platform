@@ -1,6 +1,10 @@
 # IIL Platform — ci.yml (Golden Path)
 # Kopiere nach .github/workflows/ci.yml im Ziel-Repo
 # Ersetze REPO_NAME + PORT + SETTINGS_MODULE
+#
+# secrets-scan (gitleaks) ist ein BLOCKIERENDER Gate. Bei False Positives
+# oder Pre-existing History-Leaks: docs/templates/.gitleaks.toml als
+# Vorlage nutzen (.gitleaksignore für Einzel-Fingerprints bevorzugt).
 
 name: CI — REPO_NAME
 
@@ -10,6 +14,19 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# Caller-side GITHUB_TOKEN scopes. A called reusable workflow can only
+# NARROW these, never grant — so the caller MUST declare every scope its
+# reusable workflows need, here, explicitly. Relying on the repo default
+# token is the trap that caused the #198 startup_failure: a job-level
+# `permissions:` in a called workflow requesting an absent scope rejects
+# the whole run at startup (no jobs, no annotation) for every consumer.
+#   contents: read   → checkout (all reusable jobs)
+#   packages: write  → _build-docker.yml ghcr.io push
+# (secrets-scan uses the gitleaks CLI on local history — needs no scope.)
+permissions:
+  contents: read
+  packages: write
 
 jobs:
   ci:

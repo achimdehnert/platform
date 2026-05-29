@@ -34,7 +34,6 @@ jobs:
         id: guardian
         run: |
           python -m agents.guardian --diff /tmp/pr.diff --format json > /tmp/result.json || true
-          echo "result=$(cat /tmp/result.json)" >> $GITHUB_OUTPUT
           python -m agents.guardian --diff /tmp/pr.diff --format markdown > /tmp/comment.md || true
 
       - name: Post PR Comment

@@ -1,5 +1,6 @@
 ---
 description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbaum, Agent-Einstieg
+mode: read-only
 ---
 
 # Workflow Index — Platform Coding Agent System

@@ -3,10 +3,11 @@
 # Uses the adr-review package for clean, testable reviews
 #
 # Setup:
-#   1. Add ANTHROPIC_API_KEY secret to repository
+#   1. Add CEREBRAS_API_KEY (+ optional GROQ_API_KEY) secret to repository
 #   2. Ensure packages/adr-review is available
 #
-# Cost: ~$0.03-0.05 per review
+# LLM: Flatrate via litellm → Cerebras/Groq (Plattform llm-routing Policy).
+#      KEIN Anthropic / ANTHROPIC_API_KEY.
 
 name: "📋 ADR Review"
 
@@ -43,18 +44,32 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Check adr-review package presence
+        id: check-pkg
+        run: |
+          if [ -f "./packages/adr-review/pyproject.toml" ] || [ -f "./packages/adr-review/setup.py" ]; then
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::packages/adr-review not present — AI Review will be skipped. Add the package to enable."
+          fi
+
       - name: Setup Python
+        if: steps.check-pkg.outputs.found == 'true'
         uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: 'pip'
 
       - name: Install adr-review
+        if: steps.check-pkg.outputs.found == 'true'
         run: pip install ./packages/adr-review
 
       - name: Run ADR Review
+        if: steps.check-pkg.outputs.found == 'true'
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CEREBRAS_API_KEY: ${{ secrets.CEREBRAS_API_KEY }}
+          GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           PR_NUMBER="${{ github.event.pull_request.number || inputs.pr_number }}"

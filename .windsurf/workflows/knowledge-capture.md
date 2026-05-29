@@ -171,9 +171,9 @@ Beispiele für Cross-Repo-Wissen:
 
 ---
 
-## Step 6: Cascade Memory mit Outline-Verweis updaten
+## Step 6: agent memory mit Outline-Verweis updaten
 
-Ergänzend zum Outline-Eintrag: Cascade Memory mit kurzem **Verweis auf das Outline-Dokument** aktualisieren.
+Ergänzend zum Outline-Eintrag: agent memory mit kurzem **Verweis auf das Outline-Dokument** aktualisieren.
 
 ```
 Memory: "<Thema> — Runbook in Outline: <Titel>"
