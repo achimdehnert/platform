@@ -5,10 +5,9 @@ status: proposed
 date: 2026-05-21
 deciders: ["Achim Dehnert"]
 tags: ["klickdummy", "discovery", "pgvector", "orchestrator", "stage-1.5"]
-extends:
-  - "platform:ADR-211"          # Klickdummy-Rahmen
-  - "platform:ADR-113"          # Orchestrator pgvector
 related:
+  - "platform:ADR-211"          # Klickdummy-Rahmen (extends)
+  - "platform:ADR-113"          # Orchestrator pgvector (extends)
   - "platform:ADR-210"          # Local-Staging-Prod-Architecture
   - "platform:ADR-212"          # Traefik-Ingress iil.pet
   - "meiki:ADR-027"             # Conversational Klickdummy (Schwester-Empirie)
