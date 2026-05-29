@@ -389,11 +389,11 @@ Anmerkungen zum Diagramm (R-16):
 | Phase | Inhalt | Status | Commits |
 |-------|--------|--------|---------|
 | **Phase 0** | pgvector-Konnektivität: autossh + systemd, read_secret(), TEXT[]-Bug, Pydantic Validator | ✅ Done | mcp-hub `fc860a6` |
-| **Phase 1** | Workflows: session-ende (Memory Write, Error-Patterns, gc()), session-start (Warm-Start), Fulltext-Fallback | ✅ Done | mcp-hub `fc860a6`, platform `2814a86` |
+| **Phase 1** | Workflows: session-ende (Memory Write, Error-Patterns, gc()), session-start (Warm-Start), Fulltext-Fallback | ⚠️ Teilw. gedriftet (Amendment 2026-05-28): `gc()` läuft nicht in session-ende | mcp-hub `fc860a6`, platform `2814a86` |
 | **Phase 2** | orchestrator erweitern: agent_sessions DDL (R-11), get_full_context Tool (R-04/R-08), fix_template (R-15), Unique-Index (R-06) | ✅ Done | mcp-hub `187f000` |
 | **Phase 3** | Self-Learning: log_error_pattern (R-09), find_similar_errors, get_session_delta, session_stats, FTS simple | ✅ Done | mcp-hub `9bd2a96` |
 | **Review** | Auto-bootstrap, rowcount scope, validated params, FTS german→simple | ✅ Done | mcp-hub `9bd2a96`, platform `cd9724c` |
-| **Optimierung** | Semantic Search: OPENAI_API_KEY secrets fallback, CAST vector fix, Embedding-Backfill, error_pattern embeddings | ✅ Done | mcp-hub `4ed423b` |
+| **Optimierung** | Semantic Search: OPENAI_API_KEY secrets fallback, CAST vector fix, Embedding-Backfill, error_pattern embeddings | ⚠️ Embedding-Backfill gedriftet (Amendment 2026-05-28): gebaut, aber nie verdrahtet → 98 NULL-Embeddings | mcp-hub `4ed423b` |
 
 ### Verifiziert (MCP-Tools)
 - `agent_memory_upsert` → ✅ ok:true
@@ -422,6 +422,38 @@ Anmerkungen zum Diagramm (R-16):
 | 2026-03-31 | Cascade (Opt.) | Semantic Search aktiviert | OPENAI_API_KEY, CAST vector, Backfill, 10 Entries mit Embeddings |
 
 **Architektur-Entscheidung aus Review:** orchestrator_mcp bleibt **SQLAlchemy Core** — kein Django ORM. MCP-Server ≠ Django-Hub. Details in `01-cascade-response-adr-154.md`.
+
+---
+
+## Amendment 2026-05-28 — Memory-Maintenance: Session-Lifecycle → Autonome Crons
+
+**Anlass:** Audit fand **98 von 169 aktiven `agent_memory_entries` (58 %) mit `embedding = NULL`** → unsichtbar für Semantic Search, während alle Tools „healthy" meldeten. Diagnose ergab: drei als „✅ Done" markierte Phase-1/Optimierung-Bausteine sind **gedriftet**.
+
+### Status-Korrektur (verifiziert 2026-05-28)
+
+| Baustein | ADR-154-Anspruch | Realität 2026-05-28 |
+|----------|------------------|---------------------|
+| Embedding-Backfill | „✅ Done" (Optimierung) | `backfill_embeddings()` existiert, ist aber an **nichts** verdrahtet (kein Tool/Cron/Skill) → 98 NULL-Einträge akkumuliert |
+| `gc()` in session-ende (R-17) | „✅ Done" (Phase 1) | `/session-ende` ruft `agent_memory_upsert`, aber **nicht** `gc()`; pgvector-GC lief nie |
+| `agent_sessions` (R-11) | DDL + Tracking | nur 3 Zeilen, letzte 2026-03-31 → Session-Tracking ungenutzt; `session_stats`/`get_session_delta` lesen leere Tabelle |
+
+**Ursache der Drift:** ADR-154 verortete Memory-Maintenance im **Session-Lifecycle** (`session-ende`, O-1/R-17). `session-ende` ist aber ein **manueller** Slash-Command mit unzuverlässiger Kadenz — läuft er nicht (oder ohne gc()/backfill-Verdrahtung), findet keine Wartung statt. Zudem nahm ADR-154 (Phase 0) an, der orchestrator laufe **lokal in WSL** via SSH-Tunnel; inzwischen läuft er **containerisiert in Prod** (`mcp_hub_orchestrator_http`), wodurch ein self-hosted Scheduled-Job direkten DB- + Key-Zugriff hat.
+
+### Entscheidung
+
+1. **Memory-Maintenance wird autonom & zeitgesteuert** statt session-lifecycle-gebunden:
+   - `agent-memory-backfill.yml` (nightly, `self-hosted` + `docker exec`) heilt NULL-Embeddings — ersetzt den „Embedding-Backfill"-Anspruch operativ. *(PR mcp-hub#72)*
+   - GC analog (`gc()` decay-cleanup) wandert von session-ende in einen geplanten Job — **separat & bewusst**, da GC `is_active=FALSE` setzt (Sichtbarkeits-Änderung), nicht im Bugfix-Bundle. *(Follow-up; pgvector-GC lief nie → Erstlauf entfernt Backlog dekayter Einträge.)*
+2. **Beobachtbarkeit:** `session_stats` meldet `active_null_embeddings`, damit ein stiller Embedding-Ausfall sichtbar wird statt „healthy". *(PR mcp-hub#72)*
+3. **Verworfen:** ein read-time per-row Fulltext-Fallback für NULL-Zeilen (war `< limit`-gated → greift im Realbetrieb nie). Verlässliches Backfill + Metrik schlagen ein Fallback mit Scheinsicherheit.
+
+### Offen / Folgearbeit
+- pgvector-GC verdrahten + toten Markdown-`session_memory`-Skill (`AGENT_MEMORY.md`, nur vom kaputten alten `agent-memory-gc.yml` referenziert) dekommissionieren. → **erledigt:** PR mcp-hub#74.
+- `agent_sessions`: **Entscheidung = retire** (PR mcp-hub#75). Tot seit 2026-03-31 (kein Writer), Warm-Start läuft über `agent_memory_search`, Delta/Per-Session-Metrik hatten keinen Konsumenten. Entfernt: `session_start`/`session_end`/`get_session_delta` + Tool + DDL + "recent sessions" in `get_full_context`; `session_stats` liefert nur noch Memory-Health. R-11 (agent_sessions DDL) damit zurückgenommen. **Reversibel:** Prod-Tabelle bleibt bewusst erhalten (kein DROP) als Re-Wire-Hedge — Re-Wire = `git revert` mcp-hub#75 + Write-Pfad/Caller + Konsument (z. B. Produktivitäts-Dashboard) verdrahten. Trigger für Re-Wire: konkreter Konsument, nicht „vielleicht irgendwann".
+
+### Risiko-Korrektur: HNSW beschleunigt die Decay-Suche NICHT
+
+Die Risk-Tabelle nennt gegen „pgvector zu groß → langsame Suche": *Temporal Decay + max 1000 Entries + (implizit) HNSW-Index*. `EXPLAIN` (2026-05-28) zeigt: `agent_memory_embedding_hnsw` hat **0 Scans** — die Semantic Search läuft als `Index Scan (tenant_idx) + Sort`, nicht über HNSW. Zwei Gründe: (1) bei ~250 Zeilen wählt der Planner korrekt einen Sort; (2) das `ORDER BY (1-cosine) * decay` (Decay-Multiplikation) ist für HNSW grundsätzlich nicht eligible — HNSW beschleunigt nur reines `ORDER BY embedding <=> vec LIMIT k`. **Heute null Impact** (Sub-ms bei 250 Zeilen). **Latent:** wächst der Store Richtung Tausende, degradiert die Suche zu Seq-Scan+Sort; HNSW würde dann eine **zweistufige** Retrieval-Umstellung erfordern (HNSW-Kandidaten holen → per Decay re-ranken). Bis dahin: HNSW-Index ist totes Schreibgewicht, aber harmlos. Kein Fix jetzt (premature bei aktueller Größe).
 
 ---
 

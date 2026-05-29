@@ -2,6 +2,9 @@
 trigger: always_on
 ---
 
+
+
+
 # BF Agent Platform — Architecture Contract
 
 > MANDATORY. Every code change MUST comply. Violations = immediate fix.
