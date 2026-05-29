@@ -220,7 +220,7 @@
 | 223 | Einführung eines automatisierten LLM Model Screener & Provider Research Systems | `Proposed` | ⬜ | [ADR-223](ADR-223-llm-model-screener.md) |
 | 224 | Adopt HTTP/SSE Transport for Orchestrator MCP Server | `Proposed` | ⬜ | [ADR-224](ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md) |
 | 225 | genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan | `Proposed` | ⬜ | [ADR-225](ADR-225-genesor-ingest-architecture.md) |
-| 228 | Amendment: Merge-time ADR number allocation (amends ADR-065) | `Proposed` | ⬜ | [ADR-228](ADR-228-amendment-merge-time-adr-number-allocation.md) |
+| 228 | Amendment: Merge-time ADR number allocation (amends ADR-065) | `Accepted` | ⬜ | [ADR-228](ADR-228-amendment-merge-time-adr-number-allocation.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

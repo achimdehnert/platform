@@ -1,7 +1,7 @@
 ---
 id: ADR-228
 title: "Amendment: Merge-time ADR number allocation (amends ADR-065)"
-status: proposed
+status: accepted
 date: 2026-05-29
 deciders: [Achim Dehnert]
 consulted: []
@@ -230,3 +230,4 @@ folded in, this ADR is Accept-ready (acceptance pending the decider).
 * 2026-05-29: Initial (proposed). Amendment to ADR-065 — allocate ADR numbers
   at merge time to eliminate the in-flight open-PR collision race.
 * 2026-05-29: External cross-provider review incorporated (10/10 valid) — OQ-1 resolved (pre-merge/merge-queue allocation), OQ-2 resolved (reusable CLI, staged); tested-CLI + security/CODEOWNERS + multi-draft + ref-convention refinements folded in.
+* 2026-05-29: Accepted — external + internal review complete, OQ-1/OQ-2 resolved.
