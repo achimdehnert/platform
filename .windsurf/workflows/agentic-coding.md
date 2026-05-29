@@ -66,6 +66,7 @@ Phase 0: Contract Verification    → PCV-Checkliste          (moderate+ | trivi
 Step 0:  Context + Governance     → <orc>_get_full_context + <ctx>_get_banned_patterns
 Step 1:  Task analysieren + plan  → <orc>_analyze_task + agent_plan_task
 Step 2:  Model-Routing + Budget   → <orc>_get_cost_estimate  (complex+)
+Step 2.7 KD-Gate (opt-in)         → Spec+KD+Signoff VOR Impl (nur feature mit UI-Surface; ADR-211 §KD-first-Gate)
 Step 3:  Implementieren           → Developer (Gate 1)
 Step 3.5 Proactive Tasks          → CHANGELOG, ADR-Impact, Auto-Issues
 Step 4:  Guardian-Check           → repo-aware Lint + Security + Tests (Gate 0)
@@ -250,6 +251,21 @@ else:
 <orc>_log_action(task_id, action="model_downgrade",
     details="opus→swe (budget=$0.47/$0.50)")
 ```
+
+---
+
+## Step 2.7: KD-Gate (opt-in — ADR-211 §KD-first-Gate)
+
+**Nur wenn das Repo das KD-first-Gate aktiviert hat (Scoreboard S12) UND** der Task ein `feature` **mit User-facing Surface** (Screen/Flow) ist. Sonst übersprungen.
+
+Gate vor Step 3:
+1. Spec-Artefakt (ADR-211 I1) + gerenderter Klickdummy (I2) vorhanden?
+2. **Stakeholder-Signoff:** KD `e2e_smoke` grün + Sicht-OK auf Layout/Flow/Scope?
+3. Erst dann → Step 3 (Implementieren der Surface).
+
+**Ausnahmen (Gate greift nie):** Backend-only/ohne UI, `bugfix`, `refactor`, `infra`, `docs`, trivial (Gate 0/1). Bestehende Impl wird NICHT retroaktiv gegated (I3-Transition).
+
+**KI-/Daten-Features:** Der KD validiert nur Layout/Flow — die Output-Qualität (z. B. LLM-Extraktion) ist durch synthetische Demo-Daten nicht prüfbar. **Zusätzliches Daten-Qualitäts-Kriterium am echten Backend** in Step 5/6 (nicht durch den KD ersetzbar).
 
 ---
 
