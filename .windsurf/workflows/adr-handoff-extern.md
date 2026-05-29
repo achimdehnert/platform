@@ -14,6 +14,9 @@ wird **inline** mitgegeben; das Ergebnis ist eine externe *Zweitmeinung* — kei
 - Du willst eine architektonische Zweitmeinung zu einem ADR aus einem **anderen** Modell-Anbieter
   (Perspektiv-Diversität, die ein interner Single-Provider-`adr-challenger` nicht liefert).
 - Der ADR ist nicht-trivial / hat einen Trade-off, der eine Gegenstimme verdient.
+- **Review-Runden:** Standard = **eine** externe Runde. Eine zweite nur bei wirklich kontroversen
+  oder weitreichenden Entscheidungen — sonst sinkt der Grenznutzen schnell (Folgerunden liefern
+  meist nur Wort-Schärfungen statt neuer Risiken; belegt am ADR-031-Dogfood).
 
 ## When NOT
 
@@ -171,6 +174,7 @@ als Nachweis fest.
   materialisieren — das Souveränitäts-Gate (Step 0) bricht VOR dem Schreiben ab.
 - ❌ Nicht-deterministische/zeitstempel-genaue Dateinamen, die bei jedem Lauf neue Dateien
   anhäufen — der Name ist pro ADR+Modus+Tag fix (Idempotenz).
+- ❌ Reflexhaft eine zweite externe Runde fahren — Default ist eine Runde (s. „When").
 
 ## Changelog
 
@@ -181,3 +185,5 @@ als Nachweis fest.
 - 2026-05-29: Antwort-Format strukturiert (nach Dogfood ADR-031) — GPT liefert alles in EINEM
   Markdown-Codeblock (1:1 als `.md` speicherbar); Befunde + Empfehlungen tragen stabile IDs
   (`AD-`/`REC-`), Step-5-Rückfluss-Gate taggt deterministisch pro ID statt über freie Prosa.
+- 2026-05-29: Review-Runden-Konvention — Default eine externe Runde; zweite nur bei kontroversen/
+  weitreichenden Entscheidungen (sinkender Grenznutzen, belegt am ADR-031-Dogfood).
