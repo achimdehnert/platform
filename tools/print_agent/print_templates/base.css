@@ -68,9 +68,14 @@ hr { border: none; border-top: 1.5px solid var(--border); margin: 16pt 0; }
 h2 {
     font-size: 13pt; font-weight: 700; color: var(--primary);
     margin: 22pt 0 8pt 0; padding-bottom: 4pt;
-    border-bottom: 1.5px solid var(--border); page-break-after: avoid;
+    border-bottom: 1.5px solid var(--border);
+    page-break-after: avoid;
+    /* No forced page break before — only avoid orphan headings. */
 }
-h3 { font-size: 10.5pt; font-weight: 700; color: #1C1C1C; margin: 14pt 0 5pt 0; }
+/* Opt-in: add class="break-before" to an h2 if you really want a forced page break. */
+h2.break-before { page-break-before: always; }
+h3 { font-size: 10.5pt; font-weight: 700; color: #1C1C1C; margin: 14pt 0 5pt 0; page-break-after: avoid; }
+h4 { font-size: 10pt; font-weight: 700; color: var(--primary); margin: 12pt 0 4pt 0; page-break-after: avoid; }
 
 table {
     width: 100%; border-collapse: collapse; font-size: 9pt;
@@ -259,10 +264,107 @@ pre {
     text-align: center; margin: 12pt 0; page-break-inside: avoid;
 }
 .mermaid-diagram svg {
-    max-width: 100%; height: auto;
+    max-width: 100%; max-height: 20cm; height: auto; width: auto;
 }
 .mermaid-fallback {
     background: #f5f5f5; border: 1px solid var(--border); border-radius: 4pt;
     padding: 8pt 12pt; font-size: 7.5pt; color: #555; white-space: pre-wrap;
     page-break-inside: avoid;
 }
+
+/* ---- TIER LIST (```tiers) ---- */
+.tier-list { margin: 12pt 0 16pt 0; }
+.tier-item {
+    border: 1px solid var(--border); border-left: 6px solid var(--border-dark);
+    border-radius: 3pt; padding: 8pt 12pt; margin-bottom: 6pt;
+    background: #FFFFFF; page-break-inside: avoid;
+}
+.tier-item.tier-1 { border-left-color: #B71C1C; background: #FFF5F5; }
+.tier-item.tier-2 { border-left-color: #E65100; background: #FFF8F0; }
+.tier-item.tier-3 { border-left-color: #F9A825; background: #FFFDF0; }
+.tier-item.tier-ok { border-left-color: #2E7D32; background: #F4FBF4; }
+.tier-item.tier-info { border-left-color: var(--primary); background: var(--bg-light); }
+.tier-label {
+    font-weight: 700; font-size: 10pt; color: #1C1C1C; margin-bottom: 3pt;
+}
+.tier-item.tier-1 .tier-label { color: #7F1010; }
+.tier-item.tier-2 .tier-label { color: #8B3000; }
+.tier-item.tier-3 .tier-label { color: #806000; }
+.tier-item.tier-ok .tier-label { color: #1B5E20; }
+.tier-cond, .tier-action {
+    font-size: 9pt; color: #333; margin-top: 2pt;
+}
+.tier-cond strong, .tier-action strong { color: var(--primary); }
+
+/* ---- COMPARE GRID (```compare) ---- */
+.compare-block { margin: 12pt 0 16pt 0; page-break-inside: avoid; }
+.compare-title {
+    font-weight: 700; font-size: 10pt; color: var(--primary);
+    text-align: center; margin-bottom: 6pt;
+}
+.compare-grid { display: flex; gap: 10pt; }
+.compare-col {
+    flex: 1; border: 1px solid var(--border); border-radius: 3pt;
+    padding: 8pt 12pt; background: #FFFFFF;
+}
+.compare-col-title {
+    font-weight: 700; font-size: 9.5pt; margin-bottom: 5pt;
+    padding-bottom: 3pt; border-bottom: 1px solid var(--border);
+}
+.compare-left  { border-top: 3px solid #2E7D32; }
+.compare-left  .compare-col-title { color: #1B5E20; }
+.compare-right { border-top: 3px solid #B71C1C; }
+.compare-right .compare-col-title { color: #7F1010; }
+.compare-col ul { margin: 0; padding-left: 14pt; font-size: 9pt; line-height: 1.5; }
+.compare-col li { margin-bottom: 2pt; }
+.compare-verdict {
+    margin-top: 8pt; padding: 7pt 12pt;
+    background: var(--bg-light); border-left: 4px solid var(--primary);
+    font-size: 9.5pt; line-height: 1.5;
+}
+.compare-verdict strong { color: var(--primary); }
+
+/* ---- CALLOUTS (GitHub-style blockquote callouts via class on <blockquote>) ---- */
+blockquote {
+    border-left: 4px solid var(--primary);
+    background: var(--bg-light);
+    padding: 8pt 14pt;
+    margin: 10pt 0;
+    color: #1C1C1C;
+    page-break-inside: avoid;
+}
+blockquote p { margin: 0 0 4pt 0; }
+blockquote p:last-child { margin-bottom: 0; }
+blockquote strong:first-child { color: var(--primary); }
+
+/* ---- URL handling — long links shouldn't bleed into margin ---- */
+a[href] { word-break: break-word; overflow-wrap: anywhere; }
+
+/* ---- DENSE TABLES (opt-in via class="dense") ---- */
+table.dense { font-size: 8pt; }
+table.dense thead th { padding: 5pt 6pt; font-size: 7.5pt; }
+table.dense tbody td { padding: 4pt 6pt; }
+
+/* ---- COMPACT BULLET LIST (opt-in via class="compact") ---- */
+ul.compact li, ol.compact li { margin-bottom: 1pt; }
+
+/* ---- TABLE OF CONTENTS (rendered via [TOC] marker) ---- */
+.toc-list {
+    margin: 14pt 0 24pt 0; padding: 12pt 16pt;
+    background: var(--bg-light); border-left: 4px solid var(--primary);
+    border-radius: 0 3pt 3pt 0; page-break-inside: avoid;
+}
+.toc-list-title {
+    font-weight: 700; font-size: 11pt; color: var(--primary);
+    margin-bottom: 6pt; text-transform: uppercase; letter-spacing: 0.08em;
+}
+.toc-list ol { margin: 0; padding-left: 16pt; font-size: 9.5pt; line-height: 1.7; }
+.toc-list ol ol { font-size: 9pt; padding-left: 14pt; }
+.toc-list li { margin-bottom: 1pt; }
+.toc-list a { color: #1C1C1C; }
+.toc-list a:hover { color: var(--primary); }
+
+/* ---- LIST OVERHAUL — better visual rhythm for body lists ---- */
+ul, ol { margin: 4pt 0 10pt 0; padding-left: 18pt; }
+ul li, ol li { margin-bottom: 3pt; }
+ul ul, ol ol, ul ol, ol ul { margin: 3pt 0 3pt 0; }

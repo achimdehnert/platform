@@ -37,7 +37,7 @@ Die laufen dort nur als Docker-Container. Updates kommen via `docker pull`, nich
 
 ---
 
-## Normalfall: CWD-Repo nach Cascade-Session syncen
+## Normalfall: CWD-Repo nach Agent Session syncen
 
 // turbo
 ```bash
@@ -90,7 +90,7 @@ Dauer: ~30–60 Sekunden für alle Nodes.
 
 ## Empfehlung: In täglichen Workflow integrieren
 
-Am Anfang **jeder** Cascade-Session:
+Am Anfang **jeder** Agent Session:
 ```bash
 bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-repo.sh
 ```

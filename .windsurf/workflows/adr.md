@@ -1,5 +1,6 @@
 ---
 description: Create new ADR with automatic scope detection, proper structure, and pgvector memory storage
+mode: write
 ---
 
 # ADR Creation Workflow

@@ -19,6 +19,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# A called reusable workflow can only NARROW these caller scopes, never
+# grant — declare every scope the reusable workflows need here explicitly.
+# Relying on the repo-default token is the #198 startup_failure trap.
 permissions:
   contents: read
   packages: write

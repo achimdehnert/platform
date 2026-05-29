@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
-"""DNS Staging Sync — Alle staging.* DNS-Records auf Dev Desktop zeigen lassen.
+"""DNS Staging Sync — Alle staging.* DNS-Records auf bf-staging-Tunnel zeigen lassen.
 
-Liest ports.yaml und stellt sicher, dass alle staging-DNS-Records
-auf den Staging-Server (Dev Desktop) zeigen. Nutzt die Cloudflare REST API
-direkt (kein MCP-Dependency).
+Liest ports.yaml + infra/cloudflared-tunnels.yaml und stellt sicher, dass alle
+staging-DNS-Records als CNAME auf den `bf-staging`-Tunnel-Hostname zeigen
+(ADR-198 §4.5). Nutzt die Cloudflare REST API direkt (kein MCP-Dependency).
+
+ADR-198 ersetzt die alte A-Record-auf-IP-Strategie aus ADR-157 — Staging läuft
+hinter einem eigenen Cloudflare Tunnel, nicht über direkte IPs.
 
 Nutzung:
     # Dry-Run (Standard): zeigt was geändert würde
@@ -21,7 +24,7 @@ Nutzung:
 Voraussetzungen:
     export CLOUDFLARE_API_TOKEN="<your-token>"
 
-Referenz: ADR-157 Phase 1
+Referenz: ADR-198 (ersetzt ADR-157 Phase 1)
 
 Exit-Codes:
     0 = alles OK / dry-run erfolgreich
@@ -43,9 +46,11 @@ import yaml
 # --- Konstanten ---
 
 PORTS_YAML = Path(__file__).resolve().parent.parent / "ports.yaml"
+TUNNELS_YAML = (
+    Path(__file__).resolve().parent.parent / "cloudflared-tunnels.yaml"
+)
 CF_API = "https://api.cloudflare.com/client/v4"
-STAGING_IP = "88.99.38.75"
-PROD_IP = "88.198.191.108"
+PROD_IP = "88.198.191.108"  # nur noch für DEAD_IPS-Vergleich relevant
 
 # Bekannte alte/tote IPs die auf keinen aktiven Server zeigen
 DEAD_IPS = frozenset({
@@ -82,6 +87,36 @@ KNOWN_ORPHANS = [
         "Odoo Staging v19 veraltet",
     ),
 ]
+
+
+def load_staging_tunnel_hostname() -> str:
+    """Tunnel-Hostname von bf-staging aus cloudflared-tunnels.yaml laden.
+
+    Exit 2 wenn Tunnel noch nicht erzeugt (id/hostname null) — verhindert
+    versehentliches Routing auf veraltete IPs.
+    """
+    if not TUNNELS_YAML.is_file():
+        print(
+            f"ERROR: {TUNNELS_YAML} fehlt — Datei aus ADR-198 §4.5 anlegen",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    with open(TUNNELS_YAML) as f:
+        data = yaml.safe_load(f) or {}
+    tunnel = (data.get("tunnels") or {}).get("bf-staging") or {}
+    hostname = tunnel.get("hostname")
+    if not hostname:
+        print(
+            "ERROR: bf-staging.hostname ist noch null in "
+            f"{TUNNELS_YAML.name}.\n"
+            "Erst Tunnel anlegen "
+            "(`cloudflared tunnel create bf-staging` auf "
+            "178.104.184.168), dann ID + Hostname dort eintragen "
+            "(ADR-198 §7 Phase 1).",
+            file=sys.stderr,
+        )
+        sys.exit(2)
+    return hostname
 
 
 def get_token() -> str:
@@ -143,28 +178,35 @@ def get_zone_id(domain: str, token: str) -> str | None:
 
 
 def list_staging_records(zone_id: str, token: str) -> list[dict]:
-    """Alle A-Records in einer Zone die 'staging' enthalten."""
-    path = f"/zones/{zone_id}/dns_records?type=A&per_page=100"
-    resp = cf_request("GET", path, token)
-    if not resp.get("success"):
-        return []
-    return [
-        r for r in resp.get("result", [])
-        if "staging" in r["name"].lower()
-    ]
+    """Alle A- und CNAME-Records in einer Zone die 'staging' enthalten."""
+    records: list[dict] = []
+    for rec_type in ("A", "CNAME"):
+        path = (
+            f"/zones/{zone_id}/dns_records"
+            f"?type={rec_type}&per_page=100"
+        )
+        resp = cf_request("GET", path, token)
+        if not resp.get("success"):
+            continue
+        records.extend(
+            r for r in resp.get("result", [])
+            if "staging" in r["name"].lower()
+        )
+    return records
 
 
 def update_record(
     zone_id: str, record_id: str,
-    name: str, ip: str, token: str,
+    name: str, target_hostname: str, token: str,
 ) -> bool:
-    """DNS-Record auf neue IP updaten."""
+    """DNS-Record als CNAME auf Tunnel-Hostname setzen (ADR-198)."""
     path = f"/zones/{zone_id}/dns_records/{record_id}"
     resp = cf_request("PATCH", path, token, {
-        "content": ip,
-        "proxied": False,
-        "ttl": 120,
-        "comment": "ADR-157: Staging on Dev Desktop",
+        "type": "CNAME",
+        "content": target_hostname,
+        "proxied": True,   # CF-Proxy aktiv (orange cloud) — wegen Tunnel-Origin
+        "ttl": 1,           # 1 = Auto, mit Proxy required
+        "comment": "ADR-198: bf-staging Tunnel",
     },
     )
     return resp.get("success", False)
@@ -200,8 +242,8 @@ def extract_zone_from_domain(domain: str) -> str:
     return domain
 
 
-def run_audit(token: str) -> list[dict]:
-    """Scanne alle Zonen, finde Records mit falscher IP."""
+def run_audit(token: str, target_hostname: str) -> list[dict]:
+    """Scanne alle Zonen, finde Records die nicht auf bf-staging zeigen."""
     staging_domains = load_staging_domains()
     zones_needed = {
         extract_zone_from_domain(d)
@@ -225,23 +267,31 @@ def run_audit(token: str) -> list[dict]:
 
         records = list_staging_records(zone_id, token)
         for rec in records:
-            if rec["content"] != STAGING_IP:
-                issues.append({
-                    "zone": zone_domain,
-                    "zone_id": zone_id,
-                    "record_id": rec["id"],
-                    "name": rec["name"],
-                    "current_ip": rec["content"],
-                    "target_ip": STAGING_IP,
-                    "action": "UPDATE",
-                })
+            # Korrekt = CNAME auf den Tunnel-Hostname mit Proxy aktiv.
+            is_correct = (
+                rec.get("type") == "CNAME"
+                and rec.get("content") == target_hostname
+                and rec.get("proxied") is True
+            )
+            if is_correct:
+                continue
+            issues.append({
+                "zone": zone_domain,
+                "zone_id": zone_id,
+                "record_id": rec["id"],
+                "name": rec["name"],
+                "current_type": rec.get("type"),
+                "current_content": rec.get("content"),
+                "target_hostname": target_hostname,
+                "action": "UPDATE",
+            })
 
     return issues
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="DNS Staging Sync (ADR-157)",
+        description="DNS Staging Sync (ADR-198)",
     )
     parser.add_argument(
         "--apply", action="store_true",
@@ -257,30 +307,37 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    target_hostname = load_staging_tunnel_hostname()
     token = get_token()
     errors = 0
 
     print("=" * 60)
-    print("DNS Staging Sync — ADR-157 Phase 1")
-    print(f"Staging-Server: {STAGING_IP}")
+    print("DNS Staging Sync — ADR-198")
+    print(f"Tunnel-Target: {target_hostname} (bf-staging)")
     print(f"Modus: {'APPLY' if args.apply else 'DRY-RUN'}")
     print("=" * 60)
 
     # --- Teil 1: Staging-Records updaten ---
     if not args.delete_only:
         print("\n--- Staging DNS-Records prüfen ---\n")
-        issues = run_audit(token)
+        issues = run_audit(token, target_hostname)
         if not issues:
-            print("  ✅ Alle staging-Records zeigen bereits auf", STAGING_IP)
+            print(
+                f"  ✅ Alle staging-Records sind bereits CNAME → "
+                f"{target_hostname}"
+            )
         for issue in issues:
             print(f"  {'→' if args.apply else '⚠'} {issue['name']}")
-            print(f"    {issue['current_ip']} → {issue['target_ip']}")
+            print(
+                f"    {issue['current_type']} {issue['current_content']}"
+                f" → CNAME {issue['target_hostname']} (proxied)"
+            )
             if args.apply:
                 ok = update_record(
                     issue["zone_id"],
                     issue["record_id"],
                     issue["name"],
-                    issue["target_ip"],
+                    issue["target_hostname"],
                     token,
                 )
                 print(f"    {'✅ Updated' if ok else '❌ FAILED'}")
