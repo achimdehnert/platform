@@ -107,10 +107,18 @@ den du nicht hier findest (keine angenommenen Repos, Tools, Versionen).
 - Trenne Beobachtung von Vermutung; markiere Unsicheres als unsicher statt zu raten.
 
 ## Gewünschtes Output-Format (deine Antwort)
-1. Steelman (3–5 Sätze)
-2. Drei Rollen (je Stichpunkte)
-3. Out-of-the-Box-Ansatz/Ansätze
-4. Empfehlung: annehmen / überarbeiten / ablehnen + die EINE wichtigste Begründung
+Gib die GESAMTE Antwort als **einen einzigen fenced Markdown-Codeblock** zurück
+(öffnend mit drei Backticks + `markdown`, schließend mit drei Backticks), damit sie 1:1
+als `.md` gespeichert werden kann. Struktur darin:
+
+1. `## Steelman` — 3–5 Sätze.
+2. `## Befunde` — eine Tabelle; jede Beobachtung eine Zeile mit **stabiler ID**:
+   `| ID | Rolle | Befund (1 Satz) | Schweregrad (hoch/mittel/niedrig) | betroffener ADR-Teil |`
+   ID-Präfix nach Rolle: `PRO-1…` (Proponent), `AD-1…` (Advocatus Diabolus), `M28-1…` (Maintainer 2028).
+3. `## Out-of-the-Box` — je Ansatz: Idee · Vorteil · Nachteil · verworfen? (ja/nein + 1 Satz).
+4. `## Empfehlung` — annehmen / überarbeiten / ablehnen + die EINE wichtigste Begründung.
+5. `## Vorgeschlagene Änderungen` — nummerierte Liste `REC-1, REC-2, …`; jede mit Bezug auf
+   eine Befund-ID (z. B. „REC-1 → AD-3").
 ```
 
 ### Modus `--mode premortem`
@@ -143,9 +151,11 @@ mit **deterministischem** Dateinamen:
 
 ## Step 5 — Rückfluss-Gate (beim Einarbeiten der Antwort)
 
-Die GPT-Antwort ist eine **externe Beobachtung**, kein Fakt. Bevor irgendein Einwand den ADR berührt:
-tagge jeden Punkt `[valid]` / `[missversteht-Kontext]` / `[out-of-scope]` — nur `[valid]` fließt ein,
-und zwar als Änderung mit eigener Begründung, nicht als wörtliche GPT-Prosa.
+Die GPT-Antwort ist eine **externe Beobachtung**, kein Fakt. Dank der stabilen IDs (`AD-…`/`REC-…`)
+ist jeder Punkt einzeln adressierbar: tagge jede **Befund- und REC-ID** `[valid]` /
+`[missversteht-Kontext]` / `[out-of-scope]` — nur `[valid]` fließt ein, und zwar als Änderung mit
+eigener Begründung, nicht als wörtliche GPT-Prosa. Halte die Tag-Tabelle (ID → Verdikt → Aktion)
+als Nachweis fest.
 
 ## Anti-Patterns (darf NICHT)
 
@@ -168,3 +178,6 @@ und zwar als Änderung mit eigener Begründung, nicht als wörtliche GPT-Prosa.
   Out-of-the-Box als Default, Pre-Mortem-/Blind-Modus, Rückfluss-Tagging-Gate, Souveränitäts-Gate.
 - 2026-05-29: `mode: write` — Briefing wird als `.md` nach `~/shared/` geschrieben (Step 4,
   deterministischer Dateiname = idempotent pro ADR+Modus+Tag); Anti-Patterns für Schreibziel ergänzt.
+- 2026-05-29: Antwort-Format strukturiert (nach Dogfood ADR-031) — GPT liefert alles in EINEM
+  Markdown-Codeblock (1:1 als `.md` speicherbar); Befunde + Empfehlungen tragen stabile IDs
+  (`AD-`/`REC-`), Step-5-Rückfluss-Gate taggt deterministisch pro ID statt über freie Prosa.
