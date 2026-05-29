@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
 > **Last updated:** 2026-05-29
-> **Next free ADR number:** 225
+> **Next free ADR number:** 228
 
 ## Legend
 
@@ -220,6 +220,7 @@
 | 223 | Einführung eines automatisierten LLM Model Screener & Provider Research Systems | `Proposed` | ⬜ | [ADR-223](ADR-223-llm-model-screener.md) |
 | 224 | Adopt HTTP/SSE Transport for Orchestrator MCP Server | `Proposed` | ⬜ | [ADR-224](ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md) |
 | 225 | genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan | `Proposed` | ⬜ | [ADR-225](ADR-225-genesor-ingest-architecture.md) |
+| 227 | Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT | `Proposed` | ⬜ | [ADR-227](ADR-227-klickdummy-feedback-bridge.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

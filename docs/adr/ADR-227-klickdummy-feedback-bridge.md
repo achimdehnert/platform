@@ -1,5 +1,5 @@
 ---
-id: ADR-226
+id: ADR-227
 title: "Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT"
 status: proposed
 date: 2026-05-29
@@ -14,10 +14,10 @@ related: [ADR-211, ADR-216, ADR-225]
 tags: [klickdummy, feedback, bridge, cloudflare-worker, cf-access, co-creation]
 scope:
   include_paths:
-    - "docs/adr/ADR-226-*"
+    - "docs/adr/ADR-227-*"
 ---
 
-# ADR-226 — Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT
+# ADR-227 — Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT
 
 | Attribut       | Wert                                             |
 |----------------|--------------------------------------------------|
