@@ -176,7 +176,15 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
     prefix = detect_container_prefix(repo_path) or repo.replace("-", "_")
     has_compose = bool(compose_files(repo_path))
 
-    compose_local   = "docker-compose.local.yml" if (repo_path / "docker-compose.local.yml").exists() else "docker-compose.yml"
+    # Fallback-Kette: local → dev → generisch (viele Repos haben nur dev/prod,
+    # kein docker-compose.local.yml — vorher wurde fälschlich docker-compose.yml
+    # emittiert, das nicht existiert). Siehe platform:ADR-219.
+    if (repo_path / "docker-compose.local.yml").exists():
+        compose_local = "docker-compose.local.yml"
+    elif (repo_path / "docker-compose.dev.yml").exists():
+        compose_local = "docker-compose.dev.yml"
+    else:
+        compose_local = "docker-compose.yml"
     compose_staging = "docker-compose.staging.yml"
     compose_prod    = "docker-compose.prod.yml" if (repo_path / "docker-compose.prod.yml").exists() else "docker-compose.yml"
 

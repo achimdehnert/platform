@@ -148,7 +148,7 @@ CLOUDFLARE_API_TOKEN=<token> python ${GITHUB_DIR:-$HOME/github}/platform/infra/s
 
 **Dann Registry eintragen:**
 - `platform/infra/ports.yaml` — Service-Eintrag
-- `platform/registry/github_repos.yaml` — Repo-Eintrag
+- `platform/registry/github_repos.yaml` — Repo-Eintrag (PFLICHT — SSoT für alle Automationen)
 - `python infra/scripts/validate_repos.py` — Konsistenz prüfen
 
 ## Step 0.9: Architecture Context laden (iil-adrfw v0.4.0)
@@ -544,9 +544,6 @@ case "$1" in
     exec celery -A config worker --loglevel=info
     ;;
   beat)
-    # KRITISCH: Named Volumes werden als root erstellt.
-    # Beat läuft als non-root (appuser) → Permission denied ohne chown.
-    # Entrypoint läuft initial als root (vor USER-Switch) → chown hier sicher.
     mkdir -p /celerybeat
     chown -R appuser:appgroup /celerybeat 2>/dev/null || true
     exec celery -A config beat --loglevel=info \
@@ -557,12 +554,6 @@ case "$1" in
     ;;
 esac
 ```
-
-**KRITISCH — Volume-Permissions bei non-root Containern:**
-- Named Docker Volumes werden beim ersten Start als `root:root` erstellt.
-- Wenn der Container-Prozess als non-root läuft (z.B. `appuser`), schlägt Schreiben fehl: `[Errno 13] Permission denied`.
-- **Fix:** `chown` im `entrypoint.sh` **vor** dem `exec`-Aufruf — der Entrypoint läuft initial als root (ENTRYPOINT wird vor `USER` ausgeführt wenn kein `USER` im entrypoint selbst gesetzt ist).
-- **Alternativ:** `docker run --rm -v <volume>:/dir busybox chown -R 1000:1000 /dir` einmalig auf dem Server.
 
 ### 3.3 `docker-compose.prod.yml`
 
@@ -575,7 +566,6 @@ services:
     env_file: .env.prod
     ports:
       - "127.0.0.1:<PORT>:8000"
-    # Healthcheck HIER definieren, NICHT im Dockerfile (gilt sonst für alle Container!)
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')\""]
       interval: 30s
@@ -589,66 +579,6 @@ services:
       resources:
         limits:
           memory: 512M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - bf_platform_prod
-
-  # Optional: nur wenn Celery benötigt wird
-  <REPO>-worker:
-    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
-    container_name: <REPO_UNDERSCORE>_worker
-    restart: unless-stopped
-    env_file: .env.prod
-    command: ["worker"]
-    depends_on:
-      - <REPO>-db
-      - <REPO>-redis
-    # Worker hat keinen Web-Server → pidof python3.12 (NICHT curl, NICHT celery inspect ping)
-    healthcheck:
-      test: ["CMD-SHELL", "pidof python3.12 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-    logging:
-      driver: json-file
-      options:
-        max-size: "10m"
-        max-file: "3"
-    networks:
-      - bf_platform_prod
-
-  # Optional: nur wenn Celery Beat (Scheduler) benötigt wird
-  <REPO>-beat:
-    image: ghcr.io/achimdehnert/<REPO>:${IMAGE_TAG:-latest}
-    container_name: <REPO_UNDERSCORE>_beat
-    restart: unless-stopped
-    env_file: .env.prod
-    command: ["beat"]
-    volumes:
-      # Named Volume → wird als root erstellt → entrypoint.sh macht chown vor exec
-      - <REPO_UNDERSCORE>_beatdata:/celerybeat
-    depends_on:
-      - <REPO>-db
-      - <REPO>-redis
-    healthcheck:
-      test: ["CMD-SHELL", "pidof python3.12 || exit 1"]
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-    deploy:
-      resources:
-        limits:
-          memory: 128M
     logging:
       driver: json-file
       options:
@@ -685,7 +615,6 @@ services:
 
 volumes:
   <REPO_UNDERSCORE>_pgdata:
-  <REPO_UNDERSCORE>_beatdata:   # Nur wenn Beat verwendet wird
 
 networks:
   bf_platform_prod:
@@ -728,23 +657,8 @@ urlpatterns = [
     path("livez/", liveness, name="liveness"),
     path("healthz/", readiness, name="healthz"),
     path("health/", liveness, name="health-check"),
-    # ... andere URLs
 ]
 ```
-
-### 4.2 Healthcheck-Regeln (KRITISCH — ADR-022)
-
-| Regel | Begründung |
-|-------|------------|
-| **IMMER `127.0.0.1` statt `localhost`** | `localhost` kann IPv6 auflösen → Verbindungsfehler |
-| **IMMER `python urllib` statt `curl`** | Slim Python-Images haben kein `curl` |
-| **`csrf_exempt` + `require_GET`** | Health-Endpoints brauchen kein CSRF, nur GET |
-| **Docker-HC nutzt `/livez/`** | Liveness = minimal, keine DB-Abhängigkeit |
-| **Monitoring nutzt `/healthz/`** | Readiness = prüft DB, kann 503 zurückgeben |
-| **KEIN `HEALTHCHECK` im Dockerfile** | Gilt für alle Container aus dem Image — Worker/Beat haben keinen Web-Server |
-| **Worker/Beat: `pidof python3.12`** | Slim-Images benennen den Binary versioniert — `pidof python` schlägt fehl |
-| **NICHT `celery inspect ping`** | Schlägt fehl wenn Broker kurz nicht erreichbar → unnötige Restarts |
-| **Beat-Volume: `chown` im entrypoint.sh** | Named Volumes werden als root erstellt — non-root Prozess braucht explizites chown |
 
 ## Step 5: Server-Infrastruktur einrichten
 
@@ -814,9 +728,14 @@ ssh root@88.198.191.108 "certbot certonly --webroot -w /var/www/html -d <DOMAIN>
 
 ## Step 6: Platform-Integration
 
-### 6.1 registry/repos.yaml aktualisieren (PFLICHT — Single Source of Truth)
+### 6.1 Registry aktualisieren (PFLICHT — beide Dateien, keine Ausnahme)
 
-Füge das neue Repo in `platform/registry/repos.yaml` ein:
+> **Warum beide?** `github_repos.yaml` ist SSoT für alle Plattform-Automationen:
+> `runner-health.yml` (täglicher Label-Check), `sync-workflows.sh`, concurrency-batch-fixes.
+> Fehlt ein Repo hier → runner-health ignoriert es → stuck deploys nicht erkannt.
+> **Kein "Operator" nötig — Onboarding IS die Registrierung.**
+
+#### 6.1a `platform/registry/repos.yaml` (Catalog-Sync)
 
 ```yaml
 - name: <REPO_NAME>
@@ -833,6 +752,29 @@ Füge das neue Repo in `platform/registry/repos.yaml` ein:
 ```
 
 **Danach:** GitHub Action `sync-registry-to-devhub.yml` triggert automatisch → devhub.iil.pet/repos zeigt das neue Repo.
+
+#### 6.1b `platform/registry/github_repos.yaml` (Automation SSoT — PFLICHT)
+
+```yaml
+# In django_apps: section eintragen:
+django_apps:
+  <REPO_NAME>:
+    github: achimdehnert/<REPO_NAME>
+    description: <DESCRIPTION>
+    deployed: true
+    domain: <DOMAIN>
+    port: <PORT>
+    lifecycle: experimental
+```
+
+```bash
+# Konsistenz prüfen nach dem Eintrag:
+python ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/validate_repos.py
+```
+
+> **Ohne diesen Eintrag:** `runner-health.yml` ignoriert das Repo täglich.
+> Der nächste Runner-Health-Run meldet `⚠️ UNREGISTERED RUNNER` als Drift-Warning —
+> aber dann ist der Schaden bereits eingetreten. **Besser: hier eintragen, Drift-Warning nie sehen.**
 
 ### 6.2 MCP-Orchestrator registrieren
 
@@ -862,71 +804,22 @@ outline-knowledge: create_runbook(
 )
 ```
 
-**Pflichtfelder im Steckbrief:**
-- Quick Facts Tabelle (Repo, Domain, Port, Stack, Server)
-- Features (Kurzliste)
-- Verwendete Frameworks
-- Bekannte Einschränkungen
-- Nächste Schritte
-
 ### 6.6 ADR Architecture Narrative generieren (iil-adrfw)
-
-Generiere ein domänenspezifisches Architektur-Onboarding für das neue Repo:
 
 ```
 MCP: mcp2_adr_narrate(
     audience="new_dev",
-    domain="<domain>",           # z.B. "deployment", "django/models", "security"
+    domain="<domain>",
     scope_label="<REPO_NAME>"
 )
-→ Liefert: Markdown-Narrative mit Overview, Decisions, Supersession Chains, Open Questions
-```
-
-**Ergebnis speichern** als Teil des Outline-Steckbriefs (Step 6.5) oder separat:
-
-```
-MCP: mcp4_create_concept(
-    title="Architecture Guide: <REPO_NAME>",
-    content="<narrative_output>",
-    related_adrs="<relevante_adr_nummern>"
-)
-```
-
-→ Neue Devs/Agents haben sofort vollständigen Architektur-Kontext.
-→ Narrative wird bei `/session-start` automatisch via `adr_query` geladen.
-
-### 6.7 Workstation SSH-Setup prüfen (ADR-060)
-
-Sicherstellen dass kein `core.sshCommand` im neuen Repo gesetzt wird:
-
-```bash
-# NIEMALS setzen:
-# git config core.sshCommand "ssh -i ~/.ssh/github_ed25519 ..."
-
-# Standard: ~/.ssh/config mit id_ed25519 greift automatisch
-ssh -T git@github.com  # → Hi achimdehnert!
 ```
 
 ### 6.7 REFLEX Review Setup (PFLICHT — ADR-165)
 
-REFLEX muss im Repo verfügbar sein für lokale und CI-Checks.
-
 **6.7.1 Dev-Dependency hinzufügen:**
 
 ```bash
-# In requirements-dev.txt (oder requirements-test.txt):
 echo "iil-reflex>=0.5.0" >> <REPO>/requirements-dev.txt
-```
-
-Wenn kein `requirements-dev.txt` existiert, in `requirements-test.txt` hinzufügen.
-Falls `pyproject.toml` mit `[project.optional-dependencies]`:
-
-```toml
-[project.optional-dependencies]
-dev = [
-    "iil-reflex>=0.5.0",
-    # ... other dev deps
-]
 ```
 
 **6.7.2 reflex.yaml generieren:**
@@ -940,65 +833,14 @@ cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex init \
     --output ${GITHUB_DIR:-$HOME/github}/<REPO_NAME>/reflex.yaml
 ```
 
-**6.7.3 .reflex/ Verzeichnis anlegen:**
-
-```bash
-mkdir -p ${GITHUB_DIR:-$HOME/github}/<REPO_NAME>/.reflex
-```
-
-**6.7.4 Initial Baseline setzen:**
+**6.7.3 Initial Baseline setzen:**
 
 // turbo
 ```bash
 cd ${GITHUB_DIR:-$HOME/github}/iil-reflex && .venv/bin/python -m reflex review all <REPO_NAME> --init-baseline
 ```
 
-**6.7.5 .gitignore prüfen — .reflex/ NICHT ignorieren:**
-
-`.reflex/baseline.json` und `.reflex/suppressions.yaml` sollen committed werden
-(pro Repo, reviewbar, versioniert).
-
-```bash
-# Sicherstellen dass .reflex/ NICHT in .gitignore steht:
-grep -q "^\.reflex" ${GITHUB_DIR:-$HOME/github}/<REPO_NAME>/.gitignore && \
-    echo "WARNUNG: .reflex/ ist in .gitignore — entfernen!" || \
-    echo "OK: .reflex/ wird committed"
-```
-
-**6.7.6 CI-Integration (optional, empfohlen für Tier 1):**
-
-In `.github/workflows/ci-cd.yml` einen Review-Step hinzufügen:
-
-```yaml
-  review:
-    name: "REFLEX Review"
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - run: pip install iil-reflex>=0.5.0
-      - run: python -m reflex review all . --fail-on block --json
-```
-
-**Ergebnis nach Step 6.7:**
-
-```text
-<REPO>/
-├── reflex.yaml              # REFLEX-Konfiguration (Tier, Routes, Dev-Cycle)
-├── .reflex/
-│   ├── baseline.json        # Aktuelle Findings als Basis (committed)
-│   └── suppressions.yaml    # Unterdrückte Findings (committed, reviewbar)
-├── requirements-dev.txt     # enthält iil-reflex>=0.5.0
-└── ...
-```
-
 ### 6.8 Windsurf Platform-Integration (PFLICHT — neues Repo weiß sofort alles)
-
-> Dieser Schritt stellt sicher, dass das neue Repo automatisch alle Platform-Workflows,
-> Rules und Context erhält — ohne manuelle Kopien. Einmalig ausführen, danach läuft
-> alles über den Session-Start/Ende-Loop.
 
 // turbo
 ```bash
@@ -1014,41 +856,19 @@ grep -q "name: ${REPO_NAME}" "${GITHUB_DIR:-$HOME/github}/platform/scripts/repo-
 mkdir -p "${REPO_PATH}/.windsurf/workflows"
 echo "✅ .windsurf/workflows/ angelegt"
 
-# 3. Workflow-Symlinks verteilen (dieses Repo bekommt alle UNIVERSAL-Workflows)
+# 3. Workflow-Symlinks verteilen
 GITHUB_DIR="${GITHUB_DIR:-$HOME/github}" \
   bash "${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-workflows.sh" "${REPO_NAME}" \
   2>&1 | grep -E "LINK|REPLACE|WARN" | head -20
 echo "✅ Workflow-Symlinks deployed"
 
-# 4. project-facts.md generieren (Cascade weiß ab sofort Repo-Kontext)
+# 4. project-facts.md generieren
 python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
-  --repo "${REPO_NAME}" 2>/dev/null \
-  || python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
-  2>&1 | grep -E "${REPO_NAME}|✅|⚠️"
+  --repo "${REPO_NAME}" 2>/dev/null
 echo "✅ project-facts.md generiert"
-
-# 5. Ergebnis prüfen
-ls "${REPO_PATH}/.windsurf/workflows/" | wc -l | xargs -I{} echo "{} Workflows verfügbar"
-ls "${REPO_PATH}/.windsurf/rules/project-facts.md" 2>/dev/null && echo "✅ project-facts.md vorhanden" || echo "⚠️  project-facts.md fehlt — manuell anlegen"
-```
-
-**Was das Repo danach hat:**
-- `.windsurf/workflows/` mit Symlinks → immer aktuelle Platform-Workflows
-- `.windsurf/rules/project-facts.md` → Cascade kennt Repo-spezifischen Kontext
-- Automatische Updates bei jedem `session-ende` via sync-loop
-
-**Manuell in `repo-registry.yaml` eintragen** (falls `grep` oben ⚠️ zeigte):
-```yaml
-# platform/scripts/repo-registry.yaml
-- name: <REPO_NAME>
-  type: django_hub   # oder: package, platform, infra
-  description: "<1-Satz-Beschreibung>"
 ```
 
 ### 6.9 Branch Protection einrichten (PFLICHT — ADR-174, alle Repos)
-
-> Ohne Branch Protection kann `qm-gate` mit `--admin` bypassed werden.
-> Diese Einstellung ist plattformweit verbindlich für alle Repos.
 
 **GitHub → [Repo] → Settings → Branches → Add rule:**
 
@@ -1063,24 +883,13 @@ Branch name pattern:  main
 ☑ Do not allow bypassing the above settings
 ```
 
-> **Verify:** GitHub → [Repo] → Settings → Branches → protection rules aktiv für `main`
-
 ---
 
 ## Step 7: Verifikation
 
-Vollständige Verifikations-Checkliste + Referenzen sind in einem separaten Dokument:
-
 → **[`docs/onboarding/onboard-repo-checklist.md`](../../docs/onboarding/onboard-repo-checklist.md)**
 
-Inhalte:
-- Vollständige Checkliste (Repo-Struktur, Testing, Platform-Integration, Docker, REFLEX, Server, Netzwerk, CI/CD, Branch Protection)
-- REFLEX Review Gate (`reflex review all <REPO> --fail-on block`)
-- Baseline setzen (`--init-baseline`)
-- Vorlagen-Referenz (welches Repo als Beispiel nutzen)
-- Compliance-Workflow für bestehende Repos
-
-**Quick-Check vor Abschluss** (alle müssen exit 0 sein):
+**Quick-Check vor Abschluss:**
 
 // turbo
 ```bash
