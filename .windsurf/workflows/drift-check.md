@@ -82,6 +82,14 @@ Lies ${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml
    - repos.json ist SSOT für Repo-Facts
    - Server-Zustand muss zu beiden passen
 
+   **Resolution-Direction (Policy `evidence-discipline`):** Die Papier-SSOT
+   gewinnt *nicht* automatisch. Wenn eine Quelle bewiesen-laufende Realität
+   spiegelt (verifizierter Bind/Health) und der Gegen-Fix Zustand ändern
+   würde, den du nicht inspizieren kannst (z.B. Host-Port auf einem
+   SSH-gesperrten Server) → korrigiere die SSOT *zur bewiesenen Realität
+   hin*, nie umgekehrt. Bind/Health, das du nicht prüfen kannst, ist eine
+   Hypothese, kein Fix-Grund — als solche kennzeichnen, nicht behaupten.
+
 ## Referenzen
 - ADR-021: Unified Deployment Pattern
 - repos.json: `mcp-hub/platform_context_mcp/graph/repos.json`

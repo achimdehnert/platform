@@ -1,0 +1,207 @@
+name: "Runner Health Check"
+
+on:
+  schedule:
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run — check only, no fixes"
+        required: false
+        default: "false"
+        type: choice
+        options:
+          - "false"
+          - "true"
+      stuck_threshold_minutes:
+        description: "Minutes before a queued deploy run is considered stuck"
+        required: false
+        default: "30"
+
+permissions:
+  contents: read
+
+jobs:
+  runner-health:
+    name: "Runner Health Check"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout platform (registry SSoT)"
+        uses: actions/checkout@v4
+
+      - name: "Check + fix runner labels and stuck deploys"
+        env:
+          GH_TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN }}
+          DRY_RUN: ${{ inputs.dry_run || 'false' }}
+          STUCK_THRESHOLD: ${{ inputs.stuck_threshold_minutes || '30' }}
+        run: |
+          pip install pyyaml -q
+          python3 << 'PYEOF'
+          import os, json, yaml, urllib.request, urllib.error, datetime, time
+
+          TOKEN = os.environ["GH_TOKEN"]
+          DRY_RUN = os.environ["DRY_RUN"] == "true"
+          STUCK_MINUTES = int(os.environ.get("STUCK_THRESHOLD", "30"))
+          REQUIRED_LABEL = "prod-server"
+          MAIN_ORG = "achimdehnert"
+
+          # --- Load repo list from registry (SSoT) ---
+          # NOTE: github_repos.yaml is manually maintained — NOT nightly auto-updated.
+          # The drift-detection section below catches repos NOT yet in the registry.
+          with open("registry/github_repos.yaml") as f:
+              registry = yaml.safe_load(f)
+
+          REPOS = []
+          registry_repos = set()
+          for section in ("django_apps", "org_django_apps"):
+              for name, meta in registry.get(section, {}).items():
+                  if meta.get("deployed") and meta.get("github"):
+                      org, repo = meta["github"].split("/")
+                      REPOS.append((org, repo))
+                      registry_repos.add(repo)
+          REPOS.sort()
+          print(f"Repos from registry (django_apps + org_django_apps): {len(REPOS)}")
+
+          def api(method, path, body=None, base="https://api.github.com"):
+              url = f"{base}{path}"
+              data = json.dumps(body).encode() if body else None
+              req = urllib.request.Request(
+                  url, data=data, method=method,
+                  headers={
+                      "Authorization": f"token {TOKEN}",
+                      "Accept": "application/vnd.github+json",
+                      "Content-Type": "application/json",
+                  }
+              )
+              try:
+                  with urllib.request.urlopen(req) as r:
+                      return json.loads(r.read()) if r.status not in (204,) else {}
+              except urllib.error.HTTPError as e:
+                  return {"_error": e.code, "_msg": e.read().decode()[:200]}
+
+          label_ok = []
+          label_fixed = []
+          label_missing = []
+          stuck_cancelled = []
+          stuck_restarted = []
+          errors = []
+          unregistered = []
+          now = datetime.datetime.utcnow()
+
+          for org, repo in REPOS:
+              # --- 1. Runner label check ---
+              runners_data = api("GET", f"/repos/{org}/{repo}/actions/runners")
+              if "_error" in runners_data:
+                  errors.append(f"{repo}: runner API error {runners_data['_error']}")
+                  continue
+
+              for runner in runners_data.get("runners", []):
+                  if runner.get("name") != REQUIRED_LABEL:
+                      continue
+                  labels = [l["name"] for l in runner.get("labels", [])]
+                  runner_id = runner["id"]
+                  status = runner.get("status", "unknown")
+
+                  if REQUIRED_LABEL in labels:
+                      label_ok.append(f"{repo} (runner {runner_id}, {status})")
+                  else:
+                      if DRY_RUN:
+                          label_missing.append(f"{repo} (runner {runner_id}) — DRY RUN")
+                      else:
+                          result = api("POST",
+                              f"/repos/{org}/{repo}/actions/runners/{runner_id}/labels",
+                              {"labels": [REQUIRED_LABEL]}
+                          )
+                          if "_error" in result:
+                              errors.append(f"{repo}: label fix failed {result['_error']}")
+                          else:
+                              new_labels = [l["name"] for l in result.get("labels", [])]
+                              if REQUIRED_LABEL in new_labels:
+                                  label_fixed.append(f"{repo} (runner {runner_id})")
+                              else:
+                                  label_missing.append(f"{repo} (runner {runner_id})")
+
+              # --- 2. Stuck deploy runs check ---
+              runs_data = api("GET",
+                  f"/repos/{org}/{repo}/actions/runs?workflow_id=deploy.yml&status=queued&per_page=10"
+              )
+              if "_error" in runs_data:
+                  continue
+
+              for run in runs_data.get("workflow_runs", []):
+                  created_at = datetime.datetime.strptime(
+                      run["created_at"], "%Y-%m-%dT%H:%M:%SZ"
+                  )
+                  age_minutes = (now - created_at).total_seconds() / 60
+                  if age_minutes < STUCK_MINUTES:
+                      continue
+
+                  run_id = run["id"]
+                  if DRY_RUN:
+                      stuck_cancelled.append(
+                          f"{repo} run {run_id} (queued {age_minutes:.0f}min) — DRY RUN"
+                      )
+                  else:
+                      api("POST", f"/repos/{org}/{repo}/actions/runs/{run_id}/cancel")
+                      stuck_cancelled.append(
+                          f"{repo} run {run_id} (queued {age_minutes:.0f}min) cancelled"
+                      )
+                      if run.get("head_branch") == "main" and age_minutes < 240:
+                          time.sleep(3)
+                          dispatch = api("POST",
+                              f"/repos/{org}/{repo}/actions/workflows/deploy.yml/dispatches",
+                              {"ref": "main"}
+                          )
+                          if "_error" not in dispatch:
+                              stuck_restarted.append(f"{repo} — fresh deploy dispatched")
+
+          # --- 3. Drift detection: find runners NOT in registry ---
+          # github_repos.yaml is manually maintained — this catches new repos missing from it.
+          org_repos = api("GET", f"/orgs/{MAIN_ORG}/repos?per_page=100&type=all")
+          if "_error" not in org_repos and isinstance(org_repos, list):
+              for repo_meta in org_repos:
+                  repo_name = repo_meta["name"]
+                  if repo_name in registry_repos:
+                      continue
+                  runners_data = api("GET", f"/repos/{MAIN_ORG}/{repo_name}/actions/runners")
+                  if "_error" in runners_data:
+                      continue
+                  for runner in runners_data.get("runners", []):
+                      if runner.get("name") == REQUIRED_LABEL:
+                          unregistered.append(
+                              f"{repo_name} (runner {runner['id']}) — "
+                              f"WARN: not in registry/github_repos.yaml!"
+                          )
+
+          # --- Report ---
+          print(f"\n{'='*60}")
+          print(f"Runner Health Report — {now.strftime('%Y-%m-%d %H:%M')} UTC")
+          print(f"Mode: {'DRY RUN' if DRY_RUN else 'LIVE'} | Stuck threshold: {STUCK_MINUTES}min")
+          print(f"{'='*60}")
+          print(f"\nLabels OK ({len(label_ok)}):")
+          for r in label_ok: print(f"  ✅ {r}")
+          print(f"\nLabels FIXED ({len(label_fixed)}):")
+          for r in label_fixed: print(f"  🔧 {r}")
+          if label_missing:
+              print(f"\nLabels STILL MISSING ({len(label_missing)}):")
+              for r in label_missing: print(f"  ❌ {r}")
+          if stuck_cancelled:
+              print(f"\nStuck runs CANCELLED ({len(stuck_cancelled)}):")
+              for r in stuck_cancelled: print(f"  🚫 {r}")
+          if stuck_restarted:
+              print(f"\nFresh deploys TRIGGERED ({len(stuck_restarted)}):")
+              for r in stuck_restarted: print(f"  🚀 {r}")
+          if unregistered:
+              print(f"\nUNREGISTERED RUNNERS — add to registry/github_repos.yaml ({len(unregistered)}):")
+              for r in unregistered: print(f"  ⚠️  {r}")
+          if errors:
+              print(f"\nERRORS ({len(errors)}):")
+              for r in errors: print(f"  💥 {r}")
+
+          print(f"\nSummary: {len(label_ok)} ok | {len(label_fixed)} fixed | "
+                f"{len(label_missing)} missing | {len(stuck_cancelled)} stuck cancelled | "
+                f"{len(unregistered)} unregistered")
+
+          if label_missing or errors:
+              raise SystemExit(1)
+          PYEOF
