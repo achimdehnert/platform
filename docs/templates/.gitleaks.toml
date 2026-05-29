@@ -1,0 +1,47 @@
+# IIL Platform — .gitleaks.toml (Secrets-Scan Escape Hatch)
+# Kopiere nach <repo>/.gitleaks.toml NUR wenn der blockierende secrets-scan
+# (platform _ci-python.yml, ADR-Secrets-Gate) auf False Positives anschlägt.
+#
+# Zwei Mechanismen — bewusst wählen:
+#
+#  1. .gitleaks.toml (DIESE Datei) — REGEL-Allowlist. Breit: unterdrückt
+#     Befund-KLASSEN (Pfade, Regexe, Stopwords) für alle Commits. Nutze
+#     sparsam und nur für strukturelle FP (z.B. Fixtures, Vendored-Code).
+#
+#  2. .gitleaksignore — FINGERPRINT-Suppression. Schmal: unterdrückt GENAU
+#     EINEN konkreten Befund per Fingerprint. RICHTIGES Werkzeug für
+#     bereits in der History liegende Pre-existing Leaks (rotieren wenn
+#     echt; sonst Fingerprint hier eintragen). Fingerprint steht im
+#     gitleaks-SARIF/Output des fehlgeschlagenen CI-Laufs.
+#       echo "<commit>:<path>:<rule>:<line>" >> .gitleaksignore
+#
+# CI macht den aktiven Escape-Hatch transparent im Job-Log sichtbar —
+# eine zu breite Allowlist fällt im Review auf. Jede Zeile hier MUSS
+# kommentiert begründet sein (PR-Review-Pflicht).
+
+title = "REPO_NAME gitleaks config"
+
+# Default-Regelsatz von gitleaks behalten und nur ERWEITERN — niemals
+# ersetzen (sonst schaltet man unbemerkt den ganzen Scanner stumm).
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Repo-spezifische, begründete False Positives"
+
+# --- Beispiele (auskommentiert lassen, bis tatsächlich benötigt) ---
+
+# Pfade, die strukturell keine echten Secrets enthalten (Test-Fixtures):
+# paths = [
+#   '''tests/fixtures/.*\.json''',   # Begründung: synthetische Demo-Daten
+# ]
+
+# Regex für bekannte Dummy-/Beispiel-Werte:
+# regexes = [
+#   '''EXAMPLE_KEY_DO_NOT_USE_[A-Z0-9]+''',  # Begründung: Doku-Platzhalter
+# ]
+
+# Stopwords — Treffer, die dieses Substring enthalten, ignorieren:
+# stopwords = [
+#   "your-token-here",
+# ]

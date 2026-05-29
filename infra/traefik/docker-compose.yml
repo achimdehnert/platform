@@ -1,0 +1,106 @@
+# Traefik v3 — Zentraler Ingress für staging-*.iil.pet (ADR-212 Klausel 3)
+# Server: 178.104.184.168 (staging-platform)
+#
+# Deployment:
+#   scp infra/traefik/.env staging-platform:/opt/traefik/.env
+#   scp infra/traefik/docker-compose.yml staging-platform:/opt/traefik/
+#   ssh staging-platform "cd /opt/traefik && docker compose up -d"
+#
+# Dashboard:  http://127.0.0.1:8080 (nur lokal / via SSH-Tunnel)
+# Wildcard:   *-staging.iil.pet via Let's Encrypt DNS-01 (Cloudflare)
+
+services:
+  traefik:
+    image: traefik:v3.3
+    container_name: traefik
+    restart: always
+    command:
+      # API + Dashboard (kein insecure-Mode — nur über gesichertes Entrypoint)
+      - --api.dashboard=true
+      - --api.insecure=false
+
+      # Entrypoints
+      - --entrypoints.web.address=:80
+      - --entrypoints.websecure.address=:443
+      - --entrypoints.dashboard.address=:8080
+
+      # HTTP → HTTPS Redirect
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https
+      - --entrypoints.web.http.redirections.entrypoint.permanent=true
+
+      # Docker-Provider — nur explizit opt-in Container (expose: false default)
+      - --providers.docker=true
+      - --providers.docker.network=traefik_public
+      - --providers.docker.exposedbydefault=false
+
+      # ACME DNS-01 via Cloudflare — Wildcard *-staging.iil.pet
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.delaybeforecheck=30
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json
+
+      # Logging
+      - --log.level=INFO
+      - --accesslog=true
+
+    environment:
+      # Cloudflare DNS-01 Credentials (Zone:DNS:Edit Scope für iil.pet)
+      CF_DNS_API_TOKEN: ${CF_DNS_API_TOKEN}
+
+    ports:
+      - "80:80"
+      - "443:443"
+      # Dashboard nur auf Loopback — NICHT öffentlich
+      - "127.0.0.1:8080:8080"
+
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_letsencrypt:/letsencrypt
+
+    networks:
+      - traefik_public
+
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+    labels:
+      # Dashboard-Route mit BasicAuth — nur über :8080 (Loopback-gebunden)
+      traefik.enable: "true"
+      traefik.http.routers.dashboard.rule: "Host(`traefik.staging.internal`)"
+      traefik.http.routers.dashboard.entrypoints: "dashboard"
+      traefik.http.routers.dashboard.service: "api@internal"
+      traefik.http.routers.dashboard.middlewares: "dashboard-auth"
+      # htpasswd-Hash für Dashboard — via: htpasswd -nb admin <password>
+      traefik.http.middlewares.dashboard-auth.basicauth.users: "${DASHBOARD_BASIC_AUTH}"
+
+  # Smoke-Test-Container — validiert Klausel-3-Routing
+  # Nur temporär: nach erfolgreichem Smoke-Test entfernen oder profile: [test] setzen
+  whoami:
+    image: traefik/whoami:v1.10
+    container_name: traefik_whoami
+    restart: unless-stopped
+    networks:
+      - traefik_public
+    labels:
+      traefik.enable: "true"
+      traefik.http.routers.whoami.rule: "Host(`staging-traefiktest.iil.pet`)"
+      traefik.http.routers.whoami.entrypoints: "websecure"
+      traefik.http.routers.whoami.tls: "true"
+      traefik.http.routers.whoami.tls.certresolver: "letsencrypt"
+      traefik.http.routers.whoami.tls.domains[0].main: "staging-traefiktest.iil.pet"
+      traefik.http.routers.whoami.tls.domains[0].sans: "*-staging.iil.pet"
+
+volumes:
+  traefik_letsencrypt:
+    name: traefik_letsencrypt
+
+networks:
+  traefik_public:
+    name: traefik_public
+    driver: bridge
