@@ -24,8 +24,8 @@ optional rot unter Score N.
 | `GITHUB_TOKEN` | ja | — |
 | `CEREBRAS_API_KEY` | eine LLM-Quelle nötig | — |
 | `GROQ_API_KEY` | (für Fallback) | — |
-| `ADR_REVIEW_MODEL` | nein | `cerebras/qwen-3-235b-a22b-instruct-2507` |
-| `ADR_REVIEW_FALLBACK` | nein | `groq/llama-3.3-70b-versatile` |
+| `ADR_REVIEW_MODEL` | nein | `groq/llama-3.3-70b-versatile` |
+| `ADR_REVIEW_FALLBACK` | nein | `cerebras/llama3.1-8b` |
 | `ADR_REVIEW_DEEP_MODEL` | nein | `cerebras/zai-glm-4.7` |
 | `ADR_REVIEW_ESCALATE_BELOW` | nein | `6` |
 | `ADR_REVIEW_DEEP_LABEL` | nein | `adr-deep-review` |
