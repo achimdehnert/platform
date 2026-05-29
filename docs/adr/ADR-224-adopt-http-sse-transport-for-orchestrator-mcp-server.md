@@ -1,5 +1,5 @@
 ---
-id: ADR-194
+id: ADR-224
 title: Adopt HTTP/SSE Transport for Orchestrator MCP Server
 status: proposed
 decision_date: 2026-05-10
@@ -56,7 +56,7 @@ decision_drivers:
 implementation_status: none
 ---
 
-# ADR-194: Adopt HTTP/SSE Transport for Orchestrator MCP Server
+# ADR-224: Adopt HTTP/SSE Transport for Orchestrator MCP Server
 
 | Metadaten | |
 |-----------|---|

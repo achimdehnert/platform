@@ -38,17 +38,14 @@ jobs:
               data = yaml.safe_load(f)
 
           django_hubs = list(data.get('django_apps', {}).keys())
-          org_hubs    = list(data.get('org_django_apps', {}).keys())
-          all_hubs    = django_hubs + org_hubs
           packages    = list(data.get('frameworks', {}).keys())
 
           env_file = os.environ['GITHUB_ENV']
           with open(env_file, 'a') as f:
-              f.write(f"DJANGO_HUBS_JSON={json.dumps(all_hubs)}\n")
+              f.write(f"DJANGO_HUBS_JSON={json.dumps(django_hubs)}\n")
               f.write(f"PACKAGES_JSON={json.dumps(packages)}\n")
 
           print(f"django_apps ({len(django_hubs)}): {django_hubs}")
-          print(f"org_django_apps ({len(org_hubs)}): {org_hubs}")
           print(f"frameworks  ({len(packages)}): {packages}")
           EOF
 
@@ -63,7 +60,7 @@ jobs:
             // ── Workflow-Kategorien (SSoT: sync-workflows.sh) ─────────────────
             const UNIVERSAL = [
               'knowledge-capture', 'agent-session-start', 'agentic-coding',
-              'adr', 'adr-review', 'adr-dual-review', 'adr-nightly-metrics', 'pr-review', 'governance-check',
+              'adr', 'adr-review', 'pr-review', 'governance-check',
               'repo-health-check', 'hotfix', 'windsurf-clean', 'workflow-index',
               'sync-repo', 'use-case', 'session-start', 'session-ende',
               'session-docu', 'docu-update', 'complete', 'prompt', 'drift-check',
