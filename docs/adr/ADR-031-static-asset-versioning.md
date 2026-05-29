@@ -126,35 +126,24 @@ ssh root@${HOST} "cp -r /var/www/${SITE} /var/www/.backup/${SITE}-$(date +%Y%m%d
 
 ## Addendum 2026-05-29 — Härtung (externe Review-Befunde)
 
-Ergänzt die ursprüngliche Entscheidung um vier Härtungsmaßnahmen, geschärft durch **zwei externe
-ADR-Review-Runden** (GPT-5.5 via `/adr-handoff-extern`; Befunde durch das Step-5-Rückfluss-Gate als
-`[valid]` bestätigt). **Kein Reversal** der Kernentscheidung — Git als SSoT, Script-Deploy und
-`apps.json` bleiben.
+Ergänzt die ursprüngliche Entscheidung um vier Härtungsmaßnahmen aus einer externen ADR-Review
+(GPT-5.5 via `/adr-handoff-extern`; Befunde durch das Step-5-Rückfluss-Gate als `[valid]` bestätigt).
+**Kein Reversal** der Kernentscheidung — Git als SSoT, Script-Deploy und `apps.json` bleiben.
 
-1. **Backup-Retention mit Mindest-Garantie.** `/var/www/.backup/` wächst sonst unbegrenzt. Regel:
-   die letzten **30 Deployments oder 90 Tage** behalten — **wobei stets mindestens N (Default 5)
-   Backups erhalten** bleiben, auch bei hoher Deploy-Frequenz. Älteres räumt das Deploy-Script auf.
-2. **`apps.json`-Schema-Validierung als verpflichtendes Deploy-Gate.** Pflichtfelder
-   (`name`, `url`, `admin_url`, `status`) **plus `status`-Enum** (`live` | `staging` | `maintenance`)
-   als JSON-Schema. Die Validierung ist **Deploy-Gate**: kein erfolgreicher Deploy ohne bestandene
-   Schema-Validierung — damit die Regel nicht durch spätere Script-Anpassungen verwässert.
-3. **Atomarer Deploy via Release-Verzeichnis + Symlink-Swap.** Statt in-place-`rsync` nach
-   `/var/www/<site>/`: Deploy in `releases/<timestamp>/`, Aktivierung durch **atomaren
-   Symlink-Wechsel** `current -> releases/<timestamp>` (bzw. `rename()`); nginx-Root zeigt auf
-   `current`. Kein inkonsistenter Zwischenzustand während des Deploys; Rollback = Symlink zurück.
-4. **Git-Checkout-Guard mit Branch-/Commit-Nachweis.** Die menschliche Pre-Deploy-Checkliste wird
-   **technisch erzwungen**: `deploy.sh` bricht ab bei dirty working tree **und** wenn nicht der
-   erwartete Branch (`main`) ausgecheckt ist; es **loggt vor dem Deploy Branch + Commit-Hash**
-   (reproduzierbarer, nachvollziehbarer Release-Stand).
+1. **Backup-Retention (AD-3).** `/var/www/.backup/` wächst sonst unbegrenzt. Regel: die letzten
+   **30 Deployments oder 90 Tage** behalten, Älteres räumt das Deploy-Script auf.
+2. **`apps.json`-Schema + Validierung (REC-2).** Pflichtfelder (`name`, `url`, `admin_url`,
+   `status`) als JSON-Schema festschreiben; der Deploy **bricht bei Schema-/URL-Fehler ab**.
+3. **Atomarer Deploy (AD-4).** Statt in-place-`rsync` nach `/var/www/<site>/`: in ein temporäres
+   Verzeichnis deployen und per **Verzeichnis-Swap** atomar aktivieren — kein inkonsistenter
+   Zwischenzustand für Nutzer während des Deploys.
+4. **Git-Checkout-Guard (AD-2 / REC-4).** Die menschliche Pre-Deploy-Checkliste wird **technisch
+   erzwungen**: `deploy.sh` bricht ab, wenn nicht aus einem sauberen Git-Checkout deployt wird
+   (kein dirty working tree, kein Deploy ungetrackter Assets).
 
-**Bewusst NICHT übernommen** (damit ein künftiger Challenger sie nicht neu aufrollt):
-- **Live-URL-/HEAD-Erreichbarkeitsprüfung im Deploy** — führt eine Netzwerk-Abhängigkeit ein und
-  macht Deploys bei Netzproblemen instabil; widerspricht dem Minimalitätsprinzip. Das Schema prüft
-  Struktur + Enum, nicht die Erreichbarkeit.
-- **Git-Tag-erzwungene Deployments** — zusätzlicher Prozess-Overhead; der Branch-Check +
-  Commit-Hash-Log (Maßnahme 4) liefert die Reproduzierbarkeit leichtgewichtiger.
-- **Landingpage in den Django-Stack ziehen** (Out-of-Box-Alternative) — für rein statische Seiten
-  zu schwergewichtig; der Minimal-Ansatz bleibt (settled).
+**Bewusst NICHT übernommen:** Landingpage in den Django-Stack ziehen (Out-of-Box-Alternative) —
+für rein statische Seiten zu schwergewichtig; der Minimal-Ansatz bleibt (settled). „Script statt
+Pipeline" bleibt ebenfalls (AD-7, out-of-scope) — Validierung wird innerhalb des Scripts aufgerufen.
 
 _Umsetzung in `static-sites/deploy.sh` + `apps.schema.json` als Folge-Arbeit; dieses Addendum hält
-die (durch zwei externe Review-Runden geschärfte) Entscheidung fest._
+die Entscheidung fest._
