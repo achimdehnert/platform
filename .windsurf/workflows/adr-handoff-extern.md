@@ -1,6 +1,6 @@
 ---
-description: Baut ein selbsterhaltendes Übergabe-Briefing, um einen ADR von einem externen LLM (GPT-5.5 o.ä.) als Advocatus Diabolus + Out-of-the-Box reviewen zu lassen.
-mode: read-only
+description: Schreibt ein selbsterhaltendes ADR-Review-Briefing (Advocatus Diabolus + Out-of-the-Box) als .md nach ~/shared/, für ein externes LLM (GPT-5.5 o.ä.).
+mode: write
 ---
 
 # /adr-handoff-extern
@@ -30,6 +30,9 @@ wird **inline** mitgegeben; das Ergebnis ist eine externe *Zweitmeinung* — kei
 /adr-handoff-extern ADR-NNN --mode blind     # Blind-Redesign statt Review
 /adr-handoff-extern ADR-NNN --mode premortem # Pre-Mortem statt Standard-Review
 ```
+
+Das fertige Briefing wird als **Markdown-Datei nach `~/shared/`** geschrieben (Pfad + Dateiname
+siehe Step 4) — nicht nur inline ausgegeben. So liegt es direkt kopierbereit für den externen Chat.
 
 ## Step 0 — Repo-Kontext laden (NICHT hardcoden)
 
@@ -120,7 +123,25 @@ Gib **das Problem/den Kontext OHNE unsere Entscheidung** (Abschnitt „Der ADR i
 zu „Das zu lösende Problem"). Bitte um eine eigenständige Empfehlung. Danach intern vergleichen:
 Wo weicht der Blind-Vorschlag ab? Das deckt Anchoring-Bias auf, den ein Review am fertigen ADR nicht sieht.
 
-## Step 4 — Rückfluss-Gate (beim Einarbeiten der Antwort)
+## Step 4 — Briefing nach `~/shared/` speichern
+
+Schreibe das erzeugte Briefing als Markdown-Datei in das Shared-Verzeichnis des Nutzers (`~/shared/`),
+mit **deterministischem** Dateinamen:
+
+```
+~/shared/adr-handoff-<ADR-NNN>-<JJJJ-MM-TT>.md            # Standard-Modus
+~/shared/adr-handoff-<ADR-NNN>-<mode>-<JJJJ-MM-TT>.md     # bei --mode premortem|blind
+```
+
+- **Idempotenz:** Der Dateiname ist pro ADR + Modus + Tag deterministisch → ein erneuter Lauf am
+  selben Tag **überschreibt** dieselbe Datei (kein Zuwuchern mit Duplikaten). Existiert die Datei
+  bereits aus einem früheren Lauf, vor dem Überschreiben kurz bestätigen lassen.
+- Nach dem Schreiben den **vollständigen Pfad** nennen und den Nutzer auf die ⚠️-markierten
+  „erneut bereitstellen"-Quellen hinweisen (falls vorhanden).
+- Kann in der Sitzung keine Datei geschrieben werden, gib das Briefing stattdessen in **einem**
+  Markdown-Codeblock aus, damit es kopierbar bleibt.
+
+## Step 5 — Rückfluss-Gate (beim Einarbeiten der Antwort)
 
 Die GPT-Antwort ist eine **externe Beobachtung**, kein Fakt. Bevor irgendein Einwand den ADR berührt:
 tagge jeden Punkt `[valid]` / `[missversteht-Kontext]` / `[out-of-scope]` — nur `[valid]` fließt ein,
@@ -131,11 +152,19 @@ und zwar als Änderung mit eigener Begründung, nicht als wörtliche GPT-Prosa.
 - ❌ ttz-lif/meiki-lra-ADRs oder reale Mandantendaten an ein externes LLM geben.
 - ❌ ADR-Nummern statt Inhalt referenzieren — GPT kennt unsere ADRs nicht.
 - ❌ Auf SSoT (Orchestrator-Memory, project-facts) *verweisen* statt inline — extern nicht ladbar.
-- ❌ GPT-Befund 1:1 in den ADR kippen, ohne Step-4-Tagging.
+- ❌ GPT-Befund 1:1 in den ADR kippen, ohne Step-5-Tagging.
 - ❌ Angriff ohne vorausgehenden Steelman (Cheap-Shot-Review).
 - ❌ Repo-Pfade / Org-Namen / MCP-Prefixe hardcoden — aus `project-facts.md` zur Laufzeit.
+- ❌ Das Briefing **ins Repo** schreiben (Working-Tree/`docs/`) — Ausgabe gehört nach `~/shared/`,
+  nicht in versionierte Repo-Pfade.
+- ❌ Für einen souveränen ADR (ttz-lif/meiki-lra/Realdaten) überhaupt eine Briefing-Datei
+  materialisieren — das Souveränitäts-Gate (Step 0) bricht VOR dem Schreiben ab.
+- ❌ Nicht-deterministische/zeitstempel-genaue Dateinamen, die bei jedem Lauf neue Dateien
+  anhäufen — der Name ist pro ADR+Modus+Tag fix (Idempotenz).
 
 ## Changelog
 
 - 2026-05-29: Initial. Cross-Provider-Pfad zur Session-Übergabe-Vorgabe; Steelman→Drei-Rollen→
   Out-of-the-Box als Default, Pre-Mortem-/Blind-Modus, Rückfluss-Tagging-Gate, Souveränitäts-Gate.
+- 2026-05-29: `mode: write` — Briefing wird als `.md` nach `~/shared/` geschrieben (Step 4,
+  deterministischer Dateiname = idempotent pro ADR+Modus+Tag); Anti-Patterns für Schreibziel ergänzt.
