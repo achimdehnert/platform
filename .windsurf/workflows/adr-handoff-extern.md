@@ -1,5 +1,5 @@
 ---
-description: Schreibt ein selbsterhaltendes ADR-Review-Briefing (Advocatus Diabolus + Out-of-the-Box) als .md nach ~/shared/, für ein externes LLM (GPT-5.5 o.ä.).
+description: Schreibt ADR-Review-Briefing als .md nach ~/shared/ für externe LLM-Zweitmeinung (Advocatus Diabolus + Out-of-the-Box).
 mode: write
 ---
 
