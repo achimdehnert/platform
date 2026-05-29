@@ -1,6 +1,10 @@
 ---
-trigger: always_on
+trigger: glob
+globs: **/tests/**,**/test_*.py,**/conftest.py
 ---
+
+
+
 
 # Testing — Rules
 

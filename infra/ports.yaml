@@ -186,7 +186,12 @@ services:
 
   risk-hub:
     prod: 8090
-    staging: 8090
+    # Staging-Host (88.99.38.75) bindet risk_hub_staging_web real auf
+    # 127.0.0.1:8099 (docker-compose.staging.yml) — bewiesen frei &
+    # erfolgreich gebunden. ports.yaml spiegelt jetzt die Realität,
+    # damit nginx_gen.py einen korrekten proxy_pass erzeugt (vorher
+    # 8090 → ins Leere → 301-Loop auf staging.schutztat.de).
+    staging: 8099
     dev: 8090
     container_name: risk_hub_web
     domain_prod: schutztat.de

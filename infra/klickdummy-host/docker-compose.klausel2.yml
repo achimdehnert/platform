@@ -1,0 +1,15 @@
+services:
+  klickdummy:
+    image: nginx:alpine
+    container_name: klickdummy
+    restart: always
+    ports:
+      - "127.0.0.1:8081:80"
+    volumes:
+      - /srv/klickdummy:/usr/share/nginx/html:ro
+      # Working-Tree für Symlink-Auflösung (per-subdir-Layout)
+      - /var/lib/klickdummy-sync:/var/lib/klickdummy-sync:ro
+      - /opt/klickdummy/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    labels:
+      - "com.iil.klickdummy-class=mock"
+      - "com.iil.adr=platform:ADR-216-Klausel2-Patch"
