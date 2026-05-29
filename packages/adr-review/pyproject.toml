@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "adr-review"
+version = "0.1.0"
+description = "Minimal CLI: AI architecture review for ADR pull requests"
+requires-python = ">=3.11"
+dependencies = [
+    "litellm>=1.50",
+    "requests>=2.31",
+]
+
+[project.scripts]
+adr-review = "adr_review.cli:main"
+
+[tool.setuptools]
+packages = ["adr_review"]

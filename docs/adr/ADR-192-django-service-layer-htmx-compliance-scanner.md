@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-05-09
 amended: 2026-05-10
 decision-makers:
@@ -26,7 +26,7 @@ domains:
   - django/models
   - htmx
   - testing
-implementation_status: none
+implementation_status: verified
 staleness_months: 6
 last_reviewed: 2026-05-09
 drift_check_paths:
@@ -39,7 +39,7 @@ drift_check_paths:
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed (v1.1, amended 2026-05-10) |
+| **Status** | Accepted (v1.1, amended 2026-05-10) — Implementation verified |
 | **Datum** | 2026-05-09 (v1.0), 2026-05-10 (v1.1) |
 | **Autor** | Achim Dehnert |
 | **Reviewer** | Claude (Sparring Review) |
