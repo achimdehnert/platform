@@ -9,7 +9,7 @@ related: [ADR-111, ADR-196, platform#191, platform#194]
 supersedes: []
 ---
 
-# ADR-209 (v4, amendiert): Zwei SHA-gepinnte CI-Familien für 48 Repos
+# ADR-222 (v4, amendiert): Zwei SHA-gepinnte CI-Familien für 48 Repos
 
 > **Kurz:** Geteilte CI ja. *Eine* Familie für 48 heterogene Repos nein.
 > Zwei Familien (PyPI-Library / Django-Hub), Pin per **SHA**, ein
@@ -21,7 +21,7 @@ supersedes: []
 
 `proposed` — **eingefroren bis `platform-doctor`-Daten vorliegen**. Keine
 weitere ADR-Iteration ohne neue Empirie (Lehre aus 4 Iterationen v1→v4;
-vgl. Rationale §8/§9). Begründung: `reviews/ADR-209-v4-rationale.md`.
+vgl. Rationale §8/§9). Begründung: `reviews/ADR-222-v4-rationale.md`.
 
 ## Kontext
 
@@ -101,7 +101,7 @@ Niedrig-aktive Repos dürfen Frozen-SHA via `.ci-frozen` (Grund +
 → Eskalations-Issue; max **5 aktive Waiver/Repo** (hart, sonst rot).
 
 ## Explizit ausgeschlossen (eigene spätere ADRs)
-Org-weiter Auto-Fix-Bot (Threat-Model-ADR) · dritte Familie (ADR-209a falls
+Org-weiter Auto-Fix-Bot (Threat-Model-ADR) · dritte Familie (ADR-222a falls
 empirisch nötig) · Monorepo · Programm-Selbstabschaltung (ersetzt durch
 `platform-doctor`-Trends). **Reverse-Smoke**: verworfen, nicht „später".
 
@@ -127,4 +127,4 @@ driften → geteilte Schritte als Composite Action `ci-common@<sha>`.
 1. api-diff-Tooling: `griffe`/eigener AST-Diff?
 2. Composite-Action `ci-common@<sha>` jetzt oder Duplikation tolerieren?
 3. `platform-doctor` strikt read-only (kein Auto-PR)?
-4. MCP/Odoo/Bots → `_ci-djangohub.yml` oder ADR-209a?
+4. MCP/Odoo/Bots → `_ci-djangohub.yml` oder ADR-222a?

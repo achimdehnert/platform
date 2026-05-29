@@ -1,6 +1,6 @@
-# ADR-209 v4 — Amendment 2026-05-18 (Red-Team V4.3 + Code-first)
+# ADR-222 v4 — Amendment 2026-05-18 (Red-Team V4.3 + Code-first)
 
-Autoritative Ergänzung zu `ADR-209-v4-rationale.md` (externer Review).
+Autoritative Ergänzung zu `ADR-222-v4-rationale.md` (externer Review).
 Wo dieses Dokument der Rationale widerspricht, gilt dieses.
 
 ## 1. Reverse-Smoke exzidiert (V4.3)
@@ -50,6 +50,6 @@ cross-validieren die bisherigen Wellen unabhängig:
 
 ## 4. Status
 
-ADR-209 bleibt `proposed`, **eingefroren bis Doctor-Daten reviewt**. Kein
+ADR-222 bleibt `proposed`, **eingefroren bis Doctor-Daten reviewt**. Kein
 v5. Nächster Schritt mit Informationsgehalt = Doctor-Output mit Entscheider
 durchgehen, nicht weitere Doku.

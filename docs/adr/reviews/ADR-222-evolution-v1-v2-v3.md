@@ -1,4 +1,4 @@
-# ADR-209 — Evolution v1 → v2 → v3 (Externer Review)
+# ADR-222 — Evolution v1 → v2 → v3 (Externer Review)
 
 > **Zweck dieses Dokuments:** Material für einen externen Review. Es zeigt
 > dieselbe Entscheidung in drei Fassungen plus die *Begründung jedes
@@ -41,7 +41,7 @@ Repos) sollten die empirischen Lehren als wiederholbarer Prozess festgehalten
 werden, damit der nächste Lauf nicht dieselben Fehlgriffe macht.
 
 ```markdown
-# ADR-209: Cross-Repo CI-Health als wiederkehrendes gegatetes Programm (Contract-First)
+# ADR-222: Cross-Repo CI-Health als wiederkehrendes gegatetes Programm (Contract-First)
 
 ## Entscheidung
 CI-Health wird als wiederkehrender Loop mit Triage-Gating betrieben:
@@ -86,7 +86,7 @@ Self-Red-Team **vor** Merge. Sechs Treffer:
 **Wie es entstand:** v1 + die 6 Angriffe als 5 Prinzipien re-synthetisiert.
 
 ```markdown
-# ADR-209: CI-Health als Konvergenz-Programm mit Verfallsdatum
+# ADR-222: CI-Health als Konvergenz-Programm mit Verfallsdatum
 
 ## Entscheidung — fünf Prinzipien
 1. Prävention vor Detektion: 48 per-Repo-CIs → EINE gehärtete reusable
@@ -133,7 +133,7 @@ implementation_status: none
 related: [ADR-111, ADR-196, platform#191, platform#194]
 ---
 
-# ADR-209: Versionierte geteilte CI (einzige Entscheidung)
+# ADR-222: Versionierte geteilte CI (einzige Entscheidung)
 
 ## Kontext
 Empirie #191: ein Fix in reusable _ci-python.yml entsperrte alle — und hätte
@@ -181,7 +181,7 @@ Prosa. „Fertig" = platform-doctor grün → kein Programm zu betreiben.
 3. **Konvergenz vs. Monorepo:** Bei 48 heterogenen Repos (Django-Hubs, fw-
    Libs, MCP-Server, Odoo) — ist „eine Workflow-Familie" realistisch oder
    wird es ein God-Workflow mit 20 Conditional-Inputs?
-4. **Braucht es überhaupt ein ADR-209?** D3 konsequent zu Ende: vielleicht
+4. **Braucht es überhaupt ein ADR-222?** D3 konsequent zu Ende: vielleicht
    nur `platform-doctor` + versionierte shared CI als Code+README, gar keine
    Governance-Schicht. Ist der ADR selbst der Smell?
 5. **Goodhart bleibt:** Auch v3s Waiver-Mechanik kann zu Waiver-Sprawl führen
