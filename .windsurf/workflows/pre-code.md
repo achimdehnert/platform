@@ -1,5 +1,6 @@
 ---
 description: Pre-Code Contract Verification — Annahmen verifizieren bevor der erste Keystroke
+mode: read-only
 ---
 
 # /pre-code — Contract Verification (PCV)

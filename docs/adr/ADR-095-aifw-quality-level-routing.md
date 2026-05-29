@@ -554,7 +554,7 @@ Per ADR-057 (Four-Level Test Strategy), the following tests are required before 
 
 ## 11. References
 
-- [ADR-027: Shared Backend Services](ADR-027-shared-backend-services.md) — `aifw` as platform LLM execution framework
+- [ADR-027: Shared Backend Services](archive/ADR-027-shared-backend-services.md) (superseded → ADR-180) — `aifw` as platform LLM execution framework
 - [ADR-043: AI-Assisted Development](ADR-043-ai-assisted-development.md) — API stability requirement driving backwards compatibility
 - [ADR-050: Platform Decomposition](ADR-050-platform-decomposition-hub-landscape.md) — package landscape; domain separation preventing authoringfw gateway anti-pattern
 - [ADR-057: Four-Level Test Strategy](ADR-057-platform-test-strategy.md) — test requirements (§9)

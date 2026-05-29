@@ -17,7 +17,6 @@ from __future__ import annotations
 import argparse
 import json
 import os
-import subprocess
 import sys
 import tomllib
 from dataclasses import dataclass, field
@@ -75,24 +74,147 @@ def _read_pyproject(path: Path) -> dict:
         return tomllib.load(fh)
 
 
+_TEST_EXCLUDE_PARTS = {
+    "_archive", "_ARCHIVED", ".venv", "venv", "env",
+    "node_modules", "__pycache__", ".tox", ".git",
+}
+
+
 def _check_test_count(path: Path, min_count: int = 1) -> tuple[bool, str]:
-    result = subprocess.run(
-        [sys.executable, "-m", "pytest", "--collect-only", "-q", "--tb=no"],
-        capture_output=True,
-        text=True,
-        cwd=str(path),
-    )
-    output = result.stdout + result.stderr
-    for line in output.splitlines():
-        if "selected" in line or "test" in line.lower():
-            try:
-                count = int(line.strip().split()[0])
-                if count >= min_count:
-                    return True, f"{count} tests collected"
-                return False, f"only {count} tests (need >= {min_count})"
-            except (ValueError, IndexError):
+    """Count test files (test_*.py) under pyproject testpaths or sensible defaults.
+
+    Filesystem-based to avoid false negatives when the checker's Python lacks
+    the repo's runtime deps (Django, etc.) needed for pytest collection.
+    """
+    data = _read_pyproject(path)
+    pytest_cfg = data.get("tool", {}).get("pytest", {}).get("ini_options", {})
+    testpaths = pytest_cfg.get("testpaths") or ["tests", "src"]
+    if isinstance(testpaths, str):
+        testpaths = [testpaths]
+
+    seen: set[Path] = set()
+    for tp in testpaths:
+        base = path / tp
+        if not base.exists():
+            continue
+        for test_file in base.rglob("test_*.py"):
+            if any(part in _TEST_EXCLUDE_PARTS for part in test_file.parts):
                 continue
-    return False, "could not collect tests (check pytest config)"
+            seen.add(test_file)
+
+    count = len(seen)
+    if count >= min_count:
+        return True, f"{count} test files found in {testpaths}"
+    return False, f"only {count} test files (need >= {min_count}) in {testpaths}"
+
+
+def _yaml_get_2level(text: str, section: str, field: str) -> str | None:
+    """Get <section>.<field> from simple 2-level YAML (no PyYAML dep)."""
+    in_section = False
+    section_indent = 0
+    for raw in text.splitlines():
+        line = raw.rstrip("\n")
+        stripped = line.lstrip()
+        if not stripped or stripped.startswith("#") or stripped.startswith("- "):
+            continue
+        indent = len(line) - len(stripped)
+        if indent == 0 and ":" in stripped:
+            key = stripped.split(":", 1)[0].strip()
+            in_section = (key == section)
+            section_indent = 0
+            continue
+        if in_section and indent > 0:
+            if section_indent == 0:
+                section_indent = indent
+            if indent == section_indent and ":" in stripped:
+                k, _, v = stripped.partition(":")
+                if k.strip() == field:
+                    return v.strip().strip('"').strip("'") or None
+    return None
+
+
+def _check_catalog_info(path: Path) -> tuple[bool, str]:
+    """Verify catalog-info.yaml exists and has metadata.name, spec.type, spec.owner."""
+    catalog = path / "catalog-info.yaml"
+    if not catalog.exists():
+        return False, "catalog-info.yaml missing"
+    text = catalog.read_text(encoding="utf-8", errors="ignore")
+    required = [("metadata", "name"), ("spec", "type"), ("spec", "owner")]
+    missing = [
+        f"{section}.{field}"
+        for section, field in required
+        if not _yaml_get_2level(text, section, field)
+    ]
+    if missing:
+        return False, f"catalog-info.yaml missing fields: {', '.join(missing)}"
+    return True, "catalog-info.yaml present with required fields"
+
+
+def _check_readme_content(path: Path) -> tuple[bool, str]:
+    """README.md exists, has H1, and is at least 100 chars of non-whitespace content."""
+    readme = path / "README.md"
+    if not readme.exists():
+        return False, "README.md missing"
+    text = readme.read_text(encoding="utf-8", errors="ignore")
+    has_h1 = any(line.startswith("# ") for line in text.splitlines())
+    content_len = len(text.strip())
+    if not has_h1:
+        return False, f"README.md lacks H1 heading (# Title)"
+    if content_len < 100:
+        return False, f"README.md too short ({content_len} chars, need >= 100)"
+    return True, f"README.md OK ({content_len} chars, H1 present)"
+
+
+def _check_django_test_settings(path: Path) -> tuple[bool, str]:
+    """Find Django test settings via sub-package, flat, or pyproject declaration."""
+    subpkg_layouts = [
+        "config/settings/test.py",
+        "src/config/settings/test.py",
+        "settings/test.py",
+    ]
+    for rel in subpkg_layouts:
+        if (path / rel).exists():
+            return True, f"found {rel}"
+
+    flat_layouts = [
+        "config/settings_test.py",
+        "src/config/settings_test.py",
+        "settings_test.py",
+    ]
+    for rel in flat_layouts:
+        if (path / rel).exists():
+            return True, f"found {rel} (flat layout)"
+
+    data = _read_pyproject(path)
+    pytest_cfg = data.get("tool", {}).get("pytest", {}).get("ini_options", {})
+    settings_module = pytest_cfg.get("DJANGO_SETTINGS_MODULE")
+    if settings_module:
+        pythonpath = pytest_cfg.get("pythonpath") or [""]
+        if isinstance(pythonpath, str):
+            pythonpath = [pythonpath]
+        rel_path = settings_module.replace(".", "/") + ".py"
+        for prefix in [*pythonpath, ""]:
+            full = path / prefix / rel_path
+            if full.exists():
+                return True, f"found via DJANGO_SETTINGS_MODULE: {full.relative_to(path)}"
+
+    return False, "no test settings (tried sub-package, flat, pyproject DJANGO_SETTINGS_MODULE)"
+
+
+def _check_ci_build_dependency(workflows_dir: Path) -> tuple[bool, str]:
+    """Check if any workflow has a build/deploy job that depends on ci/test."""
+    if not workflows_dir.is_dir():
+        return False, "no .github/workflows directory"
+
+    patterns = ["needs: [ci]", "needs: ci", "needs: [test]", "needs: test"]
+    for yml in sorted(workflows_dir.glob("*.yml")):
+        try:
+            content = yml.read_text(encoding="utf-8")
+        except OSError:
+            continue
+        if any(p in content for p in patterns):
+            return True, f"found in {yml.name}"
+    return False, "no build/deploy job depends on ci/test (scanned all workflows)"
 
 
 # ─────────────────────────────────────────────
@@ -178,6 +300,13 @@ def check_python_package(path: Path) -> HealthReport:
     # Makefile
     add(CheckResult("file:Makefile", "SUGGEST", _file_exists(path, "Makefile")))
     add(CheckResult("file:CHANGELOG.md", "SUGGEST", _file_exists(path, "CHANGELOG.md")))
+
+    # ── Structural conventions (added 2026-05-15, SUGGEST during rollout) ──
+    add(CheckResult("file:LICENSE", "SUGGEST", _file_exists(path, "LICENSE")))
+    passed, detail = _check_catalog_info(path)
+    add(CheckResult("catalog-info.yaml", "SUGGEST", passed, detail))
+    passed, detail = _check_readme_content(path)
+    add(CheckResult("README.md content", "SUGGEST", passed, detail))
 
     # ── CI Workflows ──
     workflows_dir = path / ".github" / "workflows"
@@ -270,6 +399,13 @@ def check_django_app(path: Path) -> HealthReport:
 
     add(CheckResult("file:CHANGELOG.md", "SUGGEST", _file_exists(path, "CHANGELOG.md")))
 
+    # ── Structural conventions (added 2026-05-15, SUGGEST during rollout) ──
+    add(CheckResult("file:LICENSE", "SUGGEST", _file_exists(path, "LICENSE")))
+    passed, detail = _check_catalog_info(path)
+    add(CheckResult("catalog-info.yaml", "SUGGEST", passed, detail))
+    passed, detail = _check_readme_content(path)
+    add(CheckResult("README.md content", "SUGGEST", passed, detail))
+
     # Makefile contains DJANGO_SETTINGS_MODULE
     if _file_exists(path, "Makefile"):
         add(CheckResult(
@@ -293,15 +429,13 @@ def check_django_app(path: Path) -> HealthReport:
     ))
 
     if has_ci and workflows_dir.is_dir():
-        ci_files = list(workflows_dir.glob("ci*.yml"))
-        if ci_files:
-            content = ci_files[0].read_text(encoding="utf-8")
-            add(CheckResult(
-                "ci:build needs:[ci]",
-                "BLOCK",
-                "needs: [ci]" in content or "needs: ci" in content or "needs: [test" in content,
-                "build job must depend on ci/test job",
-            ))
+        passed, detail = _check_ci_build_dependency(workflows_dir)
+        add(CheckResult(
+            "ci:build needs:[ci]",
+            "BLOCK",
+            passed,
+            detail,
+        ))
 
     # Health endpoint
     has_livez = False
@@ -324,17 +458,13 @@ def check_django_app(path: Path) -> HealthReport:
         "" if has_livez else "add /livez/ health endpoint",
     ))
 
-    # test settings
-    test_settings = (
-        _file_exists(path, "config/settings/test.py")
-        or _file_exists(path, "src/config/settings/test.py")
-        or _file_exists(path, "settings/test.py")
-    )
+    # test settings — accept sub-package layout, flat layout, or pyproject-declared
+    passed, detail = _check_django_test_settings(path)
     add(CheckResult(
         "django:test-settings",
         "BLOCK",
-        test_settings,
-        "" if test_settings else "config/settings/test.py missing",
+        passed,
+        detail,
     ))
 
     # Tests

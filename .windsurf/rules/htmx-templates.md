@@ -1,6 +1,10 @@
 ---
-trigger: always_on
+trigger: glob
+globs: **/templates/**,**/*.html
 ---
+
+
+
 
 # HTMX Templates — Rules
 
