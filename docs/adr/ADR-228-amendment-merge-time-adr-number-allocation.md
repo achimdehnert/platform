@@ -87,12 +87,16 @@ Chosen: **Option 3 — merge-time allocation.**
   with frontmatter `id: ADR-DRAFT-<slug>` (or a `draft: true` marker). No
   number is chosen; `/adr` and `adr_next_number.py` emit a slug, not a number.
   In-PR cross-references use the slug or the PR number.
-* **Merge time:** a GitHub Action (`adr-allocate-on-merge.yml`, on
-  `push: main`, paths `docs/adr/ADR-DRAFT-*`) computes the next free number —
-  now race-free, since it runs serialized on `main` — and atomically:
-  `git mv` the file to `ADR-NNN-<slug>.md`, set frontmatter `id: ADR-NNN`,
-  rewrite the H1 + intra-file self-refs, insert the `INDEX.md` row, bump
-  "next free", and commit back to `main`.
+* **Merge time (pre-merge / merge-queue — see resolved OQ-1):** the allocator
+  runs **on the PR branch as the merge is gated** (merge queue, or a pre-merge
+  step), renames `ADR-DRAFT-<slug>.md` → `ADR-NNN-<slug>.md`, sets frontmatter
+  `id: ADR-NNN`, rewrites the H1 + intra-file self-refs, inserts the `INDEX.md`
+  row, then lets `guardian` re-run — so the **merged commit already carries the
+  number**. Merges are serialized → the number is race-free. A `push: main`
+  follow-up bot is a **documented fallback only** (branch-protection /
+  `GITHUB_TOKEN` constraints in resolved OQ-1). The allocation logic lives in a
+  **tested CLI** (`scripts/adr_allocate.py`, fixtures); the workflow only
+  invokes it.
 * **On-main invariant unchanged:** `adr_next_number.py --check` still asserts
   no duplicate numbers on `main`; ADR-065's `max+1` ordering still holds — it
   is just computed by the allocator at merge, not by the author at creation.
@@ -150,6 +154,54 @@ Chosen: **Option 3 — merge-time allocation.**
 * Renumbering existing ADRs (the 221..227 results stand).
 * The interim detective guard (#332) — already shipped, kept as safety net.
 
+## External review incorporation (cross-provider handoff, 2026-05-29)
+
+A cross-provider external review (Steelman → three-role → out-of-the-box, no
+repo access) returned 10 recommendations; the reflow gate tagged **all 10
+`[valid]`** (no misunderstandings, no out-of-scope). Folded in as decisions
+(IDs reference the review's `REC-`/`AD-`/`M28-` items).
+
+**Open questions — now RESOLVED:**
+
+* **OQ-1 (REC-1/2/9) — allocator vs. branch-protected `main`: RESOLVED → pre-merge /
+  merge-queue allocation.** Allocate on the PR branch as the merge is gated
+  (re-run `guardian`, then merge), so the merged commit already carries the
+  number — no bot writing to protected `main`, no `GITHUB_TOKEN` re-trigger
+  gap. `push: main` follow-up = documented fallback only. This sub-option is
+  promoted from "candidate" to the **chosen mechanism** (REC-9). The "collision
+  impossible by construction" claim is **qualified** (REC-2): it holds only
+  within the serialized merge path, with **no** `ADR-DRAFT-*` left on `main`.
+* **OQ-2 (REC-5/8) — scope: RESOLVED → reusable allocator CLI for all
+  `docs/adr/` repos, rolled out staged** (platform first, service repos after).
+  Until a service repo onboards, ADR-065's author-time `max+1` + the #332 guard
+  remain in force there. SSoT sharpened (REC-8): the allocator derives numbers
+  **only** from the target repo's filesystem at the current merge state — never
+  a second source.
+
+**Quality / implementation refinements (fold into the follow-up PR):**
+
+* **REC-3 (M28-1) — tested CLI, not implicit regex.** Rename/rewrite logic is a
+  versioned, fixture-tested CLI (`scripts/adr_allocate.py`); the workflow only
+  calls it. Fixtures: plain ADR, self-refs, multi-link, YAML frontmatter,
+  idempotent re-run, fail-loud on ambiguous patterns. (Directly answers the
+  conflict-marker regression risk seen during the 2026-05-29 sweep.)
+* **REC-4 (AD-6) — multiple drafts per PR:** allowed; the allocator assigns
+  numbers **deterministically by slug (sorted)**; `--check` flags a PR that
+  would leave a draft unallocated.
+* **REC-6 (M28-4) — reference convention:** pre-merge refer to a draft by slug
+  or `PR #NNN`; post-merge, permanent references MUST use `ADR-NNN`; the
+  allocator rewrites known local draft-refs within the same PR.
+* **REC-7 (M28-2) — security/audit:** minimal-scope permissions, CODEOWNERS on
+  the allocator workflow + CLI, allocator tests as a required check, optional
+  signed bot commits, no broad long-lived PATs.
+* **REC-10 (M28-1) — Confirmation extended:** beyond "two PRs get distinct
+  numbers", also assert: no `ADR-DRAFT-*` remains on `main`, `INDEX.md` is
+  deterministically ordered, and `adr_next_number.py --check` blocks both
+  duplicate numbers **and** leftover drafts on `main`.
+
+Verdict: **Überarbeiten → done.** With OQ-1/OQ-2 resolved and the refinements
+folded in, this ADR is Accept-ready (acceptance pending the decider).
+
 ## Glossar
 
 > Zielgruppe: Fachpersonal ohne IT-Hintergrund.
@@ -177,3 +229,4 @@ Chosen: **Option 3 — merge-time allocation.**
 
 * 2026-05-29: Initial (proposed). Amendment to ADR-065 — allocate ADR numbers
   at merge time to eliminate the in-flight open-PR collision race.
+* 2026-05-29: External cross-provider review incorporated (10/10 valid) — OQ-1 resolved (pre-merge/merge-queue allocation), OQ-2 resolved (reusable CLI, staged); tested-CLI + security/CODEOWNERS + multi-draft + ref-convention refinements folded in.
