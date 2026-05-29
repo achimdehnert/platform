@@ -342,6 +342,13 @@ def analyze_diff(diff_text: str) -> GuardianResult:
 
 
 def main() -> None:
+    # Guard gegen UnicodeEncodeError bei surrogates aus invalidem UTF-8
+    # in git-diffs (Binary-Sektionen, latin1-Files, etc.) — replace statt crash.
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(errors="replace")
+    if hasattr(sys.stderr, "reconfigure"):
+        sys.stderr.reconfigure(errors="replace")
+
     parser = argparse.ArgumentParser(
         description="Architecture Guardian \u2014 PR Analyse",
     )
@@ -360,7 +367,7 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.diff:
-        diff_text = Path(args.diff).read_text(encoding="utf-8")
+        diff_text = Path(args.diff).read_text(encoding="utf-8", errors="replace")
     else:
         diff_text = sys.stdin.read()
 
