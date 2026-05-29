@@ -35,19 +35,19 @@ Infrastruktur-Voraussetzung: Traefik-Stack läuft auf `staging-platform` ✅
 
 | Repo | Staging-Hostname | Ingress-Migration | Ingress-Issue |
 |------|-----------------|-------------------|---------------|
-| **dev-hub** | `staging-devhub.iil.pet` | 🟡 Pilot (nächstes Issue) | — |
-| writing-hub | `staging-writing.iil.pet` | 🔴 todo | — |
+| **dev-hub** | `staging-devhub.iil.pet` | 🟡 in-progress | [PR#56](https://github.com/achimdehnert/dev-hub/pull/56) |
+| writing-hub | `staging-writing.iil.pet` | ✅ done (pilot) | — |
 | bfagent | `staging-bfagent.iil.pet` | 🔴 todo | — |
-| billing-hub | `staging-billing.iil.pet` | 🔴 todo | — |
-| coach-hub | `staging-coachhub.iil.pet` | 🔴 todo | — |
-| cad-hub | `staging-cadhub.iil.pet` | 🔴 todo | — |
+| billing-hub | `staging-billing.iil.pet` | 🟡 in-progress | [PR#3](https://github.com/achimdehnert/billing-hub/pull/3) |
+| coach-hub | `staging-coachhub.iil.pet` | 🟡 in-progress ⚠️ DNS | [PR#23](https://github.com/achimdehnert/coach-hub/pull/23) |
+| cad-hub | `staging-cadhub.iil.pet` | ✅ done (pilot) | — |
 | risk-hub | `staging-demo.schutztat.de` | n/a (Klausel 1, eigene Domain) | — |
 | travel-beat | `staging-travelbeat.iil.pet` | 🔴 todo | — |
-| pptx-hub | `staging-pptxhub.iil.pet` | 🔴 todo | — |
+| pptx-hub | `staging-pptxhub.iil.pet` | 🟡 in-progress ⚠️ DNS | [PR#22](https://github.com/achimdehnert/pptx-hub/pull/22) |
 | research-hub | `staging-researchhub.iil.pet` | 🔴 todo | — |
 | sqf-hub | `staging-sqfhub.iil.pet` | 🔴 todo | — |
 | tax-hub | `staging-taxhub.iil.pet` | 🔴 todo | — |
-| trading-hub | `staging-tradinghub.iil.pet` | 🔴 todo | — |
+| trading-hub | `staging-tradinghub.iil.pet` | 🟡 in-progress ⚠️ DNS | [PR#4](https://github.com/achimdehnert/trading-hub/pull/4) |
 | 137-hub | `staging-137hub.iil.pet` | 🔴 todo | — |
 | wedding-hub | `staging-weddinghub.iil.pet` | 🔴 todo | — |
 | recruiting-hub | `staging-recruitinghub.iil.pet` | 🔴 todo | — |
@@ -70,9 +70,14 @@ Infrastruktur-Voraussetzung: Traefik-Stack läuft auf `staging-platform` ✅
 
 ## Nächster Schritt
 
-**Pilot-Migration dev-hub** → eigenes Issue öffnen mit:
-1. Traefik-Labels in `dev-hub/docker-compose.staging.yml` hinzufügen
-2. `traefik_public` network einhängen
-3. Staging deployen + Smoke-Test
-4. Nginx-vhost entfernen
-5. Dieses Dokument auf ✅ aktualisieren
+**Phase Sonnet-1 abgeschlossen (2026-05-21)** — 5 PRs gepusht:
+dev-hub, billing-hub, coach-hub, pptx-hub, trading-hub.
+
+⚠️ DNS-CNAMEs für coach-hub, pptx-hub, trading-hub fehlen noch (Cloudflare-Token
+abgelaufen — manuelle Erstellung nötig). Vor Merge der jeweiligen PRs anlegen:
+- `staging-coachhub.iil.pet`
+- `staging-pptxhub.iil.pet`
+- `staging-tradinghub.iil.pet`
+
+**Nach Merge der PRs:** Auf `staging-platform` jeweils `docker compose up -d` neu
+starten + Nginx-vhost entfernen → Status auf ✅ setzen.
