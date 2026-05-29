@@ -4,7 +4,7 @@ description: Pflicht-Ritual vor jeder Coding-Agent-Session — Kontext laden, St
 
 # Agent Session Start Workflow
 
-**Trigger:** Jede neue Windsurf/Cascade-Session, bevor der erste Code-Change gemacht wird.
+**Trigger:** Jede neue Windsurf/Agent Session, bevor der erste Code-Change gemacht wird.
 
 > Dieses Ritual verhindert, dass ein Agent ohne Kontext blind drauflos arbeitet.
 > Dauer: ~2 Minuten. Spart Stunden an Debugging und Rollbacks.
@@ -252,7 +252,7 @@ Am Ende **jeder** Session, bevor die Verbindung getrennt wird:
 | Windsurf-Verbindung tot | `/windsurf-clean` |
 | Wissen sichern nach Session | `/knowledge-capture` |
 | Third-Party Stack upgraden | `/stack-upgrade` |
-| Repo-Sync nach Cascade-Session | `/sync-repo` |
+| Repo-Sync nach Agent Session | `/sync-repo` |
 | Shell hängt komplett | `/windsurf-clean` dann Neustart |
 
 ## MCP-Server Quick-Reference

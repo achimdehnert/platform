@@ -1,5 +1,6 @@
 ---
 description: Check health of all deployed services and infrastructure
+mode: read-only
 ---
 
 # /infra-health

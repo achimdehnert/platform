@@ -3,7 +3,7 @@ parent: Decisions
 nav_order: 157
 title: "ADR-157: 3-Server Architecture — Dev, Staging, Production with automated port governance"
 status: accepted
-amended: 2026-04-16
+amended: 2026-05-13   # 2. Amendment durch ADR-198 — §4.1 Staging-Domain-Konvention ersetzt
 date: 2026-04-02
 deciders: Achim Dehnert
 consulted: Cascade AI
@@ -149,6 +149,12 @@ Dev Desktop (88.99.38.75)   Staging (178.104.184.168)    Production (88.198.191.
 ```
 
 ### 4.1 Staging-Domain-Konvention
+
+> **Amendment 2026-05-13 (ADR-198 §4.1)**: Diese Tabelle ist **überholt**.
+> CF Universal SSL deckt nur 1 Subdomain-Level pro Zone ab — `staging.<app>.iil.pet`
+> ist zweistufig und scheitert am Free-Tier-Cert. Verbindliche Konvention:
+> `staging-<app>.iil.pet` (Bindestrich, 1 Level) für `*.iil.pet`-Hubs.
+> Siehe **ADR-198 §4.1** für die aktuelle Tabelle inkl. Multi-Tenant-Sonderfälle.
 
 | Prod-Domain-Typ | Staging-Pattern | Beispiel |
 |-----------------|-----------------|----------|

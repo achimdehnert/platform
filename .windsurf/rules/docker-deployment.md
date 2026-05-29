@@ -1,6 +1,10 @@
 ---
-trigger: always_on
+trigger: glob
+globs: Dockerfile,**/docker-compose*.yml,**/.env*,scripts/*.sh,.github/**
 ---
+
+
+
 
 # Docker & Deployment -- Rules
 
