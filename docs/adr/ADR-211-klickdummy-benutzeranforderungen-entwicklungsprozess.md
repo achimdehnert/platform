@@ -216,6 +216,11 @@ platform/scripts/checks/adr_sunset.sh
 #     'mock-prototyp'/'demo-render' verwenden ODER Hard-Deadline 2026-08-20
 #     erreicht: Strict-Mode in check_i2.py überall aktivieren (LEGACY={}).
 #     S11-Erfüllung schließt F12.
+#
+# S12 KD-first-Gate-Adoption (Rev 16, optional, nicht status-gatend)
+#     Pro Repo: ja/nein. Wenn ja: NEUE Features mit User-facing Surface
+#     durchlaufen das KD-first-Gate (Spec + KD + Signoff VOR Impl, §KD-first-Gate).
+#     Misst Velocity-Vorteil; gatet plattformweit NICHT.
 ```
 
 ## §Co-Creation-Loop (optional, Rev 12)
@@ -546,6 +551,166 @@ beobachtbare Stakeholder-Feedback durch die A-User-Direct-Bridge
 zu v1.1-Code in derselben Session — Iterations-Reflexivität funktioniert
 wie in Rev 13 beschrieben.
 
+## §Acceptance-Marker (Rev 16, optional)
+
+**Problem (aus meiki-hub Iter 9, 2026-05-25):** Stakeholder fordern Sichtbarkeit
+des Reifegrads je Klickdummy/Screen — *„accepted, getestet, abgenommen"*. Naive
+Lösung (Status-Feld pro Screen) hat 7 dokumentierte Schwächen (Status-Drift,
+fehlende Evidence, 3-Domänen-im-1-Eimer, Granularitäts-Falle, kein Decay etc.;
+siehe Empirie-Quelle unten). **Erweiterung von I1, keine neue Invariante.**
+
+**Schema** (im Klickdummy-Spec, KD- oder Screen-Level, append-only):
+
+```yaml
+acceptance:
+  spec_signed:                              # PO/PM-Sign-Off (Anforderungs-Akzeptanz)
+    - { by: po.dehnert, date: 2026-05-25, ref: workshop-WS-042 }
+  ui_walked:                                # End-User-Workshop-Walk (Bedienbarkeit)
+    - { by: sb.jugendamt-3, date: 2026-05-23, ref: workshop-WS-044, n_screens: 6 }
+```
+
+**Pflichtfelder:** `by`, `date`, `ref`. **Status derivativ** (nie manuell):
+
+| Status | Bedingung |
+|---|---|
+| `signed` | jüngster Eintrag ≤ 60 Tage alt |
+| `stale`  | jüngster Eintrag > 60 Tage alt (Spec-Drift-Verdacht, Re-Walk empfohlen) |
+| `missing`| keine Einträge — Rendering unterdrückt (kein Rauschen) |
+
+**Warum genau 2 Achsen (nicht 4):** Smallest-viable. Spec-Sign-Off und User-Walk
+sind die zwei *meistgenutzten* Sign-Off-Events im Workshop-Workflow. Weitere
+Achsen (validated, impl_parity) sind nicht ausgeschlossen — werden aber erst
+mit Empirie aus zweitem Repo nachgezogen (Pre-Check `adr-threshold.md`).
+
+**Trennung gegenüber I3 (Sunset):** Acceptance-Marker sagen *„dieser Walk ist
+passiert"*. Sunset sagt *„dieser KD verfällt am Tag X"*. Beide unabhängig.
+Ein `stale` Acceptance-Marker ist *kein* automatischer Sunset-Auslöser.
+
+**Trennung gegenüber Impl-Abnahme:** Klickdummy-Acceptance ≠ Vertrags-Abnahme
+der späteren Implementierung. Vertragliche Abnahme bleibt I3 Phase-C-Parity.
+
+**Render-Konvention:** Status-Bar je Screen-Render zeigt Chip pro Achse
+(`✓ spec_signed` grün, `⚠ ui_walked` gelb bei `stale`, missing nicht
+gerendert). Genesor-Übersicht spiegelt Achsen-Status pro KD wieder.
+
+## §UC-Coverage (Rev 16, optional)
+
+**Problem:** Use-Case-Listen leben heute als Markdown-Files (4 Repos im Pilot,
+zwei verschiedene Frontmatter-Stile in ausschreibungs-hub + meiki-hub).
+Bidirektionale Coverage zwischen UC und Klickdummy-Screen war Ad-hoc-Lookup.
+
+**Konvention** (kompatibel mit bestehendem ausschreibungs-hub-Stil):
+
+```yaml
+---                                          # UC-Markdown-Frontmatter
+uc_id: UC-WG-001                             # Pflicht — intra-repo eindeutig
+name: "Wohngeld-Antrag stellen"              # Pflicht
+primaer_akteur: buerger                      # empfohlen
+sekundaer_akteure: [bevollmaechtigte]        # optional
+realisiert_von_klickdummy: meiki-hub:ADR-032 # empfohlen — Aggregat-Backref
+related_screens:                             # bidirektional gelintet
+  - meiki-hub:ADR-032#antragsdaten
+  - meiki-hub:ADR-032#einkommens_plausi
+fv_bezug: FV-OKWOBIS-WOHNGELD                # optional (Konkurrenz-FV)
+prio: hoch | mittel | niedrig                # optional
+status: draft | reviewed | approved          # optional
+---
+```
+
+**Cross-Repo-Namespace** `<repo>:UC-NNN` analog I4 — vollqualifiziert
+(z. B. `meiki-hub:UC-WG-001`, **nicht** `meiki:UC-WG-001`). Konsistent zu I4
+Cross-Repo-ADR-Refs im gesamten ADR-Korpus.
+
+Refs in `related_screens` nutzen das Format `<repo>:ADR-NNN#screen-id`.
+Beim Bestand (Iter ≤11) existieren Legacy-Kurzform-Refs (`meiki:ADR-032`);
+``klickdummy_lineage.py`` löst diese via Heuristik auf (Prefix +
+`-hub`-Suffix). **Neu erstellte UCs** sollen ausschließlich die
+vollqualifizierte Form nutzen; die Heuristik bleibt für Migrations-Übergang
+bestehen (analog Rev-12-Soft-Migrate) und entfällt nach Cross-Repo-Inventur
+ohne Kurzform-Treffer.
+
+**Bidirektionaler Lint** (Erweiterung von I1):
+
+- Jede `related_screens`-Ref muss zu einem existierenden Screen auflösen
+  (sonst Coverage-Warning).
+- Optional: Screen kann `realizes_use_cases: [<repo>:UC-NNN]` als Rückrichtung
+  haben — `klickdummy_lineage.py` linted die Symmetrie.
+
+**Coverage-Output:** Cross-Repo-Heatmap `UCs × KDs` mit Cell-Zähler (Anzahl
+realized Screens pro Tupel). Footer listet UCs ohne Realisierung + UCs mit
+nicht-auflösbaren Refs. Generator: `klickdummy_lineage.py --genesor`
+schreibt `genesor/coverage.html` (no Service-Boundary, statisch).
+
+**SSoT bleibt YAML im git.** Externe UC-Quellen (JIRA, Linear, Excel) sind als
+*Read-Only-Import-Adapter* erlaubt — sie schreiben YAML im Repo, niemals
+umgekehrt. (Pre-Check `adr-threshold.md`: kein Service, keine Boundary.)
+
+**Markdown-only-UCs ohne Frontmatter** (siehe ausschreibungs-hub `UC-001..003`)
+werden im Discovery übersprungen — keine Coverage, kein FAIL. Konvertierung
+zu Frontmatter-Stil per repo-lokaler PR, nicht plattform-erzwungen.
+
+### `by`-Konvention (Audit-Trail, pro Achse differenziert)
+
+Achsen haben unterschiedliche Stakeholder-Populationen — eine einheitliche
+Login-Pflicht funktioniert nicht (siehe Adversarial-Pass-Finding zu Rev 16:
+End-User-Sachbearbeiter:innen haben keinen GitHub-Account, können also
+weder PR-Author noch -Approver sein).
+
+| Achse | `by`-Wert | Beglaubigung | Validator-Layer-B-Pfad |
+|---|---|---|---|
+| **`spec_signed`** | GitHub-Login (Pflicht) | `by` MUSS PR-Author ODER Approver-Login matchen | `gh api repos/<o>/<r>/pulls/<N>/reviews` (Approver) UNION Commit-Author-Liste |
+| **`ui_walked`** | Freier Identifier (Persona/Rolle erlaubt, z. B. `sb.jugendamt-3`) | Sponsor-Statement im PR-Body durch Author/Approver: `vouch: ui_walked sb.jugendamt-3 ref: workshop-WS-044` | Parser im PR-Body sucht `vouch:`-Zeilen; Sponsor muss seinerseits GitHub-Login mit Write-Access sein |
+
+**Mechanik gemeinsam:** Audit-Trail lebt im git-PR-Log, nicht im YAML-Text.
+`by` allein ist Behauptung; die Beglaubigung ist die git-PR-seitige
+Verknüpfung (direkt für `spec_signed`, sponsor-vermittelt für `ui_walked`).
+
+**Beispiel-Werte gehören keine GitHub-Login-Syntax aufzwingen** — die
+Beispiele in §Acceptance-Marker (`po.dehnert`, `sb.jugendamt-3`) sind
+Rollen-Identifier und gelten dort als zulässige `ui_walked`-Form (oder als
+Persona-Slugs in der Übergangsphase, bis Repos eigene Login-Mappings haben).
+
+**F16 (offen):** End-User-Walks ohne GitHub-Identität strukturell sauber
+absichern — Sponsor-Pattern ist Provisorium. Schließung-Pfad: nach erster
+echter Workshop-Empirie mit mehr als 5 Sign-Off-Akten (siehe §Offene F-Items).
+
+## §Threshold-Reality-Check (Rev 16, sichtbarer Self-Check)
+
+Per `~/.claude/policies/adr-threshold.md` vor Promotion auf `accepted`-Status —
+als auditierbarer Block, nicht nur Floskel im Changelog:
+
+| Kriterium | Trifft zu? | Beleg |
+|---|---|---|
+| Cross-Cutting-Impact >1 Repo | **Ja** | meiki-hub + ausschreibungs-hub Pilot (47 UCs cross-repo: 4 ausschreibungs-hub + 43 meiki-hub) |
+| Reversibel? | **Ja** (opt-in pro Repo) | ohne `acceptance:`-Block / UC-Files keine Wirkung |
+| Service-Boundary neu? | Nein | `klickdummy_lineage.py` bleibt SSoT (no daemon/API) |
+| Data-Sovereignty / Security? | Nein | YAML-im-git, kein remote-state |
+| Trade-Off worth recording? | **Ja** | 7-Findings-Adversarial gegen naive Status-Felder |
+
+**Verdict:** ADR-Erweiterung gerechtfertigt. Eigener ADR-21X wurde erwogen
+und verworfen (siehe Adversarial-Pass Rev 16 unten). **Risiko-Flag:**
+§UC-Coverage führt einen dritten first-class-Knoten (Use Case) ein —
+Steel-Man-Argument für eigene Invariante I5. Bewusst als §-Erweiterung
+gehalten, bis Cross-Repo-Adoption diese Promotion empirisch rechtfertigt
+(siehe F-Items F13/F14/F15 unten).
+## §KD-first-Gate (optional, Rev 16)
+
+**Opt-in-Capability** (additiv, nicht status-gatend — wie §Co-Creation/§Requirements-Bridge). Bewusst **zwei Ebenen**, getrennt nach *mechanisch erzwingbar* vs. *Prozess-Empfehlung* (adr-challenger 2026-05-28, gegen das Vacuous-Pass-Risiko C1/C2):
+
+**(1) Coverage-Invariante (mechanisch erzwingbar) — die eigentliche Substanz:** Bei aktiviertem Gate MUSS jeder Spec-Eintrag mit `surface: ui` einen gerenderten Klickdummy-Screen haben (I1/I2). Das ist ein Exit-Code-Check (`klickdummy-i1`-Erweiterung), **kein Selbstauskunfts-S-Item** — die KD-*Existenz* je UI-Spec ist prüfbar, anders als ein zeitliches „vor Impl". Damit wird „KD-first" zur **Coverage-Invariante** (vacuous-pass-sicher), nicht zum unprüfbaren Versprechen.
+
+> **`surface: ui` ist NICHT frei opt-out-bar (schließt den „leere-Menge"-Vacuous-Pass, adr-challenger Re-Pass C1'):** `klickdummy-i1` leitet das Flag aus dem bereits geprüften I1-Coverage-Signal ab — ein Spec-Eintrag, dessen Impl-Route eine UI rendert (Template / HTTP-200-View), **MUSS** `surface: ui` tragen; Weglassen bei vorhandener UI-Route ⇒ FAIL. So erzwingt der Check die Klassifikation, statt sie zu glauben — die Invariante kann nicht durch Weglassen des Felds auf die leere Menge reduziert werden.
+
+**(2) Prozess-Empfehlung (SOLLTE, nicht erzwungen):** Das Stakeholder-Feedback am Klickdummy SOLLTE *vor* der Impl der Surface eingeholt werden — Feedback am klickbaren Prototyp ist schneller/präziser als an laufendem Code/PRs (der Engpass ist die Abstimmung über Layout/Flow/Scope, nicht das Tippen). Auditierbar nur, wenn die Spec einen `signoff:`-Block trägt (`approver` · `date` · `kd_version`); ohne diesen ist es Empfehlung, kein Gate. **Vorwärtsgerichtet:** bestehende Impl bleibt I3-Transition (nicht retroaktiv gegated — impl-first ist Transitions-Zustand bereits existierender Repos, keine Design-Präferenz).
+
+**Ausnahmen:** Backend-only/ohne UI, `bugfix`/`refactor`/`infra`/`docs`/trivial. Maßgeblich ist das aus dem I1-Signal abgeleitete `surface: ui` (s. o.) — eine Surface mit UI-Route lässt sich nicht durch Task-Typ-Selbstdeklaration am Gate vorbeiführen.
+
+**KI-/Daten-Qualität als eigenes Spec-Feld `backend_quality_check:` (A2), nicht als Fußnote:** Ein KD validiert per Definition nur Layout/Flow — Backend-/KI-Output-Qualität (z. B. LLM-Extraktion) ist mit synthetischen Demo-Daten **nicht** prüfbar. Specs mit Pattern `spec-demo` und KI-Wertschöpfung SOLLTEN ein Feld `backend_quality_check:` führen, das eine separate parity-artige Probe gegen das *echte* Backend referenziert (kein Mensch-Signoff, kein synthetischer Demo-Pfad). Empirie: ausschreibungs-hub `document-intelligence-vergabe-analyse` — 3-Tab-Layout per spec-demo-KD (`?demo=`) früh geklärt, die Extraktionsqualität nur per echtem LLM-Lauf (Groq) sichtbar.
+
+**Operationalisierung:** agentic-coding-Workflow, optionaler **Step 2.7 (KD-Gate)** vor Step 3; bei KI-Features `backend_quality_check`-Kriterium in Step 5/6.
+
+**Empirie-Stand:** 1 Feature (2026-05-28). Verbindlichkeit (Coverage-Invariante plattformweit erzwungen) erst nach **3+ Piloten** mit belegtem Velocity-Vorteil — bis dahin opt-in + Scoreboard S12. adr-challenger-Findings adressiert: C1 (Vacuous-Pass → Ebene 1 mechanisch), C2 („Pflicht" in opt-in = Kategorienfehler → SOLLTE), A1 (Coverage-Invariante statt zeitliches Gate), A2 (`backend_quality_check`-Feld).
+
 ## §Migration Rev-≤10 → Rev-11 (Rev 12, F12 in Schließung)
 
 **Problem (F12 aus Rev 11):** Repos mit `class: mock-prototyp` (Rev ≤10)
@@ -693,6 +858,12 @@ behauptete Abhängigkeit zu ADR-207 war Konsequenz der Fehl-Auslagerung F5
 | **Parity-Test** | Renderer↔Implementierung-Äquivalenztest — Gate **und** Off-Ramp |
 | **Off-Ramp** | Parity-grün ⇒ mechanische Entfernung der statischen Quelle (Grenze: `min(prod-Release, Parity-grün + N d)`) |
 | **Adoption-Scoreboard** | Lebende SF1–SF6-Rollout-Metrik; **gatet `status` nicht** (Rev 9) |
+| **`acceptance.spec_signed` (Rev 16)** | Append-only Sign-Off-Liste durch PO/PM; Status derivativ (≤60d=`signed`, >60d=`stale`, leer=`missing`) |
+| **`acceptance.ui_walked` (Rev 16)** | Append-only Workshop-Walk-Liste durch End-User; selbe Status-Logik wie `spec_signed`; Beglaubigung via Sponsor-`vouch:`-Statement im PR-Body durch Author/Approver mit Write-Access (siehe §by-Konvention + F16) |
+| **Sponsor-`vouch:`-Pattern (Rev 16)** | PR-Body-Zeile `vouch: <axis> <by-value> ref: <ref>` durch Stakeholder mit GitHub-Write-Access; bürgt für Akzeptanz-Eintrag dessen `by`-Wert keine GitHub-Identität ist (typisch `ui_walked` mit End-User-Persona) |
+| **`<repo>:UC-NNN` (Rev 16)** | Cross-Repo-Namespace für Use Cases analog I4-Klickdummy-Namespace |
+| **`related_screens` (Rev 16)** | UC-Frontmatter-Feld; Refs werden bidirektional gegen Klickdummy-Screens gelintet |
+| **UC-Coverage-Heatmap (Rev 16)** | `genesor/coverage.html` — Cross-Repo `UCs × KDs`-Matrix, Cell = realized Screen-Count |
 
 ## Acceptance-Trigger
 
@@ -721,13 +892,39 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 - **Rev 12 (Empirie-getrieben aus meiki-hub PR #23, 7 Iterationen 2026-05-20)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Boundary, kein 5. Invariant, kein eigener ADR-21X. **F12 in Schließung** (§Migration Rev-≤10 → Rev-11) — Soft-Migrate-Pattern mit **Hard-Deadline 2026-08-20** (Rev-11-Datum + 3 Monate) etabliert; vor Deadline ⚠-Warning, ab Deadline FAIL; Strict-Mode-Trigger als Scoreboard-Item S11 (Inventur-Skript ODER Deadline schließt F12). **Zwei optionale Capabilities** als Erweiterung von I1: **§Co-Creation-Loop** (Stakeholder-Feedback aus Klickdummy → Spec, 3 Vertrauens-Pfade A/B/C — meiki-hub:ADR-026 als Referenz) und **§Requirements-Bridge** (Spec → UC/FR/NFR/Lasten/Pflicht, deterministisch + drift-aware, asymmetrisch — Forward auto, Reverse menschlich). Scoreboard erweitert um S9 (Co-Creation-Adoption), S10 (Requirements-Bridge-Adoption), S11 (Strict-Mode-Trigger). **Iteration-Typologie:** *stakeholder-getriggert* (klassisch) + *compliance-getriggert* (Policy-Hook erkennt Drift → dieselbe Pipe — meiki Iter. 7 als Erstanwendung). **Reflexivität dokumentiert** (Widget kann sich über sich selbst weiterentwickeln, meiki Iter. 6). **F11 weiterhin offen** (pattern-spezifischer Prod-Guard — gehört in Issue #255-Umsetzung, nicht ADR-Text).
 - **Rev 13 (Decider-Pivot 2026-05-20 — Plattform-Heimat konkret + Co-Creation-Pfade neu)** — Auslöser: ttz-hub als 6. Klickdummy-Repo + Anspruch *„permanente Weiterentwicklung wirkt cross-repo"*. **Initial ADR-214-Draft (Distribution + Service-Endpoint) wurde nach Decider-Review als advocatus diabolus zurückgezogen** (4 🔴-Findings: K1 0% Empirie für Endpoint, K3 Coding-Agent existiert nicht, K6/K12 Service-Wartung ohne ROI, K10 Datenschutz-Default falsch herum). **Konsequenzen in Rev 13:** (a) **§Distribution** als ADR-211-§ statt ADR-214 (`adr-threshold.md`: ohne Service-Boundary keine neue Architektur-Entscheidung). pip-Paket `iil-klickdummy` v1.0.0 mit Schemas + Skripten + Widget v0.5 als `package_data`; via Git-URL bis privates PyPI aufgesetzt ist. (b) **§Co-Creation Pfade A neu strukturiert:** `A-light` (download/clipboard, empirisch validiert) + `A-User-Direct` (Widget POSTet direkt an `api.github.com` mit User-PAT in localStorage — GitHub-native Audit/Rate-Limit/Auth) + `A-Agent` (GitHub-Action pro Repo, Voraussetzung nachweisbar). „A-Bridge" mit zentralem Endpoint **gestrichen** — wenn Skalierung Service erfordert, neu evaluieren in Rev 14. (c) **Plugin-Architektur im Widget** (`KLICKDUMMY_CATEGORIES`/`PERSONA_HOOK`/`VERFAHREN_HOOK`) — Repo-Customization ohne Fork. (d) **Widget v0.5 = voller meiki-v0.4-Stand** (Action-Liste, DOM-Snapshot, File-Upload, Scope-Selector, Verfahrens-Kontext) — Iterations-Rückschritt bei Adoption vermieden.
 - **Rev 14 (2026-05-21 — Multi-Klickdummy-Browser + public PyPI)** — Empirie-getrieben durch erstes „echtes" Stakeholder-Feedback nach Smoke-Test #27 (Pfad A-light, `feedback_scope: klickdummy-tool`): *„erweitere den klickdummy so, dass er mehrere versionen und verschiedene klickdummies aufrufen kann. als listbox im linken menu möglich?"* **Konsequenzen:** (a) **`iil-klickdummy` v1.1.0** mit neuem Modul `registry.py` + Snippet `browser/browser.html.tmpl` + Console-Script `klickdummy-browser` — Stufe 1 (Versions-Switcher aus Git-History) + Stufe 2 (Repo-Browser mit Listbox + iframe). Stufe 3 (Cross-Repo) als v1.2-Roadmap, Stufe 4 (Live-Service) Best-Effort. (b) **Distribution-Update:** public PyPI (`pip install iil-klickdummy>=1.1,<2.0`) wird Default; Git-URL bleibt Fallback. Privates PyPI nicht weiterverfolgt — public ist niedrigste Reibung und gibt Open-Source-Signal ohne Wartungs-Service-Boundary (analog Rev-13-Pivot-Logik). PyPI-Publish via Trusted Publishing (OIDC), kein API-Token in Secrets. (c) **§Multi-Klickdummy-Browser** dokumentiert Aktivierungs-Definition + 3 Anti-Patterns + 4-Stufen-Roadmap. (d) **Reflexivität gestärkt:** Iter. 8 (Stakeholder-Feedback per A-light) führt direkt zu v1.1-Code in derselben Session — empirischer Beleg, dass Co-Creation-Loop wie in Rev 13 designed funktioniert.
+- **Rev 16 (2026-05-25/26 — Empirie aus meiki-hub Iter 9-11: Acceptance + UC-Coverage + Adversarial-Pass)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md` **als sichtbarer §Threshold-Reality-Check im Body dokumentiert** (nicht nur Floskel). **Zwei optionale §-Erweiterungen** von I1: (a) **§Acceptance-Marker** mit zwei orthogonalen Achsen (`spec_signed` für PO/PM-Sign-Off, `ui_walked` für End-User-Workshop-Walk), append-only Listen mit Evidence-Pflicht (`by`+`date`+`ref`), Status derivativ aus jüngstem Eintrag (`signed` ≤60d, `stale` >60d, `missing`); adressiert den 7-Findings-Adversarial-Review gegen naives Status-Feld-Design. (b) **§UC-Coverage** standardisiert UC-Markdown-Frontmatter kompatibel mit Bestand (ausschreibungs-hub + meiki-hub); Cross-Repo-Namespace `<repo>:UC-NNN`; bidirektionaler Lint UC→Screen; Coverage-Heatmap als `genesor/coverage.html`. **`by`-Audit-Trail-Konvention** ergänzt: `acceptance.<axis>[*].by` muss PR-Author/Approver-Login matchen — sonst unbeglaubigte Behauptung. **Adversarial-Pass (2026-05-26)** identifizierte 5 Steel-Mans; 3 davon als F-Items F13/F14/F15 unter §Offene F-Items dokumentiert (Content-Hash, Reverse-Lint, Auto-Skelett-Verzerrung). Stärkster Counter (Steel-Man #1: „§UC-Coverage führt dritten first-class-Knoten ein, Invariante I5 unter Tarnnamen") wurde **bewusst nicht umgesetzt** — bleibt als §-Erweiterung bis Cross-Repo-Adoption I5-Promotion empirisch rechtfertigt. **Pilot meiki-hub** (Iter 9-11, 2026-05-25/26): 47 UCs cross-repo nach Generator-Run (4 ausschreibungs-hub + 43 meiki-hub), 45 realized · davon 28 `auto_generated: true` (Stub) und 17 manuell-validiert · 21 → 50 Coverage-Zellen · Validator-Layer-A 36/47 clean. Beide §-Erweiterungen sind **opt-in pro Repo**. **Cloud-Ultrareview (2026-05-26, PR #297)** identifizierte 4 Findings (1 normal + 3 nits); alle in zweitem Amend gefixt: `by`-Konvention pro Achse differenziert (Login-Pflicht nur `spec_signed`, freier Identifier + Sponsor-Pattern für `ui_walked`), `<spec-id>`-OR-Form aus Ref-Konvention entfernt, vollqualifizierte `<repo>:`-Form als Soll mit Legacy-Heuristik (Soft-Migrate-Pattern Rev 12), Threshold-Check-Empirie-Zahl auf aktuellen Stand korrigiert (18→47), Cross-Ref-Tippfehler §Bezug→§Offene F-Items. Neues F-Item **F16** (`ui_walked`-Beglaubigung ohne GitHub-Identität) als offen dokumentiert.
 - **Rev 15 (2026-05-21 — Repo-Extraktion zu iilgmbh/iil-klickdummy)** — Auslöser: 59 offene platform-Issues + PyPI-Publish macht platform-Repo public-sichtbar → Klickdummy-Konsumenten sehen verwirrenden Org-internen Issue-Mix. Plus: iilgmbh-Org als künftige Heimat für `iil-*`-Familie + `risk-hub` (Move-Roadmap). **Aktion:** `packages/iil-klickdummy/` per `git filter-repo --path` extrahiert nach `iilgmbh/iil-klickdummy` (Historie erhalten, 3 sichtbare Commits seit Trennung + Subtree-Detail). v1.1.1 als Patch-Release im neuen Repo (Repo-Move-only, kein Code-Change). PyPI-Trusted-Publisher umkonfiguriert: Owner `iilgmbh`, Repo `iil-klickdummy`, Workflow `publish-pypi.yml`. **Trennung Konvention ↔ Implementation festgeklopft:** ADR-211 (Konvention) bleibt achimdehnert/platform; `iilgmbh:iil-klickdummy:ADR-001` ist Implementations-ADR. Schwester-Implementations (`meiki-hub:ADR-021`, `writing-hub:ADR-180`, `risk-hub:ADR-046`, `ttz-hub:ADR-100`) per `sister_of` cross-verlinkt. **Nebeneffekt:** platform-Issues fokussieren wieder auf platform-weite Themen; iil-klickdummy-spezifische Issues entstehen im neuen Repo (Stale-Bot + Issue-Templates dort aktiv). **Keine Änderung für Konsumenten:** `pip install iil-klickdummy>=1.1,<2.0` funktioniert unverändert (PyPI-Project-Name stabil; nur das Backing-Repo wechselt).
+- **Rev 16 (2026-05-28 — KD-first-Gate als opt-in-Capability)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Invariante (lebt als opt-in I1/I2-Extension wie Rev-12-§Co-Creation), kein 5. I5, kein eigener ADR-21X. Auslöser: Decider-Wunsch „KD-first für schnelleres/präziseres Feedback; alles erst als KD, dann Implementierung". **adr-challenger-Pass** stellte fest: ein *verbindliches* plattformweites Gate aus **1 Feature** (ausschreibungs-hub `document-intelligence-vergabe-analyse`) widerspräche der Methodik-Lehre Rev 14 („erst Empirie, dann Vertrag") und der `ansatz-offen`-Haltung (retroaktive Non-Konformanz existierender impl-first-Repos = Kategorienfehler wie Rev 9; impl-first ist Transitions-Zustand, keine Präferenz). **Konsequenz:** right-sized auf **opt-in** (§KD-first-Gate) + **vorwärtsgerichtet** (bestehende Impl bleibt I3-Transition, nicht gegated). **KI-/Daten-Qualitäts-Zusatz** (KD validiert Layout/Flow, nicht Output-Qualität — separater Backend-Check Pflicht) als allgemeingültige Klarstellung. Scoreboard +S12 (KD-first-Gate-Adoption, optional, nicht status-gatend). Operationalisierung: agentic-coding **Step 2.7**.
 
 ## Bezug
 
+- **Playbook:** `docs/concepts/CONCEPT-003-klickdummy-playbook.md` — Begleit-Dokument zu diesem ADR (wie konkret implementieren, Stack-Patterns, Lessons Learned, Repo-Adoptions-Status)
 - risk-hub:ADR-046 · writing-hub:ADR-180 · meiki-hub:ADR-020 · meiki-hub:ADR-026 (Co-Creation-Loop + Requirements-Bridge — Rev-12-Empiriebasis) — Mapping auf Rev-11-Patterns in §Auswahlhilfe
 - Followups `adr-211-followup` SF1–SF11 (Adoption-Scoreboard, **nicht status-gatend**) — S7/S8 durch Rev 11, S9/S10/S11 durch Rev 12
 - Closes-on-acceptance: **#228** (sunset_after-Frontmatter, F10) und **#229** (4-Pattern-Taxonomie, F9). #255 SF3-AC muss vor Bau an pattern-spezifischen Prod-Guard angepasst werden (F11, offen). **F12 geschlossen durch Rev 12** (§Migration).
 - meiki-hub PR #23 (`feat/klickdummy-feedback-loop-poc`, 7 Iterationen) — Empiriequelle für Rev 12; insbesondere `docs/01-architektur/mockups/fristenmanagement-klickdummy/feedback-log.md` (Provenance + Iteration-Typologie).
 - Drift-Memory `2026-05-19-klickdummy-adr180-collision` (meiki-hub-Auto-Memory, `drift: true`)
-- Policy `adr-threshold.md` (Selbsttest — Rev 12 begründet Erweiterung statt neuem ADR)
+- Policy `adr-threshold.md` (Selbsttest — Rev 12 begründet Erweiterung statt neuem ADR; Rev 16 dokumentiert den Self-Check sichtbar als §Threshold-Reality-Check)
+
+## Offene F-Items (durch Rev 16 dokumentiert, nicht geschlossen)
+
+- **F13 (Layer-C-Content-Hash)**: `acceptance.<axis>[*]` speichert kein Content-
+  Hash des UC/Spec-Standes bei Sign-Off. Stale-Decay greift erst nach 60d —
+  Spec-Drift bleibt bis dahin unsichtbar. Schließung-Pfad: bei erstem realem
+  „ich habe was anderes signiert"-Konflikt-Bericht (Rev 17).
+- **F14 (Reverse-Lint Screen→UC)**: §UC-Coverage linted UC→Screen, aber nicht
+  Screen→UC. Klickdummy-Spec mit Orphan-Screens (kein UC referenziert sie)
+  wird nicht gefunden. Schließung-Pfad: Validator-Erweiterung + `uc-coverage-
+  exempt: <reason>`-Opt-out im Spec.
+- **F15 (Coverage-Verzerrung durch Auto-Skelette)**: `auto_generated: true`-UCs
+  werden in Coverage-Metrik voll mitgezählt; Pilot meiki-hub zeigt 96%
+  „realized", davon 60% Auto-Skelette ohne Stakeholder-Walk. Schließung-Pfad:
+  Coverage-Split „echt vs. auto" in Heatmap + UC-Index.
+- **F16 (`ui_walked`-Beglaubigung ohne GitHub-Identität)**: End-User wie
+  Sachbearbeiter:innen im Workshop haben strukturell keinen GitHub-Account.
+  Rev 16 nutzt **Sponsor-Statement** (`vouch:` im PR-Body durch
+  Author/Approver mit Write-Access) als Provisorium; das ist bisher nicht
+  empirisch validiert. Schließung-Pfad: nach 5+ realen Workshop-Sign-Offs
+  prüfen ob das Pattern trägt oder eine alternative Mechanik nötig ist
+  (z. B. separates Sign-Off-Repo, signed digital token, OAuth-Flow für
+  Workshop-Teilnehmer).

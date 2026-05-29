@@ -89,9 +89,33 @@ flowchart LR
 - `LR` für ≤5 Knoten (horizontal), `TD` für tiefere Flüsse (vertikal).
 - Multi-Line-Labels mit `<br/>` (keine `\n`).
 - Bold im Label: `<b>Text</b>`.
-- Farben aus dem iil-Design: Primärblau `#1A3A5C`, Hellblau `#EDF3FA`,
-  Ampel rot `#B71C1C`, orange `#E65100`, gelb `#FFC107`, grün `#2E7D32`.
-- `style NODE fill:#...,color:#...,stroke:#...` für individuelle Knoten.
+
+**Theme aus Design-YAML — keine `classDef`-Blöcke in der MD:**
+Statt Farben hart zu codieren, eine der vier semantischen Tier-Klassen anhängen.
+Der `print_agent` injiziert die `classDef`-Zeilen aus `print_designs.yaml`
+zur Renderzeit — die MD bleibt sauber, und ein Design-Wechsel
+(`--design meiki|iil|ttz`) färbt automatisch um.
+
+```mermaid
+flowchart TB
+    A[Top-Knoten]:::primary
+    B[Wichtig]:::accent
+    C[Stütz-Knoten]:::support
+    D[Querschnitt]:::muted
+    A --> B --> C
+    D -.-> A
+```
+
+| Klasse    | Verwendung                          |
+|-----------|-------------------------------------|
+| `:::primary` | Headline-Knoten, Gesamtsystem    |
+| `:::accent`  | Pflicht-/Kern-Bausteine          |
+| `:::support` | unterstützende Bausteine, Daten  |
+| `:::muted`   | Querschnitt, Hintergrund-Konzepte |
+
+**Override:** Wer einen einzelnen Knoten anders färben will, nutzt
+weiterhin `style NODE fill:#...,color:#...`. Eigene `classDef`-Zeilen
+in der MD gewinnen gegen die Injection (Author wins).
 
 **Größen-Hint:** Wenn ein Mermaid-Diagramm im PDF zu klein wirkt, breche es in 2
 Diagramme auf (z. B. linker und rechter Teil), statt mehr Knoten hineinzupacken.
