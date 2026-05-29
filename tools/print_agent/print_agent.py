@@ -737,7 +737,7 @@ def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
         if meta.get("anlass"):           rows.append(("Anlass", meta["anlass"]))
         if meta.get("zielentscheidung"): rows.append(("Zielentscheidung", meta["zielentscheidung"]))
         if meta.get("auftraggeber"):     rows.append(("Auftraggeber", meta["auftraggeber"]))
-        rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · kontakt@iil.gmbh"))
+        rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · info@iil.gmbh"))
         return rows
     # meiki default
     stand = meta.get("stand", "")
