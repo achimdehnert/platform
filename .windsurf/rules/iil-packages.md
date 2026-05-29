@@ -1,6 +1,10 @@
 ---
-trigger: always_on
+trigger: glob
+globs: **/*.py,**/requirements*.txt,**/pyproject.toml
 ---
+
+
+
 
 # iil Package Ecosystem — Usage Rules
 
