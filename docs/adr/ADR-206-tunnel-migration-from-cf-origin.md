@@ -1,8 +1,8 @@
 ---
-status: accepted-pilot
+status: accepted
 date: 2026-05-14
 decision-makers: [Achim Dehnert]
-implementation_status: partial (1/23 migriert)
+implementation_status: partial
 related: [ADR-205]
 ---
 

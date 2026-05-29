@@ -1,5 +1,6 @@
 ---
 description: Check platform governance before implementing new functionality
+mode: read-only
 ---
 
 # Platform Governance Check Workflow
