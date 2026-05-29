@@ -77,6 +77,12 @@ Vorfall 2026-05-29: Der neue `design-hub`-Klickdummy fehlte in genesor. Drei Urs
 4. **Reproduzierbarer Regen wird als Skript codifiziert** (`iil-pet-portal/scripts/`),
    inkl. `--vendored-repos` + Vendoring, mit **Diff-Gate** gegen den committeten Stand
    vor jedem Deploy.
+5. **Seed-vs-Live-Gate (Vorbedingung zur Veröffentlichung):** Ein KD darf erst auf
+   `main` (und damit in genesor/`iil.pet`) veröffentlicht werden, wenn er **ausschließlich
+   synthetische Daten** enthält — **keine realen Mandanten-/Bürgerdaten**. genesor ist
+   über `iil.pet` (CF-Access) stakeholder-sichtbar; reale Daten dort verletzen die
+   Daten-Souveränität ([[feedback-seed-vs-live-data]], 🌀 Vorfall „Realdaten in public
+   risk-hub"). Dieses Gate ist Teil des „KD-auf-main"-Contracts (Punkt 2).
 
 ## 3. Betrachtete Alternativen
 
@@ -169,3 +175,4 @@ diese Felder werden genutzt, keine neue State-Maschine in genesor.
 ## 11. Changelog
 
 - 2026-05-29: Initial (Proposed). Aus Vorfall „design-hub-KD fehlt in genesor" + Durchlauf-Evidenz abgeleitet.
+- 2026-05-29: Seed-vs-Live-Gate (Entscheidung Pkt. 5) ergänzt — entdeckt bei Migrationsstart: risk-hubs KD-Branch enthält realen Mandanten „Gröger GmbH" (dutzende Treffer); Veröffentlichung nach genesor/iil.pet wäre Daten-Souveränitäts-Verstoß. Synthetische-Daten-Pflicht ist nun Teil des Contracts.
