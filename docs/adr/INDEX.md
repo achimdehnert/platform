@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-14
-> **Next free ADR number:** 207
+> **Last updated:** 2026-05-29
+> **Next free ADR number:** 221
 
 ## Legend
 
@@ -207,10 +207,14 @@
 | 186 | Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation | `Proposed` | ⬜ | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
 | 187 | Document Intelligence Pipeline — iil-ingest erweitern um VectorStore, Multi-Tool Ensemble & RAG | `Accepted` | 🔶 | [ADR-187](ADR-187-document-intelligence-pipeline.md) |
 | 188 | Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store | `Proposed` | ⬜ | [ADR-188](ADR-188-unified-vector-store.md) |
+| 194 | Universal LLM-Call Logging via Gateway | `Proposed` | ⬜ | [ADR-194](ADR-194-universal-llm-call-logging-via-gateway.md) |
+| 195 | LiteLLM Proxy as Engine + Admin API as Truth | `Proposed` | ⬜ | [ADR-195](ADR-195-litellm-proxy-engine-plus-admin-api-truth.md) |
+| 196 | Adaptive Extensions to ADR-116 (Outcome Telemetry + Drift + Bandit) | `Accepted` | 🔶 | [ADR-196](ADR-196-adaptive-extensions-to-adr-116.md) |
 | 197 | Repo-aware MCP Tool Pruning for Cascade — pgvector-backed disabledTools generator | `Proposed` | ⬜ | [ADR-197](ADR-197-repo-aware-mcp-tool-pruning.md) |
 | 198 | Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention | `Accepted` | ⬜ | [ADR-198](ADR-198-staging-edge-second-cloudflare-tunnel-subdomain-convention.md) |
 | 199 | Model-Routing-Authority (rejected after 3 architecture iterations) | `Rejected` | — | [ADR-199](archive/ADR-199-gitops-routing.md) |
 | 201 | Claude Code Pricing Visibility — Statusline + Stop-Summary | `Accepted` | 🔶 | [ADR-201](ADR-201-claude-code-pricing-visibility.md) |
+| 220 | Migrate token-based PyPI publish workflows to OIDC Trusted Publishing with protected environments | `Proposed` | ⬜ | [ADR-220](ADR-220-oidc-trusted-publishing-for-pypi.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

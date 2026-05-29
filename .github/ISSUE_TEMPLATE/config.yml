@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 💬 Discussions
+    url: https://github.com/achimdehnert/platform/discussions
+    about: Allgemeine Diskussion, Fragen, Idee-Sammlung — keine konkrete Aufgabe
+  - name: 📦 iil-klickdummy Bugs/Features
+    url: https://github.com/iilgmbh/iil-klickdummy/issues
+    about: Klickdummy-Tool-spezifische Issues bitte hier
