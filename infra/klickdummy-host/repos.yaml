@@ -1,30 +1,44 @@
-# Klickdummy-Repo-Registry für Sync-Job (ADR-216)
-# Jedes Eintrag: SSH-Clone-URL + Sub-Pfad innerhalb des Repos, der nach
-# /srv/klickdummy/<owner>/<repo>/ gespiegelt wird.
-#
-# Authentifizierung: SSH-Deploy-Key am Server, read-only pro Repo.
+# Klickdummy-Repo-Registry (ADR-216 Klausel-2-Patch)
+# host_alias: maps zu ~/.ssh/config Eintrag mit per-Repo-Deploy-Key (5 Keys,
+# da GitHub-Limit: ein Key kann nicht auf mehreren Repos als Deploy-Key sein)
 
 repos:
   - owner: meiki-lra
     name: meiki-hub
+    host_alias: github.com-meiki
     sync_subdir: docs/01-architektur/mockups
+    layout: per-subdir         # <kd-name>/shell.html-Pattern
     description: Fristenmanagement (Forms) + Klickdummy-Modul (Login+Nav)
     adr: meiki:ADR-021
 
   - owner: bahn-sqf
     name: sqf-hub
+    host_alias: github.com-sqf
     sync_subdir: klickdummy
+    layout: per-subdir
     description: AF1 Tages-Zusammenfassung Lost Units (Conversation)
     adr: sqf-hub:ADR-003
 
   - owner: bahn-sqf
     name: pg-hub
+    host_alias: github.com-pg
     sync_subdir: klickdummy
+    layout: per-subdir
     description: Pocket Governance (Forms, Power Platform)
     adr: pg-hub:ADR-002
 
   - owner: ttz-lif
     name: ttz-hub
+    host_alias: github.com-ttz
     sync_subdir: klickdummy
+    layout: per-subdir
     description: Werkleitung + Schichtleitung (Forms)
     adr: ttz-hub:ADR-100
+
+  - owner: achimdehnert
+    name: risk-hub
+    host_alias: github.com-risk
+    sync_subdir: klickdummy
+    layout: flat-html           # direkte *.html-Files statt <name>/shell.html
+    description: DSB-Mandant + Ex-Schutz-Konzept + Module-Nav-Prototypen
+    adr: risk-hub:ADR-046

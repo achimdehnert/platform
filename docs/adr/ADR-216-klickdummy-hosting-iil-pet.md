@@ -466,6 +466,116 @@ Befund + Verbesserungen (eingearbeitet in dieser Revision):
 - SSE-Hot-Reload (Browser-Refresh ist gut genug)
 - Sub-Domains pro Org (kommt mit Phase-2-Owner-Auth)
 
+## Klausel-2-Übergangs-Variante (eingebaut 2026-05-21 Iter. 29)
+
+Realität auf `staging-platform` (Stand 2026-05-21): ADR-212 (Traefik)
+und ADR-142 (Authentik) sind beide **nicht deployed**. Der ADR-216-
+Initial-Pfad (Klausel 3 + SSO) bricht im Preflight ab.
+
+**Übergangs-Lösung** (Klausel 2 nach ADR-198): nginx-vhost auf dem
+Host + BasicAuth. Migration zu Klausel 3 + Authentik ist eine
+eigene Iteration nach ADR-212+142-Deployment.
+
+### Deltas zu Initial-ADR
+
+| Komponente | Initial (Klausel 3) | Klausel-2-Patch |
+|---|---|---|
+| Hostname-Routing | Traefik-Labels | `host-nginx-staging-klickdummy.conf` (Pattern von staging-devhub.iil.pet) |
+| TLS | Traefik DNS-01 | Bestehendes `*.iil.pet` Wildcard-Cert (acme.sh) |
+| Auth | Authentik SSO via forwardAuth | BasicAuth via htpasswd |
+| Container-Port | 80 via traefik_public | `127.0.0.1:8081` (Host-Loopback) |
+| Sync-Job | Symlinks via `--depth 1` | Plus Per-Repo-Deploy-Keys (5 Stück, SSH-Host-Aliases) |
+| Discovery-Endpoint | gleicher Code (`/api/list`) | gleicher Code (`/api/list`) |
+| risk-hub-Layout | nicht berücksichtigt | `layout: flat-html` (HTMLs direkt in `klickdummy/`) |
+
+### Live-Reality-Fixes
+
+1. **GitHub Deploy-Key-Limit**: ein SSH-Key kann nur 1× als Deploy-Key
+   registriert sein → **5 individuelle Keys** (`dk-sqf`, `dk-pg`,
+   `dk-meiki`, `dk-ttz`, `dk-risk`) + SSH-Host-Aliases (`github.com-sqf`, …)
+2. **Container-UID-Mismatch**: `/var/lib/klickdummy-sync` hatte 750
+   (klickdummy-sync) — nginx-Container (UID 999) konnte nicht stat() → sync.sh
+   chmod-Step ergänzt: `find $WORK -type d -exec chmod o+rx +` + Files o+r
+3. **risk-hub flat-HTML**: kein `<kd>/shell.html`-Subdir-Pattern → sync.sh
+   `layout: flat-html` kopiert je Datei als `<name>/shell.html`-Pseudo-KD
+4. **Container-Symlink-Mount**: zusätzlicher Volume `/var/lib/klickdummy-sync:/var/lib/klickdummy-sync:ro`
+   damit Symlinks aus `/srv/klickdummy/` auflösbar
+5. **DSFA-relevant**: BasicAuth-Credentials liegen in `/root/klickdummy-credentials.txt`
+   (root-only) — wird in `~/shared/secrets/` propagiert via
+   `~/.claude/projects/.../memory/`
+
+### Live-State (deployed 2026-05-21 14:44 UTC)
+
+* https://staging-klickdummy.iil.pet/ → HTTP 200 nach Login
+* 11 Klickdummy-URLs (sqf/pg/meiki×2/ttz×2/risk×3) → alle HTTP 200
+* Cron */15 läuft
+* Logs: /var/log/klickdummy-sync.log
+
+### Migration-Pfad zu Klausel 3
+
+Sobald ADR-212 (Traefik) + ADR-142 (Authentik) real deployed auf
+staging-platform:
+
+1. `docker compose down` (Klausel-2-Container)
+2. nginx-vhost entfernen (`rm /etc/nginx/sites-enabled/staging-klickdummy.iil.pet`)
+3. htpasswd archivieren (Authentik-User übernimmt Auth)
+4. `docker-compose.yml` (Klausel-3 mit Traefik-Labels) statt klausel2.yml verwenden
+5. `docker compose up -d` mit traefik_public-Network
+6. `cloudflared tunnel route` muss ggf. neu ansetzen (Tunnel-Target = nginx
+   bleibt, Traefik wird Sidecar bei nginx)
+
+Geschätzte Migration: 15 Min.
+## Per-Repo-Auth ohne Authentik (Iter. 32 Patch)
+
+Folge zu User-Anforderung 2026-05-21 (Iter. 31/32):
+
+> „Rollenkonzept: user/password per repo notwendig — user sieht nur sein repo/dummies"
+
+Realisiert ADR-217 §Auth Phase 2 OHNE Authentik (das fehlt auf staging-platform) durch **BasicAuth-Variante mit per-Owner htpasswd-Files + nginx location-Blöcke**.
+
+### Architektur
+
+| File | Zweck | User |
+|---|---|---|
+| `/etc/nginx/htpasswd-default` | Landing + Discovery + Widget | alle 8 |
+| `/etc/nginx/htpasswd-sqf` | `/bahn-sqf/sqf-hub/*` | raphael + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-pg` | `/bahn-sqf/pg-hub/*` | ilja + grinninger + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-meiki` | `/meiki-lra/meiki-hub/*` | lra-meiki + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-ttz` | `/ttz-lif/ttz-hub/*` | ttz-pilot + admin + klickdummy-viewer |
+| `/etc/nginx/htpasswd-risk` | `/achimdehnert/risk-hub/*` | risk-pilot + admin + klickdummy-viewer |
+
+**Realm überall `Klickdummy Demo`** → Browser cached die Credentials einmalig. Wenn Owner-User auf fremde Repos zugreift, kommt 401 (kein Re-Auth-Loop weil gleicher Realm).
+
+### Plus: Picker-Aktivierung via sub_filter
+
+Same-Origin-Hint via nginx-injected JS in jeder HTML-Response:
+
+```javascript
+if (location.hostname === "staging-klickdummy.iil.pet") {
+  CROSS_REPO_INDEX.forEach(e => { e.local = true; e.reachable = true;
+    if (!e.path_rel && e.url) e.path_rel = e.url; });
+  renderCrossRepoCard(crpSelect.value);
+}
+```
+
+Behebt: User-Bug-Report "klickdummy auswahl leitet nicht in den dummy (readonly)".
+
+### Plus: Home-Button via sub_filter
+
+`<a href="/" id="kd-home-btn" style="…">⌂ Übersicht</a>` vor `</body>` in jede HTML-Response — kein Repo-Eingriff.
+
+### Migration zu Authentik (ADR-217 Phase 2)
+
+Sobald Authentik deployed (ADR-142 + ADR-217):
+1. nginx-Per-Owner-Locations entfernen → eine `location /` mit forwardAuth
+2. htpasswd-Files weg → Authentik-Groups übernehmen
+3. Authentik-Application-Bindings: `klickdummy-<org>-viewers` → Path-Pattern
+4. Plus: `klickdummy-viewer` Übergangs-User auslaufen lassen
+
+Geschätzt: 30 Min nach Authentik-Setup.
+
+
+
 ## Provenance
 
 - meiki-hub-Session 2026-05-21 Iter. 24: GitHub Pages für alle 4 Repos
