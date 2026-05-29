@@ -123,3 +123,27 @@ ssh root@${HOST} "cp -r /var/www/${SITE} /var/www/.backup/${SITE}-$(date +%Y%m%d
 | `platform` repo | New `static-sites/` directory |
 | `88.198.191.108` | `/var/www/` becomes deploy target only |
 | Cascade workflow | Must use git-first for static assets |
+
+## Addendum 2026-05-29 — Härtung (externe Review-Befunde)
+
+Ergänzt die ursprüngliche Entscheidung um vier Härtungsmaßnahmen aus einer externen ADR-Review
+(GPT-5.5 via `/adr-handoff-extern`; Befunde durch das Step-5-Rückfluss-Gate als `[valid]` bestätigt).
+**Kein Reversal** der Kernentscheidung — Git als SSoT, Script-Deploy und `apps.json` bleiben.
+
+1. **Backup-Retention (AD-3).** `/var/www/.backup/` wächst sonst unbegrenzt. Regel: die letzten
+   **30 Deployments oder 90 Tage** behalten, Älteres räumt das Deploy-Script auf.
+2. **`apps.json`-Schema + Validierung (REC-2).** Pflichtfelder (`name`, `url`, `admin_url`,
+   `status`) als JSON-Schema festschreiben; der Deploy **bricht bei Schema-/URL-Fehler ab**.
+3. **Atomarer Deploy (AD-4).** Statt in-place-`rsync` nach `/var/www/<site>/`: in ein temporäres
+   Verzeichnis deployen und per **Verzeichnis-Swap** atomar aktivieren — kein inkonsistenter
+   Zwischenzustand für Nutzer während des Deploys.
+4. **Git-Checkout-Guard (AD-2 / REC-4).** Die menschliche Pre-Deploy-Checkliste wird **technisch
+   erzwungen**: `deploy.sh` bricht ab, wenn nicht aus einem sauberen Git-Checkout deployt wird
+   (kein dirty working tree, kein Deploy ungetrackter Assets).
+
+**Bewusst NICHT übernommen:** Landingpage in den Django-Stack ziehen (Out-of-Box-Alternative) —
+für rein statische Seiten zu schwergewichtig; der Minimal-Ansatz bleibt (settled). „Script statt
+Pipeline" bleibt ebenfalls (AD-7, out-of-scope) — Validierung wird innerhalb des Scripts aufgerufen.
+
+_Umsetzung in `static-sites/deploy.sh` + `apps.schema.json` als Folge-Arbeit; dieses Addendum hält
+die Entscheidung fest._
