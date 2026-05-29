@@ -88,6 +88,19 @@ fi
 
 # Deploy
 cd "$APP_PATH"
+
+# Staging: vor dem Hochfahren den Altstack sauber abräumen.
+# `up -d --remove-orphans` entfernt nur Orphans DESSELBEN Compose-Projekts;
+# ein Altcontainer aus einem früheren Run (anderes Projekt/Netz) bleibt
+# bestehen und blockiert dauerhaft Host-Ports (real passiert:
+# risk_hub_staging_minio hielt 127.0.0.1:9002 → Deploy + Rollback failten).
+# Nur staging, damit Prod (self-hosted, kein Stale-Stack-Problem) keinen
+# zusätzlichen Downtime durch ein down→up bekommt.
+if [[ "$ENVIRONMENT" == "staging" ]]; then
+  echo "Staging: räume Altstack ab (down --remove-orphans)"
+  docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>&1 || true
+fi
+
 docker compose -f "$COMPOSE_FILE" pull
 docker compose -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans
 
