@@ -19,6 +19,7 @@ is a symlink into a pinned platform worktree (`~/github/platform-pinned/policies
 | `platform-agents.md` | Where does a new cross-cutting agent live? (dev-hub) |
 | `claude-skills.md` | When to build a CC slash-command skill, and how |
 | `orchestrator.md` | When to query orchestrator MCP, and how it relates to these files |
+| `klickdummy.md` | Klickdummy = Renderer einer Spec; I1–I4 (Spec-first, Prod-Guard, Off-Ramp, Namensraum) — ADR-211 |
 
 ## Override pattern (per-repo)
 

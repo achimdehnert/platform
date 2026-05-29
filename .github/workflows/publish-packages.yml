@@ -112,7 +112,7 @@ jobs:
       id-token: write
     steps:
       - name: Download dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist-django-tenancy-${{ needs.build-django-tenancy.outputs.version }}
           path: dist/
@@ -208,7 +208,7 @@ jobs:
       id-token: write
     steps:
       - name: Download dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist-concept-templates-${{ needs.build-concept-templates.outputs.version }}
           path: dist/
@@ -305,7 +305,7 @@ jobs:
       id-token: write
     steps:
       - name: Download dist artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: dist-dvelop-client-${{ needs.build-dvelop-client.outputs.version }}
           path: dist/
@@ -330,7 +330,7 @@ jobs:
       - name: Download all dist artifacts
         if: |
           github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'testpypi'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: dist/
           merge-multiple: true
