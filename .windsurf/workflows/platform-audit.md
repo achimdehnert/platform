@@ -323,7 +323,7 @@ mcp8_create_issue(
 )
 ```
 
-### 5.4 Cascade Memory updaten
+### 5.4 agent memory updaten
 
 ```
 Memory: "Platform Audit {DATUM} — {N} Findings, Score {N}/100 — Report in Outline"

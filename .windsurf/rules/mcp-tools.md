@@ -1,6 +1,9 @@
 ---
-trigger: always_on
+trigger: manual
 ---
+
+
+
 
 # MCP Tools — Verfügbare Server & Fähigkeiten
 

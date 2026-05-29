@@ -135,5 +135,5 @@ Dann Root Cause analysieren, Breaking Changes prüfen, ggf. Env-Vars anpassen.
 [ ] Daten intakt (gleiche Anzahl)
 [ ] Altes Image entfernt
 [ ] Repo aktualisiert + committed
-[ ] Cascade Memory aktualisiert
+[ ] agent memory aktualisiert
 ```

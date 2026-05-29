@@ -1,0 +1,25 @@
+name: Skill MCP Signature Lint
+
+on:
+  push:
+    paths:
+      - ".windsurf/workflows/**.md"
+      - "scripts/lint_skill_mcp_signatures.py"
+      - ".github/workflows/skill-mcp-signatures.yml"
+  pull_request:
+    paths:
+      - ".windsurf/workflows/**.md"
+      - "scripts/lint_skill_mcp_signatures.py"
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Lint MCP signatures in skill files
+        run: python scripts/lint_skill_mcp_signatures.py

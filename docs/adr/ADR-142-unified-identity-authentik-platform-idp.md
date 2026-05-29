@@ -19,7 +19,9 @@ implementation_evidence:
   - "  - Outline (Knowledge-Hub): client_id=outline, native OIDC — pre-configured ✓"
   - "  - Grafana: client_id=grafana, GF_AUTH_GENERIC_OAUTH — SSO button active ✓"
   - "  - dev-hub: client_id=dev-hub, mozilla-django-oidc — SSO button active ✓"
-  - "Pending: Portainer Proxy-Auth (Outpost), MFA-Policy, Phase 2 Customer-Hubs"
+  - "Phase 2 Customer-Hubs (2026-05-19):"
+  - "  - cad-hub (nl2cad.de): client_id=cad-hub, mozilla-django-oidc — deployed & verified live (/login/ SSO button, /oidc/authenticate/ 302 → id.iil.pet/application/o/cad-hub/authorize/ with correct client_id+redirect_uri) ✓"
+  - "Pending: Portainer Proxy-Auth (Outpost), MFA-Policy, remaining Phase 2 Customer-Hubs"
 ---
 
 # ADR-142: Unified Identity — authentik als Platform Identity Provider

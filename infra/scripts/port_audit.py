@@ -17,11 +17,17 @@ Nutzung:
     # Nächsten freien Port ermitteln:
     python infra/scripts/port_audit.py --next-free
 
+    # Inventory-Drift (Compose/Nginx in ~/github/*) für staging:
+    python infra/scripts/port_audit.py --offline --inventory staging
+
+    # Inventory-Drift kombiniert mit Server-Audit:
+    python infra/scripts/port_audit.py --all-servers --inventory all
+
 Exit-Codes:
     0 = keine Konflikte
     1 = Konflikte gefunden
 
-Referenz: ADR-106, ADR-157
+Referenz: ADR-106, ADR-157, ADR-198
 """
 
 from __future__ import annotations
@@ -267,6 +273,90 @@ def audit_server(
     return audit(services, server_ports)
 
 
+def check_compose_drift(services: dict, env: str) -> list[str]:
+    """Scan local repo checkouts for docker-compose drift.
+
+    Looks at ~/github/<repo>/docker-compose.<env>.yml and reports
+    host-port mappings that disagree with ports.yaml (ADR-198 §5.4 #7).
+    """
+    import os
+    import re
+
+    errors: list[str] = []
+    github_root = Path(os.path.expanduser("~/github"))
+    if not github_root.is_dir():
+        return [f"  SKIP compose-drift: {github_root} not found"]
+
+    # Pattern: "127.0.0.1:<host_port>:<container_port>"
+    port_re = re.compile(r'["\']?127\.0\.0\.1:(\d+):\d+["\']?')
+
+    for name, cfg in services.items():
+        if cfg is None:
+            continue
+        repo = cfg.get("repo")
+        expected = cfg.get(env)
+        if not repo or not expected:
+            continue
+        # repo is like "achimdehnert/risk-hub" — take last segment
+        repo_dir = github_root / repo.split("/")[-1]
+        compose = repo_dir / f"docker-compose.{env}.yml"
+        if not compose.is_file():
+            continue
+        try:
+            text = compose.read_text()
+        except OSError:
+            continue
+        # Find all host-port mappings
+        found = {int(p) for p in port_re.findall(text)}
+        # ports.yaml host port must appear at least once
+        if expected not in found and found:
+            errors.append(
+                f"  DRIFT {name}: {compose.relative_to(github_root.parent)} "
+                f"hat Ports {sorted(found)}, ports.yaml erwartet {expected}"
+            )
+    return errors
+
+
+def check_nginx_drift(services: dict, env: str) -> list[str]:
+    """Scan local repo checkouts for nginx-<env>.conf proxy_pass drift.
+
+    Reports proxy_pass ports that disagree with ports.yaml (ADR-198 §5.4 #7).
+    """
+    import os
+    import re
+
+    errors: list[str] = []
+    github_root = Path(os.path.expanduser("~/github"))
+    if not github_root.is_dir():
+        return [f"  SKIP nginx-drift: {github_root} not found"]
+
+    # Pattern: "proxy_pass http://127.0.0.1:<port>;"
+    proxy_re = re.compile(r"proxy_pass\s+http://127\.0\.0\.1:(\d+)")
+
+    for name, cfg in services.items():
+        if cfg is None:
+            continue
+        repo = cfg.get("repo")
+        expected = cfg.get(env)
+        if not repo or not expected:
+            continue
+        repo_dir = github_root / repo.split("/")[-1]
+        nginx = repo_dir / "docker" / "nginx" / f"nginx-{env}.conf"
+        if not nginx.is_file():
+            continue
+        try:
+            text = nginx.read_text()
+        except OSError:
+            continue
+        found = {int(p) for p in proxy_re.findall(text)}
+        if expected not in found and found:
+            errors.append(
+                f"  DRIFT {name}: {nginx.relative_to(github_root.parent)} "
+                f"proxy_pass auf {sorted(found)}, ports.yaml erwartet {expected}"
+            )
+    return errors
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Port Audit (ADR-106, ADR-157)",
@@ -290,6 +380,15 @@ def main() -> None:
     parser.add_argument(
         "--next-free", action="store_true",
         help="Nächsten freien Port ausgeben",
+    )
+    parser.add_argument(
+        "--inventory",
+        choices=["staging", "prod", "all"],
+        help=(
+            "Zusätzlich lokale docker-compose.<env>.yml + "
+            "nginx-<env>.conf in ~/github/* auf Port-Drift "
+            "gegen ports.yaml prüfen (ADR-198 §5.4 #7)"
+        ),
     )
     args = parser.parse_args()
 
@@ -319,8 +418,32 @@ def main() -> None:
     else:
         print("  OK — alle iil.pet single-level\n")
 
+    # Check 3 (optional): Inventory — Compose / Nginx Drift gegen ports.yaml
+    inventory_errors: list[str] = []
+    if args.inventory:
+        envs = (
+            ["staging", "prod"]
+            if args.inventory == "all"
+            else [args.inventory]
+        )
+        for env in envs:
+            print(f"\nCheck 3: Compose-Drift [{env}]")
+            cd = check_compose_drift(services, env)
+            if cd:
+                print("\n".join(cd))
+                inventory_errors.extend(cd)
+            else:
+                print(f"  OK — keine Compose-Drift in {env}\n")
+            print(f"Check 4: Nginx-Drift [{env}]")
+            nd = check_nginx_drift(services, env)
+            if nd:
+                print("\n".join(nd))
+                inventory_errors.extend(nd)
+            else:
+                print(f"  OK — keine Nginx-Drift in {env}\n")
+
     if args.offline:
-        all_offline = dupes + depth_errors
+        all_offline = dupes + depth_errors + inventory_errors
         sys.exit(1 if all_offline else 0)
 
     # Determine which servers to audit
@@ -349,7 +472,7 @@ def main() -> None:
                 ("root@88.198.191.108", "prod"),
             )
 
-    all_errors = list(dupes) + depth_errors
+    all_errors = list(dupes) + depth_errors + inventory_errors
     for ssh_target, env in targets:
         print(
             f"Check: Server-Abgleich"
