@@ -1,5 +1,5 @@
 ---
-id: ADR-218
+id: ADR-225
 title: "genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan"
 status: proposed
 date: 2026-05-29
@@ -14,10 +14,10 @@ related: [ADR-211, ADR-213, ADR-216]
 tags: [klickdummy, genesor, ingest, cross-repo, ci]
 scope:
   include_paths:
-    - "docs/adr/ADR-218-*"
+    - "docs/adr/ADR-225-*"
 ---
 
-# ADR-218 — genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan
+# ADR-225 — genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan
 
 | Attribut       | Wert                                             |
 |----------------|--------------------------------------------------|
