@@ -107,3 +107,11 @@ prüft zusätzlich gegen `origin/main`.
   (`mock`/`stub-demo`/`story`/`spec-demo`) entlang Datenquelle × Code-Pfad-
   Identität, distinkte Externprobe je Pattern. I3 Phase-A mit Pflicht-
   `sunset_after`-Frontmatter und Auto-`deprecated`. Neue Frontmatter-Konvention.
+- 2026-05-20: Rev-12-Angleichung (Empirie meiki-hub PR #23). **Erweiterung, kein
+  neuer Entscheid.** I1 erhält zwei *optionale* Erweiterungen (siehe ADR-211
+  §Co-Creation-Loop, §Requirements-Bridge). **F12 geschlossen** via
+  **Soft-Migrate**: `check_i2.py` akzeptiert Rev-≤10-Werte
+  (`mock-prototyp`/`demo-render`) übergangsweise mit ⚠-Warning + Mapping
+  (`{mock-prototyp→mock, demo-render→spec-demo}`); Strict-Mode wird via
+  Scoreboard-Item S11 nach Cross-Repo-Migration aktiviert. Iteration-
+  Typologie erweitert (stakeholder- + compliance-getriggert).

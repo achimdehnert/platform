@@ -1004,7 +1004,7 @@ dev = [
 - `docs/adr/reviews/REVIEW-ADR-103.md` -- Review v1+v2 (Claude, Principal IT Architect)
 - ADR-007: Tenant- & RBAC-Architektur | ADR-021: Deployment/Port-Registry
 - ADR-027/028: platform-context (Audit, Outbox) | ADR-049: Design-Tokens
-- ADR-062: billing-hub (`https://billing.iil.pet`) | ADR-072: Multi-Tenancy RLS
+- ADR-062: billing-hub (`https://billing.iil.pet`) | ADR-072: Multi-Tenancy Schema-Isolation (`django-tenants`)
 - ADR-077: Backstage Catalog | ADR-095/096/097: aifw Quality-Routing
 - ADR-102: Cloudflare DNS/Proxy
 - [DTVP API](https://www.dtvp.de/api-dokumentation) | [TED REST API v3](https://ted.europa.eu/api/v3.0)
@@ -1021,6 +1021,115 @@ dev = [
 | 2026-03-06 | Claude (Principal IT Architect) | v2: 3 Blocker + 7 kritische + 6 hohe Befunde eingearbeitet                                   |
 | 2026-03-07 | Cascade (Senior Architect)      | v3: Status Accepted; VectorField-Migration explizit; BillingHubClient via httpx; ComplianceCheck vollstaendig; FoerderSkizze-PromptBuilder; pgvector Confirmation-Check; pyproject.toml vollstaendig; UniqueConstraints konditionell |
 | 2026-03-07 | Achim Dehnert                   | v3.1: Django >=5.2,<6.0 (Platform-Standard) -- Django 6.0 war irrtümlich eingetragen |
+| 2026-05-27 | Achim Dehnert + Claude          | v3.2: Tenancy-Pivot — `BigIntegerField`-Row-Level → ADR-072 Schema-Isolation via `django-tenants` (Abschnitt 12) |
+
+---
+
+## 12. Amendment v3.2 — Tenancy-Pivot zu Schema-Isolation (2026-05-27)
+
+### 12.1 Befund
+
+v3 vom 2026-03-07 entschied "Multi-Tenancy via `tenant_id = BigIntegerField`
+(ADR-007/072)". Diese Formulierung zitiert ADR-072 als Stütze, ist aber
+**inhaltlich inkonsistent mit ADR-072**:
+
+- **ADR-072 entscheidet:** PostgreSQL **Schema-Isolation** via `django-tenants`.
+  Jeder Mandant bekommt ein eigenes Schema, `search_path` wird per Middleware
+  gesetzt, `.filter(tenant_id=...)` ist *strukturell unnötig* — und damit
+  unmöglich zu vergessen.
+- **ADR-103 v3 hat aber:** Row-Level-Filter via `tenant_id = BigIntegerField`
+  in jedem Modell — also exakt das Pattern, das ADR-072 als unsicher
+  verworfen hat (vergessener Filter = Datenleck).
+
+Die `BigIntegerField`-Linie war außerdem mit ADR-007 verwechselt (dort
+ist `tenant_id` als UUID definiert). Doppelt verfehlt.
+
+Implementation-Status laut ADR-072 YAML-Header (Stand 2026-02-21):
+6/9 UI-Hubs schon auf `django_tenants`-Schema-Isolation umgestellt
+(travel-beat, weltenhub, coach-hub, cad-hub, billing-hub, dev-hub).
+**ausschreibungs-hub fehlt in dieser Liste** — d.h. der Drift entstand
+beim Aufschreiben von ADR-103, nicht in der Implementierung
+benachbarter Hubs.
+
+### 12.2 Entscheidung
+
+ausschreibungs-hub schwenkt auf **ADR-072-konforme Schema-Isolation**:
+
+- **Library:** `django-tenants` (gleicher Stack wie billing-hub, cad-hub, dev-hub).
+- **Tenant-Modell:** `tenant_id` als UUID (nicht BigInteger).
+- **Schema-Mapping:** ein Postgres-Schema pro Mandant (`tenant_<slug>`).
+- **Middleware:** `django_tenants.middleware.main.TenantMainMiddleware` setzt
+  `search_path` per Request.
+- **Migrations-Split:** `SHARED_APPS` vs `TENANT_APPS` gemäß `django-tenants`-
+  Konvention (z.B. `apps.core.Tenant` als public-schema-Modell, alle Bid-
+  Daten in TENANT_APPS).
+
+### 12.3 Folgen für die Code-Beispiele in §5
+
+Die Modell-Snippets in §5.3 und folgenden Abschnitten zeigen:
+
+```python
+tenant_id = models.BigIntegerField(db_index=True)   # <- ADR-072-Drift, korrigiert
+```
+
+→ In der Umsetzung **stattdessen**:
+
+```python
+# kein eigenes tenant_id-Feld mehr — das Schema selbst trennt.
+# Modelle erben von TenantAwareModel (platform_context) wenn aktiv tenant-gebunden,
+# oder bleiben in SHARED_APPS wenn cross-tenant.
+```
+
+Die Code-Beispiele in §5 bleiben aus historischen Gründen unverändert
+stehen (Audit-Spur), sind aber **als ⚠ Drift markiert**. Die produktive
+Referenz ist ab v3.2 dieser §12-Abschnitt.
+
+### 12.4 Migrationsplan
+
+| Schritt | Was | Wer | Wann |
+|---|---|---|---|
+| 1 | `django-tenants` als Dependency in `pyproject.toml` aufnehmen | Pilot 2 Sprint 1 | vor erstem Multi-Tenant-Test |
+| 2 | `apps/tenants/models.py::Tenant` als public-schema-Modell anlegen | Pilot 2 Sprint 1 | dito |
+| 3 | `SHARED_APPS`/`TENANT_APPS`-Split in `settings/base.py` einrichten | Pilot 2 Sprint 1 | dito |
+| 4 | Bestehende `tenant_id`-Spalten aus Pilot 1 (`Ausschreibung`, `Portal`, `submission_workflow.*`) per Daten-Migration umziehen | Pilot 2 Sprint 2 | rückwirkend |
+| 5 | UniqueConstraints anpassen — `tenant_id` aus Tupel raus, da implizit per Schema | Pilot 2 Sprint 2 | mit Schritt 4 |
+| 6 | Tests auf `django_tenants.test.cases.TenantTestCase` umstellen | Pilot 2 Sprint 2 | mit Schritt 4 |
+| 7 | Cleanup: `tenant_id`-Spalten droppen | Pilot 3 | nach Verifikation |
+
+### 12.5 Risiken
+
+| Risiko | Mitigation |
+|---|---|
+| Pilot 1 hat bereits Live-Daten (admin/admin123 + Pilot-Test-Ausschreibung) — Schema-Move zerstört dev-Setup | Schritt 4 als Daten-Migration mit Datentransport schreiben, dev-Setup neu seeden via `bin/seed-pilot.sh` |
+| `django-tenants` ändert Migration-Verhalten (zwei Schemata) — bestehende CI-Migrations-Graph-Checks (`_ci-python.yml` Integration-Tests) müssen beide Schemata kennen | Phase nach pgvector-Image-Fix (PR #301) terminieren — wir haben jetzt eine pgvector-Postgres-Test-Service-Konvention, die django-tenants-Migrations bedienen kann |
+| Cross-Tenant-Reporting (Aggregate-Sichten über alle Mandanten) wird komplexer (schema-übergreifende Joins) | Bewusst akzeptiert — passt zu DSGVO-Logik. Reports gehen über separate Read-Models/Outbox |
+
+### 12.6 Bezug zu laufenden Piloten
+
+- **Pilot 1 (PR #57 gemerged):** weiterhin gültig — Modelle bleiben funktional, nur die Tenancy-Strategie ändert sich. Soft-Delete, UniqueConstraints, Indexes bleiben erhalten.
+- **Pilot 2 (Document Intelligence MVP):** muss vor Sprint-1-Start auf
+  Schema-Isolation aufsetzen. Neue Tabellen (`VergabeDocument`,
+  `VergabeAnalyse`) gehören in TENANT_APPS und bekommen *kein*
+  eigenes `tenant_id`-Feld.
+- **Pilot 3/4/5:** profitieren automatisch von der konsolidierten Tenancy.
+
+### 12.7 Bezug zu anderen ADRs
+
+- **ADR-072** bleibt unverändert — wird hier nur korrekt angewandt.
+- **ADR-007** (Tenant- & RBAC-Architektur): UUID-tenant_id-Konvention bestätigt.
+- **ADR-188** (Unified Vector Store, `rag_collections/rag_documents/rag_chunks`):
+  diese Tabellen leben unter `SHARED_APPS` oder pro Tenant-Schema — zu klären
+  bei Pilot-2-Sprint-1-Start (kommt aus separater rag-mcp-Konvention).
+
+### 12.8 Was *nicht* ADR-würdig ist
+
+Per `~/.claude/policies/adr-threshold.md`: Dieses Amendment **reverses an
+existing decision** (Row-Level → Schema-Isolation für ausschreibungs-hub),
+hat **cross-cutting impact** auf ein Repo mit öffentlicher Pilot-Oberfläche,
+und betrifft **data-sovereignty** (DSGVO-Begründung in ADR-072 §4.1).
+→ ADR-würdig — als Amendment an die bestehende v3, nicht als neuer
+ADR-Eintrag (Policy: "reverses existing decision" via Update statt
+Parallel-ADR).
 
 ---
 

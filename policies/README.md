@@ -20,6 +20,7 @@ is a symlink into a pinned platform worktree (`~/github/platform-pinned/policies
 | `claude-skills.md` | When to build a CC slash-command skill, and how |
 | `orchestrator.md` | When to query orchestrator MCP, and how it relates to these files |
 | `klickdummy.md` | Klickdummy = Renderer einer Spec; I1–I4 (Spec-first, Prod-Guard, Off-Ramp, Namensraum) — ADR-211 |
+| `evidence-discipline.md` | Bidirectional cheapest-check rule for claims and verdicts (binding falsification test) |
 
 ## Override pattern (per-repo)
 
