@@ -60,6 +60,11 @@ on:
         required: false
         default: 'auto'
         type: string
+      run_migrations:
+        description: 'Run unit tests WITH migrations (drop --no-migrations). Required for django-tenants repos — Tenant-Schema-Tabellen entstehen nur per migrate_schemas.'
+        required: false
+        default: false
+        type: boolean
       ruff_version:
         description: 'Pinned ruff version to install (e.g. ==0.15.4). Empty = latest. Pin to match pyproject.toml required-version.'
         required: false
@@ -80,6 +85,16 @@ on:
         required: false
         default: '.'
         type: string
+      postgres_image:
+        description: 'Postgres service image. Override to "pgvector/pgvector:pg16" for repos that need the vector extension (aifw, ausschreibungs-hub, bfagent, iil-enrichment).'
+        required: false
+        default: 'postgres:16-alpine'
+        type: string
+      lint_soft_fail:
+        description: 'Make Lint & Format non-blocking (job runs + annotates but does not fail the workflow). For consumers that gate deploy on secrets/tests, not lint (mcp-hub #78). Default false = lint hard-fails.'
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   qm-gate:
@@ -105,6 +120,10 @@ jobs:
   lint:
     name: "Lint & Format"
     runs-on: ${{ inputs.runs_on }}
+    # When lint_soft_fail=true the job still runs + annotates, but a failure
+    # does not fail the workflow (so consumers can gate deploy on secrets/tests
+    # without lint debt blocking them — mcp-hub #78). gitleaks stays hard.
+    continue-on-error: ${{ inputs.lint_soft_fail }}
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -121,7 +140,24 @@ jobs:
   secrets-scan:
     name: "Secret Detection (gitleaks)"
     runs-on: ${{ inputs.runs_on }}
-    continue-on-error: true
+    # Blocking gate: a secrets scanner that silently goes green helps no one.
+    # NOTE: deliberately NO job-level `permissions:` block and NO GitHub API
+    # call. A called reusable workflow can only NARROW the caller's
+    # GITHUB_TOKEN, never grant — requesting a scope the caller's run-token
+    # lacks rejects the whole run at startup (startup_failure, no jobs, no
+    # annotation) for every consumer repo (see #191/#198). gitleaks-action@v2
+    # called the PR-commits API and thus needed `pull-requests: read`; this
+    # job runs the gitleaks CLI against full local history instead — zero
+    # GitHub API, zero token/permission coupling, immune to caller config.
+    #
+    # ESCAPE HATCH for false positives / pre-existing history leaks: add a
+    # repo-root `.gitleaksignore` (per-finding fingerprint, preferred) or
+    # `.gitleaks.toml` (rule allowlist). Both are auto-honored by the CLI.
+    # Template + guidance: platform docs/templates/.gitleaks.toml. The
+    # active escape-hatch is echoed below so an over-broad allowlist is
+    # visible in the job log and catchable in PR review.
+    env:
+      GITLEAKS_VERSION: "8.21.2"   # single pin point — bump deliberately
     steps:
       - name: Isolate TMPDIR per run (self-hosted race fix)
         run: |
@@ -132,11 +168,52 @@ jobs:
       - uses: actions/checkout@v6
         with:
           fetch-depth: 0
-      - uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-          GITLEAKS_LICENSE: ${{ github.token }}
-          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: "false"
+      - name: Install gitleaks CLI (pinned)
+        run: |
+          set -euo pipefail
+          VER="${GITLEAKS_VERSION}"
+          TARBALL="gitleaks_${VER}_linux_x64.tar.gz"
+          URL="https://github.com/gitleaks/gitleaks/releases/download/v${VER}/${TARBALL}"
+          echo "Downloading gitleaks v${VER} …"
+          curl -fsSL --retry 3 -o "${TMPDIR}/${TARBALL}" "$URL"
+          tar -xzf "${TMPDIR}/${TARBALL}" -C "${TMPDIR}" gitleaks
+          install -m 0755 "${TMPDIR}/gitleaks" "${TMPDIR}/gitleaks-bin"
+          "${TMPDIR}/gitleaks-bin" version
+      - name: Report active escape-hatch config (transparency)
+        run: |
+          set -euo pipefail
+          found=0
+          if [ -f .gitleaks.toml ]; then
+            echo "::warning title=gitleaks escape-hatch::.gitleaks.toml present — rule allowlist active. Review scope:"
+            grep -nvE '^\s*(#|$)' .gitleaks.toml | sed 's/^/  .gitleaks.toml: /' || true
+            found=1
+          fi
+          if [ -f .gitleaksignore ]; then
+            echo "::warning title=gitleaks escape-hatch::.gitleaksignore present — $(grep -cvE '^\s*(#|$)' .gitleaksignore || echo 0) fingerprint suppression(s) active."
+            found=1
+          fi
+          if [ "$found" = 0 ]; then
+            echo "No repo-local gitleaks escape-hatch — scanning with platform defaults only."
+          fi
+      - name: gitleaks detect (full history, no GitHub API)
+        run: |
+          set -euo pipefail
+          REPORT="${TMPDIR}/gitleaks.json"
+          rc=0
+          "${TMPDIR}/gitleaks-bin" detect \
+            --source . \
+            --redact \
+            --no-banner \
+            --exit-code 1 \
+            --report-format json \
+            --report-path "$REPORT" || rc=$?
+          if [ "$rc" -ne 0 ]; then
+            # Surface a copy-paste-ready .gitleaksignore so the documented
+            # escape-hatch is actually usable (fingerprints are otherwise
+            # trapped in the report file). --redact already masked secrets.
+            python3 -c 'import json,os,sys; f=json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else []; print("### gitleaks: "+str(len(f))+" finding(s) — blocking\n\nTriage: ROTATE if real. If false positive, add to .gitleaksignore at repo root (see platform docs/templates/.gitleaks.toml):\n\n```"); [print(x.get("Fingerprint","?")) for x in f]; print("```"); [print("- "+x.get("Commit","?")[:10]+":"+x.get("File","?")+" rule="+x.get("RuleID","?")+" line "+str(x.get("StartLine","?"))) for x in f]' "$REPORT" | tee -a "$GITHUB_STEP_SUMMARY"
+            exit "$rc"
+          fi
       - name: Cleanup run TMPDIR
         if: always()
         run: rm -rf "/tmp/gitleaks-${{ github.run_id }}" 2>/dev/null || true
@@ -206,6 +283,20 @@ jobs:
     name: "Unit Tests"
     runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
+    services:
+      postgres:
+        image: ${{ inputs.postgres_image }}
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -224,18 +315,22 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
         run: |
           WORKERS=${{ inputs.pytest_workers }}
+          # django-tenants-Repos brauchen echte Migrationen (Tenant-Schema-Tabellen
+          # entstehen nur per migrate_schemas) → --no-migrations nur, wenn run_migrations=false.
+          MIGRATIONS_FLAG="--no-migrations"
+          if [ "${{ inputs.run_migrations }}" = "true" ]; then MIGRATIONS_FLAG=""; fi
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
             pytest -m "not integration and not contract and not slow" \
-              --no-migrations \
+              $MIGRATIONS_FLAG \
               --cov \
               --cov-report=xml:coverage-unit.xml \
               --cov-report=term-missing
           else
             pytest -m "not integration and not contract and not slow" \
-              --no-migrations \
+              $MIGRATIONS_FLAG \
               --cov \
               --cov-report=xml:coverage-unit.xml \
               --cov-report=term-missing \
@@ -252,6 +347,20 @@ jobs:
     runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
     continue-on-error: true
+    services:
+      postgres:
+        image: ${{ inputs.postgres_image }}
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_pass
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -270,27 +379,21 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
         run: |
           set -euo pipefail
-          DB_ENGINE=$(python -c "from django.conf import settings; print(settings.DATABASES['default']['ENGINE'])" 2>/dev/null || echo "unknown")
-          if echo "$DB_ENGINE" | grep -q "sqlite"; then
-            echo "OK: SQLite detected — running migrate to create test DB schema"
-            python manage.py migrate --run-syncdb 2>&1 || echo "migrate completed (warnings above are non-fatal)"
-          else
-            python manage.py migrate --check 2>&1 && echo "OK: Migration graph consistent" || {
-              echo "FAIL: Migration graph inconsistent — pending or broken migrations detected!"
-              python manage.py showmigrations 2>&1 | grep -E '^\s+\[ \]' || true
-              exit 1
-            }
-          fi
+          python manage.py migrate 2>&1 && echo "OK: Migration graph consistent — all migrations applied" || {
+            echo "FAIL: Migration graph inconsistent — broken or conflicting migrations detected!"
+            python manage.py showmigrations 2>&1 | grep -E '^\s+\[ \]' || true
+            exit 1
+          }
 
       - name: AppConfig Label Check
         working-directory: ${{ inputs.src_dir }}
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
         run: |
           set -euo pipefail
           python manage.py check --deploy --fail-level ERROR 2>&1 || {
@@ -304,7 +407,7 @@ jobs:
         env:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
-          USE_POSTGRES: "0"
+          POSTGRES_HOST: localhost
           REDIS_URL: redis://localhost:6379/0
         run: |
           WORKERS=${{ inputs.pytest_workers }}
@@ -346,10 +449,10 @@ jobs:
     if: ${{ !inputs.skip_tests }}
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: coverage-unit
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: coverage-integration
       - name: Merge and enforce coverage gate
@@ -365,7 +468,7 @@ jobs:
     if: ${{ inputs.run_contract_tests && !inputs.skip_tests }}
     services:
       postgres:
-        image: postgres:16-alpine
+        image: ${{ inputs.postgres_image }}
         env:
           POSTGRES_USER: test_user
           POSTGRES_PASSWORD: test_pass
