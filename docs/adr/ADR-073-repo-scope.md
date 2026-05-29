@@ -58,7 +58,7 @@ implementation_evidence:
 | **weltenhub** | Multi-Tenant UUID FK; DRF ViewSets; Schemathesis vorhanden |
 | **travel-beat** | Custom `AUTH_USER_MODEL`; HTMX; allauth |
 | **bfagent** | Standard auth; kein HTMX; `apps/`-Layout |
-| **risk-hub** | `src/`-Layout; monolithisches Settings → `settings_test.py`; SQLite Unit-Tests |
+| **risk-hub** | `src/`-Layout; monolithisches Settings → `settings_test.py`; PostgreSQL Unit-Tests (ADR-179) |
 | **cad-hub** | `apps/`-Layout; split settings; `django_tenancy` |
 | **trading-hub** | `src/trading_hub/`-Layout; eigenes Settings-Modul; TimescaleDB |
 | **wedding-hub** | `src/apps/`-Layout; allauth; `Organization`/`Guest`/`Event`; reichhaltige Tests bereits vorhanden |
