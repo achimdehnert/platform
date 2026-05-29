@@ -18,6 +18,13 @@ jobs:
       - name: Run ADR Number Guard
         run: python3 scripts/adr_next_number.py --check
 
+      - name: ADR open-PR collision guard (in-flight numbers)
+        if: github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: python3 scripts/adr_open_pr_guard.py
+
       - name: Run ADR Audit (on failure)
         if: failure()
         run: python3 scripts/adr_audit.py --fix-hints
