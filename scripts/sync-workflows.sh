@@ -53,6 +53,7 @@ UNIVERSAL=(
     onboarding-new-repo
     pre-code
     process-agent-queue
+    create-pdf
 )
 
 # Nur Django-Hubs (deploybare Services mit Docker)
@@ -66,6 +67,7 @@ DJANGO_HUB=(
     run-prod
     run-staging
     rollback
+    incident
     frontend-ui-test
     pre-release-test
     testing-setup
@@ -88,7 +90,7 @@ PACKAGE=(
 
 # Nur platform (werden NICHT verteilt — Meta-Repo-spezifisch):
 # cascade-auftraege, idea-intake, agent-review, workflow-review,
-# docu-repo-all, platform-audit, create-pdf, onboard-stack
+# docu-repo-all, platform-audit, onboard-stack
 
 # --- Repo-Typen (SSoT: registry/github_repos.yaml) ---
 
@@ -99,12 +101,13 @@ if [[ ! -f "$REGISTRY" ]]; then
     exit 1
 fi
 
-# Aus github_repos.yaml lesen: django_apps → DJANGO_HUBS, frameworks → PACKAGES
+# Aus github_repos.yaml lesen: django_apps + org_django_apps → DJANGO_HUBS, frameworks → PACKAGES
 read -r -a DJANGO_HUBS <<< "$(python3 -c "
 import yaml, sys
 with open('${REGISTRY}') as f:
     data = yaml.safe_load(f)
-print(' '.join(data.get('django_apps', {}).keys()))
+apps = list(data.get('django_apps', {}).keys()) + list(data.get('org_django_apps', {}).keys())
+print(' '.join(apps))
 ")"
 
 read -r -a PACKAGES <<< "$(python3 -c "

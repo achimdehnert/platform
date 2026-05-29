@@ -22,7 +22,7 @@
 | **B-3** | `BaseAgentRole`, `DeploymentAgentConfig`, `ReviewAgentConfig` haben keine gemeinsame Protocol-Schnittstelle — `ROLE_REGISTRY` typed als Union | `roles.py` Z. 423 | **BLOCKER** | `AgentRoleProtocol` (Protocol) einführen — `ROLE_REGISTRY: dict[AgentRole, AgentRoleProtocol]`. |
 | **C-1** | Shell-Skripte: `wrap_script` korrekt aufgerufen, aber Rollback-Script ohne expliziten Error-Exit bei fehlender Tag-Info | `roles.py` Z. 234–247 | **CRITICAL** | `build_rollback_script` via `wrap_script` ✅. Rollback-Step in `cd.yml` ohne expliziten Exit-1 wenn kein PREV_TAG. |
 | **C-2** | SSH Setup schreibt Key via `echo ... > file` ohne `umask 077` — Race condition bei parallelen Jobs | `cd.yml` Z. 181 | **CRITICAL** | `umask 077` vor Key-Write setzen (Fix unten). |
-| **C-3** | `detect_breaking_changes` nutzt `DATABASE_URL_STAGING` — wenn Staging down, blockiert Prod-Deploy | `cd.yml` Z. 100 | **CRITICAL** | `sqlmigrate` braucht keine echte DB — SQLite In-Memory in CI reicht. |
+| **C-3** | `detect_breaking_changes` nutzt `DATABASE_URL_STAGING` — wenn Staging down, blockiert Prod-Deploy | `cd.yml` Z. 100 | **CRITICAL** | `sqlmigrate` braucht keine produktive DB — Postgres-Service-Container in CI reicht (ADR-179: kein SQLite in Tests/CI). |
 | **M-1** | `agent_team_config.yaml` hat Placeholder-Werte, kein Validation-Schema | `agent_team_config.yaml` Z. 18–21 | MEDIUM | Pydantic-Validator `validate_agent_config.py` ergänzen. |
 | **M-2** | `cd.yml` `deploy`-Job: `if: always()` ohne explizite `gate2_approval`-Abhängigkeit — Verhalten implizit | `cd.yml` Z. 165–172 | MEDIUM | `needs` um `gate2_approval` erweitern, `result == 'success' \|\| result == 'skipped'` explizit. |
 | **M-3** | Review Agent Override ohne Audit-Trail — `/override-review` schreibt kein Log | `roles.py` Z. 301 | MEDIUM | `ReviewLog` Model (produktionsreif unten) als AuditStore. |
@@ -61,7 +61,7 @@ orchestrator_mcp/agent_team/
 ├── breaking_change_detector.py     # L-3: shell=False; M-4: auto_eligible
 └── tests/test_roles_and_detector.py # L-4: package-relative imports
 
-.github/workflows/cd.yml            # C-2: umask 077; C-3: SQLite; M-2: explicit needs
+.github/workflows/cd.yml            # C-2: umask 077; C-3: Postgres-Service (ADR-179); M-2: explicit needs
 ```
 
 ### Phase 2 — Core-Implementierung (Sprint 1, 3 Tage)
@@ -146,17 +146,36 @@ SSHEOF
 
 ### Fix C-3 — CI-DB für Migration-Analyse (`cd.yml` Z. 98–103)
 
+ADR-179 verbietet SQLite in Tests/CI. Stattdessen ephemeral Postgres-Service-Container im Job:
+
 ```yaml
-- name: "Analyse pending migrations"
-  id: detect
-  env:
-    DATABASE_URL: "sqlite:///tmp/ci_analysis.db"
-    DJANGO_SETTINGS_MODULE: "config.settings.ci"
-  run: |
-    set -euo pipefail
-    python - << 'EOF'
-    ...
-    EOF
+jobs:
+  detect_breaking_changes:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci_analysis
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - name: "Analyse pending migrations"
+        id: detect
+        env:
+          DATABASE_URL: "postgres://ci:ci@localhost:5432/ci_analysis"
+          DJANGO_SETTINGS_MODULE: "config.settings.ci"
+        run: |
+          set -euo pipefail
+          python - << 'EOF'
+          ...
+          EOF
 ```
 
 ### Fix M-2 — Explizite CD-Job-Abhängigkeiten (`cd.yml` Z. 162–172)

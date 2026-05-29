@@ -1,0 +1,57 @@
+# Cascade / Windsurf Indexing Ignore — Option 3 (aggressive)
+# Generated 2026-05-20 — siehe session zu Token-Optimierung
+# Zweck: Cascade nicht 100e MB venv/cache/archive indexieren lassen
+# Trade-off: _archive/ + binaries unsichtbar — bei Bedarf manuell @-mentionen
+
+# === Tier A: Cache/Build (null Qualitätsverlust) ===
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.tox/
+htmlcov/
+.coverage
+*.sqlite3
+*.db
+dist/
+build/
+*.egg-info/
+.next/
+.cache/
+.parcel-cache/
+target/
+
+# === Tier B: Runtime-Artefakte ===
+staticfiles/
+media/
+logs/
+*.log
+*.lock
+
+# === Tier C: Generated Assets (Fixture-Exception) ===
+*.pdf
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.webp
+*.ico
+*.mp4
+*.zip
+*.tar.gz
+!tests/fixtures/**
+!**/test_data/**
+!**/test_fixtures/**
+
+# === Option 3: Archive raus ===
+_archive/
+**/_archive/
+docs/adr/_archive/
+docs/_old/
+docs/uxspec/**/*.pdf
+docs/uxspec/**/*.png

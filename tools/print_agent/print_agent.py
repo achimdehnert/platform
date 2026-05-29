@@ -4,7 +4,10 @@ IIL Print Agent — LLM-gestützter PDF-Generator mit Design-Switcher
 Usage: python3 print_agent.py <input.md> [output_dir] [--design meiki|iil]
 
 Designs: meiki (Standard), iil (IIL GmbH Corporate)
-LLM: OpenAI gpt-4o-mini (~$0.00005/Dokument)
+LLM (Default): cerebras/llama3.1-8b (schnell+günstig), Fallback groq/llama-3.1-8b-instant.
+  Override via ENV PRINT_AGENT_LLM_PRIMARY und PRINT_AGENT_LLM_FALLBACK
+  (litellm-Modellstring; leerer Fallback = kein Fallback).
+  Für höhere Qualität auf Cerebras: PRINT_AGENT_LLM_PRIMARY=cerebras/qwen-3-235b-a22b-instruct-2507
 Fallback: Ohne LLM direkt PDF erzeugen
 """
 
@@ -26,6 +29,7 @@ from weasyprint import HTML, CSS
 OUTPUT_DIR = Path.home() / "pdf-output"
 SECRETS_DIRS = [
     Path("/home/devuser/shared/secrets"),
+    Path("/home/devuser/shared/secrets-inbox"),
     Path.home() / ".secrets",
 ]
 _TEMPLATES_DIR = Path(__file__).parent / "print_templates"
@@ -116,12 +120,63 @@ def get_secret(name: str) -> str | None:
     return None
 
 
-def llm_enrich(title: str, md_text: str, design: dict) -> dict:
-    """gpt-4o-mini — Executive Summary + Keywords (~$0.00005/Dokument)."""
-    api_key = get_secret("openai_api_key")
+_DEFAULT_PRIMARY = "cerebras/llama3.1-8b"
+_DEFAULT_FALLBACK = "groq/llama-3.1-8b-instant"
+
+
+def _secret_name_for_model(model: str) -> str | None:
+    """Mappt litellm-Modellstring auf Secret-Name (cerebras_api_key etc.)."""
+    m = model.lower()
+    if m.startswith("cerebras/"):
+        return "cerebras_api_key"
+    if m.startswith("groq/"):
+        return "groq_api_key"
+    if m.startswith("anthropic/") or m.startswith("claude-"):
+        return "anthropic_api_key"
+    if m.startswith("mistral/"):
+        return "mistral_api_key"
+    if m.startswith("together/") or m.startswith("together_ai/"):
+        return "together_api_key"
+    if m.startswith("openai/") or m.startswith("gpt-"):
+        return "openai_api_key"
+    return None
+
+
+def _try_completion(model: str, prompt: str) -> dict | None:
+    """Ein LLM-Versuch — gibt {} bei No-Key zurück, None bei Fehler, dict bei Erfolg."""
+    secret_name = _secret_name_for_model(model)
+    api_key = get_secret(secret_name) if secret_name else None
     if not api_key:
-        print("⚠️  Kein OpenAI API-Key — LLM-Schritt übersprungen")
-        return {}
+        print(f"⚠️  Kein API-Key für {model} ({secret_name}) — übersprungen")
+        return None
+    try:
+        response = litellm.completion(
+            model=model,
+            messages=[{"role": "user", "content": prompt}],
+            max_tokens=300,
+            temperature=0.3,
+            api_key=api_key,
+            timeout=15,
+        )
+        raw = response.choices[0].message.content.strip()
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        if m:
+            return json.loads(m.group(0))
+        print(f"⚠️  {model}: kein JSON in Antwort")
+    except Exception as e:
+        print(f"⚠️  {model}: {e}")
+    return None
+
+
+def llm_enrich(title: str, md_text: str, design: dict) -> dict:
+    """Executive Summary + Keywords. Default Cerebras Llama-3.3-70b → Groq 8B-Fallback.
+
+    ENV-Overrides:
+      PRINT_AGENT_LLM_PRIMARY   (Default: cerebras/llama3.1-8b)
+      PRINT_AGENT_LLM_FALLBACK  (Default: groq/llama-3.1-8b-instant, leer = aus)
+    """
+    primary = os.environ.get("PRINT_AGENT_LLM_PRIMARY", _DEFAULT_PRIMARY).strip()
+    fallback = os.environ.get("PRINT_AGENT_LLM_FALLBACK", _DEFAULT_FALLBACK).strip()
 
     context = design.get("llm_context", "Technologie und KI")
     preview = md_text[:1200].strip()
@@ -138,21 +193,15 @@ Antworte mit:
   "keywords": ["<Stichwort1>", "<Stichwort2>", "<Stichwort3>", "<Stichwort4>", "<Stichwort5>"]
 }}"""
 
-    try:
-        response = litellm.completion(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            max_tokens=300,
-            temperature=0.3,
-            api_key=api_key,
-            timeout=15,
-        )
-        raw = response.choices[0].message.content.strip()
-        m = re.search(r"\{.*\}", raw, re.DOTALL)
-        if m:
-            return json.loads(m.group(0))
-    except Exception as e:
-        print(f"⚠️  LLM-Fehler: {e} — fahre ohne Summary fort")
+    for attempt, model in enumerate([primary, fallback], start=1):
+        if not model:
+            continue
+        label = "Primary" if attempt == 1 else "Fallback"
+        print(f"   🤖 {label}: {model}")
+        result = _try_completion(model, prompt)
+        if result is not None:
+            return result
+    print("⚠️  Alle LLM-Versuche fehlgeschlagen — fahre ohne Summary fort")
     return {}
 
 
@@ -421,6 +470,96 @@ def parse_layer_block(block: str) -> str:
     return html
 
 
+def parse_tiers_block(block: str) -> str:
+    """Wandelt ```tiers DSL in HTML .tier-list (farbcodierte Tier-Karten) um.
+
+    Syntax (eine Tier pro Zeile, Pipe-getrennt):
+      tier1 | <Label> | <Bedingung> | <Aktion>
+      tier2 | <Label> | <Bedingung> | <Aktion>
+      tier3 | <Label> | <Bedingung> | <Aktion>
+      info  | <Label> | — | <Aktion>     ← neutraler Block ohne Ampel
+
+    Renderiert als Karte mit farbiger Klassen-Spange links.
+    """
+    html = '<div class="tier-list">\n'
+    for line in [l.strip() for l in block.strip().splitlines() if l.strip()]:
+        parts = [p.strip() for p in line.split("|")]
+        if len(parts) < 2:
+            continue
+        kind = parts[0].lower()
+        label = parts[1] if len(parts) > 1 else ""
+        cond = parts[2] if len(parts) > 2 else ""
+        action = parts[3] if len(parts) > 3 else ""
+        cls = {"tier1": "tier-1", "tier2": "tier-2", "tier3": "tier-3",
+               "info": "tier-info", "ok": "tier-ok"}.get(kind, "tier-info")
+        html += f'<div class="tier-item {cls}">\n'
+        html += f'  <div class="tier-label">{label}</div>\n'
+        if cond:
+            html += f'  <div class="tier-cond"><strong>Bedingung:</strong> {cond}</div>\n'
+        if action:
+            html += f'  <div class="tier-action"><strong>Aktion:</strong> {action}</div>\n'
+        html += '</div>\n'
+    html += '</div>'
+    return html
+
+
+def parse_compare_block(block: str) -> str:
+    """Wandelt ```compare DSL in HTML .compare-grid (zwei-/dreispaltig) um.
+
+    Syntax:
+      title: <optionaler Übertitel>
+      left:  <Titel> :: <Item1> :: <Item2> :: …
+      right: <Titel> :: <Item1> :: <Item2> :: …
+      verdict: <Empfehlungs-Text>     ← optional, unter Spalten
+
+    Verwendung typisch für Pro/Contra, Variante A/B, Status quo/Ziel.
+    """
+    title = ""
+    left_title = ""
+    left_items: list[str] = []
+    right_title = ""
+    right_items: list[str] = []
+    verdict = ""
+    for line in [l.rstrip() for l in block.strip().splitlines() if l.strip()]:
+        if line.startswith("title:"):
+            title = line[6:].strip()
+        elif line.startswith("left:"):
+            parts = [p.strip() for p in line[5:].split("::")]
+            left_title = parts[0] if parts else ""
+            left_items = parts[1:] if len(parts) > 1 else []
+        elif line.startswith("right:"):
+            parts = [p.strip() for p in line[6:].split("::")]
+            right_title = parts[0] if parts else ""
+            right_items = parts[1:] if len(parts) > 1 else []
+        elif line.startswith("verdict:"):
+            verdict = line[8:].strip()
+
+    html = '<div class="compare-block">\n'
+    if title:
+        html += f'  <div class="compare-title">{title}</div>\n'
+    html += '  <div class="compare-grid">\n'
+    for side_class, side_title, items in (
+        ("compare-left",  left_title,  left_items),
+        ("compare-right", right_title, right_items),
+    ):
+        if not side_title and not items:
+            continue
+        html += f'    <div class="compare-col {side_class}">\n'
+        if side_title:
+            html += f'      <div class="compare-col-title">{side_title}</div>\n'
+        if items:
+            html += '      <ul>\n'
+            for it in items:
+                html += f'        <li>{it}</li>\n'
+            html += '      </ul>\n'
+        html += '    </div>\n'
+    html += '  </div>\n'
+    if verdict:
+        html += f'  <div class="compare-verdict"><strong>Empfehlung:</strong> {verdict}</div>\n'
+    html += '</div>'
+    return html
+
+
 _PUPPETEER_CFG = Path(__file__).parent / ".puppeteer.json"
 
 
@@ -431,6 +570,34 @@ def _ensure_puppeteer_config() -> str:
             "args": ["--no-sandbox", "--disable-setuid-sandbox"]
         }), encoding="utf-8")
     return str(_PUPPETEER_CFG)
+
+
+def inject_mermaid_classdefs(mermaid_code: str, design: dict) -> str:
+    """Prepend classDef lines from `design['mermaid_classes']` for each `:::class` used.
+
+    Author-defined `classDef <name>` blocks in the diagram win — those names are skipped.
+    """
+    classes = design.get("mermaid_classes") or {}
+    if not classes:
+        return mermaid_code
+    used = set(re.findall(r":::([A-Za-z_][A-Za-z0-9_-]*)", mermaid_code))
+    if not used:
+        return mermaid_code
+    already_defined = set(re.findall(r"^\s*classDef\s+([A-Za-z_][A-Za-z0-9_-]*)", mermaid_code, re.MULTILINE))
+    to_inject = [name for name in used if name in classes and name not in already_defined]
+    if not to_inject:
+        return mermaid_code
+    lines = []
+    for name in to_inject:
+        c = classes[name]
+        lines.append(
+            f"    classDef {name} fill:{c.get('fill','#888')},"
+            f"stroke:{c.get('stroke','#333')},"
+            f"color:{c.get('color','#000')},"
+            f"stroke-width:{c.get('stroke_width','1.5px')}"
+        )
+    head, _, rest = mermaid_code.partition("\n")
+    return head + "\n" + "\n".join(lines) + "\n" + rest
 
 
 def render_mermaid_to_png(mermaid_code: str) -> str:
@@ -473,33 +640,46 @@ def render_mermaid_to_png(mermaid_code: str) -> str:
                 pass
 
 
-def preprocess_md(md_text: str) -> str:
-    """Ersetzt ```gantt / ```tree / ```flow / ```arch / ```layer / ```mermaid durch HTML."""
-    def replace_gantt(m):  return parse_gantt_block(m.group(1))
-    def replace_tree(m):   return parse_tree_block(m.group(1))
-    def replace_flow(m):   return parse_flow_block(m.group(1))
-    def replace_arch(m):   return parse_arch_block(m.group(1))
-    def replace_layer(m):  return parse_layer_block(m.group(1))
+def preprocess_md(md_text: str, design: dict | None = None) -> str:
+    """Ersetzt ```gantt / ```tree / ```flow / ```arch / ```layer / ```tiers / ```compare / ```mermaid durch HTML."""
+    design = design or {}
+    def replace_gantt(m):   return parse_gantt_block(m.group(1))
+    def replace_tree(m):    return parse_tree_block(m.group(1))
+    def replace_flow(m):    return parse_flow_block(m.group(1))
+    def replace_arch(m):    return parse_arch_block(m.group(1))
+    def replace_layer(m):   return parse_layer_block(m.group(1))
+    def replace_tiers(m):   return parse_tiers_block(m.group(1))
+    def replace_compare(m): return parse_compare_block(m.group(1))
     def replace_mermaid(m):
         code = m.group(1).strip()
+        code = inject_mermaid_classdefs(code, design)
         print(f"   \U0001f4ca Mermaid-Diagramm rendern ({code.split(chr(10))[0][:40]}\u2026)")
         return render_mermaid_to_png(code)
-    text = re.sub(r"```gantt\n(.*?)```", replace_gantt, md_text, flags=re.DOTALL)
-    text = re.sub(r"```tree\n(.*?)```",  replace_tree,  text,    flags=re.DOTALL)
-    text = re.sub(r"```flow\n(.*?)```",  replace_flow,  text,    flags=re.DOTALL)
-    text = re.sub(r"```arch\n(.*?)```",  replace_arch,  text,    flags=re.DOTALL)
-    text = re.sub(r"```layer\n(.*?)```", replace_layer, text,    flags=re.DOTALL)
-    text = re.sub(r"```mermaid\n(.*?)```", replace_mermaid, text, flags=re.DOTALL)
+    text = re.sub(r"```gantt\n(.*?)```",   replace_gantt,   md_text, flags=re.DOTALL)
+    text = re.sub(r"```tree\n(.*?)```",    replace_tree,    text,    flags=re.DOTALL)
+    text = re.sub(r"```flow\n(.*?)```",    replace_flow,    text,    flags=re.DOTALL)
+    text = re.sub(r"```arch\n(.*?)```",    replace_arch,    text,    flags=re.DOTALL)
+    text = re.sub(r"```layer\n(.*?)```",   replace_layer,   text,    flags=re.DOTALL)
+    text = re.sub(r"```tiers\n(.*?)```",   replace_tiers,   text,    flags=re.DOTALL)
+    text = re.sub(r"```compare\n(.*?)```", replace_compare, text,    flags=re.DOTALL)
+    text = re.sub(r"```mermaid\n(.*?)```", replace_mermaid, text,    flags=re.DOTALL)
     return text
 
 
 _INLINE_PATTERNS = {
-    "stand":       r"\*\*Stand:\*\*\s*([^|\n]+)",
-    "zielgruppe":  r"\*\*Zielgruppe:\*\*\s*([^\n]+)",
-    "angebot_nr":  r"\*\*Angebot Nr\.:\*\*\s*([^\n]+)",
-    "datum":       r"\*\*Datum:\*\*\s*([^\n]+)",
-    "gueltig_bis": r"\*\*Gültig bis:\*\*\s*([^\n]+)",
-    "auftraggeber":r"\*\*Auftraggeber\*\*\s*\n+(.+)",
+    "stand":           r"\*\*Stand:\*\*\s*([^|\n]+)",
+    "zielgruppe":      r"\*\*Zielgruppe:\*\*\s*([^\n]+)",
+    "angebot_nr":      r"\*\*Angebot Nr\.:\*\*\s*([^\n]+)",
+    "datum":           r"\*\*Datum:\*\*\s*([^\n]+)",
+    "gueltig_bis":     r"\*\*Gültig bis:\*\*\s*([^\n]+)",
+    "auftraggeber":    r"\*\*Auftraggeber\*\*\s*\n+(.+)",
+    # Generic document fields (used by konzept/briefing templates)
+    "doc_type":        r"\*\*(?:Typ|Doc[- ]?Type|Dokumenttyp):\*\*\s*([^\n]+)",
+    "status":          r"\*\*Status:\*\*\s*([^\n]+)",
+    "adressat":        r"\*\*Adressat:\*\*\s*([^\n]+)",
+    "zielentscheidung":r"\*\*Zielentscheidung:\*\*\s*([^\n]+)",
+    "autor":           r"\*\*Autor(?:in)?:\*\*\s*([^\n]+)",
+    "anlass":          r"\*\*Anlass:\*\*\s*([^\n]+)",
 }
 
 
@@ -519,15 +699,44 @@ def extract_meta(md_text: str, fm: dict | None = None) -> dict:
     return meta
 
 
+# Bold-prefix patterns that should NOT appear in the body — they're already in the cover.
+_META_PREFIX_RE = re.compile(
+    r"^\*\*(?:Stand|Status|Datum|Adressat|Zielentscheidung|Anlass|Autor(?:in)?|"
+    r"Typ|Dokumenttyp|Doc[- ]?Type|Zielgruppe|Angebot Nr\.|Gültig bis|Auftraggeber|"
+    r"Begleitdokument):\*\*",
+    re.IGNORECASE,
+)
+
+
+def strip_meta_prefix_lines(md_text: str) -> str:
+    """Remove lines like '**Status:** Konzept' from MD body — they're already on the cover.
+
+    Keeps everything else intact, including the trailing blank-line separator
+    so that downstream markdown parsing doesn't merge paragraphs.
+    """
+    out_lines = []
+    for line in md_text.splitlines():
+        if _META_PREFIX_RE.match(line.strip()):
+            continue
+        out_lines.append(line)
+    return "\n".join(out_lines)
+
+
 def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
     """Return list of (label, value) tuples for the meta table."""
     template = design.get("meta_template", "meiki")
     if template == "iil":
         rows = []
-        if meta.get("angebot_nr"):  rows.append(("Angebot-Nr.", meta["angebot_nr"]))
-        if meta.get("datum"):       rows.append(("Datum", meta["datum"]))
-        if meta.get("gueltig_bis"): rows.append(("Gültig bis", meta["gueltig_bis"]))
-        if meta.get("auftraggeber"): rows.append(("Auftraggeber", meta["auftraggeber"]))
+        # Angebot-specific fields (only shown if filled)
+        if meta.get("angebot_nr"):       rows.append(("Angebot-Nr.", meta["angebot_nr"]))
+        # Generic Konzept/Briefing-Felder (always shown if present)
+        if meta.get("status"):           rows.append(("Status", meta["status"]))
+        if meta.get("datum"):            rows.append(("Datum", meta["datum"]))
+        if meta.get("gueltig_bis"):      rows.append(("Gültig bis", meta["gueltig_bis"]))
+        if meta.get("adressat"):         rows.append(("Adressat", meta["adressat"]))
+        if meta.get("anlass"):           rows.append(("Anlass", meta["anlass"]))
+        if meta.get("zielentscheidung"): rows.append(("Zielentscheidung", meta["zielentscheidung"]))
+        if meta.get("auftraggeber"):     rows.append(("Auftraggeber", meta["auftraggeber"]))
         rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · kontakt@iil.gmbh"))
         return rows
     # meiki default
@@ -549,7 +758,12 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
     template = design.get("meta_template", "meiki")
 
     if template == "iil":
-        date_line = f"Angebot · {meta.get('datum', '')}"
+        # Document type drives the cover subtitle line.
+        # Priority: explicit Typ: > explicit Status: > "Angebot" (backward-compat default).
+        # New documents should set "**Typ:** Konzept|Briefing|Angebot|…" explicitly.
+        doc_type = meta.get("doc_type") or meta.get("status") or "Angebot"
+        datum = meta.get("datum", "")
+        date_line = f"{doc_type} · {datum}".strip(" ·")
     else:
         zg = meta.get("zielgruppe", "Lenkungskreis, IT-Leitung, Entscheider LRA")
         date_line = f"Zielgruppe: {zg}"
@@ -577,16 +791,29 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
     print(f"🎨 Design: {design_name}")
 
     md_text = input_path.read_text(encoding="utf-8")
-    md_text_processed = preprocess_md(md_text)
-    md = markdown.Markdown(extensions=["tables", "attr_list", "meta"])
-    body_html = md.convert(md_text_processed)
-    fm = {k: v for k, v in md.Meta.items()} if hasattr(md, "Meta") else {}
+    # Extract meta first (from original text), then strip those lines before HTML build.
+    md_pre_meta = markdown.Markdown(extensions=["meta"])
+    md_pre_meta.convert(md_text)
+    fm = {k: v for k, v in md_pre_meta.Meta.items()} if hasattr(md_pre_meta, "Meta") else {}
     meta = extract_meta(md_text, fm=fm)
 
-    m = re.search(r"<h1>(.*?)</h1>", body_html)
+    # Strip meta-prefix lines so they don't appear as paragraph text in body.
+    md_text_cleaned = strip_meta_prefix_lines(md_text)
+    md_text_processed = preprocess_md(md_text_cleaned, design=design)
+    md = markdown.Markdown(
+        extensions=["tables", "attr_list", "meta", "toc", "fenced_code", "sane_lists"],
+        extension_configs={
+            "toc": {
+                "title": "Inhaltsverzeichnis",
+                "toc_class": "toc-list",
+            },
+        },
+    )
+    body_html = md.convert(md_text_processed)
+
+    m = re.search(r"<h1[^>]*>(.*?)</h1>", body_html)
     title = m.group(1) if m else input_path.stem
-    body_html = re.sub(r"<h1>.*?</h1>", "", body_html, count=1)
-    body_html = re.sub(r"<p><strong>Stand:</strong>.*?</p>", "", body_html, count=1)
+    body_html = re.sub(r"<h1[^>]*>.*?</h1>", "", body_html, count=1)
 
     print("🤖 LLM-Anreicherung …")
     enrichment = llm_enrich(title, md_text, design)

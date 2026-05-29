@@ -1,5 +1,6 @@
 ---
 description: Pre-Code Contract Verification — Annahmen verifizieren bevor der erste Keystroke
+mode: read-only
 ---
 
 # /pre-code — Contract Verification (PCV)
@@ -7,6 +8,36 @@ description: Pre-Code Contract Verification — Annahmen verifizieren bevor der 
 **Wann ausführen:** Vor jeder nicht-trivialen Implementierung. Teil von `/agentic-coding` Phase 0.
 **Zweck:** Verhindert Review-Iterationen durch proaktive Verifikation aller Annahmen.
 **ROI:** ~10 Tool-Calls, spart 2–3 Review-Zyklen à 8k Token.
+
+---
+
+## A0) ADR Impact Check — Welche Architektur-Entscheidungen gelten?
+
+> Nutzt `iil-adrfw` MCP Tools (Prefix aus project-facts.md, aktuell `mcp2_`).
+
+Für **jede betroffene Datei** die geändert wird:
+
+```
+MCP: mcp2_adr_impact(file_path="<betroffene_datei>", repo="<repo>")
+→ Liefert: Liste der ADRs die für diese Datei gelten (direct, domain, repo match)
+```
+
+**Beispiele:**
+```
+mcp2_adr_impact(file_path="apps/trips/models.py", repo="travel-beat")
+→ ADR-009 (Service Layer), ADR-043 (Database-First), ADR-099 (Tenant ID)
+
+mcp2_adr_impact(file_path="docker-compose.prod.yml", repo="bfagent")
+→ ADR-022 (Docker env_file), ADR-056 (Deployment Preflight), ADR-094 (Migration Safety)
+```
+
+Bei **unbekannten Constraints** tiefergehend abfragen:
+```
+MCP: mcp2_adr_query(question="What rules govern <thema>?", domain="<domain>")
+MCP: mcp2_adr_explain(rule_id="<rule_id>", audience="senior")
+```
+
+→ Ergebnis in Constraint Manifest unter "ADR-Constraints" aufnehmen.
 
 ---
 

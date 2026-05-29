@@ -1,5 +1,6 @@
 ---
 description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbaum, Agent-Einstieg
+mode: read-only
 ---
 
 # Workflow Index — Platform Coding Agent System
@@ -27,6 +28,7 @@ description: Alle Workflows auf einen Blick — Trigger-Matrix, Entscheidungsbau
 | **Tests vor Package-Release prüfen** | **Testing Conventions** | **`/testing-conventions`** |
 | **Cross-Repo Audit (Schwachstellen, Inkonsistenzen)** | **Platform Audit** | **`/platform-audit`** |
 | **Workflows reviewen + optimieren (Agent-Stabilität)** | **Workflow Review** | **`/workflow-review`** |
+| **ADR Health Audit (Schema, Staleness, Freshness, Redundancy)** | **ADR Health** | **`/adr-health`** |
 | Vor Production-Deploy | Deploy Check | `/deploy-check` |
 | Deployen | Deploy | `/deploy` |
 | DB-Backup | Backup | `/backup` |
@@ -69,6 +71,9 @@ Neue Session startet
         │
         ├─ Architektur-Entscheidung nötig?
         │       └─ /adr  (BEVOR implementiert wird)
+        │
+        ├─ ADR-Gesundheit prüfen (Schema, Drift, Freshness)?
+        │       └─ /adr-health
         │
         ├─ Use Case definieren?
         │       └─ /use-case

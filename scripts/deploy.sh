@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# /opt/scripts/deploy.sh — iil-Platform Unified Deploy Script (ADR-120)
-# Auf PROD (88.198.191.108) und DEV/Staging (46.225.113.1) installieren
+# /opt/scripts/deploy.sh — iil-Platform Unified Deploy Script (ADR-120, ADR-166)
+# Auf PROD (88.198.191.108) und DEV/Staging (88.99.38.75) installieren
 #
 # Usage: deploy.sh <APP_NAME> <APP_PATH> <IMAGE_TAG> <ENVIRONMENT> [HEALTH_CHECK_URL]
-# Example: deploy.sh risk-hub /opt/risk-hub v1.4.2 production https://schutztat.de/healthz/
+# Example: deploy.sh risk-hub /opt/risk-hub v1.4.2 production https://schutztat.de/livez/
 set -euo pipefail
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
@@ -12,10 +12,13 @@ IMAGE_TAG="${3:?'IMAGE_TAG fehlt'}"
 ENVIRONMENT="${4:?'ENVIRONMENT fehlt (staging|production)'}"
 HEALTH_CHECK_URL="${5:-}"
 
+# ADR-160: log to file only if writable — never break deploy for logging
 LOG_DIR="/var/log/iil-deploys"
-mkdir -p "$LOG_DIR"
+mkdir -p "$LOG_DIR" 2>/dev/null || true
 LOG_FILE="$LOG_DIR/${APP_NAME}_$(date +%Y%m%d_%H%M%S)_$$.log"
-exec > >(tee -a "$LOG_FILE") 2>&1
+if touch "$LOG_FILE" 2>/dev/null; then
+  exec > >(tee -a "$LOG_FILE" 2>/dev/null || cat) 2>&1
+fi
 
 # Validierung
 [[ "$ENVIRONMENT" =~ ^(staging|production)$ ]] || { echo "FEHLER: ENVIRONMENT ungültig: $ENVIRONMENT" >&2; exit 1; }
@@ -30,10 +33,15 @@ if [[ -f "$APP_PATH/.env" ]]; then
   PREVIOUS_TAG=$(grep "^IMAGE_TAG=" "$APP_PATH/.env" | cut -d= -f2 || true)
 fi
 
-# Compose-File nach Umgebung wählen (ADR-022: docker-compose.prod.yml für Production)
+# Compose-File nach Umgebung wählen (ADR-022)
+# Production: docker-compose.prod.yml
+# Staging:    docker-compose.staging.yml
+# Fallback:   docker-compose.yml
 COMPOSE_FILE="docker-compose.yml"
 if [[ "$ENVIRONMENT" == "production" && -f "$APP_PATH/docker-compose.prod.yml" ]]; then
   COMPOSE_FILE="docker-compose.prod.yml"
+elif [[ "$ENVIRONMENT" == "staging" && -f "$APP_PATH/docker-compose.staging.yml" ]]; then
+  COMPOSE_FILE="docker-compose.staging.yml"
 fi
 
 # Staging: eigenes Compose-Projekt um DEV-Container nicht zu überschreiben
@@ -58,13 +66,13 @@ rollback() {
 }
 trap rollback ERR
 
-echo "═══════════════════════════════════════════════"
+echo "═══════════════════════════════════════════════════"
 echo "iil-Platform Deploy — ADR-120"
 echo "App:  $APP_NAME"
 echo "Env:  $ENVIRONMENT"
 echo "Tag:  $IMAGE_TAG"
 [[ -n "$PREVIOUS_TAG" ]] && echo "Prev: $PREVIOUS_TAG"
-echo "═══════════════════════════════════════════════"
+echo "═══════════════════════════════════════════════════"
 
 # IMAGE_TAG in .env schreiben
 if [[ -f "$APP_PATH/.env" ]] && grep -q "^IMAGE_TAG=" "$APP_PATH/.env"; then
@@ -75,15 +83,64 @@ fi
 
 # GHCR Login (Token aus /opt/scripts/.ghcr_token falls vorhanden)
 if [[ -f "/opt/scripts/.ghcr_token" ]]; then
-  docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token 2>/dev/null || echo "WARN: GHCR login skipped"
+  docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
 fi
 
 # Deploy
 cd "$APP_PATH"
+
+# Staging: vor dem Hochfahren den Altstack sauber abräumen.
+# `up -d --remove-orphans` entfernt nur Orphans DESSELBEN Compose-Projekts;
+# ein Altcontainer aus einem früheren Run (anderes Projekt/Netz) bleibt
+# bestehen und blockiert dauerhaft Host-Ports (real passiert:
+# risk_hub_staging_minio hielt 127.0.0.1:9002 → Deploy + Rollback failten).
+# Nur staging, damit Prod (self-hosted, kein Stale-Stack-Problem) keinen
+# zusätzlichen Downtime durch ein down→up bekommt.
+if [[ "$ENVIRONMENT" == "staging" ]]; then
+  echo "Staging: räume Altstack ab (down --remove-orphans)"
+  docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>&1 || true
+fi
+
 docker compose -f "$COMPOSE_FILE" pull
 docker compose -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans
 
-# Health-Check (nur HTTP 200 — ADR-022: /healthz/ Pflicht)
+# Health-Check
+# Staging: derive local URL from the WEB service's host-port mapping.
+# We must NOT just take the first 127.0.0.1:PORT line in the compose
+# file — that frequently belongs to MinIO/Redis/etc. Try (in order):
+#   1. docker compose port lookup on every service whose name ends in -web
+#   2. awk-parse the compose block under a `*-web:` service key
+#   3. legacy fallback: first 127.0.0.1 host port (preserves old behaviour)
+if [[ "$ENVIRONMENT" == "staging" ]]; then
+  LOCAL_PORT=""
+
+  for svc in $(docker compose -f "$COMPOSE_FILE" config --services 2>/dev/null | grep -E '(^|-)web$' || true); do
+    LOCAL_PORT=$(docker compose -f "$COMPOSE_FILE" port "$svc" 8000 2>/dev/null | awk -F: '{print $NF}' | head -1 || true)
+    [[ -n "$LOCAL_PORT" ]] && break
+  done
+
+  if [[ -z "$LOCAL_PORT" ]]; then
+    LOCAL_PORT=$(awk '
+      /^  [a-zA-Z0-9_-]+-web:[[:space:]]*$/ { in_web=1; next }
+      /^  [a-zA-Z0-9_-]+:[[:space:]]*$/     { in_web=0 }
+      in_web && match($0, /127\.0\.0\.1:[0-9]+/) {
+        s = substr($0, RSTART, RLENGTH)
+        sub(/.*:/, "", s)
+        print s; exit
+      }
+    ' "$APP_PATH/$COMPOSE_FILE" || true)
+  fi
+
+  if [[ -z "$LOCAL_PORT" ]]; then
+    LOCAL_PORT=$(grep -oP '127\.0\.0\.1:\K\d+' "$APP_PATH/$COMPOSE_FILE" | head -1 || true)
+  fi
+
+  if [[ -n "$LOCAL_PORT" ]]; then
+    HEALTH_CHECK_URL="http://127.0.0.1:${LOCAL_PORT}/livez/"
+    echo "Staging: using local health check $HEALTH_CHECK_URL"
+  fi
+fi
+
 if [[ -n "$HEALTH_CHECK_URL" ]]; then
   echo "Health-Check: $HEALTH_CHECK_URL"
   for i in $(seq 1 12); do
@@ -109,6 +166,6 @@ fi
 docker image prune -f 2>/dev/null || true
 
 trap - ERR
-echo "═══════════════════════════════════════════════"
+echo "═══════════════════════════════════════════════════"
 echo "✅ Deploy erfolgreich: $APP_NAME:$IMAGE_TAG ($ENVIRONMENT)"
-echo "═══════════════════════════════════════════════"
+echo "═══════════════════════════════════════════════════"

@@ -1,9 +1,9 @@
 ---
-status: draft
+status: proposed
 date: 2026-05-07
-version: 1.1
+version: 1.2
 decision-makers: [Achim Dehnert]
-consulted: []
+consulted: [Cascade]
 informed: []
 supersedes: []
 amends: [ADR-141]
@@ -28,6 +28,7 @@ tags: [agent-coding, headless, devin, orchestrator, refactoring, quality-assuran
 |---------|-------|------------|
 | 1.0 | 2026-05-07 | Erstentwurf — Architektur, Use Cases, Gate-Modell, Implementierungsplan |
 | 1.1 | 2026-05-07 | Review-Fixes: Titel als Decision Statement, Consequences-Sektion, Glossar, Secret-Management, catalog-info.yaml, ADR-075-Klassifikation |
+| 1.2 | 2026-05-08 | Status draft→proposed, Open Questions beantwortet, CLI-Backend-Entscheidung: Aider Primary (Open Source), Implementierungsplan Phase 1 geschärft |
 
 ---
 
@@ -581,8 +582,9 @@ Hard-Stop bei Budget-Überschreitung → `BudgetExceededError` → Discord-Alert
 
 | Phase | Inhalt | Aufwand | Abhängig von | Status |
 |-------|--------|---------|-------------|--------|
-| **0** | ADR-186 finalisieren | 1h | — | ⬜ |
-| **1** | `CLIAdapter`-Abstraktion + `DevinAdapter` + `AiderAdapter` | 3h | Devin CLI installiert | ⬜ |
+| **0** | ADR-186 finalisieren (draft→proposed, Open Questions) | 1h | — | ✅ |
+| **0.5** | `pip install aider-chat` + API-Key konfigurieren + Smoke-Test | 0.5h | ANTHROPIC_API_KEY | ⬜ |
+| **1** | `CLIAdapter`-Abstraktion + `AiderAdapter` (Primary) + `DevinAdapter` (Optional) | 3h | Phase 0.5 | ⬜ |
 | **2** | `HeadlessBridge` mit Orchestrator-Integration (Routing, Budget, Context) | 4h | Phase 1 | ⬜ |
 | **3** | Quality-Sweep-Script (`headless_sweep.py`) — Gate 0, read-only | 2h | Phase 2 | ⬜ |
 | **4** | Cron-Setup + Discord-Notification für Sweep-Results | 1h | Phase 3 | ⬜ |
@@ -671,13 +673,13 @@ Hard-Stop bei Budget-Überschreitung → `BudgetExceededError` → Discord-Alert
 
 ## 14. Open Questions
 
-| # | Frage | Status | Kontext |
-|---|-------|--------|---------|
-| Q1 | Devin CLI Lizenzkosten bei Headless-Nutzung? | Offen | Pricing-Modell für `bypass`-Mode unklar |
-| Q2 | Aider als gleichwertiger Fallback — oder nur Notfall? | Offen | Evaluierung in Phase 9 |
-| Q3 | pgvector Disk-Space für Trend-Daten (Nightly × 19 Repos × 365 Tage)? | Offen | Retention-Policy definieren |
-| Q4 | Soll PR-Review in CI blocking sein oder nur Comment? | Offen | Abhängig von False-Positive-Rate |
-| Q5 | Temporal-Integration für Long-Running-Refactorings? | Deferred | Wie ADR-177 §Temporal |
+| # | Frage | Status | Entscheidung/Kontext |
+|---|-------|--------|----------------------|
+| Q1 | Devin CLI Lizenzkosten bei Headless-Nutzung? | **Entschieden** | Devin wird NICHT als Primary eingesetzt. Aider (Open Source) ist Primary-Backend — keine Lizenzkosten. Devin optional als Premium-Backend falls Budget vorhanden. |
+| Q2 | Aider als gleichwertiger Fallback — oder nur Notfall? | **Entschieden** | Aider ist **Primary Backend** (Open Source, `pip install aider-chat`, nutzt eigenen Anthropic/OpenAI API-Key). Devin CLI = Optional Premium. Claude Code CLI = Future wenn verfügbar. |
+| Q3 | pgvector Disk-Space für Trend-Daten (Nightly × 19 Repos × 365 Tage)? | **Entschieden** | 90-Tage Retention für Detail-Findings, Aggregat-Metriken unbegrenzt. ~500 KB/Tag × 90 = ~45 MB — kein Disk-Problem. Cleanup via Celery periodic task. |
+| Q4 | Soll PR-Review in CI blocking sein oder nur Comment? | **Entschieden** | Phase 1: nur Comment (non-blocking). Nach 4 Wochen Pilotbetrieb: False-Positive-Rate evaluieren. Bei <10% FP-Rate: blocking aktivieren. |
+| Q5 | Temporal-Integration für Long-Running-Refactorings? | Deferred | Erst nach Phase 9 Validierung. Aktueller Scope: Single-Repo, Single-Turn. Multi-Repo-Batch sequenziell. |
 
 ---
 

@@ -1,5 +1,6 @@
 ---
 description: App auf Production deployen — verify, push, CI, migrate, health check
+mode: write
 ---
 
 # /ship — Universal Deploy Workflow
