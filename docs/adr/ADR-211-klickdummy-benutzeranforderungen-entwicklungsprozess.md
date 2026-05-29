@@ -898,6 +898,7 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 
 ## Bezug
 
+- **Playbook:** `docs/concepts/CONCEPT-003-klickdummy-playbook.md` — Begleit-Dokument zu diesem ADR (wie konkret implementieren, Stack-Patterns, Lessons Learned, Repo-Adoptions-Status)
 - risk-hub:ADR-046 · writing-hub:ADR-180 · meiki-hub:ADR-020 · meiki-hub:ADR-026 (Co-Creation-Loop + Requirements-Bridge — Rev-12-Empiriebasis) — Mapping auf Rev-11-Patterns in §Auswahlhilfe
 - Followups `adr-211-followup` SF1–SF11 (Adoption-Scoreboard, **nicht status-gatend**) — S7/S8 durch Rev 11, S9/S10/S11 durch Rev 12
 - Closes-on-acceptance: **#228** (sunset_after-Frontmatter, F10) und **#229** (4-Pattern-Taxonomie, F9). #255 SF3-AC muss vor Bau an pattern-spezifischen Prod-Guard angepasst werden (F11, offen). **F12 geschlossen durch Rev 12** (§Migration).
