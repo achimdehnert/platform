@@ -10,11 +10,15 @@ on:
     paths:
       - '.github/workflows/_*.yml'
       - '.github/workflows/*.yml'
+      - '.github/actions/**'
+      - 'scripts/checks/publish_gate_invariant.sh'
   push:
     branches: [main]
     paths:
       - '.github/workflows/_*.yml'
       - '.github/workflows/*.yml'
+      - '.github/actions/**'
+      - 'scripts/checks/publish_gate_invariant.sh'
       - '.github/actionlint.yaml'
 
 jobs:
@@ -67,6 +71,9 @@ jobs:
             fi
           done
           echo "✅ All reusable workflows valid"
+
+      - name: ADR-226 publish-gate invariant + #191/#198 API-free guard
+        run: bash scripts/checks/publish_gate_invariant.sh
 
   test-ci:
     name: "Test CI Workflow"
