@@ -124,9 +124,6 @@
 | 062 | Central Billing Service (billing-hub) | `Accepted` | ✅ | [ADR-062](ADR-062-central-billing-service.md) |
 | 063 | Staging Environment Strategy | `Superseded` | — | [ADR-063](archive/ADR-063-staging-environment-strategy.md) |
 | 064 | coach-hub Architecture | `Archived` | — | [ADR-064](_archive/superseded/ADR-064-coach-hub-ki-ohne-risiko-architecture.md) |
-<<<<<<< HEAD
-| 137 | Tenant Lifecycle Module Self-Service RLS | `Accepted` | ✅ | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
-=======
 | 065 | Filesystem-first ADR Numbering -- max(existing) + 1 | `Accepted` | ✅ | [ADR-065](ADR-065-adr-numbering-filesystem-first.md) |
 | 066 | AI Engineering Squad with Role-based Agents | `Accepted` | ✅ | [ADR-066](ADR-066-ai-engineering-team.md) |
 | 067 | GitHub Issues + Projects as Single Source of Truth | `Accepted` | ✅ | [ADR-067](ADR-067-work-management-strategy.md) |
@@ -184,7 +181,6 @@
 | 134 | Module Monetization Strategy (ehem. ADR-099) | `Proposed` | ⬜ | [ADR-134](ADR-134-module-monetization-strategy.md) |
 | 136 | Shared Backend Services Original (ehem. ADR-2026-001) — **Deprecated**, siehe ADR-131 | `Deprecated` | — | [ADR-136](archive/ADR-136-shared-backend-services-original.md) |
 | 137 | Tenant-Lifecycle, Self-Service Module-Buchung und RLS (ehem. ADR-121) | `Accepted` | 🔶 | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
->>>>>>> origin/main
 | 138 | ADR Implementation Tracking Standard -- Lifecycle, Frontmatter Fields, Verification | `Accepted` | ✅ | [ADR-138](ADR-138-implementation-tracking-standard.md) |
 | 148 | Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub | `Proposed` | ⬜ | [ADR-148](ADR-148-recruiting-hub-architecture.md) |
 | 149 | Adopt d.velop Cloud DMS as Platform Document Archive Service (dms-hub) | `Accepted` | 🔶 | [ADR-149](ADR-149-dms-hub-dvelop-platform-service.md) |
@@ -211,9 +207,6 @@
 | 186 | Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation | `Proposed` | ⬜ | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
 | 187 | Document Intelligence Pipeline — iil-ingest erweitern um VectorStore, Multi-Tool Ensemble & RAG | `Accepted` | 🔶 | [ADR-187](ADR-187-document-intelligence-pipeline.md) |
 | 188 | Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store | `Proposed` | ⬜ | [ADR-188](ADR-188-unified-vector-store.md) |
-<<<<<<< HEAD
-| 223 | Einführung eines automatisierten LLM Model Screener & Provider Research Systems | `Proposed` | ⬜ | [ADR-223](ADR-223-llm-model-screener.md) |
-=======
 | 194 | Universal LLM-Call Logging via Gateway | `Proposed` | ⬜ | [ADR-194](ADR-194-universal-llm-call-logging-via-gateway.md) |
 | 195 | LiteLLM Proxy as Engine + Admin API as Truth | `Proposed` | ⬜ | [ADR-195](ADR-195-litellm-proxy-engine-plus-admin-api-truth.md) |
 | 196 | Adaptive Extensions to ADR-116 (Outcome Telemetry + Drift + Bandit) | `Accepted` | 🔶 | [ADR-196](ADR-196-adaptive-extensions-to-adr-116.md) |
@@ -222,7 +215,9 @@
 | 199 | Model-Routing-Authority (rejected after 3 architecture iterations) | `Rejected` | — | [ADR-199](archive/ADR-199-gitops-routing.md) |
 | 201 | Claude Code Pricing Visibility — Statusline + Stop-Summary | `Accepted` | 🔶 | [ADR-201](ADR-201-claude-code-pricing-visibility.md) |
 | 220 | Migrate token-based PyPI publish workflows to OIDC Trusted Publishing with protected environments | `Proposed` | ⬜ | [ADR-220](ADR-220-oidc-trusted-publishing-for-pypi.md) |
->>>>>>> origin/main
+| 221 | Staging-Hostname-Konvention (Präfix `staging-`, Demo-Tenant für Subdomain-Tenancy) | `Accepted` | ⬜ | [ADR-221](ADR-221-staging-hostname-konvention.md) |
+| 222 | Cross-Repo CI-Health als wiederkehrendes gegatetes Programm | `Proposed` | ⬜ | [ADR-222](ADR-222-cross-repo-ci-health-program.md) |
+| 223 | Einführung eines automatisierten LLM Model Screener & Provider Research Systems | `Proposed` | ⬜ | [ADR-223](ADR-223-llm-model-screener.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
