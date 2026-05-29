@@ -67,6 +67,7 @@ DJANGO_HUB=(
     run-prod
     run-staging
     rollback
+    incident
     frontend-ui-test
     pre-release-test
     testing-setup

@@ -47,7 +47,9 @@ echo "└───────────────────────�
 
 ---
 
-## Phase 0: Blockierte Arbeit dokumentieren (NEU — Lesson 2026-04-05)
+## Phase 0: Blockierte Arbeit dokumentieren + AGENT_HANDOVER aktualisieren
+
+### 0a: Blockierte Arbeit (Lesson 2026-04-05)
 
 Falls während der Session Arbeit blockiert wurde (Shell-Hang, MCP-Fehler, Token-Probleme):
 
@@ -62,6 +64,41 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 
 > Lesson Learned: Wenn Tools blockiert sind, ist es besser die Lösung in einer
 > .fixed-Datei zu hinterlegen als die Session ergebnislos zu beenden.
+
+### 0b: AGENT_HANDOVER.md aktualisieren (PFLICHT bei WIP-Stand)
+
+Falls uncommitted changes, offene Tasks oder abgebrochene Implementierungen existieren:
+
+```bash
+# Welche Repos haben uncommitted changes?
+for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
+  status=$(cd "$repo" && git status --porcelain 2>/dev/null)
+  [ -n "$status" ] && echo "DIRTY: $(basename $repo)"
+done
+```
+
+Für **jedes dirty Repo** das ein `docs/AGENT_HANDOVER.md` hat → Abschnitt **"⚡ Aktueller Stand"** aktualisieren:
+
+```markdown
+## ⚡ Aktueller Stand (<DATUM>)
+
+**Aktiver Branch:** `<branch>`
+
+**Was wurde implementiert:**
+- <Datei> — <1-Zeile was geändert/neu>
+
+**Uncommitted Changes:**
+- <git status --short Ausgabe>
+
+**Nächster Schritt:**
+<konkreter nächster Schritt, copy-pasteable Befehle>
+
+**Session Resume (falls verfügbar):**
+claude --resume <session-id>
+```
+
+→ Dann `git add docs/AGENT_HANDOVER.md && git commit -m "chore: update AGENT_HANDOVER"`
+→ Wird von `session-start Phase 1` automatisch gelesen: *"Repo-Kontext laden — AGENT_HANDOVER.md"*
 
 ---
 

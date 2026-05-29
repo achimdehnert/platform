@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-18
-> **Next free ADR number:** 211
+> **Last updated:** 2026-05-29
+> **Next free ADR number:** 227
 
 ## Legend
 
@@ -207,11 +207,19 @@
 | 186 | Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation | `Proposed` | ⬜ | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
 | 187 | Document Intelligence Pipeline — iil-ingest erweitern um VectorStore, Multi-Tool Ensemble & RAG | `Accepted` | 🔶 | [ADR-187](ADR-187-document-intelligence-pipeline.md) |
 | 188 | Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store | `Proposed` | ⬜ | [ADR-188](ADR-188-unified-vector-store.md) |
+| 194 | Universal LLM-Call Logging via Gateway | `Proposed` | ⬜ | [ADR-194](ADR-194-universal-llm-call-logging-via-gateway.md) |
+| 195 | LiteLLM Proxy as Engine + Admin API as Truth | `Proposed` | ⬜ | [ADR-195](ADR-195-litellm-proxy-engine-plus-admin-api-truth.md) |
+| 196 | Adaptive Extensions to ADR-116 (Outcome Telemetry + Drift + Bandit) | `Accepted` | 🔶 | [ADR-196](ADR-196-adaptive-extensions-to-adr-116.md) |
 | 197 | Repo-aware MCP Tool Pruning for Cascade — pgvector-backed disabledTools generator | `Proposed` | ⬜ | [ADR-197](ADR-197-repo-aware-mcp-tool-pruning.md) |
 | 198 | Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention | `Accepted` | ⬜ | [ADR-198](ADR-198-staging-edge-second-cloudflare-tunnel-subdomain-convention.md) |
 | 199 | Model-Routing-Authority (rejected after 3 architecture iterations) | `Rejected` | — | [ADR-199](archive/ADR-199-gitops-routing.md) |
 | 201 | Claude Code Pricing Visibility — Statusline + Stop-Summary | `Accepted` | 🔶 | [ADR-201](ADR-201-claude-code-pricing-visibility.md) |
-| 210 | Library CI reusable (`_ci-pypi.yml`) + mandatory blocking secret-scan for all PyPI-published packages | `Accepted` | 🔶 | [ADR-210](ADR-210-library-ci-reusable-mandatory-secret-scan.md) |
+| 220 | Migrate token-based PyPI publish workflows to OIDC Trusted Publishing with protected environments | `Proposed` | ⬜ | [ADR-220](ADR-220-oidc-trusted-publishing-for-pypi.md) |
+| 221 | Staging-Hostname-Konvention (Präfix `staging-`, Demo-Tenant für Subdomain-Tenancy) | `Accepted` | ⬜ | [ADR-221](ADR-221-staging-hostname-konvention.md) |
+| 222 | Cross-Repo CI-Health als wiederkehrendes gegatetes Programm | `Proposed` | ⬜ | [ADR-222](ADR-222-cross-repo-ci-health-program.md) |
+| 223 | Einführung eines automatisierten LLM Model Screener & Provider Research Systems | `Proposed` | ⬜ | [ADR-223](ADR-223-llm-model-screener.md) |
+| 224 | Adopt HTTP/SSE Transport for Orchestrator MCP Server | `Proposed` | ⬜ | [ADR-224](ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md) |
+| 226 | Library CI reusable (`_ci-pypi.yml`) + mandatory blocking secret-scan for all PyPI-published packages | `Accepted` | 🔶 | [ADR-226](ADR-226-library-ci-reusable-mandatory-secret-scan.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
@@ -231,6 +239,7 @@
 
 - [ ] ADR-174: Rollout qm-gate auf weitere Repos (bulk via /onboard-repo)
 - [ ] ADR-174: Track 3 Workflow-Metriken (Issue erstellen nach risk-hub Praxiserfahrung)
+- [x] ADR-189: LLM Model Screener & Provider Research — Proposed, External Review 4.9/5 — 2026-05-08
 
 - [x] ADR-094 (Migration Conflict Resolution): `Accepted` -- 2026-03-02
 - [x] ADR-095 rev1: alle Blocker + Highs aus externem Review resolved -- 2026-03-02

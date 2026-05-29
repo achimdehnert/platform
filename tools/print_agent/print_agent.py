@@ -572,6 +572,34 @@ def _ensure_puppeteer_config() -> str:
     return str(_PUPPETEER_CFG)
 
 
+def inject_mermaid_classdefs(mermaid_code: str, design: dict) -> str:
+    """Prepend classDef lines from `design['mermaid_classes']` for each `:::class` used.
+
+    Author-defined `classDef <name>` blocks in the diagram win — those names are skipped.
+    """
+    classes = design.get("mermaid_classes") or {}
+    if not classes:
+        return mermaid_code
+    used = set(re.findall(r":::([A-Za-z_][A-Za-z0-9_-]*)", mermaid_code))
+    if not used:
+        return mermaid_code
+    already_defined = set(re.findall(r"^\s*classDef\s+([A-Za-z_][A-Za-z0-9_-]*)", mermaid_code, re.MULTILINE))
+    to_inject = [name for name in used if name in classes and name not in already_defined]
+    if not to_inject:
+        return mermaid_code
+    lines = []
+    for name in to_inject:
+        c = classes[name]
+        lines.append(
+            f"    classDef {name} fill:{c.get('fill','#888')},"
+            f"stroke:{c.get('stroke','#333')},"
+            f"color:{c.get('color','#000')},"
+            f"stroke-width:{c.get('stroke_width','1.5px')}"
+        )
+    head, _, rest = mermaid_code.partition("\n")
+    return head + "\n" + "\n".join(lines) + "\n" + rest
+
+
 def render_mermaid_to_png(mermaid_code: str) -> str:
     """Rendert Mermaid-Code zu PNG via mmdc und bettet es als base64 data-URI ein.
 
@@ -612,8 +640,9 @@ def render_mermaid_to_png(mermaid_code: str) -> str:
                 pass
 
 
-def preprocess_md(md_text: str) -> str:
+def preprocess_md(md_text: str, design: dict | None = None) -> str:
     """Ersetzt ```gantt / ```tree / ```flow / ```arch / ```layer / ```tiers / ```compare / ```mermaid durch HTML."""
+    design = design or {}
     def replace_gantt(m):   return parse_gantt_block(m.group(1))
     def replace_tree(m):    return parse_tree_block(m.group(1))
     def replace_flow(m):    return parse_flow_block(m.group(1))
@@ -623,6 +652,7 @@ def preprocess_md(md_text: str) -> str:
     def replace_compare(m): return parse_compare_block(m.group(1))
     def replace_mermaid(m):
         code = m.group(1).strip()
+        code = inject_mermaid_classdefs(code, design)
         print(f"   \U0001f4ca Mermaid-Diagramm rendern ({code.split(chr(10))[0][:40]}\u2026)")
         return render_mermaid_to_png(code)
     text = re.sub(r"```gantt\n(.*?)```",   replace_gantt,   md_text, flags=re.DOTALL)
@@ -707,7 +737,7 @@ def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
         if meta.get("anlass"):           rows.append(("Anlass", meta["anlass"]))
         if meta.get("zielentscheidung"): rows.append(("Zielentscheidung", meta["zielentscheidung"]))
         if meta.get("auftraggeber"):     rows.append(("Auftraggeber", meta["auftraggeber"]))
-        rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · kontakt@iil.gmbh"))
+        rows.append(("Auftragnehmer", "IIL GmbH · Achim Dehnert · info@iil.gmbh"))
         return rows
     # meiki default
     stand = meta.get("stand", "")
@@ -769,7 +799,7 @@ def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extr
 
     # Strip meta-prefix lines so they don't appear as paragraph text in body.
     md_text_cleaned = strip_meta_prefix_lines(md_text)
-    md_text_processed = preprocess_md(md_text_cleaned)
+    md_text_processed = preprocess_md(md_text_cleaned, design=design)
     md = markdown.Markdown(
         extensions=["tables", "attr_list", "meta", "toc", "fenced_code", "sane_lists"],
         extension_configs={

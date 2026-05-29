@@ -229,7 +229,7 @@ Compliance is verified by construction and continuously, not by review alone:
   shared long-lived `PYPI_API_TOKEN` and no protected environment — a broader,
   more irreversible blast radius than the secret-in-artifact case this ADR
   closes. Migrating them to OIDC + a reviewer-protected `environment` is the
-  natural next risk reduction; tracked as a follow-up, not blocking ADR-210.
+  natural next risk reduction; tracked as a follow-up, not blocking ADR-226.
 * **Publish-workflow fragmentation.** Five hand-rolled `publish-*.yml` with
   divergent build tools (`hatchling` vs `python -m build`) and triggers. A
   shared `_publish-pypi.yml` reusable (carrying the gate + OIDC by default) is
