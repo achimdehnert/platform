@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Systematischer Review aller .windsurf/workflows/ — Qualität, Stabilität, Fehlerquellen, Optimierungspotenzial für fehlerfreies Coding-Agent-Szenario
 ---
 

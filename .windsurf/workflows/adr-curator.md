@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Disambiguate which ADR is canonical for a topic — supersession chains, naming collisions, conflict warnings. Read-only.
 mode: read-only
 ---

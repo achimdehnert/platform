@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Review and address PR comments using GitHub MCP
 mode: write
 args:

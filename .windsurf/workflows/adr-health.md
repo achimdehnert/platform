@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Full ADR Health Audit — Schema, Staleness, Freshness, Redundancy, Compliance in einem Durchlauf
 ---
 

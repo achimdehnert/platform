@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Review Agent — automatisierter PR-Review gegen ADRs, Ruff, Bandit, Platform-Patterns (ADR-100)
 ---
 
