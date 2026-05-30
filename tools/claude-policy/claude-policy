@@ -49,6 +49,8 @@ import os
 import re
 import subprocess
 import sys
+import urllib.error
+import urllib.request
 from pathlib import Path
 
 # Policy source dir. Default = local Claude config; CI overrides it to the
@@ -68,6 +70,15 @@ LOCAL_MODE = os.environ.get("ORCH_LOCAL") == "1"
 
 SSH_CONNECT_TIMEOUT = 20
 SSH_RUN_TIMEOUT = 90
+
+# Canonical transport: the server's stateless REST shim `/run` (server.py
+# handle_run → _call_tool_inner, the same dispatch table as the MCP tools).
+# Preferred over the ssh+docker path: no shell hop, no per-process SSE session
+# state, structured JSON in/out. Key is read from the env (Tool ← env ←
+# secrets layer); never embedded.
+RUN_URL = os.environ.get("ORCHESTRATOR_RUN_URL", "https://orchestrator.iil.pet/run")
+RUN_API_KEY = os.environ.get("ORCHESTRATOR_MCP_API_KEY", "")
+RUN_TIMEOUT = int(os.environ.get("ORCHESTRATOR_RUN_TIMEOUT", "30"))
 
 
 def slug(name: str) -> str:
@@ -168,6 +179,87 @@ def _orch_upsert(key: str, md: str) -> bool:
     )
     out = _docker_py(code).strip().splitlines()
     return bool(out) and out[-1] == "WROTE"
+
+
+# Server-side enum (orchestrator_mcp/server.py agent_memory_upsert inputSchema).
+_VALID_ENTRY_TYPES = (
+    "open_task", "decision", "context", "lesson_learned",
+    "error_pattern", "repo_context", "agent_handoff",
+)
+
+
+def _orch_run(tool: str, arguments: dict) -> dict:
+    """Call an orchestrator tool through the stateless `/run` REST shim.
+
+    POST {tool, arguments} with Bearer auth → the server dispatches via
+    `handle_run` → `_call_tool_inner` (the *same* table the MCP tools use)
+    and returns the tool's JSON. Canonical transport: it sidesteps the SSE
+    per-process-session bug (every MCP tools/call → -32602) with no ssh/docker
+    hop and structured JSON in/out. Returns the parsed result dict; raises
+    TransportError on any failure.
+    """
+    if not RUN_API_KEY:
+        raise TransportError(
+            "ORCHESTRATOR_MCP_API_KEY not set — required for the /run transport. "
+            "Export it (e.g. sourced from ~/.secrets) before calling."
+        )
+    body = json.dumps({"tool": tool, "arguments": arguments}).encode("utf-8")
+    req = urllib.request.Request(
+        RUN_URL, data=body, method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {RUN_API_KEY}",
+            # Cloudflare (fronting orchestrator.iil.pet) bans the default
+            # "Python-urllib/x" UA with error 1010 — set an explicit one.
+            "User-Agent": "claude-policy/1.0",
+        },
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=RUN_TIMEOUT) as resp:
+            payload = json.loads(resp.read().decode("utf-8"))
+    except urllib.error.HTTPError as exc:
+        detail = exc.read().decode("utf-8", "replace")[:300]
+        raise TransportError(f"/run {tool}: HTTP {exc.code} — {detail}") from exc
+    except (urllib.error.URLError, json.JSONDecodeError) as exc:
+        raise TransportError(f"/run {tool}: {exc}") from exc
+    if isinstance(payload, dict) and payload.get("ok") is False:
+        raise TransportError(f"/run {tool}: {payload.get('error', 'unknown error')}")
+    return payload
+
+
+def _orch_upsert_entry(entry_key, entry_type, title, content, tags):
+    """Upsert any memory entry (any entry_type) via the `/run` transport.
+
+    Calls agent_memory_upsert through the stateless REST shim — structured
+    JSON, no base64/ssh/docker. Returns True if a write happened, False if
+    unchanged (content_hash dedup) or stub mode.
+    """
+    if entry_type not in _VALID_ENTRY_TYPES:
+        raise SystemExit(
+            f"invalid entry_type {entry_type!r}; one of {', '.join(_VALID_ENTRY_TYPES)}"
+        )
+    if ":" not in entry_key:
+        raise SystemExit(
+            f"invalid entry_key {entry_key!r}: MemoryEntrySchema requires "
+            "'namespace:identifier' (e.g. 'session:2026-05-30:platform')"
+        )
+    if STUB_MODE:
+        sys.stderr.write(
+            f"[stub] would /run agent_memory_upsert(entry_key={entry_key!r}, "
+            f"entry_type={entry_type!r}, title={title!r}, "
+            f"content=<{len(content)} chars>, tags={list(tags)!r})\n"
+        )
+        return False
+    result = _orch_run("agent_memory_upsert", {
+        "entry_key": entry_key,
+        "entry_type": entry_type,
+        "title": title,
+        "content": content,
+        "agent": "cascade",
+        "tags": list(tags),
+    })
+    # handle_run returns the tool JSON: {"ok": true, "written": <bool>, ...}
+    return bool(result.get("written", True)) if isinstance(result, dict) else True
 
 
 def _orch_fetch(key: str) -> str | None:
@@ -312,6 +404,21 @@ def cmd_diff(_a: argparse.Namespace) -> int:
     return drift and 1 or 0
 
 
+def cmd_remember(args: argparse.Namespace) -> int:
+    """Upsert an arbitrary memory entry (any entry_type) — the MCP-independent
+    path for session-ende Phase 2 et al. Content via --content or stdin."""
+    content = args.content
+    if content is None or content == "-":
+        content = sys.stdin.read()
+    if not content.strip():
+        sys.stderr.write("claude-policy remember: empty content\n")
+        return 2
+    tags = [t.strip() for t in (args.tags or "").split(",") if t.strip()]
+    wrote = _orch_upsert_entry(args.key, args.type, args.title, content, tags)
+    print("WROTE" if wrote else "UNCHANGED")
+    return 0
+
+
 # --- Main ---------------------------------------------------------------
 
 
@@ -328,6 +435,17 @@ def build_parser() -> argparse.ArgumentParser:
     sp_pull.add_argument("--yes", "-y", action="store_true", help="overwrite without prompt")
     sp_pull.set_defaults(fn=cmd_pull)
     sub.add_parser("diff", help="show drift, no writes").set_defaults(fn=cmd_diff)
+    sp_rem = sub.add_parser(
+        "remember",
+        help="upsert any memory entry (any entry_type) via the docker-exec store path",
+    )
+    sp_rem.add_argument("--key", required=True, help="entry_key, e.g. SESSION-20260530-PLATFORM")
+    sp_rem.add_argument("--type", default="context",
+                        help="entry_type (default: context); one of the ADR-113 enum")
+    sp_rem.add_argument("--title", required=True, help="short title")
+    sp_rem.add_argument("--content", help="content text; '-' or omit reads from stdin")
+    sp_rem.add_argument("--tags", help="comma-separated tags")
+    sp_rem.set_defaults(fn=cmd_remember)
     return p
 
 
