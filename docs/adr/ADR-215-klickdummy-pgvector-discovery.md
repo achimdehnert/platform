@@ -1,5 +1,5 @@
 ---
-adr_id: ADR-215
+id: ADR-215
 title: "Klickdummy Discovery via Orchestrator pgvector (Stage 1.5)"
 status: proposed
 date: 2026-05-21
