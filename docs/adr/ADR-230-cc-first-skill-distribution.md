@@ -34,9 +34,7 @@ Coding läuft **nur über CC**; **Windsurf nur für ADR/Review**. Die Cross-Tool
 ### 1.3 Belegte Ist-Probleme (Audit-Analyse 2026-05-30)
 - **`claude-skills.md` existiert ≥4-fach mit divergierendem Wortlaut:** platform `main` `policies/`,
   `.claude/policies/`, `docs/policies/`, via `platform-pinned/policies/`, und `~/.claude/policies/`.
-- **`~/.claude/commands/` wird live umgeschrieben:** Komposition kippte **mitten in der Messung**
-  von 28 Symlinks + 40 Kopien → 0/0 (bei 68 Glob-Treffern). Mechanismus **unidentifiziert**
-  (nicht die `~/.claude/bin/`-Skripte); Symlink/Kopie-**Hybrid**, teils **dangling**.
+- **`~/.claude/commands/` = historischer Hybrid:** **28 Symlinks + 40 statische Kopien**. *(Korrektur nach R1-Forensik 2026-05-30: das zunächst berichtete „live 0/0“ war ein `find`-Messartefakt — **kein rogue Rewriter**.)* Die Kopien sind **statische Snapshots vom Skill-Erstelltag** (aktualisieren sich nicht bei späterer Quell-Änderung → **stale-prone**); die Symlinks zeigen auf einen **branch-volatilen** Arbeits-Checkout → **intermittierendes Dangling**.
 - **Branch-volatile Quelle:** CC-Symlinks zeigen in einen **Arbeits-Checkout**, dessen Branch im
   Minutentakt wechselt (parallele Sessions) → CC-Skills **nicht-deterministisch**.
 - **Deklaration ≠ Realität:** Policy nennt SSoT `platform-workflows` (Worktree), genutzt wird
@@ -46,7 +44,7 @@ Coding läuft **nur über CC**; **Windsurf nur für ADR/Review**. Die Cross-Tool
 
 ## 2. Entscheidung (Vorschlag): CC-first
 1. **Eine kanonische Quelle, auf konkreten Commit aufgelöst (REC-2):** platform `main` `.windsurf/workflows/` — der Generator liest `main`, **installiert aber den resolved Commit** und hält ihn im Manifest fest (nicht „semantisch main"). *Phase-2-Watchpoint (REC-3): den Windsurf-benannten Pfad in einen **tool-neutralen `skills/`-Pfad** umbenennen (Tool-Leak vermeiden) — nicht Voraussetzung für ADR-230.*
-2. **Deterministische CC-Distribution — EINE Form, kein Hybrid (REC-1):** Default = **generierte Kopien** in `~/.claude/commands/`, jede mit Header `generated: true / source_commit / source_path / content_hash / do_not_edit` (REC-14). Erzeugung **atomar + gelockt** (Staging → validieren → Rename/Swap, REC-6), globaler Write **serialisiert** (REC-19); Ziel trägt **`MANAGED_BY`** (erlaubter Writer, Commit, Regen-Kommando, REC-5). Der Live-Rewriter wird identifiziert + **fail-closed** neutralisiert (REC-4): bis dahin gilt der Installer **nicht** als akzeptiert.
+2. **Deterministische CC-Distribution — EINE Form, kein Hybrid (REC-1):** Default = **generierte Kopien** in `~/.claude/commands/`, jede mit Header `generated: true / source_commit / source_path / content_hash / do_not_edit` (REC-14). Erzeugung **atomar + gelockt** (Staging → validieren → Rename/Swap, REC-6), globaler Write **serialisiert** (REC-19); Ziel trägt **`MANAGED_BY`** (erlaubter Writer, Commit, Regen-Kommando, REC-5). Der **historische Hybrid wird aufgelöst** (keine statischen stale-Kopien, keine Symlinks auf volatilen Checkout); **fail-closed** (REC-4): bis Hybrid aufgelöst + Quelle branch-stabil gilt der Installer **nicht** als akzeptiert.
 3. **Windsurf = generiertes ADR-Review-Subset über Frontmatter-Tags** (`tool_targets: [windsurf-review]`), **nicht** Dateinamen-Globs (REC-10) → Windsurfs globale Location, kein per-Repo. **Windsurf ist kein Coding-Ziel mehr** (REC-15 — schützt ADR-229 vor Rückabwicklung).
 4. **Policy-Kollaps:** `claude-skills.md` auf **eine** kanonische Kopie; übrige Duplikate → **Pointer-Stubs/Weiterleitungen** statt stilles Löschen (REC-11), damit alte Links/gepinnte Worktrees nicht brechen. Deklaration = Realität.
 
@@ -73,16 +71,16 @@ existiert — jede Einzeländerung erzeugt nur eine weitere driftende Kopie oder
 überschrieben (empirisch beim Versuch bestätigt). ADR-230 **erschafft das Ziel**, in das konsolidiert wird.
 
 ## 5. Implementation (= das frühere „A", nach Acceptance, einmal & deterministisch)
-1. **Rewriter identifizieren** (welcher Hook/Mechanismus schreibt `~/.claude/commands`?) — Voraussetzung für alles.
+1. **Hybrid auflösen + Quelle branch-stabil pinnen** — *R1-Forensik (2026-05-30): kein rogue Rewriter (Messartefakt); Ist = statische-Kopie-Hybrid + Symlinks auf volatilen Checkout. Kopie-Schreiber = CC-Skill-Registrierung beim Anlegen (statisch), kein Daemon.*
 2. Kanonische Quelle **branch-stabil pinnen** (Klon/Pin von platform `main`).
 3. `~/.claude/commands/` **deterministisch generieren** (kein Hybrid, kein Fremd-Mutator).
 4. **Policy-Kopien auf eine kollabieren** (claude-policy-Sync + pinned-worktree berücksichtigen).
 5. **Windsurf-ADR-Subset generieren**.
 
-> **Gate nach Schritt 1 (REC-16):** Pinning/Generation/Policy-Kollaps erst, **wenn der alte Rewriter erklärt + fail-closed neutralisiert** ist.
+> **Gate nach Schritt 1 (REC-16):** Generation/Policy-Kollaps erst, **wenn der Hybrid aufgelöst + die Quelle branch-stabil** ist (R1 verstanden, kein Blocker mehr).
 
 ## 6. Risiken
-- **R1 (Blocker):** Solange der `commands`-Rewriter unidentifiziert ist, gibt es **kein** deterministisches Ziel.
+- **R1 (verstanden, kein Blocker):** *Kein* rogue Rewriter (war `find`-Messartefakt). Reale Risiken: (a) **stale statische Kopien** (Snapshot-Hybrid); (b) **Symlinks auf branch-volatilen Checkout** (intermittierendes Dangling). Beide behebt der Betriebsvertrag (generierte Kopien+Hash; branch-stabile resolved-Commit-Quelle).
 - **R2:** Branch-stabile Quelle braucht einen Checkout/Klon, der **nicht** für Feature-Arbeit benutzt wird.
 - **R3:** Policy-Kollaps muss `~/.claude/bin/claude-policy`-Sync + `platform-pinned`-Worktree einbeziehen, sonst Re-Drift.
 
@@ -92,7 +90,7 @@ existiert — jede Einzeländerung erzeugt nur eine weitere driftende Kopie oder
 - **Nicht in Scope:** Inhalt/Governance einzelner Skills; ADR-229-`.windsurf`-Untrack (bereits erledigt).
 
 ## 8. Acceptance Criteria (proposed bis alle grün)
-- [ ] **R1 fail-closed:** `commands`-Rewriter identifiziert + neutralisiert; pre-session-Check aktiv (REC-4/17).
+- [ ] **Hybrid aufgelöst:** Ziel einheitlich generiert+gehasht (keine stale Kopien, keine dangling Symlinks); Quelle branch-stabil; pre-session-Drift-Check aktiv (REC-4/17).
 - [ ] **Eine Form, kein Hybrid:** generierte Kopien mit Header; **keine dangling Symlinks**; jede Datei aus Manifest ableitbar; erwartete Anzahl erklärbar (REC-1/8).
 - [ ] **Resolved-Commit-Pin** im Manifest; „deterministisch" erfüllt (bit-identisch bei gleichem Commit+Generator, REC-2/20).
 - [ ] **Manifest + Integritäts-Hash + `MANAGED_BY`** vorhanden (REC-5/7/13).
@@ -106,7 +104,7 @@ existiert — jede Einzeländerung erzeugt nur eine weitere driftende Kopie oder
 |---|---|
 | **SSoT** | Single Source of Truth |
 | **Hybrid** | `~/.claude/commands` teils Symlinks, teils Kopien (drift-anfällig) |
-| **Rewriter** | unidentifizierter Prozess, der `~/.claude/commands` live mutiert |
+| **Hybrid** (R1) | `~/.claude/commands` = 28 Symlinks (→ volatiler Checkout) + 40 statische Kopien (stale-prone); kein rogue Rewriter (Messartefakt) |
 | **Subset** | kuratierte ~9 ADR/Review-Workflows für Windsurf |
 
 ## 10. Referenzen
@@ -123,4 +121,5 @@ Manifest + Integrität + Drift-Doctor; Subset via Frontmatter-Tags; Policy-Kolla
 
 ## 11. Changelog
 - 2026-05-30: Initial (Proposed). Aus Audit-Analyse auf neuer Basis (Windsurf nur ADR/Review). Zur externen Zweitmeinung via `/adr-handoff-extern` vorgesehen.
+- 2026-05-30: **R1-Korrektur** (Forensik) — „unidentifizierter Live-Rewriter (Blocker)“ war ein `find`-Messartefakt; Ist = statische-Kopie-Hybrid + branch-volatile Symlinks (kein rogue Mutator) → R1 von „Blocker“ auf „verstanden“ herabgestuft.
 - 2026-05-30: Externe Review (20 RECs, alle `[valid]`) über Rückfluss-Gate eingearbeitet → **Betriebsvertrag** (§2a): generierte Kopien+Header, resolved-Commit-Pin, atomic/lock/`MANAGED_BY`, Manifest+Integrität+Drift-Doctor, Frontmatter-Tag-Subset, Pointer-Stub-Kollaps, R1 fail-closed; Acceptance verschärft. Bleibt `proposed`.
