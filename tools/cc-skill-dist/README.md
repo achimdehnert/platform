@@ -22,10 +22,20 @@ Belegt empirisch die ADR-230-R1-Realrisiken (statische, stale-prone Kopien).
 
 ## Roadmap (nach ADR-230-Acceptance)
 
-- `generate.py` — erzeugt `~/.claude/commands/` deterministisch aus dem **resolved Commit**:
-  einheitliche generierte Kopien mit Header (`generated/source_commit/content_hash/do_not_edit`),
-  atomar + gelockt (Staging → validieren → Swap), `MANAGED_BY`-Datei, Manifest.
-- `windsurf-subset.py` — generiert das ADR-Review-Subset über Frontmatter-Tags (`tool_targets`).
+- ✅ `generate.py` (**Prototyp, staging-only**) — erzeugt ein Ziel-Verzeichnis deterministisch aus dem
+  **resolved Commit**: generierte Kopien mit MANAGED-Footer (`source_commit`/`content_hash`/`do_not_edit`),
+  `MANAGED_BY` + `manifest.json`, atomarer Rename-Swap (+ `.bak`). `--target` Pflicht; schreibt **nie**
+  nach `~/.claude/commands` ohne `--allow-live`. Dogfood: 69 Skills, Frontmatter intakt, 2× = bit-identisch.
+  ```bash
+  python3 tools/cc-skill-dist/generate.py --target /tmp/cc-staging
+  ```
+- ✅ `windsurf-subset.py` (**Prototyp, staging-only**) — generiert das **ADR-Review-Subset** primär über
+  Frontmatter-Tag `tool_targets: [windsurf-review]`; **Fallback** = kuratierte Liste (adr*/review/challenger/
+  curator), solange keine Tags existieren. Live-Schutz für `~/.codeium/windsurf/windsurf/workflows/`.
+  Dogfood: 9 Workflows (Fallback-Modus). **Folge-PR:** `tool_targets`-Tags in die ~9 Quell-Workflows ziehen → Tag-Modus.
+  ```bash
+  python3 tools/cc-skill-dist/windsurf-subset.py --target /tmp/cc-windsurf-staging
+  ```
 - Policy-Kollaps (≥ 4 `claude-skills.md`-Kopien → eine + Pointer-Stubs).
 
 > Schreibende Schritte folgen **nach** ADR-230-Acceptance. `doctor.py` ist read-only und schon jetzt nützlich.
