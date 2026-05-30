@@ -1,7 +1,7 @@
 # CORE_CONTEXT — platform
 
 > Pflicht-Lektüre für jeden Coding-Agent vor dem ersten Keystroke.
-> Aktualisiert: 2026-05-15
+> Aktualisiert: 2026-05-30
 
 ## Was ist platform?
 
@@ -10,7 +10,7 @@ ist die Single-Source-of-Truth für plattformweite Entscheidungen, Conventions
 und geteilte Werkzeuge der 45+ Hub-Repos.
 
 **GitHub:** https://github.com/achimdehnert/platform
-**ADR-Verzeichnis:** `docs/adr/` (168 ADRs, höchste Nummer 206)
+**ADR-Verzeichnis:** `docs/adr/` (Bestand live: `ls docs/adr/ADR-*.md | wc -l`; höchste Nr.: `ls docs/adr/ADR-*.md | grep -oE 'ADR-[0-9]+' | sort -V | tail -1`)
 
 ## Rolle gegenüber anderen Repos
 
@@ -24,7 +24,7 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 
 | Pfad | Zweck |
 |---|---|
-| `docs/adr/` | Architecture Decision Records (SSoT, 168 Dateien) |
+| `docs/adr/` | Architecture Decision Records (SSoT; live: `ls docs/adr/ADR-*.md | wc -l`) |
 | `docs/concepts/` | Konzeptpapiere vor ADRs |
 | `docs/templates/` | ADR-, Use-Case-, Settings-Templates für neue Repos |
 | `docs/reference/` | Reference-Docs (audit/health-Checker, …) |
