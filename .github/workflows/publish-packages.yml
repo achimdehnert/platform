@@ -117,6 +117,17 @@ jobs:
           name: dist-django-tenancy-${{ needs.build-django-tenancy.outputs.version }}
           path: dist/
 
+      # ADR-226 binding gate — scan the exact artifact before the
+      # irreversible pypi.org upload (gh-action-pypi-publish).
+      - name: Pre-publish secret gate (built artifact)
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: sdist
+          source: dist
+          report_escape_hatch: "false"
+          context_label: "pre-publish: iil-django-tenancy"
+          triage_hint: "A secret is in the artifact about to be published to PyPI (irreversible). ROTATE it and exclude it from the build. NOT suppressible — the artifact must not ship it."
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -212,6 +223,17 @@ jobs:
         with:
           name: dist-concept-templates-${{ needs.build-concept-templates.outputs.version }}
           path: dist/
+
+      # ADR-226 binding gate — scan the exact artifact before the
+      # irreversible pypi.org upload (gh-action-pypi-publish).
+      - name: Pre-publish secret gate (built artifact)
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: sdist
+          source: dist
+          report_escape_hatch: "false"
+          context_label: "pre-publish: iil-concept-templates"
+          triage_hint: "A secret is in the artifact about to be published to PyPI (irreversible). ROTATE it and exclude it from the build. NOT suppressible — the artifact must not ship it."
 
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
@@ -310,6 +332,17 @@ jobs:
           name: dist-dvelop-client-${{ needs.build-dvelop-client.outputs.version }}
           path: dist/
 
+      # ADR-226 binding gate — scan the exact artifact before the
+      # irreversible pypi.org upload (gh-action-pypi-publish).
+      - name: Pre-publish secret gate (built artifact)
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: sdist
+          source: dist
+          report_escape_hatch: "false"
+          context_label: "pre-publish: iil-dvelop-client"
+          triage_hint: "A secret is in the artifact about to be published to PyPI (irreversible). ROTATE it and exclude it from the build. NOT suppressible — the artifact must not ship it."
+
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
@@ -334,6 +367,19 @@ jobs:
         with:
           path: dist/
           merge-multiple: true
+
+      # ADR-226 binding gate — test.pypi.org is also public; a leaked
+      # secret there is still irreversibly exposed.
+      - name: Pre-publish secret gate (all artifacts)
+        if: |
+          github.event_name == 'workflow_dispatch' && github.event.inputs.target == 'testpypi'
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: sdist
+          source: dist
+          report_escape_hatch: "false"
+          context_label: "pre-publish: TestPyPI (all packages)"
+          triage_hint: "A secret is in an artifact about to be published to TestPyPI (public, irreversible). ROTATE it and exclude it from the build. NOT suppressible — the artifact must not ship it."
 
       - name: Publish to TestPyPI
         if: |

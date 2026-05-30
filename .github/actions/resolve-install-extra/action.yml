@@ -1,0 +1,65 @@
+# Composite Action: resolve-install-extra
+# ADR-226: a shared library-CI contract assumes a homogeneous extra name
+# (`dev`) across ~14 heterogeneous packages. pip only *warns* on a missing
+# extra and installs the base — so a wrong/typo'd `install_extra` silently
+# under-installs test deps and the failure surfaces far downstream as
+# confusing test errors. This resolves the spec deterministically and FAILS
+# LOUDLY when the caller asks for an extra the package declares others but
+# not this one (the real "wrong extra name" bug). A package with no extras
+# at all is fine (base install, warning only).
+name: "resolve-install-extra"
+description: "Validate inputs.install_extra against pyproject and emit the pip target spec (fails on a wrong extra name)"
+
+inputs:
+  install_extra:
+    description: "Requested optional-dependencies extra"
+    required: false
+    default: "dev"
+
+outputs:
+  spec:
+    description: "pip install -e target: '.[extra]' or '.'"
+    value: ${{ steps.resolve.outputs.spec }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Resolve extra
+      id: resolve
+      shell: bash
+      env:
+        REQ_EXTRA: ${{ inputs.install_extra }}
+      run: |
+        set -euo pipefail
+        python3 -m pip install -q tomli 2>/dev/null || true
+        SPEC=$(python3 - <<'PY'
+        import os, pathlib, sys
+        try:
+            import tomllib as t
+        except ModuleNotFoundError:
+            import tomli as t  # py3.10 fallback (installed above)
+
+        extra = os.environ.get("REQ_EXTRA", "").strip()
+        p = pathlib.Path("pyproject.toml")
+        if not extra or not p.exists():
+            print(".")
+            sys.exit(0)
+        data = t.loads(p.read_text())
+        opt = (data.get("project", {}) or {}).get("optional-dependencies", {}) or {}
+        if extra in opt:
+            print(f".[{extra}]")
+        elif not opt:
+            sys.stderr.write(
+                f"::warning title=install_extra::'{extra}' requested but pyproject "
+                f"declares no optional-dependencies — installing base only\n")
+            print(".")
+        else:
+            sys.stderr.write(
+                f"::error title=install_extra::'{extra}' is not a declared extra. "
+                f"pyproject optional-dependencies = {sorted(opt)}. "
+                f"Fix the caller's install_extra input.\n")
+            sys.exit(1)
+        PY
+        )
+        echo "Resolved install target: pip install -e \"$SPEC\""
+        echo "spec=$SPEC" >> "$GITHUB_OUTPUT"

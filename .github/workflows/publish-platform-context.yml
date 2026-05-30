@@ -65,6 +65,20 @@ jobs:
       - name: Build wheel + sdist
         run: python -m build
 
+      # ADR-226 binding gate: dist/* is attached to a PUBLIC GitHub Release
+      # (and pip-installable via git+https) — same irreversible-exposure
+      # class as PyPI. Scan the exact artifact before it is released.
+      # NOTE: a `uses:` step ignores defaults.working-directory, so the
+      # path is workspace-relative.
+      - name: Pre-publish secret gate (built artifact)
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: sdist
+          source: packages/platform-context/dist
+          report_escape_hatch: "false"
+          context_label: "pre-release: platform-context"
+          triage_hint: "A secret is in the artifact about to be attached to a public GitHub Release (irreversible). ROTATE it and exclude it from the build. NOT suppressible — the artifact must not ship it."
+
       - name: Create GitHub Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

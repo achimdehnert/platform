@@ -1,0 +1,156 @@
+# Composite Action: gitleaks-scan
+# ADR-226 DRY extraction of the #198-hardened secret-scan block. Single source
+# of truth — consumed by _ci-python.yml (history), _ci-pypi.yml (history) and
+# _ci-pypi.yml build job (built-sdist, --no-git). Steps-only, no permissions,
+# no GitHub API → immune to the #191/#198 reusable-permission-narrowing trap.
+#
+# The caller MUST have already run actions/checkout (with fetch-depth: 0 for
+# mode=history). Pinned CLI, blocking (--exit-code 1), escape-hatch
+# transparency, copy-paste fingerprint surfacing. Concurrency-safe via a
+# per-invocation mktemp dir (supersedes the old run_id scheme — strictly
+# safer on shared self-hosted runners; output identical).
+name: "gitleaks-scan"
+description: "Pinned gitleaks CLI scan (git history or built artifact) with escape-hatch transparency and fingerprint surfacing"
+
+inputs:
+  version:
+    description: "Pinned gitleaks version (single bump point)"
+    required: false
+    default: "8.21.2"
+  source:
+    description: "Path to scan"
+    required: false
+    default: "."
+  mode:
+    description: >-
+      history = scan git log |
+      dir = scan a filesystem path (--no-git) |
+      sdist = locate the *.tar.gz under `source` (a dist/ dir), extract it and
+      scan the extracted bytes (--no-git). `sdist` is the pre-publish gate:
+      it scans exactly what would be uploaded — artifact identity, stronger
+      than build-tool parity.
+    required: false
+    default: "history"
+  report_escape_hatch:
+    description: "Echo active .gitleaks.toml/.gitleaksignore (history mode only)"
+    required: false
+    default: "true"
+  context_label:
+    description: "Heading label in the failure step-summary"
+    required: false
+    default: "git history"
+  triage_hint:
+    description: "Triage guidance shown on failure"
+    required: false
+    default: "ROTATE if real. If false positive, add to .gitleaksignore at repo root (see platform docs/templates/.gitleaks.toml)."
+
+runs:
+  using: "composite"
+  steps:
+    - name: Isolate TMPDIR per invocation (shared-runner race-safe)
+      shell: bash
+      run: |
+        set -euo pipefail
+        RUN_TMP="$(mktemp -d /tmp/gitleaks.XXXXXXXX)"
+        echo "GL_TMP=$RUN_TMP" >> "$GITHUB_ENV"
+        rm -f /tmp/gitleaks.tmp 2>/dev/null || true
+    - name: Install gitleaks CLI (pinned)
+      shell: bash
+      run: |
+        set -euo pipefail
+        VER="${{ inputs.version }}"
+        TARBALL="gitleaks_${VER}_linux_x64.tar.gz"
+        URL="https://github.com/gitleaks/gitleaks/releases/download/v${VER}/${TARBALL}"
+        echo "Downloading gitleaks v${VER} …"
+        curl -fsSL --retry 3 -o "${GL_TMP}/${TARBALL}" "$URL"
+        tar -xzf "${GL_TMP}/${TARBALL}" -C "${GL_TMP}" gitleaks
+        install -m 0755 "${GL_TMP}/gitleaks" "${GL_TMP}/gitleaks-bin"
+        "${GL_TMP}/gitleaks-bin" version
+    - name: Report active escape-hatch config (transparency)
+      if: ${{ inputs.report_escape_hatch == 'true' && inputs.mode == 'history' }}
+      shell: bash
+      run: |
+        set -euo pipefail
+        found=0
+        if [ -f .gitleaks.toml ]; then
+          echo "::warning title=gitleaks escape-hatch::.gitleaks.toml present — rule allowlist active. Review scope:"
+          grep -nvE '^\s*(#|$)' .gitleaks.toml | sed 's/^/  .gitleaks.toml: /' || true
+          found=1
+        fi
+        if [ -f .gitleaksignore ]; then
+          echo "::warning title=gitleaks escape-hatch::.gitleaksignore present — $(grep -cvE '^\s*(#|$)' .gitleaksignore || echo 0) fingerprint suppression(s) active."
+          found=1
+        fi
+        if [ "$found" = 0 ]; then
+          echo "No repo-local gitleaks escape-hatch — scanning with platform defaults only."
+        fi
+    - name: gitleaks detect
+      shell: bash
+      env:
+        GL_MODE: ${{ inputs.mode }}
+        GL_SOURCE: ${{ inputs.source }}
+        GL_CONTEXT: ${{ inputs.context_label }}
+        GL_TRIAGE: ${{ inputs.triage_hint }}
+      run: |
+        set -euo pipefail
+        REPORT="${GL_TMP}/gitleaks.json"
+        NOGIT=""
+        SCAN_SRC="$GL_SOURCE"
+        case "$GL_MODE" in
+          history) : ;;
+          dir) NOGIT="--no-git" ;;
+          sdist)
+            NOGIT="--no-git"
+            DIST_DIR="${GL_SOURCE:-dist}"
+            SCAN_SRC="${GL_TMP}/artifact"
+            mkdir -p "$SCAN_SRC"
+            # Unpack EVERY sdist + wheel under DIST_DIR (testpypi merges
+            # several packages into one dist/). Each into its own subdir so
+            # one finding pinpoints the offending artifact. python3 is
+            # always present; unzip/tar fallbacks avoided for portability.
+            python3 - "$DIST_DIR" "$SCAN_SRC" <<'PYART'
+        import glob, os, sys, tarfile, zipfile
+        dist_dir, scan_src = sys.argv[1], sys.argv[2]
+        sdists = sorted(glob.glob(os.path.join(dist_dir, "*.tar.gz")))
+        wheels = sorted(glob.glob(os.path.join(dist_dir, "*.whl")))
+        if not sdists and not wheels:
+            print(f"::error title=gitleaks pre-publish gate::no *.tar.gz / "
+                  f"*.whl found in '{dist_dir}' — cannot scan the artifact "
+                  f"that would be published")
+            sys.exit(1)
+        for s in sdists:
+            d = os.path.join(scan_src, "sdist", os.path.basename(s))
+            os.makedirs(d, exist_ok=True)
+            with tarfile.open(s) as t:
+                t.extractall(d)
+            print(f"Unpacked sdist: {s}")
+        for w in wheels:
+            d = os.path.join(scan_src, "wheel", os.path.basename(w))
+            os.makedirs(d, exist_ok=True)
+            zipfile.ZipFile(w).extractall(d)
+            print(f"Unpacked wheel: {w}")
+        PYART
+            ;;
+          *) echo "::error::unknown gitleaks-scan mode '$GL_MODE'"; exit 1 ;;
+        esac
+        rc=0
+        "${GL_TMP}/gitleaks-bin" detect \
+          --source "$SCAN_SRC" \
+          $NOGIT \
+          --redact \
+          --no-banner \
+          --exit-code 1 \
+          --report-format json \
+          --report-path "$REPORT" || rc=$?
+        if [ "$rc" -ne 0 ]; then
+          # Surface a copy-paste-ready fingerprint list so the documented
+          # escape-hatch is usable (fingerprints are otherwise trapped in the
+          # report). --redact already masked the secret values.
+          python3 -c 'import json,os,sys; ctx=sys.argv[2]; triage=sys.argv[3]; f=json.load(open(sys.argv[1])) if os.path.exists(sys.argv[1]) else []; print("### gitleaks ("+ctx+"): "+str(len(f))+" finding(s) — blocking\n\nTriage: "+triage+"\n\n```"); [print(x.get("Fingerprint","?")) for x in f]; print("```"); [print("- "+x.get("Commit","?")[:10]+":"+x.get("File","?")+" rule="+x.get("RuleID","?")+" line "+str(x.get("StartLine","?"))) for x in f]' "$REPORT" "$GL_CONTEXT" "$GL_TRIAGE" | tee -a "$GITHUB_STEP_SUMMARY"
+          exit "$rc"
+        fi
+        echo "✅ No secrets ($GL_CONTEXT)."
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: rm -rf "${GL_TMP:-/nonexistent}" 2>/dev/null || true
