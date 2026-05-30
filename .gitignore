@@ -61,3 +61,6 @@ env_loader.py
 # PDF-Dateien (generiert via print_agent)
 *.pdf
 !docs/pdf/*.pdf
+
+# Auto-generierter Editor-Cache (claude-next-sync) — analog dev-hub
+NEXT.md
