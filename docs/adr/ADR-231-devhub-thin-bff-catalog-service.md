@@ -1,9 +1,10 @@
 ---
 id: ADR-231
-status: proposed
+status: accepted
 date: 2026-05-30
 amended: 2026-05-30
 decision-makers: Achim Dehnert
+implementation_status: none
 domains: [dev-hub, architecture, ssot, portal, drift-prevention]
 supersedes: []
 amends: [ADR-158-unified-documentation-architecture.md]
@@ -15,7 +16,7 @@ tags: [dev-hub, bff, catalog, ssot-pointer, read-projection, entkernung, statefu
 
 | Attribut | Wert |
 |---|---|
-| **Status** | Proposed |
+| **Status** | Accepted (2026-05-30) |
 | **Scope** | dev-hub (16 Apps) + SSoT-Topologie gegenüber Orchestrator/git/GitHub/Outline |
 | **Datum** | 2026-05-30 |
 | **Autor** | Achim Dehnert |

@@ -223,7 +223,7 @@
 | 226 | Library CI reusable (`_ci-pypi.yml`) + mandatory blocking secret-scan for all PyPI-published packages | `Accepted` | 🔶 | [ADR-226](ADR-226-library-ci-reusable-mandatory-secret-scan.md) |
 | 227 | Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT | `Proposed` | ⬜ | [ADR-227](ADR-227-klickdummy-feedback-bridge.md) |
 | 228 | Amendment: Merge-time ADR number allocation (amends ADR-065) | `Accepted` | ⬜ | [ADR-228](ADR-228-amendment-merge-time-adr-number-allocation.md) |
-| 231 | dev-hub 2.0 — Entkernung zu Thin BFF + Catalog-Service (Read-Projektionen statt geforkter Tabellen) | `Proposed` | ⬜ | [ADR-231](ADR-231-devhub-thin-bff-catalog-service.md) |
+| 231 | dev-hub 2.0 — Entkernung zu Thin BFF + Catalog-Service (Read-Projektionen statt geforkter Tabellen) | `Accepted` | ⬜ | [ADR-231](ADR-231-devhub-thin-bff-catalog-service.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
