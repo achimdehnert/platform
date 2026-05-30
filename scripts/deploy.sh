@@ -141,17 +141,23 @@ if [[ "$ENVIRONMENT" == "staging" ]]; then
   fi
 fi
 
+# Retry-Budget konfigurierbar (Default 30 × 5s ≈ 150s Sleep + curl). Vorher fix 12 (60s) —
+# zu kurz für langsame Cold-Starts (z.B. dev-hub: 16 Django-Apps gunicorn-Boot >60s) →
+# falsch-roter Deploy trotz gesundem Prod (ADR-231 Welle 0). Loop bricht beim ersten 200 →
+# schnelle Apps verlieren nichts; nur echt-langsame/kaputte Deploys nutzen das Budget aus.
+# Per-Deploy übersteuerbar via env HEALTH_CHECK_RETRIES.
+HEALTH_CHECK_RETRIES="${HEALTH_CHECK_RETRIES:-30}"
 if [[ -n "$HEALTH_CHECK_URL" ]]; then
-  echo "Health-Check: $HEALTH_CHECK_URL"
-  for i in $(seq 1 12); do
+  echo "Health-Check: $HEALTH_CHECK_URL (max $HEALTH_CHECK_RETRIES Versuche)"
+  for i in $(seq 1 "$HEALTH_CHECK_RETRIES"); do
     HTTP_CODE=$(curl -sf -o /dev/null -w "%{http_code}" --max-time 10 "$HEALTH_CHECK_URL" 2>/dev/null || echo "000")
     if [[ "$HTTP_CODE" == "200" ]]; then
-      echo "✅ Health-Check OK (Versuch $i)"
+      echo "✅ Health-Check OK (Versuch $i/$HEALTH_CHECK_RETRIES)"
       break
     fi
-    echo "⏳ Versuch $i/12 — HTTP $HTTP_CODE"
+    echo "⏳ Versuch $i/$HEALTH_CHECK_RETRIES — HTTP $HTTP_CODE"
     sleep 5
-    [[ $i -eq 12 ]] && { echo "❌ Health-Check fehlgeschlagen nach 60s"; exit 4; }
+    [[ $i -eq "$HEALTH_CHECK_RETRIES" ]] && { echo "❌ Health-Check fehlgeschlagen nach $((HEALTH_CHECK_RETRIES * 5))s"; exit 4; }
   done
 else
   sleep 5
