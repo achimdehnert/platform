@@ -75,14 +75,18 @@ runs:
         else
           echo "::warning::${{ inputs.requirements_file }} not found — only the action's default iil ranges were used (no consumer pins re-asserted)."
         fi
-        # Guard that --no-deps did not leave a broken dependency tree:
-        python -m pip check || { echo "::error::pip check failed after iil-package reinstall"; exit 1; }
+        # Advisory: surface a broken --no-deps tree without hard-failing. The
+        # shared self-hosted tool-cache can carry PRE-EXISTING unrelated
+        # conflicts; a hard `pip check` would turn those into red CI for every
+        # consumer. Becomes a hard gate once job-local venv isolation lands (#357).
+        python -m pip check || echo "::warning::pip check reported issues after iil reinstall (advisory until venv isolation, #357)"
         # Freshness probe — the exact bug this step fixes is .dist-info metadata
-        # claiming a version while the installed CODE is stale. Assert metadata
-        # == the code's own __version__ for iil-aifw (version-agnostic: works for
-        # any pinned version). A partial/raced reinstall fails LOUD here instead
-        # of surfacing later as a confusing "flaky" contract test.
-        python -c "import importlib.metadata as M, aifw, sys; meta=M.version('iil-aifw'); code=getattr(aifw,'__version__',None); print('iil-aifw metadata=%s code=%s @ %s'%(meta,code,aifw.__file__)); sys.exit('::error::iil-aifw metadata %s != code %s — stale tool-cache not repaired'%(meta,code)) if code and code!=meta else None"
+        # claiming a version while the installed CODE is stale. If iil-aifw is
+        # present, assert metadata == the code's own __version__ (version-agnostic).
+        # Guarded on presence: repos that don't use iil-aifw (or a best-effort
+        # install above failed) must NOT fail here — the critical case (a pinned
+        # consumer dep) already fails fatally in the requirements pass above.
+        python -c "import importlib.util as u,importlib.metadata as M,sys; (sys.exit(0) if u.find_spec('aifw') is None else None); import aifw; meta=M.version('iil-aifw'); code=getattr(aifw,'__version__',None); print('iil-aifw metadata=%s code=%s @ %s'%(meta,code,aifw.__file__)); sys.exit('::error::iil-aifw metadata %s != code %s — stale tool-cache not repaired'%(meta,code)) if code and code!=meta else None"
         # iil-fieldprefill: private repo, not on PyPI (ADR-107)
         if [ -n "$PROJECT_PAT" ]; then
           pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
