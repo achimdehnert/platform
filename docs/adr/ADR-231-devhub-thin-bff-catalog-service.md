@@ -7,6 +7,7 @@ decision-makers: Achim Dehnert
 domains: [dev-hub, architecture, ssot, portal, drift-prevention]
 supersedes: []
 amends: [ADR-158-unified-documentation-architecture.md]
+related: [ADR-050-platform-decomposition-hub-landscape.md, ADR-077-infrastructure-context-system.md, ADR-021-unified-deployment-pattern.md]
 tags: [dev-hub, bff, catalog, ssot-pointer, read-projection, entkernung, stateful-surface]
 ---
 
@@ -97,6 +98,9 @@ catalog-Migrationen separat deploy-/gatebar).
 2. **`catalog`** — der **einzige** zustandsbehaftete Bereich (Komponenten-/Dependency-Graph; existiert
    nirgendwo sonst). **Rev 1:** zunächst als **isolierte Postgres-Schema-Zone mit eigenem Migrations-Gate**
    *in* dev-hub (Option D, Phase 0) — eigener `catalog-service` erst bei belegtem Bedarf (deferred).
+   **Rev 1.1 (Challenger):** der Katalog muss den **ADR-077-Daten-Kontrakt** (`catalog-info.yaml` →
+   dev-hub-Catalog-API) erhalten — `catalog` schneidet ADR-077 nicht ab, sondern wird sein neuer Owner.
+   dev-hub als Developer-Portal bleibt **konform zu ADR-050** (Portal-Rolle verfeinert, nicht ersetzt).
 
 ### Speicher-Modus-Taxonomie (Rev 1, REC-3 — „Read-Projektion" war zu unscharf)
 Jede App-Datenhaltung wird genau einem Modus zugeordnet:
@@ -104,6 +108,11 @@ Jede App-Datenhaltung wird genau einem Modus zugeordnet:
 - **`cached_read`** — Cache mit TTL, kein Wahrheits-Anspruch.
 - **`read_projection`** — persistierte Projektionszeile, **nur** mit vollständigen Pointer-Metadaten (s. Invariante).
 - **`authority-owned`** — dev-hub IST die Quelle (nur catalog, portal-config, audit/outbox).
+
+**Resilienz-Regel (Rev 1.1, Challenger #1):** **ausfallkritische** Spokes (v. a. der Orchestrator,
+der selbst pgvector-Ausfälle hatte) nutzen **`read_projection`** (gepointerte Kopie, übersteht
+Quell-Ausfall), **nicht `live_read`** — sonst tauscht die Entkernung „veraltete lokale Daten" gegen
+„gar keine Daten, wenn die Quelle weg ist". `live_read` nur für hochverfügbare/billige Quellen.
 
 ### Verbindliche Invariante (SSoT-Pointer)
 
@@ -132,6 +141,12 @@ Jede App-Datenhaltung wird genau einem Modus zugeordnet:
 **ohne** den einzigartigen Wert zu verlieren.
 
 ### Inkrementeller Migrationspfad (kein Big-Bang — Lehre aus dem Incident)
+
+> **Verpflichtungs-Scope (Rev 1.1, Challenger #2 + 🌀 ADR-201 smallest-viable):** Dieser ADR
+> *committet* nur **Welle 0 + Welle 1** (Incident-Fix + Security). **Wellen 2–5 sind `proposed`
+> und werden nach Welle 1 re-evaluiert** — dev-hub ist Infrastruktur, kein Umsatzträger; das volle
+> 5-Wellen-Programm ist kein Blanko-Commitment.
+
 0. **Welle 0 (Vorbedingung, Rev 1/REC-8):** den zu engen 60s-Deploy-Health-Gate fixen + catalog in eine
    isolierte Schema-Zone mit getrenntem Migrations-Gate legen (Option D). Ohne das baut jede weitere
    Welle operativ auf Sand (AD-12).
@@ -143,7 +158,8 @@ Jede App-Datenhaltung wird genau einem Modus zugeordnet:
    Logs/Retry/Alerting + sichtbarer Health-Projektion im Portal (REC-13).
 4. **Welle 4:** sw_templates **entscheiden** (nicht offen lassen): Catalog-Metadaten *oder* eigener
    Scaffolder-Backlog *oder* explizit deprecated (REC-14).
-5. **Welle 5 (optional/deferred):** catalog als eigener Service herauslösen — nur bei belegtem Bedarf.
+5. **Welle 5 (optional/deferred):** catalog als eigener Service herauslösen — nur bei belegtem Bedarf;
+   **das neue Deploy-Artefakt erfordert dann eine ADR-021-Erweiterung** (Single-Service-Pipeline → +1 Service, Rev 1.1).
 
 **Exit-Kriterien je Welle (Rev 1, REC-16/REC-24):** Datenmigration abgeschlossen · alte Schreibpfade
 deaktiviert · alte Tabellen archiviert/gedroppt (nicht nur logisch tot) · Rollback-Pfad dokumentiert ·
