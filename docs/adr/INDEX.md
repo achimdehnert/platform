@@ -188,7 +188,7 @@
 | 155 | Three-Layer Contract Testing Strategy (all function/method calls) | `Accepted` | 🔶 | [ADR-155](ADR-155-contract-testing-strategy.md) |
 | 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Pipeline | `Accepted` | ✅ | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
 | 157 | Adopt same-port staging on Dev Desktop with automated port governance and onboarding | `Accepted` | ✅ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
-| 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | `Proposed` | 🔶 | [ADR-158](ADR-158-unified-documentation-architecture.md) |
+| 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | `Accepted` | ✅ | [ADR-158](ADR-158-unified-documentation-architecture.md) |
 | 160 | Adopt Standardized Two-File CI/CD Pipeline for All Hub Repositories | `Accepted` | 🔶 | [ADR-160](../../mcp-hub/docs/ADR-160-standardized-hub-deployment.md) |
 | 161 | Adopt Two-Layer-Schema with Hybrid-RLS for Tenant-Spanning SDS Data | `Proposed` | ⬜ | [ADR-161](ADR-161-shared-sds-library.md) |
 | 162 | Adopt REFLEX as Standard Methodology for Evidence-based UI Development | `Accepted` | 🔶 | [ADR-162](ADR-162-reflex-ui-testing-and-scraping.md) |
