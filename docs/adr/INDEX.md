@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
 > **Last updated:** 2026-05-29
-> **Next free ADR number:** 228
+> **Next free ADR number:** 229
 
 ## Legend
 
@@ -221,6 +221,7 @@
 | 224 | Adopt HTTP/SSE Transport for Orchestrator MCP Server | `Proposed` | ⬜ | [ADR-224](ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md) |
 | 225 | genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan | `Proposed` | ⬜ | [ADR-225](ADR-225-genesor-ingest-architecture.md) |
 | 227 | Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT | `Proposed` | ⬜ | [ADR-227](ADR-227-klickdummy-feedback-bridge.md) |
+| 228 | Amendment: Merge-time ADR number allocation (amends ADR-065) | `Accepted` | ⬜ | [ADR-228](ADR-228-amendment-merge-time-adr-number-allocation.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
