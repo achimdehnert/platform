@@ -1,7 +1,7 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
-# ║  ADR-210 Adoption Gate — PyPI packages NOT yet on _ci-pypi.yml             ║
+# ║  ADR-226 Adoption Gate — PyPI packages NOT yet on _ci-pypi.yml             ║
 # ║                                                                           ║
-# ║  ADR-210 introduces a mandatory hardened secret-scan for published        ║
+# ║  ADR-226 introduces a mandatory hardened secret-scan for published        ║
 # ║  packages, but a reusable workflow protects only the repos that CALL it.  ║
 # ║  Onboarding is intentionally rolling, so the inverted-risk window stays   ║
 # ║  open until each package adopts it. "Rolling onboarding" without a meter  ║
@@ -12,7 +12,7 @@
 # ║  it can't itself become noise that gets disabled.                         ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
-name: ADR-210 Adoption Gate
+name: ADR-226 Adoption Gate
 
 on:
   schedule:
@@ -38,7 +38,7 @@ jobs:
       # see/track private package repos if any appear later.
       GH_TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
       OWNER: achimdehnert
-      MARKER_LABEL: adr-210-adoption
+      MARKER_LABEL: adr-226-adoption
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -113,7 +113,7 @@ jobs:
           total = len(libs)
           pct = round(100 * len(adopted_l) / total) if total else 0
           lines = [
-              "# ADR-210 — `_ci-pypi.yml` adoption",
+              "# ADR-226 — `_ci-pypi.yml` adoption",
               "",
               f"**{len(adopted_l)}/{total} ({pct}%)** library repos consume the "
               "hardened library CI. Until a package adopts it, the public-PyPI "
@@ -135,7 +135,7 @@ jobs:
           print(report)
 
           # Upsert exactly one tracking issue keyed by the marker label.
-          title = "🔭 ADR-210: PyPI packages not yet on `_ci-pypi.yml`"
+          title = "🔭 ADR-226: PyPI packages not yet on `_ci-pypi.yml`"
           st, body = api(
               f"/repos/{owner}/platform/issues?state=open&labels={marker}&per_page=1")
           existing = json.loads(body) if st < 400 else []
@@ -149,7 +149,7 @@ jobs:
                   # Label is best-effort; create issue regardless.
                   api(f"/repos/{owner}/platform/labels", method="POST",
                       data={"name": marker, "color": "FBCA04",
-                            "description": "ADR-210 _ci-pypi.yml adoption tracking"})
+                            "description": "ADR-226 _ci-pypi.yml adoption tracking"})
                   api(f"/repos/{owner}/platform/issues", method="POST",
                       data={"title": title, "body": report, "labels": [marker]})
                   print("Created tracking issue")

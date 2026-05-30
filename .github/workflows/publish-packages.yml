@@ -117,7 +117,7 @@ jobs:
           name: dist-django-tenancy-${{ needs.build-django-tenancy.outputs.version }}
           path: dist/
 
-      # ADR-210 binding gate — scan the exact artifact before the
+      # ADR-226 binding gate — scan the exact artifact before the
       # irreversible pypi.org upload (gh-action-pypi-publish).
       - name: Pre-publish secret gate (built artifact)
         uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
@@ -224,7 +224,7 @@ jobs:
           name: dist-concept-templates-${{ needs.build-concept-templates.outputs.version }}
           path: dist/
 
-      # ADR-210 binding gate — scan the exact artifact before the
+      # ADR-226 binding gate — scan the exact artifact before the
       # irreversible pypi.org upload (gh-action-pypi-publish).
       - name: Pre-publish secret gate (built artifact)
         uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
@@ -332,7 +332,7 @@ jobs:
           name: dist-dvelop-client-${{ needs.build-dvelop-client.outputs.version }}
           path: dist/
 
-      # ADR-210 binding gate — scan the exact artifact before the
+      # ADR-226 binding gate — scan the exact artifact before the
       # irreversible pypi.org upload (gh-action-pypi-publish).
       - name: Pre-publish secret gate (built artifact)
         uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
@@ -368,7 +368,7 @@ jobs:
           path: dist/
           merge-multiple: true
 
-      # ADR-210 binding gate — test.pypi.org is also public; a leaked
+      # ADR-226 binding gate — test.pypi.org is also public; a leaked
       # secret there is still irreversibly exposed.
       - name: Pre-publish secret gate (all artifacts)
         if: |

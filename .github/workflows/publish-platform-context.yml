@@ -65,7 +65,7 @@ jobs:
       - name: Build wheel + sdist
         run: python -m build
 
-      # ADR-210 binding gate: dist/* is attached to a PUBLIC GitHub Release
+      # ADR-226 binding gate: dist/* is attached to a PUBLIC GitHub Release
       # (and pip-installable via git+https) — same irreversible-exposure
       # class as PyPI. Scan the exact artifact before it is released.
       # NOTE: a `uses:` step ignores defaults.working-directory, so the

@@ -215,7 +215,7 @@ Compliance is verified by construction and continuously, not by review alone:
    for adopted packages.
 3. **Adoption meter.** `pypi-ci-adoption-gate.yml` (weekly) lists every
    registry `type: library` repo not yet calling `_ci-pypi.yml` and maintains
-   one tracking issue (label `adr-210-adoption`) — the shrinking backlog is
+   one tracking issue (label `adr-226-adoption`) — the shrinking backlog is
    the measurable rollout signal.
 4. **Live verification.** PR #199: `gitleaks-scan` succeeded end-to-end on
    `iil-testkit` + `iil-promptfw` throwaway branches (real CI, then deleted).
@@ -259,7 +259,7 @@ Compliance is verified by construction and continuously, not by review alone:
   migration + escape-hatch + fingerprint surfacing).
 * ADR-057 (test strategy), ADR-058 (test taxonomy) — coverage-gate lineage.
 * `.github/workflows/pypi-ci-adoption-gate.yml` — the adoption meter; its
-  tracking issue (label `adr-210-adoption`) is the live rollout backlog.
+  tracking issue (label `adr-226-adoption`) is the live rollout backlog.
 * `.github/actions/gitleaks-scan` + `.github/actions/resolve-install-extra` —
   the shared composite actions introduced here (DRY single source).
 * PR #199 — implementing PR (review history incl. advocatus-diabolus passes).

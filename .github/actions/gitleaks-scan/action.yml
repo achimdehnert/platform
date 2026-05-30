@@ -1,5 +1,5 @@
 # Composite Action: gitleaks-scan
-# ADR-210 DRY extraction of the #198-hardened secret-scan block. Single source
+# ADR-226 DRY extraction of the #198-hardened secret-scan block. Single source
 # of truth — consumed by _ci-python.yml (history), _ci-pypi.yml (history) and
 # _ci-pypi.yml build job (built-sdist, --no-git). Steps-only, no permissions,
 # no GitHub API → immune to the #191/#198 reusable-permission-narrowing trap.
