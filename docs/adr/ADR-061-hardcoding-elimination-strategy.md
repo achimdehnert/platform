@@ -1,5 +1,5 @@
 ---
-adr_id: ADR-061
+id: ADR-061
 title: "Adopt hardcode_scanner.py as Platform-wide Hardcoding Prevention Tool"
 status: accepted
 date: 2026-02-21
