@@ -37,6 +37,18 @@ jobs:
       - name: Check
         run: twine check dist/*
 
+      # ADR-210 binding gate: scan the EXACT bytes about to be uploaded.
+      # CI on the package repo is advisory; this is the only place the
+      # irreversible event (twine upload) is actually blocked.
+      - name: Pre-publish secret gate (built artifact)
+        uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
+        with:
+          mode: sdist
+          source: dist
+          report_escape_hatch: "false"
+          context_label: "pre-publish: iil-testkit"
+          triage_hint: "A secret is in the artifact about to be published to PyPI (irreversible). ROTATE it and exclude it from the build (MANIFEST.in / package_data / [tool.setuptools] exclude). NOT suppressible — the artifact must not ship it."
+
       - name: Upload to PyPI
         if: ${{ !inputs.dry_run }}
         env:
