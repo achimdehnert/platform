@@ -52,7 +52,49 @@ claude-policy diff                  # Drift anzeigen, keine Writes
 claude-policy push                  # Dateien → orchestrator (sichere Richtung)
 claude-policy push --only llm-routing
 claude-policy pull [--only X] [-y]  # orchestrator → Dateien (advisory)
+
+# Beliebigen Memory-Entry schreiben (jeder entry_type) — MCP-unabhängig:
+echo "<content>" | claude-policy remember \
+  --key session:2026-05-30:platform --type context \
+  --title "Session …" --tags "session,platform"
+claude-policy remember --key … --type lesson_learned --title … --content "…"
 ```
+
+### `remember` — Transport: der `/run`-REST-Shim
+
+Die orchestrator-MCP-Tools sind über die **SSE-Bindung unbrauchbar**:
+`list_tools` klappt, aber **jeder `tools/call` → `-32602`** (verifiziert
+2026-05-30, auch das argumentlose `workflow_list`). Root Cause ist **nicht**
+Signatur/Schema (deployed == source, flat, per Prod-Check bestätigt) und
+**nicht** nginx (`/run` liefert sauber 401 → POST wird korrekt proxied),
+sondern der **SSE-Per-Prozess-Session-State** (server.py-Lifespan-Kommentar):
+bricht der `/sse`-Stream ab, ist die `session_id` verwaist → jeder folgende
+`tools/call` scheitert.
+
+`remember` ruft daher `agent_memory_upsert` über den **stateless
+`/run`-REST-Endpunkt** des Servers (`handle_run` → `_call_tool_inner`, dieselbe
+Dispatch-Tabelle wie die MCP-Tools — Single Source of Truth). Vorteile ggü. dem
+ssh+docker-Pfad: **kein Shell-Hop, kein Per-Prozess-Session-State, strukturiertes
+JSON in/out, kein base64.** Die robuste Basis für `session-ende` Phase 2.
+
+**Auth/Config (env, nie eingebettet):**
+
+| Var | Default |
+|---|---|
+| `ORCHESTRATOR_RUN_URL` | `https://orchestrator.iil.pet/run` |
+| `ORCHESTRATOR_MCP_API_KEY` | *(erforderlich; ≠ MCP-SSE-Bearer)* — `export ORCHESTRATOR_MCP_API_KEY="$(cat ~/.secrets/orchestrator_run_api_key)"` |
+| `ORCHESTRATOR_RUN_TIMEOUT` | `30` |
+
+Sauber sourcen (Tool ← env ← Secrets-Layer):
+
+```bash
+export ORCHESTRATOR_MCP_API_KEY="$(cat ~/.secrets/orchestrator_run_api_key)"
+echo "<content>" | claude-policy remember --key … --type context --title "…"
+```
+
+`push`/`pull`/`list`/`diff` nutzen weiterhin den ssh+docker-Pfad; sie können
+in einem Folge-PR ebenfalls auf `_orch_run` migrieren, um den docker-Hack ganz
+abzulösen.
 
 ## Caveat
 
@@ -64,6 +106,13 @@ Voraussetzungen: Python 3.10+ und SSH-Zugang zum Prod-Host.
 
 ## Stand
 
+- 2026-05-30: `remember`-Subcommand ergänzt — generischer Memory-Upsert (jeder
+  `entry_type`, Enum-validiert) über den **stateless `/run`-REST-Shim**
+  (`_orch_run`), nicht das kaputte MCP-SSE. Grund: orchestrator-MCP `tools/call`
+  global `-32602` (Root Cause = SSE-Per-Prozess-Session, nicht Signatur/nginx —
+  beides per Prod-Check ausgeschlossen). Macht `session-ende` Phase 2
+  MCP-unabhängig. Env-getrieben (`ORCHESTRATOR_MCP_API_KEY`). STUB-getestet
+  (Syntax, Arg-Parsing, Enum, Unicode, fehlender-Key-Pfad).
 - 2026-05-17: Script von Stub → funktionsfähig (SSH/docker-exec, base64-inline,
   idempotent). Argv-Reparse-Bug beim Live-Test gefunden + behoben. README an
   Realität angepasst (vorheriges „autonomes CLI nicht möglich" war falsch).
