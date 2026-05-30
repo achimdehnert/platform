@@ -82,13 +82,13 @@ JSON in/out, kein base64.** Die robuste Basis für `session-ende` Phase 2.
 | Var | Default |
 |---|---|
 | `ORCHESTRATOR_RUN_URL` | `https://orchestrator.iil.pet/run` |
-| `ORCHESTRATOR_MCP_API_KEY` | *(erforderlich; ≠ MCP-SSE-Bearer)* — aus `~/.secrets` sourcen |
+| `ORCHESTRATOR_MCP_API_KEY` | *(erforderlich; ≠ MCP-SSE-Bearer)* — `export ORCHESTRATOR_MCP_API_KEY="$(cat ~/.secrets/orchestrator_run_api_key)"` |
 | `ORCHESTRATOR_RUN_TIMEOUT` | `30` |
 
 Sauber sourcen (Tool ← env ← Secrets-Layer):
 
 ```bash
-set -a; . ~/.secrets/orchestrator.env; set +a
+export ORCHESTRATOR_MCP_API_KEY="$(cat ~/.secrets/orchestrator_run_api_key)"
 echo "<content>" | claude-policy remember --key … --type context --title "…"
 ```
 
