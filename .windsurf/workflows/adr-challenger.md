@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Adversarial review of a proposed ADR — find conflicts, right-size, surface 1-2 strong counter-arguments. Read-only. Does NOT write or modify ADRs.
 mode: read-only
 ---

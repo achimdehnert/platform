@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Review an ADR against the platform-specific checklist (MADR 4.0 + infrastructure conventions + Modern Platform Patterns)
 mode: read-only
 ---
