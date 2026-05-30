@@ -18,9 +18,12 @@ tags: [windsurf, skills, workflows, distribution, cross-repo]
 | **Autor** | Achim Dehnert |
 | **Relates to** | `~/.claude/policies/claude-skills.md`, ADR-065 (Filesystem-first ADR-Numbering) |
 
-> **Status proposed** — Richtung entschieden (D), aber **acceptance-reif erst**, wenn der
-> *Betriebsvertrag* steht (s. §Acceptance Criteria). Zwei externe Review-Runden eingearbeitet
-> (s. §Anhang).
+> **Status proposed.** **Right-Sizing-Nachtrag 2026-05-30:** Aktuelle Nutzung = Coding **nur mit CC**
+> (bereits gelöst via `~/.claude/commands/`); **Windsurf nur für ADR-Review**, nicht als Coding-IDE.
+> Damit ist die globale Windsurf-Workflow-Distribution (**Schritt 2–4**) **YAGNI → zurückgestellt**.
+> Nur **Schritt 1 (Untrack/Cleanup)** war nutzungsunabhängig richtig und ist **erledigt**; der
+> F1-Zustand ist durch das gesetzte `.gitignore` regressionsgeschützt. Reaktivieren von D/Schritt 2–4
+> **nur, falls Windsurf Coding-Tool wird**. Zwei externe Review-Runden eingearbeitet (s. §Anhang).
 
 ## 1. Kontext
 
@@ -88,6 +91,13 @@ getrackter Zustand = minimale Drift — **vorausgesetzt**, das globale Setup ist
 
 ## 5. Implementation Plan
 
+>  **Nachtrag 2026-05-30 (Right-Sizing):** **Schritt 1 = erledigt** (~32 Repos untracked). **Schritt 2–4
+> = ZURÜCKGESTELLT (YAGNI)** — sie setzen Windsurf als Coding-IDE über alle Repos voraus; aktuelle
+> Nutzung ist CC-only + Windsurf-nur-ADR-Review. **Nicht bauen** (kein Installer/Manifest/Doctor/Sync),
+> bis Windsurf Coding-Tool wird. F1-Regressionsschutz übernimmt das bereits gesetzte `.gitignore`
+> (re-erzeugte Symlinks sind ignoriert → kein Re-Tracking); der alte Sync-Schreibpfad ist nur zu
+> beobachten, nicht aktiv umzubauen.
+
 ### Schritt 1 — Mixed-State deterministisch bereinigen (läuft)
 **Migrationsprotokoll** (REC-9/REC-11, gegen Restbestände M28-6): pro Repo (a) getrackte `.windsurf`-Blobs
 **jeden Modus** (Datei *und* Symlink) untracken; (b) `.gitignore` `.windsurf/` sicherstellen
@@ -96,7 +106,7 @@ die erst nach `platform` upstreamt oder bewusst verworfen werden müssen; (d) na
 verifizieren = 0 Typechanges. *Status:* learn-hub #4 ✅; recruiting/research/writing-hub, learnfw,
 outlinefw, researchfw als PRs offen.
 
-### Schritt 2 — Globales Setup: Installer + Manifest + Doctor (REC-7/REC-8, OOTB-1/2)
+### Schritt 2 — Globales Setup: Installer + Manifest + Doctor — ⏸️ ZURÜCKGESTELLT (YAGNI)
 - **Manifest** in `platform`: maschinenlesbare Liste der kanonischen Workflows + Checksums + Source-Commit.
 - **Installer** (`make windsurf-global` / `platform windsurf install`): Discovery von `platform`,
   generiert Symlink-Farm in die globale Location, schreibt **Statusdatei** (Quelle, Commit, Zeitpunkt).
@@ -140,6 +150,8 @@ Abhängig von der Windsurf-Merge-Frage:
 - **Nicht in Scope:** Inhalt/Governance der Workflows selbst; CC-`~/.claude/commands/` (gelöst).
 
 ## 9. Acceptance Criteria (hart — proposed bis alle grün, REC-20)
+
+> ⏸️ **Nachtrag 2026-05-30:** Diese Kriterien (inkl. Windsurf-Merge-Validierung) greifen **nur bei Reaktivierung** von Schritt 2–4 (Windsurf wird Coding-Tool). Aktuell **nicht blockierend** — Schritt 1 ist eigenständig erledigt.
 - [ ] **Windsurf-Merge-Verhalten empirisch dokumentiert** (Merge / Fallback / Overwrite) — entscheidet D vs E (REC-1).
 - [ ] **Installer + Manifest + Doctor** existieren und sind grün (REC-7/8).
 - [ ] **Symlink vs. Kopie** entschieden + dokumentiert (Freshness/Offline/Fehlerbild/Update) (REC-3).
@@ -197,3 +209,4 @@ zu offen. ~18/20 RECs `[valid]` (eingearbeitet), 2 teilweise:
 - 2026-05-30: Externe Cross-Provider-Review (20 RECs) über Rückfluss-Gate eingearbeitet — Betriebsvertrag
   präzisiert (Installer/Manifest/Doctor, Symlink-Farm, Discovery), Migrationsprotokoll + Re-Tracking-Guard,
   Fallback E (`.git/info/exclude`), harte Acceptance Criteria, Subtree-Anti-Pattern; bleibt `proposed`.
+- 2026-05-30: **Right-Sizing** — Nutzung ist CC-only coding + Windsurf-nur-ADR-Review. **Schritt 2–4 (globale Windsurf-Distribution) zurückgestellt (YAGNI)**; Schritt 1 (Untrack/Cleanup) erledigt + per `.gitignore` regressionsgeschützt; Acceptance-Gate nur bei Reaktivierung relevant. Kein Installer/Doctor gebaut.
