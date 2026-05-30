@@ -135,6 +135,18 @@ Falls leer oder veraltet → Eintrag ergänzen basierend auf `git log --oneline 
 
 ## Phase 3: Outline-Eintrag prüfen + anlegen/updaten
 
+> **KEIN Content-Copy: Nur Link-Sync** (analog `/session-docu --sync`).
+> **Content-Derivability-Sub-Regel (ADR-158, Amendment 2026-05-30):** Code-ableitbarer Inhalt
+> (Modul-/Klassen-Tabellen, API-Endpunkte, Config-Variablen, Dependencies, Test-Coverage) ist
+> **Reference-Doc** und hat seine kanonische Quelle in `docs/reference/` → dev-hub TechDocs,
+> **nicht** in Outline. Faustregel: *Wenn ein Generator es erzeugen kann, gehört es nicht
+> handgepflegt in Outline.* Outline-Konzepte/Runbooks **verlinken** auf die immer-frische
+> techdocs-Render-Seite (`docs/reference/`), sie **kopieren** ableitbaren Inhalt nicht — sonst
+> entsteht eine pointer-lose, drift-anfällige Zweitfassung (verletzt K-01 / D-5).
+>
+> Ableitbaren Inhalt erzeugt `/docu-repo-active` (Layer A) → `docs/reference/` → TechDocs.
+> Phase 3 hier sorgt nur für den **Deep-Link** darauf + den net-new-Teil.
+
 ### Tier 3 (Packages) — Funktionsbeschreibung
 
 Suche ob bereits ein Eintrag existiert:
@@ -142,12 +154,16 @@ Suche ob bereits ein Eintrag existiert:
 mcp3_search_knowledge(query: "<REPO_NAME> Funktionsbeschreibung")
 ```
 
-Falls nicht vorhanden → `mcp3_create_concept()` mit:
-- Überblick + Zweck
-- Modul-Tabelle (alle .py Dateien mit Klassen)
-- Installation (extras)
-- Dependencies
-- Test-Coverage
+Falls nicht vorhanden → `mcp3_create_concept()` mit **ausschließlich net-new Inhalt**:
+- Überblick + Zweck (1-2 Sätze, nicht ableitbar)
+- Entscheidungs-Kontext / Design-Rationale (warum dieses Package so geschnitten ist)
+- Bekannte Einschränkungen / Lessons, die nicht aus dem Code lesbar sind
+- **Deep-Link** auf die ableitbaren Reference-Docs (Modul-Tabelle, Dependencies, Coverage):
+  → die dev-hub-gerenderte `docs/reference/`-Seite (immer-frisch, mit `source_sha`)
+
+> ❌ NICHT handpflegen: Modul-Tabelle (alle .py Dateien mit Klassen), Dependencies, Test-Coverage,
+> API-Listen, Config-Variablen — das ist ableitbar und lebt kanonisch in `docs/reference/`.
+> Stattdessen den Deep-Link auf die techdocs-Render-Seite setzen.
 
 ### Tier 1 (Django Apps) — Hub-Dokumentation
 
@@ -156,16 +172,22 @@ Suche ob bereits ein Eintrag existiert:
 mcp3_search_knowledge(query: "<REPO_NAME> Hub Dokumentation Setup")
 ```
 
-Falls nicht vorhanden → `mcp3_create_runbook()` mit:
-- Lokales Setup
-- Deployment
-- Konfiguration
-- Wichtige URLs
+Falls nicht vorhanden → `mcp3_create_runbook()` mit **ausschließlich net-new Inhalt**:
+- Deployment-**Eigenheiten** / Quirks, die nicht aus Compose/Settings ableitbar sind
+- Manuelle Schritte / Incident-Lore (z.B. "vor Migration X erst Cache leeren")
+- Entscheidungs-Kontext
+- **Wichtige URLs**, soweit nicht ableitbar (Dashboards, externe Dienste)
+- **Deep-Link** auf die ableitbaren Reference-Docs (Setup-Befehle, Konfigurations-Variablen,
+  URL-Patterns): → die dev-hub-gerenderte `docs/reference/`-Seite
+
+> ❌ NICHT handpflegen: Standard-Setup, Config-Variablen, URL-Patterns — das ist ableitbar
+> (`docs/reference/config.md` / `api.md` → techdocs). Nur Deep-Link darauf setzen.
 
 ### Alle Tiers — Platform-Übersicht updaten
 
 → `mcp3_update_document(document_id: "432db075-9b4d-4222-9223-36c57452fc26", ...)`
   Status für dieses Repo von ❌ auf ✅ setzen.
+  (Der Status-Wechsel ✅ ist net-new Kurations-Info, kein Content-Copy → bleibt erlaubt.)
 
 ---
 
@@ -215,7 +237,7 @@ git push
 | 3 | README.md Architektur vollständig | alle |
 | 4 | README.md Dependencies aktuell | alle |
 | 5 | CHANGELOG.md hat mindestens 1 Eintrag | alle |
-| 6 | Outline-Eintrag vorhanden | Tier 1+3 |
+| 6 | Outline-Eintrag vorhanden — nur net-new Inhalt + Deep-Link, KEIN Content-Copy ableitbarer Reference-Docs (ADR-158) | Tier 1+3 |
 | 7 | Platform-Übersicht aktualisiert | alle |
 | 8 | Review Package vorhanden | wenn Review |
 | 9 | git status clean, gepusht | alle |

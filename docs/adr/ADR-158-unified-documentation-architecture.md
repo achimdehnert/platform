@@ -1,6 +1,7 @@
 ---
-status: proposed
+status: accepted
 date: 2026-04-03
+amended: 2026-05-30
 decision-makers: [Achim Dehnert]
 consulted: [Cascade (Principal IT-Architekt)]
 informed: []
@@ -14,7 +15,7 @@ related:
   - ADR-144-doc-hub-paperless-ngx.md
   - ADR-154-autonomous-coding-optimization.md
   - ADR-156-reliable-deployment-pipeline.md
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
   - "dev-hub/apps/portal/models.py: AudienceConfig, AudienceSource, DocHealthMetric, DocHealthProfile"
   - "dev-hub/apps/portal/services.py: AudienceService, CrossLinkService, DocHealthService"
@@ -150,6 +151,30 @@ Jedes Informationsstück hat **genau eine kanonische Quelle**. Andere Systeme sp
 | **Geschäftsdokumente** | Paperless (doc-hub) | — | Eigenständig |
 | **Project Facts** | `repos.json` (Knowledge Graph) | dev-hub Catalog | Celery daily |
 | **Error-Patterns** | pgvector Memory | Outline (als Lessons) | `/session-ende` |
+
+### Prinzip-Schärfung (Amendment 2026-05-30): Inhalts-Ableitbarkeit schlägt Dokumenttyp
+
+Die Source-of-Truth-Matrix ordnet kanonische Quellen nach **Dokumenttyp** zu (Runbook→Outline,
+Konzept→Outline). Das ist notwendig, aber nicht hinreichend: ein Outline-Dokument *darf* den Typ
+„Konzept/Runbook" tragen und trotzdem **code-ableitbaren** Inhalt enthalten (Modul-Tabellen,
+API-Listen, Config-Variablen, Dependencies, Test-Coverage). Solcher Inhalt ist **Reference-Doc**
+und hat seine kanonische Quelle in `docs/reference/` (→ techdocs), **nicht** in Outline.
+
+**Verbindliche Sub-Regel (Content-Derivability):**
+
+| Inhalt | Klasse | Kanonisch | In Outline |
+|--------|--------|-----------|------------|
+| Modul-/Klassen-Tabellen, API-Endpunkte, Config-Variablen, Dependencies, Test-Coverage | **ableitbar** (aus Code/DB) | Reference-Docs (`docs/reference/` → techdocs) | ❌ nur Deep-Link auf die techdocs-Render-Seite |
+| Setup-/Deployment-*Eigenheiten*, Incident-Lore, Entscheidungs-Kontext, Lessons | **net-new** (human, nicht ableitbar) | Outline | ✅ kanonisch |
+
+Faustregel: **Wenn ein Generator es erzeugen kann, gehört es nicht handgepflegt in Outline.**
+Outline-Runbooks/Konzepte *verlinken* auf die ableitbaren Teile (immer-frische techdocs-Render-Seite mit `source_sha`), sie *kopieren* sie nicht — sonst entsteht eine pointer-lose, drift-anfällige Zweitfassung.
+
+**Auslöser (2026-05-30):** `docu-update` Phase 3 erzeugt `create_concept()` mit Modul-Tabelle/
+Deps/Coverage und `create_runbook()` mit Konfiguration — eine handgepflegte Kopie ableitbaren
+Inhalts ohne `source_sha`-Pointer. Das verletzt K-01 / D-5 (Grundregel: eine kanonische Quelle).
+Folge: Skill-Fix `docu-update` Phase 3 → Deep-Link statt Content-Copy; nur der net-new-Teil
+(Deployment-Eigenheiten, Lore) bleibt Outline-kanonisch. Siehe Confirmation Punkt 6.
 
 ### D-1: Audience Navigator (Neues Feature in dev-hub)
 
@@ -410,6 +435,7 @@ Die Einhaltung dieser Architektur-Entscheidung wird verifiziert durch:
 3. **`docu-audit.sh --json --fail-under 50`**: CI-integrierbarer Check
 4. **ADR-059 Drift-Detector**: `staleness_months: 3` + `drift_check_paths` überwachen die Aktualität
 5. **Architecture Guardian**: `audience.yaml` Pydantic-Validierung via `audience_validator.py`
+6. **Content-Derivability-Lint** (Amendment 2026-05-30): Eine Outline-Concept/Runbook-Seite, die eine `docs/reference`-Tabelle dupliziert (Modul-Liste, API, Config, Dependencies, Coverage), wird als Verstoß geflaggt. `docu-update` Phase 3 erzeugt für ableitbaren Inhalt **nur Deep-Links**, keinen Content-Copy.
 
 ---
 
