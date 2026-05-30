@@ -1,7 +1,7 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  REUSABLE WORKFLOW: PyPI Library CI (Lint, Secret-Scan, Test, Audit)       ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_ci-pypi.yml@main    ║
-# ║  ADR-210: binding CI for every PyPI-published platform package.            ║
+# ║  ADR-226: binding CI for every PyPI-published platform package.            ║
 # ║  Library-shaped — NO Django settings, NO Postgres. Apps use _ci-python.yml ║
 # ║  Caller needs only `permissions: { contents: read }` (secret-scan is       ║
 # ║  GitHub-API-free, so the #191/#198 permission-narrowing trap cannot recur).║
@@ -21,7 +21,7 @@ on:
         description: >-
           JSON list of Python versions the *test* job runs as a matrix.
           Libraries publish to PyPI and must support a range — apps pin one
-          Python, libraries do not (ADR-210). Default = single 3.12 so existing
+          Python, libraries do not (ADR-226). Default = single 3.12 so existing
           single-version behaviour is preserved until a package opts into a
           wider range, e.g. '["3.10","3.11","3.12","3.13"]'.
         required: false
@@ -70,7 +70,7 @@ on:
       enable_build:
         description: >-
           Build the distribution (python -m build), validate metadata
-          (twine check) and scan the *built sdist* for secrets. ADR-210
+          (twine check) and scan the *built sdist* for secrets. ADR-226
           decision driver #1 is "secret leakage in a published wheel/sdist
           is irreversible" — the history scan does NOT cover secrets that
           enter the artifact via MANIFEST.in / package_data without a clean
@@ -86,7 +86,7 @@ on:
       block_pip_audit:
         description: >-
           Make pip-audit (CVE scan) blocking. Default true for libraries:
-          ADR-210 premise is that published artifacts have the widest,
+          ADR-226 premise is that published artifacts have the widest,
           irreversible blast radius — shipping a known-CVE dependency in a
           public wheel is worse than in an internal app, so the app-CI
           "non-blocking for parity" stance is deliberately NOT inherited here.
@@ -117,7 +117,7 @@ jobs:
 
   # ── Secret Detection ──────────────────────────────────────────────────────
   # Single source of the #198-hardened logic: the shared `gitleaks-scan`
-  # composite action (ADR-210 DRY resolution — preferred over a
+  # composite action (ADR-226 DRY resolution — preferred over a
   # _secrets-scan.yml reusable: steps-only, no nested-reusable limits, repo
   # already uses composite actions). _ci-python.yml + this job + the build
   # job below all consume the SAME action — no divergence possible.
@@ -186,7 +186,7 @@ jobs:
           fi
 
   # ── Build + Publish-Vector Secret Scan ────────────────────────────────────
-  # The `secrets-scan` job scans git HISTORY. ADR-210's stated threat is
+  # The `secrets-scan` job scans git HISTORY. ADR-226's stated threat is
   # "secret leakage in a published wheel/sdist" — a secret can enter the
   # *artifact* via MANIFEST.in / package_data / setuptools data-files without
   # ever being a clean history finding. This job builds the real distribution
@@ -214,7 +214,7 @@ jobs:
       - name: Scan built artifact for secrets (the bytes that reach PyPI)
         # Shared composite action, mode=sdist: it locates+extracts the sdist
         # AND the wheel from dist/ and scans them — the SAME control wired
-        # into every publish-*.yml (ADR-210 binding gate). Blocking: a secret
+        # into every publish-*.yml (ADR-226 binding gate). Blocking: a secret
         # in the published artifact is irreversible (rotate + yank).
         uses: achimdehnert/platform/.github/actions/gitleaks-scan@main
         with:

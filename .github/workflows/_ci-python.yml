@@ -150,7 +150,7 @@ jobs:
     # local history — zero GitHub API, zero token/permission coupling,
     # immune to caller config.
     #
-    # ADR-210: this logic now lives ONCE in the composite action and is
+    # ADR-226: this logic now lives ONCE in the composite action and is
     # consumed identically by _ci-python.yml + _ci-pypi.yml (history + built
     # sdist). ESCAPE HATCH for false positives / pre-existing history leaks:
     # repo-root `.gitleaksignore` (fingerprint, preferred) or `.gitleaks.toml`

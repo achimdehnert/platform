@@ -1,5 +1,5 @@
 # Composite Action: resolve-install-extra
-# ADR-210: a shared library-CI contract assumes a homogeneous extra name
+# ADR-226: a shared library-CI contract assumes a homogeneous extra name
 # (`dev`) across ~14 heterogeneous packages. pip only *warns* on a missing
 # extra and installs the base — so a wrong/typo'd `install_extra` silently
 # under-installs test deps and the failure surfaces far downstream as
