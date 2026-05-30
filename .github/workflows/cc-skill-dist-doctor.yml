@@ -1,0 +1,36 @@
+name: CC-Skill-Dist Round-Trip (ADR-230)
+
+# Determinismus-Gate für die Skill-Distribution: erzeugt das Distributions-Ziel
+# aus dem PR-Baum (generate.py) und prüft, dass doctor.py es als Drift 0 liest.
+# Fängt Tooling-Regresse (z.B. generate-Footer ≠ doctor-Vergleich) VOR dem
+# gegateten Live-Rollout. Braucht KEIN ~/.claude/commands — rein selbst-konsistent.
+
+on:
+  push:
+    paths:
+      - "tools/cc-skill-dist/**"
+      - ".windsurf/workflows/**"
+  pull_request:
+    paths:
+      - "tools/cc-skill-dist/**"
+      - ".windsurf/workflows/**"
+
+jobs:
+  round-trip:
+    name: generate → doctor == Drift 0 (HEAD)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # ls-tree/cat-file gegen den vollen Baum
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Tools sind stdlib-only — keine pip-Deps.
+      - name: Generate Distributions-Ziel aus PR-Baum
+        run: python3 tools/cc-skill-dist/generate.py --ref HEAD --target /tmp/cc-roundtrip
+
+      - name: Doctor gegen Erzeugnis — erwartet Drift 0
+        run: python3 tools/cc-skill-dist/doctor.py --ref HEAD --commands /tmp/cc-roundtrip
