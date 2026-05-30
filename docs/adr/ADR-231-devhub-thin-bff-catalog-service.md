@@ -2,6 +2,7 @@
 id: ADR-231
 status: proposed
 date: 2026-05-30
+amended: 2026-05-30
 decision-makers: Achim Dehnert
 domains: [dev-hub, architecture, ssot, portal, drift-prevention]
 supersedes: []
@@ -71,27 +72,52 @@ zustandsbehafteten Kerns).
 - ❌ Kein einziger gemeinsamer menschenseitiger Join; Audience-Navigator/Doc-Health-Score/Cross-Repo-Graph verlieren ihre Heimat.
 - ❌ Backstage zu betreiben ist schwerer als das Bestehende; iil-spezifische Sicht ginge verloren.
 
-### Option C — Entkernung zu Thin BFF + Catalog-Service (GEWÄHLT)
+### Option C — Entkernung zu Thin BFF + Catalog-Service (GEWÄHLT, in Rev 1 re-sequenziert)
 - ✅ Behält die 40 % einzigartiger Wert als *dünnen, weitgehend zustandslosen* Read-/Join-Layer.
 - ✅ Eliminiert die Migrations-/DB-Bruchfläche dort, wo sie unnötig ist.
 - ✅ Erzwingt die ADR-158-„link-not-copy"-Disziplin strukturell auf *alle* Spokes.
+
+### Option D — Modularer Monolith mit isoliertem Catalog-Schema (Rev 1 — als Frühphase von C übernommen)
+Statt sofort ein neues Deploy-Artefakt (`catalog-service`) zu schaffen: `catalog` bleibt zunächst
+*in* dev-hub, aber als **eigene Postgres-Schema-Zone mit getrenntem Migrations-Gate** (BFF- und
+catalog-Migrationen separat deploy-/gatebar).
+- ✅ Behebt den **Incident-Typ** (eine fehlschlagende Migration reißt nicht mehr alles runter) zu
+  deutlich geringeren Betriebskosten — entscheidend bei Single-Entwickler + unreifer Deploy-Pipeline (AD-1).
+- ❌ Weichere Laufzeit-Grenze; ohne Disziplin kann der Monolith wieder wachsen.
+- **Konsequenz:** Rev 1 macht Option D zur **Phase 0**; der echte Service-Split (Option C Vollform)
+  wird **deferred** und nur bei belegtem Bedarf gezogen (REC-7/REC-21).
 
 ## Decision Outcome
 
 **Gewählt: Option C.** dev-hub wird in zwei klar getrennte Verantwortungen entkernt:
 
-1. **`dev-hub-bff`** — dünner, (nahezu) zustandsloser Backend-for-Frontend: Portal/Audience-Navigator,
-   Search, Doc-Health-Anzeige, Dashboards. Liest aus den Autoritäts-Quellen (Orchestrator-MCP, git,
-   GitHub, Outline, techdocs-Projektion), **besitzt keine fachlichen Tabellen**. Vorbild: `controlling`.
-2. **`catalog-service`** — der **einzige** zustandsbehaftete Dienst: der Komponenten-/Dependency-Graph
-   (das einzige, das echte Persistenz *braucht*, weil es nirgendwo sonst existiert). Eigene, kleine,
-   stabile DB; minimale Migrations-Fläche.
+1. **`dev-hub-bff`** — dünner Backend-for-Frontend: Portal/Audience-Navigator, Search, Doc-Health-Anzeige,
+   Dashboards. **Hart definiert (Rev 1, REC-2):** der BFF darf NUR Session-/Cache-/Portal-Config-/
+   Audit-/Outbox-Zustand halten — **keine fachlichen Autoritätsdaten**. Vorbild: `controlling`.
+2. **`catalog`** — der **einzige** zustandsbehaftete Bereich (Komponenten-/Dependency-Graph; existiert
+   nirgendwo sonst). **Rev 1:** zunächst als **isolierte Postgres-Schema-Zone mit eigenem Migrations-Gate**
+   *in* dev-hub (Option D, Phase 0) — eigener `catalog-service` erst bei belegtem Bedarf (deferred).
+
+### Speicher-Modus-Taxonomie (Rev 1, REC-3 — „Read-Projektion" war zu unscharf)
+Jede App-Datenhaltung wird genau einem Modus zugeordnet:
+- **`live_read`** — synchrone Abfrage der Quelle, **keine** Persistenz (z. B. `controlling`).
+- **`cached_read`** — Cache mit TTL, kein Wahrheits-Anspruch.
+- **`read_projection`** — persistierte Projektionszeile, **nur** mit vollständigen Pointer-Metadaten (s. Invariante).
+- **`authority-owned`** — dev-hub IST die Quelle (nur catalog, portal-config, audit/outbox).
 
 ### Verbindliche Invariante (SSoT-Pointer)
 
-> **Jede persistierte Zeile in dev-hub trägt einen Pointer auf ihre Autoritäts-Quelle
-> (`headless_run_id`, git-SHA, GitHub-Release-ID, …) + Sync-Timestamp — oder sie darf nicht existieren.**
-> Eigene Tabellen nur dort, wo dev-hub die *einzige* Quelle ist (catalog, portal-Config, audit/outbox).
+> **Jede persistierte `read_projection`-Zeile trägt vollständige Pointer-Metadaten — oder sie darf
+> nicht existieren.** Pflichtfelder (Rev 1, REC-4/REC-5): `tenant_id`, `source_system`, `source_id`,
+> optional `source_sha`, `source_updated_at`, `synced_at`, `projection_version`, `sync_status`.
+> `authority-owned`-Tabellen nur für catalog / portal-config / audit/outbox.
+
+**Erzwingung (Rev 1):**
+- **Migrations-Klassifikations-Gate (REC-20):** jede neue dev-hub-Migration muss im PR deklarieren, ob
+  sie `authority-owned` / `read_projection` / `config` / `audit-outbox` / `catalog-owned` ist — ohne
+  Klassifikation blockt das Gate.
+- **`tenant_id` ist Teil der Invariante (REC-5):** je Projektor ein Cross-Tenant-Isolationstest (Leak bei einem Aggregationsportal besonders teuer, AD-14).
+- **Ownership-Register (REC-1):** maschinenlesbare Datei `dev-hub/ownership.yaml` listet je App: `tier (KEEP|DEMOTE|CUT)`, `storage_mode`, `authority_source`, `write_allowed`, `pointer_fields`, `rebuild_command`. Der Doc-Health-Self-Audit-Gate prüft Vollständigkeit (REC-17/M28-1).
 
 ### Tier-Disposition (aus dem Audit)
 
@@ -106,13 +132,42 @@ zustandsbehafteten Kerns).
 **ohne** den einzigartigen Wert zu verlieren.
 
 ### Inkrementeller Migrationspfad (kein Big-Bang — Lehre aus dem Incident)
-1. **Welle 1:** ai_config-Keys → Orchestrator, dev-hub liest Routing (schließt zugleich Security-Finding).
-2. **Welle 2:** agents_dashboard/adr_lifecycle bekommen SSoT-Pointer-Spalten → Drift-Guardian-Check; Inhalt wird Projektion.
-3. **Welle 3:** repo_health/quality_agent als headless Crons deklarieren, App-Shells abräumen.
-4. **Welle 4:** sw_templates entscheiden (Engine vs. catalog-Auflösung).
-5. **Welle 5:** catalog als eigener Service herauslösen; BFF wird zustandslos (bis auf portal-Config/audit).
+0. **Welle 0 (Vorbedingung, Rev 1/REC-8):** den zu engen 60s-Deploy-Health-Gate fixen + catalog in eine
+   isolierte Schema-Zone mit getrenntem Migrations-Gate legen (Option D). Ohne das baut jede weitere
+   Welle operativ auf Sand (AD-12).
+1. **Welle 1:** ai_config-Keys → Orchestrator; **Secrets-Migrationsnachweis (REC-12):** Keys aus DB
+   *und* Backups/Dumps entfernt, Rotation erzwungen, Zugriffspfade getestet.
+2. **Welle 2:** agents_dashboard → `read_projection`; **adr_lifecycle → `live_read` + git-Pointer:
+   dev-hub schreibt KEINEN ADR-Status autoritativ** (Schreib-Intents landen in git/ADR-MCP, REC-11/REC-23).
+3. **Welle 3:** repo_health/quality_agent als headless Jobs mit definiertem Owner/Scheduler/Secrets/
+   Logs/Retry/Alerting + sichtbarer Health-Projektion im Portal (REC-13).
+4. **Welle 4:** sw_templates **entscheiden** (nicht offen lassen): Catalog-Metadaten *oder* eigener
+   Scaffolder-Backlog *oder* explizit deprecated (REC-14).
+5. **Welle 5 (optional/deferred):** catalog als eigener Service herauslösen — nur bei belegtem Bedarf.
 
-Jede Welle ist ein eigener, getesteter PR hinter dem **Dogfood-Doc-Health-Gate** (ADR-158/Phase 1).
+**Exit-Kriterien je Welle (Rev 1, REC-16/REC-24):** Datenmigration abgeschlossen · alte Schreibpfade
+deaktiviert · alte Tabellen archiviert/gedroppt (nicht nur logisch tot) · Rollback-Pfad dokumentiert ·
+**Parallelbetrieb** (alte vs. neue Anzeige verglichen, bis Projektion verifiziert) · Nutzerfluss getestet.
+Jede Welle ist ein eigener PR hinter dem **Dogfood-Doc-Health-Gate** (Phase 1), erweitert um die
+ADR-231-Invarianten-Checks (REC-17).
+
+### Präzisierungen (Rev 1 — externe Zweitmeinung eingearbeitet, 2026-05-30)
+Eine cross-provider-Review (Steelman → Advocatus Diabolus → Maintainer-2028) lieferte Befunde
+`AD-1…15`/`M28-1…10`; nach Step-5-Tagging (`[valid]`/`[missversteht-Kontext]`/`[out-of-scope]`) eingearbeitet:
+- **catalog Anti-Creep (REC-22, M28-2):** der catalog-Bereich bekommt **keine** Run-Records, keine
+  ADR-Lifecycle-Wahrheit, keinen Release-Tracker, keine API-Key-/Budget-Ownership — sonst neuer Mini-Monolith.
+- **catalog-Entitäten-Scope (REC-6, AD-11):** echte Ownership = Repo/Component/Dependency/Owner/Runtime/
+  Deployment-*Beziehungen*; was aus Git/GitHub ableitbar ist, ist Projektion, nicht Ownership.
+- **Orchestrator-Abhängigkeit als Contract (REC-19, AD-5):** benötigte MCP-Tools/Endpunkte, Timeouts,
+  Versionierung und definiertes Verhalten bei pgvector-/Memory-Ausfall — nicht nur „akzeptiertes Risiko".
+- **techdocs (REC-15, AD-8):** explizit `read_projection` mit `source_sha`, Rebuild-Kommando, Staleness-Anzeige.
+- **Graceful Degradation je Quelle (REC-9, M28-4) + Source-Health-Dashboard (REC-10, M28-8):** als
+  **Welle-Implementierungs-Vorgaben** (Anzeigezustand, Datenalter, Fallback, Timeout, TTL, Nutzerhinweis,
+  Fehler-Audit) — Detail gehört in die jeweiligen Wellen-PRs, nicht in dieses Entscheidungs-Artefakt.
+- **Kein Microservices-Prinzip (REC-25, PRO-8):** dies ist ein *begrenzter Zustands-Hoheits-Split* unter
+  Single-Entwickler-Constraints, keine Microservice-Strategie aus Prinzip.
+- **[out-of-scope]:** Event/Snapshot-Projection-Hub (OOB-3, Overengineering), Backstage (OOB-4, bereits
+  verworfen), Static-Edge-Portal (OOB-6, zu restriktiv für Suche/Tenant/Audit) — nur als Vergleichsfolien notiert.
 
 ## Consequences
 
