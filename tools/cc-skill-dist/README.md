@@ -29,7 +29,13 @@ Belegt empirisch die ADR-230-R1-Realrisiken (statische, stale-prone Kopien).
   ```bash
   python3 tools/cc-skill-dist/generate.py --target /tmp/cc-staging
   ```
-- `windsurf-subset.py` — generiert das ADR-Review-Subset über Frontmatter-Tags (`tool_targets`).
+- ✅ `windsurf-subset.py` (**Prototyp, staging-only**) — generiert das **ADR-Review-Subset** primär über
+  Frontmatter-Tag `tool_targets: [windsurf-review]`; **Fallback** = kuratierte Liste (adr*/review/challenger/
+  curator), solange keine Tags existieren. Live-Schutz für `~/.codeium/windsurf/windsurf/workflows/`.
+  Dogfood: 9 Workflows (Fallback-Modus). **Folge-PR:** `tool_targets`-Tags in die ~9 Quell-Workflows ziehen → Tag-Modus.
+  ```bash
+  python3 tools/cc-skill-dist/windsurf-subset.py --target /tmp/cc-windsurf-staging
+  ```
 - Policy-Kollaps (≥ 4 `claude-skills.md`-Kopien → eine + Pointer-Stubs).
 
 > Schreibende Schritte folgen **nach** ADR-230-Acceptance. `doctor.py` ist read-only und schon jetzt nützlich.
