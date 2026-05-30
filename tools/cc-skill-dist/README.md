@@ -22,9 +22,13 @@ Belegt empirisch die ADR-230-R1-Realrisiken (statische, stale-prone Kopien).
 
 ## Roadmap (nach ADR-230-Acceptance)
 
-- `generate.py` — erzeugt `~/.claude/commands/` deterministisch aus dem **resolved Commit**:
-  einheitliche generierte Kopien mit Header (`generated/source_commit/content_hash/do_not_edit`),
-  atomar + gelockt (Staging → validieren → Swap), `MANAGED_BY`-Datei, Manifest.
+- ✅ `generate.py` (**Prototyp, staging-only**) — erzeugt ein Ziel-Verzeichnis deterministisch aus dem
+  **resolved Commit**: generierte Kopien mit MANAGED-Footer (`source_commit`/`content_hash`/`do_not_edit`),
+  `MANAGED_BY` + `manifest.json`, atomarer Rename-Swap (+ `.bak`). `--target` Pflicht; schreibt **nie**
+  nach `~/.claude/commands` ohne `--allow-live`. Dogfood: 69 Skills, Frontmatter intakt, 2× = bit-identisch.
+  ```bash
+  python3 tools/cc-skill-dist/generate.py --target /tmp/cc-staging
+  ```
 - `windsurf-subset.py` — generiert das ADR-Review-Subset über Frontmatter-Tags (`tool_targets`).
 - Policy-Kollaps (≥ 4 `claude-skills.md`-Kopien → eine + Pointer-Stubs).
 
