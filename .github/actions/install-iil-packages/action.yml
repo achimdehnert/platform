@@ -36,20 +36,57 @@ runs:
       shell: bash
       env:
         PROJECT_PAT: ${{ inputs.project_pat }}
+      # --force-reinstall --no-deps: self-hosted runners share a PERSISTENT
+      # setup-python tool-cache. A prior partial/concurrent install can leave an
+      # iil-package with CURRENT metadata (e.g. iil-aifw 0.10.2 in .dist-info)
+      # but STALE code in __init__.py — missing newer public-API symbols. Plain
+      # `pip install` then sees "already satisfied" and never repairs it, so
+      # contract tests fail intermittently (missing get_action_config/QualityLevel/
+      # AIFWError, 'LLMResult' has no 'as_json', …). Forcing a code-level reinstall
+      # makes the installed code always match the pin, regardless of cache state.
+      # --no-deps keeps it fast (deps already resolved by requirements.txt above).
       run: |
-        pip install \
+        # Presence + code-freshness for the iil family (covers repos that do
+        # not pin them in requirements.txt). `python -m pip` ensures the install
+        # hits the SAME interpreter the tests use.
+        python -m pip install --force-reinstall --no-deps \
           "iil-aifw>=0.5.0,<1" \
           "iil-promptfw>=0.5.1,<1" \
           "iil-authoringfw>=0.3.0,<1" \
           "iil-weltenfw>=0.1.0,<1" \
           "iil-nl2cad>=0.1.0,<1" \
           2>/dev/null || \
-        pip install \
+        python -m pip install --force-reinstall --no-deps \
           "aifw>=0.5.0,<1" \
           "promptfw>=0.2.0,<1" \
           "authoringfw>=0.3.0,<1" \
           "weltenfw>=0.1.0,<1" \
           2>/dev/null || true
+        # Authoritative: re-assert the consumer's requirements.txt pins so the
+        # looser ranges above can never override an intended cap (e.g. a repo
+        # pinning iil-aifw<0.11 must not get a future 0.11 from here). A pinned
+        # spec that fails to install is FATAL here (no `|| true`).
+        if [ -f "${{ inputs.requirements_file }}" ]; then
+          pins=$(grep -iE '^(iil-aifw|iil-promptfw|iil-authoringfw|iil-weltenfw|iil-nl2cad)([<>=!~ ]|$)' \
+                 "${{ inputs.requirements_file }}" || true)
+          if [ -n "$pins" ]; then
+            printf '%s\n' "$pins" | python -m pip install --force-reinstall --no-deps -r /dev/stdin
+          fi
+        else
+          echo "::warning::${{ inputs.requirements_file }} not found — only the action's default iil ranges were used (no consumer pins re-asserted)."
+        fi
+        # Advisory: surface a broken --no-deps tree without hard-failing. The
+        # shared self-hosted tool-cache can carry PRE-EXISTING unrelated
+        # conflicts; a hard `pip check` would turn those into red CI for every
+        # consumer. Becomes a hard gate once job-local venv isolation lands (#357).
+        python -m pip check || echo "::warning::pip check reported issues after iil reinstall (advisory until venv isolation, #357)"
+        # Freshness probe — the exact bug this step fixes is .dist-info metadata
+        # claiming a version while the installed CODE is stale. If iil-aifw is
+        # present, assert metadata == the code's own __version__ (version-agnostic).
+        # Guarded on presence: repos that don't use iil-aifw (or a best-effort
+        # install above failed) must NOT fail here — the critical case (a pinned
+        # consumer dep) already fails fatally in the requirements pass above.
+        python -c "import importlib.util as u,importlib.metadata as M,sys; (sys.exit(0) if u.find_spec('aifw') is None else None); import aifw; meta=M.version('iil-aifw'); code=getattr(aifw,'__version__',None); print('iil-aifw metadata=%s code=%s @ %s'%(meta,code,aifw.__file__)); sys.exit('::error::iil-aifw metadata %s != code %s — stale tool-cache not repaired'%(meta,code)) if code and code!=meta else None"
         # iil-fieldprefill: private repo, not on PyPI (ADR-107)
         if [ -n "$PROJECT_PAT" ]; then
           pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
