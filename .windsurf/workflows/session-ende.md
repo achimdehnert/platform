@@ -1,11 +1,16 @@
 ---
-description: Session beenden — Wissen in Outline sichern, Memory updaten
+description: Session beenden — Wissen sichern (via /knowledge-capture), Memory updaten, Repos committen/pushen
+mode: write
 ---
 
 # /session-ende
 
 > Gegenstück: `/session-start`
 > **Der User muss NICHTS auflisten.** Der Agent scannt die Session autonom.
+> **Läuft in Claude Code** (CC-first, ADR-230) — Tools werden mit ihren
+> stabilen CC-Namen (`mcp__github__*`, `mcp__orchestrator__*`) genannt, nicht
+> mit volatilen `mcpN_`-Nummern. Owner/Org werden aus dem git-Remote abgeleitet,
+> nie hardcoded (policies/claude-skills.md).
 
 ---
 
@@ -102,14 +107,21 @@ claude --resume <session-id>
 
 ---
 
-## Phase 1: Wissen sichern (Outline + Memory)
+## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren
 
-1. **Session-Scan** (autonom) — Git-Logs prüfen, Features/Fixes/Deployments/Lessons identifizieren
-2. **Outline durchsuchen** — Existiert schon ein Dokument?
-3. **Klassifizieren** — Runbook / Konzept / Lesson / Update?
-4. **Outline schreiben** — `mcp5_create_runbook`, `mcp5_create_concept`, `mcp5_create_lesson` oder `mcp5_update_document`
-5. **Cross-Repo Tagging** — "Gilt für" Abschnitt bei Hub-übergreifendem Wissen
-6. **agent memory updaten** — Verweis auf Outline-Dokument
+Outline-Schreiben **nicht hier inline duplizieren** — Klassifikation
+(Runbook/Konzept/Lesson), Cross-Repo-Tagging und die Outline-Tool-Wahl sind
+Aufgabe von `/knowledge-capture`. session-ende ruft es und **prüft den Erfolg**:
+
+1. `/knowledge-capture` ausführen (autonomer Session-Scan → schreibt nach Outline).
+2. **Erfolgs-Check** (nicht stumm überspringen):
+   - Hat es eine Outline-Doc-URL/ID zurückgegeben? → für Phase 2 (Memory-Cross-Ref) merken.
+   - Kein Ergebnis / Fehler? → als offenen Punkt in `AGENT_HANDOVER.md` (Phase 0b)
+     notieren, damit die nächste Session es nachholt.
+
+→ session-ende-eigen bleibt nur der **Memory-Eintrag** (Phase 2, Verweis auf die
+Outline-Doc). Die früher hier duplizierte Outline-Logik wurde entfernt (war
+redundant zu `/knowledge-capture` und `/session-docu`).
 
 ---
 
@@ -165,17 +177,23 @@ done
 | `cl_entries == 0` | CHANGELOG leer | nur Infra/Skript-Repo ohne pyproject.toml |
 | `new_py >= 1` | neue .py Datei in Session | nur Tests (`test_*.py`) |
 
+**Owner aus dem git-Remote ableiten (nie hardcoden):**
+```bash
+OWNER=$(git -C "$PLATFORM_DIR" remote get-url origin \
+        | sed -E 's#.*[:/]([^/]+)/[^/]+(\.git)?$#\1#')   # z.B. achimdehnert
+```
+
 **Duplikat-Schutz** — immer zuerst prüfen:
 ```
-mcp1_list_issues(owner: "achimdehnert", repo: "platform",
+mcp__github__list_issues(owner: <OWNER>, repo: "platform",
   labels: ["docu-update"], state: "open")
 → Nur erstellen wenn KEIN Issue "[docu-update] <REPO_NAME>" bereits offen.
 ```
 
 **Issue erstellen:**
 ```
-mcp1_create_issue(
-  owner: "achimdehnert", repo: "platform",
+mcp__github__create_issue(
+  owner: <OWNER>, repo: "platform",
   title: "[docu-update] <REPO_NAME> — <Trigger-Grund>",
   body: "Automatisch erkannt via session-ende Phase 1b.\n\n
 Trigger: <v_code != v_readme | cl leer | neue .py>\n\n
@@ -225,48 +243,38 @@ fi
 
 ## Phase 2: pgvector Memory schreiben (ADR-154)
 
-> **MCP-Prefix-Mapping (WSL/Hetzner — primary env):**
-> `mcp1_` = github · `mcp4_` = orchestrator · `mcp5_` = outline-knowledge.
-> Auf Dev Desktop sind die Prefixes verschoben (`mcp0_`=github, `mcp1_`=orchestrator,
-> `mcp2_`=outline) — dort manuell adjustieren.
+> Tools in CC: `mcp__orchestrator__agent_memory_upsert` / `…_search`. **Flache**
+> Parameter (verifiziert gegen das Schema): `entry_key`, `entry_type` (enum),
+> `title`, `content`, optional `agent` (default `cascade`) + `tags`. **Kein**
+> verschachteltes `entry: {…}}` und **kein** `entry_id` — das war die alte
+> Windsurf-Signatur. Vor Änderungen an diesen Calls die Signatur erneut prüfen
+> (`ToolSearch select:mcp__orchestrator__agent_memory_upsert`).
 
-> ⚠️ **Voraussetzung:** In `~/.codeium/windsurf/mcp_config.json` müssen
-> `agent_memory_search`, `agent_memory_upsert`, `agent_memory_context`
-> **NICHT** in `disabledTools` des orchestrator-Servers stehen. Sonst fällt
-> Cascade auf das eingebaute `create_memory` zurück — Phase 2 wird stumm
-> übersprungen und pgvector bleibt leer.
-
-7. **Session-Summary in pgvector speichern:**
+7. **Session-Summary speichern:**
 ```
-mcp4_agent_memory_upsert(
-  agent: "cascade",
-  entry: {
-    entry_id: "SESSION-<YYYYMMDD>-<REPO-UPPERCASE>",  // muss [A-Z][A-Z0-9\-]+ matchen
-    entry_type: "context",                            // enum: open_task|decision|context|lesson_learned|error_pattern|repo_context|agent_handoff
-    title: "Session <date> — <repo>: <1-Zeile Summary>",
-    content: "<Was wurde erledigt, welche Entscheidungen, welche Dateien>",
-    tags: ["session", "<repo>", "<task-type>"]
-  }
+mcp__orchestrator__agent_memory_upsert(
+  agent: "claude-code",
+  entry_key: "session:<repo>:<YYYYMMDD>",
+  entry_type: "context",     // enum: open_task|decision|context|lesson_learned|error_pattern|repo_context|agent_handoff
+  title: "Session <date> — <repo>: <1-Zeile Summary>",
+  content: "<Was erledigt, welche Entscheidungen, welche Dateien; Verweis auf Outline-Doc aus Phase 1>",
+  tags: ["session", "<repo>", "<task-type>"]
 )
 ```
 
-8. **Error-Patterns erfassen** (nur bei Bug-Fixes — als `error_pattern` Memory-Entry):
+8. **Error-Patterns erfassen** (nur bei Bug-Fixes):
 ```
-mcp4_agent_memory_upsert(
-  agent: "cascade",
-  entry: {
-    entry_id: "ERROR-<YYYYMMDD>-<REPO>-<SHORTID>",
-    entry_type: "error_pattern",
-    title: "<symptom 1-Zeile>",
-    content: "Repo: <repo>\nSymptom: ...\nRoot Cause: ...\nFix: ...\nPrevention: ...",
-    tags: ["error", "<repo>"]
-  }
+mcp__orchestrator__agent_memory_upsert(
+  agent: "claude-code",
+  entry_key: "error:<repo>:<YYYYMMDD>-<shortid>",
+  entry_type: "error_pattern",
+  title: "<symptom 1-Zeile>",
+  content: "Repo: <repo>\nSymptom: …\nRoot Cause: …\nFix: …\nPrevention: …",
+  tags: ["error", "<repo>"]
 )
 ```
 
-> ℹ️ Die früheren Tools `log_error_pattern` / `session_stats` / `check_recurring_errors`
-> sind serverseitig weiter da, aber per `disabledTools` in der Cascade-Config deaktiviert
-> (Token-Budget). Pattern-Erkennung läuft jetzt via `mcp4_agent_memory_search(query: "...")`.
+> ℹ️ Pattern-Recall läuft über `mcp__orchestrator__agent_memory_search(query: "…")`.
 
 ---
 
@@ -330,6 +338,11 @@ python3 "${GITHUB_DIR:-$HOME/github}/platform/scripts/gen_project_facts.py" \
 → **Ergebnis**: Nächster `session-start` auf JEDER Maschine hat automatisch die aktuellen Rules + Workflows.
 → Unregistrierte Repos (⚠️) → in `platform/scripts/repo-registry.yaml` eintragen.
 
+> ℹ️ **ADR-230 (CC-first):** `sync-workflows.sh` ist der **Windsurf-Ära**-Symlink-Pfad.
+> Für **CC-Skills** ist die kanonische Verteilung `platform/tools/cc-skill-dist/`
+> (`generate.py`/`doctor.py`); nach dem gegateten Live-Rollout ersetzt sie diesen
+> Schritt für `~/.claude/commands`. Bis dahin laufen beide parallel.
+
 // turbo
 ```bash
 PLATFORM_DIR="${GITHUB_DIR:-$HOME/github}/platform"
@@ -368,9 +381,10 @@ done
 
 ### 3.4 Fallback bei Shell-Hang
 
-Falls Shell blockiert ist, nutze GitHub MCP für kritische Pushes:
+Falls Shell blockiert ist, nutze GitHub MCP für kritische Pushes (`<OWNER>` aus
+dem git-Remote, siehe Phase 1b):
 ```
-mcp1_push_files(owner: "achimdehnert", repo: "<repo>", branch: "main",
+mcp__github__push_files(owner: <OWNER>, repo: "<repo>", branch: "main",
   files: [{"path": "<pfad>", "content": "<inhalt>"}],
   message: "session-ende: <beschreibung>")
 ```
@@ -379,6 +393,20 @@ mcp1_push_files(owner: "achimdehnert", repo: "<repo>", branch: "main",
 
 ---
 
+
+## Anti-Patterns (Skill ist `mode: write`)
+
+- ❌ Owner/Org/MCP-Prefixe/IPs hardcoden — Owner aus dem git-Remote ableiten,
+  Tools mit stabilen CC-Namen (`mcp__github__*`, `mcp__orchestrator__*`) nennen.
+- ❌ Outline-Schreiben hier inline duplizieren — an `/knowledge-capture` delegieren
+  und **Erfolg prüfen** (Redundanz zu `/session-docu` vermeiden).
+- ❌ `git push` ausführen, wenn der User „nicht pushen" sagt oder ein PR-Review
+  läuft (Phase 3.1) — und nie ungeprüft `git add -A` über fremde dirty Repos.
+- ❌ Memory-Calls mit der alten Windsurf-Signatur (`entry: {entry_id…}}`) — die
+  CC-Signatur ist flach mit `entry_key`.
+
+**Idempotenz:** Re-Run ist sicher — Commits/Sync sind wiederholbar, Issue-Erstellung
+ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_hash`.
 
 ## Abschluss-Checkliste + MCP-Reference
 
