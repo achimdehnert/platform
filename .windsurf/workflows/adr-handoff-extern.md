@@ -1,4 +1,5 @@
 ---
+tool_targets: [windsurf-review]
 description: Schreibt ADR-Review-Briefing als .md nach ~/shared/ für externe LLM-Zweitmeinung (Advocatus Diabolus + Out-of-the-Box).
 mode: write
 ---
