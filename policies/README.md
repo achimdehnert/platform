@@ -5,9 +5,10 @@ landscape (achimdehnert, ttz-lif, meiki-lra). They are loaded by Claude Code
 on every session via `~/.claude/CLAUDE.md`.
 
 **SSoT = this directory** (`platform/policies/`, versioned). `~/.claude/policies/`
-is a symlink into a pinned platform worktree (`~/github/platform-pinned/policies/`)
-— same pattern as `~/.claude/commands` → `platform-workflows`. The
-`inject_policies.py` hook and `claude-policy` CLI read that path unchanged.
+is a symlink into a pinned platform worktree (`~/github/platform-pinned/policies/`).
+The `inject_policies.py` hook and `claude-policy` CLI read that path unchanged.
+(Note: the analogous `~/.claude/commands` distribution is migrating off the
+`platform-workflows` symlink to `cc-skill-dist` CC-first generation — ADR-230.)
 
 ## Files
 

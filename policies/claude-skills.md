@@ -4,9 +4,9 @@
 
 ## Was ist eine CC-Skill?
 
-Markdown-Workflow mit YAML-Frontmatter, im Verzeichnis `platform-workflows/.windsurf/workflows/`. Verfügbar als Slash-Command in **beiden** Tools:
-- Claude Code via Symlink `~/.claude/commands/` → `~/github/platform-workflows/.windsurf/workflows/`
-- Windsurf Cascade nativ
+Markdown-Workflow mit YAML-Frontmatter. **Kanonische Quelle:** `platform` `main` `.windsurf/workflows/` (branch-stabil, resolved Commit) — **nicht** der `platform-workflows`-Worktree (Coding-Ära-Altlast).
+- **Claude Code (primär):** verteilt nach `~/.claude/commands/` über `cc-skill-dist` (`generate.py`/`doctor.py`, MANAGED-Footer + Manifest) — CC-first, ADR-230.
+- **Windsurf (nur ADR/Review):** Windsurf wird **nicht mehr zum Coden** genutzt. Es erhält ausschließlich das **Review-Subset** via `windsurf-subset.py` (`tool_targets: [windsurf-review]`), nicht alle Skills (ADR-229).
 
 Abgrenzung zu anderen Konzepten:
 - **Django Platform-Agents** (`dev-hub/apps/<agent>/`, siehe `platform-agents.md`) — Headless, scheduled, lange Laufzeit
@@ -17,7 +17,7 @@ Abgrenzung zu anderen Konzepten:
 CC-Skill ist die **Default-Antwort** bei:
 - Wiederkehrender Workflow >3× pro Woche manuell ausgeführt
 - Kombination aus 2+ MCP-Calls + Output-Aggregation
-- Bedarf für Cross-Tool-Verfügbarkeit (CC + Windsurf)
+- Wiederverwendbarkeit über CC-Sessions/Maschinen hinweg (CC-first; Windsurf nur für ADR/Review-Skills relevant)
 - Read-only-Analyse oder Reporting
 
 **Nicht** als Skill:
@@ -103,13 +103,17 @@ PR der eine neue Skill enthält oder eine bestehende ändert:
 4. Output-Format als Code-Block exemplifiziert
 5. CHANGELOG-Eintrag in der Skill-Datei
 
-## Verteilung
+## Verteilung (ADR-230 CC-first)
 
-`~/.claude/commands` Symlink ist **single-machine**. Cross-Machine-Sync für CC-Sessions auf Dev-Server/Prod:
-- Plan: zukünftig Plugin-basiertes Distribution (Backlog)
-- Aktuell: `git pull` in `~/github/platform-workflows` auf jeder Maschine
+Quelle = `platform main .windsurf/workflows/` (resolved Commit). Verteilung nach `~/.claude/commands/` über `platform/tools/cc-skill-dist/`:
+- `generate.py` — deterministische Kopien mit MANAGED-Footer (`source_commit`/`content_hash`/`do_not_edit`) + `manifest.json`; atomarer Swap mit `.bak`; Live nur mit `--allow-live` (gegatet, ADR-230 §8).
+- `doctor.py` — read-only Drift-Diagnose Quelle ↔ `~/.claude/commands` (footer-aware; CI-Round-Trip-Gate `cc-skill-dist-doctor.yml`).
+- Windsurf-Review-Subset: `windsurf-subset.py` (`tool_targets: [windsurf-review]`).
+
+Der frühere `~/.claude/commands` → `platform-workflows`-Symlink ist die **Coding-Ära-Altlast** und wird durch das gegatete Live-Rollout abgelöst; Cross-Machine-Sync läuft dann ebenfalls über `generate.py` je Maschine.
 
 ## Changelog
 
 - 2026-05-15: Initial. Geschrieben nach Dogfood-Findings der ersten 2 CC-Skills (`/adr-curator`, `/adr-challenger`, PR #168). Schließt Policy-Lücke die `platform-agents.md` offen ließ.
 - 2026-05-15: Pushed to orchestrator memory (`entry_key: policy:claude-skills`).
+- 2026-05-30: Auf ADR-229/230 (CC-first) ausgerichtet — Quelle = `platform main` (nicht `platform-workflows`-Worktree), Windsurf nur ADR/Review-Subset (nicht mehr Coding), Verteilung über `cc-skill-dist`. Stale „beide Tools / platform-workflows / Plugin-Backlog"-Prämisse korrigiert.

@@ -9,6 +9,15 @@ Usage: doctor.py [--platform ~/github/platform] [--commands ~/.claude/commands] 
 """
 import argparse, os, subprocess, sys
 
+# Footer, den generate.py an jede verteilte Kopie anhängt (MANAGED-BY-Marke).
+# doctor muss ihn vor dem Inhaltsvergleich abstreifen, sonst liest sich jede
+# korrekt generierte Kopie fälschlich als copy-stale (Footer ≠ nackter Blob).
+MARK = "MANAGED-BY: platform/tools/cc-skill-dist"
+
+def strip_managed_footer(text):
+    idx = text.rfind("<!-- " + MARK)
+    return text if idx == -1 else text[:idx]
+
 def git(args, cwd):
     r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
     return r.stdout if r.returncode == 0 else None
@@ -50,7 +59,8 @@ def main():
             disk = open(path, encoding="utf-8", errors="ignore").read()
         except Exception as e:
             issues.append(("unlesbar", name, str(e)[:40])); continue
-        same = (disk == (canon_content(canon[name]) or "\0"))
+        src = canon_content(canon[name]) or "\0"
+        same = (strip_managed_footer(disk).rstrip("\n") == src.rstrip("\n"))
         if is_link:
             sym_ok += 1 if same else 0
             if not same: sym_stale += 1; issues.append(("symlink-stale", name, "Symlink-Inhalt ≠ Quelle"))
