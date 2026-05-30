@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-05-30
 decision-makers: Achim Dehnert
 domains: [tooling, dx, drift-prevention, governance]
@@ -12,14 +12,13 @@ tags: [skills, workflows, distribution, claude-code, windsurf, cross-repo]
 
 | Attribut | Wert |
 |---|---|
-| **Status** | Proposed |
+| **Status** | Accepted (Entscheidung; Live-Rollout via Rollout-Gate §8) |
 | **Scope** | Platform-wide (Tooling/DX) |
 | **Datum** | 2026-05-30 |
 | **Amends** | Policy `claude-skills.md` (Cross-Tool-Prämisse) |
 | **Relates** | ADR-229 (`.windsurf`-Distribution right-sized) |
 
-> **Status proposed.** Zielbild-Entscheidung. Implementierung (= das frühere „Konsolidierungs-A")
-> **erst nach Acceptance** — weil sie eine kanonische Quelle voraussetzt, die heute nicht existiert.
+> **Status accepted (2026-05-30) — „Entscheidung ≠ Rollout“ (ADR-211-Muster).** Die *Entscheidung* (CC-first, eine kanonische Quelle, Windsurf-ADR-Subset) ist **ratifiziert** und extern reviewt. Die *Live-Implementierung* ist NICHT „accepted = fertig“, sondern läuft über das **Rollout-Gate (§8)** separat: read-only/Staging-Tooling existiert (`cc-skill-dist` doctor/generate/windsurf-subset), die Live-Aktivierung (Schreiben gegen `~/.claude/commands` + Hybrid-Auflösung + Policy-Kollaps) erfolgt gated. Akzeptiert = Richtung verbindlich, nicht Rollout abgeschlossen.
 
 ## 1. Kontext
 
@@ -89,7 +88,7 @@ existiert — jede Einzeländerung erzeugt nur eine weitere driftende Kopie oder
 - **Trade-offs:** Migrationsaufwand; der unbekannte Mutator muss gezähmt werden.
 - **Nicht in Scope:** Inhalt/Governance einzelner Skills; ADR-229-`.windsurf`-Untrack (bereits erledigt).
 
-## 8. Acceptance Criteria (proposed bis alle grün)
+## 8. Rollout-Gate (Entscheidung ≠ Rollout — gilt für die Live-Aktivierung, nicht die Entscheidung)
 - [ ] **Hybrid aufgelöst:** Ziel einheitlich generiert+gehasht (keine stale Kopien, keine dangling Symlinks); Quelle branch-stabil; pre-session-Drift-Check aktiv (REC-4/17).
 - [ ] **Eine Form, kein Hybrid:** generierte Kopien mit Header; **keine dangling Symlinks**; jede Datei aus Manifest ableitbar; erwartete Anzahl erklärbar (REC-1/8).
 - [ ] **Resolved-Commit-Pin** im Manifest; „deterministisch" erfüllt (bit-identisch bei gleichem Commit+Generator, REC-2/20).
@@ -123,3 +122,4 @@ Manifest + Integrität + Drift-Doctor; Subset via Frontmatter-Tags; Policy-Kolla
 - 2026-05-30: Initial (Proposed). Aus Audit-Analyse auf neuer Basis (Windsurf nur ADR/Review). Zur externen Zweitmeinung via `/adr-handoff-extern` vorgesehen.
 - 2026-05-30: **R1-Korrektur** (Forensik) — „unidentifizierter Live-Rewriter (Blocker)“ war ein `find`-Messartefakt; Ist = statische-Kopie-Hybrid + branch-volatile Symlinks (kein rogue Mutator) → R1 von „Blocker“ auf „verstanden“ herabgestuft.
 - 2026-05-30: Externe Review (20 RECs, alle `[valid]`) über Rückfluss-Gate eingearbeitet → **Betriebsvertrag** (§2a): generierte Kopien+Header, resolved-Commit-Pin, atomic/lock/`MANAGED_BY`, Manifest+Integrität+Drift-Doctor, Frontmatter-Tag-Subset, Pointer-Stub-Kollaps, R1 fail-closed; Acceptance verschärft. Bleibt `proposed`.
+- 2026-05-30: **Status → accepted** („Entscheidung ≠ Rollout“, ADR-211-Muster): CC-first-Entscheidung ratifiziert; Live-Rollout über das §8-Rollout-Gate separat. tool_targets-Tags gesetzt (#350); Tooling (doctor/generate/windsurf-subset) read-only/staging auf main.
