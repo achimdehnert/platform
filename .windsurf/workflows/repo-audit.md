@@ -202,10 +202,17 @@ synth: Steelman + 3 Rollen + Top-5 + Roadmap aus den verifizierten Befunden
 Kosten beachten (`session-routing.md`): Fan-out × Opus ist teuer — `--deep` ist **opt-in**, nicht default.
 
 **Implementierung (Stufe 3):** `.claude/workflows/repo-audit-deep.js` — echtes Workflow-Skript
-(Inventar → 9-Dimensionen-pipeline mit review→adversarialer-verify → Synthese).
-Start: `Workflow({ name: "repo-audit-deep", args: { repo: "<pfad>", goal: "<kontext>", date: "<YYYY-MM-DD>" } })`.
-`date` muss übergeben werden (Skripte haben kein `Date.now()`). Nur substanzielle Befunde (kritisch/hoch/mittel)
-durchlaufen die Refutation; positive/niedrige werden direkt übernommen. Flach geprüfte Dimensionen werden ehrlich deklariert.
+(Inventar → 9-Dimensionen-pipeline mit review→adversarialer-verify → Synthese → **Persist**).
+Start: `Workflow({ name: "repo-audit-deep", args: { repo: "<pfad>", goal: "<kontext>" } })`.
+
+- **`date` ist optional** — ein finaler **Persist-Agent** ermittelt es selbst via `date +%F` und schreibt den
+  Report nach `<repo>/audits/repo-audit-<date>.md` (Workflow-Skripte haben weder `Date.now()` noch FS-Zugriff,
+  daher übernimmt das ein Agent). Rückgabe enthält `report_pfad` + `datum`.
+- Nur substanzielle Befunde (kritisch/hoch/mittel) durchlaufen die Refutation; positive/niedrige direkt übernommen.
+- Flach geprüfte Dimensionen werden ehrlich deklariert.
+- **Inline-Start ohne `name`:** wenn das Skript per `scriptPath` aus einem aktiv umgeschalteten Repo läuft, kann
+  der Pfad verschwinden (Branch-Wechsel paralleler Sessions). Robust: via `name` aus der Registry starten, oder
+  ein git-`worktree` für den Skill-Branch nutzen.
 
 ---
 

@@ -7,13 +7,18 @@ export const meta = {
     { title: 'Review', detail: '1 Agent pro Dimension, Befunde mit Evidence-Ledger' },
     { title: 'Verify', detail: 'adversariale Refutation jedes Befunds' },
     { title: 'Synth', detail: 'Steelman + 3 Rollen + Top-5 + Roadmap + Schlussurteil' },
+    { title: 'Persist', detail: 'Datum via date +%F, Report nach audits/ schreiben' },
   ],
 }
 
 // args: { repo: "<pfad oder ORG/REPO>", goal?: "<1-5 Sätze>", date?: "YYYY-MM-DD" }
-const repo = (args && args.repo) || '.'
-const goal = (args && args.goal) || '(kein expliziter Kontext übergeben — aus dem Repo selbst ableiten)'
-const stamp = (args && args.date) || 'undatiert'
+// Robust gegen fehlende/teilweise args (Inline-Invocation reicht args nicht immer durch):
+const A = args || {}
+const repo = (typeof A === 'string' ? A : A.repo) || '.'
+const goal = A.goal || '(kein expliziter Kontext übergeben — aus dem Repo selbst ableiten)'
+// stamp bleibt ein Hinweis; das ECHTE Datum setzt der Persist-Agent via `date +%F`
+// (Skripte haben kein Date.now()). 'auto' => Persist-Agent ermittelt es selbst.
+const stamp = A.date || 'auto'
 
 // --- Platform-Verträge P1–P9 (als Prompt-Fragment für jeden Agent) ---
 const PLATFORM = `
@@ -133,4 +138,29 @@ const report = await agent(
   { label: 'synth', phase: 'Synth' },
 )
 
-return { repo, datum: stamp, modus: 'DEEP', befunde_valide: valide.length, flach_geprueft: flachGeprueft, report }
+// Persist: ein Agent (Skripte selbst haben keinen FS-Zugriff) ermittelt das echte
+// Datum und schreibt den Report nach <repo>/audits/repo-audit-<date>.md.
+phase('Persist')
+const PERSIST_SCHEMA = {
+  type: 'object',
+  properties: {
+    pfad: { type: 'string', description: 'absoluter Pfad der geschriebenen Datei' },
+    datum: { type: 'string', description: 'YYYY-MM-DD, via `date +%F` ermittelt' },
+    bytes: { type: 'number' },
+  },
+  required: ['pfad', 'datum'],
+}
+const persisted = await agent(
+  `Repo-Pfad: ${repo}\nDatums-Hinweis: ${stamp} (wenn 'auto', ermittle das Datum selbst via \`date +%F\`).\n\nAufgabe: (1) Ermittle das heutige Datum mit \`date +%F\`. (2) Lege \`${repo}/audits/\` an (mkdir -p). (3) Schreibe den folgenden Markdown-Report exakt und unverändert nach \`${repo}/audits/repo-audit-<DATUM>.md\` (ersetze im Report-Kopf 'Datum: auto' bzw. 'undatiert' durch das ermittelte Datum). Verändere den Inhalt sonst NICHT. Gib Pfad, Datum und Byte-Größe zurück.\n\n--- REPORT ---\n${report}`,
+  { label: 'persist', phase: 'Persist', schema: PERSIST_SCHEMA },
+)
+
+return {
+  repo,
+  datum: (persisted && persisted.datum) || stamp,
+  modus: 'DEEP',
+  befunde_valide: valide.length,
+  flach_geprueft: flachGeprueft,
+  report_pfad: persisted && persisted.pfad,
+  report,
+}
