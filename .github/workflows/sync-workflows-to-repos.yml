@@ -1,15 +1,19 @@
-name: Sync Workflows to all Repos
+# ⚠️ LEGACY — ADR-230 Retire pending (Stufe 1). Dieser per-Repo-.windsurf-Distributor
+# ist die Ursache von Audit-F1 (~1.000 typechange-Phantom-Dirty-Files): er committet
+# Workflows als Regular Files in jedes Repo, lokal werden sie zu Symlinks → dauerhaft dirty.
+# Unter ADR-229 (consumed not mirrored) + ADR-230 (kein per-Repo .windsurf) ist er tot.
+# Der automatische push-Trigger ist ENTFERNT; nur noch manueller Emergency-Reissue mit
+# bewusster Bestätigung. Stufe 2 (Datei entfernen) nach erfolgreichem F1-Sweep + 2 grünen
+# Dist-Runs. Kontext: audits/f1-retire-sync-workflows-rollout-item.md
+name: "⚠️ LEGACY: Sync Workflows to Repos (ADR-230 retire pending — emergency only)"
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - '.windsurf/workflows/**'
-      - 'registry/github_repos.yaml'
-      - 'docs/onboarding/**'
-      - 'docs/governance/**'
   workflow_dispatch:
     inputs:
+      confirm_emergency:
+        description: 'Tippe RETIRE-PENDING, um den Legacy-Distributor bewusst auszuführen (ADR-230)'
+        required: true
+        default: ''
       workflow_name:
         description: 'Workflow to sync (leer = alle UNIVERSAL+DJANGO_HUB+PACKAGE)'
         required: false
@@ -23,7 +27,19 @@ jobs:
   sync:
     name: Push workflows to repos
     runs-on: ubuntu-latest
+    # Schutz-Gate: manuelle Approval über GitHub-Environment-Protection-Rules.
+    # WICHTIG: Im Repo unter Settings → Environments das Environment 'legacy-distributor'
+    # anlegen + Required reviewers setzen, sonst läuft der Job ohne Approval.
+    environment: legacy-distributor
     steps:
+      - name: Guard — bewusste Emergency-Ausführung (ADR-230 Retire pending)
+        run: |
+          if [ "${{ inputs.confirm_emergency }}" != "RETIRE-PENDING" ]; then
+            echo "::error::LEGACY-Distributor (ADR-230 Retire pending). Ausführung nur mit confirm_emergency=RETIRE-PENDING."
+            echo "::error::Per-Repo-.windsurf-Distribution ist abgelöst; siehe audits/f1-retire-sync-workflows-rollout-item.md"
+            exit 1
+          fi
+          echo "::warning::LEGACY-Distributor bewusst ausgeführt (per-Repo .windsurf-Push, ADR-230 Retire pending)."
       - uses: actions/checkout@v6
         with:
           fetch-depth: 2
