@@ -115,3 +115,14 @@ prüft zusätzlich gegen `origin/main`.
   (`{mock-prototyp→mock, demo-render→spec-demo}`); Strict-Mode wird via
   Scoreboard-Item S11 nach Cross-Repo-Migration aktiviert. Iteration-
   Typologie erweitert (stakeholder- + compliance-getriggert).
+- 2026-05-31: Rev-18-Angleichung (Executable-Parity-Bridge). **Erweiterung, kein
+  neuer Entscheid.** Optionale §-Erweiterung von I1: `parity_acceptance.assert`
+  → forward-only deterministischer Generator (`klickdummy-gen-e2e`) erzeugt eine
+  Playwright/pytest-Suite, die Renderer #1 (Klickdummy) und #2 (echte App) per
+  `SPEC_RENDERER_BASE_URL` gegen dieselbe Assertion prüft — parity-grün gegen #2
+  = I3-Off-Ramp-Gate. **I3 gehärtet:** Off-Ramp nur mit Renderer-#1-Entfernung
+  (`off_ramp_status: removed`) + negativem Reachability-Beleg; „max. eine lebende
+  UI-Impl pro Spec-Screen"; F4 nur für inventarisierte Routen geschlossen (F20
+  offen). Drift-Gate `klickdummy-parity-drift` (Reuse S10). Scoreboard +S13.
+  Empirie: iil-klickdummy v1.6.0 + zwei externe Review-Runden. (Hinweis: dieser
+  Changelog lag bei Rev-12 — Rev 13–17 betrafen die Kern-Invarianten nicht.)
