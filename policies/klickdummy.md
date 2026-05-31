@@ -115,6 +115,29 @@ prüft zusätzlich gegen `origin/main`.
   (`{mock-prototyp→mock, demo-render→spec-demo}`); Strict-Mode wird via
   Scoreboard-Item S11 nach Cross-Repo-Migration aktiviert. Iteration-
   Typologie erweitert (stakeholder- + compliance-getriggert).
+- 2026-05-20: Rev-13-Angleichung (Decider-Pivot). **Erweiterung.** Initialer
+  ADR-214-Draft (Distribution-Service) als advocatus diabolus zurückgezogen;
+  §Distribution wird ADR-211-§ (pip-Paket `iil-klickdummy` mit Schemas/Skripten/
+  Widget). §Co-Creation Pfade A neu (A-light / A-User-Direct via GitHub-API /
+  A-Agent); zentraler Endpoint gestrichen. Plugin-Hooks im Widget.
+- 2026-05-21: Rev-14-Angleichung (Multi-Klickdummy-Browser + public PyPI).
+  **Erweiterung.** `iil-klickdummy` v1.1 mit `registry.py` + `klickdummy-browser`
+  (Versions-/Repo-Browser). public PyPI (`pip install iil-klickdummy`) wird
+  Default, Git-URL Fallback; Trusted Publishing (OIDC).
+- 2026-05-21: Rev-15-Angleichung (Repo-Extraktion). **Kein Invarianten-Change.**
+  `packages/iil-klickdummy` → `iilgmbh/iil-klickdummy` extrahiert (Historie
+  erhalten). Trennung festgeklopft: ADR-211 (Konvention) bleibt
+  achimdehnert/platform; `iilgmbh:iil-klickdummy:ADR-001` ist Implementations-ADR;
+  Schwester-Impls via `sister_of`.
+- 2026-05-25/28: Rev-16-Angleichung (zwei Amends). **Erweiterung.** Optionale §-
+  Erweiterungen von I1: **§Acceptance-Marker** (`spec_signed`/`ui_walked`, append-
+  only mit Evidence `by`+`date`+`ref`) und **§UC-Coverage** (UC↔Screen-Lint,
+  Cross-Repo-Namespace `<repo>:UC-NNN`); offene F13–F16. Dazu **§KD-first-Gate**
+  (opt-in; NEUE User-facing Features erst als KD), Scoreboard +S12.
+- 2026-05-29: Rev-17-Angleichung (Daten-Treue der Anzeige). **Klarstellung.**
+  Im Klickdummy ausgegebene Zahlen sind **berechnet, nicht literal** (Mock-Daten
+  synthetisch, Berechnung echt); Cross-Screen-Aggregate aus **einer** Quelle.
+  Enforcement = Review-Gate. An I1 angehängt; kein I5.
 - 2026-05-31: Rev-18-Angleichung (Executable-Parity-Bridge). **Erweiterung, kein
   neuer Entscheid.** Optionale §-Erweiterung von I1: `parity_acceptance.assert`
   → forward-only deterministischer Generator (`klickdummy-gen-e2e`) erzeugt eine
