@@ -200,7 +200,12 @@ synth: Steelman + 3 Rollen + Top-5 + Roadmap aus den verifizierten Befunden
 ```
 
 Kosten beachten (`session-routing.md`): Fan-out × Opus ist teuer — `--deep` ist **opt-in**, nicht default.
-Implementierung als echter Workflow-Skript = **Stufe 3** dieses Skills (folgt, wenn LITE sich bewährt).
+
+**Implementierung (Stufe 3):** `.claude/workflows/repo-audit-deep.js` — echtes Workflow-Skript
+(Inventar → 9-Dimensionen-pipeline mit review→adversarialer-verify → Synthese).
+Start: `Workflow({ name: "repo-audit-deep", args: { repo: "<pfad>", goal: "<kontext>", date: "<YYYY-MM-DD>" } })`.
+`date` muss übergeben werden (Skripte haben kein `Date.now()`). Nur substanzielle Befunde (kritisch/hoch/mittel)
+durchlaufen die Refutation; positive/niedrige werden direkt übernommen. Flach geprüfte Dimensionen werden ehrlich deklariert.
 
 ---
 
