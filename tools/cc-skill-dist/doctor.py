@@ -7,7 +7,16 @@ Meldet: stale Kopien, dangling Symlinks, fehlende/zusätzliche Skills, Hybrid-St
 
 Usage: doctor.py [--platform ~/github/platform] [--commands ~/.claude/commands] [--ref origin/main]
 """
-import argparse, os, subprocess, sys
+import argparse, os, re, subprocess, sys
+
+# Relativlink-Guard (ADR-175-Amendment / Audit-F1): das Ziel ~/.claude/commands ist FLACH
+# (eine Datei pro Skill, keine Subdirs). Ein Markdown-Link mit Pfad-Slash (z.B.
+# `](../../docs/x.md)`) ist dort grundsätzlich unauflösbar → dangling. http(s)/Anker/mailto
+# sind ok. Fängt die Wiedereinführung ausgelagerter Lookups (die F1 verursacht haben).
+# Verlangt Pfad-Slash UND eine echte Datei-Endung, damit dokumentierte Regex/sed-Snippets
+# in Code-Blöcken (z.B. `s#...([^/]+)/...#`) NICHT als Link fehl-matchen.
+REL_LINK = re.compile(
+    r"\]\((?!https?://|#|mailto:)([^)\s]*/[^)\s]*\.(?:md|markdown|ya?ml|sh|py|txt|json|toml))\)")
 
 # Footer, den generate.py an jede verteilte Kopie anhängt (MANAGED-BY-Marke).
 # doctor muss ihn vor dem Inhaltsvergleich abstreifen, sonst liest sich jede
@@ -68,6 +77,15 @@ def main():
             if same: copy_fresh += 1
             else: copy_stale += 1; issues.append(("copy-stale", name, "Kopie ≠ Quelle (veraltet)"))
 
+    # Relativlink-Guard: scanne ALLE kanonischen Workflows (unabhängig vom Ziel-Zustand,
+    # damit der Check auch in CI mit leerem ~/.claude/commands greift).
+    rel_links = 0
+    for name, sha in sorted(canon.items()):
+        body = canon_content(sha) or ""
+        for m in REL_LINK.finditer(body):
+            rel_links += 1
+            issues.append(("rel-link", name, f"unauflösbarer Relativlink im flachen Ziel → {m.group(1)}"))
+
     missing = sorted(set(canon) - set(cmd_files))
 
     print(f"=== CC-Skill-Doctor (Quelle: {a.ref}, {len(canon)} kanonische Workflows) ===")
@@ -75,6 +93,7 @@ def main():
     print(f"  Symlinks ok={sym_ok}  symlink-stale={sym_stale}  dangling={sym_dangling}")
     print(f"  Kopien fresh={copy_fresh}  copy-stale={copy_stale}")
     print(f"  extra (nicht in Quelle)={extra}  fehlend (in Quelle, nicht im Ziel)={len(missing)}")
+    print(f"  rel-links (unauflösbar im flachen Ziel)={rel_links}")
     print(f"  Hybrid? {'JA — Symlinks UND Kopien gemischt' if (sym_ok+sym_stale+sym_dangling)>0 and (copy_fresh+copy_stale)>0 else 'nein'}")
     if missing:
         print("  fehlende Skills:", ", ".join(missing[:10]) + (" …" if len(missing) > 10 else ""))
@@ -82,7 +101,7 @@ def main():
         print("  --- Befunde (max 15) ---")
         for kind, name, why in issues[:15]:
             print(f"    [{kind}] {name} — {why}")
-    drift = sym_stale + sym_dangling + copy_stale + extra + len(missing)
+    drift = sym_stale + sym_dangling + copy_stale + extra + len(missing) + rel_links
     print(f"=== DRIFT-SCORE: {drift} (0 = sauber) ===")
     sys.exit(1 if drift else 0)
 
