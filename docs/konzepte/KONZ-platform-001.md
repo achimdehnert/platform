@@ -9,6 +9,9 @@ adr_threshold: Amendment an ADR-021 (REC-1/REC-3 ändern das kanonische Pipeline
 review_by: 2026-09-01
 kill_criteria: "Wenn nach Umsetzung von REC-1..REC-4 binnen 90 Tagen erneut ein Host↔Repo-Config-Drift-Incident auftritt (stale Service auf Prod, der im Repo entfernt ist) → entweder REC-5 (Continuous Reconcile) ziehen ODER Konzept als gescheitert verwerfen."
 superseded_by_spec: null
+status: accepted          # Konzept-Entscheidung angenommen 2026-06-01 (PR #387); Implementierungs-Lifecycle (pipeline_status) bleibt vor-pilot
+accepted: 2026-06-01
+off_ramp: "ADR-021 Amendment §2.17-2.20 — platform PR #388 (verbindlicher Decision-Record)"
 evidence_manifest:
   - {claim_id: C1, source_path: "mcp-hub/.github/workflows/cd.yml", commit_or_pr: "lokal main", opened_in_session: true}
   - {claim_id: C2, source_path: "mcp-hub/.github/workflows/deploy.yml", commit_or_pr: "lokal main", opened_in_session: true}
@@ -22,6 +25,8 @@ created: 2026-06-01
 ---
 
 # KONZ-platform-001: Deployment-Zuverlässigkeit
+
+> **✅ AKZEPTIERT 2026-06-01.** Die Diagnose + Empfehlungs-Spine (REC-1'/NEU-A/NEU-B/REC-3') ist angenommen. Off-Ramp = verbindlicher Decision-Record im **ADR-021 Amendment §2.17–2.20** (platform PR #388). Implementierung folgt dem v1-Spine *nach* Amendment-Acceptance. Dieses Doc bleibt die Analyse-Quelle.
 
 > **Tier-Entscheidung (erster Satz):** **T3** — org-weit (alle ~29 Deploy-Repos), berührt die Deploy-SSoT (ADR-021) und verschiebt Pipeline-Verhalten → Auto-Eskalation-Trigger „SSoT-Verschiebung + Cross-Repo" greift unabhängig von Selbsteinstufung.
 
