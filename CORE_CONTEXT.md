@@ -68,6 +68,24 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
 - **Commits in `docs/adr/`**: scope = `adr`, nicht `docs`
 - **Workflows in `.windsurf/workflows/`**: Änderungen brauchen `/workflow-review` vor Merge
+- **Parallele Sessions — Haupt-Tree heilig (ADR-233)**: der geteilte Checkout `~/github/platform`
+  bleibt auf `main`; **kein** Branch-Switch im Haupt-Tree. Editierende Arbeit läuft in einem eigenen
+  Worktree via `tools/repo-session.sh start <repo> --task <slug>` (Branch `session/<date>/<owner>/<slug>`
+  von `origin/main` + Lease). Aufräumen: `tools/worktree-reaper.py` (dry-run default, squash-aware,
+  Dirty-Guard). Read-only-Analyse darf im Haupt-Tree bleiben.
+
+### Parallel-Session-Hygiene (ADR-233) — Werkzeuge
+
+| Werkzeug | Zweck |
+|---|---|
+| `tools/repo-session.sh` | verbindlicher Entry Point: `start`/`list`/`end` — Worktree von `origin/main`, Branch-Schema, Lease |
+| `tools/worktree-reaper.py` | GC gemergter/stale Worktrees (dry-run default; `--apply`; entfernt nie einen Branch) |
+| `tools/main-tree-guard.sh` | `install` = Snap-back-Hook (aktiv erst nach Skill-Migration); `report` = `unauthorized_head_flips/30d` (Kill-Gate-Metrik) |
+
+> **Rollout-Hinweis:** Der harte `main-tree-guard` (Snap-back) wird **erst aktiviert**, wenn die
+> Session-Skills den geteilten Tree nicht mehr per `git switch` umschalten — sonst bricht er
+> bestehende Abläufe. Bis dahin: Konvention als Lesestoff + `repo-session` als empfohlener Einstieg;
+> `main-tree-guard.sh report` misst Verstöße. Kill-Gate-Termin: 2026-09-01.
 
 ## Verwandte Skills
 
