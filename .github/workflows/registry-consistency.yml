@@ -1,0 +1,39 @@
+# Registry-Konsistenz (ADR-234 P0) — macht die Dual-SSoT-Divergenz sichtbar.
+# INFORMATIONAL: schlägt CI nie fehl (kann so nicht zu Lärm werden, der abgeschaltet
+# wird) — Muster wie ADR-226 Adoption-Gate. Hard-Gate (--strict) erst nach der
+# Union-Canonical-Migration (ADR-234 P0), wenn Divergenz==0 erreichbar ist.
+name: Registry-Konsistenz (ADR-234 P0)
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'        # Montags 06:00 UTC
+  workflow_dispatch:
+    inputs:
+      strict:
+        description: 'Exit non-zero bei Divergenz (Default: informational)'
+        type: boolean
+        default: false
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/repo-registry.yaml'
+      - 'registry/repos.yaml'
+      - 'tools/registry-consistency-check.py'
+
+permissions:
+  contents: read
+
+jobs:
+  consistency:
+    name: Registry-Konsistenz prüfen
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - run: pip install pyyaml --quiet
+      - name: Konsistenz-Check
+        run: |
+          python3 tools/registry-consistency-check.py \
+            ${{ inputs.strict && '--strict' || '' }}
