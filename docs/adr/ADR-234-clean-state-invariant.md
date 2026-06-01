@@ -74,13 +74,23 @@ Bausteine in der Reihenfolge **P0 → P0.5a → R1 → P0.5b → R3-minimal → 
 Review-Runde 2 neu geschnitten — R3 sitzt am irreversibelsten Pfad und darf nicht hinter voller R2
 warten; AD-4/M28-5):
 
-- **P0 — Registry-SSoT-Konsolidierung + vollständiges Schema:** zwei Registries → eine; Live-Repo-Liste
-  abgeleitet aus `gh repo list` mit **deterministischen Include/Exclude-Filtern** (archived, fork,
-  template, private/internal, infra-only, repo-type, Fremd-Org — AD-9/AD-21). Schema mit **einem
-  kanonischen Lifecycle-Feld** (`pipeline_status ∈ {live, maintenance, dead, archived}` — kein zweites
-  `sunset`-Vokabular; AD-1/M28-2) + Pflichtfeldern `owner_team`, `repo_type`, `staging_profile`,
-  `artifact_kind` und der **vollständigen Waiver-Semantik** (`waiver:[{gate, reason, expires}]`,
-  Max-Budget, Gate-Bezug — aus R4 vorgezogen, AD-2). Ohne dieses Schema kann R2/R3 nicht korrekt entscheiden.
+- **P0 — Registry-SSoT-Konsolidierung via Union-Canonical (korrigiert 2026-06-01, Befund unten):**
+  **Wichtig — kein „eine zur View der anderen":** Die zwei heutigen Registries sind **kein Superset**,
+  sondern unterschiedlicher *Scope*: `scripts/repo-registry.yaml` = flaches Flotten-Inventar (**42 Repos**,
+  operativ: type/prod_url/port/health), `registry/repos.yaml` = kuratiertes deployed-Subset (**18 Systeme**,
+  Deploy/Lifecycle/Tenancy/Coverage). Schnittmenge nur 16; **26 Repos nur flach, 2 nur reich.** Ein
+  Generator „reich → flach" würde 26 Repos verlieren (verifiziert via `tools/registry-consistency-check.py`).
+  → Der einzige verlustfreie Weg: eine **neue kanonische Union-Registry aller ~44 Repos** mit
+  **geschichtetem Schema** (operative Felder für *alle* + Deploy/Governance-Felder für das deployed-Subset);
+  **beide Altdateien werden daraus als Views generiert** (dann wirklich verlustfrei), Konsumenten danach
+  inkrementell migriert, Views retired. Live-Repo-Liste abgeleitet aus `gh repo list` mit **deterministischen
+  Include/Exclude-Filtern** (archived, fork, template, private/internal, infra-only, repo-type, Fremd-Org —
+  AD-9/AD-21). Union-Schema mit **einem kanonischen Lifecycle-Feld** (`pipeline_status ∈ {live, maintenance,
+  dead, archived}` — kein zweites `sunset`-Vokabular; AD-1/M28-2) + Pflichtfeldern `owner_team`, `repo_type`,
+  `staging_profile`, `artifact_kind` und der **vollständigen Waiver-Semantik** (`waiver:[{gate, reason,
+  expires}]`, Max-Budget, Gate-Bezug — aus R4 vorgezogen, AD-2).
+  **Erststep (nicht-brechend, bereits gebaut):** `tools/registry-consistency-check.py` + informational
+  CI-Job machen die Dual-SSoT-Divergenz sichtbar/nicht-driftend, bevor die Union-Migration startet.
 - **P0.5a — iil-Dependency-Cohort + Ledger-*Schema* (Primär-Hebel):** zentral erzeugter
   `constraints/iil-cohort-<YYYY.MM>.txt` (mit Supportfenster/Deprecation-Datum, M28-8) + die *Definition*
   des `clean_state`-Ledger-Schemas, **repo-typisiert** (Hub = Docker-`artifact_digest`; Library =
@@ -287,3 +297,7 @@ respektierte die „nicht neu aufrollen"-Liste.
   geschnitten (R3 früher, P0.5-Split), Schema/Waiver in P0 vorgezogen, Kill-Gate gestuft, Ledger als
   derived cache + repo-typisiert, R2-Mindestvertrag + quarantine-Lane, Alternativen E/F, R5 an
   Enforcement-Abdeckung gekoppelt. Step-5-Tag-Tabelle in §11.
+- **2026-06-01:** P0 korrigiert nach Verlustfrei-Check (`tools/registry-consistency-check.py`): die zwei
+  Registries sind **kein Superset** (flach 42 / reich 18, Schnitt 16, 26 nur-flach). „eine zur View der
+  anderen" verworfen → **Union-Canonical** ist der einzige verlustfreie Weg. Nicht-brechender Erststep
+  (Consistency-Check + informational CI) gebaut; Union-Migration bleibt das P0-Programm.
