@@ -5,7 +5,7 @@ date: 2026-06-01
 decision-makers: Achim Dehnert
 domains: [dx, git-workflow, drift-prevention, governance]
 scope: platform
-relates_to: [ADR-021, ADR-209, ADR-232]
+relates_to: [ADR-021, ADR-209, ADR-234]
 tags: [git, worktree, parallel-sessions, branch-strategy, integration, claude-code, cross-repo]
 ---
 
@@ -20,7 +20,7 @@ tags: [git, worktree, parallel-sessions, branch-strategy, integration, claude-co
 | **Autor**      | Achim Dehnert                                           |
 | **Reviewer**   | –                                                       |
 | **Supersedes** | –                                                       |
-| **Relates to** | ADR-021, ADR-209, ADR-232                               |
+| **Relates to** | ADR-021, ADR-209, ADR-234                               |
 
 ---
 
@@ -32,7 +32,7 @@ auf **einem geteilten** Haupt-Working-Tree pro Repo (`~/github/<repo>`). Jede Se
 den Branch nach Bedarf.
 
 ### 1.2 Problem / Lücken (evidenzbasiert, 2026-06-01 verifiziert)
-- **Geteilter HEAD-Flip:** Während der ADR-232-Arbeit sprang der Haupt-Tree `~/github/platform` unter
+- **Geteilter HEAD-Flip:** Während der ADR-234-Arbeit sprang der Haupt-Tree `~/github/platform` unter
   der laufenden Session von `feat/repo-ready-skill` → `feat/konzept-skill` → `feat/repo-ready-skill`
   um — eine andere Session hatte den HEAD umgeschaltet. Editieren auf dem falschen Branch wäre die Folge
   (vermieden nur durch die House-Rule „Branch vor jedem Edit bestätigen").
@@ -52,7 +52,7 @@ den Branch nach Bedarf.
 ## 2. Entscheidung
 
 **Isolation und Integration werden entkoppelt — der schlechte Zustand wird unerreichbar gemacht, nicht
-überwacht** (gleiches Prinzip wie ADR-232):
+überwacht** (gleiches Prinzip wie ADR-234):
 
 1. **Main-Tree heilig:** der geteilte Repo-Checkout `~/github/<repo>` bleibt **dauerhaft auf `main`**
    (Referenz). **Keine** Session `switch`t den HEAD dieses Trees. Damit verschwindet die Klasse
@@ -81,7 +81,7 @@ den Branch nach Bedarf.
   PR→main) sind orthogonal. Alternative B koppelt sie und erfindet eine Serialisierungs-Barriere, die git
   gerade abschafft.
 - **Unerreichbar statt überwacht:** „Main-Tree heilig" macht den HEAD-Flip strukturell unmöglich, statt
-  ihn per Disziplin abzufangen — derselbe Hebel wie die Invariante in ADR-232.
+  ihn per Disziplin abzufangen — derselbe Hebel wie die Invariante in ADR-234.
 - **Reaper gegen Sprawl:** ohne deterministischen GC verlagert „immer Worktree" nur die 32-Branch-Schwemme
   auf die Platte (11 stale Worktrees sind der Backlog).
 
@@ -130,7 +130,7 @@ den Branch nach Bedarf.
 | **Restore-Manifest** | Protokoll (Pfad/Branch/SHA) entfernter Worktrees zur Wiederherstellbarkeit. |
 
 ## 10. Referenzen
-- **ADR-232** Clean-State-Invariante (gleiches „unerreichbar statt überwacht"-Prinzip).
+- **ADR-234** Clean-State-Invariante (gleiches „unerreichbar statt überwacht"-Prinzip).
 - **ADR-021** Unified Deployment Pattern (PR→main-Linie).
 - Memory `feedback_branch_cleanup_squash_worktree` (squash-aware, Worktree-Branches ausschließen,
   Restore-Manifest) · `project_f1_windsurf_untrack_rollout` (dev-hub-Shared-Tree-Kollision).
