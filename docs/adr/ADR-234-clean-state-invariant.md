@@ -301,3 +301,8 @@ respektierte die „nicht neu aufrollen"-Liste.
   Registries sind **kein Superset** (flach 42 / reich 18, Schnitt 16, 26 nur-flach). „eine zur View der
   anderen" verworfen → **Union-Canonical** ist der einzige verlustfreie Weg. Nicht-brechender Erststep
   (Consistency-Check + informational CI) gebaut; Union-Migration bleibt das P0-Programm.
+- **2026-06-01:** Union-Canonical **Schritt 1 bewiesen** (`tools/registry-canonical.py` + `registry/canonical.yaml`):
+  Union aus beiden Altdateien (44 Repos, flat=42/rich=18); `verify` zeigt **beide Views regenerieren
+  semantisch identisch** zu den Altdateien (round-trip exit 0) → Strategie verlustfrei belegt. **Noch
+  nicht kanonisch geschaltet** — Altdateien + ~45 Konsumenten unverändert; flip-auf-generiert +
+  Konsumenten-Migration sind die nächsten gegateten Schritte.
