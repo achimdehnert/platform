@@ -1,0 +1,690 @@
+meta:
+  server:
+    github_base: /home/devuser/github
+    github_org: achimdehnert
+    ssh_root: ssh -o StrictHostKeyChecking=no root@localhost
+    devuser_sudo: false
+  domain_order:
+  - Developer Platform
+  - Content & Publishing
+  - Story & Travel
+  - Business & Safety
+  - Engineering & Construction
+  - Analytics & Data
+  - Events & Lifestyle
+  _note: GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + registry/repos.yaml.
+    Noch NICHT kanonisch geschaltet — Konsumenten unverändert.
+repos:
+  137-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: 137herz.de
+      staging_url: staging.137herz.de
+      port: 8095
+      health: /livez/
+    domain: Events & Lifestyle
+    rich:
+      name: 137-hub
+      repo: 137-hub
+      description: 137herz.de — Community & Supersystem Platform
+      github: achimdehnert/137-hub
+      deployed: true
+      url: https://137herz.de
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: docker/Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 80
+      deploy:
+        server_path: /opt/137-hub
+        image: ghcr.io/achimdehnert/137-hub/hub137-web:latest
+        web_container: hub137_web
+        web_service: hub137-web
+        migrate_cmd: python manage.py migrate --noinput
+        multi_tenant: false
+        port: 8095
+        deploy_script: /opt/137-hub/deploy.sh
+  aifw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: aifw
+  ausschreibungs-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: bieterpilot.de
+      staging_url: staging.bieterpilot.de
+      port: 8101
+      health: /livez/
+    domain: Engineering & Construction
+    rich:
+      name: ausschreibungs-hub
+      repo: ausschreibungs-hub
+      description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
+      github: achimdehnert/ausschreibungs-hub
+      deployed: false
+      type: django
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 60
+      notes: 'Klickdummy-konform (platform:ADR-211): ADR-001 (mock) + ADR-002 (spec-demo). klickdummy.class-Registry-Wert
+        offen (Rev-9/11-Migration).'
+  authoringfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: authoringfw
+  bahn-hub:
+    in_flat: false
+    in_rich: true
+    domain: Analytics & Data
+    rich:
+      name: bahn-hub
+      repo: bahn-hub
+      description: Bahn SQF Analytics — FastAPI + DuckDB
+      github: achimdehnert/bahn-hub
+      deployed: true
+      url: https://bahn.iil.pet
+      type: fastapi
+      lifecycle: active
+      tenancy_mode: header
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 60
+      deploy:
+        server_path: /opt/bahn-hub
+        image: ghcr.io/achimdehnert/bahn-hub-web:${IMAGE_TAG:-latest}
+        web_container: bahn_hub_web
+        web_service: web
+        migrate_cmd: null
+        multi_tenant: true
+        port: 8110
+  bfagent:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: agent
+      prod_url: bfagent.iil.pet
+      port: 8091
+      health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: bfagent
+      repo: bfagent
+      description: Book Factory Agent — AI-assisted book creation
+      github: achimdehnert/bfagent
+      deployed: true
+      url: https://bfagent.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 80
+      deploy:
+        server_path: /opt/bfagent
+        image: ghcr.io/achimdehnert/bfagent-web:${IMAGE_TAG:-latest}
+        web_container: bfagent_web
+        web_service: bfagent-web
+        migrate_cmd: python manage.py migrate --noinput
+        multi_tenant: false
+        port: 8091
+  billing-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: billing.iil.pet
+      port: 8092
+      health: /livez/
+  cad-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: nl2cad.de
+      staging_url: staging.nl2cad.de
+      port: 8094
+      health: /livez/
+    domain: Engineering & Construction
+    rich:
+      name: cad-hub
+      repo: cad-hub
+      description: BIM/IFC platform — nl2cad, DIN 277, GAEB export
+      github: achimdehnert/cad-hub
+      deployed: true
+      url: https://nl2cad.de
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 80
+      deploy:
+        server_path: /opt/cad-hub
+        image: ghcr.io/achimdehnert/cad-hub:${IMAGE_TAG:-latest}
+        web_container: cad_hub_web
+        web_service: cad-hub-web
+        migrate_cmd: python manage.py migrate --noinput
+        multi_tenant: false
+        port: 8094
+  coach-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: kiohnerisiko.de
+      staging_url: staging.kiohnerisiko.de
+      port: 8007
+      health: /livez/
+  dev-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: dev-hub.iil.pet
+      port: 8085
+      health: /livez/
+    domain: Developer Platform
+    rich:
+      name: dev-hub
+      repo: dev-hub
+      description: Central Developer Portal & Platform Management Hub
+      github: achimdehnert/dev-hub
+      deployed: true
+      url: https://devhub.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 80
+      deploy:
+        server_path: /opt/dev-hub
+        image: ghcr.io/achimdehnert/dev-hub:${IMAGE_TAG:-latest}
+        web_container: devhub_web
+        web_service: devhub-web
+        migrate_cmd: python manage.py migrate --noinput
+        multi_tenant: false
+        port: 8085
+      staging:
+        server_path: /opt/dev-hub-staging
+        image: ghcr.io/achimdehnert/dev-hub:${IMAGE_TAG:-latest}
+        web_container: dev_hub_staging_web
+        web_service: dev-hub-staging-web
+        django_settings_module: config.settings.production
+        migrate_cmd: python manage.py migrate --noinput
+        port: 19002
+        hostnames:
+        - staging-devhub.iil.pet
+      oidc:
+        prod_app_slug: dev-hub
+        prod_redirect: https://devhub.iil.pet/oidc/callback/
+        staging_app_slug: dev-hub-staging
+        staging_redirect: https://staging-devhub.iil.pet/oidc/callback/
+  dms-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: dms.iil.pet
+      port: 8107
+      db: dms_hub
+      health: /livez/
+  gaeb-toolkit:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: library
+      pypi: gaeb-toolkit
+    domain: Engineering & Construction
+    rich:
+      name: gaeb-toolkit
+      repo: gaeb-toolkit
+      description: GAEB DA XML 3.3 toolkit — parser, validator, Preisspiegel writer
+      github: achimdehnert/gaeb-toolkit
+      deployed: false
+      type: library
+      lifecycle: active
+      tenancy_mode: none
+      coverage_threshold: 80
+  iil-enrichment:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-enrichment
+  iil-fieldprefill:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-fieldprefill
+  iil-ingest:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-ingest
+      note: Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)
+  iil-reflex:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-reflex
+      note: Web/PDF provider library — HttpxWebProvider, PubChemAdapter, GESTISAdapter
+  iil-relaunch:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: infra
+      note: Website relaunch assets
+  iil-testkit:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-testkit
+      note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
+  illustration-fw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: illustration-fw
+  illustration-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: illustration-hub.iil.pet
+      port: 8096
+      health: /livez/
+  infra-deploy:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: infra
+      note: Deployment scripts and Ansible playbooks
+  lastwar-bot:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: bot
+      note: Telegram/Discord bot
+  learn-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: learn.iil.pet
+      port: 8100
+      health: /livez/
+  learnfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: learnfw
+  mcp-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: infra
+      prod_url: mcp.iil.pet
+      port: 3000
+      note: MCP Orchestrator Server
+    domain: Developer Platform
+    rich:
+      name: mcp-hub
+      repo: mcp-hub
+      description: MCP server collection (deployment, orchestrator, LLM)
+      github: achimdehnert/mcp-hub
+      deployed: true
+      type: python
+      lifecycle: production
+      tenancy_mode: none
+      coverage_threshold: 80
+  nl2cad:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: nl2cad
+  nl2iot-hub:
+    in_flat: false
+    in_rich: true
+    domain: Developer Platform
+    rich:
+      name: nl2iot-hub
+      repo: nl2iot-hub
+      description: Natural-language-to-IoT — Developer Cockpit
+      github: achimdehnert/nl2iot-hub
+      deployed: false
+      type: python
+      lifecycle: experimental
+      tenancy_mode: none
+      coverage_threshold: 60
+      notes: 'Klickdummy-konform (platform:ADR-211): docs/adr/ADR-002 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert
+        offen (Rev-9/11-Migration).'
+  odoo-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: infra
+      prod_url: odoo-hub.iil.pet
+      port: 8069
+      health: /web/health
+    domain: Business & Safety
+    rich:
+      name: odoo-hub
+      repo: odoo-hub
+      description: Odoo management and integration (Odoo 17)
+      github: achimdehnert/odoo-hub
+      deployed: true
+      type: other
+      lifecycle: experimental
+      tenancy_mode: none
+      coverage_threshold: 0
+  onboarding-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: schulungspass.de
+      staging_url: staging.schulungspass.de
+      port: 8108
+      health: /livez/
+  outlinefw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: outlinefw
+  platform:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: infra
+      note: ADRs, architecture docs, shared workflows, repo-registry
+    domain: Developer Platform
+    rich:
+      name: platform
+      repo: platform
+      description: Shared packages, ADRs, governance, platform agents
+      github: achimdehnert/platform
+      deployed: false
+      type: library
+      lifecycle: production
+      tenancy_mode: none
+      coverage_threshold: 80
+  pptx-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: prezimo.com
+      staging_url: staging.prezimo.com
+      port: 8020
+      db: pptx_hub
+      health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: pptx-hub
+      repo: pptx-hub
+      description: Presentation Studio — PowerPoint generation (Prezimo)
+      github: achimdehnert/pptx-hub
+      deployed: true
+      url: https://pptx-hub.iil.pet
+      type: django
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: docker/app/Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 60
+  promptfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: promptfw
+  recruiting-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: recruiting.iil.pet
+      port: 8103
+      health: /livez/
+  research-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: research.iil.pet
+      port: 8104
+      health: /livez/
+  researchfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: researchfw
+  risk-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: schutztat.de
+      staging_url: demo.schutztat.de
+      port: 8090
+      db: risk_hub
+      health: /livez/
+      extra_containers:
+      - minio
+    domain: Business & Safety
+    rich:
+      name: risk-hub
+      repo: risk-hub
+      description: Multi-tenant occupational safety SaaS (Schutztat)
+      github: achimdehnert/risk-hub
+      deployed: true
+      url: https://demo.schutztat.de
+      type: django
+      lifecycle: production
+      tenancy_mode: subdomain
+      demo_fixture: false
+      dockerfile: docker/app/Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 80
+      deploy:
+        server_path: /opt/risk-hub
+        image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+        web_container: risk_hub_web
+        web_service: risk-hub-web
+        migrate_cmd: python manage.py migrate --noinput
+        multi_tenant: false
+        port: 8090
+      staging:
+        server_path: /opt/risk-hub-staging
+        image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+        web_container: risk_hub_staging_web
+        web_service: risk-hub-staging-web
+        migrate_cmd: python manage.py migrate --noinput
+        port: 19001
+        hostnames:
+        - staging.schutztat.de
+        - staging-riskhub.iil.pet
+      oidc:
+        prod_app_slug: risk-hub
+        prod_redirect: https://schutztat.com/oidc/callback/
+        staging_app_slug: risk-hub-staging
+        staging_redirect: https://staging.schutztat.de/oidc/callback/
+  tax-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      prod_url: tax.iil.pet
+      port: 8099
+      health: /livez/
+  trading-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: trading-hub.iil.pet
+      staging_url: staging.trading-hub.iil.pet
+      port: 8088
+      db: tradinghub
+      health: /livez/
+    domain: Business & Safety
+    rich:
+      name: trading-hub
+      repo: trading-hub
+      description: Trading analysis and market scanning
+      github: achimdehnert/trading-hub
+      deployed: true
+      type: django
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 60
+  travel-beat:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: travel-beat.iil.pet
+      staging_url: staging.travel-beat.iil.pet
+      port: 8089
+      health: /livez/
+    domain: Story & Travel
+    rich:
+      name: travel-beat
+      repo: travel-beat
+      description: Travel story platform (DriftTales)
+      github: achimdehnert/travel-beat
+      deployed: true
+      url: https://drifttales.app
+      type: django
+      lifecycle: production
+      tenancy_mode: subdomain
+      demo_fixture: false
+      dockerfile: docker/Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 80
+      deploy:
+        server_path: /opt/travel-beat
+        image: ghcr.io/achimdehnert/travel-beat:${IMAGE_TAG:-latest}
+        web_container: travel_beat_web
+        web_service: travel-beat-web
+        migrate_cmd: python manage.py migrate_schemas --tenant
+        multi_tenant: true
+        port: 8089
+        notes: 'django-tenants: NEVER use ''migrate --noinput'' alone. Always use ''migrate_schemas --shared''
+          and ''migrate_schemas --tenant''. deploy-remote.sh has a known bug using ''migrate --noinput''.
+
+          '
+  wedding-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: wedding-hub.iil.pet
+      staging_url: staging.wedding-hub.iil.pet
+      port: 8093
+      health: /livez/
+    domain: Events & Lifestyle
+    rich:
+      name: wedding-hub
+      repo: wedding-hub
+      description: Wedding planning platform
+      github: achimdehnert/wedding-hub
+      deployed: true
+      type: django
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 60
+      staging:
+        server_path: /opt/wedding-hub-staging
+        image: ghcr.io/achimdehnert/wedding-hub:${IMAGE_TAG:-latest}
+        web_container: wedding_hub_staging_web
+        web_service: wedding-hub-staging-web
+        migrate_cmd: python manage.py migrate --noinput
+        port: 19003
+        hostnames:
+        - staging-wedding-hub.iil.pet
+      oidc:
+        staging_app_slug: wedding-hub-staging
+        staging_redirect: https://staging-wedding-hub.iil.pet/oidc/callback/
+  weltenfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: weltenfw
+  weltenhub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: weltenforger.com
+      staging_url: weltenhub.iil.pet
+      port: 8081
+      db: weltenhub_db
+      health: /health/
+    domain: Story & Travel
+    rich:
+      name: weltenhub
+      repo: weltenhub
+      description: Story universe platform (Weltenforger)
+      github: achimdehnert/weltenhub
+      deployed: true
+      url: https://weltenforger.com
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 80
+      oidc:
+        staging_app_slug: weltenhub-staging
+        staging_redirect: https://staging-weltenhub.iil.pet/oidc/callback/
+  writing-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: writing-hub.iil.pet
+      staging_url: staging.writing-hub.iil.pet
+      port: 8097
+      health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: writing-hub
+      repo: writing-hub
+      description: Eigenständige Autorenplattform (Django 5.2, PostgreSQL 15)
+      github: achimdehnert/writing-hub
+      deployed: false
+      type: django
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      coverage_threshold: 60
+      notes: 'Klickdummy-konform (platform:ADR-211): docs/adr/ADR-180 (Rev-11 class: spec-demo). klickdummy.class-Registry-Wert
+        offen (Rev-9/11-Migration).'
