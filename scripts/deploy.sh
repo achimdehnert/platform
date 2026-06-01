@@ -44,9 +44,27 @@ elif [[ "$ENVIRONMENT" == "staging" && -f "$APP_PATH/docker-compose.staging.yml"
   COMPOSE_FILE="docker-compose.staging.yml"
 fi
 
-# Staging: eigenes Compose-Projekt um DEV-Container nicht zu überschreiben
+# ADR-021 §2.19 — pin COMPOSE_PROJECT_NAME explicitly for both environments.
+# Previously only staging was pinned; prod relied on Docker Compose's implicit
+# directory-derived name. Ground-truth audit (2026-06-01): all prod projects
+# already use NAME == APP_NAME (verified via `docker compose ls` on prod —
+# mcp-hub→mcp-hub, dev-hub→dev-hub, risk-hub→risk-hub etc). Pinning to the
+# same value makes the contract explicit and causes deploy.sh to hard-fail if
+# the running project name ever diverges (instead of silently managing the
+# wrong project, stranding old containers that --remove-orphans can't find).
 if [[ "$ENVIRONMENT" == "staging" ]]; then
   export COMPOSE_PROJECT_NAME="staging-${APP_NAME}"
+else
+  export COMPOSE_PROJECT_NAME="${APP_NAME}"
+fi
+
+# Safety check: if a running project with a DIFFERENT name owns containers in
+# APP_PATH, warn loudly — this indicates a project-name migration is needed
+# before this deploy can safely use --remove-orphans.
+_running_proj=$(docker compose -f "$APP_PATH/$COMPOSE_FILE" ls --format json 2>/dev/null \
+  | python3 -c "import sys,json; rows=json.load(sys.stdin); print(rows[0]['Name'] if rows else '')" 2>/dev/null || true)
+if [[ -n "$_running_proj" && "$_running_proj" != "$COMPOSE_PROJECT_NAME" ]]; then
+  echo "::warning::COMPOSE_PROJECT_NAME mismatch — running='$_running_proj' expected='$COMPOSE_PROJECT_NAME'. --remove-orphans will not see the old containers. Continuing, but inspect manually."
 fi
 
 # ADR-021 §2.18 — Container Ownership Labels. Generate an override that stamps
