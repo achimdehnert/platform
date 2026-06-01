@@ -21,6 +21,7 @@ evidence_manifest:
   - {claim_id: C9, source_path: docs/adr/ADR-209-policy-auto-sync-on-merge.md, commit_or_pr: "scope = policy-sync, NICHT CI-Health", opened_in_session: true}
   - {claim_id: C10, source_path: tests/megatest/budgets.toml, commit_or_pr: "Ratchet-Header + Nicht-Null-Budgets", opened_in_session: true}
   - {claim_id: C11, source_path: .github/workflows/sync-workflows-to-repos.yml, commit_or_pr: "PR #374 (in dieser Session entfernt)", opened_in_session: true}
+  - {claim_id: E-ext1, source_path: ~/shared/konzept-clean-state-invariant-2026-06-01.md, commit_or_pr: "externe Zweitmeinung Runde 1 (E4) — additiv, kein Dissens", opened_in_session: true}
 created: 2026-06-01
 ---
 
@@ -65,6 +66,17 @@ ist im Adversariat **an drei Stellen tödlich gescheitert** und musste umgebaut 
 Repo, erzwingt ihn nie voraus.* Sechs Bausteine in **zwingender Reihenfolge** (P0 zuerst), von
 denen ~80 % bereits als optionale/informationelle Infrastruktur existieren und nur **verbindlich +
 verhindernd** gemacht werden müssen.
+
+**Nachschärfung durch externe Zweitmeinung (Runde 1, 2026-06-01 — §6b):** Die Richtung wurde
+bestätigt, aber an zwei Stellen als *zu repo-zentriert* korrigiert. (i) **Die kleinste Einheit der
+Invariante ist falsch:** nicht „Repo ist grün", sondern eine **beweisbare Kette**
+`repo@sha → artifact@digest → staging-health → prod`. Ein `:staging`-*Tag* ist überschreibbar — ohne
+Digest-/Commit-Bindung kann ein später überschriebenes Image fälschlich als „grün" promotet werden
+(verschärft E3). (ii) **„grün-30d" muss Frische-Evidenz sein, nicht passive Zeit:** ein Repo kann
+30 Tage grün *aussehen*, ohne dass je ein frischer CI-Lauf gegen die *aktuelle* Dependency-Auflösung
+lief. Daraus folgt der neue Baustein **P0.5 (Cleanliness Ledger + iil-Dependency-Cohort)** und die
+Erkenntnis, dass **Dependency-Kohärenz** (E6) der eigentliche Primär-Hebel ist — sonst härtet die
+Invariante nur die ohnehin gesunden Repos und lässt die rote Mehrheit außerhalb.
 
 ---
 
@@ -142,24 +154,61 @@ Zwei „SSoT"-Registries (C6/C7) → **eine**. Felder mind.: `type`, `lifecycle:
 NICHT aus der Hand-Liste**, sondern aus `gh repo list` abgeleitet und gegen die Registry abgeglichen
 (schließt das „Meter wird blind"-Loch, §6/Maintainer-Pfad 2). Ohne P0 erben R1/R2/R5 die Ambiguität.
 
-**R1 — Konvergenz auf shared reusable Workflows (erste Regel, deterministisch).**
+**P0.5 — Cleanliness Ledger + iil-Dependency-Cohort (neu, externe Runde 1; vor R1).**
+Ohne ein maschinenlesbares, *abgeleitetes* Ledger prüfen R2 und R3 **verschiedene Wahrheiten**. Das
+Ledger bindet pro Repo die ganze Beweis-Kette zusammen (nicht persistierter State — aus GitHub +
+Registry abgeleitet):
+```yaml
+clean_state:
+  repo: achimdehnert/<name>
+  default_branch_sha: "<sha>"
+  workflow_ref: "platform/.github/workflows/_ci-python.yml@v1.2.3"
+  constraints_sha256: "<sha>"          # welcher iil-*-Cohort wurde aufgelöst
+  last_default_branch_green_at: "..."
+  green_runs_30d: 4                    # Frische-Quorum, nicht passive Zeit
+  required_eligible_since: "..."
+  artifact_digest: "sha256:..."        # NICHT das :staging-Tag — der Digest
+  staging_health_run_id: "..."
+  staging_health_digest: "sha256:..."  # muss == artifact_digest sein
+  prod_promotable: true
+  active_waivers: []
+```
+Dazu ein **SSoT für interne Dependencies** — `constraints/iil-cohort-<YYYY.MM>.txt` (zentral
+erzeugt/owned). Begründung: E6 sagt, die rote Mehrheit hängt an iil-*-Dependency-Drift, **nicht** an
+fehlenden Regeln. Ohne Cohort-Constraints härtet R2 nur die ohnehin gesunden Repos. Dependency-
+Kohärenz ist damit **Primär-Hebel**, nicht späteres Nice-to-have.
+
+**R1 — Konvergenz auf shared reusable Workflows (deterministisch).**
 Jedes `live`-Repo konsumiert `_ci-python.yml`/`_ci-pypi.yml`/`_ci-odoo.yml` via `uses:`. **Pin via
-gerolltem `@v1`-Major-Tag + Renovate/Dependabot-Bump-PR**, **nicht `@main`** (sonst async-unsichtbarer
-Flottenbruch — Maintainer-Pfad 1; heute referenzieren die Reusables durchweg `@main`). Diese
-Versionierungsstrategie ist selbst ADR-pflichtig.
+gerolltem `@v1`-Major-Tag**, **nicht `@main`** (sonst async-unsichtbarer Flottenbruch — Maintainer-
+Pfad 1; heute durchweg `@main`). **Verteilung NICHT per 40 blinden Bump-PRs** (externe Runde),
+sondern **Canary-Ringe + Consumer-Contract-Test** (§6b/AD-E3): `@v1-candidate` läuft gegen eine
+Consumer-Matrix → Ring 0 (3 Repos) → Ring 1 (10) → Flotte; erst nach grünem Ring wird `@v1` bewegt.
+Menschliches Review nur bei Contract-Bruch. Reusable-Workflows müssen den **aktuellen Cohort-
+Constraint** (P0.5) nutzen oder im Ledger als abweichend markiert sein. Versionierungsstrategie
+ADR-pflichtig.
 
-**R2 — Enforcement folgt Grün, pro Repo (umgebaut, NICHT Flotten-Schalter).**
-Zwei getrennte Schritte: (a) `continue-on-error` aus den Detektoren entfernen (billig, sofort) —
-macht Röte *sichtbar*, noch nicht blockierend. (b) Ein **Branch-Protection-as-Code-Reconciler**
-(neu — existiert nicht) setzt den shared-CI-Check pro Repo **erst dann** als `required`, wenn das
-Repo **30 Tage grün** war. *Required folgt der Grün-Rate, statt sie zu erzwingen.* Damit wird kein
-rotes Repo eingefroren; der Status wird verdient, nicht verordnet.
+**R2 — Enforcement folgt *frischem* Grün, pro Repo (umgebaut; NICHT Flotten-Schalter, NICHT passive Zeit).**
+(a) `continue-on-error` aus den Detektoren entfernen (billig, sofort) — macht Röte *sichtbar*. (b) Ein
+**Branch-Protection-as-Code-Reconciler** (neu — existiert nicht) setzt den shared-CI-Check pro Repo
+**erst dann** als `required`, wenn ein **Frische-Quorum** erfüllt ist (externe Runde, AD-E2):
+≥4 erfolgreiche Default-Branch-Läufe/30 Tage, **letzter <7 Tage alt**, auf aktuellem Default-Branch-
+SHA **und aktuellem iil-*-Constraint-Snapshot**, keine aktiven Waiver, Repo nicht `sunset`, Owner
+gesetzt. **Bewusst KEIN „≥N Merges"-Kriterium** — das erzeugt Dummy-Merge-/Activity-Theater. *Required
+folgt verdientem, frischem Grün, statt es zu erzwingen.* Kein rotes Repo wird eingefroren.
 
-**R3 — Promote-Gate als Code (umgebaut).**
-`ship.sh promote` muss vor dem Retag den **Staging-CI/Health-Grün-Status verifizieren** (nicht nur
-Image-Existenz, C5). Gilt **nur für Repos mit gebautem Staging** (heute 3–4, C8) → Staging-Rollout
-(ADR-157-Umsetzung) ist eine **explizite Vorbedingung**, kein stillschweigend angenommener Zustand.
-**Hotfix-Pfad explizit modellieren** (dokumentierter, ablaufender Notfall-Bypass = Registry-Waiver).
+**R3 — Promote-Gate als Code, DIGEST-gebunden (umgebaut; harter Prüfpunkt externe Runde).**
+`ship.sh promote` darf **nicht** abstrakt „Staging grün" prüfen und **nicht** ein `:staging`-*Tag*
+retaggen (Tags sind überschreibbar → ein später überschriebenes Image gilt fälschlich als grün,
+verschärft C5/E3). Statt dessen: promote **exakt denselben `artifact_digest`**, für den im Ledger
+(P0.5) CI-green **und** staging-health-green mit *demselben* Digest belegt sind. Damit ist
+`Prod ⊆ grün-Staging` eine **beweisbare** Provenance-Kette, nicht eine Tag-Konvention. Gilt nur für
+Repos mit gebautem Staging (heute 3–4, C8) → Staging-Rollout = explizite Vorbedingung.
+**Hotfix (externe Runde):** der Waiver *umgeht das Gate nicht*, er *beschleunigt den Pfad* — Hotfix
+baut einen unveränderlichen Digest → ephemere Emergency-Staging → reduziertes P0/P1-Health-Gate →
+promotet **denselben** Digest. Nur Break-Glass darf Prod vorziehen; dann greift ein **automatischer
+Incident-Freeze** (keine weiteren Promotes), bis derselbe Digest nachträglich in Staging validiert
+*oder* zurückgerollt ist.
 
 **R4 — Ausnahmen als Registry-Feld (kein drittes File).**
 Waiver leben als `waiver:[{gate, reason, expires}]` **in der konsolidierten Registry** (P0), nicht in
@@ -208,6 +257,37 @@ real, aber adressierbar).
 
 ---
 
+## 6b. Externe Zweitmeinung (Runde 1, 2026-06-01) — neue blinde Flecken
+
+Briefing: `~/shared/konzept-clean-state-invariant-2026-06-01.md`. Auftrag war explizit „neue blinde
+Flecken statt Wiederholung interner Treffer". Zwei Einwände, die das interne Adversariat **übersah**:
+
+**AD-E1 (KRITISCH) — „Clean repo state" ist die falsche kleinste Einheit.**
+R2 macht Branch-Protection grün, R3 macht das Promote-Gate grün — aber das Konzept *verband diese
+Zustände nicht zu einer beweisbaren Kette*. Schadensszenario: main grün bei Commit A, Staging zeigt
+Digest B, ein Hotfix baut Digest C, Prod bekommt per Retag *irgendeinen* davon — alle Einzelregeln
+formal grün, die Invariante „Prod stammt aus sauberem Staging" trotzdem **nicht bewiesen**. Das ist
+mehr als der bekannte `ship.sh`-Existenz-Bug (E3): selbst mit „Staging-grün"-Prüfung fehlt das
+**Artifact-Provenance-Modell** (Digest-/Commit-Bindung). → **Auflösung:** Invariante umdefiniert auf
+`repo@sha → artifact@digest → staging-health → prod`; R3 digest-gebunden; P0.5-Ledger bindet die Kette.
+
+**AD-E2 (HOCH) — „grün-30d" ist Goodhart-anfällig, aber anders als intern vermutet.**
+Nicht wegen fehlender Merges (≥N-Merges würde *neues* Theater erzeugen), sondern wegen **fehlender
+Frische-/Dependency-Evidenz**: ein Repo kann 30 Tage grün *aussehen*, ohne je frisch gegen die
+aktuelle Dependency-Auflösung gelaufen zu sein. → **Auflösung:** R2 auf Frische-Quorum umgestellt
+(≥4 Läufe/30d, letzter <7d, aktueller SHA + Constraint-Snapshot), kein Merge-Kriterium.
+
+**Bestätigt + verschärft:** E6 (Dependency-Drift) ist laut externer Runde der **eigentliche Primär-
+Hebel**, nicht ein späteres Item — ohne iil-Cohort-Constraints härtet die Invariante nur die
+Gewinner-Repos. → P0.5 eingeführt; OOTB `iil-distribution` (§9) als Pilot empfohlen.
+
+**Konfliktmatrix Runde 1:** Es gab **keinen Dissens** zwischen externem und internem Review — die
+externe Runde war rein *additiv* (Provenance-Kette, Frische-Quorum, Dependency-als-Primär-Hebel,
+Canary-Ringe, Hotfix-ohne-Bypass). Die interne Synthese-Richtung wurde ausdrücklich bestätigt
+(„Überarbeiten, aber Richtung beibehalten").
+
+---
+
 ## 7. Deep-Dive: warum „Regel" hier konkret eine „Abfolge" ersetzt
 
 Konkrete Abfolge heute (Beispiel, belegt): `platform-audit.yml` (cron) detektiert fehlendes
@@ -246,6 +326,14 @@ der Drift *kann nicht mehr mergen* → keine Detektion-Issue-Fix-Abfolge nötig.
    — formale Adoption ≠ echte. Backlog.
 5. **Self-Termination als Exit-Code, nicht als Vorsatz** — der Meter schließt sein Issue bei
    Vollabdeckung (C4-Muster); das Programm endet maschinell, nicht per Mensch-Entscheidung.
+6. **`iil-distribution` — Release-Train statt repo-weisem Dependency-Heilen (externe Runde, P0.5-Pilot).**
+   Behandle die iil-*-Libraries wie eine **Distribution**: ein Meta-Repo erzeugt ereignis-/monatsbasierte
+   **Cohort-Releases** (`iil-dist-2026.06.1`) mit `constraints.txt`, SBOM, getesteter Library-Kombination,
+   Consumer-Matrix-Ergebnis und signiertem Artefakt. Hubs pinnen **eine Distribution**, nicht einzelne
+   iil-*-Versionen. Vorteil: der teuerste Drift-Treiber (E6) wird an der **Quelle** kontrolliert; R1/R2/R3
+   bekommen einen beweisbaren Dependency-Kontext. Nachteil: mehr Release-Disziplin, eine kaputte zentrale
+   Distribution kann viele Repos blocken → **Pilot mit 3 Hubs + den wichtigsten iil-*-Libraries**, nicht
+   Big-Bang.
 
 ---
 
@@ -273,6 +361,7 @@ der Drift *kann nicht mehr mergen* → keine Detektion-Issue-Fix-Abfolge nötig.
 | R-3 | `@main`-Bruch trifft Flotte unsichtbar | mittel-hoch | 40 Repos rot ohne Diff | `@v1`-Tag + Renovate-Bump-PRs (R1) |
 | R-4 | Waiver werden de-facto permanent | mittel | `continue-on-error` durch Hintertür | `expires` maschinell vom Meter gelesen; `budget_sum_trend`-Alarm |
 | R-5 | Meter wird blind (Hand-Listen-Nenner) | mittel | „95 % grün" ist Fiktion | Nenner = `gh repo list`; `registry_coverage_drift`-Frühwarnung |
+| R-6 | Überschriebenes `:staging`-Tag wird fälschlich als „grün" promotet (Provenance-Lücke) | hoch | „Prod aus sauberem Staging" formal grün, real unbewiesen | R3 digest-gebunden; Ledger erzwingt `artifact_digest == staging_health_digest` (externe Runde AD-E1) |
 
 **Frühwarn-Metriken (deterministisch, kein LLM — konform `feedback_repo_health_rule_discipline`):**
 - `registry_coverage_drift` = |org-live-repos (gh)| − |konsolidierte-Registry ∩ live|; `>0 für >7 Tage` → blockierender Issue.
@@ -285,12 +374,17 @@ der Drift *kann nicht mehr mergen* → keine Detektion-Issue-Fix-Abfolge nötig.
 1. **P0 zuerst:** `scripts/repo-registry.yaml` + `registry/repos.yaml` zu **einer** Datei mergen;
    Felder `lifecycle`, `staging`, `waiver[]` ergänzen; Live-Liste aus `gh repo list` ableiten.
    *Verifizierbar:* nach Merge existiert genau eine Datei mit `# Single Source of Truth`.
+1b. **P0.5 (Primär-Hebel, externe Runde):** `constraints/iil-cohort-<YYYY.MM>.txt` zentral erzeugen
+   + ein abgeleitetes `clean_state`-Ledger (§5) pro Repo aus GitHub+Registry generieren.
+   *Verifizierbar:* Ledger enthält pro Repo `artifact_digest` == `staging_health_digest` oder `prod_promotable:false`.
 2. **R2a (billig, sofort):** `continue-on-error: true` aus `megatest.yml:60` und
    `platform-audit.yml:87` entfernen — Röte wird sichtbar (noch nicht blockierend).
 3. **R2b (das eigentliche Werk):** `tools/branch-protection-reconciler.py` bauen, das pro `live`-Repo
-   den shared-CI-Check als `required` setzt **gdw. 30d grün** — inkl. Drift-Audit (`gh api …/protection`).
-4. **R3:** `ship.sh promote` um eine **Staging-Grün-Verifikation** vor dem Retag erweitern (C5);
-   Hotfix-Bypass als ablaufenden Registry-Waiver modellieren.
+   den shared-CI-Check als `required` setzt **gdw. Frische-Quorum** (≥4 Läufe/30d, letzter <7d, aktueller
+   SHA + Constraint-Snapshot, keine Waiver, nicht sunset) — inkl. Drift-Audit (`gh api …/protection`).
+4. **R3 (digest-gebunden):** `ship.sh promote` so umbauen, dass es **denselben `artifact_digest`**
+   promotet, für den das Ledger CI-green + staging-health-green belegt — **kein Retag eines `:staging`-Tags**
+   (überschreibbar). Hotfix = Beschleunigung über ephemere Emergency-Staging mit demselben Digest, kein Gate-Bypass.
 5. **R1:** gerollten `@v1`-Tag auf `_ci-*.yml` einführen + Renovate-Config für Consumer; Migration
    `@main → @v1` als gegatete Welle (wie F1).
 6. **R5:** `pypi-ci-adoption-gate.yml` (C4) zu einem generischen `ci-adoption-meter.yml` verallgemeinern
@@ -301,11 +395,15 @@ der Drift *kann nicht mehr mergen* → keine Detektion-Issue-Fix-Abfolge nötig.
 ## 13. Entscheidung + Kill-Gate + 30/60/90
 
 **Entscheidung (vorgeschlagen):** Alternative **C** (Synthese) annehmen, **P0 + R2a** sofort starten
-(billig, kein Freeze-Risiko), **R2b-Reconciler** als ADR-pflichtigen Kern-Baustein priorisieren.
-Die Promote-/Staging-Hälfte (R3) läuft parallel als ADR-157-Umsetzungs-Strang.
+(billig, kein Freeze-Risiko). Nach externer Runde **neu priorisiert:** **P0.5 (iil-Cohort-Constraints +
+Cleanliness-Ledger) ist der Primär-Hebel** und steht vor dem R2b-Reconciler — sonst härtet die
+Invariante nur Gewinner-Repos (E6). R3 wird **digest-gebunden** umgesetzt (Provenance-Kette), nicht
+als Tag-Retag. Die Promote-/Staging-Hälfte läuft parallel als ADR-157-Umsetzungs-Strang.
 
 **Org-weiter ADR nötig** für: Enforcement-Boundary (Branch-Protection-as-Code), Reusable-
-Versionierungsstrategie (`@v1` + Bump-Bot), Registry-SSoT-Konsolidierung. **Kein** ADR-209 (C9).
+Versionierungsstrategie (`@v1` + Canary-Ringe), Registry-SSoT-Konsolidierung, **Artifact-Provenance/
+Digest-Bindung des Promote-Gates** und **iil-Dependency-Cohort/`iil-distribution`** (eigene
+Architektur-Entscheidung, neue Boundary). **Kein** ADR-209 (C9).
 
 **Kill-Gate (messbar, datiert):** Wenn bis **2026-09-01** (a) die Registries **nicht** zu einer SSoT
 konsolidiert sind **oder** (b) der Branch-Protection-as-Code-Reconciler **nicht** existiert, ist die
@@ -313,10 +411,13 @@ konsolidiert sind **oder** (b) der Branch-Protection-as-Code-Reconciler **nicht*
 **Exception-Budget:** max. **2** aktive Registry-Waiver pro Repo ohne Eskalation; jeder mit
 `expires` ≤ 90 Tage; abgelaufen = CI-Fail.
 
-**30/60/90:**
-- **30 Tage:** P0 (eine Registry) + R2a (Detektoren ehrlich) + `registry_coverage_drift`-Job live.
-- **60 Tage:** R2b-Reconciler im Dry-Run über alle live-Repos; erste 5 Repos „required nach 30d grün".
-- **90 Tage:** R3-Promote-Gate als Code für die 3–4 Repos *mit* Staging; ADR(s) accepted; Kill-Gate-Check.
+**30/60/90 (nach externer Runde neu geschnitten):**
+- **30 Tage:** P0 (eine Registry) + R2a (Detektoren ehrlich) + `registry_coverage_drift`-Job live;
+  **P0.5-Start:** erster `iil-cohort`-Constraint-Snapshot + Ledger-Generator (read-only).
+- **60 Tage:** `iil-distribution`-Pilot mit 3 Hubs (E6-Primär-Hebel); R2b-Reconciler im Dry-Run mit
+  **Frische-Quorum** über alle live-Repos; erste 5 Repos „required nach verdientem frischem Grün".
+- **90 Tage:** R3 **digest-gebundenes** Promote-Gate für die 3–4 Repos *mit* Staging; ADR(s) accepted;
+  Kill-Gate-Check (Registry konsolidiert? Reconciler existent? Cohort-Pilot grün?).
 
 ---
 
