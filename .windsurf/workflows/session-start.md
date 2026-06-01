@@ -237,6 +237,25 @@ MCP: mcp2_adr_diff(mode="temporal", left_time="<7-Tage-zurück>", right_time="<j
 → Bei vielen Änderungen: `/adr-health` für vollständigen Audit empfehlen
 ```
 
+### 0.4.3 Editier-Modus: Worktree statt Haupt-Tree (ADR-233)
+
+**Haupt-Tree heilig.** Der geteilte Checkout `~/github/<repo>` bleibt auf `main` — **kein**
+`git switch`/`checkout -b` im Haupt-Tree (parallele Sessions kollidieren sonst über den HEAD).
+
+- **Read-only-Analyse:** im Haupt-Tree erlaubt.
+- **Editierende Arbeit:** über den verbindlichen Entry Point starten —
+  ```bash
+  wt=$(bash "${GITHUB_DIR:-$HOME/github}/platform/tools/repo-session.sh" \
+        start "${GITHUB_DIR:-$HOME/github}/$TARGET_REPO" --task "<slug>")
+  cd "$wt"   # eigener Branch session/<date>/<owner>/<slug> von origin/main + Lease
+  ```
+- **Aufräumen (gemergte/stale Worktrees):** `python3 platform/tools/worktree-reaper.py` (dry-run; `--apply` bewusst).
+- **Verstoß-Messung:** `bash platform/tools/main-tree-guard.sh report` → `unauthorized_head_flips/30d` (Kill-Gate ADR-233 §8).
+
+> **Rollout:** Der harte Snap-back-Guard (`main-tree-guard.sh install`) wird **erst** scharf geschaltet,
+> wenn die branch-switchenden Skills (`hotfix`, `issues-abarbeiten`, `ship`) + lebende Sessions migriert
+> sind — sonst bricht er laufende Abläufe. Bis dahin: Konvention + `repo-session` als Einstieg.
+
 ### 0.5 SSH Tunnel prüfen — PFLICHT (pgvector MUSS erreichbar sein)
 
 // turbo
