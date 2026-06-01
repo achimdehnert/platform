@@ -246,6 +246,21 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
+      # ADR-021 §2.17 (Verified Deploy-Bundle Contract) — fail-loud, no silent
+      # fallback. A prod deploy REQUIRES docker-compose.prod.yml in the repo; if
+      # it is absent we must NOT proceed against whatever (possibly stale) compose
+      # sits on the host. That silent fallback is how a repo-removed service kept
+      # running on prod (the Discord-Bot crash-loop, 2026-06). The migration sweep
+      # is complete — every prod-deploying repo has docker-compose.prod.yml — so
+      # this gate fails only genuine misconfigurations.
+      - name: Assert prod compose present (ADR-021 §2.17 fail-loud)
+        run: |
+          if [ ! -f docker-compose.prod.yml ]; then
+            echo "::error title=ADR-021 §2.17::docker-compose.prod.yml is required for a production deploy but is absent. Refusing to deploy against the host's existing (possibly stale) compose. Add docker-compose.prod.yml to the repo."
+            exit 1
+          fi
+          echo "✅ docker-compose.prod.yml present — sync will run."
+
       # Sync production compose file from the consuming repo to the host.
       # Self-hosted runners run on the prod server itself — direct cp works.
       # Without this step deploy.sh works against a stale compose file
