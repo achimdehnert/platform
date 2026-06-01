@@ -9,7 +9,7 @@ relates_to: [ADR-021, ADR-120, ADR-157, ADR-058, ADR-209, ADR-226]
 tags: [ci-health, invariant, branch-protection, provenance, promote-gate, dependency-cohort, staging, cross-repo]
 ---
 
-# ADR-232: Sauberer Repo-Zustand (Staging & Prod) als erzwungene Invariante statt laufendem Reparatur-Task
+# ADR-234: Sauberer Repo-Zustand (Staging & Prod) als erzwungene Invariante statt laufendem Reparatur-Task
 
 | Attribut       | Wert                                                    |
 |----------------|---------------------------------------------------------|
@@ -241,7 +241,7 @@ warten; AD-4/M28-5):
 
 - **KONZ-platform-001** (`docs/konzepte/KONZ-platform-001-clean-state-invariant.md`, PR #376) — volle
   Analyse inkl. internem Dreifach-Adversariat + externer Zweitmeinung.
-- Externes Briefing (ADR-Runde): `~/shared/adr-handoff-ADR-232-2026-06-01.md`.
+- Externes Briefing (ADR-Runde): `~/shared/adr-handoff-ADR-234-2026-06-01.md`.
 - Externes Briefing (Konzept-Runde): `~/shared/konzept-clean-state-invariant-2026-06-01.md`.
 - **ADR-021** Unified Deployment Pattern · **ADR-120** Unified Multi-Repo Deployment Pipeline mit
   Staging · **ADR-157** Staging-Production-Split & Port-Governance · **ADR-058** Platform Test-Taxonomy
