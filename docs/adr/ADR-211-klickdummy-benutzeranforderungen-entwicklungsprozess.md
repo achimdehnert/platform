@@ -70,10 +70,10 @@ Drift-Memory (meiki-hub-Auto-Memory, `drift: true`) **und** Followup-Issue
 
 | # | Invariante | Erzwingung |
 |---|---|---|
-| **I1 Spec-first** | Maschinenlesbares, versioniertes Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter); Markdown-Bullets zählen nicht. Klickdummy rendert es, ist nicht die Quelle. **Bidirektionale Coverage:** jede Impl-Route hat einen Spec-Eintrag *und* jeder Spec-Eintrag eine Route/Screen — kein einseitiges „Datei existiert & rendert". *Rev 12:* die Spec ist auch der **Eingang für Anforderungs-Updates** — optional über Co-Creation-Loop (§Co-Creation, opt-in) und **Ausgang** für abgeleitete Requirements (§Requirements-Bridge, opt-in). *Rev 17 — Daten-Treue der Anzeige (Klarstellung, kein neues Gate):* ausgegebene Zahlen/Aggregate (Counts, Summen, KPIs) sind aus den im Klickdummy vorhandenen Daten **berechnet**, nicht als Literal geschrieben — auch in `class: mock` (Daten dürfen synthetisch sein, die **Berechnung** muss echt sein). Cross-Screen-Aggregate (Eltern-Kachel = Summe der Kind-Liste) aus **einer** Quelle rechnen. | `make -C <repo> klickdummy-i1` (Exit-Code), CI-verifiziert — prüft Spec↔Route-Coverage, nicht nur Spec==Render · *Rev 17:* Daten-Treue = **Review-Gate** (kein sauberer Exit-Code; optional heuristischer Lint, der Zahl-Literale in Anzeige-Elementen ohne Datenbindung flaggt) |
+| **I1 Spec-first** | Maschinenlesbares, versioniertes Spec-Artefakt (YAML/JSON/strukturiertes Frontmatter); Markdown-Bullets zählen nicht. Klickdummy rendert es, ist nicht die Quelle. **Bidirektionale Coverage:** jede Impl-Route hat einen Spec-Eintrag *und* jeder Spec-Eintrag eine Route/Screen — kein einseitiges „Datei existiert & rendert". *Rev 12:* die Spec ist auch der **Eingang für Anforderungs-Updates** — optional über Co-Creation-Loop (§Co-Creation, opt-in) und **Ausgang** für abgeleitete Requirements (§Requirements-Bridge, opt-in). *Rev 17 — Daten-Treue der Anzeige (Klarstellung, kein neues Gate):* ausgegebene Zahlen/Aggregate (Counts, Summen, KPIs) sind aus den im Klickdummy vorhandenen Daten **berechnet**, nicht als Literal geschrieben — auch in `class: mock` (Daten dürfen synthetisch sein, die **Berechnung** muss echt sein). Cross-Screen-Aggregate (Eltern-Kachel = Summe der Kind-Liste) aus **einer** Quelle rechnen. *Rev 18 — Ausführbare Parity-Ableitung (Klarstellung, kein neues Gate):* `parity_acceptance`-Einträge dürfen einen optionalen ausführbaren `assert`-Block tragen; ein forward-only deterministischer Generator (`klickdummy-gen-e2e`, §Executable-Parity-Bridge) erzeugt daraus eine Suite, die per `SPEC_RENDERER_BASE_URL` Renderer #1 (Klickdummy) **und** #2 (echte App) gegen dieselbe Assertion prüft (parity-grün gegen #2 = I3-Off-Ramp-Gate). Die Tests sind **abgeleitetes, regenerierbares** Artefakt — die Spec bleibt normativer Acceptance-Record, **weder Produktionscode noch Test-Harness-Quelle**; Prosa-`check` bleibt normativ und gewinnt bei Konflikt mit `assert`. *Rev 19 — Konzept-Doc als idea-Vorstufe (Klarstellung, kein neues Gate):* die Lifecycle-Stufe `pipeline_status: idea` darf ein **Konzept-Doc** (`KONZ-<repo>-NNN`) tragen — Rationale-/Entscheidungs-Artefakt, **kein System-of-Record und keine Anforderungsquelle**. Ab Spec-Existenz ist allein die Spec normativ; das Konzept-Doc trägt danach nur Rationale (read-only, analog I3-Archivregel Rev 18). Für T1/T2 persistiert es als **Annahmen-Ledger ohne Anforderungs-Freitext** — die zweite-Wahrheit-Fläche ist strukturell verkleinert, nicht nur verboten. | `make -C <repo> klickdummy-i1` (Exit-Code), CI-verifiziert — prüft Spec↔Route-Coverage, nicht nur Spec==Render · *Rev 17:* Daten-Treue = **Review-Gate** (kein sauberer Exit-Code; optional heuristischer Lint, der Zahl-Literale in Anzeige-Elementen ohne Datenbindung flaggt) · *Rev 18:* Determinismus + Drift-Gate `klickdummy-parity-drift` (Exit-Code, Reuse S10-Muster); Prosa↔`assert`-Konflikt = Review-Gate; Coverage/Skip-Debt im Manifest |
 | **I2 Prod-Sicherheit (4-Pattern, Rev 11)** | Genau **ein** Pattern je Klickdummy, **explizit deklariert**: `mock` / `stub-demo` / `story` / `spec-demo` (Achsen: *Datenquelle × Code-Pfad-Identität*; vollständige Definition siehe Glossar). „Kein Pattern deklariert" = I2-Verstoß (kein vacuous pass). Die Vereinfachung *Mock-Prototyp/Demo-Render* (Rev ≤10) wird hier verfeinert, weil die drei Nicht-`mock`-Patterns *distinkte* Prod-Probes erfordern. | **Zwei Schichten:** (a) repo-definierter `make -C <repo> klickdummy-i2` (Selbstaussage des Patterns); (b) **plattform-externer Prod-Probe** `klickdummy_prod_guard.sh` mit pattern-spezifischem Verhalten: `mock` ⇒ N/A (Pfad nicht in Prod-Deploy); `stub-demo` ⇒ deklarierte Demo-Route 404; `story` ⇒ Catalog-Route (z. B. `/storybook/`) 404; `spec-demo` ⇒ `?demo=<state>` 404/disabled. (b) bleibt das **bindende Cross-Repo-Signal** (F3) |
-| **I3 Lebenszyklus + TTL + Sunset (Rev 11)** | **A ohne Zielsystem:** Pflicht-Frontmatter `sunset_after: <ISO-Datum>` in der Repo-Klickdummy-ADR (Default ADR-Datum + 12 Monate); nach Fristablauf ohne PR-Extension ⇒ ADR auto-`deprecated`, Pfad `klickdummy/archive/` (siehe §Frontmatter-Konvention). **B Transition:** ab erstem Screen mit Impl-Route greift I3 je Screen. **C mit Zielsystem:** Doppelquelle endet bei **`min(prod-Release, Parity-grün + N Tagen)`** (N Default **30 d**, repo-tunbar) — schließt das „ewig auf Staging"-Leck (F4). Staging ist erlaubter Doppelquell-Raum *innerhalb* der TTL. | `make -C <repo> klickdummy-i3` (Phase B/C); `platform/scripts/checks/adr_sunset.sh` (Phase A, nightly — öffnet Issue bei passierter Frist) |
-| **I4 Namensraum** | Klickdummy-ADRs tragen reserviertes Titel-Präfix; Cross-Repo-Refs **nur** `repo:ADR-NNN` (inkl. `conforms_to: platform:ADR-211`). Drift-Schutz (vgl. Drift-Memory `klickdummy-adr180-collision`). | `platform/scripts/checks/adr_cross_repo_refs.sh` (plattformseitig, kein repo-Make-Target — generischer ADR-Lint) |
+| **I3 Lebenszyklus + TTL + Sunset (Rev 11)** | **A ohne Zielsystem:** Pflicht-Frontmatter `sunset_after: <ISO-Datum>` in der Repo-Klickdummy-ADR (Default ADR-Datum + 12 Monate); nach Fristablauf ohne PR-Extension ⇒ ADR auto-`deprecated`, Pfad `klickdummy/archive/` (siehe §Frontmatter-Konvention). **B Transition:** ab erstem Screen mit Impl-Route greift I3 je Screen. **C mit Zielsystem:** Doppelquelle endet bei **`min(prod-Release, Parity-grün + N Tagen)`** (N Default **30 d**, repo-tunbar) — schließt das „ewig auf Staging"-Leck (F4). Staging ist erlaubter Doppelquell-Raum *innerhalb* der TTL. *Rev 18 — Off-Ramp-Beweis statt -Behauptung:* Parity-grün erfüllt den Off-Ramp eines Screens nur mit (1) Renderer-#1-Entfernung (`off_ramp_status: removed`, Pfad `klickdummy/archive/`) **und** (2) negativem Reachability-Beleg (alte statische Route ⇒ Prod-404). **Max. eine lebende UI-Impl pro Spec-Screen**; Archiv = read-only (Reaktivierung re-triggert I3). **F4 nur für inventarisierte Routen geschlossen** — Alias-/Preview-Restrisiko offen (F20). *Rev 19 — Konzept-Doc TTL (idea-Stufe):* das `KONZ-`-Doc trägt `review_by` (Default created + 90 d; Frist ohne Extension ⇒ `sunset`) und `kill_criteria`; sobald eine Spec existiert, setzt `superseded_by_spec` das Doc read-only — ein CI-Gate blockt inhaltliche Edits ohne `reactivation_reason` + `I1-review`-Label (hebt F21 von „dokumentiert" auf „kontrolliert"). | `make -C <repo> klickdummy-i3` (Phase B/C); `platform/scripts/checks/adr_sunset.sh` (Phase A, nightly — öffnet Issue bei passierter Frist) · *Rev 18:* Reachability-Beleg über F11-Prod-Guard (Doppel-Geltung I2+I3); bis Bau manueller, im PR dokumentierter Ersatzbeleg |
+| **I4 Namensraum** | Klickdummy-ADRs tragen reserviertes Titel-Präfix; Cross-Repo-Refs **nur** `repo:ADR-NNN` (inkl. `conforms_to: platform:ADR-211`). Drift-Schutz (vgl. Drift-Memory `klickdummy-adr180-collision`). *Rev 19:* neuer Namensraum `KONZ-<repo>-NNN` (pro Repo unter `docs/konzepte/`, parallel zu `ADR-NNN`); Cross-Repo-Ref `repo:KONZ-NNN`; `owner` Pflicht (kein `TBD`). | `platform/scripts/checks/adr_cross_repo_refs.sh` (plattformseitig, kein repo-Make-Target — generischer ADR-Lint) |
 
 **Auswahlhilfe Rev 11 (illustrativ; Mapping bekannter Implementierungen auf
 die 4 Patterns aus I2):**
@@ -221,6 +221,12 @@ platform/scripts/checks/adr_sunset.sh
 #     Pro Repo: ja/nein. Wenn ja: NEUE Features mit User-facing Surface
 #     durchlaufen das KD-first-Gate (Spec + KD + Signoff VOR Impl, §KD-first-Gate).
 #     Misst Velocity-Vorteil; gatet plattformweit NICHT.
+#
+# S13 Executable-Parity-Bridge-Adoption (Rev 18, optional, nicht status-gatend)
+#     Pro Repo: ja/nein. Wenn ja: `klickdummy-parity-drift` läuft in CI
+#     (re-generieren + git diff --exit-code, analog S10); Manifest als Artefakt;
+#     org-weiter Mindestdatensatz (spec_id, executable/skipped, Skip-Owner/-Grund,
+#     fragile-count, letztes-Grün, off_ramp_status). Misst Operationalisierung; gatet NICHT.
 ```
 
 ## §Co-Creation-Loop (optional, Rev 12)
@@ -435,6 +441,30 @@ behoben).
 CLI-Flags (`--out-dir`, `--no-cleanup`, `--strict-class`). Bis dahin gilt
 die meiki-hub-Implementierung als Referenz; copy-paste-Adoption erlaubt;
 Migration auf Plattform-Heimat innerhalb 30 Tagen nach Bereitstellung.
+
+## §Executable-Parity-Bridge (optional, Rev 18)
+
+**Opt-in-Capability** (additiv, nicht status-gatend — wie §Co-Creation/§Requirements-Bridge). Spec → ausführbare Parity-/Acceptance-Suite, **forward-only, deterministisch, drift-aware**. Schwester der §Requirements-Bridge (dort Spec → Markdown; hier Spec → *ausführbare* Tests). Empirie: `iil-klickdummy` v1.6.0 (`klickdummy-gen-e2e`), zwei externe Review-Runden (R1 Richtung, R2 Amendment-Text).
+
+**Mechanik.** `parity_acceptance[]` trägt optional `assert: {action, selector, expect}` (`action ∈ {visible, text, clickable, url, count}`); Prosa-`check` bleibt Pflicht ⇒ rückwärtskompatibel. Der Generator emittiert eine pytest/Playwright-Suite, die per `SPEC_RENDERER_BASE_URL` Renderer #1 (Klickdummy) und #2 (echte App) gegen *dieselbe* Assertion fährt. **Parity-grün gegen #2 = I3-Off-Ramp-Gate** (siehe I3 Rev 18). Die Tests überleben den Off-Ramp — die Kontinuität liegt in Spec + Tests, nicht im Wegwerf-Renderer.
+
+**Determinismus + Anti-Drift (operatives Gate).** Generierte Dateien tragen `AUTO-GENERATED` + `Spec-SHA256` und **keinen Zeitstempel**; ein Repo mit aktiver Bridge fährt `make klickdummy-parity-drift` in CI (re-generieren + `git diff --exit-code`, exakt analog `klickdummy-requirements-drift`, S10). Manuelle Edits / veraltete Generate ⇒ CI rot.
+
+**Grenzen (bewusst, gegen Über-Claim).**
+- Tests sind regenerierbares Derivat — Spec ≠ Produktionscode, ≠ Test-Harness-Quelle. Bei Prosa↔`assert`-Widerspruch gewinnt die Prosa (Review-Gate; der Generator erkennt Freitext-Konflikte nicht maschinell).
+- `parity_acceptance` prüft **Acceptance/Parity**, nicht tiefe Produkt-E2E; handgeschriebene E2E, die eine *bestehende* Spec-Acceptance prüfen, **müssen** deren Spec-ID referenzieren.
+- **NFR/Security/A11y/Performance/Audit** sind nicht aus `assert` ableitbar (Requirements-Bridge-Asymmetrie); das Manifest weist das als `uncovered_note` aus.
+- Kommunikation: „idee→E2E-**fähig**, mit sichtbarer Operationalisierungsquote" — nicht „geschlossen". `assert`-lose Einträge bleiben sichtbarer `skip` (Skip-Debt), nie stilles Weglassen.
+
+**Manifest.** Je Lauf `*.manifest.json`: `spec_id`, `spec_sha256`, `spec_schema_version`, `generator_version`, `base_url_env`, Coverage (`executable`/`skipped`), `skipped_detail`, `fragile_selectors`, `uncovered_note`.
+
+**Selector-Konvention.** Bevorzugt stabile fachliche Anker (`data-testid`/`data-acceptance-id`); fragile CSS-/Text-Pfade werden markiert (Manifest-Warnung), ab Off-Ramp status-relevant (F18). Locator-Registry zurückgestellt (Doppelquell-Risiko, F18).
+
+**Ownership nach Prod.** Org-weites Minimum (wer darf Spec / `check` / `assert` / Skip-Debt / `off_ramp_status` ändern); lokale Klickdummy-ADRs **konkretisieren** nur, divergieren nicht. Anti-Abschwächung: eine Änderung, die `check`/`assert` entfernt/abschwächt oder einen Selektor verfragilisiert, braucht PR-Label `parity-weakening` + fachliche Begründung (fachlicher Reviewer Soll).
+
+**F11-Doppel-Geltung.** Wird `klickdummy_prod_guard.sh` gebaut (F11, offen), erhält es zwei Geltungsgründe statt eines zweiten Checkers (SSoT): **I2** (Demo-/Catalog-/`?demo=`-Route ⇒ Prod-404) **und** **I3** (archivierte Klickdummy-Route nach Off-Ramp ⇒ 404). Bis dahin: manueller, im PR dokumentierter Ersatzbeleg.
+
+Scoreboard **+S13**.
 
 ## §Distribution — Plattform-Heimat (Rev 13)
 
@@ -898,6 +928,10 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 
 - **Rev 17 (2026-05-29 — Daten-Treue der Anzeige)** — **Klarstellung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: **kein 5. Invariant (I5), kein eigener ADR** — als Klarstellung an I1 angehängt (analog Rev-16 „KI-/Daten-Qualitäts-Zusatz“). Regel: im Klickdummy ausgegebene Zahlen sind **berechnet, nicht literal** (Mock-Daten synthetisch, Berechnung echt); Cross-Screen-Aggregate aus **einer** Quelle. Enforcement = **Review-Gate** (nicht exit-code-prüfbar). **Empirie bewusst dünn benannt: 1 Instanz** (design-hub `tenant-angebote`, hartkodierte „4“ doppelt in Liste + Dashboard-Kachel) — daher als Klarstellung statt Gate **right-sized**; Promotion zu I-Status erst bei Cross-Repo-Evidenz (vgl. Rev-16-Logik + Steel-Man #1 „I5 unter Tarnnamen“, bewusst nicht umgesetzt).
 
+- **Rev 18 (2026-05-31 — Executable-Parity-Bridge)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine Boundary, **kein 5. Invariant (I5)**, kein eigener ADR-21X — opt-in-§-Erweiterung von I1 (Muster Rev 12/16), die die **bestehende** These „Parity-Test ist das Konformitäts-Gate" *ausführbar* macht (kristallisiert, kehrt nicht). **I1-Klarstellung:** ausführbare Parity-Tests sind regenerierbares Derivat (Spec ≠ Prod-Code/Test-Harness); Determinismus (kein Zeitstempel im File) + Drift-Gate `klickdummy-parity-drift` (Reuse S10); Prosa↔`assert`-Konflikt = Review-Gate. **I3-Härtung:** Off-Ramp nur mit Renderer-#1-Entfernung (`off_ramp_status: removed`) **und** negativem Reachability-Beleg; „max. eine lebende UI-Impl/Screen"; Archiv read-only (Reaktivierung re-triggert I3). **Ehrliche Reichweite (zentrale Runde-2-Korrektur):** F4 **nur für inventarisierte Routen** geschlossen — Alias-/Preview-Risiko offen (F20). **Neue §Executable-Parity-Bridge** (opt-in): `assert`-Vokabular, Selector-Konvention, Reproduzierbarkeits-Manifest mit Coverage-/Skip-Transparenz, Parity≠Deep-E2E (Deep-E2E *muss* Spec-IDs referenzieren), org-weites Ownership-Minimum. Scoreboard **+S13**. **F11** Doppel-Geltung (I2+I3, ein Checker) — bis Bau provisorischer manueller Ersatzbeleg. Neue offene **F17** (`assert`-DSL-Lebenszyklus), **F18** (Selector-Fragilität / Locator-Registry zurückgestellt), **F19** (Operationalisierung cross-repo via Genesor), **F20** (Spec-ID-Route-Inventar gegen Alias-/Preview-Leck). **Empirie:** Keystone `iil-klickdummy` v1.6.0 (`klickdummy-gen-e2e`, 34 Tests grün, inkl. Determinismus-Fix aus Runde 2) + **zwei** externe LLM-Zweitmeinungen (R1 25 RECs, R2 15 RECs), Step-5-getaggt. **Implementations-PRs:** iilgmbh/iil-klickdummy #9 (Keystone, gemergt), #10 (CI-Node24, gemergt).
+
+- **Rev 19 (2026-06-01 — Konzept-Doc als idea-Vorstufe)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md` (**bewusst grenzwertig**): ein neues CC-Skill (`/konzept`), das eine Datei schreibt, ist „Feature nach Muster" (wie `idea-intake`/`use-case`, ohne eigenes ADR) → für sich CHANGELOG+PR. **Verankert wird daher nur** die echte Architektur-Klarstellung: *vor der Spec darf ein persistent referenzierbares Artefakt existieren, ohne I1 zu verletzen* — **kein 5. Invariant (I5)**, keine Boundary, kein eigener ADR-21X; Methodik/Tiers/Agentenrollen des Skills werden **nicht** kanonisiert (sonst Rückfall auf CHANGELOG+PR). **I1-Klarstellung:** `KONZ-<repo>-NNN` (Stufe `idea`) ist Rationale-Artefakt, **kein SoR/Anforderungsquelle**; ab Spec-Existenz nur Spec normativ; T1/T2 persistieren als Annahmen-Ledger ohne Anforderungs-Freitext (Form-Härtung gegen „wird-als-Vor-Anforderung-gelesen"). **I3:** `review_by`-TTL + `superseded_by_spec`-CI-Gate (Edit-Block ohne `reactivation_reason`+`I1-review`). **I4:** Namensraum `repo:KONZ-NNN`. Neue offene **F21** (Konzept-Doc-vs-Spec-Upstream-Drift; Gate hebt von „dokumentiert" auf „kontrolliert", Sekundärlücke F21b: Spec ohne gesetztes `superseded_by_spec`). **Empirie:** Skill aus Maximal-Monolith destilliert, gehärtet durch T1-Dogfood + **eine externe LLM-Zweitmeinung** (16 AD- + 6 THR- + 6 OOTB-Befunde eingearbeitet); erster Produktivlauf `iilgmbh/iil-klickdummy:KONZ-001` (T2). **PRs:** achimdehnert/platform #370 (Skill+Template, gemergt), iilgmbh/iil-klickdummy #16 (KONZ-001+Teil-A, gemergt).
+
 ## Bezug
 
 - **Playbook:** `docs/concepts/CONCEPT-003-klickdummy-playbook.md` — Begleit-Dokument zu diesem ADR (wie konkret implementieren, Stack-Patterns, Lessons Learned, Repo-Adoptions-Status)
@@ -930,3 +964,33 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
   prüfen ob das Pattern trägt oder eine alternative Mechanik nötig ist
   (z. B. separates Sign-Off-Repo, signed digital token, OAuth-Flow für
   Workshop-Teilnehmer).
+
+- **F17 (`assert`-DSL-Lebenszyklus, Rev 18)**: Erweiterungsregel für `action`-
+  Typen (Semantik + Negativbeispiel + Generator-Fixture + Kompat-Notiz) **und**
+  Schema-Versions-Deprecation/Migration (`spec_schema_version`). Ohne das:
+  DSL-Drift + Legacy-Generator-Matrix bis 2028. Schließung-Pfad: erster RFC für
+  eine neue Action erzwingt die Regel.
+- **F18 (Selector-Fragilität / Locator-Registry zurückgestellt, Rev 18)**: die
+  `data-*`-Konvention + Manifest-Warnung *mildern* das UI-Refactor-Risiko, lösen
+  es nicht. Eine Locator-Registry (Spec nennt fachliche ID, App mappt Selektor)
+  ist bewusst zurückgestellt (Risiko, selbst Doppelquelle zu werden).
+  Schließung-Pfad: realer Cross-Repo-UI-Refactor belegt die Konvention als
+  unzureichend → Registry evaluieren; Schwellenwert/Owner+Frist ab Off-Ramp.
+- **F19 (Operationalisierungsquote cross-repo, Rev 18)**: Skip-Debt/fragile-count
+  sind pro Lauf im Manifest sichtbar, aber nicht org-weit aggregiert.
+  Schließung-Pfad: Genesor zeigt `pipeline_status` + Parity-Status + Skip-Quote
+  in **einem** Statusmodell (S13-Mindestdatensatz).
+- **F20 (Spec-ID-Route-Inventar — Anti-F4-Restlücke, Rev 18)**: der I3-
+  Reachability-Beleg schließt F4 nur für **bekannte/inventarisierte** Routen;
+  Alias-, CDN-, Preview-, Storybook- und neu entstandene Einstiegspfade bleiben
+  Restrisiko. Schließung-Pfad: maschinenlesbares Inventar erlaubter lebender
+  Routen je Spec-Screen-ID — minimal als CI-Artefakt startend, später Scanner
+  über Build-/Deploy-Metadaten (F11-Erweiterung).
+- **F21 (Konzept-Doc-vs-Spec-Upstream-Drift, Rev 19)**: ein `KONZ-`-Doc, das
+  *nach* Entstehen seiner Spec inhaltlich weitergepflegt wird, wird zur zweiten
+  Anforderungs-Wahrheit. **Mitigation:** I1-Archivregel + `superseded_by_spec`-
+  CI-Gate (Edit-Block ohne `reactivation_reason`+`I1-review`) + `review_by`-TTL +
+  Ledger-Form für T1/T2 (kein Anforderungs-Freitext). **Reichweite:** das Gate
+  *kontrolliert* den Edit-nach-Spec-Pfad, sobald gebaut. **Sekundärlücke F21b:**
+  eine Spec, die entsteht *ohne* `superseded_by_spec` zu setzen, bleibt unerfasst
+  — Schließung-Pfad: `klickdummy-sync`-analoger Cross-Check Spec-Existenz ↔ Feld.

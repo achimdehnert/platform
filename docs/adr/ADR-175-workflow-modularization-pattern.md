@@ -1,7 +1,7 @@
 ---
 title: "ADR-175 — Adopt selective modularization for .windsurf/workflows/ files"
 date: 2026-04-29
-amended: 2026-04-29
+amended: 2026-05-31
 status: Accepted
 deciders: achimdehnert
 implementation_status: implemented
@@ -22,6 +22,19 @@ implementation_done_when:
 ---
 
 # ADR-175 — Adopt selective modularization for .windsurf/workflows/ files
+
+> **Amendment (2026-05-31) — Auslagerung in separate `docs/<topic>/`-Lookups zurückgenommen
+> (Distributions-Hälfte superseded durch ADR-230-Rollout).** Open Question 1 (Lookup-Delivery
+> cross-repo) wurde nie sauber gelöst; die CI-Lösung (`sync-workflows-to-repos.yml`, die die
+> `docs/`-Lookups in jedes Repo pushte) verursachte die ~1.000 `typechange`-Phantom-Dirty-Files
+> aus Platform-Audit-F1. Unter **ADR-229** („consumed not mirrored") + **ADR-230** (CC-first,
+> kein per-Repo `.windsurf`) wird der ursprüngliche Token-Kosten-Grund (Cascade lädt per-Repo-Files)
+> obsolet, und — entscheidend — die 5 ausgelagerten Lookups hatten **null Reuse** (je 1:1 an genau
+> einen Workflow gebunden). Daher: die 5 Lookup-Dateien wurden **zurück in ihre Workflows inlined**
+> und gelöscht. Die **Auslagerungs-*Regeln* bleiben als Guidance gültig** (was inline bleiben muss);
+> nur die *physische Auslagerung in separate, cross-repo zu verteilende Dateien* ist zurückgenommen.
+> Künftige Modularisierung erst wieder bei **echtem Reuse** + generator-seitiger Delivery (nicht via
+> per-Repo-CI-Push). Vollständiger Kontext: `audits/f1-retire-sync-workflows-rollout-item.md`.
 
 ## Context and Problem Statement
 
@@ -173,6 +186,9 @@ Compliance mit dieser ADR wird verifiziert durch:
    → Bei aktuellem Stand: NEIN. Workflows die ausgelagerte Files referenzieren
    funktionieren nur im `platform`-Repo. **Lösung:** Sync-CI erweitern oder
    Auslagerung nur bei platform-only Workflows zulassen.
+   → **RESOLVED (2026-05-31):** Die CI-Erweiterung wurde versucht und verursachte F1; die
+   Auslagerung selbst wurde zurückgenommen (5 Lookups re-inlined, siehe Amendment oben).
+   Cross-repo-Lookup-Delivery ist damit kein offenes Problem mehr.
 2. **Subdirs in `.windsurf/workflows/`:** Funktionieren Subdirs (z.B.
    `.windsurf/workflows/onboarding/foo.md`) als Slash-Commands?
    → Cascade-Doku erwähnt nur flache Struktur. **Annahme:** Subdirs werden NICHT
@@ -207,3 +223,4 @@ Compliance mit dieser ADR wird verifiziert durch:
 - 2026-04-29 (Initial): Proposed nach `/workflow-review` Session mit 2 Pilot-Refactors
 - 2026-04-29 (Amended via /adr-review): MADR 4.0 Compliance — Title als Decision-Statement; `Decision Outcome` mit Reasoning; `Confirmation` Subsection ergänzt; `Open Questions` Sektion eingeführt; `implementation_status` von invalidem `planned` auf gültiges `partial` korrigiert (ADR-138-konform); Anti-Pattern-Sektion ergänzt; Token-Kosten quantifiziert
 - 2026-04-29 (Accepted): 5/5 Pilot-Refactors erfolgreich abgeschlossen (3033→2769 LOC, -9%). Status `Proposed` → `Accepted`. `implementation_status: partial` → `implemented`.
+- 2026-05-31 (Amended): Distributions-Hälfte superseded durch ADR-230-Rollout. Die 5 ausgelagerten `docs/<topic>/`-Lookups (null Reuse, je 1:1 an einen Workflow) wurden re-inlined + gelöscht — sie funktionierten cross-repo nie sauber (Open Q1) und der CI-Push verursachte Audit-F1. Auslagerungs-*Regeln* bleiben als Guidance; physische Separat-Datei-Auslagerung zurückgenommen bis echter Reuse + generator-seitige Delivery.
