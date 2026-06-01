@@ -1,7 +1,7 @@
 ---
 id: ADR-215
 title: "Klickdummy Discovery via Orchestrator pgvector (Stage 1.5)"
-status: proposed
+status: accepted
 date: 2026-05-21
 deciders: ["Achim Dehnert"]
 tags: ["klickdummy", "discovery", "pgvector", "orchestrator", "stage-1.5"]
@@ -22,14 +22,16 @@ superseded_by: []
 
 ## Status
 
-**proposed** — Diskussionsgrundlage. PoC in `iilgmbh/iil-klickdummy` (gemergt,
-v1.8.0, **inert** — kein fester Endpunkt, keine Automatik). Empirie #1 als
-Cross-Repo-Picker-Fetch in `meiki-hub`.
+**accepted** (2026-06-01, Decider: Achim Dehnert). Die Stage-1.5-Entscheidung
+ist ratifiziert. PoC in `iilgmbh/iil-klickdummy` (gemergt, v1.8.0, **inert** —
+kein fester Endpunkt, keine Automatik). Empirie #1 als Cross-Repo-Picker-Fetch
+in `meiki-hub`.
 
-> **2026-06-01 — Härtung vor Annahme:** Eine Review-Runde (externe Zweitmeinung
-> via `/adr-handoff-extern` + interne Evidenz-Prüfung gegen den PoC-Code) hat 18
-> belegte Lücken ergänzt → siehe **§Amendment 1**. Status bleibt `proposed`, bis
-> diese Punkte eingearbeitet sind; danach `accepted`-fähig.
+> **Annahme-Auflage:** Die acht Punkte aus **§Amendment 1** (Review-Härtung
+> 2026-06-01) sind mit der Annahme **verbindliche Implementierungs-Auflagen** —
+> die Produktiv-Aktivierung (fester Endpunkt + Orchestrator-Schema-Migration)
+> erfolgt erst, wenn sie erfüllt sind. „Accepted" ratifiziert den *Plan inkl.
+> Auflagen*, nicht deren Fertigstellung.
 
 ## Kontext
 
@@ -288,4 +290,7 @@ Stage-2-kompatible Felder benennen (Hosting-URLs/TLS/DNS vs. heutige
 - Diese ADR ist Schritt 1.
 - 2026-06-01: PoC als `iil-klickdummy` v1.8.0 gemergt (inert). Review-Runde
   (externe Zweitmeinung + interne PoC-Evidenz-Prüfung) → §Amendment 1; 18 belegte
-  Lücken eingearbeitet, Status bleibt `proposed` bis zur Abnahme der acht Punkte.
+  Lücken eingearbeitet (platform PR #371).
+- 2026-06-01: **Ratifiziert → `accepted`** (Decider: Achim Dehnert). Die acht
+  §Amendment-1-Punkte gelten als verbindliche Implementierungs-Auflagen vor
+  Produktiv-Aktivierung.
