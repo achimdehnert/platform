@@ -82,21 +82,9 @@ def build() -> dict:
     }
 
 
-def gen_flat(canon: dict) -> dict:
-    out = {"server": canon["meta"].get("server", {}), "repos": {}}
-    for n, e in canon["repos"].items():
-        if e.get("in_flat"):
-            out["repos"][n] = e["flat"]
-    return out
-
-
-def gen_rich(canon: dict) -> dict:
-    order = canon["meta"].get("domain_order", [])
-    by_dom: dict[str, list] = {d: [] for d in order}
-    for n, e in canon["repos"].items():
-        if e.get("in_rich"):
-            by_dom.setdefault(e.get("domain"), []).append(e["rich"])
-    return {"domains": [{"name": d, "systems": by_dom[d]} for d in by_dom if by_dom[d]]}
+# Projektion-Logik lebt in registry_api (eine Implementierung → Accessor + Drift-Gate
+# laufen nie auseinander). Sibling-Import: beim Direktaufruf ist tools/ in sys.path[0].
+from registry_api import gen_flat, gen_rich  # noqa: E402
 
 
 def _norm(x):
