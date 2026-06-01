@@ -12,6 +12,7 @@ implementation_status: implemented
 
 > **Amendment 2026-02-20**: Added §2.14 (`infra-deploy` repo as Agent-API), §2.15 (Fast-Deploy Override), §2.16 (Expand-Contract Migrations Convention), updated §2.3 (dev-hub added), §2.9 (port registry updated), §4 (current state updated).
 > **Amendment 2026-02-22**: Added coach-hub to §2.3 (port 8007, domain kiohnerisiko.de), §4 current state updated.
+> **Amendment 2026-06-01 (Proposed — pending KONZ-platform-001 / PR #387):** Added §2.17 (Verified Deploy-Bundle Contract — fail-closed config sync), §2.18 (Container Ownership Labels), §2.19 (Compose Project-Name Pinning for prod), §2.20 (Single Enforced Deploy Path). Closes the **silent-config-sync drift class**: `_deploy-unified.yml` syncs the compose file only `if hashFiles('docker-compose.prod.yml') != ''`; when absent the step is silently skipped and `deploy.sh` runs against the stale host compose — a service removed in the repo survives on prod (Discord-Bot crash-loop incident 2026-06-01).
 
 ---
 
@@ -400,6 +401,42 @@ jobs:
 - [ ] `python manage.py makemigrations --check` shows no missing migrations
 - [ ] Migration is backwards-compatible (old code works with new DB schema)
 ```
+
+---
+
+### 2.17 Verified Deploy-Bundle Contract (Amendment 2026-06-01)
+
+> Closes the silent-config-sync drift class. Source: KONZ-platform-001 REC-1'.
+
+The deployed compose state on the host MUST be a verified copy of the CI-built artifact — never "whatever stale file is on the server".
+
+- **One shared resolution.** The reusable workflow and `deploy.sh` MUST select the compose file via the **same** resolution logic. Divergent fallbacks are forbidden.
+- **No silent fallback in prod.** A prod deploy REQUIRES an explicit `docker-compose.prod.yml` (staging: `docker-compose.staging.yml`). If it is absent, the deploy **fails loud** — it MUST NOT silently fall back to the host's existing compose file. (Current bug: `_deploy-unified.yml` sync step is guarded by `if hashFiles('docker-compose.prod.yml') != ''`, which silently no-ops.)
+- **Atomic sync.** Upload to a temp path → verify `sha256` → atomic `rename`. No partial/in-place overwrite.
+- **Fail-closed host verify.** Before `docker compose up`, `deploy.sh` MUST verify the on-host compose `sha256` equals the `compose_sha` of the current CI bundle. Mismatch ⇒ abort (fail-closed), no deploy.
+- **Bundle completeness.** Referenced side-artifacts (`env_file`, override/include/profile files, build context) are part of the bundle, OR the bundle manifest marks each explicitly as host-owned.
+
+### 2.18 Container Ownership Labels (Amendment 2026-06-01)
+
+> Source: KONZ-platform-001 REC-NEU-A. Makes the host auditable without name-guessing.
+
+Every container created by `deploy.sh` MUST carry labels: `iil.repo`, `iil.service`, `iil.environment`, `iil.commit_sha`, `iil.compose_sha`, `iil.deploy_run_id`, `iil.deployed_at`. Audits, health checks and any future reconcile MUST key on these labels — never on container-name heuristics (the name-only heuristic is exactly what hid the orphaned Discord-Bot).
+
+### 2.19 Compose Project-Name Pinning for Prod (Amendment 2026-06-01)
+
+> Source: KONZ-platform-001 REC-NEU-B.
+
+`--remove-orphans` only removes containers of the **same** `COMPOSE_PROJECT_NAME`. `deploy.sh` currently sets `COMPOSE_PROJECT_NAME` only for staging (`staging-${APP_NAME}`); prod relies on the implicit directory-derived name. **Prod MUST pin `COMPOSE_PROJECT_NAME` explicitly** (e.g. `${APP_NAME}`) and the script MUST fail if the running project name diverges from the expected one — otherwise a path/project-name change strands old containers despite a fresh compose.
+
+### 2.20 Single Enforced Deploy Path (Amendment 2026-06-01)
+
+> Source: KONZ-platform-001 REC-3'. Convention alone is insufficient (a manual SSH deploy bypasses Branch Protection).
+
+- The canonical reusable workflow is the **only** sanctioned prod deploy path. Bespoke per-repo deploy jobs are retired, OR lifted into a **certified multi-service profile** — which MUST define: allowed compose files, project-name rule, service ownership, retire process, health checks, and a **re-certification expiry** (no permanent exception drawer).
+- **Host-side enforcement:** `deploy.sh` runs prod only with a fresh CI-issued deploy-intent (`commit` + `run_id` + `compose_sha`). Manual deploys require `--break-glass` with a reason, expiry and audit-log entry.
+- **Explicitly out of scope:** a standalone drift-detection dashboard (it would become a second source of truth competing with the host). **Deferred:** continuous host-state reconcile (an `expected-services` set *derived* from the last accepted bundle, never hand-maintained) — see KONZ-platform-001 REC-5' and its Kill-Gate.
+
+**Implementation note (v1 spine first):** §2.17 + §2.18 + §2.19 are the structural v1; §2.20 host-intent-token and the broadened state safety-net follow; reconcile/tombstones stay deferred. Status of this amendment: **Proposed** until KONZ-platform-001 (PR #387) is accepted.
 
 ---
 
