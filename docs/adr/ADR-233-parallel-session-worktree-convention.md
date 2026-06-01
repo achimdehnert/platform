@@ -1,5 +1,6 @@
 ---
 status: proposed
+implementation_status: none
 date: 2026-06-01
 decision-makers: Achim Dehnert
 domains: [dx, git-workflow, drift-prevention, governance]
