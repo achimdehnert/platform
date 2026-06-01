@@ -80,13 +80,15 @@ runs:
         # conflicts; a hard `pip check` would turn those into red CI for every
         # consumer. Becomes a hard gate once job-local venv isolation lands (#357).
         python -m pip check || echo "::warning::pip check reported issues after iil reinstall (advisory until venv isolation, #357)"
-        # Freshness probe — the exact bug this step fixes is .dist-info metadata
-        # claiming a version while the installed CODE is stale. If iil-aifw is
-        # present, assert metadata == the code's own __version__ (version-agnostic).
-        # Guarded on presence: repos that don't use iil-aifw (or a best-effort
-        # install above failed) must NOT fail here — the critical case (a pinned
-        # consumer dep) already fails fatally in the requirements pass above.
-        python -c "import importlib.util as u,importlib.metadata as M,sys; (sys.exit(0) if u.find_spec('aifw') is None else None); import aifw; meta=M.version('iil-aifw'); code=getattr(aifw,'__version__',None); print('iil-aifw metadata=%s code=%s @ %s'%(meta,code,aifw.__file__)); sys.exit('::error::iil-aifw metadata %s != code %s — stale tool-cache not repaired'%(meta,code)) if code and code!=meta else None"
+        # Freshness probe — guards the ORIGINAL flaky failure: stale tool-cache
+        # code missing newer public-API symbols. Checks SYMBOLS, not __version__:
+        # iil-aifw's release process leaves the wheel's in-code __version__ behind
+        # the packaging version (the published 0.10.2 wheel self-reports "0.10.0"
+        # while exporting the full API — see iil-aifw release-hygiene issue), so a
+        # __version__==metadata check would false-positive on a correct install.
+        # Guarded on presence (repos without iil-aifw skip) and version-gated:
+        # only metadata >=0.10 must expose these symbols.
+        python -c "import importlib.util as u,importlib.metadata as M,sys; (sys.exit(0) if u.find_spec('aifw') is None else None); import aifw; from packaging.version import Version; meta=M.version('iil-aifw'); print('iil-aifw metadata=%s code=%s @ %s'%(meta,getattr(aifw,'__version__','?'),aifw.__file__)); _m=[s for s in ('get_action_config','QualityLevel','AIFWError') if not hasattr(aifw,s)]; sys.exit('::error::iil-aifw %s installed but code is STALE — missing %s (tool-cache not repaired by force-reinstall)'%(meta,_m)) if (Version(meta)>=Version('0.10') and _m) else None"
         # iil-fieldprefill: private repo, not on PyPI (ADR-107)
         if [ -n "$PROJECT_PAT" ]; then
           pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
