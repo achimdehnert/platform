@@ -1,6 +1,6 @@
 ---
-description: Baut ein selbsterhaltendes Übergabe-Briefing, um einen ADR von einem externen LLM (GPT-5.5 o.ä.) als Advocatus Diabolus + Out-of-the-Box reviewen zu lassen.
-mode: read-only
+description: Schreibt ADR-Review-Briefing als .md nach ~/shared/ für externe LLM-Zweitmeinung (Advocatus Diabolus + Out-of-the-Box).
+mode: write
 ---
 
 # /adr-handoff-extern
@@ -30,6 +30,9 @@ wird **inline** mitgegeben; das Ergebnis ist eine externe *Zweitmeinung* — kei
 /adr-handoff-extern ADR-NNN --mode blind     # Blind-Redesign statt Review
 /adr-handoff-extern ADR-NNN --mode premortem # Pre-Mortem statt Standard-Review
 ```
+
+Das fertige Briefing wird als **Markdown-Datei nach `~/shared/`** geschrieben (Pfad + Dateiname
+siehe Step 4) — nicht nur inline ausgegeben. So liegt es direkt kopierbereit für den externen Chat.
 
 ## Step 0 — Repo-Kontext laden (NICHT hardcoden)
 
@@ -104,10 +107,18 @@ den du nicht hier findest (keine angenommenen Repos, Tools, Versionen).
 - Trenne Beobachtung von Vermutung; markiere Unsicheres als unsicher statt zu raten.
 
 ## Gewünschtes Output-Format (deine Antwort)
-1. Steelman (3–5 Sätze)
-2. Drei Rollen (je Stichpunkte)
-3. Out-of-the-Box-Ansatz/Ansätze
-4. Empfehlung: annehmen / überarbeiten / ablehnen + die EINE wichtigste Begründung
+Gib die GESAMTE Antwort als **einen einzigen fenced Markdown-Codeblock** zurück
+(öffnend mit drei Backticks + `markdown`, schließend mit drei Backticks), damit sie 1:1
+als `.md` gespeichert werden kann. Struktur darin:
+
+1. `## Steelman` — 3–5 Sätze.
+2. `## Befunde` — eine Tabelle; jede Beobachtung eine Zeile mit **stabiler ID**:
+   `| ID | Rolle | Befund (1 Satz) | Schweregrad (hoch/mittel/niedrig) | betroffener ADR-Teil |`
+   ID-Präfix nach Rolle: `PRO-1…` (Proponent), `AD-1…` (Advocatus Diabolus), `M28-1…` (Maintainer 2028).
+3. `## Out-of-the-Box` — je Ansatz: Idee · Vorteil · Nachteil · verworfen? (ja/nein + 1 Satz).
+4. `## Empfehlung` — annehmen / überarbeiten / ablehnen + die EINE wichtigste Begründung.
+5. `## Vorgeschlagene Änderungen` — nummerierte Liste `REC-1, REC-2, …`; jede mit Bezug auf
+   eine Befund-ID (z. B. „REC-1 → AD-3").
 ```
 
 ### Modus `--mode premortem`
@@ -120,22 +131,53 @@ Gib **das Problem/den Kontext OHNE unsere Entscheidung** (Abschnitt „Der ADR i
 zu „Das zu lösende Problem"). Bitte um eine eigenständige Empfehlung. Danach intern vergleichen:
 Wo weicht der Blind-Vorschlag ab? Das deckt Anchoring-Bias auf, den ein Review am fertigen ADR nicht sieht.
 
-## Step 4 — Rückfluss-Gate (beim Einarbeiten der Antwort)
+## Step 4 — Briefing nach `~/shared/` speichern
 
-Die GPT-Antwort ist eine **externe Beobachtung**, kein Fakt. Bevor irgendein Einwand den ADR berührt:
-tagge jeden Punkt `[valid]` / `[missversteht-Kontext]` / `[out-of-scope]` — nur `[valid]` fließt ein,
-und zwar als Änderung mit eigener Begründung, nicht als wörtliche GPT-Prosa.
+Schreibe das erzeugte Briefing als Markdown-Datei in das Shared-Verzeichnis des Nutzers (`~/shared/`),
+mit **deterministischem** Dateinamen:
+
+```
+~/shared/adr-handoff-<ADR-NNN>-<JJJJ-MM-TT>.md            # Standard-Modus
+~/shared/adr-handoff-<ADR-NNN>-<mode>-<JJJJ-MM-TT>.md     # bei --mode premortem|blind
+```
+
+- **Idempotenz:** Der Dateiname ist pro ADR + Modus + Tag deterministisch → ein erneuter Lauf am
+  selben Tag **überschreibt** dieselbe Datei (kein Zuwuchern mit Duplikaten). Existiert die Datei
+  bereits aus einem früheren Lauf, vor dem Überschreiben kurz bestätigen lassen.
+- Nach dem Schreiben den **vollständigen Pfad** nennen und den Nutzer auf die ⚠️-markierten
+  „erneut bereitstellen"-Quellen hinweisen (falls vorhanden).
+- Kann in der Sitzung keine Datei geschrieben werden, gib das Briefing stattdessen in **einem**
+  Markdown-Codeblock aus, damit es kopierbar bleibt.
+
+## Step 5 — Rückfluss-Gate (beim Einarbeiten der Antwort)
+
+Die GPT-Antwort ist eine **externe Beobachtung**, kein Fakt. Dank der stabilen IDs (`AD-…`/`REC-…`)
+ist jeder Punkt einzeln adressierbar: tagge jede **Befund- und REC-ID** `[valid]` /
+`[missversteht-Kontext]` / `[out-of-scope]` — nur `[valid]` fließt ein, und zwar als Änderung mit
+eigener Begründung, nicht als wörtliche GPT-Prosa. Halte die Tag-Tabelle (ID → Verdikt → Aktion)
+als Nachweis fest.
 
 ## Anti-Patterns (darf NICHT)
 
 - ❌ ttz-lif/meiki-lra-ADRs oder reale Mandantendaten an ein externes LLM geben.
 - ❌ ADR-Nummern statt Inhalt referenzieren — GPT kennt unsere ADRs nicht.
 - ❌ Auf SSoT (Orchestrator-Memory, project-facts) *verweisen* statt inline — extern nicht ladbar.
-- ❌ GPT-Befund 1:1 in den ADR kippen, ohne Step-4-Tagging.
+- ❌ GPT-Befund 1:1 in den ADR kippen, ohne Step-5-Tagging.
 - ❌ Angriff ohne vorausgehenden Steelman (Cheap-Shot-Review).
 - ❌ Repo-Pfade / Org-Namen / MCP-Prefixe hardcoden — aus `project-facts.md` zur Laufzeit.
+- ❌ Das Briefing **ins Repo** schreiben (Working-Tree/`docs/`) — Ausgabe gehört nach `~/shared/`,
+  nicht in versionierte Repo-Pfade.
+- ❌ Für einen souveränen ADR (ttz-lif/meiki-lra/Realdaten) überhaupt eine Briefing-Datei
+  materialisieren — das Souveränitäts-Gate (Step 0) bricht VOR dem Schreiben ab.
+- ❌ Nicht-deterministische/zeitstempel-genaue Dateinamen, die bei jedem Lauf neue Dateien
+  anhäufen — der Name ist pro ADR+Modus+Tag fix (Idempotenz).
 
 ## Changelog
 
 - 2026-05-29: Initial. Cross-Provider-Pfad zur Session-Übergabe-Vorgabe; Steelman→Drei-Rollen→
   Out-of-the-Box als Default, Pre-Mortem-/Blind-Modus, Rückfluss-Tagging-Gate, Souveränitäts-Gate.
+- 2026-05-29: `mode: write` — Briefing wird als `.md` nach `~/shared/` geschrieben (Step 4,
+  deterministischer Dateiname = idempotent pro ADR+Modus+Tag); Anti-Patterns für Schreibziel ergänzt.
+- 2026-05-29: Antwort-Format strukturiert (nach Dogfood ADR-031) — GPT liefert alles in EINEM
+  Markdown-Codeblock (1:1 als `.md` speicherbar); Befunde + Empfehlungen tragen stabile IDs
+  (`AD-`/`REC-`), Step-5-Rückfluss-Gate taggt deterministisch pro ID statt über freie Prosa.
