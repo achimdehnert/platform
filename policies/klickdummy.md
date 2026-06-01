@@ -115,3 +115,37 @@ prüft zusätzlich gegen `origin/main`.
   (`{mock-prototyp→mock, demo-render→spec-demo}`); Strict-Mode wird via
   Scoreboard-Item S11 nach Cross-Repo-Migration aktiviert. Iteration-
   Typologie erweitert (stakeholder- + compliance-getriggert).
+- 2026-05-20: Rev-13-Angleichung (Decider-Pivot). **Erweiterung.** Initialer
+  ADR-214-Draft (Distribution-Service) als advocatus diabolus zurückgezogen;
+  §Distribution wird ADR-211-§ (pip-Paket `iil-klickdummy` mit Schemas/Skripten/
+  Widget). §Co-Creation Pfade A neu (A-light / A-User-Direct via GitHub-API /
+  A-Agent); zentraler Endpoint gestrichen. Plugin-Hooks im Widget.
+- 2026-05-21: Rev-14-Angleichung (Multi-Klickdummy-Browser + public PyPI).
+  **Erweiterung.** `iil-klickdummy` v1.1 mit `registry.py` + `klickdummy-browser`
+  (Versions-/Repo-Browser). public PyPI (`pip install iil-klickdummy`) wird
+  Default, Git-URL Fallback; Trusted Publishing (OIDC).
+- 2026-05-21: Rev-15-Angleichung (Repo-Extraktion). **Kein Invarianten-Change.**
+  `packages/iil-klickdummy` → `iilgmbh/iil-klickdummy` extrahiert (Historie
+  erhalten). Trennung festgeklopft: ADR-211 (Konvention) bleibt
+  achimdehnert/platform; `iilgmbh:iil-klickdummy:ADR-001` ist Implementations-ADR;
+  Schwester-Impls via `sister_of`.
+- 2026-05-25/28: Rev-16-Angleichung (zwei Amends). **Erweiterung.** Optionale §-
+  Erweiterungen von I1: **§Acceptance-Marker** (`spec_signed`/`ui_walked`, append-
+  only mit Evidence `by`+`date`+`ref`) und **§UC-Coverage** (UC↔Screen-Lint,
+  Cross-Repo-Namespace `<repo>:UC-NNN`); offene F13–F16. Dazu **§KD-first-Gate**
+  (opt-in; NEUE User-facing Features erst als KD), Scoreboard +S12.
+- 2026-05-29: Rev-17-Angleichung (Daten-Treue der Anzeige). **Klarstellung.**
+  Im Klickdummy ausgegebene Zahlen sind **berechnet, nicht literal** (Mock-Daten
+  synthetisch, Berechnung echt); Cross-Screen-Aggregate aus **einer** Quelle.
+  Enforcement = Review-Gate. An I1 angehängt; kein I5.
+- 2026-05-31: Rev-18-Angleichung (Executable-Parity-Bridge). **Erweiterung, kein
+  neuer Entscheid.** Optionale §-Erweiterung von I1: `parity_acceptance.assert`
+  → forward-only deterministischer Generator (`klickdummy-gen-e2e`) erzeugt eine
+  Playwright/pytest-Suite, die Renderer #1 (Klickdummy) und #2 (echte App) per
+  `SPEC_RENDERER_BASE_URL` gegen dieselbe Assertion prüft — parity-grün gegen #2
+  = I3-Off-Ramp-Gate. **I3 gehärtet:** Off-Ramp nur mit Renderer-#1-Entfernung
+  (`off_ramp_status: removed`) + negativem Reachability-Beleg; „max. eine lebende
+  UI-Impl pro Spec-Screen"; F4 nur für inventarisierte Routen geschlossen (F20
+  offen). Drift-Gate `klickdummy-parity-drift` (Reuse S10). Scoreboard +S13.
+  Empirie: iil-klickdummy v1.6.0 + zwei externe Review-Runden. (Hinweis: dieser
+  Changelog lag bei Rev-12 — Rev 13–17 betrafen die Kern-Invarianten nicht.)
