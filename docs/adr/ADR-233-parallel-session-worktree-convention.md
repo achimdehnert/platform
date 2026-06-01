@@ -110,9 +110,15 @@ strukturell. Darum ist der Guard Teil der **Entscheidung**, nicht der Risiko-Mit
 - `tools/worktree-reaper.py` ✅ gebaut + dry-run-validiert (7 merged erkannt, 2 dirty geschützt) — als
   **versioniertes Plattformtool** (Changelog, Test-Fixtures für squash-merged-PR-Erkennung, fester
   `--dry-run`/`--apply`-Contract; REC-13/M28-8) weiterführen.
-- **`main-tree-guard`** (REC-1) + **`repo-session start`-Wrapper** (REC-2) bauen — der enforcende Kern;
-  ohne sie ist die Invariante nicht erreicht.
-- **Lease-Ledger** (REC-7) an Wrapper + Reaper koppeln; Reaper-Stale-Logik von mtime auf Lease umstellen.
+- **`tools/main-tree-guard.sh`** (REC-1) ✅ gebaut + getestet: post-checkout-Hook → Snap-back auf `main`
+  + Guard-Event-Log; `report` liefert `unauthorized_head_flips/30d` (Kill-Gate-Metrik §8). Ehrliche
+  Grenze: git hat keinen Pre-switch-Block → Hook ist Sicherheitsnetz + Messung, der **Wrapper ist der
+  eigentliche Enforcer**.
+- **`tools/repo-session.sh`** (REC-2) ✅ gebaut + getestet: `start`/`list`/`end`; legt Worktree **von
+  `origin/main`** an, Branch-Schema `session/<date>/<owner>/<slug>`, schreibt Lease (REC-7), Dirty-Guard
+  bei `end`.
+- **Lease-Ledger** (REC-7) ✅ vom Wrapper geschrieben; **offen:** Reaper-Stale-Logik von mtime auf Lease
+  umstellen (Folge-Item).
 - Konvention + Entry Point in `CORE_CONTEXT.md`/Session-Start-Ritual verankern (ein offizieller Einstieg).
 - Einmaliger Cleanup bestehender stale Worktrees — **nur nach Einzel-Freigabe** (fremde/evtl. aktive
   Sessions; destruktive Shared-State-Aktion). *(In dieser Session bereits durchgeführt: 7 gemergte gereapt.)*
