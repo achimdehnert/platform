@@ -52,20 +52,38 @@ den Branch nach Bedarf.
 ## 2. Entscheidung
 
 **Isolation und Integration werden entkoppelt — der schlechte Zustand wird unerreichbar gemacht, nicht
-überwacht** (gleiches Prinzip wie ADR-234):
+überwacht** (gleiches Prinzip wie ADR-234). **Ehrlichkeit nach externer Runde 2:** „unerreichbar" gilt
+*nur*, wenn der Guard (Punkt 1) tatsächlich erzwingt; eine bloße Konvention wäre *sozial*, nicht
+strukturell. Darum ist der Guard Teil der **Entscheidung**, nicht der Risiko-Mitigation.
 
-1. **Main-Tree heilig:** der geteilte Repo-Checkout `~/github/<repo>` bleibt **dauerhaft auf `main`**
-   (Referenz). **Keine** Session `switch`t den HEAD dieses Trees. Damit verschwindet die Klasse
-   „HEAD-Flip unter fremder Session" by construction.
-2. **Per-Session-Worktree:** jede Session, die editiert (auch top-level interaktiv), arbeitet auf einem
-   **eigenen Branch in einem eigenen `git worktree`**. Sub-Agenten nutzen die Harness-Isolation
+1. **Main-Tree heilig — durch harten Guard, nicht durch Ritual (REC-1/AD-1/AD-11):** der geteilte
+   Checkout `~/github/<repo>` bleibt dauerhaft auf `main`. Ein **verpflichtender `main-tree-guard`**
+   (pre-`checkout`/`switch`-Hook + Sentinel `.git/iil-main-tree-protected`) **blockt** jede
+   branch-ändernde Operation im Haupt-Tree und schreibt ein **Guard-Event** ins Audit-Log. Ohne diesen
+   Guard ist die Invariante nicht erreicht (siehe Kill-Gate §8).
+2. **Per-Session-Worktree via offiziellem Entry Point (REC-2/REC-3/REC-5/REC-8):** jede **editierende
+   oder branch-ändernde** Session läuft über **einen** verbindlichen Wrapper
+   `repo-session start <repo> --task <slug>`, der: (a) prüft, dass der Haupt-Tree auf `main` ist,
+   (b) `git fetch --prune origin main` ausführt, (c) einen Worktree **von `origin/main`** (oder explizitem
+   `base_ref`) mit Branch-Schema `session/<YYYY-MM-DD>/<agent-or-user>/<task-slug>` anlegt,
+   (d) eine **Lease** schreibt (§2.4), (e) am Ende Reaper-Dry-Run + Summary ausgibt. **Reine Read-only-
+   Analyse** darf im Haupt-Tree bleiben (REC-3). Sub-Agenten nutzen die Harness-Isolation
    (`isolation: "worktree"`) — nicht neu erfinden.
+   **Isolations-Grenze (REC-4/AD-4):** ein Worktree isoliert Working-Tree/Index/HEAD, **nicht**
+   Branch-Namespace, Stash, lokale `git config`, Hooks und Remote-Tracking-Refs. Daher: keine globalen
+   `git config`-Änderungen aus Sessions, kein geteilter `git stash`, keine Wiederverwendung aktiver
+   Session-Branches.
 3. **Integration kontinuierlich durch `main`, nie „wenn ruhig":** kleiner Branch → PR → squash→`main`,
    sofort und asynchron. „Zusammenbringen" ist der normale, durch main rebasende PR-Merge — **kein**
    Warten auf einen quiescenten Moment (der nachweislich nie kommt).
-4. **Deterministischer Worktree-Reaper (Pflicht):** `tools/worktree-reaper.py` GC't Worktrees, deren
-   Branch **gemergt** ist (squash-aware via PR-`mergedAt`/`headRefOid`) oder **>N Tage unberührt** —
-   mit Dirty-Guard (nie einen Tree mit uncommitted changes anfassen) und Restore-Manifest.
+4. **Deterministischer Worktree-Reaper (Pflicht) + Lease-Ledger (REC-6/REC-7):** `tools/worktree-reaper.py`
+   entfernt **nur das Worktree-Verzeichnis, nie den Branch** (committed-but-unmerged Arbeit überlebt;
+   Restore via `git worktree add <path> <branch>`). Reap-Klassen: **gemergt** (squash-aware via
+   `gh pr --state merged`) → Worktree entfernbar; **unmerged + clean + stale** → **nur archivieren/als
+   `needs-owner-action` markieren, nie auto-entfernen** (REC-6). **Dirty-Guard** schützt uncommitted
+   changes absolut. Die Stale-Entscheidung läuft über eine **maschinenlesbare Lease**
+   (`session_id, owner, created_at, last_touch, branch, base_sha, intended_pr, expires_at, ephemeral`)
+   statt roher mtime (REC-7/AD-8). Jede Entfernung ins Restore-Manifest (JSONL).
 
 ## 3. Betrachtete Alternativen
 
@@ -75,6 +93,9 @@ den Branch nach Bedarf.
 | B | **„Worktree, dann mergen wenn keine parallelen Tasks laufen"** (Ausgangsvorschlag) | verworfen: **empirisch falsifiziert** — kein quiescenter Moment (11 stale Worktrees); koppelt Isolation an Integration; unbeobachtbare Vorbedingung; verschlimmert Konflikte (langlebige Branches) |
 | C | **Isolation ⟂ Integration entkoppelt (gewählt)** — Main-Tree heilig + per-Session-Worktree + kontinuierliche PR→main + Reaper | mehr Worktree-Disziplin, dafür Kollisions-Klasse eliminiert + bestehende PR→main-Konvention konsistent |
 | D | **Nur Harness-Isolation** (`isolation: worktree` für Sub-Agenten) | unvollständig: deckt Sub-Agenten ab, **nicht** top-level interaktive Sessions, die heute den Haupt-Tree teilen |
+| E | **Full-Clone pro Session** (REC-12/AD-15) | verworfen: isoliert zwar auch lokale config/stash/refs, kostet aber Disk/Netzwerk/Setup und erzeugt Credential-/Remote-Drift; nur Sonderfall (gefährliche lokale Git-Config / große Experimente) |
+| F | **Ephemerer Wrapper mit Auto-Create/Auto-Reap** (REC-12/AD-16) | **gewählte Härtung von C** — der Wrapper aus §2.2 *ist* dieser Mechanismus; macht die Konvention praktisch erzwingbar statt freiwillig |
+| G (2028-Zielbild) | **Bare/Mirror-Objektanker** statt editierbarem Main-Tree; alle Checkouts sind Worktrees unter `_worktrees/<repo>/<session>` (OOTB-C) | für v1 zu hart (Bruch mit IDE-Pfaden/Gewohnheiten); prüfen, falls Guard/Wrapper nicht zuverlässig wirken |
 
 ## 4. Begründung im Detail
 - **Kategorientrennung:** Isolation des Working-Tree (Worktree) und Integration der Änderungen (git via
@@ -86,20 +107,25 @@ den Branch nach Bedarf.
   auf die Platte (11 stale Worktrees sind der Backlog).
 
 ## 5. Implementation Plan
-- `tools/worktree-reaper.py` (dry-run default; `--apply`; squash-aware merged-Erkennung via `gh pr`;
-  Dirty-Guard; Stale-Schwelle; Restore-Manifest JSONL).
-- Konvention in `CORE_CONTEXT.md`/Session-Start-Ritual verankern (Main-Tree heilig; Session = Worktree).
-- Einmaliger Cleanup der 11 bestehenden stale Worktrees — **nur nach Einzel-Freigabe** (fremde/evtl.
-  aktive Sessions; destruktive Shared-State-Aktion).
+- `tools/worktree-reaper.py` ✅ gebaut + dry-run-validiert (7 merged erkannt, 2 dirty geschützt) — als
+  **versioniertes Plattformtool** (Changelog, Test-Fixtures für squash-merged-PR-Erkennung, fester
+  `--dry-run`/`--apply`-Contract; REC-13/M28-8) weiterführen.
+- **`main-tree-guard`** (REC-1) + **`repo-session start`-Wrapper** (REC-2) bauen — der enforcende Kern;
+  ohne sie ist die Invariante nicht erreicht.
+- **Lease-Ledger** (REC-7) an Wrapper + Reaper koppeln; Reaper-Stale-Logik von mtime auf Lease umstellen.
+- Konvention + Entry Point in `CORE_CONTEXT.md`/Session-Start-Ritual verankern (ein offizieller Einstieg).
+- Einmaliger Cleanup bestehender stale Worktrees — **nur nach Einzel-Freigabe** (fremde/evtl. aktive
+  Sessions; destruktive Shared-State-Aktion). *(In dieser Session bereits durchgeführt: 7 gemergte gereapt.)*
 
 ## 6. Risiken
 
 | # | Risiko | Gegenmaßnahme |
 |---|---|---|
-| R-1 | Worktree-Sprawl ohne GC | Reaper-Pflicht; Stale-Report als Frühwarnung |
-| R-2 | Reaper entfernt dirty/unmerged Tree (Datenverlust) | harter Dirty-Guard + nur PR-merged als Reap-Kriterium; Restore-Manifest |
-| R-3 | Sessions ignorieren „Main-Tree heilig" | Session-Start-Ritual + ggf. Hook, der HEAD-Switch im Haupt-Tree warnt |
-| R-4 | Disk-Druck durch viele Worktrees | Reaper-Stale-Schwelle; Worktrees unter `/tmp` für kurzlebige |
+| R-1 | Worktree-Sprawl ohne GC | Reaper-Pflicht; Branch-/Worktree-Namensschema (§2.2); Stale-Report als Frühwarnung |
+| R-2 | Reaper entfernt clean-but-unmerged Tree (Verlust nicht-integrierter Arbeit) | Reaper entfernt **nur Worktree-Dir, nie Branch**; unmerged+clean → nur markieren, nie auto-remove (REC-6); Restore-Manifest |
+| R-3 | Sessions ignorieren „Main-Tree heilig" | **harter `main-tree-guard` ist jetzt Teil der Entscheidung (§2.1)**, nicht nur Mitigation — branch-ändernde Ops im Haupt-Tree werden geblockt + als Guard-Event gezählt (REC-1/REC-9) |
+| R-4 | Disk-Druck — kippt real durch per-Worktree-Artefakte (`.venv`, `node_modules`, Builds, Logs), nicht durch geteilte Git-Objekte (M28-5) | **Disk-/Artefakt-Budget (REC-10):** Standardpfade, Max-Anzahl/Repo, Max-Alter, `reaper --disk-report`; geteilte Caches wo möglich |
+| R-5 | Ephemere Experimente vs. PR-fähige Arbeit vermischt (REC-11/AD-13) | Lease-Feld `ephemeral: true|false`; **`/tmp` nur für `ephemeral: true`**, nie für PR-/Übergabe-Arbeit |
 
 ## 7. Konsequenzen
 ### 7.1 Positiv
@@ -112,10 +138,15 @@ den Branch nach Bedarf.
 - Andere Orgs (`ttz-lif`, `meiki-lra`) — Konvention gilt, aber kein org-übergreifender Enforcement-Mechanismus.
 
 ## 8. Validation Criteria
-- `~/github/<repo>` bleibt nach einer Session auf `main` (kein fremder HEAD-Flip messbar).
-- `worktree-reaper.py` (dry-run) listet gemergte Worktrees korrekt + lässt dirty/unmerged unangetastet.
-- **Kill-/Review-Gate:** Wenn bis **2026-09-01** der Reaper nicht existiert *oder* der Haupt-Tree weiter
-  routinemäßig HEAD-geflippt wird → Konvention gescheitert, zurück auf Status quo mit dokumentierter Warnung.
+- `~/github/<repo>` bleibt nach einer Session auf `main`.
+- `worktree-reaper.py` (dry-run) listet gemergte Worktrees korrekt + lässt dirty/unmerged unangetastet
+  (entfernt nie einen Branch).
+- **Guard wirkt messbar (REC-9/REC-14):** ein absichtlicher `git switch`/`checkout` im Haupt-Tree wird
+  **geblockt** und/oder erzeugt ein **Guard-Event** im Audit-Log. Metrik: **`unauthorized_head_flips / 30 Tage`**.
+- **Kill-Gate (messbar, datiert):** Wenn bis **2026-09-01** (a) `main-tree-guard` + `repo-session`-Wrapper
+  nicht existieren **oder** (b) `unauthorized_head_flips > 0 / 30 Tage` (Guard greift nicht / wird umgangen),
+  gilt die Konvention als **nicht erzwingbar** → Status `Deprecated`, zurück auf Status quo mit dokumentierter
+  Warnung. „Routinemäßig" ist damit durch eine Zahl ersetzt (M28-6).
 
 ## 9. Glossar
 
@@ -135,7 +166,34 @@ den Branch nach Bedarf.
 - Memory `feedback_branch_cleanup_squash_worktree` (squash-aware, Worktree-Branches ausschließen,
   Restore-Manifest) · `project_f1_windsurf_untrack_rollout` (dev-hub-Shared-Tree-Kollision).
 
-## 11. Changelog
+## 11. Rückfluss externe Review-Runde (Step-5-Tagging)
+
+Externe ADR-Review-Runde (Briefing `~/shared/adr-handoff-ADR-233-2026-06-01.md`): 14 RECs, **alle
+`[valid]`**, kein Dissens. Zentraler Treffer: der Leitsatz „unerreichbar by construction" stand im
+Widerspruch zu „Main-Tree heilig = Ritual + ggf. Hook" — der Guard ist jetzt **Teil der Entscheidung**.
+
+| REC | Verdikt | Aktion im ADR |
+|---|---|---|
+| REC-1 (harter Guard statt Ritual) | [valid] | §2.1 `main-tree-guard` verpflichtend; §6 R-3 von Mitigation → Entscheidung |
+| REC-2 (offizieller Session-Wrapper) | [valid] | §2.2 `repo-session start` als verbindlicher Entry Point |
+| REC-3 (Read-only im Main-Tree erlaubt) | [valid] | §2.2 Scope-Präzisierung |
+| REC-4 (Isolations-Grenze) | [valid] | §2.2 Caveat (stash/config/refs nicht isoliert) + Regeln |
+| REC-5 (Branch-Namensschema) | [valid] | §2.2 `session/<date>/<agent>/<slug>` |
+| REC-6 (unmerged-clean nie auto-remove) | [valid] | §2.4 + §6 R-2: nur Worktree-Dir, nie Branch; markieren statt entfernen |
+| REC-7 (Lease-Ledger statt mtime) | [valid] | §2.4 Lease-Felder; §5 Reaper-Umstellung |
+| REC-8 (Worktree von origin/main) | [valid] | §2.2 (d); diese Session bereits so praktiziert |
+| REC-9 (messbares Kill-Gate) | [valid] | §8 `unauthorized_head_flips / 30 Tage` |
+| REC-10 (Disk-/Artefakt-Budget) | [valid] | §6 R-4 (Artefakte, nicht Git-Objekte) |
+| REC-11 (ephemer vs persistent) | [valid] | §6 R-5; `/tmp` nur `ephemeral: true` |
+| REC-12 (Alternativen E/F) | [valid] | §3 E (Full-Clone, verworfen), F (Wrapper, gewählte Härtung), G (Bare-Anker, 2028) |
+| REC-13 (Reaper versionieren) | [valid] | §5 Folge-Item (Changelog, Test-Fixtures, Contract) |
+| REC-14 (Validation: switch-block prüfen) | [valid] | §8 Guard-Wirkungs-Kriterium |
+
+## 12. Changelog
 - **2026-06-01:** Initial (Proposed). Aus der Advocatus-Diabolus-Review des Vorschlags „immer Worktree,
   dann mergen wenn ruhig" — zweite Hälfte empirisch falsifiziert (11 stale Worktrees), Synthese
   = Isolation ⟂ Integration entkoppeln.
+- **2026-06-01:** Externe Review-Runde (14/14 RECs valid) eingearbeitet: harter `main-tree-guard` +
+  `repo-session`-Wrapper als Entscheidung (nicht Ritual), Lease-Ledger, geschärfte Reaper-Semantik
+  (nie Branch löschen / unmerged-clean nur markieren), messbares Kill-Gate, Disk-Budget, Alternativen
+  E/F/G. Tag-Tabelle §11.
