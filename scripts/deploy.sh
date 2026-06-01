@@ -2,8 +2,9 @@
 # /opt/scripts/deploy.sh — iil-Platform Unified Deploy Script (ADR-120, ADR-166)
 # Auf PROD (88.198.191.108) und DEV/Staging (88.99.38.75) installieren
 #
-# Usage: deploy.sh <APP_NAME> <APP_PATH> <IMAGE_TAG> <ENVIRONMENT> [HEALTH_CHECK_URL]
+# Usage: deploy.sh <APP_NAME> <APP_PATH> <IMAGE_TAG> <ENVIRONMENT> [HEALTH_CHECK_URL] [--break-glass "REASON"]
 # Example: deploy.sh risk-hub /opt/risk-hub v1.4.2 production https://schutztat.de/livez/
+# Manual:  deploy.sh risk-hub /opt/risk-hub latest production "" --break-glass "hotfix: rollback nginx config"
 set -euo pipefail
 
 APP_NAME="${1:?'APP_NAME fehlt'}"
@@ -11,6 +12,19 @@ APP_PATH="${2:?'APP_PATH fehlt'}"
 IMAGE_TAG="${3:?'IMAGE_TAG fehlt'}"
 ENVIRONMENT="${4:?'ENVIRONMENT fehlt (staging|production)'}"
 HEALTH_CHECK_URL="${5:-}"
+
+# ADR-021 §2.20 — Intent-Token / break-glass flag
+BREAK_GLASS_REASON=""
+for _i in "${@:6}"; do
+  if [[ "$_i" == "--break-glass" ]]; then
+    _next=false
+    for _j in "${@:6}"; do
+      [[ "$_next" == "true" ]] && { BREAK_GLASS_REASON="$_j"; break; }
+      [[ "$_j" == "--break-glass" ]] && _next=true
+    done
+    break
+  fi
+done
 
 # ADR-160: log to file only if writable — never break deploy for logging
 LOG_DIR="/var/log/iil-deploys"
@@ -93,6 +107,7 @@ rollback() {
     echo "❌ Deploy fehlgeschlagen (exit $ec) — Rollback auf $PREVIOUS_TAG"
     cd "$APP_PATH"
     export IMAGE_TAG="$PREVIOUS_TAG"
+    export _ROLLBACK_MODE=1  # bypass manifest/sha check during rollback
     docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate 2>&1 || {
       echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG docker compose -f $COMPOSE_FILE up -d" >&2
       exit 10
@@ -125,6 +140,39 @@ fi
 
 # Deploy
 cd "$APP_PATH"
+
+# ADR-021 §2.17 + §2.20 — manifest verify + intent-token check (prod only).
+# Rollbacks bypass the check so a failing deploy can always be rolled back.
+_ROLLBACK_MODE="${_ROLLBACK_MODE:-0}"
+if [[ "$ENVIRONMENT" == "production" && "$_ROLLBACK_MODE" != "1" ]]; then
+  _MANIFEST="$APP_PATH/.deploy-manifest.json"
+
+  # §2.20 Intent-Token: CI must have written a manifest; manual deploys require --break-glass.
+  if [[ ! -f "$_MANIFEST" ]]; then
+    if [[ -n "$BREAK_GLASS_REASON" ]]; then
+      _BG_LOG="/var/log/iil-deploys/break-glass.log"
+      mkdir -p "$(dirname "$_BG_LOG")" 2>/dev/null || true
+      printf '%s [break-glass] app=%s image=%s reason="%s"\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$APP_NAME" "$IMAGE_TAG" "$BREAK_GLASS_REASON" \
+        >> "$_BG_LOG" 2>/dev/null || true
+      echo "⚠️  break-glass: proceeding without manifest. Reason: $BREAK_GLASS_REASON"
+    else
+      echo "::error::ADR-021 §2.20: No .deploy-manifest.json found. Production deploys require a CI-issued intent manifest. For manual deploys use: --break-glass \"REASON\""
+      exit 6
+    fi
+  else
+    # §2.17 compose_sha verify — fail-closed if on-host compose was tampered with.
+    _EXPECTED_SHA=$(python3 -c "import json; d=json.load(open('$_MANIFEST')); print(d.get('compose_sha',''))" 2>/dev/null || true)
+    if [[ -n "$_EXPECTED_SHA" && -f "$APP_PATH/$COMPOSE_FILE" ]]; then
+      _ACTUAL_SHA=$(sha256sum "$APP_PATH/$COMPOSE_FILE" | awk '{print $1}')
+      if [[ "$_ACTUAL_SHA" != "$_EXPECTED_SHA" ]]; then
+        echo "::error::ADR-021 §2.17: compose sha256 mismatch. expected=$_EXPECTED_SHA actual=$_ACTUAL_SHA. Host compose may have been modified after CI sync. Aborting (fail-closed)."
+        exit 7
+      fi
+      echo "✅ compose sha256 verified: $_ACTUAL_SHA"
+    fi
+  fi
+fi
 
 # Staging: vor dem Hochfahren den Altstack sauber abräumen.
 # `up -d --remove-orphans` entfernt nur Orphans DESSELBEN Compose-Projekts;
