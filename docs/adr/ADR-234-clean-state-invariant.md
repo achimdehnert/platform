@@ -306,3 +306,9 @@ respektierte die „nicht neu aufrollen"-Liste.
   semantisch identisch** zu den Altdateien (round-trip exit 0) → Strategie verlustfrei belegt. **Noch
   nicht kanonisch geschaltet** — Altdateien + ~45 Konsumenten unverändert; flip-auf-generiert +
   Konsumenten-Migration sind die nächsten gegateten Schritte.
+- **2026-06-01:** **Flip vollzogen** (`registry-canonical.py flip`): `registry/canonical.yaml` ist jetzt
+  die **kanonische SSoT**; beide Altdateien sind **generierte Views** (GENERATED-Header; reicher
+  Schema-Doc-Header verbatim erhalten). **Drift-Gate** (`registry-consistency.yml` → `verify`, hartes
+  Fail) verhindert Divergenz. Sicherheits-Vorabcheck: **0 Text-grep-Konsumenten** (alle 25 yaml-parsen;
+  klickdummy-host-`repos.yaml` ist ein anderes File) → semantisch verlustfrei. **Offen:** Konsumenten
+  schrittweise auf `canonical.yaml` umziehen, dann Views retiren.
