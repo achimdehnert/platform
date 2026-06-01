@@ -82,7 +82,7 @@
 | 018 | Weltenhub -- Zentrale Story-Universe Plattform | `Archived` | — | [ADR-018](_archive/superseded/ADR-018-weltenhub-architecture.md) |
 | 019 | Weltenhub UI, Templates, Views & APIs | `Archived` | — | [ADR-019](_archive/superseded/ADR-019-weltenhub-ui-templates-apis.md) |
 | 020 | Dokumentationsstrategie -- Sphinx, DB-driven, ADR-basiert | `Superseded` | — | [ADR-020](archive/ADR-020-documentation-strategy.md) |
-| 021 | Unified Single-Service Deployment Pipeline | `Accepted` | ✅ | [ADR-021](ADR-021-unified-deployment-pattern.md) |
+| 021 | Unified Single-Service Deployment Pipeline | `Accepted` | 🔶 | [ADR-021](ADR-021-unified-deployment-pattern.md) |
 | 022 | Platform Consistency Standard (v3) | `Accepted` | ✅ | [ADR-022](ADR-022-platform-consistency-standard.md) |
 | 023 | Shared Scoring and Routing Engine | `Deprecated` | — | [ADR-023](archive/ADR-023-shared-scoring-routing-engine.md) |
 | 024 | Location-Recherche als Weltenhub-Modul | `Archived` | — | [ADR-024](_archive/superseded/ADR-024-recherche-hub-weltenhub-integration.md) |
