@@ -247,7 +247,7 @@ Dann Health Check wiederholen. User über Rollback informieren.
 | Container crasht | `container_logs container_id={web_container} lines=80` |
 | Migration fehlt | `container_exec container_id={web_container} command="python manage.py migrate --noinput"` |
 | Image nicht aktuell | CI-Log prüfen: `run_logs owner=achimdehnert repo={scope} run_id=<id>` |
-| Branch falsch | `git checkout main && git pull origin main` |
+| Branch falsch | im Ziel-Repo-Checkout `git pull origin main`; NICHT den geteilten Haupt-Tree switchen (ADR-233) |
 
 **Wichtig:** Bei JEDEM Fehler in diesem Workflow ein `error_pattern` Memory-Entry via `mcp1_agent_memory` schreiben (siehe Schritt 6).
 Beim nächsten `/session-start` findet `mcp1_agent_memory(operation: "query", filter_type: "error_pattern")` wiederkehrende Probleme.
