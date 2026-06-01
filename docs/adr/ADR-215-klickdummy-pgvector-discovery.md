@@ -11,7 +11,7 @@ related:
   - "platform:ADR-210"          # Local-Staging-Prod-Architecture
   - "platform:ADR-212"          # Traefik-Ingress iil.pet
   - "meiki:ADR-027"             # Conversational Klickdummy (Schwester-Empirie)
-  - "iilgmbh:iil-klickdummy v1.4" # aktuelles pip-Paket
+  - "iilgmbh:iil-klickdummy v1.8" # pip-Paket (discovery_push-PoC seit v1.8.0)
 supersedes: []
 superseded_by: []
 # Diese ADR beschreibt einen DISCOVERY-Layer, keinen Klickdummy-Instanz.
@@ -22,8 +22,14 @@ superseded_by: []
 
 ## Status
 
-**proposed** — Diskussionsgrundlage. PoC in `iilgmbh/iil-klickdummy` (Issue
-für v1.5). Empirie #1 als Cross-Repo-Picker-Fetch in `meiki-hub`.
+**proposed** — Diskussionsgrundlage. PoC in `iilgmbh/iil-klickdummy` (gemergt,
+v1.8.0, **inert** — kein fester Endpunkt, keine Automatik). Empirie #1 als
+Cross-Repo-Picker-Fetch in `meiki-hub`.
+
+> **2026-06-01 — Härtung vor Annahme:** Eine Review-Runde (externe Zweitmeinung
+> via `/adr-handoff-extern` + interne Evidenz-Prüfung gegen den PoC-Code) hat 18
+> belegte Lücken ergänzt → siehe **§Amendment 1**. Status bleibt `proposed`, bis
+> diese Punkte eingearbeitet sind; danach `accepted`-fähig.
 
 ## Kontext
 
@@ -63,12 +69,19 @@ pgvector fehlt nur als letzte Brücke.
 Klickdummies bleiben in ihren Repos (git-nativ, kein zentrales Hosting).
 Was zentral wird, ist nur die **Discovery-Schicht**:
 
-1. **`iil-klickdummy v1.5` `klickdummy sync push --to-orchestrator`**:
+1. **`iil-klickdummy` `klickdummy sync push --to-orchestrator`**:
    Pro Klickdummy ein Embedding über `(title + purpose +
    parity_acceptance-Texte + topic)` + Metadaten (spec_id, version, class,
    topic, adr, repo, path_rel, last_seen, klickdummy_class, personas[]).
+   **Provenance-Pflichtfelder** (REC-1): `source_repo`, `source_ref` (Branch/Tag),
+   `commit_sha`, `spec_sha256`, `generated_at` — damit jeder Registry-Eintrag auf
+   seinen exakten Spec-Stand zurückführbar und gegen Drift prüfbar ist.
+   **Upsert-Identität** (REC-2): `registry_key = org/repo + path_rel + spec_id`;
+   `version`/`pipeline_status`/`adr` werden bei Änderung aktualisiert.
 2. **Orchestrator-pgvector** speichert die Embeddings + Metadata in
    einer eigenen `agent_memory_*`-Sub-Collection `klickdummy-registry`.
+   Diese Collection ist ein **abgeleiteter Index, kein System of Record** —
+   normative Quelle bleibt die Spec im Repo (siehe §Amendment 1, REC-20).
 3. **Cross-Repo-Picker (Renderer-Side)** fragt Orchestrator-API ab statt
    `CROSS_REPO_INDEX`-Konstante zu pflegen — neue Klickdummies erscheinen
    automatisch sobald sync gelaufen ist.
@@ -82,10 +95,15 @@ Was zentral wird, ist nur die **Discovery-Schicht**:
 - **Hosting** der Klickdummies auf iil.pet (= Stage 2 / Lesart A) —
   separates ADR, vorbedingungs-frei wenn DSFA-Ergebnis weiter trägt
   (heutige DSFA-Klärung: nicht kritisch, nur Name+Vorname öffentlich)
-- **Feedback-Aggregation cross-Repo** — kann später auf demselben
-  pgvector-Layer aufsetzen (ADR-217 o. ä.)
-- **Service-Boundary-Erweiterung** der Orchestrator-API — Discovery
-  liegt klar im Orchestrator-Scope (analog `agent_memory_*`)
+- **Feedback-Aggregation cross-Repo** — **explizites Nicht-Ziel** dieser ADR
+  (REC-13): keine Erfolgserwartung in Stage 1.5. Eine spätere Stage 1.6 braucht
+  eine **eigene** Datenschutz-/Governance-Prüfung (Stakeholder-Stimmen cross-org
+  ≠ Klickdummy-Metadaten) — nicht implizit „auf demselben Layer" mitlaufen lassen.
+- **Server-seitig** liegt Discovery im bestehenden Orchestrator-Scope (analog
+  `agent_memory_*`). **Klarstellung (AD-3):** *renderer-seitig* entsteht sehr wohl
+  eine **neue, runtime-relevante Kopplung** (Picker → Orchestrator-API über mehrere
+  Repos/Orgs). Deren Vertrag wird in §Amendment 1 (REC-4) verbindlich (API-Version,
+  Timeout, Error-Shape, Degradationsmodus).
 
 ## I1–I4 (Pattern bleibt unverändert)
 
@@ -161,6 +179,17 @@ DSFA-Ergebnis ebenfalls möglich — separate ADR.
 3. **Stage 2 sofort (iil.pet-Hosting)**: mehr Mehrwert, aber höhere
    Komplexität (Hosting, DNS, TLS, Backup, Service-Lifecycle). *Verschoben*:
    Stage 1.5 zuerst, A nachgelagert nach Empirie.
+4. **Git-native Discovery-Manifeste + Orchestrator-Pull statt Repo-Push**
+   (Review-Ansatz A): jedes Repo veröffentlicht ein signiertes
+   `klickdummy.discovery.json`; der Orchestrator pullt/crawlt diese periodisch.
+   Vorteil: kein Push-Token je Repo, stärkere Auditierbarkeit, klarere SSoT-Grenze.
+   Nachteil: Orchestrator braucht Repo-Lesezugriff + Polling/Rate-Limit-Handling.
+   *Offen gehalten*: ernsthaft als Härtung gegen Auth-/Audit-Lücken (REC-8/15) zu prüfen.
+5. **Registry-Ledger zuerst, pgvector nur als Derived View** (Review-Ansatz B):
+   append-only Tabelle (`repo`, `spec_id`, `commit_sha`, `spec_sha`, `adr`,
+   `pipeline_status`, `visibility_scope`, `last_seen`, `tombstone`); Embeddings sind
+   sekundäre Suchansicht. *Zielbild*: maximale SSoT-/Audit-Stärke (deckt REC-1/5/15).
+   Stage 1.5 darf klein starten, diese Ledger-Form aber **nicht verbauen**.
 
 ## Phase-A-Bauauftrag (heute, Iter. 23)
 
@@ -180,6 +209,74 @@ DSFA-Ergebnis ebenfalls möglich — separate ADR.
 - Semantische Test-Query: „Eskalation" liefert mind. 3 relevante
   Klickdummies aus mind. 2 Orgs.
 
+## Amendment 1 (2026-06-01) — Härtung vor Annahme
+
+Aus einer Review-Runde (externe Zweitmeinung via `/adr-handoff-extern` +
+interner Evidenz-Prüfung gegen den PoC-Code). Verdikte/IDs als Nachweis im
+Rückfluss-Protokoll. **Diese acht Punkte sind vor `accepted` verbindlich.**
+
+**1 · Registry = abgeleiteter Index, nicht zweite Wahrheit** (REC-1, REC-20 ←
+AD-1, AD-6, M28-1). Verbindlicher Leitsatz: *„Discovery steuert Auffindbarkeit,
+Ranking und Navigation, niemals Acceptance, Lifecycle-Status oder fachliche
+Wahrheit ohne Referenz auf Spec/ADR."* Provenance-Felder (`source_repo`,
+`source_ref`, `commit_sha`, `spec_sha256`, `generated_at`) machen jeden Eintrag
+rückführbar; Drift gegen `spec_sha256` ist erkennbar.
+
+**2 · Lifecycle: TTL / Tombstone / De-Registration** (REC-5 ← AD-4, AD-18, M28-5).
+`last_seen` ohne frischen Sync → Eintrag wird nach Frist als *stale* markiert,
+dann ausgeblendet; bei ADR-211-Off-Ramp/Sunset (I3) → `tombstone`. Verhindert,
+dass Discovery tote/archivierte/verschobene Klickdummies als Suchmüll hält.
+
+**3 · Runtime-Kopplung + API-Vertrag** (REC-4, REC-10, REC-12 ← AD-3, AD-13, AD-15,
+M28-7). Die Picker→Orchestrator-Abhängigkeit ist neu und runtime-relevant.
+Mindestvertrag: `api_version`, `registry_schema_version`, Timeout, Error-Shape,
+Cache-Verhalten, Degradationsmodus; Kompatibilitätsfenster bei Schema-Wechsel.
+Route-Semantik (`route_kind`, `base_url_profile`) statt nur `path_rel`.
+
+**4 · Sicherheit & Souveränität** (REC-6, REC-7, REC-8, REC-15 ← AD-7, AD-8, AD-9,
+AD-10, AD-20, AD-21, M28-4). `visibility_scope ∈ {repo, org, allowlist,
+public-demo}` mit erzwungenem Org-Filter (Public-Sector/Citizen-facing-Orgs
+können engere Sichtbarkeit brauchen als die Default-Org). Ingestion-Guard: nur
+`class: mock`-konforme, push-berechtigte Klickdummies; Embedding-Input
+(`embedding_text`) ist redigiert + auditierbar. **AuthZ-Policy** (Mechanismus —
+optionaler Bearer-Token — existiert bereits im PoC): Scope, Rotation,
+Secret-Speicherort, CI-Nutzung festschreiben. Audit-Trail pro Push.
+
+**5 · Sichtbarkeits-Governance** (REC-14 ← AD-17). „Erscheint automatisch nach
+Sync" verschiebt Governance auf den Push. Gegenmaßnahme: `discoverable: true`
+muss aus Spec/ADR/Repo-Konfig stammen — nicht allein durch technischen Push
+entstehen.
+
+**6 · Fallback härten** (REC-3 ← AD-2, AD-19, AD-23, M28-2). Der Picker fällt
+nicht auf manuell gepflegte `CROSS_REPO_INDEX`-Konstanten zurück (= konserviert
+genau die Drift, die Stage 1.5 abschafft), sondern auf den **zuletzt
+erfolgreichen, signierten Orchestrator-Snapshot**. Manuelle Konstanten nur noch
+temporär mit Ablaufdatum. *(pgvector-Backend bleibt gesetzt — ADR-113.)*
+
+**7 · Erfolgskriterien & Skalierung** (REC-9, REC-17, REC-19 ← AD-11, AD-12,
+M28-3, M28-8, M28-9). Statt Einzelquery eine **Search-Eval-Suite** (Fixture-Queries,
+erwartete Top-k, Precision-Minimum, Negativbeispiele); Skalentest mit 50–100
+Einträgen (Latenz, Suchqualität, Sync-Dauer); `embedding_model(_version)` +
+Reindex-Befehl für Modellwechsel.
+
+**8 · Filter/Taxonomie, Scope & Ist-Stand** (REC-13, REC-16, REC-18 ← AD-16,
+AD-24, AD-25, M28-6, M28-10). Pflichtfilter für Discovery-Ergebnisse: Org, Repo,
+Topic, UX-Genre, `class`, `pipeline_status`, Off-Ramp/Sunset-Status, Sichtbarkeit.
+Stage-2-kompatible Felder benennen (Hosting-URLs/TLS/DNS vs. heutige
+`path_rel`-Annahmen).
+
+### Reconciliation mit bestehender Consumer-Hälfte (eigene Evidenz-Prüfung)
+
+- **C-1:** Die **Query/Consumer-Seite existiert bereits** als Skill
+  `klickdummy-search` (semantische Cross-Repo-Suche via Orchestrator-pgvector,
+  read-only — ADR-211 Rev 14 Stufe-2-Konsument). ADR-215 (Push/Producer) und
+  `klickdummy-search` (Query) sind zwei Hälften desselben Layers; der Discovery-
+  API-Vertrag (Punkt 3) **muss** mit dem Such-Skill abgeglichen werden.
+- **C-2:** Der PoC `discovery_push.py` (v1.8.0) implementiert bereits `--dry-run`,
+  `push --to-orchestrator`, optionalen Bearer-Token, `sunset_after` und
+  `embedding_text`. Mehrere obige Punkte sind damit **teil-erfüllt** — die ADR
+  beschreibt den Soll-Zustand, nicht eine grüne Wiese.
+
 ## Provenance
 
 - 2026-05-21 (meiki-hub-Session Iter. 22): User-Frage „sind wir nun an der
@@ -189,3 +286,6 @@ DSFA-Ergebnis ebenfalls möglich — separate ADR.
   B als Stage 1.5 vorgeschlagen
 - User-Entscheidung: Schritte 1–4 ausführen, DSFA-Ergebnis nicht kritisch
 - Diese ADR ist Schritt 1.
+- 2026-06-01: PoC als `iil-klickdummy` v1.8.0 gemergt (inert). Review-Runde
+  (externe Zweitmeinung + interne PoC-Evidenz-Prüfung) → §Amendment 1; 18 belegte
+  Lücken eingearbeitet, Status bleibt `proposed` bis zur Abnahme der acht Punkte.
