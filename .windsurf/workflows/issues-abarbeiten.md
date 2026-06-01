@@ -41,9 +41,10 @@
    neu anlegen**.
 2. **Scope-Lock (ADR-081):** nur was die Aktion/das Issue benennt.
    Nebenbefunde → Folge-Issue, nicht mitfixen.
-3. **Branch-Hygiene:** Änderungen nie auf `main`; Branch off
-   `origin/main`; bei dirty/fremdem lokalen Checkout **git worktree**
-   statt `git checkout`.
+3. **Branch-Hygiene (ADR-233):** Änderungen nie auf `main`; **kein
+   `git switch`/`checkout` im geteilten Haupt-Tree** — editieren im eigenen
+   Worktree via `tools/repo-session.sh start <repo> --task <slug>` (Branch von
+   `origin/main` + Lease). Read-only-Analyse darf im Haupt-Tree bleiben.
 
 ## Phase 3: Stopp-Gates (HART — fragen, nicht handeln)
 

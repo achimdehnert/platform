@@ -10,6 +10,8 @@ default:
 - **Unsicherheit = KEEP:** wenn der Merge-Status nicht zweifelsfrei bestimmbar ist
   (kein `gh`, privater Fork, API-Fehler), wird der Worktree behalten, nie gereapt.
 - **Stale-but-unmerged** wird nur mit `--include-stale` entfernt (sonst nur gemeldet).
+  Stale-Entscheidung läuft primär über die **Lease** (repo-session.sh, `expires_at`,
+  ADR-233 §2.4); nur ohne/unparsebare Lease fällt sie auf Commit-mtime zurück.
 - Primärer Worktree und der aktuelle Worktree sind immer ausgenommen.
 - Jede Entfernung wird in ein **Restore-Manifest** (JSONL) geschrieben:
   `git worktree add <path> <branch>` stellt sie wieder her.
@@ -21,12 +23,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
 PROTECTED_BRANCHES = {"main", "master"}
+LEASE_DIR = Path(os.environ.get("REPO_SESSION_DIR", str(Path.home() / ".repo-session"))) / "leases"
 
 
 def _run(cmd: list[str], cwd: str | None = None) -> tuple[int, str]:
@@ -75,6 +79,32 @@ def commit_age_days(path: str) -> float | None:
     return age / 86400.0
 
 
+def lease_for(path: str) -> dict | None:
+    """Lease (repo-session.sh) für einen Worktree-Pfad finden, falls vorhanden."""
+    if not LEASE_DIR.is_dir():
+        return None
+    for f in LEASE_DIR.glob("*.json"):
+        try:
+            d = json.loads(f.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        if d.get("worktree") == path:
+            return d
+    return None
+
+
+def lease_expired(lease: dict) -> bool | None:
+    """True/False ob expires_at überschritten; None wenn nicht parsebar."""
+    exp = lease.get("expires_at")
+    if not exp:
+        return None
+    try:
+        ts = datetime.strptime(exp, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        return None
+    return datetime.now(timezone.utc) > ts
+
+
 def pr_state(branch: str, repo: str | None) -> str:
     """'merged' | 'open' | 'none' | 'unknown' (gh fehlt/Fehler → unknown = KEEP)."""
     if not branch:
@@ -119,9 +149,18 @@ def classify(wt: dict, primary: str, current: str, repo: str | None, stale_days:
         return "KEEP", "Merge-Status unbestimmbar → konservativ behalten"
     if state == "open":
         return "KEEP", "offener PR"
+    # Stale-Entscheidung: Lease primär (ADR-233 §2.4), mtime nur als Fallback.
+    lease = lease_for(path)
+    if lease is not None:
+        exp = lease_expired(lease)
+        if exp is True:
+            return "REAP_STALE", f"Lease abgelaufen ({lease.get('expires_at')}), kein PR"
+        if exp is False:
+            return "KEEP", f"Lease aktiv bis {lease.get('expires_at')}"
+        # exp is None → expires_at unparsebar, falle auf mtime zurück
     age = commit_age_days(path)
     if age is not None and age > stale_days:
-        return "REAP_STALE", f"unberührt seit {age:.0f}d, kein PR"
+        return "REAP_STALE", f"unberührt seit {age:.0f}d, kein PR (kein Lease)"
     return "KEEP", "aktiv / kein Reap-Kriterium"
 
 

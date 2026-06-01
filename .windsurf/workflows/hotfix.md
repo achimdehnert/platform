@@ -65,12 +65,17 @@ Zeigt die letzten Commits — verdächtigen Commit identifizieren.
 // turbo
 ```bash
 set -euo pipefail
-git checkout main
-git pull --rebase origin main
-git checkout -b hotfix/$(date +%Y%m%d)-BESCHREIBUNG
+# ADR-233: KEIN Branch-Switch im geteilten Haupt-Tree — eigener Worktree von origin/main.
+REPO=$(git rev-parse --show-toplevel)
+git -C "$REPO" fetch origin main -q
+BR="hotfix/$(date +%Y%m%d)-BESCHREIBUNG"
+WT="/tmp/$(basename "$REPO")-${BR//\//-}"
+git -C "$REPO" worktree add "$WT" -b "$BR" origin/main
+cd "$WT"
 ```
 
-Beispiel: `hotfix/20260226-books-500-error`
+Beispiel: `hotfix/20260226-books-500-error` · Worktree nach Merge per
+`tools/worktree-reaper.py` aufräumen (squash-aware, Dirty-Guard).
 
 ---
 
