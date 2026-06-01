@@ -5,10 +5,16 @@ amended: 2026-06-01
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
-implementation_status: partial
+implementation_status: implemented
 implementation_evidence:
-  - "Base pipeline (Option 2+3, §2.1–2.16) implemented since 2026-02, in production on the Hetzner VM."
-  - "Amendment §2.17–2.20 (deploy-bundle contract / ownership labels / prod project-name pin / single enforced path): accepted 2026-06-01, NOT yet implemented — tracked in §5 Priority-0 Amendment 2026-06-01 (source: KONZ-platform-001)."
+  - "Base pipeline (Option 2+3, §2.1–2.16): implemented since 2026-02, in production on the Hetzner VM."
+  - "§2.17 fail-loud (platform #391, main f29590a, 2026-06-01): _deploy-unified.yml hard-fails on absent docker-compose.prod.yml."
+  - "§2.17 atomic sync + compose_sha verify (platform #399, main 891c803, 2026-06-01): CI writes .deploy-manifest.json; deploy.sh verifies sha256 before compose up (fail-closed)."
+  - "§2.18 ownership labels (platform #395, main 0de5934, 2026-06-01): deploy.sh stamps iil.* labels on all containers."
+  - "§2.19 prod COMPOSE_PROJECT_NAME pin (platform #398, main 0e979a5, 2026-06-01): explicit pin matches pre-existing implicit value (verified via docker compose ls on prod)."
+  - "§2.20 intent-token + break-glass (platform #399, main 891c803, 2026-06-01): prod deploys require CI manifest; manual deploys need --break-glass with audit log."
+  - "deploy.sh synced to /opt/scripts/deploy.sh on prod 88.198.191.108 (2026-06-01, md5 fc4da539)."
+  - "Deferred (§5 backlog, not part of accepted amendment): atomic host-state reconcile / retire-tombstones (§2.20 REC-5)."
 ---
 
 # Adopt unified single-service deployment pipeline for all platform projects
