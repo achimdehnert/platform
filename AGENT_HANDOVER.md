@@ -3,7 +3,17 @@
 **Pflicht-Lektüre beim Session-Start jedes Coding-Agents.**
 Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referenz.
 
-> **Stand: April 2026** — Symlink-basiertes Rules-System, 41 Repos, 7 MCP-Server
+> **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
+
+## 0. Aktuelle Prioritäten (2026-06-01)
+
+| Prio | Task | Tier |
+|---|---|---|
+| 1 | **F4 CI-grün-Programm** — 34/57 Repos rote main-CI; Ruff-Lint + Config-Drift + Dep-Fix | `[Sonnet]` |
+| 2 | **ADR-212 Phase-1 Rollout** — 5 PRs in-progress (dev-hub#56, billing-hub#3, coach-hub#23, pptx-hub#22, trading-hub#4) | `[Sonnet]` |
+| 3 | **F1 .windsurf-Untrack** — CI-Distributor abgeschaltet (PR #364), 1× Cleanup-Sweep ausstehend | `[Sonnet]` |
+
+**CC-Skill-Dist** (platform): `doctor.py` DRIFT-SCORE 0 ✓ (74 Skills, 2026-06-01)
 
 ---
 
@@ -19,14 +29,13 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 | `mcp5_` | **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
 | `mcp6_` | **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
 
-**Wichtigste Tool-Calls:**
-- SSH/Server: `mcp0_ssh_manage(host, command)`
-- Docker: `mcp0_docker_manage(action, repo)`
-- GitHub: `mcp1_create_issue`, `mcp1_get_pull_request`
-- Memory: `mcp2_agent_memory_context(task_description, top_k=5)`
-- Wiki: `mcp3_search_knowledge(query, limit=10)`
-- Architektur: `mcp5_get_context_for_task(repo, file_type)`
-- Deploy-Status: `mcp2_deploy_check(action="health", repo=...)`
+**Wichtigste Tool-Calls (Claude Code — `mcp__<server>__<tool>` Format):**
+- GitHub: `mcp__github__create_issue`, `mcp__github__get_pull_request`
+- Memory: `mcp__orchestrator__agent_memory_context(task_description, top_k=5)`
+- Deploy-Status: `mcp__orchestrator__deploy_check(action="health", repo=...)`
+- Browser: `mcp__playwright__browser_navigate`, `mcp__playwright__browser_snapshot`
+
+> Windsurf-Agents nutzen `mcp0_`–`mcp6_`-Prefixe — aber Windsurf wird seit ADR-230 nicht mehr zum Coden eingesetzt (nur ADR-Review-Subset).
 
 ---
 
@@ -43,7 +52,7 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 - **NIEMALS** `ping` für Server-Check — Hetzner blockiert ICMP. TCP-Check stattdessen.
 
 **Secrets:**
-- Lokal: `/home/devuser/shared/secrets/` (31 Dateien: openai_api_key, groq_api_key, ...)
+- Lokal: `~/.secrets/` (einzige Location seit 2026-05-30 — `~/shared/secrets/` konsolidiert + leer)
 - Server: `/opt/shared-secrets/api-keys.env` (chmod 600, root-only)
 - Repo-spezifisch: `.env.prod` (nie in Git)
 
@@ -91,24 +100,23 @@ python3 ~/github/platform/scripts/gen_project_facts.py risk-hub
 
 ---
 
-## 5. Windsurf Rules — Global (9 Dateien)
+## 5. CC-Skills & Windsurf Rules
 
-Alle in `platform/.windsurf/rules/` → via Symlinks in alle 40 Repos:
-
-```
-mcp-tools.md          # MCP-Server mcp0_–mcp6_ Referenz
-reviewer.md           # Code-Review Standards, verbotene Patterns
-platform-principles.md # Architektur-Vertrag (Service Layer, DB-First, HTMX)
-iil-packages.md       # aifw, promptfw, authoringfw, weltenfw, nl2cadfw
-testing.md            # test_should_*, pytest, Factory Boy
-django-models-views.md # Service Layer, ORM-Regeln
-docker-deployment.md  # Docker, Compose, Deploy, env_file
-htmx-templates.md     # hx-target, hx-indicator, data-testid
-project-facts.md      # Repo-spezifisch (generiert)
+**CC-Skills (primär, ADR-230):** Quelle `platform/.windsurf/workflows/` → verteilt nach `~/.claude/commands/` via `cc-skill-dist`:
+```bash
+python3 ~/github/platform/tools/cc-skill-dist/generate.py --target ~/.claude/commands --allow-live
+python3 ~/github/platform/tools/cc-skill-dist/doctor.py   # Drift-Check
 ```
 
-Rules verteilen: `GITHUB_DIR=~/github bash ~/github/platform/scripts/sync-workflows.sh`
-Rules neu generieren: `python3 ~/github/platform/scripts/gen_project_facts.py --force`
+**Windsurf Rules** (nur ADR/Review-Subset, kein Coding mehr seit ADR-230):
+- Quelle: `platform/.windsurf/rules/` + `platform/.windsurf/workflows/` (tool_targets: windsurf-review)
+- Verteilen: `python3 tools/cc-skill-dist/windsurf-subset.py`
+
+**project-facts.md** (repo-spezifisch, generiert):
+```bash
+python3 ~/github/platform/scripts/gen_project_facts.py          # nur fehlende
+python3 ~/github/platform/scripts/gen_project_facts.py --force  # alle
+```
 
 ---
 
