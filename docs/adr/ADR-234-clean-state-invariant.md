@@ -312,3 +312,11 @@ respektierte die „nicht neu aufrollen"-Liste.
   Fail) verhindert Divergenz. Sicherheits-Vorabcheck: **0 Text-grep-Konsumenten** (alle 25 yaml-parsen;
   klickdummy-host-`repos.yaml` ist ein anderes File) → semantisch verlustfrei. **Offen:** Konsumenten
   schrittweise auf `canonical.yaml` umziehen, dann Views retiren.
+- **2026-06-01:** **P0 effektiv abgeschlossen.** Befund: **kein** Konsument liest beide Registries
+  (8 nur flach, 10 nur reich) → eine Migration auf canonicals verschachteltes Schema wäre rein
+  kosmetisch + netto-negativ (Mehr-Komplexität, kein funktionaler Gewinn). **Entscheidung: die
+  generierten Views sind der legitime, divergenzsichere End-Zustand** (Read-API); bestehende Konsumenten
+  bleiben unverändert. Für *neuen* Code: `tools/registry_api.py` (`flat()`/`rich()`/`repos()`/`repo()`,
+  liest canonical; die Projektion-Logik `gen_flat`/`gen_rich` lebt dort und wird von der CLI/dem
+  Drift-Gate importiert → eine Implementierung). View-Retire ist damit **nicht** erforderlich. Die
+  Dual-SSoT (P0-Kernproblem) ist aufgelöst.
