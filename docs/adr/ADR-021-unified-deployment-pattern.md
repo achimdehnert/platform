@@ -1,7 +1,7 @@
 ---
 status: "accepted"
 date: 2026-02-10
-amended: 2026-02-22
+amended: 2026-06-01
 decision-makers: [Achim Dehnert]
 consulted: []
 informed: []
@@ -495,6 +495,18 @@ Every container created by `deploy.sh` MUST carry labels: `iil.repo`, `iil.servi
 - [ ] coach-hub: Nginx config + SSL for `kiohnerisiko.de`
 - [ ] coach-hub: CI/CD pipeline setup (`ci-cd.yml`)
 - [ ] coach-hub: Register in Windsurf `/deploy` workflow
+
+### Priority 0 — Amendment 2026-06-01 (new — Verified Deploy-Bundle Contract)
+
+> v1 spine first (§2.17 + §2.18 + §2.19); §2.20 host-intent-token follows. Source: KONZ-platform-001.
+
+- [ ] **Migration sweep (gate for fail-loud, §2.17):** add an explicit `docker-compose.prod.yml` to every prod-deploying repo, OR decide per-repo that the bare `docker-compose.yml` stays a permitted, synced prod source. mcp-hub first (it has none → triggered the Discord-Bot incident).
+- [ ] `_deploy-unified.yml`: replace the silent `if hashFiles('docker-compose.prod.yml')` skip with fail-loud when the required env compose is absent (§2.17)
+- [ ] `_deploy-unified.yml` + `deploy.sh`: one shared compose-resolution; atomic sync (temp → sha256 verify → rename) (§2.17)
+- [ ] `deploy.sh`: fail-closed host verify — on-host compose `sha256` must equal the CI bundle's `compose_sha` before `docker compose up` (§2.17)
+- [ ] `deploy.sh`: stamp ownership labels `iil.{repo,service,environment,commit_sha,compose_sha,deploy_run_id,deployed_at}` on every container (§2.18)
+- [ ] `deploy.sh`: pin `COMPOSE_PROJECT_NAME` for **prod** (currently staging-only) + fail on project-name mismatch (§2.19)
+- [ ] §2.20 (follow-up): host-side deploy-intent token + `--break-glass`; broadened `docker inspect` state safety-net
 
 ### Priority 1 — Functional gaps
 
