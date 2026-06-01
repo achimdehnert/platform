@@ -38,6 +38,9 @@ TEST_PG_BLOCK = """\
 # Reconstructing that by hand is error-prone — use `make test`, never raw pytest.
 TEST_PG_NAME := $(notdir $(CURDIR))-make-test-pg
 TEST_PG_PORT := 5432
+# Self-sufficient pytest lookup: prefer repo venv, fall back to module run.
+# Avoids depending on a $(VENV_BIN)/$(PYTHON) convention that differs per repo.
+TEST_PYTEST := $(shell [ -x .venv/bin/pytest ] && echo .venv/bin/pytest || echo "python3 -m pytest")
 test: test-pg
 test-pg:
 	@docker rm -f $(TEST_PG_NAME) >/dev/null 2>&1 || true
@@ -52,7 +55,9 @@ test-pg:
 		SECRET_KEY="make-test-key-not-insecure-0123456789abcdef" \\
 		POSTGRES_USER=test_user POSTGRES_PASSWORD=test_pass POSTGRES_DB=test_db \\
 		POSTGRES_HOST=localhost POSTGRES_PORT=$(TEST_PG_PORT) \\
-		$(VENV_BIN)/pytest $(if $(K),-k "$(K)",) $(if $(ARGS),$(ARGS),-q)
+		TEST_DB_USER=test_user TEST_DB_PASSWORD=test_pass TEST_DB_NAME=test_db \\
+		TEST_DB_HOST=localhost TEST_DB_PORT=$(TEST_PG_PORT) \\
+		$(TEST_PYTEST) $(if $(K),-k "$(K)",) $(if $(ARGS),$(ARGS),-q)
 # --- end injected block ---
 """
 
@@ -78,27 +83,18 @@ def classify(repo: Path) -> str:
     return "package"
 
 
-def needs_venv_bin(text: str) -> bool:
-    """The block references $(VENV_BIN); ensure the Makefile defines it."""
-    return "VENV_BIN" not in text
-
-
 def patch(repo: Path, write: bool) -> str:
     mk = repo / "Makefile"
     text = mk.read_text(encoding="utf-8", errors="replace")
 
-    # Replace the existing bare `test:` recipe with our block.
-    # Match `test:` and its indented recipe lines.
+    # Replace the existing bare `test:` recipe with our block. The block is
+    # self-sufficient (TEST_PYTEST auto-detects venv vs module run), so no
+    # external $(VENV_BIN)/$(PYTHON) convention is required.
     pat = re.compile(r"^test:.*?(?=\n[^\t\n]|\Z)", re.S | re.M)
     if not pat.search(text):
         return "no-test-target-found"
 
     new_text = pat.sub(TEST_PG_BLOCK.rstrip(), text, count=1)
-    if needs_venv_bin(new_text):
-        # prepend a VENV_BIN default near the top (after first line)
-        new_text = new_text.replace(
-            "\n", "\nVENV_BIN ?= .venv/bin\n", 1
-        )
     if not write:
         return "DRY-RUN: would patch (use --write)"
     mk.write_text(new_text, encoding="utf-8")
