@@ -49,6 +49,25 @@ if [[ "$ENVIRONMENT" == "staging" ]]; then
   export COMPOSE_PROJECT_NAME="staging-${APP_NAME}"
 fi
 
+# ADR-021 §2.18 — Container Ownership Labels. Generate an override that stamps
+# every service with iil.* provenance labels so audits/health key on labels,
+# not container-name guessing (the name-only heuristic hid the orphaned
+# Discord-Bot). Best-effort: on any failure we deploy without labels rather
+# than break the deploy.
+LABEL_ARGS=()
+cd "$APP_PATH"
+if _svcs=$(docker compose -f "$COMPOSE_FILE" config --services 2>/dev/null); then
+  _lf="$APP_PATH/.deploy-labels.override.yml"
+  {
+    echo "services:"
+    for _s in $_svcs; do
+      printf '  %s:\n    labels:\n' "$_s"
+      printf '      iil.repo: "%s"\n      iil.service: "%s"\n      iil.environment: "%s"\n      iil.image_tag: "%s"\n      iil.deployed_at: "%s"\n' \
+        "$APP_NAME" "$_s" "$ENVIRONMENT" "$IMAGE_TAG" "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    done
+  } > "$_lf" && LABEL_ARGS=(-f "$_lf")
+fi
+
 # Rollback-Funktion
 rollback() {
   local ec=$?
@@ -56,7 +75,7 @@ rollback() {
     echo "❌ Deploy fehlgeschlagen (exit $ec) — Rollback auf $PREVIOUS_TAG"
     cd "$APP_PATH"
     export IMAGE_TAG="$PREVIOUS_TAG"
-    docker compose -f "$COMPOSE_FILE" up -d --force-recreate 2>&1 || {
+    docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate 2>&1 || {
       echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG docker compose -f $COMPOSE_FILE up -d" >&2
       exit 10
     }
@@ -102,7 +121,7 @@ if [[ "$ENVIRONMENT" == "staging" ]]; then
 fi
 
 docker compose -f "$COMPOSE_FILE" pull
-docker compose -f "$COMPOSE_FILE" up -d --force-recreate --remove-orphans
+docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate --remove-orphans
 
 # Health-Check
 # Staging: derive local URL from the WEB service's host-port mapping.
