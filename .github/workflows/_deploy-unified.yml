@@ -246,42 +246,68 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      # ADR-021 §2.17 (Verified Deploy-Bundle Contract) — fail-loud, no silent
-      # fallback. A prod deploy REQUIRES docker-compose.prod.yml in the repo; if
-      # it is absent we must NOT proceed against whatever (possibly stale) compose
-      # sits on the host. That silent fallback is how a repo-removed service kept
-      # running on prod (the Discord-Bot crash-loop, 2026-06). The migration sweep
-      # is complete — every prod-deploying repo has docker-compose.prod.yml — so
-      # this gate fails only genuine misconfigurations.
-      - name: Assert prod compose present (ADR-021 §2.17 fail-loud)
-        run: |
-          if [ ! -f docker-compose.prod.yml ]; then
-            echo "::error title=ADR-021 §2.17::docker-compose.prod.yml is required for a production deploy but is absent. Refusing to deploy against the host's existing (possibly stale) compose. Add docker-compose.prod.yml to the repo."
-            exit 1
-          fi
-          echo "✅ docker-compose.prod.yml present — sync will run."
-
-      # Sync production compose file from the consuming repo to the host.
-      # Self-hosted runners run on the prod server itself — direct cp works.
-      # Without this step deploy.sh works against a stale compose file
-      # (e.g. wrong image path after a path-refactor in the repo).
-      - name: Sync docker-compose.prod.yml to app path (self-hosted)
-        if: ${{ !startsWith(inputs.runs_on, 'ubuntu') && hashFiles('docker-compose.prod.yml') != '' }}
+      # ADR-021 §2.17 — fail-loud + atomic sync + compose_sha verify.
+      # ADR-021 §2.20 — deploy-intent manifest (Intent-Token).
+      #
+      # 1. Assert docker-compose.prod.yml present (fail-loud — no silent fallback).
+      # 2. Compute SHA-256 of the compose file.
+      # 3. Write .deploy-manifest.json: commit + run_id + compose_sha + timestamp.
+      #    deploy.sh reads this manifest as the CI Intent-Token (§2.20) and verifies
+      #    the on-host sha256 matches before running `docker compose up` (§2.17).
+      # 4. Atomic sync: copy compose to temp path, verify sha, rename atomically.
+      - name: Assert compose + write manifest + atomic sync (ADR-021 §2.17/§2.20)
+        id: compose_sync
         run: |
           set -euo pipefail
-          cp docker-compose.prod.yml "${{ inputs.app_path }}/docker-compose.prod.yml"
-          echo "✅ Compose file synced to ${{ inputs.app_path }}/docker-compose.prod.yml"
 
-      - name: Sync docker-compose.prod.yml to host (remote runner)
-        if: startsWith(inputs.runs_on, 'ubuntu') && hashFiles('docker-compose.prod.yml') != ''
+          # §2.17 fail-loud
+          if [ ! -f docker-compose.prod.yml ]; then
+            echo "::error title=ADR-021 §2.17::docker-compose.prod.yml absent — refusing to deploy against stale host compose."
+            exit 1
+          fi
+
+          # compute sha256
+          COMPOSE_SHA=$(sha256sum docker-compose.prod.yml | awk '{print $1}')
+          echo "compose_sha=${COMPOSE_SHA}" >> "$GITHUB_OUTPUT"
+          echo "✅ compose sha256: ${COMPOSE_SHA}"
+
+          # write intent manifest (§2.20)
+          cat > .deploy-manifest.json <<JSON
+          {
+            "app":         "${{ inputs.app_name }}",
+            "commit":      "${{ github.sha }}",
+            "run_id":      "${{ github.run_id }}",
+            "compose_sha": "${COMPOSE_SHA}",
+            "written_at":  "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          }
+          JSON
+
+          # atomic sync — self-hosted runner runs ON the prod server
+          if [ "${{ inputs.runs_on }}" != "ubuntu-latest" ]; then
+            TMP="${{ inputs.app_path }}/docker-compose.prod.yml.tmp$$"
+            cp docker-compose.prod.yml "$TMP"
+            # verify copy is intact before rename
+            COPY_SHA=$(sha256sum "$TMP" | awk '{print $1}')
+            if [ "$COPY_SHA" != "$COMPOSE_SHA" ]; then
+              rm -f "$TMP"
+              echo "::error::sha256 mismatch after copy (corrupt transfer)"
+              exit 1
+            fi
+            mv -f "$TMP" "${{ inputs.app_path }}/docker-compose.prod.yml"
+            cp .deploy-manifest.json "${{ inputs.app_path }}/.deploy-manifest.json"
+            echo "✅ atomic sync complete (self-hosted)"
+          fi
+
+      - name: Sync compose + manifest to host (remote runner)
+        if: startsWith(inputs.runs_on, 'ubuntu')
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ secrets.DEPLOY_HOST }}
           username: ${{ secrets.DEPLOY_USER }}
           key: ${{ secrets.DEPLOY_SSH_KEY }}
           fingerprint: ${{ secrets.DEPLOY_SSH_FINGERPRINT }}
-          source: "docker-compose.prod.yml"
-          target: "${{ inputs.app_path }}/docker-compose.prod.yml"
+          source: "docker-compose.prod.yml,.deploy-manifest.json"
+          target: "${{ inputs.app_path }}/"
           overwrite: true
 
       - name: Deploy to production (direct — self-hosted runner)
