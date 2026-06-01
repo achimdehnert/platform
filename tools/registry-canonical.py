@@ -150,9 +150,43 @@ def _diff(a, b, path=""):
         print(f"  ≠ {path}: orig={a!r} gen={b!r}")
 
 
+GEN_NOTICE = (
+    "# ╔══════════════════════════════════════════════════════════════════════╗\n"
+    "# ║  GENERATED — NICHT VON HAND EDITIEREN (ADR-234 P0).                    ║\n"
+    "# ║  Kanonische Quelle: registry/canonical.yaml                           ║\n"
+    "# ║  Regenerieren:  python3 tools/registry-canonical.py flip               ║\n"
+    "# ║  CI-Drift-Gate (registry-consistency.yml) failt bei Divergenz.        ║\n"
+    "# ╚══════════════════════════════════════════════════════════════════════╝\n"
+)
+
+
+def _leading_comments(path: Path) -> str:
+    """Führenden Kommentarblock (Zeilen bis zum ersten Daten-Key) verbatim zurückgeben."""
+    out = []
+    for line in path.read_text().splitlines():
+        s = line.lstrip()
+        if s.startswith("#") or s == "":
+            out.append(line)
+        else:
+            break
+    return "\n".join(out).rstrip() + "\n" if out else ""
+
+
+def flip(canon: dict) -> int:
+    """Schreibt BEIDE Altdateien als generierte Views aus canonical (ADR-234 P0 Flip).
+    Erhält den wertvollen Schema-Doc-Header der reichen Datei verbatim; die flache
+    bekommt nur den GENERATED-Header (ihr alter 'auto-detection'-Header wäre nach Flip
+    irreführend). Danach muss `verify` weiterhin grün sein (semantisch)."""
+    rich_header = _leading_comments(RICH)   # 47 Zeilen Schema-Docs — verbatim erhalten
+    FLAT.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_flat(canon), sort_keys=False, allow_unicode=True, width=100))
+    RICH.write_text(GEN_NOTICE + "\n" + rich_header + "\n" + yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
+    print(f"✅ geflippt: {FLAT.relative_to(ROOT)} (frischer GEN-Header) + {RICH.relative_to(ROOT)} (Schema-Docs erhalten).")
+    return verify(canon)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Union-Canonical-Registry (ADR-234 P0 Schritt 1).")
-    ap.add_argument("cmd", choices=["build", "gen-flat", "gen-rich", "verify"])
+    ap.add_argument("cmd", choices=["build", "gen-flat", "gen-rich", "verify", "flip"])
     args = ap.parse_args()
 
     if args.cmd == "build":
@@ -174,6 +208,8 @@ def main() -> int:
         print(yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
     elif args.cmd == "verify":
         return verify(canon)
+    elif args.cmd == "flip":
+        return flip(canon)
     return 0
 
 

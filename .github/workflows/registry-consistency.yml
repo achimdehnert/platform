@@ -33,7 +33,13 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install pyyaml --quiet
-      - name: Konsistenz-Check
+      - name: Konsistenz-Check (informational)
         run: |
           python3 tools/registry-consistency-check.py \
             ${{ inputs.strict && '--strict' || '' }}
+      - name: Drift-Gate — Views == canonical (HARTES GATE, ADR-234 P0 Flip)
+        run: |
+          # Nach dem Flip sind beide Altdateien generiert. Dieser Schritt FAILT,
+          # wenn jemand eine View von Hand editiert oder canonical.yaml ändert
+          # ohne `flip` neu laufen zu lassen (committet ≠ generiert).
+          python3 tools/registry-canonical.py verify
