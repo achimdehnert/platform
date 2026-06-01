@@ -224,6 +224,7 @@
 | 227 | Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT | `Proposed` | ⬜ | [ADR-227](ADR-227-klickdummy-feedback-bridge.md) |
 | 228 | Amendment: Merge-time ADR number allocation (amends ADR-065) | `Accepted` | ⬜ | [ADR-228](ADR-228-amendment-merge-time-adr-number-allocation.md) |
 | 231 | dev-hub 2.0 — Entkernung zu Thin BFF + Catalog-Service (Read-Projektionen statt geforkter Tabellen) | `Accepted` | ⬜ | [ADR-231](ADR-231-devhub-thin-bff-catalog-service.md) |
+| 233 | Parallel-Session-Worktree-Konvention — Isolation von Integration entkoppeln | `Proposed` | ⬜ | [ADR-233](ADR-233-parallel-session-worktree-convention.md) |
 | 234 | Sauberer Repo-Zustand (Staging & Prod) als erzwungene Invariante statt laufendem Reparatur-Task | `Proposed` | ⬜ | [ADR-234](ADR-234-clean-state-invariant.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
