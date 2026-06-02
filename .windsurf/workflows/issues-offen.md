@@ -125,24 +125,28 @@ mode: write
 
 ## Phase 4: Report (immer, am Ende)
 
-Single-Repo:
-```
-/issues-offen <owner>/<repo> — <datum>
-DONE:    #<n> <titel> → PR #<p>   (xN)
-STOP:    #<n> <titel> — <grund: ADR/Infra/P1/Scope>   (xM)
-SKIP:    #<n> <titel> — <grund>   (xK)
-Cap erreicht: <ja/nein>  | Nächster Lauf nimmt den Rest.
-```
+> **Strukturierte Tabelle** für Sofort-Überblick — eine Zeile pro Issue, keine
+> rohen Befehls-/Log-Dumps. `Status` ∈ {DONE, STOP, SKIP}, `Risiko` als Ampel
+> (🟢/🟡/🔴), `Inhalt` = Issue-Titel knapp, `Next` = Folgeaktion/Grund kurz.
+> Details (falls nötig) als kurze Prosa **unter** der Tabelle, nicht in der Zelle.
 
-Cross-Repo (`org:<org>`): pro Repo gruppiert + Summenzeile:
-```
-/issues-offen org:<org> — <datum>  (Repos gescannt: R/總, Issues bearbeitet: X)
-<repo-a>:  DONE #12 → PR #34 · STOP #13 (Infra)
-<repo-b>:  DONE #4  → PR #5
-SOVEREIGN-SKIP: ttz-lif/* , meiki-lra/*   (nicht ohne explizites org:-Targeting)
-Repo-Cap (8) erreicht: <ja/nein> · Issue-Cap (5) erreicht: <ja/nein>
-Noch offen (nächster Lauf): <repos/issues, die wegen Cap übrig blieben>
-```
+**Single-Repo** — Kopfzeile `/issues-offen <owner>/<repo> — <datum> · Cap erreicht: <ja/nein>`:
+
+| Issue | Status | PR | Risiko | Inhalt | Next |
+|---|---|---|---|---|---|
+| #\<n\> | DONE | #\<p\> | 🟢 | \<titel\> | — |
+| #\<n\> | STOP | — | 🔴 | \<titel\> | \<grund: ADR/Infra/P1/Scope\> |
+| #\<n\> | SKIP | — | — | \<titel\> | \<grund\> |
+
+**Cross-Repo** (`org:<org>`) — Kopfzeile mit Summen (`Repos gescannt: R · Issues bearbeitet: X · Repo-Cap(8): <j/n> · Issue-Cap(5): <j/n>`); zusätzliche `Repo`-Spalte:
+
+| Repo | Issue | Status | PR | Risiko | Inhalt | Next |
+|---|---|---|---|---|---|---|
+| \<repo-a\> | #12 | DONE | #34 | 🟢 | \<titel\> | — |
+| \<repo-a\> | #13 | STOP | — | 🔴 | \<titel\> | Infra |
+| ttz-lif/* | — | SOVEREIGN-SKIP | — | — | Souveränitäts-Gate | nur mit explizitem `org:`-Targeting |
+
+Unter der Tabelle eine Zeile: `Noch offen (nächster Lauf): <was wegen Cap übrig blieb>`.
 
 ## Anti-Patterns
 
@@ -171,3 +175,6 @@ Noch offen (nächster Lauf): <repos/issues, die wegen Cap übrig blieben>
   `project-facts.md`** lesen statt pro Lauf via `gh repo view` neu herleiten; API-Call
   nur noch Fallback. Spart den Kontext-Neuaufbau bei Multi-Repo-/Multi-Lauf-Nutzung.
   Volatile Issue-Liste (Phase 1) bleibt explizit live — kein Snapshot-Cache (Staleness).
+- 2026-06-02: Phase-4-Report auf **strukturierte Tabelle** umgestellt (Issue/Status/PR/
+  Risiko/Inhalt/Next; Cross-Repo mit Repo-Spalte) statt Plain-Text-Liste — Sofort-Überblick,
+  keine rohen Bash-/Log-Dumps. Reine Darstellungsänderung; Verhalten/Caps/Gates unverändert.
