@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-05-29
-> **Next free ADR number:** 229
+> **Last updated:** 2026-06-02
+> **Next free ADR number:** 236
 
 ## Legend
 
@@ -226,6 +226,7 @@
 | 231 | dev-hub 2.0 — Entkernung zu Thin BFF + Catalog-Service (Read-Projektionen statt geforkter Tabellen) | `Accepted` | ⬜ | [ADR-231](ADR-231-devhub-thin-bff-catalog-service.md) |
 | 233 | Parallel-Session-Worktree-Konvention — Isolation von Integration entkoppeln | `Proposed` | ⬜ | [ADR-233](ADR-233-parallel-session-worktree-convention.md) |
 | 234 | Sauberer Repo-Zustand (Staging & Prod) als erzwungene Invariante statt laufendem Reparatur-Task | `Proposed` | ⬜ | [ADR-234](ADR-234-clean-state-invariant.md) |
+| 235 | Org-weite Secret-Prevention-Posture — bindender Gate am Push-Rand (native Push-Protection) mit CI-gitleaks-Fallback | `Proposed` | 🔶 | [ADR-235](ADR-235-org-secret-prevention-posture.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
