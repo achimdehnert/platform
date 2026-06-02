@@ -134,7 +134,55 @@ def eval_cond(cond: str, ctx: dict) -> bool:
         return False
     return False
 
+def check_min_inhalt_rule(rule: dict, path: pathlib.Path) -> str | None:
+    """Return error string or None if rule passes. Returns None if file missing."""
+    if not path.is_file():
+        return None  # existence already checked separately
+    try:
+        text = path.read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return f"unreadable"
+    rule_type = rule.get("type", "")
+    if rule_type == "heading_count":
+        count = sum(1 for ln in text.splitlines() if ln.startswith("## ") or ln.startswith("### "))
+        mn = int(rule.get("min", 1))
+        return None if count >= mn else f"heading_count={count}<{mn}"
+    if rule_type == "table_rows":
+        rows = [ln for ln in text.splitlines()
+                if ln.strip().startswith("|") and not set(ln.replace("|","").replace("-","").replace(" ","")) == set()]
+        # subtract header row (first |…| line)
+        data_rows = max(0, len(rows) - 1)
+        mn = int(rule.get("min", 1))
+        return None if data_rows >= mn else f"table_rows={data_rows}<{mn}"
+    if rule_type == "lines":
+        count = sum(1 for ln in text.splitlines() if ln.strip())
+        mn = int(rule.get("min", 1))
+        return None if count >= mn else f"lines={count}<{mn}"
+    if rule_type == "frontmatter_status":
+        # Check YAML frontmatter (--- ... ---) for status field
+        required_val = rule.get("required_value", "ready")
+        lines = text.splitlines()
+        if lines and lines[0].strip() == "---":
+            fm_lines = []
+            for ln in lines[1:]:
+                if ln.strip() == "---":
+                    break
+                fm_lines.append(ln)
+            try:
+                import yaml as _yaml
+                fm = _yaml.safe_load("\n".join(fm_lines)) or {}
+                actual = fm.get("status", "")
+                if actual != required_val:
+                    return f"status={repr(actual)!s}!={repr(required_val)}"
+                return None
+            except Exception:
+                return "frontmatter-parse-error"
+        return f"no-frontmatter (need status:{required_val})"
+    return None  # unknown rule type → skip
+
 missing = []
+content_fails = []
+
 for tier, req in pflicht.items():
     if isinstance(req, dict):
         status = req.get("status", "required")
@@ -164,9 +212,22 @@ for tier, req in pflicht.items():
     else:
         if not full.is_file():
             missing.append(tier)
+        else:
+            # Inhalt-Verifikation via min_inhalt_rule (ADR-218 OQ-1, Rev 2)
+            rule = tdef.get("min_inhalt_rule")
+            if rule and isinstance(rule, dict):
+                err = check_min_inhalt_rule(rule, full)
+                if err:
+                    content_fails.append(f"{tier}:{err}")
 
-if missing:
-    print(f"FAIL:missing-tiers:{profile_name}:{','.join(missing)}")
+all_fails = missing + content_fails
+if all_fails:
+    if missing and content_fails:
+        print(f"FAIL:missing-and-content:{profile_name}:{','.join(missing)}|content:{','.join(content_fails)}")
+    elif missing:
+        print(f"FAIL:missing-tiers:{profile_name}:{','.join(missing)}")
+    else:
+        print(f"FAIL:content-check:{profile_name}::{','.join(content_fails)}")
 else:
     print(f"OK::{profile_name}:")
 PY
@@ -198,6 +259,14 @@ PY
           mshow="$miss"
           if [[ ${#mshow} -gt 18 ]]; then mshow="${mshow:0:15}…"; fi
           printf '%-22s %-14s %-20s %s\n' "$repo" "$profile" "$mshow" "FAIL: $miss"
+          ;;
+        content-check)
+          cshow="${miss:0:18}"
+          if [[ ${#miss} -gt 18 ]]; then cshow="${cshow}…"; fi
+          printf '%-22s %-14s %-20s %s\n' "$repo" "$profile" "$cshow" "FAIL(inhalt): $miss"
+          ;;
+        missing-and-content)
+          printf '%-22s %-14s %-20s %s\n' "$repo" "$profile" "—" "FAIL(missing+inhalt): $miss"
           ;;
         *)
           printf '%-22s %-14s %-20s %s\n' "$repo" "—" "—" "FAIL: $reason"

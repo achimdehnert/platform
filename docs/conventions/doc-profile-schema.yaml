@@ -6,11 +6,25 @@
 # Externer Check: platform/scripts/checks/doc_profile_check.sh
 # Konformitäts-Verifikation: nightly + PR-Hook im Repo.
 
-schema_version: 1
+schema_version: 2
 changelog:
+  - date: 2026-06-02
+    rev: 2
+    note: "min_inhalt_rule: maschinenlesbare Inhalt-Verifikation (ADR-218 OQ-1, Issue #292). Typen: heading_count, table_rows, lines, frontmatter_status."
   - date: 2026-05-21
     rev: 1
     note: "Initial. 4 Profile (public-admin (vorher lra-pilot), konzern-pilot, forschung, saas)."
+
+# ---------------------------------------------------------------------------
+# min_inhalt_rule — maschinenlesbar für doc_profile_check.sh (Rev 2)
+# Struktur:
+#   type: heading_count   → zählt H2/H3-Überschriften (## / ###)
+#   type: table_rows      → zählt Tabellenzeilen (| ... |, ohne Header/Trenn)
+#   type: lines           → zählt nicht-leere Zeilen
+#   type: frontmatter_status → prüft YAML-Frontmatter-Feld status == required_value
+#   min: N                → Mindestanzahl (für heading_count / table_rows / lines)
+#   required_value: val   → Pflicht-Wert (für frontmatter_status)
+# ---------------------------------------------------------------------------
 
 # ---------------------------------------------------------------------------
 # Tier-Inventar (was es überhaupt gibt; Profil weist Pflicht zu)
@@ -21,14 +35,17 @@ tiers:
     pflicht_pfad: "docs/05-spezifikation/A0/domain-glossar.md"
     auto_generatable: false
     min_inhalt: "mind. 10 Begriffe mit Definition"
+    min_inhalt_rule: {type: heading_count, min: 10}
   A0/personas:
     pflicht_pfad: "docs/05-spezifikation/A0/personas-rollen-permissions.md"
     auto_generatable: false
     min_inhalt: "mind. 2 Personas mit Rollen + Permissions"
+    min_inhalt_rule: {type: heading_count, min: 2}
   A0/datenmodell:
     pflicht_pfad: "docs/05-spezifikation/A0/datenmodell.md"
     auto_generatable: partial
     min_inhalt: "mind. 1 ERD + Aggregate-Beschreibung"
+    min_inhalt_rule: {type: heading_count, min: 1}
   A0/status-maschinen:
     pflicht_pfad: "docs/05-spezifikation/A0/status-maschinen.md"
     auto_generatable: partial
