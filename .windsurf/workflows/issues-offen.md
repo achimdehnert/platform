@@ -33,9 +33,18 @@ mode: write
 ## Step 0: Repo-Kontext (NICHT hardcoden)
 
 1. Repo bestimmen: `$ARGUMENTS` → `<repo>`; sonst Basename von `git rev-parse --show-toplevel`.
-2. Owner/Org NICHT raten — aus dem Repo lesen:
-   `gh repo view --json nameWithOwner -q .nameWithOwner` im Zielrepo
-   (`~/github/<repo>`), bzw. `project-facts.md`. Niemals `achimdehnert` o.ä. hardcoden.
+2. Owner/Org + Konventionen NICHT raten — **stabile Quelle zuerst, Live nur als Fallback:**
+   - **Primär (kein API-Call):** `~/github/<repo>/project-facts.md` lesen. Owner/Repo
+     steckt in der `GitHub:`-Zeile (`https://github.com/<owner>/<repo>`); Stack/Settings/
+     Testpfad/Branch für Phase 3 kommen aus derselben Datei — *einmal* gelesen, nicht
+     pro Lauf neu via API hergeleitet. Diese Daten sind stabil (auto-generiert von
+     `platform/.github/scripts/push_project_facts.py`).
+   - **Fallback (nur wenn `project-facts.md` fehlt):**
+     `gh repo view --json nameWithOwner -q .nameWithOwner` im Zielrepo (`~/github/<repo>`).
+   - Niemals `achimdehnert` o.ä. hardcoden.
+   - ⚠️ NUR der **stabile** Kontext (Owner/Pfad/Konventionen) ist cachebar. Die
+     **volatile** Issue-Liste (Phase 1) bleibt IMMER live aus `gh issue list` — ein
+     Snapshot davon würde veralten (geschlossene Issues, neue P0, Re-Labels).
 3. pgvector-Tunnel optional; dieser Workflow braucht ihn nicht.
 
 ## Step 0b: Repo-Discovery (NUR Cross-Repo-Modus `org:<org>`)
@@ -59,7 +68,8 @@ mode: write
 5. **Lokaler Klon für DO-NOW:** Triage (Phase 1) braucht nur `gh` (kein Klon). Für
    die Umsetzung (Phase 3) muss das Repo unter `~/github/<name>` liegen — fehlt es,
    `gh repo clone <org>/<name> ~/github/<name>` (flach genügt), sonst Issue → STOP
-   mit Grund `kein lokaler Klon`.
+   mit Grund `kein lokaler Klon`. Nach dem Klon gilt der Repo-Kontext aus Step 0.2
+   (stabile Quelle `project-facts.md` zuerst) auch hier — pro Repo einmal.
 
 ## Phase 1: Holen + Triage (read-only)
 
@@ -157,3 +167,7 @@ Noch offen (nächster Lauf): <repos/issues, die wegen Cap übrig blieben>
   `gh repo list` (nie hardcoden), **Souveränitäts-Gate** (ttz-lif/meiki-lra nur
   bei explizitem Targeting), Repo-Cap (8) + globaler Issue-Cap (5) + max 2/Repo,
   pro-Repo-Branch-Verifikation, aggregierter Report. Single-Repo-Verhalten unverändert.
+- 2026-06-02: Step 0.2 — stabilen Repo-Kontext (Owner/Pfad/Konventionen) **primär aus
+  `project-facts.md`** lesen statt pro Lauf via `gh repo view` neu herleiten; API-Call
+  nur noch Fallback. Spart den Kontext-Neuaufbau bei Multi-Repo-/Multi-Lauf-Nutzung.
+  Volatile Issue-Liste (Phase 1) bleibt explizit live — kein Snapshot-Cache (Staleness).
