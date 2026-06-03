@@ -7,7 +7,7 @@ owner: Achim Dehnert
 spec_refs: []          # keine ADR-211-Spec; Bezug = ADR-235 (Secret-Prevention-Posture) + platform#412
 adr_threshold: org-weiter ADR   # Cross-Repo, Security-Perimeter, Lizenz, neue Boundary (Enterprise-Topologie), Reversal der "public native / private CI-Fallback"-Aufteilung aus ADR-235
 review_by: 2026-07-15
-kill_criteria: "Wenn bis 2026-08-15 (a) das GitHub-Account-Team die Kostenneutralität (Seats=Personen, nicht Orgs/Repos) NICHT schriftlich bestätigt, ODER (b) für ttz-lif/meiki-lra kein Daten-Souveränitäts-Sign-off vorliegt → Migrationsspur sunset; Fallback = per-Org 'Secret Protection' (Team) + ADR-235 CI-gitleaks bleibt Layer 1 außerhalb bahn-sqf."
+kill_criteria: "Wenn bis 2026-08-15 (a) das GitHub-Account-Team die Kostenneutralität (Seats=Personen, nicht Orgs/Repos) NICHT schriftlich bestätigt, ODER (b) für ttz-lif/meiki-lra kein Daten-Souveränitäts-Sign-off vorliegt, ODER (c) Portabilität nicht BEWIESEN ist (make exit-plan erzeugt für ≥1 Org einen vollständigen Runbook UND ≥1 Exit-Feuerübung grün) → keine Org-Aufnahme; Migrationsspur sunset; Fallback = per-Org 'Secret Protection' (Team) + ADR-235 CI-gitleaks bleibt Layer 1 außerhalb bahn-sqf."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: "API graphql enterprise(slug:iilgmbh).organizations", commit_or_pr: "1 node: bahn-sqf", opened_in_session: true}
@@ -18,6 +18,7 @@ evidence_manifest:
   - {claim_id: C6, source_path: "API .../code-security/configurations/defaults", commit_or_pr: "[] (kein Default für neue Repos)", opened_in_session: true}
   - {claim_id: C7, source_path: "API orgs/{iilgmbh,ttz-lif,meiki-lra,pactive-de}.plan.name", commit_or_pr: "team (alle 4); bahn-sqf=enterprise", opened_in_session: true}
   - {claim_id: C8, source_path: docs/adr/ADR-235-org-secret-prevention-posture.md, commit_or_pr: "status: accepted", opened_in_session: true}
+  - {claim_id: C9, source_path: "API enterprises/iilgmbh consumed-licenses logins + graphql ownerInfo.samlIdentityProvider", commit_or_pr: "Logins ohne _iilgmbh-Suffix + persönl. Account Member → kein EMU; samlIdentityProvider=null → kein SSO-Lock-in → Exit machbar (nicht kostenlos)", opened_in_session: true}
 created: 2026-06-03
 ---
 
@@ -25,7 +26,7 @@ created: 2026-06-03
 
 ## 1. Executive Summary
 
-Die GitHub-Topologie ist zersplittert: Die Enterprise `iilgmbh` enthält **nur** `bahn-sqf` (C1); vier weitere Orgs (`iilgmbh`, `ttz-lif`, `meiki-lra`, `pactive-de`) laufen auf **separaten Team-Plänen außerhalb** der Enterprise (C7); der User-Account `achimdehnert` hält 54 Repos und kann keiner Enterprise beitreten. Die Enterprise hat bereits die richtige Security-Config (17 „GitHub recommended", volle Suite enabled, C4) — aber sie ist nur auf **3 bahn-sqf-Repos** angewandt (C5) und **nicht** Default für neue Repos (C6). Verifiziert: Enterprise rechnet **pro Person** ab (2 Seats: achimdehnert + iljalerch; 2 GHAS-Committer — C2/C3), **nicht** pro Org/Repo. Daraus folgt: Orgs in die Enterprise aufzunehmen ist **kostenneutral** und macht die vier Team-Pläne redundant. Vorschlag: (1) Team-Orgs in die Enterprise aufnehmen, (2) Config 17 als Enterprise-Default + apply-to-all, (3) wichtige private `achimdehnert`-Repos in eine Enterprise-Org migrieren, User-Account austrocknen. Wirkung: native Push-Protection (pre-history) wird **Layer 1 überall**; ADR-235 CI-gitleaks (C8) demotet zu Defense-in-depth. Schärfster offener Punkt: Daten-Souveränität von `ttz-lif`/`meiki-lra` beim Org-Ownership-Wechsel.
+Die GitHub-Topologie ist zersplittert: Die Enterprise `iilgmbh` enthält **nur** `bahn-sqf` (C1); vier weitere Orgs (`iilgmbh`, `ttz-lif`, `meiki-lra`, `pactive-de`) laufen auf **separaten Team-Plänen außerhalb** der Enterprise (C7); der User-Account `achimdehnert` hält 54 Repos und kann keiner Enterprise beitreten. Die Enterprise hat bereits die richtige Security-Config (17 „GitHub recommended", volle Suite enabled, C4) — aber sie ist nur auf **3 bahn-sqf-Repos** angewandt (C5) und **nicht** Default für neue Repos (C6). Verifiziert: Enterprise rechnet **pro Person** ab (2 Seats: achimdehnert + iljalerch; 2 GHAS-Committer — C2/C3), **nicht** pro Org/Repo. Daraus folgt: Orgs in die Enterprise aufzunehmen ist **kostenneutral** und macht die vier Team-Pläne redundant. Vorschlag: (1) Team-Orgs in die Enterprise aufnehmen, (2) Config 17 als Enterprise-Default + apply-to-all, (3) wichtige private `achimdehnert`-Repos in eine Enterprise-Org migrieren, User-Account austrocknen. Wirkung: native Push-Protection (pre-history) wird **Layer 1 überall**; ADR-235 CI-gitleaks (C8) demotet zu Defense-in-depth. Schärfster offener Punkt: Daten-Souveränität von `ttz-lif`/`meiki-lra` beim Org-Ownership-Wechsel. **Querschnitts-Prinzip (Vertiefung 2026-06-03):** Konsolidierung **mit Portabilität by construction** — da Orgs/Repos später wieder austreten können müssen (Kunden/Behörden), ist Exit-Readiness eine *abgeleitete, getestete, getaggte* Eigenschaft (`make exit-plan`, `exit_class`-Tagging, Coupling-Indirektion, Exit-Feuerübung), kein gepflegtes Dokument. Verifiziert: kein EMU/kein SAML → Exit machbar, aber nicht kostenlos (C9).
 
 ## 2. Scope & Evidenzbasis
 
@@ -93,6 +94,19 @@ Eine Enterprise existiert bereits, ist bezahlt (2 Seats) und trägt die ideale S
 - **OOTB-2 — Default-only + Backfill-Skript:** Statt „apply-to-all" (großer Blast-Radius) nur `default_for_new` setzen + ein idempotentes Backfill-Skript, das Repos gestaffelt anhängt (kleinere, beobachtbare Wellen).
 - **OOTB-3 — Souveränitäts-Sidecar:** Government-Orgs *nicht* in die Enterprise; stattdessen denselben Config-Inhalt per-Org spiegeln (ALT-B), die Gleichheit per CI-Audit (ADR-235-Meter erweitern) erzwingen → zentrale *Posture* ohne zentrale *Ownership*.
 
+### Portabilität by construction (Exit-Readiness — Vertiefung 2026-06-03)
+
+Reframe nach Advocatus-Diabolus-Pass: **nicht „Exit dokumentieren", sondern Portabilität als *abgeleitete, getestete, getaggte* Eigenschaft.** Statische Exit-Dokumente sind am Exit-Tag veraltet (Drift-Theater); der echte Lock-in ist *operativ*, nicht die Enterprise-Mitgliedschaft.
+
+- **OOTB-4 — Exit als *ausführbares* Artefakt:** `make exit-plan ORG=<org>` fragt den **Live-Zustand** ab (Repos, Secret-Namen, hartkodierte Refs, Deploy-Pfade, Webhooks) und **generiert** den aktuellen Detach-/Transfer-Runbook on-demand. Immer korrekt (aus der Realität abgeleitet), nie veraltet — Transparenz = reproduzierbarer Report, nicht gepflegte Prosa. (Philosophie wie ADR-234 „derived invariant" + ADR-235-Meter.)
+- **OOTB-5 — Coupling-Indirektion statt Mitgliedschafts-Portabilität:** Teuerste Fessel ist der hartkodierte Owner-Name (`achimdehnert/<org>/...@main` in ~14 Reusable-Callern). Lösung: *eine* repointbare Alias-/Pin-Stelle → „Org wechselt Owner" = 1-Stellen-Repoint statt 14-Repo-Bruch. Senkt den realen 90%-Schmerz (B6).
+- **OOTB-6 — Org als portabler Tenant (GitHub-as-Code):** deklarativer Org-Deskriptor (Member, Config, Billing-Owner, Deps) in Git (Terraform `github` / Safe-Settings). **Exit = denselben Deskriptor unter neuem Parent neu anwenden** — ein Replay, keine Operation am offenen Herzen.
+- **OOTB-7 — Exit-Feuerübung:** periodisch einen echten Exit gegen eine **Wegwerf-Org** proben. Geprobte Reversibilität schlägt jedes Dokument; ein nie getesteter Runbook scheitert am Tag X.
+- **OOTB-8 — `exit_class`-Tagging steuert Platzierung by policy:** jede Org bekommt `exit_class ∈ {central-ok | exit-likely | must-stay-local}`. Ein Gate **entscheidet daraus** die Platzierung (in-Enterprise vs. standalone-gespiegelt) und flaggt Verstöße. ALT-D wird damit vom Sonderfall zur **generellen Regel** (nicht „Behörden-Orgs manuell draußen", sondern by-policy). Transparenz = abfragbare Property.
+- **OOTB-9 — Owner-Sukzession:** Break-Glass-Owner-Verfahren + ≥1 dritter Recovery-Owner. Die am wenigsten geplante „Migration raus" ist die eigene (Bus-Faktor 2, B7).
+
+**Bewusste Dosierung (Lock-in vs. Portabilität ist eine echte Spannung):** `exit-likely`/`must-stay-local`-Orgs → maximale Portabilität, **minimale** Lock-in-Features (kein EMU, kein erzwungenes SSO, nur Config-Spiegel). `central-ok`-Orgs → volle Enterprise-Zentralisierung (Enforcement, ggf. SSO). Die Spannung wird **pro Org-Klasse aufgelöst**, nicht weggeredet.
+
 ## 10. Befunde
 
 | ID | Befund | Schwere | Evidenz |
@@ -102,28 +116,34 @@ Eine Enterprise existiert bereits, ist bezahlt (2 Seats) und trägt die ideale S
 | B3 | Config 17 schaltet Code Scanning mit → „apply-to-all" verursacht CodeQL-Last/Reibung auf Nicht-Code-Repos | mittel | C4 |
 | B4 | Government-Org-Ownership-Shift = Governance/Souveränitäts-Risiko, von „native=intern" NICHT adressiert | hoch | CLAUDE.md (H), C7 |
 | B5 | Repo-Transfer trägt Actions-Secrets nicht mit; Deploy-Pfade/Package-Refs brechen | mittel | H (Runbook nötig) |
+| B6 | **Echter Lock-in ist operativ, nicht strukturell** — hartkodierte `achimdehnert/<org>/...@main`-Refs, Deploy-Pfade, Secrets; „aus Enterprise raus" ist nur die einfachen 10% | hoch | H (grep Reusable-Caller) |
+| B7 | **Bus-Faktor 2** — Enterprise hat nur 2 Owner (achimdehnert + iljalerch); die unplanbarste „Migration raus" ist der eigene Ausfall | hoch | C2 |
+| B8 | Exit ist **machbar** (kein EMU: Logins ohne `_iilgmbh`-Suffix, persönl. Account als Member; kein SAML) — aber **nicht** kostenlos (Detach + Posture lokal neu + Ownership-Transfer) | mittel | C9 |
 
-## 11. Top-5-Risiken
+## 11. Top-Risiken
 
-1. **Souveränität (B4):** Behörden-Org unter zentrale Enterprise → Compliance-Bruch. *Mitigation:* ALT-D/OOTB-3 — Government-Orgs draußen lassen, Posture spiegeln.
-2. **Kosten-Annahme falsch:** „pro Person" hat versteckte Mindestabnahme. *Mitigation:* Account-Team-Sign-off als S1-Gate (Kill-Criteria).
-3. **Halbe Migration (Maintainer-2028):** drei Wahrheiten statt einer. *Mitigation:* erzwungener Endzustand + Registry-Reconcile + datiertes Migrationsfenster.
-4. **CI-Sturz nach Transfer (B5):** Secrets/Pfade/Package-Refs. *Mitigation:* pro-Repo-Runbook + Transfer in Wellen, nicht Big-Bang.
-5. **CodeQL-Reibung (B3):** rote Checks org-weit. *Mitigation:* schlanke Secrets-only-Config für Blanket-Apply, Voll-Suite nur wo gewollt.
+1. **Souveränität (B4):** Behörden-Org unter zentrale Enterprise → Compliance-Bruch. *Mitigation:* ALT-D/OOTB-3/OOTB-8 — `exit-likely`/`must-stay-local` standalone, Posture spiegeln.
+2. **Operative Scheinportabilität (B6):** Mitgliedschaft portabel gemacht, Coupling nicht → Exit bricht trotzdem 14 Repos. *Mitigation:* OOTB-5 Coupling-Indirektion + OOTB-4 abgeleiteter Exit-Plan.
+3. **Owner-Sukzession / Bus-Faktor 2 (B7):** *Mitigation:* OOTB-9 Break-Glass + 3. Recovery-Owner.
+4. **Kosten-Annahme falsch:** „pro Person" hat versteckte Mindestabnahme. *Mitigation:* Account-Team-Sign-off als S1-Gate.
+5. **Halbe Migration (Maintainer-2028):** drei Wahrheiten statt einer. *Mitigation:* erzwungener Endzustand + Registry-Reconcile + datiertes Fenster.
+6. **CI-Sturz nach Transfer (B5) / CodeQL-Reibung (B3):** *Mitigation:* Runbook+Wellen; schlanke Secrets-only-Config für Blanket-Apply.
 
 ## 12. Empfehlungen
 
-- **REC-1:** **ALT-D** wählen — Enterprise-Konsolidierung für `iilgmbh`(+`pactive-de`); `ttz-lif`/`meiki-lra` **standalone** mit gespiegelter Config (OOTB-3), bis ein Souveränitäts-Sign-off vorliegt.
+- **REC-1:** **ALT-D, verallgemeinert via `exit_class` (OOTB-8)** — nicht „Government manuell draußen", sondern jede Org taggen (`central-ok | exit-likely | must-stay-local`); ein Gate steuert Platzierung. Konkret heute: `iilgmbh`(+`pactive-de`) = `central-ok` → konsolidieren; `ttz-lif`/`meiki-lra` = `must-stay-local` → standalone + gespiegelte Config (OOTB-3); `bahn-sqf` = `exit-likely` (Kundenprojekt) → in Enterprise, aber portabel halten (OOTB-5/6).
 - **REC-2:** S2 mit **schlanker „Secret Scanning + Push Protection"-Config** für apply-to-all; Config 17 (inkl. CodeQL) nur als Default-for-new / opt-in pro Code-Repo (adressiert B3).
 - **REC-3:** S1 erst nach **schriftlicher Kostenbestätigung** des GitHub-Account-Teams; Team-Pläne erst **nach** bestätigter Aufnahme kündigen (adressiert B2/Risk-2).
 - **REC-4:** Migration als **Runbook + Wellen** (3–5 Repos/Welle), Actions-Secrets-Checkliste, Package-Ref-grep (`achimdehnert/...@main` in Reusable-Callern) **vor** Transfer (adressiert B5).
 - **REC-5:** ADR-235 **Amendment** + neuer **org-weiter ADR** „Enterprise als Security-Kontrollebene" sobald REC-1/-3-Gates grün; ADR-235-Meter um „native enabled?" je Enterprise-Repo erweitern (OOTB-3-Enforcement).
+- **REC-6 (Portabilität by construction):** **vor** der ersten Org-Aufnahme (a) `make exit-plan ORG=<org>` als abgeleiteten Report bauen (OOTB-4), (b) hartkodierte `achimdehnert/...@main`-Refs auf *eine* repointbare Stelle ziehen (OOTB-5, adressiert B6), (c) Org-Deskriptoren als GitHub-as-Code (OOTB-6); **eine** Exit-Feuerübung gegen eine Wegwerf-Org (OOTB-7) als Akzeptanz-Beweis.
+- **REC-7 (Owner-Sukzession):** Break-Glass-Verfahren + ≥1 dritter Recovery-Owner einrichten (OOTB-9, adressiert B7) — unabhängig von der Konsolidierungs-Entscheidung sofort wertvoll.
 
 ## 13. Entscheidung + Kill-Gate + 30/60/90
 
 **Entscheidung (vorgeschlagen):** ALT-D als Richtung; Umsetzung **gated**, nicht sofort. Kein Org-Move / kein Team-Plan-Kündigen vor den S1/S2-Gates.
 
-**Kill-Gate (messbar):** siehe Frontmatter `kill_criteria` — bis **2026-08-15** Kostenbestätigung **und** Government-Sign-off; sonst Sunset auf ALT-A (bahn-sqf voll + ADR-235 CI-gitleaks bleibt L1 außerhalb). Exception-Budget: 1× Verlängerung bis 2026-09-15 mit benanntem Grund.
+**Kill-Gate (messbar):** siehe Frontmatter `kill_criteria` — bis **2026-08-15** (a) Kostenbestätigung, (b) Government-Sign-off **und** (c) Portabilität *bewiesen* statt behauptet: `make exit-plan` erzeugt für ≥1 Org einen vollständigen Runbook **und** ≥1 Exit-Feuerübung lief grün. Fehlt (c) → „Exit-Readiness" ist Theater (AD-2/AD-4) → keine Org-Aufnahme. Sonst Sunset auf ALT-A. Exception-Budget: 1× Verlängerung bis 2026-09-15 mit benanntem Grund.
 
 **30/60/90:**
 - **30:** Account-Team-Kostenbestätigung (S1-Gate); schlanke Secrets-Config in der Enterprise anlegen (B3); ADR-235-Amendment-Draft.
