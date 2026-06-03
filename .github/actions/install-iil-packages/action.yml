@@ -49,19 +49,25 @@ runs:
         # Presence + code-freshness for the iil family (covers repos that do
         # not pin them in requirements.txt). `python -m pip` ensures the install
         # hits the SAME interpreter the tests use.
-        python -m pip install --force-reinstall --no-deps \
-          "iil-aifw>=0.5.0,<1" \
-          "iil-promptfw>=0.5.1,<1" \
-          "iil-authoringfw>=0.3.0,<1" \
-          "iil-weltenfw>=0.1.0,<1" \
-          "iil-nl2cad>=0.1.0,<1" \
-          2>/dev/null || \
-        python -m pip install --force-reinstall --no-deps \
-          "aifw>=0.5.0,<1" \
-          "promptfw>=0.2.0,<1" \
-          "authoringfw>=0.3.0,<1" \
-          "weltenfw>=0.1.0,<1" \
-          2>/dev/null || true
+        #
+        # PER-PACKAGE (not one bundled `pip install A B C…`): pip is all-or-nothing,
+        # so a single unavailable package (e.g. iil-nl2cad on a given index) would
+        # fail the WHOLE iil group and drop to the legacy fallback — which installs
+        # the stale `aifw 0.5.0` STUB over a good iil-aifw 0.10.3, leaving
+        # metadata=0.10.3 / code=0.5.0 (the freshness probe then correctly errors).
+        # Installing each independently lets iil-aifw force-reinstall (repairing
+        # stale code) regardless of its siblings; legacy is tried ONLY if the
+        # iil-prefixed name itself is unavailable. See platform#419.
+        for spec in \
+          "iil-aifw>=0.5.0,<1|aifw>=0.5.0,<1" \
+          "iil-promptfw>=0.5.1,<1|promptfw>=0.2.0,<1" \
+          "iil-authoringfw>=0.3.0,<1|authoringfw>=0.3.0,<1" \
+          "iil-weltenfw>=0.1.0,<1|weltenfw>=0.1.0,<1" \
+          "iil-nl2cad>=0.1.0,<1|"; do
+          iil="${spec%%|*}"; legacy="${spec##*|}"
+          python -m pip install --force-reinstall --no-deps "$iil" 2>/dev/null && continue
+          [ -n "$legacy" ] && python -m pip install --force-reinstall --no-deps "$legacy" 2>/dev/null || true
+        done
         # Authoritative: re-assert the consumer's requirements.txt pins so the
         # looser ranges above can never override an intended cap (e.g. a repo
         # pinning iil-aifw<0.11 must not get a future 0.11 from here). A pinned
