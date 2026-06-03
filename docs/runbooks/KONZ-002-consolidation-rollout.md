@@ -2,7 +2,8 @@
 
 > Operativer Ausführungsplan zu **[KONZ-platform-002](../konzepte/KONZ-platform-002-enterprise-consolidation.md)** (Richtung **ALT-D**).
 > Governance-Bezug: **[ADR-235](../adr/ADR-235-org-secret-prevention-posture.md)** (Secret-Prevention-Posture).
-> Stand: 2026-06-03 · Owner: Achim Dehnert · **Rollout vom Owner freigegeben** (für reversible/eigene Phasen).
+> Stand: 2026-06-03 · Owner: Achim Dehnert · **Rollout freigegeben**.
+> **Update 2026-06-03:** **S1 ausgeführt** (live verifiziert: Enterprise hat 4 Member-Orgs, Seats 2/2). **GOV bewusst mit aufgenommen** — `ttz-lif`/`meiki-lra` sind jetzt `central-gov` *in* der Enterprise (Träger-Sign-off deckt volle Mitgliedschaft), nicht mehr standalone. Topologie faktisch **ALT-C mit Sign-off**. Details: ADR-236-Amendment.
 
 ## Grundprinzip
 
@@ -39,7 +40,7 @@ die gegateten UI-Schritte führt der **Owner** je Phase aus. Jede Phase hat ein
 
 ### DR-B — GOV-Datensouveränität (Kill-Gate b)
 - **Datum:** 2026-06-03 · **Protokolliert von:** Achim Dehnert
-- **Inhalt:** **Formaler Datensouveränitäts-Sign-off der Trägerorganisation(en)** für **GOV-A** (`ttz-lif`) und **GOV-B** (`meiki-lra`). Identität der Träger **anonymisiert** (Projektkonvention GOV-A/GOV-B).
+- **Inhalt:** **Formaler Datensouveränitäts-Sign-off der Trägerorganisation(en)** für **GOV-A** (`ttz-lif`) und **GOV-B** (`meiki-lra`). Identität der Träger **anonymisiert** (Projektkonvention GOV-A/GOV-B). **Update 2026-06-03:** der Sign-off deckt **volle Enterprise-Mitgliedschaft** (nicht nur standalone) → GOV-Orgs in die Enterprise aufgenommen (`central-gov`).
 - **Natur (Update 2026-06-03):** **Schriftlicher Träger-Sign-off** liegt vor (nicht mehr nur mündlich), vom Owner **attestiert**, abgelegt in dessen Privatunterlagen.
 - **Wirkung:** Kill-Kriterium (b) **erfüllt**. Die **GOV-Hard-Lock ist aufgehoben** — sowohl Ownership-Fragen als auch eine zentral betriebene Audit-/Eingriffsrolle auf GOV-Orgs sind durch den Sign-off gedeckt. (Unter ALT-D bleiben GOV-Orgs ohnehin standalone; es findet kein Ownership-/Datentransfer statt.)
 - **Restlücke (benannt):** Beleg liegt **nicht im Repo** → *attestiert, nicht repo-verifiziert*. **Billigster Check:** (anonymisierte) Kopie nach `~/shared/` legen oder bei Audit nachreichen.
@@ -51,11 +52,11 @@ die gegateten UI-Schritte führt der **Owner** je Phase aus. Jede Phase hat ein
 
 | Phase | Inhalt | Gate (Vorbedingung) | Executor | Akzeptanz | Rollback |
 |---|---|---|---|---|---|
-| **S1** | **Nur `iilgmbh`-Org** in Enterprise `iilgmbh` aufnehmen (`central-ok`) | DR-A vorhanden | Owner (Web-UI/SCIM) | Org erscheint unter `enterprises/iilgmbh/organizations`; Member-Count unverändert; Seats weiterhin 2 | Org wieder entkoppeln (reversibel, keine Daten betroffen) |
+| **S1** ✅ | `iilgmbh` (+ GOV `ttz-lif`/`meiki-lra`, s. Update) in Enterprise aufnehmen | DR-A + DR-B vorhanden | Owner (Web-UI/SCIM) | **erfüllt 2026-06-03:** 4 Member-Orgs live verifiziert; Seats 2/2 | Org wieder entkoppeln (reversibel) |
 | **S2** | Config 17 als Enterprise-**Default** setzen → erst `unenforced` beobachten → dann `enforced` | S1 grün; FP-Rate + blockierte Pushes + Coverage ausgewertet | Owner/CC (API `repo`-Scope) | `code-security/configurations/.../defaults` gesetzt; Drift-Audit grün; FP-Rate akzeptabel | zurück auf `unenforced`; Default entfernen |
 | **S3** | Wertvolle private `achimdehnert`-Repos in Enterprise-Org migrieren (Wellen — Detail-Checkliste: [`KONZ-002-s3-repo-transfer.md`](./KONZ-002-s3-repo-transfer.md)) | S2 `enforced`; **Ziel admin-kontrolliert** (REC-8); Push-Protection am Ziel aktiv (REC-9) | Owner (Transfer-UI) | je Welle: Repo unter Enterprise-Org, Push-Protection aktiv, CI grün | Repo zurücktransferieren (gleiche Welle, Ziel = Quelle) |
 | **S4** | User-Account `achimdehnert` austrocknen (Deploy-Keys/Webhooks/Package-Owner/Secrets/Integrationen) | S3-Welle verifiziert | Owner | keine prod-kritischen Artefakte mehr am User-Account | — (irreversibel → deshalb zuletzt, nur nach S3-Verifikation) |
-| **GOV** | `ttz-lif`/`meiki-lra` **standalone + gespiegelte Config** (must-stay-local) | DR-B Sign-off ✅ vorhanden | Owner/CC (admin auf GOV-Orgs) | Security-Posture gespiegelt; CI-Gleichheits-Audit grün | Config zurücknehmen (reversibel) |
+| **GOV** ✅ | `ttz-lif`/`meiki-lra` **in Enterprise** (`central-gov`) — geändert: nicht mehr standalone, Sign-off deckt volle Mitgliedschaft | DR-B Sign-off ✅ (volle Mitgliedschaft) | Owner (Web-UI) | **erfüllt 2026-06-03:** beide Member-Orgs; erben Enterprise-Posture | aus Enterprise entkoppeln + an Träger rückgeben (Handover) |
 | **`pactive-de`** | Konsolidierung | ⛔ **Owner-Zustimmung Dritter** (DasRed/ghry5/philipp-eicher/ratpic83) | gesperrt | — | — |
 
 ### Harte Sperren
