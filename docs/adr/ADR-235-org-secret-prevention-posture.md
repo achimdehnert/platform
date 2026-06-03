@@ -1,11 +1,11 @@
 ---
-status: proposed
+status: accepted
 implementation_status: partial
 implementation_evidence:
   - "Layer 2: secret-scan.yml auf 7 zuvor ungeschützte private Repos ausgerollt + gemerged (bahn-hub#9, design-hub#29, desktop-setup#1, django-lms-lite#1, iil-fieldprefill#1, illustration-fw#8, nl2iot-hub#1, 2026-06-02)"
-  - "Layer 1: native Secret Scanning + Push Protection bereits aktiv auf 26 public Repos (Audit #412, gh api verifiziert)"
+  - "Layer 1: native Secret Scanning + Push Protection aktiv auf allen public Repos (Audit #412; platform/writing-hub/lastwar-bot 2026-06-03 wieder eingeschaltet)"
   - ".github/actions/gitleaks-scan (ADR-226) als geteilte Action mit einem Versions-Pin von Layer 2 konsumiert"
-  - "desktop-setup-Fund bereinigt (secrets.env aus Tree entfernt + .gitignore + .gitleaksignore; Tokens waren bereits rotiert)"
+  - "desktop-setup-Fund bereinigt (secrets.env aus Tree + .gitignore + .gitleaksignore; Tokens waren bereits rotiert)"
   - "Audit-Skript + Befund als #412 dokumentiert"
 date: 2026-06-02
 decision-makers: Achim Dehnert
@@ -19,14 +19,14 @@ tags: [secret-scanning, push-protection, gitleaks, ghas, prevention, cross-repo,
 
 | Attribut       | Wert                                                              |
 |----------------|-------------------------------------------------------------------|
-| **Status**     | Proposed                                                          |
+| **Status**     | Accepted                                                         |
 | **Scope**      | platform (org-weit, alle Repos `achimdehnert`)                    |
 | **Repo**       | platform                                                          |
 | **Erstellt**   | 2026-06-02                                                        |
 | **Autor**      | Achim Dehnert                                                     |
-| **Reviewer**   | –                                                                 |
+| **Reviewer**   | /adr-review + /adr-challenger (Findings adressiert)               |
 | **Supersedes** | –                                                                 |
-| **Relates to** | ADR-045 (Secrets & Environment Management — *wie* Secrets gespeichert/injiziert werden; 235 ergänzt *Leak-Prävention*), ADR-210 (Gate am irreversiblen Rand), ADR-226 (Mandatory Secret-Scan / shared Action), ADR-220 (OIDC Trusted Publishing) |
+| **Relates to** | ADR-045 (Secrets-Storage/Injection — 235 ergänzt *Leak-Prävention*), ADR-210 (Gate am irreversiblen Rand), ADR-226 (Mandatory Secret-Scan / shared Action), ADR-220 (OIDC Trusted Publishing) |
 | **Quelle**     | Secret-Prevention-Audit 2026-06-02 (#412) + bfagent-Incident (#410) |
 
 ---
@@ -35,251 +35,110 @@ tags: [secret-scanning, push-protection, gitleaks, ghas, prevention, cross-repo,
 
 ### 1.1 Ausgangslage
 
-Der bfagent-Incident (#410) brachte 78 committete Secrets in der Git-History ans
-Licht (rotiert/tot, kein Live-Exposure mehr). Die Folgefrage war nicht „läuft
-gitleaks?", sondern: **„läuft ein Secret-Scan zuverlässig auf JEDEM Repo — auch
-wenn das Repo selbst nichts dafür konfiguriert?"**
+Der bfagent-Incident (#410) zeigte 78 committete Secrets in der Git-History (rotiert/tot). Die Folgefrage: **„läuft ein Secret-Scan zuverlässig auf JEDEM Repo — auch wenn das Repo selbst nichts konfiguriert?"** Ein org-weiter Audit (#412, 54 Repos) ergab ein an der **Repo-Visibility** ausgerichtetes Bild:
 
-Ein org-weiter Audit am 2026-06-02 (#412) über 54 aktive Repos ergab ein
-überraschend klares, an der **Repo-Visibility** ausgerichtetes Bild:
-
-- **26 public Repos**: GitHub-native Secret Scanning **+ Push Protection** ist
-  **gratis und aktiv**. Das ist der stärkste denkbare Gate — er blockiert den
-  Secret **vor** dem Landen in der History, also genau am irreversiblen
-  Push-Rand (die Lehre aus ADR-210).
-- **~25 private Repos**: native Scanning ist **absent** — GitHub Advanced
-  Security (GHAS), das Secret Scanning auf privaten Repos freischaltet, ist
-  nicht lizenziert. (Empirisch verifiziert: `gh api repos/<owner>/<repo>` liefert
-  für alle privaten Repos `security_and_analysis.secret_scanning` = absent — der
-  Befund stützt sich auf den Audit-Ist-Zustand, nicht auf GitHubs Lizenz-Docs.)
-  Der einzige serverseitige Fallback ohne GHAS ist CI-seitiges gitleaks (geteilte
-  `gitleaks-scan`-Composite-Action, ADR-226).
-- **Anomalie**: 3 *public* Repos hatten den gratis Schutz **abgeschaltet**:
-  `platform`, `writing-hub`, `lastwar-bot`.
+- **public Repos**: GitHub-native Secret Scanning **+ Push Protection** ist **gratis & aktiv** — der stärkste Gate, da er den Secret **vor** dem Landen in der History blockiert (ADR-210-Rand).
+- **private Repos**: native Scanning **absent** — GitHub Advanced Security (GHAS) nicht lizenziert (empirisch: `gh api repos/<o>/<r>` → `secret_scanning` = absent; aus dem Audit-Ist, nicht aus Lizenz-Docs). Einziger Fallback: CI-seitiges gitleaks (geteilte `gitleaks-scan`-Action, ADR-226).
+- **Anomalie**: 3 *public* Repos hatten den gratis Schutz abgeschaltet (`platform`, `writing-hub`, `lastwar-bot`).
 
 ### 1.2 Problem / Lücken
 
-- Der einzige serverseitige Scan vieler privater Repos hing bisher an der
-  **freiwilligen Adoption** von `_ci-python.yml`. bfagent rief den Reusable nicht
-  auf → kein Gate. Das F4-CI-Programm zeigt: viele Repos haben rote/fehlende CI.
-- 7 private Repos hatten **null** serverseitigen Secret-Scan (bahn-hub,
-  design-hub, desktop-setup, django-lms-lite, iil-fieldprefill, illustration-fw,
-  nl2iot-hub). Beim ersten Scan nach dem Rollout fand sich in `desktop-setup`
-  eine `secrets.env` mit GitHub-OAuth-Token **im aktuellen HEAD** (Tokens
-  bereits rotiert; Datei entfernt) — exakt die bfagent-Fehlerklasse, vorher
-  latent.
-- Es gibt **keine festgelegte Posture**, *welcher* Gate verbindlich ist und
-  *wo* er sitzt. Ohne Festlegung driften neue Repos zurück in die Lücke.
+- Der einzige serverseitige Scan vieler privater Repos hing an der **freiwilligen Adoption** von `_ci-python.yml`. bfagent rief ihn nicht auf → kein Gate.
+- 7 private Repos hatten **null** serverseitigen Scan; beim ersten Lauf fand sich in `desktop-setup` eine `secrets.env` mit GitHub-OAuth-Token im HEAD (rotiert; entfernt) — die bfagent-Fehlerklasse, vorher latent.
+- Es gab **keine festgelegte Posture**, *welcher* Gate verbindlich ist und *wo* er sitzt → neue Repos driften zurück in die Lücke.
 
 ### 1.3 Constraints
 
-- **GHAS auf privaten Repos kostet** (pro aktivem Committer/Monat). Eine
-  org-weite Anschaffung ist eine Budget-Entscheidung, keine reine
-  Architektur-Frage.
-- CI-gitleaks ist **post-push**: Ein Secret ist beim Anschlagen des Gates bereits
-  in der Remote-History → muss als kompromittiert gelten (rotieren). Nur
-  Push-Protection ist **pre-history** (prevention statt detection).
-- Lösungen dürfen nicht den per ADR-230 **abgeschalteten Auto-Distributor**
-  voraussetzen — Workflow-Platzierung erfolgt bewusst pro Repo.
+- GHAS auf privaten Repos **kostet** (pro aktivem Committer/Monat) → Budget-, nicht reine Architektur-Frage.
+- CI-gitleaks ist **post-push** (Secret schon in Remote-History → rotieren); nur Push-Protection ist **pre-history** (Prävention statt Detektion).
+- Der per ADR-230 **abgeschaltete Auto-Distributor** darf nicht vorausgesetzt werden — Platzierung bewusst pro Repo.
 
 ## 2. Entscheidung
 
-Wir legen eine **gestufte, by-construction durchsetzbare** Secret-Prevention-Posture
-für die gesamte Org fest:
+Gestufte, by-construction durchsetzbare Posture für die gesamte Org:
 
-- **Layer 1 — Prävention, bindend, am Push-Rand (bevorzugt).** GitHub-native
-  Secret Scanning **+ Push Protection** ist **verpflichtend aktiviert auf jedem
-  Repo, auf dem es kostenfrei verfügbar ist** — d. h. **allen public Repos**.
-  Die 3 abgeschalteten (`platform`, `writing-hub`, `lastwar-bot`) werden wieder
-  eingeschaltet; für neue public Repos gilt es als Org-Default. Dies ist der
-  ADR-210-korrekte Gate: er verhindert, dass der Secret je in die History
-  gelangt.
-
-- **Layer 2 — Detektion-Fallback, post-push/pre-merge (für Repos ohne native).**
-  Private Repos haben ohne GHAS keinen nativen Gate. Für sie ist der Standalone-
-  Workflow `secret-scan.yml` (auf `push:main` + `pull_request`), der die
-  geteilte `achimdehnert/platform/.github/actions/gitleaks-scan@main`-Action
-  ruft, **verpflichtende Baseline** — entweder direkt oder transitiv über
-  `_ci-python.yml` (das dieselbe Action trägt, ADR-226). Bereits ausgerollt auf
-  die 7 zuvor ungeschützten Repos.
-
-- **Layer 0 — beratend, shift-left.** Der `pre-commit`-gitleaks-Hook bleibt als
-  lokale Entwickler-Bequemlichkeit (fängt vor dem Commit, aber clientseitig
-  umgehbar → kein verbindlicher Gate).
-
-- **GHAS org-weit kaufen = bewusst aufgeschobene Entscheidung** (siehe §3,
-  Option 3) mit dokumentiertem Trigger (§7.3 / §8). Bis dahin ist CI-gitleaks die
-  durable Baseline für private Repos; GHAS bleibt der empfohlene **Upgrade-Pfad**
-  zuerst für die privaten Repos mit höchstem Blast-Radius.
+- **Layer 1 — Prävention, bindend, am Push-Rand (bevorzugt).** Native Secret Scanning **+ Push Protection** ist **verpflichtend aktiviert auf jedem Repo, wo es kostenfrei verfügbar ist** = alle public Repos (Org-Default für neue). Verhindert, dass der Secret je in die History gelangt (ADR-210-korrekt).
+- **Layer 2 — Detektion-Fallback, post-push/pre-merge (Repos ohne native).** Für private Repos ist `secret-scan.yml` (`push:main` + `pull_request`), das die geteilte `gitleaks-scan@main`-Action ruft, **verpflichtende Baseline** — direkt oder transitiv über `_ci-python.yml` (ADR-226).
+- **Layer 0 — beratend, shift-left.** `pre-commit`-gitleaks-Hook bleibt (clientseitig umgehbar → kein bindender Gate).
+- **GHAS org-weit = bewusst aufgeschoben** (§3 Opt. 3, Trigger §7.3) — bis dahin CI-gitleaks als durable Baseline; GHAS bleibt empfohlener Upgrade-Pfad.
 
 ## 3. Betrachtete Alternativen
 
-1. **Status quo (Scan hängt an `_ci-python.yml`-Adoption).**
-   - Gut: kein Aufwand; nutzt vorhandene Reusable-CI.
-   - Schlecht: genau die bfagent-Lücke — Repos ohne Caller (oder mit roter CI)
-     sind ungeschützt; Coverage ist nicht messbar/garantiert.
-   - → Verworfen.
-2. **Nur CI-gitleaks überall, kein native.**
-   - Gut: einheitlich, gratis, ein Mechanismus.
-   - Schlecht: ignoriert den gratis, architektonisch überlegenen Push-Rand-Gate,
-     der auf public Repos schon da ist; CI ist post-push (Secret landet zuerst in
-     History → Rotation statt Prävention).
-   - → Verworfen.
-3. **GHAS sofort org-weit kaufen (native überall, auch privat).**
-   - Gut: stärkste Lösung — Prävention am Push-Rand für *alle* Repos, public wie
-     privat; ein einheitlicher, serverseitiger Gate ohne CI-Pflege.
-   - Schlecht: laufende Seat-Kosten; erzwingt eine Org-/Budget-Freigabe, ist also
-     keine reine Architektur-Festlegung, die dieses ADR allein treffen sollte.
-   - → Nicht als sofortige Entscheidung gewählt; bleibt dokumentierter
-     Upgrade-Pfad (§2, §7.3).
-4. **Gestufte Posture (Layer 0/1/2) mit GHAS als aufgeschobenem Upgrade.**
-   - Gut: schließt die Lücke sofort und gratis; nutzt den stärksten Gate wo
-     verfügbar (public); macht die Kostenentscheidung explizit statt implizit;
-     messbar (§8).
-   - Schlecht/akzeptiert: privat bleibt vorerst Detektion statt Prävention
-     (post-push) — bis ein Trigger (§7.3) GHAS rechtfertigt.
-   - → **Gewählt.**
+1. **Status quo (Scan hängt an `_ci-python.yml`-Adoption).** Gut: kein Aufwand. Schlecht: die bfagent-Lücke — ungeschützt ohne Caller, nicht messbar. → **Verworfen.**
+2. **Nur CI-gitleaks überall, kein native.** Gut: einheitlich, gratis. Schlecht: ignoriert den gratis, überlegenen Push-Rand-Gate (public); post-push = Rotation statt Prävention. → **Verworfen.**
+3. **GHAS sofort org-weit kaufen.** Gut: stärkste Lösung — Push-Rand-Prävention für *alle* Repos, ohne CI-Pflege. Schlecht: laufende Seat-Kosten, braucht Budget-Freigabe (keine reine Architektur-Festlegung). → Nicht sofort; dokumentierter Upgrade-Pfad (§7.3).
+4. **Gestufte Posture (L0/L1/L2) mit GHAS als Upgrade.** Gut: schließt die Lücke sofort & gratis, nutzt den stärksten Gate wo verfügbar, macht die Kostenfrage explizit, messbar (§8). Schlecht/akzeptiert: privat vorerst Detektion statt Prävention. → **Gewählt.**
 
 ## 4. Begründung im Detail
 
-- **Der Gate gehört an den irreversiblen Rand (ADR-210).** Für Secrets ist die
-  irreversible Aktion der `git push` in die Remote-History. Native Push
-  Protection sitzt genau dort und ist serverseitig **nicht** per `--no-verify`
-  umgehbar (nur mit auditiertem „allow secret"-Override). CI-gitleaks ist
-  bestenfalls Detektion danach.
-- **Kostenfreie Stärke zuerst ausschöpfen.** Auf public Repos ist der beste Gate
-  gratis verfügbar — ihn abgeschaltet zu lassen (3 Repos) ist reiner Verlust.
-- **Keine Coverage ohne Mechanismus.** Eine Posture, die nur „sollte scannen"
-  sagt, driftet zurück (ADR-226-Lehre: ein Mandat ohne Messung lässt das Fenster
-  offen). Daher §8 ein wiederkehrender Audit-Meter analog
-  `pypi-ci-adoption-gate.yml`.
-- **DRY.** Layer 2 nutzt dieselbe `gitleaks-scan`-Action mit einem Versions-Pin
-  (ADR-226) — keine 14 divergierenden Inline-Scans.
+- **Gate an den irreversiblen Rand (ADR-210).** Für Secrets ist `git push` in die Remote-History irreversibel. Native Push Protection sitzt dort, serverseitig **nicht** per `--no-verify` umgehbar (nur auditierter „allow secret"-Override); CI-gitleaks ist bestenfalls Detektion danach. Gratis-Stärke (public) zuerst ausschöpfen — abgeschaltet lassen ist reiner Verlust.
+- **Keine Coverage ohne Mechanismus + DRY.** Ein Mandat ohne Durchsetzung driftet zurück (ADR-226-Lehre) → P2 (by-construction) + P3 (Meter). Layer 2 nutzt dieselbe `gitleaks-scan`-Action mit einem Versions-Pin — keine divergierenden Inline-Scans.
 
 ## 5. Implementation Plan
 
-- **P0 — erledigt (2026-06-02):** `secret-scan.yml` auf die 7 ungeschützten
-  privaten Repos ausgerollt (PRs gemerged); `desktop-setup`-Fund bereinigt;
-  Audit als #412 dokumentiert.
-- **P1:** Native Push Protection auf `platform`, `writing-hub`, `lastwar-bot`
-  wieder einschalten; Org-Default „enable Secret Scanning + Push Protection for
-  new public repositories" setzen. (`lastwar-bot` ist public → native deckt es
-  ab, kein CI-Workflow nötig.)
-- **P2 — by-construction-Enforcement (schließt die Layer-2-Adoptionslücke):**
-  Layer 2 ist nur dann echt „mandatory", wenn ein **neues** privates Repo den
-  Gate ohne menschliches Zutun bekommt. Da der Auto-Distributor abgeschaltet ist
-  (ADR-230), wird `secret-scan.yml` in den **`onboard-repo`-Pfad** (Skill +
-  Repo-Scaffold) aufgenommen: jedes neu angelegte private Repo erhält den Gate
-  by construction. Bestehende private Repos sind über P0 (direkt) bzw.
-  `_ci-python.yml`-Caller abgedeckt. Ohne diesen Schritt wiederholt sich die
-  ADR-226-Lehre „Mandat ohne Mechanismus lässt das Fenster offen" eine Ebene
-  höher.
-- **P3:** Audit-Meter (wöchentlich, analog `pypi-ci-adoption-gate.yml`): prüft
-  je Repo die Invariante (§8) und pflegt **ein** Tracking-Issue mit
-  schrumpfendem Backlog — die *Detektion* hinter der P2-*Prävention*.
-  Informational, fällt nie hart.
-- **P4 — aufgeschoben:** GHAS-Kosten/Nutzen erneut bewerten, sobald ein Trigger
-  (§7.3) feuert; bei Freigabe zuerst die privaten Repos mit höchstem
-  Blast-Radius migrieren.
+- **P0 — erledigt (2026-06-02):** `secret-scan.yml` auf 7 ungeschützte private Repos (PRs gemerged); `desktop-setup`-Fund bereinigt; Audit #412.
+- **P1 — erledigt (2026-06-03):** native Push Protection auf `platform`/`writing-hub`/`lastwar-bot` wieder ein (`gh api` verifiziert). Offen: Org-Default für neue public Repos (`admin:org`-Scope nötig).
+- **P2 — by-construction-Enforcement:** `secret-scan.yml` in den **`onboard-repo`-Pfad** (Skill/Scaffold) aufnehmen → jedes neue private Repo erhält den Gate ohne menschliches Zutun (der Auto-Distributor ist tot, ADR-230). Sonst wiederholt sich „Mandat ohne Mechanismus" eine Ebene höher.
+- **P3:** Audit-Meter (wöchentlich, analog `pypi-ci-adoption-gate.yml`): prüft die Invariante (§8), pflegt **ein** Tracking-Issue, fällt nie hart — die Detektion hinter der P2-Prävention.
+- **P4 — aufgeschoben:** GHAS-Kosten/Nutzen erneut bewerten, sobald ein Trigger (§7.3) feuert; bei Freigabe höchster Blast-Radius zuerst.
 
 ## 6. Risiken
 
-- **CI-gitleaks ist post-push (Layer 2):** Ein Secret eines privaten Repos landet
-  vor dem roten Gate in der History → Rotation nötig. Mitigation: Layer-0-Hook +
-  schnelle Rotation + der Gate erzwingt einen roten PR (sichtbar, nicht
-  mergebar ohne Triage). Echte Prävention nur via GHAS (P4).
-- **`.gitleaksignore`-Missbrauch:** könnte einen echten künftigen Secret
-  verdecken. Mitigation: nur **fingerprint-genaue** Suppressions (kein breites
-  Allowlisting), im PR reviewt; die Action echot vorhandene Escape-Hatches als
-  Warnung (Transparenz, ADR-226).
-- **Setting-Drift auf public Repos:** Push Protection könnte wieder abgeschaltet
-  werden. Mitigation: Org-Default + P2-Meter prüft `secret_scanning.status` je
-  public Repo.
-- **Heuristik-False-Positives** (z. B. `generic-api-key` auf Domänen-Keys, siehe
-  bahn-hub): erzeugen Reibung. Mitigation: fingerprint-Suppression als
-  dokumentierter Pfad.
+- **CI-gitleaks ist post-push (Layer 2):** Secret landet vor dem roten Gate in der History → Rotation. Mitigation: Layer-0-Hook + schnelle Rotation + roter, nicht ohne Triage mergebarer PR. Echte Prävention nur via GHAS (P4).
+- **`.gitleaksignore`-Missbrauch:** könnte echten künftigen Secret verdecken. Mitigation: nur **fingerprint-genaue** Suppressions, im PR reviewt; die Action echot Escape-Hatches als Warnung (ADR-226).
+- **Setting-Drift auf public Repos:** Push Protection könnte abgeschaltet werden. Mitigation: Org-Default + P3-Meter prüft `secret_scanning.status`.
+- **Heuristik-FPs** (z. B. `generic-api-key` auf Domänen-Keys, bahn-hub): Reibung. Mitigation: fingerprint-Suppression als dokumentierter Pfad.
 
 ## 7. Konsequenzen
 
 ### 7.1 Positiv
-
-- Jeder Secret-Pfad hat einen verbindlichen serverseitigen Gate; die
-  bfagent-Lücke ist by-construction geschlossen, nicht adoptions-abhängig.
+- Jeder Secret-Pfad hat einen verbindlichen serverseitigen Gate; die bfagent-Lücke ist by-construction geschlossen, nicht adoptions-abhängig.
 - Der stärkste Gate (Push-Rand) ist auf allen public Repos gratis scharf.
-- Eine messbare Invariante statt eines laufenden Reparatur-Tasks.
+- Messbare Invariante statt laufendem Reparatur-Task.
 
 ### 7.2 Trade-offs
-
-- Privat bleibt ohne GHAS Detektion-statt-Prävention (post-push).
+- Privat bleibt ohne GHAS Detektion statt Prävention (post-push).
 - Laufende Pflege eines Audit-Meters + gelegentliche FP-Triage.
 
 ### 7.3 Nicht in Scope / aufgeschoben
-
-- **GHAS-Anschaffung** (Budget-Entscheidung). **Beziffert:** GitHub „Secret
-  Protection" wird **pro aktivem Committer/Monat** abgerechnet (Listenpreis zum
-  Erstellungszeitpunkt grob ~$19/aktiver Committer/Monat — *vor* der Entscheidung
-  die aktuelle GitHub-Preisseite verifizieren, nicht aus diesem ADR zitieren).
-  Diese Org hat **effektiv 1–3 aktive Committer**, die Seat-Kosten liegen also im
-  niedrigen zweistelligen $/Monat-Bereich. **Entscheidungsregel:** GHAS adoptieren,
-  sobald `Preis/Committer × aktive Committer/Monat` < erwartete annualisierte
-  Rotations- + Cleanup-Kosten **eines** privaten Repo-Incidents (Token rotieren
-  über N Apps, History-Triage, Ausfallrisiko). Bei dieser Committer-Zahl ist der
-  Seat-Preis klein — der limitierende Faktor ist faktisch **nicht das Budget,
-  sondern `admin:org`-Aktivierung + Intent**; der Trade-off neigt sich damit
-  zugunsten „kaufen", sobald ein einziger Private-Repo-Beinahe-Incident auftritt.
-  Trigger zum sofortigen Wiederaufgreifen: (a) ein echter Secret erreicht trotz
-  CI-gitleaks die History eines privaten Repos, **oder** (b) die o. g. Regel kippt.
-- History-Purge alter toter Funde (Rotation ist der härtere Hebel; nur bei
-  Bedarf).
+- **GHAS-Anschaffung** (Budget). **Beziffert:** GitHub „Secret Protection" wird **pro aktivem Committer/Monat** abgerechnet (Listenpreis z. Z. grob ~$19/Committer/Monat — *vor* der Entscheidung aktuelle GitHub-Preisseite verifizieren, nicht aus diesem ADR zitieren). Diese Org hat **effektiv 1–3 aktive Committer** → Seat-Kosten niedrig zweistellig $/Monat. **Entscheidungsregel:** GHAS adoptieren, sobald `Preis × aktive Committer/Monat` < erwartete annualisierte Rotations-/Cleanup-Kosten **eines** Private-Repo-Incidents. Bei dieser Committer-Zahl ist der limitierende Faktor faktisch **`admin:org`-Aktivierung + Intent, nicht das Budget** — der Trade-off neigt sich zu „kaufen", sobald ein einziger Beinahe-Incident auftritt. Sofort-Trigger: (a) echter Secret erreicht trotz CI-gitleaks die History eines privaten Repos, **oder** (b) die Regel kippt.
+- History-Purge alter toter Funde (Rotation ist der härtere Hebel; nur bei Bedarf).
 - OIDC-Trusted-Publishing-Migration der Legacy-Publish-Workflows (ADR-220).
 
 ## 8. Validation Criteria
 
-Die Posture gilt als eingehalten, wenn (maschinell prüfbar, vgl. Audit-Skript in #412):
+Maschinell prüfbar (vgl. Audit-Skript in #412):
 
-1. **Jedes public Repo:** `security_and_analysis.secret_scanning.status == enabled`
-   **und** `..._push_protection.status == enabled` (`gh api repos/<owner>/<repo>`).
-2. **Jedes private Repo:** ein serverseitiger gitleaks-Workflow ist auf dem
-   Default-Branch präsent (direktes `secret-scan.yml` **oder** `_ci-python.yml`-Caller).
-3. **Audit-Meter** läuft wöchentlich grün bzw. mit schrumpfendem Backlog (ein
-   Tracking-Issue).
-4. → `implemented`, sobald P1 + P2 stehen; → `verified`, sobald der Meter ≥2
-   Wochen ohne offene Invarianten-Verletzung läuft.
+1. **Jedes public Repo:** `secret_scanning.status == enabled` **und** `secret_scanning_push_protection.status == enabled` (`gh api repos/<o>/<r>`).
+2. **Jedes private Repo:** ein serverseitiger gitleaks-Workflow auf dem Default-Branch (`secret-scan.yml` **oder** `_ci-python.yml`-Caller).
+3. **Audit-Meter** läuft wöchentlich grün / mit schrumpfendem Backlog (ein Tracking-Issue).
+4. → `implemented`, sobald P1 + P2 + P3 stehen; → `verified`, sobald der Meter ≥2 Wochen ohne offene Invarianten-Verletzung läuft.
 
 ## 9. Glossar
 
-| Abkürzung | Bedeutung |
-|-----------|-----------|
+| Begriff | Bedeutung |
+|---------|-----------|
 | **ADR** | Architecture Decision Record — dokumentierte Architektur-Entscheidung |
 | **CI** | Continuous Integration — automatische Prüfungen bei jeder Code-Änderung |
 | **Composite Action** | Wiederverwendbarer CI-Baustein; hier die *eine* Stelle, an der der Scan definiert ist |
-| **False Positive (FP)** | Fehlalarm — ein Treffer, der in Wahrheit kein Secret ist |
-| **Fingerprint** | Eindeutiger gitleaks-Bezeichner `commit:datei:rule:zeile` eines Fundes |
-| **GHAS** | GitHub Advanced Security — kostenpflichtiges Paket, das u. a. Secret Scanning + Push Protection auf **privaten** Repos freischaltet |
-| **gitleaks** | Werkzeug, das Code/History nach versehentlich enthaltenen Secrets durchsucht |
-| **OIDC** | Veröffentlichen ohne langlebiges Passwort über kurzlebige, geprüfte Nachweise (ADR-220) |
-| **Push Protection** | GitHub-Funktion, die einen `git push` mit erkanntem Secret **vor** dem Landen in der History blockiert |
-| **Secret / Geheimnis** | Zugangsdatum (Token, Schlüssel, Passwort), das nie in Code/History gehört |
+| **False Positive (FP)** | Fehlalarm — ein Treffer, der kein Secret ist |
+| **Fingerprint** | gitleaks-Bezeichner `commit:datei:rule:zeile` eines Fundes |
+| **GHAS** | GitHub Advanced Security — kostenpflichtig; schaltet Secret Scanning + Push Protection auf **privaten** Repos frei |
+| **gitleaks** | Werkzeug, das Code/History nach Secrets durchsucht |
+| **OIDC** | Publish ohne langlebiges Passwort über kurzlebige Nachweise (ADR-220) |
+| **Push Protection** | blockiert `git push` mit erkanntem Secret **vor** dem Landen in der History |
+| **Secret** | Zugangsdatum (Token/Schlüssel/Passwort), das nie in Code/History gehört |
 | **Secret Scanning** | GitHub-Dienst, der Repos auf bekannte Secret-Muster prüft |
 
 ## 10. Referenzen
 
 - Audit + Rollout: `achimdehnert/platform`#412 (2026-06-02), bfagent-Incident #410.
-- ADR-210 — Gate unmittelbar vor der irreversiblen Aktion (PyPI-Publish-Gate).
-- ADR-226 — Mandatory blocking Secret-Scan + geteilte `gitleaks-scan`-Composite-Action.
-- ADR-220 — OIDC Trusted Publishing für PyPI.
+- ADR-210 (Gate am irreversiblen Rand) · ADR-226 (Mandatory Secret-Scan + shared Action) · ADR-220 (OIDC) · ADR-045 (Secrets-Storage).
 - `.github/actions/gitleaks-scan/action.yml`, `.github/workflows/pypi-ci-adoption-gate.yml` (Meter-Vorlage).
 
 ## 11. Changelog
 
-- 2026-06-02: Initial (Proposed). Aus dem org-weiten Secret-Prevention-Audit
-  (#412) und dem bfagent-Incident (#410); CI-gitleaks-Rollout auf 7 private
-  Repos bereits erledigt (P0).
-- 2026-06-03: Review-Findings adressiert (/adr-review) — `implementation_evidence`
-  ergänzt (ADR-138), §3 um Pro/Contra je Option erweitert, GHAS-Verfügbarkeit in
-  §1.1 als empirisch (Audit) gekennzeichnet.
-- 2026-06-03: Challenger-Findings adressiert (/adr-challenger) — ADR-045 in
-  `relates_to` (komplementär, kein Konflikt); neuer Plan-Schritt P2
-  „by-construction-Enforcement via `onboard-repo`" gegen die Layer-2-Adoptionslücke
-  (Steel-Man #2); GHAS-Deferral in §7.3 beziffert mit Entscheidungsregel + Preis-
-  Vorbehalt (Steel-Man #1). P-Schritte renummeriert (Meter→P3, GHAS→P4).
+- 2026-06-02: Initial (Proposed) — aus Audit #412 + bfagent #410; P0 (CI-gitleaks auf 7 Repos) erledigt.
+- 2026-06-03: `/adr-review` adressiert (`implementation_evidence`, §3 Pro/Contra, GHAS empirisch).
+- 2026-06-03: `/adr-challenger` adressiert (ADR-045-Link; P2 by-construction via `onboard-repo`; GHAS in §7.3 beziffert; P-Schritte renummeriert).
+- 2026-06-03: **Accepted** + gestrafft (~180 Z.); P1 erledigt (native auf 3 public Repos wieder ein).
