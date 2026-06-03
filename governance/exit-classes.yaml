@@ -105,7 +105,8 @@ orgs:
     review_by: 2026-09-15
     rationale: Government (GOV-A) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off statt Standalone-Trennung.
     deviations:
-      - "Souveränität ruht allein auf dem Träger-Sign-off (owner-attestiert, nicht repo-verifiziert). Fällt er weg → Rückgabe an Träger nötig → Handover-/Rückgabe-Klausel (contractual-clause) wird kritisch; GOV-Exit-Feuerübung steht aus."
+      - "Souveränität ruht allein auf dem Träger-Sign-off (owner-attestiert, nicht repo-verifiziert). Fällt er weg → Rückgabe an Träger nötig → Handover-/Rückgabe-Klausel (contractual-clause) wird kritisch."
+      - "GOV-Exit-Feuerübung 2026-06-03 TEILWEISE (Protokoll ~/shared/gov-exit-drill-protocol-2026-06-03.md): Inventar-Mechanik grün; aber Org-Exit/Teardown ist NICHT autonom-programmatisch (API-404 create / Owner-Web-UI+Support delete) → Souveränitäts-Rückgabe braucht vertragliche/operative SLA, kein Skript. Voll-grün erst nach echter Owner-Handover-Probe."
 
   meiki-lra:
     exit_class: central-gov        # geändert 2026-06-03: in Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft)
@@ -114,7 +115,7 @@ orgs:
     review_by: 2026-09-15
     rationale: LRA/Bürgerdaten (GOV-B) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off.
     deviations:
-      - "Wie ttz-lif: Souveränität Single-Point am Sign-off; GOV-Exit-Feuerübung (Handover-Readiness) steht aus."
+      - "Wie ttz-lif: Souveränität Single-Point am Sign-off. GOV-Exit-Feuerübung 2026-06-03 teilweise (s. ttz-lif): Inventar grün, Handover/Teardown nicht autonom → SLA-Befund; voll-grün braucht Owner-Handover-Probe."
 
   bahn-sqf:
     exit_class: exit-likely
