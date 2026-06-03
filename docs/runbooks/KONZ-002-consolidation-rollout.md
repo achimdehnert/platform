@@ -17,13 +17,14 @@ die gegateten UI-Schritte führt der **Owner** je Phase aus. Jede Phase hat ein
 
 | Gate | Kriterium (Original) | Stand 2026-06-03 | Bewertung |
 |---|---|---|---|
-| **(a)** Kostenneutralität | „schriftlich bestätigt" | **Aktennotiz** (DR-A unten) — pro-Person-Abrechnung API-verifiziert + mündliche Account-Team-Bestätigung; Budget-Owner-Entscheid | ✅ *für Rollout*; Restlücke: €-Sätze extern unbestätigt |
-| **(b)** GOV-Souveränität | „Sign-off vorliegt" | **Aktennotiz** (DR-B unten) — *protokolliertes mündliches OK*, **kein** formaler Träger-Sign-off | ⚠️ *für bounded ALT-D-Scope* (standalone + Config-Spiegelung); Ownership-/Transfer-Schritte bleiben gesperrt |
-| **(c)** Portabilität | exit-plan-Runbook + Feuerübung grün | ✅ bewiesen (PR #429, KONZ-002 §15) | ✅ |
+| **(a)** Kostenneutralität | „schriftlich bestätigt" | **Schriftliche Bestätigung liegt vor** (DR-A) — owner-attestiert, abgelegt in Privatunterlagen (nicht repo-verlinkbar) | ✅ **erfüllt** (attestiert); Restlücke: Beleg nicht im Repo |
+| **(b)** GOV-Souveränität | „Sign-off vorliegt" | **Formaler Träger-Sign-off liegt vor** (DR-B) — owner-attestiert, schriftlich, in Privatunterlagen | ✅ **erfüllt** (attestiert); GOV-Hard-Lock **aufgehoben**; Restlücke: Beleg nicht repo-verlinkt |
+| **(c)** Portabilität | exit-plan-Runbook + Feuerübung grün | ✅ Inventar+Detektion bewiesen (PR #429); Reversibilität D1-„dokumentiert" (Einbahn-Exit-Befund) | ✅ (D1-grün) |
 
-> **Bewusste, dokumentierte Lockerung** (nicht still): (a) und (b) werden von
-> „schriftlich/formal" auf **Budget-Owner-Aktennotiz** gestellt; Restrisiko vom
-> Owner getragen und unten benannt. Querverweis ADR-235-Changelog 2026-06-03.
+> **Aktualisierung 2026-06-03 (Stufe 2):** (a)/(b) sind nicht mehr nur mündlich/Aktennotiz,
+> sondern als **schriftliche Belege** vom Owner attestiert (in Privatunterlagen). Disziplin-Vermerk:
+> *attestiert ≠ repo-verifiziert* — Belege liegen nicht im Repo; bei Audit Kopie nachzureichen
+> (billigster Check). Querverweis ADR-235-Changelog 2026-06-03.
 
 ---
 
@@ -32,17 +33,17 @@ die gegateten UI-Schritte führt der **Owner** je Phase aus. Jede Phase hat ein
 ### DR-A — Kostenneutralität (Kill-Gate a)
 - **Datum:** 2026-06-03 · **Entscheider:** Achim Dehnert (Platform-Lead / Budget-Owner)
 - **Basis (verifiziert):** Enterprise-PAT-API 2026-06-03 — `consumed-licenses` = **2 Seats** (achimdehnert + iljalerch); GHAS-Committer secret_protection=2/code_security=2; Abrechnung **pro Person**, nicht pro Org/Repo → Org-Aufnahme kostenneutral, solange keine neue Person dazukommt; 4 Team-Pläne werden redundant.
-- **Mündlich:** Account-Team hat seat-basierte (nicht org-/repo-basierte) Abrechnung bestätigt.
-- **Entscheidung:** Kostenneutralität der Konsolidierung **akzeptiert** auf dieser Basis. Kill-Kriterium (a) bewusst via Budget-Owner-Aktennotiz erfüllt (statt externer schriftlicher Bestätigung).
-- **Restlücke (benannt):** €-Sätze sind **extern nicht schriftlich** bestätigt. **Billigster Check / empfohlen:** eine Mail ans Account-Team **vor** Kündigung der 4 Team-Pläne (das ist die irreversible Kosten-Aktion).
+- **Schriftlicher Beleg (Update 2026-06-03):** Eine **schriftliche Kostenbestätigung** liegt vor, vom Owner **attestiert** und in dessen Privatunterlagen abgelegt (nicht repo-verlinkbar).
+- **Entscheidung:** Kill-Kriterium (a) **erfüllt** (schriftlich, owner-attestiert) — nicht mehr nur Aktennotiz.
+- **Restlücke (benannt):** Beleg liegt **nicht im Repo** → *attestiert, nicht repo-verifiziert*. **Billigster Check:** (anonymisierte) Kopie nach `~/shared/` legen oder bei Audit nachreichen.
 
 ### DR-B — GOV-Datensouveränität (Kill-Gate b)
 - **Datum:** 2026-06-03 · **Protokolliert von:** Achim Dehnert
-- **Inhalt:** Mündliches Souveränitäts-OK für die **standalone + gespiegelte-Config**-Anordnung von **GOV-A** (`ttz-lif`) und **GOV-B** (`meiki-lra`), von Achim übermittelt. Identität der Träger-Vertreter **anonymisiert** (Projektkonvention GOV-A/GOV-B).
-- **Natur (ausdrücklich):** Dies ist die **zeitnahe Protokollierung einer mündlichen Aussage**, **kein** formaler schriftlicher Träger-Sign-off.
-- **Begrenzte Exposition:** Unter ALT-D bleiben GOV-Orgs **standalone** — **kein** Ownership-/Datentransfer; gespiegelt wird ausschließlich die Security-Config (Posture-Verbesserung auf bestehenden Repos).
-- **Restrisiko (benannt):** **Kein** formaler schriftlicher Träger-Sign-off auf Akte. **Billigster Check / empfohlen:** schriftlichen Sign-off einholen **vor** jeder Aktion, die GOV-Org-Governance über reine Config-Spiegelung hinaus ändert.
-- **Entscheidung:** (b) für den **bounded ALT-D-Scope** (standalone + Config-Spiegelung) via dieses dokumentierten mündlichen Records als erfüllt behandelt; Restrisiko vom Platform-Lead getragen. **Jeder Ownership-/Transfer-Schritt an GOV-Orgs bleibt bis zum schriftlichen Sign-off gesperrt.**
+- **Inhalt:** **Formaler Datensouveränitäts-Sign-off der Trägerorganisation(en)** für **GOV-A** (`ttz-lif`) und **GOV-B** (`meiki-lra`). Identität der Träger **anonymisiert** (Projektkonvention GOV-A/GOV-B).
+- **Natur (Update 2026-06-03):** **Schriftlicher Träger-Sign-off** liegt vor (nicht mehr nur mündlich), vom Owner **attestiert**, abgelegt in dessen Privatunterlagen.
+- **Wirkung:** Kill-Kriterium (b) **erfüllt**. Die **GOV-Hard-Lock ist aufgehoben** — sowohl Ownership-Fragen als auch eine zentral betriebene Audit-/Eingriffsrolle auf GOV-Orgs sind durch den Sign-off gedeckt. (Unter ALT-D bleiben GOV-Orgs ohnehin standalone; es findet kein Ownership-/Datentransfer statt.)
+- **Restlücke (benannt):** Beleg liegt **nicht im Repo** → *attestiert, nicht repo-verifiziert*. **Billigster Check:** (anonymisierte) Kopie nach `~/shared/` legen oder bei Audit nachreichen.
+- **Entscheidung:** (b) erfüllt via formalem Träger-Sign-off. **Verbleibende GOV-Vorsicht** (kein Hard-Lock mehr, aber Sorgfalt): Souveränitäts-relevante Änderungen weiterhin im Scope des Sign-offs halten.
 
 ---
 
@@ -54,12 +55,12 @@ die gegateten UI-Schritte führt der **Owner** je Phase aus. Jede Phase hat ein
 | **S2** | Config 17 als Enterprise-**Default** setzen → erst `unenforced` beobachten → dann `enforced` | S1 grün; FP-Rate + blockierte Pushes + Coverage ausgewertet | Owner/CC (API `repo`-Scope) | `code-security/configurations/.../defaults` gesetzt; Drift-Audit grün; FP-Rate akzeptabel | zurück auf `unenforced`; Default entfernen |
 | **S3** | Wertvolle private `achimdehnert`-Repos in Enterprise-Org migrieren (Wellen + Runbook) | S2 `enforced`; **Ziel admin-kontrolliert** (REC-8); Push-Protection am Ziel aktiv (REC-9) | Owner (Transfer-UI) | je Welle: Repo unter Enterprise-Org, Push-Protection aktiv, CI grün | Repo zurücktransferieren (gleiche Welle, Ziel = Quelle) |
 | **S4** | User-Account `achimdehnert` austrocknen (Deploy-Keys/Webhooks/Package-Owner/Secrets/Integrationen) | S3-Welle verifiziert | Owner | keine prod-kritischen Artefakte mehr am User-Account | — (irreversibel → deshalb zuletzt, nur nach S3-Verifikation) |
-| **GOV** | `ttz-lif`/`meiki-lra` **standalone + gespiegelte Config** (must-stay-local) | DR-B (bounded); **kein** Ownership-Move | Owner/CC (admin auf GOV-Orgs) | Security-Posture gespiegelt; CI-Gleichheits-Audit grün | Config zurücknehmen (reversibel) |
+| **GOV** | `ttz-lif`/`meiki-lra` **standalone + gespiegelte Config** (must-stay-local) | DR-B Sign-off ✅ vorhanden | Owner/CC (admin auf GOV-Orgs) | Security-Posture gespiegelt; CI-Gleichheits-Audit grün | Config zurücknehmen (reversibel) |
 | **`pactive-de`** | Konsolidierung | ⛔ **Owner-Zustimmung Dritter** (DasRed/ghry5/philipp-eicher/ratpic83) | gesperrt | — | — |
 
-### Harte Sperren (durch Owner-Freigabe **nicht** aufhebbar)
-- **GOV-Ownership/-Transfer:** bis schriftlicher Träger-Sign-off vorliegt (DR-B Restrisiko). ALT-D verlangt das ohnehin nicht (GOV bleibt standalone).
-- **`pactive-de`:** Dritt-Org, Achim nur `member` (`admin=false` verifiziert) — nur deren Owner können entscheiden. Das ist kein Sign-off-, sondern ein Eigentums-Faktum.
+### Harte Sperren
+- **GOV-Ownership/-Transfer:** ~~bis schriftlicher Träger-Sign-off vorliegt~~ → **aufgehoben (2026-06-03):** formaler Träger-Sign-off liegt vor (DR-B, owner-attestiert). ALT-D bewegt GOV-Orgs ohnehin nicht. Sorgfalt: Änderungen im Scope des Sign-offs halten.
+- **`pactive-de`:** ⛔ **bleibt gesperrt** — Dritt-Org, Achim nur `member` (`admin=false` verifiziert); nur deren Owner können entscheiden. Eigentums-Faktum, kein Sign-off-Thema.
 
 ## Reihenfolge / Sequencing
 1. **DR-A/DR-B festschreiben** (dieses Dokument) — erledigt.
