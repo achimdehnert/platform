@@ -1,6 +1,12 @@
 ---
 status: proposed
 implementation_status: partial
+implementation_evidence:
+  - "Layer 2: secret-scan.yml auf 7 zuvor ungeschützte private Repos ausgerollt + gemerged (bahn-hub#9, design-hub#29, desktop-setup#1, django-lms-lite#1, iil-fieldprefill#1, illustration-fw#8, nl2iot-hub#1, 2026-06-02)"
+  - "Layer 1: native Secret Scanning + Push Protection bereits aktiv auf 26 public Repos (Audit #412, gh api verifiziert)"
+  - ".github/actions/gitleaks-scan (ADR-226) als geteilte Action mit einem Versions-Pin von Layer 2 konsumiert"
+  - "desktop-setup-Fund bereinigt (secrets.env aus Tree entfernt + .gitignore + .gitleaksignore; Tokens waren bereits rotiert)"
+  - "Audit-Skript + Befund als #412 dokumentiert"
 date: 2026-06-02
 decision-makers: Achim Dehnert
 domains: [security, ci-cd, governance, secrets]
@@ -43,8 +49,11 @@ Ein org-weiter Audit am 2026-06-02 (#412) über 54 aktive Repos ergab ein
   Push-Rand (die Lehre aus ADR-210).
 - **~25 private Repos**: native Scanning ist **absent** — GitHub Advanced
   Security (GHAS), das Secret Scanning auf privaten Repos freischaltet, ist
-  nicht lizenziert. Der einzige serverseitige Fallback ohne GHAS ist CI-seitiges
-  gitleaks (geteilte `gitleaks-scan`-Composite-Action, ADR-226).
+  nicht lizenziert. (Empirisch verifiziert: `gh api repos/<owner>/<repo>` liefert
+  für alle privaten Repos `security_and_analysis.secret_scanning` = absent — der
+  Befund stützt sich auf den Audit-Ist-Zustand, nicht auf GitHubs Lizenz-Docs.)
+  Der einzige serverseitige Fallback ohne GHAS ist CI-seitiges gitleaks (geteilte
+  `gitleaks-scan`-Composite-Action, ADR-226).
 - **Anomalie**: 3 *public* Repos hatten den gratis Schutz **abgeschaltet**:
   `platform`, `writing-hub`, `lastwar-bot`.
 
@@ -105,19 +114,31 @@ für die gesamte Org fest:
 
 ## 3. Betrachtete Alternativen
 
-1. **Status quo (Scan hängt an `_ci-python.yml`-Adoption).** Verworfen: genau die
-   bfagent-Lücke — Repos ohne Caller (oder mit roter CI) sind ungeschützt.
-2. **Nur CI-gitleaks überall, kein native.** Verworfen: ignoriert den gratis,
-   architektonisch überlegenen Push-Rand-Gate, der auf public Repos schon da ist;
-   CI ist post-push (Secret landet zuerst in History).
-3. **GHAS sofort org-weit kaufen (native überall, auch privat).** Stärkste
-   Lösung — Prävention am Push-Rand für *alle* Repos. Nicht als sofortige
-   Entscheidung gewählt: erzwingt laufende Kosten, die eine Org-/Budget-Freigabe
-   brauchen, nicht eine Architektur-Festlegung. Bleibt dokumentierter
-   Upgrade-Pfad (§2, §7.3).
+1. **Status quo (Scan hängt an `_ci-python.yml`-Adoption).**
+   - Gut: kein Aufwand; nutzt vorhandene Reusable-CI.
+   - Schlecht: genau die bfagent-Lücke — Repos ohne Caller (oder mit roter CI)
+     sind ungeschützt; Coverage ist nicht messbar/garantiert.
+   - → Verworfen.
+2. **Nur CI-gitleaks überall, kein native.**
+   - Gut: einheitlich, gratis, ein Mechanismus.
+   - Schlecht: ignoriert den gratis, architektonisch überlegenen Push-Rand-Gate,
+     der auf public Repos schon da ist; CI ist post-push (Secret landet zuerst in
+     History → Rotation statt Prävention).
+   - → Verworfen.
+3. **GHAS sofort org-weit kaufen (native überall, auch privat).**
+   - Gut: stärkste Lösung — Prävention am Push-Rand für *alle* Repos, public wie
+     privat; ein einheitlicher, serverseitiger Gate ohne CI-Pflege.
+   - Schlecht: laufende Seat-Kosten; erzwingt eine Org-/Budget-Freigabe, ist also
+     keine reine Architektur-Festlegung, die dieses ADR allein treffen sollte.
+   - → Nicht als sofortige Entscheidung gewählt; bleibt dokumentierter
+     Upgrade-Pfad (§2, §7.3).
 4. **Gestufte Posture (Layer 0/1/2) mit GHAS als aufgeschobenem Upgrade.**
-   **Gewählt** — schließt die Lücke sofort und gratis, nutzt den stärksten Gate
-   wo verfügbar, und macht die Kostenentscheidung explizit statt implizit.
+   - Gut: schließt die Lücke sofort und gratis; nutzt den stärksten Gate wo
+     verfügbar (public); macht die Kostenentscheidung explizit statt implizit;
+     messbar (§8).
+   - Schlecht/akzeptiert: privat bleibt vorerst Detektion statt Prävention
+     (post-push) — bis ein Trigger (§7.3) GHAS rechtfertigt.
+   - → **Gewählt.**
 
 ## 4. Begründung im Detail
 
@@ -234,3 +255,6 @@ Die Posture gilt als eingehalten, wenn (maschinell prüfbar, vgl. Audit-Skript i
 - 2026-06-02: Initial (Proposed). Aus dem org-weiten Secret-Prevention-Audit
   (#412) und dem bfagent-Incident (#410); CI-gitleaks-Rollout auf 7 private
   Repos bereits erledigt (P0).
+- 2026-06-03: Review-Findings adressiert (/adr-review) — `implementation_evidence`
+  ergänzt (ADR-138), §3 um Pro/Contra je Option erweitert, GHAS-Verfügbarkeit in
+  §1.1 als empirisch (Audit) gekennzeichnet.
