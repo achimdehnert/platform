@@ -143,8 +143,13 @@ def main() -> int:
       + (f" of ~{expected} expected ⚠️" if expected and len(repos) < expected else "")
       + ")")
     w()
-    w("Repo transfer keeps history + sets up redirects, but the following do NOT "
-      "move and must be re-created on the target:")
+    w("Repo transfer keeps history + variables + sets up redirects, but **secrets "
+      "are REMOVED** and native security settings (push protection) do **not** "
+      "follow to a non-enterprise owner. Verified by fire-drill 2026-06-03: "
+      "variables survived, a repo secret would not, and push protection became "
+      "`absent` after transfer to a Team org (and was not re-enableable without "
+      "that org's own Secret Protection). Target-org **admin role** is required to "
+      "manage/clean up a transferred repo — verify before transferring.")
     w()
     for r in sorted(repos, key=lambda x: x["name"]):
         n = r["name"]
@@ -174,8 +179,8 @@ def main() -> int:
                     s2, body = api(f"/repos/{full}/contents/{f['path']}", raw=True)
                     if s2 < 400 and isinstance(body, (bytes, bytearray)) and OWNER_REF_HINT in body:
                         owner_ref_files.append(f["name"])
-        w(f"- secrets (rotate+re-add): {', '.join('`'+s+'`' for s in sec_names) or 'none'}")
-        w(f"- variables: {', '.join('`'+s+'`' for s in var_names) or 'none'}")
+        w(f"- secrets (**REMOVED on transfer** — rotate+re-add): {', '.join('`'+s+'`' for s in sec_names) or 'none'}")
+        w(f"- variables (transfer WITH repo — verify): {', '.join('`'+s+'`' for s in var_names) or 'none'}")
         w(f"- environments: {', '.join('`'+s+'`' for s in env_names) or 'none'}")
         w(f"- webhooks: {hook_n} · deploy keys: {key_n} · rulesets: {rs_n} · "
           f"pages: {'yes' if st_pg < 400 else 'no'} · "
