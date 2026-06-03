@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 implementation_status: none
 date: 2026-06-03
 decision-makers: Achim Dehnert
@@ -13,7 +13,7 @@ tags: [enterprise, org-topology, boundary, data-sovereignty, push-protection, po
 
 > **Amends ADR-235** (Reversal der „public native / private CI-Fallback"-Aufteilung **für org-/enterprise-eigene Repos**).
 > **Basiert auf** Konzept [KONZ-platform-002](../konzepte/KONZ-platform-002-enterprise-consolidation.md); Rollout-Mechanik in [`docs/runbooks/KONZ-002-consolidation-rollout.md`](../runbooks/KONZ-002-consolidation-rollout.md).
-> Status `proposed`; **Umsetzung gegated** durch das KONZ-002 Kill-Gate (a/b/c) — dieser ADR ist die *Boundary-Entscheidung*, nicht ihre Ausführung.
+> Status **`accepted`** (2026-06-03; Kill-Gate a/b/c erfüllt — a/b owner-attestiert schriftlich, c bewiesen). Dieser ADR ist die *Boundary-Entscheidung*; die **Ausführung** (S1–S4) bleibt phasenweise gegated im Runbook — `implementation_status: none`, bis S1 startet. S1 = Owner-Aktion (Web-UI).
 
 ## 1. Kontext
 
@@ -151,3 +151,4 @@ Fehlt eine Bedingung → keine Org-Aufnahme; Sunset auf ALT-A. **Nach Fristablau
 ## 11. Changelog
 - 2026-06-03: Initial (Proposed) — ALT-D Boundary aus KONZ-002; Umsetzung gegated (Kill-Gate a/b/c). Amends ADR-235 (Reversal für org/enterprise-Repos).
 - 2026-06-03: **Amendment nach adversarialem 3-Linsen-Review** (Steelman/Diabolus/Maintainer-2028): §8c Gate (c) ehrlich gemacht (Reversibilität *falsifiziert*, nicht „bewiesen"); §2.5 `exit_class`-SSoT als nicht-existente Vorbedingung mit Pfad/Schema + `bahn-sqf`=exit-likely; §2.2 schlanke PP+Scan-Config für apply-to-all (Config 17 nur Default-for-new, KONZ REC-2); §2.3 ALT-D-Mechanik-Drift offengelegt (Config-Spiegel statt Lizenzkauf) + REC-9-Grenze; §4 Kosten „Mengen verifiziert, Preismodell offen" + Committer-Mechanik + Asymmetrie-Pull-Argument; §6 KONZ-D2 „Mirror ≠ Compliance" + GOV-Gate verschärft; §7.2 REC-9-Lock-in-Trade-off; §5 „admin"=Org-Rolle (REC-8) + S1-setzt-ADR-accepted-voraus; Mengen/Owner durch Live-Check-Befehle entschärft.
+- 2026-06-03: **Accepted.** Kill-Gate a/b/c erfüllt — (a) schriftliche Kostenbestätigung + (b) formaler Träger-Sign-off owner-attestiert (in Privatunterlagen; *attestiert ≠ repo-verifiziert*), (c) bewiesen (D1). GOV-Hard-Lock aufgehoben; `exit_class`-SSoT angelegt (PR #432). Boundary entschieden; Ausführung S1–S4 phasenweise gegated (Runbook), `implementation_status: none` bis S1.
