@@ -3,7 +3,10 @@
 # image GC. Designed for the systemd timer (no human present), so it does ONLY
 # operations that cannot lose service data or interrupt a running CI job:
 #   - prune stopped containers, dangling images, build cache
-#   - prune UNUSED images older than 30 days (>720h) — never recent ones
+#   - prune UNUSED images older than 7 days (>168h) — never recent ones
+#     (7d, not 30d: this host has daily image churn; 30d would let ~weeks of
+#      unused images accumulate on a 150G disk. Services run continuously here
+#      — 0 stopped containers — so >7d unused images are safe to remove.)
 #   - clear runner _work/_temp ONLY when no runner job is active
 # It NEVER touches: named volumes, _tool/_actions caches, in-flight job _work,
 # or images younger than 30 days. Aggressive reclaim (image prune -a no-filter,
@@ -17,7 +20,7 @@ log "start — df:"; df -h / | tail -1
 docker container prune -f       >/dev/null && log "container prune ok"
 docker image prune -f           >/dev/null && log "dangling image prune ok"
 docker builder prune -f         >/dev/null && log "builder prune ok"
-docker image prune -a -f --filter "until=720h" >/dev/null && log "image prune (>30d unused) ok"
+docker image prune -a -f --filter "until=168h" >/dev/null && log "image prune (>7d unused) ok"
 
 # Runner _work/_temp only when idle (racy check is acceptable for _temp only —
 # transient per-job scratch; never the checkouts/_tool here).
