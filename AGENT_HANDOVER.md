@@ -5,13 +5,15 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## 0. Aktuelle Prioritäten (2026-06-01)
+## 0. Aktuelle Prioritäten (2026-06-03)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **F4 CI-grün-Programm** — 34/57 Repos rote main-CI; Ruff-Lint + Config-Drift + Dep-Fix | `[Sonnet]` |
-| 2 | **ADR-212 Phase-1 Rollout** — 5 PRs in-progress (dev-hub#56, billing-hub#3, coach-hub#23, pptx-hub#22, trading-hub#4) | `[Sonnet]` |
-| 3 | **F1 .windsurf-Untrack** — CI-Distributor abgeschaltet (PR #364), 1× Cleanup-Sweep ausstehend | `[Sonnet]` |
+| 1 | **F4 CI-grün-Programm** — 34/57 Repos rote main-CI; akut 6 triviale `ai-assignable`+`complexity:trivial` Issues (researchfw#4, weltenfw#5, learn-hub#8, travel-beat#37, trading-hub#9, recruiting-hub#6) → `/issues-offen org:achimdehnert` (verifiziert 2026-06-03) | `[Sonnet]` |
+| 2 | **ADR-212 Phase-1 abschließen** — nur noch **dev-hub#56** (Traefik-Ingress) offen; billing/coach/pptx/trading erledigt (verifiziert 2026-06-03) | `[Sonnet]` |
+| 3 | **F1 .windsurf-Untrack** — CI-Distributor abgeschaltet (PR #364), 1× Cleanup-Sweep ausstehend (Status nicht neu verifiziert) | `[Sonnet]` |
+
+**KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
 **CC-Skill-Dist** (platform): `doctor.py` DRIFT-SCORE 0 ✓ (74 Skills, 2026-06-01)
 

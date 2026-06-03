@@ -57,7 +57,7 @@ Der bfagent-Incident (#410) zeigte 78 committete Secrets in der Git-History (rot
 
 Gestufte, by-construction durchsetzbare Posture für die gesamte Org:
 
-- **Layer 1 — Prävention, bindend, am Push-Rand (bevorzugt).** Native Secret Scanning **+ Push Protection** ist **verpflichtend aktiviert auf jedem Repo, wo es kostenfrei verfügbar ist** = alle public Repos (Org-Default für neue). Verhindert, dass der Secret je in die History gelangt (ADR-210-korrekt).
+- **Layer 1 — Prävention, bindend, am Push-Rand (bevorzugt).** Native Secret Scanning **+ Push Protection** ist **verpflichtend aktiviert auf jedem Repo, wo es kostenfrei verfügbar ist** = alle public Repos. Verhindert, dass der Secret je in die History gelangt (ADR-210-korrekt). **Mechanismus je Account-Typ (Amendment 2026-06-03):** `achimdehnert` ist ein **User-Account** (keine Org → es gibt **kein** Org-Default-Setting); neue Repos dort werden über P2 (`onboard-repo`-Scaffold) bzw. per-Repo-Toggle abgedeckt. Für **org-/enterprise-eigene** Repos liefert eine **Enterprise Security Configuration** native Push-Protection auch auf *privaten* Repos (Enterprise `iilgmbh`, Config 17) — dort ist Layer 1 **nativ** und CI-gitleaks (Layer 2) wird Defense-in-depth; Topologie/Konsolidierung siehe **KONZ-platform-002**.
 - **Layer 2 — Detektion-Fallback, post-push/pre-merge (Repos ohne native).** Für private Repos ist `secret-scan.yml` (`push:main` + `pull_request`), das die geteilte `gitleaks-scan@main`-Action ruft, **verpflichtende Baseline** — direkt oder transitiv über `_ci-python.yml` (ADR-226).
 - **Layer 0 — beratend, shift-left.** `pre-commit`-gitleaks-Hook bleibt (clientseitig umgehbar → kein bindender Gate).
 - **GHAS org-weit = bewusst aufgeschoben** (§3 Opt. 3, Trigger §7.3) — bis dahin CI-gitleaks als durable Baseline; GHAS bleibt empfohlener Upgrade-Pfad.
@@ -77,7 +77,7 @@ Gestufte, by-construction durchsetzbare Posture für die gesamte Org:
 ## 5. Implementation Plan
 
 - **P0 — erledigt (2026-06-02):** `secret-scan.yml` auf 7 ungeschützte private Repos (PRs gemerged); `desktop-setup`-Fund bereinigt; Audit #412.
-- **P1 — erledigt (2026-06-03):** native Push Protection auf `platform`/`writing-hub`/`lastwar-bot` wieder ein (`gh api` verifiziert). Offen: Org-Default für neue public Repos (`admin:org`-Scope nötig).
+- **P1 — erledigt (2026-06-03):** native Push Protection auf `platform`/`writing-hub`/`lastwar-bot` wieder ein (`gh api` verifiziert). **Korrektur:** ein „Org-Default für neue Repos" ist für `achimdehnert` **nicht anwendbar** (User-Account, keine Org — `/orgs/...` gibt 404, kein Scope-Problem); neue Repos werden über P2 abgedeckt. Native Org-/Enterprise-Defaults gelten nur für echte Orgs/die Enterprise (KONZ-platform-002).
 - **P2 — by-construction-Enforcement:** `secret-scan.yml` in den **`onboard-repo`-Pfad** (Skill/Scaffold) aufnehmen → jedes neue private Repo erhält den Gate ohne menschliches Zutun (der Auto-Distributor ist tot, ADR-230). Sonst wiederholt sich „Mandat ohne Mechanismus" eine Ebene höher.
 - **P3:** Audit-Meter (wöchentlich, analog `pypi-ci-adoption-gate.yml`): prüft die Invariante (§8), pflegt **ein** Tracking-Issue, fällt nie hart — die Detektion hinter der P2-Prävention.
 - **P4 — aufgeschoben:** GHAS-Kosten/Nutzen erneut bewerten, sobald ein Trigger (§7.3) feuert; bei Freigabe höchster Blast-Radius zuerst.
@@ -86,7 +86,7 @@ Gestufte, by-construction durchsetzbare Posture für die gesamte Org:
 
 - **CI-gitleaks ist post-push (Layer 2):** Secret landet vor dem roten Gate in der History → Rotation. Mitigation: Layer-0-Hook + schnelle Rotation + roter, nicht ohne Triage mergebarer PR. Echte Prävention nur via GHAS (P4).
 - **`.gitleaksignore`-Missbrauch:** könnte echten künftigen Secret verdecken. Mitigation: nur **fingerprint-genaue** Suppressions, im PR reviewt; die Action echot Escape-Hatches als Warnung (ADR-226).
-- **Setting-Drift auf public Repos:** Push Protection könnte abgeschaltet werden. Mitigation: Org-Default + P3-Meter prüft `secret_scanning.status`.
+- **Setting-Drift auf public Repos:** Push Protection könnte abgeschaltet werden. Mitigation: P3-Meter prüft `secret_scanning.status` je public Repo (ein Org-/Enterprise-Default greift nur für echte Orgs/die Enterprise, **nicht** den User-Account).
 - **Heuristik-FPs** (z. B. `generic-api-key` auf Domänen-Keys, bahn-hub): Reibung. Mitigation: fingerprint-Suppression als dokumentierter Pfad.
 
 ## 7. Konsequenzen
@@ -142,3 +142,5 @@ Maschinell prüfbar (vgl. Audit-Skript in #412):
 - 2026-06-03: `/adr-review` adressiert (`implementation_evidence`, §3 Pro/Contra, GHAS empirisch).
 - 2026-06-03: `/adr-challenger` adressiert (ADR-045-Link; P2 by-construction via `onboard-repo`; GHAS in §7.3 beziffert; P-Schritte renummeriert).
 - 2026-06-03: **Accepted** + gestrafft (~180 Z.); P1 erledigt (native auf 3 public Repos wieder ein).
+- 2026-06-03: **Amendment** — „Org-Default für neue Repos" korrigiert: für `achimdehnert` (User-Account, keine Org) nicht anwendbar (`/orgs/...` 404, kein Scope-Problem) → neue Repos via P2-Scaffold; §2/§5/§6 entsprechend. Querverweis **KONZ-platform-002**: für org-/enterprise-eigene Repos liefert eine Enterprise Security Configuration native Push-Protection auch privat → dort Layer 1 nativ, CI-gitleaks → Defense-in-depth.
+- 2026-06-03: **Amendment (KONZ-002-Gates)** — bewusste, dokumentierte Lockerung der KONZ-002-Kill-Kriterien (a)/(b) von „schriftlich/formal" auf **Budget-Owner-Aktennotiz** (DR-A/DR-B), Restrisiko vom Platform-Lead getragen und benannt; (c) bewiesen (PR #429). Operativer Plan + Aktennotizen: [`docs/runbooks/KONZ-002-consolidation-rollout.md`](../runbooks/KONZ-002-consolidation-rollout.md). **Harte Sperren bleiben:** GOV-Ownership/-Transfer (`ttz-lif`/`meiki-lra`) bis schriftlicher Träger-Sign-off; `pactive-de` (Dritt-Org). Reversal der „public native / private CI-Fallback"-Aufteilung erst mit dem ALT-D-Boundary-ADR (noch ausstehend).
