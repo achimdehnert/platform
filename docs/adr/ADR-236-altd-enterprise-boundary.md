@@ -4,6 +4,7 @@ implementation_status: partial
 implementation_evidence:
   - "S1 ausgeführt 2026-06-03 (live verifiziert via Enterprise-PAT): Enterprise iilgmbh hat 4 Member-Orgs (bahn-sqf, iilgmbh, meiki-lra, ttz-lif); Seats 2/2 (kostenneutral bestätigt)."
   - "Amendment 2026-06-03: GOV-Orgs ttz-lif/meiki-lra BEWUSST in die Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft, owner-attestiert) → exit_class central-gov (governance/exit-classes.yaml)."
+  - "S2.0–S2.2 ausgeführt 2026-06-03 (unenforced): schlanke Config 'slim-prevention' (id 251767) apply-to-all attached; Config 17 = default-for-new. Secret-Protection-Committer 2→2 (kostenneutral bestätigt). S2.3 Beobachtung offen, S2.4 (enforced) = Owner-Entscheidung. Runbook: docs/runbooks/KONZ-002-s2-config-rollout.md."
 date: 2026-06-03
 decision-makers: Achim Dehnert
 domains: [governance, security, secrets, ci-cd]
