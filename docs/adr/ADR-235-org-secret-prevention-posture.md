@@ -11,7 +11,7 @@ date: 2026-06-02
 decision-makers: Achim Dehnert
 domains: [security, ci-cd, governance, secrets]
 scope: platform
-relates_to: [ADR-210, ADR-220, ADR-226]
+relates_to: [ADR-045, ADR-210, ADR-220, ADR-226]
 tags: [secret-scanning, push-protection, gitleaks, ghas, prevention, cross-repo, by-construction]
 ---
 
@@ -26,7 +26,7 @@ tags: [secret-scanning, push-protection, gitleaks, ghas, prevention, cross-repo,
 | **Autor**      | Achim Dehnert                                                     |
 | **Reviewer**   | –                                                                 |
 | **Supersedes** | –                                                                 |
-| **Relates to** | ADR-210 (Gate am irreversiblen Rand), ADR-226 (Mandatory Secret-Scan / shared Action), ADR-220 (OIDC Trusted Publishing) |
+| **Relates to** | ADR-045 (Secrets & Environment Management — *wie* Secrets gespeichert/injiziert werden; 235 ergänzt *Leak-Prävention*), ADR-210 (Gate am irreversiblen Rand), ADR-226 (Mandatory Secret-Scan / shared Action), ADR-220 (OIDC Trusted Publishing) |
 | **Quelle**     | Secret-Prevention-Audit 2026-06-02 (#412) + bfagent-Incident (#410) |
 
 ---
@@ -165,10 +165,20 @@ für die gesamte Org fest:
   wieder einschalten; Org-Default „enable Secret Scanning + Push Protection for
   new public repositories" setzen. (`lastwar-bot` ist public → native deckt es
   ab, kein CI-Workflow nötig.)
-- **P2:** Audit-Meter (wöchentlich, analog `pypi-ci-adoption-gate.yml`): prüft
+- **P2 — by-construction-Enforcement (schließt die Layer-2-Adoptionslücke):**
+  Layer 2 ist nur dann echt „mandatory", wenn ein **neues** privates Repo den
+  Gate ohne menschliches Zutun bekommt. Da der Auto-Distributor abgeschaltet ist
+  (ADR-230), wird `secret-scan.yml` in den **`onboard-repo`-Pfad** (Skill +
+  Repo-Scaffold) aufgenommen: jedes neu angelegte private Repo erhält den Gate
+  by construction. Bestehende private Repos sind über P0 (direkt) bzw.
+  `_ci-python.yml`-Caller abgedeckt. Ohne diesen Schritt wiederholt sich die
+  ADR-226-Lehre „Mandat ohne Mechanismus lässt das Fenster offen" eine Ebene
+  höher.
+- **P3:** Audit-Meter (wöchentlich, analog `pypi-ci-adoption-gate.yml`): prüft
   je Repo die Invariante (§8) und pflegt **ein** Tracking-Issue mit
-  schrumpfendem Backlog. Informational, fällt nie hart.
-- **P3 — aufgeschoben:** GHAS-Kosten/Nutzen erneut bewerten, sobald ein Trigger
+  schrumpfendem Backlog — die *Detektion* hinter der P2-*Prävention*.
+  Informational, fällt nie hart.
+- **P4 — aufgeschoben:** GHAS-Kosten/Nutzen erneut bewerten, sobald ein Trigger
   (§7.3) feuert; bei Freigabe zuerst die privaten Repos mit höchstem
   Blast-Radius migrieren.
 
@@ -177,7 +187,7 @@ für die gesamte Org fest:
 - **CI-gitleaks ist post-push (Layer 2):** Ein Secret eines privaten Repos landet
   vor dem roten Gate in der History → Rotation nötig. Mitigation: Layer-0-Hook +
   schnelle Rotation + der Gate erzwingt einen roten PR (sichtbar, nicht
-  mergebar ohne Triage). Echte Prävention nur via GHAS (P3).
+  mergebar ohne Triage). Echte Prävention nur via GHAS (P4).
 - **`.gitleaksignore`-Missbrauch:** könnte einen echten künftigen Secret
   verdecken. Mitigation: nur **fingerprint-genaue** Suppressions (kein breites
   Allowlisting), im PR reviewt; die Action echot vorhandene Escape-Hatches als
@@ -205,10 +215,20 @@ für die gesamte Org fest:
 
 ### 7.3 Nicht in Scope / aufgeschoben
 
-- **GHAS-Anschaffung** (Budget-Entscheidung). Trigger zum Wiederaufgreifen:
-  (a) ein echter Secret erreicht trotz CI-gitleaks die History eines privaten
-  Repos, **oder** (b) die Committer-Zahl macht die Seat-Kosten günstiger als die
-  Rotationskosten eines Incidents.
+- **GHAS-Anschaffung** (Budget-Entscheidung). **Beziffert:** GitHub „Secret
+  Protection" wird **pro aktivem Committer/Monat** abgerechnet (Listenpreis zum
+  Erstellungszeitpunkt grob ~$19/aktiver Committer/Monat — *vor* der Entscheidung
+  die aktuelle GitHub-Preisseite verifizieren, nicht aus diesem ADR zitieren).
+  Diese Org hat **effektiv 1–3 aktive Committer**, die Seat-Kosten liegen also im
+  niedrigen zweistelligen $/Monat-Bereich. **Entscheidungsregel:** GHAS adoptieren,
+  sobald `Preis/Committer × aktive Committer/Monat` < erwartete annualisierte
+  Rotations- + Cleanup-Kosten **eines** privaten Repo-Incidents (Token rotieren
+  über N Apps, History-Triage, Ausfallrisiko). Bei dieser Committer-Zahl ist der
+  Seat-Preis klein — der limitierende Faktor ist faktisch **nicht das Budget,
+  sondern `admin:org`-Aktivierung + Intent**; der Trade-off neigt sich damit
+  zugunsten „kaufen", sobald ein einziger Private-Repo-Beinahe-Incident auftritt.
+  Trigger zum sofortigen Wiederaufgreifen: (a) ein echter Secret erreicht trotz
+  CI-gitleaks die History eines privaten Repos, **oder** (b) die o. g. Regel kippt.
 - History-Purge alter toter Funde (Rotation ist der härtere Hebel; nur bei
   Bedarf).
 - OIDC-Trusted-Publishing-Migration der Legacy-Publish-Workflows (ADR-220).
@@ -258,3 +278,8 @@ Die Posture gilt als eingehalten, wenn (maschinell prüfbar, vgl. Audit-Skript i
 - 2026-06-03: Review-Findings adressiert (/adr-review) — `implementation_evidence`
   ergänzt (ADR-138), §3 um Pro/Contra je Option erweitert, GHAS-Verfügbarkeit in
   §1.1 als empirisch (Audit) gekennzeichnet.
+- 2026-06-03: Challenger-Findings adressiert (/adr-challenger) — ADR-045 in
+  `relates_to` (komplementär, kein Konflikt); neuer Plan-Schritt P2
+  „by-construction-Enforcement via `onboard-repo`" gegen die Layer-2-Adoptionslücke
+  (Steel-Man #2); GHAS-Deferral in §7.3 beziffert mit Entscheidungsregel + Preis-
+  Vorbehalt (Steel-Man #1). P-Schritte renummeriert (Meter→P3, GHAS→P4).
