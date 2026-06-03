@@ -1,0 +1,111 @@
+# governance/exit-classes.yaml
+#
+# SSoT für Org-Portabilität (ADR-236 Entscheidung 5 · KONZ-002 OOTB-8).
+# Eine Org wird GENAU EINER exit_class zugeordnet; die Klasse definiert die Policy.
+# placement / allowed_features / required_checks / exit_tests / teardown_authority-Regeln
+# werden aus `classes` ABGELEITET, nicht pro Org dupliziert (SSoT — vermeidet die
+# "zweite Wahrheit", vor der OOTB-8 warnt). Pro Org nur: Klasse + Begründung + Owner
+# + review_by + tatsächliche teardown_authority + Abweichungen.
+#
+# Konsumenten (Soll): tools/exit-plan.py (Placement-Gate D3, CI-Gleichheits-Audit) —
+#   liest diese Datei noch NICHT (Follow-up: ADR-236 §2.5). Bis dahin manuell.
+#
+# Faktenbasis (Live-API, 2026-06-03): Rolle achimdehnert je Org via
+#   `gh api orgs/<org>/memberships/achimdehnert --jq .role`
+#   → iilgmbh/ttz-lif/meiki-lra/bahn-sqf = admin; pactive-de = member.
+#   Owner-Listen via `gh api orgs/<org>/members?role=admin`. Zahlen sind Stand,
+#   nicht eingefroren — bei Drift Datei aktualisieren (review_by erzwingt das).
+
+version: 1
+
+# ---------------------------------------------------------------------------
+# Klassen-Policy (einmal definiert; Orgs referenzieren via exit_class)
+# ---------------------------------------------------------------------------
+classes:
+
+  central-ok:
+    description: >
+      Eigene, nicht-staatliche Org ohne erwarteten Austritt. Darf voll in die
+      Enterprise; volle Feature-Suite erlaubt.
+    placement: in-enterprise
+    allowed_features: [emu, sso, enterprise-only-apps, enterprise-secrets, all]
+    forbidden_features: []
+    required_checks: [secret-scanning, push-protection]
+    exit_tests: []                       # kein Exit erwartet
+    teardown_authority_rule: any         # none zulässig (kein Exit-Anspruch)
+
+  exit-likely:
+    description: >
+      Org mit absehbarem Austritt (z.B. Kundenprojekt). In der Enterprise OK,
+      aber portabel halten — KEINE nicht-exportierbaren Kopplungen.
+    placement: in-enterprise-portable
+    allowed_features: [secret-scanning, push-protection]
+    forbidden_features: [emu, sso, enterprise-only-apps, non-exportable-secret, unreviewed-app-coupling]   # REC-9
+    required_checks: [secret-scanning, push-protection, exit-plan-clean]
+    exit_tests: [exit-plan-runbook, teardown-fire-drill]
+    teardown_authority_rule: not-none    # none UNZULÄSSIG (ADR-236 §2.5)
+
+  must-stay-local:
+    description: >
+      Behörden-/Souveränitäts-Workload. Bleibt STANDALONE (nie in die Enterprise);
+      Security-Posture wird gespiegelt + per CI-Gleichheits-Audit geprüft.
+      Mirror ≠ Compliance (KONZ D2) — zentrale Audit-/Eingriffsrolle braucht
+      formalen Träger-Sign-off (ADR-236 §6/§8b).
+    placement: standalone-mirrored
+    allowed_features: [secret-scanning, push-protection]
+    forbidden_features: [emu, sso, enterprise-only-apps, non-exportable-secret, unreviewed-app-coupling, central-ownership]
+    required_checks: [secret-scanning, push-protection, mirror-equality-audit]
+    exit_tests: [exit-plan-runbook, handover-readiness]
+    teardown_authority_rule: not-none    # none UNZULÄSSIG (ADR-236 §2.5)
+
+# ---------------------------------------------------------------------------
+# Org → Klasse (Stand 2026-06-03)
+# teardown_authority ∈ {self-owner | contractual-clause | none}
+# ---------------------------------------------------------------------------
+orgs:
+
+  iilgmbh:
+    exit_class: central-ok
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03)
+    teardown_authority: self-owner
+    review_by: 2026-09-15
+    rationale: Eigene Kern-Org, kein Austritt erwartet → S1-Konsolidierungsziel.
+    deviations: []
+
+  pactive-de:
+    exit_class: central-ok
+    owner: [DasRed, ghry5, philipp-eicher, ratpic83]   # Dritt-Owner
+    teardown_authority: none       # achimdehnert nur role=member (admin=false, verifiziert)
+    review_by: 2026-09-15
+    rationale: >
+      Nicht-staatlich, grundsätzlich central-ok — ABER Dritt-Org. Konsolidierung
+      nur mit Owner-Zustimmung. Bis dahin GESPERRT (ADR-236 §5/§7.3, Runbook).
+    deviations:
+      - "teardown_authority=none ist hier toleriert (central-ok hat keinen Exit-Anspruch), markiert aber Fremd-Eigentum: kein einseitiger Move/Teardown möglich."
+
+  ttz-lif:
+    exit_class: must-stay-local
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03)
+    teardown_authority: self-owner
+    review_by: 2026-09-15
+    rationale: Government/öffentlicher Sektor (GOV-A) — Souveränität → standalone + gespiegelt.
+    deviations:
+      - "Realer Exit = Behörden-Übergabe an die Trägerorganisation → erfordert contractual-clause (Handover-/Rückgabe-Klausel); self-owner deckt nur den heutigen Betrieb. DR-B-Restrisiko."
+
+  meiki-lra:
+    exit_class: must-stay-local
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03)
+    teardown_authority: self-owner
+    review_by: 2026-09-15
+    rationale: LRA/Bürgerdaten (GOV-B) — Souveränität → standalone + gespiegelt.
+    deviations:
+      - "Wie ttz-lif: realer Exit = Träger-Übergabe → contractual-clause nötig. DR-B-Restrisiko."
+
+  bahn-sqf:
+    exit_class: exit-likely
+    owner: achimdehnert            # role=admin; bereits Enterprise-Member (verifiziert)
+    teardown_authority: self-owner
+    review_by: 2026-09-15
+    rationale: Kundenprojekt (DB) → in Enterprise (Posture by construction), aber portabel halten.
+    deviations:
+      - "REC-9: Push-Protection geht beim Exit aus der Enterprise verloren und ist extern nicht per Toggle reaktivierbar → Exit-Kosten einplanen, keine enterprise-only-Kopplung aufbauen."
