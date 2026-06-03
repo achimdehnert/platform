@@ -1,6 +1,9 @@
 ---
 status: accepted
-implementation_status: none
+implementation_status: partial
+implementation_evidence:
+  - "S1 ausgeführt 2026-06-03 (live verifiziert via Enterprise-PAT): Enterprise iilgmbh hat 4 Member-Orgs (bahn-sqf, iilgmbh, meiki-lra, ttz-lif); Seats 2/2 (kostenneutral bestätigt)."
+  - "Amendment 2026-06-03: GOV-Orgs ttz-lif/meiki-lra BEWUSST in die Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft, owner-attestiert) → exit_class central-gov (governance/exit-classes.yaml)."
 date: 2026-06-03
 decision-makers: Achim Dehnert
 domains: [governance, security, secrets, ci-cd]
@@ -46,7 +49,7 @@ Wir adoptieren **ALT-D** als Org-Topologie-Boundary:
 
 1. **Konsolidieren** (`central-ok`): die Org `iilgmbh` in die Enterprise `iilgmbh` aufnehmen. `pactive-de` ebenfalls `central-ok`, aber **nur mit Zustimmung der Dritt-Owner** (kein einseitiger Move — `achimdehnert` ist dort nur `member`).
 2. **Security-Config scharfstellen** (KONZ REC-2): eine **schlanke Config** (nur Secret Scanning + Push Protection) als **apply-to-all** — vermeidet CodeQL-Blast-Radius auf Nicht-Code-Repos (B3); **Config 17** (volle Suite) nur als **Default-for-new** + Opt-in. Beides erst `unenforced` beobachten → dann `enforced`.
-3. **Government-Orgs `ttz-lif`/`meiki-lra` bleiben standalone** (`must-stay-local`) mit **gespiegelter Security-Posture** + CI-Gleichheits-Audit; **nicht** in die Enterprise aufgenommen. *Präzisierung ggü. KONZ §8-ALT-D* (dort „per-Org Secret Protection/ALT-B" = gekaufte Lizenz): hier **Config-Spiegelung statt Lizenzkauf** — mit der von **REC-9** belegten Grenze: native Push-Protection/Secret-Scanning wirkt auf **privaten** GOV-Repos nur mit eigener GHAS-/Secret-Protection-Entitlement der GOV-Org; auf öffentlichen Repos nativ gratis. Wo das Entitlement fehlt, bleibt CI-gitleaks (ADR-235) dort Layer 1.
+3. **Government-Orgs `ttz-lif`/`meiki-lra`** — **Amendment 2026-06-03:** ~~bleiben standalone~~ → **bewusst in die Enterprise aufgenommen** (`exit_class: central-gov`). Möglich geworden durch einen **formalen Träger-Souveränitäts-Sign-off, der volle Enterprise-Mitgliedschaft deckt** (owner-attestiert, DR-B). Damit erben sie die Enterprise-Security-Posture direkt (kein Mirror/CI-Gleichheits-Audit mehr nötig). **Bedingung:** sie müssen rückgabefähig bleiben (Exit = Übergabe an Träger) → keine nicht-exportierbaren Kopplungen (`central-gov`-`forbidden_features`); Souveränität ruht jetzt als **Single Point** auf Scope + Bestand des Sign-offs. *Damit verschiebt sich die Topologie-Wahl faktisch von ALT-D (GOV standalone) zu **ALT-C (Voll-Konsolidierung), dessen Souveränitäts-Blocker der Sign-off aufhebt** — siehe §3.*
 4. **Reversal von ADR-235 für org-/enterprise-eigene Repos:** dort wird native Push-Protection (auch privat, via Enterprise-Config) **Layer 1**; CI-gitleaks → **Defense-in-depth**. Die ADR-235-Aufteilung **bleibt** für `achimdehnert`-User-Account-Repos bestehen, bis diese migriert/ausgetrocknet sind (Done-Kriterium = KONZ D1 „User-Account-Done").
 5. **`exit_class` als abgeleitete Policy-SSoT** (OOTB-8) — **noch zu erstellen, Vorbedingung für S1:** die SSoT existiert heute *nicht* (weder `scripts/repo-registry.yaml` noch `tools/exit-plan.py` tragen sie). Anzulegen als deklarative Datei (Vorschlag `governance/exit-classes.yaml`), Schema `org → {exit_class, placement, allowed_features, required_checks, exit_tests, teardown_authority}`. Heutige Tags: `iilgmbh`,`pactive-de` = `central-ok`; **`bahn-sqf` = `exit-likely`**; `ttz-lif`,`meiki-lra` = `must-stay-local`. `teardown_authority: none` ist für `exit-likely`/`must-stay-local` unzulässig. **Kein S1/S2/S3- und kein Placement-Gate ist ausführbar, bevor diese Datei existiert.**
 6. **Portabilität by construction:** Exit-Readiness ist abgeleitet/getestet/getaggt (`make exit-plan`, Exit-Feuerübung), kein gepflegtes Dokument.
@@ -60,7 +63,9 @@ Wir adoptieren **ALT-D** als Org-Topologie-Boundary:
 | **ALT-A** (Status quo) | Keine Moves; Config 17 nur auf `bahn-sqf`, ADR-235 CI-gitleaks überall sonst | private Org-/User-Repos bleiben ohne native Prävention; 4 Team-Pläne bleiben. (= Fallback/Kill-Gate-Ziel) |
 | **ALT-B** (per-Org Secret Protection) | Jede Org kauft „Secret Protection" (Team) einzeln | teurer pro Org; keine zentrale Kontrollebene; löst Souveränität nicht sauber |
 | **ALT-C** (Voll-Konsolidierung) | **Alle** Orgs inkl. Government in die Enterprise | **Souveränitätsbruch** — Behörden-Org unter zentrales Ownership ist Compliance-Risiko |
-| **ALT-D** (Hybrid) ✅ | Nicht-Government konsolidieren; Government standalone + gespiegelt | **gewählt** — trennt Souveränitätsrisiko sauber ab, nutzt Kostenneutralität |
+| **ALT-D** (Hybrid) | Nicht-Government konsolidieren; Government standalone + gespiegelt | ursprünglich gewählt; **2026-06-03 überholt** (s.u.) |
+
+> **Amendment 2026-06-03:** Der **ALT-C-Ablehnungsgrund („Souveränitätsbruch")** ist durch den **formalen Träger-Sign-off** entfallen — die verantwortliche Trägerorganisation hat der vollen Enterprise-Mitgliedschaft schriftlich zugestimmt (owner-attestiert). Die realisierte Topologie ist damit **ALT-C mit Sign-off**: alle eigenen Orgs (inkl. `ttz-lif`/`meiki-lra` = `central-gov`) in der Enterprise; nur `pactive-de` (Fremd-Eigentum) bleibt außen. **Trade-off der Verschiebung:** die Souveränität ist nicht mehr *strukturell* (Standalone-Trennung) abgesichert, sondern *vertraglich* (Sign-off) — ein Single Point, dessen Scope/Bestand zu überwachen ist (§6).
 
 ## 4. Begründung im Detail
 
@@ -91,7 +96,7 @@ Org-Ops = Web-UI/SCIM (Owner führt aus); CC pflegt Plan/Audit. Regel: **reversi
 
 | Risiko | Mitigation |
 |---|---|
-| **Souveränitätsbruch** (B4) | ALT-D — GOV standalone + gespiegelt; Ownership-/Transfer-Schritte hart gesperrt bis **schriftlicher** Träger-Sign-off |
+| **Souveränitätsbruch** (B4) | **Amendment 2026-06-03:** GOV nun *in* der Enterprise (`central-gov`), abgesichert durch **formalen Träger-Sign-off** (owner-attestiert) statt Standalone-Trennung. **Neues Rest-Risiko:** Souveränität ist jetzt *Single Point* am Sign-off — zu überwachen sind dessen **Scope** (deckt volle Mitgliedschaft) und **Bestand** (Widerruf → Rückgabepflicht). Mitigation: `central-gov` verbietet nicht-exportierbare Kopplungen (rückgabefähig); **GOV-Exit-Feuerübung (Handover-Readiness) steht aus** → offener Punkt. |
 | **Einbahn-Exit / Kontrollverlust** beim Transfer in Fremd-Org (REC-8) | `teardown_authority`-Pflichtfeld; Transfer nur in admin-kontrollierte Ziele |
 | **Config-Drift** auf gespiegelten GOV-Orgs | CI-Gleichheits-Audit (deklarativer Soll/Ist-Vergleich) |
 | **Kosten** — €-Sätze extern unbestätigt | DR-A-Restlücke: Account-Team-Mail **vor** Team-Plan-Kündigung |
@@ -152,3 +157,4 @@ Fehlt eine Bedingung → keine Org-Aufnahme; Sunset auf ALT-A. **Nach Fristablau
 - 2026-06-03: Initial (Proposed) — ALT-D Boundary aus KONZ-002; Umsetzung gegated (Kill-Gate a/b/c). Amends ADR-235 (Reversal für org/enterprise-Repos).
 - 2026-06-03: **Amendment nach adversarialem 3-Linsen-Review** (Steelman/Diabolus/Maintainer-2028): §8c Gate (c) ehrlich gemacht (Reversibilität *falsifiziert*, nicht „bewiesen"); §2.5 `exit_class`-SSoT als nicht-existente Vorbedingung mit Pfad/Schema + `bahn-sqf`=exit-likely; §2.2 schlanke PP+Scan-Config für apply-to-all (Config 17 nur Default-for-new, KONZ REC-2); §2.3 ALT-D-Mechanik-Drift offengelegt (Config-Spiegel statt Lizenzkauf) + REC-9-Grenze; §4 Kosten „Mengen verifiziert, Preismodell offen" + Committer-Mechanik + Asymmetrie-Pull-Argument; §6 KONZ-D2 „Mirror ≠ Compliance" + GOV-Gate verschärft; §7.2 REC-9-Lock-in-Trade-off; §5 „admin"=Org-Rolle (REC-8) + S1-setzt-ADR-accepted-voraus; Mengen/Owner durch Live-Check-Befehle entschärft.
 - 2026-06-03: **Accepted.** Kill-Gate a/b/c erfüllt — (a) schriftliche Kostenbestätigung + (b) formaler Träger-Sign-off owner-attestiert (in Privatunterlagen; *attestiert ≠ repo-verifiziert*), (c) bewiesen (D1). GOV-Hard-Lock aufgehoben; `exit_class`-SSoT angelegt (PR #432). Boundary entschieden; Ausführung S1–S4 phasenweise gegated (Runbook), `implementation_status: none` bis S1.
+- 2026-06-03: **Amendment + S1 ausgeführt.** (1) **S1 live verifiziert** (Enterprise-PAT): Enterprise hat 4 Member-Orgs, Seats 2/2 → `implementation_status: partial`. (2) **GOV bewusst in die Enterprise** (`ttz-lif`/`meiki-lra` → `central-gov`): der Träger-Sign-off deckt **volle Mitgliedschaft**. Topologie faktisch **ALT-C mit Sign-off** statt ALT-D; §2.3/§3/§6 + `governance/exit-classes.yaml` entsprechend geändert. Neues Rest-Risiko: Souveränität = Single Point am Sign-off; **GOV-Exit-Feuerübung steht aus**.

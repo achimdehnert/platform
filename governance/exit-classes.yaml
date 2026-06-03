@@ -58,6 +58,21 @@ classes:
     exit_tests: [exit-plan-runbook, handover-readiness]
     teardown_authority_rule: not-none    # none UNZULÄSSIG (ADR-236 §2.5)
 
+  central-gov:
+    description: >
+      Government-/Souveränitäts-Workload, der **in die Enterprise** aufgenommen ist
+      (ADR-236-Amendment 2026-06-03). Zulässig NUR mit formalem Träger-Souveränitäts-
+      Sign-off, der **volle Enterprise-Mitgliedschaft** deckt (owner-attestiert).
+      Muss rückgabefähig bleiben (Exit = Übergabe an Träger) → keine nicht-
+      exportierbaren Kopplungen; Sign-off-Scope + -Bestand sind die Single-Point-
+      Souveränitätsabhängigkeit.
+    placement: in-enterprise
+    allowed_features: [secret-scanning, push-protection]
+    forbidden_features: [emu, sso, enterprise-only-apps, non-exportable-secret, unreviewed-app-coupling]
+    required_checks: [secret-scanning, push-protection, sovereignty-signoff]
+    exit_tests: [exit-plan-runbook, handover-readiness]
+    teardown_authority_rule: not-none    # none UNZULÄSSIG — muss an Träger rückgabefähig sein
+
 # ---------------------------------------------------------------------------
 # Org → Klasse (Stand 2026-06-03)
 # teardown_authority ∈ {self-owner | contractual-clause | none}
@@ -84,22 +99,22 @@ orgs:
       - "teardown_authority=none ist hier toleriert (central-ok hat keinen Exit-Anspruch), markiert aber Fremd-Eigentum: kein einseitiger Move/Teardown möglich."
 
   ttz-lif:
-    exit_class: must-stay-local
-    owner: achimdehnert            # role=admin (verifiziert 2026-06-03)
+    exit_class: central-gov        # geändert 2026-06-03: in Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft)
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member (S1 live verifiziert)
     teardown_authority: self-owner
     review_by: 2026-09-15
-    rationale: Government/öffentlicher Sektor (GOV-A) — Souveränität → standalone + gespiegelt.
+    rationale: Government (GOV-A) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off statt Standalone-Trennung.
     deviations:
-      - "Realer Exit = Behörden-Übergabe an die Trägerorganisation → erfordert contractual-clause (Handover-/Rückgabe-Klausel); self-owner deckt nur den heutigen Betrieb. DR-B-Restrisiko."
+      - "Souveränität ruht allein auf dem Träger-Sign-off (owner-attestiert, nicht repo-verifiziert). Fällt er weg → Rückgabe an Träger nötig → Handover-/Rückgabe-Klausel (contractual-clause) wird kritisch; GOV-Exit-Feuerübung steht aus."
 
   meiki-lra:
-    exit_class: must-stay-local
-    owner: achimdehnert            # role=admin (verifiziert 2026-06-03)
+    exit_class: central-gov        # geändert 2026-06-03: in Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft)
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member (S1 live verifiziert)
     teardown_authority: self-owner
     review_by: 2026-09-15
-    rationale: LRA/Bürgerdaten (GOV-B) — Souveränität → standalone + gespiegelt.
+    rationale: LRA/Bürgerdaten (GOV-B) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off.
     deviations:
-      - "Wie ttz-lif: realer Exit = Träger-Übergabe → contractual-clause nötig. DR-B-Restrisiko."
+      - "Wie ttz-lif: Souveränität Single-Point am Sign-off; GOV-Exit-Feuerübung (Handover-Readiness) steht aus."
 
   bahn-sqf:
     exit_class: exit-likely
