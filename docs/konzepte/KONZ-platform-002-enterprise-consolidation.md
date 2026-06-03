@@ -138,6 +138,8 @@ Reframe nach Advocatus-Diabolus-Pass: **nicht „Exit dokumentieren", sondern Po
 - **REC-5:** ADR-235 **Amendment** + neuer **org-weiter ADR** „Enterprise als Security-Kontrollebene" sobald REC-1/-3-Gates grün; ADR-235-Meter um „native enabled?" je Enterprise-Repo erweitern (OOTB-3-Enforcement).
 - **REC-6 (Portabilität by construction):** **vor** der ersten Org-Aufnahme (a) `make exit-plan ORG=<org>` als abgeleiteten Report bauen (OOTB-4), (b) hartkodierte `achimdehnert/...@main`-Refs auf *eine* repointbare Stelle ziehen (OOTB-5, adressiert B6), (c) Org-Deskriptoren als GitHub-as-Code (OOTB-6); **eine** Exit-Feuerübung gegen eine Wegwerf-Org (OOTB-7) als Akzeptanz-Beweis.
 - **REC-7 (Owner-Sukzession):** Break-Glass-Verfahren + ≥1 dritter Recovery-Owner einrichten (OOTB-9, adressiert B7) — unabhängig von der Konsolidierungs-Entscheidung sofort wertvoll.
+- **REC-8 (Admin-on-Target-Check vor Transfer — Feuerübungs-Lehre 2026-06-03):** der exit-plan/Placement-Gate **muss** prüfen, dass der Operator die **Org-Rolle `admin`** (nicht nur `admin:org`-*Scope*) am **Ziel** hat, **bevor** ein Repo transferiert wird. Im Drill ging `exit-drill-src` an `pactive-de` (dort Rolle = `member`, `admin:false`) → **Kontrollverlust**: nicht mehr archivierbar/löschbar/zurücktransferierbar. Transfer ohne Admin am Ziel = Sackgasse.
+- **REC-9 (Posture-Reversion bei Exit ist nicht per Toggle heilbar — Feuerübungs-Lehre):** Native Push-Protection wird beim Transfer in eine **Nicht-Enterprise-Org verloren** (`absent`) **und ist dort nicht reaktivierbar** ohne eigene „Secret Protection"-Lizenz der Org (im Drill verifiziert: Re-Enable auf `pactive-de`/Team blieb `absent`). Der exit-plan muss diese **Kosten-/Posture-Konsequenz** ausweisen; „Re-Provision der Security-Posture" nach Exit heißt *re-lizenzieren*, nicht *umschalten*. Verstärkt die Asymmetrie aus B8/§7.3.
 
 ## 13. Entscheidung + Kill-Gate + 30/60/90
 
@@ -177,3 +179,17 @@ Cross-Provider-Zweitmeinung (Steelman → 3 Rollen → OOTB) auf KONZ-002. Befun
 - **D3 — Gate am irreversiblen Rand.** Das Platzierungs-/`exit_class`-Gate läuft **unmittelbar vor** Org-Aufnahme, Repo-Transfer, Enterprise-Feature-Aktivierung und `unenforced→enforced` — nicht nur periodisch in CI (eigene ADR-210-Lehre, vom Review zu Recht eingefordert). `bahn-sqf`(exit-likely, in Enterprise) löst bei jeder neuen Enterprise-Abhängigkeit automatisch eine Exit-Prüfung aus.
 
 **Annahme-Kriterium der überarbeiteten Fassung (X-REC-20):** annahmereif, sobald **eine** deklarative Policy `exit_class → placement + allowed_features + required_checks + exit_tests` existiert **und** ≥1 Feuerübung + ≥1 GOV-Mirror-Driftfall erfolgreich dagegen geprüft sind.
+
+## 15. Feuerübung Runde 1 — Ergebnis (2026-06-03)
+
+Erste reale Exit-Feuerübung (Gate (c) Teil 2). Wegwerf-Repo `exit-drill-src` in `bahn-sqf` angelegt → Oberfläche provisioniert → `tools/exit-plan.py` (OOTB-4, gemerged PR #425) gegen Live-Zustand geprüft → Transfer `bahn-sqf → pactive-de` geprobt. Protokoll: `~/shared/exit-drill-protocol-2026-06-03.md`.
+
+| Befund | Wert für das Konzept |
+|---|---|
+| Neues Repo erbt `scan/push=disabled` | **bestätigt C6 live** — kein Default-for-new → REC-2/OOTB-8 dringlich |
+| exit-plan erkennt Variable + hartkodierte `achimdehnert/*`-Ref | OOTB-4/OOTB-5-Detektion **verifiziert** |
+| **Variable überlebt Transfer**, Secret nicht | Annahme falsifiziert → Tool korrigiert (PR #426) |
+| Push-Protection nach Transfer `absent` **und nicht reaktivierbar** auf Team-Org | → **REC-9** |
+| Transfer-Ziel-Rolle = `member` → Kontrollverlust (kein archive/delete/back) | → **REC-8** |
+
+**Gate (c)-Status:** Teil 1 (vollständiger Runbook) ✅ bewiesen; Teil 2 (Feuerübung) **inhaltlich grün** — real geprobt, 2 Annahmen falsifiziert, Lessons dokumentiert + als REC-8/-9 + Tool-Fix zurückgeflossen. **Offen:** autonomer Rückbau scheiterte an fehlender Admin-Rolle auf `pactive-de` → manueller Löschklick `pactive-de/exit-drill-src` nötig (selbst ein Exit-Befund → REC-8). Streng nach Kill-Gate ist (c) erst voll grün nach sauberem Rückbau.
