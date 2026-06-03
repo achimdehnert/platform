@@ -44,7 +44,8 @@
 - **S2.1 ✅** Config 17 = **Default-for-new** (`default_for_new_repos=all`) — verifiziert über `…/configurations/defaults`.
 - **S2.2 ✅** `slim-prevention` apply-to-all (`attach scope=all`, async) — 9 Repos `attached` beim Erst-Check (Coverage in S2.3 verifizieren).
 - **💰 Kostenneutralität bestätigt:** Secret-Protection-Committer **2 → 2** (vor/nach Attach) — bestätigt die Committer-Mechanik (Treiber = Personen, nicht Repo-Zahl).
-- **S2.3 ⏳ offen:** Beobachtungsfenster läuft. **S2.4 ⛔ offen:** `enforced` = bewusste Owner-Entscheidung nach Auswertung.
+- **S2.3 ⏳ offen — Auswertung geplant ~2026-06-05** (lokal): Beobachtungsfenster (≈2 Tage). Auswertung muss **lokal** laufen (Live-Daten + Enterprise-PAT) — **kein Remote-Job möglich** (Remote-Agent hat keinen PAT-/Enterprise-API-Zugriff). Trigger: lokale CC-Session „S2.3 auswerten" + PAT-Freigabe → Committer-Count (Baseline 2) / Coverage (slim id 251767 attached vs. alle Repos der 4 Orgs) / FP (GOV separat) → S2.4-Entscheidungsvorlage.
+- **S2.4 ⛔ offen:** `enforced` = bewusste Owner-Entscheidung nach S2.3-Auswertung.
 
 > **S2.3 Schlüssel-Metrik:** Secret-Protection-**Committer-Count** weiter beobachten (Baseline 2). Steigt er beim Aktivieren des Scannings über die Zeit, ist das ein **Kostensignal** → vor `enforced` bewerten; bei Bedarf detach (reversibel).
 
