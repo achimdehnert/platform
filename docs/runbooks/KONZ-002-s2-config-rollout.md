@@ -38,6 +38,16 @@
 | **S2.3** | **Beobachten** (Fenster ≥ X Tage): False-Positive-Rate, blockierte Pushes, Coverage, GOV-Repos separat. | Daten gesammelt | CC (read) | n/a |
 | **S2.4** | **`enforcement: enforced`** flippen — nur nach Auswertung (FP akzeptabel, Coverage vollständig). | S2.3 ausgewertet, FP-Rate ok | **Owner** (bewusste Freigabe) | ja (zurück auf `unenforced`) |
 
+## Ausführungs-Status (2026-06-03)
+
+- **S2.0 ✅** `slim-prevention` (id **251767**) angelegt: `secret_scanning`+`secret_scanning_push_protection`=enabled, `code_scanning_default_setup`=disabled, `enforcement=unenforced`.
+- **S2.1 ✅** Config 17 = **Default-for-new** (`default_for_new_repos=all`) — verifiziert über `…/configurations/defaults`.
+- **S2.2 ✅** `slim-prevention` apply-to-all (`attach scope=all`, async) — 9 Repos `attached` beim Erst-Check (Coverage in S2.3 verifizieren).
+- **💰 Kostenneutralität bestätigt:** Secret-Protection-Committer **2 → 2** (vor/nach Attach) — bestätigt die Committer-Mechanik (Treiber = Personen, nicht Repo-Zahl).
+- **S2.3 ⏳ offen:** Beobachtungsfenster läuft. **S2.4 ⛔ offen:** `enforced` = bewusste Owner-Entscheidung nach Auswertung.
+
+> **S2.3 Schlüssel-Metrik:** Secret-Protection-**Committer-Count** weiter beobachten (Baseline 2). Steigt er beim Aktivieren des Scannings über die Zeit, ist das ein **Kostensignal** → vor `enforced` bewerten; bei Bedarf detach (reversibel).
+
 ## Gates / Auswertungskriterien (D1)
 - `unenforced→enforced` **erst** nach: FP-Rate gemessen, Anzahl blockierter Pushes, Repos ohne Config (Coverage-Lücke), abweichende Rulesets, GOV-FP separat.
 - Kein „silent enforce" — S2.4 ist eine bewusste Owner-Entscheidung mit Datenlage.
