@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-06-02
-> **Next free ADR number:** 236
+> **Last updated:** 2026-06-03
+> **Next free ADR number:** 237
 
 ## Legend
 
@@ -227,6 +227,7 @@
 | 233 | Parallel-Session-Worktree-Konvention — Isolation von Integration entkoppeln | `Proposed` | ⬜ | [ADR-233](ADR-233-parallel-session-worktree-convention.md) |
 | 234 | Sauberer Repo-Zustand (Staging & Prod) als erzwungene Invariante statt laufendem Reparatur-Task | `Proposed` | ⬜ | [ADR-234](ADR-234-clean-state-invariant.md) |
 | 235 | Org-weite Secret-Prevention-Posture — bindender Gate am Push-Rand (native Push-Protection) mit CI-gitleaks-Fallback | `Accepted` | 🔶 | [ADR-235](ADR-235-org-secret-prevention-posture.md) |
+| 236 | ALT-D Enterprise-Boundary — IIL-Org-Topologie konsolidieren mit Portabilität by construction (amends ADR-235) | `Proposed` | ⬜ | [ADR-236](ADR-236-altd-enterprise-boundary.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
