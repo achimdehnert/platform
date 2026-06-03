@@ -96,7 +96,7 @@ Org-Ops = Web-UI/SCIM (Owner führt aus); CC pflegt Plan/Audit. Regel: **reversi
 
 | Risiko | Mitigation |
 |---|---|
-| **Souveränitätsbruch** (B4) | **Amendment 2026-06-03:** GOV nun *in* der Enterprise (`central-gov`), abgesichert durch **formalen Träger-Sign-off** (owner-attestiert) statt Standalone-Trennung. **Neues Rest-Risiko:** Souveränität ist jetzt *Single Point* am Sign-off — zu überwachen sind dessen **Scope** (deckt volle Mitgliedschaft) und **Bestand** (Widerruf → Rückgabepflicht). Mitigation: `central-gov` verbietet nicht-exportierbare Kopplungen (rückgabefähig); **GOV-Exit-Feuerübung (Handover-Readiness) steht aus** → offener Punkt. |
+| **Souveränitätsbruch** (B4) | **Amendment 2026-06-03:** GOV nun *in* der Enterprise (`central-gov`), abgesichert durch **formalen Träger-Sign-off** (owner-attestiert) statt Standalone-Trennung. **Neues Rest-Risiko:** Souveränität ist jetzt *Single Point* am Sign-off — zu überwachen sind dessen **Scope** (deckt volle Mitgliedschaft) und **Bestand** (Widerruf → Rückgabepflicht). Mitigation: `central-gov` verbietet nicht-exportierbare Kopplungen (rückgabefähig); **GOV-Exit-Feuerübung (Handover-Readiness) steht aus** → Plan: [`docs/runbooks/KONZ-002-gov-exit-firedrill.md`](../runbooks/KONZ-002-gov-exit-firedrill.md). |
 | **Einbahn-Exit / Kontrollverlust** beim Transfer in Fremd-Org (REC-8) | `teardown_authority`-Pflichtfeld; Transfer nur in admin-kontrollierte Ziele |
 | **Config-Drift** auf gespiegelten GOV-Orgs | CI-Gleichheits-Audit (deklarativer Soll/Ist-Vergleich) |
 | **Kosten** — €-Sätze extern unbestätigt | DR-A-Restlücke: Account-Team-Mail **vor** Team-Plan-Kündigung |
