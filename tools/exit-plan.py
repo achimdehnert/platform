@@ -12,8 +12,14 @@ Read-only. Needs a token with admin read on the org (GH_TOKEN env; e.g. the
 enterprise PAT). Endpoints the token cannot read are reported as gaps — never
 silently skipped (no false "all clear").
 
+Also consumes the exit-class policy SSoT (`governance/exit-classes.yaml`,
+ADR-236 §2.5 / OOTB-8): emits the org's exit_class, placement, teardown_authority
+and required/forbidden features, and flags the invariant violation
+"teardown_authority=none for exit-likely/must-stay-local". An org missing from
+the SSoT is a loud gap (placement/teardown undefined), never silently skipped.
+
 Usage:
-    GH_TOKEN=... python3 tools/exit-plan.py <org> [--out runbook.md]
+    GH_TOKEN=... python3 tools/exit-plan.py <org> [--out runbook.md] [--exit-classes PATH]
 """
 from __future__ import annotations
 import json
@@ -21,11 +27,29 @@ import os
 import sys
 import urllib.request
 import urllib.error
+from pathlib import Path
 
 API = "https://api.github.com"
 TOKEN = os.environ.get("GH_TOKEN", "")
 # Marker for hardcoded owner refs that break on transfer (KONZ-002 B6/OOTB-5).
 OWNER_REF_HINT = b"achimdehnert/"
+# Exit-class policy SSoT (ADR-236 §2.5). Repo-root-relative to this script.
+EXIT_CLASSES = Path(__file__).resolve().parent.parent / "governance" / "exit-classes.yaml"
+
+
+def load_exit_classes(path: Path):
+    """Return (data, err). Never raises; missing pyyaml/file → err string."""
+    try:
+        import yaml
+    except Exception:
+        return None, "pyyaml not installed (`pip install pyyaml`) — policy section skipped"
+    try:
+        with open(path) as f:
+            return yaml.safe_load(f), None
+    except FileNotFoundError:
+        return None, f"exit-classes SSoT not found at {path}"
+    except Exception as e:  # noqa: BLE001 - any parse error is a gap, not a crash
+        return None, f"exit-classes parse error: {e}"
 
 
 def api(path: str, raw: bool = False):
@@ -78,6 +102,9 @@ def main() -> int:
     out = None
     if "--out" in sys.argv:
         out = sys.argv[sys.argv.index("--out") + 1]
+    ec_path = EXIT_CLASSES
+    if "--exit-classes" in sys.argv:
+        ec_path = Path(sys.argv[sys.argv.index("--exit-classes") + 1])
 
     L: list[str] = []
     def w(s=""):
@@ -97,6 +124,46 @@ def main() -> int:
     w("> Generated from LIVE GitHub state (KONZ-platform-002 OOTB-4). "
       "Items below do NOT cleanly survive an org/repo transfer — each is a "
       "manual re-provisioning step. Re-run any time; this is derived, not maintained.")
+    w()
+
+    # ---- exit-class policy (governance/exit-classes.yaml, ADR-236 §2.5) ----
+    w("## 0. Exit-Class Policy (from `governance/exit-classes.yaml`)")
+    w()
+    ec, ec_err = load_exit_classes(ec_path)
+    if ec_err:
+        gaps.append(f"Exit-class policy unreadable: {ec_err}")
+        w(f"- ⚠️ {ec_err} — exit_class/placement/teardown_authority for `{org}` UNKNOWN.")
+    else:
+        classes = ec.get("classes") or {}
+        org_pol = (ec.get("orgs") or {}).get(org)
+        if not org_pol:
+            gaps.append(f"Org `{org}` not in exit-classes SSoT — "
+                        "exit_class/placement/teardown_authority undefined (ADR-236 §2.5)")
+            w(f"- ⚠️ `{org}` is **not** in the exit-classes SSoT → exit_class undefined. "
+              "Add it before relying on any placement/teardown gate.")
+        else:
+            klass = org_pol.get("exit_class", "?")
+            cdef = classes.get(klass, {})
+            ta = org_pol.get("teardown_authority", "?")
+            w(f"- **exit_class:** `{klass}` — {(cdef.get('description') or '').strip() or 'no description'}")
+            w(f"- **placement:** `{cdef.get('placement', '?')}`")
+            w(f"- **teardown_authority:** `{ta}`")
+            rc = cdef.get("required_checks", [])
+            w(f"- **required_checks:** {', '.join('`'+c+'`' for c in rc) or 'none'}")
+            forb = cdef.get("forbidden_features", [])
+            if forb:
+                w(f"- **forbidden_features** (must NOT exist here): {', '.join('`'+c+'`' for c in forb)}")
+            ex = cdef.get("exit_tests", [])
+            w(f"- **exit_tests:** {', '.join('`'+c+'`' for c in ex) or 'none'}")
+            # Invariant (ADR-236 §2.5): exit-likely/must-stay-local must NOT be teardown_authority=none.
+            if cdef.get("teardown_authority_rule") == "not-none" and ta == "none":
+                gaps.append(f"INVARIANT VIOLATED: `{org}` is `{klass}` with teardown_authority=none "
+                            "(ADR-236 §2.5 forbids `none` for exit-likely/must-stay-local)")
+                w(f"- 🛑 **INVARIANT VIOLATED:** `{klass}` requires teardown_authority ≠ none, but it is `none`.")
+            for d in (org_pol.get("deviations") or []):
+                w(f"- ⚠️ deviation: {d}")
+            if org_pol.get("review_by"):
+                w(f"- review_by: {org_pol['review_by']}")
     w()
 
     st, org_secrets = api(f"/orgs/{org}/actions/secrets")
