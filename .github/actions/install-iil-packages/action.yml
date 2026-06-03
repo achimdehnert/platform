@@ -112,7 +112,18 @@ runs:
             print("::warning::aifw present but a dependency is missing (%s) — freshness probe skipped (platform#413)" % e.name)
             sys.exit(0)
         from packaging.version import Version
-        meta = M.version('iil-aifw')
+        # The action installs EITHER the PyPI dist `iil-aifw` OR, as a fallback,
+        # the legacy dist `aifw` (see --no-deps block above). The module is `aifw`
+        # in both cases, but the *distribution* name differs — so resolve metadata
+        # tolerantly. If neither resolves, the staleness gate can't run → advisory.
+        try:
+            meta = M.version('iil-aifw')
+        except M.PackageNotFoundError:
+            try:
+                meta = M.version('aifw')  # legacy distribution name
+            except M.PackageNotFoundError:
+                print("::warning::aifw module present but no iil-aifw/aifw distribution metadata — freshness probe skipped (platform#416)")
+                sys.exit(0)
         print('iil-aifw metadata=%s code=%s @ %s' % (meta, getattr(aifw, '__version__', '?'), aifw.__file__))
         _m = [s for s in ('get_action_config', 'QualityLevel', 'AIFWError') if not hasattr(aifw, s)]
         if Version(meta) >= Version('0.10') and _m:
