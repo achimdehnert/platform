@@ -97,7 +97,7 @@ Org-Ops = Web-UI/SCIM (Owner führt aus); CC pflegt Plan/Audit. Regel: **reversi
 | **Kosten** — €-Sätze extern unbestätigt | DR-A-Restlücke: Account-Team-Mail **vor** Team-Plan-Kündigung |
 | **Push-Protection-Verlust** bei Migration in Nicht-Enterprise-Ziel (REC-9) | S3-Gate: Ziel muss Enterprise-Config (Push-Protection aktiv) haben |
 
-> **Souveränität ≠ technische Spiegelung (KONZ D2):** Ein grünes CI-Gleichheits-Audit ist **kein** Compliance-Nachweis — Souveränität ist *Governance* (wer darf verwalten/auditieren), nicht ein Soll/Ist-Vergleich. Auch reine Config-Spiegelung berührt GOV-Governance (wer fährt das Audit, wer greift bei Drift ein). Daher gilt der **formale Träger-Sign-off** als Vorbedingung nicht nur für Ownership-Moves, sondern für jede *zentral betriebene* Audit-/Eingriffs-Rolle auf GOV-Orgs. Eine Selbst-Freigabe durch den Budget-Owner (DR-B) ersetzt den Träger-Sign-off **nicht** — sie trägt nur die bounded Variante „GOV-Org verwaltet ihre gespiegelte Config selbst".
+> **Souveränität ≠ technische Spiegelung (KONZ D2):** Ein grünes CI-Gleichheits-Audit ist **kein** Compliance-Nachweis — Souveränität ist *Governance* (wer darf verwalten/auditieren), nicht ein Soll/Ist-Vergleich. Auch reine Config-Spiegelung berührt GOV-Governance (wer fährt das Audit, wer greift bei Drift ein). Daher gilt der **formale Träger-Sign-off** als Vorbedingung nicht nur für Ownership-Moves, sondern für jede *zentral betriebene* Audit-/Eingriffs-Rolle auf GOV-Orgs. **Update 2026-06-03:** dieser formale Träger-Sign-off **liegt vor** (DR-B, schriftlich, owner-attestiert) → die GOV-Vorbedingung ist erfüllt; Sorgfalt bleibt, Änderungen im Scope des Sign-offs zu halten.
 
 ## 7. Konsequenzen
 
@@ -119,8 +119,8 @@ Org-Ops = Web-UI/SCIM (Owner führt aus); CC pflegt Plan/Audit. Regel: **reversi
 ## 8. Validation Criteria
 
 KONZ-002 Kill-Gate (Frist 2026-08-15), Kriterium D1:
-- **(a)** Kostenneutralität: **Mengen** verifiziert, **Preismodell** extern offen. Via DR-A budget-owner-vorläufig geschlossen; *real* geschlossen erst mit Account-Team-Mail **vor S1-Kündigung**.
-- **(b)** GOV-Souveränität: aktuell **mündlich protokolliert** (DR-B), **kein** formaler Träger-Sign-off. Trägt nur die bounded Variante (GOV-Org verwaltet gespiegelte Config selbst); **schriftlicher** Sign-off Vorbedingung für jede zentral betriebene GOV-Audit-/Eingriffs-Rolle **und** jeden Ownership-Schritt.
+- **(a)** Kostenneutralität: ✅ **erfüllt** — schriftliche Kostenbestätigung liegt vor (DR-A), owner-attestiert, in Privatunterlagen. Restlücke: Beleg nicht repo-verlinkt (*attestiert, nicht repo-verifiziert*).
+- **(b)** GOV-Souveränität: ✅ **erfüllt** — **formaler Träger-Sign-off** liegt schriftlich vor (DR-B), owner-attestiert. GOV-Hard-Lock **aufgehoben** (deckt Ownership *und* zentrale Audit-/Eingriffsrolle). Restlücke: Beleg nicht repo-verlinkt.
 - **(c)** Portabilität: **Inventar + Detektion** bewiesen (exit-plan-Runbook); **Reversibilität falsifiziert** — die Feuerübung zeigte einen **Einbahn-Exit** (Rückbau strukturell unmöglich, `admin=false` am transferierten Ziel). „Grün" gilt nur im D1-Sinn („Rückbau **dokumentiert**", PR #429/§15), **nicht** „Exit erfolgreich ausgeführt". *Voll* grün erst nach ≥1 Feuerübung mit erfolgreichem **unilateralem Rückbau** gegen eine Org mit gesicherter Owner-Rolle (`teardown_authority ≠ none`). Der Befund hat Beweiswert (deckte 2 Lock-in-Fallen *vor* dem Rollout auf, REC-8/-9), ist aber kein „Exit gelöst".
 
 Fehlt eine Bedingung → keine Org-Aufnahme; Sunset auf ALT-A. **Nach Fristablauf (2026-08-15, Exception bis 2026-09-15)** ohne erfüllte Gates: ADR gilt als nicht angenommen → ALT-A.
