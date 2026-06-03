@@ -75,6 +75,18 @@ runs:
         else
           echo "::warning::${{ inputs.requirements_file }} not found — only the action's default iil ranges were used (no consumer pins re-asserted)."
         fi
+        # Ensure aifw's runtime deps are present. The --no-deps installs above
+        # skip them, and aifw imports `litellm` (declared dep, litellm>=1.30) at
+        # module load. Consumers that don't pull litellm transitively — including
+        # repos that don't use aifw but still get it from the DEFAULT list above —
+        # would otherwise crash the freshness probe below with
+        # `ModuleNotFoundError: No module named 'litellm'`. Guarded on aifw
+        # presence; only installs litellm if it's actually missing. See platform#413.
+        if python -c "import importlib.util,sys; sys.exit(0 if importlib.util.find_spec('aifw') else 1)" 2>/dev/null; then
+          python -c "import litellm" 2>/dev/null \
+            || python -m pip install "litellm>=1.30" -q \
+            || echo "::warning::aifw present but litellm could not be installed — freshness probe may fail (platform#413)"
+        fi
         # Advisory: surface a broken --no-deps tree without hard-failing. The
         # shared self-hosted tool-cache can carry PRE-EXISTING unrelated
         # conflicts; a hard `pip check` would turn those into red CI for every
@@ -88,7 +100,24 @@ runs:
         # __version__==metadata check would false-positive on a correct install.
         # Guarded on presence (repos without iil-aifw skip) and version-gated:
         # only metadata >=0.10 must expose these symbols.
-        python -c "import importlib.util as u,importlib.metadata as M,sys; (sys.exit(0) if u.find_spec('aifw') is None else None); import aifw; from packaging.version import Version; meta=M.version('iil-aifw'); print('iil-aifw metadata=%s code=%s @ %s'%(meta,getattr(aifw,'__version__','?'),aifw.__file__)); _m=[s for s in ('get_action_config','QualityLevel','AIFWError') if not hasattr(aifw,s)]; sys.exit('::error::iil-aifw %s installed but code is STALE — missing %s (tool-cache not repaired by force-reinstall)'%(meta,_m)) if (Version(meta)>=Version('0.10') and _m) else None"
+        python - <<'PROBE'
+        import importlib.util as u, importlib.metadata as M, sys
+        if u.find_spec('aifw') is None:
+            sys.exit(0)
+        try:
+            import aifw
+        except ModuleNotFoundError as e:
+            # Missing *dependency* (e.g. litellm), not stale aifw code — advisory
+            # only; the litellm-ensure step above should normally prevent this.
+            print("::warning::aifw present but a dependency is missing (%s) — freshness probe skipped (platform#413)" % e.name)
+            sys.exit(0)
+        from packaging.version import Version
+        meta = M.version('iil-aifw')
+        print('iil-aifw metadata=%s code=%s @ %s' % (meta, getattr(aifw, '__version__', '?'), aifw.__file__))
+        _m = [s for s in ('get_action_config', 'QualityLevel', 'AIFWError') if not hasattr(aifw, s)]
+        if Version(meta) >= Version('0.10') and _m:
+            sys.exit('::error::iil-aifw %s installed but code is STALE — missing %s (tool-cache not repaired by force-reinstall)' % (meta, _m))
+        PROBE
         # iil-fieldprefill: private repo, not on PyPI (ADR-107)
         if [ -n "$PROJECT_PAT" ]; then
           pip install "git+https://x-access-token:${PROJECT_PAT}@github.com/achimdehnert/iil-fieldprefill.git" 2>/dev/null || true
