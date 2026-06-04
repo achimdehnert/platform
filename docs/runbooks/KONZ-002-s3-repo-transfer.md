@@ -104,7 +104,7 @@ Platzhalter: `<repo>` = Repo-Name, `<org>` = Ziel-Org (default `iilgmbh`).
 - **Welle 1 (isoliert, Code):** `nl2iot-hub`, `django-lms-lite` ✅ → iilgmbh; Config 17 (CodeQL) behalten; 0 Secrets; Redirect+Push-Protection ok.
 - **Welle 2 (publizierte Pakete):**
   - `illustration-fw` (PyPI `iil-illustrationfw`, **Token-Publish**) ✅ → iilgmbh; Secrets `PYPI_API_TOKEN`/`PROJECT_PAT` re-provisioniert (Quellen `~/.secrets/pypi_api_token`, `github_PAT`). **Caveat:** Mapping nicht read-verifizierbar → am **nächsten Release** prüfen, dass Publish durchläuft.
-  - `iil-fieldprefill` (PyPI `iil-fieldprefill`, **reines OIDC/Trusted Publishing**) ⏸️ **gated auf PyPI-Owner-Aktion** — vor Transfer auf pypi.org einen Trusted Publisher eintragen: Owner=`iilgmbh`, Repo=`iil-fieldprefill`, Workflow=`publish.yml`, Environment=`pypi` (additiv, kein Downtime). Danach Transfer.
+  - `iil-fieldprefill` (PyPI `iil-fieldprefill`, **reines OIDC/Trusted Publishing**) ✅ → iilgmbh. Vorbedingung erfüllt: Trusted Publisher `iilgmbh/iil-fieldprefill` (workflow `publish.yml`, env `pypi`) auf pypi.org gesetzt (owner-attestiert), dann Transfer. Redirect + Push-Protection ok; 0 Secrets. **Final-Validierung am nächsten Release** (OIDC-Publish vom neuen Pfad muss durchlaufen).
 
 > **PyPI-Lehre:** OIDC-Trusted-Publishing ist an `owner/repo` gebunden → vor Transfer neuen Publisher anlegen (Owner-Aktion auf pypi.org, nicht per API). Token-Publish ist nicht gebunden → nur Secret-Re-Provision.
 
