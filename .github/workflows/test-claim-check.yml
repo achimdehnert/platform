@@ -1,0 +1,121 @@
+name: Test-Claim-Check
+
+# session-retro Gate 1 (Befund 6): warnt, wenn ein PR Test-Behauptungen
+# ("unit-getestet", "tests added", ...) enthält, aber keine Testdatei ändert.
+# Phase SUGGEST — INFORMATIV, NIE BLOCKIEREND (das Verdikt setzt nie setFailed).
+# Der Tool-Selbsttest (Step 1) darf failen — das ist normale Korrektheits-CI.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  test-claim-check:
+    runs-on: ubuntu-latest
+    # Bot-PRs (nur Dep-Bumps) auslassen — analog guardian.yml
+    if: >
+      github.actor != 'dependabot[bot]' &&
+      github.actor != 'renovate[bot]' &&
+      !startsWith(github.head_ref, 'dependabot/') &&
+      !startsWith(github.head_ref, 'renovate/')
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # Step 1 (blocking): die Gate-Logik muss korrekt sein.
+      - name: Tool-Selbsttest
+        run: |
+          pip install pytest --quiet --break-system-packages
+          python -m pytest tools/tests/test_test_claim_check.py -q
+
+      # Step 2: Eingaben aus dem PR ableiten.
+      - name: Eingaben sammeln
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > /tmp/pr_body.txt
+          git log "origin/${{ github.base_ref }}..HEAD" \
+            --format='%s%n%b' > /tmp/pr_commits.txt || true
+          git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            > /tmp/pr_changed.txt || true
+
+      - name: Run Test-Claim-Check
+        id: check
+        run: |
+          python tools/test_claim_check.py \
+            --body-file /tmp/pr_body.txt \
+            --commits-file /tmp/pr_commits.txt \
+            --changed-files-file /tmp/pr_changed.txt \
+            --format json > /tmp/result.json
+          python tools/test_claim_check.py \
+            --body-file /tmp/pr_body.txt \
+            --commits-file /tmp/pr_commits.txt \
+            --changed-files-file /tmp/pr_changed.txt \
+            --format markdown > /tmp/comment.md
+          cat /tmp/result.json
+
+      - name: Post/Update PR Comment (warn-only)
+        if: always()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require('fs');
+            let result = { should_comment: false };
+            let comment = '';
+            try {
+              result = JSON.parse(fs.readFileSync('/tmp/result.json', 'utf8'));
+              comment = fs.readFileSync('/tmp/comment.md', 'utf8');
+            } catch (e) {
+              console.log('No check output:', e.message);
+              return;
+            }
+
+            const MARKER = 'Test-Claim-Check';
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find(c =>
+              c.user.type === 'Bot' && c.body.includes(MARKER)
+            );
+
+            // Kein Claim-ohne-Test -> still: vorhandenen Kommentar aufräumen, sonst nichts.
+            if (!result.should_comment) {
+              if (existing) {
+                await github.rest.issues.updateComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  comment_id: existing.id,
+                  body: '### 🧪 Test-Claim-Check\n\n✅ Kein offener Test-Claim ohne Testdatei.',
+                });
+              }
+              console.log('verdict ok — no warn.');
+              return;
+            }
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: comment,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment,
+              });
+            }
