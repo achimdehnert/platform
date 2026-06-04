@@ -23,7 +23,9 @@ Sorge des Konzepts: verstreute, eigentümer-gebundene `uses: achimdehnert/...@re
 
 1. **Reihenfolge:** Consumer **zuerst** migrieren (ihre Refs auf `achimdehnert/platform` bleiben gültig, solange platform dort liegt). **`platform` als LETZTES.**
 2. **Beim platform-Move:** `ref-sweep.py --apply` über alle Consumer **und** platform-Self-Refs → `iilgmbh/platform`. Ein koordinierter Pass.
-3. **Transfer-Redirect = Brücke:** GitHub leitet `achimdehnert/platform` → `iilgmbh/platform` um; deckt das Sweep-Fenster ab. **Vor Verlass darauf verifizieren, dass `uses:` dem Redirect folgt** (sonst Sweep unmittelbar nach Move, kurzer roter Fenster-Moment einplanen).
+3. **Redirect ist KEINE Brücke für `uses:`** (verifiziert 2026-06-04, GitHub-Doku): `git clone/fetch/push` auf der alten URL folgt dem Redirect — **`uses:`-Action-/Reusable-Workflow-Aufrufe aber NICHT.** O-Ton GitHub: *„GitHub will not redirect calls to an action hosted by a renamed repository … fail with `repository not found`."* → Beim `platform`-Move brechen **alle Consumer-`uses:`-Refs sofort**, bis der Sweep durch ist. Konsequenz: **harter Cutover**, nicht „redirect-überbrückt". Optionen:
+   - **(a) Minimiertes Cutover-Fenster:** Sweep-PRs vorab als Branches stagen (`ref-sweep` vorbereiten), `platform` moven, dann **alle Sweep-PRs sofort/automatisiert mergen** → Consumer-CI nur Minuten rot. In Low-Activity-Fenster legen.
+   - **(b) Zero-Gap via separater Shared-CI-Quelle:** die geteilten Workflows **zuerst** an einem neuen iilgmbh-Ort bereitstellen (eigenes Repo, nicht via Transfer), Consumer dorthin sweepen + grün prüfen, **dann** `platform` ungestört moven (Consumer zeigen schon woanders hin). Kein Fenster, aber mehr Vorlauf.
 4. Danach: alles unter `iilgmbh` → Bruchstelle existiert dauerhaft nicht mehr.
 
 ## Reihenfolge im Gesamt-Rollout
@@ -34,7 +36,8 @@ Sorge des Konzepts: verstreute, eigentümer-gebundene `uses: achimdehnert/...@re
 ## Gates / Leitplanken
 - `--apply` = **scharf** (öffnet ~30 PRs, berührt platform + alle Consumer = max. Blast-Radius) → **separater, ausdrücklich freigegebener** Schritt, gekoppelt an den platform-Move.
 - Dry-Run + Review der PR-Liste **vor** `--apply`.
-- Redirect-Annahme **verifizieren**, nicht annehmen.
+- Redirect-Annahme **verifiziert & falsifiziert** (2026-06-04): `uses:` folgt dem Redirect NICHT → Cutover-Strategie (a)/(b), nicht „redirect-überbrückt".
+- **Welle 3 (Hub-Moves) ist davon NICHT betroffen:** Hubs referenzieren `achimdehnert/platform` (bleibt liegen) → ihre Refs gelten weiter; Hubs werden selbst von niemandem via `uses:` referenziert. Der Redirect-Befund betrifft nur den **finalen `platform`-Move**.
 
 ## Changelog
 - 2026-06-04: Initial — Single-Source-Befund (52 Refs/30 Repos → `platform`), Tool `ref-sweep.py` (dry-run + --apply), Sweep-Strategie + Reihenfolge.
