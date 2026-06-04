@@ -74,9 +74,23 @@ cmd_report() {
   [ "${n:-0}" = "0" ] || { echo "  → Kill-Gate (ADR-233 §8): Konvention nicht erzwingbar (>0)."; tail -3 "$log"; }
 }
 
+# Backstop für pre-commit (ADR-233 §2.1): im sentinel-geschützten Haupt-Tree wird NICHT
+# committet — editierende Arbeit gehört in einen per-session Worktree. In Worktrees ist
+# ".git" eine Datei (kein Verzeichnis), der relative Sentinel-Pfad existiert dort nicht
+# → der Hook greift NUR im Haupt-Tree. Fängt den HEAD-Flip-Commit-auf-main (Retro 2026-06-04 F2),
+# der vom post-checkout-Snap-back allein nicht verhindert wird.
+cmd_precommit_check() {
+  [ -e "$SENTINEL" ] || exit 0   # kein geschützter Haupt-Tree (oder Worktree) → erlauben
+  echo "BLOCK: main-tree-guard (ADR-233): Commit im heiligen Haupt-Tree unterbunden." >&2
+  echo "    Editierende Arbeit gehört in einen per-session Worktree:" >&2
+  echo "    git worktree add /tmp/<slug> -b <branch> origin/main   (oder 'repo-session start')." >&2
+  exit 1
+}
+
 case "${1:-}" in
-  install) shift; cmd_install "$@";;
-  hook)    shift; cmd_hook "$@";;
-  report)  shift; cmd_report "$@";;
-  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | hook <prev> <new> <flag>}" >&2; exit 2;;
+  install)         shift; cmd_install "$@";;
+  hook)            shift; cmd_hook "$@";;
+  report)          shift; cmd_report "$@";;
+  precommit-check) shift; cmd_precommit_check "$@";;
+  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | precommit-check | hook <prev> <new> <flag>}" >&2; exit 2;;
 esac
