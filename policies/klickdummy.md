@@ -32,8 +32,15 @@ Volle Begründung: `platform/docs/adr/ADR-211` (Rev 11, `status: accepted`).
   (a) repo-definierter `make -C <repo> klickdummy-i2` (Selbstaussage);
   (b) **plattform-externer Prod-Probe** `klickdummy_prod_guard.sh` mit
   *pattern-spezifischem* Verhalten (siehe obige Probe-Definitionen).
-  **(b) ist das bindende Cross-Repo-Signal** — Behauptung wird adversarial
-  extern getestet, nicht dem Repo-Selbstcheck geglaubt.
+  **(b) ist das *vorgesehene* bindende Cross-Repo-Signal** — Behauptung wird
+  adversarial extern getestet, nicht dem Repo-Selbstcheck geglaubt.
+  **Status 2026-06-04 (wortgleich zu ADR-211 I2(b)/Rev 20 — SSoT):**
+  `klickdummy_prod_guard.sh` (F11) ist derzeit **unimplementiert/dormant**
+  (ADR-211 Rev 20, #255 geparkt); bis zu seiner Implementierung ist
+  ausschließlich die repo-lokale Pattern-Deklaration (a) aktiv und es existiert
+  **kein bindendes Cross-Repo-Prod-Probe-Signal**. Übergangs-Risiko: die externe
+  Falsifikation fehlt für die Nicht-`mock`-Patterns bis F11 gebaut ist — I2
+  stützt sich solange auf Selbstdeklaration.
 
 - **I3 Off-Ramp mit TTL + Sunset (Rev 11)** —
   - **Phase A (ohne Zielsystem):** Pflicht-Frontmatter `sunset_after`-Datum
@@ -149,3 +156,11 @@ prüft zusätzlich gegen `origin/main`.
   offen). Drift-Gate `klickdummy-parity-drift` (Reuse S10). Scoreboard +S13.
   Empirie: iil-klickdummy v1.6.0 + zwei externe Review-Runden. (Hinweis: dieser
   Changelog lag bei Rev-12 — Rev 13–17 betrafen die Kern-Invarianten nicht.)
+- 2026-06-04: Rev-20-Angleichung (I2(b)-Ehrlichkeit). **Erweiterung, kein
+  Entscheid-Widerruf.** `klickdummy_prod_guard.sh` (F11) ist als
+  **unimplementiert/dormant** markiert (ADR-211 Rev 20, #255 geparkt) — bis Bau
+  bindet faktisch nur die repo-lokale Pattern-Deklaration (a); kein bindendes
+  Cross-Repo-Prod-Probe-Signal. Empirie 2026-06-04: Parity-Mechanismus belegt
+  (A1), aber 0 reale Renderer #2 plattformweit. Hält die Policy wortgleich zu
+  ADR-211 I2(b)/ADR-216 (SSoT). Die opt-in-Executable-Parity-Bridge ist im
+  Scoreboard S13 `dormant` (review_by 2026-12-04).
