@@ -81,6 +81,29 @@ runs:
         else
           echo "::warning::${{ inputs.requirements_file }} not found — only the action's default iil ranges were used (no consumer pins re-asserted)."
         fi
+        # Refresh git-based iil-* deps (e.g. `iil-learnfw @ git+...@main`). pip's git
+        # cache + "already satisfied" leave @main/@branch refs STALE on persistent
+        # self-hosted runners — same staleness class as the iil family above (a plain
+        # `pip install -r` won't re-fetch @main). Walk the consumer's requirements tree
+        # (following -r includes) and force-reinstall any git-based iil-* line so the
+        # latest code (e.g. new API routes) lands. Surfaced by learn-hub#9: stale
+        # iil-learnfw → /api/progress + /api/assessments 404.
+        _collect_reqs() {
+          local f="$1"; [ -f "$f" ] || return 0
+          local d; d=$(dirname "$f")
+          while IFS= read -r line; do
+            case "$line" in
+              "-r "*|"--requirement "*) _collect_reqs "$d/$(echo "$line" | awk '{print $2}')" ;;
+              *) printf '%s\n' "$line" ;;
+            esac
+          done < "$f"
+        }
+        GIT_IIL=$(_collect_reqs "${{ inputs.requirements_file }}" | grep -iE 'iil-[a-z0-9_-]+(\[[a-z,]+\])? ?@ ?git\+' || true)
+        if [ -n "$GIT_IIL" ]; then
+          echo "Refreshing git-based iil deps:"; printf '  %s\n' "$GIT_IIL"
+          printf '%s\n' "$GIT_IIL" | python -m pip install --force-reinstall --no-deps -r /dev/stdin \
+            || echo "::warning::git-based iil dep refresh failed (learn-hub#9)"
+        fi
         # Ensure aifw's runtime deps are present. The --no-deps installs above
         # skip them, and aifw imports `litellm` (declared dep, litellm>=1.30) at
         # module load. Consumers that don't pull litellm transitively — including

@@ -228,7 +228,12 @@ Klickdummies bleiben `class: mock`. **Aber:** `staging-klickdummy.iil.pet` ist e
 - Klickdummies sind self-contained Mock-Renderer, kein Code-Pfad in eine
   Produktiv-App (siehe `class: mock` Definition: separater Wegwerf-Code-Pfad)
 - `klickdummy_prod_guard.sh` (`platform:ADR-211` I2-Probe) prüft `mock`
-  als **N/A** — Klickdummies dürfen public sein
+  als **N/A** — Klickdummies dürfen public sein.
+- *(Status 2026-06-04, wortgleich zu ADR-211 I2(b)/Rev 20 — SSoT):*
+  `klickdummy_prod_guard.sh` (F11) ist derzeit **unimplementiert/dormant**
+  (ADR-211 Rev 20, #255 geparkt); bis zu seiner Implementierung ist ausschließlich
+  die repo-lokale Pattern-Deklaration aktiv und es existiert **kein bindendes
+  Cross-Repo-Prod-Probe-Signal**. Für `mock`=N/A ohne Belang (Konsistenz-Vermerk).
 - DSFA-Klärung 2026-05-21 (User): nicht kritisch (nur Funktionsrollen-Namen
   öffentlich, synthetische Operativ-Daten)
 
