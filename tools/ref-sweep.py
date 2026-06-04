@@ -101,6 +101,8 @@ def main() -> int:
     ap.add_argument("--limit", type=int, default=0, help="canary: only first N affected repos on --apply")
     ap.add_argument("--exclude", default="bfagent",
                     help="comma-separated repo names to skip (frozen/special). Default: bfagent (#44 frozen, import-only).")
+    ap.add_argument("--only", default="",
+                    help="restrict to these repo names (comma-separated) — for targeted batches. Empty = all.")
     args = ap.parse_args()
 
     old, new, pin = args.old, args.new, args.pin
@@ -114,6 +116,10 @@ def main() -> int:
     if not repos:
         print("::error:: no repos readable (token/scope?) — refusing to report 'clean'", file=sys.stderr)
         return 1
+    only = {o.strip() for o in args.only.split(",") if o.strip()}
+    if only:
+        repos = [r for r in repos if r.split("/")[-1] in only]
+        print(f"# --only restricted to ({len(repos)}): {', '.join(repos) or '∅ (keine Treffer!)'}")
     excl = {e.strip() for e in args.exclude.split(",") if e.strip()}
     skipped = [r for r in repos if r.split("/")[-1] in excl]
     if skipped:
