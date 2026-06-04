@@ -44,6 +44,18 @@ on:
         required: false
         type: string
         default: "Dockerfile"
+      import_smoke:
+        description: >-
+          Shell-Kommando, das NACH dem Build IM frisch gebauten Image läuft, BEVOR
+          deployt wird. Non-zero exit lässt den build-Job scheitern → alle Deploys
+          (needs: build) werden geskippt → ein nicht-startbares Image erreicht Prod
+          nie. Fängt Import-Contract-Drift (ModuleNotFoundError/ImportError), die
+          erst zur Laufzeit zuschlägt (z.B. nach Paket-Restructure).
+          Leer (default) = Gate aus, Verhalten unverändert.
+          Django-Beispiel: "SECRET_KEY=ci-smoke DJANGO_SETTINGS_MODULE=config.settings.test python manage.py check"
+        required: false
+        type: string
+        default: ""
       notify_discord:
         description: "Discord Deploy-Notification senden"
         required: false
@@ -172,6 +184,23 @@ jobs:
             APP_VERSION=${{ needs.resolve.outputs.image_tag }}
           secrets: |
             PROJECT_PAT=${{ secrets.PROJECT_PAT }}
+
+      # Gate: ein nicht-startbares Image darf nicht deployt werden. Läuft das
+      # consumer-definierte import_smoke-Kommando IM frisch gebauten Image; bei
+      # non-zero exit fällt dieser build-Job → deploy-* (needs: build) skippen.
+      # Fängt Import-Contract-Drift (ModuleNotFoundError/ImportError), die sonst
+      # erst Wochen später als Prod-Crash-Loop sichtbar wird. Opt-in (leer = aus).
+      - name: Import smoke (gate deploy on a runnable image)
+        if: ${{ inputs.import_smoke != '' }}
+        env:
+          SMOKE_CMD: ${{ inputs.import_smoke }}
+        run: |
+          IMG="ghcr.io/${{ env.IMAGE_NAME }}:${{ needs.resolve.outputs.image_tag }}"
+          echo "::group::Import smoke on $IMG"
+          echo "cmd: $SMOKE_CMD"
+          docker pull "$IMG"
+          docker run --rm "$IMG" sh -c "$SMOKE_CMD"
+          echo "::endgroup::"
 
   # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
   deploy-staging:
