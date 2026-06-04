@@ -102,7 +102,11 @@ Platzhalter: `<repo>` = Repo-Name, `<org>` = Ziel-Org (default `iilgmbh`).
 **Wellen-Log:**
 - **Welle 0 (Canary):** `desktop-setup` ✅ (Nicht-Code → slim-Override).
 - **Welle 1 (isoliert, Code):** `nl2iot-hub`, `django-lms-lite` ✅ → iilgmbh; Config 17 (CodeQL) behalten; 0 Secrets; Redirect+Push-Protection ok.
-- **Zurückgehalten (publiziert):** `iil-fieldprefill`, `illustration-fw` (publish.yml/Secrets → spätere Welle mit PyPI-OIDC-Sorgfalt).
+- **Welle 2 (publizierte Pakete):**
+  - `illustration-fw` (PyPI `iil-illustrationfw`, **Token-Publish**) ✅ → iilgmbh; Secrets `PYPI_API_TOKEN`/`PROJECT_PAT` re-provisioniert (Quellen `~/.secrets/pypi_api_token`, `github_PAT`). **Caveat:** Mapping nicht read-verifizierbar → am **nächsten Release** prüfen, dass Publish durchläuft.
+  - `iil-fieldprefill` (PyPI `iil-fieldprefill`, **reines OIDC/Trusted Publishing**) ⏸️ **gated auf PyPI-Owner-Aktion** — vor Transfer auf pypi.org einen Trusted Publisher eintragen: Owner=`iilgmbh`, Repo=`iil-fieldprefill`, Workflow=`publish.yml`, Environment=`pypi` (additiv, kein Downtime). Danach Transfer.
+
+> **PyPI-Lehre:** OIDC-Trusted-Publishing ist an `owner/repo` gebunden → vor Transfer neuen Publisher anlegen (Owner-Aktion auf pypi.org, nicht per API). Token-Publish ist nicht gebunden → nur Secret-Re-Provision.
 
 ## Canary-Welle (2026-06-03) — Ergebnis
 
