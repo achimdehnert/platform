@@ -24,6 +24,7 @@ Die geteilten Bausteine in ein **eigenes, langlebiges, NIE migriertes** Repo `ii
 |---|---|---|---|
 | **B1** | Repo `iilgmbh/shared-ci` anlegen (in Enterprise → erbt Posture) **+ Actions-Access = `organization`** setzen: `gh api -X PUT repos/iilgmbh/shared-ci/actions/permissions/access -f access_level=organization` | additiv | — |
 | **B1-Pflicht** ⚠️ | **Canary-Fund 2026-06-04:** ein privates Shared-CI teilt seine Actions per Default NICHT (`access_level: none`) → jeder Consumer scheitert an *Set up job* (`repository not found`). OHNE diesen Schritt bricht der Sweep über alle 30 Repos gleichzeitig. Bereits live gesetzt. | — | vor B4 |
+| **B1-Pflicht (Cross-Account)** ⚠️ | **Cross-Account-Fund 2026-06-04:** `access_level=organization` deckt **nur iilgmbh-Org-Repos**. Die ~24 Consumer im **`achimdehnert`-User-Account** (außerhalb der Org) erreichen ein *privates* shared-ci NICHT → „Set up job"-Fehler. Da `achimdehnert/platform` **public** war (dieselben Workflows!), ist die exposure-neutrale Lösung: **`shared-ci` public** (keine Secrets im Repo). Alternativ Consumer erst nach iilgmbh migrieren (koppelt an S3). **Live: shared-ci public gesetzt** (Owner-Aktion 2026-06-04). | — | vor Sweep der achimdehnert-Consumer |
 | **B2** | Die 6 Workflows + 3 Actions hineinkopieren; **interne Self-Refs** (`achimdehnert/platform/...` *innerhalb* der Bausteine) auf `iilgmbh/shared-ci/...` setzen | additiv | B1 |
 | **B3** | `v1.0.0` taggen | additiv | B2; Smoke: 1 Demo-Repo gegen `@v1.0.0` grün |
 | **B4** | **Consumer sweepen:** `ref-sweep.py --old achimdehnert/platform --new iilgmbh/shared-ci --pin v1.0.0` — **erst `--apply --limit 1` (Canary)** → grün → dann voll | PRs reversibel | **scharf** |
@@ -40,6 +41,12 @@ Die geteilten Bausteine in ein **eigenes, langlebiges, NIE migriertes** Repo `ii
 - **B4 ist der einzige scharfe Schritt** → **Canary (`--limit 1`) zuerst**, verifizieren (Consumer-CI grün gegen `@v1.0.0`), dann voll. Kein Auto-Merge ohne Sicht auf ≥1 grüne Canary-PR.
 - B1–B3 sind additiv (nichts zeigt auf `shared-ci`, bis B4) → null Bruch-Risiko.
 - `platform`-Move ist nach OOTB-A **kein Sonderfall** mehr (siehe ootb5-Runbook: Cutover-Problem entfällt).
+
+## Sweep-Log (B4)
+- Canary `iilgmbh/desktop-setup` ✅ (nach access=organization).
+- Batch 1 (5 iilgmbh-Repos) ✅ gemergt — iil-fieldprefill nach F4-Fix (3.11 raus).
+- Cross-Account-Canary + Batch 1b: `bahn-hub`, `design-hub` (achimdehnert) ✅ nach shared-ci=public.
+- **Offen:** Batch 2 = Prod-Hubs (ci+deploy, gestaffelt) + platform-Self-Refs; dann B5/B6.
 
 ## Changelog
 - 2026-06-04: **Canary** (iilgmbh/desktop-setup → shared-ci@v1.0.0) **grün** nach Access-Fix; B1 um Pflicht-Access-Policy ergänzt (privates Shared-CI braucht `access_level=organization`).
