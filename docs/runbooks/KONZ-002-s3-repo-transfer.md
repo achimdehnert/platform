@@ -97,6 +97,13 @@ Platzhalter: `<repo>` = Repo-Name, `<org>` = Ziel-Org (default `iilgmbh`).
 
 **Nicht in dieser Welle:** Repos mit komplexem Package-/Deploy-Coupling bis OOTB-5 (Coupling-Indirektion / repointbare Alias-Stelle) gebaut ist — sonst brechen die ~14 Caller (KONZ B6/AD-4). Bis dahin: Caller-Refs manuell pro Transfer mitziehen (Schritt C).
 
+> **Filter-Befund (2026-06-03):** `gh search code "achimdehnert/<repo>"` ist **blind für PyPI-Consumer** — ein via `pip` konsumiertes Paket zeigt **keine** Code-Refs, bricht aber Consumer + die **PyPI-Trusted-Publishing-Bindung** (owner/repo-gebundenes OIDC) beim Transfer. **Heuristik: Repo mit `publish.yml` = publiziertes Paket → eigene Welle** (PyPI-OIDC neu binden + Secrets), NICHT in die „isoliert"-Welle. Reine Code-Search reicht zur Isolations-Prüfung nicht.
+
+**Wellen-Log:**
+- **Welle 0 (Canary):** `desktop-setup` ✅ (Nicht-Code → slim-Override).
+- **Welle 1 (isoliert, Code):** `nl2iot-hub`, `django-lms-lite` ✅ → iilgmbh; Config 17 (CodeQL) behalten; 0 Secrets; Redirect+Push-Protection ok.
+- **Zurückgehalten (publiziert):** `iil-fieldprefill`, `illustration-fw` (publish.yml/Secrets → spätere Welle mit PyPI-OIDC-Sorgfalt).
+
 ## Canary-Welle (2026-06-03) — Ergebnis
 
 Canary = `desktop-setup` (Nicht-Code, 0 Secrets) → `iilgmbh`. **Transfer + Redirect + Push-Protection-Vererbung + gitleaks grün ✅, kostenneutral (Committer 2/2).**
