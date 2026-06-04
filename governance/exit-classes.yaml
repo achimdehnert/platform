@@ -36,8 +36,14 @@ classes:
 
   exit-likely:
     description: >
-      Org mit absehbarem Austritt (z.B. Kundenprojekt). In der Enterprise OK,
-      aber portabel halten — KEINE nicht-exportierbaren Kopplungen.
+      Kundenprojekt mit absehbarer ÜBERGABE. In der Enterprise OK, portabel halten
+      — KEINE nicht-exportierbaren Kopplungen. **Datenprämisse (2026-06-04, Owner):**
+      diese Repos enthalten nur Quellcode + Demo-Daten, KEINE realen Personendaten;
+      reale Daten + Datensouveränität entstehen erst nach Übergabe im Rechenzentrum
+      des Auftraggebers (außerhalb GitHub). Übergabe = Code-Portierung ins Kunden-RZ,
+      KEIN GitHub-Org-Transfer an den Träger. Daher: kein AVV/keine Souveränitäts-
+      Gating auf GitHub-Ebene; Leitplanke = „nur Demo-Daten" halten (Push-Protection
+      schützt zusätzlich gegen versehentliche Daten-/Secret-Commits).
     placement: in-enterprise-portable
     allowed_features: [secret-scanning, push-protection]
     forbidden_features: [emu, sso, enterprise-only-apps, non-exportable-secret, unreviewed-app-coupling]   # REC-9
@@ -46,8 +52,11 @@ classes:
     teardown_authority_rule: not-none    # none UNZULÄSSIG (ADR-236 §2.5)
 
   must-stay-local:
+    # DERZEIT UNGENUTZT (2026-06-04): griffe nur, falls jemals REALE Souveränitäts-/
+    # Personendaten in eine GitHub-Org gelangen. Aktuelle Kundenprojekte halten nur
+    # Code+Demo-Daten → exit-likely. Diese Klasse bleibt als Fallback dokumentiert.
     description: >
-      Behörden-/Souveränitäts-Workload. Bleibt STANDALONE (nie in die Enterprise);
+      Behörden-/Souveränitäts-Workload mit REALEN Daten. Bleibt STANDALONE (nie in die Enterprise);
       Security-Posture wird gespiegelt + per CI-Gleichheits-Audit geprüft.
       Mirror ≠ Compliance (KONZ D2) — zentrale Audit-/Eingriffsrolle braucht
       formalen Träger-Sign-off (ADR-236 §6/§8b).
@@ -58,20 +67,12 @@ classes:
     exit_tests: [exit-plan-runbook, handover-readiness]
     teardown_authority_rule: not-none    # none UNZULÄSSIG (ADR-236 §2.5)
 
-  central-gov:
-    description: >
-      Government-/Souveränitäts-Workload, der **in die Enterprise** aufgenommen ist
-      (ADR-236-Amendment 2026-06-03). Zulässig NUR mit formalem Träger-Souveränitäts-
-      Sign-off, der **volle Enterprise-Mitgliedschaft** deckt (owner-attestiert).
-      Muss rückgabefähig bleiben (Exit = Übergabe an Träger) → keine nicht-
-      exportierbaren Kopplungen; Sign-off-Scope + -Bestand sind die Single-Point-
-      Souveränitätsabhängigkeit.
-    placement: in-enterprise
-    allowed_features: [secret-scanning, push-protection]
-    forbidden_features: [emu, sso, enterprise-only-apps, non-exportable-secret, unreviewed-app-coupling]
-    required_checks: [secret-scanning, push-protection, sovereignty-signoff]
-    exit_tests: [exit-plan-runbook, handover-readiness]
-    teardown_authority_rule: not-none    # none UNZULÄSSIG — muss an Träger rückgabefähig sein
+  # central-gov: RETIRED 2026-06-04. Die Klasse entstand für die Annahme „reale
+  # Behörden-/Bürgerdaten liegen in der Enterprise". Owner-Klarstellung (2026-06-04):
+  # die Behörden-Repos (ttz-lif/meiki-lra) sind Kundenprojekte mit nur Code+Demo-Daten,
+  # reale Daten erst post-Übergabe im Kunden-RZ → sie sind `exit-likely` wie bahn-sqf.
+  # Wieder einführen NUR, falls jemals reale Souveränitäts-Daten in eine GitHub-Org
+  # gelangen sollen (dann eher `must-stay-local`/eigene GOV-Klammer, nicht in-enterprise).
 
 # ---------------------------------------------------------------------------
 # Org → Klasse (Stand 2026-06-03)
@@ -99,30 +100,30 @@ orgs:
       - "teardown_authority=none ist hier toleriert (central-ok hat keinen Exit-Anspruch), markiert aber Fremd-Eigentum: kein einseitiger Move/Teardown möglich."
 
   ttz-lif:
-    exit_class: central-gov        # geändert 2026-06-03: in Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft)
-    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member (S1 live verifiziert)
-    teardown_authority: contractual-clause   # korrigiert (Review 2026-06-04): self-owner war FALSCH — Org-Exit ist NICHT unilateral (Feuerübung H1: nur Owner-Web-UI/Support). GOV-Exit ist Träger-governiert.
+    exit_class: exit-likely        # reklassifiziert 2026-06-04 (Owner-Datenprämisse): Kundenprojekt (Landratsamt Traunstein), nur Code+Demo-Daten → wie bahn-sqf, NICHT central-gov
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member
+    teardown_authority: self-owner # Übergabe = Code-Portierung ins Kunden-RZ (kein GitHub-Org-Transfer); Dev-Org-Rückbau durch Owner
     review_by: 2026-09-15
-    rationale: Government (GOV-A) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off statt Standalone-Trennung.
+    rationale: Kundenprojekt Landratsamt Traunstein. Repos = Code + Demo-Daten, KEINE realen Personendaten; reale Daten/Souveränität entstehen post-Übergabe im Kunden-RZ (außerhalb GitHub).
     deviations:
-      - "Souveränität ruht allein auf dem Träger-Sign-off (owner-attestiert, nicht repo-verifiziert). Fällt er weg → Rückgabe an Träger nötig → Handover-/Rückgabe-Klausel (contractual-clause) wird kritisch."
-      - "GOV-Exit-Feuerübung 2026-06-03 TEILWEISE (Protokoll ~/shared/gov-exit-drill-protocol-2026-06-03.md): Inventar-Mechanik grün; aber Org-Exit/Teardown ist NICHT autonom-programmatisch (API-404 create / Owner-Web-UI+Support delete) → Souveränitäts-Rückgabe braucht vertragliche/operative SLA, kein Skript. Voll-grün erst nach echter Owner-Handover-Probe."
-      - "⚠️ OFFEN (Review 2026-06-04): die contractual-clause/SLA existiert NOCH NICHT, und H1/H3 der Feuerübung sind ungrün → teardown ist derzeit NICHT abgesichert. Damit ist die central-gov-Zulässigkeit faktisch verletzt, bis (1) AVV nach Art.28 DSGVO + Träger-Handover-SLA vorliegen und (2) eine echte Handover-Feuerübung grün ist. Bis dahin: GOV-Verbleib in der Enterprise ist ein offener Compliance-/Reversibilitäts-Posten."
+      - "Leitplanke: nur Demo-Daten in diese Repos (keine realen Personendaten). Push-Protection schützt zusätzlich gegen versehentliche Daten-/Secret-Commits. Ein versehentl. Echt-Datensatz würde die Datenschutz-Bewertung reaktivieren."
+      - "REC-9: Push-Protection geht beim Exit aus der Enterprise verloren/nicht per Toggle reaktivierbar → keine enterprise-only-Kopplung; Übergabe-Deliverable ist der Code (git), nicht die GitHub-Org."
 
   meiki-lra:
-    exit_class: central-gov        # geändert 2026-06-03: in Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft)
-    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member (S1 live verifiziert)
-    teardown_authority: contractual-clause   # korrigiert (Review 2026-06-04): self-owner war FALSCH (Org-Exit nicht unilateral). SLA existiert noch nicht → s. ttz-lif-Deviation.
+    exit_class: exit-likely        # reklassifiziert 2026-06-04 (Owner-Datenprämisse): Kundenprojekt (Landratsamt Günzburg), nur Code+Demo-Daten → wie bahn-sqf
+    owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member
+    teardown_authority: self-owner # wie ttz-lif: Übergabe = Code-Portierung ins Kunden-RZ
     review_by: 2026-09-15
-    rationale: LRA/Bürgerdaten (GOV-B) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off.
+    rationale: Kundenprojekt Landratsamt Günzburg. Repos = Code + Demo-Daten, KEINE realen Personendaten; reale Daten/Souveränität post-Übergabe im Kunden-RZ.
     deviations:
-      - "Wie ttz-lif: Souveränität Single-Point am Sign-off. GOV-Exit-Feuerübung 2026-06-03 teilweise (s. ttz-lif): Inventar grün, Handover/Teardown nicht autonom → SLA-Befund; voll-grün braucht Owner-Handover-Probe."
+      - "Wie ttz-lif: Leitplanke nur Demo-Daten; REC-9 Exit-Kosten; Deliverable = Code (git), nicht die GitHub-Org."
 
   bahn-sqf:
     exit_class: exit-likely
     owner: achimdehnert            # role=admin; bereits Enterprise-Member (verifiziert)
     teardown_authority: self-owner
     review_by: 2026-09-15
-    rationale: Kundenprojekt (DB) → in Enterprise (Posture by construction), aber portabel halten.
+    rationale: Kundenprojekt (DB) → in Enterprise (Posture by construction), aber portabel halten. Code + Demo-Daten, KEINE realen Personendaten (Owner-Datenprämisse 2026-06-04).
     deviations:
+      - "Leitplanke: nur Demo-Daten (keine realen Personendaten)."
       - "REC-9: Push-Protection geht beim Exit aus der Enterprise verloren und ist extern nicht per Toggle reaktivierbar → Exit-Kosten einplanen, keine enterprise-only-Kopplung aufbauen."
