@@ -44,6 +44,22 @@ Survivors strukturell selten → kleiner skalieren (sonst verbrennt die Falsifik
 Kein Multi-Agent unter `lean`. Falsifikation **nie** 1 Agent pro Befund (explodiert linear) —
 gebündelt je Dimension.
 
+## Modell-Routing je Phase (Kosten-Disziplin)
+Die Trennung Richter≠Angeklagter kommt vom **frischen Kontext**, NICHT vom teuren Opus →
+Subagenten laufen auf dem **billigsten Modell, das die Phase trägt** (`agent(..., model: …)`):
+
+| Phase | Wer / Modell | Warum |
+|---|---|---|
+| 0 Right-Sizing | **du** (inline) | trivial |
+| 1 Collect (gh/git) | Subagent **haiku** | reines Sammeln, keine Wertung |
+| 2 Find · 3 Verify · 5 Meta | Subagent **sonnet** | braucht **frischen Kontext** (Richter≠Angeklagter), aber Sonnet trägt Review-Tiefe — ~5× billiger als Opus (s. `session-routing.md`) |
+| 3.5 Soll-Ablauf · 4 Anchor/Report | **du** (Haupt-Session) | nur *Zusammenführen* fremder Befunde + Schreiben = kein Selbst-Urteil → in-context ok |
+| 6 Extern-Handoff | **fremder Anbieter** (Mensch holt ein) | stärkster Falsifikator (fremde Blindflecken) |
+
+**Anti-Pattern:** Find/Verify durch **„du" (Haupt-Session)** erledigen = Self-Review aus eigenem
+Kontext = Bruch von Regel 1. „Billiger" heißt **Sonnet-Subagent**, nicht **kein** Subagent.
+Opus-Subagenten nur, wenn Sonnet nachweislich an Nuance scheitert.
+
 ## Phase 1 — Collect (Ground Truth, frischer Ermittler)
 Ein Subagent sammelt **ausschließlich aus Artefakten** (kein Self-Report):
 - `gh pr list --repo <owner>/<repo> --state all --search "updated:>=<datum>"` (+ `gh issue list`)
@@ -166,6 +182,22 @@ Er sieht nur den Report + diese Skill. Checkliste:
 > aller `~/shared/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert jeden
 > `recurring_finding` mit Zähler **≥2 über Retros** automatisch zum Gate-PR-Pflicht-Item.
 
+## Phase 6 — Extern-Handoff (optional, nur `deep`)
+Stärkste Stufe der Selbstverbesserung: eine **anbieter-fremde** Zweitmeinung (nicht nur frischer
+Kontext, sondern fremde Trainings-Blindflecken). Muster wie [`adr-handoff-extern`].
+
+Schreibe ein Briefing nach `~/shared/session-retro-extern-<datum>-<repo>-<sid>.md`:
+1. den fertigen Report (Phase 4),
+2. die 4 Eisernen Regeln + das Output-Schema dieser Skill,
+3. Auftrag: *„**Advocatus Diabolus + Out-of-the-Box:** finde, was dieser Retro übersehen oder
+   falsch bewertet hat. Du hast **KEIN Repo-Zugriff** → kritisiere **Methode/Struktur/Blindflecken/
+   Score-Logik/Soll-Ablauf**, behaupte **keine** Evidenz-Fakten (die prüft Phase 3 mit gh/git)."*
+
+Mensch holt die Zweitmeinung extern, faltet sie zurück. **Harte Grenze:** extern kann **Methode**
+challengen, **nicht Evidenz nachprüfen** (kein gh/git) — Evidenz-Recheck bleibt Phase 3/5.
+**Loop:** wiederkehrende Methoden-Kritik fließt als Verbesserung in **diese Skill** (Changelog) —
+genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
+
 ## Anti-Patterns
 - ❌ Aus dem eigenen Session-Kontext urteilen (in-context self-review).
 - ❌ Befund ohne harten Artefakt-Beleg.
@@ -181,6 +213,9 @@ Er sieht nur den Report + diese Skill. Checkliste:
 - ❌ **Halbscores** (2.5) — brechen Längsschnitt-Vergleichbarkeit.
 - ❌ **Multi-Agent für `lean`-Footprint** / Skeptiker je Befund statt je Dimension (Spend-Falle).
 - ❌ Meta-Self-Review (Phase 5), der die **Session** statt den **Report** beurteilt (Richter≠Angeklagter auf Meta-Ebene).
+- ❌ Find/Verify durch **„du"/Haupt-Session** „zum Sparen" — das ist Self-Review (Regel-1-Bruch). Kosten-Fix = **Sonnet-Subagent**, nicht **kein** Subagent.
+- ❌ **Opus-Subagenten** als Default — Sonnet trägt Find/Verify/Meta; Opus nur bei nachgewiesenem Nuance-Fail.
+- ❌ Extern-Handoff (Phase 6) **Evidenz-Fakten** behaupten lassen — extern hat kein gh/git, nur Methoden-Kritik.
 
 ## Changelog
 - 2026-06-04: Initial. Aus einem Advocatus-Diabolus-Review des Paste-Prompt-Retros
@@ -197,3 +232,9 @@ Er sieht nur den Report + diese Skill. Checkliste:
   Beleg unabhängig neu (nicht Finder-Befehl wiederholen — sonst überlebt False-Positive); binär
   SURVIVES/REFUTED (kein „weakened"); Belegpflicht auch für Längsschnitt-Behauptungen; Right-Sizing
   nach Befund-Dichte + harte Agenten-Budgets (lean=0 Subagenten, Skeptiker je Dimension).
+- 2026-06-04 (v2.1): **Modell-Routing je Phase** (Kosten) — Subagenten auf billigstem tragenden
+  Modell: Collect=haiku, Find/Verify/Meta=**sonnet** (frischer Kontext ≠ teures Opus → ~5× günstiger),
+  Synthese/Report inline bei der Haupt-Session; „billiger" heißt Sonnet-Subagent, NICHT Self-Review.
+  **Phase 6 Extern-Handoff** (optional, deep) — anbieter-fremde Methoden-Zweitmeinung (Muster
+  `adr-handoff-extern`); harte Grenze: extern kritisiert Methode, prüft KEINE Evidenz (kein gh/git);
+  wiederkehrende Kritik fließt zurück in die Skill (Self-Improvement-Loop mit externem Falsifikator).
