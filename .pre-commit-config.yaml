@@ -8,6 +8,14 @@ repos:
 
   - repo: local
     hooks:
+      - id: main-tree-protect
+        name: Main-Tree-Guard (ADR-233 — kein Commit im heiligen Haupt-Tree)
+        language: system
+        entry: tools/main-tree-guard.sh precommit-check
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
       - id: adr-number-guard
         name: ADR Number Guard (no duplicate numbers)
         language: python
