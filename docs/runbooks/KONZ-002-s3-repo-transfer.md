@@ -57,6 +57,14 @@ Platzhalter: `<repo>` = Repo-Name, `<org>` = Ziel-Org (default `iilgmbh`).
   ```bash
   gh api repos/<org>/<repo> --jq '.security_and_analysis'
   ```
+- [ ] **Security-Config je Repo-Typ setzen** (Canary-Befund 2026-06-03, s.u.): transferierte Repos erben **Config 17 / volle Suite** (Default-for-new), inkl. CodeQL.
+  - **Echte Anwendung (Code)** → Config 17 **behalten** (CodeQL erwünscht). Nichts tun.
+  - **Nicht-Code (Konfig/Setup/Doku/Daten)** → **schlank überschreiben** (CodeQL aus, Push-Protection bleibt) via **Org-Level**-Attach (`scope=selected`; Enterprise-Attach kann nur `all`):
+    ```bash
+    RID=$(gh api repos/<org>/<repo> --jq .id)
+    GH_TOKEN=<enterprise-pat> gh api -X POST orgs/<org>/code-security/configurations/251767/attach -f scope=selected -F "selected_repository_ids[]=$RID"
+    # verify: …/code-scanning/default-setup -> state=not-configured
+    ```
 - [ ] **Caller-Refs umstellen:** je Caller-Repo PR `uses: achimdehnert/<repo>/...@x` → `uses: <org>/<repo>/...@x`.
 - [ ] **Registry:** `scripts/repo-registry.yaml` neuen Owner eintragen.
 - [ ] **Deploy-Pfade / Package-Refs** aktualisieren (ship-Skripte, Compose, Image-Tags).
@@ -89,5 +97,28 @@ Platzhalter: `<repo>` = Repo-Name, `<org>` = Ziel-Org (default `iilgmbh`).
 
 **Nicht in dieser Welle:** Repos mit komplexem Package-/Deploy-Coupling bis OOTB-5 (Coupling-Indirektion / repointbare Alias-Stelle) gebaut ist — sonst brechen die ~14 Caller (KONZ B6/AD-4). Bis dahin: Caller-Refs manuell pro Transfer mitziehen (Schritt C).
 
+> **Filter-Befund (2026-06-03):** `gh search code "achimdehnert/<repo>"` ist **blind für PyPI-Consumer** — ein via `pip` konsumiertes Paket zeigt **keine** Code-Refs, bricht aber Consumer + die **PyPI-Trusted-Publishing-Bindung** (owner/repo-gebundenes OIDC) beim Transfer. **Heuristik: Repo mit `publish.yml` = publiziertes Paket → eigene Welle** (PyPI-OIDC neu binden + Secrets), NICHT in die „isoliert"-Welle. Reine Code-Search reicht zur Isolations-Prüfung nicht.
+
+**Wellen-Log:**
+- **Welle 0 (Canary):** `desktop-setup` ✅ (Nicht-Code → slim-Override).
+- **Welle 1 (isoliert, Code):** `nl2iot-hub`, `django-lms-lite` ✅ → iilgmbh; Config 17 (CodeQL) behalten; 0 Secrets; Redirect+Push-Protection ok.
+- **Zurückgehalten (publiziert):** `iil-fieldprefill`, `illustration-fw` (publish.yml/Secrets → spätere Welle mit PyPI-OIDC-Sorgfalt).
+
+## Canary-Welle (2026-06-03) — Ergebnis
+
+Canary = `desktop-setup` (Nicht-Code, 0 Secrets) → `iilgmbh`. **Transfer + Redirect + Push-Protection-Vererbung + gitleaks grün ✅, kostenneutral (Committer 2/2).**
+
+**Hauptbefund — Config-Vererbung beim Transfer:** Ein transferierter Repo wird wie ein **Neuzugang** behandelt → erbt die **Default-for-new-Config (17, volle Suite inkl. CodeQL)**, NICHT die schlanke apply-to-all. Für die meisten Migrationsziele (echte `-hub`-Apps) ist das **erwünscht** (CodeQL = SAST/Daten-Fluss-Analyse, eigene Verteidigungslinie neben Secret-Scanning). Nur für **Nicht-Code-Repos** ist es Overhead/Kosten → dort gezielt schlank überschreiben (Schritt C).
+
+**Regel (verfeinert ggü. „immer schlank"):**
+
+| Repo-Typ | Security-Config | Aktion nach Transfer |
+|---|---|---|
+| echte Anwendung (Code) | Config 17 (mit CodeQL) | nichts — Default ist richtig |
+| Konfig / Setup / Doku / Daten | `slim-prevention` | Org-Level-Attach `scope=selected` (Schritt C) |
+
+**Operativer Befund:** Enterprise-Attach kann nur `all`/`all_without_configurations`; **per-Repo-Override nur über Org-Level-Attach** (`orgs/<org>/code-security/configurations/<id>/attach scope=selected`). Verifikation: `…/code-scanning/default-setup` → `state=not-configured` bei schlank.
+
 ## Changelog
 - 2026-06-03: Initial — S3-Per-Repo-Transfer-Checkliste (Inventar/Transfer/Re-Provision/Verify/Rollback + Wellen).
+- 2026-06-03: Canary `desktop-setup` durchgeführt + Config-je-Repo-Typ-Regel (Code→17, Nicht-Code→slim via Org-Level-Attach) ergänzt; Step C erweitert.
