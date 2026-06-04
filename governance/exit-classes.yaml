@@ -101,17 +101,18 @@ orgs:
   ttz-lif:
     exit_class: central-gov        # geändert 2026-06-03: in Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft)
     owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member (S1 live verifiziert)
-    teardown_authority: self-owner
+    teardown_authority: contractual-clause   # korrigiert (Review 2026-06-04): self-owner war FALSCH — Org-Exit ist NICHT unilateral (Feuerübung H1: nur Owner-Web-UI/Support). GOV-Exit ist Träger-governiert.
     review_by: 2026-09-15
     rationale: Government (GOV-A) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off statt Standalone-Trennung.
     deviations:
       - "Souveränität ruht allein auf dem Träger-Sign-off (owner-attestiert, nicht repo-verifiziert). Fällt er weg → Rückgabe an Träger nötig → Handover-/Rückgabe-Klausel (contractual-clause) wird kritisch."
       - "GOV-Exit-Feuerübung 2026-06-03 TEILWEISE (Protokoll ~/shared/gov-exit-drill-protocol-2026-06-03.md): Inventar-Mechanik grün; aber Org-Exit/Teardown ist NICHT autonom-programmatisch (API-404 create / Owner-Web-UI+Support delete) → Souveränitäts-Rückgabe braucht vertragliche/operative SLA, kein Skript. Voll-grün erst nach echter Owner-Handover-Probe."
+      - "⚠️ OFFEN (Review 2026-06-04): die contractual-clause/SLA existiert NOCH NICHT, und H1/H3 der Feuerübung sind ungrün → teardown ist derzeit NICHT abgesichert. Damit ist die central-gov-Zulässigkeit faktisch verletzt, bis (1) AVV nach Art.28 DSGVO + Träger-Handover-SLA vorliegen und (2) eine echte Handover-Feuerübung grün ist. Bis dahin: GOV-Verbleib in der Enterprise ist ein offener Compliance-/Reversibilitäts-Posten."
 
   meiki-lra:
     exit_class: central-gov        # geändert 2026-06-03: in Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft)
     owner: achimdehnert            # role=admin (verifiziert 2026-06-03); Enterprise-Member (S1 live verifiziert)
-    teardown_authority: self-owner
+    teardown_authority: contractual-clause   # korrigiert (Review 2026-06-04): self-owner war FALSCH (Org-Exit nicht unilateral). SLA existiert noch nicht → s. ttz-lif-Deviation.
     review_by: 2026-09-15
     rationale: LRA/Bürgerdaten (GOV-B) — bewusst in die Enterprise (ADR-236-Amendment); Souveränität via formalem Träger-Sign-off.
     deviations:

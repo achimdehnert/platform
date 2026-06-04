@@ -5,6 +5,7 @@ implementation_evidence:
   - "S1 ausgeführt 2026-06-03 (live verifiziert via Enterprise-PAT): Enterprise iilgmbh hat 4 Member-Orgs (bahn-sqf, iilgmbh, meiki-lra, ttz-lif); Seats 2/2 (kostenneutral bestätigt)."
   - "Amendment 2026-06-03: GOV-Orgs ttz-lif/meiki-lra BEWUSST in die Enterprise aufgenommen (Träger-Sign-off deckt volle Mitgliedschaft, owner-attestiert) → exit_class central-gov (governance/exit-classes.yaml)."
   - "S2 KOMPLETT 2026-06-03: slim-prevention (251767) apply-to-all enforced; Config 17 = default-for-new. S2.3-Auswertung: Committer 2/2 (kostenneutral), Coverage 9/9 (100%), 0 Secret-Scanning-Alerts (GOV inkl.). S2.4 enforced (verifiziert). Reversibel. Runbook: docs/runbooks/KONZ-002-s2-config-rollout.md."
+  - "Review-Korrektur 2026-06-04: Kostenneutralität nun auf BEIDEN GHAS-SKUs nachgemessen — secret_protection=2 UND code_security=2 (letzterer relevant durch CodeQL auf S3-migrierten Code-Repos, vorher nicht nachgemessen). teardown_authority der GOV-Orgs von 'self-owner' auf 'contractual-clause' korrigiert (Org-Exit nicht unilateral). Offene Posten: Gates (a)/(b) owner-attestiert/nicht-repo-verifiziert; GOV braucht AVV (Art.28) + Handover-SLA + grüne Handover-Feuerübung; sonst central-gov faktisch unzulässig (s. exit-classes.yaml)."
 date: 2026-06-03
 decision-makers: Achim Dehnert
 domains: [governance, security, secrets, ci-cd]
