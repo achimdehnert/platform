@@ -66,6 +66,17 @@ on:
         required: false
         type: string
         default: "self-hosted"
+      deploy_runs_on:
+        description: >-
+          Runner label for the HOST-BOUND deploy jobs (staging/production). These do
+          atomic-sync to /opt/<app> on the target host, so they MUST run on that host —
+          a generic 'self-hosted' label can land the job on the WRONG runner (e.g. a dev
+          box without /opt/<app> writable) -> 'cp: ... Permission denied' and no deploy.
+          Set to the deploy host's UNIQUE label (e.g. 'prod-server'). Empty (default) =
+          fall back to runs_on, behaviour unchanged.
+        required: false
+        type: string
+        default: ""
     secrets:
       DEPLOY_SSH_KEY:
         description: "SSH Key für Production (vorhandener Secret-Name)"
@@ -199,13 +210,18 @@ jobs:
           echo "::group::Import smoke on $IMG"
           echo "cmd: $SMOKE_CMD"
           docker pull "$IMG"
-          docker run --rm "$IMG" sh -c "$SMOKE_CMD"
+          # --entrypoint sh: das App-Entrypoint (z.B. /entrypoint.sh mit
+          # "DJANGO_SETTINGS_MODULE must be set"-Guard) überspringen — die Smoke
+          # testet den IMPORT-Graph, nicht das Entrypoint. Env setzt der Consumer
+          # inline im SMOKE_CMD. Ohne den Bypass false-failt das Gate an
+          # entrypoint-geguardeten Images (cad-hub#21-Deploy, run 26946093189).
+          docker run --rm --entrypoint sh "$IMG" -c "$SMOKE_CMD"
           echo "::endgroup::"
 
   # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
   deploy-staging:
     name: "🧪 Staging"
-    runs-on: ${{ inputs.runs_on }}
+    runs-on: ${{ inputs.deploy_runs_on || inputs.runs_on }}
     needs: [resolve, build]
     if: |
       always() &&
@@ -261,7 +277,7 @@ jobs:
   # Falls back to SSH if runs_on != self-hosted (e.g. ubuntu-latest).
   deploy-production:
     name: "🚀 Production"
-    runs-on: ${{ inputs.runs_on }}
+    runs-on: ${{ inputs.deploy_runs_on || inputs.runs_on }}
     needs: [resolve, build]
     if: |
       always() &&
