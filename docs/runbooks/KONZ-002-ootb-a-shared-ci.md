@@ -22,7 +22,8 @@ Die geteilten Bausteine in ein **eigenes, langlebiges, NIE migriertes** Repo `ii
 
 | # | Schritt | Reversibel? | Gate |
 |---|---|---|---|
-| **B1** | Repo `iilgmbh/shared-ci` anlegen (in Enterprise → erbt Posture) | additiv (archivierbar) | — |
+| **B1** | Repo `iilgmbh/shared-ci` anlegen (in Enterprise → erbt Posture) **+ Actions-Access = `organization`** setzen: `gh api -X PUT repos/iilgmbh/shared-ci/actions/permissions/access -f access_level=organization` | additiv | — |
+| **B1-Pflicht** ⚠️ | **Canary-Fund 2026-06-04:** ein privates Shared-CI teilt seine Actions per Default NICHT (`access_level: none`) → jeder Consumer scheitert an *Set up job* (`repository not found`). OHNE diesen Schritt bricht der Sweep über alle 30 Repos gleichzeitig. Bereits live gesetzt. | — | vor B4 |
 | **B2** | Die 6 Workflows + 3 Actions hineinkopieren; **interne Self-Refs** (`achimdehnert/platform/...` *innerhalb* der Bausteine) auf `iilgmbh/shared-ci/...` setzen | additiv | B1 |
 | **B3** | `v1.0.0` taggen | additiv | B2; Smoke: 1 Demo-Repo gegen `@v1.0.0` grün |
 | **B4** | **Consumer sweepen:** `ref-sweep.py --old achimdehnert/platform --new iilgmbh/shared-ci --pin v1.0.0` — **erst `--apply --limit 1` (Canary)** → grün → dann voll | PRs reversibel | **scharf** |
@@ -41,4 +42,5 @@ Die geteilten Bausteine in ein **eigenes, langlebiges, NIE migriertes** Repo `ii
 - `platform`-Move ist nach OOTB-A **kein Sonderfall** mehr (siehe ootb5-Runbook: Cutover-Problem entfällt).
 
 ## Changelog
+- 2026-06-04: **Canary** (iilgmbh/desktop-setup → shared-ci@v1.0.0) **grün** nach Access-Fix; B1 um Pflicht-Access-Policy ergänzt (privates Shared-CI braucht `access_level=organization`).
 - 2026-06-04: Initial — OOTB-A-Design (shared-ci-Extraktion + Tag-Pinning); ref-sweep.py gehärtet (uses:-Anker, --pin, --limit, Idempotenz).
