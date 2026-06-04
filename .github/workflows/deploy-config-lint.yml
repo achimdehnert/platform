@@ -1,0 +1,34 @@
+name: "Deploy-Config-Lint"
+
+# Org-Gate gegen den Auto-Prod-Deploy-Drift (risk-hub-Klasse): deploy.yml, das
+# push->main auf 'production' defaultet, deployt unbemerkt direkt auf Prod.
+# Org-Standard (_deploy-unified.yml): push->main = staging; Prod nur Tag/manuell.
+# Hintergrund: session-retro 2026-06-04 (risk-hub ~20 Tage Auto-Prod).
+#
+# Adoption im Repo-CI:
+#   jobs:
+#     deploy-config-lint:
+#       uses: achimdehnert/platform/.github/workflows/deploy-config-lint.yml@main
+
+on:
+  workflow_call: {}
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-config-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout caller repo
+        uses: actions/checkout@v4
+        with:
+          path: caller
+      - name: Checkout platform (Lint-Script)
+        uses: actions/checkout@v4
+        with:
+          repository: achimdehnert/platform
+          ref: main
+          path: platform
+      - name: Lint deploy-Workflows gegen Auto-Prod-Default
+        run: python3 platform/tools/deploy_config_lint.py caller/.github/workflows
