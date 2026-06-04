@@ -210,7 +210,12 @@ jobs:
           echo "::group::Import smoke on $IMG"
           echo "cmd: $SMOKE_CMD"
           docker pull "$IMG"
-          docker run --rm "$IMG" sh -c "$SMOKE_CMD"
+          # --entrypoint sh: das App-Entrypoint (z.B. /entrypoint.sh mit
+          # "DJANGO_SETTINGS_MODULE must be set"-Guard) überspringen — die Smoke
+          # testet den IMPORT-Graph, nicht das Entrypoint. Env setzt der Consumer
+          # inline im SMOKE_CMD. Ohne den Bypass false-failt das Gate an
+          # entrypoint-geguardeten Images (cad-hub#21-Deploy, run 26946093189).
+          docker run --rm --entrypoint sh "$IMG" -c "$SMOKE_CMD"
           echo "::endgroup::"
 
   # ── JOB 3a: Deploy to Staging ─────────────────────────────────────────────
