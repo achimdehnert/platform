@@ -1,27 +1,32 @@
 #!/usr/bin/env python3
 """doctor.py — read-only Drift-Diagnose für CC-Skill-Distribution (platform:ADR-230).
 
-Vergleicht die branch-stabile kanonische Quelle (platform `origin/main`
-`.windsurf/workflows/`) mit dem live `~/.claude/commands/` — OHNE etwas zu ändern.
-Meldet: stale Kopien, dangling Symlinks, fehlende/zusätzliche Skills, Hybrid-Status.
+Vergleicht die branch-stabile kanonische Quelle (platform `origin/main`) mit dem
+Live-Ziel — OHNE etwas zu ändern. Meldet stale Kopien, dangling Symlinks,
+fehlende/zusätzliche Skills, Hybrid-Status und einen Drift-Score.
 
-Usage: doctor.py [--platform ~/github/platform] [--commands ~/.claude/commands] [--ref origin/main]
+Zwei Lanes (`--kind`):
+- `commands` (Default): `.windsurf/workflows/*.md` ↔ `~/.claude/commands/` (flach).
+- `skills`: `skills/<name>/SKILL.md` ↔ `~/.claude/skills/<name>/SKILL.md` (Agent Skills,
+  verzeichnis-basiert). Der Relativlink-Guard greift NICHT — Agent-Skill-Verzeichnisse
+  dürfen gebündelte Relativ-Referenzen tragen.
+
+Usage: doctor.py [--kind commands|skills] [--platform ~/github/platform]
+                 [--commands ~/.claude/commands] [--skills-dir ~/.claude/skills] [--ref origin/main]
 """
 import argparse, os, re, subprocess, sys
 
-# Relativlink-Guard (ADR-175-Amendment / Audit-F1): das Ziel ~/.claude/commands ist FLACH
-# (eine Datei pro Skill, keine Subdirs). Ein Markdown-Link mit Pfad-Slash (z.B.
-# `](../../docs/x.md)`) ist dort grundsätzlich unauflösbar → dangling. http(s)/Anker/mailto
-# sind ok. Fängt die Wiedereinführung ausgelagerter Lookups (die F1 verursacht haben).
-# Verlangt Pfad-Slash UND eine echte Datei-Endung, damit dokumentierte Regex/sed-Snippets
-# in Code-Blöcken (z.B. `s#...([^/]+)/...#`) NICHT als Link fehl-matchen.
+# Relativlink-Guard (nur Lane `commands`): das flache Ziel ~/.claude/commands kann keine
+# Pfad-Slash-Links auflösen → dangling. http(s)/Anker/mailto sind ok. Verlangt Pfad-Slash
+# UND echte Datei-Endung, damit Regex/sed-Snippets in Code-Blöcken nicht fehl-matchen.
 REL_LINK = re.compile(
     r"\]\((?!https?://|#|mailto:)([^)\s]*/[^)\s]*\.(?:md|markdown|ya?ml|sh|py|txt|json|toml))\)")
 
-# Footer, den generate.py an jede verteilte Kopie anhängt (MANAGED-BY-Marke).
-# doctor muss ihn vor dem Inhaltsvergleich abstreifen, sonst liest sich jede
-# korrekt generierte Kopie fälschlich als copy-stale (Footer ≠ nackter Blob).
 MARK = "MANAGED-BY: platform/tools/cc-skill-dist"
+
+# Lane: (Quell-Pfad im Repo, Blob-Endung, key-Extraktor aus repo-Pfad, Live-Ziel, Ziel-Enumerator)
+def _name_basename(path): return os.path.basename(path)
+def _name_skilldir(path): return os.path.basename(os.path.dirname(path))
 
 def strip_managed_footer(text):
     idx = text.rfind("<!-- " + MARK)
@@ -31,34 +36,55 @@ def git(args, cwd):
     r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
     return r.stdout if r.returncode == 0 else None
 
+def enumerate_commands(root):
+    """Flaches Ziel: name -> Pfad zur .md-Datei."""
+    if not os.path.isdir(root):
+        return {}
+    return {f: os.path.join(root, f) for f in os.listdir(root) if f.endswith(".md")}
+
+def enumerate_skills(root):
+    """Verzeichnis-Ziel: name -> Pfad zur <name>/SKILL.md."""
+    if not os.path.isdir(root):
+        return {}
+    out = {}
+    for d in os.listdir(root):
+        p = os.path.join(root, d, "SKILL.md")
+        if os.path.isfile(p) or os.path.islink(p):
+            out[d] = p
+    return out
+
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument("--kind", choices=["commands", "skills"], default="commands")
     ap.add_argument("--platform", default=os.path.expanduser("~/github/platform"))
     ap.add_argument("--commands", default=os.path.expanduser("~/.claude/commands"))
+    ap.add_argument("--skills-dir", default=os.path.expanduser("~/.claude/skills"))
     ap.add_argument("--ref", default="origin/main")
     a = ap.parse_args()
 
+    if a.kind == "commands":
+        src_path, suffix, key_of = ".windsurf/workflows/", ".md", _name_basename
+        target_dir, target_files, rel_guard = a.commands, enumerate_commands(a.commands), True
+    else:
+        src_path, suffix, key_of = "skills/", "/SKILL.md", _name_skilldir
+        target_dir, target_files, rel_guard = a.skills_dir, enumerate_skills(a.skills_dir), False
+
     git(["fetch", "origin", "main", "-q"], a.platform)
-    # Kanonische Quelle: blob-sha = inhalts-adressiert, branch-stabil
-    listing = git(["ls-tree", "-r", a.ref, ".windsurf/workflows/"], a.platform) or ""
+    listing = git(["ls-tree", "-r", a.ref, src_path], a.platform) or ""
     canon = {}  # name -> blob_sha
     for line in listing.splitlines():
-        # <mode> blob <sha>\t<path>
-        parts = line.split()
-        if len(parts) >= 4 and parts[1] == "blob" and parts[-1].endswith(".md"):
-            canon[os.path.basename(parts[-1])] = parts[2]
+        parts = line.split()  # <mode> blob <sha>\t<path>
+        if len(parts) >= 4 and parts[1] == "blob" and parts[-1].endswith(suffix):
+            canon[key_of(parts[-1])] = parts[2]
     if not canon:
-        print(f"FEHLER: keine kanonischen Workflows unter {a.ref}:.windsurf/workflows/"); sys.exit(2)
+        print(f"FEHLER: keine kanonischen Quellen unter {a.ref}:{src_path} (kind={a.kind})"); sys.exit(2)
 
     def canon_content(sha):
         return git(["cat-file", "blob", sha], a.platform)
 
-    cmd_files = {f: os.path.join(a.commands, f) for f in os.listdir(a.commands) if f.endswith(".md")} \
-        if os.path.isdir(a.commands) else {}
-
     sym_ok = sym_stale = sym_dangling = copy_fresh = copy_stale = extra = 0
     issues = []
-    for name, path in sorted(cmd_files.items()):
+    for name, path in sorted(target_files.items()):
         is_link = os.path.islink(path)
         if name not in canon:
             extra += 1; issues.append(("extra", name, "im Ziel, aber nicht in der Quelle")); continue
@@ -77,23 +103,23 @@ def main():
             if same: copy_fresh += 1
             else: copy_stale += 1; issues.append(("copy-stale", name, "Kopie ≠ Quelle (veraltet)"))
 
-    # Relativlink-Guard: scanne ALLE kanonischen Workflows (unabhängig vom Ziel-Zustand,
-    # damit der Check auch in CI mit leerem ~/.claude/commands greift).
     rel_links = 0
-    for name, sha in sorted(canon.items()):
-        body = canon_content(sha) or ""
-        for m in REL_LINK.finditer(body):
-            rel_links += 1
-            issues.append(("rel-link", name, f"unauflösbarer Relativlink im flachen Ziel → {m.group(1)}"))
+    if rel_guard:
+        for name, sha in sorted(canon.items()):
+            body = canon_content(sha) or ""
+            for m in REL_LINK.finditer(body):
+                rel_links += 1
+                issues.append(("rel-link", name, f"unauflösbarer Relativlink im flachen Ziel → {m.group(1)}"))
 
-    missing = sorted(set(canon) - set(cmd_files))
+    missing = sorted(set(canon) - set(target_files))
 
-    print(f"=== CC-Skill-Doctor (Quelle: {a.ref}, {len(canon)} kanonische Workflows) ===")
-    print(f"  Ziel {a.commands}: {len(cmd_files)} Dateien")
+    print(f"=== CC-Skill-Doctor (kind={a.kind}, Quelle: {a.ref}, {len(canon)} kanonisch) ===")
+    print(f"  Ziel {target_dir}: {len(target_files)} Einträge")
     print(f"  Symlinks ok={sym_ok}  symlink-stale={sym_stale}  dangling={sym_dangling}")
     print(f"  Kopien fresh={copy_fresh}  copy-stale={copy_stale}")
     print(f"  extra (nicht in Quelle)={extra}  fehlend (in Quelle, nicht im Ziel)={len(missing)}")
-    print(f"  rel-links (unauflösbar im flachen Ziel)={rel_links}")
+    if rel_guard:
+        print(f"  rel-links (unauflösbar im flachen Ziel)={rel_links}")
     print(f"  Hybrid? {'JA — Symlinks UND Kopien gemischt' if (sym_ok+sym_stale+sym_dangling)>0 and (copy_fresh+copy_stale)>0 else 'nein'}")
     if missing:
         print("  fehlende Skills:", ", ".join(missing[:10]) + (" …" if len(missing) > 10 else ""))
