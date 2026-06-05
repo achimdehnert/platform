@@ -5,6 +5,21 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
+## ⚡ Aktueller Stand (2026-06-05 — github-admin / risk-hub-Launch / KONZ-002-Session)
+
+**Letzte Session:** risk-hub **live in Prod** als Kundenprodukt (schutztat.de) + Cross-Tenant-Edit-Fix (PR #168, merged); **Profil-B-GitHub-App** aufgesetzt (App 3971306, Token-Smoke grün); **KONZ-002 ref-sweep** über 17 Hubs; **deep Session-Retro** (Report: `~/shared/session-retro-2026-06-05-platform-ghadmin.md`).
+
+**Offen — direkt umsetzbar (erster Zug nächste Session):**
+- **3 PRs mergebar:** platform **#476** (Profil B) · **#478** (main-tree-guard Commit-auf-main-Fix) · `iilgmbh/shared-ci` **#2** (immutable ref).
+- **M6 Profil B fertig:** `~/.bashrc`-Block (`GH_APP_ID=3971306`, `claude-ent()`) · App auf **„Any account"** · Install auf `iilgmbh`+`bahn-sqf` → dann `claude-ent iilgmbh` = Org-Admin. Details: `docs/PROFILE_B.md`.
+- **14 gehaltene ref-sweep-PRs** (`achimdehnert/platform`→`iilgmbh/shared-ci@v1.0.1`) → mergen sobald **F4** das jeweilige Repo grün macht (kein CI-/Security-Bypass).
+- **#7 risk-hub→Enterprise-Transfer:** bewusst **deferred** (Bake + geplantes Fenster; gegated hinter KONZ-002 S2). `platform`-Self-Refs (publish-Workflows) separat/vorsichtig sweepen.
+- **shared-ci Issue #3:** eigene CI (actionlint) für die reusable Workflows.
+
+**Kontext-Memories (auto-load):** `project_profile_b_app_state` · `project_riskhub_prod_launch` · `project_riskhub_entitlement_gaps` · 🌀 `feedback_commit_on_main_recurs`.
+
+---
+
 ## 0. Aktuelle Prioritäten (2026-06-03)
 
 | Prio | Task | Tier |
