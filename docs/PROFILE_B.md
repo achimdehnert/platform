@@ -81,5 +81,8 @@ Profil B ist breit, **weil** gerade Umbau läuft. Die Verengung ist eine
   `gh-app-token.sh <account>` löst die Install-ID live per JWT auf.
 - **Verifiziert (2026-06-05):** GitHub Apps können org/repo-Admin voll (GA) +
   Enterprise-Member/Org/SSO (Public Preview); Billing/-Policy **nicht** → PAT-Rest.
+- **Erledigt (2026-06-05):** PR #476 gemergt; `~/.bashrc`-Block gesetzt
+  (`GH_APP_ID`/`GH_APP_KEY`/`GH_APP_DEFAULT_ACCOUNT` + `claude-ent`-Funktion,
+  Pfad via `$GITHUB_DIR` statt hartkodiert).
 - **Offen (M6):** App auf „Any account" stellen + Install auf `iilgmbh`/`bahn-sqf`
-  (Org-Admin); `~/.bashrc`-Block setzen; PR #476 mergen.
+  (Org-Admin) — beides Owner-UI-Schritte; „Any account" muss vor dem Org-Install.
