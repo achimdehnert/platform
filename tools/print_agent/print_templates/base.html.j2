@@ -3,6 +3,8 @@
 <head><meta charset="utf-8"><title>{{ title }}</title></head>
 <body>
 {% if stand %}<span class="stand-anchor">{{ stand }}</span>{% endif %}
+{% if classification %}<div class="classification-banner">{{ classification }}</div>{% endif %}
+{% if logo_data_uri %}<div class="brand-logo-wrap"><img src="{{ logo_data_uri }}" alt="{{ logo_alt }}"></div>{% endif %}
 <div class="cover-header">{{ cover_label }}</div>
 <h1>{{ title }}</h1>
 <p class="doc-subtitle">{{ subtitle }}</p>
