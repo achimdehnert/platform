@@ -16,6 +16,7 @@ import re
 import json
 import os
 import argparse
+import shutil
 import subprocess
 import tempfile
 from pathlib import Path
@@ -80,11 +81,154 @@ def _load_designs(override_file: Path | None = None) -> dict:
 DESIGNS = _load_designs()
 
 
+# ---------------------------------------------------------------------------
+# Brand-Profile (design-hub) — volle CI inkl. Logo/Fonts/Klassifizierung
+# Spezifikation: design-hub/profiles/_SCHEMA.md (allowed_assets-Check Pflicht)
+# ---------------------------------------------------------------------------
+
+DESIGN_HUB_DIR = Path(os.environ.get("DESIGN_HUB_DIR", str(Path.home() / "github" / "design-hub")))
+
+
+_FONT_FORMAT = {".ttf": "truetype", ".otf": "opentype", ".woff": "woff", ".woff2": "woff2"}
+
+
+def _resolve_font(rel: str) -> Path | None:
+    """Löst einen Font-Pfad auf und bevorzugt TTF (in WeasyPrint zuverlässiger als woff2)."""
+    cand = (DESIGN_HUB_DIR / rel).resolve()
+    # woff2/X.woff2 → ttf/X.ttf, falls vorhanden
+    ttf = Path(str(cand).replace("/woff2/", "/ttf/").replace(".woff2", ".ttf"))
+    if ttf.exists():
+        return ttf
+    return cand if cand.exists() else None
+
+
+def _install_brand_fonts(primary_rel: str) -> bool:
+    """Installiert die TTF-Familie idempotent in den fontconfig-Cache.
+
+    WeasyPrint 68 lädt @font-face mit lokaler Datei unzuverlässig; per
+    fontconfig + echtem Familiennamen klappt das Embedding dagegen sauber.
+    Quelle = das ttf-Verzeichnis neben dem (woff2-)Profilpfad.
+    """
+    src = _resolve_font(primary_rel)
+    if not src:
+        return False
+    font_dir = src.parent  # .../sans/ttf
+    target = Path.home() / ".local" / "share" / "fonts" / f"iil-brand-{font_dir.parent.name}"
+    if target.exists() and any(target.glob("*.ttf")):
+        return True  # bereits installiert
+    target.mkdir(parents=True, exist_ok=True)
+    n = 0
+    for ttf in font_dir.glob("*.ttf"):
+        shutil.copy2(ttf, target / ttf.name)
+        n += 1
+    if n:
+        subprocess.run(["fc-cache", "-f", str(target)], capture_output=True)
+        print(f"🔤 Brand-Fonts installiert: {n} Schnitte → {target}")
+    return n > 0
+
+
+def _profile_to_design(profile_name: str) -> dict:
+    """Lädt ein design-hub-Profil und mappt es auf das interne Design-Dict.
+
+    Erzwingt `allowed_assets`: DB-Logo/Fonts werden nur eingebettet, wenn
+    `allowed_assets.db: true`. Bricht bei fehlendem Profil hart ab.
+    """
+    prof_file = DESIGN_HUB_DIR / "profiles" / f"{profile_name}.yaml"
+    if not prof_file.exists():
+        raise SystemExit(f"❌ Profil nicht gefunden: {prof_file}")
+    prof = yaml.safe_load(prof_file.read_text(encoding="utf-8"))
+    print(f"🎨 Brand-Profil: {profile_name}  (owner={prof.get('authorship', {}).get('owner', '?')})")
+
+    c = prof.get("colours", {})
+    allowed = prof.get("allowed_assets", {})
+    db_ok = bool(allowed.get("db"))
+
+    design = {
+        "primary":      c.get("primary", "#000000"),
+        "bg_light":     c.get("bg_light", "#F5F5F5"),
+        "border":       c.get("border", "#DDDDDD"),
+        "border_dark":  c.get("primary_dark", c.get("primary", "#000000")),
+        "row_even":     c.get("zebra", "#F4F5F7"),
+        "row_odd":      "#FFFFFF",
+        "gantt_bg":     c.get("bg_light", "#F8FAFE"),
+        "flow_s1":      c.get("primary", "#000000"),
+        "flow_s2":      c.get("accent_1", c.get("text", "#3C414C")),
+        "flow_s3":      c.get("accent_2", c.get("text_muted", "#646973")),
+        "header_left":  prof.get("header", {}).get("text", ""),
+        "cover_label":  prof.get("header", {}).get("cover_label", ""),
+        "subtitle":     prof.get("subtitle", ""),
+        "footer_suffix": prof.get("footer", {}).get("suffix", ""),
+        "llm_context":  prof.get("llm_context", "Technologie und KI"),
+        "es_label_text": prof.get("es_label_text", "Zusammenfassung"),
+        "meta_template": "db",
+        "_text_color":  c.get("text", "#1F2937"),
+        "mermaid_classes": {
+            "primary": {"fill": c.get("primary", "#000"),     "stroke": c.get("primary_dark", "#000"), "color": "#FFFFFF"},
+            "accent":  {"fill": c.get("accent_1", "#3C414C"), "stroke": c.get("primary", "#000"),       "color": "#FFFFFF"},
+            "support": {"fill": c.get("border", "#DDD"),      "stroke": c.get("primary", "#000"),       "color": c.get("text", "#1F2937")},
+            "muted":   {"fill": c.get("bg_light", "#EEE"),    "stroke": c.get("primary", "#000"),       "color": c.get("text", "#1F2937")},
+        },
+    }
+
+    # Fonts (nur wenn DB-Assets erlaubt — Lizenz §1 DB Type)
+    fonts = prof.get("fonts", {})
+    if db_ok and fonts.get("primary_path"):
+        if _install_brand_fonts(fonts["primary_path"]):
+            fallbacks = ", ".join(fonts.get("fallbacks", ["Arial", "sans-serif"]))
+            design["_body_font"] = f"'{fonts.get('primary')}', {fallbacks}"
+        else:
+            print("⚠️  Brand-Fonts nicht auffindbar — Fallback-Fonts.")
+    elif fonts.get("primary_path"):
+        print("🔒 allowed_assets.db=false → DB-Fonts NICHT eingebettet (Lizenz). Nutze Fallback-Fonts.")
+
+    # Logo (cover) — base64-Embed, nur wenn erlaubt
+    logo = prof.get("logo") or {}
+    if db_ok and logo.get("url"):
+        import base64
+        logo_f = (DESIGN_HUB_DIR / logo["url"]).resolve()
+        if logo_f.exists():
+            b64 = base64.b64encode(logo_f.read_bytes()).decode("ascii")
+            ext = logo_f.suffix.lstrip(".").lower().replace("jpg", "jpeg")
+            design["_logo_data_uri"] = f"data:image/{ext};base64,{b64}"
+            design["_logo_height_px"] = logo.get("height_px", 36)
+            design["_logo_alt"] = logo.get("alt", "")
+        else:
+            print(f"⚠️  Logo fehlt, übersprungen: {logo_f}")
+    elif logo.get("url"):
+        print(f"🔒 allowed_assets.db=false → DB-Logo NICHT eingebettet (Lizenz).")
+
+    # Klassifizierungs-Banner (z.B. db-intern: VERTRAULICH)
+    cls = prof.get("classification") or {}
+    if cls.get("banner_text"):
+        design["_classification"] = cls["banner_text"]
+
+    return design
+
+
 def build_css(d: dict, extra_css: str = "") -> str:
     """Injiziert :root-Variablen + @page; Rest aus base.css + optionalem extra_css."""
     p, hl = d["primary"], d["header_left"]
+    font_face = d.get("_font_face_css", "")
+    body_font = d.get("_body_font", "")
+    body_override = ""
+    if body_font:
+        body_override = (
+            f"\nbody {{ font-family: {body_font}; color: {d.get('_text_color', '#1F2937')}; }}"
+            f"\n.cover-header, h1, h2, h3, h4 {{ font-family: {body_font}; }}"
+        )
+    brand_css = """
+.brand-logo-wrap { text-align: right; margin: 0 0 4mm 0; }
+.brand-logo-wrap img { height: var(--logo-h, 36px); width: auto; }
+.classification-banner {
+    background: var(--primary); color: #FFFFFF; font-weight: 700;
+    font-size: 8pt; letter-spacing: 0.14em; text-transform: uppercase;
+    text-align: center; padding: 3pt 0; margin: 0 0 4mm 0; border-radius: 2pt;
+}
+"""
+    logo_h = d.get("_logo_height_px", 36)
     root_and_page = f"""
 :root {{
+    --logo-h: {logo_h}px;
     --primary:     {p};
     --bg-light:    {d["bg_light"]};
     --border:      {d["border"]};
@@ -106,7 +250,8 @@ def build_css(d: dict, extra_css: str = "") -> str:
 }}
 """
     repo_css = f"\n/* --- repo-spezifisches CSS ---*/\n{extra_css}" if extra_css.strip() else ""
-    return root_and_page + _BASE_CSS_STATIC + repo_css
+    font_css = f"\n/* --- Brand-Fonts ---*/\n{font_face}" if font_face else ""
+    return font_css + root_and_page + _BASE_CSS_STATIC + brand_css + body_override + repo_css
 
 
 def get_secret(name: str) -> str | None:
@@ -725,6 +870,13 @@ def strip_meta_prefix_lines(md_text: str) -> str:
 def _build_meta_rows(meta: dict, design: dict, stem: str) -> list:
     """Return list of (label, value) tuples for the meta table."""
     template = design.get("meta_template", "meiki")
+    if template == "db":
+        rows = []
+        if meta.get("status"):    rows.append(("Status", meta["status"]))
+        if meta.get("datum"):     rows.append(("Datum", meta["datum"]))
+        if meta.get("adressat"):  rows.append(("Adressat", meta["adressat"]))
+        if meta.get("anlass"):    rows.append(("Anlass", meta["anlass"]))
+        return rows
     if template == "iil":
         rows = []
         # Angebot-specific fields (only shown if filled)
@@ -757,11 +909,11 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
     stand = meta.get("stand", "")
     template = design.get("meta_template", "meiki")
 
-    if template == "iil":
+    if template in ("iil", "db"):
         # Document type drives the cover subtitle line.
-        # Priority: explicit Typ: > explicit Status: > "Angebot" (backward-compat default).
-        # New documents should set "**Typ:** Konzept|Briefing|Angebot|…" explicitly.
-        doc_type = meta.get("doc_type") or meta.get("status") or "Angebot"
+        # Priority: explicit Typ: > explicit Status: > Default je Template.
+        _default_type = "Internes Dokument" if template == "db" else "Angebot"
+        doc_type = meta.get("doc_type") or meta.get("status") or _default_type
         datum = meta.get("datum", "")
         date_line = f"{doc_type} · {datum}".strip(" ·")
     else:
@@ -781,14 +933,20 @@ def build_html(title: str, body_html: str, meta: dict, stem: str, enrichment: di
         "body_html":    body_html,
         "footer_text":  footer_text,
         "stand":        stand,
+        "logo_data_uri": design.get("_logo_data_uri", ""),
+        "logo_alt":     design.get("_logo_alt", ""),
+        "classification": design.get("_classification", ""),
     }
     tpl = _JINJA_ENV.get_template("base.html.j2")
     return tpl.render(**ctx)
 
 
-def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extra_css: str = "") -> Path:
-    design = DESIGNS.get(design_name, DESIGNS["meiki"])
-    print(f"🎨 Design: {design_name}")
+def convert(input_path: Path, output_dir: Path, design_name: str = "meiki", extra_css: str = "", profile: str | None = None) -> Path:
+    if profile:
+        design = _profile_to_design(profile)
+    else:
+        design = DESIGNS.get(design_name, DESIGNS["meiki"])
+        print(f"🎨 Design: {design_name}")
 
     md_text = input_path.read_text(encoding="utf-8")
     # Extract meta first (from original text), then strip those lines before HTML build.
@@ -838,6 +996,8 @@ def main():
                         help="Design-Profil: meiki (Standard), iil, ttz oder repo-eigener Key")
     parser.add_argument("--designs", default=None,
                         help="Pfad zu repo-spezifischem designs.yaml (Override/Ergänzung)")
+    parser.add_argument("--profile", default=None,
+                        help="design-hub Brand-Profil (db-intern|db-hybrid|iil-extern) — volle CI inkl. Logo/Fonts; prüft allowed_assets")
     parser.add_argument("--extra-css", default=None,
                         help="Pfad zu repo-spezifischem extra.css (wird nach base.css geladen)")
     args = parser.parse_args()
@@ -852,7 +1012,7 @@ def main():
 
     output_dir = Path(args.output_dir).expanduser().resolve() if args.output_dir else OUTPUT_DIR
     extra_css = Path(args.extra_css).read_text(encoding="utf-8") if args.extra_css and Path(args.extra_css).exists() else ""
-    out = convert(input_path, output_dir, design_name=args.design, extra_css=extra_css)
+    out = convert(input_path, output_dir, design_name=args.design, extra_css=extra_css, profile=args.profile)
     print(f"✅ PDF erstellt: {out}  ({out.stat().st_size // 1024} KB)")
 
 
