@@ -9,8 +9,11 @@ Markdown-Workflow mit YAML-Frontmatter. **Kanonische Quelle:** `platform` `main`
 - **Windsurf (nur ADR/Review):** Windsurf wird **nicht mehr zum Coden** genutzt. Es erhält ausschließlich das **Review-Subset** via `windsurf-subset.py` (`tool_targets: [windsurf-review]`), nicht alle Skills (ADR-229).
 
 Abgrenzung zu anderen Konzepten:
+- **Anthropic Agent Skills** (`~/.claude/skills/<name>/SKILL.md`, ZIP-`.skill`) — **eigener Artefakttyp**, nicht zu verwechseln mit Slash-Commands. User-level → in JEDER Session / jedem Repo / jeder Org aktiv, **ohne Repo-Kopie**. Kanonik = `platform main skills/<name>/SKILL.md`; Verteilung über `cc-skill-dist --kind skills` (s. „Verteilung"). Cross-tool (auch ChatGPT/Gemini paste-basiert). Beispiel: `antwort-modus-schablone` (Antwort-Format).
 - **Django Platform-Agents** (`dev-hub/apps/<agent>/`, siehe `platform-agents.md`) — Headless, scheduled, lange Laufzeit
 - **CC-Sub-Agents** (`~/.claude/agents/`) — Claude-only, isolierter Context, kein Cross-Tool
+
+> **Enterprise-weit ≠ in N Repos kopieren.** Eine Agent-Skill (oder ein Slash-Command) wird **nicht** in jedes der ~60 Repos committet — das erzeugt genau die Kopien-Drift, die SSoT vermeidet. „Verfügbar in allen Repos/Orgs" liefert der **user-level Install pro Maschine** (CC lädt `~/.claude/skills` + `~/.claude/commands` in jeder Session, unabhängig vom Repo). Kanonik bleibt **eine** Quelle in `platform`; `cc-skill-dist` generiert pro Maschine. Repo-lokale Kopie nur, wenn „clone → sofort da ohne Install" wirklich gebraucht wird, und dann in **wenige Hub-Repos**, nie flächig.
 
 ## Wann eine neue Skill bauen?
 
@@ -105,10 +108,17 @@ PR der eine neue Skill enthält oder eine bestehende ändert:
 
 ## Verteilung (ADR-230 CC-first)
 
-Quelle = `platform main .windsurf/workflows/` (resolved Commit). Verteilung nach `~/.claude/commands/` über `platform/tools/cc-skill-dist/`:
+`cc-skill-dist` kennt zwei Lanes über `--kind`:
+
+**Lane `commands` (Default) — Slash-Commands.** Quelle = `platform main .windsurf/workflows/` → `~/.claude/commands/` (flach):
 - `generate.py` — deterministische Kopien mit MANAGED-Footer (`source_commit`/`content_hash`/`do_not_edit`) + `manifest.json`; atomarer Swap mit `.bak`; Live nur mit `--allow-live` (gegatet, ADR-230 §8).
 - `doctor.py` — read-only Drift-Diagnose Quelle ↔ `~/.claude/commands` (footer-aware; CI-Round-Trip-Gate `cc-skill-dist-doctor.yml`).
 - Windsurf-Review-Subset: `windsurf-subset.py` (`tool_targets: [windsurf-review]`).
+
+**Lane `skills` — Anthropic Agent Skills.** Quelle = `platform main skills/<name>/SKILL.md` → `~/.claude/skills/<name>/SKILL.md` (verschachtelt, ein Verzeichnis je Skill):
+- `generate.py --kind skills --target ~/.claude/skills` (Live nur mit `--allow-live`) — gleicher MANAGED-Footer/Manifest/Swap; Quelle ist die **nackte** `SKILL.md` (kein Footer), die Kopie trägt ihn.
+- `doctor.py --kind skills` — Drift-Diagnose Quelle ↔ `~/.claude/skills` (verzeichnis-basiert; Relativlink-Guard greift hier NICHT, da Skill-Verzeichnisse gebündelte Referenzen tragen dürfen).
+- ChatGPT/Gemini: **kein** Verteil-Tooling (kein Datei-Konsum-Mechanismus) — paste-aus-der-Kanonik bzw. einmalig als Custom GPT / Gem. Bewusst aus dem Verteil-Scope.
 
 Der frühere `~/.claude/commands` → `platform-workflows`-Symlink ist die **Coding-Ära-Altlast** und wird durch das gegatete Live-Rollout abgelöst; Cross-Machine-Sync läuft dann ebenfalls über `generate.py` je Maschine.
 
@@ -117,3 +127,4 @@ Der frühere `~/.claude/commands` → `platform-workflows`-Symlink ist die **Cod
 - 2026-05-15: Initial. Geschrieben nach Dogfood-Findings der ersten 2 CC-Skills (`/adr-curator`, `/adr-challenger`, PR #168). Schließt Policy-Lücke die `platform-agents.md` offen ließ.
 - 2026-05-15: Pushed to orchestrator memory (`entry_key: policy:claude-skills`).
 - 2026-05-30: Auf ADR-229/230 (CC-first) ausgerichtet — Quelle = `platform main` (nicht `platform-workflows`-Worktree), Windsurf nur ADR/Review-Subset (nicht mehr Coding), Verteilung über `cc-skill-dist`. Stale „beide Tools / platform-workflows / Plugin-Backlog"-Prämisse korrigiert.
+- 2026-06-05: **Agent-Skill-Lane ergänzt.** Anthropic Agent Skills (`~/.claude/skills/<name>/SKILL.md`) als eigener Artefakttyp mit Kanonik `platform main skills/` + `cc-skill-dist --kind skills` (generate+doctor verzeichnis-basiert, Generator 0.2.0). „Enterprise-weit = user-level Install pro Maschine, nicht Kopie in N Repos" als Leitsatz verankert. Erster Konsument: `antwort-modus-schablone` v2.3. Folgt dem bestehenden cc-skill-dist-Muster → kein ADR (Policy-Update genügt, `adr-threshold`).
