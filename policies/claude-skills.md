@@ -105,6 +105,7 @@ PR der eine neue Skill enthält oder eine bestehende ändert:
 3. Anti-Patterns-Sektion vollständig
 4. Output-Format als Code-Block exemplifiziert
 5. CHANGELOG-Eintrag in der Skill-Datei
+6. **Tracking-Anker bei substanzieller Arbeit (session-retro 2026-06-05, F-F):** Mehrstündige oder cross-concern Skill-/Tooling-Arbeit bekommt einen GitHub-Issue als Anker — ODER der PR-Body verlinkt die externen Belege (z. B. `~/shared`-Reviews, Dogfood-Reports) **explizit**. Sonst ist die Arbeit nur über PR-Body + lokale Artefakte rekonstruierbar und für Außenstehende unsichtbar.
 
 ## Verteilung (ADR-230 CC-first)
 
@@ -120,6 +121,11 @@ PR der eine neue Skill enthält oder eine bestehende ändert:
 - `doctor.py --kind skills` — Drift-Diagnose Quelle ↔ `~/.claude/skills` (verzeichnis-basiert; Relativlink-Guard greift hier NICHT, da Skill-Verzeichnisse gebündelte Referenzen tragen dürfen).
 - ChatGPT/Gemini: **kein** Verteil-Tooling (kein Datei-Konsum-Mechanismus) — paste-aus-der-Kanonik bzw. einmalig als Custom GPT / Gem. Bewusst aus dem Verteil-Scope.
 
+**Tooling-Konventionen (session-retro 2026-06-05):**
+- **Neue Lane/Mode ⇒ Gate wächst mit (F-A):** Erweitert ein PR `cc-skill-dist` um eine Lane (`--kind …`), müssen im **selben PR** ein Round-Trip-Step der Lane, der `paths:`-Trigger (`skills/**`) **und** ein Test mit. Ein grüner Gate-**Name** ohne Lane-Coverage ist eine Schein-Garantie. Verankert in `cc-skill-dist-doctor.yml` (beide Lanes + Unit-Tests).
+- **Kein `-prototype` im Live-Output (F-C):** Sobald `generate.py` per `--allow-live` real verteilt, trägt `GENERATOR_VERSION` **kein** `-prototype`-Suffix mehr — es landet sonst wörtlich im Live-`manifest.json`/`MANAGED_BY`. DoD vor Live-Rollout: Suffix entfernen.
+- **Tooling getrennt von Content/Policy (F-H):** Änderungen am Verteil-Tooling (CI-testbar) und Skill-/Policy-**Content** (semantisch) gehören in **getrennte PRs** — Tooling zuerst grün, dann der erste Konsument. Verhindert, dass ein Tooling-Revert Content/Policy mitreißt. (Ausnahme dokumentieren, wenn „erster Konsument" die Bündelung erzwingt.)
+
 Der frühere `~/.claude/commands` → `platform-workflows`-Symlink ist die **Coding-Ära-Altlast** und wird durch das gegatete Live-Rollout abgelöst; Cross-Machine-Sync läuft dann ebenfalls über `generate.py` je Maschine.
 
 ## Changelog
@@ -128,3 +134,4 @@ Der frühere `~/.claude/commands` → `platform-workflows`-Symlink ist die **Cod
 - 2026-05-15: Pushed to orchestrator memory (`entry_key: policy:claude-skills`).
 - 2026-05-30: Auf ADR-229/230 (CC-first) ausgerichtet — Quelle = `platform main` (nicht `platform-workflows`-Worktree), Windsurf nur ADR/Review-Subset (nicht mehr Coding), Verteilung über `cc-skill-dist`. Stale „beide Tools / platform-workflows / Plugin-Backlog"-Prämisse korrigiert.
 - 2026-06-05: **Agent-Skill-Lane ergänzt.** Anthropic Agent Skills (`~/.claude/skills/<name>/SKILL.md`) als eigener Artefakttyp mit Kanonik `platform main skills/` + `cc-skill-dist --kind skills` (generate+doctor verzeichnis-basiert, Generator 0.2.0). „Enterprise-weit = user-level Install pro Maschine, nicht Kopie in N Repos" als Leitsatz verankert. Erster Konsument: `antwort-modus-schablone` v2.3. Folgt dem bestehenden cc-skill-dist-Muster → kein ADR (Policy-Update genügt, `adr-threshold`).
+- 2026-06-05: **Konventionen aus session-retro** (`~/shared/session-retro-2026-06-05-platform-fde7ff.md`): Review-Gate §6 Tracking-Anker (F-F); Tooling-Konventionen Lane⇒Gate-wächst-mit (F-A), kein `-prototype` im Live-Output (F-C), Tooling-PR getrennt von Content/Policy (F-H). F-A bereits umgesetzt (PR #480: beide Lanes + Unit-Tests im Gate).
