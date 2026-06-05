@@ -47,11 +47,12 @@ Org-Installations · People · Org-Management · SSO · Custom properties
 Nach dem Anlegen, in `~/.bashrc`:
 
 ```bash
-export GH_APP_ID=<app-id>
+export GH_APP_ID=3971306
 export GH_APP_KEY="$HOME/.secrets/github_app_iilgmbh_admin.pem"
-export GH_APP_INSTALL_ID=<install-id-iilgmbh>   # je Org eine; passende setzen
-# Break-Glass-Session: Enterprise-/Org-Admin-Token nur in DIESEM Terminal
-alias claude-ent='GH_TOKEN="$(~/github/platform/tools/gh-app-token.sh)" claude'
+export GH_APP_DEFAULT_ACCOUNT=achimdehnert   # Default-Konto ohne Argument
+# Break-Glass-Session: Org-/Repo-Admin-Token nur in DIESEM Terminal.
+# claude-ent [account] — gh-app-token.sh löst die Install-ID live per JWT auf.
+claude-ent() { GH_TOKEN="$(~/github/platform/tools/gh-app-token.sh "${1:-$GH_APP_DEFAULT_ACCOUNT}")" claude "${@:2}"; }
 ```
 
 `claude-ent` startet eine Session, in der `gh` über den kurzlebigen App-Token
@@ -74,7 +75,11 @@ Profil B ist breit, **weil** gerade Umbau läuft. Die Verengung ist eine
 
 ## Verifiziert / nicht verifiziert
 
+- **Ist-Stand (2026-06-05):** App **angelegt** — `iilgmbh-admin`, **App ID `3971306`**,
+  Owner `achimdehnert` (privat); Key in `~/.secrets/github_app_iilgmbh_admin.pem` (600).
+  Installiert auf `achimdehnert` (Install `138206871`); **Token-Smoke grün** (50 Repos).
+  `gh-app-token.sh <account>` löst die Install-ID live per JWT auf.
 - **Verifiziert (2026-06-05):** GitHub Apps können org/repo-Admin voll (GA) +
   Enterprise-Member/Org/SSO (Public Preview); Billing/-Policy **nicht** → PAT-Rest.
-- **Nicht verifiziert:** die App existiert noch nicht (UI-Schritt offen);
-  App-ID/Install-IDs sind nach dem Anlegen einzutragen.
+- **Offen (M6):** App auf „Any account" stellen + Install auf `iilgmbh`/`bahn-sqf`
+  (Org-Admin); `~/.bashrc`-Block setzen; PR #476 mergen.
