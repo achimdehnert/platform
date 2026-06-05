@@ -101,11 +101,14 @@ def main():
         manifest["files"].append({"name": name, "source_path": path, "content_hash": "sha256:" + chash})
 
     json.dump(manifest, open(os.path.join(staging, "manifest.json"), "w"), indent=2)
+    # --allow-live in die regenerate-Zeile aufnehmen, wenn das Ziel das Live-Verzeichnis
+    # ist — sonst läuft ein Copy-Paste des Befehls in den Guard (target==live) und bricht ab.
+    regen_live = " --allow-live" if target == live else ""
     open(os.path.join(staging, "MANAGED_BY"), "w").write(
         f"managed_by: platform/tools/cc-skill-dist/generate.py (kind={args.kind})\n"
         f"allowed_writer: cc-skill-dist generator only — KEINE Handänderung\n"
         f"source: achimdehnert/platform @ {commit}\n"
-        f"regenerate: python3 tools/cc-skill-dist/generate.py --kind {args.kind} --target {target}\n")
+        f"regenerate: python3 tools/cc-skill-dist/generate.py --kind {args.kind} --target {target}{regen_live}\n")
 
     # Atomarer Swap
     backup = target + ".bak"
