@@ -18,7 +18,7 @@ informed: –
 | **Autor**       | Cascade + Achim Dehnert |
 | **Reviewer**    | Claude (2026-03-06) |
 | **Supersedes**  | – |
-| **Relates to**  | ADR-044 (FastMCP-Standard), ADR-054 (MCP-Architektur), ADR-059 (Drift-Detector) |
+| **Relates to**  | ADR-044 (FastMCP-Standard), ADR-059 (Drift-Detector) |
 
 ## Repo-Zugehoerigkeit
 
@@ -480,7 +480,7 @@ eigene Kategorie zwingend (z.B. docs-search braucht pgvector).
 
 - [MCP Specification 2025-11-25](https://modelcontextprotocol.io/specification/2025-11-25)
 - ADR-044: MCP-Hub Architecture Consolidation (FastMCP-Standard)
-- ADR-054: MCP-Architektur Grundlagen
+- ADR-044: MCP-Hub Architecture Consolidation
 - ADR-059: Drift-Detector
 - ADR-062: Central Billing Service (billing-hub)
 - ADR-069: Web Intelligence MCP

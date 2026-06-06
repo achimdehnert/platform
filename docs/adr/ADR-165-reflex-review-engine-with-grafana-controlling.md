@@ -3,7 +3,7 @@ title: "ADR-165: Adopt Plugin-based REFLEX Review Engine with Grafana Controllin
 status: accepted
 date: 2026-04-18
 deciders: [achimdehnert]
-depends_on: [ADR-163, ADR-164, ADR-082, ADR-066]
+depends_on: [ADR-163, ADR-164, ADR-116, ADR-066]
 implementation_status: partial
 implementation_evidence:
   - "iil-reflex/reflex/review/ — ReviewEngine, 4 plugins, CLI (Stage 1)"
@@ -531,7 +531,7 @@ ADR-165 ist bestätigt wenn:
 - **ADR-164**: Port Strategy — `ports.yaml` als Datenquelle für port_plugin
 - **ADR-162**: REFLEX UI Testing — Playwright-Integration (bleibt separat, §6.4)
 - **ADR-066**: Agent Team Architecture — Developer Agent für Auto-Fixes (§5.3)
-- **ADR-082**: Model Routing — Model-Tiers lean_local/budget_cloud/standard/high (§5.3)
+- **ADR-116**: Model Routing — Model-Tiers lean_local/budget_cloud/standard/high (§5.3)
 - **ADR-045**: Config via decouple — Secrets-Pattern für DB-Credentials
 
 <!-- Drift-Detector-Felder

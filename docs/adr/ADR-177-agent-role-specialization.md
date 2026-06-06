@@ -3,7 +3,7 @@ status: proposed
 date: 2026-04-30
 version: 1.4
 deciders: [achimdehnert, cascade]
-related: [ADR-068, ADR-077, ADR-138, ADR-173, ADR-174]
+related: [ADR-068, ADR-077, ADR-138, ADR-224, ADR-174]
 amends: [ADR-066]
 implementation_status: none
 last_reviewed: 2026-05-08
@@ -637,7 +637,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 - ADR-068 — AuditStore (Logging-Pflicht)
 - ADR-077 — Catalog & Temporal
 - ADR-138 — Implementation Tracking
-- ADR-173 — Orchestrator MCP Server
+- ADR-224 — Orchestrator MCP Server
 - ADR-174 — QM Gate (ASSUMPTION[unverified] = 0)
 - `/agentic-coding` Workflow v6 → v7 (Wave 1)
 - `/session-start` Phase 2.5 (Wave 2)
