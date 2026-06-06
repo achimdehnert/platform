@@ -80,6 +80,15 @@ def build() -> dict:
             # Roundtrip top-level Source-Keys droppt. bahn-sqf IN (Owner hat Admin), pactive-de
             # bewusst AUSSEN (separates Kunden-Vault). Entscheidung 2026-06-06, Issue #488.
             "enterprise_owners": ["achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra", "bahn-sqf"],
+            # Per-Repo-Owner-Override (Transition). KONZ-001 P0 Teil 2: flat-only Repos können
+            # keinen rich.github tragen (circular pipeline), darum die per-gh-VERIFIZIERTEN
+            # KONZ-002-Migrationen hier als meta-Override (build-stabil). Stopgap bis das echte
+            # per-Repo-owner-Feld kommt (Registry-Konsolidierung). Verifiziert 2026-06-06 (gh).
+            "repo_owner": {
+                "iil-fieldprefill": "iilgmbh",
+                "iil-relaunch": "iilgmbh",
+                "illustration-fw": "iilgmbh",
+            },
             "_note": "GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + "
                      "registry/repos.yaml. Noch NICHT kanonisch geschaltet — Konsumenten unverändert.",
         },

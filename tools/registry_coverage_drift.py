@@ -66,20 +66,30 @@ def gh_repo_fullnames(owner: str) -> tuple[set, bool]:
 
 
 def parse_canonical(path: str, default_org: str) -> dict:
-    """fullname -> {lifecycle, deployed, owner_explicit, name}. owner_explicit=False ⇒ SCHEMA-INCOMPLETE (O6)."""
+    """fullname -> {lifecycle, deployed, owner_explicit, name}. owner_explicit=False ⇒ SCHEMA-INCOMPLETE (O6).
+
+    Owner-Auflösung (Priorität): rich.github > meta.repo_owner-Override (P0-Transition für flat-only
+    Migrationen) > default_org. Beide expliziten Quellen setzen owner_explicit=True."""
     d = yaml.safe_load(open(path))
+    overrides = (d.get("meta") or {}).get("repo_owner") or {}
     out = {}
     for name, e in (d.get("repos") or {}).items():
         e = e or {}
         rich = e.get("rich") or {}
         flat = e.get("flat") or {}
         gh = rich.get("github")
-        fn = gh if gh else f"{default_org}/{name}"
+        ov = overrides.get(name)
+        if gh:
+            fn, explicit = gh, True
+        elif ov:
+            fn, explicit = f"{ov}/{name}", True
+        else:
+            fn, explicit = f"{default_org}/{name}", False
         out[fn] = {
             "name": name,
             "lifecycle": rich.get("lifecycle") or flat.get("lifecycle"),
             "deployed": rich.get("deployed", flat.get("deployed")),
-            "owner_explicit": bool(gh),
+            "owner_explicit": explicit,
         }
     return out
 
