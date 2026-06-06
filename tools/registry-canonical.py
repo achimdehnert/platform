@@ -75,6 +75,11 @@ def build() -> dict:
         "meta": {
             "server": flat_doc.get("server", {}),
             "domain_order": domain_order,
+            # Governance-Scope für registry_coverage_drift (KONZ-001 R5): welche GitHub-Owner
+            # die clean-state-Invariante umfasst. Hier (nicht in repos.yaml), weil der flip-
+            # Roundtrip top-level Source-Keys droppt. bahn-sqf IN (Owner hat Admin), pactive-de
+            # bewusst AUSSEN (separates Kunden-Vault). Entscheidung 2026-06-06, Issue #488.
+            "enterprise_owners": ["achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra", "bahn-sqf"],
             "_note": "GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + "
                      "registry/repos.yaml. Noch NICHT kanonisch geschaltet — Konsumenten unverändert.",
         },
@@ -165,7 +170,14 @@ def flip(canon: dict) -> int:
     Erhält den wertvollen Schema-Doc-Header der reichen Datei verbatim; die flache
     bekommt nur den GENERATED-Header (ihr alter 'auto-detection'-Header wäre nach Flip
     irreführend). Danach muss `verify` weiterhin grün sein (semantisch)."""
-    rich_header = _leading_comments(RICH)   # 47 Zeilen Schema-Docs — verbatim erhalten
+    # flip-Fix (2026-06-06): den ggf. aus einem FRÜHEREN flip bereits vorhandenen GEN_NOTICE
+    # entfernen, BEVOR wir ihn neu prepended — sonst akkumuliert jeder flip einen weiteren
+    # Header-Block (Doppel-Header-Bug, belegt beim C9-Lag-PR). Box-Zeilen (╔╗╚╝║) gehören
+    # ausschließlich zum GEN_NOTICE; die Schema-Docs nutzen sie nicht.
+    rich_header = "\n".join(
+        ln for ln in _leading_comments(RICH).splitlines()
+        if not any(c in ln for c in "╔╗╚╝║")
+    ).strip("\n")
     FLAT.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_flat(canon), sort_keys=False, allow_unicode=True, width=100))
     RICH.write_text(GEN_NOTICE + "\n" + rich_header + "\n" + yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
     print(f"✅ geflippt: {FLAT.relative_to(ROOT)} (frischer GEN-Header) + {RICH.relative_to(ROOT)} (Schema-Docs erhalten).")
