@@ -42,6 +42,7 @@ ALLOWED = {
     "tools/registry-canonical.py",
     "tools/registry-consistency-check.py",
     "tools/check_registry_view_readers.py",
+    "tools/tests/test_check_registry_view_readers.py",  # enthält View-Pfade als Test-Fixtures, kein Reader
     "tools/registry_view_readers.txt",
     "registry/canonical.yaml",
     "registry/repos.yaml",
