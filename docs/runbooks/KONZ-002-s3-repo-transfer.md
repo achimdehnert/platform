@@ -76,6 +76,11 @@ Platzhalter: `<repo>` = Repo-Name, `<org>` = Ziel-Org (default `iilgmbh`).
 - [ ] Alte URL `github.com/achimdehnert/<repo>` **leitet weiter**.
 - [ ] Caller-Repos grün (keine gebrochenen reusable-Workflows).
 - [ ] Test-Secret-Commit wieder entfernen.
+- [ ] **Registry-Reconciliation (NEU 2026-06-06):** `canonical.yaml` `rich.github` des Repos auf `<org>/<repo>` ziehen (Schritt C9 ist sonst leicht zu vergessen — s.u.), dann
+  ```bash
+  python3 tools/registry_coverage_drift.py   # MIGRATED-Zeile des Repos MUSS verschwinden → covered
+  ```
+  Dieses Tool (KONZ-001 R5, PR #490) ist das **Migrations-Fortschritts-Meter**: solange ein transferiertes Repo als `MIGRATED (canonical=achimdehnert/… → real=iilgmbh/…)` auftaucht, ist C9 für dieses Repo offen.
 
 ### E. Rollback (innerhalb derselben Welle)
 
@@ -126,3 +131,4 @@ Canary = `desktop-setup` (Nicht-Code, 0 Secrets) → `iilgmbh`. **Transfer + Red
 ## Changelog
 - 2026-06-03: Initial — S3-Per-Repo-Transfer-Checkliste (Inventar/Transfer/Re-Provision/Verify/Rollback + Wellen).
 - 2026-06-03: Canary `desktop-setup` durchgeführt + Config-je-Repo-Typ-Regel (Code→17, Nicht-Code→slim via Org-Level-Attach) ergänzt; Step C erweitert.
+- 2026-06-06: **Registry-Reconciliation-Schritt** (Step D) + Drift-Meter `registry_coverage_drift` (KONZ-001 R5, PR #490) angebunden. **Befund:** das Meter zeigt **offenen C9-Lag** für die Welle-1/2-Repos — `iil-fieldprefill`, `iil-relaunch`, `illustration-fw`, `nl2iot-hub` stehen in `canonical.yaml` noch als `achimdehnert/…` (MIGRATED-Drift), `desktop-setup`/`django-lms-lite` fehlen ganz. **Offen:** `canonical.yaml` `rich.github` der bereits transferierten Repos auf `iilgmbh/…` nachziehen → schließt die MIGRATED-Drift (KONZ-001 ↔ KONZ-002 Kreuz-Validierung).
