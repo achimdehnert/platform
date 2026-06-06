@@ -12,6 +12,12 @@ meta:
   - Engineering & Construction
   - Analytics & Data
   - Events & Lifestyle
+  enterprise_owners:
+  - achimdehnert
+  - iilgmbh
+  - ttz-lif
+  - meiki-lra
+  - bahn-sqf
   _note: GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + registry/repos.yaml.
     Noch NICHT kanonisch geschaltet — Konsumenten unverändert.
 repos:
