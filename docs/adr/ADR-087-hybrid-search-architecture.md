@@ -82,7 +82,7 @@ Dies ist eine bewusste Ausnahme, dokumentiert in Übereinstimmung mit ADR-072 §
 
 ### DB-Zuordnung
 
-Die `search_chunks` Tabelle wird in der **Content Store DB** (`content_store`, vgl. ADR-062) angelegt:
+Die `search_chunks` Tabelle wird in der **Content Store DB** (`content_store`, vgl. ADR-130) angelegt:
 - Content Store ist bereits für AI-generierte/verarbeitete Inhalte vorgesehen
 - `CONTENT_STORE_DSN` ist bereits als Secret konfiguriert (ADR-045)
 - Apps connecten über `SearchService` → Content Store DB (read/write via Service-Layer)
@@ -113,7 +113,7 @@ Query
 #### 1. Vector Store (pgvector)
 
 ```sql
--- Deployed in content_store DB (ADR-062)
+-- Deployed in content_store DB (ADR-130)
 CREATE EXTENSION IF NOT EXISTS vector;
 
 CREATE TABLE search_chunks (
@@ -201,7 +201,7 @@ class SearchService:
     """Platform-wide hybrid search service.
     
     All methods are sync — safe for Django views and Celery tasks.
-    Uses content_store DB connection (ADR-062).
+    Uses content_store DB connection (ADR-130).
     """
     
     DB_ALIAS = "content_store"
@@ -413,7 +413,7 @@ PLATFORM_SEARCH = {
 
 - **pgvector nicht installiert**: `SearchService.search()` fällt auf reine FTS zurück, loggt Warning
 - **Embedding-API nicht erreichbar**: Nur FTS-Ergebnisse werden geliefert, `vector_results = []`
-- **Content Store DB nicht erreichbar**: `SearchServiceUnavailableError` wird geworfen, App degradiert graceful (wie ADR-062 Content Store Pattern)
+- **Content Store DB nicht erreichbar**: `SearchServiceUnavailableError` wird geworfen, App degradiert graceful (wie ADR-130 Content Store Pattern)
 
 ## Pros and Cons of the Options
 
@@ -509,7 +509,7 @@ Compliance wird verifiziert durch:
 - **ADR-021**: Platform Infrastructure — Expand-Contract Migration (§2.16)
 - **ADR-035**: Shared Django Tenancy Package — `TenantModel` base class
 - **ADR-045**: Secret Management — `OPENAI_API_KEY` via SOPS
-- **ADR-062**: Content Store — DB-Zuordnung für `search_chunks`
+- **ADR-130**: Content Store — DB-Zuordnung für `search_chunks`
 - **ADR-072**: Multi-Tenancy Schema-Isolation — begründete Abweichung (Row-Level)
 
 ### External References
