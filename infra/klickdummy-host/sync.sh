@@ -71,7 +71,9 @@ done <<< "$ENTRIES"
 # (via deploy.sh aus iil-klickdummy-SSoT gebündelt).
 WIDGET_SRC="${KLICKDUMMY_WIDGET:-/opt/klickdummy/widget.js}"
 if [ -f "$WIDGET_SRC" ]; then
-  mkdir -p "$TARGET/_widget"
+  # Dir explizit 0755: der nginx-Container liest als anderer User; der chmod-Loop
+  # unten deckt nur $WORK ab, nicht $TARGET/_widget → sonst 404 bei restriktiver umask.
+  install -d -m 0755 "$TARGET/_widget"
   install -m 0644 "$WIDGET_SRC" "$TARGET/_widget/widget.js"
   echo "  ✓ $TARGET/_widget/widget.js (zentrales Feedback-Widget)"
 else
