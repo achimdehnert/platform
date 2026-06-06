@@ -66,3 +66,17 @@ def test_should_flag_schema_incomplete_when_no_explicit_owner():
     assert res["schema_incomplete"] == ["achimdehnert/x"]
     assert res["severity"]["info"] == 1
     assert res["drift_score"] == 0  # Schema-Incomplete ist info, nicht blockierend
+
+
+def test_should_apply_meta_repo_owner_override(tmp_path):
+    # P0-Transition: meta.repo_owner setzt den Owner für flat-only Migrationen + owner_explicit=True
+    p = tmp_path / "canon.yaml"
+    p.write_text(
+        "meta:\n  server: {github_org: achimdehnert}\n  repo_owner: {foo: iilgmbh}\n"
+        "repos:\n"
+        "  foo: {in_flat: true, flat: {type: library}}\n"
+        "  bar: {in_flat: true, flat: {type: library}}\n"
+    )
+    out = rcd.parse_canonical(str(p), "achimdehnert")
+    assert "iilgmbh/foo" in out and out["iilgmbh/foo"]["owner_explicit"] is True   # Override greift
+    assert "achimdehnert/bar" in out and out["achimdehnert/bar"]["owner_explicit"] is False  # default → schema-incomplete
