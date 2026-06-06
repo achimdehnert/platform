@@ -1,6 +1,6 @@
 ---
 status: proposed
-implementation_status: none
+implementation_status: in_progress   # Korrektur 2026-06-06: P0/Dual-SSoT-Konsolidierung seit 2026-06-01 abgeschlossen (Changelog §12); P0.5a/R1/R2+ + owner_team/repo_type-Population offen. 'none' war stale.
 date: 2026-06-01
 decision-makers: Achim Dehnert
 domains: [ci-cd, deployment, governance, drift-prevention, dependency-management]
@@ -320,3 +320,13 @@ respektierte die „nicht neu aufrollen"-Liste.
   liest canonical; die Projektion-Logik `gen_flat`/`gen_rich` lebt dort und wird von der CLI/dem
   Drift-Gate importiert → eine Implementierung). View-Retire ist damit **nicht** erforderlich. Die
   Dual-SSoT (P0-Kernproblem) ist aufgelöst.
+- **2026-06-06:** **Status-Korrektur** `implementation_status: none → in_progress` — P0 war seit
+  2026-06-01 abgeschlossen (oben), das Frontmatter-Feld blieb stale (vierter stale-Status-Fund der
+  Session). **Owner/Scope-Interim:** der clean-state-Pilot (KONZ-001 R5 `registry_coverage_drift`)
+  brauchte den Owner-/Scope-Kontext vor `owner_team`/`repo_type`-Population → P0-Workarounds gemergt:
+  `enterprise_owners` in `build().meta` (PR #497), `meta.repo_owner`-Override für gh-verifizierte
+  iilgmbh-Migrationen (#498), Hardening + flip-Idempotenz-Test (#501). **Diese sind Interim bis
+  `owner_team`/`repo_type` populiert sind (späterer ADR-234-Schritt) — ihr Sunset gehört hierher.**
+  Externes PR-#497-Review (REC-1/2: „Owner als Daten-SSoT, nicht Code") ist in **§2 bereits
+  entschieden** — Owner lebt als `owner_team` in der **Union-Canonical**, NICHT in einer separaten
+  `governance.yaml`; die Reconciliation `meta.repo_owner`→`owner_team` ist der saubere Pfad.
