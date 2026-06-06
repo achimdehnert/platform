@@ -12,6 +12,8 @@ implementation_status: implemented
 
 # Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml (amends ADR-021)
 
+> **Re-Eval-Trigger (ADR-Full-Scan 2026-06-06):** Healthcheck ist an den Python-3.12-Binaernamen gepinnt — bei Python-Upgrade anpassen.
+
 ---
 
 ## Context and Problem Statement

@@ -21,6 +21,8 @@ implementation_evidence:
 
 # ADR-097: aifw 0.6.0 Implementation Contract — Models, Migration, Service Layer, and Public API
 
+> **Re-Eval-Trigger (ADR-Full-Scan 2026-06-06):** QualityLevel-Baender nennen konkrete aktuelle Modellnamen — bei naechster Modell-Generation pruefen/aktualisieren.
+
 | Field | Value |
 |-------|-------|
 | Status | **Accepted** (reviewed 2026-03-11) |

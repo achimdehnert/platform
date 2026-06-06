@@ -20,6 +20,8 @@ tags: [agent-coding, headless, devin, orchestrator, refactoring, quality-assuran
 
 # ADR-186: Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation
 
+> **Re-Eval-Trigger (ADR-Full-Scan 2026-06-06):** An Devin-CLI-Vendor + vendor-spezifische Modell-Tags gebunden — bei Tool-/Vendor-Wechsel re-evaluieren.
+
 **Devin CLI als Headless-Frontend, Orchestrator als Steuerungsschicht, Platform-Guardrails als Safety-Net.**
 
 ## Versionshistorie

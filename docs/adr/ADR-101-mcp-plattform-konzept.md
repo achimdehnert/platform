@@ -8,6 +8,8 @@ informed: –
 
 # ADR-101: Adopt 3-Tier MCP Architecture for Platform-Wide Tool Orchestration
 
+> **Re-Eval-Trigger (ADR-Full-Scan 2026-06-06):** Token-Budget an Windsurfs 100-Tool-Limit + aktuelles Per-Tool-Schema gepinnt — bei Tool-Limit-/Modell-Aenderung re-evaluieren. Hinweis: E-10 (stdio-only) ueberschneidet sich mit ADR-224 (HTTP/SSE) — Abgleich offen.
+
 ## Metadaten
 
 | Attribut        | Wert |
