@@ -13,6 +13,8 @@ implementation_evidence:
 
 # ADR-103: ausschreibungs-hub — KI-gestützte Ausschreibungs- und Angebotsplattform
 
+> **Re-Eval-Trigger (ADR-Full-Scan 2026-06-06):** Embedding-Dimension 1536 ist hart kodiert (pgvector-Spalten + HNSW). Bei Wechsel des Embedding-Modells (naechste LLM-Generation) re-evaluieren.
+
 ## Metadaten
 
 | Attribut          | Wert                                                                              |
