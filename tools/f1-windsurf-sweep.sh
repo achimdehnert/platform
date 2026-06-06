@@ -22,8 +22,9 @@ APPLY="${F1_APPLY:-0}"; MERGE="${F1_MERGE:-0}"; ONLY="${F1_ONLY:-}"
 BR="chore/untrack-synced-windsurf"
 
 # --- TEMPORÄRE Exclude-Liste — Repos mit AKTIVER Arbeit (nach Abschluss ENTFERNEN!) ---
-#   dev-hub : 2026-06-01 aktiv von anderer Session bearbeitet (unmerged .windsurf). Revisit.
-EXCLUDE_TEMP="dev-hub"
+#   (leer 2026-06-06: dev-hub-Sweep abgeschlossen — die aktive Session von 2026-06-01 ist
+#    aufgelöst, PR #56/Traefik berührt kein .windsurf; F1-Flotte damit vollständig.)
+EXCLUDE_TEMP=""
 
 for d in "$GH"/*/; do
   rn=$(basename "$d"); [ -d "$d/.git" ] || continue; [ "$rn" = platform ] && continue
