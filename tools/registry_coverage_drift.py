@@ -165,6 +165,21 @@ def main():
         owners, scope_source = list(DEFAULT_OWNERS), "FALLBACK (meta.enterprise_owners fehlt!)"
     discovered_unscoped = sorted(set(discover_owners()) - set(owners))
 
+    # REC-9: Owner-Provenienz — welche Repos beziehen ihren Owner aus dem TRANSITION-Override
+    # (meta.repo_owner), nicht aus der finalen Registry-Architektur. REC-12: Validierung der
+    # Governance-Inputs (unbekannte Override-Keys, Duplikate im Scope) — früh sichtbar machen.
+    repo_names = {(e or {}).get("flat", {}).get("name") or n for n, e in (d.get("repos") or {}).items()}
+    overrides = meta.get("repo_owner") or {}
+    owner_from_override = sorted(k for k in overrides if k in (d.get("repos") or {}))
+    validation = []
+    unknown = sorted(set(overrides) - set(d.get("repos") or {}))
+    if unknown:
+        validation.append(f"repo_owner-Keys ohne canonical-Repo: {unknown}")
+    if len(owners) != len(set(owners)):
+        validation.append("enterprise_owners enthält Duplikate")
+    if any(not o or "/" in o for o in overrides.values()):
+        validation.append("repo_owner-Werte leer oder nicht owner-normalisiert (kein 'owner/name' erwartet)")
+
     ground, truncated, failed = set(), [], []
     for o in owners:
         names, trunc = gh_repo_fullnames(o)
@@ -179,6 +194,8 @@ def main():
         "owners_queried": owners,
         "scope_source": scope_source,
         "discovered_unscoped": discovered_unscoped,  # Owner, die der Token sieht, aber NICHT im Scope → Review
+        "owner_from_override": owner_from_override,   # REC-9: Owner aus Transition-Override, nicht finaler Architektur
+        "validation": validation,                     # REC-12: Governance-Input-Probleme (Override-Keys/Duplikate)
         "owners_failed": failed,                      # leere/fehlgeschlagene Abfragen → Ergebnis unvollständig
         "truncation_warning": truncated,              # Limit erreicht → mögliche stille Lücke
         "schema_incomplete_count": res["severity"]["info"],
@@ -208,6 +225,10 @@ def main():
             print(f"  ⚠ ATTESTATION: {len(failed)} Owner-Abfrage(n) fehlgeschlagen ({','.join(failed)}) — Ergebnis UNVOLLSTÄNDIG")
         if truncated:
             print(f"  ⚠ ATTESTATION: Truncation bei {','.join(truncated)} (≥{LIMIT}) — mögliche stille Lücke")
+        for v in attestation["validation"]:
+            print(f"  ⚠ VALIDATION: {v}")
+        if attestation["owner_from_override"]:
+            print(f"  ℹ TRANSITION: Owner aus meta.repo_owner-Override (nicht finale Architektur): {', '.join(attestation['owner_from_override'])}")
         print(f"  Ground-Truth: {len(ground)} · canonical: {len(canonical)} · covered: {len(res['covered'])}")
         print(f"  SEVERITY: critical={s['critical']} · warn={s['warn']} · info/schema-incomplete={s['info']}")
         print(f"  ENROLLMENT-GAP ({len(res['enrollment_gap'])}):")
