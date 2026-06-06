@@ -2,12 +2,14 @@
 status: accepted
 date: 2026-02-21
 decision-makers: Achim Dehnert
-implementation_status: implemented
+implementation_status: partial
 implementation_evidence:
   - "all hubs: decouple.config() for secrets"
 ---
 
 # ADR-045: Secrets & Environment Management
+
+> **Kanonisches Ziel (Secrets-Reconciliation 2026-06-06):** SOPS + `/run/secrets` (diese ADR) ist die beschlossene **Ziel-Architektur** fuer Plattform-Secrets — sicherer als plaintext `.env.prod` (relevant seit risk-hub/tax-hub Prod mit Kundendaten). **Status-Ehrlichkeit:** die Migration ist noch **unvollstaendig** (Phase 2/3/7 ausstehend, nur bfagent+dev-hub umgestellt) — die gelebte Realitaet laeuft derzeit ueber ADR-159 (`.env.prod`+decouple). Die Fertigstellung ist ein **gegateter Prod-/Mehr-Repo-Strang** (eigener Plan), kein Auto-Rollout. Loest den Full-Scan-Konflikt 045<->159 (Owner-Entscheidung: SOPS wiederbeleben).
 
 | Metadata | Value |
 |----------|-------|
