@@ -1,9 +1,10 @@
 ---
-status: proposed
-implementation_status: none
+status: accepted
+implementation_status: partial
 implementation_evidence:
-  - "Erste Scheibe als unmerged PRs vorbereitet: mcp-hub#99 (Shell-Injection: shlex.quote + Metachar-Reject, 16 Tests grün), mcp-hub#100 (Bearer-Auth auf /sse + /messages, 8 Tests grün) — beide no-merge, Review/Deploy ausstehend"
+  - "Erste Scheibe gemergt+deployed: mcp-hub#99 (Shell-Injection: shlex.quote + Metachar-Reject), #100 (Bearer-Auth /sse+/messages — unauth→401 live verifiziert), #102 (Zwei-Key-Split /run vs /sse); MCP-Key rotiert 2026-06-06 (alter exponierter Key → /sse 403, wertlos)"
   - "Befund-Grundlage: Tiefen-Security-Review 2026-06-06 (code-read + Prod-Probe: GET /sse → 200 ohne Bearer; nginx-Access-Log: kein Ausnutzungs-Hinweis)"
+  - "Externe Cross-Provider-Zweitmeinung via /adr-handoff-extern eingearbeitet (Step-5-Gate, 17 [valid]-RECs)"
 date: 2026-06-06
 decision-makers: Achim Dehnert
 domains: [security, governance, agents, ci-cd]
@@ -12,11 +13,11 @@ relates_to: [ADR-070, ADR-081, ADR-186, ADR-015, ADR-210, ADR-233, ADR-234, ADR-
 tags: [security, by-construction, agent-autonomy, containment, gate, untrusted-insider, kill-gate, prevention]
 ---
 
-# ADR-DRAFT: Security-by-Construction als Konstruktionsprinzip — Containment symmetrisch zu Acceleration
+# ADR-238: Security-by-Construction als Konstruktionsprinzip — Containment symmetrisch zu Acceleration
 
 | Attribut       | Wert                                                              |
 |----------------|-------------------------------------------------------------------|
-| **Status**     | Proposed                                                          |
+| **Status**     | Accepted                                                          |
 | **Scope**      | platform (org-weit, jeder autonome Agent-Mutating-Pfad)          |
 | **Repo**       | platform                                                          |
 | **Erstellt**   | 2026-06-06                                                        |
@@ -106,3 +107,19 @@ Dieser ADR ist **nur akzeptiert, wenn er eine messbare Invariante mit Aktuator t
 ## 7. Externer Review (Provenienz)
 
 Cross-Provider-Zweitmeinung via `/adr-handoff-extern` (Briefing `~/shared/adr-handoff-ADR-486-2026-06-06.md`). Befund: *überarbeiten* — Richtung richtig, aber der separierte Capability-Signer, die erweiterte Risk-Taxonomie (SENSITIVE_READ/IDENTITY/FANOUT) und der unskippbare Dispatcher mussten von „Risiko/erste Zeile" zu **harten Bedingungen** werden. Eingearbeitet via Rückfluss-Gate (nur `[valid]`-getaggte Befunde, als Entscheidung mit eigener Begründung): **REC-1/13** (C1, alle Creds + Broker-Bedingung) · **REC-3/14** (C2, unskippbarer Dispatcher + Inventory) · **REC-4** (Risk-Taxonomie) · **REC-2/5** (Token-Spec + kanonische VERB_RISK) · **REC-6** (headless pre-action-Nachweis) · **REC-7** (externes Run-Profil) · **REC-8/9/19** (C4 Evidence-Bundle + Anti-Laundering + trust_level=2-Definition) · **REC-10** (Negativ-Test-Matrix) · **REC-11** (Severity-Split-Metrik) · **REC-12** (technischer Kill-Gate-Aktuator) · **REC-15** (Status-Granularität) · **REC-16** (Cross-Org-Markierung) · **REC-17** (MCP-Tools-Sunset) · **REC-18** (OPA-Re-Evaluate-Trigger) · **REC-20** (operationalisierte Kill-Gate-Kriterien). Kein Befund war `[missversteht-Kontext]`/`[out-of-scope]`.
+
+## 8. Glossar
+
+Für Fachpersonal ohne IT-Hintergrund — die zentralen Begriffe in einfacher Sprache:
+
+- **Agent (autonomer):** ein KI-Programm, das selbstständig Aufgaben am Code/an den Systemen ausführt (Dateien ändern, Befehle ausführen, deployen) — der „Optimierer" der Vision.
+- **Broker:** ein eigener, abgetrennter Dienst, der Zugriffs-Berechtigungen kurzfristig ausstellt — der Agent bekommt nie den Dauer-Schlüssel selbst, sondern bittet den Broker pro Aktion um einen befristeten.
+- **Capability-Token:** ein digitaler, kurzlebiger „Erlaubnisschein" für genau eine Aktion (welches Tool, welche Aktion, welcher Geltungsbereich, wie lange gültig).
+- **Choke-Point / Dispatcher:** die eine, **nicht umgehbare** Stelle im Code, durch die jede gefährliche Aktion muss — wie eine einzige bewachte Tür statt vieler unbewachter Hintereingänge.
+- **Containment vs. Acceleration:** Beschleunigung = der Agent kann viel und schnell; Containment = die Schadensbegrenzung, falls er kompromittiert wird. Dieser ADR fordert: beides muss gleich stark gebaut sein.
+- **Gate:** eine Prüfung **unmittelbar vor** einer Aktion, die diese erlaubt oder blockiert.
+- **Irreversibel:** nicht rückgängig zu machen — z. B. ein veröffentlichtes Geheimnis (Exfiltration) oder eine Identitäts-Änderung; im Gegensatz zu einer Datei-Änderung, die man zurückrollen kann.
+- **Prompt-Injection:** ein Angriff, bei dem manipulierter Text (z. B. in einem Issue) den Agenten zu unerwünschten Handlungen verleitet.
+- **Provenance / trust_level:** die belegte Herkunft einer Information; `trust_level` markiert, ob ein vom Agenten gelesener Inhalt vertrauenswürdig (z. B. von einem Menschen geprüft) oder ungeprüft ist.
+- **SSE (Server-Sent Events):** der Verbindungskanal, über den der MCP-Server seine Werkzeuge bereitstellt.
+- **Standing Credential:** ein dauerhaft gültiger Zugangsschlüssel (SSH-Key, Token, App-Zertifikat) — gefährlich, weil ein Diebstahl unbegrenzt nutzbar ist; Gegenmodell sind kurzlebige Tokens.
