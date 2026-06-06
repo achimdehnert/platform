@@ -1,5 +1,5 @@
 ---
-status: Proposed
+status: proposed
 date: 2026-04-22
 amended: 2026-04-22
 decision-makers: Achim Dehnert

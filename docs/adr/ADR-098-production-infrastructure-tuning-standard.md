@@ -1,7 +1,7 @@
 ---
 id: ADR-098
 title: "Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure"
-status: Accepted
+status: accepted
 date: 2026-03-04
 decision-makers: Achim Dehnert
 consulted: –

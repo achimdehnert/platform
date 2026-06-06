@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: proposed
 date: 2026-03-26
 updated: 2026-03-26
 version: 2
@@ -8,13 +8,13 @@ consulted: []
 informed: []
 supersedes: []
 amends: []
-related: ["ADR-130-content-store-shared-persistence.md", "ADR-146-package-consolidation-strategy.md", "ADR-041-django-component-pattern.md", "ADR-022-platform-consistency-standard.md"]
+related: ["ADR-130-content-store-shared-persistence.md", "ADR-180-package-consolidation-strategy.md", "ADR-041-django-component-pattern.md", "ADR-022-platform-consistency-standard.md"]
 implementation_status: not_started
 implementation_evidence: []
 review_status: "v1 reviewed — 5 Blocker, 5 Kritisch korrigiert in v2"
 ---
 
-# ADR-147: `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen (v2)
+# ADR-183: `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen (v2)
 
 ## Änderungshistorie
 
@@ -59,7 +59,7 @@ dupliziert**, sondern für Phase A erweitert. Das Package liefert nur die
 - **DRY**: Template-Gliederung, PDF-Extraktion und LLM-Analyse sind domänenübergreifend identisch
 - **Bestehende Infrastruktur nutzen**: risk-hub `documents`-App als Upload-Backend
 - **outlinefw-Integration**: Framework-Registry + Gliederungs-Generierung via `iil-outlinefw`
-- **ADR-146**: Neues Package nur mit klarem Scope und ≥1 Consumer Tag 1, 2. Consumer geplant
+- **ADR-180**: Neues Package nur mit klarem Scope und ≥1 Consumer Tag 1, 2. Consumer geplant
 - **ADR-022**: BigAutoField, `BigIntegerField` tenant_id, Service-Layer, kein hardcoded SQL
 - **ADR-041**: Business-Logik im Service-Layer, nie in Views
 - **Platform-Standards**: Soft-Delete, public_id, i18n ab Tag 1
@@ -787,7 +787,7 @@ build-backend = "hatchling.build"
 [project]
 name = "iil-concept-templates"
 version = "0.1.0"
-description = "Shared schemas, frameworks and extraction for structured concept templates (ADR-147)"
+description = "Shared schemas, frameworks and extraction for structured concept templates (ADR-183)"
 readme = "README.md"
 license = {text = "Proprietary"}
 requires-python = ">=3.11"

@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-03-25
 updated: 2026-03-25
 version: 3
@@ -18,7 +18,7 @@ implementation_evidence:
 review_status: "reviewed — v2 re-reviewed, v3 addresses remaining 7 findings from ADR-146-v2-review.md"
 ---
 
-# ADR-146: Package Consolidation Strategy — 34 → 20 Packages (v3)
+# ADR-180: Package Consolidation Strategy — 34 → 20 Packages (v3)
 
 ## Änderungshistorie
 
@@ -47,7 +47,7 @@ ADR-027 entschied "Option A — Modulare Packages in `platform/packages/`" und l
 "Option B — Standalone PyPI / Ein Package mit Extras" ab. Die Erfahrung seit Februar 2026
 zeigt jedoch, dass 11 Einzelpackages in `platform/packages/` zu hoher Wartungslast führen
 und Consumer 3–5 separate `git+https://` Einträge in requirements.txt benötigen.
-ADR-146 wählt einen **Umbrella-Package-Ansatz als Kompromiss**: Sub-Packages bleiben
+ADR-180 wählt einen **Umbrella-Package-Ansatz als Kompromiss**: Sub-Packages bleiben
 intern eigenständig, werden aber über `iil-platform` gebündelt verteilt.
 
 ### Bestandsaufnahme (März 2026)
@@ -290,7 +290,7 @@ verteilt und erzeugen keine Consumer-Wartungslast:
 |--------|---------|
 | Alle `git+https://` eliminieren | Alle Sub-Packages auf PyPI publishen, Consumer auf PyPI-Pins migrieren |
 | `iil-` Prefix konsequent | Alle pip-Packages tragen `iil-` Prefix. Ausnahme: `nl2cad-core` (eigene Marke). |
-| INDEX.md aktualisieren | ADR-146 accepted, ADR-027 superseded |
+| INDEX.md aktualisieren | ADR-180 accepted, ADR-027 superseded |
 | Package-Inventar | `platform/docs/guides/package-inventory.md` mit Consumer-Matrix |
 
 ### Ergebnis-Übersicht
@@ -363,7 +363,7 @@ Bevor `iil-platform` als Umbrella funktioniert, MÜSSEN alle Sub-Packages auf Py
 ### Phase 4: Naming + Cleanup (Juli 2026) — Risiko: Niedrig
 
 1. Alle verbleibenden `git+https://` Installs durch PyPI-Pins ersetzen
-2. INDEX.md: ADR-146 → accepted, ADR-027 → superseded
+2. INDEX.md: ADR-180 → accepted, ADR-027 → superseded
 3. `platform/docs/guides/package-inventory.md` erstellen
 4. Finale Dokumentation
 

@@ -15,7 +15,9 @@ related:
   - ADR-022-code-quality.md
 ---
 
-# ADR-155: Adopt a Three-Layer Contract Testing Strategy for All Function and Method Calls
+# ADR-184: Adopt a Three-Layer Contract Testing Strategy for All Function and Method Calls
+
+> **Historie:** ursprünglich als ADR-155 entworfen; kanonische Nummer/Dateiname ist **ADR-184**. Artefakte unter `docs/adr/reviews/ADR-155-*` / `docs/adr/inputs/ADR-155-*` und der Code-Marker `# adr155-allow-kwargs` behalten die historische 155-Kennung bei (lebende Identifier).
 
 ## Metadaten
 

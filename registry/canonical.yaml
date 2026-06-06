@@ -12,6 +12,16 @@ meta:
   - Engineering & Construction
   - Analytics & Data
   - Events & Lifestyle
+  enterprise_owners:
+  - achimdehnert
+  - iilgmbh
+  - ttz-lif
+  - meiki-lra
+  - bahn-sqf
+  repo_owner:
+    iil-fieldprefill: iilgmbh
+    iil-relaunch: iilgmbh
+    illustration-fw: iilgmbh
   _note: GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + registry/repos.yaml.
     Noch NICHT kanonisch geschaltet — Konsumenten unverändert.
 repos:
@@ -224,6 +234,7 @@ repos:
         django_settings_module: config.settings.production
         migrate_cmd: python manage.py migrate --noinput
         port: 19002
+        ingress: traefik
         hostnames:
         - staging-devhub.iil.pet
       oidc:
@@ -369,7 +380,7 @@ repos:
       name: nl2iot-hub
       repo: nl2iot-hub
       description: Natural-language-to-IoT — Developer Cockpit
-      github: achimdehnert/nl2iot-hub
+      github: iilgmbh/nl2iot-hub
       deployed: false
       type: python
       lifecycle: experimental

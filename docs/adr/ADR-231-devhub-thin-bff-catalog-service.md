@@ -52,7 +52,7 @@ größtenteils nicht besitzen sollte. Diese Besitz-Entscheidung ist die Bruchfl�
 **ADR-158 hat den richtigen Mechanismus bereits benannt** (Source-of-Truth-Matrix, „link-not-copy",
 D-5 „KEINE bidirektionalen Syncs"). dev-hub erfüllt ihn für die *Fremdsysteme* (Outline/Paperless:
 nur Deep-Links — `portal/services.py:resolve_outline_links` „KEIN Content-Copy") — **verletzt ihn
-aber für die In-House-Quellen** (Orchestrator/git/Runs forken Tabellen). ADR-230 zieht ADR-158 zu
+aber für die In-House-Quellen** (Orchestrator/git/Runs forken Tabellen). ADR-231 zieht ADR-158 zu
 Ende: dieselbe Disziplin für *alle* Spokes, plus die strukturelle Konsequenz (Entkernung des
 zustandsbehafteten Kerns).
 
