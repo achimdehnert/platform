@@ -1,5 +1,5 @@
 ---
-status: accepted (v2)
+status: accepted
 date: 2026-03-06
 decision-makers: Achim Dehnert
 consulted: Cascade

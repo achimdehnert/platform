@@ -1,5 +1,5 @@
 ---
-status: Accepted
+status: accepted
 date: 2026-05-07
 amended: 2026-05-08
 decision-makers:
