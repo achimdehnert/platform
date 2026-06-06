@@ -9,7 +9,7 @@ amends: ["ADR-075-deployment-execution-strategy.md"]
 related:
   - ADR-021-unified-deployment-pattern.md
   - ADR-022-code-quality-docker-standards.md
-  - ADR-062-content-store.md
+  - ADR-130-content-store-shared-persistence.md
   - ADR-075-deployment-execution-strategy.md
   - ADR-090-cicd-pipeline-python-postgres.md
   - ADR-107-extended-agent-team-deployment-agent.md
@@ -745,7 +745,7 @@ wird nach mehreren Calls "vergiftet" — auch nachfolgende READ-Ops hängen.
 
 - **ADR-075**: Read/Write-Split — dieses ADR amended die Write-Op-Policy
 - **ADR-022**: Code Quality + Docker Standards — `COMPOSE_PROJECT_NAME` Pflicht
-- **ADR-062**: Content Store — Fail-Closed-Prinzip für Migrations
+- **ADR-130**: Content Store — Fail-Closed-Prinzip für Migrations
 - **ADR-107**: Deployment Agent — `shell_exec` Allowlist, Tier-Rollback
 - **ADR-021 §2.14**: `infra-deploy` Repository als Deployment-API
 - **Review-Input**: `platform/docs/adr/inputs/ADR-156/` (7 Dateien inkl. korrigierter Scripts)
