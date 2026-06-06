@@ -621,7 +621,7 @@ def check_as_strings(repo_path: Path) -> list[str]: ...       # Convenience-Wrap
               || echo "⚠️  mypy Service-Layer: Warnungen (non-blocking bis Phase 2)"
           fi
 
-  # ── Architecture Guardian (ADR-054) — erweitert um ADR-155-Regeln ───
+  # ── Architecture Guardian (ADR-239) — erweitert um ADR-155-Regeln ───
   architecture-guardian:
     runs-on: [self-hosted, hetzner, dev]
     needs: [lint]
@@ -757,7 +757,7 @@ Bei **jeder** neuen Integration — egal ob Package, Service, Task oder REST:
 - ADR-057: Platform Test Strategy — §Option 4: Pact deferred
 - ADR-058: Platform Test Taxonomy — §A10 Celery Payload Contracts (jetzt geschlossen durch dieses ADR)
 - ADR-076: bfagent CI — exit-code-5-Behandlung
-- ADR-054: Architecture Guardian — Guardian-Regel no_kwargs_forwarding
+- ADR-239: Architecture Guardian — Guardian-Regel no_kwargs_forwarding
 - ADR-059: Drift-Detector — Staleness-Monitoring
 - PEP 561: https://peps.python.org/pep-0561/ — `py.typed` Spezifikation
 - Konzeptpapier (Input): `docs/adr/inputs/ADR-155-api-contract-testing.md`
