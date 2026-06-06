@@ -189,7 +189,7 @@ Compliance is verified by:
 | `web_service` | `bfagent-web` | `risk-hub-web` | `web` ¹ | `weltenhub-web` | `web` | `devhub-web` | `coach-hub-web` |
 | `extra_services` | — | `risk-hub-worker` | `celery` | `weltenhub-celery weltenhub-beat` | `worker` | `devhub-celery devhub-beat` | `coach-hub-worker coach-hub-beat` |
 | `container` | `bfagent_web` | `risk_hub_web` | `travelbeat_web` | `weltenhub_web` | `pptx_hub_web` | `devhub_web` | `coach_hub_web` |
-| `host_port` | 8088 | 8090 | 8002 | 8081 | 8020 | 8085 | 8007 |
+| `host_port` | 8091 | 8090 | 8002 | 8081 | 8020 | 8085 | 8007 |
 | `database` | shared (`bfagent_db`) | own stack | own stack | shared (`bfagent_db`) | own stack | shared (`bfagent_db`) | own stack |
 | `python` | 3.11 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 | 3.12 |
 | `source_dir` | `.` | `src` | `apps` | `apps` | `src` | `.` | `apps` |
