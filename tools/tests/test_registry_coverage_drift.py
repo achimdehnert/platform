@@ -17,6 +17,16 @@ _spec.loader.exec_module(rcd)
 ORG = {"achimdehnert/a", "achimdehnert/b", "achimdehnert/c"}
 
 
+def test_should_classify_owner_migration_separately():
+    # canonical sagt achimdehnert/a, Realität ist iilgmbh/a → MIGRATED, NICHT gap/phantom (Befund 2026-06-06)
+    ground = {"iilgmbh/a", "achimdehnert/b"}
+    canonical = {"achimdehnert/a", "achimdehnert/b"}
+    res = rcd.compute_drift(ground, canonical)
+    assert res["migrated"] == [{"repo": "a", "canonical": "achimdehnert/a", "reality": "iilgmbh/a"}]
+    assert res["enrollment_gap"] == [] and res["phantom"] == []
+    assert res["drift_score"] == 1  # Migration zählt als Drift (canonical-Owner stale)
+
+
 def test_should_report_zero_drift_when_aligned():
     res = rcd.compute_drift(ORG, set(ORG))
     assert res["drift_score"] == 0
