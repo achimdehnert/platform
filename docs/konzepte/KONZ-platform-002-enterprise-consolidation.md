@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-002
 title: Enterprise-Konsolidierung der IIL-Org-Topologie (Governance + native Secret-Prevention an einer Kontrollebene)
-pipeline_status: idea
+pipeline_status: pilot   # 2026-06-06: Status-Korrektur — S3 läuft real (Welle 0/1/2 transferiert, ADR-236 accepted); 'idea' war stale
 tier: T3
 owner: Achim Dehnert
 spec_refs: []          # keine ADR-211-Spec; Bezug = ADR-235 (Secret-Prevention-Posture) + platform#412
