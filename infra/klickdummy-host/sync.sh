@@ -65,6 +65,19 @@ while IFS='|' read -r owner name host_alias subdir layout; do
   fi
 done <<< "$ENTRIES"
 
+# Zentrales Feedback-Widget an den Serve-Root (ADR-216 §/_widget/).
+# Jede shell.html referenziert /_widget/widget.js absolut; ohne diese Datei
+# liefert nginx 404 → Widget unsichtbar. Quelle: /opt/klickdummy/widget.js
+# (via deploy.sh aus iil-klickdummy-SSoT gebündelt).
+WIDGET_SRC="${KLICKDUMMY_WIDGET:-/opt/klickdummy/widget.js}"
+if [ -f "$WIDGET_SRC" ]; then
+  mkdir -p "$TARGET/_widget"
+  install -m 0644 "$WIDGET_SRC" "$TARGET/_widget/widget.js"
+  echo "  ✓ $TARGET/_widget/widget.js (zentrales Feedback-Widget)"
+else
+  echo "  ⚠ Widget-Quelle fehlt: $WIDGET_SRC — /_widget/widget.js NICHT deployed"
+fi
+
 # Discovery + Landing generieren
 # o+rx für nginx-Container-Read (klickdummy-sync-Dir hat 750 default)
 find "$WORK" -mindepth 1 -maxdepth 1 -type d ! -name .ssh -exec sh -c 'find "$1" -type d -exec chmod o+rx {} +' _ {} + 2>/dev/null || true
