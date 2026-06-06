@@ -561,7 +561,7 @@ Neues Dashboard `Agent-Team-Specialization`:
    - Misclassification-Rate < 10 % über AuditStore-Query
    - Cache-Hit-Rate-Targets erreicht (DocBot/TestBot ≥ 60 %)
    - Cost-Saving ≥ 20 % netto vs Phase-0-Baseline
-3. **Architecture Guardian** (ADR-054):
+3. **Architecture Guardian** (ADR-239):
    - `mcp5_check_violations` gegen neuen Bot-Code — 0 Verstöße
    - Banned Patterns (`hx-boost`, hardcoded Secrets) bleiben weg
 4. **Drift-Detector** (ADR-059):

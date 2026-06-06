@@ -489,7 +489,7 @@ Begründung der Gewichtung wie v2 (Quality² überproportional, Cost linear, Lat
 - Auto-Routing ist opt-in per Action Code (`auto_route = models.BooleanField(default=False)`)
 - **Sicherheitskritische Action Codes** (markiert als `is_safety_critical=True`, z.B. `hazard_analysis`) sind von Auto-Routing AUSGESCHLOSSEN — nur manuelle Model-Wahl
 - Jede Auto-Route-Änderung generiert Discord-Notification (max. 1×/Stunde aggregiert) + Audit-Log
-- Architecture Guardian (ADR-054) wird über Auto-Route-Wechsel via `aifw_route_changed` Signal informiert
+- Architecture Guardian (ADR-239) wird über Auto-Route-Wechsel via `aifw_route_changed` Signal informiert
 
 ### Confirmation
 
@@ -665,7 +665,7 @@ Pro Frage werden Optionen mit Pro/Con aufgelistet, damit zukünftige Reviewer di
 - **ADR-022** (BigAutoField) — Alle neuen Models nutzen BigAutoField.
 - **ADR-072** (Multi-Tenancy Schema Isolation) — `aifw`-Tabellen explizit im `public` Schema (siehe Datenbank-Architektur).
 - **ADR-045** (SOPS) — N/A: Provider-Keys über GitHub Secrets, nicht SOPS.
-- **ADR-054** (Architecture Guardian) — Phase-4-Auto-Routing benachrichtigt Guardian via Signal.
+- **ADR-239** (Architecture Guardian) — Phase-4-Auto-Routing benachrichtigt Guardian via Signal.
 - **ADR-059** (Drift-Detector) — Felder `staleness_months`, `drift_check_paths` im Frontmatter.
 
 ## Glossar
