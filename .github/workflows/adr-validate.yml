@@ -25,3 +25,19 @@ jobs:
 
       - name: Validate all ADRs
         run: iil-adrfw validate docs/adr/
+
+      # ADR reference-drift report — SUGGEST / non-gating (repo-health-rule-discipline:
+      # new rules start as SUGGEST; structural deterministic only). Surfaces depends_on /
+      # references pointing at archived or missing ADR ids (renumbering-collision dead-refs).
+      # Does NOT fail the build yet; promote to gating once the existing dead-refs are cleaned.
+      - name: ADR reference-drift (SUGGEST, non-gating)
+        run: |
+          set +e
+          iil-adrfw staleness docs/adr/ 2>&1 | tee staleness.txt
+          drift=$(grep -c "does not exist" staleness.txt)
+          if [ "$drift" -gt 0 ]; then
+            echo "::warning title=ADR reference drift::$drift dangling ADR reference(s) (depends_on → archived/missing). Non-gating SUGGEST — see log. Promote to gating after cleanup."
+          else
+            echo "✓ No ADR reference drift."
+          fi
+          exit 0
