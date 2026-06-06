@@ -77,7 +77,7 @@ Compliance is verified by:
 1. **CI check**: Each service repo's `ci-cd.yml` references `achimdehnert/platform/.github/workflows/_ci-python.yml@v1` — reviewable in GitHub Actions tab.
 2. **Migration table**: §5 tracks each project's migration status; items are closed when the PR merges.
 3. **Health endpoint test**: `curl -sf https://<domain>/healthz/` returns `{"status": "ok"}` — verified post-deploy by `deploy-remote.sh`.
-4. **ADR-054 Architecture Guardian**: The agent checks new workflow files for platform-workflow usage on every PR.
+4. **Architecture Guardian** (`.github/workflows/guardian.yml`): checks new workflow files for platform-workflow usage on every PR.
 
 ### Consequences
 
@@ -137,7 +137,7 @@ Compliance is verified by:
 
 ## More Information
 
-- **Related ADRs**: ADR-008 (infrastructure), ADR-022 (code quality tooling), ADR-042 (dev environment deploy workflow), ADR-045 (secrets/SOPS), ADR-054 (LLM Agent Ecosystem / Architecture Guardian)
+- **Related ADRs**: ADR-008 (infrastructure), ADR-022 (code quality tooling), ADR-042 (dev environment deploy workflow), ADR-045 (secrets/SOPS)
 - **Traefik decision**: Deferred to a future ADR. Nginx retained consciously (see §2.10).
 - **SSH as root**: Conscious decision documented in §2.1.
 - **Migration tracking**: §5 lists all open migration tasks with priority.

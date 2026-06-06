@@ -134,7 +134,7 @@ PostgreSQL `search_path` ist eine Connection-Property. Sobald die `django-tenant
 # VORHER (ADR-035, Row-Level):
 assessments = Assessment.objects.filter(tenant_id=request.tenant.id)  # Vergessen → Datenleck
 
-# NACHHER (ADR-056, Schema-Isolation):
+# NACHHER (ADR-072, Schema-Isolation):
 assessments = Assessment.objects.all()  # Automatisch im richtigen Schema
 ```
 
@@ -144,7 +144,7 @@ ADR-035 bleibt gültig für:
 - Interne Tools (dev-hub, mcp-hub) die keine SaaS-Mandanten bedienen
 - Services in der Übergangsphase vor Schema-Migration
 
-ADR-056 **erweitert** ADR-035 für SaaS-fähige Services. Die `platform_context`-Shared-Library (vendored) wird um Tenant-Utilities erweitert — kein neues separates Package.
+ADR-072 **erweitert** ADR-035 für SaaS-fähige Services. Die `platform_context`-Shared-Library (vendored) wird um Tenant-Utilities erweitert — kein neues separates Package.
 
 ### 4.3 Tenant-Context-Propagation über alle 3 Kanäle
 
