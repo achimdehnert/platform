@@ -174,19 +174,27 @@ def _leading_comments(path: Path) -> str:
     return "\n".join(out).rstrip() + "\n" if out else ""
 
 
+# Exakte Zeilen-Identität der GEN_NOTICE-Konstante (REC-5: deterministisch statt Box-Zeichen-
+# Heuristik — robust, auch falls Schema-Docs je Box-Zeichen nutzen). Test: test_registry_canonical.
+_GEN_NOTICE_LINES = frozenset(GEN_NOTICE.strip("\n").splitlines())
+
+
+def _strip_gen_notice(text: str) -> str:
+    """Entfernt einen aus einem FRÜHEREN flip vorhandenen GEN_NOTICE-Block per exakter
+    Zeilen-Identität (kein Heuristik-Match), bevor flip ihn neu setzt — sonst akkumuliert jeder
+    Roundtrip einen weiteren Header (Doppel-Header-Bug, belegt beim C9-Lag-PR). Idempotent."""
+    return "\n".join(ln for ln in text.splitlines() if ln not in _GEN_NOTICE_LINES).strip("\n")
+
+
 def flip(canon: dict) -> int:
     """Schreibt BEIDE Altdateien als generierte Views aus canonical (ADR-234 P0 Flip).
     Erhält den wertvollen Schema-Doc-Header der reichen Datei verbatim; die flache
-    bekommt nur den GENERATED-Header (ihr alter 'auto-detection'-Header wäre nach Flip
-    irreführend). Danach muss `verify` weiterhin grün sein (semantisch)."""
-    # flip-Fix (2026-06-06): den ggf. aus einem FRÜHEREN flip bereits vorhandenen GEN_NOTICE
-    # entfernen, BEVOR wir ihn neu prepended — sonst akkumuliert jeder flip einen weiteren
-    # Header-Block (Doppel-Header-Bug, belegt beim C9-Lag-PR). Box-Zeilen (╔╗╚╝║) gehören
-    # ausschließlich zum GEN_NOTICE; die Schema-Docs nutzen sie nicht.
-    rich_header = "\n".join(
-        ln for ln in _leading_comments(RICH).splitlines()
-        if not any(c in ln for c in "╔╗╚╝║")
-    ).strip("\n")
+    bekommt nur den GENERATED-Header. Danach muss `verify` weiterhin grün sein (semantisch).
+
+    GRENZE (REC-7): `yaml.safe_dump` ist round-trip-**lossy** für Inline-Daten-Kommentare —
+    flip behebt NUR die Header-Akkumulation, nicht den Kommentar-Verlust innerhalb der Daten.
+    Vollständig verlustfrei wäre nur mit ruamel.yaml (eigene Entscheidung)."""
+    rich_header = _strip_gen_notice(_leading_comments(RICH))
     FLAT.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_flat(canon), sort_keys=False, allow_unicode=True, width=100))
     RICH.write_text(GEN_NOTICE + "\n" + rich_header + "\n" + yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
     print(f"✅ geflippt: {FLAT.relative_to(ROOT)} (frischer GEN-Header) + {RICH.relative_to(ROOT)} (Schema-Docs erhalten).")
