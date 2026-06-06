@@ -84,6 +84,7 @@ domains:
       django_settings_module: config.settings.production
       migrate_cmd: python manage.py migrate --noinput
       port: 19002
+      ingress: traefik   # ADR-212 Klausel-3 — central Traefik ingress (opt-in; default = nginx host-port)
       hostnames:
       - staging-devhub.iil.pet
     oidc:
