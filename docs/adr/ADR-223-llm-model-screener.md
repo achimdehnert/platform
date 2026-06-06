@@ -1,5 +1,5 @@
 ---
-status: Proposed
+status: proposed
 date: 2026-05-08
 amended: 2026-05-08
 decision-makers:
