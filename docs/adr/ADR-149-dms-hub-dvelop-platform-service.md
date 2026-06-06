@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-03-26
 updated: 2026-03-26
 version: 2

@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-02-23
 decision-makers: [Achim Dehnert]
 consulted: []
