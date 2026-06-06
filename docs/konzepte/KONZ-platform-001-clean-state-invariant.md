@@ -22,7 +22,15 @@ evidence_manifest:
   - {claim_id: C10, source_path: tests/megatest/budgets.toml, commit_or_pr: "Ratchet-Header + Nicht-Null-Budgets", opened_in_session: true}
   - {claim_id: C11, source_path: .github/workflows/sync-workflows-to-repos.yml, commit_or_pr: "PR #374 (in dieser Session entfernt)", opened_in_session: true}
   - {claim_id: E-ext1, source_path: ~/shared/konzept-clean-state-invariant-2026-06-01.md, commit_or_pr: "externe Zweitmeinung Runde 1 (E4) — additiv, kein Dissens", opened_in_session: true}
+  # --- Amendment 2026-06-06 (agent-readiness-Session): R6/R7 + P0-Neuerdung ---
+  - {claim_id: C12, source_path: registry/canonical.yaml, commit_or_pr: "0 liveness/owner-Felder; lifecycle/deployed vorhanden (ADR-234-SSoT)", opened_in_session: true}
+  - {claim_id: C13, source_path: scripts/drift_check.py, commit_or_pr: "line 42 REGISTRY_FILE=scripts/repo-registry.yaml — NICHT canonical.yaml", opened_in_session: true}
+  - {claim_id: C14, source_path: .github/workflows/runner-health.yml, commit_or_pr: "lines 160-173 Org-API ↔ github_repos.yaml, WARN-only, nur Runner-Repos", opened_in_session: true}
+  - {claim_id: C15, source_path: tools/registry-consistency-check.py, commit_or_pr: "reconcilet flat↔rich INTERN, nicht gegen Org-Ground-Truth", opened_in_session: true}
+  - {claim_id: C16, source_path: tools/cc-skill-dist/doctor.py, commit_or_pr: "PR #480 — F-A grüner Gate/0 Lane-Coverage; doctor-Tamper-Test = Injection-Muster", opened_in_session: true}
+  - {claim_id: C17, source_path: "gh repo list (3 Orgs) + ls ~/github", commit_or_pr: "53 Org / 63 lokal / 77 project-facts / 3-4 Inventare — nicht reconciled", opened_in_session: true}
 created: 2026-06-01
+amended: 2026-06-06   # R6 Runtime-Reality-Probe + R7 Fault-Injection + P0-Neuerdung (canonical.yaml/ADR-234)
 ---
 
 # KONZ-platform-001 — Sauberer Repo-Zustand als erzwungene Invariante
@@ -35,6 +43,15 @@ created: 2026-06-01
 ---
 
 ## 1. Executive Summary
+
+> **Amendment 2026-06-06 (agent-readiness-Session).** Drei native Ergänzungen, je belegt:
+> **R6 Runtime-Reality-Probe** (deklariert `lifecycle` ↔ live geprobte Prod-Realität — der discord-Quadrant,
+> heute ungeschlossen, da P0 nur `gh repo list`-*Existenz* ableitet, keine Laufzeit) · **R7 beweisbar-echte
+> Gates** (Fault-Injection; Live-Beleg F-A/PR #480: grüner Gate mit 0 Lane-Coverage) · **P0-Neuerdung**
+> (post-ADR-234 sind es 3–4 Inventare, nicht 2; Ziel-SSoT = `canonical.yaml`). Telos „stärkeres Modell
+> in ~2 Mon." ist **Dringlichkeits-**, kein **Design-Treiber** — es erhöht *nur* die Priorität von R6
+> (Modell hat kein Out-of-Band-Gedächtnis). Kill-Gate um (c)/(d)/(e) erweitert; Risiken R-7/R-8/R-9.
+> *Diff zum 2026-06-01-Stand: §5 R6/R7 + P0-Absatz, §11 R-7..R-9, §13 Kill-Gate c–e + Teil-Sunset.*
 
 **Ziel (vom Auftraggeber):** ein *laufender Task*, der sicherstellt, dass alle Repos in Staging
 **und** Prod CI-grün/deployfähig werden und es **bleiben** — evidenzbasiert, auf festen Regeln,
@@ -144,7 +161,7 @@ in `ship.sh:124` ein Grün-Gate hinein, das dort nicht steht (siehe §6).
 
 ---
 
-## 5. Konzeptdefinition — die sechs Bausteine (revidiert, in zwingender Reihenfolge)
+## 5. Konzeptdefinition — die Bausteine (revidiert, in zwingender Reihenfolge; R6/R7 = Amendment 2026-06-06)
 
 > **Leitsatz:** *Green by construction; Enforcement folgt dem Grün-Zustand pro Repo, erzwingt ihn nie voraus.*
 
@@ -153,6 +170,15 @@ Zwei „SSoT"-Registries (C6/C7) → **eine**. Felder mind.: `type`, `lifecycle:
 `staging:{…}|null`, `deploy:{…}`, `waiver:[{gate, reason, expires}]`. Die **Live-Repo-Liste wird
 NICHT aus der Hand-Liste**, sondern aus `gh repo list` abgeleitet und gegen die Registry abgeglichen
 (schließt das „Meter wird blind"-Loch, §6/Maintainer-Pfad 2). Ohne P0 erben R1/R2/R5 die Ambiguität.
+*P0-Neuerdung (Amendment 2026-06-06):* Seit **ADR-234** (gemergt 2026-06-05) existiert `registry/canonical.yaml`
+als *generierte* SSoT (`tools/registry-canonical.py flip` → `scripts/repo-registry.yaml`). Aus „zwei
+Registries (C6/C7)" sind damit **drei–vier** geworden: `canonical.yaml` (neu) · `scripts/repo-registry.yaml`
+(generiert) · `registry/repos.yaml` · `registry/github_repos.yaml` (manuell, von `runner-health.yml` als
+Org-Abgleich genutzt). Verschärfung statt Entlastung — verifiziert: `drift_check.py` liest
+`repo-registry.yaml`, `runner-health.yml` liest `github_repos.yaml`: **zwei Reconciler gegen zwei
+verschiedene Inventare**. P0-Ziel neu geerdet → Konsolidierungs-**Ziel-SSoT = `canonical.yaml`**;
+`github_repos.yaml`+`repos.yaml` falten hinein; `registry_coverage_drift` (R5) und der R2b-Reconciler lesen
+**ausschließlich** `canonical.yaml`.
 
 **P0.5 — Cleanliness Ledger + iil-Dependency-Cohort (neu, externe Runde 1; vor R1).**
 Ohne ein maschinenlesbares, *abgeleitetes* Ledger prüfen R2 und R3 **verschiedene Wahrheiten**. Das
@@ -220,6 +246,32 @@ Einziger verbleibender *laufender* Anteil. Event-Handler für `UNKNOWN`/neuartig
 (`/ci-green-program` Phase 3); Adoption-Meter abgeleitet aus GitHub (Muster C4), **Nenner =
 `gh repo list` live**, nicht Hand-Liste. Plus zwei Frühwarn-Metriken (§11). Selbst-abschaltend per
 `/ci-green-program`-Exit (≥90 % Adoption ∧ <10 % Red-Rate/30d) — *nur ehrlich mit echtem Nenner*.
+
+**R6 — Runtime-Reality-Probe (deklariert ≠ läuft; der discord-Quadrant). [Amendment 2026-06-06]**
+P0 leitet die *Existenz*-Liste aus `gh repo list` ab (schließt Enrollment) — aber **nichts probt die
+Prod-Laufzeit gegen die `lifecycle`-Deklaration**. Lücke: ein `lifecycle: dead|maintenance`-Repo, dessen
+Container auf Prod weiterläuft (Präzedenz: der discord-bot crash-loopte wochenlang, Repo war clean —
+Drift-Memory `repo-clean ≠ prod-clean`), oder ein `lifecycle: live`, dessen Prod-Endpoint still tot ist.
+R6 fügt dem P0.5-Ledger eine **beobachtete** (nicht deklarierte) Dimension hinzu: täglicher Probe-Job
+liest `deploy:{prod_url, health}` der konsolidierten Registry, macht HTTP-GET (`/livez/`) **und**
+Container-Presence (`docker ps` über den deploy-Pfad), schreibt `prod_runtime_observed` ins Ledger und
+**flaggt jeden Widerspruch** `lifecycle` ↔ `prod_runtime_observed` als blockierenden Issue. **Bewusst KEIN
+neues Deklarativ-Feld** — das wäre eine dritte Wahrheit neben `lifecycle`/`deploy` und verrottet genau wie
+sie es beim discord-Bot tat; `prod_runtime_observed` ist *gemessen* und nur *gegen* die Deklaration wertvoll.
+Eskalation über R5. *Modell-Relevanz:* ein übernehmendes Modell hat **kein Out-of-Band-Gedächtnis**
+(„ich weiß, dass wir das abschalteten") → R6 ist der einzige Baustein, dessen Priorität sich aus dem
+Agent-Readiness-Telos *erhöht*; die übrigen gälten für einen Menschen identisch.
+
+**R7 — Beweisbar-echte Gates (Fault-Injection; kein No-Op-Gate). [Amendment 2026-06-06]**
+Jedes *erzwingende* Gate dieser Kette (R2b-Reconciler, R3-Promote-Gate, R6-Probe, `registry_coverage_drift`,
+Cohort-Constraint-Gate) trägt einen **Fault-Injection-Test**: injiziere den bekannten Defekt → das Gate
+**muss** failen. Ein Gate, das für seine Defektklasse noch nie rot war, ist No-Op-verdächtig. **Live-Beleg
+(2026-06-05):** der `cc-skill-dist-doctor`-Gate war grün und testete eine ganze Lane mit **0 Coverage**
+(PR #480, Befund F-A) — ein grüner Gate-*Name* ohne Garantie. Das Muster existiert bereits produktiv: der
+`doctor.py`-Tamper-Test (PR #480) injiziert eine manipulierte Kopie und erzwingt Drift>0. R7 generalisiert
+es: **kein Gate wird `required` (R2b/R3), bevor sein Fault-Injection-Test grün ist** — sonst verlagert die
+„Invariante" das Vertrauen nur auf einen ungeprüften Prüfer (R-2 auf der Meta-Ebene). R7 ist die
+Vorbedingung, die R2/R3 überhaupt *vertrauenswürdig* macht.
 
 ---
 
@@ -362,6 +414,9 @@ der Drift *kann nicht mehr mergen* → keine Detektion-Issue-Fix-Abfolge nötig.
 | R-4 | Waiver werden de-facto permanent | mittel | `continue-on-error` durch Hintertür | `expires` maschinell vom Meter gelesen; `budget_sum_trend`-Alarm |
 | R-5 | Meter wird blind (Hand-Listen-Nenner) | mittel | „95 % grün" ist Fiktion | Nenner = `gh repo list`; `registry_coverage_drift`-Frühwarnung |
 | R-6 | Überschriebenes `:staging`-Tag wird fälschlich als „grün" promotet (Provenance-Lücke) | hoch | „Prod aus sauberem Staging" formal grün, real unbewiesen | R3 digest-gebunden; Ledger erzwingt `artifact_digest == staging_health_digest` (externe Runde AD-E1) |
+| R-7 | Erzwingendes Gate ist No-Op (nie für seine Defektklasse rot) | hoch | „Invariante" vertraut ungeprüftem Prüfer | **R7** Fault-Injection-Test grün als Vorbedingung für `required` (Live-Beleg F-A, PR #480) |
+| R-8 | `lifecycle` deklariert ≠ Prod-Laufzeit (discord-Quadrant) | mittel-hoch | totes Repo crash-loopt unsichtbar auf Prod | **R6** `prod_runtime_observed`-Probe widerspricht der Deklaration; Eskalation über R5 |
+| R-9 | `canonical.yaml` ↔ `github_repos.yaml`/`repos.yaml` driften (Multi-Inventar post-ADR-234) | mittel | zwei Reconciler, zwei Wahrheiten (heute real) | **P0-Neuerdung** — ein Ziel-SSoT `canonical.yaml`, alle Reconciler lesen nur diese |
 
 **Frühwarn-Metriken (deterministisch, kein LLM — konform `feedback_repo_health_rule_discipline`):**
 - `registry_coverage_drift` = |org-live-repos (gh)| − |konsolidierte-Registry ∩ live|; `>0 für >7 Tage` → blockierender Issue.
@@ -405,9 +460,16 @@ Versionierungsstrategie (`@v1` + Canary-Ringe), Registry-SSoT-Konsolidierung, **
 Digest-Bindung des Promote-Gates** und **iil-Dependency-Cohort/`iil-distribution`** (eigene
 Architektur-Entscheidung, neue Boundary). **Kein** ADR-209 (C9).
 
-**Kill-Gate (messbar, datiert):** Wenn bis **2026-09-01** (a) die Registries **nicht** zu einer SSoT
-konsolidiert sind **oder** (b) der Branch-Protection-as-Code-Reconciler **nicht** existiert, ist die
-„Invariante" Theater → Konzept auf `sunset`, Rückfall auf reines `/ci-green-program` (Alternative D).
+**Kill-Gate (messbar, datiert; Amendment 2026-06-06 erweitert um c–e):** Wenn bis **2026-09-01**
+(a) die Registries **nicht** zu **einer** SSoT (`canonical.yaml`) konsolidiert sind **oder**
+(b) der Branch-Protection-as-Code-Reconciler **nicht** existiert **oder**
+(c) **kein** erzwingendes Gate einen **grünen Fault-Injection-Test (R7)** trägt — verifizierbar: ≥1 Gate, dessen Injection-Test in CI nachweislich rot wird, wenn der Defekt eingespielt wird — **oder**
+(d) die **Runtime-Reality-Probe (R6)** nicht täglich gegen alle `deploy:`-Repos läuft (HTTP + Container-Presence, `lifecycle`↔`prod_runtime_observed` als Issue) **oder**
+(e) `drift_check.py`/`registry_coverage_drift` **nicht** `canonical.yaml` als Quelle lesen (heute: `repo-registry.yaml`/`github_repos.yaml` — verifizierbar per `grep REGISTRY_FILE`),
+ist die „Invariante" Theater → Konzept auf `sunset`, Rückfall auf reines `/ci-green-program` (Alternative D).
+**Teil-Sunset (Amendment):** Sind (a)/(b) erfüllt, aber (c)/(d)/(e) nicht → die *Enforcement*-Hälfte
+(R2b/R3 als `required`) entfällt, die *Detektions*-Hälfte (P0/R5/R6-read-only/`registry_coverage_drift`)
+bleibt — kein Rückbau, nur „Detect-only" statt „erzwungen".
 **Exception-Budget:** max. **2** aktive Registry-Waiver pro Repo ohne Eskalation; jeder mit
 `expires` ≤ 90 Tage; abgelaufen = CI-Fail.
 
@@ -416,8 +478,12 @@ konsolidiert sind **oder** (b) der Branch-Protection-as-Code-Reconciler **nicht*
   **P0.5-Start:** erster `iil-cohort`-Constraint-Snapshot + Ledger-Generator (read-only).
 - **60 Tage:** `iil-distribution`-Pilot mit 3 Hubs (E6-Primär-Hebel); R2b-Reconciler im Dry-Run mit
   **Frische-Quorum** über alle live-Repos; erste 5 Repos „required nach verdientem frischem Grün".
+  **R6 read-only** (Runtime-Reality-Probe) über alle `deploy:`-Repos; **R7** Fault-Injection-Test für
+  den ersten `required`-Gate-Kandidaten (kein `required` ohne grünen Injection-Test).
 - **90 Tage:** R3 **digest-gebundenes** Promote-Gate für die 3–4 Repos *mit* Staging; ADR(s) accepted;
-  Kill-Gate-Check (Registry konsolidiert? Reconciler existent? Cohort-Pilot grün?).
+  R6-Widerspruchs-Eskalation scharf; R7-Injection-Test für **jeden** `required`-Gate; `canonical.yaml`
+  als alleinige Reconciler-Quelle; Kill-Gate-Check (a–e: Registry konsolidiert? Reconciler? Injection-Test
+  grün? Runtime-Probe live? Quelle = canonical?).
 
 ---
 
