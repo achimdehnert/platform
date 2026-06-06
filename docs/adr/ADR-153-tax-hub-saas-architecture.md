@@ -891,7 +891,7 @@ apps/workflows/
 | **Domain (Public)** | `tax.iil.pet` (Landing + Registrierung) |
 | **Cloudflare DNS** | CNAME `*.tax` → Tunnel (proxied) + CNAME `tax` → Tunnel (proxied) |
 | **Wildcard-SSL** | Cloudflare Universal SSL (automatisch bei Proxy-Modus) |
-| **Nginx** | `server_name *.tax.iil.pet;` → `proxy_pass http://127.0.0.1:8096;` |
+| **Nginx** | `server_name *.tax.iil.pet;` → `proxy_pass http://127.0.0.1:8099;` |
 
 ### 7.4 Health & Monitoring (ADR-021 §2.2, ADR-078)
 
@@ -996,7 +996,7 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 |-------|---------|--------|-------|
 | 1 | ADR-153 erstellt | ✅ Done | 2026-03-25 |
 | 1 | ADR-152 als superseded markieren | ⬜ Pending | – |
-| 1 | Port 8096 in ADR-021 §2.9 Port-Registry eintragen | ⬜ Pending | – |
+| 1 | Port 8099 in ADR-021 §2.9 Port-Registry eintragen | ⬜ Pending | – |
 | 1 | Health-Endpoints `/livez/` + `/healthz/` implementieren | ⬜ Pending | – |
 | 1 | Django-Skeleton + Split Settings | ⬜ Pending | – |
 | 1 | apps/tenant/ + apps/billing/ Grundgerüst | ⬜ Pending | – |
@@ -1066,7 +1066,7 @@ Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.
 4. Schema-Isolation: Kanzlei A kann keine Mandanten von Kanzlei B sehen
 5. Stripe-Webhook: `checkout.session.completed` → Module aktiviert
 6. Trial: 30 Tage → automatisch `status="trial"`, dann Downgrade-Warning
-7. Port 8096 in ADR-021 §2.9 eintragen (**noch offen** — Migration Tracking Phase 1)
+7. Port 8099 in ADR-021 §2.9 eintragen (**noch offen** — Migration Tracking Phase 1)
 8. `catalog-info.yaml` vorhanden, `lifecycle: production` nach Phase 4
 9. `HandlerRegistry.get_handler_class("apps.workflows.handlers.email.SendEmailHandler")` liefert registrierten Handler
 10. `ExecutionLog.objects.filter(execution_id=X)` zeigt vollständiges Audit-Log mit Input/Output pro Action

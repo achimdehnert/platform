@@ -5,6 +5,8 @@ decision-makers: [Achim Dehnert]
 ---
 # ADR-159: Shared Secrets Management — Single Source of Truth für API Keys
 
+> **Re-Scope (Secrets-Reconciliation 2026-06-06):** Das hier beschriebene `.env.prod`+`decouple.config`-Modell ist der **derzeit deployte Ist-Zustand (Interim)**, NICHT das kanonische Ziel. Beschlossen (2026-06-06): Ziel-Architektur ist SOPS + `/run/secrets` aus ADR-045 (sicherer, verschluesselt-in-Git). Diese ADR bleibt die Doku der **laufenden Realitaet**, bis die SOPS-Migration abgeschlossen ist. Loest den Full-Scan-Konflikt 045<->159.
+
 - **Status:** accepted
 - **Date:** 2026-04-08
 - **Deciders:** Achim Dehnert, Cascade

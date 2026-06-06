@@ -6,13 +6,13 @@ consulted: []
 informed: []
 supersedes: []
 amends: []
-related: ["ADR-210-library-ci-reusable-mandatory-secret-scan.md"]
+related: ["ADR-226-library-ci-reusable-mandatory-secret-scan.md"]
 implementation_status: none
 ---
 
 # Migrate token-based PyPI publish workflows to OIDC Trusted Publishing with protected environments
 
-> **Trigger**: ADR-210 closed the *secret-in-artifact* vector by gating every
+> **Trigger**: ADR-226 closed the *secret-in-artifact* vector by gating every
 > `publish-*.yml` before upload. The advocatus-diabolus pass surfaced that the
 > *next-larger* irreversible risk is now the publish **credential** itself: the
 > single-package legacy workflows authenticate with a long-lived, shared
@@ -22,7 +22,7 @@ implementation_status: none
 
 ## Context and Problem Statement
 
-After ADR-210, the platform's PyPI publish surface is split in two:
+After ADR-226, the platform's PyPI publish surface is split in two:
 
 * **Modern** — `publish-packages.yml` (django-tenancy, concept-templates,
   dvelop-client): already OIDC-based — `permissions: id-token: write`,
@@ -35,7 +35,7 @@ After ADR-210, the platform's PyPI publish surface is split in two:
 A long-lived API token that can publish *several* packages is a high,
 irreversible blast radius: a single leak (CI log, compromised dependency in
 the publish job, malicious PR that reaches the token) lets an attacker
-overwrite or yank any of those packages on the public index. ADR-210's
+overwrite or yank any of those packages on the public index. ADR-226's
 artifact scan does **not** mitigate credential compromise — different threat.
 
 OIDC Trusted Publishing removes the standing credential entirely: PyPI mints a
@@ -48,7 +48,7 @@ the irreversible action.
 
 * No standing secret to leak beats rotating a secret faster (eliminate, don't
   manage). The credential is the largest remaining irreversible PyPI risk
-  after ADR-210.
+  after ADR-226.
 * Consistency: one publish pattern, not modern-vs-legacy. `publish-packages.yml`
   already proves the target shape in this repo.
 * Defense in depth on the irreversible action: a protected `environment`
@@ -85,7 +85,7 @@ the irreversible action.
 * Good: **zero standing publish credential**; per-run, audience-scoped;
   per-repo+workflow+environment binding; human approval gate; one pattern
   platform-wide; `PYPI_API_TOKEN` secret can eventually be deleted.
-* Good: composes cleanly with the ADR-210 pre-publish secret gate (gate stays
+* Good: composes cleanly with the ADR-226 pre-publish secret gate (gate stays
   exactly where it is, before the publish step).
 * Bad / accepted: requires a **manual, per-project PyPI-side registration**
   (Trusted Publisher: owner + repo + workflow filename + environment) **before**
@@ -100,7 +100,7 @@ the irreversible action.
 
 Chosen: **Option 4**. Converge the legacy single-package publish workflows
 onto the OIDC + protected-environment pattern already used by
-`publish-packages.yml`, preserving the ADR-210 pre-publish secret gate.
+`publish-packages.yml`, preserving the ADR-226 pre-publish secret gate.
 
 Target shape for each legacy `publish-*.yml` (build/scan unchanged; only
 auth + environment change):
@@ -115,7 +115,7 @@ publish:
   steps:
     - ...build...
     - twine check dist/*
-    - uses: achimdehnert/platform/.github/actions/gitleaks-scan@main   # ADR-210 gate, unchanged
+    - uses: achimdehnert/platform/.github/actions/gitleaks-scan@main   # ADR-226 gate, unchanged
       with: { mode: sdist, source: dist, ... }
     - uses: pypa/gh-action-pypi-publish@release/v1                     # OIDC, no token env
 ```
@@ -135,7 +135,7 @@ publish:
 
 * Good: the largest remaining irreversible PyPI risk (standing shared token)
   is eliminated, not merely shortened; one publish pattern platform-wide.
-* Good: orthogonal to ADR-210 — the secret gate stays exactly where it is.
+* Good: orthogonal to ADR-226 — the secret gate stays exactly where it is.
 * Bad / accepted: a package whose Trusted Publisher is not yet registered
   **cannot publish** until step 1 is done. This is an ordering constraint, not
   a regression; documented in the rollout and the PR.
@@ -182,10 +182,10 @@ publish:
 
 ## More Information
 
-* ADR-210 — library CI reusable + the pre-publish secret gate this builds on.
+* ADR-226 — library CI reusable + the pre-publish secret gate this builds on.
 * `publish-packages.yml` — the in-repo reference implementation of the target
   pattern (OIDC + `environment: pypi` + `pypa/gh-action-pypi-publish`).
 * PyPI docs — Trusted Publishers / `pypa/gh-action-pypi-publish`.
-* Drift lesson `2026-05-18-secret-gate-wrong-workflow` (ADR-210 review): a
+* Drift lesson `2026-05-18-secret-gate-wrong-workflow` (ADR-226 review): a
   control must sit at the irreversible action — here the *credential* is that
   surface, so OIDC removes the standing credential rather than guarding it.

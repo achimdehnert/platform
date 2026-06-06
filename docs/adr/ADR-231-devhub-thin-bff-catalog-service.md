@@ -200,7 +200,7 @@ Eine cross-provider-Review (Steelman → Advocatus Diabolus → Maintainer-2028)
 - `catalog`-Service = neuer Deploy-Artefakt (kleiner Service mehr).
 
 ### Confirmation
-1. **SSoT-Pointer-Guardian** (ADR-054-kompatibel): eine dev-hub-Tabelle ohne Pointer-Spalte/Sync-Timestamp, die nicht in der KEEP-Whitelist (catalog/portal-config/audit/outbox) steht, ist ein Verstoß.
+1. **SSoT-Pointer-Guardian** (ADR-239-kompatibel): eine dev-hub-Tabelle ohne Pointer-Spalte/Sync-Timestamp, die nicht in der KEEP-Whitelist (catalog/portal-config/audit/outbox) steht, ist ein Verstoß.
 2. **Dogfood-Doc-Health-Gate** (Phase 1, live): jede Welle muss durch dev-hubs eigenen Audit.
 3. **Pro Welle:** kein Netto-Zuwachs an Migrationen im BFF; ai_config-DB-Keys = 0 nach Welle 1.
 

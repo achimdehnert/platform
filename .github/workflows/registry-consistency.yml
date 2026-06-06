@@ -19,6 +19,8 @@ on:
       - 'scripts/repo-registry.yaml'
       - 'registry/repos.yaml'
       - 'tools/registry-consistency-check.py'
+  pull_request:
+    branches: [main]        # REC-4 View-Reader-Guard fängt NEUE Direct-Reads vor dem Merge
 
 permissions:
   contents: read
@@ -43,3 +45,8 @@ jobs:
           # wenn jemand eine View von Hand editiert oder canonical.yaml ändert
           # ohne `flip` neu laufen zu lassen (committet ≠ generiert).
           python3 tools/registry-canonical.py verify
+      - name: View-Reader-Guard (HARTES GATE, ADR-234 §11.1 REC-4)
+        run: |
+          # FAILT, wenn NEUER Code die generierten Views direkt liest statt
+          # tools/registry_api.py — verhindert, dass die Views wieder SSoT werden.
+          python3 tools/check_registry_view_readers.py

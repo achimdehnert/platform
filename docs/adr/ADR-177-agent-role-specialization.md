@@ -3,7 +3,7 @@ status: proposed
 date: 2026-04-30
 version: 1.4
 deciders: [achimdehnert, cascade]
-related: [ADR-068, ADR-077, ADR-138, ADR-173, ADR-174]
+related: [ADR-068, ADR-077, ADR-138, ADR-224, ADR-174]
 amends: [ADR-066]
 implementation_status: none
 last_reviewed: 2026-05-08
@@ -561,7 +561,7 @@ Neues Dashboard `Agent-Team-Specialization`:
    - Misclassification-Rate < 10 % über AuditStore-Query
    - Cache-Hit-Rate-Targets erreicht (DocBot/TestBot ≥ 60 %)
    - Cost-Saving ≥ 20 % netto vs Phase-0-Baseline
-3. **Architecture Guardian** (ADR-054):
+3. **Architecture Guardian** (ADR-239):
    - `mcp5_check_violations` gegen neuen Bot-Code — 0 Verstöße
    - Banned Patterns (`hx-boost`, hardcoded Secrets) bleiben weg
 4. **Drift-Detector** (ADR-059):
@@ -637,7 +637,7 @@ Neues Dashboard `Agent-Team-Specialization`:
 - ADR-068 — AuditStore (Logging-Pflicht)
 - ADR-077 — Catalog & Temporal
 - ADR-138 — Implementation Tracking
-- ADR-173 — Orchestrator MCP Server
+- ADR-224 — Orchestrator MCP Server
 - ADR-174 — QM Gate (ASSUMPTION[unverified] = 0)
 - `/agentic-coding` Workflow v6 → v7 (Wave 1)
 - `/session-start` Phase 2.5 (Wave 2)

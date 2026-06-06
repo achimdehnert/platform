@@ -27,7 +27,7 @@ implementation_evidence:
 | **Reviewer**    | –                                                                    |
 | **Supersedes**  | –                                                                    |
 | **Superseded by** | –                                                                  |
-| **Relates to**  | ADR-046 (Documentation Governance), ADR-054 (Architecture Guardian), ADR-058 (Testing Strategy), ADR-021 (Unified Deployment) |
+| **Relates to**  | ADR-046 (Documentation Governance), ADR-239 (Architecture Guardian), ADR-058 (Testing Strategy), ADR-021 (Unified Deployment) |
 
 ## Repo-Zugehörigkeit
 
@@ -59,7 +59,7 @@ implementation_evidence:
 
 Das Platform-ADR-Repository enthält 57 ADR-Dateien. 42 davon haben Status `?` — sie wurden nie in die MADR-konforme State Machine (`draft → proposed → accepted → deprecated → superseded`) überführt. Zusätzlich sind mehrere ADRs inhaltlich überholt: ADR-020 beschreibt Sphinx als Dokumentationsstrategie, obwohl ADR-046 Sphinx als "deferred" markiert hat und wir inzwischen `techdocs` (DB-driven, GitHub-Sync) einsetzen.
 
-Ohne automatisierte Erkennung akkumuliert sich dieser Drift weiter. Jeder neue ADR referenziert möglicherweise veraltete Entscheidungen. Der Architecture Guardian (ADR-054) kann keine verlässlichen Compliance-Checks durchführen wenn die Basis-ADRs selbst inkonsistent sind.
+Ohne automatisierte Erkennung akkumuliert sich dieser Drift weiter. Jeder neue ADR referenziert möglicherweise veraltete Entscheidungen. Der Architecture Guardian (ADR-239) kann keine verlässlichen Compliance-Checks durchführen wenn die Basis-ADRs selbst inkonsistent sind.
 
 ### 1.1 Ist-Zustand
 
@@ -458,7 +458,7 @@ class ADRListView(LoginRequiredMixin, ListView):
 
 - ADR-046: Documentation Governance — definiert Hygiene-Regeln die der Drift-Detector prüft
 - ADR-051: Concept-to-ADR Pipeline — Upstream-Prozess der ADRs erzeugt
-- ADR-054: Architecture Guardian — Downstream-Konsument der ADR-Qualität
+- ADR-239: Architecture Guardian — Downstream-Konsument der ADR-Qualität
 - ADR-058: Multi-Tenancy Testing Strategy — Beispiel für ADR mit vollständigem Confirmation-Abschnitt
 - `agents_dashboard.AgentType.DRIFT_DETECTOR` — bereits definiert in dev-hub
 

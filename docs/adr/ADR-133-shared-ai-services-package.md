@@ -13,7 +13,7 @@ decision-makers: Achim Dehnert
 | **Status** | Proposed |
 | **Date** | 2026-02-28 |
 | **Author** | Achim Dehnert |
-| **Related** | ADR-089 (LiteLLM DB-driven), ADR-093 (AI Config App), ADR-091 (Shared Backend Services) |
+| **Related** | ADR-089 (LiteLLM DB-driven), ADR-093 (AI Config App), ADR-131 (Shared Backend Services) |
 
 ---
 
