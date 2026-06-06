@@ -13,6 +13,13 @@ implementation_evidence:
 
 # ADR-074: Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates
 
+> **Geltungsbereich präzisiert durch [ADR-237].** Die Anti-Pattern-Regel in §4.6
+> (`filter(tenant_id=...)` verboten) gilt **ausschließlich in `TENANT_APPS` von
+> schema-per-tenant-Repos** (travel-beat, tax-hub). Im Plattform-**Default** (row-level
+> `tenant_id`, ADR-035/109/137) ist der explizite tenant-Filter bzw. ein erzwingender
+> Manager/RLS der **vorgeschriebene** Pfad — dort gilt diese Regel **nicht**. Hinweis:
+> der in §4.6 skizzierte CI-Linter ist derzeit **nicht implementiert** (Stand 2026-06-06).
+
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|
 | **Status**     | Accepted                                                             |

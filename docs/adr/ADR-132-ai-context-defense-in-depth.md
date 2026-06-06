@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-02-27
 amended: 2026-03-11
 decision-makers: [Achim Dehnert]

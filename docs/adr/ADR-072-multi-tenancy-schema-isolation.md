@@ -6,12 +6,16 @@ consulted: –
 informed: –
 implementation_status: partial
 implementation_evidence:
-  - "6/9 UI-Hubs mit django_tenants Schema Isolation: travel-beat, weltenhub, coach-hub, cad-hub, billing-hub, dev-hub"
-  - "Fehlend: risk-hub, pptx-hub, trading-hub"
+  - "KORREKTUR 2026-06-06 (ADR-237 Audit, file:line-verifiziert): real schema-per-tenant nur travel-beat + tax-hub. coach-hub/billing-hub/dev-hub sind row-level (NICHT django_tenants) — die frühere 6/9-Liste war faktisch falsch. weltenhub/cad-hub: nicht nachgemessen."
   - "TenantAwareModel als Basis in platform_context"
 ---
 
 # ADR-072: Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy
+
+> **Re-scoped durch [ADR-237].** Schema-per-tenant ist **nicht** der Plattform-Default,
+> sondern die **bewusste Ausnahme** für DSGVO-getriebene Hart-Isolation (z. B. tax-hub).
+> Default für Multi-Tenancy ist row-level `tenant_id` (ADR-035/109/137). Der unten
+> formulierte universelle „für alle SaaS"-Anspruch gilt nur noch für den Ausnahme-Pfad.
 
 | Attribut       | Wert                                                                 |
 |----------------|----------------------------------------------------------------------|

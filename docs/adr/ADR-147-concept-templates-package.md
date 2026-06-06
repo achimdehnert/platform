@@ -1,5 +1,5 @@
 ---
-status: "proposed"
+status: proposed
 date: 2026-03-26
 decision-makers: [Achim Dehnert]
 consulted: []
