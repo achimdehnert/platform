@@ -1,0 +1,26 @@
+# Eingefrorene Baseline der LEGITIMEN Direct-Reader der generierten Registry-Views
+# (ADR-234 §11.1 REC-4). NEUE Reader hier NICHT eintragen — stattdessen
+# tools/registry_api.py (flat/rich/repos/repo) nutzen. Regenerieren NUR nach echter
+# Migration eines Konsumenten auf die API:
+#   python3 tools/check_registry_view_readers.py --update
+.github/scripts/push_project_facts.py
+.github/workflows/platform-audit.yml
+.github/workflows/pypi-ci-adoption-gate.yml
+.github/workflows/scaffold-tests.yml
+.github/workflows/sync-registry-to-devhub.yml
+infra/scripts/validate_tenancy.py
+scripts/audit_platform.py
+scripts/checks/doc_profile_check.sh
+scripts/checks/klickdummy_registry.sh
+scripts/checks/staging_generated_drift.sh
+scripts/checks/staging_oidc_redirects.sh
+scripts/checks/staging_port_range.sh
+scripts/dev-portal.py
+scripts/drift_check.py
+scripts/gen_project_facts.py
+scripts/gen_project_facts.sh
+scripts/list_megatest_repos.py
+scripts/render_staging.py
+scripts/setup_repo.py
+tests/megatest/test_meta.py
+tools/repo_checker.py
