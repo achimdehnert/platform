@@ -1,9 +1,21 @@
 # Runbook — KONZ-002 GOV-Exit-Feuerübung (`central-gov` Handover-Readiness)
 
+> **⚠️ GEGENSTANDSLOS seit 2026-06-04 (verifiziert 2026-06-08).** Dieses Runbook beweist den
+> `exit_tests: handover-readiness` der Klasse **`central-gov`** — diese Klasse wurde mit der
+> Owner-Datenprämisse (2026-06-04) **RETIRED** (`governance/exit-classes.yaml`: central-gov-Block
+> auskommentiert/retired; ADR-236 Rahmenkorrektur 2026-06-04). `ttz-lif`/`meiki-lra` sind seither
+> `exit-likely` (Kundenprojekte, nur Code+Demo-Daten) — ihre Portabilität ist über den allgemeinen
+> `exit-likely`-Pfad gedeckt (Feuerübung Runde 1, KONZ-002 §15). Es existiert **kein** zentral
+> betriebener Souveränitäts-Single-Point mehr, der eine separate GOV-Handover-Übung verlangt.
+> **Aufbewahrt als historischer Kontext** — NUR reaktivieren, falls jemals reale Souveränitäts-/
+> Personendaten in eine GitHub-Org gelangen (dann eher `must-stay-local`, nicht `central-gov`).
+>
+> ---
+>
 > Beweist den `exit_tests: handover-readiness` der Klasse **`central-gov`**
 > ([`governance/exit-classes.yaml`](../governance/exit-classes.yaml)).
 > Governance: **[ADR-236](../adr/ADR-236-altd-enterprise-boundary.md)** §6 (Rest-Risiko).
-> Stand: 2026-06-03. **Drill auf Wegwerf-Org — NIE an `ttz-lif`/`meiki-lra` selbst.**
+> Stand: 2026-06-03 (Inhalt). **Drill auf Wegwerf-Org — NIE an `ttz-lif`/`meiki-lra` selbst.**
 
 ## Warum (das schärfste offene Rest-Risiko)
 

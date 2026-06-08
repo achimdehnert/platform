@@ -7,8 +7,10 @@
 # "zweite Wahrheit", vor der OOTB-8 warnt). Pro Org nur: Klasse + Begründung + Owner
 # + review_by + tatsächliche teardown_authority + Abweichungen.
 #
-# Konsumenten (Soll): tools/exit-plan.py (Placement-Gate D3, CI-Gleichheits-Audit) —
-#   liest diese Datei noch NICHT (Follow-up: ADR-236 §2.5). Bis dahin manuell.
+# Konsumenten: tools/exit-plan.py (Placement-Gate D3, CI-Gleichheits-Audit) —
+#   KONSUMIERT diese Datei (verifiziert 2026-06-08: load_exit_classes() +
+#   Invarianten-Check teardown_authority≠none für exit-likely/must-stay-local).
+#   ADR-236 §2.5 Follow-up damit erledigt (vormals „liest noch NICHT" — stale).
 #
 # Faktenbasis (Live-API, 2026-06-03): Rolle achimdehnert je Org via
 #   `gh api orgs/<org>/memberships/achimdehnert --jq .role`
