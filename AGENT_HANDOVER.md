@@ -26,11 +26,11 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **F1 .windsurf-Untrack** — CI-Distributor abgeschaltet (PR #364), 1× Cleanup-Sweep ausstehend (Status nicht neu verifiziert) | `[Sonnet]` |
-| 2 | **3 PRs mergebar** — platform #476 (Profil B) · #478 (main-tree-guard) · `iilgmbh/shared-ci` #2 (immutable ref) — mergen sobald CI grün | `[Sonnet]` |
-| 3 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI (akute `ai-assignable`-Tranche ✅ leer); nächste Welle = Ruff/Config-Drift an der Quelle, nicht Issue-für-Issue | `[Sonnet]` |
+| 1 | **3 PRs mergebar** — platform #476 (Profil B) · #478 (main-tree-guard) · `iilgmbh/shared-ci` #2 (immutable ref) — mergen sobald CI grün | `[Sonnet]` |
+| 2 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI (akute `ai-assignable`-Tranche ✅ leer); nächste Welle = Ruff/Config-Drift an der Quelle, nicht Issue-für-Issue | `[Sonnet]` |
+| 3 | **M6 Profil-B fertigstellen** — `~/.bashrc`-Block · App auf „Any account" · Org-Installs iilgmbh/bahn-sqf (`docs/PROFILE_B.md`) | `[manuell]` |
 
-**✅ Erledigt (2026-06-08):** F4-acute (alle 6 trivialen `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#56 stale → superseded by dev-hub#81 merged; verifiziert).
+**✅ Erledigt (2026-06-08):** F4-acute (alle 6 trivialen `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#56 stale → superseded by dev-hub#81 merged; verifiziert) · **F1 .windsurf-Untrack vollständig** (Distributor retired, gesamte Flotte inkl. dev-hub clean; 2 zuletzt entdeckte Residual-Libs iil-django-commons#1 + riskfw#1 untrackt+gemergt → 0 `.windsurf`-100644 auf origin/main; N/A: adr-doctor leerer Repo, platform = SSoT).
 
 **KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
