@@ -61,3 +61,7 @@ env_loader.py
 # PDF-Dateien (generiert via print_agent)
 *.pdf
 !docs/pdf/*.pdf
+
+# Generated/editor cruft (ADR-230, platform convention)
+NEXT.md
+.windsurfignore
