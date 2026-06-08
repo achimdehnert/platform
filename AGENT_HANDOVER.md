@@ -12,9 +12,8 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Davor (2026-06-05 — github-admin / risk-hub-Launch / KONZ-002):** risk-hub **live in Prod** als Kundenprodukt (schutztat.de) + Cross-Tenant-Edit-Fix (PR #168, merged); **Profil-B-GitHub-App** aufgesetzt (App 3971306, Token-Smoke grün); **KONZ-002 ref-sweep** über 17 Hubs; **deep Session-Retro** (Report: `~/shared/session-retro-2026-06-05-platform-ghadmin.md`).
 
 **Offen — direkt umsetzbar (erster Zug nächste Session):**
-- **3 PRs mergebar:** platform **#476** (Profil B) · **#478** (main-tree-guard Commit-auf-main-Fix) · `iilgmbh/shared-ci` **#2** (immutable ref).
-- **M6 Profil B fertig:** `~/.bashrc`-Block (`GH_APP_ID=3971306`, `claude-ent()`) · App auf **„Any account"** · Install auf `iilgmbh`+`bahn-sqf` → dann `claude-ent iilgmbh` = Org-Admin. Details: `docs/PROFILE_B.md`.
-- **14 gehaltene ref-sweep-PRs** (`achimdehnert/platform`→`iilgmbh/shared-ci@v1.0.1`) → mergen sobald **F4** das jeweilige Repo grün macht (kein CI-/Security-Bypass).
+- **M6 Profil B fertig:** `~/.bashrc`-Block (`GH_APP_ID=3971306`, `claude-ent()`) **✅ vorhanden** (bashrc:126–132); offen nur noch **manuell**: App auf **„Any account"** + Install auf `iilgmbh`+`bahn-sqf` → dann `claude-ent iilgmbh` = Org-Admin. Details: `docs/PROFILE_B.md`.
+- **14 gehaltene ref-sweep-PRs** (`achimdehnert/platform`→`iilgmbh/shared-ci@v1.0.1`, verifiziert 2026-06-08 noch offen: weltenhub#16, wedding-hub#19, travel-beat#38, trading-hub#13, tax-hub#4, recruiting-hub#7, onboarding-hub#2, mcp-hub#98, illustration-hub#8, dms-hub#3, coach-hub#28, cad-hub#23, billing-hub#6, research-hub#6) → mergen sobald **F4** das jeweilige Repo grün macht (kein CI-/Security-Bypass).
 - **#7 risk-hub→Enterprise-Transfer:** bewusst **deferred** (Bake + geplantes Fenster; gegated hinter KONZ-002 S2). `platform`-Self-Refs (publish-Workflows) separat/vorsichtig sweepen.
 - **shared-ci Issue #3:** eigene CI (actionlint) für die reusable Workflows.
 
@@ -26,11 +25,11 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **3 PRs mergebar** — platform #476 (Profil B) · #478 (main-tree-guard) · `iilgmbh/shared-ci` #2 (immutable ref) — mergen sobald CI grün | `[Sonnet]` |
-| 2 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI (akute `ai-assignable`-Tranche ✅ leer); nächste Welle = Ruff/Config-Drift an der Quelle, nicht Issue-für-Issue | `[Sonnet]` |
-| 3 | **M6 Profil-B fertigstellen** — `~/.bashrc`-Block · App auf „Any account" · Org-Installs iilgmbh/bahn-sqf (`docs/PROFILE_B.md`) | `[manuell]` |
+| 1 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI (akute `ai-assignable`-Tranche ✅ leer); nächste Welle = Ruff/Config-Drift an der Quelle, nicht Issue-für-Issue | `[Sonnet]` |
+| 2 | **14 ref-sweep-PRs mergen** — pro Repo sobald dessen main-CI grün (gated auf F4, kein Bypass); Liste oben | `[Sonnet]` |
+| 3 | **M6 Profil-B fertigstellen** — nur noch manuell: App „Any account" + Org-Installs iilgmbh/bahn-sqf (`docs/PROFILE_B.md`); bashrc-Block schon da | `[manuell]` |
 
-**✅ Erledigt (2026-06-08):** F4-acute (alle 6 trivialen `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#56 stale → superseded by dev-hub#81 merged; verifiziert) · **F1 .windsurf-Untrack vollständig** (Distributor retired, gesamte Flotte inkl. dev-hub clean; 2 zuletzt entdeckte Residual-Libs iil-django-commons#1 + riskfw#1 untrackt+gemergt → 0 `.windsurf`-100644 auf origin/main; N/A: adr-doctor leerer Repo, platform = SSoT).
+**✅ Erledigt (2026-06-08):** F4-acute (alle 6 trivialen `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#56 stale → superseded by dev-hub#81 merged; verifiziert) · **F1 .windsurf-Untrack vollständig** (Distributor retired, gesamte Flotte inkl. dev-hub clean; 2 zuletzt entdeckte Residual-Libs iil-django-commons#1 + riskfw#1 untrackt+gemergt → 0 `.windsurf`-100644 auf origin/main; N/A: adr-doctor leerer Repo, platform = SSoT) · **3 mergebare PRs gemergt** (platform #476 Profil-B, #478 main-tree-guard, `iilgmbh/shared-ci` #2 immutable ref — alle merged 2026-06-05, war stale als „offen" gelistet).
 
 **KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
