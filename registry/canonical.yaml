@@ -577,7 +577,7 @@ repos:
     in_rich: true
     flat:
       type: django
-      prod_url: travel-beat.iil.pet
+      prod_url: drifttales.app
       staging_url: staging.travel-beat.iil.pet
       port: 8089
       health: /livez/
