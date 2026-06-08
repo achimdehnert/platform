@@ -5,9 +5,11 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-05 — github-admin / risk-hub-Launch / KONZ-002-Session)
+## ⚡ Aktueller Stand (2026-06-08 — F4-acute / ADR-212-Verifikation)
 
-**Letzte Session:** risk-hub **live in Prod** als Kundenprodukt (schutztat.de) + Cross-Tenant-Edit-Fix (PR #168, merged); **Profil-B-GitHub-App** aufgesetzt (App 3971306, Token-Smoke grün); **KONZ-002 ref-sweep** über 17 Hubs; **deep Session-Retro** (Report: `~/shared/session-retro-2026-06-05-platform-ghadmin.md`).
+**Letzte Session (2026-06-08):** **F4-acute abgeschlossen** — alle 6 trivialen `ai-assignable`-Issues zu (researchfw#4, weltenfw#5, learn-hub#8, trading-hub#9 bereits closed; travel-beat#37 + recruiting-hub#6 verifiziert bereits auf main grün → kommentiert + closed, kein PR nötig). **ADR-212 Phase-1 verifiziert komplett** — dev-hub#56 war stale Hand-PR, superseded durch **dev-hub#81 (merged)** + platform#485. Org-weite `ai-assignable`-DO-NOW-Queue ist **leer**.
+
+**Davor (2026-06-05 — github-admin / risk-hub-Launch / KONZ-002):** risk-hub **live in Prod** als Kundenprodukt (schutztat.de) + Cross-Tenant-Edit-Fix (PR #168, merged); **Profil-B-GitHub-App** aufgesetzt (App 3971306, Token-Smoke grün); **KONZ-002 ref-sweep** über 17 Hubs; **deep Session-Retro** (Report: `~/shared/session-retro-2026-06-05-platform-ghadmin.md`).
 
 **Offen — direkt umsetzbar (erster Zug nächste Session):**
 - **3 PRs mergebar:** platform **#476** (Profil B) · **#478** (main-tree-guard Commit-auf-main-Fix) · `iilgmbh/shared-ci` **#2** (immutable ref).
@@ -20,13 +22,15 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 ---
 
-## 0. Aktuelle Prioritäten (2026-06-03)
+## 0. Aktuelle Prioritäten (2026-06-08)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **F4 CI-grün-Programm** — 34/57 Repos rote main-CI; akut 6 triviale `ai-assignable`+`complexity:trivial` Issues (researchfw#4, weltenfw#5, learn-hub#8, travel-beat#37, trading-hub#9, recruiting-hub#6) → `/issues-offen org:achimdehnert` (verifiziert 2026-06-03) | `[Sonnet]` |
-| 2 | **ADR-212 Phase-1 abschließen** — nur noch **dev-hub#56** (Traefik-Ingress) offen; billing/coach/pptx/trading erledigt (verifiziert 2026-06-03) | `[Sonnet]` |
-| 3 | **F1 .windsurf-Untrack** — CI-Distributor abgeschaltet (PR #364), 1× Cleanup-Sweep ausstehend (Status nicht neu verifiziert) | `[Sonnet]` |
+| 1 | **F1 .windsurf-Untrack** — CI-Distributor abgeschaltet (PR #364), 1× Cleanup-Sweep ausstehend (Status nicht neu verifiziert) | `[Sonnet]` |
+| 2 | **3 PRs mergebar** — platform #476 (Profil B) · #478 (main-tree-guard) · `iilgmbh/shared-ci` #2 (immutable ref) — mergen sobald CI grün | `[Sonnet]` |
+| 3 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI (akute `ai-assignable`-Tranche ✅ leer); nächste Welle = Ruff/Config-Drift an der Quelle, nicht Issue-für-Issue | `[Sonnet]` |
+
+**✅ Erledigt (2026-06-08):** F4-acute (alle 6 trivialen `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#56 stale → superseded by dev-hub#81 merged; verifiziert).
 
 **KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
