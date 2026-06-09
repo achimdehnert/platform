@@ -308,6 +308,17 @@ def check_python_package(path: Path) -> HealthReport:
     passed, detail = _check_readme_content(path)
     add(CheckResult("README.md content", "SUGGEST", passed, detail))
 
+    # gitignore deckt generierte/Editor-Cruft ab (ADR-230, platform convention)
+    gi = (path / ".gitignore").read_text(encoding="utf-8") if (path / ".gitignore").exists() else ""
+    gi_lines = {line.strip() for line in gi.splitlines()}
+    for entry in ("NEXT.md", ".windsurfignore", ".windsurf/"):
+        add(CheckResult(
+            f"gitignore:{entry}",
+            "SUGGEST",
+            entry in gi_lines,
+            "" if entry in gi_lines else f"{entry} nicht in .gitignore",
+        ))
+
     # ── CI Workflows ──
     workflows_dir = path / ".github" / "workflows"
     add(CheckResult(
@@ -405,6 +416,17 @@ def check_django_app(path: Path) -> HealthReport:
     add(CheckResult("catalog-info.yaml", "SUGGEST", passed, detail))
     passed, detail = _check_readme_content(path)
     add(CheckResult("README.md content", "SUGGEST", passed, detail))
+
+    # gitignore deckt generierte/Editor-Cruft ab (ADR-230, platform convention)
+    gi = (path / ".gitignore").read_text(encoding="utf-8") if (path / ".gitignore").exists() else ""
+    gi_lines = {line.strip() for line in gi.splitlines()}
+    for entry in ("NEXT.md", ".windsurfignore", ".windsurf/"):
+        add(CheckResult(
+            f"gitignore:{entry}",
+            "SUGGEST",
+            entry in gi_lines,
+            "" if entry in gi_lines else f"{entry} nicht in .gitignore",
+        ))
 
     # Makefile contains DJANGO_SETTINGS_MODULE
     if _file_exists(path, "Makefile"):
