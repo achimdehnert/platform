@@ -5,23 +5,25 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-09 — shared-ci v1.0.2 / ref-sweep-Incident)
+## ⚡ Aktueller Stand (2026-06-10 — ref-sweep 12/12 ✅ vollständig abgeschlossen)
 
-**Letzte Session (2026-06-09 — shared-ci-Tag-Fix + 2 broke Prod-Mains repariert):** Der ref-sweep auf `iilgmbh/shared-ci@v1.0.1`/`@v1.0.0` war **defekt** — der Tag wurde **vor** #461 geschnitten und kennt den Input `deploy_runs_on` nicht; runner-pinnende Consumer (mcp-hub, trading-hub mit `deploy_runs_on: prod-server`) lösten beim Merge→main einen reusable-WF **`startup_failure`** aus (Deploy startet nie, Live-Service blieb auf altem Image). Fix: `deploy_runs_on` (#461) **+** import_smoke-`--entrypoint sh`-Bypass (cad-hub#21) aus `platform@main` nach shared-ci portiert → **`iilgmbh/shared-ci#4` merged, Tag `v1.0.2`** (Parität zu platform@main). Beide broke Mains **forward**-gefixt (statt Revert auf mutable `@main`): **mcp-hub#106** + **trading-hub#14** gemergt → beide Deploys **success**, `orchestrator.iil.pet/healthz/` **200** + `ai-trades.de/livez/` **200**. Alle 12 offenen Sweep-PRs auf `@v1.0.2` re-pointet (gehalten auf F4). Drift-Memory: `feedback_sharedci_tag_stale_vs_platform_main`.
-> **Zweitfund (offen):** „ref-sweep gated auf F4, no-bypass" ist **unenforced** — **0/14 Hubs** haben Branch-Protection auf `main` (`GET /branches/main/protection` → 404). trading-hub#13 wurde **manuell rot gemergt** (kein Auto-Merge) → brach Prod-Deploy. „No-bypass" ist reine Konvention; required-status-checks = eigener Governance-Task (ADR-Kandidat).
+**Diese Session (2026-06-10):** weltenhub#16 verifiziert gemergt (2026-06-09 16:46 UTC) → **ref-sweep 12/12 ✅ komplett**.
 
-**Davor (2026-06-08):** **F4-acute abgeschlossen** — alle 6 trivialen `ai-assignable`-Issues zu (researchfw#4, weltenfw#5, learn-hub#8, trading-hub#9 bereits closed; travel-beat#37 + recruiting-hub#6 verifiziert bereits auf main grün → kommentiert + closed, kein PR nötig). **ADR-212 Phase-1 verifiziert komplett** — dev-hub#56 war stale Hand-PR, superseded durch **dev-hub#81 (merged)** + platform#485. Org-weite `ai-assignable`-DO-NOW-Queue ist **leer**.
+**Vorherige Session (2026-06-09 — F4-Fixes + Ref-Sweep-Abschluss):** `shared-ci v1.0.3` trägt `pg_isready -U test_user`-Fix. 5 multi-layer F4-Fixes für weltenhub, 3 für wedding-hub, 1 für onboarding-hub. Alle 12 Sweep-PRs gemergt (illustration#8, wedding#19, onboarding#2, travel-beat#38, tax-hub#4, recruiting-hub#7, dms-hub#3, cad-hub#23, billing-hub#6, mcp-hub#106/trading-hub#14, **weltenhub#16**). coach-hub#28 + research-hub#6 = STOP.
 
-**Davor (2026-06-05 — github-admin / risk-hub-Launch / KONZ-002):** risk-hub **live in Prod** als Kundenprodukt (schutztat.de) + Cross-Tenant-Edit-Fix (PR #168, merged); **Profil-B-GitHub-App** aufgesetzt (App 3971306, Token-Smoke grün); **KONZ-002 ref-sweep** über 17 Hubs; **deep Session-Retro** (Report: `~/shared/session-retro-2026-06-05-platform-ghadmin.md`).
+**Davor (2026-06-09 — shared-ci v1.0.2):** `deploy_runs_on`-Fix → v1.0.2; mcp-hub + trading-hub forward-gefixt; alle 12 Sweep-PRs auf @v1.0.2 re-pointet. Drift: `feedback_sharedci_tag_stale_vs_platform_main`.
+
+**Davor (2026-06-08):** F4-acute ✅, ADR-212 Phase-1 ✅, F1 .windsurf-Untrack ✅.
 
 **Offen — direkt umsetzbar (erster Zug nächste Session):**
-- **M6 Profil B fertig:** `~/.bashrc`-Block (`GH_APP_ID=3971306`, `claude-ent()`) **✅ vorhanden** (bashrc:126–132); offen nur noch **manuell**: App auf **„Any account"** + Install auf `iilgmbh`+`bahn-sqf` → dann `claude-ent iilgmbh` = Org-Admin. Details: `docs/PROFILE_B.md`.
-- **12 gehaltene ref-sweep-PRs** (`achimdehnert/platform`→`iilgmbh/shared-ci@v1.0.2`, **alle 2026-06-09 auf v1.0.2 re-pointet**: weltenhub#16, wedding-hub#19, travel-beat#38, tax-hub#4, recruiting-hub#7, onboarding-hub#2, illustration-hub#8, dms-hub#3, coach-hub#28, cad-hub#23, billing-hub#6, research-hub#6) → mergen sobald **F4** das jeweilige Repo grün macht (kein CI-/Security-Bypass; Gate ist Konvention, s. Zweitfund oben). **mcp-hub#98 + trading-hub#13 raus aus dieser Liste** — beide bereits @v1.0.1 gemergt+gebrochen, forward-gefixt via #106/#14 (done).
-- **Branch-Protection-Lücke (NEU 2026-06-09):** 0/14 Hubs haben required-status-checks auf `main` → „no-bypass" unenforced. Entscheiden ob fleet-weit required-checks (ADR) — Friktion mit minutenlang `queued` self-hosted-Checks bedenken. Nicht reflexhaft flippen.
-- **#7 risk-hub→Enterprise-Transfer:** bewusst **deferred** (Bake + geplantes Fenster; gegated hinter KONZ-002 S2). `platform`-Self-Refs (publish-Workflows) separat/vorsichtig sweepen.
+- **coach-hub #28**: STOP — `django-lms-lite` ist privater GitHub-Repo, kein CI-Zugriff. Entscheiden: Dep öffentlich machen / mirror / manuell installieren / anderen Ansatz wählen.
+- **research-hub #6**: STOP — `django-tenancy` nicht für Python 3.12 verfügbar (kein Rad auf PyPI). Architektur-Entscheidung nötig.
+- **M6 Profil B fertig:** nur noch manuell: App auf **„Any account"** + Install auf `iilgmbh`+`bahn-sqf` → dann `claude-ent iilgmbh` = Org-Admin. Details: `docs/PROFILE_B.md`.
+- **Branch-Protection-Lücke:** 0/14 Hubs haben required-status-checks auf `main` → no-bypass unenforced. ADR-Kandidat.
+- **#7 risk-hub→Enterprise-Transfer:** deferred (gegated hinter KONZ-002 S2).
 - **shared-ci Issue #3:** eigene CI (actionlint) für die reusable Workflows.
 
-**Kontext-Memories (auto-load):** 🌀 `feedback_sharedci_tag_stale_vs_platform_main` (NEU) · `project_profile_b_app_state` · `project_riskhub_prod_launch` · `project_riskhub_entitlement_gaps` · 🌀 `feedback_commit_on_main_recurs` · 🌀 `feedback_merge_to_main_triggers_deploy`.
+**Kontext-Memories (auto-load):** 🌀 `feedback_sharedci_tag_stale_vs_platform_main` · `project_profile_b_app_state` · `project_riskhub_prod_launch` · 🌀 `feedback_commit_on_main_recurs` · 🌀 `feedback_merge_to_main_triggers_deploy`.
 
 ---
 
@@ -29,14 +31,16 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI (akute `ai-assignable`-Tranche ✅ leer); nächste Welle = Ruff/Config-Drift an der Quelle, nicht Issue-für-Issue | `[Sonnet]` |
-| 2 | **12 ref-sweep-PRs mergen** (auf `@v1.0.2`) — pro Repo sobald dessen main-CI grün (gated auf F4; Gate unenforced → Disziplin); Liste oben | `[Sonnet]` |
-| 3 | **M6 Profil-B fertigstellen** — nur noch manuell: App „Any account" + Org-Installs iilgmbh/bahn-sqf (`docs/PROFILE_B.md`); bashrc-Block schon da | `[manuell]` |
-| 4 | **Branch-Protection-Entscheid** — required-status-checks fleet-weit ja/nein (ADR-Kandidat); macht „no-bypass" real | `[du/ADR]` |
+| 1 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI; nächste Welle = Ruff/Config-Drift an der Quelle | `[Sonnet]` |
+| 2 | **ref-sweep abgeschlossen** ✅ — coach-hub#28 + research-hub#6 STOP (Architektur-Entscheid ausstehend) | `[du]` |
+| 3 | **M6 Profil-B fertigstellen** — nur noch manuell: App „Any account" + Org-Installs iilgmbh/bahn-sqf | `[manuell]` |
+| 4 | **Branch-Protection-Entscheid** — required-status-checks fleet-weit ja/nein (ADR-Kandidat) | `[du/ADR]` |
 
-**✅ Erledigt (2026-06-09):** **shared-ci `v1.0.2`** (deploy_runs_on #461 + import_smoke-Bypass cad-hub#21, `iilgmbh/shared-ci#4` merged+getaggt) · **mcp-hub#106** (→@v1.0.2, Deploy success, orchestrator /healthz/ 200) · **trading-hub#14** (→@v1.0.2, Deploy success, ai-trades.de/livez/ 200) · **12 Sweep-PRs auf @v1.0.2 re-pointet** (inkl. research-hub#6 das auf @v1.0.0 zeigte) · Drift-Memory + Branch-Protection-Lücke (0/14) dokumentiert.
+**✅ Erledigt (2026-06-10):** weltenhub#16 gemergt verifiziert → **ref-sweep 12/12 komplett**.
 
-**✅ Erledigt (2026-06-08):** F4-acute (alle 6 trivialen `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#56 stale → superseded by dev-hub#81 merged; verifiziert) · **F1 .windsurf-Untrack vollständig** (Distributor retired, gesamte Flotte inkl. dev-hub clean; 2 zuletzt entdeckte Residual-Libs iil-django-commons#1 + riskfw#1 untrackt+gemergt → 0 `.windsurf`-100644 auf origin/main; N/A: adr-doctor leerer Repo, platform = SSoT) · **3 mergebare PRs gemergt** (platform #476 Profil-B, #478 main-tree-guard, `iilgmbh/shared-ci` #2 immutable ref — alle merged 2026-06-05, war stale als „offen" gelistet).
+**✅ Erledigt (2026-06-09):** wedding-hub#19 · onboarding-hub#2 · weltenhub pytest-Fixes · F4-Fixes: weltenhub 5, wedding-hub 3, onboarding-hub 1 · **shared-ci `v1.0.2` + `v1.0.3`** · **mcp-hub#106** + **trading-hub#14** · 11/12 ref-sweep-PRs.
+
+**✅ Erledigt (2026-06-08):** F4-acute (alle 6 `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#81 merged) · F1 .windsurf-Untrack vollständig (0 `.windsurf`-Files auf origin/main).
 
 **KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
