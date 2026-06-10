@@ -158,9 +158,14 @@ fi
 export TARGET_REPO
 
 # Aktuelles Repo synchronisieren
-git stash --quiet 2>/dev/null
+# Stash nur poppen wenn WIR etwas gestasht haben — bei cleanem Tree poppt
+# `git stash pop` sonst einen fremden alten Stash-Eintrag (Drift 2026-06-10)
+STASHED=0
+if [ -n "$(git status --porcelain)" ]; then
+  git stash --quiet 2>/dev/null && STASHED=1
+fi
 git pull --rebase --quiet
-git stash pop --quiet 2>/dev/null
+[ "$STASHED" -eq 1 ] && git stash pop --quiet 2>/dev/null
 
 # Kern-Repos (MCP-Infrastruktur)
 for repo in mcp-hub platform risk-hub; do
