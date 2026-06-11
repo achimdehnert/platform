@@ -5,10 +5,10 @@ decision-makers: [Achim Dehnert]
 consulted: [Claude Code]
 informed: []
 supersedes: []
-amends: []
-related: [ADR-045, ADR-072, ADR-090, ADR-142, ADR-143, ADR-144, ADR-157, ADR-218, ADR-234, ADR-236]
+amends: [ADR-142, ADR-143, ADR-144]
+related: [ADR-045, ADR-072, ADR-090, ADR-157, ADR-218, ADR-234, ADR-235, ADR-236]
 implementation_status: none
-last_reviewed: 2026-06-10
+last_reviewed: 2026-06-11
 staleness_months: 3
 tags: [backup, disaster-recovery, offsite, restore-test, enterprise-core, governance]
 ---
@@ -32,7 +32,7 @@ Die Backup-/DR-Lage wurde am 2026-06-10 vollständig aus Datei-Evidenz inventari
 
 | Mechanismus | Pfad | Eigenschaften |
 |---|---|---|
-| Pre-Deploy-Backup | `deployment/scripts/deploy-remote.sh:133-146` | `pg_dumpall \| gzip`, keep-last-10 — **einziger by-construction erzwungener Pfad**, aber deploy-getriggert (nicht zeitgesteuert) und **non-blocking bei Fehler** |
+| Pre-Deploy-Backup | `deployment/scripts/deploy-remote.sh`, Abschnitt „2. Pre-deploy DB backup" | `pg_dumpall \| gzip`, keep-last-10 — **einziger by-construction erzwungener Pfad**, aber deploy-getriggert (nicht zeitgesteuert) und **non-blocking bei Fehler** |
 | Stack-Backups | `deployment/stacks/{outline,authentik,doc-hub}/backup.sh` | tägliche pg_dump-Crons (ADR-142/143/144), Retention 7/7/30 d — Installation **manuell** per scp + cp nach `/etc/cron.daily/` |
 | risk-hub | `risk-hub/scripts/backup.sh` | pg_dump + Media-tar; **Cron-Header zeigt auf falschen Pfad** (`/home/deploy/projects/` statt `/opt/risk-hub`, ADR-022), nichts installiert ihn; **MinIO-Volume (Kundendokumente) nicht abgedeckt** |
 | dev-hub | `dev-hub/scripts/backup.sh` | pg_dump + Disk-Guard, Cron-Kommentar, 14 d Retention — Installation ebenfalls manuell |
@@ -124,6 +124,12 @@ Tägliche Host-Snapshots via Hetzner API (`HCLOUD_TOKEN` existiert, ADR-045).
    Storage Box (separater Credential-Satz in `~/.secrets`, **nicht** der
    Hetzner-Cloud-Token — Blast-Radius-Trennung). Retention: 7 daily / 4 weekly /
    6 monthly (restic forget policy).
+   **Key-Escrow (Pflicht):** Der restic-Repo-Schlüssel existiert an **≥ 2 Orten** —
+   auf dem Prod-Host (für den nächtlichen Push) **und** in `~/.secrets`
+   (SOPS-kompatibel, ADR-045). Läge der Schlüssel nur auf dem Host, machte
+   Host-Verlust die Offsite-Backups unlesbar — und reproduzierte genau das
+   Risiko, das dieses ADR adressiert. Das Restore-Runbook beginnt deshalb mit
+   dem Schritt „Key beschaffen".
 3. **Installation by construction:** Cron-Installation wandert in das bestehende
    Deploy-Tooling (deploy-remote.sh bzw. Stack-Setup) — kein manueller scp-Schritt mehr.
 4. **Backup-Meter (Enforcement):** scheduled Workflow in platform prüft täglich
@@ -132,8 +138,10 @@ Tägliche Host-Snapshots via Hetzner API (`HCLOUD_TOKEN` existiert, ADR-045).
    *Confirmation* dieses ADRs — ohne grünen Meter gilt das ADR als nicht implementiert.
 5. **Restore-Beweis:** ein Restore-Runbook je App-Klasse
    (`docs/runbooks/db-restore.md`) + **quartalsweise Feuerübung**: jüngstes
-   risk-hub-Backup in Wegwerf-Postgres restoren, Smoke-Query, Protokoll nach
-   `~/shared/`. Erste Übung ist Akzeptanzkriterium (§7 G3).
+   risk-hub-Backup in Wegwerf-Postgres restoren, Smoke-Query, Protokoll als
+   Repo-Artefakt nach `docs/runbooks/restore-drills/` (damit der Meter es
+   prüfen kann — `~/shared/` ist maschinen-lokal und für GitHub Actions
+   unsichtbar). Erste Übung ist Akzeptanzkriterium (§7 G3).
 6. **Pre-Deploy-Backup wird blocking** für Prod-Deploys (deploy-remote.sh:
    `continuing` → hard fail), Bypass nur via explizitem `skip_backup`-Input.
 
@@ -151,7 +159,7 @@ Tägliche Host-Snapshots via Hetzner API (`HCLOUD_TOKEN` existiert, ADR-045).
 **Positiv:** Ein-Host-Totalverlust verliert seinen Schrecken (RPO 24 h offsite);
 Backup-Gesundheit wird erstmals messbar; Restore ist bewiesen statt behauptet;
 ADR-142/143/144 behalten Gültigkeit (werden Erzeuger-Schicht, dieses ADR ergänzt
-Transport+Enforcement — Amendment-Verweise nachtragen).
+Transport+Enforcement — als `amends` im Frontmatter verankert).
 
 **Negativ:** ~4 €/Monat Storage Box + Snapshot-Kosten; restic als neue Komponente;
 quartalsweise Übungs-Aufwand (~1 h); blocking Pre-Deploy-Backup kann Deploys
@@ -168,8 +176,9 @@ Amendment, wenn ttz-lif/meiki-lra-Workloads produktiv werden.
 2. `restic snapshots` listet ≥ 1 Snapshot je App der Soll-Tabelle.
 3. deploy-remote.sh schlägt bei fehlgeschlagenem Pre-Deploy-Backup hart fehl
    (Testcase im Repo).
-4. Restore-Feuerübungs-Protokoll < 100 Tage alt in `~/shared/`
-   (Meter prüft Datei-Existenz + Datum via Checkliste im Quartals-Issue).
+4. Restore-Feuerübungs-Protokoll < 100 Tage alt in
+   `docs/runbooks/restore-drills/` (Repo-Artefakt; der Meter prüft
+   Datei-Existenz + Datum direkt im Checkout).
 
 ## Offene Gates vor Accept (§7)
 
@@ -188,6 +197,25 @@ Amendment, wenn ttz-lif/meiki-lra-Workloads produktiv werden.
 | 3 | backup-meter-Workflow + Discord-Alert | 2 h |
 | 4 | Restore-Runbook + erste Feuerübung (G3) | 2 h |
 | 5 | Pre-Deploy-Backup blocking + wöchentl. Hetzner-Snapshot (Layer 2) | 1 h |
+
+## Glossar
+
+| Begriff | Erläuterung |
+|---|---|
+| **Backup-Meter** | Automatischer Prüf-Job (GitHub Actions), der täglich misst, ob die Backups wirklich angekommen und aktuell sind — statt es nur zu dokumentieren. Schlägt bei Verletzung Alarm. |
+| **by construction** | Eigenschaft ist durch den Aufbau des Systems erzwungen (z. B. Backup läuft automatisch bei jedem Deploy), nicht von manueller Disziplin abhängig. |
+| **Cron / cron.daily** | Zeitsteuerung unter Linux; Skripte im Ordner `/etc/cron.daily/` laufen automatisch einmal pro Nacht. |
+| **Deduplizierung (Dedup)** | Speicherverfahren, das identische Datenblöcke nur einmal ablegt — tägliche Backups kosten dadurch kaum zusätzlichen Platz. |
+| **DR (Disaster Recovery)** | Wiederherstellung des Betriebs nach einem Katastrophenfall (z. B. Totalausfall des Servers), im Unterschied zum Einzel-Restore einer Datenbank. |
+| **Offsite** | Backup-Kopie an einem anderen physischen Ort als die Originaldaten — übersteht damit auch den Verlust des gesamten Servers. |
+| **pg_dump / pg_dumpall** | PostgreSQL-Standardwerkzeuge, die den Inhalt einer Datenbank (bzw. aller Datenbanken) in eine wiederherstellbare Datei exportieren. |
+| **restic** | Open-Source-Backup-Programm: verschlüsselt, dedupliziert und überträgt Backups zu einem entfernten Speicherziel; bewährt und wartungsarm. |
+| **Retention** | Aufbewahrungsregel: wie viele Backups wie lange behalten werden (hier: 7 tägliche, 4 wöchentliche, 6 monatliche), ältere werden automatisch gelöscht. |
+| **RPO (Recovery Point Objective)** | Maximal akzeptierter Datenverlust, gemessen in Zeit — RPO 24 h heißt: im schlimmsten Fall fehlt höchstens ein Tag an Daten. |
+| **RTO (Recovery Time Objective)** | Maximal akzeptierte Dauer, bis ein System nach einem Ausfall wieder läuft. |
+| **Snapshot** | Eingefrorenes Abbild eines Datenstands zu einem Zeitpunkt — bei restic ein Backup-Stand, bei Hetzner ein Abbild des ganzen Servers. |
+| **Storage Box** | Günstiger, vom Server getrennter Speicherdienst von Hetzner (EU), hier das Offsite-Ziel der Backups. |
+| **Zero-Knowledge** | Die Backups sind so verschlüsselt, dass der Speicheranbieter ihren Inhalt nicht lesen kann — nur wer den Schlüssel besitzt. |
 
 ## References
 
