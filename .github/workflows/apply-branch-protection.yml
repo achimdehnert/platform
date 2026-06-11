@@ -1,0 +1,95 @@
+name: "ADR-242: Apply Branch Protection (Wave 1)"
+
+on:
+  workflow_dispatch:
+    inputs:
+      repo:
+        description: "Einzelnes Repo (leer = alle Wave-1-Repos aus wave1-repos.json)"
+        required: false
+        default: ""
+      dry_run:
+        description: "Dry-run (nur anzeigen, nichts anlegen)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["false", "true"]
+
+jobs:
+  apply-rulesets:
+    name: "Branch-Protection Rulesets anlegen/aktualisieren"
+    runs-on: self-hosted
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: "Prüfe Abhängigkeiten"
+        run: |
+          command -v gh  || (echo "❌ gh nicht gefunden" && exit 1)
+          command -v jq  || (echo "❌ jq nicht gefunden" && exit 1)
+          echo "✅ gh $(gh --version | head -1) · jq $(jq --version)"
+
+      - name: "Apply Rulesets"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TARGET_REPO: ${{ github.event.inputs.repo }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          set -euo pipefail
+          TEMPLATE="governance/rulesets/main-required-checks-template.json"
+          WAVE1="governance/rulesets/wave1-repos.json"
+
+          apply_one() {
+            local owner="$1" repo="$2" check="$3"
+            local ruleset
+            ruleset=$(cat "$TEMPLATE" | sed "s/__REQUIRED_CHECK__/${check}/g" \
+              | jq 'del(._comment)')
+
+            # Idempotenz: existierendes Ruleset gleichen Namens suchen
+            local existing_id
+            existing_id=$(gh api "repos/${owner}/${repo}/rulesets" \
+              --jq '.[] | select(.name=="main-required-checks") | .id' 2>/dev/null || true)
+
+            if [ "$DRY_RUN" = "true" ]; then
+              echo "🔍 DRY-RUN ${owner}/${repo}: would apply check='${check}' (existing=${existing_id:-none})"
+              return 0
+            fi
+
+            if [ -n "$existing_id" ]; then
+              gh api "repos/${owner}/${repo}/rulesets/${existing_id}" \
+                -X PATCH --input <(echo "$ruleset") > /dev/null
+              echo "✅ ${repo}: Ruleset #${existing_id} aktualisiert (check=${check})"
+            else
+              local new_id
+              new_id=$(gh api "repos/${owner}/${repo}/rulesets" \
+                -X POST --input <(echo "$ruleset") --jq '.id')
+              echo "✅ ${repo}: Ruleset #${new_id} angelegt (check=${check})"
+            fi
+          }
+
+          ok=0 fail=0
+          if [ -n "$TARGET_REPO" ]; then
+            # Einzelnes Repo aus wave1-repos.json heraussuchen
+            entry=$(jq -r --arg r "$TARGET_REPO" '.[] | select(.repo==$r)' "$WAVE1")
+            if [ -z "$entry" ]; then
+              echo "❌ Repo '$TARGET_REPO' nicht in wave1-repos.json"
+              exit 1
+            fi
+            owner=$(echo "$entry" | jq -r '.owner')
+            check=$(echo "$entry" | jq -r '.required_check')
+            apply_one "$owner" "$TARGET_REPO" "$check" && ((ok++)) || ((fail++))
+          else
+            # Alle Wave-1-Repos
+            while IFS= read -r entry; do
+              repo=$(echo "$entry"  | jq -r '.repo')
+              owner=$(echo "$entry" | jq -r '.owner')
+              check=$(echo "$entry" | jq -r '.required_check')
+              apply_one "$owner" "$repo" "$check" && ((ok++)) || { ((fail++)); echo "❌ ${repo}: Fehler"; }
+            done < <(jq -c '.[]' "$WAVE1")
+          fi
+
+          echo ""
+          echo "──────────────────────────────────────────"
+          echo "Ergebnis: ${ok} erfolgreich · ${fail} fehlgeschlagen"
+          [ "$fail" -eq 0 ] || exit 1
