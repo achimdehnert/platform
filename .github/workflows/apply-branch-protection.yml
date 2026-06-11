@@ -96,6 +96,16 @@ jobs:
           }
 
           ok=0 fail=0
+          run_one() {
+            local owner="$1" repo="$2" check="$3"
+            if apply_one "$owner" "$repo" "$check"; then
+              ok=$((ok + 1))
+            else
+              fail=$((fail + 1))
+              echo "❌ ${repo}: Fehler"
+            fi
+          }
+
           if [ -n "$TARGET_REPO" ]; then
             entry=$(jq -r --arg r "$TARGET_REPO" '.[] | select(.repo==$r)' "$WAVE1")
             if [ -z "$entry" ]; then
@@ -104,13 +114,13 @@ jobs:
             fi
             owner=$(echo "$entry" | jq -r '.owner')
             check=$(echo "$entry" | jq -r '.required_check')
-            apply_one "$owner" "$TARGET_REPO" "$check" && ((ok++)) || ((fail++))
+            run_one "$owner" "$TARGET_REPO" "$check"
           else
             while IFS= read -r entry; do
               repo=$(echo "$entry"  | jq -r '.repo')
               owner=$(echo "$entry" | jq -r '.owner')
               check=$(echo "$entry" | jq -r '.required_check')
-              apply_one "$owner" "$repo" "$check" && ((ok++)) || { ((fail++)); echo "❌ ${repo}: Fehler"; }
+              run_one "$owner" "$repo" "$check"
             done < <(jq -c '.[]' "$WAVE1")
           fi
 
