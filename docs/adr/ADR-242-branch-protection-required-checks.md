@@ -1,5 +1,5 @@
 ---
-status: draft
+status: accepted
 date: 2026-06-11
 decision-makers: [Achim Dehnert]
 consulted: [Claude Code]
@@ -7,7 +7,7 @@ informed: []
 supersedes: []
 amends: []
 related: [ADR-209, ADR-226, ADR-230, ADR-234, ADR-235]
-implementation_status: none
+implementation_status: in_progress
 last_reviewed: 2026-06-11
 staleness_months: 3
 tags: [branch-protection, ci, governance, enforcement, no-bypass, enterprise-core]
