@@ -20,13 +20,15 @@ tags: [backup, disaster-recovery, offsite, restore-test, enterprise-core, govern
 
 ## Status-Hinweis
 
-`draft` — entscheidungsreif bis auf zwei Owner-Gates (§7: Offsite-Ziel-Wahl, Prod-Verifikation).
+`draft` — entscheidungsreif bis auf **ein** Owner-Gate (§7 G1: Offsite-Ziel-Wahl +
+Kostenfreigabe); G2 (Prod-Verifikation) ist seit 2026-06-11 erledigt — Ergebnis
+verschärft den Befund (risk-hub ohne jedes Backup, §7).
 Kandidat für den `enterprise-core`-Subset (Enterprise-Basis-Entscheidung E3/E4, 2026-06-10).
 
 ## Kontext & Problemstellung
 
-Die Backup-/DR-Lage wurde am 2026-06-10 vollständig aus Datei-Evidenz inventarisiert
-(kein Server-Zugriff; Prod-Verifikation ist Gate G2 in §7). Befund:
+Die Backup-/DR-Lage wurde am 2026-06-10 aus Datei-Evidenz inventarisiert und am
+2026-06-11 per SSH-Inventur gegen Prod verifiziert (G2-Ergebnis in §7). Befund:
 
 **Was existiert (verifiziert):**
 
@@ -185,14 +187,42 @@ Amendment, wenn ttz-lif/meiki-lra-Workloads produktiv werden.
 | Gate | Inhalt | Owner | billigster Check |
 |---|---|---|---|
 | G1 | Offsite-Ziel bestätigen (Storage Box BX11 vs. Alternativen; Kostenfreigabe ~5 €/M) | Achim | Hetzner-Bestellseite |
-| G2 | Prod-Realität verifizieren: laufen die cron.daily-Backups heute? Ist `/opt/backups/*` befüllt? | Achim/ich | 1× `ssh hetzner-prod 'ls -la /etc/cron.daily/ /opt/backups/'` |
+| G2 ✅ | Prod-Realität verifiziert (2026-06-11, SSH-Inventur read-only) | erledigt | siehe G2-Ergebnis |
 | G3 | Erste Restore-Feuerübung grün (risk-hub-Dump → Wegwerf-Postgres) | ich (gated) | — |
+
+### G2-Ergebnis (Prod-Inventur 2026-06-11)
+
+**Läuft (verifiziert, Backups von heute):**
+
+- **5 tägliche DB-Backup-Crons aktiv:** authentik (crontab 03:30 **und**
+  cron.daily — doppelt installiert), outline (03:15 + cron.daily, ebenfalls
+  doppelt), doc-hub (03:00 + cron.daily), **bfagent** (03:00 — läuft trotz
+  Einfrierung weiter), **travel-beat** (04:00); dazu täglich
+  `cf-origin-key-backup.sh`. `/opt/backups/{authentik,outline,doc-hub}/`
+  mit frischen Dumps vom 2026-06-11 (authentik 9 MB, outline 95 MB).
+
+**Fehlt / Drift (verifiziert):**
+
+1. **risk-hub — das zahlende Kundenprodukt — hat NULL Backups:** kein Cron
+   (weder crontab noch cron.daily), kein `/opt/risk-hub/backups/` (auch der
+   Pre-Deploy-Pfad hat dort nie geschrieben), MinIO-Volumes
+   (`risk_hub_minio_data`, Kundendokumente) ungesichert.
+2. **dev-hub und mcp-hub (pgvector-Shared-Memory): ebenfalls kein Cron.**
+3. **Pre-Deploy-Backups greifen nur teilweise:** nur bfagent-app/travel-beat/
+   wedding-hub haben `pre_deploy_*.sql.gz` (neueste Feb 2026); 6 weitere
+   `/opt/*/backups/` sind leer — Hypothese: Container-Name-Grep
+   (`postgres|_db`) matcht dort nicht → still „skipping backup"
+   (billigster Check: ein Deploy-Log lesen).
+4. **doc-hub-Retention-Drift:** Rotations-Cron behält nur die **letzten 2**
+   Tages-Verzeichnisse — ADR-144 verspricht 30 d.
+5. **Null Offsite bestätigt:** kein restic/rclone/Sync-Job in crontab oder
+   cron.daily — alles liegt auf dem Daten-Host (CPX52).
 
 ## Rollout (nach Accept)
 
 | Phase | Inhalt | Aufwand |
 |---|---|---|
-| 1 | G2-Verifikation + risk-hub-Fixes (Cron-Pfad, MinIO, mcp-hub-Skript) | 2 h |
+| 1 | ~~G2-Verifikation~~ ✅ + risk-hub-Fixes (Cron + MinIO, **dringlichster Einzelfix**), dev-hub-Cron, mcp-hub-Skript, doc-hub-Retention, Pre-Deploy-Container-Grep prüfen | 3 h |
 | 2 | Storage Box + restic-Wrapper + Cron-Installation via Deploy-Tooling | 3 h |
 | 3 | backup-meter-Workflow + Discord-Alert | 2 h |
 | 4 | Restore-Runbook + erste Feuerübung (G3) | 2 h |
