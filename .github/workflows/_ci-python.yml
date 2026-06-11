@@ -499,3 +499,22 @@ jobs:
               print('platform_context.checks not available -- skipping guardian check')
               sys.exit(0)
           GUARDIAN_EOF
+
+  gate:
+    name: "gate"
+    runs-on: ${{ inputs.runs_on }}
+    needs: [qm-gate, lint, secrets-scan, security, test-unit, test-integration, coverage-report, test-contract, architecture-guardian]
+    if: always()
+    steps:
+      - name: "All CI jobs passed or skipped"
+        run: |
+          STATUS_LIST='${{ toJSON(needs) }}'
+          echo "$STATUS_LIST" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          failures = [name for name, job in needs.items() if job['result'] not in ('success', 'skipped')]
+          if failures:
+              print('::error::Failed or cancelled jobs:', failures)
+              sys.exit(1)
+          print('All jobs passed or were skipped.')
+          "
