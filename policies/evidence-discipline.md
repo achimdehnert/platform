@@ -46,6 +46,17 @@ incidents of the 2026-05-19 thread (assert-before-check or never).
 policy is cut, not patched.** A policy that cannot fail its own test is
 the sprawl it warns against.
 
+## How to measure
+
+```bash
+python3 tools/measure-evidence-discipline.py --repo <repo-slug>
+# Scans ~/.claude/projects/*<repo-slug>*/*.jsonl
+# Emits: R = <fraction> (<checked>/<total> marker-claim turns)
+```
+
+Run on or after **2026-06-15** (~10 sessions post-merge). R ≥ 0.70 = policy working.
+If R does not beat the ~6-incident baseline, the policy is cut per the effectiveness test above.
+
 ## Changelog
 
 - 2026-05-19: Initial, promoted passive→active. Trimmed same day to
