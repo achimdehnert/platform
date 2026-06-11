@@ -32,8 +32,8 @@ jobs:
 
       - name: "Apply Rulesets"
         env:
-          # GH_PAT overrides GITHUB_TOKEN for cross-repo admin access
-          TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          # PROJECT_PAT = cross-repo PAT (consistent with platform-audit/secret-prevention-audit)
+          TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
           TARGET_REPO: ${{ github.event.inputs.repo }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
