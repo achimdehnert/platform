@@ -74,9 +74,20 @@ cmd_report() {
   [ "${n:-0}" = "0" ] || { echo "  → Kill-Gate (ADR-233 §8): Konvention nicht erzwingbar (>0)."; tail -3 "$log"; }
 }
 
+cmd_precommit_check() {
+  local head; head="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
+  if [ "$head" = "main" ]; then
+    echo "⛔ main-tree-guard (pre-commit): Commit direkt auf 'main' blockiert." >&2
+    echo "   Erstelle einen Feature-Branch: git checkout -b feat/<slug>" >&2
+    exit 1
+  fi
+  exit 0
+}
+
 case "${1:-}" in
-  install) shift; cmd_install "$@";;
-  hook)    shift; cmd_hook "$@";;
-  report)  shift; cmd_report "$@";;
-  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | hook <prev> <new> <flag>}" >&2; exit 2;;
+  install)          shift; cmd_install "$@";;
+  hook)             shift; cmd_hook "$@";;
+  report)           shift; cmd_report "$@";;
+  precommit-check)  cmd_precommit_check;;
+  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | hook <prev> <new> <flag> | precommit-check}" >&2; exit 2;;
 esac
