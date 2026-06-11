@@ -1,0 +1,27 @@
+{
+  "_comment": "ADR-242: Branch-Protection Template. Wird per apply-branch-protection.sh auf Repos angewendet.",
+  "name": "main-required-checks",
+  "target": "branch",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": {
+      "include": ["refs/heads/main"],
+      "exclude": []
+    }
+  },
+  "rules": [
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "required_status_checks": [
+          {
+            "context": "__REQUIRED_CHECK__",
+            "integration_id": null
+          }
+        ],
+        "strict_required_status_checks_policy": false
+      }
+    }
+  ],
+  "bypass_actors": []
+}
