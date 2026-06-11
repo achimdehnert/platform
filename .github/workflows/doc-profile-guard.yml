@@ -1,0 +1,54 @@
+name: Doc-Profile-Change-Guard
+
+# ADR-218 OQ-4 — Profil-Wechsel-Enforcement.
+# Erkennt profile:-Wert-Änderungen in docs/doc-profile.yaml und erzwingt
+# einen ADR-Link im PR-Body. Override: Label 'adr-exempt-profile-change'.
+#
+# Einbindung im Repo-CI:
+#   jobs:
+#     doc-profile-guard:
+#       uses: achimdehnert/platform/.github/workflows/doc-profile-guard.yml@main
+#       with:
+#         labels: ${{ toJson(github.event.pull_request.labels.*.name) }}
+
+on:
+  workflow_call:
+    inputs:
+      labels:
+        description: "JSON array of PR label names (pass github.event.pull_request.labels.*.name)"
+        type: string
+        default: "[]"
+
+permissions:
+  contents: read
+
+jobs:
+  doc-profile-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout caller repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout platform (check script)
+        uses: actions/checkout@v4
+        with:
+          repository: achimdehnert/platform
+          ref: main
+          path: _platform
+
+      - name: Check for profile-change exemption label
+        id: exempt
+        run: |
+          labels='${{ inputs.labels }}'
+          if echo "$labels" | python3 -c "import sys,json; sys.exit(0 if 'adr-exempt-profile-change' in json.load(sys.stdin) else 1)" 2>/dev/null; then
+            echo "exempt=1" >> "$GITHUB_OUTPUT"
+          else
+            echo "exempt=0" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Detect profile-value change (ADR-218 OQ-4)
+        env:
+          PROFILE_CHANGE_EXEMPT: ${{ steps.exempt.outputs.exempt }}
+        run: bash _platform/scripts/checks/doc_profile_check.sh --detect-profile-change
