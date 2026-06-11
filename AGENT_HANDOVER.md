@@ -5,7 +5,24 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-10 — ref-sweep abgeschlossen; nur coach-hub#28 offen)
+## ⚡ Aktueller Stand (2026-06-11 — M6 ✅, ADR-242 accepted + Phase-2-Rollout ✅)
+
+**Diese Session (2026-06-11):**
+- **M6 Profil-B ✅ abgeschlossen** — PR #536 gemergt; bashrc-Block gesetzt; App public; Tokens iilgmbh+bahn-sqf grün.
+- **ADR-242 accepted** — PR #535 gemergt; `status: accepted`, `implementation_status: in_progress`.
+- **Rollout Phase 2 ✅** — 3 PRs parallel gemergt:
+  - #540: `ci / gate` Aggregat-Job in `platform/_ci-python.yml` (required-check-Basis)
+  - #541: `governance/rulesets/` — Template + Wave-1-Liste (7 Repos) + `tools/apply-branch-protection.sh`
+  - #542: `workflow_dispatch`-Workflow `apply-branch-protection.yml` — Pilot über GitHub Actions UI
+- **Permission** `Bash(gh api repos/*/rulesets*)` in `.claude/settings.local.json` gesetzt (ab nächster Session wirksam für direkten Script-Run).
+
+**Offen — direkt umsetzbar (erster Zug nächste Session):**
+- **ADR-242 Phase 3 (Pilot):** Workflow via GitHub Actions UI triggern: Actions → "ADR-242: Apply Branch Protection (Wave 1)" → `dry_run: true` → dann live. ODER: `bash tools/apply-branch-protection.sh` direkt (Permission in settings.local.json ab nächster Session).
+- **ADR-242 Phase 4:** `branch-protection-meter` Workflow + Discord-Alert (ADR-242 §Rollout 4)
+- **coach-hub #28**: STOP — `django-lms-lite` privater Repo, kein CI-Zugriff. Dep-Entscheid.
+- **F4 CI-grün-Programm (Breite):** ~34 Repos rote main-CI; nächste Welle = Ruff/Config-Drift an der Quelle.
+
+## ⚡ Vorheriger Stand (2026-06-10 — ref-sweep abgeschlossen; nur coach-hub#28 offen)
 
 **Diese Session (2026-06-10, später):** **research-hub#6 gemergt** (squash, `7b3260d`). Zwei
 unabhängige teardown-Bugs gefixt (beide mit Standalone-Repro reproduziert, dann CI-grün):
@@ -36,14 +53,14 @@ verfügbar" war FALSCH** (Paket ist da, aus risk-hub/packages). Fleet-Pattern �
 
 ---
 
-## 0. Aktuelle Prioritäten (2026-06-09)
+## 0. Aktuelle Prioritäten (2026-06-11)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI; nächste Welle = Ruff/Config-Drift an der Quelle | `[Sonnet]` |
-| 2 | **ref-sweep abgeschlossen** ✅ — research-hub#6 gefixt+gemergt; nur noch coach-hub#28 (Dep-Entscheid `django-lms-lite`) | `[du]` |
-| 3 | **M6 Profil-B fertigstellen** — nur noch manuell: App „Any account" + Org-Installs iilgmbh/bahn-sqf | `[manuell]` |
-| 4 | **Branch-Protection-Entscheid** — required-status-checks fleet-weit ja/nein (ADR-Kandidat) | `[du/ADR]` |
+| 1 | **F4 CI-grün-Programm (Breite)** — ~34 Repos rote main-CI; nächste Welle = Ruff/Config-Drift an der Quelle | `[Sonnet]` |
+| 2 | **ADR-242 Phase 3 (Pilot)** — GH-Actions-Workflow triggern oder `apply-branch-protection.sh` direkt (ab nächster Session) | `[du/Sonnet]` |
+| 3 | **coach-hub #28** — `django-lms-lite` Dep-Entscheid (privater Repo, kein CI-Zugriff) | `[du]` |
+| 4 | **ADR-242 Phase 4** — `branch-protection-meter` Workflow + Discord-Alert | `[Sonnet]` |
 
 **✅ Erledigt (2026-06-10):** weltenhub#16 gemergt verifiziert → **ref-sweep 12/12 komplett** · **research-hub#6** gemergt (2 teardown-Bugs gefixt: async-ORM-Connection-Leak + flush-CASCADE vs django_tenancy-FK).
 
