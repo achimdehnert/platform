@@ -23,21 +23,50 @@ SCHEMA="$REPO_ROOT/docs/conventions/doc-profile-schema.yaml"
 STRICT=0
 USE_REMOTE_MAIN=0
 SINGLE_REPO=""
+DETECT_CHANGE=0
 for arg in "$@"; do
   case "$arg" in
-    --strict) STRICT=1 ;;
-    --main)   USE_REMOTE_MAIN=1 ;;
-    --repo=*) SINGLE_REPO="${arg#--repo=}" ;;
+    --strict)               STRICT=1 ;;
+    --main)                 USE_REMOTE_MAIN=1 ;;
+    --repo=*)               SINGLE_REPO="${arg#--repo=}" ;;
+    --detect-profile-change) DETECT_CHANGE=1 ;;
     -h|--help)
       cat <<EOF
-Usage: $0 [--strict] [--main] [--repo=<name>]
-  --strict   Repos ohne doc-profile.yaml als FAIL (Default: WARN).
-  --main     Quelle origin/main statt Working-Tree (CI-Sicht).
-  --repo=X   Nur Repo X prüfen statt alle aus registry/repos.yaml.
+Usage: $0 [--strict] [--main] [--repo=<name>] [--detect-profile-change]
+  --strict                Repos ohne doc-profile.yaml als FAIL (Default: WARN).
+  --main                  Quelle origin/main statt Working-Tree (CI-Sicht).
+  --repo=X                Nur Repo X prüfen statt alle aus registry/repos.yaml.
+  --detect-profile-change Prüft git diff origin/main..HEAD -- docs/doc-profile.yaml
+                          auf Profil-Wert-Wechsel (ADR-218 OQ-4). FAIL wenn geändert,
+                          es sei denn PROFILE_CHANGE_EXEMPT=1 ist gesetzt.
 EOF
       exit 0 ;;
   esac
 done
+
+# --- --detect-profile-change: ADR-218 OQ-4 Profil-Wechsel-Gate -------------------
+if [[ $DETECT_CHANGE -eq 1 ]]; then
+  if [[ "${PROFILE_CHANGE_EXEMPT:-0}" == "1" ]]; then
+    echo "✓ PROFILE_CHANGE_EXEMPT=1 — ADR-Pflicht-Gate übersprungen (Label adr-exempt-profile-change)."
+    exit 0
+  fi
+  diff_out=$(git diff "origin/main...HEAD" -- "docs/doc-profile.yaml" 2>/dev/null || true)
+  if [[ -z "$diff_out" ]]; then
+    echo "✓ docs/doc-profile.yaml unverändert — kein Profil-Wechsel."
+    exit 0
+  fi
+  old_val=$(printf '%s\n' "$diff_out" | grep '^-profile:' | sed 's/^-profile:[[:space:]]*//' | tr -d '"'"'" | head -1)
+  new_val=$(printf '%s\n' "$diff_out" | grep '^+profile:' | sed 's/^+profile:[[:space:]]*//' | tr -d '"'"'" | head -1)
+  if [[ -z "$old_val" && -z "$new_val" ]]; then
+    echo "✓ docs/doc-profile.yaml geändert, aber kein profile:-Wert-Wechsel — OK."
+    exit 0
+  fi
+  echo "FAIL: Profil-Wechsel erkannt: '${old_val:-?}' → '${new_val:-?}'"
+  echo "ADR-Pflicht (ADR-218 §Confirmation Schritt 4): Profil-Wechsel erfordert ADR."
+  echo "Bitte ADR-NNN-Link im PR-Body verlinken."
+  echo "Tippfehler-Korrektur? Label 'adr-exempt-profile-change' am PR setzen."
+  exit 1
+fi
 
 [[ -f "$REGISTRY" ]] || { echo "FATAL: $REGISTRY fehlt"; exit 2; }
 [[ -f "$SCHEMA" ]]   || { echo "FATAL: $SCHEMA fehlt"; exit 2; }
