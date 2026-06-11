@@ -81,5 +81,11 @@ Profil B ist breit, **weil** gerade Umbau läuft. Die Verengung ist eine
   `gh-app-token.sh <account>` löst die Install-ID live per JWT auf.
 - **Verifiziert (2026-06-05):** GitHub Apps können org/repo-Admin voll (GA) +
   Enterprise-Member/Org/SSO (Public Preview); Billing/-Policy **nicht** → PAT-Rest.
-- **Offen (M6):** App auf „Any account" stellen + Install auf `iilgmbh`/`bahn-sqf`
-  (Org-Admin); `~/.bashrc`-Block setzen; PR #476 mergen.
+- **Verifiziert (2026-06-11, M6 abgeschlossen bis auf bashrc):** App **public**
+  (`GET /apps/iilgmbh-admin` unauth = 200); installiert auf `iilgmbh`
+  (Install `139544195`, alle Repos, Token-Smoke grün: 10 Repos) und `bahn-sqf`
+  (Install `139544267`, alle Repos, Token-Smoke grün: 3 Repos); PR #476 gemergt.
+  UI-Hinweis: „Any account" heißt nach App-Anlage **Advanced → Danger Zone →
+  „Make this GitHub App public"**.
+- **Offen (M6-Rest):** `~/.bashrc`-Block setzen (Abschnitt „Token prägen +
+  claude-ent" oben) — User-Schritt, danach ist `claude-ent iilgmbh` einsatzbereit.
