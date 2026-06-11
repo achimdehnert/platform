@@ -26,51 +26,77 @@ jobs:
 
       - name: "Prüfe Abhängigkeiten"
         run: |
-          command -v gh  || (echo "❌ gh nicht gefunden" && exit 1)
-          command -v jq  || (echo "❌ jq nicht gefunden" && exit 1)
-          echo "✅ gh $(gh --version | head -1) · jq $(jq --version)"
+          command -v curl || (echo "❌ curl nicht gefunden" && exit 1)
+          command -v jq   || (echo "❌ jq nicht gefunden"  && exit 1)
+          echo "✅ curl $(curl --version | head -1 | cut -d' ' -f2) · jq $(jq --version)"
 
       - name: "Apply Rulesets"
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GH_PAT overrides GITHUB_TOKEN for cross-repo admin access
+          TOKEN: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           TARGET_REPO: ${{ github.event.inputs.repo }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
         run: |
           set -euo pipefail
           TEMPLATE="governance/rulesets/main-required-checks-template.json"
           WAVE1="governance/rulesets/wave1-repos.json"
+          API="https://api.github.com"
+
+          api_get() {
+            curl -sf \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "$@"
+          }
+          api_post() {
+            curl -sf -X POST \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              -H "Content-Type: application/json" \
+              "$@"
+          }
+          api_patch() {
+            curl -sf -X PATCH \
+              -H "Authorization: Bearer ${TOKEN}" \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              -H "Content-Type: application/json" \
+              "$@"
+          }
 
           apply_one() {
             local owner="$1" repo="$2" check="$3"
             local ruleset
-            ruleset=$(cat "$TEMPLATE" | sed "s/__REQUIRED_CHECK__/${check}/g" \
-              | jq 'del(._comment)')
+            ruleset=$(jq --arg c "$check" \
+              'del(._comment) | .rules[0].parameters.required_status_checks[0].context = $c' \
+              "$TEMPLATE")
 
             # Idempotenz: existierendes Ruleset gleichen Namens suchen
             local existing_id
-            existing_id=$(gh api "repos/${owner}/${repo}/rulesets" \
-              --jq '.[] | select(.name=="main-required-checks") | .id' 2>/dev/null || true)
+            existing_id=$(api_get "${API}/repos/${owner}/${repo}/rulesets" \
+              | jq -r '.[] | select(.name=="main-required-checks") | .id' 2>/dev/null || true)
 
             if [ "$DRY_RUN" = "true" ]; then
-              echo "🔍 DRY-RUN ${owner}/${repo}: would apply check='${check}' (existing=${existing_id:-none})"
+              echo "🔍 DRY-RUN ${owner}/${repo}: check='${check}' existing=${existing_id:-none}"
               return 0
             fi
 
             if [ -n "$existing_id" ]; then
-              gh api "repos/${owner}/${repo}/rulesets/${existing_id}" \
-                -X PATCH --input <(echo "$ruleset") > /dev/null
+              api_patch "${API}/repos/${owner}/${repo}/rulesets/${existing_id}" \
+                -d "$ruleset" > /dev/null
               echo "✅ ${repo}: Ruleset #${existing_id} aktualisiert (check=${check})"
             else
               local new_id
-              new_id=$(gh api "repos/${owner}/${repo}/rulesets" \
-                -X POST --input <(echo "$ruleset") --jq '.id')
+              new_id=$(api_post "${API}/repos/${owner}/${repo}/rulesets" \
+                -d "$ruleset" | jq -r '.id')
               echo "✅ ${repo}: Ruleset #${new_id} angelegt (check=${check})"
             fi
           }
 
           ok=0 fail=0
           if [ -n "$TARGET_REPO" ]; then
-            # Einzelnes Repo aus wave1-repos.json heraussuchen
             entry=$(jq -r --arg r "$TARGET_REPO" '.[] | select(.repo==$r)' "$WAVE1")
             if [ -z "$entry" ]; then
               echo "❌ Repo '$TARGET_REPO' nicht in wave1-repos.json"
@@ -80,7 +106,6 @@ jobs:
             check=$(echo "$entry" | jq -r '.required_check')
             apply_one "$owner" "$TARGET_REPO" "$check" && ((ok++)) || ((fail++))
           else
-            # Alle Wave-1-Repos
             while IFS= read -r entry; do
               repo=$(echo "$entry"  | jq -r '.repo')
               owner=$(echo "$entry" | jq -r '.owner')
