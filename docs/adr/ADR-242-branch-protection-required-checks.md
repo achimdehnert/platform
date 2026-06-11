@@ -20,23 +20,26 @@ tags: [branch-protection, ci, governance, enforcement, no-bypass, enterprise-cor
 
 ## Status-Hinweis
 
-`draft` — entscheidungsreif bis auf zwei Gates (§7: Plan-Verfügbarkeit für private
-Repos, Check-Namen-Inventur). Kandidat für den `enterprise-core`-Subset.
+`draft` — **entscheidungsreif**: alle drei Gates (§7) sind am 2026-06-11
+API-verifiziert abgeräumt. Kandidat für den `enterprise-core`-Subset.
 
 ## Kontext & Problemstellung
 
 Die „no-bypass"-Regel (rote CI wird nicht gemergt) existiert heute nur als
-Konvention — **nicht als Enforcement**. Inventur-Befund (2026-06-09, shared-ci-Episode):
+Konvention — **nicht als Enforcement**. Inventur (API-verifiziert 2026-06-11,
+alle 49 Repos mit `main`-Branch der achimdehnert-Installation):
 
-1. **0/14 Hubs haben required-status-checks auf `main`.** Nichts hindert einen
-   Merge bei roter CI.
+1. **47/49 Repos ohne Branch-Protection auf `main`.** Nur platform (required
+   check `guardian`) und risk-hub (volles Set inkl. Staging-Gate) sind
+   geschützt. Nichts hindert in den übrigen 47 einen Merge bei roter CI.
 2. **Der Fall ist real eingetreten:** trading-hub#13 wurde manuell rot gemergt —
-   der Defekt wanderte ungebremst auf `main`.
-3. **Verschärfung durch Auto-Deploy:** mehrere Repos deployen bei Push auf `main`
-   direkt nach Prod (`on: push: [main]` ohne Path-Filter — u. a. recruiting-hub,
-   trading-hub, dms-hub, dev-hub; Drift-Memory 2026-06-06). Ein roter Merge ist
-   dort nicht nur ein Repo-Problem, sondern ein **Prod-Deploy eines bekannten
-   Defekts**.
+   der Defekt wanderte ungebremst auf `main` (Drift 2026-06-09).
+3. **Verschärfung durch Auto-Deploy:** **24 Repos** haben ein
+   `on: push: [main]`-Deploy ohne Path-Filter (deploy.yml-Inventur 2026-06-11);
+   davon defaulten ~20 auf `target_environment: production` — ein roter Merge
+   ist dort ein **Prod-Deploy eines bekannten Defekts**. Ausnahmen: risk-hub
+   (GitHub-Environment-Freigabe, kein Auto-Prod), bfagent (leeres
+   Environment-Default + eingefroren).
 4. **Wechselwirkung F4:** ein Teil der Flotte hat aktuell rote main-CI
    (F4-Programm, Stand 2026-06-08: Größenordnung 30+/57 Repos). Auf einem
    Repo mit roter main-CI blockiert ein required-check **jeden** Merge — das
@@ -102,6 +105,13 @@ Compliance per Meter (§Confirmation).
    (`platform/governance/rulesets/main-required-checks.json`):
    Target `main`, `required_status_checks` = Standard-CI-Check des Repos,
    enforcement `active`, Bypass-Liste **leer**.
+   **Check-Namen-Vorgabe (G2-Befund):** shared-ci-Repos liefern stabile Namen
+   (`ci / Unit Tests`, `ci / Lint & Format`, …) — **aber**
+   `ci / Coverage Gate (≥${{ inputs.coverage_threshold }}%)` erscheint je Repo
+   teils unexpandiert/teils expandiert und ist als required-check-Name fragil.
+   Vorgabe daher: shared-ci bekommt einen **Aggregat-Job mit statischem Namen**
+   (z. B. `ci / gate`, needs: alle CI-Jobs) und genau dieser eine Check wird
+   required — robust gegen Job-Umbenennungen und Threshold-Parameter.
 2. **Kein Review-Zwang** in der Baseline (bewusster Trade-off, Option C).
 3. **Break-Glass statt Bypass-Liste:** im Notfall wird das Ruleset temporär
    auf `disabled` gestellt (API-Call, erscheint im Audit-Log) und nach dem
@@ -116,7 +126,10 @@ Compliance per Meter (§Confirmation).
    `branch-protection-meter` in platform prüft via API: jedes Soll-Repo hat
    ein aktives Ruleset mit required check; Verletzung/disabled → Issue
    (Label `protection-violation`) + Discord. Der Meter ist die *Confirmation*
-   dieses ADRs.
+   dieses ADRs. **Hinweis (G2-Nebenfund):** die Profil-B-App (`iilgmbh-admin`)
+   hat aktuell **kein** `checks: read` („Resource not accessible by
+   integration") — der Meter braucht entweder diese App-Permission-Ergänzung
+   oder läuft mit dem Actions-`GITHUB_TOKEN`/PAT.
 
 ## Konsequenzen
 
@@ -141,21 +154,21 @@ Enterprise-Konsolidierung (KONZ-002) greift.
 3. Negativ-Test dokumentiert: ein PR mit rotem Check ist auf einem Welle-1-Repo
    nachweislich nicht mergebar (Screenshot/API-Response im Rollout-Protokoll).
 
-## Offene Gates vor Accept (§7)
+## Gates vor Accept (§7) — alle abgeräumt (2026-06-11, API-verifiziert)
 
-| Gate | Inhalt | Owner | billigster Check |
-|---|---|---|---|
-| G1 | Plan-Verfügbarkeit: gelten Rulesets/required checks für die **privaten** Repos der Orgs (Free vs. Team/Enterprise)? | ich | 1× `gh api` Ruleset-Create gegen ein privates Test-Repo (dry) bzw. Org-Plan-Read |
-| G2 | Check-Namen-Inventur: welcher CI-Check ist je Repo der verbindliche (shared-ci-Konvergenz nutzen)? | ich | Script über `gh api /repos/<r>/commits/main/check-runs` |
-| G3 | Welle-1-Repo-Liste bestätigen (Auto-Deploy-Inventur: `on: push: [main]`-deploy.yml je Repo verifizieren, nicht aus Memory) | ich | grep über deploy.yml aller Repos |
+| Gate | Inhalt | Ergebnis |
+|---|---|---|
+| G1 ✅ | Plan-Verfügbarkeit private Repos | **Verfügbar, kein Plan-Gate.** Doppelbeweis: `GET /branches/main/protection` auf trading-hub (privat) → 404 „Branch not protected" (nicht 403 „Upgrade"); risk-hub (privat) **hat** bereits aktive Protection. |
+| G2 ✅ | Check-Namen-Inventur | shared-ci-konvergente Repos liefern stabile `ci / <Job>`-Namen; **Fragilität:** Coverage-Gate-Name teils unexpandiert (`${{ inputs.coverage_threshold }}`) → Vorgabe Aggregat-Job `ci / gate` (§Entscheidung 1). Nicht konvergent: dev-hub (nur `contract-tests`). Nebenfund: Profil-B-App ohne `checks: read`. |
+| G3 ✅ | Welle-1-Liste aus deploy.yml | **24 Repos** mit `on: push: [main]`-Deploy ohne Path-Filter; ~20 defaulten auf `production`. Ausnahmen: risk-hub (Environment-Freigabe), bfagent (leer + eingefroren). Ist-Schutz: nur platform + risk-hub (2/49). |
 
 ## Rollout (nach Accept)
 
 | Phase | Inhalt | Aufwand |
 |---|---|---|
-| 1 | G1–G3 abräumen (Plan-Check, Check-Inventur, Welle-1-Liste) | 1 h |
-| 2 | Ruleset-Template + Rollout-Script + Pilot auf platform | 1.5 h |
-| 3 | Welle 1 (Auto-Deploy-Repos + risk-hub + mcp-hub) inkl. Negativ-Test | 1 h |
+| 1 | ~~G1–G3 abräumen~~ ✅ erledigt 2026-06-11 (siehe §7) | — |
+| 2 | shared-ci Aggregat-Job `ci / gate` + Ruleset-Template + Rollout-Script + Pilot auf platform | 2 h |
+| 3 | Welle 1 (Auto-Prod-Deploy-Repos mit grüner CI + mcp-hub) inkl. Negativ-Test | 1 h |
 | 4 | branch-protection-meter + Discord-Alert | 1.5 h |
 | 5 | Welle 2/3 nach F4-Konvergenz (event-getrieben, ADR-209-Programm) | laufend |
 
