@@ -16,6 +16,7 @@ Outputs (relative to repo root):
 
 Pre-commit + R7-check call this with --verify.
 """
+
 from __future__ import annotations
 
 import argparse
@@ -68,6 +69,40 @@ def render_compose(repo_name: str, repo: dict) -> str:
     s = repo["staging"]
     underscore = repo_name.replace("-", "_")
     db_name = f"{underscore}_staging"
+    ingress = s.get("ingress", "nginx")
+
+    if ingress == "traefik":
+        # ADR-212 Klausel-3: central Traefik ingress. No host-port binding; the web
+        # container joins the external `traefik_public` network and is routed by Host
+        # label. The per-repo nginx vhost is dropped (see render_all / ARTIFACTS).
+        router = repo_name.replace("-", "") + "-staging"
+        host = s["hostnames"][0]
+        web_bind = '    expose:\n      - "8000"\n'
+        web_net = f"    networks: [{underscore}_staging_network, traefik_public]\n"
+        web_labels = (
+            "    labels:\n"
+            '      - "traefik.enable=true"\n'
+            '      - "traefik.docker.network=traefik_public"\n'
+            f'      - "traefik.http.routers.{router}.rule=Host(`{host}`)"\n'
+            f'      - "traefik.http.routers.{router}.entrypoints=websecure"\n'
+            f'      - "traefik.http.routers.{router}.tls.certresolver=letsencrypt"\n'
+            f'      - "traefik.http.services.{router}.loadbalancer.server.port=8000"\n'
+        )
+        networks_block = (
+            "networks:\n"
+            f"  {underscore}_staging_network:\n"
+            "    driver: bridge\n"
+            "  traefik_public:\n"
+            "    external: true\n"
+        )
+    else:  # nginx host-port model (default) — byte-identical to pre-ADR-212 output
+        web_bind = f'    ports:\n      - "127.0.0.1:{s["port"]}:8000"\n'
+        web_net = f"    networks: [{underscore}_staging_network]\n"
+        web_labels = ""
+        networks_block = (
+            f"networks:\n  {underscore}_staging_network:\n    driver: bridge\n"
+        )
+
     yml = f"""{HEADER.format(repo=repo_name)}
 services:
   {repo_name}-staging-db:
@@ -97,25 +132,22 @@ services:
     networks: [{underscore}_staging_network]
 
   {repo_name}-staging-web:
-    image: {s['image']}
-    container_name: {s['web_container']}
+    image: {s["image"]}
+    container_name: {s["web_container"]}
     restart: unless-stopped
     env_file: .env.staging
     depends_on:
       {repo_name}-staging-db: {{condition: service_healthy}}
       {repo_name}-staging-redis: {{condition: service_healthy}}
-    ports:
-      - "127.0.0.1:{s['port']}:8000"
-    healthcheck:
+{web_bind}    healthcheck:
       test: ["CMD-SHELL", "python -c \\"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/livez/')\\""]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
-    networks: [{underscore}_staging_network]
-
+{web_net}{web_labels}
   {repo_name}-staging-worker:
-    image: {s['image']}
+    image: {s["image"]}
     container_name: {underscore}_staging_worker
     restart: unless-stopped
     env_file: .env.staging
@@ -128,10 +160,7 @@ services:
 volumes:
   {underscore}_staging_pgdata:
 
-networks:
-  {underscore}_staging_network:
-    driver: bridge
-"""
+{networks_block}"""
     return yml
 
 
@@ -142,11 +171,11 @@ def render_env_template(repo_name: str, repo: dict) -> str:
     underscore = repo_name.replace("-", "_")
     return f"""{HEADER.format(repo=repo_name)}
 # --- Django ---
-DJANGO_SETTINGS_MODULE={s.get('django_settings_module', 'config.settings')}
+DJANGO_SETTINGS_MODULE={s.get("django_settings_module", "config.settings")}
 DEBUG=False
 SECRET_KEY=__REPLACE_ME__
-ALLOWED_HOSTS={','.join(s['hostnames'])}
-CSRF_TRUSTED_ORIGINS={','.join(f'https://{h}' for h in s['hostnames'])}
+ALLOWED_HOSTS={",".join(s["hostnames"])}
+CSRF_TRUSTED_ORIGINS={",".join(f"https://{h}" for h in s["hostnames"])}
 
 # --- Database (covers both DATABASE_URL-style and DB_*-style consumers) ---
 POSTGRES_DB={underscore}_staging
@@ -168,7 +197,7 @@ CELERY_RESULT_BACKEND=redis://{repo_name}-staging-redis:6379/2
 OIDC_ENABLED=True
 OIDC_RP_CLIENT_ID=__FROM_AUTHENTIK__
 OIDC_RP_CLIENT_SECRET=__FROM_AUTHENTIK__
-OIDC_APP_SLUG={o.get('staging_app_slug', f'{repo_name}-staging')}
+OIDC_APP_SLUG={o.get("staging_app_slug", f"{repo_name}-staging")}
 
 # --- App ---
 PUBLIC_URL=https://{primary_host}
@@ -177,10 +206,9 @@ PUBLIC_URL=https://{primary_host}
 
 def render_nginx_vhost(repo_name: str, repo: dict) -> str:
     s = repo["staging"]
-    primary = s["hostnames"][0]   # cert path follows actual primary hostname (R1)
     server_names = " ".join(s["hostnames"])
     return f"""{HEADER.format(repo=repo_name)}
-# Hostnames: {', '.join(s['hostnames'])}
+# Hostnames: {", ".join(s["hostnames"])}
 
 server {{
     listen 80;
@@ -204,7 +232,7 @@ server {{
     client_max_body_size 50M;
 
     location / {{
-        proxy_pass         http://127.0.0.1:{s['port']};
+        proxy_pass         http://127.0.0.1:{s["port"]};
         proxy_set_header   Host              $host;
         proxy_set_header   X-Real-IP         $remote_addr;
         proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
@@ -213,7 +241,7 @@ server {{
     }}
 
     location = /livez/ {{
-        proxy_pass http://127.0.0.1:{s['port']}/livez/;
+        proxy_pass http://127.0.0.1:{s["port"]}/livez/;
         access_log off;
     }}
 }}
@@ -229,10 +257,11 @@ ARTIFACTS = {
 
 def render_all(repo_name: str, repo: dict) -> dict[Path, str]:
     repo_root = GITHUB_ROOT / repo_name
-    return {
-        repo_root / rel: fn(repo_name, repo)
-        for rel, fn in ARTIFACTS.items()
-    }
+    artifacts = dict(ARTIFACTS)
+    if repo.get("staging", {}).get("ingress", "nginx") == "traefik":
+        # Traefik provides ingress centrally (ADR-212 Klausel-3) — no per-repo nginx vhost.
+        artifacts.pop("deploy/staging/nginx-vhost.conf", None)
+    return {repo_root / rel: fn(repo_name, repo) for rel, fn in artifacts.items()}
 
 
 def cmd_render(repo_name: str, write: bool) -> int:
@@ -242,7 +271,10 @@ def cmd_render(repo_name: str, write: bool) -> int:
         print(f"ERROR: repo '{repo_name}' not found in registry", file=sys.stderr)
         return 2
     if "staging" not in repo:
-        print(f"ERROR: repo '{repo_name}' has no staging block in registry", file=sys.stderr)
+        print(
+            f"ERROR: repo '{repo_name}' has no staging block in registry",
+            file=sys.stderr,
+        )
         return 2
     assert_port_range(repo, repo_name)
     artifacts = render_all(repo_name, repo)
@@ -289,7 +321,9 @@ def cmd_verify(repo_name: str) -> int:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("repo", help="repo name as in registry/repos.yaml")
-    parser.add_argument("--write", action="store_true", help="write files (default: dry-run)")
+    parser.add_argument(
+        "--write", action="store_true", help="write files (default: dry-run)"
+    )
     parser.add_argument("--verify", action="store_true", help="exit 1 on drift")
     args = parser.parse_args()
     if args.verify:

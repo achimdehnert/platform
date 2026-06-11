@@ -13,6 +13,8 @@ implementation_evidence:
 
 # ADR-079: Adopt Temporal Self-Hosted as Primary Durable Workflow Engine
 
+> **Korrektur-Hinweis (ADR-Full-Scan 2026-06-06):** Frontmatter und §5 Migration-Tracking widersprechen sich zum Implementierungsstand. Vor Nutzung als implementiert den realen Temporal-Stand verifizieren.
+
 ## Metadaten
 
 | Attribut          | Wert                                                                              |

@@ -146,3 +146,8 @@ lint-registry: ## Vollständige Registry-Validierung (ports + tenancy)
 	@python3 infra/scripts/validate_tenancy.py
 
 .PHONY: lint-tenancy lint-registry
+
+exit-plan: ## Exit-/Portability-Runbook für ORG=<org> aus Live-GitHub-Zustand (KONZ-002 OOTB-4; braucht GH_TOKEN mit repo+admin:org)
+	@python3 tools/exit-plan.py $(ORG)
+
+.PHONY: exit-plan

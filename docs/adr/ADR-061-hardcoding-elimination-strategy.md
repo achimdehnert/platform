@@ -304,7 +304,7 @@ Diese ADR gilt als implementiert wenn:
 - **ADR-021**: Deployment Standard — Env-Var Konventionen für `DEPLOY_HOST`, `DEPLOY_USER`
 - **ADR-045**: Secrets Management / SOPS — Sichere Speicherung von Credentials
 - **ADR-046**: Docs Hygiene — `.env.example` Pflege
-- **ADR-054**: Architecture Guardian — automatische Compliance-Prüfung
+- **ADR-239**: Architecture Guardian — automatische Compliance-Prüfung
 - **ADR-059**: ADR Drift Detector — Quarterly Full-Scan als Celery-Task
 - **ADR-060**: Developer Workstation SSH — SSH-Key Konventionen
 - **`hardcode_scanner.py`**: `platform/scripts/hardcode_scanner.py`

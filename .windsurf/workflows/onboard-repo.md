@@ -480,6 +480,24 @@ jobs:
 | `DEPLOY_USER` | `root` |
 | `DEPLOY_SSH_KEY` | SSH Private Key |
 
+### Step 2b: Secret-Scan Gate (ADR-235 — PFLICHT, jedes Repo)
+
+Scaffold `.github/workflows/secret-scan.yml` aus der kanonischen Vorlage —
+**unabhängig vom Repo-Typ**. Damit erhält **jedes** neu angelegte Repo den
+serverseitigen gitleaks-Gate **by construction** (ADR-235 Layer 2, P2). Django-
+Apps bekommen den Scan transitiv über `_ci-python.yml` zusätzlich; dieser
+Standalone-Gate deckt auch Nicht-Django-/Nicht-CI-Repos ab (sonst wiederholt
+sich die ADR-226-Lehre „Mandat ohne Mechanismus" — private Repos ohne GitHub
+Advanced Security haben keinen nativen Push-Protection-Gate).
+
+```bash
+mkdir -p .github/workflows
+cp "$PLATFORM_DIR/docs/templates/secret-scan.yml" .github/workflows/secret-scan.yml
+```
+
+> Die Vorlage ruft die geteilte `achimdehnert/platform/.github/actions/gitleaks-scan@main`-Action
+> (ein Versions-Pin, ADR-226). Nichts zu parametrisieren.
+
 ## Step 3: Docker Setup
 
 ### 3.1 Dockerfile (`docker/app/Dockerfile`)
@@ -897,6 +915,7 @@ Repo-Struktur:
   [ ] docker/app/entrypoint.sh existiert (chmod +x, mit beat-Case + chown /celerybeat)
   [ ] docker-compose.prod.yml existiert
   [ ] .github/workflows/ci-cd.yml existiert (coverage_threshold: 80)
+  [ ] .github/workflows/secret-scan.yml existiert (ADR-235 Layer 2 — jedes Repo)
   [ ] .env.example existiert
   [ ] /livez/ Health-Endpoint existiert (csrf_exempt, require_GET)
   [ ] pyproject.toml mit [tool.pytest.ini_options]

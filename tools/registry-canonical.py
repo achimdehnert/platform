@@ -75,6 +75,20 @@ def build() -> dict:
         "meta": {
             "server": flat_doc.get("server", {}),
             "domain_order": domain_order,
+            # Governance-Scope für registry_coverage_drift (KONZ-001 R5): welche GitHub-Owner
+            # die clean-state-Invariante umfasst. Hier (nicht in repos.yaml), weil der flip-
+            # Roundtrip top-level Source-Keys droppt. bahn-sqf IN (Owner hat Admin), pactive-de
+            # bewusst AUSSEN (separates Kunden-Vault). Entscheidung 2026-06-06, Issue #488.
+            "enterprise_owners": ["achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra", "bahn-sqf"],
+            # Per-Repo-Owner-Override (Transition). KONZ-001 P0 Teil 2: flat-only Repos können
+            # keinen rich.github tragen (circular pipeline), darum die per-gh-VERIFIZIERTEN
+            # KONZ-002-Migrationen hier als meta-Override (build-stabil). Stopgap bis das echte
+            # per-Repo-owner-Feld kommt (Registry-Konsolidierung). Verifiziert 2026-06-06 (gh).
+            "repo_owner": {
+                "iil-fieldprefill": "iilgmbh",
+                "iil-relaunch": "iilgmbh",
+                "illustration-fw": "iilgmbh",
+            },
             "_note": "GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + "
                      "registry/repos.yaml. Noch NICHT kanonisch geschaltet — Konsumenten unverändert.",
         },
@@ -160,12 +174,27 @@ def _leading_comments(path: Path) -> str:
     return "\n".join(out).rstrip() + "\n" if out else ""
 
 
+# Exakte Zeilen-Identität der GEN_NOTICE-Konstante (REC-5: deterministisch statt Box-Zeichen-
+# Heuristik — robust, auch falls Schema-Docs je Box-Zeichen nutzen). Test: test_registry_canonical.
+_GEN_NOTICE_LINES = frozenset(GEN_NOTICE.strip("\n").splitlines())
+
+
+def _strip_gen_notice(text: str) -> str:
+    """Entfernt einen aus einem FRÜHEREN flip vorhandenen GEN_NOTICE-Block per exakter
+    Zeilen-Identität (kein Heuristik-Match), bevor flip ihn neu setzt — sonst akkumuliert jeder
+    Roundtrip einen weiteren Header (Doppel-Header-Bug, belegt beim C9-Lag-PR). Idempotent."""
+    return "\n".join(ln for ln in text.splitlines() if ln not in _GEN_NOTICE_LINES).strip("\n")
+
+
 def flip(canon: dict) -> int:
     """Schreibt BEIDE Altdateien als generierte Views aus canonical (ADR-234 P0 Flip).
     Erhält den wertvollen Schema-Doc-Header der reichen Datei verbatim; die flache
-    bekommt nur den GENERATED-Header (ihr alter 'auto-detection'-Header wäre nach Flip
-    irreführend). Danach muss `verify` weiterhin grün sein (semantisch)."""
-    rich_header = _leading_comments(RICH)   # 47 Zeilen Schema-Docs — verbatim erhalten
+    bekommt nur den GENERATED-Header. Danach muss `verify` weiterhin grün sein (semantisch).
+
+    GRENZE (REC-7): `yaml.safe_dump` ist round-trip-**lossy** für Inline-Daten-Kommentare —
+    flip behebt NUR die Header-Akkumulation, nicht den Kommentar-Verlust innerhalb der Daten.
+    Vollständig verlustfrei wäre nur mit ruamel.yaml (eigene Entscheidung)."""
+    rich_header = _strip_gen_notice(_leading_comments(RICH))
     FLAT.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_flat(canon), sort_keys=False, allow_unicode=True, width=100))
     RICH.write_text(GEN_NOTICE + "\n" + rich_header + "\n" + yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
     print(f"✅ geflippt: {FLAT.relative_to(ROOT)} (frischer GEN-Header) + {RICH.relative_to(ROOT)} (Schema-Docs erhalten).")

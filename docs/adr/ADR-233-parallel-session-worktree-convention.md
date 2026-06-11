@@ -1,6 +1,6 @@
 ---
 status: proposed
-implementation_status: none
+implementation_status: partial  # 2026-06-04: pre-commit-Backstop (main-tree-protect) verdrahtet; Snap-back-Hook-Aktivierung via 'tools/main-tree-guard.sh install .' je Checkout
 date: 2026-06-01
 decision-makers: Achim Dehnert
 domains: [dx, git-workflow, drift-prevention, governance]

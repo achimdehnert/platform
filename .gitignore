@@ -64,3 +64,6 @@ env_loader.py
 
 # Auto-generierter Editor-Cache (claude-next-sync) — analog dev-hub
 NEXT.md
+
+# worktree-reaper.py Lauf-Protokoll (lokales Artefakt, kein VCS)
+worktree-reaper-manifest.jsonl

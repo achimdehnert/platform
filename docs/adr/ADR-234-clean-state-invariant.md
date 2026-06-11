@@ -1,6 +1,6 @@
 ---
-status: proposed
-implementation_status: none
+status: accepted
+implementation_status: in_progress
 date: 2026-06-01
 decision-makers: Achim Dehnert
 domains: [ci-cd, deployment, governance, drift-prevention, dependency-management]
@@ -13,12 +13,12 @@ tags: [ci-health, invariant, branch-protection, provenance, promote-gate, depend
 
 | Attribut       | Wert                                                    |
 |----------------|---------------------------------------------------------|
-| **Status**     | Proposed                                                |
+| **Status**     | Accepted (2026-06-06) — Kern-Invariante + P0; R2/R3-full/R5 gated Roadmap (s. §2.1) |
 | **Scope**      | platform (org-weit, alle Repos `achimdehnert`)          |
 | **Repo**       | platform                                                |
 | **Erstellt**   | 2026-06-01                                              |
 | **Autor**      | Achim Dehnert                                           |
-| **Reviewer**   | –                                                       |
+| **Reviewer**   | intern (3×) + extern (Review-Runde 2 + 3, adversarial)  |
 | **Supersedes** | –                                                       |
 | **Relates to** | ADR-021, ADR-120, ADR-157, ADR-058, ADR-209, ADR-226   |
 | **Quelle**     | KONZ-platform-001 (PR #376) — intern + extern adversarial reviewt |
@@ -127,6 +127,32 @@ warten; AD-4/M28-5):
   UNKNOWN-Fehler + abgeleiteter Meter (Nenner = gefilterte `gh repo list`); **Selbstabschaltung an
   Enforcement-Abdeckung gekoppelt** (R2-required + R3-Promote + Waiver-Expiry + UNKNOWN-Handling ≥30 d ohne
   kritische Lücke), nicht allein an Adoption/Red-Rate (AD-17/AD-18). Governance unter `/ci-green-program`.
+
+### 2.1 Was Acceptance bedeutet — und was nicht (externe Review-Runde 3, REC-20)
+
+Dieser ADR ist `accepted`, aber **phasenscharf**. Acceptance ist kein Liefer-Commitment für das
+gesamte 8-Schritt-Programm; sie fixiert die Richtung und den bereits gelieferten Fundament-Slice.
+
+**Entschieden (akzeptiert, nicht mehr neu aufzurollen):**
+- Eine **kanonische SSoT** (`registry/canonical.yaml`); die Altdateien sind **generierte Views**, durch
+  ein hartes Drift-Gate gegen Divergenz gesichert; neuer Code liest über `tools/registry_api.py`.
+- **Digest-gebundene Provenance** `repo@sha → artifact@digest → staging-health → prod` (kein Tag-Retag).
+- **Enforcement folgt frischem Grün** pro Repo (Frische-Quorum), erzwingt es nie voraus.
+- **Quarantine-Lane statt Flotten-Freeze** für rote/unklassifizierte Repos.
+- **Gate unmittelbar vor Prod-Promote** (R3 am irreversiblen Pfad).
+
+**Noch nicht final akzeptiert (gated Roadmap — erwartbare ADR-Amendments, AD-13/M28-2):**
+- Das konkrete **R2-Backend**: native GitHub-Rulesets (Alt E) vs. imperativer Reconciler-Bot — bis zur
+  Entscheidung wird R2 **nur als Dry-Run/Plan-Generator** akzeptiert, nicht als schreibender Aktor.
+- **R3-full**-Abdeckungsbreite über Repo-Typen/Artefaktarten/Staging-Profile hinaus.
+- **R5**-Selbstabschaltung; **Alt F** (signiertes Clean-State-Certificate als bindender R3-Beleg) bleibt
+  „nicht verworfen", Entscheidung bei R3-full.
+
+Der nächste harte Acceptance-Slice ist **R3-minimal fail-closed** auf mind. einem staging-fähigen Hub;
+weitere Phasen werden erst voll akzeptiert, wenn ein echtes fail-closed Promote-Gate + Break-Glass/
+Rollback dokumentiert sind. Falsifizierbarkeit liegt im gestuften **Kill-Gate §8** (2026-09-01) — eine
+Verlängerung darf nur per ausdrücklichem ADR-Amendment erfolgen, sonst automatischer Rückfall auf
+`Detect-only` (Alt D).
 
 ---
 
@@ -287,10 +313,34 @@ Quarantine-Lane (OOTB-Ansatz D der Review) als R2-Ergänzung übernommen. Kein R
 `[missversteht-Kontext]`/`[out-of-scope]` verworfen — die Runde war durchweg additiv und
 respektierte die „nicht neu aufrollen"-Liste.
 
+### 11.1 Rückfluss externe Review-Runde 3 (Post-P0, Empfehlung „überarbeiten")
+
+Die dritte Runde (gegen die Live-Implementierung verifiziert) empfahl statt Full-Acceptance einen
+begrenzten Acceptance-Slice. Verdikte (intern gegen ADR + Code falsifiziert):
+
+| REC | Verdikt | Aktion |
+|---|---|---|
+| REC-2 (stale Frontmatter) | [valid] | `implementation_status: none → in_progress`; Status-Tabelle phasenscharf |
+| REC-1/20 (Acceptance-Grenze) | [valid] | §2.1 „Was Acceptance bedeutet / nicht" — Invariante+P0 entschieden, R2/R3-full/R5 gated |
+| REC-3 (P0-End-Zustand fixieren) | [valid] | §2.1 + bestehender Changelog (Views = legitimer Endzustand, Read-API) |
+| REC-8 (R2-Backend-Entscheidung erzwingen) | [valid] | §2.1: R2 bis Backend-Entscheidung nur Dry-Run/Plan |
+| REC-5 (Kill-Gate nur per Amendment verlängerbar) | [valid] | §2.1 + §8-Verweis |
+| REC-11/12/13 (Owner/Scope aus Generator-Code in Datenmodell) | [valid] | **Code-TODO** (separat): `enterprise_owners`/`repo_owner`-Literal in `tools/registry-canonical.py:82` → kanonisches `owner_team` bzw. Transition-Feld mit `expires_when` |
+| REC-4 (CI-Guard gegen neue View-Direct-Reads) | [valid] | **Code-TODO** (separat) — Lint-Step |
+| REC-9/REC-10 (Reconciler-Vertrag, Token-Scope) | [bereits vorhanden] | R2 „Mindestvertrag" (§2) deckt plan/apply/rollback/Audit/Token-Scope/Partial-Failure ab — nur präzisieren, kein Neu-Bau |
+| REC-17/18 (Solo-Maintainer WIP-Limit) | [valid, Roadmap] | als Implementation-Plan-Disziplin, nicht ADR-bindend |
+| REC-19 (Alt F bindendes R3-Cert) | [deferred] | bleibt „nicht verworfen", Entscheidung bei R3-full — kein Scope für Accept-now |
+
 ---
 
 ## 12. Changelog
 
+- **2026-06-06:** **Accepted (phasenscharf).** Status `proposed → accepted`, `implementation_status
+  none → in_progress`. §2.1 „Was Acceptance bedeutet / nicht" ergänzt (externe Review-Runde 3, REC-20):
+  Invariante + SSoT + Digest-Provenance + frisches-Grün-Enforcement + Promote-Gate sind entschieden;
+  R2-Backend (Alt E vs. Bot), R3-full-Breite, R5/Alt-F bleiben gated Roadmap. Falsifizierbarkeit über
+  Kill-Gate §8 (nur per Amendment verlängerbar). Offene Code-TODOs aus Runde 3 (§11.1): Owner/Scope aus
+  Generator-Literal ins Datenmodell (REC-11/12/13), CI-Guard gegen neue View-Direct-Reads (REC-4).
 - **2026-06-01:** Initial (Proposed). Abgeleitet aus KONZ-platform-001 nach internem + externem
   Adversarial-Review; Provenance-Kette + Frische-Quorum + iil-Cohort als Primär-Hebel integriert.
 - **2026-06-01:** Externe ADR-Review-Runde 2 eingearbeitet (15/15 RECs `[valid]`): Sequenz neu

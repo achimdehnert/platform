@@ -22,9 +22,9 @@ django_apps:
 
   bfagent:
     github: achimdehnert/bfagent
-    description: Book Factory Agent — AI-assisted book creation
-    status: production
-    deployed: true
+    description: Book Factory Agent — AI-assisted book creation (decommissioned 2026-06-03, bfagent#44)
+    status: archive
+    deployed: false
     domain_prod: iil.pet
     domain_staging: staging.iil.pet
     port_prod: 8091

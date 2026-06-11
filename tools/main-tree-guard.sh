@@ -40,8 +40,23 @@ cmd_install() {
 exec "$self" hook "\$@"
 HOOK
   chmod +x "$hook"
-  echo "✓ Guard installiert: Sentinel $repo/$SENTINEL + post-checkout-Hook."
-  echo "  Hinweis: harte Blockade nur via repo-session-Wrapper; dieser Hook = Snap-back + Metrik."
+  # Nativer pre-commit-Hook (Retro 2026-06-05 #5): aktiviert den precommit-check OHNE das
+  # Python-pre-commit-Framework (das oft nicht installiert ist → Guard war dormant, #5 rutschte durch).
+  local pchook="$hookdir/pre-commit"
+  if [ -e "$pchook" ] && ! grep -q 'main-tree-guard' "$pchook" 2>/dev/null; then
+    echo "  ⚠️  pre-commit-Hook existiert bereits und ist fremd: $pchook — NICHT überschrieben." >&2
+    echo "      (Nutzt du das pre-commit-Framework, ist der Check via .pre-commit-config.yaml aktiv.)" >&2
+  else
+    cat > "$pchook" <<HOOK
+#!/usr/bin/env bash
+# installed by main-tree-guard (ADR-233) — nativer Backstop, kein Framework nötig
+exec "$self" precommit-check
+HOOK
+    chmod +x "$pchook"
+    echo "✓ nativer pre-commit-Hook gesetzt."
+  fi
+  echo "✓ Guard installiert: Sentinel $repo/$SENTINEL + post-checkout- + pre-commit-Hook."
+  echo "  Hinweis: harte Commit-Blockade jetzt auch ohne pre-commit-Framework (nativer Hook)."
 }
 
 # git post-checkout args: <prev-HEAD> <new-HEAD> <branch-checkout-flag(1=branch,0=file)>
@@ -74,20 +89,37 @@ cmd_report() {
   [ "${n:-0}" = "0" ] || { echo "  → Kill-Gate (ADR-233 §8): Konvention nicht erzwingbar (>0)."; tail -3 "$log"; }
 }
 
+# Backstop für pre-commit (ADR-233 §2.1): im sentinel-geschützten Haupt-Tree wird NICHT
+# committet — editierende Arbeit gehört in einen per-session Worktree. In Worktrees ist
+# ".git" eine Datei (kein Verzeichnis), der relative Sentinel-Pfad existiert dort nicht
+# → der Hook greift NUR im Haupt-Tree. Fängt den HEAD-Flip-Commit-auf-main (Retro 2026-06-04 F2),
+# der vom post-checkout-Snap-back allein nicht verhindert wird.
 cmd_precommit_check() {
   local head; head="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
-  if [ "$head" = "main" ]; then
-    echo "⛔ main-tree-guard (pre-commit): Commit direkt auf 'main' blockiert." >&2
-    echo "   Erstelle einen Feature-Branch: git checkout -b feat/<slug>" >&2
-    exit 1
-  fi
-  exit 0
+  # (1) Branch-Fallback (SENTINEL-UNABHÄNGIG): nie direkt auf main/master committen.
+  #     Fängt den Commit-auf-main (Retro 2026-06-05 #5) AUCH in Klons, in denen
+  #     'install' nie lief — der Hauptgrund des Rückfalls (Guard war dormant).
+  case "$head" in
+    main|master)
+      echo "BLOCK: main-tree-guard (ADR-233): Commit direkt auf '$head' unterbunden." >&2
+      echo "    Editierende Arbeit gehört in einen Feature-Branch / per-session Worktree:" >&2
+      echo "    git switch -c <branch>   |   git worktree add /tmp/<slug> -b <branch> origin/main" >&2
+      echo "    (Bewusster Override: git commit --no-verify)" >&2
+      exit 1 ;;
+  esac
+  # (2) Tree-Schutz (Sentinel): im heiligen Haupt-Tree wird gar nicht committet (auch nicht
+  #     auf einem Feature-Branch — editierende Arbeit gehört in einen per-session Worktree).
+  [ -e "$SENTINEL" ] || exit 0   # Worktree/ungeschützt + nicht-main → erlauben
+  echo "BLOCK: main-tree-guard (ADR-233): Commit im heiligen Haupt-Tree unterbunden." >&2
+  echo "    Editierende Arbeit gehört in einen per-session Worktree:" >&2
+  echo "    git worktree add /tmp/<slug> -b <branch> origin/main   (oder 'repo-session start')." >&2
+  exit 1
 }
 
 case "${1:-}" in
-  install)          shift; cmd_install "$@";;
-  hook)             shift; cmd_hook "$@";;
-  report)           shift; cmd_report "$@";;
-  precommit-check)  cmd_precommit_check;;
-  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | hook <prev> <new> <flag> | precommit-check}" >&2; exit 2;;
+  install)         shift; cmd_install "$@";;
+  hook)            shift; cmd_hook "$@";;
+  report)          shift; cmd_report "$@";;
+  precommit-check) shift; cmd_precommit_check "$@";;
+  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | precommit-check | hook <prev> <new> <flag>}" >&2; exit 2;;
 esac

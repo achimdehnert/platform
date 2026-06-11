@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-02-20
 amended: 2026-02-21
 decision-makers: [Achim Dehnert]
@@ -62,7 +62,7 @@ Ohne verbindlichen Katalog entstehen inkonsistente Testsuiten: Ein Repo hat nur 
 Compliance wird auf drei Wegen geprüft:
 
 1. **CI-Gate**: `pytest --cov` läuft auf jedem Push via `_ci-python.yml@main` — Build schlägt fehl wenn Pflicht-Tests fehlen oder rot sind.
-2. **grep-basierter Compliance-Check** (manuell oder als ADR-054-Guardian-Regel):
+2. **grep-basierter Compliance-Check** (manuell oder als ADR-239-Guardian-Regel):
 
 ```bash
 grep -r "401\|403\|unauthenticated" tests/ | wc -l   # A2 Auth Tests
@@ -302,7 +302,7 @@ Alle Tests laufen via `_ci-python.yml@main` (ADR-021 §2.5). Contract + Migratio
 
 ## Offene Fragen
 
-1. **Enforcement-Mechanismus**: Pflicht-Tests sind definiert — aber wer prüft Compliance automatisch? Aktuell nur manuell via grep. ADR-054 Architecture Guardian soll in Phase 2 erweitert werden. → Deferred: **ADR-059** (Guardian-Erweiterung für Taxonomie-Compliance).
+1. **Enforcement-Mechanismus**: Pflicht-Tests sind definiert — aber wer prüft Compliance automatisch? Aktuell nur manuell via grep. ADR-239 Architecture Guardian soll in Phase 2 erweitert werden. → Deferred: **ADR-059** (Guardian-Erweiterung für Taxonomie-Compliance).
 
 2. **Ratio-Konsistenz mit ADR-057**: ADR-057 §2.4 definiert Test-Pyramiden-Ratio 40/45/10/5. ADR-058 definiert Testarten ohne explizite Ratio-Gewichtung. Beide sind kompatibel — Ratio gilt für Test-Anzahl, Taxonomie für Test-Typen. Bei nächstem ADR-057-Amendment zu dokumentieren.
 
@@ -336,7 +336,7 @@ Angewendet nach kritischem Review gegen `docs/templates/adr-review-checklist.md`
 ## More Information
 
 - **ADR-057**: Platform Test Strategy — 4-Ebenen-Pyramide, CI-Integration, Schemathesis-Entscheidung, Test-Ratio 40/45/10/5
-- **ADR-054**: Architecture Guardian — wird in Phase 2 um Taxonomie-Compliance-Checks erweitert (→ ADR-059)
+- **ADR-239**: Architecture Guardian — wird in Phase 2 um Taxonomie-Compliance-Checks erweitert (→ ADR-059)
 - **ADR-048**: HTMX Playbook — Kontext für U3/U4 HTMX Fragment + Attribute Tests
 - **ADR-022**: Code Quality Tooling — ruff, pytest als Standard-Tools
 - **ADR-021**: Unified Deployment Pattern — `/livez/` + `/healthz/` Health-Endpoints (U9)

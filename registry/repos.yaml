@@ -84,6 +84,7 @@ domains:
       django_settings_module: config.settings.production
       migrate_cmd: python manage.py migrate --noinput
       port: 19002
+      ingress: traefik   # ADR-212 Klausel-3 — central Traefik ingress (opt-in; default = nginx host-port)
       hostnames:
       - staging-devhub.iil.pet
     oidc:
@@ -103,7 +104,7 @@ domains:
   - name: nl2iot-hub
     repo: nl2iot-hub
     description: Natural-language-to-IoT — Developer Cockpit
-    github: achimdehnert/nl2iot-hub
+    github: iilgmbh/nl2iot-hub   # KONZ-002 S3 Welle 1 transferiert → C9-Lag 2026-06-06
     deployed: false
     type: python
     lifecycle: experimental

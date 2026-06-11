@@ -1,0 +1,35 @@
+name: Tools Unit-Tests
+
+# Generischer Gate für ALLE tools/tests/ — schließt die strukturelle F-A-Wurzel:
+# bisher musste jeder Tool-Test manuell in einen spezifischen Workflow verdrahtet werden
+# (cc-skill-dist-doctor.yml kannte nur test_generate/test_doctor), sodass neue Tool-Tests
+# CI-verwaist blieben (z.B. test_registry_coverage_drift). Hier läuft `pytest tools/tests/`
+# als EIN blockierender Gate über alles — kein neues Tool-Test fällt mehr durchs Raster.
+# Session-Retro F-A / KONZ-001 R7 (beweisbar-echte Gates).
+
+on:
+  push:
+    paths:
+      - "tools/**"
+  pull_request:
+    paths:
+      - "tools/**"
+
+jobs:
+  tools-tests:
+    name: pytest tools/tests/
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # einige Tests bauen Wegwerf-Git-Repos / lesen Refs
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install test deps
+        run: pip install pytest pyyaml --quiet --break-system-packages
+
+      - name: Run all tools tests
+        run: python3 -m pytest tools/tests/ -q

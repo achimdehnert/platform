@@ -1,7 +1,20 @@
 # cc-skill-dist — CC-Skill-Distribution-Tooling (platform:ADR-230)
 
-Werkzeuge zur deterministischen Verteilung der Skills aus der **einen kanonischen Quelle**
-(platform `main` `.windsurf/workflows/`) nach `~/.claude/commands/` — gemäß ADR-230 (CC-first).
+Werkzeuge zur deterministischen Verteilung aus der **einen kanonischen Quelle** (platform `main`)
+— gemäß ADR-230 (CC-first). Zwei Lanes über `--kind`:
+
+| `--kind` | Quelle (platform) | Live-Ziel | Form |
+|----------|-------------------|-----------|------|
+| `commands` (Default) | `.windsurf/workflows/*.md` | `~/.claude/commands/` | flach (Slash-Commands) |
+| `skills` | `skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` | verschachtelt (Anthropic Agent Skills) |
+
+**Enterprise-weit = user-level Install pro Maschine, NICHT Kopie in N Repos.** CC lädt
+`~/.claude/skills` + `~/.claude/commands` in jeder Session/jedem Repo/jeder Org — ein Install
+deckt alles ab, die Kanonik bleibt SSoT in platform (Drift-Vermeidung). Beispiele:
+```bash
+python3 tools/cc-skill-dist/generate.py --kind skills --target /tmp/skills-staging
+python3 tools/cc-skill-dist/doctor.py   --kind skills        # Drift Quelle ↔ ~/.claude/skills
+```
 
 ## `doctor.py` — read-only Drift-Diagnose (ADR-230 REC-9)
 

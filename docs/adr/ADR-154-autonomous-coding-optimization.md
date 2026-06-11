@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-03-31
 decision-makers: [Achim Dehnert]
 consulted: [Cascade AI]

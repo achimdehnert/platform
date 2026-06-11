@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-02-20
 amended: 2026-02-20
 decision-makers: [Achim Dehnert]
@@ -70,7 +70,7 @@ Compliance is verified by:
 1. **Pre-flight script**: `scripts/validate-deployment-readiness.sh` exits non-zero on any class A/B/D failure — runnable locally and as first CI job.
 2. **Onboarding checklist**: New app PRs must reference a closed `new-app-onboarding` GitHub Issue with all boxes checked.
 3. **Metrics**: First-try success rate tracked via GitHub Actions API — target >85% within 30 days of M1+M2 rollout.
-4. **ADR-054 Architecture Guardian**: Checks new `ci-cd.yml` files for `inputs.*` usage at push-trigger (class C pattern).
+4. **ADR-239 Architecture Guardian**: Checks new `ci-cd.yml` files for `inputs.*` usage at push-trigger (class C pattern).
 5. **SHA-tag verification**: `docker manifest inspect ghcr.io/achimdehnert/<app>:<sha7>` must succeed after each build job.
 
 ### Consequences
@@ -141,7 +141,7 @@ Compliance is verified by:
 ## More Information
 
 - **Input document**: `docs/adr/inputs/ADR-056-deployment-preflight-concept.md`
-- **Related ADRs**: ADR-021 (unified deployment — §2.5 deviation noted), ADR-022 (code quality tooling), ADR-045 (SOPS secrets), ADR-053 (deployment MCP robustness), ADR-054 (architecture guardian), ADR-055 (cross-app bug management)
+- **Related ADRs**: ADR-021 (unified deployment — §2.5 deviation noted), ADR-022 (code quality tooling), ADR-045 (SOPS secrets), ADR-053 (deployment MCP robustness), ADR-239 (architecture guardian), ADR-055 (cross-app bug management)
 - **Deferred**: ADR-06x (GitOps evaluation — Q3/Q4)
 - **Existing script**: `scripts/validate-deployment-readiness.sh` (already in `platform` — extend, don't replace)
 - **Existing template**: `.github/ISSUE_TEMPLATE/new-app-onboarding.yml` (already in `platform` — extend with deployment prerequisites)

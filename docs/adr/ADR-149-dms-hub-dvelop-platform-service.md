@@ -1,5 +1,5 @@
 ---
-status: "accepted"
+status: accepted
 date: 2026-03-26
 updated: 2026-03-26
 version: 2
@@ -15,7 +15,7 @@ related:
   - ADR-072-multi-tenancy-schema-isolation.md
   - ADR-075-deployment-execution-strategy.md
   - ADR-078-docker-healthcheck-convention.md
-  - ADR-146-package-consolidation-strategy.md
+  - ADR-180-package-consolidation-strategy.md
   - ADR-148-recruiting-hub-architecture.md
 implementation_status: partial
 implementation_evidence:
@@ -46,7 +46,7 @@ drift_check_paths:
 - **Mehrere Consumer-Hubs**: risk-hub (Compliance), billing-hub (Rechnungen), recruiting-hub (Verträge) benötigen DMS-Archivierung — eine eingebettete App pro Hub wäre Codeduplizierung.
 - **d.velop REST API verfügbar**: IIL hat d.velop Cloud gebucht (`https://iil.d-velop.cloud/`); API produktionsreif (JSON-HAL, Bearer-Auth, Webhook-Support).
 - **Entkopplung von Paperless-ngx**: Paperless-ngx (ADR-144) ist für IIL-interne Dokumente. d.velop ist für behördliche/kundenseitige revisionssichere Archivierung.
-- **Platform-Konsistenz**: Neuer Hub nach ADR-050-Pattern, neues Package nach ADR-146-Pattern.
+- **Platform-Konsistenz**: Neuer Hub nach ADR-050-Pattern, neues Package nach ADR-180-Pattern.
 
 ---
 
@@ -827,7 +827,7 @@ Diese ADR gilt als implementiert, wenn:
 | ADR-075 | Deployment via GitHub Actions |
 | ADR-078 | Docker HEALTHCHECK Convention |
 | ADR-144 | Paperless-ngx (IIL-intern) — Abgrenzung zu d.velop (Kunden-DMS) |
-| ADR-146 | Package Consolidation (iil-dvelop-client als neues Package) |
+| ADR-180 | Package Consolidation (iil-dvelop-client als neues Package) |
 
 ---
 

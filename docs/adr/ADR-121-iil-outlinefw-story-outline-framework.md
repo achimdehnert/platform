@@ -1,7 +1,7 @@
 ---
 id: ADR-121
 title: "iil-outlinefw — Story-Outline-Framework"
-status: Accepted
+status: accepted
 date: 2026-03-08
 decision-makers: [Achim Dehnert]
 consulted: []
