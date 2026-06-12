@@ -71,6 +71,18 @@ implementiert. Codebase-Analyse 2026-06-12 (alle Pfade verifiziert):
 - Verteilung folgt ADR-234 P0.5a (iil-Cohort-Constraints) — ein zentrales Paket darf die
   Flotte nicht über Version-Skew brechen.
 
+### 1.4 Entscheidungstreiber
+
+- **Drift-Schutz an der Quelle:** 4× identisch eingefrorene Retry-Configs divergieren beim
+  nächsten Fix garantiert still — eine Implementierung schließt die Klasse von Fehlern.
+- **Maschinenlesbare Fehlerkategorien als Vorbedingung** für Policy-Routing (ADR-245) und
+  sauberes Failover — heute pro Paket neu zu erraten.
+- **Cross-Paket-Beobachtbarkeit:** Kosten-/Latenz-Fragen über Paketgrenzen müssen Queries
+  werden, keine Forensik-Projekte.
+- **Framework-Freiheit:** researchfw (pure async) darf keinen Django-Stack transitiv erben.
+- **Kleine Bruchfläche:** zentrales Artefakt nur mit engem Scope + Release-Disziplin
+  (Lehre shared-ci-Tag-Drift 2026-06-09).
+
 ---
 
 ## 2. Entscheidung
@@ -88,7 +100,9 @@ PyPI `iil-corefw`) mit genau vier Bausteinen:
    Change vor jeweiligem Major).
 3. **`corefw.observe`** — `ObservableResult`-Protocol (`latency_ms`, `input_tokens`,
    `output_tokens`, `cost_estimate`, `provenance: dict`) + ein In-Process-Collector mit
-   austauschbarem Sink (Django-ORM-Sink lebt in **aifw**, nicht im Core).
+   austauschbarem Sink (Django-ORM-Sink lebt in **aifw**, nicht im Core). Collector und
+   Protocol sind **sync- und async-sicher** (kein `asyncio.run()` im Core; async-Consumer
+   wie researchfw nutzen denselben Collector ohne Event-Loop-Annahmen).
 4. **`corefw.provenance`** — Durchreich-Kontrakt für Prompt-Herkunft: promptfw stempelt
    `template_id`/`template_version` in `RenderedPrompt`, aifw übernimmt sie in
    `LLMResult`/`AIUsageLog.metadata`. Damit wird Cost-Attribution bis zum Template möglich.
@@ -128,8 +142,9 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 ## 5. Implementation Plan
 
 - **Phase 1 (Paket-Gründung):** Repo `corefw` via `/onboard-repo` (Package-Profil),
-  `_ci-pypi.yml` (ADR-226), Module `retry` + `errors`, 100 % Test-Coverage auf beiden
-  (klein genug). Release `0.1.0` auf TestPyPI, dann PyPI.
+  `_ci-pypi.yml` (ADR-226), **`catalog-info.yaml`** (ADR-077: name/type/lifecycle/owner),
+  Module `retry` + `errors`, 100 % Test-Coverage auf beiden (klein genug). Release `0.1.0`
+  auf TestPyPI, dann PyPI.
 - **Phase 2 (Erst-Konsumenten, beweisend):** researchfw ersetzt seine 4 Retry-Stellen +
   Exceptions erben von `IILError` (Aliase bleiben); aifw analog. Beide releasen minor.
   *Gate:* keine Verhaltensänderung — Retry-Parameter byte-gleich, bestehende Tests grün.
@@ -139,6 +154,18 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
   Validations-Artefakt.
 - **Phase 4:** Aufnahme in den iil-Cohort-Constraint-Snapshot (ADR-234 P0.5a), Eintrag in
   `registry/canonical.yaml`.
+
+### 5.1 Migrations-Tracking (Consumer × Baustein)
+
+| Consumer | retry | errors | observe | provenance | Status |
+|---|---|---|---|---|---|
+| researchfw | ⬜ Phase 2 | ⬜ Phase 2 | ⬜ Phase 3 | n/a | not started |
+| aifw | ⬜ Phase 2 | ⬜ Phase 2 | ⬜ Phase 3 (Sink) | ⬜ Phase 3 | not started |
+| promptfw | n/a | ⬜ Phase 3 | ⬜ Phase 3 | ⬜ Phase 3 (Stempel) | not started |
+| weitere (`learnfw`, `outlinefw`, …) | – | – | – | – | erst nach Phase-3-Validierung, je eigener Eintrag |
+
+> Tabelle wird bei jedem Phasen-PR aktualisiert (⬜ → 🔶 → ✅); sie ist der
+> ADR-138-Evidence-Träger für `implementation_status`.
 
 ---
 
@@ -166,7 +193,14 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 
 ### 7.3 Nicht in Scope
 - Konsolidierung von Rate-Limiting/Caching (bewusst paket-spezifisch belassen).
-- Async-API für promptfw (eigenes Vorhaben, baut auf diesem ADR auf).
+- Async-API für promptfw — **benanntes Folge-Vorhaben:** nach corefw Phase 2 als eigenes
+  promptfw-Issue (Dual-API-Design sync/async, Jinja2-async); kein eigener ADR nötig, solange
+  die Public-API additiv bleibt (adr-threshold-Policy).
+
+### 7.4 Offene Punkte (deferred, nicht Accept-blockierend)
+- **Versionierungs-Vertrag des `ObservableResult`-Protocols:** Protocol-Erweiterungen müssen
+  additiv-optional sein (alte Consumer bleiben gültig); harte Regel wird mit corefw `0.2`
+  im Paket-README fixiert — Entscheidung dort, nicht hier.
 
 ---
 
@@ -182,7 +216,24 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 
 ---
 
-## 9. Referenzen
+## 9. Glossar
+
+| Begriff | Bedeutung |
+|---|---|
+| **Alias (Exception-Alias)** | Alte Fehlerklasse bleibt bestehen und erbt von der neuen Basisklasse — bestehender Code, der sie fängt, funktioniert weiter. |
+| **Cohort (iil-Cohort)** | Zentral getesteter, versions-kohärenter Satz interner `iil-*`-Bibliotheken, als Ganzes pinbar (ADR-234 P0.5a). |
+| **Cost-Attribution** | Zuordnung von LLM-Kosten zum Verursacher — hier bis auf das einzelne Prompt-Template genau. |
+| **Protocol (Python)** | Strukturelles Interface: eine Klasse erfüllt es, wenn sie die geforderten Attribute/Methoden hat — ohne davon erben zu müssen. |
+| **Provenance** | Herkunftskette eines Ergebnisses — hier: welches Template in welcher Version einen LLM-Call erzeugt hat. |
+| **Retry-Policy** | Benannte, zentral definierte Regel, wie oft und mit welchen Wartezeiten ein fehlgeschlagener Aufruf wiederholt wird. |
+| **Semver** | Semantic Versioning (MAJOR.MINOR.PATCH) — Breaking Changes nur bei MAJOR-Sprung. |
+| **Sink** | Austauschbares Ziel für Messdaten (z. B. Django-Datenbank, Logdatei); der Core misst, der Consumer entscheidet wohin. |
+| **tenacity** | Python-Bibliothek für Retry-Logik; heute in aifw und researchfw direkt konfiguriert. |
+| **transient** | Vorübergehender Fehler (z. B. Rate-Limit, Timeout) — Wiederholung ist sinnvoll; Gegenteil: permanent/Konfigurationsfehler. |
+
+---
+
+## 10. Referenzen
 
 - Codebase-Analyse 2026-06-12 (diese Session): Duplikations-Evidenz mit Pfaden/Zeilen.
 - ADR-131 (iil-django-commons — Vorbild „eng geschnittene Shared-Module").
@@ -191,7 +242,12 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 
 ---
 
-## 10. Changelog
+## 11. Changelog
 
+- **2026-06-12 (Review-Fixup):** `/adr-review`-Findings eingearbeitet (Score 4.2/5,
+  „Accept with changes"): §1.4 Entscheidungstreiber, §5.1 Migrations-Tracking-Tabelle,
+  §7.4 Offene Punkte (Protocol-Versionierung), §9 Glossar, catalog-info.yaml in Phase 1,
+  sync/async-Sicherheit in §2.3, promptfw-async als benanntes Folge-Vorhaben. Status
+  unverändert Proposed (kein Same-Day-Accept; externe Zweitmeinung empfohlen).
 - **2026-06-12:** Initial (Proposed). Abgeleitet aus der Tier-4/5-Codebase-Analyse
   (6 parallele Explore-Agents, Duplikations-Befunde verifiziert).
