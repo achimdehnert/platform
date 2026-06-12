@@ -189,7 +189,7 @@
 | 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Pipeline | `Accepted` | ✅ | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
 | 157 | Adopt same-port staging on Dev Desktop with automated port governance and onboarding | `Accepted` | ✅ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
 | 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | `Accepted` | ✅ | [ADR-158](ADR-158-unified-documentation-architecture.md) |
-| 160 | Adopt Standardized Two-File CI/CD Pipeline for All Hub Repositories | `Accepted` | 🔶 | [ADR-160](../../mcp-hub/docs/ADR-160-standardized-hub-deployment.md) |
+| 160 | Adopt LLM-Powered Query-Expansion and Relevance Scoring for researchfw | `Accepted` | ✅ | [ADR-160](ADR-160-llm-powered-research-pipeline.md) |
 | 161 | Adopt Two-Layer-Schema with Hybrid-RLS for Tenant-Spanning SDS Data | `Proposed` | ⬜ | [ADR-161](ADR-161-shared-sds-library.md) |
 | 162 | Adopt REFLEX as Standard Methodology for Evidence-based UI Development | `Accepted` | 🔶 | [ADR-162](ADR-162-reflex-ui-testing-and-scraping.md) |
 | 163 | Adopt Three-Tier REFLEX Quality Standard for All Platform Repositories | `Accepted` | 🔶 | [ADR-163](ADR-163-reflex-tiering-platform-quality-standard.md) |
@@ -204,7 +204,7 @@
 | 175 | Adopt selective modularization for .windsurf/workflows/ files | `Accepted` | ✅ | [ADR-175](ADR-175-workflow-modularization-pattern.md) |
 | 177 | Agent Role Specialization — Split Developer into 5 specialized agents (DocBot, TestBot, FeatureBot, ReEngineerBot, ArchitectBot) | `Proposed` | ⬜ | [ADR-177](ADR-177-agent-role-specialization.md) |
 | 185 | Adopt Gate-controlled Deploy-Agent for automated Staging→Prod deployments | `Proposed` | ⬜ | [ADR-185](ADR-185-deploy-agent-pattern.md) |
-| 186 | Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation | `Proposed` | ⬜ | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
+| 186 | Use Unified Agent Loop on aifw for Headless Coding Pipeline (v1.3) | `Proposed` | 🔶 | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
 | 187 | Document Intelligence Pipeline — iil-ingest erweitern um VectorStore, Multi-Tool Ensemble & RAG | `Accepted` | 🔶 | [ADR-187](ADR-187-document-intelligence-pipeline.md) |
 | 188 | Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store | `Proposed` | ⬜ | [ADR-188](ADR-188-unified-vector-store.md) |
 | 194 | Universal LLM-Call Logging via Gateway | `Proposed` | ⬜ | [ADR-194](ADR-194-universal-llm-call-logging-via-gateway.md) |
