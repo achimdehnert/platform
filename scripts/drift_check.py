@@ -79,7 +79,15 @@ BANNED_PATTERNS = [
      "docker-compose environment: mit ${VAR} (ADR-022 — env_file nutzen)"),
     (r"sqlite",                           "warn",
      "SQLite-Referenz gefunden — PostgreSQL ist Pflicht (ADR-009)"),
-    (r"^HEALTHCHECK\b",                   "error",
+]
+
+# Banned-Patterns mit File-Scope: feuern NUR in der genannten Datei (nicht über
+# alle gescannten Dateien wie BANNED_PATTERNS). Nötig z.B. für HEALTHCHECK, das
+# im Dockerfile verboten (ADR-078), als compose `healthcheck:`-Key aber erlaubt
+# ist — eine globale Regel würde sonst die Msg „…im Dockerfile … in
+# docker-compose.prod.yml" produzieren. (file, pattern, severity, msg)
+BANNED_FILE_PATTERNS = [
+    ("Dockerfile", r"^HEALTHCHECK\b",     "error",
      "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service in "
      "docker-compose.prod.yml, nicht ins image-globale Dockerfile)"),
 ]
@@ -253,6 +261,15 @@ def check_banned_patterns(repo: str, token: str) -> list[DriftItem]:
             if re.search(pattern, content, re.MULTILINE):
                 drifts.append(DriftItem(
                     rule="banned-pattern",
+                    severity=severity,
+                    file=filepath,
+                    message=f"{msg} in {filepath}",
+                ))
+        # File-scoped Patterns nur in der passenden Datei prüfen
+        for scoped_file, pattern, severity, msg in BANNED_FILE_PATTERNS:
+            if filepath == scoped_file and re.search(pattern, content, re.MULTILINE):
+                drifts.append(DriftItem(
+                    rule="banned-file-pattern",
                     severity=severity,
                     file=filepath,
                     message=f"{msg} in {filepath}",
