@@ -15,8 +15,7 @@
       "parameters": {
         "required_status_checks": [
           {
-            "context": "__REQUIRED_CHECK__",
-            "integration_id": null
+            "context": "__REQUIRED_CHECK__"
           }
         ],
         "strict_required_status_checks_policy": false
