@@ -355,6 +355,124 @@ def check_python_version(repo: str, token: str) -> list[DriftItem]:
     return drifts
 
 
+# ── shared-ci Tag-Drift (🌀 Drift-Klasse „Tag ≠ main") ───────────────────────
+#
+# Dreimal passiert (zuletzt 2026-06-12, ADR-242 Phase 3): ein shared-ci-Tag
+# wurde VOR einem Fix in der kanonischen platform-Quelle geschnitten bzw.
+# Consumer pinnen veraltete Tags — Doku behauptet dann einen Stand, den die
+# Flotte real nicht hat (deploy_runs_on-Regression #461; gate-Job fehlte in
+# v1.0.2 trotz #548-Behauptung). Zwei Regeln:
+#   shared-ci-tag-outdated (warn):  Consumer pinnt nicht-neuesten Tag
+#   shared-ci-tag-stale    (error): neuester Tag ≠ platform-main-Kanon
+
+SHARED_CI_REPO = "iilgmbh/shared-ci"
+SHARED_CI_PIN_RE = re.compile(
+    r"iilgmbh/shared-ci/\.github/workflows/([\w.-]+\.ya?ml)@([\w./-]+)"
+)
+_SHARED_CI_STATE: dict | None = None
+
+
+def parse_shared_ci_pins(content: str) -> list[tuple[str, str]]:
+    """Extrahiert (workflow-datei, ref) aller shared-ci-Pins aus YAML-Text."""
+    return [(m.group(1), m.group(2)) for m in SHARED_CI_PIN_RE.finditer(content)]
+
+
+def _semver_key(tag: str) -> tuple[int, ...] | None:
+    m = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", tag)
+    return tuple(int(x) for x in m.groups()) if m else None
+
+
+def latest_shared_ci_tag(tags: list[str]) -> str | None:
+    """Höchster vX.Y.Z-Tag nach Semver (API-Reihenfolge ist nicht verlässlich)."""
+    versioned = [(k, t) for t in tags if (k := _semver_key(t)) is not None]
+    return max(versioned)[1] if versioned else None
+
+
+def _get_content_at(owner_repo: str, path: str, ref: str, token: str) -> str | None:
+    data = _api_get(f"/repos/{owner_repo}/contents/{path}?ref={ref}", token)
+    if not isinstance(data, dict) or "content" not in data:
+        return None
+    try:
+        return base64.b64decode(data["content"]).decode(errors="replace")
+    except Exception:
+        return None
+
+
+def _shared_ci_state(token: str) -> dict:
+    """Einmal pro Lauf: neuester Tag + Abgleich Tag-Inhalt vs platform-Kanon."""
+    global _SHARED_CI_STATE
+    if _SHARED_CI_STATE is not None:
+        return _SHARED_CI_STATE
+    tags_data = _api_get(f"/repos/{SHARED_CI_REPO}/tags", token) or []
+    tags = [t.get("name", "") for t in tags_data if isinstance(t, dict)]
+    latest = latest_shared_ci_tag(tags)
+    stale_files: list[str] = []
+    if latest:
+        listing = _api_get(
+            f"/repos/{SHARED_CI_REPO}/contents/.github/workflows?ref={latest}", token
+        ) or []
+        for item in listing:
+            if not isinstance(item, dict) or not item.get("name", "").endswith((".yml", ".yaml")):
+                continue
+            name = item["name"]
+            canonical = _get_content_at(
+                f"{GITHUB_ORG}/platform", f".github/workflows/{name}", "main", token
+            )
+            if canonical is None:
+                continue  # existiert nur in shared-ci — kein Kanon-Abgleich
+            tagged = _get_content_at(
+                SHARED_CI_REPO, f".github/workflows/{name}", latest, token
+            )
+            # Port-Transformation normalisieren: der Mirror schreibt nur die
+            # Repo-Pfade um (Header + interne Action-Refs) — das ist kein Drift.
+            if tagged is not None:
+                normalized = tagged.replace(SHARED_CI_REPO, f"{GITHUB_ORG}/platform")
+                if normalized != canonical:
+                    stale_files.append(name)
+    _SHARED_CI_STATE = {"latest_tag": latest, "stale_files": stale_files}
+    return _SHARED_CI_STATE
+
+
+def check_shared_ci_tag_drift(repo: str, token: str,
+                               state: dict | None = None) -> list[DriftItem]:
+    """Prüft shared-ci-Pins des Repos gegen neuesten Tag + platform-Kanon."""
+    drifts = []
+    pins: list[tuple[str, str, str]] = []  # (wf_file, pinned_file, ref)
+    for wf_file in _get_dir_files(repo, ".github/workflows", token):
+        content = _get_file_content(repo, f".github/workflows/{wf_file}", token)
+        if not content:
+            continue
+        for pinned_file, ref in parse_shared_ci_pins(content):
+            pins.append((wf_file, pinned_file, ref))
+    if not pins:
+        return drifts
+
+    if state is None:
+        state = _shared_ci_state(token)
+    latest = state.get("latest_tag")
+    stale_files = state.get("stale_files", [])
+
+    for wf_file, pinned_file, ref in pins:
+        if latest and ref != latest and _semver_key(ref) is not None:
+            drifts.append(DriftItem(
+                rule="shared-ci-tag-outdated",
+                severity="warn",
+                file=f".github/workflows/{wf_file}",
+                message=f"shared-ci/{pinned_file}@{ref} — neuester Tag: {latest}",
+                fix_hint=f"sed -i 's#{pinned_file}@{ref}#{pinned_file}@{latest}#' .github/workflows/{wf_file}",
+            ))
+        if pinned_file in stale_files:
+            drifts.append(DriftItem(
+                rule="shared-ci-tag-stale",
+                severity="error",
+                file=f".github/workflows/{wf_file}",
+                message=(f"shared-ci@{latest}/{pinned_file} ≠ platform-main-Kanon — "
+                         "Tag ist stale, neuen Tag schneiden (🌀 Tag≠main)"),
+                fix_hint="platform .github/workflows nach shared-ci portieren + neuen Tag schneiden",
+            ))
+    return drifts
+
+
 # ── Haupt-Scan ────────────────────────────────────────────────────────────────
 
 SCAFFOLD_TYPES: frozenset[str] = frozenset({"django", "agent", "bot"})
@@ -378,6 +496,7 @@ def check_repo(repo: str, repo_type: str, token: str,
     drift.drifts.extend(check_actions_versions(repo, token))
     drift.drifts.extend(check_iil_package_versions(repo, token, iil_latest))
     drift.drifts.extend(check_python_version(repo, token))
+    drift.drifts.extend(check_shared_ci_tag_drift(repo, token))
 
     return drift
 
