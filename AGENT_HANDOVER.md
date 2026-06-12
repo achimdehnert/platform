@@ -5,7 +5,31 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-11 — M6 ✅, ADR-242 accepted + Phase-2-Rollout ✅)
+## ⚡ Aktueller Stand (2026-06-12 — T5-Programm: ADR-243/244/245 proposed + 7-Issue-Sonnet-Queue)
+
+**Diese Session (2026-06-12, Fable/Tier-4-5):**
+- **Tier-4/5-Codebase-Analyse** (platform + 17 PyPI-Pakete, 6 parallele Agents; 3 falsifizierte
+  Agent-Claims dokumentiert in CC-Memory `t5-optimierungsprogramm`).
+- **PR #551 gemergt** (squash `bcdb910`): **ADR-243** iil-corefw (Shared Runtime Core) ·
+  **ADR-244** Rule-Lifecycle-Loop (4 Engines inkl. Guardian!) · **ADR-245** Provider-Policy-Engine
+  (free-tier-first als Code) — **alle `proposed`**, je `/adr-review`-t (4.2/3.8/3.7) + Findings
+  als Fixups drin. Dazu **ADR-234 §11.2** (P0-Restschuld Verteilungs-Schicht) + INDEX-Reparatur
+  (237–242 nachgetragen, **241 = reservierte Nummer ohne Datei**).
+- **Sonnet-Queue erstellt** (alle `ai-assignable`): platform#552 shared-ci-Sweep (Tag-vs-main-Check
+  Pflicht!) · platform#553 Pipeline-Doku · iil-testkit#6 Gotcha-Fixtures · iil-codeguard#2
+  Suppression (Marker-Dialekte beachten, s. Issue-Kommentar) · iil-enrichment#2 + gaeb-toolkit#7
+  publish.yml · risk-hub#177 (blocked by enrichment#2) · riskfw#4 (Owner-Entscheid Rename).
+
+**Offen — erster Zug nächste Session:**
+- **Externes ADR-243-Review einarbeiten:** Briefing liegt in
+  `~/shared/adr-handoff-ADR-243-2026-06-12.md` (wartet auf GPT-Antwort vom User) →
+  Step-5-Rückfluss-Gate (ID-Tagging `[valid]`/…), dann Accept-Entscheide 243→244/245
+  (Sequenz: 245 braucht 243-Fehlerkategorien; 244-Severity-Heimat hängt an 243-Status).
+- **Knowledge-Capture nachholen:** Outline-MCP war in dieser Session nicht gebunden —
+  Session-Wissen liegt nur in pgvector (`session:platform:20260612*`) + CC-Memory.
+- Plus unverändert: ADR-242 Phase 3/4, coach-hub#28, F4-Breite (s. Vorheriger Stand).
+
+## ⚡ Vorheriger Stand (2026-06-11 — M6 ✅, ADR-242 accepted + Phase-2-Rollout ✅)
 
 **Diese Session (2026-06-11):**
 - **M6 Profil-B ✅ abgeschlossen** — PR #536 gemergt; bashrc-Block gesetzt; App public; Tokens iilgmbh+bahn-sqf grün.
