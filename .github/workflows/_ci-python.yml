@@ -245,7 +245,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -265,6 +265,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
           WORKERS=${{ inputs.pytest_workers }}
           # django-tenants-Repos brauchen echte Migrationen (Tenant-Schema-Tabellen
@@ -309,7 +310,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -329,6 +330,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
           set -euo pipefail
           python manage.py migrate 2>&1 && echo "OK: Migration graph consistent — all migrations applied" || {
@@ -343,6 +345,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
           set -euo pipefail
           python manage.py check --deploy --fail-level ERROR 2>&1 || {
@@ -357,6 +360,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
           REDIS_URL: redis://localhost:6379/0
         run: |
           WORKERS=${{ inputs.pytest_workers }}
@@ -428,7 +432,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -450,6 +454,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: pytest -m "contract" -v || ([ $? -eq 5 ] && echo "No contract tests found, skipping." && exit 0)
 
   architecture-guardian:
