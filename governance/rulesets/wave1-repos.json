@@ -39,7 +39,8 @@
     "owner": "achimdehnert",
     "required_check": "ci / gate",
     "wave": 1,
-    "reason": "auto-prod-deploy"
+    "reason": "auto-prod-deploy",
+    "deferred": "main-Deploy rot seit 2026-05-31 (F4) — Ruleset erst nach gruener main-CI (ADR-242 Rollout-Gate)"
   },
   {
     "repo": "dev-hub",

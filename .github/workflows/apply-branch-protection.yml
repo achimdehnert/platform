@@ -112,16 +112,23 @@ jobs:
               echo "❌ Repo '$TARGET_REPO' nicht in wave1-repos.json"
               exit 1
             fi
+            deferred=$(echo "$entry" | jq -r '.deferred // empty')
+            if [ -n "$deferred" ]; then
+              echo "❌ Repo '$TARGET_REPO' ist deferred: $deferred"
+              echo "   Zum Anwenden 'deferred'-Feld in wave1-repos.json entfernen (Rollout-Gate prüfen!)."
+              exit 1
+            fi
             owner=$(echo "$entry" | jq -r '.owner')
             check=$(echo "$entry" | jq -r '.required_check')
             run_one "$owner" "$TARGET_REPO" "$check"
           else
+            jq -r '.[] | select(.deferred != null) | "⏸ \(.repo) übersprungen (deferred): \(.deferred)"' "$WAVE1"
             while IFS= read -r entry; do
               repo=$(echo "$entry"  | jq -r '.repo')
               owner=$(echo "$entry" | jq -r '.owner')
               check=$(echo "$entry" | jq -r '.required_check')
               run_one "$owner" "$repo" "$check"
-            done < <(jq -c '.[]' "$WAVE1")
+            done < <(jq -c '.[] | select(.deferred == null)' "$WAVE1")
           fi
 
           echo ""

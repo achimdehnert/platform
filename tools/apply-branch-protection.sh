@@ -77,8 +77,15 @@ if [ -n "$FILTER_REPO" ]; then
     echo "❌ Repo '$FILTER_REPO' nicht in wave1-repos.json gefunden." >&2
     exit 1
   fi
+  DEFERRED_REASON=$(echo "$ENTRIES" | jq -r '.[0].deferred // empty')
+  if [ -n "$DEFERRED_REASON" ]; then
+    echo "❌ Repo '$FILTER_REPO' ist deferred: $DEFERRED_REASON" >&2
+    echo "   Zum Anwenden 'deferred'-Feld in wave1-repos.json entfernen (Rollout-Gate prüfen!)." >&2
+    exit 1
+  fi
 else
-  ENTRIES=$(jq '.' "$REPOS_JSON")
+  jq -r '.[] | select(.deferred != null) | "⏸ \(.repo) übersprungen (deferred): \(.deferred)"' "$REPOS_JSON"
+  ENTRIES=$(jq '[.[] | select(.deferred == null)]' "$REPOS_JSON")
 fi
 
 TOTAL=$(echo "$ENTRIES" | jq 'length')
