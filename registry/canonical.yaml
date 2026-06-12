@@ -22,6 +22,27 @@ meta:
     iil-fieldprefill: iilgmbh
     iil-relaunch: iilgmbh
     illustration-fw: iilgmbh
+    iil-klickdummy: iilgmbh
+    iil-testkit: iilgmbh
+  owner_prefix_rules:
+  - prefix: meiki-
+    owner: meiki-lra
+  - prefix: ttz-
+    owner: ttz-lif
+  - prefix: sqf-
+    owner: bahn-sqf
+  - prefix: pg-
+    owner: bahn-sqf
+  - prefix: bahn-
+    owner: bahn-sqf
+  app_display_names:
+    meiki-hub: MEiKI · LRA-Plattform
+    ausschreibungs-hub: Bieterpilot
+    writing-hub: Writing-Hub
+    risk-hub: Risk-Hub
+    ttz-hub: TTZ-Hub
+    sqf-hub: SQF-Hub
+    pg-hub: PG-Hub
   _note: GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + registry/repos.yaml.
     Noch NICHT kanonisch geschaltet — Konsumenten unverändert.
 repos:
