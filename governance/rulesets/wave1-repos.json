@@ -9,14 +9,14 @@
   {
     "repo": "risk-hub",
     "owner": "achimdehnert",
-    "required_check": "deploy-config-lint",
+    "required_check": "Deploy-Config-Lint / deploy-config-lint",
     "wave": 1,
     "reason": "live-customer-product"
   },
   {
     "repo": "mcp-hub",
     "owner": "achimdehnert",
-    "required_check": "ci / gate",
+    "required_check": "🚦 Quality Gate",
     "wave": 1,
     "reason": "mcp-infrastruktur"
   },
