@@ -60,8 +60,6 @@ REQUIRED_FILE_CONTENT_CHECKS = [
      "CI nutzt nicht platform/_ci-python.yml (reusable workflow)"),
     ("Dockerfile",                        r"python:3\.12",     "warn",
      "Dockerfile nutzt nicht Python 3.12"),
-    ("Dockerfile",                        r"HEALTHCHECK",      "error",
-     "Dockerfile ohne HEALTHCHECK (ADR-056)"),
     ("docker-compose.prod.yml",           r"env_file",         "error",
      "docker-compose.prod.yml ohne env_file (ADR-022 violation)"),
     ("docker-compose.prod.yml",           r"unless-stopped",   "warn",
@@ -81,6 +79,9 @@ BANNED_PATTERNS = [
      "docker-compose environment: mit ${VAR} (ADR-022 — env_file nutzen)"),
     (r"sqlite",                           "warn",
      "SQLite-Referenz gefunden — PostgreSQL ist Pflicht (ADR-009)"),
+    (r"^HEALTHCHECK\b",                   "error",
+     "HEALTHCHECK im Dockerfile (ADR-078 — Healthcheck gehört pro-Service in "
+     "docker-compose.prod.yml, nicht ins image-globale Dockerfile)"),
 ]
 
 ACTIONS_VERSION_MAP = {
