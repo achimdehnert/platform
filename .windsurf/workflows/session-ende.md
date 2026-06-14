@@ -318,9 +318,11 @@ find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 -name "*.fixed" -o -name "*.update
 # Jedes Repo mit Session-Worktrees abräumen. --apply, aber tool-interne Guards
 # lassen dirty / offene-PR-Worktrees absichtlich stehen. Restore-Manifest je Repo.
 for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
-  [ -e "$repo/.git" ] || continue
-  out=$(cd "$repo" && python3 ${GITHUB_DIR:-$HOME/github}/platform/tools/worktree-reaper.py --apply 2>/dev/null | grep -E "entfernt$|[0-9]+ entfernt")
-  [ -n "$out" ] && echo "$(basename "$repo"): $out"
+  # NUR Haupt-Checkouts: .git ist ein Verzeichnis. Linked-Worktrees (z.B.
+  # *-pinned) haben .git als DATEI → überspringen, sonst Doppel-Durchlauf.
+  [ -d "$repo/.git" ] || continue
+  summary=$(cd "$repo" && python3 ${GITHUB_DIR:-$HOME/github}/platform/tools/worktree-reaper.py --apply 2>/dev/null | grep -oE "[0-9]+ entfernt")
+  [ -n "$summary" ] && [ "${summary%% *}" != "0" ] && echo "$(basename "$repo"): $summary"
 done
 echo "✅ Worktree-Reaper durchgelaufen (ADR-233)"
 ```
