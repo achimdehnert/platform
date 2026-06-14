@@ -44,6 +44,22 @@ Survivors strukturell selten → kleiner skalieren (sonst verbrennt die Falsifik
 Kein Multi-Agent unter `lean`. Falsifikation **nie** 1 Agent pro Befund (explodiert linear) —
 gebündelt je Dimension.
 
+**Trigger-Konflikt (Rule B feuert, Dichte-Regel dämpft) — Auflösung (Lehre 2026-06-14):**
+Der `deep`-Trigger „Prod-Schritt" und die Dichte-Regel „reversibel+transparent+freigegeben →
+kleiner skalieren" widersprechen sich bei einem **sauberen, freigegebenen, reversiblen**
+Prod-Deploy. Regel: starte beim Rule-B-Level (`deep`); **eine** Stufe runter (→ `full`) nur wenn
+**alle drei** zutreffen — (a) Prod-Schritt war menschlich explizit freigegeben (Artefakt-Beleg:
+PR-Body-Warnung oder `AskUserQuestion`), (b) voll rollback-fähig (gleiche Bereitstellung, **keine**
+DB-Migration), (c) findings_total-Schätzung ≤10. Bei Prod-Schritt **nie** auf `lean`. Reduktion +
+die drei Begründungen im Frontmatter (`footprint_reduction_reason`) festhalten.
+
+**Increment-Retro (Anchor am selben Tag):** Läuft eine zweite Retro auf dem Abarbeiten der
+Action-Items der vorigen Retro: (1) `session_id`-Suffix `-incr` (kollisionssicherer Pfad);
+(2) **nur die neuen Artefakte** sind in-scope — Vor-Retro NICHT re-litigieren; (3) Parent-Retro-
+Slugs zählen als Vorkommen-1 → taucht ein Slug im Increment erneut auf, ist das Vorkommen-2 ⇒
+**Gate-Pflicht, auch same-day** (siehe `retro_kpis.py`); (4) Right-Sizing-Minimum mit Prod-Schritt:
+`full` (nie `lean`), weil ein Anchor per Definition neue Fixes auf bekannte Muster deployt.
+
 ## Modell-Routing je Phase (Kosten-Disziplin)
 Die Trennung Richter≠Angeklagter kommt vom **frischen Kontext**, NICHT vom teuren Opus →
 Subagenten laufen auf dem **billigsten Modell, das die Phase trägt** (`agent(..., model: …)`):
@@ -86,6 +102,17 @@ Je Dimension ein **eigener** Subagent (kennt die Session-Erzählung nicht), geer
 
 Je Befund: Schweregrad (kritisch/hoch/mittel/niedrig) + Root Cause (5-Why) + Kategorie
 (Wissenslücke / Prozesslücke / Kommunikation / verfrühte Festlegung / fehlende Validierung / Werkzeug).
+
+## Phase 2.5 — Finder-Konflikt-Erkennung (in-context, 0 Agenten — Lehre 2026-06-14)
+Bevor Phase 3 startet: die Finder-Outputs auf **zwei Finder mit widersprüchlichen Fakt-Behauptungen
+über dasselbe Artefakt** (gleiche Datei/PR/Status) scannen. Jeden Widerspruch explizit als Paar
+markieren. **NICHT in Phase 4 selbst auflösen** — das wäre verstecktes Verify aus dem Haupt-Kontext
+(Regel-1-Bruch). Stattdessen den Widerspruch als **zusätzlichen Skeptiker-Task** routen: der Phase-3-
+Skeptiker zieht das umstrittene Artefakt **unabhängig aus `origin/main`** (nicht aus dem lokalen
+Working-Tree) und entscheidet binär. Nur die skeptiker-verifizierte Version geht in den Report — mit
+eigener Befund-Nummer + Kategorie/Severity (keine nummernlosen Tabellenzeilen). (Realfall: zwei Finder
+widersprachen sich über `pptx-hub origin/main`; **ein Finder verfiel selbst in den stale-local-Fehler,
+den er anklagte** — genau dafür existiert Richter≠Angeklagter.)
 
 ## Phase 3 — Verify (Falsifikation)
 Skeptiker-Subagent **je Dimension** (nicht je Befund — Budget, s. Phase 0). **Binär: SURVIVES
@@ -130,7 +157,9 @@ session_id: <kurz>
 footprint: lean|full|deep
 findings_total: <n>
 findings_survived: <n>
-refuted_rate: <(refuted)/total, 0–1>     # Skill-KPI, s. Phase 5
+refuted_rate: <(phase3_refuted + pre_refuted)/findings_total, 0–1>  # Skill-KPI, s. Phase 5
+phase3_refuted: <n>   # vom UNABHÄNGIGEN Phase-3-Skeptiker mit frischem Artefakt-Check verworfen
+pre_refuted: <n>      # schon VOR Phase 3 als trivial-falsch erkannt (Finder-Stroh); NICHT die Skeptiker-Schärfe
 scores:                                   # ganzzahlig 1–5, KEINE Halbwerte
   zielerreichung: <1-5>
   architektur_design: <1-5>
@@ -151,13 +180,22 @@ Danach in fester Reihenfolge:
   mit Rework · `3`=teilweise erreicht, signifikante Abweichung begründet · `4`=erreicht, kleine Mängel ·
   `5`=erreicht, vorbildlich.
 - **4. Soll-Ablauf** (aus Phase 3.5, Ist→Soll→eliminiert-#).
-- **5. Längsschnitt — der eigentliche Hebel:** gegen `<auto-memory>/MEMORY.md` abgleichen.
-  Wiederholung (gleiche Kategorie mehrfach in dieser Session ODER schon als Drift-Memory **belegt
-  vorhanden** — Existenz per `grep` prüfen, Phase 3) → **HARTES GATE** (Hook/CI), nicht der N-te Notizzettel.
+- **5. Längsschnitt — der eigentliche Hebel:** **PFLICHT** `python3 tools/retro_kpis.py` laufen lassen
+  (zählt `recurring_findings`-Slugs maschinell über ALLE `~/shared/session-retro-*.md`). Jeder Slug mit
+  Zähler **≥2 ⇒ GATE-PFLICHT** (Hook/CI/Skill-Edit), nicht der N-te Notizzettel. Zusätzlich gegen
+  `<auto-memory>/MEMORY.md` abgleichen (gleiche Kategorie mehrfach in dieser Session ODER schon als
+  Drift-Memory **belegt vorhanden** — Existenz per `grep` prüfen). Der maschinelle Zähler ersetzt das
+  manuelle Erinnern (Realfall 2026-06-14: `worktree-orphan-accumulation` ×2 erst vom Tool gefangen).
 - **6. Verankerung:** kopierfertige `memory_candidates` + `adr_candidates` (du schreibst sie NICHT selbst).
 - **7. Maßnahmen als Action-Board** (Org-Standard: Buckets 🟢 dein Zug / 🔵 ich sofort / 🟡-⛔ wip / ✅ done;
   Lean-Spalten `# | Item | Repo | PR/Issue/ADR | Status | Next Step`), **abgeleitet aus dem Soll-Ablauf**.
 - **8. Nicht verifiziert (Restlücken)** — Pflicht-Sektion: was offen blieb + billigster Check.
+
+**Synthesizer-Grenze (Lehre 2026-06-14):** Phase 4 ist **nur Zusammenführen** — der Haupt-Kontext führt
+hier **keine** neuen `gh`/`git`-Befehle aus. Stellt er einen Finder-Widerspruch oder ein ungedecktes
+Faktum fest → zurück nach Phase 2.5/3 (Skeptiker) ODER als Lücke in §8 (Nicht verifiziert), **nicht**
+still selbst-verifizieren. Befunde, die nur durch Session-Gedächtnis gedeckt sind (kein per `gh run
+view` erreichbares Artefakt), werden als **Hypothese** geführt, nicht als SURVIVES mit „Beleg=Session-Log".
 
 **Report-Pfad — kollisionsfrei bei Parallel-Sessions (Pflicht):**
 `~/shared/session-retro-<datum>-<repo>-<session-id-kurz>.md`. **Jede Session schreibt ihre eigene Datei.**
@@ -174,13 +212,20 @@ Er sieht nur den Report + diese Skill. Checkliste:
 - Scores ganzzahlig 1–5, je an Befund verankert? (fängt erfundene Halbwerte wie `2.5`)
 - **Invariante** `|Soll-Schritte| == |überlebende Befunde|` erfüllt?
 - Frontmatter schema-valide (alle Pflichtfelder)? Report-Pfad kollisionsfrei (repo+session-id)?
-- `refuted_rate` plausibel? **Interpretation als Skill-KPI** (kein Session-Urteil): dauerhaft
-  **>0,8** über mehrere Retros → Finder zu lasch (produzieren widerlegbares Stroh); **<0,2** →
-  Falsifikation ist Theater (widerlegt nie). Auffälligkeit als `## Self-Review`-Block im Report notieren.
+- `refuted_rate` plausibel? Der Meta-Reviewer kommentiert sie **ausschließlich numerisch** als
+  Band-Vergleich (aktueller Wert vs. die vorangehenden Retros via `retro_kpis.py`) — er beurteilt
+  **NICHT**, ob einzelne SURVIVES/REFUTED-Entscheide inhaltlich korrekt sind (das wäre Session-Urteil).
+  Band-KPI: dauerhaft **>0,8** → Finder zu lasch (widerlegbares Stroh); **<0,2** → Falsifikation ist
+  Theater. **Nur `phase3_refuted/(findings_total − pre_refuted)` ist die echte Falsifikations-Quote**
+  (hohes `pre_refuted` = schwache Finder, nicht scharfer Skeptiker). Auffälligkeit als `## Self-Review`.
 
-> **Längsschnitt der Skill selbst (optional):** `retro-kpis.py` (falls vorhanden) liest die Frontmatter
-> aller `~/shared/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert jeden
-> `recurring_finding` mit Zähler **≥2 über Retros** automatisch zum Gate-PR-Pflicht-Item.
+> **Längsschnitt der Skill selbst (PFLICHT in Phase 4, nicht optional):** `python3 tools/retro_kpis.py`
+> liest die Frontmatter aller `~/shared/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert
+> jeden `recurring_finding` mit Zähler **≥2 über Retros** zum Gate-PR-Pflicht-Item. Stdlib-only, kein Setup.
+
+**Agenten-Budget-Hinweis:** ein `full`-Lauf mit Phase 5 braucht den 6. Subagenten (Meta) — das `≤5` in der
+Phase-0-Tabelle gilt für die Find/Verify-Pipeline; der Meta-Reviewer kommt **obendrauf** (also `full` ≤6,
+`deep` zzgl. Phase-6-Extern).
 
 ## Phase 6 — Extern-Handoff (optional, nur `deep`)
 Stärkste Stufe der Selbstverbesserung: eine **anbieter-fremde** Zweitmeinung (nicht nur frischer
@@ -216,6 +261,10 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
 - ❌ Find/Verify durch **„du"/Haupt-Session** „zum Sparen" — das ist Self-Review (Regel-1-Bruch). Kosten-Fix = **Sonnet-Subagent**, nicht **kein** Subagent.
 - ❌ **Opus-Subagenten** als Default — Sonnet trägt Find/Verify/Meta; Opus nur bei nachgewiesenem Nuance-Fail.
 - ❌ Extern-Handoff (Phase 6) **Evidenz-Fakten** behaupten lassen — extern hat kein gh/git, nur Methoden-Kritik.
+- ❌ **Finder-vs-Finder-Widerspruch durch die Haupt-Session (Phase 4) per neuem git/gh auflösen** — verstecktes Verify (Regel-1-Bruch); Widersprüche gehören als Skeptiker-Task nach Phase 2.5/3.
+- ❌ **Nummernlose Befund-Zeile** (Finder-Konflikt-Funde ohne `#`/Kategorie/Severity) — bricht die eingefrorenen Spalten + den `findings_total`-Zähler.
+- ❌ **`recurring_finding` im Frontmatter ohne `retro_kpis.py`-Zähler-Check** — Längsschnitt ist dann Dekoration, kein Hebel (genau das Anti-Pattern, das die Skill predigt, auf sich selbst angewandt).
+- ❌ **`refuted_rate` ohne `pre_refuted`-Trennung** — trivial-falsche Finder-Behauptungen (vom Haupt-Kontext vor-widerlegt) blähen die Quote und verfälschen das Skill-KPI.
 
 ## Changelog
 - 2026-06-04: Initial. Aus einem Advocatus-Diabolus-Review des Paste-Prompt-Retros
@@ -238,3 +287,16 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
   **Phase 6 Extern-Handoff** (optional, deep) — anbieter-fremde Methoden-Zweitmeinung (Muster
   `adr-handoff-extern`); harte Grenze: extern kritisiert Methode, prüft KEINE Evidenz (kein gh/git);
   wiederkehrende Kritik fließt zurück in die Skill (Self-Improvement-Loop mit externem Falsifikator).
+- 2026-06-14 (v2.2): **Self-Improvement aus zwei realen Läufen am selben Tag** (Richter≠Angeklagter:
+  frischer Skill-Kritiker gegen die zwei erzeugten Reports). **Fixes:** (1) **`tools/retro_kpis.py`
+  gebaut** (war nur „falls vorhanden" referenziert → Längsschnitt-Hebel war fiktiv; 15 Reports lagen
+  ungelesen). Stdlib-only, zählt `recurring_findings` über Retros, eskaliert ≥2 → GATE-PFLICHT; fing
+  beim ersten Lauf `worktree-orphan-accumulation ×2`. Phase-4-Pflichtaufruf, „falls vorhanden"-Hedge
+  entfernt. (2) **Phase 2.5 Finder-Konflikt-Erkennung** — widersprechen sich zwei Finder über einen
+  Fakt, war die Auflösung still in Phase 4 (Haupt-Session zieht neues git/gh = Regel-1-Bruch; Realfall:
+  ein Finder verfiel selbst in den stale-local-Fehler, den er anklagte). Jetzt: als Skeptiker-Task nach
+  Phase 3, Synthesizer führt KEINE neuen Befehle aus. (3) **`refuted_rate` 3-Feld-Split** (`phase3_refuted`
+  + `pre_refuted`) — Vor-Widerlegungen durch den Haupt-Kontext verfälschten das KPI. (4) **Trigger-Konflikt-
+  Auflösung** (deep „Prod-Schritt" vs. Dichte-Downscale) + **Increment-Retro-Regeln** (same-day Anchor).
+  (5) **Phase-5-Budget** geklärt (`full` ≤6 mit Meta) + Meta-Reviewer nur **numerisch** (kein Einzel-Befund-
+  Urteil). Quelle: `~/shared/session-retro-2026-06-14-coach-hub-2d7cd9*.md` + adversarialer Skill-Kritiker.
