@@ -307,6 +307,25 @@ find ${GITHUB_DIR:-$HOME/github}/ -maxdepth 4 -name "*.fixed" -o -name "*.update
 ```
 → Falls vorhanden: Prüfen ob übernommen, dann löschen. Falls NICHT übernommen → User warnen.
 
+### 3.1c Worktree-Reaper: gemergte Session-Worktrees abräumen (ADR-233, PFLICHT)
+
+> Ohne diesen Schritt akkumulieren Orphan-Worktrees über Tage (Retro 2026-06-14:
+> 9 dangling, davon 3 am selben Tag erzeugt + gemergt, nie gereapt). Der Reaper ist
+> **squash-merge-aware** und schützt DIRTY- + offene-PR-Worktrees selbst (kein Datenverlust).
+
+// turbo
+```bash
+# Jedes Repo mit Session-Worktrees abräumen. --apply, aber tool-interne Guards
+# lassen dirty / offene-PR-Worktrees absichtlich stehen. Restore-Manifest je Repo.
+for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
+  [ -e "$repo/.git" ] || continue
+  out=$(cd "$repo" && python3 ${GITHUB_DIR:-$HOME/github}/platform/tools/worktree-reaper.py --apply 2>/dev/null | grep -E "entfernt$|[0-9]+ entfernt")
+  [ -n "$out" ] && echo "$(basename "$repo"): $out"
+done
+echo "✅ Worktree-Reaper durchgelaufen (ADR-233)"
+```
+→ Wiederherstellung jederzeit via `worktree-reaper-manifest.jsonl` (pro Repo geschrieben).
+
 ### 3.2 Platform-Workflows + project-facts verteilen (IMMER — kein Conditional)
 
 > ⚠️ **PFLICHT — nicht überspringen.** Dieser Schritt stellt sicher, dass Verbesserungen
