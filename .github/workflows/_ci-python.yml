@@ -178,6 +178,24 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python_version }}
+      - name: Git-Auth für private Deps (ephemer, self-hosted-safe)
+        env:
+          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
+        run: |
+          # pip / pip-audit müssen private git+https-Deps (z.B. iil-Org) klonen.
+          # Token in eine JOB-temporäre gitconfig schreiben statt ~/.gitconfig —
+          # self-hosted Runner persistieren das globale gitconfig sonst (Token-Leak).
+          # Via GIT_CONFIG_GLOBAL gilt sie für alle Folge-Steps und verschwindet
+          # mit RUNNER_TEMP.
+          if [ -n "$PROJECT_PAT" ]; then
+            cfg="${RUNNER_TEMP}/ci-git-auth.gitconfig"
+            git config --file "$cfg" \
+              url."https://x-access-token:${PROJECT_PAT}@github.com/".insteadOf "https://github.com/"
+            echo "GIT_CONFIG_GLOBAL=$cfg" >> "$GITHUB_ENV"
+            echo "✅ Git-Auth für private Deps aktiv (ephemer)"
+          else
+            echo "ℹ️  Kein PROJECT_PAT — private git-Deps werden ggf. nicht aufgelöst"
+          fi
       - name: Install dependencies
         run: |
           pip install pip-audit
