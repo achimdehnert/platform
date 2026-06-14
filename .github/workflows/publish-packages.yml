@@ -92,7 +92,7 @@ jobs:
         run: ls -la dist/
 
       - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-django-tenancy-${{ steps.meta.outputs.version }}
           path: packages/django-tenancy/dist/
@@ -199,7 +199,7 @@ jobs:
         run: ls -la dist/
 
       - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-concept-templates-${{ steps.meta.outputs.version }}
           path: packages/concept-templates/dist/
@@ -307,7 +307,7 @@ jobs:
         run: ls -la dist/
 
       - name: Upload dist artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist-dvelop-client-${{ steps.meta.outputs.version }}
           path: packages/dvelop-client/dist/

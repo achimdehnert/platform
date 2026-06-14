@@ -305,7 +305,7 @@ jobs:
               -n "$WORKERS" \
               --dist=loadscope
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
           path: ${{ inputs.src_dir }}/coverage-unit.xml
@@ -407,7 +407,7 @@ jobs:
           if [ ! -f ${{ inputs.src_dir }}/coverage-integration.xml ]; then
             echo '<?xml version="1.0" ?><coverage version="7.0" timestamp="0" lines-valid="1" lines-covered="1" line-rate="1.0" branches-covered="0" branches-valid="0" branch-rate="0" complexity="0"><packages></packages></coverage>' > ${{ inputs.src_dir }}/coverage-integration.xml
           fi
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: coverage-integration
