@@ -31,9 +31,10 @@ repos:
     pypi: authoringfw
   bfagent:
     type: agent
-    prod_url: bfagent.iil.pet
-    port: 8091
-    health: /livez/
+    archived: true   # 2026-06-17 archiviert, nicht mehr aktiv — kein Live-Prod
+    # prod_url: bfagent.iil.pet   # archiviert (war :8091); aus Monitoring/Prod-Listen raus
+    # port: 8091
+    # health: /livez/
   billing-hub:
     type: django
     prod_url: billing.iil.pet
