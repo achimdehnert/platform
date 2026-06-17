@@ -75,18 +75,18 @@ runners:
 
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert
-    status: offline-orphaned           # >13h offline am 2026-06-17, blockierte Merges
+    status: deleted                     # 2026-06-17 dereg. (id=23 auf risk-hub gelöscht)
     labels: [self-hosted, Linux, X64, hetzner, dev]
     note: >
-      VERWAISTE Registrierung: in GitHub als Runner geführt, aber auf KEINEM
-      erreichbaren Host gefunden (nicht prod, nicht staging/dev-desktop; nicht in
-      ssh-config/known_hosts/infra-configs). Die Labels `hetzner`/`dev` zeigen nur
-      auf ihn → jeder Workflow, der sie verlangt, hängt unbegrenzt in der Queue.
-      Cleanup-Kandidat: `gh api -X DELETE repos/<owner>/<repo>/actions/runners/<id>`
-      (erst sicherstellen, dass kein Workflow mehr die toten Labels verlangt).
+      War eine VERWAISTE Registrierung: in GitHub als Runner geführt, aber auf
+      KEINEM erreichbaren Host (nicht prod, nicht staging/dev-desktop; nicht in
+      ssh-config/known_hosts/infra-configs). >13h offline am 2026-06-17 → blockierte
+      ALLE risk-hub-Merges (die toten Labels `hetzner`/`dev` zeigten nur auf ihn).
+      Am 2026-06-17 dereg. (`gh api -X DELETE …/actions/runners/23` auf risk-hub;
+      auf keinem anderen Repo registriert). Eintrag bleibt als Lehre/Historie.
     verified: 2026-06-17
 
-# Workflows, die (noch) tote Labels verlangen — beim Auftauchen auf self-hosted angleichen:
+# Workflows mit toten Labels — alle bereinigt (2026-06-17). Neue Workflows: runs-on: self-hosted.
 dead_label_refs:
   - repo: risk-hub
     file: .github/workflows/complete-check.yml
@@ -94,5 +94,5 @@ dead_label_refs:
     fixed_in: "PR #209 (→ self-hosted)"
   - repo: risk-hub
     file: .github/workflows/runner-diag.yml
-    requires: "[self-hosted, dev]"
-    status: "offen — Diagnose-Workflow, kein Merge-Gate; bei Bedarf auf self-hosted"
+    was: "[self-hosted, dev]"
+    fixed_in: "PR #210 (Workflow entfernt — diente nur dev-hetzner-2)"
