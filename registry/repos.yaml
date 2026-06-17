@@ -127,10 +127,11 @@ domains:
     repo: bfagent
     description: Book Factory Agent — AI-assisted book creation
     github: achimdehnert/bfagent
-    deployed: true
+    deployed: false
+    archived: true   # 2026-06-17 archiviert (Funktionsspeicher/import-only) — kein Live-Prod/Monitoring
     url: https://bfagent.iil.pet
     type: django
-    lifecycle: production
+    lifecycle: archived
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml

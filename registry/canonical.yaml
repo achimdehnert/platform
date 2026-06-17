@@ -144,17 +144,18 @@ repos:
     in_rich: true
     flat:
       type: agent
-      archived: true   # 2026-06-17 archiviert (Funktionsspeicher/import-only) — kein Live-Prod/Monitoring
+      archived: true
     domain: Content & Publishing
     rich:
       name: bfagent
       repo: bfagent
       description: Book Factory Agent — AI-assisted book creation
       github: achimdehnert/bfagent
-      deployed: true
+      deployed: false
+      archived: true
       url: https://bfagent.iil.pet
       type: django
-      lifecycle: production
+      lifecycle: archived
       tenancy_mode: none
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
