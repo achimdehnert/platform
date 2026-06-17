@@ -1,0 +1,96 @@
+name: "Prod-Uptime-Canary"
+
+# Externe Outage-Detektion für Prod-Hubs (session-retro 2026-06-17, P2).
+# Hintergrund: risk-hub-Web war 2026-06-15 ~25h down (schutztat.de 502) und blieb
+# UNBEMERKT — es gab kein externes Monitoring (Uptime-Kuma nur geplant, nie deployed).
+#
+# Läuft bewusst auf ubuntu-latest = GitHub-hosted, AUSSERHALB unserer Hetzner-Infra.
+# Ein Monitor, der auf derselben Infra läuft wie das Überwachte, ist bei Host-Down
+# blind — genau das hätte die 25h-Outage verschluckt.
+#
+# Überwacht nur bekannt-gute (200) Prod-/livez/-Endpoints (Baseline 2026-06-17).
+# Origin-Down-Signale (5xx/52x/Timeout/Conn-Fail) → Issue + roter Run (Notification).
+# 403/401/3xx (Cloudflare-Access o.ä.) gelten NICHT als down.
+#
+# Pflege: neue Live-Hubs / aktuell 502/000-Hubs nach Triage in URLS aufnehmen.
+# Robustere 1-Min-Variante optional via Betterstack (/uptime-monitoring-Skill).
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # alle 15 min (GitHub-Cron-Minimum 5 min; 15 reicht für Outage-Klasse)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  canary:
+    name: "Prod /livez/ Health"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Probe Prod-Endpoints"
+        id: probe
+        run: |
+          set -uo pipefail
+          URLS="
+          https://schutztat.de/livez/
+          https://137herz.de/livez/
+          https://bieterpilot.de/livez/
+          https://billing.iil.pet/livez/
+          https://dev-hub.iil.pet/livez/
+          https://dms.iil.pet/livez/
+          https://kiohnerisiko.de/livez/
+          https://learn.iil.pet/livez/
+          https://nl2cad.de/livez/
+          https://prezimo.com/livez/
+          https://tax.iil.pet/livez/
+          https://trading-hub.iil.pet/livez/
+          https://wedding-hub.iil.pet/livez/
+          https://weltenforger.com/livez/
+          "
+          down=""
+          for u in $URLS; do
+            [ -z "$u" ] && continue
+            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$u" 2>/dev/null || echo "000")
+            case "$code" in
+              200|204) echo "✅ $code  $u" ;;
+              401|403|301|302|307|308) echo "🔒 $code  $u (geschützt/redirect — kein Down-Signal)" ;;
+              *) echo "❌ $code  $u"; down="${down}- ${u} → HTTP ${code}\n" ;;
+            esac
+          done
+          if [ -n "$down" ]; then
+            {
+              echo "## 🚨 Prod-Hub(s) nicht erreichbar"
+              echo ""
+              printf "%b" "$down"
+            } >> "$GITHUB_STEP_SUMMARY"
+            printf "%b" "$down" > /tmp/down.txt
+            echo "has_down=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_down=false" >> "$GITHUB_OUTPUT"
+            echo "Alle überwachten Prod-Endpoints 200." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: "Issue öffnen/aktualisieren bei Down"
+        if: steps.probe.outputs.has_down == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TITLE="🚨 Prod-Uptime-Canary: Hub(s) nicht erreichbar"
+          BODY=$(printf "Canary-Lauf %s meldet nicht erreichbare Prod-Hubs:\n\n%s\n\nRun: %s/%s/actions/runs/%s\n\n_Auto-erzeugt vom Prod-Uptime-Canary. Schließen, sobald wieder grün._" \
+            "$(date -u +%FT%TZ)" "$(cat /tmp/down.txt)" "$GITHUB_SERVER_URL" "$GITHUB_REPOSITORY" "$GITHUB_RUN_ID")
+          existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number' 2>/dev/null || echo "")
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$BODY"
+            echo "Kommentar an Issue #$existing"
+          else
+            gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" --body "$BODY"
+          fi
+
+      - name: "Run rot machen bei Down (Notification)"
+        if: steps.probe.outputs.has_down == 'true'
+        run: |
+          echo "::error::Prod-Uptime-Canary: mindestens ein Hub nicht erreichbar — siehe Issue + Summary."
+          exit 1
