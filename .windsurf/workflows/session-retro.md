@@ -87,6 +87,15 @@ OPEN-PR überholt von späterem MERGED-PR zum selben Issue (Duplikat/dangling) �
 „Closes" dasselbe Issue · rote Required-Gates auf offenen PRs · Migrations-Nummern-Kollision ·
 Issue offen geblieben trotz gemergtem Fix.
 
+**Infra-Topologie-Sonde (Pflicht, wenn die Session CI/Deploy/Runner/Hosts berührte —
+Lehre 2026-06-17: fehlende Infra-Transparenz war wiederholt Outage- und Merge-Blocker-
+Quelle):** die SoT `platform/infra/hosts.yaml` gegen die Realität abgleichen, nicht raten:
+`python3 platform/infra/scripts/hosts_audit.py --check all --workflows <repo>/.github/workflows`
+(Schema + Frische der SoT + tote Runner-Label-Pins). Zusätzlich: `gh api repos/<owner>/<repo>/
+actions/runners` (online vs. verwaist) und `runs-on:`-Labels der Workflows gegen lebende
+Runner — ein Workflow auf einem Label, das kein Online-Runner trägt, hängt unbegrenzt und
+blockiert Merges. Drift hier → Längsschnitt-Gate-Kandidat (Phase 4/5), kein Einzelfix.
+
 > **Repos verbindlich halten:** vom Menschen genannte Repos sind in-scope — niemals als
 > „separater Workstream" wegklassifizieren. Falls ein Transkript-Pfad gegeben ist, erdet er
 > die Session-Grenze (gewinnt bei Konflikt gegen die Artefakt-Heuristik).
