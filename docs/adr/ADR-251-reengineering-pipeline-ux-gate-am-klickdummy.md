@@ -1,5 +1,5 @@
 ---
-id: ADR-250
+id: ADR-251
 title: "Reengineering-Pipeline: Analyse→UCs→KD→Mockup→Deploy als Round-Trip-Kreislauf mit UX-Gate am Klickdummy + Mermaid-UC-Konvention"
 status: accepted
 date: 2026-06-17
@@ -14,10 +14,10 @@ related: [ADR-211, ADR-213]
 tags: [methodology, reengineering, klickdummy, ux, process, mermaid]
 scope:
   include_paths:
-    - "docs/adr/ADR-250-*"
+    - "docs/adr/ADR-251-*"
 ---
 
-# ADR-250 — Reengineering-Pipeline mit UX-Gate am Klickdummy + Mermaid-UC-Konvention
+# ADR-251 — Reengineering-Pipeline mit UX-Gate am Klickdummy + Mermaid-UC-Konvention
 
 ## 1. Kontext
 
@@ -247,7 +247,7 @@ ein Artefakt, zwei Oberflächen (GitHub + genesor), kein Doppel-Pflegestand.
 ## 12. Externe Zweitmeinung — Rückfluss-Gate (Nachweis)
 
 Externe Review (cross-provider, eine Runde) auf Basis des Briefings
-`~/shared/adr-handoff-ADR-250-2026-06-17.md`. Jede REC getaggt; nur `[valid]` eingearbeitet
+`~/shared/adr-handoff-ADR-251-2026-06-17.md`. Jede REC getaggt; nur `[valid]` eingearbeitet
 (als Änderung mit eigener Begründung, nicht als wörtliche Übernahme).
 
 | REC | Verdikt | Eingearbeitet in |
