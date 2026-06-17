@@ -17,9 +17,9 @@ created: 2026-06-17
 # KONZ-platform-006 — mPA-MVP
 
 > **Off-Ramp:** Dieses Konzept inkubiert in `platform` neben dem Anker `ADR-249`. Beim
-> Onboarding des iilgmbh-Produkt-Repos zieht es dorthin um (`pipeline_status` weiterziehen,
-> dieses Doc als Quelle markieren). Schreibadresse heute = platform, weil das Ziel-Repo
-> noch nicht existiert.
+> Onboarding des Ziel-Repos **`iilgmbh/iil-voice-agent`** (Name bestätigt 2026-06-17, Anlage
+> deferred bis ADR-249-Merge) zieht es dorthin um (`pipeline_status` weiterziehen, dieses Doc
+> als Quelle markieren). Schreibadresse heute = platform, weil das Ziel-Repo noch nicht existiert.
 
 ## Kernthese
 Der mPA-MVP beweist die ADR-249-Engine **billig im `open`-Profil**, indem er den **schmalsten

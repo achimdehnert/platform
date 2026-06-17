@@ -49,8 +49,9 @@ Wir bauen einen **eigenständigen Telefon-/Sprachagenten als Produkt** mit folge
 Festlegung:
 
 ### 2.1 Heimat & Schnitt
-- **Code-Owner-Org/Repo: `iilgmbh`** (neues Produkt-Repo). `meiki-hub` ist **nicht**
-  Code-Owner, sondern **erster regulierter Pilot-Tenant**.
+- **Code-Owner-Org/Repo: `iilgmbh/iil-voice-agent`** (neues Produkt-Repo; Name bestätigt
+  2026-06-17, Anlage deferred bis Merge dieses ADR). `meiki-hub` ist **nicht** Code-Owner,
+  sondern **erster regulierter Pilot-Tenant**.
 - Begründung Org-Wahl: horizontales, mandantenfähiges Produkt → gehört nicht in ein
   Domänen-/Vertikal-Hub (vgl. Policy `platform-agents.md`: Domänen-Hubs hosten nur
   Business-Logik ihrer Domäne).
