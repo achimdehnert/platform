@@ -48,6 +48,9 @@ jobs:
           https://trading-hub.iil.pet/livez/
           https://wedding-hub.iil.pet/livez/
           https://weltenforger.com/livez/
+          https://writing-hub.iil.pet/livez/
+          https://travel-beat.iil.pet/livez/
+          https://research.iil.pet/healthz/
           "
           down=""
           for u in $URLS; do
