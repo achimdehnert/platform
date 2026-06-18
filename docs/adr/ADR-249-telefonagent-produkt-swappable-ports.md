@@ -122,6 +122,14 @@ SSoT). Bevorzugte Adapter-Varianten, Reihenfolge nach SSoT-Treue:
 
 Quelle der Anforderung: Stakeholder-Mail (Daniel, 2026-06-17) zum Pilot-Tenant.
 
+**Umsetzungs-Notiz (2026-06-18):** Variante (b) wird durch **einen geteilten generischen
+`RestRetriever`-Adapter** realisiert — das **eigene RAG-mit-REST** (Quelle für `open`/mPA,
+eigene Betreiberdaten, keine Doppelstruktur) und **OCOS-REST** (Quelle für `strict`/GZ) sind
+nur zwei Endpunkte desselben Adapters (`base_url`/`auth`). Das eigene RAG ist die
+MVP-Wissensquelle (Bed: `open`-Profil); es darf **nicht** zum `strict`-Pattern werden, sonst
+entsteht die Doppelstruktur erneut. Implementiert in `iilgmbh/iil-voice-agent` (RAG-REST +
+`RestRetriever`, End-to-End-Test gegen G-8).
+
 **Konkrete Realisierung Pilot-Tenant (verifiziert, Telefonauskunft Daniel 2026-06-17):**
 OCOS stellt **separate Wissensdatenbank-Produkte** bereit, die über eine **REST-Schnittstelle
 abgefragt** werden können. → Knowledge-Port-Adapter = **OCOS-REST-Retriever** (Read-through,
