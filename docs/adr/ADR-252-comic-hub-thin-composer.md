@@ -21,6 +21,10 @@ scope:
 
 > Nummer **252** provisorisch (Author-Time-Interim; ADR-228 merge-time-Allokation noch nicht
 > implementiert) — bei Merge gegen den dann aktuellen Bestand re-validieren.
+>
+> **Amendment 2026-06-18:** Gate 0 in **0a (Cloud-Konsistenz-Spike, Produktrisiko)** und
+> **0b (Self-Host-Kapazität, Infra-Risiko)** getrennt; MVP läuft **cloud-first** auf Qwen-Image-Edit
+> (Brückenmodell, Apache-2.0) → Self-Host ist danach ein Ops-Switch, keine Neu-Validierung.
 
 ## Kontext und Problemstellung
 
@@ -73,7 +77,7 @@ das ist 2024-Framing, und das Kern-Tooling (`cubiq/ComfyUI_IPAdapter_plus`) ist 
 | Stufe | Technik | Rolle |
 |---|---|---|
 | (a) | Prompt-only (Style-DNA + Charakterbeschreibung) | markierter Entwurf / Fallback |
-| **(e)** | **Referenz-Edit-Foundation-Model** (Qwen-Image-Edit 2509/2511, Flux Kontext dev) — EIN Referenzbild, kein Training | **MVP-Default** |
+| **(e)** | **Referenz-Edit-Foundation-Model** (Qwen-Image-Edit 2509/2511, Flux Kontext dev) — EIN Referenzbild, kein Training; cloud (DashScope/fal/Replicate) *und* selbst-hostbar | **MVP-Default (cloud-first)** |
 | (c) | IP-Adapter / ControlNet | nachrangige Spezialoption |
 | (d) | Charakter-LoRA pro Charakter | separater späterer Beschluss, nur bei nachgewiesenem Bedarf |
 
@@ -91,21 +95,40 @@ bauen, und der **erst nach zwei harten Gates** überhaupt als eigenständiges Re
 ```
 Comic-Komposition (Modul → später ggf. comic-hub)
   ├─ weltenfw       → Welt / Charakter / Szene  (SSoT, nur UUID-Referenzen)
-  ├─ authoringfw    → Dialog- & Panel-Beschreibungstext (Sequenz REFERENZIERT outline/scene)
-  └─ illustration-fw → Panel-Bilder via ConsistentSequenceAgent (Konsistenz dahinter gekapselt)
+  ├─ authoringfw    → Dialog- & Panel-Beschreibungstext   [Text-LLM:  cloud-first → später Ollama/lokal]
+  └─ illustration-fw → Panel-Bilder via ConsistentSequenceAgent  [Bild-Engine: cloud-first → später ComfyUI/4090]
 ```
 
+Zwei getrennte Modell-Pfade, beide cloud-first: die **Bild-Engine** (Konsistenz; lokales Ziel =
+ComfyUI/4090, **nicht** Ollama) und das **Text-LLM** (Dialog/Panel-Text; lokales Ziel = Ollama,
+Cloud-Routing Free-Tier-first). Beide hinter ihrer jeweiligen `*-fw`-Abstraktion austauschbar.
+
 ### Gate-Sequenz (entscheidet, ob/wie gebaut wird)
-- **Gate 0 — Konsistenz-Spike (1–2 Tage, vor jeder Repo-/Datenmodell-Entscheidung):**
-  Liefert ein Referenz-Edit-Foundation-Model (Qwen-Image-Edit 2509/2511, alternativ Flux Kontext
-  dev) **akzeptable Cross-Panel-Identität @ Zielstil auf der vorhandenen RTX 4090, unter realer
-  konkurrierender Last**? Repräsentativer Korpus, Qualitätsdimensionen (Identität, Kleidung/
-  Requisiten, Stiltreue, Mehrpersonen-Verwechslung, schwierige Ansichten), Mindest-Bestehenswerte,
-  zulässige manuelle Korrekturrate, Laufzeit-/VRAM-/Kostenbudget werden **vor** dem Test fixiert.
+Gate 0 ist in **0a (Produkt) und 0b (Infra)** getrennt — sie messen verschiedene Risiken und
+dürfen nicht gebündelt werden (Amendment 2026-06-18):
+
+- **Gate 0a — Konsistenz-Spike via Cloud-API (1–2 Tage, vor jeder Repo-/Datenmodell-Entscheidung):**
+  Liefert ein Referenz-Edit-Foundation-Model **akzeptable Cross-Panel-Identität @ Zielstil**?
+  Läuft **cloud-first** (Qwen-Image-Edit via DashScope/fal/Replicate), um das **Produkt-/
+  Qualitätsrisiko** ohne GPU-Contention und ohne Infra-Aufbau zu isolieren. Repräsentativer Korpus,
+  Qualitätsdimensionen (Identität, Kleidung/Requisiten, Stiltreue, Mehrpersonen-Verwechslung,
+  schwierige Ansichten), Mindest-Bestehenswerte, zulässige manuelle Korrekturrate, Kostendeckel
+  werden **vor** dem Test fixiert.
+- **Gate 0b — Self-Host-Kapazität (beim Switch, nicht im MVP):** Trägt die **RTX 4090** dasselbe
+  Modell unter realer konkurrierender Last (VRAM-Spitzen, Modellwechsel, Parallelität,
+  Tenant-Fairness, Wartezeit)? Misst das **Infra-/Kostenrisiko** separat. Fällt es negativ aus,
+  bleibt der Betrieb cloud oder hybrid — das Produkt ist davon nicht betroffen.
 - **Gate 1 — Klickdummy (ADR-211):** Bestätigt einen eigenständigen Comic-Lifecycle und misst, ob
   assistiertes/manuelles Lettering für das MVP genügt.
 - **Erst danach:** Entscheidung Hub (O1-B) vs. View/Export (O1-C) und ggf. Repo-Extraktion.
   Ein `comicfw`-Paket ist ausgeschlossen, solange < 2 Consumer (ADR-180).
+
+**Brückenmodell-Pin:** Cloud-MVP und späteres Self-Host nutzen **dasselbe** Modell
+(**Qwen-Image-Edit**, Apache-2.0 — cloud *und* lokal, kommerziell beidseitig frei). Dadurch ist der
+Switch ein **Ops-Wechsel, keine Neu-Validierung** — das Gate-0a-Ergebnis überträgt sich 1:1.
+Flux Kontext ist als Cloud-MVP zulässig, aber Self-Host kommerziell braucht eine BFL-Lizenz
+(Asymmetrie). Cloud-first ist eine **bewusste, MVP-befristete** Umkehr der „self-hosted-first"-Policy
+(Begründung: Produkt vor Infra de-risken; Deckel: Kostenbudget + Switch nach erfolgreichem MVP).
 
 ### Jetzt geltende Prinzipien (capability-orientiert, gelten für Hub *und* View)
 Diese Festlegungen sind **unabhängig vom Gate-0-Ausgang und von der Hub-vs-View-Wahl** — sie
@@ -157,7 +180,8 @@ wäre verfrüht und würde nach dem Spike neu geschrieben:
 
 **Negativ / Risiken**
 - Referenz-Edit-Modelle (~Q8/FP8) sind VRAM-schwerer als SDXL; Sequenz-Batch konkurriert mit
-  illustration-hub-Jobs — reale Kapazität ist im Spike zu messen, nicht anzunehmen.
+  illustration-hub-Jobs — reale Kapazität ist in **Gate 0b** (Self-Host) zu messen, nicht
+  anzunehmen; im Cloud-MVP (Gate 0a) ist sie kein Blocker.
 - Auto-Lettering bleibt ein offener, potenziell teurer Produkt-Engpass (bewusst aus dem MVP
   herausgehalten).
 - Bei dauerhaft niedrigem Comic-Volumen wäre selbst die Modul-Inkubation Aufwand — daher
