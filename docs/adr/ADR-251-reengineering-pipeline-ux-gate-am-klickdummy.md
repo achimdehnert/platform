@@ -54,12 +54,12 @@ Wir etablieren die **Reengineering-Pipeline** als **Round-Trip-Kreislauf**, nich
 als Wasserfall:
 
 ```
-Analyse → Use Cases → Klickdummy → Mockup → Deploy(Staging→Prod)
-   ↑__________________ Feedback (Round-Trip) __________________|
+Analyse → Workflow (L0/L1/L2, Mermaid) → Use Cases → Klickdummy → Mockup → Deploy(Staging→Prod)
+   ↑___________________________ Feedback (Round-Trip) ___________________________|
    ↳ Jump-in an jeder Stufe erlaubt — mit Upstream-Reconcile-Pflicht
 ```
 
-**Fünf verbindliche Festlegungen:**
+**Sieben verbindliche Festlegungen:**
 
 1. **Spec-first, KD = UX-SSoT.** Use-Case-Spec + Klickdummy sind die maßgebliche
    Quelle der UX. Die reale App ist die *Realisierung*, nicht die Wahrheit.
@@ -107,6 +107,30 @@ Analyse → Use Cases → Klickdummy → Mockup → Deploy(Staging→Prod)
    **Scenario-Matrix** `Rolle × Status × Datenzustand → sichtbare/erlaubte Aktionen +
    erwartete Navigation`. Diese Matrix ist Teil der Spec, treibt KD-Zustände **und**
    App-Action-Tests (REC-11) aus **einer** Quelle.
+
+7. **Workflow als erste Stufe, in drei Flughöhen (L0/L1/L2) — Amendment 2026-06-18.**
+   UCs werden aus dem **Workflow** abgeleitet, nicht aus dem Nichts. Der Workflow ist
+   ein **hierarchisches Mermaid-Modell**, das Orientierung **vor** Detail gibt. **Scharfe
+   Ebenen-Abgrenzung (REC-1) — gegen konkurrierende Modelle:**
+   - **L0 Gesamt** — **nur** der End-to-End-Kontext (eine Karte des ganzen Vorgangs,
+     Stakeholder-Sicht); keine fachliche Detailtiefe.
+   - **L1 Main-Ablauf** — ein **fachlich abgeschlossener Vorgang** mit **UC-Klammer**
+     (bündelt N UCs). **FSM-Regel (REC-4):** die **FSM-Single-Source der UCs bleibt die
+     verbindliche Quelle** für Zustandsübergänge; ein L1-`stateDiagram` ist **entweder
+     aus ihr generiert oder zeigt nur fachliche Makrozustände** — es definiert **keine
+     konkurrierende Übergangstabelle**.
+   - **L2 Detail** — **optional**; nur Detail-/Entscheidungs-/Sonderpfade **ohne eigene
+     fachliche Vollständigkeit**. Gate greift **nur, wenn ein L2 existiert** (REC-7) —
+     leichtgewichtig für kleine Vorgänge.
+
+   Konvention `docs/workflows/` (s. §5.11). **Durchgängige Verlinkung nach unten**
+   (erweitert die UC→KD→Mockup-Kette nach oben):
+   `Workflow (L0→L1→L2) → UC → KD → Mockup → (Live bei lifecycle_status=implemented)`
+   — eine **zoombare Klick-Kette**. **Jump-in + hierarchischer Reconcile (REC-5):**
+   Einstieg an jeder Flughöhe; Änderung an **L2** prüft parent-**L1** + betroffene UCs,
+   an einem **UC** den/die **L1**, an **KD/Mockup** den UC und darüber den L1 — Feedback
+   fließt zur passenden Flughöhe zurück, nicht pauschal „in die UCs". Vollständige
+   Hierarchie-Coverage: s. §8 V9.
 
 ## 3. Betrachtete Alternativen
 
@@ -161,6 +185,17 @@ ein Artefakt, zwei Oberflächen (GitHub + genesor), kein Doppel-Pflegestand.
 10. **Pilot = apocenna:** F1–F13 werden **nach** dieser Pipeline abgearbeitet
     (erst UC/KD + Scenario-Matrix vervollständigen/korrigieren → Freigabe am KD → dann
     Staging-Code mit Action-Tests).
+11. **Workflow-Konvention (Amendment):** `docs/workflows/WF-*.md` je Repo. Frontmatter
+    (REC-6): `workflow_id, ebene (L0|L1|L2), parent (Pflicht für L1/L2),
+    realisiert_durch_ucs: [uc_id…], status, owner, updated_at, primary_actor` (optional
+    `scope, out_of_scope, generated_from`) + Mermaid-Body. UC-Frontmatter erhält
+    `primary_workflow_id` bei Mehrfach-L1-Bezug (REC-3). genesor rendert die Workflow-
+    Hierarchie + die Kette Workflow→UC→KD→Mockup; Coverage-Gate s. V9; `make uc-check`
+    deckt die Ebene mit ab.
+    **Evolution (REC-8, Zielbild — nicht Pflicht jetzt):** mittelfristig ein **typisierter
+    Workflow-Graph als Single-Source**, aus dem die L0/L1/L2-Mermaid-Ansichten **generiert**
+    werden (`generated_from`) → reduziert Diagramm-Drift; bis dahin sind die Mermaid-Dateien
+    die Quelle.
 
 ## 6. Risiken
 
@@ -205,6 +240,11 @@ ein Artefakt, zwei Oberflächen (GitHub + genesor), kein Doppel-Pflegestand.
   verbotene** Aktionen je (Status×Rolle) im App-Code — nicht nur im KD.
 - **V7 (Lifecycle, REC-9):** Jeder UC trägt `lifecycle_status`; genesor rendert den Zustand.
 - **V8 (lokal, REC-8):** `make uc-check` meldet fehlende Coverage vor CI (DX-Frühwarnung).
+- **V9 (Hierarchie-Coverage, Amendment + REC-2/3):** Vollständige bidirektionale Abdeckung:
+  jeder **L0** enthält ≥1 **L1** · jeder **L1** hängt unter **genau einem** L0 · jeder **L2**
+  hat einen `parent`-L1 · jeder **L1** referenziert ≥1 **UC** · jeder UC hängt unter ≥1 L1
+  (bei Mehrfachbezug `primary_workflow_id`, REC-3). genesor rendert die zoombare Kette
+  Workflow(L0→L1→L2)→UC→KD→Mockup. CI-prüfbar; `make uc-check` deckt es mit ab.
 - **Optional (REC-12):** selektive Visual-Regression KD↔Staging für **zentrale** Screens
   als gezieltes Qualitätsnetz — **kein** pauschales hartes Gate (Fragilität bei
   Layout/Daten bewusst vermieden).
@@ -243,6 +283,11 @@ ein Artefakt, zwei Oberflächen (GitHub + genesor), kein Doppel-Pflegestand.
   lokale Dev-Checks (REC-8), org-weit-vs-Pilot-Markierung (REC-10).
 - 2026-06-17: **Status → Accepted** (nach eingearbeiteter externer Review; entscheidungsreif,
   Pilot apocenna setzt sie als erstes um).
+- 2026-06-18: **Amendment — Workflow-Stage (L0/L1/L2)** vorne in die Pipeline (Festlegung 7);
+  UCs werden aus dem **Workflow** abgeleitet (hierarchisches Mermaid: Gesamt→Main→Details),
+  durchgängige Verlinkung Workflow→UC→KD→Mockup→Live, bidirektionale Workflow↔UC-Coverage
+  (V9), `docs/workflows/`-Konvention (§5.11). Auslöser: erkannte Lücke „Workflow-Gedanke
+  nicht herausgearbeitet" (Nutzer). Externe Zweitmeinung zum Amendment: s. §13.
 
 ## 12. Externe Zweitmeinung — Rückfluss-Gate (Nachweis)
 
@@ -267,3 +312,24 @@ Externe Review (cross-provider, eine Runde) auf Basis des Briefings
 
 Keine REC als `[missversteht-Kontext]`/`[out-of-scope]` getaggt — die Review traf die
 strukturell-vs-semantisch-Lücke, die der Pilot (F2/F13) empirisch belegt hatte.
+
+## 13. Externe Zweitmeinung — Amendment Workflow-Stage (Rückfluss-Gate)
+
+Externe Review (cross-provider, eine Runde) zum **Amendment** auf Basis von
+`~/shared/adr-handoff-ADR-251-amendment-2026-06-18.md`. Empfehlung „überarbeiten" — die
+Workflow-Stufe fachlich richtig, aber vor Annahme Regeln gegen Modell-Drift, Ebenen-
+Unklarheit und konkurrierende FSM-Quellen nötig. **8/8 RECs `[valid]`** eingearbeitet:
+
+| REC | Verdikt | Eingearbeitet in |
+|-----|---------|------------------|
+| REC-1 L0/L1/L2-Abgrenzung | [valid] | §2 Festlegung 7 (scharfe Ebenen-Definition) |
+| REC-2 Coverage ganze Hierarchie | [valid] | §8 V9 (L0⊇L1, L1 unter 1 L0, L2→parent, L1→≥1 UC) |
+| REC-3 primary_workflow_id | [valid] | §5.11, §8 V9 |
+| REC-4 FSM-Single-Source verbindlich | [valid] | §2 Festlegung 7 (L1-stateDiagram generiert/Makro, keine Konkurrenz-Tabelle) |
+| REC-5 hierarchische Reconcile-Regeln | [valid] | §2 Festlegung 7 (L2→L1+UCs, UC→L1, KD/Mockup→UC→L1) |
+| REC-6 Workflow-Frontmatter-Felder | [valid, getrimmt] | §5.11 (status/owner/updated_at/primary_actor + opt.) |
+| REC-7 L2 optional, Gate nur wenn vorhanden | [valid] | §2 Festlegung 7 |
+| REC-8 typisierter Workflow-Graph als SSoT | [valid, Zielbild] | §5.11 Evolution (`generated_from`-Hook, kein Pflicht-Gate jetzt) |
+
+Keine REC `[missversteht-Kontext]`/`[out-of-scope]` — die Review schärfte genau die Abgrenzungs-
+und FSM-Quellen-Risiken, die ein zweistufiges „Bilder + Listen"-Modell sonst gehabt hätte.
