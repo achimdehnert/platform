@@ -144,19 +144,18 @@ repos:
     in_rich: true
     flat:
       type: agent
-      prod_url: bfagent.iil.pet
-      port: 8091
-      health: /livez/
+      archived: true
     domain: Content & Publishing
     rich:
       name: bfagent
       repo: bfagent
       description: Book Factory Agent — AI-assisted book creation
       github: achimdehnert/bfagent
-      deployed: true
+      deployed: false
+      archived: true
       url: https://bfagent.iil.pet
       type: django
-      lifecycle: production
+      lifecycle: archived
       tenancy_mode: none
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
