@@ -160,6 +160,25 @@ Der Core garantiert **tenant-unabhängig** (das macht die samwin-„Restriktione
   Halluzinations-/Consent-Risiko).
 - **PII-Minimierung**; mandantenspezifische System-Prompts.
 
+### 2.8 Funktions- & Governance-Erweiterungen (samwin-Auswertung 2026-06-18)
+Aus der Auswertung der samwin-Transparenz- & Vertragsunterlagen (Detail: `iil-voice-agent`
+→ `docs/erkenntnisse-samwin-transparenz-vertrag.md`) übernommen:
+- **Funktionsumfang** (über Vermittlung/FAQ/Datenaufnahme hinaus): **Ticketerstellung/
+  -anreicherung**, **Intent-Routing**, **Call-Tagging/Klassifikation**, **Gesprächs-
+  Zusammenfassung**, **Status-/Terminabfragen**, **strukturierte Datenerfassung mit
+  Bestätigungs-Schleife** (Vorlesen/Buchstabieren kritischer Felder).
+- **4-Schichten-Governance:** Tenant-Governance (Use-Case/Workflow/Retention/Human-Review) ·
+  Workflow-Control (lokaler Mediator, Tool-Validierung, kein Direkt-Backend-Zugriff) ·
+  Service-Safety · Model-Safety. **Human-Review** ist erstklassiger Layer (verschärft §2.7).
+- **Granularer Retention-Katalog** pro Datenkategorie (Audio, Transkript, Summary, Call-
+  History, Call-Tags, Workflow-Metadaten) — je konfigurierbare Aufbewahrung/Löschung; Teil
+  des `tenant_profile`-Policy (REC-6).
+- **Transparenz/Provenance/Disclaimer als eingebautes Produkt-Feature** (KI-Kennzeichnung,
+  Quellennachweis, „keine Rechtsberatung") — **nicht** als Last beim Kunden (Differenzierer:
+  samwin schiebt die Kennzeichnungspflicht vertraglich dem Kunden zu).
+- **AVV/Subprozessor:** im `strict`-on-prem-Betrieb **kurze Subprozessor-Kette** (kein
+  Hyperscaler) → Souveränitäts-Vorteil; im Audit dokumentieren.
+
 ## 3. Gates (verbindliche Vorbedingungen / Risiken)
 
 | # | Gate | Begründung |
@@ -175,6 +194,8 @@ Der Core garantiert **tenant-unabhängig** (das macht die samwin-„Restriktione
 | G-9 | **Ende-zu-Ende-Latenzbudget Telefonie** (Review REC-3) | <400 ms als Härtungsziel **mit Messmethode**; Budget über SIP-Transport + ASR + Core + Retrieval-REST-Hop + LLM + TTS + Streaming/Barge-in zerlegen |
 | G-10 | **strict-Readiness-Gate** (Review REC-2) | GPU-Beschaffung + lokale LLM/ASR/TTS-Kandidaten + Offline-Betrieb + Deployment-Nachweis + Mindestqualität; Modell-/Runtime-Kandidaten aus `meiki:ADR-004` referenzieren (**nicht** duplizieren) |
 | G-11 | **Tenant-Erweiterungspunkte statt Core-Sonderlogik** (Review REC-11) | Mandanten-Anpassungen leben in Profilen/Adaptern — verhindert, dass der erste strict-Tenant faktischer Architektur-Owner wird |
+| G-12 | **AI-Act-Hochrisiko-Klassifikation früh juristisch klären** (samwin-Auswertung) | Bürger-Auskunft *mit Datenaufnahme* kann unter AI-Act Anhang III fallen (Zugang zu öff. Leistungen). Reine Information vermutlich nicht hochrisiko; sobald Eignungs-/Leistungsbezug → hochrisiko → Pflichten **erfüllen** (Risikomanagement/Logging/menschl. Aufsicht/Transparenz), nicht vermeiden |
+| G-13 | **Explizite Use-Policy** (AI-Act-verbotene Praktiken) | Kein Social Scoring, keine biometr. Kategorisierung, keine manipulativen Techniken etc.; als Tenant-Policy verankern |
 
 **Right-Sizing der Frische:** Die **Naht** (Frische-Strategie-Property) muss ab v0 da sein,
 die **Raffinesse** gestaffelt — v0 mPA: nächtlicher Voll-Resync (Frische 24 h für eigene
