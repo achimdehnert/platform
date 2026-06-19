@@ -5,34 +5,39 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-19 — comic-hub ADR-252: Konzept→Spike→Gate-1 live)
+## ⚡ Aktueller Stand (2026-06-19 — comic-hub ADR-252: ADR→Code, end-to-end live verifiziert)
 
-**Diese Session (2026-06-19):** comic-hub von „ist das möglich?" bis Gate-1-Live durchgezogen.
+**Diese Session (2026-06-19):** comic-hub von „ist das möglich?" bis zum **lauffähigen,
+released, end-to-end verifizierten Produktionspfad** durchgezogen.
 
-- **ADR-252 (proposed) gemergt** (platform: PR #597 + Amendments #598/#599): comic-hub als
-  **Thin-Composer** über weltenfw/authoringfw/illustration-fw, **gegated** statt vorentschieden.
-  2 externe Cross-Provider-Reviews + `/adr-challenger` eingearbeitet (Nachweise
-  `~/shared/adr-handoff-comic-hub-2026-06-18*.md`).
-- **Gate 0a Spike real ausgeführt** (fal, ~$1) → **CONDITIONAL PASS**: Einzelcharakter-Identität
-  (D1) **stark** = Kern-Wertversprechen ✅; Multi-Ref-Co-Gen (D4) **untauglich** (1/6) →
-  Mehrpersonen-Panels via **Einzelgen + Compositing + HITL**. Engine-Pin **Qwen-Image-Edit**
-  (Apache-2.0). Report + Harness: illustration-fw `docs/spikes/gate-0a-consistency/` (PR #12 gemergt) +
-  Bilder in `~/shared/comic-spike/`.
-- **Gate 1 Klickdummy LIVE** (standalone mock, echte Spike-Panels): iil-pet-portal PR #21 gemergt
-  → **https://iil.pet/kd/comic-hub/klickdummy/comic-lifecycle/index.html** (CF-Access),
-  live verifiziert (HTTP 200 + Content-Marker).
+**Architektur (platform ADR-252, proposed + 4 Amendments, alle auf main):**
+- Thin-Composer über weltenfw/authoringfw/illustration-fw, **gegated**. PRs #597/#598/#599/#604.
+  2 externe Cross-Provider-Reviews + `/adr-challenger` eingearbeitet.
+- **Gate 0a** (Spike, fal ~$1) = **CONDITIONAL PASS**: Einzelidentität (D1) stark; Multi-Ref-Co-Gen
+  (D4) untauglich (1/6) → **Compositing** (empirisch 2/2 belegt). Engine **Qwen-Image-Edit** (Apache-2.0).
+- **Gate 1** Klickdummy **live**: https://iil.pet/kd/comic-hub/klickdummy/comic-lifecycle/ (CF-Access).
+- **Hub-vs-View ENTSCHIEDEN = O1-B** (Modul in illustration-hub; Produkt-Input: Experiment +
+  persistente Projekte + mandantenfähig).
 
-**Offen / nächster Zug:**
-- **illustration-fw #10** (typisierter Capability-Vertrag für Referenz-Edit) — bewusst
-  **Post-Gate-0 / blocked** (greift erst nach Hub-vs-View-Entscheidung).
-- **Hub-vs-View-Entscheidung** (ADR-252 O1-B vs O1-C) — erst nach Gate-1-Feedback.
-- Detail-CC-Memory: `project_comic_hub_adr252`. pgvector-Session-Summary war 404 (MCP-Flapping) →
-  nachtragen.
+**Code (auf main, getestet):**
+- **comics-Modul** illustration-hub `apps/comics/` (ComicProject/Page/Panel/PanelCharacter/
+  SpeechBubble/GenerationManifest) — PR #12.
+- **ConsistentSequenceAgent** illustration-fw — **PyPI 0.3.0** (OIDC Trusted Publishing, PR #14+#15).
+- **FalSequenceBackend** + **render_panel** (Persistenz: Asset+Manifest, Panel.render_asset) —
+  illustration-hub PR #13+#14.
+- **Live-E2E verifiziert**: render_panel gegen echtes fal → echtes Mehrpersonen-Panel + persistiert
+  (gegateter Test `RUN_LIVE_FAL=1`; Bild `~/shared/comic-spike/out/E2E_render_panel.png`).
 
-> Lehren dieser Session (Drift-vermeidend): genesor-Quelle = **iil-pet-portal**, nicht
-> `~/github/genesor` (Memory ZUERST lesen) · `fal_client.subscribe()` hängt → `submit()`+poll ·
-> Merge-Claims gegen GitHub verifizieren · ein D4-Panel war zu wenig (Härtetest falsifizierte
-> optimistisches PASS).
+**Offen (bewusst, keine offenen PRs):**
+- **illustration-fw #10** typisierter Capability-Vertrag (Post-Gate-0).
+- **Gate 0b** Self-Host auf RTX 4090 (beim cloud→lokal-Switch; Qwen ist Brückenmodell).
+- finale menschliche Rubrik-Bewertung der Spike-Bilder.
+- Detail-CC-Memory: `project_comic_hub_adr252`. pgvector-Session-Summary war 404 (MCP-Flapping) → nachtragen.
+
+> Lehren (Drift-vermeidend): genesor-Quelle = **iil-pet-portal** (nicht `~/github/genesor`) ·
+> `fal_client.subscribe()` hängt → `submit()`+poll · `password:` + `id-token:write` zusammen =
+> OIDC aus (403) · Merge-/Publish-Claims gegen GitHub/PyPI-Simple-Index verifizieren (Aggregat-JSON laggt) ·
+> ein D4-Panel war zu wenig (Härtetest falsifizierte optimistisches PASS) · pgrep self-match → `ps|grep '[d]'`.
 
 ## ⚡ Vorheriger Stand (2026-06-12 — T5-Programm: ADR-243/244/245 proposed + 7-Issue-Sonnet-Queue)
 
