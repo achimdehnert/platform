@@ -25,6 +25,14 @@ scope:
 > **Amendment 2026-06-18:** Gate 0 in **0a (Cloud-Konsistenz-Spike, Produktrisiko)** und
 > **0b (Self-Host-Kapazität, Infra-Risiko)** getrennt; MVP läuft **cloud-first** auf Qwen-Image-Edit
 > (Brückenmodell, Apache-2.0) → Self-Host ist danach ein Ops-Switch, keine Neu-Validierung.
+>
+> **Gate 0a AUSGEFÜHRT 2026-06-19 → CONDITIONAL PASS** (Spike auf fal, ~$1; Bilder+Report in
+> `~/shared/comic-spike/`). **Einzelcharakter-Identität (D1) stark** = Kern-Wertversprechen
+> bestätigt. **ABER:** Multi-**Referenz**-Co-Generierung untauglich (D4: nur 1/6 Panels korrekt —
+> spezifisches Merkmal fällt weg, Charakter wird ersetzt). → **Architektur-Festlegung (neu,
+> spike-belegt):** Mehrpersonen-Panels werden via **Einzelcharakter-Generierung + Compositing +
+> Human-in-the-Loop** gebaut, NICHT via Multi-Ref-Co-Gen. Engine-Pin: **Qwen-Image-Edit**
+> (Apache-2.0). Damit Gate 0a bestanden → Gate 1 (Klickdummy) freigegeben.
 
 ## Kontext und Problemstellung
 
