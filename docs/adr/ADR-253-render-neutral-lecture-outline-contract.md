@@ -4,7 +4,7 @@ title: "Web-Präsentationen: Slidev als primäres Autoren-Tool (Glanzstücke) + 
 status: proposed
 date: 2026-06-19
 deciders: [Achim Dehnert]
-consulted: [Claude Code, externes LLM-Review #1 (Vertrag/Governance/Security), externes LLM-Review #2 (Renderer-Fakten/Reframe, teils verifiziert)]
+consulted: ["Claude Code", "externes LLM-Review #1 (Vertrag/Governance/Security)", "externes LLM-Review #2 (Renderer-Fakten/Reframe, teils verifiziert)"]
 informed: [iilgmbh, achimdehnert]
 domains: [teaching, slides, presentations, authoring, architecture, governance]
 supersedes: []
