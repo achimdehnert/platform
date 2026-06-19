@@ -5,7 +5,36 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-12 — T5-Programm: ADR-243/244/245 proposed + 7-Issue-Sonnet-Queue)
+## ⚡ Aktueller Stand (2026-06-19 — comic-hub ADR-252: Konzept→Spike→Gate-1 live)
+
+**Diese Session (2026-06-19):** comic-hub von „ist das möglich?" bis Gate-1-Live durchgezogen.
+
+- **ADR-252 (proposed) gemergt** (platform: PR #597 + Amendments #598/#599): comic-hub als
+  **Thin-Composer** über weltenfw/authoringfw/illustration-fw, **gegated** statt vorentschieden.
+  2 externe Cross-Provider-Reviews + `/adr-challenger` eingearbeitet (Nachweise
+  `~/shared/adr-handoff-comic-hub-2026-06-18*.md`).
+- **Gate 0a Spike real ausgeführt** (fal, ~$1) → **CONDITIONAL PASS**: Einzelcharakter-Identität
+  (D1) **stark** = Kern-Wertversprechen ✅; Multi-Ref-Co-Gen (D4) **untauglich** (1/6) →
+  Mehrpersonen-Panels via **Einzelgen + Compositing + HITL**. Engine-Pin **Qwen-Image-Edit**
+  (Apache-2.0). Report + Harness: illustration-fw `docs/spikes/gate-0a-consistency/` (PR #12 gemergt) +
+  Bilder in `~/shared/comic-spike/`.
+- **Gate 1 Klickdummy LIVE** (standalone mock, echte Spike-Panels): iil-pet-portal PR #21 gemergt
+  → **https://iil.pet/kd/comic-hub/klickdummy/comic-lifecycle/index.html** (CF-Access),
+  live verifiziert (HTTP 200 + Content-Marker).
+
+**Offen / nächster Zug:**
+- **illustration-fw #10** (typisierter Capability-Vertrag für Referenz-Edit) — bewusst
+  **Post-Gate-0 / blocked** (greift erst nach Hub-vs-View-Entscheidung).
+- **Hub-vs-View-Entscheidung** (ADR-252 O1-B vs O1-C) — erst nach Gate-1-Feedback.
+- Detail-CC-Memory: `project_comic_hub_adr252`. pgvector-Session-Summary war 404 (MCP-Flapping) →
+  nachtragen.
+
+> Lehren dieser Session (Drift-vermeidend): genesor-Quelle = **iil-pet-portal**, nicht
+> `~/github/genesor` (Memory ZUERST lesen) · `fal_client.subscribe()` hängt → `submit()`+poll ·
+> Merge-Claims gegen GitHub verifizieren · ein D4-Panel war zu wenig (Härtetest falsifizierte
+> optimistisches PASS).
+
+## ⚡ Vorheriger Stand (2026-06-12 — T5-Programm: ADR-243/244/245 proposed + 7-Issue-Sonnet-Queue)
 
 **Diese Session (2026-06-12, Fable/Tier-4-5):**
 - **Tier-4/5-Codebase-Analyse** (platform + 17 PyPI-Pakete, 6 parallele Agents; 3 falsifizierte
