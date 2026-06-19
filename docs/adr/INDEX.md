@@ -244,7 +244,7 @@
 | 250 | Registry-getriebene Edge-Config + Drift-Lint (nginx-vhost/DNS aus repo-registry.yaml) | `Proposed` | ⬜ | [ADR-250](ADR-250-registry-driven-edge-config.md) |
 | 251 | Reengineering-Pipeline: Analyse→UCs→KD→Mockup→Deploy als Round-Trip mit UX-Gate am Klickdummy + Mermaid-UC-Konvention | `Accepted` | ⬜ | [ADR-251](ADR-251-reengineering-pipeline-ux-gate-am-klickdummy.md) |
 | 252 | comic-hub — Comic-Erstellung als Thin-Composer über bestehende Seams, gegated durch Konsistenz-Spike + Klickdummy | `Proposed` | ⬜ | [ADR-252](ADR-252-comic-hub-thin-composer.md) |
-| 253 | Render-neutraler Lehr-Outline-Vertrag → editierbares .pptx + live-präsentierbares Web-Deck (Renderer per Gate-1-Bake-off) | `Proposed` | ⬜ | [ADR-253](ADR-253-render-neutral-lecture-outline-contract.md) |
+| 253 | Web-Präsentationen: Slidev als primäres Autoren-Tool (Glanzstücke) + Lehr-Outline-Vertrag als Gerüst-Generator (Bulk) — Zwei-Schienen-Strategie | `Proposed` | ⬜ | [ADR-253](ADR-253-render-neutral-lecture-outline-contract.md) |
 | 254 | learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle | `Proposed` | ⬜ | [ADR-254](ADR-254-learn-hub-web-deck-embed-seam.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)

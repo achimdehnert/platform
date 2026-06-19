@@ -1,209 +1,198 @@
 ---
 id: ADR-253
-title: "Render-neutraler Lehr-Outline-Vertrag → editierbares .pptx + live-präsentierbares Web-Deck (Renderer per Gate-1-Bake-off)"
+title: "Web-Präsentationen: Slidev als primäres Autoren-Tool (Glanzstücke) + Lehr-Outline-Vertrag als Gerüst-Generator (Bulk) — Zwei-Schienen-Strategie"
 status: proposed
 date: 2026-06-19
 deciders: [Achim Dehnert]
 consulted: [Claude Code, externes LLM-Review #1 (Vertrag/Governance/Security), externes LLM-Review #2 (Renderer-Fakten/Reframe, teils verifiziert)]
 informed: [iilgmbh, achimdehnert]
-domains: [teaching, slides, authoring, architecture, governance]
+domains: [teaching, slides, presentations, authoring, architecture, governance]
 supersedes: []
 amends: []
 depends_on: [ADR-140]
-related: [ADR-121, ADR-139, ADR-211]
-tags: [lecture, outline, ssot, render-neutral, web-deck, slidev, revealjs, pptx, learn-hub, contract, gate, presenter]
+related: [ADR-121, ADR-139, ADR-211, ADR-254]
+tags: [presentations, slidev, lecture, outline, scaffold, two-track, webinar, learn-hub, contract, presenter, ownership-transfer]
 scope:
   include_paths:
     - "docs/adr/ADR-253-*"
 ---
 
-# ADR-253 — Render-neutraler Lehr-Outline-Vertrag → editierbares .pptx + live-präsentierbares Web-Deck
+# ADR-253 — Web-Präsentationen: Slidev-Autoren-Tool + Lehr-Outline-Gerüst (Zwei Schienen)
 
-> **Rev 2 (2026-06-19):** Nach zwei externen Zweitmeinungen überarbeitet (Befund-Tagging als
-> Nachweis in `~/shared/adr-handoff-ADR-253-2026-06-19.md`). Kernänderungen: (a) **semantisches**
-> Risiko wird jetzt zuerst gegated, nicht nur das operative; (b) Renderer-Wahl ist **Gate-1-Bake-off**
-> (Slidev vs. Node-freies reveal.js-aus-Python), nicht Vorab-Setzung; (c) **Live-Präsentation
-> (Presenter-Modus)** als Erstklasse-Ziel; (d) Web-Deck-Build (kein Chromium) von PDF-Export
-> (Chromium) getrennt; (e) Cross-Repo-Schutz (`schema_version` + Contract-Tests) **jetzt**, weil
-> Slidev/reveal bereits der **zweite Consumer** ist.
+> **Rev 3 (2026-06-19) — Reframe nach Ziel-Klärung.** Ziel ist **perfekte Web-Präsentationen**
+> für Vorträge, Lehr-Module und Webinare — nicht nur automatische Massen-Decks. Erkenntnis: ein
+> generiertes Deck aus einem Inhalts-Vertrag erreicht nur den **kleinsten gemeinsamen Nenner**
+> (~20–30 % von Slidevs Spektrum); „perfekt" entsteht aus dem **Autoren-Handwerk** (Vue-Komponenten,
+> Animationen, Live-Code, Transitions), das ein Datenmodell nicht trägt. Daher **zwei Schienen**:
+> Slidev wird **primäres Web-Autoren-Tool** (Glanzstücke), der LO-Vertrag ein **optionaler
+> Gerüst-Generator** (Bulk), dessen Ausgabe **in Slidev veredelt** wird.
+>
+> Vorgeschichte: Rev 1 Entwurf · Rev 2 nach zwei externen Reviews (Gate-Logik, Bake-off,
+> Presenter-Modus). Befund-Tagging: `~/shared/adr-handoff-ADR-253-2026-06-19.md`.
+> Gate-1-Capability-Check ausgeführt 2026-06-19 → **Kill-Kriterium ausgelöst** (s. §6).
 
-> **Cross-Repo-Hinweis:** Governance-Ebene (`platform`). Render-Logik liegt in **pptx-hub**
-> (dortiges ADR-003, repo-lokal — nicht das `platform`-ADR-003) und perspektivisch **learn-hub**
-> (ADR-140). `writing-hub` ist hier ausschließlich **Abgrenzung**, kein Consumer.
+> **Cross-Repo:** Governance (`platform`). Renderer/Vertrag in **pptx-hub** (dortiges ADR-003).
+> Embed in **learn-hub** (ADR-140 / Naht: **ADR-254**). `writing-hub` = Abgrenzung, kein Consumer.
 
 ## 1. Kontext und Problemstellung
 
-### 1.1 Ausgangslage
-Es existiert ein bereits render-neutraler Vertrag für Folieninhalte: das Schema
-`creation/schema/v1` der App **pptx-hub**. Es beschreibt ein Deck rein strukturell
-(`deck_title`, `slides[]` mit `intent ∈ {title, agenda, content, kpi, closing}`, `bullets`,
-`notes`, `chart`) — ohne Annahme über das Ausgabeformat. Daran hängt heute **ein** Renderer:
-`render_outline_to_pptx()` → editierbares `.pptx` mit Design-Vererbung aus einer vorhandenen
-PowerPoint-Vorlage des Mandanten.
+### 1.1 Ausgangslage & Ziel
+Bestehend: pptx-hubs render-neutrales Outline-Schema v1 → ein Renderer (`render_outline_to_pptx`)
+→ editierbares `.pptx` mit Mandanten-Template-Vererbung.
 
-**Ziel dieses ADR (präzisiert):** Lehrende sollen denselben Lehrinhalt **auch live im Browser
-präsentieren** können (technische Vorlesung, code-/diagrammlastig) — mit **Presenter-Modus**
-(Sprechnotizen + Nächste-Folie-Vorschau + Timer), Schritt-für-Schritt-Einblenden, Code-Highlight
-und Einbettung ins LMS **learn-hub** (ADR-140). Slidev (sli.dev) war der auslösende Fund;
-**reveal.js** ist ein ernsthafter, Node-freier Gegenkandidat.
+**Ziel (geklärt):** Es sollen **perfekte Web-Präsentationen** für **Vorträge, Lehr-Module und
+Webinare** erstellbar sein — live im Browser präsentierbar (Presenter-Modus), code-/diagrammlastig,
+in learn-hub einbettbar. **Slidev** bietet genau dieses Spektrum.
 
-### 1.2 Problem / Lücken
-| Lücke | Konsequenz ohne Entscheidung |
+### 1.2 Die zentrale Erkenntnis (warum nicht „nur Vertrag")
+„Ein Inhalt → viele Formate" (Vertrag → pptx + Web) optimiert **Masse/Konsistenz**, **deckelt** die
+Web-Präsentation aber auf das, was ein JSON-Vertrag beschreiben kann:
+
+| Slidev-Fähigkeit | aus Vertrag generierbar? |
 |---|---|
-| **Schema v1 ist PowerPoint-geboren & bullet-zentriert** | Genau die Web-Lehr-Features (Code+Zeilen-Highlight+Steps, Diagramme, LaTeX, 2-spaltig Code+Erklärung, Presenter-Notes) haben **keine** Erstklasse-Repräsentation. Ein Gate, das das nicht stresst, besteht **trivial und baut trotzdem das Falsche**. |
-| Slidev breit als „Tool für teaching/writing/etc." adoptiert | Tool-Proliferation: ein Folien-Tool wird Prosa (writing-hub) / LMS (learn-hub) aufgezwungen — falsche Artefakt-Einheit |
-| Zweiter Renderer ohne abgesicherten Vertrag | Slidev/reveal ist **mit diesem ADR der zweite Consumer**; ohne `schema_version` + Contract-Tests bricht jede Format-Änderung still einen Renderer (Cross-Repo-Koordinationstanz) |
-| „Node-Toolchain" und „headless Chromium" verschmolzen | Fehl-Gating: der **Web-Deck-Build braucht kein Chromium**; nur der PDF-Export tut es. Falsche Kostenmodellierung |
-| Render-Trigger-Seam undefiniert | **Stale-Deck-Bugklasse**: Dozent ändert Outline, eingebettetes Deck zeigt bis zum manuellen Re-Run alten Stand |
+| Struktur, Bullets, Code, Diagramm, Math, Speaker-Notes | ✅ ~20–30 % (Vertragsteil) |
+| Custom Vue-Komponenten, Layouts, Themes | ⚠️ nur uniform |
+| `v-click`/Motion/Transitions, Live-Code (Monaco/Twoslash), Zeichnen, Kamera, interaktive Embeds | ❌ ~70 % — **Autoren-Handwerk, kein Datenmodell** |
+
+→ Generiert wird **„gut & konsistent"**, nie **„perfekt & maßgeschneidert"**. Das sind **zwei
+verschiedene Produkte**, die unterschiedliche Werkzeuge brauchen.
 
 ### 1.3 Constraints
-- Slidev/Marp/reveal erzeugen **kein editierbares `.pptx`** und konsumieren **keine** vorhandene
-  PowerPoint-Vorlage. *(verifiziert: Slidev/Marp-`export` erzeugt ein **bildbasiertes** .pptx,
-  eine Folie = ein Bild, nicht selektierbar.)* → ersetzt pptx-hub **nicht**.
-- pptx-hub = Python/Django; Slidev = Node/Vue/Vite; reveal.js = client-seitig, aus Python/Jinja2
-  **ohne** Node erzeugbar.
-- learn-hub (ADR-140) bleibt LMS (Kurse, Enrollment, Tracking) — ein Renderer liefert **Folien**,
-  keine Kursverwaltung.
-- Org `achimdehnert`, keine Mandanten-/Citizen-Daten, keine Souveränitäts-Auflagen. Slidev/reveal: MIT.
+- Slidev erzeugt **kein editierbares `.pptx`** und konsumiert **keine** PowerPoint-Vorlage
+  *(`export` liefert bildbasiertes .pptx)* → ersetzt pptx-hub **nicht**.
+- Slidev = Node/Vue; lebt als **Autoren-/Build-Werkzeug** (Dev-Tooling + CI-Build), **nicht** als
+  Django-Runtime-Abhängigkeit. Vortragszeit: statische Seite, kein Node/Chromium.
+- learn-hub (ADR-140) bleibt LMS; ein Deck wird **eingebettet** (ADR-254-Naht), nicht im LMS gerendert.
+- Org `achimdehnert`, keine Mandanten-/Souveränitätsauflagen. Slidev MIT.
 
-## 2. Entscheidung
+## 2. Entscheidung — Zwei Schienen
 
-1. **Ein render-neutraler Lehr-Outline-Vertrag (LO) als Single Source of Truth.** Erweiterung des
-   pptx-hub-Schemas v1. **Vorbedingung (neu):** vor jeder Renderer-Arbeit ein
-   **Capability-Check** — der Vertrag muss die ausdrucks-kritische Lehr-Semantik tragen
-   (Code+Highlight+Steps, Diagramm, Math, 2-spaltig, **Presenter-Notes**). Trägt er sie nicht,
-   wird **zuerst der Vertrag erweitert** (oder der Renderer ist falsch) — nicht in `bullets`/`notes`
-   hineingepresst.
+### Schiene 1 — Slidev als primäres Web-Autoren-Tool (Glanzstücke)
+1. **Slidev wird adoptiert** als das Werkzeug für perfekte Vorträge/Webinare/Vorzeige-Module —
+   **volles Spektrum**, direkt in Slidev (Markdown + Vue) autorenseitig gepflegt.
+2. **Minimale Plattform-Investition:** ein geteiltes **iil/meiki/ttz-Theme**, eine **Repo-/Ordner-
+   Konvention** für Decks, ein **statisches Build+Deploy-Ziel** (in learn-hub einbettbar via ADR-254).
+   *(Placement-Frage — eigenes `decks`-Repo vs. Ordner — ist Folge-Entscheidung, s. §5.3.)*
+3. Für Schiene-1-Decks ist die **Slidev-Datei die Single Source of Truth**. Keine pptx-Ableitung
+   erzwungen (optional via `export` als bildbasiertes Handout).
 
-2. **Renderer sind Consumer über einen Adapter (Transform-Pipeline), kein symmetrischer Fan-out.**
-   Ehrliche Naht: `LO → Adapter → Zielformat → Renderer`.
-   - **pptx-hub** → editierbares `.pptx` (bestehend, Design-Vererbung)
-   - **Web-Deck-Renderer** → live-präsentierbares Deck (neu) — **welcher**, entscheidet der
-     **Gate-1-Bake-off** (Slidev vs. reveal.js-aus-Python, Marp optional), nicht dieses ADR vorab.
-   - **learn-hub** → bettet das Web-Deck ein (kein eigener Renderer)
+### Schiene 2 — Lehr-Outline-Vertrag als Gerüst-Generator (Bulk)
+4. Der **LO-Vertrag** (Erweiterung pptx-hub-Schema, **Schema v2** nötig — s. §6) generiert aus
+   strukturiertem Inhalt ein **Slidev-Markdown-Gerüst** (Struktur, Inhalt, Code/Diagramm/Math,
+   Speaker-Notes). Dasselbe LO speist weiter **pptx-hub → editierbares .pptx**.
+5. Das Gerüst ist ein **Startpunkt, kein Endartefakt** — ein Mensch **veredelt** es in Slidev
+   (Schiene 1). Damit konvergieren beide Schienen im selben Werkzeug.
 
-3. **Scope scharf auf technische Lehr-Folien + Live-Web-Präsentation.** Operationalisiert:
-   - **Unterstützt:** Titel/Agenda/Content/KPI/Closing, Code-Folie (Highlight+Steps), Diagramm
-     (Mermaid o. ä.), Math (LaTeX), 2-spaltig Code+Erklärung, Speaker-Notes/Presenter-Modus.
-   - **Nicht unterstützt (bewusst):** Prosa-/Buch-Authoring (→ writing-hub), Kursverwaltung/
-     Quizze/Tracking (→ learn-hub als LMS), beliebige interaktive Web-Apps in Folien.
+### Querschnitt — Ownership & SSoT (der ehrliche Kern)
+6. **Ownership-Transfer-Point:** Ein LO-generiertes Deck gehört dem LO **nur bis zur ersten
+   Veredelung**. Ab dem ersten menschlichen Slidev-Edit ist die **Slidev-Datei die Wahrheit**;
+   das LO wird **historischer Seed**. **Re-Generieren aus dem LO verwirft die Politur.**
+   - Konsequenz: **Kein Roundtrip** Slidev→LO. „Detached"-Decks werden **explizit markiert**;
+     Re-Generierung nur für **nie veredelte** Gerüste.
+7. **Renderer-Wahl ist entschieden:** Slidev (nicht der frühere Bake-off). Begründung: das
+   Spektrum *ist* der Zweck. **reveal.js-aus-Python** wird **dokumentierte Fallback-Option** —
+   nur falls je ein **rein-generierter, nie-veredelter, Node-freier** Bulk-Bedarf entsteht
+   (dann ist Slidevs Autoren-Spektrum irrelevant und Null-Node sticht).
+8. **Cross-Repo-Schutz für den LO (Schiene 2) sofort:** `schema_version` + Golden-Fixture-
+   Contract-Tests (LO ist mit Schiene 2 ein zweiter Consumer). Vertrags-Form **leichtgewichtig**
+   (Python-Domänenmodell + Tests, kein eingefrorenes Wire-Schema; keine externen Consumer).
+   Package-**Extraktion** aufgeschoben.
 
-4. **Node-Toolchain auf den Build-Schritt isoliert; Web-Deck und PDF getrennt.**
-   - Web-Deck wird **einmal gebaut** (Slidev `build` / reveal aus Python = **kein Chromium**) und
-     als **statische Seite** ausgeliefert; **zur Vortragszeit läuft kein Node/Chromium** — der
-     Presenter-Modus ist client-seitig in der gebauten Seite enthalten.
-   - **PDF/Handout** ist ein **separates, eigenständig gegatetes** Deliverable (nur dafür fällt
-     headless Chromium an). Für Live-Präsentation **YAGNI** bis Nachfrage belegt.
+## 3. Was das ändert vs. Rev 2
+- „Slidev = nur Renderer, keine Autoren-Plattform" ist **aufgehoben** → Slidev = primäres Autoren-Tool.
+- Der **Bake-off** (Gate 1) entfällt als Renderer-Entscheidung; Slidev ist gesetzt, reveal.js = Fallback.
+- **Schema v2** ist nur noch für **Schiene 2 (Gerüst)** kritisch, **nicht** für Glanzstücke → repriorisiert.
+- Neuer Kern: **Zwei-Schienen + Ownership-Transfer**.
 
-5. **Cross-Repo-Schutz JETZT, Package-Extraktion später.** Korrektur des Trigger-Denkfehlers:
-   Der Schutz darf **nicht** auf einen „zweiten Producer" warten — der **zweite Consumer ist
-   bereits da**. Daher **sofort**: `schema_version`-Feld + **Cross-Repo-Golden-Fixture-Contract-Tests**
-   als Kompatibilitätswächter. Die **Extraktion** in ein `iil-*fw`-Package bleibt aufgeschoben,
-   bis realer Bedarf besteht (ADR-121-Präzedenz: Story-Outline bewusst getrennt).
-
-6. **Vertrags-Form: leichtgewichtig.** Wahrheit ist das **Python-Domänenmodell** + `schema_version`
-   + Golden-Fixture-Contract-Tests. **Kein** eingefrorenes, publiziertes JSON-Wire-Schema mit
-   SemVer-Apparat — es gibt **keine externen Consumer**; das wäre Overkill und erzwänge einen
-   Kleinster-gemeinsamer-Nenner-Kompromiss über zwei Render-Paradigmen (Placeholder vs. Markdown/
-   Komponente). Eine **Renderer-Capability-Matrix** (Feld/Feature × {pptx, web-deck} =
-   nativ/approximiert/ignoriert/unsupported) hält den Kern neutral.
-
-## 3. Gates (vor jeder Stack-Investition, Kill-Kriterien explizit)
-
-- **Gate 0 — Do-Nothing-Baseline.** Kosten des *Nicht-Bauens* beziffern (vorhandenes `.pptx`/PDF
-  einbetten/abspielen). Der Web-Deck-Nutzen (Live-Presenter, Code-Highlight) muss diese Baseline
-  für die **reale Vorlesungs-Frequenz** schlagen. **Kill:** schlägt er sie nicht → nicht bauen.
-- **Gate 1 — Renderer-Bake-off (rein Python/Build, kein Vortrags-Runtime).** Slidev vs.
-  reveal.js-aus-Python (Marp optional) auf **einer Fixture-Matrix** mit den ausdrucks-kritischen
-  Folientypen aus §2.1 + **Presenter-Modus**. Bewertung: (i) trägt der **LO-Vertrag** die Semantik
-  verlustfrei? (ii) **Live-Presenter-Erlebnis** (Notes/Vorschau/Timer/Steps/Annotation), (iii)
-  Node-Last. **„Verlustfrei" = semantische Vollständigkeit im Ziel**, NICHT Pixel-Layout, KEIN
-  Roundtrip Renderer→LO. **Kill:** lässt sich ein Pflicht-Folientyp nicht im LO ausdrücken → Vertrag
-  ist PowerPoint-förmig, **erst erweitern**; nimmt reveal.js-aus-Python die Feature-Hürde, **dominiert
-  es Slidev auf der ADR-eigenen „Node-minimieren"-Achse** und Gate 2 entfällt weitgehend.
-- **Gate 2 — nur PDF/Chromium-Export (falls überhaupt gewollt).** Erst nach belegter PDF-Nachfrage.
-  Kriterien inkl. **Supply-Chain**: Lockfile, `npm audit`/CVE-Prozess, Base-Image-Owner,
-  Update-Rhythmus, Build-Reproduzierbarkeit, Image-/Buildzeit-Cap, ADR-021-Compose-Konformität.
-  **Kill:** Betriebsaufwand trägt den PDF-Nutzen nicht.
-
-## 4. Betrachtete Alternativen
-
-| Option | Bewertung |
-|---|---|
-| Slidev als **Ersatz** für pptx-hub | ❌ kein editierbares `.pptx`, keine Template-Vererbung |
-| Slidev als **Autoren-Plattform** (teaching+writing+etc.) | ❌ Kategorie-Fehler; verdrängt writing-hub/learn-hub semantisch |
-| **reveal.js aus Python (Jinja2)** → statisches HTML | ✅ **Gate-1-Hauptkandidat**: null Node, Live-Presenter (Speaker-View), Code via Shiki/highlight, Mermaid/KaTeX-Plugins; erfüllt „Node minimieren" strikt besser; Komfort/Politur etwas mehr Eigenbau |
-| **Slidev** → Web-Deck | ✅ **Gate-1-Favorit für Live-Erlebnis**: stärkster Presenter-Modus, Code-Steps, Annotation; Node-Last nur **beim Build**, nicht zur Vortragszeit |
-| **Marp** | ➖ leichter, HTML-Export Chromium-frei, aber schwacher Presenter-Modus → für **Live** wohl unterlegen; als billiger Dritter im Bake-off zulässig |
-| **Quarto** (Pandoc → reveal/Beamer/PPTX) | ➖ als **reiner** Renderer denkbar, aber eigenes Quell-Format `.qmd` → SSoT-Konflikt wenn als Autoren-Tool; schwergewichtiger als nötig — verworfen als Autoren-Tool |
-| Eigenes Zweitformat für den Web-Renderer | ❌ zerstört SSoT |
-| LO sofort als geteiltes Package extrahieren | ❌ verfrüht (Extraktion); **aber** Schutz (Version+Tests) ist NICHT verfrüht → §2.5 |
-| **Domänenmodell-als-Wahrheit + Per-Target-Adapter + Golden-Contract-Tests** (Gegenmodell zu §2.1) | ✅ **gewählt als Vertrags-Form** (§2.6) — vermeidet eingefrorenes Wire-Schema-Freeze und LCD-Kompromiss |
+## 4. Gates (Right-Sizing)
+- **Schiene 1 ist kaum gegatet** — es ist Tool-Adoption: Slidev + Theme + Deploy. Risiko niedrig,
+  reversibel (Decks sind statische Artefakte). Erstes Glanzstück-Deck = der Proof.
+- **Gate 0 (Schiene 2) — Do-Nothing-Baseline:** lohnt der Gerüst-Generator vs. „Deck direkt in
+  Slidev von Hand"? Nur bauen, wenn Bulk-Volumen die Generator-Pflege trägt.
+- **Gate 1 (Schiene 2) — LO-Capability:** ✅ **ausgeführt** (§6) → Schema v2 erforderlich, bevor
+  der Gerüst-Generator gebaut wird.
+- **Gate 2 — PDF/Chromium (optional):** nur falls PDF-Handout gewünscht; Supply-Chain-Kriterien
+  (Lockfile, CVE, Base-Image-Owner, Reproduzierbarkeit, Image/Build-Cap, ADR-021).
 
 ## 5. Konsequenzen
 
-### Positiv
-- Ein Lehrinhalt → editierbares `.pptx` **und** live-präsentierbares Web-Deck ohne Doppelpflege.
-- Web-Deck zur **Vortragszeit ohne Node/Chromium** (einmal gebaut, statisch ausgeliefert).
-- Renderer-Wahl ist **belegt** (Bake-off), nicht gesetzt; semantisches Risiko **vorab** gegated.
-- Cross-Repo-Konsum **abgesichert** (Version + Contract-Tests), bevor er weh tut.
+### 5.1 Positiv
+- Perfekte Web-Präsentationen **sofort** möglich (Schiene 1, minimale Plattform-Arbeit).
+- Bulk/Konsistenz bleibt erreichbar (Schiene 2) — und mündet im selben Tool (veredelbar).
+- Node nur als **Autoren-/Build-Tool**, nicht als Server-Runtime; Vortragszeit statisch.
 
-### Trade-offs
-- Zwei Render-Paradigmen (pptx-Placeholder vs. Web-Markdown/Komponente) → **Capability-Matrix**
-  nötig, damit der Kern render-neutral bleibt (kein Einsickern renderer-spezifischer Hints).
-- `kpi/chart`: Chartdaten bleiben **semantisch im LO**; renderer-spezifische Charts sind nur
-  Consumer, **nie** zweite Datenquelle.
-- Build-Schritt (Node oder Python) muss betrieben werden; **Render-Job-Kontrakt** (Trigger,
-  Status, Idempotenz, Retry, Artefakt-Ablage, Cleanup, Metriken, **Staleness-Garantie**) ist zu
-  spezifizieren — sonst Stale-Deck-Bugs.
-- **Security:** Outlines sind teils LLM-/nutzer-generiert → Regel nötig, welche Markdown-/HTML-/
-  Komponenten-Features erlaubt sind (raw-HTML/Script-Verbot, Sanitization) bevor live im Browser
-  ausgespielt wird.
+### 5.2 Risiken / Trade-offs
+- **Detach-Risiko (Haupt-Trade-off):** nach Veredelung kein Re-Generieren aus LO → zwei Quellen,
+  wenn „detached" nicht sauber markiert wird. Mitigation: explizites Detach-Flag + Konvention.
+- Schema v2 = echte Schema-Arbeit (Schiene 2) mit Renderer-Folgewirkung.
+- **Security:** LLM-/nutzergenerierte Gerüst-Inhalte → Sanitization-Regel (kein raw-`<script>`),
+  greift bei Einbettung (ADR-254 CSP).
+- Theme-/Deck-Pflege (Schiene 1) ist Autoren-Aufwand, kein Generator-Aufwand.
 
-### Nicht in Scope
-- `writing-hub` (Prosa/Buch). Ersatz/Umbau des LMS `learn-hub`. **Package-Extraktion** des LO.
-- **learn-hub-Embed-Detail** (Auth, Tenant-Isolation, iframe/CSP, Asset-URLs, Cache, Lifecycle):
-  Naht hier nur **benannt**, Ausspezifikation in einem **learn-hub-Folge-ADR** (Cross-Repo-Scope).
+### 5.3 Nicht in Scope / Folge-Entscheidungen
+- **Placement Schiene 1** (eigenes `decks`-Repo vs. Ordner in dev-hub/learn-hub) → Folge-Entscheidung
+  (Policy „wo soll das leben" konsultieren).
+- learn-hub-Embed-Detail → **ADR-254**.
+- `writing-hub` (Prosa); Ersatz/Umbau des LMS; Package-Extraktion des LO.
 
-## 6. Validation Criteria
-- Gate 0: Do-Nothing-Kosten beziffert; Web-Deck-Nutzen schlägt sie für reale Frequenz.
-- Gate 1: LO-Capability-Check bestanden (alle Pflicht-Folientypen + Presenter-Notes verlustfrei);
-  Bake-off entscheidet Renderer auf Live-Erlebnis + Node-Last; Fixture-Matrix grün.
-- LO trägt `schema_version`; Cross-Repo-Golden-Contract-Tests laufen in CI beider Repos.
-- Renderer-Capability-Matrix dokumentiert; Artefakt-Policy (LO = Quelle; .md/web/pdf/pptx =
-  wegwerfbare Build-Artefakte) festgehalten.
-- Gate 2 nur falls PDF gewollt: Supply-Chain-Kriterien + Determinismus/Fonts/Notes erfüllt.
+## 6. Gate-1-Capability-Check — Evidenz (ausgeführt 2026-06-19)
+Probe gegen den realen `validate_outline` (pptx-hub, `extra="forbid"`). Positiv-Kontrolle
+(title/bullets/notes, kpi+chart) validiert; **0/5** Web-Lehr-Folientypen ausdrückbar:
 
-## 7. Glossar
-| Abkürzung | Bedeutung |
-|-----------|-----------|
-| **ADR** | Architecture Decision Record |
-| **LO** | Lecture/Lehr-Outline — der render-neutrale Inhalts-Vertrag dieses ADR |
-| **SSoT** | Single Source of Truth — eine maßgebliche Quelle |
-| **LMS** | Learning Management System (hier: learn-hub) — Kursverwaltung/Tracking |
-| **Presenter-Modus** | Vortragenden-Ansicht: Sprechnotizen + Nächste-Folie-Vorschau + Timer, getrennt von der Publikums-Ansicht |
-| **Slidev** | sli.dev — Vue/Node-Framework, Markdown → Web-Präsentation/PDF |
-| **reveal.js** | client-seitiges HTML-Präsentations-Framework, aus Python/Jinja2 ohne Node erzeugbar |
-| **Marp** | Markdown-Präsentations-Tool (HTML-Export browser-frei) |
-| **Bake-off** | direkter Vergleich mehrerer Kandidaten auf identischer Testgrundlage, Entscheidung = Ergebnis |
-| **YAGNI** | „You Aren't Gonna Need It" — nicht bauen, bis Bedarf belegt ist |
-| **Capability-Matrix** | Tabelle Feature × Renderer: nativ/approximiert/ignoriert/unsupported |
-| **Build- vs. Vortragszeit** | einmaliger Erzeugungsschritt vs. Moment des Live-Vortrags (letzterer ohne Toolchain) |
+| Typ | v1 | Grund |
+|---|---|---|
+| Code (Highlight+Steps) | ❌ | `code` extra_forbidden |
+| `intent:"code"` | ❌ | intent literal_error |
+| Diagramm (Mermaid) | ❌ | `diagram` extra_forbidden |
+| Math (LaTeX) | ❌ | `math` extra_forbidden |
+| 2-spaltig Code+Erklärung | ❌ | `columns` extra_forbidden |
+| Step-Reveal | ❌ | `reveal` extra_forbidden |
+| Presenter-Notes | ✅ | `notes` vorhanden |
 
-## 8. Referenzen
-- pptx-hub **ADR-003** (repo-lokal) — Slide Generation Pipeline / render-neutrales Outline-Schema v1
-- platform **ADR-140** — learn-hub (LMS, Embed-Target)
-- platform **ADR-139** — iil-learnfw (Shared Learning Platform Package)
-- platform **ADR-121** — iil-outlinefw (Story-Outline-Framework — Domänen-Abgrenzung)
-- platform **ADR-211** — Klickdummy-/Gate-Muster (Right-Sizing)
-- Externe Reviews + Befund-Tagging (Nachweis): `~/shared/adr-handoff-ADR-253-2026-06-19.md`
-- sli.dev · revealjs.com · marp.app — Renderer-Dokumentation
+→ Vertrag ist PowerPoint-förmig; **Schema v2** (additive optionale Blöcke `code/diagram/math/
+columns/reveal`, `$schema_version:"2"`, v1 bleibt gültig) ist Voraussetzung für **Schiene 2**.
 
-## 9. Changelog
-- **2026-06-19 (Rev 1)** — Entwurf erstellt (proposed).
-- **2026-06-19 (Rev 2)** — Nach zwei externen Zweitmeinungen überarbeitet: semantisches Risiko
-  vorab gegated (LO-Capability-Check); Renderer-Wahl als Gate-1-Bake-off (Slidev vs. reveal.js-aus-
-  Python); Live-Präsentation/Presenter-Modus als Erstklasse-Ziel; Web-Deck-Build (kein Chromium)
-  von PDF-Export (Chromium) getrennt; Cross-Repo-Schutz (`schema_version` + Contract-Tests) sofort
-  (zweiter Consumer bereits da); Vertrags-Form leichtgewichtig (Domänenmodell + Golden-Tests);
-  Gate 0 Do-Nothing-Baseline; Security-/Render-Job-/Staleness-/Capability-Matrix-Konsequenzen ergänzt.
+## 7. Betrachtete Alternativen
+| Option | Bewertung |
+|---|---|
+| A: Nur Vertrag-first (generiert, Slidev=dumb) | ❌ deckelt Web-Decks auf LCD — verfehlt „perfekt" |
+| B: Nur Slidev-Authoring | ✅ perfekte Decks, aber keine Bulk-/pptx-Wiederverwendung |
+| **C (gewählt): Beides — Slidev-Authoring + LO-Gerüst** | ✅ Glanzstücke sofort + Bulk-Pfad; Preis = Detach-Risiko (§5.2) |
+| Slidev als pptx-Ersatz | ❌ kein editierbares .pptx |
+| reveal.js-aus-Python als Primär-Tool | ❌ verfehlt das Slidev-Spektrum; nur Fallback (§2.7) |
+| Quarto/Marp als Autoren-Tool | ❌ eigenes Quellformat / schwächerer Presenter → SSoT-Konflikt |
+
+## 8. Validation Criteria
+- Schiene 1: erstes Glanzstück-Deck live präsentiert + in learn-hub eingebettet (ADR-254).
+- Schiene 2: Schema v2 trägt alle 5 Folientypen verlustfrei; LO→Slidev-Gerüst erzeugt; `schema_version`
+  + Cross-Repo-Contract-Tests grün; Detach-Flag-Konvention dokumentiert.
+- Artefakt-Policy: pro Deck eindeutig, ob LO-Seed (regenerierbar) oder detached (Slidev = Wahrheit).
+
+## 9. Glossar
+| Begriff | Bedeutung |
+|---|---|
+| **LO** | Lecture/Lehr-Outline — strukturierter Inhalts-Vertrag (Gerüst-Quelle, Schiene 2) |
+| **Schiene 1 / 2** | Glanzstück-Authoring in Slidev / Bulk-Gerüst-Generierung aus dem LO |
+| **Gerüst (Scaffold)** | generierter Startpunkt eines Decks, der in Slidev veredelt wird |
+| **Ownership-Transfer-Point** | Moment der ersten Veredelung — ab da ist die Slidev-Datei die Wahrheit |
+| **Detached** | Deck, das nach Veredelung nicht mehr aus dem LO regenerierbar ist |
+| **Presenter-Modus** | Vortragenden-Ansicht (Notizen + Vorschau + Timer) getrennt vom Publikum |
+| **SSoT** | Single Source of Truth |
+| **Slidev / reveal.js** | sli.dev (Vue/Node, volles Spektrum) / client-seitiges HTML-Framework (Fallback) |
+
+## 10. Referenzen
+- pptx-hub **ADR-003** (repo-lokal) — Outline-Schema v1 / Slide-Pipeline
+- platform **ADR-254** — learn-hub Web-Deck-Embed-Naht (gilt für beide Schienen)
+- platform **ADR-140** — learn-hub · **ADR-139** — iil-learnfw · **ADR-121** — iil-outlinefw (Abgrenzung)
+- platform **ADR-211** — Gate-/Right-Sizing-Muster
+- Externe Reviews + Tagging: `~/shared/adr-handoff-ADR-253-2026-06-19.md`
+- sli.dev · revealjs.com
+
+## 11. Changelog
+- **2026-06-19 (Rev 1)** — Entwurf (proposed).
+- **2026-06-19 (Rev 2)** — Nach zwei externen Reviews: semantisches Risiko vorab gegated; Bake-off;
+  Presenter-Modus; build≠export; Cross-Repo-Schutz sofort; leichtgewichtige Vertrags-Form.
+- **2026-06-19 (Rev 3)** — Ziel-Reframe „perfekte Web-Präsentationen": **Zwei-Schienen-Strategie**
+  (Slidev primäres Autoren-Tool + LO als Gerüst-Generator), Slidev adoptiert (Bake-off→Fallback),
+  **Ownership-Transfer-Point** + Detach-Risiko verankert, Schema v2 auf Schiene 2 repriorisiert,
+  Gate-1-Capability-Check-Evidenz (0/5) eingearbeitet.
