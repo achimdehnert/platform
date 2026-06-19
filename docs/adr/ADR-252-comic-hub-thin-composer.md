@@ -33,6 +33,15 @@ scope:
 > spike-belegt):** Mehrpersonen-Panels werden via **Einzelcharakter-Generierung + Compositing +
 > Human-in-the-Loop** gebaut, NICHT via Multi-Ref-Co-Gen. Engine-Pin: **Qwen-Image-Edit**
 > (Apache-2.0). Damit Gate 0a bestanden → Gate 1 (Klickdummy) freigegeben.
+>
+> **Gate 1 + Hub-vs-View ENTSCHIEDEN 2026-06-19 → Option B (Modul-in-illustration-hub).** Gate-1-
+> Klickdummy live (iil.pet, CF-Access); Compositing-Mitigation empirisch bestätigt (2/2 vs Co-Gen 1/6).
+> Produkt-Input (offen/Experiment · persistente Projekte · mandantenfähig) determiniert **B**:
+> Comic als **App-Modul in illustration-hub** (erbt `tenant_id`/Asset-Storage/Jobs), `ConsistentSequenceAgent`
+> in illustration-fw, **Repo-Extraktion gegated** auf bewiesenes Volumen/Domänen-Vermischung.
+> O1-C (View/Export) ausgeschlossen (persistente Projekte brauchen ein Zustand-Heim); O1-A
+> (Greenfield-Repo jetzt) bleibt verworfen (verfrüht, ADR-180/121). Briefing:
+> `~/shared/comic-spike/hub-vs-view-decision.md`.
 
 ## Kontext und Problemstellung
 
@@ -129,6 +138,7 @@ dürfen nicht gebündelt werden (Amendment 2026-06-18):
 - **Gate 1 — Klickdummy (ADR-211):** Bestätigt einen eigenständigen Comic-Lifecycle und misst, ob
   assistiertes/manuelles Lettering für das MVP genügt.
 - **Erst danach:** Entscheidung Hub (O1-B) vs. View/Export (O1-C) und ggf. Repo-Extraktion.
+  → **Entschieden 2026-06-19 = O1-B** (Modul in illustration-hub; s. Amendment oben).
   Ein `comicfw`-Paket ist ausgeschlossen, solange < 2 Consumer (ADR-180).
 
 **Brückenmodell-Pin:** Cloud-MVP und späteres Self-Host nutzen **dasselbe** Modell
@@ -166,7 +176,9 @@ benennen *Verantwortung*, nicht ein Repo:
 Bewusst **offen gelassen**, weil abhängig von Spike-Ergebnis und Hub-vs-View-Wahl — vorab-Festlegung
 wäre verfrüht und würde nach dem Spike neu geschrieben:
 
-- **Hub (O1-B) vs. View/Export (O1-C)** + konkreter Repo-/Service-Schnitt und Servicegrenze.
+- ~~**Hub (O1-B) vs. View/Export (O1-C)**~~ — **ENTSCHIEDEN 2026-06-19 = O1-B** (Modul in
+  illustration-hub, später extrahieren; s. Amendment oben). Offen bleibt nur der konkrete
+  Service-Schnitt beim späteren Extraktions-Zeitpunkt.
 - **illustration-fw Capability-Vertrag** (Referenzanzahl/Masken/Seed/Workflow-Version) — hängt vom
   gewählten Foundation-Model ab; eigenes Tracking-Issue.
 - **Generation-Manifest-Feldschema** (konkrete Felder).
