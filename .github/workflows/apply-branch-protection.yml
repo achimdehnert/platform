@@ -1,10 +1,16 @@
-name: "ADR-242: Apply Branch Protection (Wave 1)"
+name: "ADR-242: Apply Branch Protection"
 
 on:
   workflow_dispatch:
     inputs:
+      wave:
+        description: "Welle (liest governance/rulesets/wave<N>-repos.json)"
+        required: false
+        default: "1"
+        type: choice
+        options: ["1", "2"]
       repo:
-        description: "Einzelnes Repo (leer = alle Wave-1-Repos aus wave1-repos.json)"
+        description: "Einzelnes Repo (leer = alle Repos der gewählten Welle)"
         required: false
         default: ""
       dry_run:
@@ -36,10 +42,16 @@ jobs:
           TOKEN: ${{ secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
           TARGET_REPO: ${{ github.event.inputs.repo }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
+          WAVE: ${{ github.event.inputs.wave }}
         run: |
           set -euo pipefail
           TEMPLATE="governance/rulesets/main-required-checks-template.json"
-          WAVE1="governance/rulesets/wave1-repos.json"
+          WAVE_FILE="governance/rulesets/wave${WAVE:-1}-repos.json"
+          if [ ! -f "$WAVE_FILE" ]; then
+            echo "❌ Wellen-Datei nicht gefunden: $WAVE_FILE"
+            exit 1
+          fi
+          echo "📋 Welle ${WAVE:-1} → $WAVE_FILE"
           API="https://api.github.com"
 
           api_get() {
@@ -107,28 +119,28 @@ jobs:
           }
 
           if [ -n "$TARGET_REPO" ]; then
-            entry=$(jq -r --arg r "$TARGET_REPO" '.[] | select(.repo==$r)' "$WAVE1")
+            entry=$(jq -r --arg r "$TARGET_REPO" '.[] | select(.repo==$r)' "$WAVE_FILE")
             if [ -z "$entry" ]; then
-              echo "❌ Repo '$TARGET_REPO' nicht in wave1-repos.json"
+              echo "❌ Repo '$TARGET_REPO' nicht in $WAVE_FILE"
               exit 1
             fi
             deferred=$(echo "$entry" | jq -r '.deferred // empty')
             if [ -n "$deferred" ]; then
               echo "❌ Repo '$TARGET_REPO' ist deferred: $deferred"
-              echo "   Zum Anwenden 'deferred'-Feld in wave1-repos.json entfernen (Rollout-Gate prüfen!)."
+              echo "   Zum Anwenden 'deferred'-Feld in $WAVE_FILE entfernen (Rollout-Gate prüfen!)."
               exit 1
             fi
             owner=$(echo "$entry" | jq -r '.owner')
             check=$(echo "$entry" | jq -r '.required_check')
             run_one "$owner" "$TARGET_REPO" "$check"
           else
-            jq -r '.[] | select(.deferred != null) | "⏸ \(.repo) übersprungen (deferred): \(.deferred)"' "$WAVE1"
+            jq -r '.[] | select(.deferred != null) | "⏸ \(.repo) übersprungen (deferred): \(.deferred)"' "$WAVE_FILE"
             while IFS= read -r entry; do
               repo=$(echo "$entry"  | jq -r '.repo')
               owner=$(echo "$entry" | jq -r '.owner')
               check=$(echo "$entry" | jq -r '.required_check')
               run_one "$owner" "$repo" "$check"
-            done < <(jq -c '.[] | select(.deferred == null)' "$WAVE1")
+            done < <(jq -c '.[] | select(.deferred == null)' "$WAVE_FILE")
           fi
 
           echo ""
