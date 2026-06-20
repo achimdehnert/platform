@@ -5,7 +5,54 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-19 — comic-hub ADR-252: ADR→Code, end-to-end live verifiziert)
+## ⚡ Aktueller Stand (2026-06-20 — F4 geschlossen + ADR-242 Wave 2 live; Wave 3 vorbereitet)
+
+**Diese Session (2026-06-20):** Handover-Prio #1 (F4) abgeschlossen → entsperrte ADR-242
+Wave 2, beide Programme sauber verzahnt.
+
+**F4 CI-grün = als code-CI-Programm GESCHLOSSEN.** Fleet-Survey (last push-run/default,
+API): **37/50 grün**; **alle 9 roten sind Deploy-Stage** (G5/Owner/Infra) — NULL code-CI
+(Lint/Test/Coverage). Restrot = Deploy-Health (separates Programm, nie autonom).
+6 `update-project-facts.yml`-Retire-PRs alle gemergt. Detail: CC-Memory
+`project_f4_ci_green_program`.
+
+**ADR-242 Branch-Protection — Wave 2 LIVE, jetzt 11 Repos geschützt:**
+- **Wave 1 (7):** platform, risk-hub, mcp-hub, billing-hub, cad-hub, coach-hub, dev-hub.
+- **Wave 2 (4, neu 2026-06-20):** ausschreibungs-hub, trading-hub, wedding-hub, writing-hub
+  — Rulesets #17924045/46/47/49, `enforcement=active`, bypass leer, required check
+  **`ci / gate`**. Config-PR **#607** (wave2-repos.json + `apply-branch-protection.yml`
+  auf `wave`-Input generalisiert); Apply via Dispatch (dry-run 4/0 → scharf 4/4).
+- **Negativ-Test bestanden** (Confirmation §3): ausschreibungs-hub#127 (absichtl.
+  Syntax-Fehler) → `ci / gate` FAILURE → `mergeStateStatus=BLOCKED` → Merge-API abgelehnt
+  → PR geschlossen + Branch gelöscht.
+- **Meter deckt jetzt Wave 1+2** (#611): `branch_protection_meter.py --expected` nimmt
+  mehrere Wave-Dateien; Mo 06:00 UTC; Live-Smoke `11 konform · 0 Verletzungen`.
+
+**→ WAVE 3 — Voraussetzung + Worklist (erster Zug eines neuen Strangs):**
+- **Gate (ADR-242 §Entscheidung-1):** required check MUSS der stabile Aggregat-Job
+  **`ci / gate`** sein — fragile per-Job-Namen sind verboten. Deshalb war Wave 2 nur
+  4 Repos: von ~30 grünen unprotected Repos hatten nur diese den Aggregat-Gate.
+- **Wave-3-Kandidaten = ~26 grüne Repos OHNE stabilen `ci / gate`** (Snapshot 2026-06-20,
+  bei Ausführung neu scannen): aifw, apo-hub*, authoringfw, bahn-hub, decks-hub, design-hub,
+  gaeb-toolkit, iil-adrfw, iil-codeguard, iil-demo-fixture, iil-django-commons, iil-ingest,
+  iil-reflex, iil-testkit, lastwar-bot, learn-hub, learnfw, nl2cad, odoo-hub, outlinefw,
+  promptfw, recruiting-hub, researchfw, riskfw, travel-beat, weltenfw.
+  (*apo-hub hat nur den fragilen `Coverage Gate (≥0%)`-Namen — kein Kandidat ohne Fix.)
+- **Voraussetzung vor Apply = shared-ci-`ci / gate`-Konvergenz** (ADR-209-Programm, NICHT
+  diese Session): die shared-ci-Consumer (learn-hub/recruiting-hub/travel-beat emittieren
+  `ci / *` aber kein `ci / gate` → shared-ci-Version ohne Aggregat-Job; bump nötig); die
+  Standalone-CI-Libs (iil-*, *fw mit `test (3.12)`/`lint`-Jobs) brauchen Konvergenz auf
+  `_ci-python.yml` ODER einen eigenen Aggregat-Gate-Job. Erst danach `wave3-repos.json`
+  anlegen + `apply-branch-protection.yml wave=3` dispatchen + Negativ-Test + Meter-Liste
+  erweitern.
+- **Artefakte:** `governance/rulesets/{wave1,wave2}-repos.json`,
+  `main-required-checks-template.json`, `.github/workflows/apply-branch-protection.yml`
+  (`wave`-Input), `tools/branch_protection_meter.py` (`--expected` multi-file),
+  `.github/workflows/branch-protection-meter.yml`. Pre-Flight-Pflicht je Repo (Lehre
+  `feedback_adr242_wave1_doc_vs_reality`): Check-Name auf PR-Head + grüne main-CI +
+  `ci / gate` läuft auf `pull_request` (sonst PR-Deadlock).
+
+## ⚡ Vorheriger Stand (2026-06-19 — comic-hub ADR-252: ADR→Code, end-to-end live verifiziert)
 
 **Diese Session (2026-06-19):** comic-hub von „ist das möglich?" bis zum **lauffähigen,
 released, end-to-end verifizierten Produktionspfad** durchgezogen.
