@@ -16,6 +16,7 @@
 # Usage:
 #   main-tree-guard.sh install <repo-path>   # Sentinel + post-checkout-Hook setzen
 #   main-tree-guard.sh report  [repo-path]   # unauthorized_head_flips/30d
+#   main-tree-guard.sh audit-all             # alle $GITHUB_DIR-Checkouts: Guard fehlt? off-main?
 #   main-tree-guard.sh hook <prev> <new> <flag>   # (intern, von git aufgerufen)
 set -euo pipefail
 
@@ -116,10 +117,38 @@ cmd_precommit_check() {
   exit 1
 }
 
+# audit-all: erkennt Repos OHNE Guard / mit off-main Haupt-Checkout (Retro 2026-06-19, Befund A/B).
+# Der Guard ist per-Repo opt-in (`install`); ein FEHLENDER Guard war bisher unsichtbar — genau die
+# Wurzel des 23-Datei-PR #33 (pptx-hub hatte keinen Guard, Branch von stale base geschnitten).
+# `report` deckt nur installierte Guards ab. Läuft lokal über die echten Checkouts unter $GITHUB_DIR
+# (nur Verzeichnisse mit echtem .git-DIR; Worktrees haben .git als Datei → übersprungen).
+cmd_audit_all() {
+  local base="${GITHUB_DIR:-$HOME/github}"
+  local missing=0 offmain=0 ok=0 d repo head sentinel
+  for d in "$base"/*; do
+    [ -d "$d/.git" ] || continue          # echter Checkout (Worktree: .git ist Datei)
+    repo="$(basename "$d")"
+    sentinel="$d/.git/iil-main-tree-protected"
+    head="$(git -C "$d" symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
+    if [ ! -e "$sentinel" ]; then
+      echo "⚠️  $repo: GUARD FEHLT  → main-tree-guard.sh install $d"
+      missing=$((missing+1))
+    elif [ "$head" != "main" ]; then
+      echo "⚠️  $repo: Haupt-Checkout auf '$head' (nicht main)  → editierende Arbeit in Worktree"
+      offmain=$((offmain+1))
+    else
+      ok=$((ok+1))
+    fi
+  done
+  echo "—— $ok ok · $missing ohne Guard · $offmain off-main ——"
+  [ $((missing+offmain)) -eq 0 ] || return 1   # nonzero = Drift (vom drift-check als Finding aufgegriffen)
+}
+
 case "${1:-}" in
   install)         shift; cmd_install "$@";;
   hook)            shift; cmd_hook "$@";;
   report)          shift; cmd_report "$@";;
+  audit-all)       shift; cmd_audit_all "$@";;
   precommit-check) shift; cmd_precommit_check "$@";;
-  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | precommit-check | hook <prev> <new> <flag>}" >&2; exit 2;;
+  *) echo "usage: main-tree-guard.sh {install <repo> | report [repo] | audit-all | precommit-check | hook <prev> <new> <flag>}" >&2; exit 2;;
 esac
