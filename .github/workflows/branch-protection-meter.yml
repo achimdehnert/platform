@@ -12,7 +12,7 @@ on:
 
 jobs:
   meter:
-    name: "Soll/Ist-Abgleich Rulesets (Wave 1)"
+    name: "Soll/Ist-Abgleich Rulesets (Wave 1+2)"
     runs-on: self-hosted
     permissions:
       contents: read
@@ -30,6 +30,7 @@ jobs:
         run: |
           python3 tools/branch_protection_meter.py \
             --expected governance/rulesets/wave1-repos.json \
+                       governance/rulesets/wave2-repos.json \
             --report /tmp/meter-report.md
 
       - name: "Issue bei Verletzung (Label protection-violation)"

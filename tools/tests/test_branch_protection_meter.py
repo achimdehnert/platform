@@ -1,11 +1,12 @@
 """Tests für tools/branch_protection_meter.py (ADR-242 §Rollout 4)."""
 
+import json
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from branch_protection_meter import evaluate_repo, render_report  # noqa: E402
+from branch_protection_meter import evaluate_repo, load_expected, render_report  # noqa: E402
 
 
 def _ruleset(enforcement="active", check="ci / gate", name="main-required-checks"):
@@ -64,6 +65,21 @@ def test_should_skip_deferred_entries_without_violation():
     result = evaluate_repo(entry, [])
     assert result["status"] == "deferred"
     assert "F4" in result["reasons"][0]
+
+
+def test_should_merge_multiple_expected_files(tmp_path):
+    f1 = tmp_path / "wave1.json"
+    f2 = tmp_path / "wave2.json"
+    f1.write_text(json.dumps([{"repo": "a-hub"}, {"repo": "b-hub"}]))
+    f2.write_text(json.dumps([{"repo": "c-hub"}]))
+    merged = load_expected([str(f1), str(f2)])
+    assert [e["repo"] for e in merged] == ["a-hub", "b-hub", "c-hub"]
+
+
+def test_should_load_single_expected_file(tmp_path):
+    f1 = tmp_path / "wave1.json"
+    f1.write_text(json.dumps([{"repo": "a-hub"}]))
+    assert load_expected([str(f1)]) == [{"repo": "a-hub"}]
 
 
 def test_should_render_report_with_all_sections():
