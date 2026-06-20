@@ -15,6 +15,7 @@ Exit-Codes: 0 = alle Soll-Repos konform · 1 = mindestens eine Verletzung
 Usage:
     TOKEN=<pat> python3 tools/branch_protection_meter.py \
         --expected governance/rulesets/wave1-repos.json \
+                   governance/rulesets/wave2-repos.json \
         --report /tmp/meter-report.md
 """
 
@@ -125,9 +126,27 @@ def render_report(results: list) -> str:
     return "\n".join(lines) + "\n"
 
 
+def load_expected(paths: list) -> list:
+    """Lädt und konkateniert eine oder mehrere Soll-Listen (Wave-Dateien).
+
+    Mehrere --expected (z. B. wave1 + wave2) ergeben eine gemeinsame
+    Prüfmenge; Verletzungen aggregieren über alle Wellen.
+    """
+    merged: list = []
+    for path in paths:
+        with open(path) as fh:
+            merged.extend(json.load(fh))
+    return merged
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--expected", required=True, help="Pfad zur Soll-Repo-Liste (JSON)")
+    parser.add_argument(
+        "--expected",
+        required=True,
+        nargs="+",
+        help="Pfad(e) zur Soll-Repo-Liste(n) (JSON) — mehrere Wellen erlaubt",
+    )
     parser.add_argument("--report", help="Markdown-Report in Datei schreiben")
     args = parser.parse_args()
 
@@ -137,8 +156,7 @@ def main() -> int:
         return 2
 
     try:
-        with open(args.expected) as fh:
-            expected = json.load(fh)
+        expected = load_expected(args.expected)
     except (OSError, json.JSONDecodeError) as exc:
         print(f"❌ Soll-Liste nicht lesbar: {exc}", file=sys.stderr)
         return 2
