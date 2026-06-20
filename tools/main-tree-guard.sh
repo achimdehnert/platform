@@ -27,7 +27,7 @@ die() { echo "FEHLER: $*" >&2; exit 1; }
 
 cmd_install() {
   local repo="${1:-}"; [ -n "$repo" ] || die "repo-path fehlt"
-  local gitdir; gitdir="$(git -C "$repo" rev-parse --git-dir)" || die "kein git-Repo"
+  local gitdir; gitdir="$(git -C "$repo" rev-parse --absolute-git-dir)" || die "kein git-Repo"
   ( cd "$repo" && touch "$SENTINEL" )
   local hookdir="$gitdir/hooks"; mkdir -p "$hookdir"
   local hook="$hookdir/post-checkout"
@@ -81,7 +81,7 @@ cmd_hook() {
 
 cmd_report() {
   local repo="${1:-.}"
-  local gitdir; gitdir="$(git -C "$repo" rev-parse --git-dir)" || die "kein git-Repo"
+  local gitdir; gitdir="$(git -C "$repo" rev-parse --absolute-git-dir)" || die "kein git-Repo"
   local log="$gitdir/iil-guard-events.log"
   if [ ! -e "$log" ]; then echo "unauthorized_head_flips/30d: 0 (kein Log)"; return 0; fi
   local cutoff; cutoff="$(date -u -d '-30 days' +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo 0000)"
@@ -130,8 +130,13 @@ cmd_audit_all() {
     repo="$(basename "$d")"
     sentinel="$d/.git/iil-main-tree-protected"
     head="$(git -C "$d" symbolic-ref --quiet --short HEAD 2>/dev/null || echo DETACHED)"
-    if [ ! -e "$sentinel" ]; then
-      echo "⚠️  $repo: GUARD FEHLT  → main-tree-guard.sh install $d"
+    # Sentinel UND beide Hooks nötig — ein Halb-Install (Sentinel ohne Hooks) ist
+    # dormant und darf NICHT als „ok" durchgehen (Falsch-Vertrauen). Tritt auf, wenn
+    # `install` aus falschem cwd lief (vor dem --absolute-git-dir-Fix).
+    if [ ! -e "$sentinel" ] \
+       || ! grep -q main-tree-guard "$d/.git/hooks/pre-commit" 2>/dev/null \
+       || ! grep -q main-tree-guard "$d/.git/hooks/post-checkout" 2>/dev/null; then
+      echo "⚠️  $repo: GUARD FEHLT/UNVOLLSTÄNDIG  → main-tree-guard.sh install $d"
       missing=$((missing+1))
     elif [ "$head" != "main" ]; then
       echo "⚠️  $repo: Haupt-Checkout auf '$head' (nicht main)  → editierende Arbeit in Worktree"
