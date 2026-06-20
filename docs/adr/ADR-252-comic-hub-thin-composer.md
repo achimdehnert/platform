@@ -34,6 +34,12 @@ scope:
 > Human-in-the-Loop** gebaut, NICHT via Multi-Ref-Co-Gen. Engine-Pin: **Qwen-Image-Edit**
 > (Apache-2.0). Damit Gate 0a bestanden → Gate 1 (Klickdummy) freigegeben.
 >
+> **Finale menschliche Rubrik 2026-06-20 → PASS bestätigt** (Achim Dehnert): D1-Einzelidentitäts-
+> Serie (C1 ×5) + Compositing-Mitigation (2/2) visuell abgenommen. Das CONDITIONAL-PASS-Verdikt
+> war LLM-Judge-Vorfilter; mit der menschlichen Rubrik ist Gate 0a **final bestanden** — kein
+> Vorbehalt mehr offen. Restschwächen (Compositing-Relight, Occlusion-Instruktionstreue) sind
+> Optimierungs-/Backlog-Items, keine Identitätsfehler.
+>
 > **Gate 1 + Hub-vs-View ENTSCHIEDEN 2026-06-19 → Option B (Modul-in-illustration-hub).** Gate-1-
 > Klickdummy live (iil.pet, CF-Access); Compositing-Mitigation empirisch bestätigt (2/2 vs Co-Gen 1/6).
 > Produkt-Input (offen/Experiment · persistente Projekte · mandantenfähig) determiniert **B**:
@@ -183,7 +189,17 @@ wäre verfrüht und würde nach dem Spike neu geschrieben:
   gewählten Foundation-Model ab; eigenes Tracking-Issue.
 - **Generation-Manifest-Feldschema** (konkrete Felder).
 - **Pipeline-State-Machine** (Entwurf→…→Export) + Pin-vs-Track-Politik + Zustände
-  `stale`/`source_missing`/`access_revoked`.
+  `stale`/`source_missing`/`access_revoked`. Enthält explizit eine **`Review→Retry`-Kante
+  („Nachschärfen") als laufzeit-verfügbare Optimierungs-Funktion**, nicht nur Spike-/Dev-Komfort:
+  Operator verwirft ein Panel → Regenerate mit **gepinnten Refs** (Identitäts-UUID + AssetRevision,
+  also identitätserhaltend) → jeder Versuch erzeugt ein neues **immutables Generation Manifest**
+  (Versuchs-Historie auditierbar, Vor-Asset bleibt via content_store-Versionierung) → bestes
+  Revision wird **Panel-gelockt** → Freigabe. Zwei Stufen, bewusst getrennt:
+  **(a) identitätserhaltender Re-Roll** (gleiche Refs, neuer Seed / Prompt-Nudge) — billig, gehört
+  ins MVP-Review; **(b) Quality-Escalation** (Relight-Pass für die Compositing-Restschwäche,
+  Upscale, Engine-Switch Qwen→Flux für Hero-Panel, später Charakter-LoRA = REC-15) — teuer/GPU,
+  **gegatete** Optimierungs-Stufe, kein stiller Default. Feldschema/Zustandsdetail = Backlog
+  (illustration-hub Use-Case).
 - **Comic-Datenmodell-Detail** (Koordinatensystem, Panelgeometrie, Z-Order, Anschnitt,
   Doppelseiten, Layoutvarianten; Webtoon/Übersetzung/A11y).
 - **Auto-Lettering** als eigenes Arbeitspaket (MVP = assistiert/manuell) mit eigener Schwelle.
