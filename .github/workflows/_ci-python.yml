@@ -178,6 +178,24 @@ jobs:
         uses: actions/setup-python@v6
         with:
           python-version: ${{ inputs.python_version }}
+      - name: Git-Auth für private Deps (ephemer, self-hosted-safe)
+        env:
+          PROJECT_PAT: ${{ secrets.PROJECT_PAT }}
+        run: |
+          # pip / pip-audit müssen private git+https-Deps (z.B. iil-Org) klonen.
+          # Token in eine JOB-temporäre gitconfig schreiben statt ~/.gitconfig —
+          # self-hosted Runner persistieren das globale gitconfig sonst (Token-Leak).
+          # Via GIT_CONFIG_GLOBAL gilt sie für alle Folge-Steps und verschwindet
+          # mit RUNNER_TEMP.
+          if [ -n "$PROJECT_PAT" ]; then
+            cfg="${RUNNER_TEMP}/ci-git-auth.gitconfig"
+            git config --file "$cfg" \
+              url."https://x-access-token:${PROJECT_PAT}@github.com/".insteadOf "https://github.com/"
+            echo "GIT_CONFIG_GLOBAL=$cfg" >> "$GITHUB_ENV"
+            echo "✅ Git-Auth für private Deps aktiv (ephemer)"
+          else
+            echo "ℹ️  Kein PROJECT_PAT — private git-Deps werden ggf. nicht aufgelöst"
+          fi
       - name: Install dependencies
         run: |
           pip install pip-audit
@@ -245,7 +263,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -265,6 +283,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
           WORKERS=${{ inputs.pytest_workers }}
           # django-tenants-Repos brauchen echte Migrationen (Tenant-Schema-Tabellen
@@ -309,7 +328,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -329,6 +348,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
           set -euo pipefail
           python manage.py migrate 2>&1 && echo "OK: Migration graph consistent — all migrations applied" || {
@@ -343,6 +363,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: |
           set -euo pipefail
           python manage.py check --deploy --fail-level ERROR 2>&1 || {
@@ -357,6 +378,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
           REDIS_URL: redis://localhost:6379/0
         run: |
           WORKERS=${{ inputs.pytest_workers }}
@@ -428,7 +450,7 @@ jobs:
           --health-timeout 5s
           --health-retries 5
         ports:
-          - 5432:5432
+          - 5432  # ephemer: Docker wählt freien Host-Port (shared-ci#8)
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python
@@ -450,6 +472,7 @@ jobs:
           DJANGO_SETTINGS_MODULE: ${{ inputs.django_settings_module }}
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
+          POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
         run: pytest -m "contract" -v || ([ $? -eq 5 ] && echo "No contract tests found, skipping." && exit 0)
 
   architecture-guardian:
@@ -499,3 +522,79 @@ jobs:
               print('platform_context.checks not available -- skipping guardian check')
               sys.exit(0)
           GUARDIAN_EOF
+
+  runner-label-check:
+    name: "Runner-Label-Check"
+    # Bewusst GitHub-hosted: ein Gate gegen tote self-hosted-Runner-Label-Pins darf
+    # NICHT selbst von einem self-hosted-Runner abhängen (sonst hängt es genauso).
+    # Hintergrund: 2026-06-17 hing complete-check.yml 13h, weil auf [self-hosted,
+    # hetzner] gepinnt (hetzner trug nur ein verwaister offline-Runner) → blockierte
+    # ALLE risk-hub-Merges. Konvention/SoT: platform/infra/hosts.yaml.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: Install PyYAML
+        run: pip install pyyaml
+      - name: "Keine toten self-hosted-Label-Pins"
+        run: |
+          python3 - <<'PY'
+          import sys, glob, yaml
+          # Labels, die jeder self-hosted Runner automatisch trägt:
+          AUTO = {"self-hosted", "linux", "x64"}
+          # Erlaubte Zusatz-Labels (leer = nur plain self-hosted). Bei neuem dedizierten
+          # Runner: hier UND in platform/infra/hosts.yaml (status: online) ergänzen.
+          ALLOWED_EXTRA = set()
+          HOSTED = ("ubuntu", "windows", "macos")
+          issues = []
+          for wf in sorted(glob.glob(".github/workflows/*.yml") + glob.glob(".github/workflows/*.yaml")):
+              try:
+                  doc = yaml.safe_load(open(wf).read()) or {}
+              except yaml.YAMLError as e:
+                  issues.append(f"{wf}: YAML nicht parsebar ({e})")
+                  continue
+              for job_id, job in (doc.get("jobs", {}) or {}).items():
+                  if not isinstance(job, dict):
+                      continue
+                  ro = job.get("runs-on")
+                  labels = [ro] if isinstance(ro, str) else (ro or [])
+                  low = {str(x).lower() for x in labels}
+                  if any(any(l.startswith(h) for h in HOSTED) for l in low):
+                      continue
+                  if "self-hosted" not in low:
+                      continue
+                  extra = {str(x) for x in labels if str(x).lower() not in AUTO and str(x) not in ALLOWED_EXTRA}
+                  if extra:
+                      issues.append(
+                          f"{wf}: job '{job_id}' runs-on {labels} — Zusatz-Label {sorted(extra)} "
+                          f"ist nicht garantiert von einem Online-Runner gedeckt (toter-Pin-Risiko, "
+                          f"blockiert Merges). Fix: runs-on: self-hosted (SoT: platform/infra/hosts.yaml)."
+                      )
+          if issues:
+              print(f"::error::Runner-Label-Check: {len(issues)} Finding(s)")
+              for i in issues:
+                  print(f"  - {i}")
+              sys.exit(1)
+          print("OK — kein self-hosted-Workflow nutzt ein ungedecktes Runner-Label.")
+          PY
+
+  gate:
+    name: "gate"
+    runs-on: ${{ inputs.runs_on }}
+    needs: [qm-gate, lint, secrets-scan, security, test-unit, test-integration, coverage-report, test-contract, architecture-guardian, runner-label-check]
+    if: always()
+    steps:
+      - name: "All CI jobs passed or skipped"
+        run: |
+          STATUS_LIST='${{ toJSON(needs) }}'
+          echo "$STATUS_LIST" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          failures = [name for name, job in needs.items() if job['result'] not in ('success', 'skipped')]
+          if failures:
+              print('::error::Failed or cancelled jobs:', failures)
+              sys.exit(1)
+          print('All jobs passed or were skipped.')
+          "
