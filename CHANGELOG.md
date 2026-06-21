@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- `scripts/drift_check.py`: stale HEALTHCHECK-Regel auf **ADR-078** nachgezogen
+  (#549). Die alte Regel forderte `HEALTHCHECK` **im** Dockerfile (ADR-021 §2.3)
+  und widersprach damit der accepted ADR-078 *(„Healthcheck pro-Service in
+  docker-compose.prod.yml, nicht im image-globalen Dockerfile")* sowie dem REFLEX
+  `compose.healthcheck_in_dockerfile`. Regel entfernt und als `BANNED_PATTERN`
+  invertiert (HEALTHCHECK im Dockerfile = error). ADR-078-konforme Repos (z.B.
+  dev-hub) werden nicht mehr fälschlich rot geflaggt. Kein ADR (reiner
+  Tooling-Bugfix gegen accepted ADR).
+
+---
+
 ## [2026.05.18] — 2026-05-18
 
 ### Added

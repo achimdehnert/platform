@@ -31,9 +31,7 @@ repos:
     pypi: authoringfw
   bfagent:
     type: agent
-    prod_url: bfagent.iil.pet
-    port: 8091
-    health: /livez/
+    archived: true
   billing-hub:
     type: django
     prod_url: billing.iil.pet
@@ -133,6 +131,11 @@ repos:
   platform:
     type: infra
     note: ADRs, architecture docs, shared workflows, repo-registry
+  decks-hub:
+    type: static
+    prod_url: decks-hub.iil.pet
+    port: 8111
+    health: /healthz/
   pptx-hub:
     type: django
     prod_url: prezimo.com

@@ -1,0 +1,30 @@
+[
+  {
+    "repo": "ausschreibungs-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "reason": "green-ci-shared-ci-converged"
+  },
+  {
+    "repo": "trading-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "reason": "green-ci-shared-ci-converged"
+  },
+  {
+    "repo": "wedding-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "reason": "green-ci-local-gate-job"
+  },
+  {
+    "repo": "writing-hub",
+    "owner": "achimdehnert",
+    "required_check": "ci / gate",
+    "wave": 2,
+    "reason": "green-ci-shared-ci-converged"
+  }
+]

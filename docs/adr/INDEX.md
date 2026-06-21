@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-06-03
-> **Next free ADR number:** 237
+> **Last updated:** 2026-06-12
+> **Next free ADR number:** 246 (243–245 zum Draft-Zeitpunkt vergeben; final zur Merge-Zeit, ADR-228)
 
 ## Legend
 
@@ -189,7 +189,7 @@
 | 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Pipeline | `Accepted` | ✅ | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
 | 157 | Adopt same-port staging on Dev Desktop with automated port governance and onboarding | `Accepted` | ✅ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
 | 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | `Accepted` | ✅ | [ADR-158](ADR-158-unified-documentation-architecture.md) |
-| 160 | Adopt Standardized Two-File CI/CD Pipeline for All Hub Repositories | `Accepted` | 🔶 | [ADR-160](../../mcp-hub/docs/ADR-160-standardized-hub-deployment.md) |
+| 160 | Adopt LLM-Powered Query-Expansion and Relevance Scoring for researchfw | `Accepted` | ✅ | [ADR-160](ADR-160-llm-powered-research-pipeline.md) |
 | 161 | Adopt Two-Layer-Schema with Hybrid-RLS for Tenant-Spanning SDS Data | `Proposed` | ⬜ | [ADR-161](ADR-161-shared-sds-library.md) |
 | 162 | Adopt REFLEX as Standard Methodology for Evidence-based UI Development | `Accepted` | 🔶 | [ADR-162](ADR-162-reflex-ui-testing-and-scraping.md) |
 | 163 | Adopt Three-Tier REFLEX Quality Standard for All Platform Repositories | `Accepted` | 🔶 | [ADR-163](ADR-163-reflex-tiering-platform-quality-standard.md) |
@@ -204,7 +204,7 @@
 | 175 | Adopt selective modularization for .windsurf/workflows/ files | `Accepted` | ✅ | [ADR-175](ADR-175-workflow-modularization-pattern.md) |
 | 177 | Agent Role Specialization — Split Developer into 5 specialized agents (DocBot, TestBot, FeatureBot, ReEngineerBot, ArchitectBot) | `Proposed` | ⬜ | [ADR-177](ADR-177-agent-role-specialization.md) |
 | 185 | Adopt Gate-controlled Deploy-Agent for automated Staging→Prod deployments | `Proposed` | ⬜ | [ADR-185](ADR-185-deploy-agent-pattern.md) |
-| 186 | Adopt Headless Agent-Coding Pipeline via Devin CLI + Orchestrator Bridge for Polyrepo Automation | `Proposed` | ⬜ | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
+| 186 | Use Unified Agent Loop on aifw for Headless Coding Pipeline (v1.3) | `Proposed` | 🔶 | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |
 | 187 | Document Intelligence Pipeline — iil-ingest erweitern um VectorStore, Multi-Tool Ensemble & RAG | `Accepted` | 🔶 | [ADR-187](ADR-187-document-intelligence-pipeline.md) |
 | 188 | Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store | `Proposed` | ⬜ | [ADR-188](ADR-188-unified-vector-store.md) |
 | 194 | Universal LLM-Call Logging via Gateway | `Proposed` | ⬜ | [ADR-194](ADR-194-universal-llm-call-logging-via-gateway.md) |
@@ -228,6 +228,24 @@
 | 234 | Sauberer Repo-Zustand (Staging & Prod) als erzwungene Invariante statt laufendem Reparatur-Task | `Proposed` | ⬜ | [ADR-234](ADR-234-clean-state-invariant.md) |
 | 235 | Org-weite Secret-Prevention-Posture — bindender Gate am Push-Rand (native Push-Protection) mit CI-gitleaks-Fallback | `Accepted` | 🔶 | [ADR-235](ADR-235-org-secret-prevention-posture.md) |
 | 236 | ALT-D Enterprise-Boundary — IIL-Org-Topologie konsolidieren mit Portabilität by construction (amends ADR-235) | `Accepted` | ⬜ | [ADR-236](ADR-236-altd-enterprise-boundary.md) |
+| 237 | Multi-Tenancy: row-level `tenant_id` als Plattform-Default, schema-per-tenant als Compliance-Ausnahme | `Proposed` | ⬜ | [ADR-237](ADR-237-multi-tenancy-row-level-default-schema-exception.md) |
+| 238 | Security-by-Construction als Konstruktionsprinzip — Containment symmetrisch zu Acceleration | `Accepted` | 🔶 | [ADR-238](ADR-238-security-by-construction-agent-containment.md) |
+| 239 | Architecture Guardian — PR-Zeit-Architektur-Compliance-Agent | `Accepted` | ✅ | [ADR-239](ADR-239-architecture-guardian.md) |
+| 240 | Repo-Health-Framework über alle Plattform-Repos | `Proposed` | ⬜ | [ADR-240](ADR-240-repo-health-framework.md) |
+| 241 | *(reserviert — Enterprise-Backup-ADR, Draft noch nicht gemergt; Nummer nicht wiederverwenden)* | – | – | – |
+| 242 | Fleet-weite Branch-Protection — required status checks auf `main` (no-bypass by construction) | `Accepted` | 🔶 | [ADR-242](ADR-242-branch-protection-required-checks.md) |
+| 243 | `iil-corefw` — Shared Runtime Core für die Framework-Flotte (Retry, Errors, Observability, Cost-Provenance) | `Proposed` | ⬜ | [ADR-243](ADR-243-shared-runtime-core-iil-corefw.md) |
+| 244 | Geschlossener Regel-Lebenszyklus — eine Severity-/Suppression-Sprache + Compliance-Gate über alle Check-Systeme | `Proposed` | ⬜ | [ADR-244](ADR-244-rule-lifecycle-governance-loop.md) |
+| 245 | LLM-Routing-Policy als Code — Provider-Policy-Engine in iil-aifw (free-tier-first mit Auto-Failover) | `Proposed` | ⬜ | [ADR-245](ADR-245-llm-provider-policy-engine.md) |
+| 246 | genesor-Ingest Stufe 2: manifest-getriebener, dev-host-freier CI-Auto-Ingest (nightly) | `Accepted` | ⬜ | [ADR-246](ADR-246-genesor-ingest-stufe2-ci-auto.md) |
+| 247 | Cross-Hub Onboarding-Contract: billing-hub → Produkt-Hub Auto-Login (HMAC + Magic-Link) | `Proposed` | ⬜ | [ADR-247](ADR-247-cross-hub-onboarding-contract.md) |
+| 248 | COMPOSE_PROJECT_NAME pro Hub fixieren + --remove-orphans scopen (Multi-Hub-Host) | `Proposed` | ⬜ | [ADR-248](ADR-248-compose-project-name-per-hub.md) |
+| 249 | Telefon-/Sprachagent als eigenständiges iilgmbh-Produkt: Swappable-Ports + Souveränitäts-Profil, MVP mPA, Pilot meiki-hub | `Proposed` | ⬜ | [ADR-249](ADR-249-telefonagent-produkt-swappable-ports.md) |
+| 250 | Registry-getriebene Edge-Config + Drift-Lint (nginx-vhost/DNS aus repo-registry.yaml) | `Proposed` | ⬜ | [ADR-250](ADR-250-registry-driven-edge-config.md) |
+| 251 | Reengineering-Pipeline: Analyse→UCs→KD→Mockup→Deploy als Round-Trip mit UX-Gate am Klickdummy + Mermaid-UC-Konvention | `Accepted` | ⬜ | [ADR-251](ADR-251-reengineering-pipeline-ux-gate-am-klickdummy.md) |
+| 252 | comic-hub — Comic-Erstellung als Thin-Composer über bestehende Seams, gegated durch Konsistenz-Spike + Klickdummy | `Proposed` | ⬜ | [ADR-252](ADR-252-comic-hub-thin-composer.md) |
+| 253 | Web-Präsentationen: Slidev als primäres Autoren-Tool (Glanzstücke) + Lehr-Outline-Vertrag als Gerüst-Generator (Bulk) — Zwei-Schienen-Strategie | `Proposed` | ⬜ | [ADR-253](ADR-253-render-neutral-lecture-outline-contract.md) |
+| 254 | learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle | `Proposed` | ⬜ | [ADR-254](ADR-254-learn-hub-web-deck-embed-seam.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 

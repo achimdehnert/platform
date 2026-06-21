@@ -6,14 +6,21 @@ name: Tools Unit-Tests
 # CI-verwaist blieben (z.B. test_registry_coverage_drift). Hier läuft `pytest tools/tests/`
 # als EIN blockierender Gate über alles — kein neues Tool-Test fällt mehr durchs Raster.
 # Session-Retro F-A / KONZ-001 R7 (beweisbar-echte Gates).
+#
+# scripts/** ist mit-getriggert: tools/tests/ enthält auch Tests für scripts/-Module
+# (z.B. test_drift_check.py → scripts/drift_check.py). Ohne den scripts/**-Trigger
+# liefe der Gate bei einer drift_check.py-Änderung NICHT — genau die CI-verwaiste
+# Lücke aus Session-Retro 2026-06-12 F1 (repo-root tests/ läuft in keinem Workflow).
 
 on:
   push:
     paths:
       - "tools/**"
+      - "scripts/**"
   pull_request:
     paths:
       - "tools/**"
+      - "scripts/**"
 
 jobs:
   tools-tests:

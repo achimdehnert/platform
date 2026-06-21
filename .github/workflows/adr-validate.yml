@@ -3,10 +3,14 @@ name: ADR Schema Validation
 on:
   push:
     paths:
-      - "docs/adr/ADR-*.md"
+      - "docs/adr/**"
+      - "tools/adr_citation_lint.py"
+      - "tools/adr_index_check.py"
   pull_request:
     paths:
-      - "docs/adr/ADR-*.md"
+      - "docs/adr/**"
+      - "tools/adr_citation_lint.py"
+      - "tools/adr_index_check.py"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
 
@@ -40,4 +44,24 @@ jobs:
           else
             echo "✓ No ADR reference drift."
           fi
+          exit 0
+
+      # ADR-211 C5/I4 — Cross-Repo-Ref-Format-Gate (gating).
+      # Qualifizierte Refs müssen ^[a-z][a-z0-9-]+:ADR-[0-9]{3}$ matchen.
+      - name: ADR cross-repo ref format (ADR-211 C5/I4, gating)
+        run: bash scripts/checks/adr_cross_repo_refs.sh docs/adr/
+
+      # ADR citation lint + INDEX consistency — SUGGEST / non-gating
+      # (repo-health-rule-discipline: neue Regeln starten als SUGGEST, deterministisch-
+      # strukturell, kein LLM). Ergaenzt den staleness-Step (nur depends_on-Frontmatter)
+      # um Body-Zitate (dead_ref/stale_filename/external_target) und INDEX.md-Drift
+      # (missing_row/ghost_row/status_drift/broken_link/stale_next_free).
+      # Promotion-Pfad zu gating: erst die Alt-Funde bereinigen bzw. via
+      # docs/adr/.adr-lint-ignore parken, dann hier `--gate` setzen und das
+      # `exit 0` entfernen. Skripte selbst exiten im SUGGEST-Modus IMMER 0.
+      - name: ADR citation lint + INDEX consistency (SUGGEST, non-gating)
+        run: |
+          set +e
+          python3 tools/adr_citation_lint.py --format github
+          python3 tools/adr_index_check.py --format github
           exit 0

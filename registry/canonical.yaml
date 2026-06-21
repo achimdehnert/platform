@@ -22,6 +22,27 @@ meta:
     iil-fieldprefill: iilgmbh
     iil-relaunch: iilgmbh
     illustration-fw: iilgmbh
+    iil-klickdummy: iilgmbh
+    iil-testkit: iilgmbh
+  owner_prefix_rules:
+  - prefix: meiki-
+    owner: meiki-lra
+  - prefix: ttz-
+    owner: ttz-lif
+  - prefix: sqf-
+    owner: bahn-sqf
+  - prefix: pg-
+    owner: bahn-sqf
+  - prefix: bahn-
+    owner: bahn-sqf
+  app_display_names:
+    meiki-hub: MEiKI · LRA-Plattform
+    ausschreibungs-hub: Bieterpilot
+    writing-hub: Writing-Hub
+    risk-hub: Risk-Hub
+    ttz-hub: TTZ-Hub
+    sqf-hub: SQF-Hub
+    pg-hub: PG-Hub
   _note: GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + registry/repos.yaml.
     Noch NICHT kanonisch geschaltet — Konsumenten unverändert.
 repos:
@@ -123,19 +144,18 @@ repos:
     in_rich: true
     flat:
       type: agent
-      prod_url: bfagent.iil.pet
-      port: 8091
-      health: /livez/
+      archived: true
     domain: Content & Publishing
     rich:
       name: bfagent
       repo: bfagent
       description: Book Factory Agent — AI-assisted book creation
       github: achimdehnert/bfagent
-      deployed: true
+      deployed: false
+      archived: true
       url: https://bfagent.iil.pet
       type: django
-      lifecycle: production
+      lifecycle: archived
       tenancy_mode: none
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
@@ -439,6 +459,26 @@ repos:
       lifecycle: production
       tenancy_mode: none
       coverage_threshold: 80
+  decks-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: static
+      prod_url: decks-hub.iil.pet
+      port: 8111
+      health: /healthz/
+    domain: Content & Publishing
+    rich:
+      name: decks-hub
+      repo: decks-hub
+      description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
+      github: achimdehnert/decks-hub
+      deployed: false
+      type: static
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      notes: 'Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge deferred bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.'
   pptx-hub:
     in_flat: true
     in_rich: true
