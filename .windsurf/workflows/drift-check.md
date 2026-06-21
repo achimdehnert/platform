@@ -59,7 +59,33 @@ Lies ${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml
    ```
    - Sind alle 22 Repos im Outline-Verzeichnis gelistet?
 
-8. **Drift-Report erstellen**
+8. **Design-Token-Drift prüfen (decks-repos)** — lokal, `design-hub` muss als Geschwister-Repo vorliegen
+   Für jedes Repo, das ein design-hub-Profil zu Theme/CSS regeneriert (aktuell: `decks-hub`):
+// turbo
+   ```
+   cd ${GITHUB_DIR:-$HOME/github}/decks-hub && npm run theme && git diff --exit-code styles/
+   ```
+   - Exit 0 → committetes Theme == `design-hub/profiles/<brand>.yaml` (kein Drift)
+   - Exit ≠ 0 → das generierte CSS ist veraltet gegenüber der design-hub-SSoT → **Drift**.
+     Fix: `npm run theme` + committen (design-hub ist SSoT für Marken-Tokens).
+   - **Warum hier (lokal), nicht in GitHub-CI:** `design-hub` ist privat/separat und in
+     GitHub-CI nicht ausgecheckt → ein CI-`npm run theme` nähme den committeten-CSS-Fallback
+     und prüfte nichts (No-Op). Drift-vom-Quell ist nur prüfbar, wo der Quell vorliegt
+     (Lehre: Session-Retro 2026-06-19, Befund H — „Mandat ohne Mechanismus" vermeiden).
+
+9. **Branch-Guard-Drift prüfen** — welche lokalen Haupt-Checkouts haben KEINEN main-tree-guard
+   (ADR-233) oder stehen off-main? Ein fehlender Guard war bisher unsichtbar (Wurzel des
+   23-Datei-PR pptx-hub #33, Session-Retro 2026-06-19 Befund A/B).
+// turbo
+   ```
+   bash ${GITHUB_DIR:-$HOME/github}/platform/tools/main-tree-guard.sh audit-all
+   ```
+   - Exit 0 → alle Checkouts geschützt + auf main
+   - Exit ≠ 0 → Repos ohne Guard / off-main gelistet → **Drift**.
+     Fix: `main-tree-guard.sh install <repo>` je gemeldetem Repo; off-main-Checkout in Worktree
+     überführen. (Enforcement ist lokal — Server-CI sieht den lokalen Checkout-Zustand nicht.)
+
+10. **Drift-Report erstellen**
    ```
    === Drift Report (2026-XX-XX) ===
 
@@ -77,7 +103,7 @@ Lies ${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml
    - Outline: 1 directory doc
    ```
 
-9. **Fixes vorschlagen** — Für jeden Drift konkreten Fix mit Quelle nennen (welche SSOT hat Recht?)
+11. **Fixes vorschlagen** — Für jeden Drift konkreten Fix mit Quelle nennen (welche SSOT hat Recht?)
    - ports.yaml ist SSOT für Ports
    - repos.json ist SSOT für Repo-Facts
    - Server-Zustand muss zu beiden passen

@@ -12,7 +12,7 @@ on:
 jobs:
   sync:
     name: Trigger ADR sync on DevHub
-    runs-on: [self-hosted, hetzner, dev]
+    runs-on: self-hosted
 
     steps:
       - name: Trigger import_adrs in running DevHub container
@@ -35,7 +35,7 @@ jobs:
 
   hardcode-scan:
     name: Hardcode Scanner (platform repo)
-    runs-on: [self-hosted, hetzner, dev]
+    runs-on: self-hosted
     if: github.event_name == 'push'
 
     steps:

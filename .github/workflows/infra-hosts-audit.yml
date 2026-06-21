@@ -1,0 +1,36 @@
+name: Infra Hosts Audit
+
+# Hält die Infra-SoT infra/hosts.yaml ehrlich (Schema + Frische) und prüft, dass
+# kein platform-Workflow auf ein totes Runner-Label zeigt. Läuft auf ubuntu-latest
+# (GitHub-hosted) — ein Gate gegen tote self-hosted-Labels darf NICHT selbst von
+# self-hosted-Runnern abhängen. Hintergrund: session-retro Längsschnitt-Gate
+# (Infra-Transparenz war wiederholt Outage-/Merge-Blocker-Quelle).
+
+on:
+  push:
+    paths:
+      - "infra/hosts.yaml"
+      - "infra/scripts/hosts_audit.py"
+      - ".github/workflows/**"
+  pull_request:
+    paths:
+      - "infra/hosts.yaml"
+      - "infra/scripts/hosts_audit.py"
+      - ".github/workflows/**"
+
+jobs:
+  hosts-audit:
+    name: hosts.yaml Schema + Frische + Runner-Label-Pins
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install PyYAML
+        run: pip install pyyaml
+
+      - name: Audit (schema + staleness + labels)
+        run: python3 infra/scripts/hosts_audit.py --check all --workflows .github/workflows

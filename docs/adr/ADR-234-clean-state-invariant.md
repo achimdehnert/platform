@@ -333,8 +333,52 @@ begrenzten Acceptance-Slice. Verdikte (intern gegen ADR + Code falsifiziert):
 
 ---
 
+### 11.2 Amendment 2026-06-12 — P0-Restschuld: Neben-Wahrheiten der Verteilungs-Schicht
+
+**Befund (Codebase-Analyse 2026-06-12, alle Pfade verifiziert):** P0 hat die *Registry*-Dual-SSoT
+aufgelöst, aber die **Verteilungs-Schicht** hält drei weitere, hand-gepflegte Wahrheiten über die
+Flotte, die nicht aus `canonical.yaml` gespeist werden:
+
+1. **`registry/github_repos.yaml`** — von `scripts/sync-workflows.sh:95-97` ausdrücklich als
+   „SSoT" für Repo-Typ-Kategorien (UNIVERSAL/DJANGO_HUB/PACKAGE) deklariert → vierte Quelle mit
+   eigenem Typ-Vokabular neben `repo_type` in canonical.
+2. **Hand-Arrays in `scripts/sync-repo.sh:75-97`** — `WSL_REPOS` (24 Repos) + `SERVER_APP_PATHS`
+   (Kommentar: „Verified against live server **2026-03-05**" — 3 Monate stale). Neue Repos nehmen
+   am 3-Node-Sync schlicht nicht teil; niemand merkt es (silent skip by design).
+3. **Dual-Generator** `scripts/gen_project_facts.py` (11 KB, liest flat-View) vs.
+   `scripts/generate_project_facts.py` (18 KB, GitHub-API + rich-View) — zwei Implementierungen
+   erzeugen `project-facts` mit unterschiedlichen Input-Quellen und Defaults.
+
+**Amendment-Entscheidung (P0-Schlussstein, gleiche Logik wie der Registry-Flip):**
+
+- **A1 — canonical.yaml wird um Distributions-Felder erweitert** (`workflow_category`,
+  `wsl_checkout: bool`, `server_compose_path`), `github_repos.yaml` wird **generierte View**
+  (gleicher Mechanismus wie die beiden Alt-Registries: GENERATED-Header + Drift-Gate) oder retired,
+  falls `repo_type` die Kategorien bereits deterministisch ableiten kann.
+- **A2 — Shell-Verteiler lesen generierte Includes statt Hand-Arrays:** `registry_api.py` bekommt
+  einen `emit --format bash`-Subcommand; `sync-repo.sh`/`sync-workflows.sh` sourcen das Artefakt.
+  Hand-Edit am Array = CI-Fail (View-Reader-Guard-Erweiterung, REC-4-Muster).
+- **A3 — genau ein project-facts-Generator:** `generate_project_facts.py` (API-vollständig) wird
+  kanonisch, `gen_project_facts.py` → deprecation-Stub mit Forward-Call + Warnung, Entfernung nach
+  30 Tagen. Aufrufer (session-start Phase 0.2, Workflows) werden im selben PR umgestellt.
+
+**Nicht in Scope dieses Amendments:** Inhaltliche project-facts-Schema-Änderungen; die in §11.1
+bereits getrackten Code-TODOs (REC-11/12/13) bleiben eigenständig.
+
+**Validation:** Nach Umsetzung liefert
+`grep -rn "WSL_REPOS=\|SERVER_APP_PATHS=" scripts/ --include="*.sh"` nur noch generierte
+Include-Dateien; `github_repos.yaml` trägt GENERATED-Header; es existiert genau ein
+project-facts-Generator-Entry-Point.
+
+---
+
 ## 12. Changelog
 
+- **2026-06-12:** **Amendment §11.2 — P0-Restschuld Verteilungs-Schicht** (Codebase-Analyse
+  2026-06-12): `github_repos.yaml` als vierte Quelle, stale Hand-Arrays in `sync-repo.sh`
+  (Stand 2026-03-05), Dual-Generator project-facts. Entscheidung A1–A3: Distributions-Felder in
+  canonical, Shell-Verteiler lesen generierte Includes, ein kanonischer Generator. Status proposed
+  bis PR-Merge.
 - **2026-06-06:** **Accepted (phasenscharf).** Status `proposed → accepted`, `implementation_status
   none → in_progress`. §2.1 „Was Acceptance bedeutet / nicht" ergänzt (externe Review-Runde 3, REC-20):
   Invariante + SSoT + Digest-Provenance + frisches-Grün-Enforcement + Promote-Gate sind entschieden;

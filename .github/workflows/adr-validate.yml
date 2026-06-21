@@ -41,3 +41,8 @@ jobs:
             echo "✓ No ADR reference drift."
           fi
           exit 0
+
+      # ADR-211 C5/I4 — Cross-Repo-Ref-Format-Gate (gating).
+      # Qualifizierte Refs müssen ^[a-z][a-z0-9-]+:ADR-[0-9]{3}$ matchen.
+      - name: ADR cross-repo ref format (ADR-211 C5/I4, gating)
+        run: bash scripts/checks/adr_cross_repo_refs.sh docs/adr/

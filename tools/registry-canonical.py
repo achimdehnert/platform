@@ -88,6 +88,33 @@ def build() -> dict:
                 "iil-fieldprefill": "iilgmbh",
                 "iil-relaunch": "iilgmbh",
                 "illustration-fw": "iilgmbh",
+                # Org-Mapping-Externalisierung (Konsument: iil-klickdummy detect_org,
+                # 2026-06-12) — Werte identisch zu dessen bisheriger Code-Heuristik.
+                "iil-klickdummy": "iilgmbh",
+                "iil-testkit": "iilgmbh",
+            },
+            # Geordnete Präfix-Heuristik für Repos OHNE repo_owner-Eintrag. Konsument:
+            # iil-klickdummy genesor (detect_org) — ersetzt dessen hartkodierte Heuristik.
+            # Gleicher Stopgap-Status wie repo_owner (REC-11: gehört langfristig als
+            # owner_team-Feld ins Datenmodell). Default für Nicht-Treffer: server.github_org.
+            "owner_prefix_rules": [
+                {"prefix": "meiki-", "owner": "meiki-lra"},
+                {"prefix": "ttz-", "owner": "ttz-lif"},
+                {"prefix": "sqf-", "owner": "bahn-sqf"},
+                {"prefix": "pg-", "owner": "bahn-sqf"},
+                {"prefix": "bahn-", "owner": "bahn-sqf"},
+            ],
+            # App-Anzeigenamen (Konsument: iil-klickdummy genesor render_fallback) —
+            # externalisiert aus dessen app_name_map (2026-06-12). Fallback dort:
+            # Titel-Heuristik aus dem Repo-Namen.
+            "app_display_names": {
+                "meiki-hub": "MEiKI · LRA-Plattform",
+                "ausschreibungs-hub": "Bieterpilot",
+                "writing-hub": "Writing-Hub",
+                "risk-hub": "Risk-Hub",
+                "ttz-hub": "TTZ-Hub",
+                "sqf-hub": "SQF-Hub",
+                "pg-hub": "PG-Hub",
             },
             "_note": "GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + "
                      "registry/repos.yaml. Noch NICHT kanonisch geschaltet — Konsumenten unverändert.",
