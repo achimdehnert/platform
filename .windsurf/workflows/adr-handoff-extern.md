@@ -180,19 +180,26 @@ Dieses Gate ersetzt den menschlichen Egress-Aktuator des manuellen Pfads; ohne g
 darf `--auto` nicht senden. (Genau diese Bedingung trägt die „kein ADR"-Einstufung — KONZ-platform-007.)
 
 **4b.2 — Modell wählen (NICHT hardcoden).**
-- Ziel-Modell aus Env `${ADR_HANDOFF_MODEL}`; ist es leer, einen bewusst gewählten Frontier-Default
-  nennen und **vor** dem Call per `GET https://api.openai.com/v1/models` verifizieren, dass die ID
-  auf dem Account existiert (Präzedenz: Routing-Reality-Check 2026-05-13 — angenommenes Modell war
-  nicht auf dem Account). Existiert sie nicht → Nutzer fragen, nicht raten.
+- Ziel-Modell + `provider: openai` im Frontmatter des Review-Workflows setzen; aifw validiert die
+  Modell-ID gegen seine Model-Registry (`LLMModel`/`LLMProvider`). Unbekannte ID → aifw-Fehler statt
+  stillem Fallback; ID nicht raten, sondern aus der Registry nehmen (Präzedenz Routing-Reality-Check
+  2026-05-13 — angenommenes Modell war nicht auf dem Account).
 - **Provider-Diversität ist der Zweck:** ein *anderer* Anbieter als der interne `adr-challenger`
   (Default OpenAI). Das ist die begründete Frontier-Ausnahme zur LLM-Routing-Policy (Tier-1-Default
   gilt nicht — adversarialer Architektur-Review ist reasoning-schwer + Cross-Provider ist das Ziel).
 
-**4b.3 — Call absetzen (Key nie echoen).**
-- Key aus `~/.secrets/openai_api_key` lesen (read-only; **nie** nach stdout). Kein aifw-Pfad —
-  aifw ist Django-Library, kein standalone-CLI; kein generisches LLM-MCP-Tool ist garantiert geladen.
-- Das gesamte Briefing aus Step 4 als User-Prompt senden; **eine** Runde (s. „When"). Bei HTTP-Fehler/
-  Timeout: einmal melden, **nicht** still auf den manuellen Pfad zurückfallen ohne es zu sagen.
+**4b.3 — Call über aifw/Orchestrator absetzen (NICHT lokal curlen).**
+- **Lokales curl ist tot (verifiziert 2026-06-20):** `~/.secrets/*_api_key` ist `root:root` mode 600;
+  eine CC-Session als `devuser` kann den Key **nicht** lesen, kein passwordless sudo, nicht als Env
+  injiziert. Der Key lebt korrekt im **Orchestrator-Container** — der Egress läuft durch ihn.
+- Egress über **aifw** (Django-AI-Framework, im Orchestrator mit OpenAI-Provider konfiguriert).
+  Routing: `workflow_executor` wählt `(model, provider, action_code)` aus dem Workflow-Frontmatter,
+  sonst Default-Provider `groq`. **Für Cross-Provider zwingend `provider: openai` setzen** — der
+  Default routet sonst nicht-extern (belegt: `review_adr` lief auf `anthropic/claude-sonnet-4-6`,
+  also KEINE Provider-Diversität — exakt das, was dieser Skill vermeiden soll).
+- Konkret: das Briefing aus Step 4 als Prompt durch aifw→OpenAI schicken (`workflow_execute` mit
+  einem Review-Workflow, dessen Frontmatter `provider: openai` trägt; **eine** Runde, s. „When").
+  Kein lokaler Key-Zugriff. Bei Fehler einmal melden, **nicht** still zurückfallen.
 
 **4b.4 — Antwort ablegen.**
 Antwort als zweite, deterministisch benannte `.md` neben das Briefing schreiben:
@@ -230,8 +237,11 @@ als Nachweis fest.
   Souveränitäts-Check ist Vorbedingung des Calls, kein Best-Effort danach.
 - ❌ Bei `--auto` das Befund-Tagging (Step 5) **mit-automatisieren** — das Urteil bleibt Mensch;
   Auto-Rückfluss macht die Zweitmeinung zum Gummistempel.
-- ❌ Modell-ID (z. B. „gpt-5.5") hardcoden statt aus `${ADR_HANDOFF_MODEL}` + `/v1/models`-Preflight.
-- ❌ Den OpenAI-Key nach stdout/Logs echoen (`~/.secrets/` ist read-only, nie ausgeben).
+- ❌ Modell-ID (z. B. „gpt-5.5") hardcoden statt aus Frontmatter `model` / `${ADR_HANDOFF_MODEL}`.
+- ❌ **Lokal curlen / `~/.secrets/*_api_key` lesen wollen** — root-only, in CC-Session nicht lesbar;
+  Egress läuft über aifw/Orchestrator (Step 4b.3).
+- ❌ **`provider: openai` vergessen** — der Orchestrator-Default routet zu groq/anthropic, also
+  KEINE Cross-Provider-Diversität (der einzige Zweck dieses Skills).
 - ❌ Bei Call-Fehler still auf den manuellen Pfad zurückfallen, ohne es zu sagen.
 
 ## Changelog
@@ -251,3 +261,8 @@ als Nachweis fest.
   (nie echoen), Antwort als `*-response.md`. **Step 5 bleibt zwingend manuell** — Transport
   automatisiert, Urteil nicht. Konzept + RISK-1-Auflösung (kein ADR, getragen vom Hard-Gate-Test):
   `platform/docs/konzepte/KONZ-platform-007-adr-handoff-extern-automation.md`.
+- 2026-06-20: **4b.3 korrigiert nach echtem Lauf (ADR-254).** Lokales curl war falsch — `~/.secrets/
+  *_api_key` ist root-only, CC-Session (`devuser`) kann nicht lesen. Egress läuft über **aifw/
+  Orchestrator** (Key im Container), Routing via Workflow-Frontmatter; **`provider: openai` zwingend**,
+  sonst Default groq/anthropic = keine Diversität (belegt: `review_adr` lief auf `anthropic/
+  claude-sonnet-4-6`). 4b.2 auf aifw-Model-Registry statt `/v1/models` umgestellt.
