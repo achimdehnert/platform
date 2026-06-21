@@ -1,11 +1,11 @@
 [
-  {"app": "risk-hub", "tag": "risk-hub", "max_age_hours": 26, "class": "Kundenprodukt", "note": "inkl. MinIO (risk_hub_minio_data)"},
-  {"app": "dev-hub", "tag": "dev-hub", "max_age_hours": 26, "class": "Plattform-kritisch"},
-  {"app": "mcp-hub", "tag": "mcp-hub", "max_age_hours": 26, "class": "Plattform-kritisch", "note": "pgvector Shared-Memory"},
-  {"app": "authentik", "tag": "authentik", "max_age_hours": 26, "class": "Plattform-kritisch"},
-  {"app": "outline", "tag": "outline", "max_age_hours": 26, "class": "Plattform-kritisch"},
-  {"app": "doc-hub", "tag": "doc-hub", "max_age_hours": 26, "class": "Plattform-kritisch"},
-  {"app": "travel-beat", "tag": "travel-beat", "max_age_hours": 26, "class": "Prod-Hub (best effort)"},
-  {"app": "weltenhub", "tag": "weltenhub", "max_age_hours": 26, "class": "Prod-Hub (best effort)"},
-  {"app": "pptx-hub", "tag": "pptx-hub", "max_age_hours": 26, "class": "Prod-Hub (best effort)"}
+  {"app": "risk-hub", "tag": "risk-hub", "max_age_hours": 26, "class": "Kundenprodukt", "note": "inkl. MinIO (risk_hub_minio_data) — Offsite live seit 2026-06-21"},
+  {"app": "dev-hub", "tag": "dev-hub", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
+  {"app": "mcp-hub", "tag": "mcp-hub", "max_age_hours": 26, "class": "Plattform-kritisch", "note": "pgvector Shared-Memory", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
+  {"app": "authentik", "tag": "authentik", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
+  {"app": "outline", "tag": "outline", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
+  {"app": "doc-hub", "tag": "doc-hub", "max_age_hours": 26, "class": "Plattform-kritisch", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
+  {"app": "travel-beat", "tag": "travel-beat", "max_age_hours": 26, "class": "Prod-Hub (best effort)", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
+  {"app": "weltenhub", "tag": "weltenhub", "max_age_hours": 26, "class": "Prod-Hub (best effort)", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"},
+  {"app": "pptx-hub", "tag": "pptx-hub", "max_age_hours": 26, "class": "Prod-Hub (best effort)", "deferred": true, "reason": "Offsite-Rollout Welle 2 — noch kein restic-Snapshot"}
 ]

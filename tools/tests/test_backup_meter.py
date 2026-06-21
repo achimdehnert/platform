@@ -67,25 +67,36 @@ def test_should_parse_nanosecond_restic_timestamp():
     assert abs(age - 4.0) < 0.01
 
 
-def test_should_flag_missing_drill_when_sharp(tmp_path):
-    result = evaluate_drill(tmp_path, NOW, scaffold=False)
+def test_should_flag_missing_drill_when_enforced(tmp_path):
+    result = evaluate_drill(tmp_path, NOW, enforce=True)
     assert result["status"] == "violation"
 
 
-def test_should_defer_missing_drill_in_scaffold(tmp_path):
-    result = evaluate_drill(tmp_path, NOW, scaffold=True)
+def test_should_defer_missing_drill_when_not_enforced(tmp_path):
+    # Default bis G3: kein Protokoll → deferred, NICHT violation (kein Spam)
+    result = evaluate_drill(tmp_path, NOW, enforce=False)
     assert result["status"] == "deferred"
 
 
 def test_should_pass_drill_when_recent_protocol(tmp_path):
     (tmp_path / "2026-06-20-risk-hub.md").write_text("drill ok")
-    result = evaluate_drill(tmp_path, NOW, scaffold=False)
+    result = evaluate_drill(tmp_path, NOW, enforce=True)
     assert result["status"] == "ok"
+
+
+def test_should_defer_stale_drill_when_not_enforced(tmp_path):
+    import os
+    p = tmp_path / "2026-01-01-risk-hub.md"
+    p.write_text("alt")
+    old = NOW.timestamp() - 200 * 86400
+    os.utime(p, (old, old))
+    assert evaluate_drill(tmp_path, NOW, enforce=False)["status"] == "deferred"
+    assert evaluate_drill(tmp_path, NOW, enforce=True)["status"] == "violation"
 
 
 def test_should_ignore_readme_in_drills(tmp_path):
     (tmp_path / "README.md").write_text("nur Doku")
-    result = evaluate_drill(tmp_path, NOW, scaffold=False)
+    result = evaluate_drill(tmp_path, NOW, enforce=True)
     assert result["status"] == "violation"
 
 
