@@ -8,7 +8,7 @@ supersedes: []
 amends: []
 related: [ADR-131, ADR-226, ADR-234]
 implementation_status: none
-last_reviewed: 2026-06-12
+last_reviewed: 2026-06-19
 staleness_months: 6
 tags: [shared-library, frameworks, retry, error-handling, observability, cost-tracking, pypi]
 ---
@@ -90,22 +90,39 @@ implementiert. Codebase-Analyse 2026-06-12 (alle Pfade verifiziert):
 Wir extrahieren einen **schlanken Shared Runtime Core `iil-corefw`** (neues Repo `corefw`,
 PyPI `iil-corefw`) mit genau vier Bausteinen:
 
-1. **`corefw.retry`** — die heute 4× duplizierte tenacity-Konfiguration als benannte,
-   zentral versionierte Policies (`RetryPolicy.default()`, `RetryPolicy.api_call()`);
-   Transient-Error-Mengen pro Provider-Typ konfigurierbar.
+1. **`corefw.retry`** — die heute 4× duplizierte tenacity-Konfiguration als benanntes,
+   **erweiterbares Named-Preset-Registry** (`RetryPolicy.default()`, `RetryPolicy.api_call()`,
+   …); Transient-Error-Mengen pro Provider-Typ konfigurierbar. **Bindung statt Schein-
+   Einheitlichkeit:** eine Policy gilt nicht blind global, sondern wird an Operationstyp,
+   Provider-Typ und **Idempotenz** der Operation gebunden (nicht-idempotente Calls erben nie
+   ungefragt eine Retry-Policy). Der Trade-off ist bewusst: Zentralisierung kostet
+   Koordination, wenn ein geteilter Default geändert wird — siehe §7.2 und §6 R-1.
 2. **`corefw.errors`** — Basishierarchie `IILError(Exception)` mit Pflichtfeldern
    `category ∈ {CONFIGURATION, TRANSIENT, PERMANENT, QUOTA_LIMIT, AUTHORIZATION}`,
-   `retryable: bool`, `user_message: str | None`. Die Paket-Exceptions (aifw/promptfw/
-   researchfw) erben davon; bestehende Klassen bleiben als Aliase erhalten (kein Breaking
-   Change vor jeweiligem Major).
-3. **`corefw.observe`** — `ObservableResult`-Protocol (`latency_ms`, `input_tokens`,
-   `output_tokens`, `cost_estimate`, `provenance: dict`) + ein In-Process-Collector mit
-   austauschbarem Sink (Django-ORM-Sink lebt in **aifw**, nicht im Core). Collector und
-   Protocol sind **sync- und async-sicher** (kein `asyncio.run()` im Core; async-Consumer
-   wie researchfw nutzen denselben Collector ohne Event-Loop-Annahmen).
-4. **`corefw.provenance`** — Durchreich-Kontrakt für Prompt-Herkunft: promptfw stempelt
-   `template_id`/`template_version` in `RenderedPrompt`, aifw übernimmt sie in
-   `LLMResult`/`AIUsageLog.metadata`. Damit wird Cost-Attribution bis zum Template möglich.
+   `retryable: bool`, `user_message: str | None`. **Invarianten (normativ, im Paket per Test
+   erzwungen):** `CONFIGURATION`/`AUTHORIZATION`/`PERMANENT` sind **nie** `retryable`;
+   `TRANSIENT` ist `retryable`; `QUOTA_LIMIT` ist die Kategorie für „später wieder versuchen,
+   aber nicht im selben Backoff-Fenster" und damit von `TRANSIENT` abgegrenzt (eigene,
+   längere Policy statt sofortigem Retry) — `retryable` darf nicht frei gesetzt werden, wo
+   die Kategorie es ausschließt. Die Paket-Exceptions (aifw/promptfw/researchfw) erben davon;
+   bestehende Klassen bleiben als Aliase erhalten (kein Breaking Change vor jeweiligem Major).
+3. **`corefw.observe`** — der Core liefert **nur das `ObservableResult`-Protocol** (`latency_ms`,
+   `input_tokens`, `output_tokens`, `cost_estimate`, `provenance`) — ein reiner Typ.
+   Der lifecycle-gebundene **Collector lebt auf der Consumer-Seite** (analog zum Sink, der
+   schon in aifw liegt), **nicht im Core**: in pure-async researchfw (Bibliothek ohne
+   App-Lifecycle) gibt es keinen klaren Owner/Flush für einen Core-In-Process-Collector —
+   ein Collector im Core würde die nicht-verhandelbare „framework-frei"-Zusage intern brechen.
+   Feldnamen lehnen sich beim Design an die OpenTelemetry-`gen_ai.*`-Konvention an (nur das
+   **Vokabular**, nicht das SDK), damit ein späterer OTel-Sink ein dünner Adapter statt einer
+   Übersetzungsschicht ist. (Protocol-Versionsvertrag → §7.4.)
+4. **`corefw.provenance`** — Durchreich-Kontrakt für Prompt-Herkunft als **eingefrorener,
+   getypter Kontrakt** (frozen dataclass / TypedDict), nicht als loses `dict`: Pflichtfelder
+   `template_id`/`template_version`, optional `provider`/`operation`. promptfw stempelt sie in
+   `RenderedPrompt`, aifw übernimmt sie in `LLMResult`/`AIUsageLog.metadata`. Ein **stehender
+   Chain-Integritäts-Test** (nicht nur eine Einmal-Query) bricht, sobald die Herkunft auf
+   irgendeinem Pfad promptfw→aifw verloren geht — sonst zahlt die Flotte die Paketkosten ohne
+   den Typ-/Sicherheitsnutzen, der das Paket rechtfertigt. Damit wird Cost-Attribution bis
+   zum Template möglich.
 
 **Nicht in Scope:** LLM-Provider-Clients, Rate-Limiting (bleibt paket-spezifisch),
 Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), Theming.
@@ -141,17 +158,35 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 
 ## 5. Implementation Plan
 
+> **Gestaffeltes Commitment (Review-Entscheid 2026-06-19):** Die Charter bleibt vierteilig,
+> aber die *bewiesene, typ-only* Hälfte (`retry`+`errors`) und die *protokoll-entwerfende*
+> Hälfte (`observe`+`provenance`) haben **getrennte Reife-Gates**. retry+errors werden jetzt
+> committet; observe+provenance werden erst **eingefroren**, wenn ein *lebender* Konsument
+> existiert (ADR-245 als erster Failover-Consumer der Fehlerkategorien) — das Protokoll wird
+> *nach* seinem Konsumenten entworfen, nicht davor. So reitet die spekulative Hälfte nicht auf
+> der sicheren mit.
+
 - **Phase 1 (Paket-Gründung):** Repo `corefw` via `/onboard-repo` (Package-Profil),
   `_ci-pypi.yml` (ADR-226), **`catalog-info.yaml`** (ADR-077: name/type/lifecycle/owner),
   Module `retry` + `errors`, 100 % Test-Coverage auf beiden (klein genug). Release `0.1.0`
-  auf TestPyPI, dann PyPI.
+  auf TestPyPI, dann PyPI. **Distribution = öffentliches PyPI** (nicht privater Index): die
+  Flotte ist bereits durchgängig public-PyPI (`iil-*`); ein zweiter Verteilweg erhöht die
+  Oberfläche unnötig. Schutz über Namens-Reservierung des `iil-`-Präfixes, OIDC-Publish-Gate
+  (ADR-226) und Release-Verifikation gegen die kanonische Quelle (§6 R-1).
 - **Phase 2 (Erst-Konsumenten, beweisend):** researchfw ersetzt seine 4 Retry-Stellen +
   Exceptions erben von `IILError` (Aliase bleiben); aifw analog. Beide releasen minor.
-  *Gate:* keine Verhaltensänderung — Retry-Parameter byte-gleich, bestehende Tests grün.
-- **Phase 3 (Provenance + Observe):** promptfw stempelt `template_id` in `RenderedPrompt`;
-  aifw übernimmt in `LLMResult`/`AIUsageLog.metadata`; researchfw implementiert
-  `ObservableResult` für Such-Calls. Erste Cross-Paket-Auswertung (Kosten je Template) als
-  Validations-Artefakt.
+  *Gate:* keine Verhaltensänderung — Retry-Parameter byte-gleich, bestehende Tests grün
+  **plus eine explizite Exception-Kompatibilitätsmatrix** (alte Klasse → neue Basisklasse →
+  `category` → `retryable` → erwartete `except`-Wirkung): „Tests grün" allein reicht nicht,
+  weil erbende Aliase Import-Breaks verhindern, aber nicht eine *veränderte* `except`-/Retry-
+  Semantik (eine vorher nicht gefangene Exception kann jetzt über die Basisklasse gefangen werden).
+- **Phase 3 (Provenance + Observe) — gegated:** *Vorbedingung:* ein lebender Konsument der
+  Telemetrie-/Failover-Typen (ADR-245). Erst dann: promptfw stempelt `template_id` in
+  `RenderedPrompt`; aifw übernimmt in `LLMResult`/`AIUsageLog.metadata`; researchfw
+  implementiert `ObservableResult` für Such-Calls. Validierung ist eine **stehende**
+  Cross-Paket-Prüfung (Kosten je `template_id`), kein Einmal-Query (§8). Fehlt der Konsument
+  bis zum Stichtag, greift das observe/provenance-Kill-Kriterium (§8) — retry+errors bleiben
+  davon unberührt bestehen.
 - **Phase 4:** Aufnahme in den iil-Cohort-Constraint-Snapshot (ADR-234 P0.5a), Eintrag in
   `registry/canonical.yaml`.
 
@@ -173,8 +208,8 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 
 | # | Risiko | Gegenmaßnahme |
 |---|---|---|
-| R-1 | Zentrale Dependency bricht Flotte (Version-Skew) | iil-Cohort-Pinning (ADR-234); semver-Disziplin; Phase 2 nur 2 Pilot-Konsumenten |
-| R-2 | Core wächst zum Sammelbecken | §2 „Nicht in Scope"-Liste ist normativ; Erweiterungen nur per ADR-Amendment |
+| R-1 | Zentrale Dependency bricht Flotte (Version-Skew **oder Common-Mode**) | iil-Cohort-Pinning (ADR-234); semver-Disziplin; Phase 2 nur 2 Pilot-Konsumenten. **Zusatz-Gate gegen Common-Mode:** Cohort-Pinning *absorbiert* Divergenz, *verstärkt* aber gemeinsames Versagen — ein schlechtes `corefw`-Release bricht per Konstruktion die ganze Flotte gleichzeitig (genau das Muster des shared-ci-Tag-Drift, nur als größeres Laufzeit-Artefakt). Daher: **Canary an *einem* Konsumenten für N Tage**, bevor die neue Version flottenweit gepinnt wird; Release-Datei gegen die kanonische Quelle diffen (nicht Tag blind vertrauen). |
+| R-2 | Core wächst zum Sammelbecken | §2 „Nicht in Scope"-Liste ist normativ; Erweiterungen nur per ADR-Amendment **plus technische Barriere**: Import-Boundary-Tests + Allowlist erlaubter Top-Level-Module im CI (formales Amendment-Gebot allein wird umgangen). |
 | R-3 | Verhaltensänderung beim Retry-Umzug | Phase-2-Gate: Parameter byte-gleich, Tests der Consumer unverändert grün |
 | R-4 | Exception-Umbau bricht Consumer-`except`-Klauseln | Alt-Klassen bleiben als erbende Aliase bis zum jeweiligen Major-Release |
 
@@ -211,8 +246,17 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 - Alle Exceptions der drei Frameworks sind `isinstance(e, IILError)` mit gesetzter `category`.
 - Eine `AIUsageLog`-Query kann Kosten je `template_id` aggregieren (Nachweis-Query im
   corefw-README).
-- Kill-Kriterium: Stehen nach **2026-09-30** weniger als 2 Pakete auf corefw ≥0.1, wird das
-  Paket deprecated und die Duplikate bleiben akzeptierter Zustand (kein Zombie-Core).
+- **Kill-Kriterium (Wert, nicht Adoption) — getrennt je Hälfte:**
+  - *retry+errors:* Stehen nach **2026-09-30** weniger als 2 Pakete auf corefw ≥0.1, wird
+    **dieser** Teil deprecated und die Duplikate bleiben akzeptierter Zustand.
+  - *observe+provenance:* Reine Adoptions-Zählung greift hier nicht — „≥2 Pakete migriert" wäre
+    durch Phase 2 ohnehin erfüllt und würde **nie feuern**. Stattdessen muss bis **2026-09-30**
+    eine *stehende* (nicht einmalige) Cross-Paket-Prüfung „Kosten je `template_id`" produktiv
+    in Nutzung sein; andernfalls werden observe/provenance deprecated — **retry/errors bleiben
+    davon unabhängig bestehen** (gestaffeltes Commitment, §5).
+- **Cohort-Support:** `iil-corefw` wird **nur als Teil des iil-Cohort-Snapshots** (ADR-234)
+  unterstützt; Einzelversionen außerhalb des Cohorts sind explizit best-effort/unsupported
+  (verhindert stillen Version-Skew bei Nicht-Cohort-Konsumenten).
 
 ---
 
@@ -244,6 +288,22 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 
 ## 11. Changelog
 
+- **2026-06-19 (Externe Zweitmeinung eingearbeitet):** 2 unabhängige externe Reviewer (beide
+  „überarbeiten"), Step-5-Rückfluss-Tagging in `~/shared/adr-243-reviews-2026-06-19.md`.
+  `[valid]`-Funde eingearbeitet: **gestaffeltes Commitment** (retry+errors jetzt, observe+
+  provenance hinter eigenem Reife-Gate mit lebendem Konsument ADR-245; Charter bleibt 4-teilig,
+  §5); **Kill-Kriterium auf Wert statt Adoption** umgestellt + je Hälfte getrennt (§8 — die alte
+  Adoptions-Schwelle hätte für observe/provenance *nie gefeuert*); `corefw.observe` liefert **nur
+  das Protocol**, Collector wandert auf Consumer-Seite (§2.3 — löst „framework-frei"-Inkonsistenz
+  in pure-async); `corefw.provenance` als **getypter/eingefrorener Kontrakt + stehender
+  Chain-Integritäts-Test** statt losem `dict` (§2.4); **Fehlerkategorie-Invarianten**
+  `category`↔`retryable`, `QUOTA_LIMIT` vs `TRANSIENT` (§2.2); Retry-Policies an Operation/
+  Provider/**Idempotenz** gebunden + Koordinationskosten benannt (§2.1); **Exception-
+  Kompatibilitätsmatrix** als Phase-2-Gate (§5); **Canary-Gate gegen Common-Mode** + **Import-
+  Boundary-Tests** (§6 R-1/R-2); **öffentliches PyPI begründet** (§5 Phase 1); **Cohort-Support-
+  Status** dokumentiert (§8); OTel-`gen_ai.*`-**Vokabular** (nicht SDK) beim observe-Design (§2.3).
+  Status unverändert **Proposed**. `[missversteht-Kontext]`: R2-AD-3 („provenance rechtfertigt
+  das Paket nicht") — Paket trägt sich über retry/errors; Empfehlung dennoch übernommen.
 - **2026-06-12 (Review-Fixup):** `/adr-review`-Findings eingearbeitet (Score 4.2/5,
   „Accept with changes"): §1.4 Entscheidungstreiber, §5.1 Migrations-Tracking-Tabelle,
   §7.4 Offene Punkte (Protocol-Versionierung), §9 Glossar, catalog-info.yaml in Phase 1,
