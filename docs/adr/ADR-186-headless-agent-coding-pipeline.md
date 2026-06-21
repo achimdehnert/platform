@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-05-07
-version: 1.3
+version: 1.4
 decision-makers: [Achim Dehnert]
 consulted: [Cascade]
 informed: []
@@ -35,6 +35,7 @@ tags: [agent-coding, headless, aifw, agent-loop, orchestrator, quality-assurance
 | 1.1 | 2026-05-07 | Review-Fixes: Titel als Decision Statement, Consequences-Sektion, Glossar, Secret-Management, catalog-info.yaml, ADR-075-Klassifikation |
 | 1.2 | 2026-05-08 | Status draft→proposed, CLI-Backend-Entscheidung: Aider Primary, Devin optional |
 | 1.3 | 2026-05-07 (mcp-hub) / 2026-06-10 (platform-Playback) | **Architektur-Reversal:** Unified Agent Loop auf aifw als Primary, CLI-Adapter (Claude Code/Devin/Aider) nur Fallback. Löst die v1.2-Blocker: Live-Budget-Abort, Inline-ScopeLock, ein Routing für alle Konsumenten. Der Re-Eval-Trigger aus dem ADR-Full-Scan 2026-06-06 (Devin-Vendor-Bindung) ist damit aufgelöst. |
+| 1.4 | 2026-06-21 | **Security Model §8:** CLI-Fallback-Adapter (Claude Code) setzen `--dangerously-skip-permissions`, da im Headless-Betrieb kein Mensch zum Freigeben interaktiver Permission-Prompts da ist. Die Sicherung verlagert sich damit vollständig auf `--allowedTools` + `SandboxConfig` (gleiches Non-Interactive-Muster wie aider `--yes-always`). Begleitet von mcp-hub-Code + Regressionstest. |
 
 ---
 
@@ -309,6 +310,13 @@ class EditFileTool(Tool):
 5. **Atomic Budget**: `SELECT FOR UPDATE` row locks prevent race conditions
 6. **Repo Allowlist**: DB-backed, classification-aware (own_code only)
 7. **Env Isolation**: Only for CLI fallback adapters (HARD_DENY frozenset)
+8. **Non-interactive CLI fallback**: CLI adapters run unattended, so interactive
+   permission prompts would block until timeout. The Claude Code adapter passes
+   `--dangerously-skip-permissions` (cf. aider `--yes-always`); the safety
+   boundary therefore rests **entirely** on `--allowedTools` (defense-in-depth
+   tool whitelist, §Option 3) plus the worktree/env `SandboxConfig` (§2, §7).
+   Assumption to be challenged: the tool whitelist is restrictive enough and
+   runs are sandboxed. If either weakens, this trade-off must be revisited.
 
 ### Confirmation
 
