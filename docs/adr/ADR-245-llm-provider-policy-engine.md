@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-06-12
 decision-makers: [Achim Dehnert]
 consulted: [Claude Code]
@@ -258,6 +258,10 @@ unverändert — ADR-245 ist eine additive Dimension, keine Ablösung.
 
 ## 11. Changelog
 
+- **2026-06-21 (Accepted):** Status `proposed → accepted`. Sequenziert nach ADR-243 (im selben
+  Zug accepted) — die Policy-Engine ist zugleich der lebende Konsument, der ADR-243s observe/
+  provenance-Hälfte aus ihrem Reife-Gate hebt. Review-Changes (3.7/5) eingearbeitet, §7.4
+  deferred. Kill-Kriterium bleibt: Phase 2 bis 2026-10-31 in einem aifw-Release, sonst Re-Eval.
 - **2026-06-12 (Review-Fixup):** `/adr-review`-Findings eingearbeitet (Score 3.7/5, „Accept
   with changes"): **§2.1 Koexistenz mit ADR-095/068** (kritischer Fund — Policy wählt
   *innerhalb* der Qualitätsstufe; Status-quo-Rahmung korrigiert: ADR-095 wird erweitert,

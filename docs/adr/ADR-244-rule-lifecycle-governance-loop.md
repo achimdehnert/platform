@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-06-12
 decision-makers: [Achim Dehnert]
 consulted: [Claude Code]
@@ -255,6 +255,10 @@ Beide ADRs berühren die Prüf-Domäne — die Grenzen sind komplementär, nicht
 
 ## 11. Changelog
 
+- **2026-06-21 (Accepted):** Status `proposed → accepted`. Die in §2 G2 als bedingt markierte
+  Severity-Heimat ist aufgelöst — ADR-243 ist im selben Zug accepted, also liefert
+  `corefw.errors` die kanonische Severity-Enum. Enforcement bleibt die Dry-Run-Treppe
+  („Enforcement folgt Reife", ADR-242-Muster), kein Hart-Gate beim heutigen Findings-Bestand.
 - **2026-06-12 (Review-Fixup):** `/adr-review`-Findings eingearbeitet (Score 3.8/5, „Accept
   with changes"): **§2.1 Abgrenzung zu ADR-240** (Laufzeit-Health vs. Regel-Lifecycle —
   kritischer Fund: proposed-Kollision) + **Guardian (ADR-239) als vierte Engine**
