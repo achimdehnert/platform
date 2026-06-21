@@ -232,11 +232,11 @@
 | 238 | Security-by-Construction als Konstruktionsprinzip — Containment symmetrisch zu Acceleration | `Accepted` | 🔶 | [ADR-238](ADR-238-security-by-construction-agent-containment.md) |
 | 239 | Architecture Guardian — PR-Zeit-Architektur-Compliance-Agent | `Accepted` | ✅ | [ADR-239](ADR-239-architecture-guardian.md) |
 | 240 | Repo-Health-Framework über alle Plattform-Repos | `Proposed` | ⬜ | [ADR-240](ADR-240-repo-health-framework.md) |
-| 241 | *(reserviert — Enterprise-Backup-ADR, Draft noch nicht gemergt; Nummer nicht wiederverwenden)* | – | – | – |
+| 241 | Platform-weite Backup- & Disaster-Recovery-Baseline (Offsite by construction) | `Accepted` | ⬜ | [ADR-241](ADR-241-backup-disaster-recovery-baseline.md) |
 | 242 | Fleet-weite Branch-Protection — required status checks auf `main` (no-bypass by construction) | `Accepted` | 🔶 | [ADR-242](ADR-242-branch-protection-required-checks.md) |
-| 243 | `iil-corefw` — Shared Runtime Core für die Framework-Flotte (Retry, Errors, Observability, Cost-Provenance) | `Proposed` | ⬜ | [ADR-243](ADR-243-shared-runtime-core-iil-corefw.md) |
-| 244 | Geschlossener Regel-Lebenszyklus — eine Severity-/Suppression-Sprache + Compliance-Gate über alle Check-Systeme | `Proposed` | ⬜ | [ADR-244](ADR-244-rule-lifecycle-governance-loop.md) |
-| 245 | LLM-Routing-Policy als Code — Provider-Policy-Engine in iil-aifw (free-tier-first mit Auto-Failover) | `Proposed` | ⬜ | [ADR-245](ADR-245-llm-provider-policy-engine.md) |
+| 243 | `iil-corefw` — Shared Runtime Core für die Framework-Flotte (Retry, Errors, Observability, Cost-Provenance) | `Accepted` | ⬜ | [ADR-243](ADR-243-shared-runtime-core-iil-corefw.md) |
+| 244 | Geschlossener Regel-Lebenszyklus — eine Severity-/Suppression-Sprache + Compliance-Gate über alle Check-Systeme | `Accepted` | ⬜ | [ADR-244](ADR-244-rule-lifecycle-governance-loop.md) |
+| 245 | LLM-Routing-Policy als Code — Provider-Policy-Engine in iil-aifw (free-tier-first mit Auto-Failover) | `Accepted` | ⬜ | [ADR-245](ADR-245-llm-provider-policy-engine.md) |
 | 246 | genesor-Ingest Stufe 2: manifest-getriebener, dev-host-freier CI-Auto-Ingest (nightly) | `Accepted` | ⬜ | [ADR-246](ADR-246-genesor-ingest-stufe2-ci-auto.md) |
 | 247 | Cross-Hub Onboarding-Contract: billing-hub → Produkt-Hub Auto-Login (HMAC + Magic-Link) | `Proposed` | ⬜ | [ADR-247](ADR-247-cross-hub-onboarding-contract.md) |
 | 248 | COMPOSE_PROJECT_NAME pro Hub fixieren + --remove-orphans scopen (Multi-Hub-Host) | `Proposed` | ⬜ | [ADR-248](ADR-248-compose-project-name-per-hub.md) |

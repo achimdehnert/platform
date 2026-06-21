@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-06-12
 decision-makers: [Achim Dehnert]
 consulted: [Claude Code]
@@ -288,6 +288,10 @@ Caching (aifw-2-Layer ist Django-spezifisch, researchfw-TTLCache bleibt lokal), 
 
 ## 11. Changelog
 
+- **2026-06-21 (Accepted):** Status `proposed → accepted`. Externe Zweitmeinung (2026-06-19)
+  eingearbeitet, keine accept-blockierenden Punkte offen (§7.4 deferred). Keystone für
+  ADR-244 (Severity-Enum-Quelle) + ADR-245 (lebender Konsument der observe/provenance-Hälfte);
+  beide im selben Zug accepted. Implementierung bleibt phasen-/canary-gegated (§5, R-1).
 - **2026-06-19 (Externe Zweitmeinung eingearbeitet):** 2 unabhängige externe Reviewer (beide
   „überarbeiten"), Step-5-Rückfluss-Tagging in `~/shared/adr-243-reviews-2026-06-19.md`.
   `[valid]`-Funde eingearbeitet: **gestaffeltes Commitment** (retry+errors jetzt, observe+

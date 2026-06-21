@@ -1,5 +1,5 @@
 ---
-status: draft
+status: accepted
 date: 2026-06-10
 decision-makers: [Achim Dehnert]
 consulted: [Claude Code]
@@ -8,7 +8,7 @@ supersedes: []
 amends: [ADR-142, ADR-143, ADR-144]
 related: [ADR-045, ADR-072, ADR-090, ADR-157, ADR-218, ADR-234, ADR-235, ADR-236]
 implementation_status: none
-last_reviewed: 2026-06-11
+last_reviewed: 2026-06-21
 staleness_months: 3
 tags: [backup, disaster-recovery, offsite, restore-test, enterprise-core, governance]
 ---
@@ -20,9 +20,11 @@ tags: [backup, disaster-recovery, offsite, restore-test, enterprise-core, govern
 
 ## Status-Hinweis
 
-`draft` — entscheidungsreif bis auf **ein** Owner-Gate (§7 G1: Offsite-Ziel-Wahl +
-Kostenfreigabe); G2 (Prod-Verifikation) ist seit 2026-06-11 erledigt — Ergebnis
-verschärft den Befund (risk-hub ohne jedes Backup, §7).
+`accepted` (2026-06-21) — **G1 erteilt:** Offsite-Ziel = Hetzner **Storage Box BX11**,
+Kostenfreigabe ~5 €/Monat (Owner Achim). G2 (Prod-Verifikation) seit 2026-06-11 erledigt.
+Damit ist Option B beschlossen; die **Umsetzung** (Storage-Box-Bestellung, restic-Setup,
+risk-hub-Backup-Fix inkl. MinIO als dringlichster Einzelfix, Restore-Feuerübung G3) ist
+der **Rollout nach Accept** (§ Rollout) und bleibt ein separat freigegebener Prod-Schritt.
 Kandidat für den `enterprise-core`-Subset (Enterprise-Basis-Entscheidung E3/E4, 2026-06-10).
 
 ## Kontext & Problemstellung
@@ -186,7 +188,7 @@ Amendment, wenn ttz-lif/meiki-lra-Workloads produktiv werden.
 
 | Gate | Inhalt | Owner | billigster Check |
 |---|---|---|---|
-| G1 | Offsite-Ziel bestätigen (Storage Box BX11 vs. Alternativen; Kostenfreigabe ~5 €/M) | Achim | Hetzner-Bestellseite |
+| G1 ✅ | Offsite-Ziel = Storage Box BX11 bestätigt; Kostenfreigabe ~5 €/M erteilt (2026-06-21) | Achim | erledigt |
 | G2 ✅ | Prod-Realität verifiziert (2026-06-11, SSH-Inventur read-only) | erledigt | siehe G2-Ergebnis |
 | G3 | Erste Restore-Feuerübung grün (risk-hub-Dump → Wegwerf-Postgres) | ich (gated) | — |
 
