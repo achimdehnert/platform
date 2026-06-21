@@ -18,7 +18,7 @@ konkretes Repo betrifft:
 | `iil-klickdummy` Bug/Feature | [`iilgmbh/iil-klickdummy`](https://github.com/iilgmbh/iil-klickdummy/issues) |
 | Klickdummy-spezifisch in meiki-hub | [`meiki-lra/meiki-hub`](https://github.com/meiki-lra/meiki-hub/issues) |
 | Klickdummy-spezifisch in writing-hub | [`achimdehnert/writing-hub`](https://github.com/achimdehnert/writing-hub/issues) |
-| Klickdummy-spezifisch in risk-hub | [`achimdehnert/risk-hub`](https://github.com/achimdehnert/risk-hub/issues) |
+| Klickdummy-spezifisch in risk-hub | [`iilgmbh/risk-hub`](https://github.com/iilgmbh/risk-hub/issues) |
 | Klickdummy-spezifisch in ttz-hub | [`ttz-lif/ttz-hub`](https://github.com/ttz-lif/ttz-hub/issues) |
 | **Cross-Repo-Konvention / ADR** | hier (platform) ✅ |
 | **Plattform-Skill / Workflow** | hier (platform) ✅ |

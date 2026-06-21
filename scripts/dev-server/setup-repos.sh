@@ -12,7 +12,7 @@ repos=(
     "achimdehnert/bfagent"
     "achimdehnert/travel-beat"
     "achimdehnert/mcp-hub"
-    "achimdehnert/risk-hub"
+    "iilgmbh/risk-hub"
     "achimdehnert/weltenhub"
     "achimdehnert/pptx-hub"
     "achimdehnert/trading-hub"

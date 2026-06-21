@@ -141,7 +141,7 @@ django_apps:
     port_staging: 8104
 
   risk-hub:
-    github: achimdehnert/risk-hub
+    github: iilgmbh/risk-hub
     description: Multi-tenant occupational safety SaaS (Schutztat)
     status: production
     deployed: true

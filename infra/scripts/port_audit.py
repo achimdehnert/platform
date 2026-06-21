@@ -297,7 +297,7 @@ def check_compose_drift(services: dict, env: str) -> list[str]:
         expected = cfg.get(env)
         if not repo or not expected:
             continue
-        # repo is like "achimdehnert/risk-hub" — take last segment
+        # repo is like "iilgmbh/risk-hub" — take last segment
         repo_dir = github_root / repo.split("/")[-1]
         compose = repo_dir / f"docker-compose.{env}.yml"
         if not compose.is_file():
