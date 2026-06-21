@@ -38,6 +38,9 @@ nicht das Urteil.
 | L5 | Exakte Ziel-Modell-ID „GPT 5.5 max" ist **unbestätigt**; verdrahtet ist die `gpt-4o`-Familie | Risiko | C2 zeigt gpt-4o/gpt-4o-mini, kein gpt-5.5; Cutoff 01/2026 | offen — Check: `GET /v1/models` |
 | L6 | Souveränitäts-Gate (heute menschlich, Step 0) muss bei Automatik **vor** dem Call als Hard-Abort laufen | Entscheidung | Skill Anti-Pattern: ttz-lif/meiki-lra/Realdaten nie extern (C1) | gesetzt |
 | L7 | Änderung gehört in `platform/.windsurf/workflows/adr-handoff-extern.md` (SSoT), nicht managed Copy | Annahme | Managed-Copy-Footer `do_not_edit`, verteilt via cc-skill-dist (C1) | belegt |
+| L8 | **Lokales curl ist tot** — CC-Session kann den Key nicht lesen | Risiko→belegt | echter Lauf 2026-06-20: `~/.secrets/openai_api_key` = `root:root` 600, `devuser` Permission denied, kein sudo, Env UNSET | belegt → 4b.3 korrigiert |
+| L9 | **Egress über aifw/Orchestrator; `provider: openai` zwingend** | Entscheidung | `workflow_executor.py:42-72` (frontmatter wins, Default `groq`); `review_adr` lief auf `anthropic/claude-sonnet-4-6` = keine Diversität | gesetzt |
+| L10 | Kein neuer Bau nötig — aifw routet bereits zu jedem Provider | Annahme (User 2026-06-20) | aifw `LLMProvider`/`LLMModel` + workflow_executor provider-override | belegt |
 
 ## MVC (Minimal Viable Concept — konkret)
 
