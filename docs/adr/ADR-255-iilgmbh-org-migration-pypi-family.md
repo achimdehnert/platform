@@ -52,6 +52,27 @@ Why now:
 Scoped first wave = the iil-* PyPI family (where ownership + publishing governance
 bites hardest and OIDC setup is wasted under the wrong owner).
 
+## Naming map (the three names are intentionally different)
+
+GitHub-org, PyPI-org and the legacy personal account are **independent
+namespaces** — they need not (and do not) share a name. This is deliberate, not
+drift:
+
+| Axis | Name | Role |
+|---|---|---|
+| GitHub organization | **`iilgmbh`** | repo home → signs the OIDC `repository_owner` claim that the trusted publisher matches |
+| PyPI organization | **`iil`** | package ownership ("IIL Institut f. Informationslogistik GmbH"); matches the `iil-*` dist prefix |
+| PyPI personal account (legacy) | **`iildehnert`** | currently owns the projects → transfer **out** into the `iil` org |
+| Distribution prefix | **`iil-*`** | the published package names |
+
+Decision: **keep the PyPI org `iil`** (it already exists, is the company, and
+matches the `iil-*` package prefix) rather than create a second `iilgmbh` PyPI
+org for cosmetic symmetry. Trusted Publishing matches the **GitHub** owner
+(`iilgmbh`), independent of the PyPI org name, so the names matching buys nothing
+functional; a second company org would mean duplicate identity and a likely
+second paid subscription. The mapping above is the canonical answer to "why does
+the PyPI org have a different name than the GitHub org?".
+
 ## Governance target state (the actual goal, not just relocation) — REC-1
 
 Moving assets into an org is necessary but **not sufficient**; the migration must
