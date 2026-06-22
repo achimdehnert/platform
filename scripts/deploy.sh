@@ -133,8 +133,14 @@ else
   echo "IMAGE_TAG=${IMAGE_TAG}" >> "$APP_PATH/.env"
 fi
 
-# GHCR Login (Token aus /opt/scripts/.ghcr_token falls vorhanden)
-if [[ -f "/opt/scripts/.ghcr_token" ]]; then
+# GHCR Login — bevorzugt kurzlebigen Workflow-Token (GHCR_TOKEN env), sonst Host-Datei.
+# shared-ci _deploy-unified.yml reicht GHCR_TOKEN=${{ secrets.GITHUB_TOKEN }} + GHCR_USER durch
+# (shared-ci#10 Facette A): so loggt JEDER Deploy mit eigenem ephemeren Token ein und hängt
+# nicht mehr an der manuell gepflegten /opt/scripts/.ghcr_token, die unbemerkt ablaufen kann.
+# Fallback auf die Host-Datei bleibt → rückwärtskompatibel für Konsumenten auf altem shared-ci-Ref.
+if [[ -n "${GHCR_TOKEN:-}" ]]; then
+  echo "$GHCR_TOKEN" | docker login ghcr.io -u "${GHCR_USER:-achimdehnert}" --password-stdin
+elif [[ -f "/opt/scripts/.ghcr_token" ]]; then
   docker login ghcr.io -u achimdehnert --password-stdin < /opt/scripts/.ghcr_token
 fi
 
