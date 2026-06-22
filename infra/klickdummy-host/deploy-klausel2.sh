@@ -147,7 +147,7 @@ PER-REPO-USER (sehen NUR ihren Repo):
   grinninger   / ${PWS[grinninger]}   → bahn-sqf/pg-hub
   lra-meiki    / ${PWS[lra-meiki]}   → meiki-lra/meiki-hub
   ttz-pilot    / ${PWS[ttz-pilot]}   → ttz-lif/ttz-hub
-  risk-pilot   / ${PWS[risk-pilot]}   → achimdehnert/risk-hub
+  risk-pilot   / ${PWS[risk-pilot]}   → iilgmbh/risk-hub
 
 ALL-ACCESS-USER (sehen ALLE Repos):
   admin             / $PW_ADMIN

@@ -199,7 +199,7 @@ services:
     domain_aliases:
       - schutztat.com
       - kiohnerisiko.de
-    repo: achimdehnert/risk-hub
+    repo: iilgmbh/risk-hub
     compose_drift: "docker-compose.yml uses 8001:8000 — must change to 8090:8000"
 
   bfagent:
