@@ -73,3 +73,41 @@ class TestRenderIssueBody:
         assert "2× konsekutiv" in body
         assert "achimdehnert/illustration-hub" in body
         assert "Billigster Check" in body
+
+
+class TestFetchErrorNotGreen:
+    """Regression: gh-Lesefehler darf NICHT als 'grün' durchgehen (2026-06-22)."""
+
+    def test_fetch_runs_raises_on_nonzero_gh(self, monkeypatch):
+        import subprocess
+
+        from deploy_failure_monitor import FetchError, fetch_runs
+
+        class _Res:
+            returncode = 1
+            stdout = ""
+            stderr = "HTTP 403: Resource not accessible by integration"
+
+        monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Res())
+        try:
+            fetch_runs("achimdehnert", "weltenhub", 10)
+            raised = False
+        except FetchError as exc:
+            raised = True
+            assert "403" in str(exc)
+        assert raised, (
+            "fetch_runs muss bei gh-Fehler FetchError werfen, nicht [] (= grün)"
+        )
+
+    def test_fetch_runs_returns_empty_on_genuine_no_runs(self, monkeypatch):
+        import subprocess
+
+        from deploy_failure_monitor import fetch_runs
+
+        class _Res:
+            returncode = 0
+            stdout = "[]"
+            stderr = ""
+
+        monkeypatch.setattr(subprocess, "run", lambda *a, **k: _Res())
+        assert fetch_runs("achimdehnert", "x", 10) == []
