@@ -125,6 +125,15 @@ class FetchError(RuntimeError):
     """
 
 
+class NoDeployWorkflow(RuntimeError):
+    """Repo hat keinen Workflow namens 'Deploy' → nichts zu überwachen (N/A, KEIN Fehler).
+
+    Abzugrenzen von FetchError (Auth/Scope = echter blinder Fleck, rot): ein Repo ohne
+    Deploy-Workflow ist legitim N/A und darf den Monitor-Lauf nicht rot färben
+    (Realfall 2026-06-22: onboarding-hub, `gh: could not find any workflows named Deploy`).
+    """
+
+
 def fetch_runs(org: str, repo: str, limit: int) -> list[dict]:
     """gh run list für den Deploy-Workflow auf main (most-recent-first).
 
@@ -149,9 +158,10 @@ def fetch_runs(org: str, repo: str, limit: int) -> list[dict]:
     ]
     res = subprocess.run(cmd, capture_output=True, text=True)
     if res.returncode != 0:
-        raise FetchError(
-            f"{org}/{repo}: gh exit {res.returncode}: {(res.stderr or '').strip()[:200]}"
-        )
+        stderr = (res.stderr or "").strip()
+        if "could not find any workflows" in stderr.lower():
+            raise NoDeployWorkflow(f"{org}/{repo}: kein 'Deploy'-Workflow")
+        raise FetchError(f"{org}/{repo}: gh exit {res.returncode}: {stderr[:200]}")
     try:
         return json.loads(res.stdout or "[]")
     except json.JSONDecodeError as exc:
@@ -260,9 +270,15 @@ def main() -> int:
         f"Deploy-Failure-Monitor: {len(repos)} Repo(s), Schwelle {args.threshold}× "
         f"{'(DRY-RUN)' if args.dry_run else ''}"
     )
+    na = 0
     for repo in repos:
         try:
             runs = fetch_runs(args.org, repo, args.limit)
+        except NoDeployWorkflow:
+            # Legitim N/A: kein Deploy-Workflow → nichts zu überwachen, KEIN Fehler/rot.
+            na += 1
+            print(f"  ℹ️  {repo}: kein Deploy-Workflow (N/A)")
+            continue
         except FetchError as exc:
             # NICHT als grün durchwinken — laut melden; ein nicht lesbares Repo ist ein
             # blinder Fleck, kein gesundes Deploy (Realfall 2026-06-22 PLATFORM_GITHUB_TOKEN).
@@ -279,7 +295,7 @@ def main() -> int:
             print(f"  🟡 {repo}: {result['consecutive']}× (unter Schwelle)")
         else:
             print(f"  ✅ {repo}: grün")
-    print(f"→ {escalations} Eskalation(en); {len(unreadable)} nicht lesbar.")
+    print(f"→ {escalations} Eskalation(en); {na} N/A; {len(unreadable)} nicht lesbar.")
     if unreadable:
         # Non-zero exit → der scheduled Actions-Run wird ROT (sichtbar), statt still grün
         # blinde Flecken zu verstecken. Ursache i.d.R.: Token-Scope (actions:read/repo).
