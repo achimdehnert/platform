@@ -75,9 +75,11 @@ control stays personal:
 A blocking checklist, verified once up front (several items are currently
 **unverified assumptions**, flagged honestly):
 
-- [ ] **PyPI Organization `iil` exists and is approved** *(unverified at writing —
-      PyPI org requests are reviewed; do not assume availability)*, with owner
-      roles filled per the target state above.
+- [x] **PyPI Organization `iil` exists and is ours** — VERIFIED 2026-06-22:
+      `pypi.org/org/iil/` → HTTP 200, profile = "IIL Institut f.
+      Informationslogistik GmbH". **Remaining:** no `iil-*` projects are under the
+      org yet (they still sit on the personal `iildehnert` account) — project
+      transfer is the migration work; confirm the org owner-role target state above.
 - [ ] The target **GitHub name is available** under `iilgmbh` for each repo.
 - [ ] Target-org **Actions/Environments/Apps/Runners/permissions** that the first
       CI run depends on are present and policy-compatible (AD-12) — verify the
