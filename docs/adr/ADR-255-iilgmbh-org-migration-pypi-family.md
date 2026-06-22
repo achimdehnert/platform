@@ -2,7 +2,7 @@
 id: ADR-255
 title: "Migrate the iil-* PyPI package family from the personal achimdehnert account to the iilgmbh GitHub org + PyPI Organization"
 status: proposed
-date: 2026-06-22
+decision_date: 2026-06-22
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, achimdehnert]
