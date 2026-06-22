@@ -158,10 +158,14 @@ fi
 export TARGET_REPO
 
 # Aktuelles Repo synchronisieren
-# Stash nur poppen wenn WIR etwas gestasht haben — bei cleanem Tree poppt
-# `git stash pop` sonst einen fremden alten Stash-Eintrag (Drift 2026-06-10)
+# Stash nur poppen wenn WIR etwas gestasht haben — sonst poppt `git stash pop`
+# einen FREMDEN alten Stash-Eintrag (Drift 2026-06-10).
+# ACHTUNG: `git status --porcelain` ist auch bei NUR untracked files non-empty,
+# aber `git stash` (ohne -u) stasht die dann NICHT und exitet trotzdem 0 → der alte
+# `... && STASHED=1`-Guard schlug fälschlich an und poppte einen fremden Stash
+# (Drift 2026-06-22, reproduziert). Darum nur auf TRACKED-Änderungen stashen:
 STASHED=0
-if [ -n "$(git status --porcelain)" ]; then
+if ! git diff --quiet HEAD 2>/dev/null; then   # tracked changes (staged ODER unstaged) vorhanden?
   git stash --quiet 2>/dev/null && STASHED=1
 fi
 git pull --rebase --quiet
