@@ -201,6 +201,20 @@ darf `--auto` nicht senden. (Genau diese Bedingung trägt die „kein ADR"-Einst
   einem Review-Workflow, dessen Frontmatter `provider: openai` trägt; **eine** Runde, s. „When").
   Kein lokaler Key-Zugriff. Bei Fehler einmal melden, **nicht** still zurückfallen.
 
+**4b.3a — Graceful Degradation, wenn der Egress-Pfad nicht verfügbar ist (Copy-Block-Fallback).**
+Ist der aifw/Orchestrator-Pfad in der Session nicht nutzbar (Orchestrator-Tools nicht geladen,
+`workflow_execute`-Fehler, Key im Container nicht erreichbar), gilt **eine** korrekte Reaktion:
+- **NICHT** ausweichen: kein lokales curl, kein Lesen/`chmod`/`chown`/`sudo` auf `~/.secrets/*`,
+  kein Scannen nach alternativen Key-Dateinamen (Credential-Exploration; der Classifier blockt das
+  zu Recht), den Nutzer **nicht** zur sudo-Passwort-Eingabe in der Session drängen (landet im
+  Transcript). Die root-only-Secret-Mauer ist *gewollte* Hygiene — nicht aufweichen für eine
+  Bequemlichkeit, deren Urteil (Step 5) ohnehin Mensch bleibt.
+- **Stattdessen explizit ansagen** „Auto-Transport nicht verfügbar, wechsle auf manuellen Pfad"
+  (Grund nennen) und das fertige Briefing aus Step 4 **inline als EINEN kopierbaren Block** ausgeben
+  — Fence mit **vier** Backticks (das Briefing enthält selbst Triple-Backticks). Damit ist der
+  Nutzer ohne Setup in Sekunden durch.
+- Step 5 (ID-Tagging) bleibt unverändert Mensch — der Fallback ändert nur den Transport.
+
 **4b.4 — Antwort ablegen.**
 Antwort als zweite, deterministisch benannte `.md` neben das Briefing schreiben:
 ```
@@ -240,9 +254,15 @@ als Nachweis fest.
 - ❌ Modell-ID (z. B. „gpt-5.5") hardcoden statt aus Frontmatter `model` / `${ADR_HANDOFF_MODEL}`.
 - ❌ **Lokal curlen / `~/.secrets/*_api_key` lesen wollen** — root-only, in CC-Session nicht lesbar;
   Egress läuft über aifw/Orchestrator (Step 4b.3).
+- ❌ **`chmod`/`chown`/`sudo` auf eine Secret-Datei** oder den Nutzer zur sudo-Passwort-Eingabe in
+  der Session drängen, nur damit `--auto` läuft — die root-only-Mauer ist gewollt; aufweichen ist
+  ein schlechter Tausch (bleibende Sicherheits-Schwächung gegen einmalige Bequemlichkeit).
+- ❌ **`~/.secrets` nach Key-Dateinamen durchsuchen** (iterieren über Kandidaten) — Credential-
+  Exploration, vom Permission-Classifier zu Recht geblockt; nicht umgehen.
 - ❌ **`provider: openai` vergessen** — der Orchestrator-Default routet zu groq/anthropic, also
   KEINE Cross-Provider-Diversität (der einzige Zweck dieses Skills).
-- ❌ Bei Call-Fehler still auf den manuellen Pfad zurückfallen, ohne es zu sagen.
+- ❌ Bei Call-Fehler/nicht verfügbarem Egress still scheitern ODER still auf den manuellen Pfad
+  zurückfallen — beides falsch: **explizit ansagen** und das Briefing als Copy-Block ausgeben (4b.3a).
 
 ## Changelog
 
@@ -266,3 +286,11 @@ als Nachweis fest.
   Orchestrator** (Key im Container), Routing via Workflow-Frontmatter; **`provider: openai` zwingend**,
   sonst Default groq/anthropic = keine Diversität (belegt: `review_adr` lief auf `anthropic/
   claude-sonnet-4-6`). 4b.2 auf aifw-Model-Registry statt `/v1/models` umgestellt.
+- 2026-06-22: **4b.3a Copy-Block-Fallback + Secret-Permission-Anti-Patterns (Dogfood ADR-255).**
+  Eine CC-Session folgte einer *stale verteilten Kopie* (noch „Key aus `~/.secrets` lesen + lokal
+  curlen"), lief in `root:root` mode-600 (`cat → Keine Berechtigung`), und der Versuch, alternative
+  Key-Dateien zu finden, wurde vom Classifier als Credential-Exploration geblockt; `sudo chown` im
+  `!`-Prompt scheiterte mangels TTY. Lehre verankert: bei nicht verfügbarem Egress **explizit ansagen
+  + Briefing als 4-Backtick-Copy-Block inline ausgeben** (4b.3a), statt die Secret-Mauer (`chmod/chown/
+  sudo`) aufzuweichen oder still zu scheitern. Verteilte Kopie muss via `cc-skill-dist` neu generiert
+  werden, damit der korrigierte Egress-Pfad ankommt.
