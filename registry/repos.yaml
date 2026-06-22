@@ -235,7 +235,7 @@ domains:
   - name: risk-hub
     repo: risk-hub
     description: Multi-tenant occupational safety SaaS (Schutztat)
-    github: achimdehnert/risk-hub
+    github: iilgmbh/risk-hub
     deployed: true
     url: https://demo.schutztat.de
     type: django
@@ -247,7 +247,7 @@ domains:
     coverage_threshold: 80
     deploy:
       server_path: /opt/risk-hub
-      image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+      image: ghcr.io/iilgmbh/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
       web_container: risk_hub_web
       web_service: risk-hub-web
       migrate_cmd: python manage.py migrate --noinput
@@ -255,7 +255,7 @@ domains:
       port: 8090
     staging:
       server_path: /opt/risk-hub-staging
-      image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+      image: ghcr.io/iilgmbh/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
       web_container: risk_hub_staging_web
       web_service: risk-hub-staging-web
       migrate_cmd: python manage.py migrate --noinput
