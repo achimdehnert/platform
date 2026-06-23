@@ -19,12 +19,16 @@ from __future__ import annotations
 
 import logging
 import uuid as _uuid
+from typing import TYPE_CHECKING
 
 from django.http import HttpRequest, HttpResponse
 from django.utils.deprecation import MiddlewareMixin
 
 from .context import clear_context, set_db_tenant, set_request_id, set_tenant, set_user
 from .healthz import HEALTH_PATHS
+
+if TYPE_CHECKING:
+    from .models import Organization
 
 logger = logging.getLogger(__name__)
 
@@ -87,16 +91,12 @@ class SubdomainTenantMiddleware(MiddlewareMixin):
         request.tenant_slug = None
         return None
 
-    def process_response(
-        self, request: HttpRequest, response: HttpResponse
-    ) -> HttpResponse:
+    def process_response(self, request: HttpRequest, response: HttpResponse) -> HttpResponse:
         """Clear context at end of request."""
         clear_context()
         return response
 
-    def _resolve_from_subdomain(
-        self, request: HttpRequest, subdomain: str
-    ) -> HttpResponse | None:
+    def _resolve_from_subdomain(self, request: HttpRequest, subdomain: str) -> HttpResponse | None:
         """Resolve tenant from subdomain slug.
 
         Returns None on success, HttpResponse on error.
@@ -119,12 +119,21 @@ class SubdomainTenantMiddleware(MiddlewareMixin):
             request.tenant_slug = None
             return None
 
+        if not self._user_may_access(request, org):
+            logger.warning(
+                "Tenant %s (subdomain) rejected — user %s is not a member",
+                subdomain,
+                getattr(getattr(request, "user", None), "pk", None),
+            )
+            request.tenant_id = None
+            request.tenant = None
+            request.tenant_slug = None
+            return None
+
         self._set_tenant_context(request, org, subdomain)
         return None
 
-    def _resolve_from_header(
-        self, request: HttpRequest, header_value: str
-    ) -> HttpResponse | None:
+    def _resolve_from_header(self, request: HttpRequest, header_value: str) -> HttpResponse | None:
         """Resolve tenant from X-Tenant-ID header.
 
         Returns None on success, HttpResponse on error.
@@ -149,12 +158,28 @@ class SubdomainTenantMiddleware(MiddlewareMixin):
             request.tenant_slug = None
             return None
 
+        if not org.is_active:
+            logger.warning("Inactive tenant from header: %s (status=%s)", tenant_uuid, org.status)
+            request.tenant_id = None
+            request.tenant = None
+            request.tenant_slug = None
+            return None
+
+        if not self._user_may_access(request, org):
+            logger.warning(
+                "Tenant %s (header) rejected — user %s is not a member",
+                tenant_uuid,
+                getattr(getattr(request, "user", None), "pk", None),
+            )
+            request.tenant_id = None
+            request.tenant = None
+            request.tenant_slug = None
+            return None
+
         self._set_tenant_context(request, org, org.slug)
         return None
 
-    def _resolve_from_session(
-        self, request: HttpRequest
-    ) -> HttpResponse | None:
+    def _resolve_from_session(self, request: HttpRequest) -> HttpResponse | None:
         """Resolve tenant from session (ADR-137: tenant picker persistence).
 
         Security: Membership check prevents session manipulation —
@@ -205,9 +230,30 @@ class SubdomainTenantMiddleware(MiddlewareMixin):
         return None
 
     @staticmethod
-    def _set_tenant_context(
-        request: HttpRequest, org: "Organization", slug: str
-    ) -> None:
+    def _user_may_access(request: HttpRequest, org: "Organization") -> bool:
+        """Whether the request may enter ``org``'s tenant context.
+
+        Threat model: an *authenticated* user must not be able to enter a
+        foreign organization's context (and thus read its data) merely by
+        visiting ``acme.<host>`` or sending ``X-Tenant-ID: <uuid>``. The
+        subdomain/header resolution paths historically skipped this check
+        (only ``_resolve_from_session`` enforced it) — an IDOR.
+
+        Anonymous requests are allowed through unchanged: public tenant
+        pages legitimately resolve a tenant for visitors with no account,
+        and there is no user-scoped data to leak without an authenticated
+        user. This keeps the change backward-compatible.
+        """
+        user = getattr(request, "user", None)
+        if not (user and getattr(user, "is_authenticated", False)):
+            return True
+
+        from .models import Membership
+
+        return Membership.objects.filter(user=user, tenant_id=org.tenant_id).exists()
+
+    @staticmethod
+    def _set_tenant_context(request: HttpRequest, org: "Organization", slug: str) -> None:
         """Set tenant on request + contextvars + RLS + session."""
         request.tenant_id = org.tenant_id
         request.tenant = org
