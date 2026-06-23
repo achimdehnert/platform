@@ -113,13 +113,38 @@ packages:
     publisher_current: achimdehnert
     publisher_final: iilgmbh
     role_target: team-bound (REC-1)
-    dependencies: [platform, dev-hub]
+    dependencies: [platform, dev-hub]   # platform ADR-CI is the main pip-consumer
     status: pilot
-    notes: "Pilot (a). Hardened OIDC publish.yml landed; OIDC publisher under
-      achimdehnert is throwaway at transfer (ADR-255 Context #2)."
+    notes: "Pilot (a). OIDC publish.yml EXISTS but is NOT fully REC-7-hardened
+      (see pilot_prep). OIDC publisher under achimdehnert is throwaway at transfer
+      (ADR-255 Context #2). v0.6.0, public, default branch main."
+    # Pilot-(a) read-only prep 2026-06-23 (gh/PyPI-verified). The actual transfer
+    # + publish stay blocked on REC-1 (>=2 owners) + explicit go (!/CI).
+    pilot_prep:
+      publish_yml_rec7:
+        oidc_tokenless: true          # id-token:write + pypa/gh-action-pypi-publish
+        pypi_environment: true        # environment: pypi
+        controlled_trigger: true      # workflow_dispatch only, no push trigger
+        build_publish_split: false    # GAP: single job -> OIDC token live during build step
+        publish_action_sha_pinned: false  # GAP: @release/v1 is a moving branch, not a SHA
+        note: "ADR's 'hardened publish.yml landed' is only partial. Harden (split +
+          SHA-pin) as part of transfer step 4 (publisher is rebuilt under iilgmbh
+          anyway). Minor: 'python -m hatchling build' is an unusual invocation —
+          verify at the test release."
+      consumer_scan:
+        transfer_breaking_path_refs: "~0 — only self pyproject.toml URL + this registry's repo_current field; both update with the transfer"
+        pip_consumers_unaffected: "platform ADR-CI (adr-validate/adr-dual-review/adr-nightly-metrics), dev-hub, writing-hub, django-lms-lite — reference PyPI name `iil-adrfw`, not the repo path"
+        caveat: "gh code-search is blind to lock-pinned/external pip consumers and capped at 60 hits; the transfer-breaking class is near-empty, which is what matters (KONZ-002-s3 lesson)"
+      cutover_checklist:
+        - "1. (transfer step 4) harden publish.yml: split build/publish jobs + SHA-pin pypa action"
+        - "2. (no rename — n/a)"
+        - "3. transfer achimdehnert/iil-adrfw -> iilgmbh/iil-adrfw"
+        - "4. register OIDC publisher iilgmbh/iil-adrfw on pypi.org BEFORE transfer (owner action, dual-publisher-shadow), remove old after"
+        - "5. real test release through final publisher (dry-run does NOT prove identity) -> record proof here"
+        - "6. follow-ups: repo_current->iilgmbh/, pyproject URL, doc links"
     verification:
-      verified: "repo_current=achimdehnert/iil-adrfw (gh 2026-06-23); pypi iil-adrfw exists (200)"
-      unverified: "publisher identity; release proof through final publisher"
+      verified: "repo_current=achimdehnert/iil-adrfw, public, v0.6.0 (gh 2026-06-23); publish.yml OIDC but not fully REC-7 (verified at file); transfer-breaking refs ~0 (code-search)"
+      unverified: "publisher identity; release proof through final publisher; lock-pinned pip consumers beyond code-search"
 
   aifw:
     dist: iil-aifw
