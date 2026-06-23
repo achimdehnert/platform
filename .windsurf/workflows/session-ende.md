@@ -70,6 +70,25 @@ Falls ja: Explizit als TODO dokumentieren mit konkretem Befehl zur Übernahme.
 > Lesson Learned: Wenn Tools blockiert sind, ist es besser die Lösung in einer
 > .fixed-Datei zu hinterlegen als die Session ergebnislos zu beenden.
 
+### 0a-deploy: Deploy-Status der gemergten Code-/Migration-PRs prüfen (PFLICHT)
+
+> **Lesson 2026-06-22 (trading-hub Retro, Längsschnitt `deploy-failures-no-fix` ×2):**
+> Eine Session mergte den B1(b)-Fix, der Prod-Deploy scheiterte an transientem GHCR-403
+> (Build-Step, vor Migrate) — `/session-ende` meldete „alles grün", weil der Deploy-Status
+> nie geprüft wurde. Die Kern-Errungenschaft war nicht live. „main grün" ≠ „Prod aktuell".
+
+Für **jedes** Repo dieser Session, das Code/Migrationen (nicht nur Docs) auf `main` gemergt hat:
+
+```bash
+# letzten Deploy-Run prüfen (Owner/Repo aus git-Remote, nicht hardcoden)
+gh run list --repo <owner>/<repo> --workflow=Deploy --limit 1 \
+  --json conclusion,headSha,databaseId -q '.[] | "\(.conclusion) sha=\(.headSha[0:7]) id=\(.databaseId)"'
+```
+
+- `success` → ok, weiter.
+- `failure` → **nicht** als „fertig" melden. Entweder: (a) bei transientem Flake (GHCR-403/registry-unauthorized beim Pull, siehe Memory `*-deploy-smoke-unauthorized`) `gh run rerun <id> --failed` und Erfolg verifizieren; ODER (b) explizit als offenes To-do mit Run-ID ins `AGENT_HANDOVER.md` (Phase 0b).
+- kein Deploy-Workflow im Repo → Schritt entfällt.
+
 ### 0b: AGENT_HANDOVER.md aktualisieren (PFLICHT bei WIP-Stand)
 
 Falls uncommitted changes, offene Tasks oder abgebrochene Implementierungen existieren:

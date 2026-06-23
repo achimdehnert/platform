@@ -196,7 +196,15 @@ def main() -> int:
         print("\n[dry-run] Nichts entfernt. Mit --apply ausführen.")
         return 0
 
-    mf = Path(args.manifest) if args.manifest else Path.cwd() / "worktree-reaper-manifest.jsonl"
+    if args.manifest:
+        mf = Path(args.manifest)
+    else:
+        # Default ins .git/ (git-common-dir) schreiben — git trackt .git/-Inhalt
+        # nie, also dirtyt das Manifest kein Repo (sonst false-positive bei jedem
+        # session-ende-Pflicht-Reaper). Fallback cwd, falls kein git-Kontext.
+        rc, gitdir = _run(["git", "rev-parse", "--git-common-dir"])
+        base = Path(gitdir.strip()) if rc == 0 and gitdir.strip() else Path.cwd()
+        mf = base / "worktree-reaper-manifest.jsonl"
     removed = 0
     with mf.open("a", encoding="utf-8") as f:
         for wt, reason in reap:
