@@ -1,10 +1,9 @@
-# Runbook (DRAFT): Break-Glass PyPI-Token bei iil-* Org-Migration
+# Runbook: Break-Glass PyPI-Token bei iil-* Org-Migration
 
-> **Status: ENTWURF (2026-06-23).** Erfüllt das Phase-0-Gate REC-9 von
-> **[ADR-255](../adr/ADR-255-iilgmbh-org-migration-pypi-family.md)**. Zwei Felder
-> brauchen noch **deine Entscheidung** (unten markiert mit `<<TBD>>`): der *named
-> principal* und der *secure channel*. Bis die gesetzt sind, ist dies kein
-> freigegebenes Runbook, sondern ein Entwurf.
+> **Status: FINAL (2026-06-23).** Erfüllt das Phase-0-Gate REC-9 von
+> **[ADR-255](../adr/ADR-255-iilgmbh-org-migration-pypi-family.md)**. Entscheidungen
+> festgelegt (siehe „Festgelegte Entscheidungen" unten): named principal, secure
+> channel und max lifetime sind gesetzt — dieses Runbook ist freigegeben.
 
 **Scope**: Wenn bei einem **per-Repo-Cutover** (`achimdehnert/<repo>` →
 `iilgmbh/<repo>`) das **OIDC-Trusted-Publishing unter dem neuen Owner noch nicht
@@ -40,18 +39,18 @@ Break-Glass ist die **letzte** Option. In dieser Reihenfolge prüfen:
 
 ## REC-9 Pflicht-Eigenschaften (Gate-Checkliste — alle MÜSSEN zutreffen)
 
-- [ ] **Named principal**: `<<TBD: wer erstellt/hält den Token? Default-Vorschlag:
-      bis REC-1 (≥2 Owner) erfüllt ist = achimdehnert; danach der 2. unabhängige
-      Owner oder eine geteilte Incident-Rolle>>` — eine **benannte Person**, kein
+- [ ] **Named principal**: solange REC-1 (≥2 Owner) **nicht** erfüllt ist =
+      **achimdehnert**; **nach** dem 2. unabhängigen Owner = dieser 2. Owner bzw.
+      eine benannte geteilte Incident-Rolle. Immer eine **benannte Person**, kein
       „Team-Account".
 - [ ] **Project-scoped only**: Token-Scope = **genau dieses eine PyPI-Projekt**
       (`iil-<paket>`), **niemals** „Entire account". Account-weite Token sind
       verboten (AD-10).
 - [ ] **Created at incident time**: Token wird **im Moment des Vorfalls** erzeugt,
       nicht vorab „auf Vorrat".
-- [ ] **Secure channel**: `<<TBD: definierter sicherer Kanal. Vorschlag unten:
-      direkt von pypi.org in das GitHub-Repo-Secret via `gh secret set` über stdin,
-      ohne Zwischenspeichern auf Disk/Logs>>`.
+- [ ] **Secure channel**: direkt von pypi.org in das GitHub-Repo-Secret via
+      `gh secret set` über **stdin**, **ohne** Zwischenspeichern auf Disk/Logs
+      (Schritt 2). Keine Disk-Kopie ist der Normalfall.
 - [ ] **Max lifetime**: kürzestmöglich, **≤ 24 h** Wand-Zeit; Revoke **direkt nach
       Gebrauch**, nicht „am Ende des Tages".
 - [ ] **Server-side revocation immediately after use**: Token auf pypi.org
@@ -144,11 +143,11 @@ Erst dann ist das Paket `done`.
 
 ---
 
-## Offene Entscheidungen (vor Freigabe zu klären)
+## Festgelegte Entscheidungen (2026-06-23)
 
-1. **Named principal** — wer hält/erzeugt den Token? (siehe REC-1: solange iilgmbh
-   nur einen Owner hat, ist das zwangsläufig achimdehnert — was den Bus-Factor
-   während des Break-Glass *nicht* löst; idealerweise erst nach dem 2. Owner.)
-2. **Secure channel** — bestätigen, dass „direkt stdin → `gh secret set`, keine
-   Disk-Kopie" der definierte Kanal ist (oder Alternative nennen).
-3. **Max lifetime** — `≤ 24 h` als Default ok, oder strenger?
+1. **Named principal** = **achimdehnert**, solange `iilgmbh` nur einen Owner hat;
+   **nach** dem 2. unabhängigen Owner (REC-1) geht die Rolle auf diesen über.
+   Caveat bleibt: bis dahin löst Break-Glass den Bus-Factor *nicht* — bevorzugt
+   also erst nach REC-1 in Break-Glass-Lagen gehen.
+2. **Secure channel** = **stdin → `gh secret set`, keine Disk-Kopie** (Schritt 2).
+3. **Max lifetime** = **≤ 24 h**, Revoke direkt nach Gebrauch.

@@ -66,8 +66,8 @@ meta:
                                       # under iilgmbh (gh 404 -> no transfer collision).
     target_org_actions_envs_ok: unverified  # needs admin:org (token has read:org only);
                                             # org Actions-policy + org secrets not readable.
-    breakglass_runbook_written: draft       # REC-9 DRAFT: docs/runbooks/iil-migration-breakglass-pypi-token.md
-                                            # pending 2 user decisions (named principal, secure channel)
+    breakglass_runbook_written: true        # REC-9 FINAL 2026-06-23: docs/runbooks/iil-migration-breakglass-pypi-token.md
+                                            # decisions set (principal=achimdehnert until REC-1; channel=stdin gh secret set; lifetime<=24h)
     two_independent_owners: false     # BLOCKER (REC-1): iilgmbh has a SINGLE owner
                                       # (achimdehnert, admin) — verified complete via read:org
                                       # 2026-06-23. PyPI org owner-count needs an authed check.
