@@ -23,7 +23,6 @@ meta:
     iil-relaunch: iilgmbh
     illustration-fw: iilgmbh
     iil-klickdummy: iilgmbh
-    iil-testkit: iilgmbh
   owner_prefix_rules:
   - prefix: meiki-
     owner: meiki-lra
@@ -216,6 +215,27 @@ repos:
       staging_url: staging.kiohnerisiko.de
       port: 8007
       health: /livez/
+  decks-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: static
+      prod_url: decks-hub.iil.pet
+      port: 8111
+      health: /healthz/
+    domain: Content & Publishing
+    rich:
+      name: decks-hub
+      repo: decks-hub
+      description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
+      github: achimdehnert/decks-hub
+      deployed: false
+      type: static
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge
+        deferred bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.
   dev-hub:
     in_flat: true
     in_rich: true
@@ -459,26 +479,6 @@ repos:
       lifecycle: production
       tenancy_mode: none
       coverage_threshold: 80
-  decks-hub:
-    in_flat: true
-    in_rich: true
-    flat:
-      type: static
-      prod_url: decks-hub.iil.pet
-      port: 8111
-      health: /healthz/
-    domain: Content & Publishing
-    rich:
-      name: decks-hub
-      repo: decks-hub
-      description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
-      github: achimdehnert/decks-hub
-      deployed: false
-      type: static
-      lifecycle: experimental
-      tenancy_mode: none
-      dockerfile: Dockerfile
-      notes: 'Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge deferred bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.'
   pptx-hub:
     in_flat: true
     in_rich: true

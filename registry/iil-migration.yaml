@@ -1,0 +1,376 @@
+# registry/iil-migration.yaml — Single Source of Truth for the iil-* PyPI-family
+# org migration (achimdehnert -> iilgmbh / PyPI org "iil"). Governance: ADR-255.
+#
+# This is the machine-readable SSoT mandated by ADR-255 REC-3. No second truth in
+# prose. An idempotent checker validates reality against it:
+#     python3 tools/iil_migration_check.py
+#
+# Honesty contract (house rule "Evidenz vor Behauptung"): every per-package fact
+# is tagged in `verification`. `verified:` = checked against gh/pypi on the given
+# date; `unverified:` = NOT yet checked, needs the Phase-0 deep-dive (ADR-255
+# Phase-0 gate). Do not promote a package past `pending` without recording a real
+# release proof here (ADR-255 step 5).
+#
+# Schema (per package):
+#   dist             — published PyPI distribution name (target, iil-* prefixed)
+#   pypi_current     — PyPI project name(s) that exist TODAY (may differ pre-rename)
+#   repo_current     — owner/name of the GitHub repo TODAY (gh-verified)
+#   repo_final       — target owner/name (default: iilgmbh/<dist>, REC-8)
+#   rename           — true if repo and/or dist name changes (REC-8 separate gate)
+#   workflow         — publish workflow file (hardened OIDC baseline, REC-7)
+#   environment      — GitHub Environment used by the publish job (REC-7)
+#   publisher_current/publisher_final — OIDC trusted-publisher owner (REC-6)
+#   role_target      — org/repo role target state (REC-1, governance end state)
+#   dependencies     — fleet consumers (drives integration-rich pilot pick)
+#   status           — done | pending | pilot | blocked
+#   verification     — verified/unverified evidence trail
+#
+# status legend:
+#   done    — repo under iilgmbh AND release proven through final publisher
+#   pending — not started / repo still under achimdehnert
+#   pilot   — selected for the REC-12 kill-gate trio (measure before fan-out)
+#   blocked — has an open blocker (named in `notes`)
+
+meta:
+  adr: ADR-255
+  github_org_target: iilgmbh          # signs the OIDC repository_owner claim
+  pypi_org_target: iil                # PyPI Organization (NOT "iilgmbh"); ADR-255 naming map
+  pypi_account_legacy: iildehnert     # personal account to transfer projects OUT of
+  default_resolution: explicit        # REC-4: no silent achimdehnert fallback for iil-*
+  verified_on: 2026-06-23
+  iilgmbh_repos_at_acceptance:        # gh repo list iilgmbh, 2026-06-23 (12 repos)
+    - desktop-setup
+    - django-lms-lite
+    - iil-data
+    - iil-fieldprefill
+    - iil-klickdummy
+    - iil-pet-portal
+    - iil-relaunch
+    - iil-voice-agent
+    - illustration-fw
+    - nl2iot-hub
+    - risk-hub
+    - shared-ci
+  # Phase-0 prerequisites gate (ADR-255). Blocking before ANY per-repo transfer.
+  phase0_gate:
+    pypi_org_iil_exists: true         # VERIFIED 2026-06-22 (pypi.org/org/iil 200)
+    pypi_projects_under_org: unverified   # iil-* still on personal iildehnert acct
+    github_names_available: unverified
+    target_org_actions_envs_ok: unverified
+    breakglass_runbook_written: false
+    two_independent_owners: unverified    # REC-1 governance end state
+
+# Kill-gate pilot trio (ADR-255 REC-12): score separately on 3 profiles before fan-out.
+pilots:
+  a_simple_no_rename: iil-adrfw       # publish.yml already landed (ADR-255 step 1)
+  b_rename: promptfw                  # promptfw -> iil-promptfw
+  c_integration_rich: aifw            # aifw -> iil-aifw; fleet-critical + rename = hardest
+
+packages:
+
+  iil-adrfw:
+    dist: iil-adrfw
+    pypi_current: [iil-adrfw]
+    repo_current: achimdehnert/iil-adrfw
+    repo_final: iilgmbh/iil-adrfw
+    rename: false
+    workflow: publish.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [platform, dev-hub]
+    status: pilot
+    notes: "Pilot (a). Hardened OIDC publish.yml landed; OIDC publisher under
+      achimdehnert is throwaway at transfer (ADR-255 Context #2)."
+    verification:
+      verified: "repo_current=achimdehnert/iil-adrfw (gh 2026-06-23); pypi iil-adrfw exists (200)"
+      unverified: "publisher identity; release proof through final publisher"
+
+  aifw:
+    dist: iil-aifw
+    pypi_current: [aifw, iil-aifw]    # BOTH exist on PyPI (200) — canonical owner unverified
+    repo_current: achimdehnert/aifw
+    repo_final: iilgmbh/iil-aifw
+    rename: true
+    workflow: publish-iil-aifw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [shared-ci install-iil-packages, broad fleet]   # see memory aifw-nodeps
+    status: pilot
+    notes: "Pilot (c) integration-rich. aifw is fleet-critical (shared-ci installs it
+      --no-deps; new runtime deps break CI fleet-wide). Both `aifw` and `iil-aifw`
+      resolve on PyPI — determine the canonical project + owner BEFORE cutover."
+    verification:
+      verified: "repo_current=achimdehnert/aifw (gh 2026-06-23); both aifw & iil-aifw pypi 200"
+      unverified: "which PyPI project is canonical/owned; repo rename consumer scan (REC-8)"
+
+  promptfw:
+    dist: iil-promptfw
+    pypi_current: [promptfw, iil-promptfw]
+    repo_current: achimdehnert/promptfw
+    repo_final: iilgmbh/iil-promptfw
+    rename: true
+    workflow: publish-iil-promptfw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [iil-aifw, authoringfw]
+    status: pilot
+    notes: "Pilot (b) rename case."
+    verification:
+      verified: "repo_current=achimdehnert/promptfw (gh 2026-06-23); both promptfw & iil-promptfw pypi 200"
+      unverified: "canonical PyPI project + owner; consumer scan for rename"
+
+  authoringfw:
+    dist: iil-authoringfw
+    pypi_current: [authoringfw, iil-authoringfw]
+    repo_current: achimdehnert/authoringfw
+    repo_final: iilgmbh/iil-authoringfw
+    rename: true
+    workflow: publish-iil-authoringfw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [comic-hub, weltenfw, illustration-fw]
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/authoringfw (gh 2026-06-23); both authoringfw & iil-authoringfw pypi 200"
+      unverified: "canonical PyPI project + owner; consumer scan"
+
+  iil-reflex:
+    dist: iil-reflex
+    pypi_current: [iil-reflex]
+    repo_current: achimdehnert/iil-reflex
+    repo_final: iilgmbh/iil-reflex
+    rename: false
+    workflow: publish-iil-reflex.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [risk-hub]
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/iil-reflex (gh 2026-06-23); iil-reflex pypi 200"
+      unverified: "publisher; release proof"
+
+  iil-enrichment:
+    dist: iil-enrichment
+    pypi_current: [iil-enrichment]
+    repo_current: achimdehnert/iil-enrichment
+    repo_final: iilgmbh/iil-enrichment
+    rename: false
+    workflow: publish-iil-enrichment.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: []
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/iil-enrichment (gh 2026-06-23)"
+      unverified: "publisher; release proof"
+
+  iil-ingest:
+    dist: iil-ingest
+    pypi_current: [iil-ingest]
+    repo_current: achimdehnert/iil-ingest
+    repo_final: iilgmbh/iil-ingest
+    rename: false
+    workflow: publish-iil-ingest.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: []
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/iil-ingest (gh 2026-06-23); publish-iil-ingest.yml exists in platform"
+      unverified: "publisher; release proof"
+
+  iil-testkit:
+    dist: iil-testkit
+    pypi_current: [iil-testkit]
+    repo_current: achimdehnert/iil-testkit   # REGISTRY DRIFT: canonical repo_owner wrongly said iilgmbh
+    repo_final: iilgmbh/iil-testkit
+    rename: false
+    workflow: publish-iil-testkit.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [fleet test suites]
+    status: pending
+    notes: "tools/registry-canonical.py repo_owner claimed `iil-testkit: iilgmbh`
+      (per-gh-verified 2026-06-06) but gh 2026-06-23 shows achimdehnert/iil-testkit
+      and iilgmbh repo list excludes it. Corrected the generator. This is exactly
+      the drift class iil_migration_check.py exists to catch."
+    verification:
+      verified: "repo_current=achimdehnert/iil-testkit (gh 2026-06-23, two-way: achimdehnert lookup + iilgmbh list)"
+      unverified: "publisher; release proof"
+
+  iil-codeguard:
+    dist: iil-codeguard
+    pypi_current: [iil-codeguard]
+    repo_current: achimdehnert/iil-codeguard
+    repo_final: iilgmbh/iil-codeguard
+    rename: false
+    workflow: publish-iil-codeguard.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: []
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/iil-codeguard (gh 2026-06-23); iil-codeguard pypi 200; publish-iil-codeguard.yml in platform"
+      unverified: "publisher; release proof"
+
+  iil-django-commons:
+    dist: iil-django-commons
+    pypi_current: [iil-django-commons]
+    repo_current: achimdehnert/iil-django-commons
+    repo_final: iilgmbh/iil-django-commons
+    rename: false
+    workflow: publish-iil-django-commons.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [django hubs]
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/iil-django-commons (gh 2026-06-23); iil-django-commons pypi 200"
+      unverified: "publisher; release proof"
+
+  iil-fieldprefill:
+    dist: iil-fieldprefill
+    pypi_current: [iil-fieldprefill]
+    repo_current: iilgmbh/iil-fieldprefill   # repo already moved
+    repo_final: iilgmbh/iil-fieldprefill
+    rename: false
+    workflow: publish-iil-fieldprefill.yml
+    environment: pypi
+    publisher_current: iilgmbh
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: []
+    status: pending
+    notes: "Repo already under iilgmbh (early organic move). PyPI project transfer
+      to org `iil` + release proof through final publisher still unverified — not
+      yet `done`."
+    verification:
+      verified: "repo_current=iilgmbh/iil-fieldprefill (gh 2026-06-23, private)"
+      unverified: "PyPI org-transfer; release proof through iilgmbh publisher"
+
+  illustration-fw:
+    dist: iil-illustrationfw
+    pypi_current: [illustration-fw]          # dist rename to iil-illustrationfw pending
+    repo_current: iilgmbh/illustration-fw    # repo already moved
+    repo_final: iilgmbh/iil-illustrationfw
+    rename: true
+    workflow: publish-iil-illustrationfw.yml
+    environment: pypi
+    publisher_current: iilgmbh
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [comic-hub, illustration-hub]
+    status: pending
+    notes: "Repo under iilgmbh but still named illustration-fw; dist still
+      illustration-fw. Rename to iil-illustrationfw is a separate gate (REC-8)."
+    verification:
+      verified: "repo_current=iilgmbh/illustration-fw (gh 2026-06-23, private)"
+      unverified: "canonical dist name; PyPI org-transfer; release proof"
+
+  learnfw:
+    dist: iil-learnfw
+    pypi_current: [learnfw]
+    repo_current: achimdehnert/learnfw
+    repo_final: iilgmbh/iil-learnfw
+    rename: true
+    workflow: publish-iil-learnfw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [learn-hub]
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/learnfw (gh 2026-06-23)"
+      unverified: "canonical dist (iil-learnfw not yet checked on pypi); consumer scan; publisher"
+
+  nl2cad:
+    dist: iil-nl2cadfw
+    pypi_current: [nl2cad]
+    repo_current: achimdehnert/nl2cad
+    repo_final: iilgmbh/iil-nl2cadfw
+    rename: true
+    workflow: publish-iil-nl2cadfw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [cad-hub]
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/nl2cad (gh 2026-06-23)"
+      unverified: "canonical dist; consumer scan; publisher"
+
+  outlinefw:
+    dist: iil-outlinefw
+    pypi_current: [outlinefw]
+    repo_current: achimdehnert/outlinefw
+    repo_final: iilgmbh/iil-outlinefw
+    rename: true
+    workflow: publish-iil-outlinefw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: []
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/outlinefw (gh 2026-06-23)"
+      unverified: "canonical dist; consumer scan; publisher"
+
+  researchfw:
+    dist: iil-researchfw
+    pypi_current: [researchfw]
+    repo_current: achimdehnert/researchfw
+    repo_final: iilgmbh/iil-researchfw
+    rename: true
+    workflow: publish-iil-researchfw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [research-hub]
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/researchfw (gh 2026-06-23)"
+      unverified: "canonical dist; consumer scan; publisher"
+
+  weltenfw:
+    dist: iil-weltenfw
+    pypi_current: [weltenfw]
+    repo_current: achimdehnert/weltenfw
+    repo_final: iilgmbh/iil-weltenfw
+    rename: true
+    workflow: publish-iil-weltenfw.yml
+    environment: pypi
+    publisher_current: achimdehnert
+    publisher_final: iilgmbh
+    role_target: team-bound (REC-1)
+    dependencies: [weltenhub, comic-hub]
+    status: pending
+    verification:
+      verified: "repo_current=achimdehnert/weltenfw (gh 2026-06-23)"
+      unverified: "canonical dist; consumer scan; publisher"
+
+# Out of family scope (ADR-255): gaeb-toolkit (no iil-* prefix), and the ~36
+# non-package achimdehnert hubs/apps — later waves, do not block publishing.

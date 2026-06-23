@@ -246,6 +246,7 @@
 | 252 | comic-hub — Comic-Erstellung als Thin-Composer über bestehende Seams, gegated durch Konsistenz-Spike + Klickdummy | `Proposed` | ⬜ | [ADR-252](ADR-252-comic-hub-thin-composer.md) |
 | 253 | Web-Präsentationen: Slidev als primäres Autoren-Tool (Glanzstücke) + Lehr-Outline-Vertrag als Gerüst-Generator (Bulk) — Zwei-Schienen-Strategie | `Proposed` | ⬜ | [ADR-253](ADR-253-render-neutral-lecture-outline-contract.md) |
 | 254 | learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle | `Proposed` | ⬜ | [ADR-254](ADR-254-learn-hub-web-deck-embed-seam.md) |
+| 255 | iilgmbh-Org-Migration der iil-* PyPI-Familie (GitHub iilgmbh + PyPI-Org iil, OIDC Trusted Publishing, Bus-Factor/Ownership) | `Accepted` | ⬜ | [ADR-255](ADR-255-iilgmbh-org-migration-pypi-family.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
