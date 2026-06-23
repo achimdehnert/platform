@@ -67,6 +67,16 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 - **`shared_contracts/`-Änderungen** triggern Downstream-Builds → erst ADR, dann Code
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
 - **Commits in `docs/adr/`**: scope = `adr`, nicht `docs`
+- **Org-Resolution & neue iil-* Pakete (ADR-255)**: Der GitHub-Org-Ziel für die
+  `iil-*` PyPI-Familie ist **`iilgmbh`** (PyPI-Org **`iil`**, nicht `iilgmbh` —
+  Trusted Publishing matcht den GitHub-Owner). **Jedes _neue_ `iil-*` Paket wird
+  org-native angelegt**: Repo direkt unter `iilgmbh`, hardened OIDC `publish.yml`
+  (REC-7), Eintrag in `registry/iil-migration.yaml` ab Tag 1 (REC-14). Org-Auflösung
+  ist **explizit, kein stiller `achimdehnert`-Fallback** für `iil-*` (REC-4). Der
+  **Ist-Owner** steht in `tools/registry-canonical.py` `repo_owner` (nur Repos, die
+  _wirklich_ schon dort liegen); der **Ziel-Owner** der laufenden Migration steht
+  ausschließlich in `registry/iil-migration.yaml` (SSoT, REC-3) — Reality-Check:
+  `python3 tools/iil_migration_check.py`.
 - **Workflows in `.windsurf/workflows/`**: Änderungen brauchen `/workflow-review` vor Merge
 - **Parallele Sessions — Haupt-Tree heilig (ADR-233)**: der geteilte Checkout `~/github/platform`
   bleibt auf `main`; **kein** Branch-Switch im Haupt-Tree. Editierende Arbeit läuft in einem eigenen

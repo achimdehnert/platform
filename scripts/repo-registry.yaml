@@ -49,6 +49,11 @@ repos:
     staging_url: staging.kiohnerisiko.de
     port: 8007
     health: /livez/
+  decks-hub:
+    type: static
+    prod_url: decks-hub.iil.pet
+    port: 8111
+    health: /healthz/
   dev-hub:
     type: django
     prod_url: dev-hub.iil.pet
@@ -131,11 +136,6 @@ repos:
   platform:
     type: infra
     note: ADRs, architecture docs, shared workflows, repo-registry
-  decks-hub:
-    type: static
-    prod_url: decks-hub.iil.pet
-    port: 8111
-    health: /healthz/
   pptx-hub:
     type: django
     prod_url: prezimo.com

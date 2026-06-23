@@ -43,7 +43,6 @@ jobs:
           pip install pyyaml -q
           # schedule (inputs leer) → LIVE eskalieren; manueller dispatch → Default dry-run='true'.
           python3 tools/deploy_failure_monitor.py \
-            --registry scripts/repo-registry.yaml \
             --threshold "${{ inputs.threshold || '2' }}" \
             ${{ (inputs.only != '' && format('--only {0}', inputs.only)) || '' }} \
             ${{ (inputs.dry_run == 'true' && '--dry-run') || '' }}
