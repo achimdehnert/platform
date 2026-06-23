@@ -28,6 +28,10 @@ import yaml
 # Conclusions, die als „Deploy kaputt" zählen. `cancelled`/`skipped`/`None` (in_progress)
 # zählen NICHT und brechen die Serie auch nicht (uninformativ); `success` bricht sie.
 FAILURE_CONCLUSIONS = {"failure", "startup_failure", "timed_out"}
+# #8c: `action_required` (wartet auf manuelle Freigabe, z.B. Environment-Protection) ist
+# KEIN Deploy-Fehler → bewusst geskippt, damit ein pending-Run nicht falsch-eskaliert.
+# „Workflow hängt dauerhaft" ist eine andere Klasse und wird von runner-health.yml
+# (stuck-deploy-Monitor) abgedeckt — nicht von diesem Failure-Monitor.
 SKIP_CONCLUSIONS = {
     "cancelled",
     "skipped",
@@ -60,21 +64,32 @@ def count_leading_failures(runs: list[dict]) -> int:
 
 
 def evaluate_repo(repo: str, runs: list[dict], threshold: int) -> dict:
-    """Wertet einen Repo-Lauf aus → {repo, consecutive, escalate, runs}."""
+    """Wertet einen Repo-Lauf aus → {repo, consecutive, escalate, capped, runs}.
+
+    #8b: `capped` = True, wenn ALLE geholten Runs Fehlschläge sind (consecutive ==
+    len(runs)) — die echte Serie kann dann länger sein als `--limit`. Anzeige zeigt
+    dafür „≥N×" statt eines zu niedrigen exakten Werts.
+    """
     consecutive = count_leading_failures(runs)
     return {
         "repo": repo,
         "consecutive": consecutive,
         "escalate": consecutive >= threshold,
+        "capped": consecutive > 0 and consecutive == len(runs),
         "runs": runs[:consecutive] if consecutive else [],
     }
 
 
+def _count_label(result: dict) -> str:
+    """„N×" bzw. „≥N×" (capped) — einheitlich für Print + Issue-Body (#8b)."""
+    return f"{'≥' if result.get('capped') else ''}{result['consecutive']}×"
+
+
 def render_issue_body(result: dict, org: str) -> str:
     repo = result["repo"]
-    n = result["consecutive"]
+    n = _count_label(result)
     lines = [
-        f"**{n}× konsekutiv** rotes `Deploy` auf `main` — automatisch erkannt vom",
+        f"**{n} konsekutiv** rotes `Deploy` auf `main` — automatisch erkannt vom",
         "platform Deploy-Failure-Monitor (Gate gegen `deploy-failures-no-fix`).",
         "",
         "> Hintergrund: ein lange rotes Deploy-Gate sammelt unbemerkt prod-brechende",
@@ -170,11 +185,11 @@ def fetch_runs(org: str, repo: str, limit: int) -> list[dict]:
 
 def escalate_issue(org: str, repo: str, result: dict, dry_run: bool) -> str:
     """Dedup-tes Tracking-Issue im Ziel-Repo anlegen/aktualisieren. Gibt Aktion zurück."""
-    n = result["consecutive"]
-    title = f"[deploy-gate] main Deploy {n}× konsekutiv rot"
+    n = _count_label(result)
+    title = f"[deploy-gate] main Deploy {n} konsekutiv rot"
     body = render_issue_body(result, org)
     if dry_run:
-        return f"DRY-RUN would escalate {repo} ({n}×)"
+        return f"DRY-RUN would escalate {repo} ({n})"
 
     # Label sicherstellen (idempotent)
     subprocess.run(
@@ -225,12 +240,12 @@ def escalate_issue(org: str, repo: str, result: dict, dry_run: bool) -> str:
                 "--repo",
                 f"{org}/{repo}",
                 "--body",
-                f"Serie hält an: jetzt **{n}×** konsekutiv rot.\n\n{body}",
+                f"Serie hält an: jetzt **{n}** konsekutiv rot.\n\n{body}",
             ],
             capture_output=True,
             text=True,
         )
-        return f"updated #{existing} ({repo}, {n}×)"
+        return f"updated #{existing} ({repo}, {n})"
     created = subprocess.run(
         [
             "gh",
@@ -248,7 +263,7 @@ def escalate_issue(org: str, repo: str, result: dict, dry_run: bool) -> str:
         capture_output=True,
         text=True,
     )
-    return f"created ({repo}, {n}×): {(created.stdout or '').strip()}"
+    return f"created ({repo}, {n}): {(created.stdout or '').strip()}"
 
 
 def main() -> int:
@@ -256,7 +271,7 @@ def main() -> int:
     parser.add_argument("--registry", default="scripts/repo-registry.yaml")
     parser.add_argument("--org", default="achimdehnert")
     parser.add_argument("--threshold", type=int, default=2)
-    parser.add_argument("--limit", type=int, default=10)
+    parser.add_argument("--limit", type=int, default=30)
     parser.add_argument("--dry-run", action="store_true")
     parser.add_argument("--only", help="Nur dieses eine Repo prüfen (Debug)")
     args = parser.parse_args()
@@ -289,10 +304,10 @@ def main() -> int:
         if result["escalate"]:
             escalations += 1
             print(
-                f"  🔴 {repo}: {result['consecutive']}× → {escalate_issue(args.org, repo, result, args.dry_run)}"
+                f"  🔴 {repo}: {_count_label(result)} → {escalate_issue(args.org, repo, result, args.dry_run)}"
             )
         elif result["consecutive"]:
-            print(f"  🟡 {repo}: {result['consecutive']}× (unter Schwelle)")
+            print(f"  🟡 {repo}: {_count_label(result)} (unter Schwelle)")
         else:
             print(f"  ✅ {repo}: grün")
     print(f"→ {escalations} Eskalation(en); {na} N/A; {len(unreadable)} nicht lesbar.")
