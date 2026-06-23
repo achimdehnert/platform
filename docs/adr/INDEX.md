@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
 > **Last updated:** 2026-06-12
-> **Next free ADR number:** 246 (243–245 zum Draft-Zeitpunkt vergeben; final zur Merge-Zeit, ADR-228)
+> **Next free ADR number:** 257 (256 = dieser Entwurf; final zur Merge-Zeit, ADR-228)
 
 ## Legend
 
@@ -247,6 +247,7 @@
 | 253 | Web-Präsentationen: Slidev als primäres Autoren-Tool (Glanzstücke) + Lehr-Outline-Vertrag als Gerüst-Generator (Bulk) — Zwei-Schienen-Strategie | `Proposed` | ⬜ | [ADR-253](ADR-253-render-neutral-lecture-outline-contract.md) |
 | 254 | learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle | `Proposed` | ⬜ | [ADR-254](ADR-254-learn-hub-web-deck-embed-seam.md) |
 | 255 | iilgmbh-Org-Migration der iil-* PyPI-Familie (GitHub iilgmbh + PyPI-Org iil, OIDC Trusted Publishing, Bus-Factor/Ownership) | `Accepted` | ⬜ | [ADR-255](ADR-255-iilgmbh-org-migration-pypi-family.md) |
+| 256 | Orchestrator-MCP-Transport von HTTP/SSE auf stateless Streamable HTTP migrieren (amends ADR-224, Treiber mcp-hub#128) | `Proposed` | ⬜ | [ADR-256](ADR-256-orchestrator-mcp-stateless-streamable-http-transport.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
