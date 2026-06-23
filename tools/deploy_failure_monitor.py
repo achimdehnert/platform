@@ -21,9 +21,10 @@ import argparse
 import json
 import subprocess
 import sys
-from pathlib import Path
 
-import yaml
+# Registry über die API lesen, NICHT die generierte View direkt (ADR-234 §11.1
+# REC-4 View-Reader-Guard). Sibling-Import: beim Direktaufruf ist tools/ in sys.path[0].
+from registry_api import flat
 
 # Conclusions, die als „Deploy kaputt" zählen. `cancelled`/`skipped`/`None` (in_progress)
 # zählen NICHT und brechen die Serie auch nicht (uninformativ); `success` bricht sie.
@@ -118,9 +119,9 @@ def render_issue_body(result: dict, org: str) -> str:
 # ── I/O ─────────────────────────────────────────────────────────────────────
 
 
-def load_deploy_repos(registry_path: Path) -> list[str]:
-    """django-Repos (deployen) aus der Registry-SSoT, ohne archivierte."""
-    data = yaml.safe_load(registry_path.read_text())
+def load_deploy_repos() -> list[str]:
+    """django-Repos (deployen) aus der Registry-SSoT via registry_api, ohne archivierte."""
+    data = flat()
     repos = data.get("repos", {})
     out = []
     for name, cfg in sorted(repos.items()):
@@ -268,7 +269,6 @@ def escalate_issue(org: str, repo: str, result: dict, dry_run: bool) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--registry", default="scripts/repo-registry.yaml")
     parser.add_argument("--org", default="achimdehnert")
     parser.add_argument("--threshold", type=int, default=2)
     parser.add_argument("--limit", type=int, default=30)
@@ -276,7 +276,7 @@ def main() -> int:
     parser.add_argument("--only", help="Nur dieses eine Repo prüfen (Debug)")
     args = parser.parse_args()
 
-    repos = load_deploy_repos(Path(args.registry))
+    repos = load_deploy_repos()
     if args.only:
         repos = [args.only]
     escalations = 0
