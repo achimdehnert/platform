@@ -69,6 +69,32 @@ Wartungskosten nur dort investiert, wo Feld-Genauigkeit real schadensrelevant is
 Offen bleibt F17 (Granularität exakt-vs-enthält-vs-Containment „Feld in richtiger Sektion") — am
 risk-hub-Pilot zu entscheiden, ob die 3 Verben reichen oder ein Containment-Verb nötig wird.
 
+### 0.2 F17-Befund am Pilot (risk-hub `/sds/review/`, 2026-06-23 — beantwortet)
+
+Pilot-Increment ausgeführt (risk-hub PR #270): zwei Schicht-2-`text`-Asserts am bereits
+parity-grünen Manual-Review-Screen, plus eine spalten-gescopte Zelle
+`data-testid="sds-review-cell-manufacturer"`. Render-Layer-Test grün (Testid + Feldwert in
+derselben Zelle), `gen-e2e` drift-clean.
+
+**Befund: kein neuer Containment-Verb nötig.** „Wert in der richtigen Spalte" wird durch
+**Cell-Level-`data-testid`** + bestehendes `to_contain_text` (Substring) gelöst — die Granularität
+sitzt im **Selektor-Kontrakt** (Zelle statt Zeile/Container), nicht in der DSL. Die 5 Verben
+reichen.
+
+**Echte Restgrenze (verschoben, nicht DSL):** *zeilenspezifische* Wert-Pinnung. Der Generator
+emittiert `text` nur als `.first` — bei `-created_at`-Sortierung ist ein `.first`-Cell-Assert auf
+einen zeilen-variablen Wert ordnungs-fragil. Auflösung **ohne** DSL-Erweiterung:
+1. **spalten-konstante Werte** value-exact pinnen (z. B. Hersteller „ProofCo" in allen Seed-Zeilen) —
+   `.first` ist dann ordnungs-unabhängig;
+2. **zeilen-variable Werte** queue-weit als Präsenz prüfen (Produkt „Aceton" irgendwo in der Queue);
+3. exakte Zeile×Spalte erst, wenn ein Screen es real braucht → dann **dokumentierter
+   Ordnungs-Kontrakt in der Spec** (nicht ein neuer Verb). Bis dahin offen lassen (YAGNI).
+
+**Konsequenz für F17:** als *für den Pilot gelöst* markieren; Containment-Verb-Idee verworfen.
+Nächster Schritt der Adoptions-Linie bleibt §0 Punkt (2): die **6 Prosa-`parity_acceptance`**
+(Screens 1–5) ausführbar machen — das braucht zuerst echte App-Routen + Cell-Testid-Kontrakte +
+Seeds je Screen (größerer Lift als dieser Increment), kein DSL-Problem.
+
 ## 1 Executive Summary (historisch — vor Decider-Steuerung §0)
 
 **Entscheidung stand an:** Reicht die bestehende **strukturelle** Klickdummy-Parität
