@@ -137,3 +137,23 @@ class TestNoDeployWorkflowIsNA:
         assert raised == "na", (
             "kein Deploy-Workflow muss NoDeployWorkflow sein, nicht FetchError (rot)"
         )
+
+
+class TestCappedCountLabel:
+    """#8b: capped-Serie zeigt ≥N statt zu niedriges exaktes N."""
+
+    def test_capped_when_all_fetched_are_failures(self):
+        from deploy_failure_monitor import _count_label, evaluate_repo
+
+        runs = [_r("failure")] * 10  # alle geholten = Fehler → Serie evtl. länger
+        res = evaluate_repo("x", runs, threshold=2)
+        assert res["capped"] is True
+        assert _count_label(res) == "≥10×"
+
+    def test_not_capped_when_success_breaks_series(self):
+        from deploy_failure_monitor import _count_label, evaluate_repo
+
+        runs = [_r("failure"), _r("failure"), _r("success")]
+        res = evaluate_repo("x", runs, threshold=2)
+        assert res["capped"] is False
+        assert _count_label(res) == "2×"
