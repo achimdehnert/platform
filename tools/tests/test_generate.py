@@ -69,6 +69,9 @@ def _make_repo(root):
     _git(root, "config", "user.name", "t")
     (root / ".windsurf" / "workflows").mkdir(parents=True)
     (root / ".windsurf" / "workflows" / "foo.md").write_text("# foo\nbody\n")
+    # interner System-Prompt: distribute:false → darf NICHT als Slash-Command verteilt werden
+    (root / ".windsurf" / "workflows" / "_reviewer.md").write_text(
+        "---\nprovider: openai\ndistribute: false\n---\n# reviewer\nsystem prompt\n")
     (root / "skills" / "bar").mkdir(parents=True)
     (root / "skills" / "bar" / "SKILL.md").write_text("---\nname: bar\n---\n# bar\n")
     _git(root, "add", "-A")
@@ -92,6 +95,20 @@ def test_should_generate_commands_flat(tmp_path):
     assert "MANAGED-BY" in (out / "foo.md").read_text()
     m = json.loads((out / "manifest.json").read_text())
     assert m["kind"] == "commands" and m["skill_count"] == 1
+
+
+def test_should_skip_distribute_false_in_commands(tmp_path):
+    """distribute:false-Workflow ist interner System-Prompt → kein Slash-Command,
+    nicht im Ziel, nicht im skill_count, nicht im Manifest."""
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    r = _run(["--platform", str(repo), "--ref", "HEAD", "--target", str(out)])
+    assert r.returncode == 0, r.stderr
+    assert (out / "foo.md").is_file()                       # normaler Command verteilt
+    assert not (out / "_reviewer.md").exists()              # interner System-Prompt NICHT
+    m = json.loads((out / "manifest.json").read_text())
+    assert m["skill_count"] == 1                            # nur foo.md gezählt (nicht len(blobs))
+    assert all(f["name"] != "_reviewer.md" for f in m["files"])
 
 
 def test_should_generate_skills_nested(tmp_path):
