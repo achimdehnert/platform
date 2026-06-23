@@ -80,10 +80,14 @@ def build() -> dict:
             # Roundtrip top-level Source-Keys droppt. bahn-sqf IN (Owner hat Admin), pactive-de
             # bewusst AUSSEN (separates Kunden-Vault). Entscheidung 2026-06-06, Issue #488.
             "enterprise_owners": ["achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra", "bahn-sqf"],
-            # Per-Repo-Owner-Override (Transition). KONZ-001 P0 Teil 2: flat-only Repos können
-            # keinen rich.github tragen (circular pipeline), darum die per-gh-VERIFIZIERTEN
-            # KONZ-002-Migrationen hier als meta-Override (build-stabil). Stopgap bis das echte
-            # per-Repo-owner-Feld kommt (Registry-Konsolidierung). Verifiziert 2026-06-06 (gh).
+            # Per-Repo-Owner-Override (Transition, = IST-Zustand). KONZ-001 P0 Teil 2:
+            # flat-only Repos können keinen rich.github tragen (circular pipeline),
+            # darum die per-gh-VERIFIZIERTEN KONZ-002-Migrationen hier als meta-Override
+            # (build-stabil). Stopgap bis das echte per-Repo-owner-Feld kommt.
+            # ⚠ Nur Repos eintragen, die WIRKLICH schon unter der Org liegen — sonst
+            #   findet das Tooling das Repo am falschen Ort. ZIEL-Owner (Migration)
+            #   gehören in registry/iil-migration.yaml, NICHT hierher (ADR-255 REC-3).
+            # Re-verifiziert gh 2026-06-23 (ADR-255 Phase-0).
             "repo_owner": {
                 "iil-fieldprefill": "iilgmbh",
                 "iil-relaunch": "iilgmbh",
@@ -91,7 +95,11 @@ def build() -> dict:
                 # Org-Mapping-Externalisierung (Konsument: iil-klickdummy detect_org,
                 # 2026-06-12) — Werte identisch zu dessen bisheriger Code-Heuristik.
                 "iil-klickdummy": "iilgmbh",
-                "iil-testkit": "iilgmbh",
+                # iil-testkit ENTFERNT 2026-06-23: Eintrag behauptete iilgmbh (angeblich
+                # gh-verifiziert 2026-06-06), real aber achimdehnert/iil-testkit (gh
+                # 2026-06-23, Gegenprobe: nicht in `gh repo list iilgmbh`). Default
+                # (server.github_org=achimdehnert) ist jetzt korrekt. Ziel-Owner in
+                # registry/iil-migration.yaml als status=pending. (ADR-255 Drift-Fund.)
             },
             # Geordnete Präfix-Heuristik für Repos OHNE repo_owner-Eintrag. Konsument:
             # iil-klickdummy genesor (detect_org) — ersetzt dessen hartkodierte Heuristik.
