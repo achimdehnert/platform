@@ -1,7 +1,7 @@
 ---
 id: ADR-255
 title: "Migrate the iil-* PyPI package family from the personal achimdehnert account to the iilgmbh GitHub org + PyPI Organization"
-status: proposed
+status: accepted
 decision_date: 2026-06-22
 deciders: [Achim Dehnert]
 consulted: [Claude Code, external LLM review (cross-provider)]
@@ -18,6 +18,22 @@ scope:
 ---
 
 # ADR-255 — iilgmbh org migration for the iil-* PyPI family
+
+> Rev 3 (2026-06-23): **accepted**. Method gate before any transfer is now
+> implemented as code, not prose: the machine-readable migration SSoT lives at
+> [`registry/iil-migration.yaml`](../../registry/iil-migration.yaml) (REC-3) with
+> an idempotent checker at `tools/iil_migration_check.py`; the org-resolution
+> convention (REC-4/REC-14) is anchored in `CORE_CONTEXT.md`. **Phase-0 gate and
+> the per-repo strict sequence remain blocking — acceptance authorizes the method,
+> not an unattended fan-out.** First-wave verification (2026-06-23) already
+> surfaced a registry drift the checker is built to catch: `repo_owner` claimed
+> `iil-testkit: iilgmbh`, but the repo is really `achimdehnert/iil-testkit`
+> (corrected in `tools/registry-canonical.py`). Pilot trio fixed per REC-12:
+> **(a) iil-adrfw** (no-rename, `publish.yml` already landed), **(b) promptfw →
+> iil-promptfw** (rename), **(c) aifw → iil-aifw** (integration-rich + rename =
+> hardest). Verified state at acceptance: iilgmbh holds 12 repos incl.
+> iil-fieldprefill, iil-klickdummy, iil-relaunch, illustration-fw; the iil-* PyPI
+> family otherwise still under `achimdehnert`.
 
 > Rev 2 (2026-06-22): hardened after a cross-provider external review (Steelman →
 > 3-role → out-of-the-box). The review's recommendation was **revise**; its valid
