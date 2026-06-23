@@ -24,6 +24,10 @@ REL_LINK = re.compile(
 
 MARK = "MANAGED-BY: platform/tools/cc-skill-dist"
 
+# Interne System-Prompt-Workflows (distribute: false) werden nicht in die flache commands-Lane
+# verteilt → dürfen im Ziel fehlen, ohne als Drift zu zählen. Parität zu generate.py.
+DISTRIBUTE_FALSE = re.compile(r"^distribute:\s*false\b", re.MULTILINE)
+
 # Lane: (Quell-Pfad im Repo, Blob-Endung, key-Extraktor aus repo-Pfad, Live-Ziel, Ziel-Enumerator)
 def _name_basename(path): return os.path.basename(path)
 def _name_skilldir(path): return os.path.basename(os.path.dirname(path))
@@ -81,6 +85,10 @@ def main():
 
     def canon_content(sha):
         return git(["cat-file", "blob", sha], a.platform)
+
+    if a.kind == "commands":  # interne System-Prompts (distribute: false) sind nie im flachen Ziel
+        canon = {n: sha for n, sha in canon.items()
+                 if not DISTRIBUTE_FALSE.search(canon_content(sha) or "")}
 
     sym_ok = sym_stale = sym_dangling = copy_fresh = copy_stale = extra = 0
     issues = []

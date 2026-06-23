@@ -77,6 +77,38 @@ def _doctor_skills(repo, skills_dir):
         capture_output=True, text=True)
 
 
+def _make_commands_repo(root):
+    root.mkdir(parents=True)
+    _git(root, "init", "-b", "main")
+    _git(root, "config", "user.email", "t@t.t")
+    _git(root, "config", "user.name", "t")
+    (root / ".windsurf" / "workflows").mkdir(parents=True)
+    (root / ".windsurf" / "workflows" / "foo.md").write_text("# foo\nbody\n")
+    (root / ".windsurf" / "workflows" / "_reviewer.md").write_text(
+        "---\nprovider: openai\ndistribute: false\n---\n# reviewer\nsystem prompt\n")
+    _git(root, "add", "-A")
+    _git(root, "commit", "-m", "init")
+    _git(root, "remote", "add", "origin", str(root))
+    _git(root, "fetch", "origin", "main", "-q")
+    return root
+
+
+def test_should_not_count_distribute_false_as_missing_drift(tmp_path):
+    """commands-Lane: ein distribute:false-Workflow wird nicht verteilt UND nicht als
+    'fehlend' gewertet → Drift bleibt 0 (Parität zu generate.py)."""
+    repo = _make_commands_repo(tmp_path / "repo")
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    r = subprocess.run(
+        [sys.executable, str(_DOC), "--kind", "commands", "--platform", str(repo),
+         "--ref", "HEAD", "--commands", str(dist)],
+        capture_output=True, text=True)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "DRIFT-SCORE: 0" in r.stdout
+
+
 def test_should_report_drift_zero_then_detect_tamper(tmp_path):
     repo = _make_repo(tmp_path / "repo")
     dist = tmp_path / "dist"
