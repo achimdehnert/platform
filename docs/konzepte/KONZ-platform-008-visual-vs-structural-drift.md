@@ -95,6 +95,27 @@ Nächster Schritt der Adoptions-Linie bleibt §0 Punkt (2): die **6 Prosa-`parit
 (Screens 1–5) ausführbar machen — das braucht zuerst echte App-Routen + Cell-Testid-Kontrakte +
 Seeds je Screen (größerer Lift als dieser Increment), kein DSL-Problem.
 
+### 0.3 §0-Punkt-(2)-Befund: nicht jede `parity_acceptance` ist render-parity-ausdrückbar (2026-06-23)
+
+Increment-2 ausgeführt (risk-hub PR #271, gestapelt auf #270): die 6 Prosa-Checks der Screens 1–5
+angegangen. Ergebnis ist **8 ausführbar / 3 kategorisiert**, **nicht** „6/6 grün" — und das ist der
+*richtige* Endzustand. Drei Checks gehören in **andere Test-Schichten** als die Playwright-Parität:
+
+| Klasse | Check | Warum nicht Render-Parität | Echte Heimat |
+|---|---|---|---|
+| **parametrisierte Route** | detail.bestand (`/sds/revision/<int:pk>/`) | pk nicht-deterministisch → Generator-Skip `parametrised_route`; `page.goto` würde 404 raten | seed-fixiertes `route_example` (Schicht-2-Folge) |
+| **HTMX-Interaktion** | update.bestand (diff/adopt/defer in `#diff-container`) | kein Page-Load, braucht Klick-Interaktion | Service-Unit-Tests |
+| **Backend-Cron** | frist.job (`sds_check_deadlines`) | gar kein Render | Management-Command-Test |
+
+Die 3 ausführbaren (bibliothek/upload/frist.dashboard) sind **Schicht-1-Präsenz-Asserts** auf
+immer-rendernde Anker (KPI-Kacheln, Upload-Formular, Revisions-Zähler) → seed-unabhängig, robust.
+
+**Lehre (deckt sich mit dem Anti-Theater-Kern des Konzepts):** „alle Prosa-Checks ausführbar machen"
+ist das **falsche** Ziel — richtig ist, jeden Check der **billigsten ausdrucksstarken Schicht**
+zuzuordnen und den Rest als **kategorisierten** (nicht stillen) Skip zu dokumentieren. Der Generator
+unterstützt das bereits (`parametrised_route` / `login_required_no_auth` / `no_assert`); die Spec
+sollte den Blocker im `check`-Text benennen, damit Skip-Debt sichtbar und begründet bleibt.
+
 ## 1 Executive Summary (historisch — vor Decider-Steuerung §0)
 
 **Entscheidung stand an:** Reicht die bestehende **strukturelle** Klickdummy-Parität
