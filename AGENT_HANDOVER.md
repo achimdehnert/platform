@@ -162,14 +162,18 @@ verfügbar" war FALSCH** (Paket ist da, aus risk-hub/packages). Fleet-Pattern �
 
 ---
 
-## 0. Aktuelle Prioritäten (2026-06-11)
+## 0. Aktuelle Prioritäten (2026-06-24 — verifiziert via API/Fleet-Scan)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **F4 CI-grün-Programm (Breite)** — ~34 Repos rote main-CI; nächste Welle = Ruff/Config-Drift an der Quelle | `[Sonnet]` |
-| 2 | **ADR-242 Phase 3 (Pilot)** — GH-Actions-Workflow triggern oder `apply-branch-protection.sh` direkt (ab nächster Session) | `[du/Sonnet]` |
-| 3 | **coach-hub #28** — `django-lms-lite` Dep-Entscheid (privater Repo, kein CI-Zugriff) | `[du]` |
-| 4 | **ADR-242 Phase 4** — `branch-protection-meter` Workflow + Discord-Alert | `[Sonnet]` |
+| 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz (ADR-209-Programm, NICHT ad-hoc); erst danach `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter erweitern. Worklist/Voraussetzung s. „Aktueller Stand 2026-06-20". | `[du/Sonnet]` |
+| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra): onboarding-hub = leeres `STAGING_HOST`-Secret (Deploy/Staging) · 137-hub = Docker-Build-Fail · dms/tax = `cancelled` (Concurrency, benign) · weltenhub = Docker build. | `[du/Owner]` |
+
+> **✅ Retired/erledigt (2026-06-24, hart verifiziert — billigster Check gemacht):**
+> - **F4 CI-grün** als Code-CI-Programm GESCHLOSSEN (Fleet-Scan: 0 Lint/Test/Coverage-Rot; alle Roten = Deploy-Stage). **Kein Sonnet-Material mehr** — nicht erneut als Sonnet-Queue listen.
+> - **coach-hub #28** gemergt 2026-06-15 (+ Dep-Fix #31, PAT/Org-Transfer). Strang zu.
+> - **ADR-242 Wave 1+2** live (11 Repos geschützt, `ci / gate`).
+> - **F1 `.windsurf`-Nachzügler** gesweept (lastwar-bot, iil-voice-agent) — F1 ist KEIN Einmal-Endzustand, periodisch `tools/f1-windsurf-sweep.sh` (dry-run) gegen die API laufen lassen.
 
 **✅ Erledigt (2026-06-10):** weltenhub#16 gemergt verifiziert → **ref-sweep 12/12 komplett** · **research-hub#6** gemergt (2 teardown-Bugs gefixt: async-ORM-Connection-Leak + flush-CASCADE vs django_tenancy-FK).
 
