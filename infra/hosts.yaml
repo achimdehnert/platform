@@ -35,8 +35,9 @@ hosts:
 
   staging:
     ip: 88.99.38.75
-    ssh: root@88.99.38.75
-    hostname: dev-desktop              # "Dev-Desktop / Staging" in infra-Skripten
+    ssh: root@88.99.38.75              # Admin/Deploy-Zugang
+    ssh_interactive: devuser@88.99.38.75  # interaktiver Dev-Account — Default für Dev-Arbeit auf diesem Host
+    hostname: dev-desktop              # Label in infra-Skripten; OS-Hostname real: ubuntu-32gb-fsn1-1
     provider: Hetzner
     role: >
       Staging-/Dev-Host. Trägt Staging-Container (risk_hub_staging_*,
@@ -44,7 +45,7 @@ hosts:
       Staging-Ingress via eigenem cloudflared (staging-riskhub.iil.pet).
       KEIN GitHub-Actions-Runner installiert (Stand 2026-06-17).
     hosts_runners: []
-    verified: 2026-06-17
+    verified: 2026-06-24               # on-host verifiziert: root + devuser haben beide /bin/bash-Login (/etc/passwd)
 
   odoo:
     ip: 46.225.127.211
