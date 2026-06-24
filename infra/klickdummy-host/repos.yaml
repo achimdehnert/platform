@@ -35,10 +35,12 @@ repos:
     description: Werkleitung + Schichtleitung (Forms)
     adr: ttz-hub:ADR-100
 
-  - owner: achimdehnert
+  - owner: iilgmbh            # transferiert achimdehnert→iilgmbh 2026-06-22 (ADR-236)
     name: risk-hub
     host_alias: github.com-risk
     sync_subdir: klickdummy
     layout: flat-html           # direkte *.html-Files statt <name>/shell.html
+                                # (die per-subdir-Dirs sind ADR-211 Spec+Parity-Artefakte
+                                #  OHNE shell.html → nicht statisch servierbar; flat-html korrekt)
     description: DSB-Mandant + Ex-Schutz-Konzept + Module-Nav-Prototypen
     adr: risk-hub:ADR-046
