@@ -416,6 +416,32 @@ MCP: <orc>_check_recurring_errors(threshold=3)
 
 ---
 
+## Phase 2.6: Handover ↔ Memory Reconciliation (Drift-Guard — NEU 2026-06-24)
+
+> **Lesson 2026-06-24 (iil-klickdummy):** Arbeit auf einem anderen Gerät
+> (iPad/claude.ai) aktualisierte das **geteilte pgvector-Memory**, aber **nicht**
+> das git-getrackte `AGENT_HANDOVER.md`. Die nächste Session auf dem Dev-Host sah
+> eine als „offen" gelistete Prio, die laut Memory längst **erledigt** war — und
+> hätte sie fast erneut bearbeitet (~35 KDs Doppelarbeit). Die *verursachende*
+> Session läuft nicht durch *unser* `/session-ende` → ein Guard greift nur **hier
+> am Start**, nicht am Ende.
+
+Für **jede** offene Prio aus der `AGENT_HANDOVER.md`-Tabelle (Phase 1, Schritt 1)
+gegen das Warm-Start-Memory (Phase 2) abgleichen:
+
+- Memory-Eintrag, der dieselbe Aufgabe als **erledigt/komplett/abgeschlossen**
+  markiert **und neuer** ist als der Handover-Stand (Datum in der
+  `## ⚡ Aktueller Stand`-Überschrift)?
+- **Treffer → NICHT blind starten.** Diskrepanz dem User spiegeln, evidenz-diszipliniert:
+  „verifiziert: Memory `<key>` sagt erledigt am `<Datum>`; Handover sagt offen" →
+  vorschlagen, den Handover sauberzuziehen, **bevor** Arbeit beginnt.
+- Kein Treffer → normal weiter zu Phase 3.
+
+→ Billigster Check zuerst (Evidenz-Disziplin): **die Diskrepanz IST der Fund** —
+  nicht die erneute Ausführung der Aufgabe.
+
+---
+
 ## Phase 3: Arbeitsplan
 
 12. **Arbeitsplan aufstellen** — Schritte, Komplexität, Risk Level, Gate (unter Einbezug der Warm-Start-Ergebnisse + Eskalationen)

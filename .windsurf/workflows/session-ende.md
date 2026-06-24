@@ -124,6 +124,24 @@ claude --resume <session-id>
 → Dann `git add docs/AGENT_HANDOVER.md && git commit -m "chore: update AGENT_HANDOVER"`
 → Wird von `session-start Phase 1` automatisch gelesen: *"Repo-Kontext laden — AGENT_HANDOVER.md"*
 
+### 0c: Erledigte/verschobene Prioritäten im Handover nachziehen (PFLICHT — NEU 2026-06-24)
+
+> **Unabhängig von WIP** (Phase 0b feuert nur bei uncommitted Stand — eine
+> *abgeschlossene* Prio hinterlässt aber oft gar keine dirty Files und fiel
+> bisher durchs Raster). Lesson 2026-06-24 (iil-klickdummy): siehe
+> session-start Phase 2.6.
+
+Falls diese Session eine Aufgabe aus der `## Prioritäten`-Tabelle des
+`AGENT_HANDOVER.md` **erledigt oder verschoben** hat:
+
+1. Tabelle aktualisieren — erledigte Zeile entfernen, Rest neu nummerieren, und
+   eine `> **Erledigt <Datum>:** …`-Notiz unter die Tabelle setzen; zusätzlich
+   einen Stichpunkt in `## ⚡ Aktueller Stand`.
+2. **Beides aktualisieren — Handover UND Memory (Phase 2), nie nur eins.**
+   Cross-Host-Sessions (iPad/claude.ai) updaten typischerweise nur das geteilte
+   pgvector-Memory → der git-getrackte Handover driftet. Der Start-seitige
+   Drift-Guard (`session-start` Phase 2.6) fängt nur, was beide Quellen abgleicht.
+
 ---
 
 ## Phase 1: Wissen sichern — an `/knowledge-capture` delegieren
@@ -464,6 +482,7 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 8 | Blockierte Arbeit dokumentiert | ☐ |
 | 9 | Docu-Drift-Check: Issue erstellt falls nötig (Phase 1b) | ☐ |
 | 10 | Template-Drift-Check: Error-Drifts gefixt (Phase 1c) | ☐ |
+| 11 | Erledigte/verschobene Prios im Handover UND Memory nachgezogen (Phase 0c) | ☐ |
 
 ---
 
