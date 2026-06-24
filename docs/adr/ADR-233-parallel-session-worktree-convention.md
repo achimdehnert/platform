@@ -117,8 +117,14 @@ strukturell. Darum ist der Guard Teil der **Entscheidung**, nicht der Risiko-Mit
 - **`tools/repo-session.sh`** (REC-2) ✅ gebaut + getestet: `start`/`list`/`end`; legt Worktree **von
   `origin/main`** an, Branch-Schema `session/<date>/<owner>/<slug>`, schreibt Lease (REC-7), Dirty-Guard
   bei `end`.
-- **Lease-Ledger** (REC-7) ✅ vom Wrapper geschrieben; **offen:** Reaper-Stale-Logik von mtime auf Lease
-  umstellen (Folge-Item).
+- **Lease-Ledger** (REC-7) ✅ vom Wrapper geschrieben; Reaper-Stale-Logik ✅ auf Lease umgestellt
+  (`expires_at` primär, mtime nur Fallback — `worktree-reaper.py:classify`).
+- **Geplante Reaper-Invocation** ✅ `infra/host-maintenance/worktree-reaper-all.sh` +
+  `worktree-reaper.{service,timer}` (systemd --user, täglich, merged-only `--apply`). Schließt die
+  Akkumulations-Wurzel: der Reaper lief bisher nur als Dry-Run am `repo-session end` (nur der eine
+  übergebene Tree, nur bei manueller Invocation) → Orphans aus `gh pr merge` ohne `end` blieben liegen.
+  Anker für den Längsschnitt-Slug `worktree-orphan-accumulation` (≥2× in session-retros). Host-`enable`
+  bleibt expliziter Menschen-Schritt (README); der Merge ändert nichts am Host.
 - Konvention + Entry Point in `CORE_CONTEXT.md`/Session-Start-Ritual verankern (ein offizieller Einstieg).
 - Einmaliger Cleanup bestehender stale Worktrees — **nur nach Einzel-Freigabe** (fremde/evtl. aktive
   Sessions; destruktive Shared-State-Aktion). *(In dieser Session bereits durchgeführt: 7 gemergte gereapt.)*

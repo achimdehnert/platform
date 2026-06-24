@@ -44,6 +44,45 @@ ssh root@<host> 'chmod +x /opt/infra/host-cleanup-tier1.sh && \
 | Standing prevention (config + scheduled safe prune) | this bundle |
 | Aggressive reclaim (`image prune -a` no-filter, full `_work`, volumes) | human-driven only, via skill with explicit confirm |
 
+## Session-Worktree GC (ADR-233 — separate concern, dev/session host)
+
+Closes the recurring `worktree-orphan-accumulation` slug (≥2× across
+`~/shared/session-retro-*.md`, flagged gate-pflichtig by `retro_kpis.py`).
+`tools/worktree-reaper.py` already reaps merged-PR worktrees correctly
+(squash-aware, dirty-guard, restore-manifest, `unknown=KEEP`) — but **nothing
+ran it with `--apply`**: `repo-session end` only handles the single passed
+worktree on explicit human invocation, so orphans from `gh pr merge` without
+`end` piled up (2026-06-24: 3 merged worktrees + open leases back to 06-10).
+
+`worktree-reaper-all.sh` iterates every repo under `$GITHUB_DIR` that has
+session worktrees and runs the reaper `--apply` per repo — **merged-only,
+never `--include-stale`, never touches branches/remote**. Logs to
+`~/.repo-session/reaper.log`.
+
+> ⚠️ Unlike P1–P3 (prod/runner hosts, **root**), this runs on the **dev/session
+> machine as the session user** — it needs that user's `gh` auth and `~/github`
+> checkout. Hence a systemd **`--user`** timer, not a system timer.
+
+Install (per session host, **explicit human step — merging this PR changes
+nothing**):
+```bash
+mkdir -p ~/.config/systemd/user
+cp infra/host-maintenance/worktree-reaper.{service,timer} ~/.config/systemd/user/
+systemctl --user daemon-reload
+systemctl --user enable --now worktree-reaper.timer
+systemctl --user list-timers worktree-reaper.timer
+# Damit der Timer ohne aktive Login-Session feuert:
+loginctl enable-linger "$USER"
+```
+Dry-run first to inspect the plan without removing anything:
+```bash
+( cd ~/github/<repo> && python3 ~/github/platform/tools/worktree-reaper.py )
+```
+
 ## Changelog
 - 2026-06-03: Initial. P1–P3 prevention bundle; split from the reclaim-only
   `/infra-cleanup` skill (no daemon-restart as a cleanup side effect).
+- 2026-06-24: Session-Worktree GC added (`worktree-reaper-all.sh` +
+  `worktree-reaper.{service,timer}`, systemd --user) — closes the missing
+  scheduled `--apply` invocation behind ADR-233's reaper (gate for
+  `worktree-orphan-accumulation`).
