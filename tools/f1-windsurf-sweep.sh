@@ -46,7 +46,14 @@ for d in "$GH"/*/; do
   mapfile -t synced < <(
     gh api "repos/$OR/git/trees/$main_sha?recursive=1" \
       -q '.tree[] | select(.type=="blob" and .mode=="100644" and (.path|startswith(".windsurf/"))) | .path' 2>/dev/null \
-    | while read -r p; do [ -e "$PWF/${p#.windsurf/}" ] && printf '%s\n' "$p"; done )
+    | while read -r p; do
+        # project-facts.md ist per-Repo AUTHORED (eigener Inhalt: Repo-Name/Typ/PyPI),
+        # nicht aus platform synced — platform hat zwar ein gleichnamiges Pendant, aber
+        # der Pfad-Match ist ein FALSE POSITIVE. NIE löschen (sonst geht repo-spezifischer
+        # Inhalt verloren — Realfall iil-voice-agent 2026-06-24). Memory: F1-Tool-Bug.
+        case "$p" in */project-facts.md) continue;; esac
+        [ -e "$PWF/${p#.windsurf/}" ] && printf '%s\n' "$p"
+      done )
   [ "${#synced[@]}" -eq 0 ] && { echo "== $rn : 0 synced — skip"; continue; }
 
   # blanket-.windsurf/ in origin-.gitignore?  (API, nicht lokal)
