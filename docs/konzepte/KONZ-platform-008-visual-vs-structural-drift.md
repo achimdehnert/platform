@@ -97,7 +97,8 @@ Seeds je Screen (größerer Lift als dieser Increment), kein DSL-Problem.
 
 ### 0.3 §0-Punkt-(2)-Befund: nicht jede `parity_acceptance` ist render-parity-ausdrückbar (2026-06-23)
 
-Increment-2 ausgeführt (risk-hub PR #271, gestapelt auf #270): die 6 Prosa-Checks der Screens 1–5
+Increment-2 ausgeführt (risk-hub PR #272 — gemergt; #271 war der gestapelte Vorläufer, von GitHub
+auto-geschlossen, als #270 + dessen Base-Branch gemergt wurden): die 6 Prosa-Checks der Screens 1–5
 angegangen. Ergebnis ist **8 ausführbar / 3 kategorisiert**, **nicht** „6/6 grün" — und das ist der
 *richtige* Endzustand. Drei Checks gehören in **andere Test-Schichten** als die Playwright-Parität:
 
