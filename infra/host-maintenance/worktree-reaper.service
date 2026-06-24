@@ -7,3 +7,8 @@ Type=oneshot
 ExecStart=%h/github/platform/infra/host-maintenance/worktree-reaper-all.sh
 Nice=10
 IOSchedulingClass=idle
+# Observability (Retro 2026-06-24): stdout+stderr ins Journal, sonst ist ein
+# stiller Fehllauf nur in ~/.repo-session/reaper.log sichtbar.
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=worktree-reaper
