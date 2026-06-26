@@ -1,7 +1,7 @@
 ---
 status: proposed
 date: 2026-06-26
-revision: 1
+revision: 2
 decision-makers: [Achim Dehnert]
 scope: platform
 implementation_status: none
@@ -22,6 +22,12 @@ supersedes: []
 
 `proposed` — wartet auf Entscheidung. Liefert die empirische Begründung, auf die
 ADR-222 (eingefroren „bis neue Empirie") für die Placement-Achse wartet.
+
+> **Rev 2 (2026-06-26):** Externe Zweitmeinung (`/adr-handoff-extern`, Cross-Provider)
+> eingearbeitet — 12 Befunde, alle `[valid]` nach Rückfluss-Gate. Wesentliche Schärfungen:
+> Label-Enforcement via Erweiterung des bestehenden `runner-label-check` (REC-2/3), Staging-Host
+> als billigste konkrete Runner-Realisierung (REC-9), expliziter Prod-Carve-out (REC-4),
+> Kill-Gate-Aktuator + Folge-Artefakte (REC-7/8/10).
 
 ## Kontext
 
@@ -47,18 +53,31 @@ Host-Port-Bindung) gehört in ADR-222s Familien — dieser ADR fügt dort *keine
 
 ## Entscheidung
 
-1. **CI-Workloads laufen nicht mehr auf dem Prod-Host.** Ein **dedizierter Non-Prod-Runner**
-   (eigener Host/VM) übernimmt `self-hosted`-CI. `prod-server` wird für CI **deprecated**
-   (verbleibt höchstens für Deploy-Schritte, die per Definition auf den Prod-Host gehören).
-2. **Ehrliche Benennung:** Der neue Runner ist zunächst ein **dediziertes „Pet"**, kein
-   auto-skalierender ephemerer Runner — es existiert (Stand heute) **keine** Provisioning-
-   Automation (ARC/Terraform). „Ephemeral" wird *nicht* behauptet, bis solche Automation steht.
-3. **`hosts.yaml` ist und bleibt die Runner-SSoT.** Der neue Runner + die `prod-server`-CI-
-   Deprecation werden dort eingetragen; keine zweite Topologie-Quelle.
-4. **Hermetische Job-Form** (run-eindeutige Ports / keine Host-Port-Bindung / garantierter
-   Teardown) wird als ADR-222-Familien-Baustein geteilt — **referenziert per SHA**, nicht kopiert.
-5. **Mess-Gate statt Behauptung:** Ein scheduled, read-only **Runner-Hygiene-Check** misst je
-   Runner Host-Port-Bindungen + verwaiste CI-Prozesse und wird rot bei Verstoß (speist das Kill-Gate).
+1. **CI/Test-Workloads laufen nicht mehr auf dem Prod-Host.** Ein **dedizierter Non-Prod-Runner**
+   übernimmt sie. „Dediziert" heißt präzise (REC-1 ← AD-2): **nur CI/Test**, und auf dessen
+   Docker-Engine läuft **kein produktiver App-Container** — der geteilte-Engine-Blast-Radius ist
+   genau das, was dieser ADR schließt; ein Runner neben Prod-Containern reproduziert ihn.
+2. **Prod-Host-Carve-out, explizit (REC-4 ← AD-5):** Auf `prod-server` dürfen **ausschließlich
+   Deploy-Schritte nach ADR-156** laufen — **keine** Tests, Builds, `runserver`-/Service-Starts.
+   `prod-server` wird für CI/Test **deprecated**.
+3. **Technische Durchsetzung per Label + Gate (REC-2/REC-3 ← AD-3/M28-2):** Eine Entscheidung ohne
+   Enforcement bleibt eine Fehlkonfiguration entfernt. Daher: CI/Test-Jobs tragen ein eigenes Label
+   (`ci-nonprod`), Deploy-Jobs `deploy-prod`; **plain `runs-on: self-hosted` für CI/Test ist
+   verboten**. Erzwungen durch **Erweiterung des bestehenden `runner-label-check.yml`** (validiert
+   `runs-on` bereits gegen `hosts.yaml`, hat den `ALLOWED_EXTRA`-Hook) — **kein neues Gate**, der
+   Check wird rot, wenn ein CI/Test-Job `prod-server`/plain-`self-hosted` zielt.
+4. **Ehrliche Benennung (REC-11-bestätigt):** Der neue Runner ist zunächst ein **dediziertes „Pet"**,
+   kein ephemerer Runner — es existiert **keine** Provisioning-Automation (ARC/Terraform). „Ephemeral"
+   wird *nicht* behauptet, bis Automation steht. Evolutionspfad in §Folge-Artefakte (REC-10).
+5. **Mindest-Betriebsregeln des Runners (REC-5 ← AD-1):** Patch-Verantwortung, **kein `user:0:0`**,
+   begrenzter Docker-Socket-/Secret-Scope, Disk/CPU-Monitoring + Cleanup — ausformuliert in einem
+   **Runbook** (§Folge-Artefakte), nicht hier; Präzedenz: Runner-Pollution-Fix (kein root, tmpfs-STATIC_ROOT).
+6. **`hosts.yaml` bleibt Runner-SSoT.** Neuer Runner + `prod-server`-CI-Deprecation dort eintragen.
+7. **Hermetische Job-Form** (run-eindeutige Ports / keine Host-Port-Bindung / garantierter Teardown,
+   = KONZ-004 Ebene A, bereits gemergt) wird als ADR-222-Familien-Baustein **per SHA referenziert**, nicht kopiert.
+8. **Mess-Gate statt Behauptung:** Ein scheduled, read-only **Runner-Hygiene-Check** misst je Runner
+   Host-Port-Bindungen + verwaiste CI-Prozesse **und** Ressourcendruck (Disk/Volumes, alte Workspaces,
+   CPU/RAM, offene Ports, Docker-Socket-Nutzung — REC-6 ← AD-4); rot bei Verstoß (speist das Kill-Gate).
 
 ## Konsequenzen
 
@@ -81,8 +100,15 @@ Host-Port-Bindung) gehört in ADR-222s Familien — dieser ADR fügt dort *keine
   **nicht hinreichend**: CI-Code teilt weiter die Prod-Engine. Ist der Interim, nicht das Ziel.
 - **C: Voll-ephemere ARC-Runner (Kubernetes).** Über-Engineering für die heutige Lage; kein
   Cluster/Provisioning vorhanden. Möglicher *späterer* Pfad, sobald Automation existiert.
-- **D (gewählt): Ein dedizierter Non-Prod-Runner + ADR-222-Familie + Mess-Gate.** Evidenz-
-  proportional, schließt den Blast-Radius über einen Host, Drift via SHA-Referenz + Hygiene-Gate.
+- **E: Runner auf dem bestehenden Staging-Host (REC-9 ← AD-6).** Der Staging-Host (88.99.38.75,
+  32 GB) **existiert bereits** und hat heute keinen Runner — ihn als CI/Test-Runner-Ziel zu nutzen
+  ist die **billigste** Realisierung von D (kein neuer Host zu bezahlen/patchen). Bedingung: Er trägt
+  **keine Prod-Container** (Bedingung aus Entscheidung 1 gilt) und seine Staging-Container teilen die
+  Engine bewusst mit CI — akzeptabel, weil non-prod. **Bevorzugte konkrete Form von D**, sofern die
+  CI-Last die Staging-Stacks nicht verdrängt (sonst eigener Host).
+- **D (gewählt, konkretisiert durch E): Dedizierter Non-Prod-Runner — vorzugsweise auf dem
+  Staging-Host — + ADR-222-Familie + Label-Gate + Mess-Gate.** Evidenz-proportional, schließt den
+  Blast-Radius, Drift via SHA-Referenz + erweitertem `runner-label-check` + Hygiene-Gate.
 
 ## Kill-Gate (messbar, datiert)
 
@@ -91,6 +117,21 @@ Wenn **2026-09-24** (90 Tage) *eine* Bedingung gilt:
 Bindung oder einen verwaisten CI-Prozess, **oder** (ii) kein dedizierter Non-Prod-Runner ist in
 `hosts.yaml` registriert und in Betrieb → dieser ADR wird `rejected`/`superseded`, Status-quo-
 Doku wiederhergestellt. **Exception-Budget:** max. **eine** datiert begründete 30-Tage-Verlängerung.
+
+**Aktuator, präzise (REC-8 ← AD-7):** Datenquellen sind der Hygiene-Check + der erweiterte
+`runner-label-check`. Auslösung-Prüfung: am Stichtag manuell durch den Decision-Maker (Achim).
+Statusänderung erfolgt per **Folge-PR**, der das Frontmatter auf `rejected`/`superseded` setzt;
+„Status-quo-Doku wiederhergestellt" = derselbe PR revertet die `prod-server`-CI-Deprecation in
+`hosts.yaml` und den Label-Gate-Zwang. Kein stiller Auto-Status — die Änderung ist immer ein PR.
+
+## Folge-Artefakte (gefordert, nicht hier ausspezifiziert)
+
+- **Runner-Betriebs-Runbook (REC-5/REC-7 ← AD-1/M28-4):** Härtungs-Checkliste (kein `user:0:0`,
+  Docker-Socket-/Secret-Scope, Firewall, Disk/CPU) **+** Operational Playbook für Hygiene-Rot:
+  wer reagiert, welche Jobs werden gestoppt, wann Runner-Quarantäne, wann Kill-Gate-Auslösung.
+- **Evolutionspfad (REC-10 ← M28-3):** Pet-Runner jetzt → **reproduzierbares Bootstrap-Skript**
+  als nächster Schritt (gegen Schneeflocken-Drift) → optional später Terraform/ARC/ephemer. Ohne
+  diesen Pfad ist der Pet-Runner ein bekannter, datierter Tech-Debt, kein Endzustand.
 
 ## Referenzen
 
