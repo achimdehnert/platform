@@ -45,6 +45,14 @@ ssh root@<host> 'chmod +x /opt/infra/host-cleanup-tier1.sh && \
   systemctl list-timers infra-cleanup.timer'
 ```
 
+## CI-Runner placement (ADR-257)
+
+The cleanup timer above *treats the symptom* — CI image churn filling the **prod**
+host's disk. The structural fix is **not** running CI on the prod host at all:
+see [`runner-nonprod-runbook.md`](runner-nonprod-runbook.md) (ADR-257 §Folge-Artefakt,
+Alt E — dedicated non-prod runner on the staging host). Until that lands, the daily
+timer is the agreed interim.
+
 ## Relationship to `/infra-cleanup`
 
 | Concern | Tool |
@@ -89,6 +97,9 @@ Dry-run first to inspect the plan without removing anything:
 ```
 
 ## Changelog
+- 2026-06-28: `runner-nonprod-runbook.md` added (ADR-257 §Folge-Artefakt, REC-5/7) —
+  the structural fix (CI off the prod host) behind today's interim cleanup-cadence bump.
+  Grounded in verified staging-host capacity (16 CPU / 32 GB / 601 G); travel-beat as pilot.
 - 2026-06-28: P3 cadence weekly → **daily** (`infra-cleanup.timer` `OnCalendar=Sun`
   → `*-*-* 04:00`). Weekly let image churn fill the disk mid-week → travel-beat
   deploy failed Sat 2026-06-27 (apt `No space left`) the day before the Sunday run.
