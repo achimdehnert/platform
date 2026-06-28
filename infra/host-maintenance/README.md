@@ -22,11 +22,20 @@ Only if `log-opts` / `builder.gc` are absent, merge the keys from
 `daemon.json.recommended`, then `systemctl restart docker` (⚠️ bounces all
 containers — schedule a window). Not applied by the `/infra-cleanup` skill.
 
-## P3 — Weekly safe cleanup timer (the actual prevention)
+## P3 — Daily safe cleanup timer (the actual prevention)
 
 `host-cleanup-tier1.sh` = unattended-safe subset of `/infra-cleanup` Tier 1
 **plus a prune of unused images >7 days old** (the piece builder-GC does *not*
 cover); never volumes, never `_tool`, never in-flight `_work`. Install:
+
+> ⚠️ **Cadence is daily, not weekly.** Originally `OnCalendar=Sun` (weekly).
+> On `88.198.191.108` (multi-hub host, ~7 `trading-hub` image tags @ 2.7 GB
+> stack up between runs) the disk filled mid-week and a **travel-beat deploy
+> failed Sat 2026-06-27** (`apt-get … No space left` in the build's apt layer) —
+> the Sunday cleanup then freed it Sun 06-28. Weekly let a full week of churn
+> accumulate. The script is cheap + conservative (idempotent prunes, only
+> `_work/*/_temp` scratch, no checkout wipe), so daily has no downside and
+> matches the host's documented *daily* image churn.
 
 ```bash
 scp infra/host-maintenance/host-cleanup-tier1.sh root@<host>:/opt/infra/host-cleanup-tier1.sh
@@ -80,6 +89,9 @@ Dry-run first to inspect the plan without removing anything:
 ```
 
 ## Changelog
+- 2026-06-28: P3 cadence weekly → **daily** (`infra-cleanup.timer` `OnCalendar=Sun`
+  → `*-*-* 04:00`). Weekly let image churn fill the disk mid-week → travel-beat
+  deploy failed Sat 2026-06-27 (apt `No space left`) the day before the Sunday run.
 - 2026-06-03: Initial. P1–P3 prevention bundle; split from the reclaim-only
   `/infra-cleanup` skill (no daemon-restart as a cleanup side effect).
 - 2026-06-24: Session-Worktree GC added (`worktree-reaper-all.sh` +
