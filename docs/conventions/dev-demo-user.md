@@ -1,4 +1,4 @@
-# Convention: Einheitlicher Dev-Test-User (`demo` / `demo12345`)
+# Convention: Einheitlicher Dev-Test-User (`demo.iil.pet` / `demo12345`)
 
 > **Scope:** ORG-WEIT (platform = kanonische Quelle) · gilt für alle lokal/Dev lauffähigen
 > Apps in allen Hubs (illustration-hub, risk-hub, ttz-hub, dev-hub, …).
@@ -15,13 +15,15 @@ Jede lokal/Dev lauffähige App stellt einen **dev-only** Test-User bereit:
 
 | Feld | Wert |
 |---|---|
-| Username | **`demo`** (org-weit identisch) |
+| Username | **`demo.iil.pet`** (org-weit identisch) |
 | Passwort | **`demo12345`** |
 | Rechte | `is_staff=True` (Login über `/admin/login/` o. ä.), **kein** Superuser by default |
 
 Ein **einziger** Name über alle Repos (nicht `demo-<repo>`): minimaler Tipp-Aufwand,
-nichts zu merken. Eindeutigkeit pro Repo ist nicht nötig, weil jede App ihre **eigene**
-lokale DB hat (kein gemeinsamer Account-Raum).
+nichts zu merken. Der Name ist bewusst **unauffällig** (hostname-artig statt schlicht
+`demo`) — schwerer zu erraten, falls eine Dev-Instanz versehentlich exponiert ist; ersetzt
+aber **nicht** den Prod-Guard (§2). Eindeutigkeit pro Repo ist nicht nötig, weil jede App
+ihre **eigene** lokale DB hat (kein gemeinsamer Account-Raum).
 
 ## 2 — Guardrail (verbindlich)
 
@@ -45,7 +47,7 @@ class Command(BaseCommand):
     def handle(self, *args, **opts):
         if not settings.DEBUG:                       # Guardrail
             raise CommandError("seed_demo_user ist dev-only (DEBUG=True erforderlich).")
-        user, _ = get_user_model().objects.get_or_create(username="demo")
+        user, _ = get_user_model().objects.get_or_create(username="demo.iil.pet")
         user.set_password("demo12345"); user.is_staff = True; user.is_active = True
         user.save()
 ```
@@ -57,7 +59,7 @@ Aufruf: `python manage.py seed_demo_user`. Nicht-Django-Stacks bilden dasselbe V
 
 Repo-`README`/`AGENT_HANDOVER` nennt den lokalen Einstieg explizit, z. B.:
 
-> Lokal testen: `make dev` → `http://localhost:<port>/admin/login/` → `demo` / `demo12345`
+> Lokal testen: `make dev` → `http://localhost:<port>/admin/login/` → `demo.iil.pet` / `demo12345`
 > (vorher einmalig `python manage.py seed_demo_user`).
 
 ## 5 — Wann NICHT
@@ -68,4 +70,4 @@ Repo-`README`/`AGENT_HANDOVER` nennt den lokalen Einstieg explizit, z. B.:
 ## Changelog
 
 - 2026-06-28: Initial-Entwurf. Abgeleitet aus illustration-hub (Comic-UI-Testsession,
-  PR #43): dort `seed_demo_user` + `demo`/`demo12345` eingeführt. Org-weite Freigabe offen.
+  PR #43): dort `seed_demo_user` + `demo.iil.pet`/`demo12345` eingeführt. Org-weite Freigabe offen.
