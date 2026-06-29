@@ -4,13 +4,14 @@ name: CC-Skill-Dist Round-Trip (ADR-230)
 # aus dem PR-Baum (generate.py) und prüft, dass doctor.py es als Drift 0 liest.
 # Fängt Tooling-Regresse (z.B. generate-Footer ≠ doctor-Vergleich) VOR dem
 # gegateten Live-Rollout. Braucht KEIN ~/.claude/commands — rein selbst-konsistent.
-# Deckt BEIDE Lanes ab (commands + skills) — session-retro 2026-06-05 F-A:
-# vorher lief nur die commands-Lane, die skills-Lane war CI-blind.
+# Deckt ALLE Lanes ab (commands + skills + hooks) — session-retro 2026-06-05 F-A
+# (skills war CI-blind) + 2026-06-29 F2 (hooks-Lane war CI-blind, ein Dir-Swap-Bug erreichte main).
 
 on:
   push:
     paths:
       - "tools/cc-skill-dist/**"
+      - "tools/hooks/**"
       - "tools/tests/test_generate.py"
       - "tools/tests/test_doctor.py"
       - ".windsurf/workflows/**"
@@ -18,6 +19,7 @@ on:
   pull_request:
     paths:
       - "tools/cc-skill-dist/**"
+      - "tools/hooks/**"
       - "tools/tests/test_generate.py"
       - "tools/tests/test_doctor.py"
       - ".windsurf/workflows/**"
@@ -48,7 +50,18 @@ jobs:
           python3 tools/cc-skill-dist/generate.py --kind skills --platform "$GITHUB_WORKSPACE" --ref HEAD --target /tmp/cc-roundtrip-skills
           python3 tools/cc-skill-dist/doctor.py   --kind skills --platform "$GITHUB_WORKSPACE" --ref HEAD --skills-dir /tmp/cc-roundtrip-skills
 
-      - name: Unit-Tests (generate + doctor, beide Lanes)
+      # ADR-258 F2: hooks-Lane war CI-blind. doctor --kind hooks prüft auch das settings.json-Wiring
+      # (REC-3) — auf dem Runner gibt es keine, daher ein temp-HOME mit auf den generierten Hook
+      # verdrahteter settings.json (Positiv-Fall). Die Negativ-/Sibling-Wipe-Fälle decken die Unit-Tests.
+      - name: Round-Trip hooks-Lane (+ Wiring)
+        run: |
+          export HOME="$(mktemp -d)"
+          mkdir -p "$HOME/.claude"
+          python3 tools/cc-skill-dist/generate.py --kind hooks --platform "$GITHUB_WORKSPACE" --ref HEAD --target /tmp/cc-roundtrip-hooks
+          printf '{"hooks":{"SessionEnd":[{"matcher":"","hooks":[{"type":"command","command":"/tmp/cc-roundtrip-hooks/reap_worktrees.sh"}]}]}}' > "$HOME/.claude/settings.json"
+          python3 tools/cc-skill-dist/doctor.py --kind hooks --platform "$GITHUB_WORKSPACE" --ref HEAD --hooks-dir /tmp/cc-roundtrip-hooks
+
+      - name: Unit-Tests (generate + doctor, alle Lanes)
         run: |
           pip install pytest --quiet --break-system-packages
           python3 -m pytest tools/tests/test_generate.py tools/tests/test_doctor.py -q

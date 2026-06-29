@@ -51,6 +51,51 @@ def test_should_return_empty_for_missing_dir():
     assert doc.enumerate_skills(str(pathlib.Path("/nonexistent/xyz/123"))) == {}
 
 
+# ---------------------------------------------------------------- ADR-258 hooks-Lane
+def test_should_strip_shell_footer_for_hooks():
+    sh_footer = ("#!/bin/sh\nexit 0\n\n# MANAGED-BY: platform/tools/cc-skill-dist · "
+                 "generated=true · source=tools/hooks/x.sh · do_not_edit\n")
+    assert doc.strip_managed_footer(sh_footer).rstrip("\n") == "#!/bin/sh\nexit 0"
+
+
+def test_should_enumerate_hooks_flat_sh(tmp_path):
+    (tmp_path / "reap.sh").write_text("x")
+    (tmp_path / "notes.md").write_text("y")           # nicht .sh
+    assert set(doc.enumerate_hooks(str(tmp_path))) == {"reap.sh"}
+
+
+def _wire_settings(home, command):
+    (home / ".claude").mkdir(parents=True, exist_ok=True)
+    sj = home / ".claude" / "settings.json"
+    import json as _json
+    sj.write_text(_json.dumps({"hooks": {"SessionEnd": [
+        {"matcher": "", "hooks": [{"type": "command", "command": command}]}]}}))
+
+
+def test_should_flag_missing_hook_wiring(tmp_path, monkeypatch):
+    """REC-3: Hook-Datei verteilt, aber settings.json verdrahtet ihn nicht → Drift-Befund."""
+    monkeypatch.setenv("HOME", str(tmp_path))
+    managed = tmp_path / ".claude" / "hooks" / "managed"
+    managed.mkdir(parents=True)
+    (managed / "reap_worktrees.sh").write_text("#!/bin/sh\n")
+    (managed / "reap_worktrees.sh").chmod(0o755)
+    _wire_settings(tmp_path, "/somewhere/else/other.sh")    # falscher Pfad
+    issues = doc.check_hook_wiring(str(managed))
+    assert any(k == "settings-wiring-missing" for k, _, _ in issues)
+
+
+def test_should_pass_when_hook_wired_to_managed_path(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOME", str(tmp_path))
+    managed = tmp_path / ".claude" / "hooks" / "managed"
+    managed.mkdir(parents=True)
+    hook = managed / "reap_worktrees.sh"
+    hook.write_text("#!/bin/sh\n")
+    hook.chmod(0o755)
+    _wire_settings(tmp_path, str(hook))                     # exakter managed-Pfad
+    issues = doc.check_hook_wiring(str(managed))
+    assert not any(k == "settings-wiring-missing" for k, _, _ in issues)
+
+
 # ---------------------------------------------------------------- e2e round-trip
 def _git(root, *args):
     subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
