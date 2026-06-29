@@ -248,6 +248,7 @@
 | 254 | learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle | `Proposed` | ⬜ | [ADR-254](ADR-254-learn-hub-web-deck-embed-seam.md) |
 | 255 | iilgmbh-Org-Migration der iil-* PyPI-Familie (GitHub iilgmbh + PyPI-Org iil, OIDC Trusted Publishing, Bus-Factor/Ownership) | `Accepted` | ⬜ | [ADR-255](ADR-255-iilgmbh-org-migration-pypi-family.md) |
 | 256 | Orchestrator-MCP-Transport von HTTP/SSE auf stateless Streamable HTTP migrieren (amends ADR-224, Treiber mcp-hub#128) | `Proposed` | ⬜ | [ADR-256](ADR-256-orchestrator-mcp-stateless-streamable-http-transport.md) |
+| 259 | CMIS-first DMS-Abstraktion mit optionaler native-REST-Veredelung (herstellerneutrale Mehr-LRA-Integration) | `Proposed` | ⬜ | [ADR-259](ADR-259-cmis-first-dms-abstraktion-rest-veredelung.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
