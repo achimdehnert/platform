@@ -61,12 +61,15 @@ real übersprungen am 2026-06-28.
 
 **Stufe A — Verteilung (dieser ADR entscheidet sie):** Eine dritte `cc-skill-dist`-Lane `hooks`,
 analog `skills`/`commands`:
-- Quelle kanonisch in platform (`tools/hooks/<name>.sh`), Ziel `~/.claude/hooks/<name>.sh`.
+- Quelle kanonisch in platform (`tools/hooks/<name>.sh`), Ziel `~/.claude/hooks/managed/<name>.sh`.
+- **Dediziertes `managed/`-Unterverzeichnis (Fix nach Erstimpl):** generate macht einen atomaren
+  Verzeichnis-**Swap**; `~/.claude/hooks/` enthält auch hand-gepflegte Hooks (PreToolUse/SessionStart/…),
+  die ein Swap dort wegwischen würde. Die Lane besitzt darum exklusiv `~/.claude/hooks/managed/`.
 - **Lane-Semantik (REC-5):** kopiert die kanonische Datei, setzt `chmod +x`, schreibt MANAGED-BY-
   Header + Manifest (Hash), **meldet** Drift/lokale Edits via `doctor.py` (repariert nicht stillschweigend),
-  fasst **nur** den `hooks`-Namensraum an, lässt fremde lokale Dateien unberührt.
+  fasst **nur** den `hooks/managed`-Namensraum an, lässt fremde lokale Dateien unberührt.
 - **Stabiler Pfad (REC-4):** der settings-Eintrag verweist dauerhaft auf den **konstanten** Pfad
-  `~/.claude/hooks/reap_worktrees.sh`; Versionierung passiert im Datei-**Inhalt**, nie im Pfad.
+  `~/.claude/hooks/managed/reap_worktrees.sh`; Versionierung passiert im Datei-**Inhalt**, nie im Pfad.
 - **Security-Posture (REC-6, scoped):** Hook-Dateien `0755`, owner = User, **kein** world-write;
   MANAGED-BY + Manifest-Hash als Integritätsanker; `doctor.py` zeigt lokale Manipulation als Drift.
   Volles Signatur-/Manifest-Schema (Ansatz 3) ist **deferred**, nicht Teil dieser Stufe.

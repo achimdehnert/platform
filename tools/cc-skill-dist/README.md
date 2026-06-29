@@ -7,7 +7,12 @@ Werkzeuge zur deterministischen Verteilung aus der **einen kanonischen Quelle** 
 |----------|-------------------|-----------|------|
 | `commands` (Default) | `.windsurf/workflows/*.md` | `~/.claude/commands/` | flach (Slash-Commands) |
 | `skills` | `skills/<name>/SKILL.md` | `~/.claude/skills/<name>/SKILL.md` | verschachtelt (Anthropic Agent Skills) |
-| `hooks` (ADR-258) | `tools/hooks/*.sh` | `~/.claude/hooks/` | flach, ausführbar (0755), Shell-#-Footer |
+| `hooks` (ADR-258) | `tools/hooks/*.sh` | `~/.claude/hooks/managed/` | flach, ausführbar (0755), Shell-#-Footer |
+
+> **Warum `managed/`-Unterverzeichnis:** `generate.py` macht einen atomaren Verzeichnis-**Swap**.
+> `~/.claude/hooks/` enthält auch hand-gepflegte Hooks (PreToolUse/SessionStart/…) — ein Swap dort
+> würde sie wegwischen. Die Lane besitzt darum exklusiv `~/.claude/hooks/managed/`; settings.json
+> verweist auf `~/.claude/hooks/managed/reap_worktrees.sh`.
 
 **Hooks: Verteilung ≠ Enforcement (ADR-258).** Die `hooks`-Lane verteilt nur das Skript;
 ein Hook feuert erst, wenn `~/.claude/settings.json` ihn als Event-Eintrag (z. B. `SessionEnd`)

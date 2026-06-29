@@ -36,10 +36,13 @@ DISTRIBUTE_FALSE = re.compile(r"^distribute:\s*false\b", re.MULTILINE)
 LANES = {
     "commands": {"src": ".windsurf/workflows/", "live": "~/.claude/commands"},
     "skills":   {"src": "skills/",              "live": "~/.claude/skills"},
-    # ADR-258 Stufe A: Hook-Skripte (.sh) flach nach ~/.claude/hooks/, ausführbar gesetzt.
+    # ADR-258 Stufe A: Hook-Skripte (.sh) flach nach ~/.claude/hooks/managed/, ausführbar.
+    # WICHTIG: dediziertes managed/-Unterverzeichnis, NICHT ~/.claude/hooks/ selbst — denn
+    # generate macht einen atomaren Verzeichnis-SWAP, und ~/.claude/hooks/ enthält auch
+    # hand-gepflegte Hooks (PreToolUse/SessionStart/…), die ein Swap sonst wegwischen würde.
     # Verteilung != Enforcement — der SessionEnd-Eintrag in settings.json bleibt manuell
     # (doctor.py prüft das Wiring; bootstrap-hook.py zeigt den Patch).
-    "hooks":    {"src": "tools/hooks/",         "live": "~/.claude/hooks"},
+    "hooks":    {"src": "tools/hooks/",         "live": "~/.claude/hooks/managed"},
 }
 
 def git(args, cwd):

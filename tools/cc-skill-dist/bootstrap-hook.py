@@ -17,7 +17,9 @@ import os
 import sys
 
 HOOK_NAME = "reap_worktrees.sh"
-STABLE_PATH = "~/.claude/hooks/" + HOOK_NAME
+# managed/-Unterverzeichnis: die hooks-Lane swappt dieses Verzeichnis atomar; ~/.claude/hooks/
+# selbst enthält hand-gepflegte Hooks, die nicht weggewischt werden dürfen (ADR-258 Fix).
+STABLE_PATH = "~/.claude/hooks/managed/" + HOOK_NAME
 SESSIONEND_ENTRY = {
     "matcher": "",
     "hooks": [
@@ -56,9 +58,15 @@ def main():
         for grp in cfg.get("hooks", {}).get("SessionEnd", [])
         for h in grp.get("hooks", [])
     ]
-    if any(HOOK_NAME in c for c in existing):
-        print(f"✅ Bereits verdrahtet: ein SessionEnd-Hook verweist auf {HOOK_NAME}. Nichts zu tun.")
+    # Pfad-PRÄZISE (konsistent zu doctor): nur der exakte managed-Pfad zählt als verdrahtet —
+    # ein Verweis auf einen alten/gleichnamigen Pfad NICHT.
+    want = os.path.normpath(os.path.expanduser(STABLE_PATH))
+    if any(os.path.normpath(os.path.expanduser(c)) == want for c in existing):
+        print(f"✅ Bereits verdrahtet: ein SessionEnd-Hook verweist auf {STABLE_PATH}. Nichts zu tun.")
         sys.exit(0)
+    stale = [c for c in existing if c and os.path.basename(c) == HOOK_NAME]
+    if stale:
+        print(f"⚠️  Veralteter Wiring-Pfad gefunden: {stale[0]} — auf {STABLE_PATH} umhängen.")
 
     has_sessionend = "SessionEnd" in cfg.get("hooks", {})
     print("ℹ️  Aktivierung NÖTIG — der Hook ist verteilt, aber nicht verdrahtet (feuert nie).")
