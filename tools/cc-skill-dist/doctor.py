@@ -74,9 +74,12 @@ def check_hook_wiring(hooks_dir):
     for grp in cfg.get("hooks", {}).get("SessionEnd", []):
         for h in grp.get("hooks", []):
             cmds.append(h.get("command", ""))
-    if not any(REAPER_HOOK in c for c in cmds):
+    # Pfad-PRÄZISE prüfen (nicht nur Basename): der Eintrag muss auf den stabilen managed-Pfad
+    # zeigen — ein Verweis auf einen alten/hand-gepflegten Pfad gleichen Namens zählt NICHT.
+    want = os.path.normpath(os.path.expanduser(stable))
+    if not any(os.path.normpath(os.path.expanduser(c)) == want for c in cmds):
         issues.append(("settings-wiring-missing", "SessionEnd",
-                       f"kein SessionEnd-Hook verweist auf {REAPER_HOOK} — Hook feuert nie (REC-3)"))
+                       f"kein SessionEnd-Hook verweist auf {stable} — Hook feuert nie (REC-3)"))
     return issues
 
 def git(args, cwd):
@@ -106,7 +109,7 @@ def main():
     ap.add_argument("--platform", default=os.path.expanduser("~/github/platform"))
     ap.add_argument("--commands", default=os.path.expanduser("~/.claude/commands"))
     ap.add_argument("--skills-dir", default=os.path.expanduser("~/.claude/skills"))
-    ap.add_argument("--hooks-dir", default=os.path.expanduser("~/.claude/hooks"))
+    ap.add_argument("--hooks-dir", default=os.path.expanduser("~/.claude/hooks/managed"))
     ap.add_argument("--ref", default="origin/main")
     a = ap.parse_args()
 

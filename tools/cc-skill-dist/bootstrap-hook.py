@@ -17,7 +17,9 @@ import os
 import sys
 
 HOOK_NAME = "reap_worktrees.sh"
-STABLE_PATH = "~/.claude/hooks/" + HOOK_NAME
+# managed/-Unterverzeichnis: die hooks-Lane swappt dieses Verzeichnis atomar; ~/.claude/hooks/
+# selbst enthält hand-gepflegte Hooks, die nicht weggewischt werden dürfen (ADR-258 Fix).
+STABLE_PATH = "~/.claude/hooks/managed/" + HOOK_NAME
 SESSIONEND_ENTRY = {
     "matcher": "",
     "hooks": [

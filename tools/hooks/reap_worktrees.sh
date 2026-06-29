@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 # Kanonische Quelle (ADR-258, Stufe A) — via cc-skill-dist `hooks`-Lane nach
-# ~/.claude/hooks/reap_worktrees.sh verteilt. STABILER PFAD: der settings.json-SessionEnd-
-# Eintrag verweist dauerhaft auf diesen Dateinamen (REC-4); Versionierung passiert im Inhalt.
+# ~/.claude/hooks/managed/reap_worktrees.sh verteilt (managed/-Subdir, weil generate das
+# Verzeichnis atomar swappt und ~/.claude/hooks/ auch hand-gepflegte Hooks enthält).
+# STABILER PFAD: der settings.json-SessionEnd-Eintrag verweist dauerhaft auf diesen Pfad
+# (REC-4); Versionierung passiert im Inhalt.
 #
 # SessionEnd-Hook: reapt gemergte Session-Worktrees (Gate worktree-orphan-accumulation).
 # worktree-reaper.py ist self-protecting — behält offene-PR/Lease/DIRTY-Worktrees, schreibt
