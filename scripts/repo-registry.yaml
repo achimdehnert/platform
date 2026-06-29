@@ -154,7 +154,7 @@ repos:
   research-hub:
     type: django
     prod_url: research.iil.pet
-    port: 8104
+    port: 8098
     health: /livez/
   researchfw:
     type: library
