@@ -36,6 +36,10 @@ DISTRIBUTE_FALSE = re.compile(r"^distribute:\s*false\b", re.MULTILINE)
 LANES = {
     "commands": {"src": ".windsurf/workflows/", "live": "~/.claude/commands"},
     "skills":   {"src": "skills/",              "live": "~/.claude/skills"},
+    # ADR-258 Stufe A: Hook-Skripte (.sh) flach nach ~/.claude/hooks/, ausführbar gesetzt.
+    # Verteilung != Enforcement — der SessionEnd-Eintrag in settings.json bleibt manuell
+    # (doctor.py prüft das Wiring; bootstrap-hook.py zeigt den Patch).
+    "hooks":    {"src": "tools/hooks/",         "live": "~/.claude/hooks"},
 }
 
 def git(args, cwd):
@@ -57,6 +61,8 @@ def collect(listing, kind):
             blobs[os.path.basename(path)] = (p[2], path)
         elif kind == "skills" and path.endswith("/SKILL.md"):
             blobs[os.path.basename(os.path.dirname(path))] = (p[2], path)
+        elif kind == "hooks" and path.endswith(".sh"):
+            blobs[os.path.basename(path)] = (p[2], path)
     return blobs
 
 def main():
@@ -96,15 +102,21 @@ def main():
         if args.kind == "commands" and DISTRIBUTE_FALSE.search(src):
             continue  # interner System-Prompt — kein Slash-Command
         chash = hashlib.sha256(src.encode("utf-8")).hexdigest()
-        footer = (f"\n\n<!-- {MARK} · generated=true · source={path} · "
-                  f"source_commit={commit[:12]} · content_hash=sha256:{chash[:16]} · do_not_edit -->\n")
-        content = src.rstrip("\n") + footer
-        if args.kind == "commands":
-            out = os.path.join(staging, name)
-        else:  # skills: <name>/SKILL.md
+        meta = (f"{MARK} · generated=true · source={path} · "
+                f"source_commit={commit[:12]} · content_hash=sha256:{chash[:16]} · do_not_edit")
+        if args.kind == "hooks":
+            # Shell-Skript: Footer als #-Kommentar (HTML-Kommentar wäre in .sh ungültig).
+            content = src.rstrip("\n") + f"\n\n# {meta}\n"
+        else:
+            content = src.rstrip("\n") + f"\n\n<!-- {meta} -->\n"
+        if args.kind == "skills":  # verschachtelt: <name>/SKILL.md
             os.makedirs(os.path.join(staging, name), exist_ok=True)
             out = os.path.join(staging, name, "SKILL.md")
+        else:  # commands + hooks: flach
+            out = os.path.join(staging, name)
         open(out, "w", encoding="utf-8").write(content)
+        if args.kind == "hooks":
+            os.chmod(out, 0o755)  # Hooks müssen ausführbar sein (REC-6: 0755, kein world-write)
         manifest["files"].append({"name": name, "source_path": path, "content_hash": "sha256:" + chash})
 
     manifest["skill_count"] = len(manifest["files"])  # nach distribute:false-Filter, nicht len(blobs)

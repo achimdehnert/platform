@@ -33,8 +33,51 @@ def _name_basename(path): return os.path.basename(path)
 def _name_skilldir(path): return os.path.basename(os.path.dirname(path))
 
 def strip_managed_footer(text):
-    idx = text.rfind("<!-- " + MARK)
+    # HTML-Footer (commands/skills) ODER Shell-#-Footer (hooks, ADR-258).
+    idx_html = text.rfind("<!-- " + MARK)
+    idx_sh = text.rfind("# " + MARK)
+    idx = max(idx_html, idx_sh)
     return text if idx == -1 else text[:idx]
+
+
+def enumerate_hooks(root):
+    """Flaches Ziel: name -> Pfad zur .sh-Datei (ADR-258 hooks-Lane)."""
+    if not os.path.isdir(root):
+        return {}
+    return {f: os.path.join(root, f) for f in os.listdir(root) if f.endswith(".sh")}
+
+
+# ADR-258 REC-3/4: stabiler Hook-Pfad + verpflichtende settings.json-Wiring-Prüfung.
+REAPER_HOOK = "reap_worktrees.sh"
+
+
+def check_hook_wiring(hooks_dir):
+    """Prüft, ob der Reaper-Hook (a) ausführbar im Ziel liegt UND (b) in
+    ~/.claude/settings.json als SessionEnd-Command auf den stabilen Pfad verdrahtet ist.
+    Verteilung allein (Datei da) zählt NICHT als gesund (REC-1/3). Gibt issues-Liste zurück."""
+    import json
+
+    issues = []
+    stable = os.path.join(os.path.expanduser(hooks_dir), REAPER_HOOK)
+    if os.path.isfile(stable) and not os.access(stable, os.X_OK):
+        issues.append(("hook-not-executable", REAPER_HOOK, "Datei vorhanden, aber nicht ausführbar"))
+    settings = os.path.expanduser("~/.claude/settings.json")
+    if not os.path.isfile(settings):
+        issues.append(("settings-missing", "settings.json", "keine ~/.claude/settings.json gefunden"))
+        return issues
+    try:
+        cfg = json.load(open(settings, encoding="utf-8"))
+    except Exception as e:
+        issues.append(("settings-unparsable", "settings.json", str(e)[:60]))
+        return issues
+    cmds = []
+    for grp in cfg.get("hooks", {}).get("SessionEnd", []):
+        for h in grp.get("hooks", []):
+            cmds.append(h.get("command", ""))
+    if not any(REAPER_HOOK in c for c in cmds):
+        issues.append(("settings-wiring-missing", "SessionEnd",
+                       f"kein SessionEnd-Hook verweist auf {REAPER_HOOK} — Hook feuert nie (REC-3)"))
+    return issues
 
 def git(args, cwd):
     r = subprocess.run(["git", *args], cwd=cwd, capture_output=True, text=True)
@@ -59,16 +102,20 @@ def enumerate_skills(root):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--kind", choices=["commands", "skills"], default="commands")
+    ap.add_argument("--kind", choices=["commands", "skills", "hooks"], default="commands")
     ap.add_argument("--platform", default=os.path.expanduser("~/github/platform"))
     ap.add_argument("--commands", default=os.path.expanduser("~/.claude/commands"))
     ap.add_argument("--skills-dir", default=os.path.expanduser("~/.claude/skills"))
+    ap.add_argument("--hooks-dir", default=os.path.expanduser("~/.claude/hooks"))
     ap.add_argument("--ref", default="origin/main")
     a = ap.parse_args()
 
     if a.kind == "commands":
         src_path, suffix, key_of = ".windsurf/workflows/", ".md", _name_basename
         target_dir, target_files, rel_guard = a.commands, enumerate_commands(a.commands), True
+    elif a.kind == "hooks":
+        src_path, suffix, key_of = "tools/hooks/", ".sh", _name_basename
+        target_dir, target_files, rel_guard = a.hooks_dir, enumerate_hooks(a.hooks_dir), False
     else:
         src_path, suffix, key_of = "skills/", "/SKILL.md", _name_skilldir
         target_dir, target_files, rel_guard = a.skills_dir, enumerate_skills(a.skills_dir), False
@@ -121,6 +168,11 @@ def main():
 
     missing = sorted(set(canon) - set(target_files))
 
+    # ADR-258 REC-3: für die hooks-Lane reicht „Datei verteilt" NICHT — das settings.json-
+    # Wiring muss vorhanden sein, sonst feuert der Hook nie. Zählt in den Drift-Score.
+    wiring_issues = check_hook_wiring(a.hooks_dir) if a.kind == "hooks" else []
+    issues.extend(wiring_issues)
+
     print(f"=== CC-Skill-Doctor (kind={a.kind}, Quelle: {a.ref}, {len(canon)} kanonisch) ===")
     print(f"  Ziel {target_dir}: {len(target_files)} Einträge")
     print(f"  Symlinks ok={sym_ok}  symlink-stale={sym_stale}  dangling={sym_dangling}")
@@ -135,7 +187,9 @@ def main():
         print("  --- Befunde (max 15) ---")
         for kind, name, why in issues[:15]:
             print(f"    [{kind}] {name} — {why}")
-    drift = sym_stale + sym_dangling + copy_stale + extra + len(missing) + rel_links
+    if a.kind == "hooks":
+        print(f"  Wiring-Befunde (settings.json SessionEnd)={len(wiring_issues)}")
+    drift = sym_stale + sym_dangling + copy_stale + extra + len(missing) + rel_links + len(wiring_issues)
     print(f"=== DRIFT-SCORE: {drift} (0 = sauber) ===")
     sys.exit(1 if drift else 0)
 
