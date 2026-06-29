@@ -20,9 +20,10 @@ supersedes: []
 
 ## Status
 
-`proposed`. Auslöser: Session-Retro 2026-06-28 (Befund #4) + Issue #673. Lokale Enforcement auf
-**einem** Host ist als **PoC** umgesetzt (E-5) — das ist **kein** Beleg für die org-weite Stufe
-(Gate `claim-before-cheapest-check`). Dieser ADR entscheidet nur die org-weite Verteilung.
+`accepted` (2026-06-29). Auslöser: Session-Retro 2026-06-28 (Befund #4) + Issue #673. Lokale
+Enforcement auf **einem** Host ist als **PoC** umgesetzt (E-5) — das ist **kein** Beleg für die
+org-weite Stufe (Gate `claim-before-cheapest-check`); #673 schließt erst nach dem 2.-Host-Kriterium.
+Stufe A (hooks-Lane + Reaper-Script + Bootstrap + doctor-Wiring-Check) ist in PR #703/#706 umgesetzt.
 
 > **Rev 2 (2026-06-29):** Externe Cross-Provider-Zweitmeinung (`/adr-handoff-extern`, OpenAI o3)
 > eingearbeitet — 16 von 20 RECs nach Rückfluss-Gate `[valid]`, 2 `[missversteht-Kontext]`
