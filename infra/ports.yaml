@@ -277,7 +277,6 @@ services:
     domain_prod: research.iil.pet
     domain_staging: staging-research.iil.pet
     repo: achimdehnert/research-hub
-    compose_drift: "docker-compose.prod.yml uses 8098 but server runs on 8104 — redeploy needed"
 
   tax-hub:
     prod: 8099

@@ -137,8 +137,8 @@ django_apps:
     deployed: true
     domain_prod: research.iil.pet
     domain_staging: staging.research.iil.pet
-    port_prod: 8104
-    port_staging: 8104
+    port_prod: 8098
+    port_staging: 8098
 
   risk-hub:
     github: iilgmbh/risk-hub
