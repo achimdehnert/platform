@@ -1,10 +1,10 @@
 ---
-status: proposed
+status: accepted
 date: 2026-06-29
 revision: 2
 decision-makers: [Achim Dehnert]
 scope: platform
-implementation_status: none
+implementation_status: in-progress
 related: [ADR-230, ADR-233, ADR-234, ADR-257]
 supersedes: []
 ---
