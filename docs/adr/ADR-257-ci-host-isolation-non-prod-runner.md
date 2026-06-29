@@ -1,10 +1,10 @@
 ---
-status: proposed
+status: accepted
 date: 2026-06-26
-revision: 2
+revision: 3
 decision-makers: [Achim Dehnert]
 scope: platform
-implementation_status: none
+implementation_status: in-progress
 related: [ADR-222, ADR-156, KONZ-risk-hub-004]
 supersedes: []
 ---
@@ -20,8 +20,18 @@ supersedes: []
 
 ## Status
 
-`proposed` — wartet auf Entscheidung. Liefert die empirische Begründung, auf die
-ADR-222 (eingefroren „bis neue Empirie") für die Placement-Achse wartet.
+`accepted` (2026-06-28, Achim Dehnert). Frische Empirie aus der travel-beat-Session
+2026-06-27/28 bestätigte die Prämisse: CI-Image-Churn auf der geteilten Prod-Disk
+killte einen travel-beat-Deploy (apt `No space left`), und ein gleichzeitiger
+risk-hub-CI-Job auf demselben `prod-server`-Runner belegte den Host (E-2/E-3 live
+beobachtet). Umsetzung läuft (`implementation_status: in-progress`): Runner-Runbook
+materialisiert (`infra/host-maintenance/runner-nonprod-runbook.md`), Pilot = travel-beat.
+
+> **Mechanik-Befund 2026-06-28 (verifiziert):** Die shared-ci-Workflows
+> (`_ci-python.yml`, `_deploy-unified.yml`) haben **bereits** einen `runs_on`-Input
+> (default `self-hosted`) und `_deploy-unified.yml` ein separates `deploy_runs_on` —
+> der Build→non-prod / Deploy→prod-Carve-out ist also pro Repo per Input steuerbar,
+> **ohne** shared-ci zu ändern. Das ist der Migrationshebel je Repo.
 
 > **Rev 2 (2026-06-26):** Externe Zweitmeinung (`/adr-handoff-extern`, Cross-Provider)
 > eingearbeitet — 12 Befunde, alle `[valid]` nach Rückfluss-Gate. Wesentliche Schärfungen:
