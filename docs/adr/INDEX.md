@@ -1,7 +1,7 @@
 # Architecture Decision Records -- Index
 
-> **Last updated:** 2026-06-12
-> **Next free ADR number:** 257 (256 = dieser Entwurf; final zur Merge-Zeit, ADR-228)
+> **Last updated:** 2026-06-30
+> **Next free ADR number:** 260
 
 ## Legend
 
@@ -248,6 +248,9 @@
 | 254 | learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle | `Proposed` | ⬜ | [ADR-254](ADR-254-learn-hub-web-deck-embed-seam.md) |
 | 255 | iilgmbh-Org-Migration der iil-* PyPI-Familie (GitHub iilgmbh + PyPI-Org iil, OIDC Trusted Publishing, Bus-Factor/Ownership) | `Accepted` | ⬜ | [ADR-255](ADR-255-iilgmbh-org-migration-pypi-family.md) |
 | 256 | Orchestrator-MCP-Transport von HTTP/SSE auf stateless Streamable HTTP migrieren (amends ADR-224, Treiber mcp-hub#128) | `Proposed` | ⬜ | [ADR-256](ADR-256-orchestrator-mcp-stateless-streamable-http-transport.md) |
+| 257 | CI läuft nicht auf dem Produktions-Host — dedizierter Non-Prod-Runner | `Accepted` | ⬜ | [ADR-257](ADR-257-ci-host-isolation-non-prod-runner.md) |
+| 258 | Org-weite Verteilung von Claude-Code-Hooks (Reaper-Gate als Erstfall) | `Accepted` | ⬜ | [ADR-258](ADR-258-cc-hook-distribution.md) |
+| 259 | Repo-scoped ADR-IDs — `<repo>:ADR-NNN` als kanonische Cross-Repo-Referenz (writing-hub Epic #11 / F22) | `Proposed` | ⬜ | [ADR-259](ADR-259-repo-scoped-adr-ids.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
