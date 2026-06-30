@@ -147,14 +147,20 @@ def fetch_repo_workflows_local(root: pathlib.Path, repo: str) -> dict:
     }
 
 
+def issue_needs_update(existing: dict, title: str, body: str) -> bool:
+    """True, wenn Titel/Body abweichen — sonst kein PATCH (vermeidet tägliches No-Op-Rauschen)."""
+    return existing.get("title") != title or (existing.get("body") or "") != body
+
+
 def upsert_issue(owner: str, repo: str, token: str, title: str, body: str) -> str:
-    """Findet offenes Issue mit MARKER_LABEL und aktualisiert es, sonst neu. Returns URL."""
+    """Findet offenes Issue mit MARKER_LABEL, PATCHt es NUR bei Änderung, sonst neu. Returns URL."""
     issues = _api(f"/repos/{owner}/{repo}/issues?state=open&labels={MARKER_LABEL}", token)
     if issues:
-        num = issues[0]["number"]
-        _api(f"/repos/{owner}/{repo}/issues/{num}", token, method="PATCH",
-             data={"title": title, "body": body})
-        return issues[0]["html_url"]
+        existing = issues[0]
+        if issue_needs_update(existing, title, body):
+            _api(f"/repos/{owner}/{repo}/issues/{existing['number']}", token, method="PATCH",
+                 data={"title": title, "body": body})
+        return existing["html_url"]
     created = _api(f"/repos/{owner}/{repo}/issues", token, method="POST",
                    data={"title": title, "body": body, "labels": [MARKER_LABEL]})
     return created["html_url"]
