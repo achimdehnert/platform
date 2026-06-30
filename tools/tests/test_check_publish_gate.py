@@ -111,6 +111,20 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
 """
 
+# ---- UNGEGATET: Ancestor heisst "contest" — 'test' nur als Substring, KEIN Gate
+# (Word-Boundary-Regression, Retro 2026-06-30 F2) ------------------------------
+_UNGATED_SUBSTRING_TEST = """
+jobs:
+  contest:
+    name: Attestation and protest build
+    steps:
+      - run: hatch build
+  publish-pypi:
+    needs: contest
+    steps:
+      - uses: pypa/gh-action-pypi-publish@release/v1
+"""
+
 # ---- twine: UNGEGATET (iil-codeguard/iil-ingest-Realfall) -------------------
 _TWINE_UNGATED = """
 jobs:
@@ -201,6 +215,11 @@ def test_should_flag_single_job_with_test_after_upload():
 
 def test_should_pass_when_gate_ancestor_detected_by_name():
     assert _offenders(_GATED_BY_NAME) == []
+
+
+def test_should_flag_when_ancestor_name_only_contains_test_as_substring():
+    # 'contest'/'attestation'/'protest' enthalten 'test' nur als Substring → KEIN Gate.
+    assert _offenders(_UNGATED_SUBSTRING_TEST) == ["publish-pypi"]
 
 
 def test_should_flag_twine_upload_without_gate():

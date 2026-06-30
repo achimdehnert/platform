@@ -26,10 +26,19 @@ PFAD = Workflow-YAML, ODER Repo-Root (scannt .github/workflows/*.y*ml), ODER
 mehrere. Default: aktuelles Verzeichnis.
 
 Exit-Code 0 = alle Upload-Jobs gegated; 1 = mindestens ein ungegateter Upload.
+
+ABGRENZUNG zu `scripts/checks/publish_gate_invariant.sh` (bewusste Arbeitsteilung,
+nicht versehentliches Duplikat — Retro 2026-06-30 F5):
+  - publish_gate_invariant.sh (CI-HARD-FAIL): erzwingt für platforms EIGENE
+    `publish-*.yml` einen `gitleaks-scan` (strenge, secret-spezifische Pflicht, ADR-226).
+  - dieses Tool (Detektor/Meter, informativ): fleet-weit, multi-Mechanismus (pypa+twine),
+    Invariante (c) = Test ODER Secret-Scan (Minimum). Schwächere Pflicht, breitere Erkennung.
+Vor Erweiterung beider: hier abgleichen, ob die Logik konvergieren sollte.
 """
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 import yaml
@@ -91,7 +100,9 @@ def _is_gate_job(job_id: str, job: dict) -> bool:
         return True
     name = str(job.get("name", "")) if isinstance(job, dict) else ""
     hay = f"{job_id} {name}".lower()
-    return "test" in hay or "secret-scan" in hay or "gitleaks" in hay
+    # Word-Boundary: 'contest'/'attestation'/'protest' dürfen NICHT als Test-Gate zählen
+    # (Substring-'test' war ein False-Negative-Bug — Retro 2026-06-30 F2).
+    return bool(re.search(r"\b(test|secret-scan|gitleaks)\b", hay))
 
 
 def _upload_step_index(job: dict) -> int | None:
