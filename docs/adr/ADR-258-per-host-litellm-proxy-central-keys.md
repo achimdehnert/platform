@@ -23,8 +23,10 @@ supersedes_check: []
 # ADR-258: Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs
 
 ## Status
-**Accepted** (2026-06-30) — Richtungsentscheidung. Implementierung phasenweise (Pilot → Rollout).
-Pilot auf risk-hub-staging ist live und verifiziert (siehe Confirmation).
+**Accepted** (2026-06-30) — Richtungsentscheidung (Topologie). Implementierung phasenweise
+(Pilot → Härten → Rollout). Die operativen/Security-Härtungen aus der externen Zweitmeinung
+(Abschnitt „Externe Zweitmeinung — eingearbeitet", 2026-06-30) sind **Vor-Rollout-Gates**,
+nicht optional. Pilot auf risk-hub-staging ist live und verifiziert (siehe Confirmation).
 
 ## Context and Problem Statement
 
@@ -153,3 +155,54 @@ Betriebsaufwand > eingesparter Key-/Override-Aufwand) → Rückfall auf durable 
 ## More Information
 - Pilot/Konzept: risk-hub `docs/konzepte/KONZ-risk-hub-005.md`, Issue #335.
 - Discord-`llm_gateway` (mcp-hub) ist **nicht** geeignet (text-only, nicht OpenAI-kompat) — bewusst getrennt.
+
+---
+
+## Externe Zweitmeinung — eingearbeitet (2026-06-30)
+
+Externe Cross-Provider-Review via `/adr-handoff-extern` (Briefing `~/shared/adr-handoff-ADR-258-2026-06-30.md`).
+**Step-5-Tagging (Mensch):** Der Review war durchweg kontext-treu (respektierte „settled",
+zweifelte den Pilot nicht an) → **alle Befunde `[valid]`**, keine Fehldeutung/out-of-scope.
+PRO-1…6 bestätigend (keine Änderung). Untenstehende RECs sind als **ADR-Entscheidungen**
+eingearbeitet (Vor-Rollout-Gates), nicht als bloße GPT-Prosa.
+
+| REC | ⇐ Befund | Verdikt | Entscheidung (eingearbeitet) |
+|-----|----------|---------|------------------------------|
+| REC-1 | AD-8 | valid | **Option 4** unten: „durable per-Hub Secret-Injection (ohne Proxy)" als vollwertige Considered Option + Vergleich. |
+| REC-2 | AD-3,M28-1 | valid | **Fallback-Sunset:** aifw-direct-Fallback max. bis Ende Härte-Phase je Host; Notfall-Key nur als Server-Secret (ADR-045), NICHT in Hub-Env; Cleanup-Test „kein echter Provider-Key in Hub-Env" verpflichtend (CI-Grep). |
+| REC-3 | AD-9,M28-5 | valid | **Auth-Default = `LITELLM_MASTER_KEY` je Host.** Netz-intern key-los nur erlaubt, wenn der Host **ausschließlich** vertrauenswürdige eigene Container trägt (dokumentierte Bedingung je Host). |
+| REC-4 | AD-4,M28-2 | valid | **`proxy.yaml` darf NICHT fachlich routen:** model_name == aifw-Modellname (keine Alias-Semantik), **keine** providerseitigen Fallbacks/Weighted-Routing; **CI-Diff** `proxy.yaml`-Modelle ↔ aifw-`LLMModel` (Drift = Fail). Schützt SSoT (aifw = Router). |
+| REC-5 | AD-6,M28-3 | valid | **Image-Pin auf Digest** (kein `main-stable`); Update nur via PR mit CVE-Check + Staging-Verifikation + dokumentiertem Rollback. |
+| REC-6 | AD-5 | valid | **Q2 entschieden:** `proxy.yaml` im Repo **ohne** Secrets; Provider-Keys server-lokal via Server-Secret/SOPS (ADR-045) in die Proxy-Env. Vor breitem Rollout. |
+| REC-7 | AD-7,M28-4 | valid | **ADR-115 konkret:** Proxy liefert je Host Request-/Token-/Cost-/Latency-Logs; Sammlung je Host (Dashboard) im Rollout; Entscheid „pro-Host genügt vs. Aggregator" bis 2026-12-31. |
+| REC-8 | AD-1 | valid | **Degradation (neues R6):** Healthcheck + `restart: unless-stopped` + Alerting + Timeout-Budget + Fallback-Reihenfolge (Proxy→aifw-direct während Härte-Phase); erwartete Nutzerwirkung je Hub dokumentiert. |
+| REC-9 | AD-10,M28-7 | valid | **Runtime-Inventur je Host VOR Key-Abzug:** aktive Hubs, Provider, Modelle, Vision-Pfade, Prod/Staging-Kritikalität, reale LLM-Last — pro Provider/Vision-Modell echter Pfad getestet. |
+| REC-10 | AD-11 | valid | **ADR-223-Revision geschärft** (siehe „Abgrenzung", Con-by-Con unten). |
+| REC-11 | AD-12,M28-2 | valid | **Zentrales Compose-/Config-Template** mit host-spezifischen Overlays (ein Quell-Template, kein driftendes Einzel-Setup je Host). |
+| REC-12 | M28-6 | valid | **Kill-Gate messbar** (siehe unten): p95-Messfenster, Vision-Testfälle, Key-Rotations-Aufwände, Betriebsstunden/Incidents, Owner, Frist 2027-01-31. |
+
+### Option 4 (neu): Durable per-Hub Secret-Injection (ohne Proxy)
+Direkt-Calls bleiben; Provider-Keys werden je Hub aus einem zentralen Secret-Store/SOPS automatisch
++ auditierbar in `.env.<env>` injiziert (deploy-core, platform#596).
+- **Pro:** beendet manuelle Overrides + Rotation-Schmerz **ohne** neuen Dauerdienst/SPOF; kleinster Eingriff.
+- **Con:** löst **P2 (Cost/Usage-Logging) NICHT** auf Transport-Ebene; reduziert Key-Orte schwächer
+  (Key bleibt je Hub, nicht je Host); kein zentraler Modell-/Vision-Schaltpunkt.
+- **Verglichen mit Option 2 (gewählt):** Bei nur „Override-Schmerz weg" ist Option 4 ausreichend
+  und billiger. Option 2 gewinnt, **sobald** zentrales Logging (ADR-115) ODER Key-Konsolidierung
+  über viele Hubs/Host das Ziel ist (= aktueller Fleet-Befund). **Empfehlung bleibt Option 2**,
+  aber Option 4 ist der explizite Kill-Gate-Rückfall pro Host (nicht nur Fußnote).
+
+### ADR-223 Option-D-Cons — Con-by-Con (REC-10)
+| Damaliger Con (ADR-223) | Status heute |
+|---|---|
+| „Zusätzlicher Container/Service" | **weiter gültig** — akzeptiert, durch per-Host begrenzt (Blast-Radius = Host) + Image-Pin/Health. |
+| „Kein Auto-Discovery neuer Modelle" | **irrelevant hier** — Modellwahl bleibt bei aifw/ADR-223-Screener; Proxy ist pass-through. |
+| „Kein Benchmarking" | **irrelevant hier** — Benchmarking ist ADR-223-Scope, nicht Proxy-Scope. |
+| „Dupliziert aifw-Funktionalität" | **entkräftet** — Proxy dupliziert NICHT das Routing (CI-Diff erzwingt das); er ergänzt Transport + zentrale Key-Haltung + Logging, die aifw NICHT bietet. |
+
+### Kill-Gate (operationalisiert, REC-12)
+Pro Host scheitert der Proxy-Pfad, wenn in einem 14-Tage-Fenster eines zutrifft: **p95-Latenz
+Proxy > 2× direkt** (gemessen über aifw-Usage-Log), **ODER** ein Vision-Testfall (je genutztem
+Vision-Modell) bricht, **ODER** >2 Proxy-bedingte Incidents/Monat, **ODER** Betriebsaufwand
+(Updates+Incidents h) > eingesparter Key-/Override-Aufwand. → Rückfall auf **Option 4** für den Host.
+**Owner:** Achim Dehnert. **Review:** 2027-01-31.
