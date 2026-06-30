@@ -10,8 +10,9 @@ Verzeichnis-Karte, Tech-Stack, **Konventionen**, Pflicht-Lesestoff und Infra
 stehen dort und werden **nur dort** gepflegt. Diese Datei dupliziert das nicht,
 sondern wird von Claude Code automatisch geladen und zeigt auf die SSoT.
 
-Vor dem ersten Keystroke zusätzlich: `AGENT_HANDOVER.md` (aktueller Stand) und
-`AGENT_MEMORY.md` (Drift-Episoden & Lessons).
+Vor dem ersten Keystroke zusätzlich: `AGENT_HANDOVER.md` (aktueller Stand).
+Drift-Episoden & Lessons leben im **CC-Memory-Index** (auto-geladen) + pgvector —
+**nicht** mehr in `AGENT_MEMORY.md` (Cascade-Ära, deprecated, alle Einträge expired).
 
 ## Precedence (höchste gewinnt)
 

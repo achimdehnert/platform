@@ -22,6 +22,11 @@ import yaml
 
 SCRIPT_DIR = Path(__file__).parent
 REGISTRY_FILE = SCRIPT_DIR / "repo-registry.yaml"
+
+# Owner-Auflösung aus der kanonischen Registry (ADR-234/255) statt Hardcode.
+sys.path.insert(0, str(SCRIPT_DIR.parent / "tools"))
+import registry_api as reg  # noqa: E402
+
 GITHUB = Path(os.environ.get("GITHUB_DIR", Path.home() / "github"))
 WORKFLOWS_SRC = GITHUB / "platform" / ".windsurf" / "workflows"
 RULES_SRC = GITHUB / "platform" / ".windsurf" / "rules"
@@ -203,7 +208,7 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
         "## Meta",
         "",
         f"- **Type**: `{rtype}`",
-        f"- **GitHub**: `https://github.com/achimdehnert/{repo}`",
+        f"- **GitHub**: `https://github.com/{reg.owner(repo)}/{repo}`",
         "- **Branch**: `main` — push: `git push` (SSH-Key konfiguriert)",
     ]
     if pypi:
