@@ -1,0 +1,4716 @@
+{
+  "generated": "2026-07-02",
+  "total": 206,
+  "next_free": 261,
+  "adrs": [
+    {
+      "number": 7,
+      "id": "ADR-007",
+      "file": "ADR-007-FINAL-PRODUCTION.md",
+      "title": "FINAL: Tenant- & RBAC-Architektur (Production Ready)",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 8,
+      "id": "ADR-008",
+      "file": "ADR-008-USE_CASE_ANALYSIS.md",
+      "title": "Use-Case-Analyse & Bibliotheksauswahl für CAD-Services",
+      "status": "archived",
+      "date": "",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 8,
+      "id": "ADR-008",
+      "file": "ADR-008-INFRASTRUCTURE.md",
+      "title": "Infrastructure Services & Self-Healing Deployment",
+      "status": "deprecated",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 9,
+      "id": "ADR-009",
+      "file": "ADR-009-IFC_DXF_PROCESSING.md",
+      "title": "IFC/DXF Processing Architecture",
+      "status": "archived",
+      "date": "",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 9,
+      "id": "ADR-009",
+      "file": "ADR-009-PLATFORM-ARCHITECTURE-OPTIMIZED.md",
+      "title": "Platform Architecture - Optimized",
+      "status": "superseded",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 10,
+      "id": "ADR-010",
+      "file": "ADR-010-mcp-tool-governance.md",
+      "title": "MCP Tool Governance — Specification Standard, Service Discovery & Composition",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 12,
+      "id": "ADR-012",
+      "file": "ADR-012-mcp-quality-standards.md",
+      "title": "MCP Server Quality Standards",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 13,
+      "id": "ADR-013",
+      "file": "ADR-013-team-organization-mcp-ownership.md",
+      "title": "Team Organization & MCP Ownership",
+      "status": "deprecated",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 14,
+      "id": "ADR-014",
+      "file": "ADR-014-ai-native-development-teams.md",
+      "title": "AI-Native Development Teams",
+      "status": "superseded",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 15,
+      "id": "ADR-015",
+      "file": "ADR-015-platform-governance-system.md",
+      "title": "Platform Governance System",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 16,
+      "id": "ADR-016",
+      "file": "ADR-016-trip-plan-import.md",
+      "title": "Import von Reiseplänen als Trip-Stops",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 17,
+      "id": "ADR-017",
+      "file": "ADR-017-domain-development-lifecycle.md",
+      "title": "Domain Development Lifecycle (DDL)",
+      "status": "superseded",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 18,
+      "id": "ADR-018",
+      "file": "ADR-018-weltenhub-architecture.md",
+      "title": "Weltenhub — Zentrale Story-Universe Plattform",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 19,
+      "id": "ADR-019",
+      "file": "ADR-019-weltenhub-ui-templates-apis.md",
+      "title": "Weltenhub UI, Templates, Views & APIs",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 20,
+      "id": "ADR-020",
+      "file": "ADR-020-documentation-strategy.md",
+      "title": "Dokumentationsstrategie — Sphinx, DB-driven, ADR-basiert",
+      "status": "superseded",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 21,
+      "id": "ADR-021",
+      "file": "ADR-021-unified-deployment-pattern.md",
+      "title": "Adopt unified single-service deployment pipeline for all platform projects",
+      "status": "accepted",
+      "date": "2026-02-10",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-167"
+      ],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 22,
+      "id": "ADR-022",
+      "file": "ADR-022-platform-consistency-standard.md",
+      "title": "Platform Consistency Standard (v3)",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 23,
+      "id": "ADR-023",
+      "file": "ADR-023-REVIEW.md",
+      "title": "Review: ADR-023 — Shared Scoring and Routing Engine",
+      "status": "archived",
+      "date": "",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 23,
+      "id": "ADR-023",
+      "file": "ADR-023-shared-scoring-routing-engine.md",
+      "title": "Shared Scoring and Routing Engine",
+      "status": "deprecated",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 24,
+      "id": "ADR-024",
+      "file": "ADR-024-recherche-hub-weltenhub-integration.md",
+      "title": "Location-Recherche als Weltenhub-Modul",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 27,
+      "id": "ADR-027",
+      "file": "ADR-027-shared-backend-services.md",
+      "title": "Shared Backend Services für Django-Projekte",
+      "status": "superseded",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 28,
+      "id": "ADR-028",
+      "file": "ADR-028-platform-context.md",
+      "title": "Platform Context – Konsolidierung der Platform Foundation",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 29,
+      "id": "ADR-029",
+      "file": "ADR-029-REVIEW.md",
+      "title": "Review: CAD Hub Extraction from bfagent",
+      "status": "archived",
+      "date": "",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 29,
+      "id": "ADR-029",
+      "file": "ADR-029-cad-hub-extraction.md",
+      "title": "CAD Hub Extraction from bfagent",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 30,
+      "id": "ADR-030",
+      "file": "ADR-030-odoo-management-app.md",
+      "title": "Erste Odoo Management-App — Dual-Framework-Governance",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 31,
+      "id": "ADR-031",
+      "file": "ADR-031-static-asset-versioning.md",
+      "title": "Static Asset Versioning & Landing Page Registry",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 32,
+      "id": "ADR-032",
+      "file": "ADR-032-domain-development-lifecycle.md",
+      "title": "Domain Development Lifecycle (DDL)",
+      "status": "deprecated",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 33,
+      "id": "ADR-033",
+      "file": "ADR-033-dual-framework-governance.md",
+      "title": "Dual-Framework-Governance (Django + Odoo)",
+      "status": "superseded",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 34,
+      "id": "ADR-034",
+      "file": "ADR-034-cad-etl-chat-agent.md",
+      "title": "CAD-Daten ETL-Pipeline + Chat-Agent als Platform-Service",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 35,
+      "id": "ADR-035",
+      "file": "ADR-035-shared-django-tenancy.md",
+      "title": "Shared Django Tenancy Package",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-137"
+      ],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 36,
+      "id": "ADR-036",
+      "file": "ADR-036-chat-agent-ecosystem.md",
+      "title": "Chat-Agent Ecosystem — DomainToolkits, Research Integration & Shared Chat-Widget",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 37,
+      "id": "ADR-037",
+      "file": "ADR-037-chat-conversation-logging.md",
+      "title": "Chat Conversation Logging & Quality Management",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 38,
+      "id": "ADR-038",
+      "file": "ADR-038-R3-REVIEW.md",
+      "title": "R3 Review — DSB Module (models.py + admin.py)",
+      "status": "archived",
+      "date": "",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 38,
+      "id": "ADR-038",
+      "file": "ADR-038-REVIEW.md",
+      "title": "REVIEW — DSB-Modul",
+      "status": "archived",
+      "date": "",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 38,
+      "id": "ADR-038",
+      "file": "ADR-038-dsb-datenschutzbeauftragter-module.md",
+      "title": "DSB-Modul — Externer Datenschutzbeauftragter",
+      "status": "archived",
+      "date": "",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 39,
+      "id": "ADR-039",
+      "file": "ADR-039-seating-drag-drop-layout-editor.md",
+      "title": "Seating Drag & Drop Layout-Editor",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 40,
+      "id": "ADR-040",
+      "file": "ADR-040-frontend-completeness-gate.md",
+      "title": "Frontend Completeness Gate",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 41,
+      "id": "ADR-041",
+      "file": "ADR-041-django-component-pattern.md",
+      "title": "Django Component Pattern — Reusable UI Blocks",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 42,
+      "id": "ADR-042",
+      "file": "ADR-042-dev-environment-deploy-workflow.md",
+      "title": "Development Environment & Deployment Workflow",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-054"
+      ],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 43,
+      "id": "ADR-043",
+      "file": "ADR-043-ai-assisted-development.md",
+      "title": "AI-Assisted Development — Context & Workflow Optimization",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 44,
+      "id": "ADR-044",
+      "file": "ADR-044-mcp-hub-architecture-consolidation.md",
+      "title": "MCP-Hub Architecture Consolidation",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 45,
+      "id": "ADR-045",
+      "file": "ADR-045-secrets-management.md",
+      "title": "Secrets & Environment Management",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 46,
+      "id": "ADR-046",
+      "file": "ADR-046-docs-hygiene.md",
+      "title": "Documentation Governance — Hygiene, DIATAXIS & Docs Agent",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 47,
+      "id": "ADR-047",
+      "file": "ADR-047-sphinx-documentation-hub.md",
+      "title": "Sphinx Documentation Hub (sphinx.iil.pet)",
+      "status": "superseded",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 48,
+      "id": "ADR-048",
+      "file": "ADR-048-htmx-playbook.md",
+      "title": "HTMX Playbook -- Canonical Patterns for Django-HTMX",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 49,
+      "id": "ADR-049",
+      "file": "ADR-049-design-token-system.md",
+      "title": "Design Token System -- CSS Custom Properties + Tailwind Bridge",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 50,
+      "id": "ADR-050",
+      "file": "ADR-050-platform-decomposition-hub-landscape.md",
+      "title": "Platform Decomposition — Hub Landscape & Developer Portal",
+      "status": "accepted",
+      "date": "2026-02-19",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-096"
+      ],
+      "related": [
+        "ADR-021",
+        "ADR-035",
+        "ADR-041",
+        "ADR-044",
+        "ADR-047",
+        "ADR-048",
+        "ADR-049",
+        "ADR-054"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 51,
+      "id": "ADR-051",
+      "file": "ADR-051-concept-to-adr-pipeline.md",
+      "title": "Concept-to-ADR Pipeline — Idea Capture & AI-Assisted Promotion",
+      "status": "accepted",
+      "date": "2026-02-19",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-015",
+        "ADR-050",
+        "ADR-054"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 52,
+      "id": "ADR-052",
+      "file": "ADR-052-trading-hub-broker-adapter-architecture.md",
+      "title": "Trading Hub — Broker-Adapter-Architektur",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 53,
+      "id": "ADR-053",
+      "file": "ADR-053-deployment-mcp-robustness.md",
+      "title": "deployment-mcp Robustness — Circuit Breaker, Timeout-Fixes & Async Job Pattern",
+      "status": "superseded",
+      "date": "2026-02-20",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-042",
+        "ADR-044"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 54,
+      "id": "ADR-054",
+      "file": "ADR-054-deployment-preflight-validation.md",
+      "title": "Deployment Pre-Flight Validation & platform-context als Managed Package",
+      "status": "superseded",
+      "date": "2026-02-20",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-042"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-021, ADR-022, ADR-042, ADR-045, ADR-053"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 55,
+      "id": "ADR-055",
+      "file": "ADR-055-cross-app-bug-management.md",
+      "title": "Cross-App Bug & Feature Management",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 56,
+      "id": "ADR-056",
+      "file": "ADR-056-deployment-preflight-and-pipeline-hardening.md",
+      "title": "Adopt deployment pre-flight validation and pipeline hardening to eliminate systematic onboarding failures",
+      "status": "accepted",
+      "date": "2026-02-20",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 57,
+      "id": "ADR-057",
+      "file": "ADR-057-platform-test-strategy.md",
+      "title": "Adopt a four-level test strategy with contract testing to systematically cover multi-repo Django/HTMX services",
+      "status": "accepted",
+      "date": "2026-02-20",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-100"
+      ],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 58,
+      "id": "ADR-058",
+      "file": "ADR-058-platform-test-taxonomy.md",
+      "title": "Adopt a 28-type test taxonomy as the binding standard for all platform repos",
+      "status": "accepted",
+      "date": "2026-02-20",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-057-platform-test-strategy.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 59,
+      "id": "ADR-059",
+      "file": "ADR-059-adr-drift-detector.md",
+      "title": "Adopt Automated ADR Drift Detection and Staleness Management",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 60,
+      "id": "ADR-060",
+      "file": "ADR-060-developer-workstation-ssh-configuration.md",
+      "title": "Developer Workstation SSH Key Configuration Standard",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-022-repository-consistency.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 61,
+      "id": "ADR-061",
+      "file": "ADR-061-hardcoding-elimination-strategy.md",
+      "title": "Adopt hardcode_scanner.py as Platform-wide Hardcoding Prevention Tool",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021 (Deployment Standard), ADR-045 (Secrets Management/SOPS), ADR-046 (Docs Hygiene), ADR-059 (ADR Drift Detector), ADR-060 (Developer Workstation SSH)"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 62,
+      "id": "ADR-062",
+      "file": "ADR-062-central-billing-service.md",
+      "title": "Zentraler Billing-Service für die Plattform",
+      "status": "accepted",
+      "date": "2026-03-05",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 63,
+      "id": "ADR-063",
+      "file": "ADR-063-staging-environment-strategy.md",
+      "title": "Staging Environment Strategy",
+      "status": "superseded",
+      "date": "2026-02-22",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "superseded"
+    },
+    {
+      "number": 64,
+      "id": "ADR-064",
+      "file": "ADR-064-coach-hub-ki-ohne-risiko-architecture.md",
+      "title": "coach-hub „KI ohne Risiko™\" Architecture",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 65,
+      "id": "ADR-065",
+      "file": "ADR-065-adr-numbering-filesystem-first.md",
+      "title": "Adopt filesystem-first ADR numbering — max(existing) + 1",
+      "status": "accepted",
+      "date": "2026-02-22",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-228"
+      ],
+      "related": [
+        "ADR-051-concept-to-adr-pipeline.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 66,
+      "id": "ADR-066",
+      "file": "ADR-066-ai-engineering-team.md",
+      "title": "Adopt a structured AI Engineering Squad with role-based agents and gate-controlled workflows",
+      "status": "accepted",
+      "date": "2026-02-22",
+      "domains": [],
+      "supersedes": [
+        "ADR-014-ai-native-development-teams.md"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-177"
+      ],
+      "related": [
+        "ADR-057-platform-test-strategy.md",
+        "ADR-058-platform-test-taxonomy.md",
+        "ADR-067-work-management-strategy.md",
+        "ADR-068-adaptive-model-routing.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 67,
+      "id": "ADR-067",
+      "file": "ADR-067-work-management-strategy.md",
+      "title": "Adopt GitHub Issues + Projects as the single source of truth for work management across human and AI team members",
+      "status": "accepted",
+      "date": "2026-02-23",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-046-docs-hygiene.md",
+        "ADR-057-platform-test-strategy.md",
+        "ADR-066-ai-engineering-team.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 68,
+      "id": "ADR-068",
+      "file": "ADR-068-adaptive-model-routing.md",
+      "title": "Adopt Adaptive Model Routing and Quality Feedback Loop for AI Agent Tasks",
+      "status": "accepted",
+      "date": "2026-02-23",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-066-ai-engineering-team.md"
+      ],
+      "amended_by": [
+        "ADR-084"
+      ],
+      "related": [
+        "ADR-057-platform-test-strategy.md",
+        "ADR-066-ai-engineering-team.md",
+        "ADR-067-work-management-strategy.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 69,
+      "id": "ADR-069",
+      "file": "ADR-069-web-intelligence-mcp.md",
+      "title": "Cache-Key: SHA256(normalize_url(url) + output_format + selectors)",
+      "status": "accepted",
+      "date": "2026-02-22",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 70,
+      "id": "ADR-070",
+      "file": "ADR-070-progressive-autonomy-developer-agent.md",
+      "title": "Progressive Autonomy Pattern für den Developer-Agenten",
+      "status": "accepted",
+      "date": "2026-02-23",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 71,
+      "id": "ADR-071",
+      "file": "ADR-071-amendment-code-quality-tooling.md",
+      "title": "Amendment: Code Quality Tooling (amends ADR-022)",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 72,
+      "id": "ADR-072",
+      "file": "ADR-072-multi-tenancy-schema-isolation.md",
+      "title": "Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-237"
+      ],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 73,
+      "id": "ADR-073",
+      "file": "ADR-073-repo-scope.md",
+      "title": "— Repo Scope & Migration Status (all 10 repos)",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 74,
+      "id": "ADR-074",
+      "file": "ADR-074-multi-tenancy-testing-strategy.md",
+      "title": "Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates",
+      "status": "accepted",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-237"
+      ],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 75,
+      "id": "ADR-075",
+      "file": "ADR-075-deployment-execution-strategy.md",
+      "title": "Split deployment execution: read-only local MCP tools and server-side GitHub Actions workflows",
+      "status": "accepted",
+      "date": "2026-02-23",
+      "domains": [],
+      "supersedes": [
+        "ADR-053-deployment-mcp-robustness.md"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-056-deployment-preflight-and-pipeline-hardening.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-045-secrets-management.md",
+        "ADR-056-deployment-preflight-and-pipeline-hardening.md",
+        "ADR-066-ai-engineering-team.md",
+        "ADR-156-reliable-deployment-pipeline.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 76,
+      "id": "ADR-076",
+      "file": "ADR-076-bfagent-ci-test-strategy.md",
+      "title": "bfagent CI Test Strategy",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 77,
+      "id": "ADR-077",
+      "file": "ADR-077-infrastructure-context-system.md",
+      "title": "Infrastructure Context System: catalog-info.yaml → dev-hub API → context.md",
+      "status": "accepted",
+      "date": "2026-02-23",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-020-documentation-strategy.md",
+        "ADR-021-unified-deployment-pattern.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-050-platform-decomposition.md",
+        "ADR-067-work-management-strategy.md",
+        "ADR-075-deployment-execution-strategy.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 78,
+      "id": "ADR-078",
+      "file": "ADR-078-amendment-docker-healthcheck-convention.md",
+      "title": "Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml (amends ADR-021)",
+      "status": "accepted",
+      "date": "2026-02-24",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-021-unified-deployment-pattern.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-056-deployment-preflight-and-pipeline-hardening.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 79,
+      "id": "ADR-079",
+      "file": "ADR-079-temporal-workflow-engine.md",
+      "title": "Adopt Temporal Self-Hosted as Primary Durable Workflow Engine",
+      "status": "accepted",
+      "date": "2026-02-23",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 80,
+      "id": "ADR-080",
+      "file": "ADR-080-multi-agent-coding-team-pattern.md",
+      "title": "Wir implementieren ein Multi-Agent Coding Team Pattern mit strukturiertem Handoff, paralleler Branch-Ausführung und definierter Rollback-Strategie",
+      "status": "accepted",
+      "date": "2026-02-24",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-066-ai-engineering-team.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-066, ADR-068, ADR-070, ADR-075"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 81,
+      "id": "ADR-081",
+      "file": "ADR-081-agent-guardrails-code-safety.md",
+      "title": "Agent Guardrails & Code Safety — Scope-Lock, Pre/Post-Gates, Rollback",
+      "status": "accepted",
+      "date": "2026-02-24",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-066-ai-engineering-team.md, ADR-080-multi-agent-coding-team-pattern.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-066, ADR-068, ADR-070, ADR-080"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 82,
+      "id": "ADR-082",
+      "file": "ADR-082-llm-tool-integration-autonomous-coding.md",
+      "title": "Wir ersetzen Stub-Steps durch echte LLM-Tool-Calls um das Agent Team autonom Coding-Tasks ausführen zu lassen",
+      "status": "accepted",
+      "date": "2026-02-25",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-066-ai-engineering-team.md, ADR-080-multi-agent-coding-team-pattern.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-066, ADR-068, ADR-070, ADR-080, ADR-081"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 83,
+      "id": "ADR-083",
+      "file": "ADR-083-hybrid-adr-governance.md",
+      "title": "Hybrid ADR Governance — Platform + Repo-lokale ADRs",
+      "status": "accepted",
+      "date": "2026-02-25",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-065-adr-numbering-filesystem-first.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-015-platform-governance-system.md",
+        "ADR-020-documentation-strategy.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 84,
+      "id": "ADR-084",
+      "file": "ADR-084-model-registry-dynamic-llm-routing.md",
+      "title": "Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung",
+      "status": "accepted",
+      "date": "2026-02-25",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-068"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-045",
+        "ADR-068",
+        "ADR-080",
+        "ADR-082"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 85,
+      "id": "ADR-085",
+      "file": "ADR-085-use-case-pipeline-nl-to-taskgraph.md",
+      "title": "Use Case Pipeline — Natural Language → Structured TaskGraph",
+      "status": "accepted",
+      "date": "2026-02-25",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "–"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-080, ADR-082, ADR-084, ADR-066"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 86,
+      "id": "ADR-086",
+      "file": "ADR-086-agent-team-workflow.md",
+      "title": "Agent Team Workflow — Cross-Repo Sprint Execution Pattern",
+      "status": "accepted",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "–"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-014, ADR-066, ADR-080, ADR-081, ADR-085"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 87,
+      "id": "ADR-087",
+      "file": "ADR-087-hybrid-search-architecture.md",
+      "title": "Adopt pgvector + FTS Hybrid Search as Platform-wide Semantic Search Engine",
+      "status": "accepted",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 88,
+      "id": "ADR-088",
+      "file": "ADR-088-notification-registry.md",
+      "title": "Adopt a Shared Notification Registry as Platform-wide Multi-Channel Messaging System",
+      "status": "accepted",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 89,
+      "id": "ADR-089",
+      "file": "ADR-089-bfagent-llm-litellm-db-driven-architecture.md",
+      "title": "bfagent-llm — LiteLLM-Backend + DB-driven Model-Routing",
+      "status": "accepted",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-084 (Model Registry), ADR-082 (LLM Tool Integration)"
+      ],
+      "amended_by": [
+        "ADR-095",
+        "ADR-097"
+      ],
+      "related": [
+        "ADR-084, ADR-082, ADR-045, ADR-056, ADR-080, ADR-068"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 90,
+      "id": "ADR-090",
+      "file": "ADR-090-cicd-pipeline-python-postgres.md",
+      "title": "Use Hybrid Matrix CI/CD Pipeline for Python + PostgreSQL → Docker Deploy",
+      "status": "accepted",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 91,
+      "id": "ADR-091",
+      "file": "ADR-091-platform-operations-hub-consolidation.md",
+      "title": "Platform Operations Hub Consolidation",
+      "status": "accepted",
+      "date": "2026-02-27",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-050-platform-decomposition-hub-landscape.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-042-dev-environment-deploy-workflow.md",
+        "ADR-048-htmx-playbook.md",
+        "ADR-050-platform-decomposition-hub-landscape.md",
+        "ADR-075-deployment-execution-strategy.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 92,
+      "id": "ADR-092",
+      "file": "ADR-092-tenant-aware-seed-commands.md",
+      "title": "Tenant-Aware Seed Commands",
+      "status": "proposed",
+      "date": "2026-03-01",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 93,
+      "id": "ADR-093",
+      "file": "ADR-093-ai-config-app.md",
+      "title": "AI & LLM Configuration App in dev-hub",
+      "status": "accepted",
+      "date": "2026-02-27",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-095",
+        "ADR-097"
+      ],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 94,
+      "id": "ADR-094",
+      "file": "ADR-094-django-migration-conflict-resolution.md",
+      "title": "Django Migration Conflict Resolution Pattern",
+      "status": "accepted",
+      "date": "2026-03-02",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-056 (Deployment Preflight)"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-056, ADR-090, ADR-022, ADR-120, ADR-185"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 95,
+      "id": "ADR-095",
+      "file": "ADR-095-aifw-quality-level-routing.md",
+      "title": "aifw Quality-Level Routing — Multi-Dimensional LLM Dispatch with Prompt-Template Coordination",
+      "status": "accepted",
+      "date": "2026-03-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-089",
+        "ADR-093"
+      ],
+      "amended_by": [
+        "ADR-097"
+      ],
+      "related": [
+        "ADR-027",
+        "ADR-043",
+        "ADR-050",
+        "ADR-057",
+        "ADR-068",
+        "ADR-084",
+        "ADR-089",
+        "ADR-093"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 96,
+      "id": "ADR-096",
+      "file": "ADR-096-authoringfw-scope-and-architecture.md",
+      "title": "authoringfw — Content Orchestration Scope, Architecture, and Domain Boundaries",
+      "status": "accepted",
+      "date": "2026-03-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-050"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-050",
+        "ADR-057",
+        "ADR-068",
+        "ADR-089",
+        "ADR-093",
+        "ADR-095"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 97,
+      "id": "ADR-097",
+      "file": "ADR-097-aifw-060-implementation-contract.md",
+      "title": "aifw 0.6.0 Implementation Contract — Models, Migration, Service Layer, and Public API",
+      "status": "accepted",
+      "date": "2026-03-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-089",
+        "ADR-093",
+        "ADR-095"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-057",
+        "ADR-089",
+        "ADR-093",
+        "ADR-094",
+        "ADR-095",
+        "ADR-096"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 98,
+      "id": "ADR-098",
+      "file": "ADR-098-production-infrastructure-tuning-standard.md",
+      "title": "Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure",
+      "status": "accepted",
+      "date": "2026-03-04",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-022",
+        "ADR-042",
+        "ADR-056",
+        "ADR-063",
+        "ADR-078"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 99,
+      "id": "ADR-099",
+      "file": "ADR-099-devhub-release-management-ui.md",
+      "title": "dev-hub Release Management UI — PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet",
+      "status": "accepted",
+      "date": "2026-03-04",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-050",
+        "ADR-077",
+        "ADR-086",
+        "ADR-090",
+        "ADR-100"
+      ],
+      "implementation_status": "verified"
+    },
+    {
+      "number": 100,
+      "id": "ADR-100",
+      "file": "ADR-100-iil-testkit-shared-test-factory-package.md",
+      "title": "iil-testkit — Shared Test Factory Package für alle Platform-Repos",
+      "status": "accepted",
+      "date": "2026-03-05",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-057"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-057",
+        "ADR-084",
+        "ADR-096"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 101,
+      "id": "ADR-101",
+      "file": "ADR-101-mcp-plattform-konzept.md",
+      "title": "Adopt 3-Tier MCP Architecture for Platform-Wide Tool Orchestration",
+      "status": "proposed",
+      "date": "2026-03-06",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 102,
+      "id": "ADR-102",
+      "file": "ADR-102-cloudflare-dns-cdn-migration.md",
+      "title": "Adopt Cloudflare for DNS, CDN, and DDoS Protection",
+      "status": "accepted",
+      "date": "2026-03-06",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 103,
+      "id": "ADR-103",
+      "file": "ADR-103-ausschreibungs-hub-architektur-v3.md",
+      "title": "ausschreibungs-hub — KI-gestützte Ausschreibungs- und Angebotsplattform",
+      "status": "accepted",
+      "date": "2026-03-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 104,
+      "id": "ADR-104",
+      "file": "ADR-104-research-hub-iil-researchfw.md",
+      "title": "Research Hub und iil-researchfw — Zentralisierung der Research-Infrastruktur",
+      "status": "proposed",
+      "date": "2026-03-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-105-iil-researchfw-extraction-plan.md"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 105,
+      "id": "ADR-105",
+      "file": "ADR-105-iil-researchfw-extraction-plan.md",
+      "title": "iil-researchfw — Code-Extraktion und Implementierungsplan",
+      "status": "accepted",
+      "date": "2026-03-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 107,
+      "id": "ADR-107",
+      "file": "ADR-107-extended-agent-team-deployment-agent.md",
+      "title": "Erweitertes Agent-Team — Cascade als Tech Lead, Deployment Agent, Review Agent und explizite Rollenentlastung",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-066-ai-engineering-team.md, ADR-080-multi-agent-coding-team-pattern.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-066, ADR-068, ADR-075, ADR-080, ADR-081, ADR-086"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 108,
+      "id": "ADR-108",
+      "file": "ADR-108-agent-qa-cycle.md",
+      "title": "Agent QA Cycle -- Quality Evaluator, Completion Gate, AuditStore",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [
+        "–"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "–"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-066",
+        "ADR-068",
+        "ADR-080",
+        "ADR-107",
+        "ADR-116"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 109,
+      "id": "ADR-109",
+      "file": "ADR-109-multi-tenancy-platform-standard.md",
+      "title": "Multi-Tenancy als Plattform-Standard für alle UI-Hubs",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 110,
+      "id": "ADR-110",
+      "file": "ADR-110-i18n-platform-standard.md",
+      "title": "Internationalisierung (i18n) als Plattform-Standard für alle UI-Hubs",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 111,
+      "id": "ADR-111",
+      "file": "ADR-111-private-package-distribution.md",
+      "title": "— Private Package Distribution via GitHub Packages",
+      "status": "superseded",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-platform-consistency-standard.md"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 112,
+      "id": "ADR-112",
+      "file": "ADR-112-agent-skill-registry-persistent-context.md",
+      "title": "Agent Skill Registry + Persistent Context Store",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 113,
+      "id": "ADR-113",
+      "file": "ADR-113-telegram-gateway-pgvector-memory.md",
+      "title": "— Telegram Gateway + pgvector Memory Store",
+      "status": "superseded",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 114,
+      "id": "ADR-114",
+      "file": "ADR-114-discord-ide-like-communication-gateway.md",
+      "title": "Discord als verlängertes Cascade IDE",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [
+        "ADR-113-telegram-gateway-pgvector-memory.md"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 115,
+      "id": "ADR-115",
+      "file": "ADR-115-grafana-agent-controlling-dashboard.md",
+      "title": "Grafana Agent Controlling Dashboard",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 116,
+      "id": "ADR-116",
+      "file": "ADR-116-dynamic-model-router.md",
+      "title": "Dynamic Model Router — Budget-Aware Rule-Based Fallback Router",
+      "status": "accepted",
+      "date": "2026-03-09",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 117,
+      "id": "ADR-117",
+      "file": "ADR-117-shared-world-layer-worldfw.md",
+      "title": "Shared World Layer — Weltenhub-DB als SSoT, weltenfw als Schreibkanal",
+      "status": "accepted",
+      "date": "2026-03-10",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 118,
+      "id": "ADR-118",
+      "file": "ADR-118-platform-store-billing-hub-user-registration.md",
+      "title": "billing-hub als Platform Store",
+      "status": "accepted",
+      "date": "2026-03-10",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 119,
+      "id": "ADR-119",
+      "file": "ADR-119-authored-content-pipeline-neutral-lore-to-style.md",
+      "title": "AuthoredContent Pipeline — Neutral Lore → Autorenstil Thread",
+      "status": "accepted",
+      "date": "2026-03-10",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 120,
+      "id": "ADR-120",
+      "file": "ADR-120-unified-deployment-pipeline.md",
+      "title": "Unified Multi-Repo Deployment Pipeline mit Staging",
+      "status": "accepted",
+      "date": "2026-03-11",
+      "domains": [],
+      "supersedes": [
+        "ADR-009 (GitHub Actions Reusable Workflows) — wird erweitert"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-166",
+        "ADR-185"
+      ],
+      "related": [
+        "ADR-009, ADR-022, ADR-102 (Cloudflare DNS), ADR-103 (bieterpilot)"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 121,
+      "id": "ADR-121",
+      "file": "ADR-121-iil-outlinefw-story-outline-framework.md",
+      "title": "iil-outlinefw — Story-Outline-Framework",
+      "status": "accepted",
+      "date": "2026-03-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-096",
+        "ADR-097"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 130,
+      "id": "ADR-130",
+      "file": "ADR-130-content-store-shared-persistence.md",
+      "title": "Adopt a shared Django app `content_store` for AI-generated content persistence",
+      "status": "accepted",
+      "date": "2026-02-15",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-platform-consistency-standard.md",
+        "ADR-037-chat-conversation-logging.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 131,
+      "id": "ADR-131",
+      "file": "ADR-131-shared-backend-services.md",
+      "title": "Shared Backend Services Library für Django-Projekte",
+      "status": "accepted",
+      "date": "2026-03-11",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-platform-consistency-standard.md",
+        "ADR-192-django-service-layer-htmx-compliance-scanner.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 132,
+      "id": "ADR-132",
+      "file": "ADR-132-ai-context-defense-in-depth.md",
+      "title": "AI Context Defense-in-Depth",
+      "status": "accepted",
+      "date": "2026-02-27",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-043-ai-assisted-development.md",
+        "ADR-048-htmx-playbook.md",
+        "ADR-072-multi-tenancy-schema-isolation.md",
+        "ADR-090-cicd-pipeline-python-postgres.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 133,
+      "id": "ADR-133",
+      "file": "ADR-133-shared-ai-services-package.md",
+      "title": "Shared AI Services als wiederverwendbare Python-Pakete",
+      "status": "proposed",
+      "date": "2026-02-28",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 134,
+      "id": "ADR-134",
+      "file": "ADR-134-module-monetization-strategy.md",
+      "title": "Modul-Konfiguration und Monetarisierungsstrategie als shared Package",
+      "status": "proposed",
+      "date": "2026-03-15",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 136,
+      "id": "ADR-136",
+      "file": "ADR-136-shared-backend-services-original.md",
+      "title": "Shared Backend Services Library für Django-Projekte (Original)",
+      "status": "deprecated",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 136,
+      "id": "ADR-136",
+      "file": "ADR-136-shared-backend-services-original.md",
+      "title": "Shared Backend Services Library für Django-Projekte (Original)",
+      "status": "deprecated",
+      "date": "2026-02-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 137,
+      "id": "ADR-137",
+      "file": "ADR-137-tenant-lifecycle-module-selfservice-rls.md",
+      "title": "Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security",
+      "status": "accepted",
+      "date": "2026-03-11",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-035"
+      ],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 138,
+      "id": "ADR-138",
+      "file": "ADR-138-implementation-tracking-standard.md",
+      "title": "ADR Implementation Tracking Standard — Lifecycle, Frontmatter Fields, and Verification",
+      "status": "accepted",
+      "date": "2026-03-11",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-015",
+        "ADR-046",
+        "ADR-051"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 139,
+      "id": "ADR-139",
+      "file": "ADR-139-shared-learning-platform-package.md",
+      "title": "Shared Learning Platform Package (iil-learnfw)",
+      "status": "accepted",
+      "date": "2026-03-12",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-109-multi-tenancy-platform-standard.md",
+        "ADR-111-private-package-distribution.md",
+        "ADR-131-shared-backend-services.md",
+        "ADR-134-module-monetization-strategy.md",
+        "ADR-137-tenant-manager-rls.md"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 140,
+      "id": "ADR-140",
+      "file": "ADR-140-learn-hub.md",
+      "title": "Learn-Hub — Zentrales Learning Management Hub",
+      "status": "accepted",
+      "date": "2026-03-12",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-120-ci-cd-reusable-workflows.md",
+        "ADR-131-shared-backend-services.md",
+        "ADR-134-module-monetization-strategy.md",
+        "ADR-137-tenant-manager-rls.md",
+        "ADR-139-shared-learning-platform-package.md"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 141,
+      "id": "ADR-141",
+      "file": "ADR-141-discord-agentic-coding-bridge.md",
+      "title": "Discord → Agentic Coding Bridge (Layer 4)",
+      "status": "draft",
+      "date": "2026-03-13",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-186"
+      ],
+      "related": [
+        "ADR-045-secrets-management.md",
+        "ADR-079-temporal-workflow-engine.md",
+        "ADR-080-multi-agent-coding-team-pattern.md",
+        "ADR-081-agent-guardrails-code-safety.md",
+        "ADR-082-llm-tool-integration-autonomous-coding.md",
+        "ADR-114-discord-ide-like-communication-gateway.md",
+        "ADR-116-dynamic-model-router.md",
+        "ADR-120-unified-deployment-pipeline.md"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 142,
+      "id": "ADR-142",
+      "file": "ADR-142-unified-identity-authentik-platform-idp.md",
+      "title": "Unified Identity — authentik als Platform Identity Provider",
+      "status": "accepted",
+      "date": "2026-03-13",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-118-platform-store-billing-hub-user-registration.md"
+      ],
+      "amended_by": [
+        "ADR-241"
+      ],
+      "related": [
+        "ADR-045-secrets-management.md",
+        "ADR-109-multi-tenancy-platform-standard.md",
+        "ADR-114-discord-ide-like-communication-gateway.md",
+        "ADR-118-platform-store-billing-hub-user-registration.md",
+        "ADR-120-unified-deployment-pipeline.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 143,
+      "id": "ADR-143",
+      "file": "ADR-143-knowledge-hub-outline-integration.md",
+      "title": "Knowledge-Hub — Outline Wiki + research-hub Integration",
+      "status": "accepted",
+      "date": "2026-03-13",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-241"
+      ],
+      "related": [
+        "ADR-045-secrets-management.md",
+        "ADR-114-discord-ide-like-communication-gateway.md",
+        "ADR-116-dynamic-model-router.md",
+        "ADR-120-unified-deployment-pipeline.md",
+        "ADR-130-content-store-shared-persistence.md",
+        "ADR-132-ai-context-defense-in-depth.md",
+        "ADR-142-unified-identity-authentik-platform-idp.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 144,
+      "id": "ADR-144",
+      "file": "ADR-144-doc-hub-paperless-ngx.md",
+      "title": "doc-hub — Paperless-ngx als Dokumentenmanagement-System",
+      "status": "accepted",
+      "date": "2026-03-13",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-241"
+      ],
+      "related": [
+        "ADR-045-secrets-management.md",
+        "ADR-116-dynamic-model-router.md",
+        "ADR-130-content-store-shared-persistence.md",
+        "ADR-142-unified-identity-authentik-platform-idp.md",
+        "ADR-143-knowledge-hub-outline-integration.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 145,
+      "id": "ADR-145",
+      "file": "ADR-145-knowledge-management-cascade-outline.md",
+      "title": "Knowledge Management — Cascade ↔ Outline Anti-Knowledge-Drain",
+      "status": "proposed",
+      "date": "2026-03-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-143-knowledge-hub-outline-integration.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-044-mcp-server-lifecycle.md",
+        "ADR-045-secrets-management.md",
+        "ADR-050-hub-to-hub-webhook-auth.md",
+        "ADR-062-celery-async-patterns.md",
+        "ADR-095-aifw-quality-routing.md",
+        "ADR-114-discord-ide-like-communication-gateway.md",
+        "ADR-116-dynamic-model-router.md",
+        "ADR-132-ai-context-defense-in-depth.md",
+        "ADR-142-unified-identity-authentik-platform-idp.md",
+        "ADR-143-knowledge-hub-outline-integration.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 146,
+      "id": "ADR-146",
+      "file": "ADR-146-hub-prompt-management.md",
+      "title": "Hub-übergreifendes DB-Prompt-Management — promptfw als SSoT für editierbare Prompts",
+      "status": "accepted",
+      "date": "2026-04-04",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-083",
+        "ADR-089",
+        "ADR-093",
+        "ADR-121",
+        "ADR-133"
+      ],
+      "implementation_status": "phase_1_3_complete"
+    },
+    {
+      "number": 147,
+      "id": "ADR-147",
+      "file": "ADR-147-concept-templates-package.md",
+      "title": "`iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen",
+      "status": "proposed",
+      "date": "2026-03-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-platform-consistency-standard.md",
+        "ADR-041-django-component-pattern.md",
+        "ADR-130-content-store-shared-persistence.md",
+        "ADR-146-package-consolidation-strategy.md"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 148,
+      "id": "ADR-148",
+      "file": "ADR-148-recruiting-hub-architecture.md",
+      "title": "Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub",
+      "status": "accepted",
+      "date": "2026-03-22",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 149,
+      "id": "ADR-149",
+      "file": "ADR-149-dms-hub-dvelop-platform-service.md",
+      "title": "Adopt d.velop Cloud DMS as Platform Document Archive Service (dms-hub)",
+      "status": "accepted",
+      "date": "2026-03-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-platform-consistency-standard.md",
+        "ADR-045-secrets-management.md",
+        "ADR-050-platform-decomposition-hub-landscape.md",
+        "ADR-072-multi-tenancy-schema-isolation.md",
+        "ADR-075-deployment-execution-strategy.md",
+        "ADR-078-docker-healthcheck-convention.md",
+        "ADR-148-recruiting-hub-architecture.md",
+        "ADR-180-package-consolidation-strategy.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 151,
+      "id": "ADR-151",
+      "file": "ADR-151-recruiting-workflow-e2e.md",
+      "title": "End-to-End Recruiting-Workflow — LinkedIn Recruiter × Hunter CRM × Recruiting Hub",
+      "status": "proposed",
+      "date": "2026-03-25",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 153,
+      "id": "ADR-153",
+      "file": "ADR-153-tax-hub-saas-architecture.md",
+      "title": "Adopt Module-basierte SaaS-Architektur für tax-hub (Multi-Mandant, buchbare Module)",
+      "status": "accepted",
+      "date": "2026-03-25",
+      "domains": [],
+      "supersedes": [
+        "[]  # ADR-152 (tax-hub Pilot) never published — see related"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-007   # Tenant, Plan, Feature-Tabellen (Vorbildmuster)",
+        "ADR-021   # Unified Deployment",
+        "ADR-035   # Shared Django Tenancy",
+        "ADR-050   # Hub Landscape",
+        "ADR-072   # PostgreSQL Schema-Isolation für SaaS",
+        "ADR-078   # Docker HEALTHCHECK",
+        "ADR-079   # Temporal Workflow-Engine (bfagent)",
+        "ADR-146   # DvelopDmsClient",
+        "ADR-152   # Pilot-ADR (superseded)"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 154,
+      "id": "ADR-154",
+      "file": "ADR-154-autonomous-coding-optimization.md",
+      "title": "Autonomous Coding Optimization — Information Flow, Error Prevention, Continuous Improvement",
+      "status": "accepted",
+      "date": "2026-03-31",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "complete"
+    },
+    {
+      "number": 155,
+      "id": "ADR-155",
+      "file": "ADR-155-api-contract-testing.md",
+      "title": "API Contract Testing für iil-Package Integrationen",
+      "status": "accepted",
+      "date": "2026-04-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 156,
+      "id": "ADR-156",
+      "file": "ADR-156-reliable-deployment-pipeline.md",
+      "title": "Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Deployment Pipeline",
+      "status": "proposed",
+      "date": "2026-04-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-075-deployment-execution-strategy.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-022-code-quality-docker-standards.md",
+        "ADR-075-deployment-execution-strategy.md",
+        "ADR-090-cicd-pipeline-python-postgres.md",
+        "ADR-107-extended-agent-team-deployment-agent.md",
+        "ADR-120-unified-deployment-pipeline.md",
+        "ADR-130-content-store-shared-persistence.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 157,
+      "id": "ADR-157",
+      "file": "ADR-157-staging-production-split-and-port-governance.md",
+      "title": "ADR-157: 3-Server Architecture — Dev, Staging, Production with automated port governance",
+      "status": "accepted",
+      "date": "2026-04-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-063-staging-environment-strategy.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-075-deployment-execution-strategy.md",
+        "ADR-106-port-audit.md",
+        "ADR-156-reliable-deployment-pipeline.md"
+      ],
+      "implementation_status": "complete"
+    },
+    {
+      "number": 158,
+      "id": "ADR-158",
+      "file": "ADR-158-unified-documentation-architecture.md",
+      "title": "Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs",
+      "status": "accepted",
+      "date": "2026-04-03",
+      "domains": [],
+      "supersedes": [
+        "ADR-020-documentation-strategy.md"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-046-docs-hygiene.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-020-documentation-strategy.md",
+        "ADR-046-docs-hygiene.md",
+        "ADR-047-sphinx-documentation-hub.md",
+        "ADR-143-knowledge-hub-outline-integration.md",
+        "ADR-144-doc-hub-paperless-ngx.md",
+        "ADR-154-autonomous-coding-optimization.md",
+        "ADR-156-reliable-deployment-pipeline.md"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 159,
+      "id": "ADR-159",
+      "file": "ADR-159-shared-secrets-management.md",
+      "title": "Shared Secrets Management — Single Source of Truth für API Keys",
+      "status": "accepted",
+      "date": "2026-04-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 160,
+      "id": "ADR-160",
+      "file": "ADR-160-llm-powered-research-pipeline.md",
+      "title": "Adopt LLM-Powered Query-Expansion and Relevance Scoring for researchfw",
+      "status": "accepted",
+      "date": "2026-04-09",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 161,
+      "id": "ADR-161",
+      "file": "ADR-161-shared-sds-library.md",
+      "title": "Drift-Detector",
+      "status": "proposed",
+      "date": "2026-03-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 162,
+      "id": "ADR-162",
+      "file": "ADR-162-reflex-ui-testing-and-scraping.md",
+      "title": "Adopt REFLEX as Standard Methodology for Evidence-based UI Development",
+      "status": "accepted",
+      "date": "2026-04-15",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 163,
+      "id": "ADR-163",
+      "file": "ADR-163-reflex-tiering-platform-quality-standard.md",
+      "title": "ADR-163: Adopt Three-Tier REFLEX Quality Standard for All Platform Repositories",
+      "status": "accepted",
+      "date": "2026-04-17",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-058-testing-conventions.md",
+        "ADR-162-reflex-ui-testing-and-scraping.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 164,
+      "id": "ADR-164",
+      "file": "ADR-164-port-strategy-conflict-free-dev-staging-prod.md",
+      "title": "ADR-164: Unified Port Strategy — Conflict-free dev, staging, and production port assignments",
+      "status": "accepted",
+      "date": "2026-04-18",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-106-port-audit.md",
+        "ADR-157-staging-production-split-and-port-governance.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 165,
+      "id": "ADR-165",
+      "file": "ADR-165-reflex-review-engine-with-grafana-controlling.md",
+      "title": "ADR-165: Adopt Plugin-based REFLEX Review Engine with Grafana Controlling",
+      "status": "accepted",
+      "date": "2026-04-18",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-066",
+        "ADR-116",
+        "ADR-163",
+        "ADR-164"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 166,
+      "id": "ADR-166",
+      "file": "ADR-166-deployment-configuration-standard.md",
+      "title": "Standardize deployment config via .ship.conf SSOT with /livez/ health checks",
+      "status": "accepted",
+      "date": "2026-04-20",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-120"
+      ],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 167,
+      "id": "ADR-167",
+      "file": "ADR-167-three-tier-middleware-architecture.md",
+      "title": "v1.1: Adopt 3-Tier Middleware Standard for Health Probes and Tenant Resolution",
+      "status": "accepted",
+      "date": "2026-04-21",
+      "domains": [],
+      "supersedes": [
+        "[]  # v1.0→v1.1 is an amendment, not a supersession"
+      ],
+      "superseded_by": [],
+      "amends": [
+        "ADR-021"
+      ],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 168,
+      "id": "ADR-168",
+      "file": "ADR-168-onboarding-platform-architecture.md",
+      "title": "Build Onboarding-Platform as separate repo on coach-hub primitives with billing-hub Stripe pattern",
+      "status": "proposed",
+      "date": "2026-04-21",
+      "domains": [
+        "schulungspass.de",
+        "schulungspass.com"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 169,
+      "id": "ADR-169",
+      "file": "ADR-169-enrichment-agent-pattern.md",
+      "title": "Adopt iil-enrichment as generic pattern for bridging managed records with external knowledge sources",
+      "status": "proposed",
+      "date": "2026-04-22",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 170,
+      "id": "ADR-170",
+      "file": "ADR-170-iil-ingest-document-ingestion-package.md",
+      "title": "Adopt iil-ingest as Reusable Document Ingestion Package (Tier 3)",
+      "status": "accepted",
+      "date": "2026-04-23",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 171,
+      "id": "ADR-171",
+      "file": "ADR-171-temporal-rag-infrastructure.md",
+      "title": "Temporal RAG Infrastructure — Bitemporal Vector Storage on pgvector",
+      "status": "proposed",
+      "date": "2026-04-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 172,
+      "id": "ADR-172",
+      "file": "ADR-172-rag-mcp-server.md",
+      "title": "rag-mcp Server — Platform-Wide RAG API",
+      "status": "proposed",
+      "date": "2026-04-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 173,
+      "id": "ADR-173",
+      "file": "ADR-173-document-intake-routing-pattern.md",
+      "title": "Document Intake Routing Pattern",
+      "status": "proposed",
+      "date": "2026-04-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "planned"
+    },
+    {
+      "number": 174,
+      "id": "ADR-174",
+      "file": "ADR-174-workflow-enforcement-ci-gate.md",
+      "title": "ADR-174 — Workflow Enforcement: CI Gate + PR Checklist + Symlink Policy",
+      "status": "accepted",
+      "date": "2026-04-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 175,
+      "id": "ADR-175",
+      "file": "ADR-175-workflow-modularization-pattern.md",
+      "title": "ADR-175 — Adopt selective modularization for .windsurf/workflows/ files",
+      "status": "accepted",
+      "date": "2026-04-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 176,
+      "id": "ADR-176",
+      "file": "ADR-176-mcp-server-ssot.md",
+      "title": "— MCP-Server SSoT: platform = Konfig, mcp-hub = Code",
+      "status": "accepted",
+      "date": "2026-04-30",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 177,
+      "id": "ADR-177",
+      "file": "ADR-177-agent-role-specialization.md",
+      "title": "— Agent Role Specialization",
+      "status": "proposed",
+      "date": "2026-04-30",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-066"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-068",
+        "ADR-077",
+        "ADR-138",
+        "ADR-174",
+        "ADR-224"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 178,
+      "id": "ADR-178",
+      "file": "ADR-178-llm-gateway-consolidation.md",
+      "title": "LLM Gateway Consolidation",
+      "status": "accepted",
+      "date": "2026-05-05",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 179,
+      "id": "ADR-179",
+      "file": "ADR-179-postgresql-only-testing.md",
+      "title": "PostgreSQL-Only Testing",
+      "status": "accepted",
+      "date": "2026-03-12",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 180,
+      "id": "ADR-180",
+      "file": "ADR-180-package-consolidation-strategy.md",
+      "title": "Package Consolidation Strategy — 34 → 20 Packages (v3)",
+      "status": "accepted",
+      "date": "2026-03-25",
+      "domains": [],
+      "supersedes": [
+        "ADR-027-shared-backend-services.md"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-platform-consistency-standard.md",
+        "ADR-028-platform-context.md",
+        "ADR-035-shared-django-tenancy.md",
+        "ADR-044-mcp-hub-architecture-consolidation.md",
+        "ADR-050-platform-decomposition-hub-landscape.md"
+      ],
+      "implementation_status": "done"
+    },
+    {
+      "number": 181,
+      "id": "ADR-181",
+      "file": "ADR-181-implementation-plan.md",
+      "title": "ADR-147 Implementierungsplan (void — misclassified as ADR)",
+      "status": "void",
+      "date": "2026-03-26",
+      "domains": [
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-147"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 182,
+      "id": "ADR-182",
+      "file": "ADR-182-review.md",
+      "title": "ADR-147 Review Principal Architect (void — misclassified as ADR)",
+      "status": "void",
+      "date": "2026-03-26",
+      "domains": [
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-147"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 183,
+      "id": "ADR-183",
+      "file": "ADR-183-v2-concept-templates-package.md",
+      "title": "`iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen (v2)",
+      "status": "proposed",
+      "date": "2026-03-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-platform-consistency-standard.md",
+        "ADR-041-django-component-pattern.md",
+        "ADR-130-content-store-shared-persistence.md",
+        "ADR-180-package-consolidation-strategy.md"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 184,
+      "id": "ADR-184",
+      "file": "ADR-184-contract-testing-strategy.md",
+      "title": "Adopt a Three-Layer Contract Testing Strategy for All Function and Method Calls",
+      "status": "accepted",
+      "date": "2026-04-02",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-022-code-quality.md",
+        "ADR-041-service-layer.md",
+        "ADR-057-platform-test-strategy.md",
+        "ADR-058-platform-test-taxonomy.md",
+        "ADR-076-bfagent-ci-test-strategy.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 185,
+      "id": "ADR-185",
+      "file": "ADR-185-deploy-agent-pattern.md",
+      "title": "Adopt Gate-controlled Deploy-Agent for automated Staging→Prod deployments",
+      "status": "proposed",
+      "date": "2026-05-06",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-120"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-022",
+        "ADR-056",
+        "ADR-066",
+        "ADR-094",
+        "ADR-120",
+        "ADR-167",
+        "ADR-174"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 186,
+      "id": "ADR-186",
+      "file": "ADR-186-headless-agent-coding-pipeline.md",
+      "title": "Use Unified Agent Loop on aifw for Headless Coding Pipeline",
+      "status": "proposed",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-141"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-045",
+        "ADR-059",
+        "ADR-066",
+        "ADR-068",
+        "ADR-075",
+        "ADR-077",
+        "ADR-081",
+        "ADR-116",
+        "ADR-138",
+        "ADR-177"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 187,
+      "id": "ADR-187",
+      "file": "ADR-187-document-intelligence-pipeline.md",
+      "title": "Document Intelligence Pipeline — Plattformweite Dokument-Analyse für Templates, RAG & VectorStore",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 188,
+      "id": "ADR-188",
+      "file": "ADR-188-unified-vector-store.md",
+      "title": "Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store",
+      "status": "accepted",
+      "date": "2026-05-07",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 189,
+      "id": "ADR-189",
+      "file": "ADR-189-sysml-gaphor-ttz-hub.md",
+      "title": "SysML/Gaphor-Architekturmodell für ttz-hub",
+      "status": "accepted",
+      "date": "2026-05-08",
+      "domains": [
+        "documentation",
+        "architecture"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 190,
+      "id": "ADR-190",
+      "file": "ADR-190-adopt-iil-adrfw-tooling-framework.md",
+      "title": "Adopt iil-adrfw as ADR Tooling Framework",
+      "status": "accepted",
+      "date": "2026-05-08",
+      "domains": [
+        "governance/adr",
+        "tooling/mcp"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-065 (Filesystem-first ADR numbering)",
+        "ADR-071 (Code Quality Tooling)",
+        "ADR-138 (Implementation Tracking Standard)"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 191,
+      "id": "ADR-191",
+      "file": "ADR-191-adopt-iil-codeguard-library-first.md",
+      "title": "Adopt iil-codeguard — Library-First Code Compliance Tooling",
+      "status": "accepted",
+      "date": "2026-05-09",
+      "domains": [
+        "django/views",
+        "django/models",
+        "htmx",
+        "deployment",
+        "mcp"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "verified"
+    },
+    {
+      "number": 192,
+      "id": "ADR-192",
+      "file": "ADR-192-django-service-layer-htmx-compliance-scanner.md",
+      "title": "Django Service-Layer and HTMX Template Compliance Scanner",
+      "status": "accepted",
+      "date": "2026-05-09",
+      "domains": [
+        "django/views",
+        "django/models",
+        "htmx",
+        "testing"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "verified"
+    },
+    {
+      "number": 193,
+      "id": "ADR-193",
+      "file": "ADR-193-deployment-configuration-compliance-audit.md",
+      "title": "Automated Deployment Configuration Compliance Audit",
+      "status": "accepted",
+      "date": "2026-05-09",
+      "domains": [
+        "deployment",
+        "docker",
+        "nginx",
+        "security"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "verified"
+    },
+    {
+      "number": 194,
+      "id": "ADR-194",
+      "file": "ADR-194-universal-llm-call-logging-via-gateway.md",
+      "title": "Universal LLM Call Logging via Gateway Choke-Point",
+      "status": "superseded",
+      "date": "2026-05-11",
+      "domains": [
+        "llm",
+        "observability",
+        "cost-control",
+        "security"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 195,
+      "id": "ADR-195",
+      "file": "ADR-195-litellm-proxy-engine-plus-admin-api-truth.md",
+      "title": "LiteLLM-Proxy as Logging Engine + Anthropic Admin API as Truth Anchor",
+      "status": "proposed",
+      "date": "2026-05-11",
+      "domains": [
+        "llm",
+        "observability",
+        "cost-control",
+        "security"
+      ],
+      "supersedes": [
+        "ADR-194 (Universal LLM Call Logging via Gateway Choke-Point)"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 196,
+      "id": "ADR-196",
+      "file": "ADR-196-adaptive-extensions-to-adr-116.md",
+      "title": "Adaptive Erweiterung zu ADR-116 — Outcome-Telemetrie, Drift-Report, Bandit",
+      "status": "accepted",
+      "date": "2026-05-11",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-068",
+        "ADR-095",
+        "ADR-115",
+        "ADR-116",
+        "ADR-194",
+        "ADR-195"
+      ],
+      "implementation_status": "stufe-1-2-implemented"
+    },
+    {
+      "number": 197,
+      "id": "ADR-197",
+      "file": "ADR-197-repo-aware-mcp-tool-pruning.md",
+      "title": "Repo-aware MCP Tool Pruning for Cascade",
+      "status": "proposed",
+      "date": "2026-05-12",
+      "domains": [
+        "tooling",
+        "token-budget",
+        "mcp",
+        "developer-experience"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "PR #131 (fix(session-ende): correct MCP prefixes + agent_memory API for WSL)",
+        "docs/concepts/token-reduction-strategy.md"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 198,
+      "id": "ADR-198",
+      "file": "ADR-198-staging-edge-second-cloudflare-tunnel-subdomain-convention.md",
+      "title": "ADR-198: Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention",
+      "status": "accepted",
+      "date": "2026-05-13",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-102-cloudflare-dns-cdn-migration.md",
+        "ADR-157-staging-production-split-and-port-governance.md  # 2. Amendment nach Inline-Amendment 2026-04-16"
+      ],
+      "amended_by": [
+        "ADR-210",
+        "ADR-212"
+      ],
+      "related": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-106-port-audit.md",
+        "ADR-156-reliable-deployment-pipeline.md",
+        "ADR-164-port-strategy-conflict-free-dev-staging-prod.md"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 199,
+      "id": "ADR-199",
+      "file": "ADR-199-gitops-routing.md",
+      "title": "(rejected): Model-Routing-Authority — Three Iterations, No Convergence",
+      "status": "rejected",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-068",
+        "ADR-084",
+        "ADR-115",
+        "ADR-116",
+        "ADR-196",
+        "dev-hub#39",
+        "dev-hub#40",
+        "mcp-hub#37",
+        "mcp-hub#39",
+        "mcp-hub#47",
+        "platform#135"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 200,
+      "id": "ADR-200",
+      "file": "ADR-200-iil-ui-django-component-package.md",
+      "title": "iil-ui v1 (Draft, superseded by v2)",
+      "status": "superseded",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 201,
+      "id": "ADR-201",
+      "file": "ADR-201-claude-code-pricing-visibility.md",
+      "title": "Claude Code Pricing Visibility — Statusline + Stop-Summary",
+      "status": "accepted",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-199-rejected",
+        "ADR-203",
+        "ADR-208",
+        "dev-hub#39"
+      ],
+      "implementation_status": "in-progress"
+    },
+    {
+      "number": 202,
+      "id": "ADR-202",
+      "file": "ADR-202-jit-tier-reassignment.md",
+      "title": "JIT-Tier-Reassignment — start cheap, escalate (REJECTED)",
+      "status": "rejected",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-068",
+        "ADR-116",
+        "ADR-196",
+        "ADR-199-rejected",
+        "ADR-201",
+        "ADR-204"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 203,
+      "id": "ADR-203",
+      "file": "ADR-203-anthropic-model-alias-adoption.md",
+      "title": "Anthropic Model-Alias Adoption — Drift-Wartung zu Anthropic verschieben",
+      "status": "superseded",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-199-rejected",
+        "ADR-201",
+        "ADR-208",
+        "mcp-hub#37",
+        "mcp-hub#41"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 204,
+      "id": "ADR-204",
+      "file": "ADR-204-pre-session-model-choice-wizard.md",
+      "title": "Pre-Session Model-Choice Wizard",
+      "status": "proposed",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-199-rejected",
+        "ADR-201",
+        "ADR-202-rejected",
+        "ADR-203-superseded",
+        "dev-hub#39"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 205,
+      "id": "ADR-205",
+      "file": "ADR-205-ssl-cert-strategy-iil-pet-cf-origin.md",
+      "title": "TLS-Termination & Cert-Strategie auf prod",
+      "status": "accepted",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-198"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 206,
+      "id": "ADR-206",
+      "file": "ADR-206-tunnel-migration-from-cf-origin.md",
+      "title": "Migration `*.iil.pet` von Konfig A (nginx + CF Origin Cert public:443) nach Konfig C (cloudflared Tunnel + internal:8999)",
+      "status": "accepted",
+      "date": "2026-05-14",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-205"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 207,
+      "id": "ADR-207",
+      "file": "ADR-207-cross-repo-ingest-doku-konvention.md",
+      "title": "Cross-Repo Ingest- & Doku-Konvention (tiered, opt-in)",
+      "status": "accepted",
+      "date": "2026-05-16",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 208,
+      "id": "ADR-208",
+      "file": "ADR-208-internal-model-resolver.md",
+      "title": "Interner Model-Resolver — versionierte Alias→Pin+Preis-Map (ohne Service)",
+      "status": "accepted",
+      "date": "2026-05-16",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-199-rejected",
+        "ADR-201",
+        "ADR-203",
+        "mcp-hub#37",
+        "mcp-hub#41"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 209,
+      "id": "ADR-209",
+      "file": "ADR-209-policy-auto-sync-on-merge.md",
+      "title": "Org-Policy Auto-Sync to Orchestrator Memory on Merge",
+      "status": "accepted",
+      "date": "2026-05-18",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-113",
+        "dev-hub#51",
+        "platform#190",
+        "platform#193"
+      ],
+      "implementation_status": "in-progress"
+    },
+    {
+      "number": 210,
+      "id": "ADR-210",
+      "file": "ADR-210-local-staging-prod-architecture.md",
+      "title": "Local/Staging/Prod Architecture — three strictly separated layers with generated artifacts",
+      "status": "proposed",
+      "date": "2026-05-19",
+      "domains": [
+        "infrastructure",
+        "deployment",
+        "auth",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-198"
+      ],
+      "amended_by": [
+        "ADR-212"
+      ],
+      "related": [
+        "ADR-022",
+        "ADR-142",
+        "ADR-157",
+        "ADR-198"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 211,
+      "id": "ADR-211",
+      "file": "ADR-211-klickdummy-benutzeranforderungen-entwicklungsprozess.md",
+      "title": "Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)",
+      "status": "accepted",
+      "date": "2026-05-19",
+      "domains": [
+        "ux",
+        "requirements",
+        "process",
+        "security",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-227"
+      ],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 212,
+      "id": "ADR-212",
+      "file": "ADR-212-traefik-ingress-staging-iil-pet.md",
+      "title": "Zentraler Traefik-Ingress für staging-*.iil.pet (Klausel-3-Routing)",
+      "status": "accepted",
+      "date": "2026-05-20",
+      "domains": [
+        "infrastructure",
+        "deployment",
+        "ingress",
+        "tls"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-198",
+        "ADR-210"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-045",
+        "ADR-102",
+        "ADR-198",
+        "ADR-205",
+        "ADR-210"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 213,
+      "id": "ADR-213",
+      "file": "ADR-213-cross-repo-adr-ref-format.md",
+      "title": "Cross-Repo-ADR-Referenz-Format — `repo:ADR-NNN` (plattformweit)",
+      "status": "proposed",
+      "date": "2026-05-20",
+      "domains": [
+        "governance",
+        "documentation",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 215,
+      "id": "ADR-215",
+      "file": "ADR-215-klickdummy-pgvector-discovery.md",
+      "title": "Klickdummy Discovery via Orchestrator pgvector (Stage 1.5)",
+      "status": "accepted",
+      "date": "2026-05-21",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "iilgmbh:iil-klickdummy v1.8\" # pip-Paket (discovery_push-PoC seit v1.8.0)",
+        "meiki:ADR-027\"             # Conversational Klickdummy (Schwester-Empirie)",
+        "platform:ADR-113\"          # Orchestrator pgvector (extends)",
+        "platform:ADR-210\"          # Local-Staging-Prod-Architecture",
+        "platform:ADR-211\"          # Klickdummy-Rahmen (extends)",
+        "platform:ADR-212\"          # Traefik-Ingress iil.pet"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 216,
+      "id": "ADR-216",
+      "file": "ADR-216-klickdummy-hosting-iil-pet.md",
+      "title": "Klickdummy-Hosting auf iil.pet (Self-Hosted Stakeholder-Demos)",
+      "status": "proposed",
+      "date": "2026-05-21",
+      "domains": [
+        "infrastructure",
+        "deployment",
+        "klickdummy",
+        "hosting"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-217"
+      ],
+      "related": [
+        "ADR-113",
+        "ADR-142",
+        "ADR-198",
+        "ADR-210",
+        "ADR-211",
+        "ADR-212",
+        "ADR-215"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 217,
+      "id": "ADR-217",
+      "file": "ADR-217-klickdummy-owner-spezifische-auth.md",
+      "title": "Klickdummy Owner-spezifische Auth (Phase 2 nach ADR-216)",
+      "status": "proposed",
+      "date": "2026-05-21",
+      "domains": [
+        "auth",
+        "klickdummy",
+        "infrastructure",
+        "security"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-216"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-142",
+        "ADR-211",
+        "ADR-215",
+        "ADR-216"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 218,
+      "id": "ADR-218",
+      "file": "ADR-218-doc-profile-konvention.md",
+      "title": "Adopt projekttyp-spezifisches Doc-Profile mit plattform-globalem Pflicht-Katalog-Schema",
+      "status": "proposed",
+      "date": "2026-05-21",
+      "domains": [
+        "governance",
+        "documentation",
+        "compliance",
+        "klickdummy"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-077",
+        "ADR-138",
+        "ADR-207",
+        "ADR-209",
+        "ADR-211",
+        "ADR-213"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 219,
+      "id": "ADR-219",
+      "file": "ADR-219-lokaler-bringup-multi-tenant-repos.md",
+      "title": "Lokaler Bring-up von Multi-Tenant-Repos (django_tenants) — migrate_schemas + seed_public_tenant als Local-Run-Konvention",
+      "status": "accepted",
+      "date": "2026-05-28",
+      "domains": [
+        "infrastructure",
+        "developer-experience",
+        "multi-tenancy",
+        "process",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": "complete"
+    },
+    {
+      "number": 220,
+      "id": "ADR-220",
+      "file": "ADR-220-oidc-trusted-publishing-for-pypi.md",
+      "title": "Migrate token-based PyPI publish workflows to OIDC Trusted Publishing with protected environments",
+      "status": "proposed",
+      "date": "2026-05-18",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-226-library-ci-reusable-mandatory-secret-scan.md"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 221,
+      "id": "ADR-221",
+      "file": "ADR-221-staging-hostname-konvention.md",
+      "title": "Staging-Hostname-Konvention (Präfix `staging-`, Demo-Tenant für Subdomain-Tenancy)",
+      "status": "accepted",
+      "date": "2026-05-20",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-142",
+        "ADR-210"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 222,
+      "id": "ADR-222",
+      "file": "ADR-222-cross-repo-ci-health-program.md",
+      "title": "(v4, amendiert): Zwei SHA-gepinnte CI-Familien für 48 Repos",
+      "status": "proposed",
+      "date": "2026-05-18",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-111",
+        "ADR-196",
+        "platform#191",
+        "platform#194"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 223,
+      "id": "ADR-223",
+      "file": "ADR-223-llm-model-screener.md",
+      "title": "Einführung eines automatisierten LLM Model Screener & Provider Research Systems",
+      "status": "proposed",
+      "date": "2026-05-08",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-023 (Shared Scoring & Routing Engine)",
+        "ADR-028 (Platform Context)",
+        "ADR-045 (SOPS Secrets Management)",
+        "ADR-059 (Drift-Detector)"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 224,
+      "id": "ADR-224",
+      "file": "ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md",
+      "title": "Adopt HTTP/SSE Transport for Orchestrator MCP Server",
+      "status": "proposed",
+      "date": "2026-05-10",
+      "domains": [
+        "orchestrator",
+        "mcp",
+        "infrastructure",
+        "integration"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-256"
+      ],
+      "related": [],
+      "implementation_status": "none"
+    },
+    {
+      "number": 225,
+      "id": "ADR-225",
+      "file": "ADR-225-genesor-ingest-architecture.md",
+      "title": "genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan",
+      "status": "accepted",
+      "date": "2026-05-29",
+      "domains": [
+        "klickdummy",
+        "genesor",
+        "ingest",
+        "ci"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [
+        "ADR-246"
+      ],
+      "related": [
+        "ADR-211",
+        "ADR-213",
+        "ADR-216"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 226,
+      "id": "ADR-226",
+      "file": "ADR-226-library-ci-reusable-mandatory-secret-scan.md",
+      "title": "Library CI reusable (`_ci-pypi.yml`) with a mandatory blocking secret-scan for all PyPI-published packages",
+      "status": "accepted",
+      "date": "2026-05-18",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-057-platform-test-strategy.md",
+        "ADR-058-platform-test-taxonomy.md"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 227,
+      "id": "ADR-227",
+      "file": "ADR-227-klickdummy-feedback-bridge.md",
+      "title": "Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT",
+      "status": "draft",
+      "date": "2026-05-29",
+      "domains": [
+        "klickdummy",
+        "feedback",
+        "cloudflare",
+        "security",
+        "ci"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-211"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-211",
+        "ADR-216",
+        "ADR-225"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 228,
+      "id": "ADR-228",
+      "file": "ADR-228-amendment-merge-time-adr-number-allocation.md",
+      "title": "Amendment: Merge-time ADR number allocation (amends ADR-065)",
+      "status": "accepted",
+      "date": "2026-05-29",
+      "domains": [
+        "governance",
+        "ci",
+        "adr"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-065"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-059",
+        "ADR-107"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 229,
+      "id": "ADR-229",
+      "file": "ADR-229-windsurf-distribution-single-source.md",
+      "title": "Kanonische `.windsurf`-Distribution — Single Global Source, consumed not mirrored",
+      "status": "proposed",
+      "date": "2026-05-30",
+      "domains": [
+        "tooling",
+        "dx",
+        "drift-prevention",
+        "infra"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 230,
+      "id": "ADR-230",
+      "file": "ADR-230-cc-first-skill-distribution.md",
+      "title": "CC-first Skill-Distribution — eine kanonische Quelle, deterministische Verteilung, Windsurf = generiertes ADR-Subset",
+      "status": "accepted",
+      "date": "2026-05-30",
+      "domains": [
+        "tooling",
+        "dx",
+        "drift-prevention",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "claude-skills.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-229"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 231,
+      "id": "ADR-231",
+      "file": "ADR-231-devhub-thin-bff-catalog-service.md",
+      "title": "dev-hub 2.0 — Entkernung zu Thin BFF + Catalog-Service (Read-Projektionen statt geforkter Tabellen)",
+      "status": "accepted",
+      "date": "2026-05-30",
+      "domains": [
+        "dev-hub",
+        "architecture",
+        "ssot",
+        "portal",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-158-unified-documentation-architecture.md"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-021-unified-deployment-pattern.md",
+        "ADR-050-platform-decomposition-hub-landscape.md",
+        "ADR-077-infrastructure-context-system.md"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 233,
+      "id": "ADR-233",
+      "file": "ADR-233-parallel-session-worktree-convention.md",
+      "title": "Parallel-Session-Worktree-Konvention — Isolation von Integration entkoppeln",
+      "status": "proposed",
+      "date": "2026-06-01",
+      "domains": [
+        "dx",
+        "git-workflow",
+        "drift-prevention",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-209",
+        "ADR-234"
+      ],
+      "implementation_status": "partial  # 2026-06-04: pre-commit-Backstop (main-tree-protect) verdrahtet; Snap-back-Hook-Aktivierung via 'tools/main-tree-guard.sh install .' je Checkout"
+    },
+    {
+      "number": 234,
+      "id": "ADR-234",
+      "file": "ADR-234-clean-state-invariant.md",
+      "title": "Sauberer Repo-Zustand (Staging & Prod) als erzwungene Invariante statt laufendem Reparatur-Task",
+      "status": "accepted",
+      "date": "2026-06-01",
+      "domains": [
+        "ci-cd",
+        "deployment",
+        "governance",
+        "drift-prevention",
+        "dependency-management"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-058",
+        "ADR-120",
+        "ADR-157",
+        "ADR-209",
+        "ADR-226"
+      ],
+      "implementation_status": "in_progress"
+    },
+    {
+      "number": 235,
+      "id": "ADR-235",
+      "file": "ADR-235-org-secret-prevention-posture.md",
+      "title": "Org-weite Secret-Prevention-Posture — bindender Gate am Push-Rand (native Push-Protection) mit CI-gitleaks als Fallback",
+      "status": "accepted",
+      "date": "2026-06-02",
+      "domains": [
+        "security",
+        "ci-cd",
+        "governance",
+        "secrets"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-045",
+        "ADR-210",
+        "ADR-220",
+        "ADR-226"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 236,
+      "id": "ADR-236",
+      "file": "ADR-236-altd-enterprise-boundary.md",
+      "title": "— ALT-D Enterprise-Boundary: IIL-Org-Topologie konsolidieren (mit Portabilität by construction)",
+      "status": "accepted",
+      "date": "2026-06-03",
+      "domains": [
+        "governance",
+        "security",
+        "secrets",
+        "ci-cd"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-045",
+        "ADR-220",
+        "ADR-226",
+        "ADR-230",
+        "ADR-235"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 237,
+      "id": "ADR-237",
+      "file": "ADR-237-multi-tenancy-row-level-default-schema-exception.md",
+      "title": "— Multi-Tenancy: row-level `tenant_id` als Plattform-Default, schema-per-tenant als Compliance-Ausnahme",
+      "status": "proposed",
+      "date": "2026-06-06",
+      "domains": [
+        "architecture",
+        "multi-tenancy",
+        "security",
+        "data-sovereignty"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-072",
+        "ADR-074"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-035",
+        "ADR-092",
+        "ADR-109",
+        "ADR-137",
+        "ADR-219"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
+      "number": 238,
+      "id": "ADR-238",
+      "file": "ADR-238-security-by-construction-agent-containment.md",
+      "title": "Security-by-Construction als Konstruktionsprinzip — Containment symmetrisch zu Acceleration",
+      "status": "accepted",
+      "date": "2026-06-06",
+      "domains": [
+        "security",
+        "governance",
+        "agents",
+        "ci-cd"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-015",
+        "ADR-070",
+        "ADR-081",
+        "ADR-186",
+        "ADR-210",
+        "ADR-233",
+        "ADR-234",
+        "ADR-235"
+      ],
+      "implementation_status": "partial"
+    },
+    {
+      "number": 239,
+      "id": "ADR-239",
+      "file": "ADR-239-architecture-guardian.md",
+      "title": "Architecture Guardian — PR-Zeit-Architektur-Compliance-Agent",
+      "status": "accepted",
+      "date": "2026-06-06",
+      "domains": [
+        "governance",
+        "ci-cd",
+        "architecture",
+        "agents"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-056",
+        "ADR-057",
+        "ADR-058",
+        "ADR-059",
+        "ADR-061",
+        "ADR-177",
+        "ADR-184",
+        "ADR-223",
+        "ADR-231"
+      ],
+      "implementation_status": "implemented"
+    },
+    {
+      "number": 240,
+      "id": "ADR-240",
+      "file": "ADR-240-repo-health-framework.md",
+      "title": "Repo-Health-Framework über alle Plattform-Repos",
+      "status": "proposed",
+      "date": "2026-06-09",
+      "domains": [
+        "platform",
+        "observability",
+        "health",
+        "agents",
+        "mcp"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-196",
+        "ADR-201",
+        "ADR-222",
+        "ADR-231",
+        "ADR-239"
+      ],
+      "implementation_status": "not_started"
+    },
+    {
+      "number": 241,
+      "id": "ADR-241",
+      "file": "ADR-241-backup-disaster-recovery-baseline.md",
+      "title": "Platform-weite Backup- & Disaster-Recovery-Baseline (Offsite by construction)",
+      "status": "accepted",
+      "date": "2026-06-10",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-142",
+        "ADR-143",
+        "ADR-144"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-045",
+        "ADR-072",
+        "ADR-090",
+        "ADR-157",
+        "ADR-218",
+        "ADR-234",
+        "ADR-235",
+        "ADR-236"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 242,
+      "id": "ADR-242",
+      "file": "ADR-242-branch-protection-required-checks.md",
+      "title": "Fleet-weite Branch-Protection — required status checks auf `main` (no-bypass by construction)",
+      "status": "accepted",
+      "date": "2026-06-11",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-209",
+        "ADR-226",
+        "ADR-230",
+        "ADR-234",
+        "ADR-235"
+      ],
+      "implementation_status": "in_progress"
+    },
+    {
+      "number": 243,
+      "id": "ADR-243",
+      "file": "ADR-243-shared-runtime-core-iil-corefw.md",
+      "title": "`iil-corefw` — Shared Runtime Core für die Framework-Flotte (Retry, Errors, Observability, Cost-Provenance)",
+      "status": "accepted",
+      "date": "2026-06-12",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-131",
+        "ADR-226",
+        "ADR-234"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 244,
+      "id": "ADR-244",
+      "file": "ADR-244-rule-lifecycle-governance-loop.md",
+      "title": "Geschlossener Regel-Lebenszyklus — eine Severity-/Suppression-Sprache und ein Compliance-Gate über alle Check-Systeme",
+      "status": "accepted",
+      "date": "2026-06-12",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-209",
+        "ADR-234",
+        "ADR-239",
+        "ADR-240",
+        "ADR-242"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 245,
+      "id": "ADR-245",
+      "file": "ADR-245-llm-provider-policy-engine.md",
+      "title": "LLM-Routing-Policy als Code — Provider-Policy-Engine in iil-aifw (free-tier-first mit Auto-Failover)",
+      "status": "accepted",
+      "date": "2026-06-12",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-068",
+        "ADR-095",
+        "ADR-243"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 246,
+      "id": "ADR-246",
+      "file": "ADR-246-genesor-ingest-stufe2-ci-auto.md",
+      "title": "genesor-Ingest Stufe 2: manifest-getriebener, dev-host-freier CI-Auto-Ingest (nightly)",
+      "status": "accepted",
+      "date": "2026-06-16",
+      "domains": [
+        "klickdummy",
+        "genesor",
+        "ingest",
+        "ci"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-225"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-211",
+        "ADR-213",
+        "ADR-215",
+        "ADR-216",
+        "ADR-225"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 247,
+      "id": "ADR-247",
+      "file": "ADR-247-cross-hub-onboarding-contract.md",
+      "title": "Cross-Hub Onboarding-Contract: billing-hub → Produkt-Hub Auto-Login (HMAC + Magic-Link)",
+      "status": "proposed",
+      "date": "2026-06-17",
+      "domains": [
+        "billing",
+        "onboarding",
+        "auth",
+        "tenancy",
+        "cross-repo"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-156",
+        "ADR-157"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 248,
+      "id": "ADR-248",
+      "file": "ADR-248-compose-project-name-per-hub.md",
+      "title": "COMPOSE_PROJECT_NAME pro Hub fixieren + --remove-orphans scopen (Multi-Hub-Host)",
+      "status": "proposed",
+      "date": "2026-06-17",
+      "domains": [
+        "infra",
+        "deploy",
+        "docker",
+        "cross-repo"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-156",
+        "ADR-157"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 249,
+      "id": "ADR-249",
+      "file": "ADR-249-telefonagent-produkt-swappable-ports.md",
+      "title": "Telefon-/Sprachagent als eigenständiges iilgmbh-Produkt: Swappable-Ports-Architektur + Souveränitäts-Profil, MVP mPA, erster regulierter Pilot meiki-hub",
+      "status": "proposed",
+      "date": "2026-06-17",
+      "domains": [
+        "product",
+        "architecture",
+        "llm",
+        "rag",
+        "voice",
+        "data-sovereignty",
+        "cross-repo"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-171",
+        "ADR-172"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 250,
+      "id": "ADR-250",
+      "file": "ADR-250-registry-driven-edge-config.md",
+      "title": "Registry-getriebene Edge-Config + Drift-Lint (nginx-vhost/DNS aus repo-registry.yaml)",
+      "status": "proposed",
+      "date": "2026-06-17",
+      "domains": [
+        "infra",
+        "edge",
+        "deploy",
+        "cross-repo",
+        "monitoring"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-156",
+        "ADR-157",
+        "ADR-242",
+        "ADR-248"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 251,
+      "id": "ADR-251",
+      "file": "ADR-251-reengineering-pipeline-ux-gate-am-klickdummy.md",
+      "title": "Reengineering-Pipeline: Analyse→UCs→KD→Mockup→Deploy als Round-Trip-Kreislauf mit UX-Gate am Klickdummy + Mermaid-UC-Konvention",
+      "status": "accepted",
+      "date": "2026-06-17",
+      "domains": [
+        "methodology",
+        "reengineering",
+        "klickdummy",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-211",
+        "ADR-213"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 252,
+      "id": "ADR-252",
+      "file": "ADR-252-comic-hub-thin-composer.md",
+      "title": "comic-hub — Comic-Erstellung als Thin-Composer über bestehende Seams, gegated durch Konsistenz-Spike + Klickdummy",
+      "status": "proposed",
+      "date": "2026-06-18",
+      "domains": [
+        "comic",
+        "illustration",
+        "authoring",
+        "architecture"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-096",
+        "ADR-117",
+        "ADR-121",
+        "ADR-130",
+        "ADR-180",
+        "ADR-211",
+        "ADR-237",
+        "ADR-251"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 253,
+      "id": "ADR-253",
+      "file": "ADR-253-render-neutral-lecture-outline-contract.md",
+      "title": "Web-Präsentationen: Slidev als primäres Autoren-Tool (Glanzstücke) + Lehr-Outline-Vertrag als Gerüst-Generator (Bulk) — Zwei-Schienen-Strategie",
+      "status": "proposed",
+      "date": "2026-06-19",
+      "domains": [
+        "teaching",
+        "slides",
+        "presentations",
+        "authoring",
+        "architecture",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-121",
+        "ADR-139",
+        "ADR-140",
+        "ADR-211",
+        "ADR-254"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 254,
+      "id": "ADR-254",
+      "file": "ADR-254-learn-hub-web-deck-embed-seam.md",
+      "title": "learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle",
+      "status": "proposed",
+      "date": "2026-06-19",
+      "domains": [
+        "teaching",
+        "learn-hub",
+        "security",
+        "architecture",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-137",
+        "ADR-139",
+        "ADR-140",
+        "ADR-253"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 255,
+      "id": "ADR-255",
+      "file": "ADR-255-iilgmbh-org-migration-pypi-family.md",
+      "title": "Migrate the iil-* PyPI package family from the personal achimdehnert account to the iilgmbh GitHub org + PyPI Organization",
+      "status": "accepted",
+      "date": "2026-06-22",
+      "domains": [
+        "governance",
+        "packaging",
+        "ci-cd",
+        "security",
+        "architecture"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-230",
+        "ADR-233"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 256,
+      "id": "ADR-256",
+      "file": "ADR-256-orchestrator-mcp-stateless-streamable-http-transport.md",
+      "title": "Migrate Orchestrator MCP transport from HTTP/SSE to stateless Streamable HTTP",
+      "status": "proposed",
+      "date": "2026-06-23",
+      "domains": [
+        "orchestrator",
+        "mcp",
+        "infrastructure",
+        "integration"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-224"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-101",
+        "ADR-224",
+        "ADR-238"
+      ],
+      "implementation_status": "none"
+    },
+    {
+      "number": 257,
+      "id": "ADR-257",
+      "file": "ADR-257-ci-host-isolation-non-prod-runner.md",
+      "title": "CI läuft nicht auf dem Produktions-Host — dedizierter Non-Prod-Runner",
+      "status": "accepted",
+      "date": "2026-06-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-156",
+        "ADR-222",
+        "KONZ-risk-hub-004"
+      ],
+      "implementation_status": "in-progress"
+    },
+    {
+      "number": 258,
+      "id": "ADR-258",
+      "file": "ADR-258-cc-hook-distribution.md",
+      "title": "Org-weite Verteilung von Claude-Code-Hooks (Reaper-Gate als Erstfall)",
+      "status": "accepted",
+      "date": "2026-06-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-230",
+        "ADR-233",
+        "ADR-234",
+        "ADR-257"
+      ],
+      "implementation_status": "in-progress"
+    },
+    {
+      "number": 259,
+      "id": "ADR-259",
+      "file": "ADR-259-repo-scoped-adr-ids.md",
+      "title": "Repo-scoped ADR-IDs — `<repo>:ADR-NNN` als kanonische Cross-Repo-Referenz",
+      "status": "accepted",
+      "date": "2026-06-30",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-138"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
+      "number": 260,
+      "id": "ADR-260",
+      "file": "ADR-260-per-host-litellm-proxy-central-keys.md",
+      "title": "Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs",
+      "status": "accepted",
+      "date": "2026-06-30",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-072 (Multi-Tenancy)",
+        "ADR-223 (LLM Model Screener — Option D LiteLLM Proxy dort verworfen; siehe „Abgrenzung\")"
+      ],
+      "implementation_status": "pilot"
+    },
+    {
+      "number": 400,
+      "id": "ADR-400",
+      "file": "ADR-400-market-scanner-hybrid-architecture.md",
+      "title": "Market Scanner Hybrid Architecture",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    },
+    {
+      "number": 401,
+      "id": "ADR-401",
+      "file": "ADR-401-autonomous-trading-bot.md",
+      "title": "Autonomous Trading Bot",
+      "status": "moved",
+      "date": "2026-02-26",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [],
+      "implementation_status": ""
+    }
+  ]
+}
