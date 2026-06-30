@@ -20,7 +20,7 @@ drift_check_paths:
 supersedes_check: []
 ---
 
-# ADR-258: Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs
+# ADR-259: Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs
 
 ## Status
 **Accepted** (2026-06-30) — Richtungsentscheidung (Topologie). Implementierung phasenweise
@@ -160,7 +160,7 @@ Betriebsaufwand > eingesparter Key-/Override-Aufwand) → Rückfall auf durable 
 
 ## Externe Zweitmeinung — eingearbeitet (2026-06-30)
 
-Externe Cross-Provider-Review via `/adr-handoff-extern` (Briefing `~/shared/adr-handoff-ADR-258-2026-06-30.md`).
+Externe Cross-Provider-Review via `/adr-handoff-extern` (Briefing `~/shared/adr-handoff-ADR-259-2026-06-30.md`).
 **Step-5-Tagging (Mensch):** Der Review war durchweg kontext-treu (respektierte „settled",
 zweifelte den Pilot nicht an) → **alle Befunde `[valid]`**, keine Fehldeutung/out-of-scope.
 PRO-1…6 bestätigend (keine Änderung). Untenstehende RECs sind als **ADR-Entscheidungen**
