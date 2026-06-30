@@ -75,3 +75,33 @@ def repo(name: str) -> dict | None:
     merged = {**(e.get("flat") or {}), **(e.get("rich") or {})}
     merged.update(domain=e.get("domain"), in_flat=e.get("in_flat", False), in_rich=e.get("in_rich", False))
     return merged
+
+
+def owner(name: str, canon: dict | None = None) -> str:
+    """GitHub-Owner (Ist-Owner, ADR-255) für ein Repo auflösen.
+
+    Reihenfolge (spezifisch → generisch):
+      1. per-Repo ``github: owner/repo``-Feld (tatsächliche Repo-Identität)
+      2. explizite ``meta.repo_owner``-Map (Override für Repos ohne github-Feld)
+      3. erste passende ``meta.owner_prefix_rules`` (meiki-/ttz-/bahn-…)
+      4. Default ``meta.server.github_org`` (explizit, kein verstecktes Raten)
+
+    ``canon`` optional injizierbar (Tests/Batch ohne wiederholtes File-IO).
+
+    ⚠️ Migrations-Nuance (ADR-255): Der *Ziel*-Owner laufender ``iil-*``-Migrationen
+    steht in ``registry/iil-migration.yaml`` (SSoT), NICHT hier. Diese Funktion
+    liefert den *aktuellen* Owner laut canonical.yaml.
+    """
+    canon = canon if canon is not None else load_canonical()
+    meta = canon.get("meta", {})
+    entry = (canon.get("repos") or {}).get(name) or {}
+    gh = (entry.get("rich") or {}).get("github") or (entry.get("flat") or {}).get("github")
+    if gh and "/" in gh:
+        return gh.split("/", 1)[0]
+    explicit = (meta.get("repo_owner") or {}).get(name)
+    if explicit:
+        return explicit
+    for rule in meta.get("owner_prefix_rules") or []:
+        if name.startswith(rule["prefix"]):
+            return rule["owner"]
+    return (meta.get("server") or {}).get("github_org", "achimdehnert")
