@@ -145,6 +145,12 @@ lint-registry: ## Vollständige Registry-Validierung (ports + tenancy)
 	@python3 infra/scripts/validate_repos.py
 	@python3 infra/scripts/validate_tenancy.py
 
+check-push: ## Lokale platform-Hard-Gates vor dem Push spiegeln (view-reader + publish-gate-invariant + check_publish_gate)
+	@bash scripts/checks/pre_push_platform_gates.sh
+
+install-push-hook: ## check-push als nativen pre-push-Hook installieren
+	@bash scripts/checks/pre_push_platform_gates.sh --install-hook
+
 .PHONY: lint-tenancy lint-registry
 
 exit-plan: ## Exit-/Portability-Runbook für ORG=<org> aus Live-GitHub-Zustand (KONZ-002 OOTB-4; braucht GH_TOKEN mit repo+admin:org)
