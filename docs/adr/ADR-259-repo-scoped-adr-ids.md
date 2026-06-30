@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-06-30
 revision: 2
 decision-makers: [Achim Dehnert]
