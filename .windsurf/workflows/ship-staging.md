@@ -139,7 +139,7 @@ Bei HTTP 200 → Staging-Deploy erfolgreich.
 
 → Im Cascade-Output melden: `🧪 Staging Deploy: {scope} | 88.99.38.75:{staging_port} | Domain: {domain_staging}`
 
-> ℹ️ `mcp2_discord_notify` existiert nicht mehr (Issue #80).
+> ℹ️ `mcp__orchestrator__discord_notify` existiert nicht mehr (Issue #80).
 
 ---
 

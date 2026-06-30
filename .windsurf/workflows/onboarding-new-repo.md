@@ -103,7 +103,7 @@ Bei Docs-Repos — angepasste Versionen erstellen für:
 Option A — via GitHub MCP (bevorzugt bei neuen/privaten Repos):
 
 ```
-mcp1_push_files(
+mcp__github__push_files(
   owner: "<owner>",
   repo: "<repo-name>",
   branch: "main",

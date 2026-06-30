@@ -112,7 +112,7 @@ Nächste Schritte:
 ### 7. Optionale Folgeaktionen (nur auf Wunsch des Users)
 
 - **ADR erstellen**: `/adr` Workflow mit Idee als Input
-- **GitHub Issue**: `mcp8_create_issue` mit strukturiertem Body
+- **GitHub Issue**: `mcp__github__create_issue` mit strukturiertem Body
 - **Implementierung starten**: `/agentic-coding` mit Idee als Task
 
 ## Regeln

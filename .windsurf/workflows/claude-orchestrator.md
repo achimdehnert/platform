@@ -16,7 +16,7 @@ description: Claude Code als Initial-Orchestrator — Plant Tasks BEVOR Windsurf
 **BEVOR Cascade irgendetwas implementiert:**
 
 ```
-MCP: mcp4_analyze_task(description="<user request>")
+MCP: mcp__orchestrator__analyze_task(description="<user request>")
 → {task_type, complexity, gate_level, recommended_model}
 ```
 
@@ -43,7 +43,7 @@ MCP: mcp2_adr_query(question="<was geplant ist>", domain="<relevant>")
 ## Schritt 3 — Claude Code: Task zerlegen
 
 ```
-MCP: mcp4_agent_plan_task(
+MCP: mcp__orchestrator__agent_plan_task(
     task_description="<vollständige Beschreibung>",
     repo="<repo-name>",
     task_type="<feature|bugfix|refactor|infra>",
@@ -59,7 +59,7 @@ MCP: mcp4_agent_plan_task(
 ## Schritt 4 — Claude Code: GitHub Issue erstellen
 
 ```
-MCP: mcp1_create_issue(
+MCP: mcp__github__create_issue(
     owner="achimdehnert",
     repo="<repo>",
     title="[AUTO] <task_description>",
@@ -84,7 +84,7 @@ MCP: mcp1_create_issue(
 - [ ] <kriterium 2>
 
 ## Kontext aus pgvector
-<mcp4_agent_memory_context(query=task_description).top_3_results>
+<mcp__orchestrator__agent_memory_context(query=task_description).top_3_results>
 
 ---
 *Auto-erstellt von /claude-orchestrator. Windsurf implementiert NUR aus diesem Issue.*
@@ -112,7 +112,7 @@ Windsurf öffnet das Issue und:
 ## Schritt 6 — Memory sichern
 
 ```
-MCP: mcp4_agent_memory_upsert(
+MCP: mcp__orchestrator__agent_memory_upsert(
     entry_key="task:<repo>:<issue_number>",
     entry_type="context",
     title="[DONE] <issue_title>",

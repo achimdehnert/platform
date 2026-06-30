@@ -28,6 +28,10 @@ MARK = "MANAGED-BY: platform/tools/cc-skill-dist"
 # verteilt → dürfen im Ziel fehlen, ohne als Drift zu zählen. Parität zu generate.py.
 DISTRIBUTE_FALSE = re.compile(r"^distribute:\s*false\b", re.MULTILINE)
 
+# SUGGEST-lint (ADR-230 Phase-1): mcp[0-9]_tool — Windsurf-Ära-Präfix in verteilten Skills.
+# Nicht in DRIFT-SCORE (neue Regeln starten als SUGGEST per repo-health-rule-discipline).
+MCP_LEGACY_TOKEN = re.compile(r"mcp\d+_\w+")
+
 # Lane: (Quell-Pfad im Repo, Blob-Endung, key-Extraktor aus repo-Pfad, Live-Ziel, Ziel-Enumerator)
 def _name_basename(path): return os.path.basename(path)
 def _name_skilldir(path): return os.path.basename(os.path.dirname(path))
@@ -194,6 +198,25 @@ def main():
         print(f"  Wiring-Befunde (settings.json SessionEnd)={len(wiring_issues)}")
     drift = sym_stale + sym_dangling + copy_stale + extra + len(missing) + rel_links + len(wiring_issues)
     print(f"=== DRIFT-SCORE: {drift} (0 = sauber) ===")
+
+    # SUGGEST-lint: mcp[0-9]_token in distributed commands (advisory, not in DRIFT-SCORE)
+    if a.kind == "commands":
+        suggest_hits = []
+        for name, sha in sorted(canon.items()):
+            body = canon_content(sha) or ""
+            for line in body.splitlines():
+                if MCP_LEGACY_TOKEN.search(line) and "TODO(mcp-migration)" not in line:
+                    for tok in MCP_LEGACY_TOKEN.findall(line):
+                        suggest_hits.append((name, tok))
+        if suggest_hits:
+            print(f"  --- SUGGEST ({len(suggest_hits)} legacy mcp[0-9]_ Token(s) in verteilten Skills) ---")
+            for skill, tok in suggest_hits[:15]:
+                print(f"    [suggest] {skill} — {tok} (Windsurf-Präfix, Phase-2-Migration offen)")
+            if len(suggest_hits) > 15:
+                print(f"    … und {len(suggest_hits) - 15} weitere")
+        else:
+            print("  --- SUGGEST: 0 legacy mcp[0-9]_ Token(s) — Phase-1-Migration vollständig ---")
+
     sys.exit(1 if drift else 0)
 
 if __name__ == "__main__":

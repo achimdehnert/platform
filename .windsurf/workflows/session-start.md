@@ -79,7 +79,7 @@ echo "shell-alive-$(date +%s)"
 > → Bis dahin: NUR `read_file`, `write_to_file`, `mcp1_*` (GitHub) und `mcp3_*` (Outline) nutzen
 > → **Lesson Learned 2026-04-05:** Shell-Hang kann ganze Sessions blockieren.
 >   Edit-Tools (`edit`, `multi_edit`) können ebenfalls betroffen sein (zeigen "empty file").
->   GitHub MCP `mcp1_get_file_contents` + `mcp1_push_files` als Workaround für Git-Operationen.
+>   GitHub MCP `mcp__github__get_file_contents` + `mcp__github__push_files` als Workaround für Git-Operationen.
 
 ### 0.1 Server-Erreichbarkeit prüfen (PFLICHT — vor allen MCP/SSH-Calls)
 
@@ -360,10 +360,9 @@ mcp3_search_knowledge(query: "Input ADR", collection: null, limit: 10)
 
 > **MCP-Prefix beachten** — auf Dev Desktop ist `mcp1_` = orchestrator (siehe `project-facts.md`).
 
-8. **Memory Warm-Start / Bekannte Fehler / Recurring Errors** — alles über `mcp1_agent_memory`:
+8. **Memory Warm-Start / Bekannte Fehler / Recurring Errors** — alles über `mcp1_agent_memory`:  <!-- TODO(mcp-migration): mcp1_agent_memory -- Phase 2 (no-op in scope) -->
 ```
-mcp1_agent_memory(
-  operation: "query",
+mcp__orchestrator__agent_memory_search(
   filter_type: "solved_problem",   // oder "error_pattern" für Bug-Fix-Sessions
   filter_tag: "<repo>"             // optional
 )
@@ -371,7 +370,7 @@ mcp1_agent_memory(
 → Liefert relevante Session-Summaries, Error-Patterns und Lessons aus pgvector.
 → Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
 
-> ℹ️ `mcp2_get_session_delta` + `mcp2_find_similar_errors` + `mcp2_check_recurring_errors`
+> ℹ️ `mcp2_get_session_delta  <!-- TODO(mcp-migration): mcp2_get_session_delta -- Phase 2 (defunct) -->` + `mcp__orchestrator__find_similar_errors` + `mcp__orchestrator__check_recurring_errors`
 > sind wieder verfügbar (seit Issue #80 Reopened). Siehe Phase 2.5.
 
 ---

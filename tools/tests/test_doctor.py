@@ -172,3 +172,57 @@ def test_should_report_drift_zero_then_detect_tamper(tmp_path):
     r2 = _doctor_skills(repo, dist)
     assert r2.returncode == 1
     assert "DRIFT-SCORE: 0" not in r2.stdout
+
+
+def _make_commands_repo_with_content(root, workflow_content):
+    root.mkdir(parents=True)
+    _git(root, "init", "-b", "main")
+    _git(root, "config", "user.email", "t@t.t")
+    _git(root, "config", "user.name", "t")
+    (root / ".windsurf" / "workflows").mkdir(parents=True)
+    (root / ".windsurf" / "workflows" / "foo.md").write_text(workflow_content)
+    _git(root, "add", "-A")
+    _git(root, "commit", "-m", "init")
+    _git(root, "remote", "add", "origin", str(root))
+    _git(root, "fetch", "origin", "main", "-q")
+    return root
+
+
+def _doctor_commands(repo, dist):
+    return subprocess.run(
+        [sys.executable, str(_DOC), "--kind", "commands", "--platform", str(repo),
+         "--ref", "HEAD", "--commands", str(dist)],
+        capture_output=True, text=True)
+
+
+def test_should_suggest_legacy_mcp_tokens_without_affecting_drift_score(tmp_path):
+    """SUGGEST-lint: mcp[0-9]_ in verteiltem Skill → SUGGEST im Output, DRIFT-SCORE bleibt 0."""
+    repo = _make_commands_repo_with_content(
+        tmp_path / "repo",
+        "# foo\nmcp1_create_issue(owner=x, repo=y)\nmcp2_agent_plan_task(task=z)\n"
+    )
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    r = _doctor_commands(repo, dist)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "DRIFT-SCORE: 0" in r.stdout
+    assert "SUGGEST" in r.stdout
+    assert "mcp1_create_issue" in r.stdout
+
+
+def test_should_not_suggest_when_no_legacy_mcp_tokens(tmp_path):
+    """SUGGEST-lint: keine mcp[0-9]_ → '0 legacy' Meldung, DRIFT-SCORE 0."""
+    repo = _make_commands_repo_with_content(
+        tmp_path / "repo",
+        "# foo\nmcp__github__create_issue(owner=x, repo=y)\nmcp__orchestrator__deploy_check()\n"
+    )
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    r = _doctor_commands(repo, dist)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "DRIFT-SCORE: 0" in r.stdout
+    assert "0 legacy" in r.stdout
