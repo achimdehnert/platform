@@ -250,7 +250,7 @@
 | 256 | Orchestrator-MCP-Transport von HTTP/SSE auf stateless Streamable HTTP migrieren (amends ADR-224, Treiber mcp-hub#128) | `Proposed` | ⬜ | [ADR-256](ADR-256-orchestrator-mcp-stateless-streamable-http-transport.md) |
 | 257 | CI läuft nicht auf dem Produktions-Host — dedizierter Non-Prod-Runner | `Accepted` | ⬜ | [ADR-257](ADR-257-ci-host-isolation-non-prod-runner.md) |
 | 258 | Org-weite Verteilung von Claude-Code-Hooks (Reaper-Gate als Erstfall) | `Accepted` | ⬜ | [ADR-258](ADR-258-cc-hook-distribution.md) |
-| 259 | Repo-scoped ADR-IDs — `<repo>:ADR-NNN` als kanonische Cross-Repo-Referenz (writing-hub Epic #11 / F22) | `Proposed` | ⬜ | [ADR-259](ADR-259-repo-scoped-adr-ids.md) |
+| 259 | Repo-scoped ADR-IDs — `<repo>:ADR-NNN` als kanonische Cross-Repo-Referenz (writing-hub Epic #11 / F22) | `Proposed` (Rev 2) | ⬜ | [ADR-259](ADR-259-repo-scoped-adr-ids.md) |
 
 ## Gaps (intentional -- deleted/archived ADRs)
 
