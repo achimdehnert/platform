@@ -1,13 +1,14 @@
 # CORE_CONTEXT — platform
 
 > Pflicht-Lektüre für jeden Coding-Agent vor dem ersten Keystroke.
-> Aktualisiert: 2026-05-30
+> Aktualisiert: 2026-06-30
 
 ## Was ist platform?
 
 **Meta-Repo** des IIL-Ökosystems. Enthält **keine ausführbare App**, sondern
 ist die Single-Source-of-Truth für plattformweite Entscheidungen, Conventions
-und geteilte Werkzeuge der 45+ Hub-Repos.
+und geteilte Werkzeuge der Hub-Repos (Anzahl live:
+`python3 -c "import yaml; print(len(yaml.safe_load(open('registry/canonical.yaml'))['repos']))"`).
 
 **GitHub:** https://github.com/achimdehnert/platform
 **ADR-Verzeichnis:** `docs/adr/` (Bestand live: `ls docs/adr/ADR-*.md | wc -l`; höchste Nr.: `ls docs/adr/ADR-*.md | grep -oE 'ADR-[0-9]+' | sort -V | tail -1`)
@@ -30,7 +31,7 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 | `docs/reference/` | Reference-Docs (audit/health-Checker, …) |
 | `docs/guides/` | How-to-Guides (CI, Deploy, Multi-Env) |
 | `shared_contracts/` | Pydantic-Models — Cross-Repo-Verträge |
-| `registry/` | `repos.yaml` + `sync_registry.py` (drift-check liest hier) |
+| `registry/` | **SSoT `canonical.yaml`** (ADR-234) → Views `repos.yaml`/`scripts/repo-registry.yaml` (generiert, gate-erzwungen); Accessor `tools/registry_api.py`. Owner-Auflösung: `registry_api.owner(repo)` |
 | `governance-deploy/` | Governance-Automation für Deploys |
 | `tools/` | `repo_health_check.py`, `check_*.py`, `print_agent/` (MD → PDF) |
 | `scripts/` | `audit_platform.py`, `adr_audit.py`, `drift_check.py` |
@@ -58,7 +59,9 @@ und geteilte Werkzeuge der 45+ Hub-Repos.
 ## Pflicht-Lesestoff vor Änderungen
 
 1. **`AGENT_HANDOVER.md`** — aktueller Stand, MCP-Tool-Mapping, Infra-Zugänge
-2. **`AGENT_MEMORY.md`** — Drift-Episoden & Lessons Learned
+2. **CC-Memory-Index** (auto-geladen) — Drift-Episoden & Lessons Learned.
+   ⚠️ **`AGENT_MEMORY.md` ist deprecated** (Cascade-Ära, alle Einträge expired,
+   Stand 2026-05-05) — nicht mehr als Lessons-Quelle lesen.
 3. **Letzte ADRs**: `ls docs/adr/ADR-*.md | sort -V | tail -5`
 
 ## Konventionen (Repo-spezifisch — schlagen Global)
