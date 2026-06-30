@@ -124,6 +124,11 @@ Weiter manuell Models zuweisen, bei Ausfall manuell umschalten.
 
 ### Option D: LiteLLM Proxy (self-hosted)
 
+> **Amendment 2026-06-30 (ADR-258):** Option D wurde hier zugunsten Option A verworfen,
+> aber **teilweise revidiert** durch **ADR-258** (Per-Host-LiteLLM-Proxy als zentraler
+> Provider-Key-Halter) — mit neuer Evidenz (Fleet-weiter Key-Sprawl, Vision-Bedarf, Pilot-Beleg).
+> Proxy (Transport/Keys) und Model-Screener (Option A, Modellwahl) sind komplementär, aifw bleibt Router.
+
 Self-hosted LiteLLM Proxy mit Load-Balancing und Caching.
 
 - **Pro:** Caching reduziert Kosten
