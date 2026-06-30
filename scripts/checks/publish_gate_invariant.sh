@@ -16,6 +16,11 @@
 #
 # Self-activating: a no-op until the gitleaks-scan composite action lands
 # (with ADR-226 / its implementing PR). Green on pre-ADR-226 main.
+#
+# Schwester-Werkzeug: tools/check_publish_gate.py (fleet-weiter Detektor/Meter,
+# pypa+twine, Invariante c = Test ODER Secret-Scan). DIESES Skript ist der strenge,
+# platform-EIGENE Hard-Gate (gitleaks PFLICHT). Bewusste Arbeitsteilung, kein
+# Duplikat (Retro 2026-06-30 F5) — bei Erweiterung beide abgleichen.
 # ─────────────────────────────────────────────────────────────────────────────
 set -uo pipefail
 
