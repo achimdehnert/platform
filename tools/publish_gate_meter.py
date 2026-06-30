@@ -14,11 +14,14 @@ dieser Meter 0 False Positives über die Flotte gezeigt und der Backlog gedraine
 Schreibrecht: nur EIN Issue im platform-Repo (issues:write), read-only gegen alle
 anderen Repos. `--dry-run` schreibt kein Issue (nur Report) — für Dry-Run-in-CI.
 
-GRENZE (bewusst): Der Meter sieht nur, was in `scripts/repo-registry.yaml` steht
-(Default: type=library). PyPI-Publisher, die NICHT in der Registry registriert
-sind (z.B. iil-adrfw, iil-codeguard — Stand 2026-06-30), sind unsichtbar — wie
-auch für den ADR-226-Adoption-Gate. Fix gehört in die Registry, nicht hierher.
-`--all-types` weitet auf alle Registry-Typen, ersetzt aber keine fehlenden Einträge.
+Die Registry wird über `tools/registry_api.py` gelesen (sanktionierter Accessor,
+ADR-234 §11.1 — die View-Dateien sind generiert, Direkt-Lesen ist ein hartes Gate).
+
+GRENZE (bewusst): Der Meter sieht nur, was in der kanonischen Registry steht
+(Default: type=library). PyPI-Publisher, die NICHT registriert sind (z.B.
+iil-adrfw, iil-codeguard — Stand 2026-06-30), sind unsichtbar — wie auch für den
+ADR-226-Adoption-Gate. Fix gehört in die Registry, nicht hierher. `--all-types`
+weitet auf alle Registry-Typen, ersetzt aber keine fehlenden Einträge.
 
 Usage:
     python3 tools/publish_gate_meter.py [--dry-run] [--all-types] [--fail-on-backlog]
@@ -35,14 +38,20 @@ import sys
 import urllib.error
 import urllib.request
 
-import yaml
+
+def _load(name: str):
+    spec = importlib.util.spec_from_file_location(name, _HERE / f"{name}.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
 
 _HERE = pathlib.Path(__file__).resolve().parent
-_GUARD = importlib.util.spec_from_file_location("check_publish_gate", _HERE / "check_publish_gate.py")
-cpg = importlib.util.module_from_spec(_GUARD)
-_GUARD.loader.exec_module(cpg)
+cpg = _load("check_publish_gate")
+# Registry NUR über den sanktionierten Accessor lesen (ADR-234 §11.1 REC-4 —
+# die View-Dateien sind generiert; Direkt-Lesen ist ein hartes Gate).
+registry_api = _load("registry_api")
 
-REGISTRY = "scripts/repo-registry.yaml"
 MARKER_LABEL = "publish-gate-backlog"
 ISSUE_TITLE = "Publish-Gate-Backlog: ungegatete PyPI-Uploads"
 
@@ -85,11 +94,10 @@ def build_backlog(results: dict, owner: str) -> str:
     return "\n".join(lines)
 
 
-def registry_repos(text: str, all_types: bool) -> list:
-    reg = yaml.safe_load(text)
-    repos = reg.get("repos", {}) or {}
+def registry_repos(repos: dict, all_types: bool) -> list:
+    """repos = {name: {type, ...}} (z.B. registry_api.flat()['repos']) → gefilterte Namen."""
     out = []
-    for name, meta in repos.items():
+    for name, meta in (repos or {}).items():
         if not isinstance(meta, dict):
             continue
         if all_types or meta.get("type") == "library":
@@ -162,7 +170,7 @@ def main(argv: list) -> int:
     args = ap.parse_args(argv)
 
     owner = os.environ.get("OWNER", "achimdehnert")
-    repos = registry_repos(pathlib.Path(REGISTRY).read_text(), args.all_types)
+    repos = registry_repos(registry_api.flat().get("repos", {}), args.all_types)
 
     results = {}
     if args.local:

@@ -84,22 +84,17 @@ def test_should_count_jobs_across_repos():
 
 
 def test_should_select_only_library_types_by_default():
-    reg = """
-repos:
-  aifw: {type: library}
-  risk-hub: {type: django}
-  iil-ingest: {type: library}
-"""
-    assert m.registry_repos(reg, all_types=False) == ["aifw", "iil-ingest"]
+    repos = {
+        "aifw": {"type": "library"},
+        "risk-hub": {"type": "django"},
+        "iil-ingest": {"type": "library"},
+    }
+    assert m.registry_repos(repos, all_types=False) == ["aifw", "iil-ingest"]
 
 
 def test_should_select_all_types_when_requested():
-    reg = """
-repos:
-  aifw: {type: library}
-  risk-hub: {type: django}
-"""
-    assert m.registry_repos(reg, all_types=True) == ["aifw", "risk-hub"]
+    repos = {"aifw": {"type": "library"}, "risk-hub": {"type": "django"}}
+    assert m.registry_repos(repos, all_types=True) == ["aifw", "risk-hub"]
 
 
 def test_should_read_local_workflows(tmp_path):
