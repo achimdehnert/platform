@@ -38,6 +38,7 @@ Vor Erweiterung beider: hier abgleichen, ob die Logik konvergieren sollte.
 from __future__ import annotations
 
 import pathlib
+import re
 import sys
 
 import yaml
@@ -99,7 +100,9 @@ def _is_gate_job(job_id: str, job: dict) -> bool:
         return True
     name = str(job.get("name", "")) if isinstance(job, dict) else ""
     hay = f"{job_id} {name}".lower()
-    return "test" in hay or "secret-scan" in hay or "gitleaks" in hay
+    # Word-Boundary: 'contest'/'attestation'/'protest' dürfen NICHT als Test-Gate zählen
+    # (Substring-'test' war ein False-Negative-Bug — Retro 2026-06-30 F2).
+    return bool(re.search(r"\b(test|secret-scan|gitleaks)\b", hay))
 
 
 def _upload_step_index(job: dict) -> int | None:
