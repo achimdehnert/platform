@@ -1,0 +1,116 @@
+"""Tests fuer tools/publish_gate_meter.py — reine Logik (Scan/Backlog/Registry), keine API."""
+
+import importlib.util
+import pathlib
+
+_SPEC = importlib.util.spec_from_file_location(
+    "publish_gate_meter",
+    pathlib.Path(__file__).resolve().parents[1] / "publish_gate_meter.py",
+)
+m = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(m)
+
+
+_GATED = """
+jobs:
+  test:
+    steps:
+      - run: pytest
+  publish:
+    needs: test
+    steps:
+      - uses: pypa/gh-action-pypi-publish@release/v1
+"""
+
+_UNGATED_TWINE = """
+jobs:
+  publish:
+    steps:
+      - run: python -m build
+      - run: twine upload dist/*
+"""
+
+_NON_UPLOAD = """
+jobs:
+  lint:
+    steps:
+      - run: ruff check .
+"""
+
+
+def test_should_return_no_offenders_for_gated_files():
+    assert m.scan_files({"publish.yml": _GATED}) == []
+
+
+def test_should_return_offender_for_ungated_twine():
+    assert m.scan_files({"publish.yml": _UNGATED_TWINE}) == [{"file": "publish.yml", "job": "publish"}]
+
+
+def test_should_ignore_non_upload_workflows():
+    assert m.scan_files({"ci.yml": _NON_UPLOAD}) == []
+
+
+def test_should_sort_files_deterministically():
+    files = {"b-publish.yml": _UNGATED_TWINE, "a-publish.yml": _UNGATED_TWINE}
+    result = m.scan_files(files)
+    assert [o["file"] for o in result] == ["a-publish.yml", "b-publish.yml"]
+
+
+def test_should_render_empty_backlog_when_no_offenders():
+    body = m.build_backlog({"aifw": [], "promptfw": []}, "achimdehnert")
+    assert "Backlog leer" in body
+    assert "|" not in body  # keine Tabelle
+
+
+def test_should_render_table_for_offenders():
+    body = m.build_backlog(
+        {"iil-codeguard": [{"file": "publish.yml", "job": "publish"}], "clean": []},
+        "achimdehnert",
+    )
+    assert "1 ungegatete Upload-Job(s) in 1 Repo(s)" in body
+    assert "| achimdehnert/iil-codeguard | `publish.yml` | `publish` |" in body
+    assert "clean" not in body  # leere Repos erscheinen nicht
+
+
+def test_should_count_jobs_across_repos():
+    body = m.build_backlog(
+        {
+            "r1": [{"file": "p.yml", "job": "a"}, {"file": "p.yml", "job": "b"}],
+            "r2": [{"file": "q.yml", "job": "c"}],
+        },
+        "achimdehnert",
+    )
+    assert "3 ungegatete Upload-Job(s) in 2 Repo(s)" in body
+
+
+def test_should_select_only_library_types_by_default():
+    reg = """
+repos:
+  aifw: {type: library}
+  risk-hub: {type: django}
+  iil-ingest: {type: library}
+"""
+    assert m.registry_repos(reg, all_types=False) == ["aifw", "iil-ingest"]
+
+
+def test_should_select_all_types_when_requested():
+    reg = """
+repos:
+  aifw: {type: library}
+  risk-hub: {type: django}
+"""
+    assert m.registry_repos(reg, all_types=True) == ["aifw", "risk-hub"]
+
+
+def test_should_read_local_workflows(tmp_path):
+    wf = tmp_path / "myrepo" / ".github" / "workflows"
+    wf.mkdir(parents=True)
+    (wf / "publish.yml").write_text(_UNGATED_TWINE, encoding="utf-8")
+    (wf / "notes.md").write_text("ignored", encoding="utf-8")
+    files = m.fetch_repo_workflows_local(tmp_path, "myrepo")
+    assert set(files) == {"publish.yml"}
+
+
+def test_should_return_empty_for_repo_without_workflows(tmp_path):
+    (tmp_path / "norepo").mkdir()
+    assert m.fetch_repo_workflows_local(tmp_path, "norepo") == {}
