@@ -375,7 +375,7 @@ ${GITHUB_DIR:-$HOME/github}/platform/audits/platform-audit-{YYYY-MM-DD}.md
 
 Für jedes CRITICAL oder HIGH Finding:
 ```
-mcp8_create_issue(
+mcp__github__create_issue(
     owner="achimdehnert",
     repo="{betroffenes-repo}",
     title="[Platform Audit] {Finding}",

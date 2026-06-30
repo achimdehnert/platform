@@ -132,7 +132,7 @@ Zusammenfassung als Markdown:
 
 → Report dem User präsentieren.
 → Optional in Outline speichern: `mcp4_create_concept(title="ADR Health Report <DATUM>", content=report)`
-→ Optional als GitHub Issue: `mcp1_create_issue(title="[adr-health] X Findings from <DATUM>")`
+→ Optional als GitHub Issue: `mcp__github__create_issue(title="[adr-health] X Findings from <DATUM>")`
 
 ---
 

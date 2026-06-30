@@ -45,7 +45,7 @@ Proceed? [Ja/Nein]
 
 DB-Backup typischerweise 5-30s pro Repo, je nach DB-Größe.
 
-> ℹ️ `mcp2_estimate_job` existiert nicht mehr (Issue #80) — Schätzung aus Erfahrungswerten.
+> ℹ️ `mcp__orchestrator__estimate_job` existiert nicht mehr (Issue #80) — Schätzung aus Erfahrungswerten.
 
 Ausgabe: geschätzte Dauer + Modus an den User kommunizieren.
 

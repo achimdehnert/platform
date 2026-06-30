@@ -67,7 +67,7 @@ python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --hos
 
 **Vor jedem Deploy** dem User die geschätzte Dauer kommunizieren (Erfahrungswerte: 60-180s).
 
-> ℹ️ `mcp2_estimate_job` existiert nicht mehr (Issue #80) — Schätzung aus Erfahrung.
+> ℹ️ `mcp__orchestrator__estimate_job` existiert nicht mehr (Issue #80) — Schätzung aus Erfahrung.
 
 Ausgabe an den User im Format:
 > Deploy {scope}: ~{estimated_seconds}s ({estimated_seconds_min}–{estimated_seconds_max}s)
@@ -133,7 +133,7 @@ mcp0_ssh_manage:
 
 Erwartete Antwort: `{"status":"started","background_pid":...,"log_file":...}`
 
-> ℹ️ `mcp2_discord_notify` existiert nicht mehr (Issue #80) — Notifications jetzt im Cascade-Output, nicht mehr in Discord.
+> ℹ️ `mcp__orchestrator__discord_notify` existiert nicht mehr (Issue #80) — Notifications jetzt im Cascade-Output, nicht mehr in Discord.
 
 **Fallback (ADR-075):** Falls SSH nicht verfügbar → GitHub Actions:
 
@@ -174,8 +174,7 @@ mcp0_ssh_manage:
 
 Dann Error-Pattern in pgvector sichern:
 ```
-mcp1_agent_memory(
-  operation: "upsert",
+mcp__orchestrator__agent_memory_upsert(
   agent: "cascade",
   entry: {
     entry_id: "ERROR-DEPLOY-<SCOPE-UPPERCASE>-<YYYYMMDD>",
@@ -223,7 +222,7 @@ Bei HTTP 200 → Deploy erfolgreich. Bei Failure → Schritt 6.
 
 → Im Cascade-Output melden: `✅ Deploy erfolgreich: {scope} | Dauer: {elapsed}s | Port {health_port}`
 
-> ℹ️ `mcp2_discord_notify` und `mcp2_record_job_measurement` existieren nicht mehr (Issue #80).
+> ℹ️ `mcp__orchestrator__discord_notify` und `mcp__orchestrator__record_job_measurement` existieren nicht mehr (Issue #80).
 
 ---
 
@@ -249,5 +248,4 @@ Dann Health Check wiederholen. User über Rollback informieren.
 | Image nicht aktuell | CI-Log prüfen: `run_logs owner=achimdehnert repo={scope} run_id=<id>` |
 | Branch falsch | im Ziel-Repo-Checkout `git pull origin main`; NICHT den geteilten Haupt-Tree switchen (ADR-233) |
 
-**Wichtig:** Bei JEDEM Fehler in diesem Workflow ein `error_pattern` Memory-Entry via `mcp1_agent_memory` schreiben (siehe Schritt 6).
-Beim nächsten `/session-start` findet `mcp1_agent_memory(operation: "query", filter_type: "error_pattern")` wiederkehrende Probleme.
+**Wichtig:** Bei JEDEM Fehler in diesem Workflow ein `error_pattern` Memory-Entry via `mcp__orchestrator__agent_memory_search` schreiben (siehe Schritt 6).

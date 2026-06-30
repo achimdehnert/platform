@@ -184,8 +184,7 @@ mcp0_ssh_manage:
 ### 5.1 Health Score speichern
 
 ```
-mcp1_agent_memory(
-  operation: "upsert",
+mcp__orchestrator__agent_memory_upsert(
   agent: "cascade",
   entry: {
     entry_id: "DOCU-HEALTH-<REPO-UPPERCASE>",

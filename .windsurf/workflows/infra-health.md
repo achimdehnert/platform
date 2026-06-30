@@ -89,4 +89,4 @@ mcp0_cloudflare_manage(action="cf_tunnel_list")
 
 ## Referenzen
 - ADR-021: Unified Deployment Pattern
-- Deploy-Targets: via SSH `docker ps` auf Prod-Server prüfen (Tool `mcp2_deploy_check` existiert nicht mehr — Issue #80)
+- Deploy-Targets: via SSH `docker ps` auf Prod-Server prüfen (Tool `mcp__orchestrator__deploy_check` existiert nicht mehr — Issue #80)
