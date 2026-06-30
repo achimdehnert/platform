@@ -26,6 +26,14 @@ PFAD = Workflow-YAML, ODER Repo-Root (scannt .github/workflows/*.y*ml), ODER
 mehrere. Default: aktuelles Verzeichnis.
 
 Exit-Code 0 = alle Upload-Jobs gegated; 1 = mindestens ein ungegateter Upload.
+
+ABGRENZUNG zu `scripts/checks/publish_gate_invariant.sh` (bewusste Arbeitsteilung,
+nicht versehentliches Duplikat — Retro 2026-06-30 F5):
+  - publish_gate_invariant.sh (CI-HARD-FAIL): erzwingt für platforms EIGENE
+    `publish-*.yml` einen `gitleaks-scan` (strenge, secret-spezifische Pflicht, ADR-226).
+  - dieses Tool (Detektor/Meter, informativ): fleet-weit, multi-Mechanismus (pypa+twine),
+    Invariante (c) = Test ODER Secret-Scan (Minimum). Schwächere Pflicht, breitere Erkennung.
+Vor Erweiterung beider: hier abgleichen, ob die Logik konvergieren sollte.
 """
 from __future__ import annotations
 
