@@ -1,6 +1,11 @@
 ---
 description: Einzelnes Repo tief optimieren (Stufe-1, fleet-aware) — read-only Befunde mit Reichweiten-Tags + Action-Board + gegatete Artefakt-Vorschläge. Fleet → /platform-audit.
+mode: write
 ---
+
+> **mode: write — non-idempotent.** Die Analyse (Step 0–3) ist read-only und beliebig
+> wiederholbar; Step 4 darf Branches/Issues/PRs anlegen, aber NUR gegated (Direkt-Umsetzen-Kriterien)
+> und NIE Prod/Publish/Deploy/Merge autonom. Vor einem Re-Run prüfen, ob bereits Artefakte existieren.
 
 # /repo-optimize
 
@@ -71,9 +76,32 @@ Nicht-sofort-ändern.
 (`~/shared/` oder `docs/`), nicht nur im Chat. `[FLEET-PATTERN]`-Befunde an die nächste
 `/platform-audit`-Runde übergeben.
 
+## Output-Format
+```
+## Action Board
+🟢 Dein Zug (Entscheidung/Berechtigung) · 🔵 Quick-Wins (gate-frei) · 🟡 Issues (Judgment/größer) · 🔵 [FLEET-PATTERN] → /platform-audit
+Spalten: # | Item | Repo | PR/Issue/ADR | Status | Next Step   (# = stabile ID)
+
+## Befund-Tabelle
+# | Kategorie | Reichweite([REPO-LOCAL]/[FLEET-PATTERN]/[LLM-READINESS]) | Beobachtung | Evidenz(Datei:Zeile) | Schwere(H/M/N) | Maßnahme | GitHub-Aktion
+
+## LLM-Readiness-Verdikt   (mit Datei/Modulbezug)
+## Falsifikation          (High-Befunde: SURVIVES/REFUTED, unabhängig nachgezogen)
+## Roadmap                (Quick Wins · 1–2 Wochen · Monat · Architektur; [FLEET-PATTERN] markiert)
+## Nicht sofort ändern    (mit Grund)
+```
+
 ## Anti-Patterns
 - ❌ Aus dem eigenen Session-Kontext urteilen statt frischer read-only Agent.
 - ❌ Befund ohne Artefakt-Beleg / generische Aussage („Tests verbessern").
 - ❌ `[FLEET-PATTERN]` als Repo-Einzel-Patch statt Quell-Fix.
 - ❌ Autonomer Prod/Publish/Deploy/Merge.
 - ❌ Test-Kommando raten statt aus der Konfig lesen.
+- ❌ Finder-Befund mit leerem/falschem Pfad-Beleg übernehmen — bei Leer-Treffer Pfad neu prüfen (Realfall ttz-hub views.py verschachtelt).
+
+## Changelog
+- 2026-06-30: Initial. Aus der Stufe-1/-2-Methode der Session 2026-06-30 codifiziert.
+  Dogfood: `/repo-optimize ~/github/ttz-hub` → 26 geerdete Befunde (3 Finder + Falsifikation),
+  Headline data-sovereignty (OpenAI-Default in ttz-lif-Repo) cross-finder-konvergent + confirmed.
+- 2026-06-30: Compliance-Nachzug (mode:write + non-idempotent-Note, Output-Format-Block,
+  Changelog, Anti-Pattern „leerer Pfad-Beleg") nach `claude-skills`-Policy-Review.
