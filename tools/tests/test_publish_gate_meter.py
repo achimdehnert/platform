@@ -130,3 +130,12 @@ def test_should_update_issue_when_existing_body_is_none():
     # GitHub liefert body=None für leere Issues → muss als Änderung gelten, wenn neuer Body da ist.
     assert m.issue_needs_update({"title": "T", "body": None}, "T", "B") is True
     assert m.issue_needs_update({"title": "T", "body": None}, "T", "") is False
+
+
+def test_should_return_2_when_local_upsert_without_token(tmp_path, monkeypatch):
+    # Regression F4 (Retro-Increment 2026-06-30): --local ohne --dry-run + ohne GH_TOKEN
+    # traf `os.environ["GH_TOKEN"]` direkt → KeyError. Muss jetzt sauber mit rc=2 abbrechen.
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    rc = m.main(["--local", str(tmp_path)])
+    assert rc == 2
