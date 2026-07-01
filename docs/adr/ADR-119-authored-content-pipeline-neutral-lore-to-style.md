@@ -14,7 +14,7 @@ implementation_evidence:
 
 Accepted — v1.1 (2026-03-11, Review-Fixes aus [platform#24](https://github.com/achimdehnert/platform/issues/24))
 
-**Repos:** weltenhub, bfagent, travel-beat
+**Repos:** weltenhub, bfagent (→ writing-hub, #35), travel-beat, illustration-hub (Amendment 2026-07-01)
 **Related:** ADR-117 (Shared World Layer), ADR-041 (Component Pattern), ADR-118 (billing-hub HMAC)
 
 ## Context
@@ -210,8 +210,23 @@ PATCH /api/v1/authored-content/{uuid}/regenerate/
 - `travel-beat` — `wh_authored_uuid` auf Story/Location, Service-Integration
 - `weltenfw` — nicht betroffen (AuthoredContent lebt in weltenhub, nicht in der Library)
 
+## Amendment 2026-07-01 — writing-hub + illustration-hub als Konsumenten
+
+Erweiterung des Konsumenten-Kreises (kein neuer Entscheid; `AuthoredContent` bleibt in weltenhub, SSoT unverändert):
+
+- **writing-hub** ersetzt **bfagent** (decommissioned #35) als Buch-/Autoren-Konsument. Es registriert
+  ein `WritinghubContext`-Schema in `CONSUMER_SCHEMAS` (analog zum bestehenden `BfagentContext`) und
+  hängt `wh_authored_uuid` an sein Kapitel-/Node-Modell (analog bfagents `BookChapter`). `consumer_app = "writing_hub"`.
+- **illustration-hub** wird neuer Konsument: registriert `IllustrationhubContext`, nutzt den neutralen
+  Lore→Stil-Thread, um Welt/Ort/Charakter-Beschreibungen in einen Illustrations-Prompt-Kontext zu überführen.
+- Konsistent mit `platform:ADR-117` v1.2 (gleiche Konsumenten-Erweiterung auf der Shared-World-Ebene).
+
+**Betroffene Repos (Delta):** `writing-hub` (`WritinghubContext` + `wh_authored_uuid`), `illustration-hub`
+(`IllustrationhubContext`), `weltenhub` (beide Schemas in `CONSUMER_SCHEMAS` registrieren).
+
 ## Review-History
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
 | 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied | [Review](../reviews/ADR-119-review-2026-03-11.md) · [Issue #24](https://github.com/achimdehnert/platform/issues/24) |
+| 2026-07-01 | v1.1 → v1.2 | — | Amendment: writing-hub (Nachfolge bfagent) + illustration-hub als Konsumenten | — |

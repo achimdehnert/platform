@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-03-10
-updated: 2026-03-11
+updated: 2026-07-01
 decision-makers: Achim Dehnert
 consulted: Cascade
 implementation_status: implemented
@@ -241,9 +241,11 @@ Ab sofort: neue Welten direkt via WeltenhubBackend
 | Repo | Änderung |
 |------|----------|
 | `weltenfw` | v0.2.0: `backends/` Package hinzufügen |
-| `bfagent` | `iil-weltenfw` dependency + `WeltenhubBackend` nutzen |
+| `bfagent` | `iil-weltenfw` dependency + `WeltenhubBackend` nutzen — **wird decommissioned (#35), Rolle → writing-hub** |
 | `travel-beat` | bestehende weltenfw-Nutzung auf `WeltenhubBackend` umstellen |
 | `weltenhub` | S2S-Auth-Endpoint für Service-Token (HMAC, ADR-118) |
+| `writing-hub` | **Nachfolge-Konsument für bfagent** (Amendment 2026-07-01); nutzt `iil-weltenfw` bereits |
+| `illustration-hub` | **Neuer Konsument** (Amendment 2026-07-01); konsumiert Welt/Ort/Charakter für Illustrationen |
 
 ## Related ADRs
 
@@ -252,9 +254,45 @@ Ab sofort: neue Welten direkt via WeltenhubBackend
 - ADR-109: Multi-Tenancy Platform Standard
 - ADR-118: Platform Store / HMAC Auth (S2S-Token-Konzept)
 
+## Amendment 2026-07-01 (v1.2) — writing-hub als Nachfolge-Konsument, illustration-hub, Szenen-Grenze
+
+**Kein neuer Entscheid — Erweiterung des Konsumenten-Kreises.** Die Kern-Entscheidung
+(Weltenhub-DB = SSoT für Weltenbau-Entitäten, `iil-weltenfw` = Shared Channel) bleibt unverändert.
+
+1. **writing-hub ersetzt bfagent als Buch-/Autoren-Konsument.** bfagent (dessen App `writing_hub`
+   in diesem ADR referenziert ist) wird decommissioned (#35). **writing-hub** ist der Nachfolger,
+   nutzt `iil-weltenfw` bereits (`requirements.txt:48`) und erbt die bfagent-Rolle 1:1: es hält nur
+   `weltenhub_*_id`-UUID-Referenzen, keine Kopien; jede neue Welt/jeder neue Charakter bekommt seine
+   UUID aus Weltenhub. bfagents ADR-117-Zeilen gelten sinngemäß für writing-hub (Szenario A/B identisch).
+
+2. **writing-hub *definiert* die Story, weltenhub die Welt-Assets.** Präzisierung der Ownership-Grenze:
+   - **weltenhub = SSoT** für **Welt, Ort, Charakter** — world-scoped und über Buchreihen wiederverwendbar
+     (ein `BookProject`/eine Serie greift auf *existierende* Welten/Orte/Charaktere zu, statt sie zu duplizieren).
+   - **writing-hub = führende Quelle für Story** (Autoren-Projekt: Dramaturgie, Serie, Kapitel, Outline —
+     via `iil-outlinefw`, ADR-121). weltenhubs eigenes `Story`-Modell (world-gebunden) bleibt als
+     welt-seitiges Narrativ-Verknüpfungsobjekt bestehen und wird **nicht** die führende Autoren-Story;
+     Doppel-„Story" wird über die Grenze aufgelöst, nicht über zwei konkurrierende SSoT. *(Offener Punkt:
+     ob weltenhubs `Story` langfristig zum reinen Link degradiert oder deprecatet wird — eigener Follow-up.)*
+
+3. **Szenen-Grenze (Sub-Entscheid 2026-07-01):** **weltenhub liefert Szenen-Bausteine/Templates**
+   (`SceneTemplate`, wiederverwendbar, welt-/genre-gebunden), **writing-hub besitzt den Szenen-Inhalt**
+   (die konkrete Szene im Buch, `OutlineNode(scene)` + Prosa). Szene-Instanz-Inhalt ist story-spezifisch
+   → Konsument; Szene-Vorlagen sind Welt-Assets → weltenhub.
+
+4. **illustration-hub als neuer Konsument.** Analog zu writing-hub: konsumiert Welt/Ort/Charakter aus
+   weltenhub (heute noch kein `iil-weltenfw`-Pin) für die Illustrations-Erzeugung. Konsument-Integration
+   ist die einzige *neue* Arbeit dieses Amendments.
+
+5. **Strukturierter Weltenbau (Bezug):** `weltenhub:ADR-095` (`World.systems_data` — geordnete
+   Progressions-Spektren + Ressourcen) erweitert den SSoT konsistent; Herleitung `KONZ-weltenhub-001`.
+
+**Betroffene Repos (Delta):** `writing-hub` (kanonischer Konsument statt bfagent), `illustration-hub`
+(neue Integration), `weltenhub` (`SceneTemplate` als Konsum-Fläche exponieren; `Story`-Follow-up).
+
 ## Review-History
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
 | 2026-03-11 | v1.0 | Cascade | ❌ 3 BLOCKs (Frontmatter, Auth, Error-Contract) | [Review](../reviews/ADR-117-review-2026-03-11.md) |
 | 2026-03-11 | v1.0 → v1.1 | Cascade | Fixes applied | — |
+| 2026-07-01 | v1.1 → v1.2 | — | Amendment: writing-hub (Nachfolge bfagent), illustration-hub, Szenen-Grenze | — |
