@@ -100,9 +100,11 @@ def _is_gate_job(job_id: str, job: dict) -> bool:
         return True
     name = str(job.get("name", "")) if isinstance(job, dict) else ""
     hay = f"{job_id} {name}".lower()
-    # Word-Boundary: 'contest'/'attestation'/'protest' dürfen NICHT als Test-Gate zählen
-    # (Substring-'test' war ein False-Negative-Bug — Retro 2026-06-30 F2).
-    return bool(re.search(r"\b(test|secret-scan|gitleaks)\b", hay))
+    # Word-Boundary: 'contest'/'attestation'/'protest'/'latest' dürfen NICHT als Test-Gate
+    # zählen (Substring-'test' war False-Negative-Bug — Retro 2026-06-30 F2).
+    # `tests?` fängt auch die Plural-/Suffix-Jobnamen 'tests'/'run-tests'/'unit-tests', die
+    # `\btest\b` als False-Negative durchließ (Retro-Increment 2026-06-30 F6).
+    return bool(re.search(r"\b(tests?|secret-scan|gitleaks)\b", hay))
 
 
 def _upload_step_index(job: dict) -> int | None:

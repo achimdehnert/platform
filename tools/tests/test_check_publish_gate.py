@@ -125,6 +125,21 @@ jobs:
       - uses: pypa/gh-action-pypi-publish@release/v1
 """
 
+# ---- GEGATET ueber Plural-/Suffix-Jobnamen: 'tests' / 'run-tests' -----------
+# `\btest\b` ließ diese als False-Negative durch (Retro-Increment 2026-06-30 F6);
+# `tests?` fängt sie. Beide Jobnamen tragen KEIN singular-'test'-Token.
+_GATED_BY_PLURAL_NAME = """
+jobs:
+  tests:
+    name: run-tests
+    steps:
+      - uses: ./.github/actions/ci
+  publish-pypi:
+    needs: tests
+    steps:
+      - uses: pypa/gh-action-pypi-publish@release/v1
+"""
+
 # ---- twine: UNGEGATET (iil-codeguard/iil-ingest-Realfall) -------------------
 _TWINE_UNGATED = """
 jobs:
@@ -220,6 +235,11 @@ def test_should_pass_when_gate_ancestor_detected_by_name():
 def test_should_flag_when_ancestor_name_only_contains_test_as_substring():
     # 'contest'/'attestation'/'protest' enthalten 'test' nur als Substring → KEIN Gate.
     assert _offenders(_UNGATED_SUBSTRING_TEST) == ["publish-pypi"]
+
+
+def test_should_pass_when_gate_ancestor_named_tests_plural():
+    # Regression-Guard F6: Jobname 'tests'/'run-tests' (Plural) muss als Gate zählen.
+    assert _offenders(_GATED_BY_PLURAL_NAME) == []
 
 
 def test_should_flag_twine_upload_without_gate():

@@ -178,13 +178,14 @@ def main(argv: list) -> int:
     owner = os.environ.get("OWNER", "achimdehnert")
     repos = registry_repos(registry_api.flat().get("repos", {}), args.all_types)
 
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
+
     results = {}
     if args.local:
         root = pathlib.Path(args.local).expanduser()
         for r in repos:
             results[r] = scan_files(fetch_repo_workflows_local(root, r))
     else:
-        token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
         if not token:
             print("FEHLER: GH_TOKEN/GITHUB_TOKEN nötig (oder --local nutzen).", file=sys.stderr)
             return 2
@@ -196,7 +197,12 @@ def main(argv: list) -> int:
     print(body)
 
     if not args.dry_run:
-        url = upsert_issue(owner, "platform", os.environ["GH_TOKEN"], ISSUE_TITLE, body)
+        # Guard gilt für BEIDE Pfade: --local ohne Token + ohne --dry-run darf hier nicht
+        # mit KeyError sterben (Retro-Increment 2026-06-30 F4). token vorher gehoben.
+        if not token:
+            print("FEHLER: Issue-Upsert braucht GH_TOKEN/GITHUB_TOKEN (oder --dry-run nutzen).", file=sys.stderr)
+            return 2
+        url = upsert_issue(owner, "platform", token, ISSUE_TITLE, body)
         print(f"\nTracking-Issue: {url}", file=sys.stderr)
 
     if args.fail_on_backlog and total:
