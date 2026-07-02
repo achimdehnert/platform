@@ -9,7 +9,7 @@ related: [meiki:ADR-001, meiki:ADR-002, meiki:ADR-003, meiki:ADR-015]
 supersedes: []
 ---
 
-# ADR-259: CMIS-first DMS-Abstraktion mit optionaler native-REST-Veredelung
+# ADR-261: CMIS-first DMS-Abstraktion mit optionaler native-REST-Veredelung
 
 > **Kurz:** Für das Mehr-LRA-Produkt (mehrere Landratsämter, heterogene DMS — Günzburg=d.velop,
 > Traunstein=enaio, künftige Kreise) wird **CMIS** als **portable Basisschicht** der DMS-Integration
