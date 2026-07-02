@@ -162,12 +162,14 @@ verfügbar" war FALSCH** (Paket ist da, aus risk-hub/packages). Fleet-Pattern �
 
 ---
 
-## 0. Aktuelle Prioritäten (2026-06-24 — verifiziert via API/Fleet-Scan)
+## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz (ADR-209-Programm, NICHT ad-hoc); erst danach `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter erweitern. Worklist/Voraussetzung s. „Aktueller Stand 2026-06-20". | `[du/Sonnet]` |
-| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra): onboarding-hub = leeres `STAGING_HOST`-Secret (Deploy/Staging) · 137-hub = Docker-Build-Fail · dms/tax = `cancelled` (Concurrency, benign) · weltenhub = Docker build. | `[du/Owner]` |
+| 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz (ADR-209-Programm, NICHT ad-hoc). **Re-Scan 2026-07-02: 0/26 Kandidaten emittieren `ci / gate` auf main** (unverändert seit 06-20). **NEU:** `iilgmbh/shared-ci` (Org-Transfer! nicht mehr achimdehnert) `_ci-python.yml` **hat jetzt einen `gate`-Aggregat-Job** (Stand v1.0.8/main) → Voraussetzung reduziert sich auf (a) Consumer-Bump (learn-hub/recruiting-hub/travel-beat) + (b) Konvergenz der ~23 Standalone-Libs. Erst danach `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter erweitern. | `[du/Sonnet]` |
+| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra). **Re-Check 2026-07-02: weitgehend geheilt** — onboarding-hub grün (seit 06-24), 137-hub grün (seit 06-21), weltenhub grün (07-01, cancelled=Concurrency benign); dms-hub weiter `cancelled` (benign, letzte Runs 06-09). **NEU rot: tax-hub „Issue Triage" 3× failure (07-01/02)** — Root-Cause `Input required and not supplied: github-token` + leere `PROJECT_NUMBER`-Envs = Secret-/Token-Verdrahtung im Triage-Workflow, kein Code-Problem. | `[du/Owner]` |
+
+> **PR-Hygiene (Stand 2026-07-02):** #753 bit-identisch zu gemergtem #808 (gleicher Blob-SHA) + #746 ältere überholte Rev-22-Fassung → beide schließbar (Classifier blockt agent-seitiges Schließen fremder Session-PRs). #760 (Registry iil-adrfw/codeguard) MERGEABLE/BEHIND → update-branch+merge. #759 (ADR-Index-Generator, #736) CONFLICTING → Rebase nötig.
 
 > **✅ Retired/erledigt (2026-06-24, hart verifiziert — billigster Check gemacht):**
 > - **F4 CI-grün** als Code-CI-Programm GESCHLOSSEN (Fleet-Scan: 0 Lint/Test/Coverage-Rot; alle Roten = Deploy-Stage). **Kein Sonnet-Material mehr** — nicht erneut als Sonnet-Queue listen.
