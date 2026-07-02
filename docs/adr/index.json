@@ -3803,7 +3803,7 @@
       "id": "ADR-224",
       "file": "ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md",
       "title": "Adopt HTTP/SSE Transport for Orchestrator MCP Server",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-05-10",
       "domains": [
         "orchestrator",
@@ -3818,7 +3818,7 @@
         "ADR-256"
       ],
       "related": [],
-      "implementation_status": "none"
+      "implementation_status": "implemented"
     },
     {
       "number": 225,
