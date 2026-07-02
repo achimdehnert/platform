@@ -1,3 +1,0 @@
-"""
-PPTX-Hub test suite.
-"""
