@@ -95,7 +95,15 @@ Triage: Issue #819) — für den CI-relevanten Check immer `make test` nutzen.
   _wirklich_ schon dort liegen); der **Ziel-Owner** der laufenden Migration steht
   ausschließlich in `registry/iil-migration.yaml` (SSoT, REC-3) — Reality-Check:
   `python3 tools/iil_migration_check.py`.
-- **Workflows in `.windsurf/workflows/`**: Änderungen brauchen `/workflow-review` vor Merge
+- **Workflows in `.windsurf/workflows/`**: **substanzielle** Änderungen brauchen `/workflow-review`
+  vor Merge (neue/geänderte Schritte, Logik, Tool-Calls, Steuerfluss, semantische Edits) — Ergebnis
+  im PR-Body zitieren. **Ausnahme (session-retro 2026-07-02, EF-4/R-5):** rein **mechanische,
+  deterministische** Änderungen (Prefix-/Token-Sweep, Umbenennung nach fixem Muster, Refresh
+  generierten Contents) brauchen **kein** manuelles `/workflow-review`, wenn (a) der PR-Body sie
+  ausdrücklich als mechanisch kennzeichnet und (b) die automatisierten Gates greifen
+  (`skill-mcp-signatures.yml` = MCP-Signatur-Lint, `cc-skill-dist-doctor.yml` = Distributions-
+  Determinismus). Im Zweifel gilt `/workflow-review` — die Ausnahme ist eng und muss begründet werden,
+  nicht stillschweigend angenommen.
 - **Parallele Sessions — Haupt-Tree heilig (ADR-233)**: der geteilte Checkout `~/github/platform`
   bleibt auf `main`; **kein** Branch-Switch im Haupt-Tree. Editierende Arbeit läuft in einem eigenen
   Worktree via `tools/repo-session.sh start <repo> --task <slug>` (Branch `session/<date>/<owner>/<slug>`
