@@ -26,19 +26,34 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | Pfad | Zweck |
 |---|---|
 | `docs/adr/` | Architecture Decision Records (SSoT; live: `ls docs/adr/ADR-*.md | wc -l`) |
-| `docs/concepts/` | Konzeptpapiere vor ADRs |
+| `docs/konzepte/` | **Aktive** Konzept-Artefakte (KONZ-platform-NNN, via `/konzept`-Skill) |
+| `docs/concepts/` | Legacy-CONCEPT-Dateien (Vor-`/konzept`-Ära, nur lesen) |
 | `docs/templates/` | ADR-, Use-Case-, Settings-Templates für neue Repos |
 | `docs/reference/` | Reference-Docs (audit/health-Checker, …) |
 | `docs/guides/` | How-to-Guides (CI, Deploy, Multi-Env) |
-| `shared_contracts/` | Pydantic-Models — Cross-Repo-Verträge |
+| `shared_contracts/` | Pydantic-Models — Cross-Repo-Verträge (Status/Konsumenten: Issue #820) |
 | `registry/` | **SSoT `canonical.yaml`** (ADR-234) → Views `repos.yaml`/`scripts/repo-registry.yaml` (generiert, gate-erzwungen); Accessor `tools/registry_api.py`. Owner-Auflösung: `registry_api.owner(repo)` |
-| `governance-deploy/` | Governance-Automation für Deploys |
-| `tools/` | `repo_health_check.py`, `check_*.py`, `print_agent/` (MD → PDF) |
-| `scripts/` | `audit_platform.py`, `adr_audit.py`, `drift_check.py` |
+| `governance/` | Policy-Konfiguration: `rulesets/` (ADR-242 Branch-Protection), `exit-classes.yaml`, `backup/` — **nicht** verwechseln mit `governance-deploy/` |
+| `governance-deploy/` | ⚠️ tote Django-Alt-App (kein Workflow/Registry-Eintrag) — Abbau: Issue #817 |
+| `tools/` | `repo_health_check.py`, `check_*.py`, `print_agent/` (MD → PDF), `registry_api.py` |
+| `scripts/` | `audit_platform.py`, `adr_audit.py`, `drift_check.py`, `gen_adr_index.py` |
+| `packages/` | Eigenständige Sub-Packages (z. B. `adr-review`, `mcp-governance` — eigene pyproject/tests) |
+| `orchestrator_mcp/` | Gespiegelter Code des extern laufenden Orchestrator-Service (ADR-256) — kein hier deploybares Django |
 | `bootstrap.sh` | Public Setup-Script (verteilt Symlinks in alle Repos) |
 | `.windsurf/workflows/` | Workflow-SSoT (wird über Symlinks in alle Repos verteilt) |
 | `agents/` | Platform-Agent-Definitionen |
 | `infra/`, `deployment/` | Infrastruktur-Configs für Cross-Repo-Deploys |
+| `concepts/`, `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `skills/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — `concepts/` enthält Embedded-Repo-Kopien (Ausmistung: Issue #817); nichts Neues hier ablegen |
+
+## Lokales Setup & Testbefehl (SSoT)
+
+```bash
+make setup   # requirements-dev.txt + pre-commit install + install-push-hook (einmalig)
+make test    # = pytest tools/tests/ (identisch zur CI tools-tests.yml) + ruff
+```
+
+Nacktes `pytest` läuft zusätzlich über `tests/` (megatest + Altbestand, teils rot —
+Triage: Issue #819) — für den CI-relevanten Check immer `make test` nutzen.
 
 ## Tech Stack
 
