@@ -79,12 +79,12 @@ grep -rn "agent_memory_upsert\|agent_memory_context\|run_workflow\|discord_notif
 
 Aktuell gültige Orchestrator-Tools prüfen:
 ```
-mcp1_agent_memory (operation: read|upsert|gc|query)  <!-- TODO(mcp-migration): mcp1_agent_memory op=read -- Phase 2 (no CC equiv) -->
+mcp__orchestrator__agent_memory (operation: read|upsert|gc|query)  <!-- TODO(mcp-migration): mcp__orchestrator__agent_memory op=read -- Phase 2 (no CC equiv) -->
 mcp__orchestrator__agent_plan_task
 mcp__orchestrator__analyze_task
 mcp1_evaluate_task  <!-- TODO(mcp-migration): mcp1_evaluate_task -- Phase 2 (defunct) -->
 mcp1_verify_task  <!-- TODO(mcp-migration): mcp1_verify_task -- Phase 2 (defunct) -->
-mcp1_get_infra_context  <!-- TODO(mcp-migration): mcp1_get_infra_context -- Phase 2 (defunct) -->
+mcp__deployment-mcp__get_infra_context  <!-- TODO(mcp-migration): mcp__deployment-mcp__get_infra_context -- Phase 2 (defunct) -->
 mcp1_scan_repo  <!-- TODO(mcp-migration): mcp1_scan_repo -- Phase 2 (defunct) -->
 ```
 

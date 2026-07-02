@@ -519,8 +519,8 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 ## Changelog
 
 - 2026-07-02: v2.1 — CC-first-Call-Sites vollendet: Phase 1/2/2.5 riefen noch
-  Windsurf-Prefix-Tools (`mcp5_get_context_for_task`, `mcp0_system_manage`,
-  `mcp3_search_knowledge`, `mcp1_agent_memory`, `<orc>_`/`<gh>_`-Platzhalter) — auf
+  Windsurf-Prefix-Tools (`mcp__platform-context__get_context_for_task`, `mcp__deployment-mcp__system_manage`,
+  `mcp__outline-knowledge__search_knowledge`, `mcp__orchestrator__agent_memory`, `<orc>_`/`<gh>_`-Platzhalter) — auf
   stabile `mcp__…`-Namen umgestellt (v2 hatte nur die Warnung ergänzt, nicht die
   Aufrufe); Shell-Hang-Fallback (Z.80) + Auto-Issue-Owner (git-Remote statt
   hardcoded) mitgezogen; TODO(mcp-migration)-Marker geschlossen; orchestrator-404-
