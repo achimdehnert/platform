@@ -14,7 +14,7 @@ implementation_evidence:
 
 Accepted — v1.1 (2026-03-11, Review-Fixes aus [platform#24](https://github.com/achimdehnert/platform/issues/24))
 
-**Repos:** weltenhub, bfagent, travel-beat
+**Repos:** weltenhub, bfagent (→ writing-hub, #35), travel-beat, illustration-hub (Amendment 2026-07-01)
 **Related:** ADR-117 (Shared World Layer), ADR-041 (Component Pattern), ADR-118 (billing-hub HMAC)
 
 ## Context
@@ -210,8 +210,42 @@ PATCH /api/v1/authored-content/{uuid}/regenerate/
 - `travel-beat` — `wh_authored_uuid` auf Story/Location, Service-Integration
 - `weltenfw` — nicht betroffen (AuthoredContent lebt in weltenhub, nicht in der Library)
 
+## Amendment 2026-07-01 — writing-hub + illustration-hub als Konsumenten
+
+Erweiterung des Konsumenten-Kreises (kein neuer Entscheid; `AuthoredContent` bleibt in weltenhub, SSoT unverändert):
+
+- **writing-hub** ersetzt **bfagent** (decommissioned #35) als Buch-/Autoren-Konsument. Es registriert
+  ein `WritinghubContext`-Schema in `CONSUMER_SCHEMAS` (analog `BfagentContext`) und hängt `wh_authored_uuid`
+  an sein Kapitel-/Node-Modell. `consumer_app = "writing_hub"`. **Migration:** bestehende
+  `consumer_app="bfagent"`-Rows migrieren (oder einfrieren), alte `wh_authored_uuid`-Links abbilden,
+  `BfagentContext` mit Entfernungsdatum versehen (s. `platform:ADR-117` v1.2, Punkt 1).
+- **illustration-hub** wird neuer Konsument (`IllustrationhubContext`) — **mit Grenze aus externem Review:**
+  - Der AuthoredContent-Thread ist ein **prosa-/prompt-*textlicher* Stil-Thread** (`authored_text`,
+    `style_notes`). illustration-hub nutzt ihn nur für **textuellen Prompt-Kontext**.
+  - **Erscheinungs-Kanon** (Charakter-/Location-Aussehen) gehört **NICHT** hierher, sondern world-scoped
+    strukturiert auf weltenhubs `Character`/`Location` (SSoT, analog `weltenhub:ADR-095 systems_data`) —
+    sonst Divergenz im visuellen Kern (der Fehler, den ADR-117 verhindert).
+  - **Exit-Klausel:** Sobald illustration-hub mehr braucht als textuellen Prompt-Kontext (Prompt-Parameter,
+    Negativprompts, Seeds, Style-Refs, Modell-Metadaten, Rechtehinweise, Safety), wird ein eigener
+    **`PromptContent`/`DerivedContent`-ADR** fällig — NICHT `authored_text` dafür überladen.
+- **Rate-Limit:** die bestehenden **10 Req/min** sind für gelegentliches Prosa-Authoring bemessen; ein
+  Bild-**Batch**-Konsument (illustration-hub, pro Panel/Asset) sprengt das → Limit **pro `consumer_app`-Klasse**
+  konfigurierbar machen (Prosa vs. Bild-Batch); klären, ob Poll-`GET`s aufs Budget zählen.
+- **`schema_version`:** je `consumer_app` ein `schema_version`-Feld vorsehen (Registry bleibt vorerst
+  statisch `CONSUMER_SCHEMAS`), damit Kontext-Schema-Migrationen später ohne Bruch möglich sind.
+- Konsistent mit `platform:ADR-117` v1.2.
+
+**Betroffene Repos (Delta):** `writing-hub` (`WritinghubContext` + `wh_authored_uuid` + bfagent-Migration),
+`illustration-hub` (`IllustrationhubContext`, nur Prompt-Text), `weltenhub` (beide Schemas + `schema_version`;
+strukturiertes Visual-Canon-Feld auf `Character`/`Location`).
+
+> **Out-of-scope dieses Amendments (settled Kern → Hardening-Backlog):** GenericForeignKey-vs-typisierte-FK
+> + Orphan-Cleanup, CONSUMER_SCHEMAS-Dezentralisierung, `consumer_ref_id`-Eindeutigkeit, „versionsloses
+> Linking" vs. `previous_text`-Revisionsstrategie. Nachweis/Tagging: `~/shared/adr-handoff-ADR-117-119-2026-07-01-RUECKFLUSS.md`.
+
 ## Review-History
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
 | 2026-03-11 | v1.0 → v1.1 | Cascade | ❌ → Fixes applied | [Review](../reviews/ADR-119-review-2026-03-11.md) · [Issue #24](https://github.com/achimdehnert/platform/issues/24) |
+| 2026-07-01 | v1.1 → v1.2 | — | Amendment: writing-hub (Nachfolge bfagent) + illustration-hub als Konsumenten | — |

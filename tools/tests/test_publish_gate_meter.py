@@ -109,3 +109,33 @@ def test_should_read_local_workflows(tmp_path):
 def test_should_return_empty_for_repo_without_workflows(tmp_path):
     (tmp_path / "norepo").mkdir()
     assert m.fetch_repo_workflows_local(tmp_path, "norepo") == {}
+
+
+def test_should_not_update_issue_when_title_and_body_unchanged():
+    existing = {"title": "T", "body": "B"}
+    assert m.issue_needs_update(existing, "T", "B") is False
+
+
+def test_should_update_issue_when_body_changed():
+    existing = {"title": "T", "body": "alt"}
+    assert m.issue_needs_update(existing, "T", "neu") is True
+
+
+def test_should_update_issue_when_title_changed():
+    existing = {"title": "alt", "body": "B"}
+    assert m.issue_needs_update(existing, "neu", "B") is True
+
+
+def test_should_update_issue_when_existing_body_is_none():
+    # GitHub liefert body=None für leere Issues → muss als Änderung gelten, wenn neuer Body da ist.
+    assert m.issue_needs_update({"title": "T", "body": None}, "T", "B") is True
+    assert m.issue_needs_update({"title": "T", "body": None}, "T", "") is False
+
+
+def test_should_return_2_when_local_upsert_without_token(tmp_path, monkeypatch):
+    # Regression F4 (Retro-Increment 2026-06-30): --local ohne --dry-run + ohne GH_TOKEN
+    # traf `os.environ["GH_TOKEN"]` direkt → KeyError. Muss jetzt sauber mit rc=2 abbrechen.
+    monkeypatch.delenv("GH_TOKEN", raising=False)
+    monkeypatch.delenv("GITHUB_TOKEN", raising=False)
+    rc = m.main(["--local", str(tmp_path)])
+    assert rc == 2

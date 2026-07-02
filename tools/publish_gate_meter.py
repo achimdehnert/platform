@@ -147,14 +147,20 @@ def fetch_repo_workflows_local(root: pathlib.Path, repo: str) -> dict:
     }
 
 
+def issue_needs_update(existing: dict, title: str, body: str) -> bool:
+    """True, wenn Titel/Body abweichen — sonst kein PATCH (vermeidet tägliches No-Op-Rauschen)."""
+    return existing.get("title") != title or (existing.get("body") or "") != body
+
+
 def upsert_issue(owner: str, repo: str, token: str, title: str, body: str) -> str:
-    """Findet offenes Issue mit MARKER_LABEL und aktualisiert es, sonst neu. Returns URL."""
+    """Findet offenes Issue mit MARKER_LABEL, PATCHt es NUR bei Änderung, sonst neu. Returns URL."""
     issues = _api(f"/repos/{owner}/{repo}/issues?state=open&labels={MARKER_LABEL}", token)
     if issues:
-        num = issues[0]["number"]
-        _api(f"/repos/{owner}/{repo}/issues/{num}", token, method="PATCH",
-             data={"title": title, "body": body})
-        return issues[0]["html_url"]
+        existing = issues[0]
+        if issue_needs_update(existing, title, body):
+            _api(f"/repos/{owner}/{repo}/issues/{existing['number']}", token, method="PATCH",
+                 data={"title": title, "body": body})
+        return existing["html_url"]
     created = _api(f"/repos/{owner}/{repo}/issues", token, method="POST",
                    data={"title": title, "body": body, "labels": [MARKER_LABEL]})
     return created["html_url"]
@@ -172,13 +178,14 @@ def main(argv: list) -> int:
     owner = os.environ.get("OWNER", "achimdehnert")
     repos = registry_repos(registry_api.flat().get("repos", {}), args.all_types)
 
+    token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
+
     results = {}
     if args.local:
         root = pathlib.Path(args.local).expanduser()
         for r in repos:
             results[r] = scan_files(fetch_repo_workflows_local(root, r))
     else:
-        token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
         if not token:
             print("FEHLER: GH_TOKEN/GITHUB_TOKEN nötig (oder --local nutzen).", file=sys.stderr)
             return 2
@@ -190,7 +197,12 @@ def main(argv: list) -> int:
     print(body)
 
     if not args.dry_run:
-        url = upsert_issue(owner, "platform", os.environ["GH_TOKEN"], ISSUE_TITLE, body)
+        # Guard gilt für BEIDE Pfade: --local ohne Token + ohne --dry-run darf hier nicht
+        # mit KeyError sterben (Retro-Increment 2026-06-30 F4). token vorher gehoben.
+        if not token:
+            print("FEHLER: Issue-Upsert braucht GH_TOKEN/GITHUB_TOKEN (oder --dry-run nutzen).", file=sys.stderr)
+            return 2
+        url = upsert_issue(owner, "platform", token, ISSUE_TITLE, body)
         print(f"\nTracking-Issue: {url}", file=sys.stderr)
 
     if args.fail_on_backlog and total:

@@ -13,7 +13,7 @@ name: Publish-Gate Meter
 
 on:
   schedule:
-    - cron: '0 6 * * 1'   # Montags 06:00 UTC (wie ADR-226-Adoption-Gate)
+    - cron: '0 6 * * *'   # Täglich 06:00 UTC (schnelle Zyklen → ≤1 Tag Drift-Latenz; Upsert idempotent + only-on-change, kein Issue-Spam)
   workflow_dispatch:
     inputs:
       dry_run:
