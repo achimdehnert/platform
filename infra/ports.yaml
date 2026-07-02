@@ -63,6 +63,12 @@ servers:
 # --- Infrastructure Services (nicht App-Hubs) ---
 infra:
 
+  kd-static:
+    port: null                       # rein statisch (Nginx root /var/www/kd)
+    server: prod
+    domain_prod: kd.iil.pet
+    note: "Klickdummy-Host (NUR Mock-Daten-KDs!) — CF-Tunnel-DNS + Nginx-vhost kd.iil.pet.conf, eingerichtet 2026-07-02; Publish: dev-desktop ~/kd-serve/kd-publish.sh"
+
   authentik:
     port: 9000
     server: prod
