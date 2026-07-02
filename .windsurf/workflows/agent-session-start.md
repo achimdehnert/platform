@@ -17,7 +17,7 @@ Bevor irgendein Shell-Befehl läuft — prüfe ob die Grundlagen funktionieren:
 
 ```
 1. Shell-Test: echo "alive" — wenn das hängt → Windsurf neustarten oder /windsurf-clean
-2. MCP-Test: mcp3_list_collections() — wenn das hängt → MCP-Server prüfen
+2. MCP-Test: mcp__outline-knowledge__list_collections() — wenn das hängt → MCP-Server prüfen
 3. Falls Shell blockiert: NUR File-Read/Write + GitHub MCP nutzen (kein run_command)
 ```
 
@@ -42,7 +42,7 @@ Falls diese Dateien nicht existieren → `/new-github-project` aufrufen.
 Danach MCP-Kontext aktiv abrufen:
 
 ```
-MCP: mcp5_get_context_for_task(repo="<aktuelles-repo>", file_type="<hauptdatei>")
+MCP: mcp__platform-context__get_context_for_task(repo="<aktuelles-repo>", file_type="<hauptdatei>")
   → Liefert: Architektur-Regeln, ADR-Referenzen, Banned Patterns, Repo-Facts
   → Einmalig pro Session aufrufen — danach ist der Kontext bekannt
 ```
@@ -53,7 +53,7 @@ Ich habe gelesen:
 - AGENT_HANDOVER: Hetzner-Prod=88.198.191.108, Deploy-Targets bekannt
 - CORE_CONTEXT: [3 Sätze Zusammenfassung — Tech Stack + kritische Constraints]
 - ADRs: [Anzahl + relevanteste für diese Session]
-- Platform-Context: mcp5_get_context_for_task() aufgerufen ✓
+- Platform-Context: mcp__platform-context__get_context_for_task() aufgerufen ✓
 ```
 
 ---
@@ -63,7 +63,7 @@ Ich habe gelesen:
 Wenn die Session Infrastruktur, Deployment oder Stack-Upgrades betrifft:
 
 ```
-MCP: mcp0_system_manage(action: health_dashboard, host: 88.198.191.108)
+MCP: mcp__deployment-mcp__system_manage(action: health_dashboard, host: 88.198.191.108)
 → Zeigt Status aller 14+ Platform-Apps auf einen Blick
 → Identifiziert Probleme BEVOR sie die Session blockieren
 ```
@@ -100,7 +100,7 @@ Varianten:
 - Alle Repos: `bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-repo.sh --all`
 - Inkl. Server: `bash ${GITHUB_DIR:-$HOME/github}/platform/scripts/sync-repo.sh --full`
 
-**Fallback bei Shell-Hang:** `mcp0_git_manage(action: pull, repo_path: <path>, host: 88.99.38.75)`
+**Fallback bei Shell-Hang:** `mcp__deployment-mcp__git_manage(action: pull, repo_path: <path>, host: 88.99.38.75)`
 
 ---
 
@@ -166,7 +166,7 @@ outline-knowledge: search_knowledge("Lesson <Fehlerbild>")
 Offene Aufträge und **unbeantwortete User-Comments** laden:
 
 ```
-MCP: mcp3_list_recent(collection="97a74c51-6c4e-4871-a2b0-a85255b8c916", limit=10)
+MCP: mcp__outline-knowledge__list_recent(collection="97a74c51-6c4e-4871-a2b0-a85255b8c916", limit=10)
 → Für jeden Auftrag: Comments via Outline API lesen
 → Unbeantwortete User-Comments → Lesebestätigung posten ("Gelesen. ...")
 → Titel-Prefixe prüfen (📋 Offen / 🔄 In Arbeit / ✅ Erledigt)

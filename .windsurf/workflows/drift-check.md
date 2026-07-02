@@ -33,7 +33,7 @@ Lies ${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml
 4. **Server-Drift prüfen**
    Für jedes Repo mit Compose-Datei:
    ```
-   mcp0_ssh_manage(action="exec", host="88.198.191.108",
+   mcp__deployment-mcp__ssh_manage(action="exec", host="88.198.191.108",
      command="grep -oP '127.0.0.1:\\K\\d+' /opt/<repo>/docker-compose*.yml | head -1")
    ```
    - Host-Port auf Server == Port in repos.json?
@@ -41,7 +41,7 @@ Lies ${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml
 
 5. **Nginx-Drift prüfen**
    ```
-   mcp0_ssh_manage(action="exec", host="88.198.191.108",
+   mcp__deployment-mcp__ssh_manage(action="exec", host="88.198.191.108",
      command="grep proxy_pass /etc/nginx/sites-enabled/<domain>.conf")
    ```
    - proxy_pass Port == Port in repos.json?
@@ -49,13 +49,13 @@ Lies ${GITHUB_DIR:-$HOME/github}/platform/infra/ports.yaml
 6. **Health-Endpoint-Drift prüfen**
    Für jedes Repo mit health_url:
    ```
-   mcp0_ssh_manage(action="http_check", host="88.198.191.108", url="<health_url>")
+   mcp__deployment-mcp__ssh_manage(action="http_check", host="88.198.191.108", url="<health_url>")
    ```
    - HTTP 200? Wenn nicht → Drift oder App-Problem
 
 7. **Outline-Drift prüfen** (optional)
    ```
-   mcp3_search_knowledge(query="Platform Repo Directory")
+   mcp__outline-knowledge__search_knowledge(query="Platform Repo Directory")
    ```
    - Sind alle 22 Repos im Outline-Verzeichnis gelistet?
 

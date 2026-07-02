@@ -186,7 +186,7 @@ DJANGO_SETTINGS_MODULE=config.settings.test python3 -m pytest apps/<app>/tests/ 
 Für **Infrastructure-Tasks** ersetze Step 4 mit:
 ```bash
 # Health-Check statt Playwright:
-mcp0_system_manage(action='health_dashboard')
+mcp__deployment-mcp__system_manage(action='health_dashboard')
 # oder
-mcp0_ssh_manage(action='http_check', url='https://<domain>/healthz/')
+mcp__deployment-mcp__ssh_manage(action='http_check', url='https://<domain>/healthz/')
 ```

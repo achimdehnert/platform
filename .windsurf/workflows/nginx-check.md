@@ -11,16 +11,16 @@ Prüft alle Nginx-Konfigurationen auf dem Prod-Server gegen Platform-Standards.
 1. **Nginx-Status prüfen**
 // turbo
 ```
-mcp0_system_manage(action="nginx_status", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="nginx_status", host="88.198.191.108")
 ```
 
 2. **Alle Site-Configs listen**
 // turbo
 ```
-mcp0_ssh_manage(action="exec", host="88.198.191.108", command="ls -la /etc/nginx/sites-enabled/")
+mcp__deployment-mcp__ssh_manage(action="exec", host="88.198.191.108", command="ls -la /etc/nginx/sites-enabled/")
 ```
 
-3. **Für jede Config prüfen** (via `mcp0_ssh_manage file_read`):
+3. **Für jede Config prüfen** (via `mcp__deployment-mcp__ssh_manage file_read`):
    - [ ] `listen 443 ssl http2` UND `listen [::]:443 ssl http2` (IPv6!)
    - [ ] `listen 80` UND `listen [::]:80` mit redirect zu HTTPS
    - [ ] `proxy_pass http://127.0.0.1:PORT` — Port stimmt mit ports.yaml überein
@@ -32,7 +32,7 @@ mcp0_ssh_manage(action="exec", host="88.198.191.108", command="ls -la /etc/nginx
 
 4. **SSL-Ablauf prüfen**
 ```
-mcp0_network_manage(action="ssl_expiring", days=30, host="88.198.191.108")
+mcp__deployment-mcp__network_manage(action="ssl_expiring", days=30, host="88.198.191.108")
 ```
 
 5. **Report erstellen**
@@ -46,7 +46,7 @@ mcp0_network_manage(action="ssl_expiring", days=30, host="88.198.191.108")
 6. **Config-Test**
 // turbo
 ```
-mcp0_system_manage(action="nginx_reload", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="nginx_reload", host="88.198.191.108")
 ```
    Nur Test, kein Force-Reload.
 
