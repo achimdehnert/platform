@@ -31,6 +31,14 @@ word ("ändert alles").
    is Z". Never let a prior — yours or the source's — substitute for Z.
 4. A proxy/heuristic is not a verified result — label its output a
    candidate, not a conclusion.
+5. **Der Verifikations-Query muss vom Implementierungs-Query UNABHÄNGIG sein.**
+   Nach einem Sweep/Refactor „vollständig / Rest = N / fertig" NICHT mit demselben
+   Muster prüfen, das die Implementierung baute — der Bau-Blindfleck wandert sonst
+   ungeprüft in den Claim (zirkuläre Selbst-Verifikation). Breiter/anders greppen als
+   der Bau-Query. Realfall 2026-07-02: mcp-Sweep-Regex `mcp[0-9]_` (einstellig),
+   Verifikations-Grep ebenfalls `mcp[0-9]_` → zwei `mcp14_`-Token still übersehen
+   (platform #842→#843). Über Retros ×4 (`retro_kpis.py`) — gate-pflichtige Variante
+   von claim-before-cheapest-check, die der Marker-Scanner-Hook nicht fängt.
 
 Recall surface (concrete past incidents only, not doctrine):
 CC-memory `claim-confidence-vs-cheapest-check`. This file is the single

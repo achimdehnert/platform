@@ -357,6 +357,14 @@ else
 fi
 ```
 
+**PR-Kadenz-Hygiene (session-retro 2026-07-02, PK-3/PK-4):**
+- **Rebase-on-ready (R-6):** `gh pr update-branch` erst **unmittelbar vor** dem finalen
+  Push/Merge, nicht früh — verkürzt das Konflikt-Fenster gegen zwischenzeitlich gemergte
+  main-Änderungen (Realfall: 2 manuelle Textkonflikte #829/#832).
+- **Bündeln statt Kleinst-PR-Schwarm (R-7):** thematisch gekoppelte Kleinfixes in **wenige,
+  breitere** PRs zusammenfassen, wo sie nicht kollidieren — 11/17 PRs dieser Session trugen
+  Catch-up-Merge-Tax durch sequenzielles Selbst-Mergen gegen den wandernden eigenen main.
+
 → Docs-only-Änderung in einem Deploy-on-push-Repo? **`[skip ci]` in die Commit-Message**
   (🌀 `feedback_skip_ci_uniform_on_docs_merges` — sonst kickt ein README-Commit Prod).
 → **NICHT ausführen** wenn der User explizit sagt "nicht pushen" oder ein PR-Review läuft.
