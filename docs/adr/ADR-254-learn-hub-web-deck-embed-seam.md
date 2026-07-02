@@ -2,7 +2,7 @@
 id: ADR-254
 title: "learn-hub Web-Deck-Embed-Naht: Artefakt-URL, Auth/Tenant-Isolation, CSP/iframe, Staleness-Lifecycle"
 status: proposed
-date: 2026-06-19
+decision_date: 2026-06-19
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, achimdehnert]
