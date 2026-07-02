@@ -6,6 +6,7 @@ on:
       - "docs/adr/**"
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
+      - "scripts/gen_adr_index.py"
   pull_request:
     paths:
       - "docs/adr/**"
