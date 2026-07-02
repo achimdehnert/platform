@@ -43,7 +43,8 @@ jobs:
           python-version: "3.12"
 
       - name: Install test deps
-        run: pip install pytest pyyaml --quiet --break-system-packages
+        # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
+        run: pip install pytest pyyaml pydantic --quiet --break-system-packages
 
       - name: Run all tools tests
         run: python3 -m pytest tools/tests/ -q
