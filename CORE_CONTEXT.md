@@ -32,7 +32,7 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `docs/guides/` | How-to-Guides (CI, Deploy, Multi-Env) |
 | `shared_contracts/` | Pydantic-Models — Cross-Repo-Verträge |
 | `registry/` | **SSoT `canonical.yaml`** (ADR-234) → Views `repos.yaml`/`scripts/repo-registry.yaml` (generiert, gate-erzwungen); Accessor `tools/registry_api.py`. Owner-Auflösung: `registry_api.owner(repo)` |
-| `governance-deploy/` | Governance-Automation für Deploys |
+| `_ARCHIVED/governance-deploy/` | Archivierte tote Django-Alt-App (kein Workflow/Registry-Eintrag) — Abbau: Issue #817 |
 | `tools/` | `repo_health_check.py`, `check_*.py`, `print_agent/` (MD → PDF) |
 | `scripts/` | `audit_platform.py`, `adr_audit.py`, `drift_check.py` |
 | `bootstrap.sh` | Public Setup-Script (verteilt Symlinks in alle Repos) |
