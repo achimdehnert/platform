@@ -180,3 +180,41 @@ class TestAnalyzeDiff:
         assert "violations" in d
         assert "passed" in d
         assert "blocking" in d
+
+
+DIFF_CLEANUP_DELETE_CONCEPTS = """\
+diff --git a/concepts/pptx-hub/src/pptx_hub/django/api/serializers.py b/concepts/pptx-hub/src/pptx_hub/django/api/serializers.py
+deleted file mode 100644
+--- a/concepts/pptx-hub/src/pptx_hub/django/api/serializers.py
++++ /dev/null
+@@ -1,4 +0,0 @@
+-class DeckSerializer(serializers.ModelSerializer):
+-    class Meta:
+-        model = Deck
+-        fields = "__all__"
+"""
+
+
+class TestG002NonLiveExclusion:
+    """Regression platform#829: Aufräum-Löschungen ≠ API-Breaking."""
+
+    def test_should_not_flag_deletion_under_concepts(self):
+        files = parse_diff(DIFF_CLEANUP_DELETE_CONCEPTS)
+        assert check_g002_api_signature_changed(files) == []
+
+    def test_should_parse_path_with_b_in_dirname(self):
+        # Regression: r"b/(.+)$" matchte das "b/" in "pptx-hub/" →
+        # kaputter Doppelpfad. Fix: \s vor b/ verlangen.
+        files = parse_diff(DIFF_CLEANUP_DELETE_CONCEPTS)
+        assert files[0]["path"] == (
+            "concepts/pptx-hub/src/pptx_hub/django/api/serializers.py"
+        )
+
+    def test_should_still_flag_live_code_deletion(self):
+        live = DIFF_CLEANUP_DELETE_CONCEPTS.replace(
+            "concepts/pptx-hub/src/pptx_hub/django/", "apps/core/"
+        )
+        files = parse_diff(live)
+        violations = check_g002_api_signature_changed(files)
+        assert len(violations) == 1
+        assert violations[0].rule == "G-002"
