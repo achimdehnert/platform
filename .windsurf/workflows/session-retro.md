@@ -1,5 +1,5 @@
 ---
-description: Geerdete, adversariale Session-Retrospektive — sammelt git/gh/CI als Ground Truth, urteilt in frischem Kontext (Richter≠Angeklagter), falsifiziert jeden Befund, schlägt kopierfertige Verankerung + Scorecard vor. Schreibt Report nach ~/shared/.
+description: Geerdete, adversariale Session-Retrospektive — sammelt git/gh/CI als Ground Truth, urteilt in frischem Kontext (Richter≠Angeklagter), falsifiziert jeden Befund, schlägt kopierfertige Verankerung + Scorecard vor. Schreibt Report nach platform/docs/retros/ (git, KONZ-010).
 mode: write
 ---
 
@@ -190,7 +190,7 @@ Danach in fester Reihenfolge:
   `5`=erreicht, vorbildlich.
 - **4. Soll-Ablauf** (aus Phase 3.5, Ist→Soll→eliminiert-#).
 - **5. Längsschnitt — der eigentliche Hebel:** **PFLICHT** `python3 tools/retro_kpis.py` laufen lassen
-  (zählt `recurring_findings`-Slugs maschinell über ALLE `~/shared/session-retro-*.md`). Jeder Slug mit
+  (zählt `recurring_findings`-Slugs maschinell über ALLE `platform/docs/retros/session-retro-*.md`). Jeder Slug mit
   Zähler **≥2 ⇒ GATE-PFLICHT** (Hook/CI/Skill-Edit), nicht der N-te Notizzettel. Zusätzlich gegen
   `<auto-memory>/MEMORY.md` abgleichen (gleiche Kategorie mehrfach in dieser Session ODER schon als
   Drift-Memory **belegt vorhanden** — Existenz per `grep` prüfen). Der maschinelle Zähler ersetzt das
@@ -206,12 +206,15 @@ Faktum fest → zurück nach Phase 2.5/3 (Skeptiker) ODER als Lücke in §8 (Nic
 still selbst-verifizieren. Befunde, die nur durch Session-Gedächtnis gedeckt sind (kein per `gh run
 view` erreichbares Artefakt), werden als **Hypothese** geführt, nicht als SURVIVES mit „Beleg=Session-Log".
 
-**Report-Pfad — kollisionsfrei bei Parallel-Sessions (Pflicht):**
-`~/shared/session-retro-<datum>-<repo>-<session-id-kurz>.md`. **Jede Session schreibt ihre eigene Datei.**
-`<repo>` = primäres Scope-Repo, `<session-id-kurz>` = die letzten ~6 Zeichen der Session-ID (oder ein
-eindeutiger Suffix). **Existiert der Pfad bereits → NICHT überschreiben**, zusätzlichen Suffix anhängen.
-Der bloße `…-<datum>.md`-Default ist verboten (Realfall 2026-06-04: 2 Parallel-Sessions kollidierten am
-selben Pfad → Überschreib-Gefahr).
+**Report-Pfad — durable + kollisionsfrei (Pflicht, KONZ-platform-010):**
+**Durable Heimat = git `platform/docs/retros/session-retro-<datum>-<repo>-<session-id-kurz>.md`**
+(zentral, versioniert, gebackupt — `retro_kpis.py` liest den Längsschnitt von dort). **NICHT mehr
+`~/shared/`** (ungetrackt/ungebackupt → war für diese benötigte Funktion nicht wegwerfbar; KONZ-010).
+Schreibe den Report in einen platform-Worktree unter `docs/retros/` und committe ihn (auch wenn die
+reviewte Session ein anderes Repo betraf — der Cross-Repo-Längsschnitt lebt zentral in platform).
+**Jede Session schreibt ihre eigene Datei;** `<repo>` = primäres Scope-Repo, `<session-id-kurz>` =
+letzte ~6 Zeichen der Session-ID. **Existiert der Pfad → NICHT überschreiben**, Suffix anhängen. Der
+bloße `…-<datum>.md`-Default ist verboten (Realfall 2026-06-04: Parallel-Session-Kollision).
 
 ## Phase 5 — Self-Review (Meta-Agent, nur OUTPUT-Qualität) — `full`/`deep`
 Selbstverbesserung der Skill **ohne Richter≠Angeklagter zu brechen:** ein **separater Meta-Agent**
@@ -229,7 +232,7 @@ Er sieht nur den Report + diese Skill. Checkliste:
   (hohes `pre_refuted` = schwache Finder, nicht scharfer Skeptiker). Auffälligkeit als `## Self-Review`.
 
 > **Längsschnitt der Skill selbst (PFLICHT in Phase 4, nicht optional):** `python3 tools/retro_kpis.py`
-> liest die Frontmatter aller `~/shared/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert
+> liest die Frontmatter aller `platform/docs/retros/session-retro-*.md`, trendet `refuted_rate`/Scores und eskaliert
 > jeden `recurring_finding` mit Zähler **≥2 über Retros** zum Gate-PR-Pflicht-Item. Stdlib-only, kein Setup.
 
 **Agenten-Budget-Hinweis:** ein `full`-Lauf mit Phase 5 braucht den 6. Subagenten (Meta) — das `≤5` in der
