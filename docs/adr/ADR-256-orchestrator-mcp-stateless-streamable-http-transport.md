@@ -31,13 +31,10 @@ scope:
 | **Amends** | ADR-224 (HTTP/SSE-Transport — Kernentscheidung bleibt, Mechanismus geändert) |
 | **Treiber** | Issue mcp-hub#128 |
 
-> **Review-Hinweis (2026-07-02, offen — Entscheidung nötig):** ADR-224 hat aktuell
-> selbst `status: proposed`. Ein Amendment setzt formal eine akzeptierte Entscheidung
-> voraus. Vor dem Accept dieses ADRs eines von zwei Dingen klären: **(a)** ADR-224 zuerst
-> akzeptieren (dann greift dieses Amendment sauber), **oder (b)** ADR-224 + ADR-256
-> gemeinsam akzeptieren (Co-Acceptance: 224 trägt die remote-HTTP-Kernentscheidung, 256 den
-> aktuellen Mechanismus). Bis dahin ist die kanonische Transport-Entscheidung nicht eindeutig
-> einem akzeptierten ADR zugeordnet.
+> **Review-Hinweis (2026-07-02, gelöst):** ADR-224 (das dieses ADR amendet) war zum
+> Review-Zeitpunkt noch `proposed`. Auflösung: **ADR-224 wurde am 2026-07-02 akzeptiert**
+> (Variante (a)) — es trägt nun als akzeptierte Entscheidung den remote-HTTP-Kern, dieses
+> ADR-256-Amendment greift damit sauber auf dessen Mechanismus.
 
 ---
 

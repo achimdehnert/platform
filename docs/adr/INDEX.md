@@ -190,7 +190,7 @@
 | 221 | Staging-Hostname-Konvention (Präfix `staging-`, Demo-Tenant für Subdomain-Tenancy) | Accepted | ⬜ | [ADR-221](ADR-221-staging-hostname-konvention.md) |
 | 222 | (v4, amendiert): Zwei SHA-gepinnte CI-Familien für 48 Repos | Proposed | ⬜ | [ADR-222](ADR-222-cross-repo-ci-health-program.md) |
 | 223 | Einführung eines automatisierten LLM Model Screener & Provider Research Systems | Proposed | ⬜ | [ADR-223](ADR-223-llm-model-screener.md) |
-| 224 | Adopt HTTP/SSE Transport for Orchestrator MCP Server | Proposed | ⬜ | [ADR-224](ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md) |
+| 224 | Adopt HTTP/SSE Transport for Orchestrator MCP Server | Accepted | ✅ | [ADR-224](ADR-224-adopt-http-sse-transport-for-orchestrator-mcp-server.md) |
 | 225 | genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan | Accepted | ⬜ | [ADR-225](ADR-225-genesor-ingest-architecture.md) |
 | 226 | Library CI reusable (`_ci-pypi.yml`) with a mandatory blocking secret-scan for all PyPI-published packages | Accepted | 🔶 | [ADR-226](ADR-226-library-ci-reusable-mandatory-secret-scan.md) |
 | 227 | Klickdummy-Feedback-Bridge (Pfad B): CF-Worker statt User-PAT | Draft | ⬜ | [ADR-227](ADR-227-klickdummy-feedback-bridge.md) |
