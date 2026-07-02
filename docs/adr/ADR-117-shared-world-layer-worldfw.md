@@ -1,7 +1,7 @@
 ---
 status: accepted
 date: 2026-03-10
-updated: 2026-03-11
+updated: 2026-07-01
 decision-makers: Achim Dehnert
 consulted: Cascade
 implementation_status: implemented
@@ -241,9 +241,11 @@ Ab sofort: neue Welten direkt via WeltenhubBackend
 | Repo | Änderung |
 |------|----------|
 | `weltenfw` | v0.2.0: `backends/` Package hinzufügen |
-| `bfagent` | `iil-weltenfw` dependency + `WeltenhubBackend` nutzen |
+| `bfagent` | `iil-weltenfw` dependency + `WeltenhubBackend` nutzen — **wird decommissioned (#35), Rolle → writing-hub** |
 | `travel-beat` | bestehende weltenfw-Nutzung auf `WeltenhubBackend` umstellen |
 | `weltenhub` | S2S-Auth-Endpoint für Service-Token (HMAC, ADR-118) |
+| `writing-hub` | **Nachfolge-Konsument für bfagent** (Amendment 2026-07-01); nutzt `iil-weltenfw` bereits |
+| `illustration-hub` | **Neuer Konsument** (Amendment 2026-07-01); konsumiert Welt/Ort/Charakter für Illustrationen |
 
 ## Related ADRs
 
@@ -252,9 +254,74 @@ Ab sofort: neue Welten direkt via WeltenhubBackend
 - ADR-109: Multi-Tenancy Platform Standard
 - ADR-118: Platform Store / HMAC Auth (S2S-Token-Konzept)
 
+## Amendment 2026-07-01 (v1.2) — writing-hub als Nachfolge-Konsument, illustration-hub, Szenen-Grenze
+
+**Kein neuer Entscheid — Erweiterung des Konsumenten-Kreises.** Die Kern-Entscheidung
+(Weltenhub-DB = SSoT für Weltenbau-Entitäten, `iil-weltenfw` = Shared Channel) bleibt unverändert.
+
+1. **writing-hub ersetzt bfagent als Buch-/Autoren-Konsument.** bfagent (dessen Django-App `writing_hub`
+   in diesem ADR referenziert ist — **nicht** zu verwechseln mit dem Nachfolge-*Repo* `writing-hub`;
+   Altcode/Doku entsprechend disambiguieren) wird decommissioned (#35). **writing-hub** ist der Nachfolger,
+   nutzt `iil-weltenfw` bereits (`requirements.txt:48`) und erbt die bfagent-Rolle: es hält nur
+   `weltenhub_*_id`-UUID-Referenzen, keine Kopien.
+   **Migrations-Invarianten (kein „1:1"-Handwave):** bestehende `consumer_app="bfagent"`-Rows werden
+   nach `"writing_hub"` migriert **oder** explizit eingefroren (read-only); alte `wh_authored_uuid`-Links
+   werden abgebildet; `BfagentContext` in `CONSUMER_SCHEMAS` bekommt ein **Entfernungsdatum**. Bestehende
+   UUIDs bleiben stabil (kein Neu-Create).
+
+2. **writing-hub *definiert* die Story, weltenhub die Welt-Assets.** Präzisierung der Ownership-Grenze:
+   - **weltenhub = SSoT** für **Welt, Ort, Charakter** — world-scoped und über Buchreihen wiederverwendbar.
+   - **Charakter-Präzisierung (Identität vs. Zustand):** weltenhub besitzt die **stabile Identität**
+     (Name, Erscheinung/Visual-Canon, Herkunft); der **Narrativzustand *innerhalb* einer Story**
+     (tot/lebendig, Beziehungen@T, Arc-Fortschritt) gehört zu writing-hub. „Wiederverwendbar" gilt für
+     die stabile Identität, nicht für den Story-Zustand (sonst bricht der erste Prequel/Parallel-Serie-Fall).
+   - **writing-hub = führende Quelle für Story** (Dramaturgie, Serie, Kapitel, Outline via `iil-outlinefw`, ADR-121).
+   - **Story-Grenze wird ERZWUNGEN, nicht nur beabsichtigt:** weltenhubs `Story`-Modell ist ab v1.2
+     **ausdrücklich nicht-autoritativ** für Buch-Dramaturgie — es darf world-scoped Narrativ-Verknüpfungen
+     halten, **nicht** Kapitelstruktur / Serien-Arcs / finale Outline / konkrete Buchdramaturgie.
+   - **Follow-up (eigener ADR, nicht in diesem Amendment):** die vollständige Auflösung der Story-Kollision
+     (weltenhub-`Story` umbenennen z. B. `WorldNarrativeLink` **oder** deprecaten) ist eine eigene
+     Grenz-Entscheidung → **eigener ADR mit „Alternatives Considered"** (Governance: neue Grenze = ADR).
+
+3. **Szenen-Grenze (Sub-Entscheid 2026-07-01) — mit operationalem Contract:** **weltenhub liefert
+   Szenen-Bausteine/Templates** (`SceneTemplate`), **writing-hub besitzt den Szenen-Inhalt**
+   (`OutlineNode(scene)` + Prosa). Damit die Naht eine Linie und kein Spektrum ist:
+   - **`SceneTemplate` DARF:** abstrakte, parametrisierbare, welt-/genre-gebundene Struktur (Beat-Gerüst,
+     Stimmung, benötigte Story-Elemente als Slots, typische Dauer).
+   - **`SceneTemplate` DARF NICHT:** benannte Story-Ereignisse, konkrete POV-Prosa, finale Beats,
+     Kapitelnummer, story-spezifische Figurenzustände.
+   - **Instanziierung:** writing-hub referenziert `SceneTemplate.uuid` und erzeugt daraus eine eigene
+     `OutlineNode(scene)` mit story-spezifischem Inhalt — nur Referenz, keine Kopie.
+   - **Abgrenzung zu `iil-outlinefw`:** SceneTemplate = *Szenen-Vorlage* (Welt-Asset); `iil-outlinefw` =
+     *Story-Outline-Framework* (Konsument-seitig). Ein „promote-scene-to-template"-Pfad wird bei Bedarf
+     als eigenes Ticket geführt, nicht implizit erlaubt.
+
+4. **illustration-hub als neuer Konsument — mit Visual-Canon-Regel.** Konsumiert Welt/Ort/Charakter aus
+   weltenhub (heute kein `iil-weltenfw`-Pin) für die Illustrations-Erzeugung.
+   **Erscheinungs-Kanon ist world-scoped SSoT:** Charakter-/Location-**Erscheinung** lebt strukturiert auf
+   weltenhubs `Character`/`Location` (analog `systems_data`, ADR-095), **nicht** im konsumenten-scoped
+   AuthoredContent-Thread — sonst re-etabliert man im visuellen Kern genau die Divergenz, die ADR-117
+   verhindert. illustration-hub komponiert Prompts aus dem Welt-Kanon **+ eigenem Stil-Kontext**.
+   (Detail + Exit-Klausel für Prompt-Metadaten → ADR-119-Amendment v1.2.)
+
+5. **Strukturierter Weltenbau (Bezug + Konsum-Regel):** `weltenhub:ADR-095` (`World.systems_data`)
+   erweitert den SSoT konsistent; Herleitung `KONZ-weltenhub-001`. Konsumenten (writing-hub/illustration-hub)
+   **referenzieren/projizieren** `systems_data` selektiv — **keine Kopie, keine konkurrierende Struktur** im Konsumenten.
+
+**Betroffene Repos (Delta):** `writing-hub` (kanonischer Konsument statt bfagent + bfagent-Daten-Migration),
+`illustration-hub` (neue Integration), `weltenhub` (`SceneTemplate` als Konsum-Fläche exponieren;
+strukturiertes Visual-Canon-Feld auf `Character`/`Location`; `Story`-Nicht-Autoritativ-Enforcement + Story-ADR-Follow-up).
+
+**Aus externem Review gehärtet (2026-07-01, 2 Reviewer, Step-5-Tagging):** Punkte 1–5 oben tragen die
+`[valid]`-Befunde ein (Migrations-Invarianten, Identität-vs-Zustand, erzwungene Story-Grenze + eigener ADR,
+SceneTemplate-Contract, Visual-Canon world-scoped). Settled-Kern-Befunde (GFK-vs-FK, Szenario-B-Wording,
+CONSUMER_SCHEMAS-Dezentralisierung) sind bewusst **out-of-scope** dieses Konsumenten-Amendments → Hardening-Backlog.
+Nachweis: `~/shared/adr-handoff-ADR-117-119-2026-07-01-RUECKFLUSS.md`.
+
 ## Review-History
 
 | Datum | Version | Reviewer | Urteil | Link |
 |-------|---------|----------|--------|------|
 | 2026-03-11 | v1.0 | Cascade | ❌ 3 BLOCKs (Frontmatter, Auth, Error-Contract) | [Review](../reviews/ADR-117-review-2026-03-11.md) |
 | 2026-03-11 | v1.0 → v1.1 | Cascade | Fixes applied | — |
+| 2026-07-01 | v1.1 → v1.2 | — | Amendment: writing-hub (Nachfolge bfagent), illustration-hub, Szenen-Grenze | — |
