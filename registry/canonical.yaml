@@ -308,6 +308,18 @@ repos:
       lifecycle: active
       tenancy_mode: none
       coverage_threshold: 80
+  iil-adrfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-adrfw
+  iil-codeguard:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-codeguard
   iil-enrichment:
     in_flat: true
     in_rich: false
