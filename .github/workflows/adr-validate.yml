@@ -11,6 +11,7 @@ on:
       - "docs/adr/**"
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
+      - "scripts/gen_adr_index.py"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
 
@@ -65,3 +66,32 @@ jobs:
           python3 tools/adr_citation_lint.py --format github
           python3 tools/adr_index_check.py --format github
           exit 0
+
+      # ADR Index frisch? (gating) — regeneriert index.json + INDEX.md und vergleicht
+      # gegen committed Stand. Datum-sensitive Zeilen ("generated", Kommentar-Header)
+      # werden beim Diff ausgeblendet, damit der Check tagesstabil ist.
+      # Lösung bei Rot: python3 scripts/gen_adr_index.py lokal ausführen + committen.
+      - name: ADR index freshness (gating)
+        run: |
+          cp docs/adr/index.json docs/adr/index.json.bak
+          cp docs/adr/INDEX.md docs/adr/INDEX.md.bak
+          python3 scripts/gen_adr_index.py
+          # Strip date-sensitive lines before diffing (generated date changes daily)
+          strip_dates() {
+            grep -v '"generated":' | \
+            grep -v '<!-- Last generated:' | \
+            grep -v '> Auto-generated'
+          }
+          strip_dates < docs/adr/index.json.bak > /tmp/index_old.json
+          strip_dates < docs/adr/index.json     > /tmp/index_new.json
+          strip_dates < docs/adr/INDEX.md.bak  > /tmp/INDEX_old.md
+          strip_dates < docs/adr/INDEX.md       > /tmp/INDEX_new.md
+          if diff -q /tmp/index_old.json /tmp/index_new.json > /dev/null && \
+             diff -q /tmp/INDEX_old.md   /tmp/INDEX_new.md   > /dev/null; then
+            echo "✓ ADR index is fresh"
+          else
+            echo "::error::ADR index is stale — run 'python3 scripts/gen_adr_index.py' and commit the result"
+            diff /tmp/index_old.json /tmp/index_new.json || true
+            diff /tmp/INDEX_old.md   /tmp/INDEX_new.md   || true
+            exit 1
+          fi
