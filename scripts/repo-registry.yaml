@@ -1,3 +1,10 @@
+# ╔══════════════════════════════════════════════════════════════════════╗
+# ║  GENERATED — NICHT VON HAND EDITIEREN (ADR-234 P0).                    ║
+# ║  Kanonische Quelle: registry/canonical.yaml                           ║
+# ║  Regenerieren:  python3 tools/registry-canonical.py flip               ║
+# ║  CI-Drift-Gate (registry-consistency.yml) failt bei Divergenz.        ║
+# ╚══════════════════════════════════════════════════════════════════════╝
+
 server:
   github_base: /home/devuser/github
   github_org: achimdehnert
@@ -57,6 +64,10 @@ repos:
     prod_url: dms.iil.pet
     port: 8107
     db: dms_hub
+    health: /livez/
+  frist-hub:
+    type: django
+    port: 8111
     health: /livez/
   gaeb-toolkit:
     type: library
@@ -207,4 +218,3 @@ repos:
     staging_url: staging.writing-hub.iil.pet
     port: 8097
     health: /livez/
-

@@ -38,6 +38,13 @@ hosts:
     ssh: root@88.99.38.75              # Admin/Deploy-Zugang
     ssh_interactive: devuser@88.99.38.75  # interaktiver Dev-Account — Default für Dev-Arbeit auf diesem Host
     hostname: dev-desktop              # Label in infra-Skripten; OS-Hostname real: ubuntu-32gb-fsn1-1
+    # ⚠ NAMENS-DRIFT (2026-07-02): ports.yaml nennt diesen Host "dev"
+    #   (servers.dev), diese Datei "staging" — real spielt er BEIDE Rollen
+    #   (siehe role). Empfohlene ~/.ssh/config-Aliase: fsn1 / hetzner-devuser.
+    #   Der Alias "dev-server" (46.225.113.1) ist TOT — alter dev-server,
+    #   nicht mehr existent (dns_staging_sync.py) — aus SSH-Configs entfernen.
+    # Dauerdienste (devuser, systemd --user): kd-server auf 127.0.0.1:8130
+    #   (Klickdummy-Bewertung, ~/kd-serve/, Tunnel: LocalForward 8130)
     provider: Hetzner
     role: >
       Staging-/Dev-Host. Trägt Staging-Container (risk_hub_staging_*,
@@ -47,6 +54,17 @@ hosts:
       KEINE Prod-Container auf dieser Engine (Bedingung ADR-257 Entscheidung 1).
     hosts_runners: [staging-ci]
     verified: 2026-06-28               # on-host: 16 CPU/32 GB/601 G; staging-ci-Runner registriert + online
+
+  staging-dedicated:
+    ip: 178.104.184.168
+    ssh: root@178.104.184.168
+    role: >
+      Laut ports.yaml (servers.staging) der dedizierte Staging-Server.
+      TCP 22/80/443 erreichbar (Probe 2026-07-02). Widerspricht dem
+      "staging"-Eintrag oben (88.99.38.75) — Rollen-Klärung offen:
+      welche Staging-Workloads laufen hier vs. auf dem Dev Desktop?
+    hosts_runners: []
+    verified: 2026-07-02               # nur TCP-Probe; on-host nicht verifiziert
 
   odoo:
     ip: 46.225.127.211

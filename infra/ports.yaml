@@ -111,6 +111,14 @@ infra:
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
 
+  frist-hub:
+    prod: 8111
+    staging: 8111
+    dev: 8111
+    container_name: frist_hub_web
+    domain_prod: frist-hub.iil.pet
+    note: "meiki-lra · Sozialdaten-Pilot — prod blockiert auf Hosting-ADR (nur Konzept-Staging)"
+
   coach-hub:
     prod: 8007
     staging: 8007

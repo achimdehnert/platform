@@ -291,6 +291,13 @@ repos:
       port: 8107
       db: dms_hub
       health: /livez/
+  frist-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 8111
+      health: /livez/
   gaeb-toolkit:
     in_flat: true
     in_rich: true
