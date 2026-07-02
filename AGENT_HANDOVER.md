@@ -99,12 +99,14 @@ released, end-to-end verifizierten Produktionspfad** durchgezogen.
 
 ---
 
-## 0. Aktuelle Prioritäten (2026-06-24 — verifiziert via API/Fleet-Scan)
+## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz (ADR-209-Programm, NICHT ad-hoc); erst danach `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter erweitern. Worklist/Voraussetzung s. „Aktueller Stand 2026-06-20". | `[du/Sonnet]` |
-| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra): onboarding-hub = leeres `STAGING_HOST`-Secret (Deploy/Staging) · 137-hub = Docker-Build-Fail · dms/tax = `cancelled` (Concurrency, benign) · weltenhub = Docker build. | `[du/Owner]` |
+| 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz; **Konvergenz-Programm GESTARTET 2026-07-02 (Freigabe Achim)**: Tracking **platform#811**, Phase-1-Sonnet-Queue = learn-hub#23 · recruiting-hub#10 · travel-beat#55. Befund-Kette: 0/26 Kandidaten emittieren `ci / gate` auf main (ABER Methodik-Blindfleck: PR-only-Trigger — Pre-Flight je Repo am PR-Head!); `iilgmbh/shared-ci` (Org-Transfer! nicht mehr achimdehnert) hat den `gate`-Job **seit v1.0.5** (`name: "gate"`, `if: always()`); Check-Kontext = `<Caller-Job> / gate` → Caller-Job MUSS `ci` lowercase ohne `name:`-Override sein (learn-hub-Bug: `name: "CI"` → `CI / …`). Phase 2 = ~23 Standalone-Libs (Worklist in #811). Erst nach Phase 1+2: `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter. | `[Sonnet, via #811]` |
+| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra). **Re-Check 2026-07-02: weitgehend geheilt** — onboarding-hub grün (seit 06-24), 137-hub grün (seit 06-21), weltenhub grün (07-01, cancelled=Concurrency benign); dms-hub weiter `cancelled` (benign, letzte Runs 06-09). **tax-hub „Issue Triage" 3× failure (07-01/02)** — Root-Cause `Input required and not supplied: github-token` (Repo hat 0 Secrets, `PROJECT_PAT` fehlt; risk-/coach-hub identisches Muster + PAT = grün). **Fix-PR iilgmbh/tax-hub#20 offen** (Fallback `PROJECT_PAT \|\| github.token`; Self-Approval-Block → wartet auf Owner-Merge; bei Merge `[skip ci]` beachten — deploy.yml feuert auf push:main ohne paths-Filter). Alternative: PROJECT_PAT als Secret setzen (Owner). | `[du/Owner]` |
+
+> **PR-Hygiene (erledigt 2026-07-02, Freigabe Achim):** #753 + #746 geschlossen (Duplikate von gemergtem #808) · **#760 gemergt** (Registry iil-adrfw/codeguard — Registry-Lücke zu) · **#759 gemergt** (gen_adr_index.py; Rebase-Konflikt in INDEX.md durch Generator-Lauf gelöst, 206 aktive + 48 archivierte ADRs indiziert).
 
 > **✅ Retired/erledigt (2026-06-24, hart verifiziert — billigster Check gemacht):**
 > - **F4 CI-grün** als Code-CI-Programm GESCHLOSSEN (Fleet-Scan: 0 Lint/Test/Coverage-Rot; alle Roten = Deploy-Stage). **Kein Sonnet-Material mehr** — nicht erneut als Sonnet-Queue listen.
