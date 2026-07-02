@@ -1,10 +1,3 @@
-# ╔══════════════════════════════════════════════════════════════════════╗
-# ║  GENERATED — NICHT VON HAND EDITIEREN (ADR-234 P0).                    ║
-# ║  Kanonische Quelle: registry/canonical.yaml                           ║
-# ║  Regenerieren:  python3 tools/registry-canonical.py flip               ║
-# ║  CI-Drift-Gate (registry-consistency.yml) failt bei Divergenz.        ║
-# ╚══════════════════════════════════════════════════════════════════════╝
-
 server:
   github_base: /home/devuser/github
   github_org: achimdehnert
@@ -68,6 +61,12 @@ repos:
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit
+  iil-adrfw:
+    type: library
+    pypi: iil-adrfw
+  iil-codeguard:
+    type: library
+    pypi: iil-codeguard
   iil-enrichment:
     type: library
     pypi: iil-enrichment
@@ -208,3 +207,4 @@ repos:
     staging_url: staging.writing-hub.iil.pet
     port: 8097
     health: /livez/
+
