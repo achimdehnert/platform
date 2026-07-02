@@ -91,8 +91,11 @@ def load_reports(directory: str) -> list[dict]:
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Längsschnitt-KPIs über session-retro-Reports")
-    ap.add_argument("--dir", default=os.path.expanduser("~/shared"),
-                    help="Verzeichnis mit session-retro-*.md (default ~/shared)")
+    # KONZ-platform-010: durable Heimat = git docs/retros/ (nicht ~/shared, ungebackupt).
+    # Default = docs/retros/ relativ zu diesem Skript (tools/ -> repo-root/docs/retros).
+    _default_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "retros")
+    ap.add_argument("--dir", default=_default_dir,
+                    help="Verzeichnis mit session-retro-*.md (default: <repo>/docs/retros, KONZ-010)")
     ap.add_argument("--min-band", type=int, default=3,
                     help="refuted_rate-Band erst ab N Retros bewerten (default 3)")
     args = ap.parse_args()
