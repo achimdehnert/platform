@@ -1,0 +1,10 @@
+# Dev-/Test-Dependencies für platform (Meta-Repo — keine Runtime-App).
+# Install: make setup   (oder: pip install -r requirements-dev.txt)
+# CI-Referenz: .github/workflows/tools-tests.yml installiert pytest+pyyaml;
+# diese Datei ist die lokale SSoT dafür (repo-optimize X-3, 2026-07-02).
+pytest>=8
+pyyaml>=6
+ruff>=0.4
+pre-commit>=3
+# ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI:
+iil-adrfw
