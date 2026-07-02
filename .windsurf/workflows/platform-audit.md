@@ -12,6 +12,21 @@ description: Cross-Repo Platform Audit — Schwachstellen, Inkonsistenzen und Ve
 
 ---
 
+## Phase 0: Inbox-Intake (FLEET-Handoffs aus /repo-optimize)
+
+```bash
+ls ~/shared/platform-audit-inbox-*.md 2>/dev/null | grep -v processed
+```
+
+- Jede Inbox-Datei enthält vor-falsifizierte `[FLEET-PATTERN]`-Befunde (`FP-n · Label ·
+  BEOBACHTUNG · EVIDENZ · SOURCE-FIX`) aus einem `/repo-optimize`-Einzellauf.
+- Items als **vor-geseedete Pattern-Kandidaten** in Phase 4.2 übernehmen; Ein-Repo-Beleg
+  bleibt Hypothese, bis der Cross-Repo-Check (>2 Repos) sie bestätigt.
+- Verarbeitete Inbox-Dateien im Report referenzieren und nach `*-processed.md` umbenennen
+  (verhindert Doppel-Intake in der nächsten Runde).
+
+---
+
 ## Bekannte Repos (alle auditieren)
 
 ### Django-Apps (21)
@@ -268,7 +283,7 @@ Ordne jedes Finding in eine Kategorie ein:
 
 ### 4.2 Cross-Repo Patterns erkennen
 
-Suche nach **systematischen** Problemen:
+Suche nach **systematischen** Problemen (Startpunkt: die `FP-n`-Kandidaten aus Phase 0):
 - Gleicher Fehler in >2 Repos → Pattern → Platform-weite Lösung
 - Fehlende Standardisierung → neuer ADR nötig?
 - Drift zwischen Repos → Tooling oder Template aktualisieren
