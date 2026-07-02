@@ -11,16 +11,23 @@ name: Tools Unit-Tests
 # (z.B. test_drift_check.py → scripts/drift_check.py). Ohne den scripts/**-Trigger
 # liefe der Gate bei einer drift_check.py-Änderung NICHT — genau die CI-verwaiste
 # Lücke aus Session-Retro 2026-06-12 F1 (repo-root tests/ läuft in keinem Workflow).
+#
+# shared_contracts/** ist seit platform#820 (Entscheid A) ebenfalls mit-getriggert:
+# tools/tests/test_shared_contracts.py deckt die Pydantic-Contracts dort ab; ohne
+# diesen Trigger würde der Gate bei einer Contract-Änderung NICHT laufen — dieselbe
+# Lücke wie oben, nur für shared_contracts/ statt scripts/.
 
 on:
   push:
     paths:
       - "tools/**"
       - "scripts/**"
+      - "shared_contracts/**"
   pull_request:
     paths:
       - "tools/**"
       - "scripts/**"
+      - "shared_contracts/**"
 
 jobs:
   tools-tests:
@@ -36,7 +43,8 @@ jobs:
           python-version: "3.12"
 
       - name: Install test deps
-        run: pip install pytest pyyaml --quiet --break-system-packages
+        # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
+        run: pip install pytest pyyaml pydantic --quiet --break-system-packages
 
       - name: Run all tools tests
         run: python3 -m pytest tools/tests/ -q
