@@ -29,6 +29,11 @@ on:
       - "scripts/**"
       - "shared_contracts/**"
 
+# Workflow-level default (least privilege, #818 permissions sweep) —
+# no job in this workflow needs to write via GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   tools-tests:
     name: pytest tools/tests/
