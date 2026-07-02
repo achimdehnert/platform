@@ -8,7 +8,6 @@ reviewed-by:
   - Claude (Sparring Review, 2026-05-09)
 depends-on:
   - ADR-190 (iil-adrfw Tooling Framework)
-  - ADR-009 (Service Layer Architecture)
   - ADR-048 (HTMX Playbook)
   - ADR-056 (Deployment Pre-Flight Validation)
   - ADR-010 (MCP Tool Governance)
@@ -46,6 +45,8 @@ drift_check_paths:
 <!-- Drift-Detector-Felder: staleness_months: 6, drift_check_paths: iil-codeguard/src/, supersedes_check: ADR-191 v1.0 -->
 
 # ADR-191: Adopt iil-codeguard — Library-First Code Compliance Tooling
+
+> **Historie:** Frühere Abhängigkeit ADR-009 (Service Layer Architecture) ist archiviert (`docs/adr/archive/`) und wurde aus `depends_on` entfernt.
 
 | Metadaten | |
 |-----------|---|

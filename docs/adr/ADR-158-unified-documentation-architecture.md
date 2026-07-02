@@ -5,7 +5,7 @@ amended: 2026-05-30
 decision-makers: [Achim Dehnert]
 consulted: [Cascade (Principal IT-Architekt)]
 informed: []
-supersedes: ["ADR-020-documentation-strategy.md"]
+supersedes: []
 amends: ["ADR-046-docs-hygiene.md"]
 related:
   - ADR-020-documentation-strategy.md
@@ -28,6 +28,8 @@ implementation_evidence:
 ---
 
 # ADR-158: Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs
+
+> **Historie:** Ersetzte ADR-020 (Documentation Strategy) — archiviert unter `docs/adr/archive/`.
 
 <!-- Drift-Detector-Felder (ADR-059)
 staleness_months: 3
