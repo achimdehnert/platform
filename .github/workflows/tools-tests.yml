@@ -11,6 +11,20 @@ name: Tools Unit-Tests
 # (z.B. test_drift_check.py → scripts/drift_check.py). Ohne den scripts/**-Trigger
 # liefe der Gate bei einer drift_check.py-Änderung NICHT — genau die CI-verwaiste
 # Lücke aus Session-Retro 2026-06-12 F1 (repo-root tests/ läuft in keinem Workflow).
+#
+# Ehrlichkeits-Hinweis (Issue #819 Häppchen 3, repo-optimize 2026-07-02): der
+# scripts/**-Trigger bedeutet NICHT, dass alle scripts/*.py getestet sind — nur
+# scripts/drift_check.py (test_drift_check.py) und scripts/render_staging.py
+# (test_render_staging.py, s.u.) haben echte Tests; die übrigen ~24 scripts/*.py
+# sind weiterhin ungetestet (Gate läuft grün, ohne sie zu prüfen). Kein
+# Vollständigkeits-Claim — nur was unten tatsächlich läuft.
+#
+# Zusätzlich zu tools/tests/ laufen hier drei zuvor CI-tote Testorte mit (waren
+# nie in einen Workflow verdrahtet, obwohl sie grün + portabel sind):
+#   - tests/test_render_staging.py      → scripts/render_staging.py (ADR-212)
+#   - tests/doc_profile_check/           → doc_profile_check.sh Regel-Engine (ADR-218)
+#   - tools/claude-hooks/tests/          → tools/claude-hooks/log_llm_call.py
+# tests/megatest/ bleibt bewusst außen vor (eigener, separat verdrahteter Gate).
 
 on:
   push:
@@ -24,7 +38,7 @@ on:
 
 jobs:
   tools-tests:
-    name: pytest tools/tests/
+    name: pytest tools/tests/ + CI-tote Testorte
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,4 +53,9 @@ jobs:
         run: pip install pytest pyyaml --quiet --break-system-packages
 
       - name: Run all tools tests
-        run: python3 -m pytest tools/tests/ -q
+        run: >
+          python3 -m pytest tools/tests/
+          tests/test_render_staging.py
+          tests/doc_profile_check/
+          tools/claude-hooks/tests/
+          -q
