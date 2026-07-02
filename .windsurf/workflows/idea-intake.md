@@ -41,7 +41,7 @@ Dokument mit `<outline-mcp>_get_document(document_id=...)` vollständig laden.
 Für jede rohe Idee:
 
 a) **Hub erkennen**: Aus dem Satz Keywords extrahieren (risk, trading, travel, cad, pptx, wedding, billing, coach, illustration, weltenhub)
-b) **Bestehenden Code prüfen**: `mcp14_get_project_facts(repo_name=...)` für erkannten Hub
+b) **Bestehenden Code prüfen**: `mcp__platform-context__get_project_facts(repo_name=...)` für erkannten Hub
 c) **Verwandte ADRs suchen**: `<outline-mcp>_search_knowledge(query="[Idee-Keywords]")` in ADRs/Konzepten
 d) **Priorität einschätzen**: Basierend auf Komplexität und Abhängigkeiten
 
