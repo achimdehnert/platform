@@ -19,7 +19,7 @@ Neuen Third-Party-Stack in die Platform-Infrastruktur aufnehmen (nicht Django-Hu
 
 2. **Verzeichnis auf Server anlegen**
 ```
-mcp0_ssh_manage(action="exec", host="88.198.191.108", command="mkdir -p /opt/<stack-name>")
+mcp__deployment-mcp__ssh_manage(action="exec", host="88.198.191.108", command="mkdir -p /opt/<stack-name>")
 ```
 
 3. **docker-compose.prod.yml erstellen** (ADR-021 compliant)
@@ -46,27 +46,27 @@ mcp0_ssh_manage(action="exec", host="88.198.191.108", command="mkdir -p /opt/<st
 
 6. **Cloudflare DNS**
 ```
-mcp0_cloudflare_manage(action="cf_dns_upsert", domain="iil.pet", name="<subdomain>", record_type="CNAME", content="<tunnel-id>.cfargotunnel.com")
+mcp__deployment-mcp__cloudflare_manage(action="cf_dns_upsert", domain="iil.pet", name="<subdomain>", record_type="CNAME", content="<tunnel-id>.cfargotunnel.com")
 ```
 
 7. **SSL-Zertifikat**
 ```
-mcp0_network_manage(action="ssl_obtain", domains="<domain>", email="admin@iil.gmbh", standalone=true, host="88.198.191.108")
+mcp__deployment-mcp__network_manage(action="ssl_obtain", domains="<domain>", email="admin@iil.gmbh", standalone=true, host="88.198.191.108")
 ```
 
 8. **Stack starten**
 ```
-mcp0_docker_manage(action="compose_up", host="88.198.191.108", project_path="/opt/<stack-name>")
+mcp__deployment-mcp__docker_manage(action="compose_up", host="88.198.191.108", project_path="/opt/<stack-name>")
 ```
 
 9. **Nginx reload**
 ```
-mcp0_system_manage(action="nginx_reload", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="nginx_reload", host="88.198.191.108")
 ```
 
 10. **Health-Check**
 ```
-mcp0_ssh_manage(action="http_check", host="88.198.191.108", url="https://<domain>/")
+mcp__deployment-mcp__ssh_manage(action="http_check", host="88.198.191.108", url="https://<domain>/")
 ```
 
 11. **Knowledge Graph updaten**

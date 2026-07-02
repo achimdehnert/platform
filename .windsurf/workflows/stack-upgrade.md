@@ -20,7 +20,7 @@ description: Third-Party Stack upgraden (Outline, Authentik, Paperless) — Back
 | Paperless | `/opt/doc-hub/` | `iil_doc_hub` | docs.iil.pet |
 
 ```
-MCP: mcp6_docker_manage(action: compose_ps, host: 88.198.191.108, project_path: /opt/<stack>/)
+MCP: mcp__deployment-mcp__docker_manage(action: compose_ps, host: 88.198.191.108, project_path: /opt/<stack>/)
 → Zeigt aktuelle Container + Images + Status
 ```
 
@@ -41,7 +41,7 @@ MCP: mcp6_docker_manage(action: compose_ps, host: 88.198.191.108, project_path: 
 ## Step 2: Pre-Upgrade Backup (Pflicht)
 
 ```
-MCP: mcp6_ssh_manage(action: exec, host: 88.198.191.108,
+MCP: mcp__deployment-mcp__ssh_manage(action: exec, host: 88.198.191.108,
      command: "bash /opt/backups/<stack>/backup.sh")
 → Bestätige: Backup OK mit Dateigröße
 ```
@@ -53,7 +53,7 @@ Falls kein Backup-Script existiert → erst `/backup` Workflow ausführen.
 ## Step 3: Neues Image pullen
 
 ```
-MCP: mcp6_ssh_manage(action: exec, host: 88.198.191.108,
+MCP: mcp__deployment-mcp__ssh_manage(action: exec, host: 88.198.191.108,
      command: "docker pull <image>:<new-version>")
 ```
 
@@ -62,7 +62,7 @@ MCP: mcp6_ssh_manage(action: exec, host: 88.198.191.108,
 ## Step 4: Compose aktualisieren + Rolling Upgrade
 
 ```
-MCP: mcp6_ssh_manage(action: run_script, host: 88.198.191.108, script: "
+MCP: mcp__deployment-mcp__ssh_manage(action: run_script, host: 88.198.191.108, script: "
 cd /opt/<stack>
 sed -i 's|<image>:<old-version>|<image>:<new-version>|g' docker-compose.yml
 docker compose up -d <main-service>
@@ -85,7 +85,7 @@ docker ps --filter 'name=<container-prefix>' --format '{{.Names}}\t{{.Image}}\t{
 | **Data** | `SELECT count(*) FROM <main-table>` | Gleich wie vor Upgrade |
 
 ```
-MCP: mcp6_ssh_manage(action: http_check, host: 88.198.191.108,
+MCP: mcp__deployment-mcp__ssh_manage(action: http_check, host: 88.198.191.108,
      url: "https://<domain>/_health", expect_status: 200)
 ```
 
@@ -109,7 +109,7 @@ git push origin main
 ## Step 7: Rollback (falls Verify fehlschlägt)
 
 ```
-MCP: mcp6_ssh_manage(action: run_script, host: 88.198.191.108, script: "
+MCP: mcp__deployment-mcp__ssh_manage(action: run_script, host: 88.198.191.108, script: "
 cd /opt/<stack>
 sed -i 's|<image>:<new-version>|<image>:<old-version>|g' docker-compose.yml
 docker compose up -d <main-service>

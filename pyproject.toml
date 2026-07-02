@@ -11,4 +11,6 @@ addopts = [
 markers = [
     "megatest: Platform-weiter Hardcoding-Megatest",
 ]
-testpaths = ["tests"]
+# tools/tests/ ist die CI-Suite (tools-tests.yml); tests/ enthält megatest + Altbestand.
+# Ohne beide Pfade sähe nacktes `pytest` nur 5 von 40 Testdateien (Blindfleck, repo-optimize L-4).
+testpaths = ["tests", "tools/tests"]

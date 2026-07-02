@@ -124,7 +124,7 @@ git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 Deploy.sh führt Pull, Migrate, Recreate, Health-Check und ggf. Rollback automatisch aus.
 
 ```
-mcp0_ssh_manage:
+mcp__deployment-mcp__ssh_manage:
   action: exec
   host: 88.198.191.108
   command: "bash /opt/deploy-core/deploy-start.sh {scope} docker-compose.prod.yml {health_port}"
@@ -138,7 +138,7 @@ Erwartete Antwort: `{"status":"started","background_pid":...,"log_file":...}`
 **Fallback (ADR-075):** Falls SSH nicht verfügbar → GitHub Actions:
 
 ```
-mcp0_cicd_manage:
+mcp__deployment-mcp__cicd_manage:
   action: dispatch
   owner: achimdehnert
   repo: {scope}
@@ -153,7 +153,7 @@ mcp0_cicd_manage:
 **Bei Short-Trigger (Schritt 3 Primary):** Polle alle 15s via deploy-status.sh:
 
 ```
-mcp0_ssh_manage:
+mcp__deployment-mcp__ssh_manage:
   action: exec
   host: 88.198.191.108
   command: "bash /opt/deploy-core/deploy-status.sh {scope}"
@@ -166,7 +166,7 @@ Warte auf `"status":"SUCCESS"`. Bei `"status":"FAILED"` → Rollback wurde autom
 Deploy-Log lesen und Fehler als Pattern speichern:
 
 ```
-mcp0_ssh_manage:
+mcp__deployment-mcp__ssh_manage:
   action: exec
   host: 88.198.191.108
   command: "tail -20 /var/log/deploy/{scope}-latest.log"
@@ -192,7 +192,7 @@ mcp__orchestrator__agent_memory_upsert(
 **Bei GitHub Actions Fallback:**
 
 ```
-mcp0_cicd_manage:
+mcp__deployment-mcp__cicd_manage:
   action: workflow_runs
   owner: achimdehnert
   repo: {scope}
@@ -209,7 +209,7 @@ Warte auf `conclusion: success`. Bei `failure` → Schritt 6.
 Nach erfolgreichem Deploy nochmal explizit prüfen:
 
 ```
-mcp0_ssh_manage:
+mcp__deployment-mcp__ssh_manage:
   action: http_check
   host: 88.198.191.108
   url: http://127.0.0.1:{health_port}/livez/

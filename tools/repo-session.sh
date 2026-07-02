@@ -132,5 +132,6 @@ case "${1:-}" in
   start) shift; cmd_start "$@";;
   list)  cmd_list;;
   end)   shift; cmd_end "$@";;
+  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--base <ref>] [--ephemeral] | list | end <wt>}"; exit 0;;
   *) echo "usage: repo-session.sh {start <repo> --task <slug> [--base <ref>] [--ephemeral] | list | end <wt>}" >&2; exit 2;;
 esac

@@ -14,6 +14,13 @@ on:
         type: boolean
         default: false
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# megatest job below already declares its own permissions (contents:
+# write for --update-budgets, issues: write for the failure report) and
+# overrides this.
+permissions:
+  contents: read
+
 jobs:
   megatest:
     name: Platform Hardcoding Megatest

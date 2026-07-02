@@ -151,10 +151,10 @@ Falls leer oder veraltet → Eintrag ergänzen basierend auf `git log --oneline 
 
 Suche ob bereits ein Eintrag existiert:
 ```
-mcp3_search_knowledge(query: "<REPO_NAME> Funktionsbeschreibung")
+mcp__outline-knowledge__search_knowledge(query: "<REPO_NAME> Funktionsbeschreibung")
 ```
 
-Falls nicht vorhanden → `mcp3_create_concept()` mit **ausschließlich net-new Inhalt**:
+Falls nicht vorhanden → `mcp__outline-knowledge__create_concept()` mit **ausschließlich net-new Inhalt**:
 - Überblick + Zweck (1-2 Sätze, nicht ableitbar)
 - Entscheidungs-Kontext / Design-Rationale (warum dieses Package so geschnitten ist)
 - Bekannte Einschränkungen / Lessons, die nicht aus dem Code lesbar sind
@@ -169,10 +169,10 @@ Falls nicht vorhanden → `mcp3_create_concept()` mit **ausschließlich net-new 
 
 Suche ob bereits ein Eintrag existiert:
 ```
-mcp3_search_knowledge(query: "<REPO_NAME> Hub Dokumentation Setup")
+mcp__outline-knowledge__search_knowledge(query: "<REPO_NAME> Hub Dokumentation Setup")
 ```
 
-Falls nicht vorhanden → `mcp3_create_runbook()` mit **ausschließlich net-new Inhalt**:
+Falls nicht vorhanden → `mcp__outline-knowledge__create_runbook()` mit **ausschließlich net-new Inhalt**:
 - Deployment-**Eigenheiten** / Quirks, die nicht aus Compose/Settings ableitbar sind
 - Manuelle Schritte / Incident-Lore (z.B. "vor Migration X erst Cache leeren")
 - Entscheidungs-Kontext
@@ -185,7 +185,7 @@ Falls nicht vorhanden → `mcp3_create_runbook()` mit **ausschließlich net-new 
 
 ### Alle Tiers — Platform-Übersicht updaten
 
-→ `mcp3_update_document(document_id: "432db075-9b4d-4222-9223-36c57452fc26", ...)`
+→ `mcp__outline-knowledge__update_document(document_id: "432db075-9b4d-4222-9223-36c57452fc26", ...)`
   Status für dieses Repo von ❌ auf ✅ setzen.
   (Der Status-Wechsel ✅ ist net-new Kurations-Info, kein Content-Copy → bleibt erlaubt.)
 
@@ -197,10 +197,10 @@ Falls ein externer Review angefragt ist:
 
 Prüfe ob ein Review Package existiert:
 ```
-mcp3_search_knowledge(query: "<REPO_NAME> Review Package Deliverable")
+mcp__outline-knowledge__search_knowledge(query: "<REPO_NAME> Review Package Deliverable")
 ```
 
-Falls nicht → `mcp3_create_concept()` nach Vorlage von iil-reflex:
+Falls nicht → `mcp__outline-knowledge__create_concept()` nach Vorlage von iil-reflex:
 → [iil-reflex Review Package](https://knowledge.iil.pet/doc/iil-reflex-review-package-deliverable-aBPs3xOqHG)
 
 Das Review Package enthält:

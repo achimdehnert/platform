@@ -20,6 +20,12 @@ on:
         type: choice
         options: ["false", "true"]
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# job below already declares its own permissions explicitly (contents:
+# read — admin actions use PROJECT_PAT, not GITHUB_TOKEN).
+permissions:
+  contents: read
+
 jobs:
   apply-rulesets:
     name: "Branch-Protection Rulesets anlegen/aktualisieren"

@@ -31,6 +31,11 @@ concurrency:
   group: adr-review-${{ github.event.pull_request.number || inputs.pr_number }}
   cancel-in-progress: true
 
+# Workflow-level default (least privilege, #818 permissions sweep); both
+# jobs below already declare their own (write) permissions and override this.
+permissions:
+  contents: read
+
 jobs:
   review:
     name: "🤖 AI Review"
