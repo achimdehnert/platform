@@ -1,5 +1,6 @@
 ---
-description: Session starten — Kontext laden, Stand prüfen, sicher loslegen
+description: Session starten — Kontext laden, Stand prüfen, Modell-Tier wählen, sicher loslegen
+mode: write
 ---
 
 # /session-start
@@ -143,6 +144,17 @@ fi
 
 // turbo
 ```bash
+# PARALLEL-SESSION-GUARD (ADR-233 + 🌀 feedback_shared_worktree_multisession_git_collision):
+# Der geteilte Haupt-Tree kann von MEHREREN Sessions genutzt werden. Vor jedem
+# pull/stash prüfen, ob eine fremde Session den Tree verändert hat:
+CUR_BRANCH=$(git branch --show-current 2>/dev/null)
+if [ -n "$CUR_BRANCH" ] && [ "$CUR_BRANCH" != "main" ]; then
+  echo "⛔ Haupt-Tree steht auf '$CUR_BRANCH' (nicht main) — vermutlich fremde Session aktiv."
+  echo "   NICHT pullen/stashen/switchen. Read-only weiterarbeiten oder eigenen Worktree nutzen (0.4.3)."
+fi
+FOREIGN_WT=$(git worktree list 2>/dev/null | grep -c "session/$(date +%Y-%m-%d)")
+[ "$FOREIGN_WT" -gt 0 ] && echo "ℹ️  $FOREIGN_WT aktive Session-Worktrees heute — Kollisions-Check bei Branch-Arbeit."
+
 # TARGET_REPO: explizit angegeben oder aus Git-Root
 if [ -n "${TARGET_REPO:-}" ]; then
   echo "Target Repo (explizit): $TARGET_REPO"
@@ -216,35 +228,17 @@ fi
 → Zeigt sofort wenn ein ADR kaputtes Frontmatter hat.
 → Fängt Drift nach Schema-Updates oder manuellen Edits.
 
-**Architecture Context laden** (MCP — Prefix `mcp2_` für iil-adrfw, aus project-facts.md):
+**Architecture Context laden** (environment-abhängig — Signaturen VOR Nutzung via
+`ToolSearch` verifizieren, Policy claude-skills §MCP-Signaturen):
 
-```
-MCP: mcp2_adr_staleness(months=6)
-→ Zeigt: stale ADRs, broken refs, missing reviews — sofort User informieren bei Findings
-
-MCP: mcp2_adr_audit(auditors=["supersession_hygiene","dependency_health","staleness","redundancy_detector","conflict"])
-→ Health Score prüfen — bei score < 0.95 warnen
-→ redundancy_detector: Konsolidierungs-Kandidaten melden (ADR-Paare mit shared domains)
-
-MCP: mcp2_adr_query(question="Which ADRs apply to <TARGET_REPO>?")
-→ Repo-spezifische Architektur-Constraints für die aktuelle Session laden
-
-MCP: mcp2_adr_freshness(repo_path="${GITHUB_DIR}/<TARGET_REPO>")
-→ Prüft ob ADR-Claims (Versionen, Ports, Images) noch mit dem Repo übereinstimmen
-→ Bei severity=warning Findings: User informieren (z.B. "ADR-022 sagt PostgreSQL 15, du hast 16")
-```
-
-→ Ergebnis kurz zusammenfassen: "X ADRs gelten für dieses Repo, Health Score Y, Z stale, N Freshness-Warnings."
-→ Bei kritischen Findings (score < 0.90 oder broken refs): User informieren vor Weiterarbeit.
-→ Bei Freshness-Warnings: vorschlagen die ADRs zu aktualisieren oder als Known-Drift zu markieren.
-
-**Weekly: Architecture Diff** (nur 1x pro Woche, am Montag oder wenn >7 Tage seit letztem Check):
-```
-MCP: mcp2_adr_diff(mode="temporal", left_time="<7-Tage-zurück>", right_time="<jetzt>")
-→ Zeigt: neue ADRs, Status-Änderungen, Supersession-Ketten der letzten Woche
-→ Kurz zusammenfassen: "Diese Woche: 2 neue ADRs, 1 Status-Änderung (ADR-190 → accepted)"
-→ Bei vielen Änderungen: `/adr-health` für vollständigen Audit empfehlen
-```
+- **Wenn adrfw-MCP-Tools gebunden sind** (`adr_staleness`/`adr_audit`/`adr_query`/
+  `adr_freshness` — Prefix aus `project-facts.md`): Staleness (6 Monate), Health-Score
+  (warnen bei < 0.95) und Repo-Constraints laden; Ergebnis in 1 Satz zusammenfassen.
+- **CC-Standard-Fallback (keine adrfw-MCP-Tools gebunden):** CLI + Skills nutzen —
+  `iil-adrfw validate docs/adr/` läuft bereits in 0.4.2; für tiefe Audits `/adr-health`
+  aufrufen; Repo-Constraints aus `docs/adr/index.json` (maschinenlesbar) + CORE_CONTEXT.
+- **Weekly-Diff** (1×/Woche): `git -C "$PLATFORM_DIR" log --since="7 days ago" --oneline -- docs/adr/ | head`
+  genügt als billigster Check; bei vielen Änderungen `/adr-health` empfehlen.
 
 ### 0.4.3 Editier-Modus: Worktree statt Haupt-Tree (ADR-233)
 
@@ -271,14 +265,20 @@ MCP: mcp2_adr_diff(mode="temporal", left_time="<7-Tage-zurück>", right_time="<j
 ```bash
 if ! ss -tlnp | grep -q 15435; then
   echo "⚠️ SSH-Tunnel nicht aktiv — starte..."
-  sudo systemctl start ssh-tunnel-postgres
-  sleep 2
+  # devuser hat KEIN sudo-Passwort (AGENT_HANDOVER §2) → erst sudo-frei versuchen:
+  if sudo -n systemctl start ssh-tunnel-postgres 2>/dev/null; then
+    sleep 2
+  else
+    # Fallback ohne sudo: Tunnel direkt aufbauen (Ziel-Port aus AGENT_HANDOVER §7)
+    (ssh -f -N -L 15435:localhost:15435 -o BatchMode=yes -o ConnectTimeout=5 \
+       -i ~/.ssh/id_ed25519 root@88.198.191.108 2>/dev/null) && sleep 1
+  fi
 fi
 if ss -tlnp | grep -q 15435; then
   echo "✅ pgvector Tunnel aktiv (localhost:15435)"
 else
   echo "❌ FEHLER: pgvector Tunnel nicht erreichbar! Memory funktioniert NICHT."
-  echo "   Fix: sudo systemctl start ssh-tunnel-postgres"
+  echo "   Fix (mit sudo-Rechten): sudo systemctl start ssh-tunnel-postgres"
   echo "   ABBRUCH — pgvector ist Pflicht, kein Fallback erlaubt."
 fi
 ```
@@ -296,19 +296,41 @@ bash ${GITHUB_DIR:-$HOME/github}/mcp-hub/scripts/verify-adr156.sh
 
 ### 0.7 Deploy-Status aller Apps scannen (ADR-156)
 
-Prüfe ob kürzlich fehlgeschlagene Deploys vorliegen:
+Prüfe ob kürzlich fehlgeschlagene Deploys vorliegen — **zwei Wege, je nach Umgebung**:
 
-```
-mcp0_ssh_manage:
-  action: exec
-  host: 88.198.191.108
-  command: "for repo in risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub; do bash /opt/deploy-core/deploy-status.sh $repo 2>/dev/null; done"
-```
+- **CC-Standard (immer verfügbar):** letzten Deploy-Run je Prod-Repo via GitHub:
+  ```bash
+  for r in risk-hub billing-hub cad-hub coach-hub trading-hub travel-beat weltenhub wedding-hub pptx-hub; do
+    gh run list -R "$(git -C ${GITHUB_DIR:-$HOME/github}/platform remote get-url origin | sed -E 's#.*[:/]([^/]+)/.*#\1#')/$r" \
+      --workflow Deploy --limit 1 --json conclusion --jq '.[0].conclusion // "none"' 2>/dev/null \
+      | xargs -I{} echo "$r: {}"
+  done
+  ```
+- **Mit deployment-MCP gebunden** (Prefix aus project-facts.md): `ssh_manage exec` mit
+  `/opt/deploy-core/deploy-status.sh <repo>` je Prod-Repo.
 
-→ Für jedes Repo mit `"status":"FAILED"`: Deploy-Log lesen und User informieren.
+→ Für jedes Repo mit `failure`/`FAILED`: Deploy-Log lesen und User informieren —
+  🌀 `feedback_deploy_green_not_change_live`: run-conclusion allein belegt nicht,
+  dass die Änderung live ist.
 → Optional als Memory-Entry sichern (siehe `/session-ende` Phase 2 — `error_pattern`).
 
-### 0.8 Staging-Health-Check (ADR-157)
+### 0.8 Modell-Tier für die Session wählen (policies/session-routing.md)
+
+**Vor dem ersten Arbeits-Schritt einmal bewusst routen** — nicht per Default auf dem
+teuersten Modell bleiben (Policy-Realfall: $1577 in 48h für Tier-3-Arbeit auf Tier-4-Modell):
+
+| Geplante Session-Arbeit | Modell | Warum |
+|---|---|---|
+| Lange autonome Multi-Repo-Stränge, adversariale Orchestrierung (/repo-optimize, /platform-audit), schwierigste Architektur-Synthese | **Fable 5** | Long-Horizon + Sub-Agent-Delegation; orchestriert, Sonnet-Finder arbeiten |
+| ADR-Drafting, komplexe Einzel-PRs, tiefes Review, Konzepte | **Opus** | Tier-4-Reasoning zum halben Fable-Preis |
+| Issue-Abarbeitung, Bugfix-PRs, Sweeps, Lint, mechanische Edits | **Sonnet** | Tier 3 — Ergebnis ununterscheidbar, ~5× günstiger |
+| Status-Checks, Log-Lesen, triviale Fragen | **Haiku / /fast** | Tier 2 |
+
+→ Mid-Session runterschalten, wenn der anspruchsvolle Teil erledigt ist (`/model`).
+→ Faustregel: **Fable orchestriert, delegiert Mechanik als Sonnet-Subagents/-Issues** —
+  nicht Fable die Mechanik selbst tippen lassen.
+
+### 0.9 Staging-Health-Check (ADR-157)
 
 Prüfe ob Staging-Services auf Dev Desktop (88.99.38.75) erreichbar sind:
 
@@ -468,3 +490,33 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 | `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
 | `mcp4_` | paperless-docs | Dokumente, Rechnungen |
 | `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
+
+> **Claude Code:** stabile Namen `mcp__github__*` / `mcp__orchestrator__*` /
+> `mcp__outline-knowledge__*` verwenden — die `mcpN_`-Nummern sind Windsurf-Ära und
+> environment-volatil. Signaturen vor Nutzung via `ToolSearch select:<name>` prüfen.
+
+---
+
+## Anti-Patterns
+
+- ❌ `ping` für Server-Checks (Hetzner blockt ICMP — TCP-Probe nutzen, 0.1).
+- ❌ Im geteilten Haupt-Tree branchen/stashen, wenn eine fremde Session aktiv ist
+  (0.4-Guard beachten; editieren nur via `repo-session.sh`-Worktree, ADR-233).
+- ❌ Bei pgvector-Ausfall still auf lokales Memory ausweichen (0.5 ist hart).
+- ❌ MCP-Tools mit `mcpN_`-Prefix hardcoden oder ungeprüfte Signaturen aus dem
+  Skill-Text übernehmen — `project-facts.md` + `ToolSearch` sind die Quelle.
+- ❌ Handover-Prio blind starten, ohne Phase 2.6 (Memory-Reconciliation) —
+  Cross-Host-Sessions hinterlassen erledigte Prios als „offen".
+- ❌ Session auf dem teuersten Modell beginnen, ohne 0.8 (Modell-Routing) bewusst
+  entschieden zu haben.
+
+## Changelog
+
+- 2026-07-02: v2 — `mode: write` nachgetragen; Parallel-Session-Guard in 0.4
+  (ADR-233 + Shared-Worktree-Drift); 0.5 sudo-freier Tunnel-Fallback (devuser ohne
+  sudo); adrfw-MCP-Block environment-aware mit CC-CLI-Fallback (Signaturen-Policy);
+  0.7 mit gh-Fallback (deployment-MCP optional); NEU 0.8 Modell-Tier-Routing
+  (policies/session-routing.md, Fable/Opus/Sonnet-Split); Anti-Patterns + Changelog
+  ergänzt (claude-skills-Policy-Pflichtsektionen).
+- ≤2026-06-24: Windsurf-Ära-Stände (Phase 2.6 Reconciliation, Stash-Guards 0.4,
+  Drift-Lessons) — Historie siehe git log.

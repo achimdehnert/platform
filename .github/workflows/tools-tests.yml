@@ -25,16 +25,28 @@ name: Tools Unit-Tests
 #   - tests/doc_profile_check/           → doc_profile_check.sh Regel-Engine (ADR-218)
 #   - tools/claude-hooks/tests/          → tools/claude-hooks/log_llm_call.py
 # tests/megatest/ bleibt bewusst außen vor (eigener, separat verdrahteter Gate).
+#
+# shared_contracts/** ist seit platform#820 (Entscheid A) ebenfalls mit-getriggert:
+# tools/tests/test_shared_contracts.py deckt die Pydantic-Contracts dort ab; ohne
+# diesen Trigger würde der Gate bei einer Contract-Änderung NICHT laufen — dieselbe
+# Lücke wie oben, nur für shared_contracts/ statt scripts/.
 
 on:
   push:
     paths:
       - "tools/**"
       - "scripts/**"
+      - "shared_contracts/**"
   pull_request:
     paths:
       - "tools/**"
       - "scripts/**"
+      - "shared_contracts/**"
+
+# Workflow-level default (least privilege, #818 permissions sweep) —
+# no job in this workflow needs to write via GITHUB_TOKEN.
+permissions:
+  contents: read
 
 jobs:
   tools-tests:
@@ -50,7 +62,8 @@ jobs:
           python-version: "3.12"
 
       - name: Install test deps
-        run: pip install pytest pyyaml --quiet --break-system-packages
+        # pydantic: shared_contracts-Tests (platform#820); Liste = Teilmenge von requirements-dev.txt
+        run: pip install pytest pyyaml pydantic --quiet --break-system-packages
 
       - name: Run all tools tests
         run: >

@@ -7,7 +7,7 @@
 #
 # =============================================================================
 
-.PHONY: help menu windsurf-clean windsurf-status windsurf-force windsurf-install
+.PHONY: help menu test lint setup windsurf-clean windsurf-status windsurf-force
 
 # Default target
 .DEFAULT_GOAL := help
@@ -105,9 +105,21 @@ windsurf-force: ## ALLE Windsurf-Prozesse killen (Notfall)
 		ssh $(DEV_SERVER) 'bash ~/fix-windsurf-remote.sh --force' || \
 		echo "Abgebrochen."
 
-windsurf-install: ## Vollständige Windsurf-Stabilisierung installieren
-	@scp docs/adr/inputs/fix-windsurf-remote.sh $(DEV_SERVER):~/
-	@ssh $(DEV_SERVER) 'bash ~/fix-windsurf-remote.sh'
+# =============================================================================
+# ENTWICKLUNG (lokaler Einstieg — SSoT für den Testbefehl dieses Repos)
+# =============================================================================
+
+setup: ## Dev-Dependencies + Hooks installieren (einmalig nach Clone)
+	@pip install -r requirements-dev.txt --quiet
+	@pre-commit install
+	@$(MAKE) install-push-hook
+	@echo "$(GREEN)Setup fertig — 'make test' für den lokalen Testlauf.$(RESET)"
+
+test: ## CI-relevante Test-Suite (identisch zu tools-tests.yml)
+	@python3 -m pytest tools/tests/ -q
+
+lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
+	@ruff check tools/ scripts/
 
 # =============================================================================
 # DEPLOYMENT (Platzhalter für zukünftige Erweiterung)
