@@ -8,7 +8,6 @@ reviewed-by:
   - Claude (Sparring Review, 2026-05-09)
 depends-on:
   - ADR-191 (iil-codeguard Library-First Tooling)
-  - ADR-009 (Service Layer Architecture)
   - ADR-048 (HTMX Playbook)
   - ADR-043 (Database-First Conventions)
   - ADR-057 (Four-Level Test Strategy)
@@ -36,6 +35,8 @@ drift_check_paths:
 ---
 
 # ADR-192: Django Service-Layer and HTMX Template Compliance Scanner
+
+> **Historie:** Frühere Abhängigkeit ADR-009 (Service Layer Architecture) ist archiviert (`docs/adr/archive/`) und wurde aus `depends_on` entfernt.
 
 | Metadaten | |
 |-----------|---|

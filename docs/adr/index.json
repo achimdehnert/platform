@@ -983,9 +983,7 @@
       "status": "accepted",
       "date": "2026-02-22",
       "domains": [],
-      "supersedes": [
-        "ADR-014-ai-native-development-teams.md"
-      ],
+      "supersedes": [],
       "superseded_by": [],
       "amends": [],
       "amended_by": [
@@ -1143,9 +1141,7 @@
       "status": "accepted",
       "date": "2026-02-23",
       "domains": [],
-      "supersedes": [
-        "ADR-053-deployment-mcp-robustness.md"
-      ],
+      "supersedes": [],
       "superseded_by": [],
       "amends": [
         "ADR-021-unified-deployment-pattern.md",
@@ -1878,9 +1874,7 @@
       "status": "accepted",
       "date": "2026-03-08",
       "domains": [],
-      "supersedes": [
-        "ADR-113-telegram-gateway-pgvector-memory.md"
-      ],
+      "supersedes": [],
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
@@ -1970,9 +1964,7 @@
       "status": "accepted",
       "date": "2026-03-11",
       "domains": [],
-      "supersedes": [
-        "ADR-009 (GitHub Actions Reusable Workflows) — wird erweitert"
-      ],
+      "supersedes": [],
       "superseded_by": [],
       "amends": [],
       "amended_by": [
@@ -2530,9 +2522,7 @@
       "status": "accepted",
       "date": "2026-04-03",
       "domains": [],
-      "supersedes": [
-        "ADR-020-documentation-strategy.md"
-      ],
+      "supersedes": [],
       "superseded_by": [],
       "amends": [
         "ADR-046-docs-hygiene.md"
@@ -2900,9 +2890,7 @@
       "status": "accepted",
       "date": "2026-03-25",
       "domains": [],
-      "supersedes": [
-        "ADR-027-shared-backend-services.md"
-      ],
+      "supersedes": [],
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
@@ -4677,7 +4665,10 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-045 (SOPS / Secrets Management)",
         "ADR-072 (Multi-Tenancy)",
+        "ADR-115 (LLM Usage Logging)",
+        "ADR-178 (LLM Gateway Consolidation)",
         "ADR-223 (LLM Model Screener — Option D LiteLLM Proxy dort verworfen; siehe „Abgrenzung\")"
       ],
       "implementation_status": "pilot"
