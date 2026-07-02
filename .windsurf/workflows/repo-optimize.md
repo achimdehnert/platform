@@ -73,8 +73,9 @@ Je Befund: `ID · Kategorie · Reichweiten-Label · Beobachtung · Evidenz (Date
 Hypothese bis zum Cross-Repo-Check.
 
 ## Step 2 — Falsifikation (tragende Befunde)
-Kritische/hohe Befunde: ein **Skeptiker-Subagent** zieht den Beleg **unabhängig neu** (breiter/
-rekursiv, nicht den Finder-Befehl wiederholen). Verdikt **ternär**:
+Kritische/hohe Befunde: ein **Skeptiker-Subagent** (sonnet; nur bei komplexen Repro-Ketten opus)
+zieht den Beleg **unabhängig neu** (breiter/rekursiv, nicht den Finder-Befehl wiederholen).
+Verdikt **ternär**:
 - **SURVIVES** — unabhängig bestätigt.
 - **SURVIVES-EINGESCHRÄNKT** — bestätigt, aber Reichweite/Schwere kleiner als behauptet →
   Schweregrad anpassen und die Einschränkung benennen (Realfall: „Traceback an 4 Stellen" → 1 Stelle, H→M).
@@ -94,9 +95,31 @@ Nicht-sofort-ändern · memory_candidates (Pflichtsektion, ggf. „keine").
 **Fußzeile (Pflicht):** Commit-SHA · Finder-Anzahl · Falsifikations-Bilanz (n SURVIVES / n
 eingeschränkt / n REFUTED) · Coverage-Disclaimer („Einzel-Lauf, nicht erschöpfend").
 
+## Step 4a — Komplexitäts-Triage & Modell-Routing (Pflicht, vor jeder Umsetzung)
+Das Session-Modell (Orchestrator, z. B. Fable/Opus) setzt **nicht selbst** um, was ein
+günstigeres Tier mit klarer Spec genauso gut erledigt (Tier-Disziplin, `session-routing.md`/
+`llm-routing.md`). Orchestrator-Rolle: Triage · Spec schreiben · delegieren · Ergebnis
+verifizieren · Report. Je SURVIVES-Maßnahme ein Tier zuweisen:
+
+| Tier | Kriterien (alle) | Ausführung |
+|---|---|---|
+| **T-MECH → Sonnet** | mechanisch/kleinteilig · Spec eindeutig · durch bestehende Tests/Lint absicherbar · kein Judgment (Doku-Drift, Config-Angleich, Rename, einzelner Bugfix mit Repro) | Subagent (`model: sonnet`) im ADR-233-Worktree ODER Issue mit Labels `auto` + `tier:sonnet` (Queue: `/process-agent-queue`) |
+| **T-MID → Opus** | ein Modul / wenige Dateien · Zielstruktur klar, aber Testdesign/Abwägung nötig (Refactor auf definierte Struktur, conftest-Konsolidierung, Fehlerpfad-Tests) | Issue mit Labels `auto` + `tier:opus` ODER Subagent (`model: opus`) |
+| **T-HIGH → Session-Modell** | Architektur-/Security-Judgment · Cross-Modul-Trade-offs · Absicht/Risiko unklar · ADR-/Konzept-würdig | bleibt beim Orchestrator (ggf. `/konzept`, `/adr`) |
+
+**Delegations-Issue = self-contained Spec (Pflichtfelder):** Titel `[repo-optimize <Befund-ID>] <Maßnahme>`;
+Body mit BEOBACHTUNG + EVIDENZ (Datei:Zeile) aus dem Report · konkrete Maßnahme · Akzeptanzkriterien ·
+Test-Kommando aus der Repo-Konfig (`make test` o. ä.) · Hinweis auf ADR-233-Worktree-Pflicht.
+Kein Session-Kontext voraussetzen — der ausführende Agent kennt diese Session nicht (`/prompt`-Qualität).
+Fehlen die `tier:*`-Labels im Ziel-Repo, in Step 4 anlegen. **Abnahme bleibt beim Orchestrator:**
+delegierte PRs werden vom Session-Modell (oder `/agent-review`) geprüft — nie ungeprüft übernehmen,
+nie autonom mergen.
+
 ## Step 4 — Gegatete Umsetzung
 - **DIREKT (Branch+PR)** NUR wenn ALLE: klein+abgrenzbar · Nutzen hoch/mittel · Risiko niedrig ·
-  durch Tests absicherbar. Editieren via `tools/repo-session.sh start <repo> --task <slug>`
+  durch Tests absicherbar — UND nach Step-4a-Triage: T-MECH/T-MID direkt nur, wenn Delegation
+  unverhältnismäßig ist (z. B. 1-Zeilen-Fix schneller erledigt als spezifiziert); sonst delegieren.
+  Editieren via `tools/repo-session.sh start <repo> --task <slug>`
   (ADR-233-Worktree); vor Push lokale Hard-Gates (`make check-push` wo vorhanden); `make test`, nie rohes pytest.
 - **Sonst Issue/ADR-Vorschlag** (architektonisch weitreichend / mehrere Module-Repos /
   Datenmodell-Auth-Security-Deploy-Migration / Absicht unklar / Risiko unklar). ADR-Schwelle:
@@ -150,6 +173,11 @@ Fußzeile: Commit-SHA · n Finder · Falsifikations-Bilanz · Coverage-Disclaime
 - ❌ Report nicht self-contained („Action Board siehe Chat") oder Board durch „Headline-Befunde" ersetzt.
 - ❌ Falsifikation als bloße ✅-Marke ohne zitierten Skeptiker-Beleg.
 - ❌ FLEET-Handoff nur als Absichtserklärung statt Inbox-Datei.
+- ❌ Orchestrator setzt T-MECH/T-MID selbst um, obwohl Delegation möglich wäre
+  (Tier-Verschwendung — Step 4a, `session-routing.md`).
+- ❌ Delegations-Issue ohne self-contained Spec (Evidenz Datei:Zeile + Akzeptanzkriterien +
+  Test-Kommando) — der ausführende Agent kennt die Session nicht.
+- ❌ Delegierte PRs ungeprüft übernehmen — Abnahme/Review bleibt beim Orchestrator.
 
 ## Changelog
 - 2026-06-30: Initial. Aus der Stufe-1/-2-Methode der Session 2026-06-30 codifiziert.
@@ -163,3 +191,8 @@ Fußzeile: Commit-SHA · n Finder · Falsifikations-Bilanz · Coverage-Disclaime
   Schwere-Downgrade, Read-only-bis-Report-Regel, „Angekündigt = angelegt", Pflicht-Fußzeile,
   memory_candidates-Pflichtsektion (6/17 fehlend), 8-Finder-Pflicht (A/B-Overlap nur ~30 %),
   Description ≤120 Zeichen (Policy).
+- 2026-07-02: v3 — Step 4a Komplexitäts-Triage & Modell-Routing: Orchestrator (Session-Modell)
+  delegiert T-MECH an Sonnet und T-MID an Opus (Subagent oder `auto`+`tier:*`-Issue,
+  self-contained Spec, Abnahme beim Orchestrator); nur T-HIGH (Judgment/Architektur) bleibt beim
+  Session-Modell. Tier-Disziplin aus `session-routing.md` auf die Umsetzungsphase übertragen;
+  3 neue Anti-Patterns. Auf User-Wunsch (Session 2026-07-02 iil-adrfw).
