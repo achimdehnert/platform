@@ -3,14 +3,14 @@
 Golden-Path-Test je check_*-Funktion: ein Fixture-Repo (tmp_path) ohne Verstoss
 (nur OK-Results) + ein Fixture-Repo mit gezieltem Verstoss (ERROR/WARNING).
 
-F-1 (repo-optimize 2026-07-02): das Modul laedt registry/repos.yaml beim Import
-(_load_repo_config() fuellt das Modul-globale REPO_CONFIG). Die check_*-Funktionen
-selbst sind aber rein (repo_path, config) -> list[CheckResult] und nehmen ihre
-Config als Parameter entgegen -- wir reichen hier ausschliesslich selbstgebaute
-config-dicts durch, sodass der Inhalt der echten registry/repos.yaml keine Tests
-beeinflusst. Fuer die Orchestrierungs-Funktionen (check_repo/check_all_repos), die
-REPO_CONFIG lesen, wird REPO_CONFIG explizit gemonkeypatched (Isolation von der
-echten Registry-Datei).
+F-1 (repo-optimize 2026-07-02): das Modul laedt die generierte Registry-View
+(repos.yaml, siehe ADR-234 Sec. 11.1) beim Import (_load_repo_config() fuellt
+das Modul-globale REPO_CONFIG). Die check_*-Funktionen selbst sind aber rein
+(repo_path, config) -> list[CheckResult] und nehmen ihre Config als Parameter
+entgegen -- wir reichen hier ausschliesslich selbstgebaute config-dicts durch,
+sodass der Inhalt der echten View-Datei keine Tests beeinflusst. Fuer die
+Orchestrierungs-Funktionen (check_repo/check_all_repos), die REPO_CONFIG lesen,
+wird REPO_CONFIG explizit gemonkeypatched (Isolation von der echten Datei).
 
 Muster: tools/tests/test_check_publish_gate.py (importlib-Load, tmp_path-Fixtures).
 """
@@ -376,7 +376,7 @@ def test_should_flag_empty_tests_dir(tmp_path):
 
 # ─────────────────────────────────────────────────────────────────────────────
 # check_repo / check_all_repos — Orchestrierung, REPO_CONFIG isoliert gemonkeypatcht
-# (F-1: Modul laedt registry/repos.yaml beim Import; hier explizit unabhaengig davon)
+# (F-1: Modul laedt die generierte Registry-View beim Import; hier explizit unabhaengig davon)
 # ─────────────────────────────────────────────────────────────────────────────
 
 
