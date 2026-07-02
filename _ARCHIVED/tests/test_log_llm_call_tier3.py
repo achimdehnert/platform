@@ -1,5 +1,15 @@
 """Tests for the once-per-session Tier-3 nudge in log_llm_call.py (issue #305).
 
+ARCHIVED 2026-07-02 (Issue #819 Haeppchen 3, repo-optimize tests/-Friedhof-Triage):
+this file was CI-dead (repo-root tests/ never had a workflow) AND non-portable —
+it loads the hook from $HOME (Path.home()/".claude"/"hooks"/...), a per-machine
+dotfiles path that does not exist on a GitHub Actions runner, so wiring it into
+CI as-is would have failed immediately. The repo-tracked, portable equivalent
+already exists and now runs in CI: tools/claude-hooks/tests/test_tier3_nudge.py
+(loads tools/claude-hooks/log_llm_call.py — byte-identical to the $HOME copy —
+via a relative sys.path insert, no $HOME dependency). Kept here for reference
+only; do not re-wire without repointing _HOOK at the repo copy.
+
 Loads the hook via importlib so no installation is required.
 Covers the trigger matrix from the issue:
   - Routine Opus session (>=8 turns, high cheap-ratio) → nudge exactly once

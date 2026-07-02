@@ -44,6 +44,12 @@ concurrency:
   group: adr-dual-review-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# dual-review job below declares its own elevated (write) permissions
+# and overrides this for jobs that actually need it.
+permissions:
+  contents: read
+
 jobs:
   dual-review:
     name: "🤖 Dual-Tool Review"

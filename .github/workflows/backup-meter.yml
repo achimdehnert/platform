@@ -16,6 +16,12 @@ on:
     - cron: "0 5 * * *" # täglich 05:00 UTC (nach den nächtlichen Offsite-Pushes)
   workflow_dispatch:
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# meter job below already declares its own permissions (issues: write
+# for the violation-issue upsert) and overrides this.
+permissions:
+  contents: read
+
 jobs:
   meter:
     name: "Soll/Ist-Abgleich Offsite-Snapshots"

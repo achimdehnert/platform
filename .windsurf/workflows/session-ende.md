@@ -169,13 +169,18 @@ redundant zu `/knowledge-capture` und `/session-docu`).
 ### Schritt 1: Alle angefassten Repos der Session ermitteln
 
 ```bash
-# Alle Repos mit Commits in den letzten 8h (= diese Session)
+# Alle Repos mit Commits in den letzten 8h (= KANDIDATEN für diese Session)
 for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
   [[ "$(basename $repo)" == *.* ]] && continue
   last=$(git -C "$repo" log --since="8 hours ago" --oneline 2>/dev/null | wc -l)
   [ "$last" -gt 0 ] && echo "$(basename $repo)"
 done
 ```
+
+> ⚠️ 🌀 `feedback_session_attribution_by_conversation_not_date`: Die 8h-Heuristik
+> sammelt bei parallelen Sessions auch FREMDE Commits/Repos ein. Die Liste gegen die
+> **eigene Turn-Historie** filtern — nur Repos behalten, die diese Session wirklich
+> bearbeitet hat. Fremd-Aktivität nicht doppelt dokumentieren.
 
 → Ergibt Liste aller aktiven Repos dieser Session, z.B.:
 ```
@@ -317,24 +322,46 @@ mcp__orchestrator__agent_memory_upsert(
 
 ## Phase 3: Git Sync — WSL ↔ Dev Desktop (IMMER am Ende)
 
-### 3.1 Alle geänderten Repos committen + pushen
+### 3.1 Alle geänderten Repos committen + pushen (Session-Attribution + Protection-aware)
+
+> 🌀 **Drei harte Lehren fließen hier ein:**
+> 1. `feedback_git_add_all_swept_artifacts` — pauschales `git add -A` schwemmte `.pyc`/
+>    `.coverage`/Editor-Artefakte in Commits → **nie ungefiltert `add -A`**.
+> 2. `feedback_session_attribution_by_conversation_not_date` — im geteilten Tree können
+>    dirty Files von PARALLELEN Sessions stammen → nur committen, was DIESE Session
+>    nachweislich angefasst hat (eigene Turn-Historie); Fremdes dem User melden.
+> 3. **ADR-242 Branch-Protection:** `main` ist in etlichen Repos geschützt (`ci / gate` /
+>    `guardian` required) — ein Direkt-Push auf main scheitert dort mit GH013.
+
+Pro dirty Repo:
 
 ```bash
-for repo in ${GITHUB_DIR:-$HOME/github}/*/; do
-  cd "$repo"
-  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-    repo_name=$(basename "$repo")
-    # Spezifische Commit-Message statt generisch
-    changes=$(git diff --stat --cached 2>/dev/null; git diff --stat 2>/dev/null)
-    echo "PUSH $repo_name..."
-    git add -A
-    git commit -m "session-ende($repo_name): $(date +%Y-%m-%d) — $(git diff --cached --stat | tail -1)"
+cd "$repo"
+BR=$(git branch --show-current)                      # 🌀 feedback_commit_on_main_recurs: Branch IMMER re-checken
+git status --porcelain                                # sichten: gehört jede Datei zu DIESER Session?
+# Nur session-eigene Dateien EXPLIZIT stagen (keine Artefakte, kein add -A):
+git add <datei1> <datei2> ...
+git commit -m "session-ende($(basename $repo)): $(date +%Y-%m-%d) — <kurze Beschreibung>"
+
+# Push-Ziel bestimmen:
+if [ "$BR" = "main" ]; then
+  # Ist main geschützt? (Ruleset-Check, billig)
+  if gh api "repos/{owner}/$(basename $repo)/rules/branches/main" --jq 'length' 2>/dev/null | grep -qv '^0$'; then
+    echo "⛔ main geschützt — Direkt-Push scheitert. Worktree-Branch + PR nutzen:"
+    echo "   bash platform/tools/repo-session.sh start . --task session-ende-sync && cherry-pick"
+  else
     git push
   fi
-done
+else
+  git push -u origin "$BR"   # Session-Branch → danach PR erstellen/verlinken
+fi
 ```
-→ Commit-Message enthält **Repo-Name + Änderungsstatistik** statt nur `auto-sync`.
+
+→ Docs-only-Änderung in einem Deploy-on-push-Repo? **`[skip ci]` in die Commit-Message**
+  (🌀 `feedback_skip_ci_uniform_on_docs_merges` — sonst kickt ein README-Commit Prod).
 → **NICHT ausführen** wenn der User explizit sagt "nicht pushen" oder ein PR-Review läuft.
+→ Fremde dirty Files (andere Session/unbekannte Herkunft): **liegen lassen + melden**,
+  nicht einsammeln.
 
 ### 3.1b Cleanup: Temporäre Dateien entfernen
 
@@ -372,13 +399,14 @@ echo "✅ Worktree-Reaper durchgelaufen (ADR-233)"
 
 // turbo
 ```bash
-# 1. Platform-Repo committen + pushen (falls geändert)
+# 1. Platform-Repo: main ist SEIT ADR-242 GESCHÜTZT (required check guardian) —
+#    Direkt-Push scheitert mit GH013. Änderungen gehen via Session-Branch + PR:
 cd ${GITHUB_DIR:-$HOME/github}/platform
 if [ -n "$(git status --porcelain)" ]; then
-  git add -A
-  git commit -m "chore(platform): session-ende $(date +%Y-%m-%d) — rules/workflows sync"
-  git push
-  echo "✅ platform gepusht"
+  echo "⚠️ platform dirty — Direkt-Push auf main ist geblockt (ADR-242)."
+  echo "   → Dateien sichten (Session-Attribution!), dann via Worktree-Branch + PR:"
+  echo "     bash tools/repo-session.sh start . --task session-ende-platform-sync"
+  echo "   → Dateien EXPLIZIT (kein add -A) in den Worktree übernehmen, PR erstellen."
 else
   echo "ℹ️  platform: kein Commit nötig"
 fi
@@ -459,7 +487,13 @@ mcp__github__push_files(owner: <OWNER>, repo: "<repo>", branch: "main",
 - ❌ Outline-Schreiben hier inline duplizieren — an `/knowledge-capture` delegieren
   und **Erfolg prüfen** (Redundanz zu `/session-docu` vermeiden).
 - ❌ `git push` ausführen, wenn der User „nicht pushen" sagt oder ein PR-Review
-  läuft (Phase 3.1) — und nie ungeprüft `git add -A` über fremde dirty Repos.
+  läuft (Phase 3.1).
+- ❌ **`git add -A` — in keiner Phase.** Immer explizite Pfade nach Sichtung
+  (🌀 `feedback_git_add_all_swept_artifacts`: .pyc/.coverage landeten in Commits).
+- ❌ Fremd-Session-Artefakte einsammeln — dirty Files/Commits ohne Bezug zur eigenen
+  Turn-Historie melden statt committen (🌀 Session-Attribution, Realfall #734).
+- ❌ Direkt-Push auf geschützte `main`-Branches versuchen (ADR-242: platform + 10
+  weitere Repos haben required checks) — Session-Branch + PR ist der Pfad.
 - ❌ Memory-Calls mit der alten Windsurf-Signatur (`entry: {entry_id…}}`) — die
   CC-Signatur ist flach mit `entry_key`.
 
@@ -507,3 +541,19 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | `mcp3_` | outline-knowledge | Wiki: Runbooks, Konzepte, Lessons |
 | `mcp4_` | paperless-docs | Dokumente, Rechnungen |
 | `mcp5_` | platform-context | Architektur-Regeln, ADR-Compliance |
+
+> **Claude Code:** stabile Namen `mcp__github__*` / `mcp__orchestrator__*` verwenden —
+> `mcpN_`-Nummern sind Windsurf-Ära und environment-volatil.
+
+## Changelog
+
+- 2026-07-02: v2 — Phase 3.1 komplett überarbeitet: kein `git add -A` mehr (🌀
+  swept-artifacts), Branch-Re-Check + Session-Attribution-Filter (🌀 #734), Branch-
+  Protection-aware Push (ADR-242: geschützte mains → Worktree-Branch + PR),
+  `[skip ci]` bei docs-only auf Deploy-Repos; Phase 3.2 platform-Push auf PR-Pfad
+  umgestellt (Direkt-Push auf main scheitert seit Wave 1 an guardian — Realfall:
+  adr-nightly-metrics 30 Nächte rot an genau dieser Wand); Phase 1b mit
+  Attribution-Warnung; Anti-Patterns erweitert; Changelog-Sektion ergänzt
+  (claude-skills-Policy-Pflicht).
+- ≤2026-06-24: Phase 0c (Handover-Prio-Nachzug), 0a-deploy (Deploy-Status-Pflicht),
+  Worktree-Reaper 3.1c — Historie siehe git log.

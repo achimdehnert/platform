@@ -290,7 +290,7 @@ ist gefährlich.
 **Befund**: bfagent und mcp-hub Remote-URLs enthalten PAT-Token:
 
 ```
-origin  https://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@github.com/...
+origin  https://ghp_***REDACTED***@github.com/...
 ```
 
 Der Token steht in `.git/config` und damit potenziell im `git reflog`.

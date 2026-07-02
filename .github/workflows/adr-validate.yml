@@ -6,6 +6,7 @@ on:
       - "docs/adr/**"
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
+      - "scripts/gen_adr_index.py"
   pull_request:
     paths:
       - "docs/adr/**"
@@ -14,6 +15,11 @@ on:
       - "scripts/gen_adr_index.py"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
+
+# Workflow-level default (least privilege, #818 permissions sweep) —
+# no job in this workflow needs to write via GITHUB_TOKEN.
+permissions:
+  contents: read
 
 jobs:
   validate:
