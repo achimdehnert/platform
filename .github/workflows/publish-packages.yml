@@ -25,6 +25,11 @@ on:
           - concept-templates
           - dvelop-client
 
+# Workflow-level default (least privilege, #818 permissions sweep) —
+# no job in this workflow needs to write via GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   # ── django-tenancy ─────────────────────────────────────────────
   test-django-tenancy:

@@ -14,6 +14,13 @@ on:
         default: false
         type: boolean
 
+# Workflow-level default (least privilege, #818 permissions sweep). The
+# 'test' job below had NO explicit permissions before this sweep (real
+# gap — it inherited the org/repo default); 'publish' already declares
+# its own contents:write and overrides this.
+permissions:
+  contents: read
+
 jobs:
   test:
     name: Test platform-context

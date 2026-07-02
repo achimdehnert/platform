@@ -3,10 +3,12 @@
 These Pydantic models define the payload shape for Celery tasks and
 any future event bus messages related to content persistence.
 
-Consumers:
-    - agent-team  (orchestrator_mcp)
-    - bfagent     (apps/bfagent/tasks.py)
-    - travel-beat (apps/stories/tasks.py)
+Aktuell keine bekannten externen Konsumenten (Stand 2026-07-02, platform#820);
+Contracts werden als Zukunfts-Interface getestet vorgehalten. Ein Cross-Repo-
+Grep über ~40 lokale Hub-Checkouts fand keinen Import dieser Models; die
+vormals hier genannten agent-team/bfagent/travel-beat sind kein verifizierter
+Konsument (bfagent ist zudem eingefroren, siehe Memory
+project_bfagent_frozen_function_store).
 """
 
 from __future__ import annotations
