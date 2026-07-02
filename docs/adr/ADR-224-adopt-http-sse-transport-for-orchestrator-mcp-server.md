@@ -1,7 +1,7 @@
 ---
 id: ADR-224
 title: Adopt HTTP/SSE Transport for Orchestrator MCP Server
-status: proposed
+status: accepted
 decision_date: 2026-05-10
 valid_from: 2026-05-10T00:00:00Z
 deciders:
@@ -53,14 +53,16 @@ decision_drivers:
     driver: >-
       Allow scheduled/automated jobs (cron, CI) to invoke orchestrator tools
       without local stdio binding
-implementation_status: none
+implementation_status: implemented
+implementation_evidence:
+  - "mcp-hub orchestrator_mcp/: remote HTTP/SSE transport live at https://orchestrator.iil.pet/sse (verified GET /sse -> 200, POST /messages/ -> 202; incident mcp-hub#128, see ADR-256 Context)"
 ---
 
 # ADR-224: Adopt HTTP/SSE Transport for Orchestrator MCP Server
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-05-10 |
 | **Autor** | Achim Dehnert |
 | **Repo** | mcp-hub (`orchestrator_mcp/`) |
