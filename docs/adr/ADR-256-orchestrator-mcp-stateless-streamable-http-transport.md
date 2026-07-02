@@ -31,9 +31,17 @@ scope:
 | **Amends** | ADR-224 (HTTP/SSE-Transport — Kernentscheidung bleibt, Mechanismus geändert) |
 | **Treiber** | Issue mcp-hub#128 |
 
+> **Review-Hinweis (2026-07-02, offen — Entscheidung nötig):** ADR-224 hat aktuell
+> selbst `status: proposed`. Ein Amendment setzt formal eine akzeptierte Entscheidung
+> voraus. Vor dem Accept dieses ADRs eines von zwei Dingen klären: **(a)** ADR-224 zuerst
+> akzeptieren (dann greift dieses Amendment sauber), **oder (b)** ADR-224 + ADR-256
+> gemeinsam akzeptieren (Co-Acceptance: 224 trägt die remote-HTTP-Kernentscheidung, 256 den
+> aktuellen Mechanismus). Bis dahin ist die kanonische Transport-Entscheidung nicht eindeutig
+> einem akzeptierten ADR zugeordnet.
+
 ---
 
-## Context
+## Context and Problem Statement
 
 ADR-224 hat den Orchestrator-MCP von stdio auf einen **zentralen, remote erreichbaren HTTP-Transport**
 unter `https://orchestrator.iil.pet` gehoben — konkret über **HTTP/SSE** (`GET /sse` + `POST /messages/`).
@@ -59,6 +67,14 @@ SSE-Session-an-Connection-Bindung + per-Prozess-Store, nicht Flapping/nginx/Auth
 **Wichtige Eigenschaft:** Der Orchestrator nutzt **kein Server→Client-Push** (keine `send_notification`/
 Progress/Streaming; Client-Log: „server did not declare channel capability"). Er ist ein reiner
 **Request/Response-Tool-Server** — die einzige Fähigkeit, für die SSE überhaupt nötig wäre, wird nicht gebraucht.
+
+## Decision Drivers
+
+- **Deploy-Resilienz:** Ein Container-Recreate darf keine verbundenen Clients kappen (Root-Cause #128).
+- **Kein ungenutztes Feature bezahlen:** Der Server nutzt keinen Server→Client-Push — die einzige Fähigkeit, für die SSE nötig wäre, wird nicht gebraucht.
+- **Kleiner, reversibler Blast-Radius:** Nur 2 externe Consumer-Einträge + wenige in-repo-Caller; additive Migration mit Rollback muss möglich bleiben.
+- **Horizontale Skalierbarkeit:** Der per-Prozess-Session-Store verbietet heute >1 uvicorn-Worker.
+- **ADR-224-Kernentscheidung bewahren:** remote-HTTP hinter iil.pet-Proxy + Zwei-Schlüssel-Bearer-Gate bleiben unverändert; nur der Mechanismus wechselt.
 
 ## Decision
 
@@ -116,7 +132,7 @@ Rollback = `/sse` bleibt bis Schritt 3 erhalten; jederzeit Rückbau auf SSE mög
   `_BearerGuardedASGI` (strikt `ORCHESTRATOR_MCP_API_KEY`).
 - Consumer-Config: `~/.claude.json` → `mcpServers.orchestrator` = `{ "type": "http", "url": "https://orchestrator.iil.pet/mcp", "headers": { "Authorization": "Bearer …" } }`.
 - nginx: `/mcp` als normaler `proxy_pass` (keine SSE-Sonderbehandlung nötig).
-- Health-/Readiness-Endpunkte (`/livez`, `/healthz`, `/readyz`) unverändert.
+- Health-/Readiness-Endpunkte (`/livez/`, `/healthz/`, `/readyz/`) unverändert.
 
 ## Validation Criteria
 
@@ -138,16 +154,16 @@ Rollback = `/sse` bleibt bis Schritt 3 erhalten; jederzeit Rückbau auf SSE mög
 
 | Begriff | Bedeutung |
 |---|---|
+| **ASGI** | Die Python-Schnittstelle zwischen Webserver und Anwendung, über die der Transport eingebunden ist (hier mit einem Auth-Wächter davor). |
+| **Bearer-Token** | Ein Geheimnis im `Authorization`-Header, mit dem sich ein Client beim Server ausweist. |
 | **MCP** | Model Context Protocol — der Standard, über den Werkzeuge (Tools) einem KI-Client angeboten werden. Der Orchestrator ist ein solcher MCP-Server. |
-| **Transport** | Der Übertragungsweg, über den Client und Server MCP-Nachrichten austauschen (z. B. stdio lokal, oder HTTP über das Netz). |
-| **SSE (Server-Sent Events)** | Eine Technik, bei der der Server eine **dauerhaft offene** Verbindung hält, um dem Client laufend Nachrichten zu schicken. Der bisherige Transport — fragil, weil die Sitzung an diese offene Verbindung gebunden ist. |
-| **Streamable HTTP** | Der modernere MCP-Transport: normale HTTP-Anfrage/Antwort pro Aufruf, ohne dauerhaft gehaltene Verbindung. |
-| **Stateless (zustandslos)** | Der Server merkt sich zwischen zwei Aufrufen **nichts** — jeder Aufruf ist in sich vollständig. Folge: ein Neustart/Deploy kann keine „Sitzung" verlieren, weil es keine gibt. |
-| **Session (Sitzung)** | Ein serverseitig gemerkter Gesprächsfaden mit einem Client. Beim alten SSE-Transport lebte sie nur im Arbeitsspeicher *eines* Prozesses. |
 | **per-Prozess-Store** | Die Sitzungen lagen im Speicher genau eines Server-Prozesses — wird der Prozess ersetzt (Deploy), sind alle Sitzungen weg. Genau das verursachte #128. |
 | **Recreate (Container)** | Beim Deploy wird der Container nicht nur neu gestartet, sondern **neu erstellt** — ein frischer Prozess ohne die alten In-Memory-Sitzungen. |
-| **Bearer-Token** | Ein Geheimnis im `Authorization`-Header, mit dem sich ein Client beim Server ausweist. |
-| **ASGI** | Die Python-Schnittstelle zwischen Webserver und Anwendung, über die der Transport eingebunden ist (hier mit einem Auth-Wächter davor). |
+| **Session (Sitzung)** | Ein serverseitig gemerkter Gesprächsfaden mit einem Client. Beim alten SSE-Transport lebte sie nur im Arbeitsspeicher *eines* Prozesses. |
+| **SSE (Server-Sent Events)** | Eine Technik, bei der der Server eine **dauerhaft offene** Verbindung hält, um dem Client laufend Nachrichten zu schicken. Der bisherige Transport — fragil, weil die Sitzung an diese offene Verbindung gebunden ist. |
+| **Stateless (zustandslos)** | Der Server merkt sich zwischen zwei Aufrufen **nichts** — jeder Aufruf ist in sich vollständig. Folge: ein Neustart/Deploy kann keine „Sitzung" verlieren, weil es keine gibt. |
+| **Streamable HTTP** | Der modernere MCP-Transport: normale HTTP-Anfrage/Antwort pro Aufruf, ohne dauerhaft gehaltene Verbindung. |
+| **Transport** | Der Übertragungsweg, über den Client und Server MCP-Nachrichten austauschen (z. B. stdio lokal, oder HTTP über das Netz). |
 
 ## Referenzen
 
