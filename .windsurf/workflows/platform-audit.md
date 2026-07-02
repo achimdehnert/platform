@@ -169,7 +169,7 @@ done
 
 ### 2.1 Platform-Context Violations
 
-Für jedes Django-Repo: `mcp14_get_context_for_task` aufrufen und bekannte Violations prüfen.
+Für jedes Django-Repo: `mcp__platform-context__get_context_for_task` aufrufen und bekannte Violations prüfen.
 
 Prüfe insbesondere:
 - **BigAutoField vs. UUIDField** — `grep -r 'UUIDField(primary_key=True)' src/ apps/ --include='*.py' -l`
