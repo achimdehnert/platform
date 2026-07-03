@@ -1,4 +1,4 @@
-"""Tests für den Deploy-ADR-Supersession-Gate (KONZ-011 / ADR-261)."""
+"""Tests für den Deploy-ADR-Supersession-Gate (KONZ-011 / ADR-264)."""
 import os
 import sys
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Deploy-ADR-Supersession-Gate (KONZ-platform-011 / ADR-261).
+"""Deploy-ADR-Supersession-Gate (KONZ-platform-011 / ADR-264).
 
 Verhindert Deployment-ADR-Sprawl: Ein **neues** ADR (ID >= GATE_FROM_ID), dessen
 Titel/Dateiname es als Deployment-Strategie-ADR ausweist, MUSS seine Vorgänger via
@@ -11,7 +11,7 @@ zwei „Vereinheitlichungen", von denen keine die andere ablöst. Der Gate hätt
 zweiten „unified"-Anlauf ohne Supersession-Eintrag geblockt.
 
 Grandfathering per Nummer: alle ADRs mit ID < GATE_FROM_ID existierten vor der Regel
-und werden nicht rückwirkend geflaggt. ADR-261 selbst führt die Regel ein und erfüllt
+und werden nicht rückwirkend geflaggt. ADR-264 selbst führt die Regel ein und erfüllt
 sie (nicht-leeres `supersedes:`).
 
 Ausnahme (bewusst, begründet): ein neues Deploy-ADR, das legitim nichts ablöst (enge
@@ -31,7 +31,7 @@ import os
 import re
 import sys
 
-GATE_FROM_ID = 261
+GATE_FROM_ID = 264
 
 # Fokussierte Deploy-Strategie-Marker — bewusst NICHT das nackte "pipeline"
 # (sonst würden Content-/Research-„pipelines" wie ADR-160 falsch getroffen).
@@ -116,7 +116,7 @@ def violation_for(path: str) -> str | None:
     return (
         f"{os.path.basename(path)}: Deployment-Strategie-ADR (ID {aid} >= {GATE_FROM_ID}) "
         f"ohne `supersedes:`-Eintrag und ohne `supersedes_waiver:`. "
-        f"Ein neues Deploy-ADR muss seine Vorgänger ablösen (KONZ-011/ADR-261) — "
+        f"Ein neues Deploy-ADR muss seine Vorgänger ablösen (KONZ-011/ADR-264) — "
         f"sonst wächst der Sprawl. Setze `supersedes: [...]` oder begründe mit `supersedes_waiver:`."
     )
 

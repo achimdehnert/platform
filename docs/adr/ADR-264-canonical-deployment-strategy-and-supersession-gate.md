@@ -1,5 +1,5 @@
 ---
-id: ADR-261
+id: ADR-264
 title: "Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl"
 status: proposed
 date: 2026-07-03
@@ -12,11 +12,11 @@ related: [ADR-157, ADR-164, ADR-198, ADR-209, ADR-212]
 tags: [deployment, staging, prod, promotion-pipeline, ssot, supersession, rollback]
 ---
 
-# ADR-261 — Kanonische Deployment-Strategie + Supersession-Gate
+# ADR-264 — Kanonische Deployment-Strategie + Supersession-Gate
 
 > Konzept-Basis: **KONZ-platform-011** (`docs/konzepte/`, T3, 3-Agenten-Adversariat).
 > Dieses ADR operationalisiert dessen Empfehlung. Status `proposed` — die Supersession der
-> unten gelisteten ADRs wird **bei Accept** wirksam (deren Status → `superseded_by: ADR-261`).
+> unten gelisteten ADRs wird **bei Accept** wirksam (deren Status → `superseded_by: ADR-264`).
 
 ## Context and Problem Statement
 
@@ -51,9 +51,9 @@ Drei **hart entkoppelte** Bausteine (kein Monolith):
 
 ### D1 — Supersession-Gate (der Durabilitäts-Scharnier)
 - Dieses ADR supersedet ADR-021/075/120/156/166/193/210 (`supersedes:` oben; Statusflip der
-  sieben auf `superseded_by: ADR-261` **bei Accept**).
+  sieben auf `superseded_by: ADR-264` **bei Accept**).
 - Ein CI-Check (`tools/check_deploy_adr_supersession.py`, mit diesem ADR ausgeliefert) blockt
-  künftig jedes **neue** Deployment-Strategie-ADR (ID ≥ 261) ohne nicht-leeres `supersedes:`
+  künftig jedes **neue** Deployment-Strategie-ADR (ID ≥ 264) ohne nicht-leeres `supersedes:`
   bzw. ohne begründeten `supersedes_waiver:`. Grandfathering per Nummer; heutiger Baum grün.
   **Das ist der einzige Hebel, der Anlauf #7 strukturell von Anlauf #8 trennt** (Maintainer-
   Perspektive KONZ-011 §13).
@@ -87,6 +87,6 @@ neues Gate) bis zum Cutover — deshalb der harte, datierte Exit in D3; Rollout-
 ## Supersession-Notiz
 
 Bis Accept bleiben die sieben gelisteten ADRs `accepted`/`proposed` gültig; erst mit Accept
-dieses ADR werden sie `superseded_by: ADR-261` gesetzt. `related:` verweist auf die
+dieses ADR werden sie `superseded_by: ADR-264` gesetzt. `related:` verweist auf die
 **komplementären** Infra-ADRs (157/164/198/212 = Ports/Traefik/Edge) und ADR-209 (Muster-
 Blaupause), die **nicht** abgelöst werden.

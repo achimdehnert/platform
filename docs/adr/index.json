@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-03",
   "total": 207,
-  "next_free": 262,
+  "next_free": 265,
   "adrs": [
     {
       "number": 7,
@@ -238,7 +238,7 @@
       "domains": [],
       "supersedes": [],
       "superseded_by": [
-        "ADR-261"
+        "ADR-264"
       ],
       "amends": [],
       "amended_by": [
@@ -1145,7 +1145,7 @@
       "domains": [],
       "supersedes": [],
       "superseded_by": [
-        "ADR-261"
+        "ADR-264"
       ],
       "amends": [
         "ADR-021-unified-deployment-pattern.md",
@@ -1970,7 +1970,7 @@
       "domains": [],
       "supersedes": [],
       "superseded_by": [
-        "ADR-261"
+        "ADR-264"
       ],
       "amends": [],
       "amended_by": [
@@ -2483,7 +2483,7 @@
       "domains": [],
       "supersedes": [],
       "superseded_by": [
-        "ADR-261"
+        "ADR-264"
       ],
       "amends": [
         "ADR-075-deployment-execution-strategy.md"
@@ -2673,7 +2673,7 @@
       "domains": [],
       "supersedes": [],
       "superseded_by": [
-        "ADR-261"
+        "ADR-264"
       ],
       "amends": [
         "ADR-120"
@@ -3172,7 +3172,7 @@
       ],
       "supersedes": [],
       "superseded_by": [
-        "ADR-261"
+        "ADR-264"
       ],
       "amends": [],
       "amended_by": [],
@@ -3523,7 +3523,7 @@
       ],
       "supersedes": [],
       "superseded_by": [
-        "ADR-261"
+        "ADR-264"
       ],
       "amends": [
         "ADR-198"
@@ -4688,9 +4688,9 @@
       "implementation_status": "pilot"
     },
     {
-      "number": 261,
-      "id": "ADR-261",
-      "file": "ADR-261-canonical-deployment-strategy-and-supersession-gate.md",
+      "number": 264,
+      "id": "ADR-264",
+      "file": "ADR-264-canonical-deployment-strategy-and-supersession-gate.md",
       "title": "Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl",
       "status": "proposed",
       "date": "2026-07-03",

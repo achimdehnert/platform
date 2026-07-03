@@ -37,11 +37,11 @@ jobs:
       - name: Validate all ADRs
         run: iil-adrfw validate docs/adr/
 
-      # Deploy-ADR-Supersession-Gate (KONZ-011 / ADR-261) — SUGGEST / non-gating.
+      # Deploy-ADR-Supersession-Gate (KONZ-011 / ADR-264) — SUGGEST / non-gating.
       # repo-health-rule-discipline: neue Regel startet SUGGEST (0 FPs auf heutigem Baum
       # verifiziert), deterministisch-strukturell. Ein neues Deployment-Strategie-ADR
-      # (ID ≥ 261) ohne `supersedes:`/`supersedes_waiver:` waechst den Sprawl.
-      # Promotion zu GATING = Teil des Accept von ADR-261 (dann `exit 0` entfernen).
+      # (ID ≥ 264) ohne `supersedes:`/`supersedes_waiver:` waechst den Sprawl.
+      # Promotion zu GATING = Teil des Accept von ADR-264 (dann `exit 0` entfernen).
       - name: Deploy-ADR-Supersession-Gate (SUGGEST, non-gating)
         run: |
           set +e
