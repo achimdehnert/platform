@@ -383,14 +383,21 @@ jobs:
         run: |
           WORKERS=${{ inputs.pytest_workers }}
           set +e
+          # --cov-fail-under=0: die Schwelle wird im Union-Gate (coverage-report)
+          # geprüft, NICHT pro Bucket. Ohne das machte ein repo-eigenes
+          # [tool.coverage.report] fail_under aus "0 Tests gesammelt" (Exit 5)
+          # ein "coverage failure" (Exit 1) → der Exit-5-Guard unten griff nie
+          # und der Job wurde rot, obwohl es schlicht keine Integration-Tests gibt.
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
             pytest -m "integration" \
               --cov \
-              --cov-report=xml:coverage-integration.xml
+              --cov-report=xml:coverage-integration.xml \
+              --cov-fail-under=0
           else
             pytest -m "integration" \
               --cov \
               --cov-report=xml:coverage-integration.xml \
+              --cov-fail-under=0 \
               -n "$WORKERS" \
               --dist=loadscope
           fi
@@ -427,10 +434,46 @@ jobs:
         with:
           name: coverage-integration
       - name: Merge and enforce coverage gate
+        # Union der beiden Cobertura-XMLs (unit + integration) und Prüfung gegen
+        # die Schwelle. `coverage combine` erwartet .coverage-Datenfiles, KEINE
+        # XML — der alte Step lief deshalb immer ins "No data to report" und der
+        # Gate war ein No-op (grün ohne zu prüfen). Reine stdlib, kein pip nötig.
         run: |
-          pip install coverage --break-system-packages || pip install coverage
-          python3 -m coverage combine coverage-unit.xml coverage-integration.xml 2>/dev/null || true
-          python3 -m coverage report --fail-under=${{ inputs.coverage_threshold }} 2>/dev/null || echo "Coverage data unavailable — skipping gate (threshold=${{ inputs.coverage_threshold }}%)"
+          python3 - "${{ inputs.coverage_threshold }}" coverage-unit.xml coverage-integration.xml <<'PYEOF'
+          import sys, xml.etree.ElementTree as ET
+
+          def collect(path, valid, covered):
+              try:
+                  root = ET.parse(path).getroot()
+              except (FileNotFoundError, ET.ParseError):
+                  return
+              for cls in root.iter("class"):
+                  fname = cls.get("filename") or ""
+                  for line in cls.iter("line"):
+                      num = int(line.get("number", "0"))
+                      valid.setdefault(fname, set()).add(num)
+                      if int(line.get("hits", "0")) > 0:
+                          covered.setdefault(fname, set()).add(num)
+
+          threshold = float(sys.argv[1])
+          valid, covered = {}, {}
+          for path in sys.argv[2:]:
+              collect(path, valid, covered)
+
+          total_valid = sum(len(v) for v in valid.values())
+          total_covered = sum(len(covered.get(f, set()) & lines) for f, lines in valid.items())
+          if total_valid == 0:
+              print("No coverage data found in any report — nothing to enforce.")
+              sys.exit(0)
+
+          rate = 100.0 * total_covered / total_valid
+          print(f"Combined coverage: {total_covered}/{total_valid} lines = {rate:.2f}%")
+          print(f"Threshold: {threshold:.1f}%")
+          if rate + 1e-9 < threshold:
+              print(f"::error::Combined coverage {rate:.2f}% < {threshold:.1f}%")
+              sys.exit(1)
+          print("PASS")
+          PYEOF
 
   test-contract:
     name: "Contract Tests"
