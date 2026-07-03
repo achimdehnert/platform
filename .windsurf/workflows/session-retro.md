@@ -195,6 +195,14 @@ Danach in fester Reihenfolge:
   `<auto-memory>/MEMORY.md` abgleichen (gleiche Kategorie mehrfach in dieser Session ODER schon als
   Drift-Memory **belegt vorhanden** — Existenz per `grep` prüfen). Der maschinelle Zähler ersetzt das
   manuelle Erinnern (Realfall 2026-06-14: `worktree-orphan-accumulation` ×2 erst vom Tool gefangen).
+- **5b. Autonomie-Kalibrierung (integriert, gegen statische Charter):** zusätzlich zwei KPIs gegen die
+  Artefakte messen und im Frontmatter führen — `over_ask` (etwas dem Menschen als „dein Zug" vorgelegt,
+  das nachweislich **deterministisch/reversibel** war → hätte autonom laufen sollen) und `over_act`
+  (etwas autonom getan, das ein **Gate** war — Prod/Publish/Merge-auto-deploy/3.-Repo/irreversibel).
+  Muster **≥2 über Retros** (via `retro_kpis.py`) ⇒ die Gate-Liste in `feedback_autonomy_charter`
+  **schärfen** (Grenze verschieben), nicht neu raten. So kalibriert sich die Autonomie-Grenze aus
+  gemessenen Fehlern statt aus einem Einmal-Entwurf (Realfall 2026-07-03: 3 Secrets + ein grüner
+  Nicht-Deploy-Merge als `over_ask` geparkt → Charter daraus entstanden).
 - **6. Verankerung:** kopierfertige `memory_candidates` + `adr_candidates` (du schreibst sie NICHT selbst).
 - **7. Maßnahmen als Action-Board** (Org-Standard: Buckets 🟢 dein Zug / 🔵 ich sofort / 🟡-⛔ wip / ✅ done;
   Lean-Spalten `# | Item | Repo | PR/Issue/ADR | Status | Next Step`), **abgeleitet aus dem Soll-Ablauf**.
