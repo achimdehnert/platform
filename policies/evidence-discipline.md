@@ -39,6 +39,20 @@ word ("ändert alles").
    Verifikations-Grep ebenfalls `mcp[0-9]_` → zwei `mcp14_`-Token still übersehen
    (platform #842→#843). Über Retros ×4 (`retro_kpis.py`) — gate-pflichtige Variante
    von claim-before-cheapest-check, die der Marker-Scanner-Hook nicht fängt.
+6. **Ein PR/Branch-Close mit „superseded/redundant/überholt"-Begründung ist ein
+   prüfbarer Claim — der billigste Check läuft VOR dem Close, nicht danach.** Bevor ein
+   PR geschlossen (oder ein Branch gelöscht) wird, weil „X deckt das ab": die konkreten
+   Dateien/Module des zu schließenden PRs auflisten (`gh pr view <N> --json files`) und
+   belegen, dass der Ersatz (main oder Ersatz-PR) genau die abdeckt — bei Tests die
+   **per-Modul-Coverage** (`pytest … | grep <modul>` > 0 %), NICHT nur ein aggregiertes
+   Gate: ein grünes `--cov-fail-under` maskiert einen Modul-Verlust, wenn Zuwachs anderswo
+   kompensiert. Erst bei belegter Abdeckung schließen, sonst gezielt cherry-picken.
+   Realfall 2026-07-02: PR iil-adrfw#17 als „superseded by #20/#29" geschlossen ohne
+   Coverage-Diff → `freshness/`+`index/` ~13 h bei 0 % auf main (aggregiertes 70 %-Gate
+   hielt trotzdem), repariert erst durch #36. Über Retros ×5 (`retro_kpis.py`) — dieselbe
+   Familie wie Punkt 5, anderer Trigger (Close/Delete-Aktion), die der Marker-Scanner-Hook
+   (`evidence_claim_scanner.py`) ebenfalls nicht fängt (er scannt Verifikations-/Deploy-
+   Marker, keine `gh pr close`-Aufrufe).
 
 Recall surface (concrete past incidents only, not doctrine):
 CC-memory `claim-confidence-vs-cheapest-check`. This file is the single
@@ -71,3 +85,9 @@ If R does not beat the ~6-incident baseline, the policy is cut per the effective
   operative core (removed speculative "where applies" table + essay —
   by its own standard, unverified content does not belong in an
   authoritative policy). Falsification threshold added and binding.
+- 2026-07-03: How-to-apply Punkt 6 — „PR/Branch-Close mit superseded-Begründung ist ein
+  prüfbarer Claim, Coverage-/Files-Diff VOR dem Close". Aus Session-Retro
+  `session-retro-2026-07-03-iil-adrfw-0b46ee.md`: `claim-before-cheapest-check` ×5 über
+  Retros (retro_kpis.py), Familie von Punkt 5, anderer Trigger (Close/Delete). Der
+  Marker-Scanner-Hook fängt diese Variante bisher nicht — begleitender Hook-Patch-Vorschlag
+  im PR-Body (Hook lebt in `~/.claude/hooks/`, außerhalb dieses Repos).
