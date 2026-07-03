@@ -318,7 +318,7 @@ services:
     container_name: ausschreibungs_hub_web
     domain_prod: bieterpilot.de
     domain_staging: staging.bieterpilot.de
-    repo: achimdehnert/ausschreibungs-hub
+    repo: iilgmbh/ausschreibungs-hub
     compose_drift: "docker-compose.prod.yml uses 8095 — must change to 8101 (conflicts with 137-hub)"
 
   doc-hub:
