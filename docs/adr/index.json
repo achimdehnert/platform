@@ -4575,7 +4575,7 @@
       "id": "ADR-256",
       "file": "ADR-256-orchestrator-mcp-stateless-streamable-http-transport.md",
       "title": "Migrate Orchestrator MCP transport from HTTP/SSE to stateless Streamable HTTP",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-06-23",
       "domains": [
         "orchestrator",
