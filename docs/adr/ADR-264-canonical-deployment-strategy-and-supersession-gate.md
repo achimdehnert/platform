@@ -15,8 +15,8 @@ tags: [deployment, staging, prod, promotion-pipeline, ssot, supersession, rollba
 # ADR-264 — Kanonische Deployment-Strategie + Supersession-Gate
 
 > Konzept-Basis: **KONZ-platform-011** (`docs/konzepte/`, T3, 3-Agenten-Adversariat).
-> Dieses ADR operationalisiert dessen Empfehlung. Status `proposed` — die Supersession der
-> unten gelisteten ADRs wird **bei Accept** wirksam (deren Status → `superseded_by: ADR-264`).
+> Dieses ADR operationalisiert dessen Empfehlung. **Accepted 2026-07-03 (#882)** — die Supersession
+> der unten gelisteten ADRs ist damit wirksam (deren Status → `superseded_by: ADR-264`).
 
 ## Context and Problem Statement
 
@@ -127,8 +127,9 @@ neues Gate) bis zum Cutover — deshalb der harte, datierte Exit in D3; Rollout-
 
 ## Supersession-Notiz
 
-Bis Accept bleiben die **fünf** gelisteten ADRs (021/075/120/156/210) `accepted`/`proposed`
-gültig; erst mit Accept werden sie `superseded_by: ADR-264` gesetzt. `related:` verweist auf die
+Mit Accept (2026-07-03, #882) sind die **vier** abgelösten ADRs 075/120/156/210 auf
+`superseded_by: ADR-264` gesetzt; **ADR-021 bleibt `accepted`** (52 §-Refs live, s. Matrix).
+`related:` verweist auf die
 **komplementären, NICHT abgelösten** ADRs: 157/164/198/212 (Ports/Traefik/Edge), ADR-209
 (Muster-Blaupause) sowie **166** (`.ship.conf`/`/livez/`) und **193** (`DC-*`-Compliance-Checks) —
 letztere zwei nach externem Review (AD-4) aus `supersedes:` herausgenommen.
