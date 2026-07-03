@@ -14,7 +14,7 @@ mode: write
 
 | Wer | Was |
 |-----|-----|
-| **Deployment Agent** | Automatischer Deploy nach CI grün (Gate 2, autonom bei Routine) |
+| **Deployment Agent** | Deploy-Ausführung nach CI grün — Freigabe-Pflicht siehe `~/.claude/policies/autonomy-gates.md` Gate 2 (Prod-Deploy braucht IMMER Freigabe, keine Routine-Ausnahme) |
 | **Cascade (Tech Lead)** | Gate-2-Approval bei neuen Migrations / Breaking Changes |
 | **Mensch** | Gate-3/4 bei kritischen Prod-Änderungen |
 
