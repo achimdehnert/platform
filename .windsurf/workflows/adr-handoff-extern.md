@@ -198,6 +198,14 @@ ist jeder Punkt einzeln adressierbar: tagge jede **Befund- und REC-ID** `[valid]
 eigener Begründung, nicht als wörtliche GPT-Prosa. Halte die Tag-Tabelle (ID → Verdikt → Aktion)
 als Nachweis fest.
 
+**5b — Durabler Audit-Nachweis (`~/shared` ist Wegwerf, KONZ-platform-010).** Briefing + Response
+bleiben Scratch in `~/shared` (s. Anti-Pattern — kein Briefing ins Repo). Aber der **Audit selbst**
+— welcher Anbieter, wann, Verdikt-Bilanz + die `[valid]`-Tag-Tabelle — muss ein **durables** Zuhause
+haben, sonst verdampft er beim `rm -rf ~/shared`. Halte ihn im **ADR** (git) fest, analog dem
+`ai_sparring_by` der automatischen Dual-Review: setze `external_sparring_by: <provider>@<JJJJ-MM-TT>`
+ins ADR-Frontmatter und die Tag-Tabelle als kurzen Abschnitt in den ADR-Body. Nur der ephemere
+Transport bleibt in `~/shared`; der Nachweis, dass extern reviewt wurde, lebt in der Versionshistorie.
+
 ## Anti-Patterns (darf NICHT)
 
 - ❌ ttz-lif/meiki-lra-ADRs oder reale Mandantendaten an ein externes LLM geben.
