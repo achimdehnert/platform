@@ -396,14 +396,21 @@ jobs:
         run: |
           WORKERS=${{ inputs.pytest_workers }}
           set +e
+          # --cov-fail-under=0: die Schwelle wird im Union-Gate (coverage-report)
+          # geprüft, NICHT pro Bucket. Ohne das machte ein repo-eigenes
+          # [tool.coverage.report] fail_under aus "0 Tests gesammelt" (Exit 5)
+          # ein "coverage failure" (Exit 1) → der Exit-5-Guard unten griff nie
+          # und der Job wurde rot, obwohl es schlicht keine Integration-Tests gibt.
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
             pytest -m "integration" \
               --cov \
-              --cov-report=xml:coverage-integration.xml
+              --cov-report=xml:coverage-integration.xml \
+              --cov-fail-under=0
           else
             pytest -m "integration" \
               --cov \
               --cov-report=xml:coverage-integration.xml \
+              --cov-fail-under=0 \
               -n "$WORKERS" \
               --dist=loadscope
           fi
