@@ -237,9 +237,7 @@
       "date": "2026-02-10",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [
-        "ADR-264"
-      ],
+      "superseded_by": [],
       "amends": [],
       "amended_by": [
         "ADR-167"
@@ -1140,7 +1138,7 @@
       "id": "ADR-075",
       "file": "ADR-075-deployment-execution-strategy.md",
       "title": "Split deployment execution: read-only local MCP tools and server-side GitHub Actions workflows",
-      "status": "accepted",
+      "status": "superseded",
       "date": "2026-02-23",
       "domains": [],
       "supersedes": [],
@@ -1965,7 +1963,7 @@
       "id": "ADR-120",
       "file": "ADR-120-unified-deployment-pipeline.md",
       "title": "Unified Multi-Repo Deployment Pipeline mit Staging",
-      "status": "accepted",
+      "status": "superseded",
       "date": "2026-03-11",
       "domains": [],
       "supersedes": [],
@@ -2478,7 +2476,7 @@
       "id": "ADR-156",
       "file": "ADR-156-reliable-deployment-pipeline.md",
       "title": "Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Deployment Pipeline",
-      "status": "proposed",
+      "status": "superseded",
       "date": "2026-04-02",
       "domains": [],
       "supersedes": [],
@@ -3509,7 +3507,7 @@
       "id": "ADR-210",
       "file": "ADR-210-local-staging-prod-architecture.md",
       "title": "Local/Staging/Prod Architecture — three strictly separated layers with generated artifacts",
-      "status": "proposed",
+      "status": "superseded",
       "date": "2026-05-19",
       "domains": [
         "infrastructure",
@@ -4688,11 +4686,10 @@
       "id": "ADR-264",
       "file": "ADR-264-canonical-deployment-strategy-and-supersession-gate.md",
       "title": "Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-07-03",
       "domains": [],
       "supersedes": [
-        "ADR-021",
         "ADR-075",
         "ADR-120",
         "ADR-156",
@@ -4702,6 +4699,7 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-021",
         "ADR-157",
         "ADR-164",
         "ADR-166",

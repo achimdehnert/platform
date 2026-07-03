@@ -1,7 +1,8 @@
 ---
 id: ADR-210
 title: Local/Staging/Prod Architecture — three strictly separated layers with generated artifacts
-status: proposed
+status: superseded
+superseded_by: ADR-264
 date: 2026-05-19
 deciders: [achim]
 consulted: [cascade-advocatus-diabolus]
