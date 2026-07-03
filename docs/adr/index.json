@@ -2672,9 +2672,7 @@
       "date": "2026-04-20",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [
-        "ADR-264"
-      ],
+      "superseded_by": [],
       "amends": [
         "ADR-120"
       ],
@@ -3171,9 +3169,7 @@
         "security"
       ],
       "supersedes": [],
-      "superseded_by": [
-        "ADR-264"
-      ],
+      "superseded_by": [],
       "amends": [],
       "amended_by": [],
       "related": [],
@@ -4700,8 +4696,6 @@
         "ADR-075",
         "ADR-120",
         "ADR-156",
-        "ADR-166",
-        "ADR-193",
         "ADR-210"
       ],
       "superseded_by": [],
@@ -4710,6 +4704,8 @@
       "related": [
         "ADR-157",
         "ADR-164",
+        "ADR-166",
+        "ADR-193",
         "ADR-198",
         "ADR-209",
         "ADR-212"
