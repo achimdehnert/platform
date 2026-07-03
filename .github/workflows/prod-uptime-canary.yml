@@ -55,7 +55,16 @@ jobs:
           down=""
           for u in $URLS; do
             [ -z "$u" ] && continue
-            code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$u" 2>/dev/null || echo "000")
+            # Retry/Backoff je Hub: ein transienter 000/5xx (Netz-Blip, Runner-Überlast —
+            # Realfall 2026-07-03: Canary meldete 14 Hubs 000000, die live 200 waren) darf
+            # NICHT als Outage durchgehen. Bis 3 Versuche; bei settled-Code (up/geschützt/
+            # redirect) sofort raus. Nur wenn ALLE 3 transient/down bleiben → als down werten.
+            code=000
+            for attempt in 1 2 3; do
+              code=$(curl -sS -o /dev/null -w "%{http_code}" --max-time 20 "$u" 2>/dev/null || echo "000")
+              case "$code" in 200|204|401|403|301|302|307|308) break ;; esac
+              [ "$attempt" -lt 3 ] && sleep 5
+            done
             case "$code" in
               200|204) echo "✅ $code  $u" ;;
               401|403|301|302|307|308) echo "🔒 $code  $u (geschützt/redirect — kein Down-Signal)" ;;
