@@ -45,9 +45,11 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `infra/`, `deployment/` | Infrastruktur-Configs für Cross-Repo-Deploys |
 | `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `skills/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
 
-**Registry-Schreibpfad** (`registry/canonical.yaml` editieren → `make registry-build` →
-`make registry-verify`) — nie die generierten Views (`repos.yaml`/`scripts/repo-registry.yaml`)
-von Hand anfassen, das `verify`-Gate schlägt sonst fehl.
+**Registry-Schreibpfad** (`registry/canonical.yaml` editieren → `make registry-flip`
+regeneriert beide Views + verify) — nie die generierten Views
+(`repos.yaml`/`scripts/repo-registry.yaml`) von Hand anfassen, das `verify`-Gate schlägt
+sonst fehl. (`registry-canonical.py build` ist die Pre-Flip-Bootstrap-Richtung
+Views→canonical und würde canonical-Edits überschreiben — nicht benutzen.)
 
 ## Lokales Setup & Testbefehl (SSoT)
 

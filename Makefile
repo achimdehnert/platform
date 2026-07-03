@@ -177,16 +177,19 @@ exit-plan: ## Exit-/Portability-Runbook für ORG=<org> aus Live-GitHub-Zustand (
 .PHONY: exit-plan
 
 # =============================================================================
-# REGISTRY BUILD (ADR-234 P0 — canonical.yaml ist die SSoT, Views sind generiert)
+# REGISTRY (ADR-234 P0 — canonical.yaml ist die SSoT, Views sind generiert)
+# Achtung: `registry-canonical.py build` (Views→canonical) ist die PRE-Flip-
+# Bootstrap-Richtung und würde canonical-Edits aus den Views überschreiben —
+# deshalb bewusst KEIN make-Target dafür. Schreibpfad ist flip (canonical→Views).
 # =============================================================================
 
-registry-build: ## registry/canonical.yaml aus den Altdateien neu bauen (tools/registry-canonical.py build)
-	@python3 tools/registry-canonical.py build
+registry-flip: ## Views (repos.yaml + scripts/repo-registry.yaml) aus canonical.yaml regenerieren + verify (tools/registry-canonical.py flip)
+	@python3 tools/registry-canonical.py flip
 
 registry-verify: ## Round-trip prüfen: Views aus canonical.yaml regenerieren + gegen Altdateien vergleichen
 	@python3 tools/registry-canonical.py verify
 
-.PHONY: registry-build registry-verify
+.PHONY: registry-flip registry-verify
 
 # =============================================================================
 # WORKFLOW-LINT (X-11 — lokales Preflight zu validate-workflows.yml)
