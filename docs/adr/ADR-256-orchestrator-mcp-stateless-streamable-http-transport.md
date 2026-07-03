@@ -1,7 +1,7 @@
 ---
 id: ADR-256
 title: "Migrate Orchestrator MCP transport from HTTP/SSE to stateless Streamable HTTP"
-status: proposed
+status: accepted
 decision_date: 2026-06-23
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
@@ -24,7 +24,7 @@ scope:
 
 | Metadaten | |
 |-----------|---|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Datum** | 2026-06-23 |
 | **Autor** | Achim Dehnert |
 | **Repo** | mcp-hub (`orchestrator_mcp/`) |

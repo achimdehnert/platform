@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-02",
-  "total": 206,
-  "next_free": 261,
+  "generated": "2026-07-03",
+  "total": 207,
+  "next_free": 265,
   "adrs": [
     {
       "number": 7,
@@ -237,7 +237,9 @@
       "date": "2026-02-10",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-264"
+      ],
       "amends": [],
       "amended_by": [
         "ADR-167"
@@ -1142,7 +1144,9 @@
       "date": "2026-02-23",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-264"
+      ],
       "amends": [
         "ADR-021-unified-deployment-pattern.md",
         "ADR-056-deployment-preflight-and-pipeline-hardening.md"
@@ -1965,7 +1969,9 @@
       "date": "2026-03-11",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-264"
+      ],
       "amends": [],
       "amended_by": [
         "ADR-166",
@@ -2476,7 +2482,9 @@
       "date": "2026-04-02",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-264"
+      ],
       "amends": [
         "ADR-075-deployment-execution-strategy.md"
       ],
@@ -2664,7 +2672,9 @@
       "date": "2026-04-20",
       "domains": [],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-264"
+      ],
       "amends": [
         "ADR-120"
       ],
@@ -3161,7 +3171,9 @@
         "security"
       ],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-264"
+      ],
       "amends": [],
       "amended_by": [],
       "related": [],
@@ -3510,7 +3522,9 @@
         "drift-prevention"
       ],
       "supersedes": [],
-      "superseded_by": [],
+      "superseded_by": [
+        "ADR-264"
+      ],
       "amends": [
         "ADR-198"
       ],
@@ -4575,7 +4589,7 @@
       "id": "ADR-256",
       "file": "ADR-256-orchestrator-mcp-stateless-streamable-http-transport.md",
       "title": "Migrate Orchestrator MCP transport from HTTP/SSE to stateless Streamable HTTP",
-      "status": "proposed",
+      "status": "accepted",
       "date": "2026-06-23",
       "domains": [
         "orchestrator",
@@ -4672,6 +4686,35 @@
         "ADR-223 (LLM Model Screener — Option D LiteLLM Proxy dort verworfen; siehe „Abgrenzung\")"
       ],
       "implementation_status": "pilot"
+    },
+    {
+      "number": 264,
+      "id": "ADR-264",
+      "file": "ADR-264-canonical-deployment-strategy-and-supersession-gate.md",
+      "title": "Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl",
+      "status": "proposed",
+      "date": "2026-07-03",
+      "domains": [],
+      "supersedes": [
+        "ADR-021",
+        "ADR-075",
+        "ADR-120",
+        "ADR-156",
+        "ADR-166",
+        "ADR-193",
+        "ADR-210"
+      ],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-157",
+        "ADR-164",
+        "ADR-198",
+        "ADR-209",
+        "ADR-212"
+      ],
+      "implementation_status": ""
     },
     {
       "number": 400,
