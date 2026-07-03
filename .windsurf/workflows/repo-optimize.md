@@ -133,6 +133,15 @@ nie autonom mergen.
 ## Step 5 — Verankern
 - `memory_candidates` vorschlagen (Mensch entscheidet) — Pflichtsektion im Report, ggf. „keine".
 - Report **durabel** persistieren (kanonischer Pfad aus Step 3), nicht nur im Chat.
+- **Auch die „🟢 dein Zug"-/T-HIGH-Items als GitHub-Issue anlegen — nicht nur die
+  delegierbaren.** „Angekündigt = angelegt" (Step 4) gilt genauso für Entscheidungs-Punkte
+  (Branch-Protection, Modul-anbinden-oder-entfernen, ADR-würdiges): je ein Issue mit Label
+  `decision`/`needs-human`, kein autonomer Umsetzung. Schluss-Schritt: **Action-Board ↔
+  `gh issue list` abgleichen** — jede Board-Zeile ohne PR/Issue/ADR-Referenz wird ein Issue.
+  Ein Entscheidungs-Punkt, der nur in `~/shared/repo-optimize-*.md` steht, ist NICHT getrackt
+  (der User schaut im GitHub-Tracker, nicht in lokalen Dateien). Realfall 2026-07-02: A-1
+  (Branch-Protection) + A-2 (index/-Modul) blieben nur im Report → nie als Issue, erst der
+  Session-Retro fand es (`planned-phase-no-issue` ×3, retro_kpis.py — GATE-PFLICHT).
 - **`[FLEET-PATTERN]`-Befunde vorhanden → Pflicht-Inbox-Datei**
   `~/shared/platform-audit-inbox-<YYYY-MM-DD>-<repo>-fleet.md` — je Muster: `FP-n · Label ·
   BEOBACHTUNG · EVIDENZ (Datei:Zeile) · SOURCE-FIX-Vorschlag` + Verweis auf den Quell-Report.
@@ -178,6 +187,8 @@ Fußzeile: Commit-SHA · n Finder · Falsifikations-Bilanz · Coverage-Disclaime
 - ❌ Delegations-Issue ohne self-contained Spec (Evidenz Datei:Zeile + Akzeptanzkriterien +
   Test-Kommando) — der ausführende Agent kennt die Session nicht.
 - ❌ Delegierte PRs ungeprüft übernehmen — Abnahme/Review bleibt beim Orchestrator.
+- ❌ „🟢 dein Zug"-/T-HIGH-Entscheidungspunkte nur im `~/shared/`-Report lassen statt als
+  GitHub-Issue anzulegen — sie gehen zwischen Sessions unter (`planned-phase-no-issue`, Step 5).
 
 ## Changelog
 - 2026-06-30: Initial. Aus der Stufe-1/-2-Methode der Session 2026-06-30 codifiziert.
@@ -196,3 +207,7 @@ Fußzeile: Commit-SHA · n Finder · Falsifikations-Bilanz · Coverage-Disclaime
   self-contained Spec, Abnahme beim Orchestrator); nur T-HIGH (Judgment/Architektur) bleibt beim
   Session-Modell. Tier-Disziplin aus `session-routing.md` auf die Umsetzungsphase übertragen;
   3 neue Anti-Patterns. Auf User-Wunsch (Session 2026-07-02 iil-adrfw).
+- 2026-07-03: Step 5 — auch „🟢 dein Zug"/T-HIGH-Entscheidungspunkte als GitHub-Issue anlegen
+  (Label `decision`/`needs-human`), Schluss-Abgleich Action-Board ↔ `gh issue list`. Aus
+  Session-Retro `session-retro-2026-07-03-iil-adrfw-0b46ee.md`: A-1/A-2 blieben nur im Report,
+  nie als Issue (`planned-phase-no-issue` ×3, retro_kpis.py — GATE-PFLICHT). +1 Anti-Pattern.
