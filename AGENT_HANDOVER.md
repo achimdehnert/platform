@@ -12,7 +12,17 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-06-20 — F4 geschlossen + ADR-242 Wave 2 live; Wave 3 vorbereitet)
+## ⚡ Aktueller Stand (2026-07-03 — ADR-264 Deployment-SSoT ACCEPTED · 2 Prod-Incidents gelöst · Retro×2)
+
+**Diese Session (2026-07-02/03, 54a76c):** Deployment-Strategie-Arc end-to-end — Analyse → Konzept → ADR → Accept → erste Bausteine. Plus zwei Prod-Incidents diagnostiziert+gefixt und zwei adversariale Retros.
+
+- **ADR-264 accepted** (#882): kanonische Deployment-SSoT (Staging→Prod-Promotion + Supersession-Gate). Supersession-Matrix rettete ADR-021 (52 §-Refs → `related`, NICHT abgelöst); 075/120/156/210 → `superseded_by: ADR-264`. Extern o3-reviewed (#881, „überarbeiten" eingearbeitet). Basis: KONZ-platform-011 (#859). Enforcement: `tools/check_deploy_adr_supersession.py` (9 Tests) + SUGGEST-Step in `adr-validate.yml`; Promotion zu gating = Teil des Rollouts.
+- **Prod-Incidents gelöst (Host 88.198.191.108):** (a) orchestrator `/mcp` 404 — mcp-hub#165 (stateless Streamable-HTTP) + fehlender nginx-`location /mcp` am Host; IaC-Spiegel nachgezogen (#887). Live: `/mcp` → 307. (b) travel-beat 502 — web/caddy down + totes `bfagent_platform`-Netz; ADR-022-Fix travel-beat#57 deployed, Host-Netz-Krücke entfernt. Live: `/livez/` → 200. (c) **Host-Overload Load 356** — 23+ Repo-Runner auf dem EINEN Prod-Host (ADR-257 nicht fleet-ausgerollt) → T3-Konzept-Kandidat „Runner-Host-Isolation".
+- **Canary + Registry:** prod-uptime-canary Label-Upsert+Close-when-green (#877) + Retry/Backoff (#887, Wirksamkeit noch unbewiesen — Retry feuerte noch nie); Registry-Drift aus #883 per `flip` gefixt (#890). **Befund: „Registry-Konsistenz (ADR-234 P0)" ist NICHT required** (nur `guardian`) → in Wave-3-Scope (#811-Kommentar 2026-07-03).
+- **Retros (deep + incr):** `docs/retros/session-retro-2026-07-03-platform-54a76c{,-incr}.md`. `claim-before-cheapest-check` org-weit **×9** → `evidence_claim_scanner.py` scannt jetzt **published PR-/Issue-Bodies** (7/7 Tests). Neue Drift-Memories: host-fix-must-mirror-to-iac · host-bandaid-check-accepted-adr-first.
+- **Offen:** shared-ci#17 (Deploy-Artefakt-Verify, warn-only — Review→v1.0.8→Consumer-Bump) · MCP-Client `/sse`→`/mcp` umstellen (dann Orchestrator-404 dauerhaft weg) · #883-Koordinationskommentar (Retro-incr #4) · T3-Konzept Runner-Host-Isolation · ADR-264 Build-Phase (D2-Promotion-Pilot + Rollback-Drill, 30/60/90 in KONZ-011).
+
+## ⚡ Vorheriger Stand (2026-06-20 — F4 geschlossen + ADR-242 Wave 2 live; Wave 3 vorbereitet)
 
 **Diese Session (2026-06-20):** Handover-Prio #1 (F4) abgeschlossen → entsperrte ADR-242
 Wave 2, beide Programme sauber verzahnt.
@@ -59,52 +69,14 @@ API): **37/50 grün**; **alle 9 roten sind Deploy-Stage** (G5/Owner/Infra) — N
   `feedback_adr242_wave1_doc_vs_reality`): Check-Name auf PR-Head + grüne main-CI +
   `ci / gate` läuft auf `pull_request` (sonst PR-Deadlock).
 
-## ⚡ Vorheriger Stand (2026-06-19 — comic-hub ADR-252: ADR→Code, end-to-end live verifiziert)
-
-**Diese Session (2026-06-19):** comic-hub von „ist das möglich?" bis zum **lauffähigen,
-released, end-to-end verifizierten Produktionspfad** durchgezogen.
-
-**Architektur (platform ADR-252, proposed + 4 Amendments, alle auf main):**
-- Thin-Composer über weltenfw/authoringfw/illustration-fw, **gegated**. PRs #597/#598/#599/#604.
-  2 externe Cross-Provider-Reviews + `/adr-challenger` eingearbeitet.
-- **Gate 0a** (Spike, fal ~$1) = **CONDITIONAL PASS**: Einzelidentität (D1) stark; Multi-Ref-Co-Gen
-  (D4) untauglich (1/6) → **Compositing** (empirisch 2/2 belegt). Engine **Qwen-Image-Edit** (Apache-2.0).
-- **Gate 1** Klickdummy **live**: https://iil.pet/kd/comic-hub/klickdummy/comic-lifecycle/ (CF-Access).
-- **Hub-vs-View ENTSCHIEDEN = O1-B** (Modul in illustration-hub; Produkt-Input: Experiment +
-  persistente Projekte + mandantenfähig).
-
-**Code (auf main, getestet):**
-- **comics-Modul** illustration-hub `apps/comics/` (ComicProject/Page/Panel/PanelCharacter/
-  SpeechBubble/GenerationManifest) — PR #12.
-- **ConsistentSequenceAgent** illustration-fw — **PyPI 0.3.0** (OIDC Trusted Publishing, PR #14+#15).
-- **FalSequenceBackend** + **render_panel** (Persistenz: Asset+Manifest, Panel.render_asset) —
-  illustration-hub PR #13+#14.
-- **Live-E2E verifiziert**: render_panel gegen echtes fal → echtes Mehrpersonen-Panel + persistiert
-  (gegateter Test `RUN_LIVE_FAL=1`; Bild `~/shared/comic-spike/out/E2E_render_panel.png`).
-
-**Offen (bewusst, keine offenen PRs):**
-- **illustration-fw #10** typisierter Capability-Vertrag (Post-Gate-0).
-- **Gate 0b** Self-Host auf RTX 4090 (beim cloud→lokal-Switch; Qwen ist Brückenmodell).
-- ~~finale menschliche Rubrik-Bewertung der Spike-Bilder~~ → **2026-06-20 PASS bestätigt** (Achim):
-  Gate 0a final bestanden, kein Vorbehalt offen (`~/shared/comic-spike/gate-0a-result-2026-06-19.md`).
-- **Nachschärfen = laufzeit-Optimierungs-Funktion** in ADR-252 verankert (`Review→Retry`-Kante der
-  State-Machine: (a) identitätserhaltender Re-Roll im MVP-Review · (b) gegatete Quality-Escalation
-  Relight/Upscale/Engine-Switch/LoRA). Umsetzungs-Detail → illustration-hub Use-Case.
-- Detail-CC-Memory: `project_comic_hub_adr252`. pgvector-Session-Summary war 404 (MCP-Flapping) → nachtragen.
-
-> Lehren (Drift-vermeidend): genesor-Quelle = **iil-pet-portal** (nicht `~/github/genesor`) ·
-> `fal_client.subscribe()` hängt → `submit()`+poll · `password:` + `id-token:write` zusammen =
-> OIDC aus (403) · Merge-/Publish-Claims gegen GitHub/PyPI-Simple-Index verifizieren (Aggregat-JSON laggt) ·
-> ein D4-Panel war zu wenig (Härtetest falsifizierte optimistisches PASS) · pgrep self-match → `ps|grep '[d]'`.
-
----
-
 ## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
 | Prio | Task | Tier |
 |---|---|---|
 | 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz; **Konvergenz-Programm GESTARTET 2026-07-02 (Freigabe Achim)**: Tracking **platform#811**, Phase-1-Sonnet-Queue = learn-hub#23 · recruiting-hub#10 · travel-beat#55. Befund-Kette: 0/26 Kandidaten emittieren `ci / gate` auf main (ABER Methodik-Blindfleck: PR-only-Trigger — Pre-Flight je Repo am PR-Head!); `iilgmbh/shared-ci` (Org-Transfer! nicht mehr achimdehnert) hat den `gate`-Job **seit v1.0.5** (`name: "gate"`, `if: always()`); Check-Kontext = `<Caller-Job> / gate` → Caller-Job MUSS `ci` lowercase ohne `name:`-Override sein (learn-hub-Bug: `name: "CI"` → `CI / …`). Phase 2 = ~23 Standalone-Libs (Worklist in #811). Erst nach Phase 1+2: `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter. | `[Sonnet, via #811]` |
 | 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra). **Re-Check 2026-07-02: weitgehend geheilt** — onboarding-hub grün (seit 06-24), 137-hub grün (seit 06-21), weltenhub grün (07-01, cancelled=Concurrency benign); dms-hub weiter `cancelled` (benign, letzte Runs 06-09). **tax-hub „Issue Triage" 3× failure (07-01/02)** — Root-Cause `Input required and not supplied: github-token` (Repo hat 0 Secrets, `PROJECT_PAT` fehlt; risk-/coach-hub identisches Muster + PAT = grün). **Fix-PR iilgmbh/tax-hub#20 offen** (Fallback `PROJECT_PAT \|\| github.token`; Self-Approval-Block → wartet auf Owner-Merge; bei Merge `[skip ci]` beachten — deploy.yml feuert auf push:main ohne paths-Filter). Alternative: PROJECT_PAT als Secret setzen (Owner). | `[du/Owner]` |
+
+> **Fortschritt 2026-07-03 (Session 54a76c):** Prio 1 (Wave 3): Scope +„Registry-Konsistenz required machen" (#811-Kommentar — Check ist heute NICHT required, nur `guardian`; Realfall #883/#884/#885 mergten rot). Prio 2 (Deploy-Health): **ADR-264 accepted** = strategischer Rahmen steht; travel-beat-Deploy wieder grün (#57); mcp-hub `/mcp` live; Rest-Item = shared-ci#17-Rollout.
 
 > **PR-Hygiene (erledigt 2026-07-02, Freigabe Achim):** #753 + #746 geschlossen (Duplikate von gemergtem #808) · **#760 gemergt** (Registry iil-adrfw/codeguard — Registry-Lücke zu) · **#759 gemergt** (gen_adr_index.py; Rebase-Konflikt in INDEX.md durch Generator-Lauf gelöst, 206 aktive + 48 archivierte ADRs indiziert).
 
