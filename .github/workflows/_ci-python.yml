@@ -439,11 +439,54 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: coverage-integration
-      - name: Merge and enforce coverage gate
+      - name: Report combined coverage (WARN-first — see #888)
+        # Union der beiden Cobertura-XMLs (unit + integration) + Vergleich gegen
+        # die Schwelle. `coverage combine` erwartete .coverage-Datenfiles, KEINE
+        # XML → der alte Step lief immer ins "No data to report" und der Gate war
+        # ein No-op (grün ohne zu prüfen). Reine stdlib, kein pip nötig.
+        #
+        # WARN-first: unter der Schwelle → ::warning:: statt exit 1. So werden
+        # reale Fleet-Coverage-Zahlen gesammelt, ohne bislang still untertaktige
+        # Repos (Audit: ausschreibungs-hub 75%, risk-hub ~76%, billing-hub-Gap)
+        # schlagartig zu blockieren. Flip auf enforce (exit 1) via Folge-PR, wenn
+        # die betroffenen Repos ≥ Schwelle sind.
         run: |
-          pip install coverage --break-system-packages || pip install coverage
-          python3 -m coverage combine coverage-unit.xml coverage-integration.xml 2>/dev/null || true
-          python3 -m coverage report --fail-under=${{ inputs.coverage_threshold }} 2>/dev/null || echo "Coverage data unavailable — skipping gate (threshold=${{ inputs.coverage_threshold }}%)"
+          python3 - "${{ inputs.coverage_threshold }}" coverage-unit.xml coverage-integration.xml <<'PYEOF'
+          import sys, xml.etree.ElementTree as ET
+
+          def collect(path, valid, covered):
+              try:
+                  root = ET.parse(path).getroot()
+              except (FileNotFoundError, ET.ParseError):
+                  return
+              for cls in root.iter("class"):
+                  fname = cls.get("filename") or ""
+                  for line in cls.iter("line"):
+                      num = int(line.get("number", "0"))
+                      valid.setdefault(fname, set()).add(num)
+                      if int(line.get("hits", "0")) > 0:
+                          covered.setdefault(fname, set()).add(num)
+
+          threshold = float(sys.argv[1])
+          valid, covered = {}, {}
+          for path in sys.argv[2:]:
+              collect(path, valid, covered)
+
+          total_valid = sum(len(v) for v in valid.values())
+          total_covered = sum(len(covered.get(f, set()) & lines) for f, lines in valid.items())
+          if total_valid == 0:
+              print("No coverage data found in any report — nothing to check.")
+              sys.exit(0)
+
+          rate = 100.0 * total_covered / total_valid
+          print(f"Combined coverage: {total_covered}/{total_valid} lines = {rate:.2f}%")
+          print(f"Threshold: {threshold:.1f}%")
+          if rate + 1e-9 < threshold:
+              # WARN-first: bewusst KEIN exit 1 — siehe #888.
+              print(f"::warning title=Coverage below threshold::Combined {rate:.2f}% < {threshold:.1f}% (WARN-first, not blocking yet)")
+          else:
+              print("PASS")
+          PYEOF
 
   test-contract:
     name: "Contract Tests"
