@@ -1,6 +1,11 @@
 # REFLEX Platform Configuration — All 21 Django Apps
 # ADR-163: Three-Tier REFLEX Quality Standard
 # Generated: 2026-04-17
+#
+# NICHT KANONISCH: diese Datei ist keine registrierte Registry-View und hat keinen
+# Workflow, der sie gegen die SSoT prüft — Ports (base_url) können driften.
+# SSoT für Ports/URLs ist registry/canonical.yaml (ADR-234); im Zweifel dort nachsehen,
+# nicht hier. Langfristige Option: base_url aus canonical.yaml generieren statt Hand-Pflege.
 
 hubs:
   # ── Tier 1 — Full Reflex (8 hubs) ──────────────────────────────────
@@ -63,7 +68,7 @@ hubs:
   - name: research-hub
     tier: 2
     config: /home/devuser/github/research-hub/reflex.yaml
-    base_url: http://localhost:8011
+    base_url: http://localhost:8098
 
   - name: illustration-hub
     tier: 2

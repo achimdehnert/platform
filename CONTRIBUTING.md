@@ -4,7 +4,8 @@ Dies ist das **Plattform-Repo** der iil-Org-Familie:
 
 - **ADRs**: alle Architektur-Entscheidungen (ADR-001…ADR-211ff.)
 - **Policies**: `policies/*.md` für Cross-Repo-Konventionen
-- **Workflows**: `.windsurf/workflows/` für Claude-Code/Cascade-Skills
+- **Workflows**: `.windsurf/workflows/` — Quelle der Claude-Code-Skills (Windsurf selbst
+  nur noch ADR-Review-Subset, kein Coding mehr, ADR-230)
 - **Scripts/Checks**: `scripts/checks/*.sh`
 - **Schemas**: `schemas/*.json`
 

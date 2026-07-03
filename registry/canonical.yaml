@@ -42,8 +42,10 @@ meta:
     ttz-hub: TTZ-Hub
     sqf-hub: SQF-Hub
     pg-hub: PG-Hub
-  _note: GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + registry/repos.yaml.
-    Noch NICHT kanonisch geschaltet — Konsumenten unverändert.
+  _note: 'KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via `registry-canonical.py
+    flip`). Union aus scripts/repo-registry.yaml + registry/repos.yaml; beide Altdateien
+    sind jetzt generierte, gate-erzwungene Views (verify-Gate in registry-consistency.yml).
+    Edits nur hier, nie in den Views. Accessor: tools/registry_api.py.'
 repos:
   137-hub:
     in_flat: true

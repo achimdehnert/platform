@@ -94,29 +94,36 @@ API): **37/50 grün**; **alle 9 roten sind Deploy-Stage** (G5/Owner/Infra) — N
 
 **KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
-**CC-Skill-Dist** (platform): `doctor.py` DRIFT-SCORE 0 ✓ (74 Skills, 2026-06-01)
+**CC-Skill-Dist** (platform): Drift-Score live prüfen — `python3 tools/cc-skill-dist/doctor.py` (Zahl driftet mit jedem neuen/geänderten Skill, hier nicht einfrieren)
 
 ---
 
-## 1. MCP-Server & Prefixes (aktuell)
+## 1. MCP-Server & Tool-Calls
 
-| Prefix | MCP-Server | Zweck |
-|--------|-----------|-------|
-| `mcp0_` | **deployment-mcp** | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx, CI/CD |
-| `mcp1_` | **github** | Issues, PRs, Repos, Branches, Files, Reviews, Search |
-| `mcp2_` | **orchestrator** | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint |
-| `mcp3_` | **outline-knowledge** | Wiki: Runbooks, Konzepte, Lessons, ADR-Suche |
-| `mcp4_` | **paperless-docs** | Dokumente, Rechnungen, Archive |
-| `mcp5_` | **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
-| `mcp6_` | **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
-
-**Wichtigste Tool-Calls (Claude Code — `mcp__<server>__<tool>` Format):**
+**Claude Code (aktuell, `mcp__<server>__<tool>` Format) — wichtigste Tool-Calls:**
 - GitHub: `mcp__github__create_issue`, `mcp__github__get_pull_request`
 - Memory: `mcp__orchestrator__agent_memory_context(task_description, top_k=5)`
 - Deploy-Status: `mcp__orchestrator__deploy_check(action="health", repo=...)`
 - Browser: `mcp__playwright__browser_navigate`, `mcp__playwright__browser_snapshot`
 
-> Windsurf-Agents nutzen `mcp0_`–`mcp6_`-Prefixe — aber Windsurf wird seit ADR-230 nicht mehr zum Coden eingesetzt (nur ADR-Review-Subset).
+**Server-Übersicht (7):**
+
+| Server | Zweck |
+|--------|-------|
+| **deployment-mcp** | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx, CI/CD |
+| **github** | Issues, PRs, Repos, Branches, Files, Reviews, Search |
+| **orchestrator** | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint |
+| **outline-knowledge** | Wiki: Runbooks, Konzepte, Lessons, ADR-Suche |
+| **paperless-docs** | Dokumente, Rechnungen, Archive |
+| **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
+| **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
+
+### Windsurf-Legacy (kein Coding mehr, ADR-230)
+
+Windsurf-Agents nutzten die o. g. Server über numerische Prefixe (`mcp0_`–`mcp6_` in
+derselben Reihenfolge wie oben). Seit ADR-230 wird Windsurf **nicht mehr zum Coden**
+eingesetzt (nur ADR-Review-Subset) — die Prefix-Tabelle ist nur noch für das Lesen
+alter Sessions/Logs relevant, kein aktives Interface mehr.
 
 ---
 
@@ -162,7 +169,7 @@ API): **37/50 grün**; **alle 9 roten sind Deploy-Stage** (G5/Owner/Infra) — N
 
 ## 4. Master Repo Identifier
 
-**Alle 41 Repos in einer Registry:**
+**Alle Repos in einer Registry** (Anzahl live: `python3 -c "import yaml; print(len(yaml.safe_load(open('registry/canonical.yaml'))['repos']))"`):
 
 ```bash
 # project-facts.md für alle Repos generieren (nur fehlende)
@@ -208,9 +215,12 @@ python3 ~/github/platform/scripts/gen_project_facts.py --force  # alle
 **Reusable Workflows:** `achimdehnert/platform/.github/workflows/_ci-python.yml` etc.
 
 **Repo-Kategorien:**
-- **Django Hubs** (22): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, mcp-hub, 137-hub, bfagent, tax-hub
+- **Django Hubs** (21): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, 137-hub, bfagent, tax-hub
 - **Python Libraries** (14): aifw, authoringfw, promptfw, illustration-fw, learnfw, weltenfw, outlinefw, researchfw, testkit, iil-reflex, iil-ingest, iil-enrichment, iil-fieldprefill, nl2cad
 - **Infra** (5): platform, mcp-hub, infra-deploy, iil-relaunch, lastwar-bot
+
+(Diese Kategorien sind kein vollständiges Abbild von `registry/canonical.yaml` — Gesamtzahl
+live siehe oben unter §4; bei Abweichung ist die Registry maßgeblich, nicht diese Liste.)
 
 ---
 
