@@ -126,13 +126,6 @@ make test
 
 ---
 
-## ⚠️ GATE: Explizite Bestätigung erforderlich (vor Merge)
-Frage den User: "Hotfix-PR für `<REPO>` mergen (Squash & Merge)? (ja/nein)"
-→ Bei "nein": Abbruch — PR bleibt offen, auf Freigabe warten
-→ Bei "ja": weiter mit Step 7
-
----
-
 ## Step 7: Commit + PR
 
 ```bash
@@ -147,7 +140,13 @@ PR erstellen:
 - Title: `[HOTFIX] [Beschreibung]`
 - Labels: `bug`, `hotfix` (falls vorhanden)
 - Body: Root Cause + Fix + Regression Test
-- **Squash & Merge** (saubere main-Historie)
+
+---
+
+## ⚠️ GATE: Explizite Bestätigung erforderlich (vor Merge)
+Frage den User: "Hotfix-PR für `<REPO>` mergen (Squash & Merge)? (ja/nein)"
+→ Bei "nein": Abbruch — PR bleibt offen, auf Freigabe warten
+→ Bei "ja": **Squash & Merge** (saubere main-Historie)
 
 ---
 
