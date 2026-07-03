@@ -284,6 +284,21 @@ else
 fi
 ```
 → **KEIN Fallback auf agent memory erlaubt.** pgvector MUSS laufen.
+
+### 0.5.1 Secret-Drop-Zone-Guard (KONZ-platform-010, warn)
+
+// turbo
+```bash
+# ~/shared ist Wegwerf-Scratch; Secrets gehören NUR nach ~/.secrets (SSoT, 0700).
+# ~/shared/inbox/secrets ist world-writable (0777) → nie dauerhaft Secrets dort lagern.
+if [ -d ~/shared/inbox/secrets ] && [ -n "$(ls -A ~/shared/inbox/secrets 2>/dev/null)" ]; then
+  n=$(ls -A ~/shared/inbox/secrets 2>/dev/null | wc -l)
+  echo "⚠️  $n Secret(s) in ~/shared/inbox/secrets — gehören nach ~/.secrets (KONZ-010)."
+  echo "   Reconcile: byte-identische Dubletten löschen, Unikate verschieben, divergente prüfen."
+fi
+```
+→ Warn, kein Hard-Fail (legitime Zwischen-Drops nicht blockieren). Wiederholungs-Bremse gegen
+  das Drift-Muster (inbox driftete schon 1× nach der 2026-05-30-Konsolidierung, KONZ-010 B5).
 → Bei Fehler: Session NICHT fortsetzen bis Tunnel steht.
 
 ### 0.6 Deploy-Infrastruktur prüfen (ADR-156)
