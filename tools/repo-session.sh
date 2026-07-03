@@ -29,6 +29,42 @@ die() { echo "FEHLER: $*" >&2; exit 1; }
 
 slug() { printf '%s' "$1" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9._-'; }
 
+# PR-Kollisionscheck (ADR-233 R-6; Retro-Gate `parallel-session-pr-collision`, ≥2× → Gate-Pflicht).
+# Billigster Check VOR dem Abzweigen: existiert für denselben Task-Slug schon ein offener PR
+# (= zweite Session am selben Thema), harter Block. Sonst offene PRs zur Awareness listen.
+# Fail-open NUR bei fehlendem Werkzeug/Auth (mit sichtbarem Hinweis) — nie stiller Durchlass.
+# Override für bewusst parallele Arbeit: REPO_SESSION_SKIP_PR_CHECK=1.
+check_pr_collision() {
+  local repo="$1" task="$2"
+  if [ "${REPO_SESSION_SKIP_PR_CHECK:-0}" = "1" ]; then
+    echo "  ⚠ PR-Kollisionscheck übersprungen (REPO_SESSION_SKIP_PR_CHECK=1)." >&2; return 0
+  fi
+  command -v gh >/dev/null 2>&1 || { echo "  ⚠ gh nicht verfügbar — PR-Kollisionscheck übersprungen (ADR-233 R-6)." >&2; return 0; }
+  local slug_repo; slug_repo="$(git -C "$repo" remote get-url origin 2>/dev/null | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#')"
+  [ -n "$slug_repo" ] || { echo "  ⚠ Remote-Slug nicht bestimmbar — PR-Kollisionscheck übersprungen." >&2; return 0; }
+  local open_prs; open_prs="$(gh pr list -R "$slug_repo" --state open --json number,headRefName,title 2>/dev/null)" \
+    || { echo "  ⚠ 'gh pr list' fehlgeschlagen (Auth?) — PR-Kollisionscheck übersprungen." >&2; return 0; }
+  if [ -z "$open_prs" ] || [ "$open_prs" = "[]" ]; then return 0; fi
+  # Exakter Task-Slug im head-branch eines offenen PR = harter Block.
+  local hit
+  hit="$(printf '%s' "$open_prs" | python3 -c "import json,sys; t=sys.argv[1]; d=json.load(sys.stdin); print('\n'.join(f\"#{p['number']} {p['headRefName']} — {p['title']}\" for p in d if t and t in p['headRefName']))" "$task")"
+  if [ -n "$hit" ]; then
+    {
+      echo "⛔ PR-Kollision (ADR-233 R-6, Retro-Gate parallel-session-pr-collision):"
+      echo "   Offene PR(s) mit Task-Slug '$task':"
+      printf '   %s\n' "$hit"
+      echo "   → mergen/schließen ODER anderen --task-Slug wählen ODER REPO_SESSION_SKIP_PR_CHECK=1 (bewusst parallel)."
+    } >&2
+    die "Task '$task' hat bereits offene PR(s) — Kollisionsgefahr (siehe oben)."
+  fi
+  # Sonst: offene PRs zur Awareness (weich, kein Block).
+  local n; n="$(printf '%s' "$open_prs" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)))')"
+  {
+    echo "  ℹ $n offene PR(s) in $slug_repo — auf Scope-Überlappung achten:"
+    printf '%s' "$open_prs" | python3 -c "import json,sys;[print(f\"     #{p['number']} {p['headRefName']}\") for p in json.load(sys.stdin)]"
+  } >&2
+}
+
 cmd_start() {
   local repo="" task="" base="origin/main" ephemeral="false"
   repo="${1:-}"; shift || true
@@ -56,6 +92,10 @@ cmd_start() {
   date_s="$(date -u +%Y-%m-%d)"
   rname="$(basename "$repo")"
   task="$(slug "$task")"
+
+  # ADR-233 R-6: vor dem Abzweigen auf offene PRs desselben Task-Slugs prüfen (Retro-Gate).
+  check_pr_collision "$repo" "$task"
+
   branch="session/$date_s/$owner/$task"
   sid="${date_s}-${owner}-${task}-$(date -u +%H%M%S)"
   if [ "$ephemeral" = "true" ]; then
