@@ -61,7 +61,7 @@
 | 072 | Adopt PostgreSQL Schema Isolation for SaaS Multi-Tenancy | Accepted | 🔶 | [ADR-072](ADR-072-multi-tenancy-schema-isolation.md) |
 | 073 | — Repo Scope & Migration Status (all 10 repos) | Accepted | ✅ | [ADR-073](ADR-073-repo-scope.md) |
 | 074 | Multi-Tenancy Testing Strategy — Isolation, Propagation & CI Gates | Accepted | ✅ | [ADR-074](ADR-074-multi-tenancy-testing-strategy.md) |
-| 075 | Split deployment execution: read-only local MCP tools and server-side GitHub Actions workflows | Accepted | ✅ | [ADR-075](ADR-075-deployment-execution-strategy.md) |
+| 075 | Split deployment execution: read-only local MCP tools and server-side GitHub Actions workflows | Superseded | — | [ADR-075](ADR-075-deployment-execution-strategy.md) |
 | 077 | Infrastructure Context System: catalog-info.yaml → dev-hub API → context.md | Accepted | ✅ | [ADR-077](ADR-077-infrastructure-context-system.md) |
 | 078 | Amendment: Docker HEALTHCHECK ausschließlich in docker-compose.prod.yml (amends ADR-021) | Accepted | ✅ | [ADR-078](ADR-078-amendment-docker-healthcheck-convention.md) |
 | 079 | Adopt Temporal Self-Hosted as Primary Durable Workflow Engine | Accepted | ⬜ | [ADR-079](ADR-079-temporal-workflow-engine.md) |
@@ -102,7 +102,7 @@
 | 117 | Shared World Layer — Weltenhub-DB als SSoT, weltenfw als Schreibkanal | Accepted | ✅ | [ADR-117](ADR-117-shared-world-layer-worldfw.md) |
 | 118 | billing-hub als Platform Store | Accepted | ✅ | [ADR-118](ADR-118-platform-store-billing-hub-user-registration.md) |
 | 119 | AuthoredContent Pipeline — Neutral Lore → Autorenstil Thread | Accepted | ⬜ | [ADR-119](ADR-119-authored-content-pipeline-neutral-lore-to-style.md) |
-| 120 | Unified Multi-Repo Deployment Pipeline mit Staging | Accepted | ✅ | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
+| 120 | Unified Multi-Repo Deployment Pipeline mit Staging | Superseded | — | [ADR-120](ADR-120-unified-deployment-pipeline.md) |
 | 121 | iil-outlinefw — Story-Outline-Framework | Accepted | ✅ | [ADR-121](ADR-121-iil-outlinefw-story-outline-framework.md) |
 | 130 | Adopt a shared Django app `content_store` for AI-generated content persistence | Accepted | ✅ | [ADR-130](ADR-130-content-store-shared-persistence.md) |
 | 131 | Shared Backend Services Library für Django-Projekte | Accepted | ✅ | [ADR-131](ADR-131-shared-backend-services.md) |
@@ -126,7 +126,7 @@
 | 153 | Adopt Module-basierte SaaS-Architektur für tax-hub (Multi-Mandant, buchbare Module) | Accepted | ⬜ | [ADR-153](ADR-153-tax-hub-saas-architecture.md) |
 | 154 | Autonomous Coding Optimization — Information Flow, Error Prevention, Continuous Improvement | Accepted | ⬜ | [ADR-154](ADR-154-autonomous-coding-optimization.md) |
 | 155 | API Contract Testing für iil-Package Integrationen | Accepted | ⬜ | [ADR-155](ADR-155-api-contract-testing.md) |
-| 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Deployment Pipeline | Proposed | 🔶 | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
+| 156 | Adopt Server-Side Deploy Scripts with Short-Trigger Pattern for Reliable Deployment Pipeline | Superseded | — | [ADR-156](ADR-156-reliable-deployment-pipeline.md) |
 | 157 | ADR-157: 3-Server Architecture — Dev, Staging, Production with automated port governance | Accepted | ⬜ | [ADR-157](ADR-157-staging-production-split-and-port-governance.md) |
 | 158 | Adopt dev-hub as Unified Documentation Portal with Audience Navigator and AI-Generated Reference Docs | Accepted | ✅ | [ADR-158](ADR-158-unified-documentation-architecture.md) |
 | 159 | Shared Secrets Management — Single Source of Truth für API Keys | Accepted | ⬜ | [ADR-159](ADR-159-shared-secrets-management.md) |
@@ -177,7 +177,7 @@
 | 207 | Cross-Repo Ingest- & Doku-Konvention (tiered, opt-in) | Accepted | ⬜ | [ADR-207](ADR-207-cross-repo-ingest-doku-konvention.md) |
 | 208 | Interner Model-Resolver — versionierte Alias→Pin+Preis-Map (ohne Service) | Accepted | ⬜ | [ADR-208](ADR-208-internal-model-resolver.md) |
 | 209 | Org-Policy Auto-Sync to Orchestrator Memory on Merge | Accepted | 🔶 | [ADR-209](ADR-209-policy-auto-sync-on-merge.md) |
-| 210 | Local/Staging/Prod Architecture — three strictly separated layers with generated artifacts | Proposed | ⬜ | [ADR-210](ADR-210-local-staging-prod-architecture.md) |
+| 210 | Local/Staging/Prod Architecture — three strictly separated layers with generated artifacts | Superseded | — | [ADR-210](ADR-210-local-staging-prod-architecture.md) |
 | 211 | Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo) | Accepted | ⬜ | [ADR-211](ADR-211-klickdummy-benutzeranforderungen-entwicklungsprozess.md) |
 | 212 | Zentraler Traefik-Ingress für staging-*.iil.pet (Klausel-3-Routing) | Accepted | ⬜ | [ADR-212](ADR-212-traefik-ingress-staging-iil-pet.md) |
 | 213 | Cross-Repo-ADR-Referenz-Format — `repo:ADR-NNN` (plattformweit) | Proposed | ⬜ | [ADR-213](ADR-213-cross-repo-adr-ref-format.md) |
@@ -226,4 +226,4 @@
 | 258 | Org-weite Verteilung von Claude-Code-Hooks (Reaper-Gate als Erstfall) | Accepted | 🔶 | [ADR-258](ADR-258-cc-hook-distribution.md) |
 | 259 | Repo-scoped ADR-IDs — `<repo>:ADR-NNN` als kanonische Cross-Repo-Referenz | Accepted | ⬜ | [ADR-259](ADR-259-repo-scoped-adr-ids.md) |
 | 260 | Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs | Accepted | ⬜ | [ADR-260](ADR-260-per-host-litellm-proxy-central-keys.md) |
-| 264 | Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl | Proposed | ⬜ | [ADR-264](ADR-264-canonical-deployment-strategy-and-supersession-gate.md) |
+| 264 | Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl | Accepted | ⬜ | [ADR-264](ADR-264-canonical-deployment-strategy-and-supersession-gate.md) |

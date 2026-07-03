@@ -1,14 +1,14 @@
 ---
 id: ADR-264
 title: "Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl"
-status: proposed
+status: accepted
 date: 2026-07-03
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh]
 scope: platform
-supersedes: [ADR-021, ADR-075, ADR-120, ADR-156, ADR-210]
-related: [ADR-157, ADR-164, ADR-166, ADR-193, ADR-198, ADR-209, ADR-212]
+supersedes: [ADR-075, ADR-120, ADR-156, ADR-210]
+related: [ADR-021, ADR-157, ADR-164, ADR-166, ADR-193, ADR-198, ADR-209, ADR-212]
 tags: [deployment, staging, prod, promotion-pipeline, ssot, supersession, rollback]
 ---
 
@@ -132,6 +132,24 @@ gültig; erst mit Accept werden sie `superseded_by: ADR-264` gesetzt. `related:`
 **komplementären, NICHT abgelösten** ADRs: 157/164/198/212 (Ports/Traefik/Edge), ADR-209
 (Muster-Blaupause) sowie **166** (`.ship.conf`/`/livez/`) und **193** (`DC-*`-Compliance-Checks) —
 letztere zwei nach externem Review (AD-4) aus `supersedes:` herausgenommen.
+
+## Supersession-Matrix (Accept, 2026-07-03)
+
+Pflicht vor Accept (D1, REC-3). Je betroffener ADR: Entscheidung + Carve-out.
+
+| ADR | §-Refs im Korpus | Entscheidung | Begründung / Carve-out |
+|---|---|---|---|
+| ADR-075 deployment-execution-strategy | 0 | **ersetzt** | reine Ausführungs-Strategie → ADR-264 D2 |
+| ADR-120 unified-deployment-pipeline | 0 | **ersetzt** | 2. „unified"-Versuch, keine operative Klausel → D2 |
+| ADR-156 reliable-deployment-pipeline (proposed) | 4 (fast alle eigene `inputs/`, 1× ADR-157) | **ersetzt** | proposed, nie SSoT; Zuverlässigkeits-Ziel → D2/D3. Rest-Ref in ADR-157 nicht load-bearing (Folge-Repoint, non-gating) |
+| ADR-210 local-staging-prod-architecture (proposed) | 0 | **ersetzt** | 3-Ebenen-Idee → ADR-264 D2 |
+| **ADR-021 unified-deployment-pattern** | **52** (§2.x Ports, §2.17 Compose-Guard, §3.10 Celery) | **übernommen, NICHT abgelöst** | trägt lebende, quer zitierte operative §-Klauseln (u.a. travel-beat-Deploy-Guard §2.17). ADR-264 löst nur die *Strategie-Rahmung* ab; die §-Klauseln bleiben SSoT → `related`, **kein** Statusflip |
+| ADR-166 / ADR-193 | — | **komplementär** | `.ship.conf`/`/livez/` + `DC-*`-Checks leben weiter (AD-4) → `related` |
+
+**Accept-Konsequenz:** `supersedes: [075, 120, 156, 210]` (Statusflip → `superseded_by: ADR-264`).
+ADR-021 bleibt `accepted` (operative Klauseln live). **Offener Folgeschritt** (nicht
+Accept-blockierend): ADR-021 §-Klauseln in einen dedizierten Config-Standard-ADR extrahieren,
+dann kann auch 021 sauber abgelöst werden.
 
 ## Externe Zweitmeinung (openai/o3, 2026-07-03) — Audit + Verdikt
 

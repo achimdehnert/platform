@@ -1,5 +1,6 @@
 ---
-status: accepted
+status: superseded
+superseded_by: ADR-264
 date: 2026-03-11
 updated: 2026-03-11
 decision-makers: Achim Dehnert
