@@ -97,7 +97,7 @@ repos:
       name: ausschreibungs-hub
       repo: ausschreibungs-hub
       description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
-      github: achimdehnert/ausschreibungs-hub
+      github: iilgmbh/ausschreibungs-hub
       deployed: false
       type: django
       lifecycle: experimental
