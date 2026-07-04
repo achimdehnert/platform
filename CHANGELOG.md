@@ -7,6 +7,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- `.windsurf/workflows/adr-fleet-audit.md`: neue Skill `/adr-fleet-audit` —
+  ADR-Inventar + Cross-Repo-Konsistenz + Optimierungs-Backlog über alle
+  ADR-tragenden Repos (Fleet-Orchestrator, read-only). Komplementär zu
+  `/adr-health` (Einzel-Korpus-Tiefe via iil-adrfw) und `/platform-audit`
+  (generisch); Org-Scope dynamisch aus Clone-Remotes statt hartkodierter
+  Org-Liste. Kein ADR — folgt bestehendem Skill-Muster (`adr-threshold.md`).
+
 ### Fixed
 - `scripts/drift_check.py`: stale HEALTHCHECK-Regel auf **ADR-078** nachgezogen
   (#549). Die alte Regel forderte `HEALTHCHECK` **im** Dockerfile (ADR-021 §2.3)
