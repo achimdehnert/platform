@@ -26,8 +26,11 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Validate registry
+        # --break-system-packages: PEP-668-Guard des self-hosted Runners; ohne
+        # das Flag schlug der Install seit Erstellung (17/17 Runs rot) fehl —
+        # gleiches Muster wie megatest.yml / deploy-failure-monitor.yml.
         run: |
-          pip install pyyaml
+          pip install pyyaml --quiet --break-system-packages
           python registry/sync_registry.py --list
 
       - name: Sync to devhub via SSH
