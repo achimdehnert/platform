@@ -227,5 +227,5 @@
 | 259 | Repo-scoped ADR-IDs — `<repo>:ADR-NNN` als kanonische Cross-Repo-Referenz | Accepted | ⬜ | [ADR-259](ADR-259-repo-scoped-adr-ids.md) |
 | 260 | Per-Host LiteLLM-Proxy als zentraler Provider-Key-Halter für aifw-Hubs | Accepted | ⬜ | [ADR-260](ADR-260-per-host-litellm-proxy-central-keys.md) |
 | 264 | Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl | Accepted | ⬜ | [ADR-264](ADR-264-canonical-deployment-strategy-and-supersession-gate.md) |
-| 265 | Verteilte Symlink-Ziele fleet-weit aus git untracken (.gitignore) statt die Symlinks zu committen | Proposed | 🔶 | [ADR-265](ADR-265-untrack-distributed-symlink-targets-fleetwide.md) |
-| 266 | PyPI-Fleet: Paket-Lifecycle, Publishing-Konvergenz und Health-Mechanismus (Programm) | Proposed | 🔶 | [ADR-266](ADR-266-pypi-fleet-lifecycle-und-publishing-konvergenz.md) |
+| 265 | Verteilte Symlink-Ziele fleet-weit aus git untracken (.gitignore) statt die Symlinks zu committen | Accepted | ✅ | [ADR-265](ADR-265-untrack-distributed-symlink-targets-fleetwide.md) |
+| 266 | PyPI-Fleet: Paket-Lifecycle, Publishing-Konvergenz und Health-Mechanismus (Programm) | Accepted | 🔶 | [ADR-266](ADR-266-pypi-fleet-lifecycle-und-publishing-konvergenz.md) |
