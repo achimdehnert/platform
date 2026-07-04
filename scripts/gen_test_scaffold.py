@@ -86,6 +86,10 @@ pytest_plugins = ["iil_testkit.fixtures"]
 
 
 def _test_views_smoke(repo_name: str) -> str:
+    # F541 für dieses f-string ist per pyproject.toml [tool.ruff.lint.per-file-ignores]
+    # bewusst unterdrückt — s. Kommentar dort (Begründung: {{doppelt geklammerte}}
+    # Platzhalter im Template-Körper, die die f-string-Auswertung zu EINFACHEN
+    # Klammern kollabiert; ein `ruff --fix` hier wäre ein STILLER Funktionsbug).
     return f'''\
 """test_views_smoke.py — Automatischer HTTP-200-Test aller Views.
 
@@ -390,9 +394,9 @@ def main() -> int:
 
     if not args.dry_run:
         print(f"\nNächste Schritte für {repo_dir.name}:")
-        print(f"  1. DJANGO_SETTINGS_MODULE in pyproject.toml prüfen")
-        print(f"  2. tests/factories.py um Domain-Models ergänzen")
-        print(f"  3. tests/test_views_htmx.py: HTMX_URLS befüllen")
+        print("  1. DJANGO_SETTINGS_MODULE in pyproject.toml prüfen")
+        print("  2. tests/factories.py um Domain-Models ergänzen")
+        print("  3. tests/test_views_htmx.py: HTMX_URLS befüllen")
         print(f"  4. python3 {PLATFORM_ROOT}/scripts/teste_repo.py {repo_dir.name}")
 
     return 0

@@ -14,3 +14,38 @@ markers = [
 # tools/tests/ ist die CI-Suite (tools-tests.yml); tests/ enthält megatest + Altbestand.
 # Ohne beide Pfade sähe nacktes `pytest` nur 5 von 40 Testdateien (Blindfleck, repo-optimize L-4).
 testpaths = ["tests", "tools/tests"]
+
+[tool.ruff.lint.per-file-ignores]
+# X-9 (repo-optimize 2026-07-03): tools-tests.yml führt jetzt `ruff check tools/ scripts/`
+# als Gate. Diese vier Dateien tragen historische Lint-Schuld, die NICHT trivial (also
+# ohne Verhaltensänderung) fixbar ist — Drive-by-Reformatierung an unbezogenem Code wäre
+# in diesem PR (Spec D / #903) ein unnötiges Regressionsrisiko. Bewusst per-File statt
+# repo-weit ignoriert, damit neuer Code weiter voll gegatet ist.
+"tools/print_agent/print_agent.py" = [
+    "E701",  # ~27× kompakte `if x: y = z`-Einzeiler — durchgängiger Stil der Datei
+    "E741",  # ~7× `for l in ...` (List-/Dict-Comprehensions) — Rename spätere Aufräum-PR
+    "E402",  # 1× später-Import nach Modul-Setup-Code
+]
+"tools/repo_checker_testing_patch.py" = [
+    # Datei ist laut eigenem Kopf-Kommentar ein COPY-PASTE-SNIPPET ("INSERT this function
+    # before check_repo() in repo_checker.py") — CheckResult/Severity sind absichtlich aus
+    # dem Ziel-Modul importiert gedacht, kein eigenständig lauffähiges Skript.
+    "F821",
+]
+"tools/cc-skill-dist/doctor.py" = [
+    "E701",  # kompakte Einzeiler in der Report-Formatierung
+    "E702",  # mehrere `;`-getrennte Statements in derselben Zeile
+]
+"tools/cc-skill-dist/windsurf-subset.py" = [
+    "E701",
+    "E702",
+]
+"scripts/gen_test_scaffold.py" = [
+    # F541 (1×, Zeile ~93): äußerer f-string OHNE einfach geklammerte Platzhalter — der
+    # Zweck ist aber genau das: {{doppelt geklammerte}} Platzhalter im Template-Körper
+    # werden durch die f-string-Auswertung zu EINFACHEN Klammern kollabiert, damit die
+    # generierte Datei echte f-string-Interpolation enthält. `ruff --fix` (f-Prefix
+    # entfernen) wäre hier ein STILLER Funktionsbug in den generierten Tests
+    # (verifiziert: siehe Kommentar an der Funktion `_test_views_smoke`).
+    "F541",
+]

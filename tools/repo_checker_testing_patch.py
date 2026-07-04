@@ -9,7 +9,6 @@
 
 def check_testing(repo_path, config):
     """Check ADR-058 testing infrastructure compliance."""
-    from pathlib import Path
     results = []
     cat = "testing"
 

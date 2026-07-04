@@ -168,7 +168,6 @@ def main():
     # REC-9: Owner-Provenienz — welche Repos beziehen ihren Owner aus dem TRANSITION-Override
     # (meta.repo_owner), nicht aus der finalen Registry-Architektur. REC-12: Validierung der
     # Governance-Inputs (unbekannte Override-Keys, Duplikate im Scope) — früh sichtbar machen.
-    repo_names = {(e or {}).get("flat", {}).get("name") or n for n, e in (d.get("repos") or {}).items()}
     overrides = meta.get("repo_owner") or {}
     owner_from_override = sorted(k for k in overrides if k in (d.get("repos") or {}))
     validation = []
@@ -220,7 +219,7 @@ def main():
         if discovered_unscoped:
             print(f"  ⚠ ATTESTATION: {len(discovered_unscoped)} entdeckte Owner NICHT im Scope ({', '.join(discovered_unscoped)}) — in canonical.meta.enterprise_owners aufnehmen oder bewusst ausschließen")
         if "FALLBACK" in attestation["scope_source"]:
-            print(f"  ⚠ ATTESTATION: Scope-FALLBACK — die SSoT deklariert keine enterprise_owners; Governance-Entscheidung offen")
+            print("  ⚠ ATTESTATION: Scope-FALLBACK — die SSoT deklariert keine enterprise_owners; Governance-Entscheidung offen")
         if failed:
             print(f"  ⚠ ATTESTATION: {len(failed)} Owner-Abfrage(n) fehlgeschlagen ({','.join(failed)}) — Ergebnis UNVOLLSTÄNDIG")
         if truncated:

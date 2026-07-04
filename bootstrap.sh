@@ -88,8 +88,18 @@ SKIP_COUNT=$(echo "$FACTS_RESULT" | grep -oP '\d+ skipped' | grep -oP '\d+' || e
 ok "project-facts: ${GEN_COUNT} generiert, ${SKIP_COUNT} übersprungen (existieren)"
 
 # ── 6. SSH-Agent prüfen (optional) ─────────────────────────────────────────
-if ssh-keygen -F github.com &>/dev/null 2>&1; then
-  ok "GitHub SSH-Key vorhanden"
+# F-8 (repo-optimize 2026-07-03): `ssh-keygen -F github.com` prüft nur
+# known_hosts (den fremden Host-Key GitHubs), NICHT ob UNSER Auth-Key
+# funktioniert → False-Positive auf einer frischen Maschine ohne
+# known_hosts-Eintrag, obwohl ein gültiger Key im Agent liegt. GitHub
+# beantwortet `ssh -T git@github.com` bei ERFOLGREICHER Auth mit Exit-Code 1
+# (kein Shell-Zugriff vorgesehen!) + "successfully authenticated" auf stderr;
+# Exit 255 = keine Auth. Also: stderr-Meldung prüfen, nicht nur den Code.
+# `|| true` ist Pflicht: GitHub beantwortet ERFOLGREICHE Auth mit Exit-Code 1
+# (s.o.) — ohne das würde `set -e` das Skript hier fälschlich abbrechen.
+SSH_PROBE="$(ssh -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new -T git@github.com 2>&1 || true)"
+if echo "$SSH_PROBE" | grep -q "successfully authenticated"; then
+  ok "GitHub SSH-Key vorhanden (ssh -T bestätigt Auth)"
 elif [ -f "$HOME/.secrets/github_token" ]; then
   ok "GitHub Token in ~/.secrets/github_token"
 else
