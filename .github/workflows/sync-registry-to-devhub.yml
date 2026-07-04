@@ -31,7 +31,7 @@ jobs:
         # gleiches Muster wie megatest.yml / deploy-failure-monitor.yml.
         run: |
           pip install pyyaml --quiet --break-system-packages
-          python registry/sync_registry.py --list
+          python3 registry/sync_registry.py --list
 
       - name: Sync to devhub via SSH
         uses: appleboy/ssh-action@v1.2.5
