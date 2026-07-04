@@ -4,6 +4,11 @@ description: Secrets verwalten — rotieren, prüfen, neu anlegen für alle Repo
 
 # /secrets — Secrets Management Workflow
 
+> **Ausnahme-Hinweis:** Dieses Skill ist die designierte, bewusste Ausnahme der House Rule
+> „`~/.secrets/` ist read-only, nie Inhalte nach stdout" — es ist selbst der dokumentierte
+> Rotationsmechanismus. Ausgaben bleiben auf Prefix-Checks (`head -c`) beschränkt; kein
+> Voll-Echo von Secret-Werten.
+
 > Quelle: `platform/infra/secrets-management.md` + `platform/infra/secrets-inventory.yaml`
 > Lokale Secrets: `~/.secrets/` — NIEMALS in Git committen.
 
