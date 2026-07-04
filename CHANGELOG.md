@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- `tools/adr/`: Fleet-Audit-Werkzeuge persistiert — `adr_inventory.py` (Inventar,
+  titel-robust ggü. Config-Blöcken vor dem H1), `adr_analyze.py` (Health/Cross-Repo,
+  Vokabular = iil-adrfw-Schema), `adr_fm_migrate.py` (Frontmatter-Migration, erprobt
+  F-1/F-1b 2026-07-04: 82 ADRs / 14 Repos). Vorher nur Session-Scratchpad.
+
 ### Changed
 - `/adr-fleet-audit` Phase 0.3: Archiv-Status-Check der Clone-Remotes ergänzt —
   archivierte Repos (read-only) werden im Report markiert und aus Fix-Wellen
