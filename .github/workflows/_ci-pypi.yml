@@ -58,7 +58,15 @@ on:
         default: '==0.15.4'
         type: string
       enable_mypy:
-        description: 'Run mypy (non-blocking)'
+        description: 'Run mypy (non-blocking, außer mypy_blocking=true)'
+        required: false
+        default: false
+        type: boolean
+      mypy_blocking:
+        description: >-
+          mypy als bindendes Gate (Retro e17299 F6: die 2b-Konvergenz ließ
+          blockierendes mypy bei iil-adrfw/outlinefw still entfallen —
+          dieser Input stellt die Parität wieder her).
         required: false
         default: false
         type: boolean
@@ -66,6 +74,16 @@ on:
         description: 'mypy target/args'
         required: false
         default: '.'
+        type: string
+      enable_bandit:
+        description: 'bandit-SAST (advisory, wie Vorgänger-CI iil-adrfw)'
+        required: false
+        default: false
+        type: boolean
+      bandit_args:
+        description: 'bandit-Argumente'
+        required: false
+        default: '-r src'
         type: string
       enable_build:
         description: >-
@@ -225,10 +243,10 @@ jobs:
           triage_hint: "A secret is present in the artifact that would be PUBLISHED. ROTATE it and exclude it from the build (MANIFEST.in / package_data / [tool.setuptools] exclude). Do NOT suppress on intent — the artifact must not ship it."
 
   mypy:
-    name: "Type Check (mypy, non-blocking)"
+    name: "Type Check (mypy)"
     if: ${{ inputs.enable_mypy }}
     runs-on: ${{ inputs.runs_on }}
-    continue-on-error: true
+    continue-on-error: ${{ !inputs.mypy_blocking }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -280,3 +298,47 @@ jobs:
               && echo "✅ No known CVEs" \
               || echo "⚠️  CVEs found — see output above (non-blocking per caller opt-out)"
           fi
+
+  # ── SAST (bandit, advisory) ───────────────────────────────────────────────
+  # Retro e17299 F6: iil-adrfws Vorgänger-CI hatte bandit (advisory); die
+  # 2b-Konvergenz ließ es ersatzlos entfallen. Opt-in-Wiederherstellung.
+  bandit:
+    name: "SAST (bandit, non-blocking)"
+    if: ${{ inputs.enable_bandit }}
+    runs-on: ${{ inputs.runs_on }}
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: bandit
+        run: |
+          pip install -q bandit
+          bandit ${{ inputs.bandit_args }}
+
+  # ── Aggregat-Gate ─────────────────────────────────────────────────────────
+  # Retro e17299 F5: Branch-Protections banden Matrix-Jobnamen (inkl.
+  # Python-Version) in den Vertrag — ändert der Caller python_versions,
+  # blockt main dauerhaft. Muster aus _ci-python.yml:gate übernommen:
+  # Protections zeigen NUR auf "<caller-job> / gate" (stabil, matrix-frei).
+  # skipped zählt als ok (opt-in-Jobs); mypy zählt nur bei mypy_blocking,
+  # weil continue-on-error=true das Ergebnis ohnehin auf success setzt.
+  gate:
+    name: "gate"
+    runs-on: ${{ inputs.runs_on }}
+    needs: [lint, secrets-scan, test, build, mypy, security, bandit]
+    if: always()
+    steps:
+      - name: "All CI jobs passed or skipped"
+        run: |
+          STATUS_LIST='${{ toJSON(needs) }}'
+          echo "$STATUS_LIST" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          failures = [name for name, job in needs.items() if job['result'] not in ('success', 'skipped')]
+          if failures:
+              print('::error::Failed or cancelled jobs:', failures)
+              sys.exit(1)
+          print('All jobs passed or were skipped.')
+          "

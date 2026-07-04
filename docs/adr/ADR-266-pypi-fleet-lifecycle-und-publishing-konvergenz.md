@@ -63,7 +63,19 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
 
 ### Stufen
 
-- **Stufe 1 — Inventar-Wahrheit** ✅ *(dieser PR)*: Fleet-Inventar-Tool +
+> **Statuskorrektur 2026-07-04 (2. Evidenzrunde, Stufe-2b/3-Umsetzung):**
+> (a) Der Erst-Scan las **lokale Klone** — die waren stale; das Tool liest jetzt
+> **origin/main** (lokal) bzw. die **GitHub-API** (`--remote`, CI).
+> (b) Das K2-Backlog (aifw, researchfw, iil-ingest) war durch **Parallel-PRs
+> bereits gedraint** (aifw#26, researchfw#7, iil-ingest#4). (c) iil-ingest#4
+> entschied den Doppel-Publisher **anders als unten skizziert**: repo-seitiger
+> Publisher entfernt, „platform-Kopie kanonisch" — akzeptiert; K5 heißt damit
+> „genau EIN Publisher", nicht zwingend im Paket-Repo. Verbleibender
+> Doppel-Publisher: **iil-testkit** (Remote-Scan-Fund: repo-seitig UND
+> platform-remote). (d) Stufe 3 umgesetzt: `pypi-fleet-health.yml`
+> (wöchentlich Mo 06:30, read-only, ein Tracking-Issue) + `--remote`/`--downloads`.
+
+- **Stufe 1 — Inventar-Wahrheit** ✅ *(PR #910)*: Fleet-Inventar-Tool +
   `registry/pypi-fleet.yaml`; Registry-Reconcile (3 Einträge ergänzt); tote
   platform-Publisher entfernt (`publish-packages.yml`, `publish-platform-context.yml`).
 - **Stufe 2a — Auth-Konvergenz (Token-Abbau)** 🟡: **Run-Log-Prüfung 2026-07-04
@@ -75,20 +87,31 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
   nicht prüfbar) → 2a = Evidenz im Fleet-File + Owner-Checkliste (Bindings für
   die 7 Nicht-pur-OIDC-Repos), Code-Umstellung folgt binding-weise als
   Trivial-Commit (Token-Zeile raus, Run beweist OIDC).
-- **Stufe 2b — Reusable-Konvergenz** ⬜ *(gegated)*: 17 handgerollte publish.yml
-  → dünne Caller auf `_ci-pypi.yml@<ref>`. Bringt K2-Verbesserungen von O(17)
-  auf O(1). Lehren beachten: Consumer auf Feature-Ref grün ziehen VOR Merge;
-  `permissions` narrow-only-Falle. Löst dabei den Doppel-Publisher `iil-ingest`
-  auf (Repo gewinnt, platform-Remote-Publisher fällt) und migriert
-  `iil-codeguard`/`iil-testkit` von platform-remote zurück ins Paket-Repo.
-- **Stufe 3 — Health-Mechanismus** ⬜ *(gegated: neuer Automatismus)*:
-  wöchentlicher read-only Report-Workflow in platform; nutzt Fleet-Inventar +
-  `publish_gate_meter.py` (existiert, pflegt Tracking-Issue) + PyPI-JSON.
+- **Stufe 2b — CI-Konvergenz** ✅ *(2026-07-04, freigegeben + ausgeführt)*:
+  **18/19 Repos** rufen `_ci-pypi.yml@main` als Thin-Caller (CI, nicht Publish —
+  Re-Scope der 2. Evidenzrunde: das Reusable publiziert nicht; Publish bleibt
+  per ADR-226 pro Repo). **Ausnahme nl2cad (dokumentierter Entscheid):**
+  uv-Workspace-Monorepo, `pip install -e .`-Annahme des Reusables passt nicht —
+  nl2cad#36 begründet geschlossen, bespoke uv-CI bleibt kanonisch, K-Kriterien
+  laufen über den Health-Report. **Gelernter Preis (Retro e17299 F6):** Die
+  Erst-Konvergenz ließ blockierendes mypy (iil-adrfw, outlinefw) und bandit
+  (iil-adrfw) still entfallen — wiederhergestellt via `mypy_blocking`/
+  `enable_bandit`-Inputs; Regel seither: **CI-Replace erfordert
+  Job-Katalog-Diff** (Namen + Blocking-Flags) im PR-Body.
+- **Stufe 3 — Health-Mechanismus** ✅ *(2026-07-04, live)*:
+  `pypi-fleet-health.yml` — wöchentlich Mo 06:30, read-only, pflegt EIN
+  Tracking-Issue (Label `pypi-fleet-health`); `pull_request`-Trigger =
+  erzwungener Dry-Run als dauerhafter Wiring-Beweis.
   **Kein Auto-Publish, kein Auto-Fix, keine LLM-Urteile** (deterministisch).
-  - **3a Consumer-Canary** (K7) je Paket-Release.
-  - **3b Dependabot** fleet-weit für Paket-Repos (monatlich gruppiert).
-  - **3c Totes-Paket-Signal**: Downloads (pypistats) + letztes Release; Kandidaten
-    für Archivierung werden Issue, nie Auto-Aktion.
+  - **3a Consumer-Canary** (K7) ⬜ — noch offen, je Paket-Release.
+  - **3b Dependabot** ✅ fleet-weit (19 Repos, monatlich gruppiert, nie
+    Auto-Merge). **Triage-Pfad (Retro e17299 F3):** Folge-PRs sind
+    Menschen-/Session-Sache; Sichtung binnen einer Woche (der Health-Report
+    hält offene Bot-PRs sichtbar); Konflikt-Bumps ohne kompatibles
+    Parent-Release (Realfall iil-adrfw#48: pydantic-core 2.47.0 ohne
+    passendes pydantic) werden im PR zurückgenommen, nicht gemergt.
+  - **3c Totes-Paket-Signal** ✅: `--downloads` (pypistats) → Finding
+    `archival_candidate_stale_and_unused`; Kandidaten werden Issue, nie Auto-Aktion.
 
 ### Betrachtete Alternativen
 
@@ -128,7 +151,10 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
    - Entscheiden: `django-lms-lite` + `gaeb-toolkit` + `packages/adr-review` —
      publizieren (dann publish.yml nach 2b-Muster) oder Registry-`pypi:`-Feld
      entfernen.
-3. Stufe 2b/3 sind design-fertig (oben), aber **gegated** — Freigabe einholen,
+3. Stufe 2b/3 sind **ausgeführt** (2026-07-04, Freigabe Achim erteilt — s.
+   Stufen-Status oben); NICHT erneut anstoßen. Offen aus 2b/3: 3a-Canary,
+   Dependabot-Folge-PR-Triage, iil-testkit-Doppel-Publisher. Historischer
+   Wortlaut (überholt): „gegated — Freigabe einholen,
    dann: 2b-Sweep mit Canary-Consumer-PR pro Repo; 3 als `pypi-fleet-health.yml`
    (Namensregel beachten: NICHT `publish-*` nennen — `publish_gate_invariant.sh`
    globt darauf).

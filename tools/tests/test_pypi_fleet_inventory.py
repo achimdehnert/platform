@@ -90,6 +90,26 @@ def test_should_flag_double_publisher_and_token_auth():
     assert build_findings(pkg) == ["double_publisher", "token_auth"]
 
 
+def test_should_flag_archival_candidate_when_stale_and_unused():
+    pkg = {
+        "in_registry": True,
+        "publishers": [{"kind": "self", "workflows": [{"auth": "oidc"}]}],
+        "pypi": {"version": "1.0", "last_upload": "2020-01-01T00:00:00Z", "downloads_30d": 3},
+        "pyproject_version": "1.0",
+    }
+    assert build_findings(pkg) == ["archival_candidate_stale_and_unused"]
+
+
+def test_should_not_flag_archival_when_downloads_healthy():
+    pkg = {
+        "in_registry": True,
+        "publishers": [{"kind": "self", "workflows": [{"auth": "oidc"}]}],
+        "pypi": {"version": "1.0", "last_upload": "2020-01-01T00:00:00Z", "downloads_30d": 5000},
+        "pyproject_version": "1.0",
+    }
+    assert build_findings(pkg) == []
+
+
 def test_should_flag_registry_missing_and_version_drift():
     pkg = {
         "in_registry": False,

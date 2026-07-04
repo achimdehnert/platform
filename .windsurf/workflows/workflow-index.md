@@ -56,6 +56,7 @@ mode: read-only
 | ADR anlegen (MADR 4.0, Scope-Detection, pgvector) | `/adr` |
 | ADR reviewen (Platform-Checkliste) | `/adr-review` |
 | ADR Health Audit (Schema, Staleness, Freshness, Redundancy) | `/adr-health` |
+| ADR-Fleet-Audit (Inventar, Cross-Repo-Konsistenz, Backlog — alle Repos) | `/adr-fleet-audit` |
 | ADR adversarial challengen (Konflikte, Right-Sizing) | `/adr-challenger` |
 | Kanonischen ADR zu einem Thema disambiguieren | `/adr-curator` |
 | ADR-Zweitmeinung an externes LLM übergeben | `/adr-handoff-extern` |
