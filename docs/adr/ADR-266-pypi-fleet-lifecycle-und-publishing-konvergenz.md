@@ -106,8 +106,13 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
   - **3a Consumer-Canary** (K7) ⬜ — noch offen, je Paket-Release.
   - **3b Dependabot** ✅ fleet-weit (19 Repos, monatlich gruppiert, nie
     Auto-Merge). **Triage-Pfad (Retro e17299 F3):** Folge-PRs sind
-    Menschen-/Session-Sache; Sichtung binnen einer Woche (der Health-Report
-    hält offene Bot-PRs sichtbar); Konflikt-Bumps ohne kompatibles
+    Menschen-/Session-Sache; Sichtung binnen einer Woche. Der wöchentliche
+    Health-Report listet je Paket-Repo offene Bot-PRs **und rote main-Checks**
+    (Workflow-Step „Bot-PRs + rote main-Checks"; zugleich das Gate
+    `critical-alert-no-ticket` ×2 aus Retro e17299-incr B2/B5 — Korrektur:
+    die ursprüngliche Fassung dieses Satzes behauptete die Sichtbarkeit,
+    bevor sie implementiert war). Regel: jeder dauerrote Check braucht einen
+    Issue-Link (Realfall iil-adrfw#50, bandit). Konflikt-Bumps ohne kompatibles
     Parent-Release (Realfall iil-adrfw#48: pydantic-core 2.47.0 ohne
     passendes pydantic) werden im PR zurückgenommen, nicht gemergt.
   - **3c Totes-Paket-Signal** ✅: `--downloads` (pypistats) → Finding
