@@ -1,7 +1,7 @@
 {
-  "generated": "2026-07-03",
-  "total": 207,
-  "next_free": 265,
+  "generated": "2026-07-04",
+  "total": 208,
+  "next_free": 266,
   "adrs": [
     {
       "number": 7,
@@ -4709,6 +4709,25 @@
         "ADR-212"
       ],
       "implementation_status": ""
+    },
+    {
+      "number": 265,
+      "id": "ADR-265",
+      "file": "ADR-265-untrack-distributed-symlink-targets-fleetwide.md",
+      "title": "Verteilte Symlink-Ziele fleet-weit aus git untracken (.gitignore) statt die Symlinks zu committen",
+      "status": "proposed",
+      "date": "2026-07-04",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-230",
+        "ADR-233",
+        "ADR-242"
+      ],
+      "implementation_status": "in-progress"
     },
     {
       "number": 400,
