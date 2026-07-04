@@ -1,7 +1,7 @@
 ---
 id: ADR-265
 title: "Verteilte Symlink-Ziele fleet-weit aus git untracken (.gitignore) statt die Symlinks zu committen"
-status: proposed
+status: accepted
 date: 2026-07-04
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
@@ -9,10 +9,12 @@ informed: [iilgmbh]
 scope: platform
 related: [ADR-230, ADR-233, ADR-242]
 tags: [git-hygiene, symlink, distribution, windsurf, cc-first, fleet-pattern, dirty-tree]
-implementation_status: in-progress
+implementation_status: implemented
 ---
 
 # ADR-265 — Verteilte Symlink-Ziele fleet-weit aus git untracken statt committen
+
+> **Accepted 2026-07-04 durch Achim Dehnert** (Session e17299, wörtlich „ADR-265 + ADR-266 accepted").
 
 > Auslöser: Diagnose 2026-07-04 (iil-adrfw-Session). Fleet-weite „dirty tree"-Epidemie —
 > Ursache ist **nicht** verstreuter Wildwuchs, sondern **ein** struktureller Mechanismus.
