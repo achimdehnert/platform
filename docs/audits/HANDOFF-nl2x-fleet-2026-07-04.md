@@ -7,6 +7,8 @@
 > dort mit `datei:zeile` belegt. Dieses Dokument enthält nur Arbeitsanweisungen.
 > **Stand:** 2026-07-04. Je älter dieses Dokument, desto wichtiger Abschnitt 0.3 (Re-Grounding).
 
+> **Live-Status: achimdehnert/platform#913** — der Gate-/WP-Stand in DIESEM Dokument ist eingefroren (Stand 2026-07-04 ~13:00 UTC) und wird nicht nachgeführt; §2/§3-Status sind historisch. Methode (§0 Re-Grounding) bleibt gültig.
+
 ---
 
 ## 0. Sofort-Start (erste 15 Minuten, Reihenfolge einhalten)
@@ -38,7 +40,7 @@ Die drei NL→Struktur-Domänen der Flotte (**NL2SQL** in aifw/odoo-hub/ttz-hub,
 - Prompts in promptfw (ADR-146), Routing policy-konform (Groq-first, ttz=Ollama).
 - IoT: erst ab MVP-Start relevant; dann SIL-Gate als Code + Evals ab Tag 1.
 
-## 2. Entscheidungs-Gates (nur User entscheidet — Stand 2026-07-04 alle OFFEN)
+## 2. Entscheidungs-Gates (nur User entscheidet — historischer Stand ~13:00 — Live: #913)
 
 | Gate | Frage | Optionen | Blockiert |
 |---|---|---|---|

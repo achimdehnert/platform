@@ -210,3 +210,9 @@ Widerspruch zu „Main-Tree heilig = Ritual + ggf. Hook" — der Guard ist jetzt
   `repo-session`-Wrapper als Entscheidung (nicht Ritual), Lease-Ledger, geschärfte Reaper-Semantik
   (nie Branch löschen / unmerged-clean nur markieren), messbares Kill-Gate, Disk-Budget, Alternativen
   E/F/G. Tag-Tabelle §11.
+- **2026-07-04:** `repo-session.sh reap [<repo>]` + Auto-Reap bei `start` (Retro f5e1d F-P4,
+  Gate `worktree-midsession-accumulation` ×2 → Gate-Pflicht, #913): jede neue Session räumt
+  zuerst gemergte+cleane Orphan-Worktrees des Ziel-Repos via `worktree-reaper.py --apply` ab
+  (self-healing statt neuer Pflicht-Doku; der Pflicht-Reaper lief bisher nur bei /session-ende,
+  nicht beim Merger). Best-effort: Reap-Fehler blockieren `start` nie; dirty/un-gemergte
+  Worktrees bleiben durch die Reaper-Guards unangetastet.

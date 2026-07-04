@@ -1,0 +1,75 @@
+name: Handoff-Banner-Gate
+
+# Gate `handover-stale-vor-merge` (Slug ×2 → Gate-Pflicht laut tools/retro_kpis.py;
+# Retro docs/retros/session-retro-2026-07-04-platform-f5e1d.md F-S3/F-P3, Tracking #913).
+#
+# Problem: statische HANDOFF-Dokumente frieren beim Commit ein, während das lebende
+# Tracking-Issue weiterläuft → zwei divergierende Wahrheitsquellen am selben Tag,
+# Folge-Sessions lesen falschen Stand. Dieses Gate erzwingt, dass jede geänderte/neue
+# HANDOFF-*.md in den ersten ~30 Zeilen ein Live-Status-Banner trägt
+# (`Live-Status:` + Issue-Referenz `#<nr>` oder URL) — EINE deklarierte lebende Quelle.
+#
+# „Gate wächst mit" (claude-skills F-A): paths triggert neben den HANDOFF-Dateien
+# auch auf Check-Skript und diesen Workflow selbst; Unit-Tests laufen im
+# tools-tests-Gate (tools/tests/test_handoff_banner_check.py), Dogfood-Beleg im PR,
+# der dieses Gate einführt (nachgerüstete HANDOFF-nl2x-fleet triggert es live).
+
+on:
+  pull_request:
+    paths:
+      - 'docs/audits/HANDOFF-*.md'
+      - 'docs/**/HANDOFF-*.md'
+      - 'scripts/checks/handoff_banner_check.py'
+      - '.github/workflows/handoff-banner-gate.yml'
+
+# Least privilege (#818 permissions sweep) — nur lesen, kein Kommentar/Write nötig.
+permissions:
+  contents: read
+
+jobs:
+  handoff-banner:
+    name: "Live-Status-Banner in geänderten HANDOFF-Dateien"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Merge-Base gegen base_ref nötig
+
+      - name: Geänderte HANDOFF-Dateien einsammeln
+        id: changed
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git fetch -q origin "$BASE_REF"
+          # dreipunktiger Diff = nur Änderungen DIESES PRs; ACMR = keine Gelöschten.
+          files="$(git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" \
+                   | grep -E '^docs/(.+/)?HANDOFF-[^/]+\.md$' || true)"
+          {
+            echo "files<<EOF"
+            echo "$files"
+            echo "EOF"
+          } >> "$GITHUB_OUTPUT"
+          echo "Geänderte HANDOFF-Datei(en):"
+          echo "${files:-  (keine — Trigger kam von Skript/Workflow-Änderung)}"
+
+      - name: Live-Status-Banner prüfen (Gate handover-stale-vor-merge)
+        if: steps.changed.outputs.files != ''
+        env:
+          FILES: ${{ steps.changed.outputs.files }}
+        run: |
+          printf '%s\n' "$FILES" | xargs -d '\n' -r \
+            python3 scripts/checks/handoff_banner_check.py
+
+      - name: Selbsttest bei Skript-/Workflow-Änderung
+        # „Gate wächst mit": ändert ein PR nur das Check-Skript/den Workflow,
+        # beweist dieser Step, dass PASS- und FAIL-Pfad weiterhin funktionieren.
+        if: steps.changed.outputs.files == ''
+        run: |
+          tmp="$(mktemp -d)"
+          printf '# T\n\n> **Live-Status: achimdehnert/platform#913** — eingefroren.\n' > "$tmp/HANDOFF-ok.md"
+          printf '# T\n\nkein Banner hier.\n' > "$tmp/HANDOFF-bad.md"
+          python3 scripts/checks/handoff_banner_check.py "$tmp/HANDOFF-ok.md"
+          if python3 scripts/checks/handoff_banner_check.py "$tmp/HANDOFF-bad.md"; then
+            echo "::error::Selbsttest: FAIL-Pfad greift nicht mehr"; exit 1
+          fi
+          echo "Selbsttest OK: PASS- und FAIL-Pfad greifen."
