@@ -25,6 +25,7 @@ import sys
 # Registry über die API lesen, NICHT die generierte View direkt (ADR-234 §11.1
 # REC-4 View-Reader-Guard). Sibling-Import: beim Direktaufruf ist tools/ in sys.path[0].
 from registry_api import flat
+from registry_api import owner as registry_owner
 
 # Conclusions, die als „Deploy kaputt" zählen. `cancelled`/`skipped`/`None` (in_progress)
 # zählen NICHT und brechen die Serie auch nicht (uninformativ); `success` bricht sie.
@@ -117,6 +118,22 @@ def render_issue_body(result: dict, org: str) -> str:
 
 
 # ── I/O ─────────────────────────────────────────────────────────────────────
+
+
+def resolve_org(repo: str) -> str | None:
+    """Löst den GitHub-Owner für EIN Repo über die Registry auf (F-7, pure/testbar).
+
+    Vorher: `--org achimdehnert` fix für ALLE Repos (deploy-failure-monitor.yml
+    übergibt gar kein `--org`) — risk-hub/ausschreibungs-hub liegen laut Registry
+    unter iilgmbh und waren nur per GitHub-Redirect erreichbar (C-11: frist-hub
+    404, weil weder achimdehnert noch der Registry-Default stimmten).
+
+    `registry_api.owner()` ist seit F-5 strict: liefert `None`, wenn der Name
+    weder in `canonical.yaml` steht noch eine Prefix-Regel trifft. Dieser Fall
+    wird vom Aufrufer (`main()`) als "nicht in Registry" WARN-degradiert
+    (Repo überspringen, NICHT crashen, NICHT auf einen geratenen Default zurückfallen).
+    """
+    return registry_owner(repo)
 
 
 def load_deploy_repos() -> list[str]:
@@ -269,7 +286,15 @@ def escalate_issue(org: str, repo: str, result: dict, dry_run: bool) -> str:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--org", default="achimdehnert")
+    parser.add_argument(
+        "--org",
+        default="achimdehnert",
+        help=(
+            "Fallback-Org NUR für --only mit einem Repo, das die Registry nicht "
+            "auflösen kann (Debug). Repos aus load_deploy_repos() lösen ihren Owner "
+            "IMMER per-Repo über registry_api.owner() auf (F-7) — kein fixer Fleet-Org mehr."
+        ),
+    )
     parser.add_argument("--threshold", type=int, default=2)
     parser.add_argument("--limit", type=int, default=30)
     parser.add_argument("--dry-run", action="store_true")
@@ -281,14 +306,33 @@ def main() -> int:
         repos = [args.only]
     escalations = 0
     unreadable: list[str] = []
+    not_in_registry: list[str] = []
     print(
         f"Deploy-Failure-Monitor: {len(repos)} Repo(s), Schwelle {args.threshold}× "
         f"{'(DRY-RUN)' if args.dry_run else ''}"
     )
     na = 0
     for repo in repos:
+        # F-7: Owner PRO REPO auflösen statt fix --org für die ganze Flotte
+        # (risk-hub/ausschreibungs-hub liegen laut Registry unter iilgmbh).
+        org = resolve_org(repo)
+        if org is None:
+            # F-5-Folge: owner() ist strict und liefert None, wenn der Name weder
+            # in canonical.yaml steht noch eine Prefix-Regel trifft. WARN statt
+            # Crash/geratener Default (Precisions #4).
+            if args.only:
+                # Expliziter Debug-Aufruf mit einem der Registry unbekannten Repo:
+                # --org bleibt als BEWUSSTER, sichtbarer Fallback nutzbar.
+                print(
+                    f"  ⚠️  {repo}: nicht in Registry auflösbar — Fallback auf --org {args.org} (Debug via --only)"
+                )
+                org = args.org
+            else:
+                not_in_registry.append(repo)
+                print(f"  ⚠️  {repo}: nicht in Registry auflösbar (owner()=None) — übersprungen")
+                continue
         try:
-            runs = fetch_runs(args.org, repo, args.limit)
+            runs = fetch_runs(org, repo, args.limit)
         except NoDeployWorkflow:
             # Legitim N/A: kein Deploy-Workflow → nichts zu überwachen, KEIN Fehler/rot.
             na += 1
@@ -304,13 +348,16 @@ def main() -> int:
         if result["escalate"]:
             escalations += 1
             print(
-                f"  🔴 {repo}: {_count_label(result)} → {escalate_issue(args.org, repo, result, args.dry_run)}"
+                f"  🔴 {repo}: {_count_label(result)} → {escalate_issue(org, repo, result, args.dry_run)}"
             )
         elif result["consecutive"]:
             print(f"  🟡 {repo}: {_count_label(result)} (unter Schwelle)")
         else:
             print(f"  ✅ {repo}: grün")
-    print(f"→ {escalations} Eskalation(en); {na} N/A; {len(unreadable)} nicht lesbar.")
+    print(
+        f"→ {escalations} Eskalation(en); {na} N/A; {len(unreadable)} nicht lesbar; "
+        f"{len(not_in_registry)} nicht in Registry."
+    )
     if unreadable:
         # Non-zero exit → der scheduled Actions-Run wird ROT (sichtbar), statt still grün
         # blinde Flecken zu verstecken. Ursache i.d.R.: Token-Scope (actions:read/repo).

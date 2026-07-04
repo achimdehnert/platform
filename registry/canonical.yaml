@@ -23,6 +23,12 @@ meta:
     iil-relaunch: iilgmbh
     illustration-fw: iilgmbh
     iil-klickdummy: iilgmbh
+    # C-11 (repo-optimize 2026-07-03): frist-hub liegt real unter meiki-lra
+    # (verifiziert: gh api repos/meiki-lra/frist-hub → 200; achimdehnert/
+    # iilgmbh → 404). Der Name matcht KEINE owner_prefix_rules (kein
+    # "meiki-"-Präfix), daher fiel er ohne dieses Override auf den
+    # achimdehnert-Default zurück → deploy-failure-monitor 404 im Fleet-Scan.
+    frist-hub: meiki-lra
   owner_prefix_rules:
   - prefix: meiki-
     owner: meiki-lra

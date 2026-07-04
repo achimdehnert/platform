@@ -5,10 +5,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import deploy_failure_monitor as dfm  # noqa: E402
 from deploy_failure_monitor import (  # noqa: E402
     count_leading_failures,
     evaluate_repo,
     render_issue_body,
+    resolve_org,
 )
 
 
@@ -157,3 +159,66 @@ class TestCappedCountLabel:
         res = evaluate_repo("x", runs, threshold=2)
         assert res["capped"] is False
         assert _count_label(res) == "2×"
+
+
+class TestResolveOrgPerRepo:
+    """F-7 (repo-optimize 2026-07-03): Owner PRO REPO über registry_api.owner()
+    statt fixem --org achimdehnert für die gesamte Flotte (risk-hub/
+    ausschreibungs-hub liegen laut Registry unter iilgmbh)."""
+
+    def test_should_delegate_to_registry_owner(self, monkeypatch):
+        monkeypatch.setattr(
+            dfm, "registry_owner", lambda name: {"risk-hub": "iilgmbh"}.get(name)
+        )
+        assert resolve_org("risk-hub") == "iilgmbh"
+
+    def test_should_return_none_for_registry_unresolvable_repo(self, monkeypatch):
+        monkeypatch.setattr(dfm, "registry_owner", lambda name: None)
+        assert resolve_org("some-unknown-repo") is None
+
+
+class TestMainWarnDegradesUnresolvableOwner:
+    """F-5-Folge (Precisions #4): owner()=None darf den Monitor-Lauf NICHT
+    crashen — Repo wird als 'nicht in Registry' übersprungen, Lauf geht weiter."""
+
+    def _patch_common(self, monkeypatch, owner_map, run_map):
+        monkeypatch.setattr(dfm, "load_deploy_repos", lambda: list(run_map))
+        monkeypatch.setattr(dfm, "resolve_org", lambda repo: owner_map.get(repo))
+
+        def fake_fetch_runs(org, repo, limit):
+            return run_map[repo]
+
+        monkeypatch.setattr(dfm, "fetch_runs", fake_fetch_runs)
+        monkeypatch.setattr(
+            dfm, "escalate_issue", lambda org, repo, result, dry_run: f"escalated {repo}@{org}"
+        )
+
+    def test_should_skip_unresolvable_repo_without_crash_and_keep_scanning(
+        self, monkeypatch, capsys
+    ):
+        owner_map = {"healthy-hub": "achimdehnert"}  # "ghost-hub" bewusst NICHT drin
+        run_map = {"ghost-hub": [], "healthy-hub": [_r("success")]}
+        self._patch_common(monkeypatch, owner_map, run_map)
+        monkeypatch.setattr(sys, "argv", ["deploy_failure_monitor.py"])
+
+        rc = dfm.main()
+
+        out = capsys.readouterr().out
+        assert rc == 0  # 'nicht in Registry' ist WARN, kein Fleet-Fail
+        assert "ghost-hub" in out and "nicht in Registry" in out
+        assert "healthy-hub: grün" in out  # Lauf ging trotz Ghost-Repo weiter
+
+    def test_should_fall_back_to_explicit_org_flag_in_only_mode(self, monkeypatch, capsys):
+        owner_map = {}  # gar nichts in der Registry aufloesbar
+        run_map = {"debug-repo": [_r("success")]}
+        self._patch_common(monkeypatch, owner_map, run_map)
+        monkeypatch.setattr(
+            sys, "argv", ["deploy_failure_monitor.py", "--only", "debug-repo", "--org", "explicit-org"]
+        )
+
+        rc = dfm.main()
+
+        out = capsys.readouterr().out
+        assert rc == 0
+        assert "Fallback auf --org explicit-org" in out
+        assert "debug-repo: grün" in out

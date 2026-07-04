@@ -16,6 +16,7 @@ mode: write
 > **Wann:** vor/bei größerer Arbeit an einem Repo · LLM-Readiness-Check · Tech-Debt-Inventur.
 > **Wann NICHT:** Fleet/Cross-Repo → `/platform-audit`. Nur 3 nächste Schritte → `/next`.
 > Reines Quality-Gate vor Publish/Deploy → `/repo-health-check`.
+> Gezielt **UI/UX** (Templates, Design-System, Klickdummy) → `/repo-ux-opt`.
 
 **Methode (SSoT):** `platform/docs/prompts/repo-enterprise-optimization.md` (Stufe-1). Diese
 Skill orchestriert ihn mit **frischen read-only Subagenten** (Richter≠Angeklagter).

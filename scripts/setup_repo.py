@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import argparse
 import os
-import shutil
 import sys
 from pathlib import Path
 
@@ -133,9 +132,9 @@ def main() -> int:
         print(f"  2. Nginx-Konfig auf Server: /etc/nginx/sites-available/{repo_name}.conf")
         print(f"  3. python3 scripts/gen_test_scaffold.py {repo_name}")
         print(f"  4. python3 scripts/gen_django_app.py {repo_name} <app_name>")
-        print(f"  5. .env.example → .env.prod kopieren + echte Werte setzen")
-        print(f"  6. git add -A && git commit -m 'chore: initial setup via setup_repo.py'")
-        print(f"  7. git push → CI baut + deployt automatisch")
+        print("  5. .env.example → .env.prod kopieren + echte Werte setzen")
+        print("  6. git add -A && git commit -m 'chore: initial setup via setup_repo.py'")
+        print("  7. git push → CI baut + deployt automatisch")
 
     return 0
 

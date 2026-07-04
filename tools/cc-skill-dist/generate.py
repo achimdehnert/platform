@@ -22,7 +22,15 @@ separat, nicht hash-relevant).
 SICHERHEIT: `--target` ist Pflicht; schreibt NIE ins Live-Ziel der Lane ohne explizites
 `--allow-live`. Default = Staging.
 """
-import argparse, datetime, hashlib, json, os, re, shutil, subprocess, sys
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
 
 GENERATOR_VERSION = "0.2.0-prototype"
 MARK = "MANAGED-BY: platform/tools/cc-skill-dist"
