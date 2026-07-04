@@ -6,45 +6,161 @@ mode: read-only
 # Workflow Index — Platform Coding Agent System
 
 > **Einstiegspunkt für jeden Agent.** Lese dieses Dokument wenn unklar ist, welcher Workflow passt.
-> Dann `/agent-session-start` ausführen.
+> Dann `/session-start` ausführen (kanonischer Einstieg, ADR-233-konform).
+>
+> **Vollständigkeit ist erzwungen:** `tools/check_workflow_index.py` (CI, `tools-tests.yml`)
+> prüft, dass **jeder** Skill aus `.windsurf/workflows/*.md` hier auftaucht oder bewusst
+> auf der Allowlist steht. Neuer Skill ⇒ Zeile hier ergänzen, sonst rot.
 
 ---
 
 ## Trigger-Matrix: Welcher Workflow für welche Situation?
 
-| Situation | Workflow | Slash-Command |
-|-----------|----------|---------------|
-| Start jeder Session | Agent Session Start | `/agent-session-start` |
-| Neues Feature implementieren | Agentic Coding | `/agentic-coding` |
-| Bug in Produktion | Hotfix | `/hotfix` |
-| PR reviewen / Kommentare adressieren | PR Review | `/pr-review` |
-| Neues Repo komplett aufsetzen (Docker, CI/CD) | Repo Onboarding | `/onboard-repo` |
-| GitHub-Infra in Repo verankern (Templates, Docs) | New GitHub Project | `/new-github-project` |
-| ADR anlegen | ADR Creation | `/adr` |
-| ADR reviewen | ADR Review | `/adr-review` |
-| Use Case definieren | Use Case | `/use-case` |
-| Governance vor Implementierung prüfen | Governance Check | `/governance-check` |
-| **Repo/Package Vollständigkeit prüfen** | **Repo Health Check** | **`/repo-health-check`** |
-| **Tests vor Package-Release prüfen** | **Testing Conventions** | **`/testing-conventions`** |
-| **Cross-Repo Audit (Schwachstellen, Inkonsistenzen)** | **Platform Audit** | **`/platform-audit`** |
-| **Workflows reviewen + optimieren (Agent-Stabilität)** | **Workflow Review** | **`/workflow-review`** |
-| **ADR Health Audit (Schema, Staleness, Freshness, Redundancy)** | **ADR Health** | **`/adr-health`** |
-| Vor Production-Deploy | Deploy Check | `/deploy-check` |
-| Deployen | Deploy | `/deploy` |
-| DB-Backup | Backup | `/backup` |
-| Windsurf-Verbindung tot | Windsurf Clean | `/windsurf-clean` |
-| Tests einrichten (neues Repo) | Testing Setup | `/testing-setup` |
-| Third-Party Stack upgraden (Outline, Authentik, Paperless) | Stack Upgrade | `/stack-upgrade` |
-| WSL ↔ GitHub ↔ Server synchronisieren | Sync Repo | `/sync-repo` |
-| **Vor Implementierung: Annahmen verifizieren** | **Pre-Code Contract Verification** | **`/pre-code`** |
-| **Neues Django-App Scaffold** | **New Django App** | **`/new-django-app`** |
-| **Pre-Release Frontend Test** | **Pre-Release Test** | **`/pre-release-test`** |
-| **Automatisierter Frontend UI Test** | **Frontend UI Test** | **`/frontend-ui-test`** |
-| **App auf Production deployen (full flow)** | **Ship** | **`/ship`** |
-| **Lokale Docker-Umgebung starten** | **Run Local** | **`/run-local`** |
-| **Production deployen (safety gates)** | **Run Prod** | **`/run-prod`** |
-| **Staging deployen + Health Check** | **Run Staging** | **`/run-staging`** |
-| **Dokumentation aktualisieren** | **Docu Update** | **`/docu-update`** |
+### Session-Lifecycle
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| **Session starten** (kanonisch, ADR-233-Worktree, Modell-Tier) | `/session-start` |
+| Session beenden — Wissen sichern, Memory, committen/pushen | `/session-ende` |
+| Session-Retrospektive (geerdet, adversarial → `docs/retros/`) | `/session-retro` |
+| Session-Wissen in Outline sichern (Lessons, Runbooks) | `/knowledge-capture` |
+| Repo-Reference-Doku generieren/syncen (README/CHANGELOG/API) | `/session-docu` |
+| Task abschließen — Pflicht-Gate vor "COMPLETE" | `/complete` |
+| Die 3 sinnvollsten nächsten Schritte fürs Repo | `/next` |
+| Handoff fortsetzen / offene Issues weiterbearbeiten | `/issues-abarbeiten` |
+
+### Coding-Flow
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Neues Feature (complexity ≥ moderate) — voller Flow | `/agentic-coding` |
+| Vor Implementierung: Annahmen/Contracts verifizieren | `/pre-code` |
+| Governance vor Implementierung prüfen | `/governance-check` |
+| Task headless planen → Issue → dann implementieren | `/claude-orchestrator` |
+| Bug in Produktion — schneller Fix mit Safety Gates | `/hotfix` |
+| Aufgabe an höheres Modell-Tier eskalieren | `/escalate` |
+| Aus kurzer Anweisung einen lückenlosen Prompt bauen | `/prompt` |
+
+### Review
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| PR reviewen / Kommentare adressieren | `/pr-review` |
+| Automatisierter PR-Review gegen ADRs/Ruff/Bandit (ADR-100) | `/agent-review` |
+| Alle Workflows reviewen + optimieren (Agent-Stabilität) | `/workflow-review` |
+
+### ADR & Governance
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| ADR anlegen (MADR 4.0, Scope-Detection, pgvector) | `/adr` |
+| ADR reviewen (Platform-Checkliste) | `/adr-review` |
+| ADR Health Audit (Schema, Staleness, Freshness, Redundancy) | `/adr-health` |
+| ADR adversarial challengen (Konflikte, Right-Sizing) | `/adr-challenger` |
+| Kanonischen ADR zu einem Thema disambiguieren | `/adr-curator` |
+| ADR-Zweitmeinung an externes LLM übergeben | `/adr-handoff-extern` |
+| Use Case definieren (RUP/UML) | `/use-case` |
+| Problem → entscheidungsreifes Konzept (T1/T2/T3) | `/konzept` |
+
+### Repo-Onboarding & Setup
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Repo technisch onboarden (Docker, CI/CD, DB, Nginx) | `/onboard-repo` |
+| GitHub-Infra verankern (Issue Templates, ADR, Docs) | `/new-github-project` |
+| Third-Party-Stack onboarden (Outline, Authentik, …) | `/onboard-stack` |
+| Test-Infrastruktur einrichten (iil-testkit, ADR-058) | `/testing-setup` |
+| project-facts.md aus platform-SSoT ins Repo pushen | `/sync-project-facts` |
+
+### Repo-Optimierung & Qualität
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Repo tief optimieren (Tech-Debt, Tests, LLM-Readiness) | `/repo-optimize` |
+| Repo-UI/UX optimieren (Design-System, Klickdummy) | `/repo-ux-opt` |
+| Readiness-Gate (Version aktiv + laufzeit-bereit) | `/repo-ready` |
+| Repo/Package Vollständigkeit prüfen (Quality Gate) | `/repo-health-check` |
+| Cross-Repo Audit (Schwachstellen, Inkonsistenzen) | `/platform-audit` |
+| CI-Health-Konvergenz-Programm (ADR-209) | `/ci-green-program` |
+
+### Testing
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Kompletter Test-Run fürs Repo (Lint, Check, pytest) | `/teste-repo` |
+| Test-Conventions prüfen vor Package-Release (T-01/02/03) | `/testing-conventions` |
+| Pre-Release Frontend-Test (repo-agnostisch, kanonisch) | `/pre-release-test` |
+| Frontend-UI-Test — **writing-hub-Spezialfall** (repo-hardcoded) | `/frontend-ui-test` |
+
+### Deploy & Produktion
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| **App auf Prod deployen (Standard-Pfad)** | `/ship` |
+| App auf Staging deployen (Dev Desktop) | `/ship-staging` |
+| Prod-Deploy manueller Notfall-Handpfad (docker compose) | `/run-prod` |
+| Lokale Docker-Umgebung starten + Health | `/run-local` |
+| Staging deployen + verifizieren | `/run-staging` |
+| Pre-Deploy-Verifikations-Checkliste | `/deploy-check` |
+| Fehlgeschlagenes Deployment zurückrollen | `/rollback` |
+| Prod-Incident triagieren → Route zu Fix/Rollback | `/incident` |
+
+### Infra & Betrieb
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Health aller deployten Services prüfen | `/infra-health` |
+| Single-Pane-Infra-Übersicht (Ports, Drift) | `/infra-overview` |
+| Host-Ressourcen sicher zurückgewinnen (Disk/Docker) | `/infra-cleanup` |
+| Nginx-Configs auditieren (IPv6, SSL, Header) | `/nginx-check` |
+| docker-compose.prod.yml gegen ADR-021 auditieren | `/compose-audit` |
+| Config-Drift zwischen repos.json/ports.yaml/Server | `/drift-check` |
+| DB-Backup für beliebige App | `/backup` |
+| Uptime-Monitoring einrichten (Betterstack) | `/uptime-monitoring` |
+| Stale Windsurf-Server-Prozesse killen | `/windsurf-clean` |
+| GitHub-PAT erneuern (alle 3 Stellen + MCP-Restart) | `/refresh-github-token` |
+| WSL ↔ GitHub ↔ Server synchronisieren | `/sync-repo` |
+
+### Releases & Packages
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Python-Package auf PyPI publizieren | `/release` |
+| Third-Party-Stack upgraden (Outline, Authentik, …) | `/stack-upgrade` |
+
+### Issues, Ideen & Queues
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Offene Issues eines Repos / cross-repo triagieren + abarbeiten | `/issues-offen` |
+| Auto-Issues (labels:auto) über Nacht abarbeiten | `/process-agent-queue` |
+| Outline-Inbox: rohe Ideen erkennen + Template füllen | `/idea-intake` |
+| Cascade-Aufträge aus Outline abarbeiten (Triage) | `/cascade-auftraege` |
+
+### Dokumentation & Assets
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| README + CHANGELOG + Outline fürs aktuelle Repo | `/docu-update` |
+| Reference-Docs fürs aktive Repo generieren | `/docu-repo-active` |
+| Reference-Docs für ALLE Repos generieren | `/docu-repo-all` |
+| Markdown → PDF (Design-Switcher meiki/iil/ttz) | `/create-pdf` |
+
+### Klickdummy & Secrets
+
+| Situation | Slash-Command |
+|-----------|---------------|
+| Neuen Klickdummy anlegen (ADR-211 Cookbook) | `/klickdummy` |
+| Cross-Repo-Klickdummy-Suche (pgvector) | `/klickdummy-search` |
+| Secrets verwalten (rotieren, prüfen, anlegen) | `/secrets` |
+
+### ⛔ Deprecated (nicht mehr als Einstieg verwenden)
+
+| Alt-Skill | Kanonischer Ersatz |
+|-----------|--------------------|
+| `/agent-session-start` | `/session-start` (ADR-233-konform) |
+| `/deploy` | `/ship` (Standard) · `/run-prod` (Notfall) |
+| `/onboarding-new-repo` | `/onboard-repo` |
 
 ---
 
@@ -54,12 +170,12 @@ mode: read-only
 Neue Session startet
         │
         ▼
-/agent-session-start  ← IMMER ZUERST
+/session-start  ← IMMER ZUERST (ADR-233-Worktree, Modell-Tier)
         │
-        ├─ Aufgabe unklar? → Fragen stellen, dann:
+        ├─ Aufgabe unklar? → Fragen stellen, ggf. /prompt für sauberen Auftrag
         │
         ├─ Bug in Produktion (kritisch)?
-        │       └─ /hotfix
+        │       └─ /incident → /hotfix oder /rollback
         │
         ├─ Neues Repo aufsetzen?
         │       ├─ Technisch (Docker, CI/CD) → /onboard-repo
@@ -70,105 +186,36 @@ Neue Session startet
         │       └─ complexity trivial/simple → direkt implementieren (Service Layer!)
         │
         ├─ Architektur-Entscheidung nötig?
-        │       └─ /adr  (BEVOR implementiert wird)
+        │       └─ /adr  (BEVOR implementiert wird); Health-Check → /adr-health
         │
-        ├─ ADR-Gesundheit prüfen (Schema, Drift, Freshness)?
-        │       └─ /adr-health
-        │
-        ├─ Use Case definieren?
-        │       └─ /use-case
+        ├─ Use Case / Konzept?
+        │       └─ /use-case  bzw.  /konzept
         │
         ├─ PR reviewen?
-        │       └─ /pr-review
+        │       └─ /pr-review  (automatisiert: /agent-review)
         │
-        ├─ Unvollständige Angaben / fehlende Dateien gemeldet?
-        │       └─ /repo-health-check
+        ├─ Repo optimieren?
+        │       ├─ breit (Tech-Debt/Tests) → /repo-optimize
+        │       ├─ UI/UX → /repo-ux-opt
+        │       ├─ nur nächste Schritte → /next
+        │       └─ Quality-Gate vor Publish/Deploy → /repo-health-check
         │
-        ├─ Vor Package-Release / nach Test-Failures?
-        │       └─ /testing-conventions
-        │
-        ├─ Third-Party Stack upgraden?
-        │       └─ /stack-upgrade  (Outline, Authentik, Paperless)
-        │
-        ├─ Repos synchronisieren (WSL / GitHub / Server)?
-        │       └─ /sync-repo
-        ├─ Vor Feature-Implementierung: Annahmen absichern?
-        │       └─ /pre-code  (Contract Verification)
-        ├─ Neues Django-App anlegen?
-        │       └─ /new-django-app
-        ├─ Frontend vor Release testen?
-        │       └─ /pre-release-test
+        ├─ Testen?
+        │       ├─ voller Test-Run → /teste-repo
+        │       ├─ vor Package-Release → /testing-conventions
+        │       └─ Frontend vor Freigabe → /pre-release-test
         │
         ├─ Gesamtüberblick / Schwachstellen-Analyse?
         │       └─ /platform-audit
         │
         ├─ Deployen?
         │       ├─ Pre-check → /deploy-check
-        │       └─ Ausführen → /deploy
+        │       ├─ Standard → /ship   (Staging: /ship-staging)
+        │       ├─ Notfall-Handpfad → /run-prod
+        │       └─ Fehlgeschlagen → /rollback
         │
-        └─ Session endet? → AGENT_HANDOVER.md aktualisieren
+        └─ Session endet? → /session-ende (+ /knowledge-capture, /session-retro)
 ```
-
----
-
-## Workflow-Beschreibungen (Kurzform)
-
-### `/agent-session-start`
-Pflicht-Ritual. Lädt CORE_CONTEXT + AGENT_HANDOVER, klärt Aufgabe, prüft Git-Status, erstellt Arbeitsplan. **Niemals überspringen.**
-
-### `/agentic-coding`
-Vollständiger Coding-Flow: Governance → Task-Template → Planner → Router → Ausführung → Guardian → Quality → PR → Audit. Für complexity >= moderate.
-
-### `/hotfix`
-Schneller Produktions-Fix ohne Overhead. Gate 0 (Root-Cause-Pflicht), minimaler Fix, Regression-Test, sofort deployen. Nur für echte Produktionsfehler.
-
-### `/pr-review`
-Strukturiertes Code-Review nach Platform-Conventions. Checkliste: Architektur, Code-Qualität, Tests, Deployment. Kommentar-Format: [BLOCK]/[SUGGEST]/[QUESTION]/[NITS].
-
-### `/onboard-repo`
-Vollständiges technisches Onboarding: Projektstruktur, CI/CD, Docker, Health-Endpoints, Server-Infrastruktur, Nginx, SSL, Platform-Integration.
-
-### `/new-github-project`
-Dokumentations- und Template-Infrastruktur: Issue Forms (Bug/Feature/Task/UC), PR-Template, Labels, CORE_CONTEXT, AGENT_HANDOVER, ADR-Template, UC-Template, Perfect Prompt, Governance.
-
-### `/adr` / `/adr-review`
-ADR anlegen (MADR 4.0, Scope-Detection, Multi-Repo) oder reviewen (Checkliste: Kontext, Alternativen, Konsequenzen, Compliance).
-
-### `/use-case`
-Use Case nach RUP/UML-Standard: Steckbrief → Dok-Datei → GitHub Issue → Index. Für alle user-facing Features.
-
-### `/governance-check`
-Prüft vor Implementierung: Existiert Komponente bereits? LLM/DB/Zugriff korrekt (aifw, ORM, TextChoices)? HTMX-Detection-Typ (repo-spezifisch). ADR-Verletzungen scannen.
-
-### `/repo-health-check`
-Verbindlicher Vollständigkeits-Check für Repos/Packages. Profile: `python-package` + `django-app`. BLOCK-Items müssen alle grün sein. Maschinenausführbar: `tools/repo_health_check.py`. **Pflicht bei jedem neuen Package/Repo und wenn unvollständige Angaben gemeldet werden.**
-
-### `/testing-conventions`
-Prüft Test-Files auf die 3 häufigsten Fehler-Patterns vor Package-Release: T-01 `pytest.importorskip` für optionale Deps, T-02 `AsyncMock(side_effect=)` statt `wraps=`, T-03 `pytest.raises()` für Exception-Contracts. **Pflicht vor jedem `git tag vX.Y.Z`.**
-
-### `/deploy-check`
-Pre-Deploy Gate: Tests grün, CI grün, Migrations gecheckt, Env aktuell, Post-Deploy Health-Check.
-
-### `/deploy`
-Production-Deploy via GitHub Actions (infra-deploy). Read-ops via deployment-mcp, Write-ops IMMER via GitHub Actions.
-
-### `/backup`
-DB-Backup für beliebige App.
-
-### `/windsurf-clean`
-Stale Windsurf-Server-Prozesse killen wenn SSH-Reconnect fehlschlägt.
-
-### `/testing-setup`
-Test-Infrastruktur nach ADR-058: platform_context[testing], conftest, factories, pyproject.toml.
-
-### `/stack-upgrade`
-Standardisiertes Upgrade für Third-Party Docker-Stacks: Backup → Pull → Compose Update → Verify → Cleanup. Getestet mit Outline 0.82→1.6, anwendbar auf Authentik, Paperless.
-
-### `/platform-audit`
-Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen: Repo-Scan → Architektur-Konsistenz → Infra-Health → Analyse → Report. Generiert priorisierten Audit-Report (CRITICAL/HIGH/MEDIUM/LOW), sichert in Outline, erstellt optional GitHub Issues. Empfohlen: 1× pro Woche.
-
-### `/sync-repo`
-3-Node-Sync: WSL ↔ GitHub ↔ Server konsistent halten. Vor und nach jeder Session ausführen wenn Code auf mehreren Nodes bearbeitet wurde.
 
 ---
 
@@ -188,29 +235,27 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 
 /hotfix
     └─ schnellere Variante von: /agentic-coding
-    └─ danach: /deploy (sofort)
+    └─ danach: /ship (nach Freigabe, kanonischer Prod-Deploy)
 
-/deploy
+/ship
     └─ Gate davor: /deploy-check
-    └─ bei Fehler: Rollback via deploy-rollback.yml
+    └─ Notfall-Alternative: /run-prod
+    └─ bei Fehler: /rollback
 
-/new-github-project
-    └─ ergänzt: /onboard-repo (nicht ersetzt)
-    └─ braucht: /adr für ersten echten ADR
+/incident
+    └─ routet zu: /hotfix, /rollback oder Stop
 
 /stack-upgrade
     └─ ruft auf: /backup (Step 2)
     └─ danach: /knowledge-capture (Upgrade-Runbook)
 
 /sync-repo
-    └─ empfohlen: vor /agent-session-start wenn multi-node
-    └─ empfohlen: nach /deploy wenn Server-Stand unklar
+    └─ empfohlen: vor /session-start wenn multi-node
+    └─ empfohlen: nach /ship wenn Server-Stand unklar
 
 /platform-audit
     └─ nutzt: /repo-health-check (Checks pro Repo)
-    └─ nutzt: deployment-mcp (Infra Health)
     └─ erzeugt: GitHub Issues (bei CRITICAL/HIGH)
-    └─ speichert: Outline Konzept + platform/audits/
     └─ empfohlen: 1× pro Woche
 ```
 
@@ -222,10 +267,9 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 |-------|----------|-------------------|
 | **Developer** | Features, Bugfixes, Tests | `/agentic-coding`, `/hotfix` |
 | **Tech Lead** | ADRs, Architecture Reviews, Re-Engineering | `/adr`, `/adr-review`, `/pr-review` |
-| **Planner** | Use Cases, Task-Decomposition | `/use-case`, `/agentic-coding` Step 2 |
-| **Guardian** | Linting, Security, Quality | Eingebettet in `/agentic-coding` Step 6+7 |
-| **Re-Engineer** | Rollback-Handling, Refactoring | `/agentic-coding` Step 4b |
-| **Infra** | Onboarding, Deployment, Health Checks | `/onboard-repo`, `/new-github-project`, `/deploy`, `/repo-health-check` |
+| **Planner** | Use Cases, Konzepte, Task-Decomposition | `/use-case`, `/konzept`, `/agentic-coding` |
+| **Guardian** | Linting, Security, Quality | eingebettet in `/agentic-coding`, `/agent-review` |
+| **Infra** | Onboarding, Deployment, Health Checks | `/onboard-repo`, `/ship`, `/infra-health` |
 | **QA** | Test-Conventions, Release-Gates | `/testing-conventions`, `/repo-health-check` |
 
 ---
@@ -245,47 +289,35 @@ Cross-Repo Schwachstellen-Analyse: Scannt ALLE 7 Repos + Infrastruktur. 5 Phasen
 10. MANDATORY: HEALTHCHECK in jedem Dockerfile (--interval=30s --timeout=10s --retries=3)
 11. /repo-health-check IMMER vor erstem Publish oder Deploy eines neuen Repos
 12. /testing-conventions IMMER vor git tag vX.Y.Z (Package-Release)
-    → T-01: pytest.importorskip() für opt. Deps
-    → T-02: AsyncMock(side_effect=) statt wraps=
-    → T-03: pytest.raises() für Exception-Contracts
-13. Branch Protection: qm-gate als required status check in main (ADR-174, alle Repos)
-    → "Do not allow bypassing" aktivieren
-    → Setup via /onboard-repo Step 6.9
+13. Prod-Deploy braucht IMMER Freigabe (autonomy-gates Gate 2) — auch bei Routine
+14. Branch Protection: qm-gate als required status check in main (ADR-174, alle Repos)
 ```
 
 ---
 
-## Symlink-Policy (ADR-174)
+## Skill-Distribution (ADR-230, cc-skill-dist)
 
-**Regel: Symlink DEFAULT — Lokal NUR bei repo-spezifischem Inhalt.**
+**SSoT ist diese Quelle:** `.windsurf/workflows/*.md` in `platform` (branch-stabil, `origin/main`).
+Von hier werden die Live-Kopien deterministisch **generiert** — kein Handkopieren, keine Symlinks:
 
-| Typ | Strategie | Beispiele |
-|-----|-----------|-----------|
-| **Platform-global** | Symlink → Änderung in `platform/` wirkt sofort überall | `agentic-coding.md`, `governance-check.md`, `pre-code.md`, `workflow-index.md`, `platform-audit.md`, `adr.md`, `hotfix.md`, `deploy.md` |
-| **Repo-spezifisch** | Lokal → repo-eigene Befehle/Pfade/ADRs | `complete.md`, `agent-task.md`, `run-tests.md` |
+| Schritt | Werkzeug | Zweck |
+|---------|----------|-------|
+| Generieren | `tools/cc-skill-dist/generate.py` | `.windsurf/workflows/*.md` → flach nach `~/.claude/commands/` (CC-Slash-Commands), jede Kopie mit MANAGED-Footer (source_commit, content_hash) + `manifest.json`. Atomar (tmp→rename), deterministisch. |
+| Drift prüfen | `tools/cc-skill-dist/doctor.py` | Read-only Diff Quelle ↔ Live-Ziel: stale Kopien, dangling Links, fehlende/zusätzliche Skills, **DRIFT-SCORE**. SUGGEST-Lint für `mcp<n>_`-Legacy-Tokens (nicht im Score). |
+| Vollständigkeit | `tools/check_workflow_index.py` | Jeder Skill muss in **diesem** Index stehen (oder Allowlist) — CI-Gate in `tools-tests.yml`. |
 
-**Neue Workflow-Datei anlegen:**
-```bash
-# 1. In platform/ erstellen
-# 2. Symlink in Ziel-Repo:
-ln -s ../../../platform/.windsurf/workflows/<name>.md .windsurf/workflows/<name>.md
+> **Redistribution nach Merge** (`~/.claude/commands/` aktualisieren) läuft aktuell **manuell**
+> via `generate.py --allow-live`; die Post-Merge-Automatik (CI-Job auf `push:main`, paths
+> `.windsurf/workflows/**`, mit erzwungenem Dry-Run-Beweis gemäß Gate `autonomous-no-human-review`)
+> ist noch offen (#901).
+>
+> Interne System-Prompt-Workflows (Frontmatter `distribute: false`, z. B. die
+> `adr-handoff-extern-reviewer*`-Personas) werden **nicht** als Slash-Command verteilt und
+> sind daher auch von der Index-Pflicht ausgenommen (Allowlist in `check_workflow_index.py`).
 
-# Verify: alle Symlinks im Repo prüfen
-find .windsurf/workflows/ -type l -exec ls -la {} \;
-```
-
-**Aktueller Stand risk-hub:**
-```
-SYMLINK: agentic-coding.md, governance-check.md, pre-code.md,
-         platform-audit.md, workflow-index.md
-LOKAL:   complete.md, agent-task.md, run-tests.md,
-         agent-session-start.md, session-start.md, session-ende.md
-```
-
-> Neue Workflows bei `/onboard-repo` immer als Symlink anlegen.
-> Lokal-Entscheidung in `AGENT_HANDOVER.md` des Repos dokumentieren.
+Governance: **ADR-230** (Coding nur über Claude Code; Windsurf = nur generiertes Review-Subset).
 
 ---
 
-*Workflow Index v1.5 — Platform Coding Agent System | 2026-04-29*
+*Workflow Index v2.0 — Platform Coding Agent System | 2026-07-04*
 *Alle Workflows: `${GITHUB_DIR:-$HOME/github}/platform/.windsurf/workflows/`*

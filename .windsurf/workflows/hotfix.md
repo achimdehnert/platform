@@ -162,7 +162,7 @@ Frage den User: "Prod-Deploy für `<REPO>` nach Hotfix-Merge bestätigen? (ja/ne
 
 ## Step 8: Deploy
 
-Nach Freigabe deployen via `/deploy`:
+Nach Freigabe deployen via `/ship` (kanonischer Prod-Deploy-Pfad; `/deploy` ist deprecated):
 
 ```
 service: [app-name]

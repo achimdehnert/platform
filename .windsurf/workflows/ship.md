@@ -12,6 +12,20 @@ mode: write
 > Falls das Repo eine **eigene** `ship.md` hat, wird diese bevorzugt.
 > Falls nicht, nutzt der Agent dieses Template und ermittelt die Parameter.
 
+## Wann `/ship` — und wann nicht?
+
+`/ship` ist der **kanonische Standard-Pfad** für Prod-Deploys (Deploy-Trias-Kanon 2026-07-04).
+
+- **Wann `/ship`:** regulärer App-Deploy nach main-Merge — verify → push → CI → migrate →
+  health-check, server-seitig via Short-Trigger (Fallback GitHub Actions).
+- **Wann NICHT / stattdessen:**
+  - Server/CI nicht erreichbar oder du brauchst einen manuellen Hand-Pfad direkt am
+    `docker compose` → **`/run-prod`** (Notfall-Handpfad mit sauberem Ja/Nein-Gate).
+  - Deploy schlug fehl, Prod ist rot → **`/rollback`**.
+  - Ziel ist Staging (Dev Desktop) statt Prod → **`/ship-staging`**.
+  - Pre-Deploy-Checkliste ohne Deploy → **`/deploy-check`**.
+  - `/deploy` (infra-deploy-Actions) ist **deprecated** — nicht mehr verwenden.
+
 ## Step 0: Parameter ermitteln
 
 Ermittle die 4 Deploy-Parameter für dieses Repo:
@@ -119,6 +133,16 @@ git -C ${GITHUB_DIR:-$HOME/github}/{scope} push origin main
 ---
 
 ## Schritt 3 — Deploy triggern (ADR-156 Short-Trigger)
+
+### ⚠️ GATE: Explizite Prod-Deploy-Freigabe erforderlich (vor Deploy-Trigger)
+
+> Das Gate in Schritt 1 sitzt vor dem **Push** — der eigentliche **Deploy** braucht ein
+> **eigenes** explizites Ja. Frage den User: "Prod-Deploy für `{scope}` jetzt triggern? (ja/nein)"
+> → Bei "nein": **STOPP** — Code ist gepusht, aber es wird nicht deployt.
+> → Bei "ja": weiter mit dem Deploy-Trigger unten.
+>
+> Prod-Deploy braucht **IMMER** Freigabe — kein Autopilot, auch nicht bei Routine.
+> Siehe `~/.claude/policies/autonomy-gates.md` Gate 2.
 
 **Primary (ADR-156):** Server-seitiges Deploy via Short-Trigger (~2s SSH, non-blocking).
 Deploy.sh führt Pull, Migrate, Recreate, Health-Check und ggf. Rollback automatisch aus.

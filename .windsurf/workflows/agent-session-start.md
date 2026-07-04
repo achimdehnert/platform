@@ -4,6 +4,11 @@ description: Pflicht-Ritual vor jeder Coding-Agent-Session — Kontext laden, St
 
 # Agent Session Start Workflow
 
+> ⛔ **DEPRECATED — kanonisch ist `/session-start` (ADR-233-konform; dieser Skill wird nicht mehr gepflegt).**
+> `/session-start` kennt die Worktree-Konvention (ADR-233), die Modell-Tier-Wahl und den
+> aktuellen Error-Learning-Pfad; dieser Workflow tut das nicht. Neue Sessions IMMER über
+> `/session-start` starten. Diese Datei bleibt nur als Referenz für Alt-Verweise stehen.
+
 **Trigger:** Jede neue Windsurf/Agent Session, bevor der erste Code-Change gemacht wird.
 
 > Dieses Ritual verhindert, dass ein Agent ohne Kontext blind drauflos arbeitet.
