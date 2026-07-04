@@ -12,6 +12,15 @@ description: Repo-UX optimieren — Modus A (Audit + Refactor bestehender App) o
 - `--scan-only`: nur Schritt 1–2 (Inventar + Findings-Tabelle), **keine Edits** —
   empfohlener erster Lauf, bevor Schreibrechte sinnvoll sind
 
+## Wann `/repo-ux-opt` — und wann nicht?
+
+- **Wann:** gezielte **UI/UX**-Arbeit an einem Repo — Frontend-Audit + Refactor (Modus A)
+  oder Spec-first für neue Views via Klickdummy (Modus B), nach Plattform-Design-System.
+- **Wann NICHT / stattdessen:**
+  - Repo **breit** optimieren (Tech-Debt, Tests, Robustheit, LLM-Readiness) → `/repo-optimize`.
+  - Fleet/Cross-Repo-Audit → `/platform-audit`.
+  - Reines Quality-Gate vor Publish/Deploy → `/repo-health-check`.
+
 ---
 
 ## Schritt 0 — Repo-Fakten laden (Pflicht, nichts raten)

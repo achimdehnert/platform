@@ -59,7 +59,7 @@ if ! grep -q "GITHUB_DIR" ~/.bashrc 2>/dev/null; then
   echo "# Platform: Repo-Basisverzeichnis (Single Source of Truth)" >> ~/.bashrc
   echo "export GITHUB_DIR=\"\$HOME/github\"" >> ~/.bashrc
   echo "⚙️  GITHUB_DIR in ~/.bashrc eingetragen (Wert: \$HOME/github)"
-  echo "   → Anpassen falls Repos woanders liegen, z.B.: GITHUB_DIR=\$HOME/CascadeProjects"
+  echo "   → Anpassen falls Repos woanders liegen, z.B.: GITHUB_DIR=\$HOME/code"
 fi
 export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 
@@ -356,7 +356,7 @@ python -c "
 import yaml, urllib.request, socket
 from pathlib import Path
 import os
-gh = os.environ.get('GITHUB_DIR') or f\"{os.environ['HOME']}/CascadeProjects\"
+gh = os.environ.get('GITHUB_DIR') or f\"{os.environ['HOME']}/github\"
 d = yaml.safe_load(Path(f'{gh}/platform/infra/ports.yaml').read_text())
 ok = fail = skip = 0
 for name, cfg in sorted(d.get('services',{}).items()):

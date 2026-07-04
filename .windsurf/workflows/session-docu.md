@@ -8,6 +8,10 @@ description: Documentation audit, generation and sync — unified docs across al
 > Analog zu `/ship` (Deploy) und `/session-start` (Kontext), aber für Dokumentation.
 > Review-Fix K-02: --generate ist IMMER --dry-run by default.
 > Commit erfolgt nur mit explizitem --commit Flag.
+>
+> **Wann NICHT:** Session-/Erfahrungswissen (Lessons, Error-Patterns, Runbooks) in Outline
+> sichern → `/knowledge-capture`. Dieser Workflow pflegt die **repo-eigene Reference-Doku**
+> (README/CHANGELOG/API/Models), nicht das Session-Gedächtnis.
 
 ## Verwendung
 

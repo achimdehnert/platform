@@ -9,6 +9,11 @@ mode: read-only
 Für neue Features: zuerst `/pre-code` (Contract Verification), dann dieser Check.
 
 > ⚠️ MCP-Prefix ist environment-spezifisch — `<ctx>` = Platform-Context-Prefix aus `project-facts.md`.
+>
+> ℹ️ **CC-Fallback:** Die `mcp2_adr_*`-Aufrufe sind Windsurf-Ära-Namen; in Claude-Code-Sessions
+> heißen dieselben Tools `mcp__<orchestrator-prefix>__adr_*`. Bindet die Session keinen
+> ADR-MCP-Server, ist der Fallback direkte Reads in `docs/adr/` bzw. der `iil-adrfw`-CLI-Weg —
+> der Check bricht nicht ab, nur die MCP-Automatik entfällt. (Muster: `session-start.md`.)
 
 ## Step 1: Existing Component Check
 

@@ -43,6 +43,10 @@ GitHub MCP: `mcp_github_get_pull_request` mit owner/repo/pull_number.
 ## Step 1.5: ADR Impact + Compliance Check (automatisch)
 
 > Nutzt `iil-adrfw` MCP Tools (Prefix aus project-facts.md, aktuell `mcp2_`).
+>
+> ℹ️ **CC-Fallback:** In Claude-Code-Sessions heißen die Tools `mcp__<orchestrator-prefix>__adr_*`.
+> Bindet die Session keinen ADR-MCP-Server, ist der Fallback direkte Reads in `docs/adr/` bzw.
+> der `iil-adrfw`-CLI-Weg — der Review bricht nicht ab, nur die MCP-Automatik entfällt.
 
 Für **jede geänderte Datei** im PR:
 
