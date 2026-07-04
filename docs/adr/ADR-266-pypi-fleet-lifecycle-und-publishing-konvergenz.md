@@ -63,7 +63,19 @@ Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
 
 ### Stufen
 
-- **Stufe 1 — Inventar-Wahrheit** ✅ *(dieser PR)*: Fleet-Inventar-Tool +
+> **Statuskorrektur 2026-07-04 (2. Evidenzrunde, Stufe-2b/3-Umsetzung):**
+> (a) Der Erst-Scan las **lokale Klone** — die waren stale; das Tool liest jetzt
+> **origin/main** (lokal) bzw. die **GitHub-API** (`--remote`, CI).
+> (b) Das K2-Backlog (aifw, researchfw, iil-ingest) war durch **Parallel-PRs
+> bereits gedraint** (aifw#26, researchfw#7, iil-ingest#4). (c) iil-ingest#4
+> entschied den Doppel-Publisher **anders als unten skizziert**: repo-seitiger
+> Publisher entfernt, „platform-Kopie kanonisch" — akzeptiert; K5 heißt damit
+> „genau EIN Publisher", nicht zwingend im Paket-Repo. Verbleibender
+> Doppel-Publisher: **iil-testkit** (Remote-Scan-Fund: repo-seitig UND
+> platform-remote). (d) Stufe 3 umgesetzt: `pypi-fleet-health.yml`
+> (wöchentlich Mo 06:30, read-only, ein Tracking-Issue) + `--remote`/`--downloads`.
+
+- **Stufe 1 — Inventar-Wahrheit** ✅ *(PR #910)*: Fleet-Inventar-Tool +
   `registry/pypi-fleet.yaml`; Registry-Reconcile (3 Einträge ergänzt); tote
   platform-Publisher entfernt (`publish-packages.yml`, `publish-platform-context.yml`).
 - **Stufe 2a — Auth-Konvergenz (Token-Abbau)** 🟡: **Run-Log-Prüfung 2026-07-04
