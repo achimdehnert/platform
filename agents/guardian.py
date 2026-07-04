@@ -12,8 +12,9 @@ Nutzung:
   python -m agents.guardian --diff /path/to/diff.patch
 
 Gate-Integration:
-  G-001, G-004 → Gate 1 (Auto-Warn, PR-Kommentar)
-  G-002, G-003 → Gate 2 (Human Approval Required)
+  G-001, G-003, G-004 → Gate 1 (Auto-Warn, PR-Kommentar; G-003 nur Warn,
+                        da tenant_id nur für Multi-Tenant-Repos Pflicht)
+  G-002 → Gate 2 (Human Approval Required)
 """
 from __future__ import annotations
 
