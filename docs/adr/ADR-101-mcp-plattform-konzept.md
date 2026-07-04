@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-03-06
 decision-makers: Achim Dehnert
 consulted: Cascade (KI-Agent)

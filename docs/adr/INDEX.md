@@ -77,7 +77,7 @@
 | 089 | bfagent-llm — LiteLLM-Backend + DB-driven Model-Routing | Accepted | ✅ | [ADR-089](ADR-089-bfagent-llm-litellm-db-driven-architecture.md) |
 | 090 | Use Hybrid Matrix CI/CD Pipeline for Python + PostgreSQL → Docker Deploy | Accepted | ✅ | [ADR-090](ADR-090-cicd-pipeline-python-postgres.md) |
 | 091 | Platform Operations Hub Consolidation | Accepted | ✅ | [ADR-091](ADR-091-platform-operations-hub-consolidation.md) |
-| 092 | Tenant-Aware Seed Commands | Proposed | ⬜ | [ADR-092](ADR-092-tenant-aware-seed-commands.md) |
+| 092 | Tenant-Aware Seed Commands | Accepted | ⬜ | [ADR-092](ADR-092-tenant-aware-seed-commands.md) |
 | 093 | AI & LLM Configuration App in dev-hub | Accepted | ✅ | [ADR-093](ADR-093-ai-config-app.md) |
 | 094 | Django Migration Conflict Resolution Pattern | Accepted | ✅ | [ADR-094](ADR-094-django-migration-conflict-resolution.md) |
 | 095 | aifw Quality-Level Routing — Multi-Dimensional LLM Dispatch with Prompt-Template Coordination | Accepted | ✅ | [ADR-095](ADR-095-aifw-quality-level-routing.md) |
@@ -86,10 +86,10 @@
 | 098 | Adopt 3-Layer Tuning Standard for PROD/DEV Hetzner Infrastructure | Accepted | ✅ | [ADR-098](ADR-098-production-infrastructure-tuning-standard.md) |
 | 099 | dev-hub Release Management UI — PyPI Publishing & GitHub Tag Workflow via devhub.iil.pet | Accepted | ✅✅ | [ADR-099](ADR-099-devhub-release-management-ui.md) |
 | 100 | iil-testkit — Shared Test Factory Package für alle Platform-Repos | Accepted | ✅ | [ADR-100](ADR-100-iil-testkit-shared-test-factory-package.md) |
-| 101 | Adopt 3-Tier MCP Architecture for Platform-Wide Tool Orchestration | Proposed | ⬜ | [ADR-101](ADR-101-mcp-plattform-konzept.md) |
+| 101 | Adopt 3-Tier MCP Architecture for Platform-Wide Tool Orchestration | Accepted | ⬜ | [ADR-101](ADR-101-mcp-plattform-konzept.md) |
 | 102 | Adopt Cloudflare for DNS, CDN, and DDoS Protection | Accepted | ✅ | [ADR-102](ADR-102-cloudflare-dns-cdn-migration.md) |
 | 103 | ausschreibungs-hub — KI-gestützte Ausschreibungs- und Angebotsplattform | Accepted | 🔶 | [ADR-103](ADR-103-ausschreibungs-hub-architektur-v3.md) |
-| 104 | Research Hub und iil-researchfw — Zentralisierung der Research-Infrastruktur | Proposed | ⬜ | [ADR-104](ADR-104-research-hub-iil-researchfw.md) |
+| 104 | Research Hub und iil-researchfw — Zentralisierung der Research-Infrastruktur | Accepted | ⬜ | [ADR-104](ADR-104-research-hub-iil-researchfw.md) |
 | 105 | iil-researchfw — Code-Extraktion und Implementierungsplan | Accepted | ⬜ | [ADR-105](ADR-105-iil-researchfw-extraction-plan.md) |
 | 107 | Erweitertes Agent-Team — Cascade als Tech Lead, Deployment Agent, Review Agent und explizite Rollenentlastung | Accepted | ✅ | [ADR-107](ADR-107-extended-agent-team-deployment-agent.md) |
 | 108 | Agent QA Cycle -- Quality Evaluator, Completion Gate, AuditStore | Accepted | ✅ | [ADR-108](ADR-108-agent-qa-cycle.md) |
@@ -107,7 +107,7 @@
 | 130 | Adopt a shared Django app `content_store` for AI-generated content persistence | Accepted | ✅ | [ADR-130](ADR-130-content-store-shared-persistence.md) |
 | 131 | Shared Backend Services Library für Django-Projekte | Accepted | ✅ | [ADR-131](ADR-131-shared-backend-services.md) |
 | 132 | AI Context Defense-in-Depth | Accepted | ✅ | [ADR-132](ADR-132-ai-context-defense-in-depth.md) |
-| 133 | Shared AI Services als wiederverwendbare Python-Pakete | Proposed | ⬜ | [ADR-133](ADR-133-shared-ai-services-package.md) |
+| 133 | Shared AI Services als wiederverwendbare Python-Pakete | Accepted | ⬜ | [ADR-133](ADR-133-shared-ai-services-package.md) |
 | 134 | Modul-Konfiguration und Monetarisierungsstrategie als shared Package | Proposed | ⬜ | [ADR-134](ADR-134-module-monetization-strategy.md) |
 | 137 | Tenant-Lifecycle, Self-Service Module-Buchung und Row-Level Security | Accepted | ✅ | [ADR-137](ADR-137-tenant-lifecycle-module-selfservice-rls.md) |
 | 138 | ADR Implementation Tracking Standard — Lifecycle, Frontmatter Fields, and Verification | Accepted | ✅ | [ADR-138](ADR-138-implementation-tracking-standard.md) |
@@ -117,12 +117,12 @@
 | 142 | Unified Identity — authentik als Platform Identity Provider | Accepted | 🔶 | [ADR-142](ADR-142-unified-identity-authentik-platform-idp.md) |
 | 143 | Knowledge-Hub — Outline Wiki + research-hub Integration | Accepted | 🔶 | [ADR-143](ADR-143-knowledge-hub-outline-integration.md) |
 | 144 | doc-hub — Paperless-ngx als Dokumentenmanagement-System | Accepted | ✅ | [ADR-144](ADR-144-doc-hub-paperless-ngx.md) |
-| 145 | Knowledge Management — Cascade ↔ Outline Anti-Knowledge-Drain | Proposed | 🔶 | [ADR-145](ADR-145-knowledge-management-cascade-outline.md) |
+| 145 | Knowledge Management — Cascade ↔ Outline Anti-Knowledge-Drain | Accepted | 🔶 | [ADR-145](ADR-145-knowledge-management-cascade-outline.md) |
 | 146 | Hub-übergreifendes DB-Prompt-Management — promptfw als SSoT für editierbare Prompts | Accepted | ⬜ | [ADR-146](ADR-146-hub-prompt-management.md) |
-| 147 | `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen | Proposed | ⬜ | [ADR-147](ADR-147-concept-templates-package.md) |
+| 147 | `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen | Superseded | — | [ADR-147](ADR-147-concept-templates-package.md) |
 | 148 | Adopt Django Multi-Tenant SaaS Architecture for Recruiting Hub | Accepted | ⬜ | [ADR-148](ADR-148-recruiting-hub-architecture.md) |
 | 149 | Adopt d.velop Cloud DMS as Platform Document Archive Service (dms-hub) | Accepted | 🔶 | [ADR-149](ADR-149-dms-hub-dvelop-platform-service.md) |
-| 151 | End-to-End Recruiting-Workflow — LinkedIn Recruiter × Hunter CRM × Recruiting Hub | Proposed | ⬜ | [ADR-151](ADR-151-recruiting-workflow-e2e.md) |
+| 151 | End-to-End Recruiting-Workflow — LinkedIn Recruiter × Hunter CRM × Recruiting Hub | Void  # f-3 t-11 (2026-07-04): keine umsetzungsspur nach 101 tagen | ⬜ | [ADR-151](ADR-151-recruiting-workflow-e2e.md) |
 | 153 | Adopt Module-basierte SaaS-Architektur für tax-hub (Multi-Mandant, buchbare Module) | Accepted | ⬜ | [ADR-153](ADR-153-tax-hub-saas-architecture.md) |
 | 154 | Autonomous Coding Optimization — Information Flow, Error Prevention, Continuous Improvement | Accepted | ⬜ | [ADR-154](ADR-154-autonomous-coding-optimization.md) |
 | 155 | API Contract Testing für iil-Package Integrationen | Accepted | ⬜ | [ADR-155](ADR-155-api-contract-testing.md) |
@@ -153,7 +153,7 @@
 | 180 | Package Consolidation Strategy — 34 → 20 Packages (v3) | Accepted | ⬜ | [ADR-180](ADR-180-package-consolidation-strategy.md) |
 | 181 | ADR-147 Implementierungsplan (void — misclassified as ADR) | Void | ⬜ | [ADR-181](ADR-181-implementation-plan.md) |
 | 182 | ADR-147 Review Principal Architect (void — misclassified as ADR) | Void | ⬜ | [ADR-182](ADR-182-review.md) |
-| 183 | `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen (v2) | Proposed | ⬜ | [ADR-183](ADR-183-v2-concept-templates-package.md) |
+| 183 | `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen (v2) | Accepted | 🔶 | [ADR-183](ADR-183-v2-concept-templates-package.md) |
 | 184 | Adopt a Three-Layer Contract Testing Strategy for All Function and Method Calls | Accepted | 🔶 | [ADR-184](ADR-184-contract-testing-strategy.md) |
 | 185 | Adopt Gate-controlled Deploy-Agent for automated Staging→Prod deployments | Proposed | ⬜ | [ADR-185](ADR-185-deploy-agent-pattern.md) |
 | 186 | Use Unified Agent Loop on aifw for Headless Coding Pipeline | Proposed | 🔶 | [ADR-186](ADR-186-headless-agent-coding-pipeline.md) |

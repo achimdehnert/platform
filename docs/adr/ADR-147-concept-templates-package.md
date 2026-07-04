@@ -1,5 +1,6 @@
 ---
-status: proposed
+status: superseded
+superseded_by: ADR-183
 date: 2026-03-26
 decision-makers: [Achim Dehnert]
 consulted: []
