@@ -1,0 +1,147 @@
+---
+id: ADR-266
+title: "PyPI-Fleet: Paket-Lifecycle, Publishing-Konvergenz und Health-Mechanismus (Programm)"
+status: proposed
+date: 2026-07-04
+deciders: [Achim Dehnert]
+consulted: [Claude Code]
+informed: [iilgmbh]
+scope: platform
+related: [ADR-226, ADR-255, ADR-265]
+tags: [pypi, packaging, publish-gate, trusted-publishing, fleet-pattern, lifecycle, programm]
+implementation_status: in-progress
+---
+
+# ADR-266 — PyPI-Fleet: Lifecycle, Publishing-Konvergenz, Health-Mechanismus
+
+> Programm-ADR (Auftrag Achim 2026-07-04): „alle Repos, die als PyPI dienen,
+> analysieren und so optimieren, dass sie ihren Zweck erfüllen und sich stetig
+> verbessern können — mit einem Mechanismus, der das für die Zukunft übernimmt."
+> Dieses ADR ist der **Aufsetzpunkt für jede Folge-Session** (Mensch oder Agent):
+> Ground Truth = `registry/pypi-fleet.yaml` (regenerierbar), Plan = dieses ADR.
+
+## Kontext und Problemstellung
+
+Befund 2026-07-04 (Evidenz via `tools/pypi_fleet_inventory.py`, Stand im
+Fleet-File): **21 Pakete**, aber kein konsistenter Zustand:
+
+- **Inventar-Drift:** 4 publizierende Repos fehlten in der Registry
+  (iil-django-commons, iil-fieldprefill¹, iil-klickdummy, riskfw); Registry-Paket
+  `django-lms-lite` hat keinen Publish-Pfad; `gaeb-toolkit` ist Registry-Paket
+  ohne publish-Workflow (¹fieldprefill war vorhanden — Korrektur betraf 3 + 1 Doppel-Fund).
+- **Doppel-Publisher:** `iil-ingest` wird von Repo UND platform publiziert
+  (beide zuletzt 2026-05-05); `iil-codeguard` nur noch von platform (Repo-seitig
+  kein publish.yml auf main — lokale Datei ist Branch-Artefakt).
+- **Tote Publisher:** platforms `publish-packages.yml` (Matrix: django-tenancy,
+  concept-templates, dvelop-client) und `publish-platform-context.yml`
+  referenzieren gelöschte `packages/`-Pfade; letzte Läufe rot (März) bzw.
+  seit Pfad-Löschung nicht lauffähig. `testkit` (archiviert, Actions inert)
+  trägt denselben Dist-Namen wie `iil-testkit`.
+- **Auth-Flickenteppich:** 8× pur OIDC (Trusted Publishing), 3× pur Token-Secret
+  (iil-codeguard, iil-django-commons, iil-ingest), 4× hybrid (aifw, learnfw,
+  promptfw, weltenfw — OIDC deklariert, Token-Referenz zusätzlich).
+- **Kein Verbesserungs-Eingang:** 0 gesampelte Paket-Repos mit Dependabot/
+  Renovate; ADR-226-Reusable `_ci-pypi.yml` hat 0 externe Consumer (17
+  handgerollte publish.yml).
+
+## Entscheidung: gestuftes Programm
+
+„Perfekt" wird operationalisiert als **7 prüfbare Kriterien je Paket** (K1–K7),
+„stetig verbessern" als **detektierender, nie handelnder Mechanismus**.
+
+### Kriterien K1–K7 (Soll-Zustand je Paket)
+
+| # | Kriterium | Prüfung |
+|---|---|---|
+| K1 | CI grün auf main | main-Status |
+| K2 | Publish-Gate by-construction (Test ODER gitleaks via `needs:` vor Upload, ADR-226) | `tools/check_publish_gate.py` |
+| K3 | Version konsistent: pyproject ↔ git-Tag ↔ PyPI | Fleet-Inventar |
+| K4 | Auth = pures Trusted Publishing (OIDC, keine Token-Secrets) | Fleet-Inventar |
+| K5 | Genau EIN Publisher, im Paket-Repo selbst (ADR-226-Invariante) | Fleet-Inventar |
+| K6 | Registry-Eintrag mit `pypi:`-Feld (SSoT canonical.yaml) | Fleet-Inventar |
+| K7 | Consumer-Contract: designierter Consumer baut gegen Release-Kandidat vor Tag | CI-Job (Stufe 3a) |
+
+### Stufen
+
+- **Stufe 1 — Inventar-Wahrheit** ✅ *(dieser PR)*: Fleet-Inventar-Tool +
+  `registry/pypi-fleet.yaml`; Registry-Reconcile (3 Einträge ergänzt); tote
+  platform-Publisher entfernt (`publish-packages.yml`, `publish-platform-context.yml`).
+- **Stufe 2a — Auth-Konvergenz (Token-Abbau)** 🟡: **Run-Log-Prüfung 2026-07-04
+  falsifizierte die Ausgangsannahme** „Hybrid = Token tot": aifw (Run 28024503285,
+  2026-06-23) und learnfw (25115929231) publizierten nachweislich MIT Token
+  (`password set by command options`) — die OIDC-Deklaration ist dort der tote
+  Teil; promptfw hat keinen erfolgreichen Publish-Run. Folge: **kein** Token darf
+  vor PyPI-seitigem Trusted-Publisher-Binding entfernt werden (Binding headless
+  nicht prüfbar) → 2a = Evidenz im Fleet-File + Owner-Checkliste (Bindings für
+  die 7 Nicht-pur-OIDC-Repos), Code-Umstellung folgt binding-weise als
+  Trivial-Commit (Token-Zeile raus, Run beweist OIDC).
+- **Stufe 2b — Reusable-Konvergenz** ⬜ *(gegated)*: 17 handgerollte publish.yml
+  → dünne Caller auf `_ci-pypi.yml@<ref>`. Bringt K2-Verbesserungen von O(17)
+  auf O(1). Lehren beachten: Consumer auf Feature-Ref grün ziehen VOR Merge;
+  `permissions` narrow-only-Falle. Löst dabei den Doppel-Publisher `iil-ingest`
+  auf (Repo gewinnt, platform-Remote-Publisher fällt) und migriert
+  `iil-codeguard`/`iil-testkit` von platform-remote zurück ins Paket-Repo.
+- **Stufe 3 — Health-Mechanismus** ⬜ *(gegated: neuer Automatismus)*:
+  wöchentlicher read-only Report-Workflow in platform; nutzt Fleet-Inventar +
+  `publish_gate_meter.py` (existiert, pflegt Tracking-Issue) + PyPI-JSON.
+  **Kein Auto-Publish, kein Auto-Fix, keine LLM-Urteile** (deterministisch).
+  - **3a Consumer-Canary** (K7) je Paket-Release.
+  - **3b Dependabot** fleet-weit für Paket-Repos (monatlich gruppiert).
+  - **3c Totes-Paket-Signal**: Downloads (pypistats) + letztes Release; Kandidaten
+    für Archivierung werden Issue, nie Auto-Aktion.
+
+### Betrachtete Alternativen
+
+- *Zentraler Publish in shared-ci:* verworfen — ADR-226-Invariante (Gate
+  unmittelbar vor Upload, Publish pro Repo).
+- *Auto-Fix im Mechanismus:* verworfen — Publish ist irreversibel;
+  Gate `autonomous-no-human-review`.
+- *Qualitäts-Prozent-Gates (Coverage/Doku) über alle Pakete:* verworfen —
+  erzeugt bei heterogener Reife Dauerrot statt Verbesserung.
+
+## Konsequenzen
+
+- Positiv: ein maschinenlesbarer, regenerierbarer Fleet-Zustand; jede
+  Verbesserung wird messbar (K1–K7-Abdeckung); Secrets-Fläche sinkt (2a),
+  Wartung sinkt (2b), Drift wird sichtbar statt vergessen (3).
+- Negativ/Preis: `pypi-fleet.yaml` churnt bei Regeneration (bewusst — Frische
+  ist Signal); Stufe 2b berührt 17 Repos (koordinierter Sweep nötig).
+
+### Confirmation
+
+- `python3 tools/pypi_fleet_inventory.py --check` → Findings-Delta gegen
+  eingecheckten Stand ist das Programm-Backlog.
+- Stufen-Fortschritt = sinkende Finding-Klassen im Fleet-File
+  (Ziel: nur noch leere `findings:`-Listen).
+
+## Handover — wo eine Folge-Session aufsetzt
+
+1. `python3 tools/pypi_fleet_inventory.py` laufen lassen (regeneriert Ground
+   Truth; `--offline` ohne Netz). Diff gegen eingecheckten Stand lesen.
+2. Offene Owner-Aktionen (nur Mensch kann sie tun):
+   - **PyPI-Org `iil`: zweiten Owner eintragen** (blockt ADR-255 Phase-0, REC-1).
+   - **Trusted-Publisher-Bindings auf pypi.org anlegen/prüfen** für alle 7
+     Nicht-pur-OIDC-Repos: iil-codeguard, iil-django-commons, iil-ingest
+     (pur Token) + aifw, learnfw, promptfw, weltenfw (hybrid; aifw/learnfw
+     publizieren beweisbar per Token, s. Stufe 2a). Je Binding danach:
+     Agent entfernt die Token-Zeile und der nächste Release-Run ist der Beleg.
+   - Entscheiden: `django-lms-lite` + `gaeb-toolkit` + `packages/adr-review` —
+     publizieren (dann publish.yml nach 2b-Muster) oder Registry-`pypi:`-Feld
+     entfernen.
+3. Stufe 2b/3 sind design-fertig (oben), aber **gegated** — Freigabe einholen,
+   dann: 2b-Sweep mit Canary-Consumer-PR pro Repo; 3 als `pypi-fleet-health.yml`
+   (Namensregel beachten: NICHT `publish-*` nennen — `publish_gate_invariant.sh`
+   globt darauf).
+4. Offender-Issues (K2-Backlog, Stand 2026-06-30): iil-adrfw#14, iil-codeguard#3,
+   iil-ingest#3, nl2cad#24, iil-enrichment (Meter-Fund).
+
+## Glossar
+
+- **Trusted Publishing (OIDC):** PyPI akzeptiert kurzlebige GitHub-Actions-
+  Identitäts-Tokens statt statischer API-Tokens; erzeugt automatisch
+  Sigstore-Provenance. Binding wird auf pypi.org je Projekt konfiguriert.
+- **Doppel-Publisher:** zwei Workflows (verschiedene Repos) können dasselbe
+  Dist auf PyPI hochladen — Race-/Drift-Risiko, verletzt K5.
+- **Fleet-File:** `registry/pypi-fleet.yaml`, generiert, nie von Hand editiert.
+- **Remote-Publisher:** platform-Workflow, der ein fremdes Repo auscheckt und
+  dessen Paket publiziert (Übergangskonstrukt, Abbau in Stufe 2b).
