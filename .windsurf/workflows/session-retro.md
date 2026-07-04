@@ -112,6 +112,13 @@ Je Dimension ein **eigener** Subagent (kennt die Session-Erzählung nicht), geer
 Je Befund: Schweregrad (kritisch/hoch/mittel/niedrig) + Root Cause (5-Why) + Kategorie
 (Wissenslücke / Prozesslücke / Kommunikation / verfrühte Festlegung / fehlende Validierung / Werkzeug).
 
+**Finder-Mandat (hart, in JEDEN Finder-/Skeptiker-Prompt — Lehre 2026-07-04):** „Du lieferst
+NUR Befunde als Text zurück — du erstellst KEINE Dateien, Branches, Commits, PRs oder
+Reports und fährst keine eigene Retro-Pipeline." (Realfall e17299-incr: ein Finder fuhr
+eigenmächtig Collector+Skeptiker+Report und eröffnete PR #924 auf dem Report-Zielpfad des
+Orchestrators — Partial-Report ohne die anderen Dimensionen, musste mit Coverage-Nachweis
+geschlossen werden; zusätzlich hatte er die Datei im geteilten Haupt-Tree gestaged.)
+
 ## Phase 2.5 — Finder-Konflikt-Erkennung (in-context, 0 Agenten — Lehre 2026-06-14)
 Bevor Phase 3 startet: die Finder-Outputs auf **zwei Finder mit widersprüchlichen Fakt-Behauptungen
 über dasselbe Artefakt** (gleiche Datei/PR/Status) scannen. Jeden Widerspruch explizit als Paar
@@ -320,3 +327,9 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
   Auflösung** (deep „Prod-Schritt" vs. Dichte-Downscale) + **Increment-Retro-Regeln** (same-day Anchor).
   (5) **Phase-5-Budget** geklärt (`full` ≤6 mit Meta) + Meta-Reviewer nur **numerisch** (kein Einzel-Befund-
   Urteil). Quelle: `~/shared/session-retro-2026-06-14-coach-hub-2d7cd9*.md` + adversarialer Skill-Kritiker.
+- 2026-07-04 (v2.3): **Finder-Mandat-Satz** (Phase 2, hart): Finder/Skeptiker liefern NUR
+  Befunde als Text — keine Dateien/Branches/Commits/PRs/eigene Pipelines. Realfall e17299-incr:
+  ein Entscheidungs-Finder fuhr eigenmächtig Collector+Skeptiker+Report, eröffnete PR #924 auf
+  dem Report-Zielpfad des Orchestrators (Partial ohne die anderen Dimensionen; mit Coverage-
+  Nachweis geschlossen) und stagede die Datei im geteilten Haupt-Tree. Quelle:
+  `docs/retros/session-retro-2026-07-04-platform-e17299-incr.md` §6.2/Self-Review.
