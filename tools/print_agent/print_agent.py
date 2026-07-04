@@ -195,7 +195,7 @@ def _profile_to_design(profile_name: str) -> dict:
         else:
             print(f"⚠️  Logo fehlt, übersprungen: {logo_f}")
     elif logo.get("url"):
-        print(f"🔒 allowed_assets.db=false → DB-Logo NICHT eingebettet (Lizenz).")
+        print("🔒 allowed_assets.db=false → DB-Logo NICHT eingebettet (Lizenz).")
 
     # Klassifizierungs-Banner (z.B. db-intern: VERTRAULICH)
     cls = prof.get("classification") or {}

@@ -8,6 +8,10 @@ description: Session-Ende Knowledge Capture — Wissen in Outline sichern (ADR-1
 
 > **Der User muss NICHTS auflisten.** Der Agent scannt die Session autonom
 > und identifiziert, was in Outline gesichert werden muss.
+>
+> **Wann NICHT:** Reference-Docs (README/CHANGELOG/API/Models) generieren/syncen →
+> `/session-docu`. Dieser Workflow sichert **Session-/Erfahrungswissen** in Outline,
+> nicht die repo-eigene Doku.
 
 ---
 

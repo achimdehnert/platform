@@ -4,6 +4,14 @@ description: Neues Repo mit .windsurf-Konfiguration ausstatten (Rules, Workflows
 
 # /onboarding-new-repo
 
+> ⛔ **DEPRECATED — kanonisch ist `/onboard-repo`.**
+> Dieser Workflow ist ein Orphan (0 eingehende Referenzen) mit fast identischem Trigger
+> zu `/onboard-repo`. `/onboard-repo` deckt das technische Onboarding (Docker, CI/CD, DB,
+> Nginx, project-facts) vollständig und aktuell ab; für die Dokumentations-/Template-Seite
+> siehe `/new-github-project`. Diese Datei wird nicht mehr gepflegt.
+>
+> **Wann NICHT (also nie neu starten):** neue Repos immer über `/onboard-repo` onboarden.
+
 **Trigger:** Neues Repo wird erstellt und soll in den Platform-Ökosystem integriert werden.
 
 > **Lesson Learned (meiki-docs, 2025):** Nicht jedes Repo ist ein Code-Repo.

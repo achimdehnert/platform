@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-04",
-  "total": 208,
-  "next_free": 266,
+  "total": 209,
+  "next_free": 267,
   "adrs": [
     {
       "number": 7,
@@ -4726,6 +4726,25 @@
         "ADR-230",
         "ADR-233",
         "ADR-242"
+      ],
+      "implementation_status": "in-progress"
+    },
+    {
+      "number": 266,
+      "id": "ADR-266",
+      "file": "ADR-266-pypi-fleet-lifecycle-und-publishing-konvergenz.md",
+      "title": "PyPI-Fleet: Paket-Lifecycle, Publishing-Konvergenz und Health-Mechanismus (Programm)",
+      "status": "proposed",
+      "date": "2026-07-04",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-226",
+        "ADR-255",
+        "ADR-265"
       ],
       "implementation_status": "in-progress"
     },

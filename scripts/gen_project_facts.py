@@ -87,6 +87,14 @@ def detect_health(repo_path: Path) -> str:
 
 
 def detect_prod_url(repo_path: Path) -> str:
+    """Findet die erste plausible Produktions-Domain in Compose/`.env.example`.
+
+    F-9 (repo-optimize 2026-07-03): die alte Regex `[a-z0-9.-]+\\.(de|com|pet|io|net)`
+    hatte GENAU EINE Capture-Group (die TLD-Alternation) — `re.findall` liefert dann
+    NUR die Gruppen-Treffer zurück (also `pet`, `com`, ...), nicht den vollen Match
+    (Repro: frist-hub → `'pet'` statt `'frist-hub.pet'`). Fix: die Gruppe umschließt
+    jetzt den GANZEN Match, die TLD-Alternation selbst ist non-capturing.
+    """
     files = compose_files(repo_path)
     env_example = repo_path / ".env.example"
     if env_example.exists():
@@ -96,8 +104,8 @@ def detect_prod_url(repo_path: Path) -> str:
             text = f.read_text()
             for line in text.splitlines():
                 if any(k in line for k in ("ALLOWED_HOSTS", "DJANGO_ALLOWED_HOSTS", "CSRF_TRUSTED")):
-                    urls = re.findall(r"[a-z0-9.-]+\.(de|com|pet|io|net)", line)
-                    for url, _ in [(u, None) for u in urls]:
+                    urls = re.findall(r"([a-z0-9.-]+\.(?:de|com|pet|io|net))", line)
+                    for url in urls:
                         if "localhost" not in url and "127.0" not in url:
                             return url
         except Exception:
@@ -167,16 +175,30 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
     note       = str(reg_entry.get("note", ""))
 
     # Auto-detect fallbacks
-    if not port:     port = detect_port(repo_path)
-    if not port:     port = "8000"
-    if not db:       db = detect_db(repo_path)
-    if not db:       db = repo.replace("-", "_")
-    if not health:   health = detect_health(repo_path)
-    if not prod_url: prod_url = detect_prod_url(repo_path)
-    if not prod_url: prod_url = f"{repo}.iil.pet"
-    if not staging_url: staging_url = f"staging.{prod_url}"
-    if not pypi:     pypi = detect_pypi_name(repo_path)
-    if not rtype:    rtype = "unknown"
+    if not port:
+        port = detect_port(repo_path)
+    if not port:
+        port = "8000"
+    if not db:
+        db = detect_db(repo_path)
+    if not db:
+        db = repo.replace("-", "_")
+    if not health:
+        health = detect_health(repo_path)
+    if not prod_url:
+        prod_url = detect_prod_url(repo_path)
+    # Plausibilitäts-Guard vor dem Schreiben (F-9): egal ob aus Registry oder
+    # Auto-Detect — ein prod_url ohne "." oder mit <=4 Zeichen ist kein Domain-
+    # Kandidat (z.B. ein TLD-Fragment wie "pet" aus dem alten Regex-Bug), sondern
+    # ein Fallback-Fall.
+    if not prod_url or "." not in prod_url or len(prod_url) <= 4:
+        prod_url = f"{repo}.iil.pet"
+    if not staging_url:
+        staging_url = f"staging.{prod_url}"
+    if not pypi:
+        pypi = detect_pypi_name(repo_path)
+    if not rtype:
+        rtype = "unknown"
 
     prefix = detect_container_prefix(repo_path) or repo.replace("-", "_")
     has_compose = bool(compose_files(repo_path))
@@ -203,12 +225,20 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
     if note:
         lines += ["", f"> {note}"]
 
+    # F-5: owner() liefert None für einen Namen, der weder in canonical.yaml
+    # steht noch eine Prefix-Regel trifft (Typo/komplett unregistriert) — dann
+    # NICHT still "None" in die generierte Doku schreiben, sondern den
+    # konfigurierten Server-Default als sichtbaren Fallback nehmen.
+    gh_owner = reg.owner(repo) or (reg.load_canonical().get("meta", {}).get("server") or {}).get(
+        "github_org", "achimdehnert"
+    )
+
     lines += [
         "",
         "## Meta",
         "",
         f"- **Type**: `{rtype}`",
-        f"- **GitHub**: `https://github.com/{reg.owner(repo)}/{repo}`",
+        f"- **GitHub**: `https://github.com/{gh_owner}/{repo}`",
         "- **Branch**: `main` — push: `git push` (SSH-Key konfiguriert)",
     ]
     if pypi:
