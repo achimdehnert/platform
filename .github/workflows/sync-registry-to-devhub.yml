@@ -47,5 +47,11 @@ jobs:
           echo "Catalog synced at $(date)"
 
       - name: Verify devhub health
-        # ehrlicher Check: Fehlschlag soll den Run rot machen, nicht nur echoen
-        run: curl -sf https://devhub.iil.pet/livez/
+        # ehrlicher Check: Fehlschlag soll den Run rot machen, nicht nur echoen.
+        # Container-intern statt via https://devhub.iil.pet: /etc/hosts auf dem
+        # Runner-Host mappt die Domain auf den Origin (Cloudflare-Bypass), dessen
+        # Origin-Cert nicht public-trusted ist -> curl exit 60 (Run 28713825964).
+        # Muster identisch zum compose-healthcheck von devhub-web.
+        run: |
+          docker exec devhub_web python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/', timeout=10)"
+          echo "devhub /livez/ ok"
