@@ -38,12 +38,16 @@ on:
       - "scripts/**"
       - "shared_contracts/**"
       - "agents/**"
+      # #901 Spec B: check_workflow_index.py gatet den Workflow-Index gegen die
+      # .windsurf/workflows/-Quelle — bei Skill-Änderungen muss der Gate laufen.
+      - ".windsurf/workflows/**"
   pull_request:
     paths:
       - "tools/**"
       - "scripts/**"
       - "shared_contracts/**"
       - "agents/**"
+      - ".windsurf/workflows/**"
 
 # Workflow-level default (least privilege, #818 permissions sweep) —
 # no job in this workflow needs to write via GITHUB_TOKEN.
@@ -80,3 +84,8 @@ jobs:
           agents/tests/
           --ignore=agents/tests/test_adr_scribe.py
           -q
+
+      - name: Workflow-Index Vollständigkeit (K-44, #901 Spec B)
+        # Jeder Skill in .windsurf/workflows/ muss in workflow-index.md stehen
+        # (oder distribute:false / Allowlist). Struktureller Gate, keine LLM.
+        run: python3 tools/check_workflow_index.py

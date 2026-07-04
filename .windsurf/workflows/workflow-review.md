@@ -14,7 +14,7 @@ description: Systematischer Review aller .windsurf/workflows/ — Qualität, Sta
 
 // turbo
 ```bash
-export GITHUB_DIR="${GITHUB_DIR:-$HOME/CascadeProjects}"
+export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 PLATFORM="${GITHUB_DIR}/platform"
 WF_DIR="${PLATFORM}/.windsurf/workflows"
 
@@ -205,7 +205,7 @@ Die folgenden Workflows haben hohe Fehlerauswirkung → besonders gründlich rev
 ### session-start.md / session-ende.md
 ```
 Prüfe:
-□ GITHUB_DIR korrekt gesetzt (~/CascadeProjects auf Dev Desktop)?
+□ GITHUB_DIR korrekt gesetzt (Fallback ~/github)?
 □ MCP-Prefix-Tabelle aktuell?
 □ Git-Sync-Schleife auf allen Repos getestet?
 □ pgvector-Tunnel-Check vorhanden?

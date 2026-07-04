@@ -14,6 +14,10 @@ mode: read-only
 ## A0) ADR Impact Check — Welche Architektur-Entscheidungen gelten?
 
 > Nutzt `iil-adrfw` MCP Tools (Prefix aus project-facts.md, aktuell `mcp2_`).
+>
+> ℹ️ **CC-Fallback:** In Claude-Code-Sessions heißen die Tools `mcp__<orchestrator-prefix>__adr_*`.
+> Bindet die Session keinen ADR-MCP-Server, ist der Fallback direkte Reads in `docs/adr/` bzw.
+> der `iil-adrfw`-CLI-Weg — der Check bricht nicht ab, nur die MCP-Automatik entfällt.
 
 Für **jede betroffene Datei** die geändert wird:
 

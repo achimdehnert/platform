@@ -5,6 +5,13 @@ mode: write
 
 # Deploy Workflow
 
+> ⛔ **DEPRECATED — Prod-Deploy-Kanon ist `/ship` (Standard-Pfad).**
+> Nutze `/ship` für den regulären App-Deploy (verify → push → CI → migrate → health-check)
+> und `/run-prod` nur als manuellen Notfall-Handpfad (direktes `docker compose` mit
+> sauberem Ja/Nein-Gate). Dieser Workflow (infra-deploy-Actions) wird nicht mehr als
+> Einstieg gepflegt und bleibt nur als Referenz für die infra-deploy-Mechanik stehen.
+> Rollback: `/rollback`.
+
 > **Architektur (ADR-075 + ADR-100)**: Deployments sind Aufgabe des **Deployment Agent**.
 > Cascade (Tech Lead) genehmigt nur bei Gate-2-Situationen (neue Migrations, Breaking Changes).
 > Write-Ops laufen über GitHub Actions — NICHT via direktem SSH (hängt).
