@@ -58,6 +58,30 @@ Recall surface (concrete past incidents only, not doctrine):
 CC-memory `claim-confidence-vs-cheapest-check`. This file is the single
 authoritative statement.
 
+## Worked checklist: Deploy / Reusable-Workflow-Fix verification
+
+Deploy/CI claims were the hot sub-domain of `claim-before-cheapest-check`
+(Retro-Increment 2026-06-30, ×3 in one session). Before writing
+"deployed / validiert / canary grün / N consumers" about a CI or reusable-
+workflow fix, run these three — cite each **before** the claim:
+
+1. **Canary targets a real consumer.** The repo you deploy to must actually
+   `uses:` the changed reusable — prove it: `grep -rl '<reusable>@' <repo>/.github`.
+   (Realfall: travel-beat als #762-Canary gewählt, nutzte `_deploy-hetzner.yml`
+   gar nicht → zwei Prod-Deploys verschwendet, Fix nie getestet.)
+2. **Reach/consumer-count is grepped, not guessed.** Before "N consumers /
+   fleet-wide", run `gh search code '<reusable>@main' --owner <org>` and exclude
+   the source repo's own files. (Realfall: "7 Consumer" behauptet, real ≤3, 1 aktiv.)
+3. **"Deployed/verified" cites a post-merge green run — attempt-aware.** The run
+   must have executed AFTER the fix merged: compare `updatedAt` (not only
+   `createdAt`) against the merge time, and on re-run runs read the specific
+   `--attempt`. Grep the **deploy job** (not the build job) for the changed step.
+   (Realfall: apo-hub run createdAt lag *vor* dem Merge; erst `--attempt 2`
+   (`updatedAt` post-merge) belegte #762s Login im Deploy-Job grün.)
+
+Active backstop: `~/.claude/hooks/evidence_claim_scanner.py` (Stop hook) flags
+verification/deploy/over-diagnosis markers that fire without an in-turn tool check.
+
 ## Effectiveness test (binding — falsify or cut)
 
 Signal **R** = (marker-claims with a cited check in the same turn

@@ -22,6 +22,8 @@ The `inject_policies.py` hook and `claude-policy` CLI read that path unchanged.
 | `orchestrator.md` | When to query orchestrator MCP, and how it relates to these files |
 | `klickdummy.md` | Klickdummy = Renderer einer Spec; I1–I4 (Spec-first, Prod-Guard, Off-Ramp, Namensraum) — ADR-211 |
 | `evidence-discipline.md` | Bidirectional cheapest-check rule for claims and verdicts (binding falsification test) |
+| `autonomy-gates.md` | Autonom durcharbeiten; Freigabe nur an 5 Gates (Irreversibles, Prod, Security-Config, Scope, Spend) |
+| `data-sovereignty.md` | 🟡 DRAFT — ttz-lif/meiki-lra LLM-Egress-Perimeter + enge E1–E7-Ausnahme für PII-freie Arch-ADRs |
 
 ## Override pattern (per-repo)
 

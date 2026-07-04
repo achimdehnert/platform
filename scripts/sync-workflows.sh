@@ -160,6 +160,14 @@ sync_workflow() {
         return
     fi
 
+    # Tracked-Guard (ADR-265): einen im Ziel-Index getrackten Pfad NIE durch einen
+    # Symlink ersetzen — das erzeugt permanenten Typechange-Dirt. Erst untracken
+    # (git rm --cached, Rollout-Commit), dann synct dieser Lauf ihn.
+    if git -C "$repo_dir" ls-files --error-unmatch ".windsurf/workflows/${workflow}.md" >/dev/null 2>&1; then
+        echo "  SKIP-TRACKED: ${workflow}.md ist im Index getrackt — erst 'git rm --cached' (ADR-265)"
+        return
+    fi
+
     # Zielverzeichnis anlegen
     if [[ ! -d "$wf_dir" ]]; then
         if $DRY_RUN; then
@@ -215,6 +223,23 @@ sync_repo() {
 
     # platform selbst skippen
     [[ "$repo_name" == "platform" ]] && return
+
+    # SSoT-Skip (ADR-265): auch Pins/Worktrees des platform-Repos (z. B. platform-pinned)
+    # nie besyncen — der Sync würde die SSoT-Dateien dort durch selbstreferenzielle
+    # Symlinks ersetzen (Realfall 2026-07-04: 37 Typechanges in platform-pinned).
+    local origin_url
+    origin_url=$(git -C "$repo_dir" remote get-url origin 2>/dev/null || true)
+    case "$origin_url" in
+        */platform|*/platform.git) return ;;
+    esac
+
+    # Ignore-Guard (ADR-265): ohne wirksamen .windsurf/-Ignore erzeugt jeder neue Link
+    # ??-Dirt im Ziel-Repo. Repo überspringen, bis die .gitignore-Zeile committet ist.
+    if ! git -C "$repo_dir" check-ignore -q ".windsurf/workflows/__adr265_probe__.md" 2>/dev/null; then
+        echo "📦 ${repo_name}"
+        echo "  SKIP-REPO: '.windsurf/' nicht in .gitignore — Zeile committen, dann sync (ADR-265)"
+        return
+    fi
 
     # Repo-Typ bestimmen
     local is_django=false
