@@ -4,10 +4,10 @@ date: 2026-07-04
 repo_scope: [platform, aifw, authoringfw, gaeb-toolkit, iil-adrfw, iil-codeguard, iil-django-commons, iil-enrichment, iil-fieldprefill, iil-ingest, iil-klickdummy, iil-reflex, illustration-fw, learnfw, nl2cad, outlinefw, promptfw, researchfw, riskfw, weltenfw]
 session_id: e17299
 footprint: deep
-findings_total: 11
+findings_total: 12
 findings_survived: 8
-refuted_rate: 0.27
-phase3_refuted: 3
+refuted_rate: 0.33
+phase3_refuted: 4
 pre_refuted: 0
 over_ask: 0
 over_act: 0
@@ -41,7 +41,7 @@ nl2cad by-design ausgenommen); iil-adrfw-Protection umgestellt. Methode: 1 Colle
 - Wiederholungsmuster bestätigt: **stale lokale Klone als Ground Truth** schlug in EINER
   Session zweimal zu (ADR-265-Beweistabelle F2; Inventar-Tool v1 F9) — Instanzen der
   ≥2-Familie `claim-before-cheapest-check` → Gate-Pflicht, nicht N-tes Memo.
-- Falsifikation wirkte: 3/11 Befunde REFUTED (u. a. „vermeidbare Doppelwelle" — war
+- Falsifikation wirkte: 4/12 Befunden REFUTED (u. a. „vermeidbare Doppelwelle" — war
   dokumentierte Strategie; „Ground-Truth-Label irreführend" — Lifecycle sauber deklariert);
   ein Finder beging selbst den Org-Blindfleck, den er anklagte (404-Claim).
 
@@ -51,7 +51,7 @@ nl2cad by-design ausgenommen); iil-adrfw-Protection umgestellt. Methode: 1 Colle
 |---|--------|-----------|----------|---------|-------|------------|
 | F1 | ADR-266 („Aufsetzpunkt für Folge-Sessions") nach 2b/3-Rollout stale + selbstwidersprüchlich (Korrektur-Block vs. Stufen-Bullets im selben Commit; „Freigabe einholen" trotz erteilter Freigabe; nl2cad-Ausnahme undokumentiert) | Prozesslücke | hoch | SURVIVES | ADR-266@main letzter Commit 857362c 09:20Z; 30 Programm-PRs gemergt 12:22–13:10Z; nl2cad#36 CLOSED mit Begründung | handover-stale-vor-merge ×1 (44240f) |
 | F2 | ADR-265-Beweistabelle stale: billing-hub als „54 getrackte Dateien" geführt, real seit 2026-06-01 sauber (billing-hub#5); Rollout-Sektion erzeugt Leerlauf-Schritt | fehlende Validierung | mittel | SURVIVES | billing-hub git/trees/main: 0 .windsurf-Pfade; Fix-PR #5 v. 01.06.; ADR-265-Tabelle „Beleg (2026-07-04)" | claim-before-cheapest-check ≥2 (retro_kpis) |
-| F2b | Finder-Zusatzclaim „frist-hub/iil-voice-agent existieren nicht (404)" | (Finder-Fehler) | — | REFUTED | meiki-lra/frist-hub + iilgmbh/iil-voice-agent existieren; Finder prüfte nur achimdehnert | — |
+| F2b | Finder-Zusatzclaim „frist-hub/iil-voice-agent existieren nicht (404)" | Werkzeug | niedrig | REFUTED | meiki-lra/frist-hub + iilgmbh/iil-voice-agent existieren; Finder prüfte nur achimdehnert | — |
 | F3 | Neuer Dependabot-Mechanismus erzeugte sofort roten, ungetriagten Folge-PR (iil-adrfw#48: ResolutionImpossible pydantic-core vs constraints.txt) ohne dokumentierten Triage-Pfad (nur Merge-Verbot) | fehlende Validierung | hoch | SURVIVES | gh pr checks 48 → security fail; run 28706164641 Log; dependabot.yml-Kommentar ≠ Prozess | — |
 | F4 | „Sync ADRs to DevHub" chronisch rot seit ≥2026-06-19 (gemischt: 401 Unauthorized + exit 137/OOM), Session mergte 5 ADR-PRs hinein ohne Issue/Vermerk | Kommunikation | mittel | SURVIVES | 40/40 Runs failure; Log-Beispiele 03.07. (401) + 04.07. (137); gh issue list-Suchen leer | critical-alert-no-ticket ×1 (35c665) |
 | F5 | iil-adrfw Required-Check bindet Python-Version in Protection-Vertrag („…py3.12…"); stabiler Aggregat-Job (`gate`, if always) existiert im Schwester-Reusable _ci-python.yml:596, wurde nicht übertragen | verfrühte Festlegung | mittel-hoch | SURVIVES | branch protection contexts; _ci-pypi.yml:147 Matrix-Name; _ci-python.yml gate-Job | feedback_adr242_wave1_doc_vs_reality (Memory, verwandt) |
@@ -91,7 +91,7 @@ nl2cad by-design ausgenommen); iil-adrfw-Protection umgestellt. Methode: 1 Colle
 - `scope-checkpoint-not-durably-recorded` stand VOR dieser Retro auf ×2 (gate-pflichtig; PR-Template-Gate via #894 existiert) — F10b ist Vorkommen 3: **das bestehende Gate greift nicht für Chat-Freigaben zwischen PRs** → Gate nachschärfen, nicht neu erfinden.
 - `claim-before-cheapest-check` ≥2 (gate-pflichtig laut Tool) — F2+F9 sind zwei neue Instanzen in EINER Session; der Marker-Scanner-Hook fängt die Unterklasse „lokaler Klon als Ground Truth" nicht → spezifisches Gate nötig (s. §6).
 - `lint-failure-no-local-gate` ≥2 im Tool — der hiesige Kandidat F8 wurde jedoch REFUTED (dokumentierte Strategie); kein neues Vorkommen gezählt.
-- refuted_rate 0.27 liegt im gesunden Band (Vorwerte 0.00–0.50).
+- refuted_rate 0.33 liegt im gesunden Band (Vorwerte 0.00–0.50).
 - §5b Autonomie-Kalibrierung: over_ask=0, over_act=0 — alle Gates (Merges, Protection, Rollout) wurden menschlich freigegeben; die Classifier-Blocks (2× Mass-Aktion) wurden nicht umgangen, sondern in PR-Flow bzw. User-Items übersetzt. Kein Charter-Schärfungsbedarf aus dieser Session; F10b betrifft die Dokumentation der Freigabe, nicht ihre Einholung.
 
 ## 6. Verankerung (Vorschläge — Entscheid beim Menschen)
