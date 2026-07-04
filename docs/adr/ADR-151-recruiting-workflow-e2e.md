@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: void  # F-3 T-11 (2026-07-04): keine Umsetzungsspur nach 101 Tagen
 date: 2026-03-25
 decision-makers: [Achim Dehnert]
 ---

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-03-26
 updated: 2026-03-26
 version: 2
@@ -9,8 +9,8 @@ informed: []
 supersedes: []
 amends: []
 related: ["ADR-130-content-store-shared-persistence.md", "ADR-180-package-consolidation-strategy.md", "ADR-041-django-component-pattern.md", "ADR-022-platform-consistency-standard.md"]
-implementation_status: not_started
-implementation_evidence: []
+implementation_status: partial
+implementation_evidence: ["PyPI iil-concept-templates 0.5.0 (geprüft 2026-07-04); Konformität zur v2-Architektur nicht einzeln verifiziert"]
 review_status: "v1 reviewed — 5 Blocker, 5 Kritisch korrigiert in v2"
 ---
 
