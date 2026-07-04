@@ -32,7 +32,7 @@ import shutil
 import subprocess
 import sys
 
-GENERATOR_VERSION = "0.2.0-prototype"
+GENERATOR_VERSION = "0.2.0"
 MARK = "MANAGED-BY: platform/tools/cc-skill-dist"
 
 # Interne System-Prompt-Workflows (Frontmatter `distribute: false`) sind KEINE Slash-Commands —
@@ -149,7 +149,7 @@ def main():
         os.replace(target, backup)
     os.replace(staging, target)
 
-    print(f"=== generate.py (PROTOTYP) — kind={args.kind}, resolved commit {commit[:12]} ===")
+    print(f"=== generate.py — kind={args.kind}, resolved commit {commit[:12]} ===")
     print(f"  Ziel: {target}")
     print(f"  generiert: {len(manifest['files'])} {args.kind} + manifest.json + MANAGED_BY")
     print(f"  Backup voriger Stand: {backup if os.path.exists(backup) else '—'}")
