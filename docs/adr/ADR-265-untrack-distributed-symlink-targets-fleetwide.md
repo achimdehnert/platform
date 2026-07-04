@@ -55,6 +55,15 @@ trackt trotzdem 54 Dateien — weil `.gitignore` **bereits getrackte** Dateien n
 `iil-adrfw` beweist den korrekten Endzustand: `.gitignore`-Eintrag **plus** die Dateien nie/
 nicht mehr getrackt → `git status` sauber.
 
+> **Korrektur (Retro e17299 F2, 2026-07-04):** ¹ Die billing-hub-Zeile war beim
+> Schreiben bereits **stale** — sie stammte aus einem lokalen Klon auf einem alten
+> Feature-Branch. Auf origin/main war billing-hub seit **2026-06-01** sauber
+> (billing-hub#5, `git rm --cached`, −3640 Zeilen); der Rollout hat dort korrekt
+> nichts angefasst (NOOP). Das Argument des Absatzes bleibt gültig (der Zustand
+> existierte bis 01.06. real), die Tabelle taugt aber nicht als Ist-Inventar.
+> Lehre als Regel: **Beweistabellen nur aus origin/main/Remote-API ziehen**
+> (Memory `stale-local-clone-never-ground-truth`).
+
 **Zweiter Dirt-Cluster (gleiche Wurzel, andere Ausprägung):** In 6 Repos (bahn-hub,
 shared-ci, iil-django-commons, iilgmbh-iil-data, iil-pet-portal, nl2iot-hub) liegen
 **untracked** `.windsurf/`-Symlinks (`??`-Noise, teils `rules/` aus Ad-hoc-Läufen), weil die
@@ -140,6 +149,13 @@ bahn-hub (11), gaeb-toolkit (11), meiki-hub (9), tax-hub/onboarding-hub/iil-adrf
 iil-codeguard/iil-enrichment/iil-ingest/iil-reflex (je 8, überwiegend `rules/` —
 vor Untrack prüfen, ob repo-spezifisch angepasst, z. B. `project-facts.md`). Zusätzlich
 `.gitignore`-Zeile `.windsurf/` in den 6 `??`-Noise-Repos. Kein Merge/Deploy ohne Freigabe.
+
+> **Rollout AUSGEFÜHRT 2026-07-04** (Freigabe Achim im Chat: „merge beide PRs und
+> führe den Rollout aus"): 21 Repos je 1 Commit `chore(git-hygiene)… [skip ci]`
+> via detached Temp-Worktrees; Confirmation je Repo `ls-tree origin/main` = 0
+> getrackte `.windsurf/*` + exakte `.gitignore`-Zeile. Zahlen der obigen Liste
+> waren teils stale (s. Korrektur ¹ oben) — dank Tracked-Guard war der Rollout
+> trotzdem verlustfrei (stale Ziele = NOOP). Fleet-Census 13→3 dirty Repos.
 
 ## Glossar
 
