@@ -7,6 +7,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Fixed
+- `tools/cc-skill-dist`: `-prototype`-Suffix aus `GENERATOR_VERSION` entfernt
+  (generate.py 0.2.0, windsurf-subset.py 0.1.0) + Banner bereinigt — DoD F-C
+  (claude-skills.md, session-retro 2026-06-05): Live-Manifeste tragen keine
+  Prototyp-Kennung mehr. Reiner Tooling-PR (F-H, getrennt von Content).
+
 ### Added
 - `.windsurf/workflows/adr-fleet-audit.md`: neue Skill `/adr-fleet-audit` —
   ADR-Inventar + Cross-Repo-Konsistenz + Optimierungs-Backlog über alle
