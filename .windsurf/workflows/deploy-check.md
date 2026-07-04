@@ -25,7 +25,8 @@ git log --oneline -5 && git status
 
 // turbo
 ```bash
-pytest tests/ -q --tb=short 2>&1 | tail -15
+make test 2>&1 | tail -15
+# Fallback (nur falls kein Makefile-Target `test` existiert): python -m pytest tests/ -q --tb=short 2>&1 | tail -15
 ```
 
 **Kein Deploy bei roter Test-Suite.** Ausnahme: nur wenn explizit als Hotfix freigegeben.

@@ -107,6 +107,8 @@ def test_should_not_[bug_beschreibung](client):
 
 // turbo
 ```bash
+# Gezielter Filter für den neuen Regressionstest — kein Makefile-Target unterstützt `-k`;
+# der umgebungskonsistente Vollauf folgt in Step 6 via `make test`.
 pytest tests/ -q -k "test_should_not_"
 ```
 
@@ -116,7 +118,8 @@ pytest tests/ -q -k "test_should_not_"
 
 // turbo
 ```bash
-pytest tests/ -q
+make test
+# Fallback (nur falls kein Makefile-Target `test` existiert): python -m pytest tests/ -q
 ```
 
 **Alle Tests müssen grün sein.** Bei rot: Fix den neuen Fehler, dann weiter.
@@ -137,13 +140,29 @@ PR erstellen:
 - Title: `[HOTFIX] [Beschreibung]`
 - Labels: `bug`, `hotfix` (falls vorhanden)
 - Body: Root Cause + Fix + Regression Test
-- **Squash & Merge** (saubere main-Historie)
+
+---
+
+## ⚠️ GATE: Explizite Bestätigung erforderlich (vor Merge)
+Frage den User: "Hotfix-PR für `<REPO>` mergen (Squash & Merge)? (ja/nein)"
+→ Bei "nein": Abbruch — PR bleibt offen, auf Freigabe warten
+→ Bei "ja": **Squash & Merge** (saubere main-Historie)
+
+---
+
+## ⚠️ GATE: Explizite Bestätigung erforderlich (vor Deploy)
+Frage den User: "Prod-Deploy für `<REPO>` nach Hotfix-Merge bestätigen? (ja/nein)"
+→ Bei "nein": Abbruch — Merge bleibt stehen, Deploy folgt erst nach Freigabe
+→ Bei "ja": weiter mit Step 8
+
+> Prod-Deploy braucht **IMMER** Freigabe — kein Autopilot, auch nicht bei Routine-Hotfixes.
+> Siehe `~/.claude/policies/autonomy-gates.md` Gate 2.
 
 ---
 
 ## Step 8: Deploy
 
-Nach PR-Merge sofort deployen via `/deploy`:
+Nach Freigabe deployen via `/deploy`:
 
 ```
 service: [app-name]
@@ -176,7 +195,9 @@ Nach dem Fix:
 [ ] Minimaler Fix — kein Refactoring
 [ ] Regression Test vorhanden (test_should_not_*)
 [ ] Alle Tests grün
+[ ] Freigabe vor Merge eingeholt (ja/nein)
 [ ] PR erstellt + reviewed
+[ ] Freigabe vor Deploy eingeholt (ja/nein)
 [ ] Deployed + Health-Check grün
 [ ] GitHub Issue dokumentiert
 [ ] AGENT_HANDOVER.md aktualisiert

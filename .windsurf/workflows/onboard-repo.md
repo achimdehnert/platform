@@ -929,7 +929,7 @@ Testing (ADR-058):
   [ ] tests/conftest.py importiert platform_context.testing.fixtures
   [ ] tests/factories.py mit UserFactory
   [ ] config/settings/test.py mit WHITENOISE_MANIFEST_STRICT=False
-  [ ] pytest tests/ -v läuft lokal ohne Fehler
+  [ ] `make test` läuft lokal ohne Fehler (Fallback nur falls kein Makefile-Target `test` existiert: `pytest tests/ -v`)
 
 Platform-Integration:
   [ ] platform/registry/repos.yaml Eintrag hinzugefügt
