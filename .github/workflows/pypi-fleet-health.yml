@@ -21,6 +21,13 @@ on:
         required: false
         default: false
         type: boolean
+  # Wiring-Beweis by-construction (Gate autonomous-no-human-review): jede
+  # Änderung an Workflow/Tool läuft im PR als ERZWUNGENER Dry-Run (s. unten,
+  # pull_request ⇒ nie Issue-Write) — kein lokaler Lauf zählt als Beweis.
+  pull_request:
+    paths:
+      - ".github/workflows/pypi-fleet-health.yml"
+      - "tools/pypi_fleet_inventory.py"
 
 permissions:
   contents: read
@@ -64,7 +71,7 @@ jobs:
             echo ""
             echo "_Letzter Lauf: ${{ github.run_id }} ($(date -u +%Y-%m-%dT%H:%M:%SZ))_"
           } > issue-body.md
-          if [ "${DRY_RUN}" = "true" ]; then
+          if [ "${{ github.event_name }}" = "pull_request" ] || [ "${DRY_RUN}" = "true" ]; then
             echo "=== DRY RUN — Issue-Body (kein Write): ==="
             cat issue-body.md
             exit 0
