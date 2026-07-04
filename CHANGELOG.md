@@ -7,6 +7,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Changed
+- `/adr-fleet-audit` Phase 0.3: Archiv-Status-Check der Clone-Remotes ergänzt —
+  archivierte Repos (read-only) werden im Report markiert und aus Fix-Wellen
+  ausgeklammert (Lücke aus dem ersten Fleet-Audit-Lauf 2026-07-04: bfagent).
+
 ### Fixed
 - `tools/cc-skill-dist`: `-prototype`-Suffix aus `GENERATOR_VERSION` entfernt
   (generate.py 0.2.0, windsurf-subset.py 0.1.0) + Banner bereinigt — DoD F-C

@@ -73,9 +73,14 @@ for d in "$GH_DIR"/*/; do git -C "$d" remote get-url origin 2>/dev/null; done \
    im Report als „ADR-frei bestätigt" listen. **Owner immer aus dem Remote auflösen**
    (`git remote get-url origin`), nie annehmen.
 
-3. **Clone-Frische:** für ADR-tragende Repos `git fetch` +
+3. **Clone-Frische + Archiv-Status:** für ADR-tragende Repos `git fetch` +
    `git rev-list HEAD..origin/<default-branch> --count` — Nachzügler im Report listen
    (NICHT ungefragt pullen; veraltete Clones relativieren alle Folge-Befunde des Repos).
+   Zusätzlich je Clone-Remote `gh api repos/<owner>/<repo> --jq .isArchived` —
+   **archivierte Repos im Report und in jedem Befund markieren**: deren ADRs sind
+   eingefroren (Remote read-only, kein Push/PR möglich), Fix-Wellen müssen sie
+   ausklammern (Lehre 2026-07-04: bfagent war seit 2026-06-03 archiviert, F-1-PR
+   scheiterte erst am Push).
 
 4. **Abdeckungsbeweis in den Report:** Inventar-Zeilen == find-Zählung; Remote-Diff == 0
    unerklärte Repos; Zahlen ausschreiben.
@@ -161,6 +166,10 @@ Sub-Repo-Commits sind **NICHT** Klasse A — jede Änderung außerhalb platform 
 - ❌ Neues ADR als „Fix" vorschlagen, wo CHANGELOG/PR genügt (`adr-threshold.md`)
 
 ## Changelog
+
+- 2026-07-04 (2): Phase 0.3 prüft zusätzlich den Archiv-Status der Clone-Remotes —
+  archivierte Repos werden markiert und aus Fix-Wellen ausgeklammert (bfagent-Lücke
+  im ersten Lauf: Archivierung fiel erst beim Push auf).
 
 - 2026-07-04: Initial. Fleet-Orchestrator komplementär zu `/adr-health` (Einzel-Korpus-Tiefe)
   und `/platform-audit` (generisch). Entstanden aus manuellem Fleet-Audit-Prompt
