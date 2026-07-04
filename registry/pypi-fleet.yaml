@@ -1,5 +1,5 @@
 _meta:
-  generated_at: '2026-07-04T08:49:23Z'
+  generated_at: '2026-07-04T09:18:01Z'
   generated_by: tools/pypi_fleet_inventory.py (ADR-266 Stufe 1)
   note: Reiner Ground-Truth-Scan — nicht von Hand editieren. Entscheidungen, Owner-Aktionen und Stufen-Status
     leben in docs/adr/ADR-266.
@@ -68,15 +68,9 @@ packages:
   iil-codeguard:
     dist_name: iil-codeguard
     findings:
-    - double_publisher
     - token_auth
     in_registry: true
     publishers:
-    - kind: self
-      workflows:
-      - auth: token
-        file: publish.yml
-        reusable: false
     - kind: platform-remote
       workflows:
       - auth: token
@@ -111,7 +105,12 @@ packages:
     findings:
     - not_on_pypi_or_offline
     in_registry: true
-    publishers: []
+    publishers:
+    - kind: self
+      workflows:
+      - auth: oidc
+        file: publish.yml
+        reusable: false
     pypi: {}
     pyproject_version: 0.2.0
     registry_pypi_name: iil-enrichment
@@ -135,15 +134,9 @@ packages:
   iil-ingest:
     dist_name: iil-ingest
     findings:
-    - double_publisher
     - token_auth
     in_registry: true
     publishers:
-    - kind: self
-      workflows:
-      - auth: token
-        file: publish.yml
-        reusable: false
     - kind: platform-remote
       workflows:
       - auth: token
