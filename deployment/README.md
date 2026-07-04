@@ -1,5 +1,11 @@
 # Deployment — BF Agent Platform
 
+> **⚠️ Legacy (Stand 2026-02-27).** Dieses Copy-Paste-Template hat 0 aktive Referenzen
+> mehr. Der Golden Path für neue Deploy-Setups sind die **Reusable Workflows unter
+> ADR-264** ([`ADR-264 — Kanonische Deployment-Strategie + Supersession-Gate`](../docs/adr/ADR-264-canonical-deployment-strategy-and-supersession-gate.md)),
+> nicht diese Datei-Sammlung. Für neue Repos `/onboard-repo` bzw. die ADR-264-Referenzen
+> nutzen; diese Seite bleibt nur als historischer Kontext stehen.
+
 Production-grade CI/CD for Django + HTMX + Postgres on Hetzner VMs.
 
 ## Architecture
