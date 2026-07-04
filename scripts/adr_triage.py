@@ -142,7 +142,14 @@ def analyze_adr(path: Path) -> dict:
 
 
 def generate_frontmatter(adr: dict, content: str) -> str:
-    """Generiert minimales YAML-Frontmatter für ADRs ohne Frontmatter."""
+    """Generiert minimales YAML-Frontmatter für ADRs ohne Frontmatter.
+
+    Maßnahme 11 (Follow-up aus #899, repo-optimize 2026-07-03): das Skelett
+    emittierte noch die alte MADR-Schlüssel-Generation (`date:`/`decision-makers:`)
+    — der aktuelle Plattform-Standard (siehe z.B. ADR-255/ADR-259) ist
+    `decision_date:`/`deciders:`. Neu erzeugte Frontmatter driftete damit sofort
+    wieder vom Standard ab, den derselbe Triage-Lauf herstellen soll.
+    """
     # Datum aus Inhalt extrahieren
     date_m = re.search(r"\*\*Datum\*\*[:\|]\s*(\d{4}-\d{2}-\d{2})", content)
     adr_date = date_m.group(1) if date_m else str(date.today())
@@ -150,8 +157,8 @@ def generate_frontmatter(adr: dict, content: str) -> str:
     frontmatter = (
         f"---\n"
         f"status: {adr['suggested_status']}\n"
-        f"date: {adr_date}\n"
-        f"decision-makers: Achim Dehnert\n"
+        f"decision_date: {adr_date}\n"
+        f"deciders: [Achim Dehnert]\n"
         f"---\n\n"
     )
     return frontmatter + content

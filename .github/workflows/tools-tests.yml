@@ -30,6 +30,13 @@ name: Tools Unit-Tests
 # tools/tests/test_shared_contracts.py deckt die Pydantic-Contracts dort ab; ohne
 # diesen Trigger würde der Gate bei einer Contract-Änderung NICHT laufen — dieselbe
 # Lücke wie oben, nur für shared_contracts/ statt scripts/.
+#
+# X-9 (repo-optimize 2026-07-03, Spec D / #903): zusätzlich zu den Tests läuft hier
+# `ruff check tools/ scripts/` als eigener Step — vorher gab es KEINE CI, die tools/
+# scripts/ überhaupt lintete (52 Workflows geprüft; _ci-python.yml wird von platform
+# selbst nie aufgerufen; pre-commit hat keinen ruff-Hook). Pre-existing Lint-Schuld
+# in vier Dateien ist bewusst per pyproject.toml [tool.ruff.lint.per-file-ignores]
+# ausgenommen (mit Begründung dort) statt drive-by umgeschrieben.
 
 on:
   push:
@@ -80,3 +87,11 @@ jobs:
           agents/tests/
           --ignore=agents/tests/test_adr_scribe.py
           -q
+
+      - name: Install ruff
+        run: pip install ruff --quiet --break-system-packages
+
+      - name: Lint (ruff check tools/ scripts/)
+        # X-9: eigener Step NACH dem pytest-Step (Test-Failures sollen zuerst sichtbar
+        # sein); per-file-ignores mit Begründung stehen in pyproject.toml.
+        run: ruff check tools/ scripts/

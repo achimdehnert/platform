@@ -14,7 +14,11 @@ Zwei Lanes (`--kind`):
 Usage: doctor.py [--kind commands|skills] [--platform ~/github/platform]
                  [--commands ~/.claude/commands] [--skills-dir ~/.claude/skills] [--ref origin/main]
 """
-import argparse, os, re, subprocess, sys
+import argparse
+import os
+import re
+import subprocess
+import sys
 
 # Relativlink-Guard (nur Lane `commands`): das flache Ziel ~/.claude/commands kann keine
 # Pfad-Slash-Links auflösen → dangling. http(s)/Anker/mailto sind ok. Verlangt Pfad-Slash

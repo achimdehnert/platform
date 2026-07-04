@@ -144,8 +144,8 @@ def main() -> int:
             for num, files in sorted(conflicts.items()):
                 print(f"  ADR-{num:03d}: {', '.join(f.name for f in files)}")
             print(
-                f"\nRun: python3 scripts/adr_next_number.py --audit  "
-                f"for full report."
+                "\nRun: python3 scripts/adr_next_number.py --audit  "
+                "for full report."
             )
             return 1
         print("✅ No ADR number conflicts.")
