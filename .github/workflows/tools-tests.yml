@@ -37,11 +37,13 @@ on:
       - "tools/**"
       - "scripts/**"
       - "shared_contracts/**"
+      - "agents/**"
   pull_request:
     paths:
       - "tools/**"
       - "scripts/**"
       - "shared_contracts/**"
+      - "agents/**"
 
 # Workflow-level default (least privilege, #818 permissions sweep) —
 # no job in this workflow needs to write via GITHUB_TOKEN.
@@ -66,9 +68,15 @@ jobs:
         run: pip install pytest pyyaml pydantic --quiet --break-system-packages
 
       - name: Run all tools tests
+        # agents/tests/ war CI-dunkel, obwohl guardian.py/context_reviewer.py
+        # jede PR gaten (repo-optimize 2026-07-03, A-9). test_adr_scribe.py ist
+        # ausgenommen: adr_scribe ist unverdrahteter Alt-Code mit gedriftetem
+        # Test (ImportError) — Entscheid migrieren/löschen läuft separat (A-8).
         run: >
           python3 -m pytest tools/tests/
           tests/test_render_staging.py
           tests/doc_profile_check/
           tools/claude-hooks/tests/
+          agents/tests/
+          --ignore=agents/tests/test_adr_scribe.py
           -q
