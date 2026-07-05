@@ -151,6 +151,7 @@ mode: read-only
 
 | Situation | Slash-Command |
 |-----------|---------------|
+| Codebase → KD-Kandidaten + brownfield/greenfield-Entscheidung (read-only) | `/kd-scout` |
 | Neuen Klickdummy anlegen (ADR-211 Cookbook) | `/klickdummy` |
 | Gebauten KD verifizieren + UX-Kritik (Playwright + Subagent, ADR-251) | `/kd-review` |
 | Cross-Repo-Klickdummy-Suche (pgvector) | `/klickdummy-search` |
