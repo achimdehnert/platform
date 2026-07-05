@@ -130,3 +130,14 @@ als Audit-C1–C3 offen und in KONZ-nl2cad-002 REC-5 als Blocker für `nl2cad-ca
   (genau E1/E2). Billigster Check: golden-realdata-Secret setzen, echten Lauf ansehen.
 - **over_ask/over_act = 0** aus Artefakten geschlossen (Merge-Freigaben im PR-Verlauf sichtbar); die
   Konversations-internen „dein Zug"-Vorlagen wurden nicht transkript-ausgezählt.
+
+## Nachtrag (Selbstkorrektur 2026-07-05, gegen aktuellen main verifiziert)
+Beim Abarbeiten von A1 zeigte die Prüfung des aktuellen main, dass **E1 und E2 leicht überzeichnet** waren
+(beide Severity bleiben, aber der Regressionsschutz ist besser als im Befund dargestellt):
+- **E2:** `ci.yml:89` `golden-synthetic`-Job läuft bei jedem Push (`test_synthetic_golden.py`, kein Secret) mit
+  exakten Sollwerten (Raumflächen, Wandmengen, BRI aus Storey-Qto, Brandschutztür) → **echter CI-Regressionsschutz
+  existiert**. Nur die *Realdaten-Zusatzebene* (`golden-realdata`) ist der Phantom-Teil (skippt mit `::notice`).
+  Der synthetische Gate kam aus PR #38 (out-of-scope dieser Session) — im Befund nicht angerechnet.
+- **E1:** die GAEB-**Struktur**-Tests laufen in CI (kein `GAEB_XSD_DIR` nötig); nur die *volle XSD-Konformität*
+  ist opt-in. „Kein CI-Regressionsschutz" gilt also nur für die volle XSD-Prüfung, nicht für die Struktur.
+- Konsequenz: A1 braucht **keine Daten** vom Owner; behoben in nl2cad#43 (Weg B) + Issue nl2cad#44 (B8).
