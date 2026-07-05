@@ -315,7 +315,7 @@ jobs:
   # Advisory by default (continue-on-error); a caller flips bandit_blocking=true
   # to make findings fail CI + gate, once its bandit run is green.
   bandit:
-    name: "SAST (bandit${{ inputs.bandit_blocking && '' || ', non-blocking' }})"
+    name: "SAST (bandit, ${{ inputs.bandit_blocking && 'blocking' || 'advisory' }})"
     if: ${{ inputs.enable_bandit }}
     runs-on: ${{ inputs.runs_on }}
     continue-on-error: ${{ !inputs.bandit_blocking }}
