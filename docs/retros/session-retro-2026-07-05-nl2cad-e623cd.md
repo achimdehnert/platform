@@ -45,7 +45,7 @@ Methode: 4 Eiserne Regeln (Richter≠Angeklagter). 1 Collector (haiku) + 3 Finde
 |---|---|---|---|---|---|---|
 | E1 | „schema-valide"-Claim (#34) ohne CI-Regressionsschutz — `xmlschema` keine Dependency, XSD-Test nur via `GAEB_XSD_DIR` (Skip in CI); Validierungslogik selbst echt, Lizenz-Restriktion begründet Opt-in | fehlende Validierung | hoch | SURVIVES (kritisch→hoch) | `test_gaeb_da_xml_33.py:221-248`; `grep GAEB_XSD .github/workflows`=0; `grep xmlschema */pyproject.toml`=0 | claim-before-cheapest-check ≥2 |
 | E2 | Golden-Realdaten-CI-Job läuft nur im Skip-Pfad — Secret `NL2CAD_TESTDATA_URL` nie gesetzt; alle „Realdaten-Wirkung"-Tabellen sind Session-Einmalmessungen | fehlende Validierung | hoch | SURVIVES | `ci.yml:113,118,129`; `gh secret list`=ohne NL2CAD_TESTDATA_URL | phantom-ci-gate-skip-only |
-| S3 | #32 reparierte nur eine von zwei konkurrierenden GK-Logiken — `core/analyzers/brandschutz_analyzer.py:234` (BGF/Geschosszahl) widerspricht weiter `nl2cad-brandschutz/gebaeudeklasse.py` (OKFF/NE) | fehlende Validierung | mittel | SURVIVES | beide Dateien auf main, divergente Kriterienbasis | contradictory-duplicate-partial-fix |
+| S3 | #32 reparierte nur eine von zwei konkurrierenden GK-Logiken — `core/analyzers/brandschutz_analyzer.py:234` (BGF/Geschosszahl) widerspricht weiter `nl2cad-brandschutz/gebaeudeklasse.py` (OKFF/NE) | fehlende Validierung | mittel | SURVIVES | `brandschutz_analyzer.py:234-244` `_determine_gebaeudeklasse(bgf_m2, floor_count)` vs. `gebaeudeklasse.py:144-220` `ermittle(...ne_flaechen_m2)`; beide auf main, divergente Kriterienbasis | contradictory-duplicate-partial-fix |
 | E4 | MwSt `0.19`/`1.19` 4× hartkodiert (1.19 neu aus #31), gegen eigene Konvention „keine Konstanten in Business-Logik" (für DIN/MBO/ASR umgesetzt) | verfrühte Festlegung | mittel | SURVIVES | `gaeb/models.py:83`+`generator.py:199` ×2 Kopien; `git blame`→e9566c0; `core/constants.py:5` | hardcoded-vs-own-convention |
 | E6 | BGF/BRI-`GebaeudeKennzahlenAnalyzer` (#33) ohne Produktions-Konsument — nicht in `handlers/massen.py` verdrahtet, kein Registry/Pipeline | neue Tech-Debt | mittel | SURVIVES | `grep -rln`=nur Def+Reexport+3 Tests; massen.py referenziert nicht | dead-end-analyzer |
 | S1 | #42/Gap-Analyse behandeln nur die Kalkulations-Hälfte des Audit-Doppelziels; kein Rückverweis „Brandschutz/Fluchtwege bleibt offen" (Verengung war user-geframt + in Gap-Analyse sichtbar → nicht „still") | Prozesslücke | mittel | SURVIVES (kritisch→mittel) | `grep flucht/brandschutz` in #42-Diff=0; Gap-Analyse Z.1-4 user-geframt, Z.21 Brandschutz sichtbar | tracking-misses-original-goal |
@@ -59,7 +59,7 @@ Methode: 4 Eiserne Regeln (Richter≠Angeklagter). 1 Collector (haiku) + 3 Finde
 | architektur_design | 3 | gute Muster (provenance/coverage/fail-loud), aber byte-Copy institutionalisiert + E6 totes Feature-Ende + E4 |
 | code_konventionstreue | 3 | E4 verletzt die eigene „keine Konstanten"-Konvention direkt; sonst ruff/Tests sauber |
 | risiko_debt | 3 | neue Debt E4/E6 + Phantom-Gates E1/E2 (falsches Vertrauen), aber alles reversibel+dokumentiert |
-| prozess_effizienz | 4 | saubere Kadenz (Hotspot-gerechtfertigt), kein Merge-auf-Rot, minimales Rework (89s Rebase, 65s mypy) |
+| prozess_effizienz | 4 | saubere Kadenz (Hotspot-gerechtfertigt), kein Merge-auf-Rot; einziges Rework P7 (89s Rebase #31, 65s mypy #34) |
 | entscheidungsqualitaet | 4 | überwiegend belegt+konservativ; #42-Konzept mit adversarialem Dreiklang stark; Abzug E1/E2/S1 |
 
 ## 4. Soll-Ablauf (Ist → Soll → eliminiert #) — |Soll| = |Survivors| = 7
