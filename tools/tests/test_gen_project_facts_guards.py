@@ -22,6 +22,7 @@ Liegt unter tools/tests/ (nicht repo-root tests/) — der generische
 from __future__ import annotations
 
 import importlib.util
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -155,6 +156,41 @@ def test_should_distribute_when_windsurf_is_gitignored(tmp_path, monkeypatch):
     link = repo_path / ".windsurf" / "rules" / "mcp-tools.md"
     assert link.is_symlink()
     assert link.resolve() == (rules_src / "mcp-tools.md").resolve()
+
+
+# ── --dry-run Safety-Guard (#931-Abnahme, Incident 2026-07-05) ────────────────
+
+def test_dry_run_writes_nothing(tmp_path, monkeypatch):
+    """--dry-run darf KEINERLEI Schreib-/mkdir-/Symlink-Operation ausführen —
+    Schutz gegen versehentliche Fleet-Writes (der Incident 2026-07-05 entstand,
+    weil ein `--help`-Aufruf auf einen echten Vollauf durchfiel)."""
+    rules_src, wf_src = _make_rules_and_workflows_src(tmp_path)
+    _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
+
+    repo_path = tmp_path / "dry-hub"
+    _init_repo(repo_path, origin="git@github.com:achimdehnert/dry-hub.git", ignore_windsurf=True)
+
+    result = gpf.gen_facts("dry-hub", {}, force=True, dry_run=True)
+
+    assert result.startswith("DRY-RUN")
+    # Nichts angefasst: kein .windsurf/, keine project-facts.md, keine Symlinks.
+    assert not (repo_path / ".windsurf").exists(), (
+        "--dry-run darf nicht einmal .windsurf/ anlegen"
+    )
+
+
+def test_help_flag_does_not_run_fleet(tmp_path):
+    """`--help` muss VOR jeder Registry-/Schreiboperation abbrechen (Exit 0,
+    Usage) — nicht auf einen Fleet-Lauf durchfallen (Root-Cause des Incidents)."""
+    env = dict(os.environ)
+    env["GITHUB_DIR"] = str(tmp_path)  # leerer Sandbox-Fleet-Dir
+    r = subprocess.run(
+        [sys.executable, str(_SCRIPT), "--help"],
+        capture_output=True, text=True, env=env, timeout=30,
+    )
+    assert r.returncode == 0
+    assert "Usage:" in r.stdout and "--dry-run" in r.stdout
+    assert "=== Done" not in r.stdout, "--help darf keinen Generierungslauf starten"
 
 
 # ── Guard 3: Tracked-Guard ───────────────────────────────────────────────────

@@ -194,7 +194,7 @@ def _is_tracked(repo_path: Path, relpath: str) -> bool:
 
 # ── Generate project-facts.md ────────────────────────────────────────────────
 
-def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
+def gen_facts(repo: str, reg_entry: dict, force: bool = False, dry_run: bool = False) -> str:
     repo_path = GITHUB / repo
     if not repo_path.is_dir():
         return f"❌ NOT FOUND: {repo}"
@@ -205,12 +205,14 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
         return f"SKIP (platform SSoT): {repo}"
 
     facts_file = repo_path / ".windsurf" / "rules" / "project-facts.md"
-    facts_file.parent.mkdir(parents=True, exist_ok=True)
+    if not dry_run:
+        facts_file.parent.mkdir(parents=True, exist_ok=True)
 
     # Distribution (Workflow-Kopien + Rules-Symlinks) nur mit Ignore-Guard
     # (ADR-265). project-facts.md (oben) ist legitimer Per-Repo-Inhalt und
-    # bleibt von diesem Guard unberührt.
-    if _distribution_allowed(repo_path):
+    # bleibt von diesem Guard unberührt. Unter --dry-run: keinerlei
+    # Schreib-/mkdir-/Symlink-Operation (der ganze Block wird übersprungen).
+    if not dry_run and _distribution_allowed(repo_path):
         # Copy workflows to every repo
         wf_dest = repo_path / ".windsurf" / "workflows"
         wf_dest.mkdir(parents=True, exist_ok=True)
@@ -378,15 +380,40 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
         "- **Secrets**: `.env` (nicht in Git) — Template: `.env.example`",
     ]
 
+    if dry_run:
+        return f"DRY-RUN (würde schreiben): {repo} (type={rtype}, port={port}, prod={prod_url})"
     facts_file.write_text("\n".join(lines) + "\n")
     return f"✅ {repo} (type={rtype}, port={port}, prod={prod_url})"
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
 
+USAGE = """gen_project_facts.py — Master Repo Identifier / project-facts-Generator
+
+Usage:
+  python3 gen_project_facts.py [repo] [--force] [--dry-run]
+
+  (kein Arg)   alle Repos aus der Registry + unregistrierte auf Disk
+  repo         nur dieses eine Repo
+  --force      bestehende project-facts.md überschreiben
+  --dry-run    NUR anzeigen, was generiert/verteilt würde — KEIN Schreiben,
+               kein mkdir, keine Symlinks (safe gegen versehentliche Fleet-Writes)
+  -h, --help   diese Hilfe
+
+Achtung: OHNE --dry-run schreibt ein Lauf real in ALLE Repos unter $GITHUB_DIR.
+"""
+
+
 def main():
     args = sys.argv[1:]
+    # --help/-h VOR jeder Registry-/Schreiboperation abfangen: früher fiel ein
+    # `--help` mangels Handler auf einen echten Fleet-Vollauf durch (Incident
+    # 2026-07-05, ADR-265 #931-Abnahme).
+    if "-h" in args or "--help" in args:
+        print(USAGE)
+        return
     force = "--force" in args
+    dry_run = "--dry-run" in args
     target = next((a for a in args if not a.startswith("-")), "")
 
     registry = load_registry()
@@ -396,6 +423,7 @@ def main():
     print("=== gen_project_facts.py — Master Repo Identifier ===")
     print(f"Registry: {REGISTRY_FILE}")
     print(f"Force:    {force}")
+    print(f"Dry-Run:  {dry_run}" + ("  (KEIN Schreiben)" if dry_run else ""))
     print(f"Server:   {server_cfg.get('github_base', GITHUB)}")
     print()
 
@@ -403,11 +431,11 @@ def main():
 
     if target:
         entry = reg_repos.get(target, {})
-        results.append(gen_facts(target, entry, force=force))
+        results.append(gen_facts(target, entry, force=force, dry_run=dry_run))
     else:
         # 1. All repos from registry (with overrides)
         for repo, entry in reg_repos.items():
-            results.append(gen_facts(repo, entry or {}, force=force))
+            results.append(gen_facts(repo, entry or {}, force=force, dry_run=dry_run))
 
         # 2. Unregistered repos on disk
         print("\n--- Scanning for unregistered repos ---")
@@ -419,7 +447,7 @@ def main():
                 continue
             if repo not in reg_repos:
                 print(f"⚠️  UNREGISTERED: {repo} — add to repo-registry.yaml")
-                results.append(gen_facts(repo, {}, force=force))
+                results.append(gen_facts(repo, {}, force=force, dry_run=dry_run))
 
     print("\n".join(results))
     print(f"\n=== Done ({sum(1 for r in results if r.startswith('✅'))} generated, "
