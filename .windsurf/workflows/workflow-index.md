@@ -152,6 +152,7 @@ mode: read-only
 | Situation | Slash-Command |
 |-----------|---------------|
 | Neuen Klickdummy anlegen (ADR-211 Cookbook) | `/klickdummy` |
+| Gebauten KD verifizieren + UX-Kritik (Playwright + Subagent, ADR-251) | `/kd-review` |
 | Cross-Repo-Klickdummy-Suche (pgvector) | `/klickdummy-search` |
 | Secrets verwalten (rotieren, prüfen, anlegen) | `/secrets` |
 
