@@ -218,7 +218,11 @@ def gen_facts(repo: str, reg_entry: dict, force: bool = False) -> str:
             for wf in ["run-local.md", "run-staging.md", "run-prod.md"]:
                 src = WORKFLOWS_SRC / wf
                 dst = wf_dest / wf
-                if src.exists() and not dst.is_symlink():
+                # Tracked-Guard (ADR-265) auch auf dem Kopie-Pfad: eine getrackte
+                # reguläre run-*.md NICHT überschreiben (sonst git-Dirt) — genau
+                # dieser Pfad überschrieb im Incident 2026-07-05 billing-hub.
+                if src.exists() and not dst.is_symlink() \
+                        and not _is_tracked(repo_path, f".windsurf/workflows/{wf}"):
                     shutil.copy2(src, dst)
 
         # Symlink global rules to every repo.

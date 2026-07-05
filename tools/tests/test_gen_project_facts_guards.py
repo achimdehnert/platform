@@ -188,6 +188,33 @@ def test_should_not_replace_tracked_rule_file_with_symlink(tmp_path, monkeypatch
     assert other_link.resolve() == (rules_src / "reviewer.md").resolve()
 
 
+def test_should_not_overwrite_tracked_workflow_copy(tmp_path, monkeypatch):
+    """Tracked-Guard auch auf dem Kopie-Pfad: eine im Ziel-Repo getrackte
+    reguläre run-*.md darf NICHT via shutil.copy2 überschrieben werden —
+    genau dieser Pfad überschrieb im Incident 2026-07-05 billing-hub."""
+    rules_src, wf_src = _make_rules_and_workflows_src(tmp_path)
+    _patch_sources(monkeypatch, tmp_path, rules_src, wf_src)
+
+    repo_path = tmp_path / "wf-tracked-hub"
+    _init_repo(repo_path, origin="git@github.com:achimdehnert/wf-tracked-hub.git", ignore_windsurf=True)
+
+    tracked_wf = repo_path / ".windsurf" / "workflows" / "run-local.md"
+    tracked_wf.parent.mkdir(parents=True, exist_ok=True)
+    tracked_wf.write_text("REPO-EIGENE run-local — bewusst abweichend\n")
+    _git(repo_path, "add", "-f", ".windsurf/workflows/run-local.md")
+    _git(repo_path, "commit", "-q", "-m", "tracked own run-local")
+
+    result = gpf.gen_facts("wf-tracked-hub", {}, force=False)
+
+    assert result.startswith("✅")
+    assert tracked_wf.read_text() == "REPO-EIGENE run-local — bewusst abweichend\n", (
+        "getrackte run-*.md darf nicht durch die Distribution überschrieben werden"
+    )
+    # Eine NICHT getrackte run-*.md wird normal kopiert (Guard selektiv).
+    other_wf = repo_path / ".windsurf" / "workflows" / "run-prod.md"
+    assert other_wf.exists() and not other_wf.is_symlink()
+
+
 def test_should_replace_symlink_pointing_elsewhere_even_if_untracked(tmp_path, monkeypatch):
     """Ein bereits existierender (aber falscher) Symlink ist per Definition
     nicht 'getrackt wie eine reguläre Datei' im Tracked-Guard-Sinn — er wird
