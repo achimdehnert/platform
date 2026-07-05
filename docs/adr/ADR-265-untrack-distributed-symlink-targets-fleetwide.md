@@ -16,7 +16,7 @@ implementation_status: implemented
 
 > **Rev 4 (2026-07-05): adversariales Review verarbeitet.** Review-Verdikt „Überarbeiten";
 > Orchestrator-Triage geerdet am Code (Volltext + Triage-Tabelle:
-> [`reviews/ADR-265-review-2026-07-05.md`](reviews/ADR-265-review-2026-07-05.md)). Kern:
+> [`reviews/review-adr-265-2026-07-05.md`](reviews/review-adr-265-2026-07-05.md)). Kern:
 > **REC-5a (Dry-Run fehlt) ist REFUTED** — `--dry-run` existiert vollständig
 > (`scripts/sync-workflows.sh:9,124,129,173–211,305`); **AD-2 „hoch"→mittel**, weil das Skript
 > `SKIP-REPO`/`SKIP-TRACKED` bei jedem Lauf echot (Z.167,240) — nur die *Längsaggregation* fehlt.
