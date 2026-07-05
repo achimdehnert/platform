@@ -38,10 +38,13 @@ wird, (c) wie ein ausscheidender Zugriffsinhaber sauber entzogen wird.
 
 1. **Recovery Owner als Collaborator hinzufügen** (Owner-Aktion, Gate: Security-Config):
    ```
-   gh api -X PUT repos/achimdehnert/platform/collaborators/wirdigital -f permission=maintain
+   gh api -X PUT repos/achimdehnert/platform/collaborators/wirdigital -f permission=push
    ```
-   `maintain` = Repo verwalten (Settings, Branch-Protection) ohne Owner-Löschrechte; `push` als
-   Minimal-Variante, wenn nur Review-Redundanz gewünscht.
+   **Auf einem persönlichen Konto-Repo ist `push` (Write) die einzige verfügbare Stufe** — die
+   Rollen-Abstufung (Triage/Maintain/Admin) und ein *zweiter Owner* sind Org-Repos vorbehalten.
+   Dieser Schritt gibt daher Review-/Push-Redundanz; volle Owner-/Admin-Redundanz (Settings,
+   Branch-Protection, Löschrechte) kommt erst mit dem Org-Transfer (KONZ-012 Phase C).
+   **Erledigt 2026-07-05:** wirdigital angenommen, Zugriff verifiziert (`gh api …/collaborators/wirdigital` → 204).
 2. **CODEOWNERS ergänzen**, sobald Zugriff besteht (sonst ignoriert GitHub die Zeile still):
    ```
    * @achimdehnert @wirdigital
