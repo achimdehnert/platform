@@ -14,6 +14,16 @@ implementation_status: implemented
 
 # ADR-265 — Verteilte Symlink-Ziele fleet-weit aus git untracken statt committen
 
+> **Rev 4 (2026-07-05): adversariales Review verarbeitet.** Review-Verdikt „Überarbeiten";
+> Orchestrator-Triage geerdet am Code (Volltext + Triage-Tabelle:
+> [`reviews/review-adr-265-2026-07-05.md`](reviews/review-adr-265-2026-07-05.md)). Kern:
+> **REC-5a (Dry-Run fehlt) ist REFUTED** — `--dry-run` existiert vollständig
+> (`scripts/sync-workflows.sh:9,124,129,173–211,305`); **AD-2 „hoch"→mittel**, weil das Skript
+> `SKIP-REPO`/`SKIP-TRACKED` bei jedem Lauf echot (Z.167,240) — nur die *Längsaggregation* fehlt.
+> Umgesetzt: REC-4 (Sunset) unten; REC-5b Guard-Tests + REC-1 SKIP-Aggregation → Code-Issue;
+> REC-3 CI-Fallback → Entscheidungs-Issue (Cross-Repo-Write-Gate). REC-2 laut Rollout real
+> weitgehend erledigt (21 Repos, Fleet 13→3 dirty).
+
 > **Accepted 2026-07-04 durch Achim Dehnert** (Session e17299, wörtlich „ADR-265 + ADR-266 accepted").
 
 > Auslöser: Diagnose 2026-07-04 (iil-adrfw-Session). Fleet-weite „dirty tree"-Epidemie —
@@ -130,6 +140,18 @@ per `.gitignore` ferngehalten. `sync-workflows.sh` bleibt der Verteil-Mechanismu
      übersprungen (Hinweis `SKIP-REPO` → `.gitignore`-Zeile committen, dann sync).
   Damit kann der Sync per Konstruktion keinen `git status`-Dirt mehr erzeugen; neu
   onboardete Repos geraten nicht in den getrackten Zustand.
+
+### Sunset-Kriterium für `sync-workflows.sh` (REC-4 → M28-1, Rev 4)
+
+`sync-workflows.sh` ist ein **Übergangs-Verteiler**, kein Dauerzustand — er wird von
+`cc-skill-dist` (ADR-230/CC-first) abgelöst. **Ablösekriterium:** Sobald `cc-skill-dist`
+in **≥ 90 % der aktiven Fleet-Repos** der maßgebliche Verteilweg ist (messbar über den
+`MANAGED-BY: platform/tools/cc-skill-dist`-Footer-Anteil vs. Symlink-Verteilung), wird
+`sync-workflows.sh` **retired** (Skript nach `scripts/_ARCHIVED/`, Session-Start-Trigger
+entfernt) — um die Doppelwartung zweier Verteilsysteme (Windsurf-Symlink vs. CC-Dist) zu
+beenden. Bis dahin koexistieren beide bewusst; dieser ADR ist der Anker, an dem das Retirement
+terminiert wird. Kein fixes Datum (hängt am CC-first-Rollout-Fortschritt), aber ein
+**messbarer Schwellwert** statt „irgendwann".
 
 ### Confirmation
 
