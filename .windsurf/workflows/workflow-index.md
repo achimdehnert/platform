@@ -151,6 +151,7 @@ mode: read-only
 
 | Situation | Slash-Command |
 |-----------|---------------|
+| Codebase → KD-Kandidaten + brownfield/greenfield-Entscheidung (read-only) | `/kd-scout` |
 | Neuen Klickdummy anlegen (ADR-211 Cookbook) | `/klickdummy` |
 | Cross-Repo-Klickdummy-Suche (pgvector) | `/klickdummy-search` |
 | Secrets verwalten (rotieren, prüfen, anlegen) | `/secrets` |
