@@ -102,11 +102,24 @@ UX-Backlog (Subagent, Sonnet)
   [P1] <finding>  — Beleg: <screen/DOM>  — Fix: <hinweis>  — Aufwand: <S|M|L>
   [P2] ...
 
+KD-Referenz
+  Name:    <name>
+  Spec:    <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
+  Lokal:   <KLICKDUMMY_PATH>/<name>/shell.html?feedback=on
+  GitHub:  <Blob-URL | — + Grund>
+  iil.pet: <Render-URL | — + Grund>
+
 Hand-off
   → /klickdummy <name>   (KD-Änderungen umsetzen)
   → /repo-ux-opt <repo>  (App-weite UX-Themen)
   Tracking: <n> Findings → Issues vorschlagen (y/n)
 ```
+
+**KD-Referenz-Feldkonvention:** gleiches Schema wie `/kd-scout` Step 3.5 / `/klickdummy`
+Output-Format (`Spec`/`Lokal`/`GitHub`/`iil.pet`, `—` + Grund statt Weglassen). Da `/kd-review`
+**nach** dem Bau läuft, sind hier typischerweise alle vier Felder auflösbar — bleibt `GitHub`
+oder `iil.pet` trotzdem `—`, ist das ein echter Befund (KD gebaut, aber nie committed/deployed)
+und gehört in den Report, nicht stillschweigend übersprungen.
 
 ## Anti-Patterns
 
@@ -118,6 +131,8 @@ Hand-off
 - ❌ **Schreiben/Fixen** — `mode: read-only`. Umsetzung ist `/klickdummy` (write).
 - ❌ **UX-Findings ohne Beleg** — jeder Punkt trägt Screenshot-/DOM-Referenz, sonst Rauschen.
 - ❌ **Nav-Button-Sets doppelt zählen** — versteckte `nav.tabs` + Sidebar deduplizieren.
+- ❌ **KD-Referenz-Feld weglassen statt `—` + Grund** — ein fehlendes `GitHub`/`iil.pet` NACH dem
+  Bau ist ein Befund (nie committed/deployed), kein kosmetisches Detail.
 
 ## 🌀-Memory-Discovery-Pfad
 
@@ -168,3 +183,6 @@ auf die Cloudflare-Auth-Wand — kein Cloudflare-Login als „Test" fehlinterpre
   (Sonnet) gegen Design-System ADR-048/049/040. MCP-Signaturen (`browser_*`) via ToolSearch
   vor Nutzung zu verifizieren. Konform zu `claude-skills.md` (Frontmatter, Step-0-project-facts,
   Anti-Patterns, 3 Dogfood-Tests, Changelog).
+- 2026-07-06: **KD-Referenz** im Output-Format ergänzt (Spec/Lokal/GitHub/iil.pet, gleiches Schema
+  wie `/kd-scout`/`/klickdummy`) — hier post-build oft alle vier Felder auflösbar; ein `—` ist an
+  dieser Stelle ein echter Befund (nie committed/deployed), nicht kosmetisch. 1 neuer Anti-Pattern.
