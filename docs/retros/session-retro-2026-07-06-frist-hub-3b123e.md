@@ -127,8 +127,8 @@ Kern-Annahmen beim Auftraggeber.
 | 3 | PR-#14-Reviewer „wirdigital": Herkunft/Legitimität klären | frist-hub | #14 (gemerged) | ✅ done | Auftraggeber bestätigt: separater Account, Kollaboration mit iilgmbh — s. §8 |
 | 4 | Spec-Datei-Kollision `.yaml` (Makefile zeigt auf falsche Datei) fixen oder bewusst als Tech-Debt dokumentieren | frist-hub | [#20](https://github.com/meiki-lra/frist-hub/pull/20) | ✅ done | Makefile auf `docs/klickdummy/screens-spec.yaml` umgebogen, I1-I4 grün |
 | 5 | Cross-Link Jira MEIKI1 ↔ frist-hub nachtragen | frist-hub/Jira | MEIKI1-66 | ✅ done | Kommentar mit Issue #16, PR #17/#18/#19/#20 ergänzt |
-| 6 | Skill `/session-retro`: Skeptiker-Pflichtzeile `git fetch origin` ergänzen | platform | Skill-Datei | 🔵 ready | ich: Changelog-Eintrag + PR, nach Freigabe |
-| 7 | 2 Memory-Kandidaten (§6) übernehmen | frist-hub (memory) | — | 🔵 ready | ich: Freigabe erteilt für #2 (bereits geschrieben); die 2 §6-Kandidaten noch offen |
+| 6 | Skill `/session-retro`: Skeptiker-Pflichtzeile `git fetch origin` ergänzen | platform | [#978](https://github.com/achimdehnert/platform/pull/978) | ✅ done | v2.4, Changelog + Phase-3-Textänderung |
+| 7 | 2 Memory-Kandidaten (§6) übernehmen | frist-hub (memory) | — | ✅ done | `pr-body-german-closing-keyword` + `konzept-facts-before-external-review` geschrieben |
 
 **Hinweis (Meta-Review-Fix):** ein ursprüngliches Item „iil-reflex PR #30: gitleaks/Vector-Scan prüfen" wurde entfernt — es hing am REFUTED-Befund #9 (die widerlegte Kernaussage war „bindender Required-Check", nicht die Rot-Färbung selbst). Der reale Restfakt (Checks sind rot, wenn auch nicht blockierend) steht stattdessen unten in §8, nicht als aus einem Survivor abgeleitete Maßnahme.
 
