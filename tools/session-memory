@@ -1,0 +1,178 @@
+#!/usr/bin/env python3
+"""session-memory — Session-Summary in den pgvector-Store schreiben, OHNE dass der
+Orchestrator-MCP in der Session gebunden sein muss.
+
+Warum: `/session-ende` Phase 2 hing bislang an `mcp__orchestrator__agent_memory_upsert`
+— ist der MCP nicht gebunden (häufig ausserhalb dev-hub/mcp-hub), wurde die
+Session-Summary still übersprungen und nur verbal auf "später nachziehen" vertagt.
+Der pgvector-Tunnel/Prod-Container ist dagegen ein harter Pflicht-Check
+(session-start Phase 0.5) → die zuverlässigere Schicht.
+
+Transport = identisch zu `platform/tools/claude-policy` (ADR-209, "functional
+standalone"): SSH + `docker exec` gegen den Prod-Container, der denselben Postgres
+teilt wie die MCP-Tools. Container-seitig wird der AUTHORITATIVE Call benutzt
+(`orchestrator_mcp.memory.store.upsert`) → Embedding (compute_embedding=True) +
+content_hash-Dedup macht der Container, nicht dieses Skript. Payload base64-inline
+(ssh re-parst argv nicht — kein File-Staging).
+
+Env:
+    ORCH_PROD_HOST   (default 88.198.191.108)
+    ORCH_SSH_USER    (default root)
+    ORCH_CONTAINER   (default mcp_hub_orchestrator_http)
+    ORCH_LOCAL=1     — docker direkt auf DIESEM Host ausführen (kein ssh; auf Prod)
+
+Usage:
+    session-memory write --repo <repo> --title <t> [--type context] \
+        [--tag session --tag <repo> ...] [--content-file FILE | --content - ]
+    session-memory get --key session:<repo>:<YYYYMMDD>
+    echo "<markdown>" | session-memory write --repo platform --title "…"
+"""
+from __future__ import annotations
+
+import argparse
+import base64
+import json
+import os
+import subprocess
+import sys
+from datetime import date
+
+PROD_HOST = os.environ.get("ORCH_PROD_HOST", "88.198.191.108")
+SSH_USER = os.environ.get("ORCH_SSH_USER", "root")
+CONTAINER = os.environ.get("ORCH_CONTAINER", "mcp_hub_orchestrator_http")
+# Set ORCH_LOCAL=1 to run docker on *this* host (the orchestrator container is
+# local, ADR-209) — no ssh wrapper, no key needed.
+LOCAL = os.environ.get("ORCH_LOCAL") == "1"
+
+
+def _docker_py(code: str) -> str:
+    """Run `code` in the orchestrator container's python (fed via stdin).
+
+    ssh does not preserve argv boundaries, so the payload travels as stdin to
+    `docker exec -i … python -`; any structured data inside `code` is inlined
+    base64 by the caller.
+    """
+    argv = ["docker", "exec", "-i", CONTAINER, "python", "-"]
+    if not LOCAL:
+        argv = [
+            "ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=10",
+            f"{SSH_USER}@{PROD_HOST}",
+        ] + argv
+    proc = subprocess.run(
+        argv, input=code.encode("utf-8"), capture_output=True
+    )
+    if proc.returncode != 0:
+        sys.stderr.write(proc.stderr.decode("utf-8", "replace"))
+        raise SystemExit(
+            f"session-memory: Transport fehlgeschlagen (exit {proc.returncode}) "
+            f"— {'lokal' if LOCAL else f'ssh {SSH_USER}@{PROD_HOST}'} / {CONTAINER}"
+        )
+    return proc.stdout.decode("utf-8", "replace")
+
+
+def _orch_upsert(payload: dict) -> bool:
+    """Upsert via den authoritativen store.upsert im Container. True = geschrieben."""
+    b64 = base64.b64encode(json.dumps(payload).encode("utf-8")).decode("ascii")
+    code = (
+        "import base64, json\n"
+        f"d = json.loads(base64.b64decode({b64!r}).decode('utf-8'))\n"
+        "from orchestrator_mcp.memory.store import upsert\n"
+        "ok = upsert(entry_key=d['entry_key'], entry_type=d['entry_type'],\n"
+        "            title=d['title'], content=d['content'], agent=d['agent'],\n"
+        "            tags=d.get('tags'))\n"
+        "print('WROTE' if ok else 'UNCHANGED')\n"
+    )
+    out = _docker_py(code).strip().splitlines()
+    return bool(out) and out[-1] == "WROTE"
+
+
+def _orch_get(key: str) -> dict | None:
+    """Exakten entry_key aus dem Store zurückholen (Verifikation), sonst None."""
+    kb64 = base64.b64encode(key.encode("utf-8")).decode("ascii")
+    code = (
+        "import base64, json\n"
+        f"key = base64.b64decode({kb64!r}).decode('utf-8')\n"
+        "from orchestrator_mcp.memory.store import search\n"
+        "hits = search(query=key, limit=50)\n"
+        "m = [h for h in hits if str(h.get('id')) == key]\n"
+        "print(base64.b64encode(json.dumps(m[0] if m else {}).encode()).decode())\n"
+    )
+    lines = _docker_py(code).strip().splitlines()
+    if not lines or not lines[-1]:
+        return None
+    obj = json.loads(base64.b64decode(lines[-1]).decode("utf-8", "replace"))
+    return obj or None
+
+
+def _read_content(arg: str | None, content_file: str | None) -> str:
+    if content_file:
+        if content_file == "-":
+            return sys.stdin.read()
+        with open(content_file, encoding="utf-8") as fh:
+            return fh.read()
+    if arg == "-" or arg is None:
+        # Kein --content angegeben → stdin (erlaubt `… | session-memory write`).
+        return sys.stdin.read()
+    return arg
+
+
+def cmd_write(a: argparse.Namespace) -> int:
+    content = _read_content(a.content, a.content_file).strip()
+    if not content:
+        sys.exit("session-memory: leerer Content — nichts zu schreiben.")
+    key = a.key or f"session:{a.repo}:{date.today():%Y%m%d}"
+    tags = a.tag or ["session", a.repo]
+    written = _orch_upsert({
+        "entry_key": key,
+        "entry_type": a.type,
+        "title": a.title,
+        "content": content,
+        "agent": a.agent,
+        "tags": tags,
+    })
+    print(json.dumps({"ok": True, "written": written, "entry_key": key,
+                      "chars": len(content)}))
+    return 0
+
+
+def cmd_get(a: argparse.Namespace) -> int:
+    obj = _orch_get(a.key)
+    if obj is None:
+        print(json.dumps({"ok": False, "entry_key": a.key, "found": False}))
+        return 1
+    print(json.dumps({"ok": True, "entry_key": a.key, "found": True,
+                      "entry_type": obj.get("entry_type"),
+                      "title": obj.get("title"),
+                      "chars": len(obj.get("content", ""))}))
+    return 0
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(prog="session-memory", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    sub = p.add_subparsers(dest="cmd", required=True)
+
+    w = sub.add_parser("write", help="Session-Summary upserten")
+    w.add_argument("--repo", required=True, help="Repo-Slug (Teil des entry_key)")
+    w.add_argument("--title", required=True)
+    w.add_argument("--type", default="context",
+                   help="entry_type-enum (context|decision|lesson_learned|"
+                        "error_pattern|open_task|repo_context|agent_handoff)")
+    w.add_argument("--key", default=None,
+                   help="entry_key override (default session:<repo>:<YYYYMMDD>)")
+    w.add_argument("--agent", default="claude-code")
+    w.add_argument("--tag", action="append", help="Tag (mehrfach); default [session, <repo>]")
+    w.add_argument("--content", default=None, help="Inline-Content; '-' oder weglassen = stdin")
+    w.add_argument("--content-file", default=None, help="Content aus Datei ('-' = stdin)")
+    w.set_defaults(func=cmd_write)
+
+    g = sub.add_parser("get", help="entry_key zurückholen (Verifikation)")
+    g.add_argument("--key", required=True)
+    g.set_defaults(func=cmd_get)
+
+    a = p.parse_args()
+    return a.func(a)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
