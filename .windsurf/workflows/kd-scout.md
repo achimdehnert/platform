@@ -90,7 +90,7 @@ Pro Kandidat/bestehendem KD **vier feste Felder** auflösen — nie weglassen. N
 |---|---|---|
 | `Spec` | `<KLICKDUMMY_PATH>/<name>/screens-spec.yaml` | Kandidat noch nicht gebaut |
 | `Lokal` | `<KLICKDUMMY_PATH>/<name>/shell.html?feedback=on` | Kandidat noch nicht gebaut |
-| `GitHub` | `https://github.com/<REPO_OWNER>/<REPO_NAME>/blob/main/<KLICKDUMMY_PATH>/<name>/` | Spec nicht auf `origin/main` (`git log origin/main -- <pfad>` leer) |
+| `GitHub` | `https://github.com/<REPO_OWNER>/<REPO_NAME>/blob/main/<KLICKDUMMY_PATH>/<name>/` | Spec nicht auf `origin/main` (`git log origin/main -- <KLICKDUMMY_PATH>/<name>/` leer) |
 | `iil.pet` | `https://iil.pet/genesor/render/<repo>-<name>.html` | Repo/KD nicht Klasse A (genesor-vendored) ODER Datei fehlt in `iil-pet-portal/genesor/render/` — Live-Inhalt selbst NICHT prüfbar (Cloudflare-Access-Wand, 🌀 `agent_memory_search(query="genesor live verifizieren Cloudflare")`), nur Datei-Präsenz zählt |
 
 ## Step 4: Hand-off (dieser Skill baut nichts)
