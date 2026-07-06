@@ -122,13 +122,13 @@ Kern-Annahmen beim Auftraggeber.
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| 1 | Issue #13 manuell schließen (PR #14 hat es nicht automatisch getan) | frist-hub | #13 | 🟢 offen | ich: `gh issue close 13` mit Verweis auf PR #14 |
-| 2 | Review-Kommentar-Konvention: Selbst-Kommentare als „Analyse" statt „Review" labeln | platform | #963 | 🔵 Konvention | dein Zug: bestätigen, dann als Memo verankern |
-| 3 | PR-#14-Reviewer „wirdigital": Herkunft/Legitimität klären | frist-hub | #14 (gemerged) | 🟢 offen | dein Zug: wer/was ist dieser Account? |
-| 4 | Spec-Datei-Kollision `.yaml` (Makefile zeigt auf falsche Datei) fixen oder bewusst als Tech-Debt dokumentieren | frist-hub | Makefile | ⛔ blockiert | dein Zug: Entscheidung (User hatte "ignorieren" gesagt — gilt das weiterhin?) |
-| 5 | Cross-Link Jira MEIKI1 ↔ frist-hub nachtragen | frist-hub/Jira | MEIKI1-66 | 🟢 offen | ich: Kommentar-Vermerk ergänzen, nach Freigabe |
-| 6 | Skill `/session-retro`: Skeptiker-Pflichtzeile `git fetch origin` ergänzen | platform | Skill-Datei | 🟢 offen | ich: Changelog-Eintrag + PR, nach Freigabe |
-| 7 | 2 Memory-Kandidaten (§6) übernehmen | frist-hub (memory) | — | 🟢 offen | dein Zug: Freigabe zum Schreiben |
+| 1 | Issue #13 manuell schließen (PR #14 hat es nicht automatisch getan) | frist-hub | #13 | ✅ done | `gh issue close 13` mit Verweis auf PR #14 (2026-07-06) |
+| 2 | Review-Kommentar-Konvention: Selbst-Kommentare als „Analyse" statt „Review" labeln | platform | #963 | ✅ done | Memory `self-review-comment-label-as-analyse` geschrieben (frist-hub-lokal) |
+| 3 | PR-#14-Reviewer „wirdigital": Herkunft/Legitimität klären | frist-hub | #14 (gemerged) | ✅ done | Auftraggeber bestätigt: separater Account, Kollaboration mit iilgmbh — s. §8 |
+| 4 | Spec-Datei-Kollision `.yaml` (Makefile zeigt auf falsche Datei) fixen oder bewusst als Tech-Debt dokumentieren | frist-hub | [#20](https://github.com/meiki-lra/frist-hub/pull/20) | ✅ done | Makefile auf `docs/klickdummy/screens-spec.yaml` umgebogen, I1-I4 grün |
+| 5 | Cross-Link Jira MEIKI1 ↔ frist-hub nachtragen | frist-hub/Jira | MEIKI1-66 | ✅ done | Kommentar mit Issue #16, PR #17/#18/#19/#20 ergänzt |
+| 6 | Skill `/session-retro`: Skeptiker-Pflichtzeile `git fetch origin` ergänzen | platform | Skill-Datei | 🔵 ready | ich: Changelog-Eintrag + PR, nach Freigabe |
+| 7 | 2 Memory-Kandidaten (§6) übernehmen | frist-hub (memory) | — | 🔵 ready | ich: Freigabe erteilt für #2 (bereits geschrieben); die 2 §6-Kandidaten noch offen |
 
 **Hinweis (Meta-Review-Fix):** ein ursprüngliches Item „iil-reflex PR #30: gitleaks/Vector-Scan prüfen" wurde entfernt — es hing am REFUTED-Befund #9 (die widerlegte Kernaussage war „bindender Required-Check", nicht die Rot-Färbung selbst). Der reale Restfakt (Checks sind rot, wenn auch nicht blockierend) steht stattdessen unten in §8, nicht als aus einem Survivor abgeleitete Maßnahme.
 
@@ -136,6 +136,6 @@ Kern-Annahmen beim Auftraggeber.
 
 - **iil-reflex PR #30 hat rote Checks (gitleaks, Vector-Scan), die real, aber nicht GitHub-seitig erzwungen sind** (Befund #9, REFUTED bzgl. „bindend") — als Beobachtung, nicht Maßnahme aus einem Survivor: billigster Check wäre, die beiden Check-Logs zu lesen und zu klären, ob der Fix selbst (Secret-Pattern-Änderung) den eigenen Scanner erneut triggert.
 - **Jira-Löschrecht:** nicht technisch geprüft, ob das MCP-Toolset wirklich kein Delete-Recht hat oder ob ein ungenutztes Tool existiert — billigster Check: `ToolSearch "jira delete issue"` erneut mit anderen Suchbegriffen.
-- **Identität „wirdigital":** GitHub-API liefert keine verifizierbare Verknüpfung zu `achimdehnert` (kein Name/E-Mail/Company gesetzt) — weder bewiesen noch entlastet; nur der Auftraggeber kann das abschließend klären.
+- ~~**Identität „wirdigital":** GitHub-API liefert keine verifizierbare Verknüpfung zu `achimdehnert` (kein Name/E-Mail/Company gesetzt) — weder bewiesen noch entlastet; nur der Auftraggeber kann das abschließend klären.~~ **Geklärt 2026-07-06 (Auftraggeber):** „wirdigital" ist ein separater Account, der mit der iil.gmbh zusammenarbeitet — kein Rubber-Stamp-Verdacht, sondern normales frisches Onboarding eines externen Kollaborateurs. Befund #5 bleibt SURVIVES als Prozess-Lehre (Merge 2 Min. nach Approval bleibt ein knapper Abstand), der Identitäts-Zweifel selbst ist ausgeräumt.
 - **iil-reflex Branch-Protection-Historie:** nicht geprüft, ob `main` je geschützt war und dies zwischenzeitlich entfernt wurde, oder nie geschützt war (Design vs. Versehen) — billigster Check: `gh api repos/achimdehnert/iil-reflex/rulesets --paginate` + Audit-Log falls zugänglich.
 - **Jira-quantitative Kernzahlen (35 Issues) wurden von Skeptiker A als "nicht prüfbar aus diesem Kontext" vermerkt** (kein Jira-Zugriff in dessen Agent-Session) — durch Skeptiker B (mit Zugriff) für C5 unabhängig bestätigt, aber Skeptiker A's eigener Teilbefund zu C4 bleibt auf den git-Beleg beschränkt.
