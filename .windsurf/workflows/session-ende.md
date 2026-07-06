@@ -285,38 +285,44 @@ fi
 
 ## Phase 2: pgvector Memory schreiben (ADR-154)
 
-> Tools in CC: `mcp__orchestrator__agent_memory_upsert` / `…_search`. **Flache**
-> Parameter (verifiziert gegen das Schema): `entry_key`, `entry_type` (enum),
-> `title`, `content`, optional `agent` (default `cascade`) + `tags`. **Kein**
-> verschachteltes `entry: {…}}` und **kein** `entry_id` — das war die alte
-> Windsurf-Signatur. Vor Änderungen an diesen Calls die Signatur erneut prüfen
-> (`ToolSearch select:mcp__orchestrator__agent_memory_upsert`).
+> **Primärer Pfad = die CLI `platform/tools/session-memory` — NICHT der MCP.**
+> Die frühere MCP-only-Variante (`mcp__orchestrator__agent_memory_upsert`) übersprang
+> Phase 2 still, sobald der Orchestrator-MCP in der Session **nicht gebunden** war
+> (häufig ausserhalb dev-hub/mcp-hub) → Summary ging verloren, nur „später nachziehen".
+> Die CLI nutzt denselben gesegneten Transport wie `claude-policy` (SSH + `docker exec`
+> in `mcp_hub_orchestrator_http`, ADR-209) und den **authoritativen** container-seitigen
+> `store.upsert` (Embedding + content_hash-Dedup macht der Container). Sie funktioniert
+> **unabhängig von der MCP-Bindung** in JEDEM Repo. Ist der MCP ausnahmsweise gebunden,
+> darf `mcp__orchestrator__agent_memory_upsert` als Beschleuniger genutzt werden — die
+> CLI bleibt der verlässliche Default.
 
-7. **Session-Summary speichern:**
+7. **Session-Summary speichern** (CLI, MCP-unabhängig):
+```bash
+# Content in eine Datei (Multi-Line/Markdown sicher via base64-inline im Transport):
+cat > /tmp/session-summary.md <<'SUMEOF'
+# Session <date> — <repo>
+## Erledigt … ## Entscheidungen … ## Offen …
+SUMEOF
+python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/session-memory" write \
+  --repo <repo> --title "Session <date> — <repo>: <1-Zeile>" \
+  --tag session --tag <repo> --tag <task-type> \
+  --content-file /tmp/session-summary.md
+# → {"ok": true, "written": true, "entry_key": "session:<repo>:<YYYYMMDD>", ...}
+# Verifizieren (Evidenz vor „gesichert"): session-memory get --key session:<repo>:<YYYYMMDD>
 ```
-mcp__orchestrator__agent_memory_upsert(
-  agent: "claude-code",
-  entry_key: "session:<repo>:<YYYYMMDD>",
-  entry_type: "context",     // enum: open_task|decision|context|lesson_learned|error_pattern|repo_context|agent_handoff
-  title: "Session <date> — <repo>: <1-Zeile Summary>",
-  content: "<Was erledigt, welche Entscheidungen, welche Dateien; Verweis auf Outline-Doc aus Phase 1>",
-  tags: ["session", "<repo>", "<task-type>"]
-)
+entry_type default `context` (`--type` override: open_task|decision|lesson_learned|error_pattern|repo_context|agent_handoff). Bei Prod-Exec-Block im Auto-Mode: User um Freigabe bitten oder via `!` ausführen.
+
+8. **Error-Patterns erfassen** (nur bei Bug-Fixes) — gleiche CLI, anderer Typ/Key:
+```bash
+python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/session-memory" write \
+  --repo <repo> --type error_pattern \
+  --key "error:<repo>:<YYYYMMDD>-<shortid>" \
+  --title "<symptom 1-Zeile>" --tag error --tag <repo> \
+  --content "Repo: <repo>\nSymptom: …\nRoot Cause: …\nFix: …\nPrevention: …"
 ```
 
-8. **Error-Patterns erfassen** (nur bei Bug-Fixes):
-```
-mcp__orchestrator__agent_memory_upsert(
-  agent: "claude-code",
-  entry_key: "error:<repo>:<YYYYMMDD>-<shortid>",
-  entry_type: "error_pattern",
-  title: "<symptom 1-Zeile>",
-  content: "Repo: <repo>\nSymptom: …\nRoot Cause: …\nFix: …\nPrevention: …",
-  tags: ["error", "<repo>"]
-)
-```
-
-> ℹ️ Pattern-Recall läuft über `mcp__orchestrator__agent_memory_search(query: "…")`.
+> ℹ️ Pattern-Recall: `session-memory get --key <key>` (exakt) bzw. bei gebundenem MCP
+> `mcp__orchestrator__agent_memory_search(query: "…")` (semantisch).
 
 ---
 
