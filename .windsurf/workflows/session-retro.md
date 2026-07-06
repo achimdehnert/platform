@@ -145,6 +145,14 @@ Verify wiederholte es → ein falscher Befund „kein Testfile" überlebte.)
 Drift-Memory X" ist ein Befund → X muss per `ls`/`grep` existieren, sonst REFUTED. (Realfall:
 Verweis auf nicht-existente Memory `claim-confidence-vs-cheapest-check`.)
 
+**Frisch-Checkout-Pflicht (Lehre 2026-07-06 — GATE-PFLICHTIG, 3. Vorkommen):** Jeder
+Skeptiker-Prompt beginnt zwingend mit `git fetch origin <default-branch>` und prüft gegen
+`origin/<default-branch>`, NICHT den lokalen Checkout. `stale-local-clone-as-ground-truth`
+war bereits ×2 gate-pflichtig (`e17299`, `a2c373`); beim Retro `3b123e` trat es ein drittes
+Mal auf — diesmal INNERHALB der eigenen Skeptiker-Verifikation dieser Skill (ein Skeptiker
+prüfte zunächst gegen einen veralteten lokalen `main`, in dem ein PR-Merge fehlte, und musste
+nachträglich fetchen). Diese Zeile ersetzt das bloße Hoffen auf Einzelfall-Disziplin.
+
 Nur SURVIVES gehen in den Report.
 
 ## Phase 3.5 — Soll-Ablauf (konstruktiv, an Überlebende gekoppelt)
@@ -333,3 +341,8 @@ genau wie die Skill ursprünglich aus einem Diabolus-Review entstand.
   dem Report-Zielpfad des Orchestrators (Partial ohne die anderen Dimensionen; mit Coverage-
   Nachweis geschlossen) und stagede die Datei im geteilten Haupt-Tree. Quelle:
   `docs/retros/session-retro-2026-07-04-platform-e17299-incr.md` §6.2/Self-Review.
+- 2026-07-06 (v2.4): **Frisch-Checkout-Pflichtzeile** (Phase 3): jeder Skeptiker-Prompt beginnt
+  jetzt zwingend mit `git fetch origin <default-branch>` + Prüfung gegen `origin/<branch>`.
+  `stale-local-clone-as-ground-truth` war bereits ×2 gate-pflichtig (`e17299`, `a2c373`); im
+  Retro `3b123e` trat es ein 3. Mal auf — diesmal innerhalb der eigenen Skeptiker-Verifikation
+  dieser Skill. Quelle: `docs/retros/session-retro-2026-07-06-frist-hub-3b123e.md` Befund #8/§6.
