@@ -80,6 +80,19 @@ Je Kandidat: gewählte Klasse + **1-Satz-Begründung mit Beleg** + deklariertes 
 - **Drift-Schutz:** Verdacht auf existierendes Konzept → im Report auf `/klickdummy-search`
   verweisen (nicht selbst suchen; das ist ein eigener Skill).
 
+## Step 3.5: KD-Referenz auflösen (Spec/Lokal/GitHub/iil.pet)
+
+Pro Kandidat/bestehendem KD **vier feste Felder** auflösen — nie weglassen. Nicht auflösbar
+⇒ `—` **mit 1-Wort-Grund**, nicht stillschweigend leer lassen (Lücken sollen auffallen, s. Retro
+2026-07-06 zur KD-Pipeline-Darstellung):
+
+| Feld | Quelle | `—` wenn |
+|---|---|---|
+| `Spec` | `<KLICKDUMMY_PATH>/<name>/screens-spec.yaml` | Kandidat noch nicht gebaut |
+| `Lokal` | `<KLICKDUMMY_PATH>/<name>/shell.html?feedback=on` | Kandidat noch nicht gebaut |
+| `GitHub` | `https://github.com/<REPO_OWNER>/<REPO_NAME>/blob/main/<KLICKDUMMY_PATH>/<name>/` | Spec nicht auf `origin/main` (`git log origin/main -- <pfad>` leer) |
+| `iil.pet` | `https://iil.pet/genesor/render/<repo>-<name>.html` | Repo/KD nicht Klasse A (genesor-vendored) ODER Datei fehlt in `iil-pet-portal/genesor/render/` — Live-Inhalt selbst NICHT prüfbar (Cloudflare-Access-Wand, 🌀 `agent_memory_search(query="genesor live verifizieren Cloudflare")`), nur Datei-Präsenz zählt |
+
 ## Step 4: Hand-off (dieser Skill baut nichts)
 
 Pro Kandidat den konkreten nächsten Befehl ausgeben:
@@ -107,6 +120,17 @@ Zuschnitt
   Weitere:  [B], [C]  (optional, nach Freigabe)
   ⚠ Tooling-Gap: <iil-klickdummy fehlt → Onboarding Teil der Aufgabe | vorhanden>
 
+KD-Referenz-Übersicht
+| # | Name   | Status            | Spec | Lokal | GitHub | iil.pet |
+|---|--------|-------------------|------|-------|--------|---------|
+| A | <name> | bestehend|Kandidat | ✓/—  | ✓/—   | ✓/—    | ✓/—     |
+| B | ...
+
+Links (nur wo ✓ — volle Pfade/URLs NICHT in die Tabelle, sonst Zeilenumbruch-Chaos)
+  [A] <Spec-Pfad>
+      <GitHub-Blob-URL | — + Grund>
+      <iil.pet-URL | — + Grund>
+
 Hand-off
   [A] → /klickdummy <name> klasse=spec-demo persona=<rolle>
   [B] → /konzept  (Scope unklar) → dann /klickdummy
@@ -127,6 +151,13 @@ Hand-off
 - ❌ **Tooling-Gap verschweigen** — fehlt `iil-klickdummy`, muss der Report das als Vorbedingung nennen,
   sonst scheitert `/klickdummy` überraschend.
 - ❌ **Kandidaten ohne Cap** — Default 4, damit der Report entscheidbar bleibt.
+- ❌ **KD-Referenz-Feld stillschweigend weglassen** statt `—` + Grund — eine fehlende Zeile sieht aus
+  wie „vergessen zu prüfen", ein `—` mit Grund ist eine geprüfte Aussage.
+- ❌ **Volle URLs in die Übersichtstabelle** — Presence-Marker (✓/—) in der Tabelle, volle Pfade/Links
+  in der separaten Liste darunter (sonst Terminal-Zeilenumbruch macht die Tabelle unlesbar).
+- ❌ **iil.pet-Link ungeprüft behaupten** — nur setzen, wenn die Datei tatsächlich in
+  `iil-pet-portal/genesor/render/` liegt; den Live-Inhalt kann dieser Skill nicht verifizieren
+  (Cloudflare-Wand) — das ist kein Grund, den Link auch bei fehlender Datei zu raten.
 
 ## 🌀-Memory-Discovery-Pfad
 
@@ -170,9 +201,28 @@ kein Vorschlag eines spec-losen Duplikats.
 ```
 **Erwartung:** nur die ex-schutz-Freigabe-Journey in der Landkarte, GEMISCHT-Entscheidung je Screen.
 
+### Test 4 — KD-Referenz-Übersicht bei mehreren bestehenden KDs (echter Gap-Beleg)
+
+```
+/kd-scout risk-hub
+```
+**Erwartung (verifiziert am Ist-Stand 2026-07-06):** die KD-Referenz-Übersicht zeigt für
+`sds-verwalten` alle vier Felder ✓ (`git log origin/main -- klickdummy/sds-verwalten/` nicht leer,
+`iil-pet-portal/genesor/render/risk-hub-sds-verwalten.html` vorhanden) — für `avv-pflege` dagegen
+`Spec ✓ / Lokal ✓ / GitHub ✓ / iil.pet —` (auf `origin/main`, aber keine Datei
+`iil-pet-portal/genesor/render/risk-hub-avv-pflege.html`). Der Skill markiert diese Lücke sichtbar
+statt sie zu verschweigen — genau das Verhalten, das die neue Referenz-Tabelle erzwingen soll.
+
 ## Changelog
 
 - 2026-07-05: Initial. Read-only Discovery/Entscheidungs-Vorstufe zu `/klickdummy` (write).
   Operationalisiert `KONZ-iil-klickdummy-008` (KD-Co-Creation-Loop) + `platform:ADR-211`.
   Konform zu `claude-skills.md` (Frontmatter, Step-0-project-facts, Anti-Patterns, 3 Dogfood-Tests,
   keine MCP-Calls → keine Signatur-Verifikation nötig). Dogfood-Beleg: travel-beat-Scout.
+- 2026-07-06: **KD-Referenz-Übersicht** (Step 3.5 + Output-Format) — Konsistenz-Review der
+  gesamten Pipeline (`kd-scout`→`klickdummy`→`kd-review`, iil-klickdummy-Session): vier feste
+  Felder (Spec/Lokal/GitHub/iil.pet) je Kandidat/bestehendem KD, `—` + Grund statt stillem
+  Weglassen. Bei mehreren KDs als Übersichtstabelle (Presence-Marker) + separate Link-Liste
+  darunter (volle URLs sprengen die Tabellenbreite sonst). 3 neue Anti-Patterns. Dogfood Test 4
+  (risk-hub, echter iil.pet-Deploy-Gap zwischen `sds-verwalten` und `avv-pflege`, verifiziert
+  2026-07-06). Analoge Änderung in `/klickdummy` + `/kd-review` (Einzel-KD-Form).
