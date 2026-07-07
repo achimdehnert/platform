@@ -8,11 +8,12 @@ fand dasselbe Muster für AGENT_HANDOVER.md und benannte die fleet-weite Erweite
 als Prio.
 
 Der bestehende HANDOFF-*.md-Check (`handoff_banner_check.py`) verlangt ein wörtliches
-"Live-Status: #<nr>"-Banner. Eine Fleet-Erhebung über alle 19 Repos mit einem
-AGENT_HANDOVER.md zeigt: KEINES trägt dieses Banner, und es gibt ZWEI etablierte, gegenseitig
-inkompatible Konventionen ("## ⚡ Aktueller Stand (<datum>)" vs. "## Current state (observed
-<datum>)"), aber keine ADR, die eine davon vorschreibt. Den HANDOFF-Banner unverändert
-wiederzuverwenden würde alle 19 Dateien sofort brechen.
+"Live-Status: #<nr>"-Banner. Eine Fleet-Erhebung über alle 18 Repos mit einem eigenständigen
+AGENT_HANDOVER.md zeigt (platform-pinned ausgenommen — kein eigenständiges Repo, sondern ein
+gepinnter Worktree von platform selbst): KEINES trägt dieses Banner, und es gibt ZWEI etablierte,
+gegenseitig inkompatible Konventionen ("## ⚡ Aktueller Stand (<datum>)" vs. "## Current state
+(observed <datum>)"), aber keine ADR, die eine davon vorschreibt. Den HANDOFF-Banner unverändert
+wiederzuverwenden würde alle 18 Dateien sofort brechen.
 
 Stattdessen: ein **Rezenz-Check**, der dialektunabhängig funktioniert — beide Konventionen
 tragen bereits ein YYYY-MM-DD-Datum in einer Markdown-Überschrift der ersten HEAD_LINES Zeilen.
@@ -27,12 +28,11 @@ Braucht `git log` im PATH (Checkout mit fetch-depth 0, wie im bestehenden Gate-W
 Verdrahtet in .github/workflows/handoff-banner-gate.yml;
 Tests: tools/tests/test_agent_handover_freshness_check.py.
 
-Scope-Hinweis: dieses Skript + der Workflow-Trigger decken bislang nur AGENT_HANDOVER.md-
-Änderungen INNERHALB des platform-Repos ab (Dogfooding). Die eigentliche Fleet-Verteilung an
-die 18 weiteren Repos mit eigenem AGENT_HANDOVER.md braucht einen Distributionsmechanismus für
-.github/workflows/*.yml, den es aktuell nicht gibt (sync-workflows.sh verteilt nur
-.windsurf/workflows/*.md-Skills, keine GitHub-Actions-YAMLs) — bewusst als Folge-Issue
-ausgegliedert statt hier 18 Repos in einer Sonnet-PR anzufassen.
+Fleet-Distribution: der Workflow ist als `workflow_call`-reusable-Workflow aufrufbar (platform
+ist PUBLIC → auch private Repos in anderen Orgs können ihn referenzieren, ohne Cross-Org-
+Freigaben). Jedes aufrufende Repo bekommt eine dünne Caller-Datei; dieses Skript selbst bleibt
+unverändert — der Workflow checkt es bei jedem Aufruf aus platform nach (s.
+`.github/workflows/handoff-banner-gate.yml`). Rollout-Tracking: platform Issue #982.
 """
 
 from __future__ import annotations

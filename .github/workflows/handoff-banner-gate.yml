@@ -6,18 +6,24 @@ name: Handoff-Banner-Gate
 #
 # Problem: statische Handoff-/Übergabe-Dokumente frieren beim Commit ein, während der lebende
 # Stand weiterläuft → zwei divergierende Wahrheitsquellen, Folge-Sessions lesen falschen
-# Stand. Zwei Zweige mit UNTERSCHIEDLICHEM Check, weil AGENT_HANDOVER.md fleet-weit (19 Repos)
-# kein "Live-Status:"-Banner kennt und zwei inkompatible Dialekte hat (Erhebung 2026-07-07):
+# Stand. Zwei Zweige mit UNTERSCHIEDLICHEM Check, weil AGENT_HANDOVER.md fleet-weit (18 Repos,
+# Erhebung 2026-07-07 — platform-pinned ist kein eigenständiges Repo, sondern ein gepinnter
+# Worktree von platform selbst, daher ausgenommen) kein "Live-Status:"-Banner kennt und zwei
+# inkompatible Dialekte hat:
 #   1. HANDOFF-*.md      — Live-Status-Banner Pflicht (`Live-Status:` + #<nr>/URL).
 #   2. AGENT_HANDOVER.md — Rezenz-Check: datierte Überschrift darf nicht mehr als 30 Tage
 #      älter sein als der letzte Commit, der die Datei berührt (agent_handover_freshness_check.py).
-#      Reusing des Live-Status-Banners hätte alle 19 Konventionen sofort gebrochen.
+#      Reusing des Live-Status-Banners hätte alle 18 Konventionen sofort gebrochen.
 #
-# Scope (bewusst begrenzt, s. Skript-Docstring): deckt bislang nur AGENT_HANDOVER.md-Änderungen
-# INNERHALB von platform ab (Dogfooding). Die Fleet-Verteilung an die 18 weiteren Repos mit
-# eigenem AGENT_HANDOVER.md braucht einen .github/workflows/*.yml-Distributionsmechanismus, den
-# es noch nicht gibt (sync-workflows.sh verteilt nur .windsurf/workflows/*.md-Skills, keine
-# GitHub-Actions-YAMLs) — als Folge-Issue ausgegliedert statt hier 18 Repos in einer PR anzufassen.
+# Fleet-Distribution als REUSABLE WORKFLOW (`workflow_call`): platform ist PUBLIC, daher können
+# auch private Repos in ANDEREN Orgs (z.B. iilgmbh) diesen Workflow per
+# `uses: achimdehnert/platform/.github/workflows/handoff-banner-gate.yml@main` aufrufen, ohne
+# Cross-Org-Freigaben (verifiziert 2026-07-07). Ein aufrufendes Repo bekommt per
+# `actions/checkout@v4` automatisch NUR sich selbst ausgecheckt — die Check-Skripte liegen aber
+# hier in platform. Deshalb IMMER ein zweiter, sparse Checkout von platform selbst (auch wenn
+# dieser Workflow direkt IN platform läuft — hält die Skript-Pfade in JEDEM Kontext identisch,
+# keine bedingte Pfad-Logik nötig). Caller-Datei je Repo bleibt trotzdem ~8 Zeilen (s.
+# Rollout-PRs, Issue #982).
 #
 # „Gate wächst mit" (claude-skills F-A): paths triggert neben den Handoff-Dateien auch auf beide
 # Check-Skripte und diesen Workflow selbst; Unit-Tests laufen im tools-tests-Gate
@@ -33,8 +39,10 @@ on:
       - 'scripts/checks/handoff_banner_check.py'
       - 'scripts/checks/agent_handover_freshness_check.py'
       - '.github/workflows/handoff-banner-gate.yml'
+  workflow_call: {}   # Fleet-Aufruf aus anderen Repos (Issue #982-Rollout)
 
-# Least privilege (#818 permissions sweep) — nur lesen, kein Kommentar/Write nötig.
+# Least privilege (#818 permissions sweep) — nur lesen, kein Kommentar/Write nötig. Der zweite
+# Checkout unten liest platform (PUBLIC) — braucht keinen zusätzlichen Scope.
 permissions:
   contents: read
 
@@ -45,7 +53,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # Merge-Base gegen base_ref nötig
+          fetch-depth: 0   # Merge-Base gegen base_ref nötig — Repo des AUFRUFERS bei workflow_call
+
+      - name: Check-Skripte aus platform laden
+        uses: actions/checkout@v4
+        with:
+          repository: achimdehnert/platform
+          path: _platform_checks
+          sparse-checkout: |
+            scripts/checks
+          sparse-checkout-cone-mode: false
 
       - name: Geänderte Handoff-Dateien einsammeln
         id: changed
@@ -74,7 +91,7 @@ jobs:
           FILES: ${{ steps.changed.outputs.handoff_files }}
         run: |
           printf '%s\n' "$FILES" | xargs -d '\n' -r \
-            python3 scripts/checks/handoff_banner_check.py
+            python3 _platform_checks/scripts/checks/handoff_banner_check.py
 
       - name: Rezenz prüfen (AGENT_HANDOVER.md)
         if: steps.changed.outputs.handover_files != ''
@@ -82,26 +99,26 @@ jobs:
           FILES: ${{ steps.changed.outputs.handover_files }}
         run: |
           printf '%s\n' "$FILES" | xargs -d '\n' -r \
-            python3 scripts/checks/agent_handover_freshness_check.py
+            python3 _platform_checks/scripts/checks/agent_handover_freshness_check.py
 
       - name: Selbsttest bei Skript-/Workflow-Änderung
         # „Gate wächst mit": ändert ein PR nur ein Check-Skript/den Workflow (keine Handoff-
         # Datei selbst), beweist dieser Step, dass PASS- und FAIL-Pfad BEIDER Zweige weiterhin
-        # funktionieren.
+        # funktionieren. Läuft nur in platform selbst (Trigger-paths decken nur dortige Dateien).
         if: steps.changed.outputs.handoff_files == '' && steps.changed.outputs.handover_files == ''
         run: |
           tmp="$(mktemp -d)"
           printf '# T\n\n> **Live-Status: achimdehnert/platform#913** — eingefroren.\n' > "$tmp/HANDOFF-ok.md"
           printf '# T\n\nkein Banner hier.\n' > "$tmp/HANDOFF-bad.md"
-          python3 scripts/checks/handoff_banner_check.py "$tmp/HANDOFF-ok.md"
-          if python3 scripts/checks/handoff_banner_check.py "$tmp/HANDOFF-bad.md"; then
+          python3 _platform_checks/scripts/checks/handoff_banner_check.py "$tmp/HANDOFF-ok.md"
+          if python3 _platform_checks/scripts/checks/handoff_banner_check.py "$tmp/HANDOFF-bad.md"; then
             echo "::error::Selbsttest (HANDOFF-*.md): FAIL-Pfad greift nicht mehr"; exit 1
           fi
 
           printf '## Aktueller Stand (2026-07-07)\n' > "$tmp/AGENT_HANDOVER-ok.md"
           printf 'kein Datum hier.\n' > "$tmp/AGENT_HANDOVER-bad.md"
-          python3 scripts/checks/agent_handover_freshness_check.py "$tmp/AGENT_HANDOVER-ok.md"
-          if python3 scripts/checks/agent_handover_freshness_check.py "$tmp/AGENT_HANDOVER-bad.md"; then
+          python3 _platform_checks/scripts/checks/agent_handover_freshness_check.py "$tmp/AGENT_HANDOVER-ok.md"
+          if python3 _platform_checks/scripts/checks/agent_handover_freshness_check.py "$tmp/AGENT_HANDOVER-bad.md"; then
             echo "::error::Selbsttest (AGENT_HANDOVER.md): FAIL-Pfad greift nicht mehr"; exit 1
           fi
           echo "Selbsttest OK: PASS- und FAIL-Pfad beider Gate-Zweige greifen."
