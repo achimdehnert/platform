@@ -131,11 +131,15 @@ metadata:
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| 1 | `klickdummy-sitemap-drift` tatsächlich in `.github/workflows/ci.yml` aufrufen | risk-hub | — | 🟢 offen | du: priorisieren, dann PR |
+| 1 | `klickdummy-sitemap-drift` tatsächlich in `.github/workflows/ci.yml` aufrufen | risk-hub | [#403](https://github.com/iilgmbh/risk-hub/pull/403) | ✅ done (2026-07-07, gemergt, approved wirdigital) | — |
 | 2 | `gen_e2e.py`-Manifest-Nichtdeterminismus (Befund #6) fixen oder Issue anlegen | iil-klickdummy | — | 🟢 offen | du: priorisieren |
 | 3 | Branch-Protection risk-hub + iil-klickdummy gegen dokumentierte Erwartung abgleichen | beide | — | 🟢 offen | du: Scope/Umfang entscheiden (Review-Pflicht einführen?) |
 | 4 | Memory-Kandidaten 1+2 verankern (oder ablehnen) | — | s. §6 | 🔵 ich kann sofort | du: go/no-go |
 | 5 | Gate-4-PR-Body-Zeile als feste Konvention (Befund #7) | org-weit | — | 🟡 Vorschlag | du: adr-threshold-Check, ggf. claude-skills.md-Ergänzung |
+
+## 7b. Nachtrag (2026-07-07, gleicher Tag)
+
+Befund #1 (kritisch) wurde noch am selben Tag geschlossen: [risk-hub#403](https://github.com/iilgmbh/risk-hub/pull/403) fügt den fehlenden Step `Sitemap-Freshness-Drift-Gate` direkt in den bestehenden `klickdummy-parity-drift`-Job in `.github/workflows/ci.yml` ein (kein neuer Job nötig, gleiches Setup). **Billigster Check diesmal tatsächlich gezogen, nicht nur behauptet:** CI-Run [28874173906](https://github.com/iilgmbh/risk-hub/actions/runs/28874173906/job/85644639950) zeigt in den Logs `ADR-211 S14 - Sitemap-Freshness: re-generieren + git diff` → `ok Sitemap aktuell (kein Drift)` — der Step lief nachweislich in Actions, nicht nur lokal. Von wirdigital approved, gemergt 2026-07-07T15:01:51Z. Damit ist die 16. `claim-before-cheapest-check`-Instanz aus §5 innerhalb desselben Tages korrigiert.
 
 ## 8. Nicht verifiziert (Restlücken)
 
