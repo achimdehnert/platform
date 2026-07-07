@@ -8,6 +8,9 @@ implementation_evidence:
   - "Rollout done: weltenhub, cad-hub, travel-beat, billing-hub (TENANCY_MODE=disabled), dev-hub (disabled)"
   - "pptx-hub: tenant_id in Models vorhanden, aber kein django_tenancy Package"
   - "Fehlend: trading-hub (kein tenant_id, kein django_tenancy)"
+amended: 2026-07-07
+amendments:
+  - {date: 2026-07-07, by: "Achim Dehnert", what: "frist-hub als Ausnahme ergänzt — separate LRA-Instanz statt geteilter Multi-Tenant-DB, ausgelöst durch /adr-challenger-Fund auf KONZ-frist-hub-001 (das Dokument benannte diese Amendment-Prüfung selbst als offen)"}
 ---
 
 # ADR-109: Multi-Tenancy als Plattform-Standard für alle UI-Hubs
@@ -167,6 +170,10 @@ Rollback: `python manage.py migrate core 0001` (vollständig reversibel via `rev
 
 - `billing-hub`: `TENANCY_MODE=disabled` + `TENANT_ISOLATION_MODE=disabled` interim bis separates ADR
 - `dev-hub`: `TENANCY_MODE=disabled`, kein Rollout geplant
+- `frist-hub`: `TENANCY_MODE=single` je LRA, **separate gehostete Instanz statt geteilter
+  Multi-Tenant-DB** (Sozialdaten/Citizen-facing, kein Cross-Tenant-Reporting gewünscht —
+  Betriebstopologie-Klärung 2026-07-06, s. `frist-hub:docs/konzepte/KONZ-frist-hub-001` §8.5).
+  Kein `django_tenancy`-Rollout vorgesehen.
 
 ## Konsequenzen
 
