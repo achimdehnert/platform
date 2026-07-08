@@ -136,3 +136,17 @@ Human-Klick (Baseline heute: Stunden bis Tage, C1). (M2) Anzahl `waiting`-Runs >
 3. **`medium`-Autonomie-Endstufe:** Darf der Agent in `medium`-Repos nach 2 Wochen
    beweisbarem Auto-Rollback auch den Merge autonom ausführen (Gate-2-Delegation pro
    Klasse)? Empfehlung: ja für `low` sofort, für `medium` erst nach Phase 4.
+4. **PR-Review-Pflicht in platform für Docs-only-Pfade** (vom Owner beim Review dieses
+   Konzepts ergänzt, 2026-07-08): Das Ruleset verlangt 1 Approval + Code-Owner — bei einem
+   Solo-Owner heißt das ein **Zwei-Konten-Ritual** (wirdigital approved achimdehnert) für
+   jeden Docs-PR. Derselbe Reibungstyp wie das Deploy-Klick-Gate (§2 P2), nur am Merge
+   statt am Deploy. Kandidat: Klassen-Logik auch auf die *Merge*-Anforderung anwenden —
+   Docs-only-Pfade (`docs/**`, `.windsurf/workflows/**`) in platform = Klasse `low`,
+   Review-Pflicht dort entfällt (Ruleset-Bypass per Pfad ist in GitHub nicht direkt
+   abbildbar → Alternativen: separates Docs-Ruleset, merge-queue mit Path-Check, oder
+   `--admin`-Konvention mit Audit-Kommentar). Entscheidung + Umsetzungsweg offen.
+5. **Runner-/Host-Kollokation:** CI-Worker und Prod-Docker-Builds teilen sich denselben
+   Host — beim #254-Deploy (2026-07-08, 12:30–12:38) starben zweimal alle 20
+   pytest-xdist-Worker eines parallel laufenden dev-hub-CI-Runs („node down: Not properly
+   terminated"). Hängt mit platform#988 (Disk/Ressourcen-Druck) zusammen. Kandidat für
+   Phase 1: Deploy-Builds und CI-Jobs per Runner-Label oder Concurrency-Gruppe entzerren.
