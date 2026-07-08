@@ -37,9 +37,11 @@ auf devhub.iil.pet selbst** — globales Nav-Badge mit Anzahl STALE-Approvals + 
 Unter-Route heraus in jede devhub-Seite und deckt den realen Incident-Modus vollständig ab. Die
 ursprünglich angedachte **Stufe B
 (One-Click-Approve via `pending_deployments`)** wird **hinter ein Entscheidungs-Gate gestellt**,
-nicht gebaut: Ihr einziger einzigartiger Mehrwert (Batch-Freigabe blockierter Ketten) wiegt den
-Preis — ein org-weiter Deploy-Approve-Schreib-Token über zwei Orgs — nach adversarialer Prüfung
-**nicht auf**, solange nicht drei Vorbedingungen erfüllt sind (§13).
+nicht gebaut. **Richtungsentscheidung (2026-07-08):** falls Stufe B kommt, dann **Weg 2 /
+User-Approval** über den dedizierten GitHub-Account **`wirdigital`** (Token-Option b) — **nicht**
+GitHub App, **nicht** geteilter Token. Der Bau bleibt gegated hinter den PRE-2-Restaufgaben
+(`wirdigital`-Token/Reviewer-Listen/ADR) und der harten PRE-3-Bedingung (Board persistiert den
+echten handelnden Menschen, da GitHub sonst nur „`wirdigital` approved" protokolliert) — §13.
 
 ## 2 Scope & Evidenzbasis
 
@@ -87,8 +89,8 @@ unter Druck nachzurüsten.
 | Stufe | Was | Schreib-Scope | Status |
 |-------|-----|---------------|--------|
 | **A** | Read-only Aggregations-Board (`/operations/approvals/`): wartende Approvals (STALE >6h), offene PRs, letzte Deploys, Deep-Links | keiner | ✅ gebaut+gemergt (dev-hub #115) |
-| **B-lite** | **In-App-Sichtbarkeits-Eskalation auf devhub selbst**: globales Nav-Badge (Anzahl STALE `waiting`-Approvals, org-weit) auf jeder devhub-Seite + Hero-Card im Operations-Dashboard. Klick → Board → Deep-Link → Mensch approved in GitHub. **Keine externen Kanäle.** | keiner | 🔵 **empfohlen als Nächstes** |
-| **B** | **One-Click-Approve** im Board: Button → serverseitiger `POST /repos/{repo}/actions/runs/{run_id}/pending_deployments` | **org-weiter Deploy-Approve-Token** | ⛔ **gegated** (§13-Vorbedingungen) |
+| **B-lite** | **In-App-Sichtbarkeits-Eskalation auf devhub selbst**: globales Nav-Badge (Anzahl STALE `waiting`-Approvals, org-weit) auf jeder devhub-Seite + Hero-Card im Operations-Dashboard. Klick → Board → Deep-Link → Mensch approved in GitHub. **Keine externen Kanäle.** | keiner | ✅ **gebaut (dev-hub#117)** |
+| **B** | **One-Click-Approve** im Board: Button → serverseitiger `POST /repos/{repo}/actions/runs/{run_id}/pending_deployments`. Approver-Identität: **Account `wirdigital`** (Weg 2, Entscheidung 2026-07-08) | dedizierter `wirdigital`-Token (**nicht** geteilt) | ⛔ **gegated** (§13: PRE-2-Restaufgaben + PRE-3 Audit) |
 | **C** | **Ketten-Freigabe** — mehrere blockierte Runs einer Kette in korrekter Reihenfolge in einem Rutsch (der einzige echte B-Mehrwert; *nicht* zu verwechseln mit der Batch-Run-Klasse §5.1) | wie B | ⛔ nur nach B |
 
 ### 5.1 Run-Klassen: online vs batch (quer zu allen Stufen)
@@ -129,8 +131,8 @@ nicht eine Implementierungsnebensache.
 | Dissens | Position A | Position B | Auflösung |
 |---------|-----------|-----------|-----------|
 | **Hat Stufe B einzigartigen Nutzen?** | Steelman: ja — Batch-Approve blockierter Ketten, das kann sonst nichts | Advocatus Diabolus: nein — spart nur Sekunden; In-App-Badge+Deep-Link (B-lite) dominiert für den Incident-Modus | **Teilweise beide:** der *Batch*-Nutzen (Stufe C) ist real und einzigartig; der *Einzel*-One-Click-Nutzen ist marginal. → B nur als Vehikel für C rechtfertigbar, nicht für sich. |
-| **Kann eine GitHub App approven?** | Maintainer-2028: GitHub App = beste Token-Option (auto-rotiert, kein PAT-Waise) | Advocatus Diabolus: GitHub Apps können i.d.R. **nicht** als Environment-Required-Reviewer gelistet werden → `pending_deployments`-Approve schlägt fehl → erzwingt menschen-eigenen PAT | **UNGEKLÄRT — H, entscheidungsblockierend.** Billigster Check: §13-PRE-1. Kippt die gesamte Token-Empfehlung. |
-| **Attribution** | — | Diabolus + Maintainer einig: der API-Approver ist der **Token**, nicht der Board-Klicker → GitHub-Audit-Log liest „Token-Owner approved" | **Konsens:** Segregation-of-Duties wird zum Theater, wenn der handelnde Mensch nicht separat erfasst wird. Harte Vorbedingung §13-PRE-3. |
+| **Kann eine GitHub App approven?** | Maintainer-2028: GitHub App = beste Token-Option (auto-rotiert, kein PAT-Waise) | Advocatus Diabolus: GitHub Apps können i.d.R. **nicht** als Environment-Required-Reviewer gelistet werden → `pending_deployments`-Approve schlägt fehl → erzwingt menschen-eigenen PAT | **AUFGELÖST (2026-07-08): obsolet** — Owner-Entscheidung ist **Weg 2 / User-Approval** über den Account `wirdigital` (Option b), nicht die App. Ein echter User *kann* Reviewer sein, das PRE-1-Risiko entfällt für den Approve-Akt. Rest-Restriktion (App als Reviewer) bleibt nur für ein etwaiges späteres Umschwenken relevant. |
+| **Attribution** | — | Diabolus + Maintainer einig: der API-Approver ist der **Token**, nicht der Board-Klicker → GitHub-Audit-Log liest „Token-Owner approved" | **Konsens — durch Weg 2 sogar verschärft:** Der API-Approver ist jetzt der Account `wirdigital`; das GitHub-Audit-Log liest **„wirdigital approved"**, egal welcher Mensch im Board klickte. SoD bleibt Theater, **außer** das Board erfasst den echten Menschen separat. → PRE-3 ist damit **nicht optional**, sondern Kernbedingung. |
 
 ### 6.2 Advocatus-Diabolus-Pflichtfragen
 
@@ -151,9 +153,10 @@ nicht eine Implementierungsnebensache.
 | Opt | Ansatz | Blast-Radius | Rotation/Owner | Attribution | Bewertung |
 |-----|--------|--------------|----------------|-------------|-----------|
 | (a) | `GITHUB_TOKEN` um `deployments:write` erweitern | **maximal** — alle bestehenden Konsumenten erben Approve-Macht | Owner unklar, wird selten rotiert | Token-Owner | ❌ **verworfen** (Konsens aller drei Lenses) |
-| (b) | Separater, dedizierter minimal-scoped Approve-PAT | eng, aber menschen-eigen | PAT-Ablauf bricht Board still; „PAT-Waise" wenn Person geht | menschen-eigen (kann Reviewer sein ✓) | 🟡 Fallback, wenn (c) technisch scheitert |
-| (c) | **GitHub App** (deployments-scoped, über beide Orgs installiert) | eng, auto-rotierte Kurzzeit-Tokens | kein Waise, Private-Key ist selbst Rotations-Objekt | **evtl. NICHT als Reviewer möglich** (H, PRE-1) | 🟢 bevorzugt **falls PRE-1 grün**, sonst tot für den Approve-Akt |
-| (d) | Kein Schreib-Scope — In-App-Badge auf devhub + Deep-Link (B-lite) | **null** | — | GitHub-nativ (Mensch klickt) | ✅ **empfohlener Ist-Weg** |
+| (b) | **Dedizierter GitHub-User `wirdigital` als Approver** (Weg 2 / User-Approval), sein PAT minimal-scoped | eng, account-eigen | PAT-Ablauf bricht Board still; Account-Owner (`wirdigital`) muss gepflegt werden | Account `wirdigital` (**kann** Environment-Reviewer sein ✓) | ✅ **GEWÄHLT** (Owner-Entscheidung 2026-07-08) |
+| (c) | **GitHub App** (deployments-scoped, über beide Orgs installiert) | eng, auto-rotierte Kurzzeit-Tokens | kein Waise, Private-Key ist selbst Rotations-Objekt | **evtl. NICHT als Reviewer möglich** (H, PRE-1) | ⛔ **verworfen** — Weg 2 (User) gewählt; PRE-1-Risiko damit umgangen |
+| (a) → nachrangig | (siehe oben) | | | | ❌ verworfen |
+| (d) | Kein Schreib-Scope — In-App-Badge auf devhub + Deep-Link (B-lite) | **null** | — | GitHub-nativ (Mensch klickt) | ✅ **Ist-Weg (gebaut, dev-hub#117)** — Vorstufe vor B |
 
 **Cache-Konsequenz für B-lite:** Das Nav-Badge braucht **keinen** Dedup-Speicher (es zeigt einen
 Live-Zähler, verschickt nichts). Es liest den bestehenden 120s-Board-Cache-Eintrag und rendert die
@@ -237,16 +240,23 @@ mitziehen, sonst würde es an dem Punkt Rauschen tragen.
 **Offene Owner-Entscheidung (gated REC-5):** Klassifikationsquelle online vs batch (§5.1 —
 Namenskonvention / Workflow-Kennung / zentrale Registry). Ohne sie bleibt die Schwelle global.
 
-**Vorbedingungen für ein etwaiges Stufe B (alle drei, sonst kein Bau):**
-- **PRE-1 (billiger Check, entscheidungsblockierend):** Verifizieren, ob eine **GitHub App** (bzw.
-  ihr Installations-Token) `POST .../pending_deployments` als *Approver* ausführen kann, oder ob
-  GitHub nur menschen-eigene Reviewer zulässt. Check: GitHub-Docs „Review custom deployment
-  protection rules" / API-Test mit einer Test-App an einem Wegwerf-Environment. Ergebnis kippt
-  Opt (c)↔(b).
-- **PRE-2:** Owner-Entscheidung (Achim), dass ein org-weiter Deploy-Approve-Token über iilgmbh +
-  achimdehnert überhaupt gewollt ist (Security-Config-Gate) — plus dedizierter ADR.
-- **PRE-3:** Board erfasst pro Approve ein Audit-Event mit dem **echten handelnden Menschen**
-  (`actor`), nicht nur dem Token.
+**Owner-Entscheidung Stufe B (2026-07-08): Weg 2 / User-Approval über den GitHub-Account
+`wirdigital`** (Token-Option b). Damit:
+- **PRE-1 — erledigt/obsolet:** Der App-als-Reviewer-Check entfällt, weil ein echter User-Account
+  (`wirdigital`) als Environment-Reviewer zulässig ist. (Rest-Check nur, falls je auf eine App
+  umgeschwenkt wird.)
+- **PRE-2 — beantwortet, mit engem Scope:** Der Schreib-Scope liegt beim **dedizierten Account
+  `wirdigital`**, **nicht** auf dem geteilten `GITHUB_TOKEN` (Opt a bleibt verworfen). Rest-Owner-
+  Aufgaben vor Bau: (i) `wirdigital`-PAT minimal-scoped bereitstellen + als Secret hinterlegen,
+  (ii) `wirdigital` auf den Environment-Reviewer-Listen der Ziel-Repos eintragen, (iii) dedizierter
+  ADR für den org-weiten Deploy-Approve-Account.
+- **PRE-3 — bleibt Kernbedingung (durch Weg 2 verschärft):** Da GitHub jede Board-Freigabe als
+  „`wirdigital` approved" protokolliert, **muss** das Board pro Approve ein eigenes Audit-Event mit
+  dem **echten handelnden Menschen** (`actor`, aus der devhub-Session) persistieren — sonst ist die
+  Segregation-of-Duties Theater. Ohne dieses Audit-Log **kein** Stufe-B-Bau.
+- **Zusatz-Härtung:** Reviewer-Paritäts-Filter (§9) — der Board-Approve-Button nur für Menschen,
+  die auch selbst auf der GitHub-Reviewer-Liste stehen; sonst wird „jeder Staff in devhub" zum
+  effektiven Approver-Kreis (Governance-Fork §6.2).
 
 **Kill-Gate (messbar, datiert):**
 - Stufe B (falls je gebaut): <20% der Prod-Approvals über den Board-Button im ersten vollen
