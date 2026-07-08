@@ -432,10 +432,24 @@ PR-Body sollte enthalten: Screen-Liste, Klassen-Begründung, Datenschutz-Hinweis
   I3 → <PASS|FAIL>
   I4 → <PASS|FAIL>
 
+== KD-Referenz ==
+  Name:    <name>
+  Spec:    <KLICKDUMMY_PATH>/<name>/screens-spec.yaml
+  Lokal:   <KLICKDUMMY_PATH>/<name>/shell.html?feedback=on
+  GitHub:  — (noch kein Commit auf main — s. Nächste Schritte)
+  iil.pet: — (noch nicht deployed — separater iil-pet-portal-Regen-Schritt nach Merge)
+
 == Nächste Schritte ==
   - Live-Test: python3 -m http.server 8765 → ?feedback=on
   - Commit + PR: feat/klickdummy-<name>
 ```
+
+**KD-Referenz-Feldkonvention** (gleiches Schema wie `/kd-scout` Step 3.5 und `/kd-review`, damit die
+Pipeline durchgängig dieselben vier Felder trägt): `Spec`/`Lokal` sind direkt nach Step 3/6 bekannt.
+`GitHub` wird erst mit einem Commit auf `origin/main` auflösbar — bis Step 11 (PR) daher immer `—`
+mit Grund, nie geraten. `iil.pet` erst nach einem separaten `iil-pet-portal`-Regen-Lauf (Memory
+`genesor-deploy-simple`) — an dieser Stelle im Skill praktisch immer `—`, das ist **erwartetes**
+Verhalten direkt nach dem Bau, kein Fehler.
 
 ## Anti-Patterns
 
@@ -480,3 +494,6 @@ Bewährt in:
 
 - 2026-05-21: Initial. Aus `platform:ADR-211` Rev 13 §Migrations-Cookbook + ttz-hub-Erst-Adoption-Empirie abgeleitet. 11 Steps + 9 Anti-Patterns + 2 Dogfood-Empirie-Punkte.
 - 2026-05-21: Rev 2 — Interview-Modus (Step 0.7) ergänzt. Bei `/klickdummy` ohne Args läuft strukturierter 5-Phasen-Dialog (Pflicht-Variablen / adaptive Klassen-Folgen / Screens-Loop / Optionals mit Smart-Defaults / YAML-Konfirmation), bevor Bau-Steps 1-11 starten. 2 neue Anti-Patterns (Phase-5-Bypass, leere parity_acceptance). Cross-Tool kompatibel (CC + Windsurf), kein separater Sub-Agent nötig.
+- 2026-07-06: **KD-Referenz** im Output-Format ergänzt (Spec/Lokal/GitHub/iil.pet, gleiches Schema
+  wie `/kd-scout`/`/kd-review`) — konsistente Pipeline-Darstellung, Lücken (GitHub/iil.pet direkt
+  nach Bau immer `—`) explizit mit Grund statt stillschweigend.

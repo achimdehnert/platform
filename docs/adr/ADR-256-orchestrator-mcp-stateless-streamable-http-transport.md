@@ -11,7 +11,7 @@ supersedes: []
 amends: [ADR-224]
 depends_on: []
 related: [ADR-101, ADR-224, ADR-238]
-implementation_status: none
+implementation_status: partial
 tags: [orchestrator, mcp, transport, streamable-http, sse, stateless, resilience, deploy-resilience]
 scope:
   include_paths:
@@ -92,6 +92,22 @@ ersetzt `GET /sse` + `POST /messages/`.
 3. `/sse` + `/messages/` entfernen, sobald nichts mehr darauf zeigt (Consumer-Inventur als Gate).
 
 Rollback = `/sse` bleibt bis Schritt 3 erhalten; jederzeit Rückbau auf SSE möglich.
+
+## Umsetzungsstand (2026-07-05)
+
+`implementation_status: partial` — Kernentscheidung (Deploy-Resilienz gegen #128) ist erreicht,
+nur die Altlast-Entfernung (Schritt 3) steht noch aus:
+
+- **Schritt 1 — erledigt:** `/mcp` (stateless Streamable HTTP, `StreamableHTTPSessionManager`)
+  ist gemountet und **prod-live verifiziert** — `POST https://orchestrator.iil.pet/mcp/` mit Bearer
+  liefert ein volles MCP-`initialize`-Result (HTTP 200, `orchestrator-mcp v1.28.1`). (mcp-hub #165,
+  Commit `b4c0afc`.)
+- **Schritt 2 — erledigt:** externe Consumer auf `/mcp` umgestellt — beide `~/.claude.json`-Einträge
+  (`type: http`, `url: …/mcp/`) sowie das kanonische Template `mcp-hub/docs/claude-settings-template.json`
+  (mcp-hub #166). Keine internen Hardcode-`/sse`-Caller gefunden (Discord/Headless nutzen keinen
+  fixen `/sse`-URL). Damit ist die Wurzel von **#128 getilgt** (Issue via #166 geschlossen).
+- **Schritt 3 — offen (bewusst gegated):** `/sse` + `/messages/` bleiben, bis eine Consumer-Inventur
+  bestätigt, dass nichts mehr darauf zeigt. Erst danach → `implementation_status: complete`.
 
 ## Consequences
 
