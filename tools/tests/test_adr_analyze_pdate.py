@@ -15,7 +15,6 @@ umgebogen (leere Liste -> keine Repos -> alle Schleifen no-op).
 from __future__ import annotations
 
 import importlib.util
-import json
 import sys
 from pathlib import Path
 
