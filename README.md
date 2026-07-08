@@ -74,7 +74,6 @@ platform/
 ├── .windsurf/workflows/   # Skill-Quelle (CC-first, ADR-230) — Windsurf selbst nur Review-only
 ├── scripts/                # Ops-Scripts (gen_project_facts.py, sync-workflows.sh, ship.sh, ...)
 ├── agents/                 # Governance-Agents (guardian, adr_scribe, context_reviewer)
-├── governance-deploy/      # Governance Django App
 ├── infra/, deployment/     # Infrastruktur-Konfiguration
 ├── registry/                # SSoT canonical.yaml (Repo-Registry, ADR-234)
 ├── shared_contracts/        # Cross-Repo Python Contracts (Events, Schemas)
