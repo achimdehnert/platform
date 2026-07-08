@@ -11,9 +11,11 @@
 Die drei Domänen sind Instanzen desselben Musters — **NL → validiertes
 strukturiertes Artefakt** — in drei sehr unterschiedlichen Reifegraden:
 
+> **Redaktion 2026-07-08:** Gov-Repo-Detailfunde gemäß Gov-Regel (Gov-Funde bleiben im Gov-Repo) entfernt bzw. generisch gefasst. Volldetails liegen beim Owner (lokale Ablage) und gehören in ein Gov-Repo-Issue.
+
 | Domäne | Reife | Kern | Zentraler Befund |
 |---|---|---|---|
-| **NL2SQL** | Produktiv | `aifw.nl2sql` (iil-aifw 0.11.5) | 3–4 parallele Implementierungen; odoo-Legacy-Fallback führt LLM-SQL auf **RW-Cursor** aus; ttz-hub callt **OpenAI** trotz Sovereignty-Kontext |
+| **NL2SQL** | Produktiv | `aifw.nl2sql` (iil-aifw 0.11.5) | 3–4 parallele Implementierungen; odoo-Legacy-Fallback führt LLM-SQL auf **RW-Cursor** aus; Gov-Repo: Sovereignty-Klärung nötig (Detail → Gov-Repo) |
 | **CAD** | Produktiv | `nl2cad-core` 0.4.0 (PyPI, 6 Pakete) | Kern gesund (DI, kein Modell-Hardcode); `ifc_mcp` in mcp-hub ist **zweite Brandschutz/Ex-Zonen-Engine**; Golden-Suite CI-blind; Pin-Drift bei Konsumenten |
 | **IoT** | Spec/Klickdummy | `nl2iot-hub` (0 Code-Dateien) | Kein Betriebscode, kein MQTT fleet-weit; SIL-Sicherheitsarchitektur vorbildlich **dokumentiert, aber nicht implementiert**; governance-los auf Platform-Ebene |
 
@@ -24,7 +26,7 @@ CI-Gate, keine Accuracy-Metrik, kein Regressions-Gate (ADR-223 nur
 
 **Schwerste Einzelbefunde (Prio):**
 1. 🔴 odoo-hub: Legacy-NL2SQL-Fallback exekutiert LLM-generiertes SQL auf dem Odoo-**Read-Write**-Cursor, Schutz nur Regex, `allow_write`-Flag vorhanden (`addons/mfg_nl2sql/controllers/nl2sql_controller.py:354-370`, `:231-232`).
-2. 🔴 ttz-hub: NL2SQL callt OpenAI `gpt-4o-mini` direkt (`services/aifw_service/aifw_service/views.py`, `docker-compose.prod.yml:65`) — Org-Policy `llm-routing.md` sieht für ttz-hub „nur lokales Ollama" vor. Kein Sovereignty-Doc im Repo → Klärung nötig.
+2. 🔴 Gov-Repo (ttz): LLM-Routing-Sovereignty-Konflikt — Dateipfade/Details bewusst nicht hier (Gov-Regel); Klärung im Gov-Repo nötig.
 3. 🟠 mcp-hub `ifc_mcp`: eigenständige IFC/Ex-Zonen/Brandschutz-Engine parallel zu `nl2cad-core` (~1 Testdatei) statt Wrapper.
 4. 🟠 Eval-Lücke überall: aifw ohne Accuracy-Harness; nl2cad-Golden-Suite in CI übersprungen; nl2iot ohne Tests.
 
@@ -78,7 +80,7 @@ Fleet-weit `\bmqtt\b` in Code: **0 echte Treffer** — es existiert kein IoT-Bet
 ### ttz-hub — stärkste DB-Absicherung, aber Fork + Sovereignty-Frage
 - ✅ Beste DB-Sicherung im Fleet: dedizierte Rolle `nl2sql_user` nur mit `GRANT SELECT` (`docker/db/init.sql:14-17`), Connection `-c default_transaction_read_only=on -c statement_timeout=10000` (`settings.py:55-61`), Tabellen-Allowlist (11 Tabellen), Kommentar-Stripping.
 - ✅ Bester Eval-Ansatz im Fleet: `evaluate.py` + `nl2sql_examples.json` (16 Beispiele) + Env-A/B (`NL2SQL_MODEL`, `NL2SQL_FEWSHOT_K`); 50 Testfunktionen.
-- 🔴 **Sovereignty-Konflikt**: `_call_llm` → litellm → OpenAI `gpt-4o-mini` (`views.py`, Key in `docker-compose.prod.yml:65`). Org-Policy `~/.claude/policies/llm-routing.md`: ttz-hub = **nur lokales Ollama**. Im Repo selbst fehlt jedes Sovereignty-Doc (keine CLAUDE.md). → Entscheidung nötig: migrieren (Ollama/Mistral-EU) oder Ausnahme schriftlich fixieren.
+- 🔴 **Sovereignty-Konflikt**: externer LLM-Call entgegen Org-Routing-Policy — Datei-Details → Gov-Repo (Gov-Regel). Entscheidung nötig: lokale Migration oder schriftliche Ausnahme.
 - 🟠 **Fork mit überholter Begründung**: `views.py:8-11` „aifw.nl2sql … not yet published as of aifw 0.5.0" — seit aifw ≥0.7 falsch. Kein `import aifw` im Service.
 - 🟡 Tote Dependency: `requirements.txt:4` pinnt `aifw>=0.5.0,<1` (nie importiert; korrekter Distributionsname wäre `iil-aifw`).
 
@@ -150,7 +152,7 @@ Alle drei Domänen implementieren **NL → validiertes strukturiertes Artefakt**
 | Prio | Maßnahme | Repo | Aufwand | Erfolgskriterium |
 |---|---|---|---|---|
 | P1 🔴 | odoo Legacy-Fallback absichern: RO-Rolle oder Fallback entfernen; `allow_write` streichen; Prod-`aifw_service_url` verifizieren | odoo-hub | S–M | LLM-SQL-Exec nur noch über RO-Pfad; Regression-Test |
-| P1 🔴 | ttz Sovereignty-Entscheid: Ollama/Mistral-EU-Migration ODER schriftliche Ausnahme | ttz-hub | M / S | kein OpenAI-Call bzw. ratifizierte Ausnahme |
+| P1 🔴 | Gov-Repo Sovereignty-Entscheid (Detail → Gov-Repo) | ttz-hub | M / S | policy-konformes Routing bzw. ratifizierte Ausnahme |
 | P2 🟠 | nl2cad Golden-Suite in CI aktivieren (Testdata-Artefakt/LFS) | nl2cad | S | Suite läuft in CI, Gate rot bei Geometrie-Drift |
 | P2 🟠 | NL2SQL-Accuracy-Golden-Set als CI-Gate (Keimzelle ttz `evaluate.py` → aifw) | aifw | M | Accuracy-Metrik je Release sichtbar |
 | P2 🟠 | Parser-Härtung: defusedxml (bcf), Parse-Timeout, Byte-Loader-Größenlimit | nl2cad | S–M | Härtungs-Tests grün |
@@ -167,7 +169,7 @@ Alle drei Domänen implementieren **NL → validiertes strukturiertes Artefakt**
 - **Verifiziert**: alle datei:zeile-Belege oben; CI-Status nl2cad/cad-hub via `gh run list`; Extraktion ADR-029.
 - **Nicht verifiziert (Hypothesen + billigster Check)**:
   - H-odoo: Prod-`aifw_service_url` gesetzt? → Odoo-Konfigparameter in Prod lesen.
-  - H-ttz: verletzt OpenAI-Call Kundenvertrag? → Angebots-/Vertragsdoku prüfen (`docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md`).
+  - H-gov: vertragliche Einordnung des Routing-Befunds → im Gov-Repo prüfen (Doku liegt dort).
   - H-pypi: publizierte PyPI-Versionen der nl2cad-Pakete vs. Repo-Tags → `pip index versions nl2cad-core`.
   - H-ifcmcp: ifc_mcp produktiv deployt? → ports.yaml + `gh run list -R mcp-hub`.
   - H-cadhub-dead: `IfcCompleteParser` wirklich unreferenziert (Management-Commands)? → gezielter rg-Lauf.
