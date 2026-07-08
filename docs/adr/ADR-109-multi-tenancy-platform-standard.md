@@ -12,7 +12,7 @@ implementation_evidence:
 
 # ADR-109: Multi-Tenancy als Plattform-Standard für alle UI-Hubs
 
-- **Status:** Accepted (updated 2026-03-08 — REVIEW-ADR-109-110 BLOCKER fixes)
+- **Status:** Accepted (updated 2026-07-07 — frist-hub-Ausnahme ergänzt, s. u.; zuvor 2026-03-08 — REVIEW-ADR-109-110 BLOCKER fixes)
 - **Datum:** 2026-03-08
 - **Amends:** ADR-035 (shared-django-tenancy)
 - **Betrifft:** alle Django-Hub-Repos mit Frontend-UI
@@ -167,6 +167,10 @@ Rollback: `python manage.py migrate core 0001` (vollständig reversibel via `rev
 
 - `billing-hub`: `TENANCY_MODE=disabled` + `TENANT_ISOLATION_MODE=disabled` interim bis separates ADR
 - `dev-hub`: `TENANCY_MODE=disabled`, kein Rollout geplant
+- `frist-hub`: `TENANCY_MODE=single` je LRA, **separate gehostete Instanz statt geteilter
+  Multi-Tenant-DB** (Sozialdaten/Citizen-facing, kein Cross-Tenant-Reporting gewünscht —
+  Betriebstopologie-Klärung 2026-07-06, s. `frist-hub:docs/konzepte/KONZ-frist-hub-001` §8.5).
+  Kein `django_tenancy`-Rollout vorgesehen.
 
 ## Konsequenzen
 
