@@ -1,7 +1,7 @@
 ---
 id: ADR-267
 title: Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo)
-status: accepted
+status: proposed
 date: 2026-07-08
 deciders: [achim]
 informed: [all-repos]
@@ -9,6 +9,7 @@ domains: [security, process, governance, deployment, drift-prevention]
 supersedes: []
 amends: []
 depends_on: [KONZ-platform-014]
+external_sparring_by: two-external-llms@2026-07-08
 tags: [approvals, deploy, review-policy, segregation-of-duties, fail-closed, hitl, codeowners, environments]
 scope:
   include_paths:
@@ -19,134 +20,196 @@ scope:
 
 # ADR-267: Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo)
 
-- **Status:** accepted *(2026-07-08, Owner-Entscheidung für die Struktur; Umsetzung inkrementell, s. §Umsetzung. Enforcement-Grenze: dieses ADR beschreibt das Modell — scharf wird es erst mit den unter §Umsetzung genannten GitHub-/Code-Änderungen.)*
+- **Status:** proposed *(2026-07-08. Richtung Owner-bestätigt; nach zwei externen Zweitmeinungen von „accepted" auf **proposed** zurückgestuft: „accepted" trägt erst, wenn die Token-/Reviewer-Vorbedingung **PRE-A** empirisch aufgelöst ist — s. §Externe Zweitmeinung. Enforcement-Grenze: dieses ADR beschreibt das Modell — scharf wird es erst mit den unter §Umsetzung genannten Änderungen.)*
 - **Datum:** 2026-07-08
 - **Entscheider:** Achim Dehnert
 - **Verwandt:** KONZ-platform-014 (Deploys & Approvals Board), dev-hub#117 (Stufe A/B-lite), dev-hub#118 (Stufe B One-Click-Approve)
+- **Externe Sparring:** zwei unabhängige externe LLM-Reviews (2026-07-08); Befund-Tagging + PRE s. §Externe Zweitmeinung.
 
 ## Zusammenfassung
 
 Das Deploys-&-Approvals-Board (KONZ-platform-014) erlaubt ab Stufe B, wartende
-Deployments **cross-repo** (achimdehnert + iilgmbh) freizugeben. Damit stellt sich
-die Governance-Frage: **Welche Deploys brauchen eine menschliche Zweitmeinung
-(Reviewer `wirdigital`), welche nicht?** Owner-Setzung: **wichtige Entscheidungen
-sind reviewpflichtig; reine Docs-Updates o.ä. nicht.**
+Deployments **cross-repo** (achimdehnert + iilgmbh) freizugeben. Governance-Frage:
+**Welche Deploys brauchen eine menschliche Zweitmeinung (Reviewer `wirdigital`),
+welche nicht?** Owner-Setzung: **wichtige Entscheidungen sind reviewpflichtig; reine
+Docs-Updates o.ä. nicht.**
 
-Dieses ADR trifft zwei harte Entscheidungen:
+Zwei harte Entscheidungen:
 
-1. **Das „reviewpflichtig?"-Gate ist deterministisch und fail-closed** — eine
-   deklarative Pfad-Policy, verankert **GitHub-nativ** (Environment-Required-Reviewer
-   + `paths-ignore`/CODEOWNERS), **nicht** ein lernendes/probabilistisches Modell.
-   Eine Sicherheitskontrolle, die im Zweifel *offen* fällt, ist ein Governance-Loch.
-2. **Der „Lern"-Wunsch wird als reine Vorschlags-Schicht (HITL) realisiert** — sie
-   beobachtet die Audit-Spur und **schlägt** Policy-Verfeinerungen zur **menschlichen
-   Ratifizierung** vor. Sie **verschiebt das Gate nie autonom** und entscheidet **nie**
-   eine einzelne Freigabe.
+1. **Das „reviewpflichtig?"-Gate ist deterministisch und fail-closed** — eine deklarative,
+   **restriktiv-per-Default** Pfad-Policy, ausgewertet von **genau einem Klassifikator**,
+   verankert **GitHub-nativ**, **nicht** ein lernendes/probabilistisches Modell.
+2. **Der „Lern"-Wunsch wird als reine Vorschlags-Schicht (HITL) realisiert** — und erst in
+   **Phase 2** (nach belegtem Pflegeschmerz). Sie **schlägt** Policy-Verfeinerungen zur
+   **menschlichen Ratifizierung** vor, verschiebt das Gate nie autonom, entscheidet nie eine
+   einzelne Freigabe.
 
 ## Kontext & Problem
 
-- **Auslöser:** KONZ-platform-014 Stufe B (dev-hub#118) führt One-Click-Approve über
-  den bestehenden **achimdehnert-`GITHUB_TOKEN`** ein (führend: achimdehnert + iilgmbh).
-  `wirdigital` ist **menschlicher** Zweitmeinungs-Reviewer, keine Token-Identität.
-- **Adversariale Vorbelastung (KONZ-014 §6):** Ein Board-Approve droht, den effektiven
-  Approver-Kreis auf „jeder Staff in devhub" auszuweiten und GitHubs Reviewer-ACL durch
-  eine schwächere Parallel-ACL zu ersetzen (Governance-Fork). Segregation-of-Duties darf
-  nicht zum Theater werden.
+- **Auslöser:** Stufe B (dev-hub#118) gibt One-Click über den bestehenden **geteilten
+  achimdehnert-`GITHUB_TOKEN`** frei (führend: achimdehnert + iilgmbh). `wirdigital` ist
+  **menschlicher** Zweitmeinungs-Reviewer, keine Token-Identität.
+- **Governance-Fork-Risiko:** Ein Board-Approve darf den effektiven Approver-Kreis nicht auf
+  „jeder Staff in devhub" ausweiten und GitHubs Reviewer-ACL nicht durch eine schwächere
+  Parallel-ACL ersetzen. SoD (Vier-Augen) darf nicht zum Theater werden.
 - **Offene Frage:** *Wo* verlangt ein Deploy die Zweitmeinung? Ohne klare Regel entweder
   Reibung (alles reviewpflichtig) oder Löcher (Wichtiges rutscht als „docs-only" durch).
 
 ## Entscheidungstreiber
 
-- **Fail-closed:** Unbekannt/unklassifiziert ⇒ **reviewpflichtig** (nie das Gegenteil).
-- **Determinismus & Auditierbarkeit:** Jede Gate-Entscheidung muss reproduzierbar und
-  nachvollziehbar sein (Security-Kontrolle).
-- **Single Source of Truth:** Keine zweite Wahrheit im devhub-Board — die Regel lebt dort,
-  wo der Deploy real gated (GitHub).
-- **Cross-Repo:** gilt für alle Repos in achimdehnert + iilgmbh, nicht repo-lokal.
-- **Adaptivität ohne Autonomie:** Regel-Pflege soll lernen dürfen — aber nur *vorschlagend*.
+- **Fail-closed:** Unbekannt/unklassifiziert ⇒ reviewpflichtig (nie das Gegenteil).
+- **Determinismus & Auditierbarkeit:** jede Gate-Entscheidung reproduzierbar & nachvollziehbar.
+- **Single Source of Truth (echt, nicht aspirativ):** **eine** Policy-Datei, **ein** Evaluator —
+  Badge und Enforcement dürfen die Liste nicht unabhängig zweimal interpretieren.
+- **Cross-Repo:** gilt für alle Repos beider Orgs — inkl. **neu angelegter** Repos (die dürfen
+  nicht still fail-**open** sein, bis jemand sie konfiguriert).
+- **Verfügbarkeit:** ein einziger Zweit-Reviewer darf nicht zum org-weiten Deploy-Freeze führen.
+- **Adaptivität ohne Autonomie:** Regel-Pflege darf lernen — aber nur *vorschlagend*.
 
 ## Betrachtete Optionen
 
 | Option | Gate-Mechanismus | Bewertung |
 |--------|------------------|-----------|
-| **A — Reiner Lern-Mechanismus** | ML/Heuristik klassifiziert & wendet an | ❌ **verworfen**: probabilistisches Gate für eine Sicherheitskontrolle, fällt im Zweifel offen (False-Negative ⇒ Wichtiges ohne Review). Cold-Start, Drift, schwer auditierbar. |
-| **B — Nur GitHub-nativ** | Environment-Rules + CODEOWNERS + `paths-ignore`, keine devhub-Schicht | 🟡 robust & minimal, aber keine Sichtbarkeit/Adaptivität; Regelpflege rein manuell. |
-| **C — Deterministisch (fail-closed) + HITL-Lern-Vorschlag** | GitHub-natives Gate; devhub zeigt Klassifikation an; Lerner schlägt Regeländerungen vor, Mensch ratifiziert | ✅ **gewählt**: deterministisches Gate **und** die gewünschte Adaptivität, ohne die Sicherheit probabilistisch zu machen. |
+| **A — Reiner Lern-Mechanismus** | ML/Heuristik klassifiziert & wendet an | ❌ verworfen: probabilistisches Gate für eine Sicherheitskontrolle, fällt im Zweifel offen. |
+| **B — Nur GitHub-nativ, ohne Lerner** | Environment-Rules + CODEOWNERS + Klassifikator | ✅ **wird Phase 0** — bei 1+1-Skala vollwertig; der Lerner ist ein späteres Delta, kein Startzwang. |
+| **C — Deterministisch (fail-closed) + HITL-Lern-Vorschlag** | wie B **plus** spätere Vorschlagsschicht | ✅ **Zielbild, zweiphasig** (B zuerst, C sich verdienen). |
 
 ## Entscheidung
 
-**Option C.**
+**Option C, zweiphasig ausgerollt (B als Phase 0).**
 
-1. **Deterministische Pfad-Policy als Gate (fail-closed).** Ein Deploy ist
-   *nicht* reviewpflichtig **nur** wenn *alle* geänderten Pfade seines
-   auslösenden Commits/PRs auf einer expliziten **Review-frei-Allowlist** liegen
-   (z.B. `docs/**`, `*.md`, `mkdocs.yml`, `**/CHANGELOG.md`). Jeder Pfad außerhalb
-   ⇒ **reviewpflichtig**. Leere/unbekannte Diff-Info ⇒ **reviewpflichtig**.
-2. **Verankerung GitHub-nativ (SSoT).** Die Regel wird dort erzwungen, wo der Deploy
-   gated: (a) `production`-Environment mit **Required Reviewer** (`wirdigital`) für
-   reviewpflichtige Deploys; (b) docs-only-Änderungen laufen über einen Deploy-Pfad,
-   der das reviewpflichtige Environment nicht berührt (`paths-ignore` / getrennter Job)
-   **oder** über CODEOWNERS-Ausnahme. Das devhub-Board **umgeht** diese ACL nie —
-   `current_user_can_approve` bleibt die letzte Instanz (dev-hub#118).
-3. **devhub-Board klassifiziert nur advisorisch.** Das Board *zeigt* pro wartendem
-   Deploy ein Badge „docs-only / reviewpflichtig" (aus den geänderten Pfaden berechnet)
-   — als Orientierung, **nicht** als Gate. Fehlt die Diff-Info, zeigt es „reviewpflichtig".
-4. **HITL-Lern-Vorschlagsschicht.** Ein Mechanismus wertet die `ApprovalAction`-Audit-Spur
-   (dev-hub#118) + Klassifikations-Historie aus und **schlägt** Policy-Verfeinerungen vor
-   („Pfad `X` war in N Freigaben stets docs-only-Schnellfreigabe — in die Allowlist
-   aufnehmen?"). Vorschläge landen als **PR gegen die Allowlist-Datei** (menschlicher
-   Review/Merge) — Muster wie ADR-188 B2 (Vorschlag→Diff→Accept/Reject). **Kein Auto-Apply.**
+**§0 — Token-/Reviewer-Identität empirisch auflösen (PRE-A, blockierend).**
+Der Board-One-Click nutzt den geteilten achimdehnert-Token. **Vor** jeder Härtung ist empirisch
+zu klären, ob dieser Token ein Environment mit Required Reviewer `wirdigital` freigeben kann:
+- Kann er es **nicht** (erwartet, da er nicht `wirdigital` ist): korrekt — reviewpflichtige
+  Deploys warten auf `wirdigital`s manuelle Freigabe; das Board-One-Click bedient **nur**
+  Environments, für die der Token-Owner selbst Reviewer ist (`current_user_can_approve=true`).
+  Das ist **kein** Vier-Augen-Theater, sondern der gewollte Split — muss aber im ADR **explizit**
+  stehen (bisher implizit).
+- Kann er es **doch** (Self-Approval durch den Token-Owner): dann ist Vier-Augen gefährdet und es
+  braucht eine **separate Approver-Identität** für den gegateten Pfad, sonst ist SoD Theater.
 
-**Kernsatz:** Das Gate ist deterministisch + fail-closed; der Lerner schlägt nur
-Regeländerungen zur menschlichen Ratifizierung vor — er entscheidet nie eine einzelne
-Freigabe.
+Bis PRE-A geklärt + im ADR aufgelöst ist, bleibt der Status `proposed`.
+
+**§1 — Deterministische Pfad-Policy als Gate (restriktiv per Default, fail-closed).**
+Ein Deploy ist *nicht* reviewpflichtig **nur** wenn *alle* geänderten Pfade auf einer expliziten
+**Review-frei-Allowlist** liegen. Präzisierungen:
+- **Restriktiver Default:** die Allowlist enthält **nur nachweislich inerten Inhalt**
+  (`*.md`-Prosa, `CHANGELOG.md`). **Build-/config-ausführende Dateien sind ausgenommen** —
+  `mkdocs.yml`, Docs-Hooks, CI-/Workflow-Config sind Code-Execution-Fläche, **nie** review-frei,
+  unabhängig von der Endung.
+- **`docs/**` ist NICHT automatisch review-frei** — in Repos, die daraus produktive Artefakte
+  publizieren, ist `docs/**` deploy-relevant. Default restriktiv + **repo-spezifische
+  Risiko-Ausnahmen**, nicht ein globaler Glob für alle.
+- **Autoritative Diff-Quelle festgelegt:** maßgeblich ist der **PR-Head-vs-Base-Diff** (bzw. bei
+  direktem Push die Compare-Range des auslösenden `deploy.yml`-Run-SHA). Diese **Diff-Referenz +
+  die Policy-Version** werden im Audit gespeichert (M28-2: „warum war das review-frei?" muss 2028
+  beantwortbar sein).
+- **Fail-closed an den Rändern:** leere/unbekannte Diffs, >300-Dateien-Fälle (GitHub-Path-Filter-
+  Cap) ⇒ reviewpflichtig. Der **gegatete** Deploy ist der **Default, der immer läuft**; der
+  Docs-Fast-Path wird **nur bei positivem, verifiziertem Docs-only-Signal** gewählt — **nie** durch
+  bloßes Ausbleiben eines Filter-Treffers.
+
+**§2 — Verankerung GitHub-nativ, EINE normative Variante, EIN Klassifikator (SSoT).**
+- **Normativ (nicht Auswahlmenü):** getrennte Deploy-Klassen — `deploy-docs` (ohne
+  Production-Environment) vs. `deploy-production` (mit Required Reviewer `wirdigital`). Die
+  **Architektur** entscheidet den Deploy-Typ, nicht nur Dateipfade. Keine mehreren
+  halb-äquivalenten Mechanismen (`paths-ignore` *und* CODEOWNERS *und* Badge) nebeneinander.
+- **Ein geteilter, unit-getesteter Klassifikator** (Composite-Action) konsumiert `review-free-paths`
+  als **einzigen** Input und erzeugt **sowohl** die Board-Badge-Berechnung **als auch** das
+  Workflow-Routing — Drift zwischen Advisory und Enforcement ist damit strukturell unmöglich.
+- Das Board umgeht die ACL nie — `current_user_can_approve` bleibt letzte Instanz.
+
+**§3 — Board klassifiziert nur advisorisch (neutral formuliert).**
+Badge-Text neutral: **„Policy-Auswertung: review-frei laut Policy vX"** (nicht „docs-only", das
+sonst als Freigabe-*Empfehlung* gelesen wird). Bei jeder Freigabe werden die **maßgeblichen Pfade +
+die Policy-Version** angezeigt. Der Badge liest **denselben** Klassifikator wie das Gate (§2) —
+keine abweichende gecachte Wahrheit. One-Click nur bei `current_user_can_approve=true` **und**
+Portal-seitiger Berechtigung der angemeldeten Person.
+
+**§4 — HITL-Lern-Vorschlagsschicht (Phase 2, erst bei belegtem Bedarf).**
+Erst **nachdem** manuelle Allowlist-Pflege nachweislich weh tut. Dann: Auswertung der
+`ApprovalAction`-Audit-Spur; jeder Vorschlag braucht eine **Harmlosigkeits-Begründung des Pfads**
+(nicht bloß „wurde oft schnell freigegeben"). Vorschläge landen als **PR gegen die Allowlist**
+(menschlicher Merge). **Kein Auto-Apply, keine autonome Gate-Verschiebung.**
+
+**Kernsatz:** Das Gate ist deterministisch + fail-closed + von *einem* Klassifikator ausgewertet;
+der Lerner (Phase 2) schlägt nur begründete Regeländerungen zur menschlichen Ratifizierung vor.
 
 ## Konsequenzen
 
-**Positiv:**
-- Sicherheitskontrolle bleibt deterministisch, auditierbar, fail-closed.
-- SSoT in GitHub; das Board erzeugt keine zweite ACL.
-- Reibungsarm für docs-only, ohne Löcher bei Wichtigem.
-- Adaptivität (Owner-Wunsch) ohne autonome Gate-Verschiebung.
-- Cross-Repo einheitlich (eine Allowlist-Konvention, GitHub-nativ pro Repo).
+**Positiv:** deterministisch/auditierbar/fail-closed; **echte** SSoT (ein Klassifikator); reibungsarm
+für inerte Docs ohne Löcher; Verfügbarkeit via Break-Glass; Adaptivität ohne autonome Gate-
+Verschiebung; cross-repo inkl. neuer Repos.
 
-**Negativ / Kosten:**
-- Allowlist muss gepflegt werden (der Lerner mildert das, ersetzt es nicht).
-- Pfad-basierte Klassifikation ist grob — ein „docs-only"-Commit, der heimlich Code
-  ändert, muss durch die Allowlist-Enge (nur echte Doc-Globs) verhindert werden; im
-  Zweifel fail-closed.
-- devhub-Klassifikation braucht die Diff/PR-Info pro Run (zusätzliche GitHub-Calls,
-  gecacht wie das Board).
+**Negativ / bewusst getragen:** Pfad ist ein **Proxy** für „Wichtigkeit" — docs-förmige-aber-
+folgenreiche Änderungen deckt nur die Build-Config-Ausnahme + restriktiver Default + (optional)
+ein Risiko-Manifest ab; Allowlist-Pflege bleibt (Phase-2-Lerner mildert); die Akteurs-Identität
+lebt **bauartbedingt** in der Board-lokalen Audit-Spur (geteilter Token), Policy/Gate in GitHub —
+das ist **zwei Wahrheiten mit klarer Aufteilung**, im ADR explizit besessen (M28-5), keine Drift.
 
-## Umsetzung (inkrementell, cross-repo)
+## Umsetzung (zweiphasig, cross-repo, je gegated)
 
-1. **Allowlist-Konvention** in `platform/policies/` (`review-free-paths.yml` o.ä.),
-   pro Repo via CODEOWNERS/Environment-Rules gespiegelt. *(erste konkrete Änderung)*
-2. **GitHub-Environment-Härtung**: `wirdigital` als Required Reviewer auf reviewpflichtigen
-   Environments; docs-only-Pfad ohne diese Anforderung.
-3. **devhub-Advisory-Badge** in `apps/operations` (Board zeigt Klassifikation, fail-closed).
-4. **HITL-Vorschlagsschicht** auf Basis `ApprovalAction` — als eigener, gegateter Schritt.
+- **Vorbedingung:** PRE-A (§0) empirisch klären.
+- **Phase 0 (= Option B):** `review-free-paths.yml` (restriktiv) + geteilter Klassifikator +
+  `deploy-production`-Environment mit Required Reviewer + `deploy-docs`-Pfad. **Org-Bootstrap:**
+  Org-Ruleset / Template-Repo, das **jedes neue Repo bei Anlage garantiert fail-closed** stellt
+  (Production-Environment + Required Reviewer vorkonfiguriert); bis dahin dokumentieren, dass
+  unkonfigurierte Repos außerhalb des Gates liegen.
+- **Break-Glass:** zeitbegrenzter, voll auditierter Notfall-Deploy → **Auto-Incident** +
+  **verpflichtender retroaktiver `wirdigital`-Review**. Das ist ein *kontrolliert-geloggter*,
+  nachgelagert geprüfter Pfad — **nicht** stilles Fail-Open — gegen den Reviewer-SPOF (M28-1).
+- **Reviewer-Responsiveness sichtbar:** das Board alertet ab N Stunden auf alternde *gegatete*
+  Approvals, damit fail-closed nicht still den 3-Tage-Block-Vorfall neu erzeugt (M28-2).
+- **Kill-Switch getestet:** „alles reviewpflichtig" ist ein **dokumentierter, getesteter, schnell
+  aktivierbarer** Modus **bevor** review-freie Deploys produktiv erlaubt werden — kein
+  Workflow-Reparieren im Incident.
+- **Phase 1:** Advisory-Badge (neutral). **Phase 2:** HITL-Lerner (nur bei belegtem Pflegeschmerz).
 
-**Ehrliche Enforcement-Grenze:** Bis Schritt 1–2 gemergt sind, ist dies ein *Modell*, kein
-erzwungenes Gate. Kein Schritt wird solo gemergt, der org-weites Deploy-/Approve-Verhalten
-ändert (autonomy-gate `autonomous-no-human-review`).
-
-## Adversariale Betrachtung
-
-- **„Team erfüllt formal, umgeht praktisch"**: Pfad-basiert (nicht label-basiert) ⇒ schwerer
-  zu gamen als ein `review:skip`-Label; die Allowlist enthält nur echte Doc-Globs.
-- **„Lerner schleicht das Gate auf"**: strukturell ausgeschlossen — Vorschläge sind PRs mit
-  menschlichem Merge; der Lerner hat keinen Schreibpfad auf die aktive Policy.
-- **„Board wird zweite ACL"**: das Board klassifiziert nur advisorisch; das echte Gate ist
-  GitHubs Reviewer-ACL (`current_user_can_approve`).
+**Ehrliche Enforcement-Grenze:** Bis Phase 0 gemergt ist, ist dies ein *Modell*, kein erzwungenes
+Gate. Kein Schritt mit org-weitem Deploy-/Approve-Effekt wird solo gemergt (autonomy-gate).
 
 ## Kill-Gate / Review
 
 - **review_by:** 2026-10-08.
-- **Kill-Kriterium:** Wenn im ersten vollen Quartal nach Enforcement die Allowlist zu >30%
-  „False-Reviewpflichtig"-Reibung erzeugt (docs-only fälschlich reviewpflichtig) **oder**
-  ein einziger reviewpflichtiger Deploy fälschlich als docs-only durchrutscht (fail-open-
-  Vorfall) → Policy zurück auf „alles reviewpflichtig" + Neuentwurf. Der Fail-Open-Vorfall
-  ist das harte Abbruchkriterium (Sicherheit vor Bequemlichkeit).
-- **Lern-Schicht-Kill:** Werden ihre Vorschläge in 60 Tagen zu <20% ratifiziert (zu viel
-  Rauschen) → Schicht abschalten, deterministische Policy bleibt.
+- **Fail-open-Erkennung (definiert):** ein wiederkehrender Audit vergleicht die als „review-frei"
+  klassifizierten Deploys stichprobenartig gegen ihren **tatsächlichen** Diff; ein einziger
+  belegter Fall „reviewpflichtig, aber als docs-only durchgelaufen" ⇒ **hartes Abbruchkriterium**
+  ⇒ zurück auf „alles reviewpflichtig" (Kill-Switch) + Neuentwurf.
+- **Reibungs-Kill:** >30% „False-Reviewpflichtig" im ersten Quartal ⇒ Allowlist/Policy überarbeiten.
+- **Lern-Schicht-Kill (skalenbewusst, korrigiert):** **nicht** „<20% ratifiziert ⇒ Versagen" — eine
+  *stabile* Allowlist ohne neue Vorschläge ist **Erfolg**. Kill nur, wenn die Schicht **schädlich**
+  wird (Rauschen/Over-Proposing, das Ratifizierung zur Last macht) → abschalten, Policy bleibt.
+
+## Externe Zweitmeinung (2026-07-08)
+
+Zwei unabhängige externe LLM-Reviews (Provider-Diversität, via `/adr-handoff-extern`). Beide:
+**„Überarbeiten"** (Richtung tragfähig; Umsetzbarkeit auf GitHub-Primitiven schärfen). Befund-Tagging
+(nur `[valid]` eingearbeitet; Review-A- und Review-B-IDs zusammengeführt):
+
+| Thema | Review-IDs (A/B) | Verdikt | Eingearbeitet als |
+|-------|------------------|---------|-------------------|
+| **Token vs. Required-Reviewer-Identität empirisch klären** | B-AD-1, B-REC-1 | ✅ valid (kritisch) | **§0 PRE-A**, Status → proposed |
+| **Echte SSoT: eine Policy, ein getesteter Klassifikator (Badge+Routing)** | A-AD-2, A-AD-4, A-REC-1, B-AD-2, B-REC-2, B-OOTB1, A-M28-1, M28-7 | ✅ valid | **§2** (Composite-Action-Klassifikator) |
+| **Autoritative Diff-Quelle + im Audit speichern (Referenz+Policy-Version)** | A-AD-5, A-M28-2, A-REC-2, B-AD-3, B-REC-3 | ✅ valid | **§1** (PR-Head-vs-Base + Audit) |
+| **paths-ignore nicht fail-closed → gegateter Deploy ist Default** | B-AD-3, A-OOTB2 | ✅ valid | **§1/§2** (positives Docs-Signal statt Filter-Ausbleiben) |
+| **Build-/Config-Dateien aus Allowlist ausnehmen** | B-AD-4, B-REC-4, A-AD-1 | ✅ valid | **§1** (inert vs. build-executing) |
+| **`docs/**` nicht auto-safe; restriktiver Default + repo-Ausnahmen** | A-AD-3, A-REC-3 | ✅ valid | **§1** |
+| **Zwei Deploy-Klassen als normative Variante** | A-AD-2, A-REC-4, A-OOTB2, B-REC-3 | ✅ valid | **§2** (`deploy-docs`/`deploy-production`) |
+| **Break-Glass gegen Reviewer-SPOF (auditiert, retroaktiv)** | A-M28-6, A-REC-10, B-M28-1, B-REC-5 | ✅ valid | **Umsetzung** (Break-Glass) |
+| **Reviewer-Responsiveness sichtbar (Alert auf alternde Approvals)** | B-M28-2, B-REC-8 | ✅ valid | **Umsetzung** |
+| **Neue Repos fail-closed by default (Org-Bootstrap)** | B-M28-3, B-REC-6 | ✅ valid | **Umsetzung** (Org-Ruleset/Template) |
+| **Zweiphasig: B zuerst, Lerner sich verdienen** | A-AD-9, A-REC-9, B-AD-6, B-REC-7, A-OOTB3, B-OOTB2/3 | ✅ valid | **Optionen/§4/Umsetzung** (Phase 0→2) |
+| **Lern-Kill skalenbewusst (nicht <20%)** | B-M28-4, B-REC-7 | ✅ valid | **Kill-Gate** (korrigiert) |
+| **HITL-Vorschlag braucht Harmlosigkeits-Begründung, nicht Häufigkeit** | A-AD-7, A-M28-3, A-REC-7 | ✅ valid | **§4** |
+| **Badge neutral formulieren + Regeln/Pfade zeigen** | A-M28-4, A-REC-6 | ✅ valid | **§3** |
+| **Fail-open-Erkennung definieren** | A-AD-8, A-REC-8 | ✅ valid | **Kill-Gate** (Stichproben-Audit) |
+| **Kill-Switch als getesteter Schalter, nicht Incident-Reparatur** | A-M28-5, A-REC-8, B-M28-5-nah | ✅ valid | **Umsetzung** |
+| **SSoT-Nuance besitzen: Actor lokal, Policy in GitHub** | B-M28-5, B-REC-9 | ✅ valid | **Konsequenzen** |
+| **Pfad ≠ Wichtigkeit (inhärente Proxy-Grenze)** | B-AD-5 | ✅ valid (Grenze benannt) | **Konsequenzen** (bewusst getragen) |
+| **Risiko-Manifest `deploy-risk.yml` als Ergänzung** | A-OOTB1 | 🟡 valid als **spätere** Option | Konsequenzen (Evolutionspfad) |
+| **Board-One-Click an current_user_can_approve + Portal-Policy** | A-AD-6, A-REC-5 | ✅ valid | **§3** (war implizit) |
+| **Docs-only nie für Production, nur Staging-Fastlane** | A-OOTB4 | ⛔ out-of-scope | widerspricht Owner-Prämisse (docs-only *ist* für Prod erlaubt) |
+
+**Nicht eingearbeitet:** A-OOTB4 (`[out-of-scope]`, Owner-Prämisse). Proponent-Befunde
+(A/B-PRO-*) bestätigen die Richtung — keine Änderung nötig.
