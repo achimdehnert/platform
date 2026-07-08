@@ -1,7 +1,7 @@
 ---
 id: ADR-267
 title: Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo)
-status: proposed
+status: accepted
 date: 2026-07-08
 deciders: [achim]
 informed: [all-repos]
@@ -20,7 +20,7 @@ scope:
 
 # ADR-267: Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo)
 
-- **Status:** proposed *(2026-07-08. Richtung Owner-bestätigt; nach zwei externen Zweitmeinungen von „accepted" auf **proposed** zurückgestuft: „accepted" trägt erst, wenn die Token-/Reviewer-Vorbedingung **PRE-A** empirisch aufgelöst ist — s. §Externe Zweitmeinung. Enforcement-Grenze: dieses ADR beschreibt das Modell — scharf wird es erst mit den unter §Umsetzung genannten Änderungen.)*
+- **Status:** accepted *(2026-07-08. Richtung Owner-bestätigt; nach zwei externen Zweitmeinungen substanziell überarbeitet (§Externe Zweitmeinung). Der externe Kern-Einwand **PRE-A** (Token-/Reviewer-Identität) ist durch **stehende Betriebspraxis** aufgelöst — s. §0 —, nicht offen. Enforcement-Grenze: dieses ADR beschreibt das Modell — scharf wird es erst mit den unter §Umsetzung genannten Änderungen.)*
 - **Datum:** 2026-07-08
 - **Entscheider:** Achim Dehnert
 - **Verwandt:** KONZ-platform-014 (Deploys & Approvals Board), dev-hub#117 (Stufe A/B-lite), dev-hub#118 (Stufe B One-Click-Approve)
@@ -78,18 +78,20 @@ Zwei harte Entscheidungen:
 
 **Option C, zweiphasig ausgerollt (B als Phase 0).**
 
-**§0 — Token-/Reviewer-Identität empirisch auflösen (PRE-A, blockierend).**
-Der Board-One-Click nutzt den geteilten achimdehnert-Token. **Vor** jeder Härtung ist empirisch
-zu klären, ob dieser Token ein Environment mit Required Reviewer `wirdigital` freigeben kann:
-- Kann er es **nicht** (erwartet, da er nicht `wirdigital` ist): korrekt — reviewpflichtige
-  Deploys warten auf `wirdigital`s manuelle Freigabe; das Board-One-Click bedient **nur**
-  Environments, für die der Token-Owner selbst Reviewer ist (`current_user_can_approve=true`).
-  Das ist **kein** Vier-Augen-Theater, sondern der gewollte Split — muss aber im ADR **explizit**
-  stehen (bisher implizit).
-- Kann er es **doch** (Self-Approval durch den Token-Owner): dann ist Vier-Augen gefährdet und es
-  braucht eine **separate Approver-Identität** für den gegateten Pfad, sonst ist SoD Theater.
+**§0 — Token-/Reviewer-Identität (PRE-A) — durch stehende Praxis aufgelöst.**
+Der externe Review sah hier den kritischsten Punkt. Er ist **kein offener Unbekannter**, sondern
+**gelebte Betriebspraxis**: achimdehnert (+ iilgmbh) ist die handelnde/führende Identität; der
+`wirdigital`-Zweitmeinungs-Review wichtiger Deploys läuft seit Langem **direkt in GitHub** und ist
+über die Environment-Reviewer-Konfiguration verankert. Daraus die explizite Auflösung:
+- Der achimdehnert-Token gibt **nur** Environments frei, für die er selbst Reviewer ist
+  (`current_user_can_approve=true`). Wo eine **Zweitmeinung** verlangt ist, hält GitHub den Deploy
+  bis `wirdigital` **manuell** zustimmt — das Board-One-Click kann das **nicht** umgehen.
+- Damit ist der gewollte **Split** (Token handelt, wo berechtigt; `wirdigital` second-opinion-t das
+  Wichtige) **kein** Vier-Augen-Theater, sondern die bestehende Kontrolle — hier nur **explizit
+  festgehalten** (vorher implizit).
 
-Bis PRE-A geklärt + im ADR aufgelöst ist, bleibt der Status `proposed`.
+*(Verifizierbarkeit: die stehende Praxis ist die Evidenz; ein zusätzlicher Wegwerf-Test an einem
+`wirdigital`-required Environment kann das jederzeit bestätigen, ändert die Auflösung aber nicht.)*
 
 **§1 — Deterministische Pfad-Policy als Gate (restriktiv per Default, fail-closed).**
 Ein Deploy ist *nicht* reviewpflichtig **nur** wenn *alle* geänderten Pfade auf einer expliziten
@@ -189,7 +191,7 @@ Zwei unabhängige externe LLM-Reviews (Provider-Diversität, via `/adr-handoff-e
 
 | Thema | Review-IDs (A/B) | Verdikt | Eingearbeitet als |
 |-------|------------------|---------|-------------------|
-| **Token vs. Required-Reviewer-Identität empirisch klären** | B-AD-1, B-REC-1 | ✅ valid (kritisch) | **§0 PRE-A**, Status → proposed |
+| **Token vs. Required-Reviewer-Identität** | B-AD-1, B-REC-1 | ✅ valid (kritisch) — **durch stehende Praxis aufgelöst** | **§0** (Split explizit; kein SoD-Theater) |
 | **Echte SSoT: eine Policy, ein getesteter Klassifikator (Badge+Routing)** | A-AD-2, A-AD-4, A-REC-1, B-AD-2, B-REC-2, B-OOTB1, A-M28-1, M28-7 | ✅ valid | **§2** (Composite-Action-Klassifikator) |
 | **Autoritative Diff-Quelle + im Audit speichern (Referenz+Policy-Version)** | A-AD-5, A-M28-2, A-REC-2, B-AD-3, B-REC-3 | ✅ valid | **§1** (PR-Head-vs-Base + Audit) |
 | **paths-ignore nicht fail-closed → gegateter Deploy ist Default** | B-AD-3, A-OOTB2 | ✅ valid | **§1/§2** (positives Docs-Signal statt Filter-Ausbleiben) |
