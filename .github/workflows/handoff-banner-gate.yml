@@ -50,6 +50,7 @@ jobs:
   handoff-banner:
     name: "Live-Status-Banner/Rezenz in geänderten Handoff-Dateien"
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
         with:

@@ -24,6 +24,7 @@ jobs:
   sync:
     name: "Sync repos.yaml → devhub catalog"
     runs-on: self-hosted
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
 

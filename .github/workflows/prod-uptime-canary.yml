@@ -102,14 +102,14 @@ jobs:
           # Fallback einmalig: Alt-Issues ohne Label per Titel adoptieren (kollabiert die vor diesem Fix
           # entstandenen Duplikate auf ein kanonisches Issue).
           if [ -z "$existing" ]; then
-            existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[0].number' 2>/dev/null || echo "")
+            existing=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "prod-uptime-canary in:title" --json number --jq '.[0].number' 2>/dev/null || echo "")
           fi
           if [ -n "$existing" ]; then
             gh issue edit "$existing" --repo "$GITHUB_REPOSITORY" --add-label "$LABEL" >/dev/null 2>&1 || true
             gh issue comment "$existing" --repo "$GITHUB_REPOSITORY" --body "$BODY"
             echo "Kommentar an kanonisches Issue #$existing"
             # Legacy-Duplikate desselben Outages auf das kanonische Issue konsolidieren.
-            for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[].number' 2>/dev/null); do
+            for n in $(gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "prod-uptime-canary in:title" --json number --jq '.[].number' 2>/dev/null); do
               [ "$n" = "$existing" ] && continue
               gh issue close "$n" --repo "$GITHUB_REPOSITORY" --comment "Dedup → #$existing (Prod-Uptime-Canary konsolidiert dasselbe Outage)." >/dev/null 2>&1 || true
               echo "Duplikat #$n → #$existing geschlossen"
@@ -128,7 +128,7 @@ jobs:
           TITLE="🚨 Prod-Uptime-Canary: Hub(s) nicht erreichbar"
           # Sowohl gelabelte als auch etwaige Alt-Issues (Titel) schließen — Loop schließt sich selbst.
           nums=$(gh issue list --repo "$GITHUB_REPOSITORY" --state open --label "$LABEL" --json number --jq '.[].number' 2>/dev/null; \
-                 gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "$TITLE in:title" --json number --jq '.[].number' 2>/dev/null)
+                 gh issue list --repo "$GITHUB_REPOSITORY" --state open --search "prod-uptime-canary in:title" --json number --jq '.[].number' 2>/dev/null)
           for n in $(printf "%s\n" $nums | sort -u); do
             gh issue close "$n" --repo "$GITHUB_REPOSITORY" \
               --comment "✅ Alle überwachten Prod-Endpoints wieder 200 (Run $GITHUB_RUN_ID) — automatisch geschlossen." >/dev/null 2>&1 || true

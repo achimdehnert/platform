@@ -16,6 +16,12 @@ findings = json.load(open(sys.argv[2]))
 files = findings["phase1"][repo]["no_fm"]
 
 MAP = (
+    # Endzustände zuerst geprueft: Texte wie "Accepted (superseded by ADR-99)"
+    # enthalten sowohl einen Anfangs- als auch einen Endzustands-Marker; der
+    # Endzustand ist der fachlich korrekte (F-11, 2026-07-08).
+    ("superseded", "superseded"),
+    ("deprecated", "deprecated"),
+    ("rejected", "rejected"),
     ("approved", "accepted"),
     ("accepted", "accepted"),
     ("akzeptiert", "accepted"),
@@ -32,9 +38,6 @@ MAP = (
     ("offen", "proposed"),
     ("entwurf", "draft"),
     ("draft", "draft"),
-    ("superseded", "superseded"),
-    ("deprecated", "deprecated"),
-    ("rejected", "rejected"),
 )
 
 
