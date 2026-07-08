@@ -2,7 +2,7 @@
 id: ADR-265
 title: "Verteilte Symlink-Ziele fleet-weit aus git untracken (.gitignore) statt die Symlinks zu committen"
 status: accepted
-date: 2026-07-04
+decision_date: 2026-07-04
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh]
