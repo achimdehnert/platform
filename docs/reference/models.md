@@ -4,6 +4,11 @@
 
 # Models Reference
 
+> **Hinweis (2026-07-08):** Die automatische Regen-Pipeline (`docs-agent`) ist archiviert
+> (`_ARCHIVED/packages/docs-agent`) und nicht lauffähig. Diese Datei ist bis auf Weiteres
+> **handgepflegt** — Inhalte können veralten, ohne dass ein Regen-Lauf das korrigiert.
+> Owner-Entscheid: platform#995 (Option b).
+
 **23 models** found.
 
 ## Organization
