@@ -31,6 +31,7 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `docs/templates/` | ADR-, Use-Case-, Settings-Templates für neue Repos |
 | `docs/reference/` | Reference-Docs (audit/health-Checker, …) |
 | `docs/guides/` | How-to-Guides (CI, Deploy, Multi-Env) |
+| `docs/audits/` | **Kanonischer Report-Pfad** für `/platform-audit` (seit 2026-07-08, #996); Format `YYYY-MM-DD-platform-audit.md`; Vorgänger-Pfad `audits/` (root) archiviert nach `_ARCHIVED/audits/`, s. dort |
 | `shared_contracts/` | Pydantic-Models — Cross-Repo-Verträge (Status/Konsumenten: Issue #820) |
 | `registry/` | **SSoT `canonical.yaml`** (ADR-234) → Views `repos.yaml`/`scripts/repo-registry.yaml` (generiert, gate-erzwungen); Accessor `tools/registry_api.py`. Owner-Auflösung: `registry_api.owner(repo)` |
 | `governance/` | Policy-Konfiguration: `rulesets/` (ADR-242 Branch-Protection), `exit-classes.yaml`, `backup/` |
@@ -44,7 +45,7 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `agents/` | Platform-Agent-Definitionen |
 | `infra/`, `deployment/` | Infrastruktur-Configs für Cross-Repo-Deploys |
 | `skills/` | **Aktive zweite Distributions-Lane** (neben `.windsurf/workflows/`): `skills/<name>/SKILL.md` → `tools/cc-skill-dist/generate.py --kind skills` verteilt nach `~/.claude/skills/<name>/SKILL.md` (Anthropic Agent Skills, user-level, gilt in jeder Session/jedem Repo/jeder Org) |
-| `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
+| `spikes/`, `baselines/`, `shared/`, `pdfs/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817; `audits/` (root) via #996 nach `_ARCHIVED/audits/` archiviert) |
 
 **Registry-Schreibpfad** (`registry/canonical.yaml` editieren → `make registry-flip`
 regeneriert beide Views + verify) — nie die generierten Views
