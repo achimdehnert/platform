@@ -1,18 +1,18 @@
 ---
 status: accepted
 decision_date: 2026-03-25
-updated: 2026-03-25
+updated: 2026-07-08
 version: 3
 deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []
 amends: []
-related: ["ADR-022-platform-consistency-standard.md", "ADR-028-platform-context.md", "ADR-035-shared-django-tenancy.md", "ADR-044-mcp-hub-architecture-consolidation.md", "ADR-050-platform-decomposition-hub-landscape.md"]
-implementation_status: done
+related: ["ADR-022-platform-consistency-standard.md", "ADR-028-platform-context.md", "ADR-035-shared-django-tenancy.md", "ADR-044-mcp-hub-architecture-consolidation.md", "ADR-050-platform-decomposition-hub-landscape.md", "nl2cad:ADR-011-packaging-distribution-entbuendeln.md"]
+implementation_status: partial
 implementation_evidence:
   - "Phase 1: platform 332a8db — 3 orphans removed, 3 PyPI deprecations, riskfw inlined (risk-hub cae9c79)"
-  - "Phase 2: nl2cad-core 0.2.0 on PyPI (nl2cad b38dfe0), risk-hub 3734376 migrated"
+  - "Phase 2: nl2cad-core 0.2.0 on PyPI (nl2cad b38dfe0), risk-hub 3734376 migrated — MONO-BUNDLING TEIL umgesetzt, DEPRECATION-TEIL nie durchgeführt (siehe Nachtrag 2026-07-08); Tier 2 durch nl2cad:ADR-011 (2026-07-08) revertiert"
   - "Phase 3: iil-platform 1.0.0 on PyPI (platform 823e2ca), risk-hub 8ec0001 migrated"
   - "Phase 4: billing-hub 50cd8a7, coach-hub d5d7910, wedding-hub fb0adb9 — all git+https eliminated"
 review_status: "reviewed — v2 re-reviewed, v3 addresses remaining 7 findings from ADR-146-v2-review.md"
@@ -30,6 +30,36 @@ review_status: "reviewed — v2 re-reviewed, v3 addresses remaining 7 findings f
 | v2 | 2026-03-25 | Review-Findings eingearbeitet: korrigiertes Inventar (34→22), ADR-027 supersede, Umbrella statt Merge (Tier 3), Import-Pfad-Stabilität, realistische Timeline, Akzeptanz-Kriterien |
 | v3 | 2026-03-25 | Re-Review v2: content-store ist KEIN Orphan (ADR-130, 2 Consumer), iil-django-commons als Optional, Titel-Korrektur (34→20), Consumer-Matrix ergänzt |
 | v4 | 2026-03-25 | **IMPLEMENTED**: Phase 1–4 komplett. 10 PyPI-Releases, 4 Hubs migriert, 0 git+https für Platform-Packages. Status: accepted/done. |
+| v5 | 2026-07-08 | **Korrektur**: Tier 2 (nl2cad) war entgegen v4 NICHT vollständig — Deprecation-Releases der Split-Pakete fanden nie statt. Siehe Nachtrag unten. `implementation_status` auf `partial` korrigiert. |
+
+## Nachtrag 2026-07-08 — Tier 2 (nl2cad) korrigiert und revertiert
+
+**Befund (verifiziert im nl2cad-Repo, Statusanalyse + Packaging-Audit):** v4 behauptete
+„Phase 2 komplett" für nl2cad. Tatsächlich wurde nur die **Mono-Bundling-Hälfte**
+umgesetzt (`nl2cad-core` lieferte `areas`/`gaeb`/`nlp`-Code mit aus) — die dazugehörige
+**Deprecation-Hälfte** (Split-Pakete als leere Compat-Redirects, `Development Status ::
+7 - Inactive`) wurde **nie durchgeführt**:
+
+- `nl2cad-areas`/`nl2cad-gaeb`/`nl2cad-nlp`/`nl2cad-brandschutz` sind auf PyPI weiterhin
+  `Development Status :: 3 - Alpha`, aktiv versioniert (0.2.1), kein Redirect.
+- `nl2cad-brandschutz` ist kein Compat-Shim, sondern 1.977 LOC aktiv gepflegter Code
+  (zuletzt `nl2cad#45`, 2026-07-05), einziger Konsument `cad-hub` — die Migration nach
+  risk-hub (die tatsächlich stattfand, `risk-hub/src/brandschutz`) deckte nur risk-hubs
+  eigenen Bedarf, nicht cad-hubs Abhängigkeit.
+- Ergebnis: gebündelter Code **und** aktive Schwester-Pakete gleichzeitig — eine Wheel-
+  Kollision (`pip uninstall nl2cad-areas` zerstört `import nl2cad.areas`, obwohl
+  `nl2cad-core` weiterläuft), die in `nl2cad:ADR-011` empirisch bewiesen und behoben wird.
+
+**Entscheidung:** `nl2cad:ADR-011` (2026-07-08, accepted) revertiert Tier 2 — statt die
+Konsolidierung zu vollenden, wird entbündelt: `nl2cad-core` shippt nur noch `nl2cad/core`,
+jede Split-Distribution ist alleinige Eigentümerin ihres Subpfads. Tier 1 (Orphans),
+Tier 3 (`iil-platform`-Umbrella) und Tier 4 (Naming) sind davon **unberührt** und bleiben
+wie in v4 dokumentiert gültig/implementiert.
+
+**Lesson:** `implementation_status: done` wurde 2026-03-25 auf Basis der Commit-Liste
+gesetzt, ohne den PyPI-Endzustand (Classifier, aktive Downloads) gegenzuprüfen — ein
+claim-before-cheapest-check-Fall in der ADR-Historie selbst. Der billigste Check
+(`curl pypi.org/pypi/<pkg>/json` auf `classifiers`) hätte die Lücke sofort gezeigt.
 
 ## Context and Problem Statement
 
