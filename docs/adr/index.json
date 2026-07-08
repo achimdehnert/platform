@@ -2930,9 +2930,10 @@
         "ADR-028-platform-context.md",
         "ADR-035-shared-django-tenancy.md",
         "ADR-044-mcp-hub-architecture-consolidation.md",
-        "ADR-050-platform-decomposition-hub-landscape.md"
+        "ADR-050-platform-decomposition-hub-landscape.md",
+        "nl2cad:ADR-011-packaging-distribution-entbuendeln.md"
       ],
-      "implementation_status": "done"
+      "implementation_status": "partial"
     },
     {
       "number": 181,

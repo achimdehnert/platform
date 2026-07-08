@@ -150,7 +150,7 @@
 | 177 | — Agent Role Specialization | Proposed | ⬜ | [ADR-177](ADR-177-agent-role-specialization.md) |
 | 178 | LLM Gateway Consolidation | Accepted | ⬜ | [ADR-178](ADR-178-llm-gateway-consolidation.md) |
 | 179 | PostgreSQL-Only Testing | Accepted | ⬜ | [ADR-179](ADR-179-postgresql-only-testing.md) |
-| 180 | Package Consolidation Strategy — 34 → 20 Packages (v3) | Accepted | ⬜ | [ADR-180](ADR-180-package-consolidation-strategy.md) |
+| 180 | Package Consolidation Strategy — 34 → 20 Packages (v3) | Accepted | 🔶 | [ADR-180](ADR-180-package-consolidation-strategy.md) |
 | 181 | ADR-147 Implementierungsplan (void — misclassified as ADR) | Void | ⬜ | [ADR-181](ADR-181-implementation-plan.md) |
 | 182 | ADR-147 Review Principal Architect (void — misclassified as ADR) | Void | ⬜ | [ADR-182](ADR-182-review.md) |
 | 183 | `iil-concept-templates` — Shared Package für strukturierte Konzept-Vorlagen (v2) | Accepted | 🔶 | [ADR-183](ADR-183-v2-concept-templates-package.md) |
