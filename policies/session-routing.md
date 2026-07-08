@@ -31,7 +31,9 @@ the `llm_calls` table, don't trust these exact figures.)
 
 | Task type | Recommended | Why |
 |---|---|---|
-| Multi-agent orchestration (`/repo-optimize`, `/platform-audit`, adversarial falsification) | **Fable 5** | Frontier synthesis + judging across many agent outputs — the tier's home turf |
+| Multi-agent orchestration, fan-out layer (`/repo-optimize` finders/skeptics, `/platform-audit` sub-agents) | **Sonnet 5** | Bounded, spec'd sub-tasks — this is what the fan-out is *for* |
+| Multi-agent orchestration, orchestrator layer (`/repo-optimize`, `/platform-audit`) — default | **Opus 4.8** | Large-context bookkeeping + moderate judgment (prompt design, dedupe against prior reports, synthesis into one report, PR triage) — not itself frontier reasoning in the typical run |
+| … orchestrator layer — escalate to Fable mid-run | **Fable 5**, only on trigger | Escalate *once a concrete need appears*, not upfront: (a) a skeptic pass reports a genuine unresolved conflict between findings that a further Sonnet skeptic pass can't settle, (b) the report surfaces a novel cross-repo architecture trade-off with no existing ADR/pattern to lean on, (c) explicit user ask for the deepest pass. Grounded in a 2026-07-08 run: 8 finders + 6 skeptics on Sonnet resolved every conflict (incl. one two-finder disagreement) themselves; the orchestrator's own work was consistently Opus-shaped, including PR review of the two delegate PRs (which is Sonnet-tier per the row below) — Fable's premium went unused end to end. |
 | ADR drafting / architectural reasoning with cross-repo or security/reversibility stakes | **Fable 5** | Real Tier-4 work — synthesis across many ADRs and policies |
 | Heavy single-repo reasoning / large multi-file implementation / thorough design review | **Opus 4.8** | Hard but not frontier — Opus reasoning without the Mythos premium |
 | Code review of someone else's PR | **Sonnet 5** | Tier 3 — sufficient for review depth |
@@ -120,3 +122,14 @@ Do not nag.
   / `model:opus-4-8` label convention, consumed by a right-tier session or the
   headless queue). Old spend figures kept but flagged Opus-4.7-era. Grounded in a
   session where a Fable main loop delegated 8 `/repo-optimize` finders to Sonnet.
+- 2026-07-08: Split the "Multi-agent orchestration ... Fable 5, home turf" row —
+  the blanket claim was itself an exception to this policy's own "don't default
+  to the top tier" rule, and a full 8-finder + 6-skeptic `/repo-optimize` run
+  showed the exception wasn't earning its premium: every finder/skeptic
+  conflict (including a genuine two-finder disagreement) resolved on Sonnet,
+  and the orchestrator's own remaining work — prompt design, dedupe, report
+  synthesis, PR review — was Opus-shaped (PR review is explicitly Sonnet-tier
+  two rows below). New default: orchestrator layer = Opus 4.8; escalate to
+  Fable only on a concrete trigger (unresolved cross-finding conflict, novel
+  architecture trade-off with no ADR precedent, explicit user ask for max
+  depth) — not upfront. Fan-out layer (finders/skeptics) unchanged at Sonnet.
