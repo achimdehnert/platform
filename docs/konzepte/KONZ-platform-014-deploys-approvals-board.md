@@ -246,10 +246,15 @@ Namenskonvention / Workflow-Kennung / zentrale Registry). Ohne sie bleibt die Sc
   (`wirdigital`) als Environment-Reviewer zulässig ist. (Rest-Check nur, falls je auf eine App
   umgeschwenkt wird.)
 - **PRE-2 — beantwortet, mit engem Scope:** Der Schreib-Scope liegt beim **dedizierten Account
-  `wirdigital`**, **nicht** auf dem geteilten `GITHUB_TOKEN` (Opt a bleibt verworfen). Rest-Owner-
-  Aufgaben vor Bau: (i) `wirdigital`-PAT minimal-scoped bereitstellen + als Secret hinterlegen,
-  (ii) `wirdigital` auf den Environment-Reviewer-Listen der Ziel-Repos eintragen, (iii) dedizierter
-  ADR für den org-weiten Deploy-Approve-Account.
+  `wirdigital`** (ein realer GitHub-User, **Partner von achimdehnert**), **nicht** auf dem geteilten
+  `GITHUB_TOKEN` (Opt a bleibt verworfen). Konkretisierung Owner (2026-07-08): **PAT wird von
+  achimdehnert bereitgestellt; `wirdigital` ist als Environment-Reviewer eingetragen.** Rest-Owner-
+  Aufgaben vor Bau: (i) den Approve-PAT minimal-scoped (`deployments`) als Secret hinterlegen,
+  (ii) `wirdigital` auf den Environment-Reviewer-Listen der Ziel-Repos führen, (iii) dedizierter
+  ADR für den Deploy-Approve-Account. **Vor Bau eindeutig festzurren:** unter *welcher* Identität
+  der `POST .../pending_deployments` authentifiziert — das ist der von GitHub protokollierte
+  Approver. Soll das Log „`wirdigital` approved" zeigen, muss der PAT als `wirdigital` authentifizieren
+  (nicht als achimdehnert); nur dann ist `wirdigital` als Reviewer der handelnde Token-Owner.
 - **PRE-3 — bleibt Kernbedingung (durch Weg 2 verschärft):** Da GitHub jede Board-Freigabe als
   „`wirdigital` approved" protokolliert, **muss** das Board pro Approve ein eigenes Audit-Event mit
   dem **echten handelnden Menschen** (`actor`, aus der devhub-Session) persistieren — sonst ist die
