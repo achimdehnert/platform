@@ -372,8 +372,40 @@ project-facts-Generator-Entry-Point.
 
 ---
 
+### 11.3 Amendment (2026-07-08) — A3 revidiert
+
+§11.2 A3 (`generate_project_facts.py` kanonisch, `gen_project_facts.py` Deprecation) wurde nie
+umgesetzt (Umsetzungs-PR existierte nie, Status blieb „proposed bis PR-Merge"). Realität lief
+entgegengesetzt: `gen_project_facts.py` ist seit 06-30/07-04 aktiv gepflegt (bootstrap.sh, 6
+Skill-Referenzen, eigene Tests); `generate_project_facts.py` hat seit 06-12 keinen Commit, einzige
+Referenz war der bereits deprecatete Workflow `onboarding-new-repo.md`.
+
+**Revidierter Beschluss:** `gen_project_facts.py` wird hiermit kanonisch bestätigt.
+`generate_project_facts.py` wird nach `scripts/_ARCHIVED/` verschoben.
+
+**Nachtrag beim Rebase 2026-07-21** (zwei Randbedingungen hatten sich seit 07-08 geändert):
+
+- Der Archiv-Zielname ist `scripts/_ARCHIVED/generate_project_facts_api.py`, **nicht**
+  `generate_project_facts.py` — unter diesem Namen liegt dort bereits der ältere
+  ADR-094-Vorgänger (Django-project-facts, archiviert in `56c1bba`). Ein gleichnamiger
+  Move hätte ihn überschrieben.
+- Der ursprünglich vorgesehene Redirect in `.windsurf/workflows/onboarding-new-repo.md`
+  entfällt: die Datei wurde inzwischen im Zuge der Skill-Lane-Konsolidierung (ADR-280)
+  von `main` gelöscht.
+- **Offener Rest:** 76 Dateien unter `.windsurf/project-facts/` nennen im Header weiter
+  `scripts/generate_project_facts.py` als Regenerier-Befehl → platform#1304.
+
+Ref: platform#994, repo-optimize 2026-07-08-runB (Befunde L-13/X-15).
+
+---
+
 ## 12. Changelog
 
+- **2026-07-08:** **Amendment §11.3 — A3 revidiert.** §11.2 A3 nie umgesetzt (keine PR, Uhr lief
+  nie); Realität entgegengesetzt (`gen_project_facts.py` aktiv, `generate_project_facts.py` seit
+  06-12 unverändert). Revidiert: `gen_project_facts.py` kanonisch, `generate_project_facts.py` →
+  `scripts/_ARCHIVED/generate_project_facts_api.py` (Namenskollision mit dem ADR-094-Vorgänger).
+  Redirect in `onboarding-new-repo.md` entfällt (Datei via ADR-280 gelöscht). Ref: #994, #1304.
 - **2026-06-12:** **Amendment §11.2 — P0-Restschuld Verteilungs-Schicht** (Codebase-Analyse
   2026-06-12): `github_repos.yaml` als vierte Quelle, stale Hand-Arrays in `sync-repo.sh`
   (Stand 2026-03-05), Dual-Generator project-facts. Entscheidung A1–A3: Distributions-Felder in
