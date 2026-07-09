@@ -2,7 +2,7 @@
 id: ADR-084
 title: "Model Registry — Dynamisches LLM-Modell-Routing mit datenbankgestützter Tier-Verwaltung"
 status: accepted
-date: 2026-02-25
+decision_date: 2026-02-25
 amended: 2026-05-12
 deciders:
   - Achim Dehnert

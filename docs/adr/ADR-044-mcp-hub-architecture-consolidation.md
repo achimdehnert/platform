@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-21
-decision-makers: Achim Dehnert
+decision_date: 2026-02-21
+deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
   - "mcp-hub: consolidated architecture (deployment, orchestrator, llm MCPs)"

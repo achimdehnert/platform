@@ -1,12 +1,12 @@
 ---
 status: accepted
-date: 2026-02-26
+decision_date: 2026-02-26
 implemented: partial
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 consulted: –
 informed: –
 supersedes: –
-relates-to: ADR-022, ADR-042, ADR-054, ADR-056, ADR-057, ADR-061, ADR-071, ADR-089
+related: ADR-022, ADR-042, ADR-054, ADR-056, ADR-057, ADR-061, ADR-071, ADR-089
 repo: platform
 implementation_status: implemented
 implementation_evidence:

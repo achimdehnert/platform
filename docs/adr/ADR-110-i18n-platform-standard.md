@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-03-08
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-08
+deciders: [Achim Dehnert]
 implementation_status: partial
 implementation_evidence:
   - "Done: coach-hub, risk-hub, research-hub, weltenhub, cad-hub, travel-beat, billing-hub, dev-hub"
