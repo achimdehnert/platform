@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-05",
+  "generated": "2026-07-09",
   "total": 209,
   "next_free": 267,
   "adrs": [
@@ -4346,7 +4346,7 @@
         "ADR-216",
         "ADR-225"
       ],
-      "implementation_status": ""
+      "implementation_status": "implemented"
     },
     {
       "number": 247,
