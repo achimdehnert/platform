@@ -1,8 +1,8 @@
 ---
 status: superseded
 superseded_by: ADR-264
-date: 2026-02-23
-decision-makers: [Achim Dehnert]
+decision_date: 2026-02-23
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []

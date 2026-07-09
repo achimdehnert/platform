@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-22
-decision-makers: [Achim Dehnert]
+decision_date: 2026-02-22
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []

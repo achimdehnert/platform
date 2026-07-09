@@ -1,9 +1,9 @@
 ---
 status: accepted
 implementation_status: partial
-date: 2026-04-02
+decision_date: 2026-04-02
 amended: 2026-04-02
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []

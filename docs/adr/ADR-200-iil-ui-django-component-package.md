@@ -2,7 +2,7 @@
 id: ADR-200
 title: "iil-ui v1 (Draft, superseded by v2)"
 status: superseded
-date: 2026-05-14
+decision_date: 2026-05-14
 ---
 
 # ADR-200 v1 — superseded by v2 (siehe unten)

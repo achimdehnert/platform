@@ -3,7 +3,7 @@ parent: Decisions
 nav_order: 164
 title: "ADR-164: Unified Port Strategy — Conflict-free dev, staging, and production port assignments"
 status: accepted
-date: 2026-04-18
+decision_date: 2026-04-18
 deciders: Achim Dehnert
 consulted: Cascade AI
 informed: []

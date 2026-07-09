@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-26
-decision-makers: [Platform Team]
+decision_date: 2026-02-26
+deciders: [Platform Team]
 implementation_status: implemented
 superseded_by_planned: ADR-188 (Unified Vector Store — Deprecation-Timeline Phase D-4, frühestens 8 Wochen nach Migration)
 implementation_evidence:
