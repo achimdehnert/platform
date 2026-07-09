@@ -20,7 +20,7 @@ scope:
 
 # ADR-268: Projekt-Assurance-Tiers — Projektart × Reife-Phase als plattformweite Risiko-Achse (Cross-Repo)
 
-- **Status:** accepted *(2026-07-09, Owner-Entscheidung. Enforcement-Grenze: die Achse ist definiert; scharf wird sie erst mit dem Registry-`tier`-Feld + dessen CI-Check.)*
+- **Status:** accepted *(2026-07-09, Owner-Entscheidung; nach zwei externen Zweitmeinungen gehärtet — §Externe Zweitmeinung. **Rollout: Phase 0 = 2×2 aktiv (Souveränität × Prod), 6×5 als Ziel-Decke** mit Hochzieh-Regel bei Kunden-/Mandantendaten. Enforcement-Grenze: scharf erst mit Registry-`tier`/`phase` + CI-Check + der zentralen Policy-Funktion `f`.)*
 - **Datum:** 2026-07-09
 - **Entscheider:** Achim Dehnert
 - **Verwandt:** KONZ-platform-009 (registry-unified-ssot), ADR-211 (Klickdummy = nie Prod), ADR-267 (Review-Requirement — erster Konsument dieser Achse)
@@ -109,6 +109,35 @@ Ereignis; die *Reaktion* skaliert im **Blast-Radius**, nie global:
 **Kein** automatischer klassen-/plattformweiter Freeze. Kein globaler Schalter — Aufheben ist
 immer ein sichtbarer, geprüfter PR pro Repo.
 
+## Rollout — Phase 0 = 2×2 (aktiv), 6×5 = Ziel-Decke
+
+Für den aktuellen 1+1-Betrieb (noch kaum echte T2–T4-Repos; extern empfohlen) startet die **aktive**
+Policy als **2×2** und **verdient** sich die volle Granularität. Zwei binäre Achsen:
+**Exposure-Phase** (`non-prod` ↔ `prod` = die Aktivierungsschwelle) × **Souveränität**
+(`nicht-sovereign` achimdehnert/iilgmbh ↔ `sovereign` ttz-lif/meiki-lra).
+
+| Quadrant | Review-frei | `wirdigital` | Harte Constraints | Beispiel-Repos |
+|---|---|---|---|---|
+| **Q1 · nicht-sov × non-prod** (Prototyp/Sandbox) | großzügig: Docs + App-Code + nicht-Deploy-Config | nie | keine | neue Klickdummies, PoCs, `iil-klickdummy` in Entw. |
+| **Q2 · nicht-sov × prod** (Standard-Produktiv) | nur inerte Docs | bei Prod-Deploys | interne Datensorgfalt | writing-hub, dev-hub, ausschreibungs-hub |
+| **Q3 · sov × non-prod** (Sovereign in Entwicklung) | großzügig (kein Prod) + Souveränitäts-Guardrails ab Tag 1 | nie | kein externer Egress, lokale/EU-LLM | ttz-hub, meiki-hub (vor echten Bürgerdaten) |
+| **Q4 · sov × prod** (Sovereign live) | nur reine Textkorrektur | immer | voll: on-prem, kein Egress, Datenklassifikation | ttz-hub/meiki-hub live |
+
+**Hochzieh-Regel (Granularität verdienen):** Sobald ein Repo real **Kunden- oder Mandantendaten**
+anfasst, wird es aus Q2 auf **explizit T3 (Kundendaten) bzw. T4 (tenant-fähig)** hochgezogen — mit
+deren harten Constraints (Egress-Verbot außerhalb sov, DSGVO-Mandantentrennung). Der Rest bleibt in
+der billigen 2×2-Welt.
+
+**Bewusster Trade-off (Phase 0):** die T2/T3/T4-Differenzierung kollabiert in Q2 — ein MVP, ein
+kundenindividuelles und ein tenant-fähiges Produkt bekämen dieselbe Review-Strenge, bis die
+Hochzieh-Regel greift. Das ist der akzeptierte Preis für Einfachheit, solange kaum echte T2–T4-Repos
+existieren.
+
+**Registry & `f` bleiben gleich:** `tier` trägt weiterhin die Ziel-Projektart (T0–T5); in Phase 0
+wertet die Policy-Funktion `f` nur `{sovereign?, prod?}` **plus** explizit hochgezogene T3/T4 aus.
+Umstellung auf volle 6×5 ist eine **Owner-Entscheidung, kein Umbau** — dieselbe `f`, nur mehr
+Zellen aktiv.
+
 ## Verbindliche Hinterlegung (SSoT)
 
 - **Tier UND Phase** leben als Felder (`tier`, `phase`) in der **bestehenden zentralen Repo-Registry**
@@ -170,11 +199,13 @@ Ausbremsen früher Phasen; fail-closed by default (beide Achsen); Souveränität
 - **Instrumentierung (Pflicht, sonst Bauchentscheidung):** der Review misst **Verteilung je
   Tier/Phase**, Anzahl Runterstufungen, Fail-open-Fälle, manuelle Overrides und den **Anteil
   review-freier Deploys** — nicht nur die Extreme.
-- **Kill (Extrem):** wenn die Matrix in der Praxis nur „alle = T5" oder „alle = T0" ergibt → auf
-  „prod-vs-nonprod × sovereign-vs-nicht" (2×2) zusammenfalten.
-- **Drift-Fall (wahrscheinlicher, extern ergänzt):** wenn fast alle Repos aus Bequemlichkeit in
-  T1/T2 clustern oder dauerhaft in niedriger Phase gehalten werden → Phase-/Tier-Vergabe nachschärfen
-  (nicht die Achse killen).
+- **Vorwärts (Granularität verdienen):** sobald mehrere Repos real T3/T4-Unterscheidung brauchen
+  (Kunden-/Mandantendaten häufen sich) → von Phase-0-2×2 auf volle 6×5 hochschalten (Owner-Entscheidung,
+  kein Umbau).
+- **Kill (Extrem):** wenn selbst die 2×2-Unterscheidung ungenutzt bleibt (alles landet in *einem*
+  Quadranten) → Achse überflüssig, auf ein einzelnes „prod-vs-nonprod"-Gate reduzieren.
+- **Drift-Fall (wahrscheinlicher, extern ergänzt):** wenn Repos dauerhaft in niedriger Phase gehalten
+  werden, um Governance zu meiden → Phase-Vergabe nachschärfen (nicht die Achse killen).
 - **Fail-open-Behandlung präzise:** Erkennung (Stichproben-Diff-Audit), **Frist** zur Reaktion,
   **Mindest-Log** (Repo, Run, Diff-Ref, Policy-Version, handelnder Mensch), Verantwortlicher.
   **Wiederholungsregel:** wiederholte repo-lokale Fail-opens **desselben Musters** eskalieren zu
