@@ -4,7 +4,7 @@
 # diese Datei ist die lokale SSoT dafür (repo-optimize X-3, 2026-07-02).
 pytest>=9.1.1
 pyyaml>=6.0.3
-ruff>=0.4
+ruff>=0.15.20
 pre-commit>=4.6.0
 # ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI:
 iil-adrfw
