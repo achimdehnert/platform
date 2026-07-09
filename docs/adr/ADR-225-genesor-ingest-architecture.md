@@ -2,7 +2,7 @@
 id: ADR-225
 title: "genesor-Ingest-Architektur: reproduzierbarer main-basierter Ingest statt Working-Tree-Scan"
 status: accepted
-date: 2026-05-29
+decision_date: 2026-05-29
 deciders: [Achim Dehnert]
 consulted: []
 informed: [iilgmbh, meiki-lra, bahn-sqf, ttz-lif]

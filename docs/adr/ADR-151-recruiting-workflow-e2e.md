@@ -1,7 +1,7 @@
 ---
 status: void  # F-3 T-11 (2026-07-04): keine Umsetzungsspur nach 101 Tagen
-date: 2026-03-25
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-25
+deciders: [Achim Dehnert]
 ---
 # ADR-151: End-to-End Recruiting-Workflow — LinkedIn Recruiter × Hunter CRM × Recruiting Hub
 

@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-03-10
+decision_date: 2026-03-10
 updated: 2026-03-11-v1.2
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
   - "billing-hub live: https://billing.iil.pet (deployed, migration 0002 applied)"

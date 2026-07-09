@@ -2,7 +2,7 @@
 id: ADR-221
 title: Staging-Hostname-Konvention (Präfix `staging-`, Demo-Tenant für Subdomain-Tenancy)
 status: accepted
-date: 2026-05-20
+decision_date: 2026-05-20
 deciders: [achim.dehnert]
 tags: [staging, dns, naming, tenancy, oidc, registry, ingress]
 supersedes: []

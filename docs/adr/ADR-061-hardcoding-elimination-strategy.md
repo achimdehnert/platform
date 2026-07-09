@@ -2,8 +2,8 @@
 id: ADR-061
 title: "Adopt hardcode_scanner.py as Platform-wide Hardcoding Prevention Tool"
 status: accepted
-date: 2026-02-21
-author: Achim Dehnert
+decision_date: 2026-02-21
+owner: Achim Dehnert
 scope: platform (all repos)
 repos:
   - platform

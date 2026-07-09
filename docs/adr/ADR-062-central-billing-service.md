@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-03-05
-decision-makers: Achim Dehnert
+decision_date: 2026-03-05
+deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
   - "billing-hub live: https://billing.iil.pet (/healthz/ = 200, Port 8092)"

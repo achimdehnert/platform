@@ -2,7 +2,7 @@
 id: ADR-216
 title: "Klickdummy-Hosting auf iil.pet (Self-Hosted Stakeholder-Demos)"
 status: proposed
-date: 2026-05-21
+decision_date: 2026-05-21
 deciders: [Achim Dehnert]
 consulted: []
 informed: [meiki-lra, bahn-sqf, ttz-lif, iilgmbh]

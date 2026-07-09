@@ -2,13 +2,12 @@
 id: ADR-051
 title: "Concept-to-ADR Pipeline — Idea Capture & AI-Assisted Promotion"
 status: accepted
-date: 2026-02-19
-author: Achim Dehnert
+decision_date: 2026-02-19
 owner: Achim Dehnert
 scope: dev-hub, platform
 tags: [dev-hub, adr-lifecycle, workflow, concept, governance, cascade]
 related: [ADR-050, ADR-015, ADR-054]
-last_verified: 2026-02-19
+last_reviewed: 2026-02-19
 implementation_status: implemented
 implementation_evidence:
   - ".windsurf/workflows/adr.md: concept-to-ADR pipeline"

@@ -2,7 +2,7 @@
 id: ADR-246
 title: "genesor-Ingest Stufe 2: manifest-getriebener, dev-host-freier CI-Auto-Ingest (nightly)"
 status: accepted
-date: 2026-06-16
+decision_date: 2026-06-16
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, meiki-lra, bahn-sqf, ttz-lif]
