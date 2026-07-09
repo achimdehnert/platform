@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-04-02
-decision-makers: [Achim Dehnert]
+decision_date: 2026-04-02
+deciders: [Achim Dehnert]
 ---
 # ADR-155: API Contract Testing für iil-Package Integrationen
 

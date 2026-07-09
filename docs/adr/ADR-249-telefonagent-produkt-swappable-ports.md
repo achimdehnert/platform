@@ -2,7 +2,7 @@
 id: ADR-249
 title: "Telefon-/Sprachagent als eigenständiges iilgmbh-Produkt: Swappable-Ports-Architektur + Souveränitäts-Profil, MVP mPA, erster regulierter Pilot meiki-hub"
 status: proposed
-date: 2026-06-17
+decision_date: 2026-06-17
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, meiki-lra]

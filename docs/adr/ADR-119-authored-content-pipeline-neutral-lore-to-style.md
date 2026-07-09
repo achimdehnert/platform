@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-03-10
+decision_date: 2026-03-10
 updated: 2026-03-11
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 implementation_status: none
 implementation_evidence:
   - "authored content pipeline: ADR accepted, implementation not started"

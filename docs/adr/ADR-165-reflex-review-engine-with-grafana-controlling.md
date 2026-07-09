@@ -1,7 +1,7 @@
 ---
 title: "ADR-165: Adopt Plugin-based REFLEX Review Engine with Grafana Controlling"
 status: accepted
-date: 2026-04-18
+decision_date: 2026-04-18
 deciders: [achimdehnert]
 depends_on: [ADR-163, ADR-164, ADR-116, ADR-066]
 implementation_status: partial

@@ -1,11 +1,11 @@
 ---
 status: accepted
 implementation_status: in_progress
-date: 2026-06-01
-decision-makers: Achim Dehnert
+decision_date: 2026-06-01
+deciders: Achim Dehnert
 domains: [ci-cd, deployment, governance, drift-prevention, dependency-management]
 scope: platform
-relates_to: [ADR-021, ADR-120, ADR-157, ADR-058, ADR-209, ADR-226]
+related: [ADR-021, ADR-120, ADR-157, ADR-058, ADR-209, ADR-226]
 tags: [ci-health, invariant, branch-protection, provenance, promote-gate, dependency-cohort, staging, cross-repo]
 ---
 

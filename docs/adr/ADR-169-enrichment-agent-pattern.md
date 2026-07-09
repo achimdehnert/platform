@@ -1,8 +1,8 @@
 ---
 status: proposed
-date: 2026-04-22
+decision_date: 2026-04-22
 amended: 2026-04-22
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 implementation_status: partial
 implementation_evidence:
   - "iil-enrichment v0.1.0 package skeleton: github.com/achimdehnert/iil-enrichment (18/18 tests)"
