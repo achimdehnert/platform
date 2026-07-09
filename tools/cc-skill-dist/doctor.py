@@ -36,6 +36,15 @@ DISTRIBUTE_FALSE = re.compile(r"^distribute:\s*false\b", re.MULTILINE)
 # Nicht in DRIFT-SCORE (neue Regeln starten als SUGGEST per repo-health-rule-discipline).
 MCP_LEGACY_TOKEN = re.compile(r"mcp\d+_\w+")
 
+# SUGGEST-lint (Issue #970, PR #965-Nachtrag): KD-Referenz-Feldkonsistenz — jede Skill-Datei,
+# die einen KD-Referenz-Block deklariert (kd-scout/klickdummy/kd-review), muss alle 4 Felder
+# nennen. Verhindert genau die Drift, die PR #965 selbst schon einmal manuell nachziehen musste
+# (Session-Retro 2026-07-06). Bewusst NUR Feld-Praesenz, NICHT ob jedes "—" einen Grund traegt —
+# das ist am Skill-Definitions-Text (der die Konvention selbst beschreibt) nicht false-positive-frei
+# pruefbar, nur am RENDERED Output einer echten Skill-Ausfuehrung (out of scope fuer diesen Linter).
+KD_REFERENZ_MARKER = "KD-Referenz"
+KD_REFERENZ_FIELDS = ("Spec", "Lokal", "GitHub", "iil.pet")
+
 # Lane: (Quell-Pfad im Repo, Blob-Endung, key-Extraktor aus repo-Pfad, Live-Ziel, Ziel-Enumerator)
 def _name_basename(path): return os.path.basename(path)
 def _name_skilldir(path): return os.path.basename(os.path.dirname(path))
@@ -220,6 +229,27 @@ def main():
                 print(f"    … und {len(suggest_hits) - 15} weitere")
         else:
             print("  --- SUGGEST: 0 legacy mcp[0-9]_ Token(s) — Phase-1-Migration vollständig ---")
+
+        # SUGGEST-lint: KD-Referenz-Feldkonsistenz (Issue #970)
+        kd_incomplete = []
+        kd_declared = False
+        for name, sha in sorted(canon.items()):
+            body = canon_content(sha) or ""
+            if KD_REFERENZ_MARKER not in body:
+                continue
+            kd_declared = True
+            missing_fields = [f for f in KD_REFERENZ_FIELDS if f not in body]
+            if missing_fields:
+                kd_incomplete.append((name, missing_fields))
+        if kd_declared:
+            if kd_incomplete:
+                print(
+                    f"  --- SUGGEST ({len(kd_incomplete)} Skill(s) mit unvollständigem KD-Referenz-Schema) ---"
+                )
+                for skill, missing_fields in kd_incomplete[:15]:
+                    print(f"    [suggest] {skill} — fehlende Felder: {', '.join(missing_fields)}")
+            else:
+                print("  --- SUGGEST: 0 Skills mit unvollständigem KD-Referenz-Schema ---")
 
     sys.exit(1 if drift else 0)
 

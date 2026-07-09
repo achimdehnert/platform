@@ -1,7 +1,7 @@
 ---
 status: proposed
-date: 2026-04-29
-decision-makers: Achim Dehnert
+decision_date: 2026-04-29
+deciders: Achim Dehnert
 consulted: []
 informed: []
 implementation_status: planned

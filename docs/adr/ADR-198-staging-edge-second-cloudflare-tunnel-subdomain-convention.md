@@ -3,7 +3,7 @@ parent: Decisions
 nav_order: 198
 title: "ADR-198: Staging Edge — Zweiter Cloudflare Tunnel + Single-Level Subdomain-Konvention"
 status: accepted
-date: 2026-05-13
+decision_date: 2026-05-13
 deciders: Achim Dehnert
 consulted: Cascade AI
 informed: []

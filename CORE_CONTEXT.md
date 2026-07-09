@@ -1,7 +1,7 @@
 # CORE_CONTEXT — platform
 
 > Pflicht-Lektüre für jeden Coding-Agent vor dem ersten Keystroke.
-> Aktualisiert: 2026-06-30
+> Aktualisiert: 2026-07-08
 
 ## Was ist platform?
 
