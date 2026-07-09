@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-09",
-  "total": 214,
-  "next_free": 270,
+  "total": 215,
+  "next_free": 271,
   "adrs": [
     {
       "number": 7,
@@ -4937,6 +4937,30 @@
         "ADR-072",
         "ADR-137",
         "ADR-237"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
+      "number": 270,
+      "id": "ADR-270",
+      "file": "ADR-270-merge-automation-fleet-tiered.md",
+      "title": "Merge-Automatisierung fleet-weit einführen — risiko-getiert (Tier A: strict=false + Auto-Merge · Tier B: Merge-Queue)",
+      "status": "accepted",
+      "date": "2026-07-09",
+      "domains": [
+        "architecture",
+        "ci-cd",
+        "governance"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-046",
+        "ADR-234",
+        "ADR-242",
+        "ADR-264"
       ],
       "implementation_status": "not-started"
     },
