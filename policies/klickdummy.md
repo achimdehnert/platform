@@ -164,3 +164,13 @@ prüft zusätzlich gegen `origin/main`.
   (A1), aber 0 reale Renderer #2 plattformweit. Hält die Policy wortgleich zu
   ADR-211 I2(b)/ADR-216 (SSoT). Die opt-in-Executable-Parity-Bridge ist im
   Scoreboard S13 `dormant` (review_by 2026-12-04).
+- 2026-07-07: Rev-24-Angleichung (§Sitemap-Freshness). **Erweiterung, kein
+  neuer Entscheid.** Neue optionale §-Erweiterung von I1: Repos mit
+  `klickdummy/sitemap/` (KD-Baum-Übersicht, I4) SOLLEN ein Drift-Gate
+  (`klickdummy-sitemap-drift`, analog `klickdummy-requirements-drift`/S10 und
+  `klickdummy-parity-drift`/S13: re-generieren + `git diff --exit-code`) in
+  CI führen. Auslöser: risk-hubs Sitemap war 6 Wochen alt und fehlte eine
+  komplette KD-Welle, weil der Generator nur repo-lokal existierte.
+  Voraussetzung geschaffen: Generator nach `iil-klickdummy` extrahiert
+  (`klickdummy-gen-sitemap`, PR #143, gemergt). Opt-in, nicht status-gatend.
+  Scoreboard +S14.

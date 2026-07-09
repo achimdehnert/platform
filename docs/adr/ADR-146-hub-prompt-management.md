@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-04-04
-decision-makers: Achim Dehnert
+decision_date: 2026-04-04
+deciders: Achim Dehnert
 implementation_status: phase_1_3_complete
 implementation_evidence:
   - promptfw/src/promptfw/contrib/django/ (models, admin, resolution, CLI, 36 tests)

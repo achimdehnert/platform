@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-04-08
-decision-makers: [Achim Dehnert]
+decision_date: 2026-04-08
+deciders: [Achim Dehnert]
 ---
 # ADR-159: Shared Secrets Management — Single Source of Truth für API Keys
 

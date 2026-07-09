@@ -20,7 +20,14 @@ set -euo pipefail
 GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 PLATFORM_WF="${GITHUB_DIR}/platform/.windsurf/workflows"
 DRY_RUN=false
+STRICT=false
 SINGLE_REPO=""
+
+# SKIP-Längsaggregation (ADR-265 REC-1): sammelt Repo-Namen, die SKIP-REPO
+# (Ignore-Guard) bzw. SKIP-TRACKED (Tracked-Guard) ausgelöst haben, für die
+# Schluss-Summary-Zeile. Rein additiv — ändert das Guard-Verhalten selbst nicht.
+SKIP_REPO_NAMES=()
+SKIP_TRACKED_NAMES=()
 
 # --- Workflow-Kategorien ---
 
@@ -122,11 +129,13 @@ print(' '.join(data.get('frameworks', {}).keys()))
 for arg in "$@"; do
     case "$arg" in
         --dry-run) DRY_RUN=true ;;
+        --strict) STRICT=true ;;
         --help|-h)
-            echo "Usage: $0 [--dry-run] [repo-name]"
+            echo "Usage: $0 [--dry-run] [--strict] [repo-name]"
             echo ""
             echo "Sync platform workflows as symlinks to all repos."
             echo "  --dry-run   Show what would be done, don't change anything"
+            echo "  --strict    Exit 1 if any repo was skipped (SKIP-REPO/SKIP-TRACKED)"
             echo "  repo-name   Only sync a single repo"
             exit 0
             ;;
@@ -238,6 +247,7 @@ sync_repo() {
     if ! git -C "$repo_dir" check-ignore -q ".windsurf/workflows/__adr265_probe__.md" 2>/dev/null; then
         echo "📦 ${repo_name}"
         echo "  SKIP-REPO: '.windsurf/' nicht in .gitignore — Zeile committen, dann sync (ADR-265)"
+        SKIP_REPO_NAMES+=("$repo_name")
         return
     fi
 
@@ -252,6 +262,10 @@ sync_repo() {
     $is_package && type_label="package"
 
     local changes=0
+    # SKIP-Längsaggregation (ADR-265 REC-1): merkt sich nur, OB dieses Repo
+    # mindestens einen SKIP-TRACKED-Treffer hatte (nicht welche Workflows) —
+    # additive Auswertung des ohnehin schon geechoten Guard-Outputs.
+    local tracked_hit=false
 
     # Universal Workflows
     for wf in "${UNIVERSAL[@]}"; do
@@ -263,6 +277,7 @@ sync_repo() {
             fi
             echo "$before"
             changes=$((changes + 1))
+            [[ "$before" == *"SKIP-TRACKED"* ]] && tracked_hit=true
         fi
     done
 
@@ -277,6 +292,7 @@ sync_repo() {
                 fi
                 echo "$before"
                 changes=$((changes + 1))
+                [[ "$before" == *"SKIP-TRACKED"* ]] && tracked_hit=true
             fi
         done
     fi
@@ -292,9 +308,16 @@ sync_repo() {
                 fi
                 echo "$before"
                 changes=$((changes + 1))
+                [[ "$before" == *"SKIP-TRACKED"* ]] && tracked_hit=true
             fi
         done
     fi
+
+    $tracked_hit && SKIP_TRACKED_NAMES+=("$repo_name")
+    # Expliziter Erfolgs-Return: unter `set -e` würde sonst der obige `&&`-
+    # Ausdruck mit tracked_hit=false (Exit 1, kein Guard-Fehler) als
+    # sync_repo()-Exit-Status durchschlagen und den ganzen Lauf abbrechen.
+    return 0
 }
 
 # --- Main ---
@@ -320,3 +343,18 @@ fi
 
 echo ""
 echo "=== Done ==="
+
+# SKIP-Längsaggregation (ADR-265 REC-1): Schluss-Summary über den Lauf, damit
+# ein dauerhaft übersprungenes Repo nicht unbemerkt von Workflow-Updates
+# abgeschnitten bleibt. Rein additiv — die Per-Lauf-Echos oben bleiben
+# unverändert; --strict nutzt dieselbe Aggregation für einen CI-Fallback.
+TOTAL_SKIPS=$((${#SKIP_REPO_NAMES[@]} + ${#SKIP_TRACKED_NAMES[@]}))
+if [[ $TOTAL_SKIPS -gt 0 ]]; then
+    echo "SKIP-SUMMARY: ${TOTAL_SKIPS} Repo(s) übersprungen (SKIP-REPO: $(IFS=,; echo "${SKIP_REPO_NAMES[*]-}"); SKIP-TRACKED: $(IFS=,; echo "${SKIP_TRACKED_NAMES[*]-}"))"
+else
+    echo "SKIP-SUMMARY: 0 Repos übersprungen"
+fi
+
+if $STRICT && [[ $TOTAL_SKIPS -gt 0 ]]; then
+    exit 1
+fi

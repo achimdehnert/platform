@@ -1,7 +1,7 @@
 ---
 status: proposed
-date: 2026-03-15
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-15
+deciders: [Achim Dehnert]
 ---
 # ADR-134: Modul-Konfiguration und Monetarisierungsstrategie als shared Package
 

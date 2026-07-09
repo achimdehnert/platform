@@ -1,7 +1,7 @@
 ---
-status: proposed
-date: 2026-02-28
-decision-makers: Achim Dehnert
+status: accepted
+decision_date: 2026-02-28
+deciders: Achim Dehnert
 ---
 
 # ADR-133: Shared AI Services als wiederverwendbare Python-Pakete

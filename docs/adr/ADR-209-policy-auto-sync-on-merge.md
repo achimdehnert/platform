@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-05-18
-decision-makers: [Achim Dehnert]
+decision_date: 2026-05-18
+deciders: [Achim Dehnert]
 implementation_status: in-progress
 related: [ADR-113, dev-hub#51, platform#190, platform#193]
 ---
