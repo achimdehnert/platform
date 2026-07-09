@@ -234,4 +234,4 @@
 | 267 | Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo) | Accepted | ⬜ | [ADR-267](ADR-267-review-requirement-deploy-approvals.md) |
 | 268 | Projekt-Assurance-Tiers — Projektart × Reife-Phase als plattformweite Risiko-Achse (Cross-Repo) | Accepted | ⬜ | [ADR-268](ADR-268-projekt-assurance-tiers.md) |
 | 269 | — Tenant-Scoping-Kontrakt: fehlender Tenant-Kontext MUSS fail-closed sein | Proposed | ⬜ | [ADR-269](ADR-269-tenant-scoping-fail-closed-contract.md) |
-| 270 | Merge-Automatisierung fleet-weit einführen — risiko-getiert (Tier A: strict=false + Auto-Merge · Tier B: Merge-Queue) | Proposed | ⬜ | [ADR-270](ADR-270-merge-automation-fleet-tiered.md) |
+| 270 | Merge-Automatisierung fleet-weit einführen — risiko-getiert (Tier A: strict=false + Auto-Merge · Tier B: Merge-Queue) | Accepted | ⬜ | [ADR-270](ADR-270-merge-automation-fleet-tiered.md) |

@@ -1,5 +1,5 @@
 ---
-status: proposed
+status: accepted
 date: 2026-07-09
 decision-makers: Achim Dehnert
 consulted: –
@@ -17,7 +17,7 @@ tags: [merge-queue, auto-merge, branch-protection, dependabot, fleet, throughput
 
 | Attribut | Wert |
 |----------|------|
-| **Status** | Proposed |
+| **Status** | Accepted |
 | **Scope** | platform (org-weite Konvention) |
 | **Erstellt** | 2026-07-09 |
 | **Autor** | Achim Dehnert |
@@ -206,3 +206,4 @@ Rollout **gegatet**, Tier für Tier, je Phase eigener PR + Verifikation. Kein Ma
 | Datum | Autor | Änderung |
 |-------|-------|----------|
 | 2026-07-09 | Achim Dehnert | Initial: Status Proposed |
+| 2026-07-09 | Achim Dehnert | Accepted (Review wirdigital) — gegateter Tier-A/B-Rollout (Phase 1–4) freigegeben |
