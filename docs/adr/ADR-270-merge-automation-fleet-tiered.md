@@ -143,15 +143,25 @@ Bewusst **aus** (Entscheidung Achim 2026-07-09). Konsequenz: ein Commit nach dem
 
 ## 5. Migration Tracking
 
-Rollout **gegatet**, Tier für Tier, je Phase eigener PR + Verifikation. Kein Massen-Patch.
+Rollout **gegatet**, Tier für Tier. **Nach dem Phase-1-Scan (2026-07-09) rescoped — siehe §5.1.**
 
 | Phase | Umfang | Status | Datum | Notizen |
 |-------|--------|--------|-------|---------|
 | 0 | platform (Referenz) | ✅ Abgeschlossen | 2026-07-09 | `strict=false`+`allow_update_branch`+Auto-Merge live; Dependabot-WF #1021 |
-| 1 | Tier-A-Klassifikation scannen + Liste erzeugen | ⬜ Ausstehend | – | Scan gegen origin/main |
-| 2 | Tier A ausrollen (`strict=false`+Auto-Merge) | ⬜ Ausstehend | – | dry-run-Report zuerst, dann je Repo |
-| 3 | Tier-B `merge_group`-CI-Verdrahtung | ⬜ Ausstehend | – | Required-Check-Workflows erweitern, VOR Queue |
-| 4 | Tier B Merge-Queue aktivieren | ⬜ Ausstehend | – | erst nach Phase 3 verifiziert |
+| 1 | Tier-Klassifikation + Ist-Schutz-Scan (klassisch+Ruleset) | ✅ Abgeschlossen | 2026-07-09 | 21 Tier B / 30 Tier A; **Befund: Prämisse widerlegt** (§5.1) |
+| 2 | Tier A `strict=false`+Auto-Merge | ➖ **entfällt weitgehend** | – | Nur decks-hub + frist-hub haben `strict=true`; alle anderen Tier A ungeschützt (nichts zu flippen) |
+| 3 | Tier-B `merge_group`-CI-Verdrahtung | ⏸️ **zurückgestellt** | – | 10 Tier-B-Repos sind bereits `strict=false` (Ruleset) ohne Tax → Merge-Queue würde Reibung *hinzufügen*, kein Nutzen |
+| 4 | Tier B Merge-Queue | ⏸️ **zurückgestellt** | – | erst wenn ein realer Catch-up-Tax-Fall auftritt |
+
+### 5.1 Amendment 2026-07-09 — Rollout rescoped nach Phase-1-Scan
+
+Der Fleet-Scan (klassische Protection **und** Rulesets, alle ~49 Repos) widerlegt die Ausgangsprämisse „`strict=true` erzeugt fleet-weite Catch-up-Tax":
+
+- **`strict=true` existiert auf genau 2 Repos** (decks-hub, frist-hub, beide Tier A, klassisch). Die Tax hatte real **nur platform** (klassisch, bereits in Phase 0 gefixt).
+- **10 der 21 Tier-B-Repos** tragen bereits das `main-required-checks`-Ruleset mit **`strict=false`** — kein Tax, Merge-Queue wäre dort *zusätzliche* Reibung.
+- **Der echte, sicherheitsrelevante Befund:** **11 Tier-B-Prod-Deploy-Repos haben NULL Branch-Protection** (137-hub, dms-hub, iil-relaunch, illustration-hub, learn-hub, pptx-hub, recruiting-hub, research-hub, tax-hub, travel-beat, weltenhub) → jeder Push auf main deployt ungeprüft nach Prod. Das ist eine **[[ADR-242]]-Wave-3-Lücke** (Branch-Protection-Rollout), **nicht** ein Merge-Durchsatz-Problem.
+
+**Konsequenz:** Der ADR-270-Massen-Rollout (Phase 2–4) ist **kein sinnvolles Programm** — die Fleet konform ist bereits weitgehend erreicht (platform + Ruleset-Repos). Die echte Arbeit — die 11 ungeschützten Prod-Repos absichern — wird an **ADR-242** delegiert (dort gegatet, Pre-Flight-Pflicht: Repo muss den Required Check emittieren, sonst frieren Merges ein). ADR-270 bleibt gültig als **Policy** (die Tier-Definition + Auto-Merge-Default + Dependabot-Auto-Merge), verzichtet aber auf einen erzwungenen Fleet-Rollout.
 
 ---
 
@@ -207,3 +217,4 @@ Rollout **gegatet**, Tier für Tier, je Phase eigener PR + Verifikation. Kein Ma
 |-------|-------|----------|
 | 2026-07-09 | Achim Dehnert | Initial: Status Proposed |
 | 2026-07-09 | Achim Dehnert | Accepted (Review wirdigital) — gegateter Tier-A/B-Rollout (Phase 1–4) freigegeben |
+| 2026-07-09 | Achim Dehnert | Amendment §5.1: Phase-1-Scan widerlegt Prämisse (strict=true nur 2 Repos); Massen-Rollout entfällt, echte Lücke (11 ungeschützte Prod-Repos) an ADR-242 delegiert |
