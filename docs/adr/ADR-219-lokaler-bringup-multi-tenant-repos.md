@@ -2,7 +2,7 @@
 id: ADR-219
 title: "Lokaler Bring-up von Multi-Tenant-Repos (django_tenants) — migrate_schemas + seed_public_tenant als Local-Run-Konvention"
 status: accepted
-date: 2026-05-28
+decision_date: 2026-05-28
 deciders: [Achim Dehnert]
 consulted: [self-advocatus-diabolus]
 informed: [achimdehnert, bahn-sqf, meiki-lra, ttz-lif, iilgmbh]

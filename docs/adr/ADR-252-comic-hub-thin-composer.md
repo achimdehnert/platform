@@ -2,7 +2,7 @@
 id: ADR-252
 title: "comic-hub — Comic-Erstellung als Thin-Composer über bestehende Seams, gegated durch Konsistenz-Spike + Klickdummy"
 status: proposed
-date: 2026-06-18
+decision_date: 2026-06-18
 deciders: [Achim Dehnert]
 consulted: [Claude Code, externes LLM-Review (Reproduzierbarkeit/Datenmodell), externes LLM-Review (Konsistenz-Technologie/Reframe)]
 informed: [iilgmbh, achimdehnert]

@@ -1,14 +1,14 @@
 ---
 status: proposed
-date: 2026-06-06
-decision-makers: Achim Dehnert
+decision_date: 2026-06-06
+deciders: Achim Dehnert
 consulted: –
 informed: –
 implementation_status: not-started
 domains: [architecture, multi-tenancy, security, data-sovereignty]
 scope: platform
 amends: [ADR-072, ADR-074]
-relates_to: [ADR-035, ADR-109, ADR-137, ADR-092, ADR-219]
+related: [ADR-035, ADR-109, ADR-137, ADR-092, ADR-219]
 tags: [multi-tenancy, tenant-id, schema-isolation, django-tenants, row-level, dsgvo, consistency]
 ---
 

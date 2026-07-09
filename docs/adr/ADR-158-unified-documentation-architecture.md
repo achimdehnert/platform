@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-04-03
+decision_date: 2026-04-03
 amended: 2026-05-30
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: [Cascade (Principal IT-Architekt)]
 informed: []
 supersedes: []

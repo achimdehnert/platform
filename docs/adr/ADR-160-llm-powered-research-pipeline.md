@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-04-09
-decision-makers: [Achim Dehnert]
+decision_date: 2026-04-09
+deciders: [Achim Dehnert]
 ---
 # ADR-160: Adopt LLM-Powered Query-Expansion and Relevance Scoring for researchfw
 

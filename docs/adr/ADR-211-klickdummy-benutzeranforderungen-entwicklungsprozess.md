@@ -2,7 +2,7 @@
 id: ADR-211
 title: Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)
 status: accepted
-date: 2026-05-19
+decision_date: 2026-05-19
 deciders: [achim]
 informed: [all-repos]
 domains: [ux, requirements, process, security, drift-prevention]

@@ -1,11 +1,11 @@
 ---
 status: proposed
-date: 2026-05-08
+decision_date: 2026-05-08
 amended: 2026-05-08
-decision-makers:
+deciders:
   - Achim Dehnert
-reviewed-by: Cascade Senior Architecture Reviewer
-depends-on:
+reviewed_by: Cascade Senior Architecture Reviewer
+depends_on:
   - ADR-178 (LLM Gateway Consolidation)
   - ADR-115 (LLM Usage Logging)
   - ADR-009 (Service Layer Pattern)

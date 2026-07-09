@@ -1,5 +1,5 @@
 {
-  "generated": "2026-07-05",
+  "generated": "2026-07-09",
   "total": 209,
   "next_free": 267,
   "adrs": [
@@ -1446,7 +1446,9 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022, ADR-042, ADR-054, ADR-056, ADR-057, ADR-061, ADR-071, ADR-089"
+      ],
       "implementation_status": "implemented"
     },
     {
@@ -2587,7 +2589,10 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022 (Platform Consistency Standard — BigAutoField)",
+        "ADR-035 (Shared Django Tenancy)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -2602,7 +2607,14 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-040",
+        "ADR-041",
+        "ADR-050",
+        "ADR-051",
+        "ADR-058",
+        "ADR-059"
+      ],
       "implementation_status": ""
     },
     {
@@ -2757,7 +2769,12 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-113 (pgvector Agent Memory Store)",
+        "ADR-161 (Two-Layer-Schema with Supersession Chain for SDS)",
+        "ADR-170 (iil-ingest Document Ingestion Package)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -2772,7 +2789,13 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-010 (MCP Tool Governance)",
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-113 (pgvector — bestehende Infrastruktur)",
+        "ADR-170 (iil-ingest — Text-Extraktion)",
+        "ADR-171 (Temporal RAG Infrastructure — Schema)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -3069,7 +3092,15 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-087 (Hybrid Search Architecture — platform-search Package)",
+        "ADR-170 (iil-ingest — Document Ingestion Package)",
+        "ADR-171 (Temporal RAG Infrastructure — Schema)",
+        "ADR-172 (rag-mcp Server — Platform-Wide RAG API)",
+        "ADR-173 (Document Intake Routing Pattern)",
+        "ADR-187 (Document Intelligence Pipeline)"
+      ],
       "implementation_status": "partial"
     },
     {
@@ -3106,8 +3137,10 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-059 (Automated ADR Drift Detection)",
         "ADR-065 (Filesystem-first ADR numbering)",
         "ADR-071 (Code Quality Tooling)",
+        "ADR-083 (Hybrid ADR Governance)",
         "ADR-138 (Implementation Tracking Standard)"
       ],
       "implementation_status": "implemented"
@@ -3130,7 +3163,13 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-010 (MCP Tool Governance)",
+        "ADR-048 (HTMX Playbook)",
+        "ADR-056 (Deployment Pre-Flight Validation)",
+        "ADR-075 (Read-Only MCP / Write via GitHub Actions)",
+        "ADR-190 (iil-adrfw Tooling Framework)"
+      ],
       "implementation_status": "verified"
     },
     {
@@ -3150,7 +3189,12 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-043 (Database-First Conventions)",
+        "ADR-048 (HTMX Playbook)",
+        "ADR-057 (Four-Level Test Strategy)",
+        "ADR-191 (iil-codeguard Library-First Tooling)"
+      ],
       "implementation_status": "verified"
     },
     {
@@ -3170,7 +3214,13 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-021 (Unified Deployment Pipeline)",
+        "ADR-022 (BigAutoField Platform Standard)",
+        "ADR-056 (Deployment Pre-Flight Validation)",
+        "ADR-094 (Migration Conflict Resolution)",
+        "ADR-191 (iil-codeguard Library-First Tooling)"
+      ],
       "implementation_status": "verified"
     },
     {
@@ -3190,7 +3240,11 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-115 (Grafana Agent Controlling Dashboard — llm_calls table)",
+        "ADR-116 (Dynamic Model Router — budget-aware routing)",
+        "ADR-178 (LLM Gateway Consolidation — V2 as canonical)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -3212,7 +3266,11 @@
       "superseded_by": [],
       "amends": [],
       "amended_by": [],
-      "related": [],
+      "related": [
+        "ADR-115 (Grafana Agent Controlling Dashboard — llm_calls table)",
+        "ADR-116 (Dynamic Model Router — budget-aware routing)",
+        "ADR-178 (LLM Gateway Consolidation — V2 as canonical)"
+      ],
       "implementation_status": "none"
     },
     {
@@ -3255,6 +3313,9 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-113 (Agent Memory — pgvector store + temporal decay)",
+        "ADR-176 (MCP Server SSoT — templates + sync-mcp-config.sh)",
+        "ADR-186 (Headless Agent Pipeline — tool-usage telemetry source)",
         "PR #131 (fix(session-ende): correct MCP prefixes + agent_memory API for WSL)",
         "docs/concepts/token-reduction-strategy.md"
       ],
@@ -3799,10 +3860,15 @@
       "amends": [],
       "amended_by": [],
       "related": [
+        "ADR-009 (Service Layer Pattern)",
+        "ADR-022 (BigAutoField Platform Standard)",
         "ADR-023 (Shared Scoring & Routing Engine)",
         "ADR-028 (Platform Context)",
         "ADR-045 (SOPS Secrets Management)",
-        "ADR-059 (Drift-Detector)"
+        "ADR-059 (Drift-Detector)",
+        "ADR-072 (Multi-Tenancy Schema Isolation)",
+        "ADR-115 (LLM Usage Logging)",
+        "ADR-178 (LLM Gateway Consolidation)"
       ],
       "implementation_status": "none"
     },
