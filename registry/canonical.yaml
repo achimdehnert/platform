@@ -662,8 +662,8 @@ repos:
     in_rich: true
     flat:
       type: django
-      prod_url: travel-beat.iil.pet
-      staging_url: staging.travel-beat.iil.pet
+      prod_url: drifttales.app
+      staging_url: staging.drifttales.com
       port: 8089
       health: /livez/
     domain: Story & Travel
