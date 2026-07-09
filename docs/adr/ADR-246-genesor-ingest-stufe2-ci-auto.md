@@ -15,6 +15,12 @@ tags: [klickdummy, genesor, ingest, cross-repo, ci, automation]
 scope:
   include_paths:
     - "docs/adr/ADR-246-*"
+implementation_status: implemented
+implementation_evidence:
+  - "iil-pet-portal: .github/workflows/genesor-ingest.yml — nightly cron (17 3 * * *) aktiv seit 2026-06-17, grüner workflow_dispatch verifiziert (run 27667675206: 7 Repos vendored, Safety-Gate GRÜN, Promote erfolgt)"
+  - "Manifest genesor-repos.yaml + Safety-Gate scripts/genesor_diff_gate.py (Self-Test in CI, ADR-246 §8) vorhanden"
+  - "GitHub-App-Auth (GENESOR_APP_ID/GENESOR_APP_PRIVATE_KEY, least-privilege contents:read) statt PAT — Plan-Punkt 5 äquivalent erfüllt"
+  - "8765-Stale-Snapshot abgeschaltet — live TCP-Probe 88.99.38.75:8765 verifiziert 2026-07-09: connection refused (Plan-Punkt 7)"
 ---
 
 # ADR-246 — genesor-Ingest Stufe 2: manifest-getriebener, dev-host-freier CI-Auto-Ingest (nightly)
