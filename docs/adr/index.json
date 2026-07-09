@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-09",
-  "total": 209,
-  "next_free": 267,
+  "total": 211,
+  "next_free": 269,
   "adrs": [
     {
       "number": 7,
@@ -4813,6 +4813,53 @@
         "ADR-265"
       ],
       "implementation_status": "partial"
+    },
+    {
+      "number": 267,
+      "id": "ADR-267",
+      "file": "ADR-267-review-requirement-deploy-approvals.md",
+      "title": "Review-Requirement für Deploy-Approvals — deterministisches Fail-Closed-Gate + HITL-Lern-Vorschlagsschicht (Cross-Repo)",
+      "status": "accepted",
+      "date": "2026-07-08",
+      "domains": [
+        "security",
+        "process",
+        "governance",
+        "deployment",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-268",
+        "KONZ-platform-014"
+      ],
+      "implementation_status": ""
+    },
+    {
+      "number": 268,
+      "id": "ADR-268",
+      "file": "ADR-268-projekt-assurance-tiers.md",
+      "title": "Projekt-Assurance-Tiers — Projektart × Reife-Phase als plattformweite Risiko-Achse (Cross-Repo)",
+      "status": "accepted",
+      "date": "2026-07-09",
+      "domains": [
+        "governance",
+        "process",
+        "security",
+        "deployment",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "KONZ-platform-009"
+      ],
+      "implementation_status": ""
     },
     {
       "number": 400,
