@@ -129,7 +129,9 @@ Rolle des Tech-Writers übernehmen.
 ```
 
 **Nicht erlaubt in docs/:** `src/`, `apps/`, `infra/`, `scripts/`, `*.py`
-(außer conf.py), Binaries, `_build/`, `docker-compose.yml`, Testdaten.
+(außer conf.py sowie Vorlagen unter `docs/templates/` und ADR-Inputs unter
+`docs/adr/inputs/` — siehe R-04-Amendment 2026-07-09), Binaries, `_build/`,
+`docker-compose.yml`, Testdaten.
 
 ### 2.2 ADR-Status-Lifecycle
 
@@ -148,7 +150,7 @@ Nur "Superseded" → `_archive/superseded/`. Alle anderen bleiben in `adr/`.
 | R-01 | **Eine ADR-Nummer = Eine aktive Datei.** Kollision → ältere nach `_archive/superseded/` | Alle |
 | R-02 | **Kein Binary in Git.** Diagramme als Mermaid. Falls unvermeidbar: Git LFS | Alle |
 | R-03 | **Build-Output gitignored.** `_build/`, `build/`, `*.doctree` | Alle |
-| R-04 | **Kein Code in docs/.** Ausnahme: Sphinx `conf.py` | Alle |
+| R-04 | **Kein Code in docs/.** Ausnahmen: Sphinx `conf.py`; verteilte Vorlagen unter `docs/templates/`; konsumierte ADR-Inputs unter `docs/adr/inputs/` (siehe R-04-Amendment 2026-07-09) | Alle |
 | R-05 | **Input nach Konsum archivieren.** Konzeptpapier → `_archive/inputs/` | Alle |
 | R-06 | **Keine Infrastruktur in docs/.** docker-compose, terraform → Projekt-Root | Alle |
 | R-07 | **ADR-Dateiname:** `ADR-{NNN}-{kebab-case}.md` — keine `-v2`, `-FINAL` Suffixe | Alle |
@@ -160,6 +162,19 @@ Nur "Superseded" → `_archive/superseded/`. Alle anderen bleiben in `adr/`.
 | R-13 | **Neue Repos starten sauber.** `/onboard-repo` prüft docs/-Struktur | Neue |
 | R-14 | **Quartalsweise Review.** docs/ aller Repos gegen Regeln prüfen | Alle |
 | R-15 | **AI-Kontext-Ausschluss.** `.windsurf/rules/docs-hygiene.md` in jedem Repo | Alle |
+
+> **Amendment 2026-07-09 (R-04-Präzisierung):** R-04 nimmt zusätzlich zu `conf.py`
+> zwei bestehende, gewollte Kategorien aus: (a) verteilte Vorlagen unter
+> `docs/templates/` — der Kanon-Template-Store, aus dem `scripts/setup_repo.py` in
+> Ziel-Repos kopiert und den `scripts/hardcode_scanner.py` bereits als `exclude_dir`
+> führt — und (b) konsumierte ADR-Inputs unter `docs/adr/inputs/`. Grund: `docs/templates/`
+> enthält notwendigerweise ausführbare Scaffold-Assets (`conftest_base.py`,
+> `settings_test.py`, Django-Test-Gerüste); der frühere Zielzustand „0 .py in docs/" (§6)
+> stammt von **vor** der Einführung des Template-Stores. Die Amendment bringt R-04 mit der
+> gelebten Realität und dem zweiten Platform-Scanner (`hardcode_scanner.py`) in Deckung —
+> ohne die 34 Template-Dateien und ~23 referenzierende Stellen (CI, `setup_repo.py`,
+> `.gitleaks.toml`, mehrere ADRs) zu bewegen. Enforcement mitgeliefert im selben PR:
+> `scripts/docu-audit.sh` schließt dieselben zwei Pfade vom R-04-Zähler aus.
 
 ### 2.4 AI-Kontext-Optimierung
 
