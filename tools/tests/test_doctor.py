@@ -225,4 +225,50 @@ def test_should_not_suggest_when_no_legacy_mcp_tokens(tmp_path):
     r = _doctor_commands(repo, dist)
     assert r.returncode == 0, r.stdout + r.stderr
     assert "DRIFT-SCORE: 0" in r.stdout
+
+
+def test_should_suggest_incomplete_kd_referenz_schema(tmp_path):
+    """SUGGEST-lint (Issue #970): KD-Referenz-Block ohne alle 4 Felder → SUGGEST,
+    DRIFT-SCORE bleibt unberuehrt."""
+    repo = _make_commands_repo_with_content(
+        tmp_path / "repo",
+        "# foo\n## KD-Referenz\nSpec: x\nLokal: y\n"  # GitHub/iil.pet fehlen
+    )
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    r = _doctor_commands(repo, dist)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "DRIFT-SCORE: 0" in r.stdout
+    assert "unvollständigem KD-Referenz-Schema" in r.stdout
+    assert "GitHub" in r.stdout and "iil.pet" in r.stdout
+
+
+def test_should_not_suggest_when_kd_referenz_complete(tmp_path):
+    """SUGGEST-lint (Issue #970): alle 4 Felder vorhanden → '0 Skills' Meldung."""
+    repo = _make_commands_repo_with_content(
+        tmp_path / "repo",
+        "# foo\n## KD-Referenz\nSpec: x\nLokal: y\nGitHub: z\niil.pet: w\n"
+    )
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    r = _doctor_commands(repo, dist)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "DRIFT-SCORE: 0" in r.stdout
+    assert "0 Skills mit unvollständigem KD-Referenz-Schema" in r.stdout
+
+
+def test_should_not_mention_kd_referenz_when_not_declared(tmp_path):
+    """SUGGEST-lint (Issue #970): kein 'KD-Referenz'-Marker im Skill → keine Meldung."""
+    repo = _make_commands_repo_with_content(tmp_path / "repo", "# foo\nplain content\n")
+    dist = tmp_path / "dist"
+    subprocess.run(
+        [sys.executable, str(_GEN), "--platform", str(repo), "--ref", "HEAD", "--target", str(dist)],
+        check=True, capture_output=True, text=True)
+    r = _doctor_commands(repo, dist)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "KD-Referenz-Schema" not in r.stdout
     assert "0 legacy" in r.stdout

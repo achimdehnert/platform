@@ -1,8 +1,8 @@
 ---
 status: superseded
 superseded_by: ADR-264
-date: 2026-04-02
-decision-makers: [Achim Dehnert]
+decision_date: 2026-04-02
+deciders: [Achim Dehnert]
 consulted: [Cascade (Principal IT-Architekt)]
 informed: []
 supersedes: []

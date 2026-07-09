@@ -1,13 +1,13 @@
 ---
 status: accepted
-date: 2026-05-09
+decision_date: 2026-05-09
 amended: 2026-05-10
-decision-makers:
+deciders:
   - Achim Dehnert
-reviewed-by:
+reviewed_by:
   - Cascade (ADR-Review, 2026-05-10)
   - Claude (Sparring Review on ADR-191, 2026-05-09)
-depends-on:
+depends_on:
   - ADR-191 (iil-codeguard Library-First Tooling)
   - ADR-022 (BigAutoField Platform Standard)
   - ADR-021 (Unified Deployment Pipeline)

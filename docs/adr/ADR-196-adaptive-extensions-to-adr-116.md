@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-05-11
-decision-makers: [Achim Dehnert]
+decision_date: 2026-05-11
+deciders: [Achim Dehnert]
 implementation_status: stufe-1-2-implemented
 related: [ADR-068, ADR-095, ADR-115, ADR-116, ADR-194, ADR-195]
 ---

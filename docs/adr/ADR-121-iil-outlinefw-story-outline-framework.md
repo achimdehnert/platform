@@ -2,8 +2,8 @@
 id: ADR-121
 title: "iil-outlinefw — Story-Outline-Framework"
 status: accepted
-date: 2026-03-08
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-08
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 tags: [package, outlinefw, creative-writing, pure-python]

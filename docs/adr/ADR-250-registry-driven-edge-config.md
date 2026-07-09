@@ -2,7 +2,7 @@
 id: ADR-250
 title: "Registry-getriebene Edge-Config + Drift-Lint (nginx-vhost/DNS aus repo-registry.yaml)"
 status: proposed
-date: 2026-06-17
+decision_date: 2026-06-17
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, meiki-lra, ttz-lif]
