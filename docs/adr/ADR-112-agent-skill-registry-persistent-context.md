@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-03-08
+decision_date: 2026-03-08
 updated: 2026-03-11
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 consulted: Claude Sonnet (Cascade)
 informed: Agent Team
 implementation_status: implemented

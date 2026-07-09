@@ -19,6 +19,22 @@ scope:
 
 # ADR-255 — iilgmbh org migration for the iil-* PyPI family
 
+> Rev 4 (2026-07-05): **REC-1 owner condition — GitHub half now MET.** The
+> `iilgmbh` GitHub org holds **≥ 2 independent owners** — `achimdehnert` and
+> `wirdigital`, both `role=admin`, `state=active` (verified live:
+> `gh api "orgs/iilgmbh/members?role=admin" --jq length` → `2`, 2026-07-05).
+> This clears the Phase-0 sub-blocker "iilgmbh has only 1 owner" that was RED
+> since Rev 2. **Still open on the same REC-1 clause (do NOT read this as
+> readiness-complete):** (a) the **PyPI org `iil`** must likewise have ≥ 2
+> owners — unverified here (not a GitHub API surface; check `pypi.org/org/iil/`
+> members); (b) **team-bound repo roles** (access via team, not per-person);
+> (c) a documented **recovery + offboarding path**; (d) a **periodic role +
+> trusted-publisher review** cadence. Two owners are *necessary*, not
+> *sufficient*, for the governance target state. **This changes nothing about
+> the per-repo transfer gate (REC-2/REC-5):** acceptance still authorizes the
+> method, not an unattended fan-out; `platform` itself is a separate,
+> cutover-planned decision (see `docs/konzepte/`), not covered by this ADR.
+
 > Rev 3 (2026-06-23): **accepted**. Method gate before any transfer is now
 > implemented as code, not prose: the machine-readable migration SSoT lives at
 > [`registry/iil-migration.yaml`](../../registry/iil-migration.yaml) (REC-3) with

@@ -1,9 +1,9 @@
 ---
 status: superseded
 superseded_by: ADR-264
-date: 2026-03-11
+decision_date: 2026-03-11
 updated: 2026-03-11
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 supersedes: []
 related: ADR-009, ADR-022, ADR-102 (Cloudflare DNS), ADR-103 (bieterpilot)
 implementation_status: implemented

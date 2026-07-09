@@ -52,7 +52,8 @@ for d in "$GH_DIR"/*/; do git -C "$d" remote get-url origin 2>/dev/null; done \
 
 ## Phase 0 — Inventar (find/grep + Remote-Abgleich, NIE aus einem Index)
 
-1. **Lokales Inventar** aller ADR-Dateien; pro Datei extrahieren:
+1. **Lokales Inventar** aller ADR-Dateien (Werkzeug: `tools/adr/adr_inventory.py <out.json>`,
+   Auswertung: `tools/adr/adr_analyze.py`); pro Datei extrahieren:
    `repo, datei, adr_nummer, titel, status, date, supersedes, superseded_by, impl`.
    Ablage als JSON im Scratchpad.
 
@@ -90,8 +91,14 @@ for d in "$GH_DIR"/*/; do git -C "$d" remote get-url origin 2>/dev/null; done \
 - **Platform-Korpus:** `/adr-health` (deckt Schema, Supersession-Hygiene, Redundanz,
   Konflikte, Staleness via iil-adrfw ab — hier nichts nachbauen).
 - **Sub-Repo-Korpora** (parallelisierbar, ein Agent pro Repo): Minimal-Check —
-  1. Frontmatter: `status` + `date` + Titel vorhanden? Status im Vokabular
-     `draft|proposed|accepted|superseded|deprecated|void`? Abweichler mit `datei:zeile`.
+  1. Frontmatter: `status` + `date` + Titel vorhanden? Status im Vokabular des
+     iil-adrfw-Schemas: `draft|proposed|accepted|deprecated|superseded|rejected|experimental|void`
+     (autoritativ: `iil-adrfw validate docs/adr/` — exit 0 = ok, Suggestions sind non-blocking;
+     exit 1 nur bei echten Schema-Fehlern)? Abweichler mit `datei:zeile`.
+     ⚠ Bekannte Schema-Lücke (2026-07-04): ADR-211-Klickdummy-Felder (`class`, `conforms_to`,
+     `sunset_after`, …) und gelebte Konventionen (`amendments:`, `accepted:`, `ratified:`)
+     schlagen an `additionalProperties: false` fehl — solche Treffer sind Schema-Backlog,
+     KEINE Repo-Schuld.
   2. Struktur: MADR-Grundgerüst (Context/Decision/Consequences)? Leere Skelette/Template-Reste?
   3. Staleness: `proposed` > 90 Tage; `accepted` ohne Implementierungsspur > 180 Tage.
   4. Doppelte Nummern **innerhalb** des Repos (Lücken sind kein Befund).
@@ -166,6 +173,11 @@ Sub-Repo-Commits sind **NICHT** Klasse A — jede Änderung außerhalb platform 
 - ❌ Neues ADR als „Fix" vorschlagen, wo CHANGELOG/PR genügt (`adr-threshold.md`)
 
 ## Changelog
+
+- 2026-07-04 (3): Status-Vokabular auf das echte iil-adrfw-Schema korrigiert (+rejected,
+  +experimental); `iil-adrfw validate` als autoritativer Check verankert (Exit-Code-Semantik
+  verifiziert); Schema-Lücke ADR-211-Felder dokumentiert; Werkzeuge nach `tools/adr/`
+  persistiert (Inventar/Analyse/Frontmatter-Migration, erprobt in F-1/F-1b: 82 ADRs).
 
 - 2026-07-04 (2): Phase 0.3 prüft zusätzlich den Archiv-Status der Clone-Remotes —
   archivierte Repos werden markiert und aus Fix-Wellen ausgeklammert (bfagent-Lücke

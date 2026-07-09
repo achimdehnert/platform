@@ -1,10 +1,10 @@
 ---
 status: accepted
-date: 2026-05-30
-decision-makers: Achim Dehnert
+decision_date: 2026-05-30
+deciders: Achim Dehnert
 domains: [tooling, dx, drift-prevention, governance]
 amends: [claude-skills.md]
-relates_to: [ADR-229]
+related: [ADR-229]
 tags: [skills, workflows, distribution, claude-code, windsurf, cross-repo]
 ---
 

@@ -2,10 +2,9 @@
 id: ADR-096
 title: "authoringfw — Content Orchestration Scope, Architecture, and Domain Boundaries"
 status: accepted
-date: 2026-03-02
-author: Achim Dehnert
+decision_date: 2026-03-02
 owner: Achim Dehnert
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: [bfagent, travel-beat, weltenhub, pptx-hub, risk-hub teams]
 scope: authoringfw package + all consumer apps using content generation
@@ -13,7 +12,7 @@ tags: [authoringfw, orchestration, writing, research, analysis, architecture, pa
 related: [ADR-050, ADR-057, ADR-068, ADR-089, ADR-093, ADR-095]
 supersedes: []
 amends: [ADR-050]
-last_verified: 2026-03-11
+last_reviewed: 2026-03-11
 implementation_status: implemented
 implementation_evidence:
   - "authoringfw v0.7.0: PyPI published, 124 tests green"

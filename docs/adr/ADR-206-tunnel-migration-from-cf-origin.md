@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-05-14
-decision-makers: [Achim Dehnert]
+decision_date: 2026-05-14
+deciders: [Achim Dehnert]
 implementation_status: partial
 related: [ADR-205]
 ---
