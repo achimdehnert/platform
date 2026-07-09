@@ -12,7 +12,7 @@ relates_to: [ADR-035, ADR-072, ADR-237, ADR-137]
 tags: [multi-tenancy, tenant-id, security, fail-closed, drf, cross-tenant-leak, manager-contract]
 ---
 
-# ADR-261 — Tenant-Scoping-Kontrakt: fehlender Tenant-Kontext MUSS fail-closed sein
+# ADR-269 — Tenant-Scoping-Kontrakt: fehlender Tenant-Kontext MUSS fail-closed sein
 
 > **Amends ADR-109**: ergänzt den Multi-Tenancy-Plattformstandard um einen **verbindlichen
 > Sicherheits-Invarianten für den TenantAware-Manager** — der bislang ungeschriebene, faktisch
