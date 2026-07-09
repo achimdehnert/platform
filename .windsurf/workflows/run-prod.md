@@ -4,6 +4,20 @@ description: Deploy production with safety gates, health checks, rollback on fai
 
 # /run-prod — Production Deploy
 
+## Wann `/run-prod` — und wann nicht?
+
+`/run-prod` ist der **manuelle Notfall-Handpfad** (direktes `docker compose` am Server mit
+sauberem Ja/Nein-Gate) — nicht der Standard-Pfad (Deploy-Trias-Kanon 2026-07-04).
+
+- **Wann `/run-prod`:** Standard-Deploy via `/ship` ist nicht möglich (Server-seitiger
+  Short-Trigger / CI nicht erreichbar) und du musst per Hand direkt am `docker compose`
+  deployen.
+- **Wann NICHT / stattdessen:**
+  - Regulärer Prod-Deploy → **`/ship`** (kanonischer Standard: verify → push → CI → migrate
+    → health-check).
+  - Deploy fehlgeschlagen, Prod rot → **`/rollback`**.
+  - `/deploy` (infra-deploy-Actions) ist **deprecated** — nicht mehr verwenden.
+
 ## ⚠️ GATE: Explizite Bestätigung erforderlich
 Frage den User: "Prod-Deploy für `<REPO>` bestätigen? (ja/nein)"
 → Bei "nein": Abbruch
@@ -50,7 +64,7 @@ for i in 1 2 3; do
   sleep 5
   curl -sf "http://localhost:${PROD_PORT}/livez/" && echo "✅ Prod healthy (Versuch $i)" && break
   echo "⚠️  Versuch $i fehlgeschlagen"
-  [ $i -eq 3 ] && echo "❌ ROLLBACK empfohlen — siehe /rollback-prod"
+  [ $i -eq 3 ] && echo "❌ ROLLBACK empfohlen — siehe /rollback"
 done
 ```
 

@@ -18,7 +18,7 @@ APPS: dict[str, dict[str, str]] = {
         "health": "https://drifttales.app/health/", # noqa: hardcode
     },
     "risk-hub": {
-        "repo": "achimdehnert/risk-hub",
+        "repo": "iilgmbh/risk-hub",
         "workflow": "docker-build.yml",
         "health": "https://demo.schutztat.de/health/", # noqa: hardcode
     },

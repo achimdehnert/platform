@@ -1,7 +1,7 @@
 ---
-status: proposed
-date: 2026-03-01
-decision-makers: [Achim Dehnert]
+status: accepted
+decision_date: 2026-03-01
+deciders: [Achim Dehnert]
 ---
 # ADR-092: Tenant-Aware Seed Commands
 

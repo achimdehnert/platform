@@ -11,6 +11,11 @@ on:
       - 'mcp-hub/**'
   workflow_dispatch:
 
+# Workflow-level default (least privilege, #818 permissions sweep) —
+# no job in this workflow needs to write via GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   static-analysis:
     name: "📊 Static Analysis"
@@ -36,7 +41,7 @@ jobs:
         run: bandit -r . -f json -o bandit-report.json || true
 
       - name: Upload Security Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: security-report
           path: bandit-report.json
@@ -107,7 +112,7 @@ jobs:
           fi
 
       - name: Upload Coverage
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           fail_ci_if_error: false
 

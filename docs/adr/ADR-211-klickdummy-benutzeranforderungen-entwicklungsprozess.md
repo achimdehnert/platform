@@ -2,7 +2,7 @@
 id: ADR-211
 title: Spec-zentrierte Klickdummies — Anforderungsartefakt, Prod-Sicherheit und Parity-Off-Ramp (Cross-Repo)
 status: accepted
-date: 2026-05-19
+decision_date: 2026-05-19
 deciders: [achim]
 informed: [all-repos]
 domains: [ux, requirements, process, security, drift-prevention]
@@ -227,19 +227,29 @@ platform/scripts/checks/adr_sunset.sh
 #     (re-generieren + git diff --exit-code, analog S10); Manifest als Artefakt;
 #     org-weiter Mindestdatensatz (spec_id, executable/skipped, Skip-Owner/-Grund,
 #     fragile-count, letztes-Grün, off_ramp_status). Misst Operationalisierung; gatet NICHT.
-#     STATUS (2026-06-04): DORMANT, dormancy_review_by: 2026-12-04. Mechanismus belegt
-#     (A1: eine Suite, zwei Renderer, fängt injizierte Divergenz), aber 0 reale Renderer #2
-#     plattformweit (3 Lücken: keine `assert` außer avv-pflege-Stub, 0 `data-testid` in
-#     Apps, gen_e2e ohne Auth-Modell/F22).
-#     Warum dormant statt gelöscht: Mechanismus belegt, aber Plattform-Adoption fehlt → geparkt,
-#     nicht als aktive Invariante geführt (nicht-gatend bleibt nicht-gatend).
-#     REAKTIVIERUNG nur bei ALLEN VIER Bedingungen (REC-1): (1) echter Renderer #2 existiert;
-#     (2) ≥1 fachlicher `assert`-Block in der Spec; (3) Selektor-/Testkontrakt für die echte App
-#     (`data-testid` o.ä.); (4) Auth-/Session-Modell der Suite (F22). Einzelne nominelle
-#     Renderer #2 reaktivieren NICHT.
-#     review_by 2026-12-04 erzwingt eine HARTE Entscheidung (REC-2): reactivate | delete |
-#     re-charter. Ohne erfüllte Reaktivierungsbedingungen ist der Default delete/re-charter,
-#     NICHT stilles Verlängern.
+#     STATUS (2026-06-13, Rev 21): REAKTIVIERT — Wertthese erstmals empirisch eingelöst.
+#     Die VIER REC-1-Reaktivierungsbedingungen sind ALLE belegt (verifiziert durch Ausführung
+#     gegen die echte App, nicht durch Behauptung):
+#       (1) echter Renderer #2 = risk-hub `/sds/review/` (live, login-gegatete Django-App);
+#       (2) ≥1 fachlicher `assert`-Block = `sds-verwalten`-Spec (3 ausführbare Asserts);
+#       (3) Selektor-/Testkontrakt = `data-testid` (sds-review-queue/-row/-verify-btn) in der
+#           App `review_queue.html`;
+#       (4) Auth-/Session-Modell = `storage_state` via `browser_context_args` (F22 GESCHLOSSEN).
+#     BEWEIS: dieselbe generierte Suite läuft 3/3 grün gegen Renderer #2 UND wird rot, sobald ein
+#     App-`data-testid` vom Spec-Kontrakt abweicht (Divergenz injiziert, ausgelieferter HTML
+#     verifiziert) → diskriminiert App↔Spec-Drift, nicht nur Mockup-gegen-sich-selbst.
+#     Dabei zwei „gebaut, nie ausgeführt"-Bugs im Generator gefunden+gefixt (auth-API + Strict-
+#     Mode/.first; iilgmbh/iil-klickdummy #67) — bestätigt Rev-20-Lesson REC-5.
+#     `review_by 2026-12-04` entfällt als Lösch-Trigger; S13 misst ab jetzt Operationalisierung
+#     (nicht-gatend bleibt nicht-gatend). Verbliebene Folge-Arbeit (kein Blocker der These):
+#     CI-fähige risk-hub-Suite braucht deterministischen Seed + Auth-Automation (F22 ist als
+#     Generator-Mechanismus geschlossen; Adopter-seitige Einbettung = Operationalisierung).
+
+# S14 Sitemap-Freshness-Adoption (Rev 24, optional, nicht status-gatend)
+#     Pro Repo: ja/nein/n-a (n-a = kein klickdummy/sitemap/ geführt). Wenn ja:
+#     `klickdummy-sitemap-drift` (oder repo-äquivalentes Target) läuft in CI
+#     (re-generieren via klickdummy-gen-sitemap + git diff --exit-code, analog
+#     S10/S13). Erst-Adopter: risk-hub (Auslöser dieses Amendments, PR folgt).
 ```
 
 ## §Co-Creation-Loop (optional, Rev 12)
@@ -471,13 +481,28 @@ Migration auf Plattform-Heimat innerhalb 30 Tagen nach Bereitstellung.
 
 **Manifest.** Je Lauf `*.manifest.json`: `spec_id`, `spec_sha256`, `spec_schema_version`, `generator_version`, `base_url_env`, Coverage (`executable`/`skipped`), `skipped_detail`, `fragile_selectors`, `uncovered_note`.
 
-**Selector-Konvention.** Bevorzugt stabile fachliche Anker (`data-testid`/`data-acceptance-id`); fragile CSS-/Text-Pfade werden markiert (Manifest-Warnung), ab Off-Ramp status-relevant (F18). Locator-Registry zurückgestellt (Doppelquell-Risiko, F18).
+**Selector-Konvention (Rev 22 — F23 GESCHLOSSEN).** Primärer stabiler Anker: `data-testid`/`data-acceptance-id`, erreichbar als bare CSS **oder** via `testid=`-Präfix (kanonisch ab Rev 22; bare `[data-testid=foo]`-CSS bleibt gültig, ist aber **deprecated** — Manifest-Warnung). Semantisches Fallback-Vokabular (D2): `testid=…`→`get_by_test_id`, `role=…[name=…]`→`get_by_role`, `label=…`→`get_by_label` (stabile Anker, Accessibility-Tree-gebunden); `text=…`→`get_by_text` (fragil, i18n-unstabil — markiert, nicht verboten). Ohne Präfix: bare CSS (`page.locator`), fragil. Off-Ramp-Gate D1: `--strict-selectors` macht fragile Selektoren (bare CSS ohne `data-*`-Anker, `text=`) zu Exit-Code-3-Fehler statt Manifest-Warnung; reine Mockup-Läufe ohne das Flag unverändert. **Externe Zweitmeinung (5 RECs, 2026-06-30):** REC-1 (spec-Attribut `strict_selectors: true` zusätzlich zu CLI-Flag) + REC-2 (Parser-Grenzfälle `role=`-Syntax formal dokumentiert + Roundtrip-Tests für Sonderzeichen/Whitespace) als offene Follow-up-Tickets. Locator-Registry zurückgestellt (Doppelquell-Risiko, F18 — Trigger jetzt geschärft, s. §Offene F-Items).
 
 **Ownership nach Prod.** Org-weites Minimum (wer darf Spec / `check` / `assert` / Skip-Debt / `off_ramp_status` ändern); lokale Klickdummy-ADRs **konkretisieren** nur, divergieren nicht. Anti-Abschwächung: eine Änderung, die `check`/`assert` entfernt/abschwächt oder einen Selektor verfragilisiert, braucht PR-Label `parity-weakening` + fachliche Begründung (fachlicher Reviewer Soll).
 
 **F11-Doppel-Geltung.** Wird `klickdummy_prod_guard.sh` gebaut (F11, **dormant** — #255 geparkt 2026-06-04, siehe Rev 20), erhält es zwei Geltungsgründe statt eines zweiten Checkers (SSoT): **I2** (Demo-/Catalog-/`?demo=`-Route ⇒ Prod-404) **und** **I3** (archivierte Klickdummy-Route nach Off-Ramp ⇒ 404). Bis dahin: manueller, im PR dokumentierter Ersatzbeleg.
 
 Scoreboard **+S13**.
+
+## §Sitemap-Freshness (optional, Rev 24)
+
+**Opt-in-Capability** (additiv, nicht status-gatend — wie §Co-Creation/§Requirements-Bridge/§Executable-Parity-Bridge). Adressiert eine reale Empirie-Lücke: risk-hubs Klickdummy-Sitemap (`klickdummy/sitemap/`, ein KD-Baum-Übersichts-Renderer nach I4) war beim Auffinden **6 Wochen** alt und fehlte eine komplette KD-Welle (5 neue Sub-KDs + mehrere weitere Module) — nicht weil das Regenerierungs-Skript fehlte, sondern weil es nur repo-lokal existierte (`scripts/gen_kd_sitemap.py`) und niemand strukturell daran erinnert wurde, es nach jedem KD-Build neu laufen zu lassen.
+
+**Distribution (Voraussetzung).** Der Generator wurde nach `iil-klickdummy` extrahiert (`klickdummy-gen-sitemap <repo_root> <adr_local> [repo_name]`, folgt der Rev-15-Extraktionskonvention) — Cross-Repo-Verfügbarkeit ist Bedingung, nicht Ergebnis dieses Amendments.
+
+**Mechanik.** Repos, die eine KD-Sitemap führen (`klickdummy/sitemap/screens-spec.yaml` vorhanden), regenerieren sie via `klickdummy-gen-sitemap` und committen das Ergebnis. **Freshness-Gate (exakt analog `klickdummy-requirements-drift`/S10 und `klickdummy-parity-drift`/S13):** ein Make-Target (repo-lokale Konvention: `klickdummy-sitemap-drift`) regeneriert in ein Temp-Verzeichnis und diff'ed gegen den committeten Stand (`git diff --exit-code` oder Byte-Vergleich); Divergenz ⇒ CI rot. Kein plattform-externer Prober (anders als I2(b)) — die Sitemap hat keine Prod-Sicherheitsdimension, nur eine Vollständigkeits-/Aktualitäts-Dimension.
+
+**Grenzen (bewusst, gegen Über-Claim).**
+- Das Gate erzwingt *Konsistenz* (committete Sitemap == frischer Regen), nicht *Vollständigkeit* jenseits dessen, was der Generator aus `screens-spec.yaml`-Dateien lesen kann — ein KD ohne Spec-Datei bleibt unsichtbar (kein neuer Mechanismus, gleiche Grenze wie I1).
+- Opt-in: Repos ohne Sitemap-Adoption sind nicht betroffen; kein neues Pflichtartefakt für alle Klickdummy-Repos.
+- Ersetzt nicht `/kd-scout`-artige Brownfield-Erkennung (Code-vs-KD-Abgleich) — reine KD-Baum-interne Konsistenz.
+
+Scoreboard **+S14**.
 
 ## §Distribution — Plattform-Heimat (Rev 13)
 
@@ -947,6 +972,14 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 
 - **Rev 20 (2026-06-04 — Parity-Schicht dormant + I2(b)-Ehrlichkeit)** — **Erweiterung, kein Entscheid-Widerruf**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: die Executable-Parity-Bridge ist opt-in/nicht-status-gatend → Dormancy lebt im **Scoreboard (S13→`dormant`, `dormancy_review_by: 2026-12-04`)**, nicht als Invarianten-Änderung. **Empirie (verifiziert durch Ausführung + plattformweiten Sweep, 2026-06-04):** Mechanismus belegt (A1 — *eine* generierte Suite gegen zwei unabhängige Renderer: #1 grün, #2 rot auf injizierten Divergenzen), aber **0 reale Renderer #2** plattformweit — drei Lücken: keine ausführbaren `assert` außer dem `risk-hub:avv-pflege`-Stub (dessen Asserts das KD-Gerüst prüfen, keine App-UI), **0 `data-testid`** in den Apps (`ausschreibungs-hub`/`nl2iot-hub`), und `gen_e2e` ohne **Auth-Modell** (login-gegatete Routen wie `bieterpilot.de/angebote/` → 302 → /login/ sind nicht testbar). **I2(b)-Korrektur (accepted Body):** `klickdummy_prod_guard.sh` (F11) ist **unimplementiert/dormant** (#255 geparkt) — bis Bau bindet faktisch nur die Selbst-Deklaration (a); ADR-216 §I2-Probe ebenso dormant. **Neue offene F22** (Generator-Auth-Modell, Voraussetzung jeder echten Bridge) und **F23** (REC-7: soll Renderer #2 künftig einen stabilen UI-Testkontrakt via `data-testid`/Manifest liefern, oder die Bridge auf semantischere Selektoren umstellen?). **Reaktivierungs-Trigger (REC-1, messbar statt vage):** ALLE VIER Bedingungen — (1) echter Renderer #2, (2) ≥1 fachlicher `assert`-Block, (3) Selektor-/Testkontrakt für die echte App, (4) Auth-/Session-Modell der Suite; ein einzelner nomineller Renderer #2 reaktiviert NICHT. **`review_by: 2026-12-04` erzwingt (REC-2) eine harte Entscheidung** reactivate|delete|re-charter — Default ohne erfüllte Bedingungen = delete/re-charter, kein stilles Verlängern. **Naming-Korrektur:** `klickdummy-parity-drift` prüft Spec↔Datei-Drift, **nicht** Parität — im Generator-Header klargestellt (iil-klickdummy v1.22.2, PR #54). **I3-Phase-A (`sunset_after`-TTL) bleibt hart aktiv** (gegen „Mock lebt ewig", adr-challenger #2). **Was aktiv bleibt:** I1, I2-Pattern-*Deklaration*, I4, Co-Creation, Requirements-Bridge, Discovery — für das Mockup-Stadium. **Lessons-Learned (REC-5):** opt-in-Bridges erst dann `accepted`-nah dokumentieren, wenn ≥1 realer End-to-End-Pfad gegen die Zielklasse der Systeme gelaufen ist — synthetische Diskriminierungsfähigkeit (A1) belegt den *Mechanismus*, nicht die *Plattformreife*. **Follow-up (REC-10, separat & kleiner):** „Negative Off-Ramp Witness" als pragmatische Alternative zur vollen Parity-Bridge prüfen — Off-Ramp verlangt zunächst nur maschinenlesbaren Beleg (alte KD-Route ⇒ Prod-404; Zielroute nach Login erreichbar; minimaler Smoke-Check auf erwarteten Titel/Landmark), damit echte Off-Ramps nicht auf die Reaktivierung der großen Generator-Schicht warten.
 
+- **Rev 22 (2026-06-30 — F23 GESCHLOSSEN: Selektor-Kontrakt gehärtet, Hybrid D1+D2+D3)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: keine neue Invariante, keine neue Boundary, kein eigener ADR — härtet die bestehende Selector-Konvention (Rev 18/21) durch ein opt-in-Gate und ein dokumentiertes Fallback-Vokabular; das ist Erweiterung nach bestehendem Muster. **F23 geschlossen via KONZ-iil-klickdummy-007 (T2, Hybrid-Empfehlung, 2026-06-30).** Drei Teile: **(D1)** `--strict-selectors`-Flag (opt-in, Off-Ramp-Pfad setzt es): fragile Selektoren → Exit-Code 3 statt nur Manifest-Warnung; reine Mockup-Läufe unverändert. **(D2)** Präfix-Dispatch im `selector`-String: `testid=`→`get_by_test_id`, `role=…[name=…]`→`get_by_role`, `label=`→`get_by_label` (stabile Anker, zählen nicht als fragil); `text=`→`get_by_text` (fragil, i18n-unstabil, markiert); bare CSS ohne `data-*` weiterhin fragil. `selector` bleibt `string` — **kein Schema-Bruch**, Bestands-Specs bit-identisch gültig. Bare `[data-testid=foo]`-CSS **deprecated** (Manifest-Warnung; `testid=foo` wird kanonischer Weg); kein Exit-Code bis zur nächsten Major-Version. **(D3)** Locator-Registry (F18) unverändert zurückgestellt; Trigger geschärft (REC-5): „≥2 Consumer-Specs müssen Selektor wegen App-Implementierungsänderung ändern" — zählbar, nicht interpretierbar. **Warum kein „B statt A":** semantische Selektoren werden als Fallback *eingegliedert*, nicht als Ersatz — der einzige real grüne E2E-Pfad (Rev 21, 3/3 via `data-testid`) bleibt primär. **Empirie:** `iil-klickdummy` v1.29.0 — D1+D2 implementiert; 4 neue Tests (Präfix-Dispatch, Routing, Fragilität, Off-Ramp-Gate inkl. Exit-3 + Default-0 + stabiler-Anker-grün), 151 Tests grün, Linter clean. **Externe Zweitmeinung (5 RECs, 211-response.md):** Empfehlung „Überarbeiten" (nicht Ablehnen). AD-1/REC-1 (spec-Attribut `strict_selectors`) + AD-2/REC-2 (Parser-Grenzfälle `role=`-Syntax) als offene Follow-up-Tickets; AD-3/REC-3 (`[data-testid=foo]` deprecated) direkt adressiert; AD-4 (`text=`-Widerspruch) **widerlegt** — `text=` dispatcht auf `get_by_text` (valider Fallback) und ist fragil (bei `--strict-selectors` geblockt), kein Widerspruch da Off-Ramp Stabilität verlangt; AD-5/REC-5 (F18-Trigger) direkt adressiert (D3). **Ehrliche Reichweite:** Präfix-Vokabular wirkt in Konsumenten-Repos erst nach `pip install iil-klickdummy>=1.29`; bis dahin nur im Generator-Repo aktiv. **PRs:** iilgmbh/iil-klickdummy #89 (KONZ-007), #90 (D1+D2 Implementierung, gemergt).
+
+- **Rev 21 (2026-06-13 — Parity-Bridge REAKTIVIERT: Wertthese erstmals eingelöst)** — **Erweiterung, kein Entscheid-Widerruf**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: nicht-status-gatend → der Statuswechsel lebt im **Scoreboard (S13 `dormant`→`reaktiviert`)**, nicht als Invarianten-Änderung. **Auslöser ist der in Rev 20 messbar definierte Reaktivierungs-Trigger (REC-1) — keine freie Entscheidung, sondern Bedingungseintritt:** ALLE VIER Bedingungen erstmals erfüllt und **durch Ausführung gegen die echte App verifiziert** (nicht behauptet): (1) echter Renderer #2 = `risk-hub` `/sds/review/` (live, login-gegatete Django-App); (2) ≥1 fachlicher `assert`-Block = `risk-hub:klickdummy-spec-sds-verwalten` (3 ausführbare Asserts); (3) Selektor-/Testkontrakt = `data-testid` (`sds-review-queue`/`-row`/`-verify-btn`) in `templates/global_sds/review_queue.html`; (4) Auth-/Session-Modell = `storage_state` via `browser_context_args`. **F22 (Generator-Auth-Modell) GESCHLOSSEN.** **Beweis (empirisch, lokal gefahren):** dieselbe generierte Suite läuft 3/3 grün gegen Renderer #2 **und** wird rot, sobald ein App-`data-testid` vom Spec-Kontrakt abweicht (Divergenz injiziert, *ausgelieferter* HTML verifiziert — gunicorn-Template-Cache erzwang Restart, sonst falsch-positiv) → die Suite diskriminiert **App↔Spec-Drift**, nicht nur Mockup-gegen-sich-selbst (A1→A2). **Zwei „gebaut, nie ausgeführt"-Generator-Bugs gefunden+gefixt** (beide bestanden Unit-Tests, weil die nur Text-Marker prüften): (a) `auth.storage_state` emittierte die nicht-existente API `page.context.set_storage_state(path=…)` → `TypeError` gegen jeden login_required-Renderer; (b) `visible`/`text`/`clickable` brachen an Playwright-Strict-Mode bei mehrfach matchenden Kontrakt-Selektoren → `.first`. **Lesson-Learned (verstärkt Rev-20-REC-5):** „gemergt ≠ ausgeführt ≠ belegt" — der billigste Check (Suite *einmal* gegen die Zielklasse laufen lassen) kippte sowohl die Descope-Hypothese als auch zwei latente Feature-Bugs; opt-in-Bridges erst nach realem E2E-Pfad als reif führen. **Verbleibende Folge-Arbeit (kein Blocker der These):** CI-fähige risk-hub-Suite braucht deterministischen Seed (count-Asserts sind dateninduziert) + Auth-Automation; F11/`klickdummy_prod_guard.sh` bleibt **dormant** (#255, unberührt von dieser Rev); F23 (stabiler UI-Testkontrakt als Konvention) offen. **PRs:** iilgmbh/iil-klickdummy #67 (Generator-Fixes + Regressionstest, 141 Tests grün).
+
+- **Rev 23 (2026-07-05 — Content-Screen-Typ: route-lose Marketing/Onboarding-Screens)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: **keine neue Invariante (kein I5), keine neue Boundary, kein eigener ADR** — additive, opt-in-§-Erweiterung des Renderers nach bestehendem Muster (Rev 12/16/18), die den bereits vorhandenen Leerzustands-Zweig füllt. **Motivation (geerdet, nicht spekulativ):** ein KD soll die gesamte Eintritts-Journey abbilden (kalter Besucher → Value), damit Stakeholder von Anfang an Feedback geben; der Daten-Screen-Renderer konnte bisher nur `datafields`/`local_entities` darstellen → Marketing/Landing-Screens (Hero/Value-Prop/CTA, keine Daten-Entities) rendern leer. **Neu:** optionales Screen-Feld `content: [{type: hero|prose|cta|media|plan_table}]` + `off_route: bool`; Renderer-Branch `_render_content_blocks()` am bestehenden Leer-Fallback-Hook, alle Spec-Strings `html.escape` (S-02/S-03-Härtung). **Additiv, kein Schema-Bruch:** Bestands-Specs ohne `content:` rendern bit-identisch; ein Content-Screen ist **additiv zu einer bestehenden Screen-Klasse** (Flow-Knoten via `next_screens`/`back_screen` oder Assertions-Screen), kein neuer Screen-Typ im anyOf. **Block-Typen bewusst auf 5 begrenzt** (kein Marketing-Builder). **I1-Klarstellung:** `content:` ist Render-Hilfe für route-lose Screens, kein Anforderungs-SoR; `off_route: true` ist **Vorwärts-Marker** — verifiziert (`check_i1.py` ist schema-only), es existiert **kein** Route↔Screen-Coverage-Gate im Code, das ihn heute konsumiert; ein künftiges Coverage-Gate muss ihn honorieren. **Reifegrad ehrlich:** das Feld ist im Schema **`experimental`** markiert bis zu dieser Ratifizierung; nach Merge dieser Rev gilt es als akzeptierte opt-in-Konvention. **Empirie (durch Ausführung belegt):** iil-klickdummy **v1.31.0** (PyPI, Wheel+sdist verifiziert), 4 neue Tests inkl. XSS-Escape, 201 Tests grün; Dogfood `travel-beat` Onboarding-Journey-KD (#59) — `landing` rendert nach Umstellung Hero/Prose/CTA (`<h1>Deine Reise wird zur Geschichte.</h1>`) statt Leerfläche, `klickdummy-genesor` Smoke 1/0. **Konzept:** `KONZ-iil-klickdummy-009` (T2). **PRs:** iilgmbh/iil-klickdummy #130 (KONZ-009), #132 (Impl, gemergt), #133 (Release v1.31.0, gemergt). **Ehrliche Reichweite:** wirkt in Konsumenten-Repos erst nach `pip install iil-klickdummy>=1.31`; `content:` rendert nur für Screens ohne Daten-Entities.
+
+- **Rev 24 (2026-07-07 — §Sitemap-Freshness: KD-Übersichts-Drift-Gate)** — **Erweiterung, kein neuer Entscheid**; `status` bleibt `accepted`. Pre-Check per `adr-threshold.md`: **keine neue Invariante, keine neue Boundary, kein eigener ADR** — additive opt-in-§-Erweiterung von I1 nach bestehendem Muster (Rev 12 §Requirements-Bridge/Rev 18 §Executable-Parity-Bridge: Spec → regenerierbares Derivat + Drift-Gate). **Auslöser (geerdet, nicht spekulativ):** risk-hubs KD-Sitemap (`klickdummy/sitemap/`) war beim Auffinden 6 Wochen alt und fehlte eine komplette DSB-KD-Welle (5 neue Sub-KDs, #394-#399) + mehrere weitere Module (verifiziert: 11 Wurzeln/20 Knoten committet vs. 19 Wurzeln/46 Knoten nach Regen) — das Generator-Skript (`scripts/gen_kd_sitemap.py`) existierte nur repo-lokal, kein struktureller Zwang zur Neugenerierung. **Voraussetzung geschaffen:** Generator nach `iil-klickdummy` extrahiert als `klickdummy-gen-sitemap <repo_root> <adr_local> [repo_name]` (Rev-15-Extraktionskonvention, repo_root/adr_local/repo_name jetzt Parameter statt hartkodiert). **Neu:** §Sitemap-Freshness — Repos mit `klickdummy/sitemap/screens-spec.yaml` SOLLEN ein Drift-Gate (`klickdummy-sitemap-drift`, exakt analog `klickdummy-requirements-drift`/S10 und `klickdummy-parity-drift`/S13: re-generieren + `git diff --exit-code`) in CI führen. Opt-in, nicht status-gatend, kein neues Pflichtartefakt für Repos ohne Sitemap-Adoption. **Grenzen:** erzwingt Konsistenz (committet == frisch generiert), nicht Vollständigkeit jenseits vorhandener `screens-spec.yaml`-Dateien; kein Ersatz für Brownfield-Erkennung (`/kd-scout`). Scoreboard **+S14**. **PRs:** iilgmbh/iil-klickdummy #143 (Extraktion, gemergt); risk-hub-Adoption folgt separat.
+
 ## Bezug
 
 - **Playbook:** `docs/concepts/CONCEPT-003-klickdummy-playbook.md` — Begleit-Dokument zu diesem ADR (wie konkret implementieren, Stack-Patterns, Lessons Learned, Repo-Adoptions-Status)
@@ -986,11 +1019,13 @@ Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
   DSL-Drift + Legacy-Generator-Matrix bis 2028. Schließung-Pfad: erster RFC für
   eine neue Action erzwingt die Regel.
 - **F18 (Selector-Fragilität / Locator-Registry zurückgestellt, Rev 18)**: die
-  `data-*`-Konvention + Manifest-Warnung *mildern* das UI-Refactor-Risiko, lösen
-  es nicht. Eine Locator-Registry (Spec nennt fachliche ID, App mappt Selektor)
-  ist bewusst zurückgestellt (Risiko, selbst Doppelquelle zu werden).
-  Schließung-Pfad: realer Cross-Repo-UI-Refactor belegt die Konvention als
-  unzureichend → Registry evaluieren; Schwellenwert/Owner+Frist ab Off-Ramp.
+  `data-*`-Konvention + Rev-22-Härtung (D1+D2) *mildern* das UI-Refactor-Risiko,
+  lösen es strukturell nicht. Eine Locator-Registry (Spec nennt fachliche ID, App
+  mappt Selektor) ist bewusst zurückgestellt (Risiko, selbst Doppelquelle zu werden).
+  **Schließung-Pfad (Rev 22 — konkretisiert, REC-5):** messbarer Trigger =
+  „Selektor-String in ≥2 Consumer-Specs muss *wegen einer App-Implementierungs-
+  änderung* geändert werden" — zählbar (Issue-Spur je betroffener Spec), nicht
+  interpretierbar als „irgendein Refactor". Bis dahin: Konvention + D1+D2 aktiv.
 - **F19 (Operationalisierungsquote cross-repo, Rev 18)**: Skip-Debt/fragile-count
   sind pro Lauf im Manifest sichtbar, aber nicht org-weit aggregiert.
   Schließung-Pfad: Genesor zeigt `pipeline_status` + Parity-Status + Skip-Quote

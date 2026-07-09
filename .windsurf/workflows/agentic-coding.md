@@ -347,14 +347,16 @@ Issue nur erstellen wenn gleicher `<Datei>:<Zeile>` noch nicht offen.
 ```bash
 ruff check . --fix && ruff format . && ruff check .
 bandit -r . -ll
-python -m pytest tests/ -q --tb=short
+make test
+# Fallback (nur falls kein Makefile-Target `test` existiert): python -m pytest tests/ -q --tb=short
 ```
 
 ### Python Package (iil-platform, aifw, promptfw, iil-testkit, ...)
 
 ```bash
 ruff check . --fix && ruff format .
-python -m pytest tests/ -q --cov=<package>
+make test
+# Fallback (nur falls kein Makefile-Target `test` existiert): python -m pytest tests/ -q --cov=<package>
 ```
 
 ### Node / Playwright (iil-reflex, pptx-hub Frontend-Teile)

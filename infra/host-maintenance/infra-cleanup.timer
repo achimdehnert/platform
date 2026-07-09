@@ -1,8 +1,8 @@
 [Unit]
-Description=Weekly host disk cleanup (prevention — keeps disk off 100%)
+Description=Daily host disk cleanup (prevention — keeps disk off 100%)
 
 [Timer]
-OnCalendar=Sun *-*-* 04:00:00
+OnCalendar=*-*-* 04:00:00
 Persistent=true
 RandomizedDelaySec=600
 

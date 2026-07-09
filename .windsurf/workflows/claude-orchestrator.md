@@ -4,31 +4,36 @@ description: Claude Code als Initial-Orchestrator — Plant Tasks BEVOR Windsurf
 
 # /claude-orchestrator — Claude als Initial-Orchestrator
 
-> **Problem**: Windsurf/Cascade hat einen "yes-and"-Bias — es handelt sofort, ohne Delegation.
-> **Lösung**: Claude Code plant den Task headless, erstellt ein GitHub Issue, Windsurf implementiert NUR aus dem Issue.
+> **Problem**: Ein Coding-Agent hat leicht einen "yes-and"-Bias — er handelt sofort, ohne Delegation.
+> **Lösung**: Claude Code plant den Task headless, erstellt ein GitHub Issue, der ausführende Agent implementiert NUR aus dem Issue.
 >
 > **Wann nutzen**: Bei jeder Aufgabe mit `gate_level >= 2` (>5 Dateien, cross-repo, neue Architektur).
 
 ---
 
-## Schritt 1 — Cascade: Gate-Check VOR dem Start
+## Schritt 1 — Der Agent: Gate-Check VOR dem Start
 
-**BEVOR Cascade irgendetwas implementiert:**
+**BEVOR der Agent irgendetwas implementiert:**
 
 ```
-MCP: mcp4_analyze_task(description="<user request>")
+MCP: mcp__orchestrator__analyze_task(description="<user request>")
 → {task_type, complexity, gate_level, recommended_model}
 ```
 
 | gate_level | Vorgehen |
 |-----------|---------|
-| 0–1 (trivial/simple) | Cascade direkt — kein Orchestrator nötig |
-| 2 (moderate) | `/agentic-coding` Pfad B — Cascade als Tech Lead |
+| 0–1 (trivial/simple) | Der Agent direkt — kein Orchestrator nötig |
+| 2 (moderate) | `/agentic-coding` Pfad B — der Agent als Tech Lead |
 | **3+ (complex/architectural)** | **Diesen Workflow ausführen** |
 
 ---
 
 ## Schritt 2 — Claude Code: ADR-Check
+
+> ℹ️ **CC-Fallback:** `mcp2_adr_*` sind Windsurf-Ära-Namen; in Claude-Code-Sessions heißen
+> dieselben Tools `mcp__<orchestrator-prefix>__adr_*` (Prefix aus `project-facts.md`). Bindet
+> die Session keinen ADR-MCP-Server, ist der Fallback direkte Reads in `docs/adr/` bzw. der
+> `iil-adrfw`-CLI-Weg — der Check bricht nicht ab, nur die MCP-Automatik entfällt.
 
 ```
 MCP: mcp2_adr_query(question="<was geplant ist>", domain="<relevant>")
@@ -43,7 +48,7 @@ MCP: mcp2_adr_query(question="<was geplant ist>", domain="<relevant>")
 ## Schritt 3 — Claude Code: Task zerlegen
 
 ```
-MCP: mcp4_agent_plan_task(
+MCP: mcp__orchestrator__agent_plan_task(
     task_description="<vollständige Beschreibung>",
     repo="<repo-name>",
     task_type="<feature|bugfix|refactor|infra>",
@@ -59,7 +64,7 @@ MCP: mcp4_agent_plan_task(
 ## Schritt 4 — Claude Code: GitHub Issue erstellen
 
 ```
-MCP: mcp1_create_issue(
+MCP: mcp__github__create_issue(
     owner="achimdehnert",
     repo="<repo>",
     title="[AUTO] <task_description>",
@@ -84,7 +89,7 @@ MCP: mcp1_create_issue(
 - [ ] <kriterium 2>
 
 ## Kontext aus pgvector
-<mcp4_agent_memory_context(query=task_description).top_3_results>
+<mcp__orchestrator__agent_memory_context(query=task_description).top_3_results>
 
 ---
 *Auto-erstellt von /claude-orchestrator. Windsurf implementiert NUR aus diesem Issue.*
@@ -112,7 +117,7 @@ Windsurf öffnet das Issue und:
 ## Schritt 6 — Memory sichern
 
 ```
-MCP: mcp4_agent_memory_upsert(
+MCP: mcp__orchestrator__agent_memory_upsert(
     entry_key="task:<repo>:<issue_number>",
     entry_type="context",
     title="[DONE] <issue_title>",

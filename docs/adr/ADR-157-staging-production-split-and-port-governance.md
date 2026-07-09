@@ -4,7 +4,7 @@ nav_order: 157
 title: "ADR-157: 3-Server Architecture — Dev, Staging, Production with automated port governance"
 status: accepted
 amended: 2026-05-13   # 2. Amendment durch ADR-198 — §4.1 Staging-Domain-Konvention ersetzt
-date: 2026-04-02
+decision_date: 2026-04-02
 deciders: Achim Dehnert
 consulted: Cascade AI
 informed: []

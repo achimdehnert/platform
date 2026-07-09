@@ -56,6 +56,15 @@ def test_should_ignore_tree_lines():
     assert set(gen.collect(listing, "skills")) == {"alpha"}
 
 
+def test_should_collect_hooks_by_basename():
+    listing = ("100644 blob h1\ttools/hooks/reap_worktrees.sh\n"
+               "100644 blob h2\ttools/hooks/other.sh\n"
+               "100644 blob h3\ttools/hooks/notes.md\n")  # nicht .sh → ignoriert
+    out = gen.collect(listing, "hooks")
+    assert set(out) == {"reap_worktrees.sh", "other.sh"}
+    assert out["reap_worktrees.sh"] == ("h1", "tools/hooks/reap_worktrees.sh")
+
+
 # ---------------------------------------------------------------- e2e helpers
 def _git(root, *args):
     subprocess.run(["git", *args], cwd=root, check=True, capture_output=True, text=True)
@@ -69,8 +78,14 @@ def _make_repo(root):
     _git(root, "config", "user.name", "t")
     (root / ".windsurf" / "workflows").mkdir(parents=True)
     (root / ".windsurf" / "workflows" / "foo.md").write_text("# foo\nbody\n")
+    # interner System-Prompt: distribute:false → darf NICHT als Slash-Command verteilt werden
+    (root / ".windsurf" / "workflows" / "_reviewer.md").write_text(
+        "---\nprovider: openai\ndistribute: false\n---\n# reviewer\nsystem prompt\n")
     (root / "skills" / "bar").mkdir(parents=True)
     (root / "skills" / "bar" / "SKILL.md").write_text("---\nname: bar\n---\n# bar\n")
+    # ADR-258 hooks-Lane: Hook-Script-Quelle
+    (root / "tools" / "hooks").mkdir(parents=True)
+    (root / "tools" / "hooks" / "reap_worktrees.sh").write_text("#!/usr/bin/env bash\nexit 0\n")
     _git(root, "add", "-A")
     _git(root, "commit", "-m", "init")
     _git(root, "remote", "add", "origin", str(root))
@@ -94,6 +109,20 @@ def test_should_generate_commands_flat(tmp_path):
     assert m["kind"] == "commands" and m["skill_count"] == 1
 
 
+def test_should_skip_distribute_false_in_commands(tmp_path):
+    """distribute:false-Workflow ist interner System-Prompt → kein Slash-Command,
+    nicht im Ziel, nicht im skill_count, nicht im Manifest."""
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    r = _run(["--platform", str(repo), "--ref", "HEAD", "--target", str(out)])
+    assert r.returncode == 0, r.stderr
+    assert (out / "foo.md").is_file()                       # normaler Command verteilt
+    assert not (out / "_reviewer.md").exists()              # interner System-Prompt NICHT
+    m = json.loads((out / "manifest.json").read_text())
+    assert m["skill_count"] == 1                            # nur foo.md gezählt (nicht len(blobs))
+    assert all(f["name"] != "_reviewer.md" for f in m["files"])
+
+
 def test_should_generate_skills_nested(tmp_path):
     repo = _make_repo(tmp_path / "repo")
     out = tmp_path / "out"
@@ -102,6 +131,41 @@ def test_should_generate_skills_nested(tmp_path):
     assert (out / "bar" / "SKILL.md").is_file()             # verschachtelt <name>/SKILL.md
     assert "MANAGED-BY" in (out / "bar" / "SKILL.md").read_text()
     assert json.loads((out / "manifest.json").read_text())["kind"] == "skills"
+
+
+def test_should_generate_hooks_flat_executable(tmp_path):
+    """ADR-258 hooks-Lane: .sh flach, ausführbar (0755), Shell-#-Footer (kein HTML-Kommentar)."""
+    repo = _make_repo(tmp_path / "repo")
+    out = tmp_path / "out"
+    r = _run(["--kind", "hooks", "--platform", str(repo), "--ref", "HEAD", "--target", str(out)])
+    assert r.returncode == 0, r.stderr
+    hook = out / "reap_worktrees.sh"
+    assert hook.is_file()                                   # flach
+    assert os.access(hook, os.X_OK)                         # ausführbar
+    text = hook.read_text()
+    assert text.rstrip().endswith("do_not_edit")           # Footer ohne HTML-Kommentar-Klammer
+    assert "<!--" not in text                               # KEIN HTML-Footer in .sh
+    assert "# MANAGED-BY" in text                           # Shell-#-Footer
+    assert json.loads((out / "manifest.json").read_text())["kind"] == "hooks"
+
+
+def test_should_not_wipe_sibling_hooks_on_live_swap(tmp_path):
+    """REGRESSION (Retro 2026-06-29 F1): die hooks-Lane swappt nur ihr managed/-Ziel —
+    hand-gepflegte Geschwister-Hooks in ~/.claude/hooks/ dürfen NICHT weggewischt werden."""
+    repo = _make_repo(tmp_path / "repo")
+    home = tmp_path / "home"
+    env = dict(os.environ, HOME=str(home))
+    hooks_dir = home / ".claude" / "hooks"
+    hooks_dir.mkdir(parents=True)
+    sibling = hooks_dir / "block_stale_branch_commit.sh"     # hand-gepflegt, NICHT lane-verwaltet
+    sibling.write_text("#!/usr/bin/env bash\necho guard\n")
+    live = hooks_dir / "managed"                             # == LANES["hooks"]["live"]
+    r = _run(["--kind", "hooks", "--platform", str(repo), "--ref", "HEAD",
+              "--target", str(live), "--allow-live"], env=env)
+    assert r.returncode == 0, r.stderr
+    assert (live / "reap_worktrees.sh").is_file()           # Hook verteilt
+    assert sibling.is_file()                                # Geschwister ÜBERLEBT (kein Wipe)
+    assert sibling.read_text() == "#!/usr/bin/env bash\necho guard\n"
 
 
 def test_should_block_live_target_without_allow_live(tmp_path):

@@ -1,10 +1,10 @@
 ---
 status: proposed
-date: 2026-03-26
+decision_date: 2026-03-26
 amended: 2026-04-14
-decision-makers:
+deciders:
   - Achim Dehnert
-depends-on:
+depends_on:
   - ADR-022 (Platform Consistency Standard — BigAutoField)
   - ADR-035 (Shared Django Tenancy)
 repo: risk-hub

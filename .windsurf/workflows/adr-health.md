@@ -8,6 +8,12 @@ description: Full ADR Health Audit — Schema, Staleness, Freshness, Redundancy,
 > **Wann:** Wöchentlich, vor Releases, nach größeren Architektur-Änderungen.
 > **Zweck:** Vollständiger Gesundheitscheck aller 158+ ADRs in einem Workflow.
 > **iil-adrfw:** v0.4.0+ (12 MCP Tools)
+>
+> ℹ️ **CC-Fallback:** Die `mcp2_adr_*`-Aufrufe unten sind Windsurf-Ära-Namen. In
+> Claude-Code-Sessions heißen dieselben Tools `mcp__<orchestrator-prefix>__adr_*`
+> (Prefix aus `project-facts.md`). Bindet die Session keinen ADR-MCP-Server, ist der
+> Fallback der CLI-/Read-Weg über `iil-adrfw` bzw. direkte Reads in `docs/adr/` — der
+> Workflow bricht nicht ab, nur die MCP-Automatik entfällt. (Muster: `session-start.md`.)
 
 ## Verwendung
 
@@ -131,8 +137,8 @@ Zusammenfassung als Markdown:
 ```
 
 → Report dem User präsentieren.
-→ Optional in Outline speichern: `mcp4_create_concept(title="ADR Health Report <DATUM>", content=report)`
-→ Optional als GitHub Issue: `mcp1_create_issue(title="[adr-health] X Findings from <DATUM>")`
+→ Optional in Outline speichern: `mcp__outline-knowledge__create_concept(title="ADR Health Report <DATUM>", content=report)`
+→ Optional als GitHub Issue: `mcp__github__create_issue(title="[adr-health] X Findings from <DATUM>")`
 
 ---
 

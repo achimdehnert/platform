@@ -25,7 +25,8 @@ git log --oneline -5 && git status
 
 // turbo
 ```bash
-pytest tests/ -q --tb=short 2>&1 | tail -15
+make test 2>&1 | tail -15
+# Fallback (nur falls kein Makefile-Target `test` existiert): python -m pytest tests/ -q --tb=short 2>&1 | tail -15
 ```
 
 **Kein Deploy bei roter Test-Suite.** Ausnahme: nur wenn explizit als Hotfix freigegeben.
@@ -84,7 +85,7 @@ cd ${GITHUB_DIR:-$HOME/github}/platform && python infra/scripts/port_audit.py
 
 Vor dem Deploy die typische Dauer aus Erfahrung kommunizieren (ca. 60-180s je nach Repo).
 
-> ℹ️ Das frühere Tool `mcp2_estimate_job` existiert nicht mehr (Issue #80) —
+> ℹ️ Das frühere Tool `mcp__orchestrator__estimate_job` existiert nicht mehr (Issue #80) —
 > Schätzung basiert jetzt auf Repo-Erfahrungswerten oder Memory-Query.
 
 ## Step 6: Deploy ausführen

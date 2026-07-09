@@ -5,57 +5,94 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 > **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
 
-## ⚡ Aktueller Stand (2026-06-08 — F4-acute / ADR-212-Verifikation)
+<!-- Konvention: dieser Abschnitt hält NUR den "## ⚡ Aktueller Stand" + max. EINEN
+     "## ⚡ Vorheriger Stand" (den jeweils jüngsten). Alles Ältere wandert nach
+     AGENT_HANDOVER_ARCHIVE.md (siehe Verweis unten) — nicht hier anhäufen. -->
 
-**Letzte Session (2026-06-08):** **F4-acute abgeschlossen** — alle 6 trivialen `ai-assignable`-Issues zu (researchfw#4, weltenfw#5, learn-hub#8, trading-hub#9 bereits closed; travel-beat#37 + recruiting-hub#6 verifiziert bereits auf main grün → kommentiert + closed, kein PR nötig). **ADR-212 Phase-1 verifiziert komplett** — dev-hub#56 war stale Hand-PR, superseded durch **dev-hub#81 (merged)** + platform#485. Org-weite `ai-assignable`-DO-NOW-Queue ist **leer**.
+**Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
+(Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-**Davor (2026-06-05 — github-admin / risk-hub-Launch / KONZ-002):** risk-hub **live in Prod** als Kundenprodukt (schutztat.de) + Cross-Tenant-Edit-Fix (PR #168, merged); **Profil-B-GitHub-App** aufgesetzt (App 3971306, Token-Smoke grün); **KONZ-002 ref-sweep** über 17 Hubs; **deep Session-Retro** (Report: `~/shared/session-retro-2026-06-05-platform-ghadmin.md`).
+## ⚡ Aktueller Stand (2026-07-05 — ADR-265/266 accepted · PyPI-Fleet-Build + ADR-Fleet-Audit-Tooling · KONZ-012 Org-Migration · Retro×3)
 
-**Offen — direkt umsetzbar (erster Zug nächste Session):**
-- **M6 Profil B fertig:** `~/.bashrc`-Block (`GH_APP_ID=3971306`, `claude-ent()`) **✅ vorhanden** (bashrc:126–132); offen nur noch **manuell**: App auf **„Any account"** + Install auf `iilgmbh`+`bahn-sqf` → dann `claude-ent iilgmbh` = Org-Admin. Details: `docs/PROFILE_B.md`.
-- **14 gehaltene ref-sweep-PRs** (`achimdehnert/platform`→`iilgmbh/shared-ci@v1.0.1`, verifiziert 2026-06-08 noch offen: weltenhub#16, wedding-hub#19, travel-beat#38, trading-hub#13, tax-hub#4, recruiting-hub#7, onboarding-hub#2, mcp-hub#98, illustration-hub#8, dms-hub#3, coach-hub#28, cad-hub#23, billing-hub#6, research-hub#6) → mergen sobald **F4** das jeweilige Repo grün macht (kein CI-/Security-Bypass).
-- **#7 risk-hub→Enterprise-Transfer:** bewusst **deferred** (Bake + geplantes Fenster; gegated hinter KONZ-002 S2). `platform`-Self-Refs (publish-Workflows) separat/vorsichtig sweepen.
-- **shared-ci Issue #3:** eigene CI (actionlint) für die reusable Workflows.
+**Sessions 2026-07-04/05:** Zwei große Stränge — (1) ADR-265/266 accepted + PyPI-Fleet-Build-Phase, (2) ADR-Fleet-Audit-Tooling + platform-SSoT-Org-Migrations-Konzept (KONZ-012). Plus drei adversariale Retros.
 
-**Kontext-Memories (auto-load):** `project_profile_b_app_state` · `project_riskhub_prod_launch` · `project_riskhub_entitlement_gaps` · 🌀 `feedback_commit_on_main_recurs`.
+- **ADRs accepted/aktualisiert:** **ADR-265** (untrack distributed symlink targets fleetwide) + **ADR-266** (PyPI-Fleet-Lifecycle/Publishing-Konvergenz) **accepted** (#930, Entscheid Achim 07-04). **ADR-255 Rev 4** (#937) — REC-1 GitHub-Owner-Bedingung erfüllt (iilgmbh 2 Owner live verifiziert). **ADR-256 → partial** (#952) — `/mcp` live + externe Clients migriert (#128 resolved). **ADR-211 Rev 23** (#957) — Content-Screen-Typ (KONZ-009, additiv opt-in).
+- **ADR-Fleet-Audit:** erster `/adr-fleet-audit`-Lauf (#916, Skill #909); F-3-Status-Flip-Triage (#929: 6 accept · 1 superseded · 1 void); ADR-Fleet-Werkzeuge persistiert + Skill-Vokabular auf adrfw-Schema (#933).
+- **PyPI-Fleet (ADR-266 Build):** Inventar-Wahrheit + tote Publisher raus + Auth-Evidenz (#910); resolve-install-extra Komma-Listen (#915); Health-Workflow + origin/main-Ground-Truth (#912). `_ci-pypi` gate-Aggregat-Job + mypy_blocking + enable/bandit_blocking (#920/#938/#941).
+- **KONZ-platform-012** (#939) — platform-SSoT-Org-Migration nach iilgmbh, phasen-/vorbedingungs-gegatet (T3, 3 blinde Adversarial-Agenten). Phase-A/B-Runbooks: Owner-Recovery/Leaver (#940), Runner-Reprovisionierung + Secret-Re-Population (#943). Siehe CC-Memory `project_platform_org_migration_konz012`.
+- **Tooling/CI:** `sync-drift-meter` read-only Fleet-Drift-Melder (ADR-265 REC-3, #951). sync-registry C-8-Fixes (mehrschichtig: #904/#911/#926). Guard-Tests + SKIP-Aggregation für `sync-workflows.sh` (#950). handover-banner-CI-Gate + repo-session self-healing reap (Retro f5e1d, `handoff-banner-gate.yml`). Neue Skills `/kd-scout` (#942) + `/kd-review` (#944); Routing-Kanon + workflow-index-Reparatur (#905).
+- **Retros:** e17299 (07-04, #918) + Increment (#925); NL2X-Fleet-Audit + Retro (07-04, #917/#932); session-retro 2026-07-05 iil-adrfw 0.7.0 (#948).
+- **Offen:** ADR-242 Wave 3 unverändert gated (§0 + platform#811); Deploy-Health billing-hub/cad-hub (§0 Prio 2); shared-ci#17-Rollout (ADR-264 Build); MCP-Client `/sse`→`/mcp` (Rest von ADR-256).
 
----
+## ⚡ Vorheriger Stand (2026-07-03 — ADR-264 Deployment-SSoT ACCEPTED · 2 Prod-Incidents gelöst · Retro×2)
 
-## 0. Aktuelle Prioritäten (2026-06-08)
+**Diese Session (2026-07-02/03, 54a76c):** Deployment-Strategie-Arc end-to-end — Analyse → Konzept → ADR → Accept → erste Bausteine. Plus zwei Prod-Incidents diagnostiziert+gefixt und zwei adversariale Retros.
+
+- **ADR-264 accepted** (#882): kanonische Deployment-SSoT (Staging→Prod-Promotion + Supersession-Gate). Supersession-Matrix rettete ADR-021 (52 §-Refs → `related`, NICHT abgelöst); 075/120/156/210 → `superseded_by: ADR-264`. Extern o3-reviewed (#881, „überarbeiten" eingearbeitet). Basis: KONZ-platform-011 (#859). Enforcement: `tools/check_deploy_adr_supersession.py` (9 Tests) + SUGGEST-Step in `adr-validate.yml`; Promotion zu gating = Teil des Rollouts.
+- **Prod-Incidents gelöst (Host 88.198.191.108):** (a) orchestrator `/mcp` 404 — mcp-hub#165 (stateless Streamable-HTTP) + fehlender nginx-`location /mcp` am Host; IaC-Spiegel nachgezogen (#887). Live: `/mcp` → 307. (b) travel-beat 502 — web/caddy down + totes `bfagent_platform`-Netz; ADR-022-Fix travel-beat#57 deployed, Host-Netz-Krücke entfernt. Live: `/livez/` → 200. (c) **Host-Overload Load 356** — 23+ Repo-Runner auf dem EINEN Prod-Host (ADR-257 nicht fleet-ausgerollt) → T3-Konzept-Kandidat „Runner-Host-Isolation".
+- **Canary + Registry:** prod-uptime-canary Label-Upsert+Close-when-green (#877) + Retry/Backoff (#887, Wirksamkeit noch unbewiesen — Retry feuerte noch nie); Registry-Drift aus #883 per `flip` gefixt (#890). **Befund: „Registry-Konsistenz (ADR-234 P0)" ist NICHT required** (nur `guardian`) → in Wave-3-Scope (#811-Kommentar 2026-07-03).
+- **Retros (deep + incr):** `docs/retros/session-retro-2026-07-03-platform-54a76c{,-incr}.md`. `claim-before-cheapest-check` org-weit **×9** → `evidence_claim_scanner.py` scannt jetzt **published PR-/Issue-Bodies** (7/7 Tests). Neue Drift-Memories: host-fix-must-mirror-to-iac · host-bandaid-check-accepted-adr-first.
+- **Offen:** shared-ci#17 (Deploy-Artefakt-Verify, warn-only — Review→v1.0.8→Consumer-Bump) · MCP-Client `/sse`→`/mcp` umstellen (dann Orchestrator-404 dauerhaft weg) · #883-Koordinationskommentar (Retro-incr #4) · T3-Konzept Runner-Host-Isolation · ADR-264 Build-Phase (D2-Promotion-Pilot + Rollback-Drill, 30/60/90 in KONZ-011).
+
+> **Ältere Stände** (2026-06-20 F4/Wave-2, 2026-06-12 T5 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
+
+## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
 | Prio | Task | Tier |
 |---|---|---|
-| 1 | **F4 CI-grün-Programm (Breite)** — weiterhin ~34 Repos rote main-CI (akute `ai-assignable`-Tranche ✅ leer); nächste Welle = Ruff/Config-Drift an der Quelle, nicht Issue-für-Issue | `[Sonnet]` |
-| 2 | **14 ref-sweep-PRs mergen** — pro Repo sobald dessen main-CI grün (gated auf F4, kein Bypass); Liste oben | `[Sonnet]` |
-| 3 | **M6 Profil-B fertigstellen** — nur noch manuell: App „Any account" + Org-Installs iilgmbh/bahn-sqf (`docs/PROFILE_B.md`); bashrc-Block schon da | `[manuell]` |
+| 1 | **ADR-242 Wave 3** — GATED auf shared-ci-`ci / gate`-Konvergenz; **Konvergenz-Programm GESTARTET 2026-07-02 (Freigabe Achim)**: Tracking **platform#811**, Phase-1-Sonnet-Queue = learn-hub#23 · recruiting-hub#10 · travel-beat#55. Befund-Kette: 0/26 Kandidaten emittieren `ci / gate` auf main (ABER Methodik-Blindfleck: PR-only-Trigger — Pre-Flight je Repo am PR-Head!); `iilgmbh/shared-ci` (Org-Transfer! nicht mehr achimdehnert) hat den `gate`-Job **seit v1.0.5** (`name: "gate"`, `if: always()`); Check-Kontext = `<Caller-Job> / gate` → Caller-Job MUSS `ci` lowercase ohne `name:`-Override sein (learn-hub-Bug: `name: "CI"` → `CI / …`). Phase 2 = ~23 Standalone-Libs (Worklist in #811). Erst nach Phase 1+2: `wave3-repos.json` + `apply-branch-protection.yml wave=3` + Negativ-Test + Meter. | `[Sonnet, via #811]` |
+| 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra). **Re-Check 2026-07-02: weitgehend geheilt** — onboarding-hub grün (seit 06-24), 137-hub grün (seit 06-21), weltenhub grün (07-01, cancelled=Concurrency benign); dms-hub weiter `cancelled` (benign, letzte Runs 06-09). **tax-hub „Issue Triage" 3× failure (07-01/02)** — Root-Cause `Input required and not supplied: github-token` (Repo hat 0 Secrets, `PROJECT_PAT` fehlt; risk-/coach-hub identisches Muster + PAT = grün). **Fix-PR iilgmbh/tax-hub#20 offen** (Fallback `PROJECT_PAT \|\| github.token`; Self-Approval-Block → wartet auf Owner-Merge; bei Merge `[skip ci]` beachten — deploy.yml feuert auf push:main ohne paths-Filter). Alternative: PROJECT_PAT als Secret setzen (Owner). | `[du/Owner]` |
 
-**✅ Erledigt (2026-06-08):** F4-acute (alle 6 trivialen `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#56 stale → superseded by dev-hub#81 merged; verifiziert) · **F1 .windsurf-Untrack vollständig** (Distributor retired, gesamte Flotte inkl. dev-hub clean; 2 zuletzt entdeckte Residual-Libs iil-django-commons#1 + riskfw#1 untrackt+gemergt → 0 `.windsurf`-100644 auf origin/main; N/A: adr-doctor leerer Repo, platform = SSoT) · **3 mergebare PRs gemergt** (platform #476 Profil-B, #478 main-tree-guard, `iilgmbh/shared-ci` #2 immutable ref — alle merged 2026-06-05, war stale als „offen" gelistet).
+> **Fortschritt 2026-07-03 (Session 54a76c):** Prio 1 (Wave 3): Scope +„Registry-Konsistenz required machen" (#811-Kommentar — Check ist heute NICHT required, nur `guardian`; Realfall #883/#884/#885 mergten rot). Prio 2 (Deploy-Health): **ADR-264 accepted** = strategischer Rahmen steht; travel-beat-Deploy wieder grün (#57); mcp-hub `/mcp` live; Rest-Item = shared-ci#17-Rollout.
+>
+> **Fortschritt 2026-07-06 (ERLEDIGT):** **Prio 1 — Wave-3 Phase 1 KOMPLETT** (alle 3 gemergt, `ci / gate` real grün verifiziert): learn-hub#25 (`name:"CI"`-Override raus) · recruiting-hub#13 + travel-beat#62 (**Option A1 = additiver `ci`-Job neben bestehender bespoke Test-CI**, kein Coverage-Verlust — der ursprüngliche #811-Befund „KEIN PR-getriggertes ci.yml" war für beide veraltet). recruiting#10/travel#55/learn#23 auto-closed. **Nächster Wave-3-Schritt = Phase 2** (~23 Standalone-Libs, Worklist in #811), dann Apply. **Prio 2 — Deploy-Health geheilt + live:** billing-hub 403 = **Package-`Manage Actions access` fehlte dem Repo** (NICHT Workflow — identische deploy.yml wie cad-hub, das grün pushte); Owner-Fix im Package-Setting → Rerun grün, `billing.iil.pet/healthz` 200. cad-hub = transienter GHA-Cache-Timeout → Rerun grün, `nl2cad.de/healthz` 200. **Neu: Runbook `docs/runbooks/ghcr-403-push-actions-access.md` (#967) + CC-Memory `reference_ghcr_403_push_package_actions_access`.**
+
+> **PR-Hygiene (erledigt 2026-07-02, Freigabe Achim):** #753 + #746 geschlossen (Duplikate von gemergtem #808) · **#760 gemergt** (Registry iil-adrfw/codeguard — Registry-Lücke zu) · **#759 gemergt** (gen_adr_index.py; Rebase-Konflikt in INDEX.md durch Generator-Lauf gelöst, 206 aktive + 48 archivierte ADRs indiziert).
+
+> **✅ Retired/erledigt (2026-06-24, hart verifiziert — billigster Check gemacht):**
+> - **F4 CI-grün** als Code-CI-Programm GESCHLOSSEN (Fleet-Scan: 0 Lint/Test/Coverage-Rot; alle Roten = Deploy-Stage). **Kein Sonnet-Material mehr** — nicht erneut als Sonnet-Queue listen.
+> - **coach-hub #28** gemergt 2026-06-15 (+ Dep-Fix #31, PAT/Org-Transfer). Strang zu.
+> - **ADR-242 Wave 1+2** live (11 Repos geschützt, `ci / gate`).
+> - **F1 `.windsurf`-Nachzügler** gesweept (lastwar-bot, iil-voice-agent) — F1 ist KEIN Einmal-Endzustand, periodisch `tools/f1-windsurf-sweep.sh` (dry-run) gegen die API laufen lassen.
+
+**✅ Erledigt (2026-06-10):** weltenhub#16 gemergt verifiziert → **ref-sweep 12/12 komplett** · **research-hub#6** gemergt (2 teardown-Bugs gefixt: async-ORM-Connection-Leak + flush-CASCADE vs django_tenancy-FK).
+
+**✅ Erledigt (2026-06-09):** wedding-hub#19 · onboarding-hub#2 · weltenhub pytest-Fixes · F4-Fixes: weltenhub 5, wedding-hub 3, onboarding-hub 1 · **shared-ci `v1.0.2` + `v1.0.3`** · **mcp-hub#106** + **trading-hub#14** · 11/12 ref-sweep-PRs.
+
+**✅ Erledigt (2026-06-08):** F4-acute (alle 6 `ai-assignable`-Issues closed) · ADR-212 Phase-1 (dev-hub#81 merged) · F1 .windsurf-Untrack vollständig (0 `.windsurf`-Files auf origin/main).
 
 **KONZ-002 Enterprise-Konsolidierung:** Kill-Gate **(c) Portabilität ✅ erfüllt** (Feuerübung Runde 1, 2026-06-03; §15 D1-konform). Offen nur **extern**: (a) Kostenbestätigung + (b) Government-Sign-off, Frist **2026-08-15** — User-getrieben, keine Coding-Prio. Richtung ALT-D, Umsetzung gegated.
 
-**CC-Skill-Dist** (platform): `doctor.py` DRIFT-SCORE 0 ✓ (74 Skills, 2026-06-01)
+**CC-Skill-Dist** (platform): Drift-Score live prüfen — `python3 tools/cc-skill-dist/doctor.py` (Zahl driftet mit jedem neuen/geänderten Skill, hier nicht einfrieren)
 
 ---
 
-## 1. MCP-Server & Prefixes (aktuell)
+## 1. MCP-Server & Tool-Calls
 
-| Prefix | MCP-Server | Zweck |
-|--------|-----------|-------|
-| `mcp0_` | **deployment-mcp** | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx, CI/CD |
-| `mcp1_` | **github** | Issues, PRs, Repos, Branches, Files, Reviews, Search |
-| `mcp2_` | **orchestrator** | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint |
-| `mcp3_` | **outline-knowledge** | Wiki: Runbooks, Konzepte, Lessons, ADR-Suche |
-| `mcp4_` | **paperless-docs** | Dokumente, Rechnungen, Archive |
-| `mcp5_` | **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
-| `mcp6_` | **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
-
-**Wichtigste Tool-Calls (Claude Code — `mcp__<server>__<tool>` Format):**
+**Claude Code (aktuell, `mcp__<server>__<tool>` Format) — wichtigste Tool-Calls:**
 - GitHub: `mcp__github__create_issue`, `mcp__github__get_pull_request`
 - Memory: `mcp__orchestrator__agent_memory_context(task_description, top_k=5)`
 - Deploy-Status: `mcp__orchestrator__deploy_check(action="health", repo=...)`
 - Browser: `mcp__playwright__browser_navigate`, `mcp__playwright__browser_snapshot`
 
-> Windsurf-Agents nutzen `mcp0_`–`mcp6_`-Prefixe — aber Windsurf wird seit ADR-230 nicht mehr zum Coden eingesetzt (nur ADR-Review-Subset).
+**Server-Übersicht (7):**
+
+| Server | Zweck |
+|--------|-------|
+| **deployment-mcp** | SSH, Docker, Compose, Git, DB, DNS, SSL, Nginx, CI/CD |
+| **github** | Issues, PRs, Repos, Branches, Files, Reviews, Search |
+| **orchestrator** | Memory (pgvector), Task-Analyse, Agent-Team, Tests, Lint |
+| **outline-knowledge** | Wiki: Runbooks, Konzepte, Lessons, ADR-Suche |
+| **paperless-docs** | Dokumente, Rechnungen, Archive |
+| **platform-context** | Architektur-Regeln, ADR-Compliance, Banned Patterns |
+| **playwright** | Browser-Automation, UI-Tests, Screenshots, Network |
+
+### Windsurf-Legacy (kein Coding mehr, ADR-230)
+
+Windsurf-Agents nutzten die o. g. Server über numerische Prefixe (`mcp0_`–`mcp6_` in
+derselben Reihenfolge wie oben). Seit ADR-230 wird Windsurf **nicht mehr zum Coden**
+eingesetzt (nur ADR-Review-Subset) — die Prefix-Tabelle ist nur noch für das Lesen
+alter Sessions/Logs relevant, kein aktives Interface mehr.
 
 ---
 
@@ -101,7 +138,7 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 ## 4. Master Repo Identifier
 
-**Alle 41 Repos in einer Registry:**
+**Alle Repos in einer Registry** (Anzahl live: `python3 -c "import yaml; print(len(yaml.safe_load(open('registry/canonical.yaml'))['repos']))"`):
 
 ```bash
 # project-facts.md für alle Repos generieren (nur fehlende)
@@ -147,9 +184,12 @@ python3 ~/github/platform/scripts/gen_project_facts.py --force  # alle
 **Reusable Workflows:** `achimdehnert/platform/.github/workflows/_ci-python.yml` etc.
 
 **Repo-Kategorien:**
-- **Django Hubs** (22): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, mcp-hub, 137-hub, bfagent, tax-hub
+- **Django Hubs** (21): risk-hub, coach-hub, billing-hub, cad-hub, trading-hub, pptx-hub, travel-beat, weltenhub, wedding-hub, recruiting-hub, dms-hub, ausschreibungs-hub, illustration-hub, research-hub, writing-hub, learn-hub, dev-hub, odoo-hub, 137-hub, bfagent, tax-hub
 - **Python Libraries** (14): aifw, authoringfw, promptfw, illustration-fw, learnfw, weltenfw, outlinefw, researchfw, testkit, iil-reflex, iil-ingest, iil-enrichment, iil-fieldprefill, nl2cad
 - **Infra** (5): platform, mcp-hub, infra-deploy, iil-relaunch, lastwar-bot
+
+(Diese Kategorien sind kein vollständiges Abbild von `registry/canonical.yaml` — Gesamtzahl
+live siehe oben unter §4; bei Abweichung ist die Registry maßgeblich, nicht diese Liste.)
 
 ---
 

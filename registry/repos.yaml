@@ -52,7 +52,6 @@
 #                       Default (wenn weggelassen): nur `/?demo=` an Root.
 #   Diese PR ergänzt **nur die Schema-Spezifikation** — per-Repo-Werte werden
 #   vom Owner pro Repo separat ratifiziert (kein Vorgriff durch den Agent).
-
 domains:
 - name: Developer Platform
   systems:
@@ -84,7 +83,7 @@ domains:
       django_settings_module: config.settings.production
       migrate_cmd: python manage.py migrate --noinput
       port: 19002
-      ingress: traefik   # ADR-212 Klausel-3 — central Traefik ingress (opt-in; default = nginx host-port)
+      ingress: traefik
       hostnames:
       - staging-devhub.iil.pet
     oidc:
@@ -104,7 +103,7 @@ domains:
   - name: nl2iot-hub
     repo: nl2iot-hub
     description: Natural-language-to-IoT — Developer Cockpit
-    github: iilgmbh/nl2iot-hub   # KONZ-002 S3 Welle 1 transferiert → C9-Lag 2026-06-06
+    github: iilgmbh/nl2iot-hub
     deployed: false
     type: python
     lifecycle: experimental
@@ -127,10 +126,11 @@ domains:
     repo: bfagent
     description: Book Factory Agent — AI-assisted book creation
     github: achimdehnert/bfagent
-    deployed: true
+    deployed: false
+    archived: true
     url: https://bfagent.iil.pet
     type: django
-    lifecycle: production
+    lifecycle: archived
     tenancy_mode: none
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
@@ -143,6 +143,17 @@ domains:
       migrate_cmd: python manage.py migrate --noinput
       multi_tenant: false
       port: 8091
+  - name: decks-hub
+    repo: decks-hub
+    description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
+    github: achimdehnert/decks-hub
+    deployed: false
+    type: static
+    lifecycle: experimental
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge deferred
+      bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.
   - name: pptx-hub
     repo: pptx-hub
     description: Presentation Studio — PowerPoint generation (Prezimo)
@@ -224,7 +235,7 @@ domains:
   - name: risk-hub
     repo: risk-hub
     description: Multi-tenant occupational safety SaaS (Schutztat)
-    github: achimdehnert/risk-hub
+    github: iilgmbh/risk-hub
     deployed: true
     url: https://demo.schutztat.de
     type: django
@@ -236,7 +247,7 @@ domains:
     coverage_threshold: 80
     deploy:
       server_path: /opt/risk-hub
-      image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+      image: ghcr.io/iilgmbh/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
       web_container: risk_hub_web
       web_service: risk-hub-web
       migrate_cmd: python manage.py migrate --noinput
@@ -244,7 +255,7 @@ domains:
       port: 8090
     staging:
       server_path: /opt/risk-hub-staging
-      image: ghcr.io/achimdehnert/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
+      image: ghcr.io/iilgmbh/risk-hub/risk-hub-web:${IMAGE_TAG:-latest}
       web_container: risk_hub_staging_web
       web_service: risk-hub-staging-web
       migrate_cmd: python manage.py migrate --noinput
@@ -273,7 +284,7 @@ domains:
   - name: ausschreibungs-hub
     repo: ausschreibungs-hub
     description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
-    github: achimdehnert/ausschreibungs-hub
+    github: iilgmbh/ausschreibungs-hub
     deployed: false
     type: django
     lifecycle: experimental

@@ -21,11 +21,20 @@ Kanonisches Schema (`registry/canonical.yaml`):
     Felder werden VERBATIM aus den Quellen übernommen (keine verlustbehaftete Ableitung)
     → beide Views sind exakte Projektionen.
 
+Registry-Schreibpfad (SSoT seit dem Flip 2026-06-01, ADR-234): `registry/canonical.yaml`
+per Hand editieren → `python3 tools/registry-canonical.py build` (oder `make registry-build`)
+→ `python3 tools/registry-canonical.py verify` (oder `make registry-verify`). Die Altdateien
+(`scripts/repo-registry.yaml`, `registry/repos.yaml`) sind generierte Views — nie von Hand
+editieren, sie werden vom `verify`-Gate (registry-consistency.yml) gegen canonical.yaml geprüft.
+
 Subcommands:
     build    — beide Altdateien → registry/canonical.yaml (Union)
     gen-flat — canonical → flache Struktur (stdout)
     gen-rich — canonical → reiche domains[]-Struktur (stdout)
     verify   — round-trip: regeneriere beide, vergleiche SEMANTISCH mit den Altdateien
+    flip     — schreibt beide Altdateien als generierte Views aus canonical.yaml (GEN-Header;
+               einmalig genutzt für den Kanonisierungs-Flip, danach nur bei bewusster
+               Header-Auffrischung — siehe `flip()` unten)
 """
 from __future__ import annotations
 
@@ -80,17 +89,55 @@ def build() -> dict:
             # Roundtrip top-level Source-Keys droppt. bahn-sqf IN (Owner hat Admin), pactive-de
             # bewusst AUSSEN (separates Kunden-Vault). Entscheidung 2026-06-06, Issue #488.
             "enterprise_owners": ["achimdehnert", "iilgmbh", "ttz-lif", "meiki-lra", "bahn-sqf"],
-            # Per-Repo-Owner-Override (Transition). KONZ-001 P0 Teil 2: flat-only Repos können
-            # keinen rich.github tragen (circular pipeline), darum die per-gh-VERIFIZIERTEN
-            # KONZ-002-Migrationen hier als meta-Override (build-stabil). Stopgap bis das echte
-            # per-Repo-owner-Feld kommt (Registry-Konsolidierung). Verifiziert 2026-06-06 (gh).
+            # Per-Repo-Owner-Override (Transition, = IST-Zustand). KONZ-001 P0 Teil 2:
+            # flat-only Repos können keinen rich.github tragen (circular pipeline),
+            # darum die per-gh-VERIFIZIERTEN KONZ-002-Migrationen hier als meta-Override
+            # (build-stabil). Stopgap bis das echte per-Repo-owner-Feld kommt.
+            # ⚠ Nur Repos eintragen, die WIRKLICH schon unter der Org liegen — sonst
+            #   findet das Tooling das Repo am falschen Ort. ZIEL-Owner (Migration)
+            #   gehören in registry/iil-migration.yaml, NICHT hierher (ADR-255 REC-3).
+            # Re-verifiziert gh 2026-06-23 (ADR-255 Phase-0).
             "repo_owner": {
                 "iil-fieldprefill": "iilgmbh",
                 "iil-relaunch": "iilgmbh",
                 "illustration-fw": "iilgmbh",
+                # Org-Mapping-Externalisierung (Konsument: iil-klickdummy detect_org,
+                # 2026-06-12) — Werte identisch zu dessen bisheriger Code-Heuristik.
+                "iil-klickdummy": "iilgmbh",
+                # iil-testkit ENTFERNT 2026-06-23: Eintrag behauptete iilgmbh (angeblich
+                # gh-verifiziert 2026-06-06), real aber achimdehnert/iil-testkit (gh
+                # 2026-06-23, Gegenprobe: nicht in `gh repo list iilgmbh`). Default
+                # (server.github_org=achimdehnert) ist jetzt korrekt. Ziel-Owner in
+                # registry/iil-migration.yaml als status=pending. (ADR-255 Drift-Fund.)
             },
-            "_note": "GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + "
-                     "registry/repos.yaml. Noch NICHT kanonisch geschaltet — Konsumenten unverändert.",
+            # Geordnete Präfix-Heuristik für Repos OHNE repo_owner-Eintrag. Konsument:
+            # iil-klickdummy genesor (detect_org) — ersetzt dessen hartkodierte Heuristik.
+            # Gleicher Stopgap-Status wie repo_owner (REC-11: gehört langfristig als
+            # owner_team-Feld ins Datenmodell). Default für Nicht-Treffer: server.github_org.
+            "owner_prefix_rules": [
+                {"prefix": "meiki-", "owner": "meiki-lra"},
+                {"prefix": "ttz-", "owner": "ttz-lif"},
+                {"prefix": "sqf-", "owner": "bahn-sqf"},
+                {"prefix": "pg-", "owner": "bahn-sqf"},
+                {"prefix": "bahn-", "owner": "bahn-sqf"},
+            ],
+            # App-Anzeigenamen (Konsument: iil-klickdummy genesor render_fallback) —
+            # externalisiert aus dessen app_name_map (2026-06-12). Fallback dort:
+            # Titel-Heuristik aus dem Repo-Namen.
+            "app_display_names": {
+                "meiki-hub": "MEiKI · LRA-Plattform",
+                "ausschreibungs-hub": "Bieterpilot",
+                "writing-hub": "Writing-Hub",
+                "risk-hub": "Risk-Hub",
+                "ttz-hub": "TTZ-Hub",
+                "sqf-hub": "SQF-Hub",
+                "pg-hub": "PG-Hub",
+            },
+            "_note": "KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via "
+                     "`registry-canonical.py flip`). Union aus scripts/repo-registry.yaml + "
+                     "registry/repos.yaml; beide Altdateien sind jetzt generierte, "
+                     "gate-erzwungene Views (verify-Gate in registry-consistency.yml). Edits "
+                     "nur hier, nie in den Views. Accessor: tools/registry_api.py.",
         },
         "repos": repos,
     }

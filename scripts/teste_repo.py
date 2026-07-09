@@ -146,7 +146,7 @@ def step_lint(repo_dir: Path, python: str, report: Report) -> None:
     ruff = repo_dir / ".venv" / "bin" / "ruff"
     cmd = [str(ruff) if ruff.exists() else "ruff", "check", ".", "--output-format=concise"]
     rc, out = run(cmd, cwd=repo_dir)
-    lines = [l for l in out.splitlines() if l.strip() and not l.startswith("All checks")]
+    lines = [line for line in out.splitlines() if line.strip() and not line.startswith("All checks")]
     if rc == 0:
         report.add(StepResult("Lint (ruff)", "OK", "Keine Fehler"))
     elif rc == 127:
@@ -211,7 +211,7 @@ def step_pytest(
         if auto_scaffold:
             scaffold_script = PLATFORM_ROOT / "scripts" / "gen_test_scaffold.py"
             if scaffold_script.exists():
-                print(f"\n⚠️  Kein tests/-Verzeichnis — starte Scaffold-Generator...\n")
+                print("\n⚠️  Kein tests/-Verzeichnis — starte Scaffold-Generator...\n")
                 rc_s, out_s = run([python, str(scaffold_script), str(repo_dir)], cwd=PLATFORM_ROOT)
                 print(out_s)
                 if rc_s == 0 and tests_dir.exists():
@@ -340,14 +340,17 @@ def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
     if audit_rc == 127:
         pass  # pip-audit nicht installiert — kein Problem
     elif audit_rc != 0:
-        vuln_lines = [l for l in audit_out.splitlines() if l.strip() and "No known" not in l and "Name" not in l]
+        vuln_lines = [
+            line for line in audit_out.splitlines()
+            if line.strip() and "No known" not in line and "Name" not in line
+        ]
         if vuln_lines:
-            issues.extend([f"CVE: {l.strip()}" for l in vuln_lines[:5]])
+            issues.extend([f"CVE: {line.strip()}" for line in vuln_lines[:5]])
 
     if issues:
         detail = f"{len(issues)} Problem(e), {len(warns)} Warnung(en)"
         report.add(StepResult("Dependencies", "FAIL", detail))
-        print(f"\n--- Dependency Probleme ---")
+        print("\n--- Dependency Probleme ---")
         for i in issues:
             print(f"  ❌ {i}")
         for w in warns:
@@ -356,7 +359,7 @@ def step_dependency_check(repo_dir: Path, python: str, report: Report) -> None:
     elif warns:
         detail = f"{len(warns)} Pinning-Warnung(en)"
         report.add(StepResult("Dependencies", "WARN", detail))
-        print(f"\n--- Pinning Warnungen ---")
+        print("\n--- Pinning Warnungen ---")
         for w in warns:
             print(f"  ⚠️  {w}")
         print()

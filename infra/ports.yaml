@@ -63,6 +63,12 @@ servers:
 # --- Infrastructure Services (nicht App-Hubs) ---
 infra:
 
+  kd-static:
+    port: null                       # rein statisch (Nginx root /var/www/kd)
+    server: prod
+    domain_prod: kd.iil.pet
+    note: "Klickdummy-Host (NUR Mock-Daten-KDs!) — CF-Tunnel-DNS + Nginx-vhost kd.iil.pet.conf, eingerichtet 2026-07-02; Publish: dev-desktop ~/kd-serve/kd-publish.sh"
+
   authentik:
     port: 9000
     server: prod
@@ -110,6 +116,14 @@ infra:
 #   compose_drift:   Compose-File hat falschen Port (zu fixen!)
 # ═══════════════════════════════════════════════════════════════════════════════
 services:
+
+  frist-hub:
+    prod: 8111
+    staging: 8111
+    dev: 8111
+    container_name: frist_hub_web
+    domain_prod: frist-hub.iil.pet
+    note: "meiki-lra · Sozialdaten-Pilot — prod blockiert auf Hosting-ADR (nur Konzept-Staging)"
 
   coach-hub:
     prod: 8007
@@ -199,7 +213,7 @@ services:
     domain_aliases:
       - schutztat.com
       - kiohnerisiko.de
-    repo: achimdehnert/risk-hub
+    repo: iilgmbh/risk-hub
     compose_drift: "docker-compose.yml uses 8001:8000 — must change to 8090:8000"
 
   bfagent:
@@ -277,7 +291,6 @@ services:
     domain_prod: research.iil.pet
     domain_staging: staging-research.iil.pet
     repo: achimdehnert/research-hub
-    compose_drift: "docker-compose.prod.yml uses 8098 but server runs on 8104 — redeploy needed"
 
   tax-hub:
     prod: 8099
@@ -305,7 +318,7 @@ services:
     container_name: ausschreibungs_hub_web
     domain_prod: bieterpilot.de
     domain_staging: staging.bieterpilot.de
-    repo: achimdehnert/ausschreibungs-hub
+    repo: iilgmbh/ausschreibungs-hub
     compose_drift: "docker-compose.prod.yml uses 8095 — must change to 8101 (conflicts with 137-hub)"
 
   doc-hub:

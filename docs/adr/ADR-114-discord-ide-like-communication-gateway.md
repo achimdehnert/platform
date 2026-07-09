@@ -1,16 +1,18 @@
 ---
 status: accepted
-date: 2026-03-08
+decision_date: 2026-03-08
 updated: 2026-03-11
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 consulted: Cascade
-supersedes: ADR-113-telegram-gateway-pgvector-memory.md
+supersedes: []
 implementation_status: implemented
 implementation_evidence:
   - "mcp-hub/discord/: Discord bot with 9 slash commands live"
 ---
 
 # ADR-114: Discord als verlängertes Cascade IDE
+
+> **Historie:** Ersetzte ADR-113 (Telegram Gateway + pgvector Memory) — archiviert unter `docs/adr/archive/`.
 
 ## Status
 

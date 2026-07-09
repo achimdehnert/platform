@@ -2,10 +2,10 @@
 id: ADR-166
 title: "Standardize deployment config via .ship.conf SSOT with /livez/ health checks"
 status: accepted
-date: 2026-04-20
+decision_date: 2026-04-20
 amended: 2026-04-20
 amends: ADR-120
-decision-makers: [achimdehnert]
+deciders: [achimdehnert]
 consulted: []
 informed: []
 scope: platform

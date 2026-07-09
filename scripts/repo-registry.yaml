@@ -31,9 +31,7 @@ repos:
     pypi: authoringfw
   bfagent:
     type: agent
-    prod_url: bfagent.iil.pet
-    port: 8091
-    health: /livez/
+    archived: true
   billing-hub:
     type: django
     prod_url: billing.iil.pet
@@ -51,6 +49,11 @@ repos:
     staging_url: staging.kiohnerisiko.de
     port: 8007
     health: /livez/
+  decks-hub:
+    type: static
+    prod_url: decks-hub.iil.pet
+    port: 8111
+    health: /healthz/
   dev-hub:
     type: django
     prod_url: dev-hub.iil.pet
@@ -62,9 +65,22 @@ repos:
     port: 8107
     db: dms_hub
     health: /livez/
+  frist-hub:
+    type: django
+    port: 8111
+    health: /livez/
   gaeb-toolkit:
     type: library
     pypi: gaeb-toolkit
+  iil-adrfw:
+    type: library
+    pypi: iil-adrfw
+  iil-codeguard:
+    type: library
+    pypi: iil-codeguard
+  iil-django-commons:
+    type: library
+    pypi: iil-django-commons
   iil-enrichment:
     type: library
     pypi: iil-enrichment
@@ -75,6 +91,9 @@ repos:
     type: library
     pypi: iil-ingest
     note: Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)
+  iil-klickdummy:
+    type: library
+    pypi: iil-klickdummy
   iil-reflex:
     type: library
     pypi: iil-reflex
@@ -91,7 +110,7 @@ repos:
     pypi: illustration-fw
   illustration-hub:
     type: django
-    prod_url: illustration-hub.iil.pet
+    prod_url: illustration.iil.pet
     port: 8096
     health: /livez/
   infra-deploy:
@@ -151,11 +170,14 @@ repos:
   research-hub:
     type: django
     prod_url: research.iil.pet
-    port: 8104
+    port: 8098
     health: /livez/
   researchfw:
     type: library
     pypi: researchfw
+  riskfw:
+    type: library
+    pypi: riskfw
   risk-hub:
     type: django
     prod_url: schutztat.de

@@ -12,8 +12,9 @@ Nutzung:
   python -m agents.guardian --diff /path/to/diff.patch
 
 Gate-Integration:
-  G-001, G-004 → Gate 1 (Auto-Warn, PR-Kommentar)
-  G-002, G-003 → Gate 2 (Human Approval Required)
+  G-001, G-003, G-004 → Gate 1 (Auto-Warn, PR-Kommentar; G-003 nur Warn,
+                        da tenant_id nur für Multi-Tenant-Repos Pflicht)
+  G-002 → Gate 2 (Human Approval Required)
 """
 from __future__ import annotations
 
@@ -141,7 +142,10 @@ def parse_diff(diff_text: str) -> list[dict[str, Any]]:
         if line.startswith("diff --git"):
             if current:
                 files.append(current)
-            match = re.search(r"b/(.+)$", line)
+            # " b/" mit führendem Leerzeichen: ein bloßes "b/" matcht sonst
+            # INNERHALB von Pfadnamen (Realfall: "concepts/pptx-hub/" →
+            # kaputter Doppelpfad in Guardian-Kommentaren, PR #829).
+            match = re.search(r"\sb/(.+)$", line)
             path = match.group(1) if match else "unknown"
             current = {
                 "path": path,
@@ -224,7 +228,14 @@ def check_g002_api_signature_changed(
         (r"path\s*\(\s*['\"]api/", "URL-Pattern"),
     ]
 
+    # Nicht-Live-Bereiche: Löschungen dort sind Aufräum-Arbeit, keine
+    # API-Breaking-Changes (Realfall PR #829: stale concepts/-Kopie
+    # entfernt → G-002 Gate-2-Block auf toten Code).
+    non_live_prefixes = ("_ARCHIVED/", "concepts/", "spikes/")
+
     for f in files:
+        if f["path"].startswith(non_live_prefixes):
+            continue
         if not (
             f["path"].endswith(".py")
             and any(

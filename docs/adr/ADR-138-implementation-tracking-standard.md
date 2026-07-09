@@ -2,11 +2,10 @@
 id: ADR-138
 title: "ADR Implementation Tracking Standard — Lifecycle, Frontmatter Fields, and Verification"
 status: accepted
-date: 2026-03-11
+decision_date: 2026-03-11
 amended: 2026-03-11
-author: Achim Dehnert
 owner: Achim Dehnert
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: [all platform teams]
 scope: all ADRs in platform/docs/adr/
@@ -14,7 +13,7 @@ tags: [governance, adr, implementation, tracking, lifecycle]
 related: [ADR-015, ADR-046, ADR-051]
 supersedes: []
 amends: []
-last_verified: 2026-03-11
+last_reviewed: 2026-03-11
 implementation_status: implemented
 implementation_evidence:
   - "docs/adr/INDEX.md: Impl column with emoji legend (⬜🔶✅✅✅)"

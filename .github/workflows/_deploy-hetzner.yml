@@ -287,6 +287,14 @@ jobs:
               fi
             fi
 
+            # GHCR-Login auf dem Host, damit `compose pull` authentifiziert ist.
+            # GHCR_TOKEN ist via envs: in dieser SSH-Session; die deploy-remote.sh-
+            # Kopien machen selbst keinen Login → ohne dies trifft der pull einen
+            # unauthentifizierten Daemon → "denied" (Fleet-Bug, 11 vendored Kopien).
+            if [ -n "${GHCR_TOKEN:-}" ]; then
+              echo "${GHCR_TOKEN}" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+            fi
+
             EXTRA_ARGS="${{ inputs.extra_deploy_args }}"
             if [ "${{ inputs.run_migrations }}" = "false" ]; then
               EXTRA_ARGS="$EXTRA_ARGS --skip-migrate"

@@ -11,10 +11,10 @@ Prüft alle Docker-Compose-Stacks auf dem Prod-Server gegen ADR-021 Compliance.
 1. **Alle Compose-Dateien listen**
 // turbo
 ```
-mcp0_ssh_manage(action="exec", host="88.198.191.108", command="find /opt -maxdepth 2 -name 'docker-compose*.yml' | sort")
+mcp__deployment-mcp__ssh_manage(action="exec", host="88.198.191.108", command="find /opt -maxdepth 2 -name 'docker-compose*.yml' | sort")
 ```
 
-2. **Für jede Compose-Datei prüfen** (via `mcp0_ssh_manage file_read`):
+2. **Für jede Compose-Datei prüfen** (via `mcp__deployment-mcp__ssh_manage file_read`):
    - [ ] `ports:` nur auf `127.0.0.1:XXXX:YYYY` (nie `0.0.0.0`)
    - [ ] `mem_limit` oder `deploy.resources.limits.memory` gesetzt
    - [ ] `healthcheck` für web, db, redis Services

@@ -46,8 +46,13 @@ runs:
             sys.exit(0)
         data = t.loads(p.read_text())
         opt = (data.get("project", {}) or {}).get("optional-dependencies", {}) or {}
-        if extra in opt:
-            print(f".[{extra}]")
+        # Komma-Liste erlaubt (ADR-266 2b: z. B. 'dev,pdf' / 'dev,django') —
+        # JEDER Name wird einzeln validiert, damit ein Tippfehler weiterhin
+        # laut failt statt still unter-zu-installieren.
+        extras = [e.strip() for e in extra.split(",") if e.strip()]
+        unknown = [e for e in extras if e not in opt]
+        if not unknown:
+            print(f".[{','.join(extras)}]")
         elif not opt:
             sys.stderr.write(
                 f"::warning title=install_extra::'{extra}' requested but pyproject "
@@ -55,7 +60,7 @@ runs:
             print(".")
         else:
             sys.stderr.write(
-                f"::error title=install_extra::'{extra}' is not a declared extra. "
+                f"::error title=install_extra::{unknown} not declared. "
                 f"pyproject optional-dependencies = {sorted(opt)}. "
                 f"Fix the caller's install_extra input.\n")
             sys.exit(1)
