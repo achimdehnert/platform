@@ -321,7 +321,7 @@ def main() -> int:
 
     if not args.dry_run:
         print(f"\n⚠️  Manuelle Nacharbeiten für '{app_name}':")
-        print(f"  1. INSTALLED_APPS in config/settings/base.py ergänzen:")
+        print("  1. INSTALLED_APPS in config/settings/base.py ergänzen:")
         print(f"     {_settings_installed_apps_hint(app_name)}")
         print(f"  2. config/urls.py: path('{app_name}/', include('apps.{app_name}.urls', namespace='{app_name}')),")
         print(f"  3. python manage.py makemigrations {app_name}")

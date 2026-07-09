@@ -128,7 +128,7 @@ ssh root@88.99.38.75 "cd /opt/{scope} && docker compose -f docker-compose.prod.y
 ## Step 7 — Health Check
 
 ```
-mcp0_ssh_manage:
+mcp__deployment-mcp__ssh_manage:
   action: http_check
   host: 88.99.38.75
   url: http://127.0.0.1:{staging_port}/livez/
@@ -139,7 +139,7 @@ Bei HTTP 200 → Staging-Deploy erfolgreich.
 
 → Im Cascade-Output melden: `🧪 Staging Deploy: {scope} | 88.99.38.75:{staging_port} | Domain: {domain_staging}`
 
-> ℹ️ `mcp2_discord_notify` existiert nicht mehr (Issue #80).
+> ℹ️ `mcp__orchestrator__discord_notify` existiert nicht mehr (Issue #80).
 
 ---
 

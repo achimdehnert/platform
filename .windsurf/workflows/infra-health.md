@@ -26,37 +26,37 @@ python3 ${GITHUB_DIR:-$HOME/github}/platform/infra/scripts/server_probe.py --hos
 1. **System-Überblick**
 // turbo
 ```
-mcp0_system_manage(action="info", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="info", host="88.198.191.108")
 ```
 
 2. **Health-Dashboard aller Apps**
 // turbo
 ```
-mcp0_system_manage(action="health_dashboard", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="health_dashboard", host="88.198.191.108")
 ```
 
 3. **Container-Status**
 // turbo
 ```
-mcp0_docker_manage(action="container_list", host="88.198.191.108")
+mcp__deployment-mcp__docker_manage(action="container_list", host="88.198.191.108")
 ```
 
 4. **Unhealthy Container identifizieren**
    - Filtere Container mit Status `unhealthy` oder `restarting`
    - Für jeden: Logs der letzten 50 Zeilen abrufen
    ```
-   mcp0_docker_manage(action="container_logs", host="88.198.191.108", container_id="<id>", lines=50)
+   mcp__deployment-mcp__docker_manage(action="container_logs", host="88.198.191.108", container_id="<id>", lines=50)
    ```
 
 5. **Nginx prüfen**
 // turbo
 ```
-mcp0_system_manage(action="nginx_status", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="nginx_status", host="88.198.191.108")
 ```
 
 6. **SSL-Zertifikate prüfen**
 ```
-mcp0_network_manage(action="ssl_expiring", days=14, host="88.198.191.108")
+mcp__deployment-mcp__network_manage(action="ssl_expiring", days=14, host="88.198.191.108")
 ```
 
 7. **Disk & Memory prüfen**
@@ -66,7 +66,7 @@ mcp0_network_manage(action="ssl_expiring", days=14, host="88.198.191.108")
 
 8. **Cloudflare Tunnel prüfen**
 ```
-mcp0_cloudflare_manage(action="cf_tunnel_list")
+mcp__deployment-mcp__cloudflare_manage(action="cf_tunnel_list")
 ```
 
 9. **Report erstellen**
@@ -89,4 +89,4 @@ mcp0_cloudflare_manage(action="cf_tunnel_list")
 
 ## Referenzen
 - ADR-021: Unified Deployment Pattern
-- Deploy-Targets: via SSH `docker ps` auf Prod-Server prüfen (Tool `mcp2_deploy_check` existiert nicht mehr — Issue #80)
+- Deploy-Targets: via SSH `docker ps` auf Prod-Server prüfen (Tool `mcp__orchestrator__deploy_check` existiert nicht mehr — Issue #80)

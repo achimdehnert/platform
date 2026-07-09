@@ -23,7 +23,12 @@ meta:
     iil-relaunch: iilgmbh
     illustration-fw: iilgmbh
     iil-klickdummy: iilgmbh
-    iil-testkit: iilgmbh
+    # C-11 (repo-optimize 2026-07-03): frist-hub liegt real unter meiki-lra
+    # (verifiziert: gh api repos/meiki-lra/frist-hub → 200; achimdehnert/
+    # iilgmbh → 404). Der Name matcht KEINE owner_prefix_rules (kein
+    # "meiki-"-Präfix), daher fiel er ohne dieses Override auf den
+    # achimdehnert-Default zurück → deploy-failure-monitor 404 im Fleet-Scan.
+    frist-hub: meiki-lra
   owner_prefix_rules:
   - prefix: meiki-
     owner: meiki-lra
@@ -43,8 +48,10 @@ meta:
     ttz-hub: TTZ-Hub
     sqf-hub: SQF-Hub
     pg-hub: PG-Hub
-  _note: GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + registry/repos.yaml.
-    Noch NICHT kanonisch geschaltet — Konsumenten unverändert.
+  _note: 'KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via `registry-canonical.py
+    flip`). Union aus scripts/repo-registry.yaml + registry/repos.yaml; beide Altdateien
+    sind jetzt generierte, gate-erzwungene Views (verify-Gate in registry-consistency.yml).
+    Edits nur hier, nie in den Views. Accessor: tools/registry_api.py.'
 repos:
   137-hub:
     in_flat: true
@@ -98,7 +105,7 @@ repos:
       name: ausschreibungs-hub
       repo: ausschreibungs-hub
       description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
-      github: achimdehnert/ausschreibungs-hub
+      github: iilgmbh/ausschreibungs-hub
       deployed: false
       type: django
       lifecycle: experimental
@@ -216,6 +223,27 @@ repos:
       staging_url: staging.kiohnerisiko.de
       port: 8007
       health: /livez/
+  decks-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: static
+      prod_url: decks-hub.iil.pet
+      port: 8111
+      health: /healthz/
+    domain: Content & Publishing
+    rich:
+      name: decks-hub
+      repo: decks-hub
+      description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
+      github: achimdehnert/decks-hub
+      deployed: false
+      type: static
+      lifecycle: experimental
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge
+        deferred bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.
   dev-hub:
     in_flat: true
     in_rich: true
@@ -271,6 +299,13 @@ repos:
       port: 8107
       db: dms_hub
       health: /livez/
+  frist-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
+      port: 8111
+      health: /livez/
   gaeb-toolkit:
     in_flat: true
     in_rich: true
@@ -288,6 +323,24 @@ repos:
       lifecycle: active
       tenancy_mode: none
       coverage_threshold: 80
+  iil-adrfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-adrfw
+  iil-codeguard:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-codeguard
+  iil-django-commons:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-django-commons
   iil-enrichment:
     in_flat: true
     in_rich: false
@@ -307,6 +360,12 @@ repos:
       type: library
       pypi: iil-ingest
       note: Reusable document ingestion package — PDF/Excel/CSV/DOCX extraction + classifier (ADR-170)
+  iil-klickdummy:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: iil-klickdummy
   iil-reflex:
     in_flat: true
     in_rich: false
@@ -338,7 +397,7 @@ repos:
     in_rich: false
     flat:
       type: django
-      prod_url: illustration-hub.iil.pet
+      prod_url: illustration.iil.pet
       port: 8096
       health: /livez/
   infra-deploy:
@@ -459,26 +518,6 @@ repos:
       lifecycle: production
       tenancy_mode: none
       coverage_threshold: 80
-  decks-hub:
-    in_flat: true
-    in_rich: true
-    flat:
-      type: static
-      prod_url: decks-hub.iil.pet
-      port: 8111
-      health: /healthz/
-    domain: Content & Publishing
-    rich:
-      name: decks-hub
-      repo: decks-hub
-      description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
-      github: achimdehnert/decks-hub
-      deployed: false
-      type: static
-      lifecycle: experimental
-      tenancy_mode: none
-      dockerfile: Dockerfile
-      notes: 'Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge deferred bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.'
   pptx-hub:
     in_flat: true
     in_rich: true
@@ -523,7 +562,7 @@ repos:
     flat:
       type: django
       prod_url: research.iil.pet
-      port: 8104
+      port: 8098
       health: /livez/
   researchfw:
     in_flat: true
@@ -531,6 +570,12 @@ repos:
     flat:
       type: library
       pypi: researchfw
+  riskfw:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: library
+      pypi: riskfw
   risk-hub:
     in_flat: true
     in_rich: true

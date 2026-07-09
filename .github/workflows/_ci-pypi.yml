@@ -58,7 +58,15 @@ on:
         default: '==0.15.4'
         type: string
       enable_mypy:
-        description: 'Run mypy (non-blocking)'
+        description: 'Run mypy (non-blocking, außer mypy_blocking=true)'
+        required: false
+        default: false
+        type: boolean
+      mypy_blocking:
+        description: >-
+          mypy als bindendes Gate (Retro e17299 F6: die 2b-Konvergenz ließ
+          blockierendes mypy bei iil-adrfw/outlinefw still entfallen —
+          dieser Input stellt die Parität wieder her).
         required: false
         default: false
         type: boolean
@@ -67,6 +75,26 @@ on:
         required: false
         default: '.'
         type: string
+      enable_bandit:
+        description: 'bandit-SAST (advisory, wie Vorgänger-CI iil-adrfw)'
+        required: false
+        default: false
+        type: boolean
+      bandit_args:
+        description: 'bandit-Argumente'
+        required: false
+        default: '-r src'
+        type: string
+      bandit_blocking:
+        description: >-
+          Make the bandit SAST job blocking — a finding fails CI and the
+          aggregate gate. Default false = advisory (continue-on-error), the
+          historical iil-adrfw behaviour. Mirrors mypy_blocking; opt in once
+          a repo's bandit run is green so a permanently-red advisory check
+          can't hide a real future finding (Retro e17299 F6 / alert-fatigue).
+        required: false
+        default: false
+        type: boolean
       enable_build:
         description: >-
           Build the distribution (python -m build), validate metadata
@@ -225,10 +253,10 @@ jobs:
           triage_hint: "A secret is present in the artifact that would be PUBLISHED. ROTATE it and exclude it from the build (MANIFEST.in / package_data / [tool.setuptools] exclude). Do NOT suppress on intent — the artifact must not ship it."
 
   mypy:
-    name: "Type Check (mypy, non-blocking)"
+    name: "Type Check (mypy)"
     if: ${{ inputs.enable_mypy }}
     runs-on: ${{ inputs.runs_on }}
-    continue-on-error: true
+    continue-on-error: ${{ !inputs.mypy_blocking }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
@@ -280,3 +308,50 @@ jobs:
               && echo "✅ No known CVEs" \
               || echo "⚠️  CVEs found — see output above (non-blocking per caller opt-out)"
           fi
+
+  # ── SAST (bandit) ─────────────────────────────────────────────────────────
+  # Retro e17299 F6: iil-adrfws Vorgänger-CI hatte bandit (advisory); die
+  # 2b-Konvergenz ließ es ersatzlos entfallen. Opt-in-Wiederherstellung.
+  # Advisory by default (continue-on-error); a caller flips bandit_blocking=true
+  # to make findings fail CI + gate, once its bandit run is green.
+  bandit:
+    name: "SAST (bandit, ${{ inputs.bandit_blocking && 'blocking' || 'advisory' }})"
+    if: ${{ inputs.enable_bandit }}
+    runs-on: ${{ inputs.runs_on }}
+    continue-on-error: ${{ !inputs.bandit_blocking }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ inputs.python_version }}
+      - name: bandit
+        run: |
+          pip install -q bandit
+          bandit ${{ inputs.bandit_args }}
+
+  # ── Aggregat-Gate ─────────────────────────────────────────────────────────
+  # Retro e17299 F5: Branch-Protections banden Matrix-Jobnamen (inkl.
+  # Python-Version) in den Vertrag — ändert der Caller python_versions,
+  # blockt main dauerhaft. Muster aus _ci-python.yml:gate übernommen:
+  # Protections zeigen NUR auf "<caller-job> / gate" (stabil, matrix-frei).
+  # skipped zählt als ok (opt-in-Jobs); mypy/bandit zählen nur bei
+  # mypy_blocking/bandit_blocking, weil continue-on-error=true das Ergebnis
+  # sonst ohnehin auf success setzt.
+  gate:
+    name: "gate"
+    runs-on: ${{ inputs.runs_on }}
+    needs: [lint, secrets-scan, test, build, mypy, security, bandit]
+    if: always()
+    steps:
+      - name: "All CI jobs passed or skipped"
+        run: |
+          STATUS_LIST='${{ toJSON(needs) }}'
+          echo "$STATUS_LIST" | python3 -c "
+          import json, sys
+          needs = json.load(sys.stdin)
+          failures = [name for name, job in needs.items() if job['result'] not in ('success', 'skipped')]
+          if failures:
+              print('::error::Failed or cancelled jobs:', failures)
+              sys.exit(1)
+          print('All jobs passed or were skipped.')
+          "

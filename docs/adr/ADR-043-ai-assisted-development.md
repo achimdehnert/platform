@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-21
-decision-makers: Achim Dehnert
+decision_date: 2026-02-21
+deciders: Achim Dehnert
 implementation_status: implemented
 implementation_evidence:
   - ".windsurf/workflows/: AI-assisted development active"
@@ -190,7 +190,7 @@ core, accounts, trips, locations, stories, worlds, ai_services
 - Production: https://drifttales.app
 ```
 
-**bfagent:**
+**bfagent** (decommissioned — kein Prod-Container mehr, Stand 2026-07-02)**:**
 ```markdown
 # Project Facts: bfagent (Book Factory Agent)
 
@@ -257,7 +257,7 @@ characters, scenes, stories, enrichment, location_research
 ## Docker
 - Dockerfile: Dockerfile (project root — NOT docker/)
 - Container: weltenhub_web (gunicorn:8000)
-- DB: weltenhub_db (postgres:15) | Redis: weltenhub_redis (redis:7)
+- DB: weltenhub_db (postgres:16) | Redis: weltenhub_redis (redis:7)
 - Celery: weltenhub_celery + weltenhub_celery_beat
 - Production: https://weltenforger.com
 ```

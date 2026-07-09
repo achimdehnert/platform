@@ -35,16 +35,36 @@ hosts:
 
   staging:
     ip: 88.99.38.75
-    ssh: root@88.99.38.75
-    hostname: dev-desktop              # "Dev-Desktop / Staging" in infra-Skripten
+    ssh: root@88.99.38.75              # Admin/Deploy-Zugang
+    ssh_interactive: devuser@88.99.38.75  # interaktiver Dev-Account — Default für Dev-Arbeit auf diesem Host
+    hostname: dev-desktop              # Label in infra-Skripten; OS-Hostname real: ubuntu-32gb-fsn1-1
+    # ⚠ NAMENS-DRIFT (2026-07-02): ports.yaml nennt diesen Host "dev"
+    #   (servers.dev), diese Datei "staging" — real spielt er BEIDE Rollen
+    #   (siehe role). Empfohlene ~/.ssh/config-Aliase: fsn1 / hetzner-devuser.
+    #   Der Alias "dev-server" (46.225.113.1) ist TOT — alter dev-server,
+    #   nicht mehr existent (dns_staging_sync.py) — aus SSH-Configs entfernen.
+    # Dauerdienste (devuser, systemd --user): kd-server auf 127.0.0.1:8130
+    #   (Klickdummy-Bewertung, ~/kd-serve/, Tunnel: LocalForward 8130)
     provider: Hetzner
     role: >
       Staging-/Dev-Host. Trägt Staging-Container (risk_hub_staging_*,
       cad_hub_staging_web, …) + diverse *_local_*-Dev-Stacks + ib_gateway.
       Staging-Ingress via eigenem cloudflared (staging-riskhub.iil.pet).
-      KEIN GitHub-Actions-Runner installiert (Stand 2026-06-17).
+      Trägt seit 2026-06-28 den Non-Prod-CI-Runner (ADR-257, Pilot travel-beat) —
+      KEINE Prod-Container auf dieser Engine (Bedingung ADR-257 Entscheidung 1).
+    hosts_runners: [staging-ci]
+    verified: 2026-06-28               # on-host: 16 CPU/32 GB/601 G; staging-ci-Runner registriert + online
+
+  staging-dedicated:
+    ip: 178.104.184.168
+    ssh: root@178.104.184.168
+    role: >
+      Laut ports.yaml (servers.staging) der dedizierte Staging-Server.
+      TCP 22/80/443 erreichbar (Probe 2026-07-02). Widerspricht dem
+      "staging"-Eintrag oben (88.99.38.75) — Rollen-Klärung offen:
+      welche Staging-Workloads laufen hier vs. auf dem Dev Desktop?
     hosts_runners: []
-    verified: 2026-06-17
+    verified: 2026-07-02               # nur TCP-Probe; on-host nicht verifiziert
 
   odoo:
     ip: 46.225.127.211
@@ -56,9 +76,10 @@ hosts:
 # ─────────────────────────────────────────────────────────────────────────────
 # GitHub-Actions Self-Hosted Runner
 # ─────────────────────────────────────────────────────────────────────────────
-# Label-Konvention (verbindlich): Workflows nutzen `runs-on: self-hosted` (plain).
-# Den erfüllt der prod-server-Runner. Die Labels `hetzner` und `dev` sind TOT
-# (nur der verwaiste, offline dev-hetzner-2 trägt sie) — NICHT mehr verwenden.
+# Label-Konvention: Deploy/host-gebundene Jobs → `prod-server` (unique Label, NICHT
+# plain self-hosted, das matcht seit ADR-257 mehrere Runner). CI/Build → `ci-nonprod`
+# (staging-ci-Runner). Die Labels `hetzner` und `dev` sind TOT (verwaister, offline
+# dev-hetzner-2) — NICHT mehr verwenden.
 runners:
   prod-server:
     host: prod                         # 88.198.191.108
@@ -71,7 +92,23 @@ runners:
       Ein dedizierter Runner pro Repo (risk-hub, billing-hub, trading-hub,
       platform, … alle 23 Repos). Verarbeitet alles mit `runs-on: self-hosted`.
       Ein Runner pro Repo → Jobs eines PRs laufen sequenziell.
+      ADR-257: für CI/Build deprecated (Migration läuft; Deploy bleibt hier, ADR-156).
     verified: 2026-06-17
+
+  staging-ci:
+    host: staging                      # 88.99.38.75
+    status: online                     # 2026-06-28 registriert + verifiziert (gh api)
+    labels: [self-hosted, Linux, X64, ci-nonprod]
+    scope: per-repo
+    install: /opt/actions-runner-<repo>
+    service: actions.runner.achimdehnert-<repo>.<repo>-staging-ci.service
+    runner_user: github-ci             # NICHT root (REC-5); in docker-group für buildx
+    note: >
+      Non-Prod-CI-Runner (ADR-257). Trägt CI/Build-Jobs, die per shared-ci-Input
+      `runs_on: ci-nonprod` hierher gelenkt werden; host-gebundene Deploys bleiben
+      via `deploy_runs_on: prod-server` auf dem Prod-Host. Pilot-Repo: travel-beat
+      (`travel-beat-staging-ci`). Weitere Hubs gestaffelt via ADR-222-Familie.
+    verified: 2026-06-28
 
   dev-hetzner-2:
     host: UNKNOWN                       # auf keinem erreichbaren Host installiert

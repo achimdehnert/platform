@@ -4,6 +4,12 @@ description: Automatisiertes Frontend UI Test — alle Views auf HTTP 200 + CSRF
 
 # Writing Hub — Automatisierter Frontend UI Test
 
+> ℹ️ **Spezialfall writing-hub (repo-hardcoded).** Dieser Workflow ist auf die
+> writing-hub-Views/-Modelle festverdrahtet. Für den **repo-agnostischen** Frontend-Test
+> (alle Django-Hub-Repos, Views + Templates + URLs + DNS + Health) nutze
+> **`/pre-release-test`** — das ist der kanonische Pfad vor jeder Test-Freigabe.
+> Diesen Workflow nur verwenden, wenn du gezielt writing-hub testest.
+
 Vollständiger HTTP-200-Check aller registrierten Project-Views.
 Erstellt temporären Test-User + Test-Projekt (idempotent), testet alle URLs + CSRF.
 

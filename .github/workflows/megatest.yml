@@ -14,6 +14,13 @@ on:
         type: boolean
         default: false
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# megatest job below already declares its own permissions (contents:
+# write for --update-budgets, issues: write for the failure report) and
+# overrides this.
+permissions:
+  contents: read
+
 jobs:
   megatest:
     name: Platform Hardcoding Megatest
@@ -27,6 +34,17 @@ jobs:
         uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Ensure HOME (self-hosted Service-Env)
+        # Der Runner-Service liefert seit ~2026-06-24 kein HOME mehr →
+        # `set -u` + "$HOME" brach jeden Lauf ("HOME: unbound variable",
+        # 8/8 rot). Via GITHUB_ENV wirkt der Wert auch für github-script
+        # (process.env.HOME) und upload-artifact (~-Expansion). Kein
+        # Hardcode: getent löst das Home des Runner-Users auf.
+        run: |
+          if [ -z "${HOME:-}" ]; then
+            echo "HOME=$(getent passwd "$(id -u)" | cut -d: -f6)" >> "$GITHUB_ENV"
+          fi
 
       - name: Install pytest + pyyaml
         run: pip install pytest pyyaml --quiet --break-system-packages

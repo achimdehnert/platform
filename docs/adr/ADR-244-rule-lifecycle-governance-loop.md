@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-06-12
-decision-makers: [Achim Dehnert]
+decision_date: 2026-06-12
+deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: []
 supersedes: []

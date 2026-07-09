@@ -2,7 +2,7 @@
 id: ADR-251
 title: "Reengineering-Pipeline: Analyse→UCs→KD→Mockup→Deploy als Round-Trip-Kreislauf mit UX-Gate am Klickdummy + Mermaid-UC-Konvention"
 status: accepted
-date: 2026-06-17
+decision_date: 2026-06-17
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, achimdehnert, meiki-lra, ttz-lif, bahn-sqf]

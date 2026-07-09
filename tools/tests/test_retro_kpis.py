@@ -61,3 +61,59 @@ def test_should_skip_extern_briefings_and_load_real_reports(tmp_path):
     reports = load_reports(str(tmp_path))
     assert len(reports) == 1  # -extern- + unrelated ausgeschlossen
     assert reports[0]["_path"] == "session-retro-2026-06-14-x-aaa.md"
+
+
+class TestMultiDirLoadReports:
+    """T-11 (repo-optimize 2026-07-03): load_reports() akzeptiert seit #891/#886
+    eine LISTE von Verzeichnissen (git-durables docs/retros/ + Skill-Schreibpfad
+    ~/shared/) und dedupliziert nach Dateiname — bislang war das nur per Code-
+    Review verifiziert, kein Test rief die Multi-Dir-Variante auf."""
+
+    SAMPLE_B = SAMPLE.replace("2d7cd9", "other-session-id")
+
+    def test_should_accept_list_of_directories(self, tmp_path):
+        dir_a = tmp_path / "a"
+        dir_b = tmp_path / "b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+        (dir_a / "session-retro-2026-06-14-x-aaa.md").write_text(SAMPLE, encoding="utf-8")
+        (dir_b / "session-retro-2026-06-15-y-bbb.md").write_text(self.SAMPLE_B, encoding="utf-8")
+
+        reports = load_reports([str(dir_a), str(dir_b)])
+
+        assert len(reports) == 2
+        assert {r["_path"] for r in reports} == {
+            "session-retro-2026-06-14-x-aaa.md",
+            "session-retro-2026-06-15-y-bbb.md",
+        }
+
+    def test_should_dedupe_same_filename_across_dirs_first_dir_wins(self, tmp_path):
+        dir_a = tmp_path / "a"
+        dir_b = tmp_path / "b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+        same_name = "session-retro-2026-06-14-x-aaa.md"
+        (dir_a / same_name).write_text(SAMPLE, encoding="utf-8")
+        # gleicher Dateiname in dir_b, aber INHALTLICH anders — first-dir-wins
+        # muss die dir_a-Version behalten, nicht die aus dir_b nachladen.
+        (dir_b / same_name).write_text(self.SAMPLE_B, encoding="utf-8")
+
+        reports = load_reports([str(dir_a), str(dir_b)])
+
+        assert len(reports) == 1  # kein Doppelzählen trotz zwei Fundstellen
+        assert reports[0]["session_id"] == "2d7cd9"  # dir_a-Inhalt gewinnt
+
+    def test_should_sum_totals_across_both_dirs_without_overlap(self, tmp_path):
+        dir_a = tmp_path / "a"
+        dir_b = tmp_path / "b"
+        dir_a.mkdir()
+        dir_b.mkdir()
+        (dir_a / "session-retro-2026-06-14-x-aaa.md").write_text(SAMPLE, encoding="utf-8")
+        (dir_a / "session-retro-extern-2026-06-14-x-aaa.md").write_text(SAMPLE, encoding="utf-8")
+        (dir_b / "session-retro-2026-06-15-y-bbb.md").write_text(self.SAMPLE_B, encoding="utf-8")
+        (dir_b / "unrelated.md").write_text("nope", encoding="utf-8")
+
+        reports = load_reports([str(dir_a), str(dir_b)])
+
+        # Gesamtzahl = 2 echte Retros; -extern- (dir_a) + unrelated.md (dir_b) ausgeschlossen.
+        assert len(reports) == 2

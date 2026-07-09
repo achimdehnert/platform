@@ -6,13 +6,20 @@ on:
       - "docs/adr/**"
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
+      - "scripts/gen_adr_index.py"
   pull_request:
     paths:
       - "docs/adr/**"
       - "tools/adr_citation_lint.py"
       - "tools/adr_index_check.py"
+      - "scripts/gen_adr_index.py"
   schedule:
     - cron: "0 6 * * 1"  # Weekly Monday 06:00 UTC
+
+# Workflow-level default (least privilege, #818 permissions sweep) —
+# no job in this workflow needs to write via GITHUB_TOKEN.
+permissions:
+  contents: read
 
 jobs:
   validate:
@@ -29,6 +36,17 @@ jobs:
 
       - name: Validate all ADRs
         run: iil-adrfw validate docs/adr/
+
+      # Deploy-ADR-Supersession-Gate (KONZ-011 / ADR-264) — SUGGEST / non-gating.
+      # repo-health-rule-discipline: neue Regel startet SUGGEST (0 FPs auf heutigem Baum
+      # verifiziert), deterministisch-strukturell. Ein neues Deployment-Strategie-ADR
+      # (ID ≥ 264) ohne `supersedes:`/`supersedes_waiver:` waechst den Sprawl.
+      # Promotion zu GATING = Teil des Accept von ADR-264 (dann `exit 0` entfernen).
+      - name: Deploy-ADR-Supersession-Gate (SUGGEST, non-gating)
+        run: |
+          set +e
+          python3 tools/check_deploy_adr_supersession.py
+          exit 0
 
       # ADR reference-drift report — SUGGEST / non-gating (repo-health-rule-discipline:
       # new rules start as SUGGEST; structural deterministic only). Surfaces depends_on /
@@ -65,3 +83,32 @@ jobs:
           python3 tools/adr_citation_lint.py --format github
           python3 tools/adr_index_check.py --format github
           exit 0
+
+      # ADR Index frisch? (gating) — regeneriert index.json + INDEX.md und vergleicht
+      # gegen committed Stand. Datum-sensitive Zeilen ("generated", Kommentar-Header)
+      # werden beim Diff ausgeblendet, damit der Check tagesstabil ist.
+      # Lösung bei Rot: python3 scripts/gen_adr_index.py lokal ausführen + committen.
+      - name: ADR index freshness (gating)
+        run: |
+          cp docs/adr/index.json docs/adr/index.json.bak
+          cp docs/adr/INDEX.md docs/adr/INDEX.md.bak
+          python3 scripts/gen_adr_index.py
+          # Strip date-sensitive lines before diffing (generated date changes daily)
+          strip_dates() {
+            grep -v '"generated":' | \
+            grep -v '<!-- Last generated:' | \
+            grep -v '> Auto-generated'
+          }
+          strip_dates < docs/adr/index.json.bak > /tmp/index_old.json
+          strip_dates < docs/adr/index.json     > /tmp/index_new.json
+          strip_dates < docs/adr/INDEX.md.bak  > /tmp/INDEX_old.md
+          strip_dates < docs/adr/INDEX.md       > /tmp/INDEX_new.md
+          if diff -q /tmp/index_old.json /tmp/index_new.json > /dev/null && \
+             diff -q /tmp/INDEX_old.md   /tmp/INDEX_new.md   > /dev/null; then
+            echo "✓ ADR index is fresh"
+          else
+            echo "::error::ADR index is stale — run 'python3 scripts/gen_adr_index.py' and commit the result"
+            diff /tmp/index_old.json /tmp/index_new.json || true
+            diff /tmp/INDEX_old.md   /tmp/INDEX_new.md   || true
+            exit 1
+          fi

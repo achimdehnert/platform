@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-03-07
-decision-makers: Achim Dehnert
+decision_date: 2026-03-07
+deciders: Achim Dehnert
 consulted: Cascade (Senior Architect), Claude (Principal IT Architect — Review v1+v2)
 informed: billing-hub, mcp-hub, platform-team
 implementation_status: partial

@@ -74,34 +74,27 @@ Liste die im ADR bereits **bewusst getroffenen** Entscheidungen, die NICHT zur D
 mit je 1 Satz Begründung. Schützt vor der größten externen-Review-Gefahr: einer plausiblen,
 aber kontext-blinden Kritik, die Geklärtes neu aufrollt.
 
-## Step 3 — Briefing nach Vorlage erzeugen (Output-Format)
+## Step 3 — Payload erzeugen (Persona ist SSoT, nicht hier duplizieren)
 
-Standard-Modus erzwingt **Steelman → Drei-Rollen → Befund**:
+Die **Review-Instruktion (Persona, Auftrag, Do-not-assume, Antwort-Format) ist SSoT in der
+passenden Reviewer-Datei** — sie wird hier NICHT wiederholt (genau einmal pflegen):
 
-## Output-Format
+| Modus | Reviewer-Datei (= System-Prompt) |
+|---|---|
+| Standard | `.windsurf/workflows/adr-handoff-extern-reviewer.md` |
+| `--mode premortem` | `.windsurf/workflows/adr-handoff-extern-reviewer-premortem.md` |
+| `--mode blind` | `.windsurf/workflows/adr-handoff-extern-reviewer-blind.md` |
+
+Dieser Step erzeugt nur den **per-ADR-Payload**, den die Persona prüft:
 
 ```markdown
 # ADR-Review-Auftrag: ADR-NNN <Titel>
 _Externe Zweitmeinung · du siehst weder unser Repo noch frühere ADRs — alles Nötige steht unten._
 
-## So nutzt du dieses Dokument
-Lies alles. Arbeite die Schritte unten in DIESER Reihenfolge ab. Erfinde keinen Kontext,
-den du nicht hier findest (keine angenommenen Repos, Tools, Versionen).
-
-## Dein Auftrag — in dieser Reihenfolge
-1. **Steelman zuerst.** Formuliere die stärkstmögliche Version dieser Entscheidung,
-   bevor du sie angreifst. (Kein Angriff vor dem Steelman.)
-2. **Drei Rollen, nacheinander:**
-   - 🟢 **Proponent:** Warum ist das die richtige Entscheidung?
-   - 😈 **Advocatus Diabolus:** Greife sie maximal hart an — wo bricht sie, welche
-     Annahme ist fragil, welche verworfene Alternative war in Wahrheit besser?
-   - 🔮 **Maintainer 2028:** Du erbst dieses System in 2 Jahren — was bereust du?
-3. **Out-of-the-Box:** Nenne mindestens EINEN Ansatz, den das Briefing gar nicht erwägt
-   (anderes Paradigma, Kauf-statt-Bau, ganz weglassen, …). Auch wenn du ihn am Ende verwirfst.
-4. **Befund & Empfehlung:** annehmen / überarbeiten (konkrete Punkte) / ablehnen.
-
 ## Der ADR im Volltext
 <kompletter ADR-Text inline>
+# (--mode blind: diese Überschrift heißt „## Das zu lösende Problem (OHNE unsere Entscheidung)"
+#  und enthält Problem + Constraints, NICHT die getroffene Entscheidung.)
 
 ## Kontext, den du brauchst (inline, da du ihn nicht laden kannst)
 - **Verwandte / abgelöste ADRs:** ADR-NNN — <1-Satz-Kern> …
@@ -110,42 +103,26 @@ den du nicht hier findest (keine angenommenen Repos, Tools, Versionen).
 
 ## Bereits entschieden — NICHT neu aufrollen
 - <Punkt> — <warum settled> …
-
-## Do-not-assume
-- Dein trainiertes „Best Practice" gilt NICHT automatisch. Wo es den Konventionen oben
-  widerspricht, **gewinnen unsere Konventionen** — benenne den Konflikt, statt unsere Wahl
-  als Fehler zu werten.
-- Trenne Beobachtung von Vermutung; markiere Unsicheres als unsicher statt zu raten.
-
-## Gewünschtes Output-Format (deine Antwort)
-Gib die GESAMTE Antwort als **einen einzigen fenced Markdown-Codeblock** zurück
-(öffnend mit drei Backticks + `markdown`, schließend mit drei Backticks), damit sie 1:1
-als `.md` gespeichert werden kann. Struktur darin:
-
-1. `## Steelman` — 3–5 Sätze.
-2. `## Befunde` — eine Tabelle; jede Beobachtung eine Zeile mit **stabiler ID**:
-   `| ID | Rolle | Befund (1 Satz) | Schweregrad (hoch/mittel/niedrig) | betroffener ADR-Teil |`
-   ID-Präfix nach Rolle: `PRO-1…` (Proponent), `AD-1…` (Advocatus Diabolus), `M28-1…` (Maintainer 2028).
-3. `## Out-of-the-Box` — je Ansatz: Idee · Vorteil · Nachteil · verworfen? (ja/nein + 1 Satz).
-4. `## Empfehlung` — annehmen / überarbeiten / ablehnen + die EINE wichtigste Begründung.
-5. `## Vorgeschlagene Änderungen` — nummerierte Liste `REC-1, REC-2, …`; jede mit Bezug auf
-   eine Befund-ID (z. B. „REC-1 → AD-3").
+# (--mode blind: diesen Abschnitt WEGLASSEN — es gibt für den Blind-Reviewer keine Entscheidung.)
 ```
 
-### Modus `--mode premortem`
-Ersetze „Dein Auftrag" durch: *„Es ist 2028. Diese Entscheidung ist krachend gescheitert.
-Schreibe die Post-Mortem: Was genau ist passiert, welche Annahme war der Sargnagel, welches
-Frühwarnsignal haben wir 2026 ignoriert?"* Erzwingt konkrete Failure-Modes statt generischem „consider X".
+**Zusammensetzung je Pfad:**
+- **Manuell (Step 4):** Body der passenden Reviewer-Datei (ohne Frontmatter) **+** Payload zu
+  EINER self-contained `.md` zusammenfügen — der externe Chat hat keinen System-Slot, also muss
+  die Instruktion mit in die Datei.
+- **`--auto` (Step 4b):** Reviewer-Body → **System-Prompt**, Payload → **User-Nachricht**; den
+  Split macht der Executor automatisch (s. 4b.3) — hier NICHT vorkonkatenieren.
 
-### Modus `--mode blind`
-Gib **das Problem/den Kontext OHNE unsere Entscheidung** (Abschnitt „Der ADR im Volltext" wird
-zu „Das zu lösende Problem"). Bitte um eine eigenständige Empfehlung. Danach intern vergleichen:
-Wo weicht der Blind-Vorschlag ab? Das deckt Anchoring-Bias auf, den ein Review am fertigen ADR nicht sieht.
+### Modus-Hinweis
+Die premortem-/blind-Auftragstexte stehen jeweils in der zugehörigen Reviewer-Datei (Tabelle oben),
+nicht hier — so bleibt die Instruktion eine Quelle, manuell wie `--auto` identisch.
 
 ## Step 4 — Briefing nach `~/shared/` speichern
 
 Schreibe das erzeugte Briefing als Markdown-Datei in das Shared-Verzeichnis des Nutzers (`~/shared/`),
-mit **deterministischem** Dateinamen:
+mit **deterministischem** Dateinamen. **Inhalt = Body der passenden Reviewer-Datei (ohne
+Frontmatter) + Payload aus Step 3**, in dieser Reihenfolge — so bleibt die Datei für den manuellen
+Chat self-contained.
 
 ```
 ~/shared/adr-handoff-<ADR-NNN>-<JJJJ-MM-TT>.md            # Standard-Modus
@@ -197,8 +174,11 @@ darf `--auto` nicht senden. (Genau diese Bedingung trägt die „kein ADR"-Einst
   sonst Default-Provider `groq`. **Für Cross-Provider zwingend `provider: openai` setzen** — der
   Default routet sonst nicht-extern (belegt: `review_adr` lief auf `anthropic/claude-sonnet-4-6`,
   also KEINE Provider-Diversität — exakt das, was dieser Skill vermeiden soll).
-- Konkret: das Briefing aus Step 4 als Prompt durch aifw→OpenAI schicken (`workflow_execute` mit
-  einem Review-Workflow, dessen Frontmatter `provider: openai` trägt; **eine** Runde, s. „When").
+- Konkret: `workflow_execute("adr-handoff-extern-reviewer", args=<payload-aus-step-3>)` (bzw.
+  `…-reviewer-premortem` / `…-reviewer-blind` je nach `--mode`). Der Executor nimmt den
+  **Reviewer-Body als System-Prompt** und den **Payload als User-Nachricht**
+  (`workflow_executor.py:_build_messages`); `provider: openai` + `model` kommen aus dem Frontmatter
+  der Reviewer-Datei (eine Stelle, **kein** Hardcoding hier). **Eine** Runde (s. „When").
   Kein lokaler Key-Zugriff. Bei Fehler einmal melden, **nicht** still zurückfallen.
 
 **4b.3a — Graceful Degradation, wenn der Egress-Pfad nicht verfügbar ist (Copy-Block-Fallback).**
@@ -232,6 +212,14 @@ ist jeder Punkt einzeln adressierbar: tagge jede **Befund- und REC-ID** `[valid]
 eigener Begründung, nicht als wörtliche GPT-Prosa. Halte die Tag-Tabelle (ID → Verdikt → Aktion)
 als Nachweis fest.
 
+**5b — Durabler Audit-Nachweis (`~/shared` ist Wegwerf, KONZ-platform-010).** Briefing + Response
+bleiben Scratch in `~/shared` (s. Anti-Pattern — kein Briefing ins Repo). Aber der **Audit selbst**
+— welcher Anbieter, wann, Verdikt-Bilanz + die `[valid]`-Tag-Tabelle — muss ein **durables** Zuhause
+haben, sonst verdampft er beim `rm -rf ~/shared`. Halte ihn im **ADR** (git) fest, analog dem
+`ai_sparring_by` der automatischen Dual-Review: setze `external_sparring_by: <provider>@<JJJJ-MM-TT>`
+ins ADR-Frontmatter und die Tag-Tabelle als kurzen Abschnitt in den ADR-Body. Nur der ephemere
+Transport bleibt in `~/shared`; der Nachweis, dass extern reviewt wurde, lebt in der Versionshistorie.
+
 ## Anti-Patterns (darf NICHT)
 
 - ❌ ttz-lif/meiki-lra-ADRs oder reale Mandantendaten an ein externes LLM geben.
@@ -263,6 +251,11 @@ als Nachweis fest.
   KEINE Cross-Provider-Diversität (der einzige Zweck dieses Skills).
 - ❌ Bei Call-Fehler/nicht verfügbarem Egress still scheitern ODER still auf den manuellen Pfad
   zurückfallen — beides falsch: **explizit ansagen** und das Briefing als Copy-Block ausgeben (4b.3a).
+- ❌ Review-Instruktion (Auftrag/Format/Do-not-assume) in diesem Skill UND der Reviewer-Datei
+  pflegen — Persona ist SSoT in `adr-handoff-extern-reviewer*.md`; dieser Skill liefert nur den
+  per-ADR-Payload.
+- ❌ Die `distribute: false`-Reviewer-Dateien direkt als `/`-Command aufrufen — sie sind reine
+  System-Prompts (Body), kein Slash-Command (Filter in `tools/cc-skill-dist/generate.py`).
 
 ## Changelog
 
@@ -294,3 +287,10 @@ als Nachweis fest.
   + Briefing als 4-Backtick-Copy-Block inline ausgeben** (4b.3a), statt die Secret-Mauer (`chmod/chown/
   sudo`) aufzuweichen oder still zu scheitern. Verteilte Kopie muss via `cc-skill-dist` neu generiert
   werden, damit der korrigierte Egress-Pfad ankommt.
+- 2026-06-23: Persona/Instruktion aus dem Output-Format-Block in eigene **SSoT-Reviewer-Dateien**
+  extrahiert (`adr-handoff-extern-reviewer{,-premortem,-blind}.md`, je `distribute: false`) — ihr
+  Body ist der **System-Prompt**. Skill erzeugt nur noch den per-ADR-Payload; manueller Pfad
+  konkateniert Body+Payload, `--auto` nutzt den Executor-Split (Body→system, args→user). 4b.3 auf
+  konkreten `workflow_execute("adr-handoff-extern-reviewer…")`-Call festgezogen. Distributor
+  (`tools/cc-skill-dist/generate.py`+`doctor.py`) überspringt `distribute: false` → kein toter
+  Slash-Command.

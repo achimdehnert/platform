@@ -1,8 +1,8 @@
 ---
 status: proposed
-date: 2026-05-06
+decision_date: 2026-05-06
 updated: 2026-05-06
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []

@@ -2,7 +2,7 @@
 id: ADR-252
 title: "comic-hub — Comic-Erstellung als Thin-Composer über bestehende Seams, gegated durch Konsistenz-Spike + Klickdummy"
 status: proposed
-date: 2026-06-18
+decision_date: 2026-06-18
 deciders: [Achim Dehnert]
 consulted: [Claude Code, externes LLM-Review (Reproduzierbarkeit/Datenmodell), externes LLM-Review (Konsistenz-Technologie/Reframe)]
 informed: [iilgmbh, achimdehnert]
@@ -230,6 +230,19 @@ Ergänzend zu „Post-Gate-0 zu entscheiden": SVG-Renderdetail (Textfluss/Schwei
 Unicode/RTL/Font-Lizenz, getrennte Web-/Druck-Profile, optionaler editierbarer Export);
 Human-in-the-Loop (Casting/Referenzset-Lock/Panel-Lock/manuelle Abnahme); optional/nachrangig
 Multi-Angle-Referenzframes via Video-Modell (Orbit→Frame-Extraktion).
+
+**Gespiegelt aus `writing-hub:KONZ-writing-hub-002` (Adversarial-Review 2026-06-24):**
+- **B3 — Konsistenz-Auto-Gate fehlt:** `IllustrationJob`/Comic-Pipeline befüllt `GenerationManifest.consistency_score`
+  nie (immer `NULL`); das Abnahme-Kriterium ist nur die menschliche Rubrik (Gate 0a). `freeze_project()`
+  (`apps/comics/publish.py`) prüft nur Asset-Existenz, nicht eine Konsistenz-Schwelle → visuell inkonsistente
+  Comics können exportiert werden. **Backlog:** `consistency_score` automatisiert befüllen + optionale
+  `min_consistency_score`-Schwelle in `freeze_project()` (NotReadyError mit Manifest-IDs unterhalb Schwelle).
+  Skaliert sonst nicht über 1 Pilot-User.
+- **B5 — Comic-Panel-Render nicht async:** `apps/jobs/tasks.py` registriert nur `generate_illustration_task`
+  für `IllustrationJob`; der Comic-`render_panel()`-Pfad (`ConsistentSequenceAgent`) läuft nicht als
+  Celery-Task, und `FalSequenceBackend._poll()` blockiert synchron (~180s/Panel). Ein N-Panel-Comic hängt
+  damit Request-Thread/Browser. **Backlog:** Panel-Render als Celery-Task wrappen (analog
+  `generate_illustration_task`); zusätzlich Kosten-Hook bei stillem Fallback auf non-ComfyUI-Provider.
 
 ## Verworfene Alternativen
 - Greenfield-Repo zuerst (O1-A) — Widerspruch zu ADR-121/ADR-180.

@@ -65,6 +65,10 @@ Analyze the topic using these keywords:
 ## Step 1.5: ADR Pre-Validation via iil-adrfw (PFLICHT)
 
 > Nutzt `iil-adrfw` MCP Tools (Prefix aus project-facts.md, aktuell `mcp2_`).
+>
+> ℹ️ **CC-Fallback:** In Claude-Code-Sessions heißen die Tools `mcp__<orchestrator-prefix>__adr_*`.
+> Bindet die Session keinen ADR-MCP-Server, ist der Fallback direkte Reads in `docs/adr/` bzw.
+> der `iil-adrfw`-CLI-Weg — der ADR-Flow bricht nicht ab, nur die MCP-Automatik entfällt.
 
 Vor Erstellung prüfen ob der ADR-Vorschlag konsistent ist:
 

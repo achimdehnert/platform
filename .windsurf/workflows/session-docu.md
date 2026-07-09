@@ -8,6 +8,10 @@ description: Documentation audit, generation and sync — unified docs across al
 > Analog zu `/ship` (Deploy) und `/session-start` (Kontext), aber für Dokumentation.
 > Review-Fix K-02: --generate ist IMMER --dry-run by default.
 > Commit erfolgt nur mit explizitem --commit Flag.
+>
+> **Wann NICHT:** Session-/Erfahrungswissen (Lessons, Error-Patterns, Runbooks) in Outline
+> sichern → `/knowledge-capture`. Dieser Workflow pflegt die **repo-eigene Reference-Doku**
+> (README/CHANGELOG/API/Models), nicht das Session-Gedächtnis.
 
 ## Verwendung
 
@@ -147,7 +151,7 @@ git commit -m "docs: update reference docs via docs-agent [skip ci]"
 ```
 KEIN Content-Copy: Nur Link-Sync (unidirektional, Review-Fix K-01)
 
-mcp3_search_knowledge:
+mcp__outline-knowledge__search_knowledge:
   query: "Runbook"
   collection: "Runbooks"
   limit: 20
@@ -167,7 +171,7 @@ Prüfe ob kritische Runbooks existieren:
 ### 4.2 dev-hub TechDocs: Sync-Status prüfen
 
 ```
-mcp0_ssh_manage:
+mcp__deployment-mcp__ssh_manage:
   action: exec
   host: 88.198.191.108
   command: "docker exec devhub_web python manage.py shell -c \"
@@ -184,8 +188,7 @@ mcp0_ssh_manage:
 ### 5.1 Health Score speichern
 
 ```
-mcp1_agent_memory(
-  operation: "upsert",
+mcp__orchestrator__agent_memory_upsert(
   agent: "cascade",
   entry: {
     entry_id: "DOCU-HEALTH-<REPO-UPPERCASE>",

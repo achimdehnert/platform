@@ -1,0 +1,127 @@
+#!/usr/bin/env python3
+"""claude-next-init — Bootstrap: NEXT.md in ALLEN Repos unter $GITHUB_DIR.
+
+Iteriert über alle Git-Repos in ~/github/ (oder $GITHUB_DIR), generiert
+NEXT.md (über claude-next-sync) und schreibt eine **Roster-Datei**:
+
+  ~/.claude/state/next-roster.md
+
+→ darin ist EINDEUTIG sichtbar, welche Repos abgedeckt sind und welche nicht.
+"""
+from __future__ import annotations
+
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+SYNC_BIN = SCRIPT_DIR / "claude-next-sync"
+
+
+def sync_repo(repo: Path) -> tuple[str, str]:
+    """Ruft claude-next-sync per subprocess und parst die Ausgabe."""
+    try:
+        proc = subprocess.run(
+            [str(SYNC_BIN), "--repo", str(repo), "--force"],
+            capture_output=True, text=True, timeout=10,
+        )
+    except subprocess.TimeoutExpired:
+        return ("timeout", "Timeout > 10s")
+    line = proc.stdout.strip()
+    # Format: "  <sym> <name>  <status>  <detail>"
+    m = re.match(r"\s*[✓·✗⚠]\s+\S+\s+(\S+)\s+(.*)$", line)
+    if m:
+        return (m.group(1), m.group(2).strip())
+    return ("unknown", line[:80] if line else "(kein Output)")
+
+
+def main() -> int:
+    github_dir = Path(os.environ.get("GITHUB_DIR", str(Path.home() / "github"))).resolve()
+    if not github_dir.is_dir():
+        print(f"✗ GITHUB_DIR fehlt: {github_dir}")
+        return 1
+
+    # State-Verzeichnis
+    state_dir = Path.home() / ".claude" / "state"
+    state_dir.mkdir(parents=True, exist_ok=True)
+    roster_path = state_dir / "next-roster.md"
+
+    # Alle Verzeichnisse iterieren, nur Git-Repos behalten
+    all_dirs = sorted([d for d in github_dir.iterdir() if d.is_dir()])
+    git_repos = [d for d in all_dirs if (d / ".git").exists()]
+    non_repos = [d for d in all_dirs if not (d / ".git").exists()]
+
+    print(f"=== claude-next-init · Bootstrap aller Repos unter {github_dir} ===")
+    print(f"  {len(all_dirs)} Verzeichnisse, {len(git_repos)} git-Repos, {len(non_repos)} keine Repos\n")
+
+    rows: list[tuple[str, str, str, str]] = []  # (status, repo, detail, source)
+    counts = {"refreshed": 0, "fresh": 0, "no-content": 0, "no-git": 0}
+
+    for repo in git_repos:
+        status, detail = sync_repo(repo)
+        counts[status] = counts.get(status, 0) + 1
+        rows.append((status, repo.name, detail, str(repo)))
+
+    # ── Roster-Datei schreiben ──────────────────────────────────────────────
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    lines = [
+        f"# NEXT-Roster — Stand {now}",
+        "",
+        f"> Auto-erzeugt von `claude-next-init`. Iteration über `{github_dir}/*` (50 Verzeichnisse).",
+        f"> Bedeutung: ✓ erfolgreich gesynced · · bereits frisch · ⚠ kein Inhalt · ✗ kein git-Repo",
+        "",
+        "## Summary",
+        "",
+        f"- **Git-Repos gesamt**: {len(git_repos)}",
+        f"- **`NEXT.md` erzeugt/aktualisiert**: {counts['refreshed']}",
+        f"- **bereits frisch (keine Änderung nötig)**: {counts.get('fresh', 0)}",
+        f"- **kein Inhalt (Repo leer / kein git-log)**: {counts['no-content']}",
+        f"- **Nicht-Repos übersprungen**: {len(non_repos)}",
+        "",
+        "## Roster",
+        "",
+        "| Status | Repo | Detail |",
+        "|---|---|---|",
+    ]
+    sym = {"refreshed": "✓", "fresh": "·", "no-content": "⚠", "no-git": "✗"}
+    for status, name, detail, _ in rows:
+        lines.append(f"| {sym.get(status, '?')} | `{name}` | {detail} |")
+
+    if non_repos:
+        lines.extend([
+            "",
+            "## Nicht-Repos (übersprungen)",
+            "",
+        ])
+        for d in non_repos:
+            lines.append(f"- `{d.name}/`")
+
+    lines.extend([
+        "",
+        "---",
+        "",
+        "## Worauf zu achten ist",
+        "",
+        "- Repos mit ⚠ haben keine `AGENT_HANDOVER.md` und keine git-History — `NEXT.md` ist leer.",
+        "  → Sobald du beim nächsten `/session-ende` `AGENT_HANDOVER.md` schreibst, wird `NEXT.md` automatisch befüllt.",
+        "- Repos sind hier vollständig — die Liste = wirklich ALLE git-Repos im Inventar.",
+        "- Vergleichszahl: `find ~/github -mindepth 2 -maxdepth 2 -type d -name .git | wc -l`",
+        "",
+    ])
+
+    roster_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # ── Konsolen-Summary ────────────────────────────────────────────────────
+    print(f"\n=== Summary ===")
+    for k, v in counts.items():
+        print(f"  {sym.get(k, '?')} {k:12s}  {v:3d}")
+    print(f"\n✓ Roster gespeichert: {roster_path}")
+    print(f"  Cross-Check: find {github_dir} -mindepth 2 -maxdepth 2 -type d -name .git | wc -l")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

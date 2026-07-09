@@ -1,7 +1,9 @@
 # ╔═══════════════════════════════════════════════════════════════════════════╗
 # ║  SYNC REGISTRY → DEVHUB                                                   ║
 # ║  Triggers: push to registry/repos.yaml on main                            ║
-# ║  Action: runs populate_catalog on dev-hub server via SSH                  ║
+# ║  Action: runs populate_catalog im devhub_web-Container (docker exec,     ║
+# ║  gleiches Muster wie sync-adrs-to-devhub.yml — der self-hosted Runner    ║
+# ║  läuft auf demselben Host wie die devhub-Container).                     ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Sync Registry to DevHub
@@ -13,6 +15,11 @@ on:
       - 'registry/repos.yaml'
   workflow_dispatch:
 
+# Workflow-level default (least privilege, #818 permissions sweep) —
+# no job in this workflow needs to write via GITHUB_TOKEN.
+permissions:
+  contents: read
+
 jobs:
   sync:
     name: "Sync repos.yaml → devhub catalog"
@@ -21,22 +28,30 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Validate registry
+        # --break-system-packages: PEP-668-Guard des self-hosted Runners; ohne
+        # das Flag schlug der Install seit Erstellung (17/17 Runs rot) fehl —
+        # gleiches Muster wie megatest.yml / deploy-failure-monitor.yml.
         run: |
-          pip install pyyaml
-          python registry/sync_registry.py --list
+          pip install pyyaml --quiet --break-system-packages
+          python3 registry/sync_registry.py --list
 
-      - name: Sync to devhub via SSH
-        uses: appleboy/ssh-action@v1.2.5
-        with:
-          host: ${{ secrets.DEPLOY_HOST }}
-          username: ${{ secrets.DEPLOY_USER }}
-          key: ${{ secrets.DEPLOY_SSH_KEY }}
-          script: |
-            cd /opt/dev-hub
-            docker compose exec -T dev-hub-web \
-              python manage.py populate_catalog --tenant-slug devhub
-            echo "Catalog synced at $(date)"
+      - name: Sync to devhub (docker exec, wie sync-adrs)
+        # Vorher: appleboy/ssh-action mit nie konfigurierten DEPLOY_*-Secrets
+        # ("missing server host", Run 28701377968) UND falschem Service-Namen
+        # (dev-hub-web statt devhub-web) — der Step konnte nie funktionieren.
+        # Der Runner erreicht die Container direkt (bewiesen: sync-adrs-Run
+        # 28698465158 importierte ADRs via docker exec devhub_web).
+        run: |
+          docker exec devhub_web \
+            python manage.py populate_catalog --tenant-slug devhub
+          echo "Catalog synced at $(date)"
 
       - name: Verify devhub health
+        # ehrlicher Check: Fehlschlag soll den Run rot machen, nicht nur echoen.
+        # Container-intern statt via https://devhub.iil.pet: /etc/hosts auf dem
+        # Runner-Host mappt die Domain auf den Origin (Cloudflare-Bypass), dessen
+        # Origin-Cert nicht public-trusted ist -> curl exit 60 (Run 28713825964).
+        # Muster identisch zum compose-healthcheck von devhub-web.
         run: |
-          curl -sf https://devhub.iil.pet/livez/ || echo "Health check failed"
+          docker exec devhub_web python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/livez/', timeout=10)"
+          echo "devhub /livez/ ok"

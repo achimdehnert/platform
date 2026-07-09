@@ -10,6 +10,8 @@
 #   repo-session.sh start <repo-path> --task <slug> [--base <ref>] [--ephemeral]
 #   repo-session.sh list
 #   repo-session.sh end <worktree-path>        # Worktree entfernen (nur wenn clean), Lease schliessen
+#   repo-session.sh reap [<repo-path>]         # gemergte+cleane Session-Worktrees des Repos abraeumen
+#                                              # (default: Repo des cwd); Leases werden .closed
 #
 # Lease-Felder (ADR-233 §2.4): session_id, owner, created_at, last_touch, branch,
 #   base_sha, repo, worktree, intended_pr, expires_at, ephemeral.
@@ -28,6 +30,66 @@ TTL_DAYS="${REPO_SESSION_TTL_DAYS:-7}"
 die() { echo "FEHLER: $*" >&2; exit 1; }
 
 slug() { printf '%s' "$1" | tr '[:upper:] ' '[:lower:]-' | tr -cd 'a-z0-9._-'; }
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Reap (Retro f5e1d F-P4, Gate worktree-midsession-accumulation ×2 → Gate-Pflicht):
+# gemergte+cleane Session-Worktrees eines Repos entfernen + Leases schliessen.
+# Delegiert an tools/worktree-reaper.py (ADR-233) statt Logik zu duplizieren —
+# der Reaper ist self-protecting: DIRTY = SKIP, offener/unbestimmbarer PR-Status
+# = KEEP, un-gemergte Branches werden NIE entfernt (--include-stale hier bewusst
+# NICHT gesetzt), Restore-Manifest wird geschrieben.
+reap_repo() {
+  local repo="$1"
+  local reaper="$SCRIPT_DIR/worktree-reaper.py"
+  [ -f "$reaper" ] || { echo "  ⚠ worktree-reaper.py nicht gefunden ($reaper) — reap übersprungen." >&2; return 1; }
+  ( cd "$repo" && python3 "$reaper" --apply )
+}
+
+cmd_reap() {
+  local repo="${1:-$PWD}"
+  local common
+  common="$(git -C "$repo" rev-parse --path-format=absolute --git-common-dir 2>/dev/null)" \
+    || die "kein git-Repo: $repo"
+  repo="${common%/.git}"   # Haupt-Tree, auch wenn aus einem Linked-Worktree aufgerufen
+  reap_repo "$repo"
+}
+
+# PR-Kollisionscheck (ADR-233 R-6; Retro-Gate `parallel-session-pr-collision`, ≥2× → Gate-Pflicht).
+# Billigster Check VOR dem Abzweigen: existiert für denselben Task-Slug schon ein offener PR
+# (= zweite Session am selben Thema), harter Block. Sonst offene PRs zur Awareness listen.
+# Fail-open NUR bei fehlendem Werkzeug/Auth (mit sichtbarem Hinweis) — nie stiller Durchlass.
+# Override für bewusst parallele Arbeit: REPO_SESSION_SKIP_PR_CHECK=1.
+check_pr_collision() {
+  local repo="$1" task="$2"
+  if [ "${REPO_SESSION_SKIP_PR_CHECK:-0}" = "1" ]; then
+    echo "  ⚠ PR-Kollisionscheck übersprungen (REPO_SESSION_SKIP_PR_CHECK=1)." >&2; return 0
+  fi
+  command -v gh >/dev/null 2>&1 || { echo "  ⚠ gh nicht verfügbar — PR-Kollisionscheck übersprungen (ADR-233 R-6)." >&2; return 0; }
+  local slug_repo; slug_repo="$(git -C "$repo" remote get-url origin 2>/dev/null | sed -E 's#\.git$##; s#.*[:/]([^/]+/[^/]+)$#\1#')"
+  [ -n "$slug_repo" ] || { echo "  ⚠ Remote-Slug nicht bestimmbar — PR-Kollisionscheck übersprungen." >&2; return 0; }
+  local open_prs; open_prs="$(gh pr list -R "$slug_repo" --state open --json number,headRefName,title 2>/dev/null)" \
+    || { echo "  ⚠ 'gh pr list' fehlgeschlagen (Auth?) — PR-Kollisionscheck übersprungen." >&2; return 0; }
+  if [ -z "$open_prs" ] || [ "$open_prs" = "[]" ]; then return 0; fi
+  # Exakter Task-Slug im head-branch eines offenen PR = harter Block.
+  local hit
+  hit="$(printf '%s' "$open_prs" | python3 -c "import json,sys; t=sys.argv[1]; d=json.load(sys.stdin); print('\n'.join(f\"#{p['number']} {p['headRefName']} — {p['title']}\" for p in d if t and t in p['headRefName']))" "$task")"
+  if [ -n "$hit" ]; then
+    {
+      echo "⛔ PR-Kollision (ADR-233 R-6, Retro-Gate parallel-session-pr-collision):"
+      echo "   Offene PR(s) mit Task-Slug '$task':"
+      printf '   %s\n' "$hit"
+      echo "   → mergen/schließen ODER anderen --task-Slug wählen ODER REPO_SESSION_SKIP_PR_CHECK=1 (bewusst parallel)."
+    } >&2
+    die "Task '$task' hat bereits offene PR(s) — Kollisionsgefahr (siehe oben)."
+  fi
+  # Sonst: offene PRs zur Awareness (weich, kein Block).
+  local n; n="$(printf '%s' "$open_prs" | python3 -c 'import json,sys;print(len(json.load(sys.stdin)))')"
+  {
+    echo "  ℹ $n offene PR(s) in $slug_repo — auf Scope-Überlappung achten:"
+    printf '%s' "$open_prs" | python3 -c "import json,sys;[print(f\"     #{p['number']} {p['headRefName']}\") for p in json.load(sys.stdin)]"
+  } >&2
+}
 
 cmd_start() {
   local repo="" task="" base="origin/main" ephemeral="false"
@@ -51,11 +113,33 @@ cmd_start() {
   git -C "$repo" fetch --prune origin main -q
   local base_sha; base_sha="$(git -C "$repo" rev-parse "$base")" || die "base_ref '$base' nicht auflösbar"
 
+  # Self-healing Reap (Retro f5e1d F-P4): jede neue Session räumt zuerst die
+  # gemergten Orphan-Worktrees des Ziel-Repos ab — der Pflicht-Reaper lief bisher
+  # nur bei /session-ende, nicht beim Merger. Leise + best-effort: ein Fehler hier
+  # darf 'start' NIE scheitern lassen (Warnung statt Abbruch).
+  local reap_out=""
+  if reap_out="$(reap_repo "$repo" 2>&1)"; then
+    local reaped
+    reaped="$(printf '%s\n' "$reap_out" | grep -c '^entfernt:')" || reaped=0
+    if [ "${reaped:-0}" -gt 0 ]; then
+      {
+        echo "  ♻ Auto-Reap: $reaped gemergte(r) Orphan-Worktree(s) entfernt (self-healing, F-P4):"
+        printf '%s\n' "$reap_out" | grep '^entfernt:' | sed 's/^/    /'
+      } >&2
+    fi
+  else
+    echo "  ⚠ Auto-Reap fehlgeschlagen — best-effort, 'start' läuft weiter (letzte Zeile: $(printf '%s\n' "$reap_out" | tail -1))" >&2
+  fi
+
   local owner date_s rname branch wt sid
   owner="$(slug "$(git -C "$repo" config user.name 2>/dev/null || echo agent)")"; owner="${owner:-agent}"
   date_s="$(date -u +%Y-%m-%d)"
   rname="$(basename "$repo")"
   task="$(slug "$task")"
+
+  # ADR-233 R-6: vor dem Abzweigen auf offene PRs desselben Task-Slugs prüfen (Retro-Gate).
+  check_pr_collision "$repo" "$task"
+
   branch="session/$date_s/$owner/$task"
   sid="${date_s}-${owner}-${task}-$(date -u +%H%M%S)"
   if [ "$ephemeral" = "true" ]; then
@@ -132,5 +216,7 @@ case "${1:-}" in
   start) shift; cmd_start "$@";;
   list)  cmd_list;;
   end)   shift; cmd_end "$@";;
-  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--base <ref>] [--ephemeral] | list | end <wt>}" >&2; exit 2;;
+  reap)  shift; cmd_reap "$@";;
+  -h|--help|help) echo "usage: repo-session.sh {start <repo> --task <slug> [--base <ref>] [--ephemeral] | list | end <wt> | reap [<repo>]}"; exit 0;;
+  *) echo "usage: repo-session.sh {start <repo> --task <slug> [--base <ref>] [--ephemeral] | list | end <wt> | reap [<repo>]}" >&2; exit 2;;
 esac

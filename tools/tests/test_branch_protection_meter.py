@@ -2,11 +2,13 @@
 
 import json
 import sys
+import urllib.error
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from branch_protection_meter import evaluate_repo, load_expected, render_report  # noqa: E402
+import branch_protection_meter as bpm  # noqa: E402
+from branch_protection_meter import evaluate_repo, load_expected, main, render_report  # noqa: E402
 
 
 def _ruleset(enforcement="active", check="ci / gate", name="main-required-checks"):
@@ -93,3 +95,61 @@ def test_should_render_report_with_all_sections():
     assert "**b-hub**: Ruleset fehlt" in report
     assert "c-hub: main-CI rot" in report
     assert "- a-hub" in report
+
+
+class TestNetworkErrorDegradation:
+    """F-6 (repo-optimize 2026-07-03): main() fing bisher nur HTTPError aus
+    fetch_rulesets — URLError/TimeoutError (DNS-Fehler, Verbindungsabbruch,
+    `_api_get`-Timeout=30) crashten den GESAMTEN Fleet-Scan statt nur das eine
+    Repo als 'nicht lesbar' zu degradieren. Regression-Guard: der Scan muss bei
+    einem simulierten URLError bzw. TimeoutError für ein Repo weiterlaufen und
+    NUR dieses eine Repo als Verletzung melden."""
+
+    def _run(self, monkeypatch, tmp_path, side_effects):
+        calls = iter(side_effects)
+
+        def fake_fetch_rulesets(owner, repo, token):
+            effect = next(calls)
+            if isinstance(effect, Exception):
+                raise effect
+            return effect
+
+        monkeypatch.setattr(bpm, "fetch_rulesets", fake_fetch_rulesets)
+        monkeypatch.setenv("TOKEN", "dummy")
+        expected = tmp_path / "expected.json"
+        expected.write_text(
+            json.dumps(
+                [
+                    {"repo": "unreachable-hub", "owner": "achimdehnert", "required_check": "ci / gate"},
+                    {"repo": "healthy-hub", "owner": "achimdehnert", "required_check": "ci / gate"},
+                ]
+            )
+        )
+        report_path = tmp_path / "report.md"
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            ["branch_protection_meter.py", "--expected", str(expected), "--report", str(report_path)],
+        )
+        return main(), report_path.read_text()
+
+    def test_should_degrade_urlerror_to_violation_and_keep_scanning(self, monkeypatch, tmp_path):
+        rc, report = self._run(
+            monkeypatch,
+            tmp_path,
+            [urllib.error.URLError("Name or service not known"), [_ruleset()]],
+        )
+        assert rc == 1  # mindestens eine Verletzung → non-zero, aber KEIN Crash
+        assert "unreachable-hub" in report
+        assert "healthy-hub" in report
+        assert "- healthy-hub" in report  # zweites Repo lief trotzdem konform durch
+
+    def test_should_degrade_timeout_error_to_violation_and_keep_scanning(self, monkeypatch, tmp_path):
+        rc, report = self._run(
+            monkeypatch,
+            tmp_path,
+            [TimeoutError("timed out"), [_ruleset()]],
+        )
+        assert rc == 1
+        assert "unreachable-hub" in report
+        assert "- healthy-hub" in report

@@ -178,6 +178,20 @@ def main() -> int:
                 }
             )
             continue
+        except (urllib.error.URLError, TimeoutError) as exc:
+            # F-6 (repo-optimize 2026-07-03): _api_get (timeout=30) kann statt
+            # HTTPError auch URLError (DNS/Verbindung) oder TimeoutError
+            # werfen — vorher fingen wir nur HTTPError, sodass ein einzelnes
+            # unerreichbares Repo den GESAMTEN Fleet-Scan abbrach. Jetzt wie im
+            # Kommentar oben beabsichtigt: nicht-prüfbar = Verletzung, Scan läuft weiter.
+            results.append(
+                {
+                    "repo": entry["repo"],
+                    "status": "violation",
+                    "reasons": [f"Rulesets-API nicht lesbar ({exc})"],
+                }
+            )
+            continue
         results.append(evaluate_repo(entry, rulesets))
 
     report = render_report(results)

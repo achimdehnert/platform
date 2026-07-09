@@ -1,0 +1,248 @@
+#!/usr/bin/env python3
+"""claude-next-sync — NEXT.md eines Repos aus seiner SoT regenerieren.
+
+SoT-Hierarchie:
+  1. AGENT_HANDOVER.md  (handgepflegt bei /session-ende — führend)
+  2. NEXT.md            (Cache — wird hier regeneriert)
+  3. git log / status   (Last-Resort, wenn 1+2 fehlen)
+
+Aufruf:
+  claude-next-sync                 # cwd
+  claude-next-sync --repo PATH     # spezifischer Pfad
+  claude-next-sync --quiet         # nur exit-code, keine Ausgabe
+  claude-next-sync --force         # auch wenn NEXT.md aktuell ist, neu schreiben
+
+Exit-Code:
+  0  NEXT.md erzeugt/aktualisiert oder bereits frisch
+  1  Pfad ist kein git-Repo
+  2  weder AGENT_HANDOVER.md noch git log liefert Inhalt
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import re
+import subprocess
+import sys
+from datetime import datetime
+from pathlib import Path
+from typing import Optional
+
+STALE_AFTER_DAYS = 14
+
+# ── Heuristik: Tier-Tag aus Item-Text ableiten ─────────────────────────────
+TIER_PATTERNS = [
+    (re.compile(r"\b(ADR|Architektur|Strategie|Hosting-ADR|Synthese|Cross-cutting|Mandantenfähigkeit)\b", re.I), "[Opus]"),
+    (re.compile(r"\b(commit|push|sync|registry|rename|lint|bump|update|migrate|cleanup|format)\b", re.I), "[/fast]"),
+    (re.compile(r"\b(Slice|Implement|Feature|Fix|Bug|View|Template|Test|Adapter|Modell|Endpoint)\b", re.I), "[Sonnet]"),
+]
+
+
+def _detect_tier(text: str) -> str:
+    for pat, tag in TIER_PATTERNS:
+        if pat.search(text):
+            return tag
+    return "[Sonnet]"  # Default — Tier 3 ist der Großteil
+
+
+def _is_git_repo(path: Path) -> bool:
+    return (path / ".git").exists()
+
+
+# Trigger-Wörter, die eine 'Prioritäten/Offene-Arbeit'-Sektion einleiten.
+# Müssen unter den ERSTEN Wörtern der Überschrift stehen (siehe _is_priority_heading) —
+# sonst matcht ein Status-Heading wie '## Stand … keine offene Arbeit' fälschlich.
+_PRIORITY_TRIGGER = re.compile(
+    r"^(Priorit|Offen|Nächst|Naechst|Next|TODO|Slice|Open|Backlog|Known|Aufgaben)",
+    re.I,
+)
+
+
+def _heading(line: str) -> Optional[tuple[int, str]]:
+    """(level, text) wenn die Zeile eine Markdown-Überschrift ist, sonst None."""
+    m = re.match(r"^(#{1,4})\s+(.*)", line.strip())
+    return (len(m.group(1)), m.group(2).strip()) if m else None
+
+
+def _is_priority_heading(text: str) -> bool:
+    """True, wenn ein Trigger-Wort unter den ersten zwei Wörtern der Überschrift steht.
+
+    'Prioritäten', 'Offene Aufgaben (Priorisiert)', 'Aktuelle Prioritäten',
+    'Next priorities', 'Known issues / TODO' → True.
+    'Stand 2026-06-23 — synced, grün, keine offene Arbeit' → False (Trigger erst Wort 6+).
+    """
+    words = [w for w in re.split(r"[\s—–:/-]+", text) if w]
+    return any(_PRIORITY_TRIGGER.match(w) for w in words[:2])
+
+
+def _find_section_start(lines: list[str]) -> Optional[int]:
+    """Index der einzuleitenden Sektions-Überschrift.
+
+    Vorrang: exakt '## Prioritäten' (kanonische CC-Konvention, ADR-230).
+    Fallback: erste Überschrift, deren erste Wörter ein Trigger sind.
+    """
+    heuristic: Optional[int] = None
+    for i, line in enumerate(lines):
+        h = _heading(line)
+        if h is None:
+            continue
+        level, htext = h
+        if level == 2 and htext.lower().rstrip(":").strip() == "prioritäten":
+            return i  # exakter Treffer schlägt alles
+        if heuristic is None and _is_priority_heading(htext):
+            heuristic = i
+    return heuristic
+
+
+def _read_handover(path: Path) -> Optional[list[str]]:
+    """Top-Items aus AGENT_HANDOVER.md extrahieren.
+
+    Wählt die Prioritäten-Sektion via _find_section_start (exakt '## Prioritäten'
+    bevorzugt) und sammelt deren nummerierte/bullet/Tabellen-/'### Slice'-Items.
+    """
+    handover = path / "AGENT_HANDOVER.md"
+    if not handover.exists():
+        return None
+    text = handover.read_text(encoding="utf-8", errors="replace")
+    lines = text.splitlines()
+
+    start = _find_section_start(lines)
+    if start is None:
+        return None
+
+    items: list[str] = []
+    for line in lines[start + 1:]:
+        stripped = line.strip()
+        if not stripped:
+            continue
+        # Neue Haupt-Überschrift beendet den Abschnitt
+        if stripped.startswith("## ") or stripped.startswith("# "):
+            break
+        # Markdown-Tabellenzeile: | Prio | Task | Tier |  (führende Spalte = Zahl)
+        if stripped.startswith("|"):
+            cells = [c.strip() for c in stripped.strip("|").split("|")]
+            if len(cells) >= 2 and cells[0].isdigit():
+                task = cells[1]
+                mb = re.search(r"\*\*([^*]+)\*\*", task)  # fetten Titel bevorzugen
+                if mb:
+                    task = mb.group(1).strip()
+                tier = cells[2].strip(" `") if len(cells) >= 3 else ""
+                # Tier-Tag erhalten, damit _write_next ihn nicht überschreibt
+                items.append(f"{tier} {task}".strip() if tier.startswith("[") else task)
+            # Header-/Separator-Zeilen (| Prio |, |---|) fallen durch
+            if len(items) >= 6:
+                break
+            continue
+        # Bullet/Nummerierung oder Sub-Heading (### Slice 1)
+        m = re.match(r"^(?:[-*]|\d+\.)\s+(.+)", stripped)
+        if m:
+            items.append(m.group(1))
+        elif stripped.startswith("### "):
+            items.append(stripped.lstrip("# ").strip())
+        if len(items) >= 6:  # genug Material — wir nehmen ohnehin nur Top-3
+            break
+
+    return items or None
+
+
+def _read_git_fallback(path: Path) -> list[str]:
+    """Wenn kein AGENT_HANDOVER.md vorhanden: aus git log Hinweise ziehen."""
+    try:
+        log = subprocess.check_output(
+            ["git", "-C", str(path), "log", "--oneline", "-5"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip().splitlines()
+        status = subprocess.check_output(
+            ["git", "-C", str(path), "status", "--short"],
+            text=True,
+            stderr=subprocess.DEVNULL,
+        ).strip().splitlines()
+    except subprocess.CalledProcessError:
+        return []
+
+    items: list[str] = []
+    if status:
+        items.append(f"Working Tree hat {len(status)} ungesicherte Änderungen — sichern oder verwerfen")
+    if log:
+        items.append(f"Letzter Commit: {log[0]} — prüfen, ob die Arbeit fortgesetzt werden soll")
+    if len(log) >= 2:
+        items.append(f"Davor: {log[1]}")
+    return items
+
+
+def _next_needs_refresh(repo: Path, force: bool) -> bool:
+    nxt = repo / "NEXT.md"
+    if force or not nxt.exists():
+        return True
+    handover = repo / "AGENT_HANDOVER.md"
+    if handover.exists() and handover.stat().st_mtime > nxt.stat().st_mtime:
+        return True
+    age_days = (datetime.now().timestamp() - nxt.stat().st_mtime) / 86400
+    return age_days > STALE_AFTER_DAYS
+
+
+def _write_next(repo: Path, items: list[str], source: str) -> None:
+    top = items[:3]
+    now = datetime.now().strftime("%Y-%m-%d %H:%M")
+    repo_name = repo.name
+    lines = [
+        f"# NEXT · {repo_name}",
+        "",
+        f"> Auto-Cache aus `{source}`. Pflege: `AGENT_HANDOVER.md` (führend) per `/session-ende`.",
+        f"> Letzter Sync: {now} · stale nach {STALE_AFTER_DAYS} Tagen.",
+        "",
+    ]
+    if not top:
+        lines.append("_Kein Inhalt — Repo aktuell ohne offene Items._")
+    else:
+        for i, item in enumerate(top, 1):
+            # Tier-Tag vorne (falls noch nicht gesetzt)
+            if not re.match(r"^\[(Opus|Sonnet|/fast|Haiku)\]", item):
+                tag = _detect_tier(item)
+                item = f"{tag} {item}"
+            lines.append(f"{i}. {item}")
+    lines.append("")
+    (repo / "NEXT.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def sync_repo(repo: Path, force: bool = False, quiet: bool = False) -> tuple[str, str]:
+    """Returns (status, detail). status in {refreshed, fresh, no-git, no-content}."""
+    if not _is_git_repo(repo):
+        return ("no-git", f"{repo} ist kein git-Repo")
+
+    if not _next_needs_refresh(repo, force):
+        return ("fresh", "NEXT.md aktuell")
+
+    items = _read_handover(repo)
+    source = "AGENT_HANDOVER.md"
+    if not items:
+        items = _read_git_fallback(repo)
+        source = "git log + status (Fallback)"
+
+    if not items:
+        # Trotzdem schreiben, mit klarer Meldung
+        _write_next(repo, [], source="(leer)")
+        return ("no-content", "kein AGENT_HANDOVER.md, kein git-log — NEXT.md leer")
+
+    _write_next(repo, items, source=source)
+    return ("refreshed", f"{len(items[:3])} Items aus {source}")
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description="Regeneriert NEXT.md aus AGENT_HANDOVER.md")
+    p.add_argument("--repo", default=os.getcwd(), help="Repo-Pfad (default: cwd)")
+    p.add_argument("--force", action="store_true", help="auch frische NEXT.md überschreiben")
+    p.add_argument("--quiet", action="store_true", help="nur exit-code")
+    args = p.parse_args()
+
+    repo = Path(args.repo).resolve()
+    status, detail = sync_repo(repo, force=args.force, quiet=args.quiet)
+    if not args.quiet:
+        symbol = {"refreshed": "✓", "fresh": "·", "no-git": "✗", "no-content": "⚠"}[status]
+        print(f"  {symbol} {repo.name:30s}  {status:12s}  {detail}")
+    return {"refreshed": 0, "fresh": 0, "no-git": 1, "no-content": 0}[status]
+
+
+if __name__ == "__main__":
+    sys.exit(main())

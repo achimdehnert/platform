@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-04-21
-decision-makers: [Achim Dehnert, Cascade AI]
+decision_date: 2026-04-21
+deciders: [Achim Dehnert, Cascade AI]
 consulted: []
 informed: []
 implementation_status: partial

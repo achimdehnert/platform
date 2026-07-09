@@ -30,7 +30,7 @@ Prüfe ob das Repo unter `achimdehnert` oder einer anderen Org liegt:
 ## Schritt 3 — In Ziel-Repo pushen (GitHub API)
 
 // turbo
-Nutze `mcp0_push_files` um die Datei zu pushen:
+Nutze `mcp__github__push_files` um die Datei zu pushen:
 
 ```
 owner: <owner>

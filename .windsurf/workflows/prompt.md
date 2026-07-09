@@ -28,7 +28,7 @@ Extrahiere aus der User-Eingabe:
 > **MCP-Prefix**: Prüfe aktuelle Belegung in `~/.codeium/windsurf/mcp_config.json` (auf WSL/Prod: `mcp1_` = github).
 
 ```
-MCP: mcp1_get_file_contents(owner="achimdehnert", repo=REPO, path=".windsurf/rules/project-facts.md")
+MCP: mcp__github__get_file_contents(owner="achimdehnert", repo=REPO, path=".windsurf/rules/project-facts.md")
 ```
 
 Falls 404 → Fallbacks:
@@ -75,7 +75,7 @@ Falls 404 → Fallbacks:
 Suche nach dem Kernbegriff der Anweisung im Repo-Code:
 
 ```
-MCP: mcp1_search_code(q="[SCHLÜSSELBEGRIFF] repo:achimdehnert/[REPO]")
+MCP: mcp__github__search_code(q="[SCHLÜSSELBEGRIFF] repo:achimdehnert/[REPO]")
 ```
 
 Extrahiere die Top-3 relevantesten Dateipfade (z.B. `src/identity/views.py`, `src/identity/services.py`).

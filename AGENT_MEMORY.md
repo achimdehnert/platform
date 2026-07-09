@@ -1,4 +1,12 @@
 # Agent Memory Store
+
+> ⚠️ **DEPRECATED (Cascade-Ära).** Diese Datei wird **nicht** mehr aktiv gepflegt
+> (letztes Update 2026-05-05) und **alle** Einträge sind `expires_at`-abgelaufen.
+> Lessons & Drift-Episoden leben jetzt im **CC-Memory-Index** (auto-geladen) +
+> pgvector (Orchestrator-MCP). **Nicht** als Wissensquelle lesen. Erhalten bleibt
+> die Datei nur, weil `orchestrator_mcp/skills/session_memory.py` sie noch parst —
+> Lifecycle-Entscheidung (GC verdrahten vs. Backend abschalten) siehe LLM-Onboarding-Report.
+
 <!-- Automatisch generiert — nicht manuell bearbeiten -->
 <!-- Editierbar via session_memory Skill oder memory_gc Workflow -->
 

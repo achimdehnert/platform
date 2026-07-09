@@ -1,6 +1,6 @@
 ---
 status: accepted
-date: 2026-04-30
+decision_date: 2026-04-30
 deciders: Achim Dehnert
 consulted: —
 informed: Alle Plattform-Entwickler

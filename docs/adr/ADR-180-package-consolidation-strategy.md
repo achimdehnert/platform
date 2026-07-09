@@ -1,12 +1,12 @@
 ---
 status: accepted
-date: 2026-03-25
+decision_date: 2026-03-25
 updated: 2026-03-25
 version: 3
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
-supersedes: ["ADR-027-shared-backend-services.md"]
+supersedes: []
 amends: []
 related: ["ADR-022-platform-consistency-standard.md", "ADR-028-platform-context.md", "ADR-035-shared-django-tenancy.md", "ADR-044-mcp-hub-architecture-consolidation.md", "ADR-050-platform-decomposition-hub-landscape.md"]
 implementation_status: done
@@ -19,6 +19,8 @@ review_status: "reviewed — v2 re-reviewed, v3 addresses remaining 7 findings f
 ---
 
 # ADR-180: Package Consolidation Strategy — 34 → 20 Packages (v3)
+
+> **Historie:** Ersetzte ADR-027 (Shared Backend Services) — archiviert unter `docs/adr/archive/`.
 
 ## Änderungshistorie
 

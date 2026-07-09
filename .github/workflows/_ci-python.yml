@@ -124,6 +124,19 @@ jobs:
     # does not fail the workflow (so consumers can gate deploy on secrets/tests
     # without lint debt blocking them — mcp-hub #78). gitleaks stays hard.
     continue-on-error: ${{ inputs.lint_soft_fail }}
+    #
+    # ┌─ LOCAL-MIRROR CONTRACT (gate `lint-failure-no-local-gate`, retro_kpis ×2) ─┐
+    # │ A consumer repo's local lint target (`make lint` / `make check`) MUST run  │
+    # │ BOTH commands below with the SAME pinned ruff version it passes as         │
+    # │ `ruff_version`. The recurring failure was repos running only `ruff check`  │
+    # │ locally and getting a red CI on the `ruff format --check` step (or a       │
+    # │ version-drift diff). So the local Makefile target must be, verbatim:       │
+    # │     ruff check .                                                           │
+    # │     ruff format --check .                                                  │
+    # │ (with `pip install "ruff==<same pin>"`). Keep this block == the steps      │
+    # │ below so "local green" == "CI green". Realfälle: frist-hub a50bc6 #13/PK3, │
+    # │ writing-hub 73003f. Full fleet rollout tracked via onboard-repo.          │
+    # └───────────────────────────────────────────────────────────────────────────┘
     steps:
       - uses: actions/checkout@v6
       - name: Set up Python

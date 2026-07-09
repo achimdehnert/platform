@@ -7,6 +7,31 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [Unreleased]
 
+### Added
+- `tools/adr/`: Fleet-Audit-Werkzeuge persistiert — `adr_inventory.py` (Inventar,
+  titel-robust ggü. Config-Blöcken vor dem H1), `adr_analyze.py` (Health/Cross-Repo,
+  Vokabular = iil-adrfw-Schema), `adr_fm_migrate.py` (Frontmatter-Migration, erprobt
+  F-1/F-1b 2026-07-04: 82 ADRs / 14 Repos). Vorher nur Session-Scratchpad.
+
+### Changed
+- `/adr-fleet-audit` Phase 0.3: Archiv-Status-Check der Clone-Remotes ergänzt —
+  archivierte Repos (read-only) werden im Report markiert und aus Fix-Wellen
+  ausgeklammert (Lücke aus dem ersten Fleet-Audit-Lauf 2026-07-04: bfagent).
+
+### Fixed
+- `tools/cc-skill-dist`: `-prototype`-Suffix aus `GENERATOR_VERSION` entfernt
+  (generate.py 0.2.0, windsurf-subset.py 0.1.0) + Banner bereinigt — DoD F-C
+  (claude-skills.md, session-retro 2026-06-05): Live-Manifeste tragen keine
+  Prototyp-Kennung mehr. Reiner Tooling-PR (F-H, getrennt von Content).
+
+### Added
+- `.windsurf/workflows/adr-fleet-audit.md`: neue Skill `/adr-fleet-audit` —
+  ADR-Inventar + Cross-Repo-Konsistenz + Optimierungs-Backlog über alle
+  ADR-tragenden Repos (Fleet-Orchestrator, read-only). Komplementär zu
+  `/adr-health` (Einzel-Korpus-Tiefe via iil-adrfw) und `/platform-audit`
+  (generisch); Org-Scope dynamisch aus Clone-Remotes statt hartkodierter
+  Org-Liste. Kein ADR — folgt bestehendem Skill-Muster (`adr-threshold.md`).
+
 ### Fixed
 - `scripts/drift_check.py`: stale HEALTHCHECK-Regel auf **ADR-078** nachgezogen
   (#549). Die alte Regel forderte `HEALTHCHECK` **im** Dockerfile (ADR-021 §2.3)

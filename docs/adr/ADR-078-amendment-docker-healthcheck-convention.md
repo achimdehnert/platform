@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-02-24
-decision-makers: [Achim Dehnert]
+decision_date: 2026-02-24
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 amends: ["ADR-021-unified-deployment-pattern.md"]

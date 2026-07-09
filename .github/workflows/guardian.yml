@@ -4,6 +4,12 @@ on:
   pull_request:
     types: [opened, synchronize, reopened]
 
+# Workflow-level default (least privilege, #818 permissions sweep); the
+# guardian job below already declares its own permissions
+# (pull-requests: write for the PR comment) and overrides this.
+permissions:
+  contents: read
+
 jobs:
   guardian:
     runs-on: ubuntu-latest

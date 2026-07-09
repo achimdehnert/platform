@@ -2,7 +2,7 @@
 id: ADR-247
 title: "Cross-Hub Onboarding-Contract: billing-hub → Produkt-Hub Auto-Login (HMAC + Magic-Link)"
 status: proposed
-date: 2026-06-17
+decision_date: 2026-06-17
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh, meiki-lra, ttz-lif]

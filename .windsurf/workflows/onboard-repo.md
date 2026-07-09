@@ -18,6 +18,17 @@ User says one of:
 - "Reflex review fixen für [name]"
 - "Compliance-Onboarding für [name]"
 
+## Wann `/onboard-repo` — und wann nicht?
+
+- **Wann:** vollständiges **technisches** Onboarding — Projektstruktur, CI/CD, Docker,
+  Health-Endpoints, Server-Infra, Nginx, SSL, DB, project-facts.
+- **Wann NICHT / stattdessen:**
+  - Nur **Dokumentations-/Template-Infrastruktur** (Issue Forms, ADR, Use Cases,
+    CORE_CONTEXT, AGENT_HANDOVER, Perfect Prompt) → **`/new-github-project`**. Beide
+    ergänzen sich; für ein frisches Repo idealerweise beide ausführen.
+  - `/onboarding-new-repo` (nur `.windsurf`-Config) ist **deprecated** → dessen Aufgaben
+    sind in diesem Workflow enthalten; nicht mehr separat verwenden.
+
 ## Mode Detection
 
 Determine the mode based on whether the repo already exists:
@@ -152,6 +163,11 @@ CLOUDFLARE_API_TOKEN=<token> python ${GITHUB_DIR:-$HOME/github}/platform/infra/s
 - `python infra/scripts/validate_repos.py` — Konsistenz prüfen
 
 ## Step 0.9: Architecture Context laden (iil-adrfw v0.4.0)
+
+> ℹ️ **CC-Fallback:** Die `mcp2_adr_*`-Aufrufe unten sind Windsurf-Ära-Namen; in
+> Claude-Code-Sessions heißen dieselben Tools `mcp__<orchestrator-prefix>__adr_*`. Bindet die
+> Session keinen ADR-MCP-Server, ist der Fallback direkte Reads in `docs/adr/` bzw. der
+> `iil-adrfw`-CLI-Weg — das Onboarding bricht nicht ab, nur die MCP-Automatik entfällt.
 
 Bevor das Repo strukturiert wird — welche ADRs gelten?
 
@@ -929,7 +945,7 @@ Testing (ADR-058):
   [ ] tests/conftest.py importiert platform_context.testing.fixtures
   [ ] tests/factories.py mit UserFactory
   [ ] config/settings/test.py mit WHITENOISE_MANIFEST_STRICT=False
-  [ ] pytest tests/ -v läuft lokal ohne Fehler
+  [ ] `make test` läuft lokal ohne Fehler (Fallback nur falls kein Makefile-Target `test` existiert: `pytest tests/ -v`)
 
 Platform-Integration:
   [ ] platform/registry/repos.yaml Eintrag hinzugefügt

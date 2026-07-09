@@ -64,7 +64,7 @@ push to main
 
 ```bash
 # Via deployment-mcp:
-mcp5_docker_manage(action="container_exec",
+mcp__deployment-mcp__docker_manage(action="container_exec",
     container_id="<REPO_UNDERSCORE>_web",
     command="python manage.py test apps/ --verbosity=2")
 ```
