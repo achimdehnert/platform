@@ -1,8 +1,8 @@
 ---
 status: proposed
-date: 2026-05-18
+decision_date: 2026-05-18
 revision: 4
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 scope: platform
 implementation_status: none
 related: [ADR-111, ADR-196, platform#191, platform#194]

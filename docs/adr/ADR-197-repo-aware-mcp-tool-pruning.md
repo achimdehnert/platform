@@ -1,10 +1,10 @@
 ---
 status: proposed
-date: 2026-05-12
-decision-makers:
+decision_date: 2026-05-12
+deciders:
   - Achim Dehnert
-reviewed-by: []
-depends-on:
+reviewed_by: []
+depends_on:
   - ADR-113 (Agent Memory — pgvector store + temporal decay)
   - ADR-176 (MCP Server SSoT — templates + sync-mcp-config.sh)
   - ADR-186 (Headless Agent Pipeline — tool-usage telemetry source)

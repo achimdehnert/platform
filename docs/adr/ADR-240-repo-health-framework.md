@@ -1,13 +1,13 @@
 ---
 status: proposed
-date: 2026-06-09
-decision-makers: Achim Dehnert
+decision_date: 2026-06-09
+deciders: Achim Dehnert
 consulted: Externe Zweitmeinung (Advocatus-Diabolus-Review 2026-06-09, ~/shared/adr-handoff-ADR-240-2026-06-09.md)
 informed: –
 implementation_status: not_started
 domains: [platform, observability, health, agents, mcp]
 scope: cross-repo
-relates_to: [ADR-196, ADR-201, ADR-222, ADR-231, ADR-239]
+related: [ADR-196, ADR-201, ADR-222, ADR-231, ADR-239]
 tags: [repo-health, health-check, probe, narration, mcp-hub, orchestrator-db, plugin-architecture]
 ---
 

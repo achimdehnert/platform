@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-05-16
-decision-makers: [Achim Dehnert]
+decision_date: 2026-05-16
+deciders: [Achim Dehnert]
 implementation_status: none
 related: [ADR-199-rejected, ADR-201, ADR-203, mcp-hub#37, mcp-hub#41]
 ---

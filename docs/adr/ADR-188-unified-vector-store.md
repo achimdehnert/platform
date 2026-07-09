@@ -1,14 +1,14 @@
 ---
 status: accepted
-date: 2026-05-07
+decision_date: 2026-05-07
 amended: 2026-05-08
-decision-makers:
+deciders:
   - Achim Dehnert
 consulted:
   - AI Engineering Squad
 informed:
   - Repo-Owner risk-hub, meiki-hub, bfagent, coach-hub, weltenhub
-depends-on:
+depends_on:
   - ADR-087 (Hybrid Search Architecture — platform-search Package)
   - ADR-171 (Temporal RAG Infrastructure — Schema)
   - ADR-172 (rag-mcp Server — Platform-Wide RAG API)

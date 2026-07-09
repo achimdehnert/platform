@@ -12,7 +12,19 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-03 — ADR-264 Deployment-SSoT ACCEPTED · 2 Prod-Incidents gelöst · Retro×2)
+## ⚡ Aktueller Stand (2026-07-05 — ADR-265/266 accepted · PyPI-Fleet-Build + ADR-Fleet-Audit-Tooling · KONZ-012 Org-Migration · Retro×3)
+
+**Sessions 2026-07-04/05:** Zwei große Stränge — (1) ADR-265/266 accepted + PyPI-Fleet-Build-Phase, (2) ADR-Fleet-Audit-Tooling + platform-SSoT-Org-Migrations-Konzept (KONZ-012). Plus drei adversariale Retros.
+
+- **ADRs accepted/aktualisiert:** **ADR-265** (untrack distributed symlink targets fleetwide) + **ADR-266** (PyPI-Fleet-Lifecycle/Publishing-Konvergenz) **accepted** (#930, Entscheid Achim 07-04). **ADR-255 Rev 4** (#937) — REC-1 GitHub-Owner-Bedingung erfüllt (iilgmbh 2 Owner live verifiziert). **ADR-256 → partial** (#952) — `/mcp` live + externe Clients migriert (#128 resolved). **ADR-211 Rev 23** (#957) — Content-Screen-Typ (KONZ-009, additiv opt-in).
+- **ADR-Fleet-Audit:** erster `/adr-fleet-audit`-Lauf (#916, Skill #909); F-3-Status-Flip-Triage (#929: 6 accept · 1 superseded · 1 void); ADR-Fleet-Werkzeuge persistiert + Skill-Vokabular auf adrfw-Schema (#933).
+- **PyPI-Fleet (ADR-266 Build):** Inventar-Wahrheit + tote Publisher raus + Auth-Evidenz (#910); resolve-install-extra Komma-Listen (#915); Health-Workflow + origin/main-Ground-Truth (#912). `_ci-pypi` gate-Aggregat-Job + mypy_blocking + enable/bandit_blocking (#920/#938/#941).
+- **KONZ-platform-012** (#939) — platform-SSoT-Org-Migration nach iilgmbh, phasen-/vorbedingungs-gegatet (T3, 3 blinde Adversarial-Agenten). Phase-A/B-Runbooks: Owner-Recovery/Leaver (#940), Runner-Reprovisionierung + Secret-Re-Population (#943). Siehe CC-Memory `project_platform_org_migration_konz012`.
+- **Tooling/CI:** `sync-drift-meter` read-only Fleet-Drift-Melder (ADR-265 REC-3, #951). sync-registry C-8-Fixes (mehrschichtig: #904/#911/#926). Guard-Tests + SKIP-Aggregation für `sync-workflows.sh` (#950). handover-banner-CI-Gate + repo-session self-healing reap (Retro f5e1d, `handoff-banner-gate.yml`). Neue Skills `/kd-scout` (#942) + `/kd-review` (#944); Routing-Kanon + workflow-index-Reparatur (#905).
+- **Retros:** e17299 (07-04, #918) + Increment (#925); NL2X-Fleet-Audit + Retro (07-04, #917/#932); session-retro 2026-07-05 iil-adrfw 0.7.0 (#948).
+- **Offen:** ADR-242 Wave 3 unverändert gated (§0 + platform#811); Deploy-Health billing-hub/cad-hub (§0 Prio 2); shared-ci#17-Rollout (ADR-264 Build); MCP-Client `/sse`→`/mcp` (Rest von ADR-256).
+
+## ⚡ Vorheriger Stand (2026-07-03 — ADR-264 Deployment-SSoT ACCEPTED · 2 Prod-Incidents gelöst · Retro×2)
 
 **Diese Session (2026-07-02/03, 54a76c):** Deployment-Strategie-Arc end-to-end — Analyse → Konzept → ADR → Accept → erste Bausteine. Plus zwei Prod-Incidents diagnostiziert+gefixt und zwei adversariale Retros.
 
@@ -22,52 +34,7 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 - **Retros (deep + incr):** `docs/retros/session-retro-2026-07-03-platform-54a76c{,-incr}.md`. `claim-before-cheapest-check` org-weit **×9** → `evidence_claim_scanner.py` scannt jetzt **published PR-/Issue-Bodies** (7/7 Tests). Neue Drift-Memories: host-fix-must-mirror-to-iac · host-bandaid-check-accepted-adr-first.
 - **Offen:** shared-ci#17 (Deploy-Artefakt-Verify, warn-only — Review→v1.0.8→Consumer-Bump) · MCP-Client `/sse`→`/mcp` umstellen (dann Orchestrator-404 dauerhaft weg) · #883-Koordinationskommentar (Retro-incr #4) · T3-Konzept Runner-Host-Isolation · ADR-264 Build-Phase (D2-Promotion-Pilot + Rollback-Drill, 30/60/90 in KONZ-011).
 
-## ⚡ Vorheriger Stand (2026-06-20 — F4 geschlossen + ADR-242 Wave 2 live; Wave 3 vorbereitet)
-
-**Diese Session (2026-06-20):** Handover-Prio #1 (F4) abgeschlossen → entsperrte ADR-242
-Wave 2, beide Programme sauber verzahnt.
-
-**F4 CI-grün = als code-CI-Programm GESCHLOSSEN.** Fleet-Survey (last push-run/default,
-API): **37/50 grün**; **alle 9 roten sind Deploy-Stage** (G5/Owner/Infra) — NULL code-CI
-(Lint/Test/Coverage). Restrot = Deploy-Health (separates Programm, nie autonom).
-6 `update-project-facts.yml`-Retire-PRs alle gemergt. Detail: CC-Memory
-`project_f4_ci_green_program`.
-
-**ADR-242 Branch-Protection — Wave 2 LIVE, jetzt 11 Repos geschützt:**
-- **Wave 1 (7):** platform, risk-hub, mcp-hub, billing-hub, cad-hub, coach-hub, dev-hub.
-- **Wave 2 (4, neu 2026-06-20):** ausschreibungs-hub, trading-hub, wedding-hub, writing-hub
-  — Rulesets #17924045/46/47/49, `enforcement=active`, bypass leer, required check
-  **`ci / gate`**. Config-PR **#607** (wave2-repos.json + `apply-branch-protection.yml`
-  auf `wave`-Input generalisiert); Apply via Dispatch (dry-run 4/0 → scharf 4/4).
-- **Negativ-Test bestanden** (Confirmation §3): ausschreibungs-hub#127 (absichtl.
-  Syntax-Fehler) → `ci / gate` FAILURE → `mergeStateStatus=BLOCKED` → Merge-API abgelehnt
-  → PR geschlossen + Branch gelöscht.
-- **Meter deckt jetzt Wave 1+2** (#611): `branch_protection_meter.py --expected` nimmt
-  mehrere Wave-Dateien; Mo 06:00 UTC; Live-Smoke `11 konform · 0 Verletzungen`.
-
-**→ WAVE 3 — Voraussetzung + Worklist (erster Zug eines neuen Strangs):**
-- **Gate (ADR-242 §Entscheidung-1):** required check MUSS der stabile Aggregat-Job
-  **`ci / gate`** sein — fragile per-Job-Namen sind verboten. Deshalb war Wave 2 nur
-  4 Repos: von ~30 grünen unprotected Repos hatten nur diese den Aggregat-Gate.
-- **Wave-3-Kandidaten = ~26 grüne Repos OHNE stabilen `ci / gate`** (Snapshot 2026-06-20,
-  bei Ausführung neu scannen): aifw, apo-hub*, authoringfw, bahn-hub, decks-hub, design-hub,
-  gaeb-toolkit, iil-adrfw, iil-codeguard, iil-demo-fixture, iil-django-commons, iil-ingest,
-  iil-reflex, iil-testkit, lastwar-bot, learn-hub, learnfw, nl2cad, odoo-hub, outlinefw,
-  promptfw, recruiting-hub, researchfw, riskfw, travel-beat, weltenfw.
-  (*apo-hub hat nur den fragilen `Coverage Gate (≥0%)`-Namen — kein Kandidat ohne Fix.)
-- **Voraussetzung vor Apply = shared-ci-`ci / gate`-Konvergenz** (ADR-209-Programm, NICHT
-  diese Session): die shared-ci-Consumer (learn-hub/recruiting-hub/travel-beat emittieren
-  `ci / *` aber kein `ci / gate` → shared-ci-Version ohne Aggregat-Job; bump nötig); die
-  Standalone-CI-Libs (iil-*, *fw mit `test (3.12)`/`lint`-Jobs) brauchen Konvergenz auf
-  `_ci-python.yml` ODER einen eigenen Aggregat-Gate-Job. Erst danach `wave3-repos.json`
-  anlegen + `apply-branch-protection.yml wave=3` dispatchen + Negativ-Test + Meter-Liste
-  erweitern.
-- **Artefakte:** `governance/rulesets/{wave1,wave2}-repos.json`,
-  `main-required-checks-template.json`, `.github/workflows/apply-branch-protection.yml`
-  (`wave`-Input), `tools/branch_protection_meter.py` (`--expected` multi-file),
-  `.github/workflows/branch-protection-meter.yml`. Pre-Flight-Pflicht je Repo (Lehre
-  `feedback_adr242_wave1_doc_vs_reality`): Check-Name auf PR-Head + grüne main-CI +
-  `ci / gate` läuft auf `pull_request` (sonst PR-Deadlock).
+> **Ältere Stände** (2026-06-20 F4/Wave-2, 2026-06-12 T5 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
 ## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
@@ -77,6 +44,8 @@ API): **37/50 grün**; **alle 9 roten sind Deploy-Stage** (G5/Owner/Infra) — N
 | 2 | **Deploy-Health** (separates Programm, **nie autonom** — Owner/Infra). **Re-Check 2026-07-02: weitgehend geheilt** — onboarding-hub grün (seit 06-24), 137-hub grün (seit 06-21), weltenhub grün (07-01, cancelled=Concurrency benign); dms-hub weiter `cancelled` (benign, letzte Runs 06-09). **tax-hub „Issue Triage" 3× failure (07-01/02)** — Root-Cause `Input required and not supplied: github-token` (Repo hat 0 Secrets, `PROJECT_PAT` fehlt; risk-/coach-hub identisches Muster + PAT = grün). **Fix-PR iilgmbh/tax-hub#20 offen** (Fallback `PROJECT_PAT \|\| github.token`; Self-Approval-Block → wartet auf Owner-Merge; bei Merge `[skip ci]` beachten — deploy.yml feuert auf push:main ohne paths-Filter). Alternative: PROJECT_PAT als Secret setzen (Owner). | `[du/Owner]` |
 
 > **Fortschritt 2026-07-03 (Session 54a76c):** Prio 1 (Wave 3): Scope +„Registry-Konsistenz required machen" (#811-Kommentar — Check ist heute NICHT required, nur `guardian`; Realfall #883/#884/#885 mergten rot). Prio 2 (Deploy-Health): **ADR-264 accepted** = strategischer Rahmen steht; travel-beat-Deploy wieder grün (#57); mcp-hub `/mcp` live; Rest-Item = shared-ci#17-Rollout.
+>
+> **Fortschritt 2026-07-06 (ERLEDIGT):** **Prio 1 — Wave-3 Phase 1 KOMPLETT** (alle 3 gemergt, `ci / gate` real grün verifiziert): learn-hub#25 (`name:"CI"`-Override raus) · recruiting-hub#13 + travel-beat#62 (**Option A1 = additiver `ci`-Job neben bestehender bespoke Test-CI**, kein Coverage-Verlust — der ursprüngliche #811-Befund „KEIN PR-getriggertes ci.yml" war für beide veraltet). recruiting#10/travel#55/learn#23 auto-closed. **Nächster Wave-3-Schritt = Phase 2** (~23 Standalone-Libs, Worklist in #811), dann Apply. **Prio 2 — Deploy-Health geheilt + live:** billing-hub 403 = **Package-`Manage Actions access` fehlte dem Repo** (NICHT Workflow — identische deploy.yml wie cad-hub, das grün pushte); Owner-Fix im Package-Setting → Rerun grün, `billing.iil.pet/healthz` 200. cad-hub = transienter GHA-Cache-Timeout → Rerun grün, `nl2cad.de/healthz` 200. **Neu: Runbook `docs/runbooks/ghcr-403-push-actions-access.md` (#967) + CC-Memory `reference_ghcr_403_push_package_actions_access`.**
 
 > **PR-Hygiene (erledigt 2026-07-02, Freigabe Achim):** #753 + #746 geschlossen (Duplikate von gemergtem #808) · **#760 gemergt** (Registry iil-adrfw/codeguard — Registry-Lücke zu) · **#759 gemergt** (gen_adr_index.py; Rebase-Konflikt in INDEX.md durch Generator-Lauf gelöst, 206 aktive + 48 archivierte ADRs indiziert).
 

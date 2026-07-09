@@ -7,11 +7,11 @@ implementation_evidence:
   - ".github/actions/gitleaks-scan (ADR-226) als geteilte Action mit einem Versions-Pin von Layer 2 konsumiert"
   - "desktop-setup-Fund bereinigt (secrets.env aus Tree + .gitignore + .gitleaksignore; Tokens waren bereits rotiert)"
   - "Audit-Skript + Befund als #412 dokumentiert"
-date: 2026-06-02
-decision-makers: Achim Dehnert
+decision_date: 2026-06-02
+deciders: Achim Dehnert
 domains: [security, ci-cd, governance, secrets]
 scope: platform
-relates_to: [ADR-045, ADR-210, ADR-220, ADR-226]
+related: [ADR-045, ADR-210, ADR-220, ADR-226]
 tags: [secret-scanning, push-protection, gitleaks, ghas, prevention, cross-repo, by-construction]
 ---
 

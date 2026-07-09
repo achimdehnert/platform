@@ -1,13 +1,13 @@
 ---
 status: superseded
-superseded-by: ADR-195 (LiteLLM-Proxy as Logging Engine + Anthropic Admin API as Truth Anchor)
-date: 2026-05-11
-decision-makers:
+superseded_by: ADR-195 (LiteLLM-Proxy as Logging Engine + Anthropic Admin API as Truth Anchor)
+decision_date: 2026-05-11
+deciders:
   - Achim Dehnert
-reviewed-by:
+reviewed_by:
   - Claude Opus 4.7 (Sparring Review, 2026-05-11) — REVISIONS REQUIRED, see reviews/ADR-194-review.md
   - Claude Opus 4.7 (Out-of-the-Box Critique, 2026-05-11) — fundamental concerns: SPoF, bootstrap paradox, Admin API + OSS proxy not considered
-depends-on:
+depends_on:
   - ADR-115 (Grafana Agent Controlling Dashboard — llm_calls table)
   - ADR-116 (Dynamic Model Router — budget-aware routing)
   - ADR-178 (LLM Gateway Consolidation — V2 as canonical)

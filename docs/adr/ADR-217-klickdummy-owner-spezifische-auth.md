@@ -2,7 +2,7 @@
 id: ADR-217
 title: "Klickdummy Owner-spezifische Auth (Phase 2 nach ADR-216)"
 status: proposed
-date: 2026-05-21
+decision_date: 2026-05-21
 deciders: [Achim Dehnert]
 consulted: [self-advocatus-diabolus]
 informed: [meiki-lra, bahn-sqf, ttz-lif, iilgmbh]

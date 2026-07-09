@@ -25,7 +25,4 @@ Drift-Episoden & Lessons leben im **CC-Memory-Index** (auto-geladen) + pgvector 
 - **Brauche ich ein ADR?** → `~/.claude/policies/adr-threshold.md` ist maßgeblich.
   Reine Ergänzung nach bestehendem Muster = **kein** ADR (CHANGELOG/PR genügt);
   ADR nur bei echter Architektur-Entscheidung. Nicht überschießend gaten.
-- **ADR-Nummern**: zur Merge-Zeit allokiert (ADR-228, amends ADR-065), monoton,
-  nie wiederverwendet. Bestand live: `ls docs/adr/ADR-*.md | wc -l`.
-- **Commits in `docs/adr/`**: scope = `adr`, nicht `docs`.
-- **Secrets** nie ins Repo — immer `~/.secrets/`.
+- **Konventionen** (ADR-Nummern, Commit-Scopes, Secrets, …): siehe `CORE_CONTEXT.md` §Konventionen.
