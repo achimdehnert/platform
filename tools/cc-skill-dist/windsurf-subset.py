@@ -9,9 +9,17 @@ Erzeugt die Subset-Kopien (MANAGED-Footer + manifest) in ein **Staging-Dir**.
 SICHERHEIT: `--target` Pflicht; schreibt NIE in `~/.codeium/windsurf/windsurf/workflows/`
 ohne `--allow-live` (im Prototyp nicht genutzt).
 """
-import argparse, datetime, hashlib, json, os, re, shutil, subprocess, sys
+import argparse
+import datetime
+import hashlib
+import json
+import os
+import re
+import shutil
+import subprocess
+import sys
 
-GENERATOR_VERSION = "0.1.0-prototype"
+GENERATOR_VERSION = "0.1.0"
 MARK = "MANAGED-BY: platform/tools/cc-skill-dist (windsurf-subset)"
 DEFAULT_SUBSET = ["adr.md", "adr-review.md", "adr-challenger.md", "adr-curator.md",
                   "adr-health.md", "adr-handoff-extern.md", "agent-review.md",

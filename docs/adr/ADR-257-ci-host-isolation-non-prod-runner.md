@@ -1,8 +1,8 @@
 ---
 status: accepted
-date: 2026-06-26
+decision_date: 2026-06-26
 revision: 3
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 scope: platform
 implementation_status: in-progress
 related: [ADR-222, ADR-156, KONZ-risk-hub-004]

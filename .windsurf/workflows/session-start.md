@@ -59,7 +59,7 @@ if ! grep -q "GITHUB_DIR" ~/.bashrc 2>/dev/null; then
   echo "# Platform: Repo-Basisverzeichnis (Single Source of Truth)" >> ~/.bashrc
   echo "export GITHUB_DIR=\"\$HOME/github\"" >> ~/.bashrc
   echo "⚙️  GITHUB_DIR in ~/.bashrc eingetragen (Wert: \$HOME/github)"
-  echo "   → Anpassen falls Repos woanders liegen, z.B.: GITHUB_DIR=\$HOME/CascadeProjects"
+  echo "   → Anpassen falls Repos woanders liegen, z.B.: GITHUB_DIR=\$HOME/code"
 fi
 export GITHUB_DIR="${GITHUB_DIR:-$HOME/github}"
 
@@ -76,11 +76,12 @@ echo "shell-alive-$(date +%s)"
 ```
 
 > **Wenn dieser Befehl hängt (>5s):** Shell ist blockiert!
-> → `/windsurf-clean` ausführen oder Windsurf neustarten
-> → Bis dahin: NUR `read_file`, `write_to_file`, `mcp1_*` (GitHub) und `mcp3_*` (Outline) nutzen
+> → In CC: Session neu starten; in Windsurf: `/windsurf-clean`.
+> → Bis dahin: NUR `Read`/`Write`/`Edit` + die stabilen MCP-Tools
+>   `mcp__github__*` (GitHub) und `mcp__outline-knowledge__*` (Outline) nutzen.
 > → **Lesson Learned 2026-04-05:** Shell-Hang kann ganze Sessions blockieren.
->   Edit-Tools (`edit`, `multi_edit`) können ebenfalls betroffen sein (zeigen "empty file").
->   GitHub MCP `mcp__github__get_file_contents` + `mcp__github__push_files` als Workaround für Git-Operationen.
+>   Edit-Tools können ebenfalls betroffen sein (zeigen "empty file").
+>   `mcp__github__get_file_contents` + `mcp__github__push_files` als Workaround für Git-Operationen.
 
 ### 0.1 Server-Erreichbarkeit prüfen (PFLICHT — vor allen MCP/SSH-Calls)
 
@@ -283,6 +284,21 @@ else
 fi
 ```
 → **KEIN Fallback auf agent memory erlaubt.** pgvector MUSS laufen.
+
+### 0.5.1 Secret-Drop-Zone-Guard (KONZ-platform-010, warn)
+
+// turbo
+```bash
+# ~/shared ist Wegwerf-Scratch; Secrets gehören NUR nach ~/.secrets (SSoT, 0700).
+# ~/shared/inbox/secrets ist world-writable (0777) → nie dauerhaft Secrets dort lagern.
+if [ -d ~/shared/inbox/secrets ] && [ -n "$(ls -A ~/shared/inbox/secrets 2>/dev/null)" ]; then
+  n=$(ls -A ~/shared/inbox/secrets 2>/dev/null | wc -l)
+  echo "⚠️  $n Secret(s) in ~/shared/inbox/secrets — gehören nach ~/.secrets (KONZ-010)."
+  echo "   Reconcile: byte-identische Dubletten löschen, Unikate verschieben, divergente prüfen."
+fi
+```
+→ Warn, kein Hard-Fail (legitime Zwischen-Drops nicht blockieren). Wiederholungs-Bremse gegen
+  das Drift-Muster (inbox driftete schon 1× nach der 2026-05-30-Konsolidierung, KONZ-010 B5).
 → Bei Fehler: Session NICHT fortsetzen bis Tunnel steht.
 
 ### 0.6 Deploy-Infrastruktur prüfen (ADR-156)
@@ -340,7 +356,7 @@ python -c "
 import yaml, urllib.request, socket
 from pathlib import Path
 import os
-gh = os.environ.get('GITHUB_DIR') or f\"{os.environ['HOME']}/CascadeProjects\"
+gh = os.environ.get('GITHUB_DIR') or f\"{os.environ['HOME']}/github\"
 d = yaml.safe_load(Path(f'{gh}/platform/infra/ports.yaml').read_text())
 ok = fail = skip = 0
 for name, cfg in sorted(d.get('services',{}).items()):
@@ -361,28 +377,30 @@ print(f'Staging: {ok} up, {skip} nicht erreichbar (normal wenn nicht deployed)')
 
 ## Phase 1: Kontext laden
 
-1. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index, `mcp5_get_context_for_task()`
-2. **Health Dashboard** (bei Infra/Deploy-Sessions) — `mcp0_system_manage(action: health_dashboard)`
+1. **Repo-Kontext laden** — AGENT_HANDOVER.md, CORE_CONTEXT.md, ADR-Index; falls
+   platform-context-MCP gebunden: `mcp__platform-context__get_context_for_task()`
+2. **Health Dashboard** (bei Infra/Deploy-Sessions) — falls deployment-MCP gebunden:
+   `mcp__deployment-mcp__system_manage(action: health_dashboard)`
 3. **Aufgabe klären** — Issue? Use Case? ADR? Governance?
 4. **Branch-Status prüfen** — `git status && git log --oneline -5`
-5. **Tests baseline** — `pytest tests/ -q --tb=no` (falls vorhanden)
+5. **Tests baseline** — `make test` (CI-relevant) bzw. `pytest tools/tests/ -q` (falls vorhanden)
 6. **Knowledge-Lookup** — Outline durchsuchen (Repo-Steckbrief, Task-Wissen, Lessons, Cascade-Aufträge)
-7. **ADR-Inputs prüfen** — Neue Input-Dokumente aus Outline abholen:
+7. **ADR-Inputs prüfen** — Neue Input-Dokumente aus Outline abholen (falls Outline-MCP gebunden):
 ```
-mcp3_search_knowledge(query: "Input ADR", collection: null, limit: 10)
+mcp__outline-knowledge__search_knowledge(query: "Input ADR", collection: null, limit: 10)
 ```
 → Sucht nach Dokumenten mit Titel "Input ADR-XXX: ..." in allen Collections.
 → Unbearbeitete Inputs (ohne ✅ im Titel) dem User melden.
-→ Workflow: User erstellt `Input ADR-156: Deploy-Script Referenz` in Outline → Cascade findet es hier.
-→ Nach Verarbeitung: Titel auf `✅ Input ADR-156: ...` setzen via `mcp3_update_document()`.
+→ Nach Verarbeitung: Titel auf `✅ Input ADR-156: ...` setzen via `mcp__outline-knowledge__update_document()`.
 
 ---
 
 ## Phase 2: pgvector Warm-Start (ADR-154)
 
-> **MCP-Prefix beachten** — auf Dev Desktop ist `mcp1_` = orchestrator (siehe `project-facts.md`).
+> **Stabile CC-Namen** — `mcp__orchestrator__*` (nicht `mcpN_`, die sind Windsurf-Ära
+> und environment-volatil). Signatur vor Nutzung via `ToolSearch select:<name>` prüfen.
 
-8. **Memory Warm-Start / Bekannte Fehler / Recurring Errors** — alles über `mcp1_agent_memory`:  <!-- TODO(mcp-migration): mcp1_agent_memory -- Phase 2 (no-op in scope) -->
+8. **Memory Warm-Start / Bekannte Fehler / Recurring Errors** — über `mcp__orchestrator__agent_memory_search`:
 ```
 mcp__orchestrator__agent_memory_search(
   filter_type: "solved_problem",   // oder "error_pattern" für Bug-Fix-Sessions
@@ -392,8 +410,9 @@ mcp__orchestrator__agent_memory_search(
 → Liefert relevante Session-Summaries, Error-Patterns und Lessons aus pgvector.
 → Falls leer: normal weiterarbeiten (Memory füllt sich über `/session-ende`).
 
-> ℹ️ `mcp2_get_session_delta  <!-- TODO(mcp-migration): mcp2_get_session_delta -- Phase 2 (defunct) -->` + `mcp__orchestrator__find_similar_errors` + `mcp__orchestrator__check_recurring_errors`
-> sind wieder verfügbar (seit Issue #80 Reopened). Siehe Phase 2.5.
+> ℹ️ Ergänzend: `mcp__orchestrator__find_similar_errors` + `mcp__orchestrator__check_recurring_errors`
+> (siehe Phase 2.5). Bei orchestrator-404 (SSE-Session-Stickiness): 🌀
+> `feedback_orchestrator_sse_session_stickiness_404` — nicht per Reconnect heilbar.
 
 ---
 
@@ -402,7 +421,7 @@ mcp__orchestrator__agent_memory_search(
 **Proaktives Root-Cause-Scanning** — Fehler die sich 3×+ wiederholen sind strukturell, nicht zufällig.
 
 ```
-MCP: <orc>_check_recurring_errors(threshold=3)
+mcp__orchestrator__check_recurring_errors(threshold=3)
 → liefert: Liste mit {symptom, root_cause, fix, occurrence_count, last_occurred_at, action}
 ```
 
@@ -417,11 +436,13 @@ MCP: <orc>_check_recurring_errors(threshold=3)
 **Auto-Issue-Template** (für 5×+ Occurrences):
 
 ```
-<gh>_list_issues(labels=["adr-candidate", "auto-detected"], state="open")
+# Owner aus dem git-Remote ableiten, nicht hardcoden:
+#   OWNER=$(git remote get-url origin | sed -E 's#.*[:/]([^/]+)/[^/]+(\.git)?$#\1#')
+mcp__github__list_issues(labels=["adr-candidate", "auto-detected"], state="open")
 # Nur erstellen wenn gleiche entry_key nicht schon offen
 
-<gh>_create_issue(
-    owner="achimdehnert", repo="platform",
+mcp__github__create_issue(
+    owner="<OWNER>", repo="platform",
     title=f"[adr-candidate] Recurring: {symptom[:60]}",
     body=f"**Occurrences:** {count}× (seit {first_seen})\n"
          f"**Last:** {last_occurred_at}\n\n"
@@ -512,6 +533,13 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 
 ## Changelog
 
+- 2026-07-02: v2.1 — CC-first-Call-Sites vollendet: Phase 1/2/2.5 riefen noch
+  Windsurf-Prefix-Tools (`mcp__platform-context__get_context_for_task`, `mcp__deployment-mcp__system_manage`,
+  `mcp__outline-knowledge__search_knowledge`, `mcp__orchestrator__agent_memory`, `<orc>_`/`<gh>_`-Platzhalter) — auf
+  stabile `mcp__…`-Namen umgestellt (v2 hatte nur die Warnung ergänzt, nicht die
+  Aufrufe); Shell-Hang-Fallback (Z.80) + Auto-Issue-Owner (git-Remote statt
+  hardcoded) mitgezogen; TODO(mcp-migration)-Marker geschlossen; orchestrator-404-
+  Drift-Verweis ergänzt; Testbefehl auf `make test`.
 - 2026-07-02: v2 — `mode: write` nachgetragen; Parallel-Session-Guard in 0.4
   (ADR-233 + Shared-Worktree-Drift); 0.5 sudo-freier Tunnel-Fallback (devuser ohne
   sudo); adrfw-MCP-Block environment-aware mit CC-CLI-Fallback (Signaturen-Policy);

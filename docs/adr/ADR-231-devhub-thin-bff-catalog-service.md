@@ -1,9 +1,9 @@
 ---
 id: ADR-231
 status: accepted
-date: 2026-05-30
+decision_date: 2026-05-30
 amended: 2026-05-30
-decision-makers: Achim Dehnert
+deciders: Achim Dehnert
 implementation_status: none
 domains: [dev-hub, architecture, ssot, portal, drift-prevention]
 supersedes: []

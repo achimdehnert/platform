@@ -169,7 +169,7 @@ done
 
 ### 2.1 Platform-Context Violations
 
-Für jedes Django-Repo: `mcp14_get_context_for_task` aufrufen und bekannte Violations prüfen.
+Für jedes Django-Repo: `mcp__platform-context__get_context_for_task` aufrufen und bekannte Violations prüfen.
 
 Prüfe insbesondere:
 - **BigAutoField vs. UUIDField** — `grep -r 'UUIDField(primary_key=True)' src/ apps/ --include='*.py' -l`
@@ -231,7 +231,7 @@ done
 Via deployment-mcp:
 
 ```
-mcp6_docker_manage(action="container_list", host="88.198.191.108")
+mcp__deployment-mcp__docker_manage(action="container_list", host="88.198.191.108")
 ```
 
 Erfasse:
@@ -242,28 +242,28 @@ Erfasse:
 ### 3.2 Health-Endpoints aller Prod-URLs
 
 ```
-mcp6_system_manage(action="health_dashboard", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="health_dashboard", host="88.198.191.108")
 ```
 
 Oder manuell:
 ```
-mcp6_ssh_manage(action="http_check", url="https://bfagent.iil.pet/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://drifttales.app/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://weltenforger.com/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://schutztat.de/livez/", host="88.198.191.108")
-mcp6_ssh_manage(action="http_check", url="https://prezimo.com/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://bfagent.iil.pet/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://drifttales.app/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://weltenforger.com/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://schutztat.de/livez/", host="88.198.191.108")
+mcp__deployment-mcp__ssh_manage(action="http_check", url="https://prezimo.com/livez/", host="88.198.191.108")
 ```
 
 ### 3.3 SSL-Zertifikate
 
 ```
-mcp6_network_manage(action="ssl_expiring", days=30, host="88.198.191.108")
+mcp__deployment-mcp__network_manage(action="ssl_expiring", days=30, host="88.198.191.108")
 ```
 
 ### 3.4 Disk + Memory
 
 ```
-mcp6_system_manage(action="info", host="88.198.191.108")
+mcp__deployment-mcp__system_manage(action="info", host="88.198.191.108")
 ```
 
 ---

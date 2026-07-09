@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-004
 title: Branch-Protection-Enforcement schließen — ADR-174-Drift via ADR-234 R2
-pipeline_status: idea
+pipeline_status: prod
 tier: T3
 owner: achimdehnert
 spec_refs: []   # kein Klickdummy/Spec-Bezug (ADR-211) — reine CI-Governance; bewusst leer
@@ -21,6 +21,9 @@ created: 2026-06-09
 ---
 
 # KONZ-platform-004 — Branch-Protection-Enforcement schließen
+
+> **Status-Update (2026-07-08):** Realisiert durch ADR-242 (Wave 1+2 live) + ADR-257
+> (Ebene A gemergt); `review_by 2026-07-09` gegenstandslos.
 
 ## 1. Executive Summary
 

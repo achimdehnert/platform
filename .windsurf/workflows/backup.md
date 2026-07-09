@@ -52,7 +52,7 @@ Ausgabe: geschätzte Dauer + Modus an den User kommunizieren.
 ## Step 3: Create Backup
 
 // turbo
-Use mcp5_db_backup with:
+Use mcp__deployment-mcp__db_backup with:
 - db_name: [database name]
 - backup_path: [configured path]
 - format_type: custom
@@ -60,7 +60,7 @@ Use mcp5_db_backup with:
 ## Step 4: Verify
 
 // turbo
-Use mcp5_db_backup_list to show available backups
+Use mcp__deployment-mcp__db_backup_list to show available backups
 
 ## Step 5: Report
 
@@ -72,5 +72,5 @@ File: [backup_filename]
 Size: [file_size]
 
 Available Backups:
-[list from mcp5_db_backup_list]
+[list from mcp__deployment-mcp__db_backup_list]
 ```

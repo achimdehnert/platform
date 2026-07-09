@@ -2,9 +2,9 @@
 id: ADR-168
 title: "Build Onboarding-Platform as separate repo on coach-hub primitives with billing-hub Stripe pattern"
 status: proposed
-date: 2026-04-21
+decision_date: 2026-04-21
 amended: 2026-04-21
-decision-makers: [achimdehnert]
+deciders: [achimdehnert]
 consulted: []
 informed: []
 scope: onboarding-platform

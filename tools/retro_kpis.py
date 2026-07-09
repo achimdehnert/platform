@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """retro-kpis.py — Längsschnitt-Hebel für /session-retro (ADR-light, kein Dep).
 
-Liest die YAML-Frontmatter aller `~/shared/session-retro-*.md` (außer den
-`-extern-`-Briefings), zählt `recurring_findings`-Slugs ÜBER Retros hinweg und
+Liest die YAML-Frontmatter aller `session-retro-*.md` (außer den
+`-extern-`-Briefings) aus `<repo>/docs/retros/` (git-durable, KONZ-platform-010)
+UND `~/shared/` (Skill-Schreibpfad) — dedupliziert nach Dateiname —, zählt
+`recurring_findings`-Slugs ÜBER Retros hinweg und
 eskaliert jeden Slug mit **Zähler ≥2 → GATE-PFLICHT**. Trendet zusätzlich
 `refuted_rate` gegen das Skill-KPI-Band (>0.8 Finder zu lasch · <0.2 Falsifikation
 Theater) und die 6 Score-Dimensionen.
@@ -11,8 +13,8 @@ Bewusst stdlib-only (Frontmatter-Mini-Parser statt PyYAML) — das Tool muss in
 jeder session-retro-Phase-4 ohne Setup laufen.
 
 Aufruf:
-    python3 tools/retro_kpis.py                 # Default-Glob ~/shared/session-retro-*.md
-    python3 tools/retro_kpis.py --dir <pfad>    # anderes Verzeichnis
+    python3 tools/retro_kpis.py                 # Default: docs/retros/ + ~/shared/
+    python3 tools/retro_kpis.py --dir <pfad>    # nur dies(e) Verzeichnis(se), mehrfach angebbar
     python3 tools/retro_kpis.py --min-band 3    # refuted_rate-Band erst ab N Retros werten
 
 Exit-Code 0 immer (Report-Tool, kein Gate-Enforcer — das Gate ist der gemeldete
@@ -72,37 +74,60 @@ def parse_frontmatter(text: str) -> dict | None:
     return out
 
 
-def load_reports(directory: str) -> list[dict]:
-    pattern = os.path.join(directory, "session-retro-*.md")
+def load_reports(directories) -> list[dict]:
+    """Load retro frontmatter from one or more directories.
+
+    Accepts a single dir (str) or a list of dirs. Reports are deduplicated by
+    filename across dirs (first dir wins) so the git-durable ``docs/retros/``
+    home (KONZ-platform-010) and the skill's ``~/shared/`` write path can both
+    be scanned without double-counting a report that lives in both.
+    """
+    if isinstance(directories, str):
+        directories = [directories]
     reports = []
-    for path in sorted(glob.glob(pattern)):
-        if "-extern-" in os.path.basename(path):
-            continue  # Phase-6-Briefings sind keine Retros
-        try:
-            fm = parse_frontmatter(open(path, encoding="utf-8").read())
-        except OSError:
-            continue
-        if fm is None:
-            continue
-        fm["_path"] = os.path.basename(path)
-        reports.append(fm)
+    seen: set[str] = set()
+    for directory in directories:
+        pattern = os.path.join(directory, "session-retro-*.md")
+        for path in sorted(glob.glob(pattern)):
+            base = os.path.basename(path)
+            if "-extern-" in base:
+                continue  # Phase-6-Briefings sind keine Retros
+            if base in seen:
+                continue  # gleicher Report in beiden Dirs → nur einmal zählen
+            try:
+                fm = parse_frontmatter(open(path, encoding="utf-8").read())
+            except OSError:
+                continue
+            if fm is None:
+                continue
+            fm["_path"] = base
+            seen.add(base)
+            reports.append(fm)
     return reports
 
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="Längsschnitt-KPIs über session-retro-Reports")
-    ap.add_argument("--dir", default=os.path.expanduser("~/shared"),
-                    help="Verzeichnis mit session-retro-*.md (default ~/shared)")
+    # KONZ-platform-010: durable Heimat = git docs/retros/ (nicht ~/shared, ungebackupt).
+    # Default liest BEIDE — docs/retros/ (git-durable, KONZ-010) UND ~/shared/ (der Pfad,
+    # nach dem die /session-retro-Skill schreibt) — dedupliziert nach Dateiname, damit ein
+    # frisch nach ~/shared geschriebener Report nicht durch die Pfad-Drift unsichtbar bleibt.
+    _repo_retros = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "retros")
+    _shared = os.path.expanduser("~/shared")
+    ap.add_argument("--dir", action="append", default=None,
+                    help="Verzeichnis(se) mit session-retro-*.md; mehrfach angebbar. "
+                         "Default: <repo>/docs/retros (KONZ-010) + ~/shared (Skill-Schreibpfad).")
     ap.add_argument("--min-band", type=int, default=3,
                     help="refuted_rate-Band erst ab N Retros bewerten (default 3)")
     args = ap.parse_args()
 
-    reports = load_reports(args.dir)
+    dirs = args.dir if args.dir else [_repo_retros, _shared]
+    reports = load_reports(dirs)
     if not reports:
-        print(f"Keine session-retro-Reports in {args.dir} gefunden.")
+        print(f"Keine session-retro-Reports in {', '.join(dirs)} gefunden.")
         return 0
 
-    print(f"# Längsschnitt über {len(reports)} Retro-Reports ({args.dir})\n")
+    print(f"# Längsschnitt über {len(reports)} Retro-Reports ({', '.join(dirs)})\n")
 
     # --- Recurring-Findings-Zähler über Retros → Gate-Eskalation ---
     slug_reports: dict[str, list[str]] = defaultdict(list)

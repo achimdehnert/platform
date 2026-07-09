@@ -58,7 +58,13 @@ help: ## Diese Hilfe anzeigen
 	@grep -E '^(backup|logs)-[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
 		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
+	@echo "$(BOLD)Entwicklung & Sonstiges:$(RESET)"
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
+		grep -vE '^(help|menu|windsurf-[a-zA-Z_-]+|ssh-[a-zA-Z_-]+|deploy-[a-zA-Z_-]+|backup-[a-zA-Z_-]+|logs-[a-zA-Z_-]+):' | \
+		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(GREEN)%-20s$(RESET) %s\n", $$1, $$2}'
+	@echo ""
 	@echo "$(CYAN)Tipp: Tab-Completion funktioniert! make wind<TAB>$(RESET)"
+	@echo "$(CYAN)Neue Targets zeigen sich hier automatisch — einfach '## Beschreibung' anhängen.$(RESET)"
 	@echo ""
 
 menu: ## Interaktives Hauptmenü
@@ -169,3 +175,45 @@ exit-plan: ## Exit-/Portability-Runbook für ORG=<org> aus Live-GitHub-Zustand (
 	@python3 tools/exit-plan.py $(ORG)
 
 .PHONY: exit-plan
+
+# =============================================================================
+# REGISTRY (ADR-234 P0 — canonical.yaml ist die SSoT, Views sind generiert)
+# Achtung: `registry-canonical.py build` (Views→canonical) ist die PRE-Flip-
+# Bootstrap-Richtung und würde canonical-Edits aus den Views überschreiben —
+# deshalb bewusst KEIN make-Target dafür. Schreibpfad ist flip (canonical→Views).
+# =============================================================================
+
+registry-flip: ## Views (repos.yaml + scripts/repo-registry.yaml) aus canonical.yaml regenerieren + verify (tools/registry-canonical.py flip)
+	@python3 tools/registry-canonical.py flip
+
+registry-verify: ## Round-trip prüfen: Views aus canonical.yaml regenerieren + gegen Altdateien vergleichen
+	@python3 tools/registry-canonical.py verify
+
+.PHONY: registry-flip registry-verify
+
+# =============================================================================
+# WORKFLOW-LINT (X-11 — lokales Preflight zu validate-workflows.yml)
+# =============================================================================
+
+workflow-lint: ## yamllint+actionlint lokal (Convenience-Preflight, Configs = validate-workflows.yml; KEIN Hard-Gate, CI bleibt maßgeblich)
+	@if command -v yamllint >/dev/null 2>&1; then \
+		yamllint -d "{extends: relaxed, rules: {line-length: {max: 200}}}" .github/workflows/*.yml \
+			&& echo "$(GREEN)yamllint: keine Funde.$(RESET)"; \
+	else \
+		echo "$(YELLOW)yamllint nicht installiert — Installation: pip install yamllint$(RESET)"; \
+	fi
+	@if command -v actionlint >/dev/null 2>&1; then \
+		ACTIONLINT_BIN=actionlint; \
+	elif [ -x ./actionlint ]; then \
+		ACTIONLINT_BIN=./actionlint; \
+	else \
+		ACTIONLINT_BIN=""; \
+		echo "$(YELLOW)actionlint nicht gefunden — Installation: bash <(curl https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)$(RESET)"; \
+	fi; \
+	if [ -n "$$ACTIONLINT_BIN" ]; then \
+		$$ACTIONLINT_BIN -config-file .github/actionlint.yaml -ignore "shellcheck reported issue" .github/workflows/*.yml \
+			&& echo "$(GREEN)actionlint: keine Funde.$(RESET)"; \
+	fi
+	@echo "$(CYAN)Hinweis: Convenience-Preflight, kein Hard-Gate — maßgeblich bleibt CI (.github/workflows/validate-workflows.yml).$(RESET)"
+
+.PHONY: workflow-lint

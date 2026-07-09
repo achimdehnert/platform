@@ -1,11 +1,11 @@
 ---
 status: proposed
 implementation_status: partial  # 2026-06-04: pre-commit-Backstop (main-tree-protect) verdrahtet; Snap-back-Hook-Aktivierung via 'tools/main-tree-guard.sh install .' je Checkout
-date: 2026-06-01
-decision-makers: Achim Dehnert
+decision_date: 2026-06-01
+deciders: Achim Dehnert
 domains: [dx, git-workflow, drift-prevention, governance]
 scope: platform
-relates_to: [ADR-021, ADR-209, ADR-234]
+related: [ADR-021, ADR-209, ADR-234]
 tags: [git, worktree, parallel-sessions, branch-strategy, integration, claude-code, cross-repo]
 ---
 
@@ -138,6 +138,7 @@ strukturell. Darum ist der Guard Teil der **Entscheidung**, nicht der Risiko-Mit
 | R-3 | Sessions ignorieren „Main-Tree heilig" | **harter `main-tree-guard` ist jetzt Teil der Entscheidung (§2.1)**, nicht nur Mitigation — branch-ändernde Ops im Haupt-Tree werden geblockt + als Guard-Event gezählt (REC-1/REC-9) |
 | R-4 | Disk-Druck — kippt real durch per-Worktree-Artefakte (`.venv`, `node_modules`, Builds, Logs), nicht durch geteilte Git-Objekte (M28-5) | **Disk-/Artefakt-Budget (REC-10):** Standardpfade, Max-Anzahl/Repo, Max-Alter, `reaper --disk-report`; geteilte Caches wo möglich |
 | R-5 | Ephemere Experimente vs. PR-fähige Arbeit vermischt (REC-11/AD-13) | Lease-Feld `ephemeral: true|false`; **`/tmp` nur für `ephemeral: true`**, nie für PR-/Übergabe-Arbeit |
+| R-6 | **Zwei parallele Sessions arbeiten unbemerkt am selben Thema → Duplikat-/dangling-PRs** (Retro-Gate `parallel-session-pr-collision`, ≥2× über Retros → gate-pflichtig) | **PR-Kollisionscheck in `repo-session.sh start`** (`check_pr_collision`, §5): vor dem Abzweigen `gh pr list` — offener PR mit demselben `--task`-Slug im head-branch = **harter Block**; sonstige offene PRs werden zur Awareness gelistet. Fail-open nur bei fehlendem `gh`/Auth (mit sichtbarem Hinweis, nie still). Bewusste Parallelarbeit: `REPO_SESSION_SKIP_PR_CHECK=1` |
 
 ## 7. Konsequenzen
 ### 7.1 Positiv
@@ -209,3 +210,9 @@ Widerspruch zu „Main-Tree heilig = Ritual + ggf. Hook" — der Guard ist jetzt
   `repo-session`-Wrapper als Entscheidung (nicht Ritual), Lease-Ledger, geschärfte Reaper-Semantik
   (nie Branch löschen / unmerged-clean nur markieren), messbares Kill-Gate, Disk-Budget, Alternativen
   E/F/G. Tag-Tabelle §11.
+- **2026-07-04:** `repo-session.sh reap [<repo>]` + Auto-Reap bei `start` (Retro f5e1d F-P4,
+  Gate `worktree-midsession-accumulation` ×2 → Gate-Pflicht, #913): jede neue Session räumt
+  zuerst gemergte+cleane Orphan-Worktrees des Ziel-Repos via `worktree-reaper.py --apply` ab
+  (self-healing statt neuer Pflicht-Doku; der Pflicht-Reaper lief bisher nur bei /session-ende,
+  nicht beim Merger). Best-effort: Reap-Fehler blockieren `start` nie; dirty/un-gemergte
+  Worktrees bleiben durch die Reaper-Guards unangetastet.

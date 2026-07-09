@@ -441,7 +441,7 @@ Session-Gedächtnis — wird nach jeder Session aktualisiert:
 
 ## Wichtige Befehle
 ```bash
-pytest tests/ -q
+make test  # Fallback (nur falls kein Makefile-Target `test` existiert): pytest tests/ -q
 cd src && python manage.py runserver
 ```
 ```

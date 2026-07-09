@@ -1,16 +1,18 @@
 ---
 status: accepted
-date: 2026-02-22
-decision-makers: [Achim Dehnert]
+decision_date: 2026-02-22
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
-supersedes: ["ADR-014-ai-native-development-teams.md"]
+supersedes: []
 amends: []
 related: ["ADR-057-platform-test-strategy.md", "ADR-058-platform-test-taxonomy.md", "ADR-067-work-management-strategy.md", "ADR-068-adaptive-model-routing.md"]
 implementation_status: implemented
 ---
 
 # Adopt a structured AI Engineering Squad with role-based agents and gate-controlled workflows
+
+> **Historie:** Ersetzte ADR-014 (AI-Native Development Teams) — archiviert unter `docs/adr/archive/`.
 
 > **Konzeptbasis**: `mcp-hub` Branch `claude/ai-engineering-team-concept-06LJF`
 > (2026-02-22). Dieses ADR supersedes ADR-014, das ein konzeptuelles Team Alpha/Bravo

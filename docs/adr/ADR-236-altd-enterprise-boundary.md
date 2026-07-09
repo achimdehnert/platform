@@ -7,11 +7,11 @@ implementation_evidence:
   - "S2 KOMPLETT 2026-06-03: slim-prevention (251767) apply-to-all enforced; Config 17 = default-for-new. S2.3-Auswertung: Committer 2/2 (kostenneutral), Coverage 9/9 (100%), 0 Secret-Scanning-Alerts (GOV inkl.). S2.4 enforced (verifiziert). Reversibel. Runbook: docs/runbooks/KONZ-002-s2-config-rollout.md."
   - "Review-Korrektur 2026-06-04 (Kosten): Kostenneutralität auf BEIDEN GHAS-SKUs nachgemessen — secret_protection=2 UND code_security=2 (letzterer relevant durch CodeQL auf S3-migrierten Code-Repos, vorher nicht gemessen)."
   - "Owner-Datenprämisse 2026-06-04 — RAHMENKORREKTUR: ttz-lif/meiki-lra (Landratsämter Traunstein/Günzburg) sind Kundenprojekte mit nur Code+Demo-Daten, KEINE realen Personendaten; reale Daten/Souveränität entstehen erst post-Übergabe im Kunden-RZ (außerhalb GitHub), Übergabe = Code-Portierung (kein Org-Transfer). Damit: KEIN AVV/keine Souveränitäts-Gating auf GitHub-Ebene nötig; das frühere central-gov/Sign-off-Konstrukt (§2.3/§3/§6) ist GEGENSTANDSLOS. Reklassifiziert: ttz-lif/meiki-lra/bahn-sqf = exit-likely, teardown_authority self-owner (governance/exit-classes.yaml; central-gov retired). Leitplanke: nur Demo-Daten halten."
-date: 2026-06-03
-decision-makers: Achim Dehnert
+decision_date: 2026-06-03
+deciders: Achim Dehnert
 domains: [governance, security, secrets, ci-cd]
 scope: platform
-relates_to: [ADR-235, ADR-045, ADR-220, ADR-226, ADR-230]
+related: [ADR-235, ADR-045, ADR-220, ADR-226, ADR-230]
 tags: [enterprise, org-topology, boundary, data-sovereignty, push-protection, portability, exit-class, consolidation]
 ---
 

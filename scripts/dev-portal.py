@@ -154,7 +154,7 @@ def main():
     port = int(sys.argv[1]) if len(sys.argv) > 1 else 9000
     print(f"\n🚀 IIL Dev Portal — http://127.0.0.1:{port}")
     print(f"   apps.json dynamisch aus ports.yaml ({len(yaml.safe_load(PORTS_YAML.read_text()).get('services', {}))} Services)")
-    print(f"   Auto-Refresh alle 10s  |  Ctrl+C zum Beenden\n")
+    print("   Auto-Refresh alle 10s  |  Ctrl+C zum Beenden\n")
     with http.server.HTTPServer(("127.0.0.1", port), Handler) as srv:
         srv.serve_forever()
 

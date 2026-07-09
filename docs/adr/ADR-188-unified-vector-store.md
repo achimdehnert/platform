@@ -1,16 +1,15 @@
 ---
 status: accepted
-date: 2026-05-07
+decision_date: 2026-05-07
 amended: 2026-05-08
-decision-makers:
+deciders:
   - Achim Dehnert
 consulted:
   - AI Engineering Squad
 informed:
   - Repo-Owner risk-hub, meiki-hub, bfagent, coach-hub, weltenhub
-depends-on:
+depends_on:
   - ADR-087 (Hybrid Search Architecture — platform-search Package)
-  - ADR-113 (pgvector Agent Memory Store)
   - ADR-171 (Temporal RAG Infrastructure — Schema)
   - ADR-172 (rag-mcp Server — Platform-Wide RAG API)
   - ADR-170 (iil-ingest — Document Ingestion Package)
@@ -42,6 +41,8 @@ drift_check_paths:
 <!-- Drift-Detector-Felder: staleness_months: 6, drift_check_paths: mcp-hub/rag_mcp/db/schema.sql, platform/packages/platform-search/**, supersedes_check: ADR-087 -->
 
 # ADR-188: Adopt ADR-171 Schema with multilingual-e5-large as Platform-Wide Unified Vector Store
+
+> **Historie:** Frühere Abhängigkeit ADR-113 (pgvector Agent Memory Store) ist archiviert (`docs/adr/archive/`) und wurde aus `depends_on` entfernt.
 
 | Metadaten | |
 |-----------|---|

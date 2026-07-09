@@ -159,7 +159,7 @@ def _check_readme_content(path: Path) -> tuple[bool, str]:
     has_h1 = any(line.startswith("# ") for line in text.splitlines())
     content_len = len(text.strip())
     if not has_h1:
-        return False, f"README.md lacks H1 heading (# Title)"
+        return False, "README.md lacks H1 heading (# Title)"
     if content_len < 100:
         return False, f"README.md too short ({content_len} chars, need >= 100)"
     return True, f"README.md OK ({content_len} chars, H1 present)"
@@ -605,9 +605,9 @@ def main() -> None:
     _render_report(report, fmt=args.format)
 
     if args.owner and args.repo:
-        print(f"NOTE: GitHub Repo description check requires manual verification:")
+        print("NOTE: GitHub Repo description check requires manual verification:")
         print(f"  https://github.com/{args.owner}/{args.repo}")
-        print(f"  Repo > Settings ⚙️ > About > Description (must not be empty)")
+        print("  Repo > Settings ⚙️ > About > Description (must not be empty)")
 
     sys.exit(0 if report.ok else 1)
 

@@ -1,10 +1,10 @@
 ---
 status: accepted
-date: 2026-06-30
-decision-makers:
+decision_date: 2026-06-30
+deciders:
   - Achim Dehnert
-reviewed-by: Claude Code (Opus 4.8) — Pilot + Fleet-Audit
-depends-on:
+reviewed_by: Claude Code (Opus 4.8) — Pilot + Fleet-Audit
+depends_on:
   - ADR-178 (LLM Gateway Consolidation)
   - ADR-115 (LLM Usage Logging)
   - ADR-045 (SOPS / Secrets Management)

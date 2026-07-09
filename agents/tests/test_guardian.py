@@ -132,7 +132,10 @@ class TestG003ModelWithoutTenantId:
         violations = check_g003_model_without_tenant_id(files)
         assert len(violations) == 1
         assert violations[0].rule == "G-003"
-        assert violations[0].gate == Gate.HUMAN_APPROVAL
+        # G-003 ist Gate 1 (AUTO_WARN): tenant_id nur für Multi-Tenant-Repos
+        # Pflicht — #833 dokumentierte diese Erwartung als vorbestehend rot
+        # (agents/tests lief in keiner CI und konnte nie beißen).
+        assert violations[0].gate == Gate.AUTO_WARN
         assert "tenant_id" in violations[0].suggestion
 
     def test_should_pass_when_no_new_models(self):

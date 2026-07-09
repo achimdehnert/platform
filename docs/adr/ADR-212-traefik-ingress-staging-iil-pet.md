@@ -2,7 +2,7 @@
 id: ADR-212
 title: Zentraler Traefik-Ingress für staging-*.iil.pet (Klausel-3-Routing)
 status: accepted
-date: 2026-05-20
+decision_date: 2026-05-20
 deciders: [Achim Dehnert]
 consulted: [cascade-advocatus-diabolus]
 informed: [all-repos]

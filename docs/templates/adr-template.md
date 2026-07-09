@@ -1,7 +1,7 @@
 ---
 status: proposed
-date: YYYY-MM-DD
-decision-makers: Achim Dehnert
+decision_date: YYYY-MM-DD
+deciders: Achim Dehnert
 consulted: –
 informed: –
 ---
@@ -11,7 +11,7 @@ informed: –
   Basis: MADR 4.0 + Platform-Governance (ADR-021, ADR-046, ADR-054, ADR-059)
   Strategie: techdocs-first, dev-hub-sync, Drift-Detector-kompatibel
 
-  PFLICHTFELDER: status, date, decision-makers, Titel, §1–§5, §9 Confirmation
+  PFLICHTFELDER: status, decision_date, deciders, Titel, §1–§5, §9 Confirmation
   OPTIONALE FELDER: consulted, informed, §6 Migration Tracking (nur bei Transitions)
 
   HINWEIS: Dieses Template wird via techdocs in dev-hub synchronisiert.

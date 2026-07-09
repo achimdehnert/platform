@@ -1,7 +1,8 @@
 ---
-status: proposed
-date: 2026-04-02
-decision-makers: [Achim Dehnert]
+status: superseded
+superseded_by: ADR-264
+decision_date: 2026-04-02
+deciders: [Achim Dehnert]
 consulted: [Cascade (Principal IT-Architekt)]
 informed: []
 supersedes: []

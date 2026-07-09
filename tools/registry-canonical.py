@@ -21,11 +21,20 @@ Kanonisches Schema (`registry/canonical.yaml`):
     Felder werden VERBATIM aus den Quellen übernommen (keine verlustbehaftete Ableitung)
     → beide Views sind exakte Projektionen.
 
+Registry-Schreibpfad (SSoT seit dem Flip 2026-06-01, ADR-234): `registry/canonical.yaml`
+per Hand editieren → `python3 tools/registry-canonical.py build` (oder `make registry-build`)
+→ `python3 tools/registry-canonical.py verify` (oder `make registry-verify`). Die Altdateien
+(`scripts/repo-registry.yaml`, `registry/repos.yaml`) sind generierte Views — nie von Hand
+editieren, sie werden vom `verify`-Gate (registry-consistency.yml) gegen canonical.yaml geprüft.
+
 Subcommands:
     build    — beide Altdateien → registry/canonical.yaml (Union)
     gen-flat — canonical → flache Struktur (stdout)
     gen-rich — canonical → reiche domains[]-Struktur (stdout)
     verify   — round-trip: regeneriere beide, vergleiche SEMANTISCH mit den Altdateien
+    flip     — schreibt beide Altdateien als generierte Views aus canonical.yaml (GEN-Header;
+               einmalig genutzt für den Kanonisierungs-Flip, danach nur bei bewusster
+               Header-Auffrischung — siehe `flip()` unten)
 """
 from __future__ import annotations
 
@@ -124,8 +133,11 @@ def build() -> dict:
                 "sqf-hub": "SQF-Hub",
                 "pg-hub": "PG-Hub",
             },
-            "_note": "GENERATED-CANDIDATE (ADR-234 P0). Union aus scripts/repo-registry.yaml + "
-                     "registry/repos.yaml. Noch NICHT kanonisch geschaltet — Konsumenten unverändert.",
+            "_note": "KANONISCHE SSoT (ADR-234 P0, Flip vollzogen 2026-06-01 via "
+                     "`registry-canonical.py flip`). Union aus scripts/repo-registry.yaml + "
+                     "registry/repos.yaml; beide Altdateien sind jetzt generierte, "
+                     "gate-erzwungene Views (verify-Gate in registry-consistency.yml). Edits "
+                     "nur hier, nie in den Views. Accessor: tools/registry_api.py.",
         },
         "repos": repos,
     }

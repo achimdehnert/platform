@@ -206,7 +206,7 @@ def scan_local(repo_dir: Path, repo: str, repo_type: str, prod_url: str) -> Repo
     for urls_path in [repo_dir / "config" / "urls.py", repo_dir / "urls.py"]:
         if urls_path.exists():
             text = urls_path.read_text(errors="replace")
-            audit.url_count = sum(1 for l in text.splitlines() if "path(" in l or "re_path(" in l)
+            audit.url_count = sum(1 for line in text.splitlines() if "path(" in line or "re_path(" in line)
             break
 
     # services.py zählen

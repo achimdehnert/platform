@@ -1,7 +1,7 @@
 # CORE_CONTEXT — platform
 
 > Pflicht-Lektüre für jeden Coding-Agent vor dem ersten Keystroke.
-> Aktualisiert: 2026-06-30
+> Aktualisiert: 2026-07-08
 
 ## Was ist platform?
 
@@ -37,7 +37,7 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `_ARCHIVED/governance-deploy/` | Archivierte tote Django-Alt-App (via #829 aus dem Root verschoben, Issue #817) |
 | `tools/` | `repo_health_check.py`, `check_*.py`, `print_agent/` (MD → PDF), `registry_api.py` |
 | `scripts/` | `audit_platform.py`, `adr_audit.py`, `drift_check.py`, `gen_adr_index.py` |
-| `packages/` | Eigenständige Sub-Packages (z. B. `adr-review`, `mcp-governance` — eigene pyproject/tests) |
+| `packages/` | Eigenständige Sub-Packages (z. B. `adr-review` — eigene pyproject/tests) |
 | `orchestrator_mcp/` | Gespiegelter Code des extern laufenden Orchestrator-Service (ADR-256) — kein hier deploybares Django |
 | `bootstrap.sh` | Public Setup-Script (verteilt Symlinks in alle Repos) |
 | `.windsurf/workflows/` | Workflow-SSoT (wird über Symlinks in alle Repos verteilt) |
@@ -45,15 +45,25 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `infra/`, `deployment/` | Infrastruktur-Configs für Cross-Repo-Deploys |
 | `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `skills/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
 
+**Registry-Schreibpfad** (`registry/canonical.yaml` editieren → `make registry-flip`
+regeneriert beide Views + verify) — nie die generierten Views
+(`repos.yaml`/`scripts/repo-registry.yaml`) von Hand anfassen, das `verify`-Gate schlägt
+sonst fehl. (`registry-canonical.py build` ist die Pre-Flip-Bootstrap-Richtung
+Views→canonical und würde canonical-Edits überschreiben — nicht benutzen.)
+
 ## Lokales Setup & Testbefehl (SSoT)
 
 ```bash
 make setup   # requirements-dev.txt + pre-commit install + install-push-hook (einmalig)
-make test    # = pytest tools/tests/ (identisch zur CI tools-tests.yml) + ruff
+make test    # = pytest tools/tests/ (ruff läuft separat über `make lint`)
 ```
 
-Nacktes `pytest` läuft zusätzlich über `tests/` (megatest + Altbestand, teils rot —
-Triage: Issue #819) — für den CI-relevanten Check immer `make test` nutzen.
+`make test` deckt **nicht** die volle CI-Testfläche ab: `.github/workflows/tools-tests.yml`
+ist die SSoT für den CI-relevanten Gate-Umfang (aktuell zusätzlich `tests/test_render_staging.py`,
+`tests/doc_profile_check/`, `tools/claude-hooks/tests/` — Datei live prüfen statt diese Liste
+zu vertrauen, sie ändert sich unabhängig von hier). `ruff` ist **kein** CI-Gate, nur lokales
+`make lint`. Nacktes `pytest` läuft zusätzlich über `tests/` (megatest + Altbestand, teils rot —
+Triage: Issue #819).
 
 ## Tech Stack
 
@@ -95,7 +105,15 @@ Triage: Issue #819) — für den CI-relevanten Check immer `make test` nutzen.
   _wirklich_ schon dort liegen); der **Ziel-Owner** der laufenden Migration steht
   ausschließlich in `registry/iil-migration.yaml` (SSoT, REC-3) — Reality-Check:
   `python3 tools/iil_migration_check.py`.
-- **Workflows in `.windsurf/workflows/`**: Änderungen brauchen `/workflow-review` vor Merge
+- **Workflows in `.windsurf/workflows/`**: **substanzielle** Änderungen brauchen `/workflow-review`
+  vor Merge (neue/geänderte Schritte, Logik, Tool-Calls, Steuerfluss, semantische Edits) — Ergebnis
+  im PR-Body zitieren. **Ausnahme (session-retro 2026-07-02, EF-4/R-5):** rein **mechanische,
+  deterministische** Änderungen (Prefix-/Token-Sweep, Umbenennung nach fixem Muster, Refresh
+  generierten Contents) brauchen **kein** manuelles `/workflow-review`, wenn (a) der PR-Body sie
+  ausdrücklich als mechanisch kennzeichnet und (b) die automatisierten Gates greifen
+  (`skill-mcp-signatures.yml` = MCP-Signatur-Lint, `cc-skill-dist-doctor.yml` = Distributions-
+  Determinismus). Im Zweifel gilt `/workflow-review` — die Ausnahme ist eng und muss begründet werden,
+  nicht stillschweigend angenommen.
 - **Parallele Sessions — Haupt-Tree heilig (ADR-233)**: der geteilte Checkout `~/github/platform`
   bleibt auf `main`; **kein** Branch-Switch im Haupt-Tree. Editierende Arbeit läuft in einem eigenen
   Worktree via `tools/repo-session.sh start <repo> --task <slug>` (Branch `session/<date>/<owner>/<slug>`
@@ -130,5 +148,6 @@ Triage: Issue #819) — für den CI-relevanten Check immer `make test` nutzen.
 
 - **Prod-Server**: `88.198.191.108`
 - **Staging-Server**: `88.99.38.75`
-- **Orchestrator MCP**: `https://orchestrator.iil.pet/sse`
+- **Orchestrator MCP**: `https://orchestrator.iil.pet/sse` (aktiv) — Ziel-Endpoint
+  ist `/mcp` (ADR-256, accepted); Übergang läuft, `/sse` noch nicht abgeschaltet.
 - **Dev-Hub Cockpit**: `https://devhub.iil.pet`

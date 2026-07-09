@@ -2,12 +2,11 @@
 id: ADR-095
 title: "aifw Quality-Level Routing — Multi-Dimensional LLM Dispatch with Prompt-Template Coordination"
 status: accepted
-date: 2026-03-02
+decision_date: 2026-03-02
 revised: 2026-03-11
 revision: "2 — accepted after second review"
-author: Achim Dehnert
 owner: Achim Dehnert
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: [Senior IT-Architekt / Platform Review]
 informed: [bfagent, travel-beat, weltenhub, pptx-hub, risk-hub, authoringfw, promptfw teams]
 scope: Platform-wide (aifw, promptfw, authoringfw, all consumer apps)
@@ -15,7 +14,7 @@ tags: [llm, routing, quality, aifw, promptfw, authoringfw, api-design, backwards
 related: [ADR-027, ADR-043, ADR-050, ADR-057, ADR-068, ADR-084, ADR-089, ADR-093]
 supersedes: []
 amends: [ADR-089, ADR-093]
-last_verified: 2026-03-02
+last_reviewed: 2026-03-02
 implementation_status: implemented
 implementation_evidence:
   - "aifw/src/aifw/service.py: _lookup_cascade(), get_action_config()"

@@ -226,7 +226,7 @@ def main() -> int:
             grand_total += t
             session_count += 1
 
-    print(f"\nSignal R measurement — evidence-discipline policy")
+    print("\nSignal R measurement — evidence-discipline policy")
     print(f"Sessions scanned : {session_count}")
     print(f"Marker-claim turns (total): {grand_total}")
     print(f"Checked before claim:       {grand_checked}")

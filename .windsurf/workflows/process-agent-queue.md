@@ -12,7 +12,7 @@ description: Auto-Issues über Nacht abarbeiten — Queue-Prozessor für labels:
 
 ## Voraussetzungen
 
-- `mcp2_agent_memory` erreichbar (pgvector Tunnel aktiv)  <!-- TODO(mcp-migration): mcp2_agent_memory -- Phase 2 (no-op in scope) -->
+- `mcp__orchestrator__agent_memory` erreichbar (pgvector Tunnel aktiv)  <!-- TODO(mcp-migration): mcp__orchestrator__agent_memory -- Phase 2 (no-op in scope) -->
 - `mcp__github__list_issues` / `create_issue` verfügbar (GitHub MCP)
 - GROQ_API_KEY oder OPENAI_API_KEY in `~/.secrets/` für autonome LLM-Calls
 - Genug Budget für geplante Operationen (`mcp__orchestrator__session_stats` prüfen)
