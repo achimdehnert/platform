@@ -8,7 +8,7 @@ informed: [all-repos]
 domains: [security, process, governance, deployment, drift-prevention]
 supersedes: []
 amends: []
-depends_on: [KONZ-platform-014]
+depends_on: [KONZ-platform-014, ADR-268]
 external_sparring_by: two-external-llms@2026-07-08
 tags: [approvals, deploy, review-policy, segregation-of-duties, fail-closed, hitl, codeowners, environments]
 scope:
@@ -93,9 +93,13 @@ Der externe Review sah hier den kritischsten Punkt. Er ist **kein offener Unbeka
 *(Verifizierbarkeit: die stehende Praxis ist die Evidenz; ein zusätzlicher Wegwerf-Test an einem
 `wirdigital`-required Environment kann das jederzeit bestätigen, ändert die Auflösung aber nicht.)*
 
-**§1 — Deterministische Pfad-Policy als Gate (restriktiv per Default, fail-closed).**
-Ein Deploy ist *nicht* reviewpflichtig **nur** wenn *alle* geänderten Pfade auf einer expliziten
-**Review-frei-Allowlist** liegen. Präzisierungen:
+**§1 — Deterministische Pfad-Policy als Gate (restriktiv per Default, fail-closed, TIER-abhängig).**
+Ein Deploy ist *nicht* reviewpflichtig **nur** wenn *alle* geänderten Pfade auf der für dieses Repo
+geltenden **Review-frei-Allowlist** liegen. Diese Allowlist, die `wirdigital`-Pflicht und die
+Kill-Reaktion sind **nicht flach**, sondern kommen aus **`f(Projektart, Reife-Phase)` gemäß
+ADR-268** (Assurance-Tiers): ein privater/Prototyp-Deploy ist großzügig, ein Government-Prod-Deploy
+maximal streng, und *vor* Prod/echten Daten ist die Strenge für alle Klassen gedeckelt. Das Repo-Tier
+kommt aus der verbindlichen Registry (ADR-268 SSoT; fehlt es → T5, fail-closed). Präzisierungen:
 - **Restriktiver Default:** die Allowlist enthält **nur nachweislich inerten Inhalt**
   (`*.md`-Prosa, `CHANGELOG.md`). **Build-/config-ausführende Dateien sind ausgenommen** —
   `mkdocs.yml`, Docs-Hooks, CI-/Workflow-Config sind Code-Execution-Fläche, **nie** review-frei,
@@ -175,9 +179,12 @@ Gate. Kein Schritt mit org-weitem Deploy-/Approve-Effekt wird solo gemergt (auto
 
 - **review_by:** 2026-10-08.
 - **Fail-open-Erkennung (definiert):** ein wiederkehrender Audit vergleicht die als „review-frei"
-  klassifizierten Deploys stichprobenartig gegen ihren **tatsächlichen** Diff; ein einziger
-  belegter Fall „reviewpflichtig, aber als docs-only durchgelaufen" ⇒ **hartes Abbruchkriterium**
-  ⇒ zurück auf „alles reviewpflichtig" (Kill-Switch) + Neuentwurf.
+  klassifizierten Deploys stichprobenartig gegen ihren **tatsächlichen** Diff. Ein belegter Fall
+  „reviewpflichtig, aber als docs-only durchgelaufen" ist **immer** ein protokolliertes Ereignis;
+  die Reaktion ist **tier-gestaffelt und repo-lokal gemäß ADR-268** (nicht der frühere flache
+  Plattform-Freeze): der Fast-Path *dieses* Repos wird abgeschaltet, bei T4/T5 zusätzlich
+  Incident + `wirdigital`-Sign-off. Aufhebung stets per geprüftem PR (Ursache behoben +
+  Fast-Path reaktiviert). Kein globaler Schalter — die niedrigen Tiers bremsen das System nie.
 - **Reibungs-Kill:** >30% „False-Reviewpflichtig" im ersten Quartal ⇒ Allowlist/Policy überarbeiten.
 - **Lern-Schicht-Kill (skalenbewusst, korrigiert):** **nicht** „<20% ratifiziert ⇒ Versagen" — eine
   *stabile* Allowlist ohne neue Vorschläge ist **Erfolg**. Kill nur, wenn die Schicht **schädlich**
