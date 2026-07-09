@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-09",
-  "total": 211,
-  "next_free": 269,
+  "total": 214,
+  "next_free": 270,
   "adrs": [
     {
       "number": 7,
@@ -1804,7 +1804,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-269"
+      ],
       "related": [],
       "implementation_status": "partial"
     },
@@ -4005,7 +4007,9 @@
       "supersedes": [],
       "superseded_by": [],
       "amends": [],
-      "amended_by": [],
+      "amended_by": [
+        "ADR-263"
+      ],
       "related": [],
       "implementation_status": ""
     },
@@ -4748,6 +4752,54 @@
       "implementation_status": "pilot"
     },
     {
+      "number": 262,
+      "id": "ADR-262",
+      "file": "ADR-262-sha-pin-github-actions.md",
+      "title": "— GitHub-Actions per SHA pinnen (Supply-Chain-Härtung, fleet-weit)",
+      "status": "proposed",
+      "date": "2026-07-02",
+      "domains": [
+        "security",
+        "ci-cd",
+        "supply-chain",
+        "infra"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-209",
+        "ADR-226",
+        "ADR-229"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
+      "number": 263,
+      "id": "ADR-263",
+      "file": "ADR-263-windsurf-rules-distributor-hardening.md",
+      "title": "— `receive-windsurf-rules.yml`: PR statt Push-to-main, Typ-Filter, Least-Privilege",
+      "status": "proposed",
+      "date": "2026-07-02",
+      "domains": [
+        "security",
+        "ci-cd",
+        "tooling",
+        "drift-prevention"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-229"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-230"
+      ],
+      "implementation_status": "not-started"
+    },
+    {
       "number": 264,
       "id": "ADR-264",
       "file": "ADR-264-canonical-deployment-strategy-and-supersession-gate.md",
@@ -4860,6 +4912,33 @@
         "KONZ-platform-009"
       ],
       "implementation_status": ""
+    },
+    {
+      "number": 269,
+      "id": "ADR-269",
+      "file": "ADR-269-tenant-scoping-fail-closed-contract.md",
+      "title": "— Tenant-Scoping-Kontrakt: fehlender Tenant-Kontext MUSS fail-closed sein",
+      "status": "proposed",
+      "date": "2026-07-02",
+      "domains": [
+        "architecture",
+        "multi-tenancy",
+        "security",
+        "data-sovereignty"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [
+        "ADR-109"
+      ],
+      "amended_by": [],
+      "related": [
+        "ADR-035",
+        "ADR-072",
+        "ADR-137",
+        "ADR-237"
+      ],
+      "implementation_status": "not-started"
     },
     {
       "number": 400,
