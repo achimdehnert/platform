@@ -10,6 +10,7 @@ supersedes: []
 amends: []
 depends_on: [KONZ-platform-009]
 consumed_by: [ADR-267]
+external_sparring_by: two-external-llms@2026-07-09
 tags: [assurance-tier, project-class, lifecycle, risk-based, registry, fail-closed, sovereignty]
 scope:
   include_paths:
@@ -110,27 +111,78 @@ immer ein sichtbarer, geprüfter PR pro Repo.
 
 ## Verbindliche Hinterlegung (SSoT)
 
-- Das Tier lebt als **`tier`-Feld** in der **bestehenden zentralen Repo-Registry** (KONZ-platform-009,
-  registry-unified-ssot) — **keine** neue Parallel-Datei (SSoT-Disziplin).
-- **CI erzwingt Vollständigkeit:** jedes Repo muss einen `tier` haben; fehlt er → CI rot **und**
-  Behandlung als **T5** (fail-closed).
-- **Repo = Projekt = ein Tier.** Ein Repo trägt genau einen Tier.
-- **Änderung:** hoch stufen (strenger) jederzeit; **runter** stufen (Kontrollen lockern) nur als
-  bewusste, geprüfte Entscheidung (PR + Review).
+- **Tier UND Phase** leben als Felder (`tier`, `phase`) in der **bestehenden zentralen Repo-Registry**
+  (KONZ-platform-009, registry-unified-ssot) — **keine** neue Parallel-Datei (SSoT-Disziplin).
+- **CI erzwingt Vollständigkeit für BEIDE Achsen:** fehlt `tier` **oder** `phase` → CI rot **und**
+  fail-closed-Behandlung: fehlender/veralteter **`tier` → T5**, fehlende/unklare **`phase` → prod**
+  (volle Rigidität). *(Externer Befund: `phase` deckelt die Strenge — wäre sie nicht fail-closed,
+  würde „niedrige Phase halten" zum reibungsärmsten Governance-Bypass.)*
+- **Repo = Projekt = ein Tier — mit Ausnahmen-Regel:** Repos, bei denen Repo-Grenze ≠ Exposure-Grenze
+  (Monorepo, Shared Library, GitHub-Actions-/Reusable-Workflow-Repo, IaC, Template-Repo,
+  Multi-Deploy) tragen den **strengsten anwendbaren** Tier ihrer enthaltenen Exposure (nie den
+  laxesten); wo das zu grob ist, wird das Repo **gesplittet**. Keine Unter-Klassifizierung durch
+  gemischte Inhalte.
+- **Änderung:** hoch stufen (strenger) jederzeit; **runter** stufen (Kontrollen lockern) nur mit
+  **minimalem Evidenz-Schema** (Anlass · vorher/nachher · betroffene Daten/Deploy-Ziele · Reviewer ·
+  Datum · Reaktivierungs-/Rollback-Bedingung) — sonst wird Downgrade zur stillen Abkürzung.
+
+## Operationalisierung — EINE Policy-as-Code-Funktion (kein Prosa-Nachbau)
+
+Der externe Review war hier scharf: eine Matrix in ADR-Prosa erzeugt bei mehreren Konsumenten
+mehrere leicht divergierende Implementierungen — genau auf der Sicherheitsgrenze.
+
+- **Eine versionierte, getestete Policy-Funktion** `f(tier, phase, changed_paths, data_flags,
+  deploy_target) → {zweitreview_pflicht, review_freie_pfadklassen, kill_reaktion, harte_constraints}`
+  ist das **einzige** Auswertungs-Artefakt; **alle** Konsumenten (Deploy-Gate, Board-Badge, künftig
+  CI/Coverage) **importieren** sie — kein frei nachimplementiertes `f` pro Repo/Workflow.
+- **Semantik→Pfad-Brücke explizit:** die Pfadklassen (`inert` / `ausführend` / `build-ci-deploy` /
+  `daten-schema` / `konfig-wirkung`) sind als **maschinenlesbares Mapping mit Tests inkl.
+  Gegenbeispielen** hinterlegt (Generatoren, Package-Manifeste, IaC, Notebooks, Test-Fixtures,
+  „harmlose Endung + ausführender Inhalt" sind explizit als *nicht* inert markiert).
+
+## Review-Schuld beim Phasenübergang (Promotion-Review)
+
+Vor Prod review-frei geschriebener App-Code darf **nicht** ungeprüft in Prod wandern. Beim
+Übergang **pilot → prod** (bzw. Erst-Prod-Deploy) erzwingt ein **einmaliger Promotion-Review**:
+der seit Projektbeginn review-frei akkumulierte Code wird als Ganzes gegen das dann geltende
+Prod-Tier gereviewt. Ohne bestandenen Promotion-Review kein Prod-Deploy. Damit trägt keine
+„Review-Schuld" unbesehen in den T5-Kontext.
 
 ## Konsequenzen
 
 **Positiv:** eine wiederverwendbare Risiko-Achse (Review heute; CI/Coverage/Deploy morgen); kein
-Ausbremsen früher Phasen; fail-closed by default; Souveränität sauber an T3–T5 gekoppelt.
-**Negativ:** die Registry muss gepflegt werden (CI erzwingt es); `f(Klasse, Phase)` ist eine
-Matrix, kein Skalar — Konsumenten müssen beide Dimensionen lesen.
+Ausbremsen früher Phasen; fail-closed by default (beide Achsen); Souveränität an T3–T5 gekoppelt.
+**Negativ / Vorbehalte:**
+- Registry-Pflege (CI erzwingt); `f(Klasse, Phase)` ist eine Matrix, kein Skalar.
+- **Constraints-Ehrlichkeit (enforced vs. dokumentiert):** „kein externer Egress" u.ä. für T3–T5 sind
+  nur so stark wie ihre Durchsetzung — pro Constraint markieren: **technisch enforced** ·
+  **manuell geprüft** · **nur dokumentiert**. Sofort-Maßnahme mit hohem Wert: **Egress-Default-Block**
+  in den Souveränitäts-Orgs (ttz-lif/meiki-lra) — billig, mechanisch, schließt die „echte-Daten"-
+  Detektionslücke teilweise.
+- **Klickdummy-Phasen-Lockerung ruht auf einem dormant Guard:** „Klickdummy = kein Prod" ist laut
+  ADR-211 durch `klickdummy_prod_guard.sh` (F11) zu erzwingen — dieser ist **aktuell
+  unimplementiert/dormant** (ADR-211 Rev 20). Bis zum Bau stützt sich die Lockerung auf
+  **Selbstdeklaration**, nicht Enforcement — bewusst getragenes Übergangs-Risiko, hier benannt.
 
 ## Kill-Gate / Review
 
 - **review_by:** 2026-10-09.
-- **Kill:** Wenn nach einem Quartal die Tier-Matrix in der Praxis nur „alle = T5" oder „alle = T0"
-  ergibt (die Differenzierung wird nicht genutzt), ist die Achse überflüssig → auf eine einfache
-  „prod-vs-nonprod"-Binärregel zusammenfalten.
+- **Instrumentierung (Pflicht, sonst Bauchentscheidung):** der Review misst **Verteilung je
+  Tier/Phase**, Anzahl Runterstufungen, Fail-open-Fälle, manuelle Overrides und den **Anteil
+  review-freier Deploys** — nicht nur die Extreme.
+- **Kill (Extrem):** wenn die Matrix in der Praxis nur „alle = T5" oder „alle = T0" ergibt → auf
+  „prod-vs-nonprod × sovereign-vs-nicht" (2×2) zusammenfalten.
+- **Drift-Fall (wahrscheinlicher, extern ergänzt):** wenn fast alle Repos aus Bequemlichkeit in
+  T1/T2 clustern oder dauerhaft in niedriger Phase gehalten werden → Phase-/Tier-Vergabe nachschärfen
+  (nicht die Achse killen).
+- **Fail-open-Behandlung präzise:** Erkennung (Stichproben-Diff-Audit), **Frist** zur Reaktion,
+  **Mindest-Log** (Repo, Run, Diff-Ref, Policy-Version, handelnder Mensch), Verantwortlicher.
+  **Wiederholungsregel:** wiederholte repo-lokale Fail-opens **desselben Musters** eskalieren zu
+  einer **plattformweiten Policy-Review** — **ohne** automatischen globalen Freeze.
+- **Sunset-Semantik:** in `sunset` sinkt die Strenge **nicht** — keine neue Feature-Entwicklung, aber
+  **unveränderte oder erhöhte** Strenge für Daten/Secrets/Egress/Archivierung/Löschung.
+- **Überlappungs-Tie-Breaker:** bei mehrdeutiger Projektart gewinnt das **höchste reale Exposure**
+  (z.B. echte Kundendaten heben mindestens auf T3-aktive Constraints).
 
 ## Konsumenten
 
@@ -138,3 +190,33 @@ Matrix, kein Skalar — Konsumenten müssen beide Dimensionen lesen.
   Kill-Reaktion werden aus `f(Projektart, Phase)` dieses ADR bezogen.
 - Künftig möglich (nicht Teil dieses ADR): CI-Härte, Coverage-Schwellen, Deploy-Gates,
   Datenhandling entlang derselben Achse.
+
+## Externe Zweitmeinung (2026-07-09)
+
+Zwei unabhängige externe LLM-Reviews (via `/adr-handoff-extern`). Beide: **„Überarbeiten"** — Kern
+tragfähig, aber die operationale Härte auf der Sicherheitsgrenze schärfen. Befund-Tagging (nur
+`[valid]` eingearbeitet; Review-A- und Review-B-IDs zusammengeführt):
+
+| Thema | Review-IDs (A/B) | Verdikt | Eingearbeitet als |
+|-------|------------------|---------|-------------------|
+| **Phase auch fail-closed + CI-erzwungen** (kritisch) | B-AD-1, B-AD-5, B-M28-1, A-M28-2, A-REC-4 | ✅ valid (kritisch) | Verbindliche Hinterlegung (fehlende Phase → prod) |
+| **Review-Schuld beim Prod-Übergang** (kritisch) | B-AD-4, B-M28-2 | ✅ valid (kritisch) | §Promotion-Review |
+| **Eine zentrale Policy-as-Code-Funktion** (kein Prosa-Nachbau) | A-AD-8, A-M28-1, A-REC-1, A-REC-3, B-M28-4 | ✅ valid | §Operationalisierung |
+| **Semantik→Pfad-Brücke + Klassen statt Endungen** | A-AD-3, A-REC-2, B-AD-7 | ✅ valid | §Operationalisierung (Mapping+Tests+Gegenbeispiele) |
+| **Repo=1-Tier Ausnahmen** (Monorepo/Lib/Actions/IaC/Template/Multi-Deploy) | A-AD-2, A-REC-5, B-AD-6 | ✅ valid | Verbindliche Hinterlegung (strengster anwendbarer Tier / Split) |
+| **Downgrade-Evidenz-Schema** | A-M28-3, A-REC-8 | ✅ valid | Verbindliche Hinterlegung |
+| **Souveränität enforced-vs-manuell-vs-dokumentiert + Egress-Default-Block** | A-M28-4, A-REC-11, B-OOB-1 | ✅ valid | Konsequenzen |
+| **Kill-Gate Instrumentierung + Drift-Fall** (nicht nur Extreme) | A-AD-7, A-REC-12, B-M28-5 | ✅ valid | Kill-Gate |
+| **Fail-open Details (wer/Frist/Mindest-Log) + Wiederholungs-Eskalation** | A-AD-6, A-REC-9, A-M28-6, A-REC-10 | ✅ valid | Kill-Gate (ohne globalen Freeze) |
+| **Sunset-Semantik: Strenge sinkt nicht** | A-M28-5, A-REC-13 | ✅ valid | Kill-Gate |
+| **Überlappungs-Tie-Breaker (höchstes Exposure gewinnt)** | A-AD-5, A-REC-7 | ✅ valid | Kill-Gate |
+| **Klickdummy technisch prüfen — F11-Prod-Guard dormant** | A-AD-4, A-REC-6 | ✅ valid | Konsequenzen (F11-Vorbehalt explizit) |
+| **„echte Daten" mechanisch statt deklariert** | B-AD-1, B-OOB-1 | 🟡 teils valid | Egress-Default-Block ja; volle PII-Erkennung bewusst zurückgestellt (1+1-Infra) |
+| **GitHub-native Enforcement bevorzugen** | B-OOB-2, A-OOB-3 | ✅ valid (Prinzip) | §Operationalisierung + Konsistenz mit ADR-267 (GitHub-nativ, Konsumenten importieren `f`) |
+| **Über-Engineering / Start 2×2, Granularität verdienen** | A-AD-8, A-OOB-2, B-AD-3, B-M28-3, B-OOB-3 | 🟡 valid als **Owner-Entscheidung** | Kill-Gate misst Nutzung; 6-Klassen sind Owner-gesetzte *Decke* („pay per used cell"); 2×2-Fold als dokumentierter Kill-Ausgang. **Offen zur Owner-Wahl: jetzt 2×2 starten?** |
+| **Auto-Freigabe statt review-freie Spur** | A-OOB-4 | ⛔ out-of-scope | für KD/T0/T1 zu schwergewichtig (Owner-Prämisse Prototyp-Speed) |
+
+**Nicht eingearbeitet:** A-OOB-4 (`[out-of-scope]`). Proponent-Befunde (A/B-PRO-*) bestätigen die
+Richtung. **Eine offene Owner-Entscheidung bleibt:** ob die 6×5-Granularität sofort gilt oder mit
+2×2 (sovereign×prod) gestartet und die Granularität „verdient" wird (beide Reviews empfehlen letzteres
+für den 1+1-Betrieb — bedingt darauf, dass noch keine echten T2–T4-Repos existieren).
