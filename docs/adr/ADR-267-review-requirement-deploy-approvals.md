@@ -9,7 +9,6 @@ domains: [security, process, governance, deployment, drift-prevention]
 supersedes: []
 amends: []
 depends_on: [KONZ-platform-014, ADR-268]
-external_sparring_by: two-external-llms@2026-07-08
 tags: [approvals, deploy, review-policy, segregation-of-duties, fail-closed, hitl, codeowners, environments]
 scope:
   include_paths:
@@ -191,6 +190,9 @@ Gate. Kein Schritt mit org-weitem Deploy-/Approve-Effekt wird solo gemergt (auto
   wird (Rauschen/Over-Proposing, das Ratifizierung zur Last macht) → abschalten, Policy bleibt.
 
 ## Externe Zweitmeinung (2026-07-08)
+
+`external_sparring_by: two-external-llms @ 2026-07-08` (im Body statt Frontmatter — der
+`iil-adrfw`-Schema-Validator kennt den Key noch nicht).
 
 Zwei unabhängige externe LLM-Reviews (Provider-Diversität, via `/adr-handoff-extern`). Beide:
 **„Überarbeiten"** (Richtung tragfähig; Umsetzbarkeit auf GitHub-Primitiven schärfen). Befund-Tagging

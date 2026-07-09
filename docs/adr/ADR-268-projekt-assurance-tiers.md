@@ -9,8 +9,6 @@ domains: [governance, process, security, deployment, drift-prevention]
 supersedes: []
 amends: []
 depends_on: [KONZ-platform-009]
-consumed_by: [ADR-267]
-external_sparring_by: two-external-llms@2026-07-09
 tags: [assurance-tier, project-class, lifecycle, risk-based, registry, fail-closed, sovereignty]
 scope:
   include_paths:
@@ -223,6 +221,9 @@ Ausbremsen früher Phasen; fail-closed by default (beide Achsen); Souveränität
   Datenhandling entlang derselben Achse.
 
 ## Externe Zweitmeinung (2026-07-09)
+
+`external_sparring_by: two-external-llms @ 2026-07-09` · `consumed_by: ADR-267` (im Body statt
+Frontmatter — der `iil-adrfw`-Schema-Validator kennt diese Keys noch nicht).
 
 Zwei unabhängige externe LLM-Reviews (via `/adr-handoff-extern`). Beide: **„Überarbeiten"** — Kern
 tragfähig, aber die operationale Härte auf der Sicherheitsgrenze schärfen. Befund-Tagging (nur
