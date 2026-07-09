@@ -5,6 +5,6 @@
 pytest>=8
 pyyaml>=6.0.3
 ruff>=0.4
-pre-commit>=3
+pre-commit>=4.6.0
 # ADR-Schema-Hook (.pre-commit-config.yaml) braucht die adrfw-CLI:
 iil-adrfw
