@@ -1,8 +1,8 @@
 ---
 status: proposed
-date: 2026-05-07
+decision_date: 2026-05-07
 version: 1.4
-decision-makers: [Achim Dehnert]
+deciders: [Achim Dehnert]
 consulted: [Cascade]
 informed: []
 supersedes: []

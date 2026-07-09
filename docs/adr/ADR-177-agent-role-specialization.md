@@ -1,6 +1,6 @@
 ---
 status: proposed
-date: 2026-04-30
+decision_date: 2026-04-30
 version: 1.4
 deciders: [achimdehnert, cascade]
 related: [ADR-068, ADR-077, ADR-138, ADR-224, ADR-174]

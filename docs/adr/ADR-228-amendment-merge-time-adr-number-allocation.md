@@ -2,7 +2,7 @@
 id: ADR-228
 title: "Amendment: Merge-time ADR number allocation (amends ADR-065)"
 status: accepted
-date: 2026-05-29
+decision_date: 2026-05-29
 deciders: [Achim Dehnert]
 consulted: []
 informed: [all-repos]

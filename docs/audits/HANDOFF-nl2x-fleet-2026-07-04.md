@@ -7,6 +7,8 @@
 > dort mit `datei:zeile` belegt. Dieses Dokument enthält nur Arbeitsanweisungen.
 > **Stand:** 2026-07-04. Je älter dieses Dokument, desto wichtiger Abschnitt 0.3 (Re-Grounding).
 
+> **Live-Status: achimdehnert/platform#913** — der Gate-/WP-Stand in DIESEM Dokument ist eingefroren (Stand 2026-07-04 ~13:00 UTC) und wird nicht nachgeführt; §2/§3-Status sind historisch. Methode (§0 Re-Grounding) bleibt gültig.
+
 ---
 
 ## 0. Sofort-Start (erste 15 Minuten, Reihenfolge einhalten)
@@ -17,8 +19,7 @@
    ```bash
    # Ist der odoo-Legacy-Fallback noch da? (Befund P1-🔴 #2)
    rg -n 'allow_write|def _execute_sql' ~/github/odoo-hub/addons/mfg_nl2sql/controllers/nl2sql_controller.py
-   # Callt ttz-hub noch OpenAI? (Befund P1-🔴 #1)
-   rg -n 'gpt-4o-mini|litellm' ~/github/ttz-hub/services/aifw_service/aifw_service/views.py
+   # Gov-Repo-Routing-Befund noch offen? → Prüf-Kommando im Gov-Repo (Gov-Regel)
    # Golden-Suite noch CI-blind?
    rg -n 'NL2CAD_TESTDATA' ~/github/nl2cad/tests/test_realdata_golden.py
    # Pins noch driftend?
@@ -38,15 +39,17 @@ Die drei NL→Struktur-Domänen der Flotte (**NL2SQL** in aifw/odoo-hub/ttz-hub,
 - Prompts in promptfw (ADR-146), Routing policy-konform (Groq-first, ttz=Ollama).
 - IoT: erst ab MVP-Start relevant; dann SIL-Gate als Code + Evals ab Tag 1.
 
-## 2. Entscheidungs-Gates (nur User entscheidet — Stand 2026-07-04 alle OFFEN)
+## 2. Entscheidungs-Gates (nur User entscheidet — historischer Stand ~13:00 — Live: #913)
+
+> **Redaktion 2026-07-08:** Gov-Repo-Detailfunde gemäß Gov-Regel (Gov-Funde bleiben im Gov-Repo) entfernt bzw. generisch gefasst. Volldetails liegen beim Owner (lokale Ablage) und gehören in ein Gov-Repo-Issue.
 
 | Gate | Frage | Optionen | Blockiert |
 |---|---|---|---|
-| G1 | ttz-hub Sovereignty: OpenAI-Call ersetzen oder Ausnahme? | (a) Migration Ollama/Mistral-EU (b) schriftliche Ausnahme | WP4-Umfang; Prod-Deploy von WP4 |
+| G1 | Gov-Repo Sovereignty-Gate (Detail → Gov-Repo) | (a) lokale Migration (b) schriftliche Ausnahme | WP4-Umfang; Prod-Deploy von WP4 |
 | G2 | odoo-hub Prod-Fix-Freigabe (Prod-Addon!) | Fix-PR ja/nein; Fallback entfernen vs. absichern | WP1-Merge/Deploy |
 | G3 | ADR „NL2X-Kern in aifw + Eval-Standard" gewollt? | ja → Draft schreiben; nein → Einzelmaßnahmen ohne ADR | WP7, WP8 |
 | G4 | Audit+Handoff committen (platform, main oder PR)? | ✅ freigegeben 2026-07-04 („committe audit+handoff") | — |
-| G5 🔴 | **nl2cad: echte Kundendaten als Test-Fixtures im Repo** — `tests/fixtures/minimal.ifc` (37 MB, Bendl-Modell inkl. Klarname/E-Mail/Telefon im IFC-Header), `minimal.dxf` vermutlich analog; git-getrackt seit langem | Bereinigung = History-Rewrite (irreversibel!) + Fixture-Ersatz durch synthetische Modelle (Basis existiert seit WP2) | Entscheidung + Zeitpunkt (History-Rewrite invalidiert Clones) |
+| G5 🔴 | **nl2cad: echte Kundendaten als Test-Fixtures im Repo** — `tests/fixtures/minimal.ifc` (37 MB, Kunden-Modell mit Klarname/E-Mail/Telefon im IFC-Header — Name bewusst nicht hier), `minimal.dxf` vermutlich analog; git-getrackt seit langem | Bereinigung = History-Rewrite (irreversibel!) + Fixture-Ersatz durch synthetische Modelle (Basis existiert seit WP2) | Entscheidung + Zeitpunkt (History-Rewrite invalidiert Clones) |
 | G6 | nl2cad: Repo-Secret `NL2CAD_TESTDATA_URL` setzen, damit der gated Realdata-Golden-Job echt läuft | Secret anlegen (tar.gz-Korpus, private Ablage) + einen CI-Lauf prüfen | Realdata-Eval in CI |
 
 **Autonomie-Regel:** Branch → Edits → PR → CI-Fix ist gate-frei; Merge in Prod-Pfade (odoo-hub, ttz-hub prod), Publish (PyPI), Deploy = Freigabe nötig (autonomy-gates.md).
@@ -70,9 +73,9 @@ Die drei NL→Struktur-Domänen der Flotte (**NL2SQL** in aifw/odoo-hub/ttz-hub,
 - **Akzeptanz:** Tests: oversized Upload → ValueError; Entity-Blowup-XML → sauberer Fehler; bestehende 31 Testdateien grün.
 
 ### WP4 🟠 ttz-hub: Fork eliminieren + Routing policy-konform  [G1 für Modellwahl]
-- **Ist:** `services/aifw_service/aifw_service/views.py` — Custom-NL2SQL, `import aifw` fehlt, Begründungs-Kommentar `:8-11` seit aifw≥0.7 überholt; OpenAI-Direktcall; tote Dep `requirements.txt:4`.
-- **Soll:** Migration auf `aifw.nl2sql.NL2SQLEngine` (Vorbild: `odoo-hub/services/aifw_service/`); ttz-Stärken dabei **in aifw übernehmen, nicht verlieren**: dedizierte RO-DB-Rolle (`docker/db/init.sql:14-17`), `evaluate.py`+`nl2sql_examples.json` (Keimzelle für WP7), 50 Tests portieren. Modell gemäß G1.
-- **Akzeptanz:** kein Custom-LLM/SQL-Code mehr in views.py; `iil-aifw`-Pin korrekt; Tests portiert und grün; kein OpenAI-Call (bzw. dokumentierte Ausnahme).
+- **Ist:** Custom-NL2SQL-Fork im Gov-Repo mit externem LLM-Call und überholter Fork-Begründung — Datei-Details → Gov-Repo (Gov-Regel).
+- **Soll:** Migration auf `aifw.nl2sql.NL2SQLEngine` (Vorbild: `odoo-hub/services/aifw_service/`); Gov-Repo-Stärken (dedizierte RO-DB-Rolle, Eval-Harness, Tests) **in aifw übernehmen, nicht verlieren**. Modell gemäß G1.
+- **Akzeptanz:** kein Custom-LLM/SQL-Code mehr in views.py; `iil-aifw`-Pin korrekt; Tests portiert und grün; kein externer LLM-Call (bzw. dokumentierte Ausnahme).
 
 ### WP5 🟡 Pins & Aufräumen — TEILWEISE ERLEDIGT (2026-07-04: risk-hub#377 ✅ gemergt, ttz-hub#24 ✅ gemergt, cad-hub#31 🟡 grün aber Merge=Prod-Deploy nl2cad.de → wartet auf manuellen Merge durch Achim)
 - cad-hub: `requirements.txt:12` → `nl2cad-core[ifc]>=0.4.0,<1.0`; toten `apps/ifc/parser/parser.py` (`IfcCompleteParser`) entfernen (vorher Hypothese H-cadhub-dead prüfen, §4).
@@ -87,7 +90,7 @@ Die drei NL→Struktur-Domänen der Flotte (**NL2SQL** in aifw/odoo-hub/ttz-hub,
 - **Akzeptanz:** frisches Seed erzeugt policy-konformes Routing; Prompt editierbar via promptfw; bestehende Tests grün.
 
 ### WP7 🟠 Eval-Standard: NL2SQL-Accuracy als CI-Gate  [G3 beeinflusst Ort/Form]
-- **Keimzelle:** `ttz-hub/services/aifw_service/evaluate.py` + `nl2sql_examples.json` (16 Beispiele) → generalisieren nach aifw als `aifw.nl2sql.eval` (Golden-Set-Format: NL-Input, Ground-Truth-SQL bzw. Ground-Truth-Resultset, Toleranz).
+- **Keimzelle:** Gov-Repo-Eval-Harness (evaluate.py + Beispiel-Goldset, 16 Beispiele; Pfad → Gov-Repo) → generalisieren nach aifw als `aifw.nl2sql.eval` (Golden-Set-Format: NL-Input, Ground-Truth-SQL bzw. Ground-Truth-Resultset, Toleranz).
 - **Akzeptanz:** `make eval-nl2sql` liefert Accuracy-%; CI-Gate mit Schwellwert; Golden-Set versioniert im Repo; Modellwechsel erzeugt sichtbaren Accuracy-Diff.
 
 ### WP8 🟠 mcp-hub: ifc_mcp auf nl2cad-core umstellen  [größtes WP; nach G3]
@@ -100,7 +103,7 @@ Die drei NL→Struktur-Domänen der Flotte (**NL2SQL** in aifw/odoo-hub/ttz-hub,
 | ID | Hypothese | Billigster Check |
 |---|---|---|
 | H-odoo | Prod hat `aifw_service_url` gesetzt (sonst ist unsicherer Pfad aktiv) | Odoo-Konfigparameter in Prod lesen (read-only, gate-frei) |
-| H-ttz | OpenAI-Call verletzt Kundenvertrag | `ttz-hub/docs/Angebot_KI_Werkleiterassistent_Phase1_IIL.md` + Vertrag lesen |
+| H-gov | vertragliche Einordnung des Routing-Befunds | im Gov-Repo prüfen (Doku liegt dort) |
 | H-pypi | PyPI-Versionen nl2cad-Pakete = Repo-Tags | `pip index versions nl2cad-core` |
 | H-ifcmcp | ifc_mcp ist produktiv deployt | `rg ifc ~/github/platform/infra/ports.yaml` + `gh run list -R achimdehnert/mcp-hub` |
 | H-cadhub-dead | `IfcCompleteParser` wirklich unreferenziert | `rg -w IfcCompleteParser ~/github/cad-hub --glob '!apps/ifc/parser/*'` |

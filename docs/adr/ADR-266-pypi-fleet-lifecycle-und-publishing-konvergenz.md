@@ -1,18 +1,20 @@
 ---
 id: ADR-266
 title: "PyPI-Fleet: Paket-Lifecycle, Publishing-Konvergenz und Health-Mechanismus (Programm)"
-status: proposed
-date: 2026-07-04
+status: accepted
+decision_date: 2026-07-04
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh]
 scope: platform
 related: [ADR-226, ADR-255, ADR-265]
 tags: [pypi, packaging, publish-gate, trusted-publishing, fleet-pattern, lifecycle, programm]
-implementation_status: in-progress
+implementation_status: partial
 ---
 
 # ADR-266 — PyPI-Fleet: Lifecycle, Publishing-Konvergenz, Health-Mechanismus
+
+> **Accepted 2026-07-04 durch Achim Dehnert** (Session e17299, wörtlich „ADR-265 + ADR-266 accepted").
 
 > Programm-ADR (Auftrag Achim 2026-07-04): „alle Repos, die als PyPI dienen,
 > analysieren und so optimieren, dass sie ihren Zweck erfüllen und sich stetig

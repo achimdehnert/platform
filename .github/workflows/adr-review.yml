@@ -18,7 +18,6 @@ on:
       - 'docs/adr/**'
       - 'adr/**'
       - '**/ADR-*.md'
-      - 'concepts/**/*.md'
 
   workflow_dispatch:
     inputs:

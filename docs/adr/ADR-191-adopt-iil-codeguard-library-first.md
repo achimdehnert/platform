@@ -1,12 +1,12 @@
 ---
 status: accepted
-date: 2026-05-09
+decision_date: 2026-05-09
 amended: 2026-05-10
-decision-makers:
+deciders:
   - Achim Dehnert
-reviewed-by:
+reviewed_by:
   - Claude (Sparring Review, 2026-05-09)
-depends-on:
+depends_on:
   - ADR-190 (iil-adrfw Tooling Framework)
   - ADR-048 (HTMX Playbook)
   - ADR-056 (Deployment Pre-Flight Validation)

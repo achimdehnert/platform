@@ -1,7 +1,7 @@
 ---
 status: accepted
-date: 2026-03-25
-decision-makers: [Achim Dehnert]
+decision_date: 2026-03-25
+deciders: [Achim Dehnert]
 consulted: []
 informed: []
 supersedes: []  # ADR-152 (tax-hub Pilot) never published — see related

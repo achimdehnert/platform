@@ -2,7 +2,7 @@
 id: ADR-264
 title: "Kanonische Deployment-Strategie (Staging→Prod-Promotion) + Supersession-Gate gegen Deploy-ADR-Sprawl"
 status: accepted
-date: 2026-07-03
+decision_date: 2026-07-03
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh]

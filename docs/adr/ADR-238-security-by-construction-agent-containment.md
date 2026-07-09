@@ -5,11 +5,11 @@ implementation_evidence:
   - "Erste Scheibe gemergt+deployed: mcp-hub#99 (Shell-Injection: shlex.quote + Metachar-Reject), #100 (Bearer-Auth /sse+/messages — unauth→401 live verifiziert), #102 (Zwei-Key-Split /run vs /sse); MCP-Key rotiert 2026-06-06 (alter exponierter Key → /sse 403, wertlos)"
   - "Befund-Grundlage: Tiefen-Security-Review 2026-06-06 (code-read + Prod-Probe: GET /sse → 200 ohne Bearer; nginx-Access-Log: kein Ausnutzungs-Hinweis)"
   - "Externe Cross-Provider-Zweitmeinung via /adr-handoff-extern eingearbeitet (Step-5-Gate, 17 [valid]-RECs)"
-date: 2026-06-06
-decision-makers: Achim Dehnert
+decision_date: 2026-06-06
+deciders: Achim Dehnert
 domains: [security, governance, agents, ci-cd]
 scope: platform
-relates_to: [ADR-070, ADR-081, ADR-186, ADR-015, ADR-210, ADR-233, ADR-234, ADR-235]
+related: [ADR-070, ADR-081, ADR-186, ADR-015, ADR-210, ADR-233, ADR-234, ADR-235]
 tags: [security, by-construction, agent-autonomy, containment, gate, untrusted-insider, kill-gate, prevention]
 ---
 
