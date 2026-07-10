@@ -82,7 +82,7 @@ recurring_findings: [claim-before-cheapest-check, lint-failure-no-local-gate, ha
 
 ## 5. Längsschnitt (retro_kpis.py, Lauf 2026-07-10)
 
-Bereits gate-pflichtig (≥2 über Retros) und in dieser Session ERNEUT aufgetreten: **`claim-before-cheapest-check`** (#3/#5/#9/#12 — vier Vorkommen in einer Session), **`lint-failure-no-local-gate`** (#9), **`handover-stale-vor-merge`** (#8, Doku-Variante). Neu eingeführter Slug: **`platform-pinned-perma-dirty-loop`** (#1/#2 — Erstvorkommen, aber struktureller Dauerzustand, Gate-Kandidat ab sofort statt bei ×2, weil deterministisch fixbar). `autonomous-no-human-review` (#4) ist als Gate in der User-CLAUDE.md dokumentiert, hier in der technischen Variante (fehlende Review-Rule). Score-Mittel der letzten 20 Retros zum Vergleich: zielerreichung 3,90 · risiko_debt 2,70 — diese Session liegt bei 4/3.
+Bereits gate-pflichtig (≥2 über Retros) und in dieser Session ERNEUT aufgetreten: **`claim-before-cheapest-check`** (#3/#5/#9/#12 — vier Vorkommen in einer Session), **`lint-failure-no-local-gate`** (#9), **`handover-stale-vor-merge`** (#8, Doku-Variante). Neu eingeführter Slug: **`platform-pinned-perma-dirty-loop`** (#1/#2 — Erstvorkommen, aber struktureller Dauerzustand, Gate-Kandidat ab sofort statt bei ×2, weil deterministisch fixbar). `autonomous-no-human-review` (#4): im heutigen `retro_kpis.py`-Lauf NICHT in der ≥2-Liste (Erstvorkommen unter diesem Slug im KPI-Schema); der Gate-pflichtig-Status stammt aus der User-CLAUDE.md-Dokumentation (2026-06-23, dort „≥2× über Retros“ vor Einführung des Slug-Schemas) — hier in der technischen Variante (fehlende Review-Rule). Score-Mittel der letzten 20 Retros zum Vergleich: zielerreichung 3,90 · risiko_debt 2,70 — diese Session liegt bei 4/3.
 
 **5b. Autonomie-Kalibrierung:** `over_ask: 0` — alle „dein Zug"-Items waren echte Gates (Branch-Protection-Approves, Owner-Entscheide, Prod-Merge). `over_act: 0` — beide heiklen Aktionen (Merge #1042 nach Einzel-Verifikation von `reviewDecision=APPROVED`; Merge #59 nach wörtlichem „25 erledigt") waren namentlich gedeckt; der Auto-Mode-Classifier blockte zwei Merge-Versuche, denen kein Workaround folgte, sondern Rückgabe an den Menschen. Sequenzfehler #5 (Issue-Close vor Trägerdoc-Merge) ist ein Ordnungs-, kein Gate-Fehler.
 
@@ -158,6 +158,8 @@ teilweise — Erweiterung um gh-Publish-Aufrufe ist Gate-Kandidat.
 - **`tenancy_mode`-blockierte PRs #963/#1053** (Collector-Red-Flag): NICHT aus dieser Session, nicht untersucht — billigster Check: `gh pr checks 1053` + Gate-Log lesen.
 - **Ob der 14:24:27Z-Symlink-Rewrite exakt von einem `/session-start` kam:** Code+Timing+Dateiliste passen 1:1, ein Log des konkreten Laufs wurde nicht gesichert (Hypothese mit starker Indizienlage).
 
-## Self-Review
+## Self-Review (Phase-5-Meta-Agent, Sonnet)
 
-(wird nach Phase-5-Meta-Review ergänzt)
+8/9 Skill-Regeln PASS im Erstdurchlauf; ein FAIL (fehlender Zähler-Bezug für `autonomous-no-human-review` in §5) wurde mit ehrlicher Quellen-Trennung korrigiert (KPI-Erstvorkommen vs. CLAUDE.md-Gate-Dokumentation). `refuted_rate` 0,20 liegt im gesunden Band (Vorgänger 0,00–0,50), exakt an der unteren Theater-Schwelle — Meta-Notiz: Randlage, kein Verstoß; drei der zwölf Survivors stammen aus Skeptiker-VERSCHÄRFUNGEN (57 statt 24 Commits; Erzeuger-Mechanismus gefunden), was gegen laxe Finder spricht.
+
+Prozess-Anmerkung (Transparenz): Die Erstfassung dieses Reports wurde durch einen Quoting-Fehler im Edit-Skript OHNE diese Meta-Korrektur gepusht; der Fehler wurde per Remote-Diff entdeckt und mit diesem Folge-Commit behoben — ein Live-Exemplar von Befund #9-Familie (Publish vor Check) im Retro selbst.
