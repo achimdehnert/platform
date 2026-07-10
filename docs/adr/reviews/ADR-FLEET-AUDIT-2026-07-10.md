@@ -138,7 +138,7 @@ zu `/adr-curator`, hier nur gezählt.
 - [x] F-2: Schema-Erweiterung ADR-211-Felder — [iil-adrfw#59](https://github.com/achimdehnert/iil-adrfw/pull/59)
 - [ ] F-2b: Restliche unbelegte Felder — Einzelfall-Klärung nötig
 - [ ] F-3: Struktur-Lint bauen (abhängig von F-1)
-- [x] F-4: ADR-054→056-Verweis im Template — [platform#1041](https://github.com/achimdehnert/platform/pull/1041)
+- [x] F-4: ADR-054→056-Verweis im Template — [platform#1049](https://github.com/achimdehnert/platform/pull/1049) (#1041 nie gemergt, obsolet geschlossen; Link nachgezogen, Retro d2522c #8)
 - [x] F-5: trading-hub Enum-Fix — [trading-hub#114](https://github.com/achimdehnert/trading-hub/pull/114)
 - [ ] F-6: Schema-Redirect-Ausnahme (kein Repo-Fix mehr nötig — Datei ist korrekt)
 - [ ] F-8: platform-pinned — 8 unfertige lokale Änderungen zuerst klären, dann Sync-Weg (kein mechanischer Fix)
