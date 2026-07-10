@@ -163,51 +163,23 @@ Datei `{ADR_PATH}/ADR-NNN-[title-slug].md` erstellen.
 )
 ```
 
-### Pflicht-Metadaten-Template (IMMER verwenden)
+### Pflicht-Struktur (SSOT: docs/templates/adr-template.md — ADR-271)
 
-```markdown
-| Attribut       | Wert                        |
-|----------------|------------------------------|
-| **Status**     | Proposed                    |
-| **Scope**      | [scope aus Step 1]          |
-| **Repo**       | [repo aus Step 1]           |
-| **Erstellt**   | [YYYY-MM-DD]                |
-| **Autor**      | Achim Dehnert               |
-| **Reviewer**   | –                           |
-| **Supersedes** | –                           |
-| **Relates to** | [ADR-NNN (Titel), ...]      |
-```
+Datei-Inhalt = Kopie von `docs/templates/adr-template.md`, Platzhalter ausgefüllt.
+NICHT die Struktur neu erfinden oder aus dem Gedächtnis rekonstruieren.
 
-**Pflicht-Abschnitte (Reihenfolge einhalten):**
+Pflicht-Abschnitte (siehe Template): Metadaten, Repo-Zugehörigkeit, Decision
+Drivers, §1 Context and Problem Statement, §2 Considered Options, §3 Decision
+Outcome, §4 Implementation Details, §6 Consequences, §8 Confirmation.
+Optional (nur wenn zutreffend): §5 Migration Tracking (nur bei Transitions),
+§7 Risks, §9 More Information, §10 Changelog.
 
-```
-1. Kontext (1.1 Ausgangslage, 1.2 Problem/Lücken, 1.3 Constraints)
-2. Entscheidung
-3. Betrachtete Alternativen
-4. Begründung im Detail
-5. Implementation Plan
-6. Risiken
-7. Konsequenzen (7.1 Positiv, 7.2 Trade-offs, 7.3 Nicht in Scope)
-8. Validation Criteria
-9. Glossar
-10. Referenzen
-11. Changelog
-```
+Sprache (ADR-271 §3.2): Abschnitts-Überschriften kanonisch Englisch (fleet-weit);
+Prosa-Sprache frei — Deutsch in LRA-/Behörden-Repos üblich.
 
-**Glossar-Abschnitt (Pflicht — LRA-Lesbarkeit):**
-
-Jede Abkürzung und jeder Fachbegriff, der für LRA-Mitarbeiter ohne IT-Hintergrund
-nicht selbsterklärend ist, MUSS im Glossar erläutert werden.
-
-```markdown
-## Glossar
-
-| Abkürzung | Bedeutung |
-|-----------|-----------|
-| **XYZ** | Ausgeschriebener Name — kurze Erklärung in einem Satz |
-```
-
-Typische Kandidaten: ADR, KI, ML, LLM, HITL, OCR, API, DSGVO, DMS, QR, HMAC, CI/CD, etc.
+Glossar: siehe Template (§Glossar) — Pflicht-Trigger und Kandidatenliste
+stehen DORT, nicht hier. Der Skill fügt nichts ein, was das Template
+nicht kennt.
 
 ## Step 5: pgvector Memory sichern (PFLICHT — jede neue ADR, alle Repos)
 

@@ -8,8 +8,11 @@ informed: –
 
 <!--
   ADR-TEMPLATE v2.0 (2026-02-21)
-  Basis: MADR 4.0 + Platform-Governance (ADR-021, ADR-046, ADR-054, ADR-059)
+  Basis: MADR 4.0 + Platform-Governance (ADR-021, ADR-046, ADR-056, ADR-059)
+  (ADR-054 wurde 2026-05-17 durch ADR-056 ersetzt — Zitat nachgezogen, Fleet-Audit F-4)
   Strategie: techdocs-first, dev-hub-sync, Drift-Detector-kompatibel
+  SPRACHE (ADR-271 §3.2): Abschnitts-Überschriften kanonisch Englisch, fleet-weit;
+  Prosa-Sprache frei — Deutsch ist in LRA-/Behörden-Repos üblich und erwünscht.
 
   PFLICHTFELDER: status, decision_date, deciders, Titel, §1–§5, §9 Confirmation
   OPTIONALE FELDER: consulted, informed, §6 Migration Tracking (nur bei Transitions)
@@ -201,6 +204,22 @@ informed: –
 
 ---
 
+## Glossar
+
+<!--
+  OPTIONAL als Abschnitt, PFLICHT sobald Fachbegriffe/Abkürzungen für
+  Nicht-IT-Leser vorkommen (LRA-Lesbarkeit, ADR-271 §4.2).
+  Typische Kandidaten: ADR, KI, ML, LLM, HITL, OCR, API, DSGVO, DMS, QR,
+  HMAC, CI/CD — und die MADR-Überschriften selbst (Context and Problem
+  Statement, Considered Options, Decision Outcome, Confirmation).
+-->
+
+| Abkürzung / Begriff | Bedeutung |
+|-----------|-----------|
+| **XYZ** | Ausgeschriebener Name — kurze Erklärung in einem Satz |
+
+---
+
 ## 9. More Information
 
 <!--
@@ -237,5 +256,5 @@ informed: –
   - Tags werden aus Decision Drivers extrahiert (automatisch)
 
   Review-Checkliste: /docs/templates/adr-review-checklist.md
-  Template-Version: 2.0 (2026-02-21)
+  Template-Version: 2.1 (2026-07-10 — ADR-271: Glossar-Abschnitt + Sprachregel)
 -->
