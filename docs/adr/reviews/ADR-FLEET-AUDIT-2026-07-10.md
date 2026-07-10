@@ -4,7 +4,10 @@
 Org-Scope aus Clone-Remotes: achimdehnert, bahn-sqf, iilgmbh, meiki-lra, ttz-lif · **Remote-Diff (Phase 0.2,
 `gh repo list` je Org) für diesen fokussierten Lauf NICHT gefahren** — Scope war Struktur-Konformität, nicht
 Vollständigkeitsbeweis; siehe „Nicht verifiziert". `platform` (217) und `platform-pinned` (211) sind derselbe
-Remote als Worktree (bekannt, [[platform-pinned-is-worktree]]) — pinned liegt 6 Dateien hinter platform zurück.
+Remote als Worktree (bekannt, [[platform-pinned-is-worktree]]) — **Korrektur nach F-8-Prüfung:** die
+Dateizahl-Differenz (217 vs. 211) war eine Untertreibung; tatsächlich liegt `platform-pinned` **24 Commits**
+hinter `platform` (`e8ea75a` vs. `2ffb2cf`, detached HEAD) und trägt **8 unfertige lokale Änderungen**
+(`.windsurf/rules/*.md`, Typ-Changes) — kein mechanischer Sync, siehe F-8.
 
 ## Kernbefund
 
@@ -112,13 +115,14 @@ selbst rät von retroaktivem Umschreiben ab (Historie bleibt lesbar wichtiger al
 | # | Item | Repo | Klasse | Evidenz | Status | Next Step |
 |---|---|---|---|---|---|---|
 | F-1 | `.windsurf/workflows/adr.md` Step 4 auf MADR-4.0-Sektionen (aus `docs/templates/adr-template.md`) umstellen — behält Glossar/Risks/Implementation Details als Erweiterung | platform | C | `.windsurf/workflows/adr.md:166-190` vs. `docs/templates/adr-template.md:21-` | 🟡 Empfehlung | ADR schreiben (adr-threshold: cross-cutting, alle Repos betroffen) — du entscheidest, ich ziehe den Skill nach |
-| F-2 | ADR-211-Klickdummy-Felder ins Schema aufnehmen (`class`,`conforms_to`,`sunset_after`,`extension_review_required`,…) — behebt ≈80 der 85 Hard-Fails | platform (iil-adrfw) | A | `iil-adrfw/schemas/adr_frontmatter.schema.json` `additionalProperties:false` | 🔵 ready | Schema-PR (ich, nach Go) |
+| F-2 | ADR-211-Klickdummy-Felder ins Schema (`class`,`conforms_to`,`sunset_after`,`extension_review_required`,`sister_of`) + Datumsnormalisierung | iil-adrfw | A | 199/199 Tests grün, live gegen 12 Repos verifiziert | ✅ erledigt | [iil-adrfw#59](https://github.com/achimdehnert/iil-adrfw/pull/59) |
+| F-2b | Restliche unbelegte Felder (`extends`,`realizes_use_cases`,`spec_role`,`scope.repos/apps`,`amendments`,`accepted`,`ratified`,`revisions`,`external_review`) — bewusst NICHT unter F-2 mitgezogen, keine ADR-211-Textstelle gefunden | mehrere | B | `iil-adrfw validate` Restfehler nach F-2 | 🟢 offen | Einzelfall-Klärung: Tippfehler vs. echte Erweiterung (du) |
 | F-3 | Leichter Struktur-Lint (H2-Set gegen kanonische MADR-Liste, WARN nicht BLOCK, nur `created > Cutover-Datum`) — kein retroaktiver Zwang | platform (iil-adrfw oder `scripts/`) | B | Root-Cause bestätigt: existiert nirgends (s. o.) | 🔵 ready | Nach F-1-Entscheid bauen (ich) |
 | F-4 | `docs/templates/adr-template.md` Kopfkommentar: Verweis „ADR-054" (superseded seit 2026-05-17) auf ADR-056 nachziehen | platform | A | `docs/templates/adr-template.md:11`; ADR-054 `status: superseded`, `superseded_by: [ADR-056]` | ✅ erledigt | — |
-| F-5 | `trading-hub/ADR-408` `review_status`-Freitext → Enum-Wert (`approved` + Freitext in Body) | trading-hub | B | `iil-adrfw validate` Exit 1 | 🔵 ready | PR (ich, nach Go) |
-| F-6 | `weltenhub/ADR-031` Stub mit `title: MOVED` klären (löschen/vervollständigen) | weltenhub | B | `iil-adrfw validate` Exit 1 | 🟢 offen | Owner-Entscheid: löschen oder Ziel benennen (du) |
+| F-5 | `trading-hub/ADR-408` `review_status`-Freitext → Enum-Wert (`approved`, Freitext war bereits im Body dupliziert) | trading-hub | B | `iil-adrfw validate` → 9/9 | ✅ erledigt | [trading-hub#114](https://github.com/achimdehnert/trading-hub/pull/114) |
+| F-6 | `weltenhub/ADR-031` — **Korrektur:** kein Waisen-Stub, sondern bewusster Redirect nach ADR-065-Konvention (Nummernkollision) auf `ADR-094` (existiert, funktioniert). Validator schlägt nur an, weil Schema `title` eine Mindestlänge verlangt — reiner Redirect-Blindfleck im Schema, keine kaputte Datei | weltenhub | A (Schema, nicht Repo) | `ADR-094-graphql-strategie-….md` existiert; `ADR-065` dokumentiert das Redirect-Muster | 🟢 offen | Schema um Redirect-Ausnahme ergänzen (F-2b-Kandidat) — dein Go |
 | F-7 | `bfagent` 14 frontmatter-lose Dateien — **NICHT anfassen**, Repo archiviert | bfagent | — | `gh api repos/achimdehnert/bfagent --jq .archived` = `true` | ✅ dokumentiert | keiner — bewusst ausgeklammert |
-| F-8 | `platform-pinned` 6 Dateien hinter `platform` | platform-pinned | A | Dateizahl-Diff 217 vs. 211 | 🔵 ready | Worktree-Sync (ich, mechanisch) |
+| F-8 | `platform-pinned` 24 Commits hinter `platform` (detached HEAD) **und** 8 unfertige lokale Änderungen (`.windsurf/rules/*.md`) — **umklassifiziert B, war fälschlich A** | platform-pinned | B | `git log e8ea75a..2ffb2cf --oneline` = 24 · `git status --short` = 8 Typ-Changes | 🟢 offen | dein Entscheid: lokale Änderungen behalten/verwerfen, bevor irgendein Sync passiert |
 
 **Verifiziert:** Frontmatter-Schema-Status per `iil-adrfw validate` über alle 34 Repos (Exit-Codes, nicht
 Heuristik) · Body-Struktur-Werkzeug-Lücke per Quellcode-Lektüre (cli.py, CI-Workflows, adr_audit.py) ·
@@ -130,11 +134,11 @@ zu `/adr-curator`, hier nur gezählt.
 
 ## Freigabe-Block
 
-- [ ] F-1: ADR schreiben „`/adr`-Skill-Scaffold auf MADR 4.0 vereinheitlichen" (du entscheidest ADR ja/nein
-      und Cutover-Verhalten — retroaktiv NICHTS umschreiben)
-- [ ] F-2: Schema-Erweiterung um ADR-211-Felder
+- [ ] F-1: ADR „`/adr`-Skill-Scaffold auf MADR 4.0 vereinheitlichen" — in Arbeit (siehe unten)
+- [x] F-2: Schema-Erweiterung ADR-211-Felder — [iil-adrfw#59](https://github.com/achimdehnert/iil-adrfw/pull/59)
+- [ ] F-2b: Restliche unbelegte Felder — Einzelfall-Klärung nötig
 - [ ] F-3: Struktur-Lint bauen (abhängig von F-1)
-- [ ] F-4: toter Verweis im Template fixen
-- [ ] F-5: trading-hub Enum-Fix
-- [ ] F-6: weltenhub-Stub — Owner-Entscheid nötig
-- [ ] F-8: platform-pinned nachziehen
+- [x] F-4: ADR-054→056-Verweis im Template — [platform#1041](https://github.com/achimdehnert/platform/pull/1041)
+- [x] F-5: trading-hub Enum-Fix — [trading-hub#114](https://github.com/achimdehnert/trading-hub/pull/114)
+- [ ] F-6: Schema-Redirect-Ausnahme (kein Repo-Fix mehr nötig — Datei ist korrekt)
+- [ ] F-8: platform-pinned — 8 unfertige lokale Änderungen zuerst klären, dann Sync-Weg (kein mechanischer Fix)
