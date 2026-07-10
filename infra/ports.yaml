@@ -41,7 +41,7 @@
 #   VERBOTEN: staging.writing.iil.pet   (2 Level = CF Universal SSL deckt NICHT ab)
 #   Eigene Domains (LE Wildcard) duerfen staging.X.Y bleiben.
 #
-# Nächster freier Port: 8111  (berechnet: port_audit.py --next-free)
+# Nächster freier Port: 8113  (berechnet: port_audit.py --next-free)
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -366,3 +366,12 @@ services:
     domain_staging: staging-bahn.iil.pet
     repo: achimdehnert/bahn-hub
     note: "FastAPI + DuckDB — kein Django"
+
+  decks-hub:
+    prod: 8112
+    staging: 8112
+    dev: 8112
+    container_name: decks_hub_web
+    domain_prod: decks-hub.iil.pet
+    repo: achimdehnert/decks-hub
+    note: "Statisches Slidev-Deck → nginx (ADR-253 Schiene 1) — kein Django/DB. Health: /healthz/. Noch nicht deployed (deploy.yml ist workflow_dispatch-only)."
