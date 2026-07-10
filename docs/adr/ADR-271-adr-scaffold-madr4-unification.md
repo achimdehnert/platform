@@ -86,9 +86,9 @@ Der Fleet-Audit deckte den Widerspruch als Nebenbefund einer Struktur-Konformit�
 ### Option A: Skill-Scaffold auf Template-Struktur (MADR 4.0 + Platform-Erweiterungen) umstellen ✅
 
 **Pros:**
-- Vollzieht eine bereits getroffene Entscheidung (Template trägt „Basis: MADR 4.0" seit v2.0, 2026-02-21) statt eine neue zu treffen.
-- Deckt sich mit der knapp größeren MADR-Familie im Bestand (196 vs. 341 — kein Bruch mit der Mehrheit, sondern Vollendung einer bereits mehrheitsfähigen Richtung).
-- MADR ist ein dokumentierter externer Standard — neue Mitarbeitende/Modelle kennen das Vokabular ggf. bereits.
+- Das Template ist das einzige der beiden Artefakte mit Bezug auf einen **externen Standard** und wurde als legitimes MADR-4.0-Superset verifiziert (alle drei MADR-Pflichtabschnitte — Context and Problem Statement, Considered Options, Decision Outcome — enthalten; Abgleich gegen <https://adr.github.io/madr/> am 2026-07-10).
+- Die MADR-Familie ist mit 196 von 692 Dateien die zweitstärkste gelebte Form und wächst organisch auch außerhalb von platform — kein Fremdkörper.
+- Externes, dokumentiertes Vokabular — neue Mitarbeitende/Modelle kennen es ggf. bereits; Anschlussfähigkeit an Community-Tooling.
 
 **Cons:**
 - 341 bestehende ADRs bleiben strukturell „alt" — gemildert durch bewussten Verzicht auf retroaktive Umformatierung (§6.3).
@@ -100,8 +100,8 @@ Der Fleet-Audit deckte den Widerspruch als Nebenbefund einer Struktur-Konformit�
 - Kein Vokabular-Wechsel für die Mehrheit der Autoren.
 
 **Cons:**
-- Widerspricht dem expliziten Selbstbezug des Templates („Basis: MADR 4.0") — würde eine dokumentierte frühere Entscheidung stillschweigend kippen, ohne sie zu benennen (verstößt gegen `supersedes`-Disziplin).
-- Kein externer Standard — eigene Nomenklatur ohne Anschlussfähigkeit. → **Abgelehnt weil:** widerspricht der bereits getroffenen MADR-Entscheidung, statt sie zu vollziehen.
+- Kanonisiert eine Eigennomenklatur ohne externen Standard — jede Doku, jedes Onboarding, jedes Tooling muss sie von Grund auf selbst erklären.
+- Erforderte den Umbau des Templates gegen dessen expliziten Selbstbezug („Basis: MADR 4.0") — machbar, aber ohne inhaltlichen Gewinn. → **Abgelehnt weil:** bei fast gleichstarkem Bestand (341 vs. 196) gibt Anschlussfähigkeit + verifizierte Superset-Eigenschaft des Templates den Ausschlag — **nicht** ein früherer Beschluss (siehe §3, Einordnung: einen expliziten Body-Struktur-Beschluss gab es bislang nicht).
 
 ### Option C: Status quo — beide Quellen bleiben bestehen, keine Entscheidung
 
@@ -117,7 +117,20 @@ Der Fleet-Audit deckte den Widerspruch als Nebenbefund einer Struktur-Konformit�
 
 **Gewählte Option: Option A — Skill-Scaffold auf Template-Struktur (MADR 4.0 + Platform-Erweiterungen) umstellen**
 
-Der Skill-Scaffold in `.windsurf/workflows/adr.md` Step 4 wird durch einen Verweis auf `docs/templates/adr-template.md` als alleinige Struktur-SSOT ersetzt. Die Platform-Erweiterungen, die kein MADR-Bestandteil sind, aber begründet sind, bleiben erhalten: **Glossar** (Pflicht für LRA-/Nicht-IT-Leser — `meiki-lra`/`ttz-lif`-Repos brauchen das, MADR kennt es nicht), **Implementation Details**, **Migration Tracking**, **Risks**. Betroffen sind ausschließlich **neu erstellte** ADRs ab Merge dieses ADRs — keine rückwirkende Umformatierung (§6.3).
+Der Skill-Scaffold in `.windsurf/workflows/adr.md` Step 4 wird durch einen Verweis auf `docs/templates/adr-template.md` als alleinige Struktur-SSOT ersetzt. Die Platform-Erweiterungen, die kein MADR-Bestandteil sind, aber begründet sind, bleiben erhalten: **Glossar** (wird ins Template gehoben, §4.2 — nicht mehr skill-seitig eingefügt), **Implementation Details**, **Migration Tracking**, **Risks**. Betroffen sind ausschließlich **neu erstellte** ADRs ab Merge dieses ADRs — keine rückwirkende Umformatierung (§6.3).
+
+### 3.1 Einordnung: erste explizite Body-Struktur-Entscheidung (v1.1-Korrektur)
+
+Die v1.0-Fassung rahmte dieses ADR als „Vollzug einer bereits getroffenen Entscheidung". Die Nachprüfung (2026-07-10) ergab: Das Template entstand als **Arbeitspaket von ADR-059** (Migration-Tracking, abgeschlossen 2026-02-21), aber ADR-059 verwendet „MADR-konform" ausschließlich für die **Status-State-Machine** (`draft → proposed → …`), nicht für die Body-Struktur; der Kopfkommentar „Basis: MADR 4.0" ist eine Selbstauskunft des Templates ohne eigenen Beschluss. Der Skill wiederum ist über ADR-229/230 (accepted) verteilungs-gedeckt — ebenfalls ohne Struktur-Beschluss. **Dieses ADR ist damit die erste explizite Entscheidung über die ADR-Body-Struktur der Plattform**, kein Vollzug. Die Options-Bewertung (§2) wurde entsprechend korrigiert: Option B verliert aus inhaltlichen Gründen, nicht wegen eines (nicht existenten) Präzedenz-Beschlusses.
+
+### 3.2 Sprachentscheidung: englische Überschriften fleet-weit (Owner-Entscheid 2026-07-10)
+
+Die Struktur-Umstellung ist zugleich eine **Sprachentscheidung**, die v1.0 nicht benannt hatte: Das Skill-Gerüst ist deutsch, MADR-Vokabular englisch — und die Skill-Gerüst-Repos mit den höchsten Anteilen sind genau die mit Behörden-Stakeholdern (`meiki-hub` 29/36, `risk-hub` 26/35, `ausschreibungs-hub` 9/9). Entschieden wird:
+
+- **Abschnitts-Überschriften: kanonisch Englisch, fleet-weit** (MADR-Vokabular unverändert übernehmen; keine Zwei-Klassen-Struktur je Repo — eine Struktur-SSOT bleibt eine).
+- **Prosa-Sprache bleibt frei** — Deutsch ist und bleibt in LRA-/Behörden-Repos üblich und erwünscht; die Entscheidung betrifft ausschließlich das Struktur-Vokabular (H2-Ebene).
+- **Abfederung für Nicht-IT-Leser:** Glossar-Pflicht bleibt (und wandert ins Template, §4.2); die Glossar-Kandidatenliste wird um die MADR-Überschriften selbst ergänzt (ein Nicht-IT-Leser, der „Decision Outcome" nicht einordnen kann, findet es im Glossar).
+- **Rückfalloption dokumentiert:** Zeigt sich dokumentierter Stakeholder-Widerstand (≥ 2 konkrete Fälle), ist eine deterministische DE-Überschriften-Mapping-Tabelle im Template als Amendment nachrüstbar — ohne die Struktur-SSOT zu brechen (Risiko-Tabelle §7).
 
 ---
 
@@ -139,16 +152,19 @@ Outcome, §4 Implementation Details, §6 Consequences, §8 Confirmation.
 Optional (nur wenn zutreffend): §5 Migration Tracking (nur bei Transitions),
 §7 Risks, §9 More Information, §10 Changelog.
 
-Glossar-Pflicht bleibt bestehen (LRA-Lesbarkeit) — als eigener Abschnitt
-zwischen §8 Confirmation und §9 More Information einfügen, wenn Fachbegriffe
-für Nicht-IT-Leser vorkommen (siehe Kandidatenliste unten).
+Glossar: siehe Template (§Glossar) — Pflicht-Trigger und Kandidatenliste
+stehen DORT, nicht hier. Der Skill fügt nichts ein, was das Template
+nicht kennt.
 ```
 
-Die bisherige Glossar-Kandidatenliste (ADR, KI, ML, LLM, HITL, OCR, API, DSGVO, DMS, QR, HMAC, CI/CD …) bleibt unverändert erhalten.
+**v1.1-Korrektur:** Die v1.0-Fassung wies den Skill an, einen Glossar-Abschnitt einzufügen, den das Template nicht kennt — das hätte den Ursprungsfehler (Skill weiß etwas, das die SSOT nicht weiß) eine Ebene tiefer reproduziert. Stattdessen wandert das Glossar ins Template (§4.2); der Skill referenziert nur.
 
 ### 4.2 `docs/templates/adr-template.md`
 
-Kein struktureller Change nötig — Template bleibt SSOT, wie es sich selbst schon erklärt (Kopfkommentar Z. 17-18: „Änderungen an diesem Template → `/adr`-Workflow ausführen" — bislang unbefolgt, dieses ADR vollzieht es nach).
+Zwei Ergänzungen (v1.1 — die v1.0-Aussage „kein struktureller Change nötig" ist damit überholt):
+
+1. **Glossar-Abschnitt** (zwischen §8 Confirmation und §9 More Information): als optionaler Abschnitt mit dokumentiertem Pflicht-Trigger („Pflicht, sobald Fachbegriffe/Abkürzungen für Nicht-IT-Leser vorkommen") + der bisherigen Kandidatenliste aus dem Skill (ADR, KI, ML, LLM, HITL, OCR, API, DSGVO, DMS, QR, HMAC, CI/CD …), **ergänzt um die MADR-Überschriften selbst** (Context and Problem Statement, Considered Options, Decision Outcome, Confirmation — wegen §3.2 Sprachentscheidung).
+2. **Sprachregel-Hinweis** im Kopfkommentar: Abschnitts-Überschriften kanonisch Englisch (fleet-weit, §3.2), Prosa-Sprache frei.
 
 ### 4.3 `cc-skill-dist`-Verteilung
 
@@ -160,9 +176,10 @@ Der geänderte Skill propagiert über den bestehenden `cc-skill-dist`-Mechanismu
 
 | Repo / Service | Phase | Status | Datum | Notizen |
 |----------------|-------|--------|-------|---------|
-| `platform` (`.windsurf/workflows/adr.md`) | 1 — Skill-Scaffold umstellen | ⬜ Ausstehend | – | dieses ADR, nach Merge |
-| `platform` (`cc-skill-dist`) | 2 — Verteilung an konsumierende Repos | ⬜ Ausstehend | – | automatisch, kein Extra-Schritt |
-| Struktur-Lint (F-3, Fleet-Audit-Backlog) | 3 — Enforcement, nur neue ADRs | ⬜ Ausstehend | – | separater Folge-PR, WARN nicht BLOCK |
+| `platform` (`docs/templates/adr-template.md`) | 1 — Glossar-Abschnitt + Sprachregel ins Template (§4.2) | ⬜ Ausstehend | – | VOR dem Skill-Umbau — SSOT zuerst |
+| `platform` (`.windsurf/workflows/adr.md`) | 2 — Skill-Scaffold umstellen (§4.1) | ⬜ Ausstehend | – | nach Merge dieses ADRs |
+| `platform` (`cc-skill-dist`) | 3 — Verteilung an konsumierende Repos | ⬜ Ausstehend | – | automatisch, kein Extra-Schritt |
+| Struktur-Lint (F-3, Fleet-Audit-Backlog) | 4 — Enforcement, nur neue ADRs | ⬜ Ausstehend | – | separater Folge-PR, WARN nicht BLOCK |
 
 ---
 
@@ -171,13 +188,14 @@ Der geänderte Skill propagiert über den bestehenden `cc-skill-dist`-Mechanismu
 ### 6.1 Good
 
 - Eine Struktur-SSOT statt zweier widersprüchlicher — jede Session liest dieselbe Quelle, unabhängig davon, ob sie zuerst Template oder Skill sieht.
-- Vollzieht statt widerspricht die bereits dokumentierte MADR-4.0-Entscheidung im Template.
+- Erste explizite Body-Struktur-Entscheidung überhaupt (§3.1) — der bisherige Zustand war unentschieden, nicht anders entschieden.
 - Externes, dokumentiertes Vokabular (MADR) statt Eigenerfindung — Anschlussfähigkeit für neue Mitarbeitende/Modelle.
 
 ### 6.2 Bad
 
 - Übergangszeit: bis Struktur-Lint (F-3) existiert, ist die neue Struktur nicht technisch erzwungen — reines Konventions-Vertrauen (wie bisher schon bei beiden Alt-Strukturen).
 - 341 bestehende Skill-Gerüst-ADRs bleiben strukturell uneinheitlich zu neuen ADRs — akzeptiert, siehe 6.3.
+- **Englische Überschriften sind für Behörden-/Nicht-IT-Leser (`meiki-lra`, `ttz-lif`) eine Lesbarkeits-Regression** — bewusst akzeptiert (Owner-Entscheid §3.2), abgefedert durch freie Prosa-Sprache + Glossar-Pflicht inkl. der MADR-Begriffe selbst; Rückfalloption (DE-Mapping-Tabelle) dokumentiert.
 
 ### 6.3 Nicht in Scope
 
@@ -193,7 +211,8 @@ Der geänderte Skill propagiert über den bestehenden `cc-skill-dist`-Mechanismu
 |--------|--------|--------|-----------|
 | Skill-Kopie driftet erneut vom Template ab (wie beim ursprünglichen Befund) | Mittel | Mittel | Quartals-Abgleichspunkt analog Wargame-WG-16-Muster; F-3-Lint macht Drift sichtbar statt nur SSOT-Verweis |
 | Glossar-Pflicht geht beim Umbau verloren (LRA-Anforderung) | Niedrig | Hoch (Compliance-relevant für `meiki-lra`) | Explizit in §4.1 als eigener Pflicht-Absatz reformuliert, nicht nur implizit übernommen |
-| Struktur-Wechsel ohne Enforcement wird ignoriert (Autoren nutzen weiter alte Gewohnheit) | Mittel | Niedrig | F-3-Struktur-Lint als Folge-Maßnahme vorgemerkt (Migration Tracking Phase 3) |
+| Struktur-Wechsel ohne Enforcement wird ignoriert (Autoren nutzen weiter alte Gewohnheit) | Mittel | Niedrig | F-3-Struktur-Lint als Folge-Maßnahme vorgemerkt (Migration Tracking Phase 4) |
+| EN-Überschriften senken Akzeptanz bei Behörden-Stakeholdern (meiki-lra/ttz-lif — 29/36 bzw. dominant deutsche Bestände) | Mittel | Mittel | Prosa bleibt deutsch; Glossar erklärt die MADR-Begriffe; bei ≥ 2 dokumentierten Widerstands-Fällen: DE-Mapping-Tabelle als Amendment (§3.2 Rückfalloption) |
 
 ---
 
@@ -231,6 +250,7 @@ Der geänderte Skill propagiert über den bestehenden `cc-skill-dist`-Mechanismu
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-10 | Achim Dehnert / Claude Fable 5 | v1.1 (Amendment nach adversarialem Review, vor Merge): §3.1 Einordnung korrigiert („Vollzug"-Framing war falsch — ADR-059 entschied MADR nur für die Status-State-Machine; dies ist die erste explizite Body-Struktur-Entscheidung), §3.2 Sprachentscheidung EN fleet-weit (Owner-Entscheid) inkl. LRA-Abfederung + Rückfalloption, §4.1/4.2 Glossar ins Template gehoben (Skill-Einfügung hätte die Divergenz reproduziert), §2 Option-A/B-Begründungen ehrlich neu gefasst, §6.2/§7 um Sprach-Regression ergänzt |
 | 2026-07-10 | Achim Dehnert / Claude Sonnet 5 | Initial: Status Proposed, aus Fleet-Audit F-1 |
 
 ---
