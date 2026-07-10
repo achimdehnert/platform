@@ -17,9 +17,12 @@ on:
     branches: [main]
     paths:
       - 'tools/reconcile_registry_live.py'
+      - 'tools/staging_checks.py'
       - 'infra/reconcile-baseline.yaml'
+      - 'infra/staging-checks.yaml'
       - 'infra/ports.yaml'
       - 'registry/canonical.yaml'
+      - 'scripts/checks/staging_*.sh'
 
 permissions:
   contents: read
@@ -35,3 +38,14 @@ jobs:
         run: |
           python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
           python3 tools/reconcile_registry_live.py
+
+  staging-checks:
+    name: "staging_*.sh nach Wire-or-delete-Config (rot = Fund oder abgelaufener Entscheid)"
+    runs-on: [self-hosted, prod]
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+      - name: Aktivierte Checks ausführen (KONZ-015 REC-1)
+        run: |
+          python3 -m pip install --quiet --user pyyaml 2>/dev/null || true
+          python3 tools/staging_checks.py

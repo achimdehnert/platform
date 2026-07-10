@@ -1,0 +1,67 @@
+# Wire-or-delete-Zustand der 8 staging_*.sh-Checks (KONZ-015 REC-1 + Nachtrag §14).
+#
+# JEDES Skript hat hier einen expliziten, datierten Zustand — der verbotene
+# "dritte Zustand" (existiert, aber niemand weiß ob es läuft) ist damit beendet:
+#   enabled: true   → läuft in CI (registry-live-reconcile.yml, Job staging-checks)
+#   enabled: false  → bewusst NICHT in CI, mit Grund + owner + decide_by.
+#                     decide_by abgelaufen → tools/staging_checks.py schlägt HART fehl
+#                     (fail-closed, E2-Waiver-Muster) — entscheiden oder löschen.
+#
+# Evidenz-Basis: Realläufe 2026-07-10 (alle 8 von dev ausgeführt, Output dokumentiert
+# in KONZ-015-Session) + Runner-Vorbedingungs-Probes (Prod-Runner hat KEINE SSH-Keys
+# zu dev-desktop 88.99.38.75 / Alt-Staging 178.104.184.168 — verifiziert 2026-07-10).
+#
+# Manueller Voll-Lauf (alle 8, von dev mit SSH-Keys): tools/staging_checks.py --include-disabled
+
+checks:
+  staging_port_range.sh:
+    enabled: true
+    # R4: rein registry-basiert, läuft überall. Realbefund 2026-07-10: PASS,
+    # deckt aber nur die 3 Repos mit staging:-Block ab — Reichweite wächst
+    # mit der Registry-Vervollständigung mit.
+
+  staging_dns_schema.sh:
+    enabled: true
+    # R1: prüft Cloudflare-Zone auf Schema-Verstöße; überspringt sich selbst
+    # sauber ohne Token (SKIP, exit 0). Auf dem Runner ggf. dauerhaft SKIP —
+    # sichtbar im Output, kein stiller Ausfall. Realbefund 2026-07-10: PASS.
+
+  staging_devdesktop_clean.sh:
+    enabled: false
+    reason: "R8 braucht SSH zu dev-desktop (88.99.38.75) — Prod-Runner hat keinen Key (Probe 2026-07-10: Permission denied). Realbefund von dev: 23 Staging-vhosts + 9 Staging-Container auf dev-desktop = Teil der offenen Zwei-Staging-Server-Entscheidung."
+    owner: achim
+    decide_by: 2026-08-08
+
+  staging_host_locality.sh:
+    enabled: false
+    reason: "R2, gleiche Lage wie R8: SSH-Key fehlt auf Prod-Runner; Befund (Staging-Container auf dev-desktop) ist dieselbe offene Host-Entscheidung."
+    owner: achim
+    decide_by: 2026-08-08
+
+  staging_naming.sh:
+    enabled: false
+    reason: "R3 prüft den Alt-Staging-Host 178.104.184.168 — der ist per ADR-264 superseded und Teil der offenen Host-Entscheidung; Prod-Runner hat zudem keinen Key dorthin. Vor Aktivierung: Ziel-Host-Entscheid."
+    owner: achim
+    decide_by: 2026-08-08
+
+  staging_tunnel_ingress.sh:
+    enabled: false
+    reason: "R5, gleiche Lage wie R3: prüft Tunnel-Config des Alt-Hosts — Ziel-Host-Entscheid zuerst."
+    owner: achim
+    decide_by: 2026-08-08
+
+  staging_generated_drift.sh:
+    enabled: false
+    reason: "R7 verifiziert generierte Artefakte gegen lokale Repo-Klone — die Klone auf dem Prod-Host sind nicht Ground Truth (stale-Risiko, CC-Memory). Sauberes Ziel: Check in die CI der 3 betroffenen Repos verlagern. Realbefund von dev: risk-hub-Compose driftet, wedding-hub-Artefakte fehlen."
+    owner: achim
+    decide_by: 2026-08-08
+
+  staging_oidc_redirects.sh:
+    enabled: false
+    reason: "R6 ist DEFEKT (JSON-Parse-Fehler 'Invalid escape' beim Verarbeiten des authentik-Outputs) — erst reparieren, dann Einbau-Entscheid. Bis dahin liefert das Skript keine Aussage."
+    owner: achim
+    decide_by: 2026-08-08
+
+# Bekannte, gestundete FEHLSCHLÄGE aktivierter Checks (analog reconcile-baseline.yaml).
+# Aktuell leer — R4 und R1 sind grün.
+known_failures: []
