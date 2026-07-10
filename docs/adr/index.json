@@ -1,6 +1,6 @@
 {
-  "generated": "2026-07-09",
-  "total": 215,
+  "generated": "2026-07-10",
+  "total": 216,
   "next_free": 271,
   "adrs": [
     {
@@ -4750,6 +4750,26 @@
         "ADR-223 (LLM Model Screener — Option D LiteLLM Proxy dort verworfen; siehe „Abgrenzung\")"
       ],
       "implementation_status": "pilot"
+    },
+    {
+      "number": 261,
+      "id": "ADR-261",
+      "file": "ADR-261-cmis-first-dms-abstraktion-rest-veredelung.md",
+      "title": "CMIS-first DMS-Abstraktion mit optionaler native-REST-Veredelung",
+      "status": "proposed",
+      "date": "2026-06-29",
+      "domains": [],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "meiki:ADR-001",
+        "meiki:ADR-002",
+        "meiki:ADR-003",
+        "meiki:ADR-015"
+      ],
+      "implementation_status": "none"
     },
     {
       "number": 262,
