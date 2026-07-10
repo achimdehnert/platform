@@ -79,18 +79,13 @@ jobs:
         run: pip install pytest pyyaml pydantic --quiet --break-system-packages
 
       - name: Run all tools tests
-        # agents/tests/ war CI-dunkel, obwohl guardian.py/context_reviewer.py
-        # jede PR gaten (repo-optimize 2026-07-03, A-9). test_adr_scribe.py ist
-        # ausgenommen: adr_scribe ist unverdrahteter Alt-Code mit gedriftetem
-        # Test (ImportError) — Entscheid migrieren/löschen läuft separat (A-8).
-        run: >
-          python3 -m pytest tools/tests/
-          tests/test_render_staging.py
-          tests/doc_profile_check/
-          tools/claude-hooks/tests/
-          agents/tests/
-          --ignore=agents/tests/test_adr_scribe.py
-          -q
+        # SSoT = Makefile `test`-Target (retro f4a546-incr #1: lokal liefen 388,
+        # CI 486 Tests, weil beide Seiten eigene pytest-Listen pflegten — der
+        # Makefile-Kommentar "identisch zu tools-tests.yml" war falsch). Jetzt
+        # ruft CI exakt das Target, das auch Review-Gate 5b lokal verlangt.
+        # Testorte-Rationale (agents/tests CI-dunkel, test_adr_scribe.py-Ausnahme
+        # A-8) ist ins Makefile-Target gewandert.
+        run: make test
 
       - name: Workflow-Index Vollständigkeit (K-44, #901 Spec B)
         # Jeder Skill in .windsurf/workflows/ muss in workflow-index.md stehen
