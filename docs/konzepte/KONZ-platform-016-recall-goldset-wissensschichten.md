@@ -17,6 +17,8 @@ evidence_manifest:
   - {claim_id: C3, source_path: "scripts/run_goldset_baseline.py", commit_or_pr: "f9d6082 (main)", opened_in_session: true}
   - {claim_id: C4, source_path: "docs/adr/ADR-209-policy-auto-sync-on-merge.md", commit_or_pr: "f9d6082 (main)", opened_in_session: true}
   - {claim_id: C5, source_path: "~/shared/Second Brain/wargame/success.md §8 (Grep-Rettungsquote, Kipppunkt-Formel)", commit_or_pr: "extern, kein Git", opened_in_session: true}
+  - {claim_id: C6, source_path: "~/.claude/hooks/policy_goldset/pgvector-goldset.yaml + results.md (Schicht-2-Baseline 46 %)", commit_or_pr: "5a4de76 (~/.claude)", opened_in_session: true}
+  - {claim_id: C7, source_path: "~/.claude/bin/claude-policy (cmd_diff/_drift_pairs: Remote-Key-only-Iteration)", commit_or_pr: "mcp-hub#167", opened_in_session: true}
 created: 2026-07-10
 ---
 
@@ -35,17 +37,18 @@ Soll-Treffern durch umgebrochene Trigger-Zeilen (Recall 69 %), Fix → 100 % (C1
 |---|---|---|---|---|
 | L1 | „Recall-Goldset" ≠ „Goldset-Baseline" (ADR-177): Letzteres benchmarkt Kosten/Routing der FeatureBot-Pipeline, nicht Wissens-Recall. Namenskollision benannt, Namespace getrennt | Entscheidung | C3 | gesetzt |
 | L2 | Schichten-Reihenfolge: (1) Policy-Hook ✓ deterministisch, (2) pgvector `policy:<topic>` (Headless-Pfad, ADR-209), (3) Outline `search_knowledge`, (4) CC-Memory-Recall. Ausbau je Schicht erst nach Befund-Nutzen der vorherigen | Entscheidung | C4; evidence-discipline („erst messen") | gesetzt |
-| L3 | pgvector- und Outline-Suche haben ungemessene Recall-Lücken | Annahme | Falsifikation: je 15-Fragen-Goldset, Baseline-Lauf; Schicht 2 vor review_by | offen |
+| L3 | pgvector- und Outline-Suche haben ungemessene Recall-Lücken | Annahme | **pgvector bestätigt 2026-07-10: 6/13 (46 %) in Top 5 vs. Hook 100 % auf denselben Fragen; alle 11 Keys existieren, Drift 0 → reines Ranking-Problem (Decay + ungetaggte Alt-Einträge; Exakt-Query rankt eigene id auf 7). Fix-Leiter: [mcp-hub#167](https://github.com/achimdehnert/mcp-hub/issues/167).** Outline: weiter ungemessen | teil-bestätigt ✓ |
 | L4 | Goldset-Fragen im Trigger-/Titel-Wortlaut testen die Regex, nicht die Abdeckung (Overfitting) | Risiko | Gegenregel im Set-Kopf: Alltagssprache, Paraphrasen-Pflicht, Quartals-Frischfragen (Wargame WG-12, C5) | mitigiert |
 | L5 | Messung ohne Konsequenz stirbt („Ampeln ohne Konsequenz sind Deko", C5) | Risiko | Regel: jeder Miss ⇒ Fix-Commit oder Ledger-Zeile im selben Lauf; Anker = review_by-Wiedervorlage | mitigiert |
 | L6 | Hook-Goldset läuft deterministisch ohne LLM-Kosten (< 5 s, subprocess) | Annahme | C2 — Lauf 2×2026-07-10 real ausgeführt | bestätigt ✓ |
 | L7 | SSoT der Hook-Goldset-Artefakte ist `~/.claude/hooks/policy_goldset/` (git, neben dem Gemessenen); platform hält KEIN Duplikat, nur diesen KONZ als Verweis | Entscheidung | SSoT-Prüfung: zweite Wahrheit vermieden | gesetzt |
-| L8 | Substring-Matching erzeugt False Positives („Session-Retro" → session-routing); Fix (word-boundary) ändert Trefferverhalten aller Policies | Risiko | FP-Zähler ist Runner-Metrik; Semantik-Änderung = Owner-Entscheid, bewusst NICHT im MVC | offen — Owner |
+| L8 | Substring-Matching erzeugt False Positives („Session-Retro" → session-routing); Fix (word-boundary) ändert Trefferverhalten aller Policies | Risiko | FP-Zähler ist Runner-Metrik; Semantik-Änderung = Owner-Entscheid, bewusst NICHT im MVC. Empfehlung 2026-07-10: Substring behalten (deutsche Komposita), Hybrid erst bei FP-Anstieg über 2 Läufe | offen — Owner |
+| L9 | **GraphRAG-Eintrittskriterium (Kipppunkt-Formel, Analogon Wargame §8):** Ein Semantik-/Graph-Upgrade (LightRAG/GraphRAG/Obsidian-Graph o. ä.) wird NUR bewertet, wenn nach Umsetzung der Fix-Leiter Stufe 1+2 ([mcp-hub#167](https://github.com/achimdehnert/mcp-hub/issues/167)) ein Goldset-Lauf weiterhin an echter Synonymik/Multi-Hop scheitert, die weder Exakt-Lookup noch Tags abdecken. Ehrlicher Zukunfts-Kandidat ist NICHT die Policy-Schicht (11 Docs, Known-Key-Lookups), sondern Multi-Hop über die 250+ platform-ADRs (`related`/`supersedes`/`amends` als existierende Kanten) — auch das erst nach eigenem Goldset-Beweis der Lücke. **Präzisierung (2026-07-10, Owner-bestätigt):** Zählregel = ≥ 3 dokumentierte Fälle im Quartal, die nachweislich weder Exakt-Lookup noch Tags abdecken; jeder Fall wird SOFORT als Regressionsfrage ins pgvector-Goldset eingefroren (Sammlung = Messung, kein separates Artefakt). Falls je Graph: bevorzugter Kandidat ist **Apache AGE** (Postgres-Extension — keine neue Service-Boundary, kein neuer Datastore, adr-threshold-freundlich) vor einem LightRAG-Stack | Entscheidung | Baseline-Diagnose L3: Fehlerklasse ist Ranking, nicht Semantik — ein Graph adressiert sie nicht | gesetzt |
 
 ## MVC (konkret)
 
 1. **Geliefert (Pilot, 2026-07-10):** `~/.claude/hooks/policy_goldset/{goldset.yaml, run_goldset.py, results.md}` + Hook-Fix Fortsetzungszeilen — Commit `0e29645` in `~/.claude`. Baseline 69 % → 100 % dokumentiert in results.md (C2).
-2. **Schicht 2 (vor 2026-10-10):** 15 Fragen gegen `agent_memory_search(query="policy:<topic>")` — misst, ob der ADR-209-Headless-Pfad dieselben Policies liefert wie der interaktive Pfad (Drift-Detektor zwischen den beiden Konsumpfaden). Ablage: `~/.claude/hooks/policy_goldset/pgvector-goldset.yaml`, Runner-Erweiterung ebenda.
+2. **Schicht 2 ✓ geliefert (2026-07-10, vor Termin):** `pgvector-goldset.yaml` + Baseline in results.md (Commit `5a4de76` in `~/.claude`) — Ergebnis 46 %, Diagnose + Fix-Leiter in L3/[mcp-hub#167](https://github.com/achimdehnert/mcp-hub/issues/167). Beifang: `claude-policy list` approximativ (verpasste existierenden Key), `diff` blind für lokal-vorhanden/remote-fehlend — beide als Checkboxen im Issue.
 3. **Lauf-Kadenz:** quartalsweise manuell (`python3 run_goldset.py`), Ergebnis-Zeile nach `results.md`; KEINE CI-Einbindung im MVC (siehe adr_threshold_begruendung).
 4. **Frühwarn-Analogon:** Der Runner zählt FP gesamt je Lauf; steigt FP über 2 Läufe, ist das der Trigger für den L8-Owner-Entscheid (Analogon zur Wargame-Grep-Rettungsquote: Messgröße, die VOR dem sichtbaren Versagen steigt, C5).
 
@@ -70,3 +73,9 @@ Soll-Treffern durch umgebrochene Trigger-Zeilen (Recall 69 %), Fix → 100 % (C1
 |---|---|---|
 | A1 | Nichts messen (Status quo) | abgelehnt — der Tag-1-Fund (B1) widerlegt „der Hook funktioniert schon"; Kosten der Messung: < 1 h Bau, < 5 s je Lauf |
 | A2 | Sofort-Vollausbau: CI-Step + alle 4 Schichten + LLM-Judge für Antwortqualität | abgelehnt — Overbuild vor Nutzen-Beweis; LLM-Läufe kosten Abo-Budget (Analogon Wargame SE-3); Ausbau nur entlang L2-Reihenfolge nach Befund-Nutzen |
+| A3 | GraphRAG/LightRAG statt Fix-Leiter für den 46-%-Befund (Owner-Frage 2026-07-10) | abgelehnt für jetzt — Fehlerklasse ist Ranking/Lookup, nicht Semantik (L3); Eintrittskriterium als Kipppunkt-Formel in L9 verriegelt |
+
+## Nachtrag
+
+- 2026-07-10 (spät): L9 präzisiert — Zählregel ≥3 Fälle/Quartal als Goldset-Regressionsfragen, AGE-vor-LightRAG-Prior (Owner-Rückfrage zur pgvector-Empfehlung).
+- 2026-07-10 (nach Merge #1037): Schicht-2-Baseline eingetragen (L3 teil-bestätigt, MVC 2 geliefert), L8 um Owner-Empfehlung ergänzt, L9 (GraphRAG-Eintrittskriterium) + A3 nach Owner-Frage; Fix-Leiter als [mcp-hub#167](https://github.com/achimdehnert/mcp-hub/issues/167); Manifest C6/C7.
