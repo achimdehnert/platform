@@ -262,7 +262,14 @@ def cmd_push(args: argparse.Namespace) -> int:
 
 
 def _drift_pairs(only: str | None):
-    for key in _orch_list("policy:"):
+    # mcp-hub#167: Union aus Remote-Keys UND lokalen Dateien — die alte
+    # Remote-only-Iteration war strukturell blind für lokal-vorhanden/
+    # remote-fehlend; zudem ist _orch_list semantic-approximativ und kann
+    # existierende Keys verpassen (Realfall 2026-07-10: adr-threshold fehlte
+    # im Listing, war aber per Exakt-Fetch da). Jeder Kandidat wird exakt gefetcht.
+    keys = set(_orch_list("policy:"))
+    keys |= {policy_key(slug(p.name)) for p in list_local()}
+    for key in sorted(keys):
         s = key[len("policy:"):]
         if only and s != only:
             continue
