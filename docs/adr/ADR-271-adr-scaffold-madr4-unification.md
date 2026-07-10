@@ -176,8 +176,8 @@ Der geänderte Skill propagiert über den bestehenden `cc-skill-dist`-Mechanismu
 
 | Repo / Service | Phase | Status | Datum | Notizen |
 |----------------|-------|--------|-------|---------|
-| `platform` (`docs/templates/adr-template.md`) | 1 — Glossar-Abschnitt + Sprachregel ins Template (§4.2) | ⬜ Ausstehend | – | VOR dem Skill-Umbau — SSOT zuerst |
-| `platform` (`.windsurf/workflows/adr.md`) | 2 — Skill-Scaffold umstellen (§4.1) | ⬜ Ausstehend | – | nach Merge dieses ADRs |
+| `platform` (`docs/templates/adr-template.md`) | 1 — Glossar-Abschnitt + Sprachregel ins Template (§4.2) | ✅ Abgeschlossen | 2026-07-10 | Template v2.1, inkl. F-4-Fix (ADR-054→056) |
+| `platform` (`.windsurf/workflows/adr.md`) | 2 — Skill-Scaffold umstellen (§4.1) | ✅ Abgeschlossen | 2026-07-10 | Step 4 verweist auf Template-SSOT |
 | `platform` (`cc-skill-dist`) | 3 — Verteilung an konsumierende Repos | ⬜ Ausstehend | – | automatisch, kein Extra-Schritt |
 | Struktur-Lint (F-3, Fleet-Audit-Backlog) | 4 — Enforcement, nur neue ADRs | ⬜ Ausstehend | – | separater Folge-PR, WARN nicht BLOCK |
 
