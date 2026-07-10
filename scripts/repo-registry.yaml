@@ -52,7 +52,7 @@ repos:
   decks-hub:
     type: static
     prod_url: decks-hub.iil.pet
-    port: 8111
+    port: 8112
     health: /healthz/
   dev-hub:
     type: django
