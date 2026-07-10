@@ -129,15 +129,16 @@ repos:
     pypi: learnfw
   mcp-hub:
     type: infra
-    prod_url: mcp.iil.pet
+    prod_url: orchestrator.iil.pet
     port: 3000
-    note: MCP Orchestrator Server
+    note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
+      C4:8000)
   nl2cad:
     type: library
     pypi: nl2cad
   odoo-hub:
     type: infra
-    prod_url: odoo-hub.iil.pet
+    prod_url: odoo.iil.pet
     port: 8069
     health: /web/health
   onboarding-hub:

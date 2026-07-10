@@ -1,0 +1,39 @@
+# Baseline für tools/reconcile_registry_live.py (KONZ-platform-015 Nachtrag 2026-07-10).
+#
+# Bekannte, TRIAGIERTE Abweichungen Registry↔Live. Jeder Eintrag braucht
+# owner + expires_at (E2-Waiver-Muster, ADR-264-D1-Vorbild: ohne Ablaufdatum
+# → Tool-Fehler; abgelaufen → Tool-Fehler, fail-closed).
+#
+# Ein Eintrag hier ist KEINE Lösung — er ist eine datierte Stundung.
+# Bei Ablauf: Drift beheben oder bewusst (mit neuem Grund) verlängern.
+
+known_drift:
+  - id: "C4:8042"
+    reason: "apo-hub lief unregistriert; ports.yaml-Eintrag kommt mit PR #1036 — nach Merge verschwindet der Fund von selbst."
+    owner: achim
+    expires_at: 2026-07-24
+
+  - id: "C4:8000"
+    reason: "mcp-hub-Orchestrator publiziert 8000, canonical sagt 3000, ports.yaml kennt ihn gar nicht — Klärung welcher Port normativ ist (Board-Item, KONZ-015 REC-4-Rest)."
+    owner: achim
+    expires_at: 2026-08-08
+
+  - id: "C4:15435"
+    reason: "pgvector-DB (mcp_hub_db) publiziert 15435 für den SSH-Tunnel der Agent-Sessions — bewusster Infra-Port, Registrierungs-Entscheid offen."
+    owner: achim
+    expires_at: 2026-08-08
+
+  - id: "C4:5900"
+    reason: "ib_gateway VNC-Port außerhalb der Finance-Range 4000-4099 — Registrierungs- oder Range-Entscheid offen."
+    owner: achim
+    expires_at: 2026-08-08
+
+  - id: "C4:9443"
+    reason: "authentik publiziert 9443 (TLS) außerhalb der Auth-Range 9000-9099 — Registrierungs- oder Range-Entscheid offen."
+    owner: achim
+    expires_at: 2026-08-08
+
+  - id: "C5:staging:8099"
+    reason: "risk-hub + tax-hub deklarieren beide staging:8099. risk-hub-Staging läuft real auf 8099 (dev-desktop), ADR-210-Zielbild sagt 19001 — Teil der Zwei-Staging-Server-Drift, User-Entscheid 2026-07-09: analysieren, noch nicht fixen."
+    owner: achim
+    expires_at: 2026-08-08

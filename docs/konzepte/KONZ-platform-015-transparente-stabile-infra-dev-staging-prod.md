@@ -1,13 +1,13 @@
 ---
 concept_id: KONZ-platform-015
 title: "Transparente & stabile Infrastruktur dev/staging/prod (Post-bfagent-Dekommissionierung)"
-pipeline_status: idea
+pipeline_status: pilot   # 2026-07-10: als MVP angenommen (Entscheid Achim 07-09, formalisiert 07-10) + Umsetzung begonnen (Nachtrag §14, Reconcile-Sweep live)
 tier: T3
 owner: "Achim Dehnert"
 spec_refs: []
 adr_threshold: "Amendment (ADR-264 D2-Delta + ADR-021 §2.17-Delta, REC-6)"
 review_by: "2026-09-07"
-kill_criteria: "Bis 2026-09-07 (T+60): kein fail-closed Dead-Reference-Gate mit dokumentiertem rotem CI-Testlauf im weltenhub-Deploy-Pfad ODER scripts/checks/staging_*.sh weiterhin weder verdrahtet noch gelöscht ODER Shadow-Mode-FP-Rate ≥5% ohne beschlossenen Scope-Fix → Rückbau statt Erweiterung (Schema-Felder deprecaten, Gate-Step entfernen, Alternative A3 als Fallback)."
+kill_criteria: "Bis 2026-09-07 (T+60), REVIDIERT per Nachtrag §14 (2026-07-10): (a) Drift-Kennzahl (registry-live-reconcile.yml, NEU+baselined) nicht ≤3 mit 0 abgelaufenen Baseline-Einträgen ODER (b) kein fail-closed Dead-Reference-Gate mit dokumentiertem rotem CI-Testlauf im weltenhub-Deploy-Pfad ODER (c) scripts/checks/staging_*.sh weder verdrahtet noch gelöscht ODER (d) Gate-Fehlalarme: mehr als 0 FP in den ersten ≥10 Shadow-Läufen ohne beschlossenen Scope-Fix (absolute Zählung statt %-Quote — §14.4) → Rückbau statt Erweiterung (Schema-Felder deprecaten, Gate-Step entfernen, Alternative A3 als Fallback)."
 superseded_by_spec: null
 evidence_manifest:
   - {claim_id: C1, source_path: "docs/adr/ADR-264-canonical-deployment-strategy-and-supersession-gate.md", commit_or_pr: "accepted 2026-07-03, #882", opened_in_session: true}
@@ -260,3 +260,20 @@ Die Angriffe werden hier unverdünnt konserviert; Auflösung erst in §10–13.
 **60 Tage (bis 2026-09-07):** Kill-Gate-Review; Gate fail-closed auf weltenhub inkl. rotem Testlauf; REC-4 abgeschlossen (7 Hubs registriert, `github_repos.yaml`-Header bereinigt); REC-5-Entscheide gefallen oder eskaliert; Amendment gemergt.
 
 **90 Tage (bis 2026-10-07):** Bei bestandenem Expansions-Gate: `_deploy-unified.yml`-Tag-Bump fleet-weit, Tier-A zuerst (ADR-270-Staffelung); Entscheid über Stufe 2 (host-seitiger Compose-Diff-Scanner, A2/5.10d) auf Basis der Shadow-/Pilot-Daten; Konzept-Retro mit Scorecard, Status-Flip dieses Dokuments auf umgesetzt/teilumgesetzt.
+
+## 14. Nachtrag 2026-07-10 — Umgewichtung nach Fleet-Realabgleich (Entscheid Achim)
+
+**Anlass:** Ein manueller Vollabgleich Registry↔Live (Session 2026-07-10, Fable-5-Review dieses Dokuments) lieferte binnen Stunden **6+ reale Befunde**, von denen der in §5.9 geplante Dead-Reference-Gate nur ~3–4 von 9 bekannten Fällen gefangen hätte: eine komplett unregistrierte laufende App (apo-hub), eine deklarierte prod_url ohne DNS-Eintrag (recruiting-hub), zwei weitere falsche prod_urls (mcp-hub, odoo-hub — vom neuen Sweep-Tool selbst gefunden), ein committeter-aber-nie-deployter Fix (tax-hub Port), zwei Port-Doppelvergaben (8111 decks/frist, staging-8099 risk/tax). Evidenz: PR #1036 (9 Hubs + apo-hub nachregistriert), Issue #1033 (Port-Uniqueness), PR #1032 (decks-hub 8112).
+
+**Diagnose-Korrektur:** Die Fehlerklasse aus §5.2 („Runtime-Referenzen auf dekommissionierte Infra") ist eine **Teilmenge** der realen Krankheit: *Es fehlt ein kontinuierlicher Abgleich-Kreislauf zwischen deklariertem Zustand (Registry/git) und realem Zustand (Host/DNS/Container)*. Tote Referenzen sind eine Drift-Richtung; heute belegt sind vier weitere (ungemeldete Live-Systeme, unerreichbare Deklarationen, nie-applizierte Fixes, Doppel-Deklarationen).
+
+**Revidierte Maßnahmen-Reihenfolge (ersetzt die Gewichtung in §5.9/§13, Inhalte bleiben gültig):**
+
+1. **NEU Hauptmaßnahme — Reconcile-Sweep (UMGESETZT 2026-07-10):** `tools/reconcile_registry_live.py` + `.github/workflows/registry-live-reconcile.yml` (täglich, self-hosted Prod-Runner, read-only). Prüft C1 Port-Mismatch · C2 Container fehlt · C3 DNS-Auflösung · C4 unregistrierte Live-Ports · C5 Doppel-Deklaration. Baseline `infra/reconcile-baseline.yaml` nach E2-Waiver-Muster (owner+expires_at Pflicht, fail-closed bei Ablauf — D1-Vorbild, hier erstmals real dogfooded). Erstlauf-Evidenz: 7 Funde roh → 2 sofort gefixt (mcp-hub/odoo-hub prod_url) → **Kennzahl 6 baselined / 0 neu, Exit 0**. Die Drift-Kennzahl ist ab jetzt Kill-Gate-KPI (Frontmatter revidiert): **≤3 gesamt mit 0 abgelaufenen Stundungen bis T+60**.
+2. **Tombstone-Deploy (aus §9.2 ins Kernpaket gehoben):** Dekommissionierung = letzter Deploy durch dieselbe Pipeline (schreibt `decommissioned:`-Eintrag, führt Sweep aus). Verhindert die Entstehung der §5.2-Klasse an der Quelle statt sie beim nächsten fremden Deploy zu erkennen — Prävention vor Detektion (ADR-209-Prinzip). Design-Issue: [#1045](https://github.com/achimdehnert/platform/issues/1045).
+3. **Dead-Reference-Gate (§5.9 Schritt 2) wird ZWEITE Welle** — unverändert sinnvoll, aber nachgelagert. Fehlalarm-Kriterium repariert: „FP-Rate <5 % in 14–30 Tagen" ist auf einem Einzel-Pilot statistisch nicht auswertbar (3–5 Deploys ⇒ 1 FP = 20–33 %) → ersetzt durch **absolute Zählung: 0 FP in ≥10 Läufen** (Frontmatter-Kriterium d).
+4. **Selbstanwendungs-Fix:** Dieses Dokument war seit Entscheid im eigenen verbotenen „dritten Zustand" (angenommen-aber-Status-idea, 0/7 RECs begonnen, REC-5-Issues nie angelegt). Behoben: `pipeline_status: pilot`, REC-5-Issues mit Datum angelegt ([#1043](https://github.com/achimdehnert/platform/issues/1043), [#1044](https://github.com/achimdehnert/platform/issues/1044)), Sweep verdrahtet-in-derselben-PR (E5-DoD eingehalten).
+
+**Korrektur eines Gegenbelegs:** §11 R1 nennt als stärksten Gegenbeleg „D1-Waiver seit Accept in Kraft ohne gemeldete Akkumulation" — der Mechanismus war zum Schreibzeitpunkt ~1 Woche alt; Abwesenheit von Daten ist kein Haltbarkeitsbeleg. Der Punkt bleibt als Risiko voll gewichtet; die Baseline dieses Nachtrags liefert ab jetzt echte Verfalls-Empirie (6 Einträge, Ablauf 07-24/08-08).
+
+**Nicht geändert:** Pilot-Wahl weltenhub (§5.9) — bei Erst-Review kritisiert, bei Tiefen-Review als richtig erkannt (die dort verbliebenen toten `bfagent_*`-Referenzen sind exakt das Replay-Testmaterial für MVC-Erfolgskriterium §5.9). Alle §12-RECs bleiben gültig, nur die Reihenfolge/Gewichtung ändert sich wie oben.
