@@ -17,6 +17,11 @@ repos:
     staging_url: staging.137herz.de
     port: 8095
     health: /livez/
+  apo-hub:
+    type: django
+    prod_url: apo.iil.pet
+    port: 8042
+    health: /livez/
   aifw:
     type: library
     pypi: aifw

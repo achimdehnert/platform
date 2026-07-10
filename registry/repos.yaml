@@ -154,6 +154,66 @@ domains:
     dockerfile: Dockerfile
     notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge deferred
       bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.
+  - name: dms-hub
+    repo: dms-hub
+    description: Dokumentenmanagement-Anwendung (nicht zu verwechseln mit dem separat laufenden Paperless-Stack
+      "doc-hub")
+    github: achimdehnert/dms-hub
+    deployed: true
+    url: https://dms.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: dms_hub_web
+      web_service: web
+      port: 8107
+  - name: illustration-hub
+    repo: illustration-hub
+    description: Illustrations-/Comic-Rendering-Dienst (ADR-252 Thin-Composer-Konsument)
+    github: achimdehnert/illustration-hub
+    deployed: true
+    url: https://illustration.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: illustration_web
+      web_service: web
+      port: 8096
+  - name: learn-hub
+    repo: learn-hub
+    description: Lern-/Schulungsplattform
+    github: achimdehnert/learn-hub
+    deployed: true
+    url: https://learn.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      port: 8100
+  - name: onboarding-hub
+    repo: onboarding-hub
+    description: Schulungs-/Onboarding-Plattform (schulungspass.de). Wird laut Session-Memory nicht weiterentwickelt
+      (Auth via Cloudflare Access statt App-OIDC), bleibt aber im Betrieb.
+    github: achimdehnert/onboarding-hub
+    deployed: true
+    url: https://schulungspass.de
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: onboarding_hub_web
+      web_service: web
+      port: 8108
   - name: pptx-hub
     repo: pptx-hub
     description: Presentation Studio — PowerPoint generation (Prezimo)
@@ -170,7 +230,7 @@ domains:
     repo: writing-hub
     description: Eigenständige Autorenplattform (Django 5.2, PostgreSQL 15)
     github: achimdehnert/writing-hub
-    deployed: false
+    deployed: true
     type: django
     lifecycle: experimental
     tenancy_mode: none
@@ -223,6 +283,55 @@ domains:
       staging_redirect: https://staging-weltenhub.iil.pet/oidc/callback/
 - name: Business & Safety
   systems:
+  - name: apo-hub
+    repo: apo-hub
+    description: Apocenna-Nachfolgeplattform (PHPRunner/MySQL → Django/PostGIS-Migration, Freeze→Migration→DNS-Switch)
+    github: achimdehnert/apo-hub
+    deployed: true
+    url: https://apo.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: apo_hub_web
+      web_service: web
+      port: 8042
+    notes: 'GEFUNDEN 2026-07-10: war in KEINER der drei Registries (canonical/ports/repos.yaml) erfasst,
+      obwohl seit mind. 2 Tagen live+healthy läuft (apo.iil.pet, nginx-vhost vorhanden). Erstmalig hier
+      nachgetragen.'
+  - name: billing-hub
+    repo: billing-hub
+    description: Rechnungs-/Abrechnungsplattform
+    github: achimdehnert/billing-hub
+    deployed: true
+    url: https://billing.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: billing-hub-web
+      web_service: web
+      port: 8092
+  - name: coach-hub
+    repo: coach-hub
+    description: Coaching-/Beratungsplattform (Risikoschutz-Themen)
+    github: achimdehnert/coach-hub
+    deployed: true
+    url: https://kiohnerisiko.de
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: coach_hub_web
+      web_service: web
+      port: 8007
+    notes: Sekundäre Domain coach-hub.iil.pet ebenfalls live (200) — beide bedienen denselben Container.
   - name: odoo-hub
     repo: odoo-hub
     description: Odoo management and integration (Odoo 17)
@@ -232,6 +341,24 @@ domains:
     lifecycle: experimental
     tenancy_mode: none
     coverage_threshold: 0
+  - name: recruiting-hub
+    repo: recruiting-hub
+    description: Recruiting-/Bewerbermanagement-Plattform
+    github: achimdehnert/recruiting-hub
+    deployed: true
+    url: https://recruiting.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: recruiting_hub_web
+      web_service: web
+      port: 8103
+    notes: 'GEFUNDEN 2026-07-10: prod_url recruiting.iil.pet hat AKTUELL KEINEN DNS-Eintrag (NXDOMAIN)
+      — Container läuft healthy auf dem Server, ist aber öffentlich nicht erreichbar. celery + celery_beat
+      zusätzlich als unhealthy markiert (Docker). Nicht autonom behoben — Owner-Entscheidung nötig.'
   - name: risk-hub
     repo: risk-hub
     description: Multi-tenant occupational safety SaaS (Schutztat)
@@ -268,6 +395,25 @@ domains:
       prod_redirect: https://schutztat.com/oidc/callback/
       staging_app_slug: risk-hub-staging
       staging_redirect: https://staging.schutztat.de/oidc/callback/
+  - name: tax-hub
+    repo: tax-hub
+    description: Steuer-/Finanzverwaltungsplattform (django_tenants Multi-Tenancy)
+    github: iilgmbh/tax-hub
+    deployed: true
+    url: https://tax.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: subdomain
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: tax_hub_web
+      web_service: web
+      port: 8099
+    notes: 'GEFUNDEN 2026-07-10: main-Branch-Commit 7e4642f änderte den Compose-Port auf 8104 (+ Auth-URL-Fix)
+      — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed.
+      Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung:
+      Re-Deploy nötig, bevor 8104 hier eingetragen wird.'
   - name: trading-hub
     repo: trading-hub
     description: Trading analysis and market scanning
@@ -285,7 +431,7 @@ domains:
     repo: ausschreibungs-hub
     description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
     github: iilgmbh/ausschreibungs-hub
-    deployed: false
+    deployed: true
     type: django
     lifecycle: experimental
     tenancy_mode: none
@@ -345,6 +491,21 @@ domains:
       migrate_cmd: null
       multi_tenant: true
       port: 8110
+  - name: research-hub
+    repo: research-hub
+    description: Recherche-/Analyse-Plattform
+    github: achimdehnert/research-hub
+    deployed: true
+    url: https://research.iil.pet
+    type: django
+    lifecycle: production
+    tenancy_mode: none
+    dockerfile: Dockerfile
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: research_hub_web
+      web_service: web
+      port: 8098
 - name: Events & Lifestyle
   systems:
   - name: 137-hub
