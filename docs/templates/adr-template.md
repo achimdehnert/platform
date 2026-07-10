@@ -8,7 +8,8 @@ informed: –
 
 <!--
   ADR-TEMPLATE v2.0 (2026-02-21)
-  Basis: MADR 4.0 + Platform-Governance (ADR-021, ADR-046, ADR-054, ADR-059)
+  Basis: MADR 4.0 + Platform-Governance (ADR-021, ADR-046, ADR-056, ADR-059)
+  (ADR-054 wurde 2026-05-17 durch ADR-056 ersetzt — Zitat nachgezogen, Fleet-Audit F-4)
   Strategie: techdocs-first, dev-hub-sync, Drift-Detector-kompatibel
 
   PFLICHTFELDER: status, decision_date, deciders, Titel, §1–§5, §9 Confirmation
