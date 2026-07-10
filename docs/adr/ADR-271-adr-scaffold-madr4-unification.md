@@ -1,7 +1,7 @@
 ---
 id: ADR-271
 title: "Adopt MADR 4.0 section structure for the /adr skill scaffold"
-status: proposed
+status: accepted
 decision_date: 2026-07-10
 deciders:
   - "Achim Dehnert"
@@ -31,7 +31,7 @@ related:
 
 | Attribut        | Wert                                                                 |
 |-----------------|----------------------------------------------------------------------|
-| **Status**      | Proposed                                                             |
+| **Status**      | Accepted                                                             |
 | **Scope**       | platform (Governance/Tooling)                                       |
 | **Erstellt**    | 2026-07-10                                                           |
 | **Autor**       | Achim Dehnert (Entscheid) / Claude Sonnet 5 (Ausarbeitung, Fleet-Audit) |
@@ -250,6 +250,7 @@ Der geänderte Skill propagiert über den bestehenden `cc-skill-dist`-Mechanismu
 
 | Datum | Autor | Änderung |
 |-------|-------|----------|
+| 2026-07-10 | Achim Dehnert | Accepted (PR-#1042-Approve nach v1.1-Amendment) |
 | 2026-07-10 | Achim Dehnert / Claude Fable 5 | v1.1 (Amendment nach adversarialem Review, vor Merge): §3.1 Einordnung korrigiert („Vollzug"-Framing war falsch — ADR-059 entschied MADR nur für die Status-State-Machine; dies ist die erste explizite Body-Struktur-Entscheidung), §3.2 Sprachentscheidung EN fleet-weit (Owner-Entscheid) inkl. LRA-Abfederung + Rückfalloption, §4.1/4.2 Glossar ins Template gehoben (Skill-Einfügung hätte die Divergenz reproduziert), §2 Option-A/B-Begründungen ehrlich neu gefasst, §6.2/§7 um Sprach-Regression ergänzt |
 | 2026-07-10 | Achim Dehnert / Claude Sonnet 5 | Initial: Status Proposed, aus Fleet-Audit F-1 |
 
