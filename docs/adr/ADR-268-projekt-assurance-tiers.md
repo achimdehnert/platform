@@ -2,7 +2,7 @@
 id: ADR-268
 title: Projekt-Assurance-Tiers — Projektart × Reife-Phase als plattformweite Risiko-Achse (Cross-Repo)
 status: accepted
-date: 2026-07-09
+decision_date: 2026-07-09
 deciders: [achim]
 informed: [all-repos]
 domains: [governance, process, security, deployment, drift-prevention]
