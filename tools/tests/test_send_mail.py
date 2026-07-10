@@ -51,6 +51,13 @@ def test_should_pair_by_line_order_not_by_proximity(tmp_path):
     assert sm.load_credentials(f, "ad@d.team") == ("ad@d.team", "real")
 
 
+def test_should_use_last_pair_on_duplicate_user_rotation(tmp_path):
+    # Passwort-Rotation hängt das neue Paar unten an — das LETZTE gewinnt
+    # (retro f4a546-incr #6: first-match lieferte still den veralteten Wert)
+    f = _creds(tmp_path, "user='ad@d.team'\npassword='OLD'\nuser='ad@d.team'\npassword='NEW'\n")
+    assert sm.load_credentials(f, "ad@d.team") == ("ad@d.team", "NEW")
+
+
 def test_should_exit_when_sender_has_no_pair(tmp_path):
     f = _creds(tmp_path, "user='x@d.team'\npassword='px'\n")
     with pytest.raises(SystemExit):

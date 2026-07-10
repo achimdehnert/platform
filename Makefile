@@ -121,8 +121,14 @@ setup: ## Dev-Dependencies + Hooks installieren (einmalig nach Clone)
 	@$(MAKE) install-push-hook
 	@echo "$(GREEN)Setup fertig — 'make test' für den lokalen Testlauf.$(RESET)"
 
-test: ## CI-relevante Test-Suite (identisch zu tools-tests.yml)
-	@python3 -m pytest tools/tests/ -q
+test: ## CI-Test-Suite — SSoT: tools-tests.yml ruft exakt dieses Target (retro f4a546-incr #1)
+	@python3 -m pytest tools/tests/ \
+		tests/test_render_staging.py \
+		tests/doc_profile_check/ \
+		tools/claude-hooks/tests/ \
+		agents/tests/ \
+		--ignore=agents/tests/test_adr_scribe.py \
+		-q
 
 lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
 	@ruff check tools/ scripts/

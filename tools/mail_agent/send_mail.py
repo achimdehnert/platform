@@ -32,7 +32,11 @@ def parse_env(path: Path) -> dict[str, str]:
 
 
 def load_credentials(creds_file: Path, sender: str) -> tuple[str, str]:
+    # Bei mehreren Paaren mit gleichem user gewinnt das LETZTE — Rotation hängt
+    # typischerweise das neue Paar unten an (retro f4a546-incr #6: first-match
+    # lieferte still das veraltete Passwort).
     user = None
+    match = None
     for line in creds_file.read_text().splitlines():
         line = line.strip()
         if "=" not in line:
@@ -42,8 +46,10 @@ def load_credentials(creds_file: Path, sender: str) -> tuple[str, str]:
         if key == "user":
             user = val
         elif key == "password" and user == sender:
-            return user, val
-    sys.exit(f"FEHLER: kein Credentials-Paar für {sender} in {creds_file}")
+            match = (user, val)
+    if match is None:
+        sys.exit(f"FEHLER: kein Credentials-Paar für {sender} in {creds_file}")
+    return match
 
 
 def build_message(sender: str, args: argparse.Namespace) -> EmailMessage:
