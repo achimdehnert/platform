@@ -61,6 +61,14 @@ Vor dem Senden dem User kompakt zeigen: **Absender · Empfänger · Betreff · A
 
 ## Step 3 — Senden
 
+**Freshness-Pflicht (retro f4a546 #3, Muster stale-local-clone ×4):** Das Skript liegt im lokalen
+platform-Checkout — der ist nach einem Remote-Merge NICHT automatisch aktuell. Vor dem Aufruf:
+
+```bash
+SCRIPT="${GITHUB_DIR:-$HOME/github}/platform/tools/mail_agent/send_mail.py"
+[ -f "$SCRIPT" ] || git -C "${GITHUB_DIR:-$HOME/github}/platform" pull --ff-only origin main
+```
+
 ```bash
 python3 "${GITHUB_DIR:-$HOME/github}/platform/tools/mail_agent/send_mail.py" \
   --to "<empfänger>" \
@@ -97,3 +105,6 @@ OK: Mail an Ilja.Lerch@deutschebahn.com via mail.example.org (SSL:465), Anhänge
 ## Changelog
 
 - 2026-07-10: Initial. Extrahiert aus Ad-hoc-Versand (create-pdf.md an Auftraggeber); Dogfood-Beleg im PR.
+- 2026-07-10 (v1.1): Step-3-Freshness-Pflicht (Existenz-Check + ff-only-Pull) — Erstaufruf nach dem
+  eigenen Merge scheiterte real am stalen lokalen main (retro f4a546 #3, Muster stale-local-clone ×4).
+  Dazu `tools/tests/test_send_mail.py` (Parsing-/Credentials-Contract, retro f4a546 #4).
