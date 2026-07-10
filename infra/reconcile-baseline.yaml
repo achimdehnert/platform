@@ -8,10 +8,13 @@
 # Bei Ablauf: Drift beheben oder bewusst (mit neuem Grund) verlängern.
 
 known_drift:
-  - id: "C4:8042"
-    reason: "apo-hub lief unregistriert; ports.yaml-Eintrag kommt mit PR #1036 — nach Merge verschwindet der Fund von selbst."
+  # C4:8042 (apo-hub) entfernt 2026-07-10: mit Merge von PR #1036 registriert,
+  # Fund verschwand im ersten CI-Lauf von selbst — Selbstheilung wie vorhergesagt.
+
+  - id: "C3:recruiting-hub"
+    reason: "prod_url recruiting.iil.pet hat keinen DNS-Record, Container läuft healthy — bekannt seit PR #1036-Recherche, Entscheid offen (DNS anlegen vs. Domain ändern). Erster echter CI-Fund des Sweeps (Run 2026-07-10, nach #1036-Merge scharf geschaltet)."
     owner: achim
-    expires_at: 2026-07-24
+    expires_at: 2026-08-08
 
   - id: "C4:8000"
     reason: "mcp-hub-Orchestrator publiziert 8000, canonical sagt 3000, ports.yaml kennt ihn gar nicht — Klärung welcher Port normativ ist (Board-Item, KONZ-015 REC-4-Rest)."
