@@ -85,6 +85,32 @@ repos:
         multi_tenant: false
         port: 8095
         deploy_script: /opt/137-hub/deploy.sh
+  apo-hub:
+    in_flat: true
+    in_rich: true
+    flat:
+      type: django
+      prod_url: apo.iil.pet
+      port: 8042
+      health: /livez/
+    domain: Business & Safety
+    rich:
+      name: apo-hub
+      repo: apo-hub
+      description: Apocenna-Nachfolgeplattform (PHPRunner/MySQL → Django/PostGIS-Migration, Freeze→Migration→DNS-Switch)
+      github: achimdehnert/apo-hub
+      deployed: true
+      url: https://apo.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: apo_hub_web
+        web_service: web
+        port: 8042
+      notes: "GEFUNDEN 2026-07-10: war in KEINER der drei Registries (canonical/ports/repos.yaml) erfasst, obwohl seit mind. 2 Tagen live+healthy läuft (apo.iil.pet, nginx-vhost vorhanden). Erstmalig hier nachgetragen."
   aifw:
     in_flat: true
     in_rich: false
@@ -106,7 +132,7 @@ repos:
       repo: ausschreibungs-hub
       description: KI-gestützte Ausschreibungs- und Angebotsplattform für KMU, Bau, Ingenieurbüros
       github: iilgmbh/ausschreibungs-hub
-      deployed: false
+      deployed: true
       type: django
       lifecycle: experimental
       tenancy_mode: none
@@ -177,12 +203,29 @@ repos:
         port: 8091
   billing-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: billing.iil.pet
       port: 8092
       health: /livez/
+    domain: Business & Safety
+    rich:
+      name: billing-hub
+      repo: billing-hub
+      description: Rechnungs-/Abrechnungsplattform
+      github: achimdehnert/billing-hub
+      deployed: true
+      url: https://billing.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: billing-hub-web
+        web_service: web
+        port: 8092
   cad-hub:
     in_flat: true
     in_rich: true
@@ -216,13 +259,31 @@ repos:
         port: 8094
   coach-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: kiohnerisiko.de
       staging_url: staging.kiohnerisiko.de
       port: 8007
       health: /livez/
+    domain: Business & Safety
+    rich:
+      name: coach-hub
+      repo: coach-hub
+      description: Coaching-/Beratungsplattform (Risikoschutz-Themen)
+      github: achimdehnert/coach-hub
+      deployed: true
+      url: https://kiohnerisiko.de
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: coach_hub_web
+        web_service: web
+        port: 8007
+      notes: "Sekundäre Domain coach-hub.iil.pet ebenfalls live (200) — beide bedienen denselben Container."
   decks-hub:
     in_flat: true
     in_rich: true
@@ -292,13 +353,30 @@ repos:
         staging_redirect: https://staging-devhub.iil.pet/oidc/callback/
   dms-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: dms.iil.pet
       port: 8107
       db: dms_hub
       health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: dms-hub
+      repo: dms-hub
+      description: Dokumentenmanagement-Anwendung (nicht zu verwechseln mit dem separat laufenden Paperless-Stack "doc-hub")
+      github: achimdehnert/dms-hub
+      deployed: true
+      url: https://dms.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: dms_hub_web
+        web_service: web
+        port: 8107
   frist-hub:
     in_flat: true
     in_rich: false
@@ -394,12 +472,29 @@ repos:
       pypi: illustration-fw
   illustration-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: illustration.iil.pet
       port: 8096
       health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: illustration-hub
+      repo: illustration-hub
+      description: Illustrations-/Comic-Rendering-Dienst (ADR-252 Thin-Composer-Konsument)
+      github: achimdehnert/illustration-hub
+      deployed: true
+      url: https://illustration.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: illustration_web
+        web_service: web
+        port: 8096
   infra-deploy:
     in_flat: true
     in_rich: false
@@ -414,12 +509,27 @@ repos:
       note: Telegram/Discord bot
   learn-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: learn.iil.pet
       port: 8100
       health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: learn-hub
+      repo: learn-hub
+      description: Lern-/Schulungsplattform
+      github: achimdehnert/learn-hub
+      deployed: true
+      url: https://learn.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        port: 8100
   learnfw:
     in_flat: true
     in_rich: false
@@ -488,13 +598,30 @@ repos:
       coverage_threshold: 0
   onboarding-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: schulungspass.de
       staging_url: staging.schulungspass.de
       port: 8108
       health: /livez/
+    domain: Content & Publishing
+    rich:
+      name: onboarding-hub
+      repo: onboarding-hub
+      description: Schulungs-/Onboarding-Plattform (schulungspass.de). Wird laut Session-Memory nicht weiterentwickelt (Auth via Cloudflare Access statt App-OIDC), bleibt aber im Betrieb.
+      github: achimdehnert/onboarding-hub
+      deployed: true
+      url: https://schulungspass.de
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: onboarding_hub_web
+        web_service: web
+        port: 8108
   outlinefw:
     in_flat: true
     in_rich: false
@@ -550,20 +677,55 @@ repos:
       pypi: promptfw
   recruiting-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: recruiting.iil.pet
       port: 8103
       health: /livez/
+    domain: Business & Safety
+    rich:
+      name: recruiting-hub
+      repo: recruiting-hub
+      description: Recruiting-/Bewerbermanagement-Plattform
+      github: achimdehnert/recruiting-hub
+      deployed: true
+      url: https://recruiting.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: recruiting_hub_web
+        web_service: web
+        port: 8103
+      notes: "GEFUNDEN 2026-07-10: prod_url recruiting.iil.pet hat AKTUELL KEINEN DNS-Eintrag (NXDOMAIN) — Container läuft healthy auf dem Server, ist aber öffentlich nicht erreichbar. celery + celery_beat zusätzlich als unhealthy markiert (Docker). Nicht autonom behoben — Owner-Entscheidung nötig."
   research-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: research.iil.pet
       port: 8098
       health: /livez/
+    domain: Analytics & Data
+    rich:
+      name: research-hub
+      repo: research-hub
+      description: Recherche-/Analyse-Plattform
+      github: achimdehnert/research-hub
+      deployed: true
+      url: https://research.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: none
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: research_hub_web
+        web_service: web
+        port: 8098
   researchfw:
     in_flat: true
     in_rich: false
@@ -628,12 +790,30 @@ repos:
         staging_redirect: https://staging.schutztat.de/oidc/callback/
   tax-hub:
     in_flat: true
-    in_rich: false
+    in_rich: true
     flat:
       type: django
       prod_url: tax.iil.pet
       port: 8099
       health: /livez/
+    domain: Business & Safety
+    rich:
+      name: tax-hub
+      repo: tax-hub
+      description: Steuer-/Finanzverwaltungsplattform (django_tenants Multi-Tenancy)
+      github: iilgmbh/tax-hub
+      deployed: true
+      url: https://tax.iil.pet
+      type: django
+      lifecycle: production
+      tenancy_mode: subdomain
+      dockerfile: Dockerfile
+      compose: docker-compose.prod.yml
+      deploy:
+        web_container: tax_hub_web
+        web_service: web
+        port: 8099
+      notes: "GEFUNDEN 2026-07-10: main-Branch-Commit 7e4642f änderte den Compose-Port auf 8104 (+ Auth-URL-Fix) — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed. Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung: Re-Deploy nötig, bevor 8104 hier eingetragen wird."
   trading-hub:
     in_flat: true
     in_rich: true
@@ -775,7 +955,7 @@ repos:
       repo: writing-hub
       description: Eigenständige Autorenplattform (Django 5.2, PostgreSQL 15)
       github: achimdehnert/writing-hub
-      deployed: false
+      deployed: true
       type: django
       lifecycle: experimental
       tenancy_mode: none

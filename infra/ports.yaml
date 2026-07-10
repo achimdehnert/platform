@@ -262,6 +262,14 @@ services:
     domain_staging: staging.137herz.ai
     domain_aliases:
       - 137herz.de
+
+  apo-hub:
+    prod: 8042
+    staging: 8042
+    dev: 8042
+    container_name: apo_hub_web
+    domain_prod: apo.iil.pet
+    note: "GEFUNDEN 2026-07-10: in keiner Registry erfasst, obwohl seit ≥2 Tagen live (nginx-vhost apo.iil.pet.conf vorhanden). Apocenna-Nachfolgeplattform."
     repo: achimdehnert/137-hub
 
   illustration-hub:
