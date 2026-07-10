@@ -1,7 +1,7 @@
 {
   "generated": "2026-07-10",
-  "total": 216,
-  "next_free": 271,
+  "total": 217,
+  "next_free": 272,
   "adrs": [
     {
       "number": 7,
@@ -4983,6 +4983,30 @@
         "ADR-264"
       ],
       "implementation_status": "not-started"
+    },
+    {
+      "number": 271,
+      "id": "ADR-271",
+      "file": "ADR-271-adr-scaffold-madr4-unification.md",
+      "title": "Adopt MADR 4.0 section structure for the /adr skill scaffold",
+      "status": "accepted",
+      "date": "2026-07-10",
+      "domains": [
+        "governance",
+        "documentation",
+        "adr-process"
+      ],
+      "supersedes": [],
+      "superseded_by": [],
+      "amends": [],
+      "amended_by": [],
+      "related": [
+        "ADR-021",
+        "ADR-046",
+        "ADR-056",
+        "ADR-059"
+      ],
+      "implementation_status": ""
     },
     {
       "number": 400,
