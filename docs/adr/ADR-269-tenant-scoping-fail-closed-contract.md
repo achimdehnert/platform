@@ -1,14 +1,14 @@
 ---
 status: proposed
-date: 2026-07-02
-decision-makers: Achim Dehnert
+decision_date: 2026-07-02
+deciders: [Achim Dehnert]
 consulted: –
 informed: –
 implementation_status: not-started
 domains: [architecture, multi-tenancy, security, data-sovereignty]
 scope: platform
 amends: [ADR-109]
-relates_to: [ADR-035, ADR-072, ADR-237, ADR-137]
+related: [ADR-035, ADR-072, ADR-237, ADR-137]
 tags: [multi-tenancy, tenant-id, security, fail-closed, drf, cross-tenant-leak, manager-contract]
 ---
 

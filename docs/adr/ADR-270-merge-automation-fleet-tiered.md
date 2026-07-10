@@ -1,13 +1,13 @@
 ---
 status: accepted
-date: 2026-07-09
-decision-makers: Achim Dehnert
+decision_date: 2026-07-09
+deciders: [Achim Dehnert]
 consulted: –
 informed: –
 implementation_status: not-started
 domains: [architecture, ci-cd, governance]
 scope: platform
-relates_to: [ADR-046, ADR-234, ADR-264, ADR-242]
+related: [ADR-046, ADR-234, ADR-264, ADR-242]
 tags: [merge-queue, auto-merge, branch-protection, dependabot, fleet, throughput]
 ---
 
