@@ -10,7 +10,9 @@ Remote als Worktree (bekannt, [[platform-pinned-is-worktree]]) — pinned liegt 
 
 **Das ist kein organisches Cross-Repo-Drift-Problem — es ist ein ungelöster Selbst-Widerspruch von `platform`.**
 `docs/templates/adr-template.md` erklärt sich selbst explizit als „Basis: MADR 4.0" (Kopfkommentar, Z. 10,
-verweist auf ADR-021/046/059 — ADR-054 im Verweis existiert nicht mehr, toter Link im Template selbst). Der
+verweist auf ADR-021/046/054/059 — **Korrektur 2026-07-10 nach F-4-Ausführung:** ADR-054 existiert, ist aber
+`status: superseded` durch ADR-056 seit 2026-05-17 (`docs/adr/archive/ADR-054-*.md`) — kein toter Link, sondern
+ein veralteter Verweis; ursprüngliche Report-Aussage „existiert nicht mehr" war falsch, Fix zieht auf ADR-056 nach). Der
 aktive `/adr`-Skill (`.windsurf/workflows/adr.md` Step 4, „Pflicht-Abschnitte — Reihenfolge einhalten") scaffoldet
 aber eine **andere, nicht MADR-benannte** 11-Abschnitt-Struktur (Kontext/Entscheidung/Betrachtete
 Alternativen/Begründung im Detail/Implementation Plan/Risiken/Konsequenzen/Validation Criteria/Glossar/
@@ -112,7 +114,7 @@ selbst rät von retroaktivem Umschreiben ab (Historie bleibt lesbar wichtiger al
 | F-1 | `.windsurf/workflows/adr.md` Step 4 auf MADR-4.0-Sektionen (aus `docs/templates/adr-template.md`) umstellen — behält Glossar/Risks/Implementation Details als Erweiterung | platform | C | `.windsurf/workflows/adr.md:166-190` vs. `docs/templates/adr-template.md:21-` | 🟡 Empfehlung | ADR schreiben (adr-threshold: cross-cutting, alle Repos betroffen) — du entscheidest, ich ziehe den Skill nach |
 | F-2 | ADR-211-Klickdummy-Felder ins Schema aufnehmen (`class`,`conforms_to`,`sunset_after`,`extension_review_required`,…) — behebt ≈80 der 85 Hard-Fails | platform (iil-adrfw) | A | `iil-adrfw/schemas/adr_frontmatter.schema.json` `additionalProperties:false` | 🔵 ready | Schema-PR (ich, nach Go) |
 | F-3 | Leichter Struktur-Lint (H2-Set gegen kanonische MADR-Liste, WARN nicht BLOCK, nur `created > Cutover-Datum`) — kein retroaktiver Zwang | platform (iil-adrfw oder `scripts/`) | B | Root-Cause bestätigt: existiert nirgends (s. o.) | 🔵 ready | Nach F-1-Entscheid bauen (ich) |
-| F-4 | `docs/templates/adr-template.md` Kopfkommentar: toter Verweis „ADR-054" entfernen/korrigieren | platform | A | `docs/templates/adr-template.md:11` — `ls docs/adr/ADR-054-*` → kein Treffer | 🔵 ready | 1-Zeilen-Fix (ich) |
+| F-4 | `docs/templates/adr-template.md` Kopfkommentar: Verweis „ADR-054" (superseded seit 2026-05-17) auf ADR-056 nachziehen | platform | A | `docs/templates/adr-template.md:11`; ADR-054 `status: superseded`, `superseded_by: [ADR-056]` | ✅ erledigt | — |
 | F-5 | `trading-hub/ADR-408` `review_status`-Freitext → Enum-Wert (`approved` + Freitext in Body) | trading-hub | B | `iil-adrfw validate` Exit 1 | 🔵 ready | PR (ich, nach Go) |
 | F-6 | `weltenhub/ADR-031` Stub mit `title: MOVED` klären (löschen/vervollständigen) | weltenhub | B | `iil-adrfw validate` Exit 1 | 🟢 offen | Owner-Entscheid: löschen oder Ziel benennen (du) |
 | F-7 | `bfagent` 14 frontmatter-lose Dateien — **NICHT anfassen**, Repo archiviert | bfagent | — | `gh api repos/achimdehnert/bfagent --jq .archived` = `true` | ✅ dokumentiert | keiner — bewusst ausgeklammert |
