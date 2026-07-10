@@ -147,13 +147,20 @@ domains:
     repo: decks-hub
     description: Web-Praesentationen (Vortraege/Lehr-Module/Webinare) mit Slidev - ADR-253 Schiene 1
     github: achimdehnert/decks-hub
-    deployed: false
+    deployed: true
+    url: https://decks-hub.iil.pet
     type: static
     lifecycle: experimental
     tenancy_mode: none
     dockerfile: Dockerfile
-    notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. Deploy/DNS/Edge deferred
-      bis Host (kann auf bestehendem Prod-Host ko-lokalisieren). ADR-253 Schiene 1.
+    compose: docker-compose.prod.yml
+    deploy:
+      web_container: decks_hub_web
+      web_service: web
+      port: 8112
+    notes: Statische Slidev-Site (kein Django/DB). Theme aus design-hub iil-extern. LIVE seit 2026-07-10
+      (Run 29093692166, healthz 200, Container healthy auf 8112). Onboarding legte 4 unabhaengige Luecken
+      offen (Registry/permissions/Runner/Secrets) — Befund am Tombstone-/Onboarding-Thema
   - name: dms-hub
     repo: dms-hub
     description: Dokumentenmanagement-Anwendung (nicht zu verwechseln mit dem separat laufenden Paperless-Stack
