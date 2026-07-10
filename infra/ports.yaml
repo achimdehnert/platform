@@ -41,7 +41,7 @@
 #   VERBOTEN: staging.writing.iil.pet   (2 Level = CF Universal SSL deckt NICHT ab)
 #   Eigene Domains (LE Wildcard) duerfen staging.X.Y bleiben.
 #
-# Nächster freier Port: 8111  (berechnet: port_audit.py --next-free)
+# Nächster freier Port: 8113  (berechnet: port_audit.py --next-free)
 # Vergabe: aufsteigend, VOR Deploy port_audit.py laufen lassen!
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -124,6 +124,14 @@ services:
     container_name: frist_hub_web
     domain_prod: frist-hub.iil.pet
     note: "meiki-lra · Sozialdaten-Pilot — prod blockiert auf Hosting-ADR (nur Konzept-Staging)"
+
+  decks-hub:
+    prod: 8112
+    staging: 8112
+    dev: 8112
+    container_name: decks_hub_web
+    domain_prod: decks-hub.iil.pet
+    note: "ADR-253 Schiene 1 (Slidev Web-Deck) — noch nicht deployed, Registry-Voreintrag; war fälschlich auf 8111 (Konflikt mit frist-hub)"
 
   coach-hub:
     prod: 8007
