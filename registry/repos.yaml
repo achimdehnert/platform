@@ -404,6 +404,7 @@ domains:
     type: django
     lifecycle: production
     tenancy_mode: subdomain
+    demo_fixture: false
     dockerfile: Dockerfile
     compose: docker-compose.prod.yml
     deploy:
