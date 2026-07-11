@@ -22,7 +22,7 @@ related:
 ---
 
 <!--
-  ADR-TEMPLATE v2.1 (2026-07-10)
+  ADR-TEMPLATE v2.0 (2026-02-21)
   Basis: MADR 4.0 + Platform-Governance (ADR-021, ADR-046, ADR-056, ADR-059)
   Strategie: techdocs-first, dev-hub-sync, Drift-Detector-kompatibel
 -->
