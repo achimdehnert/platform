@@ -396,13 +396,20 @@ jobs:
         run: |
           WORKERS=${{ inputs.pytest_workers }}
           set +e
+          # --cov-fail-under=0: die repo-eigene pyproject-Schwelle (z. B. 80%) darf
+          # den Integration-Lauf NICHT self-gaten — Integration-Coverage allein
+          # erreicht die Gesamtschwelle nie; die kombinierte Schranke zieht der
+          # coverage-report-Job (Union Unit+Integration). Ohne dies schlug der Job
+          # bei 0 Integration-Tests dauerhaft rot (platform#846 / frist-hub#6).
           if [ "$WORKERS" = "1" ] || [ "$WORKERS" = "0" ]; then
             pytest -m "integration" \
               --cov \
+              --cov-fail-under=0 \
               --cov-report=xml:coverage-integration.xml
           else
             pytest -m "integration" \
               --cov \
+              --cov-fail-under=0 \
               --cov-report=xml:coverage-integration.xml \
               -n "$WORKERS" \
               --dist=loadscope
@@ -440,10 +447,45 @@ jobs:
         with:
           name: coverage-integration
       - name: Merge and enforce coverage gate
+        env:
+          COVERAGE_THRESHOLD: ${{ inputs.coverage_threshold }}
         run: |
-          pip install coverage --break-system-packages || pip install coverage
-          python3 -m coverage combine coverage-unit.xml coverage-integration.xml 2>/dev/null || true
-          python3 -m coverage report --fail-under=${{ inputs.coverage_threshold }} 2>/dev/null || echo "Coverage data unavailable — skipping gate (threshold=${{ inputs.coverage_threshold }}%)"
+          # Kombiniert Unit- + Integration-Coverage aus den beiden Cobertura-XML-
+          # Artefakten (echte Zeilen-Union) und erzwingt die Schwelle. Früher lief
+          # hier `coverage combine` auf XML — ein No-Op, weil combine .coverage-
+          # Binaerdaten erwartet; das Gate war dadurch IMMER gruen (platform#846).
+          python3 - "$COVERAGE_THRESHOLD" <<'PY'
+          import sys, xml.etree.ElementTree as ET
+
+          threshold = float(sys.argv[1])
+          # filename -> {lineno: hits}; Union ueber beide Laeufe (max der hits).
+          hits: dict[str, dict[int, int]] = {}
+          for path in ("coverage-unit.xml", "coverage-integration.xml"):
+              try:
+                  root = ET.parse(path).getroot()
+              except (FileNotFoundError, ET.ParseError):
+                  continue
+              for cls in root.iter("class"):
+                  bucket = hits.setdefault(cls.get("filename") or "", {})
+                  for ln in cls.iter("line"):
+                      no = int(ln.get("number", "0"))
+                      bucket[no] = max(bucket.get(no, 0), int(ln.get("hits", "0")))
+
+          valid = sum(len(b) for b in hits.values())
+          covered = sum(1 for b in hits.values() for h in b.values() if h > 0)
+          if valid == 0:
+              print("::warning::Coverage gate: keine messbaren Zeilen in den "
+                    "Artefakten — Gate uebersprungen (CI-Artefakte pruefen).")
+              sys.exit(0)
+          pct = covered / valid * 100
+          print(f"Combined coverage (unit+integration): {covered}/{valid} lines = "
+                f"{pct:.2f}% (threshold {threshold:.0f}%)")
+          if pct + 1e-9 < threshold:
+              print(f"::error::Coverage {pct:.2f}% liegt unter der geforderten "
+                    f"Schwelle {threshold:.0f}%.")
+              sys.exit(1)
+          print("Coverage gate passed.")
+          PY
 
   test-contract:
     name: "Contract Tests"
