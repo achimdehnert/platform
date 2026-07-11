@@ -5012,8 +5012,8 @@
       "number": 272,
       "id": "ADR-272",
       "file": "ADR-272-distribution-contract-bounded-latency.md",
-      "title": "Adopt a machine-readable distribution contract with bounded redistribution latency",
-      "status": "proposed",
+      "title": "Adopt a machine-readable distribution contract with bounded drift-detection latency",
+      "status": "accepted",
       "date": "2026-07-11",
       "domains": [
         "governance",
