@@ -58,6 +58,24 @@ elif [[ "$ENVIRONMENT" == "staging" && -f "$APP_PATH/docker-compose.staging.yml"
   COMPOSE_FILE="docker-compose.staging.yml"
 fi
 
+# platform#1063 — override-Dateien sind Teil des deklarierten Stacks. Ohne sie
+# in der -f-Kette behandelt `up --remove-orphans` deren Container als Waisen
+# und LÖSCHT sie (Realfall 2026-07-10: weltenhub_db + weltenhub_redis entfernt
+# → Login-Ausfall ~15 min). Alle compose-Aufrufe nutzen ab hier
+# "${COMPOSE_ARGS[@]}" statt -f "$COMPOSE_FILE".
+COMPOSE_ARGS=(-f "$APP_PATH/$COMPOSE_FILE")
+if [[ -f "$APP_PATH/docker-compose.override.yml" ]]; then
+  COMPOSE_ARGS+=(-f "$APP_PATH/docker-compose.override.yml")
+  # Herkunfts-Warnung: Host-Override ohne CI-Manifest-Eintrag = ältere
+  # shared-ci-Version (synct override noch nicht) ODER undeklarierte
+  # Host-Datei (KONZ-015-Fehlerklasse). Heute: laut warnen + mitfahren
+  # (sonst Rezidiv der Container-Löschung); fail-closed folgt, sobald
+  # shared-ci override_sha fleet-weit ins Manifest schreibt.
+  if [[ "$ENVIRONMENT" == "production" ]] && ! python3 -c "import json,sys; d=json.load(open('$APP_PATH/.deploy-manifest.json')); sys.exit(0 if d.get('override_sha') else 1)" 2>/dev/null; then
+    echo "::warning::docker-compose.override.yml am Host ohne override_sha im CI-Manifest — Herkunft ungesichert (platform#1063). Wird mitdeployt; Enforcement folgt."
+  fi
+fi
+
 # ADR-021 §2.19 — pin COMPOSE_PROJECT_NAME explicitly for both environments.
 # Previously only staging was pinned; prod relied on Docker Compose's implicit
 # directory-derived name. Ground-truth audit (2026-06-01): all prod projects
@@ -75,7 +93,7 @@ fi
 # Safety check: if a running project with a DIFFERENT name owns containers in
 # APP_PATH, warn loudly — this indicates a project-name migration is needed
 # before this deploy can safely use --remove-orphans.
-_running_proj=$(docker compose -f "$APP_PATH/$COMPOSE_FILE" ls --format json 2>/dev/null \
+_running_proj=$(docker compose "${COMPOSE_ARGS[@]}" ls --format json 2>/dev/null \
   | python3 -c "import sys,json; rows=json.load(sys.stdin); print(rows[0]['Name'] if rows else '')" 2>/dev/null || true)
 if [[ -n "$_running_proj" && "$_running_proj" != "$COMPOSE_PROJECT_NAME" ]]; then
   echo "::warning::COMPOSE_PROJECT_NAME mismatch — running='$_running_proj' expected='$COMPOSE_PROJECT_NAME'. --remove-orphans will not see the old containers. Continuing, but inspect manually."
@@ -88,7 +106,7 @@ fi
 # than break the deploy.
 LABEL_ARGS=()
 cd "$APP_PATH"
-if _svcs=$(docker compose -f "$COMPOSE_FILE" config --services 2>/dev/null); then
+if _svcs=$(docker compose "${COMPOSE_ARGS[@]}" config --services 2>/dev/null); then
   _lf="$APP_PATH/.deploy-labels.override.yml"
   {
     echo "services:"
@@ -108,8 +126,8 @@ rollback() {
     cd "$APP_PATH"
     export IMAGE_TAG="$PREVIOUS_TAG"
     export _ROLLBACK_MODE=1  # bypass manifest/sha check during rollback
-    docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate 2>&1 || {
-      echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG docker compose -f $COMPOSE_FILE up -d" >&2
+    docker compose "${COMPOSE_ARGS[@]}" "${LABEL_ARGS[@]}" up -d --force-recreate 2>&1 || {
+      echo "KRITISCH: Rollback fehlgeschlagen! Manuell: IMAGE_TAG=$PREVIOUS_TAG docker compose ${COMPOSE_ARGS[*]} up -d" >&2
       exit 10
     }
     echo "⚠️  Rollback auf $PREVIOUS_TAG erfolgreich"
@@ -177,6 +195,18 @@ if [[ "$ENVIRONMENT" == "production" && "$_ROLLBACK_MODE" != "1" ]]; then
       fi
       echo "✅ compose sha256 verified: $_ACTUAL_SHA"
     fi
+    # platform#1063 — override-Integrität: sobald das CI-Manifest eine
+    # override_sha trägt (neuere shared-ci-Version), gilt für die Override
+    # dieselbe fail-closed-Prüfung wie für die Haupt-Datei.
+    _EXPECTED_OSHA=$(python3 -c "import json; d=json.load(open('$_MANIFEST')); print(d.get('override_sha',''))" 2>/dev/null || true)
+    if [[ -n "$_EXPECTED_OSHA" && -f "$APP_PATH/docker-compose.override.yml" ]]; then
+      _ACTUAL_OSHA=$(sha256sum "$APP_PATH/docker-compose.override.yml" | awk '{print $1}')
+      if [[ "$_ACTUAL_OSHA" != "$_EXPECTED_OSHA" ]]; then
+        echo "::error::ADR-021 §2.17 (platform#1063): override sha256 mismatch. expected=$_EXPECTED_OSHA actual=$_ACTUAL_OSHA. Aborting (fail-closed)."
+        exit 7
+      fi
+      echo "✅ override sha256 verified: $_ACTUAL_OSHA"
+    fi
   fi
 fi
 
@@ -189,11 +219,11 @@ fi
 # zusätzlichen Downtime durch ein down→up bekommt.
 if [[ "$ENVIRONMENT" == "staging" ]]; then
   echo "Staging: räume Altstack ab (down --remove-orphans)"
-  docker compose -f "$COMPOSE_FILE" down --remove-orphans 2>&1 || true
+  docker compose "${COMPOSE_ARGS[@]}" down --remove-orphans 2>&1 || true
 fi
 
-docker compose -f "$COMPOSE_FILE" pull
-docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate --remove-orphans
+docker compose "${COMPOSE_ARGS[@]}" pull
+docker compose "${COMPOSE_ARGS[@]}" "${LABEL_ARGS[@]}" up -d --force-recreate --remove-orphans
 
 # Health-Check
 # Staging: derive local URL from the WEB service's host-port mapping.
@@ -205,8 +235,8 @@ docker compose -f "$COMPOSE_FILE" "${LABEL_ARGS[@]}" up -d --force-recreate --re
 if [[ "$ENVIRONMENT" == "staging" ]]; then
   LOCAL_PORT=""
 
-  for svc in $(docker compose -f "$COMPOSE_FILE" config --services 2>/dev/null | grep -E '(^|-)web$' || true); do
-    LOCAL_PORT=$(docker compose -f "$COMPOSE_FILE" port "$svc" 8000 2>/dev/null | awk -F: '{print $NF}' | head -1 || true)
+  for svc in $(docker compose "${COMPOSE_ARGS[@]}" config --services 2>/dev/null | grep -E '(^|-)web$' || true); do
+    LOCAL_PORT=$(docker compose "${COMPOSE_ARGS[@]}" port "$svc" 8000 2>/dev/null | awk -F: '{print $NF}' | head -1 || true)
     [[ -n "$LOCAL_PORT" ]] && break
   done
 
@@ -252,7 +282,7 @@ if [[ -n "$HEALTH_CHECK_URL" ]]; then
   done
 else
   sleep 5
-  docker compose -f "$COMPOSE_FILE" ps | grep -qi "unhealthy\|exit\|error" && {
+  docker compose "${COMPOSE_ARGS[@]}" ps | grep -qi "unhealthy\|exit\|error" && {
     echo "❌ Container in Fehlerzustand"
     exit 5
   }
