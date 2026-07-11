@@ -237,3 +237,4 @@
 | 269 | — Tenant-Scoping-Kontrakt: fehlender Tenant-Kontext MUSS fail-closed sein | Proposed | ⬜ | [ADR-269](ADR-269-tenant-scoping-fail-closed-contract.md) |
 | 270 | Merge-Automatisierung fleet-weit einführen — risiko-getiert (Tier A: strict=false + Auto-Merge · Tier B: Merge-Queue) | Accepted | ⬜ | [ADR-270](ADR-270-merge-automation-fleet-tiered.md) |
 | 271 | Adopt MADR 4.0 section structure for the /adr skill scaffold | Accepted | ⬜ | [ADR-271](ADR-271-adr-scaffold-madr4-unification.md) |
+| 272 | Anchor the adaptive text-improvement feedback loop in iil-promptfw | Proposed | ⬜ | [ADR-272](ADR-272-adaptive-text-feedback-loop-promptfw.md) |
