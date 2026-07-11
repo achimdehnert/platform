@@ -1,0 +1,106 @@
+# Verteil-Vertrag (ADR-272) — maschinenlesbares Inventar aller Verteilwege.
+# Jeder Mechanismus, der Artefakte aus platform an Repos oder Maschinen verteilt,
+# MUSS hier einen Eintrag haben (Invariante I2). Contract-Lint: ADR-272 §4.1 (P2).
+#
+# Felder:
+#   source:    kanonische Quelle im platform-Repo (Invariante I2)
+#   targets:   wohin verteilt wird
+#   mechanism: Skript/Workflow, das die Verteilung ausführt
+#   trigger:   was die Verteilung auslöst
+#   gate:      CI-Prüfung, die Drift/Fehler blockiert oder meldet ("none" = Lücke)
+#   header:    Drift-Marker der Ziele (managed-by | symlink | none)
+#   owner_adr: ADR, das den Mechanismus verantwortet
+
+version: 1
+updated: 2026-07-11
+
+lanes:
+  cc-skill-dist-commands:
+    source: .windsurf/workflows/
+    targets: ["~/.claude/commands/"]
+    mechanism: tools/cc-skill-dist/generate.py --kind commands
+    trigger: manuell pro Maschine (--allow-live)
+    gate: .github/workflows/cc-skill-dist-doctor.yml (Round-Trip auf HEAD, nicht Live)
+    header: managed-by
+    owner_adr: ADR-230
+
+  cc-skill-dist-skills:
+    source: skills/
+    targets: ["~/.claude/skills/"]
+    mechanism: tools/cc-skill-dist/generate.py --kind skills
+    trigger: manuell pro Maschine (--allow-live)
+    gate: .github/workflows/cc-skill-dist-doctor.yml (Round-Trip auf HEAD, nicht Live)
+    header: managed-by
+    owner_adr: ADR-230
+
+  cc-skill-dist-hooks:
+    source: tools/hooks/
+    targets: ["~/.claude/hooks/managed/"]
+    mechanism: tools/cc-skill-dist/generate.py --kind hooks
+    trigger: manuell pro Maschine (--allow-live); Wiring in settings.json manuell
+    gate: .github/workflows/cc-skill-dist-doctor.yml + doctor.py Wiring-Check
+    header: managed-by
+    owner_adr: ADR-258
+
+  sync-workflows:
+    source: .windsurf/workflows/
+    targets: ["~/github/*/.windsurf/workflows/ (Symlinks)"]
+    mechanism: scripts/sync-workflows.sh
+    trigger: manuell + /session-start Phase 0.2
+    gate: none  # interne SKIP-Guards, kein CI-Gate (ADR-272 §1.1)
+    header: symlink
+    owner_adr: ADR-229
+
+  claude-policy-orchestrator:
+    source: policies/
+    targets: ["Orchestrator pgvector-Memory (mcp_hub_orchestrator_http)"]
+    mechanism: tools/claude-policy/claude-policy push
+    trigger: .github/workflows/sync-policies-to-orchestrator.yml (Merge auf main, policies/**)
+    gate: idempotenter content_hash-Sync (kein Konsistenz-Gate)
+    header: none  # Memory-Einträge, Datei bleibt maßgeblich
+    owner_adr: ADR-230
+
+  platform-pinned-policies:
+    source: policies/
+    targets: ["~/.claude/policies (Symlink auf platform-pinned Worktree)"]
+    mechanism: ~/.claude/hooks/refresh_pinned_policies.sh
+    trigger: SessionStart-Hook
+    gate: fail-soft mit lautem Banner (friert bei DIRTY ein — ADR-265-Realfall)
+    header: symlink
+    owner_adr: ADR-265
+
+  windsurf-review-subset:
+    source: .windsurf/workflows/ (tool_targets: windsurf-review)
+    targets: ["~/.codeium/windsurf/windsurf/workflows/"]
+    mechanism: tools/cc-skill-dist/windsurf-subset.py
+    trigger: manuell (Prototyp, staging-only)
+    gate: none
+    header: managed-by
+    owner_adr: ADR-230
+
+  receive-windsurf-rules:
+    source: .windsurf/rules/
+    targets: ["19 Consumer-Repos, push direkt auf main"]
+    mechanism: .github/workflows/receive-windsurf-rules.yml (je Consumer)
+    trigger: repository_dispatch (extern feuerbar)
+    gate: none  # umgeht CI per [skip ci] — Härtung/Stilllegung = ADR-263
+    header: none
+    owner_adr: ADR-263
+
+  project-facts:
+    source: registry/canonical.yaml + registry/github_repos.yaml
+    targets: ["~/github/*/project-facts.md"]
+    mechanism: scripts/gen_project_facts.py
+    trigger: manuell + /session-start Phase 0.2
+    gate: none  # generated-Header fehlt noch — Nachrüstung ADR-272 P2
+    header: none
+    owner_adr: ADR-272
+
+  ship-workflow-repo-list:
+    source: scripts/ship-workflow.sh (HARTKODIERT — Verstoß gegen I2, Migration ADR-272 P3)
+    targets: ["Deploy-Targets"]
+    mechanism: scripts/ship-workflow.sh
+    trigger: manuell (/ship)
+    gate: none
+    header: none
+    owner_adr: ADR-272
