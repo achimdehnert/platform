@@ -50,3 +50,10 @@ jobs:
           # FAILT, wenn NEUER Code die generierten Views direkt liest statt
           # tools/registry_api.py — verhindert, dass die Views wieder SSoT werden.
           python3 tools/check_registry_view_readers.py
+      - name: Verteil-Vertrag parsebar (HARTES GATE, ADR-272 — Vorstufe zum P2-Lint)
+        run: |
+          # FAILT, wenn registry/distribution.yaml kein valides YAML ist. Der
+          # volle Contract-Lint kommt mit P2 (#1073); Parse-Fähigkeit ist ab
+          # sofort Pflicht (Deep-Review-BLOCKER auf PR #1072: Datei war unparsebar
+          # gemergt worden, weil kein Workflow sie beobachtete).
+          python3 -c "import yaml; d = yaml.safe_load(open('registry/distribution.yaml')); assert d.get('lanes'), 'lanes fehlt/leer'; print(f'OK: {len(d[\"lanes\"])} Lanes parsebar')"
