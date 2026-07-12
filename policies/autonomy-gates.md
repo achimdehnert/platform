@@ -25,6 +25,51 @@ berührt wird).
    Automatismen mit Schreibrecht (Scope-Checkpoint, house rule).
 5. **Nennenswerter Spend** — Modell-Tier-Upgrade, Cloud-/Ultra-Runs, bezahlte APIs.
 
+## Standing-Authorization-Klassen (dauerhaft freigegeben, KEIN Einzelwort nötig)
+
+> **Motiv (KONZ-platform-019 B2):** Der Permission-Classifier blockte wiederholt
+> Aktionen, die *keinen* der fünf Gates berühren, nur weil die Freigabe nicht
+> *benannt* war (Realfall 2026-07-12: „go autonom" reichte nicht, „merge PR #N"
+> schon). Diese **Positiv-Liste** benennt vorab freigegebene Aktionsklassen —
+> innerhalb ihrer gilt die Freigabe als **stehend erteilt**, kein Einzel-OK pro
+> Fall. Es ist eine **Positiv-Liste, kein Catch-all**: was nicht gelistet ist,
+> bleibt gate-geregelt wie oben. Die Klassen liegen ausschließlich **unterhalb**
+> der fünf Gates; berührt eine Aktion einen Gate, gewinnt der Gate.
+
+- **SA-1 — Merge eines CI-grünen PR in ein Repo OHNE GitHub-Review-Pflicht UND
+  OHNE Auto-Deploy-on-main.** Voraussetzung: alle Required Checks grün, kein
+  Ruleset verlangt Review, und `main` triggert **keinen** Prod-Deploy. Deckt die
+  Hub-Repo-Merges ab, die heute an Gate 2 hängen, obwohl der Merge dort *kein*
+  Prod-Schritt ist. **Ausdrücklich AUSGESCHLOSSEN:** jedes Auto-Deploy-on-main-Repo
+  (dort ist der Merge ein Prod-Schritt → Gate 2 wirkt unverändert), und jeder PR
+  mit Migrationen/destruktiven Änderungen (Gate 1).
+- **SA-2 — Merge eines CI-grünen NICHT-Governance-PR in `platform`.** Voraussetzung:
+  Required Checks grün, und der PR berührt **keinen** Governance-Pfad
+  (`/.github/`, `/registry/`, `/packages/`, `/docs/adr/`, `/governance/`,
+  `CODEOWNERS`, `policies/`). Reine Konzept-/Handover-/Doku-/Tool-PRs fallen
+  hierunter. *(Hängt an KONZ-019 B1: erst wenn das Review-Ruleset pfad-gescopt ist,
+  ist SA-2 auch GitHub-seitig mergebar; bis dahin greift SA-2 nur als
+  Classifier-Freigabe, der Merge selbst kann weiter am Review-Ruleset hängen.)*
+- **SA-3 — Datei-Hausputz in `~/.secrets` / `~/shared` (Reconcile, KEIN Inhalts-Dump).**
+  Verschieben/Deduplizieren/Löschen byte-identischer Secret-**Dateien** nach ihrer
+  SSoT-Konvention (KONZ-010). **Auflage:** Secret-**Inhalte** werden NIE ins
+  Transkript gelesen (kein `cat`/`grep` über Dateiinhalte) — nur Dateinamen,
+  Größen, Hashes. Divergente/nicht-identische Dateien bleiben stehen + werden
+  gemeldet (kein blindes Überschreiben). Secret-**Rotation** bleibt Gate 1.
+
+**Grenzen (ehrlich):** Diese Klassen wirken über die *Policy*, die der Classifier
+liest — sie heben **keinen** Classifier-Hard-Deny auf (der ist Harness-seitig;
+Realfall-Memory: User-Erlaubnis + Permission-Rule + Settings-Edit heben ihn nicht
+auf). Sie füllen den *Graubereich*, den heute das Einzelwort füllt, nicht die
+harten Denys. Neue Klasse nötig? → wird wie diese hier **ratifiziert** (Achim,
+wörtlich), nicht still ergänzt.
+
+**Kill-Test je Klasse (bindend, ADR-267-Reibungs-Kill-Muster):** Muss in >30 %
+der Fälle, die unter eine SA-Klasse fallen, doch ein Einzel-OK eingeholt werden
+(weil die Klasse zu weit/falsch schnitt oder ein Gate übersehen wurde), ist die
+Klasse **zu überarbeiten oder zu streichen**, nicht zu flicken. Gemessen über
+Signal G (unten) je Klasse.
+
 ## How to apply (Agent-Seite)
 
 - **Pre-Flight vor jedem PR**: Merge-Pfad prüfen (Rulesets/required checks vs.
@@ -49,6 +94,12 @@ konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
 
+- 2026-07-12: **PROPOSED (wartet auf Ratifikation Achim)** — Abschnitt
+  „Standing-Authorization-Klassen" (SA-1/2/3) ergänzt (KONZ-platform-019 B2).
+  Positiv-Liste dauerhaft freigegebener Aktionsklassen unterhalb der fünf Gates;
+  je Klasse ein >30%-Kill-Test (ADR-267-Muster). Ziel: den vom Classifier
+  erzeugten Einzelwort-Zwang für gate-freie Aktionen abbauen, ohne einen Gate zu
+  senken. Wirksam erst mit wörtlicher Ratifikation (wie „3 go" 2026-07-03).
 - 2026-07-03: Von Achim ratifiziert (Session ausschreibungs-hub, wörtlich „3 go"
   auf den Freigabe-Block) — gilt org-weit als Policy.
 - 2026-07-03: Initial DRAFT (Session ausschreibungs-hub).
