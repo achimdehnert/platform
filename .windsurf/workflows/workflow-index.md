@@ -156,6 +156,7 @@ mode: read-only
 | Neuen Klickdummy anlegen (ADR-211 Cookbook) | `/klickdummy` |
 | Gebauten KD verifizieren + UX-Kritik (Playwright + Subagent, ADR-251) | `/kd-review` |
 | Cross-Repo-Klickdummy-Suche (pgvector) | `/klickdummy-search` |
+| KD-Specs → pgvector upserten (Schreib-Konsument, KONZ-risk-hub-008) | `/klickdummy-pgvector-sync` |
 | Secrets verwalten (rotieren, prüfen, anlegen) | `/secrets` |
 
 ### ⛔ Deprecated (nicht mehr als Einstieg verwenden)
