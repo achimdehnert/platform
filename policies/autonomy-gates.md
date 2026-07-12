@@ -37,25 +37,28 @@ berührt wird).
 > der fünf Gates; berührt eine Aktion einen Gate, gewinnt der Gate.
 
 - **SA-1 — Merge eines CI-grünen PR in ein Repo OHNE GitHub-Review-Pflicht UND
-  OHNE Auto-Deploy-on-main.** Voraussetzung: alle Required Checks grün, kein
-  Ruleset verlangt Review, und `main` triggert **keinen** Prod-Deploy. Deckt die
-  Hub-Repo-Merges ab, die heute an Gate 2 hängen, obwohl der Merge dort *kein*
-  Prod-Schritt ist. **Ausdrücklich AUSGESCHLOSSEN:** jedes Auto-Deploy-on-main-Repo
-  (dort ist der Merge ein Prod-Schritt → Gate 2 wirkt unverändert), und jeder PR
-  mit Migrationen/destruktiven Änderungen (Gate 1).
-- **SA-2 — Merge eines CI-grünen NICHT-Governance-PR in `platform`.** Voraussetzung:
-  Required Checks grün, und der PR berührt **keinen** Governance-Pfad
-  (`/.github/`, `/registry/`, `/packages/`, `/docs/adr/`, `/governance/`,
-  `CODEOWNERS`, `policies/`). Reine Konzept-/Handover-/Doku-/Tool-PRs fallen
-  hierunter. *(Hängt an KONZ-019 B1: erst wenn das Review-Ruleset pfad-gescopt ist,
-  ist SA-2 auch GitHub-seitig mergebar; bis dahin greift SA-2 nur als
-  Classifier-Freigabe, der Merge selbst kann weiter am Review-Ruleset hängen.)*
+  OHNE Auto-Deploy-on-main.** ✅ **RATIFIZIERT (Achim, 2026-07-12).** Voraussetzung:
+  alle Required Checks grün, kein Ruleset verlangt Review, und `main` triggert
+  **keinen** Prod-Deploy. Deckt die Hub-Repo-Merges ab, die heute an Gate 2
+  hängen, obwohl der Merge dort *kein* Prod-Schritt ist. **Ausdrücklich
+  AUSGESCHLOSSEN:** jedes Auto-Deploy-on-main-Repo (dort ist der Merge ein
+  Prod-Schritt → Gate 2 wirkt unverändert), und jeder PR mit Migrationen/
+  destruktiven Änderungen (Gate 1).
+- **SA-2 — Merge eines CI-grünen NICHT-Governance-PR in `platform`.**
+  ⏸ **ZURÜCKGESTELLT bis KONZ-019 B1 (Entscheid Achim 2026-07-12).** Grund: SA-2
+  ist erst dann auch GitHub-seitig mergebar, wenn das platform-Review-Ruleset
+  pfad-gescopt ist (Catch-all-CODEOWNERS entfernt, nur Governance-Pfade
+  reviewpflichtig). Vorher wäre SA-2 nur eine Classifier-Freigabe, während der
+  Merge weiter am Review-Ruleset hängt — ein „deklariert-aber-nicht-durchsetzbar"-
+  Zustand, den wir vermeiden. **ID SA-2 bleibt reserviert**; die Klasse wird
+  gemeinsam mit B1 ratifiziert, nicht vorab.
 - **SA-3 — Datei-Hausputz in `~/.secrets` / `~/shared` (Reconcile, KEIN Inhalts-Dump).**
-  Verschieben/Deduplizieren/Löschen byte-identischer Secret-**Dateien** nach ihrer
-  SSoT-Konvention (KONZ-010). **Auflage:** Secret-**Inhalte** werden NIE ins
-  Transkript gelesen (kein `cat`/`grep` über Dateiinhalte) — nur Dateinamen,
-  Größen, Hashes. Divergente/nicht-identische Dateien bleiben stehen + werden
-  gemeldet (kein blindes Überschreiben). Secret-**Rotation** bleibt Gate 1.
+  ✅ **RATIFIZIERT (Achim, 2026-07-12).** Verschieben/Deduplizieren/Löschen
+  byte-identischer Secret-**Dateien** nach ihrer SSoT-Konvention (KONZ-010).
+  **Auflage:** Secret-**Inhalte** werden NIE ins Transkript gelesen (kein
+  `cat`/`grep` über Dateiinhalte) — nur Dateinamen, Größen, Hashes. Divergente/
+  nicht-identische Dateien bleiben stehen + werden gemeldet (kein blindes
+  Überschreiben). Secret-**Rotation** bleibt Gate 1.
 
 **Grenzen (ehrlich):** Diese Klassen wirken über die *Policy*, die der Classifier
 liest — sie heben **keinen** Classifier-Hard-Deny auf (der ist Harness-seitig;
@@ -94,12 +97,13 @@ konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
 
-- 2026-07-12: **PROPOSED (wartet auf Ratifikation Achim)** — Abschnitt
-  „Standing-Authorization-Klassen" (SA-1/2/3) ergänzt (KONZ-platform-019 B2).
-  Positiv-Liste dauerhaft freigegebener Aktionsklassen unterhalb der fünf Gates;
-  je Klasse ein >30%-Kill-Test (ADR-267-Muster). Ziel: den vom Classifier
-  erzeugten Einzelwort-Zwang für gate-freie Aktionen abbauen, ohne einen Gate zu
-  senken. Wirksam erst mit wörtlicher Ratifikation (wie „3 go" 2026-07-03).
+- 2026-07-12: **SA-1 + SA-3 RATIFIZIERT (Achim, wörtlich)** — Abschnitt
+  „Standing-Authorization-Klassen" ergänzt (KONZ-platform-019 B2). SA-1 (Merge
+  CI-grüner PR ohne Review-Pflicht+ohne Auto-Deploy) und SA-3 (Secret-Datei-
+  Hausputz ohne Inhalts-Dump) gelten ab sofort. **SA-2 zurückgestellt** bis
+  KONZ-019 B1 (pfad-gescopte Review) — ID reserviert. Je Klasse >30%-Kill-Test
+  (ADR-267-Muster). Ziel: den vom Classifier erzeugten Einzelwort-Zwang für
+  gate-freie Aktionen abbauen, ohne einen Gate zu senken.
 - 2026-07-03: Von Achim ratifiziert (Session ausschreibungs-hub, wörtlich „3 go"
   auf den Freigabe-Block) — gilt org-weit als Policy.
 - 2026-07-03: Initial DRAFT (Session ausschreibungs-hub).
