@@ -113,14 +113,14 @@ Die drei bereits ≥2×-bestätigten Slugs (`claim-before-cheapest-check`, `plan
 |---|---|---|---|---|---|
 | 1 | Issue #82 (mail_search-Crash) einplanen | iil-voice-agent | https://github.com/iilgmbh/iil-voice-agent/issues/82 | 🟢 offen | Priorisieren oder bewusst zurückstellen (mit Begründung) |
 | 2 | rsync→Deploy-Key für Staging nachziehen | dev-hub | file:///home/devuser/github/dev-hub/AGENT_HANDOVER.md | 🟢 offen | Eigenes Issue anlegen (fehlt noch) |
-| 3 | Gate-Eskalation der 3 wiederkehrenden Slugs entscheiden | platform | file:///home/devuser/github/platform/docs/retros/session-retro-2026-07-12-dev-hub-3722b1.md#6-verankerung--kopierfertige-vorschläge-mensch-entscheidet | 🟢 offen | Hook/CI-Vorschlag §6 annehmen oder ablehnen |
-| 4 | memory_candidate oben verankern oder verwerfen | iil-voice-agent | file:///home/devuser/github/platform/docs/retros/session-retro-2026-07-12-dev-hub-3722b1.md#6-verankerung--kopierfertige-vorschläge-mensch-entscheidet | 🟢 offen | Ja/Nein |
+| 3 | Gate-Eskalation der 3 wiederkehrenden Slugs entscheiden | platform | https://github.com/achimdehnert/platform/pull/1110 (§6) | 🟢 offen | Hook/CI-Vorschlag §6 annehmen oder ablehnen |
+| 4 | memory_candidate oben verankern oder verwerfen | iil-voice-agent | https://github.com/achimdehnert/platform/pull/1110 (§6) | 🟢 offen | Ja/Nein |
 
 ### 🔵 Ich kann sofort
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| 5 | Issue in mcp-hub für den Budget-Seed-Präzedenzfall nachtragen | mcp-hub | file:///home/devuser/github/platform/docs/retros/session-retro-2026-07-12-dev-hub-3722b1.md#2-befund-tabelle (Befund #2) | 🔵 ready | Auf Zuruf |
+| 5 | Issue in mcp-hub für den Budget-Seed-Präzedenzfall nachtragen | mcp-hub | https://github.com/achimdehnert/platform/pull/1110 (Befund #2) | 🔵 ready | Auf Zuruf |
 | 6 | PR #128 CI-Root-Cause (stale iil-aifw) als Kommentar nachtragen | dev-hub | https://github.com/achimdehnert/dev-hub/pull/128 | 🔵 ready | Auf Zuruf |
 
 ## 8. Nicht verifiziert (Restlücken)
