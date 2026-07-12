@@ -56,9 +56,12 @@ on:
         default: '>=0.7.0'
         type: string
       pytest_workers:
-        description: 'Number of parallel pytest workers (default: auto)'
+        # Spiegel von iilgmbh/shared-ci (PR #24): 'auto' = 12 Worker auf dem
+        # geteilten 12-Core/22GB-Host mit 25 Repo-Runnern — memcg-OOM-Klasse
+        # (weltenhub 2026-07-10, cad-hub Run 29101278323). KONZ-017 W0-3.
+        description: 'Number of parallel pytest workers (default: 4 — host-safe on shared runners)'
         required: false
-        default: 'auto'
+        default: '4'
         type: string
       run_migrations:
         description: 'Run unit tests WITH migrations (drop --no-migrations). Required for django-tenants repos — Tenant-Schema-Tabellen entstehen nur per migrate_schemas.'
