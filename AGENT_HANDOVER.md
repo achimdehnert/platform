@@ -12,7 +12,29 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-12 — KONZ-017 Fleet-Konvergenz + KONZ-018 PyPI-Fleet gemergt · W0 beider Programme ausgeführt · 137-hub-Incident gelöst · shared-ci Worker-Default zentral)
+## ⚡ Aktueller Stand (2026-07-13 — usage_sweep.py (#1076) shipped + erster Lauf · trading-hub Deploy-403 gefixt · KONZ-017 #998 gemergt · PyPI-OIDC-Readiness codeguard/ingest · App-Repo-Scope-Grenze geklärt)
+
+**Diese Session (2026-07-13, Sonnet 5):** `/issues-offen`-Lauf + Owner-Block-Nacharbeit + neues Tool. Wichtigster Prozess-Fund: eigener stale lokaler Klon (iil-codeguard/iil-ingest, 5 Commits alt) fast in eine Migration auf eine bereits gelöschte Datei gelaufen — vor dem Bauen gegen origin/main geprüft, Kurs korrigiert.
+
+- **usage_sweep.py gebaut + gemergt ([#1116](https://github.com/achimdehnert/platform/pull/1116), schließt [#1076](https://github.com/achimdehnert/platform/issues/1076)):** Quartals-Nutzungs-Sweep (4 Messungen, n/m/k-Konvention). Erster echter Lauf → [#1115](https://github.com/achimdehnert/platform/issues/1115) (46 Skill- + 56 Label-Kandidaten). Nachtriage fand Methodik-Lücke: lokale Transkripte reichen nur 30 Tage zurück, nicht 180 wie im Default-Fenster behauptet — als Korrektur im Issue dokumentiert. Engere Liste (37) nach Ausschluss von Sub-Referenz-Fragmenten + Notfall-Skills (hotfix/rollback/backup by-design selten genutzt). Rückbau-Entscheidung bleibt beim Owner (bewusst kein Auto-Delete).
+- **trading-hub Deploy-403 diagnostiziert + gefixt:** GHCR-403 beim Import-Smoke-Pull direkt nach erfolgreichem Push (Propagations-Lag, nicht die bekannte Package-Actions-Access-Klasse). `gh run rerun --failed` → grün, `/livez` 200 verifiziert. Deploy-Health-Issue [#1070](https://github.com/achimdehnert/platform/issues/1070) mit Root-Cause geschlossen.
+- **KONZ-017 W1 (sync-drift-meter #998) gemergt via [#1009](https://github.com/achimdehnert/platform/pull/1009):** self-hosted GITHUB_DIR-Pfad-Mismatch behoben (dynamische Auflösung + platform-Symlink-Fix). PR lag 5 Tage `REVIEW_REQUIRED` — nach Freigabe via Auto-Merge gemergt.
+- **Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) nachgearbeitet:** stale shared-ci#20-Checkbox korrigiert (war schon CLOSED, Zeile nicht abgehakt). Diagnose der „7 Nicht-pur-OIDC-Repos": 5 sind pypa-Action-ready (nur PyPI-UI-Bindung fehlt), 2 (iil-codeguard/iil-ingest) publizierten noch über `twine`+Token OHNE `id-token:write` — UND der reale Publish-Workflow liegt zentral in `platform` (`publish-iil-{codeguard,ingest}.yml`, PAT-Checkout), nicht im Paket-Repo (eigenes `publish.yml` war am 2026-06-30 bewusst als ungegateter Zweitpfad entfernt worden — mein lokaler Klon war stale und zeigte noch die gelöschte Datei). Fix: [#1118](https://github.com/achimdehnert/platform/pull/1118) (id-token:write + pypa-Action, additiv, Token bleibt bis Binding-Beweis) — **wichtig für später: Trusted-Publisher-Binding muss auf `repo=platform` + Workflow-Dateiname zeigen, nicht auf das Paket-Repo.**
+- **App-Repo-Scope-Grenze geklärt (User-Korrektur mitten in der Session):** „arbeite an platform/mcp/dev, nicht an apps" — trading-hub-Branch-Protection-Vorschlag ([#1117](https://github.com/achimdehnert/platform/issues/1117)) und PR [#130](https://github.com/achimdehnert/trading-hub/pull/130) (README-Fix, grün/mergefähig) bewusst zurückgestellt, nicht ausgeführt.
+- **2 False-Positive-docu-quality-Issues geschlossen** (dev-hub [#1107](https://github.com/achimdehnert/platform/issues/1107)/[#1101](https://github.com/achimdehnert/platform/issues/1101), alle Findings gegen aktuellen Code verifiziert widerlegt) + Befund zur docu-update-agent-False-Positive-Rate getrackt ([#1114](https://github.com/achimdehnert/platform/issues/1114)).
+- **Governance-Detail geklärt:** 2. Owner-Review-Pflicht macht Sinn (required checks sind eng: nur guardian+gitleaks, nicht der volle Testlauf — Review ist die einzige menschliche Instanz vor Governance-SSoT). Auto-Merge auf #1116/#1009/#1118 aktiviert, damit Review der einzige verbleibende manuelle Schritt ist.
+
+## Nächste Schritte (kompakt)
+
+1. [cad-hub#42](https://github.com/achimdehnert/cad-hub/pull/42) mergen → Deploy grün ziehen (seit 07-12 unverändert offen)
+2. Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) — Rest ist ausschließlich PyPI-UI/Publish-Gate/Termin, „nur du": 2. PyPI-Org-Owner, 5× Trusted-Publisher-Binding (+2× davon auf `platform`-Repo statt Paket-Repo zeigend, s.o.), Releases outlinefw/weltenfw, Yank-Entscheid aifw, Portfolio-Session terminieren
+3. [#1118](https://github.com/achimdehnert/platform/pull/1118) reviewen (Auto-Merge aktiv, wartet nur auf Freigabe)
+4. usage-sweep [#1115](https://github.com/achimdehnert/platform/issues/1115): 37 Skill-/Label-Kandidaten — Einzelfall-Rückbau-Entscheidung offen
+5. trading-hub: PR [#130](https://github.com/achimdehnert/trading-hub/pull/130) (mergefertig) + Branch-Protection [#1117](https://github.com/achimdehnert/platform/issues/1117) — beide bewusst zurückgestellt, App-Repo-Scope
+6. coach-hub Deploy rot seit 06-07 — nicht bearbeitet (App-Repo-Scope)
+7. Orchestrator-MCP „Invalid Bearer Token" — Memory-Warm-Start/Recurring-Errors diese Session tot; Token gegen Secrets-Ablage prüfen
+
+## ⚡ Vorheriger Stand (2026-07-12 — KONZ-017 Fleet-Konvergenz + KONZ-018 PyPI-Fleet gemergt · W0 beider Programme ausgeführt · 137-hub-Incident gelöst · shared-ci Worker-Default zentral)
 
 **Diese Session (2026-07-12, Fable 5):** Zwei strategische T3-Initiativen end-to-end (je Erdung mit 3 Agenten → 3-Agenten-Adversariat → Fable-Synthese → Konzept-PR → W0-Ausführung), dazu Deploy-Health-Triage mit 2 gelösten Incidents.
 
@@ -22,28 +44,10 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 - **137-hub-Incident gelöst ([#64](https://github.com/achimdehnert/137-hub/issues/64)→[#65](https://github.com/achimdehnert/137-hub/pull/65)+[#66](https://github.com/achimdehnert/137-hub/pull/66) gemergt+deployed):** gunicorn-memcg-OOM-Loop (3 Worker×~185MB gegen 512M, RestartCount=0-maskiert, weltenhub-beat-Muster) + Healthcheck doppelt kaputt (curl fehlt im Image; urllib folgt SSL-301 ins Leere) → 768M + http.client-Check; live verifiziert `Health=healthy` (erstmals seit 2 Tagen).
 - **cad-hub xdist-OOM ([#39](https://github.com/achimdehnert/cad-hub/pull/39) gemergt):** ABER Post-Merge-Deploy rot — deploy.yml ruft _ci-python separat ohne pytest_workers (In-Repo-Drift-Klasse, KONZ-017 C8 live bestätigt) → Fix [#42](https://github.com/achimdehnert/cad-hub/pull/42) **OFFEN, wartet auf Merge (=Prod-Deploy)**.
 - **KONZ-003 rescoped ([#1091](https://github.com/achimdehnert/platform/pull/1091) gemergt):** review_by → 2026-08-15; PAT-Inventar §14: K1 issue-triage ~20 Repos (niedrig) · **K2 Dockerfile-Build-PAT 5 Repos (hoch, coach-hub-Incident-Klasse)** · K3 shared-ci zentral.
-- **Governance-Novum:** 4 platform-PRs via **temporärem Ruleset-Bypass** gemergt (Freigabe Achim „go ruleset-bypass"; Backup→bypass_actors→Merge→Restore, Diff LEER, GitHub-Audit-Log trägt die Bypass-Events). Ruleset verweigert --admin by construction — wirdigital-Approval bleibt der Normalweg.
+- **Governance-Novum:** 4 platform-PRs via **temporärem Ruleset-Bypass** gemergt (Freigabe Achim „go ruleset-bypass"; Backup→bypass_actors→Merge→Restore, Diff LEER, GitHub-Audit-Log trägt die Bypass-Events). Ruleset verweigert --admin by construction — Approval bleibt der Normalweg.
 - **Coach/trading/pptx-Deploy-Failures triagiert:** coach = `secret PROJECT_PAT: not found` im Buildx-Mount (Ursache offen); trading+pptx = GHCR-403 (🌀-Package-Actions-Access, Owner-UI). Fixes stehen aus.
 
-## Nächste Schritte (kompakt)
-
-1. [cad-hub#42](https://github.com/achimdehnert/cad-hub/pull/42) mergen → Deploy grün ziehen (0a-deploy-Rest dieser Session)
-2. Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) abarbeiten (shared-ci#20 → v1.0.11 → Bump-Welle)
-3. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
-4. KONZ-017 W1: sync-drift-meter #998 fixen → Konvergenz-Zeilen; KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
-
-## ⚡ Vorheriger Stand (2026-07-10 — /send-mail-Skill End-to-End · Mittwald-Mail-Transport · Doppel-Retro f4a546/-incr · Secret-Leak-Hook gepatcht)
-
-**Diese Session (2026-07-10):** Ad-hoc-Mailversand an Auftraggeber → User-Anweisung „Mails von hier immer über Mittwald (ad@dehnert.team)" → Skill `/send-mail` gebaut ([#1039](https://github.com/achimdehnert/platform/pull/1039)), gehärtet ([#1050](https://github.com/achimdehnert/platform/pull/1050)), Policy nachgezogen ([#1051](https://github.com/achimdehnert/platform/pull/1051)), cc-skill-dist-Rollout (doctor 7→0), zwei adversariale Retros ([#1048](https://github.com/achimdehnert/platform/pull/1048), [#1055](https://github.com/achimdehnert/platform/pull/1055) — beide gemergt).
-
-- **Mail-Transport etabliert:** `tools/mail_agent/send_mail.py` + Skill `/send-mail` (v1.1: Step-3-Freshness-Pflicht + `tools/tests/test_send_mail.py`). Maschinen-Config `~/.claude/mail.env` (neue Policy-Ausnahme „maschinen-level Config", claude-skills.md); Credentials in `~/.secrets/mittwald_mail.env`; SMTP `mail.agenturserver.de:465`. User-Entscheid: Opt-in bis auf weiteres (kein Enforcement-Hook), weitere Accounts möglich.
-- **Retro f4a546 (#1048, gemergt):** 7/7 SURVIVES. Kritisch: `mittwald_api_token` via `cut` auf Nicht-KV-Datei ins Transkript geleakt (User: keine Rotation, mStudio ungenutzt; Guard-Hook `block_env_cat.sh` gepatcht — cut/awk-Struktur-Realcheck, 7/7 Testfälle). Hoch: `--admin`-Bypass-Versuch vom Classifier geblockt → 🌀-Memories `secret-leak-cut-safe-pattern` + `no-escalation-flag-after-policy-block`. `stale-local-clone-as-ground-truth` jetzt ×4 (Gate = Skill-Freshness-Zeile, geliefert).
-- **Incr-Retro (#1055, gemergt):** 6/7 SURVIVES, 1 REFUTED. Hoch: Review-Gate 5b prüfte lokal 388 vs. CI 486 Tests. Hoch: Hook-Patch war untracked. Mittel: Guard-Falsch-Positiv (`| tail` + `.env`-Prosa; trat 3× auf, Error-Pattern `error:platform:20260710-guardfp`).
-- **Maßnahmen ALLE abgeschlossen (Stand 14:46Z):** I3+I5 via [#1058](https://github.com/achimdehnert/platform/pull/1058) (**`make test` = CI-SSoT**, tools-tests.yml ruft das Target; `load_credentials` last-match bei Rotation; Dogfood 487 passed lokal = CI-Parität) · I7 via [#1059](https://github.com/achimdehnert/platform/pull/1059) (Registry-Schwelle ab 2. Maschinen-Config) · I4 = Hook committet (`~/.claude` @6daa0c4) · I6 = Error-Pattern-Anker · Live-Rollout v1.1 vollzogen (doctor 1→0) · platform-pinned verworfen + Policy-Refresh (M6/M7 live).
-- **Nachzug 2026-07-11/12:** (d) Memory `hooks-repo-commit-pflicht` vom User freigegeben + geschrieben ✅. **Guard-Hook v3 deployed** (argument-basierte Erkennung via shlex-Segment-Analyse; die 3 Guard-Falsch-Positive vom 07-10 als Regressionstests fixiert, Matrix 15/15; `~/.claude` @5347b51; Error-Pattern `error:platform:20260710-guardfp` auf FIXED; dokumentierte Grenzen: sed/python -c/cp) ✅. **OFFEN bleibt nur (f):** Outline-`/knowledge-capture` optional (Wissen in git-Retros f4a546/-incr + CC-/pgvector-Memories).
-
-
-> **Ältere Stände** (2026-06-20 F4/Wave-2, 2026-06-12 T5 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
+> **Ältere Stände** (2026-07-10 /send-mail usw., 2026-06-20 F4/Wave-2, 2026-06-12 T5 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
 ## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
@@ -61,6 +65,8 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 > **Fortschritt 2026-07-09/10 (ABGEGLICHEN gegen #811 + Retro, 2026-07-10):** Wave-3-Ruleset live auf 6 Repos (nicht 9 — Memory-Zahl war falsch, korrigiert gegen Retro-Ground-Truth), davon 3 außerhalb der #811-Worklist (weltenhub/illustration-hub/research-hub, jetzt nachträglich aufgenommen) + Live-Incident selbst behoben; ADR-270 accepted. **Formales Phase-3-Apply-Artefakt fehlt weiterhin.** Details: s. Aktueller Stand + #811-Kommentar.
 >
 > **Fortschritt 2026-07-10 (NEU, offen):** weltenhub-Redis-Incident gelöst (s. Aktueller Stand). Drei Folge-Items offen, alle Human-Decision/Freigabe, keine autonome Ausführung: (1) `ausschreibungs-hub-staging` authentik-Provider/-Application vorbereitet (client_id/signing_key/scopes/redirect geklärt gegen risk-hub-Referenz-Pattern), Freigabe-Block gestellt, Session endete vor Bestätigung — nächste Session kann direkt ausführen, kein erneutes Research nötig. (2) `staging-demo.schutztat.de` DNS-Record (→178.104.184.168) — Entscheid offen. (3) "platform"-Governance-DB (`PLATFORM_DB_HOST=bfagent_db`, degradiert aifw-AI-Features) — Entscheid offen, braucht erst Konsumenten-Inventar. (4) KONZ-platform-015 liegt lokal in `platform` (untracked, main geschützt) — braucht Worktree+PR zum Mergen, dann User-Accept-Entscheid für die Empfehlungen REC-1..REC-7. (5) **Deploy-Health-Scan (session-start) fand 3 neue `failure`** auf coach-hub/trading-hub/pptx-hub, nicht triagiert — s. Aktueller Stand.
+>
+> **Fortschritt 2026-07-13:** Von den 3 Deploy-Failures aus 07-10 (5): trading-hub gelöst (GHCR-403 Propagations-Lag, Rerun grün, [#1070](https://github.com/achimdehnert/platform/issues/1070) geschlossen). coach-hub weiterhin rot (App-Repo-Scope, nicht bearbeitet), pptx-hub nicht erneut geprüft.
 
 > **PR-Hygiene (erledigt 2026-07-02, Freigabe Achim):** #753 + #746 geschlossen (Duplikate von gemergtem #808) · **#760 gemergt** (Registry iil-adrfw/codeguard — Registry-Lücke zu) · **#759 gemergt** (gen_adr_index.py; Rebase-Konflikt in INDEX.md durch Generator-Lauf gelöst, 206 aktive + 48 archivierte ADRs indiziert).
 
