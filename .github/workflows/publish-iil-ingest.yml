@@ -18,6 +18,17 @@ jobs:
   publish:
     name: Build and publish iil-ingest
     runs-on: ubuntu-latest
+    # id-token:write macht den Job OIDC-faehig (ADR-266 Trusted-Publisher-
+    # Vorbereitung). Greift erst, wenn PyPI-seitig ein Trusted Publisher fuer
+    # owner=achimdehnert repo=platform workflow=publish-iil-ingest.yml
+    # gebunden ist -- der Publish-Job laeuft HIER im platform-Repo (Checkout
+    # via PROJECT_PAT gegen iil-ingest), nicht im Paket-Repo selbst; die
+    # Bindung muss also auf platform zeigen, nicht auf iil-ingest. Bis zur
+    # Bindung bleibt TWINE_PASSWORD/PYPI_API_TOKEN aktiv (Binding-Beweis
+    # zuerst, kein Token vorher entfernen).
+    permissions:
+      contents: read
+      id-token: write
     steps:
       - name: Checkout iil-ingest
         uses: actions/checkout@v6
@@ -56,7 +67,8 @@ jobs:
 
       - name: Upload to PyPI
         if: ${{ !inputs.dry_run }}
-        env:
-          TWINE_USERNAME: __token__
-          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
-        run: twine upload dist/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          skip-existing: true
