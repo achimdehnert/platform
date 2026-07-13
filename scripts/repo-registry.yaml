@@ -110,6 +110,10 @@ repos:
     type: library
     pypi: iil-testkit
     note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
+  iil-voice-agent:
+    type: library
+    note: Souveräner Telefon-/Sprachagent (mPA/Telefonagent, iilgmbh) — Hexagonal-Core mit swappable LLM/Voice/Knowledge-Ports
+      (platform:ADR-249). Scaffold/MVP, kein Deploy.
   illustration-fw:
     type: library
     pypi: illustration-fw
