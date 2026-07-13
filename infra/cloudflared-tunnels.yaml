@@ -49,7 +49,9 @@ tunnels:
       Named tunnel von der Heim-4090 (NICHT Hetzner) — exponiert lokales Ollama als
       ollama.iil.pet für Dev/Benchmark + open-mPA-Pfad des iil-voice-agent.
       Modelle: qwen2.5:7b (strict-validiert, iil-voice-agent#90), dolphin3 (verworfen).
-      ⚠️ Cloudflare Access (Service-Token) davorsetzen — sonst offene 4090-Compute.
+      Cloudflare Access AKTIV (2026-07-13): App cc559065-7b4b-4ceb-b969-8ec66fa57cce,
+      Policy Service-Auth, Service-Token "ollama-voice-agent" (id fb6afc15-…). Verifiziert:
+      ohne Token 403, mit CF-Access-Client-Id/-Secret 200. Creds → ~/.secrets (Betreiber).
       ⚠️ NICHT für strict-meiki-Bürgerdaten (Perimeter, ADR-249): der souveräne Pfad
          bleibt privates on-prem, nicht dieser öffentliche Tunnel.
 
