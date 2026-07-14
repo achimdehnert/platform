@@ -302,13 +302,24 @@ services:
 
   tax-hub:
     prod: 8099
-    staging: 8099
+    # staging war 8099 — Kollision mit risk-hub.staging (dort bewusst 8099,
+    # bereits aktiv gebunden auf demselben Host 88.99.38.75). Erster echter
+    # tax-hub-Staging-Deploy scheiterte real mit "port is already allocated"
+    # (2026-07-14). Auf 8105 geändert (Lücke 8104-8106 frei), analog zum
+    # bestehenden risk-hub-Muster (dort ist Staging ebenfalls der Sonderfall,
+    # nicht prod/dev). repo: achimdehnert/platform#1033 (Muster, 2. Instanz).
+    staging: 8105
     dev: 8099
     container_name: tax_hub_web
     domain_prod: tax.iil.pet
     domain_staging: staging-tax.iil.pet
-    repo: achimdehnert/tax-hub
-    compose_drift: "docker-compose.prod.yml uses 8104:8000 — must change to 8099:8000"
+    repo: iilgmbh/tax-hub
+    # Live-Verifikation 2026-07-14: Prod-Container läuft bereits konfliktfrei
+    # auf 8099 (bestätigt via ss/docker ps auf 88.198.191.108) — die Datei
+    # docker-compose.prod.yml sagt weiterhin 8104 (unverändert seit #31).
+    # Datei-vs-Live-Drift bleibt bestehen, hier NICHT angefasst (kein
+    # Prod-Redeploy in diesem Zug) — separat zu klären.
+    compose_drift: "docker-compose.prod.yml uses 8104:8000 — live container runs 8099 (verified 2026-07-14); file still needs reconciling with either 8099 or the running value"
 
   learn-hub:
     prod: 8100
