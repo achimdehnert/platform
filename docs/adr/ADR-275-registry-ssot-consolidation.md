@@ -10,7 +10,7 @@ scope: platform
 supersedes: []
 related: [ADR-022, ADR-157, ADR-234]
 tags: [registry, ssot, drift-prevention, ci, generated, governance]
-external_sparring_by: "2×extern@2026-07-14"   # 2 anbieter-fremde Reviews; Provider-Namen vom Autor zu bestätigen
+external_sparring_by: "ollama-local: dolphin3 + qwen2.5:7b @2026-07-14"   # lokale 7B-Klasse, kein Egress; Befunde AD-1/AD-4 dennoch repo-verifiziert
 drift_check_paths:
   - "registry/canonical.yaml"
   - "registry/github_repos.yaml"
@@ -214,11 +214,15 @@ Generator-Verweis auf `ports.yaml` ersetzen).
 
 ## Externes Sparring (2026-07-14)
 
-Zwei anbieter-fremde Zweitmeinungen (adversariales Review, `/adr-handoff-extern`).
-Rückfluss kuratiert (nicht 1:1 übernommen): jede Befund-/REC-ID getaggt, nur `[valid]`
-eingearbeitet, die zwei tragendsten Befunde (AD-3, AD-4) vor Übernahme **gegen das Repo
-verifiziert**. Review 2 lag nur teilweise vor (Paste abgeschnitten nach PRO-2) — dessen
-Steelman konvergiert mit Review 1; keine widersprechenden Befunde erkennbar.
+Zwei adversariale Zweitmeinungen aus **lokalen Ollama-Modellen** (`dolphin3`,
+`qwen2.5:7b`) — anbieter-fremd zu Claude, aber 7B-Klasse und lokal (kein Egress,
+souveränitäts-sicher). **Wichtige Einordnung:** Ein 7B-Modell ist kein Frontier-Reviewer;
+seine Befunde tragen nicht per se Autorität. Der Wert entstand hier durch den
+**Verifikations-Filter**: die zwei tragendsten Befunde (AD-3, AD-4) wurden vor Übernahme
+gegen das reale Repo geprüft und bestätigten sich (Reader-Guard-Baseline, Drift-Gate-Scope)
+— eingearbeitet wurde also nicht „weil ein Modell es sagte", sondern weil der Check hielt.
+Rückfluss kuratiert: jede Befund-/REC-ID getaggt, nur `[valid]`. Review 2 lag nur teilweise
+vor (Paste abgeschnitten nach PRO-2); dessen Steelman konvergiert mit Review 1.
 
 | ID | Verdikt | Aktion |
 |---|---|---|
