@@ -1,8 +1,18 @@
 ---
 id: ADR-275
 title: "Registry-SSoT-Konsolidierung — canonical.yaml als einzige Quelle, github_repos.yaml stilllegen"
-status: proposed
+status: accepted
 decision_date: 2026-07-14
+implemented: 2026-07-14
+implementation_status: implemented
+implementation_evidence:
+  - "P0 Archiv-Lifecycle-View + gen_archived (additiv): PR #1137"
+  - "P0.5+P1 sovereign hubs + sync-workflows.sh auf Flat-View: PR #1139"
+  - "P2 runner-health.yml via registry_api: PR #1140"
+  - "P3 sync-drift-meter (Kommentar-Fix; war Nicht-Consumer): PR #1142"
+  - "P4 validate_repos.py auf canonical.yaml: PR #1144"
+  - "P5 github_repos.yaml → registry/_ARCHIVED/ (direkter Move, s. Umsetzung): PR #1145"
+  - "Hygiene (bfagent/doc-hub/ifc-mcp/schutztat-reporting): PR #1146, Issue #1143"
 deciders: [Achim Dehnert]
 consulted: [Claude Code]
 informed: [iilgmbh]
@@ -13,7 +23,7 @@ tags: [registry, ssot, drift-prevention, ci, generated, governance]
 external_sparring_by: "ollama-local: dolphin3 + qwen2.5:7b @2026-07-14"   # lokale 7B-Klasse, kein Egress; Befunde AD-1/AD-4 dennoch repo-verifiziert
 drift_check_paths:
   - "registry/canonical.yaml"
-  - "registry/github_repos.yaml"
+  - "registry/_ARCHIVED/github_repos.yaml"
   - "registry/repos.yaml"
 ---
 
@@ -182,6 +192,50 @@ dynamisch zusammengesetzte Pfade noch Leser in *anderen* Repos/externen Automati
 und kann bei Doku/Fixtures falsch-positiv sein — er ist Defense-in-Depth, kein Beweis.
 Daher **vor P5 zwingend** eine org-weite Code-Suche (`gh search code`, alle Repos) +
 ausführbare Dry-Runs aller Consumer, nicht nur der platform-lokale `grep`.
+
+## Umsetzung — abgeschlossen 2026-07-14
+
+Alle Phasen gemergt auf `main`; Endzustand verifiziert (`github_repos.yaml` nur noch
+in `registry/_ARCHIVED/`, reader-guard grün, `registry-canonical.py verify` grün).
+
+| Phase | Consumer / Inhalt | PR |
+|---|---|---|
+| P0 | Archiv-Lifecycle-View + `gen_archived` (additiv) | #1137 |
+| P0.5+P1 | sovereign hubs (meiki/ttz) + `sync-workflows.sh` → Flat-View | #1139 |
+| P2 | `runner-health.yml` → `registry_api` | #1140 |
+| P3 | `sync-drift-meter.yml` Kommentar-Fix | #1142 |
+| P4 | `validate_repos.py` → `canonical.yaml` | #1144 |
+| P5 | `github_repos.yaml` → `registry/_ARCHIVED/` | #1145 |
+| Hygiene | `bfagent`/`doc-hub`/`ifc-mcp`/`schutztat-reporting` (#1143) | #1146 |
+
+### Abweichungen vom Plan (ehrlich dokumentiert, nicht geglättet)
+
+- **P3 war kein echter Consumer.** Die Phasen-Liste zählte `sync-drift-meter.yml` als
+  github_repos.yaml-Leser. Real liest es **keine** Registry: es ruft `list_megatest_repos.py`
+  (liest die Flat-View) und `sync_drift_meter.py` auf, das `sync-workflows.sh --dry-run`
+  invokt (in P1 bereits migriert). Der einzige github_repos-Bezug war ein seit P1 falscher
+  **Kommentar** → P3 wurde ein reiner Doku-Fix, keine Logik-Migration.
+- **P5 ohne Rollback-Fenster-View umgesetzt.** Der Plan (oben) sah `github_repos.yaml` als
+  temporäre generierte Kompatibilitäts-View am alten Pfad vor, erst danach `→ _archived`.
+  Umgesetzt wurde stattdessen ein **direkter** `git mv` nach `registry/_ARCHIVED/` mit
+  RETIRED-Banner. **Begründung:** Zweck des Fensters war, dass P1–P4-Consumer ihre alte
+  Eingabe noch finden — doch bei P5-Ausführung waren alle vier bereits gemergt **und** grün
+  verifiziert (kein Consumer liest github_repos.yaml mehr, org-weite `gh search code` leer).
+  Der Fenster-Zweck war damit gegenstandslos; Rollback bleibt über git-Historie + `_ARCHIVED/`
+  möglich. Der reader-guard-Archiv-Skip wurde dabei auf verschachtelte `_ARCHIVED/`
+  verallgemeinert (Archiv ≠ aktiver Reader).
+- **Reader-Baseline nur für P1.** Die Phasen-Notiz sagte „jeder [Consumer] in die
+  Reader-Baseline aufgenommen". Tatsächlich brauchten nur `sync-workflows.sh` + sein Test
+  (P1) einen Baseline-Eintrag; P2/P4 lesen über `registry_api` (Accessor-exempt), P3 ist
+  Kommentar — kein Baseline-Eintrag nötig/erfolgt.
+
+### Getrackte Rest-/Folgearbeit
+
+- `validate_repos --github` meldet noch 3 vorbestehende, un-katalogisierte Repos
+  (`design-hub`, `iil-demo-fixture`, `molkerei-landing`) — dokumentiert in #1143 als
+  „kein neuer Gap", außerhalb dieses ADR-Scopes.
+- `ifc-mcp`/`schutztat-reporting` sind additiv-neutral (`in_flat:false`/`in_rich:false`)
+  aufgenommen — Promotion in die rich-View (Domain-Zuordnung) optional, später.
 
 ## Consequences
 
