@@ -110,3 +110,46 @@ def test_should_resolve_real_canonical_non_achimdehnert_repos_not_to_404():
                 checked_non_default += 1
     # canonical enthaelt mindestens risk-hub + nl2iot-hub unter iilgmbh
     assert checked_non_default >= 1
+
+
+# ── ADR-275 P0: Archiv-View + Lifecycle ────────────────────────────────────────
+
+_CANON_ARCHIVE = {
+    "meta": {"server": {}, "domain_order": ["D"]},
+    "repos": {
+        "active-django": {"in_flat": True, "in_rich": True, "domain": "D",
+                          "flat": {"type": "django"},
+                          "rich": {"repo": "active-django", "type": "django"}},
+        # schlanker Archiv-Eintrag mit Top-Level-lifecycle (neue P0-Form)
+        "dead-lean": {"in_flat": False, "in_rich": False, "lifecycle": "archived",
+                      "github": "achimdehnert/dead-lean", "description": "tot"},
+        # historische Form: lifecycle im rich-Block (wie bfagent)
+        "dead-rich": {"in_flat": True, "in_rich": True, "domain": "D",
+                      "flat": {"type": "django"},
+                      "rich": {"repo": "dead-rich", "github": "achimdehnert/dead-rich",
+                               "description": "alt-tot", "lifecycle": "archived"}},
+    },
+}
+
+
+def test_should_project_only_archived_into_archived_view():
+    out = reg.gen_archived(_CANON_ARCHIVE)["archived"]
+    assert set(out) == {"dead-lean", "dead-rich"}          # active-django NICHT dabei
+    assert out["dead-lean"]["github"] == "achimdehnert/dead-lean"
+    assert out["dead-rich"]["github"] == "achimdehnert/dead-rich"  # aus rich-Block gezogen
+    assert all(v["lifecycle"] == "archived" for v in out.values())
+
+
+def test_should_keep_active_views_free_of_archived_lean_entries():
+    # Die schlanken Archiv-Einträge (in_flat/in_rich false) dürfen in KEINE aktive View lecken
+    flat = reg.gen_flat(_CANON_ARCHIVE)["repos"]
+    rich_names = {s["repo"] for d in reg.gen_rich(_CANON_ARCHIVE)["domains"] for s in d["systems"]}
+    assert "dead-lean" not in flat
+    assert "dead-lean" not in rich_names
+    assert "active-django" in flat and "active-django" in rich_names
+
+
+def test_lifecycle_reads_toplevel_and_rich():
+    assert reg._lifecycle({"lifecycle": "archived"}) == "archived"
+    assert reg._lifecycle({"rich": {"lifecycle": "archived"}}) == "archived"
+    assert reg._lifecycle({"in_flat": True}) is None

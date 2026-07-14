@@ -121,6 +121,15 @@ repos:
     flat:
       type: library
       pypi: aifw
+  # Archiviert (ADR-275 P0): GitHub-verifiziert isArchived=true (2026-07-14).
+  # in_flat/in_rich beide false → projiziert in KEINE aktive View (gen_flat/gen_rich
+  # filtern), nur in die Archiv-View. lifecycle top-level (kein rich-Block nötig).
+  adr-doctor:
+    in_flat: false
+    in_rich: false
+    lifecycle: archived
+    github: achimdehnert/adr-doctor
+    description: "Surgical healing tool for ADR supersession hygiene (archiviert)"
   ausschreibungs-hub:
     in_flat: true
     in_rich: true
@@ -867,6 +876,15 @@ repos:
       dockerfile: Dockerfile
       compose: docker-compose.prod.yml
       coverage_threshold: 60
+  # Archiviert (ADR-275 P0): GitHub-verifiziert isArchived=true (2026-07-14).
+  # War fälschlich NICHT in canonical; steht auch nicht in github_repos.yaml.archive
+  # (deren 68er-Liste war zu 96% Fiktion — 0 real archiviert, 65 gelöscht).
+  testkit:
+    in_flat: false
+    in_rich: false
+    lifecycle: archived
+    github: achimdehnert/testkit
+    description: "iil-testkit — Shared Test Factory Package (ADR-100, archiviert)"
   # ADR-275 P0.5: souveräner django-Hub (ttz-lif), lokal geklont + workflow-
   # synchronisiert. Analog meiki-hub — s. dort. Nur Metadaten, keine Mandantendaten.
   ttz-hub:
