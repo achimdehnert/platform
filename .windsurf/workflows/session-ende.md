@@ -89,6 +89,30 @@ gh run list --repo <owner>/<repo> --workflow=Deploy --limit 1 \
 - `failure` → **nicht** als „fertig" melden. Entweder: (a) bei transientem Flake (GHCR-403/registry-unauthorized beim Pull, siehe Memory `*-deploy-smoke-unauthorized`) `gh run rerun <id> --failed` und Erfolg verifizieren; ODER (b) explizit als offenes To-do mit Run-ID ins `AGENT_HANDOVER.md` (Phase 0b).
 - kein Deploy-Workflow im Repo → Schritt entfällt.
 
+### 0a-handover-pr: Offene AGENT_HANDOVER.md-PRs gegenchecken (PFLICHT — NEU 2026-07-14)
+
+> **Lesson 2026-07-14 (trading-hub):** Session X (2026-07-13) öffnete PR #133 mit
+> einem neuen Handover-Stand, ließ ihn aber offen (kein Merge). Session XI (2026-07-14)
+> schrieb — ohne diesen Check — einen **zweiten** konkurrierenden Handover-Stand (PR #145),
+> der #133 sofort veraltete. Der User musste die Duplikat-PR manuell entdecken und
+> schließen lassen. Ein einfacher PR-Suchlauf vor dem Schreiben hätte das verhindert.
+
+Bevor `AGENT_HANDOVER.md` in dieser Session verändert wird:
+
+```bash
+gh pr list --repo <owner>/<repo> --search "AGENT_HANDOVER.md in:body" --state open \
+  --json number,title,updatedAt -q '.[] | "\(.number)\t\(.updatedAt[:10])\t\(.title)"'
+# Fallback falls die Suche nichts findet (Titel/Body nennen die Datei nicht explizit):
+gh pr list --repo <owner>/<repo> --state open --json number,title,files \
+  -q '.[] | select(.files[]?.path == "AGENT_HANDOVER.md") | "\(.number)\t\(.title)"'
+```
+
+- **Treffer gefunden** → NICHT blind einen neuen Stand parallel schreiben. Entweder
+  (a) den bestehenden PR-Branch übernehmen/aktualisieren statt einen neuen zu öffnen,
+  oder (b) falls der bestehende PR durch zwischenzeitliche Merges bereits veraltet ist,
+  ihn explizit als „ersetzt durch PR #N" schließen, **bevor** der neue Stand gepusht wird.
+- **Kein Treffer** → normal weiter mit 0b.
+
 ### 0b: AGENT_HANDOVER.md aktualisieren (PFLICHT bei WIP-Stand)
 
 Falls uncommitted changes, offene Tasks oder abgebrochene Implementierungen existieren:
