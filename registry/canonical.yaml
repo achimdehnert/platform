@@ -422,6 +422,12 @@ repos:
       lifecycle: active
       tenancy_mode: none
       coverage_threshold: 80
+  ifc-mcp:
+    in_flat: false
+    in_rich: false
+    lifecycle: active
+    github: achimdehnert/ifc-mcp
+    description: IFC/BIM MCP Server — Model Context Protocol Server for IFC building models (DIN 277, fire protection, accessibility checks)
   iil-adrfw:
     in_flat: true
     in_rich: false
@@ -826,6 +832,12 @@ repos:
         prod_redirect: https://schutztat.com/oidc/callback/
         staging_app_slug: risk-hub-staging
         staging_redirect: https://staging.schutztat.de/oidc/callback/
+  schutztat-reporting:
+    in_flat: false
+    in_rich: false
+    lifecycle: active
+    github: achimdehnert/schutztat-reporting
+    description: Odoo 18 management module for Schutztat risk assessments (syncs from risk-hub Django API)
   tax-hub:
     in_flat: true
     in_rich: true

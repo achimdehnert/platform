@@ -138,6 +138,11 @@ def check_ports_consistency(
     for svc_name, svc_cfg in ports.items():
         if svc_cfg is None:
             continue
+        # Repo-loser Service (repo: null explizit) — z.B. doc-hub (docs.iil.pet
+        # ohne eigenes GitHub-Repo). Steht per Definition nicht in der Repo-SSoT
+        # canonical.yaml -> von der Coverage-Prüfung ausnehmen (ADR-275 #1143).
+        if "repo" in svc_cfg and svc_cfg["repo"] is None:
+            continue
         repo_ref = svc_cfg.get("repo")
         if repo_ref and "/" in repo_ref:
             repo_name = repo_ref.split("/")[1]
