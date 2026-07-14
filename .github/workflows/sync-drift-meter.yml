@@ -54,10 +54,13 @@ jobs:
           mkdir -p ~/github
           # list_megatest_repos.py klammert "platform" bewusst aus (eigene
           # _SKIP-Liste dort) — dieser Checkout HIER ist bereits platform.
-          # sync-workflows.sh/sync_drift_meter.py erwarten die Registry
-          # trotzdem unter $GITHUB_DIR/platform/registry/github_repos.yaml.
+          # list_megatest_repos.py + sync-workflows.sh (via sync_drift_meter.py)
+          # erwarten die generierte Flat-View von registry/canonical.yaml unter
+          # $GITHUB_DIR/platform/ (ADR-275: konkreter Pfad in list_megatest_repos.py;
+          # die frühere manuell gepflegte registry/github_repos.yaml ist nicht mehr
+          # die Quelle, Datei-Retire folgt in ADR-275 P5).
           # Ein alter, von GitHub abgekoppelter Klon dort (Issue #998) war
-          # monatelang stale und hatte gar kein registry/github_repos.yaml
+          # monatelang stale und hatte die Registry-Datei gar nicht
           # -> "ERROR: Registry nicht gefunden". Fix: immer frisch auf den
           # aktuellen (garantiert aktuellen) Checkout symlinken, nie einen
           # zweiten Klon pflegen.
