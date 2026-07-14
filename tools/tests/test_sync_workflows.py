@@ -37,17 +37,16 @@ WF_NAME = "knowledge-capture"
 
 def _make_platform_root(tmp_path: Path) -> None:
     """Minimaler 'platform'-Ordner unter tmp_path: eine Workflow-Quelldatei
-    + eine leere, aber valide Registry (django_apps/org_django_apps/frameworks
-    müssen als Keys existieren, s. sync-workflows.sh Z.104-118)."""
+    + eine leere, aber valide Registry. ADR-275 P1: sync-workflows.sh liest jetzt
+    die Flat-View scripts/repo-registry.yaml (`repos:`-Dict mit `type`-Feld je Repo),
+    nicht mehr registry/github_repos.yaml."""
     wf_dir = tmp_path / "platform" / ".windsurf" / "workflows"
     wf_dir.mkdir(parents=True)
     (wf_dir / f"{WF_NAME}.md").write_text("# fixture workflow\n")
 
-    registry_dir = tmp_path / "platform" / "registry"
-    registry_dir.mkdir(parents=True)
-    (registry_dir / "github_repos.yaml").write_text(
-        "django_apps: {}\norg_django_apps: {}\nframeworks: {}\n"
-    )
+    scripts_dir = tmp_path / "platform" / "scripts"
+    scripts_dir.mkdir(parents=True)
+    (scripts_dir / "repo-registry.yaml").write_text("repos: {}\n")
 
 
 def _git(repo_dir: Path, *args: str) -> None:
@@ -188,3 +187,51 @@ def test_should_report_zero_skips_and_exit_zero_in_strict_mode_when_clean(tmp_pa
 
     assert res.returncode == 0, res.stderr
     assert "SKIP-SUMMARY: 0 Repos übersprungen" in res.stdout
+
+
+# --- ADR-275 P1: Klassifikation aus der Flat-View (type→DJANGO_HUBS/PACKAGES) ---
+
+
+def _write_registry(tmp_path: Path, repos: dict) -> None:
+    """Überschreibt die von _make_platform_root angelegte leere Flat-View mit
+    konkreten Einträgen (repos-Dict mit type-Feld) — für Klassifikations-Tests."""
+    import yaml
+    reg = tmp_path / "platform" / "scripts" / "repo-registry.yaml"
+    reg.write_text(yaml.safe_dump({"repos": repos}))
+
+
+def _clean_synctarget(tmp_path: Path, name: str) -> Path:
+    repo_dir = _make_target_repo(
+        tmp_path, name, f"https://github.com/achimdehnert/{name}.git"
+    )
+    (repo_dir / ".gitignore").write_text(".windsurf/\n")
+    _git(repo_dir, "add", "-A")
+    _git(repo_dir, "commit", "-q", "-m", "fixture")
+    return repo_dir
+
+
+def test_should_label_django_type_as_django_hub(tmp_path):
+    _make_platform_root(tmp_path)
+    _write_registry(tmp_path, {"myapp": {"type": "django"}})
+    _clean_synctarget(tmp_path, "myapp")
+    res = _run_sync(tmp_path, "myapp")
+    assert res.returncode == 0, res.stderr
+    assert "(django-hub)" in res.stdout
+
+
+def test_should_label_library_and_framework_as_package(tmp_path):
+    _make_platform_root(tmp_path)
+    _write_registry(tmp_path, {"mylib": {"type": "library"}, "myfw": {"type": "framework"}})
+    _clean_synctarget(tmp_path, "mylib")
+    _clean_synctarget(tmp_path, "myfw")
+    assert "(package)" in _run_sync(tmp_path, "mylib").stdout
+    assert "(package)" in _run_sync(tmp_path, "myfw").stdout
+
+
+def test_should_label_unknown_type_as_other(tmp_path):
+    _make_platform_root(tmp_path)
+    _write_registry(tmp_path, {"infra-thing": {"type": "infra"}})
+    _clean_synctarget(tmp_path, "infra-thing")
+    out = _run_sync(tmp_path, "infra-thing").stdout
+    # infra ist weder django noch package → 'other' (kein django-hub/package-Label)
+    assert "(django-hub)" not in out and "(package)" not in out
