@@ -583,6 +583,16 @@ repos:
       lifecycle: production
       tenancy_mode: none
       coverage_threshold: 80
+  # ADR-275 P0.5: souveräner django-Hub (meiki-lra), lokal geklont + workflow-
+  # synchronisiert. Fehlte in canonical → wäre bei der sync-workflows-Migration (P1)
+  # auf 'other' gefallen (Regression). Nur Metadaten (Typ/Owner), KEINE Mandantendaten.
+  # in_flat:true (Flotten-Inventar), in_rich:false (nicht im Plattform-Deploy-Subset —
+  # souverän auf eigener Infra, kein Plattform-Port/prod_url).
+  meiki-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
   nl2cad:
     in_flat: true
     in_rich: false
@@ -875,6 +885,13 @@ repos:
     lifecycle: archived
     github: achimdehnert/testkit
     description: "iil-testkit — Shared Test Factory Package (ADR-100, archiviert)"
+  # ADR-275 P0.5: souveräner django-Hub (ttz-lif), lokal geklont + workflow-
+  # synchronisiert. Analog meiki-hub — s. dort. Nur Metadaten, keine Mandantendaten.
+  ttz-hub:
+    in_flat: true
+    in_rich: false
+    flat:
+      type: django
   travel-beat:
     in_flat: true
     in_rich: true
