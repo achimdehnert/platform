@@ -91,11 +91,11 @@ gh run list --repo <owner>/<repo> --workflow=Deploy --limit 1 \
 
 ### 0a-handover-pr: Offene AGENT_HANDOVER.md-PRs gegenchecken (PFLICHT — NEU 2026-07-14)
 
-> **Lesson 2026-07-14 (trading-hub):** Session X (2026-07-13) öffnete PR #133 mit
-> einem neuen Handover-Stand, ließ ihn aber offen (kein Merge). Session XI (2026-07-14)
-> schrieb — ohne diesen Check — einen **zweiten** konkurrierenden Handover-Stand (PR #145),
-> der #133 sofort veraltete. Der User musste die Duplikat-PR manuell entdecken und
-> schließen lassen. Ein einfacher PR-Suchlauf vor dem Schreiben hätte das verhindert.
+> **Lesson 2026-07-14:** Eine Session öffnete einen PR mit neuem Handover-Stand,
+> ließ ihn aber offen (kein Merge). Die nächste Session schrieb — ohne diesen Check —
+> einen **zweiten**, konkurrierenden Handover-Stand, der den ersten PR sofort veraltete.
+> Der User musste die Duplikat-PR manuell entdecken und schließen lassen. Ein einfacher
+> PR-Suchlauf vor dem Schreiben hätte das verhindert.
 
 Bevor `AGENT_HANDOVER.md` in dieser Session verändert wird:
 
