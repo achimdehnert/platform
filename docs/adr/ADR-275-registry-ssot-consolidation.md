@@ -10,6 +10,7 @@ scope: platform
 supersedes: []
 related: [ADR-022, ADR-157, ADR-234]
 tags: [registry, ssot, drift-prevention, ci, generated, governance]
+external_sparring_by: "2×extern@2026-07-14"   # 2 anbieter-fremde Reviews; Provider-Namen vom Autor zu bestätigen
 drift_check_paths:
   - "registry/canonical.yaml"
   - "registry/github_repos.yaml"
@@ -114,39 +115,84 @@ Entscheidungen.
 ## Decision Outcome
 
 **Gewählt: Option A**, in reversiblen Phasen, jede mit eigenem verifizierbaren Gate.
-Begründung gegen B: B löst dieselben Lücken, behält aber dauerhaft zwei Schemata —
-das widerspricht Driver 1 (genau eine SSoT). Der einzige B-Vorteil (null Consumer-Diff)
-wiegt die dauerhafte Doppel-Schema-Last nicht auf.
+Begründung gegen B als *Endzustand*: B behält dauerhaft zwei Schemata — das widerspricht
+Driver 1. **Aber** (externes Sparring AD/OOB-1): B ist als *zeitlich befristeter
+Migrations-Adapter* wertvoll und wird übernommen — s. „Kompatibilitäts-View" unten. Der
+Endzustand bleibt A (eine Quelle), der Übergang nutzt eine generierte Wegwerf-View.
+
+### Vorab-Klärungen (aus externem Sparring, VOR den Phasen zu entscheiden)
+
+Zwei Punkte, die das externe Review zu Recht als „im ADR entscheiden, nicht im PR
+verstecken" markiert hat (AD-2, AD-4, M28-1):
+
+1. **Consumer-Vertrag = die generierte View `repos.yaml`, NICHT `canonical.yaml`
+   direkt.** `canonical.yaml` bleibt reine Authoring-/Generator-/Validierungs-Quelle.
+   **Achtung Kollision (verifiziert):** ADR-234 §11.1 führt eine eingefrorene Baseline
+   „legitimer Direct-Reader" der Views (aktuell 21) und failt bei neuen. Die 4
+   migrierten Consumer werden daher **explizit in diese Baseline aufgenommen** (mit
+   Begründung je Reader), nicht als Verstoß — oder, falls REC-4/OOB-2 gewählt wird,
+   hinter eine gemeinsame Query-Funktion gelegt, die selbst der einzige neue Reader ist.
+   Ohne diese Klärung reißt die Consumer-Migration ein bestehendes Gate.
+2. **Archiv-Modell = `lifecycle: archived` in `canonical.yaml`** mit einer gefilterten
+   View `archived-repos.yaml` (generiert, kein zweiter Authoring-Ort). Damit ist auch
+   der Zukunfts-Lifecycle eindeutig (M28-1): Archivieren = Feld-Flip, nicht Datei-Umzug.
 
 ### Phasen (jede ein eigener PR, jede einzeln reversibel)
 
-- **P0 — Lücken schließen (VOR jeder Consumer-Migration):**
-  (a) Archive-Repos aus `github_repos.yaml.archive` in eine eigene, generierte
-  `registry/archived-repos.yaml` überführen (oder als `lifecycle: archived` in
-  canonical, falls das Schema es trägt — Entscheid im P0-PR); (b) `django-lms-lite`
-  in `canonical.yaml` aufnehmen. **Gate:** `validate_repos.py` läuft grün gegen die
-  neue Archiv-Quelle statt gegen `github_repos.yaml`.
-- **P1 — `sync-workflows.sh`** auf eine kleine Ableitungsfunktion umstellen
-  (`type→Sektion` aus `repos.yaml`). **Gate:** Symlink-Set vor/nach identisch
-  (`--dry-run`-Diff == leer).
-- **P2 — `runner-health.yml`** auf `repos.yaml` `deployed`+`github` umstellen.
-  **Gate:** Runner-Liste vor/nach identisch.
-- **P3 — `sync-drift-meter.yml`** auf `repos.yaml` umstellen. **Gate:** Drift-Report
-  vor/nach identisch.
-- **P4 — `validate_repos.py`** auf die neue Archiv-Quelle + `canonical.yaml` umstellen.
-- **P5 — Stilllegung:** `github_repos.yaml` → `registry/_archived/github_repos.yaml.<datum>`;
-  `check_registry_view_readers.py` aus dem Reader-Set entfernen; Header-Selbstanspruch
-  gelöscht. **Gate:** `grep -rl github_repos.yaml` (ohne `_archived/`) == leer.
+- **P0 — Datenmodell + Import + Reconciliation (rein additiv, keine Consumer-Migration):**
+  (a) `lifecycle`-Feld in `canonical.yaml`-Schema + gefilterte View `archived-repos.yaml`;
+  (b) `django-lms-lite` aufnehmen; (c) **68 Archive NICHT blind aus dem 2026-04-Snapshot
+  übernehmen** (AD-8) — beim Import gegen das aktuelle GitHub-Inventar reconciliieren
+  (existiert das Repo noch? archiviert-Status stimmt?), Abweichungen als Soll-Delta
+  gelistet. **Gate:** ein voller Diff *aller* aus `canonical.yaml` generierten Views +
+  bestehenden Consumer-Ausgaben (AD-9) zeigt außer dem reviewten Soll-Delta keine
+  Änderung; `registry-canonical.py verify` grün.
+- **P1–P4 — je ein Consumer auf `repos.yaml` umstellen** (`sync-workflows.sh`,
+  `runner-health.yml`, `sync-drift-meter.yml`, `validate_repos.py`), jeder in die
+  Reader-Baseline aufgenommen. **Identitäts-Gate als Drei-Teil-Vertrag (AD-1, REC-1) —
+  NICHT „Ausgabe unverändert":** (i) für die Schnittmenge *unveränderter* Datensätze
+  vorher==nachher; (ii) eine explizit reviewte **Soll-Delta-Liste** der bekannten
+  Korrekturen (z. B. `dms-hub` erscheint neu, `bfagent` verschwindet — genau das ist
+  der Zweck der Migration weg von der stalen Quelle); (iii) Fehler bei *jeder* nicht
+  genehmigten Zusatz-Abweichung. Ein „identisch"-Gate allein würde die notwendige
+  Korrektur blockieren.
+- **P5 — Stilllegung + Rollback-Fenster (M28-2, REC-8):** `github_repos.yaml` wird
+  NICHT sofort entfernt, sondern für ein definiertes Rollback-Fenster als **generierte,
+  schreibgeschützte Kompatibilitäts-View** (aus `canonical.yaml`, `DEPRECATED`-Header,
+  hartes Löschkriterium/Datum) am alten Pfad gehalten. So bleibt jeder P1–P4-PR bis
+  Fensterende einzeln rollback-fähig (findet seine alte Eingabe noch). Erst nach
+  Fensterende → `registry/_archived/`, Header-Selbstanspruch gelöscht.
 
-**Enforcement (Driver 2):** Nach P5 existiert genau eine Reader-Oberfläche; ein neuer
-`grep`-Guard in `check_registry_view_readers.py` failt, sobald irgendein Nicht-archivierter
-Pfad `github_repos.yaml` wieder liest — verhindert Rückfall.
+**Enforcement + dessen Grenzen (Driver 2; M28-4, AD-6):** Ein `grep`-Guard in
+`check_registry_view_readers.py` failt, sobald ein Nicht-archivierter Pfad
+`github_repos.yaml` wieder direkt liest. **Ehrliche Grenze:** `grep` fängt weder
+dynamisch zusammengesetzte Pfade noch Leser in *anderen* Repos/externen Automationen
+und kann bei Doku/Fixtures falsch-positiv sein — er ist Defense-in-Depth, kein Beweis.
+Daher **vor P5 zwingend** eine org-weite Code-Suche (`gh search code`, alle Repos) +
+ausführbare Dry-Runs aller Consumer, nicht nur der platform-lokale `grep`.
 
 ## Consequences
 
-**Positiv:** Eine SSoT, ein Gate, kein Datenalter; die 4 Consumer treffen fortan
-Entscheidungen gegen aktuelle Daten. Das „zwei SSoT"-Muster ist strukturell (nicht nur
-per Dokument) unmöglich gemacht.
+**Positiv:** Eine autoritative Repository-Registry **für die hier behandelten Felder**
+(Repo-Identität, Typ, Deploy/Staging, Lifecycle) — bewusst enger formuliert als „genau
+eine SSoT" (M28-5): die ADR-022-§2.9-Port-Teilkopie besteht bis zu ihrem Folge-PR fort,
+die Aussage wäre sonst irreführend. Die 4 Consumer treffen fortan Entscheidungen gegen
+die generierte, aktuelle View.
+
+**Wichtige Präzisierung (AD-3, verifiziert):** „generiert + driftgeprüft" ≠ „fachlich
+aktuell". Das bestehende `registry-consistency`-Gate beweist nur **View == canonical**
+(Quelle↔Ableitung), NICHT die Übereinstimmung mit dem realen GitHub-Bestand. Diese
+zweite Garantie liefert erst der separate Reconciliation-Check (`reconcile_registry_live.py`
+für Ports/Container/DNS; für Repo-/Archiv-Existenz in P0 neu ergänzt). Der ADR behandelt
+beide als getrennte Garantien; „canonical ist SSoT" heißt „einzige *Autoring*-Wahrheit",
+nicht „automatisch deckungsgleich mit GitHub".
+
+**Offen als benannter Folge-Schritt (M28-3, OOB-2):** Vier direkte YAML-Leser können ihre
+Filter-/Typ-/Lifecycle-Semantik langfristig erneut auseinanderentwickeln. Eine gemeinsame
+Query-Schicht (`registry query --type django --deployed` bzw. importierbare Funktion)
+kapselt den Consumer-Vertrag an einer Stelle — hier bewusst NICHT Teil der
+Konsolidierung (YAGNI bei 4 Consumern), aber als Kipp-Punkt vermerkt: ab dem 5. Consumer
+oder erneuter Filter-Drift wird sie fällig.
 
 **Negativ / Risiko:** 6 PRs statt 1; jeder Consumer-PR braucht einen echten Vorher/Nachher-
 Diff-Beleg (nicht nur „CI grün"). Falls ein Consumer eine `github_repos.yaml`-Eigenheit
@@ -165,3 +211,34 @@ eine **dritte**, manuell gepflegte Teilkopie derselben Daten (Ports), schon jetz
 unvollständig (~24 vs. 53 Einträge) — sie ist ein verwandter, aber separater SSoT-Drift
 und wird hier bewusst nicht mitbehandelt (eigener, kleinerer Folge-PR: Tabelle durch einen
 Generator-Verweis auf `ports.yaml` ersetzen).
+
+## Externes Sparring (2026-07-14)
+
+Zwei anbieter-fremde Zweitmeinungen (adversariales Review, `/adr-handoff-extern`).
+Rückfluss kuratiert (nicht 1:1 übernommen): jede Befund-/REC-ID getaggt, nur `[valid]`
+eingearbeitet, die zwei tragendsten Befunde (AD-3, AD-4) vor Übernahme **gegen das Repo
+verifiziert**. Review 2 lag nur teilweise vor (Paste abgeschnitten nach PRO-2) — dessen
+Steelman konvergiert mit Review 1; keine widersprechenden Befunde erkennbar.
+
+| ID | Verdikt | Aktion |
+|---|---|---|
+| PRO-1…PRO-5 | valid | Zustimmung, keine Änderung nötig (Steelman/Proponent-Seite) |
+| AD-1 / REC-1 | **valid (verifiziert-logisch)** | Identitäts-Gate von „Ausgabe unverändert" auf **Drei-Teil-Vertrag** umgestellt (P1–P4) — der zentrale Fix |
+| AD-2 / REC-2, M28-1 | valid | Archiv-Modell im ADR entschieden: `lifecycle: archived` in canonical + gefilterte View |
+| AD-3 / REC-3 | **valid (repo-verifiziert)** | Consequences trennt jetzt „View==canonical"-Gate von GitHub-Reconciliation |
+| AD-4 / REC-4 | **valid (repo-verifiziert)** | Consumer-Vertrag = `repos.yaml`-View; Reader-Baseline-Kollision (ADR-234 §11.1) explizit adressiert |
+| AD-5 / REC-5 | valid | P0/P4-Ordering bereinigt: P0 rein additiv, validate_repos.py vollständig in einer Phase |
+| AD-6 / REC-6, M28-4 | valid | grep-Guard-Grenzen benannt; org-weite Code-Suche + Dry-Runs vor P5 verpflichtend |
+| AD-7 / REC-7 | valid | Typ→Sektion als totale Abbildung (inkl. `org_django_apps`, unbekannte Typen, Golden-Test) — als P1-Anforderung |
+| AD-8 / REC-3 | **valid (repo-verifiziert)** | Archive gegen aktuelles GitHub reconciliiert statt Snapshot blind kopiert |
+| AD-9 / REC-9 | valid | Voll-Diff aller Views + Consumer-Ausgaben als P0-Gate |
+| M28-2 / REC-8 | valid | P5 hält alte Datei als generierte Read-only-Kompat-View über ein Rollback-Fenster |
+| M28-3 / OOB-2 | valid (Scope: Folge-Schritt) | Als benannter Kipp-Punkt in Consequences, nicht als Blocker dieser Konsolidierung |
+| M28-5 / REC-10 | valid | „genau eine SSoT" → „eine autoritative Registry für die hier behandelten Felder" |
+| OOB-1 | **valid (übernommen)** | B als *befristeter* Migrations-Adapter (Kompat-View), Endzustand bleibt A |
+| OOB-3 | valid-Kern | GitHub als Reconciliation-Quelle (= AD-8/REC-3), NICHT als Archiv-Speicherort (Reviewer selbst verworfen) |
+
+Kein Befund als `[missversteht-Kontext]` oder `[out-of-scope]` — das Review respektierte
+die gesetzten Grenzen (kein Versuch, `github_repos.yaml` als SSoT wiederzubeleben).
+Hohe Valid-Quote ist hier ehrlicher Befund, kein Gummistempel: ADR-275 war ein
+`proposed`-Entwurf mit bewusst offenen Punkten, die das Review kompetent getroffen hat.
