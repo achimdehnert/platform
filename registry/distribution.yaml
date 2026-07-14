@@ -97,7 +97,7 @@ lanes:
     note: "umgeht CI per [skip ci]; Härtung/Stilllegung = ADR-263. OFFEN (Deep-Review-Frage 2026-07-11): Dispatch-SENDER in platform nicht auffindbar — Sende-Seite ungeklärt, bei Klärung eigene Lane ergänzen"
 
   project-facts:
-    source: ["registry/canonical.yaml", "registry/github_repos.yaml"]
+    source: ["registry/canonical.yaml"]
     targets: ["~/github/*/project-facts.md"]
     mechanism: scripts/gen_project_facts.py
     trigger: "manuell + /session-start Phase 0.2"
