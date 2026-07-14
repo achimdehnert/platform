@@ -330,7 +330,6 @@ jobs:
     name: "Integration Tests"
     runs-on: ${{ inputs.runs_on }}
     if: ${{ !inputs.skip_tests }}
-    continue-on-error: true
     services:
       postgres:
         image: ${{ inputs.postgres_image }}
@@ -531,6 +530,12 @@ jobs:
           SECRET_KEY: test-secret-key-for-ci
           POSTGRES_HOST: localhost
           POSTGRES_PORT: ${{ job.services.postgres.ports['5432'] }}
+        # Exit 5 (pytest: keine Tests eingesammelt) wird bewusst als grün behandelt —
+        # nicht jedes Repo hat schon Contract-Tests (analog zum Integration-Job).
+        # Anders als das entfernte `continue-on-error` oben maskiert das KEINE echte
+        # Testassertion: ein tatsächlich fehlgeschlagener Contract-Test bricht mit
+        # einem Exit-Code ≠ 0/5 ab und propagiert normal (platform#846, "dokumentieren
+        # statt härten" — Repos ohne Contract-Tests sollen nicht deswegen rot werden).
         run: pytest -m "contract" -v || ([ $? -eq 5 ] && echo "No contract tests found, skipping." && exit 0)
 
   architecture-guardian:
