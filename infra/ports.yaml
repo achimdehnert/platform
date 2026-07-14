@@ -216,14 +216,8 @@ services:
     repo: iilgmbh/risk-hub
     compose_drift: "docker-compose.yml uses 8001:8000 — must change to 8090:8000"
 
-  bfagent:
-    prod: 8091
-    staging: 8091
-    dev: 8091
-    container_name: bfagent_web
-    domain_prod: iil.pet
-    domain_staging: staging.iil.pet
-    repo: achimdehnert/bfagent
+  # bfagent entfernt (ADR-275 Hygiene, #1143): decommissioned 2026-06-03
+  # (bfagent#44), in canonical.yaml lifecycle:archived. Port 8091 wieder frei.
 
   billing-hub:
     prod: 8092
@@ -340,6 +334,9 @@ services:
     repo: iilgmbh/ausschreibungs-hub
     compose_drift: "docker-compose.prod.yml uses 8095 — must change to 8101 (conflicts with 137-hub)"
 
+  # doc-hub: repo-loser Service (docs.iil.pet) — kein eigenes GitHub-Repo, steht
+  # daher bewusst NICHT in registry/canonical.yaml (Repo-SSoT). ADR-275 Hygiene
+  # (#1143): repo:null ist gewollt, kein fehlender Eintrag.
   doc-hub:
     prod: 8102
     staging: 8102
@@ -347,7 +344,7 @@ services:
     container_name: iil_dochub_web
     domain_prod: docs.iil.pet
     domain_staging: staging-docs.iil.pet
-    repo: null
+    repo: null  # bewusst repo-los, s. Kommentar oben
 
   recruiting-hub:
     prod: 8103
