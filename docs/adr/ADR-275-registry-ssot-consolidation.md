@@ -139,14 +139,26 @@ verstecken" markiert hat (AD-2, AD-4, M28-1):
 
 ### Phasen (jede ein eigener PR, jede einzeln reversibel)
 
-- **P0 — Datenmodell + Import + Reconciliation (rein additiv, keine Consumer-Migration):**
-  (a) `lifecycle`-Feld in `canonical.yaml`-Schema + gefilterte View `archived-repos.yaml`;
-  (b) `django-lms-lite` aufnehmen; (c) **68 Archive NICHT blind aus dem 2026-04-Snapshot
-  übernehmen** (AD-8) — beim Import gegen das aktuelle GitHub-Inventar reconciliieren
-  (existiert das Repo noch? archiviert-Status stimmt?), Abweichungen als Soll-Delta
-  gelistet. **Gate:** ein voller Diff *aller* aus `canonical.yaml` generierten Views +
-  bestehenden Consumer-Ausgaben (AD-9) zeigt außer dem reviewten Soll-Delta keine
-  Änderung; `registry-canonical.py verify` grün.
+- **P0 — Datenmodell + Import + Reconciliation (rein additiv, keine Consumer-Migration) —
+  UMGESETZT 2026-07-14:** (a) `lifecycle`-Feld genutzt (existierte bereits im Schema) +
+  neue gefilterte View `archived-repos.yaml` (Generator `gen_archived`, ins `verify`-Gate
+  verdrahtet); (b) `build`-Landmine gehärtet (rekonstruiert-aus-Views hätte canonical-only-
+  Archive gedroppt).
+  **Reconciliation-Realbefund (AD-8 bestätigt sich drastisch):** die „68 Archive" aus
+  `github_repos.yaml` waren zu **96 % Fiktion** — GitHub-live-verifiziert (2026-07-14):
+  **0** real archiviert, **65** gelöscht/nicht existent, **3** in Wahrheit *aktiv*
+  (fehlklassifiziert: `ifc-mcp`, `lastwar-bot`, `schutztat-reporting`). Die **3 real
+  GitHub-archivierten** Repos (`adr-doctor`, `bfagent`, `testkit`) standen *gar nicht* in
+  der Liste. P0 importiert daher **nicht 68, sondern die 3 echten** (via Live-GitHub, nicht
+  Snapshot); die 65 Phantome werden mit `github_repos.yaml` in P5 entsorgt.
+  **NICHT in P0 (weil nicht additiv-neutral — würden in aktive Views lecken):**
+  `django-lms-lite` (aktive Library → Package-View von `sync-workflows`) und die 3
+  fehlklassifiziert-aktiven Repos wandern in die jeweilige Consumer-Phase, wo ihr Delta
+  reviewt wird; `bfagent`s Fehl-Flag `in_rich:true` (archiviert, projiziert aber in die
+  Deploy-View) ist eine view-berührende Alt-Wart und ebenfalls einer Consumer-Phase
+  vorbehalten. **Gate erfüllt:** die zwei aktiven Views (`repos.yaml`,
+  `repo-registry.yaml`) sind **byte-identisch** vor/nach (md5 geprüft), nur die neue
+  Archiv-View kam hinzu; `registry-canonical.py verify` grün auf allen drei.
 - **P1–P4 — je ein Consumer auf `repos.yaml` umstellen** (`sync-workflows.sh`,
   `runner-health.yml`, `sync-drift-meter.yml`, `validate_repos.py`), jeder in die
   Reader-Baseline aufgenommen. **Identitäts-Gate als Drei-Teil-Vertrag (AD-1, REC-1) —

@@ -48,6 +48,7 @@ ROOT = Path(__file__).resolve().parent.parent
 FLAT = ROOT / "scripts" / "repo-registry.yaml"
 RICH = ROOT / "registry" / "repos.yaml"
 CANON = ROOT / "registry" / "canonical.yaml"
+ARCHIVED = ROOT / "registry" / "archived-repos.yaml"   # ADR-275 P0: gefilterte lifecycle==archived-View
 
 
 def _load(p: Path):
@@ -79,6 +80,17 @@ def build() -> dict:
             entry["domain"] = dname
             entry["rich"] = s
         repos[n] = entry
+
+    # ADR-275 P0 — Landmine-Härtung: `build` rekonstruiert canonical aus den Views (FLAT+RICH).
+    # Archivierte Repos (lifecycle==archived, in_flat/in_rich beide false) stehen in KEINER View
+    # → ein naiver build würde sie still löschen. Darum vorhandene Archiv-Einträge aus dem
+    # aktuellen canonical.yaml verbatim erhalten. (build ist ohnehin Pre-Flip-Legacy, s. Makefile;
+    # diese Härtung verhindert Datenverlust, falls es doch jemand aufruft.)
+    if CANON.exists():
+        cur = (_load(CANON) or {}).get("repos", {})
+        for n, e in cur.items():
+            if n not in repos and _lifecycle(e) == "archived":
+                repos[n] = e
 
     return {
         "meta": {
@@ -145,7 +157,7 @@ def build() -> dict:
 
 # Projektion-Logik lebt in registry_api (eine Implementierung → Accessor + Drift-Gate
 # laufen nie auseinander). Sibling-Import: beim Direktaufruf ist tools/ in sys.path[0].
-from registry_api import gen_flat, gen_rich  # noqa: E402
+from registry_api import gen_archived, gen_flat, gen_rich, _lifecycle  # noqa: E402
 
 
 def _norm(x):
@@ -183,6 +195,16 @@ def verify(canon: dict) -> int:
         rc = 1
         print("🔴 rich-View weicht ab:")
         _diff(_norm(cur_r), _norm(gen_r))
+    # Archiv-View (ADR-275 P0) — nur prüfen, wenn die Datei existiert (schrittweise Einführung)
+    if ARCHIVED.exists():
+        gen_a = gen_archived(canon)
+        cur_a = {"archived": (_load(ARCHIVED) or {}).get("archived", {})}
+        if _norm(gen_a) == _norm(cur_a):
+            print("✅ archived-View: semantisch identisch zu registry/archived-repos.yaml")
+        else:
+            rc = 1
+            print("🔴 archived-View weicht ab:")
+            _diff(_norm(cur_a), _norm(gen_a))
     return rc
 
 
@@ -244,7 +266,8 @@ def flip(canon: dict) -> int:
     rich_header = _strip_gen_notice(_leading_comments(RICH))
     FLAT.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_flat(canon), sort_keys=False, allow_unicode=True, width=100))
     RICH.write_text(GEN_NOTICE + "\n" + rich_header + "\n" + yaml.safe_dump(gen_rich(canon), sort_keys=False, allow_unicode=True, width=100))
-    print(f"✅ geflippt: {FLAT.relative_to(ROOT)} (frischer GEN-Header) + {RICH.relative_to(ROOT)} (Schema-Docs erhalten).")
+    ARCHIVED.write_text(GEN_NOTICE + "\n" + yaml.safe_dump(gen_archived(canon), sort_keys=False, allow_unicode=True, width=100))
+    print(f"✅ geflippt: {FLAT.relative_to(ROOT)} + {RICH.relative_to(ROOT)} + {ARCHIVED.relative_to(ROOT)} (Archiv-View, ADR-275 P0).")
     return verify(canon)
 
 
