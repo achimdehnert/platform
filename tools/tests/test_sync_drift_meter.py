@@ -79,7 +79,7 @@ SKIP-SUMMARY: 0 Repos übersprungen
 
 BROKEN_OUTPUT = """\
 === Workflow Sync ===
-ERROR: Registry nicht gefunden: /home/runner/github/platform/registry/github_repos.yaml
+ERROR: Registry nicht gefunden: /home/runner/github/platform/registry (SSoT)
 """
 
 

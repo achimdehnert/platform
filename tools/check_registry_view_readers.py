@@ -46,7 +46,6 @@ ALLOWED = {
     "tools/registry_view_readers.txt",
     "registry/canonical.yaml",
     "registry/repos.yaml",
-    "registry/github_repos.yaml",
     "scripts/repo-registry.yaml",
     "registry/sync_registry.py",
     ".github/workflows/registry-consistency.yml",
@@ -65,7 +64,15 @@ def find_readers(root: Path, files: list[str]) -> set[str]:
     """Dateien, die einen View-Pfad referenzieren — ohne Maschinerie/Archiv."""
     readers = set()
     for rel in files:
-        if rel in ALLOWED or rel.startswith("_ARCHIVED/"):
+        # Archivierte Dateien sind Historie, kein aktiver Reader — in JEDEM
+        # _ARCHIVED/ überspringen (root wie verschachtelt, z.B. ADR-275 P5:
+        # registry/_ARCHIVED/github_repos.yaml, dessen RETIRED-Banner die
+        # View-Pfade nennt).
+        if (
+            rel in ALLOWED
+            or rel.startswith("_ARCHIVED/")
+            or "/_ARCHIVED/" in rel
+        ):
             continue
         if not rel.endswith(CODE_SUFFIXES):
             continue

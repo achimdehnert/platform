@@ -1,3 +1,14 @@
+# ╔══════════════════════════════════════════════════════════════════════════╗
+# ║  RETIRED — ADR-275 P5 (2026-07-14). NICHT MEHR die SSoT, NICHT lesen.      ║
+# ║  Diese Datei war ein manuell gepflegter, stale Snapshot (Stand 2026-04-03: ║
+# ║  86 Repos, davon 65 der 68 archive-Einträge auf GitHub längst gelöscht).   ║
+# ║  Kanonische Registry-SSoT ist jetzt registry/canonical.yaml               ║
+# ║  (Views: scripts/repo-registry.yaml + registry/repos.yaml, generiert;      ║
+# ║   Accessor: tools/registry_api.py). Alle Consumer sind migriert            ║
+# ║  (P1 sync-workflows.sh · P2 runner-health · P3 sync-drift-meter ·          ║
+# ║   P4 validate_repos.py). Hier nur noch zur Historie aufbewahrt.           ║
+# ╚══════════════════════════════════════════════════════════════════════════╝
+#
 # registry/github_repos.yaml — Vollständiges Inventar aller GitHub-Repos
 # Single Source of Truth für Cascade, port_audit, onboard-repo, deploy-check
 #
