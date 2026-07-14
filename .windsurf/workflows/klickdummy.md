@@ -362,6 +362,28 @@ KLICKDUMMIES := \
   <KLICKDUMMY_PATH>/<name>/screens-spec.yaml:<KLICKDUMMY_PATH>/<name>/screens-spec.schema.json
 ```
 
+**Bei Erstadoption (erster `KLICKDUMMIES`-Eintrag im Repo):** prüfen ob
+bereits ein CI-Job existiert, der `make klickdummy` bei jedem PR ausführt
+(`grep -rn "make klickdummy" .github/workflows/`). Falls nicht, im selben
+PR ergänzen — analog `frist-hub/.github/workflows/ci.yml:56-68`:
+
+```yaml
+klickdummy:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+    - run: make klickdummy-install
+    - run: make klickdummy
+```
+
+Ohne diesen Gate bleibt Klickdummy-Drift (Namespace-Kollisionen, kaputte
+Specs) bei jeder späteren PR unentdeckt — genau der Regressionstyp, den
+`frist-hub` bereits einmal real erlebt hatte (Session-Retro 2026-07-13,
+`04b5ac`), bevor der Gate dort eingeführt wurde.
+
 ## Step 9: I1-I4 grün stellen
 
 ```bash
@@ -425,6 +447,7 @@ PR-Body sollte enthalten: Screen-Liste, Klassen-Begründung, Datenschutz-Hinweis
 [4] shell.html:           <pfad>
 [5] ADR:                  <ADR_PATH>/ADR-<NNN>-klickdummy-<name>.md
 [6] Makefile erweitert:   KLICKDUMMIES += <eintrag>
+[6b] CI-Job (bei Erstadoption): <wired|already present>
 
 == Tests ==
   I1 → <PASS|FAIL>
