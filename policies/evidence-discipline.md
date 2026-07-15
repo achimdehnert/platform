@@ -115,3 +115,14 @@ If R does not beat the ~6-incident baseline, the policy is cut per the effective
   Retros (retro_kpis.py), Familie von Punkt 5, anderer Trigger (Close/Delete). Der
   Marker-Scanner-Hook fängt diese Variante bisher nicht — begleitender Hook-Patch-Vorschlag
   im PR-Body (Hook lebt in `~/.claude/hooks/`, außerhalb dieses Repos).
+- 2026-07-15: Weiterer Realfall, root-cause-label-Variante (weder Punkt 5 noch 6 — ein
+  drittes Muster desselben Bidirectional-Fehlers): ein Root-Cause-Satz ("transiente
+  Runner-Kontention") wurde mit mehr Bestimmtheit formuliert, als das Log trug — die
+  Log-Zeile belegte einen abgebrochenen/gekillten Prozess (real), aber nicht den
+  spezifisch benannten Mechanismus ("Kontention"). Ein unabhängiger Skeptiker bestätigte
+  den Beleg für den Prozess-Abbruch, aber nicht für die Kontention-Interpretation. Aus
+  `docs/retros/session-retro-2026-07-15-platform-c494a2.md` (Befund #3, `claim-before-
+  cheapest-check` erneut ×1 über `retro_kpis.py` — Repo-übergreifend: die Diagnose betraf
+  einen Deploy in einem anderen Repo, nicht platform selbst; das Muster ist nicht
+  platform-lokal, sondern genau der org-weite Geltungsbereich, für den diese Policy
+  geschrieben ist).
