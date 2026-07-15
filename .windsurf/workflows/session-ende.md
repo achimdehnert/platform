@@ -555,6 +555,15 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 | 9 | Docu-Drift-Check: Issue erstellt falls nötig (Phase 1b) | ☐ |
 | 10 | Template-Drift-Check: Error-Drifts gefixt (Phase 1c) | ☐ |
 | 11 | Erledigte/verschobene Prios im Handover UND Memory nachgezogen (Phase 0c) | ☐ |
+| 12 | Offene AGENT_HANDOVER.md-PRs gegengecheckt vor eigenem Schreiben (Phase 0a-handover-pr) | ☐ |
+
+> **Pflicht-Selbstcheck (nicht überspringen):** Zähle die `###`/`##`-Phasen-Überschriften
+> oben im Dokument, die als PFLICHT/NEU markiert sind, gegen diese Tabelle — jede neue
+> Pflicht-Phase braucht eine eigene Zeile hier. Diese Checkliste selbst driftete bereits
+> einmal aus dem Takt: Phase 0a-handover-pr wurde am 2026-07-14 ergänzt, aber erst am
+> 2026-07-15 (Retro c494a2, Befund #8) als fehlende Checklisten-Zeile bemerkt — eine
+> Session hatte die Phase im Dokument vorliegen, aber nicht ausgeführt, weil die
+> Abschluss-Checkliste sie nicht abfragte.
 
 ---
 
@@ -585,6 +594,13 @@ ist Duplikat-geschützt (Phase 1b), Memory-Upserts deduplizieren per `content_ha
 
 ## Changelog
 
+- 2026-07-15: Abschluss-Checkliste um Zeile 12 (Phase 0a-handover-pr) ergänzt + Pflicht-
+  Selbstcheck-Hinweis. Aus Retro `session-retro-2026-07-15-platform-c494a2` (Befund #8):
+  Phase 0a-handover-pr wurde 07-14 ergänzt, war in der verteilten Skill-Kopie vorhanden,
+  wurde aber in derselben Session nicht ausgeführt — die Checkliste fragte sie nicht ab.
+  Allgemeine Lehre (auch außerhalb dieses Skills): eine neue PFLICHT-Phase ohne
+  Checklisten-Zeile ist strukturell überspringbar, egal wie deutlich sie im Fließtext
+  markiert ist.
 - 2026-07-02: v2 — Phase 3.1 komplett überarbeitet: kein `git add -A` mehr (🌀
   swept-artifacts), Branch-Re-Check + Session-Attribution-Filter (🌀 #734), Branch-
   Protection-aware Push (ADR-242: geschützte mains → Worktree-Branch + PR),
