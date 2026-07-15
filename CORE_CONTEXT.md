@@ -91,6 +91,12 @@ Triage: Issue #819).
 
 ## Konventionen (Repo-spezifisch — schlagen Global)
 
+- **Optimierung = Komplexitäts-Bilanz + kreativer Zuwachs (stehende Erwartung, jede Session):**
+  Jede vorgeschlagene Änderung/Optimierung trägt eine Netto-Bilanz — `entfernt ≥ hinzugefügt`,
+  sonst den Funktions-Zuwachs explizit rechtfertigen oder „bewusst nicht ändern"; Löschen >
+  Refactor > Hinzufügen. Optimierungs*läufe* liefern zusätzlich ≥1 als KREATIV markierten
+  Fähigkeits-Zuwachs. Voll ausgearbeitet + erzwungen in `/repo-optimize` (Fleet: `/platform-audit`),
+  SSoT `docs/prompts/repo-enterprise-optimization.md`. Hartes CI-Gate ist getrackt (Issue #1173).
 - **ADR-Nummern monoton steigend** — nie wiederverwenden, auch nach Rejection
 - **`shared_contracts/`-Änderungen** triggern Downstream-Builds → erst ADR, dann Code
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
@@ -140,6 +146,7 @@ Triage: Issue #819).
 | `/adr`, `/adr-review`, `/adr-health` | ADR-Lifecycle |
 | `/workflow-review`, `/workflow-index` | Workflow-Qualität |
 | `/onboard-repo` | neues Repo ins Ökosystem |
+| `/repo-optimize` | Ein Repo tief optimieren (Komplexitäts-Bilanz + kreativer Zuwachs) |
 | `/platform-audit`, `/repo-health-check` | Cross-Repo-Schwachstellen |
 | `/governance-check` | vor neuer Funktionalität |
 | `/session-docu` | Dokumentations-Audit (dieser hier) |
