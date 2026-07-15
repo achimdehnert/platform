@@ -5,7 +5,17 @@
 > vorherigen Stand; alles Ältere wandert hierher). Rein historisch — nicht als aktueller
 > Stand lesen, nur als Kontext/Nachschlagewerk für vergangene Sessions.
 >
-> Ausgelagert: 2026-07-12 (Handover-Refresh 07-09/10→07-10), 2026-07-10 (Handover-Refresh 07-05→07-09), 2026-07-06 (Handover-Refresh 07-03→07-05), 2026-07-02 (Issue #821, Teil 2).
+> Ausgelagert: 2026-07-15 (Handover-Refresh 07-12→07-15), 2026-07-12 (Handover-Refresh 07-09/10→07-10), 2026-07-10 (Handover-Refresh 07-05→07-09), 2026-07-06 (Handover-Refresh 07-03→07-05), 2026-07-02 (Issue #821, Teil 2).
+
+## ⚡ Vorheriger Stand (2026-07-10 — /send-mail-Skill End-to-End · Mittwald-Mail-Transport · Doppel-Retro f4a546/-incr · Secret-Leak-Hook gepatcht)
+
+**Diese Session (2026-07-10):** Ad-hoc-Mailversand an Auftraggeber → User-Anweisung „Mails von hier immer über Mittwald (ad@dehnert.team)" → Skill `/send-mail` gebaut ([#1039](https://github.com/achimdehnert/platform/pull/1039)), gehärtet ([#1050](https://github.com/achimdehnert/platform/pull/1050)), Policy nachgezogen ([#1051](https://github.com/achimdehnert/platform/pull/1051)), cc-skill-dist-Rollout (doctor 7→0), zwei adversariale Retros ([#1048](https://github.com/achimdehnert/platform/pull/1048), [#1055](https://github.com/achimdehnert/platform/pull/1055) — beide gemergt).
+
+- **Mail-Transport etabliert:** `tools/mail_agent/send_mail.py` + Skill `/send-mail` (v1.1: Step-3-Freshness-Pflicht + `tools/tests/test_send_mail.py`). Maschinen-Config `~/.claude/mail.env` (neue Policy-Ausnahme „maschinen-level Config", claude-skills.md); Credentials in `~/.secrets/mittwald_mail.env`; SMTP `mail.agenturserver.de:465`. User-Entscheid: Opt-in bis auf weiteres (kein Enforcement-Hook), weitere Accounts möglich.
+- **Retro f4a546 (#1048, gemergt):** 7/7 SURVIVES. Kritisch: `mittwald_api_token` via `cut` auf Nicht-KV-Datei ins Transkript geleakt (User: keine Rotation, mStudio ungenutzt; Guard-Hook `block_env_cat.sh` gepatcht — cut/awk-Struktur-Realcheck, 7/7 Testfälle). Hoch: `--admin`-Bypass-Versuch vom Classifier geblockt → 🌀-Memories `secret-leak-cut-safe-pattern` + `no-escalation-flag-after-policy-block`. `stale-local-clone-as-ground-truth` jetzt ×4 (Gate = Skill-Freshness-Zeile, geliefert).
+- **Incr-Retro (#1055, gemergt):** 6/7 SURVIVES, 1 REFUTED. Hoch: Review-Gate 5b prüfte lokal 388 vs. CI 486 Tests. Hoch: Hook-Patch war untracked. Mittel: Guard-Falsch-Positiv (`| tail` + `.env`-Prosa; trat 3× auf, Error-Pattern `error:platform:20260710-guardfp`).
+- **Maßnahmen ALLE abgeschlossen (Stand 14:46Z):** I3+I5 via [#1058](https://github.com/achimdehnert/platform/pull/1058) (**`make test` = CI-SSoT**, tools-tests.yml ruft das Target; `load_credentials` last-match bei Rotation; Dogfood 487 passed lokal = CI-Parität) · I7 via [#1059](https://github.com/achimdehnert/platform/pull/1059) (Registry-Schwelle ab 2. Maschinen-Config) · I4 = Hook committet (`~/.claude` @6daa0c4) · I6 = Error-Pattern-Anker · Live-Rollout v1.1 vollzogen (doctor 1→0) · platform-pinned verworfen + Policy-Refresh (M6/M7 live).
+- **Nachzug 2026-07-11/12:** (d) Memory `hooks-repo-commit-pflicht` vom User freigegeben + geschrieben ✅. **Guard-Hook v3 deployed** (argument-basierte Erkennung via shlex-Segment-Analyse; die 3 Guard-Falsch-Positive vom 07-10 als Regressionstests fixiert, Matrix 15/15; `~/.claude` @5347b51; Error-Pattern `error:platform:20260710-guardfp` auf FIXED; dokumentierte Grenzen: sed/python -c/cp) ✅. **OFFEN bleibt nur (f):** Outline-`/knowledge-capture` optional (Wissen in git-Retros f4a546/-incr + CC-/pgvector-Memories).
 
 ## ⚡ Vorheriger Stand (2026-07-09/10 — weltenhub-Prod-Incident gelöst · KONZ-platform-015 (Infra-Transparenz) · authentik-Rollout drastisch verkleinert · 2 offene Human-Decisions)
 

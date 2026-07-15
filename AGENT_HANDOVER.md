@@ -12,7 +12,17 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 **Archiv älterer Session-Stände:** [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md)
 (Blöcke älter als der aktuelle + 1 vorherige Stand).
 
-## ⚡ Aktueller Stand (2026-07-12 — KONZ-017 Fleet-Konvergenz + KONZ-018 PyPI-Fleet gemergt · W0 beider Programme ausgeführt · 137-hub-Incident gelöst · shared-ci Worker-Default zentral)
+## ⚡ Aktueller Stand (2026-07-15 — Deploy-Health-Triage coach-hub/trading-hub gelöst · ADR-270 merge_group-Vorbedingung gefixt · Owner-Block #1094 als Mail-Digest angestoßen)
+
+**Diese Session (2026-07-15):** Session-Start-Reconciliation fand Prio 1 (cad-hub#42) bereits erledigt (Handover war stale). Rest der Session: reaktive Deploy-Health-Triage aus dem Session-Start-Scan (2 neue `failure`-Deploys) + ADR-270-Nacharbeit + Owner-Block-#1094-Experiment.
+
+- **ADR-270-Vorbedingung gefixt ([#1152](https://github.com/achimdehnert/platform/pull/1152) gemergt):** `guardian.yml` + `ci-security.yml` triggerten nur auf `pull_request`, nicht auf `merge_group` — hätte beim ersten Merge-Queue-Einsatz ALLE Merges eingefroren (ADR-270 harte Vorbedingung). Jetzt behoben, präventiv (platform hat noch keine Merge-Queue aktiv).
+- **trading-hub#150 gemergt:** Docker-Build-Smoke-Test brauchte `DB_PASSWORD` zusätzlich zu `DJANGO_SECRET_KEY` (SEC-2-Guard aus #108 vergessen) — PR existierte schon vorbereitet, nur verifiziert+gemergt.
+- **coach-hub Deploy gelöst (PR [#40](https://github.com/achimdehnert/coach-hub/pull/40) gemergt, live verifiziert `/livez/` 200):** Root Cause war **NICHT** `PROJECT_PAT` wie am 07-12 vermutet, sondern zwei gestapelte Ursachen: (1) transiente Runner-Kontention beim gitleaks-Checkout (Re-Run bewies es), (2) coach-hub war auf `shared-ci@v1.0.5` gepinnt — der Git-Auth-Fix für private Deps kam erst in v1.0.6. Bump auf v1.0.11 (existierender PR #40 war bereits vorbereitet, nur stale/unrebased — rebased statt dupliziert).
+- **Neuer Fund, getrackt statt gefixt ([#1158](https://github.com/achimdehnert/platform/issues/1158)):** `secrets: inherit` liefert cross-org (shared-ci in `iilgmbh`, Consumer in `achimdehnert`) für den **`ci:`-Job** kein Secret (bestätigt leer trotz vorhandenem Repo-Secret) — derselbe Bug wie #1067, dort aber nur für den `deploy:`-Job gefixt. Betrifft mind. coach-hub + risk-hub identisch unfixed. Non-blocking (pip-audit `continue-on-error`), Scope-Checkpoint statt Sofort-Fix (User-Entscheid: Fleet-Issue statt Einzel-Repo-Patch).
+- **Owner-Block #1094 — Mail-Digest-Experiment:** 6 offene Punkte (PyPI-Owner, 7×Trusted-Publisher, aifw-Yank-Entscheid, 2 Releases, Portfolio-Termin) als Mail an pg@dehnert.team gesendet statt auf eine Sync-Session zu warten — v2 mit Direkt-Links (GitHub-Release-Prefill für outlinefw/weltenfw, PyPI-Settings-Links unverifiziert). Antwort noch nicht geprüft — Follow-through braucht Text-Paste in eine Session (kein Mailbox-Zugriff hier).
+
+## ⚡ Vorheriger Stand (2026-07-12 — KONZ-017 Fleet-Konvergenz + KONZ-018 PyPI-Fleet gemergt · W0 beider Programme ausgeführt · 137-hub-Incident gelöst · shared-ci Worker-Default zentral)
 
 **Diese Session (2026-07-12, Fable 5):** Zwei strategische T3-Initiativen end-to-end (je Erdung mit 3 Agenten → 3-Agenten-Adversariat → Fable-Synthese → Konzept-PR → W0-Ausführung), dazu Deploy-Health-Triage mit 2 gelösten Incidents.
 
@@ -27,23 +37,14 @@ Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referen
 
 ## Nächste Schritte (kompakt)
 
-1. [cad-hub#42](https://github.com/achimdehnert/cad-hub/pull/42) mergen → Deploy grün ziehen (0a-deploy-Rest dieser Session)
-2. Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) abarbeiten (shared-ci#20 → v1.0.11 → Bump-Welle)
+1. Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) abarbeiten — Mail-Digest raus (07-15), Antwort/Fortschritt noch zu prüfen
+2. Fleet-Follow-up [#1158](https://github.com/achimdehnert/platform/issues/1158): `secrets: inherit` cross-org im `ci:`-Job fixen (mind. coach-hub + risk-hub betroffen)
 3. Stub-Issues via Sonnet-Session (`/model sonnet` + `/issues-offen`)
 4. KONZ-017 W1: sync-drift-meter #998 fixen → Konvergenz-Zeilen; KONZ-018 W1: testkit-Dedup, Freshness-Pilot promptfw
 
-## ⚡ Vorheriger Stand (2026-07-10 — /send-mail-Skill End-to-End · Mittwald-Mail-Transport · Doppel-Retro f4a546/-incr · Secret-Leak-Hook gepatcht)
+> **Erledigt 2026-07-15:** cad-hub#42 (war schon vor Session-Start gemergt, Handover war stale) · trading-hub#150 · coach-hub#40 · ADR-270-Vorbedingung (#1152).
 
-**Diese Session (2026-07-10):** Ad-hoc-Mailversand an Auftraggeber → User-Anweisung „Mails von hier immer über Mittwald (ad@dehnert.team)" → Skill `/send-mail` gebaut ([#1039](https://github.com/achimdehnert/platform/pull/1039)), gehärtet ([#1050](https://github.com/achimdehnert/platform/pull/1050)), Policy nachgezogen ([#1051](https://github.com/achimdehnert/platform/pull/1051)), cc-skill-dist-Rollout (doctor 7→0), zwei adversariale Retros ([#1048](https://github.com/achimdehnert/platform/pull/1048), [#1055](https://github.com/achimdehnert/platform/pull/1055) — beide gemergt).
-
-- **Mail-Transport etabliert:** `tools/mail_agent/send_mail.py` + Skill `/send-mail` (v1.1: Step-3-Freshness-Pflicht + `tools/tests/test_send_mail.py`). Maschinen-Config `~/.claude/mail.env` (neue Policy-Ausnahme „maschinen-level Config", claude-skills.md); Credentials in `~/.secrets/mittwald_mail.env`; SMTP `mail.agenturserver.de:465`. User-Entscheid: Opt-in bis auf weiteres (kein Enforcement-Hook), weitere Accounts möglich.
-- **Retro f4a546 (#1048, gemergt):** 7/7 SURVIVES. Kritisch: `mittwald_api_token` via `cut` auf Nicht-KV-Datei ins Transkript geleakt (User: keine Rotation, mStudio ungenutzt; Guard-Hook `block_env_cat.sh` gepatcht — cut/awk-Struktur-Realcheck, 7/7 Testfälle). Hoch: `--admin`-Bypass-Versuch vom Classifier geblockt → 🌀-Memories `secret-leak-cut-safe-pattern` + `no-escalation-flag-after-policy-block`. `stale-local-clone-as-ground-truth` jetzt ×4 (Gate = Skill-Freshness-Zeile, geliefert).
-- **Incr-Retro (#1055, gemergt):** 6/7 SURVIVES, 1 REFUTED. Hoch: Review-Gate 5b prüfte lokal 388 vs. CI 486 Tests. Hoch: Hook-Patch war untracked. Mittel: Guard-Falsch-Positiv (`| tail` + `.env`-Prosa; trat 3× auf, Error-Pattern `error:platform:20260710-guardfp`).
-- **Maßnahmen ALLE abgeschlossen (Stand 14:46Z):** I3+I5 via [#1058](https://github.com/achimdehnert/platform/pull/1058) (**`make test` = CI-SSoT**, tools-tests.yml ruft das Target; `load_credentials` last-match bei Rotation; Dogfood 487 passed lokal = CI-Parität) · I7 via [#1059](https://github.com/achimdehnert/platform/pull/1059) (Registry-Schwelle ab 2. Maschinen-Config) · I4 = Hook committet (`~/.claude` @6daa0c4) · I6 = Error-Pattern-Anker · Live-Rollout v1.1 vollzogen (doctor 1→0) · platform-pinned verworfen + Policy-Refresh (M6/M7 live).
-- **Nachzug 2026-07-11/12:** (d) Memory `hooks-repo-commit-pflicht` vom User freigegeben + geschrieben ✅. **Guard-Hook v3 deployed** (argument-basierte Erkennung via shlex-Segment-Analyse; die 3 Guard-Falsch-Positive vom 07-10 als Regressionstests fixiert, Matrix 15/15; `~/.claude` @5347b51; Error-Pattern `error:platform:20260710-guardfp` auf FIXED; dokumentierte Grenzen: sed/python -c/cp) ✅. **OFFEN bleibt nur (f):** Outline-`/knowledge-capture` optional (Wissen in git-Retros f4a546/-incr + CC-/pgvector-Memories).
-
-
-> **Ältere Stände** (2026-06-20 F4/Wave-2, 2026-06-12 T5 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
+> **Ältere Stände** (2026-07-10 Mail-Skill, 2026-06-20 F4/Wave-2 usw.) → [`AGENT_HANDOVER_ARCHIVE.md`](AGENT_HANDOVER_ARCHIVE.md).
 
 ## 0. Aktuelle Prioritäten (2026-07-02 — verifiziert via API/Fleet-Scan)
 
