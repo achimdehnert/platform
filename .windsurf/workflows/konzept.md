@@ -168,6 +168,15 @@ Befund-IDs) — **kein frei interpretierbarer Anforderungs-Freitext** außer bei
   13 Entscheidung + Kill-Gate + 30/60/90. **Plus** `superseded_by_spec`-Gate (oben), weil hier
   Prosa persistiert, die kontrolliert werden muss.
 
+  **§13-Pflichtzusatz (NEU 2026-07-15, Ausführungstreue — Retro c494a2/-incr, Issue #1167):**
+  Kill-Gate-Kriterien NIE nur als gelabelte Prosa (a/b/c…) stehen lassen — zusätzlich eine
+  Tracking-Tabelle `| Kriterium | Status (offen/erfüllt/verworfen) | Beleg |` direkt unter §13
+  aufnehmen, eine Zeile pro Kill-Gate-Bedingung. Befund: alle 18 aktiven KONZ-Dokumente vor
+  diesem Fix hatten präzise, datierte Kill-Gate-Kriterien, aber KEINEN Mechanismus, der auf
+  einen Blick zeigt, was schon erfüllt ist — jede Statusfrage brauchte erneutes Lesen des
+  §13-Fließtexts. Bei einem Statuswechsel (Kill-Gate erfüllt/verworfen) die Tabellenzeile
+  aktualisieren, nicht nur einen neuen Prosa-Absatz anhängen.
+
 **Off-Ramp des Konzept-Docs selbst:** wird es ADR/Issue/Use-Case → `pipeline_status` weiterziehen,
 Doc als Quelle markieren; wird es verworfen → `sunset` + Begründung. Ein Doc ohne `review_by`-Pflege
 ist per I3 abgelaufen.
@@ -184,11 +193,18 @@ ist per I3 abgelaufen.
 - [ ] Kill-Gate messbar, Exception-Budget datiert?
 - [ ] Jede REC konkret + verifizierbar?
 - [ ] Artefakt hat `owner` + `review_by` + `pipeline_status` + `kill_criteria`?
+- [ ] (nur T3) §13 hat eine Kriterium→Status-Tabelle, nicht nur gelabelte Prosa (a/b/c…)?
 
 ---
 
 ## Changelog
 
+- 2026-07-15: §13 braucht jetzt eine Kriterium→Status-Tabelle unter dem Kill-Gate-Fließtext
+  (+ Step-5-Selbstcheck-Zeile). Audit (Issue #1167, aus Retro c494a2/-incr) fand: 18 von 19
+  aktiven KONZ-Dokumenten hatten präzise Kill-Gate-Kriterien, aber keinen Tracking-Mechanismus
+  — der Fließtext musste bei jeder Statusfrage neu gelesen werden. Bestehende Dokumente wurden
+  NICHT retrofittet (Kill-Kriterium des Audits: kein Rückbau-Zwang) — nur künftige Konzepte
+  erben die Tabelle automatisch.
 - 2026-06-01: Initial. Aus dem Maximal-Monolith-Prompt destilliert (Tier-Gate, Pflicht-Erdung,
   ehrliche Evidenzregeln, Lifecycle-Artefakt, Kill-Gate). Threshold-Hinweis: org-weite Einführung
   ist Cross-Repo-Impact → Amendment an ADR-211 prüfen, bevor via cc-skill-dist verteilt wird.
