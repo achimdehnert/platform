@@ -945,6 +945,17 @@ Trigger: Push auf `main` → Auto-Deploy auf Prod-Server (`88.198.191.108`).
 
 ## 8. Rollout-Phasen
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):** die ✅/□-Häkchen
+innerhalb der Phasen-Blöcke unten markieren nur Scope-Zugehörigkeit, nicht Fertigstellung
+— Umsetzungsstand siehe Abschnitt 9 "Migration Tracking".
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 — Pilot | offen | Abschnitt 9 Migration Tracking: alle Zeilen außer "ADR-153 erstellt" auf "⬜ Pending" |
+| Phase 2 — SaaS-Unterbau | offen | Abschnitt 9: django-tenants, ModuleRegistry, Stripe, Trial-Provisionierung alle "⬜ Pending" |
+| Phase 3 — Vollständiger Modul-Katalog | offen | Abschnitt 9: BELEGE/ERECHNUNG-Module, PORTAL/API, Workflows, Konnektoren alle "⬜ Pending" |
+| Phase 4 — Go-to-Market | offen | Abschnitt 9: Landing Page, n8n Bridge-Handler beide "⬜ Pending" |
+
 ### Phase 1 — Pilot (4 Wochen)
 
 Basis für das Steuerberatungsbüro-Pilotprojekt aus ADR-152.

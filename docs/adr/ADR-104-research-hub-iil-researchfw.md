@@ -250,6 +250,15 @@ all = ["iil-researchfw[brave,academic,scraping,travel]"]
 
 ## Implementierungsreihenfolge
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 (iil-researchfw aufbauen) | offen | Checkbox-Liste unten: `[ ] Phase 1` inkl. aller 5 Unterpunkte unchecked |
+| Phase 2 (research-hub Django-Repo) | offen | `[ ] Phase 2` inkl. aller 4 Unterpunkte unchecked |
+| Phase 3 (bfagent migrieren) | offen | `[ ] Phase 3` unchecked |
+| Phase 4 (Andere Repos einbinden) | offen | `[ ] Phase 4` unchecked |
+
 ```
 [x] ADR-104 schreiben (dieser ADR)
 [ ] Phase 1: researchfw-Repo erstellen + iil-researchfw v0.1.0
