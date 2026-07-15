@@ -511,10 +511,18 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 | 8 | Modell-Tier bewusst gewählt (0.8) | ☐ |
 | 9 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
 | 10 | Recurring-Errors geprüft, Handover↔Memory-Reconciliation gemacht (2.5/2.6) | ☐ |
+| 11 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3, ADR-233-Kill-Gate) | ☐ |
+| 12 | Arbeitsplan aufgestellt (Phase 3) | ☐ |
 
-**Pflicht-Selbstcheck:** jede mit PFLICHT/NEU markierte Phase oben braucht eine Zeile
-hier — bei einer neuen Pflicht-Phase diese Tabelle im selben PR erweitern, nicht in
-einem Folge-Commit "irgendwann".
+**Pflicht-Selbstcheck (2-Schritt, NEU 2026-07-15 — Retro c494a2-incr Befund #3):** Diese
+Checkliste selbst ließ bei ihrer Erstellung 0.4.3 und Phase 3 aus, weil beide keine
+wörtliche "PFLICHT"/"NEU"-Markierung im Titel tragen, obwohl beide faktisch mandatorisch
+sind (0.4.3 = ADR-233-Kill-Gate, Phase 3 = das eigentliche Ergebnis des Skills). Reines
+Filtern nach dem Stichwort "PFLICHT" übersieht genau solche Phasen. Richtiger Ablauf:
+(1) ALLE `##`/`###`-Überschriften oben mechanisch auflisten (`grep -n "^## \|^### "`),
+(2) DANN jede einzeln beurteilen, ob sie faktisch mandatorisch ist — nicht nur nach dem
+Wort im Titel filtern. Bei einer neuen Pflicht-Phase diese Tabelle im selben PR erweitern,
+nicht in einem Folge-Commit "irgendwann".
 
 ---
 
@@ -561,6 +569,11 @@ einem Folge-Commit "irgendwann".
 
 ## Changelog
 
+- 2026-07-15 (Nachtrag, Retro c494a2-incr): die frisch angelegte Startklar-Checkliste ließ
+  selbst 2 faktisch mandatorische Phasen aus (0.4.3 Worktree-Gate, Phase 3 Arbeitsplan) —
+  beide ohne wörtliche "PFLICHT"-Markierung im Titel, weshalb der reine Stichwort-Filter
+  sie überging. Rows 11+12 ergänzt, Pflicht-Selbstcheck auf 2-Schritt-Verfahren (erst alle
+  Überschriften auflisten, dann einzeln beurteilen) umgestellt.
 - 2026-07-15: Neue "Startklar-Checkliste" ergänzt — der Skill hatte trotz 14 Unterphasen
   (0.0–0.9) + 3 weiteren Phasen bisher KEINE Abschluss-Checkliste (anders als
   session-ende.md). Aus Retro `session-retro-2026-07-15-platform-c494a2`: eine lange,
