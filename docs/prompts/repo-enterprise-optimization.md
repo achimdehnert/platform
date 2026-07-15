@@ -53,7 +53,7 @@ A. Repo-Landkarte (knapp): Hauptmodule, Datenflüsse, Einstiegspunkte, Build-/Te
    Laufzeitpfad, geltende ADRs/CONVENTIONS (lesen, nicht raten).
 B. Befunde in: Architektur · Funktionalität · Tests · Dokumentation · Developer-
    Experience · LLM-/Agenten-Tauglichkeit · CI/CD · Sicherheit/Robustheit.
-C. Priorisierung je Befund: Wirkung · Aufwand · Risiko · Zeithorizont.
+C. Priorisierung je Befund: Wirkung · Aufwand · Risiko · Zeithorizont · Komplexitäts-Bilanz (entfernt/hinzugefügt/netto).
 D. Klassifizierung: kleine sichere Verbesserung | Refactoring begrenzten Risikos |
    Architektur-Entscheidung (ADR/Design nötig) | bewusst NICHT ändern.
 
@@ -63,6 +63,20 @@ D. Klassifizierung: kleine sichere Verbesserung | Refactoring begrenzten Risikos
                    (platform-Konvention/shared-ci/Template/ADR), NICHT als Einzel-Patch;
                    als Stufe-2-Kandidat markieren.
    [LLM-READINESS] Verbessert primär, wie schnell/sicher ein LLM hier weiterarbeitet.
+
+# KOMPLEXITÄTS-BILANZ (Pflicht je Maßnahme)
+   ENTFERNT   – welche Zeilen/Dateien/Configs/Abstraktionen/Sonderfälle fallen weg?
+   HINZUGEFÜGT – welche neuen Konzepte muss ein Mensch/Agent künftig verstehen?
+   NETTO      – muss „entfernt ≥ hinzugefügt" sein. Sonst MUSS der Funktions-Zuwachs
+                das Delta explizit rechtfertigen, andernfalls als „bewusst nicht ändern"
+                führen. Löschen > Refactor > Hinzufügen — erste Frage immer: kann das ganz weg?
+
+# KREATIVER ZUWACHS (Pflicht je Lauf, ≥1)
+Neben den defensiven Befunden (Tech-Debt/Robustheit) mindestens EIN nicht-offensichtlicher
+Vorschlag, der eine Fähigkeit hinzufügt oder hebt (Muster-Vereinheitlichung, generalisierbare
+Funktion, neue Naht) — als KREATIV markiert und selbst mit Komplexitäts-Bilanz versehen.
+Vereinfachung, die eine echte Fähigkeit entfernt, zählt NICHT als Erfolg; Zuwachs, der die
+Komplexität überproportional hebt, ebenfalls nicht.
 
 # LLM-READINESS-REVIEW (eigener Abschnitt, mit Datei-/Modulbezug)
 Architekturübersicht/Einstiegspunkte · Projektkonventionen/Benennung · Tests/Fixtures/
@@ -88,15 +102,18 @@ Risiko unklar).
 ACTION BOARD zuerst (🟢 dein Zug · 🔵 ich sofort · 🟡-⛔ wip · ✅ done; Spalten
 `# | Item | Repo | PR/Issue/ADR | Status | Next Step`, stabile IDs). Dann Report:
 1 Executive Summary · 2 Repo-Landkarte · 3 Befunde (ID · Kategorie · Reichweiten-Label ·
-BEOBACHTUNG · Evidenz Datei:Zeile · Module · Schweregrad · Maßnahme · GitHub-Aktion) ·
-4 LLM-Readiness-Review · 5 Roadmap (Quick Wins · 1–2 Wochen · Monat · Architektur;
-[FLEET-PATTERN] als Stufe-2-Kandidaten) · 6 GitHub-Artefakte · 7 Nicht sofort ändern.
+BEOBACHTUNG · Evidenz Datei:Zeile · Module · Schweregrad · Maßnahme · Komplexitäts-Bilanz ·
+GitHub-Aktion) · 4 LLM-Readiness-Review · 5 Roadmap (Quick Wins · 1–2 Wochen · Monat ·
+Architektur; [FLEET-PATTERN] als Stufe-2-Kandidaten) · 6 GitHub-Artefakte · 7 Nicht sofort
+ändern · 8 Kreative Weiterentwicklung (≥1 Vorschlag, mit Bilanz, als KREATIV markiert).
 Am Ende klar getrennt: nur analysiert | als Issue | direkt als Branch/PR | bewusst noch
 nicht | was die Codebase ab jetzt besser LLM-wartbar macht.
 
 # QUALITÄTSMASSSTAB
 Konkret genug, dass ein Engineer/Agent direkt weiterarbeiten kann. Keine generischen
 Aussagen ("Tests verbessern") — nenne welche Tests/Doku/Modul/Nutzen.
+Jede Maßnahme zeigt ihre Komplexitäts-Bilanz; ein Lauf ohne mind. einen kreativen
+Zuwachs-Vorschlag ist unvollständig.
 
 # ─────────────────────────────────────────────────────────────────────────────
 # PORTABLE BLOCK (für Nicht-IIL-Repos: PLATTFORM-LEITPLANKEN durch diese Defaults
