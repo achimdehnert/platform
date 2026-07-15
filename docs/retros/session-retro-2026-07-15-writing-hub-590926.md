@@ -122,24 +122,22 @@ einer Status-/Datums-/Zähler-Aussage den zugrundeliegenden Fakt frisch per gh/g
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
 | 1 | ADR-153 Status prüfen/aktualisieren | writing-hub | file:///home/devuser/github/writing-hub/docs/adr/ADR-153-frontend-css-design-tokens-htmx.md | 🟢 offen | Owner: partial→implemented bestätigen? |
-| 2 | Memory-Vorschlag `pattern-assert-before-check-in-docs-prs` freigeben | writing-hub | — | 🟢 offen | anlegen ja/nein? |
+| 2 | Memory-Vorschlag `pattern-assert-before-check-in-docs-prs` freigeben | writing-hub | kein Artefakt — Vorschlag in Sektion 6 dieses Reports | 🟢 offen | anlegen ja/nein? |
 
 **🔵 Offen — ich kann sofort**
 
 | # | Item | Repo | PR/Issue/ADR | Status | Next Step |
 |---|---|---|---|---|---|
-| 3 | AGENT_HANDOVER-Datumsfehler PR#154 korrigieren | writing-hub | — | 🔵 ready | kleiner Folge-PR |
-| 4 | Job-Level-Gate von deploy.yml auf ci.yml übertragen | writing-hub | .github/workflows/ci.yml | 🔵 ready | analog `changes`-Job bauen |
-| 5 | Verwaisten Worktree aufräumen | writing-hub | — | 🔵 ready | `git worktree remove` |
+| 3 | AGENT_HANDOVER-Datumsfehler PR#154 korrigieren | writing-hub | kein Artefakt — Folge-PR ausstehend | 🔵 ready | kleiner Folge-PR |
+| 4 | Job-Level-Gate von deploy.yml auf ci.yml übertragen | writing-hub | file:///home/devuser/github/writing-hub/.github/workflows/ci.yml | 🔵 ready | analog `changes`-Job bauen |
+| 5 | Verwaisten Worktree aufräumen | writing-hub | file:///home/devuser/.repo-session/worktrees/writing-hub/2026-07-15-achim-dehnert-handover-adr200-fix-062122 | 🔵 ready | `git worktree remove` |
 
 **✅ Erledigt**
 
-| # | Item | Status |
-|---|---|---|
-| 6 | PR #238 gemergt | ✅ done |
-| 7 | Issue #45 geschlossen | ✅ done |
-| 8 | PR #239 gemergt | ✅ done |
-| 9 | Drift-Memory zu skip-ci/rollup-gap angelegt | ✅ done |
+1. ✅ PR #238 gemergt (AGENT_HANDOVER-Update) — https://github.com/achimdehnert/writing-hub/pull/238
+2. ✅ Issue #45 geschlossen (Style-Migration) — https://github.com/achimdehnert/writing-hub/issues/45
+3. ✅ PR #239 gemergt (ADR-200-Status-Fix) — https://github.com/achimdehnert/writing-hub/pull/239
+4. ✅ Drift-Memory zu skip-ci/rollup-gap angelegt (`<auto-memory>/drift-skip-ci-and-workflow-dispatch-rollup-gap.md`)
 
 ## 8. Nicht verifiziert (Restlücken)
 
