@@ -56,6 +56,13 @@ on:
       - "agents/**"
       - ".windsurf/workflows/**"
 
+# CI-5 (#1202): cancel superseded runs on rapid pushes to the same
+# ref/PR — avoids self-overlap when several commits land in quick
+# succession on the same branch.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 # Workflow-level default (least privilege, #818 permissions sweep) —
 # no job in this workflow needs to write via GITHUB_TOKEN.
 permissions:

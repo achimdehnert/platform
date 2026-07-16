@@ -66,8 +66,13 @@ def scan_files(files: dict) -> list:
     return offenders
 
 
-def build_backlog(results: dict, owner: str) -> str:
-    """results = {repo: [ {file, job}, ... ]} → Markdown-Body des Tracking-Issues."""
+def build_backlog(results: dict, owners: dict) -> str:
+    """results = {repo: [ {file, job}, ... ]} → Markdown-Body des Tracking-Issues.
+
+    `owners` = {repo: github_owner} — per-Repo statt fester Fleet-Org (FUNC-3,
+    #1202): `--all-types` zieht auch iilgmbh-/meiki-lra-/ttz-lif-Repos rein,
+    die nicht unter dem achimdehnert-Fallback erreichbar sind.
+    """
     offenders = {r: v for r, v in results.items() if v}
     total_jobs = sum(len(v) for v in offenders.values())
     lines = [
@@ -87,7 +92,7 @@ def build_backlog(results: dict, owner: str) -> str:
     lines.append("|---|---|---|")
     for repo in sorted(offenders):
         for o in offenders[repo]:
-            lines.append(f"| {owner}/{repo} | `{o['file']}` | `{o['job']}` |")
+            lines.append(f"| {owners.get(repo, repo)}/{repo} | `{o['file']}` | `{o['job']}` |")
     lines.append("")
     lines.append("**Fix:** Test- oder Secret-Scan-Gate vor den Upload ziehen. "
                  "Lokal prüfbar: `python3 tools/check_publish_gate.py <repo-pfad>`.")
@@ -175,8 +180,14 @@ def main(argv: list) -> int:
     ap.add_argument("--local", metavar="ROOT", help="offline gegen lokale Klone unter ROOT")
     args = ap.parse_args(argv)
 
-    owner = os.environ.get("OWNER", "achimdehnert")
-    repos = registry_repos(registry_api.flat().get("repos", {}), args.all_types)
+    default_owner = os.environ.get("OWNER", "achimdehnert")
+    canon = registry_api.flat()
+    repos = registry_repos(canon.get("repos", {}), args.all_types)
+
+    # FUNC-3 (#1202): per-Repo statt fester `owner`-Fallback — mit --all-types
+    # kommen iilgmbh-/meiki-lra-/ttz-lif-Repos rein, die unter dem
+    # achimdehnert-Default falsch/leer gescannt würden (404 gegen fremde Org).
+    owners = {r: (registry_api.owner(r, canon) or default_owner) for r in repos}
 
     token = os.environ.get("GH_TOKEN") or os.environ.get("GITHUB_TOKEN", "")
 
@@ -190,9 +201,9 @@ def main(argv: list) -> int:
             print("FEHLER: GH_TOKEN/GITHUB_TOKEN nötig (oder --local nutzen).", file=sys.stderr)
             return 2
         for r in repos:
-            results[r] = scan_files(fetch_repo_workflows_api(owner, r, token))
+            results[r] = scan_files(fetch_repo_workflows_api(owners[r], r, token))
 
-    body = build_backlog(results, owner)
+    body = build_backlog(results, owners)
     total = sum(len(v) for v in results.values())
     print(body)
 
@@ -202,7 +213,9 @@ def main(argv: list) -> int:
         if not token:
             print("FEHLER: Issue-Upsert braucht GH_TOKEN/GITHUB_TOKEN (oder --dry-run nutzen).", file=sys.stderr)
             return 2
-        url = upsert_issue(owner, "platform", token, ISSUE_TITLE, body)
+        # Tracking-Issue lebt IMMER in achimdehnert/platform (SSoT-Repo für den
+        # Meter selbst), unabhängig vom Owner der gescannten Repos.
+        url = upsert_issue(default_owner, "platform", token, ISSUE_TITLE, body)
         print(f"\nTracking-Issue: {url}", file=sys.stderr)
 
     if args.fail_on_backlog and total:

@@ -122,6 +122,9 @@ def violation_for(path: str) -> str | None:
 
 
 def main(argv: list[str]) -> int:
+    if "--help" in argv or "-h" in argv:
+        print(__doc__)
+        return 0
     paths = argv[1:] or sorted(
         glob.glob(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "adr", "ADR-*.md"))
     )
