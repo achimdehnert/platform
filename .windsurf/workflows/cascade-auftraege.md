@@ -4,7 +4,7 @@ description: Cascade-Aufträge aus Outline abarbeiten — Triage via Comments, B
 
 # Cascade-Aufträge Workflow
 
-**Trigger:** Session-Start (nach `/agent-session-start`) ODER explizit via `/cascade-auftraege`.
+**Trigger:** Session-Start (nach `/session-start`) ODER explizit via `/cascade-auftraege`.
 
 > Aufträge werden über `/_action` oder den ⚡-Button in die Collection
 > **Cascade-Aufträge** (`97a74c51-6c4e-4871-a2b0-a85255b8c916`) erstellt.
