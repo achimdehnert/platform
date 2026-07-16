@@ -3,8 +3,6 @@
 **Pflicht-Lektüre beim Session-Start jedes Coding-Agents.**
 Enthält MCP-Tool-Mappings, Infra-Zugänge, Deploy-Targets und Scripting-Referenz.
 
-> **Stand: Juni 2026** — CC-first (ADR-230), cc-skill-dist, 7 MCP-Server
-
 <!-- Konvention: dieser Abschnitt hält NUR den "## ⚡ Aktueller Stand" + max. EINEN
      "## ⚡ Vorheriger Stand" (den jeweils jüngsten). Alles Ältere wandert nach
      AGENT_HANDOVER_ARCHIVE.md (siehe Verweis unten) — nicht hier anhäufen. -->

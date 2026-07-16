@@ -57,7 +57,7 @@ def test_should_sort_files_deterministically():
 
 
 def test_should_render_empty_backlog_when_no_offenders():
-    body = m.build_backlog({"aifw": [], "promptfw": []}, "achimdehnert")
+    body = m.build_backlog({"aifw": [], "promptfw": []}, {"aifw": "achimdehnert", "promptfw": "achimdehnert"})
     assert "Backlog leer" in body
     assert "|" not in body  # keine Tabelle
 
@@ -65,11 +65,21 @@ def test_should_render_empty_backlog_when_no_offenders():
 def test_should_render_table_for_offenders():
     body = m.build_backlog(
         {"iil-codeguard": [{"file": "publish.yml", "job": "publish"}], "clean": []},
-        "achimdehnert",
+        {"iil-codeguard": "achimdehnert", "clean": "achimdehnert"},
     )
     assert "1 ungegatete Upload-Job(s) in 1 Repo(s)" in body
     assert "| achimdehnert/iil-codeguard | `publish.yml` | `publish` |" in body
     assert "clean" not in body  # leere Repos erscheinen nicht
+
+
+def test_should_render_table_with_per_repo_owner():
+    """FUNC-3 (#1202): --all-types kann iilgmbh-Repos mitziehen — Owner-Spalte
+    muss den tatsächlichen Repo-Owner zeigen, nicht den achimdehnert-Fallback."""
+    body = m.build_backlog(
+        {"risk-hub": [{"file": "publish.yml", "job": "publish"}]},
+        {"risk-hub": "iilgmbh"},
+    )
+    assert "| iilgmbh/risk-hub | `publish.yml` | `publish` |" in body
 
 
 def test_should_count_jobs_across_repos():
@@ -78,7 +88,7 @@ def test_should_count_jobs_across_repos():
             "r1": [{"file": "p.yml", "job": "a"}, {"file": "p.yml", "job": "b"}],
             "r2": [{"file": "q.yml", "job": "c"}],
         },
-        "achimdehnert",
+        {"r1": "achimdehnert", "r2": "achimdehnert"},
     )
     assert "3 ungegatete Upload-Job(s) in 2 Repo(s)" in body
 

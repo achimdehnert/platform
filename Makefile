@@ -36,7 +36,8 @@ help: ## Diese Hilfe anzeigen
 	@echo "$(CYAN)Dieses Makefile läuft lokal (WSL) und steuert Remote-Server via SSH.$(RESET)"
 	@echo ""
 	@echo "$(BOLD)Schnellstart:$(RESET)"
-	@echo "  $(GREEN)make menu$(RESET)            Interaktives Hauptmenü"
+	@echo "  $(GREEN)make help$(RESET)            Alle Targets (setup/test/lint/check-push siehe unten)"
+	@echo "  $(GREEN)make menu$(RESET)            Interaktives Hauptmenü (nur Windsurf/SSH — DEVX-3)"
 	@echo ""
 	@echo "$(BOLD)━━━ SERVER (hetzner-dev) ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━$(RESET)"
 	@echo ""
@@ -127,7 +128,6 @@ test: ## CI-Test-Suite — SSoT: tools-tests.yml ruft exakt dieses Target (retro
 		tests/doc_profile_check/ \
 		tools/claude-hooks/tests/ \
 		agents/tests/ \
-		--ignore=agents/tests/test_adr_scribe.py \
 		-q
 
 lint: ## Ruff über tools/ + scripts/ (ehrlich: schlägt bei Lint-Schuld fehl)
