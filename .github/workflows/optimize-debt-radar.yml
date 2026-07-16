@@ -21,7 +21,7 @@ name: optimize-debt-radar
 
 on:
   schedule:
-    - cron: "15 7 * * 1" # montags 07:15 UTC (nach adr-validate/branch-protection-meter um 06:00)
+    - cron: "15 7 * * 1,4" # Mo+Do 07:15 UTC — 2x/Woche (Entscheidung 2026-07-16: höhere Entwicklungsgeschwindigkeit)
   workflow_dispatch:
     inputs:
       commit_baseline:
