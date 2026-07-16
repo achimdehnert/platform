@@ -1,5 +1,6 @@
 ---
 description: Pflicht-Ritual vor jeder Coding-Agent-Session — Kontext laden, Stand prüfen, sicher starten
+distribute: false          # DEPRECATED — kanonisch ist /session-start (ADR-233); nicht mehr als Slash-Command verteilen (Filter: tools/cc-skill-dist/generate.py, Gate: tools/check_workflow_index.py)
 ---
 
 # Agent Session Start Workflow
