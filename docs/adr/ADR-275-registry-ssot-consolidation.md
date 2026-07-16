@@ -20,7 +20,11 @@ scope: platform
 supersedes: []
 related: [ADR-022, ADR-157, ADR-234]
 tags: [registry, ssot, drift-prevention, ci, generated, governance]
-external_sparring_by: "ollama-local: dolphin3 + qwen2.5:7b @2026-07-14"   # lokale 7B-Klasse, kein Egress; Befunde AD-1/AD-4 dennoch repo-verifiziert
+ai_sparring_by:
+  - tool: other
+    date: 2026-07-14
+    role: adversarial-review
+    summary: "ollama-local: dolphin3 + qwen2.5:7b (lokale 7B-Klasse, kein Egress); Befunde AD-1/AD-4 dennoch repo-verifiziert."
 drift_check_paths:
   - "registry/canonical.yaml"
   - "registry/_ARCHIVED/github_repos.yaml"
