@@ -97,6 +97,14 @@ Triage: Issue #819).
   Refactor > Hinzufügen. Optimierungs*läufe* liefern zusätzlich ≥1 als KREATIV markierten
   Fähigkeits-Zuwachs. Voll ausgearbeitet + erzwungen in `/repo-optimize` (Fleet: `/platform-audit`),
   SSoT `docs/prompts/repo-enterprise-optimization.md`. Hartes CI-Gate ist getrackt (Issue #1173).
+- **ADRs: Fakten in Tabellen, Prosa nur für das Warum.** Phasen, Umsetzungs-Status,
+  Abweichungen, Sparring-Verdikte gehören in eine Tabelle (kürzer, diffbar, nicht
+  interpretierbar) — nicht in Fließtext. Prosa bleibt reserviert für Context/Decision-Outcome
+  (das *Warum*, das ein künftiger Challenger braucht) und lässt sich nicht verlustfrei in
+  Zeilen pressen. Gilt vor allem beim Nachschärfen bereits `accepted`/`implemented`er ADRs
+  (Dogfood: ADR-275, 314→161 Zeilen, kein Fakt/PR entfernt). Analog zur Ledger-Pflicht für
+  T1/T2-Konzepte (`/konzept`-Skill, Entscheidung 2026-06-01) — kein neues Prinzip, dieselbe
+  Logik auf ADRs übertragen.
 - **ADR-Nummern monoton steigend** — nie wiederverwenden, auch nach Rejection
 - **`shared_contracts/`-Änderungen** triggern Downstream-Builds → erst ADR, dann Code
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
