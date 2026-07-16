@@ -5,11 +5,24 @@
 > vorherigen Stand; alles Ältere wandert hierher). Rein historisch — nicht als aktueller
 > Stand lesen, nur als Kontext/Nachschlagewerk für vergangene Sessions.
 >
-> Ausgelagert: 2026-07-15 (Handover-Refresh 07-13→07-15, plus Nachtrag der nie gemergten
+> Ausgelagert: 2026-07-16 (Handover-Refresh 07-15→07-16), 2026-07-15 (Handover-Refresh
+> 07-13→07-15, plus Nachtrag der nie gemergten
 > 07-10/11- und 07-12-Stände aus liegengebliebenen PRs #1079/#1122 — Konsolidierung via
 > platform#1162-Nachzug, keine Session-Historie verloren), 2026-07-12 (Handover-Refresh
 > 07-09/10→07-10), 2026-07-10 (Handover-Refresh 07-05→07-09), 2026-07-06 (Handover-Refresh
 > 07-03→07-05), 2026-07-02 (Issue #821, Teil 2).
+
+## ⚡ Vorheriger Stand (2026-07-13 — usage_sweep.py (#1076) shipped + erster Lauf · trading-hub Deploy-403 gefixt · KONZ-017 #998 gemergt · PyPI-OIDC-Readiness codeguard/ingest · App-Repo-Scope-Grenze geklärt)
+
+**Diese Session (2026-07-13, Sonnet 5):** `/issues-offen`-Lauf + Owner-Block-Nacharbeit + neues Tool. Wichtigster Prozess-Fund: eigener stale lokaler Klon (iil-codeguard/iil-ingest, 5 Commits alt) fast in eine Migration auf eine bereits gelöschte Datei gelaufen — vor dem Bauen gegen origin/main geprüft, Kurs korrigiert.
+
+- **usage_sweep.py gebaut + gemergt ([#1116](https://github.com/achimdehnert/platform/pull/1116), schließt [#1076](https://github.com/achimdehnert/platform/issues/1076)):** Quartals-Nutzungs-Sweep (4 Messungen, n/m/k-Konvention). Erster echter Lauf → [#1115](https://github.com/achimdehnert/platform/issues/1115) (46 Skill- + 56 Label-Kandidaten). Nachtriage fand Methodik-Lücke: lokale Transkripte reichen nur 30 Tage zurück, nicht 180 wie im Default-Fenster behauptet — als Korrektur im Issue dokumentiert. Engere Liste (37) nach Ausschluss von Sub-Referenz-Fragmenten + Notfall-Skills (hotfix/rollback/backup by-design selten genutzt). Rückbau-Entscheidung bleibt beim Owner (bewusst kein Auto-Delete).
+- **trading-hub Deploy-403 diagnostiziert + gefixt:** GHCR-403 beim Import-Smoke-Pull direkt nach erfolgreichem Push (Propagations-Lag, nicht die bekannte Package-Actions-Access-Klasse). `gh run rerun --failed` → grün, `/livez` 200 verifiziert. Deploy-Health-Issue [#1070](https://github.com/achimdehnert/platform/issues/1070) mit Root-Cause geschlossen.
+- **KONZ-017 W1 (sync-drift-meter #998) gemergt via [#1009](https://github.com/achimdehnert/platform/pull/1009):** self-hosted GITHUB_DIR-Pfad-Mismatch behoben (dynamische Auflösung + platform-Symlink-Fix). PR lag 5 Tage `REVIEW_REQUIRED` — nach Freigabe via Auto-Merge gemergt.
+- **Owner-Block [#1094](https://github.com/achimdehnert/platform/issues/1094) nachgearbeitet:** stale shared-ci#20-Checkbox korrigiert (war schon CLOSED, Zeile nicht abgehakt). Diagnose der „7 Nicht-pur-OIDC-Repos": 5 sind pypa-Action-ready (nur PyPI-UI-Bindung fehlt), 2 (iil-codeguard/iil-ingest) publizierten noch über `twine`+Token OHNE `id-token:write` — UND der reale Publish-Workflow liegt zentral in `platform` (`publish-iil-{codeguard,ingest}.yml`, PAT-Checkout), nicht im Paket-Repo (eigenes `publish.yml` war am 2026-06-30 bewusst als ungegateter Zweitpfad entfernt worden — mein lokaler Klon war stale und zeigte noch die gelöschte Datei). Fix: [#1118](https://github.com/achimdehnert/platform/pull/1118) (id-token:write + pypa-Action, additiv, Token bleibt bis Binding-Beweis) — **wichtig für später: Trusted-Publisher-Binding muss auf `repo=platform` + Workflow-Dateiname zeigen, nicht auf das Paket-Repo.**
+- **App-Repo-Scope-Grenze geklärt (User-Korrektur mitten in der Session):** „arbeite an platform/mcp/dev, nicht an apps" — trading-hub-Branch-Protection-Vorschlag ([#1117](https://github.com/achimdehnert/platform/issues/1117)) und PR [#130](https://github.com/achimdehnert/trading-hub/pull/130) (README-Fix, grün/mergefähig) bewusst zurückgestellt, nicht ausgeführt.
+- **2 False-Positive-docu-quality-Issues geschlossen** (dev-hub [#1107](https://github.com/achimdehnert/platform/issues/1107)/[#1101](https://github.com/achimdehnert/platform/issues/1101), alle Findings gegen aktuellen Code verifiziert widerlegt) + Befund zur docu-update-agent-False-Positive-Rate getrackt ([#1114](https://github.com/achimdehnert/platform/issues/1114)).
+- **Governance-Detail geklärt:** 2. Owner-Review-Pflicht macht Sinn (required checks sind eng: nur guardian+gitleaks, nicht der volle Testlauf — Review ist die einzige menschliche Instanz vor Governance-SSoT). Auto-Merge auf #1116/#1009/#1118 aktiviert, damit Review der einzige verbleibende manuelle Schritt ist.
 
 ## ⚡ Vorheriger Stand (2026-07-12 — KONZ-017 Fleet-Konvergenz + KONZ-018 PyPI-Fleet gemergt · W0 beider Programme ausgeführt · 137-hub-Incident gelöst · shared-ci Worker-Default zentral)
 
