@@ -1,0 +1,124 @@
+name: optimize-debt-radar
+
+# KONZ-platform-019 MVC Schritt 3 (PR #1177 = Schritt 1-2, dieser Workflow = Schritt 3).
+# Woechentlicher Fleet-Radar: zaehlt Debt-Signale (tools/optimize_debt_radar.py) ueber
+# alle nicht-archivierten achimdehnert-Repos, meldet Delta-ggue-Vorwoche als rollierendes
+# Issue. Cross-Repo-Read via bestehendes Secret (kein neues Secret angelegt) — Scope laut
+# KONZ-019 L6 nur achimdehnert; iilgmbh/meiki-lra bleiben "nicht pruefbar (Owner-Scope)".
+#
+# Named-Approval (Session 2026-07-16): contents:write + issues:write + Cross-Repo-Read via
+# secrets.PLATFORM_GITHUB_TOKEN (Fallback PROJECT_PAT/GITHUB_TOKEN) explizit vom User
+# bestaetigt (Gate 3 Security-/Governance-Config, autonomy-gates.md).
+#
+# Sicherheits-Hinweis (Gate `autonomous-no-human-review`): der Cross-Repo-Read-Token ist
+# VOR dem ersten Vertrauen in den Zeitplan per manuellem `workflow_dispatch`-Lauf auf main
+# zu verifizieren (workflow_dispatch kann laut GitHub nicht vor einem Merge auf einem
+# Feature-Branch getestet werden — echter Beweis ist erst nach diesem Merge moeglich).
+#
+# Flaggt NUR — fixt nichts (KONZ-019 L5, kein Coding-Agent). Dupliziert NICHT
+# fleet-drift-report (Drift/Registry/Deploy) oder deploy-health-triage (rote Deploys),
+# KONZ-019 L4.
+
+on:
+  schedule:
+    - cron: "15 7 * * 1" # montags 07:15 UTC (nach adr-validate/branch-protection-meter um 06:00)
+  workflow_dispatch:
+    inputs:
+      commit_baseline:
+        description: "Neue Baseline committen (schedule tut dies immer; manueller Testlauf default false)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: optimize-debt-radar
+  cancel-in-progress: false
+
+jobs:
+  radar:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout platform
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install --quiet pyyaml
+
+      - name: Fleet-Targets auflösen (Owner-Scope achimdehnert, KONZ-019 L6)
+        run: |
+          python3 -c "
+          import sys; sys.path.insert(0, 'tools')
+          from optimize_debt_radar import resolve_fleet_targets
+          from pathlib import Path
+          for name, full in resolve_fleet_targets(Path('registry/canonical.yaml'), owner_filter='achimdehnert'):
+              print(f'{name}\t{full}')
+          " > /tmp/targets.txt
+          echo "Ziele: $(wc -l < /tmp/targets.txt)"
+          cat /tmp/targets.txt
+
+      - name: Fleet shallow-clonen
+        id: clone
+        env:
+          TOKEN: ${{ secrets.PLATFORM_GITHUB_TOKEN || secrets.PROJECT_PAT || secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/fleet"
+          fail=0
+          while IFS=$'\t' read -r name fullname; do
+            [ -z "$name" ] && continue
+            if git clone --quiet --depth 1 "https://x-access-token:${TOKEN}@github.com/${fullname}.git" "$RUNNER_TEMP/fleet/$name" 2>/tmp/clone_err.log; then
+              echo "OK: $fullname"
+            else
+              echo "FAIL: $fullname"
+              cat /tmp/clone_err.log
+              fail=$((fail + 1))
+            fi
+          done < /tmp/targets.txt
+          echo "clone_failures=$fail" >> "$GITHUB_OUTPUT"
+
+      - name: Radar laufen lassen
+        run: |
+          NAMES=$(cut -f1 /tmp/targets.txt | paste -sd, -)
+          python3 tools/optimize_debt_radar.py \
+            --github-dir "$RUNNER_TEMP/fleet" \
+            --repos "$NAMES" \
+            --baseline tools/.optimize_debt_radar_baseline.json \
+            --out /tmp/radar_result.json \
+            --format text | tee /tmp/radar_text.txt
+
+      - name: Rollierendes Issue aktualisieren
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          WEEK=$(date -u +%G-W%V)
+          MARKER="<!-- optimize-radar:${WEEK} -->"
+          { echo "$MARKER"; echo; cat /tmp/radar_text.txt; } > /tmp/issue_body.txt
+          if [ "${{ steps.clone.outputs.clone_failures }}" -gt 0 ]; then
+            echo "" >> /tmp/issue_body.txt
+            echo "⚠ ${{ steps.clone.outputs.clone_failures }} Repo(s) konnten nicht geklont werden — Log im Workflow-Run." >> /tmp/issue_body.txt
+          fi
+          ISSUE=$(gh issue list --label optimize-radar --state open --json number -q '.[0].number // empty')
+          if [ -z "$ISSUE" ]; then
+            gh issue create --title "optimize-debt-radar — laufende Kandidaten" \
+              --label optimize-radar --body-file /tmp/issue_body.txt
+          else
+            gh issue comment "$ISSUE" --body-file /tmp/issue_body.txt
+          fi
+
+      - name: Baseline aktualisieren + committen
+        if: github.event_name == 'schedule' || inputs.commit_baseline == true
+        run: |
+          cp /tmp/radar_result.json tools/.optimize_debt_radar_baseline.json
+          git config user.name "platform-bot"
+          git config user.email "platform-bot@users.noreply.github.com"
+          git add tools/.optimize_debt_radar_baseline.json
+          git diff --cached --quiet || git commit -m "chore(radar): optimize-debt-radar baseline $(date -u +%F)"
+          git push

@@ -155,3 +155,58 @@ def test_should_surface_missing_local_clones_as_attestation_not_silent_gap():
 
     assert "ATTESTATION" in text
     assert "repo-missing" in text
+
+
+def test_should_resolve_fleet_targets_via_explicit_github_field(tmp_path):
+    canonical = tmp_path / "canonical.yaml"
+    canonical.write_text(yaml.safe_dump({
+        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
+        "repos": {"foo": {"rich": {"github": "achimdehnert/foo", "lifecycle": "active"}}},
+    }))
+
+    targets = odr.resolve_fleet_targets(canonical)
+
+    assert targets == [("foo", "achimdehnert/foo")]
+
+
+def test_should_resolve_fleet_targets_via_repo_owner_override(tmp_path):
+    canonical = tmp_path / "canonical.yaml"
+    canonical.write_text(yaml.safe_dump({
+        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {"frist-hub": "meiki-lra"}},
+        "repos": {"frist-hub": {"rich": {"lifecycle": "active"}}},
+    }))
+
+    targets = odr.resolve_fleet_targets(canonical)
+
+    assert targets == [("frist-hub", "meiki-lra/frist-hub")]
+
+
+def test_should_fall_back_to_default_org_when_no_github_field_or_override(tmp_path):
+    canonical = tmp_path / "canonical.yaml"
+    canonical.write_text(yaml.safe_dump({
+        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
+        "repos": {"bar": {"rich": {"lifecycle": "active"}}},
+    }))
+
+    targets = odr.resolve_fleet_targets(canonical)
+
+    assert targets == [("bar", "achimdehnert/bar")]
+
+
+def test_should_exclude_archived_and_filter_by_owner(tmp_path):
+    canonical = tmp_path / "canonical.yaml"
+    canonical.write_text(yaml.safe_dump({
+        "meta": {"server": {"github_org": "achimdehnert"}, "repo_owner": {}},
+        "repos": {
+            "own-active": {"rich": {"github": "achimdehnert/own-active", "lifecycle": "active"}},
+            "own-archived": {"rich": {"github": "achimdehnert/own-archived", "lifecycle": "archived"}},
+            "foreign-active": {"rich": {"github": "iilgmbh/foreign-active", "lifecycle": "active"}},
+        },
+    }))
+
+    all_targets = odr.resolve_fleet_targets(canonical)
+    assert ("own-archived", "achimdehnert/own-archived") not in all_targets  # archiviert -> nie
+    assert ("foreign-active", "iilgmbh/foreign-active") in all_targets      # ohne Filter: alle Owner
+
+    scoped = odr.resolve_fleet_targets(canonical, owner_filter="achimdehnert")
+    assert scoped == [("own-active", "achimdehnert/own-active")]           # KONZ-019 L6 Owner-Scope

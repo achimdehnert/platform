@@ -137,6 +137,37 @@ def _repo_excluded(entry: dict) -> bool:
             or flat.get("archived") is True)
 
 
+def resolve_fleet_targets(canonical_path: Path, owner_filter: str = None):
+    """Liefert [(name, 'owner/repo'), ...] für nicht-archivierte Repos — VOR dem lokalen
+    Klon nötig (z.B. für einen CI-Fleet-Checkout), daher getrennt von `discover_repos`
+    (das einen bereits vorhandenen lokalen Klon voraussetzt). Owner-Resolution identisch
+    zu registry_coverage_drift.py::parse_canonical (rich.github > repo_owner-Override >
+    default_org) — keine zweite Owner-Logik-Kopie. `owner_filter` = KONZ-019 L6
+    Owner-Scope (Cross-Repo-Token erreicht nur achimdehnert; andere Owner bewusst
+    ausgeschlossen, nicht stillschweigend falsch aufgelöst)."""
+    d = yaml.safe_load(canonical_path.read_text())
+    meta = d.get("meta") or {}
+    default_org = ((meta.get("server") or {}).get("github_org")) or "achimdehnert"
+    overrides = meta.get("repo_owner") or {}
+    targets = []
+    for name, entry in (d.get("repos") or {}).items():
+        if _repo_excluded(entry):
+            continue
+        rich = (entry or {}).get("rich") or {}
+        gh = rich.get("github")
+        if gh:
+            fullname = gh
+        elif name in overrides:
+            fullname = f"{overrides[name]}/{name}"
+        else:
+            fullname = f"{default_org}/{name}"
+        owner = fullname.split("/", 1)[0]
+        if owner_filter and owner != owner_filter:
+            continue
+        targets.append((name, fullname))
+    return sorted(targets)
+
+
 def discover_repos(github_dir: Path, canonical_path: Path):
     """Repo-Quelle = registry/canonical.yaml (SSoT, KONZ-019 L7) statt hardcodierter
     ALL_REPOS-Liste. Gibt (name->local_path, skipped_no_clone, skipped_archived)
