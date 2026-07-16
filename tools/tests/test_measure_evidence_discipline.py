@@ -42,7 +42,10 @@ def _tool_use(name: str) -> dict:
 
 
 def _tool_result_user() -> dict:
-    return {"type": "user", "message": {"content": [{"type": "tool_result", "content": "ok"}]}}
+    return {
+        "type": "user",
+        "message": {"content": [{"type": "tool_result", "content": "ok"}]},
+    }
 
 
 def _write_jsonl(path: pathlib.Path, entries: list[dict]) -> None:
@@ -54,6 +57,7 @@ def _write_jsonl(path: pathlib.Path, entries: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 # Score-Berechnung: checked-vs-unchecked marker-claim turns
 # ---------------------------------------------------------------------------
+
 
 def test_should_count_checked_claim_when_check_tool_precedes_marker(tmp_path):
     """Bash-Call vor einer Text-Aussage mit PR-#-Marker im selben Turn -> checked."""
@@ -134,6 +138,7 @@ def test_should_aggregate_multiple_turns_in_one_file(tmp_path):
 # Edge Case: leere Historie
 # ---------------------------------------------------------------------------
 
+
 def test_should_return_zero_zero_for_empty_transcript(tmp_path):
     p = tmp_path / "empty.jsonl"
     p.write_text("", encoding="utf-8")
@@ -147,8 +152,10 @@ def test_should_skip_malformed_json_lines_without_crashing(tmp_path):
     p = tmp_path / "broken.jsonl"
     p.write_text(
         "not-json-at-all\n"
-        + json.dumps(_user("t1")) + "\n"
-        + json.dumps(_assistant(_tool_use("Bash"), _text("PR #42 done."))) + "\n",
+        + json.dumps(_user("t1"))
+        + "\n"
+        + json.dumps(_assistant(_tool_use("Bash"), _text("PR #42 done.")))
+        + "\n",
         encoding="utf-8",
     )
 

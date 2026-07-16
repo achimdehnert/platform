@@ -21,6 +21,7 @@ from tools import check_design_tokens as cdt  # noqa: E402
 # DIRECT_COLORS: direkte Tailwind-Farbklassen -> Warnung mit Vorschlag
 # ---------------------------------------------------------------------------
 
+
 def test_should_warn_on_direct_tailwind_color_class(tmp_path):
     f = tmp_path / "t.html"
     f.write_text('<div class="bg-blue-500 p-4">x</div>\n', encoding="utf-8")
@@ -44,6 +45,7 @@ def test_should_not_warn_on_semantic_token_class(tmp_path):
 # ---------------------------------------------------------------------------
 # HARDCODED_HEX: hex-Farbe in color/background/border-color -> Error
 # ---------------------------------------------------------------------------
+
 
 def test_should_error_on_hardcoded_hex_color(tmp_path):
     f = tmp_path / "t.css"
@@ -79,6 +81,7 @@ def test_should_not_error_on_unrelated_property_with_hex_like_value(tmp_path):
 # ---------------------------------------------------------------------------
 # main() — Kernpfad Exit-Code + --strict
 # ---------------------------------------------------------------------------
+
 
 def test_should_exit_1_on_hardcoded_hex_error(tmp_path, monkeypatch, capsys):
     f = tmp_path / "bad.css"

@@ -33,7 +33,9 @@ sys.modules["reconcile_registry_live"] = rrl
 _SPEC.loader.exec_module(rrl)
 
 
-def _patch_io(monkeypatch, canonical, ports_decl, containers, baseline=None, dns_ok=True):
+def _patch_io(
+    monkeypatch, canonical, ports_decl, containers, baseline=None, dns_ok=True
+):
     monkeypatch.setattr(rrl, "load_declared", lambda: (canonical, ports_decl))
     monkeypatch.setattr(rrl, "load_baseline", lambda: baseline or [])
     monkeypatch.setattr(rrl, "live_containers", lambda ssh: containers)
@@ -49,6 +51,7 @@ def _run(monkeypatch, argv=None):
 # False-Positive-Guard: Registry == Live -> keine Drift, exit 0
 # ---------------------------------------------------------------------------
 
+
 def test_should_report_no_drift_when_registry_matches_live(monkeypatch, capsys):
     canonical = {
         "svc-a": {
@@ -57,7 +60,12 @@ def test_should_report_no_drift_when_registry_matches_live(monkeypatch, capsys):
         }
     }
     ports_decl = {
-        "svc-a": {"prod": 8080, "staging": 8080, "dev": 8080, "container_name": "svc_a_web"},
+        "svc-a": {
+            "prod": 8080,
+            "staging": 8080,
+            "dev": 8080,
+            "container_name": "svc_a_web",
+        },
     }
     containers = {"svc_a_web": [8080]}
     _patch_io(monkeypatch, canonical, ports_decl, containers, dns_ok=True)
@@ -74,6 +82,7 @@ def test_should_report_no_drift_when_registry_matches_live(monkeypatch, capsys):
 # False-Negative-Guard: echte C1 port_mismatch-Divergenz MUSS erkannt werden
 # ---------------------------------------------------------------------------
 
+
 def test_should_detect_real_port_mismatch_c1(monkeypatch, capsys):
     canonical = {
         "svc-a": {
@@ -82,7 +91,12 @@ def test_should_detect_real_port_mismatch_c1(monkeypatch, capsys):
         }
     }
     ports_decl = {
-        "svc-a": {"prod": 8080, "staging": 8080, "dev": 8080, "container_name": "svc_a_web"},
+        "svc-a": {
+            "prod": 8080,
+            "staging": 8080,
+            "dev": 8080,
+            "container_name": "svc_a_web",
+        },
     }
     # Container laeuft, publiziert aber Port 9090 statt der deklarierten 8080.
     containers = {"svc_a_web": [9090]}
@@ -123,11 +137,17 @@ def test_should_suppress_baseline_drift_but_count_it_separately(monkeypatch, cap
         "svc-a": {"prod": 8080, "container_name": "svc_a_web"},
     }
     containers = {"svc_a_web": [9090]}
-    baseline = [{
-        "id": "C1:svc-a", "reason": "bekannt, Klaerung offen",
-        "owner": "achim", "expires_at": "2099-01-01",
-    }]
-    _patch_io(monkeypatch, canonical, ports_decl, containers, baseline=baseline, dns_ok=True)
+    baseline = [
+        {
+            "id": "C1:svc-a",
+            "reason": "bekannt, Klaerung offen",
+            "owner": "achim",
+            "expires_at": "2099-01-01",
+        }
+    ]
+    _patch_io(
+        monkeypatch, canonical, ports_decl, containers, baseline=baseline, dns_ok=True
+    )
 
     rc = _run(monkeypatch, argv=["--skip-dns"])
 

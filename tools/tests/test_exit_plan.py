@@ -39,6 +39,7 @@ _SPEC.loader.exec_module(ep)
 # (analog echtem GitHub-Verhalten: leere Seite beendet Pagination).
 # ---------------------------------------------------------------------------
 
+
 def _make_fake_api(responses: dict[str, tuple[int, object]], default=(200, [])):
     def _strip_paging(path: str) -> tuple[str, int]:
         if "page=" not in path:
@@ -81,7 +82,10 @@ def _base_responses() -> dict[str, tuple[int, object]]:
         f"/repos/{_ORG}/widget/keys": (200, []),
         f"/repos/{_ORG}/widget/rulesets": (200, []),
         f"/repos/{_ORG}/widget/pages": (404, None),
-        f"/repos/{_ORG}/widget/code-scanning/default-setup": (200, {"state": "not-configured"}),
+        f"/repos/{_ORG}/widget/code-scanning/default-setup": (
+            200,
+            {"state": "not-configured"},
+        ),
         f"/repos/{_ORG}/widget/contents/.github/workflows": (404, None),
     }
 
@@ -137,6 +141,7 @@ def test_should_flag_owner_ref_hint_in_workflow_file(tmp_path, monkeypatch):
 
 def test_should_fail_when_org_unreadable(monkeypatch, capsys):
     """401/403 auf /orgs/{org} -> Exit 1 mit stderr-Fehlermeldung, kein Traceback."""
+
     def fake_api(path: str, raw: bool = False):
         if path.startswith(f"/orgs/{_ORG}"):
             return 403, None

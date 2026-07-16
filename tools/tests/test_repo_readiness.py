@@ -30,10 +30,13 @@ _SPEC.loader.exec_module(rr)
 # read_repo_type
 # ---------------------------------------------------------------------------
 
+
 def test_should_read_type_from_project_facts_field(tmp_path):
     wf = tmp_path / ".windsurf" / "rules"
     wf.mkdir(parents=True)
-    (wf / "project-facts.md").write_text("**Type**: `python-package`\n", encoding="utf-8")
+    (wf / "project-facts.md").write_text(
+        "**Type**: `python-package`\n", encoding="utf-8"
+    )
 
     assert rr.read_repo_type(tmp_path) == "python-package"
 
@@ -67,6 +70,7 @@ def test_should_ignore_project_facts_type_unknown_and_use_heuristic(tmp_path):
 # pyproject_name_version
 # ---------------------------------------------------------------------------
 
+
 def test_should_extract_name_and_version_from_pyproject(tmp_path):
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname = "widget-fw"\nversion = "1.2.3"\n', encoding="utf-8"
@@ -82,6 +86,7 @@ def test_should_return_none_none_when_pyproject_missing(tmp_path):
 # ---------------------------------------------------------------------------
 # check_git — Golden Path (clean, up to date) + Fehlerpfad (dirty tree)
 # ---------------------------------------------------------------------------
+
 
 def test_should_report_ok_for_clean_up_to_date_repo(tmp_path, monkeypatch):
     def fake_sh(cmd, cwd=None, timeout=120):
@@ -107,6 +112,7 @@ def test_should_report_ok_for_clean_up_to_date_repo(tmp_path, monkeypatch):
 
 def test_should_warn_and_not_autofix_dirty_tree(tmp_path, monkeypatch):
     """Dirty Working-Tree darf NIE auto-gefixt werden (Datenverlust-Schutz)."""
+
     def fake_sh(cmd, cwd=None, timeout=120):
         joined = " ".join(cmd)
         if "fetch" in joined:
@@ -120,6 +126,7 @@ def test_should_warn_and_not_autofix_dirty_tree(tmp_path, monkeypatch):
         return 0, ""
 
     calls = []
+
     def tracking_sh(cmd, cwd=None, timeout=120):
         calls.append(cmd)
         return fake_sh(cmd, cwd, timeout)
@@ -137,6 +144,7 @@ def test_should_warn_and_not_autofix_dirty_tree(tmp_path, monkeypatch):
 # check_install_consistency — Kern-Novum: installierte Version == Source?
 # ---------------------------------------------------------------------------
 
+
 def test_should_skip_install_check_when_no_pyproject(tmp_path):
     findings: list[dict] = []
     rr.check_install_consistency(tmp_path, fix=False, findings=findings)
@@ -146,7 +154,8 @@ def test_should_skip_install_check_when_no_pyproject(tmp_path):
 
 def test_should_warn_when_package_not_installed_and_no_fix(tmp_path, monkeypatch):
     (tmp_path / "pyproject.toml").write_text(
-        '[project]\nname = "totally-unshipped-pkg"\nversion = "0.1.0"\n', encoding="utf-8"
+        '[project]\nname = "totally-unshipped-pkg"\nversion = "0.1.0"\n',
+        encoding="utf-8",
     )
     findings: list[dict] = []
     rr.check_install_consistency(tmp_path, fix=False, findings=findings)
