@@ -39,6 +39,12 @@ berührt wird).
   wörtlich Freigegebenes durch, nicht mehr.
 - **Verbale Freigabe gilt wörtlich**: „mergen" ≠ „--admin", „ausführen" ≠
   „Ruleset ändern". Präzise fragen.
+- **Batch-Freigabe durable vermerken**: wird eine Freigabe für einen Batch (mehrere Repos/PRs,
+  z.B. ein templated Rollout) erteilt, dies in der ERSTEN PR/Commit-Message des Batches
+  wörtlich als „Batch approved by user" vermerken, damit sie später (Retro, Audit)
+  nachvollziehbar bleibt. Realfall 2026-07-15 (KD-Sitemap-Rollout, 9 Repos, 6 echte
+  Prod-Deploys): ein späteres Retro (`c25d21`) konnte anhand der Artefakte keine Freigabe
+  für den Batch finden — nach Nutzerangabe war er freigegeben, nur nirgends vermerkt.
 
 ## Effectiveness test (binding — falsify or cut)
 
@@ -49,6 +55,10 @@ konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
 
+- 2026-07-16: **Batch-Freigabe-Vermerk-Regel** ergänzt (How to apply) — nach Retro `c25d21`
+  (KD-Sitemap-Rollout 2026-07-15, 9 Repos, 6 Prod-Deploys), das als ungegatet eingestuft wurde,
+  weil eine erteilte Freigabe nirgends vermerkt war. Marker: „Batch approved by user" in der
+  ersten PR/Commit-Message eines freigegebenen Batches.
 - 2026-07-03: Von Achim ratifiziert (Session ausschreibungs-hub, wörtlich „3 go"
   auf den Freigabe-Block) — gilt org-weit als Policy.
 - 2026-07-03: Initial DRAFT (Session ausschreibungs-hub).
