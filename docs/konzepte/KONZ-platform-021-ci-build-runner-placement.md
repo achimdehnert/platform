@@ -1,5 +1,5 @@
 ---
-concept_id: KONZ-platform-020
+concept_id: KONZ-platform-021
 title: "Cross-Repo CI/Build-Runner-Placement — GitHub-hosted Default, ci-nonprod als Opt-out (ADR-257 Rev 4)"
 pipeline_status: idea
 tier: T3
@@ -26,7 +26,7 @@ evidence_manifest:
 created: "2026-07-16"
 ---
 
-# KONZ-platform-020 — CI/Build-Runner-Placement: GitHub-hosted Default, ci-nonprod als Opt-out
+# KONZ-platform-021 — CI/Build-Runner-Placement: GitHub-hosted Default, ci-nonprod als Opt-out
 
 > Auftrag: platform#1217 (`/konzept`). Tier-Entscheidung: **T3** — Cross-Repo (10 Hubs),
 > Amendment an eine accepted ADR-Entscheidung (Reversal-Trigger der Auto-Eskalation),
