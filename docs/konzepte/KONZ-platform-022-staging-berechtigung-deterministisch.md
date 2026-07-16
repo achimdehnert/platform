@@ -42,10 +42,11 @@ zwei Quartale unter die Schwelle, wird ihre Staging-Umgebung abgebaut, nicht gep
 | L1 | Auslieferungs-Häufigkeit trennt nicht: alle 12 Apps hatten 165–642 Pipeline-Läufe in 90 Tagen, weil jede Änderung am Hauptzweig (auch Doku) die Pipeline startet | Beobachtung | M2 | verifiziert |
 | L2 | Datenbank-Strukturänderungen trennen sauber: risk-hub 39, trading-hub 22, writing-hub 15, dev-hub 12 Commits in 90 Tagen — alle übrigen 8 Apps: 0–4 | Beobachtung | M1 | verifiziert |
 | L3 | Die Fehlschlag-Quote (60–90 % über die ganze Flotte) misst derzeit einen flottenweiten Defekt im Prüf-Vorspann der Pipeline (bekannt, getrackt als platform#1158), nicht app-spezifischen Schmerz — als Kriterium unbrauchbar, bis der Defekt behoben ist | Beobachtung + Interpretation | M2; Falsifikation: nach #1158-Fix Quoten erneut messen — trennen sie dann, wird das Kriterium aktiviert | verifiziert (Zahlen) / offen (Deutung) |
-| L4 | Echte Produktionsdaten haben nur writing-hub, risk-hub und die Landratsamt-Anwendungen | Annahme (aus Memory 2026-06) | nicht in dieser Session gegen die Datenbanken geprüft — billigster Check: je App eine Zeilenzahl-Abfrage der Kern-Tabellen beim nächsten Wartungsfenster | offen (H) |
+| L4 | Echte Produktionsdaten haben nur writing-hub, risk-hub und die Landratsamt-Anwendungen | Annahme (aus Memory 2026-06) | nicht in dieser Session gegen die Datenbanken geprüft — billigster Check: je App eine Zeilenzahl-Abfrage der Kern-Tabellen im Wartungsfenster | offen (H) — Prüfung beauftragt: [#1220](https://github.com/achimdehnert/platform/issues/1220) (Owner-Entscheid 2026-07-16: im Wartungsfenster, nicht ad hoc) |
 | L5 | Klassifizierungs-Regel: Staging nur bei (echte Daten/Nutzer) UND (≥8 Struktur-Änderungs-Commits pro Quartal). Schwellwert ist Setzung — Alternative: Median der Flotte ×3 | Entscheidung (D) | M1 + L4; Schwelle bewusst so gewählt, dass sie die beobachtete Lücke (4 vs. 0–4) mittig schneidet | vorgeschlagen |
-| L6 | Ergebnis der ersten Klassifizierung: **risk-hub + writing-hub** staging-berechtigt; **trading-hub** Grenzfall (hohe Änderungsrate, aber Daten-Frage L4 offen — zudem fließt dort echtes Geld: Human-Entscheid); **dev-hub** kein Staging (hohe Änderungsrate, aber internes Werkzeug ohne Externe); übrige 8: dev + prod | Entscheidung (abgeleitet) | L2 + L4 + L5 | vorgeschlagen |
-| L7 | Es existieren heute Staging-Container für Apps, die nach L5/L6 kein Staging rechtfertigen (mindestens cad-hub und weltenhub laut Staging-Host-Containerliste) — das sind die ersten Rückbau-Kandidaten | Beobachtung + Folgerung | M4; vor Rückbau je App live gegenprüfen (Containerliste ist Stand 2026-06-28) | teilverifiziert |
+| L6 | Ergebnis der ersten Klassifizierung: **risk-hub + writing-hub** staging-berechtigt; **trading-hub kein Staging** (Owner-Entscheid 2026-07-16: privates Einzel-Projekt, Flexibilität vor Stabilität — hohe Änderungsrate allein reicht nach L5 ohnehin nicht); **dev-hub** kein Staging (internes Werkzeug ohne Externe); übrige 8: dev + prod | Entscheidung | L2 + L4 + L5; trading-/dev-hub: Owner-Entscheid | trading-hub + dev-hub **entschieden**; risk-/writing-hub + Rest: vorgeschlagen (bestätigt sich mit L4/#1220) |
+| L7 | Rückbau-Kandidaten, live gegengeprüft 2026-07-16: **cad-hub-Staging existierte real** (Web + DB, 2 Monate an) und wurde nach Owner-Freigabe **abgebaut** (compose down ohne Volumes — Datenbestände bewusst behalten, Schritt umkehrbar); **weltenhub-Staging existiert NICHT** — die Runbook-Liste (M4) meinte den lokalen Dev-Stack (`weltenhub_local_*`, anderes Objekt, nicht angefasst) | Beobachtung + Vollzug | Live-`docker ps` + down-Log, Session 2026-07-16; Freigabe: Owner („beide rückbauen", auf Basis der M4-Liste — Abweichung transparent gemacht) | cad-hub: **vollzogen**; weltenhub: gegenstandslos |
+| L10 | Bewusst offen nach dem cad-Rückbau: (i) verwaiste `staging-cad-hub`-Volumes (Endreinigung erst nach Bewährungsfrist), (ii) mögliche tote Verweise auf die cad-Staging-Adresse (DNS/Ingress/OIDC — exakt die KONZ-015-Fehlerklasse) | Risiko (getrackt) | diese Zeile + PR [#1219](https://github.com/achimdehnert/platform/pull/1219); Prüfweg: KONZ-015-Sweep bzw. `/opt/cad-hub` + Cloudflare-Records bei nächster Infra-Runde | offen |
 | L8 | Rückbau-Automatik: 2 Quartale unter Schwelle ⇒ Staging-Abbau als Pflicht-Folge, nicht als Option — sonst wiederholt sich die beobachtete Vermüllung (29 Container auf dem Staging-Rechner) | Entscheidung (D) | M4; Alternative: nur Warnung statt Abbau-Pflicht — verworfen, weil Warnungen hier nachweislich verhallen (KONZ-015-Befundlage: unverdrahtete Checks sind der Median) | vorgeschlagen |
 | L9 | Die Einstufung wohnt in `registry/repos.yaml` (je System: `envs:`-Feld + `envs_evidence:` mit Messwerten und Datum) — dieselbe Datei, die KONZ-015 als normative Registry etabliert; keine neue Datei, keine zweite Wahrheit | Entscheidung | KONZ-015 §5.5 (Registry als SSoT-Ziel) | vorgeschlagen |
 
@@ -76,7 +77,7 @@ eine neue Boundary und liefe als Amendment an ADR-264 durch den Review.
 | Kriterium | Status (offen/erfüllt/verworfen) | Beleg |
 |---|---|---|
 | (a) Regel + Messwerte in registry/repos.yaml verankert | offen | — |
-| (b) ≥1 Rückbau-Kandidat entschieden (abgebaut oder begründet behalten) | offen | — |
+| (b) ≥1 Rückbau-Kandidat entschieden (abgebaut oder begründet behalten) | **erfüllt** (2026-07-16) | cad-hub-Staging abgebaut (L7, down-Log in Session; PR [#1219](https://github.com/achimdehnert/platform/pull/1219)) |
 
 ## Befunde (inkl. Adversarial-Zeilen)
 
@@ -95,3 +96,9 @@ eine neue Boundary und liefe als Amendment an ADR-264 durch den Review.
 
 - 2026-07-16: Initial (T2-Ledger). Messlauf über 12 Apps (M1–M3); Fehlschlag-Quote als
   Kriterium explizit zurückgestellt (L3), bis platform#1158 behoben ist.
+- 2026-07-16 (Nachtrag, PR #1219 wurde vor Sichtbarkeit dieses Standes gemergt — per
+  Folge-PR nachgezogen): Owner-Entscheide eingearbeitet — trading-hub kein Staging
+  (privates Einzel-Projekt, Flexibilität vor Stabilität, L6); L4-Datenlage-Check ins
+  Wartungsfenster beauftragt (#1220); Rückbau vollzogen: cad-hub-Staging abgebaut,
+  weltenhub-Staging stellte sich als nicht existent heraus (nur Dev-Stack, L7);
+  Kill-Gate-Kriterium (b) damit erfüllt. Restarbeiten getrackt in L10.
