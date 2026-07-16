@@ -226,3 +226,28 @@ laut `policies/adr-threshold.md` nicht erreicht: reine Doku-/Test-/Daten-Fixes).
   apo-hub-Repo selbst. Billigster Check: shared-ci-Workflow-Definition lesen.
 - **Phase 6 (Extern-Handoff):** nicht durchgeführt — Footprint `full`, nicht `deep`;
   laut Skill nur bei `deep` vorgesehen.
+
+## 9. Korrektur (nachträglich, 2026-07-16, im Rahmen von `/knowledge-capture`)
+
+**§5/§6/§7 unpräzise:** Die Aussage "Memo-Wiederholung allein wirkt nachweislich nicht,
+kein technischer Gate existiert" war **unvollständig recherchiert** (Outline nicht vor
+dem Schreiben durchsucht). Tatsächlich existiert bereits `handoff-banner-gate.yml`
+(platform, Gate-Slug `handover-stale-vor-merge`) — seit der Fleet-Erhebung 2026-07-07
+läuft dessen Rezenz-Check-Variante bereits **in apo-hub selbst** (Caller apo-hub#42).
+
+Der bestehende Gate deckt diese Session dennoch nicht ab, weil er strukturell anders
+prüft: er verlangt einen frischen Datumsheader nur in Commits, die `AGENT_HANDOVER.md`
+**selbst berühren**. apo-hub#56 hat die Datei gar nicht angefasst — der Gate hatte
+nichts zu prüfen (kein False-Negative, schlicht außerhalb seines Erfassungsbereichs).
+Der tatsächliche Failure-Mode dieser Session — ein PR löst inhaltlich einen
+Offene-Punkte-Eintrag, ohne die Datei zu berühren — ist eine **Content-Korrektheits-
+Prüfung**, keine Datei-Rezenz-Prüfung. `handover-sync-gate` bleibt damit ein
+**berechtigter, aber falsch gerahmter** Vorschlag: nicht "erster Gate-Versuch",
+sondern **Erweiterung** von `agent_handover_freshness_check.py` um einen zweiten
+Check-Fall (PR ändert eine in "Offene Punkte" referenzierte Datei, ändert aber
+`AGENT_HANDOVER.md` nicht mit).
+
+Details + vollständige Herleitung: Outline-Lesson „2026-07-16 apo-hub Handover Drift
+Gate Luecke" (referenziert die Vorgänger-Lessons "2026-07-06: AGENT_HANDOVER.md Drift
+zum 4. Mal" und "AGENT_HANDOVER.md Fleet-Gate — Rezenz-Check..."). Diese Korrektur
+ändert keinen der SURVIVES/REFUTED-Verdikte in §2 — nur die Gate-Empfehlung in §6/§7.
