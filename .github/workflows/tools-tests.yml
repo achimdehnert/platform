@@ -90,8 +90,8 @@ jobs:
         # CI 486 Tests, weil beide Seiten eigene pytest-Listen pflegten — der
         # Makefile-Kommentar "identisch zu tools-tests.yml" war falsch). Jetzt
         # ruft CI exakt das Target, das auch Review-Gate 5b lokal verlangt.
-        # Testorte-Rationale (agents/tests CI-dunkel, test_adr_scribe.py-Ausnahme
-        # A-8) ist ins Makefile-Target gewandert.
+        # Testorte-Rationale (agents/tests, vormals CI-dunkel) ist ins
+        # Makefile-Target gewandert.
         run: make test
 
       - name: Workflow-Index Vollständigkeit (K-44, #901 Spec B)
