@@ -12,8 +12,6 @@ Usage:
     python -m agents.drift_detector --docs-dir docs/
     python -m agents.drift_detector --check-keys
     python -m agents.drift_detector --format json
-
-Siehe ADR-054 für Details zum Agent-Ökosystem.
 """
 from __future__ import annotations
 

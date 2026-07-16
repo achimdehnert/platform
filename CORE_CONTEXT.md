@@ -43,7 +43,8 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `.windsurf/workflows/` | Workflow-SSoT (wird über Symlinks in alle Repos verteilt) |
 | `agents/` | Platform-Agent-Definitionen |
 | `infra/`, `deployment/` | Infrastruktur-Configs für Cross-Repo-Deploys |
-| `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `skills/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
+| `skills/` | **Aktive zweite Distributions-Lane** (neben `.windsurf/workflows/`): `skills/<name>/SKILL.md` → `tools/cc-skill-dist/generate.py --kind skills` verteilt nach `~/.claude/skills/<name>/SKILL.md` (Anthropic Agent Skills, user-level, gilt in jeder Session/jedem Repo/jeder Org) |
+| `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
 
 **Registry-Schreibpfad** (`registry/canonical.yaml` editieren → `make registry-flip`
 regeneriert beide Views + verify) — nie die generierten Views
@@ -62,8 +63,8 @@ make test    # = pytest tools/tests/ (ruff läuft separat über `make lint`)
 ist die SSoT für den CI-relevanten Gate-Umfang (aktuell zusätzlich `tests/test_render_staging.py`,
 `tests/doc_profile_check/`, `tools/claude-hooks/tests/` — Datei live prüfen statt diese Liste
 zu vertrauen, sie ändert sich unabhängig von hier). `ruff` ist **kein** CI-Gate, nur lokales
-`make lint`. Nacktes `pytest` läuft zusätzlich über `tests/` (megatest + Altbestand, teils rot —
-Triage: Issue #819).
+`make lint`. Nacktes `pytest` läuft zusätzlich über `tests/` (nur noch `megatest`, kein
+Altbestand mehr — self-hosted-Runner-gebunden, teils rot; Triage-Historie: Issue #819).
 
 ## Tech Stack
 
