@@ -44,7 +44,7 @@ Tiefenläufe „auf Verdacht").
 | L5 | Der Radar FIXT nichts — er flaggt nur; der Tiefenlauf + jede Änderung bleibt menschen-initiierte Session (kein Coding-Agent) | Entscheidung | C4 (Design-Entscheid 2026-07-11: kein Auto-Fix-Agent) | gesetzt |
 | L6 | Owner-Scope: CI-Token erreicht achimdehnert; iilgmbh/meiki-lra werden als „nicht prüfbar (Owner-Scope)" geführt, lokal-lauffähig als Lückenschluss | Risiko | C4 (Owner-Bindung der App) | offen (Wiring) |
 | L7 | Signal-Definitionen dürfen nur EINMAL leben — der Tool wird SSoT der Signal-Menge, `/platform-audit` referenziert ihn, statt die Greps ein zweites Mal hart zu kodieren | Entscheidung | C1 (platform-audit kodiert die Greps heute inline → sonst Doppelquelle) | gesetzt |
-| R-thresh | Schwelle absolut vs. Delta-ggü-Vorwoche noch offen | Risiko | — | **Entscheidung nötig** |
+| R-thresh | Schwelle = **Delta-ggü-Vorwoche**, nicht absolut (User-Entscheidung 2026-07-16, folgt Empfehlung AD-6: alarm-müdigkeits-ärmer) | Entscheidung | — | entschieden |
 
 ## MVC (konkreter Plan)
 
@@ -92,9 +92,9 @@ bauen — nur als Anschlussfläche vermerkt.
 
 ## Entscheidung + Kill-Gate
 
-**Empfehlung:** MVC Schritt 1–2 bauen (gate-frei), Schritt 3 als separat gegateten PR mit
-Token-Dry-Run. **Offen (deine Entscheidung):** Schwelle **absolut vs. Delta** (Empfehlung: Delta,
-alarm-müdigkeits-ärmer — AD-6).
+**Entschieden (2026-07-16):** MVC Schritt 1–2 bauen (gate-frei), Schritt 3 als separat gegateten PR
+mit Token-Dry-Run. Schwelle: **Delta-ggü-Vorwoche** (AD-6, alarm-müdigkeits-ärmer) — kein offener
+Punkt mehr.
 
 **Kill-Gate (messbar):** siehe Frontmatter `kill_criteria` — 2 leere Quartale ohne ausgelösten
 Rückbau → Radar `sunset`. **Exception-Budget:** bis `review_by` 2026-10-15; danach ohne belegten
