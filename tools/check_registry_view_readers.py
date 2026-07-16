@@ -107,6 +107,9 @@ def write_baseline(readers: set[str]) -> None:
 
 
 def main(argv: list[str]) -> int:
+    if "--help" in argv or "-h" in argv:
+        print(__doc__)
+        return 0
     readers = find_readers(ROOT, _tracked_files())
     if "--update" in argv:
         write_baseline(readers)

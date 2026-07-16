@@ -2,6 +2,15 @@
 # ║  REUSABLE WORKFLOW: Hetzner VM Deployment (v2)                             ║
 # ║  Uses deploy-remote.sh on VM — migration gate, healthcheck, auto-rollback ║
 # ║  Usage: uses: achimdehnert/platform/.github/workflows/_deploy-hetzner.yml@main
+# ║                                                                              ║
+# ║  Caller needs `permissions: { contents: read, packages: read }` — the      ║
+# ║  `deploy` job forwards `github.token` to the remote host as GHCR_TOKEN for ║
+# ║  `docker login`/`compose pull` of the app image (packages: read). Callers  ║
+# ║  granting only `contents: read` will see GHCR pulls fail on private        ║
+# ║  images. Deliberately NO job-level `permissions:` block here: a called     ║
+# ║  reusable workflow can only NARROW the caller's GITHUB_TOKEN, never grant  ║
+# ║  (see #191/#198) — adding `{contents: read}` here would silently drop the  ║
+# ║  packages scope for every caller and break GHCR auth fleet-wide.           ║
 # ╚═══════════════════════════════════════════════════════════════════════════╝
 
 name: Deploy to Hetzner

@@ -207,6 +207,9 @@ def _expand(arg: str) -> list[pathlib.Path]:
 
 
 def main(argv: list[str]) -> int:
+    if "--help" in argv or "-h" in argv:
+        print(__doc__)
+        return 0
     args = argv or ["."]
     targets: list[pathlib.Path] = []
     for a in args:
