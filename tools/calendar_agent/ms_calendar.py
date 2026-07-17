@@ -30,6 +30,9 @@ import requests
 
 CONFIG_FILE = Path.home() / ".claude" / "calendar.env"
 DEFAULT_CLIENT_ID = "14d82eec-204b-4c2f-b7e8-296a70dab67e"  # MS Graph Command Line Tools (public)
+# Per-Konto-Override: GRAPH_CLIENT_ID_<DOMAIN mit _ statt .> — z. B. GRAPH_CLIENT_ID_HNU_DE.
+# Grund: Conditional-Access mancher Mandanten (Realfall HNU 2026-07-17) blockt einzelne
+# Public Clients; ein anderer Microsoft-Standard-Client ist oft freigeschaltet.
 SCOPES = "Calendars.Read offline_access openid profile"
 TIMEZONE = "W. Europe Standard Time"
 
@@ -55,9 +58,14 @@ def load_config() -> dict:
     token_dir = Path(cfg.get("TOKEN_DIR", "~/.claude/calendar-tokens")).expanduser()
     token_dir.mkdir(parents=True, exist_ok=True)
     token_dir.chmod(stat.S_IRWXU)
+    default_client = cfg.get("GRAPH_CLIENT_ID", DEFAULT_CLIENT_ID)
+    client_for = {}
+    for acc in accounts:
+        domain_key = "GRAPH_CLIENT_ID_" + acc.split("@", 1)[1].replace(".", "_").upper()
+        client_for[acc] = cfg.get(domain_key, default_client)
     return {
         "accounts": accounts,
-        "client_id": cfg.get("GRAPH_CLIENT_ID", DEFAULT_CLIENT_ID),
+        "client_for": client_for,
         "tenant": cfg.get("GRAPH_TENANT", "organizations"),
         "token_dir": token_dir,
     }
@@ -77,7 +85,8 @@ def cmd_login(cfg: dict, account: str) -> None:
     if account not in cfg["accounts"]:
         sys.exit(f"FEHLER: {account} steht nicht in GRAPH_ACCOUNTS")
     base = f"https://login.microsoftonline.com/{cfg['tenant']}/oauth2/v2.0"
-    r = requests.post(f"{base}/devicecode", data={"client_id": cfg["client_id"], "scope": SCOPES}, timeout=20)
+    client_id = cfg["client_for"][account]
+    r = requests.post(f"{base}/devicecode", data={"client_id": client_id, "scope": SCOPES}, timeout=20)
     if r.status_code != 200:
         sys.exit(f"FEHLER: Device-Code-Anfrage {r.status_code} — {r.json().get('error_description', '')[:200]}")
     dc = r.json()
@@ -89,7 +98,7 @@ def cmd_login(cfg: dict, account: str) -> None:
         time.sleep(int(dc.get("interval", 5)))
         tr = requests.post(f"{base}/token", data={
             "grant_type": "urn:ietf:params:oauth:grant-type:device_code",
-            "client_id": cfg["client_id"],
+            "client_id": client_id,
             "device_code": dc["device_code"],
         }, timeout=20)
         body = tr.json()
@@ -117,7 +126,7 @@ def get_access_token(cfg: dict, account: str) -> str | None:
     base = f"https://login.microsoftonline.com/{cfg['tenant']}/oauth2/v2.0"
     tr = requests.post(f"{base}/token", data={
         "grant_type": "refresh_token",
-        "client_id": cfg["client_id"],
+        "client_id": cfg["client_for"][account],
         "refresh_token": tokens.get("refresh_token", ""),
         "scope": SCOPES,
     }, timeout=20)
@@ -178,6 +187,10 @@ def main() -> None:
     g.add_argument("--today", action="store_true", help="heutige Termine beider Konten")
     g.add_argument("--list", type=int, metavar="TAGE", help="Termine der nächsten N Tage")
     args = ap.parse_args()
+    try:
+        sys.stdout.reconfigure(line_buffering=True)
+    except AttributeError:
+        pass
     cfg = load_config()
     if args.login:
         cmd_login(cfg, args.login)
