@@ -195,7 +195,10 @@ registry-flip: ## Views (repos.yaml + scripts/repo-registry.yaml) aus canonical.
 registry-verify: ## Round-trip prüfen: Views aus canonical.yaml regenerieren + gegen Altdateien vergleichen
 	@python3 tools/registry-canonical.py verify
 
-.PHONY: registry-flip registry-verify
+registry-validate: ## decommissioned:/overrides:-Schema prüfen (KONZ-platform-015 REC-2)
+	@python3 tools/validate_registry.py
+
+.PHONY: registry-flip registry-verify registry-validate
 
 # =============================================================================
 # WORKFLOW-LINT (X-11 — lokales Preflight zu validate-workflows.yml)

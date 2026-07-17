@@ -18,7 +18,9 @@ on:
     paths:
       - 'scripts/repo-registry.yaml'
       - 'registry/repos.yaml'
+      - 'registry/canonical.yaml'
       - 'tools/registry-consistency-check.py'
+      - 'tools/validate_registry.py'
   pull_request:
     branches: [main]        # REC-4 View-Reader-Guard fängt NEUE Direct-Reads vor dem Merge
 
@@ -57,3 +59,9 @@ jobs:
           # sofort Pflicht (Deep-Review-BLOCKER auf PR #1072: Datei war unparsebar
           # gemergt worden, weil kein Workflow sie beobachtete).
           python3 -c "import yaml; d = yaml.safe_load(open('registry/distribution.yaml')); assert d.get('lanes'), 'lanes fehlt/leer'; print(f'OK: {len(d[\"lanes\"])} Lanes parsebar')"
+      - name: decommissioned/overrides-Schema (HARTES GATE, KONZ-platform-015 REC-2)
+        run: |
+          # FAILT bei fehlendem owner/expires_at (D1-Waiver-Vorbild "ohne
+          # Ablaufdatum -> blockiert") oder abgelaufenem Override — fail-closed,
+          # keine Erinnerungs-Mail. Additiv zu registry-canonical.py verify.
+          python3 tools/validate_registry.py

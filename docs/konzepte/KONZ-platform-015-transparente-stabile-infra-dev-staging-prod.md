@@ -1,7 +1,7 @@
 ---
 concept_id: KONZ-platform-015
 title: "Transparente & stabile Infrastruktur dev/staging/prod (Post-bfagent-Dekommissionierung)"
-pipeline_status: pilot   # 2026-07-10: als MVP angenommen (Entscheid Achim 07-09, formalisiert 07-10) + Umsetzung begonnen (Nachtrag §14, Reconcile-Sweep live)
+pipeline_status: pilot   # 2026-07-10: als MVP angenommen (Entscheid Achim 07-09, formalisiert 07-10) + Umsetzung begonnen (Nachtrag §14, Reconcile-Sweep live). 2026-07-17: REC-1 abgeschlossen (Nachtrag §15, PR #1229), Registry-SSoT-Korrektur (canonical.yaml statt repos.yaml)
 tier: T3
 owner: "Achim Dehnert"
 spec_refs: []
@@ -21,6 +21,10 @@ evidence_manifest:
   - {claim_id: C9, source_path: ".github/CODEOWNERS", commit_or_pr: "main, line 7", opened_in_session: true}
   - {claim_id: C10, source_path: ".github/workflows/adr-validate.yml", commit_or_pr: "main, line 48, wires tools/check_deploy_adr_supersession.py", opened_in_session: true}
   - {claim_id: C11, source_path: "staging-demo.schutztat.de DNS A-record -> 178.104.184.168 (Cloudflare API)", commit_or_pr: "reported by parallel session, not independently re-verified", opened_in_session: false}
+  - {claim_id: C12, source_path: "registry/repos.yaml Header + tools/registry-canonical.py", commit_or_pr: "main, ADR-234 P0 Flip 2026-06-01 — repos.yaml jetzt generierte View", opened_in_session: true}
+  - {claim_id: C13, source_path: "registry/canonical.yaml", commit_or_pr: "main, 59 repos, Union-SSoT seit Flip", opened_in_session: true}
+  - {claim_id: C14, source_path: "git log --diff-filter=D -- registry/github_repos.yaml", commit_or_pr: "ff354be, ADR-275 P5 — retired nach registry/_ARCHIVED/", opened_in_session: true}
+  - {claim_id: C15, source_path: "platform#1229 (REC-1) + #1227/#1228 (Live-Funde)", commit_or_pr: "PR #1229 offen, Issues #1227/#1228 offen", opened_in_session: true}
 created: "2026-07-09"
 ---
 
@@ -277,3 +281,17 @@ Die Angriffe werden hier unverdünnt konserviert; Auflösung erst in §10–13.
 **Korrektur eines Gegenbelegs:** §11 R1 nennt als stärksten Gegenbeleg „D1-Waiver seit Accept in Kraft ohne gemeldete Akkumulation" — der Mechanismus war zum Schreibzeitpunkt ~1 Woche alt; Abwesenheit von Daten ist kein Haltbarkeitsbeleg. Der Punkt bleibt als Risiko voll gewichtet; die Baseline dieses Nachtrags liefert ab jetzt echte Verfalls-Empirie (6 Einträge, Ablauf 07-24/08-08).
 
 **Nicht geändert:** Pilot-Wahl weltenhub (§5.9) — bei Erst-Review kritisiert, bei Tiefen-Review als richtig erkannt (die dort verbliebenen toten `bfagent_*`-Referenzen sind exakt das Replay-Testmaterial für MVC-Erfolgskriterium §5.9). Alle §12-RECs bleiben gültig, nur die Reihenfolge/Gewichtung ändert sich wie oben.
+
+## 15. Nachtrag 2026-07-17 — Registry-SSoT-Flip nachgetragen, REC-1 abgeschlossen
+
+**Anlass:** Vor Beginn der REC-2-Umsetzung (Schema-Erweiterung) Ground-Truth-Check aller offenen RECs (Session-Direktive: "neues Deployment-/Betriebskonzept fertig implementieren"). Ergebnis: eine Kernprämisse dieses Dokuments ist seit Erstellung durch ein **anderes, unabhängiges Programm** überholt worden — exakt das AD-5/SSOT-2-Muster ("ADR/Konzept sagt X, Realität Y"), das dieses Dokument selbst mehrfach kritisiert.
+
+**Registry-SSoT-Flip (bereits vollzogen, nicht Teil dieses Konzepts):** Mit dem ADR-234-P0-Flip (2026-06-01, C12) ist **`registry/canonical.yaml`** die einzige Schreib-SSoT; `registry/repos.yaml` (dieses Dokuments ursprüngliches REC-2-Zielfile) und `scripts/repo-registry.yaml` sind seither **generierte Views**, hart gegated (`registry-consistency.yml` Step "Drift-Gate — Views == canonical" failt bei Hand-Edit). `registry/github_repos.yaml` — der in §7/AD-1/SSOT-1 kritisierte konkurrierende SSoT-Claim — wurde per ADR-275 P5 nach `registry/_ARCHIVED/` retired (C14). Damit sind AD-1 (Coverage-Lücke) und SSOT-1 (Dual-SSoT) **nicht durch dieses Konzept, sondern durch ein Parallelprogramm gelöst**: `canonical.yaml` zählt inzwischen 59 Repos (Union, C13); alle sieben in §12 REC-4 genannten unregistrierten Prod-Hubs (coach-hub, apo-hub, onboarding-hub, billing-hub, tax-hub, dms-hub) sind darin auffindbar — `iil_dochub` nicht (vermutlich Tippfehler im Original-Nachtrag, kein Repo dieses oder ähnlichen Namens gefunden; nicht weiter verfolgt, kein Prod-Risiko erkennbar).
+
+**Korrektur REC-2/REC-4:** Die geplante Schema-Erweiterung `decommissioned:`/`overrides:` zielt ab jetzt auf **`registry/canonical.yaml`**, nicht `repos.yaml` — ein Hand-Edit der View würde vom bestehenden Hard-Gate sofort zurückgewiesen. REC-4 gilt als **weitgehend erledigt** (Registrierungslücke geschlossen durch ADR-234-P0/ADR-275-P5); verbleibender Rest: `iil_dochub`-Klärung (niedrige Priorität) und die 5 offenen `known_drift`-Baseline-Einträge (Portkonflikte/Registrierungsentscheide, s.u.).
+
+**REC-1 abgeschlossen:** Alle 8 `scripts/checks/staging_*.sh` einmal real ausgeführt (Erstlauf-Evidenz PR #1229, C15) — keines gelöscht, alle 8 in `staging-registry-checks.yml` verdrahtet (self-hosted/prod, scheduled + workflow_dispatch, `continue-on-error` informational bis Funde abgearbeitet). **Kill-Gate-Bedingung (b) damit erfüllt.** Vier der acht Checks liefern reale, bisher unbekannte Befunde — zwei davon (R2/R8: dev-desktop trägt Staging-Container/-Vhosts mehrerer Hubs) potenziell eine **weitere, bisher nicht kartierte Instanz der §5.2-Fehlerklasse** (deklarierte vs. reale Staging-Topologie) und als Human-Decision getrackt (#1227), nicht autonom gefixt (Prod-adjacent). R6/R7 (OIDC-Schema-Drift + fehlende generierte Artefakte) sind mechanisch, getrackt in #1228.
+
+**Kill-Gate-KPI-Stand (informativ, kein neuer Entscheid):** `infra/reconcile-baseline.yaml` trägt aktuell 5 `known_drift`-Einträge (Stand 2026-07-14, alle `owner: achim`, `expires_at: 2026-08-08`) gegen das revidierte Kriterium (a) "≤3 gesamt, 0 abgelaufen bis 2026-09-07" (§14.1) — noch nicht am Stichtag, aber über der Zielschwelle; die zugrundeliegenden Entscheide (mcp-hub-Port, pgvector-Tunnel-Port, ib_gateway-VNC-Port, authentik-TLS-Port, recruiting-hub-DNS) sind offene Board-Items, keine Auto-Fixes.
+
+**Nicht geändert:** REC-3 (Dead-Reference-Gate, zweite Welle), REC-6 (ADR-264-Amendment), REC-7 (bereits erledigt) und die Tombstone-Deploy-Maßnahme (#1045) bleiben inhaltlich wie in §14 beschrieben — nur ihr jeweiliges Zieldatei-Detail folgt jetzt REC-2s Korrektur (canonical.yaml statt repos.yaml, wo einschlägig).
