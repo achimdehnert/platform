@@ -104,7 +104,28 @@ führen:
 class: mock | stub-demo | story | spec-demo   # Rev-11 I2 (Pflicht)
 sunset_after: 2026-12-31                       # ISO-Datum (Pflicht; Default ADR-Datum + 12 Monate)
 extension_review_required: true                # Optional (Default true für mock, false sonst)
+
+# Beziehungs-/Graph-Felder (Rev 21 — Kanonisierung gelebter Praxis, alle OPTIONAL):
+extends: ["platform:ADR-103"]                 # baut auf fremdem ADR auf; Cross-Repo-Ref 'repo:ADR-NNN'
+                                               # (schwächer als amends: erweitert, ändert die Quelle nicht)
+sister_of: []                                  # Geschwister-ADRs im selben lokalen KD-Baum (I1);
+                                               # leeres Array = erstes lokales Klickdummy-ADR im Repo
+realizes_use_cases: ["UC-AH-040"]              # Use-Case-IDs (UC-Registry des Repos), die der KD realisiert
+spec_role: root | hybrid | standalone          # Rolle im Spec-Baum (Rev 14); 4. Wert 'detail' bewusst offen
+replaces_system_ref: "FV-EXCEL-MANUELL"        # System/Fachverfahren, das der KD ABLÖSEN soll (System-Registry-ID)
+integrates_with_system_ref: "FV-OKWOBIS"       # System, mit dem INTEGRIERT statt abgelöst wird (schließen sich aus)
+integrates_with_refs: []                       # nicht-konkurrierende Fachverfahren (Liste von System-IDs)
+supersedes_partial: []                         # nur TEILWEISE ersetzte ADRs (Abschnitts-Supersession)
+scope:                                         # Geltungsbereich, wenn enger als das Repo
+  repos: ["design-hub"]
+  apps: []
 ```
+
+**Rev-21-Hinweis:** Diese Felder kanonisieren dokumentationslos gelebte Praxis
+(Fleet-Audit 2026-07-10: 26× `extends`, 12× `realizes_use_cases`, 6× `spec_role`
+u. a. in ausschreibungs-hub/meiki-hub/pg-hub/design-hub/nl2iot-hub — ohne
+definierende Quelle). Es sind reine **Metadaten-Definitionen, keine neuen
+Gates**; Validator-Deckung über das iil-adrfw-Frontmatter-Schema (Folge-PR).
 
 **Geltungsbereich:** ausschließlich **repo-lokale** Klickdummy-ADRs.
 **ADR-211 selbst** (Platform-Policy-ADR mit `tags: [klickdummy, ...]`) ist
@@ -943,6 +964,8 @@ Enforcement-Pfad) im Review ratifizieren; das Mergen von
 Properties zu; Acceptance-Logik im Body.)
 
 ## Revisionshistorie
+
+- **Rev 21 (2026-07-10 — Beziehungs-/Graph-Felder kanonisiert)** — **Erweiterung, kein Entscheid-Widerruf**; `status` bleibt `accepted`. Anlass: Fleet-Audit F-2b — 692 ADRs/34 Repos zeigten session-erfundene, nirgends definierte Frontmatter-Felder mit echter Graph-Information (`extends` 26×, `realizes_use_cases` 12×, `spec_role` 6×, `replaces_system_ref`/`integrates_with_*`, `supersedes_partial`, `scope.repos/apps`). Rev 21 definiert sie in der §Frontmatter-Konvention aus der **gelebten Nutzung** (Owner-ratifiziert 2026-07-10), alle optional, kein neues Gate. `spec_role`-Wert `detail` bleibt bewusst offene Frage (Sub-KD-Pattern). Validator-Deckung via iil-adrfw-Schema (Folge-PR); generische Governance-Varianten (`ratified`/`amendments`/`revisions`/`decision`/`external_review`) sind NICHT Teil dieser Konvention — sie werden in iil-adrfw normalisiert (Alias auf kanonische Felder).
 
 Sechs Cascade-Adversarial-Pässe + Schema-/YAML-Härtung:
 

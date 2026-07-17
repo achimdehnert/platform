@@ -87,6 +87,12 @@ Signal G (unten) je Klasse.
   wörtlich Freigegebenes durch, nicht mehr.
 - **Verbale Freigabe gilt wörtlich**: „mergen" ≠ „--admin", „ausführen" ≠
   „Ruleset ändern". Präzise fragen.
+- **Batch-Freigabe durable vermerken**: wird eine Freigabe für einen Batch (mehrere Repos/PRs,
+  z.B. ein templated Rollout) erteilt, dies in der ERSTEN PR/Commit-Message des Batches
+  wörtlich als „Batch approved by user" vermerken, damit sie später (Retro, Audit)
+  nachvollziehbar bleibt. Realfall 2026-07-15 (KD-Sitemap-Rollout, 9 Repos, 6 echte
+  Prod-Deploys): ein späteres Retro (`c25d21`) konnte anhand der Artefakte keine Freigabe
+  für den Batch finden — nach Nutzerangabe war er freigegeben, nur nirgends vermerkt.
 
 ## Effectiveness test (binding — falsify or cut)
 
@@ -103,7 +109,13 @@ konvergiert, Policy schneiden, nicht flicken.
   Hausputz ohne Inhalts-Dump) gelten ab sofort. **SA-2 zurückgestellt** bis
   KONZ-019 B1 (pfad-gescopte Review) — ID reserviert. Je Klasse >30%-Kill-Test
   (ADR-267-Muster). Ziel: den vom Classifier erzeugten Einzelwort-Zwang für
-  gate-freie Aktionen abbauen, ohne einen Gate zu senken.
+  gate-freie Aktionen abbauen, ohne einen Gate zu senken. Re-Ratifikation im
+  Kapitäns-Kanal 2026-07-17 (PR #1105-Kommentar); SA-1/SA-3 werden erste
+  Einträge der lotse-authorizations-Registry (Lotsen-Charta Art. 2.6).
+- 2026-07-16: **Batch-Freigabe-Vermerk-Regel** ergänzt (How to apply) — nach Retro `c25d21`
+  (KD-Sitemap-Rollout 2026-07-15, 9 Repos, 6 Prod-Deploys), das als ungegatet eingestuft wurde,
+  weil eine erteilte Freigabe nirgends vermerkt war. Marker: „Batch approved by user" in der
+  ersten PR/Commit-Message eines freigegebenen Batches.
 - 2026-07-03: Von Achim ratifiziert (Session ausschreibungs-hub, wörtlich „3 go"
   auf den Freigabe-Block) — gilt org-weit als Policy.
 - 2026-07-03: Initial DRAFT (Session ausschreibungs-hub).

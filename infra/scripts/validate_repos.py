@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Validate Repo Registry.
 
-Cross-Check GitHub vs github_repos.yaml vs ports.yaml.
+Cross-Check GitHub vs canonical.yaml vs ports.yaml.
 
 Stellt sicher, dass ALLE GitHub-Repos in der Registry erfasst sind
 und ports.yaml konsistent ist.
@@ -18,7 +18,7 @@ Exit-Codes:
     1 = Inkonsistenzen gefunden
     2 = Datei nicht gefunden
 
-Referenz: ADR-157, ADR-106
+Referenz: ADR-157, ADR-106, ADR-275 (Registry-SSoT = canonical.yaml)
 """
 
 from __future__ import annotations
@@ -31,26 +31,19 @@ from pathlib import Path
 
 import yaml
 
-REGISTRY = (
-    Path(__file__).resolve().parent.parent.parent
-    / "registry"
-    / "github_repos.yaml"
+# ADR-275: registry/canonical.yaml ist die Registry-SSoT. Zugriff über den
+# Accessor tools/registry_api.py (ADR-234 §11.1: neuer Code liest die Registry
+# über den Accessor, nicht die generierten Views bzw. die retirete
+# github_repos.yaml direkt).
+sys.path.insert(
+    0,
+    str(Path(__file__).resolve().parent.parent.parent / "tools"),
 )
+import registry_api  # noqa: E402
+
 PORTS_YAML = (
     Path(__file__).resolve().parent.parent / "ports.yaml"
 )
-
-
-def load_registry() -> dict:
-    """Load github_repos.yaml."""
-    if not REGISTRY.exists():
-        print(
-            f"ERROR: {REGISTRY} nicht gefunden",
-            file=sys.stderr,
-        )
-        sys.exit(2)
-    with open(REGISTRY) as f:
-        return yaml.safe_load(f)
 
 
 def load_ports() -> dict:
@@ -66,23 +59,36 @@ def load_ports() -> dict:
     return data.get("services", {})
 
 
-def get_all_registry_repos(
-    registry: dict,
-) -> dict[str, dict]:
-    """Flatten all repos from registry sections."""
+def get_all_registry_repos() -> dict[str, dict]:
+    """Flatten canonical.yaml repos into the shape the checks need.
+
+    ADR-275: Quelle ist registry/canonical.yaml (SSoT) statt der retireten
+    github_repos.yaml. Die frühere Sektions-Semantik wird auf lifecycle + type
+    abgebildet:
+      - Sektion 'archive'      -> ``_archived`` (lifecycle == 'archived')
+      - Sektion 'django_apps'  -> ``_type == 'django'``
+    ``port_prod`` stammt aus ``flat.port``; einen separaten Staging-Port hält
+    canonical bewusst nicht (ports.yaml ist dafür die SSoT) -> es gibt kein
+    ``port_staging`` mehr (der frühere port_staging-Cross-Check entfällt).
+    """
+    canon = registry_api.load_canonical()
     repos: dict[str, dict] = {}
-    for section in (
-        "django_apps",
-        "frameworks",
-        "infrastructure",
-        "stacks",
-        "archive",
-    ):
-        items = registry.get(section, {}) or {}
-        for name, cfg in items.items():
-            cfg = cfg or {}
-            cfg["_section"] = section
-            repos[name] = cfg
+    for name, entry in (canon.get("repos") or {}).items():
+        entry = entry or {}
+        rich = entry.get("rich") or {}
+        flat = entry.get("flat") or {}
+        lifecycle = registry_api._lifecycle(entry)
+        repos[name] = {
+            "github": entry.get("github") or rich.get("github"),
+            "description": (
+                entry.get("description") or rich.get("description")
+            ),
+            "deployed": rich.get("deployed", False),
+            "port_prod": flat.get("port"),
+            "_type": rich.get("type") or flat.get("type"),
+            "_lifecycle": lifecycle,
+            "_archived": lifecycle == "archived",
+        }
     return repos
 
 
@@ -132,6 +138,11 @@ def check_ports_consistency(
     for svc_name, svc_cfg in ports.items():
         if svc_cfg is None:
             continue
+        # Repo-loser Service (repo: null explizit) — z.B. doc-hub (docs.iil.pet
+        # ohne eigenes GitHub-Repo). Steht per Definition nicht in der Repo-SSoT
+        # canonical.yaml -> von der Coverage-Prüfung ausnehmen (ADR-275 #1143).
+        if "repo" in svc_cfg and svc_cfg["repo"] is None:
+            continue
         repo_ref = svc_cfg.get("repo")
         if repo_ref and "/" in repo_ref:
             repo_name = repo_ref.split("/")[1]
@@ -149,10 +160,10 @@ def check_ports_consistency(
             continue
 
         reg = registry_repos[svc_name]
-        if reg.get("_section") == "archive":
+        if reg.get("_archived"):
             issues.append(
                 f"'{svc_name}' in ports.yaml"
-                " aber als archive markiert"
+                " aber als archiviert markiert"
             )
 
         prod_port = svc_cfg.get("prod")
@@ -166,19 +177,6 @@ def check_ports_consistency(
                 f"'{svc_name}' port_prod:"
                 f" ports.yaml={prod_port}"
                 f" registry={reg_prod}"
-            )
-
-        staging_port = svc_cfg.get("staging")
-        reg_staging = reg.get("port_staging")
-        if (
-            staging_port
-            and reg_staging
-            and staging_port != reg_staging
-        ):
-            issues.append(
-                f"'{svc_name}' port_staging:"
-                f" ports.yaml={staging_port}"
-                f" registry={reg_staging}"
             )
 
     return issues
@@ -210,22 +208,24 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    registry = load_registry()
+    registry_repos = get_all_registry_repos()
     ports = load_ports()
-    registry_repos = get_all_registry_repos(registry)
 
     print("=" * 60)
     print("Repo Registry Validation")
     print("=" * 60)
 
-    # Stats
-    sections = {}
+    # Stats (nach type, da canonical keine Sektionen kennt)
+    types: dict[str, int] = {}
     for name, cfg in registry_repos.items():
-        sec = cfg.get("_section", "unknown")
-        sections[sec] = sections.get(sec, 0) + 1
-    print(f"\nRegistry: {len(registry_repos)} Repos")
-    for sec, count in sorted(sections.items()):
-        print(f"  {sec}: {count}")
+        t = cfg.get("_type") or "unknown"
+        types[t] = types.get(t, 0) + 1
+    print(
+        f"\nRegistry: {len(registry_repos)} Repos"
+        " (Quelle: canonical.yaml)"
+    )
+    for t, count in sorted(types.items()):
+        print(f"  type={t}: {count}")
     print(f"ports.yaml: {len(ports)} Services")
 
     all_issues: list[str] = []
@@ -265,7 +265,7 @@ def main() -> None:
     deployed = [
         n for n, c in registry_repos.items()
         if c.get("deployed")
-        and c.get("_section") == "django_apps"
+        and c.get("_type") == "django"
     ]
     no_port = [
         n for n in deployed

@@ -490,6 +490,42 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 
 ---
 
+## Startklar-Checkliste (PFLICHT — NEU 2026-07-15, Ausführungstreue-Gate)
+
+> **Lesson 2026-07-15 (Retro c494a2):** `session-ende.md` bekam 2026-07-14 eine neue
+> Pflicht-Phase (0a-handover-pr), die in derselben Session, die sie brauchte, trotz
+> vorliegender Skill-Kopie NICHT ausgeführt wurde — ein langes Multi-Phasen-Dokument
+> wird überflogen statt Phase für Phase abgehakt. `session-start.md` hatte bis hierhin
+> **gar keine** Abschluss-Checkliste trotz 14 Unterphasen (0.0–0.9) + 3 weiteren Phasen —
+> das größte Ausführungstreue-Risiko dieses Skills, weil es JEDE Session zuerst durchläuft.
+
+| # | Check | Status |
+|---|-------|--------|
+| 1 | GITHUB_DIR gesetzt + Version-Banner gezeigt (0.0) | ☐ |
+| 2 | Server-Erreichbarkeit per TCP-Probe geprüft, nicht `ping` (0.1) | ☐ |
+| 3 | Platform gepullt + Workflows/project-facts synchronisiert (0.2) | ☐ |
+| 4 | Target-Repo synchronisiert, Parallel-Session-Guard beachtet (0.4) | ☐ |
+| 5 | REFLEX + ADR-Schema-Validierung gelaufen (0.4.1/0.4.2) | ☐ |
+| 6 | pgvector-Tunnel bestätigt aktiv — kein Fallback (0.5) | ☐ |
+| 7 | Deploy-Infrastruktur + Deploy-Status aller Apps geprüft (0.6/0.7) | ☐ |
+| 8 | Modell-Tier bewusst gewählt (0.8) | ☐ |
+| 9 | Repo-Kontext + Memory-Warm-Start geladen (Phase 1/2) | ☐ |
+| 10 | Recurring-Errors geprüft, Handover↔Memory-Reconciliation gemacht (2.5/2.6) | ☐ |
+| 11 | Editier-Modus auf Worktree gesetzt, kein Edit im Haupt-Tree (0.4.3, ADR-233-Kill-Gate) | ☐ |
+| 12 | Arbeitsplan aufgestellt (Phase 3) | ☐ |
+
+**Pflicht-Selbstcheck (2-Schritt, NEU 2026-07-15 — Retro c494a2-incr Befund #3):** Diese
+Checkliste selbst ließ bei ihrer Erstellung 0.4.3 und Phase 3 aus, weil beide keine
+wörtliche "PFLICHT"/"NEU"-Markierung im Titel tragen, obwohl beide faktisch mandatorisch
+sind (0.4.3 = ADR-233-Kill-Gate, Phase 3 = das eigentliche Ergebnis des Skills). Reines
+Filtern nach dem Stichwort "PFLICHT" übersieht genau solche Phasen. Richtiger Ablauf:
+(1) ALLE `##`/`###`-Überschriften oben mechanisch auflisten (`grep -n "^## \|^### "`),
+(2) DANN jede einzeln beurteilen, ob sie faktisch mandatorisch ist — nicht nur nach dem
+Wort im Titel filtern. Bei einer neuen Pflicht-Phase diese Tabelle im selben PR erweitern,
+nicht in einem Folge-Commit "irgendwann".
+
+---
+
 ## MCP-Server Quick-Reference
 
 > ⚠️ **Prefix ist environment-spezifisch** — immer `project-facts.md` als Quelle nehmen!
@@ -533,6 +569,17 @@ gegen das Warm-Start-Memory (Phase 2) abgleichen:
 
 ## Changelog
 
+- 2026-07-15 (Nachtrag, Retro c494a2-incr): die frisch angelegte Startklar-Checkliste ließ
+  selbst 2 faktisch mandatorische Phasen aus (0.4.3 Worktree-Gate, Phase 3 Arbeitsplan) —
+  beide ohne wörtliche "PFLICHT"-Markierung im Titel, weshalb der reine Stichwort-Filter
+  sie überging. Rows 11+12 ergänzt, Pflicht-Selbstcheck auf 2-Schritt-Verfahren (erst alle
+  Überschriften auflisten, dann einzeln beurteilen) umgestellt.
+- 2026-07-15: Neue "Startklar-Checkliste" ergänzt — der Skill hatte trotz 14 Unterphasen
+  (0.0–0.9) + 3 weiteren Phasen bisher KEINE Abschluss-Checkliste (anders als
+  session-ende.md). Aus Retro `session-retro-2026-07-15-platform-c494a2`: eine lange,
+  rein prosaische Phasenliste wird beim Ausführen überflogen statt Zeile für Zeile
+  abgehakt, besonders am Session-Anfang unter Zeitdruck. Höchster Hebel aller drei
+  session-xxx-Skills, weil er jede Session zuerst durchläuft.
 - 2026-07-02: v2.1 — CC-first-Call-Sites vollendet: Phase 1/2/2.5 riefen noch
   Windsurf-Prefix-Tools (`mcp__platform-context__get_context_for_task`, `mcp__deployment-mcp__system_manage`,
   `mcp__outline-knowledge__search_knowledge`, `mcp__orchestrator__agent_memory`, `<orc>_`/`<gh>_`-Platzhalter) — auf

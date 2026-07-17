@@ -43,7 +43,8 @@ und geteilte Werkzeuge der Hub-Repos (Anzahl live:
 | `.windsurf/workflows/` | Workflow-SSoT (wird über Symlinks in alle Repos verteilt) |
 | `agents/` | Platform-Agent-Definitionen |
 | `infra/`, `deployment/` | Infrastruktur-Configs für Cross-Repo-Deploys |
-| `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `skills/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
+| `skills/` | **Aktive zweite Distributions-Lane** (neben `.windsurf/workflows/`): `skills/<name>/SKILL.md` → `tools/cc-skill-dist/generate.py --kind skills` verteilt nach `~/.claude/skills/<name>/SKILL.md` (Anthropic Agent Skills, user-level, gilt in jeder Session/jedem Repo/jeder Org) |
+| `spikes/`, `audits/`, `baselines/`, `shared/`, `pdfs/`, `_ARCHIVED/` | Alt-/Arbeitsbestand — nichts Neues hier ablegen (`concepts/` wurde via #829 aufgelöst, Issue #817) |
 
 **Registry-Schreibpfad** (`registry/canonical.yaml` editieren → `make registry-flip`
 regeneriert beide Views + verify) — nie die generierten Views
@@ -62,8 +63,8 @@ make test    # = pytest tools/tests/ (ruff läuft separat über `make lint`)
 ist die SSoT für den CI-relevanten Gate-Umfang (aktuell zusätzlich `tests/test_render_staging.py`,
 `tests/doc_profile_check/`, `tools/claude-hooks/tests/` — Datei live prüfen statt diese Liste
 zu vertrauen, sie ändert sich unabhängig von hier). `ruff` ist **kein** CI-Gate, nur lokales
-`make lint`. Nacktes `pytest` läuft zusätzlich über `tests/` (megatest + Altbestand, teils rot —
-Triage: Issue #819).
+`make lint`. Nacktes `pytest` läuft zusätzlich über `tests/` (nur noch `megatest`, kein
+Altbestand mehr — self-hosted-Runner-gebunden, teils rot; Triage-Historie: Issue #819).
 
 ## Tech Stack
 
@@ -91,6 +92,20 @@ Triage: Issue #819).
 
 ## Konventionen (Repo-spezifisch — schlagen Global)
 
+- **Optimierung = Komplexitäts-Bilanz + kreativer Zuwachs (stehende Erwartung, jede Session):**
+  Jede vorgeschlagene Änderung/Optimierung trägt eine Netto-Bilanz — `entfernt ≥ hinzugefügt`,
+  sonst den Funktions-Zuwachs explizit rechtfertigen oder „bewusst nicht ändern"; Löschen >
+  Refactor > Hinzufügen. Optimierungs*läufe* liefern zusätzlich ≥1 als KREATIV markierten
+  Fähigkeits-Zuwachs. Voll ausgearbeitet + erzwungen in `/repo-optimize` (Fleet: `/platform-audit`),
+  SSoT `docs/prompts/repo-enterprise-optimization.md`. Hartes CI-Gate ist getrackt (Issue #1173).
+- **ADRs: Fakten in Tabellen, Prosa nur für das Warum.** Phasen, Umsetzungs-Status,
+  Abweichungen, Sparring-Verdikte gehören in eine Tabelle (kürzer, diffbar, nicht
+  interpretierbar) — nicht in Fließtext. Prosa bleibt reserviert für Context/Decision-Outcome
+  (das *Warum*, das ein künftiger Challenger braucht) und lässt sich nicht verlustfrei in
+  Zeilen pressen. Gilt vor allem beim Nachschärfen bereits `accepted`/`implemented`er ADRs
+  (Dogfood: ADR-275, 314→161 Zeilen, kein Fakt/PR entfernt). Analog zur Ledger-Pflicht für
+  T1/T2-Konzepte (`/konzept`-Skill, Entscheidung 2026-06-01) — kein neues Prinzip, dieselbe
+  Logik auf ADRs übertragen.
 - **ADR-Nummern monoton steigend** — nie wiederverwenden, auch nach Rejection
 - **`shared_contracts/`-Änderungen** triggern Downstream-Builds → erst ADR, dann Code
 - **`bootstrap.sh` ist Public Interface** — Breaking Changes sind ADR-pflichtig
@@ -140,6 +155,7 @@ Triage: Issue #819).
 | `/adr`, `/adr-review`, `/adr-health` | ADR-Lifecycle |
 | `/workflow-review`, `/workflow-index` | Workflow-Qualität |
 | `/onboard-repo` | neues Repo ins Ökosystem |
+| `/repo-optimize` | Ein Repo tief optimieren (Komplexitäts-Bilanz + kreativer Zuwachs) |
 | `/platform-audit`, `/repo-health-check` | Cross-Repo-Schwachstellen |
 | `/governance-check` | vor neuer Funktionalität |
 | `/session-docu` | Dokumentations-Audit (dieser hier) |

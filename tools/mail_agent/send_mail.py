@@ -3,19 +3,32 @@
 
 Konfiguration (keine Werte im Repo — Hardcoding-Verbot, policy claude-skills.md):
   ~/.claude/mail.env            SMTP_HOST, SMTP_PORT, MAIL_FROM, MAIL_CREDS_FILE
+                                 optional: IMAP_HOST (default SMTP_HOST), IMAP_PORT (default 993),
+                                 IMAP_SENT_FOLDER (default: Auto-Erkennung per LIST)
   MAIL_CREDS_FILE               user=/password=-Paare; das Paar mit user==MAIL_FROM wird genutzt
 
 Credentials werden niemals ausgegeben — Output enthält nur Host/Port/Empfänger/Anhänge.
 Nicht idempotent: jeder Aufruf verschickt eine Mail.
+
+Reiner SMTP-Submit legt keine Kopie im "Gesendet"-Ordner ab (das macht sonst der
+Mail-Client per IMAP-APPEND) — nach dem SMTP-Versand hängt main() daher optional
+eine IMAP-APPEND-Kopie in den Sent-Ordner an. Schlägt das fehl (Server ohne IMAP,
+falsche Zugangsdaten, Netz), ist das nur eine Warnung: die Mail ist bereits
+verschickt, das Fehlen der Sent-Kopie darf den Erfolg nicht überschreiben.
 """
 from __future__ import annotations
 
 import argparse
+import imaplib
+import re
 import smtplib
 import ssl
 import sys
+import time
 from email.message import EmailMessage
 from pathlib import Path
+
+_LIST_LINE_RE = re.compile(r'^\((?P<flags>[^)]*)\)\s+(?:"(?P<delim>[^"]*)"|NIL)\s+(?P<name>.+)$')
 
 CONFIG_FILE = Path.home() / ".claude" / "mail.env"
 
@@ -88,6 +101,50 @@ def send(host: str, port: int, user: str, password: str, msg: EmailMessage) -> s
     return "STARTTLS:587"
 
 
+def find_sent_folder(imap: imaplib.IMAP4_SSL, configured: str | None) -> str | None:
+    # LIST-Zeilenform: (flags) "delim" name — name ist nur gequotet, wenn er Sonderzeichen
+    # enthält (RFC 3501 §7.2.2), z.B. `(\HasNoChildren \Sent) "." INBOX.Sent` ohne Quotes.
+    typ, data = imap.list()
+    if typ != "OK":
+        return configured
+    by_special_use = None
+    names = []
+    for entry in data:
+        if not entry:
+            continue
+        decoded = entry.decode(errors="replace")
+        m = _LIST_LINE_RE.match(decoded)
+        if not m:
+            continue
+        name = m.group("name").strip('"')
+        names.append(name)
+        if "\\sent" in m.group("flags").lower() and by_special_use is None:
+            by_special_use = name  # RFC 6154 SPECIAL-USE \Sent gewinnt vor Namens-Rätselraten
+    if by_special_use:
+        return by_special_use
+    if configured and configured in names:
+        return configured
+    for candidate in names:
+        if "sent" in candidate.lower():
+            return candidate
+    return configured
+
+
+def append_to_sent(
+    host: str, port: int, user: str, password: str, msg: EmailMessage, sent_folder: str | None
+) -> str:
+    with imaplib.IMAP4_SSL(host, port, timeout=30) as imap:
+        imap.login(user, password)
+        folder = find_sent_folder(imap, sent_folder)
+        if not folder:
+            raise RuntimeError("kein Sent-Ordner gefunden (LIST lieferte keinen Kandidaten)")
+        date_time = imaplib.Time2Internaldate(time.time())
+        typ, resp = imap.append(folder, "(\\Seen)", date_time, msg.as_bytes())
+        if typ != "OK":
+            raise RuntimeError(f"APPEND fehlgeschlagen: {typ} {resp}")
+        return folder
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--to", action="append", required=True, help="Empfänger (mehrfach möglich)")
@@ -113,6 +170,18 @@ def main() -> None:
     via = send(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"]), user, password, msg)
     atts = ", ".join(Path(a).name for a in args.attach) or "keine"
     print(f"OK: Mail an {', '.join(args.to)} via {cfg['SMTP_HOST']} ({via}), Anhänge: {atts}")
+
+    imap_host = cfg.get("IMAP_HOST", cfg["SMTP_HOST"])
+    imap_port = int(cfg.get("IMAP_PORT", "993"))
+    try:
+        folder = append_to_sent(imap_host, imap_port, user, password, msg, cfg.get("IMAP_SENT_FOLDER"))
+        print(f"Sent-Kopie abgelegt in '{folder}' auf {imap_host}")
+    except (imaplib.IMAP4.error, RuntimeError, OSError) as e:
+        print(
+            f"WARNUNG: Sent-Kopie fehlgeschlagen ({type(e).__name__}: {e}) — "
+            "Mail wurde trotzdem verschickt (s.o.)",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

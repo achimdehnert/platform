@@ -99,29 +99,34 @@ PACKAGE=(
 # cascade-auftraege, idea-intake, agent-review, workflow-review,
 # docu-repo-all, platform-audit, onboard-stack
 
-# --- Repo-Typen (SSoT: registry/github_repos.yaml) ---
+# --- Repo-Typen (SSoT: registry/repos.yaml → generierte Flat-View der canonical.yaml) ---
+# ADR-275 P1: Migriert von der manuell gepflegten, stalen registry/github_repos.yaml
+# auf die gegatete Flat-View (scripts/repo-registry.yaml, aus canonical.yaml generiert).
+# Klassifikation nach `type`: django → DJANGO_HUBS, library/framework → PACKAGES.
+# Die Zuordnung ist total (unbekannte Typen → weder django noch package = 'other',
+# unverändertes bestehendes Verhalten).
 
-REGISTRY="${GITHUB_DIR}/platform/registry/github_repos.yaml"
+REGISTRY="${GITHUB_DIR}/platform/scripts/repo-registry.yaml"
 
 if [[ ! -f "$REGISTRY" ]]; then
     echo "ERROR: Registry nicht gefunden: $REGISTRY" >&2
     exit 1
 fi
 
-# Aus github_repos.yaml lesen: django_apps + org_django_apps → DJANGO_HUBS, frameworks → PACKAGES
 read -r -a DJANGO_HUBS <<< "$(python3 -c "
-import yaml, sys
+import yaml
 with open('${REGISTRY}') as f:
     data = yaml.safe_load(f)
-apps = list(data.get('django_apps', {}).keys()) + list(data.get('org_django_apps', {}).keys())
-print(' '.join(apps))
+repos = data.get('repos', {})
+print(' '.join(n for n, v in repos.items() if (v or {}).get('type') == 'django'))
 ")"
 
 read -r -a PACKAGES <<< "$(python3 -c "
-import yaml, sys
+import yaml
 with open('${REGISTRY}') as f:
     data = yaml.safe_load(f)
-print(' '.join(data.get('frameworks', {}).keys()))
+repos = data.get('repos', {})
+print(' '.join(n for n, v in repos.items() if (v or {}).get('type') in ('library', 'framework')))
 ")"
 
 # --- Parse Args ---

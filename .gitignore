@@ -54,6 +54,10 @@ infra/*.key
 .markdownlint.json
 # Concept review drafts (local working copies, not for VCS)
 docs/concepts/REVIEW-*
+# Root-level concepts/ — local build artefacts (adr-actions, pptx-hub, ...),
+# untracked scratch space, never meant for VCS (ARCH-7, #1202). NOT the same
+# as the tracked docs/concepts/ above — root anchor keeps this scoped.
+/concepts/
 env_loader.py
 .pat
 .env.backup

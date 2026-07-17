@@ -110,6 +110,10 @@ repos:
     type: library
     pypi: iil-testkit
     note: Shared pytest utilities — fixtures, assertions, smoke testing, ADR-048/057
+  iil-voice-agent:
+    type: library
+    note: Souveräner Telefon-/Sprachagent (mPA/Telefonagent, iilgmbh) — Hexagonal-Core mit swappable LLM/Voice/Knowledge-Ports
+      (platform:ADR-249). Scaffold/MVP, kein Deploy.
   illustration-fw:
     type: library
     pypi: illustration-fw
@@ -138,6 +142,8 @@ repos:
     port: 3000
     note: MCP Orchestrator Server (Container publiziert real 8000 — Port-Klärung offen, s. reconcile-baseline
       C4:8000)
+  meiki-hub:
+    type: django
   nl2cad:
     type: library
     pypi: nl2cad
@@ -205,6 +211,8 @@ repos:
     port: 8088
     db: tradinghub
     health: /livez/
+  ttz-hub:
+    type: django
   travel-beat:
     type: django
     prod_url: drifttales.app

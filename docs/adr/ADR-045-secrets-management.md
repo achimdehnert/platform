@@ -345,6 +345,18 @@ class AmadeusSettings(BaseSettings):
 
 ## 3. Implementation Plan
 
+**Phasen-Status (NEU 2026-07-15, Ausführungstreue-Audit #1167):**
+
+| Phase | Status | Beleg |
+|---|---|---|
+| Phase 1 (SOPS + age Setup) | erledigt | `age`/`sops` auf dev-server installiert (Implementation-Status-Tabelle unten) |
+| Phase 2 (Migrate Existing Secrets) | offen | Notiz 2026-06-06: "Migration ist noch unvollstaendig (Phase 2/3/7 ausstehend)" |
+| Phase 3 (read_secret() in Django Apps) | unklar | Widerspruch im Dokument: ältere Notiz sagt bfagent+dev-hub umgestellt, neuere Notiz zählt Phase 3 weiter zu "ausstehend" |
+| Phase 4 (MCP Server Settings) | offen | "❌ Pending" (Implementation-Status-Tabelle) |
+| Phase 5 (CI/CD Pipeline Update) | erledigt | `_deploy-hetzner.yml` secrets-Job vor deploy, skip-Logik implementiert |
+| Phase 6 (Reboot Resilience) | unklar | systemd-Unit committed, aber laut Text "noch nicht auf Server installiert" |
+| Phase 7 (Cleanup) | offen | "❌ Pending — nach erstem erfolgreichen SOPS-Deploy"; bestätigt durch Notiz 2026-06-06 |
+
 ### Phase 1: SOPS + age Setup (Day 1)
 
 ```bash
