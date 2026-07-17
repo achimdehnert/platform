@@ -25,6 +25,54 @@ berührt wird).
    Automatismen mit Schreibrecht (Scope-Checkpoint, house rule).
 5. **Nennenswerter Spend** — Modell-Tier-Upgrade, Cloud-/Ultra-Runs, bezahlte APIs.
 
+## Standing-Authorization-Klassen (dauerhaft freigegeben, KEIN Einzelwort nötig)
+
+> **Motiv (KONZ-platform-019 B2):** Der Permission-Classifier blockte wiederholt
+> Aktionen, die *keinen* der fünf Gates berühren, nur weil die Freigabe nicht
+> *benannt* war (Realfall 2026-07-12: „go autonom" reichte nicht, „merge PR #N"
+> schon). Diese **Positiv-Liste** benennt vorab freigegebene Aktionsklassen —
+> innerhalb ihrer gilt die Freigabe als **stehend erteilt**, kein Einzel-OK pro
+> Fall. Es ist eine **Positiv-Liste, kein Catch-all**: was nicht gelistet ist,
+> bleibt gate-geregelt wie oben. Die Klassen liegen ausschließlich **unterhalb**
+> der fünf Gates; berührt eine Aktion einen Gate, gewinnt der Gate.
+
+- **SA-1 — Merge eines CI-grünen PR in ein Repo OHNE GitHub-Review-Pflicht UND
+  OHNE Auto-Deploy-on-main.** ✅ **RATIFIZIERT (Achim, 2026-07-12).** Voraussetzung:
+  alle Required Checks grün, kein Ruleset verlangt Review, und `main` triggert
+  **keinen** Prod-Deploy. Deckt die Hub-Repo-Merges ab, die heute an Gate 2
+  hängen, obwohl der Merge dort *kein* Prod-Schritt ist. **Ausdrücklich
+  AUSGESCHLOSSEN:** jedes Auto-Deploy-on-main-Repo (dort ist der Merge ein
+  Prod-Schritt → Gate 2 wirkt unverändert), und jeder PR mit Migrationen/
+  destruktiven Änderungen (Gate 1).
+- **SA-2 — Merge eines CI-grünen NICHT-Governance-PR in `platform`.**
+  ⏸ **ZURÜCKGESTELLT bis KONZ-019 B1 (Entscheid Achim 2026-07-12).** Grund: SA-2
+  ist erst dann auch GitHub-seitig mergebar, wenn das platform-Review-Ruleset
+  pfad-gescopt ist (Catch-all-CODEOWNERS entfernt, nur Governance-Pfade
+  reviewpflichtig). Vorher wäre SA-2 nur eine Classifier-Freigabe, während der
+  Merge weiter am Review-Ruleset hängt — ein „deklariert-aber-nicht-durchsetzbar"-
+  Zustand, den wir vermeiden. **ID SA-2 bleibt reserviert**; die Klasse wird
+  gemeinsam mit B1 ratifiziert, nicht vorab.
+- **SA-3 — Datei-Hausputz in `~/.secrets` / `~/shared` (Reconcile, KEIN Inhalts-Dump).**
+  ✅ **RATIFIZIERT (Achim, 2026-07-12).** Verschieben/Deduplizieren/Löschen
+  byte-identischer Secret-**Dateien** nach ihrer SSoT-Konvention (KONZ-010).
+  **Auflage:** Secret-**Inhalte** werden NIE ins Transkript gelesen (kein
+  `cat`/`grep` über Dateiinhalte) — nur Dateinamen, Größen, Hashes. Divergente/
+  nicht-identische Dateien bleiben stehen + werden gemeldet (kein blindes
+  Überschreiben). Secret-**Rotation** bleibt Gate 1.
+
+**Grenzen (ehrlich):** Diese Klassen wirken über die *Policy*, die der Classifier
+liest — sie heben **keinen** Classifier-Hard-Deny auf (der ist Harness-seitig;
+Realfall-Memory: User-Erlaubnis + Permission-Rule + Settings-Edit heben ihn nicht
+auf). Sie füllen den *Graubereich*, den heute das Einzelwort füllt, nicht die
+harten Denys. Neue Klasse nötig? → wird wie diese hier **ratifiziert** (Achim,
+wörtlich), nicht still ergänzt.
+
+**Kill-Test je Klasse (bindend, ADR-267-Reibungs-Kill-Muster):** Muss in >30 %
+der Fälle, die unter eine SA-Klasse fallen, doch ein Einzel-OK eingeholt werden
+(weil die Klasse zu weit/falsch schnitt oder ein Gate übersehen wurde), ist die
+Klasse **zu überarbeiten oder zu streichen**, nicht zu flicken. Gemessen über
+Signal G (unten) je Klasse.
+
 ## How to apply (Agent-Seite)
 
 - **Pre-Flight vor jedem PR**: Merge-Pfad prüfen (Rulesets/required checks vs.
@@ -55,6 +103,15 @@ konvergiert, Policy schneiden, nicht flicken.
 
 ## Changelog
 
+- 2026-07-12: **SA-1 + SA-3 RATIFIZIERT (Achim, wörtlich)** — Abschnitt
+  „Standing-Authorization-Klassen" ergänzt (KONZ-platform-019 B2). SA-1 (Merge
+  CI-grüner PR ohne Review-Pflicht+ohne Auto-Deploy) und SA-3 (Secret-Datei-
+  Hausputz ohne Inhalts-Dump) gelten ab sofort. **SA-2 zurückgestellt** bis
+  KONZ-019 B1 (pfad-gescopte Review) — ID reserviert. Je Klasse >30%-Kill-Test
+  (ADR-267-Muster). Ziel: den vom Classifier erzeugten Einzelwort-Zwang für
+  gate-freie Aktionen abbauen, ohne einen Gate zu senken. Re-Ratifikation im
+  Kapitäns-Kanal 2026-07-17 (PR #1105-Kommentar); SA-1/SA-3 werden erste
+  Einträge der lotse-authorizations-Registry (Lotsen-Charta Art. 2.6).
 - 2026-07-16: **Batch-Freigabe-Vermerk-Regel** ergänzt (How to apply) — nach Retro `c25d21`
   (KD-Sitemap-Rollout 2026-07-15, 9 Repos, 6 Prod-Deploys), das als ungegatet eingestuft wurde,
   weil eine erteilte Freigabe nirgends vermerkt war. Marker: „Batch approved by user" in der
