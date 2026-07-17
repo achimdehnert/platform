@@ -351,3 +351,5 @@ sie Governance-Sprawl, den der eigene usage-sweep zu Recht rasieren würde.
 | 2026-07-17 | Absence-Claim nach Hook per WebSearch korrigiert | 1.3 | — | Selbstkorrektur |
 | 2026-07-17 | Review 1: Anreiz-Bug + Goodhart-Falle in v1 behoben | 11 | — | Fremd-Audit wirksam |
 | 2026-07-17 | Review 2: Sichtbarkeits-Overclaim zurückgenommen, STOP-Klassen, Autoritätsordnung, 4 begründete Pushbacks | 11, 1.6 | — | zweites Fremd-Audit; „wörtlich"-Claim der Präambel korrigiert |
+| 2026-07-17 | **RATIFIKATION vollzogen:** Merge #1237 (12:38 UTC) + Anhang A in `~/.claude/CLAUDE.md` (per grep verifiziert) — **Charta in Kraft** | alle | sofort mergen | Lotse empfahl Abkühlfrist (1.8), Kapitän entschied informiert dagegen — nach 6.4 dokumentiert; dadurch kein Kill-(a)-Eintrag |
+| 2026-07-17 | Externe Validierung: Iljas System prüfte A1–A3 unabhängig (»über 20 Behauptungen, praktisch alles bestätigt, null Konfabulation«; RS-1 selbst verifiziert) | 1.3 | — | Fremdbestätigung der Evidenz-Disziplin durch die Gegenseite |
