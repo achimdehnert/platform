@@ -394,6 +394,7 @@ domains:
       web_service: risk-hub-staging-web
       migrate_cmd: python manage.py migrate --noinput
       port: 19001
+      host: dev-desktop
       hostnames:
       - staging.schutztat.de
       - staging-riskhub.iil.pet
@@ -418,6 +419,11 @@ domains:
       web_container: tax_hub_web
       web_service: web
       port: 8099
+    staging:
+      host: dev-desktop
+      web_container: tax_hub_staging_web
+      hostnames:
+      - staging-tax.iil.pet
     notes: 'GEFUNDEN 2026-07-10: main-Branch-Commit 7e4642f änderte den Compose-Port auf 8104 (+ Auth-URL-Fix)
       — der laufende Prod-Container nutzt aber weiterhin 8099. Fix ist committed, aber nicht deployed.
       Port hier bewusst auf 8099 (= live) belassen, nicht auf 8104 (= nur in git). Owner-Entscheidung:
