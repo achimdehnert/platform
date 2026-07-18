@@ -148,6 +148,7 @@ mode: read-only
 | Markdown → PDF (Design-Switcher meiki/iil/ttz) | `/create-pdf` |
 | E-Mail mit Anhängen über Maschinen-SMTP versenden | `/send-mail` |
 | E-Mails über Maschinen-IMAP lesen (read-only) | `/read-mail` |
+| Postfach aufräumen: Mails in Ordner verschieben, Spam→Papierkorb | `/organize-mail` |
 
 ### Klickdummy & Secrets
 
